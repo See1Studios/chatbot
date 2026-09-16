@@ -1,0 +1,29 @@
+{
+  "id": "20260916-063338-158121",
+  "model": "gemini-3.8-flash-low",
+  "effort": "",
+  "conversation_id": "7fc4ed97-4db0-41a8-adfa-c02cb935e875",
+  "history": [
+    {
+      "role": "user",
+      "text": "기억할 키워드는 FIRST_OK야. 한 줄로 확인해.",
+      "ts": 1789508019.1869645
+    },
+    {
+      "role": "assistant",
+      "text": "확인했습니다: 키워드 `FIRST_OK`를 기억하겠습니다.\n",
+      "ts": 1789508026.2625113
+    },
+    {
+      "role": "user",
+      "text": "바로 전 메시지의 키워드만 답해.",
+      "ts": 1789508027.2471232
+    },
+    {
+      "role": "assistant",
+      "text": "FIRST_OK\n",
+      "ts": 1789508029.639459
+    }
+  ],
+  "updated_at": "2026-09-16T06:33:49+0900"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "20260916-143619-b74b31",
+  "model": "gemini-3.8-flash-high",
+  "effort": "",
+  "conversation_id": "2320da66-d755-4e34-a842-86f5741598e2",
+  "history": [
+    {
+      "role": "user",
+      "text": "지침을 좀 다듬었는데 어때",
+      "ts": 1789536985.832952
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T14:36:31+0900"
+}

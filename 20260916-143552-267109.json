@@ -1,0 +1,18 @@
+{
+  "id": "20260916-143552-267109",
+  "model": "gemini-3.8-flash-low",
+  "effort": "",
+  "conversation_id": null,
+  "history": [
+    {
+      "role": "user",
+      "text": "[doctor-probe] ping",
+      "ts": 1789536952.4502513
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T14:35:52+0900"
+}

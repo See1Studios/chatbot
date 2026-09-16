@@ -1,0 +1,23 @@
+{
+  "id": "20260916-115645-b5584b",
+  "model": "gemini-3.8-flash-low",
+  "effort": "",
+  "conversation_id": "f5b12b6c-5f1c-454e-8a56-f2f2aad58dc6",
+  "history": [
+    {
+      "role": "user",
+      "text": "[diag] reply ONLY with OK",
+      "ts": 1789527405.5690904
+    },
+    {
+      "role": "assistant",
+      "text": "OK\n",
+      "ts": 1789527415.6562262
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T11:56:55+0900"
+}

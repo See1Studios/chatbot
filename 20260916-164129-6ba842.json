@@ -1,0 +1,23 @@
+{
+  "id": "20260916-164129-6ba842",
+  "model": "gemini-3.8-flash-medium",
+  "effort": "",
+  "conversation_id": "6c03348e-21a5-4327-aaef-dd8a0ca94c9d",
+  "history": [
+    {
+      "role": "user",
+      "text": "한 단어로만: 냥",
+      "ts": 1789544489.4311244
+    },
+    {
+      "role": "assistant",
+      "text": "냥\n",
+      "ts": 1789544492.721801
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T16:41:32+0900"
+}

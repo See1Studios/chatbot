@@ -1,0 +1,15 @@
+{
+  "id": "20260916-091036-e50000",
+  "model": "gemini-3.8-flash-low",
+  "effort": "",
+  "conversation_id": null,
+  "history": [
+    {
+      "role": "user",
+      "text": "[doctor-probe] ping",
+      "ts": 1789517436.5756342
+    }
+  ],
+  "successor_session_id": "",
+  "updated_at": "2026-09-16T09:10:36+0900"
+}
