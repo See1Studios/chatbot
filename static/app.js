@@ -191,6 +191,9 @@ const statusObserverEl = document.getElementById('statusObserver');
 const mcpNameInput = document.getElementById('mcpNameInput');
 const mcpUrlInput = document.getElementById('mcpUrlInput');
 const mcpAddBtn = document.getElementById('mcpAddBtn');
+const statusUsageEl = document.getElementById('statusUsage');
+const usageCheckedAtEl = document.getElementById('usageCheckedAt');
+const usageRefreshBtn = document.getElementById('usageRefreshBtn');
 let statusLoaded = false;
 const artBadge = document.getElementById('artBadge');
 const artifactsEl = document.getElementById('artifacts');
@@ -645,6 +648,7 @@ function switchTab(tab) {
     activityEl.scrollTop = activityEl.scrollHeight;
   } else if (tab === 'status') {
     fetchSelfStatus();
+    fetchUsage(false);
   }
 }
 
@@ -674,6 +678,47 @@ async function fetchSelfStatus() {
     statusLoaded = true;
   } catch (e) {
     if (statusRulesEl) statusRulesEl.textContent = '상태 로드 실패: ' + e.message;
+  }
+}
+
+async function fetchUsage(force) {
+  if (!statusUsageEl) return;
+  statusUsageEl.innerHTML = '<div class="status-hint">불러오는 중… (agy CLI 실제 호출이라 몇 초 걸릴 수 있어요)</div>';
+  try {
+    const res = await api('/api/usage' + (force ? '?force=1' : ''));
+    renderStatusUsage(res);
+  } catch (e) {
+    statusUsageEl.innerHTML = '<div class="status-hint">사용량 로드 실패: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function renderStatusUsage(res) {
+  if (!statusUsageEl) return;
+  if (!res || !res.ok) {
+    statusUsageEl.innerHTML = '<div class="status-hint">조회 실패: ' + escapeHtml((res && res.error) || '알 수 없는 오류') + '</div>';
+    if (usageCheckedAtEl) usageCheckedAtEl.textContent = '';
+    return;
+  }
+  statusUsageEl.innerHTML = '';
+  (res.rows || []).forEach(row => {
+    const pct = parseInt(row.remaining_pct, 10);
+    const pctSafe = isNaN(pct) ? 0 : Math.max(0, Math.min(100, pct));
+    const item = document.createElement('div');
+    item.className = 'status-item';
+    let resetStr = row.reset_at;
+    try { resetStr = new Date(row.reset_at).toLocaleString('ko-KR'); } catch (_) {}
+    item.innerHTML =
+      '<div class="status-item-head">' +
+      '<span class="status-item-name">' + escapeHtml(row.group) + ' — ' + escapeHtml(row.limit_type) + '</span>' +
+      '<span class="status-item-meta">' + escapeHtml(row.remaining_pct) + ' 남음</span>' +
+      '</div>' +
+      '<div class="usage-bar-track"><div class="usage-bar-fill' + (pctSafe <= 20 ? ' low' : '') + '" style="width:' + pctSafe + '%"></div></div>' +
+      '<div class="status-item-preview">리셋: ' + escapeHtml(resetStr) + '</div>';
+    statusUsageEl.appendChild(item);
+  });
+  if (usageCheckedAtEl) {
+    const checked = res.checked_at ? new Date(res.checked_at * 1000).toLocaleTimeString('ko-KR') : '';
+    usageCheckedAtEl.textContent = checked ? ('마지막 확인: ' + checked) : '';
   }
 }
 
@@ -1359,6 +1404,7 @@ if (tabArtifacts) tabArtifacts.addEventListener('click', () => switchTab('artifa
 if (tabActivity) tabActivity.addEventListener('click', () => switchTab('activity'));
 if (tabStatus) tabStatus.addEventListener('click', () => switchTab('status'));
 if (statusRefreshBtn) statusRefreshBtn.addEventListener('click', () => fetchSelfStatus());
+if (usageRefreshBtn) usageRefreshBtn.addEventListener('click', () => fetchUsage(true));
 if (mcpAddBtn) mcpAddBtn.addEventListener('click', async () => {
   const name = (mcpNameInput && mcpNameInput.value || '').trim();
   const url = (mcpUrlInput && mcpUrlInput.value || '').trim();
