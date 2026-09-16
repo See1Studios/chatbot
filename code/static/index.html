@@ -60,7 +60,7 @@
     }
     .stage::before{
       content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
-      background: url('/chat/persona/half.webp?v=3') center bottom / cover no-repeat;
+      background: url('/chat/persona/bg-studio.webp?v=1') center 25% / cover no-repeat;
       opacity:.12; filter:saturate(.85) contrast(.95);
     }
     #log{
@@ -193,6 +193,20 @@
       border-color:rgba(255,138,80,.45);
       color:var(--accent2);
     }
+    #micBtn.listening{
+      background:rgba(255,70,70,.22);
+      border-color:rgba(255,70,70,.6);
+      color:#ff6a6a;
+      animation:mic-pulse 1.1s ease-in-out infinite;
+    }
+    @keyframes mic-pulse{
+      0%,100%{box-shadow:0 0 0 0 rgba(255,70,70,.45)}
+      50%{box-shadow:0 0 0 6px rgba(255,70,70,0)}
+    }
+    .tts-row{margin-top:.4rem;padding-top:.35rem;border-top:1px dashed var(--border)}
+    .tts-btn{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:.78rem;padding:.2rem .55rem;border-radius:20px;transition:all .15s ease}
+    .tts-btn:hover{color:var(--accent2);border-color:rgba(255,138,80,.4);background:rgba(255,138,80,.1)}
+    .tts-btn.speaking{color:var(--accent2);background:rgba(255,138,80,.15);border-color:rgba(255,138,80,.4)}
     .meta{color:var(--muted);font-size:.8rem;flex-shrink:0}
     a{color:var(--accent2)}
     .progress{font-size:.82rem;color:var(--accent2);min-height:1.2rem;opacity:.95;flex-shrink:0}
@@ -451,6 +465,7 @@
     <div class="composer">
       <div id="slashMenu" class="slash-menu" hidden></div>
       <button id="slashBtn" class="slash-trigger-btn" type="button" title="명령어 및 스킬 (/)">/</button>
+      <button id="micBtn" class="slash-trigger-btn" type="button" title="음성 입력">🎤</button>
       <textarea id="input" placeholder="메시지를 입력… (/ 입력 시 명령어·스킬)"></textarea>
       <button id="send" class="primary">보내기</button>
       <button id="stopBtn" class="danger" style="display:none" type="button">중지</button>
@@ -472,6 +487,6 @@
   </div>
   <script src="./vendor/marked.min.js"></script>
   <script src="./vendor/mermaid.min.js"></script>
-  <script src="./app.js?v=11"></script>
+  <script src="./app.js?v=12"></script>
 </body>
 </html>

@@ -292,3 +292,11 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
 - 수정: `kill_orphan_agy()`(`chatbot-ctl.sh`)에 `NO_CONV_GRACE_SEC=90` 유예 시간 추가. `ps -eo pid=,ppid=,etimes=,args=`로 경과 시간(etimes)까지 받아서, `--conversation` 없는 프로세스라도 90초 이내면 죽이지 않음. `ppid==1`(진짜 고아) 조건은 그대로 즉시 정리.
 - **실측 검증**: `/skill korea-weather 부산 날씨` 전송 후 5초 시점에 `--conversation` 없이 살아있는 걸 `ps`로 확인, 그 순간 `chatbot-ctl.sh doctor`를 수동 실행 → `orphan_agy_killed=0`으로 안 죽음 확인, 35초 뒤 정상 응답 + `alive: true`로 완료. 서버(`server.py`) 재기동 불필요 — `chatbot-ctl.sh`는 독립 스크립트라 다음 실행부터 바로 반영.
 - 관찰 0006을 `status: actioned`로 갱신, 근본원인 정정 기록.
+
+## 2026-09-16 — 음성 입력(STT)/읽어주기(TTS) 추가
+- 배경: 실장님 요청 — TTS/STT 지원. agy 자체 `/voice`(F5) STT는 확인했지만 대화형 터미널+로컬 마이크 전용 기능이라 헤드리스 stream-json 서버 구조엔 안 맞음(브라우저 사용자 마이크를 agy 프로세스로 연결할 방법이 없음). TTS는 agy에 아예 내장 안 됨. 그래서 브라우저 네이티브 Web Speech API로 구현 — 서버/agy 변경 없이 순수 프론트엔드.
+- **STT (`static/index.html`, `static/app.js`)**: 컴포저에 🎤 버튼 추가. `SpeechRecognition`/`webkitSpeechRecognition`(`lang=ko-KR`, `interimResults=true`)으로 실시간 받아쓰기 → `#input`에 반영. 듣는 중엔 버튼이 빨갛게 pulse 애니메이션. 미지원 브라우저(Firefox 등)는 버튼 반투명 처리 + 클릭 시 안내.
+- **TTS**: 완성된 assistant 메시지 하단에 🔊 버튼 추가 (`attachTtsButton`, `postProcessAssistant`에 raw markdown 텍스트 전달). `stripMarkdownForSpeech()`로 `**`/`#`/코드블록/테이블 등 마크다운 문법 제거 후 `speechSynthesis`로 재생, 한국어 음성(`lang.startsWith('ko')`) 자동 선택. 재생 중 버튼 🔊→⏹ 전환, 다시 누르면 정지.
+- 캐시 버스터 `app.js?v=12`.
+- 범위: 전체창(`:3011`)만 적용. Hub FAB(`/volume1/web/index.html`)은 별도 컴포저라 아직 미적용 — 필요하면 FAB↔전체창 패리티 작업 때 같이.
+- 재기동 불필요 (순수 static 파일). git 커밋: `a869cad`.

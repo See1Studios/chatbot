@@ -11,6 +11,150 @@ const sessionBanner = document.getElementById('sessionBanner');
 const sessionBannerContinue = document.getElementById('sessionBannerContinue');
 const sessionBannerBtn = document.getElementById('sessionBannerNew');
 const sessionBannerDismiss = document.getElementById('sessionBannerDismiss');
+const micBtn = document.getElementById('micBtn');
+
+// ---- STT (voice input) ----
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognizer = null;
+let isListening = false;
+let voiceInputBaseText = '';
+
+function initSpeechRecognition() {
+  if (!SpeechRecognitionCtor) return null;
+  const r = new SpeechRecognitionCtor();
+  r.lang = 'ko-KR';
+  r.continuous = false;
+  r.interimResults = true;
+  r.onresult = (ev) => {
+    let finalText = '';
+    let interimText = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const t = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) finalText += t;
+      else interimText += t;
+    }
+    if (inputEl) {
+      const sep = voiceInputBaseText && !/\s$/.test(voiceInputBaseText) ? ' ' : '';
+      inputEl.value = voiceInputBaseText + sep + finalText + interimText;
+      inputEl.dispatchEvent(new Event('input'));
+    }
+    if (finalText) voiceInputBaseText = inputEl ? inputEl.value.replace(new RegExp(interimText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$'), '') : voiceInputBaseText;
+  };
+  r.onerror = (ev) => {
+    if (ev.error !== 'no-speech' && ev.error !== 'aborted') {
+      addActivity('음성 인식 오류: ' + ev.error, 'error');
+    }
+    stopListening();
+  };
+  r.onend = () => { stopListening(); };
+  return r;
+}
+
+function startListening() {
+  if (!SpeechRecognitionCtor) {
+    alert('이 브라우저는 음성 입력(Web Speech API)을 지원하지 않습니다. Chrome을 이용해주세요.');
+    return;
+  }
+  if (isListening) return;
+  recognizer = recognizer || initSpeechRecognition();
+  if (!recognizer) return;
+  voiceInputBaseText = inputEl ? inputEl.value : '';
+  try {
+    recognizer.start();
+    isListening = true;
+    if (micBtn) { micBtn.classList.add('listening'); micBtn.title = '듣는 중… (클릭하면 중지)'; }
+  } catch (_) { /* already started */ }
+}
+
+function stopListening() {
+  isListening = false;
+  if (micBtn) { micBtn.classList.remove('listening'); micBtn.title = '음성 입력'; }
+  try { recognizer && recognizer.stop(); } catch (_) {}
+}
+
+if (micBtn) {
+  if (!SpeechRecognitionCtor) {
+    micBtn.style.opacity = '0.4';
+    micBtn.title = '이 브라우저는 음성 입력을 지원하지 않습니다';
+  }
+  micBtn.addEventListener('click', () => {
+    if (isListening) stopListening(); else startListening();
+  });
+}
+
+// ---- TTS (read assistant replies aloud) ----
+let ttsUtterance = null;
+let ttsKoreanVoice = null;
+function pickKoreanVoice() {
+  if (!window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices() || [];
+  return voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ko')) || null;
+}
+if (window.speechSynthesis) {
+  ttsKoreanVoice = pickKoreanVoice();
+  window.speechSynthesis.onvoiceschanged = () => { ttsKoreanVoice = pickKoreanVoice() || ttsKoreanVoice; };
+}
+
+function stripMarkdownForSpeech(md) {
+  let t = String(md || '');
+  t = t.replace(/```[\s\S]*?```/g, ' 코드 블록 생략. ');
+  t = t.replace(/!\[[^\]]*\]\([^)]+\)/g, ' 이미지 생략. ');
+  t = t.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  t = t.replace(/`([^`]+)`/g, '$1');
+  t = t.replace(/^#{1,6}\s*/gm, '');
+  t = t.replace(/\*\*([^*]+)\*\*/g, '$1');
+  t = t.replace(/\*([^*]+)\*/g, '$1');
+  t = t.replace(/^>\s?/gm, '');
+  t = t.replace(/^[-*]\s+/gm, '');
+  t = t.replace(/\|/g, ' ');
+  t = t.replace(/-{3,}/g, ' ');
+  return t.trim();
+}
+
+function speakText(rawText, btn) {
+  if (!window.speechSynthesis) {
+    alert('이 브라우저는 음성 출력(Web Speech API)을 지원하지 않습니다.');
+    return;
+  }
+  const wasSpeaking = window.speechSynthesis.speaking;
+  window.speechSynthesis.cancel();
+  document.querySelectorAll('.tts-btn.speaking').forEach(b => { b.classList.remove('speaking'); b.textContent = '🔊'; });
+  if (wasSpeaking && btn && btn.dataset.wasActive === '1') {
+    btn.dataset.wasActive = '0';
+    return;
+  }
+  const clean = stripMarkdownForSpeech(rawText);
+  if (!clean) return;
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.lang = 'ko-KR';
+  if (ttsKoreanVoice) utter.voice = ttsKoreanVoice;
+  utter.rate = 1.05;
+  if (btn) {
+    btn.classList.add('speaking');
+    btn.textContent = '⏹';
+    btn.dataset.wasActive = '1';
+  }
+  utter.onend = utter.onerror = () => {
+    if (btn) { btn.classList.remove('speaking'); btn.textContent = '🔊'; btn.dataset.wasActive = '0'; }
+  };
+  ttsUtterance = utter;
+  window.speechSynthesis.speak(utter);
+}
+
+function attachTtsButton(node, rawText) {
+  if (!node || !window.speechSynthesis) return;
+  if (node.querySelector('.tts-btn')) return;
+  const row = document.createElement('div');
+  row.className = 'tts-row';
+  const btn = document.createElement('button');
+  btn.className = 'tts-btn';
+  btn.type = 'button';
+  btn.title = '읽어주기';
+  btn.textContent = '🔊';
+  btn.onclick = () => speakText(rawText, btn);
+  row.appendChild(btn);
+  node.appendChild(row);
+}
 
 function showSessionHeavyBanner(level, text) {
   if (!sessionBanner) return;
@@ -244,11 +388,12 @@ function attachCodeCopyButtons(container) {
   });
 }
 
-function postProcessAssistant(node, isFinal) {
+function postProcessAssistant(node, isFinal, rawText) {
   if (!node) return;
   attachCodeCopyButtons(node);
   if (isFinal) {
     renderMermaidIn(node);
+    attachTtsButton(node, rawText);
   }
 }
 
@@ -309,7 +454,7 @@ function addBtw(query, answer) {
   body.innerHTML = renderMarkdown(answer || '', true);
   div.appendChild(head);
   div.appendChild(body);
-  postProcessAssistant(body, true);
+  postProcessAssistant(body, true, answer);
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
   return div;
@@ -325,7 +470,7 @@ function addChat(role, text, isFinal, isQueued, isBtw) {
     md.className = 'md';
     md.innerHTML = renderMarkdown(text || '', isFinal);
     div.appendChild(md);
-    postProcessAssistant(div, isFinal);
+    postProcessAssistant(div, isFinal, text);
   } else {
     div.textContent = text || '';
   }
@@ -338,7 +483,7 @@ function setAssistantContent(node, text, isFinal) {
   if (!node) return;
   const md = node.querySelector('.md') || node;
   md.innerHTML = renderMarkdown(text || '', isFinal);
-  postProcessAssistant(node, isFinal);
+  postProcessAssistant(node, isFinal, text);
   logEl.scrollTop = logEl.scrollHeight;
 }
 
