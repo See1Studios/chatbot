@@ -1,0 +1,31 @@
+{
+  "id": "20260916-171658-8a51e4",
+  "model": "gemini-3.8-flash-medium",
+  "effort": "",
+  "conversation_id": "0f6f4c7d-41f6-4598-b055-3cf5c27b94f7",
+  "history": [
+    {
+      "role": "user",
+      "text": "3+3=?",
+      "ts": 1789546618.2428668
+    },
+    {
+      "role": "assistant",
+      "text": "3 + 3 = 6\n",
+      "ts": 1789546622.9870605,
+      "usage": {
+        "input_tokens": 45491,
+        "output_tokens": 40,
+        "thinking_tokens": 33,
+        "cache_read_tokens": 0,
+        "total_tokens": 45531
+      },
+      "duration_seconds": 4.678230056
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T17:17:02+0900"
+}
