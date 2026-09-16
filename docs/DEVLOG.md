@@ -300,3 +300,10 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
 - 캐시 버스터 `app.js?v=12`.
 - 범위: 전체창(`:3011`)만 적용. Hub FAB(`/volume1/web/index.html`)은 별도 컴포저라 아직 미적용 — 필요하면 FAB↔전체창 패리티 작업 때 같이.
 - 재기동 불필요 (순수 static 파일). git 커밋: `a869cad`.
+
+## 2026-09-16 — AgentAdapter 구조 도입, 사용량(/usage) 대시보드, 응답 속도 최적화(프로세스 프리웜)
+- **AgentAdapter (구조만)**: 실장님 요청 — VibeCat(`Source/VibeCat/Private/AgentAdapters.cpp`)처럼 여러 provider를 고려한 설계로 리팩터 가능한지 문의받아 진행. `AgentAdapter` 베이스 + `AgyAdapter` 구현체 추가 (`find_executable/build_args/build_env/format_stdin`). `AgySession._spawn()`/`_send_direct()`가 하드코딩 대신 `self.adapter`를 통해 프로세스 스폰·stdin 작성. `claude`/`codex`/`grok` 어댑터는 미구현 — diskstation엔 `grok`만 설치돼 있고 나머지는 없어서, 실제 필요해지면 그때 상속 추가. `_read_stdout`의 stream-json 파싱(~300줄, 오늘 데드락 사고 2건의 근원지)은 의도적으로 안 건드림 — 구조만 요청 범위 밖. 커밋 `2de9e0b`.
+- **사용량 대시보드**: 실장님 문의 — `agy`에 `/usage`(모델별 주간/5시간 한도) 확인 기능이 있는지. 확인 결과 `/usage`는 stream-json 세션 안에서는 못 쓰고(`agy` 자체가 명시적으로 에러 반환: "unavailable with --input-format stream-json"), `agy --print /usage`로 별도 단발 호출해야 함. `GET /api/usage` 추가 — 5분 캐싱, `?force=1`로 강제 재조회. ⚙ 상태 탭에 "📊 사용량" 섹션(모델별 잔여율 바 차트, 20% 이하 빨간색). 커밋 `f7a168b`.
+- **응답 속도 조사**: 실장님이 "첫 메시지가 느리다"고 보고. 실측 결과 — 같은 세션 두 번째 메시지부터는 ~3.5초인데 신규 세션 첫 메시지는 ~10초. `agy --print` 단독 호출도 모델/effort 무관하게 항상 7~9초 걸리는 걸 확인 (네트워크 지연 아님 — googleapis.com TTFB는 0.3초 수준; CPU도 1.3초만 씀 → 나머지 ~7초는 agy/Antigravity 백엔드 자체의 고정 콜드스타트 오버헤드).
+- **표준 대기(prewarm) 풀 도입**: `_StandbyPool` — DEFAULT_MODEL·effort 없음 조건으로 idle agy 프로세스 1개를 항상 미리 띄워둠 (`_standby_maintenance_loop`, 15초마다 점검). 신규 세션 첫 메시지가 이 조건에 맞으면 콜드스팟 대신 이 프로세스를 즉시 인수(adopt). 못 쓰이고 남은 standby는 `--conversation` 없는 상태라 기존 `kill_orphan_agy`의 90초 유예 로직이 자동으로 정리 — 별도 만료 로직 불필요. **실측 검증**: 신규 세션 첫 메시지 10초 → **3.5초**로 단축 확인, standby 소비 후 재충전도 확인. 커밋 `005243c`.
+- **사용량 감소 체감 관련 별도 발견**: `chatbot-ctl.sh`의 doctor 프로브가 10분마다(`PROBE_EVERY_SEC=600`) **실제로 새 프로세스를 띄우고 진짜 메시지를 gemini-3.8-flash-low에 전송**해서 정상 응답을 확인함 — 주간 최대 ~1,000회, 실장님 대화량과 무관하게 상시 실제 토큰 소비. 다음 작업으로 healthz 우선·의심될 때만 실제 메시지 보내는 2단계 프로브로 최적화 예정 (진행 중).
