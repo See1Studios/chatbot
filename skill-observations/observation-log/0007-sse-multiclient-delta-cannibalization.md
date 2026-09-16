@@ -1,7 +1,7 @@
 ---
 id: 7
 title: "Multiple SSE subscribers cannibalize single queue causing alternating missing text chunks"
-status: applied
+status: actioned
 type: open-source
 skill: [chatbot-self-improve]
 proposes_skill: []
