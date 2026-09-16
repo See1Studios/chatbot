@@ -1,0 +1,1 @@
+{"task-observer-activation":{"enabled":true,"PreInvocation":[{"type":"command","command":"./scripts/task-observer-pre.sh","timeout":8}],"Stop":[{"type":"command","command":"./scripts/task-observer-stop.sh","timeout":5}]}}
