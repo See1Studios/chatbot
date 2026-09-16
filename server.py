@@ -46,7 +46,17 @@ MODELS = [
 # Keep: chatbot code + chatbot-data + /volume1/web/chat (persona publish mirror).
 ADD_DIRS = [
     str(ROOT),                 # /services/chatbot (self-improve)
-    str(DATA),                 # chatbot-data (workspace/sessions/artifacts/persona)
+    # chatbot-data's *children* individually, NOT the DATA parent itself (2026-09-16):
+    # passing the parent as a single --add-dir measured ~3x the per-turn-1 token cost
+    # (14K -> 45K baseline, isolated via direct agy --print A/B tests) vs. passing each
+    # child separately (~16K, same effective file access) -- looks like agy's own
+    # directory-scan/context-build cost scales badly with a "root containing many
+    # nested items" shape, not with total file count/size (each child alone, and even
+    # all four listed separately, stayed near baseline).
+    str(DATA / "workspace"),
+    str(DATA / "sessions"),
+    str(DATA / "artifacts"),
+    str(DATA / "persona"),
     "/volume1/web/chat",       # persona + chat static mirror (NOT all of /volume1/web)
 ]
 
