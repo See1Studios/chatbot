@@ -30,10 +30,10 @@ WORKSPACE = DATA / "workspace"
 HOME = Path(os.environ.get("HOME", "/volume1/homes/me"))
 BRAIN = HOME / ".gemini" / "antigravity-cli" / "brain"
 ARTIFACTS_CACHE = DATA / "artifacts"
-DEFAULT_MODEL = os.environ.get("AGY_CHAT_MODEL", "gemini-3.8-flash-high")
+DEFAULT_MODEL = os.environ.get("AGY_CHAT_MODEL", "gemini-3.8-flash-medium")
 MODELS = [
-    "gemini-3.8-flash-high",
     "gemini-3.8-flash-medium",
+    "gemini-3.8-flash-high",
     "gemini-3.8-flash-low",
     "gemini-3.1-pro-high",
     "gemini-3.1-pro-low",
