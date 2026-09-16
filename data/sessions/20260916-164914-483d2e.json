@@ -1,0 +1,23 @@
+{
+  "id": "20260916-164914-483d2e",
+  "model": "gemini-3.8-flash-medium",
+  "effort": "",
+  "conversation_id": "da57b5ca-df72-487c-901e-98f21b67804e",
+  "history": [
+    {
+      "role": "user",
+      "text": "한 단어로만: 확인",
+      "ts": 1789544954.9107172
+    },
+    {
+      "role": "assistant",
+      "text": "확인\n",
+      "ts": 1789544958.153571
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T16:49:18+0900"
+}

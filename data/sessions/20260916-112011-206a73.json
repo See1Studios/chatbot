@@ -1,0 +1,23 @@
+{
+  "id": "20260916-112011-206a73",
+  "model": "gemini-3.8-flash-high",
+  "effort": "",
+  "conversation_id": "656edd06-1b2c-41a8-ab2a-0571515302a7",
+  "history": [
+    {
+      "role": "user",
+      "text": "https://github.com/revfactory/webtoon-harness",
+      "ts": 1789526733.0600579
+    },
+    {
+      "role": "assistant",
+      "text": "공유해주신 **[revfactory/webtoon-harness](https://github.com/revfactory/webtoon-harness)** 저장소를 분석했습니다.\n\n이 프로젝트는 **Claude Code 환경에서 27개의 전문 AI 에이전트와 6개 스킬을 오케스트레이션하여, 웹툰 기획부터 50+ 패널 렌더링 및 세로 스크롤 뷰어 패키징까지 회차 단위로 자동 생산하는 멀티 에이전트 파이프라인 하네스**입니다.\n\n---\n\n### 1. 파이프라인 및 4단계 에이전트 팀 구조 (27 에이전트 / 6 스킬)\n\n| 단계 (Phase) | 담당 팀 (인원) | 핵심 역할 및 산출물 |\n|---|---|---|\n| **Phase 2: 리서치** | **리서치팀 (5명)**<br>`trend-scout`, `platform-ranker`, `audience-analyst`, `hook-analyst`, `trend-synthesizer` | 장르 동향, 플랫폼 랭킹, 독자 반응, 후킹/반전 기법을 병렬 조사한 뒤 단일 **기획 브리프(`trend-brief.md`)**로 수렴 |\n| **Phase 3: 시나리오** | **시나리오팀 (9명)**<br>`concept-architect`, `worldbuilder`, `character-designer`, `series-plotter`, `twist-master`, `tension-engineer`, `episode-outliner`, `dialogue-writer`, `script-editor` | 하이콘셉트·세계관·캐릭터 구축 → **매 회차 반전 1개 이상 및 50+ 패널** 분량의 씬/대사 대본 확정(`script_final.md`) |\n| **Phase 4: 비주얼** | **비주얼팀 (9명)**<br>`art-director`, `ref-sheet-artist`, `panel-director`, `letterer`, `prompt-smith`, `panel-artist-a/b/c`, `panel-validator` | **캐릭터 레퍼런스 시트 선행 렌더(SSOT)** → 콘티/레터링(말풍선 명세) → 프롬프트 합성 → **동시 5장 배치 렌더** → **6축 검증-재생성 루프**(`ep{NN}_validation.md`) |\n| **Phase 5: 조립·검수** | **조립검수팀 (4명)**<br>`episode-compositor`, `quality-reviewer`, `continuity-manager`, `showrunner` | 말풍선이 베이크된 패널을 세로 스크롤 뷰어(`index.html`)로 조립 → 종합 QA 검수 → 회차 간 연속성/떡밥 갱신(`continuity.md`) → `RELEASE/ep{NN}/` 최종 패키징 |\n\n---\n\n### 2. 엔지니어링 관점에서의 핵심 설계 패턴\n\n1. **캐릭터 레퍼런스 시트 선행 렌더 (외형 일관성 SSOT)**\n   - 텍스트 프롬프트만으로는 패널마다 얼굴과 복장이 계속 달라지는 고질적인 문제를 해결하기 위해, 패널을 그리기 전 전신 턴어라운드(정면/측면/후면)와 핵심 표정 시트를 먼저 렌더링하여 `refs/`에 시리즈 영구 자산으로 고정합니다.\n   - 이후 회차에서는 이 레퍼런스를 그대로 재사용하여 캐릭터 일관성을 유지합니다.\n\n2. **In-Image 말풍선 & 텍스트 베이크 (후작업 합성 배제)**\n   - 웹툰 특유의 손그림 잉크 톤과 이질감 없는 연출을 위해, HTML 오버레이나 타이핑 합성을 쓰지 않고 이미지 생성 단계에서 말풍선과 한글 대사를 직접 렌더링합니다.\n\n3. **6축 검증-재생성 루프 (Generate-and-Test Pattern)**\n   - `panel-validator`가 렌더링된 패널을 즉시 검사합니다:\n     - **C1 (캐릭터/레퍼런스 일관성)**, **C2 (배경·장소 연속성)**, **C3 (말풍선·한글 가독성)**, **C4 (프롬프트 충실도)**, **C5 (대사 흐름)**, **C6 (이미지 무결성 및 md5 중복 체크)**\n   - 불합격 패널만 프롬프트를 보강하여 핀포인트로 재렌더링(최대 3회)합니다.\n\n4. **엄격한 동시성 제어 (Batch Parallelism)**\n   - 이미지 생성 CLI(`codex-image`)의 레이트 리밋과 안정성을 고려하여, 50+ 패널을 5장씩 묶어 약 10웨이브로 나누어 생성합니다.\n\n---\n\n### 3. 현실적인 한계점 및 고려사항\n\n- **한글 텍스트 렌더링 신뢰도**: 최신 이미지 모델이라도 복잡하거나 긴 한글 대사는 글자 깨짐이나 오탈자가 발생하기 쉽습니다. (하네스 내부 규약에서도 패널당 최대 3회 재시도 후 한계를 명시하고 ACCEPT-FLAG로 통과시키는 안전장치가 마련되어 있습니다.)\n- **API 쿼터 및 비용**: 회차당 50장 + 재생성(10~20%)으로 회차당 최소 60~70장의 고해상도 이미지가 소비되므로, 실행 환경의 쿼터 관리가 필수적입니다.\n- **Claude Code 의존성**: 원본 코드는 Claude Code의 팀 기능(`TeamCreate`, `SendMessage`)과 `codex-image` CLI에 최적화되어 있습니다.\n\n---\n\n### 4. 우리 환경(DiskStation NAS / Antigravity / Sphere Hub) 적용 방안\n\n이 하네스의 설계 철학은 현재 우리 인프라와 결합하기에 아주 적합합니다:\n\n1. **Antigravity 서브에이전트 이식**:\n   - Claude Code의 팀 구조를 Antigravity의 `invoke_subagent` / `define_subagent` 워크플로우로 1:1 매핑할 수 있습니다. (리서치/시나리오/프롬프트/검수 분업)\n2. **NAS 웹 호스팅 즉시 서빙 (`/volume1/web/`)**:\n   - 현재 Zero 게임이 `/volume1/web/games/zero/`로 배포되는 것과 동일하게, 완성된 웹툰 세로 스크롤 뷰어를 `/volume1/web/webtoon/` 또는 Sphere Hub 내부 뷰어 서비스에 바로 배포하여 웹/모바일에서 즉시 감상할 수 있습니다.\n3. **렌더링 백엔드 유연화**:\n   - OpenAI Codex 외에도 Antigravity 내장 `generate_image`, 또는 필요 시 ComfyUI / FLUX / Fal.ai 등의 백엔드로 교체하여 한글 텍스트 가독성이나 화풍 제어력을 높일 수 있습니다.\n\n---\n\n### 실장님, 다음 중 어떤 방향으로 작업을 진행할까요?\n\n1. **Antigravity용 하네스/스킬 포팅**: Claude Code 구조를 Antigravity 서브에이전트 및 우리 `.agents/skills` 규격에 맞춰 로컬 스킬로 이식\n2. **테스트 1회차 시험 생성 파이프라인 구축**: 간단한 단편/1화 콘셉트로 실제 프롬프트-렌더-뷰어 배포 플로우 검증\n3. **단순 코드/프롬프트 벤치마킹 및 구조 참고**: 기획/시나리오/레퍼런스 프롬프트 템플릿만 추출하여 정리\n",
+      "ts": 1789526791.3697886
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "20260916-111658-e6bd26",
+  "handoff_summary": "- **진행 중인 핵심 주제:** 새 세션 시작으로 인한 이전 대화 내역 유실 원인 안내 및 과거 세션 기록 확인\n- **확인/결정된 사항 및 파일:** 이전 작업 로그는 파일시스템에 정상 보관 중이며, 직전 세션 ID(`d29479c8-...`, `1017c987-...`) 확인 완료\n- **실장님의 최근 요구사항:** 이전 세션 내용이 화면에 전혀 보이지 않는 이유 파악 및 이전 대화 내역 확인 요청",
+  "handoff_injected": true,
+  "updated_at": "2026-09-16T11:46:31+0900"
+}

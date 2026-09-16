@@ -1,0 +1,12 @@
+{
+  "id": "20260916-140730-2c69e3",
+  "model": "gemini-3.8-flash-high",
+  "effort": "",
+  "conversation_id": null,
+  "history": [],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T14:07:30+0900"
+}

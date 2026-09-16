@@ -1,0 +1,19 @@
+{
+  "id": "20260916-090235-b516bb",
+  "model": "gemini-3.8-flash-high",
+  "effort": "",
+  "conversation_id": "653c514c-4074-4541-bedd-c7b470f79d3d",
+  "history": [
+    {
+      "role": "user",
+      "text": "[diag] one word ok",
+      "ts": 1789516955.4127836
+    },
+    {
+      "role": "assistant",
+      "text": "OK\n",
+      "ts": 1789516964.6369877
+    }
+  ],
+  "updated_at": "2026-09-16T09:02:44+0900"
+}

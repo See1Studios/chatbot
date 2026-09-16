@@ -1,0 +1,100 @@
+{
+  "id": "20260916-085618-b0d616",
+  "model": "gemini-3.8-flash-high",
+  "effort": "",
+  "conversation_id": "1017c987-7dfa-4915-ba6f-5e262457a2d4",
+  "history": [
+    {
+      "role": "user",
+      "text": "스마트폰에서 여니까 가상키보드 올라오면서 상단은 거의 볼수 없군...",
+      "ts": 1789516578.5099823
+    },
+    {
+      "role": "user",
+      "text": "머하니",
+      "ts": 1789516813.2151046
+    },
+    {
+      "role": "user",
+      "text": "[diag] reply with only OK",
+      "ts": 1789516955.4527946,
+      "queued": true
+    },
+    {
+      "role": "assistant",
+      "text": "스마트폰에서 가상키보드가 올라올 때 상단 영역(헤더 및 이전 대화)이 화면 위로 밀려 사라지던 문제를 분석하고 해결 작업을 완료했습니다!\n\n---\n\n### 1. 원인 분석\n1. **문서 전체 스크롤 및 고정 최소 높이(`min-height: 420px`)**:\n   - 채팅창(`stage`, `log`)에 `min-height: 420px`가 걸려 있고, `body`에 브라우저 기본 스크롤이 허용되어 있었습니다.\n   - 키보드가 올라오면 남는 화면 높이가 약 300~350px에 불과해 전체 레이아웃이 화면보다 커지게 되고, 브라우저가 포커스된 입력창을 비추기 위해 문서 전체를 아래로 스크롤하면서 상단 헤더가 화면 밖(위쪽)으로 완전히 밀려났습니다.\n2. **모바일 뷰포트 미설정 (`interactive-widget`)**:\n   - 가상키보드가 올라와도 뷰포트 높이가 적절히 조절되지 않아 웹앱이 아닌 일반 긴 웹페이지처럼 동작했습니다.\n3. **모바일 헤더 및 입력창 크기 과다**:\n   - 모바일 화면에서 헤더가 2~3줄로 줄바꿈되면서 너무 많은 세로 높이를 차지했고, 입력창 기본 높이(74px)도 컸습니다.\n\n---\n\n### 2. 적용된 조치 내역\n\n1. **뷰포트 고정 및 윈도우 스크롤 차단 ([`static/index.html`](file:///volume1/homes/me/services/chatbot/static/index.html))**:\n   - `meta[name=viewport]`에 `interactive-widget=resizes-content` 및 `viewport-fit=cover`를 적용하여 가상키보드가 화면을 가리지 않고 뷰포트 자체를 줄이도록 설정했습니다.\n   - `html, body`: `height: var(--app-height, 100dvh); overflow: hidden;`으로 페이지 전체 덜컹거림이나 바깥 스크롤을 원천 차단했습니다.\n2. **가상키보드 대응 반응형 Flex 축소**:\n   - `.stage`, `#log`, `#activity`, `#artifacts`의 고정 `min-height: 420px`를 제거하고 `flex: 1 1 0; min-height: 0;`로 전환했습니다.\n   - 이제 가상키보드가 올라와 화면 높이가 줄어들어도 **헤더는 맨 위에 단단히 고정**되고, 대화창 내부만 알맞게 축소되며 스크롤됩니다.\n3. **`window.visualViewport` 실시간 높이 연동 ([`static/app.js`](file:///volume1/homes/me/services/chatbot/static/app.js))**:\n   - iOS Safari 및 Android 브라우저에서 키보드가 열리고 닫힐 때 `visualViewport` 높이를 실시간 계산하여 `--app-height`를 자동 업데이트합니다.\n   - 입력창 터치 시 최신 대화 위치로 매끄럽게 자동 스크롤됩니다.\n4. **모바일 헤더 & 가변 입력창 슬림화**:\n   - 640px 이하 모바일 화면에서는 아바타(34px), 여백 축소, 서브텍스트 숨김으로 상단 헤더 높이를 최소화했습니다.\n   - 입력창 폰트 크기를 16px로 지정하여 iOS Safari 포커스 시 자동 확대(Auto-zoom)되는 현상을 방지했습니다.\n   - 입력창은 기본 1줄(38px)로 시작하여 글이 길어지면 부드럽게 늘어나도록(auto-grow, 최대 90px) 최적화했습니다.\n5. **Hub FAB 팝업 동기화 ([`/volume1/web/index.html`](file:///volume1/web/index.html))**:\n   - 허브 메인 페이지의 플로팅 냥피디 팝업도 모바일에서는 전체화면 시트 형태로 매끄럽게 열리도록 함께 보완했습니다.\n\n스마트폰 브라우저에서 새로고침(F5) 후 텍스트 입력창을 터치해 보시면 상단 헤더와 대화가 잘리지 않고 안정적으로 유지되는 것을 확인하실 수 있습니다.\n",
+      "ts": 1789516967.141052
+    },
+    {
+      "role": "user",
+      "text": "[diag] reply with only OK",
+      "ts": 1789516967.4980736
+    },
+    {
+      "role": "assistant",
+      "text": "OK\n",
+      "ts": 1789516970.848724
+    },
+    {
+      "role": "user",
+      "text": "[smoke-successor-1] ping",
+      "ts": 1789517443.3512354
+    },
+    {
+      "role": "user",
+      "text": "[smoke-successor-2] ping",
+      "ts": 1789517443.3625987
+    },
+    {
+      "role": "user",
+      "text": "[smoke] say OK only",
+      "ts": 1789517443.3723779,
+      "queued": true
+    },
+    {
+      "role": "assistant",
+      "text": "pong\n",
+      "ts": 1789517453.3360138
+    },
+    {
+      "role": "user",
+      "text": "[smoke] say OK only",
+      "ts": 1789517453.706403
+    },
+    {
+      "role": "assistant",
+      "text": "pong\n",
+      "ts": 1789517456.6707568
+    },
+    {
+      "role": "assistant",
+      "text": "OK\n",
+      "ts": 1789517459.4946516
+    },
+    {
+      "role": "user",
+      "text": "안녕",
+      "ts": 1789520997.4741273
+    },
+    {
+      "role": "assistant",
+      "text": "안녕하세요! 무엇을 도와드릴까요?\n",
+      "ts": 1789521009.4785705
+    },
+    {
+      "role": "user",
+      "text": "테스트 중이야",
+      "ts": 1789521014.5695236
+    },
+    {
+      "role": "assistant",
+      "text": "네, 편하게 테스트해보세요! 확인이 필요한 동작이나 궁금한 점이 있으시면 언제든 말씀해 주세요.\n",
+      "ts": 1789521019.081532
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T10:10:19+0900"
+}

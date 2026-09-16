@@ -1,0 +1,19 @@
+{
+  "id": "20260916-081930-81162c",
+  "model": "gemini-3.8-flash-low",
+  "effort": "",
+  "conversation_id": "e184b92d-d4cf-4e09-acbc-34e83f6a9283",
+  "history": [
+    {
+      "role": "user",
+      "text": "한 단어로만 답해: OK",
+      "ts": 1789514370.8953414
+    },
+    {
+      "role": "assistant",
+      "text": "OK\n",
+      "ts": 1789514384.8038452
+    }
+  ],
+  "updated_at": "2026-09-16T08:19:44+0900"
+}

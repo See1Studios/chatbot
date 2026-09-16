@@ -1,0 +1,23 @@
+{
+  "id": "20260916-143811-7bcd13",
+  "model": "gemini-3.8-flash-low",
+  "effort": "",
+  "conversation_id": "aa196f62-e786-42b7-90a9-c3ad1ec9c489",
+  "history": [
+    {
+      "role": "user",
+      "text": "한 단어로만 대답: 안녕",
+      "ts": 1789537091.4842162
+    },
+    {
+      "role": "assistant",
+      "text": "안녕\n",
+      "ts": 1789537100.3392317
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T14:38:20+0900"
+}

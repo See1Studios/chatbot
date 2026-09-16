@@ -1,0 +1,18 @@
+{
+  "id": "20260916-143423-2572e4",
+  "model": "gemini-3.8-flash-low",
+  "effort": "",
+  "conversation_id": "6dcb0ea1-6b65-41ca-b1c0-fbd52e46c61c",
+  "history": [
+    {
+      "role": "user",
+      "text": "/skill find-skills 방금 대화한 스킬 찾아보는 스킬이 뭔지 확인만 해줘, 한 문장으로",
+      "ts": 1789536863.234656
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T14:34:29+0900"
+}
