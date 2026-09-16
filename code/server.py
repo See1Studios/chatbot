@@ -278,6 +278,81 @@ def get_adapter(provider_id: str = DEFAULT_PROVIDER) -> AgentAdapter:
     return AGENT_ADAPTERS.get(provider_id, AGENT_ADAPTERS[DEFAULT_PROVIDER])
 
 
+class _StandbyPool:
+    """Keeps one pre-spawned, idle agy process warm so a brand-new session's
+    first message can skip the ~7-9s cold-start tax (measured 2026-09-16 via
+    isolated `agy --print` calls — a fixed per-process-spawn cost, independent
+    of model/effort/ADD_DIRS; see docs/DEVLOG.md). Only used when the incoming
+    session matches DEFAULT_MODEL with no effort override and no
+    conversation_id yet (i.e. genuinely fresh) — anything else falls back to
+    a normal cold spawn, since a standby's --model/--effort are fixed at
+    spawn time and can't be changed after adoption.
+
+    An unclaimed standby carries no --conversation flag like a stale probe
+    leftover would, so it needs an explicit exemption from
+    chatbot-ctl.sh's kill_orphan_agy() 90s no-conversation grace period —
+    see standby.pid below, which that script checks and skips.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._proc: Optional[subprocess.Popen] = None
+
+    def _marker_path(self) -> Path:
+        return DATA / "standby.pid"
+
+    def try_take(self) -> Optional[subprocess.Popen]:
+        with self._lock:
+            proc = self._proc
+            self._proc = None
+        if proc is not None and proc.poll() is None:
+            try:
+                self._marker_path().unlink(missing_ok=True)
+            except Exception:
+                pass
+            return proc
+        return None
+
+    def ensure_warm(self) -> None:
+        with self._lock:
+            if self._proc is not None and self._proc.poll() is None:
+                return
+            adapter = get_adapter(DEFAULT_PROVIDER)
+            args = adapter.build_args(DEFAULT_MODEL, "", None, ADD_DIRS)
+            env = adapter.build_env(HOME)
+            try:
+                self._proc = subprocess.Popen(
+                    args,
+                    cwd=str(WORKSPACE),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    bufsize=1,
+                    env=env,
+                )
+                try:
+                    self._marker_path().write_text(str(self._proc.pid), encoding="utf-8")
+                except Exception:
+                    pass
+            except Exception:
+                self._proc = None
+
+
+STANDBY_POOL = _StandbyPool()
+
+
+def _standby_maintenance_loop() -> None:
+    while True:
+        try:
+            STANDBY_POOL.ensure_warm()
+        except Exception:
+            pass
+        time.sleep(15)
+
+
 class AgySession:
     def __init__(self, sid: str, model: str = DEFAULT_MODEL, effort: str = ""):
         self.sid = sid
@@ -362,23 +437,30 @@ class AgySession:
 
     def _spawn(self) -> None:
         self.stop(notify=False)
-        args = self.adapter.build_args(self.model, self.effort, self.conversation_id, ADD_DIRS)
-        env = self.adapter.build_env(HOME)
-        self.proc = subprocess.Popen(
-            args,
-            cwd=str(WORKSPACE),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-            env=env,
-        )
+        adopted = None
+        if self.conversation_id is None and self.model == DEFAULT_MODEL and not self.effort:
+            adopted = STANDBY_POOL.try_take()
+        if adopted is not None:
+            self.proc = adopted
+            self._emit({"event": "system", "text": f"agy started model={self.model} (warm standby, skip-permissions, accept-edits, NAS)"})
+        else:
+            args = self.adapter.build_args(self.model, self.effort, self.conversation_id, ADD_DIRS)
+            env = self.adapter.build_env(HOME)
+            self.proc = subprocess.Popen(
+                args,
+                cwd=str(WORKSPACE),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+                env=env,
+            )
+            self._emit({"event": "system", "text": f"agy started model={self.model} (skip-permissions, accept-edits, NAS)"})
         threading.Thread(target=self._read_stdout, daemon=True).start()
         threading.Thread(target=self._read_stderr, daemon=True).start()
-        self._emit({"event": "system", "text": f"agy started model={self.model} (skip-permissions, accept-edits, NAS)"})
 
     def _maybe_capture_conversation_id(self, obj: dict) -> None:
         if self.conversation_id:
@@ -2028,6 +2110,7 @@ def main() -> None:
         raise SystemExit(f"agy not found: {AGY}")
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     httpd.daemon_threads = True
+    threading.Thread(target=_standby_maintenance_loop, daemon=True).start()
     print(f"chatbot on http://{HOST}:{PORT} (VibeCat-class NAS)", flush=True)
 
     def _stop(*_a):
