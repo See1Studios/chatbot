@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.bak-*
+*.log
+*.pid
+static/vendor/*.min.js
+server.py.candidate
+static/index.html.candidate
+static/app.js.candidate
+chatbot-ctl.sh.candidate
