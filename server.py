@@ -196,9 +196,92 @@ def _is_inquiry(text: str) -> bool:
     return False
 
 
+class AgentAdapter:
+    """Base interface for spawning/talking to a CLI agent backend.
+
+    Mirrors VibeCat's IAgentAdapter (Source/VibeCat/Private/AgentAdapters.cpp:
+    Id/FindExecutable/BuildArgs/FormatStdin/PrepareMcpConfig/NormalizeLine, one
+    concrete subclass per provider, picked via a factory) so the same seams
+    exist here if another provider is ever wired in.
+
+    Only `AgyAdapter` is implemented today — `claude`/`codex` CLIs aren't even
+    installed on this host, and `grok` (the one that is) hasn't been asked
+    for. Output-stream normalization (VibeCat's `NormalizeLine`) is
+    deliberately NOT abstracted yet: `_read_stdout`'s stream-json event
+    parsing is large, agy-specific, and has been the site of real incidents
+    today (see docs/EMERGENCY.md, DEVLOG deadlock entries) — moving it behind
+    this interface is future work for whenever a second provider actually
+    needs it, not something to risk for a structure-only pass.
+    """
+
+    id = "base"
+    keeps_stdin_open = True  # False = one-shot exec per prompt (codex/grok-style), not agy/claude-style persistent stdin
+
+    def find_executable(self) -> str:
+        raise NotImplementedError
+
+    def build_args(self, model: str, effort: str, conversation_id: Optional[str], add_dirs: List[str]) -> List[str]:
+        raise NotImplementedError
+
+    def build_env(self, home: Path) -> dict:
+        raise NotImplementedError
+
+    def format_stdin(self, content: str) -> str:
+        raise NotImplementedError
+
+
+class AgyAdapter(AgentAdapter):
+    id = "agy"
+    keeps_stdin_open = True
+
+    def find_executable(self) -> str:
+        return AGY
+
+    def build_args(self, model: str, effort: str, conversation_id: Optional[str], add_dirs: List[str]) -> List[str]:
+        args = [
+            self.find_executable(),
+            "--input-format", "stream-json",
+            "--output-format", "stream-json",
+            "--print-timeout", "8m",
+            "--dangerously-skip-permissions",
+            "--mode", "accept-edits",
+            "--model", model,
+        ]
+        # Skills / AGENTS.md should expand; do NOT disable slash commands by default
+        for d in add_dirs:
+            if Path(d).exists():
+                args.extend(["--add-dir", d])
+        if effort:
+            args.extend(["--effort", effort])
+        if conversation_id:
+            args.extend(["--conversation", conversation_id])
+        return args
+
+    def build_env(self, home: Path) -> dict:
+        env = os.environ.copy()
+        env["HOME"] = str(home)
+        env["PATH"] = f"/volume1/homes/me/.local/bin:/usr/local/bin:/usr/bin:/bin:{env.get('PATH','')}"
+        mcp_cfg = WORKSPACE / ".gemini" / "config" / "mcp_config.json"
+        if mcp_cfg.exists():
+            env["AGY_WORKSPACE"] = str(WORKSPACE)
+        return env
+
+    def format_stdin(self, content: str) -> str:
+        return json.dumps({"event": "user", "message": {"content": content}}, ensure_ascii=False) + "\n"
+
+
+AGENT_ADAPTERS: Dict[str, AgentAdapter] = {"agy": AgyAdapter()}
+DEFAULT_PROVIDER = "agy"
+
+
+def get_adapter(provider_id: str = DEFAULT_PROVIDER) -> AgentAdapter:
+    return AGENT_ADAPTERS.get(provider_id, AGENT_ADAPTERS[DEFAULT_PROVIDER])
+
+
 class AgySession:
     def __init__(self, sid: str, model: str = DEFAULT_MODEL, effort: str = ""):
         self.sid = sid
+        self.adapter = get_adapter(DEFAULT_PROVIDER)
         self.model = model or DEFAULT_MODEL
         self.effort = effort or ""
         self.conversation_id: Optional[str] = None
@@ -279,30 +362,8 @@ class AgySession:
 
     def _spawn(self) -> None:
         self.stop(notify=False)
-        args = [
-            AGY,
-            "--input-format", "stream-json",
-            "--output-format", "stream-json",
-            "--print-timeout", "8m",
-            "--dangerously-skip-permissions",
-            "--mode", "accept-edits",
-            "--model", self.model,
-        ]
-        # Skills / AGENTS.md should expand; do NOT disable slash commands by default
-        for d in ADD_DIRS:
-            if Path(d).exists():
-                args.extend(["--add-dir", d])
-        if self.effort:
-            args.extend(["--effort", self.effort])
-        if self.conversation_id:
-            args.extend(["--conversation", self.conversation_id])
-        env = os.environ.copy()
-        env["HOME"] = str(HOME)
-        env["PATH"] = f"/volume1/homes/me/.local/bin:/usr/local/bin:/usr/bin:/bin:{env.get('PATH','')}"
-        # Ensure workspace MCP hint if present
-        mcp_cfg = WORKSPACE / ".gemini" / "config" / "mcp_config.json"
-        if mcp_cfg.exists():
-            env["AGY_WORKSPACE"] = str(WORKSPACE)
+        args = self.adapter.build_args(self.model, self.effort, self.conversation_id, ADD_DIRS)
+        env = self.adapter.build_env(HOME)
         self.proc = subprocess.Popen(
             args,
             cwd=str(WORKSPACE),
@@ -1110,7 +1171,7 @@ class AgySession:
                     "text": f"이전 세션({pred[:8]}) 맥락을 인계받아 대화를 시작했습니다냥 ✦",
                 })
 
-        payload = json.dumps({"event": "user", "message": {"content": stdin_content}}, ensure_ascii=False) + "\n"
+        payload = self.adapter.format_stdin(stdin_content)
         with self.lock:
             self.busy = True
             self.current_text = ""
