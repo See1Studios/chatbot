@@ -1,0 +1,49 @@
+{
+  "id": "20260916-172220-b2f14c",
+  "model": "gemini-3.8-flash-medium",
+  "effort": "",
+  "conversation_id": "fef3baf6-2b9e-4696-b43f-d869cc0a3586",
+  "history": [
+    {
+      "role": "user",
+      "text": "1번째 질문: 5+5=?",
+      "ts": 1789546940.383937
+    },
+    {
+      "role": "assistant",
+      "text": "5 + 5 = **10**입니다.\n",
+      "ts": 1789546945.2642503,
+      "usage": {
+        "input_tokens": 45491,
+        "output_tokens": 53,
+        "thinking_tokens": 42,
+        "cache_read_tokens": 0,
+        "total_tokens": 45544
+      },
+      "duration_seconds": 4.817302769
+    },
+    {
+      "role": "user",
+      "text": "2번째 질문: 6+6=?",
+      "ts": 1789546950.4240377
+    },
+    {
+      "role": "assistant",
+      "text": "6 + 6 = **12**입니다.\n",
+      "ts": 1789546953.7686303,
+      "usage": {
+        "input_tokens": 50265,
+        "output_tokens": 103,
+        "thinking_tokens": 81,
+        "cache_read_tokens": 40845,
+        "total_tokens": 50368
+      },
+      "duration_seconds": 13.31535265
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T17:22:33+0900"
+}

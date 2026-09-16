@@ -24,11 +24,21 @@
       "query": "보고 있니?",
       "text": "네, 두 눈 또렷하게 뜨고 지켜보고 있다냥! ✦ \n개선 작업 내용 확인 및 push 준비까지 백그라운드 메인 작업 차질 없이 꼼꼼하게 챙기는 중이다냥. \n궁금한 점 있으면 언제든 편하게 말씀 주시라냥! 🐾",
       "ts": 1789545394.3082306
+    },
+    {
+      "role": "assistant",
+      "text": "GitHub 원격 저장소(`See1Studios/chatbot.git`)로 push 작업을 진행 중입니다. 완료되면 즉시 결과를 보고하겠습니다.\n개선 사항 확인 및 GitHub 원격 저장소(`origin/main`) push가 모두 정상 완료되었습니다!\n\n---\n\n### 1. 확인된 주요 개선 내역\n\n1. **Standby 프로세스 풀 사전 예열 (`server.py`)**\n   - 신규 세션 첫 발화 시 고정 7~9초 콜드 스타트 지연 해결 (측정치: 10초 $\\rightarrow$ 3.5초 응답 단축).\n   - `standby.pid` 마커 파일 기반 관리 및 15초 주기 유지보수 스레드 동작.\n\n2. **고아 프로세스 정리 및 Doctor 프로브 최적화 (`chatbot-ctl.sh`, `server.py`)**\n   - 대기 상태의 Standby PID가 90초 무대화 정리 로직에 의해 조기 종료되지 않도록 예외 처리 적용.\n   - Doctor 백그라운드 메시지 프로브 주기를 600초에서 3600초로 조정하여 백그라운드 쿼터 소모량 약 6배 절감.\n\n3. **서비스 제어 스크립트 리포지토리 통합 (`chatbot-ctl.sh`)**\n   - 기존 `~/services/chatbot-ctl.sh`를 리포지토리 내부(`services/chatbot/chatbot-ctl.sh`)로 이동 및 심볼릭 링크 연결로 버전 관리 일원화.\n\n4. **문서 및 서브트리 동기화**\n   - [DEVLOG.md](file:///volume1/homes/me/services/chatbot/docs/DEVLOG.md) 기록 갱신.\n   - `data/sessions/`, `data/artifacts/`, `data/persona/`, `code/` subtree 최신화.\n\n---\n\n### 2. Push 완료 내역\n\n- **대상 원격지**: `git@github.com:See1Studios/chatbot.git` (branch: `main`)\n- **커밋 범위**: `db0fa7c` $\\rightarrow$ `cb0e84c` (총 15개 커밋)\n- **현재 상태**: \n  - [chatbot-repo-publish](file:///volume1/homes/me/services/chatbot-data/chatbot-repo-publish): `Your branch is up to date with 'origin/main'. (working tree clean)`\n  - 서비스 데몬(`chatbot`, `nas-mcp`): 정상 기동 및 응답 확인 완료\n",
+      "ts": 1789545477.4909673
+    },
+    {
+      "role": "user",
+      "text": "대화 시 토큰 사용량을 볼 수 있으면 좋겠네",
+      "ts": 1789545710.809318
     }
   ],
   "successor_session_id": "",
   "predecessor_session_id": "",
   "handoff_summary": "",
   "handoff_injected": false,
-  "updated_at": "2026-09-16T16:56:34+0900"
+  "updated_at": "2026-09-16T17:01:50+0900"
 }

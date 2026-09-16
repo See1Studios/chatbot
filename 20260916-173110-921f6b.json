@@ -1,0 +1,18 @@
+{
+  "id": "20260916-173110-921f6b",
+  "model": "gemini-3.8-flash-medium",
+  "effort": "",
+  "conversation_id": "12c06bc8-a41f-424f-86ce-d1bb4ac17b6d",
+  "history": [
+    {
+      "role": "user",
+      "text": "1+1=?",
+      "ts": 1789547471.101283
+    }
+  ],
+  "successor_session_id": "",
+  "predecessor_session_id": "",
+  "handoff_summary": "",
+  "handoff_injected": false,
+  "updated_at": "2026-09-16T17:31:11+0900"
+}
