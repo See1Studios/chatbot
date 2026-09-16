@@ -30,11 +30,11 @@ WORKSPACE = DATA / "workspace"
 HOME = Path(os.environ.get("HOME", "/volume1/homes/me"))
 BRAIN = HOME / ".gemini" / "antigravity-cli" / "brain"
 ARTIFACTS_CACHE = DATA / "artifacts"
-DEFAULT_MODEL = os.environ.get("AGY_CHAT_MODEL", "gemini-3.8-flash-medium")
+DEFAULT_MODEL = os.environ.get("AGY_CHAT_MODEL", "gemini-3.8-flash-low")
 MODELS = [
+    "gemini-3.8-flash-low",
     "gemini-3.8-flash-medium",
     "gemini-3.8-flash-high",
-    "gemini-3.8-flash-low",
     "gemini-3.1-pro-high",
     "gemini-3.1-pro-low",
     "claude-sonnet-4-6",
@@ -46,7 +46,17 @@ MODELS = [
 # Keep: chatbot code + chatbot-data + /volume1/web/chat (persona publish mirror).
 ADD_DIRS = [
     str(ROOT),                 # /services/chatbot (self-improve)
-    str(DATA),                 # chatbot-data (workspace/sessions/artifacts/persona)
+    # chatbot-data's *children* individually, NOT the DATA parent itself (2026-09-16):
+    # passing the parent as a single --add-dir measured ~3x the per-turn-1 token cost
+    # (14K -> 45K baseline, isolated via direct agy --print A/B tests) vs. passing each
+    # child separately (~16K, same effective file access) -- looks like agy's own
+    # directory-scan/context-build cost scales badly with a "root containing many
+    # nested items" shape, not with total file count/size (each child alone, and even
+    # all four listed separately, stayed near baseline).
+    str(DATA / "workspace"),
+    str(DATA / "sessions"),
+    str(DATA / "artifacts"),
+    str(DATA / "persona"),
     "/volume1/web/chat",       # persona + chat static mirror (NOT all of /volume1/web)
 ]
 
@@ -97,6 +107,7 @@ def _hist_stats(history: List[dict]) -> tuple:
 def _session_weight(history: List[dict], conversation_id: Optional[str]) -> dict:
     turns, chars = _hist_stats(history)
     db_bytes = _conversation_db_size(conversation_id)
+    total_tokens = sum(int((h.get("usage") or {}).get("total_tokens") or 0) for h in history if isinstance(h.get("usage"), dict))
     level = "ok"
     if turns >= HARD_TURNS or chars >= HARD_CHARS or db_bytes >= HARD_DB_BYTES:
         level = "hard"
@@ -107,6 +118,7 @@ def _session_weight(history: List[dict], conversation_id: Optional[str]) -> dict
         "turns": turns,
         "chars": chars,
         "db_bytes": db_bytes,
+        "total_tokens": total_tokens,
         "soft_turns": SOFT_TURNS,
         "hard_turns": HARD_TURNS,
         "message_ko": (
@@ -509,6 +521,8 @@ class AgySession:
 
         if name == "run_command":
             cmd = self._clean_str(args.get("CommandLine") or args.get("command") or args.get("cmd"))
+            if not cmd:
+                return ""  # args not populated yet (streaming) — wait for the complete call, don't dedup-block it
             parts = [f"run_command: {cmd}"]
             if summary and summary.lower() != cmd.lower():
                 parts.append(f"({summary})")
@@ -518,6 +532,8 @@ class AgySession:
 
         if name in ("view_file", "read_file"):
             raw_path = self._clean_str(args.get("AbsolutePath") or args.get("TargetFile") or args.get("path") or args.get("file"))
+            if not raw_path:
+                return ""
             path = self._short_path(raw_path)
             start = args.get("StartLine")
             end = args.get("EndLine")
@@ -531,6 +547,8 @@ class AgySession:
 
         if name == "grep_search":
             q = self._clean_str(args.get("Query") or args.get("query") or args.get("pattern"))
+            if not q:
+                return ""
             sp = self._short_path(self._clean_str(args.get("SearchPath") or args.get("path")))
             parts = [f"grep_search: '{q}' in {sp or '.'}"]
             if summary:
@@ -539,6 +557,8 @@ class AgySession:
 
         if name == "find_by_name":
             p = self._clean_str(args.get("Pattern") or args.get("pattern"))
+            if not p:
+                return ""
             sd = self._short_path(self._clean_str(args.get("SearchDirectory") or args.get("directory") or args.get("path")))
             parts = [f"find_by_name: '{p}' in {sd or '.'}"]
             if summary:
@@ -547,6 +567,8 @@ class AgySession:
 
         if name == "list_dir":
             dp = self._short_path(self._clean_str(args.get("DirectoryPath") or args.get("path") or args.get("dir")))
+            if not dp:
+                return ""
             parts = [f"list_dir: {dp}"]
             if summary:
                 parts.append(f"({summary})")
@@ -554,6 +576,8 @@ class AgySession:
 
         if name in ("replace_file_content", "edit_file"):
             raw_path = self._clean_str(args.get("TargetFile") or args.get("path") or args.get("file"))
+            if not raw_path:
+                return ""
             tf = self._short_path(raw_path)
             inst = self._clean_str(args.get("Instruction") or summary or action)
             parts = [f"replace_file_content: {tf}"]
@@ -563,6 +587,8 @@ class AgySession:
 
         if name in ("write_to_file", "write_file"):
             raw_path = self._clean_str(args.get("TargetFile") or args.get("path") or args.get("file"))
+            if not raw_path:
+                return ""
             tf = self._short_path(raw_path)
             desc = self._clean_str(args.get("Description") or summary or action)
             parts = [f"write_to_file: {tf}"]
@@ -572,15 +598,21 @@ class AgySession:
 
         if name in ("read_url_content", "fetch_url"):
             url = self._clean_str(args.get("Url") or args.get("url"))
+            if not url:
+                return ""
             return f"read_url: {url}"
 
         if name in ("search_web", "web_search"):
             q = self._clean_str(args.get("query") or args.get("Query"))
+            if not q:
+                return ""
             return f"search_web: '{q}'"
 
         if name == "call_mcp_tool":
             server = self._clean_str(args.get("ServerName"))
             tool = self._clean_str(args.get("ToolName"))
+            if not server and not tool:
+                return ""
             mcp_args = args.get("Arguments")
             mcp_desc = ""
             if isinstance(mcp_args, dict):
@@ -944,8 +976,18 @@ class AgySession:
                 for url in list(getattr(self, "pending_images", []) or []):
                     if url and url not in final:
                         final = (final.rstrip() + f"\n\n![]({url})\n") if final.strip() else f"![]({url})\n"
+                res_obj = obj.get("result") if isinstance(obj.get("result"), dict) else {}
+                usage = res_obj.get("usage") if isinstance(res_obj.get("usage"), dict) else None
+                duration_seconds = res_obj.get("duration_seconds")
+                if duration_seconds is None and getattr(self, "turn_started_at", 0) > 0:
+                    duration_seconds = round(_now() - self.turn_started_at, 2)
+                hist_item = {"role": "assistant", "text": final, "ts": _now()}
+                if usage:
+                    hist_item["usage"] = usage
+                if duration_seconds is not None:
+                    hist_item["duration_seconds"] = duration_seconds
                 if final:
-                    self.history.append({"role": "assistant", "text": final, "ts": _now()})
+                    self.history.append(hist_item)
                     self.save_meta()
                 text = final
                 self.current_text = ""
@@ -953,6 +995,14 @@ class AgySession:
 
             if ev in ("result", "assistant", "message", "delta", "error", "system") or (ev in ("tool_use", "tool_result") and not tool_ev):
                 out = {"event": ev, "text": text, "raw_event": ev}
+                if ev == "result":
+                    res_obj = obj.get("result") if isinstance(obj.get("result"), dict) else {}
+                    if isinstance(res_obj.get("usage"), dict):
+                        out["usage"] = res_obj["usage"]
+                    if res_obj.get("duration_seconds") is not None:
+                        out["duration_seconds"] = res_obj["duration_seconds"]
+                    elif getattr(self, "turn_started_at", 0) > 0:
+                        out["duration_seconds"] = round(_now() - self.turn_started_at, 2)
                 if obj.get("error"):
                     out["error"] = obj.get("error")
                 self._emit(out)
@@ -1024,21 +1074,53 @@ class AgySession:
         )
         cmd = [
             AGY, "-p", prompt,
+            "--output-format", "stream-json",
             "--model", "gemini-3.8-flash-low",
             "--dangerously-skip-permissions",
         ]
+        ans = "답변을 가져오지 못했습니다냥."
+        usage = None
+        duration_seconds = None
         try:
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=20)
-            ans = res.stdout.strip() if res.returncode == 0 and res.stdout.strip() else (res.stderr.strip() or "답변을 가져오지 못했습니다냥.")
+            if res.returncode == 0 and res.stdout.strip():
+                for line in res.stdout.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                        if obj.get("event") == "result":
+                            r = obj.get("result") or {}
+                            ans = str(r.get("response") or "").strip() or ans
+                            usage = r.get("usage")
+                            duration_seconds = r.get("duration_seconds")
+                            break
+                    except Exception:
+                        pass
+                if ans == "답변을 가져오지 못했습니다냥." and res.stdout.strip():
+                    ans = res.stdout.strip()
+            else:
+                ans = res.stderr.strip() or ans
         except subprocess.TimeoutExpired:
             ans = "간이 질문 응답 시간이 초과되었습니다냥."
         except Exception as e:
             ans = f"간이 질문 처리 중 오류가 발생했습니다: {e}"
 
         with self.lock:
-            self.history.append({"role": "btw", "query": query, "text": ans, "ts": _now()})
+            item = {"role": "btw", "query": query, "text": ans, "ts": _now()}
+            if usage:
+                item["usage"] = usage
+            if duration_seconds is not None:
+                item["duration_seconds"] = duration_seconds
+            self.history.append(item)
             self.save_meta()
-        self._emit({"event": "btw", "query": query, "text": ans})
+        out = {"event": "btw", "query": query, "text": ans}
+        if usage:
+            out["usage"] = usage
+        if duration_seconds is not None:
+            out["duration_seconds"] = duration_seconds
+        self._emit(out)
 
     def weight(self) -> dict:
         return _session_weight(self.history, self.conversation_id)
@@ -1291,6 +1373,20 @@ class AgySession:
             self._emit({"event": "stopped", "text": "실장님의 요청으로 작업이 중지되었습니다냥."})
 
     def to_public(self) -> dict:
+        total_tokens = 0
+        input_tokens = 0
+        output_tokens = 0
+        thinking_tokens = 0
+        cache_read_tokens = 0
+        for h in self.history:
+            u = h.get("usage")
+            if isinstance(u, dict):
+                total_tokens += int(u.get("total_tokens") or 0)
+                input_tokens += int(u.get("input_tokens") or 0)
+                output_tokens += int(u.get("output_tokens") or 0)
+                thinking_tokens += int(u.get("thinking_tokens") or 0)
+                cache_read_tokens += int(u.get("cache_read_tokens") or 0)
+
         out = {
             "id": self.sid,
             "model": self.model,
@@ -1304,6 +1400,13 @@ class AgySession:
             "class": "NAS agent (VibeCat-class)",
             "weight": self.weight(),
             "add_dirs": [d for d in ADD_DIRS if Path(d).exists()],
+            "usage": {
+                "total_tokens": total_tokens,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "thinking_tokens": thinking_tokens,
+                "cache_read_tokens": cache_read_tokens,
+            },
         }
         if not out["alive"] and self._stderr_tail:
             out["debug_stderr_tail"] = self._stderr_tail[-15:]
