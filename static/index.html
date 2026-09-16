@@ -100,6 +100,7 @@
     .act-result{color:#8b949e;padding-left:.8rem}
     .act-warn{color:#d29922}
     .act-error{color:#f85149}
+    .act-token{color:#56d364;font-size:.82rem}
     .act-system{color:#d2a8ff}
     .wrap.show-activity #log{display:none}
     .wrap.show-activity #activity{display:block}
@@ -203,11 +204,17 @@
       0%,100%{box-shadow:0 0 0 0 rgba(255,70,70,.45)}
       50%{box-shadow:0 0 0 6px rgba(255,70,70,0)}
     }
+    .msg-footer{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.45rem;padding-top:.35rem;border-top:1px dashed var(--border);font-size:.76rem;color:var(--muted)}
+    .token-badge{display:inline-flex;align-items:center;gap:.25rem;padding:.16rem .48rem;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#9aa0a6;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.73rem;cursor:help;user-select:none;transition:all .15s ease}
+    .token-badge:hover{background:rgba(255,138,80,.1);border-color:rgba(255,138,80,.35);color:var(--accent2)}
     .tts-row{margin-top:.4rem;padding-top:.35rem;border-top:1px dashed var(--border)}
+    .msg-footer .tts-btn{margin-left:auto}
     .tts-btn{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:.78rem;padding:.2rem .55rem;border-radius:20px;transition:all .15s ease}
     .tts-btn:hover{color:var(--accent2);border-color:rgba(255,138,80,.4);background:rgba(255,138,80,.1)}
     .tts-btn.speaking{color:var(--accent2);background:rgba(255,138,80,.15);border-color:rgba(255,138,80,.4)}
-    .meta{color:var(--muted);font-size:.8rem;flex-shrink:0}
+    .meta{color:var(--muted);font-size:.8rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+    .session-token-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:20px;background:rgba(255,138,80,.09);border:1px solid rgba(255,138,80,.28);color:var(--accent2);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.75rem;cursor:help;user-select:none;transition:all .15s ease}
+    .session-token-badge:hover{background:rgba(255,138,80,.18);border-color:rgba(255,138,80,.5)}
     a{color:var(--accent2)}
     .progress{font-size:.82rem;color:var(--accent2);min-height:1.2rem;opacity:.95;flex-shrink:0}
     .progress[hidden]{display:none}
@@ -408,7 +415,10 @@
         <button id="newSession" class="primary">새 세션</button>
       </div>
     </header>
-    <div class="meta" id="meta">세션 없음</div>
+    <div class="meta" id="meta">
+      <span id="metaSessionText">세션 없음</span>
+      <span id="sessionTokenBadge" class="session-token-badge" style="display:none"></span>
+    </div>
     <div id="sessionBanner" class="session-banner" hidden>
       <span class="session-banner-msg">세션이 길어져서 느려질 수 있어요. 새 채팅을 권장합니다</span>
       <button id="sessionBannerContinue" class="primary" type="button">맥락 이어 새 대화 ✦</button>
@@ -469,6 +479,7 @@
             <span id="usageCheckedAt" class="status-hint" style="margin:0"></span>
             <button id="usageRefreshBtn" class="art-filter-btn" type="button" title="사용량 새로고침">새로고침 ↻</button>
           </div>
+          <div id="statusSessionTokens" class="status-list" style="margin-top:.4rem"></div>
           <div id="statusUsage" class="status-list" style="margin-top:.5rem"></div>
         </section>
       </div>
@@ -498,6 +509,6 @@
   </div>
   <script src="./vendor/marked.min.js"></script>
   <script src="./vendor/mermaid.min.js"></script>
-  <script src="./app.js?v=13"></script>
+  <script src="./app.js?v=14"></script>
 </body>
 </html>

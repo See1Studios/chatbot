@@ -141,19 +141,127 @@ function speakText(rawText, btn) {
   window.speechSynthesis.speak(utter);
 }
 
+function formatTokenCount(n) {
+  if (n == null || isNaN(n)) return '0';
+  n = Number(n);
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+  return n.toLocaleString();
+}
+
+function formatUsageTooltip(usage, duration) {
+  if (!usage) return (duration != null && duration > 0) ? `소요 시간: ${Number(duration).toFixed(1)}초` : '';
+  const total = Number(usage.total_tokens || 0).toLocaleString();
+  const inp = Number(usage.input_tokens || 0).toLocaleString();
+  const out = Number(usage.output_tokens || 0).toLocaleString();
+  const think = usage.thinking_tokens ? Number(usage.thinking_tokens).toLocaleString() : null;
+  const cache = usage.cache_read_tokens ? Number(usage.cache_read_tokens).toLocaleString() : null;
+
+  let parts = [`총 ${total} 토큰 (입력 ${inp} · 출력 ${out}`];
+  if (think) parts.push(`생각 ${think}`);
+  if (cache) parts.push(`캐시 ${cache}`);
+  let s = parts.join(' · ') + ')';
+  if (duration != null && duration > 0) {
+    s += ` · ${Number(duration).toFixed(1)}초`;
+  }
+  return s;
+}
+
+let sessionTokens = { total_tokens: 0, input_tokens: 0, output_tokens: 0, thinking_tokens: 0, turns: 0 };
+
+function renderSessionTokensBadge() {
+  const badge = document.getElementById('sessionTokenBadge');
+  if (!badge) return;
+  if (!sessionTokens.total_tokens || sessionTokens.total_tokens <= 0) {
+    badge.style.display = 'none';
+    return;
+  }
+  badge.style.display = 'inline-flex';
+  badge.textContent = '⚡ 세션 누적: ' + formatTokenCount(sessionTokens.total_tokens) + ' 토큰';
+  const inp = Number(sessionTokens.input_tokens || 0).toLocaleString();
+  const out = Number(sessionTokens.output_tokens || 0).toLocaleString();
+  const tot = Number(sessionTokens.total_tokens || 0).toLocaleString();
+  const turns = sessionTokens.turns ? ` · ${sessionTokens.turns}회 턴` : '';
+  badge.title = `세션 누적 사용량: 총 ${tot} 토큰 (입력 ${inp} · 출력 ${out}${sessionTokens.thinking_tokens ? ' · 생각 ' + Number(sessionTokens.thinking_tokens).toLocaleString() : ''})${turns}`;
+}
+
+function updateSessionTokens(usage) {
+  if (!usage) return;
+  sessionTokens.total_tokens += Number(usage.total_tokens || 0);
+  sessionTokens.input_tokens += Number(usage.input_tokens || 0);
+  sessionTokens.output_tokens += Number(usage.output_tokens || 0);
+  sessionTokens.thinking_tokens += Number(usage.thinking_tokens || 0);
+  sessionTokens.turns += 1;
+  renderSessionTokensBadge();
+}
+
+function setSessionTokensFromHistory(history, apiUsage) {
+  if (apiUsage && apiUsage.total_tokens) {
+    sessionTokens = {
+      total_tokens: Number(apiUsage.total_tokens || 0),
+      input_tokens: Number(apiUsage.input_tokens || 0),
+      output_tokens: Number(apiUsage.output_tokens || 0),
+      thinking_tokens: Number(apiUsage.thinking_tokens || 0),
+      turns: (history || []).filter(h => h.role === 'assistant' && h.usage).length,
+    };
+  } else {
+    sessionTokens = { total_tokens: 0, input_tokens: 0, output_tokens: 0, thinking_tokens: 0, turns: 0 };
+    (history || []).forEach(h => {
+      const u = h.usage;
+      if (u) {
+        sessionTokens.total_tokens += Number(u.total_tokens || 0);
+        sessionTokens.input_tokens += Number(u.input_tokens || 0);
+        sessionTokens.output_tokens += Number(u.output_tokens || 0);
+        sessionTokens.thinking_tokens += Number(u.thinking_tokens || 0);
+        sessionTokens.turns += 1;
+      }
+    });
+  }
+  renderSessionTokensBadge();
+}
+
+function attachMessageFooter(node, rawText, usage, durationSeconds) {
+  if (!node) return;
+  let footer = node.querySelector('.msg-footer');
+  if (!footer) {
+    footer = document.createElement('div');
+    footer.className = 'msg-footer';
+    node.appendChild(footer);
+  }
+
+  // Token & duration badge
+  if (usage || (durationSeconds != null && durationSeconds > 0)) {
+    let badge = footer.querySelector('.token-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'token-badge';
+      footer.prepend(badge);
+    }
+    const tokStr = usage && usage.total_tokens ? formatTokenCount(usage.total_tokens) : '';
+    const durStr = durationSeconds != null && durationSeconds > 0 ? (Number(durationSeconds).toFixed(1) + 's') : '';
+    let label = '⚡ ';
+    if (tokStr && durStr) label += `${tokStr} · ${durStr}`;
+    else if (tokStr) label += `${tokStr} 토큰`;
+    else label += durStr;
+
+    badge.textContent = label;
+    badge.title = formatUsageTooltip(usage, durationSeconds);
+  }
+
+  // TTS button
+  if (window.speechSynthesis && !footer.querySelector('.tts-btn')) {
+    const btn = document.createElement('button');
+    btn.className = 'tts-btn';
+    btn.type = 'button';
+    btn.title = '읽어주기';
+    btn.textContent = '🔊';
+    btn.onclick = () => speakText(rawText, btn);
+    footer.appendChild(btn);
+  }
+}
+
 function attachTtsButton(node, rawText) {
-  if (!node || !window.speechSynthesis) return;
-  if (node.querySelector('.tts-btn')) return;
-  const row = document.createElement('div');
-  row.className = 'tts-row';
-  const btn = document.createElement('button');
-  btn.className = 'tts-btn';
-  btn.type = 'button';
-  btn.title = '읽어주기';
-  btn.textContent = '🔊';
-  btn.onclick = () => speakText(rawText, btn);
-  row.appendChild(btn);
-  node.appendChild(row);
+  attachMessageFooter(node, rawText, null, null);
 }
 
 function showSessionHeavyBanner(level, text) {
@@ -498,6 +606,25 @@ function addActivity(line, kind) {
   row.textContent = '[' + ts + '] ' + line;
   activityEl.appendChild(row);
   activityEl.scrollTop = activityEl.scrollHeight;
+}
+
+let sessionTokenTotal = 0;
+
+function logTurnUsage(usage, durationSeconds) {
+  usage = usage || {};
+  const total = usage.total_tokens || 0;
+  if (total) sessionTokenTotal += total;
+  const parts = [];
+  if (total) parts.push('🔢 이번 턴 ' + total.toLocaleString('ko-KR') + '토큰');
+  if (usage.input_tokens != null || usage.output_tokens != null) {
+    parts.push('(입력 ' + (usage.input_tokens || 0).toLocaleString('ko-KR') +
+      ' · 출력 ' + (usage.output_tokens || 0).toLocaleString('ko-KR') +
+      (usage.thinking_tokens ? ' · 사고 ' + usage.thinking_tokens.toLocaleString('ko-KR') : '') +
+      (usage.cache_read_tokens ? ' · 캐시 ' + usage.cache_read_tokens.toLocaleString('ko-KR') : '') + ')');
+  }
+  if (durationSeconds != null) parts.push(Number(durationSeconds).toFixed(1) + '초');
+  if (sessionTokenTotal) parts.push('· 세션 누계 ' + sessionTokenTotal.toLocaleString('ko-KR') + '토큰');
+  if (parts.length) addActivity(parts.join(' '), 'token');
 }
 
 function formatToolCallClient(name, args) {
@@ -1040,6 +1167,7 @@ function bindEvents(sid) {
         // If nothing was generated or only empty progress was shown, remove empty assistant bubble
         assistantNode.remove();
       }
+      if (data.usage || data.duration_seconds != null) logTurnUsage(data.usage, data.duration_seconds);
       assistantNode = null; assistantBuf = '';
       setBusy(false);
       fetchArtifacts(true);
@@ -1102,6 +1230,7 @@ function bindEvents(sid) {
     if (type === 'btw') {
       addBtw(data.query, data.text);
       addActivity('샛길 질문(/btw) 응답 완료');
+      if (data.usage || data.duration_seconds != null) logTurnUsage(data.usage, data.duration_seconds);
       return;
     }
 
