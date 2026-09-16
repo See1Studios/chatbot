@@ -609,22 +609,44 @@ function addActivity(line, kind) {
 }
 
 let sessionTokenTotal = 0;
+// Fresh (non-cache) input tokens per turn this session, for relative spike detection.
+const turnFreshTokenHistory = [];
+// Absolute floor: 2026-09-16 measured baseline is ~14-16K fresh input tokens for a
+// trivial first turn (see docs/DEVLOG.md — the ADD_DIRS parent-vs-children bug pushed
+// this to ~45K). Anything past this on its own is worth a look regardless of history.
+const FRESH_TOKEN_WARN_ABS = 30000;
 
 function logTurnUsage(usage, durationSeconds) {
   usage = usage || {};
   const total = usage.total_tokens || 0;
+  const input = usage.input_tokens || 0;
+  const cacheRead = usage.cache_read_tokens || 0;
+  const fresh = Math.max(0, input - cacheRead);
   if (total) sessionTokenTotal += total;
+
+  let warnReason = '';
+  if (fresh > FRESH_TOKEN_WARN_ABS) {
+    warnReason = '절대치 초과(>' + FRESH_TOKEN_WARN_ABS.toLocaleString('ko-KR') + ')';
+  } else if (turnFreshTokenHistory.length >= 2) {
+    const avg = turnFreshTokenHistory.reduce((a, b) => a + b, 0) / turnFreshTokenHistory.length;
+    if (avg > 0 && fresh > avg * 2.5) {
+      warnReason = '이 세션 평소(' + Math.round(avg).toLocaleString('ko-KR') + ')의 2.5배 이상';
+    }
+  }
+  if (fresh > 0) turnFreshTokenHistory.push(fresh);
+
   const parts = [];
-  if (total) parts.push('🔢 이번 턴 ' + total.toLocaleString('ko-KR') + '토큰');
+  if (total) parts.push((warnReason ? '⚠️ ' : '🔢 ') + '이번 턴 ' + total.toLocaleString('ko-KR') + '토큰');
   if (usage.input_tokens != null || usage.output_tokens != null) {
-    parts.push('(입력 ' + (usage.input_tokens || 0).toLocaleString('ko-KR') +
+    parts.push('(입력 ' + input.toLocaleString('ko-KR') +
       ' · 출력 ' + (usage.output_tokens || 0).toLocaleString('ko-KR') +
       (usage.thinking_tokens ? ' · 사고 ' + usage.thinking_tokens.toLocaleString('ko-KR') : '') +
-      (usage.cache_read_tokens ? ' · 캐시 ' + usage.cache_read_tokens.toLocaleString('ko-KR') : '') + ')');
+      (cacheRead ? ' · 캐시 ' + cacheRead.toLocaleString('ko-KR') : '') + ')');
   }
   if (durationSeconds != null) parts.push(Number(durationSeconds).toFixed(1) + '초');
   if (sessionTokenTotal) parts.push('· 세션 누계 ' + sessionTokenTotal.toLocaleString('ko-KR') + '토큰');
-  if (parts.length) addActivity(parts.join(' '), 'token');
+  if (warnReason) parts.push('— 토큰 사용량 이상 폭증 의심 (' + warnReason + ')');
+  if (parts.length) addActivity(parts.join(' '), warnReason ? 'warn' : 'token');
 }
 
 function formatToolCallClient(name, args) {
