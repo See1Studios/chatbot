@@ -288,20 +288,28 @@ class _StandbyPool:
     a normal cold spawn, since a standby's --model/--effort are fixed at
     spawn time and can't be changed after adoption.
 
-    Self-cleaning: an unclaimed standby carries no --conversation flag, so
-    chatbot-ctl.sh's kill_orphan_agy() reaps it after its existing 90s grace
-    period if it's never adopted — no separate expiry logic needed here.
+    An unclaimed standby carries no --conversation flag like a stale probe
+    leftover would, so it needs an explicit exemption from
+    chatbot-ctl.sh's kill_orphan_agy() 90s no-conversation grace period —
+    see standby.pid below, which that script checks and skips.
     """
 
     def __init__(self):
         self._lock = threading.Lock()
         self._proc: Optional[subprocess.Popen] = None
 
+    def _marker_path(self) -> Path:
+        return DATA / "standby.pid"
+
     def try_take(self) -> Optional[subprocess.Popen]:
         with self._lock:
             proc = self._proc
             self._proc = None
         if proc is not None and proc.poll() is None:
+            try:
+                self._marker_path().unlink(missing_ok=True)
+            except Exception:
+                pass
             return proc
         return None
 
@@ -325,6 +333,10 @@ class _StandbyPool:
                     bufsize=1,
                     env=env,
                 )
+                try:
+                    self._marker_path().write_text(str(self._proc.pid), encoding="utf-8")
+                except Exception:
+                    pass
             except Exception:
                 self._proc = None
 
