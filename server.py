@@ -30,11 +30,11 @@ WORKSPACE = DATA / "workspace"
 HOME = Path(os.environ.get("HOME", "/volume1/homes/me"))
 BRAIN = HOME / ".gemini" / "antigravity-cli" / "brain"
 ARTIFACTS_CACHE = DATA / "artifacts"
-DEFAULT_MODEL = os.environ.get("AGY_CHAT_MODEL", "gemini-3.8-flash-medium")
+DEFAULT_MODEL = os.environ.get("AGY_CHAT_MODEL", "gemini-3.8-flash-low")
 MODELS = [
+    "gemini-3.8-flash-low",
     "gemini-3.8-flash-medium",
     "gemini-3.8-flash-high",
-    "gemini-3.8-flash-low",
     "gemini-3.1-pro-high",
     "gemini-3.1-pro-low",
     "claude-sonnet-4-6",
@@ -521,6 +521,8 @@ class AgySession:
 
         if name == "run_command":
             cmd = self._clean_str(args.get("CommandLine") or args.get("command") or args.get("cmd"))
+            if not cmd:
+                return ""  # args not populated yet (streaming) — wait for the complete call, don't dedup-block it
             parts = [f"run_command: {cmd}"]
             if summary and summary.lower() != cmd.lower():
                 parts.append(f"({summary})")
@@ -530,6 +532,8 @@ class AgySession:
 
         if name in ("view_file", "read_file"):
             raw_path = self._clean_str(args.get("AbsolutePath") or args.get("TargetFile") or args.get("path") or args.get("file"))
+            if not raw_path:
+                return ""
             path = self._short_path(raw_path)
             start = args.get("StartLine")
             end = args.get("EndLine")
@@ -543,6 +547,8 @@ class AgySession:
 
         if name == "grep_search":
             q = self._clean_str(args.get("Query") or args.get("query") or args.get("pattern"))
+            if not q:
+                return ""
             sp = self._short_path(self._clean_str(args.get("SearchPath") or args.get("path")))
             parts = [f"grep_search: '{q}' in {sp or '.'}"]
             if summary:
@@ -551,6 +557,8 @@ class AgySession:
 
         if name == "find_by_name":
             p = self._clean_str(args.get("Pattern") or args.get("pattern"))
+            if not p:
+                return ""
             sd = self._short_path(self._clean_str(args.get("SearchDirectory") or args.get("directory") or args.get("path")))
             parts = [f"find_by_name: '{p}' in {sd or '.'}"]
             if summary:
@@ -559,6 +567,8 @@ class AgySession:
 
         if name == "list_dir":
             dp = self._short_path(self._clean_str(args.get("DirectoryPath") or args.get("path") or args.get("dir")))
+            if not dp:
+                return ""
             parts = [f"list_dir: {dp}"]
             if summary:
                 parts.append(f"({summary})")
@@ -566,6 +576,8 @@ class AgySession:
 
         if name in ("replace_file_content", "edit_file"):
             raw_path = self._clean_str(args.get("TargetFile") or args.get("path") or args.get("file"))
+            if not raw_path:
+                return ""
             tf = self._short_path(raw_path)
             inst = self._clean_str(args.get("Instruction") or summary or action)
             parts = [f"replace_file_content: {tf}"]
@@ -575,6 +587,8 @@ class AgySession:
 
         if name in ("write_to_file", "write_file"):
             raw_path = self._clean_str(args.get("TargetFile") or args.get("path") or args.get("file"))
+            if not raw_path:
+                return ""
             tf = self._short_path(raw_path)
             desc = self._clean_str(args.get("Description") or summary or action)
             parts = [f"write_to_file: {tf}"]
@@ -584,15 +598,21 @@ class AgySession:
 
         if name in ("read_url_content", "fetch_url"):
             url = self._clean_str(args.get("Url") or args.get("url"))
+            if not url:
+                return ""
             return f"read_url: {url}"
 
         if name in ("search_web", "web_search"):
             q = self._clean_str(args.get("query") or args.get("Query"))
+            if not q:
+                return ""
             return f"search_web: '{q}'"
 
         if name == "call_mcp_tool":
             server = self._clean_str(args.get("ServerName"))
             tool = self._clean_str(args.get("ToolName"))
+            if not server and not tool:
+                return ""
             mcp_args = args.get("Arguments")
             mcp_desc = ""
             if isinstance(mcp_args, dict):

@@ -665,6 +665,7 @@ function formatToolCallClient(name, args) {
   const summary = clean(args.toolSummary || args.summary || args.description);
   if (name === 'run_command') {
     const cmd = clean(args.CommandLine || args.command || args.cmd);
+    if (!cmd) return ''; // args not populated yet (streaming) - skip, don't show a bare "run_command:"
     let out = 'run_command: ' + cmd;
     if (summary && summary.toLowerCase() !== cmd.toLowerCase()) out += ' (' + summary + ')';
     else if (action && action.toLowerCase() !== cmd.toLowerCase()) out += ' (' + action + ')';
@@ -672,6 +673,7 @@ function formatToolCallClient(name, args) {
   }
   if (name === 'view_file' || name === 'read_file') {
     const p = clean(args.AbsolutePath || args.TargetFile || args.path || args.file);
+    if (!p) return '';
     const start = args.StartLine;
     const end = args.EndLine;
     const lines = (start || end) ? ` [L${start || ''}-${end || ''}]` : '';
@@ -682,6 +684,7 @@ function formatToolCallClient(name, args) {
   }
   if (name === 'grep_search') {
     const q = clean(args.Query || args.query || args.pattern);
+    if (!q) return '';
     const sp = clean(args.SearchPath || args.path);
     let out = `grep_search: '${q}' in ${sp || '.'}`;
     if (summary) out += ' (' + summary + ')';
@@ -689,6 +692,7 @@ function formatToolCallClient(name, args) {
   }
   if (name === 'find_by_name') {
     const p = clean(args.Pattern || args.pattern);
+    if (!p) return '';
     const sd = clean(args.SearchDirectory || args.directory || args.path);
     let out = `find_by_name: '${p}' in ${sd || '.'}`;
     if (summary) out += ' (' + summary + ')';
@@ -696,12 +700,14 @@ function formatToolCallClient(name, args) {
   }
   if (name === 'list_dir') {
     const dp = clean(args.DirectoryPath || args.path || args.dir);
+    if (!dp) return '';
     let out = 'list_dir: ' + dp;
     if (summary) out += ' (' + summary + ')';
     return out;
   }
   if (name === 'replace_file_content' || name === 'edit_file') {
     const tf = clean(args.TargetFile || args.path || args.file);
+    if (!tf) return '';
     const inst = clean(args.Instruction || summary || action);
     let out = 'replace_file_content: ' + tf;
     if (inst) out += ' (' + inst + ')';
@@ -709,6 +715,7 @@ function formatToolCallClient(name, args) {
   }
   if (name === 'write_to_file' || name === 'write_file') {
     const tf = clean(args.TargetFile || args.path || args.file);
+    if (!tf) return '';
     const desc = clean(args.Description || summary || action);
     let out = 'write_to_file: ' + tf;
     if (desc) out += ' (' + desc + ')';
@@ -1284,8 +1291,9 @@ function bindEvents(sid) {
         for (const tc of p.tool_calls) {
           if (tc && tc.name) {
             const line = formatToolCallClient(tc.name, tc.args || tc.input);
-            setProgress('작업 중 · ' + shortToolLine(line));
             setBusy(true);
+            if (!line) continue; // args not populated yet (streaming) - wait for the complete call
+            setProgress('작업 중 · ' + shortToolLine(line));
             addActivity(line, 'tool');
           }
         }
