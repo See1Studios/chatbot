@@ -31,6 +31,12 @@ GameDeveloper handoff (2026-09-16): day-to-day UI/host/persona/skill fixes belon
 - After changes: smoke healthz, note DEVLOG, optional OPEN observation
 - Destructive ops (wipe sessions/persona, change ports): ask 실장님 first
 
+## Version control (2026-09-16)
+- `chatbot/` and `chatbot-data/workspace/` are now real git repos (git installed at `/volume1/@appstore/git/bin/git`, on `PATH` via `.bashrc`/`.profile`).
+- **After a disk edit that used to get a `.bak-<label>-<ts>` sibling file: `git add <file> && git commit -m "<what/why>"` instead.** Don't create new `.bak-*` files — they're gitignored now and just clutter; use `git log`/`git diff`/`git checkout -- <file>` for history and rollback.
+- Two separate repos on purpose (mirrors the code vs. data/workspace split above) — commit each from its own directory.
+- `docs/DEVLOG.md` prose entries are still expected (git commit messages are terse; DEVLOG explains the why/story) — do both, they're complementary, not redundant.
+
 ## Self-modification
 - 경계 문서: `SELF-MODIFY.md` (워크스페이스) / `chatbot/docs/SELF-MODIFY.md`
 - 비상: `chatbot/docs/EMERGENCY.md` · `chatbot-ctl.sh repair|doctor|probe|guard`
