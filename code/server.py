@@ -17,7 +17,7 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 HOST = os.environ.get("AGY_CHAT_HOST", "0.0.0.0")
 PORT = int(os.environ.get("AGY_CHAT_PORT", "3011"))
@@ -1395,6 +1395,34 @@ def _json_bytes(obj: Any, code: int = 200):
 
 
 _SKILLS_CACHE = {"ts": 0.0, "data": []}
+_USAGE_CACHE = {"ts": 0.0, "data": None}
+USAGE_CACHE_TTL_SEC = 300
+
+
+def _get_usage(force: bool = False) -> dict:
+    """Run `agy --print /usage` (the CLI's own rate-limit report; unavailable inside
+    a stream-json session — must be a separate one-shot invocation) and parse its
+    tab-separated output. Cached for USAGE_CACHE_TTL_SEC since each check is a real
+    network round-trip, not free."""
+    now = time.time()
+    if not force and (now - _USAGE_CACHE["ts"] < USAGE_CACHE_TTL_SEC) and _USAGE_CACHE["data"]:
+        return _USAGE_CACHE["data"]
+    try:
+        proc = subprocess.run([AGY, "--print", "/usage"], capture_output=True, text=True, timeout=30)
+        rows = []
+        for line in (proc.stdout or "").splitlines():
+            parts = [p.strip() for p in line.split("\t")]
+            if len(parts) >= 4:
+                rows.append({"group": parts[0], "limit_type": parts[1], "remaining_pct": parts[2], "reset_at": parts[3]})
+        data = {"ok": True, "rows": rows, "checked_at": now}
+        if not rows and proc.stderr:
+            data = {"ok": False, "error": proc.stderr.strip()[:400], "checked_at": now}
+    except Exception as e:
+        data = {"ok": False, "error": str(e), "checked_at": now}
+    _USAGE_CACHE["ts"] = now
+    _USAGE_CACHE["data"] = data
+    return data
+
 
 def _extract_yaml_desc(txt: str) -> str:
     """Parse a SKILL.md frontmatter `description:` field, handling both inline
@@ -1701,6 +1729,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/mcp":
             cfg = _read_mcp_config()
             code, body = _json_bytes({"ok": True, "mcpServers": cfg.get("mcpServers", {})})
+            return self._send(code, body, "application/json; charset=utf-8")
+        if path == "/api/usage":
+            force = parse_qs(parsed.query).get("force", ["0"])[0] == "1"
+            code, body = _json_bytes(_get_usage(force=force))
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/sessions":
             code, body = _json_bytes({"sessions": REG.list()})
