@@ -72,14 +72,23 @@ function updateArtifactBadge() {
   artBadge.textContent = count > 0 ? String(count) : '';
 }
 
+function resolveArtifactUrl(u) {
+  if (!u) return '';
+  if (/^(?:[a-z]+:)?\/\//i.test(u) || u.startsWith('data:') || u.startsWith('blob:')) return u;
+  const base = (typeof BASE_PATH !== 'undefined' ? BASE_PATH : '').replace(/\/+$/, '');
+  const clean = u.startsWith('/') ? u : '/' + u;
+  return base ? (clean.startsWith(base + '/') ? clean : base + clean) : clean;
+}
+
 function artifactUrlFallbacks(item) {
   const name = (item && item.name) || '';
   const seen = new Set();
   const out = [];
   function add(u) {
-    if (!u || seen.has(u)) return;
-    seen.add(u);
-    out.push(u);
+    const resolved = resolveArtifactUrl(u);
+    if (!resolved || seen.has(resolved)) return;
+    seen.add(resolved);
+    out.push(resolved);
   }
   add(item && item.url);
   if (name) {
@@ -280,9 +289,10 @@ async function openArtifactModal(item) {
     };
   }
   if (modalDownload) {
-    modalDownload.href = item.url || (item.raw_url || '#');
+    const dUrl = resolveArtifactUrl(item.url || item.raw_url);
+    modalDownload.href = dUrl || '#';
     modalDownload.setAttribute('download', item.name);
-    modalDownload.style.display = (item.url || item.raw_url) ? 'inline-flex' : 'none';
+    modalDownload.style.display = dUrl ? 'inline-flex' : 'none';
   }
   if (modalCite) {
     modalCite.style.display = item.url ? 'inline-flex' : 'none';
@@ -304,7 +314,7 @@ async function openArtifactModal(item) {
       try {
         let text = item.content;
         if (text == null && item.url) {
-          const resp = await fetch(item.url);
+          const resp = await fetch(resolveArtifactUrl(item.url));
           if (!resp.ok) throw new Error(resp.statusText);
           text = await resp.text();
         }
