@@ -1,15 +1,15 @@
 ---
 id: 32
 title: "wiki MCP is the knowledge hand, not a skill"
-status: open
+status: actioned
 type: internal
 skill: []
 proposes_skill: []
 area: "mcp"
 date: 2026-09-21
 parked_until:
-resolved:
-resolution:
+resolved: 2026-09-22
+resolution: "disksattion mcp 분리함"
 reference:
 ---
 

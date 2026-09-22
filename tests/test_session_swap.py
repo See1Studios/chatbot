@@ -14,11 +14,20 @@ import session  # noqa: E402
 OLD_NOTICE = "요청으로 작업이 중지되었습니다"
 
 
-def drain(sess):
+def _subscribe(sess):
+    """Attach a fresh subscriber queue and return it."""
+    q = queue.Queue()
+    with sess.lock:
+        sess.subscribers.append(q)
+    return q
+
+
+def drain(q):
+    """Drain all currently available events from a queue."""
     out = []
     while True:
         try:
-            out.append(sess.events.get_nowait())
+            out.append(q.get_nowait())
         except queue.Empty:
             return out
 
@@ -30,14 +39,15 @@ class SwapTest(unittest.TestCase):
         self._summary = session.AgySession.get_handover_summary
         session.AgySession.get_handover_summary = lambda self, *a, **k: ""   # would spawn agy /compact
         self.s = session.AgySession("swap-test", provider="agy")
-        drain(self.s)
+        self._q = _subscribe(self.s)
+        drain(self._q)  # discard startup events
 
     def tearDown(self):
         session.SESSIONS = self._sessions
         session.AgySession.get_handover_summary = self._summary
 
     def stopped(self):
-        return [e for e in drain(self.s) if e.get("event") == "stopped"]
+        return [e for e in drain(self._q) if e.get("event") == "stopped"]
 
     def test_idle_provider_and_model_swap_say_nothing(self):
         self.s.maybe_swap_provider("claude")

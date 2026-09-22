@@ -77,6 +77,7 @@ class _StandbyPool:
         except Exception:
             try:
                 proc.kill()
+                proc.wait(timeout=1)
             except Exception:
                 pass
         return True

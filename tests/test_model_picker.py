@@ -213,7 +213,7 @@ class ModelPickerMarkupAndCss(unittest.TestCase):
         self.assertIn('aria-label="모델 선택"', btn)
 
     def test_the_phone_layout_gives_it_the_slash_buttons_44px_and_frees_the_old_58px_select(self):
-        m = re.search(r"#modelBtn\{\s*order:2;\s*width:44px;\s*min-width:44px;\s*height:44px;", CSS)
+        m = re.search(r"#modelBtn\{\s*order:2;\s*width:36px;\s*min-width:36px;\s*height:36px;", CSS)
         self.assertIsNotNone(m)
         self.assertNotIn("max-width:58px", CSS)
 

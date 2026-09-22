@@ -1,15 +1,15 @@
 ---
 id: 30
 title: "Browser-side device context bound into conversation prompt"
-status: open
+status: actioned
 type: internal
 skill: []
 proposes_skill: []
 area: "client-device-context"
 date: 2026-09-21
 parked_until:
-resolved:
-resolution:
+resolved: 2026-09-22
+resolution: "위치 동작하는 것 확인했지만 #22 에서 토글 레이스 컨디션이 관측되어 수정"
 reference:
 ---
 

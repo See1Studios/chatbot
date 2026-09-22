@@ -47,17 +47,32 @@ class Base(unittest.TestCase):
             setattr(session, k, v)
         session.AgySession.get_handover_summary = self._summary
 
+    @staticmethod
+    def _subscribe(sess):
+        """Attach a fresh subscriber queue and return it."""
+        q = queue.Queue()
+        with sess.lock:
+            sess.subscribers.append(q)
+        return q
+
     def session(self, sid, provider="agy"):
         s = session.AgySession(sid, provider=provider)
-        self.drain(s)
+        q = self._subscribe(s)
+        self.drain(q)  # discard startup events
+        s._test_q = q  # stash for tests that need to drain later
         return s
 
     @staticmethod
-    def drain(sess):
+    def drain(q_or_sess):
+        """Drain all currently available events from a subscriber queue."""
+        # Accept a queue directly.
+        q = q_or_sess if isinstance(q_or_sess, queue.Queue) else getattr(q_or_sess, '_test_q', None)
         out = []
+        if q is None:
+            return out
         while True:
             try:
-                out.append(sess.events.get_nowait())
+                out.append(q.get_nowait())
             except queue.Empty:
                 return out
 
@@ -226,7 +241,6 @@ class NeverDisturbsATurnTest(Base):
 
     def test_a_session_built_without_init_still_emits(self):
         bare = session.AgySession.__new__(session.AgySession)  # some tests fake sessions this way
-        bare.events = queue.Queue()
         bare.subscribers = []
         bare.lock = threading.RLock()
         bare.history = []
@@ -234,8 +248,9 @@ class NeverDisturbsATurnTest(Base):
         bare.last_progress = ""
         bare.meta_path = self.data / "sessions" / "bare" / "meta.json"
         bare.sid = "bare"
+        q = self._subscribe(bare)
         bare._emit({"event": "error", "text": "x"})
-        self.assertEqual(bare.events.get_nowait()["event"], "error")
+        self.assertEqual(q.get_nowait()["event"], "error")
 
 
 if __name__ == "__main__":

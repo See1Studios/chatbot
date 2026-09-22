@@ -2635,6 +2635,7 @@ function alertModal(message) {
 }
 
 function bindEvents(sid) {
+  if (window.__agyEsTimer) { clearTimeout(window.__agyEsTimer); window.__agyEsTimer = null; }
   if (es) { try { es.close(); } catch (_) {} es = null; }
   const live = logEl && logEl.querySelector('.msg[data-live="1"]');
   if (live && live.isConnected) assistantNode = live;
@@ -2666,8 +2667,16 @@ function bindEvents(sid) {
         assistantNode.dataset.live = '1';
       }
       if (assistantNode) delete assistantNode.dataset.progress;
-      if (type === 'delta') assistantBuf += text;
-      else if (text) assistantBuf = text;
+      if (type === 'delta') {
+        const offset = typeof data.offset === 'number' ? data.offset : null;
+        if (offset !== null && offset < (assistantBuf || '').length) {
+          // Stale or already-applied delta (e.g. resync poll delivered draft first)
+          return;
+        }
+        assistantBuf = (assistantBuf || '') + text;
+      } else if (text) {
+        assistantBuf = text;
+      }
       setAssistantContent(assistantNode, assistantBuf || '작성 중…', false);
       updateTurnLive();
       return;
@@ -2897,6 +2906,11 @@ function bindEvents(sid) {
     es = null;
     updateProcBadge('disconnected');
     window.__agyEsRetry = (window.__agyEsRetry || 0) + 1;
+    if (window.__agyEsRetry > 20) {
+      setProgress('⚠️ 서버 연결이 끊겼습니다 (20회 재시도 실패). 새로고침해 주세요.');
+      addActivity('서버 연결 실패 (20회 재시도 실패). 새로고침이 필요합니다.', 'warn');
+      return;
+    }
     // First reconnect is usually the idle SSE recycle or a mobile blip —
     // don't flash "연결이 끊겼다냥" over a turn that's still running.
     if (window.__agyEsRetry >= 2) setProgress('연결이 끊겼다냥 · 다시 연결하는 중…');
@@ -4611,6 +4625,7 @@ inputEl.addEventListener('blur', () => {
   setTimeout(updateViewport, 120);
 });
 inputEl.addEventListener('keydown', (e) => {
+  if (e.isComposing || e.keyCode === 229) return;
   if (handleSlashKeydown(e)) return;
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
 });

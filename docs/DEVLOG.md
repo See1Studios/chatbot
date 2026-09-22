@@ -1,5 +1,35 @@
 # chatbot 개발로그
 
+## 2026-09-22 — 보안·안정성·구조 정리 (T1–T4 Audit & Direction 실행)
+- **배경**: `docs/plans/audit-2026-09-22-work-ordered.md`에 따른 전면 점검 및 Tier 1~4 순차 작업 수행.
+- **주요 변경 사항**:
+  - **Tier 1 (보안 & 격리)**:
+    - T1.1: `/persona/` 경로 순회 차단 검증 (`..`, 절대경로 등 404 차단).
+    - T1.2: XSS 방어 — DOMPurify 3.2.6 벤더링(`static/vendor/purify.min.js`), `static/markdown.js` 전면 적용 (HTML 정화, mermaid strict 검증 및 실패 시 이스케이프), `static/index.html` 캐시버스팅(`markdown.js?v=8`).
+    - T1.3: CSRF 게이트 — `origin_guard.same_origin` 검증을 `server.py` `do_POST` 진입부에 적용, `_read_json()`에 `Content-Type: application/json` 강제.
+    - T1.4: 아티팩트 서빙 경로 제한 — `_safe_artifact_rel`로 dotfile/제한 디렉터리 차단, `/artifacts/` 응답에 `Cache-Control: private` 헤더 추가.
+  - **Tier 2 (안정성 & 라이프사이클)**:
+    - T2.1: 한글 IME 조합 중 Enter 전송 차단(`isComposing` guard) — `static/app.js` 및 `static/slash.js`.
+    - T2.2: `AgySession.events` 미소비 큐 메모리 누수 원인 제거 (`events` 속성 정리 및 테스트 픽스).
+    - T2.3: HTTP transport stale turn 하이잭 차단 — `_turn_seq` 기반 홉 검증 및 조기 취소, stale turn에 의한 `_http_resp` 클로버링 방지.
+    - T2.4: SSE/poll 델타 중복 방지 — 모든 어댑터에 delta offset 부여, `static/app.js`에서 중복 offset 수신 시 무시 처리 (`app.js?v=108`).
+    - T2.5: GET 라우트 불필요 세션 복원 방지 — `Registry.peek(sid)` 구현 및 `server.py` GET 핸들러 4곳에 적용.
+    - T2.6: stderr 민감 정보 유출 방지 — `_redact_line`/`_redact_text` 마스킹 추가 (API 키, bearer 토큰, 세션 토큰 등 redaction), `tests/test_stderr_redaction.py` 추가.
+  - **Tier 3 (구조 & 회귀 정리)**:
+    - T3.1: 어댑터 턴 종료 로직 통합 — `AgentAdapter.finalize_turn` 공통 메서드로 Agy, Claude, Grok, Codex, OpenAIDialect 어댑터 통일.
+    - T3.2: 회귀 테스트 3건 정리 — `server.py` 내 사용자/봇 호칭 동적화(`identity.user_title()`, `identity.self_label()`), `status_picker` stub, `session_weights` 홈 디렉터리 패치.
+    - T3.3: 의존성 매니페스트 — `requirements.txt` (`PyYAML==6.0.3`) 명시 및 README 테스트 실행 안내 보강.
+  - **Tier 4 (소형 누수/정리)**:
+    - `server.py` Content-Length 검증(200KB 초과 시 413) 및 GET 예외 핸들링, `_get_usage` provider 화이트리스트 검증.
+    - 프로세스 kill 후 `wait(timeout=1)` 안전 대기 추가.
+    - Grok 임시 프롬프트 파일 삭제 보장.
+    - Claude MCP config 원자적 쓰기(`_atomic_write_text`) 및 변경 시에만 쓰기.
+    - 손상된 `meta.json` 백업 및 에러 로깅.
+    - 프론트엔드 ES 재연결 타이머 중복 해제 및 최대 20회 재시도 제한 배너.
+    - 사용되지 않는 죽은 코드/임포트/설정 정리 (`effort_levels`, `BRAIN`, `HARD/SOFT_*` 등).
+- **검증**: `python3 -m unittest discover -s tests` 실행 (총 689개 테스트 중 687개 통과, CSS 44px 기존 UI 2건 제외 0 에러).
+- **배포**: python → needs ⚡소생
+
 ## 2026-09-22 — MCP 분리 leftover: 3015 healthz, nas-mcp 이름, 위임 테스트 (티켓 17)
 
 - **배경** (실장님 "빈 칸 정리 티켓"): 중앙 Host MCP(:3015) 위임 뒤 `sphere_hub_status`가 `GET /`를 헬스체크해서 자기 자신을 DOWN으로 보고, 3012 healthz도 `nas-mcp`라 이름이 겹쳤다. 위임 테스트가 없었다.

@@ -16,16 +16,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import session as S  # noqa: E402
 from adapters import AgyAdapter, AGY_PRINT_TIMEOUT_SEC  # noqa: E402
 from tests.test_instructions import WorkspaceCase  # noqa: E402
+import session_weights as SW  # noqa: E402
 
 REAL, PHANTOM = "fd45a3f5-52e4-4d03-80a1-1d62d7d12f38", "16d6f861-2036-40e6-84bf-6df758de4b1e"
 
 
 class Base(WorkspaceCase):
     def make(self, history=None):
-        self._sessions, self._home = S.SESSIONS, S.HOME
+        self._sessions, self._home, self._sw_home = S.SESSIONS, S.HOME, SW.HOME
         S.SESSIONS = self.tmp / "sessions"
         (S.SESSIONS / "t").mkdir(parents=True, exist_ok=True)
         S.HOME = self.tmp / "home"                                   # agy's store lives under HOME
+        SW.HOME = S.HOME                                             # _conversation_db_path uses session_weights.HOME
         (S.HOME / ".gemini" / "antigravity-cli" / "conversations").mkdir(parents=True, exist_ok=True)
         s = S.AgySession("t", provider="agy")
         s.adapter = types.SimpleNamespace(id="agy", keeps_stdin_open=False, transport_kind="process",
@@ -41,6 +43,8 @@ class Base(WorkspaceCase):
     def tearDown(self):
         if hasattr(self, "_sessions"):
             S.SESSIONS, S.HOME = self._sessions, self._home
+        if hasattr(self, "_sw_home"):
+            SW.HOME = self._sw_home
 
     def store(self, cid):                                            # make agy "have" this conversation
         (S.HOME / ".gemini" / "antigravity-cli" / "conversations" / f"{cid}.db").write_bytes(b"x")

@@ -29,23 +29,14 @@ from host_config import (
     ADD_DIRS,
     AGY,
     ARTIFACTS_CACHE,
-    BRAIN,
     DATA,
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
-    HARD_CHARS,
-    HARD_DB_BYTES,
-    HARD_TOKENS,
-    HARD_TURNS,
     HOME,
     INACTIVITY_ROTATE_SEC,
     PERSISTED_LOG_KINDS,
     ROOT,
     SESSIONS,
-    SOFT_CHARS,
-    SOFT_DB_BYTES,
-    SOFT_TOKENS,
-    SOFT_TURNS,
     WORKSPACE,
     _now,
 )
@@ -73,9 +64,7 @@ from media_handler import (
     _append_images_markdown,
     _collect_new_images,
     _conversation_brain_dir,
-    _grok_media_dir,
     _rewrite_artifact_paths,
-    _stage_grok_rel_media,
     _stage_image,
 )
 
@@ -89,6 +78,24 @@ LOOP_NOTICE = ("같은 도구 호출을 반복하고 있습니다 ({what}). 새 
                "다시 하지 말고, 정말 막혔을 때만 {user}께 물어보세요.")
 STEER_HINT = ("직전 작업은 이 메시지를 반영하려고 도구 단계 사이에서 잠시 멈췄을 뿐, 취소된 것이 아닙니다. 이 메시지가 취소·변경을 "
               "분명히 요구하지 않는다면 하던 작업을 이어서 하면서 이 메시지의 지시를 반영하세요. 이미 끝낸 단계를 처음부터 다시 하지 마세요.")
+
+
+_SENSITIVE_STDERR_KEYS = ("token", "authorization", "bearer", "api_key", "refresh")
+
+
+def _redact_line(line: str) -> bool:
+    """Return True when the line contains a sensitive credential and should be
+    dropped (i.e. never stored, never emitted)."""
+    low = (line or "").lower()
+    return any(k in low for k in _SENSITIVE_STDERR_KEYS)
+
+
+def _redact_text(text: str) -> str:
+    """Filter sensitive credential lines from multi-line text (e.g. proc.stderr)."""
+    if not text:
+        return ""
+    clean = [l for l in text.splitlines() if not _redact_line(l)]
+    return "\n".join(clean).strip()
 
 
 def _standby_maintenance_loop() -> None:
@@ -141,7 +148,6 @@ class AgySession:
         self.conversation_id: Optional[str] = None
         self.proc: Optional[subprocess.Popen] = None
         self._http_resp = None  # API-Provider plan: in-flight urlopen() response for transport_kind="http" adapters -- stop() closes this to cancel a streaming turn, since there's no self.proc to terminate()
-        self.events: "queue.Queue[dict]" = queue.Queue()
         self.subscribers: List["queue.Queue[dict]"] = []
         self.lock = threading.RLock()  # DEADLOCK GUARD: must stay RLock — ensure()->_spawn()->stop() nests
         if type(self.lock) is type(threading.Lock()):  # pragma: no cover
@@ -205,8 +211,14 @@ class AgySession:
                     self.last_activity = max(ts_list)
                 elif self.meta_path.exists():
                     self.last_activity = self.meta_path.stat().st_mtime
-            except Exception:
-                pass
+            except Exception as e:
+                ts = int(time.time())
+                corrupt_path = self.meta_path.with_name(f"{self.meta_path.name}.corrupt-{ts}")
+                print(f"WARN corrupt meta.json for {self.sid}: {e}; renaming to {corrupt_path.name}", file=sys.stderr)
+                try:
+                    self.meta_path.replace(corrupt_path)
+                except Exception:
+                    pass
 
     def save_meta(self) -> None:
         with self.lock:
@@ -246,10 +258,6 @@ class AgySession:
                 pass
         if kind in PERSISTED_LOG_KINDS:
             self._append_log_event(event)
-        try:
-            self.events.put_nowait(event)
-        except Exception:
-            pass
         dead = []
         with self.lock:
             for q in list(self.subscribers):
@@ -318,6 +326,10 @@ class AgySession:
                 bufsize=1,
                 env=env,
             )
+            grok_prompt = getattr(self.adapter, "_last_prompt_path", None)
+            if grok_prompt:
+                self.proc._grok_prompt_file = grok_prompt
+                self.adapter._last_prompt_path = None
             self._emit({"event": "system", "text": f"{self.provider} started model={self.model} (skip-permissions, accept-edits, NAS)"})
         threading.Thread(target=self._read_stdout, args=(self.proc,), daemon=True).start()
         threading.Thread(target=self._read_stderr, daemon=True).start()
@@ -715,12 +727,6 @@ class AgySession:
     def _rewrite_artifact_paths(self, text: str) -> str:
         return _rewrite_artifact_paths(self.sid, self.conversation_id, text)
 
-    def _grok_media_dir(self) -> Optional[Path]:
-        return _grok_media_dir(self.conversation_id)
-
-    def _stage_grok_rel_media(self, rel: str) -> Optional[str]:
-        return _stage_grok_rel_media(self.sid, self.conversation_id, rel)
-
     def _conversation_brain_dir(self) -> Optional[Path]:
         return _conversation_brain_dir(self.conversation_id)
 
@@ -768,6 +774,12 @@ class AgySession:
             if died_mid_turn:
                 self._finish_turn("process_died")
             _record_live_pids()
+            prompt_file = getattr(proc, "_grok_prompt_file", None)
+            if prompt_file:
+                try:
+                    Path(prompt_file).unlink(missing_ok=True)
+                except Exception:
+                    pass
 
     def _handle_stdout_line(self, line: str) -> None:
         """Provider-agnostic since Multi-Provider plan Phase 0: the actual
@@ -849,23 +861,20 @@ class AgySession:
             msgs.append({"role": role, "content": text})
         return msgs
 
-    def _run_http_turn(self, stdin_content: str) -> None:
+    def _run_http_turn(self, stdin_content: str, seq: Optional[int] = None) -> None:
         """API-Provider plan: transport_kind="http" counterpart to
         _spawn()+_read_stdout() -- runs in its own background thread (see
         _send_direct()), no process/stdin/stdout involved at all."""
+        if seq is None:
+            seq = self._turn_seq
         messages = self._history_to_openai_messages(last_user_override=stdin_content)
         try:
-            for ev in self.adapter.stream_turn(self, messages):
-                if self._stop_requested:
-                    # Drain silently, same reasoning as _read_stdout(): stop()
-                    # already closed self._http_resp and emitted "stopped" --
-                    # don't also surface whatever stream_turn() yields on its
-                    # way out (or the exception the closed socket raises next
-                    # iteration, caught below) as a contradictory second event.
+            for ev in self.adapter.stream_turn(self, messages, seq=seq):
+                if self._turn_seq != seq or self._stop_requested:
                     break
                 self._handle_events([ev])
         except Exception as e:
-            if not self._stop_requested:
+            if self._turn_seq == seq and not self._stop_requested:
                 self._handle_events([{"event": "error", "text": f"API 호출 실패: {e}"}])
 
     def _http_turn_watchdog(self, seq: int) -> None:
@@ -898,11 +907,11 @@ class AgySession:
             line = line.rstrip()
             if not line:
                 continue
+            if _redact_line(line):
+                continue  # drop before storing: never appears in _stderr_tail or events
             self._stderr_tail.append(line[-500:])
             self._stderr_tail = self._stderr_tail[-30:]
             low = line.lower()
-            if any(x in low for x in ("token", "authorization", "bearer", "api_key", "refresh")):
-                continue
             # Surface jetski/sandbox denials as tool events for visibility
             if "jetski" in low or "sandbox" in low or "soft-denying" in low or "permission" in low:
                 self._emit({"event": "tool", "text": line[:500], "title": "permission", "status": "stderr"})
@@ -1032,7 +1041,7 @@ class AgySession:
                 if ans == "답변을 가져오지 못했습니다냥." and res.stdout.strip():
                     ans = res.stdout.strip()
             else:
-                ans = res.stderr.strip() or ans
+                ans = _redact_text(res.stderr) or ans
         except subprocess.TimeoutExpired:
             ans = "간이 질문 응답 시간이 초과되었습니다냥."
         except Exception as e:
@@ -1668,6 +1677,7 @@ class AgySession:
             except Exception:
                 try:
                     proc.kill()
+                    proc.wait(timeout=1)
                 except Exception:
                     pass
             self.proc = None
@@ -1714,6 +1724,7 @@ class AgySession:
             except Exception:
                 try:
                     proc.kill()
+                    proc.wait(timeout=1)
                 except Exception:
                     pass
         if http_resp:
@@ -1777,7 +1788,7 @@ class AgySession:
             },
         }
         if not out["alive"] and self._stderr_tail:
-            out["debug_stderr_tail"] = self._stderr_tail[-15:]
+            out["debug_stderr_tail"] = [l for l in self._stderr_tail[-15:] if not _redact_line(l)]
         w = out.get("weight") or {}
         succ = getattr(self, "successor_session_id", "") or ""
         if succ:
@@ -1992,6 +2003,21 @@ class Registry:
             raise RuntimeError(f"삭제 실패: {sess_dir} 디렉터리가 여전히 남아있습니다")
         return True
 
+    def peek(self, sid: str) -> Optional[AgySession]:
+        """Return the session if it exists in memory or on disk; None otherwise.
+        Unlike get(), never creates a new session — safe for all GET routes."""
+        try:
+            sid = _safe_session_id(sid)
+        except ValueError:
+            return None
+        with self.lock:
+            if sid in self.sessions:
+                return self.sessions[sid]
+        # Check disk: a session folder with a meta.json qualifies.
+        if (SESSIONS / sid / "meta.json").exists():
+            return self.get(sid)
+        return None
+
     def get(self, sid: str) -> AgySession:
         sid = _safe_session_id(sid)
         with self.lock:
@@ -2170,6 +2196,7 @@ def _reap_sessions() -> None:
                         except Exception:
                             try:
                                 proc.kill()
+                                proc.wait(timeout=1)
                             except Exception:
                                 pass
                     else:

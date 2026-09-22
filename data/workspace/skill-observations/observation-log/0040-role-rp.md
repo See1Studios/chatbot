@@ -1,15 +1,15 @@
 ---
 id: 40
 title: "role RP에 냩피디 래핑이 모임을 깨는다"
-status: open
+status: declined
 type: internal
 skill: []
 proposes_skill: []
 area: "role"
 date: 2026-09-22
 parked_until:
-resolved:
-resolution:
+resolved: 2026-09-22
+resolution: "role 기능 재검토"
 reference:
 ---
 

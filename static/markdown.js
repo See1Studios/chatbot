@@ -18,7 +18,7 @@ function ensureMermaidLoaded() {
         window.mermaid.initialize({
           startOnLoad: false,
           theme: 'dark',
-          securityLevel: 'loose',
+          securityLevel: 'strict',
           fontFamily: 'Noto Sans KR, system-ui, sans-serif'
         });
       } catch (_) {}
@@ -261,19 +261,35 @@ function renderMarkdown(src, isFinal) {
           return '<div class="mermaid-wrap"><pre class="mermaid">' + decoded + '</pre></div>';
         });
       }
+      // Sanitize: block javascript: hrefs and inline event handlers.
+      // ADD_ATTR keeps target/loading/rel/class attributes; class names like
+      // "local-file-link" and "mermaid" survive because DOMPurify keeps class.
+      if (window.DOMPurify) {
+        html = DOMPurify.sanitize(html, {
+          ADD_ATTR: ['target', 'loading', 'rel'],
+          ALLOWED_URI_REGEXP: /^(?:https?|mailto|\/|\.\/|#)/i,
+        });
+      }
       return html;
     } catch (e) {
       console.warn('marked parse error:', e);
     }
   }
+  // Fallback: escape HTML special chars to prevent XSS.
+  function _esc(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
   let t = raw.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
     const u = absArtifact(url.trim());
-    return '<img src="' + u + '" alt="' + (alt || '') + '">';
+    return '<img src="' + _esc(u) + '" alt="' + _esc(alt) + '">';
   });
-  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => {
+    const safeHref = /^(?:javascript)/i.test(href.trim()) ? '#' : href;
+    return '<a href="' + _esc(safeHref) + '" target="_blank" rel="noopener">' + _esc(label) + '</a>';
+  });
   t = t.replace(/```([\s\S]*?)```/g, (_, code) => '<pre><code>' + code.replace(/</g,'&lt;') + '</code></pre>');
-  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
-  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/`([^`]+)`/g, (_, code) => '<code>' + _esc(code) + '</code>');
+  t = t.replace(/\*\*([^*]+)\*\*/g, (_, txt) => '<strong>' + _esc(txt) + '</strong>');
   t = t.replace(/\n/g, '<br>');
   return t;
 }

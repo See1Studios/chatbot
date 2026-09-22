@@ -209,6 +209,7 @@ function applySlashItem(item) {
 }
 
 function handleSlashKeydown(e) {
+  if (e.isComposing || e.keyCode === 229) return false;
   if (!slashMenuEl || slashMenuEl.hidden || slashVisibleItems.length === 0) return false;
   if (e.key === 'ArrowDown') {
     e.preventDefault();
