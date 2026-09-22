@@ -4589,6 +4589,8 @@ function isProviderUseBlocked(pid) {
   return Boolean(providerUseBlockedReason(pid));
 }
 
+let _authHealTried = false; // AUTH_HEAL_ONCE_v1: never yank provider while idle
+
 async function refreshProviderAuthMap() {
   try {
     const res = await api('/api/accounts');
@@ -4600,19 +4602,25 @@ async function refreshProviderAuthMap() {
     });
     providerAuthOk = map;
   } catch (_) {}
-  // Heal sticky localStorage from older AUTH_GATE builds that wrote a blocked id.
+  // AUTH_HEAL_ONCE_v1: older builds could stick localStorage on a blocked id.
+  // Heal at most once per page load — repeating this on every accounts poll
+  // yanked Agy → Grok (first still-logged-in CLI) while the user sat idle.
   const curPid = chatProvider();
-  if (curPid && providerUseBlockedReason(curPid)) {
+  if (!_authHealTried && curPid && providerUseBlockedReason(curPid)) {
+    _authHealTried = true;
     const fallback = (Array.isArray(providerCatalog) ? providerCatalog : [])
       .map(p => p.id)
       .find(id => id && !providerUseBlockedReason(id));
-    if (fallback && providerEl) {
+    if (fallback && fallback !== curPid && providerEl) {
       providerEl.value = fallback;
       localStorage.setItem('chatbot.provider', fallback);
       updateBrandAvatar(fallback);
       populateModelsForProvider(fallback);
       addActivity('대화 제공자를 사용 가능한 ' + statusProviderName(fallback) + ' 로 복구했어요 (이전 선택이 사용 제한이었습니다).');
     }
+  } else if (curPid && !providerUseBlockedReason(curPid)) {
+    // Current choice is usable again — allow a future one-shot heal if it later sticks blocked.
+    _authHealTried = false;
   }
   syncProviderUseGates();
   renderStatusPicker();
@@ -4865,39 +4873,44 @@ async function selectProvider(newProviderId) {
     return;
   }
 
-  if (providerEl) {
-    providerEl.value = newProviderId;
+  localProviderEdit++;
+  try {
+    if (providerEl) {
+      providerEl.value = newProviderId;
+    }
+    localStorage.setItem('chatbot.provider', newProviderId);
+
+    // Update theme keycolor to match provider
+    if (typeof applyTheme === 'function') {
+      applyTheme(themeForProvider(p));
+    }
+
+    // Update avatar & title
+    updateBrandAvatar(newProviderId);
+    followChatProvider();
+    populateModelsForProvider(newProviderId);
+    localStorage.setItem('chatbot.model', modelEl.value);
+    localStorage.setItem('sphereAgyModel', modelEl.value);
+    renderProviderTray();
+
+    syncProviderUseGates();
+
+    // PROVIDER_SWAP_DEFER_v1: never kill an in-flight turn just by picking a provider
+    if (typeof isBusy !== 'undefined' && isBusy) {
+      pendingProviderPersist = {
+        provider: providerEl ? providerEl.value : newProviderId,
+        model: modelEl ? modelEl.value : '',
+      };
+      addActivity('제공자 UI만 바꿈 — 진행 중 작업은 유지, 끝난 뒤·다음 메시지부터 적용: ' + (p.name || newProviderId));
+      return;
+    }
+    pendingProviderPersist = null;
+    await persistSessionProvider({
+      activity: '제공자 전환: ' + (p.name || newProviderId),
+    });
+  } finally {
+    localProviderEdit = Math.max(0, localProviderEdit - 1);
   }
-  localStorage.setItem('chatbot.provider', newProviderId);
-
-  // Update theme keycolor to match provider
-  if (typeof applyTheme === 'function') {
-    applyTheme(themeForProvider(p));
-  }
-
-  // Update avatar & title
-  updateBrandAvatar(newProviderId);
-  followChatProvider();
-  populateModelsForProvider(newProviderId);
-  localStorage.setItem('chatbot.model', modelEl.value);
-  localStorage.setItem('sphereAgyModel', modelEl.value);
-  renderProviderTray();
-
-  syncProviderUseGates();
-
-  // PROVIDER_SWAP_DEFER_v1: never kill an in-flight turn just by picking a provider
-  if (typeof isBusy !== 'undefined' && isBusy) {
-    pendingProviderPersist = {
-      provider: providerEl ? providerEl.value : newProviderId,
-      model: modelEl ? modelEl.value : '',
-    };
-    addActivity('제공자 UI만 바꿈 — 진행 중 작업은 유지, 끝난 뒤·다음 메시지부터 적용: ' + (p.name || newProviderId));
-    return;
-  }
-  pendingProviderPersist = null;
-  await persistSessionProvider({
-    activity: '제공자 전환: ' + (p.name || newProviderId),
-  });
 }
 
 async function flushPendingProviderPersist() {

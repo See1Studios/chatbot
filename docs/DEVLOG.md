@@ -1,5 +1,13 @@
 # chatbot 개발로그
 
+## 2026-09-23 — AUTH_HEAL_ONCE_v1 (Agy→Grok 자동 전환)
+
+- **배경**: 실장님 "Agy 로그인·선택 후 가만 있으면 Grok으로 바뀜". `refreshProviderAuthMap()`이 계정 폴마다 현재 제공자가 잠깐 `로그인 필요`면 카탈로그에서 첫 사용 가능 CLI(대개 로그인된 Grok)로 UI·localStorage를 바꿔 버림.
+- **변경**: `static/app.js` — 자동 복구는 페이지당 1회만(`_authHealTried`); 현재 제공자가 다시 사용 가능해지면 플래그 리셋. `selectProvider`는 `localProviderEdit`로 감싸 세션 동기화 레이스로 서버(옛 Grok) 값이 덮어쓰지 않게. `app.js?v=136`.
+- **검증**: 마커 grep. 정적 → 하드 새로고침.
+- **배포**: static only.
+
+
 ## 2026-09-23 — AGY_PASTE_CR_v1 (코드 제출 무반응)
 
 - **배경**: 실장님 "제출했는데 반응 없음". `complete()`가 OAuth 코드를 `code\n`(LF)로 PTY에 써서 agy 1.2.8 TUI 입력칸에만 들어가고 제출이 안 됨. `\r`(CR)이어야 token exchange 시작.
