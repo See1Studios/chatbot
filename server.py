@@ -225,17 +225,19 @@ class Handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
+    def do_HEAD(self) -> None:
+        self.do_GET()
+
     def _normalize_req_path(self, raw_path: str) -> str:
         """Strip proxy mount prefixes (e.g. /chat or X-Forwarded-Prefix) dynamically so routes work anywhere."""
         p = raw_path
         fwd_prefix = (self.headers.get("X-Forwarded-Prefix") or "").strip().rstrip("/")
         if fwd_prefix and p.startswith(fwd_prefix):
             p = p[len(fwd_prefix):] or "/"
-        for marker in ("/api/", "/artifacts/", "/persona/", "/healthz", "/health", "/events"):
-            idx = p.find(marker)
-            if idx > 0:
-                p = p[idx:]
-                break
+        if p.startswith("/chat/"):
+            p = p[5:]  # preserve leading slash e.g. /chat/api/... -> /api/...
+        elif p == "/chat":
+            p = "/"
         return p
 
     def do_GET(self) -> None:
