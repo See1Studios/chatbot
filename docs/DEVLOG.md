@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-09-22 — MCP 분리 leftover: 3015 healthz, nas-mcp 이름, 위임 테스트 (티켓 17)
+
+- **배경** (실장님 "빈 칸 정리 티켓"): 중앙 Host MCP(:3015) 위임 뒤 `sphere_hub_status`가 `GET /`를 헬스체크해서 자기 자신을 DOWN으로 보고, 3012 healthz도 `nas-mcp`라 이름이 겹쳤다. 위임 테스트가 없었다.
+- **변경**: 3015에 `/healthz`를 두고 그 URL을 프로브. 챗봇 MCP는 `chatbot-mcp`(:3012), 중앙은 `nas-mcp`(:3015). `service_ctl nas-mcp`는 `nas-mcp-ctl.sh`. 위임 3도구 단위 테스트.
+- **검증**: `tests.test_nas_mcp_host`, `tests.test_mcp_server`.
+- **⚡소생 필요**: `mcp_server.py`, `nas_mcp_host.py`. 3015는 `nas-mcp-ctl.sh restart` (챗봇 소생과 별개).
+
 ## 2026-09-22 — 자기진화 루프를 프로토콜까지 닫기 (티켓 15)
 
 - **배경** (실장님: 재귀는 코드만이 아니라 지침·프로토콜·파이프라인에도 닫혀야 한다. 티켓 없이 커밋/푸시, Agy done-미커밋).

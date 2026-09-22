@@ -182,8 +182,13 @@ class ServiceCtlTest(Base):
     def test_invalid_action_and_unknown_service_and_mcp_are_refused(self):
         self.assertFalse(self.call("chatbot", "nuke")["success"])
         self.assertFalse(self.call("nope", "status")["success"])
-        self.assertFalse(self.call("nas-mcp", "status")["success"])
         self.assertEqual(self.calls, [])
+
+    def test_nas_mcp_status_runs_the_host_ctl(self):
+        r = self.call("nas-mcp", "status")
+        self.assertTrue(r["success"], r)
+        self.assertEqual(self.calls[0][-1], "status")
+        self.assertTrue(self.calls[0][0].endswith("nas-mcp-ctl.sh"))
 
     def test_chatbot_status_runs_the_ctl(self):
         self.assertTrue(self.call("chatbot", "status")["success"])

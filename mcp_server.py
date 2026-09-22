@@ -541,7 +541,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = urlparse(self.path).path
         if path in ("/healthz", "/health", "/"):
-            body = json.dumps({"ok": True, "service": "nas-mcp", "port": PORT}).encode("utf-8")
+            body = json.dumps({"ok": True, "service": "chatbot-mcp", "port": PORT}).encode("utf-8")
             return self._send(200, body)
         if path in ("/mcp", "/mcp/"):
             # lightweight discovery
@@ -571,7 +571,7 @@ class Handler(BaseHTTPRequestHandler):
                 result = {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "sphere-nas-mcp", "version": "1.0.0"},
+                    "serverInfo": {"name": "chatbot-mcp", "version": "1.0.0"},
                 }
                 return self._rpc(rid, result)
             if method in ("notifications/initialized", "initialized"):
@@ -609,7 +609,7 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     TMP_ROOT.mkdir(parents=True, exist_ok=True)
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"sphere-nas-mcp on http://{HOST}:{PORT}/mcp", flush=True)
+    print(f"chatbot-mcp on http://{HOST}:{PORT}/mcp", flush=True)
 
     def _stop(*_a):
         threading.Thread(target=httpd.shutdown, daemon=True).start()
