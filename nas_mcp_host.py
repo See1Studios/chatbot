@@ -52,12 +52,13 @@ EXTRA_CMD_PREFIXES = (
 )
 
 PORT_CHAT_HINT = int(os.environ.get("AGY_CHAT_PORT", "3011"))  # informational only (list_services)
+PORT_HOST_MCP = int(os.environ.get("NAS_HOST_MCP_PORT", "3015"))
 
 # What service_ctl and list_services know about. The chatbot itself may only be asked for `status`: its lifecycle
-# is for a person (chatbot-ctl.sh repair), never for a tool.
+# is for a person (chatbot-ctl.sh repair), never for a tool. nas-mcp is the central Host MCP (:3015).
 SERVICE_CTLS = {
     "chatbot": str(SERVICES / "chatbot-ctl.sh"),
-    "nas-mcp": None,  # handled internally
+    "nas-mcp": str(SERVICES / "nas-mcp-ctl.sh"),
 }
 
 EXTRA_SERVICE_CTLS = {
@@ -69,7 +70,7 @@ EXTRA_SERVICE_LIST_ITEMS = [
 ]
 
 EXTRA_TOOL_DEFS = [
-    {"name": "ping_nas", "description": "Health ping for NAS MCP", "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "ping_nas", "description": "Health ping for chatbot MCP (:3012)", "inputSchema": {"type": "object", "properties": {}}},
     {
         "name": "list_services",
         "description": "List known Sphere/NAS service ctl scripts and ports",
@@ -568,7 +569,8 @@ def call_tool(name: str, args: dict) -> Optional[dict]:
         for n, ctl in _service_ctls().items():
             items.append({"name": n, "ctl": ctl})
         items.append({"name": "chat", "port": PORT_CHAT_HINT, "url": f"http://127.0.0.1:{PORT_CHAT_HINT}/healthz"})
-        items.append({"name": "nas-mcp", "port": _srv.PORT, "url": f"http://127.0.0.1:{_srv.PORT}/healthz"})
+        items.append({"name": "chatbot-mcp", "port": _srv.PORT, "url": f"http://127.0.0.1:{_srv.PORT}/healthz"})
+        items.append({"name": "nas-mcp", "port": PORT_HOST_MCP, "url": f"http://127.0.0.1:{PORT_HOST_MCP}/healthz"})
         items += list(EXTRA_SERVICE_LIST_ITEMS)
         return envelope(True, "ok", {"services": items})
 
@@ -577,8 +579,6 @@ def call_tool(name: str, args: dict) -> Optional[dict]:
         action = str(args.get("action") or "").strip()
         if action not in ("start", "stop", "restart", "status"):
             return envelope(False, "invalid action", None)
-        if svc in ("nas-mcp",):
-            return envelope(False, "use chatbot-ctl for mcp lifecycle", None)
         if svc == "chatbot" and action != "status":
             return envelope(False, "chatbot lifecycle is not available to tools (status only)", None)
         ctl = _service_ctls().get(svc)
@@ -596,7 +596,8 @@ def call_tool(name: str, args: dict) -> Optional[dict]:
         checks: dict = {}
         for label, url in (
             ("chat", "http://127.0.0.1:3011/healthz"),
-            ("nas_mcp", "http://127.0.0.1:3012/healthz"),
+            ("chatbot_mcp", "http://127.0.0.1:3012/healthz"),
+            ("nas_mcp", f"http://127.0.0.1:{PORT_HOST_MCP}/healthz"),
             ("namuwatcher", "http://127.0.0.1:3010/"),
         ):
             code, out, err = _srv._run(["curl", "-fsS", "-m", "3", url], timeout=5)
