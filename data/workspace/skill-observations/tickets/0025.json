@@ -1,6 +1,7 @@
 {
  "approved_at": "2026-09-22 17:11:23",
  "attempts": 1,
+ "closed_reason": "done",
  "created": "2026-09-22 17:11:04",
  "evidence": [
   "candidate:1790060981.715"
@@ -17,10 +18,20 @@
    "by": "agent",
    "text": "claimed (attempt 1/3)",
    "ts": "2026-09-22 17:11:53"
+  },
+  {
+   "by": "agent",
+   "text": "done: done: audit T1-T4 work orders cleanly committed in a993603; all 689 unit tests pass; guard_tickets OK",
+   "ts": "2026-09-22 17:12:52"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-22 17:12:52"
   }
  ],
- "status": "in_progress",
+ "status": "done",
  "target": "audit-2026-09-22",
  "title": "보안·안정성·구조 정리 (T1–T4 Audit & Direction 실행)",
- "updated": "2026-09-22 17:11:53"
+ "updated": "2026-09-22 17:12:52"
 }
