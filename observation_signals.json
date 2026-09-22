@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "notes": "Owned by the human operator. Decides which finished turns become observation candidates (data/workspace/skill-observations/candidates.jsonl). Regular expressions, matched case-insensitively against the user's message of the turn. A message starting with an 'ignore_user_prefixes' entry is never a candidate (host self-tests).",
+  "correction": [
+    "^\\s*아니[\\s,.!?]",
+    "왜\\s*안",
+    "망가",
+    "안\\s*(되|돼)",
+    "틀렸",
+    "잘못",
+    "다시\\s*해",
+    "고장",
+    "버그"
+  ],
+  "ignore_user_prefixes": [
+    "[doctor-probe]"
+  ]
+}

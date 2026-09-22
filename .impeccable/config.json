@@ -1,0 +1,66 @@
+{
+  "buildPath": "comp",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "static/index.html"
+        ],
+        "createdAt": "2026-09-17T12:52:08.043Z",
+        "reason": "proc-badge .dot only pulses in the 'running' state, which mirrors the agent process's real busy/idle transition pushed live over SSE -- matches the hook's own stated exception for indicators tied to genuinely live, changing data (Claude judgment, 2026-09-17)"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "static/app.js"
+        ],
+        "createdAt": "2026-09-17T17:30:24.173Z",
+        "reason": "L852 is a JS regex string literal (html.replace(/<img\\\\s+.../) rewriting artifact URLs to add loading=lazy) matching the literal text '<img', not an actual rendered image tag with empty/placeholder src -- verified during /impeccable audit 2026-09-18 (Claude judgment)"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "static/index.html"
+        ],
+        "createdAt": "2026-09-17T17:30:24.203Z",
+        "reason": "accent-glow is a CSS custom-property token (--accent-glow) applied consistently across all 5 selectable theme variants (lime/orange/blue/green/purple) for hover/focus/badge states, not ad-hoc AI-slop -- verified during /impeccable audit 2026-09-18 (Claude judgment); flagged as P3 in that audit with /impeccable quieter offered as an optional alternative if 실장님 wants a different aesthetic later, not a hard defect"
+      },
+      {
+        "rule": "clipped-overflow-container",
+        "value": "*",
+        "files": [
+          "static/index.html"
+        ],
+        "createdAt": "2026-09-18T09:28:38.359Z",
+        "reason": "Agent: .wrap overflow:hidden is the mobile 100dvh chat shell (prevents page bounce); provider tray is overflow:visible. Not introduced by the Antigravity caption rename."
+      },
+      {
+        "rule": "undersized-ui-text",
+        "value": "*",
+        "files": [
+          "/volume1/homes/me/services/chatbot/static/index.html"
+        ],
+        "createdAt": "2026-09-18T14:49:16.642Z",
+        "reason": "user confirmed: pre-existing mobile-narrow-viewport space constraints (header .sub caption, #model dropdown, provider tooltip, code-lang badge), predates this session, out of scope for today's host-portability task"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "sfmono-regular",
+        "createdAt": "2026-09-18T17:56:15.342Z",
+        "reason": "DESIGN.md Label/Mono stack already lists SFMono-Regular with ui-monospace/Menlo/Consolas"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "consolas",
+        "createdAt": "2026-09-18T17:57:37.458Z",
+        "reason": "DESIGN.md Label/Mono stack already lists Consolas with ui-monospace/Menlo"
+      }
+    ]
+  }
+}

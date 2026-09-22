@@ -1,0 +1,27 @@
+{
+ "id": 6,
+ "title": "루프 가드 정밀화 및 반복 호출 시 임계치 강화/통지 연동",
+ "target": "services/chatbot/loop_guard.py",
+ "evidence": [
+  "candidate:1789920915.53"
+ ],
+ "status": "done",
+ "attempts": 1,
+ "gate_failures": 0,
+ "created": "2026-09-21 14:00:00",
+ "approved_at": "2026-09-21 23:14:18",
+ "closed_reason": "done",
+ "notes": [
+  {
+   "by": "operator (chat)",
+   "text": "approved (retroactive 추인)",
+   "ts": "2026-09-21 23:14:18"
+  },
+  {
+   "by": "agent",
+   "text": "done: loop guard notices & tightened threshold (commits: 08fa8819, 5de9acb5)",
+   "ts": "2026-09-21 23:14:18"
+  }
+ ],
+ "updated": "2026-09-21 23:14:18"
+}

@@ -1,0 +1,47 @@
+/* Sphere shared theme — keep hub / lore / tech / art in one visual system */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap");
+
+:root {
+  --bg: #0f1115;
+  --bg-elev: #1a1d24;
+  --bg-card: #22262f;
+  --bg-subtle: #1a1d24;
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #e8eaed;
+  --text-muted: #9aa0a6;
+  --accent: #ff8a50;
+  --accent-2: #ffb300;
+  --accent-bright: #ffa657;
+  --accent-soft: rgba(255, 138, 80, 0.15);
+  --radius: 12px;
+  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Noto Sans KR", sans-serif;
+  --font-mono: "D2 coding", D2Coding, "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --content-max: 1040px;
+  --status-ok: #3fb950;
+  --status-warn: #d29922;
+  --status-bad: #f85149;
+}
+
+html {
+  color-scheme: dark;
+  /* Reserve scrollbar lane so hub↔axis navigation doesn't shift the sticky nav */
+  scrollbar-gutter: stable;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Align content width across faces (nav already uses 1040) */
+.wrap,
+main {
+  max-width: var(--content-max);
+  margin-left: auto;
+  margin-right: auto;
+}

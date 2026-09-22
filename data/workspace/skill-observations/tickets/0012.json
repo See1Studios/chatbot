@@ -1,0 +1,39 @@
+{
+ "approved_at": "2026-09-21 23:37:57",
+ "attempts": 1,
+ "closed_reason": "done",
+ "created": "2026-09-21 23:35:26",
+ "evidence": [
+  "event:20260921-231706-9de01e#20",
+  "event:20260921-232655-6accef#6",
+  "event:20260921-232655-6accef#8"
+ ],
+ "gate_failures": 0,
+ "id": 12,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-21 23:37:57"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3)",
+   "ts": "2026-09-21 23:38:14"
+  },
+  {
+   "by": "agent",
+   "text": "done: app.js only: hard-rotate SSE를 successor로 즉시 이동, 막힌 resync 잠금 해제, history의 최신 assistant 미그림 시 강제 페인트, heartbeat는 답이 화면에 있을 때까지 busy 유지. test_sse_resync_dedupe 12개·smoke 7개 OK. 정적만 — Ctrl+Shift+R.",
+   "ts": "2026-09-21 23:46:25"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-21 23:46:25"
+  }
+ ],
+ "status": "done",
+ "target": "services/chatbot/static/app.js",
+ "title": "세션 회전 후 답변이 히스토리에 있어도 보던 창에 안 나오고 새로고침에서만 보임",
+ "updated": "2026-09-21 23:46:25"
+}

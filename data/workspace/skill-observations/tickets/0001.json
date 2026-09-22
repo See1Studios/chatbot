@@ -1,0 +1,43 @@
+{
+ "approved_at": "2026-09-20 22:04:49",
+ "attempts": 1,
+ "closed_reason": "done",
+ "created": "2026-09-20 22:04:40",
+ "evidence": [
+  "event:20260920-183417-e23e3c#103",
+  "event:20260920-183417-e23e3c#105"
+ ],
+ "gate_failures": 0,
+ "id": 1,
+ "notes": [
+  {
+   "by": "operator",
+   "text": "approved",
+   "ts": "2026-09-20 22:04:49"
+  },
+  {
+   "by": "host",
+   "text": "The approval above was recorded by the assistant on the operator's explicit chat instruction ('그래 승인'), before the terminal gate existed. The operator also pressed '티켓 승인 및 착수' in chat (event #105).",
+   "ts": "2026-09-20 22:14:03"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3)",
+   "ts": "2026-09-21 01:46:54"
+  },
+  {
+   "by": "agent",
+   "text": "done: Implemented browser client device context (GPS, timezone, device type) binding with UI toggle and compact prompt injection. All 621 tests passing and guard_rlock verified.",
+   "ts": "2026-09-21 02:05:39"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-21 02:05:39"
+  }
+ ],
+ "status": "done",
+ "target": "client-device-context",
+ "title": "Bind browser-side device context (GPS, timezone, device type) into the conversation",
+ "updated": "2026-09-21 02:05:39"
+}

@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "notes": "Owned by the human operator. The modules that make up the core (docs/plans/recursive-self-evolution.md P3): they may import only the standard library and each other, and they must keep working with every layer (skills, tool server, HTTP server, provider adapters) absent. tests/test_core_standalone.py enforces both. Every other top-level module is a layer.",
+  "core": ["evolution", "observations", "tickets", "memory_store"]
+}
