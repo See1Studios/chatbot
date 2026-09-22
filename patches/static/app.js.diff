@@ -1,0 +1,60 @@
+--- static/app.js
++++ static/app.js
+@@ -2143,6 +2143,30 @@
+   return item;
+ }
+ 
++
++async function logoutAccount(provider, email, btn) {
++  const label = statusProviderName(provider) || provider;
++  const who = email ? (' (' + email + ')') : '';
++  if (!confirm(label + who + ' 에서 로그아웃할까요?\n\n이 호스트의 해당 CLI 인증이 해제됩니다. 진행 중인 대화가 있으면 프로세스를 다시 띄워야 할 수 있어요.')) {
++    return;
++  }
++  if (btn) btn.disabled = true;
++  try {
++    const r = await api('/api/accounts/logout', {
++      method: 'POST',
++      body: JSON.stringify({ provider }),
++    });
++    if (r.note || r.message_ko) {
++      alert(r.note || r.message_ko);
++    } else if (!r.ok) {
++      alert('로그아웃 실패: ' + (r.error || 'unknown'));
++    }
++  } catch (e) {
++    alert('로그아웃 실패: ' + e.message);
++  }
++  fetchAccounts();
++}
++
+ // 계정: 현재 로그인 + 마지막 계정 변경 + (agy) 자동 재시작 기록
+ function renderAccounts(res, provider) {
+   if (!statusAccountsEl) return;
+@@ -2179,6 +2203,26 @@
+     chg.textContent = '계정 변경 관측: ' + pv.changed_from + ' → ' + (cur.email || '?') + ' (' + when(pv.changed_at) + ')';
+     box.appendChild(chg);
+   }
++  // Logout-only for now (login UI is a follow-up). Providers: agy/claude/codex/grok.
++  // Agy login later: Google OAuth URL + code paste; Claude: browser OAuth;
++  // Grok/Codex: device-auth / API key.
++  const actions = document.createElement('div');
++  actions.className = 'status-item-actions';
++  if (cur.ok) {
++    const logoutBtn = document.createElement('button');
++    logoutBtn.type = 'button';
++    logoutBtn.className = 'danger';
++    logoutBtn.textContent = '로그아웃';
++    logoutBtn.title = statusProviderName(provider) + ' CLI 로그아웃';
++    logoutBtn.addEventListener('click', () => logoutAccount(provider, cur.email, logoutBtn));
++    actions.appendChild(logoutBtn);
++  } else {
++    const loginHint = document.createElement('span');
++    loginHint.className = 'status-hint';
++    loginHint.textContent = '로그인 UI는 곧 추가됩니다 (지금은 CLI에서 로그인).';
++    actions.appendChild(loginHint);
++  }
++  box.appendChild(actions);
+   statusAccountsEl.appendChild(box);
+ 
+   const auto = res.auto_recycle || {};
