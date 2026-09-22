@@ -1,0 +1,36 @@
+{
+ "approved_at": "2026-09-22 17:43:58",
+ "attempts": 1,
+ "created": "2026-09-22 17:43:10",
+ "evidence": [
+  "candidate:1790066156.471"
+ ],
+ "gate_failures": 0,
+ "id": 26,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-22 17:43:58"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3); paths: chatbot-ctl.sh, server.py, session.py, adapters.py, static/markdown.js, static/vendor/purify.min.js, .gitignore, tests/test_lifecycle.py",
+   "ts": "2026-09-22 17:44:09"
+  }
+ ],
+ "paths": [
+  "chatbot-ctl.sh",
+  "server.py",
+  "session.py",
+  "adapters.py",
+  "static/markdown.js",
+  "static/vendor/purify.min.js",
+  ".gitignore",
+  "tests/test_lifecycle.py"
+ ],
+ "status": "in_progress",
+ "target": "chatbot-ctl.sh, server.py, session.py, adapters.py, static/markdown.js, static/v",
+ "title": "2차 감사 blocker·partial 수정 (B1 probe origin / B2 DOMPurify 커밋 / P1 reap evict / P2 delta offset)",
+ "updated": "2026-09-22 17:44:09"
+}

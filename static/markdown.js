@@ -269,6 +269,11 @@ function renderMarkdown(src, isFinal) {
           ADD_ATTR: ['target', 'loading', 'rel'],
           ALLOWED_URI_REGEXP: /^(?:https?|mailto|\/|\.\/|#)/i,
         });
+      } else {
+        // DOMPurify absent (vendor file missing): refuse to inject unsanitized
+        // HTML — fall back to escaped plain text so XSS is impossible.
+        console.warn('renderMarkdown: DOMPurify not loaded; falling back to plain-text escape.');
+        return html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       }
       return html;
     } catch (e) {

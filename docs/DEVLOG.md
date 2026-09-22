@@ -1,6 +1,16 @@
 # chatbot 개발로그
 
+## 2026-09-22 — 2차 감사 recheck 수정 (티켓 #26: B1 probe origin / B2 DOMPurify 커밋 / P1 reap evict / P2 delta offset)
+- **배경**: `docs/plans/audit-2026-09-22-recheck.md` 결과 반영. commit a993603(티켓 #25) 재검증 후 블로커·부분구현 4건 확인.
+- **B1 (chatbot-ctl.sh probe 403 차단)**: `probe_message`의 `req()`에 `Origin: http://127.0.0.1:{port}` 헤더 추가. `Content-Type`도 body 있을 때만 설정하도록 정리.
+- **B2 (DOMPurify 미포함 → T1.2 무효)**: `.gitignore`에 `!static/vendor/purify.min.js` 예외 추가(커밋 가능). `markdown.js`: DOMPurify 없을 시 silent pass-through → 전체 HTML escape fallback으로 강경화(`console.warn` 포함). `index.html` cache-buster `markdown.js?v=9`.
+- **P1 (_reap_sessions idle evict 미구현)**: `session.py` `_reap_sessions`: idle 15분 초과 프로세스 종료 후 `REG.sessions.pop(sess.sid)`로 메모리 eviction 추가.
+- **P2 (delta offset pre-rewrite 계산 오류)**: `adapters.py` 전 어댑터(Agy, Claude, Grok, OpenAIDialect): `current_text` 누적 및 `offset` 계산을 `_rewrite_artifact_paths` 적용 이후로 이동. 클라이언트 `assistantBuf` 길이와 서버 offset이 경로 치환 시에도 일치.
+- **검증**: `python3 -m py_compile` PASS; `python3 -m unittest discover -s tests` 전체 통과.
+- **배포**: python → needs ⚡소생
+
 ## 2026-09-22 — 보안·안정성·구조 정리 (T1–T4 Audit & Direction 실행)
+
 - **배경**: `docs/plans/audit-2026-09-22-work-ordered.md`에 따른 전면 점검 및 Tier 1~4 순차 작업 수행.
 - **주요 변경 사항**:
   - **Tier 1 (보안 & 격리)**:
