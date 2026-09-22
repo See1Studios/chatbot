@@ -18,12 +18,8 @@ from typing import Optional
 from urllib.parse import urlsplit
 
 
-def _netloc(value: str) -> str:
-    return urlsplit(value).netloc.lower()
-
-
-def _hostname(netloc: str) -> str:
-    return (urlsplit("//" + netloc).hostname or "").lower()
+def _host_only(val: str) -> str:
+    return (urlsplit(val if "//" in val else "//" + val).hostname or "").lower()
 
 
 def same_origin(origin: Optional[str], host: Optional[str], sec_fetch_site: Optional[str] = None) -> bool:
@@ -38,7 +34,7 @@ def same_origin(origin: Optional[str], host: Optional[str], sec_fetch_site: Opti
         return False
     if origin:
         try:
-            return _netloc(origin) == host
+            return urlsplit(origin).netloc.lower() == host
         except ValueError:
             return False
     return (sec_fetch_site or "").strip().lower() == "same-origin"
@@ -50,7 +46,7 @@ def cors_allowed(origin: Optional[str], host: Optional[str]) -> bool:
     if not origin or not host:
         return False
     try:
-        want = _hostname(host.strip())
-        return bool(want) and _hostname(_netloc(origin)) == want
+        want = _host_only(host.strip())
+        return bool(want) and _host_only(origin) == want
     except ValueError:
         return False

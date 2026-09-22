@@ -1,0 +1,32 @@
+{
+ "approved_at": "2026-09-22 14:00:43",
+ "attempts": 1,
+ "closed_reason": "done",
+ "created": "2026-09-22 13:49:03",
+ "evidence": [
+  "event:20260922-134424-7f1357#1"
+ ],
+ "gate_failures": 0,
+ "id": 19,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-22 14:00:43"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3)",
+   "ts": "2026-09-22 14:05:26"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-22 14:08:37"
+  }
+ ],
+ "status": "done",
+ "target": "services/chatbot/static/app.js",
+ "title": "Funnel /chat 마운트 API 기본 경로 수정",
+ "updated": "2026-09-22 14:08:37"
+}
