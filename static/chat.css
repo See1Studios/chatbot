@@ -1379,14 +1379,14 @@ header .avatar:active{
   .composer::after{
     display:none;
   }
-  /* 40x40 슬림 컴포저 위젯 일관화 (#23)
-     #slashBtn, #modelBtn, #geoBtn, #send는 40x40, #input도 min-height:40px/height:40px로 통일 */
+  /* 36x36 밸런스 슬림 컴포저 위젯 통일 (#24)
+     #slashBtn, #modelBtn, #geoBtn, #send는 36px, #input도 min-height:36px/height:36px로 통일 */
   #slashBtn{
     order:1;
-    width:40px;
-    min-width:40px;
-    height:40px;
-    font-size:1rem;
+    width:36px;
+    min-width:36px;
+    height:36px;
+    font-size:.92rem;
     border-radius:8px;
     padding:0 !important;
     flex-shrink:0;
@@ -1399,18 +1399,18 @@ header .avatar:active{
   }
   #modelBtn{
     order:2;
-    width:40px;
-    min-width:40px;
-    height:40px;
+    width:36px;
+    min-width:36px;
+    height:36px;
     border-radius:8px;
     padding:0 !important;
     flex-shrink:0;
   }
   #geoBtn{
     order:3;
-    width:40px;
-    min-width:40px;
-    height:40px;
+    width:36px;
+    min-width:36px;
+    height:36px;
     border-radius:8px;
     padding:0 !important;
     flex-shrink:0;
@@ -1419,22 +1419,22 @@ header .avatar:active{
     order:4;
     flex:1 1 auto;
     min-width:0;
-    min-height:40px;
-    height:40px;
+    min-height:36px;
+    height:36px;
     max-height:80px;
-    padding:.48rem .55rem;
+    padding:.42rem .55rem;
     font-size:15px;
     line-height:1.35;
     border-radius:8px;
   }
   textarea::placeholder{
     font-size:.78rem;
-    line-height:22px;
+    line-height:20px;
   }
   #send{
     order:5;
-    height:40px;
-    padding:0 .65rem;
+    height:36px;
+    padding:0 .6rem;
     font-size:.8rem;
     border-radius:8px;
     flex-shrink:0;
