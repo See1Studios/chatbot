@@ -1379,15 +1379,13 @@ header .avatar:active{
   .composer::after{
     display:none;
   }
-  /* 44x44 (2026-09-18 audit P1: 34x36 was under the ~44px touch-target
-     floor) -- #input stays at 36px since align-items:flex-end already
-     bottom-aligns mismatched-height row children fine. #modelBtn is the
-     same 44px; it replaced the 58px model <select> (실장님: 폭을 차지). */
+  /* 40x40 슬림 컴포저 위젯 일관화 (#23)
+     #slashBtn, #modelBtn, #geoBtn, #send는 40x40, #input도 min-height:40px/height:40px로 통일 */
   #slashBtn{
     order:1;
-    width:44px;
-    min-width:44px;
-    height:44px;
+    width:40px;
+    min-width:40px;
+    height:40px;
     font-size:1rem;
     border-radius:8px;
     padding:0 !important;
@@ -1401,33 +1399,42 @@ header .avatar:active{
   }
   #modelBtn{
     order:2;
-    width:44px;
-    min-width:44px;
-    height:44px;
+    width:40px;
+    min-width:40px;
+    height:40px;
+    border-radius:8px;
+    padding:0 !important;
+    flex-shrink:0;
+  }
+  #geoBtn{
+    order:3;
+    width:40px;
+    min-width:40px;
+    height:40px;
     border-radius:8px;
     padding:0 !important;
     flex-shrink:0;
   }
   #input{
-    order:3;
+    order:4;
     flex:1 1 auto;
     min-width:0;
-    min-height:36px;
-    height:36px;
+    min-height:40px;
+    height:40px;
     max-height:80px;
-    padding:.42rem .55rem;
+    padding:.48rem .55rem;
     font-size:15px;
     line-height:1.35;
     border-radius:8px;
   }
   textarea::placeholder{
     font-size:.78rem;
-    line-height:20px;
+    line-height:22px;
   }
   #send{
-    order:4;
-    height:44px;
-    padding:0 .55rem;
+    order:5;
+    height:40px;
+    padding:0 .65rem;
     font-size:.8rem;
     border-radius:8px;
     flex-shrink:0;
