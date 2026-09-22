@@ -1,0 +1,50 @@
+{
+ "approved_at": "2026-09-23 01:57:49",
+ "attempts": 1,
+ "closed_reason": "done",
+ "created": "2026-09-23 01:57:49",
+ "evidence": [
+  "candidate:1790096269.276"
+ ],
+ "gate_failures": 0,
+ "id": 30,
+ "notes": [
+  {
+   "by": "operator (api)",
+   "text": "approved",
+   "ts": "2026-09-23 01:57:49"
+  },
+  {
+   "by": "agent",
+   "text": "claim refused: uncommitted leftover in account_login.py",
+   "ts": "2026-09-23 01:57:49"
+  },
+  {
+   "by": "agent",
+   "text": "claim refused: uncommitted leftover in account_login.py",
+   "ts": "2026-09-23 01:58:23"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3); paths: account_login.py",
+   "ts": "2026-09-23 01:58:33"
+  },
+  {
+   "by": "agent",
+   "text": "done: AGY_LOGIN_TUI_v1 live smoke OK",
+   "ts": "2026-09-23 01:58:33"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-23 01:58:33"
+  }
+ ],
+ "paths": [
+  "account_login.py"
+ ],
+ "status": "done",
+ "target": "account_login.py",
+ "title": "AGY_LOGIN_TUI_v1: agy 1.2.8 interactive OAuth login",
+ "updated": "2026-09-23 01:58:33"
+}
