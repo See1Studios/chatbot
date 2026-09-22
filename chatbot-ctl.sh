@@ -330,8 +330,10 @@ port = int(sys.argv[1]); timeout = float(sys.argv[2])
 base = f"http://127.0.0.1:{port}"
 def req(method, path, body=None, timeout=timeout):
     data = None if body is None else json.dumps(body).encode()
-    r = urllib.request.Request(base+path, data=data, method=method,
-        headers={"Content-Type":"application/json"} if body is not None else {})
+    hdrs = {"Origin": f"http://127.0.0.1:{port}"}
+    if body is not None:
+        hdrs["Content-Type"] = "application/json"
+    r = urllib.request.Request(base+path, data=data, method=method, headers=hdrs)
     with urllib.request.urlopen(r, timeout=timeout) as resp:
         return resp.status, json.loads(resp.read().decode() or "{}")
 sid = None

@@ -4,6 +4,7 @@ __pycache__/
 *.log
 *.pid
 static/vendor/*.min.js
+!static/vendor/purify.min.js
 server.py.candidate
 static/index.html.candidate
 static/app.js.candidate

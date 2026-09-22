@@ -2199,6 +2199,9 @@ def _reap_sessions() -> None:
                                 proc.wait(timeout=1)
                             except Exception:
                                 pass
+                        # Evict from registry so the object can be GC'd.
+                        with REG.lock:
+                            REG.sessions.pop(sess.sid, None)
                     else:
                         live_pids.append(sess.proc.pid)
                 else:

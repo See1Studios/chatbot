@@ -312,13 +312,12 @@ class AgyAdapter(AgentAdapter):
 
         ev = obj.get("event") or obj.get("type") or "message"
         text = ""
-        delta_offset = None
+        is_delta = False
         step = obj.get("step_update")
         if isinstance(step, dict) and step.get("step_type") == "agent_response" and isinstance(step.get("text_delta"), str):
             text = step.get("text_delta") or ""
             ev = "delta"
-            delta_offset = len(session.current_text or "")
-            session.current_text += text
+            is_delta = True
         if isinstance(obj.get("text"), str) and not text:
             text = obj["text"]
         msg = obj.get("message")
@@ -339,11 +338,17 @@ class AgyAdapter(AgentAdapter):
         if isinstance(delta, dict) and delta.get("text"):
             text = str(delta.get("text"))
             ev = "delta"
-            delta_offset = len(session.current_text or "")
-            session.current_text += text
+            is_delta = True
 
         if text:
             text = session._rewrite_artifact_paths(text)
+
+        # Compute delta_offset AFTER rewrite so the client assistantBuf index
+        # matches the server-side rewritten-length counter (P2 fix).
+        delta_offset = None
+        if is_delta and text is not None:
+            delta_offset = len(session.current_text or "")
+            session.current_text = (session.current_text or "") + text
 
         if ev == "result":
             res_obj = obj.get("result") if isinstance(obj.get("result"), dict) else {}
@@ -532,9 +537,10 @@ class ClaudeAdapter(AgentAdapter):
             if ev.get("type") == "content_block_delta" and delta.get("type") == "text_delta":
                 text = delta.get("text") or ""
                 if text:
+                    rewritten = session._rewrite_artifact_paths(text)
                     offset = len(session.current_text or "")
-                    session.current_text += text
-                    return [{"event": "delta", "text": session._rewrite_artifact_paths(text), "offset": offset, "raw_event": "delta"}]
+                    session.current_text = (session.current_text or "") + rewritten
+                    return [{"event": "delta", "text": rewritten, "offset": offset, "raw_event": "delta"}]
             return []
 
         # 3. assistant -- whole message; tool_use calls live here. content[].type=="text"
@@ -1073,8 +1079,9 @@ class GrokAdapter(AgentAdapter):
             if not text:
                 return []
             offset = len(session.current_text or "")
-            session.current_text += text
-            return [{"event": "delta", "text": session._rewrite_artifact_paths(text), "offset": offset, "raw_event": "delta"}]
+            rewritten = session._rewrite_artifact_paths(text)
+            session.current_text = (session.current_text or "") + rewritten
+            return [{"event": "delta", "text": rewritten, "offset": offset, "raw_event": "delta"}]
 
         if kind == "tool_call":
             name, args = _grok_tool_display(obj)
@@ -1345,8 +1352,9 @@ class CodexAdapter(AgentAdapter):
                 # streamed deltas -- accumulate the same way regardless, in
                 # case a longer answer ever splits into more than one.
                 offset = len(session.current_text or "")
-                session.current_text += text
-                return [{"event": "delta", "text": session._rewrite_artifact_paths(text), "offset": offset, "raw_event": "delta"}]
+                rewritten = session._rewrite_artifact_paths(text)
+                session.current_text = (session.current_text or "") + rewritten
+                return [{"event": "delta", "text": rewritten, "offset": offset, "raw_event": "delta"}]
             if itype == "mcp_tool_call":
                 name = str(item.get("tool") or "tool")
                 server = item.get("server")
