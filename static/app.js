@@ -35,6 +35,7 @@ let historyLoadHoldUntil = 0;
 const GEO_ENABLED_KEY = 'chatbot.geoEnabled';
 let geoEnabled = localStorage.getItem(GEO_ENABLED_KEY) === 'true';
 let cachedCoords = null;
+let coordPromise = null;
 
 function updateGeoButtonState() {
   if (!geoBtn) return;
@@ -46,20 +47,27 @@ function updateGeoButtonState() {
 }
 
 function fetchCoordinates() {
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      cachedCoords = {
-        lat: Number(pos.coords.latitude.toFixed(4)),
-        lon: Number(pos.coords.longitude.toFixed(4)),
-      };
-    },
-    err => {
-      // Permission denied or unavailable; keep fallback or null
-      cachedCoords = null;
-    },
-    { timeout: 5000, maximumAge: 60000 }
-  );
+  if (!navigator.geolocation) return Promise.resolve(null);
+  if (coordPromise) return coordPromise;
+  coordPromise = new Promise(resolve => {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        cachedCoords = {
+          lat: Number(pos.coords.latitude.toFixed(4)),
+          lon: Number(pos.coords.longitude.toFixed(4)),
+        };
+        coordPromise = null;
+        resolve(cachedCoords);
+      },
+      err => {
+        cachedCoords = null;
+        coordPromise = null;
+        resolve(null);
+      },
+      { timeout: 5000, maximumAge: 60000 }
+    );
+  });
+  return coordPromise;
 }
 
 if (geoBtn) {
@@ -76,13 +84,21 @@ if (geoBtn) {
       addActivity('기기 환경 및 위치 정보 동기화 켜짐 📍');
     } else {
       cachedCoords = null;
+      coordPromise = null;
       addActivity('기기 환경 및 위치 정보 동기화 꺼짐');
     }
   });
 }
 
-function getClientContext() {
+async function getClientContext() {
   if (!geoEnabled) return null;
+  if (!cachedCoords && coordPromise) {
+    // Wait up to 1000ms for active geolocation fetch to finish
+    await Promise.race([
+      coordPromise,
+      new Promise(r => setTimeout(r, 1000))
+    ]);
+  }
   const isMobile = Boolean(/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   let timezone = '';
   try {
@@ -3871,7 +3887,7 @@ async function send() {
       lastServerProvider,
       lastServerModel
     ));
-    const ctx = getClientContext();
+    const ctx = await getClientContext();
     if (ctx) payload.client_context = ctx;
     const msgRes = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/message', {
       method:'POST',
