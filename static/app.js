@@ -2273,11 +2273,17 @@ async function fetchAccounts() {
   if (!statusAccountsEl) return;
   const provider = currentStatusProvider();
   if (statusProviderTitleEl) statusProviderTitleEl.textContent = statusProviderName(provider) + (statusViewProvider ? ' · 대화와 다른 제공자' : '');
+  // LOGIN_PASTE_KEEP_v2: detach in-flight login panel before wipe so paste/URL survive refresh.
+  const keepLogin = statusAccountsEl.querySelector('.login-panel[data-provider="' + provider + '"]');
+  if (keepLogin) keepLogin.remove();
   statusAccountsEl.innerHTML = '<div class="status-hint">불러오는 중…</div>';
   try {
     const res = await api('/api/accounts?provider=' + encodeURIComponent(provider));
     if (currentStatusProvider() !== provider) return;  // 응답이 늦는 사이 프로바이더가 바뀜
     renderAccounts(res, provider);
+    if (keepLogin && (_loginPollTimers[provider] || ((_loginPanelState[provider] || {}).state === 'pending'))) {
+      statusAccountsEl.appendChild(keepLogin);
+    }
   } catch (e) {
     statusAccountsEl.innerHTML = '<div class="status-hint">계정 정보 로드 실패: ' + escapeHtml(e.message) + '</div>';
     if (statusProcsEl) statusProcsEl.hidden = true;
@@ -2350,7 +2356,21 @@ function renderLoginFields(panel, st) {
   const msgEl = panel.querySelector('.login-panel-msg');
   const errEl = panel.querySelector('.login-panel-err');
   if (!fields) return;
-  fields.innerHTML = '';
+  // LOGIN_PASTE_KEEP_v2: 2s status poll must not wipe an in-progress paste.
+  const prevInput = fields.querySelector('.login-code-input');
+  const keepPaste = {
+    value: prevInput ? prevInput.value : '',
+    focused: !!(prevInput && document.activeElement === prevInput),
+    selStart: prevInput ? prevInput.selectionStart : null,
+    selEnd: prevInput ? prevInput.selectionEnd : null,
+  };
+  const samePending = (
+    st.state === 'pending'
+    && st.mode === 'oauth_paste'
+    && panel.dataset.loginId === String(st.login_id || '')
+    && panel.dataset.authUrl === String(st.authorize_url || '')
+    && !!prevInput
+  );
   if (modeEl) modeEl.textContent = st.mode ? ('· ' + loginModeHint(st.mode)) : '';
   if (msgEl) msgEl.textContent = st.message_ko || '';
   if (errEl) {
@@ -2362,6 +2382,13 @@ function renderLoginFields(panel, st) {
       errEl.textContent = '';
     }
   }
+  if (samePending) {
+    // URL/login_id unchanged — leave the paste row alone.
+    return;
+  }
+  fields.innerHTML = '';
+  panel.dataset.loginId = String(st.login_id || '');
+  panel.dataset.authUrl = String(st.authorize_url || '');
 
   const addCopyRow = (label, value, isUrl) => {
     if (!value) return;
@@ -2439,9 +2466,18 @@ function renderLoginFields(panel, st) {
     input.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') { ev.preventDefault(); doSubmit(); }
     });
+    if (keepPaste.value) input.value = keepPaste.value;
     row.appendChild(input);
     row.appendChild(submit);
     fields.appendChild(row);
+    if (keepPaste.focused) {
+      input.focus();
+      try {
+        if (keepPaste.selStart != null && keepPaste.selEnd != null) {
+          input.setSelectionRange(keepPaste.selStart, keepPaste.selEnd);
+        }
+      } catch (e) {}
+    }
   }
 }
 

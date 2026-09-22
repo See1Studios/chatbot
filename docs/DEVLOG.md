@@ -1,5 +1,13 @@
 # chatbot 개발로그
 
+## 2026-09-23 — LOGIN_PASTE_KEEP_v2 (OAuth 코드 붙여넣기 리셋)
+
+- **배경**: 실장님 "또 붙여넣으니 리셋". Agy 로그인 pending 중 2초 `startLoginPoll`이 `renderLoginFields`로 입력칸을 매번 재생성하고, `fetchAccounts`가 `.login-panel`까지 `innerHTML`로 날림.
+- **변경**: `static/app.js` — pending+동일 login_id/URL이면 paste row 유지; 재생성 시에도 value/selection/focus 복원; `fetchAccounts`는 진행 중 로그인 패널을 detach 후 다시 붙임. `index.html` `app.js?v=134`.
+- **검증**: 마커 grep. 정적 배포 → 하드 새로고침.
+- **배포**: static only (repair 불필요).
+
+
 ## 2026-09-23 — AGY_LOGIN_TUI_v1 (agy 1.2.8 로그인 URL 즉시 실패 수정)
 
 - **배경**: 실장님 "agy 로그인 주소 안 뜨고 바로 실패". `agy` 1.2.8이 `auth login` 서브커맨드를 제거해 `agy auth login`이 프롬프트로 오인되며 즉시 exit.
