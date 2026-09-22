@@ -1,0 +1,90 @@
+--- tests/test_accounts.py
++++ tests/test_accounts.py
+@@ -241,3 +241,87 @@
+ 
+ if __name__ == "__main__":
+     unittest.main()
++
++
++class LogoutTest(Base):
++    """Dry logout wiring — never calls real CLIs; uses mocks / temp token files."""
++
++    def setUp(self):
++        super().setUp()
++        self.orig_run = accounts._run_cli_logout
++        self.cli_calls = []
++
++        def fake_cli(argv, timeout=45):
++            self.cli_calls.append(list(argv))
++            return True, "mocked ok"
++
++        accounts._run_cli_logout = fake_cli
++
++    def tearDown(self):
++        accounts._run_cli_logout = self.orig_run
++        super().tearDown()
++
++    def test_unknown_provider_errors(self):
++        r = accounts.logout("nope")
++        self.assertFalse(r["ok"])
++        self.assertIn("unknown provider", r["error"])
++        self.assertIsNone(r["method"])
++
++    def test_agy_renames_token_and_reports_email_before(self):
++        self.assertTrue(accounts.AGY_TOKEN.exists())
++        r = accounts.logout("agy")
++        self.assertTrue(r["ok"])
++        self.assertEqual(r["email_before"], NEW)
++        self.assertEqual(r["method"], "renamed_token")
++        self.assertFalse(accounts.AGY_TOKEN.exists())
++        bak = Path(str(r["detail"]).replace("~", str(Path.home())))
++        # detail is short path; find bak beside AGY_TOKEN parent
++        baks = list(accounts.AGY_TOKEN.parent.glob("agy-token.bak-*"))
++        self.assertEqual(len(baks), 1)
++        self.assertNotIn("token", json.dumps(r).lower().split("renamed")[0])  # no raw jwt in response
++        raw = json.dumps(r)
++        self.assertNotIn(_jwt(NEW), raw)
++
++    def test_agy_already_logged_out(self):
++        accounts.AGY_TOKEN.unlink()
++        r = accounts.logout("agy")
++        self.assertTrue(r["ok"])
++        self.assertEqual(r["method"], "already_logged_out")
++
++    def test_claude_codex_grok_call_expected_argv(self):
++        for prov, expect_tail in (
++            ("claude", ["auth", "logout"]),
++            ("codex", ["logout"]),
++            ("grok", ["logout"]),
++        ):
++            self.cli_calls.clear()
++            r = accounts.logout(prov)
++            self.assertTrue(r["ok"], r)
++            self.assertEqual(self.cli_calls[0][1:], expect_tail)
++
++    def test_owned_pids_filters_owners(self):
++        snap = {
++            "providers": {
++                "agy": {
++                    "processes": [
++                        {"pid": 1, "owner": "session"},
++                        {"pid": 2, "owner": "standby"},
++                        {"pid": 3, "owner": "external"},
++                        {"pid": 4, "owner": "chatbot-other"},
++                    ]
++                }
++            }
++        }
++        self.assertEqual(accounts.owned_pids(snap, "agy"), {1, 2})
++
++    def test_logout_response_never_contains_token_material(self):
++        accounts.AGY_TOKEN.write_text(json.dumps({
++            "id_token": _jwt(NEW),
++            "refresh_token": "SECRET_REFRESH_VALUE_XYZ",
++            "access_token": "SECRET_ACCESS_VALUE_XYZ",
++            "auth_method": "consumer",
++        }))
++        r = accounts.logout("agy")
++        blob = json.dumps(r)
++        self.assertNotIn("SECRET_REFRESH", blob)
++        self.assertNotIn("SECRET_ACCESS", blob)
