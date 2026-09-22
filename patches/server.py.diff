@@ -1,0 +1,50 @@
+--- server.py
++++ server.py
+@@ -818,6 +818,47 @@
+                 stale = accounts.stale_owned(accounts.snapshot(owned_agent_procs(), providers=("agy",)))
+                 code, raw = _json_bytes({"ok": True, **recycle_agents(stale)})
+                 return self._send(code, raw, "application/json; charset=utf-8")
++            if path == "/api/accounts/logout":
++                # One provider at a time. Body: {"provider": "agy"|"claude"|"codex"|"grok"}.
++                # Never returns token values. After logout, recycle owned procs of
++                # that provider so in-memory refresh tokens cannot rewrite auth
++                # files (agy A30); busy ones are skipped by recycle_agents and
++                # called out in the response.
++                provider = str(body.get("provider") or "").strip()
++                result = accounts.logout(provider)
++                if not result.get("ok") and result.get("method") is None and "unknown provider" in str(result.get("error") or ""):
++                    code, raw = _json_bytes(result, 400)
++                    return self._send(code, raw, "application/json; charset=utf-8")
++                owned = owned_agent_procs()
++                wanted = accounts.parse_providers(provider)
++                snap = accounts.snapshot(owned, providers=wanted)
++                pids = accounts.owned_pids(snap, provider) if provider in accounts.PROVIDERS else set()
++                recycled = recycle_agents(pids) if pids else {"recycled": [], "skipped_busy": []}
++                note = None
++                if recycled.get("skipped_busy"):
++                    note = (
++                        "로그아웃은 반영됐지만 작업 중인 소유 프로세스 "
++                        f"{len(recycled['skipped_busy'])}개는 재시작하지 못했어요. "
++                        "턴이 끝난 뒤 프로세스 재시작(또는 다시 로그아웃)을 눌러 주세요."
++                    )
++                elif provider == "agy" and result.get("ok"):
++                    note = (
++                        "agy 토큰 파일을 백업·제거했고 소유 프로세스를 재시작했어요. "
++                        "외부(SSH 등) agy는 수동으로 종료해야 옛 토큰이 파일을 되쓰지 않아요."
++                    )
++                payload = {
++                    **result,
++                    "providers": snap.get("providers") or {},
++                    "checked_at": snap.get("checked_at"),
++                    "recycle": recycled,
++                }
++                if note:
++                    payload["note"] = note
++                    payload["message_ko"] = note
++                # Prefer logout ok; if logout failed, surface that status.
++                http = 200 if result.get("ok") else 400
++                code, raw = _json_bytes(payload, http)
++                return self._send(code, raw, "application/json; charset=utf-8")
+             if path == "/api/sessions":
+                 provider = str(body.get("provider") or DEFAULT_PROVIDER)
+                 # DEFAULT_MODEL names an agy/Gemini model -- meaningless as a
