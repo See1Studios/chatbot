@@ -1,0 +1,11 @@
+--- static/index.html
++++ static/index.html
+@@ -311,7 +311,7 @@
+   <!-- Order is load-bearing (classic scripts; shared state is var).
+        app.js: session/SSE/send + status + provider tray. Do not split further.
+        Map: data/workspace/PROJECT.md Where to edit. -->
+-  <script src="./app.js?v=108"></script>
++  <script src="./app.js?v=109"></script>
+   <script src="./theme.js?v=3"></script>
+   <script src="./artifacts.js?v=4"></script>
+   <script src="./markdown.js?v=9"></script>
