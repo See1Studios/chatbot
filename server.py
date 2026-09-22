@@ -225,12 +225,22 @@ class Handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
-    def do_HEAD(self) -> None:
-        self.do_GET()
+    def _normalize_req_path(self, raw_path: str) -> str:
+        """Strip proxy mount prefixes (e.g. /chat or X-Forwarded-Prefix) dynamically so routes work anywhere."""
+        p = raw_path
+        fwd_prefix = (self.headers.get("X-Forwarded-Prefix") or "").strip().rstrip("/")
+        if fwd_prefix and p.startswith(fwd_prefix):
+            p = p[len(fwd_prefix):] or "/"
+        for marker in ("/api/", "/artifacts/", "/persona/", "/healthz", "/health", "/events"):
+            idx = p.find(marker)
+            if idx > 0:
+                p = p[idx:]
+                break
+        return p
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
-        path = parsed.path
+        path = self._normalize_req_path(parsed.path)
         if path in ("/healthz", "/health"):
             ok = shutil.which(AGY) is not None or Path(AGY).exists()
             code, body = _json_bytes({
@@ -627,7 +637,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        path = parsed.path
+        path = self._normalize_req_path(parsed.path)
         try:
             body = self._read_json()
         except Exception as e:
