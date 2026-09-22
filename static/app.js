@@ -2455,7 +2455,14 @@ function renderLoginFields(panel, st) {
         _loginPanelState[st.provider] = r;
         renderLoginFields(panel, r);
         updateLoginActions(panel, r);
-        if (r.state === 'succeeded') onLoginSucceeded(st.provider, r);
+        if (r.state === 'succeeded') {
+          onLoginSucceeded(st.provider, r);
+        } else if (!r.ok || r.state === 'failed') {
+          alert((r.error || r.message_ko || '코드 제출 실패'));
+        } else if (r.message_ko) {
+          const msgEl = panel.querySelector('.login-panel-msg');
+          if (msgEl) msgEl.textContent = r.message_ko;
+        }
       } catch (e) {
         alert('코드 제출 실패: ' + e.message);
       } finally {

@@ -112,6 +112,11 @@ _LOCAL_PORT_RE = re.compile(
     r"https?://(?:127\.0\.0\.1|localhost|\[::1\])[:/](\d{2,5})",
     re.I,
 )
+_OAUTH_EXCHANGE_FAIL_RE = re.compile(
+    r"(token exchange failed|invalid_grant|Got an error:.*token exchange|"
+    r"authorization code.*(invalid|expired))",
+    re.I,
+)
 _SUCCESS_RE = re.compile(
     r"(logged in|login successful|authentication successful|authorized successfully|"
     r"successfully logged in|you are now logged in)",
@@ -305,6 +310,20 @@ def _parse_output(sess: _Session) -> None:
                 )
                 if tip.strip() not in sess.message_ko:
                     sess.message_ko = (sess.message_ko or "") + tip
+
+    # agy TUI: bad/expired paste shows token exchange failed while process stays alive.
+    if sess.state == "pending" and _OAUTH_EXCHANGE_FAIL_RE.search(text):
+        sess.state = "failed"
+        m = _OAUTH_EXCHANGE_FAIL_RE.search(text)
+        detail = (m.group(0) if m else "token exchange failed")[:160]
+        submitted = sess.last_submitted_code
+        if submitted and submitted in detail:
+            detail = detail.replace(submitted, "[코드 생략]")
+        sess.error = (
+            f"인증 코드 교환에 실패했어요 ({detail}). "
+            "새 로그인으로 다시 시도해 주세요."
+        )
+
 
 
 def _reader_loop(sess: _Session) -> None:
@@ -627,12 +646,18 @@ def complete(provider: str, code: str, login_id: Optional[str] = None) -> dict:
     if fd is None or proc is None or proc.poll() is not None:
         return {"ok": False, "provider": provider, "error": "로그인 프로세스가 없어요. 다시 시작해 주세요."}
     try:
-        os.write(fd, (code + "\n").encode("utf-8"))
+        # agy 1.2.8 TUI code field submits on CR (\r), not LF (\n). LF only
+        # inserts characters and never starts token exchange — UI looks dead.
+        os.write(fd, (code + "\r").encode("utf-8"))
         sess.last_submitted_code = code
     except OSError as e:
         return {"ok": False, "provider": provider, "error": f"코드 전달 실패: {e}"}
-    # Wait a bit for CLI to accept
+    # Wait a bit for CLI to accept / exchange
     for _ in range(40):
+        with sess._lock:
+            _parse_output(sess)
+            if sess.state == "failed":
+                return {**sess.public(), "ok": False}
         if _account_ok(provider, sess):
             with _lock:
                 if sess.state == "pending":
@@ -644,7 +669,11 @@ def complete(provider: str, code: str, login_id: Optional[str] = None) -> dict:
             break
         time.sleep(0.25)
     # Still pending — client should keep polling status
-    return {**sess.public(), "ok": True, "message_ko": "코드를 전달했어요. 완료 확인 중…"}
+    with sess._lock:
+        pub = sess.public()
+    if pub.get("state") == "failed":
+        return {**pub, "ok": False}
+    return {**pub, "ok": True, "message_ko": "코드를 전달했어요. 완료 확인 중…"}
 
 
 def status(provider: str, login_id: Optional[str] = None) -> dict:

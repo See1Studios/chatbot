@@ -1,5 +1,13 @@
 # chatbot 개발로그
 
+## 2026-09-23 — AGY_PASTE_CR_v1 (코드 제출 무반응)
+
+- **배경**: 실장님 "제출했는데 반응 없음". `complete()`가 OAuth 코드를 `code\n`(LF)로 PTY에 써서 agy 1.2.8 TUI 입력칸에만 들어가고 제출이 안 됨. `\r`(CR)이어야 token exchange 시작.
+- **변경**: `account_login.py` — paste를 `\r`로 전달; `token exchange failed`/`invalid_grant`면 failed로 표시. `app.js` — complete 실패 시 alert, pending이면 안내문 갱신. `app.js?v=` bump.
+- **검증**: unittest account_login; live fake code → failed(invalid_grant). repair 후 사용.
+- **배포**: python → repair, static → 하드 새로고침.
+
+
 ## 2026-09-23 — LOGIN_PASTE_KEEP_v2 (OAuth 코드 붙여넣기 리셋)
 
 - **배경**: 실장님 "또 붙여넣으니 리셋". Agy 로그인 pending 중 2초 `startLoginPoll`이 `renderLoginFields`로 입력칸을 매번 재생성하고, `fetchAccounts`가 `.login-panel`까지 `innerHTML`로 날림.
