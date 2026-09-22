@@ -1,5 +1,15 @@
 # chatbot 개발로그
 
+## 2026-09-23 — STATUS_MCP_HOOKS_v1 (상태 탭 MCP·훅 상세)
+
+- **배경**: 실장님 "상태 탭에서 MCP나 hook에 대해 더 자세한 정보가 나오면 좋겠네. 토글해서 도구목록을 볼수있다거나".
+- **변경**:
+  - `workspace_status.py`: self-status MCP 항목에 `tools`/`tool_count` (로컬 nas는 `mcp_server.tool_defs`, 원격은 짧은 `tools/list` 프로브). 훅에 `supported_events`·`path` 명시.
+  - `static/app.js`/`chat.css`/`index.html`: MCP·훅 카드를 `<details>`로 접었다 펼쳐 도구/이벤트 목록 표시. `app.js?v=137`.
+- **검증**: `py_compile`, self-status 샘플에 tools>0. python → repair, static → 하드 새로고침.
+- **배포**: host module + static.
+
+
 ## 2026-09-23 — AUTH_HEAL_ONCE_v1 (Agy→Grok 자동 전환)
 
 - **배경**: 실장님 "Agy 로그인·선택 후 가만 있으면 Grok으로 바뀜". `refreshProviderAuthMap()`이 계정 폴마다 현재 제공자가 잠깐 `로그인 필요`면 카탈로그에서 첫 사용 가능 CLI(대개 로그인된 Grok)로 UI·localStorage를 바꿔 버림.

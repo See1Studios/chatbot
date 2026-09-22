@@ -2190,11 +2190,7 @@ async function fetchSelfStatus() {
       statusSkillLibHintEl.textContent = '호스트 스킬 라이브러리 ' + (res.host_skill_library_count || 0) + '개 (읽기 전용)';
     }
     renderStatusMcp(res.mcp || []);
-    if (statusHooksEl) {
-      const h = res.hooks || {};
-      const p = res.plugins || {};
-      statusHooksEl.textContent = (h.note || '') + (p.note ? '\n' + p.note : '');
-    }
+    renderStatusHooks(res.hooks || {}, res.plugins || {});
     // observation/tickets live on Evolution tab (STATUS_EVOLUTION_TAB_v1)
     statusLoaded = true;
   } catch (e) {
@@ -3089,16 +3085,60 @@ function renderStatusSkills(skills) {
 function renderStatusMcp(mcpList) {
   if (!statusMcpEl) return;
   statusMcpEl.innerHTML = '';
+  if (!mcpList.length) {
+    statusMcpEl.innerHTML = '<div class="status-hint">등록된 MCP 서버가 없어요.</div>';
+    return;
+  }
   mcpList.forEach(m => {
     const item = document.createElement('div');
     item.className = 'status-item';
     const isCore = m.name === 'nas';
-    item.innerHTML =
-      '<div class="status-item-head">' +
+    const tools = Array.isArray(m.tools) ? m.tools : [];
+    const count = (typeof m.tool_count === 'number') ? m.tool_count : tools.length;
+    const head = document.createElement('div');
+    head.className = 'status-item-head';
+    head.innerHTML =
       '<span class="status-item-name">' + escapeHtml(m.name) + (isCore ? ' (core)' : '') + '</span>' +
-      (isCore ? '' : '<button class="art-btn" data-del-mcp="' + escapeHtml(m.name) + '" type="button">삭제</button>') +
-      '</div>' +
-      '<div class="status-item-preview">' + escapeHtml(m.serverUrl || '') + (m.disabled ? ' · disabled' : '') + '</div>';
+      (isCore ? '' : '<button class="art-btn" data-del-mcp="' + escapeHtml(m.name) + '" type="button">삭제</button>');
+    item.appendChild(head);
+    const preview = document.createElement('div');
+    preview.className = 'status-item-preview';
+    preview.textContent = (m.serverUrl || '') + (m.disabled ? ' · disabled' : '') +
+      (count ? (' · 도구 ' + count + '개') : ' · 도구 목록 없음');
+    item.appendChild(preview);
+    const details = document.createElement('details');
+    details.className = 'status-tools';
+    const summary = document.createElement('summary');
+    summary.textContent = count ? ('도구 목록 (' + count + ')') : '도구 목록 (비어 있음)';
+    details.appendChild(summary);
+    if (tools.length) {
+      const ul = document.createElement('ul');
+      ul.className = 'status-tool-list';
+      tools.forEach(t => {
+        const li = document.createElement('li');
+        li.className = 'status-tool-row';
+        const n = document.createElement('code');
+        n.className = 'status-tool-name';
+        n.textContent = t.name || '';
+        li.appendChild(n);
+        if (t.description) {
+          const d = document.createElement('div');
+          d.className = 'status-tool-desc';
+          d.textContent = t.description;
+          li.appendChild(d);
+        }
+        ul.appendChild(li);
+      });
+      details.appendChild(ul);
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'status-hint';
+      hint.textContent = isCore
+        ? '도구 정의를 불러오지 못했어요.'
+        : '원격 서버 tools/list 응답이 없거나 아직 연결되지 않았어요.';
+      details.appendChild(hint);
+    }
+    item.appendChild(details);
     statusMcpEl.appendChild(item);
   });
   statusMcpEl.querySelectorAll('[data-del-mcp]').forEach(btn => {
@@ -3114,6 +3154,76 @@ function renderStatusMcp(mcpList) {
       }
     });
   });
+}
+
+function renderStatusHooks(hooks, plugins) {
+  if (!statusHooksEl) return;
+  statusHooksEl.innerHTML = '';
+  hooks = hooks || {};
+  plugins = plugins || {};
+  const note = document.createElement('div');
+  note.className = 'status-hint';
+  note.textContent = hooks.note || '';
+  statusHooksEl.appendChild(note);
+  if (plugins.note) {
+    const pn = document.createElement('div');
+    pn.className = 'status-hint';
+    pn.textContent = plugins.note;
+    statusHooksEl.appendChild(pn);
+  }
+  const events = Array.isArray(hooks.supported_events) ? hooks.supported_events : [];
+  if (events.length) {
+    const chipRow = document.createElement('div');
+    chipRow.className = 'status-hook-events';
+    events.forEach(ev => {
+      const chip = document.createElement('span');
+      chip.className = 'status-hook-chip';
+      chip.textContent = ev;
+      chipRow.appendChild(chip);
+    });
+    statusHooksEl.appendChild(chipRow);
+  }
+  const configured = Array.isArray(hooks.configured) ? hooks.configured : [];
+  const box = document.createElement('div');
+  box.className = 'status-item';
+  const head = document.createElement('div');
+  head.className = 'status-item-meta';
+  head.textContent = '워크스페이스 훅 ' + configured.length + '개' +
+    (hooks.path ? (' · ' + String(hooks.path).split('/').slice(-3).join('/')) : '');
+  box.appendChild(head);
+  const details = document.createElement('details');
+  details.className = 'status-tools';
+  const summary = document.createElement('summary');
+  summary.textContent = configured.length ? ('훅 상세 (' + configured.length + ')') : '훅 상세 (설정 없음)';
+  details.appendChild(summary);
+  if (configured.length) {
+    const ul = document.createElement('ul');
+    ul.className = 'status-tool-list';
+    configured.forEach(h => {
+      const li = document.createElement('li');
+      li.className = 'status-tool-row';
+      const n = document.createElement('code');
+      n.className = 'status-tool-name';
+      n.textContent = (h.name || '') + (h.enabled === false ? ' (off)' : '');
+      li.appendChild(n);
+      const ev = Array.isArray(h.events) ? h.events : [];
+      if (ev.length) {
+        const d = document.createElement('div');
+        d.className = 'status-tool-desc';
+        d.textContent = '이벤트: ' + ev.join(', ');
+        li.appendChild(d);
+      }
+      ul.appendChild(li);
+    });
+    details.appendChild(ul);
+  } else {
+    const hint = document.createElement('div');
+    hint.className = 'status-hint';
+    hint.textContent = 'hooks.json이 비어 있어요. 프로바이더 훅 대신 호스트 관찰/티켓 루프를 씁니다.';
+    details.appendChild(hint);
+  }
+  box.appendChild(details);
+  statusHooksEl.appendChild(box);
 }
 
 

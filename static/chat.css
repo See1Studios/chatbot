@@ -1727,3 +1727,14 @@ code.login-value{
 .login-panel-actions{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}
 .login-panel-err{color:#f85149;font-size:.78rem;line-height:1.4}
 .status-item-actions .art-btn{font-size:.78rem}
+
+/* STATUS_MCP_HOOKS_v1 */
+.status-tools{margin-top:.25rem}
+.status-tools>summary{cursor:pointer;font-size:.78rem;font-weight:600;color:var(--muted);padding:.15rem 0;list-style-position:inside}
+.status-tools[open]>summary{margin-bottom:.35rem}
+.status-tool-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.35rem}
+.status-tool-row{padding:.35rem .45rem;border:1px solid var(--border);border-radius:8px;background:rgba(0,0,0,.18)}
+.status-tool-name{font-size:.78rem}
+.status-tool-desc{margin-top:.2rem;font-size:.74rem;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+.status-hook-events{display:flex;flex-wrap:wrap;gap:.3rem;margin:.35rem 0 .5rem}
+.status-hook-chip{font-size:.7rem;padding:.15rem .4rem;border-radius:999px;border:1px solid var(--border);color:var(--muted);background:rgba(0,0,0,.15)}

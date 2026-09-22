@@ -240,6 +240,53 @@ def ticket_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[i
     return 404, {"ok": False, "error": "not found"}
 
 
+
+def _mcp_tool_summaries(entry: dict) -> list:
+    """Best-effort tool list for Status tab (name + short description only)."""
+    name = str(entry.get("name") or "")
+    url = str(entry.get("serverUrl") or "").rstrip("/")
+    # Local chatbot MCP (:3012 / name nas) — in-process, authoritative.
+    if name == "nas" or ":3012/" in (url + "/") or url.endswith(":3012") or url.endswith(":3012/mcp"):
+        try:
+            import mcp_server
+            return [
+                {"name": t.get("name") or "", "description": (t.get("description") or "").strip()}
+                for t in (mcp_server.tool_defs() or [])
+                if t.get("name")
+            ]
+        except Exception as e:  # noqa: BLE001
+            return [{"name": "(조회 실패)", "description": f"{type(e).__name__}: {e}"}]
+    if not url.startswith("http"):
+        return []
+    # Remote HTTP MCP — short tools/list probe (never blocks Status long).
+    try:
+        import urllib.error
+        import urllib.request
+        payload = json.dumps(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        tools = ((data.get("result") or {}).get("tools")) or []
+        out = []
+        for t in tools:
+            if not isinstance(t, dict) or not t.get("name"):
+                continue
+            out.append({
+                "name": str(t.get("name")),
+                "description": str(t.get("description") or "").strip(),
+            })
+        return out
+    except Exception:
+        return []
+
+
 def _self_status() -> dict:
     rules = []
     for name in RULE_FILES:
@@ -275,6 +322,11 @@ def _self_status() -> dict:
             }
         except Exception:
             pass
+    for entry in mcp_list:
+        tools = _mcp_tool_summaries(entry)
+        entry["tools"] = tools
+        entry["tool_count"] = len(tools)
+    hooks_cfg = _read_hooks_config()
     return {
         "ok": True,
         "memory": mem_info,
@@ -284,9 +336,21 @@ def _self_status() -> dict:
         "mcp": mcp_list,
         "hooks": {
             "supported": True,
+            "supported_events": [
+                "PreToolUse",
+                "PostToolUse",
+                "PreInvocation",
+                "PostInvocation",
+                "Stop",
+            ],
+            "path": str(_hooks_config_path()),
             "configured": [
-                {"name": name, "enabled": bool(cfg.get("enabled", True)), "events": [k for k in cfg.keys() if k != "enabled"]}
-                for name, cfg in _read_hooks_config().items()
+                {
+                    "name": name,
+                    "enabled": bool(cfg.get("enabled", True)),
+                    "events": [k for k in cfg.keys() if k != "enabled"],
+                }
+                for name, cfg in hooks_cfg.items()
             ],
             "note": "Antigravity는 PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop 5종 훅을 지원하지만, 이 워크스페이스는 관찰을 호스트가 직접 수집하므로 프로바이더 훅을 설정하지 않습니다.",
         },
