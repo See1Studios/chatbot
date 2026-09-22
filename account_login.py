@@ -65,6 +65,25 @@ def _clean_captured(s: str) -> str:
     return s.rstrip(").,;]'\"")
 
 
+def _unwrap_wrapped_urls(text: str) -> str:
+    """Join soft-wrapped long OAuth URLs (agy TUI splits across lines)."""
+    if not text or "http" not in text:
+        return text
+    prev = None
+    cur = text
+    while prev != cur:
+        prev = cur
+        cur = re.sub(
+            r"(https?://\S+)[\r\n]+\s+(\S+)",
+            lambda m: m.group(1) + m.group(2)
+            if (not m.group(2).lower().startswith("http")
+                and not m.group(2).startswith(("→", "-", "─", "Select", "Copy", "After", "Open")))
+            else m.group(0),
+            cur,
+        )
+    return cur
+
+
 PROVIDERS = accounts.PROVIDERS
 
 MODE_BY_PROVIDER = {
@@ -127,11 +146,12 @@ _MESSAGE_KO = {
 
 def _login_argv(provider: str) -> list:
     if provider == "agy":
-        # Antigravity /gemini-style; override with CHATBOT_AGY_LOGIN_CMD="agy login"
+        # agy 1.2.8+: no `auth login` subcommand. Bare interactive TUI shows
+        # "Select login method" then Google OAuth, then paste code. Override still works.
         raw = os.environ.get("CHATBOT_AGY_LOGIN_CMD", "").strip()
         if raw:
             return raw.split()
-        return [AGY, "auth", "login"]
+        return [AGY]
     if provider == "claude":
         raw = os.environ.get("CHATBOT_CLAUDE_LOGIN_CMD", "").strip()
         if raw:
@@ -152,6 +172,10 @@ def _env() -> dict:
     # Prefer non-browser where CLIs honor it; we capture the URL ourselves.
     env.setdefault("BROWSER", "echo")
     env.setdefault("NO_BROWSER", "1")
+    # agy TUI needs a sized xterm-like PTY or it exits before the sign-in menu.
+    env.setdefault("TERM", "xterm-256color")
+    env.setdefault("COLUMNS", os.environ.get("CHATBOT_LOGIN_PTY_COLS", "120"))
+    env.setdefault("LINES", os.environ.get("CHATBOT_LOGIN_PTY_ROWS", "40"))
     return env
 
 
@@ -174,6 +198,7 @@ class _Session:
     output: str = ""
     last_submitted_code: Optional[str] = None
     _last_ok_check_len: int = -1
+    _agy_oauth_selected: bool = False
     _reader_stop: threading.Event = field(default_factory=threading.Event)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -247,11 +272,12 @@ def _pick_user_code(text: str) -> Optional[str]:
 
 
 def _parse_output(sess: _Session) -> None:
-    text = _strip_ansi(sess.output)
-    if not sess.authorize_url:
-        url = _pick_url(text, sess.provider)
-        if url:
-            sess.authorize_url = _clean_captured(url)
+    text = _unwrap_wrapped_urls(_strip_ansi(sess.output))
+    url = _pick_url(text, sess.provider)
+    if url:
+        cleaned = _clean_captured(url)
+        if not sess.authorize_url or len(cleaned) > len(sess.authorize_url):
+            sess.authorize_url = cleaned
     if sess.mode == "device_code":
         if not sess.verification_uri:
             vu = _pick_verification_uri(text)
@@ -316,6 +342,18 @@ def _reader_loop(sess: _Session) -> None:
             with sess._lock:
                 sess.output += chunk.decode("utf-8", errors="replace")
                 _parse_output(sess)
+                # agy 1.2.8 interactive sign-in: pick "1. Google OAuth" then wait for URL.
+                if (
+                    sess.provider == "agy"
+                    and sess.state == "pending"
+                    and not sess._agy_oauth_selected
+                    and ("Google OAuth" in sess.output or "Select login method" in sess.output)
+                ):
+                    try:
+                        os.write(fd, b"\r")
+                        sess._agy_oauth_selected = True
+                    except OSError:
+                        pass
                 if sess.state == "pending" and _SUCCESS_RE.search(sess.output[-2000:]):
                     # Soft signal; still confirm via accounts snapshot in watcher
                     pass
@@ -454,6 +492,15 @@ def _kill_proc(sess: _Session) -> None:
 def _spawn(sess: _Session) -> None:
     argv = _login_argv(sess.provider)
     master, slave = pty.openpty()
+    try:
+        import fcntl
+        import struct
+        import termios
+        rows = int(os.environ.get("CHATBOT_LOGIN_PTY_ROWS", "40"))
+        cols = int(os.environ.get("CHATBOT_LOGIN_PTY_COLS", "120"))
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+    except Exception:
+        pass
     try:
         proc = subprocess.Popen(
             argv,

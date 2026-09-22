@@ -1,5 +1,17 @@
 # chatbot 개발로그
 
+## 2026-09-23 — AGY_LOGIN_TUI_v1 (agy 1.2.8 로그인 URL 즉시 실패 수정)
+
+- **배경**: 실장님 "agy 로그인 주소 안 뜨고 바로 실패". `agy` 1.2.8이 `auth login` 서브커맨드를 제거해 `agy auth login`이 프롬프트로 오인되며 즉시 exit.
+- **변경** (`account_login.py`):
+  - `_login_argv(agy)` 기본값 `[AGY]` (대화형 TUI). `CHATBOT_AGY_LOGIN_CMD` 오버라이드 유지.
+  - PTY에 `TIOCSWINSZ` + `TERM`/`COLUMNS`/`LINES` — 사이즈 없는 PTY에선 로그인 메뉴가 안 뜸.
+  - 출력에 `Select login method` / `Google OAuth` 보이면 Enter로 1번 선택.
+  - TUI soft-wrap으로 잘린 OAuth URL을 `_unwrap_wrapped_urls`로 이어 붙임.
+- **검증**: `py_compile` OK, `tests.test_account_login` 11건 OK, live `account_login.start("agy")` → `accounts.google.com` 전체 URL(`oauth-callback` 포함) pending. `chatbot-ctl.sh repair` OK.
+- **배포**: python host → repair 완료.
+
+
 ## 2026-09-23 — 외부 CLI 에이전트용 `ticket-quick` 절차를 헌장·설계서에 문서화 (티켓 #29)
 
 - **배경** (실장님: "이 저장소에서 작업하게 될 모든 다른 에이전트가 그걸 알 수 있도록 해줄래"): 라이브 세션 밖 외부 CLI 에이전트(Claude Code 등)는 `ticket` MCP 도구에 접근할 수 없어, 매번 실장님이 `ticket-quick` 사용법을 구두로 알려줘야 했음. `~/bin/ticket-quick`은 이미 존재하지만 헌장·설계서에 미문서화 상태였음.
