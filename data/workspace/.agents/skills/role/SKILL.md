@@ -34,6 +34,8 @@ python3 ~/services/chatbot/data/workspace/.agents/skills/role/engine.py yerin "�
 ```
 
 ## 출력 및 대화 원칙
-1. **표정 태그 보존**: 출력 대사 시작 부분의 `[expression: neutral|joy|shy|serious|sorrow|tired]` 태그를 그대로 살려 실장님께 보여줍니다.
-2. **속마음 및 SimCore 상태 보고**: 대화 후 3rd Deep POV 속마음(`thought`)과 호감도/스트레스 변화를 실장님께 요약 전달합니다.
-3. **독립성 유지**: 냥피디의 운영 비서 정체성과 캐릭터 대화 공간을 분리하여 시뮬레이션을 진행합니다.
+실장님에게 보이는 역할극 응답은 엔진 JSON의 `dialogue`만이다. 맨 앞 `[expression: neutral|joy|shy|serious|sorrow|tired]` 태그는 유지한다.
+
+- `thought`·`state`·`state_delta`는 세션 파일에만 남긴다.
+- 역할극 턴에 냥피디 진행 멘트와 `<!--choices-->`를 붙이지 않는다.
+- 운영·티켓·출력 형식 같은 메타 지시는 엔진에 넣지 않는다.
