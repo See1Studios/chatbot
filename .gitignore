@@ -38,3 +38,4 @@ data/workspace/.impeccable/
 # role skill runtime
 data/workspace/.agents/skills/role/sessions/
 data/workspace/.agents/skills/role/__pycache__/
+logs/

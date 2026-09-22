@@ -49,12 +49,17 @@ def _atomic_write_text(path: Path, content: str) -> None:
 
 def _safe_artifact_rel(rel: str) -> Optional[Path]:
     rel = unquote(rel or "").lstrip("/")
-    if not rel or ".." in rel.split("/") or rel.startswith("\\"):
+    if not rel:
+        return None
+    parts = rel.split("/")
+    # Reject path traversal and dotfile components.
+    if any(p == ".." or p.startswith(".") for p in parts):
+        return None
+    if rel.startswith("\\"):
         return None
     candidates = [
         ARTIFACTS_CACHE / rel,
         WORKSPACE / "artifacts" / rel,
-        WORKSPACE / rel,
         DATA / "persona" / rel,
         DATA / "persona" / "gallery" / rel,
     ]
@@ -63,9 +68,6 @@ def _safe_artifact_rel(rel: str) -> Optional[Path]:
     if "/" in rel:
         sid_part, rest = rel.split("/", 1)
         candidates.append(SESSIONS / sid_part / "artifacts" / rest)
-    # brain/<uuid>/... paths
-    if rel.startswith("brain/"):
-        candidates.append(HOME / ".gemini" / "antigravity-cli" / rel)
     for fp in candidates:
         try:
             rp = fp.resolve()
@@ -73,13 +75,13 @@ def _safe_artifact_rel(rel: str) -> Optional[Path]:
             continue
         allowed_roots = [
             ARTIFACTS_CACHE.resolve(),
-            (WORKSPACE / "artifacts").resolve() if (WORKSPACE / "artifacts").exists() else WORKSPACE.resolve(),
-            WORKSPACE.resolve(),
-            BRAIN.resolve(),
+            (WORKSPACE / "artifacts").resolve() if (WORKSPACE / "artifacts").exists() else None,
             SESSIONS.resolve(),
             (DATA / "persona").resolve(),
         ]
         for root in allowed_roots:
+            if root is None:
+                continue
             try:
                 rp.relative_to(root)
                 if rp.is_file():
@@ -96,7 +98,6 @@ def _safe_artifact_rel(rel: str) -> Optional[Path]:
             DATA / "persona",
             WORKSPACE / "artifacts",
             ARTIFACTS_CACHE,
-            BRAIN,
         ]
         allowed = []
         for r in extra_roots:

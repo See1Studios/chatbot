@@ -23,8 +23,16 @@ const credit  = slice('const PROVIDER_CREDIT = {', 'function updateBrandAvatar')
 const picker  = slice('// 상태 탭이 보여 주는 제공자.', 'function fmtAge');
 const helpers = "function escapeRegExp(s){return String(s).replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&');}";
 
-function button() { return { type:'', className:'', textContent:'', title:'', disabled:false, attrs:{}, handlers:{},
-  setAttribute(k,v){this.attrs[k]=v}, addEventListener(e,f){this.handlers[e]=f} }; }
+function button() {
+  const el = { type:'', className:'', textContent:'', title:'', disabled:false, attrs:{}, handlers:{},
+    setAttribute(k,v){this.attrs[k]=v}, addEventListener(e,f){this.handlers[e]=f} };
+  el.classList = {
+    add(c){if(!el.className.split(' ').includes(c)) el.className=(el.className+' '+c).trim();},
+    remove(c){el.className=el.className.split(' ').filter(x=>x!==c).join(' ');},
+    toggle(c,f){const has=el.className.split(' ').includes(c); if(f===undefined?!has:f) this.add(c); else this.remove(c);}
+  };
+  return el;
+}
 const calls = { fetchAccounts: 0, fetchUsage: 0, selectProvider: 0 };
 const picked = { el: { innerHTML:'', children:[], appendChild(c){ this.children.push(c); } } };
 Object.defineProperty(picked.el, 'innerHTML', { get(){return ''}, set(v){ this.children = []; } });

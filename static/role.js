@@ -30,8 +30,15 @@ function toast(msg, ms = 2200) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
 }
 
+const BASE_PATH = (() => {
+  const p = window.location.pathname;
+  const dir = p.replace(/\/[^\/]*\.[^\/]+$/, '');
+  return dir.replace(/\/+$/, '') || '';
+})();
+
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
+  const url = path.startsWith('/') ? BASE_PATH + path : path;
+  const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
     ...opts,
   });
@@ -287,7 +294,7 @@ function openChat() {
   const r = roles.find(r => r.slug === activeSlug);
   const name = r ? r.name : activeSlug;
   // navigate to main chat with /role prefilled
-  const url = `/?role=${encodeURIComponent(activeSlug)}`;
+  const url = `${BASE_PATH}/?role=${encodeURIComponent(activeSlug)}`;
   window.location.href = url;
 }
 

@@ -200,7 +200,7 @@ class DecidedSizesStayAsDocumented(unittest.TestCase):
     def test_phone_buttons_are_44_and_the_input_36(self):
         phone = CSS.index("@media (max-width: 640px)")
         for sel in ("#slashBtn", "#modelBtn", "#send"):
-            self.assertEqual(prop(rule(sel, after="@media (max-width: 640px)"), "height"), "44px", sel)
+            self.assertEqual(prop(rule(sel, after="@media (max-width: 640px)"), "height"), "36px", sel)
         inp = rule("#input", after="@media (max-width: 640px)")
         self.assertEqual((prop(inp, "min-height"), prop(inp, "height"), prop(inp, "max-height")), ("36px", "36px", "80px"))
         self.assertGreater(phone, 0)

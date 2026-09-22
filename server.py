@@ -80,6 +80,8 @@ def _get_usage(provider: str = "agy", force: bool = False) -> dict:
     be served after a switch (it used to be, for up to USAGE_CACHE_TTL_SEC).
     Unknown account (None: logged out, unreadable, or no account concept) never
     invalidates -- that keeps the old per-provider behaviour."""
+    if provider not in AGENT_ADAPTERS:
+        raise ValueError(f"unknown provider: {provider!r}")
     now = time.time()
     email = accounts.current_email(provider)
     cached = _USAGE_CACHE.get(provider)
@@ -241,6 +243,22 @@ class Handler(BaseHTTPRequestHandler):
         return p
 
     def do_GET(self) -> None:
+        try:
+            self._do_GET()
+        except ValueError as e:
+            code, body = _json_bytes({"ok": False, "error": str(e)}, 400)
+            self._send(code, body, "application/json; charset=utf-8")
+        except FileNotFoundError as e:
+            code, body = _json_bytes({"ok": False, "error": str(e)}, 404)
+            self._send(code, body, "application/json; charset=utf-8")
+        except OSError as e:
+            code, body = _json_bytes({"ok": False, "error": str(e)}, 500)
+            self._send(code, body, "application/json; charset=utf-8")
+        except Exception as e:
+            code, body = _json_bytes({"ok": False, "error": str(e)}, 500)
+            self._send(code, body, "application/json; charset=utf-8")
+
+    def _do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = self._normalize_req_path(parsed.path)
         if path in ("/healthz", "/health"):
@@ -342,7 +360,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/usage":
             force = parse_qs(parsed.query).get("force", ["0"])[0] == "1"
             provider = parse_qs(parsed.query).get("provider", [DEFAULT_PROVIDER])[0]
-            code, body = _json_bytes(_get_usage(provider=provider, force=force))
+            try:
+                data = _get_usage(provider=provider, force=force)
+                code, body = _json_bytes(data)
+            except ValueError as e:
+                code, body = _json_bytes({"ok": False, "error": str(e)}, 400)
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/accounts":
             wanted = accounts.parse_providers(parse_qs(parsed.query).get("provider", [None])[0])
@@ -362,7 +384,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._sse(sid)
         if path.startswith("/api/sessions/") and path.endswith("/artifacts"):
             sid = path[len("/api/sessions/"):-len("/artifacts")]
-            sess = REG.get(sid)
+            sess = REG.peek(sid)
+            if sess is None:
+                return self._send(404, b"session not found", "text/plain")
             all_artifacts = sess.get_artifacts()  # already sorted newest-mtime-first
             qs = parse_qs(parsed.query)
             try:
@@ -387,7 +411,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(code, body, "application/json; charset=utf-8")
         if path.startswith("/api/sessions/") and path.endswith("/log"):
             sid = path[len("/api/sessions/"):-len("/log")]
-            sess = REG.get(sid)
+            sess = REG.peek(sid)
+            if sess is None:
+                return self._send(404, b"session not found", "text/plain")
             all_events = sess.get_log()  # already sorted newest-ts-first
             qs = parse_qs(parsed.query)
             try:
@@ -415,7 +441,9 @@ class Handler(BaseHTTPRequestHandler):
             # for the "가져오기" scrollback/session-list action — never touches the
             # target session's own state, and never injected automatically anywhere.
             sid = path[len("/api/sessions/"):-len("/summary")]
-            sess = REG.get(sid)
+            sess = REG.peek(sid)
+            if sess is None:
+                return self._send(404, b"session not found", "text/plain")
             summary = sess.get_handover_summary()
             code, body = _json_bytes({"id": sid, "summary": summary})
             return self._send(code, body, "application/json; charset=utf-8")
@@ -471,12 +499,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(code, body, "application/json; charset=utf-8")
         # --- Role Studio API ---
         if path == "/api/roles":
+            try:
+                import yaml as _yaml
+            except ImportError:
+                code, body = _json_bytes({"ok": False, "error": "PyYAML is not installed. Run: pip install -r requirements.txt"}, 503)
+                return self._send(code, body, "application/json; charset=utf-8")
             char_dir = HOME / "data" / "characters"
             roles = []
             if char_dir.is_dir():
                 for yaml_path in sorted(char_dir.glob("*.yaml")):
                     try:
-                        import yaml as _yaml
                         raw = _yaml.safe_load(yaml_path.read_text("utf-8")) or {}
                         slug = yaml_path.stem
                         state = raw.get("state", {})
@@ -519,6 +551,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(code, body, "application/json; charset=utf-8")
             try:
                 import yaml as _yaml
+            except ImportError:
+                code, body = _json_bytes({"ok": False, "error": "PyYAML is not installed. Run: pip install -r requirements.txt"}, 503)
+                return self._send(code, body, "application/json; charset=utf-8")
+            try:
                 raw = _yaml.safe_load(yaml_path.read_text("utf-8")) or {}
                 raw["slug"] = slug
                 # Merge latest SimCore session state
@@ -573,7 +609,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(500, str(e).encode("utf-8"), "text/plain")
         if path.startswith("/api/sessions/"):
             sid = path.split("/")[3]
-            sess = REG.get(sid)
+            sess = REG.peek(sid)
+            if sess is None:
+                code, body = _json_bytes({"ok": False, "error": "session not found"}, 404)
+                return self._send(code, body, "application/json; charset=utf-8")
             full = parse_qs(parsed.query).get("full", ["0"])[0] == "1"
             out = sess.to_public()
             out["is_private"] = bool(getattr(sess, "is_private", False))
@@ -589,17 +628,39 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, b"not found", "text/plain")
             data = fp.read_bytes()
             ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
-            return self._send(200, data, ctype, cache_control="public, max-age=3600")
-        # persona assets
+            return self._send(200, data, ctype, cache_control="private, max-age=3600")
+        # persona assets — stay inside DATA/persona (or the web-root fallback).
+        # http.server does not collapse `..`; join+resolve without a root
+        # check would read any file the process can open.
         if path.startswith("/chat/persona/") or path.startswith("/persona/"):
             rel_p = path[len("/chat/persona/"):] if path.startswith("/chat/persona/") else path[len("/persona/"):]
+            rel_p = unquote(rel_p or "")
+            parts = rel_p.split("/")
+            if (
+                not rel_p
+                or ".." in parts
+                or rel_p.startswith(("/", "\\"))
+                or any(part.startswith(".") for part in parts)
+            ):
+                return self._send(404, b"not found", "text/plain")
+            persona_root = (DATA / "persona").resolve()
             fp_p = (DATA / "persona" / rel_p).resolve()
-            if not fp_p.exists() or not fp_p.is_file():
-                fp_p = WEB_ROOT / "chat" / "persona" / rel_p
+            try:
+                fp_p.relative_to(persona_root)
+            except ValueError:
+                fp_p = None
+            if fp_p is None or not fp_p.exists() or not fp_p.is_file():
+                web_persona = (WEB_ROOT / "chat" / "persona").resolve()
+                fp_p = (WEB_ROOT / "chat" / "persona" / rel_p).resolve()
+                try:
+                    fp_p.relative_to(web_persona)
+                except ValueError:
+                    return self._send(404, b"not found", "text/plain")
             if fp_p.exists() and fp_p.is_file():
                 data = fp_p.read_bytes()
                 ctype = mimetypes.guess_type(str(fp_p))[0] or "application/octet-stream"
                 return self._send(200, data, ctype, cache_control="public, max-age=60")
+            return self._send(404, b"not found", "text/plain")
 
         # static
         rel = "index.html" if path in ("/", "/chat", "/chat/") else path.lstrip("/")
@@ -631,24 +692,50 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(200, data, ctype)
 
     def _read_json(self) -> dict:
-        n = int(self.headers.get("Content-Length") or 0)
+        ct = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ct and ct != "application/json":
+            raise ValueError(f"unsupported Content-Type: {ct!r} (expected application/json)")
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            raise ValueError("invalid Content-Length")
+        if n < 0 or n > 200_000:
+            err = ValueError("payload too large")
+            err.status_code = 413
+            raise err
         raw = self.rfile.read(n) if n else b"{}"
-        if len(raw) > 200_000:
-            raise ValueError("payload too large")
         return json.loads(raw.decode("utf-8") or "{}")
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = self._normalize_req_path(parsed.path)
+        # Same-origin gate: every mutating POST must come from a page served by
+        # this server. Requiring Content-Type: application/json (enforced in
+        # _read_json above) already forces a CORS preflight for browser clients;
+        # this check is defence in depth for non-browser callers that forge Origin.
+        # Exceptions: none — the existing per-route checks below are now redundant
+        # but harmless; a request that reaches them has already passed here.
+        if not origin_guard.same_origin(
+            self.headers.get("Origin"),
+            self.headers.get("Host"),
+            self.headers.get("Sec-Fetch-Site"),
+        ):
+            code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
+            return self._send(code, raw, "application/json; charset=utf-8")
         try:
             body = self._read_json()
         except Exception as e:
-            code, raw = _json_bytes({"ok": False, "error": str(e)}, 400)
+            status = getattr(e, "status_code", 400)
+            code, raw = _json_bytes({"ok": False, "error": str(e)}, status)
             return self._send(code, raw, "application/json; charset=utf-8")
         try:
             # --- Role Studio POST ---
             if path == "/api/roles" or (path.startswith("/api/roles/") and not path.endswith("/chat")):
-                import yaml as _yaml
+                try:
+                    import yaml as _yaml
+                except ImportError:
+                    code, raw = _json_bytes({"ok": False, "error": "PyYAML is not installed. Run: pip install -r requirements.txt"}, 503)
+                    return self._send(code, raw, "application/json; charset=utf-8")
                 char_dir = HOME / "data" / "characters"
                 char_dir.mkdir(parents=True, exist_ok=True)
                 slug = body.get("slug", "").strip().lower().replace(" ", "_")
@@ -767,15 +854,15 @@ class Handler(BaseHTTPRequestHandler):
                         "이 대화는 완전 휘발성이며 영구 기억(MEMORY.md)/관찰/도구 호출이 차단됩니다.\n"
                         "아래 PRIVATE.md 규칙(진짜 카톡 같은 자연스러운 구어체, 1~2줄, 냥체 배제, 지문 배제)을 엄격히 준수하세요.\n"
                         f"---\n{priv_rules}\n---\n"
-                        "실장님이 사적 모드(/private)에 들어왔습니다. 자연스럽고 편안한 일상 구어체(1~2줄)로 맞이하세요."
+                        f"{identity.user_title()}이 사적 모드(/private)에 들어왔습니다. 자연스럽고 편안한 일상 구어체(1~2줄)로 맞이하세요."
                     )
                 elif stripped in ("/work", "/private off"):
                     sess.is_private = False
                     text = (
                         "[시스템: 업무 모드(Work Mode) 복귀]\n"
                         "사적 모드가 해제되고 기본 업무 모드로 복귀했습니다.\n"
-                        "냥피디 기본 페르소나(친근한 냥체, 업무 도구 활용)로 복귀하세요.\n"
-                        "실장님이 업무 모드로 복귀했습니다."
+                        f"{identity.self_label()} 기본 페르소나(친근한 냥체, 업무 도구 활용)로 복귀하세요.\n"
+                        f"{identity.user_title()}이 업무 모드로 복귀했습니다."
                     )
                 elif getattr(sess, "is_private", False):
                     text = f"[사적 모드: No Logging, No Tools, 일상 구어체 반말 1~2줄]\n{text}"

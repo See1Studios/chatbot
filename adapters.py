@@ -34,7 +34,20 @@ from host_config import (
     WORKSPACE,
     _now,
 )
+from artifact_manager import _atomic_write_text
 from tool_format import _format_tool_call, _format_tool_result
+
+
+def _redact_err(text: str) -> str:
+    """Helper to redact sensitive credentials from error output."""
+    try:
+        from session import _redact_text
+        return _redact_text(text)
+    except Exception:
+        # Fallback if session circular import happens
+        lines = [l for l in (text or "").splitlines()
+                 if not any(k in l.lower() for k in ("token", "authorization", "bearer", "api_key", "refresh"))]
+        return "\n".join(lines).strip()
 
 
 class AgentAdapter:
@@ -124,12 +137,6 @@ class AgentAdapter:
         the TUI `/usage` modal hits; Codex uses its app-server protocol."""
         return None
 
-    def effort_levels(self) -> List[str]:
-        """Valid --effort values for the (future) UI effort dropdown. Empty
-        list = this provider has no fixed vocabulary (agy passes whatever
-        it's given straight through to the underlying model)."""
-        return []
-
     def mints_own_conversation_id(self) -> bool:
         """False (default, agy's behavior): we generate a uuid4 before the
         first spawn and pass it in, specifically to stop the CLI from
@@ -168,6 +175,68 @@ class AgentAdapter:
                 return True
             except Exception:
                 return False
+
+    def finalize_turn(
+        self,
+        session: Any,
+        text: str,
+        raw_usage: Optional[dict],
+        is_err: bool = False,
+        error: Optional[str] = None,
+        served_model: Optional[str] = None,
+        images: Optional[List[str]] = None,
+    ) -> dict:
+        """Single end-of-turn finalizer for all adapters (T3.1).
+
+        Normalizes usage, rewrites artifact paths, appends images, creates and
+        persists history item, clears current_text and pending_images, and returns
+        the canonical result event.
+        """
+        final = session._rewrite_artifact_paths(session.current_text or text)
+        final = session._append_images_markdown(final, session.turn_started_at or None)
+
+        # Append pending images or passed images
+        img_list = list(images if images is not None else getattr(session, "pending_images", []) or [])
+        for url in img_list:
+            if url and url not in final:
+                final = (final.rstrip() + f"\n\n![]({url})\n") if final.strip() else f"![]({url})\n"
+
+        usage = self.normalize_usage(raw_usage) if raw_usage else None
+        duration_seconds = None
+        if getattr(session, "turn_started_at", 0) > 0:
+            duration_seconds = round(_now() - session.turn_started_at, 2)
+
+        ts = _now()
+        hist_item: dict = {"role": "assistant", "text": "" if is_err else final, "ts": ts}
+        if is_err and error:
+            hist_item["error"] = error
+        if usage:
+            hist_item["usage"] = usage
+        if duration_seconds is not None:
+            hist_item["duration_seconds"] = duration_seconds
+        stamp_served_model(session, hist_item, captured=served_model)
+
+        if final or is_err:
+            session.history.append(hist_item)
+            session.save_meta()
+
+        session.current_text = ""
+        session.pending_images = []
+
+        out_ev = {
+            "event": "result",
+            "text": "" if is_err else final,
+            "raw_event": "result",
+            "ts": ts,
+        }
+        if usage:
+            out_ev["usage"] = usage
+        if duration_seconds is not None:
+            out_ev["duration_seconds"] = duration_seconds
+        if is_err and error:
+            out_ev["error"] = error
+        stamp_served_model(session, hist_item, out_ev, captured=served_model)
+        return out_ev
 
 
 # agy ends a turn with an EMPTY result when this elapses -- and the agent may keep working unseen.
@@ -243,10 +312,12 @@ class AgyAdapter(AgentAdapter):
 
         ev = obj.get("event") or obj.get("type") or "message"
         text = ""
+        delta_offset = None
         step = obj.get("step_update")
         if isinstance(step, dict) and step.get("step_type") == "agent_response" and isinstance(step.get("text_delta"), str):
             text = step.get("text_delta") or ""
             ev = "delta"
+            delta_offset = len(session.current_text or "")
             session.current_text += text
         if isinstance(obj.get("text"), str) and not text:
             text = obj["text"]
@@ -268,71 +339,38 @@ class AgyAdapter(AgentAdapter):
         if isinstance(delta, dict) and delta.get("text"):
             text = str(delta.get("text"))
             ev = "delta"
+            delta_offset = len(session.current_text or "")
             session.current_text += text
 
         if text:
             text = session._rewrite_artifact_paths(text)
 
         if ev == "result":
-            final = session._rewrite_artifact_paths(session.current_text or text)
-            final = session._append_images_markdown(final, session.turn_started_at or None)
-            # also pending image urls from tool events
-            for url in list(getattr(session, "pending_images", []) or []):
-                if url and url not in final:
-                    final = (final.rstrip() + f"\n\n![]({url})\n") if final.strip() else f"![]({url})\n"
             res_obj = obj.get("result") if isinstance(obj.get("result"), dict) else {}
             raw_usage = res_obj.get("usage") if isinstance(res_obj.get("usage"), dict) else None
-            usage = self.normalize_usage(raw_usage)  # identity for agy today (Phase 0.5); claude/grok override this
-            duration_seconds = res_obj.get("duration_seconds")
-            if duration_seconds is None and getattr(session, "turn_started_at", 0) > 0:
-                duration_seconds = round(_now() - session.turn_started_at, 2)
-            hist_item = {"role": "assistant", "text": final, "ts": _now()}
-            if usage:
-                hist_item["usage"] = usage
-            if duration_seconds is not None:
-                hist_item["duration_seconds"] = duration_seconds
-            stamp_served_model(session, hist_item)
-            if usage and not any(h.get("role") == "assistant" for h in session.history):
-                # skill-observations 0009 (2026-09-16): the very first
-                # standby-adopted turn right after a restart once reported a
-                # correct reply but all-zero usage, with no repro since. Cheap,
-                # read-only diagnostic (no pipe/threading changes -- adding a
-                # second reader on the standby's stdout to log it pre-adoption
-                # would race the real _read_stdout() reader) so a recurrence
-                # leaves a trail to correlate against adoption timing instead
-                # of vanishing again.
-                if not any(int(usage.get(k) or 0) for k in ("input_tokens", "output_tokens", "total_tokens")):
-                    print(
-                        f"[{_now()}] WARN first-turn all-zero usage sid={session.sid} "
-                        f"conv={session.conversation_id} adopted_standby={getattr(session, '_adopted_standby', None)}",
-                        file=sys.stderr,
-                    )
-            if final:
-                session.history.append(hist_item)
-                session.save_meta()
-            text = final
-            session.current_text = ""
-            session.pending_images = []
+            res_err = str(res_obj.get("error") or obj.get("error") or "")
+            is_err = bool(res_err)
+            out_ev = self.finalize_turn(
+                session=session,
+                text=text,
+                raw_usage=raw_usage,
+                is_err=is_err,
+                error=res_err if is_err else None,
+            )
+            final = out_ev.get("text") or ""
+            duration_seconds = out_ev.get("duration_seconds")
             status = str(res_obj.get("status") or "")
             dur = float(res_obj.get("duration_seconds") or duration_seconds or 0)
             if not session._stop_requested and (
                 status not in ("", "SUCCESS")
                 or (not final.strip() and dur >= 0.9 * AGY_PRINT_TIMEOUT_SEC)
             ):
-                session._end_unfinished_turn(status, str(res_obj.get("error") or ""), dur)
-
-        if ev in ("result", "assistant", "message", "delta", "error", "system") or (ev in ("tool_use", "tool_result") and not tool_ev):
+                session._end_unfinished_turn(status, res_err, dur)
+            events.append(out_ev)
+        elif ev in ("assistant", "message", "delta", "error", "system") or (ev in ("tool_use", "tool_result") and not tool_ev):
             out = {"event": ev, "text": text, "raw_event": ev}
-            if ev == "result":
-                res_obj = obj.get("result") if isinstance(obj.get("result"), dict) else {}
-                if usage:
-                    out["usage"] = usage
-                if res_obj.get("duration_seconds") is not None:
-                    out["duration_seconds"] = res_obj["duration_seconds"]
-                elif getattr(session, "turn_started_at", 0) > 0:
-                    out["duration_seconds"] = round(_now() - session.turn_started_at, 2)
-                out["ts"] = hist_item["ts"]  # lets the client mark this turn as synced (see SSE resync)
-                stamp_served_model(session, hist_item, out)
+            if ev == "delta" and delta_offset is not None:
+                out["offset"] = delta_offset
             if obj.get("error"):
                 out["error"] = obj.get("error")
             events.append(out)
@@ -355,7 +393,7 @@ class AgyAdapter(AgentAdapter):
                 if len(parts) >= 4:
                     rows.append({"group": parts[0], "limit_type": parts[1], "remaining_pct": parts[2], "reset_at": parts[3]})
             if not rows and proc.stderr:
-                return {"error": proc.stderr.strip()[:400]}
+                return {"error": _redact_err(proc.stderr)[:400]}
             return {"rows": rows}
         except Exception as e:
             return {"error": str(e)}
@@ -403,11 +441,13 @@ class ClaudeAdapter(AgentAdapter):
         bytes) rather than kept as a static file, so it self-heals if
         WORKSPACE is ever reset."""
         cfg_path = WORKSPACE / ".mcp.json"
-        cfg_path.parent.mkdir(parents=True, exist_ok=True)
-        cfg_path.write_text(
-            json.dumps({"mcpServers": {"nas": {"type": "http", "url": "http://127.0.0.1:3012/mcp"}}}),
-            encoding="utf-8",
-        )
+        content = json.dumps({"mcpServers": {"nas": {"type": "http", "url": "http://127.0.0.1:3012/mcp"}}})
+        try:
+            if cfg_path.is_file() and cfg_path.read_text(encoding="utf-8") == content:
+                return cfg_path
+        except Exception:
+            pass
+        _atomic_write_text(cfg_path, content)
         return cfg_path
 
     def build_args(self, model: str, effort: str, conversation_id: Optional[str], add_dirs: List[str], prompt: str = "") -> List[str]:
@@ -492,8 +532,9 @@ class ClaudeAdapter(AgentAdapter):
             if ev.get("type") == "content_block_delta" and delta.get("type") == "text_delta":
                 text = delta.get("text") or ""
                 if text:
+                    offset = len(session.current_text or "")
                     session.current_text += text
-                    return [{"event": "delta", "text": session._rewrite_artifact_paths(text), "raw_event": "delta"}]
+                    return [{"event": "delta", "text": session._rewrite_artifact_paths(text), "offset": offset, "raw_event": "delta"}]
             return []
 
         # 3. assistant -- whole message; tool_use calls live here. content[].type=="text"
@@ -559,37 +600,19 @@ class ClaudeAdapter(AgentAdapter):
                 denied_names = [d if isinstance(d, str) else d.get("tool_name", str(d)) for d in denials]
                 text += f"\n[Permission denied tools: {', '.join(denied_names)}]"
 
-            final = session._rewrite_artifact_paths(session.current_text or text)
-            raw_usage = obj.get("usage") if isinstance(obj.get("usage"), dict) else None
-            usage = self.normalize_usage(raw_usage)
-            duration_seconds = None
-            if getattr(session, "turn_started_at", 0) > 0:
-                duration_seconds = round(_now() - session.turn_started_at, 2)
-
-            hist_item = {"role": "assistant", "text": final if not is_err else "", "ts": _now()}
-            if usage:
-                hist_item["usage"] = usage
-            if duration_seconds is not None:
-                hist_item["duration_seconds"] = duration_seconds
-            stamp_served_model(session, hist_item)
-            if final and not is_err:
-                session.history.append(hist_item)
-                session.save_meta()
-            session.current_text = ""
-
             new_cid = obj.get("session_id")
             if new_cid and not session.conversation_id:
                 session.conversation_id = new_cid
                 session.save_meta()
 
-            out = {"event": "result", "text": "" if is_err else final, "raw_event": "result", "ts": hist_item["ts"]}
-            if usage:
-                out["usage"] = usage
-            if duration_seconds is not None:
-                out["duration_seconds"] = duration_seconds
-            stamp_served_model(session, hist_item, out)
-            if is_err:
-                out["error"] = text
+            raw_usage = obj.get("usage") if isinstance(obj.get("usage"), dict) else None
+            out = self.finalize_turn(
+                session=session,
+                text=text,
+                raw_usage=raw_usage,
+                is_err=is_err,
+                error=text if is_err else None,
+            )
             return [out]
 
         # 6. rate_limit_event and anything else -- ignored (same as VibeCat)
@@ -684,13 +707,10 @@ class ClaudeAdapter(AgentAdapter):
             if rows:
                 return {"rows": rows}
             if proc.stderr:
-                return {"error": proc.stderr.strip()[:400]}
+                return {"error": _redact_err(proc.stderr)[:400]}
             return {"error": "/cost 출력에서 사용량 정보를 찾지 못했습니다"}
         except Exception as e:
             return {"error": str(e)}
-
-    def effort_levels(self) -> List[str]:
-        return ["low", "medium", "high", "xhigh", "max"]
 
     def known_models(self) -> List[str]:
         # Aliases, not dated snapshot ids -- claude_adapter_guidelines.md
@@ -987,6 +1007,7 @@ class GrokAdapter(AgentAdapter):
         prompt_path = WORKSPACE / ".grok" / "prompts" / f".grok_prompt_{uuid.uuid4().hex}.txt"
         prompt_path.parent.mkdir(parents=True, exist_ok=True)
         prompt_path.write_text(prompt or "", encoding="utf-8")
+        self._last_prompt_path = prompt_path
         args = [
             exe,
             "--prompt-file", str(prompt_path),
@@ -1051,8 +1072,9 @@ class GrokAdapter(AgentAdapter):
             text = obj.get("data") or ""
             if not text:
                 return []
+            offset = len(session.current_text or "")
             session.current_text += text
-            return [{"event": "delta", "text": session._rewrite_artifact_paths(text), "raw_event": "delta"}]
+            return [{"event": "delta", "text": session._rewrite_artifact_paths(text), "offset": offset, "raw_event": "delta"}]
 
         if kind == "tool_call":
             name, args = _grok_tool_display(obj)
@@ -1083,36 +1105,16 @@ class GrokAdapter(AgentAdapter):
             if new_cid and not session.conversation_id:
                 session.conversation_id = new_cid
                 session.save_meta()
-            final = session._rewrite_artifact_paths(session.current_text)
-            final = session._append_images_markdown(final, session.turn_started_at or None)
-            for url in list(getattr(session, "pending_images", []) or []):
-                if url and url not in final:
-                    final = (final.rstrip() + f"\n\n![]({url})\n") if final.strip() else f"![]({url})\n"
+
             raw_usage = obj.get("usage") if isinstance(obj.get("usage"), dict) else None
-            usage = self.normalize_usage(raw_usage)
-            duration_seconds = None
-            if getattr(session, "turn_started_at", 0) > 0:
-                duration_seconds = round(_now() - session.turn_started_at, 2)
-
-            hist_item = {"role": "assistant", "text": final if not is_err else "", "ts": _now()}
-            if usage:
-                hist_item["usage"] = usage
-            if duration_seconds is not None:
-                hist_item["duration_seconds"] = duration_seconds
-            stamp_served_model(session, hist_item)
-            if final and not is_err:
-                session.history.append(hist_item)
-                session.save_meta()
-            session.current_text = ""
-
-            out_ev = {"event": "result", "text": "" if is_err else final, "raw_event": "result", "ts": hist_item["ts"]}
-            if usage:
-                out_ev["usage"] = usage
-            if duration_seconds is not None:
-                out_ev["duration_seconds"] = duration_seconds
-            stamp_served_model(session, hist_item, out_ev)
-            if is_err:
-                out_ev["error"] = stop_reason or str(obj.get("error") or "error")
+            err_msg = stop_reason or str(obj.get("error") or "error") if is_err else None
+            out_ev = self.finalize_turn(
+                session=session,
+                text="",
+                raw_usage=raw_usage,
+                is_err=is_err,
+                error=err_msg,
+            )
             return [out_ev]
 
         return []
@@ -1188,12 +1190,6 @@ class GrokAdapter(AgentAdapter):
         if not rows:
             return {"error": "Grok billing 출력에서 사용량 정보를 찾지 못했습니다"}
         return {"rows": rows}
-
-    def effort_levels(self) -> List[str]:
-        # `--reasoning-effort` accepts freeform values per this build's
-        # --help (no enumerated list the way claude's low/medium/high/xhigh/
-        # max is documented) -- empty means "no fixed vocabulary to offer."
-        return []
 
     def known_models(self) -> List[str]:
         # From `grok models` output (2026-09-17): "grok-4.6 (default)",
@@ -1348,8 +1344,9 @@ class CodexAdapter(AgentAdapter):
                 # Arrives as one complete block per captured turns, not
                 # streamed deltas -- accumulate the same way regardless, in
                 # case a longer answer ever splits into more than one.
+                offset = len(session.current_text or "")
                 session.current_text += text
-                return [{"event": "delta", "text": session._rewrite_artifact_paths(text), "raw_event": "delta"}]
+                return [{"event": "delta", "text": session._rewrite_artifact_paths(text), "offset": offset, "raw_event": "delta"}]
             if itype == "mcp_tool_call":
                 name = str(item.get("tool") or "tool")
                 server = item.get("server")
@@ -1372,30 +1369,13 @@ class CodexAdapter(AgentAdapter):
             return []
 
         if kind == "turn.completed":
-            final = session._rewrite_artifact_paths(session.current_text)
             raw_usage = obj.get("usage") if isinstance(obj.get("usage"), dict) else None
-            usage = self.normalize_usage(raw_usage)
-            duration_seconds = None
-            if getattr(session, "turn_started_at", 0) > 0:
-                duration_seconds = round(_now() - session.turn_started_at, 2)
-
-            hist_item = {"role": "assistant", "text": final, "ts": _now()}
-            if usage:
-                hist_item["usage"] = usage
-            if duration_seconds is not None:
-                hist_item["duration_seconds"] = duration_seconds
-            stamp_served_model(session, hist_item)
-            if final:
-                session.history.append(hist_item)
-                session.save_meta()
-            session.current_text = ""
-
-            out_ev = {"event": "result", "text": final, "raw_event": "result", "ts": hist_item["ts"]}
-            if usage:
-                out_ev["usage"] = usage
-            if duration_seconds is not None:
-                out_ev["duration_seconds"] = duration_seconds
-            stamp_served_model(session, hist_item, out_ev)
+            out_ev = self.finalize_turn(
+                session=session,
+                text="",
+                raw_usage=raw_usage,
+                is_err=False,
+            )
             return [out_ev]
 
         # turn.failed / top-level error: not captured live (the
@@ -1446,13 +1426,6 @@ class CodexAdapter(AgentAdapter):
         if not rows:
             return {"error": "Codex 사용량 응답에서 제한 정보를 찾지 못했습니다"}
         return {"rows": rows}
-
-    def effort_levels(self) -> List[str]:
-        # `-c model_reasoning_effort=...` accepts a config value, but no
-        # enumerated list was found/verified for this build the way claude's
-        # low/medium/high/xhigh/max is documented -- empty means "no fixed
-        # vocabulary to offer" rather than a guessed list.
-        return []
 
     def mints_own_conversation_id(self) -> bool:
         # Verified live 2026-09-17: `codex exec resume <a fresh uuid codex
@@ -1773,9 +1746,6 @@ class OpenAIDialectAdapter(AgentAdapter):
             "total_tokens": int(total) if total is not None else (prompt + completion),
         }
 
-    def effort_levels(self) -> List[str]:
-        return []
-
     def rate_limit_report(self) -> Optional[dict]:
         """Query provider endpoint (OmniRoute connections or OpenRouter credits/key) to surface quota/status."""
         api_key = os.environ.get(self.api_key_env, "")
@@ -1911,7 +1881,7 @@ class OpenAIDialectAdapter(AgentAdapter):
     # (_start_http_watchdog/_http_turn_watchdog) enforces this by calling
     # stop() once a turn runs past it.
 
-    def _stream_once(self, session: "AgySession", messages: List[dict], tools: List[dict]) -> Iterator[dict]:
+    def _stream_once(self, session: "AgySession", messages: List[dict], tools: List[dict], seq: Optional[int] = None) -> Iterator[dict]:
         """One raw HTTP POST + SSE read. Yields {"event":"delta"} for content
         pieces as they arrive; returns (text, tool_calls, usage, finish_reason,
         served_model) via StopIteration (consume with
@@ -1920,6 +1890,8 @@ class OpenAIDialectAdapter(AgentAdapter):
         differ from the requested slug). No session.history/current_text
         finalization here -- stream_turn() decides whether this hop was a
         plain answer or another round of tool calls."""
+        if seq is not None and getattr(session, "_turn_seq", None) != seq:
+            return "", {}, None, None, ""
         api_key = os.environ.get(self.api_key_env, "")
         model = self.coerce_openrouter_model(session.model or self.default_model)
         if self.free_only and session.model != model:
@@ -1956,10 +1928,14 @@ class OpenAIDialectAdapter(AgentAdapter):
         usage = None
         finish_reason = None
         served_model = ""
+        if seq is not None and getattr(session, "_turn_seq", None) != seq:
+            return "", {}, None, None, ""
         resp = urlopen(req, timeout=120)
         session._http_resp = resp
         try:
             for raw_line in resp:
+                if seq is not None and getattr(session, "_turn_seq", None) != seq:
+                    break
                 line = raw_line.decode("utf-8", errors="replace").strip()
                 if not line or not line.startswith("data:"):
                     continue
@@ -1985,8 +1961,9 @@ class OpenAIDialectAdapter(AgentAdapter):
                 piece = delta.get("content")
                 if piece:
                     text_buf.append(piece)
+                    offset = len(session.current_text or "")
                     session.current_text = (session.current_text or "") + piece
-                    yield {"event": "delta", "text": piece}
+                    yield {"event": "delta", "text": piece, "offset": offset}
                 for tc in (delta.get("tool_calls") or []):
                     idx = tc.get("index", 0)
                     slot = tool_calls.setdefault(idx, {"id": "", "name": "", "arguments": ""})
@@ -2000,14 +1977,15 @@ class OpenAIDialectAdapter(AgentAdapter):
                 if choice.get("finish_reason"):
                     finish_reason = choice["finish_reason"]
         finally:
-            session._http_resp = None
+            if getattr(session, "_http_resp", None) is resp:
+                session._http_resp = None
             try:
                 resp.close()
             except Exception:
                 pass
         return "".join(text_buf), tool_calls, usage, finish_reason, served_model
 
-    def stream_turn(self, session: "AgySession", messages: List[dict]) -> Iterator[dict]:
+    def stream_turn(self, session: "AgySession", messages: List[dict], seq: Optional[int] = None) -> Iterator[dict]:
         """Orchestrates one or more _stream_once() hops: a plain-answer hop
         ends the turn (finalizes session.history/current_text, mirrors what
         each CLI adapter's normalize_line() does at its own "result" event --
@@ -2026,7 +2004,11 @@ class OpenAIDialectAdapter(AgentAdapter):
         hop_usages: List[dict] = []
         served_model = ""
         for hop in range(1, self.MAX_TOOL_HOPS + 1):
-            text, tool_calls, raw_usage, finish_reason, hop_model = yield from self._stream_once(session, messages, tools)
+            if seq is not None and getattr(session, "_turn_seq", None) != seq:
+                return
+            text, tool_calls, raw_usage, finish_reason, hop_model = yield from self._stream_once(session, messages, tools, seq=seq)
+            if seq is not None and getattr(session, "_turn_seq", None) != seq:
+                return
             if hop_model:
                 served_model = hop_model
             nu = self.normalize_usage(raw_usage) if raw_usage else None
@@ -2045,6 +2027,8 @@ class OpenAIDialectAdapter(AgentAdapter):
                 ]
                 messages.append({"role": "assistant", "content": text or None, "tool_calls": sent_calls})
                 for tc, sent in zip(ordered, sent_calls):
+                    if seq is not None and getattr(session, "_turn_seq", None) != seq:
+                        return
                     try:
                         args = json.loads(tc["arguments"] or "{}")
                         if not isinstance(args, dict):
@@ -2053,10 +2037,14 @@ class OpenAIDialectAdapter(AgentAdapter):
                         args = {}
                     call_text = _format_tool_call(tc["name"], args) if args else tc["name"]
                     yield {"event": "tool", "text": call_text[:600], "title": tc["name"][:200], "kind": "call", "status": "tool_calls"}
+                    if seq is not None and getattr(session, "_turn_seq", None) != seq:
+                        return
                     try:
                         result_text = _mcp_call_tool(tc["name"], args)
                     except Exception as e:
                         result_text = json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
+                    if seq is not None and getattr(session, "_turn_seq", None) != seq:
+                        return
                     # UI log is already [:600]; the model hop was getting the
                     # full MCP payload (read_file up to 500k). Cap what the
                     # next HTTP request sends.
@@ -2080,26 +2068,15 @@ class OpenAIDialectAdapter(AgentAdapter):
                     "cache_read_tokens": int(last.get("cache_read_tokens") or 0),
                     "total_tokens": sum(int(u.get("total_tokens") or 0) for u in hop_usages),
                 }
-            final = session._rewrite_artifact_paths(text)
-            duration_seconds = None
-            if getattr(session, "turn_started_at", 0) > 0:
-                duration_seconds = round(_now() - session.turn_started_at, 2)
-            hist_item = {"role": "assistant", "text": final, "ts": _now()}
-            if usage:
-                hist_item["usage"] = usage
-            if duration_seconds is not None:
-                hist_item["duration_seconds"] = duration_seconds
-            stamp_served_model(session, hist_item, captured=served_model)
-            if final:
-                session.history.append(hist_item)
-                session.save_meta()
-            session.current_text = ""
-            out = {"event": "result", "text": final, "ts": hist_item["ts"]}
-            if usage:
-                out["usage"] = usage
-            if duration_seconds is not None:
-                out["duration_seconds"] = duration_seconds
-            stamp_served_model(session, hist_item, out, captured=served_model)
+            if seq is not None and getattr(session, "_turn_seq", None) != seq:
+                return
+            out = self.finalize_turn(
+                session=session,
+                text=text,
+                raw_usage=usage,
+                is_err=False,
+                served_model=served_model,
+            )
             yield out
             return
         yield {"event": "error", "text": f"툴 호출이 {self.MAX_TOOL_HOPS}회를 넘어 강제 종료했습니다냥."}

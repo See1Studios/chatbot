@@ -57,3 +57,18 @@ Sphere Hub용 DiskStation 채팅 에이전트 호스트.
 | `voice` | `data/workspace/PERSONA.md` | 호스트가 만드는 짧은 프롬프트의 말투 한 줄 |
 
 성격·말투 본문은 `PERSONA.md` 본문에 쓴다. 새 설치에서 `PERSONA.md`가 없으면 `templates/PERSONA.md`가 복사된다.
+
+## Run tests
+
+- **Python 버전**: Python 3.8+ (NAS 환경: Python 3.8.15)
+- **Node.js**: UI DOM 스텁 및 JS 하네스 테스트(`tests/test_*_ui*.py`, `tests/test_status_picker.py`, `tests/test_choice_chips.py` 등) 실행을 위해 `node` (Node.js v20+) 필요
+- **외부 의존성**: `../nas-mcp/server.py` 형제 디렉터리 경로 필요 (`tests/test_nas_mcp_host.py`)
+- **패키지 설치**: `pip install -r requirements.txt` (PyYAML 등)
+
+```bash
+# 전체 테스트 실행
+python3 -m unittest discover -s tests -p "test_*.py"
+
+# 단일 테스트 파일 실행 예시
+python3 -m unittest tests/test_identity_wiring.py
+```

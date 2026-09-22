@@ -1,0 +1,35 @@
+{
+ "approved_at": "2026-09-22 15:02:54",
+ "attempts": 1,
+ "created": "2026-09-22 15:01:24",
+ "evidence": [
+  "event:20260922-144848-3f4238#18"
+ ],
+ "gate_failures": 0,
+ "id": 22,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-22 15:02:54"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3); paths: services/chatbot/static/app.js",
+   "ts": "2026-09-22 15:02:56"
+  },
+  {
+   "by": "agent",
+   "text": "done: await active geolocation fetch in getClientContext with timeout fallback (commit 44be8ea)",
+   "ts": "2026-09-22 15:08:00"
+  }
+ ],
+ "paths": [
+  "services/chatbot/static/app.js"
+ ],
+ "status": "done",
+ "target": "services/chatbot/static/app.js",
+ "title": "위치 토글 활성화 시 GPS 좌표 미획득 상태 메시지 전송 레이스 컨디션 개선",
+ "updated": "2026-09-22 15:02:56",
+ "closed_reason": "done"
+}

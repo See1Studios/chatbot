@@ -1,15 +1,15 @@
 ---
 id: 41
 title: "Tailscale Funnel /chat 에서 API가 Sphere 허브로 샘"
-status: open
+status: actioned
 type: internal
 skill: []
 proposes_skill: []
 area: "chatbot"
 date: 2026-09-22
 parked_until:
-resolved:
-resolution:
+resolved: 2026-09-22
+resolution: "설치 경로 의존성 모두 제거"
 reference:
 ---
 
