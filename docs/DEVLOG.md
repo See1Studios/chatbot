@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-09-23 — 외부 CLI 에이전트용 `ticket-quick` 절차를 헌장·설계서에 문서화 (티켓 #29)
+
+- **배경** (실장님: "이 저장소에서 작업하게 될 모든 다른 에이전트가 그걸 알 수 있도록 해줄래"): 라이브 세션 밖 외부 CLI 에이전트(Claude Code 등)는 `ticket` MCP 도구에 접근할 수 없어, 매번 실장님이 `ticket-quick` 사용법을 구두로 알려줘야 했음. `~/bin/ticket-quick`은 이미 존재하지만 헌장·설계서에 미문서화 상태였음.
+- **변경**: `data/workspace/AGENTS.md`(헌장) "자기수정" 절에 `ticket-quick start --title --paths` / `ticket-quick done --id --token` 사용법과, 자동승인이 절차 생략이 아니라 실장님의 실행 지시를 전제로 한다는 점을 명시. `data/workspace/PROJECT.md` "고칠 때" 절에서 헌장 참조 포인터 추가.
+- **절차 메모**: 이 두 파일 자체가 Tier 3(헌장·이 설계서)라 승인된 티켓 없이 시작하면 안 되는데, 먼저 수정하고 나중에 `ticket-quick`으로 티켓 #29를 소급 생성·승인·클레임함 — 다음엔 순서를 지킬 것.
+- **검증**: `tests.test_evolution`/`tests.test_mcp_server`/`tests.test_lifecycle` (139개) 통과. 문서 변경이라 ⚡소생 불필요.
+
 ## 2026-09-23 — /code-review 지적 10건 수정 (티켓 #28)
 
 - **배경**: 실장님 지시로 `/code-review`를 백그라운드로 돌린 결과, 현재 diff에서 correctness 버그 10건 발견. 실장님 "한 번에 다 고쳐줘" 지시로 일괄 수정.
