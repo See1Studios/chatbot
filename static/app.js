@@ -1,3 +1,4 @@
+const BASE_PATH = window.location.pathname.startsWith('/chat') ? '/chat' : '';
 const SESSION_KEY = 'chatbot.sessionId';
 const logEl = document.getElementById('log');
 const activityPaneEl = document.getElementById('activityPane');
@@ -736,7 +737,7 @@ function startTurnTimer() {
       return;
     }
     try {
-      const res = await fetch(`/api/sessions/${sessionId}`);
+      const res = await fetch(`${BASE_PATH}/api/sessions/${sessionId}`);
       if (res.ok) {
         const data = await res.json();
         if (!data) return;
@@ -924,9 +925,10 @@ function absArtifact(u) {
   const trimmed = String(u).replace(/^\.\//, '');
   const grokRel = trimmed.match(/^(?:images|videos)\/([^/?#]+)$/i);
   if (grokRel && sessionId) {
-    return '/artifacts/' + encodeURIComponent(sessionId) + '/brain/' + encodeURIComponent(grokRel[1]);
+    return BASE_PATH + '/artifacts/' + encodeURIComponent(sessionId) + '/brain/' + encodeURIComponent(grokRel[1]);
   }
-  return trimmed.startsWith('/') ? trimmed : '/' + trimmed;
+  const full = trimmed.startsWith('/') ? trimmed : '/' + trimmed;
+  return (BASE_PATH && full.startsWith(BASE_PATH)) ? full : (BASE_PATH + full);
 }
 
 
@@ -1576,7 +1578,8 @@ function formatToolResultClient(content) {
 }
 
 async function api(path, opts) {
-  const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
+  const url = (BASE_PATH && path.startsWith('/') && !path.startsWith(BASE_PATH)) ? (BASE_PATH + path) : path;
+  const r = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
   if (!r.ok) throw new Error(await r.text() || r.statusText);
   const ct = r.headers.get('content-type') || '';
   if (ct.includes('application/json')) return r.json();
@@ -2613,7 +2616,7 @@ function bindEvents(sid) {
   const live = logEl && logEl.querySelector('.msg[data-live="1"]');
   if (live && live.isConnected) assistantNode = live;
   else { assistantNode = null; assistantBuf = ''; }
-  es = new EventSource('/api/sessions/' + encodeURIComponent(sid) + '/events');
+  es = new EventSource(BASE_PATH + '/api/sessions/' + encodeURIComponent(sid) + '/events');
   es.onmessage = (ev) => {
     let data; try { data = JSON.parse(ev.data); } catch (_) { return; }
     const type = data.event || data.type || '';
@@ -3927,7 +3930,7 @@ function applyIdentity() {
 }
 applyIdentity();
 if (!window.__IDENTITY__) {  // 정적으로 서빙돼 서버가 심어 주지 못한 경우
-  fetch('/api/identity').then(r => r.json()).then(j => { Object.assign(IDENTITY, j); applyIdentity(); }).catch(() => {});
+  fetch(BASE_PATH + '/api/identity').then(r => r.json()).then(j => { Object.assign(IDENTITY, j); applyIdentity(); }).catch(() => {});
 }
 const PROVIDER_CREDIT = {
   agy: 'Antigravity',
