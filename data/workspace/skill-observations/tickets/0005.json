@@ -1,0 +1,37 @@
+{
+ "approved_at": "2026-09-21 09:38:48",
+ "attempts": 1,
+ "closed_reason": "done",
+ "created": "2026-09-21 09:38:35",
+ "evidence": [
+  "event:20260921-093421-4aa1b9#1"
+ ],
+ "gate_failures": 0,
+ "id": 5,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-21 09:38:48"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3)",
+   "ts": "2026-09-21 09:39:57"
+  },
+  {
+   "by": "agent",
+   "text": "done: Claude Code CLI v2.1.278 /cost의 신규 통계 포맷(Last 24h/7d requests 및 sessions) 및 기존 포맷 양방향 파싱 지원. 테스트 621개 통과 및 실제 조회 검증 완료.",
+   "ts": "2026-09-21 09:42:35"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-21 09:42:35"
+  }
+ ],
+ "status": "done",
+ "target": "services/chatbot/adapters.py",
+ "title": "Claude 어댑터 rate_limit_report 파서를 Claude CLI 최신 포맷에 맞게 갱신",
+ "updated": "2026-09-21 09:42:35"
+}

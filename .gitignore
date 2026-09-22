@@ -1,0 +1,40 @@
+__pycache__/
+*.pyc
+*.bak-*
+*.log
+*.pid
+static/vendor/*.min.js
+server.py.candidate
+static/index.html.candidate
+static/app.js.candidate
+chatbot-ctl.sh.candidate
+# ephemeral runtime state (2026-09-16 consolidation: now lives under data/)
+data/doctor-probe.stamp
+data/standby.pid
+# API-Provider plan: API keys (e.g. CHATBOT_OMNIROUTE_API_KEY) -- never committed
+data/secrets.env
+# per-host account observation state (accounts.py watch_loop)
+data/account_state.json
+# self-evolution runtime state (recursive-self-evolution.md): locks, flags, collected candidates, live pids
+data/lifecycle.lock
+data/maintenance.flag
+data/live_pids.json
+data/workspace/skill-observations/candidates.jsonl
+data/workspace/skill-observations/tickets/.lock
+data/workspace/skill-observations/tickets/author.lease
+data/workspace/memory/.MEMORY.lock
+data/workspace/memory/MEMORY.md.bak
+data/workspace/memory/.MEMORY.*.tmp
+# per-session conversation runtime; keep shared artifact assets
+data/sessions/*
+!data/sessions/_shared/
+!data/sessions/_shared/**
+# leftover stub; SSOT is data/workspace/memory/MEMORY.md
+data/MEMORY.md
+# grok harness scratch
+data/workspace/.grok/
+# impeccable detector local ignores (absolute host paths)
+data/workspace/.impeccable/
+# role skill runtime
+data/workspace/.agents/skills/role/sessions/
+data/workspace/.agents/skills/role/__pycache__/

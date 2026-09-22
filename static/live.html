@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>냥피디 Live 2.5D 인터랙티브 뷰어 🐾</title>
+  <style>
+    :root {
+      --bg-color: #12141a;
+      --card-bg: rgba(26, 29, 38, 0.85);
+      --accent: #f59e0b;
+      --accent-glow: rgba(245, 158, 11, 0.3);
+      --text: #f3f4f6;
+      --text-dim: #9ca3af;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at center, #1e2330 0%, var(--bg-color) 100%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+    header {
+      position: absolute;
+      top: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      z-index: 100;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+    .badge {
+      background: var(--accent);
+      color: #000;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+
+    /* 스테이지 컨테이너 */
+    #stage-container {
+      position: relative;
+      width: 768px;
+      height: 768px;
+      max-width: 90vw;
+      max-height: 85vh;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      filter: drop-shadow(0 15px 35px rgba(0,0,0,0.6));
+      transform-style: preserve-3d;
+      transition: transform 0.1s ease-out;
+    }
+    #stage:active { cursor: grabbing; }
+
+    /* 공통 레이어 스타일 */
+    .layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      object-fit: contain;
+      will-change: transform;
+    }
+
+    /* 꼬리 모션 (은은하게 살랑살랑) */
+    #l-tail {
+      transform-origin: 28% 46%;
+      animation: tailWag 4.5s ease-in-out infinite alternate;
+    }
+    @keyframes tailWag {
+      0% { transform: rotate(-3deg); }
+      100% { transform: rotate(4deg); }
+    }
+
+    /* 뒷머리 살랑임 (미세 모션) */
+    #l-backhair {
+      transform-origin: 50% 25%;
+      animation: backhairSway 5.5s ease-in-out infinite alternate;
+    }
+    @keyframes backhairSway {
+      0% { transform: rotate(-0.6deg) scaleX(0.995); }
+      100% { transform: rotate(0.6deg) scaleX(1.005); }
+    }
+
+    /* 몸통 호흡 모션 (자연스러운 미세 호흡) */
+    #l-body-group {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      transform-origin: 50% 85%;
+      animation: breath 4.5s ease-in-out infinite;
+    }
+    @keyframes breath {
+      0%, 100% { transform: translateY(0px) scale(1, 1); }
+      50% { transform: translateY(-1.5px) scale(1.002, 1.004); }
+    }
+
+    /* 머리 전체 그룹 (마우스 시선 & 헤드 틸트) */
+    #l-head-group {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      transform-origin: 50% 50%;
+      transition: transform 0.08s ease-out;
+    }
+
+    /* 귀 쫑긋 (가벼운 쫑긋) */
+    #l-ears {
+      transform-origin: 50% 28%;
+      animation: earTwitch 6.5s ease-in-out infinite;
+    }
+    @keyframes earTwitch {
+      0%, 92%, 100% { transform: rotate(0deg) scale(1); }
+      94% { transform: rotate(-1.5deg) scale(1.02, 0.98); }
+      96% { transform: rotate(1.8deg) scale(0.98, 1.02); }
+      98% { transform: rotate(-0.5deg) scale(1); }
+    }
+
+    /* 앞머리 살랑임 (미세 모션) */
+    #l-fronthair {
+      transform-origin: 50% 22%;
+      animation: fronthairSway 4.2s ease-in-out infinite alternate;
+    }
+    @keyframes fronthairSway {
+      0% { transform: rotate(-0.5deg) skewX(-0.3deg); }
+      100% { transform: rotate(0.6deg) skewX(0.3deg); }
+    }
+
+    /* 눈 파츠 정확한 피벗 (X: 58.3%, Y: 36.7%) */
+    #l-eyes, #l-eyewhite, #l-eyelash, #l-eyebrow {
+      transform-origin: 58.3% 36.7%;
+    }
+    #l-eyes {
+      transition: transform 0.06s ease-out;
+    }
+
+    /* 눈 깜빡임: 눈꺼풀이 닫히며 눈동자/흰자를 완벽히 가림 */
+    .blinking-lashes {
+      animation: blinkLashes 0.18s ease-in-out 1;
+    }
+    @keyframes blinkLashes {
+      0%, 100% { transform: scaleY(1) translateY(0); }
+      40%, 60% { transform: scaleY(0.1) translateY(3.5px); }
+    }
+
+    .blinking-pupil {
+      animation: blinkPupil 0.18s ease-in-out 1;
+    }
+    @keyframes blinkPupil {
+      0%, 100% { opacity: 1; }
+      30%, 70% { opacity: 0; }
+    }
+
+    .blinking-brow {
+      animation: blinkBrow 0.18s ease-in-out 1;
+    }
+    @keyframes blinkBrow {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(1.5px); }
+    }
+
+    /* 입 안쪽 공동 (말할 때만 드러남) */
+    #l-mouth-cavity {
+      position: absolute;
+      left: 58.66%;
+      top: 40.95%;
+      width: 14px;
+      height: 9px;
+      margin-left: -7px;
+      margin-top: -3px;
+      background: radial-gradient(circle at center 30%, #e06c77 0%, #69171f 85%);
+      border-radius: 35% 35% 55% 55%;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+      opacity: 0;
+      transform-origin: center top;
+      transform: scale(0.2);
+      z-index: 15;
+      pointer-events: none;
+    }
+    .talking-cavity {
+      animation: mouthOpen 0.2s ease-in-out infinite alternate;
+    }
+    @keyframes mouthOpen {
+      0% { opacity: 0; transform: scale(0.3, 0.2); }
+      100% { opacity: 1; transform: scale(1, 1.25) translateY(1px); }
+    }
+
+    /* 입술 선: 제자리(58.66% 40.95%)에서 살짝 오물오물 */
+    #l-mouth {
+      transform-origin: 58.66% 40.95%;
+      transition: transform 0.08s ease;
+    }
+    .talking {
+      animation: talkLips 0.2s ease-in-out infinite alternate;
+    }
+    @keyframes talkLips {
+      0% { transform: scale(1, 1); }
+      100% { transform: scale(1.06, 0.82) translateY(-0.8px); }
+    }
+
+    /* 하단 컨트롤 바 */
+    #controls {
+      position: absolute;
+      bottom: 24px;
+      display: flex;
+      gap: 12px;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      padding: 10px 18px;
+      border-radius: 999px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+      z-index: 100;
+    }
+    button {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+    .status-text {
+      position: absolute;
+      bottom: 75px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-weight: 600;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .status-text.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>냥피디 Live 2.5D <span class="badge">V2 정밀 합성</span></h1>
+    <p class="subtitle">마우스 커서를 따라 시선과 고개가 움직이고 귀와 꼬리가 살랑인다냥!</p>
+  </header>
+
+  <div id="stage-container">
+    <div id="stage">
+      <!-- 1. 가장 뒤: 꼬리 -> 뒷머리 -->
+      <img src="/artifacts/see_through/21_tail.png" id="l-tail" class="layer" style="z-index: 1;" alt="tail">
+      <img src="/artifacts/see_through/00_backhair.png" id="l-backhair" class="layer" style="z-index: 2;" alt="backhair">
+
+      <!-- 2. 몸통 & 의상 그룹 (호흡 애니메이션) -->
+      <div id="l-body-group" style="z-index: 5;">
+        <img src="/artifacts/see_through/01_bottomwear.png" class="layer" alt="bottomwear">
+        <img src="/artifacts/see_through/17_neck.png" class="layer" alt="neck">
+        <img src="/artifacts/see_through/22_topwear.png" class="layer" alt="topwear">
+        <img src="/artifacts/see_through/11_handwear.png" class="layer" alt="handwear">
+      </div>
+
+      <!-- 3. 머리 & 얼굴 그룹 (마우스 시선 & 헤드 틸트) -->
+      <div id="l-head-group" style="z-index: 10;">
+        <!-- 얼굴 베이스 피부 (눈코입 없는 인페인팅 피부) -->
+        <img src="/artifacts/see_through/08_face.png" class="layer" style="z-index: 11;" alt="face">
+        
+        <!-- 눈: 흰자 -> 황금빛 눈동자 -> 속눈썹(눈꺼풀) -> 눈썹 -->
+        <img src="/artifacts/see_through/07_eyewhite.png" id="l-eyewhite" class="layer" style="z-index: 12;" alt="eyewhite">
+        <img src="/artifacts/see_through/14_irides.png" id="l-eyes" class="layer" style="z-index: 13;" alt="irides">
+        <img src="/artifacts/see_through/05_eyelash.png" id="l-eyelash" class="layer" style="z-index: 14;" alt="eyelash">
+        <img src="/artifacts/see_through/04_eyebrow.png" id="l-eyebrow" class="layer" style="z-index: 15;" alt="eyebrow">
+
+        <!-- 입 안쪽(cavity) & 입술 선 -->
+        <div id="l-mouth-cavity"></div>
+        <img src="/artifacts/see_through/16_mouth.png" id="l-mouth" class="layer" style="z-index: 16;" alt="mouth">
+
+        <!-- 고양이 귀 -->
+        <img src="/artifacts/see_through/02_ears.png" id="l-ears" class="layer" style="z-index: 17;" alt="ears">
+
+        <!-- 앞머리 -->
+        <img src="/artifacts/see_through/10_fronthair.png" id="l-fronthair" class="layer" style="z-index: 18;" alt="fronthair">
+
+        <!-- 소품 (슬레이트) -->
+        <img src="/artifacts/see_through/20_objects.png" class="layer" style="z-index: 19;" alt="objects">
+      </div>
+    </div>
+  </div>
+
+  <div id="bubble" class="status-text">냥! 실장님 보고 있다냥~ ฅ^•ﻌ•^ฅ</div>
+
+  <div id="controls">
+    <button id="btn-blink">👀 눈 깜빡이기</button>
+    <button id="btn-talk">💬 말하기 (입 뻐끔)</button>
+    <button id="btn-twitch">🐱 귀 쫑긋!</button>
+    <button id="btn-psd" onclick="window.location.href='/artifacts/see_through/nyangpd_half.psd'">💾 PSD 받기</button>
+  </div>
+
+  <script>
+    const stage = document.getElementById('stage');
+    const headGroup = document.getElementById('l-head-group');
+    const eyes = document.getElementById('l-eyes');
+    const eyewhite = document.getElementById('l-eyewhite');
+    const eyelash = document.getElementById('l-eyelash');
+    const eyebrow = document.getElementById('l-eyebrow');
+    const ears = document.getElementById('l-ears');
+    const mouth = document.getElementById('l-mouth');
+    const mouthCavity = document.getElementById('l-mouth-cavity');
+    const bubble = document.getElementById('bubble');
+
+    let targetHeadX = 0, targetHeadY = 0, currentHeadX = 0, currentHeadY = 0;
+    let targetEyeX = 0, targetEyeY = 0, currentEyeX = 0, currentEyeY = 0;
+    let isTalking = false;
+
+    // 마우스 이동 -> 시선 및 고개 각도 계산
+    window.addEventListener('mousemove', (e) => {
+      const rect = stage.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height * 0.4;
+
+      const dx = Math.max(-1, Math.min(1, (e.clientX - centerX) / (rect.width * 0.5)));
+      const dy = Math.max(-1, Math.min(1, (e.clientY - centerY) / (rect.height * 0.5)));
+
+      targetHeadX = dx * 2.5;
+      targetHeadY = dy * 1.8;
+      targetEyeX = dx * 2.2;
+      targetEyeY = dy * 1.5;
+    });
+
+    // 렌더링 루프 (LERP)
+    function animate() {
+      currentHeadX += (targetHeadX - currentHeadX) * 0.08;
+      currentHeadY += (targetHeadY - currentHeadY) * 0.08;
+      currentEyeX += (targetEyeX - currentEyeX) * 0.12;
+      currentEyeY += (targetEyeY - currentEyeY) * 0.12;
+
+      const rot = (currentHeadX / 2.5) * 1.0;
+      headGroup.style.transform = `translate(${currentHeadX}px, ${currentHeadY}px) rotate(${rot}deg)`;
+      eyes.style.transform = `translate(${currentEyeX}px, ${currentEyeY}px)`;
+
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    // 자동 눈 깜빡임 타이머 (속눈썹+눈동자+흰자+눈썹 연동)
+    function triggerBlink() {
+      eyelash.classList.remove('blinking-lashes');
+      eyes.classList.remove('blinking-pupil');
+      eyewhite.classList.remove('blinking-pupil');
+      eyebrow.classList.remove('blinking-brow');
+
+      void eyelash.offsetWidth; // reflow
+
+      eyelash.classList.add('blinking-lashes');
+      eyes.classList.add('blinking-pupil');
+      eyewhite.classList.add('blinking-pupil');
+      eyebrow.classList.add('blinking-brow');
+    }
+    function scheduleBlink() {
+      const delay = 2500 + Math.random() * 3500;
+      setTimeout(() => {
+        triggerBlink();
+        scheduleBlink();
+      }, delay);
+    }
+    scheduleBlink();
+
+    // 귀 쫑긋
+    function triggerEarTwitch() {
+      ears.style.animation = 'none';
+      void ears.offsetWidth;
+      ears.style.animation = 'earTwitch 0.45s ease-in-out 1';
+      showBubble("귀가 쫑긋! ฅ^•ﻌ•^ฅ");
+      setTimeout(() => {
+        ears.style.animation = 'earTwitch 6s ease-in-out infinite';
+      }, 450);
+    }
+
+    // 말하기 토글
+    function toggleTalk() {
+      isTalking = !isTalking;
+      if (isTalking) {
+        mouth.classList.add('talking');
+        mouthCavity.classList.add('talking-cavity');
+        showBubble("실장님 말씀 잘 듣고 있다냥~ ✦");
+        document.getElementById('btn-talk').textContent = '⏹ 말하기 멈춤';
+      } else {
+        mouth.classList.remove('talking');
+        mouthCavity.classList.remove('talking-cavity');
+        document.getElementById('btn-talk').textContent = '💬 말하기 (입 뻐끔)';
+      }
+    }
+
+    // 말풍선 토스트
+    let bubbleTimer = null;
+    function showBubble(msg) {
+      bubble.textContent = msg;
+      bubble.classList.add('show');
+      clearTimeout(bubbleTimer);
+      bubbleTimer = setTimeout(() => {
+        bubble.classList.remove('show');
+      }, 2500);
+    }
+
+    // 클릭 인터랙션
+    stage.addEventListener('click', () => {
+      triggerEarTwitch();
+      triggerBlink();
+      showBubble("냥! 만져줘서 좋다냥~ ฅ(>ω<)ฅ💖");
+    });
+
+    document.getElementById('btn-blink').addEventListener('click', triggerBlink);
+    document.getElementById('btn-talk').addEventListener('click', toggleTalk);
+    document.getElementById('btn-twitch').addEventListener('click', triggerEarTwitch);
+  </script>
+</body>
+</html>

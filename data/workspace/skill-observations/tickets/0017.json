@@ -1,0 +1,15 @@
+{
+ "attempts": 0,
+ "created": "2026-09-22 11:23:19",
+ "evidence": [
+  "event:20260922-091620-d0d9cc#364",
+  "event:20260922-091620-d0d9cc#317"
+ ],
+ "gate_failures": 0,
+ "id": 17,
+ "notes": [],
+ "status": "proposed",
+ "target": "nas-mcp split leftover (health, names, tests)",
+ "title": "Close MCP split leftovers: 3015 health, nas-mcp name collision, delegation tests",
+ "updated": "2026-09-22 11:23:19"
+}

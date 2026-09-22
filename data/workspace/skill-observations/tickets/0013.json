@@ -1,0 +1,37 @@
+{
+ "approved_at": "2026-09-21 23:56:49",
+ "attempts": 1,
+ "closed_reason": "done",
+ "created": "2026-09-21 23:53:38",
+ "evidence": [
+  "event:20260921-232655-6accef#194"
+ ],
+ "gate_failures": 0,
+ "id": 13,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-21 23:56:49"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3)",
+   "ts": "2026-09-21 23:57:01"
+  },
+  {
+   "by": "agent",
+   "text": "done: Claude(Free 전환) 및 Codex(한도 소진) 사용 불가 상태 감지, 상단 프로바이더 트레이·셀렉터 비활성화(disabled/안내 툴팁), 상태 탭 안내 뱃지 반영 완료. (대상 파일: services/chatbot/static/app.js)",
+   "ts": "2026-09-22 00:04:56"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-22 00:04:56"
+  }
+ ],
+ "status": "done",
+ "target": "services/chatbot/static/app.js",
+ "title": "Claude/Codex 사용불가(Free/한도소진) 감지 및 비활성화·UX/상태탭 반영",
+ "updated": "2026-09-22 00:04:56"
+}

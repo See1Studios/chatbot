@@ -1,0 +1,57 @@
+{
+  "providers": {
+    "omniroute": {
+      "type": "openai_dialect",
+      "base_url": "http://localhost:20128/v1",
+      "api_key_env": "CHATBOT_OMNIROUTE_API_KEY",
+      "default_model": "antigravity/claude-sonnet-4-6",
+      "curated_models": [
+        "antigravity/claude-sonnet-4-6",
+        "auto/best-free",
+        "auto/best-coding",
+        "auto/best-chat",
+        "auto/best-reasoning",
+        "auto/best-fast",
+        "auto/coding:free",
+        "auto/smart",
+        "antigravity/claude-opus-4-6-thinking",
+        "cx/gpt-5.6-luna"
+      ],
+      "meta": {
+        "name": "OmniRoute",
+        "role": "Universal Router",
+        "theme": "cyan",
+        "icon": "/chat/persona/providers/omniroute.webp?v=10"
+      }
+    },
+    "openrouter": {
+      "type": "openai_dialect",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "free_only": true,
+      "default_model": "z-ai/glm-5.2:free",
+      "curated_models": [
+        "z-ai/glm-5.2:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "qwen/qwen3.8-27b:free",
+        "google/gemma-4-31b-it:free",
+        "openrouter/free"
+      ],
+      "meta": {
+        "name": "OpenRouter",
+        "role": "Global Model Gateway",
+        "theme": "lime",
+        "icon": "/chat/persona/providers/openrouter.webp?v=13"
+      },
+      "default_params": {
+        "max_tokens": 2048,
+        "include_reasoning": false
+      },
+      "extra_headers": {
+        "HTTP-Referer": "http://diskstation",
+        "X-Title": "NyangPD"
+      }
+    }
+  }
+}

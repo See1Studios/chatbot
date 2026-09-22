@@ -1,0 +1,135 @@
+# Skill Observations Log
+
+Workspace: `/volume1/homes/me/services/chatbot-data/workspace`
+
+Status legend: OPEN | APPLIED | DISMISSED | SUPERSEDED
+
+---
+
+### Observation 1: Sphere Chatbot UI Markdown Engine & Mermaid Diagram Rendering Support
+
+**Status:** APPLIED
+**Date:** 2026-09-16
+**Session context:** Self-improvement workflow discussion in Sphere Chatbot UI
+**Skill:** task-observer
+**Type:** user-feedback
+**Phase/Area:** Web UI & Markdown Rendering
+
+**Issue:** In `services/chatbot/static/app.js`, `renderMarkdown()` relies on basic regular expressions that convert triple-backtick code blocks into `<pre><code>`. When the assistant outputs Mermaid diagrams (````mermaid`), the chat interface renders them as raw text rather than graphical flowcharts.
+
+**Applied Solutions:**
+1. **Local Vendor Ingestion**: Downloaded `marked.min.js` (39KB) and `mermaid.min.js` (3.2MB) to `services/chatbot/static/vendor/` for high-reliability, zero-latency local hosting.
+2. **Rich Markdown CSS**: Upgraded `services/chatbot/static/index.html` with full GitHub-flavored typography (headings, tables with zebra striping, blockquotes with accent borders, inline badges, and hover code copy buttons).
+3. **Mermaid & Copy Button Integration**:
+   - Initialized `mermaid` with dark theme in `services/chatbot/static/app.js`.
+   - Updated `renderMarkdown()` to parse GFM tables, links, images, and isolate `language-mermaid` blocks into `.mermaid-wrap`.
+   - Implemented `renderMermaidIn()` and `attachCodeCopyButtons()` triggered upon `result` completion (`isFinal = true`) and session history reload.
+
+**Principle:** Web chat interfaces must integrate client-side markdown parsers and diagram renderers (marked.js + mermaid.js) locally vendored on the host, with graceful progressive rendering during streams.
+
+---
+
+### Observation 2: Real-time Progressive Activity Status Bar & Server Tool Event Sanitization
+
+**Status:** APPLIED
+**Date:** 2026-09-16
+**Session context:** Chatbot UX enhancement during multi-step tool invocations
+**Skill:** task-observer
+**Type:** user-feedback
+**Phase/Area:** UX & Streaming Activity Feedback
+
+**Issue:** When the agent executes multi-step research, command runs, or file inspections, standard streaming UI displayed silence or appeared frozen until text generation began, leading to user confusion ("왜 대답이 없니"). Furthermore, raw SSE events often emitted repetitive noise such as `tool: tool`.
+
+**Applied Solutions:**
+1. **Server-Side Tool Payload Sanitization (`server.py`)**:
+   - Enhanced `_tool_summary()` to parse detailed tool payloads (`CommandLine`, `path`, `summary`, `description`), filtering out trivial noise tokens (`tool: tool`, `agent_response`).
+   - Deduplicated consecutive identical tool signatures using `_last_tool_sig`.
+2. **Client-Side Progress Indicator (`app.js`, `web/index.html`)**:
+   - Added `.progress` element with subtle accent styling right above the stage.
+   - Wired live state transitions: `요청 보냄 · 대기 중…` -> `작업 중 · <tool: detail>` -> `작성 중…` -> `(소거)`.
+   - Synchronized across both the full-page `:3011` client and the Sphere Hub FAB popup.
+
+**Principle:** Long-running agentic chat interfaces must stream real-time, sanitized tool execution summaries into an ambient progress lane so users always have continuous visual confirmation of background actions.
+
+---
+
+### Observation 3: Persona Avatar & Static Asset Path Resolution Across Ports (:3011 vs :80)
+
+**Status:** APPLIED
+**Date:** 2026-09-16
+**Session context:** Full-window chatbot header avatar image repair
+**Skill:** task-observer
+**Type:** user-feedback
+**Phase/Area:** Static Hosting & Asset Resolution
+
+**Issue:** When viewing the full-page chatbot on `:3011`, the header avatar image (`/chat/persona/face-icon.png`) returned 404 because `static/chat/persona` was not present in `:3011`'s document root, whereas on `:80` it was routed to `/volume1/web/chat/persona/`.
+
+**Applied Solutions:**
+1. **Document Root Symlinking**: Linked `/volume1/homes/me/services/chatbot-data/persona` to `static/chat/persona` and `static/persona` inside `services/chatbot/`.
+2. **Server-Side Routing & MIME Normalization (`server.py`)**: Added dedicated persona route and enabled accurate MIME type guessing (`image/png`) for static files.
+3. **Cache-Buster & Nginx Fallback**: Appended `?v=2` to prevent cached 404s and provided an `onerror` handler falling back to port 80 nginx (`//location.hostname/chat/persona/face-icon.png`).
+
+**Principle:** Microservice web frontends on non-standard ports must symlink shared static asset trees into their local static roots and provide port-agnostic `onerror` fallbacks to canonical web endpoints.
+
+---
+
+### Observation 4: Concurrent Turn Inquiries (/btw), Auto-Detection, Message Queueing & Explicit Stop
+
+**Status:** APPLIED
+**Date:** 2026-09-16
+**Session context:** Sphere Chatbot active-turn message handling & side-query mechanism
+**Skill:** task-observer
+**Type:** user-feedback / feature-improvement
+**Phase/Area:** Chat Host Process Architecture & UX Flow
+
+**Issue:** In `stream-json` interactive CLI mode, typing messages while a turn is executing (`busy`) caused inputs to be dropped or corrupted because `stdin` cannot accept concurrent prompts mid-turn. Users needed:
+1. An explicit `[중지]` button to halt runaway or unwanted tasks.
+2. A lightweight side-channel query mechanism (like CLI `/btw`) to ask quick questions without interrupting active background work.
+3. Automatic routing so that users don't need to manually prefix `/btw` when typing natural inquiries.
+
+**Applied Solutions:**
+1. **Side-Channel Ephemeral Execution (`_run_btw`)**: Non-blocking `gemini-3.8-flash-low` subprocess (`agy -p`) executes with current task and recent dialogue context, emitting an independent `event: btw` card without touching the main session's `stdin`.
+2. **Smart Auto-Inquiry Detection (`_is_inquiry` / `isInquiry`)**: Detects questions via punctuation (`?`) and Korean interrogative patterns (`~니`, `~까`, `~어때`, `뭐하니` 등) to automatically route inquiries to `/btw` without manual syntax.
+3. **Reactive Dual-Mode Send Button (`updateSendButton`)**: Dynamically transforms the send button while busy: purple `샛길 질문 ✦` when a question is detected, slate `대기열 등록 ↵` for follow-up task instructions, and standard `보내기` when idle.
+4. **Explicit Stop Button (`POST /api/sessions/:id/stop`)**: Renders a dedicated red `[중지]` button in the composer during busy turns, clearing pending queues, safely terminating subprocesses, and notifying via `event: stopped`.
+5. **Sequential Message Queueing (`self.msg_queue`)**: Automatically enqueues follow-up task instructions and dispatches them sequentially upon turn completion (`event: result`).
+6. **Hardened Daemon Process Supervision (`chatbot-ctl.sh`)**: Restricted `kill_orphan_agy` to strictly terminate PPID=1 processes, preventing active supervisor sessions from being killed during restarts.
+
+**Principle:** Long-running conversational agents must decouple task orchestration into distinct channels: explicit interruption for aborts, ephemeral out-of-band queries for mid-turn status/inquiries, and FIFO queues for follow-up commands.
+
+- 2026-09-16 08:30 GameDeveloper: deadlock recurrence guards — ctl doctor/repair + RLock AST guard + watchdog probe (see docs/EMERGENCY.md). Do not change AgySession.lock back to Lock.
+
+- 2026-09-16 08:32 실장님→GameDeveloper 전달: 자기수정 경계 문서화 (`SELF-MODIFY.md`). 꾸미기·디스크 설계도는 OK, 라이브 뇌수술 금지. ctl repair/doctor가 외부 의사.
+
+---
+
+### Observation 5: Dedicated Artifacts Tab, Multi-Format Modal Lightbox & Live In-Chat Citation
+
+**Status:** APPLIED
+**Date:** 2026-09-16
+**Session context:** Chatbot generated media/file gallery & artifact management
+**Skill:** task-observer
+**Type:** feature-improvement / user-feedback
+**Phase/Area:** Web UI & Artifact Asset Management
+
+**Issue:** Chat sessions frequently generate images, code snippets, and documentation files, but users lacked a central tab to inspect, download, or cite them back into conversation. In addition, duplicate streaming events could cause image clutter.
+
+**Applied Solutions:**
+1. **Server-Side Unified Artifact Discovery (`server.py`)**:
+   - Implemented `AgySession.get_artifacts()` scanning session brain dirs, workspace artifacts, and persona gallery with size/stem deduplication.
+   - Enhanced `_safe_artifact_rel()` to safely resolve media and code/document extensions (`.md`, `.py`, `.json`, `.txt`, `.html`, etc.).
+   - Exposed `GET /api/sessions/:id/artifacts`.
+2. **Three-Tab Segmented Control (`index.html`)**:
+   - Added `[💬 대화]`, `[📁 아티팩트 (N)]`, `[📜 로그]` tabs with dynamic numeric badge.
+   - Kept composer visible across tabs so users can seamlessly browse artifacts while drafting prompts.
+3. **Responsive Grid & Quick Filters (`app.js`, `index.html`)**:
+   - Added instant category filter buttons (`전체`, `이미지`, `문서/코드`) and manual refresh `[새로고침 ↻]`.
+   - Card items display high-res thumbnails or file-type tags, human-readable size, and timestamps.
+4. **Modal Lightbox & File Viewer (`#artModal`)**:
+   - Supports full-scale image zoom, text/code inspection, direct downloads (`download` attr), and keyboard dismiss (`Escape`).
+5. **Direct In-Chat Citation Action (`[인용 💬]`)**:
+   - Clicking citation on any artifact inserts `![alt](url)` or `[name](url)` into the composer input and automatically switches to the chat view.
+6. **Real-time SSE Synchronization**:
+   - Silently refreshes artifact metadata and updates the badge counter upon receiving `event: image` and `event: result`.
+
+**Principle:** Deliverables produced by conversational agents must be indexed as first-class artifacts in a dedicated workspace tab, featuring instantaneous preview, one-click chat citation, and non-blocking background synchronization.

@@ -1,0 +1,27 @@
+{
+ "id": 10,
+ "title": "MAX_TOOL_HOPS 확장(20) 및 MCP 서버 경로 정규화 개선",
+ "target": "services/chatbot/adapters.py",
+ "evidence": [
+  "candidate:1789920915.53"
+ ],
+ "status": "done",
+ "attempts": 1,
+ "gate_failures": 0,
+ "created": "2026-09-21 19:00:00",
+ "approved_at": "2026-09-21 23:14:18",
+ "closed_reason": "done",
+ "notes": [
+  {
+   "by": "operator (chat)",
+   "text": "approved (retroactive 추인)",
+   "ts": "2026-09-21 23:14:18"
+  },
+  {
+   "by": "agent",
+   "text": "done: expanded tool hops & normalized MCP path (commit: 4ac3ecd9)",
+   "ts": "2026-09-21 23:14:18"
+  }
+ ],
+ "updated": "2026-09-21 23:14:18"
+}

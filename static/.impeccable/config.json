@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "services/chatbot/static/app.js"
+        ],
+        "createdAt": "2026-09-17T01:50:47.292Z",
+        "reason": "false positive: regex string containing literal src=\" text inside renderMarkdown's <img> URL rewriter, not an actual broken <img> tag"
+      }
+    ]
+  }
+}

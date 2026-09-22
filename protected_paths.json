@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "notes": "Owned by the human operator. Patterns are relative to the service root (the directory holding this file); '~/' means the home directory. A trailing '/' protects a whole subtree; '*' and '?' match inside one path segment only. 'except' lifts protection for matching paths and is the place for instance-specific carve-outs. 'volatile' lists protected paths whose content changes at run time; they stay write-protected but are left out of protected_manifest.json.",
+  "protect": [
+    "*.py",
+    "__pycache__/",
+    "chatbot-ctl.sh",
+    "protected_paths.json",
+    "tests/",
+    "static/",
+    "data/workspace/SELF-MODIFY.md",
+    "data/workspace/AGENTS.md",
+    "docs/SELF-MODIFY.md",
+    "docs/EMERGENCY.md",
+    "data/host-force.ticket",
+    "~/.agents/",
+    "protected_manifest.json",
+    "data/lifecycle.lock",
+    "data/maintenance.flag",
+    "observation_signals.json",
+    "data/workspace/skill-observations/tickets/",
+    "data/workspace/skill-observations/candidates.jsonl",
+    "data/sessions/*/events.jsonl",
+    "core_modules.json",
+    "bundle_budget.json"
+  ],
+  "except": [
+    {
+      "path": "static/",
+      "reason": "This instance treats the static UI as Tier 0 (data/workspace/SELF-MODIFY.md rule 2). Delete this entry to protect it, which is the default for a shipped copy."
+    }
+  ],
+  "volatile": [
+    "__pycache__/",
+    "tests/__pycache__/",
+    "tests/*/__pycache__/",
+    "protected_manifest.json",
+    "data/host-force.ticket",
+    "data/lifecycle.lock",
+    "data/maintenance.flag",
+    "data/workspace/skill-observations/tickets/",
+    "data/workspace/skill-observations/candidates.jsonl",
+    "data/sessions/*/events.jsonl"
+  ]
+}

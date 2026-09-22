@@ -1,0 +1,27 @@
+{
+ "id": 7,
+ "title": "세션 로테이션 시 클라이언트 컨텍스트 보존 및 최신 대화 점프 보강",
+ "target": "services/chatbot/session.py",
+ "evidence": [
+  "candidate:1789920915.53"
+ ],
+ "status": "done",
+ "attempts": 1,
+ "gate_failures": 0,
+ "created": "2026-09-21 14:00:00",
+ "approved_at": "2026-09-21 23:14:18",
+ "closed_reason": "done",
+ "notes": [
+  {
+   "by": "operator (chat)",
+   "text": "approved (retroactive 추인)",
+   "ts": "2026-09-21 23:14:18"
+  },
+  {
+   "by": "agent",
+   "text": "done: client context preservation & session jump (commits: f320f568, 53d48f66)",
+   "ts": "2026-09-21 23:14:18"
+  }
+ ],
+ "updated": "2026-09-21 23:14:18"
+}

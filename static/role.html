@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎭 Role Studio — 냥피디</title>
+  <link rel="stylesheet" href="/role.css">
+</head>
+<body>
+<div class="rs-shell">
+
+  <!-- Header -->
+  <header class="rs-header">
+    <span style="font-size:1.3rem">🎭</span>
+    <h1>Role Studio</h1>
+    <div class="rs-header-spacer"></div>
+    <a href="/" class="rs-back">← 채팅으로</a>
+    <button class="rs-add-btn" id="addBtn">+ 새 캐릭터</button>
+  </header>
+
+  <!-- Body -->
+  <div class="rs-body">
+
+    <!-- Sidebar -->
+    <nav class="rs-sidebar" id="sidebar">
+      <div class="rs-sidebar-title">캐릭터</div>
+      <div class="rs-char-list" id="charList">
+        <div class="rs-empty" style="height:120px;font-size:0.8rem">불러오는 중…</div>
+      </div>
+    </nav>
+
+    <!-- Detail panel -->
+    <main class="rs-detail" id="detail">
+      <div class="rs-detail-scroll" id="detailScroll">
+        <div class="rs-empty" id="emptyState">
+          <span class="rs-empty-icon">🐾</span>
+          <span>왼쪽에서 캐릭터를 선택하거나 새로 만들어보세냥!</span>
+        </div>
+        <!-- filled by role.js -->
+        <div id="detailContent" style="display:none"></div>
+      </div>
+      <div class="rs-detail-actions" id="detailActions" style="display:none">
+        <button class="rs-btn chat-btn" id="openChatBtn">💬 채팅으로 대화</button>
+        <div class="rs-btn-spacer"></div>
+        <button class="rs-btn" id="saveBtn">저장</button>
+        <button class="rs-btn danger" id="deleteBtn">삭제</button>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="rs-toast" id="toast"></div>
+
+<script src="/role.js"></script>
+</body>
+</html>

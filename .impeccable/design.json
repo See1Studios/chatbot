@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-20T12:48:00Z",
+  "title": "Design System: chatbot",
+  "extensions": {
+    "colorMeta": {
+      "bg": { "role": "neutral", "displayName": "Pit", "canonical": "#0a0c0f", "tonalRamp": ["#050608", "#0a0c0f", "#14171d", "#181c24", "#2a3038", "#4a525c", "#9ba1a3", "#edefef"] },
+      "bg-card": { "role": "neutral", "displayName": "Panel", "canonical": "#14171d", "tonalRamp": ["#0a0c0f", "#101318", "#14171d", "#181c24", "#222833", "#3a424e", "#9ba1a3", "#edefef"] },
+      "bg-subtle": { "role": "neutral", "displayName": "Well", "canonical": "#181c24", "tonalRamp": ["#0a0c0f", "#14171d", "#181c24", "#222833", "#2f3642", "#4a525c", "#9ba1a3", "#edefef"] },
+      "text": { "role": "neutral", "displayName": "Signal", "canonical": "#edefef", "tonalRamp": ["#0a0c0f", "#3a424e", "#6b7380", "#9ba1a3", "#c5c9cc", "#d8dcde", "#edefef", "#ffffff"] },
+      "muted": { "role": "neutral", "displayName": "Quiet", "canonical": "#9ba1a3", "tonalRamp": ["#2a3038", "#4a525c", "#6b7380", "#9ba1a3", "#b4b9bb", "#c5c9cc", "#d8dcde", "#edefef"] },
+      "accent": { "role": "primary", "displayName": "Sphere Lime", "canonical": "#d1fe17", "tonalRamp": ["#3a4a08", "#6b8a0c", "#9cc410", "#d1fe17", "#ddfe51", "#e8fe86", "#f2feb8", "#f9fedd"] },
+      "accent2": { "role": "primary", "displayName": "Lime Lift", "canonical": "#ddfe51", "tonalRamp": ["#3a4a08", "#6b8a0c", "#9cc410", "#d1fe17", "#ddfe51", "#e8fe86", "#f2feb8", "#f9fedd"] },
+      "accent-contrast": { "role": "neutral", "displayName": "Ink", "canonical": "#0b0d10", "tonalRamp": ["#050608", "#0b0d10", "#14171d", "#2a3038", "#4a525c", "#9ba1a3", "#edefef", "#ffffff"] },
+      "lime": { "role": "primary", "displayName": "Sphere Lime", "canonical": "#d1fe17", "tonalRamp": ["#3a4a08", "#6b8a0c", "#9cc410", "#d1fe17", "#ddfe51", "#e8fe86", "#f2feb8", "#f9fedd"] },
+      "amber": { "role": "primary", "displayName": "Studio Amber", "canonical": "#ff8a50", "tonalRamp": ["#4a220c", "#7a3a14", "#c45a28", "#ff8a50", "#ffa657", "#ffc08a", "#ffd8b8", "#fff0e0"] },
+      "cyan": { "role": "primary", "displayName": "Electric Cyan", "canonical": "#38bdf8", "tonalRamp": ["#0c3a4a", "#146a8a", "#2498c4", "#38bdf8", "#7dd3fc", "#a8e4fd", "#d0f1fe", "#eaf8ff"] },
+      "emerald": { "role": "primary", "displayName": "Cyber Mint", "canonical": "#34d399", "tonalRamp": ["#0c3a28", "#147a4a", "#24b06e", "#34d399", "#6ee7b7", "#9af0ce", "#c6f7e3", "#e8fbf3"] },
+      "violet": { "role": "primary", "displayName": "Neon Violet", "canonical": "#a78bfa", "tonalRamp": ["#2a1a4a", "#4a2e8a", "#6b52c4", "#a78bfa", "#c4b5fd", "#d6ccfe", "#e8e0fe", "#f4f0ff"] },
+      "mono": { "role": "primary", "displayName": "Paper White", "canonical": "#f4f4f5", "tonalRamp": ["#0a0c0f", "#2a3038", "#6b7380", "#9ba1a3", "#c5c9cc", "#edefef", "#f4f4f5", "#ffffff"] },
+      "spark": { "role": "primary", "displayName": "Gemini Spark", "canonical": "#6ea8fe", "tonalRamp": ["#081018", "#1a3a6a", "#3d6fd0", "#6ea8fe", "#8ab4f8", "#ff6b81", "#f28b82", "#ffe0e6"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Header wordmark 냥피디 only." },
+      "headline": { "displayName": "Headline", "purpose": "Assistant markdown h1/h2." },
+      "title": { "displayName": "Title", "purpose": "Assistant markdown h3; accent2." },
+      "body": { "displayName": "Body", "purpose": "Chat copy and composer (16px)." },
+      "label": { "displayName": "Label", "purpose": "Captions, menu headers, badges." }
+    },
+    "shadows": [
+      { "name": "glint", "value": "inset 0 1px 0 rgba(255,255,255,0.08)", "purpose": "Raised chips and the stage." },
+      { "name": "chip-rest", "value": "0 2px 8px rgba(0,0,0,0.25)", "purpose": "Buttons and user bubble at rest." },
+      { "name": "chip-hover", "value": "0 4px 14px rgba(209,254,23,0.25)", "purpose": "Primary hover lamp." },
+      { "name": "stage", "value": "0 8px 30px rgba(0,0,0,0.4)", "purpose": "Main conversation panel." },
+      { "name": "glass-menu", "value": "0 16px 36px rgba(0,0,0,0.65)", "purpose": "Overflow and slash menus." }
+    ],
+    "motion": [
+      { "name": "ease-chip", "value": "cubic-bezier(0.2, 0, 0, 1)", "purpose": "Button, select, slash trigger (150–200ms)." },
+      { "name": "duration-chip", "value": "0.15s", "purpose": "Default chrome transition." }
+    ],
+    "breakpoints": [
+      { "name": "compact", "value": "640px" },
+      { "name": "mascot-hide", "value": "768px" },
+      { "name": "tiny", "value": "360px" },
+      { "name": "short", "value": "500px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Accent-lamp chip for send and destructive confirms.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">보내기</button>",
+      "css": ".ds-btn-primary{background:linear-gradient(180deg,rgba(209,254,23,0.22) 0%,rgba(209,254,23,0.12) 100%);color:#ddfe51;border:1px solid rgba(209,254,23,0.40);border-radius:10px;padding:.45rem .7rem;font-family:Pretendard,system-ui,sans-serif;font-size:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 2px 8px rgba(209,254,23,0.12);transition:all .15s cubic-bezier(0.2,0,0,1);cursor:pointer}.ds-btn-primary:hover{background:linear-gradient(180deg,rgba(209,254,23,0.30) 0%,rgba(209,254,23,0.18) 100%);border-color:#d1fe17;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 4px 14px rgba(209,254,23,0.25);transform:translateY(-1px)}.ds-btn-primary:active{transform:translateY(0)}.ds-btn-primary:focus-visible{outline:2px solid #d1fe17;outline-offset:2px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Default chip for tabs, stop, overflow.",
+      "html": "<button class=\"ds-btn-ghost\" type=\"button\">로그</button>",
+      "css": ".ds-btn-ghost{background:#14171d;color:#edefef;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:.45rem .7rem;font-family:Pretendard,system-ui,sans-serif;font-size:14px;transition:all .15s cubic-bezier(0.2,0,0,1);cursor:pointer}.ds-btn-ghost:hover{border-color:rgba(255,255,255,0.18)}.ds-btn-ghost.on{border-color:rgba(209,254,23,0.40);color:#ddfe51;background:rgba(209,254,23,0.12)}.ds-btn-ghost:focus-visible{outline:2px solid #d1fe17;outline-offset:2px}"
+    },
+    {
+      "name": "Composer",
+      "kind": "input",
+      "refersTo": "input-composer",
+      "description": "Bottom field. 16px to avoid iOS zoom.",
+      "html": "<textarea class=\"ds-input-composer\" rows=\"1\" placeholder=\"실장님, 말씀해 주세요\"></textarea>",
+      "css": ".ds-input-composer{width:100%;min-height:42px;background:#14171d;color:#edefef;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:.5rem .75rem;font-family:Pretendard,system-ui,sans-serif;font-size:16px;line-height:1.35;resize:none;box-shadow:inset 0 1px 3px rgba(0,0,0,0.3)}.ds-input-composer:focus{outline:none;border-color:#d1fe17;box-shadow:0 0 0 2px rgba(209,254,23,0.25),inset 0 1px 3px rgba(0,0,0,0.3)}.ds-input-composer::placeholder{color:#9ba1a3;opacity:0.85}"
+    },
+    {
+      "name": "User Bubble",
+      "kind": "custom",
+      "refersTo": "bubble-user",
+      "description": "Right-aligned accent-tinted speech chip.",
+      "html": "<div class=\"ds-bubble-user\">서비스 상태 확인해줘</div>",
+      "css": ".ds-bubble-user{max-width:92%;margin-left:auto;background:linear-gradient(180deg,rgba(209,254,23,0.16) 0%,rgba(209,254,23,0.08) 100%);border:1px solid rgba(209,254,23,0.40);color:#edefef;padding:.7rem .85rem;border-radius:14px 14px 4px 14px;font-family:Pretendard,system-ui,sans-serif;font-size:15px;line-height:1.5;box-shadow:0 2px 8px rgba(0,0,0,0.25),inset 0 1px 0 rgba(255,255,255,0.08)}"
+    },
+    {
+      "name": "Assistant Bubble",
+      "kind": "custom",
+      "refersTo": "bubble-assistant",
+      "description": "Left-aligned glass speech chip.",
+      "html": "<div class=\"ds-bubble-assistant\">확인해볼게냥</div>",
+      "css": ".ds-bubble-assistant{max-width:92%;background:rgba(20,23,30,0.82);border:1px solid rgba(255,255,255,0.08);color:#edefef;padding:.7rem .85rem;border-radius:14px 14px 14px 4px;font-family:Pretendard,system-ui,sans-serif;font-size:15px;line-height:1.6;backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.08)}"
+    },
+    {
+      "name": "Stage",
+      "kind": "card",
+      "refersTo": "stage",
+      "description": "Conversation well. Studio wash lives behind the log.",
+      "html": "<div class=\"ds-stage\">대화</div>",
+      "css": ".ds-stage{background:#14171d;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1rem;color:#edefef;font-family:Pretendard,system-ui,sans-serif;min-height:120px;box-shadow:0 8px 30px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.08)}"
+    },
+    {
+      "name": "Slash item",
+      "kind": "chip",
+      "refersTo": "button-ghost",
+      "description": "Command row in the composer menu.",
+      "html": "<div class=\"ds-slash-item\"><span class=\"ds-slash-badge\">cmd</span><span class=\"ds-slash-name\">/status</span></div>",
+      "css": ".ds-slash-item{display:flex;align-items:center;gap:.55rem;padding:.5rem .75rem;border-radius:8px;color:#fff;font-family:Pretendard,system-ui,sans-serif}.ds-slash-item:hover{background:rgba(209,254,23,0.12)}.ds-slash-badge{font-size:.68rem;padding:1px 5px;border-radius:4px;font-weight:600;background:rgba(209,254,23,0.12);color:#ddfe51;border:1px solid rgba(209,254,23,0.40)}.ds-slash-name{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.84rem;font-weight:600}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Night Console",
+    "overview": "This is a NAS night console, not a chat-product landing page. The shell is charcoal glass: dark cards, an inset glint on raised chips, blur on menus and assistant bubbles. Accent is a lamp on the dashboard — rare, theme-swappable, never the wallpaper. 냥피디 lives here as the operator's PD (portrait, mascot, studio wash at 12% opacity), not as a theme-park skin.\n\nDensity is Operate-mode: scan the header, read the log, type in the composer. Personality sits in the lime (or current dial) lamp, the cat producer portrait, and the slightly lifted chips — not in extra chrome.",
+    "keyCharacteristics": [
+      "Charcoal glass shell (#0a0c0f / #14171d) with Pretendard",
+      "Five accent dials; default Sphere Lime (#d1fe17)",
+      "Inset glint + 10–14px rounds on raised chips; primary only gets the accent gradient",
+      "Full-viewport column (max-width: 960px, 100dvh), compact rewrite at 640px",
+      "Instant log snaps — no smooth scroll on #log"
+    ],
+    "rules": [
+      { "name": "The Accent Lamp Rule", "body": "Accent occupies a small fraction of any screen: focus, selected, primary, user bubble tint. Do not flood backgrounds with --accent.", "section": "colors" },
+      { "name": "The Five Dials Rule", "body": "Brand is not one hue. New chrome must read through --accent / --accent2 / --accent-rgb, never a hardcoded lime (except the lime theme's own token values).", "section": "colors" },
+      { "name": "The One Face Rule", "body": "Pretendard for UI. Mono only for logs, code, slash identifiers.", "section": "typography" },
+      { "name": "The Glint Rule", "body": "Raised surfaces get the inset highlight. Recessed wells (textarea inner shadow) do not.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do paint interactive chrome with --accent / --accent2 / --accent-rgb so all five dials keep working.",
+      "Do put glint on raised chips and keep the pit/--bg untouched.",
+      "Do keep the composer at 16px and 42px tall (38px at 640px).",
+      "Do snap #log instantly on session change and new messages."
+    ],
+    "donts": [
+      "Don't treat Sphere Hub sphere-theme.css (Noto + orange) as this chat's type or accent.",
+      "Don't hardcode #d1fe17 on new UI except as the lime token itself.",
+      "Don't add scroll-behavior: smooth on #log.",
+      "Don't flood a screen with accent glow; the lamp is rare on purpose.",
+      "Don't introduce a second UI font family for personality."
+    ]
+  }
+}

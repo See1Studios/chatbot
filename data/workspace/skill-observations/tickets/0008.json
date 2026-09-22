@@ -1,0 +1,27 @@
+{
+ "id": 8,
+ "title": "Grok Imagine 생성 이미지 404 방지 스테이징 처리",
+ "target": "services/chatbot/media_handler.py",
+ "evidence": [
+  "candidate:1789920915.53"
+ ],
+ "status": "done",
+ "attempts": 1,
+ "gate_failures": 0,
+ "created": "2026-09-21 16:00:00",
+ "approved_at": "2026-09-21 23:14:18",
+ "closed_reason": "done",
+ "notes": [
+  {
+   "by": "operator (chat)",
+   "text": "approved (retroactive 추인)",
+   "ts": "2026-09-21 23:14:18"
+  },
+  {
+   "by": "agent",
+   "text": "done: stage images/N.jpg before bubble render (commit: b2e3b098)",
+   "ts": "2026-09-21 23:14:18"
+  }
+ ],
+ "updated": "2026-09-21 23:14:18"
+}

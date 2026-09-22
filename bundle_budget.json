@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "notes": "Owned by the human operator. Upper bound, in bytes, for the instruction layers injected on every first turn (charter + persona + skill index). Raising it is a decision, not a side effect; lowering it is welcome. Memory and the status badge are dynamic and bounded elsewhere. tests/test_bundle_budget.py enforces it.",
+  "static_max_bytes": 4800
+}

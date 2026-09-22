@@ -1,0 +1,54 @@
+{
+ "approved_at": "2026-09-22 09:46:21",
+ "attempts": 1,
+ "closed_reason": "done",
+ "created": "2026-09-22 09:30:47",
+ "evidence": [
+  "event:20260922-091620-d0d9cc#153",
+  "event:20260922-091620-d0d9cc#39",
+  "event:20260922-091620-d0d9cc#138"
+ ],
+ "gate_failures": 0,
+ "id": 15,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-22 09:46:21"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3)",
+   "ts": "2026-09-22 09:46:58"
+  },
+  {
+   "by": "agent",
+   "text": "paths: services/chatbot/tickets.py, services/chatbot/mcp_core.py, services/chatbot/chatbot-ctl.sh, services/chatbot/data/workspace/AGENTS.md, services/chatbot/data/workspace/PROJECT.md, services/chatbot/docs/plans/recursive-self-evolution.md, services/chatbot/tests/test_tickets.py, services/chatbot/docs/DEVLOG.md",
+   "ts": "2026-09-22 10:15:57"
+  },
+  {
+   "by": "agent",
+   "text": "done: ship-gate + protocol recursion; tests.test_tickets/mcp_core/bundle_budget pass",
+   "ts": "2026-09-22 10:17:14"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-22 10:17:14"
+  }
+ ],
+ "paths": [
+  "services/chatbot/tickets.py",
+  "services/chatbot/mcp_core.py",
+  "services/chatbot/chatbot-ctl.sh",
+  "services/chatbot/data/workspace/AGENTS.md",
+  "services/chatbot/data/workspace/PROJECT.md",
+  "services/chatbot/docs/plans/recursive-self-evolution.md",
+  "services/chatbot/tests/test_tickets.py",
+  "services/chatbot/docs/DEVLOG.md"
+ ],
+ "status": "done",
+ "target": "self-evolution protocol (tickets, charter, ship-gate)",
+ "title": "Close self-evolution protocol holes: ship-gate, ticket-before-write, protocol recursion",
+ "updated": "2026-09-22 10:17:14"
+}

@@ -1,0 +1,26 @@
+{
+ "attempts": 0,
+ "closed_reason": "declined",
+ "created": "2026-09-20 22:08:52",
+ "evidence": [
+  "event:20260920-183417-e23e3c#109"
+ ],
+ "gate_failures": 0,
+ "id": 2,
+ "notes": [
+  {
+   "by": "agent (shell; was recorded as operator)",
+   "text": "declined",
+   "ts": "2026-09-20 22:09:03"
+  },
+  {
+   "by": "host",
+   "text": "Correction: this ticket was created and declined by the agent from its own shell (import tickets), not by the operator. The gate that now refuses this did not exist yet.",
+   "ts": "2026-09-20 22:14:03"
+  }
+ ],
+ "status": "declined",
+ "target": "services/chatbot/server.py",
+ "title": "브라우저 디바이스 컨텍스트(GPS/타임존) 주입 기능 연동",
+ "updated": "2026-09-20 22:14:03"
+}
