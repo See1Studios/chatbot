@@ -94,7 +94,7 @@ class ServedModelWiring(unittest.TestCase):
         self.assertIn("servedModel", md)
         self.assertRegex(html, r"app\.js\?v=\d+")
         self.assertRegex(html, r"markdown\.js\?v=\d+")
-        self.assertIn("chat.css?v=20", html)
+        self.assertIn("chat.css?v=27", html)
         self.assertNotIn("app.js?v=100", html)
         self.assertNotIn("chat.css?v=19", html)
 

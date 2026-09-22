@@ -147,8 +147,9 @@ function renderArtifacts() {
     } else {
       const icon = document.createElement('div');
       icon.className = 'art-file-icon';
-      const iconChar = (item.kind === 'code') ? '💻' : '📄';
-      icon.innerHTML = `<span style="font-size:2rem">${iconChar}</span><span class="art-file-ext">${escapeHtml(item.ext || 'FILE')}</span>`;
+      const iconName = (item.kind === 'code') ? 'code' : 'file';
+      const svg = (typeof getActionSvg === 'function') ? getActionSvg(iconName) : '';
+      icon.innerHTML = `${svg}<span class="art-file-ext">${escapeHtml(item.ext || 'FILE')}</span>`;
       thumbWrap.appendChild(icon);
     }
     thumbWrap.onclick = () => openArtifactModal(item);
@@ -175,7 +176,7 @@ function renderArtifacts() {
     const citeBtn = document.createElement('button');
     citeBtn.className = 'art-btn primary';
     citeBtn.type = 'button';
-    citeBtn.textContent = '인용 💬';
+    citeBtn.textContent = '인용';
     citeBtn.title = '채팅 입력창에 추가';
     citeBtn.onclick = () => citeArtifact(item);
 

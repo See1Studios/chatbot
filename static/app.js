@@ -1,3 +1,4 @@
+// PROVIDER_SWAP_DEFER_v1
 // Dynamically detect base path from current URL pathname (stripping trailing filename like index.html or trailing slash)
 const BASE_PATH = (() => {
   const p = window.location.pathname;
@@ -81,7 +82,7 @@ if (geoBtn) {
     updateGeoButtonState();
     if (geoEnabled) {
       fetchCoordinates();
-      addActivity('기기 환경 및 위치 정보 동기화 켜짐 📍');
+      addActivity('기기 환경 및 위치 정보 동기화 켜짐', 'system');
     } else {
       cachedCoords = null;
       coordPromise = null;
@@ -242,31 +243,76 @@ function formatUsageTooltip(usage, duration) {
 }
 
 // ---- Action SVG Helper (OpenHiggsfield / Sphere precision vector icons) ----
-function getActionSvg(name, extraClass) {
+﻿function getActionSvg(name, extraClass) {
+  // NOTICE_UI_v1: night-console stroke icons (Feather-style), no emoji chrome
   const cls = extraClass ? `action-icon-svg ${extraClass}` : 'action-icon-svg';
-  switch (name) {
-    case 'copy':
-      return `<svg class="${cls}" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-    case 'check':
-      return `<svg class="${cls}" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;
-    case 'speaker':
-      return `<svg class="${cls}" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
-    case 'stop':
-      return `<svg class="${cls}" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>`;
-    case 'zap':
-      return `<svg class="${cls}" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
-    case 'flame':
-      return `<svg class="${cls} text-danger" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/></svg>`;
-    case 'alert':
-      return `<svg class="${cls} text-warning" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-    case 'pin':
-      return `<svg class="${cls}" viewBox="0 0 24 24"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V6h1a1 1 0 0 0 0-2H8a1 1 0 0 0 0 2h1v4.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/></svg>`;
-    case 'trash':
-      return `<svg class="${cls}" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
-    default:
-      return '';
-  }
+  const paths = {
+    copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    check: '<polyline points="20 6 9 17 4 12"/>',
+    speaker: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="1"/>',
+    zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+    flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/>',
+    alert: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+    info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+    compass: '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
+    spark: '<path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+    x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+    pin: '<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V6h1a1 1 0 0 0 0-2H8a1 1 0 0 0 0 2h1v4.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/>',
+    trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
+  };
+  const danger = (name === 'flame') ? ' text-danger' : (name === 'alert' ? ' text-warning' : '');
+  const body = paths[name];
+  if (!body) return '';
+  return `<svg class="${cls}${danger}" viewBox="0 0 24 24">${body}</svg>`;
 }
+
+// NOTICE_UI_v1: host/system notices share night-console chrome, not LLM reply bubbles.
+const NOTICE_KINDS = {
+  info:   { icon: 'info',     label: '시스템' },
+  status: { icon: 'settings', label: '상태' },
+  warn:   { icon: 'alert',    label: '주의' },
+  error:  { icon: 'alert',    label: '오류' },
+  stop:   { icon: 'stop',     label: '중지' },
+  ok:     { icon: 'check',    label: '완료' },
+  help:   { icon: 'spark',    label: '도움말' },
+};
+
+function normalizeNoticeKind(isSystem) {
+  if (isSystem === true) return 'info';
+  if (typeof isSystem === 'string' && isSystem) {
+    const k = String(isSystem).toLowerCase();
+    return NOTICE_KINDS[k] ? k : 'info';
+  }
+  return '';
+}
+
+function inferNoticeKindFromText(text) {
+  // NOTICE_FLAG_ONLY_v1: intentionally unused — classification is flag-only (h.notice / h.system)
+  return '';
+}
+
+function stripNoticeChromeEmojis(text) {
+  return String(text || '')
+    .replace(/^[\p{Extended_Pictographic}\uFE0F\u200D]+/u, '')
+    .replace(/^\s*[⚠🛑⏱⚡🧭📍🚨✨✦🐾📋💻📄💬📁📜⚙🗂🛠📦🔢✓✕↻]+/u, '')
+    .replace(/\*\*작업 중단 알림\*\*\s*/g, '')
+    .replace(/^---+\s*/gm, '')
+    .trim();
+}
+
+function addNotice(kind, text, ts, ephemeral) {
+  const k = normalizeNoticeKind(kind || 'info') || 'info';
+  const body = stripNoticeChromeEmojis(text);
+  const node = addChat('assistant', body, true, false, false, false, null, null, k, ts);
+  if (ephemeral && node) node.dataset.ephemeral = '1';
+  return node;
+}
+
 
 let sessionTokens = { total_tokens: 0, input_tokens: 0, output_tokens: 0, thinking_tokens: 0, turns: 0 };
 
@@ -411,9 +457,9 @@ function attachMessageFooter(node, rawText, usage, durationSeconds, servedModel)
     badge.innerHTML = iconSvg + (textPart ? ` <span>${textPart}</span>` : '');
     let tip = formatUsageTooltip(usage, durationSeconds);
     if (level === 'heavy') {
-      tip = '🚨 [대용량 토큰 소모] 누적 컨텍스트가 매우 큽니다. 대화창의 "맥락 이어 새 대화"를 권장합니다.\n' + tip;
+      tip = '[대용량 토큰 소모] 누적 컨텍스트가 매우 큽니다. 대화창의 "맥락 이어 새 대화"를 권장합니다.\n' + tip;
     } else if (level === 'warning') {
-      tip = '⚠️ [토큰 사용량 주의] 컨텍스트가 증가하고 있습니다.\n' + tip;
+      tip = '[토큰 사용량 주의] 컨텍스트가 증가하고 있습니다.\n' + tip;
     }
     badge.title = tip;
     badge.setAttribute('aria-label', tip);
@@ -444,7 +490,7 @@ function attachMessageFooter(node, rawText, usage, durationSeconds, servedModel)
     btn.innerHTML = getActionSvg('copy');
     btn.onclick = async () => {
       const ok = await copyText(rawText);
-      btn.innerHTML = ok ? getActionSvg('check', 'text-accent') : '✕';
+      btn.innerHTML = ok ? getActionSvg('check', 'text-accent') : getActionSvg('x', 'text-danger');
       setTimeout(() => { btn.innerHTML = getActionSvg('copy'); }, 1500);
     };
     footer.appendChild(btn);
@@ -485,7 +531,7 @@ function applySessionActionMode(mode, text) {
   const msgEl = sessionBanner.querySelector('.session-banner-msg');
   if (sessionBannerContinue) {
     sessionBannerContinue.className = (mode === 'quiet') ? 'ghost' : 'primary';
-    sessionBannerContinue.textContent = (mode === 'quiet') ? '맥락 이어가기' : '맥락 이어 새 대화 ✦';
+    sessionBannerContinue.textContent = (mode === 'quiet') ? '맥락 이어가기' : '맥락 이어 새 대화';
   }
   if (sessionBannerBtn) {
     sessionBannerBtn.textContent = (mode === 'quiet') ? '새 대화' : '완전 새 세션';
@@ -556,6 +602,8 @@ const tabArtifacts = document.getElementById('tabArtifacts');
 const tabActivity = document.getElementById('tabActivity');
 const tabStatus = document.getElementById('tabStatus');
 const tabSessions = document.getElementById('tabSessions');
+const tabEvolution = document.getElementById('tabEvolution');
+const evolutionPaneEl = document.getElementById('evolutionPane');
 const sessionsPaneEl = document.getElementById('sessionsPane');
 const sessionsListEl = document.getElementById('sessionsList');
 const sessionsRefreshBtn = document.getElementById('sessionsRefreshBtn');
@@ -697,11 +745,11 @@ function updateSendButton() {
     sendBtn.classList.remove('btw-btn');
     sendBtn.classList.add('queue-btn');
   } else if (isInquiry(val)) {
-    sendBtn.textContent = '샛길 질문 ✦';
+    sendBtn.textContent = '샛길 질문';
     sendBtn.classList.remove('queue-btn');
     sendBtn.classList.add('btw-btn');
   } else {
-    sendBtn.textContent = '🧭 끼워 넣기 ↵';
+    sendBtn.textContent = '끼워 넣기';
     sendBtn.classList.remove('btw-btn', 'queue-btn');
   }
 }
@@ -770,7 +818,7 @@ function startTurnTimer() {
           busyHeartbeatTimer = null;
           setBusy(false);
           updateProcBadge('dead');
-          setProgress('⚠️ 백엔드 프로세스가 중단되었습니다냥.', true);
+          setProgress('백엔드 프로세스가 중단되었습니다냥.', true);
           addActivity('오류: 백엔드 프로세스가 예기치 않게 종료되었습니다.', 'error');
         } else if (data.busy === false && isBusy) {
           // Backend finished the turn, but client missed the SSE 'result' event (e.g. background sleep)
@@ -897,6 +945,10 @@ function setBusy(b) {
   }
   updateSendButton();
   syncSessionActions();
+
+  if (!isBusy && typeof flushPendingProviderPersist === 'function') {
+    setTimeout(() => { flushPendingProviderPersist(); }, 0);
+  }
 }
 
 function setProgress(msg, asHost) {
@@ -1122,7 +1174,8 @@ function addBtw(query, answer, prepend, usage, durationSeconds, ts) {
   if (ts) div.dataset.ts = String(ts);
   const head = document.createElement('div');
   head.className = 'btw-head';
-  head.innerHTML = '<span>✦ 샛길 응답 (/btw)</span>' + (query ? '<span class="btw-q">Q. ' + escapeHtml(query) + '</span>' : '');
+  const _btwIcon = typeof getActionSvg === 'function' ? getActionSvg('compass') : '';
+  head.innerHTML = _btwIcon + '<span>샛길 응답 (/btw)</span>' + (query ? '<span class="btw-q">Q. ' + escapeHtml(query) + '</span>' : '');
   const body = document.createElement('div');
   body.className = 'btw-body md';
   body.innerHTML = renderMarkdown(answer || '', true);
@@ -1148,18 +1201,29 @@ function addBtw(query, answer, prepend, usage, durationSeconds, ts) {
 
 function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationSeconds, isSystem, ts, servedModel) {
   const div = document.createElement('div');
-  div.className = 'msg ' + role + (isSystem ? ' system' : '');
+  // NOTICE_UI_v1: isSystem may be true or a notice kind string
+  const noticeKind = normalizeNoticeKind(isSystem);
+  div.className = 'msg ' + role + (noticeKind ? ' system notice-' + noticeKind : '');
+  if (noticeKind) div.dataset.notice = noticeKind;
   if (isQueued) div.classList.add('queued');
   if (isBtw) div.classList.add('btw-user');
   div.dataset.syncRole = isBtw ? 'btw-user' : (role || '');
   if (ts) div.dataset.ts = String(ts);
   if (servedModel) div.dataset.servedModel = String(servedModel);
   if (role === 'assistant') {
+    if (noticeKind) {
+      const meta = NOTICE_KINDS[noticeKind] || NOTICE_KINDS.info;
+      const head = document.createElement('div');
+      head.className = 'notice-head';
+      head.innerHTML = getActionSvg(meta.icon) + '<span class="notice-label">' + meta.label + '</span>';
+      div.appendChild(head);
+    }
     const md = document.createElement('div');
     md.className = 'md';
-    md.innerHTML = renderMarkdown(text || '', isFinal);
+    const bodyText = noticeKind ? stripNoticeChromeEmojis(text) : (text || '');
+    md.innerHTML = renderMarkdown(bodyText, isFinal);
     div.appendChild(md);
-    postProcessAssistant(div, isFinal, text, usage, durationSeconds, isSystem, servedModel);
+    postProcessAssistant(div, isFinal, bodyText, usage, durationSeconds, Boolean(noticeKind), servedModel);
   } else {
     div.textContent = text || '';
   }
@@ -1345,7 +1409,7 @@ function formatPersistedLogEvent(ev) {
     return { line, kind, detail };
   }
   if (type === 'queued') return { line: '대기열 등록 (대기: ' + (ev.queue_len || 1) + '건)', kind: 'system', detail };
-  if (type === 'steer_queued') return { line: '🧭 새 지시 접수 (반영 대기: ' + (ev.queue_len || 1) + '건)', kind: 'system', detail };
+  if (type === 'steer_queued') return { line: '새 지시 접수 (반영 대기: ' + (ev.queue_len || 1) + '건)', kind: 'system', detail };
   if (type === 'stopped') return { line: '작업 중지: ' + text, kind: 'system', detail };
   if (type === 'session_rotate') return { line: '세션 자동 전환: ' + text, kind: 'system', detail };
   if (type === 'session_heavy') return { line: '세션 길이 경고(' + (ev.level || 'soft') + '): ' + text, kind: 'warn', detail };
@@ -1448,7 +1512,7 @@ if (actCopyBtn) {
         document.body.removeChild(ta);
       }
       const prevText = actCopyBtn.textContent;
-      actCopyBtn.textContent = '복사됨 ✓';
+      actCopyBtn.textContent = '복사됨';
       setTimeout(() => { actCopyBtn.textContent = prevText; }, 1800);
     } catch (e) {
       alertModal('클립보드 복사 실패: ' + e.message);
@@ -1494,7 +1558,7 @@ function logTurnUsage(usage, durationSeconds) {
   if (input > 0) turnFreshTokenHistory.push(input);
 
   const parts = [];
-  if (total) parts.push((warnReason ? '⚠️ ' : '🔢 ') + '이번 턴 ' + total.toLocaleString('ko-KR') + '토큰');
+  if (total) parts.push('이번 턴 ' + total.toLocaleString('ko-KR') + '토큰' + (warnReason ? ' (주의)' : ''));
   if (usage.input_tokens != null || usage.output_tokens != null) {
     parts.push('(입력 ' + input.toLocaleString('ko-KR') +
       ' · 출력 ' + (usage.output_tokens || 0).toLocaleString('ko-KR') +
@@ -1602,11 +1666,27 @@ function formatToolResultClient(content) {
 
 async function api(path, opts) {
   const url = (BASE_PATH && path.startsWith('/') && !path.startsWith(BASE_PATH)) ? (BASE_PATH + path) : path;
-  const r = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
-  if (!r.ok) throw new Error(await r.text() || r.statusText);
-  const ct = r.headers.get('content-type') || '';
-  if (ct.includes('application/json')) return r.json();
-  return r.text();
+  opts = opts || {};
+  // BOOT_HANG_FIX_v1: default timeout so /api/sessions/active cannot freeze boot forever
+  const timeoutMs = opts.timeoutMs != null ? opts.timeoutMs : 12000;
+  const { timeoutMs: _drop, ...fetchOpts } = opts;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  if (fetchOpts.signal) {
+    fetchOpts.signal.addEventListener('abort', () => ctrl.abort(), { once: true });
+  }
+  try {
+    const r = await fetch(url, Object.assign({
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+    }, fetchOpts));
+    if (!r.ok) throw new Error(await r.text() || r.statusText);
+    const ct = r.headers.get('content-type') || '';
+    if (ct.includes('application/json')) return r.json();
+    return r.text();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function maybeRedirectHardSession(id, info, depth) {
@@ -1673,11 +1753,16 @@ function rememberSession(id) {
 
 function switchTab(tab) {
   currentTab = tab;
+  if ((tab === 'chat' || tab === 'sessions' || tab === 'evolution') && isProviderUseBlocked(chatProvider())) {
+    tab = 'status';
+    currentTab = 'status';
+  }
   if (tabChat) { tabChat.classList.toggle('on', tab === 'chat'); tabChat.setAttribute('aria-selected', String(tab === 'chat')); }
   if (tabArtifacts) { tabArtifacts.classList.toggle('on', tab === 'artifacts'); tabArtifacts.setAttribute('aria-selected', String(tab === 'artifacts')); }
   if (tabActivity) { tabActivity.classList.toggle('on', tab === 'activity'); tabActivity.setAttribute('aria-selected', String(tab === 'activity')); }
   if (tabStatus) { tabStatus.classList.toggle('on', tab === 'status'); tabStatus.setAttribute('aria-selected', String(tab === 'status')); }
   if (tabSessions) { tabSessions.classList.toggle('on', tab === 'sessions'); tabSessions.setAttribute('aria-selected', String(tab === 'sessions')); }
+  if (tabEvolution) { tabEvolution.classList.toggle('on', tab === 'evolution'); tabEvolution.setAttribute('aria-selected', String(tab === 'evolution')); }
 
   if (logEl) logEl.style.display = (tab === 'chat') ? 'flex' : 'none';
   const artifactsPane = document.getElementById('artifacts');
@@ -1686,6 +1771,7 @@ function switchTab(tab) {
   else if (activityEl) activityEl.style.display = (tab === 'activity') ? 'block' : 'none';
   if (statusPaneEl) statusPaneEl.style.display = (tab === 'status') ? 'flex' : 'none';
   if (sessionsPaneEl) sessionsPaneEl.style.display = (tab === 'sessions') ? 'flex' : 'none';
+  if (evolutionPaneEl) evolutionPaneEl.style.display = (tab === 'evolution') ? 'flex' : 'none';
 
   if (tab === 'artifacts') {
     fetchArtifacts(true);
@@ -1698,6 +1784,8 @@ function switchTab(tab) {
     renderStatusPicker();
     fetchAccounts();
     fetchUsage(false);
+  } else if (tab === 'evolution') {
+    fetchEvolution();
   } else if (tab === 'sessions') {
     fetchSessionsList();
   }
@@ -1737,62 +1825,117 @@ async function loadObservations() {
   try {
     res = await api('/api/observations');
   } catch (e) {
-    obsSet(statusObsBoxEl, [obsNode('div', 'status-hint', '관찰 관리를 아직 쓸 수 없어요 (호스트를 소생하면 열려요): ' + obsErrorText(e))]);
+    obsSet(statusObsBoxEl, [obsNode('div', 'status-hint', '이슈 API 없음 (소생 필요): ' + obsErrorText(e))]);
     return;
   }
   renderObservations(res);
 }
 
+
+function evoToggleHead(title, count, opts) {
+  // EVOLUTION_UI_v2: one disclosure pattern — click the whole header
+  opts = opts || {};
+  const head = obsNode('div', 'evo-sec-head evo-sec-toggle');
+  head.appendChild(obsNode('span', 'evo-sec-title', title));
+  if (count != null && count !== '') head.appendChild(obsNode('span', 'evo-count', String(count)));
+  head.appendChild(obsNode('span', 'evo-chev', opts.open ? '▴' : '▾'));
+  if (opts.open) head.classList.add('open');
+  return head;
+}
+
+function evoBindToggle(head, body) {
+  body.classList.add('evo-fold');
+  if (head.classList.contains('open')) body.classList.add('open');
+  head.addEventListener('click', (e) => {
+    if (e.target.closest('button, a, input, select, textarea')) return;
+    const open = body.classList.toggle('open');
+    head.classList.toggle('open', open);
+    const chev = head.querySelector('.evo-chev');
+    if (chev) chev.textContent = open ? '▴' : '▾';
+  });
+}
+
+
 function renderObservations(res) {
+  // EVOLUTION_UI_v2: compact cards + unified header toggles
   const items = res.observations || [];
   const active = items.filter(o => o.status === 'open' || o.status === 'parked');
   const closed = items.filter(o => o.status !== 'open' && o.status !== 'parked');
   const kids = [];
-  if (!active.length) kids.push(obsNode('div', 'status-hint', '열린 관찰이 없어요.'));
-  active.forEach(o => kids.push(renderObservationRow(o)));
-  if (closed.length) {
-    kids.push(obsNode('div', 'status-hint', '오늘 처리됨: ' + closed.map(o => '#' + o.id + ' ' + o.title + ' (' + (OBS_STATUS_LABEL[o.status] || o.status) + ')').join(' · ')));
+
+  const openSec = obsNode('div', 'evo-sec');
+  openSec.appendChild(obsNode('div', 'evo-sec-head', '대기 중' + (active.length ? ' · ' + active.length : '')));
+  if (!active.length) {
+    openSec.appendChild(obsNode('div', 'evo-empty', '대기 중 이슈 없음'));
+  } else {
+    active.forEach(o => openSec.appendChild(renderObservationRow(o)));
   }
+  kids.push(openSec);
+
+  if (closed.length) {
+    const doneSec = obsNode('div', 'evo-sec');
+    const head = evoToggleHead('오늘 처리', closed.length, { open: false });
+    const list = obsNode('div', 'evo-fold');
+    closed.forEach(o => list.appendChild(renderClosedObservationRow(o)));
+    evoBindToggle(head, list);
+    doneSec.appendChild(head);
+    doneSec.appendChild(list);
+    kids.push(doneSec);
+  }
+
   kids.push(renderCandidates(res));
   kids.push(renderReviewControls(res));
   obsSet(statusObsBoxEl, kids);
 }
 
-function renderObservationRow(o) {
-  const row = obsNode('div', 'obs-row');
+function renderClosedObservationRow(o) {
+  const row = obsNode('div', 'obs-row obs-row-done obs-row-compact');
   const head = obsNode('div', 'obs-head');
   head.appendChild(obsNode('span', 'obs-id', '#' + o.id));
   head.appendChild(obsNode('span', 'obs-title', o.title || '(제목 없음)'));
   head.appendChild(obsNode('span', 'obs-badge ' + o.status, OBS_STATUS_LABEL[o.status] || o.status));
   row.appendChild(head);
-  row.appendChild(obsNode('div', 'obs-meta', [o.area, o.date, o.status === 'parked' && o.parked_until ? '보류 ~ ' + o.parked_until : ''].filter(Boolean).join(' · ')));
-  const actions = obsNode('div', 'obs-actions');
-  const viewBtn = obsNode('button', 'art-btn', '보기');
-  const doBtn = obsNode('button', 'art-btn primary', '처리');
+  return row;
+}
+
+function renderObservationRow(o) {
+  const row = obsNode('div', 'obs-row obs-row-compact');
+  const head = obsNode('div', 'obs-head');
+  head.appendChild(obsNode('span', 'obs-id', '#' + o.id));
+  head.appendChild(obsNode('span', 'obs-title', o.title || '(제목 없음)'));
+  head.appendChild(obsNode('span', 'obs-badge ' + o.status, OBS_STATUS_LABEL[o.status] || o.status));
+  const actions = obsNode('div', 'obs-actions obs-actions-inline');
+  const viewBtn = obsNode('button', 'art-btn art-btn-xs', '보기');
+  const doBtn = obsNode('button', 'art-btn art-btn-xs primary', '처리');
   viewBtn.type = 'button';
   doBtn.type = 'button';
   actions.appendChild(viewBtn);
   actions.appendChild(doBtn);
-  row.appendChild(actions);
+  head.appendChild(actions);
+  row.appendChild(head);
+  const metaBits = [o.area, o.date, o.status === 'parked' && o.parked_until ? '보류 ~ ' + o.parked_until : ''].filter(Boolean);
+  if (metaBits.length) row.appendChild(obsNode('div', 'obs-meta', metaBits.join(' · ')));
   const detail = obsNode('pre', 'obs-body');
   detail.hidden = true;
   row.appendChild(detail);
   const formHost = obsNode('div', 'obs-formhost');
   row.appendChild(formHost);
-  viewBtn.addEventListener('click', async () => {
+  viewBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
     if (!detail.hidden) { detail.hidden = true; return; }
     if (!detail.textContent) {
       detail.textContent = '불러오는 중…';
       try {
         const d = await api('/api/observations/' + o.id);
         detail.textContent = (d.observation && d.observation.body) || '(본문 없음)';
-      } catch (e) {
-        detail.textContent = '불러오기 실패: ' + obsErrorText(e);
+      } catch (err) {
+        detail.textContent = '불러오기 실패: ' + obsErrorText(err);
       }
     }
     detail.hidden = false;
   });
-  doBtn.addEventListener('click', () => {
+  doBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     if (formHost.children.length) { formHost.textContent = ''; return; }
     formHost.appendChild(renderResolveForm(o, formHost));
   });
@@ -1802,14 +1945,14 @@ function renderObservationRow(o) {
 function renderResolveForm(o, host) {
   const form = obsNode('div', 'obs-form');
   const sel = obsNode('select');
-  [['actioned', '완료 (고쳤어요)'], ['declined', '기각 (안 고쳐요)'], ['superseded', '대체됨 (다른 것으로 해결)'], ['parked', '보류 (나중에)']].forEach(pair => {
+  [['actioned', '완료'], ['declined', '기각'], ['superseded', '대체됨'], ['parked', '보류']].forEach(pair => {
     const op = obsNode('option', null, pair[1]);
     op.value = pair[0];
     sel.appendChild(op);
   });
   const reason = obsNode('input');
   reason.type = 'text';
-  reason.placeholder = '사유 한 줄 (필수)';
+  reason.placeholder = '사유 (필수)';
   reason.maxLength = 300;
   const until = obsNode('input');
   until.type = 'date';
@@ -1817,8 +1960,8 @@ function renderResolveForm(o, host) {
   until.hidden = true;
   sel.addEventListener('change', () => { until.hidden = sel.value !== 'parked'; });
   const btns = obsNode('div', 'obs-actions');
-  const save = obsNode('button', 'art-btn primary', '저장');
-  const cancel = obsNode('button', 'art-btn', '취소');
+  const save = obsNode('button', 'art-btn art-btn-xs primary', '저장');
+  const cancel = obsNode('button', 'art-btn art-btn-xs', '취소');
   save.type = 'button';
   cancel.type = 'button';
   cancel.addEventListener('click', () => { host.textContent = ''; });
@@ -1826,13 +1969,13 @@ function renderResolveForm(o, host) {
     const why = reason.value.trim();
     if (!why) { if (reason.focus) reason.focus(); return; }
     save.disabled = true;
-    save.textContent = '저장 중…';
+    save.textContent = '…';
     try {
       const body = { status: sel.value, resolution: why };
       if (sel.value === 'parked') body.until = until.value;
       await api('/api/observations/' + o.id + '/resolve', { method: 'POST', body: JSON.stringify(body) });
-      addActivity('관찰 #' + o.id + ' → ' + (OBS_STATUS_LABEL[sel.value] || sel.value));
-      fetchSelfStatus();
+      addActivity('이슈 #' + o.id + ' → ' + (OBS_STATUS_LABEL[sel.value] || sel.value));
+      if (typeof fetchEvolution === 'function') fetchEvolution(); else fetchSelfStatus();
     } catch (e) {
       save.disabled = false;
       save.textContent = '저장';
@@ -1846,62 +1989,67 @@ function renderResolveForm(o, host) {
 }
 
 function renderCandidates(res) {
-  const wrap = obsNode('div', 'obs-cands');
+  const wrap = obsNode('div', 'evo-sec obs-cands');
   const n = res.unreviewed_candidates || 0;
-  wrap.appendChild(obsNode('div', 'obs-meta', '미검토 후보 ' + n + '건 — 호스트가 자동으로 모은 힌트예요. 작업 지시가 아니에요.'));
-  if (!n) return wrap;
-  const list = obsNode('div', 'obs-candlist');
-  list.hidden = true;
+  if (!n) {
+    wrap.appendChild(obsNode('div', 'evo-sec-head', '힌트'));
+    wrap.appendChild(obsNode('div', 'evo-empty', '새 힌트 없음'));
+    return wrap;
+  }
+  const head = evoToggleHead('힌트', n, { open: false });
+  const list = obsNode('div', 'evo-fold');
   (res.candidates || []).forEach(c => {
-    list.appendChild(obsNode('div', 'obs-cand', [c.ts, c.signal, c.provider, c.user ? '“' + c.user + '”' : '', c.ref].filter(Boolean).join(' · ')));
+    const card = obsNode('div', 'obs-cand obs-row-compact');
+    const top = obsNode('div', 'obs-cand-top');
+    top.appendChild(obsNode('span', 'obs-cand-signal', c.signal || 'signal'));
+    if (c.provider) top.appendChild(obsNode('span', 'obs-badge', c.provider));
+    card.appendChild(top);
+    if (c.user) card.appendChild(obsNode('div', 'obs-cand-user', '“' + c.user + '”'));
+    const foot = [c.ts, c.ref].filter(Boolean).join(' · ');
+    if (foot) card.appendChild(obsNode('div', 'obs-meta', foot));
+    list.appendChild(card);
   });
-  const toggle = obsNode('button', 'art-btn', '후보 보기');
-  toggle.type = 'button';
-  toggle.addEventListener('click', () => {
-    list.hidden = !list.hidden;
-    toggle.textContent = list.hidden ? '후보 보기' : '후보 접기';
-  });
-  wrap.appendChild(toggle);
+  evoBindToggle(head, list);
+  wrap.appendChild(head);
   wrap.appendChild(list);
   return wrap;
 }
 
 function renderReviewControls(res) {
-  const wrap = obsNode('div', 'obs-review');
-  wrap.appendChild(obsNode('div', 'obs-meta', '마지막 리뷰: ' + (res.last_review || 'never')));
-  const btn = obsNode('button', 'art-btn', '리뷰 완료 기록');
-  btn.type = 'button';
-  const host = obsNode('div', 'obs-formhost');
-  btn.addEventListener('click', () => {
-    if (host.children.length) { host.textContent = ''; return; }
-    const form = obsNode('div', 'obs-form');
-    const summary = obsNode('input');
-    summary.type = 'text';
-    summary.placeholder = '무엇을 검토했고 어떻게 처리했는지 한 줄 (필수)';
-    summary.maxLength = 300;
-    const go = obsNode('button', 'art-btn primary', '기록');
-    go.type = 'button';
-    go.addEventListener('click', async () => {
-      const text = summary.value.trim();
-      if (!text) { if (summary.focus) summary.focus(); return; }
-      go.disabled = true;
-      try {
-        await api('/api/observations/reviewed', { method: 'POST', body: JSON.stringify({ summary: text }) });
-        addActivity('관찰 리뷰 기록됨');
-        fetchSelfStatus();
-      } catch (e) {
-        go.disabled = false;
-        await alertModal('리뷰 기록 실패: ' + obsErrorText(e));
-      }
-    });
-    form.appendChild(summary);
-    form.appendChild(go);
-    host.appendChild(form);
+  const wrap = obsNode('div', 'evo-sec obs-review');
+  const head = evoToggleHead('점검', null, { open: false });
+  const body = obsNode('div', 'evo-fold');
+  body.appendChild(obsNode('div', 'obs-meta', '마지막 점검: ' + (res.last_review || '아직 없음')));
+  const form = obsNode('div', 'obs-form');
+  const summary = obsNode('input');
+  summary.type = 'text';
+  summary.placeholder = '점검 한 줄 (필수)';
+  summary.maxLength = 300;
+  const go = obsNode('button', 'art-btn art-btn-xs primary', '기록');
+  go.type = 'button';
+  go.addEventListener('click', async () => {
+    const text = summary.value.trim();
+    if (!text) { if (summary.focus) summary.focus(); return; }
+    go.disabled = true;
+    try {
+      await api('/api/observations/reviewed', { method: 'POST', body: JSON.stringify({ summary: text }) });
+      addActivity('점검 기록됨');
+      if (typeof fetchEvolution === 'function') fetchEvolution(); else fetchSelfStatus();
+    } catch (e) {
+      go.disabled = false;
+      await alertModal('점검 기록 실패: ' + obsErrorText(e));
+    }
   });
-  wrap.appendChild(btn);
-  wrap.appendChild(host);
+  form.appendChild(summary);
+  form.appendChild(go);
+  body.appendChild(form);
+  evoBindToggle(head, body);
+  wrap.appendChild(head);
+  wrap.appendChild(body);
   return wrap;
 }
+
+
 // Tickets: the buttons only type the operator's command into the chat box (`/ticket approve 3`); pressing Enter
 // runs it in the page (see send()) -- it never goes to the agent, and the agent has no way to decide a ticket.
 const TICKET_STATUS_LABEL = { proposed: '제안됨', approved: '승인됨', declined: '폐기됨', wontfix: '보류(사람 필요)', done: '완료' };
@@ -1924,21 +2072,21 @@ function parseTicketCommand(text) {
 // `/ticket go N`: approve it if it still waits for that (the operator's decision), then hand the agent the obvious
 // instruction as an ordinary message -- the sentence nobody wants to type. Returns { message, prompt }.
 function ticketGoPrompt(t) {
-  return '티켓 #' + t.id + ' 진행해줘. ticket 도구로 claim해서 이 티켓의 대상(' + (t.target || '') + ')만 고치고, 끝나면 release로 결과(done/gate_failed/failed)를 기록해. 범위 밖은 건드리지 마.';
+  return '작업 #' + t.id + ' 진행해줘. ticket 도구로 claim해서 이 작업의 대상(' + (t.target || '') + ')만 고치고, 끝나면 release로 결과(done/gate_failed/failed)를 기록해. 범위 밖은 건드리지 마.';
 }
 
 async function goTicket(cmd) {
   const cur = (await api('/api/tickets/' + cmd.id)).ticket || {};
   let message = '';
   if (cur.status === 'proposed') message = await decideTicket({ action: 'approve', id: cmd.id });
-  else if (cur.status !== 'approved') throw new Error(JSON.stringify({ ok: false, error: '티켓 #' + cmd.id + '은(는) ' + (TICKET_STATUS_LABEL[cur.status] || cur.status) + ' 상태라 진행할 수 없어요' }));
+  else if (cur.status !== 'approved') throw new Error(JSON.stringify({ ok: false, error: '작업 #' + cmd.id + '은(는) ' + (TICKET_STATUS_LABEL[cur.status] || cur.status) + ' 상태라 진행할 수 없어요' }));
   return { message, prompt: ticketGoPrompt(cur) };
 }
 
 async function decideTicket(cmd) {
   const res = await api('/api/tickets/' + cmd.id + '/' + cmd.action, { method: 'POST', body: JSON.stringify({}) });
   const t = res.ticket || {};
-  return '티켓 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' 처리했어요 → ' + (TICKET_STATUS_LABEL[t.status] || t.status || '');
+  return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' 처리했어요 → ' + (TICKET_STATUS_LABEL[t.status] || t.status || '');
 }
 
 async function loadTickets() {
@@ -1947,7 +2095,7 @@ async function loadTickets() {
   try {
     res = await api('/api/tickets');
   } catch (e) {
-    if (statusTicketBoxEl) obsSet(statusTicketBoxEl, [obsNode('div', 'status-hint', '티켓 목록을 아직 볼 수 없어요 (호스트를 소생하면 열려요): ' + obsErrorText(e))]);
+    if (statusTicketBoxEl) obsSet(statusTicketBoxEl, [obsNode('div', 'status-hint', '작업 API 없음 (소생 필요): ' + obsErrorText(e))]);
     if (ticketBarEl) { ticketBarEl.textContent = ''; ticketBarEl.hidden = true; }
     return;
   }
@@ -1977,38 +2125,59 @@ function renderTicketBar(waiting) {
     });
     ticketBarEl.appendChild(chip);
   });
-  if (waiting.length > TICKET_BAR_MAX) ticketBarEl.appendChild(obsNode('span', 'obs-meta', '+' + (waiting.length - TICKET_BAR_MAX) + '건 더 (상태 탭)'));
+  if (waiting.length > TICKET_BAR_MAX) ticketBarEl.appendChild(obsNode('span', 'obs-meta', '+' + (waiting.length - TICKET_BAR_MAX) + '건 더 (개선 탭)'));
 }
 
 function renderTickets(res) {
   const rows = (res.tickets || []).filter(t => TICKET_DECISIONS[t.status]);
   renderTicketBar(rows);
   if (!statusTicketBoxEl) return;
-  const kids = [obsNode('div', 'obs-meta', '티켓 — 결정은 운영자만 해요. 버튼은 채팅창에 명령을 넣어 줘요. Enter를 눌러야 실행돼요. 진행은 승인(필요하면)까지 하고 에이전트에게 착수를 요청해요.')];
-  if (!rows.length) kids.push(obsNode('div', 'status-hint', '결정을 기다리는 티켓이 없어요.'));
+  const kids = [obsNode('div', 'evo-sec-head', '대기 중 작업')];
+  if (!rows.length) kids.push(obsNode('div', 'evo-empty', '지금 결정할 작업이 없어요.'));
+  else kids.push(obsNode('div', 'obs-meta', '버튼 → 채팅 명령 · Enter 실행'));
   rows.forEach(t => kids.push(renderTicketRow(t)));
   obsSet(statusTicketBoxEl, kids);
 }
 
 function renderTicketRow(t) {
-  const row = obsNode('div', 'obs-row');
+  const row = obsNode('div', 'obs-row obs-row-compact');
   const head = obsNode('div', 'obs-head');
   head.appendChild(obsNode('span', 'obs-id', '#' + t.id));
   head.appendChild(obsNode('span', 'obs-title', t.title || '(제목 없음)'));
   head.appendChild(obsNode('span', 'obs-badge ' + t.status, TICKET_STATUS_LABEL[t.status] || t.status));
-  row.appendChild(head);
-  row.appendChild(obsNode('div', 'obs-meta', [t.target, '시도 ' + (t.attempts || 0) + '회', (t.evidence || []).length + '개 근거'].filter(Boolean).join(' · ')));
-  const actions = obsNode('div', 'obs-actions');
+  const actions = obsNode('div', 'obs-actions obs-actions-inline');
   TICKET_DECISIONS[t.status].forEach(pair => {
-    const btn = obsNode('button', 'art-btn' + (pair[0] === 'approve' ? ' primary' : ''), pair[1]);
+    const btn = obsNode('button', 'art-btn art-btn-xs' + (pair[0] === 'approve' || pair[0] === 'go' ? ' primary' : ''), pair[1]);
     btn.type = 'button';
     btn.addEventListener('click', () => fillTicketCommand(t, pair[0]));
     actions.appendChild(btn);
   });
-  row.appendChild(actions);
+  head.appendChild(actions);
+  row.appendChild(head);
+  const meta = [t.target, (t.attempts ? '시도 ' + t.attempts : '')].filter(Boolean).join(' · ');
+  if (meta) row.appendChild(obsNode('div', 'obs-meta', meta));
   return row;
 }
 // ---- end observation manager ----
+
+
+async function fetchEvolution() {
+  // STATUS_EVOLUTION_TAB_v1: RSE pane (observations + tickets)
+  try {
+    const res = await api('/api/self-status');
+    if (statusObserverEl) {
+      const o = res.observation || {};
+      statusObserverEl.textContent =
+        '대기 이슈 ' + (o.open_observations || 0) + '건'
+        + ((o.unreviewed_candidates || 0) ? ' · 힌트 ' + o.unreviewed_candidates + '건' : '')
+        + (o.last_review_date ? ' · 최근 점검 ' + o.last_review_date : '');
+    }
+  } catch (e) {
+    if (statusObserverEl) statusObserverEl.textContent = '요약 로드 실패: ' + (e.message || e);
+  }
+  loadObservations();
+  loadTickets();
+}
 
 async function fetchSelfStatus() {
   if (!statusPaneEl) return;
@@ -2018,7 +2187,7 @@ async function fetchSelfStatus() {
     renderStatusRules(res.rules || []);
     renderStatusSkills(res.skills || []);
     if (statusSkillLibHintEl) {
-      statusSkillLibHintEl.textContent = '호스트 전체 스킬 라이브러리(~/.agents/skills): ' + (res.host_skill_library_count || 0) + '개 (읽기 전용, 슬래시 명령어 피커에서 노출됨)';
+      statusSkillLibHintEl.textContent = '호스트 스킬 라이브러리 ' + (res.host_skill_library_count || 0) + '개 (읽기 전용)';
     }
     renderStatusMcp(res.mcp || []);
     if (statusHooksEl) {
@@ -2026,12 +2195,7 @@ async function fetchSelfStatus() {
       const p = res.plugins || {};
       statusHooksEl.textContent = (h.note || '') + (p.note ? '\n' + p.note : '');
     }
-    if (statusObserverEl) {
-      const o = res.observation || {};
-      statusObserverEl.textContent = '열린 관찰(open): ' + (o.open_observations || 0) + ' / 전체 ' + (o.total_observations || 0) + '건 · 미검토 후보: ' + (o.unreviewed_candidates || 0) + '건 · 마지막 리뷰: ' + (o.last_review_date || 'never');
-    }
-    loadObservations();
-    loadTickets();
+    // observation/tickets live on Evolution tab (STATUS_EVOLUTION_TAB_v1)
     statusLoaded = true;
   } catch (e) {
     if (statusRulesEl) statusRulesEl.textContent = '상태 로드 실패: ' + e.message;
@@ -2062,13 +2226,17 @@ function renderStatusPicker() {
   (Array.isArray(providerCatalog) ? providerCatalog : []).forEach(p => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'art-filter-btn' + (p.id === viewing ? ' on' : '') + (p.id === chat ? ' is-chat' : '');
+    const blockReason = providerUseBlockedReason(p.id);
+    b.className = 'art-filter-btn'
+      + (p.id === viewing ? ' on' : '')
+      + (p.id === chat ? ' is-chat' : '')
+      + (blockReason ? ' is-blocked-provider' : '');
     b.textContent = providerCreditLabel(p);
-    const disReason = providerDisabledReason(p.id);
-    b.title = (p.id === chat ? '지금 대화 중인 제공자' : '상태만 봅니다 — 대화의 제공자는 바뀌지 않아요') + (disReason ? ' · ' + disReason : '');
+    b.title = (p.id === chat ? '지금 대화 중인 제공자' : '상태 조회 — 대화 제공자는 바꾸지 않아요')
+      + (blockReason ? ' · ' + blockReason : '');
     b.setAttribute('aria-pressed', String(p.id === viewing));
-    b.disabled = p.available === false;
-    if (disReason) b.classList.add('is-disabled-provider');
+    // Always selectable: blocked providers are still viewable on Status.
+    b.disabled = false;
     b.addEventListener('click', () => setStatusViewProvider(p.id));
     statusPickerEl.appendChild(b);
   });
@@ -2080,7 +2248,7 @@ function setStatusViewProvider(id) {
   refreshProviderStatus();
 }
 
-// 대화의 제공자가 (코드로) 바뀌면 select의 onchange가 안 돌므로 여기서 직접 다시 그린다. 보기 전용 선택은 대화를 따라간다.
+// 대화의 제공자가 (코드로) 바뀌면 select의 onchange가 안 돌므로 여기서 직접 다시 그린다. 상태 조회 선택은 대화를 따라간다.
 function followChatProvider() {
   statusViewProvider = null;
   refreshProviderStatus();
@@ -2104,7 +2272,7 @@ function fmtAge(sec) {
 async function fetchAccounts() {
   if (!statusAccountsEl) return;
   const provider = currentStatusProvider();
-  if (statusProviderTitleEl) statusProviderTitleEl.textContent = statusProviderName(provider) + (statusViewProvider ? ' · 보기 전용' : '');
+  if (statusProviderTitleEl) statusProviderTitleEl.textContent = statusProviderName(provider) + (statusViewProvider ? ' · 대화와 다른 제공자' : '');
   statusAccountsEl.innerHTML = '<div class="status-hint">불러오는 중…</div>';
   try {
     const res = await api('/api/accounts?provider=' + encodeURIComponent(provider));
@@ -2137,10 +2305,291 @@ function acctProcRow(p, hasEvidence) {
     const btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'art-filter-btn';
     btn.textContent = '종료 명령 복사: ' + p.kill_cmd;
-    btn.addEventListener('click', () => copyText(p.kill_cmd).then(() => { btn.textContent = '복사됨 ✓'; }, () => { btn.textContent = p.kill_cmd; }));
+    btn.addEventListener('click', () => copyText(p.kill_cmd).then(() => { btn.textContent = '복사됨'; }, () => { btn.textContent = p.kill_cmd; }));
     item.appendChild(btn);
   }
   return item;
+}
+
+
+
+// ACCOUNTS_LOGIN_v2 — Status-tab CLI login panel (agy/claude/codex/grok)
+const _loginPollTimers = {};
+const _loginPanelState = {}; // provider -> last status payload
+
+function stopLoginPoll(provider) {
+  if (_loginPollTimers[provider]) {
+    clearInterval(_loginPollTimers[provider]);
+    delete _loginPollTimers[provider];
+  }
+}
+
+function loginModeHint(mode) {
+  if (mode === 'oauth_paste') return 'OAuth → 코드 붙여넣기';
+  if (mode === 'oauth_callback') return '브라우저 OAuth (localhost 콜백)';
+  if (mode === 'device_code') return '디바이스 코드 인증';
+  return mode || '';
+}
+
+function buildLoginPanel(provider) {
+  const panel = document.createElement('div');
+  panel.className = 'login-panel';
+  panel.dataset.provider = provider;
+  panel.innerHTML =
+    '<div class="login-panel-head"><strong>로그인</strong> <span class="login-panel-mode"></span></div>' +
+    '<div class="login-panel-msg status-hint">준비 중…</div>' +
+    '<div class="login-panel-fields"></div>' +
+    '<div class="login-panel-actions"></div>' +
+    '<div class="login-panel-err" hidden></div>';
+  return panel;
+}
+
+function renderLoginFields(panel, st) {
+  const fields = panel.querySelector('.login-panel-fields');
+  const modeEl = panel.querySelector('.login-panel-mode');
+  const msgEl = panel.querySelector('.login-panel-msg');
+  const errEl = panel.querySelector('.login-panel-err');
+  if (!fields) return;
+  fields.innerHTML = '';
+  if (modeEl) modeEl.textContent = st.mode ? ('· ' + loginModeHint(st.mode)) : '';
+  if (msgEl) msgEl.textContent = st.message_ko || '';
+  if (errEl) {
+    if (st.error && (st.state === 'failed' || st.state === 'superseded')) {
+      errEl.hidden = false;
+      errEl.textContent = st.error;
+    } else {
+      errEl.hidden = true;
+      errEl.textContent = '';
+    }
+  }
+
+  const addCopyRow = (label, value, isUrl) => {
+    if (!value) return;
+    const row = document.createElement('div');
+    row.className = 'login-row';
+    const lab = document.createElement('div');
+    lab.className = 'login-label';
+    lab.textContent = label;
+    const val = document.createElement(isUrl ? 'a' : 'code');
+    val.className = 'login-value';
+    if (isUrl) {
+      val.href = value;
+      val.target = '_blank';
+      val.rel = 'noopener noreferrer';
+      val.textContent = value;
+    } else {
+      val.textContent = value;
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ghost login-copy';
+    btn.textContent = '복사';
+    btn.addEventListener('click', () => copyText(value).then(() => {
+      btn.textContent = '복사됨';
+      setTimeout(() => { btn.textContent = '복사'; }, 1200);
+    }, () => { btn.textContent = '실패'; }));
+    row.appendChild(lab);
+    row.appendChild(val);
+    row.appendChild(btn);
+    fields.appendChild(row);
+  };
+
+  addCopyRow('인증 URL', st.authorize_url, true);
+  if (st.verification_uri && st.verification_uri !== st.authorize_url) {
+    addCopyRow('확인 URL', st.verification_uri, true);
+  }
+  addCopyRow('확인 코드', st.user_code, false);
+  if (st.callback_port) {
+    addCopyRow('콜백 포트', String(st.callback_port), false);
+  }
+
+  if (st.mode === 'oauth_paste' && st.state === 'pending') {
+    const row = document.createElement('div');
+    row.className = 'login-row login-paste';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'login-code-input';
+    input.placeholder = '인증 코드 붙여넣기';
+    input.autocomplete = 'off';
+    const submit = document.createElement('button');
+    submit.type = 'button';
+    submit.className = 'art-btn';
+    submit.textContent = '제출';
+    const doSubmit = async () => {
+      const code = (input.value || '').trim();
+      if (!code) { alert('코드를 입력해 주세요.'); return; }
+      submit.disabled = true;
+      try {
+        const r = await api('/api/accounts/login/complete', {
+          method: 'POST',
+          body: JSON.stringify({ provider: st.provider, login_id: st.login_id, code }),
+          timeoutMs: 30000,
+        });
+        _loginPanelState[st.provider] = r;
+        renderLoginFields(panel, r);
+        updateLoginActions(panel, r);
+        if (r.state === 'succeeded') onLoginSucceeded(st.provider, r);
+      } catch (e) {
+        alert('코드 제출 실패: ' + e.message);
+      } finally {
+        submit.disabled = false;
+      }
+    };
+    submit.addEventListener('click', doSubmit);
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); doSubmit(); }
+    });
+    row.appendChild(input);
+    row.appendChild(submit);
+    fields.appendChild(row);
+  }
+}
+
+function updateLoginActions(panel, st) {
+  const actions = panel.querySelector('.login-panel-actions');
+  if (!actions) return;
+  actions.innerHTML = '';
+  if (st.state === 'pending') {
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'ghost';
+    cancelBtn.textContent = '취소';
+    cancelBtn.addEventListener('click', () => cancelLogin(st.provider, st.login_id, panel));
+    actions.appendChild(cancelBtn);
+    if (st.expires_in != null) {
+      const ttl = document.createElement('span');
+      ttl.className = 'status-hint';
+      ttl.textContent = '남은 시간 약 ' + Math.max(0, Math.round(st.expires_in / 60)) + '분';
+      actions.appendChild(ttl);
+    }
+  } else if (st.state === 'succeeded') {
+    const ok = document.createElement('span');
+    ok.className = 'status-hint';
+    ok.textContent = '완료 — 계정 새로고침 중…';
+    actions.appendChild(ok);
+  } else if (st.state === 'failed' || st.state === 'cancelled') {
+    const again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'art-btn';
+    again.textContent = '다시 시도';
+    again.addEventListener('click', () => startLogin(st.provider, panel));
+    actions.appendChild(again);
+  }
+}
+
+async function onLoginSucceeded(provider, st) {
+  stopLoginPoll(provider);
+  addActivity((statusProviderName(provider) || provider) + ' 로그인 완료', 'system');
+  try { await refreshProviderAuthMap(); } catch (e) {}
+  // CODEX_MODELS_v1: refresh catalog so models/available update without reload.
+  try {
+    const res = await api('/api/providers');
+    providerCatalog = res.providers || providerCatalog;
+    if (providerEl && providerEl.value === provider) {
+      populateModelsForProvider(provider, modelEl ? modelEl.value : null);
+    }
+    renderProviderTray();
+  } catch (e) {}
+  fetchAccounts();
+  // USAGE_v1: force usage refresh after auth settles (do not leave a stale miss).
+  setTimeout(() => {
+    if (currentTab === 'status' && currentStatusProvider() === provider) fetchUsage(true);
+  }, 1500);
+}
+
+async function cancelLogin(provider, loginId, panel) {
+  stopLoginPoll(provider);
+  try {
+    await api('/api/accounts/login/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ provider, login_id: loginId || undefined }),
+    });
+  } catch (e) {}
+  if (panel && panel.parentNode) panel.remove();
+  addActivity((statusProviderName(provider) || provider) + ' 로그인 취소', 'system');
+  fetchAccounts();
+}
+
+function startLoginPoll(provider, panel, loginId) {
+  stopLoginPoll(provider);
+  const qs = 'provider=' + encodeURIComponent(provider) + (loginId ? '&login_id=' + encodeURIComponent(loginId) : '');
+  _loginPollTimers[provider] = setInterval(async () => {
+    try {
+      const st = await api('/api/accounts/login/status?' + qs, { timeoutMs: 15000 });
+      _loginPanelState[provider] = st;
+      if (!panel.isConnected) { stopLoginPoll(provider); return; }
+      renderLoginFields(panel, st);
+      updateLoginActions(panel, st);
+      if (st.state === 'succeeded') {
+        onLoginSucceeded(provider, st);
+      } else if (st.state === 'failed' || st.state === 'cancelled' || st.state === 'idle' || st.state === 'superseded') {
+        stopLoginPoll(provider);
+        if (st.state === 'failed') {
+          addActivity((statusProviderName(provider) || provider) + ' 로그인 실패: ' + (st.error || ''), 'warn');
+        } else if (st.state === 'superseded') {
+          addActivity((statusProviderName(provider) || provider) + ' 로그인 시도가 다른 곳에서 새로 시작한 시도로 대체됐어요', 'warn');
+        }
+      }
+    } catch (e) {
+      // keep polling through transient errors
+    }
+  }, 2000);
+}
+
+async function startLogin(provider, existingPanel) {
+  let panel = existingPanel;
+  const host = statusAccountsEl;
+  if (!panel) {
+    panel = buildLoginPanel(provider);
+    if (host) host.appendChild(panel);
+  }
+  panel.querySelector('.login-panel-msg').textContent = '로그인 시작 중…';
+  try {
+    const st = await api('/api/accounts/login/start', {
+      method: 'POST',
+      body: JSON.stringify({ provider }),
+      timeoutMs: 25000,
+    });
+    _loginPanelState[provider] = st;
+    renderLoginFields(panel, st);
+    updateLoginActions(panel, st);
+    if (st.state === 'pending') {
+      startLoginPoll(provider, panel, st.login_id);
+      addActivity((statusProviderName(provider) || provider) + ' 로그인 시작 (' + loginModeHint(st.mode) + ')', 'system');
+    } else if (st.state === 'succeeded') {
+      onLoginSucceeded(provider, st);
+    } else if (!st.ok) {
+      alert('로그인 시작 실패: ' + (st.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('로그인 시작 실패: ' + e.message);
+    if (panel && panel.parentNode) panel.remove();
+  }
+}
+
+
+async function logoutAccount(provider, email, btn) {
+  const label = statusProviderName(provider) || provider;
+  const who = email ? (' (' + email + ')') : '';
+  if (!confirm(label + who + ' 에서 로그아웃할까요?\n\n이 호스트의 해당 CLI 인증이 해제됩니다. 진행 중인 대화가 있으면 프로세스를 다시 띄워야 할 수 있어요.')) {
+    return;
+  }
+  if (btn) btn.disabled = true;
+  try {
+    const r = await api('/api/accounts/logout', {
+      method: 'POST',
+      body: JSON.stringify({ provider }),
+    });
+    if (r.note || r.message_ko) {
+      alert(r.note || r.message_ko);
+    } else if (!r.ok) {
+      alert('로그아웃 실패: ' + (r.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('로그아웃 실패: ' + e.message);
+  }
+  await refreshProviderAuthMap();
+  fetchAccounts();
 }
 
 // 계정: 현재 로그인 + 마지막 계정 변경 + (agy) 자동 재시작 기록
@@ -2162,7 +2611,7 @@ function renderAccounts(res, provider) {
     const exp = cur.expires_at ? ' · 액세스 토큰 만료 ' + when(cur.expires_at) : '';
     const disReason = providerDisabledReason(provider);
     const badge = disReason
-      ? ' <span class="acct-badge stale">⚠ 사용 불가 (' + escapeHtml(disReason) + ')</span>'
+      ? ' <span class="acct-badge stale">사용 불가 (' + escapeHtml(disReason) + ')</span>'
       : '';
     box.innerHTML =
       '<div class="status-item-meta">로그인 계정' + (cur.plan ? ' · ' + escapeHtml(cur.plan) : '') + badge + '</div>' +
@@ -2179,6 +2628,36 @@ function renderAccounts(res, provider) {
     chg.textContent = '계정 변경 관측: ' + pv.changed_from + ' → ' + (cur.email || '?') + ' (' + when(pv.changed_at) + ')';
     box.appendChild(chg);
   }
+  // ACCOUNTS_LOGIN_v1: logout when logged in; login button + panel when not.
+  const actions = document.createElement('div');
+  actions.className = 'status-item-actions';
+  if (cur.ok) {
+    const logoutBtn = document.createElement('button');
+    logoutBtn.type = 'button';
+    logoutBtn.className = 'danger';
+    logoutBtn.textContent = '로그아웃';
+    logoutBtn.title = statusProviderName(provider) + ' CLI 로그아웃';
+    logoutBtn.addEventListener('click', () => logoutAccount(provider, cur.email, logoutBtn));
+    actions.appendChild(logoutBtn);
+  } else {
+    const loginHint = document.createElement('span');
+    loginHint.className = 'status-hint';
+    loginHint.textContent = '로그인되지 않음 — 대화/세션/개선은 잠겨 있어요.';
+    actions.appendChild(loginHint);
+    const loginBtn = document.createElement('button');
+    loginBtn.type = 'button';
+    loginBtn.className = 'art-btn';
+    loginBtn.textContent = '로그인';
+    loginBtn.title = statusProviderName(provider) + ' CLI 로그인';
+    loginBtn.addEventListener('click', () => {
+      // Avoid stacking panels
+      const prev = statusAccountsEl && statusAccountsEl.querySelector('.login-panel[data-provider="' + provider + '"]');
+      if (prev) prev.remove();
+      startLogin(provider);
+    });
+    actions.appendChild(loginBtn);
+  }
+  box.appendChild(actions);
   statusAccountsEl.appendChild(box);
 
   const auto = res.auto_recycle || {};
@@ -2202,7 +2681,7 @@ function renderProcs(pv) {
   statusProcsEl.hidden = false;
   if (statusProcsSummaryEl) {
     statusProcsSummaryEl.innerHTML = '프로세스 ' + procs.length + '개' +
-      (stale ? ' <span class="acct-badge stale">⚠ 옛 계정 ' + stale + '개</span>' : '') +
+      (stale ? ' <span class="acct-badge stale">옛 계정 ' + stale + '개</span>' : '') +
       (predates ? ' <span class="acct-badge warn">로그인 변경 전 시작 ' + predates + '개</span>' : '');
   }
   if (stale) statusProcsEl.open = true;  // 경고는 접어 두지 않는다
@@ -2213,7 +2692,7 @@ function renderProcs(pv) {
     const warn = document.createElement('div');
     warn.className = 'status-item acct-warn';
     warn.innerHTML =
-      '<div class="status-item-name">⚠ 옛 계정으로 인증된 agy 프로세스 ' + stale + '개</div>' +
+      '<div class="status-item-name">옛 계정으로 인증된 agy 프로세스 ' + stale + '개</div>' +
       '<div class="status-item-preview">이 프로세스가 토큰을 refresh하면 방금 한 로그인이 옛 계정으로 되돌아갈 수 있어요. ' +
       '외부 프로세스는 종료 명령을 복사해서 직접 실행하세요.</div>';
     if (ownedStale) {
@@ -2248,17 +2727,31 @@ function renderProcs(pv) {
   procs.forEach(p => statusProcListEl.appendChild(acctProcRow(p, hasEvidence)));
 }
 
-async function fetchUsage(force) {
+async function fetchUsage(force, retryCount) {
+  // USAGE_v1: after CLI login the first /cost|app-server call often races auth
+  // settle; client default api() timeout (12s) was also shorter than the CLI
+  // (30–45s). Retry once + longer timeout; server also retries + avoids
+  // long-caching failures.
   if (!statusUsageEl) return;
+  retryCount = retryCount || 0;
   const provider = currentStatusProvider();
-  statusUsageEl.innerHTML = '<div class="status-hint">불러오는 중… (' + escapeHtml(provider) + ' CLI 실제 호출이라 몇 초 걸릴 수 있어요)</div>';
+  statusUsageEl.innerHTML = '<div class="status-hint">불러오는 중… (' + escapeHtml(provider)
+    + (retryCount > 0 ? ', 재시도' : '') + ')</div>';
   try {
     const params = new URLSearchParams({provider});
-    if (force) params.set('force', '1');
-    const res = await api('/api/usage?' + params.toString());
-    if (currentStatusProvider() !== provider) return;  // 응답이 늦는 사이 보는 제공자가 바뀜
+    if (force || retryCount > 0) params.set('force', '1');
+    const res = await api('/api/usage?' + params.toString(), { timeoutMs: 55000 });
+    if (currentStatusProvider() !== provider) return;
+    if ((!res || !res.ok) && res && res.supported !== false && retryCount < 1) {
+      setTimeout(() => fetchUsage(true, retryCount + 1), 800);
+      return;
+    }
     renderStatusUsage(res);
   } catch (e) {
+    if (retryCount < 1) {
+      setTimeout(() => fetchUsage(true, retryCount + 1), 800);
+      return;
+    }
     statusUsageEl.innerHTML = '<div class="status-hint">사용량 로드 실패: ' + escapeHtml(e.message) + '</div>';
   }
 }
@@ -2337,7 +2830,7 @@ function renderSessionsList(sessions) {
     const item = document.createElement('div');
     item.className = 'status-item session-row' + (isCurrent ? ' current' : '');
     let when = s.updated_at || '';
-    try { when = new Date(s.updated_at).toLocaleString('ko-KR'); } catch (_) {}
+    try { when = new Date(_scrollbackEpochMs(s.updated_at)).toLocaleString('ko-KR'); } catch (_) {}
     item.innerHTML =
       '<div class="status-item-head">' +
       '<span class="session-row-id">' + escapeHtml(s.id) + (isCurrent ? ' (현재)' : '') + '</span>' +
@@ -2420,7 +2913,7 @@ function renderStatusMemory(mem) {
   if (!statusMemoryEl) return;
   statusMemoryEl.innerHTML = '';
   if (!mem) {
-    statusMemoryEl.innerHTML = '<div class="status-hint">저장된 장기 기억 파일(data/workspace/memory/MEMORY.md)이 없습니다.</div>';
+    statusMemoryEl.innerHTML = '<div class="status-hint">장기 기억 파일 없음</div>';
     return;
   }
   const item = document.createElement('div');
@@ -2752,21 +3245,20 @@ function bindEvents(sid) {
     }
 
     if (type === 'stopped') {
-      addActivity('작업 중지: ' + (text || ''));
-      const stopMsg = '🛑 **작업 중단 알림**\n\n' + (text || '작업이 중단되었습니다냥.');
+      // NOTICE_UI_v1: host stop is its own notice bubble (no reply footer)
+      addActivity('작업 중지: ' + (text || ''), 'system');
+      const stopMsg = text || '작업이 중단되었습니다냥.';
       if (assistantNode) {
         clearTurnLive(assistantNode);
         if (assistantBuf && assistantBuf.trim() && assistantNode.dataset.progress !== '1') {
           markUntimed(assistantNode, assistantBuf);
-          setAssistantContent(assistantNode, assistantBuf.trim() + '\n\n---\n' + stopMsg, true);
+          setAssistantContent(assistantNode, assistantBuf.trim(), true);
           delete assistantNode.dataset.live;
         } else {
           assistantNode.remove();
-          addChat('assistant', stopMsg, true, false, false, false, null, null, true, data.ts);
         }
-      } else {
-        addChat('assistant', stopMsg, true, false, false, false, null, null, true, data.ts);
       }
+      addNotice((data.notice || 'stop'), stopMsg, data.ts);
       assistantNode = null; assistantBuf = '';
       setBusy(false);
       setProgress('');
@@ -2774,11 +3266,11 @@ function bindEvents(sid) {
     }
 
     if (type === 'interrupted') {
-      addActivity('⚡ ' + (text || '진행 중인 작업 전환'));
+      addActivity(text || '진행 중인 작업 전환', 'system');
       if (assistantNode && assistantBuf && assistantBuf.trim()) {
         // Finalize partial output with an interrupted mark
         markUntimed(assistantNode, assistantBuf);
-        setAssistantContent(assistantNode, assistantBuf.trim() + (data.reason === 'steer' ? '\n\n*(🧭 새 지시 반영을 위해 잠시 멈춤)*' : '\n\n*(⚡ 새 지시로 전환)*'), true);
+        setAssistantContent(assistantNode, assistantBuf.trim() + (data.reason === 'steer' ? '\n\n*(새 지시 반영을 위해 잠시 멈춤)*' : '\n\n*(새 지시로 전환)*'), true);
         delete assistantNode.dataset.live;
       } else if (assistantNode && assistantNode.dataset.progress === '1') {
         assistantNode.remove();
@@ -2794,7 +3286,7 @@ function bindEvents(sid) {
     }
 
     if (type === 'steer_queued') {
-      addActivity('🧭 ' + (text || '새 지시 접수'));
+      addActivity(text || '새 지시 접수', 'system');
       setProgress('새 지시 접수 · 지금 단계가 끝나면 반영해요…');
       return;
     }
@@ -2868,11 +3360,24 @@ function bindEvents(sid) {
         if (text && text.includes('started')) setBusy(true);
         setProgress(shortToolLine(text) || '처리 중…');
       } else if (type === 'error') {
-        setProgress('오류 · ' + shortToolLine(text));
+        // SESSION_DESYNC_GAPFIX_v2 + NOTICE_UI_v1: draft stays a reply; error is a notice
         setBusy(false);
+        setProgress('');
+        if (assistantNode) {
+          clearTurnLive(assistantNode);
+          if (assistantBuf && assistantBuf.trim() && assistantNode.dataset.progress !== '1') {
+            markUntimed(assistantNode, assistantBuf);
+            setAssistantContent(assistantNode, assistantBuf.trim(), true);
+            delete assistantNode.dataset.live;
+            delete assistantNode.dataset.progress;
+          } else {
+            assistantNode.remove();
+          }
+        }
+        addNotice((data.notice || 'error'), text || '알 수 없는 오류', data.ts);
+        assistantNode = null; assistantBuf = '';
       }
       addActivity(line, kind, data.ts, detail);
-      if (type === 'error') { assistantNode = null; assistantBuf = ''; }
       return;
     }
 
@@ -2907,13 +3412,19 @@ function bindEvents(sid) {
     updateProcBadge('disconnected');
     window.__agyEsRetry = (window.__agyEsRetry || 0) + 1;
     if (window.__agyEsRetry > 20) {
-      setProgress('⚠️ 서버 연결이 끊겼습니다 (20회 재시도 실패). 새로고침해 주세요.');
+      setProgress('서버 연결이 끊겼습니다 (20회 재시도 실패). 새로고침해 주세요.', true);
       addActivity('서버 연결 실패 (20회 재시도 실패). 새로고침이 필요합니다.', 'warn');
       return;
     }
-    // First reconnect is usually the idle SSE recycle or a mobile blip —
-    // don't flash "연결이 끊겼다냥" over a turn that's still running.
-    if (window.__agyEsRetry >= 2) setProgress('연결이 끊겼다냥 · 다시 연결하는 중…');
+    // SESSION_DESYNC_GAPFIX_v2: always log disconnect in Activity; only escalate
+    // the in-chat progress chrome from the 2nd retry (idle SSE recycle is common).
+    if (window.__agyEsRetry === 1) {
+      addActivity('연결 끊김 · 재연결 시도…', 'warn');
+    }
+    if (window.__agyEsRetry >= 2) {
+      setProgress('연결이 끊겼다냥 · 다시 연결하는 중…');
+      addActivity('연결 끊김 · 재연결 재시도 (' + window.__agyEsRetry + ')', 'warn');
+    }
     if (window.__agyEsTimer) clearTimeout(window.__agyEsTimer);
     const wait = Math.min(15000, 800 * Math.pow(1.6, Math.min(window.__agyEsRetry, 8)));
     window.__agyEsTimer = setTimeout(() => {
@@ -3004,12 +3515,16 @@ function enterSession(id, opts) {
 
   if (opts.history) {
     opts.history.forEach(h => {
+      // EMPTY_BUBBLE_FIX_v1: skip empty history — never paint hollow bubbles
+      if (h.role !== 'btw' && !(String(h.text || '').trim())) return;
       if (h.role === 'btw') {
         addBtw(h.query, h.text, false, h.usage, h.duration_seconds, h.ts);
       } else if (h.role === 'user') {
         addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
       } else if (h.role === 'assistant') {
-        addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+        const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
+        if (nk) addChat('assistant', h.text || '', true, false, false, false, null, null, nk, h.ts, null);
+        else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
       }
       lastSyncedTs = Math.max(lastSyncedTs, h.ts || 0);
     });
@@ -3122,6 +3637,8 @@ async function resyncFromServer(sid) {
     (info.history || []).forEach(h => {
       if (!h.ts) return;
       const role = h.role || '';
+      // EMPTY_BUBBLE_FIX_v1: skip empty history
+      if (role !== 'btw' && !(String(h.text || '').trim())) return;
       const k = msgSyncKey(role, h.ts);
       if (seen.has(k)) {
         lastSyncedTs = Math.max(lastSyncedTs, h.ts);
@@ -3159,7 +3676,9 @@ async function resyncFromServer(sid) {
           lastSyncedTs = Math.max(lastSyncedTs, h.ts);
           return;
         }
-        addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+        const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
+        if (nk) addChat('assistant', h.text || '', true, false, false, false, null, null, nk, h.ts, null);
+        else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
       } else {
         return;
       }
@@ -3183,10 +3702,14 @@ async function resyncFromServer(sid) {
         }
       }
     } else {
-      // Server is NOT busy
+      // Server is NOT busy — SESSION_DESYNC_GAPFIX_v2
+      try {
+        logEl.querySelectorAll('.msg[data-progress="1"]').forEach(function (n) {
+          if (n !== assistantNode) n.remove();
+        });
+      } catch (_) {}
       if (assistantNode && assistantNode.dataset.live === '1') {
-        // If there's an active live bubble that wasn't finalized by history loop
-        if (assistantBuf && assistantBuf.trim()) {
+        if (assistantBuf && assistantBuf.trim() && assistantNode.dataset.progress !== '1') {
           markUntimed(assistantNode, assistantBuf);
           setAssistantContent(assistantNode, assistantBuf, true);
           delete assistantNode.dataset.live;
@@ -3197,6 +3720,7 @@ async function resyncFromServer(sid) {
         assistantNode = null;
         assistantBuf = '';
       }
+      setProgress('');
       // myPendingMids is deliberately NOT cleared here: an idle server does not mean my sent
       // message is done -- during a steer respawn the server is idle until it writes the
       // message and acks it, and clearing turned my own ack into "someone else's" (a 2nd bubble).
@@ -3257,9 +3781,19 @@ function startSessionSyncLoop() {
 // string from meta.json -- two different pre-existing endpoints, two
 // different formats. Normalize both to epoch-ms before comparing.
 function _scrollbackEpochMs(v) {
-  if (typeof v === 'number') return v * 1000;
-  const t = Date.parse(v);
-  return isNaN(t) ? 0 : t;
+  // SESSION_LIST_DATE_FIX_v1: list may send ISO string; detail/mtime may send epoch seconds
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number' && isFinite(v)) {
+    // seconds if looks like unix seconds (< year 2100 in ms threshold)
+    return v < 1e12 ? Math.round(v * 1000) : Math.round(v);
+  }
+  const s = String(v).trim();
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    return n < 1e12 ? Math.round(n * 1000) : Math.round(n);
+  }
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : 0;
 }
 
 async function resolveScrollbackFallback(sid, updatedAt, visited) {
@@ -3332,7 +3866,9 @@ async function loadOlderHistory() {
           } else if (h.role === 'user') {
             addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), true, null, null, false, h.ts);
           } else if (h.role === 'assistant') {
-            addChat('assistant', h.text || '', true, false, false, true, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+            const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
+            if (nk) addChat('assistant', h.text || '', true, false, false, true, null, null, nk, h.ts, null);
+            else addChat('assistant', h.text || '', true, false, false, true, h.usage, h.duration_seconds, false, h.ts, h.served_model);
           }
         }
         const divider = document.createElement('div');
@@ -3421,11 +3957,9 @@ async function loadNewerHistory() {
           scrollforwardSid = fallback;
           continue;
         }
+        // End of forward chain — no end-cap (실장님: 최신 대화 중에도
+        // 뜨고 가치 없음). Just stop loading newer hops.
         scrollforwardExhausted = true;
-        const cap = document.createElement('div');
-        cap.className = 'msg scrollback-marker';
-        cap.textContent = '── 최신 대화 (더 이후 기록 없음) ──';
-        logEl.appendChild(cap);
         break;
       }
       lastKnownTs = _scrollbackEpochMs(info.updated_at) || lastKnownTs;
@@ -3461,7 +3995,9 @@ async function loadNewerHistory() {
           } else if (h.role === 'user') {
             addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
           } else if (h.role === 'assistant') {
-            addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+            const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
+            if (nk) addChat('assistant', h.text || '', true, false, false, false, null, null, nk, h.ts, null);
+            else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
           }
         });
       }
@@ -3470,11 +4006,9 @@ async function loadNewerHistory() {
         scrollforwardSid = nextSid;
         if (showThisHop) break;
       } else {
+        // End of forward chain — no end-cap (실장님: 최신 대화 중에도
+        // 뜨고 가치 없음). Just stop loading newer hops.
         scrollforwardExhausted = true;
-        const cap = document.createElement('div');
-        cap.className = 'msg scrollback-marker';
-        cap.textContent = '── 최신 대화 (더 이후 기록 없음) ──';
-        logEl.appendChild(cap);
         break;
       }
     }
@@ -3578,16 +4112,23 @@ async function resolveLatestSessionId() {
   if (!best) return sessionId || '';
   let id = best;
   const seen = new Set([id]);
+  let lastWithTurns = '';
   for (let hops = 0; hops < 40; hops++) {
     let info;
     try { info = await api('/api/sessions/' + encodeURIComponent(id)); }
-    catch (_) { return id; }
+    catch (_) { return lastWithTurns || id; }
+    const turns = (info && Array.isArray(info.history)) ? info.history.length : 0;
+    if (turns > 0) lastWithTurns = id;
     const next = (info && info.successor_session_id) || '';
-    if (!next || seen.has(next) || !isLiveSid(next)) return id;
+    if (!next || seen.has(next) || !isLiveSid(next)) {
+      // EMPTY_TIP_BOOT_FIX_v1: unused empty successor looked like "대화를 못 불러와"
+      if (turns === 0 && lastWithTurns) return lastWithTurns;
+      return id;
+    }
     seen.add(next);
     id = next;
   }
-  return id;
+  return lastWithTurns || id;
 }
 
 function pinChatToBottom() {
@@ -3758,7 +4299,7 @@ async function send() {
     logEl.innerHTML = '';
     activityEvents = [];
     if (activityEl) activityEl.innerHTML = '';
-    addChat('assistant', '대화 로그를 깨끗하게 비웠습니다냥 🐾', true, false, false, false, null, null, true);
+    addNotice('ok', '대화 로그를 깨끗하게 비웠습니다냥.');
     syncSessionActions();
     updateSendButton();
     return;
@@ -3792,9 +4333,9 @@ async function send() {
     addChat('user', '/status', false);
     try {
       const st = await api('/api/host/status');
-      addChat('assistant', `호스트 상태: **${st.ok ? '정상 가동 중 ⚡' : '이상 감지'}** · 세션 ID: \`${sessionId || '없음'}\` · 모델: \`${modelEl.value}\``, true, false, false, false, null, null, true);
+      addNotice(st.ok ? 'status' : 'warn', `호스트 상태: **${st.ok ? '정상 가동 중' : '이상 감지'}** · 세션 ID: \`${sessionId || '없음'}\` · 모델: \`${modelEl.value}\``);
     } catch (e) {
-      addChat('assistant', '상태 확인 실패: ' + e.message, true, false, false, false, null, null, true);
+      addNotice('error', '상태 확인 실패: ' + e.message);
     }
     currentSessionHasUser = hadUser;
     return;
@@ -3810,14 +4351,14 @@ async function send() {
     try {
       if (ticketCmd.action === 'go') {
         const go = await goTicket(ticketCmd);
-        if (go.message) addChat('assistant', go.message, true, false, false, false, null, null, true);
+        if (go.message) addNotice('ok', go.message);
         loadTickets();
         inputEl.value = go.prompt;
         return send();   // an ordinary message to the agent from here on
       }
-      addChat('assistant', await decideTicket(ticketCmd), true, false, false, false, null, null, true);
+      addNotice('ok', await decideTicket(ticketCmd));
     } catch (e) {
-      addChat('assistant', '티켓 결정 실패: ' + obsErrorText(e), true, false, false, false, null, null, true);
+      addNotice('error', '작업 결정 실패: ' + obsErrorText(e));
     }
     currentSessionHasUser = hadUser;
     loadTickets();
@@ -3832,21 +4373,20 @@ async function send() {
     updateSendButton();
     const hadUser = currentSessionHasUser;
     addChat('user', '/help', false);
-    addChat('assistant',
-      IDENTITY.title + ' 사용법 요약이다냥 ✦\n\n' +
+    addNotice('help',
+      IDENTITY.title + ' 사용법 요약이다냥.\n\n' +
       '**탭** (숫자는 `Alt+숫자`로 바로 전환)\n' +
-      '- `Alt+1` 💬 대화 · `Alt+2` 📁 아티팩트 · `Alt+3` 📜 로그 · `Alt+4` ⚙ 상태 · `Alt+5` 🗂 세션\n\n' +
+      '- `Alt+1` 대화 · `Alt+2` 세션 · `Alt+3` 로그 · `Alt+4` 아티팩트 · `Alt+5` 상태 · `Alt+6` 개선\n\n' +
       '**어디서나 되는 것**\n' +
       '- `/` 키: 바로 컴포저로 이동해서 슬래시 메뉴 열기\n' +
-      '- 헤더의 `⋯` 버튼: 테마 색상 선택, ⚡ 소생(호스트 재기동)\n' +
+      '- 헤더의 `⋯` 버튼: 테마 색상 선택, 호스트 소생(repair)\n' +
       '- 대화가 한 턴 이상이면 채팅창 아래에 새 대화·이어가기 버튼이 뜬다냥. 세션이 길어지면 거기서 바로 갈아탈 수 있다냥\n' +
       '- `세션` 탭에서도 새 세션을 열 수 있다냥\n\n' +
       '**슬래시 명령어**\n' +
       '- `/btw <질문>` 작업 중 샛길 질문 · `/continue` 맥락 요약 인계 새 세션 · `/new` 완전 새 세션\n' +
       '- `/status` 상태 확인 · `/clear` 화면 비우기 · `/compact` 대화 압축 · `/defib` 호스트 소생\n' +
       '- 이 외에 `/`만 눌러도 뜨는 메뉴에 날씨·뉴스·주식 등 스킬 단축어들도 있다냥\n\n' +
-      '더 궁금한 거 있으면 그냥 물어봐도 된다냥!',
-      true, false, false, false, null, null, true);
+      '더 궁금한 거 있으면 그냥 물어봐도 된다냥!');
     currentSessionHasUser = hadUser;
     return;
   }
@@ -3875,7 +4415,7 @@ async function send() {
     // working until the current step ends. The server's 'interrupted' event (which comes when the
     // turn is actually cut, immediately for providers that cannot steer) closes the bubble.
     addChat('user', text, false, false, false);
-    addActivity('🧭 새 지시 전달: ' + shortToolLine(text));
+    addActivity('새 지시 전달: ' + shortToolLine(text), 'system');
     setBusy(true);
     setProgress('새 지시 접수 · 지금 단계가 끝나면 반영해요…');
   } else {
@@ -3980,11 +4520,101 @@ const PROVIDER_CREDIT = {
 
 // 사용 불가(Free 만료/한도 소진) 제공자 및 비활성화 사유
 const PROVIDER_DISABLED_REASONS = {
-  claude: 'Free 계정 전환으로 사용 불가 (Pro 만료)',
-  codex: '사용량 한도 소진으로 사용 불가 (Plus 필요)',
+  // POLICY_v2 (2026-09-22): hard Free/Plus blocks removed.
+  // AUTH_GATE_v1 still blocks use when unavailable or CLI auth ok===false.
+  // Logged-in Claude Pro / Codex Plus become usable for chat.
 };
 function providerDisabledReason(pid) {
   return PROVIDER_DISABLED_REASONS[pid] || null;
+}
+
+// AUTH_GATE_v1: CLI login/policy may block *use* (chat/sessions/evolution)
+// without blocking Status-tab selection. Auth map filled from /api/accounts.
+const CLI_AUTH_PROVIDERS = { agy: 1, claude: 1, codex: 1, grok: 1 };
+let providerAuthOk = Object.create(null); // pid -> true|false|undefined
+
+function providerUseBlockedReason(pid) {
+  const policy = providerDisabledReason(pid);
+  if (policy) return policy;
+  const p = (Array.isArray(providerCatalog) ? providerCatalog : []).find(x => x.id === pid);
+  if (p && p.available === false) return '미설치 또는 사용 불가';
+  if (CLI_AUTH_PROVIDERS[pid] && providerAuthOk[pid] === false) return '로그인 필요';
+  return null;
+}
+
+function isProviderUseBlocked(pid) {
+  return Boolean(providerUseBlockedReason(pid));
+}
+
+async function refreshProviderAuthMap() {
+  try {
+    const res = await api('/api/accounts');
+    const map = Object.create(null);
+    const providers = (res && res.providers) || {};
+    Object.keys(providers).forEach(pid => {
+      const cur = providers[pid].current || {};
+      if (typeof cur.ok === 'boolean') map[pid] = cur.ok;
+    });
+    providerAuthOk = map;
+  } catch (_) {}
+  // Heal sticky localStorage from older AUTH_GATE builds that wrote a blocked id.
+  const curPid = chatProvider();
+  if (curPid && providerUseBlockedReason(curPid)) {
+    const fallback = (Array.isArray(providerCatalog) ? providerCatalog : [])
+      .map(p => p.id)
+      .find(id => id && !providerUseBlockedReason(id));
+    if (fallback && providerEl) {
+      providerEl.value = fallback;
+      localStorage.setItem('chatbot.provider', fallback);
+      updateBrandAvatar(fallback);
+      populateModelsForProvider(fallback);
+      addActivity('대화 제공자를 사용 가능한 ' + statusProviderName(fallback) + ' 로 복구했어요 (이전 선택이 사용 제한이었습니다).');
+    }
+  }
+  syncProviderUseGates();
+  renderStatusPicker();
+  renderProviderTray();
+}
+
+function syncProviderUseGates() {
+  const pid = chatProvider();
+  const reason = providerUseBlockedReason(pid);
+  const blocked = Boolean(reason);
+  const useTabs = [
+    typeof tabChat !== 'undefined' ? tabChat : document.getElementById('tabChat'),
+    typeof tabSessions !== 'undefined' ? tabSessions : document.getElementById('tabSessions'),
+    typeof tabEvolution !== 'undefined' ? tabEvolution : document.getElementById('tabEvolution'),
+  ].filter(Boolean);
+  useTabs.forEach(btn => {
+    if (!btn.getAttribute('data-base-title')) {
+      btn.setAttribute('data-base-title', btn.getAttribute('title') || '');
+    }
+    btn.disabled = blocked;
+    btn.classList.toggle('is-use-blocked', blocked);
+    const base = btn.getAttribute('data-base-title') || '';
+    btn.title = blocked ? (base + (base ? ' · ' : '') + reason) : base;
+  });
+  if (typeof inputEl !== 'undefined' && inputEl) {
+    if (!inputEl.getAttribute('data-base-ph')) inputEl.setAttribute('data-base-ph', inputEl.placeholder || '');
+    inputEl.disabled = blocked;
+    inputEl.placeholder = blocked ? ('이 제공자는 사용할 수 없어요 — ' + reason) : (inputEl.getAttribute('data-base-ph') || '');
+  }
+  if (typeof sendBtn !== 'undefined' && sendBtn) {
+    sendBtn.disabled = blocked || (typeof isBusy !== 'undefined' && isBusy);
+  }
+  if (blocked && typeof currentTab !== 'undefined' && (currentTab === 'chat' || currentTab === 'sessions' || currentTab === 'evolution')) {
+    if (typeof switchTab === 'function') switchTab('status');
+  }
+  const banner = document.getElementById('providerUseBanner');
+  if (banner) {
+    if (blocked) {
+      banner.hidden = false;
+      banner.textContent = statusProviderName(pid) + ' · ' + reason + ' — 상태 탭에서 계정/로그아웃을 관리하세요.';
+    } else {
+      banner.hidden = true;
+      banner.textContent = '';
+    }
+  }
 }
 
 function themeForProvider(p) {
@@ -4063,13 +4693,15 @@ function renderProviderTray() {
   providerCatalog.forEach(p => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    const disReason = providerDisabledReason(p.id);
-    const isUsable = p.available && !disReason;
-    btn.className = 'provider-portrait-btn' + (p.id === currentPid ? ' active' : '') + (isUsable ? '' : ' disabled');
-    btn.disabled = !isUsable;
+    const blockReason = providerUseBlockedReason(p.id);
+    btn.className = 'provider-portrait-btn'
+      + (p.id === currentPid ? ' active' : '')
+      + (blockReason ? ' is-blocked-provider' : '');
+    // Selectable even when blocked — use gates live on chat/sessions/evolution.
+    btn.disabled = false;
     btn.setAttribute('data-provider-id', p.id);
     const credit = providerCreditLabel(p);
-    btn.title = credit + (disReason ? ' · ' + disReason : (p.available ? '' : ' (미설치)'));
+    btn.title = credit + (blockReason ? ' · ' + blockReason : '');
 
     const img = document.createElement('img');
     img.src = portraitUrl(p);
@@ -4085,7 +4717,7 @@ function renderProviderTray() {
 
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (!p.available || providerDisabledReason(p.id)) return;
+      // AUTH_GATE_v1: always allow selecting; use-gates lock chat/sessions/evolution.
       selectProvider(p.id);
       providerTrayEl.hidden = true;
     });
@@ -4151,10 +4783,15 @@ async function persistSessionProvider(opts) {
   const mid = modelEl ? modelEl.value : '';
   localProviderEdit++;
   try {
-    await api(`/api/sessions/${encodeURIComponent(sessionId)}/provider`, {
+    const res = await api(`/api/sessions/${encodeURIComponent(sessionId)}/provider`, {
       method: 'POST',
       body: JSON.stringify({ provider: pid, model: mid }),
     });
+    if (res && res.deferred) {
+      pendingProviderPersist = { provider: pid, model: mid };
+      addActivity(res.error || '제공자 전환을 작업 종료 후로 미뤘습니다.');
+      return;
+    }
     lastServerProvider = pid;
     lastServerModel = mid;
     if (opts.activity) addActivity(opts.activity);
@@ -4164,9 +4801,26 @@ async function persistSessionProvider(opts) {
   }
 }
 
+let pendingProviderPersist = null; // { provider, model } while busy — apply when idle
+
 async function selectProvider(newProviderId) {
   const p = providerCatalog.find(item => item.id === newProviderId);
-  if (!p || !p.available || providerDisabledReason(newProviderId)) return;
+  if (!p) return;
+  const blockReason = providerUseBlockedReason(newProviderId);
+
+  // AUTH_GATE_v1 / SNAP_FIX: a blocked provider must NOT replace the live chat
+  // provider (or localStorage). Doing so made session resync pull the server
+  // provider (e.g. Grok) back and look like "whatever I pick snaps to Grok".
+  // Open it as Status view only.
+  if (blockReason) {
+    pendingProviderPersist = null;
+    if (typeof setStatusViewProvider === 'function') setStatusViewProvider(newProviderId);
+    if (typeof switchTab === 'function') switchTab('status');
+    renderStatusPicker();
+    renderProviderTray();
+    addActivity('상태 조회로 열림: ' + (p.name || newProviderId) + ' — ' + blockReason + ' (대화 제공자는 ' + statusProviderName(chatProvider()) + ' 유지)');
+    return;
+  }
 
   if (providerEl) {
     providerEl.value = newProviderId;
@@ -4186,8 +4840,33 @@ async function selectProvider(newProviderId) {
   localStorage.setItem('sphereAgyModel', modelEl.value);
   renderProviderTray();
 
+  syncProviderUseGates();
+
+  // PROVIDER_SWAP_DEFER_v1: never kill an in-flight turn just by picking a provider
+  if (typeof isBusy !== 'undefined' && isBusy) {
+    pendingProviderPersist = {
+      provider: providerEl ? providerEl.value : newProviderId,
+      model: modelEl ? modelEl.value : '',
+    };
+    addActivity('제공자 UI만 바꿈 — 진행 중 작업은 유지, 끝난 뒤·다음 메시지부터 적용: ' + (p.name || newProviderId));
+    return;
+  }
+  pendingProviderPersist = null;
   await persistSessionProvider({
     activity: '제공자 전환: ' + (p.name || newProviderId),
+  });
+}
+
+async function flushPendingProviderPersist() {
+  if (!pendingProviderPersist || (typeof isBusy !== 'undefined' && isBusy)) return;
+  const want = pendingProviderPersist;
+  pendingProviderPersist = null;
+  if (providerEl && want.provider) providerEl.value = want.provider;
+  if (modelEl && want.model) {
+    populateModelsForProvider(want.provider, want.model);
+  }
+  await persistSessionProvider({
+    activity: '미뤄 둔 제공자 전환 적용: ' + (want.provider || ''),
   });
 }
 
@@ -4230,6 +4909,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 function populateModelsForProvider(providerId, preferredModel) {
+  // CODEX_DEFAULT_LUNA_v1: prefer saved model only if it belongs to this
+  // provider; otherwise use server default_model (luna for Codex) or models[0].
   modelEl.innerHTML = '';
   const entry = providerCatalog.find(p => p.id === providerId);
   const models = (entry && entry.models) || [];
@@ -4243,8 +4924,13 @@ function populateModelsForProvider(providerId, preferredModel) {
     o.value = ''; o.textContent = '(기본값)';
     modelEl.appendChild(o);
   }
+  const fallback = (entry && entry.default_model && models.includes(entry.default_model))
+    ? entry.default_model
+    : (models[0] || '');
   if (preferredModel && models.includes(preferredModel)) {
     modelEl.value = preferredModel;
+  } else if (fallback) {
+    modelEl.value = fallback;
   }
   if (typeof syncModelUi === 'function') syncModelUi();
 }
@@ -4256,16 +4942,13 @@ async function boot() {
     providerCatalog.forEach(p => {
       const o = document.createElement('option');
       o.value = p.id;
-      const disReason = providerDisabledReason(p.id);
-      o.textContent = (p.name || p.id) + (disReason ? ' (사용 불가)' : '');
-      o.disabled = !p.available || Boolean(disReason);
+      const blockReason = providerUseBlockedReason(p.id);
+      o.textContent = (p.name || p.id) + (blockReason ? ' (제한)' : '');
+      // Keep selectable so tray/status can focus a blocked provider.
+      o.disabled = false;
       if (providerEl) providerEl.appendChild(o);
     });
     let savedProvider = localStorage.getItem('chatbot.provider') || res.default || 'agy';
-    if (providerDisabledReason(savedProvider)) {
-      savedProvider = 'agy';
-      localStorage.setItem('chatbot.provider', 'agy');
-    }
     if (providerEl && Array.from(providerEl.options).some(o => o.value === savedProvider)) {
       providerEl.value = savedProvider;
     }
@@ -4284,11 +4967,24 @@ async function boot() {
         selectProvider(providerEl.value);
       };
     }
+    // AUTH_GATE_v1: learn CLI login state so logged-out providers look blocked but stay selectable.
+    refreshProviderAuthMap();
     modelEl.onchange = () => {
       localStorage.setItem('chatbot.model', modelEl.value);
       localStorage.setItem('sphereAgyModel', modelEl.value);
       if (typeof syncModelUi === 'function') syncModelUi();
-      persistSessionProvider();
+      // PROVIDER_SWAP_DEFER_v1: same gate as selectProvider() — never kill an
+      // in-flight turn just by picking a model.
+      if (typeof isBusy !== 'undefined' && isBusy) {
+        pendingProviderPersist = {
+          provider: providerEl ? providerEl.value : '',
+          model: modelEl.value,
+        };
+        addActivity('모델 UI만 바꿈 — 진행 중 작업은 유지, 끝난 뒤·다음 메시지부터 적용: ' + modelEl.value);
+        return;
+      }
+      pendingProviderPersist = null;
+      persistSessionProvider({ activity: '모델 전환: ' + modelEl.value });
     };
   } catch (_) {}
   await ensureSession();
@@ -4306,7 +5002,10 @@ if (tabChat) tabChat.addEventListener('click', () => switchTab('chat'));
 if (tabArtifacts) tabArtifacts.addEventListener('click', () => switchTab('artifacts'));
 if (tabActivity) tabActivity.addEventListener('click', () => switchTab('activity'));
 if (tabStatus) tabStatus.addEventListener('click', () => switchTab('status'));
+if (tabEvolution) tabEvolution.addEventListener('click', () => switchTab('evolution'));
 if (tabSessions) tabSessions.addEventListener('click', () => switchTab('sessions'));
+const evolutionRefreshBtn = document.getElementById('evolutionRefreshBtn');
+if (evolutionRefreshBtn) evolutionRefreshBtn.addEventListener('click', () => fetchEvolution());
 
 const sessionNavPrev = document.getElementById('sessionNavPrev');
 const sessionNavNext = document.getElementById('sessionNavNext');
@@ -4377,7 +5076,7 @@ if (actToggle) {
 // tool built for one person's daily use (impeccable critique P1, 2026-09-17).
 // Alt+N, not Ctrl/Cmd+N: the latter is already the browser's own "switch to
 // tab N" shortcut and the page would never even see that keydown.
-const TAB_SHORTCUTS = { '1': 'chat', '2': 'artifacts', '3': 'activity', '4': 'status', '5': 'sessions' };
+const TAB_SHORTCUTS = { '1': 'chat', '2': 'sessions', '3': 'activity', '4': 'artifacts', '5': 'status', '6': 'evolution' };
 function isEditableTarget(el) {
   if (!el) return false;
   const tag = el.tagName;
@@ -4417,7 +5116,8 @@ if (stopBtn) {
         assistantNode.remove();
       }
       assistantNode = null; assistantBuf = '';
-      addChat('assistant', '작업을 중지했습니다냥.', true, false, false, false, null, null, true);
+      var _stopBubble = addNotice('stop', '작업을 중지했습니다냥.', null, true);
+      if (_stopBubble) { _stopBubble.dataset.ephemeral = '1'; } // SESSION_DESYNC_GAPFIX_v2
     } catch (e) {
       addActivity('중지 오류: ' + (e.message || e));
     } finally {
@@ -4441,7 +5141,7 @@ async function waitHostBack(maxMs = 90000) {
 
 async function defibrillateHost() {
   if (!(await confirmModal('전기충격(심폐소생)을 실행할까요?\n호스트가 재기동되며 몇 초 연결이 끊깁니다.', { confirmLabel: '실행', danger: false }))) return;
-  setProgress('⚡ 전기충격 · 호스트 소생 중…', true);
+  setProgress('전기충격 · 호스트 소생 중…', true);
   const btn = document.getElementById('defibBtn');
   if (btn) btn.disabled = true;
   try {
@@ -4450,7 +5150,7 @@ async function defibrillateHost() {
     } catch (_) {
       /* server may die mid-response — expected */
     }
-    addActivity('⚡ 전기충격 예약 — 호스트 재기동 대기');
+    addActivity('전기충격 예약 — 호스트 재기동 대기', 'system');
     const ok = await waitHostBack(90000);
     if (!ok) {
       setProgress('소생 시간 초과 · 수동 새로고침 해보세요', true);
@@ -4459,8 +5159,8 @@ async function defibrillateHost() {
     }
     setProgress('소생 완료 · 세션 재연결…', true);
     await ensureSession();
-    setProgress('⚡ 소생 완료', true);
-    addActivity('⚡ 심폐소생 완료');
+    setProgress('소생 완료', true);
+    addActivity('심폐소생 완료', 'ok');
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -4632,4 +5332,5 @@ inputEl.addEventListener('keydown', (e) => {
 
 autoResizeInput();
 boot().then(() => updateViewport());
+
 

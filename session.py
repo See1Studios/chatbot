@@ -325,6 +325,10 @@ class AgySession:
                 errors="replace",
                 bufsize=1,
                 env=env,
+                # CODEX_PROC_v1: new session so stop()/recycle can killpg the
+                # whole tree (codex node wrapper + native child). Safe for
+                # agy/claude/grok too.
+                start_new_session=True,
             )
             grok_prompt = getattr(self.adapter, "_last_prompt_path", None)
             if grok_prompt:
@@ -767,7 +771,17 @@ class AgySession:
                 if self.busy and self.proc is proc:  # only if THIS child died mid-turn
                     self.busy = False
                     died_mid_turn = True
-                    self._emit({"event": "error", "text": "에이전트 프로세스가 종료되었습니다냥."})
+                    err_text = "에이전트 프로세스가 종료되었습니다냥."
+                    # Persist what streamed in before the child died -- the live view
+                    # already finalizes this same draft into a normal bubble, so a
+                    # reload silently erasing it would be a desync (SESSION_DESYNC_GAPFIX_v2).
+                    draft = (self.current_text or "").strip()
+                    if draft:
+                        self.history.append({"role": "assistant", "text": draft, "ts": _now()})
+                    self.history.append({"role": "assistant", "text": err_text, "notice": "error", "ts": _now()})
+                    self.save_meta()
+                    self.current_text = ""
+                    self._emit({"event": "error", "text": err_text})
                     has_queued = bool(getattr(self, "msg_queue", []))
                     if has_queued:
                         threading.Thread(target=self._dispatch_queued, daemon=True).start()
@@ -1718,15 +1732,36 @@ class AgySession:
                     proc.stdin.close()
             except Exception:
                 pass
+            # CODEX_PROC_v1: if we spawned with start_new_session, proc is the
+            # session leader (pgid==pid) — kill the whole group so a codex
+            # native child cannot outlive the node wrapper. If pgid!=pid
+            # (legacy child from before this fix), fall back to terminate()
+            # so we never SIGTERM the chatbot server's own process group.
             try:
-                proc.terminate()
+                import signal as _signal
+                pgid = os.getpgid(proc.pid)
+                if pgid == proc.pid:
+                    os.killpg(pgid, _signal.SIGTERM)
+                else:
+                    proc.terminate()
                 proc.wait(timeout=3)
             except Exception:
+                # CODEX_PROC_v1: escalate the same way -- killpg when we're the session
+                # leader, so an unresponsive-to-SIGTERM codex native child doesn't
+                # outlive the node wrapper here either (mirrors adapters.py's
+                # _fetch_codex_rate_limits cleanup).
                 try:
-                    proc.kill()
+                    if pgid == proc.pid:
+                        os.killpg(pgid, _signal.SIGKILL)
+                    else:
+                        proc.kill()
                     proc.wait(timeout=1)
                 except Exception:
-                    pass
+                    try:
+                        proc.kill()
+                        proc.wait(timeout=1)
+                    except Exception:
+                        pass
         if http_resp:
             # API-Provider plan: no process to terminate -- closing the
             # in-flight urlopen() response's socket is what unblocks
@@ -2213,4 +2248,5 @@ def _reap_sessions() -> None:
         (DATA / "live_pids.json").write_text(json.dumps(live_pids), encoding="utf-8")
     except Exception:
         pass
+
 

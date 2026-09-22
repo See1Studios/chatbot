@@ -15,8 +15,15 @@ What each provider lets us know (measured 2026-09-19, docs/providers/*.md):
     account change. That is a fact about timing, not a claim that it holds the
     old credentials.
 
-Read-only by design: token files are decoded only for the email/plan claims (no
-token value ever leaves this module) and /proc/<pid>/environ is never read.
+Read-only by design for snapshots: token files are decoded only for the
+email/plan claims (no token value ever leaves this module) and
+/proc/<pid>/environ is never read.
+
+Logout (Status tab): see `logout()`. Login (Status tab): see `account_login`
+(POST /api/accounts/login/start|complete|cancel, GET .../status).
+  * agy: Google OAuth URL then paste 4/0A… code (oauth_paste)
+  * claude: browser OAuth URL → localhost:port/callback (oauth_callback)
+  * grok / codex: device-auth (device_code)
 """
 from __future__ import annotations
 
@@ -30,7 +37,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from host_config import DATA, HOME
+from host_config import DATA, HOME, CLAUDE_BIN, CODEX_BIN, GROK_BIN
 
 PROVIDERS = ("agy", "claude", "codex", "grok")
 
@@ -39,7 +46,6 @@ AGY_TOKEN = AGY_DIR / "antigravity-oauth-token"
 AGY_LOG_DIR = AGY_DIR / "log"
 CODEX_AUTH = HOME / ".codex" / "auth.json"
 GROK_AUTH = Path(os.environ.get("GROK_HOME") or str(HOME / ".grok")) / "auth.json"
-CLAUDE_BIN = os.environ.get("AGY_CLAUDE_BIN", str(HOME / ".local" / "bin" / "claude"))
 STATE_FILE = DATA / "account_state.json"
 
 _LOG_PID_RE = re.compile(rb"Starting language server process with pid (\d+)")
@@ -437,3 +443,195 @@ def stale_owned(snap: dict) -> set:
     agy = (snap.get("providers") or {}).get("agy") or {}
     return {p["pid"] for p in agy.get("processes", [])
             if p.get("stale") and p.get("owner") in ("session", "standby")}
+
+
+# -------------------------------------------------------------------- logout
+
+def owned_pids(snap: dict, provider: str) -> set:
+    """Chatbot-owned (session|standby) pids for one provider from a snapshot."""
+    pv = (snap.get("providers") or {}).get(provider) or {}
+    return {p["pid"] for p in pv.get("processes", [])
+            if p.get("owner") in ("session", "standby")}
+
+
+def reap_stray_cli_procs(provider: str, me: Optional[int] = None) -> list:
+    """CODEX_PROC_v1: kill leftover CLI helpers that are not chatbot session
+    children — typically `codex login` / `codex app-server` (usage) or a native
+    binary orphaned (ppid=1) after the node wrapper was terminate()'d without
+    killpg. Safe: only targets basename==provider AND (ppid==1 OR cmdline has
+    login/app-server/--print /usage|/cost). Never touches grok casually beyond
+    the same rules; never kills busy session children (those have live ppid)."""
+    import signal as _signal
+    if provider not in PROVIDERS:
+        return []
+    me = os.getpid() if me is None else me
+    try:
+        import account_login
+        protect_pid = account_login.active_pid(provider)
+    except Exception:
+        protect_pid = None
+    killed = []
+    for n in os.listdir("/proc"):
+        if not n.isdigit():
+            continue
+        try:
+            pid = int(n)
+            if pid == me:
+                continue
+            if protect_pid is not None and pid == protect_pid:
+                continue
+            argv = Path(f"/proc/{n}/cmdline").read_bytes().split(b"\0")
+            if not argv or not argv[0]:
+                continue
+            exe = os.path.basename(argv[0].decode("utf-8", "replace"))
+            if exe != provider:
+                continue
+            f = _stat_fields(pid)
+            if not f:
+                continue
+            ppid = int(f[1])
+            cmd = " ".join(a.decode("utf-8", "replace") for a in argv if a)
+            is_helper = any(tok in cmd for tok in (
+                " login", "login ", "app-server", "--print", "/usage", "/cost",
+            ))
+            # Orphaned native child after wrapper death
+            is_orphan = ppid == 1
+            if not (is_helper or is_orphan):
+                continue
+            # Never kill our own live session child by accident: session children
+            # have ppid == chatbot server, not 1, and are not login/app-server.
+            if ppid == me and not is_helper:
+                continue
+            try:
+                try:
+                    os.killpg(pid, _signal.SIGTERM)
+                except Exception:
+                    os.kill(pid, _signal.SIGTERM)
+                killed.append({"pid": pid, "cmd": cmd[:160], "reason": "orphan" if is_orphan and not is_helper else "helper"})
+            except OSError:
+                pass
+        except Exception:
+            continue
+    return killed
+
+
+
+def _invalidate_claude_cache() -> None:
+    with _state_lock:
+        _claude_cache.update(ts=0.0, data=None)
+
+
+def _run_cli_logout(argv: list, timeout: int = 45) -> tuple:
+    """Run a non-interactive logout CLI. Returns (ok, detail)."""
+    try:
+        out = subprocess.run(
+            argv, capture_output=True, text=True, timeout=timeout,
+            stdin=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        return False, f"{argv[0]} not found"
+    except subprocess.TimeoutExpired:
+        return False, f"{' '.join(argv)} timed out"
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+    detail = (out.stderr or out.stdout or "").strip().splitlines()
+    detail = detail[-1][:200] if detail else f"exit {out.returncode}"
+    if out.returncode != 0:
+        return False, detail
+    return True, detail or "ok"
+
+
+def _logout_agy() -> tuple:
+    """No `agy logout` subcommand — rename the shared OAuth token (A30: long-lived
+    processes can rewrite it from an in-memory refresh token, so callers must
+    recycle owned agy procs after this). Login follow-up: Google OAuth URL +
+    code paste (not implemented here)."""
+    if not AGY_TOKEN.exists():
+        return True, "already_logged_out", "token file absent"
+    ts = int(time.time())
+    bak = AGY_TOKEN.with_name(f"{AGY_TOKEN.name}.bak-{ts}")
+    try:
+        os.rename(AGY_TOKEN, bak)
+    except Exception as e:
+        return False, "rename_failed", f"{type(e).__name__}: {e}"
+    return True, "renamed_token", _short(bak)
+
+
+def _logout_claude() -> tuple:
+    """`claude auth logout` (non-interactive). Login follow-up: browser OAuth."""
+    ok, detail = _run_cli_logout([CLAUDE_BIN, "auth", "logout"])
+    _invalidate_claude_cache()
+    return ok, "claude_auth_logout", detail
+
+
+def _logout_codex() -> tuple:
+    """`codex logout`. Login follow-up: device-auth / API key."""
+    ok, detail = _run_cli_logout([CODEX_BIN, "logout"])
+    return ok, "codex_logout", detail
+
+
+def _logout_grok() -> tuple:
+    """`grok logout`. Login follow-up: device-auth / API key."""
+    ok, detail = _run_cli_logout([GROK_BIN, "logout"])
+    return ok, "grok_logout", detail
+
+
+_LOGOUT_FN = {
+    "agy": _logout_agy,
+    "claude": _logout_claude,
+    "codex": _logout_codex,
+    "grok": _logout_grok,
+}
+
+
+def logout(provider: str) -> dict:
+    """Log out one CLI provider. Never returns token values.
+
+    Returns dict with keys:
+      ok, provider, email_before, method, detail, error (on failure).
+    Caller should recycle owned agent processes for this provider (especially
+    agy — see A30) and then refresh via snapshot().
+    """
+    if provider not in PROVIDERS:
+        return {
+            "ok": False,
+            "provider": provider,
+            "email_before": None,
+            "method": None,
+            "error": f"unknown provider (want one of {', '.join(PROVIDERS)})",
+        }
+    email_before = current_email(provider)
+    try:
+        ok, method, detail = _LOGOUT_FN[provider]()
+    except Exception as e:
+        return {
+            "ok": False,
+            "provider": provider,
+            "email_before": email_before,
+            "method": None,
+            "error": f"{type(e).__name__}: {e}",
+        }
+    out = {
+        "ok": bool(ok),
+        "provider": provider,
+        "email_before": email_before,
+        "method": method,
+        "detail": detail,
+    }
+    if not ok:
+        out["error"] = detail or "logout failed"
+    # Drop observed email so the next login is a clean change window.
+    if ok:
+        with _state_lock:
+            state = _load_state()
+            cur = state.get(provider) or {}
+            if cur.get("email"):
+                cur["changed_from"] = cur["email"]
+                cur["change_window"] = [cur.get("seen_at", time.time()), time.time()]
+                cur.pop("email", None)
+                state[provider] = cur
+                _save_state(state)
+        if provider == "claude":
+            _invalidate_claude_cache()
+    return out
+

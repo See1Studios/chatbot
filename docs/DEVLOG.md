@@ -1,5 +1,21 @@
 # chatbot 개발로그
 
+## 2026-09-23 — /code-review 지적 10건 수정 (티켓 #28)
+
+- **배경**: 실장님 지시로 `/code-review`를 백그라운드로 돌린 결과, 현재 diff에서 correctness 버그 10건 발견. 실장님 "한 번에 다 고쳐줘" 지시로 일괄 수정.
+- **변경**:
+  - **히스토리 유실**: `adapters.py` `finalize_turn`의 에러 종료 경로가 텍스트를 `""`로 강제해 `app.js`의 빈 텍스트 필터(EMPTY_BUBBLE_FIX_v1)에 걸려 새로고침 시 흔적 없이 사라짐 — draft를 별도 항목으로, 알림은 `notice:"error"` + 실제 텍스트로 저장. `session.py` `_read_stdout` 프로세스 사망 경로도 동일 패턴으로 `session.current_text` 보존.
+  - **로그인 헬퍼 오살**: `accounts.reap_stray_cli_procs`가 `"login "` 문자열 매칭으로 자기 자신이 방금 스폰한 pending 로그인까지 죽임 — `account_login.active_pid(provider)`로 현재 추적 중인 pid는 무조건 보호.
+  - **로그인 세션 레이스**: `account_login.status()`가 `login_id`를 안 받아서, 같은 provider로 재시작된 로그인의 authorize_url/user_code를 이전 폴러가 자기 것처럼 받아감 — `login_id` 파라미터 추가, 불일치 시 `superseded` 상태. `server.py`/`app.js` 배선.
+  - **모델 전환이 진행 중 턴을 죽임**: `app.js` `modelEl.onchange`가 `PROVIDER_SWAP_DEFER_v1`의 `isBusy` 게이트를 안 거쳐 `selectProvider()`와 다른 경로로 재발 — 동일 게이트 적용.
+  - **락 직렬화**: `account_login.cancel()`이 최대 6초 걸리는 `_kill_proc`을 전역 락 안에서 실행해 무관한 provider의 status/start 폴이 블록 — dict 조작만 락 안, kill은 락 밖.
+  - **killpg 폴백 누락**: `session.py` `stop()`의 SIGKILL 에스컬레이션이 `proc.kill()` 단일 pid만 사용 — `CODEX_PROC_v1` 패턴대로 `os.killpg` 우선.
+  - **PTY 에코로 코드 유출**: 로그인 실패 시 PTY 출력 tail에 방금 제출한 OAuth 코드 에코가 그대로 남아 에러 메시지로 노출될 수 있었음 — 제출 코드를 기록해 에러 메시지에서 치환.
+  - **ANSI 스트립 누락**: Claude `/cost` 파싱에만 적용된 CSI/C0 제거가 구조적으로 동일한 Agy `/usage` 파싱엔 없었음 — 동일 적용.
+  - **캐시 남용**: `account_login._account_ok`가 로그인 대기 중 매 ~1초 폴마다 claude 계정 캐시를 강제 무효화(최대 ~700회 subprocess) — PTY 출력 증가(=상태 변화 가능성)가 있을 때만 무효화.
+- **검증**: `python3 -m py_compile` PASS, 관련 유닛테스트 94개 (`test_account_login`/`test_accounts`/`test_lifecycle`/`test_session_swap`/`test_http_adapter_stale_turn`/`test_no_trace`/`test_stderr_redaction`/`test_served_model`/`test_provider_sync`/`test_core_standalone`/`test_steer`/`test_loop_guard`) 전체 통과, `tests/smoke.py` 통과, `chatbot-ctl.sh guard`/`doctor`/`probe` 통과. `tests/test_served_model.py`의 낡은 캐시버스터 핀(`chat.css?v=20`)도 현재 값(`v=27`)로 갱신.
+- **배포**: python → ⚡소생 완료 (실장님 직접 재기동, pid=25984/25977).
+
 ## 2026-09-22 — 2차 감사 recheck 수정 (티켓 #26: B1 probe origin / B2 DOMPurify 커밋 / P1 reap evict / P2 delta offset)
 - **배경**: `docs/plans/audit-2026-09-22-recheck.md` 결과 반영. commit a993603(티켓 #25) 재검증 후 블로커·부분구현 4건 확인.
 - **B1 (chatbot-ctl.sh probe 403 차단)**: `probe_message`의 `req()`에 `Origin: http://127.0.0.1:{port}` 헤더 추가. `Content-Type`도 body 있을 때만 설정하도록 정리.
@@ -2580,3 +2596,87 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
 - **테스트**: `tests/test_loop_notice.py` 8건 신규, 전체 653건 통과.
 - **미검증**: 알림이 실제로 루프에 빠진 에이전트를 빼내는지는 측정 못 함(재현 불가). 다음 사고 때 `events.jsonl`에서 `evidence.action="notice"` 뒤 호출 패턴으로 판정.
 - **배포**: 파이썬 호스트 모듈이라 ⚡소생 필요(실장님). 미커밋.
+
+## 2026-09-22 — 세션 동기화 구멍(작성중 고아·프로세스 사망 부분답·끊김 Activity)
+
+- **배경**: SSE 재연결/`resyncFromServer`/busy 해제 골조는 이미 있었으나, `error` 시 live 버블을 DOM에 남긴 채 참조만 버리고, 프로세스 mid-turn 사망 시 `current_text`를 history에 안 남겨 새로고침 전후·인식/실제 괴리가 남음.
+- **변경**:
+  1. `static/app.js`: SSE `error`에서 부분답 finalize 또는 progress 버블 제거 + `setProgress('')`; idle resync 시 고아 progress 제거; `onerror` Activity에 끊김 기록; 중지 버튼 로컬 문구 ephemeral.
+  2. `session.py`: `_preserve_partial_on_death` — `_read_stdout`/`_reap_sessions`에서 부분 드래프트를 history에 저장 후 error emit.
+- **배포**: UI는 `app.js` 캐시버스터 갱신 후 강제 새로고침. 서버는 `chatbot-ctl.sh restart` 또는 ⚡소생.
+- **마커**: `SESSION_DESYNC_GAPFIX_v2`
+
+## 2026-09-22 — 스크롤포워드 끝 캡션 제거
+
+- **배경**: `── 최신 대화 (더 이후 기록 없음) ──`가 이미 최신 대화 중·부적절한 위치에도 자주 노출. 정보 가치 없음(실장님).
+- **변경**: `static/app.js` `loadNewerHistory`에서 해당 end-cap 마커 삽입 제거. `scrollforwardExhausted`만 세움.
+- **배포**: `app.js?v=110` 강제 새로고침. 소생 불필요.
+
+## 2026-09-22 — 빈 말풍선(empty assistant) 방지
+
+- **배경**: 쿼터/미완 턴에서 `finalize_turn(is_err=True)`가 `text:""` assistant를 history에 넣어 새로고침 후 빈 말풍선 2개 등 노출(실장님).
+- **변경**:
+  1. `adapters.py` `finalize_turn`: 빈 텍스트는 저장하지 않음. 오류면 draft 또는 error 문구를 말풍선에 남김.
+  2. `static/app.js`: history 복원·resync 시 빈 user/assistant 스킵.
+  3. 기존 `data/sessions/*/meta.json` 빈 항목 정리.
+- **배포**: `app.js?v=111` 강제 새로고침 + `chatbot-ctl.sh repair`(adapters).
+- **마커**: `EMPTY_BUBBLE_FIX_v1`
+
+## 2026-09-22 — 시스템 공지 버블·스타일 아이콘 (NOTICE_UI_v1)
+
+- **배경**: 시스템/중지/오류 등 비-LLM 메시지가 일반 답변 버블·푸터와 구분되지 않고, 크롬 이모지가 Night Console 톤과 어긋남(실장님).
+- **변경**:
+  1. `static/app.js`: `addNotice(kind)` + `.notice-*` 버블(푸터 없음·아이콘 헤더). stop/error를 부분 답과 분리. history `notice`/`inferNoticeKindFromText`.
+  2. `static/chat.css`: info/help/status/warn/error/stop/ok 색.
+  3. 채팅·슬래시·아티팩트·로그 버튼 이모지 → stroke SVG.
+  4. `session.py` 타임아웃 `notice:"stop"`; `adapters.py` 오류-only `notice:"error"`.
+- **배포**: `app.js?v=112` `chat.css?v=21` 강제 새로고침 + `chatbot-ctl.sh repair`.
+- **마커**: `NOTICE_UI_v1`
+
+
+## 2026-09-22 — NOTICE_INFER_STRICT_v2 + SESSION_LIST_DATE_FIX_v1
+
+- **Notice false positives**: `inferNoticeKindFromText` no longer matches bare 오류/주의/완료/티켓 in LLM prose; persona markers (냥/✦/실장님) hard-reject; length >220 rejected unless known host prefix. History scrub cleared bad `notice`/`system` tags (cleared=14, files=10).
+- **Session list 1970 + order**: list API prefers meta ISO `updated_at` (not raw `st_mtime` seconds). UI uses `_scrollbackEpochMs` before `new Date` / sort. Cache `app.js?v=113`. session.py changed=True.
+
+
+## 2026-09-22 — NOTICE_FLAG_ONLY_v1
+
+- Client history restore uses **only** `h.notice` / `h.system` (no `inferNoticeKindFromText`).
+- HTTP turn timeout emits `stopped` (not `error`) for live stop notice; history already had `notice: stop`.
+- One-shot backfill tagged known short host lines (tagged=2, files=2).
+- Cache `app.js?v=114`; session.py changed=True.
+
+
+## 2026-09-22 — STATUS_EVOLUTION_TAB_v1
+
+- Status: runtime + config group; verbose copy shortened.
+- New Evolution tab: observations + tickets. Alt+5=진화, Alt+6=세션.
+- Cache {'app.js': 116, 'chat.css': 22}.
+
+
+## 2026-09-22 — EVOLUTION_UI_v1
+
+- Closed observations: collapsible card list (not one long hint line).
+- Candidates/tickets/empty states: section heads + softer copy. Cache {'app.js': 118, 'chat.css': 23}.
+
+
+## 2026-09-22 — EVOLUTION_UI_v2
+
+- Unified header-click disclosure (today done / candidates / review).
+- Compact row density; inline action buttons. Cache {'app.js': 119, 'chat.css': 24}.
+
+
+## 2026-09-22 — UI labels: 개선/이슈/힌트/점검/작업
+
+- Evolution tab UI copy only; API/ids unchanged.
+
+
+## 2026-09-22 — tab order: 대화·세션·로그·아티팩트·상태·개선
+
+- Alt+1..6 matched. UI only.
+
+
+## 2026-09-22 — PROVIDER_SWAP_DEFER_v1
+
+- Provider/model tray switch does not stop an in-flight turn; UI updates immediately, server swap deferred until idle / next message. Cache app.js?v=122.

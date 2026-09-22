@@ -158,7 +158,14 @@ for line in out.splitlines():
     # --output-format-equivalent) rather than agy/claude's stream-json flag.
     is_agy_or_claude = ("/.local/bin/agy" in args or "/.local/bin/claude" in args) and "--input-format stream-json" in args
     is_grok = "/.local/bin/grok" in args and "--prompt-file" in args
-    is_codex = "/.local/bin/codex" in args and "--json" in args
+    # CODEX_PROC_v1: node wrapper is /.local/bin/codex; native child lives under
+    # node_modules/.../codex. Also reap login / app-server orphans (no --json).
+    toks0 = (args.split(None, 1)[0] if args else "")
+    is_codex_bin = toks0.endswith("/codex") or toks0.endswith("\\codex") or toks0 == "codex"
+    is_codex = is_codex_bin and (
+        "--json" in args or "app-server" in args or " login" in args or args.rstrip().endswith(" login")
+        or " login " in (" " + args + " ")
+    )
     if not (is_agy_or_claude or is_grok or is_codex):
         continue
     try:
@@ -609,3 +616,4 @@ case "$cmd" in
     ;;
   *) echo "usage: $0 {start|stop|restart|status|doctor [--auto-repair]|probe|repair|defibrillate|guard}"; exit 2 ;;
 esac
+

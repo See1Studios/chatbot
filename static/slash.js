@@ -7,7 +7,7 @@ let slashCatalog = {
     { name: "/btw", label: "샛길 질문", desc: "작업 중 즉시 경량 샛길 답변", template: "/btw " },
     { name: "/continue", label: "이어하기", desc: "현재 대화 요약 인계받아 새 세션", template: "/continue" },
     { name: "/new", label: "새 세션", desc: "완전한 새 대화 세션 시작", template: "/new" },
-    { name: "/defib", label: "심폐소생", desc: "⚡ 호스트 전기충격·소생 (repair)", template: "/defib" },
+    { name: "/defib", label: "심폐소생", desc: "호스트 전기충격·소생 (repair)", template: "/defib" },
     { name: "/status", label: "상태 확인", desc: "챗봇 및 NAS 시스템 상태 점검", template: "/status" },
     { name: "/review", label: "관찰 리뷰", desc: "열린 관찰과 미검토 후보를 함께 검토 (작업 시작 아님)", template: "관찰 리뷰를 해줘. observation 도구의 review로 열린 관찰과 미검토 후보를 받아서 나와 하나씩 검토하고, 정리(resolve)와 티켓 제안까지만 해. 끝나면 reviewed로 기록해줘. 작업은 시작하지 마." },
     { name: "/ticket", label: "티켓 결정", desc: "/ticket go|approve|decline|reopen 번호 — 결정은 에이전트에게 안 가고, go는 승인 뒤 착수 요청", template: "/ticket " },
@@ -102,7 +102,7 @@ function renderSlashMenu(query) {
   let html = '';
 
   if (cmds.length) {
-    html += '<div class="slash-category">⚡ 기능 / 명령어</div>';
+    html += '<div class="slash-category">기능 / 명령어</div>';
     cmds.forEach(c => {
       const idx = slashVisibleItems.length;
       slashVisibleItems.push(c);
@@ -115,7 +115,7 @@ function renderSlashMenu(query) {
   }
 
   if (pops.length) {
-    html += '<div class="slash-category">🛠️ 추천 스킬</div>';
+    html += '<div class="slash-category">추천 스킬</div>';
     pops.forEach(p => {
       const idx = slashVisibleItems.length;
       slashVisibleItems.push(p);
@@ -128,7 +128,7 @@ function renderSlashMenu(query) {
   }
 
   if (otherSkills.length) {
-    html += '<div class="slash-category">📦 전체 스킬 검색</div>';
+    html += '<div class="slash-category">전체 스킬 검색</div>';
     otherSkills.forEach(s => {
       const idx = slashVisibleItems.length;
       slashVisibleItems.push(s);

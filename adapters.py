@@ -207,9 +207,29 @@ class AgentAdapter:
             duration_seconds = round(_now() - session.turn_started_at, 2)
 
         ts = _now()
-        hist_item: dict = {"role": "assistant", "text": "" if is_err else final, "ts": ts}
-        if is_err and error:
-            hist_item["error"] = error
+        # On error, a partial draft is real conversation content the user already
+        # saw stream in -- persist it as its own turn (matching the live view,
+        # which finalizes the same draft into a normal bubble) instead of
+        # discarding it, so a reload doesn't silently erase it (history-restore
+        # in app.js drops any item whose text is empty).
+        if is_err and final and final.strip():
+            draft_item: dict = {"role": "assistant", "text": final, "ts": ts}
+            if usage:
+                draft_item["usage"] = usage
+            if duration_seconds is not None:
+                draft_item["duration_seconds"] = duration_seconds
+            stamp_served_model(session, draft_item, captured=served_model)
+            session.history.append(draft_item)
+
+        hist_item: dict = {
+            "role": "assistant",
+            "text": (error or "오류가 발생했습니다") if is_err else final,
+            "ts": ts,
+        }
+        if is_err:
+            hist_item["notice"] = "error"
+            if error:
+                hist_item["error"] = error
         if usage:
             hist_item["usage"] = usage
         if duration_seconds is not None:
@@ -393,7 +413,11 @@ class AgyAdapter(AgentAdapter):
         try:
             proc = subprocess.run([self.find_executable(), "--print", "/usage"], capture_output=True, text=True, timeout=30)
             rows = []
-            for line in (proc.stdout or "").splitlines():
+            # Strip CSI/C0 so a colorized post-login banner doesn't break the
+            # tab-split parsing below (same fix as ClaudeAdapter's /cost parsing).
+            stdout = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", proc.stdout or "")
+            stdout = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", stdout)
+            for line in stdout.splitlines():
                 parts = [p.strip() for p in line.split("\t")]
                 if len(parts) >= 4:
                     rows.append({"group": parts[0], "limit_type": parts[1], "remaining_pct": parts[2], "reset_at": parts[3]})
@@ -677,10 +701,13 @@ class ClaudeAdapter(AgentAdapter):
         try:
             proc = subprocess.run(
                 [self.find_executable(), "--print", "/cost"],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, text=True, timeout=45,
             )
             rows = []
-            stdout = proc.stdout or ""
+            # Strip CSI/C0 so post-login banners with colors still parse.
+            raw_out = proc.stdout or ""
+            stdout = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", raw_out)
+            stdout = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", stdout)
             # Format 1: legacy rate limit
             pattern_legacy = re.compile(r"^(.+?):\s*(\d+)%\s*used\s*·\s*resets\s*(.+)$")
             # Format 2: modern stats summary ("Last 24h · 681 requests · 5 sessions")
@@ -913,8 +940,12 @@ def _codex_rate_limit_to_rows(payload: dict) -> List[dict]:
 
 def _fetch_codex_rate_limits(executable: str) -> dict:
     """Read Codex's authenticated local app-server; credentials stay internal."""
-    proc = subprocess.Popen([executable, "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL, text=True, bufsize=1)
+    proc = subprocess.Popen(
+        [executable, "app-server"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL, text=True, bufsize=1,
+        start_new_session=True,  # CODEX_PROC_v1: killpg cleans node+native
+    )
     try:
         if not proc.stdin or not proc.stdout:
             raise RuntimeError("Codex app-server 입출력을 열 수 없습니다")
@@ -944,12 +975,27 @@ def _fetch_codex_rate_limits(executable: str) -> dict:
         raise TimeoutError("Codex 사용량 조회가 20초 안에 응답하지 않았습니다")
     finally:
         if proc.poll() is None:
-            proc.terminate()
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except Exception:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
             try:
                 proc.wait(timeout=3)
             except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait(timeout=3)
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                try:
+                    proc.wait(timeout=3)
+                except Exception:
+                    pass
 
 
 class GrokAdapter(AgentAdapter):
@@ -1270,6 +1316,9 @@ class CodexAdapter(AgentAdapter):
             # here -- same trust model, same single-operator NAS context.
             "--dangerously-bypass-approvals-and-sandbox",
         ])
+        model = (model or "").strip()
+        if not model or model == "default":
+            model = "gpt-5.6-luna"  # CODEX_DEFAULT_LUNA_v1
         if model and model != "default":
             args.extend(["-m", model])
         if effort and effort != "default":
@@ -1398,6 +1447,17 @@ class CodexAdapter(AgentAdapter):
         return []
 
     # --- Provider Capability Model (Phase 0.5) --------------------------------
+
+    def known_models(self) -> List[str]:
+        """CODEX_MODELS_v1 + CODEX_DEFAULT_LUNA_v1: luna first = UI/session default."""
+        return [
+            "gpt-5.6-luna",
+            "gpt-5.6-terra",
+            "gpt-5.6-sol",
+            "gpt-5.6",
+            "gpt-5.5",
+            "gpt-5.3-codex-spark",
+        ]
 
     def soft_hard_tokens(self, model: str) -> Tuple[int, int]:
         # No confirmed context-window figure surfaced anywhere in codex's own
@@ -2147,3 +2207,4 @@ AGENT_ADAPTERS.update(load_openai_dialect_adapters(PROVIDERS_JSON))
 
 def get_adapter(provider_id: str = DEFAULT_PROVIDER) -> AgentAdapter:
     return AGENT_ADAPTERS.get(provider_id, AGENT_ADAPTERS[DEFAULT_PROVIDER])
+
