@@ -1,4 +1,11 @@
-const BASE_PATH = window.location.pathname.startsWith('/chat') ? '/chat' : '';
+// Dynamically detect base path from current URL pathname (stripping trailing filename like index.html or trailing slash)
+const BASE_PATH = (() => {
+  const p = window.location.pathname;
+  // Remove filename if present (e.g. /chat/index.html -> /chat)
+  const dir = p.replace(/\/[^\/]*\.[^\/]+$/, '');
+  // Strip trailing slash if present (e.g. /chat/ -> /chat, / -> '')
+  return dir.replace(/\/+$/, '') || '';
+})();
 const SESSION_KEY = 'chatbot.sessionId';
 const logEl = document.getElementById('log');
 const activityPaneEl = document.getElementById('activityPane');
