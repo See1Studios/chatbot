@@ -54,6 +54,22 @@ class EvidenceTest(Base):
             with self.assertRaises(tickets.TicketError, msg=ref):
                 tickets.verify_evidence(self.data, ref)
 
+    def test_host_log_references_are_accepted_only_when_logged(self):
+        data = self.data / "inst" / "data"   # its own instance: logs/ sits next to data/
+        logs = data.parent / "logs"
+        logs.mkdir(parents=True)
+        (logs / "events.jsonl").write_text(
+            json.dumps({"evt": "http.error", "rid": "a1b2c3d4e5f6", "err": {"fp": "0123456789"}}, separators=(",", ":")) + "\n"
+            + "not json\n", encoding="utf-8")
+        (logs / "events.jsonl.1").write_text(
+            json.dumps({"evt": "turn.end", "rid": "ffffffffffff"}, separators=(",", ":")) + "\n", encoding="utf-8")
+        for ref in ("log:fp:0123456789", "log:rid:a1b2c3d4e5f6", "log:rid:ffffffffffff"):
+            tickets.verify_evidence(data, ref)
+        for ref in ("log:fp:9999999999", "log:rid:000000000000", "log:fp:0123", "log:fp:ZZZZZZZZZZ",
+                    "log:msg:hello", "log:fp:", "log:rid:a1b2c3d4e5f6x"):
+            with self.assertRaises(tickets.TicketError, msg=ref):
+                tickets.verify_evidence(data, ref)
+
     def test_a_ticket_without_evidence_is_an_opinion(self):
         for ev in (None, [], "", 5):
             with self.assertRaises(tickets.TicketError):

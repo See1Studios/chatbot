@@ -195,7 +195,43 @@ def verify_evidence(data, ref: str) -> None:
         except OSError:
             pass
         raise TicketError("evidence not found: %s" % ref)
-    raise TicketError("evidence must be event:<session>#<line> or candidate:<epoch>, got: %s" % ref[:60])
+    m = re.match(r"^log:(fp|rid):([0-9a-f]+)$", ref)
+    if m:
+        kind, val = m.group(1), m.group(2)
+        if len(val) != _LOG_ID_LEN[kind]:
+            raise TicketError("bad evidence reference: %s" % ref)
+        if _in_host_log(data, kind, val):
+            return
+        raise TicketError("evidence not found: %s" % ref)
+    raise TicketError("evidence must be event:<session>#<line>, candidate:<epoch>, log:fp:<fp> or log:rid:<rid>, "
+                      "got: %s" % ref[:60])
+
+
+# Host log evidence (OBSLOG_v1, docs/LOGGING.md): an error fingerprint or a request id that is in
+# logs/events.jsonl (or its rotations) next to the data directory. Read as plain JSON lines, so the
+# core stays free of the log layer; a missing log means "not found", never an error.
+_LOG_ID_LEN = {"fp": 10, "rid": 12}
+
+
+def _in_host_log(data, kind: str, val: str) -> bool:
+    logs = Path(data).resolve().parent / "logs"
+    needle = '"%s":"%s"' % (kind, val)
+    for name in ["events.jsonl"] + ["events.jsonl.%d" % i for i in range(1, 10)]:
+        try:
+            with open(str(logs / name), encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    if needle not in line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except ValueError:
+                        continue
+                    got = (rec.get("err") or {}).get("fp") if kind == "fp" else rec.get("rid")
+                    if got == val:
+                        return True
+        except OSError:
+            continue
+    return False
 
 
 # ---------------------------------------------------------------- ship-gate

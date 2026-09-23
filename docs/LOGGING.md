@@ -161,6 +161,12 @@ Each finding of the last 2 h becomes one observation candidate in
   text (recursive-self-evolution.md §4.4)
 - candidates are hints; nothing starts work on its own (§4.2)
 
+Ticket evidence can also point straight into the log (LOG_EVIDENCE_v1): `log:fp:<10 hex>` (an error
+fingerprint) or `log:rid:<12 hex>` (a request id, e.g. from the UI's `X-Request-Id`). `tickets.propose`
+accepts it only if that fingerprint/request is in `logs/events.jsonl` or a rotation right then.
+External agents pass it with `~/bin/ticket-quick start … --evidence log:fp:<fp>` instead of the
+placeholder "manual" candidate.
+
 ## Error storms
 
 One bug hit in a loop (a UI poll against a failing route) must not rotate the history out of the
