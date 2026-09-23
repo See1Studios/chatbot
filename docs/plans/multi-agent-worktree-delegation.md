@@ -3,19 +3,20 @@
 - **작성일:** 2026-09-23
 - **상태:** 계획 (Proposed)
 - **대상:** `services/chatbot/`, `~/bin/`, `~/tools/`
+- **표기:** 사람과 에이전트는 역할로 부른다(사용자, chat-agent, 작성자·리뷰어 캐릭터). 페르소나 이름과 호칭은 인스턴스의 identity 파일에 있는 표시값이다(자기진화 설계 §7-8).
 
 ---
 
 ## 1. 배경 및 목적
 
 ### 1.1 배경
-- 현재 냥피디는 단일 런타임 호스트(`server.py`) 위에서 실장님의 질의 응답, NAS 운영, 자기수정을 단일 컨텍스트로 처리하고 있다.
+- 현재 chat-agent는 단일 런타임 호스트(`server.py`) 위에서 사용자의 질의 응답, NAS 운영, 자기수정을 단일 컨텍스트로 처리하고 있다.
 - 복잡한 코드 리팩토링이나 심층 조사, 다단계 기능 개발을 단일 대화 컨텍스트에서 수행하면 **컨텍스트 팽창, 토큰 소모 극대화, 세션 지연**이 발생한다.
 - 호스트에는 이미 최고 수준의 코딩 CLI들(`claude`, `codex`, `agy`, `grok`)이 설치되어 비대화형/헤드리스 실행을 완벽하게 지원하고 있다.
-- 특히 **Claude Code(`claude`)의 백그라운드 에이전트 및 Git 기반 분기 모델**과, 냥피디가 기보유한 **재귀적 자기진화 거버넌스(`tickets.py`의 근거·승인·리스·검증 계약)**는 본질적으로 동일한 "호스트 무중단 격리 안전성"을 지향한다.
+- 특히 **Claude Code(`claude`)의 백그라운드 에이전트 및 Git 기반 분기 모델**과, chat-agent가 기보유한 **재귀적 자기진화 거버넌스(`tickets.py`의 근거·승인·리스·검증 계약)**는 본질적으로 동일한 "호스트 무중단 격리 안전성"을 지향한다.
 
 ### 1.2 목적
-- 냥피디를 **"총괄 프로듀서 / 오케스트레이터"**로 두고, 세부 구현·검증·심층 리서치를 **독립된 Git Worktree 격리 환경**에서 외부 CLI 서브에이전트에게 외주(`delegate`)를 주는 파이프라인을 구축한다.
+- chat-agent를 **"총괄 / 오케스트레이터"**로 두고, 세부 구현·검증·심층 리서치를 **독립된 Git Worktree 격리 환경**에서 외부 CLI 서브에이전트에게 외주(`delegate`)를 주는 파이프라인을 구축한다.
 - 라이브 호스트와 작업 디렉토리가 오염되지 않도록 완벽히 격리하며, 작업 결과물은 Git 커밋 및 diff 단위로 검증 후 메인 브랜치에 안전하게 병합한다.
 
 ---
@@ -27,7 +28,7 @@
    - 불필요한 데몬이나 무거운 외부 오케스트레이터를 신설하지 않는다.
    - 이미 검증된 Linux 표준 도구(`git worktree`, `bash`, `subprocess`)와 기존 티켓 시스템(`tickets.py`, `ticket-quick`)을 최대한 재활용한다.
 2. **호스트 불변성 (Host Immunity):**
-   - 외주 작업 중 외부 CLI가 실수를 하거나 비정상 종료되더라도 라이브 냥피디 호스트는 털끝 하나 다치지 않는다.
+   - 외주 작업 중 외부 CLI가 실수를 하거나 비정상 종료되더라도 라이브 호스트는 털끝 하나 다치지 않는다.
    - 모든 수정 작업은 임시 Worktree 디렉토리 내에서만 일어나며, 실패 시 Worktree 삭제(`git worktree remove`)만으로 원상복구된다.
 3. **티켓 기반 거버넌스 (Evidence & Approval):**
    - 코드를 건드리는 모든 외주 작업은 헌장에 따라 승인된 티켓과 유효한 리스(Lease)를 바탕으로 실행된다.
@@ -39,14 +40,14 @@
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as 실장님
-    participant NP as 냥피디 (총괄)
+    actor User as 사용자 (operator)
+    participant NP as chat-agent (총괄)
     participant TK as 티켓 시스템 (tickets.py)
     participant WT as Git Worktree (격리 환경)
     participant CLI as 외부 에이전트 (Claude/Codex/Agy)
 
     User->>NP: 기능 개발 / 리팩토링 지시
-    NP->>TK: 티켓 생성 및 실장님 승인 확인 (or ticket-quick)
+    NP->>TK: 티켓 생성 및 사용자 승인 확인 (or ticket-quick)
     NP->>WT: 임시 브랜치 및 Worktree 생성 (git worktree add)
     NP->>CLI: 격리 디렉토리 내 헤드리스 실행 (claude -p / codex exec / agy)
     CLI-->>WT: 코드 작성, 테스트 실행, 로컬 커밋
@@ -97,8 +98,8 @@ sequenceDiagram
 - **`grok` (Grok CLI):**
   - 최신 웹 트렌드 조사, 크리에이티브 콘텐츠 초안 작성에 최적.
 
-### 4.3 냥피디 MCP 인터페이스 (`delegate_task`)
-- 냥피디가 런타임에서 호출할 도구 스펙:
+### 4.3 chat-agent MCP 인터페이스 (`delegate_task`)
+- chat-agent가 런타임에서 호출할 도구 스펙:
   ```json
   {
     "name": "delegate_task",
@@ -128,10 +129,10 @@ sequenceDiagram
   - `ticket-quick`에 `fail`, `renew` 서브커맨드 추가. 커밋 author는 제공자 레지스트리(`PROVIDERS`)의 신원으로 고정.
   - 에이전트 타임아웃은 작성자 리스(1800s) 안쪽으로 제한(최대 1500s). 라이브 호스트는 재시작하지 않는다.
   - 테스트: `tests/test_worktree_runner.py` (임시 리포 + 가짜 에이전트 + 가짜 ticket-quick, 8건). 실제 CLI로 도는 end-to-end 실행은 아직 안 했다.
-- **[마일스톤 3] 냥피디 MCP 도구 배선 (`delegate_task`)**
-  - 냥피디가 대화 중 직접 판단하여 외부 에이전트에게 작업을 분배할 수 있도록 도구 등록.
+- **[마일스톤 3] chat-agent MCP 도구 배선 (`delegate_task`)**
+  - chat-agent가 대화 중 직접 판단하여 외부 에이전트에게 작업을 분배할 수 있도록 도구 등록.
 - **[마일스톤 4] 다중 에이전트 토론/교차 검증 (Dual Loop)**
-  - A 에이전트(코드 작성: Codex/Claude) -> B 에이전트(코드 리뷰: Claude/Agy) -> 냥피디 취합 보고.
+  - A 에이전트(코드 작성: Codex/Claude) -> B 에이전트(코드 리뷰: Claude/Agy) -> chat-agent 취합 보고.
 
 ---
 
