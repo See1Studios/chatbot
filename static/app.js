@@ -2131,14 +2131,49 @@ function renderTicketBar(waiting) {
   if (waiting.length > TICKET_BAR_MAX) ticketBarEl.appendChild(obsNode('span', 'obs-meta', '+' + (waiting.length - TICKET_BAR_MAX) + '건 더 (개선 탭)'));
 }
 
+// EVO_TAB_HISTORY_v1: finished work, newest first (tickets closed in the last DONE_DAYS days).
+const DONE_DAYS = 7;
+const DONE_MAX = 30;
+
+function recentDoneTickets(all) {
+  const since = Date.now() - DONE_DAYS * 86400000;
+  return all
+    .filter(t => t.status === 'done' || t.status === 'declined' || t.status === 'wontfix')
+    .filter(t => { const d = Date.parse(String(t.updated || '').replace(' ', 'T')); return !isNaN(d) && d >= since; })
+    .sort((a, b) => String(b.updated || '').localeCompare(String(a.updated || '')));
+}
+
+function renderDoneRow(t) {
+  const row = obsNode('div', 'obs-row obs-row-compact');
+  const head = obsNode('div', 'obs-head');
+  head.appendChild(obsNode('span', 'obs-id', '#' + t.id));
+  head.appendChild(obsNode('span', 'obs-title', t.title || '(제목 없음)'));
+  head.appendChild(obsNode('span', 'obs-badge ' + t.status, TICKET_STATUS_LABEL[t.status] || t.status));
+  row.appendChild(head);
+  const ev = (t.evidence || []).join(', ');
+  const meta = [String(t.updated || '').slice(5, 16), (t.paths || []).slice(0, 4).join(', '), ev ? '근거 ' + ev : ''].filter(Boolean).join(' · ');
+  if (meta) row.appendChild(obsNode('div', 'obs-meta', meta));
+  return row;
+}
+
 function renderTickets(res) {
-  const rows = (res.tickets || []).filter(t => TICKET_DECISIONS[t.status]);
+  const all = res.tickets || [];
+  const rows = all.filter(t => TICKET_DECISIONS[t.status]);
   renderTicketBar(rows);
   if (!statusTicketBoxEl) return;
   const kids = [obsNode('div', 'evo-sec-head', '대기 중 작업')];
   if (!rows.length) kids.push(obsNode('div', 'evo-empty', '지금 결정할 작업이 없어요.'));
   else kids.push(obsNode('div', 'obs-meta', '버튼 → 채팅 명령 · Enter 실행'));
   rows.forEach(t => kids.push(renderTicketRow(t)));
+  const done = recentDoneTickets(all);
+  if (done.length) {
+    const head = evoToggleHead('최근 ' + DONE_DAYS + '일 처리', done.length, { open: false });
+    const list = obsNode('div', 'evo-fold');
+    done.slice(0, DONE_MAX).forEach(t => list.appendChild(renderDoneRow(t)));
+    if (done.length > DONE_MAX) list.appendChild(obsNode('div', 'obs-meta', '+' + (done.length - DONE_MAX) + '건 더'));
+    evoBindToggle(head, list);
+    kids.push(head, list);
+  }
   obsSet(statusTicketBoxEl, kids);
 }
 

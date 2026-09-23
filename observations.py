@@ -285,15 +285,21 @@ def _review_start_epoch(obs_root, last: str) -> float:
     return day_start
 
 
+# Rows that only fill a ticket's evidence field (~/bin/ticket-quick without --evidence): not a
+# signal about anything, so never a hint to review (EVO_TAB_HISTORY_v1). They stay in the file,
+# so `candidate:<epoch>` still verifies as evidence.
+PLACEHOLDER_SIGNALS = ("manual",)
+
+
 def unreviewed_candidates(obs_root) -> List[Dict]:
-    """Candidates the host collected since the last review day began."""
+    """Candidates the host collected since the last review day began (placeholders excluded)."""
     start = _review_start_epoch(obs_root, last_review(obs_root))
     out: List[Dict] = []
     try:
         for line in (Path(obs_root) / evolution.CANDIDATES_NAME).read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 row = json.loads(line)
-                if float(row.get("epoch", 0)) >= start:
+                if float(row.get("epoch", 0)) >= start and row.get("signal") not in PLACEHOLDER_SIGNALS:
                     out.append(row)
             except (ValueError, TypeError, AttributeError):
                 continue

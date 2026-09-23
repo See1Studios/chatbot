@@ -234,6 +234,19 @@ class ReviewTest(Base):
         (self.obs / "candidates.jsonl").write_text('not json\n{"epoch": "x"}\n[]\n{"epoch": 5, "signal": "stopped"}\n', encoding="utf-8")
         self.assertEqual(len(ob.unreviewed_candidates(self.obs)), 1)
 
+    def test_evidence_placeholders_are_not_hints_but_stay_valid_evidence(self):
+        # EVO_TAB_HISTORY_v1: ticket-quick without --evidence writes signal "manual" rows
+        self.candidates(self.rows((1.0, "manual", "quick-ticket CLI invocation"), (2.0, "stopped", "real"),
+                                  (3.0, "manual", "quick-ticket CLI invocation")))
+        self.assertEqual([c["signal"] for c in ob.unreviewed_candidates(self.obs)], ["stopped"])
+        d = ob.digest(self.obs, NOW)
+        self.assertEqual((d["unreviewed_candidates"], d["candidates_by_signal"]), (1, {"stopped": 1}))
+        data = Path(tempfile.mkdtemp()).resolve()
+        obs = data / "workspace" / "skill-observations"
+        obs.mkdir(parents=True)
+        (obs / "candidates.jsonl").write_text((self.obs / "candidates.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
+        tickets.verify_evidence(data, "candidate:1.0")   # still the evidence it was written to be
+
     def test_digest_lists_what_a_review_looks_at(self):
         self.put(1, title="Open one", status="open")
         self.put(2, title="Parked one", status="parked")
