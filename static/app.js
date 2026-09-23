@@ -637,8 +637,7 @@ function applyCompactMode() {
   if (moreBtn) moreBtn.style.display = 'none';
 }
 applyCompactMode();
-const statusMemoryEl = document.getElementById('statusMemory');
-const statusRulesEl = document.getElementById('statusRules');
+const statusInstructionsEl = document.getElementById('statusInstructions');
 const statusSkillsEl = document.getElementById('statusSkills');
 const statusSkillLibHintEl = document.getElementById('statusSkillLibHint');
 const statusMcpEl = document.getElementById('statusMcp');
@@ -2401,8 +2400,7 @@ async function fetchSelfStatus() {
   if (!statusPaneEl) return;
   try {
     const res = await api('/api/self-status');
-    renderStatusMemory(res.memory || null);
-    renderStatusRules(res.rules || []);
+    loadInstructions();
     renderStatusSkills(res.skills || []);
     if (statusSkillLibHintEl) {
       statusSkillLibHintEl.textContent = '호스트 스킬 라이브러리 ' + (res.host_skill_library_count || 0) + '개 (읽기 전용)';
@@ -2412,7 +2410,7 @@ async function fetchSelfStatus() {
     // observation/tickets live on Evolution tab (STATUS_EVOLUTION_TAB_v1)
     statusLoaded = true;
   } catch (e) {
-    if (statusRulesEl) statusRulesEl.textContent = '상태 로드 실패: ' + e.message;
+    if (statusInstructionsEl) statusInstructionsEl.textContent = '상태 로드 실패: ' + e.message;
   }
 }
 
@@ -3166,105 +3164,79 @@ async function importSessionContext(sid) {
   }
 }
 
-function renderStatusMemory(mem) {
-  if (!statusMemoryEl) return;
-  statusMemoryEl.innerHTML = '';
-  if (!mem) {
-    statusMemoryEl.innerHTML = '<div class="status-hint">장기 기억 파일 없음</div>';
+// STATUS_INSTRUCTIONS_v1: everything the agent reads as instructions, whole and scrollable, in the order it reaches
+// the agent (every turn / when needed). Editable only where the protected-path registry allows (the server decides);
+// read-only items say why.
+const INSTRUCTION_LAYER_LABEL = { always: '매 턴 들어가는 것', on_demand: '필요할 때 읽는 것' };
+
+async function loadInstructions() {
+  if (!statusInstructionsEl) return;
+  let res;
+  try {
+    res = await api('/api/instructions');
+  } catch (e) {
+    statusInstructionsEl.textContent = '지침을 불러오지 못했어요 (소생 필요할 수 있음): ' + (e.message || e);
     return;
   }
-  const item = document.createElement('div');
-  item.className = 'status-item';
-  const mtime = mem.mtime ? new Date(mem.mtime * 1000).toLocaleString('ko-KR') : '?';
-  item.innerHTML =
-    '<div class="status-item-head">' +
-    '<span class="status-item-name">' + escapeHtml(mem.name) + '</span>' +
-    '<span class="status-item-meta">' + (mem.size || 0) + ' bytes · ' + mtime + ' (읽기 전용)</span>' +
-    '<div class="status-item-actions"><button class="art-btn" id="memToggleBtn" type="button">전체 보기</button></div>' +
-    '</div>' +
-    '<div class="status-item-preview" id="memPreviewBox" style="white-space:pre-wrap;font-family:inherit;max-height:160px;overflow-y:auto">' + escapeHtml(mem.content || '(내용 없음)') + '</div>';
-  statusMemoryEl.appendChild(item);
-
-  const btn = item.querySelector('#memToggleBtn');
-  const box = item.querySelector('#memPreviewBox');
-  if (btn && box) {
-    let expanded = false;
-    btn.addEventListener('click', () => {
-      expanded = !expanded;
-      box.style.maxHeight = expanded ? 'none' : '160px';
-      btn.textContent = expanded ? '접기' : '전체 보기';
-    });
-  }
-}
-
-function renderStatusRules(rules) {
-  if (!statusRulesEl) return;
-  statusRulesEl.innerHTML = '';
-  rules.forEach(r => {
-    const item = document.createElement('div');
-    item.className = 'status-item';
-    const mtime = r.mtime ? new Date(r.mtime * 1000).toLocaleString('ko-KR') : '?';
-    item.innerHTML =
-      '<div class="status-item-head">' +
-      '<span class="status-item-name">' + escapeHtml(r.name) + '</span>' +
-      '<span class="status-item-meta">' + (r.size || 0) + ' bytes · ' + mtime + '</span>' +
-      '<div class="status-item-actions"><button class="art-btn" data-edit-rule="' + escapeHtml(r.name) + '" type="button">편집</button></div>' +
-      '</div>' +
-      '<div class="status-item-preview" data-preview="' + escapeHtml(r.name) + '">' + escapeHtml(r.preview) + '</div>';
-    statusRulesEl.appendChild(item);
-  });
-  statusRulesEl.querySelectorAll('[data-edit-rule]').forEach(btn => {
-    btn.addEventListener('click', () => openRuleEditor(btn.getAttribute('data-edit-rule')));
+  const items = res.items || [];
+  statusInstructionsEl.textContent = '';
+  ['always', 'on_demand'].forEach(layer => {
+    const group = items.filter(x => x.layer === layer);
+    if (!group.length) return;
+    statusInstructionsEl.appendChild(obsNode('div', 'instr-layer', INSTRUCTION_LAYER_LABEL[layer]));
+    group.forEach(x => statusInstructionsEl.appendChild(renderInstruction(x)));
   });
 }
 
-async function openRuleEditor(name) {
-  const previewEl = statusRulesEl.querySelector('[data-preview="' + CSS.escape(name) + '"]');
-  if (!previewEl) return;
-  if (previewEl.dataset.editing === '1') return;
-  previewEl.dataset.editing = '1';
-  previewEl.innerHTML = '불러오는 중…';
-  try {
-    const res = await api('/api/rules/' + encodeURIComponent(name));
-    const ta = document.createElement('textarea');
-    ta.className = 'status-edit-area';
-    ta.value = res.content || '';
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'art-btn primary';
-    saveBtn.type = 'button';
-    saveBtn.textContent = '저장';
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'art-btn';
-    cancelBtn.type = 'button';
-    cancelBtn.textContent = '취소';
-    previewEl.innerHTML = '';
-    previewEl.appendChild(ta);
-    const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.gap = '.4rem';
-    row.style.marginTop = '.4rem';
-    row.appendChild(saveBtn);
-    row.appendChild(cancelBtn);
-    previewEl.appendChild(row);
-    cancelBtn.addEventListener('click', () => { delete previewEl.dataset.editing; fetchSelfStatus(); });
-    saveBtn.addEventListener('click', async () => {
-      saveBtn.disabled = true;
-      saveBtn.textContent = '저장 중…';
-      try {
-        await api('/api/rules/' + encodeURIComponent(name), { method: 'PUT', body: JSON.stringify({ content: ta.value }) });
-        addActivity(name + ' 저장됨 (백업 생성됨, 다음 새 세션부터 반영)');
-        delete previewEl.dataset.editing;
-        fetchSelfStatus();
-      } catch (e) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = '저장';
-        await alertModal('저장 실패: ' + e.message);
-      }
-    });
-  } catch (e) {
-    previewEl.textContent = '로드 실패: ' + e.message;
-    delete previewEl.dataset.editing;
+function renderInstruction(x) {
+  const item = obsNode('div', 'status-item instr-item');
+  const head = obsNode('div', 'status-item-head');
+  head.appendChild(obsNode('span', 'status-item-name', x.title));
+  head.appendChild(obsNode('span', 'instr-badge ' + (x.editable ? 'rw' : 'ro'), x.editable ? '편집 가능' : '읽기 전용'));
+  const actions = obsNode('div', 'status-item-actions');
+  head.appendChild(actions);
+  item.appendChild(head);
+  const meta = [x.path || '자동 생성', (x.size || 0) + ' bytes', x.mtime ? new Date(x.mtime * 1000).toLocaleString('ko-KR') : '']
+    .filter(Boolean).join(' · ');
+  item.appendChild(obsNode('div', 'status-item-meta', meta));
+  if (!x.editable && x.reason) item.appendChild(obsNode('div', 'instr-reason', x.reason));
+  const body = obsNode('pre', 'instr-body', x.content || '(비어 있음)');
+  item.appendChild(body);
+  if (x.editable) {
+    const edit = obsNode('button', 'art-btn art-btn-xs', '편집');
+    edit.type = 'button';
+    edit.addEventListener('click', () => editInstruction(x, body, actions));
+    actions.appendChild(edit);
   }
+  return item;
+}
+
+function editInstruction(x, body, actions) {
+  const ta = document.createElement('textarea');
+  ta.className = 'status-edit-area';
+  ta.value = x.content || '';
+  body.replaceWith(ta);
+  actions.textContent = '';
+  const save = obsNode('button', 'art-btn art-btn-xs primary', '저장');
+  save.type = 'button';
+  const cancel = obsNode('button', 'art-btn art-btn-xs', '취소');
+  cancel.type = 'button';
+  actions.appendChild(save);
+  actions.appendChild(cancel);
+  cancel.addEventListener('click', loadInstructions);
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    save.textContent = '저장 중…';
+    try {
+      await api('/api/instructions/' + encodeURIComponent(x.id), { method: 'PUT', body: JSON.stringify({ content: ta.value }) });
+      addActivity(x.title + ' 저장됨 · ' + (x.layer === 'always' ? '다음 턴부터 반영' : '다음에 읽을 때 반영'));
+      loadInstructions();
+    } catch (e) {
+      save.disabled = false;
+      save.textContent = '저장';
+      await alertModal('저장 실패: ' + (e.message || e));
+    }
+  });
 }
 
 function renderStatusSkills(skills) {

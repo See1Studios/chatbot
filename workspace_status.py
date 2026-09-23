@@ -11,13 +11,23 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from artifact_manager import _atomic_write_text
-from host_config import HOME, WORKSPACE
+from host_config import HOME, ROOT, WORKSPACE
 from instructions import extract_yaml_desc
 
 try:  # the candidate count and last review come from the core; the tab still loads without it
     import observations
 except Exception:  # noqa: BLE001
     observations = None
+
+try:  # which instruction files the operator may edit from the status tab: the protected-path registry decides
+    import evolution
+except Exception:  # noqa: BLE001
+    evolution = None
+
+try:  # long-term memory is saved under its own lock and size cap
+    import memory_store
+except Exception:  # noqa: BLE001
+    memory_store = None
 
 try:  # ticket decisions from the status tab; the core holds every rule
     import tickets
@@ -212,6 +222,107 @@ def observation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tu
     except observations.ObservationError as e:
         return (404 if str(e).startswith("no such observation") else 400), {"ok": False, "error": str(e)}
     return 404, {"ok": False, "error": "not found"}
+
+
+# -------------------------------------------- agent instructions (STATUS_INSTRUCTIONS_v1)
+# Everything the chat agent reads as instructions is shown in the status tab, whole. The operator may edit what the
+# protected-path registry (protected_paths.json) leaves unprotected; the rest is read-only, and says why.
+
+INSTRUCTION_FILES = [  # (id, title, path relative to the workspace, layer)
+    ("AGENTS.md", "헌장", "AGENTS.md", "always"),
+    ("PERSONA.md", "페르소나", "PERSONA.md", "always"),
+    ("MEMORY.md", "장기 기억", "memory/MEMORY.md", "always"),
+    ("PROJECT.md", "작업 절차", "PROJECT.md", "on_demand"),
+    ("SELF-MODIFY.md", "자기수정 경계", "SELF-MODIFY.md", "on_demand"),
+    ("PRIVATE.md", "사적 모드", "PRIVATE.md", "on_demand"),
+]
+_LAYER_ORDER = {"always": 0, "on_demand": 1}
+
+
+def _instruction_files() -> list:
+    items = [(i, t, WORKSPACE / rel, layer) for i, t, rel, layer in INSTRUCTION_FILES]
+    items += [(f.name, "전문가 캐릭터 (%s)" % f.stem[len("PERSONA-"):], f, "on_demand")
+              for f in sorted(WORKSPACE.glob("PERSONA-*.md"))]
+    return items
+
+
+def _protected_why(path: Path) -> Optional[str]:
+    if evolution is None:
+        return "보호 목록을 읽을 수 없음"
+    return evolution.match_protected(ROOT, path)
+
+
+def agent_instructions() -> list:
+    """Every instruction the chat agent reads: files (editable unless protected) and generated layers (read-only)."""
+    out = []
+    for iid, title, path, layer in _instruction_files():
+        if not path.is_file():
+            continue
+        try:
+            st = path.stat()
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        why = _protected_why(path)
+        try:
+            rel = str(path.relative_to(ROOT))
+        except ValueError:
+            rel = str(path)
+        out.append({"id": iid, "title": title, "path": rel, "layer": layer, "kind": "file", "editable": why is None,
+                    "reason": "보호 경로(%s): 터미널이나 승인된 티켓으로만 바꿉니다" % why if why else "",
+                    "size": st.st_size, "mtime": st.st_mtime, "content": text})
+    try:
+        import instructions as I
+        generated = [("skills-index", "스킬 목록", I._skills_text(), "워크스페이스 스킬 폴더에서 자동으로 만듭니다"),
+                     ("status-badge", "상태 배지", I._status_text(), "열린 관찰과 최근 점검에서 자동으로 만듭니다")]
+    except Exception:  # noqa: BLE001
+        generated = []
+    for iid, title, text, why in generated:
+        out.append({"id": iid, "title": title, "path": "", "layer": "always", "kind": "generated", "editable": False,
+                    "reason": why, "size": len((text or "").encode("utf-8")), "mtime": 0, "content": text or ""})
+    out.sort(key=lambda x: _LAYER_ORDER[x["layer"]])
+    return out
+
+
+def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
+    """/api/instructions: GET lists everything; PUT /api/instructions/<id> saves an editable file. A PUT is the
+    operator editing from the status tab, so the caller must have checked that it came from this server's own page."""
+    if not (path == "/api/instructions" or path.startswith("/api/instructions/")):
+        return None
+    rest = path[len("/api/instructions"):].strip("/")
+    if method == "GET" and rest == "":
+        return 200, {"ok": True, "items": agent_instructions()}
+    if method != "PUT" or not rest:
+        return 404, {"ok": False, "error": "not found"}
+    found = [x for x in _instruction_files() if x[0] == rest]
+    if not found:
+        return 404, {"ok": False, "error": "no such instruction file (generated layers are read-only)"}
+    _, _, fp, _ = found[0]
+    why = _protected_why(fp)
+    if why:
+        return 403, {"ok": False, "error": "read-only: protected (%s)" % why}
+    content = (body or {}).get("content")
+    if not isinstance(content, str) or not content.strip():
+        return 400, {"ok": False, "error": "content required"}
+    if fp == WORKSPACE / "memory" / "MEMORY.md":
+        if memory_store is None:
+            return 503, {"ok": False, "error": "memory core unavailable"}
+        if len(content.encode("utf-8")) > memory_store.MAX_BYTES:
+            return 400, {"ok": False, "error": "MEMORY.md is limited to %d bytes" % memory_store.MAX_BYTES}
+        try:
+            with memory_store._Locked(fp.parent):
+                memory_store._write(fp.parent, content)
+        except memory_store.MemoryRefused as e:
+            return 409, {"ok": False, "error": str(e)}
+    else:
+        if fp.exists():
+            try:
+                fp.with_name("%s.bak-selfstatus-%s" % (fp.name, time.strftime("%Y%m%d%H%M%S"))).write_text(
+                    fp.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
+            except OSError:
+                pass
+        _atomic_write_text(fp, content)
+    return 200, {"ok": True, "id": rest, "bytes": len(content.encode("utf-8"))}
 
 
 def ticket_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
