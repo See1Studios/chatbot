@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Owned by the human operator. Patterns are relative to the service root (the directory holding this file); '~/' means the home directory. A trailing '/' protects a whole subtree; '*' and '?' match inside one path segment only. 'except' lifts protection for matching paths and is the place for instance-specific carve-outs. 'volatile' lists protected paths whose content changes at run time; they stay write-protected but are left out of protected_manifest.json.",
+  "notes": "Owned by the human operator. Patterns are relative to the service root (the directory holding this file); '~/' means the home directory. A trailing '/' protects a whole subtree; '*' and '?' match inside one path segment only. 'except' lifts protection for matching paths and is the place for instance-specific carve-outs. 'volatile' lists protected paths whose content changes at run time; they stay write-protected but are left out of protected_manifest.json. 'governance' lists Tier 3 paths (docs/plans/recursive-self-evolution.md §4.1): guards, gates, approval rules, the charter and this registry. Only the operator changes them; delegated agents are refused (docs/plans/multi-agent-worktree-delegation.md §9.3).",
   "protect": [
     "*.py",
     "__pycache__/",
@@ -41,5 +41,99 @@
     "data/workspace/skill-observations/tickets/",
     "data/workspace/skill-observations/candidates.jsonl",
     "data/sessions/*/events.jsonl"
+  ],
+  "governance": [
+    {
+      "path": "protected_paths.json",
+      "reason": "this registry"
+    },
+    {
+      "path": "protected_manifest.json",
+      "reason": "the protected-file baseline"
+    },
+    {
+      "path": "core_modules.json",
+      "reason": "the core boundary"
+    },
+    {
+      "path": "observation_signals.json",
+      "reason": "observation criteria (design §7-6)"
+    },
+    {
+      "path": "bundle_budget.json",
+      "reason": "a gate threshold"
+    },
+    {
+      "path": "evolution.py",
+      "reason": "the guard registry and lifecycle lock"
+    },
+    {
+      "path": "tickets.py",
+      "reason": "approval, budget and lease rules"
+    },
+    {
+      "path": "obslog.py",
+      "reason": "measurement criteria (design §7-6)"
+    },
+    {
+      "path": "logdigest.py",
+      "reason": "measurement criteria (design §7-6)"
+    },
+    {
+      "path": "origin_guard.py",
+      "reason": "a guard"
+    },
+    {
+      "path": "preview_guard.py",
+      "reason": "a guard"
+    },
+    {
+      "path": "loop_guard.py",
+      "reason": "a guard"
+    },
+    {
+      "path": "tests/smoke.py",
+      "reason": "a delegation gate"
+    },
+    {
+      "path": "tests/test_provider_neutrality.py",
+      "reason": "a delegation gate"
+    },
+    {
+      "path": "tests/test_identity_wiring.py",
+      "reason": "a delegation gate"
+    },
+    {
+      "path": "tools/worktree_runner.py",
+      "reason": "the delegation gatekeeper"
+    },
+    {
+      "path": "data/workspace/AGENTS.md",
+      "reason": "the charter"
+    },
+    {
+      "path": "data/workspace/SELF-MODIFY.md",
+      "reason": "self-modification rules"
+    },
+    {
+      "path": "docs/SELF-MODIFY.md",
+      "reason": "self-modification rules"
+    },
+    {
+      "path": "docs/EMERGENCY.md",
+      "reason": "emergency procedure"
+    },
+    {
+      "path": "docs/plans/recursive-self-evolution.md",
+      "reason": "the self-evolution design"
+    },
+    {
+      "path": "data/workspace/skill-observations/tickets/",
+      "reason": "ticket records"
+    },
+    {
+      "path": "~/.agents/",
+      "reason": "host-wide agent rules"
+    }
   ]
 }

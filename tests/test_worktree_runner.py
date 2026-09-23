@@ -58,6 +58,8 @@ class WorktreeRunner(unittest.TestCase):
         (self.repo / "tests" / "smoke.py").write_text(SMOKE)
         (self.repo / "a.txt").write_text("one\n")
         (self.repo / "b.txt").write_text("b\n")
+        (self.repo / "protected_paths.json").write_text(json.dumps(
+            {"protect": ["*.py", "tests/", "prot/", "sub/deep/"], "governance": ["gov.txt", "sub/rules.md"]}))
         sh(self.repo, "git", "init", "-q", "-b", "main")
         sh(self.repo, "git", "add", "-A")
         sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init")
@@ -267,6 +269,38 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(wr.main(["merge", "--ticket", "7"]), 2)
         self.run_with("echo two >> a.txt && git commit -qam change")   # merged directly, nothing waits
         self.assertEqual(wr.main(["merge", "--ticket", "7"]), 2)
+
+    # ---- tiers (protected_paths.json of the repo worked on)
+
+    def test_tier_3_paths_are_refused_before_a_ticket(self) -> None:
+        for paths in ("gov.txt", "a.txt,gov.txt", "tests/", "tests/smoke.py"):
+            self.assertEqual(self.run_with("true", paths=paths), 2, paths)
+        self.assertFalse(self.calls.exists())
+
+    def test_a_tier_3_file_slipped_in_under_a_directory_fails(self) -> None:
+        rc = self.run_with("mkdir -p sub && echo x > sub/rules.md && git add sub && git commit -qm c", paths="sub/",
+                           extra=("--rounds", "1"))
+        self.assertEqual(rc, 1)
+        self.assertFalse((self.repo / "sub" / "rules.md").exists())
+        self.assertIn("gate_failed", self.last_fail())
+        self.assertIn("Tier 3", self.last_fail()[self.last_fail().index("--note") + 1])
+
+    def test_tier_2_paths_wait_for_the_operator(self) -> None:
+        rc = self.run_with("mkdir -p prot && echo x > prot/x.txt && git add prot && git commit -qm c", paths="prot/")
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.ticket_cmds()[-1], "await-merge")
+        self.assertFalse((self.repo / "prot").exists())
+        self.assertEqual(wr.read_state(7)["phase"], "awaiting_merge")
+
+    def test_a_tier_2_file_found_in_the_change_also_waits(self) -> None:
+        rc = self.run_with("mkdir -p sub/deep && echo x > sub/deep/x.txt && git add sub && git commit -qm c",
+                           paths="sub/")
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.ticket_cmds()[-1], "await-merge")
+
+    def test_without_a_registry_nothing_is_delegated(self) -> None:
+        (self.repo / "protected_paths.json").unlink()
+        self.assertEqual(self.run_with("true"), 2)
 
 
 if __name__ == "__main__":

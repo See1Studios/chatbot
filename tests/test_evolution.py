@@ -188,5 +188,42 @@ class ImportDisciplineTest(unittest.TestCase):
         self.assertNotIn("removeprefix", src)
 
 
+class DelegationTierTest(unittest.TestCase):
+    """DELEGATION_TIERS_v1: governance (Tier 3) > protected (Tier 2) > the rest (Tier 0)."""
+
+    def root(self, governance):
+        root = make_root(["*.py", "tests/"])
+        raw = json.loads((root / evolution.REGISTRY_NAME).read_text(encoding="utf-8"))
+        raw["governance"] = governance
+        (root / evolution.REGISTRY_NAME).write_text(json.dumps(raw), encoding="utf-8")
+        return root
+
+    def test_tiers(self):
+        root = self.root(["tickets.py", {"path": "tests/smoke.py", "reason": "a gate"}, "rules/"])
+        self.assertEqual(evolution.delegation_tier(root, "tickets.py"), (3, "tickets.py"))
+        self.assertEqual(evolution.delegation_tier(root, "tests/smoke.py"), (3, "tests/smoke.py"))
+        self.assertEqual(evolution.delegation_tier(root, "rules/deep/x.md"), (3, "rules/"))
+        self.assertEqual(evolution.delegation_tier(root, "session.py"), (2, "*.py"))
+        self.assertEqual(evolution.delegation_tier(root, "tests/test_x.py"), (2, "tests/"))
+        self.assertEqual(evolution.delegation_tier(root, "data/workspace/x.md"), (0, ""))
+
+    def test_no_governance_list_means_none(self):
+        root = make_root(["*.py"])
+        self.assertIsNone(evolution.match_governance(root, "tickets.py"))
+        self.assertEqual(evolution.delegation_tier(root, "tickets.py")[0], 2)
+
+    def test_a_broken_registry_counts_as_governance(self):
+        root = Path(tempfile.mkdtemp()).resolve()
+        for text in ("{not json", '{"protect": ["a"], "governance": "x"}', '{"protect": ["a"], "governance": [1]}'):
+            (root / evolution.REGISTRY_NAME).write_text(text, encoding="utf-8")
+            self.assertEqual(evolution.delegation_tier(root, "anything.txt")[0], 3, text)
+
+    def test_the_shipped_registry_guards_the_guards(self):
+        root = Path(__file__).resolve().parents[1]
+        for rel in ("tickets.py", "evolution.py", evolution.REGISTRY_NAME, "tests/smoke.py", "data/workspace/AGENTS.md"):
+            self.assertEqual(evolution.delegation_tier(root, rel)[0], 3, rel)
+        self.assertEqual(evolution.delegation_tier(root, "session.py")[0], 2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -162,6 +162,29 @@ def is_protected(root, path) -> bool:
     return match_protected(root, path) is not None
 
 
+def match_governance(root, path) -> Optional[str]:
+    """Return why `path` is governance (Tier 3: guards, gates, approval rules, the charter, this
+    registry), or None. Never raises: any failure to evaluate counts as governance."""
+    try:
+        root_p = Path(root).resolve()
+        patterns = _entries(_load_raw(root_p), "governance", False)
+        targets = _targets(root_p, path)
+        return next((pat for pat in patterns if any(_matches(root_p, pat, t) for t in targets)), None)
+    except (RegistryError, OSError, RuntimeError, ValueError) as e:
+        return "registry unavailable: %s" % e
+
+
+def delegation_tier(root, path) -> Tuple[int, str]:
+    """How a change to `path` may land when delegated (docs/plans/multi-agent-worktree-delegation.md §9):
+    3 governance (refused), 2 protected (the operator lets it land), 0 otherwise (lands on its gates).
+    Returns (tier, the matching pattern or '')."""
+    why = match_governance(root, path)
+    if why:
+        return 3, why
+    why = match_protected(root, path)
+    return (2, why) if why else (0, "")
+
+
 # ---------------------------------------------------------------- lifecycle lock
 
 class LockBusy(Exception):

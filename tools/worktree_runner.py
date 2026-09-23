@@ -16,6 +16,9 @@
   python3 tools/worktree_runner.py cleanup --ticket 61
 
 흐름 (run):
+  0. Tier 판정 (protected_paths.json via evolution.delegation_tier): Tier 3(governance, 이번 게이트가 돌리는 파일)은
+     거부, Tier 2(protected)는 --stop-before-merge 강제, 그 외는 게이트·리뷰 통과 시 자동 병합.
+     실제로 바뀐 파일도 매 라운드 같은 기준으로 다시 본다(디렉터리 경로로 Tier 3 파일을 끼워 넣지 못하게).
   1. ticket-quick start  -> TICKET_ID, CLAIM_TOKEN (승인 + 클레임, 대상 경로가 메인에서 clean해야 함)
   2. git worktree add -b worktree/ticket-<ID> ~/.worktrees/chatbot/ticket-<ID> <main HEAD>
   3. 라운드 (최대 --rounds):
@@ -41,6 +44,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -48,7 +52,8 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-CHATBOT_REPO = Path(__file__).resolve().parents[1]
+CODE_DIR = Path(__file__).resolve().parents[1]      # where the host modules this tool imports live
+CHATBOT_REPO = CODE_DIR                              # the repository it works on
 WORKTREE_BASE = Path.home() / ".worktrees" / "chatbot"
 TICKET_QUICK = [sys.executable, str(Path.home() / "bin" / "ticket-quick")]
 # smoke plus the repo-wide guards (design doc §7-9, NAME_NEUTRAL_v1); a few seconds each
@@ -124,15 +129,51 @@ def in_scope(path: str, paths: List[str]) -> bool:
     return any(path == p or path.startswith(p.rstrip("/") + "/") for p in paths)
 
 
+def host_module(name: str):
+    if str(CODE_DIR) not in sys.path:
+        sys.path.insert(0, str(CODE_DIR))
+    return __import__(name)
+
+
+# -------------------------------------------------------------------- tiers
+
+def gate_files(repo: Path, gates: List[str]) -> List[str]:
+    """Repo files the gate commands run: a delegated agent must not be able to change its own pass condition."""
+    out = []
+    for cmd in gates:
+        try:
+            words = shlex.split(cmd)
+        except ValueError:
+            continue
+        out += [w for w in words if not w.startswith("-") and "/" in w and (repo / w).is_file() and w not in out]
+    return out
+
+
+def tier_of(repo: Path, path: str, gated: List[str]) -> tuple:
+    """(tier, why): 3 refused, 2 lands on the operator's word, 0 lands on its gates."""
+    covered = [g for g in gated if in_scope(g, [path])]
+    if covered:
+        return 3, "gate file %s" % covered[0]
+    return host_module("evolution").delegation_tier(repo, path)
+
+
+def check_tiers(repo: Path, files: List[str], gated: List[str], retryable: bool) -> int:
+    """Highest tier among `files`; a Tier 3 file fails."""
+    tiers = {f: tier_of(repo, f, gated) for f in files}
+    t3 = ["%s (%s)" % (f, why) for f, (t, why) in tiers.items() if t >= 3]
+    if t3:
+        raise Failure("gate_failed", "Tier 3 paths are not delegated; only the operator changes them: %s"
+                      % ", ".join(t3[:5]), retryable=retryable)
+    return max([t for t, _ in tiers.values()] or [0])
+
+
 # ----------------------------------------------------------------- personas
 
 def persona(role: str = "") -> Dict[str, str]:
     """{name, label, voice, body} of the chatbot's own persona ("") or a second character (role id).
     Names are display values from the instance's identity files, never ids."""
-    if str(CHATBOT_REPO) not in sys.path:
-        sys.path.insert(0, str(CHATBOT_REPO))
     try:
-        import identity
+        identity = host_module("identity")
         ident = identity.get_identity(role)
         return {"name": ident["name"], "label": identity.self_label(role), "voice": ident["voice"],
                 "body": identity.persona_body(role)}
@@ -473,6 +514,16 @@ def cmd_run(args) -> int:
     if code != 0:
         print("Error: main repository is on a detached HEAD", file=sys.stderr)
         return 2
+    gated = gate_files(repo, gates)
+    try:
+        tier = check_tiers(repo, paths, gated, retryable=False)
+    except Failure as f:
+        print("Error: %s" % f.reason, file=sys.stderr)
+        return 2
+    if tier >= 2 and not args.stop_before_merge:
+        log("Tier 2 paths: the change will wait for the operator's merge (--stop-before-merge)")
+        args.stop_before_merge = True
+    result["tier"] = tier
     writer_p, reviewer_p = persona(), persona(REVIEWER_ROLE)
     actor = PROVIDERS[provider]["actor"]
 
@@ -540,6 +591,10 @@ def cmd_run(args) -> int:
                 if not commits:
                     raise Failure("failed", "the agent made no change")
                 result["changed"] = check_scope(wt_dir, base, paths)
+                if check_tiers(repo, result["changed"], gated, retryable=True) >= 2 and not args.stop_before_merge:
+                    log("the change touches Tier 2 paths: it will wait for the operator's merge")
+                    args.stop_before_merge = True
+                    result["tier"] = 2
                 renew()
                 base = sync_onto_main(repo, wt_dir, main_branch, base)
                 write_state(tid, base=base)
@@ -633,7 +688,7 @@ def cmd_merge(args) -> int:
         base = st["base"]
         new_base = sync_onto_main(repo, wt_dir, st["main_branch"], base)
         if new_base != base:  # the reviewed change now sits on a different main: check it again
-            check_scope(wt_dir, new_base, st["paths"])
+            check_tiers(repo, check_scope(wt_dir, new_base, st["paths"]), gate_files(repo, st["gates"]), retryable=False)
             run_gates(wt_dir, st["gates"])
         result.update(merged=True, head=ff_merge(repo, st["main_branch"], branch))
     except Failure as f:
