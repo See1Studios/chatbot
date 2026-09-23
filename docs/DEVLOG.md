@@ -2788,3 +2788,12 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
 - **정리**: `*.bak-*` 68개 → `~/archive/2026-09-23-chatbot-bak/`(검증 후 삭제, #41), 매니페스트 재기준(#43).
 - **사고**: 배포 대기 확인이 턴 사이 0.1초 틈에 걸려 사용자 턴 1건 중단(11:58) → 이후 배포는 연속 3회 한가 확인 후 진행.
 - **다음에 볼 것**: 서비스 탭 24h의 repair 호출자(주 240회 원인), `turn.end outcome=process_died`(새 대기 판정 오판 여부).
+
+## 2026-09-23 — 이름·provider 중립화 (NAME_NEUTRAL_v1 #57, PROVIDER_NEUTRAL_v1 #58)
+
+- **배경(사용자)**: "냥피디/실장님은 일반화되지 않은 명칭 — 판별 근거로 유통되지 않게", "실장님은 페르소나가 유저를 부르는 호칭일 뿐", "agy도 프로바이더 중 하나일 뿐".
+- **이름**: 저장·판별값은 역할 ID(`operator`, `chat-agent:<provider>`, `claude-code`…, 코어가 `evolution.ROLE_ID_RE`로 강제), 표시는 identity. 기억 템플릿 `## 사용자`, 규칙 문서는 "사용자". `static/index.html`의 굳은 identity를 `<!--IDENTITY-->`로 복구(e93d52c에서 덮어써짐).
+- **provider**: `AgentSession`, `reap_orphan_agents`, SSE `provider_event`, `CHATBOT_*` 설정(옛 `AGY_CHAT_*` 호환). 어댑터 능력 훅(`oneshot`/`native_compact`/`has_conversation`/`supports_steer`), 미디어 위치 등록부(`media_handler.MediaSource`), provider 특성(`accounts.RECYCLE_ON_LOGIN`/`LOGOUT_NOTES`), 카탈로그(`name`/`theme`/`login`). 서버는 agy 없이도 시작.
+- **발견**: 리팩터 중 아티팩트 탭 `bdir` NameError(미배포 상태에서 잡음), 헌장 번들 예산 초과(5,791/4,800, 기존), `test_account_login`의 환경변수 누수(기존).
+- **재발 방지**: `NameNeutralityGuard`(금지 이름은 인스턴스 identity에서), `tests/test_provider_neutrality.py`(provider 목록은 어댑터 등록부에서). 설계서 §7-8, §7-9.
+- **사고**: 배포 확인 중 서버 환경변수를 거르지 않고 출력해 OmniRoute API 키가 세션 출력에 노출 → 교체 권고.
