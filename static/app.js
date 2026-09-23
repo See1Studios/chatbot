@@ -5349,7 +5349,12 @@ function providerCreditLabel(p) {
 const STAGE_BG_CACHE = 'v=1';
 function updateStageBackground(providerId) {
   const pid = providerId || defaultProviderId;
-  const candidate = `/chat/persona/providers/bg/${pid}.webp?${STAGE_BG_CACHE}`;
+  // the open character's own background for this brain (characters/<id>/stage/<provider>.webp, else stage.webp),
+  // else the neutral studio; never another character's picture
+  const ch = typeof currentCharacter === 'function' ? currentCharacter() : null;
+  const candidate = ch && ch.stage_v
+    ? BASE_PATH + '/api/characters/' + encodeURIComponent(ch.id) + '/stage?provider=' + encodeURIComponent(pid) + '&v=' + ch.stage_v
+    : (ch ? `/chat/persona/bg-studio.webp?v=1` : `/chat/persona/providers/bg/${pid}.webp?${STAGE_BG_CACHE}`);
   const fallback = `/chat/persona/bg-studio.webp?v=1`;
   const img = new Image();
   img.onload = () => {
@@ -5406,7 +5411,10 @@ function initialAvatar(name) {
 }
 function characterPortrait(c, p) {
   if (!c) return portraitUrl(p);
-  return '/api/characters/' + encodeURIComponent(c.id) + '/avatar?provider=' + encodeURIComponent((p && p.id) || '');
+  if (!c.avatar_v) return initialAvatar(c.name || c.title);
+  // the page's base path, like every other API call (api()); without it the hub's /chat/ page got 404s
+  return BASE_PATH + '/api/characters/' + encodeURIComponent(c.id) + '/avatar?provider=' + encodeURIComponent((p && p.id) || '')
+    + '&v=' + c.avatar_v;
 }
 async function loadCharacters() {
   try {
@@ -5436,9 +5444,10 @@ function renderProviderTray() {
     btn.title = credit + (blockReason ? ' · ' + blockReason : '');
 
     const img = document.createElement('img');
-    img.src = portraitUrl(p);
+    const who = currentCharacter();                 // the open character wearing this brain's wig
+    img.onerror = () => { img.onerror = null; img.src = who ? initialAvatar(who.name || who.title) : '/chat/persona/face-icon.png'; };
+    img.src = who ? characterPortrait(who, p) : portraitUrl(p);
     img.alt = credit;
-    img.onerror = () => { img.src = '/chat/persona/face-icon.png'; };
 
     const tip = document.createElement('span');
     tip.className = 'provider-tooltip';
@@ -5645,7 +5654,12 @@ function renderCharacterTray() {
 function toggleCharacterTray(force) {
   if (!characterTrayEl) return;
   const willShow = typeof force === 'boolean' ? force : characterTrayEl.hidden;
-  if (willShow) { renderCharacterTray(); toggleProviderTray(false); }
+  if (willShow) {
+    renderCharacterTray();
+    toggleProviderTray(false);
+    // the list may be stale (a failed boot load, new characters or art): refresh it while the tray is open
+    loadCharacters().then(() => { if (!characterTrayEl.hidden) renderCharacterTray(); updateBrandAvatar(providerEl ? providerEl.value : ''); });
+  }
   characterTrayEl.hidden = !willShow;
   if (brandAvatarEl) brandAvatarEl.setAttribute('aria-expanded', String(willShow));
 }

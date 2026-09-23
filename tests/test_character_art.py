@@ -56,6 +56,8 @@ class ArtFormat(unittest.TestCase):
         self.img("sprites/full/grin.webp", (1024, 2048), alpha=True)
         self.img("sprites/side/neutral.webp", (1024, 1024), alpha=True)
         self.img("sprites/full/joy.png", (1024, 2048), alpha=True)
+        self.img("stage/agy.webp", (1024, 1024))
+        self.img("stage/claude.webp", (512, 512))
         self.assertEqual(sorted(self.check()), sorted([
             "avatar/nope.webp: unknown provider 'nope'",
             "avatar/claude.webp: 256x256, must be 512x512",
@@ -64,6 +66,7 @@ class ArtFormat(unittest.TestCase):
             "sprites/full/neutral.webp: needs a transparent background",
             "sprites/full/grin.webp: unknown expression 'grin'",
             "sprites/full/joy.png: a .png master needs its .webp beside it (the page serves .webp)",
+            "stage/claude.webp: 512x512, must be 1024x1024",
         ]))
 
     def test_the_skill_and_the_code_agree(self):

@@ -275,22 +275,34 @@ def _character_list() -> list:
     for c in characters.listing():
         disp = (characters.ext(c["card"]).get("display") or {})
         name = ((c["card"].get("data") or {}).get("name") or "").strip()
+        base = characters.card_path(c["id"]).parent
+        art_v = {}
+        for kind in ("avatar", "stage"):
+            files = [f for f in [base / (kind + ".webp"), base / (kind + ".png")] + sorted((base / kind).glob("*.*"))
+                     if f.is_file()] if base.is_dir() else []
+            art_v[kind] = int(max(f.stat().st_mtime for f in files)) if files else 0
         out.append({"id": c["id"], "session_character": c["id"], "roles": c["roles"], "role": c["role"],
-                    "default": c["id"] == default, "name": name, "title": disp.get("title") or name})
+                    "default": c["id"] == default, "name": name, "title": disp.get("title") or name,
+                    # a version for the picture URLs: new art shows at once; 0 = no picture yet (the page draws
+                    # the initial without asking)
+                    "avatar_v": art_v["avatar"], "stage_v": art_v["stage"]})
     out.sort(key=lambda x: not x["default"])
     return out
 
 
-def _character_avatar(cid: str, provider: str):
-    """characters/<id>/avatar/<provider>.webp|png, else characters/<id>/avatar.webp|png, else None."""
+def _character_avatar(cid: str, provider: str, kind: str = "avatar"):
+    """characters/<id>/<kind>/<provider>.webp|png, else characters/<id>/<kind>.webp|png, else None. `kind` is
+    avatar (the badge) or stage (the chat background)."""
+    if kind not in ("avatar", "stage"):
+        return None
     import characters
     if not characters.ID_RE.match(cid or ""):
         return None
     base = characters.card_path(cid).parent
     names = []
     if re.fullmatch(r"[a-z0-9_-]{1,32}", provider or ""):
-        names += ["avatar/%s.webp" % provider, "avatar/%s.png" % provider]
-    names += ["avatar.webp", "avatar.png"]
+        names += ["%s/%s.webp" % (kind, provider), "%s/%s.png" % (kind, provider)]
+    names += ["%s.webp" % kind, "%s.png" % kind]
     return next((base / n for n in names if (base / n).is_file()), None)
 
 
@@ -521,9 +533,10 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if path == "/api/characters":
             code, body = _json_bytes({"characters": _character_list()})
             return self._send(code, body, "application/json; charset=utf-8")
-        if path.startswith("/api/characters/") and path.endswith("/avatar"):
-            img = _character_avatar(path[len("/api/characters/"):-len("/avatar")],
-                                    parse_qs(parsed.query).get("provider", [""])[0])
+        if path.startswith("/api/characters/") and (path.endswith("/avatar") or path.endswith("/stage")):
+            kind = path.rsplit("/", 1)[1]
+            img = _character_avatar(path[len("/api/characters/"):-len("/" + kind)],
+                                    parse_qs(parsed.query).get("provider", [""])[0], kind)
             if img is None:
                 return self._send(404, b"no avatar", "text/plain")
             ctype = "image/webp" if img.suffix == ".webp" else "image/png"

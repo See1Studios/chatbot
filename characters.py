@@ -446,6 +446,7 @@ def parse_memory_lines(text: str) -> List[str]:
 # the card so they travel with it:
 #   avatar.webp                  512x512 badge, the base look, face centred, readable as a 56px circle
 #   avatar/<provider>.webp       512x512, optional "wig" per brain: same face, only hair colour/cut and outfit change
+#   stage.webp, stage/<provider>.webp  1024x1024, optional chat background (per brain, like the wigs)
 #   sprites/<framing>/<label>.webp  optional standing sprites for a character-only (desktop) view with speech
 #                                bubbles: transparent, one canvas and one anchor per framing, the same scale for every
 #                                label so swapping an expression never moves the body. Labels are SillyTavern's
@@ -455,6 +456,8 @@ def parse_memory_lines(text: str) -> List[str]:
 
 ART_SIZE = (512, 512)
 ART_MAX_BYTES = 200 * 1024
+STAGE_SIZE = (1024, 1024)
+STAGE_MAX_BYTES = 300 * 1024
 # framing -> (canvas, max bytes, anchor rule for the skill)
 FRAMINGS = {
     "bust": ((1024, 1024), 400 * 1024, "shoulder shot: shoulders cut by the bottom edge, top of the head ~8% from the top"),
@@ -490,7 +493,9 @@ def check_art(cid: str, providers=(), ws=None) -> List[str]:
         problems.append("visual.md is missing (the visual lock sheet)")
     # (file, canvas, max bytes, needs transparency)
     files = [(base / n, ART_SIZE, ART_MAX_BYTES, False) for n in ("avatar.webp", "avatar.png")]
-    dirs = [("avatar", set(providers), "provider", ART_SIZE, ART_MAX_BYTES, False)]
+    files += [(base / n, STAGE_SIZE, STAGE_MAX_BYTES, False) for n in ("stage.webp", "stage.png")]
+    dirs = [("avatar", set(providers), "provider", ART_SIZE, ART_MAX_BYTES, False),
+            ("stage", set(providers), "provider", STAGE_SIZE, STAGE_MAX_BYTES, False)]
     sprites = base / "sprites"
     for d in sorted(sprites.iterdir()) if sprites.is_dir() else []:
         if d.name not in FRAMINGS:

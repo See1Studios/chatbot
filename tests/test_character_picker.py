@@ -79,6 +79,11 @@ class Picker(unittest.TestCase):
         self.assertEqual(server._character_avatar(self.lulu, "agy"), base / "avatar" / "agy.webp")
         self.assertEqual(server._character_avatar(self.lulu, "../../x").name, "avatar.webp")
         self.assertIsNone(server._character_avatar("../" + self.lulu, "agy"))
+        self.assertIsNone(server._character_avatar(self.lulu, "agy", "stage"))          # backgrounds are their own
+        (base / "stage").mkdir()
+        (base / "stage" / "agy.webp").write_bytes(b"z")
+        self.assertEqual(server._character_avatar(self.lulu, "agy", "stage"), base / "stage" / "agy.webp")
+        self.assertIsNone(server._character_avatar(self.lulu, "agy", "card.json"))
 
     def test_a_character_s_work_bundle_is_its_own(self):
         text = I.build_instruction_bundle(character=self.lulu)["text"]
@@ -99,6 +104,17 @@ class Picker(unittest.TestCase):
         self.assertEqual((res["success"], res["message"]), (False, mcp_core.STAFF_MEMORY_CLOSED))
         res = mcp_core.call("memory", {"action": "show"}, self.tmp, server.re.compile("x^"), staff=True)
         self.assertNotEqual(res["message"], mcp_core.STAFF_MEMORY_CLOSED)   # everyone reads the house memory
+
+
+class PageUrls(unittest.TestCase):
+    def test_every_api_url_built_outside_api_carries_the_base_path(self):
+        import re
+        src = (Path(__file__).resolve().parent.parent / "static" / "app.js").read_text(encoding="utf-8")
+        for m in re.finditer(r"(\S+)\s*\+?\s*'/api/", src):
+            line = src[src.rfind("\n", 0, m.start()) + 1:src.find("\n", m.end())]
+            if "api(" in line or line.strip().startswith("//"):
+                continue                                   # api() adds the base path itself
+            self.assertIn("BASE_PATH", line, line.strip())
 
 
 if __name__ == "__main__":

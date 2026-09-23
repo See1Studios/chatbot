@@ -16,6 +16,7 @@ Next to the card, so they travel with it: `data/workspace/characters/<id>/`
 |---|---|---|
 | `avatar.webp` | 512x512 | The base look. Face centred; it must read as a 56px circle. Required. |
 | `avatar/<provider>.webp` | 512x512 | Optional "wig" for one brain (`agy`, `claude`, `codex`, `grok`, `omniroute`, `openrouter`). Same face; only hair colour, cut and outfit change. Missing = the base look is used. |
+| `stage.webp`, `stage/<provider>.webp` | 1024x1024 | Optional chat background, one per brain like the wigs (same face and wig as that brain's badge). Missing = the neutral studio background. |
 | `sprites/bust/<label>.webp` | 1024x1024, transparent | Optional shoulder shot: shoulders cut by the bottom edge, top of the head about 8% from the top. |
 | `sprites/full/<label>.webp` | 1024x2048, transparent | Optional full body: feet on a line 2% above the bottom edge, centred. |
 | `visual.md` | text | The lock sheet. Required. |
@@ -24,7 +25,7 @@ Next to the card, so they travel with it: `data/workspace/characters/<id>/`
   framing every label uses the same canvas, anchor and scale, so swapping an expression never moves the body:
   make `neutral` first and derive the others from it by editing the face only. `neutral` is required once a
   framing exists. Sprites use the base look; per-brain wig sprites are not part of the format yet.
-- Size caps for `.webp`: avatar 200 KB, bust 400 KB, full 800 KB. A `.png` master of the same name may sit beside
+- Size caps for `.webp`: avatar 200 KB, stage 300 KB, bust 400 KB, full 800 KB. A `.png` master of the same name may sit beside
   a `.webp`.
 - Sprite labels are SillyTavern's expression-sprite labels, so imported sprite packs fit:
   admiration, amusement, anger, annoyance, approval, caring, confusion, curiosity, desire, disappointment,
