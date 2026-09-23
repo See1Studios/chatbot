@@ -3663,7 +3663,7 @@ function bindEvents(sid) {
     }
 
     if (type === 'result') {
-      loadWork();   // a turn that delegated work shows its card now, not at the next idle poll
+      if (typeof loadWork === 'function') loadWork();   // a turn that delegated work shows its card now
       // QUOTA_SILENT_FIX_v1: result residual error
       if (text) assistantBuf = text;
       if (assistantNode) delete assistantNode.dataset.progress;
