@@ -3,6 +3,8 @@
  "approved_at": "2026-09-23 20:11:41",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "claude-code",
+ "closed_reason": "done",
  "created": "2026-09-23 20:11:30",
  "evidence": [
   "event:20260923-195012-53774d#16"
@@ -10,7 +12,6 @@
  "gate_failures": 0,
  "id": 84,
  "merge_approved_by": "operator (ui)",
- "merge_pending": true,
  "notes": [
   {
    "by": "operator (ui)",
@@ -46,14 +47,29 @@
    "by": "operator (ui)",
    "text": "merge refused: author lock is held for ticket 85",
    "ts": "2026-09-23 20:15:02"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-23 20:29:38"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done: merged a36561a on the operator's word (claude)",
+   "ts": "2026-09-23 20:29:48"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done",
+   "ts": "2026-09-23 20:29:48"
   }
  ],
  "paths": [
   "data/workspace/.agents/skills/character-chat/sessions/yerin-1789982201.json"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "data/workspace/.agents/skills/character-chat/sessions/yerin-1789982201.json",
  "title": "character-chat 잔재 디렉터리 정리",
- "updated": "2026-09-23 20:15:02",
+ "updated": "2026-09-23 20:29:48",
  "worked_by": "claude-code"
 }
