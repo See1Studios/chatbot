@@ -1,7 +1,7 @@
 """Worktree delegation, host side (docs/plans/multi-agent-worktree-delegation.md §9-10, PD_PLAN_v1).
 
 The chatbot is the PD. The operator proposes; the PD (the chat agent, `delegate` tool) submits a plan:
-tasks for its expert characters (`PERSONA-<role>.md`). Nothing runs until the operator says so, and
+tasks for its expert characters (`experts/<role>/`). Nothing runs until the operator says so, and
 nothing lands until the operator says so again:
 
   plan (awaiting_go) -> [실행] go -> tasks in order, each worked by its expert and confirmed by the PD
@@ -92,9 +92,10 @@ _ROLE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 
 
 def experts() -> List[str]:
-    """The expert roles this instance has: one `PERSONA-<role>.md` each in the workspace."""
-    ws = DATA / "workspace"
-    return sorted(f.stem[len("PERSONA-"):] for f in ws.glob("PERSONA-*.md") if _ROLE_RE.match(f.stem[len("PERSONA-"):]))
+    """The expert roles this instance has: one folder `experts/<role>/` with an `expert.md` each (`_proposed` and
+    other names that are not role ids are not experts)."""
+    ws = DATA / "workspace" / "experts"
+    return sorted(f.parent.name for f in ws.glob("*/expert.md") if _ROLE_RE.match(f.parent.name))
 
 
 def _tasks(raw) -> List[Dict]:
@@ -316,6 +317,7 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                     "head": st.get("head", ""), "updated": st.get("updated", ""),
                     "started": st.get("started", 0), "phase_since": st.get("phase_since", 0),
                     "task": st.get("task", 0), "tasks_total": st.get("tasks_total", 0),
+                    "brain": st.get("brain", ""),
                     "stalled_in": st.get("phase", "") if phase == "stalled" else "",
                     "tasks": [{k: t.get(k) for k in ("role", "title", "paths")}
                               for t in (st.get("plan") or {}).get("tasks", [])],

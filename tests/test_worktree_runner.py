@@ -67,14 +67,18 @@ class WorktreeRunner(unittest.TestCase):
         self.calls = base / "calls.jsonl"
         (base / "tq.py").write_text(FAKE_TICKET)
         self.base = base
-        self.saved = (wr.CHATBOT_REPO, wr.WORKTREE_BASE, wr.TICKET_QUICK, wr.DEFAULT_GATES, dict(wr.PROVIDERS), wr.persona)
+        self.saved = (wr.CHATBOT_REPO, wr.WORKTREE_BASE, wr.TICKET_QUICK, wr.DEFAULT_GATES, dict(wr.PROVIDERS), wr.persona,
+                      wr.workspace_dir)
+        self.ws = base / "ws"                       # experts/<role>/brain.json and pd-brain.json for this test
+        wr.workspace_dir = lambda: self.ws
         wr.persona = lambda role="": {"name": "S" if role == "staff" else "P", "label": role or "pd", "voice": "", "body": ""}
         wr.CHATBOT_REPO, wr.WORKTREE_BASE = self.repo, base / "wt"
         wr.TICKET_QUICK = [sys.executable, str(base / "tq.py"), str(self.calls), str(self.repo)]
         wr.DEFAULT_GATES = ["python3 tests/smoke.py"]
 
     def tearDown(self) -> None:
-        wr.CHATBOT_REPO, wr.WORKTREE_BASE, wr.TICKET_QUICK, wr.DEFAULT_GATES, providers, wr.persona = self.saved
+        (wr.CHATBOT_REPO, wr.WORKTREE_BASE, wr.TICKET_QUICK, wr.DEFAULT_GATES, providers, wr.persona,
+         wr.workspace_dir) = self.saved
         wr.PROVIDERS.clear()
         wr.PROVIDERS.update(providers)
         self.tmp.cleanup()
@@ -391,6 +395,51 @@ class WorktreeRunner(unittest.TestCase):
             if "-p" in cmd:
                 self.assertEqual(cmd[-1], "-p", (name, cmd))
                 self.assertEqual(cmd[cmd.index(spec["model_flag"]) + 1], "some-model")
+
+    # ---- brains: each expert's ordered list, falling through on quota, limit, missing CLI or timeout
+
+    def brains(self, name, chain):
+        path = self.ws / ("pd-brain.json" if name == "pd" else "experts/%s/brain.json" % name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"chain": chain}))
+
+    def add_provider(self, name, script, review=PASS):
+        wr.PROVIDERS[name] = {"argv": ["sh", "-c", script], "review_argv": ["sh", "-c", review], "model_flag": "-m",
+                              "actor": "fake-agent", "author": ("Fake", "fake@localhost")}
+
+    def test_a_brain_out_of_quota_hands_the_turn_to_the_next(self) -> None:
+        self.add_provider("broke", "echo 'Error: quota exceeded, resets 8pm' >&2; exit 1")
+        self.add_provider("good", "echo two >> a.txt && git commit -qam c")
+        self.brains("staff", [{"provider": "broke"}, {"provider": "good", "model": "m2"}])
+        self.assertEqual(self.run_with("exit 9"), 0)        # --provider is only the default when no list exists
+        line = wr.read_state(7)["transcript"][0]
+        self.assertEqual((line["brain"], line["skipped"]), ("good/m2", ["broke/default"]))
+
+    def test_a_brain_that_hangs_times_out_to_the_next(self) -> None:
+        self.add_provider("slow", "sleep 5")
+        self.add_provider("good", "echo two >> a.txt && git commit -qam c")
+        self.brains("staff", [{"provider": "slow", "timeout": 1}, {"provider": "good"}])
+        self.assertEqual(self.run_with("exit 9"), 0)
+
+    def test_a_real_failure_does_not_fall_through(self) -> None:
+        self.add_provider("broken", "echo 'SyntaxError in your code' >&2; exit 1")
+        self.add_provider("good", "echo two >> a.txt && git commit -qam c")
+        self.brains("staff", [{"provider": "broken"}, {"provider": "good"}])
+        self.assertEqual(self.run_with("exit 9"), 1)
+        self.assertIn("broken/default", wr.read_state(7)["reason"])
+
+    def test_the_pd_confirmation_has_its_own_list(self) -> None:
+        self.add_provider("pdbroke", "true", review="echo 'rate limit reached' >&2; exit 1")
+        self.add_provider("pdok", "true", review=PASS)
+        self.brains("pd", [{"provider": "pdbroke"}, {"provider": "pdok", "model": "pro"}])
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c"), 0)
+        line = wr.read_state(7)["transcript"][1]
+        self.assertEqual((line["role"], line["brain"], line["skipped"]), ("reviewer", "pdok/pro", ["pdbroke/default"]))
+
+    def test_an_unusable_list_falls_back_to_the_command_line(self) -> None:
+        self.brains("staff", [{"provider": "no-such-cli"}])
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c"), 0)
+        self.assertEqual(wr.read_state(7)["transcript"][0]["brain"], "fake/default")
 
 
 if __name__ == "__main__":

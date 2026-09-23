@@ -22,7 +22,7 @@
   1. ticket-quick start  -> TICKET_ID, CLAIM_TOKEN (승인 + 클레임, 대상 경로가 메인에서 clean해야 함)
   2. git worktree add -b worktree/ticket-<ID> ~/.worktrees/chatbot/ticket-<ID> <main HEAD>
   3. 라운드 (최대 --rounds):
-     a. 스태프(PERSONA-staff.md 캐릭터)가 헤드리스로 작업·커밋하고 캐릭터 대사 한마디를 남긴다
+     a. 전문가(data/workspace/experts/<role>/ 캐릭터)가 헤드리스로 작업·커밋하고 캐릭터 대사 한마디를 남긴다
         (미커밋 변경은 러너가 대신 커밋, 커밋 author는 제공자 신원)
      b. 기계 게이트: 커밋 존재 -> 범위(--paths 밖 변경 금지) -> 리스 연장 -> 메인 최신화(rebase)
         -> smoke + 중립성 가드 테스트 (DEFAULT_GATES) + --gate 명령들
@@ -64,7 +64,7 @@ REVIEW_TIMEOUT = 300
 GATE_TIMEOUT = 600
 TAIL_LINES = 30
 DIFF_LIMIT = 15000
-WORKER_ROLE = "staff"          # PERSONA-staff.md does the work; the chatbot's own persona (the PD) confirms it
+WORKER_ROLE = "staff"          # the default expert (experts/staff/); the chatbot's own persona (the PD) confirms
 TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
 
 # Provider registry: how to run each CLI headless as the worker (`argv`), as the worker again in the same
@@ -403,7 +403,7 @@ def work_command(provider: str, wt_dir: Path, model: str, resume: bool = False) 
     return with_flags(argv, flags)
 
 
-def run_review(provider: str, model: str, wt_dir: Path, prompt: str) -> Dict[str, str]:
+def run_review(provider: str, model: str, wt_dir: Path, prompt: str, timeout: int = 0) -> Dict[str, str]:
     argv = review_command(provider, model)
     if not shutil.which(argv[0]):
         raise Failure("failed", "reviewer CLI %s not installed" % argv[0])
@@ -412,10 +412,66 @@ def run_review(provider: str, model: str, wt_dir: Path, prompt: str) -> Dict[str
     empty = WORKTREE_BASE / "review-room"          # one fixed room, emptied each time
     shutil.rmtree(empty, ignore_errors=True)
     empty.mkdir(parents=True, exist_ok=True)
-    code, out, err = run_cmd(argv + [prompt], cwd=empty, timeout=REVIEW_TIMEOUT, env=clean_env())
+    code, out, err = run_cmd(argv + [prompt], cwd=empty, timeout=timeout or REVIEW_TIMEOUT, env=clean_env())
     if code != 0:
         raise Failure("failed", "reviewer %s exited with %s" % (provider, code), tail(err or out))
     return parse_review(out)
+
+
+# ------------------------------------------------------------------- brains
+# Each expert has an ordered list of brains (experts/<role>/brain.json); the PD's confirmation has its own
+# (pd-brain.json). A brain that is out of quota, rate-limited, missing or silent past its timeout hands the turn to
+# the next one (docs/plans/multi-agent-worktree-delegation.md §11). The operator sets the lists; the PD cannot.
+
+UNAVAILABLE_RE = re.compile(r"quota|rate.?limit|usage limit|session limit|limit reached|resets? (at|in)|\b429\b|"
+                            r"exhausted|capacity|overloaded|too many requests|timed out|not installed", re.I)
+
+
+def review_with_chain(chain: List[Dict], wt_dir: Path, prompt: str, renew) -> tuple:
+    """The PD's confirmation on the first brain that can give it. Returns (review, brain, skipped labels)."""
+    skipped = []
+    for i, b in enumerate(chain):
+        try:
+            return run_review(b["provider"], b["model"], wt_dir, prompt, b["timeout"]), b, skipped
+        except Failure as f:
+            if i + 1 < len(chain) and unavailable(f.reason + "\n" + f.detail, 0):
+                skipped.append(brain_label(b))
+                log("PD brain %s unavailable; next %s" % (brain_label(b), brain_label(chain[i + 1])))
+                renew()
+                continue
+            raise
+    raise Failure("failed", "no PD brain configured")
+
+
+def workspace_dir() -> Path:
+    """This instance's workspace (host_config), where experts/ and pd-brain.json live."""
+    try:
+        return host_module("host_config").WORKSPACE
+    except Exception:  # noqa: BLE001
+        return CODE_DIR / "data" / "workspace"
+
+
+def load_chain(path: Path, default: List[Dict]) -> List[Dict]:
+    """The brains in `path` ({"chain": [{"provider", "model", "timeout"?}]}); `default` when missing or unusable."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8")).get("chain")
+    except (OSError, ValueError, AttributeError):
+        return default
+    chain = []
+    for b in raw if isinstance(raw, list) else []:
+        if isinstance(b, dict) and b.get("provider") in PROVIDERS:
+            chain.append({"provider": b["provider"], "model": str(b.get("model") or ""),
+                          "timeout": int(b.get("timeout") or 0)})
+    return chain or default
+
+
+def brain_label(b: Dict) -> str:
+    return "%s/%s" % (b["provider"], b["model"] or "default")
+
+
+def unavailable(text: str, returncode) -> bool:
+    """A brain that could not work (quota, limit, missing CLI, timeout), as opposed to one that tried and failed."""
+    return returncode in (None, -1) or bool(UNAVAILABLE_RE.search(text or ""))
 
 
 # --------------------------------------------------------------- transcript
@@ -666,8 +722,10 @@ def cmd_run(args) -> int:
             except RuntimeError as e:
                 raise Failure("failed", "author lease lost during the run", str(e))
 
+        pd_chain = load_chain(workspace_dir() / "pd-brain.json",
+                              [{"provider": reviewer, "model": args.reviewer_model, "timeout": 0}]) if reviewer else []
+
         # 3. tasks in order; each: the expert works -> gates -> the PD confirms (up to --rounds)
-        can_resume = bool(PROVIDERS[provider].get("continue_argv"))
         for tno, task in enumerate(tasks, 1):
             writer_p = persona(task["role"])
             task_base = git(wt_dir, "rev-parse", "HEAD")[1]
@@ -676,23 +734,43 @@ def cmd_run(args) -> int:
             brief = writer_prompt(tid, task["title"], branch, wt_dir, task["paths"], gates, head_line + task["instruction"],
                                   character_block(writer_p, reviewer_p, STAFF_RELATION))
             feedback = ""
+            chain = load_chain(workspace_dir() / "experts" / task["role"] / "brain.json",
+                               [{"provider": provider, "model": args.model, "timeout": 0}])
+            bi, last_brain = 0, None
             for rnd in range(1, args.rounds + 1):
                 if rnd > 1 or tno > 1:
                     renew()
-                prompt = brief if rnd == 1 else retry_prompt(feedback, None if can_resume else brief)
-                write_state(tid, phase="writing", task=tno, round=rnd, phase_since=time.time())
-                log("task %d/%d round %d: running %s (timeout %ds)..." % (tno, len(tasks), rnd, provider, args.timeout))
-                res = run_agent(provider, wt_dir, prompt, args.timeout, resume=rnd > 1, model=args.model)
-                result["agent"] = {k: res[k] for k in ("ok", "returncode", "elapsed_sec")}
-                log("%s finished in %ss (exit %s)" % (provider, res["elapsed_sec"], res["returncode"]))
-                if not res["ok"]:
-                    raise Failure("failed", "agent %s exited with %s" % (provider, res["returncode"]),
+                skipped = []
+                while True:
+                    b = chain[bi]
+                    resume = rnd > 1 and b == last_brain and bool(PROVIDERS[b["provider"]].get("continue_argv"))
+                    prompt = brief if rnd == 1 else retry_prompt(feedback, None if resume else brief)
+                    write_state(tid, phase="writing", task=tno, round=rnd, brain=brain_label(b), phase_since=time.time())
+                    timeout = b["timeout"] or args.timeout
+                    log("task %d/%d round %d: running %s (timeout %ds)..." % (tno, len(tasks), rnd, brain_label(b), timeout))
+                    res = run_agent(b["provider"], wt_dir, prompt, timeout, resume=resume, model=b["model"])
+                    result["agent"] = {k: res[k] for k in ("ok", "returncode", "elapsed_sec")}
+                    log("%s finished in %ss (exit %s)" % (brain_label(b), res["elapsed_sec"], res["returncode"]))
+                    if res["ok"]:
+                        break
+                    why = tail(res["stderr"] or res["stdout"], 5)
+                    if unavailable(why, res["returncode"]) and bi + 1 < len(chain):
+                        skipped.append(brain_label(b))
+                        log("%s unavailable; next brain %s" % (brain_label(b), brain_label(chain[bi + 1])))
+                        bi += 1
+                        renew()
+                        continue
+                    raise Failure("failed", "agent %s exited with %s" % (brain_label(b), res["returncode"]),
                                   tail(res["stderr"] or res["stdout"]))
-                transcript.append({"task": tno, "round": rnd, "role": "writer", "name": writer_p["name"],
-                                   "text": said(res["stdout"])})
+                last_brain = b
+                line = {"task": tno, "round": rnd, "role": "writer", "name": writer_p["name"],
+                        "text": said(res["stdout"]), "brain": brain_label(b)}
+                if skipped:
+                    line["skipped"] = skipped
+                transcript.append(line)
 
                 write_state(tid, phase="gates", transcript=transcript, phase_since=time.time())
-                if commit_leftovers(wt_dir, provider, tid):
+                if commit_leftovers(wt_dir, b["provider"], tid):
                     log("committed changes the agent left uncommitted")
                 gate_error = None
                 try:
@@ -715,11 +793,14 @@ def cmd_run(args) -> int:
                     break
                 write_state(tid, phase="review", phase_since=time.time())
                 _, diff, _ = git(wt_dir, "diff", task_base + "..HEAD")
-                rv = run_review(reviewer, args.reviewer_model, wt_dir,
-                                review_prompt(tid, task["title"], task["instruction"], transcript[-1]["text"], diff,
-                                              gate_error, character_block(reviewer_p, writer_p, PD_RELATION)))
+                rv, rb, rskipped = review_with_chain(pd_chain, wt_dir,
+                                                     review_prompt(tid, task["title"], task["instruction"],
+                                                                   transcript[-1]["text"], diff, gate_error,
+                                                                   character_block(reviewer_p, writer_p, PD_RELATION)),
+                                                     renew)
                 verdict = "FAIL" if gate_error else rv["verdict"]
                 transcript.append({"task": tno, "round": rnd, "role": "reviewer", "name": reviewer_p["name"],
+                                   "brain": brain_label(rb), **({"skipped": rskipped} if rskipped else {}),
                                    "text": rv["say"], "verdict": verdict, "fix": rv["fix"], "raw": rv["raw"]})
                 log("task %d round %d: review %s" % (tno, rnd, verdict))
                 write_state(tid, transcript=transcript)

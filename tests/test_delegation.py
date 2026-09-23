@@ -24,7 +24,10 @@ class Base(unittest.TestCase):
         obs = self.data / "workspace" / "skill-observations"
         obs.mkdir(parents=True)
         (obs / "candidates.jsonl").write_text(json.dumps({"epoch": 1789908287.39}) + "\n", encoding="utf-8")
-        (self.data / "workspace" / "PERSONA-staff.md").write_text("---\npersona: S\n---\n", encoding="utf-8")
+        (self.data / "workspace" / "experts" / "staff").mkdir(parents=True)
+        (self.data / "workspace" / "experts" / "staff" / "expert.md").write_text("---\npersona: S\n---\n", encoding="utf-8")
+        (self.data / "workspace" / "experts" / "_proposed" / "ad").mkdir(parents=True)     # not an expert yet
+        (self.data / "workspace" / "experts" / "_proposed" / "ad" / "expert.md").write_text("x", encoding="utf-8")
         r = delegation.runner()
         self.saved = (delegation.DATA, delegation.SEEN_FILE, delegation._spawn, r.WORKTREE_BASE,
                       r.cleanup_worktree, r.commit_ticket_record)

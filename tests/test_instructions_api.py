@@ -19,7 +19,8 @@ class InstructionsApiTest(unittest.TestCase):
         self.ws = self.root / "data" / "workspace"
         (self.ws / "memory").mkdir(parents=True)
         for name, text in (("AGENTS.md", "charter"), ("PERSONA.md", "persona"), ("PROJECT.md", "procedure"),
-                           ("SELF-MODIFY.md", "boundary"), ("PERSONA-staff.md", "staff")):
+                           ("SELF-MODIFY.md", "boundary"), ("experts/staff/expert.md", "staff")):
+            (self.ws / name).parent.mkdir(parents=True, exist_ok=True)
             (self.ws / name).write_text(text, encoding="utf-8")
         (self.ws / "memory" / "MEMORY.md").write_text("# Memory\n- a fact\n", encoding="utf-8")
         (self.root / "protected_paths.json").write_text(json.dumps(
@@ -43,7 +44,7 @@ class InstructionsApiTest(unittest.TestCase):
         self.assertEqual({k: (v["layer"], v["editable"]) for k, v in items.items() if v["kind"] == "file"}, {
             "AGENTS.md": ("always", False), "PERSONA.md": ("always", True), "MEMORY.md": ("always", True),
             "PROJECT.md": ("on_demand", True), "SELF-MODIFY.md": ("on_demand", False),
-            "PERSONA-staff.md": ("on_demand", True)})
+            "experts/staff/expert.md": ("on_demand", True)})
         self.assertIn("data/workspace/AGENTS.md", items["AGENTS.md"]["reason"])
         self.assertEqual(items["PROJECT.md"]["content"], "procedure")      # whole, not a preview
         for gen in ("skills-index", "status-badge"):
@@ -64,6 +65,11 @@ class InstructionsApiTest(unittest.TestCase):
         self.assertEqual((code, body["ok"]), (200, True))
         self.assertEqual((self.ws / "PROJECT.md").read_text(), "new procedure")
         self.assertTrue(list(self.ws.glob("PROJECT.md.bak-selfstatus-*")))
+
+    def test_an_expert_file_id_arrives_url_encoded(self):
+        code, _ = W.instructions_api("PUT", "/api/instructions/experts%2Fstaff%2Fexpert.md", {"content": "new staff"})
+        self.assertEqual(code, 200)
+        self.assertEqual((self.ws / "experts" / "staff" / "expert.md").read_text(), "new staff")
 
     def test_memory_is_saved_under_its_lock_and_cap(self):
         self.assertEqual(self.put("MEMORY.md", "# Memory\n- edited\n")[0], 200)

@@ -11,8 +11,8 @@ name is hardcoded here or in the UI:
                             voice       one-line tone hint for host-built prompts
   PERSONA.md  body                      the personality and tone themselves
 
-A second character with its own role (e.g. the staff member in worktree delegation,
-docs/plans/multi-agent-worktree-delegation.md §8) lives in `PERSONA-<role>.md`
+An expert character with its own role (worktree delegation, docs/plans/
+multi-agent-worktree-delegation.md §11) lives in `experts/<role>/expert.md`
 with the same keys; its `title` falls back to AGENTS.md. The role is an id, the
 name in the file is display only.
 
@@ -89,18 +89,18 @@ def _front(path: Path) -> Dict[str, str]:
 
 
 def persona_file(role: str = "") -> Path:
-    """PERSONA.md for the chatbot itself, PERSONA-<role>.md for a second character."""
+    """PERSONA.md for the chatbot itself, experts/<role>/expert.md for an expert character."""
     if not role:
         return WORKSPACE / "PERSONA.md"
     if not _ROLE_RE.match(role):
         raise ValueError("role must be a lowercase id, got %r" % role[:40])
-    return WORKSPACE / ("PERSONA-%s.md" % role)
+    return WORKSPACE / "experts" / role / "expert.md"
 
 
 def get_identity(role: str = "") -> Dict[str, str]:
     """{title, persona, user_title, voice, name}. `name` is what to call the
     chatbot in running text: the persona if there is one, else the title.
-    With `role`, the character of PERSONA-<role>.md."""
+    With `role`, the expert character of experts/<role>/expert.md."""
     ident: Dict[str, str] = {}
     own = _front(persona_file(role)) if role else {}
     for k, default in DEFAULTS.items():

@@ -9,6 +9,7 @@ import re
 import time
 from pathlib import Path
 from typing import Optional, Tuple
+from urllib.parse import unquote
 
 from artifact_manager import _atomic_write_text
 from host_config import HOME, ROOT, WORKSPACE
@@ -241,8 +242,11 @@ _LAYER_ORDER = {"always": 0, "on_demand": 1}
 
 def _instruction_files() -> list:
     items = [(i, t, WORKSPACE / rel, layer) for i, t, rel, layer in INSTRUCTION_FILES]
-    items += [(f.name, "전문가 캐릭터 (%s)" % f.stem[len("PERSONA-"):], f, "on_demand")
-              for f in sorted(WORKSPACE.glob("PERSONA-*.md"))]
+    for f in sorted((WORKSPACE / "experts").glob("*/expert.md")):
+        role = f.parent.name
+        if role.startswith("_"):
+            continue
+        items.append(("experts/%s/expert.md" % role, "전문가 캐릭터 (%s)" % role, f, "on_demand"))
     return items
 
 
@@ -289,7 +293,7 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
     operator editing from the status tab, so the caller must have checked that it came from this server's own page."""
     if not (path == "/api/instructions" or path.startswith("/api/instructions/")):
         return None
-    rest = path[len("/api/instructions"):].strip("/")
+    rest = unquote(path[len("/api/instructions"):]).strip("/")   # ids like experts/staff/expert.md arrive encoded
     if method == "GET" and rest == "":
         return 200, {"ok": True, "items": agent_instructions()}
     if method != "PUT" or not rest:

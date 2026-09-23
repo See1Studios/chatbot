@@ -1171,6 +1171,7 @@ header .avatar:active{
 .work-who{flex:0 0 auto;font-weight:600;color:var(--accent)}
 .work-line.reviewer .work-who{color:var(--accent2)}
 .work-said{color:var(--text);min-width:0}
+.work-brain{flex:0 0 auto;margin-left:auto;font-size:.68rem;color:var(--muted);font-family:var(--font-mono)}
 .work-actions{display:flex;flex-wrap:wrap;gap:.35rem;justify-content:flex-end}
 .work-plan{margin:0;padding-left:1.2rem;color:var(--muted);line-height:1.5}
 .work-card.phase-awaiting_go{border-color:var(--accent2)}

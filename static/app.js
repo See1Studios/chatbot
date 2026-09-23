@@ -2211,6 +2211,10 @@ function announceWorkEnding(r) {
 function workLine(ln) {
   const row = obsNode('div', 'work-line' + (ln.role === 'reviewer' ? ' reviewer' : ''));
   row.appendChild(obsNode('span', 'work-who', (ln.name || ln.role || '') + (ln.verdict ? ' · ' + ln.verdict : '')));
+  if (ln.brain) {   // which brain spoke; a fallback names the ones that could not (quota, limit, timeout)
+    row.title = ln.brain + (ln.skipped && ln.skipped.length ? ' (대체: ' + ln.skipped.join(' → ') + ' 불가)' : '');
+    row.appendChild(obsNode('span', 'work-brain', ln.brain.split('/').pop() + (ln.skipped && ln.skipped.length ? ' ↩' : '')));
+  }
   row.appendChild(obsNode('span', 'work-said', ln.text || '…'));
   return row;
 }
@@ -2222,7 +2226,8 @@ function renderWorkCard(r) {
   head.appendChild(obsNode('span', 'work-title', r.title || ''));
   const since = r.active && r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : '';
   const step = r.active && r.tasks_total > 1 && r.task ? ' · 작업 ' + r.task + '/' + r.tasks_total : '';
-  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + step + (r.active && r.round ? ' · ' + r.round + '라운드' : '') + since));
+  const brainNow = r.active && r.brain ? ' · ' + r.brain.split('/').pop() : '';
+  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + step + (r.active && r.round ? ' · ' + r.round + '라운드' : '') + brainNow + since));
   card.appendChild(head);
   if (r.phase === 'awaiting_go' || workOpen.has(r.ticket)) {
     const list = obsNode('ol', 'work-plan');
