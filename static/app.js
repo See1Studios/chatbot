@@ -2254,6 +2254,9 @@ function renderWorkCard(r) {
   if (r.phase === 'awaiting_merge') {
     TICKET_DECISIONS.awaiting_merge.forEach(pair => button(pair[1], pair[0] === 'merge', () => fillTicketCommand({ id: r.ticket }, pair[0])));
   }
+  if (r.phase === 'stalled' && r.stalled_in === 'merging') {   // the merge process died: [승인] retries it
+    button('승인 다시', true, () => fillTicketCommand({ id: r.ticket }, 'merge'));
+  }
   if (r.phase === 'done' && r.tier >= 2) {
     const zap = obsNode('button', 'art-btn art-btn-xs primary', '⚡ 소생');
     zap.type = 'button';

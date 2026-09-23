@@ -184,17 +184,24 @@ def rework(ticket_id: int, comment: str) -> Dict:
 
 
 def merge(ticket_id: int) -> Dict:
-    """`[병합·⚡]`: the operator lets the reviewed change land; the runner merges it on its own."""
+    """`[승인]`: the operator lets the reviewed change land; the runner merges it on its own. Also retries a merge
+    whose process died (the card shows it stalled): the dead run's lease is freed first."""
     tid = int(ticket_id)
-    if runner().read_state(tid).get("phase") != "awaiting_merge":
+    st = runner().read_state(tid)
+    raw, phase = st.get("phase"), _phase(st)
+    if not (raw == "awaiting_merge" or (raw == "merging" and phase == "stalled")):
         raise DelegationError("ticket %d has no delegated change awaiting a merge" % tid)
+    lease = tickets._read_lease(DATA)
+    if raw == "merging" and lease and lease.get("ticket") == tid:
+        tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI)   # back to awaiting_merge
     m = tickets.merge_go(DATA, tid, operator=tickets.OPERATOR_UI, actor=worker_role())
+    runner().write_state(tid, phase="merging")   # before the runner starts: it reads this state
     try:
         pid = _spawn(tid, ["merge", "--ticket", str(tid), "--token", m["token"], "--json"])
     except OSError as e:
         tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI)   # back to awaiting_merge
+        runner().write_state(tid, phase="awaiting_merge")
         raise DelegationError("could not start the merge: %s" % e)
-    runner().write_state(tid, phase="merging")
     return {"ticket": tid, "pid": pid}
 
 
@@ -304,6 +311,7 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                     "head": st.get("head", ""), "updated": st.get("updated", ""),
                     "started": st.get("started", 0), "phase_since": st.get("phase_since", 0),
                     "task": st.get("task", 0), "tasks_total": st.get("tasks_total", 0),
+                    "stalled_in": st.get("phase", "") if phase == "stalled" else "",
                     "tasks": [{k: t.get(k) for k in ("role", "title", "paths")}
                               for t in (st.get("plan") or {}).get("tasks", [])],
                     "transcript": st.get("transcript", []), "active": phase in ACTIVE_PHASES,

@@ -134,6 +134,23 @@ class OperatorTest(Base):
         self.assertEqual(args[:3], ["merge", "--ticket", str(tid)])
         self.assertEqual(self.state(tid)["phase"], "merging")
 
+    def test_the_run_is_marked_merging_before_the_runner_starts(self):
+        tid = self.awaiting()
+        seen = []
+        delegation._spawn = lambda t, args: seen.append(self.state(t)["phase"]) or 1
+        delegation.merge(tid)
+        self.assertEqual(seen, ["merging"])
+
+    def test_a_merge_whose_process_died_can_be_retried(self):
+        tid = self.awaiting()
+        delegation.merge(tid)
+        delegation.runner().write_state(tid, pid=999999)          # the merge process is gone
+        card = [r for r in delegation.runs() if r["ticket"] == tid][0]
+        self.assertEqual((card["phase"], card["stalled_in"]), ("stalled", "merging"))
+        delegation.merge(tid)                                      # [승인 다시]
+        self.assertEqual(self.spawned[-1][1][:3], ["merge", "--ticket", str(tid)])
+        self.assertEqual(tickets.get(self.data, tid)["status"], "in_progress")
+
     def test_merge_needs_a_waiting_change(self):
         tid = self.plan([self.task(TIER2)])["ticket"]
         with self.assertRaises(delegation.DelegationError):

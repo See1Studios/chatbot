@@ -247,6 +247,12 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(wr.read_state(7)["phase"], "done")
         self.assert_clean_up()
 
+    def test_merge_runs_when_the_page_already_marked_it_merging(self) -> None:
+        self.waiting()
+        wr.write_state(7, phase="merging")                        # the page marks it before starting us
+        self.assertEqual(wr.main(["merge", "--ticket", "7", "--token", "ui-token"]), 0)
+        self.assertEqual((self.repo / "a.txt").read_text(), "one\ntwo\n")
+
     def test_merge_with_a_relayed_token_skips_merge_go(self) -> None:
         self.waiting()
         self.assertEqual(wr.main(["merge", "--ticket", "7", "--token", "ui-token"]), 0)

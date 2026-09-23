@@ -763,7 +763,8 @@ def cmd_merge(args) -> int:
     word (relayed to the ticket with merge-go) unless --token says it was already given."""
     repo, tid = CHATBOT_REPO, args.ticket
     st = read_state(tid)
-    if not st.get("provider") or st.get("phase") != "awaiting_merge":
+    # "merging": the page marks the run before it starts this process (the operator's word is already given)
+    if not st.get("provider") or st.get("phase") not in ("awaiting_merge", "merging"):
         print("Error: no run of ticket #%d is awaiting a merge (%s)" % (tid, state_path(tid)), file=sys.stderr)
         return 2
     provider, branch, wt_dir = st["provider"], *names(tid)
