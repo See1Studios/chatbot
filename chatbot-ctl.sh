@@ -3,9 +3,10 @@ set -euo pipefail
 # ${HOME_DIR:-...}: this NAS's actual value is the default, but a different
 # deployment can export HOME_DIR before calling this script (see
 # docs/plans/chatbot-host-portability.md) without editing it.
-HOME_DIR="${HOME_DIR:-/volume1/homes/me}"
+HOME_DIR="${HOME_DIR:-${HOME:-/volume1/homes/me}}"
 export PATH="$HOME_DIR/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
-CODE="$HOME_DIR/services/chatbot"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CODE="${CODE:-$SCRIPT_DIR}"
 DATA="$CODE/data"  # consolidated under chatbot/ 2026-09-16
 # API-Provider plan: API-key-based adapters (e.g. omniroute) read credentials
 # from os.environ, not a config file -- server.py is git-tracked, so the key

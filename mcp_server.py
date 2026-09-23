@@ -30,7 +30,7 @@ import obslog
 
 HOST = os.environ.get("NAS_MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))
-HOME = Path(os.environ.get("HOME", "/volume1/homes/me"))
+HOME = Path(os.environ.get("HOME") or "/volume1/homes/me")
 SERVICES = HOME / "services"
 DATA = SERVICES / "chatbot" / "data"  # consolidated under chatbot/ 2026-09-16
 # Same env var as server.py's WEB_ROOT -- only this NAS's actual value

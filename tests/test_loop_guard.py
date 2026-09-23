@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from loop_guard import LoopGuard, extract_tool_calls, extract_tool_steps, is_read_only, output_hash, signature  # noqa: E402
 
-APP = "/volume1/homes/me/services/chatbot/static/app.js"
+APP = str(Path(__file__).resolve().parent.parent / "static" / "app.js")
 
 
 def view(guard, start, end, path=APP, summary="Viewing app.js", output="default"):

@@ -16,14 +16,8 @@ def _env(name: str, legacy: str, default: str) -> str:
     return os.environ.get(name) or os.environ.get(legacy) or default
 
 
-HOST = _env("CHATBOT_HOST", "AGY_CHAT_HOST", "127.0.0.1")
-PORT = int(_env("CHATBOT_PORT", "AGY_CHAT_PORT", "3011"))
-MCP_PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))  # informational only (healthz) -- mcp_server.py reads its own copy
-AGY = os.environ.get("AGY_BIN", "/volume1/homes/me/.local/bin/agy")
-CLAUDE_BIN = _env("CHATBOT_CLAUDE_BIN", "AGY_CLAUDE_BIN", "/volume1/homes/me/.local/bin/claude")
-GROK_BIN = _env("CHATBOT_GROK_BIN", "AGY_GROK_BIN", "/volume1/homes/me/.local/bin/grok")
-CODEX_BIN = _env("CHATBOT_CODEX_BIN", "AGY_CODEX_BIN", "/volume1/homes/me/.local/bin/codex")
-ROOT = Path(_env("CHATBOT_ROOT", "AGY_CHAT_ROOT", "/volume1/homes/me/services/chatbot"))
+HOME = Path(os.environ.get("HOME") or "/volume1/homes/me")
+ROOT = Path(_env("CHATBOT_ROOT", "AGY_CHAT_ROOT", str(Path(__file__).resolve().parent)))
 # 2026-09-16: consolidated from a sibling chatbot-data/ directory (and its
 # own separate git repos) into chatbot/data/ -- one project, one folder, one
 # repo, instead of code and data living apart and needing separate publish
@@ -32,12 +26,19 @@ DATA = Path(_env("CHATBOT_DATA", "AGY_CHAT_DATA", str(ROOT / "data")))
 STATIC = ROOT / "static"
 SESSIONS = DATA / "sessions"
 WORKSPACE = DATA / "workspace"
-HOME = Path(os.environ.get("HOME", "/volume1/homes/me"))
 # Static web host root -- NOT this service's own ROOT/DATA. Only this NAS's
 # actual layout (/volume1/web) is DiskStation-specific; the var itself lets
 # a different deployment point it anywhere (see docs/plans/chatbot-host-portability.md).
 WEB_ROOT = Path(_env("CHATBOT_WEB_ROOT", "AGY_CHAT_WEB_ROOT", "/volume1/web"))
 AGENT_PATH_PREFIX = f"{HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
+
+HOST = _env("CHATBOT_HOST", "AGY_CHAT_HOST", "127.0.0.1")
+PORT = int(_env("CHATBOT_PORT", "AGY_CHAT_PORT", "3011"))
+MCP_PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))  # informational only (healthz) -- mcp_server.py reads its own copy
+AGY = os.environ.get("AGY_BIN", str(HOME / ".local" / "bin" / "agy"))
+CLAUDE_BIN = _env("CHATBOT_CLAUDE_BIN", "AGY_CLAUDE_BIN", str(HOME / ".local" / "bin" / "claude"))
+GROK_BIN = _env("CHATBOT_GROK_BIN", "AGY_GROK_BIN", str(HOME / ".local" / "bin" / "grok"))
+CODEX_BIN = _env("CHATBOT_CODEX_BIN", "AGY_CODEX_BIN", str(HOME / ".local" / "bin" / "codex"))
 # Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9): which CLI does the delegated work and
 # which one confirms the work as the PD persona (empty: the same CLI). Names are keys of tools/worktree_runner.PROVIDERS.
 DELEGATE_PROVIDER = os.environ.get("CHATBOT_DELEGATE_PROVIDER", "claude")

@@ -1,5 +1,17 @@
 # chatbot 개발로그
 
+## 2026-09-23 — ticket #83 호스트/NAS 결합 경로 일반화 (DiskStation 의존성 격리)
+
+- **배경**: 실장님 지시 "챗봇 결합 코드 정리" (호스트/NAS 결합). 코어 모듈 내 남아있던 `/volume1/homes/me` 하드코딩 기본값 및 DiskStation 특정 환경 의존성 완화.
+- **변경**:
+  - `host_config.py`: `HOME` 및 `ROOT`를 동적 파생(`Path(os.environ.get("HOME") or "/volume1/homes/me")`, `Path(__file__).resolve().parent`)으로 상단 배치하고, `AGY`, `CLAUDE_BIN`, `GROK_BIN`, `CODEX_BIN`의 기본값을 `HOME / ".local" / "bin"` 기반으로 연결.
+  - `mcp_server.py`: `HOME` 기본값을 `$HOME` 우선 탐색으로 통일.
+  - `chatbot-ctl.sh`: `HOME_DIR`을 `${HOME_DIR:-${HOME:-/volume1/homes/me}}`로 완화하고, `SCRIPT_DIR`을 통해 `CODE`를 스크립트 실행 위치 기준으로 자동 기본 설정.
+  - `static/app.js`: `formatToolCallClient`에서 특정 사용자명(`/volume1/homes/me/`) 하드코딩 대신 `/(?:volume1\/homes|home)\/[^/]+\/` 패턴으로 일반화.
+  - `tests/test_loop_guard.py`: `APP` 경로를 `Path(__file__).resolve().parent.parent / "static" / "app.js"`로 동적 계산.
+- **검증**: `python3 tests/smoke.py` PASS, `python3 -m unittest tests/test_loop_guard.py` PASS (19건), 게이트 스위트(`test_provider_neutrality`, `test_identity_wiring`, `test_nas_mcp_host`) 25건 PASS, `chatbot-ctl.sh guard` PASS.
+- **배포**: Tier 2 (호스트 모듈 수정) → 실장님 확인 후 ⚡소생 필요.
+
 ## 2026-09-23 — 워크트리 위임 + 두 캐릭터 콤비 리뷰 (WORKTREE_DELEGATION_v1 … WORK_CARD_FEEDBACK_v1, 티켓 #58–#73)
 
 - **배경**: 사용자 "두 미소녀 페르소나 에이전트의 티키타카 만담", 개입 최소, 병렬 없음. 설계·결정은 `docs/plans/multi-agent-worktree-delegation.md` §7–9.

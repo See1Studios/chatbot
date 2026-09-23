@@ -1592,7 +1592,7 @@ function formatToolCallClient(name, args) {
     if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
       s = s.slice(1, -1).trim();
     }
-    s = s.replace(/\/volume1\/homes\/me\//g, '');
+    s = s.replace(/\/(?:volume1\/homes|home)\/[^\/]+\//g, '');
     s = s.replace(/\/volume1\/web\//g, 'web/');
     return s;
   }
