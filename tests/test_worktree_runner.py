@@ -372,6 +372,14 @@ class WorktreeRunner(unittest.TestCase):
     def test_resume_without_a_waiting_branch_fails(self) -> None:
         self.assertEqual(self.run_with("true", extra=("--ticket", "7", "--token", "t", "--resume")), 1)
 
+    def test_agy_works_in_the_worktree_on_a_named_model(self) -> None:
+        cmd = wr.work_command("agy", Path("/w/t-1"), "")
+        self.assertEqual(cmd[-1], "-p")
+        self.assertEqual(cmd[cmd.index("--add-dir") + 1], "/w/t-1")
+        self.assertEqual(cmd[cmd.index("--model") + 1], wr.PROVIDERS["agy"]["work_model"])
+        self.assertEqual(wr.work_command("agy", Path("/w"), "gemini-x")[-2], "gemini-x")
+        self.assertNotIn("--add-dir", wr.work_command("claude", Path("/w"), ""))   # claude writes in its cwd
+
     def test_the_prompt_is_never_eaten_by_a_flag(self) -> None:
         # agy and grok take the argument after -p as the prompt: -p must come last, right before the prompt
         for name, spec in self.saved[4].items():

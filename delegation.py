@@ -28,7 +28,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import tickets
-from host_config import AGENT_PATH_PREFIX, DATA, DELEGATE_PROVIDER, DELEGATE_REVIEWER, ROOT
+from host_config import (AGENT_PATH_PREFIX, DATA, DELEGATE_MODEL, DELEGATE_PROVIDER, DELEGATE_REVIEWER,
+                         DELEGATE_REVIEWER_MODEL, ROOT)
 
 RUNNER_PATH = ROOT / "tools" / "worktree_runner.py"
 SEEN_FILE = DATA / "delegation_seen.json"
@@ -236,6 +237,10 @@ def _launch(tid: int, token: str, args: List[str], back_to_waiting: bool = False
                    "--stop-before-merge", "--json"]
     if DELEGATE_REVIEWER:
         args += ["--reviewer", DELEGATE_REVIEWER]
+    if DELEGATE_MODEL:
+        args += ["--model", DELEGATE_MODEL]
+    if DELEGATE_REVIEWER_MODEL:
+        args += ["--reviewer-model", DELEGATE_REVIEWER_MODEL]
     try:
         return _spawn(tid, args)
     except OSError as e:

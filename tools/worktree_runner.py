@@ -71,7 +71,9 @@ TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_di
 # conversation (`continue_argv`, only where it resumes by directory), as a tool-less reviewer (`review_argv`,
 # the prompt follows `model_flag <model>` when a model is given), who it is on the ticket (role id) and in git.
 # The prompt is appended last. Where the prompt is the value of `-p` (agy, grok: `-p` takes the next argument),
-# `-p` must be the last element, so every other flag goes before it.
+# `-p` must be the last element, so every other flag goes before it. `work_model` / `review_model`: the models used
+# when none is given; `workdir_flag`: how to let the CLI write in the worktree (agy writes to its own scratch
+# folder unless the directory is added).
 PROVIDERS: Dict[str, Dict] = {
     "claude": {"argv": ["claude", "--dangerously-skip-permissions", "-p"],
                "continue_argv": ["claude", "-c", "--dangerously-skip-permissions", "-p"],
@@ -80,7 +82,8 @@ PROVIDERS: Dict[str, Dict] = {
     "codex": {"argv": ["codex", "exec", "-s", "workspace-write"],
               "review_argv": ["codex", "exec", "-s", "read-only"], "model_flag": "-m",
               "actor": "codex", "author": ("Codex", "codex@localhost")},
-    "agy": {"argv": ["agy", "--dangerously-skip-permissions", "-p"],
+    "agy": {"argv": ["agy", "--dangerously-skip-permissions", "-p"], "workdir_flag": "--add-dir",
+            "work_model": "gemini-3.1-pro-high", "review_model": "gemini-3.1-pro-high",
             "review_argv": ["agy", "--dangerously-skip-permissions", "-p"], "model_flag": "--model",
             "actor": "agy", "author": ("agy", "agy@localhost")},
     "grok": {"argv": ["grok", "--always-approve", "-p"],
@@ -294,9 +297,8 @@ def agent_env(provider: str) -> Dict[str, str]:
     return clean_env(GIT_AUTHOR_NAME=name, GIT_AUTHOR_EMAIL=email, GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email)
 
 
-def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False) -> Dict:
-    spec = PROVIDERS[provider]
-    argv = spec["continue_argv"] if resume and spec.get("continue_argv") else spec["argv"]
+def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False, model: str = "") -> Dict:
+    argv = work_command(provider, wt_dir, model, resume)
     if not shutil.which(argv[0]):
         return {"ok": False, "returncode": None, "elapsed_sec": 0, "stdout": "", "stderr": "%s CLI not installed" % argv[0]}
     t0 = time.time()
@@ -375,15 +377,30 @@ def review_prompt(tid: int, title: str, instruction: str, partner_said: str, dif
     return "\n".join(parts)
 
 
-def review_command(provider: str, model: str) -> List[str]:
-    """The reviewer's command line, the prompt still to be appended; a model flag goes before a trailing `-p`."""
-    spec = PROVIDERS[provider]
-    argv = list(spec["review_argv"])
-    model = model or spec.get("review_model") or ""
-    if model:
-        at = len(argv) - 1 if argv[-1] == "-p" else len(argv)
-        argv[at:at] = [spec["model_flag"], model]
+def with_flags(argv: List[str], flags: List[str]) -> List[str]:
+    """`argv` plus `flags`, placed before a trailing `-p` (whose value is the prompt appended last)."""
+    argv = list(argv)
+    at = len(argv) - 1 if argv and argv[-1] == "-p" else len(argv)
+    argv[at:at] = flags
     return argv
+
+
+def review_command(provider: str, model: str) -> List[str]:
+    """The reviewer's command line, the prompt still to be appended."""
+    spec = PROVIDERS[provider]
+    model = model or spec.get("review_model") or ""
+    return with_flags(spec["review_argv"], [spec["model_flag"], model] if model else [])
+
+
+def work_command(provider: str, wt_dir: Path, model: str, resume: bool = False) -> List[str]:
+    """The worker's command line in `wt_dir`, the prompt still to be appended."""
+    spec = PROVIDERS[provider]
+    argv = spec["continue_argv"] if resume and spec.get("continue_argv") else spec["argv"]
+    flags = [spec["workdir_flag"], str(wt_dir)] if spec.get("workdir_flag") else []
+    model = model or spec.get("work_model") or ""
+    if model and spec.get("model_flag"):
+        flags += [spec["model_flag"], model]
+    return with_flags(argv, flags)
 
 
 def run_review(provider: str, model: str, wt_dir: Path, prompt: str) -> Dict[str, str]:
@@ -665,7 +682,7 @@ def cmd_run(args) -> int:
                 prompt = brief if rnd == 1 else retry_prompt(feedback, None if can_resume else brief)
                 write_state(tid, phase="writing", task=tno, round=rnd, phase_since=time.time())
                 log("task %d/%d round %d: running %s (timeout %ds)..." % (tno, len(tasks), rnd, provider, args.timeout))
-                res = run_agent(provider, wt_dir, prompt, args.timeout, resume=rnd > 1)
+                res = run_agent(provider, wt_dir, prompt, args.timeout, resume=rnd > 1, model=args.model)
                 result["agent"] = {k: res[k] for k in ("ok", "returncode", "elapsed_sec")}
                 log("%s finished in %ss (exit %s)" % (provider, res["elapsed_sec"], res["returncode"]))
                 if not res["ok"]:
@@ -826,6 +843,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--token", default="", help="The caller's claim token for --ticket")
     p.add_argument("--timeout", type=int, default=1200, help="Agent timeout per round in seconds (max %d)" % MAX_AGENT_TIMEOUT)
     p.add_argument("--reviewer", choices=sorted(PROVIDERS), help="Provider for the PD's confirmation (default: --provider)")
+    p.add_argument("--model", default="", help="Worker model (default: the provider's work model, else its CLI default)")
     p.add_argument("--reviewer-model", default="", help="Model for the PD's confirmation (default: the provider's review model)")
     p.add_argument("--rounds", type=int, default=2, help="Staff/PD rounds before giving up (default 2)")
     p.add_argument("--no-review", action="store_true", help="Merge on the mechanical gates alone")
