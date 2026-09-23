@@ -30,6 +30,8 @@ rec.write_text(json.dumps({"id": 7, "last": cmd[0]}))
 if cmd[0] == "start":
     print("TICKET_ID=7")
     print("CLAIM_TOKEN=tok")
+if cmd[0] == "merge-go":
+    print("CLAIM_TOKEN=tok2")
 '''
 
 PASS = "printf 'VERDICT: PASS\\nSAY: fine'"
@@ -211,6 +213,60 @@ class WorktreeRunner(unittest.TestCase):
     def test_said_takes_the_line_after_the_last_rule(self) -> None:
         self.assertEqual(wr.said("work\n---\nnot this\n---\n다 했다냥!"), "다 했다냥!")
         self.assertEqual(wr.said("a\nb\nc"), "b\nc")
+
+    # ---- Tier 2: stop before merge, land on the operator's word
+
+    def waiting(self) -> None:
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam change", extra=("--stop-before-merge",)), 0)
+
+    def test_stop_before_merge_leaves_main_alone_and_waits(self) -> None:
+        self.waiting()
+        self.assertEqual(self.code_head(), self.init)
+        self.assertEqual(self.ticket_cmds(), ["start", "renew", "await-merge"])
+        self.assertTrue((wr.WORKTREE_BASE / "ticket-7").exists())
+        self.assertIn("worktree/ticket-7", sh(self.repo, "git", "branch", "--list", "worktree/*"))
+        self.assertEqual(sh(self.repo, "git", "log", "-1", "--format=%s"), "chore(tickets): #7 awaiting_merge -- t")
+        self.assertEqual(wr.read_state(7)["phase"], "awaiting_merge")
+        self.assertEqual(sh(self.repo, "git", "status", "--porcelain"), "")
+
+    def test_merge_lands_the_waiting_branch(self) -> None:
+        self.waiting()
+        self.assertEqual(wr.main(["merge", "--ticket", "7"]), 0)
+        self.assertEqual((self.repo / "a.txt").read_text(), "one\ntwo\n")
+        self.assertEqual(self.ticket_cmds()[-2:], ["merge-go", "done"])
+        self.assertEqual(self.last_fail()[self.last_fail().index("--token") + 1], "tok2")
+        self.assertEqual(sh(self.repo, "git", "log", "-1", "--format=%s"), "chore(tickets): close #7 -- t")
+        self.assertEqual(wr.read_state(7)["phase"], "done")
+        self.assert_clean_up()
+
+    def test_merge_with_a_relayed_token_skips_merge_go(self) -> None:
+        self.waiting()
+        self.assertEqual(wr.main(["merge", "--ticket", "7", "--token", "ui-token"]), 0)
+        self.assertNotIn("merge-go", self.ticket_cmds())
+
+    def test_merge_after_main_moved_rebases_and_rechecks(self) -> None:
+        self.waiting()
+        (self.repo / "c.txt").write_text("c\n")
+        sh(self.repo, "git", "add", "c.txt")
+        sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "main-moved")
+        self.assertEqual(wr.main(["merge", "--ticket", "7"]), 0)
+        self.assertEqual(sh(self.repo, "git", "log", "--format=%s", "-3").splitlines()[1:],
+                         ["change", "main-moved"])
+
+    def test_merge_that_no_longer_fits_fails_and_cleans_up(self) -> None:
+        self.waiting()
+        (self.repo / "a.txt").write_text("conflict\n")
+        sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "main-moved")
+        self.assertEqual(wr.main(["merge", "--ticket", "7"]), 1)
+        self.assertEqual((self.repo / "a.txt").read_text(), "conflict\n")
+        self.assertEqual(self.ticket_cmds()[-1], "fail")
+        self.assertIn("gate_failed", self.last_fail())
+        self.assert_clean_up()
+
+    def test_merge_without_a_waiting_run_is_refused(self) -> None:
+        self.assertEqual(wr.main(["merge", "--ticket", "7"]), 2)
+        self.run_with("echo two >> a.txt && git commit -qam change")   # merged directly, nothing waits
+        self.assertEqual(wr.main(["merge", "--ticket", "7"]), 2)
 
 
 if __name__ == "__main__":

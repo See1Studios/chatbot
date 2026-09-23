@@ -7,7 +7,10 @@
   python3 tools/worktree_runner.py run --provider claude --title "작업 제목" \\
       --paths "tickets.py,tests/test_tickets.py" --prompt "지시문..." \\
       [--gate "python3 tests/test_tickets.py"] [--evidence log:fp:<fp>] [--timeout 1200] \\
-      [--reviewer claude] [--reviewer-model haiku] [--rounds 2] [--no-review] [--keep] [--json]
+      [--reviewer claude] [--reviewer-model haiku] [--rounds 2] [--no-review] [--stop-before-merge] [--keep] [--json]
+
+  # Tier 2: --stop-before-merge로 멈춘 티켓을 사용자 말로 병합 (merge-go 전달 -> 필요 시 rebase + 게이트 재실행 -> ff 병합)
+  python3 tools/worktree_runner.py merge --ticket 61 [--token <merge_go가 준 토큰>] [--keep] [--json]
 
   # 비정상 종료로 남은 worktree/브랜치 정리
   python3 tools/worktree_runner.py cleanup --ticket 61
@@ -23,9 +26,11 @@
      c. 리뷰어(PERSONA-reviewer.md 캐릭터)가 diff(또는 게이트 실패)를 보고 VERDICT + 대사 + 수정 요청
      d. 게이트 통과 + PASS면 종료, 아니면 수정 요청을 들고 다음 라운드
   4. 통과: 메인에서 git merge --ff-only -> ticket-quick done -> worktree/브랜치 정리
+     --stop-before-merge(Tier 2): 병합 대신 ticket-quick await-merge (리스 해제), worktree/브랜치는 남긴다
      탈락: 병합 없음 -> ticket-quick fail (gate_failed | failed) -> worktree/브랜치 정리 (--keep이면 보존)
   5. 티켓 기록(tickets/<ID>.json)만 메인에 커밋한다 (chore(tickets): close #ID | #ID <outcome>)
   두 캐릭터의 주고받은 대사는 ~/.worktrees/chatbot/transcripts/에 남는다.
+  실행 상태(단계·라운드·대사·병합에 필요한 설정)는 ~/.worktrees/chatbot/runs/ticket-<ID>.json에 원자적으로 쓴다.
 
 라이브 호스트는 재시작하지 않는다. 호스트 모듈이 바뀌었으면 유휴 확인 후 `chatbot-ctl.sh repair`로 배포한다.
 표준 라이브러리만 사용한다.
@@ -336,6 +341,113 @@ def save_transcript(tid: int, title: str, lines: List[Dict]) -> Optional[Path]:
     return stem.with_suffix(".md")
 
 
+# ------------------------------------------------------------ run state
+
+def state_path(tid: int) -> Path:
+    return WORKTREE_BASE / "runs" / ("ticket-%d.json" % tid)
+
+
+def read_state(tid: int) -> Dict:
+    try:
+        return json.loads(state_path(tid).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def write_state(tid: int, **fields) -> None:
+    """Merge `fields` into the run's state file (atomic replace): what a watcher shows, what `merge` needs."""
+    path = state_path(tid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    st = read_state(tid)
+    st.update(fields, ticket=tid, updated=time.strftime("%Y-%m-%d %H:%M:%S"))
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(path)
+
+
+# ------------------------------------------------------------- landing
+
+def check_scope(wt_dir: Path, base: str, paths: List[str]) -> List[str]:
+    """Files the branch changed since `base`; any outside the ticket's paths fails the gate."""
+    _, changed, _ = git(wt_dir, "diff", "--name-only", base + "..HEAD")
+    files = changed.splitlines()
+    outside = [f for f in files if not in_scope(f, paths)]
+    if outside:
+        raise Failure("gate_failed", "changes outside the ticket's paths: %s" % ", ".join(outside[:10]), retryable=True)
+    return files
+
+
+def sync_onto_main(repo: Path, wt_dir: Path, main_branch: str, base: str) -> str:
+    """Rebase the branch onto main if main moved. Returns the new base."""
+    _, main_head, _ = git(repo, "rev-parse", main_branch)
+    _, merge_base, _ = git(wt_dir, "merge-base", "HEAD", main_head)
+    if merge_base == main_head:
+        return base
+    log("%s moved to %s; rebasing the branch" % (main_branch, main_head[:8]))
+    code, _, err = git(wt_dir, "rebase", main_head)
+    if code != 0:
+        git(wt_dir, "rebase", "--abort")
+        raise Failure("gate_failed", "branch does not rebase cleanly onto %s" % main_branch, tail(err))
+    return main_head
+
+
+def ff_merge(repo: Path, main_branch: str, branch: str) -> str:
+    code, cur, _ = git(repo, "symbolic-ref", "--short", "HEAD")
+    if cur != main_branch:
+        raise Failure("failed", "main repository is on %s, not %s" % (cur, main_branch))
+    code, _, err = git(repo, "merge", "--ff-only", branch)
+    if code != 0:
+        raise Failure("failed", "fast-forward merge into %s refused (it moved or local changes are in the way)"
+                      % main_branch, tail(err))
+    head = git(repo, "rev-parse", "HEAD")[1]
+    log("merged into %s at %s" % (main_branch, head[:8]))
+    return head
+
+
+def release_failed(tid: int, token: str, f: Failure, provider: str, actor: str, result: Dict) -> None:
+    result.update(outcome=f.outcome, reason=f.reason, detail=f.detail)
+    print("[!] %s" % f.reason, file=sys.stderr)
+    if f.detail:
+        print(f.detail, file=sys.stderr)
+    try:
+        vals = ticket_call("fail", "--id", str(tid), "--token", token, "--outcome", f.outcome,
+                           "--note", "worktree %s: %s" % (provider, f.reason), "--actor", actor)
+        if vals.get("ADVICE"):
+            result["advice"] = vals["ADVICE"]
+            print("[!] ticket: %s" % vals["ADVICE"], file=sys.stderr)
+    except RuntimeError as e:
+        print("[!] ticket release failed: %s" % e, file=sys.stderr)
+
+
+def close_done(tid: int, token: str, actor: str, note: str, result: Dict) -> None:
+    try:
+        ticket_call("done", "--id", str(tid), "--token", token, "--actor", actor, "--note", note)
+        result["outcome"] = "done"
+        log("ticket #%d done" % tid)
+    except RuntimeError as e:
+        result["outcome"] = "merged-ticket-open"
+        print("[!] merged, but the ticket could not be closed: %s" % e, file=sys.stderr)
+    log("the live host was not restarted; deploy host-module changes with `chatbot-ctl.sh repair` once idle")
+
+
+def record_and_report(repo: Path, tid: int, provider: str, title: str, result: Dict, as_json: bool,
+                      transcript: Optional[List[Dict]] = None) -> int:
+    outcome = result.get("outcome") or "open"
+    subject = ("chore(tickets): close #%d" if outcome == "done" else "chore(tickets): #%d " + outcome) % tid
+    record = commit_ticket_record(repo, tid, provider, "%s -- %s" % (subject, title[:80]))
+    if record:
+        result["ticket_commit"] = record
+        log("ticket record committed (%s)" % record)
+    write_state(tid, phase=outcome, reason=result.get("reason", ""), head=result.get("head", ""))
+    if as_json:
+        print(json.dumps(result, ensure_ascii=False, indent=1))
+    else:
+        for ln in transcript or []:
+            print("%s%s: %s" % (ln["name"], " [%s]" % ln["verdict"] if ln.get("verdict") else "", ln["text"] or "…"))
+        print("RESULT=%s TICKET_ID=%d MERGED=%s" % (outcome, tid, "yes" if result.get("merged") else "no"))
+    return 0 if outcome in ("done", "awaiting_merge") else 1
+
+
 # ---------------------------------------------------------------------- run
 
 def cmd_run(args) -> int:
@@ -390,6 +502,9 @@ def cmd_run(args) -> int:
         created = True
         result["base"] = base
         log("worktree %s on %s (base %s)" % (wt_dir, branch, base[:8]))
+        write_state(tid, phase="running", round=0, title=args.title, provider=provider, reviewer=reviewer,
+                    paths=paths, gates=gates, main_branch=main_branch, base=base, branch=branch,
+                    worktree=str(wt_dir), transcript=[])
 
         # 3. rounds: writer -> gates -> reviewer
         brief = writer_prompt(tid, args.title, branch, wt_dir, paths, gates, args.prompt,
@@ -406,6 +521,7 @@ def cmd_run(args) -> int:
             if rnd > 1:
                 renew()
             prompt = brief if rnd == 1 else retry_prompt(feedback, None if can_resume else brief)
+            write_state(tid, phase="writing", round=rnd)
             log("round %d: running %s (timeout %ds)..." % (rnd, provider, args.timeout))
             res = run_agent(provider, wt_dir, prompt, args.timeout, resume=rnd > 1)
             result["agent"] = {k: res[k] for k in ("ok", "returncode", "elapsed_sec")}
@@ -415,6 +531,7 @@ def cmd_run(args) -> int:
                               tail(res["stderr"] or res["stdout"]))
             transcript.append({"round": rnd, "role": "writer", "name": writer_p["name"], "text": said(res["stdout"])})
 
+            write_state(tid, phase="gates", transcript=transcript)
             if commit_leftovers(wt_dir, provider, tid):
                 log("committed changes the agent left uncommitted")
             gate_error = None
@@ -422,22 +539,10 @@ def cmd_run(args) -> int:
                 _, commits, _ = git(wt_dir, "rev-list", base + "..HEAD")
                 if not commits:
                     raise Failure("failed", "the agent made no change")
-                _, changed, _ = git(wt_dir, "diff", "--name-only", base + "..HEAD")
-                result["changed"] = changed.splitlines()
-                outside = [f for f in result["changed"] if not in_scope(f, paths)]
-                if outside:
-                    raise Failure("gate_failed", "changes outside the ticket's paths: %s" % ", ".join(outside[:10]),
-                                  retryable=True)
+                result["changed"] = check_scope(wt_dir, base, paths)
                 renew()
-                _, main_head, _ = git(repo, "rev-parse", main_branch)
-                _, merge_base, _ = git(wt_dir, "merge-base", "HEAD", main_head)
-                if merge_base != main_head:
-                    log("%s moved to %s; rebasing the branch before the gates" % (main_branch, main_head[:8]))
-                    code, _, err = git(wt_dir, "rebase", main_head)
-                    if code != 0:
-                        git(wt_dir, "rebase", "--abort")
-                        raise Failure("gate_failed", "branch does not rebase cleanly onto %s" % main_branch, tail(err))
-                    base = main_head
+                base = sync_onto_main(repo, wt_dir, main_branch, base)
+                write_state(tid, base=base)
                 run_gates(wt_dir, gates)
             except Failure as f:
                 if not (f.retryable and reviewer):
@@ -447,6 +552,7 @@ def cmd_run(args) -> int:
 
             if not reviewer:
                 break
+            write_state(tid, phase="review")
             _, diff, _ = git(wt_dir, "diff", base + "..HEAD")
             rv = run_review(reviewer, args.reviewer_model, wt_dir,
                             review_prompt(tid, args.title, args.prompt, transcript[-1]["text"], diff, gate_error,
@@ -455,6 +561,7 @@ def cmd_run(args) -> int:
             transcript.append({"round": rnd, "role": REVIEWER_ROLE, "name": reviewer_p["name"], "text": rv["say"],
                                "verdict": verdict, "fix": rv["fix"]})
             log("round %d: review %s" % (rnd, verdict))
+            write_state(tid, transcript=transcript)
             if verdict == "PASS":
                 break
             if rnd == args.rounds:
@@ -467,67 +574,77 @@ def cmd_run(args) -> int:
                 "Requested fixes:\n%s" % rv["fix"] if rv["fix"] else "") if x)
         result["rounds"] = rnd
 
-        # 4. merge
-        code, cur, _ = git(repo, "symbolic-ref", "--short", "HEAD")
-        if cur != main_branch:
-            raise Failure("failed", "main repository switched from %s to %s during the run" % (main_branch, cur))
-        code, _, err = git(repo, "merge", "--ff-only", branch)
-        if code != 0:
-            raise Failure("failed", "fast-forward merge into %s refused (it moved or local changes are in the way)"
-                          % main_branch, tail(err))
-        _, head, _ = git(repo, "rev-parse", "HEAD")
-        result.update(merged=True, head=head)
-        log("merged into %s at %s" % (main_branch, head[:8]))
+        # 4. land, or wait for the operator
+        verdict = " review PASS" if reviewer else ""
+        if args.stop_before_merge:
+            head = git(wt_dir, "rev-parse", "HEAD")[1]
+            try:
+                ticket_call("await-merge", "--id", str(tid), "--token", token, "--actor", actor, "--note",
+                            "branch %s at %s (%s,%s round %d)" % (branch, head[:7], provider, verdict, rnd))
+            except RuntimeError as e:
+                raise Failure("failed", "could not hand the ticket in for merge", str(e))
+            result.update(outcome="awaiting_merge", head=head)
+            log("ticket #%d awaits the operator's merge: worktree_runner.py merge --ticket %d" % (tid, tid))
+        else:
+            result.update(merged=True, head=ff_merge(repo, main_branch, branch))
     except Failure as f:
-        result.update(outcome=f.outcome, reason=f.reason, detail=f.detail)
-        print("[!] %s" % f.reason, file=sys.stderr)
-        if f.detail:
-            print(f.detail, file=sys.stderr)
-        try:
-            vals = ticket_call("fail", "--id", str(tid), "--token", token, "--outcome", f.outcome,
-                               "--note", "worktree %s: %s" % (provider, f.reason), "--actor", actor)
-            if vals.get("ADVICE"):
-                result["advice"] = vals["ADVICE"]
-                print("[!] ticket: %s" % vals["ADVICE"], file=sys.stderr)
-        except RuntimeError as e:
-            print("[!] ticket release failed: %s" % e, file=sys.stderr)
+        release_failed(tid, token, f, provider, actor, result)
     finally:
-        if created and not (args.keep and not result["merged"]):
+        keep = created and not result["merged"] and (args.keep or result.get("outcome") == "awaiting_merge")
+        if created and not keep:
             cleanup_worktree(repo, branch, wt_dir)
             log("worktree and branch removed")
-        elif created:
-            log("kept %s (branch %s) for inspection" % (wt_dir, branch))
+        elif keep:
+            log("kept %s (branch %s)" % (wt_dir, branch))
 
     if result["merged"]:
-        verdict = " review PASS" if reviewer else ""
-        try:
-            ticket_call("done", "--id", str(tid), "--token", token, "--actor", actor,
-                        "--note", "merged %s via worktree (%s,%s round %d)" % (result["head"][:7], provider, verdict,
-                                                                               result["rounds"]))
-            result["outcome"] = "done"
-            log("ticket #%d done" % tid)
-        except RuntimeError as e:
-            result["outcome"] = "merged-ticket-open"
-            print("[!] merged, but the ticket could not be closed: %s" % e, file=sys.stderr)
-        log("the live host was not restarted; deploy host-module changes with `chatbot-ctl.sh repair` once idle")
-
-    outcome = result.get("outcome") or "open"
-    subject = ("chore(tickets): close #%d" if outcome == "done" else "chore(tickets): #%d " + outcome) % tid
-    record = commit_ticket_record(repo, tid, provider, "%s -- %s" % (subject, args.title[:80]))
-    if record:
-        result["ticket_commit"] = record
-        log("ticket record committed (%s)" % record)
+        close_done(tid, token, actor, "merged %s via worktree (%s,%s round %d)"
+                   % (result["head"][:7], provider, verdict, result["rounds"]), result)
 
     saved = save_transcript(tid, args.title, transcript)
     result["transcript"] = transcript
     result["transcript_file"] = str(saved) if saved else None
-    if args.json:
-        print(json.dumps(result, ensure_ascii=False, indent=1))
-    else:
-        for ln in transcript:
-            print("%s%s: %s" % (ln["name"], " [%s]" % ln["verdict"] if ln.get("verdict") else "", ln["text"] or "…"))
-        print("RESULT=%s TICKET_ID=%d MERGED=%s" % (result.get("outcome"), tid, "yes" if result["merged"] else "no"))
-    return 0 if result.get("outcome") == "done" else 1
+    return record_and_report(repo, tid, provider, args.title, result, args.json, transcript)
+
+
+def cmd_merge(args) -> int:
+    """Land a ticket that `run --stop-before-merge` left awaiting the operator. Running this is the operator's
+    word (relayed to the ticket with merge-go) unless --token says it was already given."""
+    repo, tid = CHATBOT_REPO, args.ticket
+    st = read_state(tid)
+    if not st.get("provider") or st.get("phase") != "awaiting_merge":
+        print("Error: no run of ticket #%d is awaiting a merge (%s)" % (tid, state_path(tid)), file=sys.stderr)
+        return 2
+    provider, branch, wt_dir = st["provider"], *names(tid)
+    actor = PROVIDERS[provider]["actor"]
+    title = st.get("title", "")
+    result: Dict = {"ticket": tid, "provider": provider, "branch": branch, "merged": False}
+    token = args.token
+    if not token:
+        try:
+            token = ticket_call("merge-go", "--id", str(tid))["CLAIM_TOKEN"]
+        except (RuntimeError, KeyError) as e:
+            print("Error: merge-go failed: %s" % e, file=sys.stderr)
+            return 1
+    write_state(tid, phase="merging")
+    try:
+        if not wt_dir.exists() or git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] != 0:
+            raise Failure("failed", "the waiting worktree or branch %s is gone" % branch)
+        base = st["base"]
+        new_base = sync_onto_main(repo, wt_dir, st["main_branch"], base)
+        if new_base != base:  # the reviewed change now sits on a different main: check it again
+            check_scope(wt_dir, new_base, st["paths"])
+            run_gates(wt_dir, st["gates"])
+        result.update(merged=True, head=ff_merge(repo, st["main_branch"], branch))
+    except Failure as f:
+        release_failed(tid, token, f, provider, actor, result)
+    finally:
+        if result["merged"] or not args.keep:
+            cleanup_worktree(repo, branch, wt_dir)
+            log("worktree and branch removed")
+    if result["merged"]:
+        close_done(tid, token, actor, "merged %s on the operator's word (%s)" % (result["head"][:7], provider), result)
+    return record_and_report(repo, tid, provider, title, result, args.json)
 
 
 def cmd_cleanup(args) -> int:
@@ -554,14 +671,22 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--reviewer-model", default="", help="Reviewer model (default: the provider's cheap review model)")
     p.add_argument("--rounds", type=int, default=2, help="Writer/reviewer rounds before giving up (default 2)")
     p.add_argument("--no-review", action="store_true", help="Merge on the mechanical gates alone")
+    p.add_argument("--stop-before-merge", action="store_true",
+                   help="After a pass, wait for the operator (ticket awaiting_merge) instead of merging (Tier 2)")
     p.add_argument("--keep", action="store_true", help="Keep the worktree and branch when the attempt fails")
     p.add_argument("--json", action="store_true", help="Print the result as JSON")
+
+    m = sub.add_parser("merge", help="Land a ticket that awaits the operator's merge")
+    m.add_argument("--ticket", type=int, required=True)
+    m.add_argument("--token", default="", help="Lease token from merge_go, when the operator's word was relayed already")
+    m.add_argument("--keep", action="store_true", help="Keep the worktree and branch when the merge fails")
+    m.add_argument("--json", action="store_true", help="Print the result as JSON")
 
     c = sub.add_parser("cleanup", help="Remove a leftover worktree and branch of a ticket")
     c.add_argument("--ticket", type=int, required=True)
 
     args = parser.parse_args(argv)
-    return cmd_run(args) if args.command == "run" else cmd_cleanup(args)
+    return {"run": cmd_run, "merge": cmd_merge, "cleanup": cmd_cleanup}[args.command](args)
 
 
 if __name__ == "__main__":
