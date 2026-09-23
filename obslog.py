@@ -59,6 +59,8 @@ MSG_CAP = 2000
 TRACE_CAP = 6000
 SUMMARY_EVERY_SEC = int(os.environ.get("CHATBOT_OBSLOG_SUMMARY_SEC", "300"))
 SLOW_MS = 3000
+# 404s that clients ask for on every connect by design; they stay in http.summary counts.
+EXPECTED_404_PREFIXES = ("/.well-known/",)
 DEDUP_WINDOW_SEC = 300
 
 _state: Dict[str, Any] = {
@@ -381,6 +383,8 @@ def http_request(method: str, path: str, status: Any, dur_ms: float, quiet: bool
         with _http_lock:
             _http.setdefault(route, _RouteStats()).add(status, dur_ms)
         code = status if isinstance(status, int) else 0
+        if code == 404 and not err and path.startswith(EXPECTED_404_PREFIXES):
+            return  # client discovery probes (MCP OAuth metadata): counted in http.summary only
         base = dict(route=route, status=status, dur_ms=round(dur_ms, 1))
         sid = sid_in(path)
         if sid:

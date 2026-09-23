@@ -216,6 +216,14 @@ class HTTPTests(Base):
         self.assertEqual(summ["routes"]["GET /ok"]["n"], 3)
         self.assertEqual(summ["routes"]["GET /boom"]["codes"], {"5xx": 1})
 
+    def test_expected_discovery_404_is_summary_only(self):
+        self.assertEqual(self.get("/.well-known/oauth-protected-resource")[0], 200)  # _H answers 200 to all GETs
+        obslog.http_request("GET", "/.well-known/oauth-protected-resource", 404, 1.0)
+        self.assertEqual([r for r in lines(self.path) if r["evt"] == "http.client_error"], [])
+        obslog.flush_http_summary()
+        self.assertEqual(lines(self.path)[-1]["routes"]["GET /.well-known/oauth-protected-resource"]["codes"],
+                         {"2xx": 1, "4xx": 1})
+
     def test_request_ids_are_unique(self):
         ids = {self.get("/ok")[1] for _ in range(5)}
         self.assertEqual(len(ids), 5)

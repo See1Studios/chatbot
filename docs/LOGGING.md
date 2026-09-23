@@ -78,7 +78,7 @@ A `proc.start` with no `proc.exit` from the previous pid means the process was k
 |---|---|---|
 | `http.summary` | info | every 5 min: `routes` → `{n, codes{2xx..}, p50, p95, max}` for every request, including those not written one by one |
 | `http.error` | error | status ≥ 500 or an unhandled exception; `err` with trace |
-| `http.client_error` | warn | status 4xx; deduped per route+status for 5 min (`repeat`) |
+| `http.client_error` | warn | status 4xx; deduped per route+status for 5 min (`repeat`). 404s on `/.well-known/` (MCP clients' OAuth discovery on every connect) are counted in `http.summary` only |
 | `http.slow` | warn | ≥ 3 s, streams (`/events`) excluded |
 | `http.request` | info | successful POST/PUT/DELETE on chat (MCP traffic is summarised only) |
 | `http.client_gone` | info | client hung up mid-response (BrokenPipe/reset); deduped per route for 10 min |
