@@ -26,7 +26,7 @@
       } catch(e){}
     })();
   </script>
-  <link rel="stylesheet" href="./chat.css?v=30" />
+  <link rel="stylesheet" href="./chat.css?v=31" />
 </head>
 <body>
   <div class="wrap" id="appWrap">
@@ -289,6 +289,7 @@
       <select id="model" title="model"></select>
       <button id="slashBtn" class="slash-trigger-btn" type="button" title="명령어 및 스킬 (/)" aria-label="명령어 및 스킬 (/)" aria-haspopup="listbox" aria-expanded="false">/</button>
       <button id="geoBtn" class="geo-trigger-btn" type="button" title="기기 환경 및 위치 정보 동기화 (클릭하여 토글)" aria-label="기기 환경 및 위치 정보 동기화" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
+      <button id="privateBtn" class="geo-trigger-btn private-toggle-btn" type="button" title="사적 대화로 전환" aria-label="사적 대화" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
       <textarea id="input" placeholder="메시지를 입력… (/ 입력 시 명령어·스킬)" aria-label="메시지 입력"></textarea>
       <button id="send" class="primary">보내기</button>
     </div>
@@ -341,7 +342,7 @@
   <!-- Order is load-bearing (classic scripts; shared state is var).
        app.js: session/SSE/send + status + provider tray. Do not split further.
        Map: data/workspace/PROJECT.md Where to edit. -->
-  <script src="./app.js?v=145"></script>
+  <script src="./app.js?v=146"></script>
   <script src="./theme.js?v=3"></script>
   <script src="./artifacts.js?v=5"></script>
   <script src="./markdown.js?v=10"></script>

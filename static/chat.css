@@ -827,6 +827,18 @@ textarea::placeholder{
 .geo-trigger-btn.active .tab-icon-svg{
   stroke:var(--accent2);
 }
+/* PRIVATE_TOGGLE_v1: the heart switches to the private session; filled while it is open */
+.private-toggle-btn.active, .private-toggle-btn:hover{
+  color:var(--accent-private, #c2185b);
+  border-color:var(--accent-private, #c2185b);
+  background:rgba(194,24,91,.12);
+  box-shadow:0 0 10px rgba(194,24,91,.35);
+}
+.private-toggle-btn.active .tab-icon-svg{
+  stroke:var(--accent-private, #c2185b);
+  fill:var(--accent-private, #c2185b);
+}
+.private-toggle-btn:disabled{opacity:.5;cursor:wait}
 
 .msg-footer{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.45rem;padding-top:.35rem;border-top:1px dashed var(--border);font-size:.76rem;color:var(--muted);min-width:0;transition:border-color .2s ease, background .2s ease}
 .msg-footer.footer-warning{border-top:1px dashed rgba(245,158,11,.5)}
@@ -1477,7 +1489,7 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
     padding:0 !important;
     flex-shrink:0;
   }
-  #geoBtn{
+  #geoBtn, #privateBtn{
     order:3;
     width:36px;
     min-width:36px;

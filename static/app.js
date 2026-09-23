@@ -21,6 +21,7 @@ var inputEl = document.getElementById('input');
 const sendBtn = document.getElementById('send');
 const stopBtn = document.getElementById('stopBtn');
 const geoBtn = document.getElementById('geoBtn');
+const privateBtn = document.getElementById('privateBtn');
 const sessionBanner = document.getElementById('sessionBanner');
 const sessionBannerContinue = document.getElementById('sessionBannerContinue');
 const sessionBannerBtn = document.getElementById('sessionBannerNew');
@@ -36,6 +37,42 @@ let archiveBrowse = false;
 // and the live-follow logic stay inside the open mode.
 let sessionMode = 'work';
 function sameSessionMode(s) { return ((s && s.mode) || 'work') === sessionMode; }
+
+// /private or /work (typed or the heart button): the other mode's session opens with its own history; nothing
+// goes to the agent
+async function applyModeSwitch(res) {
+  const target = res.session;
+  sessionMode = target.mode === 'private' ? 'private' : 'work';
+  liveSessionId = target.id;
+  archiveBrowse = false;
+  await openSession(target.id, 0, null, true);
+  addActivity(sessionMode === 'private' ? '사적 대화로 전환: ' + target.id : '업무 대화로 복귀: ' + target.id, 'system');
+}
+
+function updatePrivateBtn() {
+  if (!privateBtn) return;
+  const on = sessionMode === 'private';
+  privateBtn.classList.toggle('active', on);
+  privateBtn.setAttribute('aria-pressed', String(on));
+  privateBtn.title = on ? '업무 대화로 돌아가기 (/work)' : '사적 대화로 전환 (/private)';
+}
+
+async function togglePrivateMode() {
+  if (!sessionId || !privateBtn || privateBtn.disabled) return;
+  privateBtn.disabled = true;
+  try {
+    const res = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/message', {
+      method: 'POST',
+      body: JSON.stringify({ text: sessionMode === 'private' ? '/work' : '/private' })
+    });
+    if (res && res.session && res.session.id) await applyModeSwitch(res);
+  } catch (e) {
+    addActivity('모드 전환 실패: ' + (e.message || e));
+  } finally {
+    privateBtn.disabled = false;
+  }
+}
+if (privateBtn) privateBtn.addEventListener('click', togglePrivateMode);
 let historyLoadHoldUntil = 0;
 
 // ---- Browser & Device Context (GPS, timezone, device type) ----
@@ -4077,6 +4114,7 @@ function enterSession(id, opts) {
   if (opts.scrollback !== undefined) setTimeout(maybeBackfillScrollback, 0);
 
   document.body.classList.toggle('private-session', sessionMode === 'private');
+  updatePrivateBtn();
   setMeta((sessionMode === 'private' ? '🔒 사적 대화 · ' : '') + '세션 ' + id + ' · ' + (opts.metaLabel || ''));
   updateSessionNav(id, opts.sessionInfo);
 
@@ -4973,15 +5011,9 @@ async function send() {
       body: JSON.stringify(payload)
     });
     if (msgRes && msgRes.switched !== undefined && msgRes.session && msgRes.session.id) {
-      // /private or /work: the other mode's session opens with its own history; nothing went to the agent
       setBusy(false);
       setProgress('');
-      const target = msgRes.session;
-      sessionMode = target.mode === 'private' ? 'private' : 'work';
-      liveSessionId = target.id;
-      archiveBrowse = false;
-      await openSession(target.id, 0, null, true);
-      addActivity(sessionMode === 'private' ? '사적 대화로 전환: ' + target.id : '업무 대화로 복귀: ' + target.id, 'system');
+      await applyModeSwitch(msgRes);
     } else if (msgRes && msgRes.rotated && msgRes.session && msgRes.session.id) {
       const nid = msgRes.session.id;
       addActivity('서버가 긴 세션을 새 채팅으로 인계 전환: ' + nid);
