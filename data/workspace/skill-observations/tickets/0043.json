@@ -1,0 +1,40 @@
+{
+ "approved_at": "2026-09-23 11:54:46",
+ "attempts": 1,
+ "closed_reason": "done",
+ "created": "2026-09-23 11:54:46",
+ "evidence": [
+  "candidate:1790132086.086"
+ ],
+ "gate_failures": 0,
+ "id": 43,
+ "notes": [
+  {
+   "by": "operator (api)",
+   "text": "approved",
+   "ts": "2026-09-23 11:54:46"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3); paths: protected_manifest.json",
+   "ts": "2026-09-23 11:54:46"
+  },
+  {
+   "by": "agent",
+   "text": "done: 98 files re-baselined; manifest-check OK",
+   "ts": "2026-09-23 11:54:56"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-23 11:54:56"
+  }
+ ],
+ "paths": [
+  "protected_manifest.json"
+ ],
+ "status": "done",
+ "target": "protected_manifest.json",
+ "title": "MANIFEST_REBASE_2026-09-23: 실장님 지시로 protected_manifest 재기준(OBSLOG·UI·bak 정리 반영)",
+ "updated": "2026-09-23 11:54:56"
+}
