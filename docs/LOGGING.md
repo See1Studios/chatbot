@@ -157,7 +157,9 @@ request, so 5xx rates stay exact.
 Lines are written only where `CHATBOT_OBSLOG_PATH` points; `chatbot-ctl.sh` exports it
 (`logs/events.jsonl`) for everything it starts. Tests and hand-started servers leave it unset, so
 their events stay in memory (`obslog.RECENT`) and warn/error still reach stderr: a test server can
-never write fake restarts into the production log.
+never write fake restarts into the production log. A started server removes `CHATBOT_OBSLOG_PATH`
+and `CHATBOT_CALLER` from its own environment once configured, so the CLI agents it spawns (and any
+tests they run) do not inherit them.
 
 `events.jsonl` rotates at 10 MB, keeping 5 files (`.1` … `.5`), under an flock on
 `events.jsonl.lock`; every write opens, appends and closes, so all processes (and the shell)

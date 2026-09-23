@@ -151,6 +151,17 @@ class EventTests(Base):
             if env_old is not None:
                 os.environ["CHATBOT_OBSLOG_PATH"] = env_old
 
+    def test_started_process_does_not_leak_the_path_to_children(self):
+        env = dict(os.environ, CHATBOT_OBSLOG_PATH=str(self.path), CHATBOT_CALLER="cli-test",
+                   CHATBOT_OBSLOG_SUMMARY_SEC="3600")
+        code = ("import obslog, os, subprocess, sys; obslog.start_process('unit'); "
+                "print(subprocess.check_output([sys.executable, '-c', "
+                "'import os; print(os.environ.get(\"CHATBOT_OBSLOG_PATH\"), os.environ.get(\"CHATBOT_CALLER\"))'], text=True).strip())")
+        out = subprocess.run([sys.executable, "-c", code], cwd=str(CODE), env=env, capture_output=True, text=True, check=True).stdout
+        self.assertEqual(out.strip(), "None None")
+        start = next(r for r in lines(self.path) if r["evt"] == "proc.start")
+        self.assertEqual(start["caller"], "cli-test")
+
     def test_never_raises(self):
         obslog.configure("test", path=Path(self.tmp.name) / "nodir" / "x" / "\0bad", mirror="error")
         obslog.event("unit.bad", obj=object())  # unwritable path, unserialisable value

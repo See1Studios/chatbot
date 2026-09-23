@@ -641,8 +641,12 @@ def start_process(src: str, **info: Any) -> None:
     thread and in worker threads, and start the summary/heartbeat thread."""
     global _bg_started
     configure(src)
+    # The path is now held in _state. Children (CLI agents, and the tests an agent runs) must not
+    # inherit it, or a test server they start writes fake restarts into the production log.
+    os.environ.pop("CHATBOT_OBSLOG_PATH", None)
+    caller = os.environ.pop("CHATBOT_CALLER", None)
     event("proc.start", lvl="info", git=_git_sha(), python=sys.version.split()[0],
-          argv=sys.argv[:6], ppid=os.getppid(), caller=os.environ.get("CHATBOT_CALLER"), **info)
+          argv=sys.argv[:6], ppid=os.getppid(), caller=caller, **info)
     _mirror({"ts": iso_now(), "lvl": "warn", "src": src, "evt": "proc.start", "msg": "pid=%d" % os.getpid()})
 
     prev_hook = sys.excepthook
