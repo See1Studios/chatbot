@@ -254,6 +254,11 @@ def _instruction_files() -> list:
                       WORKSPACE / "characters" / c["id"] / "visual.md", "on_demand"))
         items.append(("characters/%s/private-memory.md" % c["id"], "사적 기억 (%s)" % label,
                       WORKSPACE / "characters" / c["id"] / "private-memory.md", "private"))
+    roles = WORKSPACE / "roles"                      # TEAM_ROLES_v1: role packs, read by whoever holds the role
+    for d in sorted(roles.iterdir()) if roles.is_dir() else []:
+        if d.is_dir() and _ROLE_DIR.match(d.name):
+            items.append(("roles/%s/role.md" % d.name, "역할 팩 (%s)" % d.name, d / "role.md", "always"))
+            items.append(("roles/%s/procedure.md" % d.name, "역할 절차 (%s)" % d.name, d / "procedure.md", "on_demand"))
     return items
 
 
@@ -359,6 +364,7 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
 
 _MAX_BRAINS = 6
 _CHAR_ID = re.compile(r"^char_[0-7][0-9a-hjkmnp-tv-z]{25}$")
+_ROLE_DIR = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 
 
 def _runner_providers() -> list:

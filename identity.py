@@ -97,7 +97,7 @@ def _front(path: Path) -> Dict[str, str]:
 def _pd() -> Dict:
     try:
         import characters
-        return characters.pd_card(WORKSPACE)
+        return characters.default_card(WORKSPACE)
     except (ImportError, OSError, ValueError):
         return {}
 
@@ -106,7 +106,7 @@ def persona_file(role: str = "") -> Path:
     """The chatbot's own card (or PERSONA.md before the move); for another character (role or id), its card."""
     if not role:
         import characters
-        cid = characters.by_role("pd", WORKSPACE)
+        cid = characters.default_character(WORKSPACE)
         return characters.card_path(cid, WORKSPACE) if cid else WORKSPACE / "PERSONA.md"
     if not (_ROLE_RE.match(role) or role.startswith("char_")):
         raise ValueError("role must be a lowercase id, got %r" % role[:40])
@@ -165,7 +165,7 @@ def persona_body(role: str = "") -> str:
         if not card:
             return ""
         import characters
-        return characters.work_text(card)[:_BODY_LIMIT]
+        return characters.work_text(card, characters.resolve(role, WORKSPACE) or "", WORKSPACE)[:_BODY_LIMIT]
     card = _pd()
     if card:
         import characters
@@ -229,7 +229,8 @@ def seed_workspace_files(templates_dir: Optional[Path] = None, workspace: Option
     src_dir = templates_dir or (ROOT / "templates")
     dst_dir = workspace or WORKSPACE
     seeded = []
-    if characters.by_role("pd", dst_dir):
+    if characters.default_character(dst_dir):
+        characters.migrate_team(dst_dir)             # TEAM_ROLES_v1: an older install gets its roster once
         return seeded
     for name in ("PERSONA.md",):
         src, dst = src_dir / name, dst_dir / name
@@ -239,4 +240,5 @@ def seed_workspace_files(templates_dir: Optional[Path] = None, workspace: Option
             seeded.append(name)
     if characters.migrate_pd(dst_dir):
         seeded.append("card")
+        characters.migrate_team(dst_dir)
     return seeded

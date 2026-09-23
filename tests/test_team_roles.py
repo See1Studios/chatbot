@@ -1,0 +1,95 @@
+"""Every character is equal: cards carry no role; a role is a pack (roles/<role>/role.md: instructions, skills,
+tool grants) and the roster (team.json) says who holds it and whom the app opens with (TEAM_ROLES_v1).
+Run: python3 -m unittest tests.test_team_roles  (from services/chatbot)
+"""
+import json
+import shutil
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+import characters as C  # noqa: E402
+import instructions as I  # noqa: E402
+
+PD = "---\ntitle: PD\ntools: delegate, house-memory\nskills: planning\n---\n\n# Role: PD\nYou plan and delegate.\n"
+STAFF = "---\ntitle: Staff\ntools:\n---\n\n# Role: Staff\nYou do the work.\n"
+
+
+class Roster(unittest.TestCase):
+    def setUp(self):
+        self.ws = Path(tempfile.mkdtemp()).resolve()
+        (self.ws / "memory").mkdir()
+        (self.ws / "AGENTS.md").write_text("charter", encoding="utf-8")
+        for role, text in (("pd", PD), ("staff", STAFF)):
+            (self.ws / "roles" / role).mkdir(parents=True)
+            (self.ws / "roles" / role / "role.md").write_text(text, encoding="utf-8")
+        for skill in ("planning", "drawing"):
+            (self.ws / ".agents" / "skills" / skill).mkdir(parents=True)
+            (self.ws / ".agents" / "skills" / skill / "SKILL.md").write_text(
+                "---\nname: %s\ndescription: %s skill\n---\n" % (skill, skill), encoding="utf-8")
+        self.a, self.b, self.c = C.new_id(), C.new_id(), C.new_id()
+        C.save(self.a, C.new_card("A", "pd", description="a body"), self.ws)       # old cards with a role
+        C.save(self.b, C.new_card("B", "staff", description="b body"), self.ws)
+        C.save(self.c, C.new_card("Cc", description="c body"), self.ws)
+        self.saved = (I.WORKSPACE, I.WS_SKILLS_DIR, I.MEMORY_FILE)
+        I.WORKSPACE, I.WS_SKILLS_DIR, I.MEMORY_FILE = self.ws, self.ws / ".agents" / "skills", self.ws / "memory" / "MEMORY.md"
+
+    def tearDown(self):
+        I.WORKSPACE, I.WS_SKILLS_DIR, I.MEMORY_FILE = self.saved
+        shutil.rmtree(self.ws, ignore_errors=True)
+
+    def test_the_old_card_roles_become_a_roster_and_leave_the_cards(self):
+        self.assertEqual(C.by_role("pd", self.ws), self.a)                          # derived before migrating
+        self.assertTrue(C.migrate_team(self.ws))
+        self.assertFalse(C.migrate_team(self.ws))                                   # once
+        team = json.loads((self.ws / "team.json").read_text(encoding="utf-8"))
+        self.assertEqual(team, {"default": self.a, "members": {self.a: ["pd"], self.b: ["staff"]}})
+        for cid in (self.a, self.b, self.c):
+            self.assertNotIn("role", C.ext(C.load(cid, self.ws)))
+        self.assertEqual({c["id"]: c["roles"] for c in C.listing(self.ws)},
+                         {self.a: ["pd"], self.b: ["staff"], self.c: []})
+
+    def test_roles_follow_the_roster_not_the_card(self):
+        C.migrate_team(self.ws)
+        C.save_team({"default": self.b, "members": {self.b: ["pd", "staff"], self.c: ["staff"]}}, self.ws)
+        self.assertEqual(C.by_role("pd", self.ws), self.b)
+        self.assertEqual(C.default_character(self.ws), self.b)
+        self.assertEqual(C.tools_of(self.b, self.ws), ["delegate", "house-memory"])
+        self.assertEqual(C.tools_of(self.a, self.ws), [])
+        self.assertEqual(C.role_pack("pd", self.ws)["skills"], ["planning"])
+        self.assertEqual(C.role_pack("nope", self.ws)["text"], "")
+        self.assertIn("You do the work.", C.work_text(C.load(self.c, self.ws), self.c, self.ws))
+
+    def test_a_missing_default_falls_back_to_the_oldest(self):
+        C.save_team({"default": C.new_id(), "members": {}}, self.ws)
+        self.assertEqual(C.default_character(self.ws), min(self.a, self.b, self.c))   # TypeIDs sort by time
+
+    def test_every_character_gets_the_same_bundle_shape(self):
+        C.migrate_team(self.ws)
+        pd = I.build_instruction_bundle()["text"]                                    # the default character
+        self.assertIn("a body", pd)
+        self.assertIn("You plan and delegate.", pd)
+        self.assertIn("- planning", pd)                                               # a skill the PD pack claims
+        self.assertIn("- drawing", pd)
+        staff = I.build_instruction_bundle(character=self.b)["text"]
+        self.assertIn("You do the work.", staff)
+        self.assertNotIn("You plan and delegate.", staff)
+        self.assertNotIn("- planning", staff)
+        self.assertIn("- drawing", staff)
+        self.assertIn(I.NO_ROLE_NOTE, I.build_instruction_bundle(character=self.c)["text"])
+        self.assertNotIn(I.NO_ROLE_NOTE, staff)
+
+    def test_the_live_charter_no_longer_makes_everyone_the_pd(self):
+        charter = (ROOT / "data" / "workspace" / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertNotIn("You are the PD", charter)
+        self.assertNotIn("role `pd`", charter)
+        pack = C.role_pack("pd", ROOT / "data" / "workspace")
+        self.assertIn("delegate", pack["tools"])
+        self.assertIn("You are the PD", pack["text"])
+
+
+if __name__ == "__main__":
+    unittest.main()

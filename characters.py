@@ -73,8 +73,10 @@ def memory_path(cid: str, ws=None) -> Path:
     return card_path(cid, ws).parent / "memory.md"
 
 
-def new_card(name: str, role: str, description: str = "", personality: str = "", **chatbot) -> Dict:
-    ext = {"role": role}
+def new_card(name: str, role: str = "", description: str = "", personality: str = "", **chatbot) -> Dict:
+    """A new card. Cards carry no role: who does what is the team roster's (team.json). `role` is only for a
+    workspace without a roster, which then derives one from the cards (TEAM_ROLES_v1)."""
+    ext = {"role": role} if role else {}
     ext.update({k: v for k, v in chatbot.items() if v not in (None, "", {}, [])})
     return {"spec": SPEC, "spec_version": SPEC_VERSION,
             "data": {"name": name, "description": description, "personality": personality, "scenario": "",
@@ -115,15 +117,17 @@ def listing(ws=None) -> List[Dict]:
             card = load(d.name, ws)
         except (OSError, ValueError):
             continue
-        e = ext(card)
-        out.append({"id": d.name, "name": str(card["data"].get("name") or ""), "role": str(e.get("role") or ""),
-                    "card": card})
+        out.append({"id": d.name, "name": str(card["data"].get("name") or ""), "card": card})
+    members = load_team(ws, out)["members"]
+    for c in out:
+        c["roles"] = list(members.get(c["id"]) or [])
+        c["role"] = c["roles"][0] if c["roles"] else ""      # the first role, for callers that show one
     return out
 
 
 def by_role(role: str, ws=None) -> Optional[str]:
-    """The first (oldest) character with this role, or None."""
-    return next((c["id"] for c in listing(ws) if c["role"] == role), None)
+    """The first (oldest) character holding this role in the team roster, or None."""
+    return next((c["id"] for c in listing(ws) if role in c["roles"]), None)
 
 
 def resolve(ref: str, ws=None) -> Optional[str]:
@@ -134,7 +138,107 @@ def resolve(ref: str, ws=None) -> Optional[str]:
 
 
 def roles(ws=None) -> List[str]:
-    return sorted({c["role"] for c in listing(ws) if c["role"]})
+    return sorted({r for c in listing(ws) for r in c["roles"]})
+
+
+# ------------------------------------------------------------------ team roster and role packs (TEAM_ROLES_v1)
+# Every character is equal; a role is a pack of instructions, skills and tool grants (roles/<role>/role.md), and
+# the roster (team.json) says who holds which role and whom the app opens with. Cards stay role-free, so a card can
+# be shared without our team's arrangement in it.
+#   team.json: {"default": "<id>", "members": {"<id>": ["pd"], "<id>": ["staff"]}}
+#   roles/<role>/role.md: front matter `title`, `tools` and `skills` (comma-separated), then the instructions.
+
+def team_path(ws=None) -> Path:
+    return Path(ws or _default_ws()) / "team.json"
+
+
+def roles_dir(ws=None) -> Path:
+    return Path(ws or _default_ws()) / "roles"
+
+
+def load_team(ws=None, cards: Optional[List[Dict]] = None) -> Dict:
+    """The roster; without team.json, one derived from the cards' old `role` field (the first pd is the default)."""
+    try:
+        team = json.loads(team_path(ws).read_text(encoding="utf-8"))
+        if isinstance(team, dict) and isinstance(team.get("members"), dict):
+            members = {k: [r for r in v if isinstance(r, str) and _ROLE_RE.match(r)]
+                       for k, v in team["members"].items() if ID_RE.match(k) and isinstance(v, list)}
+            return {"default": str(team.get("default") or ""), "members": members}
+    except (OSError, ValueError):
+        pass
+    if cards is None:
+        cards = [{"id": c["id"], "card": c["card"]} for c in _raw_listing(ws)]
+    members = {c["id"]: [ext(c["card"]).get("role")] for c in cards if _ROLE_RE.match(str(ext(c["card"]).get("role") or ""))}
+    default = next((cid for cid, rs in members.items() if "pd" in rs), "")   # no roster: only a pd card was "the chatbot"
+    return {"default": default, "members": members}
+
+
+def _raw_listing(ws=None) -> List[Dict]:
+    root = characters_dir(ws)
+    out = []
+    for d in sorted(root.iterdir()) if root.is_dir() else []:
+        if ID_RE.match(d.name):
+            try:
+                out.append({"id": d.name, "card": load(d.name, ws)})
+            except (OSError, ValueError):
+                continue
+    return out
+
+
+def save_team(team: Dict, ws=None) -> None:
+    path = team_path(ws)
+    tmp = path.with_name(".team.%d.tmp" % os.getpid())
+    tmp.write_text(json.dumps(team, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
+def default_character(ws=None) -> str:
+    """Whom the app opens with: the roster's default if that card exists, else (with a roster) the oldest
+    character, else ""."""
+    team = load_team(ws)
+    if team["default"] and card_path(team["default"], ws).is_file():
+        return team["default"]
+    first = _raw_listing(ws) if team_path(ws).is_file() else []
+    return first[0]["id"] if first else ""
+
+
+def roles_of(cid: str, ws=None) -> List[str]:
+    return list(load_team(ws)["members"].get(cid) or [])
+
+
+def role_pack(role: str, ws=None) -> Dict:
+    """{role, title, tools, skills, text} of roles/<role>/role.md; empty lists and text when there is none."""
+    from identity import parse_frontmatter
+    try:
+        raw = (roles_dir(ws) / role / "role.md").read_text(encoding="utf-8") if _ROLE_RE.match(role or "") else ""
+    except OSError:
+        raw = ""
+    fm = parse_frontmatter(raw)
+    split = lambda v: [x.strip() for x in (v or "").split(",") if x.strip()]  # noqa: E731
+    return {"role": role, "title": fm.get("title") or role, "tools": split(fm.get("tools")),
+            "skills": split(fm.get("skills")), "text": _FRONT.sub("", raw, count=1).strip()}
+
+
+def tools_of(cid: str, ws=None) -> List[str]:
+    """Tool grants from every role the character holds."""
+    return sorted({t for r in roles_of(cid, ws) for t in role_pack(r, ws)["tools"]})
+
+
+def migrate_team(ws=None) -> bool:
+    """Write team.json from the cards' old `role` field and take the field out of the cards. False when a roster
+    already exists or there are no cards."""
+    if team_path(ws).is_file():
+        return False
+    cards = _raw_listing(ws)
+    if not cards:
+        return False
+    save_team(load_team(ws, cards), ws)
+    for c in cards:
+        e = ext(c["card"])
+        if "role" in e:
+            del e["role"]
+            save(c["id"], c["card"], ws)
+    return True
 
 
 def brains(card: Dict, mode: str = "work") -> List[Dict]:
@@ -142,11 +246,13 @@ def brains(card: Dict, mode: str = "work") -> List[Dict]:
     return chain if isinstance(chain, list) else []
 
 
-def work_text(card: Dict) -> str:
-    """What the character brings to a work brief: who it is and how it works (English; examples may be Korean)."""
+def work_text(card: Dict, cid: str = "", ws=None) -> str:
+    """What the character brings to a work brief: who it is, how it works, and the role packs it holds (English;
+    examples may be Korean)."""
     d, e = card.get("data") or {}, ext(card)
     parts = [d.get("description") or "", ("Voice: " + d["personality"]) if d.get("personality") else "",
              ((e.get("work") or {}).get("instructions") or "")]
+    parts += [role_pack(r, ws)["text"] for r in (roles_of(cid, ws) if cid else [])]
     return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
 
@@ -190,6 +296,15 @@ def migrate_experts(ws=None) -> List[str]:
 
 _FRONT = re.compile(r"\A﻿?---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
 _VOICE = re.compile(r"^##\s+Voice\s*$", re.M | re.I)
+
+
+def default_card(ws=None) -> Dict:
+    """The card of the character the app opens with (team.json `default`), or {}."""
+    cid = default_character(ws)
+    try:
+        return load(cid, ws) if cid else {}
+    except (OSError, ValueError):
+        return {}
 
 
 def pd_card(ws=None) -> Dict:

@@ -116,6 +116,14 @@
       "reason": "self-modification rules"
     },
     {
+      "path": "data/workspace/roles/",
+      "reason": "role packs grant tools (TEAM_ROLES_v1)"
+    },
+    {
+      "path": "data/workspace/team.json",
+      "reason": "who holds which role (TEAM_ROLES_v1)"
+    },
+    {
       "path": "docs/SELF-MODIFY.md",
       "reason": "self-modification rules"
     },

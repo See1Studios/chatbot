@@ -88,29 +88,77 @@ def skill_index() -> List[Tuple[str, str]]:
     return out
 
 
-def _persona_text() -> str:
-    """The chatbot's character card rendered as it used to read (characters.persona_text); PERSONA.md before the
-    move (plan doc §12 step 2)."""
+def _cid(character: str = "") -> str:
+    """The character a bundle is for: the given id, else the team's default character (TEAM_ROLES_v1)."""
+    if character:
+        return character
     try:
         import characters
-        card = characters.pd_card(WORKSPACE)
+        return characters.default_character(WORKSPACE)
     except Exception:  # noqa: BLE001
-        card = {}
-    return characters.persona_text(card).strip() if card else _read(WORKSPACE / "PERSONA.md")
+        return ""
 
 
-def _rules_text() -> str:
-    parts = [t for t in (_read(WORKSPACE / "AGENTS.md"), _persona_text()) if t]
+def _persona_text(character: str = "") -> str:
+    """The character's card rendered as PERSONA.md used to read (characters.persona_text); PERSONA.md before the
+    move (plan doc §12 step 2)."""
+    card = _card(character)
+    if card:
+        import characters
+        work = ((characters.ext(card).get("work") or {}).get("instructions") or "").strip()
+        return characters.persona_text(card).strip() + ("\n\n## How you work\n" + work if work else "")
+    return "" if character else _read(WORKSPACE / "PERSONA.md")
+
+
+NO_ROLE_NOTE = ("[No role] You hold no role in the team: talk and help, but plans and delegation are the PD's, and "
+                "the house memory is read-only for you.")
+
+
+def _roles_text(character: str = "") -> str:
+    """The every-turn part of each role pack the character holds (roles/<role>/role.md)."""
+    try:
+        import characters
+        cid = _cid(character)
+        packs = [characters.role_pack(r, WORKSPACE) for r in characters.roles_of(cid, WORKSPACE)] if cid else []
+    except Exception:  # noqa: BLE001
+        return ""
+    if not cid:
+        return ""
+    if not packs:
+        return NO_ROLE_NOTE
+    return "\n\n".join(p["text"] for p in packs if p["text"])
+
+
+def _rules_text(character: str = "") -> str:
+    parts = [t for t in (_read(WORKSPACE / "AGENTS.md"), _persona_text(character), _roles_text(character)) if t]
     return "\n\n---\n\n".join(parts)
 
 
-def _skills_text() -> str:
+def _skills_text(character: str = "") -> str:
+    """Enabled skills; a skill a role pack lists is shown only to that role's holders."""
     idx = skill_index()
+    try:
+        import characters
+        claimed = {sk: r for r in characters.roles(WORKSPACE) for sk in characters.role_pack(r, WORKSPACE)["skills"]}
+        mine = set(characters.roles_of(_cid(character), WORKSPACE))
+        idx = [(n, d) for n, d in idx if n not in claimed or claimed[n] in mine]
+    except Exception:  # noqa: BLE001
+        pass
     if not idx:
         return ""
     lines = ["[스킬 색인] 필요할 때 `~/services/chatbot/data/workspace/.agents/skills/<이름>/SKILL.md`를 읽어 절차를 따른다."]
     lines += [f"- {name} — {desc}" if desc else f"- {name}" for name, desc in idx]
     return "\n".join(lines)
+
+
+def _own_memory_text(character: str = "") -> str:
+    try:
+        import characters
+        cid = _cid(character)
+        text = _read(characters.memory_path(cid, WORKSPACE)) if cid else ""
+    except Exception:  # noqa: BLE001
+        return ""
+    return "[Your own memory]\n" + text if any(_FACT_LINE.match(l) for l in text.splitlines()) else ""
 
 
 def _memory_text() -> str:
@@ -140,7 +188,8 @@ def _card(character: str) -> Dict:
     """The character's card; "" = the chatbot itself (the character with role pd)."""
     try:
         import characters
-        return characters.load(character, WORKSPACE) if character else characters.pd_card(WORKSPACE)
+        cid = _cid(character)
+        return characters.load(cid, WORKSPACE) if cid else {}
     except Exception:  # noqa: BLE001
         return {}
 
@@ -158,31 +207,9 @@ def _private_bundle(character: str) -> Dict[str, str]:
     rules = characters.private_text(card)
     static = "\n\n---\n\n".join(t for t in (_read(WORKSPACE / "AGENTS.md"), characters.persona_text(card).strip(),
                                             PRIVATE_SESSION_NOTE + ("\n\n" + rules if rules else "")) if t)
-    cid = character or characters.by_role("pd", WORKSPACE) or ""
+    cid = _cid(character)
     memory = characters.read_private_memory(cid, WORKSPACE) if cid else ""
     text = static + ("\n\n[Private memory]\n" + memory if "- " in memory else "")
-    return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
-
-
-CHARACTER_SESSION_NOTE = ("[Direct conversation] The user is talking with you directly, not through the PD. Plans "
-                          "and delegation belong to the PD; if the user wants work planned or handed out, suggest "
-                          "asking the PD. The shared work memory tool is the PD's; your own memory is below.")
-
-
-def _character_work_bundle(character: str) -> Dict[str, str]:
-    """A character other than the chatbot, in a work session (CHARACTER_PICKER_v1): the charter, its card, its work
-    instructions and its own work memory."""
-    import characters
-    card = _card(character)
-    if not card:
-        return {"text": "", "hash": ""}
-    work = ((characters.ext(card).get("work") or {}).get("instructions") or "").strip()
-    static = "\n\n---\n\n".join(t for t in (
-        _read(WORKSPACE / "AGENTS.md"), characters.persona_text(card).strip(),
-        CHARACTER_SESSION_NOTE + ("\n\n[Work instructions]\n" + work if work else ""), _skills_text()) if t)
-    memory = _read(characters.memory_path(character, WORKSPACE))
-    text = static + ("\n\n[Your work memory]\n" + memory if any(_FACT_LINE.match(l) for l in memory.splitlines())
-                     else "")
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
 
 
@@ -193,11 +220,11 @@ def build_instruction_bundle(mode: str = "work", character: str = "") -> Dict[st
     work memory and the status badge."""
     if mode == "private":
         return _private_bundle(character)
-    if character:
-        return _character_work_bundle(character)
-    static = "\n\n".join(t for t in (_rules_text(), _skills_text()) if t)
+    # every character alike (TEAM_ROLES_v1): charter + card + held role packs + skills; house memory, own memory,
+    # status
+    static = "\n\n".join(t for t in (_rules_text(character), _skills_text(character)) if t)
     if not static:
         return {"text": "", "hash": ""}
-    dynamic = [t for t in (_memory_text(), _status_text()) if t]
+    dynamic = [t for t in (_memory_text(), _own_memory_text(character), _status_text()) if t]
     text = "\n\n".join([static] + dynamic)
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}

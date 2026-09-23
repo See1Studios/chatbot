@@ -81,10 +81,10 @@ class Picker(unittest.TestCase):
 
     def test_a_character_s_work_bundle_is_its_own(self):
         text = I.build_instruction_bundle(character=self.lulu)["text"]
-        for want in ("charter", "lulu persona", "lulu works carefully", "lulu fact", I.CHARACTER_SESSION_NOTE):
+        for want in ("charter", "lulu persona", "lulu works carefully", "lulu fact", "pd fact"):
             self.assertIn(want, text)
-        for never in ("pd persona", "pd fact"):
-            self.assertNotIn(never, text)
+        self.assertNotIn("pd persona", text)            # the house memory ("pd fact") is everyone's
+        self.assertNotIn(I.NO_ROLE_NOTE, text)            # 루루 holds staff
         pd = I.build_instruction_bundle()["text"]
         self.assertIn("pd fact", pd)
         self.assertNotIn("lulu fact", pd)
