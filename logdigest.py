@@ -301,7 +301,7 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
            "reaped": dict(Counter(str(e.get("reason")) for e in win if e.get("evt") == "agent.reaped")),
            "defibrillate_api": sum(1 for e in win if e.get("evt") == "host.defibrillate"),
            "manifest_drift": sum(1 for e in win if e.get("evt") == "manifest.drift")}
-    days = max(since_s / 86400.0, 1 / 24.0)
+    days = max(since_s / 86400.0, 1.0)  # a short window is not extrapolated to a day (2 in 10 min != 288/day)
     if len(rep) / days >= REPAIRS_PER_DAY_WARN:
         find("warn", "repair_frequent", "repair %d회 (%.1f/일) caller=%s" % (len(rep), len(rep) / days, dict(callers)),
              "재시작으로 덮는 근본 원인: repair 직전 http.error/turn.end/doctor.probe 를 시간순으로 보라", callers=dict(callers))

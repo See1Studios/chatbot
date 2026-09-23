@@ -100,6 +100,10 @@ class DigestTests(unittest.TestCase):
         self.assertEqual(d["ops"]["repair_callers"], {"api-defibrillate": 8})
         self.assertEqual(d["turns"]["by_provider"]["agy"]["fail_rate"], 0.4)
 
+    def test_short_window_is_not_extrapolated(self):
+        self.write([(60, {"src": "ctl", "evt": "repair.begin"}), (30, {"src": "ctl", "evt": "repair.begin"})])
+        self.assertNotIn("repair_frequent", self.codes(logdigest.digest(600)))
+
     def test_views(self):
         sess = logdigest.SESSIONS / SID
         sess.mkdir(parents=True)
