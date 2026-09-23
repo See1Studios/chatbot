@@ -1,3 +1,4 @@
+// QUOTA_ERR_DEDUP_v1
 // QUOTA_SILENT_FIX_v1
 // PROVIDER_SWAP_DEFER_v1
 // Dynamically detect base path from current URL pathname (stripping trailing filename like index.html or trailing slash)
@@ -3519,7 +3520,7 @@ function bindEvents(sid) {
         if (text && text.includes('started')) setBusy(true);
         setProgress(shortToolLine(text) || '처리 중…');
       } else if (type === 'error') {
-        // SESSION_DESYNC_GAPFIX_v2 + NOTICE_UI_v1: draft stays a reply; error is a notice
+        // SESSION_DESYNC_GAPFIX_v2 + NOTICE_UI_v1 + QUOTA_ERR_DEDUP_v1
         setBusy(false);
         setProgress('');
         if (assistantNode) {
@@ -3533,7 +3534,10 @@ function bindEvents(sid) {
             assistantNode.remove();
           }
         }
-        addNotice((data.notice || 'error'), text || '알 수 없는 오류', data.ts);
+        const errBody = text || '알 수 없는 오류';
+        const twinNotice = data.ts ? document.querySelector('.msg.notice-error[data-ts="' + String(data.ts) + '"]') : null;
+        if (!twinNotice) addNotice((data.notice || 'error'), errBody, data.ts);
+        if (data.ts) lastSyncedTs = Math.max(lastSyncedTs, data.ts);
         assistantNode = null; assistantBuf = '';
       }
       addActivity(line, kind, data.ts, detail);
@@ -3686,8 +3690,9 @@ function enterSession(id, opts) {
       } else if (h.role === 'user') {
         addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
       } else if (h.role === 'assistant') {
+        // QUOTA_ERR_DEDUP_v1: history notice via addNotice
         const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
-        if (nk) addChat('assistant', h.text || '', true, false, false, false, null, null, nk, h.ts, null);
+        if (nk) addNotice(nk, h.text || '', h.ts);
         else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
       }
       lastSyncedTs = Math.max(lastSyncedTs, h.ts || 0);

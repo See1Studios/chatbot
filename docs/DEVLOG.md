@@ -2741,3 +2741,11 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
 - **변경**: 본문 있으면 답만 저장·event result. 에러-only는 notice:error + event error. app.js 잔여 error/history twin 정리. `app.js?v=138`.
 - **배포**: 강제 새로고침 + `chatbot-ctl.sh repair`.
 - **마커**: `QUOTA_SILENT_FIX_v1`
+
+## 2026-09-23 — 쿼터 오류 이중공지·새로고침 유실 (QUOTA_ERR_DEDUP_v1)
+
+- **배경**: 쿼터 소진 시 한글 unfinished + 원문 quota 오류가 실시간 두 줄. 새로고침하면 사라져 보임.
+- **원인**: finalize_turn `event:error` 후 `_end_unfinished_turn`이 history 없는 오류를 한 번 더 emit.
+- **변경**: 이미 notice:error면 emit_error=False로 자식만 중지. 쿼터 한국어 한 줄. error_message 진행표시. history는 addNotice. `app.js?v=140`.
+- **배포**: 강제 새로고침 + repair.
+- **마커**: `QUOTA_ERR_DEDUP_v1`

@@ -218,7 +218,12 @@ class AgentAdapter:
             hist_text = body
             emit_as_error = False
         elif err_s:
-            hist_text = err_s
+            # QUOTA_ERR_DEDUP_v1: one Korean-facing notice body
+            low = err_s.lower()
+            if "quota" in low or "resource_exhausted" in low or "rate limit" in low:
+                hist_text = "쿼터가 소진됐습니다. " + err_s
+            else:
+                hist_text = err_s
             emit_as_error = True
         else:
             hist_text = ""
@@ -391,11 +396,17 @@ class AgyAdapter(AgentAdapter):
             duration_seconds = out_ev.get("duration_seconds")
             status = str(res_obj.get("status") or "")
             dur = float(res_obj.get("duration_seconds") or duration_seconds or 0)
+            # QUOTA_ERR_DEDUP_v1: finalize_turn may already emit notice:error
+            # (event=error). Still stop the child, but do not fire a second
+            # Korean unfinished-turn error on top of the quota notice.
             if not session._stop_requested and (
                 status not in ("", "SUCCESS")
                 or (not final.strip() and dur >= 0.9 * AGY_PRINT_TIMEOUT_SEC)
             ):
-                session._end_unfinished_turn(status, res_err, dur)
+                if out_ev.get("event") == "error":
+                    session._end_unfinished_turn(status, res_err, dur, emit_error=False)
+                else:
+                    session._end_unfinished_turn(status, res_err, dur)
             events.append(out_ev)
         elif ev in ("assistant", "message", "delta", "error", "system") or (ev in ("tool_use", "tool_result") and not tool_ev):
             out = {"event": ev, "text": text, "raw_event": ev}

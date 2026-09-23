@@ -246,7 +246,11 @@ class AgySession:
         self.last_activity = _now()
         kind = event.get("event")
         if kind in ("tool", "system"):
+            # QUOTA_ERR_DEDUP_v1: agy surfaces quota as step_type/title error_message
+            step = str(event.get("step_type") or event.get("title") or "").strip()
             line = (event.get("title") or event.get("text") or "").strip()
+            if step == "error_message" or line == "error_message":
+                line = "쿼터·오류 확인 중…"
             if line:
                 self.last_progress = line[:240]
         elif kind in ("result", "error", "stopped"):
@@ -541,14 +545,27 @@ class AgySession:
         except Exception:  # noqa: BLE001
             pass
 
-    def _end_unfinished_turn(self, status: str, err: str, duration: float) -> None:
+    def _end_unfinished_turn(self, status: str, err: str, duration: float, emit_error: bool = True) -> None:
         """agy ended the turn without an answer (error/timeout). At the print timeout it does so
         with an EMPTY result while the agent keeps working unseen in the background, so the child
-        is stopped too -- the next message respawns it and resumes the conversation."""
+        is stopped too -- the next message respawns it and resumes the conversation.
+
+        QUOTA_ERR_DEDUP_v1: emit_error=False still stops the child (and sets the loop hint)
+        but skips the Korean error notice when finalize_turn already persisted notice:error.
+        """
         why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}초"
-        self._auto_stop(
-            event={"event": "error", "text": f"에이전트가 답을 내기 전에 턴이 끝났습니다 ({why}). 남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다냥."},
-            hint=f"직전 턴이 답을 내지 못하고 끝났습니다({why}). 하던 일을 이어서 하되, 같은 방식을 되풀이하지 말고 진행 상황을 짧게 정리해 알려 주세요.")
+        hint = f"에이전트가 답을 내기 전에 턴이 끝났습니다({why}). 남은 작업은 멈췄고, 다음 메시지부터 이어서 합니다냥."
+        if emit_error:
+            self._auto_stop(
+                event={"event": "error", "text": f"에이전트가 답을 내기 전에 턴이 끝났습니다 ({why}). 남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다냥."},
+                hint=hint,
+            )
+        else:
+            # Quiet close: system only, no second error notice.
+            self._auto_stop(
+                event={"event": "system", "text": f"턴 종료 ({why})"},
+                hint=hint,
+            )
 
     def _auto_stop(self, event: dict, hint: str) -> None:
         with self.lock:
