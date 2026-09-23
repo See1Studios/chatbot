@@ -1,0 +1,38 @@
+{
+ "actor": "agy",
+ "approved_at": "2026-09-23 21:26:03",
+ "approved_by": "operator (api) via agy ticket-quick (operator's instruction)",
+ "attempts": 1,
+ "created": "2026-09-23 21:26:03",
+ "evidence": [
+  "candidate:1790166363.571"
+ ],
+ "gate_failures": 0,
+ "id": 89,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (api) via agy ticket-quick (operator's instruction)",
+   "text": "approved",
+   "ts": "2026-09-23 21:26:03"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: data/workspace/notes/brain-probe.md",
+   "ts": "2026-09-23 21:26:03"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-89 at 867345c (agy, review PASS round 1)",
+   "ts": "2026-09-23 21:28:12"
+  }
+ ],
+ "paths": [
+  "data/workspace/notes/brain-probe.md"
+ ],
+ "status": "awaiting_merge",
+ "target": "data/workspace/notes/brain-probe.md",
+ "title": "두뇌 대체 실측 (폐기 예정)",
+ "updated": "2026-09-23 21:28:12",
+ "worked_by": "agy"
+}
