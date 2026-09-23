@@ -207,36 +207,39 @@ class AgentAdapter:
             duration_seconds = round(_now() - session.turn_started_at, 2)
 
         ts = _now()
-        # On error, a partial draft is real conversation content the user already
-        # saw stream in -- persist it as its own turn (matching the live view,
-        # which finalizes the same draft into a normal bubble) instead of
-        # discarding it, so a reload doesn't silently erase it (history-restore
-        # in app.js drops any item whose text is empty).
-        if is_err and final and final.strip():
-            draft_item: dict = {"role": "assistant", "text": final, "ts": ts}
-            if usage:
-                draft_item["usage"] = usage
-            if duration_seconds is not None:
-                draft_item["duration_seconds"] = duration_seconds
-            stamp_served_model(session, draft_item, captured=served_model)
-            session.history.append(draft_item)
+        # QUOTA_SILENT_FIX_v1:
+        # agy often returns streamed text AND result.error (e.g. RESOURCE_EXHAUSTED
+        # after retries). Persisting both as answer + notice:error with the same
+        # ts made every successful turn look like "답 + 쿼터 에러 공지". Error-only
+        # turns emitted result with empty text so the UI stayed silent.
+        body = (final or "").strip()
+        err_s = (error or "").strip() if is_err else ""
+        if body:
+            hist_text = body
+            emit_as_error = False
+        elif err_s:
+            hist_text = err_s
+            emit_as_error = True
+        else:
+            hist_text = ""
+            emit_as_error = False
 
-        hist_item: dict = {
-            "role": "assistant",
-            "text": (error or "오류가 발생했습니다") if is_err else final,
-            "ts": ts,
-        }
-        if is_err:
+        hist_item: dict = {"role": "assistant", "text": hist_text, "ts": ts}
+        if emit_as_error:
             hist_item["notice"] = "error"
             if error:
                 hist_item["error"] = error
+        elif is_err and error:
+            # Residual provider error while we still have an answer — keep on
+            # the hist item for debugging but do not mark as notice.
+            hist_item["error"] = error
         if usage:
             hist_item["usage"] = usage
         if duration_seconds is not None:
             hist_item["duration_seconds"] = duration_seconds
         stamp_served_model(session, hist_item, captured=served_model)
 
-        if final or is_err:
+        if hist_text:
             session.history.append(hist_item)
             session.save_meta()
 
@@ -244,11 +247,13 @@ class AgentAdapter:
         session.pending_images = []
 
         out_ev = {
-            "event": "result",
-            "text": "" if is_err else final,
-            "raw_event": "result",
+            "event": "error" if emit_as_error else "result",
+            "text": hist_text,
+            "raw_event": "error" if emit_as_error else "result",
             "ts": ts,
         }
+        if emit_as_error:
+            out_ev["notice"] = "error"
         if usage:
             out_ev["usage"] = usage
         if duration_seconds is not None:

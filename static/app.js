@@ -1,3 +1,4 @@
+// QUOTA_SILENT_FIX_v1
 // PROVIDER_SWAP_DEFER_v1
 // Dynamically detect base path from current URL pathname (stripping trailing filename like index.html or trailing slash)
 const BASE_PATH = (() => {
@@ -3329,16 +3330,19 @@ function bindEvents(sid) {
     }
 
     if (type === 'result') {
+      // QUOTA_SILENT_FIX_v1: result residual error
       if (text) assistantBuf = text;
       if (assistantNode) delete assistantNode.dataset.progress;
       const doneNode = assistantNode;
       const doneBuf = assistantBuf;
+      const residualErr = (data.error && !(doneBuf || '').trim()) ? String(data.error) : '';
       setBusy(false);
-      // A resync may already have drawn this very answer (same ts) before the event got here.
+      setProgress('');
       const twin = data.ts ? findRenderedByTs('assistant', data.ts) : null;
       if (twin && twin !== doneNode) {
         if (doneNode) doneNode.remove();
       } else if (doneBuf && doneBuf.trim()) {
+        // Answer won — ignore residual data.error (agy quota after successful stream).
         const node = doneNode || addChat('assistant', '', false);
         setAssistantContent(node, doneBuf, true, data.usage, data.duration_seconds, data.served_model);
         if (data.ts) {
@@ -3346,8 +3350,10 @@ function bindEvents(sid) {
           node.dataset.syncRole = 'assistant';
         }
         delete node.dataset.live;
+      } else if (residualErr || data.notice === 'error') {
+        if (doneNode) doneNode.remove();
+        addNotice((data.notice || 'error'), residualErr || text || '알 수 없는 오류', data.ts);
       } else if (doneNode) {
-        // If nothing was generated or only empty progress was shown, remove empty assistant bubble
         doneNode.remove();
       }
       if (data.usage || data.duration_seconds != null) logTurnUsage(data.usage, data.duration_seconds);
@@ -3667,7 +3673,12 @@ function enterSession(id, opts) {
   }
 
   if (opts.history) {
-    opts.history.forEach(h => {
+    // QUOTA_SILENT_FIX_v1: drop notice:error twins sharing ts with a real reply
+    const hist = (opts.history || []).filter(h => {
+      if (h.role !== 'assistant' || h.notice !== 'error' || !h.ts) return true;
+      return !(opts.history || []).some(o => o !== h && o.role === 'assistant' && !o.notice && o.ts === h.ts && String(o.text || '').trim());
+    });
+    hist.forEach(h => {
       // EMPTY_BUBBLE_FIX_v1: skip empty history — never paint hollow bubbles
       if (h.role !== 'btw' && !(String(h.text || '').trim())) return;
       if (h.role === 'btw') {
@@ -3792,6 +3803,11 @@ async function resyncFromServer(sid) {
       const role = h.role || '';
       // EMPTY_BUBBLE_FIX_v1: skip empty history
       if (role !== 'btw' && !(String(h.text || '').trim())) return;
+      // QUOTA_SILENT_FIX_v1
+      if (role === 'assistant' && h.notice === 'error' && h.ts) {
+        const twinReply = (info.history || []).some(o => o !== h && o.role === 'assistant' && !o.notice && o.ts === h.ts && String(o.text || '').trim());
+        if (twinReply) return;
+      }
       const k = msgSyncKey(role, h.ts);
       if (seen.has(k)) {
         lastSyncedTs = Math.max(lastSyncedTs, h.ts);

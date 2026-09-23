@@ -2733,3 +2733,11 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
 ## 2026-09-22 — PROVIDER_SWAP_DEFER_v1
 
 - Provider/model tray switch does not stop an in-flight turn; UI updates immediately, server swap deferred until idle / next message. Cache app.js?v=122.
+
+## 2026-09-23 — 쿼터 소진 침묵·성공턴 에러공지 중복 (QUOTA_SILENT_FIX_v1)
+
+- **배경**: 쿼터 소진 시 침묵. 이후 성공 답과 함께 쿼터 에러 공지·메시지 중복(실장님, `20260923-094617-bf27a0`).
+- **원인**: live `finalize_turn`이 `is_err`+본문일 때 draft 답과 `notice:error`를 **같은 ts로 이중 append**. 에러-only는 `event:result`+빈 text라 UI notice 미표출.
+- **변경**: 본문 있으면 답만 저장·event result. 에러-only는 notice:error + event error. app.js 잔여 error/history twin 정리. `app.js?v=138`.
+- **배포**: 강제 새로고침 + `chatbot-ctl.sh repair`.
+- **마커**: `QUOTA_SILENT_FIX_v1`
