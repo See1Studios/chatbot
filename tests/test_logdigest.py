@@ -61,6 +61,18 @@ class DigestTests(unittest.TestCase):
         self.assertIn("silent_process", self.codes(d))
         self.assertEqual(d["unclean_restarts"][0]["prev_pid"], 1)
 
+    def test_an_overlapping_process_is_not_a_crash(self):
+        self.write([
+            (600, {"src": "mcp", "evt": "proc.start", "pid": 1}),
+            (300, {"src": "mcp", "evt": "proc.heartbeat", "pid": 1}),
+            (250, {"src": "mcp", "evt": "proc.start", "pid": 9}),   # a test server, alive a moment
+            (249, {"src": "mcp", "evt": "proc.exit", "pid": 9}),
+            (100, {"src": "mcp", "evt": "proc.exit", "pid": 1}),    # the real one exits cleanly
+            (90, {"src": "mcp", "evt": "proc.start", "pid": 2}),
+            (10, {"src": "mcp", "evt": "proc.heartbeat", "pid": 2}),
+        ])
+        self.assertNotIn("unclean_restart", self.codes(logdigest.digest(3600)))
+
     def test_error_fingerprints_new_vs_known(self):
         err = {"type": "KeyError", "msg": "'x'", "fp": "abcdef1234", "where": "server.py:1:f", "trace": "Traceback..."}
         self.write([

@@ -36,6 +36,7 @@ P95_SLOW_MS = 2000
 RSS_GROWTH_MB = 150
 TURN_FAIL_RATE_WARN = 0.2
 CLIENT_ERR_REPEAT_WARN = 50
+_CLIENT_GONE_TYPES = ("BrokenPipeError", "ConnectionResetError", "ConnectionAbortedError")
 
 # Host signals (docs/plans/recursive-self-evolution.md §4.2/§4.4): findings become observation
 # candidates so a review also sees what the host measured, not only what the operator said.
@@ -145,15 +146,25 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     procs: Dict[str, Dict[str, Any]] = {}
     unclean = []
     last_by_src: Dict[str, dict] = {}
+    # Per pid, not per stream: two processes of one src can overlap (a test server, a restart
+    # racing the old one), so "the line before a start was not an exit" is not a crash. A pid is
+    # unclean when its last line is not proc.exit and a newer pid of the same src started after it.
+    last_by_pid: Dict[tuple, dict] = {}
+    starts_by_src: Dict[str, List[dict]] = defaultdict(list)
     for e in events:
         src, evt = e.get("src"), e.get("evt")
         if src not in ("chat", "mcp"):
             continue
+        last_by_pid[(src, e.get("pid"))] = e
         if evt == "proc.start":
-            prev = last_by_src.get(src)
-            if prev is not None and prev.get("evt") != "proc.exit" and ts_of(e) >= since_t:
-                unclean.append({"src": src, "prev_pid": prev.get("pid"), "last_seen": prev.get("ts"), "restart_at": e.get("ts")})
+            starts_by_src[src].append(e)
         last_by_src[src] = e
+    for (src, pid), last_e in last_by_pid.items():
+        if last_e.get("evt") == "proc.exit":
+            continue
+        later = [s for s in starts_by_src[src] if s.get("pid") != pid and ts_of(s) >= ts_of(last_e)]
+        if later and ts_of(later[0]) >= since_t:
+            unclean.append({"src": src, "prev_pid": pid, "last_seen": last_e.get("ts"), "restart_at": later[0].get("ts")})
     for src in ("chat", "mcp"):
         mine = [e for e in win if e.get("src") == src]
         starts = [e for e in mine if e.get("evt") == "proc.start"]
@@ -205,6 +216,8 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
         err = e.get("err")
         if not isinstance(err, dict) or not err.get("fp"):
             continue
+        if e.get("status") == "gone" and err.get("type") in _CLIENT_GONE_TYPES:
+            continue  # written before OBSLOG_v1.4: a client that left, not a server bug
         g = groups.setdefault(err["fp"], {"fp": err["fp"], "type": err.get("type"), "msg": err.get("msg"),
                                           "where": err.get("where"), "count": 0, "evts": Counter(), "routes": Counter(),
                                           "first": e.get("ts"), "last": None, "sample_trace": None, "sids": set(),

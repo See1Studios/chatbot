@@ -258,11 +258,40 @@ class HTTPTests(Base):
 
     def test_expected_discovery_404_is_summary_only(self):
         self.assertEqual(self.get("/.well-known/oauth-protected-resource")[0], 200)  # _H answers 200 to all GETs
+        import time
+        for _ in range(50):  # the server counts a request after it has answered it
+            if "GET /.well-known/oauth-protected-resource" in obslog._http:
+                break
+            time.sleep(0.02)
         obslog.http_request("GET", "/.well-known/oauth-protected-resource", 404, 1.0)
         self.assertEqual([r for r in lines(self.path) if r["evt"] == "http.client_error"], [])
         obslog.flush_http_summary()
         self.assertEqual(lines(self.path)[-1]["routes"]["GET /.well-known/oauth-protected-resource"]["codes"],
                          {"2xx": 1, "4xx": 1})
+
+    def test_a_client_that_left_is_not_a_server_error(self):
+        class Gone(_H):
+            def do_GET(self):
+                try:
+                    raise BrokenPipeError(32, "Broken pipe")   # e.g. writing to a client that left
+                except Exception:
+                    self.send_response(500)                   # the catch-all answers... into the void
+                    self.end_headers()
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), Gone)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            try:
+                urllib.request.urlopen("http://127.0.0.1:%d/x" % srv.server_address[1], timeout=5).read()
+            except urllib.error.HTTPError:
+                pass
+            import time
+            time.sleep(0.2)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        evts = [r["evt"] for r in lines(self.path)]
+        self.assertNotIn("http.error", evts)
+        self.assertIn("http.client_gone", evts)
 
     def test_request_ids_are_unique(self):
         ids = {self.get("/ok")[1] for _ in range(5)}

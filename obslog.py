@@ -465,6 +465,9 @@ def flush_http_summary() -> None:
     flush_suppressed()
 
 
+_CLIENT_GONE = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
+
+
 class HTTPLogMixin:
     """Mix in before BaseHTTPRequestHandler. Times every request, tags it with a request id
     (thread-bound, echoed as X-Request-Id), keeps the exception that a route's catch-all turned
@@ -519,7 +522,7 @@ class HTTPLogMixin:
         bind(rid=self._obs_rid)
         try:
             super().handle_one_request()  # type: ignore[misc]
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+        except _CLIENT_GONE:
             self._obs_gone = True
             self.close_connection = True
         except Exception:
@@ -543,6 +546,9 @@ class HTTPLogMixin:
         dur = (time.monotonic() - self._obs_t0) * 1000.0
         status: Any = "gone" if self._obs_gone else (self._obs_status or 0)
         err = None
+        if self._obs_exc is not None and isinstance(self._obs_exc[1], _CLIENT_GONE):
+            # the route's catch-all tried to answer an error to a client that had already left
+            status, self._obs_exc = "gone", None
         if self._obs_exc is not None:
             exc = self._obs_exc[1]
             with_trace = not (isinstance(status, int) and 400 <= status < 500)
