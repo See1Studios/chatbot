@@ -1321,6 +1321,32 @@ def _service_log(since: str, sid: str = "") -> dict:
     return out
 
 
+# HOST_SIGNALS_v1.1: log findings -> observation candidates, from inside the service (the operator:
+# doctor, the watchdog, must not run service code). logdigest throttles itself to once an hour.
+HOST_SIGNAL_CHECK_SEC = 300
+
+
+def _host_signal_tick() -> int:
+    import logdigest
+    if obslog.configured():
+        logdigest.LOG = obslog._state["path"]
+        logdigest.HOST_SIGNAL_STAMP = logdigest.LOG.with_name(".host-signals.stamp")
+    logdigest.OBS_ROOT = WORKSPACE / "skill-observations"
+    got = logdigest.host_candidates()
+    if got:
+        obslog.event("evolution.host_candidates", count=len(got), signals=sorted({g["signal"] for g in got}))
+    return len(got)
+
+
+def _host_signal_loop() -> None:
+    while True:
+        time.sleep(HOST_SIGNAL_CHECK_SEC)
+        try:
+            _host_signal_tick()
+        except Exception:
+            obslog.exception("evolution.host_candidates_failed", dedup="loop")
+
+
 def _obs_heartbeat() -> Dict[str, Any]:
     """Merged into every proc.heartbeat (obslog, every 5 min)."""
     with REG.lock:
@@ -1349,6 +1375,7 @@ def main() -> None:
     threading.Thread(target=accounts.watch_loop, daemon=True).start()
     if AUTO_RECYCLE_ENABLED:
         threading.Thread(target=_auto_recycle_loop, daemon=True).start()
+    threading.Thread(target=_host_signal_loop, name="host-signals", daemon=True).start()
     print(f"chatbot on http://{HOST}:{PORT} (VibeCat-class NAS)", flush=True)
 
     def _stop(signum=None, *_a):

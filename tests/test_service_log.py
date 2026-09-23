@@ -83,6 +83,40 @@ class ServiceLogApiTest(unittest.TestCase):
             self.assertEqual(cm.exception.code, 400)
 
 
+class HostSignalTickTest(unittest.TestCase):
+    """HOST_SIGNALS_v1.1: the service collects host candidates; doctor (the watchdog) runs no service code."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        base = Path(self.tmp.name)
+        self.log = base / "events.jsonl"
+        self.ws = base / "workspace"
+        (self.ws / "skill-observations").mkdir(parents=True)
+        self._old = (logdigest.LOG, logdigest.HOST_SIGNAL_STAMP, logdigest.OBS_ROOT, server.WORKSPACE)
+        logdigest.LOG = self.log
+        logdigest.HOST_SIGNAL_STAMP = base / ".stamp"
+        server.WORKSPACE = self.ws
+        err = {"type": "KeyError", "msg": "x", "fp": "abcdef1234"}
+        self.log.write_text(json.dumps({"ts": obslog.iso_now(time.time() - 60), "lvl": "error", "src": "chat", "pid": 1,
+                                        "evt": "http.error", "err": err}) + "\n", encoding="utf-8")
+
+    def tearDown(self):
+        logdigest.LOG, logdigest.HOST_SIGNAL_STAMP, logdigest.OBS_ROOT, server.WORKSPACE = self._old
+        self.tmp.cleanup()
+
+    def test_tick_records_then_throttles(self):
+        self.assertEqual(server._host_signal_tick(), 1)
+        rows = (self.ws / "skill-observations" / "candidates.jsonl").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(json.loads(rows[0])["signal"], "host:error_fp")
+        self.assertEqual(server._host_signal_tick(), 0)   # hourly
+
+    def test_doctor_runs_no_service_code_for_signals(self):
+        ctl = (ROOT / "chatbot-ctl.sh").read_text(encoding="utf-8")
+        doctor = ctl.split("cmd_doctor() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertNotIn("logdigest", doctor)
+        self.assertNotIn("to-candidates", doctor)
+
+
 class StaticWiringTest(unittest.TestCase):
     def test_log_tab_has_the_service_view(self):
         html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")

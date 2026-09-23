@@ -147,7 +147,10 @@ Thresholds live at the top of `logdigest.py`.
 
 ## Host signals → self-evolution (HOST_SIGNALS_v1)
 
-`chatbot-ctl.sh doctor` runs `logdigest.py --to-candidates` (it throttles itself to once an hour).
+The chat server collects them in a background thread (`server._host_signal_loop`, checks every 5 min,
+`logdigest.host_candidates` throttles itself to once an hour; `evolution.host_candidates` is logged).
+Not doctor: the watchdog runs no service code (operator decision, 2026-09-23). By hand:
+`logdigest.py --to-candidates [--force]`.
 Each finding of the last 2 h becomes one observation candidate in
 `data/workspace/skill-observations/candidates.jsonl`:
 
