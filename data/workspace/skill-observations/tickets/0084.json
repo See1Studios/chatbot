@@ -9,6 +9,7 @@
  ],
  "gate_failures": 0,
  "id": 84,
+ "merge_approved_by": "operator (ui)",
  "merge_pending": true,
  "notes": [
   {
@@ -25,6 +26,26 @@
    "by": "agent:claude-code",
    "text": "awaiting merge: branch worktree/ticket-84 at b81aaf9 (claude, review PASS round 1)",
    "ts": "2026-09-23 20:12:40"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-23 20:12:57"
+  },
+  {
+   "by": "operator (api)",
+   "text": "author lease dropped",
+   "ts": "2026-09-23 20:14:32"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "recovered by claude-code on the operator's report: the merge process exited at once (race: the page marked the run 'merging' before the runner read 'awaiting_merge'); lease dropped, back to awaiting the operator's [승인]",
+   "ts": "2026-09-23 20:14:32"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge refused: author lock is held for ticket 85",
+   "ts": "2026-09-23 20:15:02"
   }
  ],
  "paths": [
@@ -33,6 +54,6 @@
  "status": "awaiting_merge",
  "target": "data/workspace/.agents/skills/character-chat/sessions/yerin-1789982201.json",
  "title": "character-chat 잔재 디렉터리 정리",
- "updated": "2026-09-23 20:12:40",
+ "updated": "2026-09-23 20:15:02",
  "worked_by": "claude-code"
 }
