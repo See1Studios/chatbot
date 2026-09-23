@@ -71,6 +71,12 @@ class InstructionsApiTest(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertEqual((self.ws / "experts" / "staff" / "expert.md").read_text(), "new staff")
 
+    def test_an_expert_memory_is_listed_when_it_exists(self):
+        self.assertNotIn("experts/staff/memory.md", self.items())
+        (self.ws / "experts" / "staff" / "memory.md").write_text("# Memory\n- [2026-01-01] x\n", encoding="utf-8")
+        item = self.items()["experts/staff/memory.md"]
+        self.assertEqual((item["layer"], item["editable"]), ("on_demand", True))
+
     def test_memory_is_saved_under_its_lock_and_cap(self):
         self.assertEqual(self.put("MEMORY.md", "# Memory\n- edited\n")[0], 200)
         self.assertIn("- edited", (self.ws / "memory" / "MEMORY.md").read_text())

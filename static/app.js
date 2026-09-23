@@ -3305,12 +3305,17 @@ function renderTeamCard(ex, team, files) {
     edit.addEventListener('click', () => editBrains(ex, team, brains, actions));
     actions.appendChild(edit);
   }
-  const charFile = files[ex.role === 'pd' ? 'PERSONA.md' : 'experts/' + ex.role + '/expert.md'];
-  if (charFile) {
-    const sub = renderInstruction(Object.assign({}, charFile, { title: '캐릭터' }), false);
-    sub.classList.add('team-sub');
-    card.appendChild(sub);
-  }
+  const subs = ex.role === 'pd' ? [['PERSONA.md', '캐릭터'], ['MEMORY.md', '기억']]
+    : [['experts/' + ex.role + '/expert.md', '캐릭터'], ['experts/' + ex.role + '/memory.md', '기억']];
+  subs.forEach(([id, title]) => {
+    if (files[id]) {
+      const sub = renderInstruction(Object.assign({}, files[id], { title }), false);
+      sub.classList.add('team-sub');
+      card.appendChild(sub);
+    } else if (title === '기억') {
+      card.appendChild(obsNode('div', 'status-hint team-sub', '기억: 아직 없음 (PD가 통과시킨 작업에서 배운 점이 쌓입니다)'));
+    }
+  });
   return card;
 }
 

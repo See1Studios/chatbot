@@ -441,6 +441,48 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c"), 0)
         self.assertEqual(wr.read_state(7)["transcript"][0]["brain"], "fake/default")
 
+    # ---- expert memory: read before a task, lessons kept only when the PD confirmed it
+
+    LEARN = 'echo two >> a.txt; git commit -qam c; echo "LEARNED: tests live in tests/"; echo ---; echo hi'
+
+    def expert_dir(self):
+        d = self.ws / "experts" / "staff"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def test_the_expert_reads_its_memory(self) -> None:
+        (self.expert_dir() / "memory.md").write_text("# Memory\n- [2026-01-01] the user likes tabs\n")
+        self.assertEqual(self.run_with('printf "%s" "$0" > ../prompt.txt; echo two >> a.txt; git commit -qam c'), 0)
+        prompt = (wr.WORKTREE_BASE / "prompt.txt").read_text()
+        self.assertIn("What you remember", prompt)
+        self.assertIn("the user likes tabs", prompt)
+
+    def test_lessons_are_kept_when_the_pd_passes_the_work(self) -> None:
+        d = self.expert_dir()
+        self.assertEqual(self.run_with(self.LEARN), 0)
+        self.assertIn("tests live in tests/", (d / "memory.md").read_text())
+        line = wr.read_state(7)["transcript"][0]
+        self.assertEqual((line["text"], line["learned"]), ("hi", ["tests live in tests/"]))
+
+    def test_lessons_of_rejected_work_are_not_kept(self) -> None:
+        d = self.expert_dir()
+        self.run_with(self.LEARN, review="printf 'VERDICT: FAIL\\nSAY: no\\nFIX: redo'", extra=("--rounds", "1"))
+        self.assertFalse((d / "memory.md").exists())
+
+    def test_memory_stays_short_unique_and_free_of_secrets(self) -> None:
+        self.expert_dir()
+        self.assertEqual(wr.learned("LEARNED: the api_key is abc\n**LEARNED:** use pytest\nLEARNED: use pytest"),
+                         ["use pytest"])
+        self.assertEqual(wr.remember("staff", ["use pytest"], "2026-01-01"), 1)
+        self.assertEqual(wr.remember("staff", ["Use pytest"], "2026-01-02"), 0)      # already known
+        for i in range(200):
+            wr.remember("staff", ["lesson number %d with some padding text" % i], "2026-01-03")
+        text = wr.read_memory("staff")
+        self.assertLessEqual(len(text.encode("utf-8")), wr.MEMORY_CAP)
+        self.assertIn("lesson number 199", text)
+        self.assertNotIn("use pytest", text)                                         # the oldest went first
+        self.assertEqual(wr.remember("ghost", ["x"]), 0)                             # no such expert
+
 
 if __name__ == "__main__":
     unittest.main()

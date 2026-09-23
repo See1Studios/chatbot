@@ -245,8 +245,9 @@ LINE_RULE = ("At the very end of your final message, write a line containing onl
 
 
 def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[str], gates: List[str],
-                  instruction: str, character: str) -> str:
-    return "\n".join([
+                  instruction: str, character: str, memory: str = "") -> str:
+    remembered = ["What you remember from earlier work (yours alone):", memory, ""] if memory.strip() else []
+    return "\n".join(remembered + [
         "You are working on ticket #%d (%s) in an isolated git worktree of the services/chatbot repository." % (tid, title),
         "Working directory: %s (branch %s). Stay inside it: do not modify %s or any other path, "
         "do not push, do not restart or deploy services." % (wt_dir, branch, CHATBOT_REPO),
@@ -258,23 +259,82 @@ def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[s
         "",
         character,
         LINE_RULE,
+        LEARNED_RULE,
         "",
         "Task:",
         instruction,
     ])
 
 
+# ------------------------------------------------------------ expert memory
+# Each expert keeps a short memory (experts/<role>/memory.md, plan doc §11 step 4): it reads it before a task and may
+# end its output with LEARNED lines; the lessons of a task are kept only when the PD confirmed it (PASS).
+
+LEARNED_RULE = ("If you learned something worth remembering for future work here (about this project, the user's "
+                "preferences, or how to work in this repository), put one short line starting with `LEARNED:` just "
+                "before the `---` line. Skip it when there is nothing new.")
+_LEARNED = re.compile(r"^\s*\**LEARNED\**\s*:\s*\**\s*(.+?)\s*$", re.I)
+_SECRETISH = re.compile(r"(api[_-]?key|secret|password|passwd|token|bearer|sk-[A-Za-z0-9]{8,}|-----BEGIN)", re.I)
+MEMORY_CAP = 2048
+MEMORY_HEAD = "# Memory\n"
+
+
+def learned(text: str) -> List[str]:
+    """The LEARNED lessons in an agent's output: short, not secret-looking."""
+    out = []
+    for ln in (text or "").splitlines():
+        m = _LEARNED.match(ln)
+        if m and not _SECRETISH.search(m.group(1)):
+            lesson = re.sub(r"\s+", " ", m.group(1)).strip()[:200]
+            if lesson and lesson not in out:
+                out.append(lesson)
+    return out
+
+
+def memory_path(role: str) -> Path:
+    return workspace_dir() / "experts" / role / "memory.md"
+
+
+def read_memory(role: str) -> str:
+    try:
+        return memory_path(role).read_text(encoding="utf-8")[:MEMORY_CAP * 2]
+    except OSError:
+        return ""
+
+
+def remember(role: str, lessons: List[str], today: Optional[str] = None) -> int:
+    """Add lessons to the expert's memory: no duplicates, oldest lines dropped past MEMORY_CAP. Returns lines added."""
+    path = memory_path(role)
+    if not lessons or not path.parent.is_dir():
+        return 0
+    lines = [ln for ln in read_memory(role).splitlines() if ln.startswith("- ")]
+    known = {re.sub(r"^- \[[0-9-]+\] ", "", ln).lower() for ln in lines}
+    stamp = today or time.strftime("%Y-%m-%d")
+    added = 0
+    for lesson in lessons:
+        if lesson.lower() not in known:
+            lines.append("- [%s] %s" % (stamp, lesson))
+            known.add(lesson.lower())
+            added += 1
+    while lines and len((MEMORY_HEAD + "\n".join(lines) + "\n").encode("utf-8")) > MEMORY_CAP:
+        lines.pop(0)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(MEMORY_HEAD + "\n".join(lines) + "\n", encoding="utf-8")
+    tmp.replace(path)
+    return added
+
+
 def retry_prompt(feedback: str, full: Optional[str]) -> str:
     """Next round: the partner's requests. `full` repeats the whole brief when the CLI cannot resume."""
     parts = [full, "", "--- next round ---"] if full else []
     parts += ["Your producer sent the branch back. Fix it, commit again, same rules as before.",
-              feedback, LINE_RULE]
+              feedback, LINE_RULE, LEARNED_RULE]
     return "\n".join(parts)
 
 
 def said(text: str) -> str:
-    """The in-character line after the last `---` of an agent's output (or its last lines)."""
-    lines = (text or "").strip().splitlines()
+    """The in-character line after the last `---` of an agent's output (or its last lines); LEARNED lines left out."""
+    lines = [ln for ln in (text or "").strip().splitlines() if not _LEARNED.match(ln)]
     for i in range(len(lines) - 1, -1, -1):
         if lines[i].strip() == "---":
             return "\n".join(lines[i + 1:]).strip()[:500]
@@ -732,7 +792,8 @@ def cmd_run(args) -> int:
             head_line = ("This is task %d of %d in the plan \"%s\". Do only this task.\n" % (tno, len(tasks), args.title)
                          if len(tasks) > 1 else "")
             brief = writer_prompt(tid, task["title"], branch, wt_dir, task["paths"], gates, head_line + task["instruction"],
-                                  character_block(writer_p, reviewer_p, STAFF_RELATION))
+                                  character_block(writer_p, reviewer_p, STAFF_RELATION), read_memory(task["role"]))
+            lessons: List[str] = []
             feedback = ""
             chain = load_chain(workspace_dir() / "experts" / task["role"] / "brain.json",
                                [{"provider": provider, "model": args.model, "timeout": 0}])
@@ -765,6 +826,10 @@ def cmd_run(args) -> int:
                 last_brain = b
                 line = {"task": tno, "round": rnd, "role": "writer", "name": writer_p["name"],
                         "text": said(res["stdout"]), "brain": brain_label(b)}
+                round_lessons = learned(res["stdout"])
+                if round_lessons:
+                    line["learned"] = round_lessons
+                    lessons += [x for x in round_lessons if x not in lessons]
                 if skipped:
                     line["skipped"] = skipped
                 transcript.append(line)
@@ -790,6 +855,8 @@ def cmd_run(args) -> int:
                     log("task %d round %d: %s" % (tno, rnd, f.reason))
 
                 if not reviewer:
+                    if gate_error is None and remember(task["role"], lessons):
+                        log("task %d: %d lesson(s) kept in %s's memory" % (tno, len(lessons), task["role"]))
                     break
                 write_state(tid, phase="review", phase_since=time.time())
                 _, diff, _ = git(wt_dir, "diff", task_base + "..HEAD")
@@ -805,6 +872,8 @@ def cmd_run(args) -> int:
                 log("task %d round %d: review %s" % (tno, rnd, verdict))
                 write_state(tid, transcript=transcript)
                 if verdict == "PASS":
+                    if remember(task["role"], lessons):
+                        log("task %d: lesson(s) kept in %s's memory" % (tno, task["role"]))
                     break
                 if rnd == args.rounds:
                     if gate_error:

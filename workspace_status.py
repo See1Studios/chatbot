@@ -247,6 +247,7 @@ def _instruction_files() -> list:
         if role.startswith("_"):
             continue
         items.append(("experts/%s/expert.md" % role, "전문가 캐릭터 (%s)" % role, f, "on_demand"))
+        items.append(("experts/%s/memory.md" % role, "전문가 기억 (%s)" % role, f.parent / "memory.md", "on_demand"))
     return items
 
 
