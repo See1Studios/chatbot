@@ -53,18 +53,29 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.**
 | 모델 선택 버튼·메뉴, 입력창 placeholder(현재 모델) | `static/model-picker.js` (값의 원천은 숨긴 `<select id="model">`) |
 | 셸 마크업 | `static/index.html` |
 | 시각 시스템 | `DESIGN.md` + `.impeccable/design.json` |
-| 페르소나 | `data/workspace/PERSONA.md` (말투·호칭). 시각 빌드업 `data/persona/README.md` |
+| 페르소나 (호스트/메인) | `data/workspace/PERSONA.md` (말투·호칭). 시각 빌드업 `data/persona/README.md` |
+| 듀오 리뷰 페르소나 (리뷰어) | `data/workspace/PERSONA-reviewer.md` (role: reviewer, 깐깐한 시니어 리뷰어) |
+| 다중 페르소나/식별자 로더 | `identity.py` (`load_persona_for_role()`) |
+| 격리 Worktree 위임·게이트 러너 | `tools/worktree_runner.py` (worktree 생성·헤드리스 에이전트 실행·범위/테스트 게이트·ff 병합) |
+| CLI 티켓 도구 | `~/bin/ticket-quick` (`start`, `done`, `fail`, `renew` 서브커맨드) |
 | 지침 묶음 조립·주입 | `instructions.py` + `session.py` `_send_direct()`. 설계 `docs/plans/instruction-architecture.md`, 테스트 `python3 tests/test_instructions.py` |
 | 방금 뭐 했는지 | `docs/DEVLOG.md` 맨 위 |
 | 미완 시퀀스 | `docs/plans/` |
 | 토큰 집계 | `docs/plans/token-accounting.md`, `data/workspace/tools/token_audit.py` |
-| 스모크 | `python3 tests/smoke.py` |
+| 스모크 & 러너 테스트 | `python3 tests/smoke.py`, `python3 tests/test_worktree_runner.py`, `python3 tests/test_duo_review.py` |
 
 파이썬 호스트 모듈을 고치면 ⚡소생. 정적(`static/`·페르소나)은 Ctrl+Shift+R.
 
 ## 고칠 때 (자기수정 절차)
 
-- **시작**: 사용자 발화 또는 승인된 티켓으로만. "왜 안 돼?"만으로 Tier 2+를 시작하지 않는다 — provider 장애·오해인지 우리 버그인지부터 구분한다. 시작했으면 GameDeveloper에게 넘기지 말고 직접 고친다. 라이브 세션 밖 외부 CLI 에이전트는 `ticket` MCP 도구가 없으므로 `~/bin/ticket-quick`으로 생성·승인·클레임/종료 — 상세는 `AGENTS.md`.
+- **시작**: 사용자 발화 또는 승인된 티켓으로만. "왜 안 돼?"만으로 Tier 2+를 시작하지 않는다 — provider 장애·오해인지 우리 버그인지부터 구분한다. 시작했으면 GameDeveloper에게 넘기지 말고 직접 고친다.
+- **티켓 발행 & 격리 실행**:
+  - 라이브 세션 내: `ticket` MCP 도구로 propose ➔ 사용자 승인 ➔ claim.
+  - 외부 CLI 에이전트: `~/bin/ticket-quick start --title "..." --paths "..."` 로 한 번에 시작, 커밋 후 `ticket-quick done --id <ID> --token <TOKEN>`으로 종료.
+  - 서브에이전트/자동 위임 작업: `python3 tools/worktree_runner.py run --title "..." --paths "..." --agent claude`를 통해 격리 `worktree/ticket-<ID>`에서 작업 후 게이트 검증 및 `ff-only` 자동 병합.
+- **2인 콤비 리뷰(Duo Review)**:
+  - 작업 완료 후 `tools/worktree_runner.py`가 냥피디(작성자)와 리뷰어(`PERSONA-reviewer.md`) 간 만담형 티키타카 교차 리뷰를 수행.
+  - `VERDICT: APPROVED` 시 게이트 통과, `NEEDS_REVISION` 시 자동 수정 루프 1회 수행.
 - **순서**: `docs/concept.md` → 위 표 → `docs/DEVLOG.md` 맨 위 → 대상 파일. 가장 작은 패치로. 하네스 전용 규칙은 `AgentAdapter`·ctl에 두고 헌장·페르소나에 넣지 않는다.
 - **Tier**: 0/1(기억 한 줄·페르소나·정적 UI·새 스킬 스크립트)은 수정 → 테스트 → 사후 보고. 2(호스트 모듈·ctl)는 디스크 수정 후 사용자에게 **⚡소생**. 3(가드·`protected_paths.json`·`SELF-MODIFY.md`·헌장·이 설계서)은 승인된 티켓 없이 시작하지 않는다. 승인되면 그 티켓 범위만 고친다.
 - **검증·기록**: `python3 tests/smoke.py`, 코어를 건드렸으면 `chatbot-ctl.sh guard` + `doctor`/`probe` (`healthz`만으로는 부족). 끝나면 DEVLOG 한 블록 + `observation` 한 건 + 한국어 요약.
