@@ -2757,3 +2757,11 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
 - **변경**: error_message 관측 후 8초 내 result/error 없으면 failfast로 notice:error 1회 + 자식 중지. 실제 result가 먼저 오면 타이머 취소.
 - **배포**: `chatbot-ctl.sh repair` (호스트 모듈).
 - **마커**: `QUOTA_FAILFAST_v1`
+
+## 2026-09-23 — 답 있는 ERROR 턴에서 오류공지·답 재출력 (QUOTA_ANSWER_WINS_v1)
+
+- **배경**: 쿼터 ERROR인데 인사 답은 나온 뒤, unfinished 오류 공지 + 인사 재출력(실장님).
+- **원인**: `finalize`가 답(result)을 만든 뒤 `status=ERROR`로 `_end_unfinished_turn`이 **즉시** error emit → UI가 draft 확정/공지 후 result로 답을 한 번 더 그림.
+- **변경**: `final` 본문이 있으면 `emit_error=False`로 자식만 중지(공지 없음). notice:error인 경우도 동일.
+- **배포**: repair.
+- **마커**: `QUOTA_ANSWER_WINS_v1`

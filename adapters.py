@@ -396,17 +396,17 @@ class AgyAdapter(AgentAdapter):
             duration_seconds = out_ev.get("duration_seconds")
             status = str(res_obj.get("status") or "")
             dur = float(res_obj.get("duration_seconds") or duration_seconds or 0)
-            # QUOTA_ERR_DEDUP_v1: finalize_turn may already emit notice:error
-            # (event=error). Still stop the child, but do not fire a second
-            # Korean unfinished-turn error on top of the quota notice.
+            # QUOTA_ERR_DEDUP_v1 + QUOTA_ANSWER_WINS_v1:
+            # status=ERROR often still carries a usable streamed answer (greeting).
+            # _end_unfinished_turn emits immediately via _emit BEFORE out_ev is
+            # flushed, so an error notice would land between the live draft and
+            # the result paint — user sees answer, then error, then answer again.
             if not session._stop_requested and (
                 status not in ("", "SUCCESS")
                 or (not final.strip() and dur >= 0.9 * AGY_PRINT_TIMEOUT_SEC)
             ):
-                if out_ev.get("event") == "error":
-                    session._end_unfinished_turn(status, res_err, dur, emit_error=False)
-                else:
-                    session._end_unfinished_turn(status, res_err, dur)
+                quiet = (out_ev.get("event") == "error") or bool(final.strip())
+                session._end_unfinished_turn(status, res_err, dur, emit_error=not quiet)
             events.append(out_ev)
         elif ev in ("assistant", "message", "delta", "error", "system") or (ev in ("tool_use", "tool_result") and not tool_ev):
             out = {"event": ev, "text": text, "raw_event": ev}
