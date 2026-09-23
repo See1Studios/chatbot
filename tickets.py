@@ -25,6 +25,12 @@ has a small attempt budget, and can be worked on by one author at a time.
   by importing this module. It could still do it on purpose (same user account);
   this stops mistakes, not a determined process. The record says how it was
   asked: `operator (tty)` from the command line, `operator (api)` otherwise.
+- Awaiting merge (AWAITING_MERGE_v1): work that passed its gates and review but may land only on
+  the operator's word (Tier 2; docs/plans/multi-agent-worktree-delegation.md §9) waits as
+  `awaiting_merge`. `await_merge` gives up the lease without spending an attempt, so other work is
+  not blocked meanwhile; `merge_go` (operator) hands a lease back, again without an attempt, to
+  whoever merges and releases `done`. If that lease lapses the ticket goes back to waiting; a failed
+  release (e.g. main moved and the branch needs the gates again) makes it an ordinary approved ticket.
 - Who (ACTOR_ATTRIBUTION_v1): callers may name the agent doing the work (`actor`, e.g.
   "claude-code", "grok", "chat-agent:agy" -- role ids, never a persona name or title); it is kept
   as `actor` (proposer), `worked_by`, `closed_by`,
@@ -38,6 +44,7 @@ Command line (operator):
   list [STATUS]      show tickets            show N       one ticket in full
   approve N          proposed -> approved    decline N    close as declined
   reopen N           a wontfix ticket gets a fresh budget
+                     (decline also drops an awaiting_merge ticket's change)
   drop-lease         clear the author lease (after a crashed session)
 """
 from __future__ import annotations
@@ -66,7 +73,7 @@ MAX_PROPOSED = 10          # unreviewed proposals; more is a runaway, not a revi
 MAX_EVIDENCE = 20
 MAX_NOTES = 40
 MAX_PATHS = 20
-OPEN_STATES = ("proposed", "approved", "in_progress")
+OPEN_STATES = ("proposed", "approved", "in_progress", "awaiting_merge")
 CLOSED_STATES = ("done", "wontfix", "declined")
 _SID_RE = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
 
@@ -400,10 +407,11 @@ def decline(data, ticket_id, now: Optional[float] = None, operator: Optional[str
     by = _operator_by(operator, "declining a ticket", on_behalf)
     with _locked(data):
         t = _load(data, ticket_id)
-        if t["status"] not in ("proposed", "approved"):
+        if t["status"] not in ("proposed", "approved", "awaiting_merge"):
             raise TicketError("ticket %d is %s" % (t["id"], t["status"]))
         t["status"] = "declined"
         t["closed_reason"] = "declined"
+        t.pop("merge_pending", None)
         _note(t, by, "declined", _now(now))
         _save(data, t)
         return public(t)
@@ -435,7 +443,7 @@ def drop_lease(data, now: Optional[float] = None, operator: Optional[str] = None
         try:
             t = _load(data, lease["ticket"])
             if t["status"] == "in_progress":
-                t["status"] = "approved"
+                t["status"] = _unleased_status(t)
                 _note(t, by, "author lease dropped", _now(now))
                 _save(data, t)
         except TicketError:
@@ -469,6 +477,11 @@ def _write_lease(data, ticket_id: int, token: str, now: float) -> float:
 def _holds(lease: Optional[Dict], ticket_id: int, token: Optional[str], now: float) -> bool:
     return bool(lease and token and lease.get("ticket") == ticket_id and lease.get("expires", 0) > now
                 and lease.get("token_sha256") == _hash(token))
+
+
+def _unleased_status(t: Dict) -> str:
+    """Where an in_progress ticket goes when its lease is gone: back to waiting for the merge if it was."""
+    return "awaiting_merge" if t.get("merge_pending") else "approved"
 
 
 def _exhaust(t: Dict, now: float) -> None:
@@ -510,7 +523,7 @@ def claim(data, ticket_id, token: Optional[str] = None, now: Optional[float] = N
             try:
                 stale = _load(data, lease["ticket"])
                 if stale["status"] == "in_progress":
-                    stale["status"] = "approved"
+                    stale["status"] = _unleased_status(stale)
                     _note(stale, "host", "author lease expired", t_now)
                     if stale["id"] == tid:
                         t = stale
@@ -583,12 +596,14 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
         if outcome == "done":
             t["status"] = "done"
             t["closed_reason"] = "done"
+            t.pop("merge_pending", None)
             if _clean_actor(actor) or t.get("worked_by"):
                 t["closed_by"] = _clean_actor(actor) or t.get("worked_by")
             _note(t, _agent_by(actor, t), "done", t_now)
         else:
             if outcome == "gate_failed":
                 t["gate_failures"] = t.get("gate_failures", 0) + 1
+            t.pop("merge_pending", None)
             t["status"] = "approved"
             if t["attempts"] >= MAX_ATTEMPTS:
                 _exhaust(t, t_now)
@@ -599,6 +614,59 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
                 advice = "%d attempt(s) left" % (MAX_ATTEMPTS - t["attempts"])
         _save(data, t)
         return {"ticket": public(t), "advice": advice}
+
+
+def await_merge(data, ticket_id, token: Optional[str], text: str = "", now: Optional[float] = None,
+                actor: Optional[str] = None) -> Dict:
+    """The author's work passed its gates and review; it lands only on the operator's word. Gives up the
+    lease without spending or refunding an attempt; the ticket waits as `awaiting_merge`."""
+    t_now = _now(now)
+    with _locked(data):
+        t = _load(data, ticket_id)
+        if not _holds(_read_lease(data), t["id"], token, t_now) or t["status"] != "in_progress":
+            raise TicketError("you do not hold the author lease for ticket %d (missing, wrong or expired token)" % t["id"])
+        _lease_path(data).unlink()
+        t["status"] = "awaiting_merge"
+        t["merge_pending"] = True
+        _note(t, _agent_by(actor, t), "awaiting merge" + (": " + _txt(text) if _txt(text).strip() else ""), t_now)
+        _save(data, t)
+        return public(t)
+
+
+def merge_go(data, ticket_id, now: Optional[float] = None, operator: Optional[str] = None,
+             on_behalf: Optional[str] = None, actor: Optional[str] = None) -> Dict:
+    """The operator lets an awaiting_merge ticket land: the author lease comes back without a new attempt,
+    for whoever merges and then releases `done`. Never waits for a busy lease."""
+    by = _operator_by(operator, "letting a change land", on_behalf)
+    t_now = _now(now)
+    with _locked(data):
+        t = _load(data, ticket_id)
+        if t["status"] != "awaiting_merge":
+            raise TicketError("ticket %d is %s, not awaiting_merge" % (t["id"], t["status"]))
+        lease = _read_lease(data)
+        if lease and lease.get("expires", 0) > t_now:
+            _note(t, by, "merge refused: author lock is held for ticket %s" % lease.get("ticket"), t_now)
+            _save(data, t)
+            raise TicketError("author lock is held for ticket %s until %s; not waiting (a note was left on ticket %d)"
+                              % (lease.get("ticket"), _stamp(lease["expires"]), t["id"]))
+        if lease:  # expired: its session is gone
+            try:
+                stale = _load(data, lease["ticket"])
+                if stale["status"] == "in_progress":
+                    stale["status"] = _unleased_status(stale)
+                    _note(stale, "host", "author lease expired", t_now)
+                    _save(data, stale)
+            except TicketError:
+                pass
+        t["status"] = "in_progress"
+        t["merge_approved_by"] = by
+        if _clean_actor(actor):
+            t["worked_by"] = _clean_actor(actor)
+        token = secrets.token_hex(16)
+        expires = _write_lease(data, t["id"], token, t_now)
+        _note(t, by, "merge approved", t_now)
+        _save(data, t)
+        return {"ticket": public(t), "token": token, "expires_in_sec": int(expires - t_now)}
 
 
 # ------------------------------------------------------------------- reading

@@ -504,6 +504,88 @@ class ShipGateTest(Base):
         self.assertEqual(tickets.get(self.data, t["id"])["status"], "approved")
 
 
+class AwaitingMergeTest(Base):
+    """AWAITING_MERGE_v1: reviewed work waits for the operator without holding the lease or the budget."""
+
+    def waiting(self):
+        t = self.approved()
+        c = tickets.claim(self.data, t["id"], now=T0)
+        tickets.await_merge(self.data, t["id"], c["token"], "branch worktree/ticket-1", now=T0 + 10, actor="claude-code")
+        return t["id"]
+
+    def test_waiting_frees_the_lease_and_spends_nothing(self):
+        tid = self.waiting()
+        t = self.raw(tid)
+        self.assertEqual((t["status"], t["attempts"], t["merge_pending"]), ("awaiting_merge", 1, True))
+        self.assertIn("awaiting merge: branch worktree/ticket-1", t["notes"][-1]["text"])
+        self.assertEqual(t["notes"][-1]["by"], "agent:claude-code")
+        other = self.approved(target="server.py: other")
+        tickets.claim(self.data, other["id"], now=T0 + 20)   # the lease is free for other work
+
+    def test_only_the_lease_holder_can_hand_in_for_merge(self):
+        t = self.approved()
+        tickets.claim(self.data, t["id"], now=T0)
+        with self.assertRaises(tickets.TicketError):
+            tickets.await_merge(self.data, t["id"], "wrong", now=T0)
+
+    def test_an_agent_cannot_reclaim_or_let_it_land_itself(self):
+        tid = self.waiting()
+        with self.assertRaises(tickets.TicketError):
+            tickets.claim(self.data, tid, now=T0 + 20)
+        with self.assertRaises(tickets.TicketError):
+            tickets.merge_go(self.data, tid, now=T0 + 20)
+
+    def test_merge_go_hands_a_lease_back_without_an_attempt_then_done(self):
+        tid = self.waiting()
+        m = tickets.merge_go(self.data, tid, now=T0 + 20, operator=tickets.OPERATOR_UI)
+        t = self.raw(tid)
+        self.assertEqual((t["status"], t["attempts"], t["merge_approved_by"]), ("in_progress", 1, "operator (ui)"))
+        tickets.release(self.data, tid, m["token"], "done", now=T0 + 30)
+        t = self.raw(tid)
+        self.assertEqual(t["status"], "done")
+        self.assertNotIn("merge_pending", t)
+
+    def test_merge_go_does_not_wait_for_a_busy_lease(self):
+        tid = self.waiting()
+        other = self.approved(target="server.py: other")
+        tickets.claim(self.data, other["id"], now=T0 + 20)
+        with self.assertRaises(tickets.TicketError):
+            tickets.merge_go(self.data, tid, now=T0 + 30, operator=tickets.OPERATOR_CONFIRMED)
+        self.assertEqual(self.raw(tid)["status"], "awaiting_merge")
+
+    def test_a_lapsed_merge_lease_goes_back_to_waiting(self):
+        tid = self.waiting()
+        tickets.merge_go(self.data, tid, now=T0 + 20, operator=tickets.OPERATOR_UI)
+        later = self.approved(target="server.py: other")
+        tickets.claim(self.data, later["id"], now=T0 + 20 + tickets.LEASE_TTL_SEC + 1)
+        self.assertEqual(self.raw(tid)["status"], "awaiting_merge")
+        tickets.drop_lease(self.data, operator=tickets.OPERATOR_TTY)
+        m = tickets.merge_go(self.data, tid, now=T0 + 5000, operator=tickets.OPERATOR_UI)
+        tickets.drop_lease(self.data, operator=tickets.OPERATOR_TTY)
+        self.assertEqual(self.raw(tid)["status"], "awaiting_merge")
+        self.assertTrue(m["token"])
+
+    def test_a_failed_merge_makes_it_an_ordinary_approved_ticket(self):
+        tid = self.waiting()
+        m = tickets.merge_go(self.data, tid, now=T0 + 20, operator=tickets.OPERATOR_UI)
+        tickets.release(self.data, tid, m["token"], "failed", "main moved", now=T0 + 30)
+        t = self.raw(tid)
+        self.assertEqual((t["status"], t["attempts"]), ("approved", 1))
+        self.assertNotIn("merge_pending", t)
+
+    def test_decline_drops_a_waiting_change(self):
+        tid = self.waiting()
+        tickets.decline(self.data, tid, operator=tickets.OPERATOR_UI)
+        t = self.raw(tid)
+        self.assertEqual(t["status"], "declined")
+        self.assertNotIn("merge_pending", t)
+
+    def test_a_proposal_for_the_same_target_joins_the_waiting_ticket(self):
+        tid = self.waiting()
+        t, merged = self.propose(evidence=[CAND], now=T0 + 40)
+        self.assertEqual((t["id"], merged), (tid, True))
+
+
 if __name__ == "__main__":
     unittest.main()
 
