@@ -2093,20 +2093,24 @@ const TICKET_STATUS_LABEL = { proposed: '제안됨', approved: '승인됨', in_p
 // DELEGATION_WIRING_v1: `delegate` hands the ticket to the worktree runner ([맡겨]); an awaiting_merge ticket lands
 // or is dropped by the operator ([병합·⚡] / [폐기]). Same rule as above: the button types, Enter decides.
 const TICKET_DECISIONS = {
-  proposed: [['go', '승인+진행'], ['delegate', '맡겨'], ['approve', '승인'], ['decline', '폐기']],
-  approved: [['go', '진행'], ['delegate', '맡겨'], ['decline', '폐기']],
-  awaiting_merge: [['merge', '병합·⚡'], ['discard', '폐기']],
+  proposed: [['go', '승인+진행'], ['delegate', '실행'], ['approve', '승인'], ['decline', '폐기']],
+  approved: [['go', '진행'], ['delegate', '실행'], ['decline', '폐기']],
+  awaiting_merge: [['merge', '승인'], ['rework', '반려'], ['discard', '폐기']],
   wontfix: [['reopen', '재개']],
 };
-const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '맡김', merge: '병합 시작', discard: '폐기' };
-const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', discard: 'discard' };
+const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '실행', merge: '승인(반영 시작)', rework: '반려', discard: '폐기' };
+// PD_PLAN_v1: the operator's two confirmations on a PD plan -- [실행] (`delegate`) and [승인]/[반려]/[폐기].
+const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', rework: 'rework', discard: 'discard' };
 
 function ticketDecisionText(t, action) {
   return '/ticket ' + action + ' ' + t.id;
 }
 
 function parseTicketCommand(text) {
-  const m = /^\/ticket\s+(go|approve|decline|reopen|delegate|merge|discard)\s+#?(\d{1,6})$/.exec(String(text || '').trim());
+  const t = String(text || '').trim();
+  const rw = /^\/ticket\s+rework\s+#?(\d{1,6})\s+([\s\S]+)$/.exec(t);   // [반려]: the comment follows the number
+  if (rw) return { action: 'rework', id: Number(rw[1]), comment: rw[2].trim() };
+  const m = /^\/ticket\s+(go|approve|decline|reopen|delegate|merge|discard)\s+#?(\d{1,6})$/.exec(t);
   return m ? { action: m[1], id: Number(m[2]) } : null;
 }
 
@@ -2126,7 +2130,7 @@ async function goTicket(cmd) {
 
 async function decideTicket(cmd) {
   if (DELEGATION_ACTION[cmd.action]) {
-    await api('/api/delegations/' + cmd.id + '/' + DELEGATION_ACTION[cmd.action], { method: 'POST', body: JSON.stringify({}) });
+    await api('/api/delegations/' + cmd.id + '/' + DELEGATION_ACTION[cmd.action], { method: 'POST', body: JSON.stringify({ comment: cmd.comment || '' }) });
     loadWork();
     return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' → 작업 카드에서 진행을 볼 수 있어요';
   }
@@ -2151,14 +2155,14 @@ async function loadTickets() {
 // The same buttons, where the operator already is: a strip above the composer while a ticket waits for a decision.
 const TICKET_BAR_MAX = 3;
 function fillTicketCommand(t, action) {
-  inputEl.value = ticketDecisionText(t, action);
+  inputEl.value = ticketDecisionText(t, action) + (action === 'rework' ? ' ' : '');   // [반려]: type the comment after it
   switchTab('chat');
   if (inputEl.focus) inputEl.focus();
 }
 
 function renderTicketBar(waiting) {
   if (!ticketBarEl) return;
-  waiting = waiting.filter(t => t.status !== 'awaiting_merge');   // its work card carries those buttons
+  waiting = waiting.filter(t => t.status !== 'awaiting_merge' && !workCardIds.has(t.id));   // a work card carries those buttons
   ticketBarEl.textContent = '';
   ticketBarEl.hidden = !waiting.length;
   waiting.slice(0, TICKET_BAR_MAX).forEach(t => {
@@ -2180,12 +2184,14 @@ function renderTicketBar(waiting) {
 // pair shows, the rest opens on demand. Names on the lines are the run's own (display values from identity).
 const WORK_PHASE_LABEL = {
   starting: '시작 중', running: '준비 중', writing: '작업 중', gates: '테스트 중', review: '리뷰 중', merging: '병합 중',
-  awaiting_go: '맡김 대기', awaiting_merge: '병합 대기', done: '완료', failed: '실패', gate_failed: '탈락',
+  awaiting_go: '실행 대기', awaiting_merge: '최종 확인 대기', done: '완료', failed: '실패', gate_failed: '탈락',
   declined: '폐기됨', stalled: '멈춤', 'merged-ticket-open': '병합됨(티켓 열림)',
 };
 const WORK_ENDED = ['done', 'failed', 'gate_failed', 'declined', 'stalled', 'merged-ticket-open'];
 const workBarEl = document.getElementById('workBar');
 let workPollTimer = null;
+let workCardIds = new Set();   // tickets shown as work cards: the ticket bar leaves them out
+let workNames = {};            // role id ('' = the PD) -> display name, from the server's identity files
 const workOpen = new Set();
 let workLastPhase = null;   // ticket -> phase seen on the previous poll; null until the first poll
 
@@ -2197,8 +2203,8 @@ function workElapsed(sec) {
 // A run that ends while the page is open says so in the chat, so nobody has to watch the card.
 function announceWorkEnding(r) {
   const head = '작업 #' + r.ticket + ' ' + (r.title || '');
-  if (r.phase === 'done') addNotice('ok', head + ' — 리뷰 통과, 병합했어요' + (r.tier >= 2 ? ' · ⚡ 소생하면 반영돼요' : ''));
-  else if (r.phase === 'awaiting_merge') addNotice('ok', head + ' — 리뷰 통과. 카드의 [병합·⚡]로 병합해 주세요');
+  if (r.phase === 'done') addNotice('ok', head + ' — 반영했어요' + (r.tier >= 2 ? ' · ⚡ 소생하면 적용돼요' : ''));
+  else if (r.phase === 'awaiting_merge') addNotice('ok', head + ' — PD 확인 끝. 카드에서 [승인]하거나 [반려]해 주세요');
   else if (r.phase === 'stalled') addNotice('warn', head + ' — 실행이 멈췄어요 (카드에서 폐기할 수 있어요)');
   else addNotice('warn', head + ' — ' + (WORK_PHASE_LABEL[r.phase] || r.phase) + (r.reason ? ': ' + r.reason : ''));
 }
@@ -2216,8 +2222,14 @@ function renderWorkCard(r) {
   head.appendChild(obsNode('span', 'obs-id', '#' + r.ticket));
   head.appendChild(obsNode('span', 'work-title', r.title || ''));
   const since = r.active && r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : '';
-  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + (r.round ? ' · ' + r.round + '라운드' : '') + since));
+  const step = r.active && r.tasks_total > 1 && r.task ? ' · 작업 ' + r.task + '/' + r.tasks_total : '';
+  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + step + (r.active && r.round ? ' · ' + r.round + '라운드' : '') + since));
   card.appendChild(head);
+  if (r.phase === 'awaiting_go' || workOpen.has(r.ticket)) {
+    const list = obsNode('ol', 'work-plan');
+    (r.tasks || []).forEach(t => list.appendChild(obsNode('li', '', (workNames[t.role] || t.role) + ' — ' + t.title + ' (' + (t.paths || []).join(', ') + ')')));
+    if (list.childNodes.length) card.appendChild(list);
+  }
   const lines = r.transcript || [];
   const open = workOpen.has(r.ticket);
   (open ? lines : lines.slice(-2)).forEach(ln => card.appendChild(workLine(ln)));
@@ -2229,13 +2241,19 @@ function renderWorkCard(r) {
     more.addEventListener('click', () => { open ? workOpen.delete(r.ticket) : workOpen.add(r.ticket); loadWork(); });
     actions.appendChild(more);
   }
+  const button = (label, primary, onClick) => {
+    const btn = obsNode('button', 'art-btn art-btn-xs' + (primary ? ' primary' : ''), label);
+    btn.type = 'button';
+    btn.addEventListener('click', onClick);
+    actions.appendChild(btn);
+  };
+  if (r.phase === 'awaiting_go') {
+    button('실행', true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
+    button('계획 수정', false, () => { inputEl.value = '#' + r.ticket + ' 계획 수정: '; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
+    button('취소', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
+  }
   if (r.phase === 'awaiting_merge') {
-    TICKET_DECISIONS.awaiting_merge.forEach(pair => {
-      const btn = obsNode('button', 'art-btn art-btn-xs' + (pair[0] === 'merge' ? ' primary' : ''), pair[1]);
-      btn.type = 'button';
-      btn.addEventListener('click', () => fillTicketCommand({ id: r.ticket }, pair[0]));
-      actions.appendChild(btn);
-    });
+    TICKET_DECISIONS.awaiting_merge.forEach(pair => button(pair[1], pair[0] === 'merge', () => fillTicketCommand({ id: r.ticket }, pair[0])));
   }
   if (r.phase === 'done' && r.tier >= 2) {
     const zap = obsNode('button', 'art-btn art-btn-xs primary', '⚡ 소생');
@@ -2267,6 +2285,7 @@ async function loadWork() {
     return;
   }
   const runs = res.runs || [];
+  workNames = res.names || workNames;
   if (workLastPhase) {
     runs.forEach(r => {
       const before = workLastPhase.get(r.ticket);
@@ -2274,7 +2293,11 @@ async function loadWork() {
     });
   }
   workLastPhase = new Map(runs.map(r => [r.ticket, r.phase]));
-  const shown = runs.filter(r => r.active || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
+  const shown = runs.filter(r => r.active || r.phase === 'awaiting_go' || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
+  const ids = new Set(shown.map(r => r.ticket));
+  const changed = ids.size !== workCardIds.size || [...ids].some(id => !workCardIds.has(id));
+  workCardIds = ids;
+  if (changed) loadTickets();
   workBarEl.textContent = '';
   workBarEl.hidden = !shown.length;
   shown.forEach(r => workBarEl.appendChild(renderWorkCard(r)));

@@ -669,6 +669,37 @@ def merge_go(data, ticket_id, now: Optional[float] = None, operator: Optional[st
         return {"ticket": public(t), "token": token, "expires_in_sec": int(expires - t_now)}
 
 
+def rework(data, ticket_id, text: str, now: Optional[float] = None, operator: Optional[str] = None,
+           on_behalf: Optional[str] = None, actor: Optional[str] = None) -> Dict:
+    """The operator sends waiting work back with a comment (PD_PLAN_v1): a new attempt on the same ticket,
+    with the author lease for whoever reworks it. Refused when the attempt budget is used up."""
+    by = _operator_by(operator, "sending work back", on_behalf)
+    t_now = _now(now)
+    if not _txt(text).strip():
+        raise TicketError("say what to change")
+    with _locked(data):
+        t = _load(data, ticket_id)
+        if t["status"] != "awaiting_merge":
+            raise TicketError("ticket %d is %s, not awaiting_merge" % (t["id"], t["status"]))
+        if t["attempts"] >= MAX_ATTEMPTS:
+            raise TicketError("ticket %d used up its %d attempts; land it, drop it, or reopen it at a terminal"
+                              % (t["id"], MAX_ATTEMPTS))
+        lease = _read_lease(data)
+        if lease and lease.get("expires", 0) > t_now:
+            raise TicketError("author lock is held for ticket %s until %s; not waiting"
+                              % (lease.get("ticket"), _stamp(lease["expires"])))
+        t["status"] = "in_progress"
+        t["attempts"] += 1
+        t.pop("merge_pending", None)
+        if _clean_actor(actor):
+            t["worked_by"] = _clean_actor(actor)
+        token = secrets.token_hex(16)
+        expires = _write_lease(data, t["id"], token, t_now)
+        _note(t, by, "sent back (attempt %d/%d): %s" % (t["attempts"], MAX_ATTEMPTS, _txt(text)[:300]), t_now)
+        _save(data, t)
+        return {"ticket": public(t), "token": token, "expires_in_sec": int(expires - t_now)}
+
+
 # ------------------------------------------------------------------- reading
 
 def get(data, ticket_id) -> Dict:

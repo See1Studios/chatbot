@@ -326,6 +326,46 @@ class WorktreeRunner(unittest.TestCase):
         self.assertNotIn("CHATBOT_TEST_SECRET_KEY", env)
         self.assertIn("GIT_AUTHOR_NAME=Fake", env)
 
+    # ---- PD plans: tasks in order on one branch, per-task scope, rework of the waiting branch
+
+    PLAN = {"tasks": [{"role": "staff", "title": "t1", "instruction": "edit a", "paths": ["a.txt"]},
+                      {"role": "staff", "title": "t2", "instruction": "edit b", "paths": ["b.txt"]}]}
+    # the fake worker edits the file its task names (the prompt is $0)
+    BY_TASK = 'case "$0" in *"edit a"*) echo A >> a.txt;; *) echo B >> b.txt;; esac; git commit -qam w'
+
+    def run_plan(self, script=None, extra=()):
+        wr.write_state(7, plan=self.PLAN)
+        return self.run_with(script or self.BY_TASK, paths="a.txt,b.txt",
+                             extra=("--ticket", "7", "--token", "t", "--plan-from-state", "--stop-before-merge") + extra)
+
+    def test_a_plan_runs_its_tasks_in_order_on_one_branch(self) -> None:
+        self.assertEqual(self.run_plan(), 0)
+        st = wr.read_state(7)
+        self.assertEqual((st["phase"], st["tasks_total"]), ("awaiting_merge", 2))
+        self.assertEqual([(l["task"], l["role"]) for l in st["transcript"]],
+                         [(1, "writer"), (1, "reviewer"), (2, "writer"), (2, "reviewer")])
+        log = sh(wr.WORKTREE_BASE / "ticket-7", "git", "log", "--format=%s", "-3").splitlines()
+        self.assertEqual(log[:2], ["w", "w"])
+        self.assertEqual(self.code_head(), self.init)     # nothing lands before the operator says so
+
+    def test_a_task_may_touch_only_its_own_paths(self) -> None:
+        rc = self.run_plan(script="echo X >> b.txt; git commit -qam w", extra=("--rounds", "1"))
+        self.assertEqual(rc, 1)
+        self.assertIn("b.txt", wr.read_state(7)["reason"])
+
+    def test_rework_continues_the_waiting_branch(self) -> None:
+        self.assertEqual(self.run_plan(), 0)
+        rc = self.run_with('printf "%s" "$0" > ../rework.txt; echo R >> a.txt; git commit -qam r', paths="a.txt,b.txt",
+                           extra=("--ticket", "7", "--token", "t2", "--resume", "--stop-before-merge"))
+        self.assertEqual(rc, 0)
+        self.assertIn("sent the finished work back", (wr.WORKTREE_BASE / "rework.txt").read_text())
+        st = wr.read_state(7)
+        self.assertEqual((st["phase"], len(st["transcript"])), ("awaiting_merge", 6))
+        self.assertEqual((wr.WORKTREE_BASE / "ticket-7" / "a.txt").read_text(), "one\nA\nR\n")
+
+    def test_resume_without_a_waiting_branch_fails(self) -> None:
+        self.assertEqual(self.run_with("true", extra=("--ticket", "7", "--token", "t", "--resume")), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -580,6 +580,28 @@ class AwaitingMergeTest(Base):
         self.assertEqual(t["status"], "declined")
         self.assertNotIn("merge_pending", t)
 
+    def test_rework_sends_it_back_as_a_new_attempt_for_the_operator_only(self):
+        tid = self.waiting()
+        with self.assertRaises(tickets.TicketError):
+            tickets.rework(self.data, tid, "shorter", now=T0 + 20)                 # an agent cannot
+        with self.assertRaises(tickets.TicketError):
+            tickets.rework(self.data, tid, " ", now=T0 + 20, operator=tickets.OPERATOR_UI)
+        r = tickets.rework(self.data, tid, "shorter", now=T0 + 20, operator=tickets.OPERATOR_UI)
+        t = self.raw(tid)
+        self.assertEqual((t["status"], t["attempts"]), ("in_progress", 2))
+        self.assertNotIn("merge_pending", t)
+        self.assertIn("sent back (attempt 2/3): shorter", t["notes"][-1]["text"])
+        tickets.await_merge(self.data, tid, r["token"], now=T0 + 30)
+        self.assertEqual(self.raw(tid)["status"], "awaiting_merge")
+
+    def test_rework_respects_the_budget(self):
+        tid = self.waiting()
+        for i in range(2):
+            r = tickets.rework(self.data, tid, "again", now=T0 + 20 + i, operator=tickets.OPERATOR_UI)
+            tickets.await_merge(self.data, tid, r["token"], now=T0 + 20 + i)
+        with self.assertRaises(tickets.TicketError):
+            tickets.rework(self.data, tid, "again", now=T0 + 40, operator=tickets.OPERATOR_UI)
+
     def test_a_proposal_for_the_same_target_joins_the_waiting_ticket(self):
         tid = self.waiting()
         t, merged = self.propose(evidence=[CAND], now=T0 + 40)

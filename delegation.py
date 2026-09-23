@@ -1,14 +1,15 @@
-"""Worktree delegation, host side (docs/plans/multi-agent-worktree-delegation.md §9, DELEGATION_WIRING_v1).
+"""Worktree delegation, host side (docs/plans/multi-agent-worktree-delegation.md §9-10, PD_PLAN_v1).
 
-The work itself runs in `tools/worktree_runner.py` (ticket -> isolated worktree -> the staff character
-works, the chatbot's own persona confirms as PD -> gates -> merge); this module only decides who may start what and launches it:
+The chatbot is the PD. The operator proposes; the PD (the chat agent, `delegate` tool) submits a plan:
+tasks for its expert characters (`PERSONA-<role>.md`). Nothing runs until the operator says so, and
+nothing lands until the operator says so again:
 
-- The chat agent asks (`delegate` tool, `request`), on the operator's request in the conversation.
-  Tier 0 paths start at once (Tier 0 is the agent's own to change anyway); Tier 2 paths become a
-  proposed ticket that waits for the operator's `[맡겨]`; Tier 3 is refused.
-- The operator decides from the chat page (`/ticket delegate|merge|discard N`, same-origin POSTs):
-  `go` approves if needed, claims and launches the run; `merge` relays the operator's word to an
-  awaiting_merge ticket and launches the landing; `discard` declines it and drops its branch.
+  plan (awaiting_go) -> [실행] go -> tasks in order, each worked by its expert and confirmed by the PD
+  (tools/worktree_runner.py) -> awaiting_merge -> [승인] merge | [반려] rework (a comment, same branch) | [폐기] discard
+
+- One plan = one ticket = one worktree branch. Tier 3 paths are refused when the plan is submitted.
+- The operator's decisions come from the chat page (`/ticket delegate|merge|rework|discard N`,
+  same-origin POSTs); the tool only plans and reads.
 - Runs are separate processes in their own session, so a host restart (⚡) does not cut them. Each
   keeps its state in the runner's state file, which is what the page's work cards show.
 
@@ -83,50 +84,103 @@ def tier_of(paths: List[str]) -> int:
         raise DelegationError(f.reason)
 
 
-# ------------------------------------------------------------------ the agent asks
+# ------------------------------------------------------------------ the PD plans
+
+MAX_TASKS = 8
+_ROLE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+
+
+def experts() -> List[str]:
+    """The expert roles this instance has: one `PERSONA-<role>.md` each in the workspace."""
+    ws = DATA / "workspace"
+    return sorted(f.stem[len("PERSONA-"):] for f in ws.glob("PERSONA-*.md") if _ROLE_RE.match(f.stem[len("PERSONA-"):]))
+
+
+def _tasks(raw) -> List[Dict]:
+    if not isinstance(raw, list) or not 1 <= len(raw) <= MAX_TASKS:
+        raise DelegationError("a plan has 1-%d tasks" % MAX_TASKS)
+    roles = experts()
+    out = []
+    for n, t in enumerate(raw, 1):
+        if not isinstance(t, dict):
+            raise DelegationError("task %d must be an object {role, title, instruction, paths}" % n)
+        role = str(t.get("role") or (roles[0] if len(roles) == 1 else "")).strip()
+        if role not in roles:
+            raise DelegationError("task %d: role must be one of your experts: %s" % (n, ", ".join(roles) or "(none)"))
+        title = re.sub(r"\s+", " ", str(t.get("title") or "")).strip()[:_TITLE_MAX]
+        instruction = str(t.get("instruction") or "").strip()[:_INSTRUCTION_MAX]
+        if not title or not instruction:
+            raise DelegationError("task %d needs a title and an instruction" % n)
+        out.append({"role": role, "title": title, "instruction": instruction, "paths": _paths(t.get("paths"))})
+    return out
+
+
+def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = None) -> Dict:
+    """The PD submits a plan; it waits for the operator's [실행]. With `ticket_id`, it replaces the plan of a
+    ticket still waiting for that (the operator asked for a new one). Returns {ticket, tier, tasks}."""
+    title = re.sub(r"\s+", " ", str(title or "")).strip()[:_TITLE_MAX]
+    if not title:
+        raise DelegationError("the plan needs a title")
+    tasks = _tasks(tasks)
+    paths = sorted({p for t in tasks for p in t["paths"]})
+    tier = tier_of(paths)
+    if ticket_id:
+        t = tickets.get(DATA, ticket_id)
+        if t["status"] not in ("proposed", "approved") or runner().read_state(t["id"]).get("phase") != "awaiting_go":
+            raise DelegationError("ticket %d is not a plan waiting for [실행]" % t["id"])
+    else:
+        t, _ = tickets.propose(DATA, title, ",".join(paths), evidence, actor=actor)
+    tid = t["id"]
+    runner().write_state(tid, phase="awaiting_go", title=title, paths=paths, tier=tier, requested_by=actor,
+                         plan={"tasks": tasks}, transcript=[], reason="", task=0, tasks_total=len(tasks))
+    return {"ticket": tid, "tier": tier, "tasks": len(tasks)}
+
 
 def request(title: str, paths, instruction: str, evidence, actor: str) -> Dict:
-    """The chat agent delegates work the operator asked for in the conversation. Tier 0 starts now;
-    Tier 2 is proposed and waits for the operator. Returns {ticket, tier, started}."""
-    title = re.sub(r"\s+", " ", str(title or "")).strip()[:_TITLE_MAX]
-    instruction = str(instruction or "").strip()[:_INSTRUCTION_MAX]
-    if not title or not instruction:
-        raise DelegationError("title and instruction are required")
-    paths = _paths(paths)
-    tier = tier_of(paths)
-    t, _ = tickets.propose(DATA, title, ",".join(paths), evidence, actor=actor)
-    tid = t["id"]
-    runner().write_state(tid, phase="awaiting_go" if tier >= 2 else "starting", title=title, paths=paths,
-                         instruction=instruction, tier=tier, requested_by=actor, transcript=[])
-    if tier >= 2:
-        return {"ticket": tid, "tier": tier, "started": False}
-    if t["status"] == "proposed":
-        tickets.approve(DATA, tid, operator=tickets.OPERATOR_CONFIRMED,
-                        on_behalf="%s delegate (Tier 0, on the operator's request in chat)" % actor)
-    _launch(tid)
-    return {"ticket": tid, "tier": tier, "started": True}
+    """A one-task plan (the older `start` call); it waits for [실행] like any plan."""
+    roles = experts()
+    return plan(title, [{"role": roles[0] if roles else "", "title": title, "instruction": instruction,
+                         "paths": paths}], evidence, actor)
 
 
 # ------------------------------------------------------------- the operator decides
 
 def go(ticket_id: int) -> Dict:
-    """`[맡겨]`: approve the ticket if it still waits for that, claim it and launch the run."""
+    """`[실행]`: approve the ticket if it still waits for that, claim it and launch the plan."""
     t = tickets.get(DATA, ticket_id)
     tid = t["id"]
     st = runner().read_state(tid)
-    paths = st.get("paths") or t.get("paths") or tickets._paths_of(t)
-    if not paths:
-        raise DelegationError("ticket %d names no files to change; say which files, then delegate it" % tid)
-    paths = _paths(paths)
-    tier = tier_of(paths)
+    if not (st.get("plan") or {}).get("tasks"):   # a ticket that came from elsewhere: one task from its own words
+        paths = t.get("paths") or tickets._paths_of(t)
+        if not paths:
+            raise DelegationError("ticket %d names no files to change; ask the PD for a plan" % tid)
+        roles = experts()
+        runner().write_state(tid, title=t.get("title", ""), paths=_paths(paths), tier=tier_of(_paths(paths)),
+                             plan={"tasks": [{"role": roles[0] if roles else "", "title": t.get("title", ""),
+                                              "paths": _paths(paths), "instruction": "%s\n(target: %s)"
+                                              % (t.get("title", ""), t.get("target", ""))}]})
+        st = runner().read_state(tid)
+    tier = tier_of(st["paths"])
     if t["status"] == "proposed":
         t = tickets.approve(DATA, tid, operator=tickets.OPERATOR_UI)
     if t["status"] != "approved":
-        raise DelegationError("ticket %d is %s; only an approved ticket can be delegated" % (tid, t["status"]))
-    instruction = st.get("instruction") or "%s\n(target: %s)" % (t.get("title", ""), t.get("target", ""))
-    runner().write_state(tid, phase="starting", title=st.get("title") or t.get("title", ""), paths=paths,
-                         instruction=instruction, tier=tier, transcript=[], reason="")
-    return {"ticket": tid, "tier": tier, "pid": _launch(tid)}
+        raise DelegationError("ticket %d is %s; only an approved ticket can be run" % (tid, t["status"]))
+    c = tickets.claim(DATA, tid, paths=st["paths"], actor=worker_role())
+    runner().write_state(tid, phase="starting", tier=tier, transcript=[], reason="")
+    args = ["run", "--ticket", str(tid), "--token", c["token"], "--plan-from-state"]
+    return {"ticket": tid, "tier": tier, "pid": _launch(tid, c["token"], args)}
+
+
+def rework(ticket_id: int, comment: str) -> Dict:
+    """`[반려]`: the operator sends the finished work back with a comment; the same branch is reworked."""
+    tid = int(ticket_id)
+    if runner().read_state(tid).get("phase") != "awaiting_merge":
+        raise DelegationError("ticket %d has no finished work waiting for your confirmation" % tid)
+    comment = str(comment or "").strip()[:_INSTRUCTION_MAX]
+    r = tickets.rework(DATA, tid, comment, operator=tickets.OPERATOR_UI, actor=worker_role())
+    runner().write_state(tid, phase="starting", reason="")
+    args = ["run", "--ticket", str(tid), "--token", r["token"], "--resume", "--prompt", comment]
+    return {"ticket": tid, "pid": _launch(tid, r["token"], args, back_to_waiting=True)}
 
 
 def merge(ticket_id: int) -> Dict:
@@ -167,21 +221,23 @@ def discard(ticket_id: int) -> Dict:
 
 # ------------------------------------------------------------------- launching
 
-def _launch(tid: int) -> int:
-    """Claim the approved ticket for the worker and start the runner on it."""
-    r = runner()
-    st = r.read_state(tid)
-    c = tickets.claim(DATA, tid, paths=st["paths"], actor=worker_role())
-    args = ["run", "--ticket", str(tid), "--token", c["token"], "--provider", DELEGATE_PROVIDER,
-            "--title", st["title"], "--paths", ",".join(st["paths"]), "--prompt", st["instruction"], "--json"]
+def _launch(tid: int, token: str, args: List[str], back_to_waiting: bool = False) -> int:
+    """Start the runner on a ticket already claimed for the worker. Everything waits for the operator's
+    final confirmation (--stop-before-merge). If it cannot start, the claim is given back."""
+    st = runner().read_state(tid)
+    args = args + ["--provider", DELEGATE_PROVIDER, "--title", st["title"], "--paths", ",".join(st["paths"]),
+                   "--stop-before-merge", "--json"]
     if DELEGATE_REVIEWER:
         args += ["--reviewer", DELEGATE_REVIEWER]
-    if st.get("tier", 0) >= 2:
-        args.append("--stop-before-merge")
     try:
         return _spawn(tid, args)
     except OSError as e:
-        tickets.release(DATA, tid, c["token"], "failed", "could not start the runner: %s" % e, actor=worker_role())
+        if back_to_waiting:
+            tickets.await_merge(DATA, tid, token, "could not start the rework: %s" % e, actor=worker_role())
+            runner().write_state(tid, phase="awaiting_merge")
+        else:
+            tickets.release(DATA, tid, token, "failed", "could not start the runner: %s" % e, actor=worker_role())
+            runner().write_state(tid, phase="failed", reason="could not start the runner")
         raise DelegationError("could not start the runner: %s" % e)
 
 
@@ -247,9 +303,21 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                     "tier": st.get("tier", 0), "paths": st.get("paths", []), "reason": st.get("reason", ""),
                     "head": st.get("head", ""), "updated": st.get("updated", ""),
                     "started": st.get("started", 0), "phase_since": st.get("phase_since", 0),
+                    "task": st.get("task", 0), "tasks_total": st.get("tasks_total", 0),
+                    "tasks": [{k: t.get(k) for k in ("role", "title", "paths")}
+                              for t in (st.get("plan") or {}).get("tasks", [])],
                     "transcript": st.get("transcript", []), "active": phase in ACTIVE_PHASES,
                     "seen": seen.get(str(tid)) == st.get("rev")})
     return out
+
+
+def display_names() -> Dict[str, str]:
+    """Role id -> the character's display name, for the page (the PD is ''). Display only (NAME_NEUTRAL_v1)."""
+    try:
+        import identity
+        return {role: identity.get_identity(role)["name"] for role in [""] + experts()}
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def mark_seen(ticket_id: int) -> None:
@@ -272,14 +340,16 @@ def delegation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tup
     rest = path[len("/api/delegations"):].strip("/")
     try:
         if method == "GET" and rest == "":
-            return 200, {"ok": True, "runs": runs()}
+            return 200, {"ok": True, "runs": runs(), "names": display_names()}
         if method == "POST":
-            m = re.fullmatch(r"(\d+)/(go|merge|discard|seen)", rest)
+            m = re.fullmatch(r"(\d+)/(go|merge|rework|discard|seen)", rest)
             if m:
                 tid, action = int(m.group(1)), m.group(2)
                 if action == "seen":
                     mark_seen(tid)
                     return 200, {"ok": True}
+                if action == "rework":
+                    return 200, {"ok": True, **rework(tid, str((body or {}).get("comment") or ""))}
                 return 200, {"ok": True, **{"go": go, "merge": merge, "discard": discard}[action](tid)}
     except (DelegationError, tickets.TicketError) as e:
         return (404 if str(e).startswith("no such ticket") else 400), {"ok": False, "error": str(e)}

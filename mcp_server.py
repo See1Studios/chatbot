@@ -60,20 +60,24 @@ except Exception:
 
 DELEGATE_TOOL = {
     "name": "delegate",
-    "description": ("Hand code work the operator asked for in this conversation to a delegated worker in an isolated git "
-                    "worktree; a staff character does it and you, as the producer, confirm it; the operator sees the "
-                    "exchange on a work card. The default for any file change the operator asks for. start (title, "
-                    "paths=[repo-relative files], instruction[, evidence]; evidence defaults to the operator's latest "
-                    "message): Tier 0 paths (workspace files) start "
-                    "at once and land when gates and review pass; Tier 2 paths (host modules, tests) become a proposed "
-                    "ticket the operator starts with [맡겨] and lands with [병합·⚡]; Tier 3 (guards, gates, approval rules, "
-                    "the charter) is refused. status: the work cards. Only on the operator's request; merging and "
-                    "discarding are the operator's, not a tool's."),
+    "description": ("You are the producer (PD): you do not change files yourself. For work the operator proposes, "
+                    "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[repo-"
+                    "relative files]}][, ticket to replace a plan still waiting][, evidence; defaults to the operator's "
+                    "latest message]): the plan appears as a card and runs only when the operator presses [실행]; each "
+                    "task is worked by its expert (role = a PERSONA-<role>.md in the workspace, e.g. staff) in an "
+                    "isolated worktree, then you confirm it; the finished plan lands only when the operator presses "
+                    "[승인] (or sends it back with [반려]). Tier 3 paths (guards, gates, approval rules, the charter) "
+                    "are refused. start (title, paths, instruction): a one-task plan. status: the work cards. "
+                    "Running, landing, reworking and discarding are the operator's, not a tool's."),
     "inputSchema": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["start", "status"]},
+            "action": {"type": "string", "enum": ["plan", "start", "status"]},
             "title": {"type": "string"},
+            "tasks": {"type": "array", "items": {"type": "object", "properties": {
+                "role": {"type": "string"}, "title": {"type": "string"}, "instruction": {"type": "string"},
+                "paths": {"type": "array", "items": {"type": "string"}}}}},
+            "ticket": {"type": "integer"},
             "paths": {"type": "array", "items": {"type": "string"}},
             "instruction": {"type": "string"},
             "evidence": {"type": "array", "items": {"type": "string"}},
@@ -499,23 +503,28 @@ def call_tool(name: str, arguments: dict) -> dict:
 
         if name == "delegate" and delegation is not None:
             action = str(args.get("action") or "")
-            if SECRET_CONTENT_RE.search("\n".join(str(args.get(k) or "") for k in ("title", "instruction"))):
+            if SECRET_CONTENT_RE.search("\n".join(str(args.get(k) or "") for k in ("title", "instruction", "tasks"))):
                 return envelope(False, "refusing to record secret-like content", None)
             try:
-                if action == "start":
+                if action in ("plan", "start"):
                     evidence = args.get("evidence") or [ref for ref in [_live_request_ref()] if ref]
-                    res = delegation.request(args.get("title"), args.get("paths"), args.get("instruction"),
-                                             evidence, actor=_live_actor())
-                    msg = ("started; the work card shows its progress" if res["started"] else
-                           "proposed as ticket #%d (Tier 2); the operator starts it with [맡겨]" % res["ticket"])
-                    return envelope(True, msg, res)
+                    if action == "plan":
+                        res = delegation.plan(args.get("title"), args.get("tasks"), evidence, actor=_live_actor(),
+                                              ticket_id=args.get("ticket") or None)
+                    else:
+                        res = delegation.request(args.get("title"), args.get("paths"), args.get("instruction"),
+                                                 evidence, actor=_live_actor())
+                    return envelope(True, "plan #%d (%d task(s)) is on the operator's card; it runs when they press "
+                                    "[실행]. Tell them in a line or two." % (res["ticket"], res["tasks"]), res)
                 if action == "status":
-                    return envelope(True, "ok", {"runs": [{k: r[k] for k in ("ticket", "title", "phase", "round", "tier",
+                    return envelope(True, "ok", {"runs": [{k: r[k] for k in ("ticket", "title", "phase", "task",
+                                                                             "tasks_total", "round", "tier",
                                                                              "reason", "head")}
                                                           for r in delegation.runs()]})
             except (delegation.DelegationError, delegation.tickets.TicketError) as e:
                 return envelope(False, str(e), None)
-            return envelope(False, "unknown action (start, status); merging and discarding are the operator's", None)
+            return envelope(False, "unknown action (plan, start, status); running, landing and discarding are the "
+                                   "operator's", None)
 
         if mcp_core is not None and name in mcp_core.NAMES:
             return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, actor=_live_actor())

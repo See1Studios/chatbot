@@ -24,6 +24,7 @@ class Base(unittest.TestCase):
         obs = self.data / "workspace" / "skill-observations"
         obs.mkdir(parents=True)
         (obs / "candidates.jsonl").write_text(json.dumps({"epoch": 1789908287.39}) + "\n", encoding="utf-8")
+        (self.data / "workspace" / "PERSONA-staff.md").write_text("---\npersona: S\n---\n", encoding="utf-8")
         r = delegation.runner()
         self.saved = (delegation.DATA, delegation.SEEN_FILE, delegation._spawn, r.WORKTREE_BASE,
                       r.cleanup_worktree, r.commit_ticket_record)
@@ -49,51 +50,68 @@ class Base(unittest.TestCase):
     def request(self, paths, title="Fix it"):
         return delegation.request(title, paths, "do the thing", [CAND], actor="chat-agent:x")
 
+    def plan(self, tasks, title="Plan it", ticket_id=None):
+        return delegation.plan(title, tasks, [CAND], actor="chat-agent:x", ticket_id=ticket_id)
+
+    def task(self, paths, title="do it"):
+        return {"role": "staff", "title": title, "instruction": "do the thing", "paths": paths}
+
     def state(self, tid):
         return delegation.runner().read_state(tid)
 
 
-class RequestTest(Base):
-    def test_tier_0_starts_at_once_on_the_operator_s_request(self):
-        res = self.request(TIER0)
-        self.assertEqual((res["tier"], res["started"]), (0, True))
-        t = tickets.get(self.data, res["ticket"])
-        self.assertEqual(t["status"], "in_progress")
-        self.assertIn("via chat-agent:x delegate (Tier 0", t["approved_by"])
-        self.assertEqual(t["worked_by"], delegation.worker_role())
-        tid, args = self.spawned[-1]
-        self.assertEqual(args[:2], ["run", "--ticket"])
-        self.assertNotIn("--stop-before-merge", args)
-        self.assertEqual(args[args.index("--prompt") + 1], "do the thing")
-        self.assertEqual(self.state(tid)["instruction"], "do the thing")
-
-    def test_tier_2_is_proposed_and_waits_for_the_operator(self):
-        res = self.request(TIER2)
-        self.assertEqual((res["tier"], res["started"]), (2, False))
-        self.assertEqual(tickets.get(self.data, res["ticket"])["status"], "proposed")
+class PlanTest(Base):
+    def test_a_plan_waits_for_the_operator_whatever_its_tier(self):
+        for paths in (TIER0, TIER2):
+            res = self.plan([self.task(paths)], title="Plan %s" % paths[0])
+            self.assertEqual(tickets.get(self.data, res["ticket"])["status"], "proposed")
+            st = self.state(res["ticket"])
+            self.assertEqual((st["phase"], st["plan"]["tasks"][0]["paths"]), ("awaiting_go", paths))
         self.assertEqual(self.spawned, [])
-        self.assertEqual(self.state(res["ticket"])["phase"], "awaiting_go")
 
-    def test_tier_3_and_bad_requests_are_refused(self):
-        for paths in (["tickets.py"], ["tests/smoke.py"], [], ["/etc/passwd"], ["../x"]):
-            with self.assertRaises(delegation.DelegationError, msg=paths):
-                self.request(paths)
-        with self.assertRaises(delegation.DelegationError):
-            delegation.request("", TIER0, "x", [CAND], actor="chat-agent:x")
+    def test_the_older_start_is_a_one_task_plan(self):
+        res = self.request(TIER0)
+        self.assertEqual(self.state(res["ticket"])["phase"], "awaiting_go")
+        self.assertEqual(self.spawned, [])
+
+    def test_bad_plans_are_refused(self):
+        bad = ([], [self.task(TIER0)] * 9, [self.task(["tickets.py"])], [self.task(["tests/smoke.py"])],
+               [dict(self.task(TIER0), role="ad")], [dict(self.task(TIER0), instruction="")],
+               [self.task([])], [self.task(["../x"])], "not a list")
+        for tasks in bad:
+            with self.assertRaises(delegation.DelegationError, msg=tasks):
+                self.plan(tasks)
         self.assertEqual(tickets.list_tickets(self.data), [])
 
     def test_evidence_is_still_required(self):
         with self.assertRaises(tickets.TicketError):
-            delegation.request("Fix it", TIER0, "x", [], actor="chat-agent:x")
+            delegation.plan("Fix it", [self.task(TIER0)], [], actor="chat-agent:x")
+
+    def test_a_waiting_plan_can_be_replaced_but_not_a_running_one(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        self.plan([self.task(TIER0, "a"), self.task(TIER2, "b")], ticket_id=tid)
+        self.assertEqual([t["title"] for t in self.state(tid)["plan"]["tasks"]], ["a", "b"])
+        delegation.go(tid)
+        with self.assertRaises(delegation.DelegationError):
+            self.plan([self.task(TIER0)], ticket_id=tid)
 
 
 class OperatorTest(Base):
-    def test_go_approves_as_the_operator_and_launches_waiting_for_the_merge(self):
-        tid = self.request(TIER2)["ticket"]
+    def test_go_approves_as_the_operator_and_runs_the_plan_to_final_confirmation(self):
+        tid = self.plan([self.task(TIER0), self.task(TIER2)])["ticket"]
         delegation.go(tid)
         t = tickets.get(self.data, tid)
         self.assertEqual((t["status"], t["approved_by"]), ("in_progress", "operator (ui)"))
-        self.assertIn("--stop-before-merge", self.spawned[-1][1])
+        args = self.spawned[-1][1]
+        for flag in ("--plan-from-state", "--stop-before-merge"):
+            self.assertIn(flag, args)
+        self.assertEqual(args[args.index("--paths") + 1], ",".join(sorted(TIER0 + TIER2)))
+        self.assertEqual(self.state(tid)["phase"], "starting")
+
+    def test_go_on_a_ticket_from_elsewhere_makes_a_one_task_plan(self):
+        t, _ = tickets.propose(self.data, "fix notes", TIER0[0], [CAND])
+        delegation.go(t["id"])
+        self.assertEqual(self.state(t["id"])["plan"]["tasks"][0]["paths"], TIER0)
 
     def test_go_on_a_ticket_without_files_is_refused(self):
         t, _ = tickets.propose(self.data, "vague", "make it better", [CAND])
@@ -101,7 +119,7 @@ class OperatorTest(Base):
             delegation.go(t["id"])
 
     def awaiting(self):
-        tid = self.request(TIER2)["ticket"]
+        tid = self.plan([self.task(TIER2)])["ticket"]
         tickets.approve(self.data, tid, operator=tickets.OPERATOR_UI)
         c = tickets.claim(self.data, tid, paths=TIER2)
         tickets.await_merge(self.data, tid, c["token"])
@@ -117,7 +135,7 @@ class OperatorTest(Base):
         self.assertEqual(self.state(tid)["phase"], "merging")
 
     def test_merge_needs_a_waiting_change(self):
-        tid = self.request(TIER2)["ticket"]
+        tid = self.plan([self.task(TIER2)])["ticket"]
         with self.assertRaises(delegation.DelegationError):
             delegation.merge(tid)
 
@@ -131,6 +149,25 @@ class OperatorTest(Base):
             delegation.merge(tid)
         self.assertEqual(tickets.get(self.data, tid)["status"], "awaiting_merge")
 
+    def test_rework_sends_it_back_with_the_comment(self):
+        tid = self.awaiting()
+        delegation.rework(tid, "shorter please")
+        args = self.spawned[-1][1]
+        self.assertIn("--resume", args)
+        self.assertEqual(args[args.index("--prompt") + 1], "shorter please")
+        self.assertEqual(tickets.get(self.data, tid)["attempts"], 2)
+
+    def test_a_rework_that_cannot_start_keeps_waiting(self):
+        tid = self.awaiting()
+
+        def broken(tid, args):
+            raise OSError("no python")
+        delegation._spawn = broken
+        with self.assertRaises(delegation.DelegationError):
+            delegation.rework(tid, "shorter")
+        self.assertEqual(tickets.get(self.data, tid)["status"], "awaiting_merge")
+        self.assertEqual(self.state(tid)["phase"], "awaiting_merge")
+
     def test_discard_declines_and_drops_the_branch(self):
         tid = self.awaiting()
         delegation.discard(tid)
@@ -139,15 +176,17 @@ class OperatorTest(Base):
         self.assertEqual(self.state(tid)["phase"], "declined")
 
     def test_a_stalled_run_can_be_discarded(self):
-        tid = self.request(TIER0)["ticket"]          # claimed; its runner "died"
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.go(tid)                                  # claimed; its runner "died"
         delegation.runner().write_state(tid, phase="writing", pid=999999)
         delegation.discard(tid)
         self.assertEqual(tickets.get(self.data, tid)["status"], "declined")
         self.assertIsNone(tickets._read_lease(self.data))
 
-    def test_a_running_change_cannot_be_discarded(self):
-        tid = self.request(TIER0)["ticket"]
+    def test_a_running_plan_cannot_be_discarded(self):
         import os
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.go(tid)
         delegation.runner().write_state(tid, phase="writing", pid=os.getpid())   # alive
         with self.assertRaises(delegation.DelegationError):
             delegation.discard(tid)
@@ -155,7 +194,7 @@ class OperatorTest(Base):
 
 class CardsTest(Base):
     def test_cards_show_phase_seen_and_a_stalled_run(self):
-        tid = self.request(TIER0)["ticket"]
+        tid = self.plan([self.task(TIER0)])["ticket"]
         delegation.runner().write_state(tid, phase="writing", pid=999999)   # no such process
         card = delegation.runs()[0]
         self.assertEqual((card["ticket"], card["phase"], card["active"]), (tid, "stalled", False))
@@ -175,8 +214,10 @@ class CardsTest(Base):
         self.assertEqual(delegation.delegation_api("POST", "/api/delegations/%d/merge" % tid, {})[0], 400)
         self.assertEqual(delegation.delegation_api("POST", "/api/delegations/9999/go", {})[0], 404)
         self.assertEqual(delegation.delegation_api("POST", "/api/delegations/%d/approve" % tid, {})[0], 404)
+        self.assertEqual(delegation.delegation_api("POST", "/api/delegations/%d/rework" % tid, {"comment": "x"})[0], 400)
         code, body = delegation.delegation_api("POST", "/api/delegations/%d/go" % tid, {})
         self.assertEqual((code, body["ticket"]), (200, tid))
+        self.assertEqual(delegation.runs()[0]["tasks"][0]["role"], "staff")
 
 
 class ToolTest(Base):
