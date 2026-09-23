@@ -257,6 +257,42 @@ def _schedule_host_defibrillate() -> None:
 _OBS_STREAM_SUFFIX = "/events"
 
 
+def _session_character(ref: str):
+    """A character id as sessions store it: "" for the chatbot itself (role pd, or "pd"), the id for anyone else,
+    None when there is no such character."""
+    import characters
+    pd = characters.by_role("pd") or ""
+    if ref in ("", "pd") or ref == pd:
+        return ""
+    return ref if characters.ID_RE.match(ref) and characters.card_path(ref).is_file() else None
+
+
+def _character_list() -> list:
+    """The characters for the picker: the chatbot first, then the rest, oldest first."""
+    import characters
+    out = []
+    for c in characters.listing():
+        disp = (characters.ext(c["card"]).get("display") or {})
+        name = ((c["card"].get("data") or {}).get("name") or "").strip()
+        out.append({"id": c["id"], "session_character": "" if c["role"] == "pd" else c["id"], "role": c["role"],
+                    "name": name, "title": disp.get("title") or name or c["role"]})
+    out.sort(key=lambda x: x["role"] != "pd")
+    return out
+
+
+def _character_avatar(cid: str, provider: str):
+    """characters/<id>/avatar/<provider>.webp|png, else characters/<id>/avatar.webp|png, else None."""
+    import characters
+    if not characters.ID_RE.match(cid or ""):
+        return None
+    base = characters.card_path(cid).parent
+    names = []
+    if re.fullmatch(r"[a-z0-9_-]{1,32}", provider or ""):
+        names += ["avatar/%s.webp" % provider, "avatar/%s.png" % provider]
+    names += ["avatar.webp", "avatar.png"]
+    return next((base / n for n in names if (base / n).is_file()), None)
+
+
 def _digest_private_later(sess) -> None:
     """Put a private session's new talk into the character's private memory, in the background (SESSION_SPLIT_v1).
     Only the character's private memory is written; the work side never sees it."""
@@ -481,12 +517,22 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if path == "/api/sessions":
             code, body = _json_bytes({"sessions": REG.list()})
             return self._send(code, body, "application/json; charset=utf-8")
+        if path == "/api/characters":
+            code, body = _json_bytes({"characters": _character_list()})
+            return self._send(code, body, "application/json; charset=utf-8")
+        if path.startswith("/api/characters/") and path.endswith("/avatar"):
+            img = _character_avatar(path[len("/api/characters/"):-len("/avatar")],
+                                    parse_qs(parsed.query).get("provider", [""])[0])
+            if img is None:
+                return self._send(404, b"no avatar", "text/plain")
+            ctype = "image/webp" if img.suffix == ".webp" else "image/png"
+            return self._send(200, img.read_bytes(), ctype, cache_control="private, max-age=300")
         if path == "/api/sessions/busy":
             # which sessions are running a turn, and in which mode: the MCP server refuses work tools while a
             # private session is busy (SESSION_SPLIT_v1)
             with REG.lock:
                 live = list(REG.sessions.values())
-            busy = [{"id": x.sid, "mode": x.mode, "provider": x.provider} for x in live
+            busy = [{"id": x.sid, "mode": x.mode, "character": x.character, "provider": x.provider} for x in live
                     if x.busy and x._proc_alive()]
             code, body = _json_bytes({"sessions": busy})
             return self._send(code, body, "application/json; charset=utf-8")
@@ -1039,6 +1085,20 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 )
                 code, raw = _json_bytes({"ok": True, "session": sess.to_public()})
                 return self._send(code, raw, "application/json; charset=utf-8")
+            if path.startswith("/api/characters/") and path.endswith("/session"):
+                # CHARACTER_PICKER_v1: the character's own work (or private) session; its newest one carries the
+                # brain last used with it
+                who = _session_character(path[len("/api/characters/"):-len("/session")])
+                if who is None:
+                    code, raw = _json_bytes({"ok": False, "error": "unknown character"}, 404)
+                    return self._send(code, raw, "application/json; charset=utf-8")
+                target = REG.get_active(who)
+                if body.get("mode") == "private":
+                    target = REG.get_private(who, like=target)
+                pub = target.to_public()
+                pub["is_private"] = target.is_private
+                code, raw = _json_bytes({"ok": True, "session": pub})
+                return self._send(code, raw, "application/json; charset=utf-8")
             if path.startswith("/api/sessions/") and path.endswith("/message"):
                 sid = path[len("/api/sessions/"):-len("/message")]
                 sess = REG.get(sid)
@@ -1060,7 +1120,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     else:
                         if sess.is_private:
                             _digest_private_later(sess)
-                        target = REG.get_active() if sess.is_private else sess
+                        target = REG.get_active(sess.character) if sess.is_private else sess
                     pub = target.to_public()
                     pub["is_private"] = target.is_private
                     code, raw = _json_bytes({"ok": True, "switched": target.sid != sid, "old_session_id": sid,

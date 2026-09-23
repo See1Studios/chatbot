@@ -164,6 +164,28 @@ def _private_bundle(character: str) -> Dict[str, str]:
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
 
 
+CHARACTER_SESSION_NOTE = ("[Direct conversation] The user is talking with you directly, not through the PD. Plans "
+                          "and delegation belong to the PD; if the user wants work planned or handed out, suggest "
+                          "asking the PD. The shared work memory tool is the PD's; your own memory is below.")
+
+
+def _character_work_bundle(character: str) -> Dict[str, str]:
+    """A character other than the chatbot, in a work session (CHARACTER_PICKER_v1): the charter, its card, its work
+    instructions and its own work memory."""
+    import characters
+    card = _card(character)
+    if not card:
+        return {"text": "", "hash": ""}
+    work = ((characters.ext(card).get("work") or {}).get("instructions") or "").strip()
+    static = "\n\n---\n\n".join(t for t in (
+        _read(WORKSPACE / "AGENTS.md"), characters.persona_text(card).strip(),
+        CHARACTER_SESSION_NOTE + ("\n\n[Work instructions]\n" + work if work else ""), _skills_text()) if t)
+    memory = _read(characters.memory_path(character, WORKSPACE))
+    text = static + ("\n\n[Your work memory]\n" + memory if any(_FACT_LINE.match(l) for l in memory.splitlines())
+                     else "")
+    return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
+
+
 def build_instruction_bundle(mode: str = "work", character: str = "") -> Dict[str, str]:
     """{"text": full bundle, "hash": digest of the static layers}. Empty text
     when there are no rule files at all (caller then injects nothing).
@@ -171,6 +193,8 @@ def build_instruction_bundle(mode: str = "work", character: str = "") -> Dict[st
     work memory and the status badge."""
     if mode == "private":
         return _private_bundle(character)
+    if character:
+        return _character_work_bundle(character)
     static = "\n\n".join(t for t in (_rules_text(), _skills_text()) if t)
     if not static:
         return {"text": "", "hash": ""}

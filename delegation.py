@@ -425,11 +425,15 @@ _DELEGATE_TOOL = {
 TOOL_DEFS = [_DELEGATE_TOOL]
 
 
-def tool_call(name: str, args: dict, actor: str, secret_re, envelope, private: bool = False) -> dict:
+def tool_call(name: str, args: dict, actor: str, secret_re, envelope, private: bool = False,
+              staff: bool = False) -> dict:
     """One `delegate` call from the chat agent; evidence defaults to the operator's latest message. A private
-    session delegates nothing (work stays out of it)."""
+    session delegates nothing (work stays out of it); neither does another character talking with the user
+    directly -- plans and delegation are the PD's (CHARACTER_PICKER_v1)."""
     if private:
         return envelope(False, "private session: no work is delegated from here", None)
+    if staff:
+        return envelope(False, "only the PD plans and delegates; ask the user to take this to the PD", None)
     action = str(args.get("action") or "")
     if secret_re.search("\n".join(str(args.get(k) or "") for k in ("title", "instruction", "tasks"))):
         return envelope(False, "refusing to record secret-like content", None)

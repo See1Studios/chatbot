@@ -22,7 +22,7 @@ const code = src.slice(a, b);
 const cls = new Set(), attrs = {};
 const privateBtn = { disabled: false, title: '', classList: { toggle: (c, on) => on ? cls.add(c) : cls.delete(c) },
                      setAttribute: (k, v) => { attrs[k] = v; } };
-let sessionId = 'w1', sessionMode = 'work', liveSessionId = 'w1', archiveBrowse = true;
+let sessionId = 'w1', sessionMode = 'work', sessionCharacter = '', liveSessionId = 'w1', archiveBrowse = true;
 const sent = [], opened = [];
 async function api(url, opts) {
   const text = JSON.parse(opts.body).text;

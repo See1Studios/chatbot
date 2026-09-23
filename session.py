@@ -2312,15 +2312,24 @@ class Registry:
                 continue
         return items
 
-    def get_active(self) -> AgentSession:
-        """Live conversation: the chatbot's newest *work* session id, then the successor-chain tip.
+    def get_active(self, character: str = "") -> AgentSession:
+        """Live conversation: the character's newest *work* session id, then the successor-chain tip ("" = the
+        chatbot itself). A character without one gets a new session on its first brain (CHARACTER_PICKER_v1);
+        after that its own newest session carries the brain last used with it.
 
         Session ids are YYYYMMDD-HHMMSS-xxxxxx so lexicographic max is
         chronological latest. list() is still mtime-sorted (recency for the
         sessions tab). Opening a past session must not steal 'active'.
         Private sessions and other characters' sessions never become active (SESSION_SPLIT_v1).
         """
-        return self._newest(mode="work", character="") or self.create()
+        sess = self._newest(mode="work", character=character)
+        if sess is not None:
+            return sess
+        if not character:
+            return self.create()
+        brain = _first_brain(character)
+        return self.create(model=brain.get("model") or "", provider=brain.get("provider") or DEFAULT_PROVIDER,
+                           character=character)
 
     def get_private(self, character: str = "", like: Optional[AgentSession] = None) -> AgentSession:
         """The character's private session (its successor-chain tip), created on first use with `like`'s
@@ -2328,7 +2337,7 @@ class Registry:
         sess = self._newest(mode="private", character=character)
         if sess is not None:
             return sess
-        like = like or self.get_active()
+        like = like or self.get_active(character)
         return self.create(model=like.model, effort=like.effort, provider=like.provider, character=character,
                            mode="private")
 
@@ -2362,6 +2371,16 @@ class Registry:
                 seen.add(succ)
                 sess = self.get(succ)
             return sess
+
+
+def _first_brain(character: str) -> Dict[str, Any]:
+    """The first entry of the character's work brain list, or {}."""
+    try:
+        import characters
+        chain = characters.brains(characters.load(character, WORKSPACE))
+        return chain[0] if chain else {}
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 REG = Registry()

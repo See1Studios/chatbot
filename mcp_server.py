@@ -475,10 +475,10 @@ def call_tool(name: str, arguments: dict) -> dict:
             return envelope(code == 0, "ok" if code == 0 else "nonzero", {"code": code, "stdout": out, "stderr": err})
 
         if delegation is not None and name in delegation.NAMES:
-            return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope, private=_live_private())
+            return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope, *_live_scope())
 
         if mcp_core is not None and name in mcp_core.NAMES:
-            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, actor=_live_actor(), private=_live_private())
+            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, mcp_core.RECENT_LIMIT, _live_actor(), *_live_scope())
 
         if name == "search_text":
             path = _resolve_target_path(args.get("path"))
@@ -537,17 +537,18 @@ def call_tool(name: str, arguments: dict) -> dict:
         return envelope(False, f"error: {e}", {"trace": traceback.format_exc()[-1500:]})
 
 
-def _live_private() -> bool:
-    """Whether a private session is running a turn (SESSION_SPLIT_v1): work tools stay closed while one is;
-    False when it cannot be told."""
+def _live_scope() -> tuple:
+    """(private, staff) of the sessions running a turn: a private one closes work tools (SESSION_SPLIT_v1), another
+    character's work session closes delegation and the PD's memory (CHARACTER_PICKER_v1); (False, False) when unknown."""
     try:
         import urllib.request
         port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
         with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/busy" % port, timeout=1.5) as r:
             busy = json.loads(r.read().decode("utf-8") or "{}").get("sessions") or []
-        return any(x.get("mode") == "private" for x in busy)
+        return (any(x.get("mode") == "private" for x in busy),
+                any(x.get("mode") != "private" and x.get("character") for x in busy))
     except Exception:
-        return False
+        return False, False
 
 
 def _live_actor() -> str:

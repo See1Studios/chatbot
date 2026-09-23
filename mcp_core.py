@@ -94,14 +94,20 @@ PRIVATE_CLOSED = ("private session: work memory, observations and tickets are cl
                   "apart, in this character's private memory, by the host.")
 
 
+STAFF_MEMORY_CLOSED = ("the work memory is the PD's; a character talking with the user directly keeps its own "
+                       "memory, which the host provides.")
+
+
 def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "chat-agent",
-         private: bool = False) -> dict:
+         private: bool = False, staff: bool = False) -> dict:
     """Run one of the tools in NAMES. `data` is the instance data directory, `secret_re` the host's pattern for
     content that must never be stored."""
     data = Path(data)
     args = args or {}
     if private:   # PRIVATE_MEMORY_v1: a private session never reads or writes work memory, observations or tickets
         return envelope(False, PRIVATE_CLOSED, None)
+    if staff and name == "memory":   # CHARACTER_PICKER_v1: the shared work memory is the PD's
+        return envelope(False, STAFF_MEMORY_CLOSED, None)
     try:
         if name == "memory":
             if memory_store is None:

@@ -26,7 +26,7 @@
       } catch(e){}
     })();
   </script>
-  <link rel="stylesheet" href="./chat.css?v=31" />
+  <link rel="stylesheet" href="./chat.css?v=32" />
 </head>
 <body>
   <div class="wrap" id="appWrap">
@@ -34,12 +34,13 @@
       <div class="brand">
         <a id="hubLink" href="/" title="Hub로 이동" aria-label="Hub로 이동"><span class="hub-arrow" aria-hidden="true">←</span><span class="hub-text"> Hub</span></a>
         <div class="brand-avatar-wrap" id="brandAvatarWrap">
-          <img class="avatar" id="brandAvatar" src="/chat/persona/providers/agy.webp?v=9" alt="AI 제공자 선택" role="button" tabindex="0" aria-label="AI 제공자 선택" aria-haspopup="menu" aria-expanded="false" title="제공자 변경 (클릭)" onerror="this.onerror=null;this.src='/chat/persona/providers/agy.png';">
+          <img class="avatar" id="brandAvatar" src="/chat/persona/providers/agy.webp?v=9" alt="AI 제공자 선택" role="button" tabindex="0" aria-label="캐릭터 선택" aria-haspopup="menu" aria-expanded="false" title="캐릭터 선택 (클릭)" onerror="this.onerror=null;this.src='/chat/persona/providers/agy.png';">
+          <div class="provider-tray character-tray" id="characterTray" hidden role="menu" aria-label="캐릭터 선택"></div>
           <div class="provider-tray" id="providerTray" hidden role="menu" aria-label="AI 제공자 선택"></div>
         </div>
         <div class="brand-title">
           <h1 id="brandName"></h1>
-          <div class="sub" id="brandRole"><span class="brand-provider" id="brandProvider">Antigravity</span></div>
+          <div class="sub" id="brandRole"><button type="button" class="brand-provider" id="brandProvider" aria-haspopup="menu" aria-expanded="false" title="제공자 변경 (클릭)">Antigravity</button></div>
         </div>
       </div>
       <div class="bar">
@@ -342,7 +343,7 @@
   <!-- Order is load-bearing (classic scripts; shared state is var).
        app.js: session/SSE/send + status + provider tray. Do not split further.
        Map: data/workspace/PROJECT.md Where to edit. -->
-  <script src="./app.js?v=147"></script>
+  <script src="./app.js?v=148"></script>
   <script src="./theme.js?v=3"></script>
   <script src="./artifacts.js?v=5"></script>
   <script src="./markdown.js?v=10"></script>

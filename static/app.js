@@ -36,13 +36,18 @@ let archiveBrowse = false;
 // SESSION_SPLIT_v1: the open session's mode. Work and private talk are separate sessions; "latest", scrollback
 // and the live-follow logic stay inside the open mode.
 let sessionMode = 'work';
-function sameSessionMode(s) { return ((s && s.mode) || 'work') === sessionMode; }
+// CHARACTER_PICKER_v1: whose sessions are open ("" = the chatbot itself, else a character id)
+let sessionCharacter = '';
+function sameSessionMode(s) {
+  return ((s && s.mode) || 'work') === sessionMode && ((s && s.character) || '') === sessionCharacter;
+}
 
 // /private on|off (typed or the heart button): the other mode's session opens with its own history; nothing
 // goes to the agent
 async function applyModeSwitch(res) {
   const target = res.session;
   sessionMode = target.mode === 'private' ? 'private' : 'work';
+  sessionCharacter = target.character || '';
   liveSessionId = target.id;
   archiveBrowse = false;
   await openSession(target.id, 0, null, true);
@@ -3124,6 +3129,12 @@ async function fetchSessionsList(retryCount = 0) {
   }
 }
 
+function sessionRowWho(s) {
+  if (!s || !s.character) return '';
+  const c = characterCatalog.find(x => x.id === s.character);
+  return (c ? c.name : s.character.slice(0, 10)) + ' · ';
+}
+
 function renderSessionsList(sessions) {
   if (!sessionsListEl) return;
   sessionsListEl.innerHTML = '';
@@ -3143,7 +3154,7 @@ function renderSessionsList(sessions) {
     try { when = new Date(_scrollbackEpochMs(s.updated_at)).toLocaleString('ko-KR'); } catch (_) {}
     item.innerHTML =
       '<div class="status-item-head">' +
-      '<span class="session-row-id">' + (s.mode === 'private' ? '🔒 ' : '') + escapeHtml(s.id) + (isCurrent ? ' (현재)' : '') + '</span>' +
+      '<span class="session-row-id">' + (s.mode === 'private' ? '🔒 ' : '') + escapeHtml(sessionRowWho(s)) + escapeHtml(s.id) + (isCurrent ? ' (현재)' : '') + '</span>' +
       '<span class="status-item-meta">' + (s.turns || 0) + '턴 · ' + escapeHtml(s.model || '') + ' · ' + escapeHtml(when) + '</span>' +
       '<div class="status-item-actions">' +
       '<button class="session-import-btn" data-import-sid="' + escapeHtml(s.id) + '" type="button">' + getActionSvg('pin') + ' 가져오기</button>' +
@@ -4143,8 +4154,11 @@ async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
     if (bounced) return;
   }
   const infoMode = info && info.mode === 'private' ? 'private' : 'work';
-  if (infoMode !== sessionMode) {           // opened a session of the other mode: that mode's tip becomes live
+  const infoCharacter = (info && info.character) || '';
+  if (infoMode !== sessionMode || infoCharacter !== sessionCharacter) {
+    // opened a session of another mode or character: that one's tip becomes live
     sessionMode = infoMode;
+    sessionCharacter = infoCharacter;
     liveSessionId = '';
   }
   if (liveSessionId && id !== liveSessionId) archiveBrowse = true;
@@ -4169,6 +4183,7 @@ async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
     activityAfter: '세션 복원 ' + id,
   });
   applySessionProvider(info);
+  updateBrandAvatar(info.provider || (providerEl ? providerEl.value : ''));
 }
 
 // Re-syncs the live view against server history + in-flight draft.
@@ -4662,7 +4677,7 @@ async function resolveLatestSessionId() {
       if (s && isLiveSid(s.id) && sameSessionMode(s)) ids.push(s.id);
     }
   } catch (_) {}
-  if (sessionMode === 'work') {
+  if (sessionMode === 'work' && !sessionCharacter) {
     try {
       const act = await api('/api/sessions/active');
       if (act && isLiveSid(act.id)) ids.push(act.id);
@@ -5224,13 +5239,16 @@ function updateBrandAvatar(providerId) {
     || providerCatalog[0]
     || { id: '', name: '', role: '', theme: 'lime', icon: '' };
   const credit = providerCreditLabel(p);
+  const ch = currentCharacter();
+  const who = (ch && ch.session_character) ? ch.name : IDENTITY.name;
   if (brandAvatarEl) {
-    brandAvatarEl.src = portraitUrl(p);
-    brandAvatarEl.alt = IDENTITY.name;
-    brandAvatarEl.title = `${IDENTITY.name} · ${credit} · 제공자 변경 (클릭)`;
+    brandAvatarEl.onerror = (ch && ch.session_character) ? () => { brandAvatarEl.onerror = null; brandAvatarEl.src = initialAvatar(who); } : null;
+    brandAvatarEl.src = characterPortrait(ch, p);
+    brandAvatarEl.alt = who;
+    brandAvatarEl.title = `${who} · 캐릭터 선택 (클릭)`;
   }
   if (brandNameEl) {
-    brandNameEl.textContent = IDENTITY.title;
+    brandNameEl.textContent = (ch && ch.session_character) ? (ch.title || ch.name) : IDENTITY.title;
   }
   if (brandProviderEl) {
     brandProviderEl.textContent = credit;
@@ -5242,6 +5260,33 @@ function updateBrandAvatar(providerId) {
     brandRoleEl.setAttribute('aria-label', `제공자 ${credit}`);
   }
   updateStageBackground(p.id);
+}
+
+// CHARACTER_PICKER_v1: the avatar picks the character; each character's picture follows the provider
+// (characters/<id>/avatar/<provider>.webp, else avatar.webp, else its initial). The chatbot keeps the
+// provider portraits.
+let characterCatalog = [];
+const characterTrayEl = document.getElementById('characterTray');
+function currentCharacter() {
+  return characterCatalog.find(c => c.session_character === sessionCharacter) || null;
+}
+function initialAvatar(name) {
+  const ch = escapeHtml(Array.from(String(name || '?').trim())[0] || '?');
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+    + '<rect width="64" height="64" rx="32" fill="#2a2f3a"/><text x="32" y="42" font-size="28" text-anchor="middle" '
+    + 'fill="#e6e8ee" font-family="sans-serif">' + ch + '</text></svg>');
+}
+function characterPortrait(c, p) {
+  if (!c || !c.session_character) return portraitUrl(p);
+  return '/api/characters/' + encodeURIComponent(c.id) + '/avatar?provider=' + encodeURIComponent((p && p.id) || '');
+}
+async function loadCharacters() {
+  try {
+    const res = await api('/api/characters');
+    characterCatalog = res.characters || [];
+  } catch (_) {
+    characterCatalog = [];
+  }
 }
 
 function renderProviderTray() {
@@ -5435,39 +5480,89 @@ async function flushPendingProviderPersist() {
 function toggleProviderTray(force) {
   if (!providerTrayEl) return;
   const willShow = typeof force === 'boolean' ? force : providerTrayEl.hidden;
-  if (willShow) renderProviderTray();
+  if (willShow) { renderProviderTray(); toggleCharacterTray(false); }
   providerTrayEl.hidden = !willShow;
-  if (brandAvatarEl) {
-    brandAvatarEl.setAttribute('aria-expanded', String(willShow));
+  if (brandProviderEl) brandProviderEl.setAttribute('aria-expanded', String(willShow));
+}
+
+function renderCharacterTray() {
+  if (!characterTrayEl) return;
+  characterTrayEl.innerHTML = '';
+  const p = providerCatalog.find(item => item.id === (providerEl ? providerEl.value : '')) || providerCatalog[0];
+  characterCatalog.forEach(c => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'provider-portrait-btn' + (c.session_character === sessionCharacter ? ' active' : '');
+    btn.setAttribute('data-character-id', c.id);
+    const label = c.session_character ? c.name : IDENTITY.name;
+    btn.title = label + (c.title && c.title !== label ? ' · ' + c.title : '');
+    const img = document.createElement('img');
+    img.onerror = () => { img.onerror = null; img.src = initialAvatar(label); };
+    img.src = characterPortrait(c, p);
+    img.alt = label;
+    const tip = document.createElement('span');
+    tip.className = 'provider-tooltip';
+    tip.textContent = label;
+    btn.appendChild(img);
+    btn.appendChild(tip);
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleCharacterTray(false);
+      selectCharacter(c);
+    });
+    characterTrayEl.appendChild(btn);
+  });
+}
+
+function toggleCharacterTray(force) {
+  if (!characterTrayEl) return;
+  const willShow = typeof force === 'boolean' ? force : characterTrayEl.hidden;
+  if (willShow) { renderCharacterTray(); toggleProviderTray(false); }
+  characterTrayEl.hidden = !willShow;
+  if (brandAvatarEl) brandAvatarEl.setAttribute('aria-expanded', String(willShow));
+}
+
+// Opens the character's own session in the current mode; its newest session keeps the brain last used with it
+async function selectCharacter(c) {
+  if (!c || c.session_character === sessionCharacter) return;
+  try {
+    const res = await api('/api/characters/' + encodeURIComponent(c.id) + '/session', {
+      method: 'POST',
+      body: JSON.stringify({ mode: sessionMode })
+    });
+    if (res && res.session && res.session.id) await applyModeSwitch(res);
+  } catch (e) {
+    addActivity('캐릭터 전환 실패: ' + (e.message || e));
   }
 }
 
-if (brandAvatarEl) {
-  brandAvatarEl.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleProviderTray();
-  });
-  brandAvatarEl.addEventListener('keydown', (e) => {
+function onTrayKey(el, fn) {
+  if (!el) return;
+  el.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+  el.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       e.stopPropagation();
-      toggleProviderTray();
+      fn();
     }
   });
 }
+onTrayKey(brandAvatarEl, () => toggleCharacterTray());
+onTrayKey(brandProviderEl, () => toggleProviderTray());
 
 document.addEventListener('click', (e) => {
-  if (providerTrayEl && !providerTrayEl.hidden) {
-    if (!providerTrayEl.contains(e.target) && e.target !== brandAvatarEl) {
-      toggleProviderTray(false);
-    }
+  if (providerTrayEl && !providerTrayEl.hidden && !providerTrayEl.contains(e.target) && e.target !== brandProviderEl) {
+    toggleProviderTray(false);
+  }
+  if (characterTrayEl && !characterTrayEl.hidden && !characterTrayEl.contains(e.target) && e.target !== brandAvatarEl) {
+    toggleCharacterTray(false);
   }
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && providerTrayEl && !providerTrayEl.hidden) {
-    toggleProviderTray(false);
-  }
+  if (e.key !== 'Escape') return;
+  if (providerTrayEl && !providerTrayEl.hidden) toggleProviderTray(false);
+  if (characterTrayEl && !characterTrayEl.hidden) toggleCharacterTray(false);
 });
 
 function populateModelsForProvider(providerId, preferredModel) {
@@ -5519,6 +5614,7 @@ async function boot() {
     if (currentEntry && typeof applyTheme === 'function') {
       applyTheme(themeForProvider(currentEntry));
     }
+    await loadCharacters();
     updateBrandAvatar(savedProvider);
     renderProviderTray();
 
