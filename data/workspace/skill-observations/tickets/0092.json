@@ -1,0 +1,48 @@
+{
+ "actor": "claude-code",
+ "approved_at": "2026-09-23 21:56:08",
+ "approved_by": "operator (api) via claude-code ticket-quick (operator's instruction)",
+ "attempts": 1,
+ "closed_by": "claude-code",
+ "closed_reason": "done",
+ "created": "2026-09-23 21:56:08",
+ "evidence": [
+  "candidate:1790168168.549"
+ ],
+ "gate_failures": 0,
+ "id": 92,
+ "notes": [
+  {
+   "by": "operator (api) via claude-code ticket-quick (operator's instruction)",
+   "text": "approved",
+   "ts": "2026-09-23 21:56:08"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "claimed (attempt 1/3); paths: tools/worktree_runner.py, tests/test_worktree_runner.py, workspace_status.py, tests/test_instructions_api.py, static/app.js",
+   "ts": "2026-09-23 21:56:08"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done: commit c115471",
+   "ts": "2026-09-23 22:00:05"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done",
+   "ts": "2026-09-23 22:00:05"
+  }
+ ],
+ "paths": [
+  "tools/worktree_runner.py",
+  "tests/test_worktree_runner.py",
+  "workspace_status.py",
+  "tests/test_instructions_api.py",
+  "static/app.js"
+ ],
+ "status": "done",
+ "target": "tools/worktree_runner.py, tests/test_worktree_runner.py, workspace_status.py, te",
+ "title": "EXPERT_MEMORY_v1: 전문가 지속 기억 (설계서 §11 4단계)",
+ "updated": "2026-09-23 22:00:05",
+ "worked_by": "claude-code"
+}
