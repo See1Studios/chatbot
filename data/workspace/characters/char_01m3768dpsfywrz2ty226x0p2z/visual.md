@@ -3,7 +3,7 @@
 Format and procedure: skill `character-art`. The page uses this folder (`avatar.webp`, `avatar/<provider>.webp`).
 Voice and manner are in the card, not here.
 
-Status: base look pending operator pick of the generated candidate.
+Status: first pass shipped (operator: 별로, replace later). Base is three-quarter (반측면), long ash-brown hair, grey eyes, black turtleneck. Style from data/persona/references/ (commercial anime, not Nyang PD's current portraits).
 
 ## Locks
 - Adult woman in her mid-twenties, NOT childlike.
@@ -14,17 +14,16 @@ Status: base look pending operator pick of the generated candidate.
 - No animal ears, no star-shaped eye highlights, no chubby cheeks, no cat-ear mascot look.
 - Distinct from Nyang PD (silver waves, gold star eyes, cat ears, beige trench) at 56px circle badge.
 
-## Wigs (Open until base avatar is approved)
+## Wigs
 | Brain | Hair (cut + dye) | Outfit |
 |---|---|---|
-| agy | Open (ash-brown base variant, do NOT copy Nyang PD) | Black fitted turtleneck base |
-| claude | Open (do NOT copy Nyang PD) | TBD |
-| codex | Open (do NOT copy Nyang PD) | TBD |
-| grok | Open (do NOT copy Nyang PD) | TBD |
-| omniroute | Open (do NOT copy Nyang PD) | TBD |
-| openrouter | Open (do NOT copy Nyang PD) | TBD |
+| agy | long split dye blue left / red right, black turtleneck (NOT Nyang PD high ponytail) | Black fitted turtleneck base |
+| claude | long amber, terracotta cardigan over turtleneck (NOT bob) | Terracotta cardigan over turtleneck |
+| codex | long emerald, charcoal hoodie (NOT hime) | Charcoal hoodie |
+| grok | long ink black, black blouse + white lace collar + ribbon (NOT lolita dress copy of cut) | Black blouse + white lace collar + ribbon |
+| omniroute | long cyan loose, black tech jacket cyan piping (NOT side braid) | Black tech jacket cyan piping |
+| openrouter | long lime, charcoal blazer lime piping (NOT odango) | Charcoal blazer lime piping |
 
-- Wigs table listed but Open until base avatar is approved.
 - Cuts must NOT copy Nyang PD (no high ponytail, bob, hime cut, side braid, odango).
 
 ## Sprites
@@ -38,6 +37,4 @@ None yet. Derive expressions from approved base avatar once made.
 - Copying Nyang PD's face, hair cuts, or silhouette
 
 ## Open
-- Operator pick of the generated base candidate
-- Base avatar approval
-- Wig cut designs for each provider after base approval
+- first-pass quality; replace when a better sheet exists. Base lock is images/6.jpg three-quarter.
