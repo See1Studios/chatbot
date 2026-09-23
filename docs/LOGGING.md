@@ -116,11 +116,11 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | `ctl.spawn` | info | `proc` (chat/mcp), `pid` |
 | `ctl.start_failed` | error | last lines of chatbot.log |
 | `repair.begin` / `repair.end` | warn / info-error | `caller`; end: `ok`, `dur_s`, `orphans`, `pruned` |
-| `repair.busy_timeout` | warn | repair went ahead while a turn was still running |
+| `repair.busy_timeout` | warn | repair went ahead while the server's agents were still working (measured by CPU/I-O, `ctl_proc.py busy`) |
 | `host.defibrillate` | warn | (`src` chat) repair requested over HTTP |
 | `doctor.probe` | info/error | hourly message probe, `ok`, `msg` on failure |
 | `doctor.fail`, `doctor.chat_down`, `doctor.mcp_down`, `doctor.maintenance` | error/info | `check` |
-| `agent.reaped` | warn | a CLI agent process killed by ctl: `agent_pid`, `ppid`, `parent_cmd`, `chat_pid` (the live server per ctl's pid file), `reason` (`ppid1`, `no-conversation`, `unprotected-flash-low`, `stale-session`, …), `age_s`, `cmd`. Descendants of the live server are never reaped (decided from the process table, not from service-written files) |
+| `agent.reaped` | warn | a CLI agent process killed by ctl: `agent_pid`, `ppid`, `parent_cmd`, `chat_pid` (the live server per ctl's pid file), `reason` (`ppid1` / `orphan`; before 2026-09-23 also `no-conversation`, `unprotected-flash-low`, `stale-session`), `age_s`, `cmd`. Only our agents (cwd = `data/workspace`) outside the live server's process tree are reaped (`ctl_proc.py`, OS facts only) |
 | `manifest.drift` | warn | protected files differ from the manifest; logged only when the difference changes |
 
 ## Findings (logdigest.py)

@@ -120,167 +120,11 @@ require_host_force() {
 
 
 kill_orphan_agy() {
-  # 0) descendants of the LIVE chat server are the server's own business: never touched.
-  #    Decided from what ctl itself owns -- the process table and the pid file it wrote at
-  #    spawn -- not from anything the service reports about itself (STANDBY_REAP_v1: a warm
-  #    standby missing from the service-maintained live_pids.json was killed every doctor run).
-  # 1) PPID=1 stream-json orphans
-  # 2) probe leftovers: stream-json WITHOUT --conversation
-  # 3) unprotected flash-low (not in real session JSON protected set)
-  python3 - "$DATA/sessions" <<'PY'
-import glob, json, os, signal, subprocess, sys
-sessions_dir = sys.argv[1]
-protected = set()
-# 2026-09-16/17: sessions live at sessions/<sid>/meta.json now (folder per
-# session, holding its own artifacts/ alongside), not flat sessions/<sid>.json
-# -- this glob matched nothing after that migration, so `protected` was
-# always empty and EVERY live flash-low conversation got killed as
-# "unprotected-flash-low" below, mid-turn, real conversations included
-# (visible as agy stderr "stream input cancelled: context canceled" /
-# "interrupted", and as messages that simply never get a reply).
-for p in glob.glob(sessions_dir + "/*/meta.json"):
-    try:
-        d = json.load(open(p, encoding="utf-8"))
-    except Exception:
-        continue
-    cid = d.get("conversation_id")
-    if not cid:
-        continue
-    hist = d.get("history") or []
-    texts = " ".join(str(h.get("text") or "") for h in hist)
-    if "[doctor-probe]" in texts and len(hist) <= 2:
-        continue
-    if hist:
-        protected.add(cid)
-
-standby_pid = None
-standby_marker = os.path.join(os.path.dirname(sessions_dir), "standby.pid")
-try:
-    standby_pid = int(open(standby_marker, encoding="utf-8").read().strip())
-except Exception:
-    standby_pid = None
-
-live_pids = set()
-live_pids_marker = os.path.join(os.path.dirname(sessions_dir), "live_pids.json")
-try:
-    live_pids = set(json.load(open(live_pids_marker, encoding="utf-8")))
-except Exception:
-    live_pids = set()
-
-NO_CONV_GRACE_SEC = 90  # a brand-new real session's first turn has no --conversation
-                        # yet either (learned only after its first reply) — give it
-                        # time to finish before treating it as a probe leftover.
-out = subprocess.check_output(["ps", "-eo", "pid=,ppid=,etimes=,args="], text=True, errors="replace")
-
-# The live chat server, from ctl's own pid file, confirmed against the process table.
-code_dir = os.path.dirname(os.path.dirname(os.path.abspath(sessions_dir)))
-parent_of, args_of = {}, {}
-for _l in out.splitlines():
-    _p = _l.split(None, 3)
-    if len(_p) >= 3 and _p[0].isdigit() and _p[1].isdigit():
-        parent_of[int(_p[0])] = int(_p[1])
-        args_of[int(_p[0])] = _p[3] if len(_p) > 3 else ""
-chat_pid = None
-try:
-    _cp = int(open(os.path.join(code_dir, "logs", "chatbot.pid"), encoding="utf-8").read().strip())
-    if "server.py" in args_of.get(_cp, ""):
-        chat_pid = _cp
-except (OSError, ValueError):
-    chat_pid = None
-
-
-def under_live_server(p):
-    seen = 0
-    while chat_pid and p and p != 1 and seen < 32:
-        p = parent_of.get(p)
-        if p == chat_pid:
-            return True
-        seen += 1
-    return False
-
-
-killed = 0
-for line in out.splitlines():
-    line = line.strip()
-    if not line:
-        continue
-    parts = line.split(None, 3)
-    if len(parts) < 4:
-        continue
-    pid_s, ppid_s, etimes_s, args = parts
-    # Multi-Provider plan Phase 1/2: claude and grok spawns matter here too
-    # now that their adapters actually run real processes -- without this,
-    # an orphaned child from either would never get reaped at all. agy/claude
-    # are the persistent --input-format stream-json protocol; grok is a
-    # one-shot --prompt-file exec per turn (no stream-json flag at all), so
-    # it needs its own identifying flag rather than sharing agy/claude's.
-    # Phase 3: codex is one-shot like grok, identified by --json (its
-    # --output-format-equivalent) rather than agy/claude's stream-json flag.
-    is_agy_or_claude = ("/.local/bin/agy" in args or "/.local/bin/claude" in args) and "--input-format stream-json" in args
-    is_grok = "/.local/bin/grok" in args and "--prompt-file" in args
-    # CODEX_PROC_v1: node wrapper is /.local/bin/codex; native child lives under
-    # node_modules/.../codex. Also reap login / app-server orphans (no --json).
-    toks0 = (args.split(None, 1)[0] if args else "")
-    is_codex_bin = toks0.endswith("/codex") or toks0.endswith("\\codex") or toks0 == "codex"
-    is_codex = is_codex_bin and (
-        "--json" in args or "app-server" in args or " login" in args or args.rstrip().endswith(" login")
-        or " login " in (" " + args + " ")
-    )
-    if not (is_agy_or_claude or is_grok or is_codex):
-        continue
-    try:
-        pid = int(pid_s); ppid = int(ppid_s); etimes = int(etimes_s)
-    except ValueError:
-        continue
-    toks = args.split()
-    cid = None
-    for flag in ("--conversation", "--resume"):
-        if flag in args:
-            for i, t in enumerate(toks):
-                if t == flag and i + 1 < len(toks):
-                    cid = toks[i + 1]
-                    break
-        if cid:
-            break
-    # codex's own resume syntax is a bare `resume <id>` subcommand, not a
-    # --flag value pair like agy/claude/grok all use.
-    if cid is None and "resume" in toks:
-        i = toks.index("resume")
-        if i + 1 < len(toks):
-            cid = toks[i + 1]
-    has_conv = cid is not None
-    reason = None
-    is_standby = (pid == standby_pid)
-    is_live_server_child = (pid in live_pids)
-    if under_live_server(pid):
-        continue  # the live server's descendant (session, standby, codex native child): its own reaper
-    if ppid == 1:
-        reason = "ppid1"  # true orphan even for a standby (parent chat server died/restarted)
-    elif is_live_server_child:
-        continue  # actively tracked by live chat server (standby or active session)
-    elif not has_conv and etimes > NO_CONV_GRACE_SEC and not is_standby:
-        reason = "no-conversation"  # standby is exempt — see _StandbyPool, it's meant to sit idle
-    elif cid and cid not in protected and "flash-low" in args:
-        reason = "unprotected-flash-low"
-    if not reason:
-        continue
-    try:
-        os.kill(pid, signal.SIGTERM)
-        killed += 1
-        print(f"killed pid={pid} reason={reason}", file=sys.stderr)
-        try:
-            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(sessions_dir))))
-            import obslog
-            obslog.configure("ctl", mirror="error")
-            obslog.event("agent.reaped", lvl="warn", agent_pid=pid, ppid=int(ppid_s), reason=reason,
-                         parent_cmd=args_of.get(ppid, "")[:100], chat_pid=chat_pid,
-                         age_s=etimes, cmd=args[:200], caller=os.environ.get("CHATBOT_CALLER"))
-        except Exception:
-            pass
-    except OSError:
-        pass
-print(killed)
-PY
+  # WATCHDOG_OS_FACTS_v1 (recursive-self-evolution.md §7-7): decided from the process table,
+  # /proc cwd and ctl's own pid file only -- see ctl_proc.py. Our agents (cwd = data/workspace)
+  # that are not descendants of the live chat server are reaped; the server's descendants and
+  # anybody else's processes are never touched. Prints the count.
+  python3 "$CODE/ctl_proc.py" reap "$CODE"
 }
 
 is_up() {
@@ -506,26 +350,17 @@ cmd_start() {
 wait_for_idle_session() {
   # cmd_repair used to stop_one the chat server unconditionally, no matter
   # what was in flight. If a real conversation was mid-turn, its agy child
-  # got reparented to ppid=1 the instant the server died, and
-  # kill_orphan_agy's "ppid1" branch reaps ANY ppid=1 process a few lines
-  # later regardless of protected-session status -- silently dropping the
-  # user's turn with no reply and no retry (2026-09-18, session
-  # 20260918-154037-ad23b8: "팝업 고치는 거 아니었어?" never answered).
-  # Give an in-progress reply a bounded window to finish before we go
-  # ahead with the restart; a stuck busy=true forever shouldn't block
-  # repair indefinitely, so we cap the wait and proceed anyway after it.
-  local waited=0 max_wait=60 busy
-  is_up "$PID_CHAT" && health_chat || return 0
+  # got reparented to ppid=1 the instant the server died and was reaped
+  # a few lines later -- silently dropping the user's turn with no reply
+  # (2026-09-18, session 20260918-154037-ad23b8: "팝업 고치는 거 아니었어?").
+  # Give an in-progress reply a bounded window to finish before restarting.
+  # WATCHDOG_OS_FACTS_v1 (§7-7): "in progress" is measured on the server's agent processes
+  # (CPU/I-O over ~6 s, ctl_proc.py busy), not asked of the service's API.
+  local waited=0 max_wait=60 t0=$SECONDS
+  is_up "$PID_CHAT" || return 0
   while [ "$waited" -lt "$max_wait" ]; do
-    busy=$(curl -fsS -m 3 "http://127.0.0.1:${PORT_CHAT}/api/sessions/active" 2>/dev/null \
-      | python3 -c 'import json,sys
-try:
-    print("1" if json.load(sys.stdin).get("busy") else "0")
-except Exception:
-    print("0")' 2>/dev/null || echo 0)
-    [ "$busy" = "1" ] || return 0
-    sleep 3
-    waited=$((waited + 3))
+    python3 "$CODE/ctl_proc.py" busy "$CODE" || return 0
+    waited=$((SECONDS - t0))
   done
   obs repair.busy_timeout warn waited_s="$waited"
   return 1
@@ -538,7 +373,6 @@ cmd_repair() {
   doctor_log "REPAIR begin caller=$CHATBOT_CALLER"
   local t0=$SECONDS
   obs repair.begin warn
-  kill_stale_session_agy || true
   guard_rlock || doctor_log "WARNING guard_rlock failed — refusing blind restart may be wrong; continuing after note"
   wait_for_idle_session || doctor_log "WARNING active session still busy after wait — proceeding with repair anyway"
   stop_one "$PID_CHAT" chat || true
@@ -565,24 +399,6 @@ cmd_repair() {
 }
 
 
-kill_stale_session_agy() {
-  # After host restart, agy may reparent to user systemd (PPID!=chat pid) while still holding a conversation.
-  local chat_pid=""
-  if [[ -f "$PID_CHAT" ]]; then chat_pid=$(cat "$PID_CHAT" 2>/dev/null || true); fi
-  ps -eo pid,ppid,args 2>/dev/null | while read -r pid ppid args; do
-    [[ "$args" == *"/agy "* ]] || [[ "$args" == *" agy "* ]] || continue
-    [[ "$args" == *"--input-format stream-json"* ]] || continue
-    if [[ -n "$chat_pid" && "$ppid" == "$chat_pid" ]]; then continue; fi
-    # leave non-chat agy alone if no conversation flag? kill conversation orphans not owned by chat
-    if [[ "$args" == *"--conversation "* ]]; then
-      echo "stale_session_agy_kill pid=$pid ppid=$ppid"
-      obs agent.reaped warn agent_pid="$pid" ppid="$ppid" reason=stale-session
-      kill "$pid" 2>/dev/null || true
-      sleep 1
-      kill -9 "$pid" 2>/dev/null || true
-    fi
-  done
-}
 
 cmd_doctor() {
   local auto=0 age hash_out
@@ -641,7 +457,6 @@ cmd_doctor() {
     echo "mcp healthz OK pid=$(cat "$PID_MCP")"
   fi
   orphans=$(kill_orphan_agy)
-  kill_stale_session_agy >/dev/null || true
   echo "orphan_agy_killed=$orphans"
 
   if should_probe_now; then
@@ -702,8 +517,7 @@ case "$cmd" in
     stop_one "$PID_CHAT" chat
     stop_one "$PID_MCP" mcp
     kill_orphan_agy >/dev/null
-    kill_stale_session_agy >/dev/null || true
-    ;;
+      ;;
   restart)
     require_host_force restart || exit 3
     CHATBOT_FORCE_HOST=1 "$0" stop || true
