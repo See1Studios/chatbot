@@ -39,7 +39,7 @@ HOME = Path(os.environ.get("HOME", "/volume1/homes/me"))
 WEB_ROOT = Path(_env("CHATBOT_WEB_ROOT", "AGY_CHAT_WEB_ROOT", "/volume1/web"))
 AGENT_PATH_PREFIX = f"{HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 # Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9): which CLI does the delegated work and
-# which one plays the reviewer character (empty: the same CLI). Names are keys of tools/worktree_runner.PROVIDERS.
+# which one confirms the work as the PD persona (empty: the same CLI). Names are keys of tools/worktree_runner.PROVIDERS.
 DELEGATE_PROVIDER = os.environ.get("CHATBOT_DELEGATE_PROVIDER", "claude")
 DELEGATE_REVIEWER = os.environ.get("CHATBOT_DELEGATE_REVIEWER", "")
 BRAIN = HOME / ".gemini" / "antigravity-cli" / "brain"

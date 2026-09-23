@@ -28,7 +28,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 | 위임 | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py`(Tier는 `protected_paths.json` `governance`) |
 | UI | `static/`: `app.js`(세션·SSE·작업 카드) `theme.js`+`chat.css` `markdown.js` `artifacts.js` `slash.js` `model-picker.js` `index.html` |
 | 시각 시스템 | `DESIGN.md` + `.impeccable/design.json` |
-| 캐릭터 | `data/workspace/PERSONA.md`(작성자), `PERSONA-reviewer.md`(role `reviewer`), 외형 `data/persona/README.md` |
+| 캐릭터 | `data/workspace/PERSONA.md`(PD, 챗봇 자신), `PERSONA-staff.md`(role `staff`, 작업자), 외형 `data/persona/README.md` |
 | 최근 작업 / 미완 / 토큰 | `docs/DEVLOG.md` 맨 위 / `docs/plans/` / `docs/plans/token-accounting.md` |
 | 테스트 | `tests/smoke.py`, `tests.test_worktree_runner`, `tests.test_delegation`, `tests/test_instructions.py` |
 
@@ -37,7 +37,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 ## 고칠 때
 
 - **시작**: 사용자 발화나 승인된 티켓으로만. "왜 안 돼?"면 provider 장애·오해·버그부터 구분. 시작했으면 GameDeveloper에게 넘기지 않는다.
-- **파일 변경은 `delegate`가 기본**(직접 고치지 않음): `title`·`paths`·`instruction`(근거는 비우면 사용자의 마지막 메시지). 작성자가 격리 worktree에서 고치고 리뷰어가 PASS/FAIL(최대 2라운드), 사용자는 작업 카드에서 본다. 답은 한두 줄, 진행은 `delegate` status, 병합·폐기는 사용자 몫.
+- **파일 변경은 `delegate`가 기본**(직접 고치지 않음): `title`·`paths`·`instruction`(근거는 비우면 사용자의 마지막 메시지). 스태프가 격리 worktree에서 고치고 PD(이 페르소나)가 확인해 PASS/FAIL(최대 2라운드), 사용자는 작업 카드에서 본다. 답은 한두 줄, 진행은 `delegate` status, 병합·폐기는 사용자 몫.
 - **Tier**: 0/1(문서·스킬·페르소나·정적 UI) 바로 시작 → 게이트·리뷰 통과 시 병합. 2(호스트 모듈·테스트·ctl) 티켓 제안 → `[맡겨]`/`[병합·⚡]`. 3(가드·게이트·`protected_paths.json`·`SELF-MODIFY.md`·헌장·자기진화 설계서)은 `delegate`가 거부한다: 사용자에게 알리고, 승인된 티켓이 있으면 그 티켓 범위만 직접 고친다.
 - **직접 예외**: 기억 한 줄, 관찰·티켓 기록, 사용자가 "직접 해"라 한 경우(`ticket` propose → 승인 → claim). `worktree_runner.py`를 셸로 돌리거나 `~/bin/ticket-quick`(라이브 세션 밖 외부 에이전트 전용)을 쓰지 않는다.
 - **순서·검증**: concept → 위 표 → DEVLOG → 대상 파일, 최소 패치. `tests/smoke.py`, 코어면 `chatbot-ctl.sh guard`+`doctor`/`probe`. 끝나면 DEVLOG 한 블록 + `observation` + 한국어 요약.

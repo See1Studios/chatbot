@@ -61,7 +61,7 @@ except Exception:
 DELEGATE_TOOL = {
     "name": "delegate",
     "description": ("Hand code work the operator asked for in this conversation to a delegated worker in an isolated git "
-                    "worktree; your own persona writes it and a reviewer character checks it, and the operator sees their "
+                    "worktree; a staff character does it and you, as the producer, confirm it; the operator sees the "
                     "exchange on a work card. The default for any file change the operator asks for. start (title, "
                     "paths=[repo-relative files], instruction[, evidence]; evidence defaults to the operator's latest "
                     "message): Tier 0 paths (workspace files) start "

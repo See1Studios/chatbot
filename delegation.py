@@ -1,7 +1,7 @@
 """Worktree delegation, host side (docs/plans/multi-agent-worktree-delegation.md §9, DELEGATION_WIRING_v1).
 
-The work itself runs in `tools/worktree_runner.py` (ticket -> isolated worktree -> writer and reviewer
-characters -> gates -> merge); this module only decides who may start what and launches it:
+The work itself runs in `tools/worktree_runner.py` (ticket -> isolated worktree -> the staff character
+works, the chatbot's own persona confirms as PD -> gates -> merge); this module only decides who may start what and launches it:
 
 - The chat agent asks (`delegate` tool, `request`), on the operator's request in the conversation.
   Tier 0 paths start at once (Tier 0 is the agent's own to change anyway); Tier 2 paths become a

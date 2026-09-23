@@ -11,7 +11,7 @@ name is hardcoded here or in the UI:
                             voice       one-line tone hint for host-built prompts
   PERSONA.md  body                      the personality and tone themselves
 
-A second character with its own role (e.g. the reviewer in worktree delegation,
+A second character with its own role (e.g. the staff member in worktree delegation,
 docs/plans/multi-agent-worktree-delegation.md §8) lives in `PERSONA-<role>.md`
 with the same keys; its `title` falls back to AGENTS.md. The role is an id, the
 name in the file is display only.

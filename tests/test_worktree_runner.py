@@ -68,7 +68,7 @@ class WorktreeRunner(unittest.TestCase):
         (base / "tq.py").write_text(FAKE_TICKET)
         self.base = base
         self.saved = (wr.CHATBOT_REPO, wr.WORKTREE_BASE, wr.TICKET_QUICK, wr.DEFAULT_GATES, dict(wr.PROVIDERS), wr.persona)
-        wr.persona = lambda role="": {"name": "W" if not role else "R", "label": role or "writer", "voice": "", "body": ""}
+        wr.persona = lambda role="": {"name": "S" if role == "staff" else "P", "label": role or "pd", "voice": "", "body": ""}
         wr.CHATBOT_REPO, wr.WORKTREE_BASE = self.repo, base / "wt"
         wr.TICKET_QUICK = [sys.executable, str(base / "tq.py"), str(self.calls), str(self.repo)]
         wr.DEFAULT_GATES = ["python3 tests/smoke.py"]
@@ -176,11 +176,12 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual((self.repo / "a.txt").read_text(), "one\nmore\nmore\n")
         prompts = sorted(p for p in wr.WORKTREE_BASE.iterdir() if p.name.startswith("prompt-"))
         self.assertIn("1. add three", prompts[-1].read_text())
+        self.assertIn("your producer (PD)", prompts[0].read_text())      # the staff character works for the PD
         self.assertIn("sloppy", prompts[-1].read_text())
         saved = sorted((wr.WORKTREE_BASE / "transcripts").glob("*.json"))
         lines = json.loads(saved[-1].read_text())
         self.assertEqual([(l["name"], l.get("verdict")) for l in lines],
-                         [("W", None), ("R", "FAIL"), ("W", None), ("R", "PASS")])
+                         [("S", None), ("P", "FAIL"), ("S", None), ("P", "PASS")])
         self.assertEqual(lines[0]["text"], "done")
 
     def test_review_fail_every_round_blocks_the_merge(self) -> None:

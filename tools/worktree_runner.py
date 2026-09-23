@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """worktree_runner.py: 티켓 하나를 Git Worktree 격리 환경에서 외부 CLI 에이전트에게 외주 주고,
-검증 게이트와 리뷰어 캐릭터의 판정을 통과한 결과만 메인 브랜치에 fast-forward 병합한다
+검증 게이트와 PD 캐릭터의 확인(Confirm)을 통과한 결과만 메인 브랜치에 fast-forward 병합한다
 (docs/plans/multi-agent-worktree-delegation.md 마일스톤 2, §8 콤비 리뷰).
 
 사용법:
@@ -22,11 +22,11 @@
   1. ticket-quick start  -> TICKET_ID, CLAIM_TOKEN (승인 + 클레임, 대상 경로가 메인에서 clean해야 함)
   2. git worktree add -b worktree/ticket-<ID> ~/.worktrees/chatbot/ticket-<ID> <main HEAD>
   3. 라운드 (최대 --rounds):
-     a. 작성자(PERSONA.md 캐릭터)가 헤드리스로 작업·커밋하고 캐릭터 대사 한마디를 남긴다
+     a. 스태프(PERSONA-staff.md 캐릭터)가 헤드리스로 작업·커밋하고 캐릭터 대사 한마디를 남긴다
         (미커밋 변경은 러너가 대신 커밋, 커밋 author는 제공자 신원)
      b. 기계 게이트: 커밋 존재 -> 범위(--paths 밖 변경 금지) -> 리스 연장 -> 메인 최신화(rebase)
         -> smoke + 중립성 가드 테스트 (DEFAULT_GATES) + --gate 명령들
-     c. 리뷰어(PERSONA-reviewer.md 캐릭터)가 diff(또는 게이트 실패)를 보고 VERDICT + 대사 + 수정 요청
+     c. PD(PERSONA.md 캐릭터, 챗봇 자신)가 diff(또는 게이트 실패)를 보고 확인: VERDICT + 대사 + 수정 요청
      d. 게이트 통과 + PASS면 종료, 아니면 수정 요청을 들고 다음 라운드
   4. 통과: 메인에서 git merge --ff-only -> ticket-quick done -> worktree/브랜치 정리
      --stop-before-merge(Tier 2): 병합 대신 ticket-quick await-merge (리스 해제), worktree/브랜치는 남긴다
@@ -64,7 +64,7 @@ REVIEW_TIMEOUT = 300
 GATE_TIMEOUT = 600
 TAIL_LINES = 30
 DIFF_LIMIT = 15000
-REVIEWER_ROLE = "reviewer"
+WORKER_ROLE = "staff"          # PERSONA-staff.md does the work; the chatbot's own persona (the PD) confirms it
 TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
 
 # Provider registry: how to run each CLI headless as the worker (`argv`), as the worker again in the same
@@ -73,7 +73,7 @@ TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_di
 PROVIDERS: Dict[str, Dict] = {
     "claude": {"argv": ["claude", "-p", "--dangerously-skip-permissions"],
                "continue_argv": ["claude", "-p", "-c", "--dangerously-skip-permissions"],
-               "review_argv": ["claude", "-p", "--tools", ""], "model_flag": "--model", "review_model": "haiku",
+               "review_argv": ["claude", "-p", "--tools", ""], "model_flag": "--model", "review_model": "sonnet",
                "actor": "claude-code", "author": ("Claude Code", "noreply@anthropic.com")},
     "codex": {"argv": ["codex", "exec", "-s", "workspace-write"],
               "review_argv": ["codex", "exec", "-s", "read-only"], "model_flag": "-m",
@@ -181,8 +181,8 @@ def persona(role: str = "") -> Dict[str, str]:
         return {"name": role or "worker", "label": role or "worker", "voice": "", "body": ""}
 
 
-def character_block(me: Dict[str, str], partner: Dict[str, str]) -> str:
-    lines = ["You are %s. Your partner is %s; you work as a comedy duo and talk to each other." % (me["label"], partner["name"])]
+def character_block(me: Dict[str, str], partner: Dict[str, str], relation: str) -> str:
+    lines = ["You are %s. %s You two talk to each other like a comedy duo." % (me["label"], relation % partner["name"])]
     if me["voice"]:
         lines.append("Tone: %s." % me["voice"])
     if me["body"]:
@@ -232,6 +232,9 @@ def cleanup_worktree(repo: Path, branch: str, wt_dir: Path) -> None:
     git(repo, "branch", "-D", branch)
 
 
+STAFF_RELATION = "You are a staff member; %s is your producer (PD), who confirms your work before it ships."
+PD_RELATION = "You are the producer (PD); %s is your staff member, who did this work. You confirm it or send it back."
+
 LINE_RULE = ("At the very end of your final message, write a line containing only `---`, then one or two short "
              "sentences in character, spoken to your partner, about what you did.")
 
@@ -245,7 +248,7 @@ def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[s
         "Change only these repo-relative paths: %s. Changes anywhere else fail the scope gate." % ", ".join(paths),
         "When done, commit your work on this branch (git add <files> && git commit -m '...'); "
         "the author identity is already set.",
-        "Afterwards the runner runs: %s; then your partner reviews the diff. Only a branch that passes both is merged."
+        "Afterwards the runner runs: %s; then your producer confirms the diff. Only a branch that passes both is merged."
         % "; ".join(gates),
         "",
         character,
@@ -259,7 +262,7 @@ def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[s
 def retry_prompt(feedback: str, full: Optional[str]) -> str:
     """Next round: the partner's requests. `full` repeats the whole brief when the CLI cannot resume."""
     parts = [full, "", "--- next round ---"] if full else []
-    parts += ["Your partner sent the branch back. Fix it, commit again, same rules as before.",
+    parts += ["Your producer sent the branch back. Fix it, commit again, same rules as before.",
               feedback, LINE_RULE]
     return "\n".join(parts)
 
@@ -352,8 +355,8 @@ def parse_review(text: str) -> Dict[str, str]:
 def review_prompt(tid: int, title: str, instruction: str, partner_said: str, diff: str,
                   gate_error: Optional[Failure], character: str) -> str:
     parts = [character, "",
-             "Your partner just worked on ticket #%d (%s). The task was:" % (tid, title), instruction[:2000], "",
-             "Your partner said: %s" % (partner_said or "(nothing)"), ""]
+             "Your staff member just worked on ticket #%d (%s). The task was:" % (tid, title), instruction[:2000], "",
+             "Your staff member said: %s" % (partner_said or "(nothing)"), ""]
     if gate_error:
         parts += ["The automatic gate FAILED, so the verdict is FAIL: %s" % gate_error.reason,
                   gate_error.detail[-3000:], ""]
@@ -362,9 +365,10 @@ def review_prompt(tid: int, title: str, instruction: str, partner_said: str, dif
     if len(diff) > DIFF_LIMIT:
         diff = diff[:DIFF_LIMIT] + "\n... (diff truncated)"
     parts += ["Diff of the branch:", "```diff", diff or "(empty)", "```", "",
-              "Judge whether the change does the task correctly and safely within its scope. Reply in exactly this form:",
+              "As the producer, confirm the work: does the change do the task correctly and safely within its scope? "
+              "Reply in exactly this form:",
               "VERDICT: PASS or VERDICT: FAIL",
-              "SAY: one to three short sentences in character, spoken to your partner",
+              "SAY: one to three short sentences in character, spoken to your staff member",
               "FIX: only when FAIL, concrete numbered fixes (file, function, what)"]
     return "\n".join(parts)
 
@@ -542,7 +546,7 @@ def cmd_run(args) -> int:
         log("Tier 2 paths: the change will wait for the operator's merge (--stop-before-merge)")
         args.stop_before_merge = True
     result["tier"] = tier
-    writer_p, reviewer_p = persona(), persona(REVIEWER_ROLE)
+    writer_p, reviewer_p = persona(WORKER_ROLE), persona()
     actor = PROVIDERS[provider]["actor"]
 
     # 1. ticket: one the caller already claimed (--ticket/--token), or a new one on the operator's instruction
@@ -584,7 +588,7 @@ def cmd_run(args) -> int:
 
         # 3. rounds: writer -> gates -> reviewer
         brief = writer_prompt(tid, args.title, branch, wt_dir, paths, gates, args.prompt,
-                              character_block(writer_p, reviewer_p))
+                              character_block(writer_p, reviewer_p, STAFF_RELATION))
         can_resume = bool(PROVIDERS[provider].get("continue_argv"))
         feedback = ""
         def renew() -> None:
@@ -636,9 +640,9 @@ def cmd_run(args) -> int:
             _, diff, _ = git(wt_dir, "diff", base + "..HEAD")
             rv = run_review(reviewer, args.reviewer_model, wt_dir,
                             review_prompt(tid, args.title, args.prompt, transcript[-1]["text"], diff, gate_error,
-                                          character_block(reviewer_p, writer_p)))
+                                          character_block(reviewer_p, writer_p, PD_RELATION)))
             verdict = "FAIL" if gate_error else rv["verdict"]
-            transcript.append({"round": rnd, "role": REVIEWER_ROLE, "name": reviewer_p["name"], "text": rv["say"],
+            transcript.append({"round": rnd, "role": "reviewer", "name": reviewer_p["name"], "text": rv["say"],
                                "verdict": verdict, "fix": rv["fix"], "raw": rv["raw"]})
             log("round %d: review %s" % (rnd, verdict))
             write_state(tid, transcript=transcript)
@@ -749,9 +753,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--ticket", type=int, default=0, help="Work on this ticket, already claimed by the caller (with --token)")
     p.add_argument("--token", default="", help="The caller's claim token for --ticket")
     p.add_argument("--timeout", type=int, default=1200, help="Agent timeout per round in seconds (max %d)" % MAX_AGENT_TIMEOUT)
-    p.add_argument("--reviewer", choices=sorted(PROVIDERS), help="Provider for the reviewer character (default: --provider)")
-    p.add_argument("--reviewer-model", default="", help="Reviewer model (default: the provider's cheap review model)")
-    p.add_argument("--rounds", type=int, default=2, help="Writer/reviewer rounds before giving up (default 2)")
+    p.add_argument("--reviewer", choices=sorted(PROVIDERS), help="Provider for the PD's confirmation (default: --provider)")
+    p.add_argument("--reviewer-model", default="", help="Model for the PD's confirmation (default: the provider's review model)")
+    p.add_argument("--rounds", type=int, default=2, help="Staff/PD rounds before giving up (default 2)")
     p.add_argument("--no-review", action="store_true", help="Merge on the mechanical gates alone")
     p.add_argument("--stop-before-merge", action="store_true",
                    help="After a pass, wait for the operator (ticket awaiting_merge) instead of merging (Tier 2)")
