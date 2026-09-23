@@ -258,25 +258,26 @@ _OBS_STREAM_SUFFIX = "/events"
 
 
 def _session_character(ref: str):
-    """A character id as sessions store it: "" for the chatbot itself (role pd, or "pd"), the id for anyone else,
-    None when there is no such character."""
+    """The character id a session is for: the id itself, "" for the team's default; None when there is no such
+    character. Every character alike (TEAM_ROLES_v2)."""
     import characters
-    pd = characters.by_role("pd") or ""
-    if ref in ("", "pd") or ref == pd:
-        return ""
+    if not ref:
+        return characters.default_character() or None
     return ref if characters.ID_RE.match(ref) and characters.card_path(ref).is_file() else None
 
 
 def _character_list() -> list:
-    """The characters for the picker: the chatbot first, then the rest, oldest first."""
+    """The characters for the picker: the team's default first, then the rest, oldest first. Roles are shown,
+    never used to tell characters apart (TEAM_ROLES_v2)."""
     import characters
+    default = characters.default_character()
     out = []
     for c in characters.listing():
         disp = (characters.ext(c["card"]).get("display") or {})
         name = ((c["card"].get("data") or {}).get("name") or "").strip()
-        out.append({"id": c["id"], "session_character": "" if c["role"] == "pd" else c["id"], "role": c["role"],
-                    "name": name, "title": disp.get("title") or name or c["role"]})
-    out.sort(key=lambda x: x["role"] != "pd")
+        out.append({"id": c["id"], "session_character": c["id"], "roles": c["roles"], "role": c["role"],
+                    "default": c["id"] == default, "name": name, "title": disp.get("title") or name})
+    out.sort(key=lambda x: not x["default"])
     return out
 
 
@@ -306,7 +307,7 @@ def _digest_private_later(sess) -> None:
             seg = characters.private_segment(history, since)
             if not seg:
                 return
-            cid = sess.character or characters.by_role("pd") or ""
+            cid = sess.character or characters.default_character()
             card = characters.load(cid) if cid else {}
             name = (card.get("data") or {}).get("name") or identity.self_label()
             res = _oneshot(characters.private_digest_prompt(seg, identity.user_title(), name), 60) or {}
@@ -530,9 +531,11 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if path == "/api/sessions/busy":
             # which sessions are running a turn, and in which mode: the MCP server refuses work tools while a
             # private session is busy (SESSION_SPLIT_v1)
+            import characters
             with REG.lock:
                 live = list(REG.sessions.values())
-            busy = [{"id": x.sid, "mode": x.mode, "character": x.character, "provider": x.provider} for x in live
+            busy = [{"id": x.sid, "mode": x.mode, "character": x.character, "provider": x.provider,
+                     "tools": characters.tools_of(x.character) if x.character else []} for x in live
                     if x.busy and x._proc_alive()]
             code, body = _json_bytes({"sessions": busy})
             return self._send(code, body, "application/json; charset=utf-8")
@@ -1482,6 +1485,13 @@ def main() -> None:
     elif not avail.get(DEFAULT_PROVIDER):
         obslog.event("providers.default_unavailable", lvl="warn", default=DEFAULT_PROVIDER, providers=avail)
     seeded = identity.seed_workspace_files()
+    try:
+        import session as _session_mod
+        moved = _session_mod.migrate_session_characters()
+        if moved:
+            print("sessions: %d old session(s) now name the default character" % moved, flush=True)
+    except Exception as e:  # noqa: BLE001
+        print("sessions: character migration failed: %s" % e, flush=True)
     obslog.start_process("chat", host=HOST, port=PORT, default_model=DEFAULT_MODEL, default_provider=DEFAULT_PROVIDER)
     obslog.add_heartbeat(_obs_heartbeat)
     if seeded:

@@ -475,10 +475,10 @@ def call_tool(name: str, arguments: dict) -> dict:
             return envelope(code == 0, "ok" if code == 0 else "nonzero", {"code": code, "stdout": out, "stderr": err})
 
         if delegation is not None and name in delegation.NAMES:
-            return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope, *_live_scope())
+            return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope, *_live_scope("delegate"))
 
         if mcp_core is not None and name in mcp_core.NAMES:
-            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, mcp_core.RECENT_LIMIT, _live_actor(), *_live_scope())
+            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, mcp_core.RECENT_LIMIT, _live_actor(), *_live_scope("house-memory"))
 
         if name == "search_text":
             path = _resolve_target_path(args.get("path"))
@@ -537,16 +537,16 @@ def call_tool(name: str, arguments: dict) -> dict:
         return envelope(False, f"error: {e}", {"trace": traceback.format_exc()[-1500:]})
 
 
-def _live_scope() -> tuple:
-    """(private, staff) of the sessions running a turn: a private one closes work tools (SESSION_SPLIT_v1), another
-    character's work session closes delegation and the PD's memory (CHARACTER_PICKER_v1); (False, False) when unknown."""
+def _live_scope(grant: str) -> tuple:
+    """(private, denied) of the sessions running a turn: a private one closes work tools (SESSION_SPLIT_v1); a work
+    session whose character holds no role granting `grant` is denied it (TEAM_ROLES_v2); (False, False) if unknown."""
     try:
         import urllib.request
         port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
         with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/busy" % port, timeout=1.5) as r:
             busy = json.loads(r.read().decode("utf-8") or "{}").get("sessions") or []
         return (any(x.get("mode") == "private" for x in busy),
-                any(x.get("mode") != "private" and x.get("character") for x in busy))
+                any(x.get("mode") != "private" and "tools" in x and grant not in x["tools"] for x in busy))
     except Exception:
         return False, False
 

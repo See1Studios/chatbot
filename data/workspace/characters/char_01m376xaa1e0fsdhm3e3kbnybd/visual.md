@@ -1,8 +1,8 @@
 # 냥피디 visual lock sheet
 
-Format and procedure: skill `character-art`. This character's images still live in `data/persona/`
-(badges `providers/<id>.webp`, 512; base look `avatar.png`; candidates `gallery/`) and are copied to the web root
-`chat/persona/`. Voice and manner are in the card, not here.
+Format and procedure: skill `character-art`. The page uses this folder (`avatar.webp`, `avatar/<provider>.webp`).
+The larger originals (base look `avatar.png`, candidates `gallery/`) and the Hub's copies stay in `data/persona/` and
+the web root `chat/persona/`; keep the badges there in step. Voice and manner are in the card, not here.
 
 Status: rough. Polish the images only after the character settles one step further.
 

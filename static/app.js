@@ -38,8 +38,14 @@ let archiveBrowse = false;
 let sessionMode = 'work';
 // CHARACTER_PICKER_v1: whose sessions are open ("" = the chatbot itself, else a character id)
 let sessionCharacter = '';
+// TEAM_ROLES_v2: every session names its character; '' only until the first one opens, and means the default
+function defaultCharacterId() {
+  const d = (typeof characterCatalog !== 'undefined' ? characterCatalog : []).find(c => c.default);
+  return d ? d.id : '';
+}
+function openCharacterId() { return sessionCharacter || defaultCharacterId(); }
 function sameSessionMode(s) {
-  return ((s && s.mode) || 'work') === sessionMode && ((s && s.character) || '') === sessionCharacter;
+  return ((s && s.mode) || 'work') === sessionMode && ((s && s.character) || defaultCharacterId()) === openCharacterId();
 }
 
 // /private on|off (typed or the heart button): the other mode's session opens with its own history; nothing
@@ -3327,6 +3333,80 @@ async function loadTeam() {
   (instr.items || []).forEach(x => { files[x.id] = x; });
   teamListEl.textContent = '';
   (team.experts || []).forEach(ex => teamListEl.appendChild(renderTeamCard(ex, team, files)));
+  // TEAM_ROLES_v2: what a role is (its pack) and what everyone reads (the house memory), after the characters
+  const shared = obsNode('div', 'status-item team-card');
+  shared.appendChild(obsNode('div', 'status-item-head', '역할 팩 · 집 기억'));
+  shared.appendChild(obsNode('div', 'status-hint', '역할은 캐릭터가 아니라 역할 팩(지침·스킬·도구 권한)이 정합니다. 누가 어떤 역할을 맡는지는 각 캐릭터의 [역할]에서 바꿉니다.'));
+  (team.roles || []).forEach(r => {
+    [['roles/' + r.role + '/role.md', '역할 팩 ' + r.title + (r.tools.length ? ' (권한: ' + r.tools.join(', ') + ')' : '')],
+     ['roles/' + r.role + '/procedure.md', r.title + ' 절차']].forEach(([id, title]) => {
+      if (files[id]) {
+        const sub = renderInstruction(Object.assign({}, files[id], { title }), false);
+        sub.classList.add('team-sub');
+        shared.appendChild(sub);
+      }
+    });
+  });
+  if (files['MEMORY.md']) {
+    const sub = renderInstruction(Object.assign({}, files['MEMORY.md'], { title: '집 기억 (모든 캐릭터가 읽음)' }), false);
+    sub.classList.add('team-sub');
+    shared.appendChild(sub);
+  }
+  teamListEl.appendChild(shared);
+}
+
+function roleTitle(team, role) {
+  const r = (team.roles || []).find(x => x.role === role);
+  return r ? r.title : role;
+}
+
+// The roster is edited whole: this character's roles (and whether it is the default) replace its entry
+async function saveTeam(team, ex, roles, makeDefault) {
+  const members = {};
+  (team.experts || []).forEach(e => { members[e.id] = e.id === ex.id ? roles : (e.roles || []); });
+  const current = (team.experts || []).find(e => e.default);
+  const payload = { default: makeDefault ? ex.id : (current ? current.id : ex.id), members };
+  await api('/api/experts/team', { method: 'PUT', body: JSON.stringify(payload) });
+  await loadTeam();
+  if (typeof loadCharacters === 'function') await loadCharacters();
+}
+
+function editRoles(ex, team, box, actions) {
+  box.textContent = '';
+  const picked = new Set(ex.roles || []);
+  (team.roles || []).forEach(r => {
+    const label = obsNode('label', 'team-role-pick');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = picked.has(r.role);
+    cb.addEventListener('change', () => { cb.checked ? picked.add(r.role) : picked.delete(r.role); });
+    label.append(cb, document.createTextNode(' ' + r.title + (r.tools.length ? ' (' + r.tools.join(', ') + ')' : '')));
+    box.appendChild(label);
+  });
+  const defLabel = obsNode('label', 'team-role-pick');
+  const def = document.createElement('input');
+  def.type = 'checkbox';
+  def.checked = Boolean(ex.default);
+  def.disabled = Boolean(ex.default);
+  def.title = ex.default ? '다른 캐릭터를 기본으로 정하면 바뀝니다' : '앱을 열면 이 캐릭터와 대화합니다';
+  defLabel.append(def, document.createTextNode(' 기본 캐릭터 (앱을 열면 대화하는 상대)'));
+  box.appendChild(defLabel);
+  actions.textContent = '';
+  const save = obsNode('button', 'art-btn art-btn-xs', '저장');
+  save.type = 'button';
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    try {
+      await saveTeam(team, ex, (team.roles || []).map(r => r.role).filter(r => picked.has(r)), def.checked && !ex.default);
+    } catch (e) {
+      save.disabled = false;
+      box.appendChild(obsNode('div', 'status-hint', '저장 실패: ' + (e.message || e)));
+    }
+  });
+  const cancel = obsNode('button', 'art-btn art-btn-xs', '취소');
+  cancel.type = 'button';
+  cancel.addEventListener('click', () => loadTeam());
+  actions.append(save, cancel);
 }
 
 function brainText(b) {
@@ -3337,10 +3417,22 @@ function renderTeamCard(ex, team, files) {
   const card = obsNode('div', 'status-item team-card');
   const head = obsNode('div', 'status-item-head');
   head.appendChild(obsNode('span', 'status-item-name', ex.name + (ex.title ? ' · ' + ex.title : '')));
-  if (ex.id !== 'pd') head.appendChild(obsNode('span', 'status-item-meta', ex.role || ''));
+  const chips = obsNode('span', 'team-role-chips');
+  if (ex.default) chips.appendChild(obsNode('span', 'team-chip team-chip-default', '기본'));
+  (ex.roles || []).forEach(r => chips.appendChild(obsNode('span', 'team-chip', roleTitle(team, r))));
+  if (!(ex.roles || []).length) chips.appendChild(obsNode('span', 'team-chip team-chip-none', '역할 없음'));
+  head.appendChild(chips);
   const actions = obsNode('div', 'status-item-actions');
   head.appendChild(actions);
   card.appendChild(head);
+  const roleBox = obsNode('div', 'team-role-box');
+  card.appendChild(roleBox);
+  if (team.team_editable && ex.id !== 'pd') {
+    const rb = obsNode('button', 'art-btn art-btn-xs', '역할');
+    rb.type = 'button';
+    rb.addEventListener('click', () => editRoles(ex, team, roleBox, actions));
+    actions.appendChild(rb);
+  }
   const brains = obsNode('div', 'team-brains');
   const chain = ex.chain || [];
   if (!chain.length) brains.appendChild(obsNode('div', 'status-hint', '두뇌 목록 없음: 기본 설정(환경변수)으로 일합니다'));
@@ -3352,23 +3444,21 @@ function renderTeamCard(ex, team, files) {
   });
   card.appendChild(brains);
   if (ex.editable) {
-    const edit = obsNode('button', 'art-btn art-btn-xs', '편집');
+    const edit = obsNode('button', 'art-btn art-btn-xs', '두뇌');
     edit.type = 'button';
     edit.addEventListener('click', () => editBrains(ex, team, brains, actions));
     actions.appendChild(edit);
   }
-  const subs = ex.id === 'pd' ? [['PERSONA.md', '캐릭터'], ['MEMORY.md', '기억']]          // before the move
-    : ex.role === 'pd' ? [['characters/' + ex.id + '/card.json', '페르소나 카드'], ['MEMORY.md', '기억'],
-      ['characters/' + ex.id + '/private-memory.md', '사적 기억']]
+  const subs = ex.id === 'pd' ? [['PERSONA.md', '캐릭터']]          // before any character card
     : [['characters/' + ex.id + '/card.json', '캐릭터 카드'], ['characters/' + ex.id + '/memory.md', '기억'],
-      ['characters/' + ex.id + '/private-memory.md', '사적 기억']];
+      ['characters/' + ex.id + '/private-memory.md', '사적 기억'], ['characters/' + ex.id + '/visual.md', '외형 락']];
   subs.forEach(([id, title]) => {
     if (files[id]) {
       const sub = renderInstruction(Object.assign({}, files[id], { title }), false);
       sub.classList.add('team-sub');
       card.appendChild(sub);
     } else if (title === '기억') {
-      card.appendChild(obsNode('div', 'status-hint team-sub', '기억: 아직 없음 (PD가 통과시킨 작업에서 배운 점이 쌓입니다)'));
+      card.appendChild(obsNode('div', 'status-hint team-sub', '기억: 아직 없음 (맡은 작업에서 배운 점이 쌓입니다)'));
     }
   });
   return card;
@@ -4677,7 +4767,7 @@ async function resolveLatestSessionId() {
       if (s && isLiveSid(s.id) && sameSessionMode(s)) ids.push(s.id);
     }
   } catch (_) {}
-  if (sessionMode === 'work' && !sessionCharacter) {
+  if (sessionMode === 'work' && openCharacterId() === defaultCharacterId()) {
     try {
       const act = await api('/api/sessions/active');
       if (act && isLiveSid(act.id)) ids.push(act.id);
@@ -5240,15 +5330,15 @@ function updateBrandAvatar(providerId) {
     || { id: '', name: '', role: '', theme: 'lime', icon: '' };
   const credit = providerCreditLabel(p);
   const ch = currentCharacter();
-  const who = (ch && ch.session_character) ? ch.name : IDENTITY.name;
+  const who = ch ? ch.name : IDENTITY.name;
   if (brandAvatarEl) {
-    brandAvatarEl.onerror = (ch && ch.session_character) ? () => { brandAvatarEl.onerror = null; brandAvatarEl.src = initialAvatar(who); } : null;
+    brandAvatarEl.onerror = () => { brandAvatarEl.onerror = null; brandAvatarEl.src = ch ? initialAvatar(who) : portraitUrl(p); };
     brandAvatarEl.src = characterPortrait(ch, p);
     brandAvatarEl.alt = who;
     brandAvatarEl.title = `${who} · 캐릭터 선택 (클릭)`;
   }
   if (brandNameEl) {
-    brandNameEl.textContent = (ch && ch.session_character) ? (ch.title || ch.name) : IDENTITY.title;
+    brandNameEl.textContent = ch ? (ch.title || ch.name) : IDENTITY.title;
   }
   if (brandProviderEl) {
     brandProviderEl.textContent = credit;
@@ -5268,7 +5358,7 @@ function updateBrandAvatar(providerId) {
 let characterCatalog = [];
 const characterTrayEl = document.getElementById('characterTray');
 function currentCharacter() {
-  return characterCatalog.find(c => c.session_character === sessionCharacter) || null;
+  return characterCatalog.find(c => c.id === openCharacterId()) || null;
 }
 function initialAvatar(name) {
   const ch = escapeHtml(Array.from(String(name || '?').trim())[0] || '?');
@@ -5277,7 +5367,7 @@ function initialAvatar(name) {
     + 'fill="#e6e8ee" font-family="sans-serif">' + ch + '</text></svg>');
 }
 function characterPortrait(c, p) {
-  if (!c || !c.session_character) return portraitUrl(p);
+  if (!c) return portraitUrl(p);
   return '/api/characters/' + encodeURIComponent(c.id) + '/avatar?provider=' + encodeURIComponent((p && p.id) || '');
 }
 async function loadCharacters() {
@@ -5492,9 +5582,9 @@ function renderCharacterTray() {
   characterCatalog.forEach(c => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'provider-portrait-btn' + (c.session_character === sessionCharacter ? ' active' : '');
+    btn.className = 'provider-portrait-btn' + (c.id === openCharacterId() ? ' active' : '');
     btn.setAttribute('data-character-id', c.id);
-    const label = c.session_character ? c.name : IDENTITY.name;
+    const label = c.name || c.title;
     btn.title = label + (c.title && c.title !== label ? ' · ' + c.title : '');
     const img = document.createElement('img');
     img.onerror = () => { img.onerror = null; img.src = initialAvatar(label); };
@@ -5524,7 +5614,7 @@ function toggleCharacterTray(force) {
 
 // Opens the character's own session in the current mode; its newest session keeps the brain last used with it
 async function selectCharacter(c) {
-  if (!c || c.session_character === sessionCharacter) return;
+  if (!c || c.id === openCharacterId()) return;
   try {
     const res = await api('/api/characters/' + encodeURIComponent(c.id) + '/session', {
       method: 'POST',

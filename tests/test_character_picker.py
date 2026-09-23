@@ -57,16 +57,17 @@ class Picker(unittest.TestCase):
         again = S.Registry()
         self.assertEqual(again.get_active(self.lulu).sid, work.sid)
         self.assertEqual(again.get_active(self.lulu).provider, "codex")
-        self.assertNotEqual(again.get_active().sid, work.sid)             # the chatbot's live session is its own
+        self.assertNotEqual(again.get_active().sid, work.sid)             # the default character's is its own
+        self.assertEqual(again.get_active().character, self.pd)          # sessions always name their character
         priv = again.get_private(self.lulu)
         self.assertEqual((priv.character, priv.provider, priv.model), (self.lulu, "codex", "gpt-x"))
 
-    def test_the_picker_lists_the_chatbot_first_and_maps_ids_to_session_characters(self):
+    def test_the_picker_lists_the_default_first_and_every_character_by_id(self):
         rows = server._character_list()
-        self.assertEqual([(r["id"], r["session_character"], r["title"]) for r in rows],
-                         [(self.pd, "", "P"), (self.lulu, self.lulu, "막내")])
-        self.assertEqual([server._session_character(x) for x in (self.pd, "pd", "", self.lulu, C.new_id(), "../x")],
-                         ["", "", "", self.lulu, None, None])
+        self.assertEqual([(r["id"], r["session_character"], r["title"], r["default"]) for r in rows],
+                         [(self.pd, self.pd, "P", True), (self.lulu, self.lulu, "막내", False)])
+        self.assertEqual([server._session_character(x) for x in (self.pd, "", self.lulu, "pd", C.new_id(), "../x")],
+                         [self.pd, self.pd, self.lulu, None, None, None])
 
     def test_avatars_follow_the_provider_then_the_character(self):
         self.assertIsNone(server._character_avatar(self.lulu, "agy"))
@@ -93,9 +94,11 @@ class Picker(unittest.TestCase):
         res = delegation.tool_call("delegate", {"action": "plan"}, "chat-agent", server.re.compile("x^"), env,
                                    staff=True)
         self.assertFalse(res["ok"])
-        self.assertIn("only the PD", res["message"])
-        res = mcp_core.call("memory", {"action": "show"}, self.tmp, server.re.compile("x^"), staff=True)
+        self.assertIn("grants delegate", res["message"])
+        res = mcp_core.call("memory", {"action": "add", "text": "x"}, self.tmp, server.re.compile("x^"), staff=True)
         self.assertEqual((res["success"], res["message"]), (False, mcp_core.STAFF_MEMORY_CLOSED))
+        res = mcp_core.call("memory", {"action": "show"}, self.tmp, server.re.compile("x^"), staff=True)
+        self.assertNotEqual(res["message"], mcp_core.STAFF_MEMORY_CLOSED)   # everyone reads the house memory
 
 
 if __name__ == "__main__":

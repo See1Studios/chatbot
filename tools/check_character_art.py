@@ -4,8 +4,7 @@
   python3 tools/check_character_art.py            every character
   python3 tools/check_character_art.py <id>       one character
 
-Exit 0 when every checked character is fine, 1 otherwise. The chatbot's own images still live in data/persona/
-(served at /chat/persona/), so for it only visual.md is checked.
+Exit 0 when every checked character is fine, 1 otherwise. Every character alike (TEAM_ROLES_v2).
 """
 import sys
 from pathlib import Path
@@ -27,10 +26,7 @@ def main(argv) -> int:
     bad = 0
     for c in rows:
         problems = characters.check_art(c["id"], providers)
-        if c["role"] == "pd":
-            problems = [p for p in problems if p.startswith("visual.md")]
-        print("%s %s (%s)%s" % ("ok  " if not problems else "FIX ", c["name"] or c["id"], c["id"],
-                                "  [images in data/persona/]" if c["role"] == "pd" else ""))
+        print("%s %s (%s)" % ("ok  " if not problems else "FIX ", c["name"] or c["id"], c["id"]))
         for p in problems:
             print("     - " + p)
         bad += bool(problems)

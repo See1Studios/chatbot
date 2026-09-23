@@ -750,7 +750,12 @@ def cmd_run(args) -> int:
         log("Tier 2 paths: the change will wait for the operator's merge (--stop-before-merge)")
         args.stop_before_merge = True
     result["tier"] = tier
-    reviewer_p = persona()
+    # the reviewer is whoever holds the pd role in the team roster (TEAM_ROLES_v1), else the default character
+    try:
+        has_pd = bool(host_module("characters").by_role("pd", workspace_dir()))
+    except Exception:  # noqa: BLE001
+        has_pd = False
+    reviewer_p = persona("pd") if has_pd else persona()
     actor = PROVIDERS[provider]["actor"]
 
     # 1. ticket: one the caller already claimed (--ticket/--token), or a new one on the operator's instruction

@@ -34,13 +34,32 @@ class ExpertsApiTest(unittest.TestCase):
     def put(self, who, chain):
         return W.experts_api("PUT", "/api/experts/%s/brain" % who, {"chain": chain})
 
-    def test_lists_the_pd_and_each_character_with_its_brains(self):
+    def test_lists_every_character_alike_with_its_roles_and_brains(self):
         code, body = W.experts_api("GET", "/api/experts", None)
         self.assertEqual(code, 200)
-        self.assertEqual([(e["id"], e["role"], e["title"]) for e in body["experts"]],
-                         [("pd", "pd", "PD 확인"), (self.cid, "staff", "막내")])
-        self.assertEqual(body["experts"][1]["chain"][0]["model"], "gemini-3.1-pro-high")
+        self.assertEqual([(e["id"], e["roles"], e["title"]) for e in body["experts"]], [(self.cid, ["staff"], "막내")])
+        self.assertEqual(body["experts"][0]["chain"][0]["model"], "gemini-3.1-pro-high")
         self.assertIn("agy", body["providers"])
+
+    def put_team(self, body):
+        return W.experts_api("PUT", "/api/experts/team", body)
+
+    def test_arranging_the_team(self):
+        (self.ws / "roles" / "pd").mkdir(parents=True)
+        (self.ws / "roles" / "pd" / "role.md").write_text("---\ntitle: PD\ntools: delegate\n---\nx\n", encoding="utf-8")
+        other = self.C.new_id()
+        self.C.save(other, self.C.new_card("O"), self.ws)
+        code, body = self.put_team({"default": other, "members": {other: ["pd"], self.cid: []}})
+        self.assertEqual(code, 200, body)
+        self.assertEqual(self.C.default_character(self.ws), other)
+        self.assertEqual((self.C.by_role("pd", self.ws), self.C.roles_of(self.cid, self.ws)), (other, []))
+        rows = W.experts_api("GET", "/api/experts", None)[1]
+        self.assertEqual([(e["id"], e["default"], e["roles"]) for e in rows["experts"]],
+                         [(other, True, ["pd"]), (self.cid, False, [])])
+        self.assertEqual(rows["roles"], [{"role": "pd", "title": "PD", "tools": ["delegate"], "skills": []}])
+        for bad in ({"default": self.C.new_id(), "members": {}}, {"default": other, "members": {other: ["nope"]}},
+                    {"default": other, "members": {self.C.new_id(): ["pd"]}}, {"default": other, "members": []}):
+            self.assertEqual(self.put_team(bad)[0], 400, bad)
 
     def test_saving_a_brain_list(self):
         code, body = self.put(self.cid, [{"provider": "agy", "model": "gemini-3.8-flash-high", "timeout": 45},

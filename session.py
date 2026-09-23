@@ -2228,7 +2228,7 @@ class Registry:
     ) -> AgentSession:
         sid = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
         sess = AgentSession(sid, model=model, effort=effort, provider=provider)
-        sess.character = character or ""
+        sess.character = _character_id(character)
         sess.mode = "private" if mode == "private" else "work"
         sess.predecessor_session_id = predecessor_sid
         sess.handoff_summary = handoff_summary
@@ -2314,14 +2314,15 @@ class Registry:
 
     def get_active(self, character: str = "") -> AgentSession:
         """Live conversation: the character's newest *work* session id, then the successor-chain tip ("" = the
-        chatbot itself). A character without one gets a new session on its first brain (CHARACTER_PICKER_v1);
-        after that its own newest session carries the brain last used with it.
+        team's default character). A character without one gets a new session on its first brain
+        (CHARACTER_PICKER_v1); after that its own newest session carries the brain last used with it.
 
         Session ids are YYYYMMDD-HHMMSS-xxxxxx so lexicographic max is
         chronological latest. list() is still mtime-sorted (recency for the
         sessions tab). Opening a past session must not steal 'active'.
         Private sessions and other characters' sessions never become active (SESSION_SPLIT_v1).
         """
+        character = _character_id(character)
         sess = self._newest(mode="work", character=character)
         if sess is not None:
             return sess
@@ -2334,6 +2335,7 @@ class Registry:
     def get_private(self, character: str = "", like: Optional[AgentSession] = None) -> AgentSession:
         """The character's private session (its successor-chain tip), created on first use with `like`'s
         provider and model."""
+        character = _character_id(character)
         sess = self._newest(mode="private", character=character)
         if sess is not None:
             return sess
@@ -2351,8 +2353,8 @@ class Registry:
                         continue
                     if ("private" if meta.get("mode") == "private" else "work") != mode:
                         continue
-                    if str(meta.get("character") or "") != character:
-                        continue
+                    if (str(meta.get("character") or "") or _character_id("")) != character:
+                        continue                                  # "" in a not-yet-migrated session = the default
                     sid = str(meta.get("id") or p.parent.name or "")
                     if not _live_sid(sid):
                         continue
@@ -2371,6 +2373,39 @@ class Registry:
                 seen.add(succ)
                 sess = self.get(succ)
             return sess
+
+
+def _character_id(character: str = "") -> str:
+    """Sessions always name their character (TEAM_ROLES_v2): "" means the team's default character."""
+    if character:
+        return character
+    try:
+        import characters
+        return characters.default_character(WORKSPACE)
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def migrate_session_characters() -> int:
+    """Sessions from before TEAM_ROLES_v2 stored "" for the chatbot itself; they become the default character's.
+    Returns how many were rewritten."""
+    cid = _character_id("")
+    if not cid or not SESSIONS.is_dir():
+        return 0
+    n = 0
+    for p in SESSIONS.glob("*/meta.json"):
+        try:
+            meta = json.loads(p.read_text(encoding="utf-8"))
+            if meta.get("character"):
+                continue
+            meta["character"] = cid
+            tmp = p.with_name(".meta.migrate.tmp")
+            tmp.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.replace(p)
+            n += 1
+        except Exception:  # noqa: BLE001
+            continue
+    return n
 
 
 def _first_brain(character: str) -> Dict[str, Any]:

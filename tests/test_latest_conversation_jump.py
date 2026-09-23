@@ -31,7 +31,9 @@ let sessionNavNextSid = '20260921-120000-mid2';
 let currentTab = 'chat';
 let sessionMode = 'work';
 let sessionCharacter = '';
-function sameSessionMode(s) { return ((s && s.mode) || 'work') === sessionMode && ((s && s.character) || '') === sessionCharacter; }
+function defaultCharacterId() { return ''; }
+function openCharacterId() { return sessionCharacter || defaultCharacterId(); }
+function sameSessionMode(s) { return ((s && s.mode) || 'work') === sessionMode && ((s && s.character) || defaultCharacterId()) === openCharacterId(); }
 const scrolled = [];
 const apiCalls = [];
 const bodyCls = new Set();

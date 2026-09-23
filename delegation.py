@@ -433,7 +433,8 @@ def tool_call(name: str, args: dict, actor: str, secret_re, envelope, private: b
     if private:
         return envelope(False, "private session: no work is delegated from here", None)
     if staff:
-        return envelope(False, "only the PD plans and delegates; ask the user to take this to the PD", None)
+        return envelope(False, "only a character whose role grants delegate (the PD) plans and delegates; ask the "
+                               "user to take this to the PD", None)
     action = str(args.get("action") or "")
     if secret_re.search("\n".join(str(args.get(k) or "") for k in ("title", "instruction", "tasks"))):
         return envelope(False, "refusing to record secret-like content", None)

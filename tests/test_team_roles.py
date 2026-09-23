@@ -91,5 +91,43 @@ class Roster(unittest.TestCase):
         self.assertIn("You are the PD", pack["text"])
 
 
+class SessionsAndGrants(unittest.TestCase):
+    def setUp(self):
+        import session as S
+        self.S = S
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
+        self.ws = self.tmp / "workspace"
+        (self.ws / "roles" / "pd").mkdir(parents=True)
+        (self.ws / "roles" / "pd" / "role.md").write_text(PD, encoding="utf-8")
+        self.a, self.b = C.new_id(), C.new_id()
+        C.save(self.a, C.new_card("A"), self.ws)
+        C.save(self.b, C.new_card("B"), self.ws)
+        C.save_team({"default": self.b, "members": {self.a: ["pd"]}}, self.ws)
+        self.saved = (S.SESSIONS, S.WORKSPACE)
+        S.SESSIONS, S.WORKSPACE = self.tmp / "sessions", self.ws
+        S.SESSIONS.mkdir()
+
+    def tearDown(self):
+        self.S.SESSIONS, self.S.WORKSPACE = self.saved
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_old_sessions_become_the_default_character_s(self):
+        d = self.S.SESSIONS / "20260921-100000-old001"
+        d.mkdir()
+        (d / "meta.json").write_text(json.dumps({"id": d.name, "history": [{"role": "user", "text": "hi"}]}),
+                                     encoding="utf-8")
+        self.assertEqual(self.S.migrate_session_characters(), 1)
+        self.assertEqual(self.S.migrate_session_characters(), 0)
+        self.assertEqual(json.loads((d / "meta.json").read_text(encoding="utf-8"))["character"], self.b)
+        reg = self.S.Registry()
+        self.assertEqual(reg.get_active().sid, d.name)                     # the default (B) is not the PD (A)
+        self.assertEqual(reg.get_active(self.b).sid, d.name)
+        self.assertNotEqual(reg.get_active(self.a).sid, d.name)
+
+    def test_grants_come_from_held_roles(self):
+        self.assertEqual(C.tools_of(self.a, self.ws), ["delegate", "house-memory"])
+        self.assertEqual(C.tools_of(self.b, self.ws), [])
+
+
 if __name__ == "__main__":
     unittest.main()

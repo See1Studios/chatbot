@@ -1820,3 +1820,12 @@ code.login-value{
 /* SESSION_SPLIT_v1: a private session is marked so it is never mistaken for work */
 body.private-session .meta{color:var(--accent-private, #c2185b)}
 body.private-session #input{border-color:var(--accent-private, #c2185b)}
+
+/* TEAM_ROLES_v2: roles are chips on an otherwise identical character card */
+.team-role-chips{display:inline-flex;gap:.3rem;flex-wrap:wrap;margin-left:.4rem}
+.team-chip{font-size:.7rem;padding:.05rem .45rem;border-radius:999px;border:1px solid var(--accent-border);color:var(--accent2);background:var(--accent-soft)}
+.team-chip-default{border-color:var(--border-hover);color:inherit;background:rgba(255,255,255,.06)}
+.team-chip-none{border-style:dashed;color:var(--muted);background:none}
+.team-role-box:empty{display:none}
+.team-role-box{display:flex;flex-direction:column;gap:.25rem;margin:.35rem 0 .2rem}
+.team-role-pick{font-size:.8rem;display:flex;align-items:center;gap:.3rem;cursor:pointer}

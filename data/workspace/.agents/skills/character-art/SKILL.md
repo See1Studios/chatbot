@@ -31,9 +31,8 @@ Next to the card, so they travel with it: `data/workspace/characters/<id>/`
   disapproval, disgust, embarrassment, excitement, fear, gratitude, grief, joy, love, nervousness, neutral,
   optimism, pride, realization, relief, remorse, sadness, surprise. Start with neutral, joy, sadness,
   anger, surprise, embarrassment if you only make a few.
-- The chatbot (role `pd`) still keeps its images in `data/persona/` (badges `providers/<id>.webp`, 512) and a copy
-  under the web root `chat/persona/`; bump `PORTRAIT_CACHE` in `static/app.js` after replacing one. Its lock sheet
-  is its `visual.md` like everyone else's.
+- Every character alike: the page shows only these files. `data/persona/` (and the web root `chat/persona/`) keeps
+  older copies of one character's pictures for the Hub; replace those too when you replace that character's.
 
 ## Procedure
 

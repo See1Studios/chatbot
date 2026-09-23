@@ -399,22 +399,32 @@ def experts_overview() -> dict:
     except Exception:  # noqa: BLE001
         pass
     chars = _characters()
-    out = [] if any(c["role"] == "pd" for c in chars) else [   # before the move: the PD's list in pd-brain.json
-        {"id": "pd", "role": "pd", "name": pd["name"], "title": "PD 확인",
+    out = [] if chars else [   # before any character card: the PD's list in pd-brain.json
+        {"id": "pd", "roles": ["pd"], "role": "pd", "default": True, "name": pd["name"], "title": "PD",
          "chain": _read_chain(WORKSPACE / "pd-brain.json"), "path": "data/workspace/pd-brain.json",
          "editable": _protected_why(WORKSPACE / "pd-brain.json") is None}]
     try:
         import characters
     except Exception:  # noqa: BLE001
         characters = None
-    for c in sorted(chars, key=lambda c: c["role"] != "pd"):     # the PD first
+    default = characters.default_character(WORKSPACE) if characters else ""
+    for c in sorted(chars, key=lambda c: c["id"] != default):     # every character alike; the default first
         cp = WORKSPACE / "characters" / c["id"] / "card.json"
         disp = characters.ext(c["card"]).get("display") or {} if characters else {}
-        title = "PD 확인" if c["role"] == "pd" else disp.get("title", "")
-        out.append({"id": c["id"], "role": c["role"], "name": c["name"], "title": title,
+        out.append({"id": c["id"], "roles": list(c.get("roles") or []), "role": c["role"], "default": c["id"] == default,
+                    "name": c["name"], "title": disp.get("title", ""),
                     "chain": characters.brains(c["card"], "work") if characters else [],
                     "path": "data/workspace/characters/%s/card.json" % c["id"], "editable": _protected_why(cp) is None})
-    return {"ok": True, "experts": out, "providers": providers, "models": models}
+    roles = []
+    if characters:
+        rd = characters.roles_dir(WORKSPACE)
+        for d in sorted(rd.iterdir()) if rd.is_dir() else []:
+            if d.is_dir() and _ROLE_DIR.match(d.name):
+                pack = characters.role_pack(d.name, WORKSPACE)
+                roles.append({"role": d.name, "title": pack["title"], "tools": pack["tools"], "skills": pack["skills"]})
+    team_file = WORKSPACE / "team.json"
+    return {"ok": True, "experts": out, "roles": roles, "team_editable": bool(chars) and _protected_why(team_file) is None,
+            "providers": providers, "models": models}
 
 
 def _clean_chain(raw) -> Tuple[Optional[list], str]:
@@ -439,8 +449,36 @@ def _clean_chain(raw) -> Tuple[Optional[list], str]:
     return chain, ""
 
 
+def _put_team(body: dict) -> Tuple[int, dict]:
+    """PUT /api/experts/team {default, members: {id: [role, ...]}}: the operator arranging the team (TEAM_ROLES_v2).
+    Only existing characters and role packs; the default must be a character."""
+    import characters
+    target = WORKSPACE / "team.json"
+    why = _protected_why(target)
+    if why:
+        return 403, {"ok": False, "error": "read-only: protected (%s)" % why}
+    known = {c["id"] for c in _characters()}
+    packs = {d.name for d in characters.roles_dir(WORKSPACE).iterdir() if d.is_dir()} \
+        if characters.roles_dir(WORKSPACE).is_dir() else set()
+    default, members = body.get("default"), body.get("members")
+    if default not in known:
+        return 400, {"ok": False, "error": "the default must be one of the characters"}
+    if not isinstance(members, dict) or any(k not in known or not isinstance(v, list) for k, v in members.items()):
+        return 400, {"ok": False, "error": "members maps character ids to role lists"}
+    clean = {}
+    for cid, rs in members.items():
+        bad = [r for r in rs if r not in packs]
+        if bad:
+            return 400, {"ok": False, "error": "no such role pack: %s" % ", ".join(map(str, bad))}
+        if rs:
+            clean[cid] = sorted(set(rs), key=rs.index)
+    characters.save_team({"default": default, "members": clean}, WORKSPACE)
+    return 200, {"ok": True}
+
+
 def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
-    """GET /api/experts; PUT /api/experts/<id>/brain {chain} (`pd` = the PD's confirmation, else a character id).
+    """GET /api/experts; PUT /api/experts/<id>/brain {chain} (a character id; `pd` = pd-brain.json before any
+    card); PUT /api/experts/team {default, members} arranges the team.
     A PUT is the operator editing from the team tab, so the caller must have checked that it came from this
     server's own page."""
     if not (path == "/api/experts" or path.startswith("/api/experts/")):
@@ -448,6 +486,8 @@ def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[
     rest = path[len("/api/experts"):].strip("/")
     if method == "GET" and rest == "":
         return 200, experts_overview()
+    if method == "PUT" and rest == "team":
+        return _put_team(body or {})
     m = re.fullmatch(r"(pd|char_[0-9a-z]{26})/brain", rest)
     if method != "PUT" or not m:
         return 404, {"ok": False, "error": "not found"}

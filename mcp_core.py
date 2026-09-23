@@ -94,8 +94,8 @@ PRIVATE_CLOSED = ("private session: work memory, observations and tickets are cl
                   "apart, in this character's private memory, by the host.")
 
 
-STAFF_MEMORY_CLOSED = ("the work memory is the PD's; a character talking with the user directly keeps its own "
-                       "memory, which the host provides.")
+STAFF_MEMORY_CLOSED = ("the house memory is written only by a character whose role grants house-memory (the PD); "
+                       "your own memory is kept by the host.")
 
 
 def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "chat-agent",
@@ -106,8 +106,8 @@ def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMI
     args = args or {}
     if private:   # PRIVATE_MEMORY_v1: a private session never reads or writes work memory, observations or tickets
         return envelope(False, PRIVATE_CLOSED, None)
-    if staff and name == "memory":   # CHARACTER_PICKER_v1: the shared work memory is the PD's
-        return envelope(False, STAFF_MEMORY_CLOSED, None)
+    if staff and name == "memory" and str((args or {}).get("action") or "") in ("add", "forget"):
+        return envelope(False, STAFF_MEMORY_CLOSED, None)   # TEAM_ROLES_v2: everyone reads the house memory
     try:
         if name == "memory":
             if memory_store is None:
