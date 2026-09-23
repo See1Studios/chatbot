@@ -1,0 +1,51 @@
+{
+ "approved_at": "2026-09-23 12:19:29",
+ "attempts": 1,
+ "closed_reason": "done",
+ "created": "2026-09-23 12:19:28",
+ "evidence": [
+  "candidate:1790133568.99"
+ ],
+ "gate_failures": 0,
+ "id": 51,
+ "notes": [
+  {
+   "by": "operator (api)",
+   "text": "approved",
+   "ts": "2026-09-23 12:19:29"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3); paths: chatbot-ctl.sh, standby_pool.py, session.py, logdigest.py, tests/test_standby_reap.py, tests/test_logdigest.py, docs/LOGGING.md",
+   "ts": "2026-09-23 12:19:29"
+  },
+  {
+   "by": "agent",
+   "text": "evidence: candidate:1790133706.978 (host:agent_reaped_live, 12:15:30 standby pid 1938 under live chat pid 610); placeholder evidence at start was the manual marker",
+   "ts": "2026-09-23 12:21:47"
+  },
+  {
+   "by": "agent",
+   "text": "done: committed",
+   "ts": "2026-09-23 12:21:56"
+  },
+  {
+   "by": "agent",
+   "text": "done",
+   "ts": "2026-09-23 12:21:56"
+  }
+ ],
+ "paths": [
+  "chatbot-ctl.sh",
+  "standby_pool.py",
+  "session.py",
+  "logdigest.py",
+  "tests/test_standby_reap.py",
+  "tests/test_logdigest.py",
+  "docs/LOGGING.md"
+ ],
+ "status": "done",
+ "target": "chatbot-ctl.sh, standby_pool.py, session.py, logdigest.py, tests/test_standby_re",
+ "title": "STANDBY_REAP_v1: doctor가 살아있는 서버의 warm standby를 죽임 + finding agent_reaped_live 추가(판정 강화, §7-6 승인)",
+ "updated": "2026-09-23 12:21:56"
+}
