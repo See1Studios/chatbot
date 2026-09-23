@@ -3,13 +3,13 @@
  "approved_at": "2026-09-23 22:00:05",
  "approved_by": "operator (api) via agy ticket-quick (operator's instruction)",
  "attempts": 1,
+ "closed_reason": "declined",
  "created": "2026-09-23 22:00:05",
  "evidence": [
   "candidate:1790168405.871"
  ],
  "gate_failures": 0,
  "id": 93,
- "merge_pending": true,
  "notes": [
   {
    "by": "operator (api) via agy ticket-quick (operator's instruction)",
@@ -25,14 +25,19 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-93 at 9e18204 (agy, review PASS round 1)",
    "ts": "2026-09-23 22:01:15"
+  },
+  {
+   "by": "operator (api) via claude-code discard (probe run, operator's instruction)",
+   "text": "declined",
+   "ts": "2026-09-23 22:01:23"
   }
  ],
  "paths": [
   "data/workspace/notes/memory-probe.md"
  ],
- "status": "awaiting_merge",
+ "status": "declined",
  "target": "data/workspace/notes/memory-probe.md",
  "title": "기억 실측 (폐기 예정)",
- "updated": "2026-09-23 22:01:15",
+ "updated": "2026-09-23 22:01:23",
  "worked_by": "agy"
 }
