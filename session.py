@@ -255,6 +255,8 @@ class AgySession:
                 self.last_progress = line[:240]
         elif kind in ("result", "error", "stopped"):
             self.last_progress = ""
+            # QUOTA_FAILFAST_v1: real terminal event — cancel pending failfast
+            self._cancel_error_message_failfast()
         if kind in ("error", "stopped") or (kind == "interrupted" and event.get("reason") != "steer"):
             try:
                 self._turn_marks.append((self._last_user_turn()[0], kind))
@@ -545,6 +547,67 @@ class AgySession:
         except Exception:  # noqa: BLE001
             pass
 
+    # QUOTA_FAILFAST_v1: agy emits step_type=error_message then idles ~2min before result.
+    ERROR_MESSAGE_FAILFAST_SEC = 8
+
+    def _cancel_error_message_failfast(self) -> None:
+        timer = getattr(self, "_err_msg_failfast_timer", None)
+        if timer is not None:
+            try:
+                timer.cancel()
+            except Exception:
+                pass
+            self._err_msg_failfast_timer = None
+
+    def _arm_error_message_failfast(self) -> None:
+        self._err_msg_failfast_done = False
+        if getattr(self, "_err_msg_failfast_timer", None) is not None:
+            return
+        timer = threading.Timer(float(self.ERROR_MESSAGE_FAILFAST_SEC), self._error_message_failfast)
+        timer.daemon = True
+        self._err_msg_failfast_timer = timer
+        timer.start()
+
+    def _error_message_failfast(self) -> None:
+        """Close a turn that stalled after agy error_message instead of waiting for print-timeout."""
+        self._err_msg_failfast_timer = None
+        with self.lock:
+            if not self.busy or self._stop_requested:
+                return
+            if getattr(self, "_err_msg_failfast_done", False):
+                return
+            self._err_msg_failfast_done = True
+        dur = 0.0
+        if getattr(self, "turn_started_at", 0):
+            dur = max(0.0, _now() - float(self.turn_started_at))
+        err = (getattr(self, "_err_msg_hint", None) or "").strip()
+        if not err:
+            err = "쿼터 또는 제공자 오류로 보입니다. 응답이 없어 턴을 닫았습니다."
+        elif "quota" not in err.lower() and "소진" not in err:
+            err = "쿼터 또는 제공자 오류로 보입니다. " + err
+        try:
+            out = self.adapter.finalize_turn(
+                self, text="", raw_usage=None, is_err=True, error=err
+            )
+            self._emit(out)
+            with self.lock:
+                self.busy = False
+            try:
+                self._finish_turn("error")
+            except Exception:
+                pass
+            already = out.get("event") == "error"
+            self._end_unfinished_turn("ERROR", err, dur, emit_error=not already)
+        except TypeError:
+            # older signature without emit_error
+            self._end_unfinished_turn("ERROR", err, dur)
+        except Exception as e:
+            print(f"WARN: error_message failfast failed: {e}", flush=True)
+            try:
+                self._end_unfinished_turn("ERROR", err, dur, emit_error=True)
+            except Exception:
+                pass
+
     def _end_unfinished_turn(self, status: str, err: str, duration: float, emit_error: bool = True) -> None:
         """agy ended the turn without an answer (error/timeout). At the print timeout it does so
         with an EMPTY result while the agent keeps working unseen in the background, so the child
@@ -677,6 +740,28 @@ class AgySession:
                 d_str = json.dumps(args_dict, ensure_ascii=False, indent=2)
                 if len(d_str) > 2:
                     ev_step["detail"] = d_str[:4000]
+            # QUOTA_FAILFAST_v1: agy often parks for ~2min after error_message
+            if stype == "error_message":
+                hint = ""
+                for k in ("error", "message", "text", "summary", "description", "detail"):
+                    val = step.get(k)
+                    if isinstance(val, str) and val.strip():
+                        hint = val.strip()[:500]
+                        break
+                if not hint:
+                    for nest in (step.get("result"), step.get("output"), step.get("content"), args_dict):
+                        if isinstance(nest, dict):
+                            for k in ("error", "message", "text"):
+                                val = nest.get(k)
+                                if isinstance(val, str) and val.strip():
+                                    hint = val.strip()[:500]
+                                    break
+                        if hint:
+                            break
+                if hint:
+                    ev_step["detail"] = hint
+                    self._err_msg_hint = hint
+                self._arm_error_message_failfast()
             return ev_step
 
         # 4. classic tool_use / tool_call / tool_result / tool_error
@@ -1489,7 +1574,7 @@ class AgySession:
             self._loop_noticed = False
         with self.lock:
             self.current_text = ""
-            self.turn_started_at = _now()
+            self.turn_started_at = _now(); self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""
             self.pending_images = []
             ts = _now()
             if not notice:

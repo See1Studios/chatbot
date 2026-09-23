@@ -2749,3 +2749,11 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
 - **변경**: 이미 notice:error면 emit_error=False로 자식만 중지. 쿼터 한국어 한 줄. error_message 진행표시. history는 addNotice. `app.js?v=140`.
 - **배포**: 강제 새로고침 + repair.
 - **마커**: `QUOTA_ERR_DEDUP_v1`
+
+## 2026-09-23 — agy error_message 후 장기 대기 차단 (QUOTA_FAILFAST_v1)
+
+- **배경**: 쿼터 소진 시 진행표시가 `쿼터·오류 확인 중…`에서 1~2분 유지(실장님).
+- **원인**: agy가 `step_type=error_message` 직후 곧바로 result를 안 보내고 print-timeout 근처까지 대기.
+- **변경**: error_message 관측 후 8초 내 result/error 없으면 failfast로 notice:error 1회 + 자식 중지. 실제 result가 먼저 오면 타이머 취소.
+- **배포**: `chatbot-ctl.sh repair` (호스트 모듈).
+- **마커**: `QUOTA_FAILFAST_v1`
