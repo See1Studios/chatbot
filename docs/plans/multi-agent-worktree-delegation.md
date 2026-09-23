@@ -214,9 +214,9 @@ PoC 이후 코드와 거버넌스를 대조해 보고 나온 점. 마일스톤 3
 1. ✅ (#65) **경로 → Tier 정책을 설정 데이터로 둔다** (P1-5). 러너가 `--paths`로 Tier를 계산한다. **Tier 3 경로는 외주를 거부**한다: 가드, 티켓/진화 코어, 게이트로 쓰는 테스트(`DEFAULT_GATES` 대상), 헌장. 외주 에이전트가 자기 통과 조건을 고칠 수 없게 하기 위해서다(헌장 §7-5).
 2. ✅ (#64, `fc0becd`) **러너 `--stop-before-merge`**: Tier 2는 리뷰 PASS 후 브랜치를 남기고 멈춘다. 별도 `merge --ticket N`이 ff 병합 → done → 정리 → 기록 커밋을 한다.
 3. ✅ (#62, `01f8ea6`) **티켓 상태 `awaiting_merge`** (`tickets.py`, **Tier 3 거버넌스 변경이라 승인 필요**). 병합을 기다리는 동안 전역 작성자 리스를 쥐고 있으면 다른 작업이 모두 막힌다. 그래서 리스를 풀고, 시도 횟수를 늘리지 않고, 사용자 병합(`operator (ui)`)만 받는 상태가 필요하다.
-4. (진행 파일은 #64에서 구현, 분리 실행은 남음) **비동기 실행 + 진행 파일**: 서버는 러너를 분리 프로세스(setsid)로 띄운다. 러너는 `~/.worktrees/chatbot/runs/ticket-<ID>.json`에 상태, 라운드, 지금까지의 대사를 원자적으로 쓴다. 서버는 그 파일을 읽어 카드에 준다. ⚡ 재기동에도 러너가 살아남아야 한다. `ctl_proc` 정리 대상은 cwd가 `data/workspace`인 에이전트라서 worktree에서 도는 러너는 겹치지 않는다. 구현할 때 확인한다.
-5. **chat-agent 도구 `delegate_task(ticket_id)`**: 티켓 번호만 받는다. Tier 0/1은 chat-agent가 티켓을 만들고 바로 시작할 수 있다(기존 Tier 0/1 자율). Tier 2는 사용자가 승인한 티켓만 받는다(§7-2 해소). 러너에 넘기는 환경변수는 허용 목록으로 거른다(§7-1).
-6. **카드 UI**: 두 화자의 표시 이름·말투는 `identity.get_identity()`와 `get_identity("reviewer")`로 입힌다. 코드와 UI에는 이름을 박지 않는다(NAME_NEUTRAL_v1). 읽지 않음 표시는 기존 세션 동기화 경로를 쓴다.
+4. ✅ (#64 진행 파일, #66 분리 실행) **비동기 실행 + 진행 파일**: 서버는 러너를 분리 프로세스(setsid)로 띄운다. 러너는 `~/.worktrees/chatbot/runs/ticket-<ID>.json`에 상태, 라운드, 지금까지의 대사를 원자적으로 쓴다. 서버는 그 파일을 읽어 카드에 준다. ⚡ 재기동에도 러너가 살아남아야 한다. `ctl_proc` 정리 대상은 cwd가 `data/workspace`인 에이전트라서 worktree에서 도는 러너는 겹치지 않는다. 구현할 때 확인한다.
+5. ✅ (#66, 도구 이름 `delegate`: start/status. Tier 0은 사용자 요청으로 바로, Tier 2는 제안 → [맡겨]) **chat-agent 도구 `delegate_task(ticket_id)`**: 티켓 번호만 받는다. Tier 0/1은 chat-agent가 티켓을 만들고 바로 시작할 수 있다(기존 Tier 0/1 자율). Tier 2는 사용자가 승인한 티켓만 받는다(§7-2 해소). 러너에 넘기는 환경변수는 허용 목록으로 거른다(§7-1).
+6. ✅ (#66, 입력창 위 작업 카드 줄. 읽음은 `data/delegation_seen.json`) **카드 UI**: 두 화자의 표시 이름·말투는 `identity.get_identity()`와 `get_identity("reviewer")`로 입힌다. 코드와 UI에는 이름을 박지 않는다(NAME_NEUTRAL_v1). 읽지 않음 표시는 기존 세션 동기화 경로를 쓴다.
 
 ### 9.4 하지 않는 것
 - 병렬 외주 (토큰 예산, 사용자 결정 ③의 전제)
