@@ -24,6 +24,7 @@
      d. 게이트 통과 + PASS면 종료, 아니면 수정 요청을 들고 다음 라운드
   4. 통과: 메인에서 git merge --ff-only -> ticket-quick done -> worktree/브랜치 정리
      탈락: 병합 없음 -> ticket-quick fail (gate_failed | failed) -> worktree/브랜치 정리 (--keep이면 보존)
+  5. 티켓 기록(tickets/<ID>.json)만 메인에 커밋한다 (chore(tickets): close #ID | #ID <outcome>)
   두 캐릭터의 주고받은 대사는 ~/.worktrees/chatbot/transcripts/에 남는다.
 
 라이브 호스트는 재시작하지 않는다. 호스트 모듈이 바뀌었으면 유휴 확인 후 `chatbot-ctl.sh repair`로 배포한다.
@@ -54,6 +55,7 @@ GATE_TIMEOUT = 600
 TAIL_LINES = 30
 DIFF_LIMIT = 15000
 REVIEWER_ROLE = "reviewer"
+TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
 
 # Provider registry: how to run each CLI headless as the worker (`argv`), as the worker again in the same
 # conversation (`continue_argv`, only where it resumes by directory), as a tool-less reviewer (`review_argv`,
@@ -155,6 +157,22 @@ def ticket_call(*args: str) -> Dict[str, str]:
         if sep and k.isupper():
             vals[k] = v
     return vals
+
+
+def commit_ticket_record(repo: Path, tid: int, provider: str, subject: str) -> Optional[str]:
+    """Commit the ticket's own record in the main repository, and only it, so main is left clean
+    without an operator step. Returns the short sha, or None when there is nothing to commit."""
+    rel = "%s/%04d.json" % (TICKETS_REL, tid)
+    if not (repo / rel).exists() or not git(repo, "status", "--porcelain", "--", rel)[1]:
+        return None
+    name, email = PROVIDERS[provider]["author"]
+    git(repo, "add", "--", rel)
+    code, _, err = git(repo, "-c", "user.name=" + name, "-c", "user.email=" + email,
+                       "commit", "-m", subject, "--", rel)
+    if code != 0:
+        print("[!] ticket record not committed: %s" % tail(err, 5), file=sys.stderr)
+        return None
+    return git(repo, "rev-parse", "--short", "HEAD")[1]
 
 
 # ----------------------------------------------------------------- worktree
@@ -492,6 +510,13 @@ def cmd_run(args) -> int:
             result["outcome"] = "merged-ticket-open"
             print("[!] merged, but the ticket could not be closed: %s" % e, file=sys.stderr)
         log("the live host was not restarted; deploy host-module changes with `chatbot-ctl.sh repair` once idle")
+
+    outcome = result.get("outcome") or "open"
+    subject = ("chore(tickets): close #%d" if outcome == "done" else "chore(tickets): #%d " + outcome) % tid
+    record = commit_ticket_record(repo, tid, provider, "%s -- %s" % (subject, args.title[:80]))
+    if record:
+        result["ticket_commit"] = record
+        log("ticket record committed (%s)" % record)
 
     saved = save_transcript(tid, args.title, transcript)
     result["transcript"] = transcript

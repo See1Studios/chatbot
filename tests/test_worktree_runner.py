@@ -17,11 +17,17 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import worktree_runner as wr
 
+# argv: <calls log> <repo> <command> ...; writes the ticket record the way tickets.py would
 FAKE_TICKET = r'''
 import json, sys
-with open(sys.argv[1], "a") as f:
-    f.write(json.dumps(sys.argv[2:]) + "\n")
-if sys.argv[2] == "start":
+from pathlib import Path
+calls, repo, cmd = sys.argv[1], Path(sys.argv[2]), sys.argv[3:]
+with open(calls, "a") as f:
+    f.write(json.dumps(cmd) + "\n")
+rec = repo / "data/workspace/skill-observations/tickets/0007.json"
+rec.parent.mkdir(parents=True, exist_ok=True)
+rec.write_text(json.dumps({"id": 7, "last": cmd[0]}))
+if cmd[0] == "start":
     print("TICKET_ID=7")
     print("CLAIM_TOKEN=tok")
 '''
@@ -53,13 +59,14 @@ class WorktreeRunner(unittest.TestCase):
         sh(self.repo, "git", "init", "-q", "-b", "main")
         sh(self.repo, "git", "add", "-A")
         sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init")
+        self.init = sh(self.repo, "git", "rev-parse", "HEAD")
         self.calls = base / "calls.jsonl"
         (base / "tq.py").write_text(FAKE_TICKET)
         self.base = base
         self.saved = (wr.CHATBOT_REPO, wr.WORKTREE_BASE, wr.TICKET_QUICK, wr.DEFAULT_GATES, dict(wr.PROVIDERS), wr.persona)
         wr.persona = lambda role="": {"name": "W" if not role else "R", "label": role or "writer", "voice": "", "body": ""}
         wr.CHATBOT_REPO, wr.WORKTREE_BASE = self.repo, base / "wt"
-        wr.TICKET_QUICK = [sys.executable, str(base / "tq.py"), str(self.calls)]
+        wr.TICKET_QUICK = [sys.executable, str(base / "tq.py"), str(self.calls), str(self.repo)]
         wr.DEFAULT_GATES = ["python3 tests/smoke.py"]
 
     def tearDown(self) -> None:
@@ -73,6 +80,10 @@ class WorktreeRunner(unittest.TestCase):
                                 "actor": "fake-agent", "author": ("Fake", "fake@localhost")}
         return wr.main(["run", "--provider", "fake", "--title", "t", "--paths", paths, "--prompt", "p",
                         "--timeout", "30", *extra])
+
+    def code_head(self) -> str:
+        """The last commit that is not a ticket record."""
+        return sh(self.repo, "git", "log", "-1", "--format=%H", "--", ".", ":!data")
 
     def ticket_cmds(self) -> list:
         return [json.loads(line)[0] for line in self.calls.read_text().splitlines()]
@@ -88,28 +99,42 @@ class WorktreeRunner(unittest.TestCase):
         rc = self.run_with("echo two >> a.txt && git commit -qam change")
         self.assertEqual(rc, 0)
         self.assertEqual((self.repo / "a.txt").read_text(), "one\ntwo\n")
-        self.assertEqual(sh(self.repo, "git", "log", "-1", "--format=%an"), "Fake")
+        self.assertEqual(sh(self.repo, "git", "log", "-1", "--skip=1", "--format=%an"), "Fake")
         self.assertEqual(self.ticket_cmds(), ["start", "renew", "done"])
         self.assert_clean_up()
+        # the ticket record is committed on its own; main is left clean
+        self.assertEqual(sh(self.repo, "git", "log", "-1", "--format=%s"), "chore(tickets): close #7 -- t")
+        self.assertEqual(sh(self.repo, "git", "show", "--name-only", "--format=", "HEAD"),
+                         "data/workspace/skill-observations/tickets/0007.json")
+        self.assertEqual(sh(self.repo, "git", "status", "--porcelain"), "")
 
     def test_uncommitted_changes_are_committed_by_the_runner(self) -> None:
         self.assertEqual(self.run_with("echo two >> a.txt"), 0)
-        self.assertIn("left uncommitted", sh(self.repo, "git", "log", "-1", "--format=%s"))
+        self.assertIn("left uncommitted", sh(self.repo, "git", "log", "-1", "--skip=1", "--format=%s"))
 
     def test_change_outside_paths_fails_the_scope_gate(self) -> None:
-        head = sh(self.repo, "git", "rev-parse", "HEAD")
         self.assertEqual(self.run_with("echo x >> b.txt && git commit -qam change"), 1)
-        self.assertEqual(sh(self.repo, "git", "rev-parse", "HEAD"), head)
+        self.assertEqual(self.code_head(), self.init)
         self.assertEqual(self.ticket_cmds()[-1], "fail")
         self.assertIn("gate_failed", self.last_fail())
         self.assert_clean_up()
 
     def test_failing_smoke_blocks_the_merge(self) -> None:
-        head = sh(self.repo, "git", "rev-parse", "HEAD")
         self.assertEqual(self.run_with("echo bad >> a.txt && git commit -qam change"), 1)
-        self.assertEqual(sh(self.repo, "git", "rev-parse", "HEAD"), head)
+        self.assertEqual(self.code_head(), self.init)
         self.assertIn("gate_failed", self.last_fail())
         self.assert_clean_up()
+
+    def test_a_failed_attempt_commits_its_record_too(self) -> None:
+        self.assertEqual(self.run_with("true"), 1)
+        self.assertEqual(sh(self.repo, "git", "log", "-1", "--format=%s"), "chore(tickets): #7 failed -- t")
+        self.assertEqual(sh(self.repo, "git", "status", "--porcelain"), "")
+
+    def test_only_the_record_is_committed(self) -> None:
+        (self.repo / "b.txt").write_text("operator's own edit\n")
+        sh(self.repo, "git", "add", "b.txt")
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c"), 0)
+        self.assertEqual(sh(self.repo, "git", "status", "--porcelain"), "M  b.txt")
 
     def test_no_change_and_agent_error_fail(self) -> None:
         self.assertEqual(self.run_with("true"), 1)
@@ -122,8 +147,8 @@ class WorktreeRunner(unittest.TestCase):
         script = ("echo two >> a.txt && git commit -qam change && "
                   "cd %s && echo c > c.txt && git add c.txt && git commit -qm main-moved" % self.repo)
         self.assertEqual(self.run_with(script), 0)
-        self.assertEqual(sh(self.repo, "git", "log", "--format=%s", "-3").splitlines(),
-                         ["change", "main-moved", "init"])
+        self.assertEqual(sh(self.repo, "git", "log", "--format=%s", "-4").splitlines(),
+                         ["chore(tickets): close #7 -- t", "change", "main-moved", "init"])
 
     def test_keep_retains_a_failed_worktree(self) -> None:
         self.run_with("true", extra=("--keep",))
@@ -155,18 +180,16 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(lines[0]["text"], "done")
 
     def test_review_fail_every_round_blocks_the_merge(self) -> None:
-        head = sh(self.repo, "git", "rev-parse", "HEAD")
         fail = "printf 'VERDICT: FAIL\\nSAY: no\\nFIX: redo'"
         self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review=fail), 1)
-        self.assertEqual(sh(self.repo, "git", "rev-parse", "HEAD"), head)
+        self.assertEqual(self.code_head(), self.init)
         self.assertIn("gate_failed", self.last_fail())
         self.assert_clean_up()
 
     def test_unreadable_review_fails_closed(self) -> None:
-        head = sh(self.repo, "git", "rev-parse", "HEAD")
         self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review="echo looks good",
                                        extra=("--rounds", "1")), 1)
-        self.assertEqual(sh(self.repo, "git", "rev-parse", "HEAD"), head)
+        self.assertEqual(self.code_head(), self.init)
 
     def test_a_gate_failure_is_fixed_in_the_next_round(self) -> None:
         # round 1 writes "bad" (smoke fails), round 2 overwrites it
