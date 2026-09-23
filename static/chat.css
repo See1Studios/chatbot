@@ -1800,3 +1800,7 @@ code.login-value{
 
 /* ACTOR_ATTRIBUTION_v1: who did it */
 .obs-badge.obs-actor{background:rgba(121,192,255,.12);color:#79c0ff;border-color:rgba(121,192,255,.35);font-weight:500}
+
+/* SESSION_SPLIT_v1: a private session is marked so it is never mistaken for work */
+body.private-session .meta{color:var(--accent-private, #c2185b)}
+body.private-session #input{border-color:var(--accent-private, #c2185b)}

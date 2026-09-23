@@ -32,6 +32,10 @@ let sessionNavPrevSid = '';
 let sessionNavNextSid = '';
 let liveSessionId = '';
 let archiveBrowse = false;
+// SESSION_SPLIT_v1: the open session's mode. Work and private talk are separate sessions; "latest", scrollback
+// and the live-follow logic stay inside the open mode.
+let sessionMode = 'work';
+function sameSessionMode(s) { return ((s && s.mode) || 'work') === sessionMode; }
 let historyLoadHoldUntil = 0;
 
 // ---- Browser & Device Context (GPS, timezone, device type) ----
@@ -3102,7 +3106,7 @@ function renderSessionsList(sessions) {
     try { when = new Date(_scrollbackEpochMs(s.updated_at)).toLocaleString('ko-KR'); } catch (_) {}
     item.innerHTML =
       '<div class="status-item-head">' +
-      '<span class="session-row-id">' + escapeHtml(s.id) + (isCurrent ? ' (현재)' : '') + '</span>' +
+      '<span class="session-row-id">' + (s.mode === 'private' ? '🔒 ' : '') + escapeHtml(s.id) + (isCurrent ? ' (현재)' : '') + '</span>' +
       '<span class="status-item-meta">' + (s.turns || 0) + '턴 · ' + escapeHtml(s.model || '') + ' · ' + escapeHtml(when) + '</span>' +
       '<div class="status-item-actions">' +
       '<button class="session-import-btn" data-import-sid="' + escapeHtml(s.id) + '" type="button">' + getActionSvg('pin') + ' 가져오기</button>' +
@@ -4072,7 +4076,8 @@ function enterSession(id, opts) {
   // viewport is filled, same as opening an existing short session already did.
   if (opts.scrollback !== undefined) setTimeout(maybeBackfillScrollback, 0);
 
-  setMeta('세션 ' + id + ' · ' + (opts.metaLabel || ''));
+  document.body.classList.toggle('private-session', sessionMode === 'private');
+  setMeta((sessionMode === 'private' ? '🔒 사적 대화 · ' : '') + '세션 ' + id + ' · ' + (opts.metaLabel || ''));
   updateSessionNav(id, opts.sessionInfo);
 
   if (sessionBanner) {
@@ -4098,6 +4103,11 @@ async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
   if (!noRedirect) {
     const bounced = await maybeRedirectHardSession(id, info, _redirDepth || 0);
     if (bounced) return;
+  }
+  const infoMode = info && info.mode === 'private' ? 'private' : 'work';
+  if (infoMode !== sessionMode) {           // opened a session of the other mode: that mode's tip becomes live
+    sessionMode = infoMode;
+    liveSessionId = '';
   }
   if (liveSessionId && id !== liveSessionId) archiveBrowse = true;
   else {
@@ -4315,7 +4325,7 @@ async function resolveScrollbackFallback(sid, updatedAt, visited) {
   const cur = _scrollbackEpochMs(updatedAt);
   try {
     const list = await api('/api/sessions');
-    const valid = (list.sessions || []).filter(s => s.id !== sid && !visited.has(s.id) && (s.preview || (s.turns && s.turns > 0)));
+    const valid = (list.sessions || []).filter(s => s.id !== sid && !visited.has(s.id) && sameSessionMode(s) && (s.preview || (s.turns && s.turns > 0)));
     let cands = valid.filter(s => s.updated_at && (!cur || _scrollbackEpochMs(s.updated_at) < cur))
       .sort((a, b) => _scrollbackEpochMs(b.updated_at) - _scrollbackEpochMs(a.updated_at));
     if (cands.length) return cands[0].id;
@@ -4443,7 +4453,7 @@ function maybeBackfillScrollback() {
 async function resolveScrollforwardFallback(sid, updatedAt, visited) {
   try {
     const list = await api('/api/sessions');
-    const valid = (list.sessions || []).filter(s => s.id !== sid && !visited.has(s.id) && (s.preview || (s.turns && s.turns > 0)));
+    const valid = (list.sessions || []).filter(s => s.id !== sid && !visited.has(s.id) && sameSessionMode(s) && (s.preview || (s.turns && s.turns > 0)));
     const cands = valid.filter(s => s.id > sid).sort((a, b) => a.id.localeCompare(b.id));
     return cands.length ? cands[0].id : '';
   } catch (_) {
@@ -4611,13 +4621,15 @@ async function resolveLatestSessionId() {
   try {
     const list = await api('/api/sessions');
     for (const s of (list.sessions || [])) {
-      if (s && isLiveSid(s.id)) ids.push(s.id);
+      if (s && isLiveSid(s.id) && sameSessionMode(s)) ids.push(s.id);
     }
   } catch (_) {}
-  try {
-    const act = await api('/api/sessions/active');
-    if (act && isLiveSid(act.id)) ids.push(act.id);
-  } catch (_) {}
+  if (sessionMode === 'work') {
+    try {
+      const act = await api('/api/sessions/active');
+      if (act && isLiveSid(act.id)) ids.push(act.id);
+    } catch (_) {}
+  }
   if (liveSessionId && isLiveSid(liveSessionId)) ids.push(liveSessionId);
   if (sessionNavNextSid && isLiveSid(sessionNavNextSid)) ids.push(sessionNavNextSid);
   let best = '';
@@ -4960,7 +4972,17 @@ async function send() {
       method:'POST',
       body: JSON.stringify(payload)
     });
-    if (msgRes && msgRes.rotated && msgRes.session && msgRes.session.id) {
+    if (msgRes && msgRes.switched !== undefined && msgRes.session && msgRes.session.id) {
+      // /private or /work: the other mode's session opens with its own history; nothing went to the agent
+      setBusy(false);
+      setProgress('');
+      const target = msgRes.session;
+      sessionMode = target.mode === 'private' ? 'private' : 'work';
+      liveSessionId = target.id;
+      archiveBrowse = false;
+      await openSession(target.id, 0, null, true);
+      addActivity(sessionMode === 'private' ? '사적 대화로 전환: ' + target.id : '업무 대화로 복귀: ' + target.id, 'system');
+    } else if (msgRes && msgRes.rotated && msgRes.session && msgRes.session.id) {
       const nid = msgRes.session.id;
       addActivity('서버가 긴 세션을 새 채팅으로 인계 전환: ' + nid);
       // Seamless in-flow handoff (실장님: "세션 간 경계가 느껴지지 않게") --

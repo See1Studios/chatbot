@@ -186,6 +186,11 @@ class AgentSession:
         self.handoff_injected = False  # True once prepended to first agy stdin payload
         self.persona_injected = False  # True once the instruction bundle was prepended to a turn (all providers)
         self.persona_bundle_hash = ""  # instructions.py hash of the static layers last injected
+        # SESSION_SPLIT_v1 (plan doc §12): whose conversation this is and in which mode. character "" = the chatbot
+        # itself; mode "private" = a private session (its own conversation, private rules and memory, no work tools)
+        self.character = ""
+        self.mode = "work"
+        self.private_digested_ts = 0.0  # private sessions: turns up to this time are already in private memory
         self._cached_summary = ""  # memoized handover summary for zero-delay rotate
         self._summary_generating = False
         self._stop_requested = False  # True after an explicit stop() until the next _spawn()
@@ -200,6 +205,10 @@ class AgentSession:
         self._steering = False  # a steer (interrupt at a step boundary + resume) is in progress
         self._steer_since = 0.0  # when the oldest still-queued message arrived
         self._load_meta()
+
+    @property
+    def is_private(self) -> bool:
+        return getattr(self, "mode", "work") == "private"
 
     def _load_meta(self) -> None:
         if self.meta_path.exists():
@@ -217,6 +226,9 @@ class AgentSession:
                 self.handoff_injected = bool(meta.get("handoff_injected", False))
                 self.persona_injected = bool(meta.get("persona_injected", False))
                 self.persona_bundle_hash = str(meta.get("persona_bundle_hash") or "")
+                self.character = str(meta.get("character") or "")
+                self.mode = "private" if meta.get("mode") == "private" else "work"
+                self.private_digested_ts = float(meta.get("private_digested_ts") or 0)
                 ts_list = [h.get("ts") for h in self.history if isinstance(h.get("ts"), (int, float))]
                 if ts_list:
                     self.last_activity = max(ts_list)
@@ -246,6 +258,9 @@ class AgentSession:
                 "handoff_injected": getattr(self, "handoff_injected", False),
                 "persona_injected": getattr(self, "persona_injected", False),
                 "persona_bundle_hash": getattr(self, "persona_bundle_hash", "") or "",
+                "character": getattr(self, "character", "") or "",
+                "mode": getattr(self, "mode", "work") or "work",
+                "private_digested_ts": getattr(self, "private_digested_ts", 0.0) or 0.0,
                 "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             }
             try:
@@ -1465,6 +1480,8 @@ class AgentSession:
                 # with this provider's model name (e.g. claude "sonnet") and the turn dies with
                 # "invalid model selection" (2026-09-21, also seen with grok-4.6)
                 provider=self.provider,
+                character=self.character,
+                mode=self.mode,
             )
             self.successor_session_id = new_sess.sid
             try:
@@ -1578,7 +1595,7 @@ class AgentSession:
             # The HTTP transport is stateless and already sends the bundle as
             # the system message on every request, so a user-turn preamble
             # would only duplicate it there.
-            bundle = build_instruction_bundle()
+            bundle = build_instruction_bundle(mode=getattr(self, "mode", "work"), character=getattr(self, "character", ""))
             btext, bhash = bundle["text"], bundle["hash"]
             if btext:
                 if not getattr(self, "persona_injected", False):
@@ -1848,6 +1865,8 @@ class AgentSession:
                     # caught while wiring up the frontend selector, not by a
                     # live test of this specific path.
                     provider=self.provider,
+                    character=self.character,
+                    mode=self.mode,
                 )
                 self.successor_session_id = new_sess.sid
                 try:
@@ -2003,6 +2022,8 @@ class AgentSession:
             "model": self.model,
             "effort": self.effort,
             "conversation_id": self.conversation_id,
+            "character": getattr(self, "character", "") or "",
+            "mode": getattr(self, "mode", "work") or "work",
             "busy": really_busy,
             "queue_len": len(getattr(self, "msg_queue", [])),
             "alive": self._proc_alive(),
@@ -2202,9 +2223,13 @@ class Registry:
         predecessor_sid: str = "",
         handoff_summary: str = "",
         provider: str = DEFAULT_PROVIDER,
+        character: str = "",
+        mode: str = "work",
     ) -> AgentSession:
         sid = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
         sess = AgentSession(sid, model=model, effort=effort, provider=provider)
+        sess.character = character or ""
+        sess.mode = "private" if mode == "private" else "work"
         sess.predecessor_session_id = predecessor_sid
         sess.handoff_summary = handoff_summary
         sess.handoff_injected = False
@@ -2280,24 +2305,44 @@ class Registry:
                     "updated_at": p.stat().st_mtime,
                     "preview": (hist[-1:].pop().get("text", "")[:80] if hist else ""),
                     "turns": len(hist),
+                    "mode": "private" if meta.get("mode") == "private" else "work",
+                    "character": str(meta.get("character") or ""),
                 })
             except Exception:
                 continue
         return items
 
     def get_active(self) -> AgentSession:
-        """Live conversation: newest session id, then the successor-chain tip.
+        """Live conversation: the chatbot's newest *work* session id, then the successor-chain tip.
 
         Session ids are YYYYMMDD-HHMMSS-xxxxxx so lexicographic max is
         chronological latest. list() is still mtime-sorted (recency for the
         sessions tab). Opening a past session must not steal 'active'.
+        Private sessions and other characters' sessions never become active (SESSION_SPLIT_v1).
         """
+        return self._newest(mode="work", character="") or self.create()
+
+    def get_private(self, character: str = "", like: Optional[AgentSession] = None) -> AgentSession:
+        """The character's private session (its successor-chain tip), created on first use with `like`'s
+        provider and model."""
+        sess = self._newest(mode="private", character=character)
+        if sess is not None:
+            return sess
+        like = like or self.get_active()
+        return self.create(model=like.model, effort=like.effort, provider=like.provider, character=character,
+                           mode="private")
+
+    def _newest(self, mode: str, character: str) -> Optional[AgentSession]:
         with self.lock:
             best_id = ""
             for p in SESSIONS.glob("*/meta.json"):
                 try:
                     meta = json.loads(p.read_text(encoding="utf-8"))
                     if _probe_meta(meta):
+                        continue
+                    if ("private" if meta.get("mode") == "private" else "work") != mode:
+                        continue
+                    if str(meta.get("character") or "") != character:
                         continue
                     sid = str(meta.get("id") or p.parent.name or "")
                     if not _live_sid(sid):
@@ -2307,7 +2352,7 @@ class Registry:
                 except Exception:
                     continue
             if not best_id:
-                return self.create()
+                return None
             sess = self.get(best_id)
             seen = {best_id}
             for _ in range(40):

@@ -538,12 +538,14 @@ def call_tool(name: str, arguments: dict) -> dict:
 
 
 def _live_private() -> bool:
-    """Whether the live chat session is a private one (PRIVATE_MEMORY_v1); False when it cannot be told."""
+    """Whether a private session is running a turn (SESSION_SPLIT_v1): work tools stay closed while one is;
+    False when it cannot be told."""
     try:
         import urllib.request
         port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
-        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
-            return bool(json.loads(r.read().decode("utf-8") or "{}").get("is_private"))
+        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/busy" % port, timeout=1.5) as r:
+            busy = json.loads(r.read().decode("utf-8") or "{}").get("sessions") or []
+        return any(x.get("mode") == "private" for x in busy)
     except Exception:
         return False
 

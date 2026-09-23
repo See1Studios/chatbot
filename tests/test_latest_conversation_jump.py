@@ -29,6 +29,8 @@ const fwd = slice('async function resolveScrollforwardFallback', 'async function
 let sessionId = '20260920-090000-past1';
 let sessionNavNextSid = '20260921-120000-mid2';
 let currentTab = 'chat';
+let sessionMode = 'work';
+function sameSessionMode(s) { return ((s && s.mode) || 'work') === sessionMode; }
 const scrolled = [];
 const apiCalls = [];
 const bodyCls = new Set();

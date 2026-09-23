@@ -94,20 +94,20 @@ class PrivateMemoryTest(unittest.TestCase):
         self.assertLessEqual(len(C.private_memory_path(self.cid, self.ws).read_bytes()), C.PRIVATE_MEMORY_CAP)
         self.assertFalse((self.ws / "characters" / self.cid / "memory.md").exists())   # work memory untouched
 
-    def test_the_private_stretch_and_its_digest(self):
-        history = [{"role": "user", "text": "work question"}, {"role": "assistant", "text": "work answer"},
-                   {"role": "user", "text": C.PRIVATE_ENTRY_MARK + " rules"},
-                   {"role": "assistant", "text": "왔어?"},
-                   {"role": "user", "text": "[사적 모드: No Logging] 오늘 좀 피곤해"}, {"role": "assistant", "text": "푹 쉬어"}]
-        seg = C.private_segment(history)
-        self.assertEqual([h["text"] for h in seg], ["왔어?", "[사적 모드: No Logging] 오늘 좀 피곤해", "푹 쉬어"])
-        prompt = C.private_digest_prompt(seg, "실장님", "P")
-        self.assertIn("실장님: 오늘 좀 피곤해", prompt)
-        self.assertNotIn("work question", prompt)
+    def test_the_private_turns_since_the_last_digest(self):
+        history = [{"role": "user", "text": "old", "ts": 10}, {"role": "assistant", "text": "old reply", "ts": 11},
+                   {"role": "user", "text": "오늘 좀 피곤해", "ts": 20}, {"role": "assistant", "text": "err", "ts": 21,
+                                                                       "notice": "error"},
+                   {"role": "assistant", "text": "푹 쉬어", "ts": 22}, {"role": "system", "text": "x", "ts": 23}]
+        seg = C.private_segment(history, since=11)
+        self.assertEqual([h["text"] for h in seg], ["오늘 좀 피곤해", "푹 쉬어"])
+        self.assertEqual(len(C.private_segment(history)), 4)
+        prompt = C.private_digest_prompt(seg, "U", "P")
+        self.assertIn("U: 오늘 좀 피곤해", prompt)
+        self.assertNotIn("old", prompt)
         self.assertEqual(C.parse_memory_lines("- a\n- b\nnoise\n- c\n- d"), ["a", "b", "c"])
         self.assertEqual(C.parse_memory_lines("NONE"), [])
-        self.assertEqual(C.private_segment([{"role": "user", "text": "hi"}]), [])
-
+        self.assertEqual(C.private_segment(history, since=99), [])
 
 if __name__ == "__main__":
     unittest.main()

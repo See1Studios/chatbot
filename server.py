@@ -257,6 +257,34 @@ def _schedule_host_defibrillate() -> None:
 _OBS_STREAM_SUFFIX = "/events"
 
 
+def _digest_private_later(sess) -> None:
+    """Put a private session's new talk into the character's private memory, in the background (SESSION_SPLIT_v1).
+    Only the character's private memory is written; the work side never sees it."""
+    def run():
+        import characters
+        from session import _oneshot
+        try:
+            with sess.lock:
+                history = list(sess.history)
+            since = float(getattr(sess, "private_digested_ts", 0) or 0)
+            seg = characters.private_segment(history, since)
+            if not seg:
+                return
+            cid = sess.character or characters.by_role("pd") or ""
+            card = characters.load(cid) if cid else {}
+            name = (card.get("data") or {}).get("name") or identity.self_label()
+            res = _oneshot(characters.private_digest_prompt(seg, identity.user_title(), name), 60) or {}
+            if not res.get("text"):
+                obslog.event("private.digest_failed", session=sess.sid, error=str(res.get("error") or "no text"))
+                return
+            added = characters.remember_private(cid, characters.parse_memory_lines(res["text"])) if cid else 0
+            sess.private_digested_ts = max(float(h.get("ts") or 0) for h in seg)
+            sess.save_meta()
+            obslog.event("private.digested", session=sess.sid, character=cid, added=added)
+        except Exception as e:  # noqa: BLE001
+            obslog.exception("private.digest_exception", e, session=sess.sid)
+    threading.Thread(target=run, name="private-digest", daemon=True).start()
+
 class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
     """Access/exception logging comes from obslog.HTTPLogMixin (docs/LOGGING.md): every request
     is timed and counted; errors, slow and mutating requests are written one by one."""
@@ -451,6 +479,15 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/sessions":
             code, body = _json_bytes({"sessions": REG.list()})
+            return self._send(code, body, "application/json; charset=utf-8")
+        if path == "/api/sessions/busy":
+            # which sessions are running a turn, and in which mode: the MCP server refuses work tools while a
+            # private session is busy (SESSION_SPLIT_v1)
+            with REG.lock:
+                live = list(REG.sessions.values())
+            busy = [{"id": x.sid, "mode": x.mode, "provider": x.provider} for x in live
+                    if x.busy and x._proc_alive()]
+            code, body = _json_bytes({"sessions": busy})
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/sessions/active":
             sess = REG.get_active()
@@ -1012,27 +1049,21 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 if not isinstance(client_ctx, dict):
                     client_ctx = None
 
+                # SESSION_SPLIT_v1 (plan doc §12): private talk has its own session. /private opens the
+                # character's private session, /work goes back to the work session; nothing is sent to the agent.
                 stripped = text.strip()
-                if stripped in ("/private", "/private on"):
-                    sess.is_private = True
-                    priv_rules = identity.private_rules()   # the chatbot's card (PRIVATE.md before the move)
-                    text = (
-                        "[시스템: 사적 모드(Private Mode) 활성화]\n"
-                        "이 대화는 완전 휘발성이며 영구 기억(MEMORY.md)/관찰/도구 호출이 차단됩니다.\n"
-                        "아래 PRIVATE.md 규칙(진짜 카톡 같은 자연스러운 구어체, 1~2줄, 냥체 배제, 지문 배제)을 엄격히 준수하세요.\n"
-                        f"---\n{priv_rules}\n---\n"
-                        f"{identity.user_title()}이 사적 모드(/private)에 들어왔습니다. 자연스럽고 편안한 일상 구어체(1~2줄)로 맞이하세요."
-                    )
-                elif stripped in ("/work", "/private off"):
-                    sess.is_private = False
-                    text = (
-                        "[시스템: 업무 모드(Work Mode) 복귀]\n"
-                        "사적 모드가 해제되고 기본 업무 모드로 복귀했습니다.\n"
-                        f"{identity.self_label()} 기본 페르소나(친근한 냥체, 업무 도구 활용)로 복귀하세요.\n"
-                        f"{identity.user_title()}이 업무 모드로 복귀했습니다."
-                    )
-                elif getattr(sess, "is_private", False):
-                    text = f"[사적 모드: No Logging, No Tools, 일상 구어체 반말 1~2줄]\n{text}"
+                if stripped in ("/private", "/private on", "/work", "/private off"):
+                    if stripped.startswith("/private") and stripped != "/private off":
+                        target = sess if sess.is_private else REG.get_private(sess.character, like=sess)
+                    else:
+                        if sess.is_private:
+                            _digest_private_later(sess)
+                        target = REG.get_active() if sess.is_private else sess
+                    pub = target.to_public()
+                    pub["is_private"] = target.is_private
+                    code, raw = _json_bytes({"ok": True, "switched": target.sid != sid, "old_session_id": sid,
+                                             "session": pub})
+                    return self._send(code, raw, "application/json; charset=utf-8")
 
                 try:
                     rotated = sess.send(text, client_mid, client_context=client_ctx)
@@ -1058,7 +1089,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 
                 target_sess = rotated or sess
                 pub = target_sess.to_public()
-                pub["is_private"] = bool(getattr(sess, "is_private", False))
+                pub["is_private"] = target_sess.is_private
                 if rotated is not None:
                     code, raw = _json_bytes({
                         "ok": True,

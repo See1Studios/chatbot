@@ -262,10 +262,10 @@ def migrate_pd(ws=None) -> Optional[str]:
 
 # ------------------------------------------------------------------ private memory (§12, PRIVATE_MEMORY_v1)
 # Private talk is remembered, but completely apart from work: `private-memory.md` in the character's folder is read
-# only when private mode starts and written only when it ends; work memory never sees it, and it never sees work.
+# only by the character's private session and written when the user leaves it (SESSION_SPLIT_v1); work memory never
+# sees it, and it never sees work.
 
 PRIVATE_MEMORY_CAP = 2048
-PRIVATE_ENTRY_MARK = "[시스템: 사적 모드(Private Mode) 활성화]"     # the host's own /private entry text (server.py)
 _SECRETISH = re.compile(r"(api[_-]?key|secret|password|passwd|token|bearer|sk-[A-Za-z0-9]{8,}|-----BEGIN)", re.I)
 
 
@@ -305,15 +305,10 @@ def remember_private(cid: str, lines: List[str], today: Optional[str] = None, ws
     return added
 
 
-def private_segment(history: List[Dict]) -> List[Dict]:
-    """The user/assistant turns since the last private-mode entry (the entry turn itself excluded)."""
-    start = None
-    for i, h in enumerate(history):
-        if h.get("role") == "user" and str(h.get("text") or "").startswith(PRIVATE_ENTRY_MARK):
-            start = i
-    if start is None:
-        return []
-    return [h for h in history[start + 1:] if h.get("role") in ("user", "assistant") and (h.get("text") or "").strip()]
+def private_segment(history: List[Dict], since: float = 0.0) -> List[Dict]:
+    """A private session's user/assistant turns after `since` (the time its talk was last put in memory)."""
+    return [h for h in history if h.get("role") in ("user", "assistant") and (h.get("text") or "").strip()
+            and not h.get("notice") and float(h.get("ts") or 0) > since]
 
 
 def private_digest_prompt(segment: List[Dict], user_word: str, name: str) -> str:

@@ -37,7 +37,7 @@ class TestStderrRedaction(unittest.TestCase):
         sess.pending_images = []
         sess.created_at = 100.0
         sess.history = []
-        sess.is_private = False
+        sess.mode = "work"
         sess.successor_session_id = None
         sess.predecessor_session_id = None
         sess.handoff_summary = ""

@@ -136,9 +136,41 @@ def _status_text() -> str:
     return f"[자기개선 상태] 열린 관찰 {n_open}건 · 미검토 후보 {n_cand}건 · 마지막 리뷰 {last}"
 
 
-def build_instruction_bundle() -> Dict[str, str]:
+def _card(character: str) -> Dict:
+    """The character's card; "" = the chatbot itself (the character with role pd)."""
+    try:
+        import characters
+        return characters.load(character, WORKSPACE) if character else characters.pd_card(WORKSPACE)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+PRIVATE_SESSION_NOTE = ("[Private session] This is a private conversation, kept apart from work. Work tools, tickets, "
+                        "delegation and work memory are closed here; do not do work or bring up work memory. Follow "
+                        "the private rules below.")
+
+
+def _private_bundle(character: str) -> Dict[str, str]:
+    import characters
+    card = _card(character)
+    if not card:
+        return {"text": "", "hash": ""}
+    rules = characters.private_text(card)
+    static = "\n\n---\n\n".join(t for t in (_read(WORKSPACE / "AGENTS.md"), characters.persona_text(card).strip(),
+                                            PRIVATE_SESSION_NOTE + ("\n\n" + rules if rules else "")) if t)
+    cid = character or characters.by_role("pd", WORKSPACE) or ""
+    memory = characters.read_private_memory(cid, WORKSPACE) if cid else ""
+    text = static + ("\n\n[Private memory]\n" + memory if "- " in memory else "")
+    return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
+
+
+def build_instruction_bundle(mode: str = "work", character: str = "") -> Dict[str, str]:
     """{"text": full bundle, "hash": digest of the static layers}. Empty text
-    when there are no rule files at all (caller then injects nothing)."""
+    when there are no rule files at all (caller then injects nothing).
+    A private session (SESSION_SPLIT_v1) gets the character's private rules and private memory instead of skills,
+    work memory and the status badge."""
+    if mode == "private":
+        return _private_bundle(character)
     static = "\n\n".join(t for t in (_rules_text(), _skills_text()) if t)
     if not static:
         return {"text": "", "hash": ""}
