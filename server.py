@@ -20,7 +20,6 @@ import subprocess
 import sys
 import threading
 import time
-import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict
@@ -55,6 +54,7 @@ from session import (
 )
 import accounts
 import account_login
+import obslog
 import evolution
 import identity
 import origin_guard
@@ -157,8 +157,8 @@ def _auto_recycle_once() -> int:
     n = len(result["recycled"])
     if n:
         _AUTO_RECYCLE.update(last_at=time.time(), last_count=n, total=_AUTO_RECYCLE["total"] + n)
-        print(f"[{_now()}] auto-recycle: agy login changed, restarted {n} idle owned process(es) "
-              f"{result['recycled']} (busy skipped: {result['skipped_busy']})", file=sys.stderr, flush=True)
+        obslog.event("agent.recycle", lvl="warn", msg="agy login changed; restarted idle owned processes",
+                     recycled=result["recycled"], skipped_busy=result["skipped_busy"])
     return n
 
 
@@ -168,7 +168,7 @@ def _auto_recycle_loop() -> None:
         try:
             _auto_recycle_once()
         except Exception:
-            traceback.print_exc()
+            obslog.exception("agent.recycle_failed")
 
 
 from preview_guard import (
@@ -212,6 +212,8 @@ def _schedule_host_defibrillate() -> None:
             pass
         env = dict(os.environ)
         env["CHATBOT_FORCE_HOST"] = "1"
+        env["CHATBOT_CALLER"] = "api-defibrillate"
+        obslog.event("host.defibrillate", lvl="warn", msg="repair requested over HTTP (FAB / POST /api/host/defibrillate)")
         try:
             # Must run in an independent session (setsid + start_new_session=True)
             # so when 'repair' kills server.py, the repair script itself isn't terminated.
@@ -228,11 +230,20 @@ def _schedule_host_defibrillate() -> None:
     threading.Thread(target=_run, daemon=True).start()
 
 
-class Handler(BaseHTTPRequestHandler):
+# Successful GETs of these are UI polling: counted in http.summary, never written one by one.
+_OBS_STREAM_SUFFIX = "/events"
+
+
+class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
+    """Access/exception logging comes from obslog.HTTPLogMixin (docs/LOGGING.md): every request
+    is timed and counted; errors, slow and mutating requests are written one by one."""
     server_version = "Chatbot/1.0"
 
-    def log_message(self, fmt: str, *args: Any) -> None:
-        sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+    def _obs_path(self, raw: str) -> str:
+        return self._normalize_req_path(raw)
+
+    def _obs_stream(self, method: str, path: str) -> bool:
+        return path.endswith(_OBS_STREAM_SUFFIX)
 
     def _cors(self) -> None:
         # Only pages on this machine (e.g. the hub on another port) may read our
@@ -1029,8 +1040,8 @@ class Handler(BaseHTTPRequestHandler):
                     # agy process's own recent stderr in the error body
                     # itself so the *next* occurrence is diagnosable without
                     # a second round-trip to GET the session.
-                    print(f"[{_now()}] EXCEPTION in POST /message sid={sid}:", file=sys.stderr)
-                    traceback.print_exc()
+                    # (OBSLOG_v1: the traceback is recorded as http.error in
+                    # logs/events.jsonl by HTTPLogMixin.send_response.)
                     err: Dict[str, Any] = {"ok": False, "error": str(e)}
                     tail = getattr(sess, "_stderr_tail", None)
                     if tail:
@@ -1098,8 +1109,8 @@ class Handler(BaseHTTPRequestHandler):
             # that fails this way is just as undiagnosable as 0011 was.
             # Print it here too (goes to logs/chatbot.log) rather than
             # adding a try/except to every branch above.
-            print(f"[{_now()}] EXCEPTION in POST {path}:", file=sys.stderr)
-            traceback.print_exc()
+            # OBSLOG_v1: HTTPLogMixin records the traceback (http.error) for this
+            # and every other route's catch-all, GET/PUT/DELETE included.
             code, raw = _json_bytes({"ok": False, "error": str(e)}, 500)
             return self._send(code, raw, "application/json; charset=utf-8")
         code, raw = _json_bytes({"ok": False, "error": "not found"}, 404)
@@ -1260,12 +1271,28 @@ class Handler(BaseHTTPRequestHandler):
                     sess.subscribers.remove(sub_queue)
 
 
+def _obs_heartbeat() -> Dict[str, Any]:
+    """Merged into every proc.heartbeat (obslog, every 5 min)."""
+    with REG.lock:
+        sessions = list(REG.sessions.values())
+    busy = [s.sid for s in sessions if getattr(s, "busy", False)]
+    return {
+        "sessions": len(sessions),
+        "busy": busy[:10],
+        "subscribers": sum(len(getattr(s, "subscribers", []) or []) for s in sessions),
+        "agent_procs": len(owned_agent_procs()),
+        "auto_recycle_total": _AUTO_RECYCLE["total"],
+    }
+
+
 def main() -> None:
     if not Path(AGY).exists():
         raise SystemExit(f"agy not found: {AGY}")
     seeded = identity.seed_workspace_files()
+    obslog.start_process("chat", host=HOST, port=PORT, default_model=DEFAULT_MODEL, default_provider=DEFAULT_PROVIDER)
+    obslog.add_heartbeat(_obs_heartbeat)
     if seeded:
-        print(f"seeded workspace from templates: {seeded}", flush=True)
+        obslog.event("workspace.seeded", files=seeded)
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     httpd.daemon_threads = True
     threading.Thread(target=_standby_maintenance_loop, daemon=True).start()
@@ -1274,7 +1301,8 @@ def main() -> None:
         threading.Thread(target=_auto_recycle_loop, daemon=True).start()
     print(f"chatbot on http://{HOST}:{PORT} (VibeCat-class NAS)", flush=True)
 
-    def _stop(*_a):
+    def _stop(signum=None, *_a):
+        obslog.stop_process("signal %s" % signum)
         try:
             httpd.server_close()
         except Exception:

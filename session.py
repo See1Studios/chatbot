@@ -24,6 +24,7 @@ try:  # turn observation is best effort: a missing core module must never stop t
     import evolution
 except Exception:  # noqa: BLE001
     evolution = None
+import obslog
 from loop_guard import LoopGuard, extract_tool_steps, normalize
 from host_config import (
     ADD_DIRS,
@@ -71,6 +72,9 @@ from media_handler import (
 # A message sent while an agy turn is running is accepted at once and applied at the next
 # tool-step boundary (steer). agy itself cannot take a message mid-turn: measured 2026-09-20,
 # a second stdin line only QUEUES and runs after the current turn ends (agy.md A41).
+# Session event kinds copied into logs/events.jsonl (OBSLOG_v1, see _obs_forward).
+_OBS_FORWARD = {"error", "stopped", "interrupted", "session_rotate", "session_heavy", "steer_queued", "system"}
+
 STEER_MAX_WAIT_SEC = 90   # no boundary for this long (long reasoning, no tools): interrupt anyway
 LOOP_STOP_AFTER_NOTICE = 3   # repeats that still continue after the agent was told to change course -> stop
 LOOP_NOTICE = ("같은 도구 호출을 반복하고 있습니다 ({what}). 새 정보가 없으니 여기서 멈추고, 지금까지 알게 된 것을 세 줄로 정리한 뒤 "
@@ -214,7 +218,7 @@ class AgySession:
             except Exception as e:
                 ts = int(time.time())
                 corrupt_path = self.meta_path.with_name(f"{self.meta_path.name}.corrupt-{ts}")
-                print(f"WARN corrupt meta.json for {self.sid}: {e}; renaming to {corrupt_path.name}", file=sys.stderr)
+                obslog.exception("session.meta_corrupt", e, lvl="warn", sid=self.sid, renamed_to=corrupt_path.name)
                 try:
                     self.meta_path.replace(corrupt_path)
                 except Exception:
@@ -240,7 +244,7 @@ class AgySession:
             try:
                 _atomic_write_text(self.meta_path, json.dumps(payload, ensure_ascii=False, indent=2))
             except Exception as e:
-                print(f"WARN: save_meta failed for {self.sid}: {e}", flush=True)
+                obslog.exception("session.save_meta_failed", e, sid=self.sid)
 
     def _emit(self, event: dict) -> None:
         self.last_activity = _now()
@@ -264,6 +268,8 @@ class AgySession:
                 pass
         if kind in PERSISTED_LOG_KINDS:
             self._append_log_event(event)
+        if kind in _OBS_FORWARD:
+            self._obs_forward(kind, event)
         dead = []
         with self.lock:
             for q in list(self.subscribers):
@@ -279,6 +285,27 @@ class AgySession:
                     self.subscribers.remove(q)
                 except ValueError:
                     pass
+
+    def _obs_forward(self, kind: str, event: dict) -> None:
+        """OBSLOG_v1: copy the session events that describe health (not content) into the global
+        log, tagged with sid/provider, so one stream shows service and session state together."""
+        try:
+            text = str(event.get("text") or "")
+            if kind == "system":
+                if " started model=" in text:
+                    obslog.event("agent.spawn", sid=self.sid, provider=self.provider, model=self.model,
+                                 agent_pid=getattr(self.proc, "pid", None), standby="warm standby" in text)
+                elif text.startswith("⚠"):
+                    obslog.event("turn.loop_notice", lvl="warn", sid=self.sid, provider=self.provider, msg=text[:300])
+                elif text.startswith("턴 종료"):
+                    obslog.event("turn.quiet_close", lvl="warn", sid=self.sid, provider=self.provider, msg=text[:300])
+                return
+            lvl = "warn" if kind in ("error", "session_heavy") else "info"
+            extra = {k: event.get(k) for k in ("reason", "level", "queue_len", "new_session_id", "weight") if event.get(k) is not None}
+            obslog.event("session." + kind, lvl=lvl, sid=self.sid, provider=self.provider, model=self.model,
+                         msg=text[:500], **extra)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _spawn(self, prompt: str = "") -> None:
         """`prompt` (Multi-Provider plan Phase 2): only meaningful for a
@@ -533,6 +560,7 @@ class AgySession:
         takes no lock, does one small file append, and never raises. A user turn is handed over once,
         so two paths ending the same turn do not record it twice. `outcome == "steer"` (the user adding
         an instruction mid-turn) only clears the marks."""
+        self._obs_turn_end(outcome)
         try:
             idx, text = self._last_user_turn()
             marks = [k for i, k in self._turn_marks if i == idx]
@@ -545,6 +573,29 @@ class AgySession:
             self._observed_turn_key = key
             evolution.on_turn_end(ROOT, self._observation_root(), self.sid, self.provider, outcome, marks, text)
         except Exception:  # noqa: BLE001
+            pass
+
+    def _obs_turn_end(self, outcome: str) -> None:
+        """OBSLOG_v1 turn.end: once per turn (keyed by turn_started_at), with duration and the
+        agent's recent stderr when the turn did not end in a normal result."""
+        try:
+            started = float(getattr(self, "turn_started_at", 0) or 0)
+            if outcome == "steer" or getattr(self, "_obs_turn_logged", None) == started:
+                return
+            self._obs_turn_logged = started
+            ok = outcome == "result"
+            fields = dict(sid=self.sid, provider=self.provider, model=self.model, outcome=outcome,
+                          dur_s=round(_now() - started, 1) if started else None,
+                          standby=bool(getattr(self, "_adopted_standby", False)))
+            if not ok:
+                tail = list(getattr(self, "_stderr_tail", []) or [])[-8:]
+                if tail:
+                    fields["stderr_tail"] = tail
+                hint = (getattr(self, "_err_msg_hint", "") or "").strip()
+                if hint:
+                    fields["error_hint"] = hint[:300]
+            obslog.event("turn.end", lvl="info" if ok or outcome in ("stopped", "interrupted") else "warn", **fields)
+        except Exception:  # noqa: BLE001 -- logging must never disturb a turn
             pass
 
     # QUOTA_FAILFAST_v1: agy emits step_type=error_message then idles ~2min before result.
@@ -602,7 +653,7 @@ class AgySession:
             # older signature without emit_error
             self._end_unfinished_turn("ERROR", err, dur)
         except Exception as e:
-            print(f"WARN: error_message failfast failed: {e}", flush=True)
+            obslog.exception("turn.failfast_failed", e, sid=self.sid)
             try:
                 self._end_unfinished_turn("ERROR", err, dur, emit_error=True)
             except Exception:
@@ -895,7 +946,8 @@ class AgySession:
                 try:
                     self._handle_stdout_line(line)
                 except Exception as e:
-                    print(f"ERROR in _read_stdout line processing for {self.sid}: {e}", flush=True)
+                    obslog.exception("session.stdout_line_failed", e, sid=self.sid, provider=self.provider,
+                                     dedup="%s|%s" % (self.sid, type(e).__name__), line=line[:300])
         finally:
             with self.lock:
                 if self.busy and self.proc is proc:  # only if THIS child died mid-turn
@@ -917,6 +969,18 @@ class AgySession:
                         threading.Thread(target=self._dispatch_queued, daemon=True).start()
             if died_mid_turn:
                 self._finish_turn("process_died")
+            try:
+                rc = proc.poll()
+                if rc is None:
+                    rc = proc.wait(timeout=2)
+            except Exception:
+                rc = None
+            try:
+                obslog.event("agent.exit", lvl="warn" if died_mid_turn else "info", sid=self.sid,
+                             provider=self.provider, agent_pid=getattr(proc, "pid", None), rc=rc,
+                             died_mid_turn=died_mid_turn, requested=bool(self._stop_requested) or self.proc is not proc)
+            except Exception:  # noqa: BLE001 -- logging must never disturb the reader
+                pass
             _record_live_pids()
             prompt_file = getattr(proc, "_grok_prompt_file", None)
             if prompt_file:
@@ -954,7 +1018,7 @@ class AgySession:
             try:
                 self._run_post_result_stop()
             except Exception as e:
-                print(f"WARN: post_result_stop failed: {e}", flush=True)
+                obslog.exception("turn.post_result_stop_failed", e, lvl="warn", sid=self.sid)
             with self.lock:
                 has_queued = bool(getattr(self, "msg_queue", []))
             if has_queued:
@@ -1607,13 +1671,16 @@ class AgySession:
             self._loop_noticed = False
         with self.lock:
             self.current_text = ""
-            self.turn_started_at = _now(); self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None
+            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None
             self.pending_images = []
             ts = _now()
             if not notice:
                 self.history.append({"role": "user", "text": text, "ts": ts})
             self.last_activity = _now()
             self.save_meta()
+        obslog.event("turn.start", sid=self.sid, provider=self.provider, model=self.model,
+                     notice=bool(notice), chars=len(text or ""), resume=bool(self.conversation_id),
+                     queued=len(getattr(self, "msg_queue", []) or []))
 
         # Other devices must see the question before any delta. HTTP/one-shot
         # turns used to start their worker thread first; the tablet then

@@ -41,6 +41,34 @@ rotate_log() {
     fi
   fi
 }
+# OBSLOG_v1: structured events go to logs/events.jsonl (docs/LOGGING.md). CHATBOT_CALLER says
+# who started this run (api-defibrillate, doctor-auto, cli-tty, ppid:<parent>); it is exported
+# before the lifecycle lock re-exec so the locked child keeps it.
+export CHATBOT_OBSLOG_PATH="${CHATBOT_OBSLOG_PATH:-$LOG_DIR/events.jsonl}"
+if [ -z "${CHATBOT_CALLER:-}" ]; then
+  if [ -t 0 ] || [ -t 1 ]; then
+    CHATBOT_CALLER="cli-tty"
+  else
+    # parent command < grandparent command line (shortened): enough to tell a scheduler,
+    # an agent's shell and a person's script apart.
+    _pp_comm=$(ps -o comm= -p "$PPID" 2>/dev/null | tr -d ' ' || true)
+    _gp=$(ps -o ppid= -p "$PPID" 2>/dev/null | tr -d ' ' || true)
+    _gp_args=""
+    if [ -n "$_gp" ]; then
+      _gp_args=$(ps -o args= -p "$_gp" 2>/dev/null | sed "s#$HOME_DIR#~#g" | cut -c1-80 || true)
+    fi
+    CHATBOT_CALLER="ppid:${_pp_comm:-?}<${_gp_args:-?}"
+  fi
+  export CHATBOT_CALLER
+fi
+
+obs() {
+  # obs <evt> <lvl> [key=value ...] -- best effort, never fails the caller
+  local evt="$1" lvl="$2"
+  shift 2
+  python3 "$CODE/obslog.py" emit --src ctl --evt "$evt" --lvl "$lvl" "$@" >/dev/null 2>&1 || true
+}
+
 PID_CHAT="$LOG_DIR/chatbot.pid"
 PID_MCP="$LOG_DIR/chatbot-mcp.pid"
 PORT_CHAT="${AGY_CHAT_PORT:-3011}"
@@ -206,6 +234,14 @@ for line in out.splitlines():
         os.kill(pid, signal.SIGTERM)
         killed += 1
         print(f"killed pid={pid} reason={reason}", file=sys.stderr)
+        try:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(sessions_dir))))
+            import obslog
+            obslog.configure("ctl", mirror="error")
+            obslog.event("agent.reaped", lvl="warn", agent_pid=pid, ppid=int(ppid_s), reason=reason,
+                         age_s=etimes, cmd=args[:200], caller=os.environ.get("CHATBOT_CALLER"))
+        except Exception:
+            pass
     except OSError:
         pass
 print(killed)
@@ -337,7 +373,7 @@ port = int(sys.argv[1]); timeout = float(sys.argv[2])
 base = f"http://127.0.0.1:{port}"
 def req(method, path, body=None, timeout=timeout):
     data = None if body is None else json.dumps(body).encode()
-    hdrs = {"Origin": f"http://127.0.0.1:{port}"}
+    hdrs = {"Origin": f"http://127.0.0.1:{port}", "X-Chatbot-Caller": "doctor-probe"}
     if body is not None:
         hdrs["Content-Type"] = "application/json"
     r = urllib.request.Request(base+path, data=data, method=method, headers=hdrs)
@@ -410,6 +446,7 @@ cmd_start() {
     rotate_log "$LOG_MCP"
     setsid nohup python3 "$CODE/mcp_server.py" >>"$LOG_MCP" 2>&1 < /dev/null & echo $! > "$PID_MCP"
     sleep 1
+    obs ctl.spawn info proc=mcp pid="$(cat "$PID_MCP" 2>/dev/null || echo 0)"
   fi
   if is_up "$PID_CHAT" && health_chat; then
     echo "already running chat pid=$(cat "$PID_CHAT") mcp pid=$(cat "$PID_MCP")"
@@ -420,7 +457,15 @@ cmd_start() {
   rotate_log "$LOG_CHAT"
   setsid nohup python3 "$CODE/server.py" >>"$LOG_CHAT" 2>&1 < /dev/null & echo $! > "$PID_CHAT"
   sleep 1
-  if health_chat; then echo "started chat pid=$(cat "$PID_CHAT") mcp pid=$(cat "$PID_MCP")"; else echo "start failed"; tail -n 40 "$LOG_CHAT"; return 1; fi
+  if health_chat; then
+    echo "started chat pid=$(cat "$PID_CHAT") mcp pid=$(cat "$PID_MCP")"
+    obs ctl.spawn info proc=chat pid="$(cat "$PID_CHAT")"
+  else
+    echo "start failed"
+    obs ctl.start_failed error proc=chat --msg "$(tail -n 5 "$LOG_CHAT" 2>/dev/null | tr '\n' ' ' | cut -c1-600)"
+    tail -n 40 "$LOG_CHAT"
+    return 1
+  fi
 }
 
 wait_for_idle_session() {
@@ -447,6 +492,7 @@ except Exception:
     sleep 3
     waited=$((waited + 3))
   done
+  obs repair.busy_timeout warn waited_s="$waited"
   return 1
 }
 
@@ -454,7 +500,9 @@ cmd_repair() {
   export CHATBOT_FORCE_HOST=1
   issue_host_ticket repair
   trap consume_host_ticket EXIT
-  doctor_log "REPAIR begin"
+  doctor_log "REPAIR begin caller=$CHATBOT_CALLER"
+  local t0=$SECONDS
+  obs repair.begin warn
   kill_stale_session_agy || true
   guard_rlock || doctor_log "WARNING guard_rlock failed — refusing blind restart may be wrong; continuing after note"
   wait_for_idle_session || doctor_log "WARNING active session still busy after wait — proceeding with repair anyway"
@@ -471,10 +519,12 @@ cmd_repair() {
     mark_probe
     pruned=$(kill_orphan_agy)
     doctor_log "REPAIR ok (probe passed) post_probe_pruned=$pruned"
+    obs repair.end info ok=1 dur_s=$((SECONDS - t0)) orphans="$orphans" pruned="$pruned"
     return 0
   else
     pruned=$(kill_orphan_agy)
     doctor_log "REPAIR probe still failing post_probe_pruned=$pruned"
+    obs repair.end error ok=0 dur_s=$((SECONDS - t0)) orphans="$orphans" pruned="$pruned"
     return 1
   fi
 }
@@ -491,6 +541,7 @@ kill_stale_session_agy() {
     # leave non-chat agy alone if no conversation flag? kill conversation orphans not owned by chat
     if [[ "$args" == *"--conversation "* ]]; then
       echo "stale_session_agy_kill pid=$pid ppid=$ppid"
+      obs agent.reaped warn agent_pid="$pid" ppid="$ppid" reason=stale-session
       kill "$pid" 2>/dev/null || true
       sleep 1
       kill -9 "$pid" 2>/dev/null || true
@@ -504,13 +555,26 @@ cmd_doctor() {
   if age=$(python3 "$CODE/evolution.py" maintenance "$DATA/maintenance.flag" 2>/dev/null); then
     echo "doctor: maintenance flag present ($age) — auto start/repair skipped"
     doctor_log "doctor: maintenance flag present ($age) — auto start/repair skipped"
+    obs doctor.maintenance info age="$age"
     return 0
   fi
   # Warn-only check of the protected files against protected_manifest.json.
   hash_out=$(python3 "$CODE/evolution.py" manifest-check 2>&1 || true)
   if [ -n "$hash_out" ]; then
     echo "$hash_out"
-    case "$hash_out" in WARN*) doctor_log "$hash_out" ;; esac
+    # Same warning every run used to fill doctor.log (1669 of 2600 lines): log only on change.
+    case "$hash_out" in WARN*)
+      local sum_now sum_old
+      sum_now=$(printf '%s' "$hash_out" | cksum | cut -d' ' -f1)
+      sum_old=$(cat "$LOG_DIR/.manifest-warn.sum" 2>/dev/null || true)
+      if [ "$sum_now" != "$sum_old" ]; then
+        doctor_log "$hash_out"
+        obs manifest.drift warn --msg "$hash_out"
+        printf '%s' "$sum_now" > "$LOG_DIR/.manifest-warn.sum"
+      fi
+      ;;
+    *) rm -f "$LOG_DIR/.manifest-warn.sum" ;;
+    esac
   fi
   if [ "${1:-}" = "--auto-repair" ] || [ "${1:-}" = "auto" ]; then auto=1; fi
   local rc=0
@@ -518,14 +582,17 @@ cmd_doctor() {
   if ! guard_rlock; then
     echo "FAIL guard_rlock"
     doctor_log "doctor FAIL guard_rlock"
+    obs doctor.fail error check=guard_rlock
     # code regression — restart won't help; still try start for availability
     rc=1
   fi
   if ! is_up "$PID_CHAT" || ! health_chat; then
     echo "chat down — starting"
     doctor_log "doctor: chat down, start"
+    obs doctor.chat_down error
     if ! cmd_start; then
       doctor_log "doctor: start failed"
+      obs doctor.fail error check=start
       return 1
     fi
   else
@@ -533,6 +600,7 @@ cmd_doctor() {
   fi
   if ! is_up "$PID_MCP" || ! health_mcp; then
     echo "mcp down — starting via start"
+    obs doctor.mcp_down error
     cmd_start || true
   else
     echo "mcp healthz OK pid=$(cat "$PID_MCP")"
@@ -543,15 +611,21 @@ cmd_doctor() {
 
   if should_probe_now; then
     echo "message probe (every ${PROBE_EVERY_SEC}s)..."
-    if probe_message 5; then
+    local probe_out
+    if probe_out=$(probe_message 5); then
+      echo "$probe_out"
       mark_probe
       echo "probe OK"
+      obs doctor.probe info ok=1
     else
+      echo "$probe_out"
+      obs doctor.probe error ok=0 --msg "$probe_out"
       echo "FAIL probe_message"
       doctor_log "doctor FAIL probe_message"
       rc=1
       if [ "$auto" = "1" ]; then
         doctor_log "doctor auto-repair triggered by probe fail"
+        export CHATBOT_CALLER="doctor-auto<${CHATBOT_CALLER}"
         if cmd_repair; then
           rc=0
         else
@@ -614,6 +688,7 @@ case "$cmd" in
     guard_rlock
     guard_tickets
     ;;
-  *) echo "usage: $0 {start|stop|restart|status|doctor [--auto-repair]|probe|repair|defibrillate|guard}"; exit 2 ;;
+  logs) shift || true; exec python3 "$CODE/logdigest.py" "$@" ;;
+  *) echo "usage: $0 {start|stop|restart|status|doctor [--auto-repair]|probe|repair|defibrillate|guard|logs [--since 24h] [--sid ID] [--json] [-f]}"; exit 2 ;;
 esac
 

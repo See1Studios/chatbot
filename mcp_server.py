@@ -26,6 +26,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
+import obslog
+
 HOST = os.environ.get("NAS_MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))
 HOME = Path(os.environ.get("HOME", "/volume1/homes/me"))
@@ -99,7 +101,11 @@ CMD_PREFIXES = (
 # no arguments except probe's timeout. `doctor --auto-repair` reaches repair, so
 # doctor takes none. repair/start/stop/restart/defibrillate are for people.
 CTL_NAMES = (str(SERVICES / "chatbot-ctl.sh"), "chatbot-ctl.sh")
-CTL_SUBCOMMANDS = ("status", "doctor", "probe", "guard")
+CTL_SUBCOMMANDS = ("status", "doctor", "probe", "guard", "logs")
+# `logs` (read-only logdigest.py) takes only these flag/value shapes.
+CTL_LOGS_FLAGS = {"--since": re.compile(r"\d{1,4}[smhd]"), "--sid": re.compile(r"\d{8}-\d{6}-[0-9a-f]{6}"),
+                  "--rid": re.compile(r"[0-9a-f]{12}"), "--fp": re.compile(r"[0-9a-f]{10}"),
+                  "--evt": re.compile(r"[a-z_.]{1,40}"), "--json": None, "--all": None}
 # curl is GET-only against this machine: fixed leading flags, one local URL, and
 # a short list of harmless extras. Anything that can write a file or send a body
 # (-o -O -T -d -X -F --json ...) is simply not on the list.
@@ -227,7 +233,7 @@ def tool_defs() -> List[dict]:
         },
         {
             "name": "run_command",
-            "description": "Run allowlisted read-only commands (ls/cat/df/ps/..., chatbot-ctl.sh status|doctor|probe|guard, GET-only curl to localhost)",
+            "description": "Run allowlisted read-only commands (ls/cat/df/ps/..., chatbot-ctl.sh status|doctor|probe|guard|logs, GET-only curl to localhost)",
             "inputSchema": {
                 "type": "object",
                 "properties": {"cmd": {"type": "string"}},
@@ -315,6 +321,19 @@ def _ctl_refusal(args: List[str]) -> Optional[str]:
     if sub not in CTL_SUBCOMMANDS:
         return f"chatbot-ctl.sh {sub}: not allowed here (only {'|'.join(CTL_SUBCOMMANDS)})"
     if sub == "probe" and (not rest or (len(rest) == 1 and re.fullmatch(r"\d{1,2}", rest[0]))):
+        return None
+    if sub == "logs":
+        i = 0
+        while i < len(rest):
+            flag = rest[i]
+            if flag not in CTL_LOGS_FLAGS:
+                return f"chatbot-ctl.sh logs: {flag} not allowed here (only {' '.join(CTL_LOGS_FLAGS)})"
+            shape = CTL_LOGS_FLAGS[flag]
+            if shape is not None:
+                if i + 1 >= len(rest) or not shape.fullmatch(rest[i + 1]):
+                    return f"chatbot-ctl.sh logs: bad value for {flag}"
+                i += 1
+            i += 1
         return None
     if rest:
         return f"chatbot-ctl.sh {sub}: arguments not allowed here"
@@ -503,21 +522,31 @@ def call_tool(name: str, arguments: dict) -> dict:
 
         return envelope(False, f"unknown tool: {name}", None)
     except Exception as e:
+        obslog.exception("mcp.tool_exception", e, tool=name)
         return envelope(False, f"error: {e}", {"trace": traceback.format_exc()[-1500:]})
 
 
-class Handler(BaseHTTPRequestHandler):
+def _obs_tool_call(name: str, arguments: dict) -> dict:
+    """call_tool + one mcp.call event (tool, args, duration, outcome). Tool calls are what the
+    agent actually did on the host, so each one is written; refusals are warn."""
+    t0 = time.monotonic()
+    out = call_tool(name, arguments)
+    ok = bool(out.get("success", False)) if isinstance(out, dict) else False
+    obslog.event("mcp.call", lvl="info" if ok else "warn", tool=name, ok=ok,
+                 dur_ms=round((time.monotonic() - t0) * 1000, 1),
+                 args={k: (v if isinstance(v, (int, float, bool)) or v is None else str(v)[:300])
+                       for k, v in (arguments or {}).items()},
+                 msg="" if ok else str((out or {}).get("message") or "")[:300])
+    return out
+
+
+class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
+    """Access/exception logging: obslog.HTTPLogMixin (docs/LOGGING.md). /mcp traffic is
+    summarised; the tool calls themselves are logged as mcp.call."""
     server_version = "SphereNasMcp/1.0"
 
-    def log_message(self, fmt: str, *args: Any) -> None:
-        msg = fmt % args
-        if any(x in msg.lower() for x in ("token", "authorization", "bearer", "api_key")):
-            return
-        try:
-            import sys
-            sys.stderr.write("%s - %s\n" % (self.address_string(), msg))
-        except Exception:
-            pass
+    def _obs_quiet(self, method: str, path: str) -> bool:
+        return True
 
     def _cors(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -582,7 +611,7 @@ class Handler(BaseHTTPRequestHandler):
             if method in ("tools/call", "call_tool"):
                 tname = params.get("name") or params.get("tool")
                 arguments = params.get("arguments") or params.get("args") or {}
-                out = call_tool(str(tname), arguments if isinstance(arguments, dict) else {})
+                out = _obs_tool_call(str(tname), arguments if isinstance(arguments, dict) else {})
                 # MCP tool result content
                 text = json.dumps(out, ensure_ascii=False)
                 return self._rpc(rid, {"content": [{"type": "text", "text": text}], "isError": not out.get("success", False)})
@@ -592,7 +621,7 @@ class Handler(BaseHTTPRequestHandler):
 
         # simple REST fallback: {"tool":"...","arguments":{}}
         if isinstance(req, dict) and req.get("tool"):
-            out = call_tool(str(req["tool"]), req.get("arguments") or {})
+            out = _obs_tool_call(str(req["tool"]), req.get("arguments") or {})
             return self._send(200, json.dumps(out, ensure_ascii=False).encode("utf-8"))
 
         self._send(400, b'{"ok":false,"error":"expected JSON-RPC method"}')
@@ -609,9 +638,11 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     TMP_ROOT.mkdir(parents=True, exist_ok=True)
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
+    obslog.start_process("mcp", host=HOST, port=PORT)
     print(f"chatbot-mcp on http://{HOST}:{PORT}/mcp", flush=True)
 
-    def _stop(*_a):
+    def _stop(signum=None, *_a):
+        obslog.stop_process("signal %s" % signum)
         threading.Thread(target=httpd.shutdown, daemon=True).start()
 
     signal.signal(signal.SIGTERM, _stop)

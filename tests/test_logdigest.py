@@ -1,0 +1,145 @@
+"""OBSLOG_v1: logdigest.py findings and views, and the MCP allowlist for `chatbot-ctl.sh logs`.
+Run: python3 -m unittest tests.test_logdigest  (from services/chatbot)
+"""
+import io
+import json
+import sys
+import tempfile
+import time
+import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+
+CODE = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(CODE))
+import logdigest  # noqa: E402
+import obslog  # noqa: E402
+
+SID = "20260923-101010-abcdef"
+
+
+class DigestTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self.tmp.name) / "events.jsonl"
+        self._old = (logdigest.LOG, logdigest.SESSIONS)
+        logdigest.LOG = self.path
+        logdigest.SESSIONS = Path(self.tmp.name) / "sessions"
+        self.now = time.time()
+
+    def tearDown(self):
+        logdigest.LOG, logdigest.SESSIONS = self._old
+        self.tmp.cleanup()
+
+    def write(self, recs):
+        with open(self.path, "a", encoding="utf-8") as f:
+            for ago, rec in recs:
+                rec = dict(rec)
+                rec.setdefault("lvl", "info")
+                rec.setdefault("pid", 1)
+                rec["ts"] = obslog.iso_now(self.now - ago)
+                f.write(json.dumps(rec) + "\n")
+
+    def codes(self, d):
+        return {f["code"] for f in d["findings"]}
+
+    def test_clean_run_is_ok(self):
+        self.write([(600, {"src": "chat", "evt": "proc.start"}), (300, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 50}),
+                    (10, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 51})])
+        d = logdigest.digest(3600)
+        self.assertEqual(d["status"], "ok", d["findings"])
+
+    def test_unclean_restart_and_silence(self):
+        self.write([
+            (7200, {"src": "chat", "evt": "proc.start", "pid": 1}),
+            (3000, {"src": "chat", "evt": "proc.heartbeat", "pid": 1}),
+            (2900, {"src": "chat", "evt": "proc.start", "pid": 2}),   # no proc.exit for pid 1
+            (2800, {"src": "mcp", "evt": "proc.start", "pid": 3}),     # then nothing for 46 min
+        ])
+        d = logdigest.digest(3600)
+        self.assertIn("unclean_restart", self.codes(d))
+        self.assertIn("silent_process", self.codes(d))
+        self.assertEqual(d["unclean_restarts"][0]["prev_pid"], 1)
+
+    def test_error_fingerprints_new_vs_known(self):
+        err = {"type": "KeyError", "msg": "'x'", "fp": "abcdef1234", "where": "server.py:1:f", "trace": "Traceback..."}
+        self.write([
+            (90000, {"src": "chat", "evt": "http.error", "lvl": "error", "err": err}),
+            (100, {"src": "chat", "evt": "http.error", "lvl": "error", "route": "POST /api/x", "err": err}),
+            (50, {"src": "chat", "evt": "http.error", "lvl": "error", "route": "POST /api/x",
+                  "err": dict(err, fp="9999999999", type="ValueError")}),
+        ])
+        d = logdigest.digest(3600)
+        by_fp = {g["fp"]: g for g in d["errors"]}
+        self.assertFalse(by_fp["abcdef1234"]["new"])
+        self.assertTrue(by_fp["9999999999"]["new"])
+        sev = {f["evidence"].get("fp"): f["severity"] for f in d["findings"] if f["code"] == "error_fp"}
+        self.assertEqual(sev, {"abcdef1234": "warn", "9999999999": "error"})
+
+    def test_http_summary_rates(self):
+        self.write([(60, {"src": "chat", "evt": "http.summary", "routes": {
+            "GET /api/usage": {"n": 100, "codes": {"2xx": 95, "5xx": 5}, "p50": 10, "p95": 3000, "max": 4000},
+            "GET /api/sessions": {"n": 1000, "codes": {"2xx": 1000}, "p50": 5, "p95": 20, "max": 50}}})])
+        d = logdigest.digest(3600)
+        self.assertIn("http_5xx", self.codes(d))
+        self.assertIn("http_slow", self.codes(d))
+        self.assertEqual(d["http"]["total"], 1100)
+
+    def test_ops_and_turns(self):
+        recs = []
+        for i in range(8):
+            recs.append((3000 - i * 100, {"src": "ctl", "evt": "repair.begin", "caller": "api-defibrillate"}))
+            recs.append((2990 - i * 100, {"src": "ctl", "evt": "repair.end", "ok": 0 if i == 0 else 1, "dur_s": 12}))
+        for i in range(10):
+            recs.append((500 - i, {"src": "chat", "evt": "turn.end", "provider": "agy", "sid": SID,
+                                   "outcome": "error" if i < 4 else "result", "dur_s": 5}))
+        self.write(recs)
+        d = logdigest.digest(3600)
+        c = self.codes(d)
+        self.assertTrue({"repair_frequent", "repair_failed", "turn_failures"} <= c, c)
+        self.assertEqual(d["ops"]["repair_callers"], {"api-defibrillate": 8})
+        self.assertEqual(d["turns"]["by_provider"]["agy"]["fail_rate"], 0.4)
+
+    def test_views(self):
+        sess = logdigest.SESSIONS / SID
+        sess.mkdir(parents=True)
+        (sess / "events.jsonl").write_text(json.dumps({"event": "error", "text": "died", "ts": self.now - 30}) + "\n")
+        self.write([(40, {"src": "chat", "evt": "turn.start", "sid": SID, "rid": "aaaaaaaaaaaa"}),
+                    (20, {"src": "chat", "evt": "turn.end", "sid": SID, "outcome": "error"})])
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            logdigest.main(["--sid", SID, "--since", "1h"])
+        out = buf.getvalue().splitlines()
+        self.assertEqual([l.split()[4] for l in out], ["turn.start", "session.error", "turn.end"])
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            logdigest.main(["--rid", "aaaaaaaaaaaa", "--json"])
+        self.assertEqual(json.loads(buf.getvalue())["evt"], "turn.start")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            logdigest.main(["--json"])
+        self.assertIn("findings", json.loads(buf.getvalue()))
+
+    def test_bad_lines_do_not_break_digest(self):
+        self.path.write_text("not json\n")
+        self.assertIn("log.bad_line", logdigest.digest(3600, include_all=True)["counts"]["by_evt"])
+
+
+class CtlLogsAllowlistTests(unittest.TestCase):
+    def setUp(self):
+        import mcp_server
+        self.refusal = mcp_server._ctl_refusal
+
+    def test_allowed(self):
+        for args in (["logs"], ["logs", "--since", "6h"], ["logs", "--sid", SID, "--json"],
+                     ["logs", "--fp", "abcdef1234"], ["logs", "--evt", "http.error", "--since", "2d"]):
+            self.assertIsNone(self.refusal(args), args)
+
+    def test_refused(self):
+        for args in (["logs", "-f"], ["logs", "--since"], ["logs", "--since", "6h;rm"], ["logs", "--sid", "../x"],
+                     ["logs", "--follow"], ["logs", "x"]):
+            self.assertIsNotNone(self.refusal(args), args)
+
+
+if __name__ == "__main__":
+    unittest.main()
