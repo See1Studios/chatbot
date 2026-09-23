@@ -31,7 +31,7 @@ class WorkspaceCase(unittest.TestCase):
         _write(self.ws / ".agents/skills/alpha/SKILL.md",
                "---\nname: alpha\ndescription: >\n  알파 스킬 설명\n  두 번째 줄\n---\n본문")
         _write(self.ws / ".agents/skills/_off/SKILL.md", "---\nname: _off\ndescription: 꺼짐\n---\n")
-        _write(self.ws / "memory/MEMORY.md", "# 기억\n\n## 실장님\n\n## 운영 결정\n")
+        _write(self.ws / "memory/MEMORY.md", "# 기억\n\n## 사용자\n\n## 운영 결정\n")
         _write(self.ws / "skill-observations/observation-log/0001-x.md", "---\nstatus: open\n---\n")
         _write(self.ws / "skill-observations/observation-log/0002-y.md", "---\nstatus: actioned\n---\n")
         _write(self.ws / "skill-observations/last-review-date.txt", "2026-09-16\n")
@@ -81,7 +81,7 @@ class BundleTests(WorkspaceCase):
 
     def test_memory_fact_is_included_but_does_not_change_hash(self):
         h0 = I.build_instruction_bundle()["hash"]
-        _write(self.ws / "memory/MEMORY.md", "# 기억\n\n## 실장님\n- [2026-09-19] 커피는 아메리카노\n")
+        _write(self.ws / "memory/MEMORY.md", "# 기억\n\n## 사용자\n- [2026-09-19] 커피는 아메리카노\n")
         b = I.build_instruction_bundle()
         self.assertIn("[장기 기억 스냅샷]", b["text"])
         self.assertIn("아메리카노", b["text"])
@@ -151,7 +151,7 @@ class InjectionTests(WorkspaceCase):
     def test_memory_change_does_not_reinject(self):
         s = self.make()
         s._send_direct("a")
-        _write(self.ws / "memory/MEMORY.md", "## 실장님\n- [2026-09-19] 새 사실\n")
+        _write(self.ws / "memory/MEMORY.md", "## 사용자\n- [2026-09-19] 새 사실\n")
         s._send_direct("b")
         self.assertEqual(self.sent[1], "b")
 

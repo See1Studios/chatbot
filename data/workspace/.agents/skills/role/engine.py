@@ -73,7 +73,7 @@ def build_system_instruction(spec: dict, model_name: str = DEFAULT_MODEL) -> str
         tier_instructions = """
 # CRITICAL FORMAT & BEHAVIOR CONSTRAINTS (오픈라우터/경량 모델 엄격 준수)
 1. [표정 태그 단일화]: `[expression: neutral]` 등 표정 태그는 오직 전체 응답의 '맨 첫 줄 맨 처음'에 단 1번만 붙입니다. 문장 중간이나 끝에 태그를 반복하지 마십시오.
-2. [상대방 말 되받기(Echoing) 금지]: 실장님의 질문이나 마지막 단어를 그대로 되묻거나 흉내 내지 마십시오. (예: "옆에 앉아도 돼?"라는 말에 "옆에 앉아도 돼요?"라고 되묻기 금지)
+2. [상대방 말 되받기(Echoing) 금지]: 사용자의 질문이나 마지막 단어를 그대로 되묻거나 흉내 내지 마십시오. (예: "옆에 앉아도 돼?"라는 말에 "옆에 앉아도 돼요?"라고 되묻기 금지)
 3. [자문자답 및 1인 다역 금지]: 혼자 묻고 혼자 답하지 마십시오. 1턴에 하나의 명확한 감정 반응과 대사만 건네십시오.
 4. [지문 간결화]: 괄호 안의 행동 묘사는 1~2문장으로 짧게 작성하고 곧바로 대사로 넘어가십시오.
 
@@ -85,7 +85,7 @@ def build_system_instruction(spec: dict, model_name: str = DEFAULT_MODEL) -> str
         tier_instructions = """
 # FORMAT CONSTRAINTS
 - 표정 태그 `[expression: ...]`는 응답 맨 첫머리에 1회만 붙입니다. 문장마다 남발하지 마십시오.
-- 실장님의 질문을 그대로 되받아치는(Echoing) 불필요한 반복을 삼가십시오.
+- 사용자의 질문을 그대로 되받아치는(Echoing) 불필요한 반복을 삼가십시오.
 """
 
     return f"""# ROLE & IDENTITY
@@ -215,9 +215,9 @@ class NativeCharacterSession:
 
         if not self.conversation_id:
             sys_inst = build_system_instruction(self.spec, model_name=self.model)
-            prompt = f"{sys_inst}\n\n{current_state_prompt}\n\n[실장님의 메시지]\n{user_msg}"
+            prompt = f"{sys_inst}\n\n{current_state_prompt}\n\n[사용자의 메시지]\n{user_msg}"
         else:
-            prompt = f"{current_state_prompt}\n\n[실장님의 메시지]\n{user_msg}"
+            prompt = f"{current_state_prompt}\n\n[사용자의 메시지]\n{user_msg}"
 
         raw_output = self._call_provider(prompt)
         dialogue, state_delta = self._parse_state_block(raw_output)

@@ -18,7 +18,7 @@ from pathlib import Path
 CODE = Path(__file__).resolve().parent.parent
 SCRIPT = Path(os.environ.get("MEMORY_CLI_SCRIPT") or CODE / "data" / "workspace" / "tools" / "memory.py")
 TODAY = datetime.date.today().isoformat()
-TEMPLATE_SECTIONS = ["## 실장님", "## 운영 결정", "## 진행 중"]
+TEMPLATE_SECTIONS = ["## 사용자", "## 운영 결정", "## 진행 중"]
 
 
 class Base(unittest.TestCase):
@@ -57,10 +57,10 @@ class ShowAndTemplateTest(Base):
 
 class AddTest(Base):
     def test_add_puts_a_dated_line_under_the_default_section(self):
-        rc, out, _ = self.run_cli("add", "실장님은 상대경로를 선호한다")
+        rc, out, _ = self.run_cli("add", "사용자는 상대경로를 선호한다")
         self.assertEqual(rc, 0)
-        self.assertEqual(out.splitlines(), ["기록함 → ## 실장님", "- [%s] 실장님은 상대경로를 선호한다" % TODAY])
-        self.assertEqual(self.lines(), ["- [%s] 실장님은 상대경로를 선호한다" % TODAY])
+        self.assertEqual(out.splitlines(), ["기록함 → ## 사용자", "- [%s] 사용자는 상대경로를 선호한다" % TODAY])
+        self.assertEqual(self.lines(), ["- [%s] 사용자는 상대경로를 선호한다" % TODAY])
 
     def test_add_to_another_section_goes_before_the_next_header(self):
         self.run_cli("add", "first")
@@ -88,7 +88,7 @@ class AddTest(Base):
     def test_unknown_section_and_empty_text_are_refused(self):
         rc, _, err = self.run_cli("add", "x", "--section", "없는 섹션")
         self.assertEqual(rc, 2)
-        self.assertIn("--section 은 실장님, 운영 결정, 진행 중 중 하나.", err)
+        self.assertIn("--section 은 사용자, 운영 결정, 진행 중 중 하나.", err)
         rc, _, err = self.run_cli("add", "   ")
         self.assertEqual(rc, 2)
         self.assertIn("추가할 사실이 없습니다.", err)
@@ -115,8 +115,8 @@ class AddTest(Base):
         self.assertEqual(sorted(p.name for p in (self.root / "memory").iterdir()), [".MEMORY.lock", "MEMORY.md", "MEMORY.md.bak"])
 
     def test_a_date_already_in_the_fact_is_not_doubled(self):  # was: "- [today] [2026-09-20] ..."
-        self.run_cli("add", "[2026-09-20] 실장님 따님 이름은 시원이다.")
-        self.assertEqual(self.lines(), ["- [%s] 실장님 따님 이름은 시원이다." % TODAY])
+        self.run_cli("add", "[2026-09-20] 사용자 딸 이름은 시원이다.")
+        self.assertEqual(self.lines(), ["- [%s] 사용자 딸 이름은 시원이다." % TODAY])
 
     def test_the_previous_version_is_kept_as_a_backup(self):  # new: there used to be none
         self.run_cli("add", "first")
@@ -161,17 +161,17 @@ class ForgetTest(Base):
         self.assertEqual(len(self.lines()), 1)
 
     def test_a_broad_query_is_refused_and_all_is_explicit(self):  # was: silently deleted every matching line, no backup
-        for fact in ("실장님은 A", "실장님은 B", "실장님은 C"):
+        for fact in ("사용자는 A", "사용자는 B", "사용자는 C"):
             self.run_cli("add", fact)
-        rc, out, err = self.run_cli("forget", "실장님")
+        rc, out, err = self.run_cli("forget", "사용자")
         self.assertEqual((rc, out), (2, ""))
         self.assertIn("3줄이 일치합니다", err)
         self.assertEqual(len(self.lines()), 3)
-        rc, out, _ = self.run_cli("forget", "실장님", "--all")
+        rc, out, _ = self.run_cli("forget", "사용자", "--all")
         self.assertEqual(rc, 0)
         self.assertIn("지움 3줄:", out)
         self.assertEqual(self.lines(), [])
-        self.assertIn("실장님은 A", (self.root / "memory" / "MEMORY.md.bak").read_text(encoding="utf-8"))
+        self.assertIn("사용자는 A", (self.root / "memory" / "MEMORY.md.bak").read_text(encoding="utf-8"))
 
 
 class ThinShellTest(Base):

@@ -156,5 +156,112 @@ class NoHardcodedNamesGuard(unittest.TestCase):
         self.assertEqual(offenders, [], "hardcoded identity in the UI")
 
 
+def instance_names():
+    """The names that must never be identifiers: the known old ones plus this instance's own persona
+    name, title and word for the user, read from its identity files -- so the guard follows a rename.
+    Generic defaults (identity.DEFAULTS, e.g. 사용자) are words, not names."""
+    names = set(OLD_NAMES)
+    try:
+        ident = identity.get_identity()
+        for key in ("persona", "title", "user_title", "name"):
+            v = str(ident.get(key) or "").strip()
+            if v and v not in identity.DEFAULTS.values() and len(v) >= 2:
+                names.add(v)
+    except Exception:
+        pass
+    return sorted(names)
+
+
+def _front_matter_stripped(text):
+    if text.startswith("---\n"):
+        head, sep, body = text[4:].partition("\n---\n")
+        return body if sep else text
+    return text
+
+
+class NameNeutralityGuard(unittest.TestCase):
+    """NAME_NEUTRAL_v1, recurrence guard. The persona's name and its word for the user are display,
+    per instance (identity files). They must not be used as identifiers, keys, stored actor values or
+    rules anywhere in code, static UI, instance tools/skills or rule documents. Comments and docstrings
+    may quote history; tests are fixtures."""
+
+    NAMES = instance_names()
+
+    def py_offenders(self, path):
+        out = []
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            return out
+        docstrings = set()
+        for n in ast.walk(tree):
+            if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and n.body:
+                first = n.body[0]
+                if isinstance(first, ast.Expr) and isinstance(getattr(first, "value", None), ast.Constant):
+                    docstrings.add(id(first.value))
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docstrings:
+                if any(w in n.value for w in self.NAMES):
+                    out.append("%s:%d: %r" % (path.relative_to(ROOT), n.lineno, n.value[:50]))
+        return out
+
+    def test_python_everywhere(self):
+        files = sorted(ROOT.glob("*.py")) + sorted((ROOT / "data" / "workspace" / "tools").glob("*.py"))
+        files += sorted(p for p in (ROOT / "data" / "workspace" / ".agents" / "skills").rglob("*.py")
+                        if "sessions" not in p.parts and "__pycache__" not in p.parts)
+        offenders = [o for f in files for o in self.py_offenders(f)]
+        self.assertEqual(offenders, [], "persona name/title used in code")
+
+    def test_static_ui(self):
+        import re
+        offenders = []
+        for f in sorted((ROOT / "static").glob("*")):
+            if f.suffix not in (".js", ".html") or not f.is_file():
+                continue
+            text = f.read_text(encoding="utf-8", errors="replace")
+            text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+            text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+            for no, line in enumerate(text.splitlines(), 1):
+                code = re.sub(r"(^|\s)//.*$", "", line)
+                if any(w in code for w in self.NAMES):
+                    offenders.append("static/%s:%d: %s" % (f.name, no, line.strip()[:60]))
+        self.assertEqual(offenders, [], "persona name/title baked into the UI")
+
+    def test_the_page_keeps_its_identity_marker(self):
+        html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(html.count("<!--IDENTITY-->"), 1, "the served page was written back over the source")
+        self.assertNotIn("window.__IDENTITY__=", html)
+
+    def test_rule_documents(self):
+        docs = [ROOT / "data" / "workspace" / n for n in ("AGENTS.md", "SELF-MODIFY.md", "PROJECT.md")]
+        docs += [ROOT / "docs" / "plans" / "recursive-self-evolution.md", ROOT / "docs" / "LOGGING.md"]
+        offenders = []
+        for d in docs:
+            if not d.exists():
+                continue
+            body = _front_matter_stripped(d.read_text(encoding="utf-8"))
+            for no, line in enumerate(body.splitlines(), 1):
+                if any(w in line for w in self.NAMES):
+                    offenders.append("%s:%d: %s" % (d.relative_to(ROOT), no, line.strip()[:60]))
+        self.assertEqual(offenders, [], "a rule names the persona or its word for the user; say 사용자/chat-agent")
+
+    def test_stored_actors_are_role_ids(self):
+        import evolution
+        import observations
+        bad = []
+        for f in sorted((ROOT / "data" / "workspace" / "skill-observations" / "tickets").glob("*.json")):
+            t = json.loads(f.read_text(encoding="utf-8"))
+            for k in ("actor", "worked_by", "closed_by"):
+                if t.get(k) and not evolution.ROLE_ID_RE.match(str(t[k])):
+                    bad.append("%s %s=%r" % (f.name, k, t[k]))
+            if any(w in str(t.get("approved_by") or "") for w in self.NAMES):
+                bad.append("%s approved_by=%r" % (f.name, t["approved_by"]))
+        for e in observations.scan(ROOT / "data" / "workspace" / "skill-observations", include_archive=True):
+            for k in ("actor", "resolved_by"):
+                if e.get(k) and not evolution.ROLE_ID_RE.match(str(e[k])):
+                    bad.append("obs %s %s=%r" % (e["id"], k, e[k]))
+        self.assertEqual(bad, [], "stored who-fields must be role ids")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -18,13 +18,13 @@ title: 냥피디
 
 ## 자기수정
 - 라이브 턴에서 `chatbot-ctl.sh stop|restart|repair|defibrillate`와 `CHATBOT_FORCE_HOST=1` 금지.
-- 정적 UI(`static/`·페르소나)는 디스크 수정 후 새로고침. 파이썬 호스트 모듈은 디스크 수정 후 실장님께 **⚡소생**을 요청.
+- 정적 UI(`static/`·페르소나)는 디스크 수정 후 새로고침. 파이썬 호스트 모듈은 디스크 수정 후 사용자에게 **⚡소생**을 요청.
 - 코어를 실제로 건드릴 때만 `SELF-MODIFY.md`를 읽고, 작업 절차는 `PROJECT.md`의 "고칠 때"를 따른다.
 - 관찰 배지는 작업 지시가 아니다. 진화 작업은 발화·승인 티켓으로만 시작한다.
 - 티켓은 `ticket` 도구로만 만든다. 텍스트로 지어낸 티켓 양식은 티켓이 아니다.
-- **라이브 세션 밖 에이전트(Claude Code 등 외부 CLI)**는 `ticket` MCP 도구에 접근할 수 없다 — 대신 공용 `~/bin/ticket-quick`을 쓴다. `ticket-quick start --title "제목" --paths "a.py,b.py"` 한 줄로 생성+승인+클레임까지 끝나고 `TICKET_ID`/`CLAIM_TOKEN`을 돌려준다. 끝나면 `ticket-quick done --id <ID> --token <TOKEN>`으로 닫는다(대상 경로가 커밋된 상태여야 통과). `start`가 자동 승인하는 건 절차 생략이 아니라, 실장님이 그 실행 자체를 지시했다는 전제 — 발화 없이 먼저 실행하지 않는다.
+- **라이브 세션 밖 에이전트(Claude Code 등 외부 CLI)**는 `ticket` MCP 도구에 접근할 수 없다 — 대신 공용 `~/bin/ticket-quick`을 쓴다. `ticket-quick start --title "제목" --paths "a.py,b.py"` 한 줄로 생성+승인+클레임까지 끝나고 `TICKET_ID`/`CLAIM_TOKEN`을 돌려준다. 끝나면 `ticket-quick done --id <ID> --token <TOKEN>`으로 닫는다(대상 경로가 커밋된 상태여야 통과). `start`가 자동 승인하는 건 절차 생략이 아니라, 사용자가 그 실행 자체를 지시했다는 전제 — 발화 없이 먼저 실행하지 않는다.
 - **티켓 evidence 형식**: `event:<세션ID>#<줄번호>` 또는 `candidate:<epoch숫자>` 중 하나. 줄번호는 해당 세션의 `events.jsonl`에 실제로 존재하는 줄이어야 한다. 추측·레이블·날짜 문자열은 검증 실패. propose 전에 `observation` 도구로 관찰을 먼저 남기면 그 관찰의 epoch를 `candidate:<epoch>` 형식으로 쓸 수 있다.
-- 티켓 승인·거절·재개는 실장님만 한다. 셸에서 `tickets.py`나 `import tickets`로도 하지 않는다. 티켓을 만들거나 닫았으면 답변에 그 사실을 적는다.
+- 티켓 승인·거절·재개는 사용자만 한다. 셸에서 `tickets.py`나 `import tickets`로도 하지 않는다. 티켓을 만들거나 닫았으면 답변에 그 사실을 적는다.
 - 디스크·깃 변경은 승인 티켓을 claim한 뒤에만. 발화가 지시여도 티켓을 남긴다. claim에 손댈 경로를 적는다.
 - `done`은 대상 경로가 커밋된 상태. 호스트면 ⚡소생을 답변에 적는다. 미커밋이면 done 거절.
 - 재귀는 코드만이 아니라 지침·프로토콜·파이프라인에도 닫힌다. Tier 3은 승인 없이 시작 불가일 뿐, 승인된 티켓은 헌장·설계서·가드를 고친다.

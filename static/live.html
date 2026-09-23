@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>냥피디 Live 2.5D 인터랙티브 뷰어 🐾</title>
+  <title>Live 2.5D 인터랙티브 뷰어 🐾</title>
   <style>
     :root {
       --bg-color: #12141a;
@@ -281,7 +281,7 @@
 <body>
 
   <header>
-    <h1>냥피디 Live 2.5D <span class="badge">V2 정밀 합성</span></h1>
+    <h1><span data-id="name"></span> Live 2.5D <span class="badge">V2 정밀 합성</span></h1>
     <p class="subtitle">마우스 커서를 따라 시선과 고개가 움직이고 귀와 꼬리가 살랑인다냥!</p>
   </header>
 
@@ -326,7 +326,7 @@
     </div>
   </div>
 
-  <div id="bubble" class="status-text">냥! 실장님 보고 있다냥~ ฅ^•ﻌ•^ฅ</div>
+  <div id="bubble" class="status-text"></div>
 
   <div id="controls">
     <button id="btn-blink">👀 눈 깜빡이기</button>
@@ -421,7 +421,7 @@
       if (isTalking) {
         mouth.classList.add('talking');
         mouthCavity.classList.add('talking-cavity');
-        showBubble("실장님 말씀 잘 듣고 있다냥~ ✦");
+        showBubble(ID.user_title + " 말씀 잘 듣고 있다냥~ ✦");
         document.getElementById('btn-talk').textContent = '⏹ 말하기 멈춤';
       } else {
         mouth.classList.remove('talking');
@@ -451,6 +451,20 @@
     document.getElementById('btn-blink').addEventListener('click', triggerBlink);
     document.getElementById('btn-talk').addEventListener('click', toggleTalk);
     document.getElementById('btn-twitch').addEventListener('click', triggerEarTwitch);
+  </script>
+  <script>
+    // NAME_NEUTRAL_v1: the persona's name and its word for the user come from the identity files.
+    var ID = { name: '', user_title: '사용자' };
+    fetch('api/identity', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      var i = (d && (d.identity || d)) || {};
+      ID.name = i.name || i.persona || i.title || '';
+      ID.user_title = i.user_title || ID.user_title;
+    }).catch(function () {}).then(function () {
+      document.querySelectorAll('[data-id="name"]').forEach(function (n) { n.textContent = ID.name; });
+      if (ID.name) document.title = ID.name + ' ' + document.title;
+      var b = document.getElementById('bubble');
+      if (b && !b.textContent) b.textContent = '냥! ' + ID.user_title + ' 보고 있다냥~ ฅ^•ﻌ•^ฅ';
+    });
   </script>
 </body>
 </html>

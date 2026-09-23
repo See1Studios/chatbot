@@ -1811,10 +1811,21 @@ function obsNode(tag, cls, text) {
   return n;
 }
 
-// ACTOR_ATTRIBUTION_v1: who did it -- 'claude-code', 'grok', '냥피디·agy', '실장님' ...
+// ACTOR_ATTRIBUTION_v1: who did it. Stored as role ids ('claude-code', 'grok', 'chat-agent:agy',
+// 'operator'); the persona's name and its word for the user are display only, from the identity
+// files (NAME_NEUTRAL_v1).
+function actorLabel(who) {
+  const id = window.__IDENTITY__ || {};
+  const s = String(who || '');
+  if (s === 'operator' || /^operator\b/.test(s)) return (id.user_title || '사용자') + s.replace(/^operator/, '').replace(/^ \((\w+)\)/, '($1)');
+  const m = s.match(/^chat-agent(?::(.+))?$/);
+  if (m) return (id.name || id.persona || id.title || 'agent') + (m[1] ? '·' + m[1] : '');
+  return s;
+}
+
 function actorBadge(who, prefix) {
   if (!who) return null;
-  const b = obsNode('span', 'obs-badge obs-actor', (prefix || '') + who);
+  const b = obsNode('span', 'obs-badge obs-actor', (prefix || '') + actorLabel(who));
   b.title = '처리 주체';
   return b;
 }
@@ -2165,7 +2176,7 @@ function renderDoneRow(t) {
   if (by) head.appendChild(by);
   row.appendChild(head);
   const ev = (t.evidence || []).join(', ');
-  const appr = t.approved_by ? '승인 ' + String(t.approved_by).replace(/^operator \((\w+)\)/, '실장님($1)') : '';
+  const appr = t.approved_by ? '승인 ' + actorLabel(t.approved_by) : '';
   const meta = [String(t.updated || '').slice(5, 16), appr, (t.paths || []).slice(0, 4).join(', '), ev ? '근거 ' + ev : ''].filter(Boolean).join(' · ');
   if (meta) row.appendChild(obsNode('div', 'obs-meta', meta));
   return row;

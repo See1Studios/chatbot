@@ -441,6 +441,21 @@ def _next_observation_id(obs_dir: Path) -> int:
     return top + 1
 
 
+# NAME_NEUTRAL_v1: who did something is stored as a role id -- "claude-code", "grok", "operator",
+# "chat-agent:agy" -- never as a persona name or the persona's word for the user. Those are display,
+# per instance, from the identity files; the pattern keeps them out structurally (ASCII only).
+ROLE_ID_RE = re.compile(r"^[a-z][a-z0-9._-]{0,30}(?::[a-z0-9._?-]{1,20})?$")
+
+
+def role_id(value) -> str:
+    """"" for nothing; the value if it is a role id; ValueError otherwise."""
+    v = str(value or "").strip()
+    if v and not ROLE_ID_RE.match(v):
+        raise ValueError("actor must be a role id like claude-code, operator or chat-agent:agy "
+                         "(not a persona name or title): %r" % v[:40])
+    return v
+
+
 def add_observation(obs_dir, title: str, body: str, area: str = "", recent_limit: Optional[int] = None,
                     window_sec: int = 3600, actor: str = "") -> Path:
     """Create the next observation-log entry (status: open) and return its path.
@@ -463,7 +478,7 @@ def add_observation(obs_dir, title: str, body: str, area: str = "", recent_limit
     title = re.sub(r"\s+", " ", str(title)).strip().lstrip("#").strip()[:120] or "observation"
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:48] or "observation"
     area = re.sub(r"\s+", " ", str(area)).strip()[:60]
-    actor = re.sub(r"\s+", " ", str(actor or "")).strip()[:40]  # who recorded it (ACTOR_ATTRIBUTION_v1)
+    actor = role_id(actor)  # who recorded it (ACTOR_ATTRIBUTION_v1); a role id (NAME_NEUTRAL_v1)
     number = _next_observation_id(d)
     for _ in range(50):
         path = d / ("%04d-%s.md" % (number, slug))

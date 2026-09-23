@@ -90,7 +90,7 @@ TOOL_DEFS: List[dict] = [
 ]
 
 
-def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "냥피디") -> dict:
+def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "chat-agent") -> dict:
     """Run one of the tools in NAMES. `data` is the instance data directory, `secret_re` the host's pattern for
     content that must never be stored."""
     data = Path(data)

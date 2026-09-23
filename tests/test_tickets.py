@@ -537,5 +537,22 @@ class ActorTest(Base):
     def test_a_note_from_someone_else_is_theirs(self):
         t = self.approved()
         c = tickets.claim(self.data, t["id"], now=T0, actor="grok")
-        n = tickets.add_note(self.data, t["id"], "looked at it", None, now=T0, actor="냥피디·agy")
-        self.assertEqual(n["notes"][-1]["by"], "agent:냥피디·agy")
+        n = tickets.add_note(self.data, t["id"], "looked at it", None, now=T0, actor="chat-agent:agy")
+        self.assertEqual(n["notes"][-1]["by"], "agent:chat-agent:agy")
+
+
+class RoleIdTest(Base):
+    """NAME_NEUTRAL_v1: who-fields take role ids only -- a persona name or title cannot get in."""
+
+    def test_names_and_titles_are_refused(self):
+        for bad in ("냥피디", "실장님", "Claude Code", "grok!", "a b"):
+            with self.assertRaises(tickets.TicketError, msg=bad):
+                tickets.propose(self.data, "t", "x-%s" % len(bad), [EVENT], now=T0, actor=bad)
+        with self.assertRaises(tickets.TicketError):
+            tickets.approve(self.data, self.propose()[0]["id"], now=T0, operator=tickets.OPERATOR_CONFIRMED,
+                            on_behalf="실장님 지시")
+
+    def test_role_ids_are_taken(self):
+        for good in ("claude-code", "grok", "operator", "chat-agent:agy", "chat-agent"):
+            t, _ = tickets.propose(self.data, "t " + good, "y-" + good, [EVENT], now=T0, actor=good)
+            self.assertEqual(t["actor"], good)

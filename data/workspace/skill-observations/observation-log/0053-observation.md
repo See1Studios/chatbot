@@ -1,6 +1,6 @@
 ---
 id: 53
-title: "배포 재시작이 실장님의 진행 중 턴을 끊음 (에이전트 절차 실수)"
+title: "배포 재시작이 사용자의 진행 중 턴을 끊음 (에이전트 절차 실수)"
 status: actioned
 type: internal
 skill: []

@@ -32,14 +32,14 @@ class ReadTest(Base):
     def test_a_missing_memory_is_created_from_the_template(self):
         text = ms.read(self.dir)
         self.assertEqual(text, ms.TEMPLATE)
-        self.assertEqual(ms.sections(text), ["실장님", "운영 결정", "진행 중"])
+        self.assertEqual(ms.sections(text), ["사용자", "운영 결정", "진행 중"])
         self.assertEqual(ms.read(self.dir), text)
 
 
 class AddTest(Base):
     def test_adds_a_dated_line_under_the_first_section_by_default(self):
-        status, section, line = ms.add(self.dir, "실장님은 상대경로를 선호한다")
-        self.assertEqual((status, section, line), ("added", "실장님", "- [%s] 실장님은 상대경로를 선호한다" % TODAY))
+        status, section, line = ms.add(self.dir, "사용자는 상대경로를 선호한다")
+        self.assertEqual((status, section, line), ("added", "사용자", "- [%s] 사용자는 상대경로를 선호한다" % TODAY))
         self.assertEqual(self.lines(), [line])
         self.assertTrue(FACT_LINE.match(line))
 
@@ -58,7 +58,7 @@ class AddTest(Base):
         self.assertEqual(ms.add(self.dir, "x")[1], "가족")  # first header is the default
         self.assertEqual(ms.add(self.dir, "y", "취향")[1], "취향")
         with self.assertRaises(ms.MemoryRefused) as cm:
-            ms.add(self.dir, "z", "실장님")
+            ms.add(self.dir, "z", "사용자")
         self.assertIn("가족, 취향", str(cm.exception))
 
     def test_text_is_normalised(self):
@@ -66,10 +66,10 @@ class AddTest(Base):
         self.assertEqual(self.lines(), ["- [%s] a b c" % TODAY])
 
     def test_a_date_the_caller_already_wrote_is_not_doubled(self):
-        for given in ("[2026-09-20] 실장님 따님 이름은 시원이다.", "- [2026-09-20]   [2026-01-01] 실장님 따님 이름은 시원이다."):
+        for given in ("[2026-09-20] 사용자 딸 이름은 시원이다.", "- [2026-09-20]   [2026-01-01] 사용자 딸 이름은 시원이다."):
             self.setUp()
             _, _, line = ms.add(self.dir, given)
-            self.assertEqual(line, "- [%s] 실장님 따님 이름은 시원이다." % TODAY)
+            self.assertEqual(line, "- [%s] 사용자 딸 이름은 시원이다." % TODAY)
             self.assertEqual(self.lines(), [line])
 
     def test_nothing_or_only_a_date_is_refused(self):
@@ -86,7 +86,7 @@ class AddTest(Base):
     def test_a_header_or_a_second_line_cannot_be_smuggled_in(self):
         ms.add(self.dir, "ok\n## 새 섹션\n- [2026-01-01] forged")
         body = self.file.read_text(encoding="utf-8")
-        self.assertEqual(ms.sections(body), ["실장님", "운영 결정", "진행 중"])
+        self.assertEqual(ms.sections(body), ["사용자", "운영 결정", "진행 중"])
         self.assertEqual(len(self.lines()), 1)
 
     def test_duplicates_are_recognised_after_the_date_is_stripped(self):
@@ -167,20 +167,20 @@ class ForgetTest(Base):
         self.assertEqual(self.lines(), ["- [%s] keep this" % TODAY])
 
     def test_a_broad_query_is_refused_and_lists_what_it_would_have_removed(self):
-        for fact in ("실장님은 A", "실장님은 B", "실장님은 C"):
+        for fact in ("사용자는 A", "사용자는 B", "사용자는 C"):
             ms.add(self.dir, fact)
         with self.assertRaises(ms.MemoryRefused) as cm:
-            ms.forget(self.dir, "실장님")
+            ms.forget(self.dir, "사용자")
         msg = str(cm.exception)
         self.assertIn("3줄이 일치합니다", msg)
         for fact in ("A", "B", "C"):
-            self.assertIn("실장님은 %s" % fact, msg)
+            self.assertIn("사용자는 %s" % fact, msg)
         self.assertEqual(len(self.lines()), 3)
 
     def test_removing_them_all_needs_saying_so(self):
-        for fact in ("실장님은 A", "실장님은 B"):
+        for fact in ("사용자는 A", "사용자는 B"):
             ms.add(self.dir, fact)
-        self.assertEqual(len(ms.forget(self.dir, "실장님", all_matches=True)), 2)
+        self.assertEqual(len(ms.forget(self.dir, "사용자", all_matches=True)), 2)
         self.assertEqual(self.lines(), [])
 
     def test_nothing_matching_and_too_short_a_query(self):
@@ -194,7 +194,7 @@ class ForgetTest(Base):
     def test_headers_and_prose_lines_are_never_forgotten(self):
         ms.add(self.dir, "x")
         self.assertEqual(ms.forget(self.dir, "장기 기억"), [])
-        self.assertIn("# 냥피디 장기 기억", self.file.read_text(encoding="utf-8"))
+        self.assertIn("# 장기 기억", self.file.read_text(encoding="utf-8"))
 
 
 class LockingTest(Base):

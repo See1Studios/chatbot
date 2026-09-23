@@ -33,11 +33,13 @@ MIN_QUERY_CHARS = 2
 LOCK_WAIT_SEC = 5.0
 _LEADING_DATE = re.compile(r"^\s*\[\d{4}-\d{2}-\d{2}\]\s*")
 
+# Structure only: section names are generic roles, never the persona's name or its word for the user
+# (NAME_NEUTRAL_v1). Sections are read back from the file, so an instance may rename them.
 TEMPLATE = (
-    "# 냥피디 장기 기억\n\n"
+    "# 장기 기억\n\n"
     "세션을 넘는 사실만 적는다. 나는 누구 → `PERSONA.md`. 호스트 법 → `~/AGENTS.md`.\n"
     "한 줄에 사실 하나. `[YYYY-MM-DD]` 날짜. 짧게 유지 (대략 4KB).\n\n"
-    "## 실장님\n\n## 운영 결정\n\n## 진행 중\n"
+    "## 사용자\n\n## 운영 결정\n\n## 진행 중\n"
 )
 
 

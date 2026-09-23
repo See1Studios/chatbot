@@ -500,16 +500,16 @@ class MemoryToolTest(Base):
     def test_show_creates_the_template_and_returns_it(self):
         r = self.call("show")
         self.assertTrue(r["success"], r["message"])
-        self.assertIn("## 실장님", r["data"]["content"])
+        self.assertIn("## 사용자", r["data"]["content"])
         self.assertTrue(self.file.exists())
 
     def test_add_then_search_then_show(self):
-        r = self.call("add", text="[2001-01-01] 실장님 따님 이름은 시원이다.")
+        r = self.call("add", text="[2001-01-01] 사용자 딸 이름은 시원이다.")
         self.assertTrue(r["success"], r["message"])
         self.assertEqual(r["data"]["status"], "added")
         self.assertEqual(r["data"]["line"].count("["), 1)  # the date is ours, and only once (never "[d] [d] ...")
         hits = self.call("search", query="시원")["data"]["hits"]
-        self.assertEqual([h["section"] for h in hits], ["실장님"])
+        self.assertEqual([h["section"] for h in hits], ["사용자"])
         self.assertIn("시원", self.call("show")["data"]["content"])
 
     def test_a_known_fact_is_reported_not_added_twice(self):
@@ -527,13 +527,13 @@ class MemoryToolTest(Base):
             self.assertFalse(self.call("add", **bad)["success"], bad)
 
     def test_a_broad_forget_is_refused_and_all_is_explicit(self):
-        for fact in ("실장님은 A", "실장님은 B"):
+        for fact in ("사용자는 A", "사용자는 B"):
             self.call("add", text=fact)
-        r = self.call("forget", query="실장님")
+        r = self.call("forget", query="사용자")
         self.assertFalse(r["success"])
         self.assertIn("2줄이 일치합니다", r["message"])
-        self.assertFalse(self.call("forget", query="실장님", all="true")["success"])  # a string is not the boolean
-        r = self.call("forget", query="실장님", all=True)
+        self.assertFalse(self.call("forget", query="사용자", all="true")["success"])  # a string is not the boolean
+        r = self.call("forget", query="사용자", all=True)
         self.assertTrue(r["success"], r["message"])
         self.assertEqual(len(r["data"]["removed"]), 2)
 

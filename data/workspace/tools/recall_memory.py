@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-recall_memory.py — Sphere DiskStation 냥피디 세션 기억 회상 도구
+recall_memory.py — Sphere DiskStation 세션 기억 회상 도구
 과거에 저장/압축/인계된 세션 아카이브(chatbot/data/sessions/<sid>/meta.json)를 검색하고 복원합니다.
 
 사용법:
@@ -18,6 +18,29 @@ import re
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+
+
+# NAME_NEUTRAL_v1: the persona's name and its word for the user come from the identity files
+# (service identity.py), never from literals here.
+def _names() -> Dict[str, str]:
+    try:
+        root = os.environ.get("AGY_CHAT_ROOT") or str(Path(__file__).resolve().parents[3])
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        import identity
+        return {"user": identity.user_title(), "assistant": identity.display_name()}
+    except Exception:
+        return {"user": "사용자", "assistant": "assistant"}
+
+
+_NAMES: Optional[Dict[str, str]] = None
+
+
+def _role_label(role: str) -> str:
+    global _NAMES
+    if _NAMES is None:
+        _NAMES = _names()
+    return _NAMES.get(role, role)
 
 SESSIONS_DIR = Path(__file__).resolve().parent.parent.parent / "sessions"
 if not SESSIONS_DIR.exists():
@@ -185,7 +208,7 @@ def inspect_session(session_id: str) -> Optional[dict]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Sphere DiskStation 냥피디 세션 기억 회상기")
+    parser = argparse.ArgumentParser(description="Sphere DiskStation 세션 기억 회상기")
     parser.add_argument("query", nargs="*", help="검색할 키워드 (여러 개 지정 가능)")
     parser.add_argument("--recent", type=int, nargs="?", const=5, help="최근 세션 목록 N건 조회")
     parser.add_argument("--session", type=str, help="특정 세션 ID 상세 조회")
@@ -222,7 +245,7 @@ def main():
             if role == "btw":
                 print(f"- [샛길 /btw]{ts_str} 질문: {h.get('query')}\n  답변: {str(h.get('text') or '').strip()}")
             else:
-                prefix = "실장님" if role == "user" else ("냥피디" if role == "assistant" else role)
+                prefix = _role_label(role)
                 print(f"- [{prefix}]{ts_str}: {str(h.get('text') or '').strip()}")
         return
 
@@ -267,7 +290,7 @@ def main():
                 print(f"[인계 요약]\n{res['summary'].strip()}\n")
             print(f"[매칭된 대화 발췌]")
             for m in res.get("matches", []):
-                role_kr = "실장님" if m["role"] == "user" else ("냥피디" if m["role"] == "assistant" else m["role"])
+                role_kr = _role_label(m["role"])
                 ts_str = f" ({format_ts(m['ts'])})" if m.get("ts") else ""
                 if m.get("type") == "handoff_summary":
                     continue

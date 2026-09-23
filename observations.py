@@ -215,7 +215,10 @@ def resolve(obs_root, oid, status: str, resolution: str, until: str = "", now: O
     if current in RESOLVED:
         raise ObservationError("observation %s is already %s" % (oid, current))
     fields = {"status": status, "resolution": json.dumps(resolution, ensure_ascii=False)}
-    by = _line(by, 40)
+    try:
+        by = evolution.role_id(by)
+    except ValueError as e:
+        raise ObservationError(str(e))
     if by:  # who closed or parked it (ACTOR_ATTRIBUTION_v1)
         fields["resolved_by"] = json.dumps(by, ensure_ascii=False)
     if status == "parked":
@@ -263,6 +266,10 @@ def add(obs_root, title: str, body: str, area: str = "", recent_limit: Optional[
     """Record a new observation. The archive sweep rides on the write, so it cannot be skipped."""
     d = log_dir(obs_root)
     archive_resolved(obs_root)
+    try:
+        evolution.role_id(actor)
+    except ValueError as e:
+        raise ObservationError(str(e))
     return evolution.add_observation(d, title, body, area, recent_limit=recent_limit, actor=actor)
 
 

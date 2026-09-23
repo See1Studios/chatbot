@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""냥피디 장기 기억 — 명령줄.
+"""장기 기억 — 명령줄.
 
 규칙(형식·4KB 상한·락·백업·삭제 확인)은 코어 `memory_store.py`에 있고, 이 파일은 그것을 부르는 껍데기다.
 셸이 없는 프로바이더는 MCP `memory` 도구로 같은 코어를 쓴다. 세션 아카이브 검색은 recall_memory.py.
 
   python3 tools/memory.py show
-  python3 tools/memory.py add "실장님은 상대경로를 선호한다"
+  python3 tools/memory.py add "사용자는 상대경로를 선호한다"
   python3 tools/memory.py add "open-higgsfield 기본 포트 3014" --section "운영 결정"
   python3 tools/memory.py search "포트"
   python3 tools/memory.py forget "open-higgsfield"        # 여러 줄이 맞으면 거절. 전부 지우려면 --all
@@ -28,13 +28,13 @@ def _core():
     try:
         import memory_store
     except ImportError as e:
-        print("코어 모듈 memory_store.py를 불러오지 못했습니다 (%s). 실장님께 알려 주세요." % e, file=sys.stderr)
+        print("코어 모듈 memory_store.py를 불러오지 못했습니다 (%s). 사용자에게 알려 주세요." % e, file=sys.stderr)
         raise SystemExit(1)
     return memory_store
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="냥피디 장기 기억")
+    p = argparse.ArgumentParser(description="장기 기억")
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("show", help="MEMORY.md 전체 출력")
     pa = sub.add_parser("add", help="사실 한 줄 추가")

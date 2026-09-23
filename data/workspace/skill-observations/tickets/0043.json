@@ -43,7 +43,7 @@
  ],
  "status": "done",
  "target": "protected_manifest.json",
- "title": "MANIFEST_REBASE_2026-09-23: 실장님 지시로 protected_manifest 재기준(OBSLOG·UI·bak 정리 반영)",
+ "title": "MANIFEST_REBASE_2026-09-23: 사용자 지시로 protected_manifest 재기준(OBSLOG·UI·bak 정리 반영)",
  "updated": "2026-09-23 13:32:51",
  "worked_by": "claude-code"
 }

@@ -249,13 +249,22 @@ class ReviewTest(Base):
 
     def test_who_recorded_and_who_closed_are_kept(self):
         # ACTOR_ATTRIBUTION_v1
-        p = ob.add(self.obs, "Swap blocks", "body", area="chatbot", actor="냥피디·agy")
+        p = ob.add(self.obs, "Swap blocks", "body", area="chatbot", actor="chat-agent:agy")
         oid = int(ob.parse_header(p.read_text(encoding="utf-8"))["id"])
-        self.assertEqual(ob.get(self.obs, oid)["actor"], "냥피디·agy")
+        self.assertEqual(ob.get(self.obs, oid)["actor"], "chat-agent:agy")
         done = ob.resolve(self.obs, oid, "actioned", "fixed in #50", by="claude-code")
-        self.assertEqual((done["actor"], done["resolved_by"]), ("냥피디·agy", "claude-code"))
+        self.assertEqual((done["actor"], done["resolved_by"]), ("chat-agent:agy", "claude-code"))
         q = ob.add(self.obs, "No actor", "body")
         self.assertNotIn("actor:", q.read_text(encoding="utf-8"))   # unchanged header when nobody is named
+
+    def test_who_fields_take_role_ids_only(self):
+        # NAME_NEUTRAL_v1
+        with self.assertRaises(ob.ObservationError):
+            ob.add(self.obs, "t", "b", actor="냥피디")
+        p = ob.add(self.obs, "t", "b", actor="operator")
+        oid = int(ob.parse_header(p.read_text(encoding="utf-8"))["id"])
+        with self.assertRaises(ob.ObservationError):
+            ob.resolve(self.obs, oid, "actioned", "done", by="실장님")
 
     def test_digest_lists_what_a_review_looks_at(self):
         self.put(1, title="Open one", status="open")

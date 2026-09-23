@@ -527,18 +527,19 @@ def call_tool(name: str, arguments: dict) -> dict:
 
 
 def _live_actor() -> str:
-    """Who is calling the core tools (ACTOR_ATTRIBUTION_v1): the chat's live agent, named by the provider
-    of the session that is working right now ("냥피디·agy"), or plain "냥피디" when that cannot be told."""
+    """Who is calling the core tools (ACTOR_ATTRIBUTION_v1): the chat's live agent, as the role id
+    "chat-agent:<provider of the session working right now>", or "chat-agent" when that cannot be told.
+    Role ids only -- the persona's name is display, taken from identity by the page (NAME_NEUTRAL_v1)."""
     try:
         import urllib.request
         port = int(os.environ.get("AGY_CHAT_PORT", "3011"))
         with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
             d = json.loads(r.read().decode("utf-8") or "{}")
         if d.get("busy") and d.get("provider"):
-            return "냥피디·%s" % str(d["provider"])[:20]
+            return "chat-agent:%s" % str(d["provider"])[:20]
     except Exception:
         pass
-    return "냥피디"
+    return "chat-agent"
 
 
 def _obs_tool_call(name: str, arguments: dict) -> dict:

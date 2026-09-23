@@ -26,7 +26,8 @@ has a small attempt budget, and can be worked on by one author at a time.
   this stops mistakes, not a determined process. The record says how it was
   asked: `operator (tty)` from the command line, `operator (api)` otherwise.
 - Who (ACTOR_ATTRIBUTION_v1): callers may name the agent doing the work (`actor`, e.g.
-  "claude-code", "grok", "냥피디"); it is kept as `actor` (proposer), `worked_by`, `closed_by`,
+  "claude-code", "grok", "chat-agent:agy" -- role ids, never a persona name or title); it is kept
+  as `actor` (proposer), `worked_by`, `closed_by`,
   and notes read `agent:<actor>`. An operator decision relayed by an agent on the operator's word
   says so: `approved_by` = `operator (api) via <actor> <tool>`.
 
@@ -111,13 +112,18 @@ def _operator_by(operator: Optional[str], what: str, on_behalf: Optional[str] = 
                           "or ask the operator. Agents do not decide tickets." % what)
     by = "operator (%s)" % operator
     if on_behalf and _txt(on_behalf).strip():
-        by += " via %s" % _txt(on_behalf).strip()[:60]
+        via = _txt(on_behalf).strip()[:80]
+        if not re.fullmatch(r"[\x20-\x7e]+", via):  # role ids and tool names only (NAME_NEUTRAL_v1)
+            raise TicketError("on_behalf must be plain ASCII (role id and tool), got %r" % via[:40])
+        by += " via %s" % via
     return by
 
 
 def _clean_actor(actor: Optional[str]) -> Optional[str]:
-    a = re.sub(r"\s+", " ", _txt(actor or "")).strip()[:40]
-    return a or None
+    try:
+        return evolution.role_id(actor) or None
+    except ValueError as e:
+        raise TicketError(str(e))
 
 
 def _agent_by(actor: Optional[str] = None, t: Optional[Dict] = None) -> str:

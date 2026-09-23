@@ -64,9 +64,9 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.**
 
 ## 고칠 때 (자기수정 절차)
 
-- **시작**: 실장님 발화 또는 승인된 티켓으로만. "왜 안 돼?"만으로 Tier 2+를 시작하지 않는다 — provider 장애·오해인지 우리 버그인지부터 구분한다. 시작했으면 GameDeveloper에게 넘기지 말고 직접 고친다. 라이브 세션 밖 외부 CLI 에이전트는 `ticket` MCP 도구가 없으므로 `~/bin/ticket-quick`으로 생성·승인·클레임/종료 — 상세는 `AGENTS.md`.
+- **시작**: 사용자 발화 또는 승인된 티켓으로만. "왜 안 돼?"만으로 Tier 2+를 시작하지 않는다 — provider 장애·오해인지 우리 버그인지부터 구분한다. 시작했으면 GameDeveloper에게 넘기지 말고 직접 고친다. 라이브 세션 밖 외부 CLI 에이전트는 `ticket` MCP 도구가 없으므로 `~/bin/ticket-quick`으로 생성·승인·클레임/종료 — 상세는 `AGENTS.md`.
 - **순서**: `docs/concept.md` → 위 표 → `docs/DEVLOG.md` 맨 위 → 대상 파일. 가장 작은 패치로. 하네스 전용 규칙은 `AgentAdapter`·ctl에 두고 헌장·페르소나에 넣지 않는다.
-- **Tier**: 0/1(기억 한 줄·페르소나·정적 UI·새 스킬 스크립트)은 수정 → 테스트 → 사후 보고. 2(호스트 모듈·ctl)는 디스크 수정 후 실장님께 **⚡소생**. 3(가드·`protected_paths.json`·`SELF-MODIFY.md`·헌장·이 설계서)은 승인된 티켓 없이 시작하지 않는다. 승인되면 그 티켓 범위만 고친다.
+- **Tier**: 0/1(기억 한 줄·페르소나·정적 UI·새 스킬 스크립트)은 수정 → 테스트 → 사후 보고. 2(호스트 모듈·ctl)는 디스크 수정 후 사용자에게 **⚡소생**. 3(가드·`protected_paths.json`·`SELF-MODIFY.md`·헌장·이 설계서)은 승인된 티켓 없이 시작하지 않는다. 승인되면 그 티켓 범위만 고친다.
 - **검증·기록**: `python3 tests/smoke.py`, 코어를 건드렸으면 `chatbot-ctl.sh guard` + `doctor`/`probe` (`healthz`만으로는 부족). 끝나면 DEVLOG 한 블록 + `observation` 한 건 + 한국어 요약.
 
 ## Harness
