@@ -2765,3 +2765,14 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
 - **변경**: `final` 본문이 있으면 `emit_error=False`로 자식만 중지(공지 없음). notice:error인 경우도 동일.
 - **배포**: repair.
 - **마커**: `QUOTA_ANSWER_WINS_v1`
+
+## 2026-09-23 — 턴 종료 순서 정리 (TURN_END_ORDER_v1)
+
+- **배경**: 쿼터 ERROR인데 인사 답이 나온 뒤 오류 공지 + 답 재출력. 임시 패치(ANSWER_WINS 등)로도 재발 여지.
+- **근본 원인**: Agy `result` 처리가 `finalize` 후 `_end_unfinished_turn`→`_auto_stop`→**즉시 `_emit`** 하고 나서야 `events.append(out_ev)`. 공지/중지가 답 이벤트보다 먼저 UI에 도착.
+- **변경**:
+  1. `events.append(out_ev)`를 먼저.
+  2. 필요 시 `_request_post_result_stop`만 걸고, `_handle_events`가 result/error flush·busy 해제 **이후** 자식 프로세스만 중지.
+  3. 미완성 한글 공지는 finalize가 이미 error/답이면 추가하지 않음(빈 SUCCESS 타임아웃만 이벤트 배치에 포함).
+- **배포**: repair.
+- **마커**: `TURN_END_ORDER_v1`

@@ -608,6 +608,34 @@ class AgySession:
             except Exception:
                 pass
 
+    # TURN_END_ORDER_v1: stop child only after terminal events are flushed.
+    def _request_post_result_stop(self, status: str, err: str, duration: float) -> None:
+        self._post_result_stop = {
+            "status": status or "",
+            "err": err or "",
+            "duration": float(duration or 0),
+        }
+
+    def _run_post_result_stop(self) -> None:
+        info = getattr(self, "_post_result_stop", None)
+        self._post_result_stop = None
+        if not info:
+            return
+        status = info.get("status") or ""
+        err = info.get("err") or ""
+        duration = float(info.get("duration") or 0)
+        why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}초"
+        self._loop_hint = (
+            f"에이전트가 답을 내기 전에 턴이 끝났습니다({why}). "
+            "남은 작업은 멈췄고, 다음 메시지부터 이어서 합니다냥."
+        )
+        with self.lock:
+            if self._loop_stopping:
+                return
+            self._loop_stopping = True
+        # No user-facing emit — answer/error notice already flushed.
+        threading.Thread(target=self._auto_stop_worker, daemon=True).start()
+
     def _end_unfinished_turn(self, status: str, err: str, duration: float, emit_error: bool = True) -> None:
         """agy ended the turn without an answer (error/timeout). At the print timeout it does so
         with an EMPTY result while the agent keeps working unseen in the background, so the child
@@ -922,6 +950,11 @@ class AgySession:
                 self._emit_heavy_if_needed()
             except Exception:
                 pass
+            # TURN_END_ORDER_v1: kill hung agy only after UI got the answer/error
+            try:
+                self._run_post_result_stop()
+            except Exception as e:
+                print(f"WARN: post_result_stop failed: {e}", flush=True)
             with self.lock:
                 has_queued = bool(getattr(self, "msg_queue", []))
             if has_queued:
@@ -1574,7 +1607,7 @@ class AgySession:
             self._loop_noticed = False
         with self.lock:
             self.current_text = ""
-            self.turn_started_at = _now(); self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""
+            self.turn_started_at = _now(); self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None
             self.pending_images = []
             ts = _now()
             if not notice:

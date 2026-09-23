@@ -396,18 +396,40 @@ class AgyAdapter(AgentAdapter):
             duration_seconds = out_ev.get("duration_seconds")
             status = str(res_obj.get("status") or "")
             dur = float(res_obj.get("duration_seconds") or duration_seconds or 0)
-            # QUOTA_ERR_DEDUP_v1 + QUOTA_ANSWER_WINS_v1:
-            # status=ERROR often still carries a usable streamed answer (greeting).
-            # _end_unfinished_turn emits immediately via _emit BEFORE out_ev is
-            # flushed, so an error notice would land between the live draft and
-            # the result paint — user sees answer, then error, then answer again.
-            if not session._stop_requested and (
+            # TURN_END_ORDER_v1: append the terminal event FIRST, then ask
+            # session to stop the child AFTER _handle_events flushes it.
+            # Never call _end_unfinished_turn here — it _emit/_auto_stop
+            # immediately and races ahead of the answer paint.
+            events.append(out_ev)
+            need_stop = (not session._stop_requested) and (
                 status not in ("", "SUCCESS")
                 or (not final.strip() and dur >= 0.9 * AGY_PRINT_TIMEOUT_SEC)
-            ):
-                quiet = (out_ev.get("event") == "error") or bool(final.strip())
-                session._end_unfinished_turn(status, res_err, dur, emit_error=not quiet)
-            events.append(out_ev)
+            )
+            if need_stop:
+                # Extra Korean unfinished notice only when finalize did not
+                # already produce error/answer — empty SUCCESS timeout case.
+                extra = None
+                if (
+                    not final.strip()
+                    and out_ev.get("event") != "error"
+                    and status in ("", "SUCCESS")
+                ):
+                    why = (
+                        f"status={status or '?'}"
+                        + (f", error={res_err}" if res_err else "")
+                        + f", {int(dur)}초"
+                    )
+                    extra = {
+                        "event": "error",
+                        "notice": "error",
+                        "text": (
+                            f"에이전트가 답을 내기 전에 턴이 끝났습니다 ({why}). "
+                            "남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다냥."
+                        ),
+                    }
+                    events.append(extra)
+                session._request_post_result_stop(status, res_err, dur)
+
         elif ev in ("assistant", "message", "delta", "error", "system") or (ev in ("tool_use", "tool_result") and not tool_ev):
             out = {"event": ev, "text": text, "raw_event": ev}
             if ev == "delta" and delta_offset is not None:
