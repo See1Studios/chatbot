@@ -13,12 +13,12 @@
 | `doctor` | healthz + RLock 소스 가드 + (1시간마다, `PROBE_EVERY_SEC`) 메시지 프로브 |
 | `doctor --auto-repair` | 프로브 실패 시 자동 `repair` (워치독이 이걸 씀) |
 | `probe` | 지금 당장 POST `/message` 타임아웃 검사 |
-| `repair` | stop → orphan agy 정리 → start → 강제 프로브 |
-| `guard` | `AgySession.lock`이 `RLock`인지 AST 검사만 |
+| `repair` | stop → 고아 에이전트 정리 → start → 강제 프로브 |
+| `guard` | `AgentSession.lock`이 `RLock`인지 AST 검사만 |
 
 ## 알려진 고장 모드
 1. **메시지 데드락** (2026-09-16): `ensure`가 `Lock` 보유 중 `_spawn`→`stop`이 같은 락 재획득. 증상: healthz OK, 전송 무한 대기. 수정: 세션 락=`RLock`. 가드=`ctl guard`.
-2. **고아/프로브 agy**: PPID=1 orphan + doctor flash-low(대개 `--conversation` 없음). `repair`/`doctor`의 `kill_orphan_agy`가 PPID=1·no-conversation·비보호 flash-low를 정리. probe는 `stop`+`/discard` 후 한 번 더 prune.
+2. **고아 에이전트**: 살아 있는 채팅 서버의 자손이 아닌 우리 에이전트 프로세스(cwd = `data/workspace`, 모든 provider). `repair`/`doctor`의 `reap_orphan_agents`(`ctl_proc.py`, OS 사실만)가 정리하고, 서버 자손과 다른 도구의 프로세스는 건드리지 않는다. probe 세션은 `stop`+삭제 후 한 번 더 정리.
 3. **서버 다운**: 워치독 1분마다 `doctor --auto-repair` (예전엔 `start`만이라 2번을 못 잡음).
 
 ## 로그

@@ -51,7 +51,7 @@ EXTRA_CMD_PREFIXES = (
     "hermes --version",
 )
 
-PORT_CHAT_HINT = int(os.environ.get("AGY_CHAT_PORT", "3011"))  # informational only (list_services)
+PORT_CHAT_HINT = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")  # informational only (list_services)
 PORT_HOST_MCP = int(os.environ.get("NAS_HOST_MCP_PORT", "3015"))
 
 # What service_ctl and list_services know about. The chatbot itself may only be asked for `status`: its lifecycle

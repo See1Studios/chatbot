@@ -107,7 +107,7 @@ class InjectionTests(WorkspaceCase):
     def make(self, http=False):
         S.SESSIONS = self.tmp / "sessions"
         (S.SESSIONS / "t").mkdir(parents=True, exist_ok=True)
-        s = S.AgySession("t", provider="agy")
+        s = S.AgentSession("t", provider="agy")
         s.adapter = types.SimpleNamespace(
             keeps_stdin_open=False, transport_kind="http" if http else "process",
             format_stdin=lambda c: c, mints_own_conversation_id=lambda: False,
@@ -134,7 +134,7 @@ class InjectionTests(WorkspaceCase):
         s = self.make()
         s._send_direct("a")
         s.save_meta()
-        s2 = S.AgySession("t", provider="agy")
+        s2 = S.AgentSession("t", provider="agy")
         self.assertTrue(s2.persona_injected)
         self.assertEqual(s2.persona_bundle_hash, s.persona_bundle_hash)
 

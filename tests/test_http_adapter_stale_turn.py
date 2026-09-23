@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Iterator, List
 
-from session import AgySession
+from session import AgentSession
 
 
 class FakeHttpAdapter:
@@ -17,7 +17,7 @@ class FakeHttpAdapter:
     def __init__(self, block_event: threading.Event):
         self.block_event = block_event
 
-    def stream_turn(self, session: AgySession, messages: List[dict], seq: int = None, **kwargs) -> Iterator[dict]:
+    def stream_turn(self, session: AgentSession, messages: List[dict], seq: int = None, **kwargs) -> Iterator[dict]:
         # Hop 1: if seq == 1, block until released
         if seq == 1:
             self.block_event.wait(timeout=5.0)
@@ -44,7 +44,7 @@ class TestHttpTurnHijack(unittest.TestCase):
         block_event = threading.Event()
         adapter = FakeHttpAdapter(block_event)
 
-        sess = AgySession.__new__(AgySession)
+        sess = AgentSession.__new__(AgentSession)
         sess.sid = "test-hijack"
         sess.adapter = adapter
         sess.lock = threading.RLock()

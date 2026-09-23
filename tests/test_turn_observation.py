@@ -1,7 +1,7 @@
-"""AgySession funnels every way a turn can end into one hook (docs/plans/recursive-self-evolution.md §4.6).
+"""AgentSession funnels every way a turn can end into one hook (docs/plans/recursive-self-evolution.md §4.6).
 Run: python3 -m unittest tests.test_turn_observation  (from services/chatbot)
 
-Real AgySession objects, temp data directory; no child process is ever started.
+Real AgentSession objects, temp data directory; no child process is ever started.
 """
 import json
 import queue
@@ -38,14 +38,14 @@ class Base(unittest.TestCase):
         session.ROOT = CODE
         session.DATA = self.data
         session._record_live_pids = lambda: None
-        self._summary = session.AgySession.get_handover_summary
-        session.AgySession.get_handover_summary = lambda self, *a, **k: ""
+        self._summary = session.AgentSession.get_handover_summary
+        session.AgentSession.get_handover_summary = lambda self, *a, **k: ""
         self.s = self.session("obs-test", "claude")
 
     def tearDown(self):
         for k, v in self._orig.items():
             setattr(session, k, v)
-        session.AgySession.get_handover_summary = self._summary
+        session.AgentSession.get_handover_summary = self._summary
 
     @staticmethod
     def _subscribe(sess):
@@ -56,7 +56,7 @@ class Base(unittest.TestCase):
         return q
 
     def session(self, sid, provider="agy"):
-        s = session.AgySession(sid, provider=provider)
+        s = session.AgentSession(sid, provider=provider)
         q = self._subscribe(s)
         self.drain(q)  # discard startup events
         s._test_q = q  # stash for tests that need to drain later
@@ -240,7 +240,7 @@ class NeverDisturbsATurnTest(Base):
         self.assertFalse(self.s.busy)
 
     def test_a_session_built_without_init_still_emits(self):
-        bare = session.AgySession.__new__(session.AgySession)  # some tests fake sessions this way
+        bare = session.AgentSession.__new__(session.AgentSession)  # some tests fake sessions this way
         bare.subscribers = []
         bare.lock = threading.RLock()
         bare.history = []

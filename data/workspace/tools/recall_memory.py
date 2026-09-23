@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Any
 # (service identity.py), never from literals here.
 def _names() -> Dict[str, str]:
     try:
-        root = os.environ.get("AGY_CHAT_ROOT") or str(Path(__file__).resolve().parents[3])
+        root = os.environ.get("CHATBOT_ROOT") or os.environ.get("AGY_CHAT_ROOT") or str(Path(__file__).resolve().parents[3])
         if root not in sys.path:
             sys.path.insert(0, root)
         import identity

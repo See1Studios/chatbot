@@ -9,20 +9,26 @@ import time
 from pathlib import Path
 
 # Default is loopback: a bare `python3 server.py` is local-only. LAN access is an
-# explicit choice -- chatbot-ctl.sh cmd_start exports AGY_CHAT_HOST=0.0.0.0.
-HOST = os.environ.get("AGY_CHAT_HOST", "127.0.0.1")
-PORT = int(os.environ.get("AGY_CHAT_PORT", "3011"))
+# explicit choice -- chatbot-ctl.sh cmd_start exports CHATBOT_HOST=0.0.0.0.
+def _env(name: str, legacy: str, default: str) -> str:
+    """Service settings are CHATBOT_*; the older AGY_CHAT_* / AGY_*_BIN names are still read so an
+    existing deployment keeps working (PROVIDER_NEUTRAL_v1: the service is not one provider's)."""
+    return os.environ.get(name) or os.environ.get(legacy) or default
+
+
+HOST = _env("CHATBOT_HOST", "AGY_CHAT_HOST", "127.0.0.1")
+PORT = int(_env("CHATBOT_PORT", "AGY_CHAT_PORT", "3011"))
 MCP_PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))  # informational only (healthz) -- mcp_server.py reads its own copy
 AGY = os.environ.get("AGY_BIN", "/volume1/homes/me/.local/bin/agy")
-CLAUDE_BIN = os.environ.get("AGY_CLAUDE_BIN", "/volume1/homes/me/.local/bin/claude")
-GROK_BIN = os.environ.get("AGY_GROK_BIN", "/volume1/homes/me/.local/bin/grok")
-CODEX_BIN = os.environ.get("AGY_CODEX_BIN", "/volume1/homes/me/.local/bin/codex")
-ROOT = Path(os.environ.get("AGY_CHAT_ROOT", "/volume1/homes/me/services/chatbot"))
+CLAUDE_BIN = _env("CHATBOT_CLAUDE_BIN", "AGY_CLAUDE_BIN", "/volume1/homes/me/.local/bin/claude")
+GROK_BIN = _env("CHATBOT_GROK_BIN", "AGY_GROK_BIN", "/volume1/homes/me/.local/bin/grok")
+CODEX_BIN = _env("CHATBOT_CODEX_BIN", "AGY_CODEX_BIN", "/volume1/homes/me/.local/bin/codex")
+ROOT = Path(_env("CHATBOT_ROOT", "AGY_CHAT_ROOT", "/volume1/homes/me/services/chatbot"))
 # 2026-09-16: consolidated from a sibling chatbot-data/ directory (and its
 # own separate git repos) into chatbot/data/ -- one project, one folder, one
 # repo, instead of code and data living apart and needing separate publish
 # subtrees to back up together.
-DATA = Path(os.environ.get("AGY_CHAT_DATA", str(ROOT / "data")))
+DATA = Path(_env("CHATBOT_DATA", "AGY_CHAT_DATA", str(ROOT / "data")))
 STATIC = ROOT / "static"
 SESSIONS = DATA / "sessions"
 WORKSPACE = DATA / "workspace"
@@ -30,7 +36,7 @@ HOME = Path(os.environ.get("HOME", "/volume1/homes/me"))
 # Static web host root -- NOT this service's own ROOT/DATA. Only this NAS's
 # actual layout (/volume1/web) is DiskStation-specific; the var itself lets
 # a different deployment point it anywhere (see docs/plans/chatbot-host-portability.md).
-WEB_ROOT = Path(os.environ.get("AGY_CHAT_WEB_ROOT", "/volume1/web"))
+WEB_ROOT = Path(_env("CHATBOT_WEB_ROOT", "AGY_CHAT_WEB_ROOT", "/volume1/web"))
 AGENT_PATH_PREFIX = f"{HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 BRAIN = HOME / ".gemini" / "antigravity-cli" / "brain"
 # Shared/manual assets not tied to any one session (2026-09-16: merged the
@@ -47,7 +53,7 @@ PERSISTED_LOG_KINDS = {
     "system", "btw_start", "btw", "error", "queued", "result",
     "session_heavy", "session_rotate", "stopped", "tool", "user_ack", "image",
 }
-DEFAULT_MODEL = os.environ.get("AGY_CHAT_MODEL", "gemini-3.8-flash-low")
+DEFAULT_MODEL = _env("CHATBOT_DEFAULT_MODEL", "AGY_CHAT_MODEL", "gemini-3.8-flash-low")
 MODELS = [
     "gemini-3.8-flash-low",
     "gemini-3.8-flash-medium",
@@ -99,7 +105,10 @@ INACTIVITY_ROTATE_SEC = 3 * 3600  # 3 hours gap triggers auto-compaction and fre
 for p in (SESSIONS, WORKSPACE, STATIC, ARTIFACTS_CACHE):
     p.mkdir(parents=True, exist_ok=True)
 
-DEFAULT_PROVIDER = "agy"
+DEFAULT_PROVIDER = os.environ.get("CHATBOT_DEFAULT_PROVIDER", "agy")
+# The provider common features use for a single prompt without a conversation (side questions,
+# handoff summaries): adapters' oneshot(). PROVIDER_NEUTRAL_v1.
+ONESHOT_PROVIDER = os.environ.get("CHATBOT_ONESHOT_PROVIDER", DEFAULT_PROVIDER)
 
 
 _now = time.time

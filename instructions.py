@@ -1,7 +1,7 @@
 """Host-side instruction bundle (docs/plans/instruction-architecture.md, P2).
 
 One text, assembled by the host, that every provider gets the same way
-(AgySession._send_direct() prepends it to the first turn; the HTTP adapter
+(AgentSession._send_direct() prepends it to the first turn; the HTTP adapter
 sends it as the system message). Providers' own cwd/ancestor auto-discovery
 of AGENTS.md / CLAUDE.md / skills differs per CLI and is NOT relied on --
 the bundle is the one channel that is identical everywhere.

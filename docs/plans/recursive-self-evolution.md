@@ -263,6 +263,7 @@
 
 ---
 8. **이름 중립** (2026-09-23 사용자 결정, NAME_NEUTRAL_v1): 페르소나 이름과 페르소나가 사용자를 부르는 호칭은 인스턴스마다 다른 **표시값**이다(`AGENTS.md`/`PERSONA.md` front matter → `identity.py`). 코드·저장 데이터·규칙 문서에서 사람과 에이전트는 역할로 부른다: 사용자(`operator`), 서비스의 라이브 에이전트(`chat-agent:<provider>`), 외부 에이전트(`claude-code`, `grok`, …). 누가 했는지 저장하는 칸은 ASCII 역할 ID만 받는다(`evolution.ROLE_ID_RE`). 화면·대화에서만 identity로 이름과 호칭을 입힌다. 집행: `tests/test_identity_wiring.py::NameNeutralityGuard`(코드·정적 UI·작업공간 도구·스킬·규칙 문서·저장된 주체 값, 금지 이름은 인스턴스 identity에서 읽음).
+9. **provider 중립** (2026-09-23 사용자 결정, PROVIDER_NEUTRAL_v1): agy는 여러 provider 중 하나다. 공통 코드(세션·서버·미디어·UI·ctl)는 클래스·함수·변수·이벤트·설정 이름에 provider를 쓰지 않고, provider 기능은 **이름이 아니라 능력으로** 묻는다: 어댑터 훅(`oneshot`, `native_compact`, `has_conversation`, `supports_steer`, `available`), 미디어 위치 등록부(`media_handler.MediaSource`), provider 특성 선언(`accounts.RECYCLE_ON_LOGIN`, `LOGOUT_NOTES`), 카탈로그 필드(`theme`, `name`, `login`). provider 지식은 provider 모듈(`adapters.py`, `accounts.py`, `account_login.py`)과 설정(`host_config.py`, `ctl_proc.py`의 프로세스 분류)에만 둔다. 서비스 설정 환경변수는 `CHATBOT_*`(옛 `AGY_CHAT_*`도 읽음). 집행: `tests/test_provider_neutrality.py`(provider 목록은 어댑터 등록부에서 읽음).
 
 ## 8. 결정 (확정)
 

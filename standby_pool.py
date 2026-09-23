@@ -35,7 +35,7 @@ class _StandbyPool:
 
     An unclaimed standby carries no --conversation flag like a stale probe
     leftover would, so it needs an explicit exemption from
-    chatbot-ctl.sh's kill_orphan_agy() 90s no-conversation grace period —
+    chatbot-ctl.sh's reap_orphan_agents() 90s no-conversation grace period —
     see standby.pid below, which that script checks and skips.
     """
 

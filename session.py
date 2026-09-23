@@ -1,7 +1,7 @@
-"""In-memory session registry, AgySession, and standby pool.
+"""In-memory session registry, AgentSession, and standby pool.
 
 Extracted from server.py (monolith-split Phase 1). chatbot-ctl.sh guard_rlock
-AST-scans this file for AgySession.lock = threading.RLock().
+AST-scans this file for AgentSession.lock = threading.RLock().
 """
 from __future__ import annotations
 
@@ -28,11 +28,11 @@ import obslog
 from loop_guard import LoopGuard, extract_tool_steps, normalize
 from host_config import (
     ADD_DIRS,
-    AGY,
     ARTIFACTS_CACHE,
     DATA,
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
+    ONESHOT_PROVIDER,
     HOME,
     INACTIVITY_ROTATE_SEC,
     PERSISTED_LOG_KINDS,
@@ -54,7 +54,6 @@ from standby_pool import (
 from session_weights import (
     _billed_tokens,
     _btw_prompt,
-    _conversation_db_path,
     _current_context_tokens,
     _handoff_prompt,
     _is_inquiry,
@@ -64,7 +63,7 @@ from session_weights import (
 from media_handler import (
     _append_images_markdown,
     _collect_new_images,
-    _conversation_brain_dir,
+    _artifact_dirs,
     _rewrite_artifact_paths,
     _stage_image,
 )
@@ -100,6 +99,14 @@ def _redact_text(text: str) -> str:
         return ""
     clean = [l for l in text.splitlines() if not _redact_line(l)]
     return "\n".join(clean).strip()
+
+
+def _oneshot(prompt: str, timeout: float):
+    """A single prompt on the configured oneshot provider (adapter hook, PROVIDER_NEUTRAL_v1)."""
+    try:
+        return get_adapter(ONESHOT_PROVIDER).oneshot(prompt, timeout)
+    except Exception as e:  # noqa: BLE001
+        return {"text": "", "usage": None, "duration_seconds": None, "error": str(e)}
 
 
 def _standby_maintenance_loop() -> None:
@@ -139,7 +146,7 @@ def format_client_context(ctx: Optional[Dict[str, Any]]) -> str:
     return "[클라이언트 환경: " + ", ".join(parts) + "]"
 
 
-class AgySession:
+class AgentSession:
     def __init__(self, sid: str, model: str = DEFAULT_MODEL, effort: str = "", provider: str = DEFAULT_PROVIDER):
         self.sid = sid
         self.provider = provider or DEFAULT_PROVIDER
@@ -155,7 +162,7 @@ class AgySession:
         self.subscribers: List["queue.Queue[dict]"] = []
         self.lock = threading.RLock()  # DEADLOCK GUARD: must stay RLock — ensure()->_spawn()->stop() nests
         if type(self.lock) is type(threading.Lock()):  # pragma: no cover
-            raise RuntimeError('AgySession.lock must be RLock, not Lock')
+            raise RuntimeError('AgentSession.lock must be RLock, not Lock')
         self.created_at = _now()
         self.last_activity = self.created_at
         self.history: List[dict] = []
@@ -363,9 +370,9 @@ class AgySession:
                 # agy/claude/grok too.
                 start_new_session=True,
             )
-            grok_prompt = getattr(self.adapter, "_last_prompt_path", None)
-            if grok_prompt:
-                self.proc._grok_prompt_file = grok_prompt
+            prompt_path = getattr(self.adapter, "_last_prompt_path", None)
+            if prompt_path:  # a one-shot provider's prompt file, removed when the child exits
+                self.proc._prompt_file = prompt_path
                 self.adapter._last_prompt_path = None
             self._emit({"event": "system", "text": f"{self.provider} started model={self.model} (skip-permissions, accept-edits, NAS)"})
         threading.Thread(target=self._read_stdout, args=(self.proc,), daemon=True).start()
@@ -423,17 +430,17 @@ class AgySession:
                     return
 
     def _resume_or_reseed(self) -> None:
-        """Before every (re)spawn of an agy child. agy resumes `--conversation <id>` only if
-        it has that conversation; otherwise it ignores the flag and starts an EMPTY one, which
+        """Before every (re)spawn of a child. A CLI may resume `--conversation <id>` only if its
+        store has that conversation (adapter.has_conversation); otherwise it starts an EMPTY one, which
         used to happen on every respawn (idle reap, swap, stop, crash) with nothing telling the
         agent -- so it lost its memory, persona and rules while the window still showed the
         whole chat (2026-09-20: "너 다른 프로세스야?"). If the id is not in agy's store, drop it
         and re-seed the next message with the rules and a digest of the visible history."""
-        if self.adapter.id != "agy" or not self.conversation_id:
+        if not self.conversation_id:
             return
-        db = _conversation_db_path(self.conversation_id)
-        if db is not None and db.exists():
-            return
+        check = getattr(self.adapter, "has_conversation", None)
+        if check is None or check(self.conversation_id) is not False:
+            return  # present, or this provider cannot tell
         self.conversation_id = None  # _spawn mints a fresh id (which also keeps agy from auto-resuming an unrelated one)
         if any(h.get("role") in ("user", "assistant") and (h.get("text") or "").strip() for h in self.history):
             self._reseed_from_history()
@@ -913,8 +920,9 @@ class AgySession:
     def _rewrite_artifact_paths(self, text: str) -> str:
         return _rewrite_artifact_paths(self.sid, self.conversation_id, text)
 
-    def _conversation_brain_dir(self) -> Optional[Path]:
-        return _conversation_brain_dir(self.conversation_id)
+    def _artifact_dirs(self) -> List[Path]:
+        """The provider's own folders for this conversation (media_handler registry)."""
+        return _artifact_dirs(self.conversation_id)
 
     def _collect_new_images(self, since_ts: Optional[float] = None) -> list:
         return _collect_new_images(self.conversation_id, self.last_activity, since_ts)
@@ -983,7 +991,7 @@ class AgySession:
             except Exception:  # noqa: BLE001 -- logging must never disturb the reader
                 pass
             _record_live_pids()
-            prompt_file = getattr(proc, "_grok_prompt_file", None)
+            prompt_file = getattr(proc, "_prompt_file", None)
             if prompt_file:
                 try:
                     Path(prompt_file).unlink(missing_ok=True)
@@ -1149,7 +1157,7 @@ class AgySession:
     # ---- steer: apply a message that arrived mid-turn at the next tool-step boundary -----------
     def _can_steer_at_boundary(self) -> bool:
         a = self.adapter
-        return getattr(a, "id", "") == "agy" and getattr(a, "transport_kind", "") == "process" and bool(getattr(a, "keeps_stdin_open", False))
+        return bool(getattr(a, "supports_steer", False)) and getattr(a, "transport_kind", "") == "process" and bool(getattr(a, "keeps_stdin_open", False))
 
     def _queue_steer(self, text: str, client_mid: str) -> None:
         with self.lock:
@@ -1226,40 +1234,18 @@ class AgySession:
             context_snippets.append("[최근 대화 맥락:\n" + "\n".join(recent_hist) + "]")
 
         prompt = _btw_prompt(query, is_active, context_snippets)
-        cmd = [
-            AGY, "-p", prompt,
-            "--output-format", "stream-json",
-            "--model", "gemini-3.8-flash-low",
-            "--dangerously-skip-permissions",
-        ]
         ans = "답변을 가져오지 못했습니다냥."
         usage = None
         duration_seconds = None
-        try:
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=20)
-            if res.returncode == 0 and res.stdout.strip():
-                for line in res.stdout.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        obj = json.loads(line)
-                        if obj.get("event") == "result":
-                            r = obj.get("result") or {}
-                            ans = str(r.get("response") or "").strip() or ans
-                            usage = r.get("usage")
-                            duration_seconds = r.get("duration_seconds")
-                            break
-                    except Exception:
-                        pass
-                if ans == "답변을 가져오지 못했습니다냥." and res.stdout.strip():
-                    ans = res.stdout.strip()
-            else:
-                ans = _redact_text(res.stderr) or ans
-        except subprocess.TimeoutExpired:
+        r = _oneshot(prompt, 20)
+        if r is None:
+            ans = "간이 질문에 답할 제공자가 설정되지 않았습니다냥 (CHATBOT_ONESHOT_PROVIDER)."
+        elif r.get("text"):
+            ans, usage, duration_seconds = r["text"], r.get("usage"), r.get("duration_seconds")
+        elif r.get("error") == "timeout":
             ans = "간이 질문 응답 시간이 초과되었습니다냥."
-        except Exception as e:
-            ans = f"간이 질문 처리 중 오류가 발생했습니다: {e}"
+        elif r.get("error"):
+            ans = _redact_text(r["error"]) or ans
 
         with self.lock:
             item = {"role": "btw", "query": query, "text": ans, "ts": _now()}
@@ -1317,8 +1303,8 @@ class AgySession:
         # while wiring up the frontend selector, skip straight to the
         # fallback for any provider that isn't agy instead of wasting the
         # attempt.
-        if cid and self.provider == "agy":
-            base = self._native_compact(cid)
+        if cid:
+            base = self._native_compact(self.provider, cid)
 
         if not base:
             base = self._dialogue_summary_fallback(max_turns)
@@ -1334,19 +1320,11 @@ class AgySession:
         return full
 
     @staticmethod
-    def _native_compact(cid: str) -> str:
-        """agy's own /compact of conversation `cid` (up to 45s); "" when it fails."""
+    def _native_compact(provider: str, cid: str) -> str:
+        """That provider's own summary of conversation `cid` (adapter hook; "" when it has none)."""
         try:
-            res = subprocess.run(
-                [AGY, "-p", "/compact", "--conversation", cid,
-                 "--model", "gemini-3.8-flash-low", "--dangerously-skip-permissions"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=45,
-            )
-            return res.stdout.strip() if res.returncode == 0 and res.stdout.strip() else ""
-        except Exception:
+            return get_adapter(provider).native_compact(cid)
+        except Exception:  # noqa: BLE001
             return ""
 
     def _refine_swap_handoff(self, gen: int, old_provider: str, cid: Optional[str]) -> None:
@@ -1354,7 +1332,7 @@ class AgySession:
         /compact of the OLD conversation when there is one, else the dialogue summary -- unless the
         handoff was already sent or another swap happened meanwhile."""
         t0 = time.monotonic()
-        base = self._native_compact(cid) if old_provider == "agy" and cid else ""
+        base = self._native_compact(old_provider, cid) if cid else ""
         if not base:
             base = self._dialogue_summary_fallback()
         with self.lock:
@@ -1409,26 +1387,11 @@ class AgySession:
 
         prompt = _handoff_prompt(dialogue_blob)
 
-        cmd = [
-            AGY, "-p", prompt,
-            "--model", "gemini-3.8-flash-low",
-            "--dangerously-skip-permissions",
-        ]
-        try:
-            res = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=12,
-            )
-            summary = res.stdout.strip() if res.returncode == 0 and res.stdout.strip() else ""
-            if summary:
-                return summary
-        except Exception:
-            pass
+        r = _oneshot(prompt, 12)
+        if r and r.get("text"):
+            return r["text"]
 
-        # Deterministic fallback if subprocess fails or times out
+        # Deterministic fallback when no provider answered
         user_turns = [h.get("text") for h in self.history if h.get("role") == "user"]
         asst_turns = [h.get("text") for h in self.history if h.get("role") == "assistant"]
         last_u = str(user_turns[-1] if user_turns else "")[:120]
@@ -1478,7 +1441,7 @@ class AgySession:
         except Exception:
             return False
 
-    def _rotate_to_fresh_session(self, text: str, reason: str = "heavy", client_mid: str = "", client_context: Optional[Dict[str, Any]] = None) -> "AgySession":
+    def _rotate_to_fresh_session(self, text: str, reason: str = "heavy", client_mid: str = "", client_context: Optional[Dict[str, Any]] = None) -> "AgentSession":
         """Sticky rotate: reuse successor_session_id when usable; else create once and remember with handover."""
         if reason == "inactivity":
             msg = (
@@ -1539,7 +1502,7 @@ class AgySession:
         return new_sess
 
     def send(self, text: str, client_mid: str = "", client_context: Optional[Dict[str, Any]] = None):
-        """Return None (same session) or AgySession if hard-rotated to a fresh session."""
+        """Return None (same session) or AgentSession if hard-rotated to a fresh session."""
         text = (text or "").strip()
         if not text:
             raise ValueError("empty message")
@@ -2112,11 +2075,8 @@ class AgySession:
         exts_doc = {".md", ".txt", ".json", ".pdf", ".html", ".csv", ".yaml", ".yml"}
         exts_code = {".py", ".js", ".ts", ".gd", ".sh", ".sql", ".css"}
 
-        roots = []
-        bdir = self._conversation_brain_dir()
-        if bdir:
-            roots.append(bdir)
-            roots.append(bdir / ".tempmediaStorage")
+        provider_dirs = list(self._artifact_dirs())
+        roots = list(provider_dirs)
         ws_artifacts = WORKSPACE / "artifacts"
         persona_root = DATA / "persona"
         persona_gallery = persona_root / "gallery"
@@ -2142,14 +2102,14 @@ class AgySession:
         seen_sizes = set()
         seen_names = set()
 
-        # Only agy's raw generation cache (bdir and its subfolders) needs
+        # Only a provider's raw generation cache (its artifact dirs) needs
         # _stage_image's copy-out-of-cache treatment. Everything else found
         # below is already sitting in a stable, directly-servable location --
         # calling _stage_image on it would copy it AGAIN into this session's
         # own folder on every single gallery view (caught 2026-09-16: viewing
         # an empty session's artifact tab silently vacuumed every image out
         # of sessions/_shared/ into that session's own artifacts/ folder).
-        brain_source_roots = {r for r in (bdir, bdir / ".tempmediaStorage" if bdir else None) if r}
+        brain_source_roots = set(provider_dirs)
 
         for root in roots:
             if not root or not Path(root).exists():
@@ -2233,7 +2193,7 @@ def _probe_meta(meta: dict) -> bool:
 class Registry:
     def __init__(self) -> None:
         self.lock = threading.RLock()
-        self.sessions: Dict[str, AgySession] = {}
+        self.sessions: Dict[str, AgentSession] = {}
 
     def create(
         self,
@@ -2242,9 +2202,9 @@ class Registry:
         predecessor_sid: str = "",
         handoff_summary: str = "",
         provider: str = DEFAULT_PROVIDER,
-    ) -> AgySession:
+    ) -> AgentSession:
         sid = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
-        sess = AgySession(sid, model=model, effort=effort, provider=provider)
+        sess = AgentSession(sid, model=model, effort=effort, provider=provider)
         sess.predecessor_session_id = predecessor_sid
         sess.handoff_summary = handoff_summary
         sess.handoff_injected = False
@@ -2277,7 +2237,7 @@ class Registry:
             raise RuntimeError(f"삭제 실패: {sess_dir} 디렉터리가 여전히 남아있습니다")
         return True
 
-    def peek(self, sid: str) -> Optional[AgySession]:
+    def peek(self, sid: str) -> Optional[AgentSession]:
         """Return the session if it exists in memory or on disk; None otherwise.
         Unlike get(), never creates a new session — safe for all GET routes."""
         try:
@@ -2292,12 +2252,12 @@ class Registry:
             return self.get(sid)
         return None
 
-    def get(self, sid: str) -> AgySession:
+    def get(self, sid: str) -> AgentSession:
         sid = _safe_session_id(sid)
         with self.lock:
             if sid in self.sessions:
                 return self.sessions[sid]
-            sess = AgySession(sid)
+            sess = AgentSession(sid)
             self.sessions[sid] = sess
             return sess
 
@@ -2310,7 +2270,7 @@ class Registry:
                 items.append({
                     "id": meta.get("id") or p.parent.name,
                     "model": meta.get("model"),
-                    # epoch-seconds float, matching AgySession.to_public()'s
+                    # epoch-seconds float, matching AgentSession.to_public()'s
                     # updated_at (both derived from the same meta.json's
                     # mtime) -- previously this returned meta.json's own
                     # "updated_at" ISO string field instead, a different
@@ -2325,7 +2285,7 @@ class Registry:
                 continue
         return items
 
-    def get_active(self) -> AgySession:
+    def get_active(self) -> AgentSession:
         """Live conversation: newest session id, then the successor-chain tip.
 
         Session ids are YYYYMMDD-HHMMSS-xxxxxx so lexicographic max is

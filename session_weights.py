@@ -94,7 +94,7 @@ def _session_weight(
     hard_tokens: int = HARD_TOKENS,
 ) -> dict:
     """soft_tokens/hard_tokens default to agy's own constants but are meant to
-    be passed explicitly by the caller (AgySession.weight() -> this session's
+    be passed explicitly by the caller (AgentSession.weight() -> this session's
     adapter.soft_hard_tokens(model)) -- Multi-Provider plan Phase 0.5. claude's
     real 200k context window makes agy's 400k HARD_TOKENS meaningless for a
     claude session (never trips, or trips too late relative to that window)."""

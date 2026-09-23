@@ -23,7 +23,7 @@ MEM_DIR = WORKSPACE / "memory"
 
 def _core():
     # workspace = <service root>/data/workspace unless the host says where the service root is
-    root = os.environ.get("AGY_CHAT_ROOT") or str(WORKSPACE.parent.parent)
+    root = os.environ.get("CHATBOT_ROOT") or os.environ.get("AGY_CHAT_ROOT") or str(WORKSPACE.parent.parent)
     sys.path.insert(0, root)
     try:
         import memory_store

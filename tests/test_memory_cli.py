@@ -193,7 +193,7 @@ class ThinShellTest(Base):
     def test_the_core_is_found_from_the_workspace_location_when_the_host_did_not_say(self):
         real = CODE / "data" / "workspace" / "tools" / "memory.py"
         src = real.read_text(encoding="utf-8")
-        self.assertIn('os.environ.get("AGY_CHAT_ROOT") or str(WORKSPACE.parent.parent)', src)
+        self.assertIn('os.environ.get("CHATBOT_ROOT") or os.environ.get("AGY_CHAT_ROOT") or str(WORKSPACE.parent.parent)', src)
 
 
 if __name__ == "__main__":

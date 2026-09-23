@@ -665,10 +665,22 @@ const confirmModalMsgEl = document.getElementById('confirmModalMsg');
 const confirmModalOkBtn = document.getElementById('confirmModalOk');
 const confirmModalCancelBtn = document.getElementById('confirmModalCancel');
 
-var sessionId = localStorage.getItem(SESSION_KEY)
-  || localStorage.getItem('sphereAgySession')
-  || localStorage.getItem('sphereAgyHubSession')
-  || '';
+// PROVIDER_NEUTRAL_v1: storage keys used to carry one provider's name. Move them once, then forget
+// the old ones -- a browser that last ran the old page keeps its session and model.
+(function migrateStorageKeys() {
+  const moves = [['sphereAgySession', SESSION_KEY], ['sphereAgyHubSession', SESSION_KEY], ['sphereAgyModel', 'chatbot.model']];
+  try {
+    moves.forEach(([oldKey, newKey]) => {
+      const v = localStorage.getItem(oldKey);
+      if (v === null) return;
+      if (!localStorage.getItem(newKey)) localStorage.setItem(newKey, v);
+      localStorage.removeItem(oldKey);
+    });
+  } catch (_) { /* storage blocked: nothing to move */ }
+})();
+// The server's default provider (GET /api/providers); no provider is special in this page.
+var defaultProviderId = '';
+var sessionId = localStorage.getItem(SESSION_KEY) || '';
 let es = null;
 let assistantNode = null;
 let assistantBuf = '';
@@ -1000,9 +1012,9 @@ function absArtifact(u) {
   if (!u) return '';
   if (u.startsWith('http')) return u;
   const trimmed = String(u).replace(/^\.\//, '');
-  const grokRel = trimmed.match(/^(?:images|videos)\/([^/?#]+)$/i);
-  if (grokRel && sessionId) {
-    return BASE_PATH + '/artifacts/' + encodeURIComponent(sessionId) + '/brain/' + encodeURIComponent(grokRel[1]);
+  const relMedia = trimmed.match(/^(?:images|videos)\/([^/?#]+)$/i);
+  if (relMedia && sessionId) {
+    return BASE_PATH + '/artifacts/' + encodeURIComponent(sessionId) + '/brain/' + encodeURIComponent(relMedia[1]);
   }
   const full = trimmed.startsWith('/') ? trimmed : '/' + trimmed;
   return (BASE_PATH && full.startsWith(BASE_PATH)) ? full : (BASE_PATH + full);
@@ -1743,8 +1755,6 @@ function rememberSession(id) {
   sessionId = id || '';
   if (sessionId) {
     localStorage.setItem(SESSION_KEY, sessionId);
-    localStorage.setItem('sphereAgySession', sessionId);
-    localStorage.setItem('sphereAgyHubSession', sessionId);
   }
   const hubLink = document.getElementById('hubLink');
   if (hubLink) {
@@ -2272,7 +2282,7 @@ const ACCT_OWNER_LABEL = { session: '세션', standby: '대기(standby)', 'chatb
 // 상태 탭이 보여 주는 제공자. 기본은 지금 대화 중인 제공자를 따라가고, 칩으로 다른 제공자를
 // "보기만" 할 수 있다 -- selectProvider()를 부르지 않으므로 서버 세션(제공자·conversation_id)은 그대로다.
 let statusViewProvider = null;
-function chatProvider() { return providerEl ? providerEl.value : 'agy'; }
+function chatProvider() { return providerEl ? providerEl.value : defaultProviderId; }
 function currentStatusProvider() { return statusViewProvider || chatProvider(); }
 
 // 상단 브랜드 영역과 같은 표기(agy=Antigravity). 제공자 이름은 벤더이지 페르소나가 아니다.
@@ -3347,7 +3357,7 @@ function alertModal(message) {
 }
 
 function bindEvents(sid) {
-  if (window.__agyEsTimer) { clearTimeout(window.__agyEsTimer); window.__agyEsTimer = null; }
+  if (window.__chatEsTimer) { clearTimeout(window.__chatEsTimer); window.__chatEsTimer = null; }
   if (es) { try { es.close(); } catch (_) {} es = null; }
   const live = logEl && logEl.querySelector('.msg[data-live="1"]');
   if (live && live.isConnected) assistantNode = live;
@@ -3372,7 +3382,7 @@ function bindEvents(sid) {
       return;
     }
 
-    if (type === 'delta' || type === 'assistant' || type === 'agy' || type === 'message') {
+    if (type === 'delta' || type === 'assistant' || type === 'provider_event' || type === 'message') {
       setBusy(true);
       if (!assistantNode) {
         assistantNode = addChat('assistant', '', false);
@@ -3608,7 +3618,7 @@ function bindEvents(sid) {
       return;
     }
 
-    if (type === 'agy' && data.payload) {
+    if (type === 'provider_event' && data.payload) {
       const p = data.payload;
       if (Array.isArray(p.tool_calls) && p.tool_calls.length) {
         for (const tc of p.tool_calls) {
@@ -3637,29 +3647,29 @@ function bindEvents(sid) {
     try { es.close(); } catch (_) {}
     es = null;
     updateProcBadge('disconnected');
-    window.__agyEsRetry = (window.__agyEsRetry || 0) + 1;
-    if (window.__agyEsRetry > 20) {
+    window.__chatEsRetry = (window.__chatEsRetry || 0) + 1;
+    if (window.__chatEsRetry > 20) {
       setProgress('서버 연결이 끊겼습니다 (20회 재시도 실패). 새로고침해 주세요.', true);
       addActivity('서버 연결 실패 (20회 재시도 실패). 새로고침이 필요합니다.', 'warn');
       return;
     }
     // SESSION_DESYNC_GAPFIX_v2: always log disconnect in Activity; only escalate
     // the in-chat progress chrome from the 2nd retry (idle SSE recycle is common).
-    if (window.__agyEsRetry === 1) {
+    if (window.__chatEsRetry === 1) {
       addActivity('연결 끊김 · 재연결 시도…', 'warn');
     }
-    if (window.__agyEsRetry >= 2) {
+    if (window.__chatEsRetry >= 2) {
       setProgress('연결이 끊겼다냥 · 다시 연결하는 중…');
-      addActivity('연결 끊김 · 재연결 재시도 (' + window.__agyEsRetry + ')', 'warn');
+      addActivity('연결 끊김 · 재연결 재시도 (' + window.__chatEsRetry + ')', 'warn');
     }
-    if (window.__agyEsTimer) clearTimeout(window.__agyEsTimer);
-    const wait = Math.min(15000, 800 * Math.pow(1.6, Math.min(window.__agyEsRetry, 8)));
-    window.__agyEsTimer = setTimeout(() => {
+    if (window.__chatEsTimer) clearTimeout(window.__chatEsTimer);
+    const wait = Math.min(15000, 800 * Math.pow(1.6, Math.min(window.__chatEsRetry, 8)));
+    window.__chatEsTimer = setTimeout(() => {
       if (sessionId === sid) bindEvents(sid);
     }, wait);
   };
   es.onopen = () => {
-    window.__agyEsRetry = 0;
+    window.__chatEsRetry = 0;
     if (!isBusy) updateProcBadge('idle');
     setProgress('');
     resyncFromServer(sid);
@@ -4440,9 +4450,9 @@ async function createSession() {
   // before it. Point scrollback at that browser-previous session directly;
   // it'll keep walking that session's own real predecessor chain from there.
   const model = modelEl.value;
-  const provider = providerEl ? providerEl.value : 'agy';
+  const provider = providerEl ? providerEl.value : defaultProviderId;
   const data = await api('/api/sessions', {method:'POST', body: JSON.stringify({model, provider})});
-  const label = (data.session.provider && data.session.provider !== 'agy')
+  const label = (data.session.provider && data.session.provider !== defaultProviderId)
     ? data.session.provider + (data.session.model ? ':' + data.session.model : '')
     : data.session.model;
   liveSessionId = data.session.id;
@@ -4519,8 +4529,6 @@ async function ensureSession() {
     catch (_) {
       sessionId = '';
       localStorage.removeItem(SESSION_KEY);
-      localStorage.removeItem('sphereAgySession');
-      localStorage.removeItem('sphereAgyHubSession');
     }
   }
   await createSession();
@@ -4747,14 +4755,6 @@ applyIdentity();
 if (!window.__IDENTITY__) {  // 정적으로 서빙돼 서버가 심어 주지 못한 경우
   fetch(BASE_PATH + '/api/identity').then(r => r.json()).then(j => { Object.assign(IDENTITY, j); applyIdentity(); }).catch(() => {});
 }
-const PROVIDER_CREDIT = {
-  agy: 'Antigravity',
-  claude: 'Claude',
-  grok: 'Grok',
-  codex: 'Codex',
-  omniroute: 'OmniRoute',
-  openrouter: 'OpenRouter',
-};
 
 // 사용 불가(Free 만료/한도 소진) 제공자 및 비활성화 사유
 const PROVIDER_DISABLED_REASONS = {
@@ -4768,7 +4768,6 @@ function providerDisabledReason(pid) {
 
 // AUTH_GATE_v1: CLI login/policy may block *use* (chat/sessions/evolution)
 // without blocking Status-tab selection. Auth map filled from /api/accounts.
-const CLI_AUTH_PROVIDERS = { agy: 1, claude: 1, codex: 1, grok: 1 };
 let providerAuthOk = Object.create(null); // pid -> true|false|undefined
 
 function providerUseBlockedReason(pid) {
@@ -4776,7 +4775,7 @@ function providerUseBlockedReason(pid) {
   if (policy) return policy;
   const p = (Array.isArray(providerCatalog) ? providerCatalog : []).find(x => x.id === pid);
   if (p && p.available === false) return '미설치 또는 사용 불가';
-  if (CLI_AUTH_PROVIDERS[pid] && providerAuthOk[pid] === false) return '로그인 필요';
+  if (p && p.login && providerAuthOk[pid] === false) return '로그인 필요';   // catalog says it has a CLI login
   return null;
 }
 
@@ -4864,21 +4863,17 @@ function syncProviderUseGates() {
 }
 
 function themeForProvider(p) {
-  if (p && p.id === 'grok') return 'mono';
-  if (p && p.id === 'agy') return 'spark';
-  if (p && p.id === 'openrouter') return 'lime';
-  return (p && p.theme) || 'lime';
+  return (p && p.theme) || 'lime';   // each provider's theme comes from the catalog (providers.json / adapters)
 }
 
 const PORTRAIT_CACHE = 'v=12';
 function portraitUrl(p) {
-  const raw = (p && (p.icon || `/chat/persona/providers/${p.id}.webp`)) || '/chat/persona/providers/agy.webp';
+  const raw = (p && (p.icon || `/chat/persona/providers/${p.id}.webp`)) || '/chat/persona/face-icon.webp';
   return String(raw).split('?')[0] + '?' + PORTRAIT_CACHE;
 }
 
 function providerCreditLabel(p) {
-  if (!p) return 'Antigravity';
-  if (PROVIDER_CREDIT[p.id]) return PROVIDER_CREDIT[p.id];
+  if (!p) return '';
   const n = String(p.name || p.id);
   const names = [IDENTITY.persona, IDENTITY.title].filter(Boolean).map(escapeRegExp);
   const stripped = names.length
@@ -4889,7 +4884,7 @@ function providerCreditLabel(p) {
 
 const STAGE_BG_CACHE = 'v=1';
 function updateStageBackground(providerId) {
-  const pid = providerId || 'agy';
+  const pid = providerId || defaultProviderId;
   const candidate = `/chat/persona/providers/bg/${pid}.webp?${STAGE_BG_CACHE}`;
   const fallback = `/chat/persona/bg-studio.webp?v=1`;
   const img = new Image();
@@ -4903,13 +4898,10 @@ function updateStageBackground(providerId) {
 }
 
 function updateBrandAvatar(providerId) {
-  const p = providerCatalog.find(item => item.id === providerId) || {
-    id: 'agy',
-    name: 'Antigravity',
-    role: 'Google Antigravity',
-    theme: 'lime',
-    icon: '/chat/persona/providers/agy.webp'
-  };
+  const p = providerCatalog.find(item => item.id === providerId)
+    || providerCatalog.find(item => item.id === defaultProviderId)
+    || providerCatalog[0]
+    || { id: '', name: '', role: '', theme: 'lime', icon: '' };
   const credit = providerCreditLabel(p);
   if (brandAvatarEl) {
     brandAvatarEl.src = portraitUrl(p);
@@ -4934,7 +4926,7 @@ function updateBrandAvatar(providerId) {
 function renderProviderTray() {
   if (!providerTrayEl) return;
   providerTrayEl.innerHTML = '';
-  const currentPid = providerEl ? providerEl.value : (localStorage.getItem('chatbot.provider') || 'agy');
+  const currentPid = providerEl ? providerEl.value : (localStorage.getItem('chatbot.provider') || defaultProviderId);
 
   providerCatalog.forEach(p => {
     const btn = document.createElement('button');
@@ -5016,7 +5008,6 @@ function applySessionProvider(info) {
   }
   if (mid) {
     localStorage.setItem('chatbot.model', mid);
-    localStorage.setItem('sphereAgyModel', mid);
   }
   if (typeof syncModelUi === 'function') syncModelUi();
   return true;
@@ -5085,7 +5076,6 @@ async function selectProvider(newProviderId) {
     followChatProvider();
     populateModelsForProvider(newProviderId);
     localStorage.setItem('chatbot.model', modelEl.value);
-    localStorage.setItem('sphereAgyModel', modelEl.value);
     renderProviderTray();
 
     syncProviderUseGates();
@@ -5199,7 +5189,8 @@ async function boot() {
       o.disabled = false;
       if (providerEl) providerEl.appendChild(o);
     });
-    let savedProvider = localStorage.getItem('chatbot.provider') || res.default || 'agy';
+    defaultProviderId = res.default || '';
+    let savedProvider = localStorage.getItem('chatbot.provider') || defaultProviderId;
     if (providerEl && Array.from(providerEl.options).some(o => o.value === savedProvider)) {
       providerEl.value = savedProvider;
     }
@@ -5210,7 +5201,7 @@ async function boot() {
     updateBrandAvatar(savedProvider);
     renderProviderTray();
 
-    const savedModel = localStorage.getItem('sphereAgyModel') || localStorage.getItem('chatbot.model');
+    const savedModel = localStorage.getItem('chatbot.model');
     populateModelsForProvider(savedProvider, savedModel);
 
     if (providerEl) {
@@ -5222,8 +5213,7 @@ async function boot() {
     refreshProviderAuthMap();
     modelEl.onchange = () => {
       localStorage.setItem('chatbot.model', modelEl.value);
-      localStorage.setItem('sphereAgyModel', modelEl.value);
-      if (typeof syncModelUi === 'function') syncModelUi();
+        if (typeof syncModelUi === 'function') syncModelUi();
       // PROVIDER_SWAP_DEFER_v1: same gate as selectProvider() — never kill an
       // in-flight turn just by picking a model.
       if (typeof isBusy !== 'undefined' && isBusy) {

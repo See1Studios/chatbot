@@ -71,7 +71,7 @@ obs() {
 
 PID_CHAT="$LOG_DIR/chatbot.pid"
 PID_MCP="$LOG_DIR/chatbot-mcp.pid"
-PORT_CHAT="${AGY_CHAT_PORT:-3011}"
+PORT_CHAT="${CHATBOT_PORT:-${AGY_CHAT_PORT:-3011}}"
 PORT_MCP="${NAS_MCP_PORT:-3012}"
 PROBE_STAMP="$DATA/doctor-probe.stamp"
 PROBE_EVERY_SEC=${CHATBOT_PROBE_EVERY_SEC:-3600}
@@ -92,7 +92,7 @@ consume_host_ticket() {
 }
 
 require_host_force() {
-  # Live agy must not stop/restart host. CHATBOT_FORCE_HOST=1 alone is NOT enough
+  # A live agent must not stop/restart host. CHATBOT_FORCE_HOST=1 alone is NOT enough
   # (model learned to export it). Requires a fresh ticket issued only by repair/doctor/defibrillate.
   local op="$1"
   if [ "${CHATBOT_FORCE_HOST:-}" != "1" ]; then
@@ -119,7 +119,7 @@ require_host_force() {
 
 
 
-kill_orphan_agy() {
+reap_orphan_agents() {
   # WATCHDOG_OS_FACTS_v1 (recursive-self-evolution.md §7-7): decided from the process table,
   # /proc cwd and ctl's own pid file only -- see ctl_proc.py. Our agents (cwd = data/workspace)
   # that are not descendants of the live chat server are reaped; the server's descendants and
@@ -151,7 +151,7 @@ stop_one() {
   fi
 }
 
-# Static guard: AgySession.lock must be RLock (ensure->_spawn->stop nests).
+# Static guard: AgentSession.lock must be RLock (ensure->_spawn->stop nests).
 guard_rlock() {
   python3 - "$CODE/session.py" <<'PY'
 import ast, sys
@@ -161,7 +161,7 @@ tree = ast.parse(src)
 ok = False
 bad = False
 for node in tree.body:
-    if isinstance(node, ast.ClassDef) and node.name == "AgySession":
+    if isinstance(node, ast.ClassDef) and node.name == "AgentSession":
         for item in node.body:
             if isinstance(item, ast.FunctionDef) and item.name == "__init__":
                 for st in ast.walk(item):
@@ -183,7 +183,7 @@ for node in tree.body:
                             elif name == "Lock":
                                 bad = True
 if bad or not ok:
-    print("GUARD_FAIL: AgySession.lock must be threading.RLock() (deadlock if Lock + ensure/spawn/stop)")
+    print("GUARD_FAIL: AgentSession.lock must be threading.RLock() (deadlock if Lock + ensure/spawn/stop)")
     sys.exit(1)
 print("guard_rlock OK")
 PY
@@ -260,7 +260,7 @@ def req(method, path, body=None, timeout=timeout):
         return resp.status, json.loads(resp.read().decode() or "{}")
 sid = None
 try:
-    st, created = req("POST", "/api/sessions", {"model": "gemini-3.8-flash-low"}, timeout=5)
+    st, created = req("POST", "/api/sessions", {}, timeout=5)  # the server's default provider and model
     sid = created["session"]["id"]
     st, msg = req("POST", f"/api/sessions/{sid}/message", {"text": "[doctor-probe] ping"}, timeout=timeout)
     if st != 200 or not msg.get("ok"):
@@ -294,7 +294,7 @@ PY
 }
 
 should_probe_now() {
-  # throttle expensive agy spawn; force with CHATBOT_FORCE_PROBE=1
+  # throttle the expensive agent spawn; force with CHATBOT_FORCE_PROBE=1
   if [ "${CHATBOT_FORCE_PROBE:-0}" = "1" ]; then return 0; fi
   local now age
   now=$(date +%s)
@@ -311,9 +311,9 @@ doctor_log() {
 
 cmd_start() {
   export HOME="$HOME_DIR"
-  export AGY_CHAT_HOST=0.0.0.0 AGY_CHAT_PORT="$PORT_CHAT"
+  export CHATBOT_HOST=0.0.0.0 CHATBOT_PORT="$PORT_CHAT"
   export AGY_BIN="${AGY_BIN:-$HOME_DIR/.local/bin/agy}"
-  export AGY_CHAT_ROOT="$CODE" AGY_CHAT_DATA="$DATA"
+  export CHATBOT_ROOT="$CODE" CHATBOT_DATA="$DATA"
   guard_rlock
   # Rotate only right before a process is (re)spawned: a live process keeps
   # its fd on the renamed inode, so rotating under it would send its output to
@@ -332,7 +332,7 @@ cmd_start() {
     return 0
   fi
   stop_one "$PID_CHAT" chat >/dev/null || true
-  kill_orphan_agy >/dev/null
+  reap_orphan_agents >/dev/null
   rotate_log "$LOG_CHAT"
   setsid nohup python3 "$CODE/server.py" >>"$LOG_CHAT" 2>&1 < /dev/null & echo $! > "$PID_CHAT"
   sleep 1
@@ -349,7 +349,7 @@ cmd_start() {
 
 wait_for_idle_session() {
   # cmd_repair used to stop_one the chat server unconditionally, no matter
-  # what was in flight. If a real conversation was mid-turn, its agy child
+  # what was in flight. If a real conversation was mid-turn, its agent child
   # got reparented to ppid=1 the instant the server died and was reaped
   # a few lines later -- silently dropping the user's turn with no reply
   # (2026-09-18, session 20260918-154037-ad23b8: "팝업 고치는 거 아니었어?").
@@ -377,8 +377,8 @@ cmd_repair() {
   wait_for_idle_session || doctor_log "WARNING active session still busy after wait — proceeding with repair anyway"
   stop_one "$PID_CHAT" chat || true
   stop_one "$PID_MCP" mcp || true
-  orphans=$(kill_orphan_agy)
-  doctor_log "killed orphan agy count=$orphans"
+  orphans=$(reap_orphan_agents)
+  doctor_log "reaped orphan agents count=$orphans"
   # clear stale pid
   rm -f "$PID_CHAT" "$PID_MCP"
   cmd_start
@@ -386,12 +386,12 @@ cmd_repair() {
   CHATBOT_FORCE_PROBE=1
   if probe_message 8; then
     mark_probe
-    pruned=$(kill_orphan_agy)
+    pruned=$(reap_orphan_agents)
     doctor_log "REPAIR ok (probe passed) post_probe_pruned=$pruned"
     obs repair.end info ok=1 dur_s=$((SECONDS - t0)) orphans="$orphans" pruned="$pruned"
     return 0
   else
-    pruned=$(kill_orphan_agy)
+    pruned=$(reap_orphan_agents)
     doctor_log "REPAIR probe still failing post_probe_pruned=$pruned"
     obs repair.end error ok=0 dur_s=$((SECONDS - t0)) orphans="$orphans" pruned="$pruned"
     return 1
@@ -456,8 +456,8 @@ cmd_doctor() {
   else
     echo "mcp healthz OK pid=$(cat "$PID_MCP")"
   fi
-  orphans=$(kill_orphan_agy)
-  echo "orphan_agy_killed=$orphans"
+  orphans=$(reap_orphan_agents)
+  echo "orphan_agents_reaped=$orphans"
 
   if should_probe_now; then
     echo "message probe (every ${PROBE_EVERY_SEC}s)..."
@@ -484,9 +484,9 @@ cmd_doctor() {
       fi
     fi
     # Always prune probe leftovers after a probe attempt
-    pruned=$(kill_orphan_agy)
-    echo "post_probe_agy_pruned=$pruned"
-    doctor_log "post_probe_agy_pruned=$pruned"
+    pruned=$(reap_orphan_agents)
+    echo "post_probe_agents_pruned=$pruned"
+    doctor_log "post_probe_agents_pruned=$pruned"
   else
     echo "probe skipped (throttle; stamp=$(cat "$PROBE_STAMP" 2>/dev/null || echo none))"
   fi
@@ -516,7 +516,7 @@ case "$cmd" in
     require_host_force stop || exit 3
     stop_one "$PID_CHAT" chat
     stop_one "$PID_MCP" mcp
-    kill_orphan_agy >/dev/null
+    reap_orphan_agents >/dev/null
       ;;
   restart)
     require_host_force restart || exit 3
@@ -528,7 +528,7 @@ case "$cmd" in
     if is_up "$PID_MCP" && health_mcp; then echo "mcp up pid=$(cat "$PID_MCP")"; curl -sS -m 3 "http://127.0.0.1:${PORT_MCP}/healthz"; echo; else echo "mcp down"; fi
     ;;
   doctor) shift || true; cmd_doctor "${1:-}" ;;
-  probe) CHATBOT_FORCE_PROBE=1; probe_message "${2:-5}"; mark_probe; kill_orphan_agy >/dev/null ;;
+  probe) CHATBOT_FORCE_PROBE=1; probe_message "${2:-5}"; mark_probe; reap_orphan_agents >/dev/null ;;
   repair|defibrillate|shock|cpr)
     export CHATBOT_FORCE_HOST=1
     cmd_repair

@@ -176,7 +176,7 @@ class RulesPutTest(ServerCase):
 class DefaultBindTest(unittest.TestCase):
     def test_bare_start_is_loopback_only_and_ctl_opts_the_lan_in(self):
         tmp = tempfile.mkdtemp()
-        env = {k: v for k, v in os.environ.items() if k != "AGY_CHAT_HOST"}
+        env = {k: v for k, v in os.environ.items() if k not in ("AGY_CHAT_HOST", "CHATBOT_HOST")}  # legacy name still honoured
         env.update(AGY_CHAT_ROOT=str(CODE), AGY_CHAT_DATA=tmp)
         out = subprocess.check_output([sys.executable, "-c", "import host_config; print(host_config.HOST)"],
                                       cwd=str(CODE), env=env).decode().strip()
@@ -187,7 +187,7 @@ class DefaultBindTest(unittest.TestCase):
         self.assertEqual(out, "0.0.0.0")
         # The production start path must keep opening the LAN explicitly, or the default flip closes it.
         ctl = (CODE / "chatbot-ctl.sh").read_text(encoding="utf-8")
-        self.assertIn("export AGY_CHAT_HOST=0.0.0.0", ctl)
+        self.assertIn("export CHATBOT_HOST=0.0.0.0", ctl)
 
 
 if __name__ == "__main__":

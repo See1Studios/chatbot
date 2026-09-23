@@ -11,7 +11,7 @@
 1. 대화·도구 루프에서 `chatbot-ctl.sh stop|restart|repair|defibrillate` 금지. `CHATBOT_FORCE_HOST=1` 무단 export 금지 (repair/⚡소생만 짧은 티켓을 발급).
 2. 정적 UI(`static/`·페르소나): 수정 + 강력 새로고침. 호스트 재시작 없음.
 3. 파이썬 호스트 모듈(`server.py`/`session.py`/`adapters.py`/`host_config.py`/`instructions.py`/`tool_format.py`/`mcp_server.py`): 디스크 수정 후 사용자에게 **⚡소생**. 자가 재기동 금지.
-4. `AgySession.lock`은 `threading.RLock` 유지 (`ctl guard`가 `session.py`를 AST 검사). `Lock`으로 되돌리지 말 것.
+4. `AgentSession.lock`은 `threading.RLock` 유지 (`ctl guard`가 `session.py`를 AST 검사). `Lock`으로 되돌리지 말 것.
 5. 포트 변경, 세션·페르소나 일괄 삭제는 사용자 승인.
 6. 연결이 죽으면 호스트 수술을 멈추고, 디스크에 끝난 것만 요약하고 ⚡소생을 요청한다.
 

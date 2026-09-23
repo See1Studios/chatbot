@@ -298,7 +298,7 @@ class RealCtlTest(unittest.TestCase):
 
     Even if a regression let it run further, it cannot touch the live host: the script puts
     $HOME_DIR/.local/bin first on PATH, and there `ps`, `kill`, `setsid`, `nohup` and `curl` are
-    stubs that only log (the real kill_orphan_agy scans every process on the machine)."""
+    stubs that only log (the real reap_orphan_agents scans every process on the machine)."""
 
     def setUp(self):
         home = tmpdir()

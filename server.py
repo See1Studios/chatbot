@@ -4,7 +4,7 @@
 Siblings (see data/workspace/PROJECT.md Where to edit):
   host_config.py  paths/env
   adapters.py     AGENT_ADAPTERS
-  session.py      AgySession / REG  (ctl guard AST-scans this)
+  session.py      AgentSession / REG  (ctl guard AST-scans this)
   tool_format.py  tool log lines
 """
 from __future__ import annotations
@@ -26,9 +26,8 @@ from pathlib import Path
 from typing import Any, Dict
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from adapters import AGENT_ADAPTERS, get_adapter
+from adapters import AGENT_ADAPTERS, PROVIDER_META, get_adapter
 from host_config import (
-    AGY,
     DATA,
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
@@ -45,7 +44,7 @@ from host_config import (
 )
 from session import (
     REG,
-    AgySession,
+    AgentSession,
     _atomic_write_text,
     _safe_artifact_rel,
     _safe_session_id,
@@ -78,7 +77,7 @@ def _invalidate_usage_cache(provider: Optional[str] = None) -> None:
         _USAGE_CACHE.pop(provider, None)
 
 
-def _get_usage(provider: str = "agy", force: bool = False) -> dict:
+def _get_usage(provider: str = DEFAULT_PROVIDER, force: bool = False) -> dict:
     """Generic provider-dispatching + caching wrapper (Multi-Provider plan
     Phase 0.5) -- the actual one-shot rate-limit call is
     `<adapter>.rate_limit_report()`, which is None for a provider that has no
@@ -149,8 +148,23 @@ AUTO_RECYCLE_EVERY_SEC = 30
 _AUTO_RECYCLE = {"enabled": AUTO_RECYCLE_ENABLED, "last_at": None, "last_count": 0, "total": 0}
 
 
+def _recycle_after_login(provider: str, result: dict) -> dict:
+    """After a login change, restart the idle owned processes of a provider that keeps its login in
+    the running process (accounts.RECYCLE_ON_LOGIN). Others: result unchanged."""
+    if provider not in accounts.RECYCLE_ON_LOGIN:
+        return result
+    try:
+        snap = accounts.snapshot(owned_agent_procs(), providers=(provider,))
+        pids = accounts.owned_pids(snap, provider)
+        if pids:
+            result = {**result, "recycle": recycle_agents(pids)}
+    except Exception as e:
+        result = {**result, "recycle_error": f"{type(e).__name__}: {e}"}
+    return result
+
+
 def _auto_recycle_once() -> int:
-    snap = accounts.snapshot(owned_agent_procs(), providers=("agy",))
+    snap = accounts.snapshot(owned_agent_procs(), providers=accounts.RECYCLE_ON_LOGIN)
     stale = accounts.stale_owned(snap)
     if not stale:
         return 0
@@ -305,11 +319,12 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = self._normalize_req_path(parsed.path)
         if path in ("/healthz", "/health"):
-            ok = shutil.which(AGY) is not None or Path(AGY).exists()
+            avail = _provider_availability()
             code, body = _json_bytes({
-                "ok": ok,
-                "agy": AGY,
-                "models": MODELS,
+                "ok": any(avail.values()),
+                "providers": avail,  # PROVIDER_NEUTRAL_v1: every provider, none singled out
+                "default_provider": DEFAULT_PROVIDER,
+                "default_model": DEFAULT_MODEL,
                 "class": "NAS agent (VibeCat-class)",
                 "skip_permissions": True,
                 "mcp_port": MCP_PORT,
@@ -340,12 +355,6 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             # list + install-detected availability, theme keycolor, portrait
             # A provider is a vendor, not the persona: the persona/title come from the
             # instruction files (identity.py) and never appear in this catalog.
-            PROVIDER_META = {
-                "agy": {"name": "Antigravity", "role": "Google Antigravity", "theme": "spark", "icon": "/chat/persona/providers/agy.webp?v=9"},
-                "claude": {"name": "Claude", "role": "Anthropic AI", "theme": "amber", "icon": "/chat/persona/providers/claude.webp?v=10"},
-                "grok": {"name": "Grok", "role": "xAI Explorer", "theme": "mono", "icon": "/chat/persona/providers/grok.webp?v=6"},
-                "codex": {"name": "Codex", "role": "OpenAI Engine", "theme": "emerald", "icon": "/chat/persona/providers/codex.webp?v=10"},
-            }
             providers = []
             for pid, adapter in AGENT_ADAPTERS.items():
                 meta = dict(PROVIDER_META.get(pid) or {})
@@ -355,6 +364,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 providers.append({
                     "id": pid,
                     "available": adapter.available(),
+                    "login": pid in account_login.MODE_BY_PROVIDER,  # has a CLI login the page can drive
                     "models": adapter.known_models(),
                     "default_model": (adapter.known_models()[0] if adapter.known_models() else ""),
                     "name": meta.get("name", pid),
@@ -419,17 +429,9 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             if (
                 result.get("ok")
                 and result.get("state") == "succeeded"
-                and provider == "agy"
                 and not result.get("recycle")
             ):
-                try:
-                    owned = owned_agent_procs()
-                    snap = accounts.snapshot(owned, providers=("agy",))
-                    pids = accounts.owned_pids(snap, "agy")
-                    if pids:
-                        result = {**result, "recycle": recycle_agents(pids)}
-                except Exception as e:
-                    result = {**result, "recycle_error": f"{type(e).__name__}: {e}"}
+                result = _recycle_after_login(provider, result)
             http = 200 if result.get("ok") else 400
             code, body = _json_bytes(result, http)
             return self._send(code, body, "application/json; charset=utf-8")
@@ -519,7 +521,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             code, body = _json_bytes({"id": sid, "summary": summary})
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/artifacts":
-            sess = AgySession("global")
+            sess = AgentSession("global")
             code, body = _json_bytes({"artifacts": sess.get_artifacts()})
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/file/preview":
@@ -886,7 +888,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 # Stale set is recomputed server-side and limited to processes
                 # this server owns -- the client cannot name pids, and external
                 # processes (e.g. an SSH agy session) are never touched.
-                stale = accounts.stale_owned(accounts.snapshot(owned_agent_procs(), providers=("agy",)))
+                stale = accounts.stale_owned(accounts.snapshot(owned_agent_procs(), providers=accounts.RECYCLE_ON_LOGIN))
                 code, raw = _json_bytes({"ok": True, **recycle_agents(stale)})
                 return self._send(code, raw, "application/json; charset=utf-8")
 
@@ -907,17 +909,9 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 http = 200 if result.get("ok") else 400
                 if result.get("ok") and result.get("state") == "succeeded":
                     _invalidate_usage_cache(provider)
-                # On success for agy, optionally recycle owned idle procs (A30)
-                if result.get("ok") and result.get("state") == "succeeded" and provider == "agy":
-                    try:
-                        owned = owned_agent_procs()
-                        snap = accounts.snapshot(owned, providers=("agy",))
-                        pids = accounts.owned_pids(snap, "agy")
-                        if pids:
-                            recycled = recycle_agents(pids)
-                            result = {**result, "recycle": recycled}
-                    except Exception as e:
-                        result = {**result, "recycle_error": f"{type(e).__name__}: {e}"}
+                # On success, a provider whose processes keep their login gets its idle owned ones restarted (A30)
+                if result.get("ok") and result.get("state") == "succeeded":
+                    result = _recycle_after_login(provider, result)
                 code, raw = _json_bytes(result, http)
                 return self._send(code, raw, "application/json; charset=utf-8")
             if path == "/api/accounts/login/cancel":
@@ -965,11 +959,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                         f"{len(recycled['skipped_busy'])}개는 재시작하지 못했어요. "
                         "턴이 끝난 뒤 프로세스 재시작(또는 다시 로그아웃)을 눌러 주세요."
                     )
-                elif provider == "agy" and result.get("ok"):
-                    note = (
-                        "agy 토큰 파일을 백업·제거했고 소유 프로세스를 재시작했어요. "
-                        "외부(SSH 등) agy는 수동으로 종료해야 옛 토큰이 파일을 되쓰지 않아요."
-                    )
+                elif result.get("ok") and accounts.LOGOUT_NOTES.get(provider):
+                    note = accounts.LOGOUT_NOTES[provider]
                 payload = {
                     **result,
                     "providers": snap.get("providers") or {},
@@ -1200,7 +1191,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 sid = path[len("/api/sessions/"):]
                 existing = REG.sessions.get(_safe_session_id(sid))
                 # A stale busy=True (e.g. its agy process got reaped by
-                # kill_orphan_agy mid-turn without ever emitting a
+                # reap_orphan_agents mid-turn without ever emitting a
                 # result/error event) must not block deletion forever --
                 # only a genuinely still-running process counts as busy.
                 really_busy = bool(
@@ -1347,6 +1338,16 @@ def _host_signal_loop() -> None:
             obslog.exception("evolution.host_candidates_failed", dedup="loop")
 
 
+def _provider_availability() -> Dict[str, bool]:
+    out: Dict[str, bool] = {}
+    for pid, adapter in AGENT_ADAPTERS.items():
+        try:
+            out[pid] = bool(adapter.available())
+        except Exception:
+            out[pid] = False
+    return out
+
+
 def _obs_heartbeat() -> Dict[str, Any]:
     """Merged into every proc.heartbeat (obslog, every 5 min)."""
     with REG.lock:
@@ -1362,8 +1363,11 @@ def _obs_heartbeat() -> Dict[str, Any]:
 
 
 def main() -> None:
-    if not Path(AGY).exists():
-        raise SystemExit(f"agy not found: {AGY}")
+    avail = _provider_availability()
+    if not any(avail.values()):  # still start: status pages and accounts must stay reachable
+        obslog.event("providers.none_available", lvl="error", providers=avail)
+    elif not avail.get(DEFAULT_PROVIDER):
+        obslog.event("providers.default_unavailable", lvl="warn", default=DEFAULT_PROVIDER, providers=avail)
     seeded = identity.seed_workspace_files()
     obslog.start_process("chat", host=HOST, port=PORT, default_model=DEFAULT_MODEL, default_provider=DEFAULT_PROVIDER)
     obslog.add_heartbeat(_obs_heartbeat)

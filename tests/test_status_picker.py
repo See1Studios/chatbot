@@ -19,7 +19,7 @@ function slice(from, to) {
   if (a < 0 || b < 0) throw new Error('marker missing: ' + from + ' .. ' + to);
   return src.slice(a, b);
 }
-const credit  = slice('const PROVIDER_CREDIT = {', 'function updateBrandAvatar');
+const credit  = slice('const PROVIDER_DISABLED_REASONS = {', 'function updateBrandAvatar');   // provider names come from the catalog (PROVIDER_NEUTRAL_v1)
 const picker  = slice('// 상태 탭이 보여 주는 제공자.', 'function fmtAge');
 const helpers = "function escapeRegExp(s){return String(s).replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&');}";
 

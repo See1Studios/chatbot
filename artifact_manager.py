@@ -31,7 +31,7 @@ def _atomic_write_text(path: Path, content: str) -> None:
     """Write `content` to `path` without ever leaving a torn/partial file for
     a concurrent reader: write to a per-call-unique tmp sibling, then
     replace() (atomic on the same filesystem). Raises on failure; a caller
-    that wants a soft-fail (e.g. AgySession.save_meta) catches around this
+    that wants a soft-fail (e.g. AgentSession.save_meta) catches around this
     itself instead of this helper swallowing errors silently."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")

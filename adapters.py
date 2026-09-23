@@ -1,6 +1,6 @@
 """CLI/API agent adapters. One class per provider, picked via get_adapter().
 
-AgySession / REG / the RLock guard live in session.py.
+AgentSession / REG / the RLock guard live in session.py.
 """
 from __future__ import annotations
 
@@ -59,9 +59,9 @@ class AgentAdapter:
     exist here if another provider is ever wired in.
 
     2026-09-17: `normalize_line` now exists (Multi-Provider plan Phase 0) --
-    `AgyAdapter.normalize_line` takes the owning `AgySession` as a parameter
+    `AgyAdapter.normalize_line` takes the owning `AgentSession` as a parameter
     rather than being a pure per-line function, because agy's own tool/image
-    handling (`AgySession._tool_summary`/`_maybe_capture_conversation_id`)
+    handling (`AgentSession._tool_summary`/`_maybe_capture_conversation_id`)
     has real side effects (image staging, history append, conversation_id
     capture) entangled with parsing one stream-json line -- untangling those
     fully was judged not worth the regression risk on code that's been the
@@ -73,7 +73,7 @@ class AgentAdapter:
     keeps_stdin_open = True  # False = one-shot exec per prompt (codex/grok-style), not agy/claude-style persistent stdin
     close_stdin_after_prompt = False  # True = codex/grok-style: close stdin right after writing the prompt
     transport_kind = "process"  # "http" = no subprocess at all (API-Provider plan,
-    # docs/plans/api-provider-adapters.md) -- AgySession branches on this before
+    # docs/plans/api-provider-adapters.md) -- AgentSession branches on this before
     # touching self.proc/_spawn()/stdin. Every CLI adapter stays "process" by
     # inheriting this default; only an HTTP-dialect adapter overrides it.
 
@@ -95,7 +95,7 @@ class AgentAdapter:
     def format_stdin(self, content: str) -> str:
         raise NotImplementedError
 
-    def normalize_line(self, session: "AgySession", raw_line: str) -> List[dict]:
+    def normalize_line(self, session: "AgentSession", raw_line: str) -> List[dict]:
         """Parse one raw stdout line from the spawned CLI into zero or more
         canonical session events (the same dict shape `_emit()` already
         expects: {"event": ..., "text": ..., "usage"?, "duration_seconds"?,
@@ -153,6 +153,27 @@ class AgentAdapter:
         this provider. Empty = no fixed list to guess at (leaves the
         dropdown at just the CLI's own default) -- don't invent one."""
         return []
+
+    # PROVIDER_NEUTRAL_v1: provider features the common code asks for by capability, never by
+    # provider name. The base answers "not supported" and the caller falls back on its own.
+    def oneshot(self, prompt: str, timeout: float = 20.0) -> Optional[Dict[str, Any]]:
+        """One prompt, one answer, no conversation (side questions, handoff summaries), on this
+        provider's cheapest model. None = not supported here; otherwise {"text", "usage",
+        "duration_seconds", "error"} with text "" when the call failed."""
+        return None
+
+    def native_compact(self, conversation_id: Optional[str], timeout: float = 45.0) -> str:
+        """This provider's own summary of conversation `conversation_id`, or "" (not supported,
+        no conversation, or it failed)."""
+        return ""
+
+    # A message that arrives mid-turn can be applied at the next tool-step boundary (steer).
+    supports_steer = False
+
+    def has_conversation(self, conversation_id: Optional[str]) -> Optional[bool]:
+        """Whether the CLI's own store still holds that conversation (a respawn would resume it).
+        None = cannot tell; the session then keeps the id as is."""
+        return None
 
     def available(self) -> bool:
         """Whether this provider's CLI is actually installed on this host --
@@ -276,9 +297,63 @@ AGY_PRINT_TIMEOUT_SEC = 8 * 60
 class AgyAdapter(AgentAdapter):
     id = "agy"
     keeps_stdin_open = True
+    supports_steer = True
+    ONESHOT_MODEL = "gemini-3.8-flash-low"
+
+    def has_conversation(self, conversation_id: Optional[str]) -> Optional[bool]:
+        """agy resumes `--conversation <id>` only if its store has it; otherwise it silently starts
+        an empty one."""
+        if not conversation_id:
+            return False
+        from session_weights import _conversation_db_path
+        db = _conversation_db_path(conversation_id)
+        return bool(db is not None and db.exists())
 
     def find_executable(self) -> str:
         return AGY
+
+    def oneshot(self, prompt: str, timeout: float = 20.0) -> Optional[Dict[str, Any]]:
+        """`agy -p` with stream-json output: the `result` event carries the answer and usage."""
+        out: Dict[str, Any] = {"text": "", "usage": None, "duration_seconds": None, "error": ""}
+        cmd = [self.find_executable(), "-p", prompt, "--output-format", "stream-json",
+               "--model", self.ONESHOT_MODEL, "--dangerously-skip-permissions"]
+        try:
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            out["error"] = "timeout"
+            return out
+        except Exception as e:  # noqa: BLE001
+            out["error"] = str(e)
+            return out
+        if res.returncode != 0 or not res.stdout.strip():
+            out["error"] = (res.stderr or "").strip()[-2000:] or "exit %s" % res.returncode
+            return out
+        for line in res.stdout.splitlines():
+            try:
+                obj = json.loads(line.strip())
+            except ValueError:
+                continue
+            if isinstance(obj, dict) and obj.get("event") == "result":
+                r = obj.get("result") or {}
+                out.update(text=str(r.get("response") or "").strip(), usage=r.get("usage"),
+                           duration_seconds=r.get("duration_seconds"))
+                break
+        if not out["text"]:
+            out["text"] = res.stdout.strip()
+        return out
+
+    def native_compact(self, conversation_id: Optional[str], timeout: float = 45.0) -> str:
+        """agy's own `/compact` of that conversation: sees the full history and tool state."""
+        if not conversation_id:
+            return ""
+        try:
+            res = subprocess.run(
+                [self.find_executable(), "-p", "/compact", "--conversation", conversation_id,
+                 "--model", self.ONESHOT_MODEL, "--dangerously-skip-permissions"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
+            return res.stdout.strip() if res.returncode == 0 and res.stdout.strip() else ""
+        except Exception:  # noqa: BLE001
+            return ""
 
     def known_models(self) -> List[str]:
         return MODELS
@@ -315,8 +390,8 @@ class AgyAdapter(AgentAdapter):
     def format_stdin(self, content: str) -> str:
         return json.dumps({"event": "user", "message": {"content": content}}, ensure_ascii=False) + "\n"
 
-    def normalize_line(self, session: "AgySession", raw_line: str) -> List[dict]:
-        """Moved verbatim out of `AgySession._handle_stdout_line` (Multi-Provider
+    def normalize_line(self, session: "AgentSession", raw_line: str) -> List[dict]:
+        """Moved verbatim out of `AgentSession._handle_stdout_line` (Multi-Provider
         plan Phase 0) -- same parsing, same session-mutation order, same
         returned event shapes. Only structural change: events are collected
         and returned instead of emitted inline, so `_handle_stdout_line` can
@@ -438,7 +513,7 @@ class AgyAdapter(AgentAdapter):
                 out["error"] = obj.get("error")
             events.append(out)
         elif not tool_ev:
-            events.append({"event": "agy", "text": text, "payload": {k: obj.get(k) for k in list(obj)[:12]}})
+            events.append({"event": "provider_event", "text": text, "payload": {k: obj.get(k) for k in list(obj)[:12]}})
 
         return events
 
@@ -476,7 +551,7 @@ class ClaudeAdapter(AgentAdapter):
     `claude auth status`). Also skips VibeCat's --append-system-prompt-file /
     system_head.txt machinery entirely: that exists there to inject a
     dynamically-assembled system head. The persona/rules reach this CLI via
-    AgySession._send_direct()'s first-turn injection, the same text every
+    AgentSession._send_direct()'s first-turn injection, the same text every
     provider gets. Do NOT rely on cwd auto-discovery here: measured
     2026-09-19, Claude Code reads only CLAUDE.md and .claude/skills, never
     AGENTS.md or .agents/skills (docs/plans/instruction-architecture.md F3).
@@ -565,7 +640,7 @@ class ClaudeAdapter(AgentAdapter):
         payload = {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": content}]}}
         return json.dumps(payload, ensure_ascii=False) + "\n"
 
-    def normalize_line(self, session: "AgySession", raw_line: str) -> List[dict]:
+    def normalize_line(self, session: "AgentSession", raw_line: str) -> List[dict]:
         """Ported from claude.py's parse_stdout_line -- same dispatch on
         `type`, retargeted to our event shape (see AgentAdapter.normalize_line
         docstring) instead of VibeCat's step_update/result shape. Unlike agy,
@@ -1039,7 +1114,7 @@ def _fetch_codex_rate_limits(executable: str) -> dict:
 class GrokAdapter(AgentAdapter):
     """Multi-Provider plan Phase 2. One-shot exec, not persistent stdin
     (keeps_stdin_open=False) -- every turn is its own `grok` process that
-    exits when done; AgySession._send_direct()/_spawn() branch on this.
+    exits when done; AgentSession._send_direct()/_spawn() branch on this.
 
     VibeCat's own guidelines for grok were captured against an older CLI
     build and turned out stale in several ways once checked live against
@@ -1130,7 +1205,7 @@ class GrokAdapter(AgentAdapter):
         # to write after spawning.
         return ""
 
-    def normalize_line(self, session: "AgySession", raw_line: str) -> List[dict]:
+    def normalize_line(self, session: "AgentSession", raw_line: str) -> List[dict]:
         """Shaped from a real live capture (2026-09-17, this exact grok
         1.0.25 binary) via `grok --prompt-file <f> --output-format
         streaming-json --always-approve --trust`, not from VibeCat's
@@ -1378,7 +1453,7 @@ class CodexAdapter(AgentAdapter):
     def format_stdin(self, content: str) -> str:
         return content if content.endswith("\n") else content + "\n"
 
-    def normalize_line(self, session: "AgySession", raw_line: str) -> List[dict]:
+    def normalize_line(self, session: "AgentSession", raw_line: str) -> List[dict]:
         """Shaped from a real live capture (2026-09-17, codex-cli 0.154.0)
         via `codex exec --json --ignore-user-config --approve-for-me
         --skip-git-repo-check -c mcp_servers.nas.url=... -`, cross-checked
@@ -1604,7 +1679,7 @@ def _mcp_openai_tools(force: bool = False) -> List[dict]:
 def _persona_system_prompt() -> Optional[str]:
     """The host-assembled instruction bundle (instructions.py: AGENTS.md +
     PERSONA.md + skill index + memory snapshot + self-improve status), or
-    None when there is nothing to inject. Used by AgySession._send_direct()
+    None when there is nothing to inject. Used by AgentSession._send_direct()
     as the first-turn injection for every process provider, and as the
     system message of the HTTP adapter -- native cwd auto-discovery differs
     per CLI and is not relied on (see ClaudeAdapter's docstring). Rebuilt on
@@ -1759,7 +1834,7 @@ class OpenAIDialectAdapter(AgentAdapter):
         self._models_meta_cache: Dict[str, Any] = {"ts": 0.0, "data": {}}
 
     def find_executable(self) -> str:
-        return ""  # not applicable -- transport_kind="http" means AgySession never calls this
+        return ""  # not applicable -- transport_kind="http" means AgentSession never calls this
 
     def build_env(self, home: Path) -> dict:
         return {}
@@ -1968,7 +2043,7 @@ class OpenAIDialectAdapter(AgentAdapter):
         except Exception as e:
             return {"error": f"OmniRoute 상태 조회 실패: {str(e)[:200]}"}
 
-    # --- HTTP-transport-only surface (AgySession's http branch calls this,
+    # --- HTTP-transport-only surface (AgentSession's http branch calls this,
     # process-transport adapters never do) ------------------------------------
 
     MAX_TOOL_HOPS = 20  # safety cap -- expanded from 10 to 20 for complex multi-hop tasks
@@ -1983,11 +2058,11 @@ class OpenAIDialectAdapter(AgentAdapter):
     # upstream call is still stuck, which resets that per-read timeout
     # forever and lets a turn hang indefinitely with session.busy stuck True
     # (no OS process for chatbot-ctl.sh's orphan-killer to ever catch, since
-    # this is just a thread blocked in a socket read). AgySession's watchdog
+    # this is just a thread blocked in a socket read). AgentSession's watchdog
     # (_start_http_watchdog/_http_turn_watchdog) enforces this by calling
     # stop() once a turn runs past it.
 
-    def _stream_once(self, session: "AgySession", messages: List[dict], tools: List[dict], seq: Optional[int] = None) -> Iterator[dict]:
+    def _stream_once(self, session: "AgentSession", messages: List[dict], tools: List[dict], seq: Optional[int] = None) -> Iterator[dict]:
         """One raw HTTP POST + SSE read. Yields {"event":"delta"} for content
         pieces as they arrive; returns (text, tool_calls, usage, finish_reason,
         served_model) via StopIteration (consume with
@@ -2091,7 +2166,7 @@ class OpenAIDialectAdapter(AgentAdapter):
                 pass
         return "".join(text_buf), tool_calls, usage, finish_reason, served_model
 
-    def stream_turn(self, session: "AgySession", messages: List[dict], seq: Optional[int] = None) -> Iterator[dict]:
+    def stream_turn(self, session: "AgentSession", messages: List[dict], seq: Optional[int] = None) -> Iterator[dict]:
         """Orchestrates one or more _stream_once() hops: a plain-answer hop
         ends the turn (finalizes session.history/current_text, mirrors what
         each CLI adapter's normalize_line() does at its own "result" event --
@@ -2103,7 +2178,7 @@ class OpenAIDialectAdapter(AgentAdapter):
         gets persisted to session.history, same as every CLI adapter already
         does (the CLI's own process holds its tool-call transcript
         internally the same way this loop holds it in `messages`). Raises on
-        transport failure -- the caller (AgySession._run_http_turn) turns
+        transport failure -- the caller (AgentSession._run_http_turn) turns
         that into an {"event":"error"}."""
         messages = list(messages)
         tools = _mcp_openai_tools()
@@ -2232,6 +2307,104 @@ def load_openai_dialect_adapters(path: Path) -> Dict[str, OpenAIDialectAdapter]:
             extra_headers=extra_headers,
         )
     return out
+
+
+# ---- where each CLI keeps the media it generates (media_handler asks; PROVIDER_NEUTRAL_v1) -----
+import media_handler as _media  # noqa: E402  (no provider knowledge of its own)
+from urllib.parse import quote as _quote  # noqa: E402
+
+
+class AgyMediaSource(_media.MediaSource):
+    """agy writes a conversation's files under its brain store: BRAIN/<conversation id>/."""
+
+    def _dir(self, conversation_id):
+        if not conversation_id:
+            return None
+        d = _media._cfg("BRAIN") / conversation_id
+        return d if d.is_dir() else None
+
+    def artifact_dirs(self, conversation_id):
+        d = self._dir(conversation_id)
+        return [d, d / ".tempmediaStorage"] if d else []
+
+    def scan_dirs(self, conversation_id, cutoff):
+        d = self._dir(conversation_id)
+        out = [d, d / ".tempmediaStorage", d / ".system_generated"] if d else []
+        brain = _media._cfg("BRAIN")
+        try:
+            if brain.exists():
+                for sub in brain.iterdir():
+                    try:
+                        if sub != d and sub.is_dir() and sub.stat().st_mtime >= cutoff - 5:
+                            out.append(sub)
+                    except OSError:
+                        continue
+        except Exception:  # noqa: BLE001
+            pass
+        return out
+
+    def text_roots(self):
+        return [_media._cfg("BRAIN")]
+
+
+class GrokMediaSource(_media.MediaSource):
+    """Grok Imagine writes to ~/.grok/sessions/<urlencoded cwd>/<cid>/images/."""
+
+    @staticmethod
+    def _newest_with_images(parent):
+        newest, newest_mtime = None, -1.0
+        try:
+            for d in parent.iterdir():
+                img = d / "images"
+                try:
+                    if d.is_dir() and img.is_dir() and img.stat().st_mtime > newest_mtime:
+                        newest_mtime, newest = img.stat().st_mtime, d
+                except OSError:
+                    continue
+        except OSError:
+            pass
+        return newest
+
+    def _dir(self, conversation_id):
+        """conversation_id is often still empty on the first grok turn (the CLI reports sessionId only
+        on its `end` event); then, or when it matches no folder, use the newest session under this
+        workspace that has an images/ folder."""
+        root = _media._cfg("HOME") / ".grok" / "sessions"
+        if not root.is_dir():
+            return None
+        ws_enc = root / _quote(str(_media._cfg("WORKSPACE")), safe="")
+        cid = str(conversation_id or "").strip()
+        if cid:
+            if (ws_enc / cid).is_dir():
+                return ws_enc / cid
+            try:
+                for enc in root.iterdir():
+                    if (enc / cid).is_dir():
+                        return enc / cid
+            except OSError:
+                pass
+        return self._newest_with_images(ws_enc) if ws_enc.is_dir() else None
+
+    def scan_dirs(self, conversation_id, cutoff):
+        d = self._dir(conversation_id)
+        return [d / "images", d / "videos", d] if d else []
+
+    def rel_bases(self, conversation_id):
+        d = self._dir(conversation_id)
+        return [d] if d else []
+
+
+_media.register_media_source(AgyMediaSource())
+_media.register_media_source(GrokMediaSource())
+
+
+# Display facts per provider for the catalog (/api/providers). A provider is a vendor, not the persona.
+PROVIDER_META: Dict[str, Dict[str, str]] = {
+    "agy": {"name": "Antigravity", "role": "Google Antigravity", "theme": "spark", "icon": "/chat/persona/providers/agy.webp?v=9"},
+    "claude": {"name": "Claude", "role": "Anthropic AI", "theme": "amber", "icon": "/chat/persona/providers/claude.webp?v=10"},
+    "grok": {"name": "Grok", "role": "xAI Explorer", "theme": "mono", "icon": "/chat/persona/providers/grok.webp?v=6"},
+    "codex": {"name": "Codex", "role": "OpenAI Engine", "theme": "emerald", "icon": "/chat/persona/providers/codex.webp?v=10"},
+}
 
 
 AGENT_ADAPTERS: Dict[str, AgentAdapter] = {

@@ -33,7 +33,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.**
 | 제품 기조 (최대 가치·목표) | `docs/concept.md` — 수정·개발 시 항상 |
 | 경로·포트·env·토큰 임계값 | `host_config.py` |
 | 프로바이더 CLI/API (agy/claude/grok/codex + HTTP dialect) | `adapters.py`. HTTP 엔드포인트·키·모델·뱃지는 `data/providers.json` |
-| 세션 수명·스폰·로테이트·AgySession.lock | `session.py` (`ctl guard` AST가 여기) |
+| 세션 수명·스폰·로테이트·AgentSession.lock | `session.py` (`ctl guard` AST가 여기) |
 | 세션 가중치·토큰 집계·/btw 샛길 질의 | `session_weights.py` |
 | 웜 에이전트 대기 풀 (스탠바이) | `standby_pool.py` |
 | 아티팩트 경로·원자적 파일 저장 | `artifact_manager.py` |

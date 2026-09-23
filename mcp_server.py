@@ -35,7 +35,7 @@ SERVICES = HOME / "services"
 DATA = SERVICES / "chatbot" / "data"  # consolidated under chatbot/ 2026-09-16
 # Same env var as server.py's WEB_ROOT -- only this NAS's actual value
 # (/volume1/web) is host-specific, not the mechanism.
-WEB_ROOT = Path(os.environ.get("AGY_CHAT_WEB_ROOT", "/volume1/web"))
+WEB_ROOT = Path(os.environ.get("CHATBOT_WEB_ROOT") or os.environ.get("AGY_CHAT_WEB_ROOT") or "/volume1/web")
 AGENTS = HOME / ".agents"
 TMP_ROOT = Path("/tmp/chatbot-mcp")
 CODE_ROOT = Path(__file__).resolve().parent  # where protected_paths.json lives
@@ -532,7 +532,7 @@ def _live_actor() -> str:
     Role ids only -- the persona's name is display, taken from identity by the page (NAME_NEUTRAL_v1)."""
     try:
         import urllib.request
-        port = int(os.environ.get("AGY_CHAT_PORT", "3011"))
+        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
         with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
             d = json.loads(r.read().decode("utf-8") or "{}")
         if d.get("busy") and d.get("provider"):

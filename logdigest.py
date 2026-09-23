@@ -43,7 +43,7 @@ _CLIENT_GONE_TYPES = ("BrokenPipeError", "ConnectionResetError", "ConnectionAbor
 HOST_SIGNAL_EVERY_SEC = 3600
 HOST_SIGNAL_WINDOW_SEC = 2 * 3600
 HOST_SIGNAL_STAMP = LOG.with_name(".host-signals.stamp")
-OBS_ROOT = Path(os.environ.get("AGY_CHAT_DATA") or ROOT / "data") / "workspace" / "skill-observations"
+OBS_ROOT = Path(os.environ.get("CHATBOT_DATA") or os.environ.get("AGY_CHAT_DATA") or ROOT / "data") / "workspace" / "skill-observations"
 
 
 def parse_since(text: str) -> float:
@@ -347,7 +347,7 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
         span = lives.get(e.get("ppid"))
         if span and span[0] <= ts_of(e) <= span[1]:
             find("warn", "agent_reaped_live", "살아 있는 채팅 서버(pid %s)의 자식 agy %s 가 정리됨 (%s)" % (e["ppid"], e.get("agent_pid"), e.get("reason")),
-                 "ctl kill_orphan_agy 판단 확인: 서버 자손은 서버 소관이어야 한다", ppid=e["ppid"], agent_pid=e.get("agent_pid"),
+                 "ctl reap_orphan_agents 판단 확인: 서버 자손은 서버 소관이어야 한다", ppid=e["ppid"], agent_pid=e.get("agent_pid"),
                  key="%s/%s" % (e.get("ppid"), e.get("reason")))
 
     # --- MCP tool calls ---

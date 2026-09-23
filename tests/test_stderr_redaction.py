@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 from pathlib import Path
-from session import AgySession, _redact_line, _redact_text
+from session import AgentSession, _redact_line, _redact_text
 
 
 class TestStderrRedaction(unittest.TestCase):
@@ -20,7 +20,7 @@ class TestStderrRedaction(unittest.TestCase):
         self.assertIn("Line 3: finished.", redacted)
 
     def test_to_public_debug_stderr_tail_redacts_credentials(self):
-        sess = AgySession.__new__(AgySession)
+        sess = AgentSession.__new__(AgentSession)
         sess.sid = "test-stderr-sess"
         sess.proc = None
         sess.adapter = SimpleNamespace(transport_kind="process")

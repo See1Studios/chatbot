@@ -24,8 +24,12 @@ ACTION = "이 함수도 같이 고쳐줘"
 
 
 def stub_adapter(provider="agy", process=True):
+    # capabilities, not the provider id, decide (PROVIDER_NEUTRAL_v1): steer is what agy's adapter declares
+    import adapters
+    real = adapters.AGENT_ADAPTERS.get(provider)
     return types.SimpleNamespace(id=provider, keeps_stdin_open=process, transport_kind="process" if process else "http",
-                                 format_stdin=lambda c: c, mints_own_conversation_id=lambda: provider != "agy")
+                                 format_stdin=lambda c: c, mints_own_conversation_id=lambda: provider != "agy",
+                                 supports_steer=bool(getattr(real, "supports_steer", False)))
 
 
 class Base(WorkspaceCase):
@@ -33,7 +37,7 @@ class Base(WorkspaceCase):
         self._sessions = S.SESSIONS
         S.SESSIONS = self.tmp / "sessions"
         (S.SESSIONS / "t").mkdir(parents=True, exist_ok=True)
-        s = S.AgySession("t", provider="agy")
+        s = S.AgentSession("t", provider="agy")
         s.adapter = stub_adapter(provider)
         s.provider = provider
         s.busy = True
@@ -172,7 +176,7 @@ class HintReachesTheWire(WorkspaceCase):
     def test_the_hint_is_prepended_once_and_the_message_is_kept_verbatim(self):
         S.SESSIONS = self.tmp / "sessions"
         (S.SESSIONS / "t").mkdir(parents=True, exist_ok=True)
-        s = S.AgySession("t", provider="agy")
+        s = S.AgentSession("t", provider="agy")
         s.adapter = types.SimpleNamespace(id="agy", keeps_stdin_open=False, transport_kind="process",
                                           format_stdin=lambda c: c, mints_own_conversation_id=lambda: False)
         sent = []

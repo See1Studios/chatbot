@@ -364,6 +364,18 @@ def _agy_process_accounts(procs: List[dict], now: float) -> None:
 
 # ---------------------------------------------------------------- snapshot
 
+# PROVIDER_NEUTRAL_v1: provider traits the common server asks about, declared here (the provider
+# module), never tested by name there.
+# Providers whose running processes keep the login they started with: after a login change the
+# idle owned ones must be restarted (auto-recycle, login, "restart processes").
+RECYCLE_ON_LOGIN: tuple = ("agy",)
+# Extra words shown after a successful logout of that provider.
+LOGOUT_NOTES: Dict[str, str] = {
+    "agy": ("agy 토큰 파일을 백업·제거했고 소유 프로세스를 재시작했어요. "
+            "외부(SSH 등) agy는 수동으로 종료해야 옛 토큰이 파일을 되쓰지 않아요."),
+}
+
+
 def snapshot(owned: Optional[Dict[int, dict]] = None, providers: tuple = PROVIDERS) -> dict:
     """Per provider: current account + running CLI processes. `owned` maps pid
     -> {"owner": "session"|"standby", ...} for processes this chatbot spawned

@@ -29,9 +29,12 @@ class Base(WorkspaceCase):
         S.HOME = self.tmp / "home"                                   # agy's store lives under HOME
         SW.HOME = S.HOME                                             # _conversation_db_path uses session_weights.HOME
         (S.HOME / ".gemini" / "antigravity-cli" / "conversations").mkdir(parents=True, exist_ok=True)
-        s = S.AgySession("t", provider="agy")
+        s = S.AgentSession("t", provider="agy")
+        import adapters
         s.adapter = types.SimpleNamespace(id="agy", keeps_stdin_open=False, transport_kind="process",
-                                          format_stdin=lambda c: c, mints_own_conversation_id=lambda: False)
+                                          format_stdin=lambda c: c, mints_own_conversation_id=lambda: False,
+                                          # a store-backed CLI (agy's real check), not "because the id is agy"
+                                          has_conversation=adapters.AgyAdapter().has_conversation)
         s.history = list(history or [])
         self.events, self.sent, self.stops = [], [], []
         s._emit = self.events.append
@@ -122,7 +125,7 @@ class RespawnKeepsTheAgentInSync(Base):
         s._resume_or_reseed()
         self.assertEqual(s.handoff_summary, "PENDING-HANDOFF")
 
-    def test_only_agy_is_checked_against_agys_store(self):
+    def test_a_provider_that_cannot_tell_keeps_its_id(self):
         s = self.make(HISTORY)
         s.adapter = types.SimpleNamespace(id="claude", mints_own_conversation_id=lambda: True)
         s.conversation_id = "claude-own-session-id"

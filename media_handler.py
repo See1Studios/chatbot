@@ -1,7 +1,7 @@
 """Session media staging, image harvesting, and markdown path rewriting.
 
-Extracts local/generated brain, workspace artifacts, and Grok media files
-and maps them to web-servable /artifacts/... endpoints.
+Finds media the agents generated -- workspace artifacts plus whatever each provider's registered
+MediaSource points at -- and maps it to web-servable /artifacts/... endpoints.
 Extracted from session.py during modular refactoring.
 """
 from __future__ import annotations
@@ -10,7 +10,6 @@ import re
 import shutil
 from pathlib import Path
 from typing import List, Optional
-from urllib.parse import quote
 
 import host_config as HC
 
@@ -25,65 +24,49 @@ def _cfg(name: str):
     return getattr(HC, name)
 
 
-def _conversation_brain_dir(conversation_id: Optional[str]) -> Optional[Path]:
-    if not conversation_id:
-        return None
-    brain = _cfg("BRAIN")
-    d = brain / conversation_id
-    return d if d.is_dir() else None
+class MediaSource:
+    """Where one CLI keeps media it generated (PROVIDER_NEUTRAL_v1). This module knows no provider;
+    provider modules register one of these (adapters.py) and every function below asks all of them."""
+
+    def artifact_dirs(self, conversation_id: Optional[str]) -> List[Path]:
+        """This conversation's own folders, listed in the artifacts tab."""
+        return []
+
+    def scan_dirs(self, conversation_id: Optional[str], cutoff: float) -> List[Path]:
+        """Folders to search for images made during the turn (files newer than `cutoff`)."""
+        return []
+
+    def text_roots(self) -> List[Path]:
+        """Absolute folders the model's text may point into; such paths are staged and served."""
+        return []
+
+    def rel_bases(self, conversation_id: Optional[str]) -> List[Path]:
+        """Where a relative `images/x.png` in the model's text resolves."""
+        return []
 
 
-def _newest_grok_dir_with_images(parent: Path) -> Optional[Path]:
-    newest = None
-    newest_mtime = -1.0
-    try:
-        for d in parent.iterdir():
-            if not d.is_dir():
-                continue
-            img = d / "images"
-            try:
-                if not img.is_dir():
-                    continue
-                mt = img.stat().st_mtime
-            except OSError:
-                continue
-            if mt > newest_mtime:
-                newest_mtime = mt
-                newest = d
-    except OSError:
-        pass
-    return newest
+_SOURCES: List[MediaSource] = []
 
 
-def _grok_media_dir(conversation_id: Optional[str]) -> Optional[Path]:
-    """Grok Imagine writes to ~/.grok/sessions/<urlencoded cwd>/<cid>/images/.
+def register_media_source(source: MediaSource) -> None:
+    if not any(type(s) is type(source) for s in _SOURCES):
+        _SOURCES.append(source)
 
-    conversation_id is often still empty on the first grok turn because the
-    CLI reports sessionId only on the `end` event — after we used to rewrite
-    markdown. If cid is missing or does not match a folder, fall back to the
-    newest session under this workspace that actually has an images/ dir.
-    """
-    home = _cfg("HOME")
-    workspace = _cfg("WORKSPACE")
-    root = home / ".grok" / "sessions"
-    if not root.is_dir():
-        return None
-    ws_enc = root / quote(str(workspace), safe="")
-    cid = str(conversation_id or "").strip()
-    if cid:
-        exact = ws_enc / cid
-        if exact.is_dir():
-            return exact
+
+def _gather(method: str, *args) -> List[Path]:
+    out: List[Path] = []
+    for src in list(_SOURCES):
         try:
-            for enc in root.iterdir():
-                d = enc / cid
-                if d.is_dir():
-                    return d
-        except OSError:
-            pass
-    if ws_enc.is_dir():
-        return _newest_grok_dir_with_images(ws_enc)
-    return None
+            for p in getattr(src, method)(*args) or []:
+                if p and p not in out:
+                    out.append(Path(p))
+        except Exception:
+            continue
+    return out
+
+
+def _artifact_dirs(conversation_id: Optional[str]) -> List[Path]:
+    return [d for d in _gather("artifact_dirs", conversation_id) if d.is_dir()]
 
 
 def _stage_image(sid: str, src: Path) -> Optional[str]:
@@ -100,18 +83,17 @@ def _stage_image(sid: str, src: Path) -> Optional[str]:
         return None
 
 
-def _stage_grok_rel_media(sid: str, conversation_id: Optional[str], rel: str) -> Optional[str]:
+def _stage_rel_media(sid: str, conversation_id: Optional[str], rel: str) -> Optional[str]:
     name = Path(rel or "").name
     if not name or name in (".", ".."):
         return None
     if Path(name).suffix.lower() not in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".webm", ".svg"}:
         return None
-    gdir = _grok_media_dir(conversation_id)
     candidates = []
-    if gdir:
-        candidates.append(gdir / rel)
-        candidates.append(gdir / "images" / name)
-        candidates.append(gdir / "videos" / name)
+    for base in _gather("rel_bases", conversation_id):
+        candidates.append(base / rel)
+        candidates.append(base / "images" / name)
+        candidates.append(base / "videos" / name)
     sessions = _cfg("SESSIONS")
     staged = sessions / sid / "artifacts" / "brain" / name
     candidates.append(staged)
@@ -131,35 +113,10 @@ def _collect_new_images(conversation_id: Optional[str], last_activity: float, si
     """Find recent image files for this conversation / workspace."""
     exts = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
     found: List[Path] = []
-    roots = []
-    bdir = _conversation_brain_dir(conversation_id)
-    if bdir:
-        roots.append(bdir)
-        roots.append(bdir / ".tempmediaStorage")
-        roots.append(bdir / ".system_generated")
+    cutoff = since_ts or (last_activity - 600)
     workspace = _cfg("WORKSPACE")
     artifacts_cache = _cfg("ARTIFACTS_CACHE")
-    brain = _cfg("BRAIN")
-    roots.append(workspace / "artifacts")
-    roots.append(artifacts_cache)
-    gdir = _grok_media_dir(conversation_id)
-    if gdir:
-        roots.append(gdir / "images")
-        roots.append(gdir / "videos")
-        roots.append(gdir)
-    cutoff = since_ts or (last_activity - 600)
-    try:
-        if brain.exists():
-            for sub in brain.iterdir():
-                if sub == bdir or not sub.is_dir():
-                    continue
-                try:
-                    if sub.stat().st_mtime >= cutoff - 5:
-                        roots.append(sub)
-                except OSError:
-                    continue
-    except Exception:
-        pass
+    roots = [workspace / "artifacts", artifacts_cache] + _gather("scan_dirs", conversation_id, cutoff)
     for root in roots:
         if not root or not Path(root).exists():
             continue
@@ -199,7 +156,7 @@ def _rewrite_artifact_paths(sid: str, conversation_id: Optional[str], text: str)
     if not text:
         return text
 
-    brain = _cfg("BRAIN")
+    text_roots = _gather("text_roots")
     workspace = _cfg("WORKSPACE")
     artifacts_cache = _cfg("ARTIFACTS_CACHE")
     sessions = _cfg("SESSIONS")
@@ -207,12 +164,11 @@ def _rewrite_artifact_paths(sid: str, conversation_id: Optional[str], text: str)
 
     def repl_path(m: re.Match) -> str:
         raw = m.group(0)
-        for prefix, label in (
-            (str(brain) + "/", "brain/"),
+        for prefix, label in [(str(r) + "/", "brain/") for r in text_roots] + [
             (str(workspace / "artifacts") + "/", ""),
             (str(artifacts_cache) + "/", ""),
             (str(workspace) + "/", ""),
-        ):
+        ]:
             if raw.startswith(prefix):
                 rel = label + raw[len(prefix):] if label.startswith("brain") else raw[len(prefix):]
                 try:
@@ -228,12 +184,13 @@ def _rewrite_artifact_paths(sid: str, conversation_id: Optional[str], text: str)
                 return "/artifacts/" + rel.lstrip("/")
         return raw
 
-    text = re.sub(
-        r"(?:file://)?(" + re.escape(str(brain)) + r"/[^\s\)\"']+\.(?:png|jpe?g|gif|webp|svg|mp4|webm))",
-        repl_path,
-        text,
-        flags=re.I,
-    )
+    for root in text_roots:
+        text = re.sub(
+            r"(?:file://)?(" + re.escape(str(root)) + r"/[^\s\)\"']+\.(?:png|jpe?g|gif|webp|svg|mp4|webm))",
+            repl_path,
+            text,
+            flags=re.I,
+        )
     text = re.sub(
         r"(?:file://)?(" + re.escape(str(data)) + r"/(?:workspace/)?artifacts/[^\s\)\"']+)",
         repl_path,
@@ -242,7 +199,7 @@ def _rewrite_artifact_paths(sid: str, conversation_id: Optional[str], text: str)
     )
 
     def repl_rel(m: re.Match) -> str:
-        url = _stage_grok_rel_media(sid, conversation_id, m.group(2))
+        url = _stage_rel_media(sid, conversation_id, m.group(2))
         return (m.group(1) + url) if url else m.group(0)
 
     text = re.sub(

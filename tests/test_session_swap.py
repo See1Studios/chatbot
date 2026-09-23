@@ -36,18 +36,18 @@ class SwapTest(unittest.TestCase):
     def setUp(self):
         self._sessions = session.SESSIONS
         session.SESSIONS = Path(tempfile.mkdtemp())
-        self._summary = session.AgySession.get_handover_summary
-        session.AgySession.get_handover_summary = lambda self, *a, **k: ""   # would spawn agy /compact
-        self._dialogue = session.AgySession._dialogue_summary_fallback
-        session.AgySession._dialogue_summary_fallback = lambda self, *a, **k: ""  # refine thread: no agy
-        self.s = session.AgySession("swap-test", provider="agy")
+        self._summary = session.AgentSession.get_handover_summary
+        session.AgentSession.get_handover_summary = lambda self, *a, **k: ""   # would spawn agy /compact
+        self._dialogue = session.AgentSession._dialogue_summary_fallback
+        session.AgentSession._dialogue_summary_fallback = lambda self, *a, **k: ""  # refine thread: no agy
+        self.s = session.AgentSession("swap-test", provider="agy")
         self._q = _subscribe(self.s)
         drain(self._q)  # discard startup events
 
     def tearDown(self):
         session.SESSIONS = self._sessions
-        session.AgySession.get_handover_summary = self._summary
-        session.AgySession._dialogue_summary_fallback = self._dialogue
+        session.AgentSession.get_handover_summary = self._summary
+        session.AgentSession._dialogue_summary_fallback = self._dialogue
 
     def stopped(self):
         return [e for e in drain(self._q) if e.get("event") == "stopped"]
@@ -101,25 +101,25 @@ class AsyncHandoffTest(unittest.TestCase):
         import threading
         import time
         self.time = time
-        self._sessions, self._compact = session.SESSIONS, session.AgySession._native_compact
+        self._sessions, self._compact = session.SESSIONS, session.AgentSession._native_compact
         session.SESSIONS = Path(tempfile.mkdtemp())
         self.release = threading.Event()
 
-        def slow_compact(cid):
+        def slow_compact(provider, cid):
             self.release.wait(5)
-            return "COMPACT-OF-" + cid
-        session.AgySession._native_compact = staticmethod(slow_compact)
-        self._dialogue = session.AgySession._dialogue_summary_fallback
-        session.AgySession._dialogue_summary_fallback = lambda self, *a, **k: "DIALOGUE-SUMMARY"  # never spawn agy
-        self.s = session.AgySession("async-swap", provider="agy")
+            return "COMPACT-OF-" + cid if provider == "agy" else ""   # only a provider with a native compact
+        session.AgentSession._native_compact = staticmethod(slow_compact)
+        self._dialogue = session.AgentSession._dialogue_summary_fallback
+        session.AgentSession._dialogue_summary_fallback = lambda self, *a, **k: "DIALOGUE-SUMMARY"  # never spawn agy
+        self.s = session.AgentSession("async-swap", provider="agy")
         self.s.conversation_id = "old-cid"
         self.s.history = [{"role": "user", "text": "앞선 질문", "ts": 1}, {"role": "assistant", "text": "앞선 답", "ts": 2}]
 
     def tearDown(self):
         self.release.set()
         session.SESSIONS = self._sessions
-        session.AgySession._native_compact = self._compact
-        session.AgySession._dialogue_summary_fallback = self._dialogue
+        session.AgentSession._native_compact = self._compact
+        session.AgentSession._dialogue_summary_fallback = self._dialogue
 
     def wait_refined(self, want):
         for _ in range(100):

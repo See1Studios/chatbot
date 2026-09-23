@@ -24,7 +24,7 @@ class GrokRelImageRewrite(WorkspaceCase):
         gdir = S.HOME / ".grok" / "sessions" / quote(str(S.WORKSPACE), safe="") / self.cid / "images"
         gdir.mkdir(parents=True)
         (gdir / "1.jpg").write_bytes(b"\xff\xd8\xfffakejpeg")
-        self.s = S.AgySession("t", provider="agy")
+        self.s = S.AgentSession("t", provider="agy")
         self.s.conversation_id = self.cid
 
     def tearDown(self):

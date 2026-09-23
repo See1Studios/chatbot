@@ -617,7 +617,7 @@ def list_tickets(data, status: Optional[str] = None) -> List[Dict]:
 # -------------------------------------------------------------- command line
 
 def _data_dir() -> Path:
-    return Path(os.environ.get("AGY_CHAT_DATA") or (Path(__file__).resolve().parent / "data"))
+    return Path(os.environ.get("CHATBOT_DATA") or os.environ.get("AGY_CHAT_DATA") or (Path(__file__).resolve().parent / "data"))
 
 
 def _confirm_at_terminal(cmd: str, what: str) -> None:
