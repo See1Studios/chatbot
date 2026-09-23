@@ -162,11 +162,13 @@ def instance_names():
     Generic defaults (identity.DEFAULTS, e.g. 사용자) are words, not names."""
     names = set(OLD_NAMES)
     try:
-        ident = identity.get_identity()
-        for key in ("persona", "title", "user_title", "name"):
-            v = str(ident.get(key) or "").strip()
-            if v and v not in identity.DEFAULTS.values() and len(v) >= 2:
-                names.add(v)
+        roles = [""] + [f.stem[len("PERSONA-"):] for f in identity.WORKSPACE.glob("PERSONA-*.md")]
+        for role in roles:
+            ident = identity.get_identity(role)
+            for key in ("persona", "title", "user_title", "name"):
+                v = str(ident.get(key) or "").strip()
+                if v and v not in identity.DEFAULTS.values() and len(v) >= 2:
+                    names.add(v)
     except Exception:
         pass
     return sorted(names)

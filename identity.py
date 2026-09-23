@@ -11,6 +11,11 @@ name is hardcoded here or in the UI:
                             voice       one-line tone hint for host-built prompts
   PERSONA.md  body                      the personality and tone themselves
 
+A second character with its own role (e.g. the reviewer in worktree delegation,
+docs/plans/multi-agent-worktree-delegation.md §8) lives in `PERSONA-<role>.md`
+with the same keys; its `title` falls back to AGENTS.md. The role is an id, the
+name in the file is display only.
+
 Always read from `WORKSPACE` at call time (never a module constant), so a second
 chatbot with its own workspace has its own identity. Anything missing or broken
 falls back to neutral defaults. The files are editable user data, so every value
@@ -30,6 +35,9 @@ from host_config import ROOT, WORKSPACE
 DEFAULTS = {"title": "Assistant", "persona": "", "user_title": "사용자", "voice": ""}
 _LIMITS = {"title": 60, "persona": 40, "user_title": 20, "voice": 120}
 _SOURCES = {"title": "AGENTS.md", "persona": "PERSONA.md", "user_title": "PERSONA.md", "voice": "PERSONA.md"}
+
+_ROLE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+_BODY_LIMIT = 4000
 
 _FRONT = re.compile(r"\A\ufeff?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
 _CTRL = re.compile(r"[\x00-\x1f\x7f]+")
@@ -80,15 +88,36 @@ def _front(path: Path) -> Dict[str, str]:
     return fm
 
 
-def get_identity() -> Dict[str, str]:
+def persona_file(role: str = "") -> Path:
+    """PERSONA.md for the chatbot itself, PERSONA-<role>.md for a second character."""
+    if not role:
+        return WORKSPACE / "PERSONA.md"
+    if not _ROLE_RE.match(role):
+        raise ValueError("role must be a lowercase id, got %r" % role[:40])
+    return WORKSPACE / ("PERSONA-%s.md" % role)
+
+
+def get_identity(role: str = "") -> Dict[str, str]:
     """{title, persona, user_title, voice, name}. `name` is what to call the
-    chatbot in running text: the persona if there is one, else the title."""
+    chatbot in running text: the persona if there is one, else the title.
+    With `role`, the character of PERSONA-<role>.md."""
     ident: Dict[str, str] = {}
+    own = _front(persona_file(role)) if role else {}
     for k, default in DEFAULTS.items():
-        val = _clean(_front(WORKSPACE / _SOURCES[k]).get(k, ""), _LIMITS[k])
+        src = own if role and (_SOURCES[k] == "PERSONA.md" or own.get(k)) else _front(WORKSPACE / _SOURCES[k])
+        val = _clean(src.get(k, ""), _LIMITS[k])
         ident[k] = val or default
     ident["name"] = ident["persona"] or ident["title"]
     return ident
+
+
+def persona_body(role: str = "") -> str:
+    """The personality text of a persona file (front matter removed), capped."""
+    try:
+        text = persona_file(role).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    return _FRONT.sub("", text, count=1).strip()[:_BODY_LIMIT]
 
 
 def user_title() -> str:
@@ -100,10 +129,10 @@ def display_name() -> str:
     return get_identity()["name"]
 
 
-def self_label() -> str:
+def self_label(role: str = "") -> str:
     """How a host-built prompt introduces the chatbot: '<title> <persona>' when
     both exist and differ (프로듀서 냥피디), else whichever there is."""
-    i = get_identity()
+    i = get_identity(role)
     if i["persona"] and i["persona"] != i["title"]:
         return f"{i['title']} {i['persona']}"
     return i["name"]
