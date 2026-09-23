@@ -239,3 +239,37 @@ PoC 이후 코드와 거버넌스를 대조해 보고 나온 점. 마일스톤 3
 - **상태**: `awaiting_go`(계획 카드: [실행]/[계획 수정]/[취소]) → `running`(작업 i/n, 라운드) → `awaiting_merge`(최종 확인: [승인]/[반려]/[폐기]) → `done`/`declined`.
 - **반려**: 사용자 코멘트를 들고 같은 브랜치에서 재작업 한 번(새 시도로 계산) → 다시 최종 확인. `tickets.rework`(사용자 전용).
 - **전문가 확장 지점**: 역할마다 `PERSONA-<role>.md`(캐릭터·지침). 스킬셋·모델·작업 공간(코드가 아닌 산출물)은 역할을 추가할 때 정한다.
+
+---
+
+## 11. 서브에이전트(전문가) 관리 (2026-09-23 사용자 결정)
+
+배경: 상시 프로바이더는 Antigravity 하나(나머지는 간헐적). Claude·Antigravity 구독은 공식 CLI로만 쓸 수 있다(챗봇이 존재하는 이유). Hermes 프로필·칸반은 **본뜰 설계**일 뿐 섞지 않는다.
+
+결정 (모두 추천안):
+1. **전문가 = 폴더 하나** — `data/workspace/experts/<role>/`에 캐릭터·지침·스킬·기억·두뇌 설정을 담는다. 전문가 추가 = 폴더 추가.
+2. **지속 전문가** — 작업이 끝나도 배운 것을 짧은 기억(크기 상한)에 남기고 다음 작업에 읽는다. 프로세스는 작업마다 새로.
+3. **두뇌 = 전문가별 순서 목록 + 자동 대체** — 예: agy gemini-3.1-pro-high → agy gemini-3.8-flash-high → codex. 쿼터·한도·무응답이면 다음 두뇌로. 목록은 사용자가 정하고 PD는 바꾸지 못한다.
+4. **PD가 제안, 사용자가 승인** — PD는 새 전문가나 변경을 제안(카드)만 한다. 승인 전에는 존재하지 않는다. 편집은 상태 탭.
+
+### 11.1 모양 (초안)
+
+```
+data/workspace/experts/<role>/
+  expert.md     머리말: persona(표시 이름), title, voice / 본문: 캐릭터 + 분야 지침 (영어, 원칙 0)
+  brain.json    {"chain": [{"provider": "agy", "model": "gemini-3.1-pro-high"}, {"provider": "agy", "model": "gemini-3.8-flash-high"}]}
+  memory.md     배운 것 (한 줄씩, 상한 2KB). 작업 뒤 러너가 전문가의 LEARNED 줄을 덧붙인다. 상태 탭에서 편집 가능
+  skills.txt    쓸 수 있는 공용 스킬 이름 (선택)
+data/workspace/experts/_proposed/<role>/   PD가 제안한 전문가 (승인 전)
+data/workspace/pd-brain.json               PD 확인의 두뇌 목록
+```
+
+- 지금의 `PERSONA-staff.md`(루루)는 `experts/staff/`로 옮긴다.
+- 카드·대사에는 누가 **어떤 두뇌로** 일했는지 표시하고, 대체가 일어나면 그 사실도 남긴다.
+
+### 11.2 구현 순서 (제안)
+1. 전문가 폴더 + 러너·identity가 읽기 + 루루 이전
+2. 두뇌 목록과 자동 대체 (쿼터·한도·타임아웃 감지)
+3. 상태 탭 "전문가" 섹션 (두뇌 목록·기억 편집)
+4. 지속 기억 (LEARNED → memory.md, 상한·중복 제거)
+5. PD의 전문가 제안 → 사용자 승인
