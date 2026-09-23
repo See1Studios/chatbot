@@ -2007,6 +2007,7 @@ function renderCandidates(res) {
     if (c.provider) top.appendChild(obsNode('span', 'obs-badge', c.provider));
     card.appendChild(top);
     if (c.user) card.appendChild(obsNode('div', 'obs-cand-user', '“' + c.user + '”'));
+    else if (c.summary) card.appendChild(obsNode('div', 'obs-cand-user', c.summary));  // host:<code> (HOST_SIGNALS_v1)
     const foot = [c.ts, c.ref].filter(Boolean).join(' · ');
     if (foot) card.appendChild(obsNode('div', 'obs-meta', foot));
     list.appendChild(card);

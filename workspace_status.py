@@ -176,7 +176,8 @@ def _observation_overview(obs_root) -> dict:
     entries = observations.scan(obs_root)
     cands = observations.unreviewed_candidates(obs_root)
     recent = [{"ref": "candidate:%s" % c.get("epoch"), "ts": c.get("ts"), "signal": c.get("signal"),
-               "provider": c.get("provider"), "user": (c.get("detail") or {}).get("user", "")}
+               "provider": c.get("provider"), "user": (c.get("detail") or {}).get("user", ""),
+               "summary": (c.get("detail") or {}).get("summary", "")}
               for c in cands[-_CANDIDATE_ROWS:]][::-1]
     return {"ok": True, "last_review": observations.last_review(obs_root), "observations": entries,
             "unreviewed_candidates": len(cands), "candidates": recent}

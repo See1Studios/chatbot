@@ -312,7 +312,8 @@ def digest(obs_root, now: Optional[float] = None, candidate_rows: int = 10) -> D
     for c in cands:
         by_signal[c.get("signal", "?")] = by_signal.get(c.get("signal", "?"), 0) + 1
     recent = [{"ref": "candidate:%s" % c.get("epoch"), "ts": c.get("ts"), "signal": c.get("signal"),
-               "provider": c.get("provider"), "user": (c.get("detail") or {}).get("user", "")}
+               "provider": c.get("provider"), "user": (c.get("detail") or {}).get("user", ""),
+               "summary": (c.get("detail") or {}).get("summary", "")}
               for c in cands[-candidate_rows:]]
     last = last_review(obs_root)
     return {

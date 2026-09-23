@@ -640,6 +640,8 @@ cmd_doctor() {
   else
     echo "probe skipped (throttle; stamp=$(cat "$PROBE_STAMP" 2>/dev/null || echo none))"
   fi
+  # HOST_SIGNALS_v1: log findings -> observation candidates (logdigest throttles itself to hourly)
+  python3 "$CODE/logdigest.py" --to-candidates >/dev/null 2>&1 || true
   if [ "$rc" = "0" ]; then echo "doctor PASS"; else echo "doctor FAIL"; doctor_log "doctor FAIL"; fi
   return $rc
 }

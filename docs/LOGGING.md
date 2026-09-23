@@ -143,6 +143,24 @@ Thresholds live at the top of `logdigest.py`.
 | `rss_growth` | warn | > 150 MB growth within one process lifetime |
 | `log_write_errors` | warn | the logger itself could not write |
 
+## Host signals → self-evolution (HOST_SIGNALS_v1)
+
+`chatbot-ctl.sh doctor` runs `logdigest.py --to-candidates` (it throttles itself to once an hour).
+Each finding of the last 2 h becomes one observation candidate in
+`data/workspace/skill-observations/candidates.jsonl`:
+
+```json
+{"signal": "host:http_5xx", "sid": "host", "provider": "chat",
+ "detail": {"severity": "error", "key": "chat GET /api/usage", "summary": "http_5xx chat GET /api/usage",
+            "window_h": 2.0, "log_ref": "log:fp:…"}}
+```
+
+- once per (signal, key) per day; the observation review (`observation review`, 상태 탭 힌트) lists
+  them next to the operator-signal candidates, and `candidate:<epoch>` is valid ticket evidence
+- only host-made text (code, key, numbers): never `err.msg` or titles, which can carry outside
+  text (recursive-self-evolution.md §4.4)
+- candidates are hints; nothing starts work on its own (§4.2)
+
 ## Error storms
 
 One bug hit in a loop (a UI poll against a failing route) must not rotate the history out of the

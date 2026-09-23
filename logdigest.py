@@ -9,6 +9,7 @@ Views over the one event stream (docs/LOGGING.md):
   logdigest.py --evt PREFIX             raw lines whose evt starts with PREFIX, human format
   logdigest.py -f                       follow new lines in human format (tail -f for people)
   --all                                 include rotated files older than --since window (for first-seen checks)
+  --to-candidates                       findings -> observation candidates (host:<code>), at most hourly
 Also: chatbot-ctl.sh logs [same flags].
 """
 from __future__ import annotations
@@ -35,6 +36,13 @@ P95_SLOW_MS = 2000
 RSS_GROWTH_MB = 150
 TURN_FAIL_RATE_WARN = 0.2
 CLIENT_ERR_REPEAT_WARN = 50
+
+# Host signals (docs/plans/recursive-self-evolution.md §4.2/§4.4): findings become observation
+# candidates so a review also sees what the host measured, not only what the operator said.
+HOST_SIGNAL_EVERY_SEC = 3600
+HOST_SIGNAL_WINDOW_SEC = 2 * 3600
+HOST_SIGNAL_STAMP = LOG.with_name(".host-signals.stamp")
+OBS_ROOT = Path(os.environ.get("AGY_CHAT_DATA") or ROOT / "data") / "workspace" / "skill-observations"
 
 
 def parse_since(text: str) -> float:
@@ -372,6 +380,75 @@ def render(d: Dict[str, Any]) -> str:
     return "\n".join(out)
 
 
+# -- host signals -> observation candidates ---------------------------------------------
+_KEY_FIELDS = ("fp", "route", "provider", "src", "key")
+
+
+def _finding_key(f: Dict[str, Any]) -> str:
+    ev = f.get("evidence") or {}
+    for k in _KEY_FIELDS:
+        if ev.get(k):
+            return str(ev[k])[:120]
+    return ""
+
+
+def _summary(f: Dict[str, Any], key: str) -> str:
+    """Host-made text only: code, key and numbers. Never err.msg or titles, which can carry
+    outside text (§4.4: tool/web output must not be copied into observations)."""
+    nums = ["%s=%s" % (k, v) for k, v in sorted((f.get("evidence") or {}).items())
+            if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    return " ".join(x for x in [f["code"], key] + nums if x)[:200]
+
+
+def host_candidates(obs_root: Path = None, since_s: float = HOST_SIGNAL_WINDOW_SEC, force: bool = False,
+                    now: Optional[float] = None) -> List[Dict[str, Any]]:
+    """Record current findings as candidates (signal host:<code>, sid "host"), each (signal, key) at
+    most once a day. Throttled by a stamp file unless `force`. Returns what was recorded."""
+    import evolution  # core module: layers may use the core, never the reverse
+    obs_root = Path(obs_root or OBS_ROOT)
+    now = time.time() if now is None else now
+    if not force:
+        try:
+            if now - HOST_SIGNAL_STAMP.stat().st_mtime < HOST_SIGNAL_EVERY_SEC:
+                return []
+        except OSError:
+            pass
+    try:
+        HOST_SIGNAL_STAMP.parent.mkdir(parents=True, exist_ok=True)
+        HOST_SIGNAL_STAMP.write_text(str(int(now)))
+    except OSError:
+        pass
+    if not LOG.exists() or not obs_root.is_dir():
+        return []
+    today = time.strftime("%Y-%m-%d", time.localtime(now))
+    seen = set()
+    try:
+        with open(obs_root / evolution.CANDIDATES_NAME, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if str(row.get("signal", "")).startswith("host:") and str(row.get("ts", "")).startswith(today):
+                    seen.add((row["signal"], str((row.get("detail") or {}).get("key", ""))))
+    except OSError:
+        pass
+    out = []
+    for f in digest(since_s)["findings"]:
+        signal, key = "host:" + f["code"], _finding_key(f)
+        if (signal, key) in seen:
+            continue
+        seen.add((signal, key))
+        ev = f.get("evidence") or {}
+        detail: Dict[str, Any] = {"severity": f["severity"], "key": key, "summary": _summary(f, key),
+                                  "window_h": round(since_s / 3600, 1)}
+        if ev.get("fp"):
+            detail["log_ref"] = "log:fp:%s" % ev["fp"]
+        if evolution.record_candidate(obs_root, signal, "host", str(ev.get("src") or ev.get("provider") or "host"), detail):
+            out.append(dict(detail, signal=signal))
+    return out
+
+
 # -- other views ------------------------------------------------------------------------
 def session_timeline(sid: str, since_t: float) -> List[dict]:
     rows = [e for e in read_events(since_t) if e.get("sid") == sid or (isinstance(e.get("busy"), list) and sid in e["busy"])]
@@ -419,6 +496,10 @@ def follow() -> None:
         time.sleep(1)
 
 
+def as_json_flag(flags: set) -> bool:
+    return "--json" in flags
+
+
 def main(argv: List[str]) -> int:
     args = list(argv)
     opts: Dict[str, Any] = {"--since": "24h"}
@@ -430,7 +511,7 @@ def main(argv: List[str]) -> int:
             opts[a] = args[i + 1]
             i += 2
             continue
-        if a in ("--json", "--all", "-f", "--follow", "-h", "--help"):
+        if a in ("--json", "--all", "-f", "--follow", "-h", "--help", "--to-candidates", "--force"):
             flags.add(a)
             i += 1
             continue
@@ -444,6 +525,10 @@ def main(argv: List[str]) -> int:
             follow()
         except KeyboardInterrupt:
             return 0
+    if "--to-candidates" in flags:
+        got = host_candidates(force="--force" in flags)
+        print(json.dumps(got, ensure_ascii=False) if as_json_flag(flags) else "host candidates recorded: %d" % len(got))
+        return 0
     since_s = parse_since(opts["--since"])
     since_t = time.time() - since_s
     as_json = "--json" in flags
