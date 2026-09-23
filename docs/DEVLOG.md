@@ -2776,3 +2776,15 @@ Watchdog가 `chatbot-ctl.sh start` 유지.
   3. 미완성 한글 공지는 finalize가 이미 error/답이면 추가하지 않음(빈 SUCCESS 타임아웃만 이벤트 배치에 포함).
 - **배포**: repair.
 - **마커**: `TURN_END_ORDER_v1`
+
+## 2026-09-23 — 구조화 관측 로그와 자기진화 연동 (OBSLOG_v1 ~ WATCHDOG_OS_FACTS_v1, 티켓 #39–#53)
+
+- **배경**: 실장님 "에이전트가 로그만 분석해도 모든 상황·문제·개선점을 파악할 수 있으면 좋겠어". 기존 로그는 access 줄에 시각이 없고 90%가 폴링, repair 호출자 기록 없음, 세션 로그와 서비스 로그를 맞춰 볼 방법이 없었음.
+- **로그**: `obslog.py` → `logs/events.jsonl` 단일 원천(chat·mcp·ctl·세션 턴). ISO 시각, rid/sid, 비밀값 가림, 오류 지문, 폴링은 5분 요약, 폭주 억제(#44), 10MB×5 로테이션. 경로는 ctl이 export할 때만 기록(테스트·에이전트 자식은 상속 안 함, #45).
+- **읽기**: `logdigest.py` / `chatbot-ctl.sh logs` (findings 우선, `--sid/--rid/--fp/--evt/-f/--json`), 채팅 UI 로그 탭 → **서비스** (`/api/service-log`, #42). 스키마·이벤트 사전: `docs/LOGGING.md`.
+- **자기진화 연동**: findings → `host:<code>` 관찰 후보(채팅 서버 스레드, 시간당, #46·#52), 티켓 근거 `log:fp:`/`log:rid:` (#47, `~/bin/ticket-quick --evidence`). 설계서 §4.2, §7-6(계측 기준 = Tier 3), §7-7(감시자는 서비스에 의존하지 않음).
+- **로그가 찾아 고친 것**: provider 전환 10–17초 동기 요약(#50, 즉시 응답 + 백그라운드 요약), doctor가 살아 있는 서버의 warm standby를 반복 종료(#51), 판정 오류 2건(#48). `session.py`의 `sys` 미import NameError(meta.json 손상 시).
+- **감시자**: `ctl_proc.py` — 정리·repair 전 대기를 OS 사실(프로세스 표, /proc, ctl pid 파일)로만 판단. 남의 agy는 더 이상 건드리지 않음(#53).
+- **정리**: `*.bak-*` 68개 → `~/archive/2026-09-23-chatbot-bak/`(검증 후 삭제, #41), 매니페스트 재기준(#43).
+- **사고**: 배포 대기 확인이 턴 사이 0.1초 틈에 걸려 실장님 턴 1건 중단(11:58) → 이후 배포는 연속 3회 한가 확인 후 진행.
+- **다음에 볼 것**: 서비스 탭 24h의 repair 호출자(주 240회 원인), `turn.end outcome=process_died`(새 대기 판정 오판 여부).
