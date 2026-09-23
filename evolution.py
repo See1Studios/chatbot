@@ -442,7 +442,7 @@ def _next_observation_id(obs_dir: Path) -> int:
 
 
 def add_observation(obs_dir, title: str, body: str, area: str = "", recent_limit: Optional[int] = None,
-                    window_sec: int = 3600) -> Path:
+                    window_sec: int = 3600, actor: str = "") -> Path:
     """Create the next observation-log entry (status: open) and return its path.
     The caller vets the text; this only bounds its size and picks a free number.
     With `recent_limit`, refuse (TooManyObservations) once that many entries
@@ -463,13 +463,15 @@ def add_observation(obs_dir, title: str, body: str, area: str = "", recent_limit
     title = re.sub(r"\s+", " ", str(title)).strip().lstrip("#").strip()[:120] or "observation"
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:48] or "observation"
     area = re.sub(r"\s+", " ", str(area)).strip()[:60]
+    actor = re.sub(r"\s+", " ", str(actor or "")).strip()[:40]  # who recorded it (ACTOR_ATTRIBUTION_v1)
     number = _next_observation_id(d)
     for _ in range(50):
         path = d / ("%04d-%s.md" % (number, slug))
         text = ("---\nid: %d\ntitle: %s\nstatus: open\ntype: internal\nskill: []\nproposes_skill: []\narea: %s\n"
-                "date: %s\nparked_until:\nresolved:\nresolution:\nreference:\n---\n\n%s\n"
+                "date: %s\nparked_until:\nresolved:\nresolution:\nreference:\n%s---\n\n%s\n"
                 % (number, json.dumps(title, ensure_ascii=False), json.dumps(area, ensure_ascii=False),
-                   time.strftime("%Y-%m-%d"), str(body).strip()[:4000]))
+                   time.strftime("%Y-%m-%d"), ("actor: %s\n" % json.dumps(actor, ensure_ascii=False)) if actor else "",
+                   str(body).strip()[:4000]))
         try:
             with open(str(path), "x", encoding="utf-8") as f:  # exclusive: two writers never share a number
                 f.write(text)

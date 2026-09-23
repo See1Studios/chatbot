@@ -1763,3 +1763,6 @@ code.login-value{
 .svc-src{font-size:.7rem;color:var(--muted);margin-right:.4rem;flex-shrink:0}
 .svc-ev.svc-error .act-text{color:#f85149}
 .svc-ev.svc-warn .act-text{color:#d29922}
+
+/* ACTOR_ATTRIBUTION_v1: who did it */
+.obs-badge.obs-actor{background:rgba(121,192,255,.12);color:#79c0ff;border-color:rgba(121,192,255,.35);font-weight:500}

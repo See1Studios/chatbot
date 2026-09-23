@@ -467,7 +467,7 @@ def call_tool(name: str, arguments: dict) -> dict:
             return envelope(code == 0, "ok" if code == 0 else "nonzero", {"code": code, "stdout": out, "stderr": err})
 
         if mcp_core is not None and name in mcp_core.NAMES:
-            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE)
+            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, actor=_live_actor())
 
         if name == "search_text":
             path = _resolve_target_path(args.get("path"))
@@ -524,6 +524,21 @@ def call_tool(name: str, arguments: dict) -> dict:
     except Exception as e:
         obslog.exception("mcp.tool_exception", e, tool=name)
         return envelope(False, f"error: {e}", {"trace": traceback.format_exc()[-1500:]})
+
+
+def _live_actor() -> str:
+    """Who is calling the core tools (ACTOR_ATTRIBUTION_v1): the chat's live agent, named by the provider
+    of the session that is working right now ("냥피디·agy"), or plain "냥피디" when that cannot be told."""
+    try:
+        import urllib.request
+        port = int(os.environ.get("AGY_CHAT_PORT", "3011"))
+        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
+            d = json.loads(r.read().decode("utf-8") or "{}")
+        if d.get("busy") and d.get("provider"):
+            return "냥피디·%s" % str(d["provider"])[:20]
+    except Exception:
+        pass
+    return "냥피디"
 
 
 def _obs_tool_call(name: str, arguments: dict) -> dict:

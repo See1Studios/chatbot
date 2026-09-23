@@ -506,3 +506,36 @@ class ShipGateTest(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ActorTest(Base):
+    """ACTOR_ATTRIBUTION_v1: who proposed, approved (and through what), worked on and closed a ticket."""
+
+    def test_the_record_names_each_hand(self):
+        t, _ = tickets.propose(self.data, "Swap blocks", "session.py: swap", [EVENT], now=T0, actor="claude-code")
+        self.assertEqual(t["actor"], "claude-code")
+        t = tickets.approve(self.data, t["id"], now=T0, operator=tickets.OPERATOR_CONFIRMED,
+                            on_behalf="claude-code ticket-quick (operator's instruction)")
+        self.assertEqual(t["approved_by"], "operator (api) via claude-code ticket-quick (operator's instruction)")
+        c = tickets.claim(self.data, t["id"], now=T0, actor="claude-code")
+        self.assertEqual(c["ticket"]["worked_by"], "claude-code")
+        tickets.add_note(self.data, t["id"], "halfway", c["token"], now=T0)       # the holder, unnamed: still attributed
+        r = tickets.release(self.data, t["id"], c["token"], "done", now=T0)
+        done = tickets.get(self.data, t["id"])
+        self.assertEqual(done["closed_by"], "claude-code")
+        bys = {n["by"] for n in done["notes"]}
+        self.assertIn("agent:claude-code", bys)
+        self.assertNotIn("agent", bys)
+
+    def test_without_an_actor_the_record_is_as_before(self):
+        t = self.approved()
+        c = tickets.claim(self.data, t["id"], now=T0)
+        self.assertNotIn("worked_by", c["ticket"])
+        self.assertIn("agent", {n["by"] for n in c["ticket"]["notes"]})
+        self.assertEqual(t["approved_by"], "operator (api)")
+
+    def test_a_note_from_someone_else_is_theirs(self):
+        t = self.approved()
+        c = tickets.claim(self.data, t["id"], now=T0, actor="grok")
+        n = tickets.add_note(self.data, t["id"], "looked at it", None, now=T0, actor="냥피디·agy")
+        self.assertEqual(n["notes"][-1]["by"], "agent:냥피디·agy")

@@ -1,6 +1,8 @@
 {
+ "actor": "grok",
  "approved_at": "2026-09-23 10:35:36",
  "attempts": 1,
+ "closed_by": "grok",
  "closed_reason": "done",
  "created": "2026-09-23 10:35:36",
  "evidence": [
@@ -28,6 +30,11 @@
    "by": "agent",
    "text": "done",
    "ts": "2026-09-23 10:36:48"
+  },
+  {
+   "by": "host",
+   "text": "attribution backfilled (ACTOR_ATTRIBUTION_v1): grok -- operator confirmed 2026-09-23: #35-#38 were Grok's work; approval path unknown, left as recorded",
+   "ts": "2026-09-23 13:32:51"
   }
  ],
  "paths": [
@@ -37,5 +44,6 @@
  "status": "done",
  "target": "chatbot",
  "title": "QUOTA_FAILFAST_v1: end turn ~8s after error_message",
- "updated": "2026-09-23 10:36:48"
+ "updated": "2026-09-23 13:32:51",
+ "worked_by": "grok"
 }

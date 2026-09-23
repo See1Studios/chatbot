@@ -247,6 +247,16 @@ class ReviewTest(Base):
         (obs / "candidates.jsonl").write_text((self.obs / "candidates.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
         tickets.verify_evidence(data, "candidate:1.0")   # still the evidence it was written to be
 
+    def test_who_recorded_and_who_closed_are_kept(self):
+        # ACTOR_ATTRIBUTION_v1
+        p = ob.add(self.obs, "Swap blocks", "body", area="chatbot", actor="냥피디·agy")
+        oid = int(ob.parse_header(p.read_text(encoding="utf-8"))["id"])
+        self.assertEqual(ob.get(self.obs, oid)["actor"], "냥피디·agy")
+        done = ob.resolve(self.obs, oid, "actioned", "fixed in #50", by="claude-code")
+        self.assertEqual((done["actor"], done["resolved_by"]), ("냥피디·agy", "claude-code"))
+        q = ob.add(self.obs, "No actor", "body")
+        self.assertNotIn("actor:", q.read_text(encoding="utf-8"))   # unchanged header when nobody is named
+
     def test_digest_lists_what_a_review_looks_at(self):
         self.put(1, title="Open one", status="open")
         self.put(2, title="Parked one", status="parked")

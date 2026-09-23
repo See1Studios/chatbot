@@ -1,6 +1,9 @@
 {
+ "actor": "claude-code",
  "approved_at": "2026-09-23 12:19:29",
+ "approved_by": "operator (api) via claude-code ticket-quick (operator's instruction)",
  "attempts": 1,
+ "closed_by": "claude-code",
  "closed_reason": "done",
  "created": "2026-09-23 12:19:28",
  "evidence": [
@@ -33,6 +36,11 @@
    "by": "agent",
    "text": "done",
    "ts": "2026-09-23 12:21:56"
+  },
+  {
+   "by": "host",
+   "text": "attribution backfilled (ACTOR_ATTRIBUTION_v1): claude-code -- claude-code session 2026-09-23 (this agent's own tickets)",
+   "ts": "2026-09-23 13:32:51"
   }
  ],
  "paths": [
@@ -47,5 +55,6 @@
  "status": "done",
  "target": "chatbot-ctl.sh, standby_pool.py, session.py, logdigest.py, tests/test_standby_re",
  "title": "STANDBY_REAP_v1: doctor가 살아있는 서버의 warm standby를 죽임 + finding agent_reaped_live 추가(판정 강화, §7-6 승인)",
- "updated": "2026-09-23 12:21:56"
+ "updated": "2026-09-23 13:32:51",
+ "worked_by": "claude-code"
 }

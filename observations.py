@@ -106,7 +106,8 @@ def _entry(path: Path, meta: Dict[str, str]) -> Dict:
         oid = int(m.group(1)) if m else 0
     return {"id": oid, "file": path.name, "title": meta.get("title", ""), "status": (meta.get("status") or "").lower(),
             "area": meta.get("area", ""), "date": meta.get("date", ""), "resolved": meta.get("resolved", ""),
-            "parked_until": meta.get("parked_until", "")}
+            "parked_until": meta.get("parked_until", ""), "actor": meta.get("actor", ""),
+            "resolved_by": meta.get("resolved_by", "")}
 
 
 # ------------------------------------------------------------------------ scan
@@ -200,7 +201,8 @@ def _today(now: Optional[float]) -> str:
     return time.strftime("%Y-%m-%d", time.localtime(time.time() if now is None else now))
 
 
-def resolve(obs_root, oid, status: str, resolution: str, until: str = "", now: Optional[float] = None) -> Dict:
+def resolve(obs_root, oid, status: str, resolution: str, until: str = "", now: Optional[float] = None,
+            by: str = "") -> Dict:
     """Move an open or parked observation to actioned/declined/superseded (or park it).
     A resolution line is required: closing without saying why is how findings vanish."""
     if status not in ("parked",) + RESOLVED:
@@ -213,6 +215,9 @@ def resolve(obs_root, oid, status: str, resolution: str, until: str = "", now: O
     if current in RESOLVED:
         raise ObservationError("observation %s is already %s" % (oid, current))
     fields = {"status": status, "resolution": json.dumps(resolution, ensure_ascii=False)}
+    by = _line(by, 40)
+    if by:  # who closed or parked it (ACTOR_ATTRIBUTION_v1)
+        fields["resolved_by"] = json.dumps(by, ensure_ascii=False)
     if status == "parked":
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(until or "")):
             raise ObservationError("parking needs `until` as YYYY-MM-DD")
@@ -253,11 +258,12 @@ def archive_resolved(obs_root, now: Optional[float] = None) -> List[str]:
     return moved
 
 
-def add(obs_root, title: str, body: str, area: str = "", recent_limit: Optional[int] = None) -> Path:
+def add(obs_root, title: str, body: str, area: str = "", recent_limit: Optional[int] = None,
+        actor: str = "") -> Path:
     """Record a new observation. The archive sweep rides on the write, so it cannot be skipped."""
     d = log_dir(obs_root)
     archive_resolved(obs_root)
-    return evolution.add_observation(d, title, body, area, recent_limit=recent_limit)
+    return evolution.add_observation(d, title, body, area, recent_limit=recent_limit, actor=actor)
 
 
 # ---------------------------------------------------------------------- review

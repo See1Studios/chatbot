@@ -1,6 +1,9 @@
 {
+ "actor": "claude-code",
  "approved_at": "2026-09-23 12:13:46",
+ "approved_by": "operator (api) via claude-code ticket-quick (operator's instruction)",
  "attempts": 1,
+ "closed_by": "claude-code",
  "closed_reason": "done",
  "created": "2026-09-23 12:13:46",
  "evidence": [
@@ -29,6 +32,11 @@
    "by": "agent",
    "text": "done",
    "ts": "2026-09-23 12:17:09"
+  },
+  {
+   "by": "host",
+   "text": "attribution backfilled (ACTOR_ATTRIBUTION_v1): claude-code -- claude-code session 2026-09-23 (this agent's own tickets)",
+   "ts": "2026-09-23 13:32:51"
   }
  ],
  "paths": [
@@ -39,5 +47,6 @@
  "status": "done",
  "target": "session.py, tests/test_session_swap.py, tests/test_instructions.py",
  "title": "SWAP_ASYNC_HANDOFF_v1: provider 전환 12~17초 → 즉시 응답, /compact 요약은 백그라운드",
- "updated": "2026-09-23 12:17:09"
+ "updated": "2026-09-23 13:32:51",
+ "worked_by": "claude-code"
 }

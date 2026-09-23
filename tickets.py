@@ -25,6 +25,10 @@ has a small attempt budget, and can be worked on by one author at a time.
   by importing this module. It could still do it on purpose (same user account);
   this stops mistakes, not a determined process. The record says how it was
   asked: `operator (tty)` from the command line, `operator (api)` otherwise.
+- Who (ACTOR_ATTRIBUTION_v1): callers may name the agent doing the work (`actor`, e.g.
+  "claude-code", "grok", "냥피디"); it is kept as `actor` (proposer), `worked_by`, `closed_by`,
+  and notes read `agent:<actor>`. An operator decision relayed by an agent on the operator's word
+  says so: `approved_by` = `operator (api) via <actor> <tool>`.
 
 Standard library plus the core module `evolution`; the data directory is an
 argument, nothing is read from the host.
@@ -99,12 +103,27 @@ def _now(now: Optional[float]) -> float:
     return time.time() if now is None else now
 
 
-def _operator_by(operator: Optional[str], what: str) -> str:
-    """Who is asking, for the record. Refuses a call that does not say."""
+def _operator_by(operator: Optional[str], what: str, on_behalf: Optional[str] = None) -> str:
+    """Who is asking, for the record. Refuses a call that does not say. `on_behalf`: the agent and tool
+    that relayed the operator's decision (e.g. "claude-code ticket-quick")."""
     if operator not in (OPERATOR_TTY, OPERATOR_CONFIRMED, OPERATOR_UI):
         raise TicketError("%s is for the operator, at a terminal: run `python3 tickets.py ...` yourself, "
                           "or ask the operator. Agents do not decide tickets." % what)
-    return "operator (%s)" % operator
+    by = "operator (%s)" % operator
+    if on_behalf and _txt(on_behalf).strip():
+        by += " via %s" % _txt(on_behalf).strip()[:60]
+    return by
+
+
+def _clean_actor(actor: Optional[str]) -> Optional[str]:
+    a = re.sub(r"\s+", " ", _txt(actor or "")).strip()[:40]
+    return a or None
+
+
+def _agent_by(actor: Optional[str] = None, t: Optional[Dict] = None) -> str:
+    """Note author: `agent:<actor>`, falling back to who works on the ticket, then plain `agent`."""
+    a = _clean_actor(actor) or (t or {}).get("worked_by")
+    return "agent:%s" % a if a else "agent"
 
 
 def _stamp(t: float) -> str:
@@ -306,7 +325,8 @@ def _ship_blockers(data, t: Dict) -> List[str]:
 
 # ---------------------------------------------------------------- proposals
 
-def propose(data, title: str, target: str, evidence: List[str], now: Optional[float] = None) -> Tuple[Dict, bool]:
+def propose(data, title: str, target: str, evidence: List[str], now: Optional[float] = None,
+            actor: Optional[str] = None) -> Tuple[Dict, bool]:
     """Create a ticket (status `proposed`) or merge into the open ticket for the same target.
     Returns (ticket, merged)."""
     t_now = _now(now)
@@ -330,7 +350,7 @@ def propose(data, title: str, target: str, evidence: List[str], now: Optional[fl
             if t.get("status") in OPEN_STATES and t.get("target") == tgt:
                 added = [r for r in refs if r not in t["evidence"]]
                 t["evidence"] = (t["evidence"] + added)[:MAX_EVIDENCE]
-                _note(t, "agent", "proposal merged (+%d evidence)" % len(added), t_now)
+                _note(t, _agent_by(actor), "proposal merged (+%d evidence)" % len(added), t_now)
                 _save(data, t)
                 return public(t), True
         if sum(1 for t in tickets if t.get("status") == "proposed") >= MAX_PROPOSED:
@@ -338,6 +358,8 @@ def propose(data, title: str, target: str, evidence: List[str], now: Optional[fl
         ticket = {"id": max([x["id"] for x in tickets] + [0]) + 1, "title": title, "target": tgt,
                   "status": "proposed", "attempts": 0, "gate_failures": 0, "evidence": refs, "notes": [],
                   "created": _stamp(t_now), "updated": _stamp(t_now)}
+        if _clean_actor(actor):
+            ticket["actor"] = _clean_actor(actor)
         d = tickets_dir(data)
         for _ in range(20):  # the store lock makes this a formality; exclusive create keeps it honest
             try:
@@ -352,21 +374,24 @@ def propose(data, title: str, target: str, evidence: List[str], now: Optional[fl
 
 # -------------------------------------------------------- operator decisions
 
-def approve(data, ticket_id, now: Optional[float] = None, operator: Optional[str] = None) -> Dict:
-    by = _operator_by(operator, "approving a ticket")
+def approve(data, ticket_id, now: Optional[float] = None, operator: Optional[str] = None,
+                on_behalf: Optional[str] = None) -> Dict:
+    by = _operator_by(operator, "approving a ticket", on_behalf)
     with _locked(data):
         t = _load(data, ticket_id)
         if t["status"] != "proposed":
             raise TicketError("ticket %d is %s, not proposed" % (t["id"], t["status"]))
         t["status"] = "approved"
         t["approved_at"] = _stamp(_now(now))
+        t["approved_by"] = by
         _note(t, by, "approved", _now(now))
         _save(data, t)
         return public(t)
 
 
-def decline(data, ticket_id, now: Optional[float] = None, operator: Optional[str] = None) -> Dict:
-    by = _operator_by(operator, "declining a ticket")
+def decline(data, ticket_id, now: Optional[float] = None, operator: Optional[str] = None,
+                on_behalf: Optional[str] = None) -> Dict:
+    by = _operator_by(operator, "declining a ticket", on_behalf)
     with _locked(data):
         t = _load(data, ticket_id)
         if t["status"] not in ("proposed", "approved"):
@@ -378,9 +403,10 @@ def decline(data, ticket_id, now: Optional[float] = None, operator: Optional[str
         return public(t)
 
 
-def reopen(data, ticket_id, now: Optional[float] = None, operator: Optional[str] = None) -> Dict:
+def reopen(data, ticket_id, now: Optional[float] = None, operator: Optional[str] = None,
+               on_behalf: Optional[str] = None) -> Dict:
     """A wontfix ticket the operator has looked at gets a fresh budget."""
-    by = _operator_by(operator, "reopening a ticket")
+    by = _operator_by(operator, "reopening a ticket", on_behalf)
     with _locked(data):
         t = _load(data, ticket_id)
         if t["status"] != "wontfix":
@@ -446,7 +472,7 @@ def _exhaust(t: Dict, now: float) -> None:
 
 
 def claim(data, ticket_id, token: Optional[str] = None, now: Optional[float] = None,
-          paths=None) -> Dict:
+          paths=None, actor: Optional[str] = None) -> Dict:
     """Become the single author of an approved ticket. Never waits.
 
     A new attempt is counted unless the caller already holds the lease (then this
@@ -462,7 +488,7 @@ def claim(data, ticket_id, token: Optional[str] = None, now: Optional[float] = N
         if _holds(lease, tid, token, t_now) and t["status"] == "in_progress":
             if norm_paths:
                 t["paths"] = norm_paths
-                _note(t, "agent", "paths: " + ", ".join(norm_paths), t_now)
+                _note(t, _agent_by(actor, t), "paths: " + ", ".join(norm_paths), t_now)
                 _save(data, t)
             expires = _write_lease(data, tid, token, t_now)
             return {"ticket": public(t), "token": token, "attempts_left": MAX_ATTEMPTS - t["attempts"],
@@ -470,7 +496,7 @@ def claim(data, ticket_id, token: Optional[str] = None, now: Optional[float] = N
         if t["status"] not in ("approved", "in_progress"):
             raise TicketError("ticket %d is %s; only an approved ticket can be worked on" % (tid, t["status"]))
         if lease and lease.get("expires", 0) > t_now:
-            _note(t, "agent", "claim refused: author lock is held for ticket %s" % lease.get("ticket"), t_now)
+            _note(t, _agent_by(actor), "claim refused: author lock is held for ticket %s" % lease.get("ticket"), t_now)
             _save(data, t)
             raise TicketError("author lock is held for ticket %s until %s; not waiting (a note was left on ticket %d)"
                               % (lease.get("ticket"), _stamp(lease["expires"]), tid))
@@ -494,39 +520,44 @@ def claim(data, ticket_id, token: Optional[str] = None, now: Optional[float] = N
         if norm_paths:
             leftover = _ship_blockers(data, {"paths": norm_paths})
             if leftover:
-                _note(t, "agent", "claim refused: uncommitted leftover in %s" % ", ".join(leftover[:5]), t_now)
+                _note(t, _agent_by(actor), "claim refused: uncommitted leftover in %s" % ", ".join(leftover[:5]), t_now)
                 _save(data, t)
                 raise TicketError("claim refused: uncommitted leftover in %s; commit or revert before claiming"
                                   % ", ".join(leftover[:5]))
             t["paths"] = norm_paths
         t["attempts"] += 1
         t["status"] = "in_progress"
+        if _clean_actor(actor):
+            t["worked_by"] = _clean_actor(actor)
         new_token = secrets.token_hex(16)
         expires = _write_lease(data, tid, new_token, t_now)
         note = "claimed (attempt %d/%d)" % (t["attempts"], MAX_ATTEMPTS)
         if norm_paths:
             note += "; paths: " + ", ".join(norm_paths)
-        _note(t, "agent", note, t_now)
+        _note(t, _agent_by(actor, t), note, t_now)
         _save(data, t)
         return {"ticket": public(t), "token": new_token, "attempts_left": MAX_ATTEMPTS - t["attempts"],
                 "expires_in_sec": int(expires - t_now), "new_attempt": True}
 
 
-def add_note(data, ticket_id, text: str, token: Optional[str] = None, now: Optional[float] = None) -> Dict:
+def add_note(data, ticket_id, text: str, token: Optional[str] = None, now: Optional[float] = None,
+             actor: Optional[str] = None) -> Dict:
     """Leave a note. Anyone may; the author's note also keeps the lease alive."""
     t_now = _now(now)
     if not _txt(text).strip():
         raise TicketError("text is required")
     with _locked(data):
         t = _load(data, ticket_id)
-        _note(t, "agent", text, t_now)
+        _note(t, _agent_by(actor) if actor or not _holds(_read_lease(data), t["id"], token, t_now) else _agent_by(None, t),
+              text, t_now)
         _save(data, t)
         if _holds(_read_lease(data), t["id"], token, t_now):
             _write_lease(data, t["id"], token, t_now)
         return public(t)
 
 
-def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "", now: Optional[float] = None) -> Dict:
+def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "", now: Optional[float] = None,
+            actor: Optional[str] = None) -> Dict:
     """Give up the author lease. outcome: done | gate_failed | failed | abandoned."""
     t_now = _now(now)
     if outcome not in ("done", "gate_failed", "failed", "abandoned"):
@@ -542,11 +573,13 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
         _lease_path(data).unlink()
         advice = ""
         if _txt(text).strip():
-            _note(t, "agent", "%s: %s" % (outcome, _txt(text)), t_now)
+            _note(t, _agent_by(actor, t), "%s: %s" % (outcome, _txt(text)), t_now)
         if outcome == "done":
             t["status"] = "done"
             t["closed_reason"] = "done"
-            _note(t, "agent", "done", t_now)
+            if _clean_actor(actor) or t.get("worked_by"):
+                t["closed_by"] = _clean_actor(actor) or t.get("worked_by")
+            _note(t, _agent_by(actor, t), "done", t_now)
         else:
             if outcome == "gate_failed":
                 t["gate_failures"] = t.get("gate_failures", 0) + 1

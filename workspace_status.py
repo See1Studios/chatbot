@@ -205,7 +205,7 @@ def observation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tu
             m = re.fullmatch(r"(\d+)/resolve", rest)
             if m:
                 done = observations.resolve(obs_root, int(m.group(1)), str(b.get("status") or ""), b.get("resolution"),
-                                            str(b.get("until") or ""))
+                                            str(b.get("until") or ""), by="실장님")  # the page's own buttons
                 return 200, {"ok": True, "observation": done}
     except observations.ScanBroken as e:
         return 500, {"ok": False, "error": str(e)}

@@ -90,7 +90,7 @@ TOOL_DEFS: List[dict] = [
 ]
 
 
-def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT) -> dict:
+def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "냥피디") -> dict:
     """Run one of the tools in NAMES. `data` is the instance data directory, `secret_re` the host's pattern for
     content that must never be stored."""
     data = Path(data)
@@ -133,7 +133,7 @@ def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMI
                     body = str(args.get("body") or "").strip()
                     if not title or not body:
                         return envelope(False, "title and body are required", None)
-                    path = observations.add(root, title, body, str(args.get("area") or ""), recent_limit=recent_limit)
+                    path = observations.add(root, title, body, str(args.get("area") or ""), recent_limit=recent_limit, actor=actor)
                     return envelope(True, "recorded", {"path": str(path), "name": path.name})
                 if action == "list":
                     return envelope(True, "ok", {"observations": observations.list_observations(root, str(args.get("status") or "") or None)})
@@ -141,7 +141,8 @@ def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMI
                     return envelope(True, "ok", {"observation": observations.get(root, args.get("id"))})
                 if action == "resolve":
                     return envelope(True, "resolved", {"observation": observations.resolve(
-                        root, args.get("id"), str(args.get("status") or ""), args.get("resolution"), str(args.get("until") or ""))})
+                        root, args.get("id"), str(args.get("status") or ""), args.get("resolution"), str(args.get("until") or ""),
+                        by=actor)})
                 if action == "review":
                     return envelope(True, "ok", observations.digest(root))
                 if action == "reviewed":
@@ -162,7 +163,7 @@ def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMI
             token = str(args.get("token") or "") or None
             try:
                 if action == "propose":
-                    t, merged = tickets.propose(data, args.get("title"), args.get("target"), args.get("evidence"))
+                    t, merged = tickets.propose(data, args.get("title"), args.get("target"), args.get("evidence"), actor=actor)
                     return envelope(True, "merged into an open ticket" if merged else "proposed; waiting for the operator's approval",
                                     {"ticket": t, "merged": merged})
                 if action == "list":
@@ -170,12 +171,13 @@ def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMI
                 if action == "get":
                     return envelope(True, "ok", {"ticket": tickets.get(data, args.get("id"))})
                 if action == "claim":
-                    return envelope(True, "claimed", tickets.claim(data, args.get("id"), token, paths=args.get("paths")))
+                    return envelope(True, "claimed", tickets.claim(data, args.get("id"), token, paths=args.get("paths"), actor=actor))
                 if action == "note":
-                    return envelope(True, "noted", {"ticket": tickets.add_note(data, args.get("id"), str(args.get("text") or ""), token)})
+                    return envelope(True, "noted", {"ticket": tickets.add_note(data, args.get("id"), str(args.get("text") or ""), token,
+                                                                               actor=actor)})
                 if action == "release":
                     return envelope(True, "released", tickets.release(data, args.get("id"), token, str(args.get("outcome") or ""),
-                                                                      str(args.get("text") or "")))
+                                                                      str(args.get("text") or ""), actor=actor))
             except tickets.TicketError as e:
                 return envelope(False, str(e), None)
             return envelope(False, "unknown action; approving, declining and reopening tickets is the operator's job, not a tool's", None)

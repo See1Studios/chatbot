@@ -1,6 +1,9 @@
 {
+ "actor": "claude-code",
  "approved_at": "2026-09-23 12:11:17",
+ "approved_by": "operator (api) via claude-code ticket-quick (operator's instruction)",
  "attempts": 1,
+ "closed_by": "claude-code",
  "closed_reason": "done",
  "created": "2026-09-23 12:11:17",
  "evidence": [
@@ -28,6 +31,11 @@
    "by": "agent",
    "text": "done",
    "ts": "2026-09-23 12:11:30"
+  },
+  {
+   "by": "host",
+   "text": "attribution backfilled (ACTOR_ATTRIBUTION_v1): claude-code -- claude-code session 2026-09-23 (this agent's own tickets)",
+   "ts": "2026-09-23 13:32:51"
   }
  ],
  "paths": [
@@ -36,5 +44,6 @@
  "status": "done",
  "target": "docs/plans/recursive-self-evolution.md",
  "title": "EVO_DOC_v4: 계측 기준 보호(§7-6) + log: 근거 형식(§4.2) — 실장님 승인",
- "updated": "2026-09-23 12:11:30"
+ "updated": "2026-09-23 13:32:51",
+ "worked_by": "claude-code"
 }

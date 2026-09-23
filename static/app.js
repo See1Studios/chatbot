@@ -1811,6 +1811,14 @@ function obsNode(tag, cls, text) {
   return n;
 }
 
+// ACTOR_ATTRIBUTION_v1: who did it -- 'claude-code', 'grok', '냥피디·agy', '실장님' ...
+function actorBadge(who, prefix) {
+  if (!who) return null;
+  const b = obsNode('span', 'obs-badge obs-actor', (prefix || '') + who);
+  b.title = '처리 주체';
+  return b;
+}
+
 function obsSet(box, kids) {
   box.textContent = '';
   kids.forEach(k => box.appendChild(k));
@@ -1896,6 +1904,8 @@ function renderClosedObservationRow(o) {
   head.appendChild(obsNode('span', 'obs-id', '#' + o.id));
   head.appendChild(obsNode('span', 'obs-title', o.title || '(제목 없음)'));
   head.appendChild(obsNode('span', 'obs-badge ' + o.status, OBS_STATUS_LABEL[o.status] || o.status));
+  const by = actorBadge(o.resolved_by || o.actor);
+  if (by) head.appendChild(by);
   row.appendChild(head);
   return row;
 }
@@ -1906,6 +1916,8 @@ function renderObservationRow(o) {
   head.appendChild(obsNode('span', 'obs-id', '#' + o.id));
   head.appendChild(obsNode('span', 'obs-title', o.title || '(제목 없음)'));
   head.appendChild(obsNode('span', 'obs-badge ' + o.status, OBS_STATUS_LABEL[o.status] || o.status));
+  const rec = actorBadge(o.actor, '기록 ');
+  if (rec) head.appendChild(rec);
   const actions = obsNode('div', 'obs-actions obs-actions-inline');
   const viewBtn = obsNode('button', 'art-btn art-btn-xs', '보기');
   const doBtn = obsNode('button', 'art-btn art-btn-xs primary', '처리');
@@ -2149,9 +2161,12 @@ function renderDoneRow(t) {
   head.appendChild(obsNode('span', 'obs-id', '#' + t.id));
   head.appendChild(obsNode('span', 'obs-title', t.title || '(제목 없음)'));
   head.appendChild(obsNode('span', 'obs-badge ' + t.status, TICKET_STATUS_LABEL[t.status] || t.status));
+  const by = actorBadge(t.closed_by || t.worked_by || t.actor);
+  if (by) head.appendChild(by);
   row.appendChild(head);
   const ev = (t.evidence || []).join(', ');
-  const meta = [String(t.updated || '').slice(5, 16), (t.paths || []).slice(0, 4).join(', '), ev ? '근거 ' + ev : ''].filter(Boolean).join(' · ');
+  const appr = t.approved_by ? '승인 ' + String(t.approved_by).replace(/^operator \((\w+)\)/, '실장님($1)') : '';
+  const meta = [String(t.updated || '').slice(5, 16), appr, (t.paths || []).slice(0, 4).join(', '), ev ? '근거 ' + ev : ''].filter(Boolean).join(' · ');
   if (meta) row.appendChild(obsNode('div', 'obs-meta', meta));
   return row;
 }
@@ -2183,6 +2198,8 @@ function renderTicketRow(t) {
   head.appendChild(obsNode('span', 'obs-id', '#' + t.id));
   head.appendChild(obsNode('span', 'obs-title', t.title || '(제목 없음)'));
   head.appendChild(obsNode('span', 'obs-badge ' + t.status, TICKET_STATUS_LABEL[t.status] || t.status));
+  const prop = actorBadge(t.actor, '제안 ');
+  if (prop) head.appendChild(prop);
   const actions = obsNode('div', 'obs-actions obs-actions-inline');
   TICKET_DECISIONS[t.status].forEach(pair => {
     const btn = obsNode('button', 'art-btn art-btn-xs' + (pair[0] === 'approve' || pair[0] === 'go' ? ' primary' : ''), pair[1]);
