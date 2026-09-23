@@ -14,7 +14,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.**
 |---|---|
 | 코드 | 아래 **Where to edit**. 엔트리 `server.py` — 운영 기동은 ctl만(`chatbot-ctl.sh`가 LAN용 `AGY_CHAT_HOST=0.0.0.0`을 export). `python3 server.py` 직접 실행은 `127.0.0.1` 로컬 전용 |
 | 데이터 | `data/workspace/`, `data/sessions/`, `data/persona/` |
-| 위임 작업 상태 | `data/delegations/<id>.json` |
+| 위임 작업 상태 | `~/.worktrees/chatbot/runs/ticket-<id>.json` (러너가 씀. 읽음 표시는 `data/delegation_seen.json`) |
 | 티켓 보관 | `data/workspace/skill-observations/tickets/` |
 | 장기 기억 | `data/workspace/memory/MEMORY.md` (`tools/memory.py`) |
 | Hub FAB | `<웹 루트>/index.html` (`AGY_CHAT_FAB_*` — 이름만 레거시). 이 레포 밖 |
@@ -100,4 +100,4 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.**
 - 세션 메타/아티팩트: `data/sessions/<id>/meta.json` + `artifacts/brain/*`
 - URL: `/artifacts/<id>/brain/<file>`
 - 공유 자산: `data/sessions/_shared/` → `/artifacts/<rel>`
-- 위임 상태 카드: `data/delegations/<id>.json` (API: `/api/delegations`)
+- 위임 상태 카드: `~/.worktrees/chatbot/runs/ticket-<id>.json` (API: `/api/delegations`)
