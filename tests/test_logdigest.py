@@ -73,6 +73,15 @@ class DigestTests(unittest.TestCase):
         ])
         self.assertNotIn("unclean_restart", self.codes(logdigest.digest(3600)))
 
+    def test_a_live_servers_child_reaped_is_flagged(self):
+        self.write([
+            (600, {"src": "chat", "evt": "proc.start", "pid": 610}),
+            (300, {"src": "ctl", "evt": "agent.reaped", "agent_pid": 1938, "ppid": 610, "reason": "unprotected-flash-low"}),
+            (200, {"src": "ctl", "evt": "agent.reaped", "agent_pid": 77, "ppid": 1, "reason": "ppid1"}),  # a real orphan
+        ])
+        f = [x for x in logdigest.digest(3600)["findings"] if x["code"] == "agent_reaped_live"]
+        self.assertEqual([x["evidence"]["agent_pid"] for x in f], [1938])
+
     def test_error_fingerprints_new_vs_known(self):
         err = {"type": "KeyError", "msg": "'x'", "fp": "abcdef1234", "where": "server.py:1:f", "trace": "Traceback..."}
         self.write([

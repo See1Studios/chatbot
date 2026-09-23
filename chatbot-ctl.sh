@@ -120,6 +120,10 @@ require_host_force() {
 
 
 kill_orphan_agy() {
+  # 0) descendants of the LIVE chat server are the server's own business: never touched.
+  #    Decided from what ctl itself owns -- the process table and the pid file it wrote at
+  #    spawn -- not from anything the service reports about itself (STANDBY_REAP_v1: a warm
+  #    standby missing from the service-maintained live_pids.json was killed every doctor run).
   # 1) PPID=1 stream-json orphans
   # 2) probe leftovers: stream-json WITHOUT --conversation
   # 3) unprotected flash-low (not in real session JSON protected set)
@@ -167,6 +171,34 @@ NO_CONV_GRACE_SEC = 90  # a brand-new real session's first turn has no --convers
                         # yet either (learned only after its first reply) — give it
                         # time to finish before treating it as a probe leftover.
 out = subprocess.check_output(["ps", "-eo", "pid=,ppid=,etimes=,args="], text=True, errors="replace")
+
+# The live chat server, from ctl's own pid file, confirmed against the process table.
+code_dir = os.path.dirname(os.path.dirname(os.path.abspath(sessions_dir)))
+parent_of, args_of = {}, {}
+for _l in out.splitlines():
+    _p = _l.split(None, 3)
+    if len(_p) >= 3 and _p[0].isdigit() and _p[1].isdigit():
+        parent_of[int(_p[0])] = int(_p[1])
+        args_of[int(_p[0])] = _p[3] if len(_p) > 3 else ""
+chat_pid = None
+try:
+    _cp = int(open(os.path.join(code_dir, "logs", "chatbot.pid"), encoding="utf-8").read().strip())
+    if "server.py" in args_of.get(_cp, ""):
+        chat_pid = _cp
+except (OSError, ValueError):
+    chat_pid = None
+
+
+def under_live_server(p):
+    seen = 0
+    while chat_pid and p and p != 1 and seen < 32:
+        p = parent_of.get(p)
+        if p == chat_pid:
+            return True
+        seen += 1
+    return False
+
+
 killed = 0
 for line in out.splitlines():
     line = line.strip()
@@ -220,6 +252,8 @@ for line in out.splitlines():
     reason = None
     is_standby = (pid == standby_pid)
     is_live_server_child = (pid in live_pids)
+    if under_live_server(pid):
+        continue  # the live server's descendant (session, standby, codex native child): its own reaper
     if ppid == 1:
         reason = "ppid1"  # true orphan even for a standby (parent chat server died/restarted)
     elif is_live_server_child:
@@ -239,6 +273,7 @@ for line in out.splitlines():
             import obslog
             obslog.configure("ctl", mirror="error")
             obslog.event("agent.reaped", lvl="warn", agent_pid=pid, ppid=int(ppid_s), reason=reason,
+                         parent_cmd=args_of.get(ppid, "")[:100], chat_pid=chat_pid,
                          age_s=etimes, cmd=args[:200], caller=os.environ.get("CHATBOT_CALLER"))
         except Exception:
             pass

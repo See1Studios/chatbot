@@ -11,6 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Optional, Tuple
 
+import obslog
 from adapters import get_adapter
 from host_config import (
     ADD_DIRS,
@@ -108,6 +109,8 @@ class _StandbyPool:
                     self._marker_path().write_text(str(self._proc.pid), encoding="utf-8")
                 except Exception:
                     pass
+                obslog.event("agent.standby_spawn", provider=DEFAULT_PROVIDER, model=DEFAULT_MODEL,
+                             agent_pid=self._proc.pid)
             except Exception:
                 self._proc = None
                 self._conv_id = None

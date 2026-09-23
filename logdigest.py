@@ -334,6 +334,21 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     if ops["doctor_probe"].get("fail"):
         find("error", "probe_fail", "doctor probe 실패 %d회" % ops["doctor_probe"]["fail"], "logdigest.py --evt doctor.probe")
     d["ops"] = ops
+    # A live chat server's own child reaped by ctl: ctl must leave those to the server (STANDBY_REAP_v1).
+    lives: Dict[Any, List[float]] = {}
+    for e in events:
+        if e.get("src") == "chat" and e.get("evt") in ("proc.start", "proc.exit"):
+            span = lives.setdefault(e.get("pid"), [ts_of(e), float("inf")])
+            if e["evt"] == "proc.exit":
+                span[1] = ts_of(e)
+    for e in win:
+        if e.get("evt") != "agent.reaped" or e.get("ppid") in (None, 1):
+            continue
+        span = lives.get(e.get("ppid"))
+        if span and span[0] <= ts_of(e) <= span[1]:
+            find("warn", "agent_reaped_live", "살아 있는 채팅 서버(pid %s)의 자식 agy %s 가 정리됨 (%s)" % (e["ppid"], e.get("agent_pid"), e.get("reason")),
+                 "ctl kill_orphan_agy 판단 확인: 서버 자손은 서버 소관이어야 한다", ppid=e["ppid"], agent_pid=e.get("agent_pid"),
+                 key="%s/%s" % (e.get("ppid"), e.get("reason")))
 
     # --- MCP tool calls ---
     calls = Counter()

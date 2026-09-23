@@ -101,6 +101,7 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | `agent.spawn` | info | `agent_pid`, `standby` |
 | `agent.exit` | info/warn | `agent_pid`, `rc`, `died_mid_turn`, `requested` |
 | `agent.recycle` | warn | idle processes restarted after an agy login change |
+| `agent.standby_spawn` | info | the warm standby pool started an agent (`agent_pid`) |
 | `workspace.seeded` | info | files created from templates at start |
 
 ### MCP (`src` mcp)
@@ -119,7 +120,7 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | `host.defibrillate` | warn | (`src` chat) repair requested over HTTP |
 | `doctor.probe` | info/error | hourly message probe, `ok`, `msg` on failure |
 | `doctor.fail`, `doctor.chat_down`, `doctor.mcp_down`, `doctor.maintenance` | error/info | `check` |
-| `agent.reaped` | warn | a CLI agent process killed by ctl: `agent_pid`, `reason` (`ppid1`, `no-conversation`, `unprotected-flash-low`, `stale-session`, …), `age_s`, `cmd` |
+| `agent.reaped` | warn | a CLI agent process killed by ctl: `agent_pid`, `ppid`, `parent_cmd`, `chat_pid` (the live server per ctl's pid file), `reason` (`ppid1`, `no-conversation`, `unprotected-flash-low`, `stale-session`, …), `age_s`, `cmd`. Descendants of the live server are never reaped (decided from the process table, not from service-written files) |
 | `manifest.drift` | warn | protected files differ from the manifest; logged only when the difference changes |
 
 ## Findings (logdigest.py)
@@ -140,6 +141,7 @@ Thresholds live at the top of `logdigest.py`.
 | `repair_frequent` | warn | ≥ 6 repairs a day |
 | `repair_failed`, `probe_fail` | error | repair/doctor probe still failing |
 | `heartbeat_gap` | warn | a > 2.5× heartbeat hole while the process lived (stall) |
+| `agent_reaped_live` | warn | ctl reaped a child of the chat server while that server was alive (must not happen) |
 | `rss_growth` | warn | > 150 MB growth within one process lifetime |
 | `log_write_errors` | warn | the logger itself could not write |
 
