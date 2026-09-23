@@ -14,6 +14,8 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.**
 |---|---|
 | 코드 | 아래 **Where to edit**. 엔트리 `server.py` — 운영 기동은 ctl만(`chatbot-ctl.sh`가 LAN용 `AGY_CHAT_HOST=0.0.0.0`을 export). `python3 server.py` 직접 실행은 `127.0.0.1` 로컬 전용 |
 | 데이터 | `data/workspace/`, `data/sessions/`, `data/persona/` |
+| 위임 작업 상태 | `data/delegations/<id>.json` |
+| 티켓 보관 | `data/workspace/skill-observations/tickets/` |
 | 장기 기억 | `data/workspace/memory/MEMORY.md` (`tools/memory.py`) |
 | Hub FAB | `<웹 루트>/index.html` (`AGY_CHAT_FAB_*` — 이름만 레거시). 이 레포 밖 |
 | 페르소나 퍼블리시 | `<웹 루트>/chat/persona/` |
@@ -88,12 +90,14 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.**
 
 ## Git
 
-홈 루트 단일 repo (`~/`, origin `See1Studios/HermesBackup`). `chatbot/`는 별도 repo가 아니다. 옛 분리 repo 히스토리는 `~/tmp-trash-2026-09-16/` — 되살리지 말 것.
-디스크 수정 후 `.bak-*` 만들지 말 것. `git add` + `git commit` (홈 루트) + `docs/DEVLOG.md`.
-push 절차는 `~/AGENTS.md`.
+`services/chatbot/` 자체가 독립 Git 저장소(`git@github.com:See1Studios/chatbot.git`)다. 상위 홈 디렉터리(`~/`, `diskstation.git`)의 `.gitignore`에 등록되어 격리 관리된다.
+- 디스크 수정 후 `.bak-*` 만들지 말 것.
+- 커밋 단위는 항상 `services/chatbot` 저장소 기준: `git add` + `git commit` + `docs/DEVLOG.md`.
+- 원격 푸시 절차 및 배포 규칙은 `~/AGENTS.md` 준수.
 
-## Sessions
+## Sessions & Delegations
 
-- `data/sessions/<id>/meta.json` + `artifacts/brain/*`
+- 세션 메타/아티팩트: `data/sessions/<id>/meta.json` + `artifacts/brain/*`
 - URL: `/artifacts/<id>/brain/<file>`
 - 공유 자산: `data/sessions/_shared/` → `/artifacts/<rel>`
+- 위임 상태 카드: `data/delegations/<id>.json` (API: `/api/delegations`)
