@@ -1,4 +1,4 @@
-# 냥피디 visual lock sheet
+# 냥냥 visual lock sheet
 
 Format and procedure: skill `character-art`. The page uses this folder (`avatar.webp`, `avatar/<provider>.webp`).
 The larger originals (base look `avatar.png`, candidates `gallery/`) and the Hub's copies stay in `data/persona/` and
