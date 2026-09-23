@@ -116,7 +116,10 @@ class SessionsAndGrants(unittest.TestCase):
         d.mkdir()
         (d / "meta.json").write_text(json.dumps({"id": d.name, "history": [{"role": "user", "text": "hi"}]}),
                                      encoding="utf-8")
+        import os
+        os.utime(d / "meta.json", (1_700_000_000, 1_700_000_000))
         self.assertEqual(self.S.migrate_session_characters(), 1)
+        self.assertEqual(int((d / "meta.json").stat().st_mtime), 1_700_000_000)   # the list orders by it
         self.assertEqual(self.S.migrate_session_characters(), 0)
         self.assertEqual(json.loads((d / "meta.json").read_text(encoding="utf-8"))["character"], self.b)
         reg = self.S.Registry()

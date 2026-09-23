@@ -1829,3 +1829,8 @@ body.private-session #input{border-color:var(--accent-private, #c2185b)}
 .team-role-box:empty{display:none}
 .team-role-box{display:flex;flex-direction:column;gap:.25rem;margin:.35rem 0 .2rem}
 .team-role-pick{font-size:.8rem;display:flex;align-items:center;gap:.3rem;cursor:pointer}
+
+/* OBS_HISTORY_v1: paged history of resolved observations */
+.evo-pager{display:flex;align-items:center;justify-content:center;gap:.6rem;margin-top:.4rem}
+.evo-page{font-size:.76rem;color:var(--muted);font-family:var(--font-mono)}
+.obs-when{margin-left:auto;font-size:.72rem;color:var(--muted);font-family:var(--font-mono);white-space:nowrap}

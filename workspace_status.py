@@ -194,6 +194,21 @@ def _observation_overview(obs_root) -> dict:
             "unreviewed_candidates": len(cands), "candidates": recent}
 
 
+HISTORY_PAGE = 10
+_OPEN_STATUSES = ("open", "parked")
+
+
+def observation_history(obs_root, page: int = 1, per: int = HISTORY_PAGE) -> dict:
+    """Every resolved observation, in the log or archived, newest resolution first, one page at a time
+    (OBS_HISTORY_v1). Whether it has been archived yet does not matter to the reader."""
+    done = [e for e in observations.scan(obs_root, include_archive=True) if e["status"] not in _OPEN_STATUSES]
+    done.sort(key=lambda e: (e.get("resolved") or e.get("date") or "", e["id"]), reverse=True)
+    pages = max(1, -(-len(done) // per))
+    page = min(max(1, page), pages)
+    return {"ok": True, "total": len(done), "page": page, "pages": pages,
+            "items": done[(page - 1) * per:page * per]}
+
+
 def observation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
     """The /api/observations routes. Returns None when `path` is not one of ours, else (status code, JSON).
     Changing anything (POST) is the caller's to gate; this only routes to the core, which holds the rules."""
@@ -210,6 +225,9 @@ def observation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tu
                 return 200, _observation_overview(obs_root)
             if rest.isdigit():
                 return 200, {"ok": True, "observation": observations.get(obs_root, int(rest))}
+            m = re.fullmatch(r"history(?:/(\d{1,4}))?", rest)
+            if m:
+                return 200, observation_history(obs_root, int(m.group(1) or 1))
         elif method == "POST":
             if rest == "reviewed":
                 return 200, {"ok": True, "last_review": observations.mark_reviewed(obs_root, b.get("summary"))}

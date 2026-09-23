@@ -6,6 +6,7 @@ AST-scans this file for AgentSession.lock = threading.RLock().
 from __future__ import annotations
 
 import json
+import os
 import queue
 import re
 import shutil
@@ -2399,9 +2400,13 @@ def migrate_session_characters() -> int:
             if meta.get("character"):
                 continue
             meta["character"] = cid
+            st = p.stat()
             tmp = p.with_name(".meta.migrate.tmp")
             tmp.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
             tmp.replace(p)
+            # keep the file's time: the sessions list and scrollback order sessions by it, so a rewrite that
+            # stamps them all "now" stitches unrelated sessions together (seen live 2026-09-24)
+            os.utime(p, (st.st_atime, st.st_mtime))
             n += 1
         except Exception:  # noqa: BLE001
             continue

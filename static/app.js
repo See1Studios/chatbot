@@ -1948,7 +1948,6 @@ function renderObservations(res) {
   // EVOLUTION_UI_v2: compact cards + unified header toggles
   const items = res.observations || [];
   const active = items.filter(o => o.status === 'open' || o.status === 'parked');
-  const closed = items.filter(o => o.status !== 'open' && o.status !== 'parked');
   const kids = [];
 
   const openSec = obsNode('div', 'evo-sec');
@@ -1960,20 +1959,59 @@ function renderObservations(res) {
   }
   kids.push(openSec);
 
-  if (closed.length) {
-    const doneSec = obsNode('div', 'evo-sec');
-    const head = evoToggleHead('오늘 처리', closed.length, { open: false });
-    const list = obsNode('div', 'evo-fold');
-    closed.forEach(o => list.appendChild(renderClosedObservationRow(o)));
-    evoBindToggle(head, list);
-    doneSec.appendChild(head);
-    doneSec.appendChild(list);
-    kids.push(doneSec);
-  }
+  kids.push(renderObservationHistory());
 
   kids.push(renderCandidates(res));
   kids.push(renderReviewControls(res));
   obsSet(statusObsBoxEl, kids);
+}
+
+// OBS_HISTORY_v1: every resolved observation (in the log or archived) as one paged history, newest first.
+// The page stays where the user left it across refreshes of the tab.
+let obsHistoryPage = 1;
+let obsHistoryOpen = false;
+function renderObservationHistory() {
+  const sec = obsNode('div', 'evo-sec');
+  const head = evoToggleHead('처리 이력', '', { open: obsHistoryOpen });
+  const body = obsNode('div', 'evo-fold');
+  evoBindToggle(head, body);
+  head.addEventListener('click', () => { obsHistoryOpen = head.classList.contains('open'); });
+  sec.appendChild(head);
+  sec.appendChild(body);
+  const load = async (page) => {
+    let res;
+    try {
+      res = await api('/api/observations/history/' + page);
+    } catch (e) {
+      obsSet(body, [obsNode('div', 'status-hint', '이력을 불러오지 못했어요: ' + obsErrorText(e))]);
+      return;
+    }
+    obsHistoryPage = res.page;
+    const count = head.querySelector('.evo-count') || head.insertBefore(obsNode('span', 'evo-count', ''), head.querySelector('.evo-chev'));
+    count.textContent = String(res.total);
+    const rows = (res.items || []).map(o => {
+      const row = renderClosedObservationRow(o);
+      const when = o.resolved || o.date;
+      if (when) row.querySelector('.obs-head').appendChild(obsNode('span', 'obs-when', when));
+      return row;
+    });
+    if (!rows.length) rows.push(obsNode('div', 'evo-empty', '처리한 이슈 없음'));
+    if (res.pages > 1) {
+      const pager = obsNode('div', 'evo-pager');
+      const prev = obsNode('button', 'art-btn art-btn-xs', '이전');
+      const next = obsNode('button', 'art-btn art-btn-xs', '다음');
+      prev.type = next.type = 'button';
+      prev.disabled = res.page <= 1;
+      next.disabled = res.page >= res.pages;
+      prev.addEventListener('click', () => load(res.page - 1));
+      next.addEventListener('click', () => load(res.page + 1));
+      pager.append(prev, obsNode('span', 'evo-page', res.page + ' / ' + res.pages), next);
+      rows.push(pager);
+    }
+    obsSet(body, rows);
+  };
+  load(obsHistoryPage);
+  return sec;
 }
 
 function renderClosedObservationRow(o) {
