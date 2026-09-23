@@ -143,6 +143,11 @@ Thresholds live at the top of `logdigest.py`.
 
 ## Storage
 
+Lines are written only where `CHATBOT_OBSLOG_PATH` points; `chatbot-ctl.sh` exports it
+(`logs/events.jsonl`) for everything it starts. Tests and hand-started servers leave it unset, so
+their events stay in memory (`obslog.RECENT`) and warn/error still reach stderr: a test server can
+never write fake restarts into the production log.
+
 `events.jsonl` rotates at 10 MB, keeping 5 files (`.1` … `.5`), under an flock on
 `events.jsonl.lock`; every write opens, appends and closes, so all processes (and the shell)
 share it safely. Expected volume is a few MB a week: successful polling is summarised, not listed.
