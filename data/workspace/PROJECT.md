@@ -44,7 +44,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
   - 끝나면(`[승인]` 후 반영) 결과를 한국어로 짧게 보고한다. 호스트 모듈(Tier 2)이 바뀌었으면 ⚡소생을 적는다.
 - **Tier**: 3(가드·게이트·`protected_paths.json`·`SELF-MODIFY.md`·헌장·자기진화 설계서)은 계획에서 거부된다: 사용자에게 알리고, 승인된 티켓이 있으면 그 범위만 직접 고친다. 2(호스트 모듈·테스트·ctl)는 반영 후 ⚡소생 필요. 0/1(문서·스킬·페르소나·정적 UI)은 반영 즉시.
 - **직접 예외**: 기억 한 줄, 관찰·티켓 기록, 사용자가 "직접 해"라 한 경우(`ticket` propose → 승인 → claim). `worktree_runner.py`를 셸로 돌리거나 `~/bin/ticket-quick`(라이브 세션 밖 외부 에이전트 전용)을 쓰지 않는다.
-- **순서·검증**: concept → 위 표 → DEVLOG → 대상 파일, 최소 패치. `tests/smoke.py`, 코어면 `chatbot-ctl.sh guard`+`doctor`/`probe`. 끝나면 DEVLOG 한 블록 + `observation` + 한국어 요약.
+- **순서·검증**: concept → 위 표 → DEVLOG → 대상 파일, 최소 패치. 특정 로직/핸들러 수정 시 동일·유사 구조의 자매 코드경로(어댑터 쌍, UI 대칭 이벤트/게이트 등)를 grep하여 동반 점검 및 누락 방지. `tests/smoke.py`, 코어면 `chatbot-ctl.sh guard`+`doctor`/`probe`. 끝나면 DEVLOG 한 블록 + `observation` + 한국어 요약.
 
 ## Harness
 
