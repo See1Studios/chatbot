@@ -35,7 +35,7 @@ if cmd[0] == "merge-go":
 '''
 
 PASS = "printf 'VERDICT: PASS\\nSAY: fine'"
-# FAIL the first time, PASS after that (a counter file next to the repo)
+# FAIL the first time, PASS after that (a counter file; the test puts in its absolute path -- reviewers run in an empty room)
 FAIL_ONCE = ("if [ -f ../../n ]; then printf 'VERDICT: PASS\\nSAY: better'; "
              "else touch ../../n; printf 'VERDICT: FAIL\\nSAY: sloppy\\nFIX: 1. add three'; fi")
 
@@ -172,7 +172,7 @@ class WorktreeRunner(unittest.TestCase):
     def test_review_fail_sends_it_back_and_the_next_round_passes(self) -> None:
         # the writer logs each prompt it gets ($0) and adds a line per round
         script = 'printf "%s" "$0" > ../prompt-$(ls .. | wc -l); echo more >> a.txt; git commit -qam r; echo; echo ---; echo done'
-        self.assertEqual(self.run_with(script, review=FAIL_ONCE), 0)
+        self.assertEqual(self.run_with(script, review=FAIL_ONCE.replace("../../n", str(self.base / "n"))), 0)
         self.assertEqual((self.repo / "a.txt").read_text(), "one\nmore\nmore\n")
         prompts = sorted(p for p in wr.WORKTREE_BASE.iterdir() if p.name.startswith("prompt-"))
         self.assertIn("1. add three", prompts[-1].read_text())
@@ -365,6 +365,18 @@ class WorktreeRunner(unittest.TestCase):
 
     def test_resume_without_a_waiting_branch_fails(self) -> None:
         self.assertEqual(self.run_with("true", extra=("--ticket", "7", "--token", "t", "--resume")), 1)
+
+    def test_the_prompt_is_never_eaten_by_a_flag(self) -> None:
+        # agy and grok take the argument after -p as the prompt: -p must come last, right before the prompt
+        for name, spec in self.saved[4].items():
+            for key in ("argv", "continue_argv"):
+                argv = spec.get(key)
+                if argv and "-p" in argv:
+                    self.assertEqual(argv[-1], "-p", (name, key))
+            cmd = wr.review_command(name, "some-model")
+            if "-p" in cmd:
+                self.assertEqual(cmd[-1], "-p", (name, cmd))
+                self.assertEqual(cmd[cmd.index(spec["model_flag"]) + 1], "some-model")
 
 
 if __name__ == "__main__":

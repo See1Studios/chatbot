@@ -70,16 +70,18 @@ TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_di
 # Provider registry: how to run each CLI headless as the worker (`argv`), as the worker again in the same
 # conversation (`continue_argv`, only where it resumes by directory), as a tool-less reviewer (`review_argv`,
 # the prompt follows `model_flag <model>` when a model is given), who it is on the ticket (role id) and in git.
+# The prompt is appended last. Where the prompt is the value of `-p` (agy, grok: `-p` takes the next argument),
+# `-p` must be the last element, so every other flag goes before it.
 PROVIDERS: Dict[str, Dict] = {
-    "claude": {"argv": ["claude", "-p", "--dangerously-skip-permissions"],
-               "continue_argv": ["claude", "-p", "-c", "--dangerously-skip-permissions"],
-               "review_argv": ["claude", "-p", "--tools", ""], "model_flag": "--model", "review_model": "sonnet",
+    "claude": {"argv": ["claude", "--dangerously-skip-permissions", "-p"],
+               "continue_argv": ["claude", "-c", "--dangerously-skip-permissions", "-p"],
+               "review_argv": ["claude", "--tools", "", "-p"], "model_flag": "--model", "review_model": "sonnet",
                "actor": "claude-code", "author": ("Claude Code", "noreply@anthropic.com")},
     "codex": {"argv": ["codex", "exec", "-s", "workspace-write"],
               "review_argv": ["codex", "exec", "-s", "read-only"], "model_flag": "-m",
               "actor": "codex", "author": ("Codex", "codex@localhost")},
-    "agy": {"argv": ["agy", "-p", "--dangerously-skip-permissions"],
-            "review_argv": ["agy", "-p", "--mode", "plan"], "model_flag": "--model",
+    "agy": {"argv": ["agy", "--dangerously-skip-permissions", "-p"],
+            "review_argv": ["agy", "--dangerously-skip-permissions", "-p"], "model_flag": "--model",
             "actor": "agy", "author": ("agy", "agy@localhost")},
     "grok": {"argv": ["grok", "--always-approve", "-p"],
              "review_argv": ["grok", "-p"], "model_flag": "-m",
@@ -373,15 +375,27 @@ def review_prompt(tid: int, title: str, instruction: str, partner_said: str, dif
     return "\n".join(parts)
 
 
-def run_review(provider: str, model: str, wt_dir: Path, prompt: str) -> Dict[str, str]:
+def review_command(provider: str, model: str) -> List[str]:
+    """The reviewer's command line, the prompt still to be appended; a model flag goes before a trailing `-p`."""
     spec = PROVIDERS[provider]
     argv = list(spec["review_argv"])
     model = model or spec.get("review_model") or ""
     if model:
-        argv += [spec["model_flag"], model]
+        at = len(argv) - 1 if argv[-1] == "-p" else len(argv)
+        argv[at:at] = [spec["model_flag"], model]
+    return argv
+
+
+def run_review(provider: str, model: str, wt_dir: Path, prompt: str) -> Dict[str, str]:
+    argv = review_command(provider, model)
     if not shutil.which(argv[0]):
         raise Failure("failed", "reviewer CLI %s not installed" % argv[0])
-    code, out, err = run_cmd(argv + [prompt], cwd=wt_dir, timeout=REVIEW_TIMEOUT, env=clean_env())
+    # The reviewer gets the diff in its prompt and no files: it runs in an empty directory, never the worktree
+    # (a CLI without a tools-off switch could otherwise change the work it judges; agy's plan mode waits for a "go").
+    empty = WORKTREE_BASE / "review-room"          # one fixed room, emptied each time
+    shutil.rmtree(empty, ignore_errors=True)
+    empty.mkdir(parents=True, exist_ok=True)
+    code, out, err = run_cmd(argv + [prompt], cwd=empty, timeout=REVIEW_TIMEOUT, env=clean_env())
     if code != 0:
         raise Failure("failed", "reviewer %s exited with %s" % (provider, code), tail(err or out))
     return parse_review(out)
