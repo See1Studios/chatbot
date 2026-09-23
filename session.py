@@ -448,7 +448,8 @@ class AgySession:
         self.save_meta()
         self._emit({"event": "system", "text": "에이전트가 이전 대화를 기억하지 못해서, 다음 메시지에 지침과 최근 대화 요약을 다시 넣습니다냥."})
 
-    def _host_history_digest(self, max_turns: int = 8, per_turn: int = 700, total: int = 5000) -> str:
+    def _host_history_digest(self, max_turns: int = 8, per_turn: int = 700, total: int = 5000,
+                             header: str = "(에이전트 프로세스가 다시 시작되어 기억이 이어지지 않았습니다. 아래는 화면 기록의 최근 대화입니다.)") -> str:
         """The visible history, trimmed -- no model call, so it is instant and free."""
         me, ut = display_name(), user_title()
         rows = []
@@ -461,7 +462,7 @@ class AgySession:
         body = "\n".join(rows[-max_turns:])
         if len(body) > total:
             body = "…" + body[-total:]
-        return "(에이전트 프로세스가 다시 시작되어 기억이 이어지지 않았습니다. 아래는 화면 기록의 최근 대화입니다.)\n" + body
+        return header + "\n" + body
 
     # ---- runaway-turn protection (loop_guard.py) ------------------------------------------
     def _observe_agent_step(self, obj: dict) -> None:
@@ -1279,7 +1280,7 @@ class AgySession:
         soft_tokens, hard_tokens = self.adapter.soft_hard_tokens(self.model)
         return _session_weight(self.history, self.conversation_id, soft_tokens, hard_tokens)
 
-    def get_handover_summary(self, max_turns: int = 8, use_cache: bool = True) -> str:
+    def get_handover_summary(self, max_turns: int = 8, use_cache: bool = True, native: bool = True) -> str:
         """Extract a lean handoff memo for the next session.
 
         Prefers agy's own native `/compact`, resumed against this session's
@@ -1296,9 +1297,14 @@ class AgySession:
         lightweight custom-prompt dialogue summary when there's no
         conversation_id yet, or the native call fails/times out (a heavy
         session's full history can take a while for agy to compact).
+        `native=False` makes no model call at all: the visible history, trimmed
+        (instant; for a caller that must not block, e.g. an in-place provider
+        swap, which refines it in the background -- _refine_swap_handoff).
         """
         if use_cache and getattr(self, "_cached_summary", ""):
             return self._cached_summary
+        if not native:
+            return self._host_history_digest(header="(제공자가 바뀌었습니다. 아래는 화면 기록의 최근 대화입니다. 이어서 진행하세요.)")
 
         base = ""
         cid = getattr(self, "conversation_id", None)
@@ -1312,18 +1318,7 @@ class AgySession:
         # fallback for any provider that isn't agy instead of wasting the
         # attempt.
         if cid and self.provider == "agy":
-            try:
-                res = subprocess.run(
-                    [AGY, "-p", "/compact", "--conversation", cid,
-                     "--model", "gemini-3.8-flash-low", "--dangerously-skip-permissions"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    timeout=45,
-                )
-                base = res.stdout.strip() if res.returncode == 0 and res.stdout.strip() else ""
-            except Exception:
-                base = ""
+            base = self._native_compact(cid)
 
         if not base:
             base = self._dialogue_summary_fallback(max_turns)
@@ -1337,6 +1332,40 @@ class AgySession:
         if use_cache:
             self._cached_summary = full
         return full
+
+    @staticmethod
+    def _native_compact(cid: str) -> str:
+        """agy's own /compact of conversation `cid` (up to 45s); "" when it fails."""
+        try:
+            res = subprocess.run(
+                [AGY, "-p", "/compact", "--conversation", cid,
+                 "--model", "gemini-3.8-flash-low", "--dangerously-skip-permissions"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=45,
+            )
+            return res.stdout.strip() if res.returncode == 0 and res.stdout.strip() else ""
+        except Exception:
+            return ""
+
+    def _refine_swap_handoff(self, gen: int, old_provider: str, cid: Optional[str]) -> None:
+        """SWAP_ASYNC_HANDOFF_v1: replace the instant swap handoff with a model-made summary -- agy's
+        /compact of the OLD conversation when there is one, else the dialogue summary -- unless the
+        handoff was already sent or another swap happened meanwhile."""
+        t0 = time.monotonic()
+        base = self._native_compact(cid) if old_provider == "agy" and cid else ""
+        if not base:
+            base = self._dialogue_summary_fallback()
+        with self.lock:
+            stale = getattr(self, "_swap_gen", 0) != gen or self.handoff_injected
+            if base and not stale:
+                self.handoff_summary = self._with_last_exchange(base)
+        if base and not stale:
+            self.save_meta()
+        obslog.event("session.handoff_refined", sid=self.sid, provider=self.provider,
+                     dur_s=round(time.monotonic() - t0, 1), used=bool(base and not stale),
+                     reason="ok" if base and not stale else ("stale" if stale else "compact_failed"))
 
     def _with_last_exchange(self, base: str) -> str:
         turns = [h for h in self.history if h.get("role") in ("user", "assistant")]
@@ -1795,7 +1824,13 @@ class AgySession:
         alive afterward, so caching here would feed a stale summary to a
         later heavy-session rotation's own prewarm check."""
         if provider and provider != self.provider:
-            summary = self.get_handover_summary(use_cache=False)
+            # SWAP_ASYNC_HANDOFF_v1: never block the request on a model call (agy /compact or the
+            # dialogue summary took 10-17 s and the UI gave up: log:rid:67b6f94c05ea). Hand over
+            # the visible history now; a background thread swaps in the model-made summary.
+            old_provider, old_cid = self.provider, self.conversation_id
+            summary = self.get_handover_summary(use_cache=False, native=False)
+            self._swap_gen = getattr(self, "_swap_gen", 0) + 1
+            gen = self._swap_gen
             self.provider = provider
             self.adapter = get_adapter(provider)
             self.conversation_id = None
@@ -1808,6 +1843,8 @@ class AgySession:
             self.persona_bundle_hash = ""
             self._stop_for_swap("제공자를")
             self.save_meta()
+            if self.history:
+                threading.Thread(target=self._refine_swap_handoff, args=(gen, old_provider, old_cid), daemon=True).start()
 
     def continue_to_successor(self, model: str, sticky: bool) -> dict:
         """Hand this session off to a successor, for the /continue route.

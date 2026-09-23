@@ -175,7 +175,8 @@ class InjectionTests(WorkspaceCase):
     def test_swap_resets_so_new_provider_gets_bundle_with_handoff(self):
         s = self.make()
         s._send_direct("a")
-        s.get_handover_summary = lambda use_cache=False: "HANDOFF-MARK"
+        s.get_handover_summary = lambda use_cache=False, **k: "HANDOFF-MARK"
+        s._refine_swap_handoff = lambda *a: None  # background model summary: covered in test_session_swap
         s.stop = lambda notify=True: None   # mirror the real signature; a swap stops with notify=False
         s.maybe_swap_provider("claude")
         self.assertFalse(s.persona_injected)

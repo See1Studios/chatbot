@@ -38,6 +38,8 @@ class SwapTest(unittest.TestCase):
         session.SESSIONS = Path(tempfile.mkdtemp())
         self._summary = session.AgySession.get_handover_summary
         session.AgySession.get_handover_summary = lambda self, *a, **k: ""   # would spawn agy /compact
+        self._dialogue = session.AgySession._dialogue_summary_fallback
+        session.AgySession._dialogue_summary_fallback = lambda self, *a, **k: ""  # refine thread: no agy
         self.s = session.AgySession("swap-test", provider="agy")
         self._q = _subscribe(self.s)
         drain(self._q)  # discard startup events
@@ -45,6 +47,7 @@ class SwapTest(unittest.TestCase):
     def tearDown(self):
         session.SESSIONS = self._sessions
         session.AgySession.get_handover_summary = self._summary
+        session.AgySession._dialogue_summary_fallback = self._dialogue
 
     def stopped(self):
         return [e for e in drain(self._q) if e.get("event") == "stopped"]
@@ -89,6 +92,67 @@ class SwapTest(unittest.TestCase):
         notices = self.stopped()
         self.assertEqual(len(notices), 1)
         self.assertIn(OLD_NOTICE, notices[0]["text"])
+
+
+class AsyncHandoffTest(unittest.TestCase):
+    """SWAP_ASYNC_HANDOFF_v1: a swap away from agy answers at once; /compact refines the handoff later."""
+
+    def setUp(self):
+        import threading
+        import time
+        self.time = time
+        self._sessions, self._compact = session.SESSIONS, session.AgySession._native_compact
+        session.SESSIONS = Path(tempfile.mkdtemp())
+        self.release = threading.Event()
+
+        def slow_compact(cid):
+            self.release.wait(5)
+            return "COMPACT-OF-" + cid
+        session.AgySession._native_compact = staticmethod(slow_compact)
+        self._dialogue = session.AgySession._dialogue_summary_fallback
+        session.AgySession._dialogue_summary_fallback = lambda self, *a, **k: "DIALOGUE-SUMMARY"  # never spawn agy
+        self.s = session.AgySession("async-swap", provider="agy")
+        self.s.conversation_id = "old-cid"
+        self.s.history = [{"role": "user", "text": "앞선 질문", "ts": 1}, {"role": "assistant", "text": "앞선 답", "ts": 2}]
+
+    def tearDown(self):
+        self.release.set()
+        session.SESSIONS = self._sessions
+        session.AgySession._native_compact = self._compact
+        session.AgySession._dialogue_summary_fallback = self._dialogue
+
+    def wait_refined(self, want):
+        for _ in range(100):
+            if want(self.s.handoff_summary):
+                return True
+            self.time.sleep(0.02)
+        return False
+
+    def test_the_swap_does_not_wait_for_compact_and_is_refined_after(self):
+        t0 = self.time.monotonic()
+        self.s.maybe_swap_provider("claude")
+        self.assertLess(self.time.monotonic() - t0, 1.0)
+        self.assertNotIn("COMPACT", self.s.handoff_summary)      # instant dialogue summary for now
+        self.assertIn("앞선", self.s.handoff_summary)
+        self.release.set()
+        self.assertTrue(self.wait_refined(lambda h: "COMPACT-OF-old-cid" in h))
+        self.assertIn("앞선 답", self.s.handoff_summary)          # last exchange still appended
+
+    def test_a_second_swap_discards_the_first_refinement(self):
+        self.s.maybe_swap_provider("claude")
+        self.s.maybe_swap_provider("codex")                       # claude had no agy conversation
+        self.assertTrue(self.wait_refined(lambda h: "DIALOGUE-SUMMARY" in h))  # the codex swap's own refine
+        self.release.set()
+        self.time.sleep(0.3)
+        self.assertNotIn("COMPACT", self.s.handoff_summary)       # the stale agy one was dropped
+
+    def test_a_handoff_already_sent_is_not_rewritten(self):
+        self.s.maybe_swap_provider("claude")
+        sent = self.s.handoff_summary
+        self.s.handoff_injected = True                            # the next message already carried it
+        self.release.set()
+        self.time.sleep(0.3)
+        self.assertEqual(self.s.handoff_summary, sent)
 
 
 if __name__ == "__main__":
