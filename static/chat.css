@@ -1104,7 +1104,7 @@ header .avatar:active{
 .badge:empty{display:none}
 #artifacts{display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:.9rem;-webkit-overflow-scrolling:touch}
 #statusPane{display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch}
-#evolutionPane{display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch}
+#evolutionPane,#teamPane{display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch}
 #sessionsPane{display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch}
 .session-row{cursor:pointer}
 .session-row:hover{border-color:var(--accent)}
@@ -1130,6 +1130,18 @@ header .avatar:active{
 .instr-badge{font-size:.7rem;padding:.05rem .45rem;border-radius:999px;border:1px solid var(--border);color:var(--muted);flex-shrink:0}
 .instr-badge.rw{color:var(--accent);border-color:var(--accent)}
 .instr-item .status-item-head{justify-content:flex-start}
+details.instr-item > summary{list-style:none;cursor:pointer}
+details.instr-item > summary::-webkit-details-marker{display:none}
+details.instr-item > summary .status-item-name::before{content:"▸";display:inline-block;width:1em;color:var(--muted);transition:transform .15s}
+details.instr-item[open] > summary .status-item-name::before{transform:rotate(90deg)}
+details.instr-item > summary .status-item-meta{margin-left:auto}
+.team-card .team-brains{display:flex;flex-direction:column;gap:.2rem;font-size:.8rem}
+.team-brain{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}
+.team-brain .team-n{color:var(--muted);font-family:var(--font-mono);font-size:.72rem;width:1.2rem}
+.team-brain select,.team-brain input{background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.2rem .35rem;font-size:.78rem}
+.team-brain input.team-model{flex:1 1 9rem;min-width:7rem}
+.team-brain input.team-timeout{width:4.2rem}
+.team-sub{margin-top:.25rem}
 .instr-item .status-item-actions{margin-left:auto}
 .instr-reason{font-size:.74rem;color:var(--muted)}
 .instr-body{margin:0;max-height:16rem;overflow:auto;-webkit-overflow-scrolling:touch;white-space:pre-wrap;word-break:break-word;font-family:var(--font-mono);font-size:.76rem;line-height:1.5;color:var(--text);background:rgba(0,0,0,.18);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem}
@@ -1651,9 +1663,9 @@ body.keyboard-open #send{
 .status-group-label{font-size:.78rem;font-weight:600;letter-spacing:.02em;color:var(--muted, #8a93a5);margin:.25rem 0 0;padding:.35rem .15rem;border-top:1px solid color-mix(in oklab, var(--border, #333) 80%, transparent)}
 
 /* EVOLUTION_UI_v2 — unified disclosure + compact density */
-#evolutionPane,#statusPane{gap:.55rem;padding:.75rem .85rem}
-#evolutionPane .status-section,#statusPane .status-section{margin:0}
-#evolutionPane .status-section h2,#statusPane .status-section h2{margin:0 0 .35rem;font-size:.86rem}
+#evolutionPane,#statusPane,#teamPane{gap:.55rem;padding:.75rem .85rem}
+#evolutionPane .status-section,#statusPane .status-section,#teamPane .status-section{margin:0}
+#evolutionPane .status-section h2,#statusPane .status-section h2,#teamPane .status-section h2{margin:0 0 .35rem;font-size:.86rem}
 #evolutionPane .status-hint{margin:0 0 .35rem;font-size:.74rem;line-height:1.35}
 .evo-sec{margin:0 0 .4rem}
 .evo-sec-head{display:flex;align-items:center;gap:.35rem;font-size:.74rem;font-weight:600;color:var(--accent2);margin:0 0 .2rem;letter-spacing:.01em;min-height:1.4rem}

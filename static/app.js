@@ -606,6 +606,8 @@ const tabStatus = document.getElementById('tabStatus');
 const tabSessions = document.getElementById('tabSessions');
 const tabEvolution = document.getElementById('tabEvolution');
 const evolutionPaneEl = document.getElementById('evolutionPane');
+const tabTeam = document.getElementById('tabTeam');
+const teamPaneEl = document.getElementById('teamPane');
 const sessionsPaneEl = document.getElementById('sessionsPane');
 const sessionsListEl = document.getElementById('sessionsList');
 const sessionsRefreshBtn = document.getElementById('sessionsRefreshBtn');
@@ -1774,6 +1776,7 @@ function switchTab(tab) {
   if (tabStatus) { tabStatus.classList.toggle('on', tab === 'status'); tabStatus.setAttribute('aria-selected', String(tab === 'status')); }
   if (tabSessions) { tabSessions.classList.toggle('on', tab === 'sessions'); tabSessions.setAttribute('aria-selected', String(tab === 'sessions')); }
   if (tabEvolution) { tabEvolution.classList.toggle('on', tab === 'evolution'); tabEvolution.setAttribute('aria-selected', String(tab === 'evolution')); }
+  if (tabTeam) { tabTeam.classList.toggle('on', tab === 'team'); tabTeam.setAttribute('aria-selected', String(tab === 'team')); }
 
   if (logEl) logEl.style.display = (tab === 'chat') ? 'flex' : 'none';
   const artifactsPane = document.getElementById('artifacts');
@@ -1783,6 +1786,7 @@ function switchTab(tab) {
   if (statusPaneEl) statusPaneEl.style.display = (tab === 'status') ? 'flex' : 'none';
   if (sessionsPaneEl) sessionsPaneEl.style.display = (tab === 'sessions') ? 'flex' : 'none';
   if (evolutionPaneEl) evolutionPaneEl.style.display = (tab === 'evolution') ? 'flex' : 'none';
+  if (teamPaneEl) teamPaneEl.style.display = (tab === 'team') ? 'flex' : 'none';
 
   if (tab === 'artifacts') {
     fetchArtifacts(true);
@@ -1797,6 +1801,8 @@ function switchTab(tab) {
     fetchUsage(false);
   } else if (tab === 'evolution') {
     fetchEvolution();
+  } else if (tab === 'team') {
+    loadTeam();
   } else if (tab === 'sessions') {
     fetchSessionsList();
   }
@@ -3196,17 +3202,21 @@ async function loadInstructions() {
   });
 }
 
-function renderInstruction(x) {
-  const item = obsNode('div', 'status-item instr-item');
-  const head = obsNode('div', 'status-item-head');
+// One line each (title · badge · size), the whole text on click: the status tab stays short (STATUS_TEAM_TAB_v1).
+function renderInstruction(x, open) {
+  const item = obsNode('details', 'status-item instr-item');
+  if (open) item.open = true;
+  const head = obsNode('summary', 'status-item-head');
   head.appendChild(obsNode('span', 'status-item-name', x.title));
   head.appendChild(obsNode('span', 'instr-badge ' + (x.editable ? 'rw' : 'ro'), x.editable ? '편집 가능' : '읽기 전용'));
-  const actions = obsNode('div', 'status-item-actions');
-  head.appendChild(actions);
+  head.appendChild(obsNode('span', 'status-item-meta', (x.size || 0) + ' B'));
   item.appendChild(head);
-  const meta = [x.path || '자동 생성', (x.size || 0) + ' bytes', x.mtime ? new Date(x.mtime * 1000).toLocaleString('ko-KR') : '']
-    .filter(Boolean).join(' · ');
-  item.appendChild(obsNode('div', 'status-item-meta', meta));
+  const meta = [x.path || '자동 생성', x.mtime ? new Date(x.mtime * 1000).toLocaleString('ko-KR') : ''].filter(Boolean).join(' · ');
+  const metaRow = obsNode('div', 'status-item-head');
+  metaRow.appendChild(obsNode('span', 'status-item-meta', meta));
+  const actions = obsNode('div', 'status-item-actions');
+  metaRow.appendChild(actions);
+  item.appendChild(metaRow);
   if (!x.editable && x.reason) item.appendChild(obsNode('div', 'instr-reason', x.reason));
   const body = obsNode('pre', 'instr-body', x.content || '(비어 있음)');
   item.appendChild(body);
@@ -3231,7 +3241,7 @@ function editInstruction(x, body, actions) {
   cancel.type = 'button';
   actions.appendChild(save);
   actions.appendChild(cancel);
-  cancel.addEventListener('click', loadInstructions);
+  cancel.addEventListener('click', () => { loadInstructions(); if (currentTab === 'team') loadTeam(); });
   save.addEventListener('click', async () => {
     save.disabled = true;
     save.textContent = '저장 중…';
@@ -3239,9 +3249,135 @@ function editInstruction(x, body, actions) {
       await api('/api/instructions/' + encodeURIComponent(x.id), { method: 'PUT', body: JSON.stringify({ content: ta.value }) });
       addActivity(x.title + ' 저장됨 · ' + (x.layer === 'always' ? '다음 턴부터 반영' : '다음에 읽을 때 반영'));
       loadInstructions();
+      if (currentTab === 'team') loadTeam();
     } catch (e) {
       save.disabled = false;
       save.textContent = '저장';
+      await alertModal('저장 실패: ' + (e.message || e));
+    }
+  });
+}
+
+// STATUS_TEAM_TAB_v1: the PD and its experts. Each card: the brain list (used top-down; quota, limits or silence
+// hand the turn to the next) and the character file. The operator edits brains here; the PD cannot.
+const teamListEl = document.getElementById('teamList');
+
+async function loadTeam() {
+  if (!teamListEl) return;
+  let team, instr;
+  try {
+    [team, instr] = await Promise.all([api('/api/experts'), api('/api/instructions')]);
+  } catch (e) {
+    teamListEl.textContent = '팀 정보를 불러오지 못했어요 (소생 필요할 수 있음): ' + (e.message || e);
+    return;
+  }
+  const files = {};
+  (instr.items || []).forEach(x => { files[x.id] = x; });
+  teamListEl.textContent = '';
+  (team.experts || []).forEach(ex => teamListEl.appendChild(renderTeamCard(ex, team, files)));
+}
+
+function brainText(b) {
+  return b.provider + ' / ' + (b.model || '기본 모델') + (b.timeout ? ' · ' + b.timeout + '초 제한' : '');
+}
+
+function renderTeamCard(ex, team, files) {
+  const card = obsNode('div', 'status-item team-card');
+  const head = obsNode('div', 'status-item-head');
+  head.appendChild(obsNode('span', 'status-item-name', ex.name + (ex.title ? ' · ' + ex.title : '')));
+  if (ex.role !== 'pd') head.appendChild(obsNode('span', 'status-item-meta', ex.role));
+  const actions = obsNode('div', 'status-item-actions');
+  head.appendChild(actions);
+  card.appendChild(head);
+  const brains = obsNode('div', 'team-brains');
+  const chain = ex.chain || [];
+  if (!chain.length) brains.appendChild(obsNode('div', 'status-hint', '두뇌 목록 없음: 기본 설정(환경변수)으로 일합니다'));
+  chain.forEach((b, i) => {
+    const row = obsNode('div', 'team-brain');
+    row.appendChild(obsNode('span', 'team-n', String(i + 1)));
+    row.appendChild(obsNode('span', '', brainText(b)));
+    brains.appendChild(row);
+  });
+  card.appendChild(brains);
+  if (ex.editable) {
+    const edit = obsNode('button', 'art-btn art-btn-xs', '편집');
+    edit.type = 'button';
+    edit.addEventListener('click', () => editBrains(ex, team, brains, actions));
+    actions.appendChild(edit);
+  }
+  const charFile = files[ex.role === 'pd' ? 'PERSONA.md' : 'experts/' + ex.role + '/expert.md'];
+  if (charFile) {
+    const sub = renderInstruction(Object.assign({}, charFile, { title: '캐릭터' }), false);
+    sub.classList.add('team-sub');
+    card.appendChild(sub);
+  }
+  return card;
+}
+
+function editBrains(ex, team, brains, actions) {
+  const rows = (ex.chain && ex.chain.length ? ex.chain : [{ provider: (team.providers || [])[0] || '', model: '' }])
+    .map(b => Object.assign({}, b));
+  const draw = () => {
+    brains.textContent = '';
+    rows.forEach((b, i) => {
+      const row = obsNode('div', 'team-brain');
+      row.appendChild(obsNode('span', 'team-n', String(i + 1)));
+      const sel = document.createElement('select');
+      (team.providers || []).forEach(p => { const o = obsNode('option', '', p); o.value = p; if (p === b.provider) o.selected = true; sel.appendChild(o); });
+      sel.addEventListener('change', () => { b.provider = sel.value; draw(); });
+      const model = document.createElement('input');
+      model.className = 'team-model';
+      model.placeholder = '기본 모델';
+      model.value = b.model || '';
+      const listId = 'teamModels-' + ex.role + '-' + i;
+      model.setAttribute('list', listId);
+      const dl = document.createElement('datalist');
+      dl.id = listId;
+      ((team.models || {})[b.provider] || []).forEach(m => { const o = document.createElement('option'); o.value = m; dl.appendChild(o); });
+      model.addEventListener('input', () => { b.model = model.value.trim(); });
+      const to = document.createElement('input');
+      to.className = 'team-timeout';
+      to.type = 'number';
+      to.min = '0';
+      to.max = '3600';
+      to.placeholder = '제한(초)';
+      to.title = '이 두뇌를 기다릴 최대 시간(초). 비우면 기본값. 멈추는 모델을 빨리 포기하게 합니다.';
+      to.value = b.timeout || '';
+      to.addEventListener('input', () => { b.timeout = Number(to.value) || 0; });
+      row.append(sel, model, dl, to);
+      [['↑', () => { if (i > 0) { [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]]; draw(); } }],
+       ['↓', () => { if (i < rows.length - 1) { [rows[i + 1], rows[i]] = [rows[i], rows[i + 1]]; draw(); } }],
+       ['✕', () => { if (rows.length > 1) { rows.splice(i, 1); draw(); } }]].forEach(([label, fn]) => {
+        const btn = obsNode('button', 'art-btn art-btn-xs', label);
+        btn.type = 'button';
+        btn.addEventListener('click', fn);
+        row.appendChild(btn);
+      });
+      brains.appendChild(row);
+    });
+    if (rows.length < 6) {
+      const add = obsNode('button', 'art-btn art-btn-xs', '+ 두뇌 추가');
+      add.type = 'button';
+      add.addEventListener('click', () => { rows.push({ provider: (team.providers || [])[0] || '', model: '' }); draw(); });
+      brains.appendChild(add);
+    }
+  };
+  draw();
+  actions.textContent = '';
+  const save = obsNode('button', 'art-btn art-btn-xs primary', '저장');
+  save.type = 'button';
+  const cancel = obsNode('button', 'art-btn art-btn-xs', '취소');
+  cancel.type = 'button';
+  actions.append(save, cancel);
+  cancel.addEventListener('click', loadTeam);
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    try {
+      await api('/api/experts/' + encodeURIComponent(ex.role) + '/brain', { method: 'PUT', body: JSON.stringify({ chain: rows }) });
+      addActivity(ex.name + ' 두뇌 순서 저장됨 · 다음 작업부터 반영');
+      loadTeam();
+    } catch (e) {
+      save.disabled = false;
       await alertModal('저장 실패: ' + (e.message || e));
     }
   });
@@ -5367,6 +5503,7 @@ if (tabArtifacts) tabArtifacts.addEventListener('click', () => switchTab('artifa
 if (tabActivity) tabActivity.addEventListener('click', () => switchTab('activity'));
 if (tabStatus) tabStatus.addEventListener('click', () => switchTab('status'));
 if (tabEvolution) tabEvolution.addEventListener('click', () => switchTab('evolution'));
+if (tabTeam) tabTeam.addEventListener('click', () => switchTab('team'));
 if (tabSessions) tabSessions.addEventListener('click', () => switchTab('sessions'));
 const evolutionRefreshBtn = document.getElementById('evolutionRefreshBtn');
 if (evolutionRefreshBtn) evolutionRefreshBtn.addEventListener('click', () => fetchEvolution());
@@ -5442,7 +5579,7 @@ if (actToggle) {
 // tool built for one person's daily use (impeccable critique P1, 2026-09-17).
 // Alt+N, not Ctrl/Cmd+N: the latter is already the browser's own "switch to
 // tab N" shortcut and the page would never even see that keydown.
-const TAB_SHORTCUTS = { '1': 'chat', '2': 'sessions', '3': 'activity', '4': 'artifacts', '5': 'status', '6': 'evolution' };
+const TAB_SHORTCUTS = { '1': 'chat', '2': 'sessions', '3': 'activity', '4': 'artifacts', '5': 'status', '6': 'evolution', '7': 'team' };
 function isEditableTarget(el) {
   if (!el) return false;
   const tag = el.tagName;

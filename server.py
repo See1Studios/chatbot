@@ -201,6 +201,7 @@ from preview_guard import (
     _resolve_safe_preview_file,
 )
 from workspace_status import (
+    experts_api,
     instructions_api,
     observation_api,
     ticket_api,
@@ -401,7 +402,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             code, body = _json_bytes(_self_status())
             return self._send(code, body, "application/json; charset=utf-8")
         routed = (observation_api("GET", path, None) or ticket_api("GET", path, None)
-                  or delegation_api("GET", path, None) or instructions_api("GET", path, None))
+                  or delegation_api("GET", path, None) or instructions_api("GET", path, None)
+                  or experts_api("GET", path, None))
         if routed is not None:
             code, raw = _json_bytes(routed[1], routed[0])
             return self._send(code, raw, "application/json; charset=utf-8")
@@ -1131,13 +1133,13 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             code, raw = _json_bytes({"ok": False, "error": str(e)}, 400)
             return self._send(code, raw, "application/json; charset=utf-8")
         try:
-            if path.startswith("/api/instructions/"):
+            if path.startswith("/api/instructions/") or path.startswith("/api/experts/"):
                 # Editing what the agent reads is the operator's: this server's own page only.
                 if not origin_guard.same_origin(self.headers.get("Origin"), self.headers.get("Host"),
                                                 self.headers.get("Sec-Fetch-Site")):
                     code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
                     return self._send(code, raw, "application/json; charset=utf-8")
-                routed = instructions_api("PUT", path, body)
+                routed = instructions_api("PUT", path, body) or experts_api("PUT", path, body)
                 code, raw = _json_bytes(routed[1], routed[0])
                 return self._send(code, raw, "application/json; charset=utf-8")
             if path.startswith("/api/rules/"):

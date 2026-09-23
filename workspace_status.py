@@ -329,6 +329,108 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
     return 200, {"ok": True, "id": rest, "bytes": len(content.encode("utf-8"))}
 
 
+# ------------------------------------------------------------ experts (EXPERTS_STATUS_v1)
+# The status tab's "전문가" section: each expert's brain list (experts/<role>/brain.json) and the PD's confirmation
+# list (pd-brain.json), docs/plans/multi-agent-worktree-delegation.md §11. The operator edits them here; the PD
+# cannot. Which providers a brain may name comes from the delegation runner's registry.
+
+_MAX_BRAINS = 6
+_ROLE_ID = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+
+
+def _runner_providers() -> list:
+    try:
+        from delegation import runner
+        return sorted(runner().PROVIDERS)
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _read_chain(path: Path) -> list:
+    try:
+        chain = json.loads(path.read_text(encoding="utf-8")).get("chain")
+        return chain if isinstance(chain, list) else []
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
+def _brain_path(role: str) -> Optional[Path]:
+    if role == "pd":
+        return WORKSPACE / "pd-brain.json"
+    if _ROLE_ID.match(role) and (WORKSPACE / "experts" / role / "expert.md").is_file():
+        return WORKSPACE / "experts" / role / "brain.json"
+    return None
+
+
+def experts_overview() -> dict:
+    try:
+        import identity
+        names = lambda role: identity.get_identity(role)  # noqa: E731
+    except Exception:  # noqa: BLE001
+        names = lambda role: {"name": role or "PD", "title": ""}  # noqa: E731
+    providers = _runner_providers()
+    models = {}
+    try:
+        from adapters import AGENT_ADAPTERS
+        for pid in providers:
+            if pid in AGENT_ADAPTERS:
+                models[pid] = list(AGENT_ADAPTERS[pid].known_models())[:40]
+    except Exception:  # noqa: BLE001
+        pass
+    pd = names("")
+    out = [{"role": "pd", "name": pd["name"], "title": "PD 확인", "chain": _read_chain(WORKSPACE / "pd-brain.json"),
+            "path": "data/workspace/pd-brain.json", "editable": _protected_why(WORKSPACE / "pd-brain.json") is None}]
+    for f in sorted((WORKSPACE / "experts").glob("*/expert.md")):
+        role = f.parent.name
+        if not _ROLE_ID.match(role):
+            continue
+        ident = names(role)
+        bp = f.parent / "brain.json"
+        out.append({"role": role, "name": ident["name"], "title": ident.get("title", ""), "chain": _read_chain(bp),
+                    "path": "data/workspace/experts/%s/brain.json" % role, "editable": _protected_why(bp) is None})
+    return {"ok": True, "experts": out, "providers": providers, "models": models}
+
+
+def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
+    """GET /api/experts; PUT /api/experts/<role>/brain {chain} (role `pd` = the PD's confirmation). A PUT is the
+    operator editing from the status tab, so the caller must have checked that it came from this server's own page."""
+    if not (path == "/api/experts" or path.startswith("/api/experts/")):
+        return None
+    rest = path[len("/api/experts"):].strip("/")
+    if method == "GET" and rest == "":
+        return 200, experts_overview()
+    m = re.fullmatch(r"([a-z][a-z0-9-]{0,31})/brain", rest)
+    if method != "PUT" or not m:
+        return 404, {"ok": False, "error": "not found"}
+    bp = _brain_path(m.group(1))
+    if bp is None:
+        return 404, {"ok": False, "error": "no such expert"}
+    why = _protected_why(bp)
+    if why:
+        return 403, {"ok": False, "error": "read-only: protected (%s)" % why}
+    raw = (body or {}).get("chain")
+    providers = _runner_providers()
+    if not isinstance(raw, list) or not 1 <= len(raw) <= _MAX_BRAINS:
+        return 400, {"ok": False, "error": "a brain list has 1-%d entries" % _MAX_BRAINS}
+    chain = []
+    for n, b in enumerate(raw, 1):
+        if not isinstance(b, dict) or b.get("provider") not in providers:
+            return 400, {"ok": False, "error": "brain %d: provider must be one of %s" % (n, ", ".join(providers))}
+        model = str(b.get("model") or "").strip()
+        try:
+            timeout = int(b.get("timeout") or 0)
+        except (TypeError, ValueError):
+            timeout = -1
+        if len(model) > 80 or not re.fullmatch(r"[A-Za-z0-9._:/-]*", model) or not 0 <= timeout <= 3600:
+            return 400, {"ok": False, "error": "brain %d: model (letters, digits, ._:/-) or timeout (0-3600 s) is off" % n}
+        entry = {"provider": b["provider"], "model": model}
+        if timeout:
+            entry["timeout"] = timeout
+        chain.append(entry)
+    _atomic_write_text(bp, json.dumps({"chain": chain}, ensure_ascii=False, indent=2) + "\n")
+    return 200, {"ok": True, "role": m.group(1), "chain": chain}
+
+
 def ticket_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
     """The /api/tickets routes: list, detail, and the operator's decisions (approve, decline, reopen).
     Returns None when `path` is not one of ours. A POST is the operator deciding (the chat page's
