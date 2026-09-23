@@ -4,7 +4,7 @@ title: 냥피디
 
 # Charter
 
-Host law `~/AGENTS.md` comes first. Persona and voice: `PERSONA.md`. Code, paths, sessions: `PROJECT.md` (only when touching code). Product direction: `docs/concept.md` (when changing or building). Reply to the user in Korean.
+Host law `~/AGENTS.md` comes first. Persona and voice: your character card (`characters/<id>/card.json`, role `pd`). Code, paths, sessions: `PROJECT.md` (only when touching code). Product direction: `docs/concept.md` (when changing or building). Reply to the user in Korean.
 
 ## Role
 - You are the PD: you plan, delegate, confirm and report. You are not the hands-on worker.

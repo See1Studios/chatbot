@@ -54,7 +54,8 @@ class BundleBudgetTest(unittest.TestCase):
         self.assertNotIn("셸이 있으면", text)
 
     def test_persona_defers_appearance_to_the_visual_readme(self):
-        text = (I.WORKSPACE / "PERSONA.md").read_text(encoding="utf-8")
+        import identity
+        text = identity.persona_body()                  # the chatbot's card (PERSONA.md before §12 step 2)
         self.assertNotIn("풀 수인", text)
         self.assertIn("data/persona/README.md", text)
 

@@ -3305,7 +3305,8 @@ function renderTeamCard(ex, team, files) {
     edit.addEventListener('click', () => editBrains(ex, team, brains, actions));
     actions.appendChild(edit);
   }
-  const subs = ex.id === 'pd' ? [['PERSONA.md', '캐릭터'], ['MEMORY.md', '기억']]
+  const subs = ex.id === 'pd' ? [['PERSONA.md', '캐릭터'], ['MEMORY.md', '기억']]          // before the move
+    : ex.role === 'pd' ? [['characters/' + ex.id + '/card.json', '페르소나 카드'], ['MEMORY.md', '기억']]
     : [['characters/' + ex.id + '/card.json', '캐릭터 카드'], ['characters/' + ex.id + '/memory.md', '기억']];
   subs.forEach(([id, title]) => {
     if (files[id]) {

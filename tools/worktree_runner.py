@@ -808,8 +808,9 @@ def cmd_run(args) -> int:
             except RuntimeError as e:
                 raise Failure("failed", "author lease lost during the run", str(e))
 
-        pd_chain = load_chain(workspace_dir() / "pd-brain.json",
-                              [{"provider": reviewer, "model": args.reviewer_model, "timeout": 0}]) if reviewer else []
+        pd_chain = expert_chain("pd", load_chain(workspace_dir() / "pd-brain.json",   # the PD's card, else the file
+                                                 [{"provider": reviewer, "model": args.reviewer_model, "timeout": 0}]
+                                                 )) if reviewer else []
 
         # 3. tasks in order; each: the expert works -> gates -> the PD confirms (up to --rounds)
         for tno, task in enumerate(tasks, 1):

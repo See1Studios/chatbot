@@ -28,7 +28,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 | 위임 | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py`(Tier는 `protected_paths.json` `governance`) |
 | UI | `static/`: `app.js`(세션·SSE·작업 카드) `theme.js`+`chat.css` `markdown.js` `artifacts.js` `slash.js` `model-picker.js` `index.html` |
 | 시각 시스템 | `DESIGN.md` + `.impeccable/design.json` |
-| 캐릭터 | `data/workspace/PERSONA.md`(PD, 챗봇 자신 — §12 2단계에서 카드로 이전 예정), `characters/<id>/`(`card.json` 캐릭터 카드 V2: 정체성·업무 지침·두뇌, `memory.md` 기억. id는 TypeID, 역할은 카드 안 `extensions.chatbot.role`), `characters.py`, 외형 `data/persona/README.md` |
+| 캐릭터 | `characters/<id>/`: `card.json`(캐릭터 카드 V2 — 정체성·말투·사적 규칙(`system_prompt`)·업무 지침·두뇌), `memory.md`(기억; 챗봇 자신(역할 `pd`)의 기억은 아직 `memory/MEMORY.md`). id는 TypeID, 역할은 카드 안 `extensions.chatbot.role`. `characters.py`, 외형 `data/persona/README.md` |
 | 최근 작업 / 미완 / 토큰 | `docs/DEVLOG.md` 맨 위 / `docs/plans/` / `docs/plans/token-accounting.md` |
 | 테스트 | `tests/smoke.py`, `tests.test_worktree_runner`, `tests.test_delegation`, `tests/test_instructions.py` |
 

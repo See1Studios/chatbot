@@ -52,39 +52,12 @@ try:
     import mcp_core
 except Exception:
     mcp_core = None
-# Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9): the `delegate` tool.
+# Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9-12): the `delegate` tool, an adapter like mcp_core.
 try:
     import delegation
 except Exception:
     delegation = None
 
-DELEGATE_TOOL = {
-    "name": "delegate",
-    "description": ("You are the producer (PD): you do not change files yourself. For work the operator proposes, "
-                    "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[repo-"
-                    "relative files]}][, ticket to replace a plan still waiting][, evidence; defaults to the operator's "
-                    "latest message]): the plan appears as a card and runs only when the operator presses [실행]; each "
-                    "task is worked by its expert (role = a character's role, e.g. staff; see data/workspace/characters/) in an "
-                    "isolated worktree, then you confirm it; the finished plan lands only when the operator presses "
-                    "[승인] (or sends it back with [반려]). Tier 3 paths (guards, gates, approval rules, the charter) "
-                    "are refused. start (title, paths, instruction): a one-task plan. status: the work cards. "
-                    "Running, landing, reworking and discarding are the operator's, not a tool's."),
-    "inputSchema": {
-        "type": "object",
-        "properties": {
-            "action": {"type": "string", "enum": ["plan", "start", "status"]},
-            "title": {"type": "string"},
-            "tasks": {"type": "array", "items": {"type": "object", "properties": {
-                "role": {"type": "string"}, "title": {"type": "string"}, "instruction": {"type": "string"},
-                "paths": {"type": "array", "items": {"type": "string"}}}}},
-            "ticket": {"type": "integer"},
-            "paths": {"type": "array", "items": {"type": "string"}},
-            "instruction": {"type": "string"},
-            "evidence": {"type": "array", "items": {"type": "string"}},
-        },
-        "required": ["action"],
-    },
-}
 
 # Generic/core roots -- always allowlisted regardless of deployment.
 # Sphere/Hermes/wiki-specific extra roots live in the optional nas_mcp_host
@@ -289,7 +262,7 @@ def tool_defs() -> List[dict]:
     if mcp_core is not None:
         defs += list(mcp_core.TOOL_DEFS)
     if delegation is not None:
-        defs.append(DELEGATE_TOOL)
+        defs += list(delegation.TOOL_DEFS)
     if HOST_PLUGIN:
         defs += list(getattr(HOST_PLUGIN, "EXTRA_TOOL_DEFS", []))
     return defs
@@ -501,30 +474,8 @@ def call_tool(name: str, arguments: dict) -> dict:
             code, out, err = _run(["bash", "-lc", cmd], timeout=30)
             return envelope(code == 0, "ok" if code == 0 else "nonzero", {"code": code, "stdout": out, "stderr": err})
 
-        if name == "delegate" and delegation is not None:
-            action = str(args.get("action") or "")
-            if SECRET_CONTENT_RE.search("\n".join(str(args.get(k) or "") for k in ("title", "instruction", "tasks"))):
-                return envelope(False, "refusing to record secret-like content", None)
-            try:
-                if action in ("plan", "start"):
-                    evidence = args.get("evidence") or [ref for ref in [_live_request_ref()] if ref]
-                    if action == "plan":
-                        res = delegation.plan(args.get("title"), args.get("tasks"), evidence, actor=_live_actor(),
-                                              ticket_id=args.get("ticket") or None)
-                    else:
-                        res = delegation.request(args.get("title"), args.get("paths"), args.get("instruction"),
-                                                 evidence, actor=_live_actor())
-                    return envelope(True, "plan #%d (%d task(s)) is on the operator's card; it runs when they press "
-                                    "[실행]. Tell them in a line or two." % (res["ticket"], res["tasks"]), res)
-                if action == "status":
-                    return envelope(True, "ok", {"runs": [{k: r[k] for k in ("ticket", "title", "phase", "task",
-                                                                             "tasks_total", "round", "tier",
-                                                                             "reason", "head")}
-                                                          for r in delegation.runs()]})
-            except (delegation.DelegationError, delegation.tickets.TicketError) as e:
-                return envelope(False, str(e), None)
-            return envelope(False, "unknown action (plan, start, status); running, landing and discarding are the "
-                                   "operator's", None)
+        if delegation is not None and name in delegation.NAMES:
+            return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope)
 
         if mcp_core is not None and name in mcp_core.NAMES:
             return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, actor=_live_actor())
@@ -584,26 +535,6 @@ def call_tool(name: str, arguments: dict) -> dict:
     except Exception as e:
         obslog.exception("mcp.tool_exception", e, tool=name)
         return envelope(False, f"error: {e}", {"trace": traceback.format_exc()[-1500:]})
-
-
-def _live_request_ref() -> Optional[str]:
-    """`event:<session>#<line>` of the operator's latest message in the live session: the evidence a
-    delegation started on the operator's request carries when the agent gives none. None when unknown."""
-    try:
-        import urllib.request
-        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
-        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
-            sid = str(json.loads(r.read().decode("utf-8") or "{}").get("id") or "")
-        if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid):
-            return None
-        last = 0
-        with open(DATA / "sessions" / sid / "events.jsonl", encoding="utf-8", errors="replace") as f:
-            for no, line in enumerate(f, 1):
-                if '"user_ack"' in line:
-                    last = no
-        return "event:%s#%d" % (sid, last) if last else None
-    except Exception:
-        return None
 
 
 def _live_actor() -> str:

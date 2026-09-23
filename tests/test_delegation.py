@@ -251,7 +251,6 @@ class ToolTest(Base):
 
 class LiveRequestRefTest(unittest.TestCase):
     def test_the_operator_s_latest_message_is_the_default_evidence(self):
-        import mcp_server
         from unittest import mock
         data = Path(tempfile.mkdtemp())
         sess = data / "sessions" / "s-1"
@@ -264,12 +263,12 @@ class LiveRequestRefTest(unittest.TestCase):
             def read(self): return self.body
             def __enter__(self): return self
             def __exit__(self, *a): return False
-        with mock.patch.object(mcp_server, "DATA", data), \
+        with mock.patch.object(delegation, "DATA", data), \
                 mock.patch("urllib.request.urlopen", return_value=Resp(b'{"id": "s-1"}')):
-            self.assertEqual(mcp_server._live_request_ref(), "event:s-1#4")
-        with mock.patch.object(mcp_server, "DATA", data), \
+            self.assertEqual(delegation.latest_request_ref(), "event:s-1#4")
+        with mock.patch.object(delegation, "DATA", data), \
                 mock.patch("urllib.request.urlopen", return_value=Resp(b'{"id": "../x"}')):
-            self.assertIsNone(mcp_server._live_request_ref())
+            self.assertIsNone(delegation.latest_request_ref())
 
 
 if __name__ == "__main__":

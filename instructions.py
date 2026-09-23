@@ -7,7 +7,7 @@ of AGENTS.md / CLAUDE.md / skills differs per CLI and is NOT relied on --
 the bundle is the one channel that is identical everywhere.
 
 Layers (L0 = always injected):
-  rules   AGENTS.md + PERSONA.md             (static, hashed)
+  rules   AGENTS.md + the chatbot's card     (static, hashed; PERSONA.md before the move, §12)
   skills  workspace skill index              (static, hashed)
   memory  MEMORY.md snapshot, if it has facts (dynamic, not hashed)
   status  open observations / last review    (dynamic, not hashed)
@@ -88,8 +88,19 @@ def skill_index() -> List[Tuple[str, str]]:
     return out
 
 
+def _persona_text() -> str:
+    """The chatbot's character card rendered as it used to read (characters.persona_text); PERSONA.md before the
+    move (plan doc §12 step 2)."""
+    try:
+        import characters
+        card = characters.pd_card(WORKSPACE)
+    except Exception:  # noqa: BLE001
+        card = {}
+    return characters.persona_text(card).strip() if card else _read(WORKSPACE / "PERSONA.md")
+
+
 def _rules_text() -> str:
-    parts = [t for t in (_read(WORKSPACE / n) for n in RULE_BUNDLE_FILES) if t]
+    parts = [t for t in (_read(WORKSPACE / "AGENTS.md"), _persona_text()) if t]
     return "\n\n---\n\n".join(parts)
 
 

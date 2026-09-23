@@ -1015,8 +1015,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 stripped = text.strip()
                 if stripped in ("/private", "/private on"):
                     sess.is_private = True
-                    priv_file = WORKSPACE / "PRIVATE.md"
-                    priv_rules = priv_file.read_text(encoding="utf-8", errors="replace") if priv_file.exists() else ""
+                    priv_rules = identity.private_rules()   # the chatbot's card (PRIVATE.md before the move)
                     text = (
                         "[시스템: 사적 모드(Private Mode) 활성화]\n"
                         "이 대화는 완전 휘발성이며 영구 기억(MEMORY.md)/관찰/도구 호출이 차단됩니다.\n"

@@ -368,3 +368,82 @@ def delegation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tup
     except (DelegationError, tickets.TicketError) as e:
         return (404 if str(e).startswith("no such ticket") else 400), {"ok": False, "error": str(e)}
     return 404, {"ok": False, "error": "not found"}
+
+
+# ----------------------------------------------------------------- the `delegate` tool (served by mcp_server)
+
+def latest_request_ref() -> Optional[str]:
+    """`event:<session>#<line>` of the operator's latest message in the live session: the evidence a
+    delegation started on the operator's request carries when the agent gives none. None when unknown."""
+    try:
+        import urllib.request
+        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
+        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
+            sid = str(json.loads(r.read().decode("utf-8") or "{}").get("id") or "")
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid):
+            return None
+        last = 0
+        with open(DATA / "sessions" / sid / "events.jsonl", encoding="utf-8", errors="replace") as f:
+            for no, line in enumerate(f, 1):
+                if '"user_ack"' in line:
+                    last = no
+        return "event:%s#%d" % (sid, last) if last else None
+    except Exception:
+        return None
+
+
+# An adapter like mcp_core: the tool server only lists TOOL_DEFS and hands calls to tool_call.
+
+NAMES = ("delegate",)
+_DELEGATE_TOOL = {
+    "name": "delegate",
+    "description": ("You are the producer (PD): you do not change files yourself. For work the operator proposes, "
+                    "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[repo-"
+                    "relative files]}][, ticket to replace a plan still waiting][, evidence; defaults to the operator's "
+                    "latest message]): the plan appears as a card and runs only when the operator presses [실행]; each "
+                    "task is worked by its expert (role = a character's role, e.g. staff; see data/workspace/characters/) in an "
+                    "isolated worktree, then you confirm it; the finished plan lands only when the operator presses "
+                    "[승인] (or sends it back with [반려]). Tier 3 paths (guards, gates, approval rules, the charter) "
+                    "are refused. start (title, paths, instruction): a one-task plan. status: the work cards. "
+                    "Running, landing, reworking and discarding are the operator's, not a tool's."),
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "enum": ["plan", "start", "status"]},
+            "title": {"type": "string"},
+            "tasks": {"type": "array", "items": {"type": "object", "properties": {
+                "role": {"type": "string"}, "title": {"type": "string"}, "instruction": {"type": "string"},
+                "paths": {"type": "array", "items": {"type": "string"}}}}},
+            "ticket": {"type": "integer"},
+            "paths": {"type": "array", "items": {"type": "string"}},
+            "instruction": {"type": "string"},
+            "evidence": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["action"],
+    },
+}
+TOOL_DEFS = [_DELEGATE_TOOL]
+
+
+def tool_call(name: str, args: dict, actor: str, secret_re, envelope) -> dict:
+    """One `delegate` call from the chat agent; evidence defaults to the operator's latest message."""
+    action = str(args.get("action") or "")
+    if secret_re.search("\n".join(str(args.get(k) or "") for k in ("title", "instruction", "tasks"))):
+        return envelope(False, "refusing to record secret-like content", None)
+    try:
+        if action in ("plan", "start"):
+            evidence = args.get("evidence") or [ref for ref in [latest_request_ref()] if ref]
+            if action == "plan":
+                res = plan(args.get("title"), args.get("tasks"), evidence, actor=actor, ticket_id=args.get("ticket") or None)
+            else:
+                res = request(args.get("title"), args.get("paths"), args.get("instruction"), evidence, actor=actor)
+            return envelope(True, "plan #%d (%d task(s)) is on the operator's card; it runs when they press [실행]. "
+                            "Tell them in a line or two." % (res["ticket"], res["tasks"]), res)
+        if action == "status":
+            return envelope(True, "ok", {"runs": [{k: r[k] for k in ("ticket", "title", "phase", "task", "tasks_total",
+                                                                     "round", "tier", "reason", "head")}
+                                                  for r in runs()]})
+    except (DelegationError, tickets.TicketError) as e:
+        return envelope(False, str(e), None)
+    return envelope(False, "unknown action (plan, start, status); running, landing and discarding are the operator's",
+                    None)

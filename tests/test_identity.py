@@ -126,13 +126,31 @@ class ScriptSafetyTest(Base):
 
 
 class SeedTest(Base):
-    def test_seeds_only_when_missing_and_never_overwrites(self):
-        tpl = Path(tempfile.mkdtemp()); (tpl / "PERSONA.md").write_text("template", encoding="utf-8")
-        self.assertEqual(identity.seed_workspace_files(tpl, self.ws), ["PERSONA.md"])
-        self.assertEqual((self.ws / "PERSONA.md").read_text(encoding="utf-8"), "template")
-        self.write("PERSONA.md", "MY OWN PERSONA")
-        self.assertEqual(identity.seed_workspace_files(tpl, self.ws), [])
-        self.assertEqual((self.ws / "PERSONA.md").read_text(encoding="utf-8"), "MY OWN PERSONA")
+    def test_seeding_makes_the_chatbot_a_card_once(self):
+        import characters
+        tpl = Path(tempfile.mkdtemp())
+        (tpl / "PERSONA.md").write_text("---\npersona: 하나\nuser_title: 손님\n---\n# Persona\nbody\n", encoding="utf-8")
+        self.assertEqual(identity.seed_workspace_files(tpl, self.ws), ["PERSONA.md", "card"])
+        self.assertFalse((self.ws / "PERSONA.md").exists())                  # the template became the card
+        self.assertEqual((identity.get_identity()["persona"], identity.get_identity()["user_title"]), ("하나", "손님"))
+        cid = characters.by_role("pd", self.ws)
+        card = characters.load(cid, self.ws)
+        card["data"]["name"] = "MY OWN"
+        characters.save(cid, card, self.ws)
+        self.assertEqual(identity.seed_workspace_files(tpl, self.ws), [])      # an existing card is never touched
+        self.assertEqual(identity.get_identity()["persona"], "MY OWN")
+
+    def test_an_old_install_moves_to_a_card_with_its_private_rules(self):
+        self.write("PERSONA.md", "---\npersona: 하나\nvoice: 밝게\n---\n# Persona\n## Identity\nx\n## Voice\nbright\n")
+        self.write("PRIVATE.md", "---\ntitle: p\n---\n# 사적 모드\nrule one\n")
+        self.assertEqual(identity.private_rules(), "# 사적 모드\nrule one")
+        self.assertEqual(identity.seed_workspace_files(Path(tempfile.mkdtemp()), self.ws), ["card"])
+        self.assertEqual(identity.private_rules(), "# 사적 모드\nrule one")
+        self.assertFalse((self.ws / "PRIVATE.md").exists())
+        self.assertEqual(identity.get_identity()["voice"], "밝게")
+        body = identity.persona_body()
+        self.assertIn("## Identity\nx", body)
+        self.assertIn("## Voice\nbright", body)
 
     def test_shipped_template_is_neutral_and_parses(self):
         tpl = Path(identity.__file__).parent / "templates" / "PERSONA.md"

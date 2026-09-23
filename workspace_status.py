@@ -244,10 +244,12 @@ def _instruction_files() -> list:
     items = [(i, t, WORKSPACE / rel, layer) for i, t, rel, layer in INSTRUCTION_FILES]
     for c in _characters():
         label = c["name"] or c["id"]
-        items.append(("characters/%s/card.json" % c["id"], "캐릭터 카드 (%s)" % label,
-                      WORKSPACE / "characters" / c["id"] / "card.json", "on_demand"))
-        items.append(("characters/%s/memory.md" % c["id"], "캐릭터 기억 (%s)" % label,
-                      WORKSPACE / "characters" / c["id"] / "memory.md", "on_demand"))
+        pd = c["role"] == "pd"                       # the chatbot's own card is read every turn
+        items.append(("characters/%s/card.json" % c["id"], ("페르소나 카드 (%s)" if pd else "캐릭터 카드 (%s)") % label,
+                      WORKSPACE / "characters" / c["id"] / "card.json", "always" if pd else "on_demand"))
+        if not pd:                                   # the chatbot's memory is still memory/MEMORY.md
+            items.append(("characters/%s/memory.md" % c["id"], "캐릭터 기억 (%s)" % label,
+                          WORKSPACE / "characters" / c["id"] / "memory.md", "on_demand"))
     return items
 
 
@@ -386,17 +388,20 @@ def experts_overview() -> dict:
                 models[pid] = list(AGENT_ADAPTERS[pid].known_models())[:40]
     except Exception:  # noqa: BLE001
         pass
-    out = [{"id": "pd", "role": "pd", "name": pd["name"], "title": "PD 확인",
-            "chain": _read_chain(WORKSPACE / "pd-brain.json"), "path": "data/workspace/pd-brain.json",
-            "editable": _protected_why(WORKSPACE / "pd-brain.json") is None}]
+    chars = _characters()
+    out = [] if any(c["role"] == "pd" for c in chars) else [   # before the move: the PD's list in pd-brain.json
+        {"id": "pd", "role": "pd", "name": pd["name"], "title": "PD 확인",
+         "chain": _read_chain(WORKSPACE / "pd-brain.json"), "path": "data/workspace/pd-brain.json",
+         "editable": _protected_why(WORKSPACE / "pd-brain.json") is None}]
     try:
         import characters
     except Exception:  # noqa: BLE001
         characters = None
-    for c in _characters():
+    for c in sorted(chars, key=lambda c: c["role"] != "pd"):     # the PD first
         cp = WORKSPACE / "characters" / c["id"] / "card.json"
         disp = characters.ext(c["card"]).get("display") or {} if characters else {}
-        out.append({"id": c["id"], "role": c["role"], "name": c["name"], "title": disp.get("title", ""),
+        title = "PD 확인" if c["role"] == "pd" else disp.get("title", "")
+        out.append({"id": c["id"], "role": c["role"], "name": c["name"], "title": title,
                     "chain": characters.brains(c["card"], "work") if characters else [],
                     "path": "data/workspace/characters/%s/card.json" % c["id"], "editable": _protected_why(cp) is None})
     return {"ok": True, "experts": out, "providers": providers, "models": models}

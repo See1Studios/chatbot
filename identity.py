@@ -11,6 +11,11 @@ name is hardcoded here or in the UI:
                             voice       one-line tone hint for host-built prompts
   PERSONA.md  body                      the personality and tone themselves
 
+Since §12 step 2 the chatbot itself is the character with role `pd`: when that
+card exists it replaces PERSONA.md (persona, user_title, voice, body) and
+PRIVATE.md (private_rules); PERSONA.md is only the fallback of an install that
+has not moved yet (and the new-install template, converted on seeding).
+
 Other characters (docs/plans/multi-agent-worktree-delegation.md §12) live in
 `characters/<id>/card.json` (Character Card V2, characters.py). Asked by role or
 character id, never by name: the name (`data.name`) and the title/voice under
@@ -89,10 +94,20 @@ def _front(path: Path) -> Dict[str, str]:
     return fm
 
 
+def _pd() -> Dict:
+    try:
+        import characters
+        return characters.pd_card(WORKSPACE)
+    except (ImportError, OSError, ValueError):
+        return {}
+
+
 def persona_file(role: str = "") -> Path:
-    """PERSONA.md for the chatbot itself; for another character (role or id), its card file."""
+    """The chatbot's own card (or PERSONA.md before the move); for another character (role or id), its card."""
     if not role:
-        return WORKSPACE / "PERSONA.md"
+        import characters
+        cid = characters.by_role("pd", WORKSPACE)
+        return characters.card_path(cid, WORKSPACE) if cid else WORKSPACE / "PERSONA.md"
     if not (_ROLE_RE.match(role) or role.startswith("char_")):
         raise ValueError("role must be a lowercase id, got %r" % role[:40])
     import characters
@@ -108,26 +123,36 @@ def _character(role: str) -> Dict:
         return {}
 
 
+def _own_values() -> Dict[str, str]:
+    """The chatbot's own persona, user_title, voice and title: from its card, else from PERSONA.md / AGENTS.md."""
+    title = _front(WORKSPACE / "AGENTS.md").get("title", "")
+    card = _pd()
+    if card:
+        import characters
+        disp = characters.ext(card).get("display") or {}
+        return {"persona": (card.get("data") or {}).get("name", ""), "user_title": disp.get("user_title", ""),
+                "voice": disp.get("voice", ""), "title": disp.get("title", "") or title}
+    fm = _front(WORKSPACE / "PERSONA.md")
+    return {"persona": fm.get("persona", ""), "user_title": fm.get("user_title", ""), "voice": fm.get("voice", ""),
+            "title": title}
+
+
 def get_identity(role: str = "") -> Dict[str, str]:
     """{title, persona, user_title, voice, name}. `name` is what to call the
     chatbot in running text: the persona if there is one, else the title.
-    With `role` (a role or a character id), that character's card."""
-    ident: Dict[str, str] = {}
+    With `role` (a role or a character id), that character: its own name and
+    voice; title and the user's form of address fall back to the chatbot's."""
+    base = _own_values()
     if role:
         persona_file(role)                       # validates the role / id
         card = _character(role)
         import characters
         disp = characters.ext(card).get("display") or {} if card else {}
-        own = {"persona": (card.get("data") or {}).get("name", "") if card else "",
-               "voice": disp.get("voice", ""), "title": disp.get("title", ""), "user_title": disp.get("user_title", "")}
+        vals = {"persona": (card.get("data") or {}).get("name", "") if card else "", "voice": disp.get("voice", ""),
+                "title": disp.get("title", "") or base["title"], "user_title": disp.get("user_title", "") or base["user_title"]}
     else:
-        own = {}
-    for k, default in DEFAULTS.items():
-        if role and (own.get(k) or k in ("persona", "voice")):
-            val = own.get(k, "")
-        else:
-            val = _front(WORKSPACE / _SOURCES[k]).get(k, "")
-        ident[k] = _clean(val, _LIMITS[k]) or default
+        vals = base
+    ident = {k: _clean(vals.get(k, ""), _LIMITS[k]) or default for k, default in DEFAULTS.items()}
     ident["name"] = ident["persona"] or ident["title"]
     return ident
 
@@ -141,11 +166,27 @@ def persona_body(role: str = "") -> str:
             return ""
         import characters
         return characters.work_text(card)[:_BODY_LIMIT]
+    card = _pd()
+    if card:
+        import characters
+        return _FRONT.sub("", characters.persona_text(card), count=1).strip()[:_BODY_LIMIT]
     try:
         text = persona_file(role).read_text(encoding="utf-8", errors="replace")
     except OSError:
         return ""
     return _FRONT.sub("", text, count=1).strip()[:_BODY_LIMIT]
+
+
+def private_rules() -> str:
+    """The chatbot's private-mode rules: its card's system prompt, or PRIVATE.md before the move."""
+    card = _pd()
+    if card:
+        import characters
+        return characters.private_text(card)
+    try:
+        return _FRONT.sub("", (WORKSPACE / "PRIVATE.md").read_text(encoding="utf-8", errors="replace"), count=1).strip()
+    except OSError:
+        return ""
 
 
 def user_title() -> str:
@@ -181,15 +222,21 @@ def script_json(ident: Optional[Dict[str, str]] = None) -> str:
 
 
 def seed_workspace_files(templates_dir: Optional[Path] = None, workspace: Optional[Path] = None) -> list:
-    """New install: copy a neutral PERSONA.md template into the workspace only if
-    the workspace has none. An existing file is never touched."""
+    """New install: the neutral PERSONA.md template becomes the chatbot's card (role pd) when the workspace has
+    neither a card nor a PERSONA.md; an install that still has PERSONA.md (+ PRIVATE.md, pd-brain.json) is moved
+    to a card. An existing card is never touched."""
+    import characters
     src_dir = templates_dir or (ROOT / "templates")
     dst_dir = workspace or WORKSPACE
     seeded = []
+    if characters.by_role("pd", dst_dir):
+        return seeded
     for name in ("PERSONA.md",):
         src, dst = src_dir / name, dst_dir / name
         if src.is_file() and not dst.exists():
             dst_dir.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, dst)
             seeded.append(name)
+    if characters.migrate_pd(dst_dir):
+        seeded.append("card")
     return seeded
