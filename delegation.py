@@ -246,6 +246,7 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
         out.append({"ticket": tid, "title": st.get("title", ""), "phase": phase, "round": st.get("round", 0),
                     "tier": st.get("tier", 0), "paths": st.get("paths", []), "reason": st.get("reason", ""),
                     "head": st.get("head", ""), "updated": st.get("updated", ""),
+                    "started": st.get("started", 0), "phase_since": st.get("phase_since", 0),
                     "transcript": st.get("transcript", []), "active": phase in ACTIVE_PHASES,
                     "seen": seen.get(str(tid)) == st.get("rev")})
     return out

@@ -211,6 +211,11 @@ class WorktreeRunner(unittest.TestCase):
         r = wr.parse_review("VERDICT: FAIL\nSAY: a\nb\nFIX: 1. x\n2. y")
         self.assertEqual((r["verdict"], r["say"], r["fix"]), ("FAIL", "a\nb", "1. x\n2. y"))
         self.assertEqual(wr.parse_review("PASS probably")["verdict"], "FAIL")
+        r = wr.parse_review("VERDICT: PASS\n\n흥, 이번엔 봐준다거든!\n")      # no SAY label
+        self.assertEqual((r["verdict"], r["say"]), ("PASS", "흥, 이번엔 봐준다거든!"))
+        r = wr.parse_review("VERDICT: FAIL\n**다시 해.**\nFIX: 1. x")
+        self.assertEqual((r["say"], r["fix"]), ("다시 해.", "1. x"))
+        self.assertIn("VERDICT: FAIL", r["raw"])
 
     def test_said_takes_the_line_after_the_last_rule(self) -> None:
         self.assertEqual(wr.said("work\n---\nnot this\n---\n다 했다냥!"), "다 했다냥!")

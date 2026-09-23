@@ -2187,6 +2187,21 @@ const WORK_ENDED = ['done', 'failed', 'gate_failed', 'declined', 'stalled', 'mer
 const workBarEl = document.getElementById('workBar');
 let workPollTimer = null;
 const workOpen = new Set();
+let workLastPhase = null;   // ticket -> phase seen on the previous poll; null until the first poll
+
+function workElapsed(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+}
+
+// A run that ends while the page is open says so in the chat, so nobody has to watch the card.
+function announceWorkEnding(r) {
+  const head = '작업 #' + r.ticket + ' ' + (r.title || '');
+  if (r.phase === 'done') addNotice('ok', head + ' — 리뷰 통과, 병합했어요' + (r.tier >= 2 ? ' · ⚡ 소생하면 반영돼요' : ''));
+  else if (r.phase === 'awaiting_merge') addNotice('ok', head + ' — 리뷰 통과. 카드의 [병합·⚡]로 병합해 주세요');
+  else if (r.phase === 'stalled') addNotice('warn', head + ' — 실행이 멈췄어요 (카드에서 폐기할 수 있어요)');
+  else addNotice('warn', head + ' — ' + (WORK_PHASE_LABEL[r.phase] || r.phase) + (r.reason ? ': ' + r.reason : ''));
+}
 
 function workLine(ln) {
   const row = obsNode('div', 'work-line' + (ln.role === 'reviewer' ? ' reviewer' : ''));
@@ -2200,7 +2215,8 @@ function renderWorkCard(r) {
   const head = obsNode('div', 'work-head');
   head.appendChild(obsNode('span', 'obs-id', '#' + r.ticket));
   head.appendChild(obsNode('span', 'work-title', r.title || ''));
-  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + (r.round ? ' · ' + r.round + '라운드' : '')));
+  const since = r.active && r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : '';
+  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + (r.round ? ' · ' + r.round + '라운드' : '') + since));
   card.appendChild(head);
   const lines = r.transcript || [];
   const open = workOpen.has(r.ticket);
@@ -2250,12 +2266,20 @@ async function loadWork() {
     workBarEl.hidden = true;
     return;
   }
-  const shown = (res.runs || []).filter(r => r.active || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
+  const runs = res.runs || [];
+  if (workLastPhase) {
+    runs.forEach(r => {
+      const before = workLastPhase.get(r.ticket);
+      if (before !== r.phase && (WORK_ENDED.includes(r.phase) || r.phase === 'awaiting_merge')) announceWorkEnding(r);
+    });
+  }
+  workLastPhase = new Map(runs.map(r => [r.ticket, r.phase]));
+  const shown = runs.filter(r => r.active || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
   workBarEl.textContent = '';
   workBarEl.hidden = !shown.length;
   shown.forEach(r => workBarEl.appendChild(renderWorkCard(r)));
   const busy = shown.some(r => r.active);
-  if (busy && !workPollTimer) workPollTimer = setInterval(loadWork, 5000);
+  if (busy && !workPollTimer) workPollTimer = setInterval(loadWork, 3000);
   if (!busy && workPollTimer) { clearInterval(workPollTimer); workPollTimer = null; }
 }
 
@@ -3500,6 +3524,7 @@ function bindEvents(sid) {
     }
 
     if (type === 'result') {
+      loadWork();   // a turn that delegated work shows its card now, not at the next idle poll
       // QUOTA_SILENT_FIX_v1: result residual error
       if (text) assistantBuf = text;
       if (assistantNode) delete assistantNode.dataset.progress;
@@ -5381,7 +5406,7 @@ if (statusRefreshBtn) statusRefreshBtn.addEventListener('click', () => { fetchSe
 loadTickets();
 setInterval(loadTickets, 60000);
 loadWork();
-setInterval(loadWork, 60000);
+setInterval(loadWork, 15000);
 if (usageRefreshBtn) usageRefreshBtn.addEventListener('click', () => fetchUsage(true));
 if (mcpAddBtn) mcpAddBtn.addEventListener('click', async () => {
   const name = (mcpNameInput && mcpNameInput.value || '').trim();

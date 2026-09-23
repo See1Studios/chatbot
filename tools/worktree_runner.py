@@ -336,8 +336,16 @@ def parse_review(text: str) -> Dict[str, str]:
     for i, mk in enumerate(marks):
         end = marks[i + 1].start() if i + 1 < len(marks) else len(text)
         out[mk.group(1).lower()] = text[mk.end():end].strip()[:3000]
+    if not out["say"] and text:
+        # No SAY label (a small model often drops it): the prose after the verdict line, before any FIX.
+        body = text[m.end():] if m else text
+        fix = _SECTION.search(body)
+        body = body[:fix.start()] if fix and fix.group(1).upper() == "FIX" else body
+        lines = [ln.strip().strip("*").strip() for ln in body.splitlines()]
+        out["say"] = " ".join(ln for ln in lines if ln)[:500]
     if not m:
         out["fix"] = out["fix"] or "The review had no readable VERDICT line."
+    out["raw"] = (text or "")[:1500]
     return out
 
 
@@ -569,7 +577,8 @@ def cmd_run(args) -> int:
         created = True
         result["base"] = base
         log("worktree %s on %s (base %s)" % (wt_dir, branch, base[:8]))
-        write_state(tid, phase="running", round=0, title=args.title, provider=provider, reviewer=reviewer,
+        write_state(tid, phase="running", round=0, started=time.time(), phase_since=time.time(),
+                    title=args.title, provider=provider, reviewer=reviewer,
                     paths=paths, gates=gates, main_branch=main_branch, base=base, branch=branch,
                     worktree=str(wt_dir), transcript=[])
 
@@ -588,7 +597,7 @@ def cmd_run(args) -> int:
             if rnd > 1:
                 renew()
             prompt = brief if rnd == 1 else retry_prompt(feedback, None if can_resume else brief)
-            write_state(tid, phase="writing", round=rnd)
+            write_state(tid, phase="writing", round=rnd, phase_since=time.time())
             log("round %d: running %s (timeout %ds)..." % (rnd, provider, args.timeout))
             res = run_agent(provider, wt_dir, prompt, args.timeout, resume=rnd > 1)
             result["agent"] = {k: res[k] for k in ("ok", "returncode", "elapsed_sec")}
@@ -598,7 +607,7 @@ def cmd_run(args) -> int:
                               tail(res["stderr"] or res["stdout"]))
             transcript.append({"round": rnd, "role": "writer", "name": writer_p["name"], "text": said(res["stdout"])})
 
-            write_state(tid, phase="gates", transcript=transcript)
+            write_state(tid, phase="gates", transcript=transcript, phase_since=time.time())
             if commit_leftovers(wt_dir, provider, tid):
                 log("committed changes the agent left uncommitted")
             gate_error = None
@@ -623,14 +632,14 @@ def cmd_run(args) -> int:
 
             if not reviewer:
                 break
-            write_state(tid, phase="review")
+            write_state(tid, phase="review", phase_since=time.time())
             _, diff, _ = git(wt_dir, "diff", base + "..HEAD")
             rv = run_review(reviewer, args.reviewer_model, wt_dir,
                             review_prompt(tid, args.title, args.prompt, transcript[-1]["text"], diff, gate_error,
                                           character_block(reviewer_p, writer_p)))
             verdict = "FAIL" if gate_error else rv["verdict"]
             transcript.append({"round": rnd, "role": REVIEWER_ROLE, "name": reviewer_p["name"], "text": rv["say"],
-                               "verdict": verdict, "fix": rv["fix"]})
+                               "verdict": verdict, "fix": rv["fix"], "raw": rv["raw"]})
             log("round %d: review %s" % (rnd, verdict))
             write_state(tid, transcript=transcript)
             if verdict == "PASS":
