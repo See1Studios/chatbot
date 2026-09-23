@@ -1,0 +1,57 @@
+{
+ "actor": "claude-code",
+ "approved_at": "2026-09-23 13:29:25",
+ "approved_by": "operator (api) via claude-code ticket-quick (operator's instruction)",
+ "attempts": 1,
+ "closed_by": "claude-code",
+ "closed_reason": "done",
+ "created": "2026-09-23 13:29:25",
+ "evidence": [
+  "candidate:1790137765.769"
+ ],
+ "gate_failures": 0,
+ "id": 56,
+ "notes": [
+  {
+   "by": "operator (api)",
+   "text": "approved",
+   "ts": "2026-09-23 13:29:25"
+  },
+  {
+   "by": "agent",
+   "text": "claimed (attempt 1/3); paths: tickets.py, evolution.py, observations.py, mcp_core.py, static/app.js, static/index.html, tests/test_tickets.py, tests/test_observations.py, docs/LOGGING.md",
+   "ts": "2026-09-23 13:29:25"
+  },
+  {
+   "by": "host",
+   "text": "attribution backfilled (ACTOR_ATTRIBUTION_v1): claude-code -- claude-code session 2026-09-23 (this agent's own tickets)",
+   "ts": "2026-09-23 13:32:51"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done: 42759bb deployed",
+   "ts": "2026-09-23 13:34:24"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done",
+   "ts": "2026-09-23 13:34:24"
+  }
+ ],
+ "paths": [
+  "tickets.py",
+  "evolution.py",
+  "observations.py",
+  "mcp_core.py",
+  "static/app.js",
+  "static/index.html",
+  "tests/test_tickets.py",
+  "tests/test_observations.py",
+  "docs/LOGGING.md"
+ ],
+ "status": "done",
+ "target": "tickets.py, evolution.py, observations.py, mcp_core.py, static/app.js, static/in",
+ "title": "ACTOR_ATTRIBUTION_v1: 티켓·관찰에 처리 주체(actor) 기록·표시, 과거 보정(#35-38 grok, #39-55 claude-code)",
+ "updated": "2026-09-23 13:34:24",
+ "worked_by": "claude-code"
+}
