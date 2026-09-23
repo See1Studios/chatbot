@@ -82,6 +82,7 @@ A `proc.start` with no `proc.exit` from the previous pid means the process was k
 | `http.client_error` | warn | status 4xx; deduped per route+status for 5 min (`repeat`). 404s on `/.well-known/` (MCP clients' OAuth discovery on every connect) are counted in `http.summary` only |
 | `http.slow` | warn | ≥ 3 s, streams (`/events`) excluded |
 | `http.request` | info | successful POST/PUT/DELETE on chat (MCP traffic is summarised only) |
+| `log.suppressed` | warn/error | storm guard settlement: `count` lines of `of_evt` with this `err.fp` were not written |
 | `http.client_gone` | info | client hung up mid-response (BrokenPipe/reset); deduped per route for 10 min |
 
 Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/:n`.
@@ -141,6 +142,15 @@ Thresholds live at the top of `logdigest.py`.
 | `heartbeat_gap` | warn | a > 2.5× heartbeat hole while the process lived (stall) |
 | `rss_growth` | warn | > 150 MB growth within one process lifetime |
 | `log_write_errors` | warn | the logger itself could not write |
+
+## Error storms
+
+One bug hit in a loop (a UI poll against a failing route) must not rotate the history out of the
+file. Per `err.fp`: the full `trace` is written at most once per 5 min (later lines carry
+`err.trace_omitted`), and at most 20 lines are written per minute. Lines beyond that are counted and
+settled every 5 min as one `log.suppressed` event (`count`, `of_evt`, `err.fp`); `logdigest` adds
+them back into the group's count and marks the finding "폭주". `http.summary` still counts every
+request, so 5xx rates stay exact.
 
 ## Storage
 

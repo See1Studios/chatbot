@@ -30,6 +30,7 @@ class Base(unittest.TestCase):
         self.path = Path(self.tmp.name) / "events.jsonl"
         obslog.configure("test", path=self.path, mirror="error")
         obslog._dedup.clear()
+        obslog._fp_state.clear()
         obslog._http.clear()
         obslog.unbind()
 
@@ -64,6 +65,34 @@ class EventTests(Base):
         obslog._dedup["unit.dup|k"][0] -= 120  # window passed
         obslog.event("unit.dup", lvl="warn", dedup="k", dedup_window=60)
         self.assertEqual(lines(self.path)[-1]["repeat"], 4)
+
+    def test_error_storm_keeps_history(self):
+        def boom():
+            raise ValueError("storm")
+        for _ in range(50):
+            try:
+                boom()
+            except ValueError:
+                obslog.exception("unit.storm")
+        recs = lines(self.path)
+        self.assertEqual(len(recs), obslog.FP_MAX_PER_WINDOW)
+        self.assertIn("trace", recs[0]["err"])
+        self.assertTrue(all("trace" not in r["err"] and r["err"]["trace_omitted"] for r in recs[1:]))
+        obslog.flush_suppressed()
+        last = lines(self.path)[-1]
+        self.assertEqual((last["evt"], last["count"], last["of_evt"], last["err"]["fp"]),
+                         ("log.suppressed", 30, "unit.storm", recs[0]["err"]["fp"]))
+        obslog.flush_suppressed()
+        self.assertEqual(lines(self.path)[-1]["evt"], "log.suppressed")  # nothing new settled twice
+        self.assertEqual(len(lines(self.path)), obslog.FP_MAX_PER_WINDOW + 1)
+        import logdigest
+        old = logdigest.LOG
+        logdigest.LOG = self.path
+        try:
+            (g,) = logdigest.digest(3600)["errors"]
+        finally:
+            logdigest.LOG = old
+        self.assertEqual((g["count"], g["suppressed"]), (50, 30))
 
     def test_bind_context(self):
         obslog.bind(rid="r1", sid="s1")

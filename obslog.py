@@ -20,6 +20,9 @@ Rules this module keeps so callers do not have to:
   - successful high-frequency HTTP traffic is folded into a periodic http.summary;
     errors, slow requests and mutations are written one by one
   - repeated identical warnings collapse (`dedup=`) into one line plus a repeat count
+  - an error storm (one fingerprint over and over) keeps its trace once per TRACE_EVERY_SEC and
+    at most FP_MAX_PER_WINDOW lines per FP_WINDOW_SEC; the rest is counted and settled in
+    log.suppressed, so a flood cannot rotate the earlier history out of the file
 
 Where lines go: CHATBOT_OBSLOG_PATH, which chatbot-ctl.sh exports for everything it starts. Without it
 (tests, a server started by hand, imports from tools) events stay in the in-memory RECENT ring and
@@ -62,6 +65,9 @@ SLOW_MS = 3000
 # 404s that clients ask for on every connect by design; they stay in http.summary counts.
 EXPECTED_404_PREFIXES = ("/.well-known/",)
 DEDUP_WINDOW_SEC = 300
+TRACE_EVERY_SEC = 300      # same err.fp: full trace at most once per this
+FP_WINDOW_SEC = 60         # same err.fp: at most FP_MAX_PER_WINDOW lines per this window
+FP_MAX_PER_WINDOW = 20
 
 _state: Dict[str, Any] = {
     "src": None,
@@ -228,6 +234,48 @@ def _mirror(rec: dict) -> None:
 
 
 _dedup: Dict[str, List[float]] = {}  # key -> [first_ts_of_window, suppressed_count]
+_fp_state: Dict[str, Dict[str, Any]] = {}  # err.fp -> {trace_t, win_t, n, supp, evt, lvl, type, msg, where}
+
+
+def _storm_guard(fields: Dict[str, Any], evt: str, lvl: str, now: float) -> bool:
+    """False = drop this line (counted). May strip the trace from fields["err"] in place."""
+    err = fields.get("err")
+    if not isinstance(err, dict) or not err.get("fp"):
+        return True
+    with _lock:
+        st = _fp_state.get(err["fp"])
+        if st is None:
+            st = _fp_state[err["fp"]] = {"trace_t": 0.0, "win_t": now, "n": 0, "supp": 0}
+            if len(_fp_state) > 2000:
+                for k in sorted(_fp_state, key=lambda k: _fp_state[k]["win_t"])[:1000]:
+                    if not _fp_state[k]["supp"]:
+                        _fp_state.pop(k, None)
+        st.update(evt=evt, lvl=lvl, type=err.get("type"), msg=err.get("msg"), where=err.get("where"))
+        if now - st["win_t"] >= FP_WINDOW_SEC:
+            st["win_t"], st["n"] = now, 0
+        st["n"] += 1
+        if st["n"] > FP_MAX_PER_WINDOW:
+            st["supp"] += 1
+            return False
+        if "trace" in err:
+            if now - st["trace_t"] < TRACE_EVERY_SEC:
+                fields["err"] = {k: v for k, v in err.items() if k != "trace"}
+                fields["err"]["trace_omitted"] = True
+            else:
+                st["trace_t"] = now
+    return True
+
+
+def flush_suppressed() -> None:
+    """Settle storm counts: one log.suppressed line per fingerprint that had lines dropped."""
+    with _lock:
+        pending = [(fp, dict(st)) for fp, st in _fp_state.items() if st["supp"]]
+        for fp, _ in pending:
+            _fp_state[fp]["supp"] = 0
+    for fp, st in pending:
+        event("log.suppressed", lvl=st.get("lvl") or "warn", count=st["supp"], of_evt=st.get("evt"),
+              err={"fp": fp, "type": st.get("type"), "msg": st.get("msg"), "where": st.get("where")},
+              msg="%d more lines of this error were counted, not written (storm guard)" % st["supp"])
 
 
 def event(evt: str, lvl: str = "info", msg: str = "", dedup: Optional[str] = None,
@@ -250,6 +298,8 @@ def event(evt: str, lvl: str = "info", msg: str = "", dedup: Optional[str] = Non
                 if len(_dedup) > 5000:
                     for k in sorted(_dedup, key=lambda k: _dedup[k][0])[:2500]:
                         _dedup.pop(k, None)
+        if evt != "log.suppressed" and not _storm_guard(fields, evt, lvl, now):
+            return None
         rec: Dict[str, Any] = {"ts": iso_now(now), "lvl": lvl if lvl in LEVELS else "info",
                                "src": _state["src"] or fields.pop("src", None) or "lib", "evt": evt, "pid": os.getpid()}
         fields.pop("src", None)
@@ -412,6 +462,7 @@ def flush_http_summary() -> None:
         start, _http_window_start = _http_window_start, time.time()
     if snap:
         event("http.summary", window_s=int(time.time() - start), total=sum(v["n"] for v in snap.values()), routes=snap)
+    flush_suppressed()
 
 
 class HTTPLogMixin:

@@ -201,8 +201,10 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
                                           "where": err.get("where"), "count": 0, "evts": Counter(), "routes": Counter(),
                                           "first": e.get("ts"), "last": None, "sample_trace": None, "sids": set(),
                                           "new": err["fp"] not in seen_before, "lvl": e.get("lvl")})
-        g["count"] += 1 + int(e.get("repeat") or 0)
-        g["evts"][e.get("evt")] += 1
+        g["count"] += int(e.get("count") or 0) if e.get("evt") == "log.suppressed" else 1 + int(e.get("repeat") or 0)
+        g["evts"][e.get("of_evt") or e.get("evt")] += 1
+        if e.get("evt") == "log.suppressed":
+            g["suppressed"] = g.get("suppressed", 0) + int(e.get("count") or 0)
         if e.get("route"):
             g["routes"][e["route"]] += 1
         if e.get("sid"):
@@ -216,7 +218,8 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
         g["routes"] = dict(g["routes"].most_common(5))
         g["sids"] = sorted(g["sids"])[:10]
         if g["lvl"] == "error":
-            find("error" if g["new"] else "warn", "error_fp", "%s%s ×%d: %s @%s" % ("[신규] " if g["new"] else "", g["type"], g["count"], (g["msg"] or "")[:120], g["where"]),
+            storm = " (폭주: %d줄은 건수만 기록)" % g["suppressed"] if g.get("suppressed") else ""
+            find("error" if g["new"] else "warn", "error_fp", "%s%s ×%d%s: %s @%s" % ("[신규] " if g["new"] else "", g["type"], g["count"], storm, (g["msg"] or "")[:120], g["where"]),
                  "logdigest.py --fp %s 로 전체 trace·발생 요청 확인" % g["fp"], fp=g["fp"], routes=g["routes"])
     d["errors"] = errs
     for e in win:
