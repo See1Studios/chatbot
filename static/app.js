@@ -3181,7 +3181,7 @@ async function importSessionContext(sid) {
 // STATUS_INSTRUCTIONS_v1: everything the agent reads as instructions, whole and scrollable, in the order it reaches
 // the agent (every turn / when needed). Editable only where the protected-path registry allows (the server decides);
 // read-only items say why.
-const INSTRUCTION_LAYER_LABEL = { always: '매 턴 들어가는 것', on_demand: '필요할 때 읽는 것' };
+const INSTRUCTION_LAYER_LABEL = { always: '매 턴 들어가는 것', on_demand: '필요할 때 읽는 것', private: '사적 세션에서만 읽는 것' };
 
 async function loadInstructions() {
   if (!statusInstructionsEl) return;
@@ -3194,7 +3194,7 @@ async function loadInstructions() {
   }
   const items = res.items || [];
   statusInstructionsEl.textContent = '';
-  ['always', 'on_demand'].forEach(layer => {
+  ['always', 'on_demand', 'private'].forEach(layer => {
     const group = items.filter(x => x.layer === layer);
     if (!group.length) return;
     statusInstructionsEl.appendChild(obsNode('div', 'instr-layer', INSTRUCTION_LAYER_LABEL[layer]));
@@ -3306,8 +3306,10 @@ function renderTeamCard(ex, team, files) {
     actions.appendChild(edit);
   }
   const subs = ex.id === 'pd' ? [['PERSONA.md', '캐릭터'], ['MEMORY.md', '기억']]          // before the move
-    : ex.role === 'pd' ? [['characters/' + ex.id + '/card.json', '페르소나 카드'], ['MEMORY.md', '기억']]
-    : [['characters/' + ex.id + '/card.json', '캐릭터 카드'], ['characters/' + ex.id + '/memory.md', '기억']];
+    : ex.role === 'pd' ? [['characters/' + ex.id + '/card.json', '페르소나 카드'], ['MEMORY.md', '기억'],
+      ['characters/' + ex.id + '/private-memory.md', '사적 기억']]
+    : [['characters/' + ex.id + '/card.json', '캐릭터 카드'], ['characters/' + ex.id + '/memory.md', '기억'],
+      ['characters/' + ex.id + '/private-memory.md', '사적 기억']];
   subs.forEach(([id, title]) => {
     if (files[id]) {
       const sub = renderInstruction(Object.assign({}, files[id], { title }), false);

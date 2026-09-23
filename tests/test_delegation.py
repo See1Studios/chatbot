@@ -247,6 +247,11 @@ class ToolTest(Base):
         self.assertTrue(res.get("success"), res)
         res = mcp_server.call_tool("delegate", {"action": "merge"})
         self.assertFalse(res.get("success"))
+        import re as _re
+        r = delegation.tool_call("delegate", {"action": "status"}, "chat-agent:x", _re.compile("SECRET"),
+                                 mcp_server.envelope, private=True)
+        self.assertFalse(r["success"])
+        self.assertIn("private session", r["message"])
 
 
 class LiveRequestRefTest(unittest.TestCase):

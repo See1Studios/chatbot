@@ -90,11 +90,18 @@ TOOL_DEFS: List[dict] = [
 ]
 
 
-def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "chat-agent") -> dict:
+PRIVATE_CLOSED = ("private session: work memory, observations and tickets are closed here. Private talk is kept "
+                  "apart, in this character's private memory, by the host.")
+
+
+def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "chat-agent",
+         private: bool = False) -> dict:
     """Run one of the tools in NAMES. `data` is the instance data directory, `secret_re` the host's pattern for
     content that must never be stored."""
     data = Path(data)
     args = args or {}
+    if private:   # PRIVATE_MEMORY_v1: a private session never reads or writes work memory, observations or tickets
+        return envelope(False, PRIVATE_CLOSED, None)
     try:
         if name == "memory":
             if memory_store is None:

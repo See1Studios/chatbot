@@ -75,5 +75,39 @@ class CardTest(unittest.TestCase):
         self.assertEqual(C.migrate_experts(self.ws), [])               # nothing left to move
 
 
+
+class PrivateMemoryTest(unittest.TestCase):
+    def setUp(self):
+        self.ws = Path(tempfile.mkdtemp())
+        self.cid = C.new_id()
+        C.save(self.cid, C.new_card("P", "pd"), self.ws)
+
+    def test_kept_apart_short_unique_and_free_of_secrets(self):
+        self.assertEqual(C.read_private_memory(self.cid, self.ws), "")
+        self.assertEqual(C.remember_private(self.cid, ["좋아하는 차는 보리차", "my password is x"], "2026-01-01", self.ws), 1)
+        self.assertEqual(C.remember_private(self.cid, ["좋아하는 차는 보리차"], "2026-01-02", self.ws), 0)
+        text = C.read_private_memory(self.cid, self.ws)
+        self.assertIn("- [2026-01-01] 좋아하는 차는 보리차", text)
+        self.assertNotIn("password", text)
+        for i in range(200):
+            C.remember_private(self.cid, ["moment %d with padding words" % i], "2026-01-03", self.ws)
+        self.assertLessEqual(len(C.private_memory_path(self.cid, self.ws).read_bytes()), C.PRIVATE_MEMORY_CAP)
+        self.assertFalse((self.ws / "characters" / self.cid / "memory.md").exists())   # work memory untouched
+
+    def test_the_private_stretch_and_its_digest(self):
+        history = [{"role": "user", "text": "work question"}, {"role": "assistant", "text": "work answer"},
+                   {"role": "user", "text": C.PRIVATE_ENTRY_MARK + " rules"},
+                   {"role": "assistant", "text": "왔어?"},
+                   {"role": "user", "text": "[사적 모드: No Logging] 오늘 좀 피곤해"}, {"role": "assistant", "text": "푹 쉬어"}]
+        seg = C.private_segment(history)
+        self.assertEqual([h["text"] for h in seg], ["왔어?", "[사적 모드: No Logging] 오늘 좀 피곤해", "푹 쉬어"])
+        prompt = C.private_digest_prompt(seg, "실장님", "P")
+        self.assertIn("실장님: 오늘 좀 피곤해", prompt)
+        self.assertNotIn("work question", prompt)
+        self.assertEqual(C.parse_memory_lines("- a\n- b\nnoise\n- c\n- d"), ["a", "b", "c"])
+        self.assertEqual(C.parse_memory_lines("NONE"), [])
+        self.assertEqual(C.private_segment([{"role": "user", "text": "hi"}]), [])
+
+
 if __name__ == "__main__":
     unittest.main()

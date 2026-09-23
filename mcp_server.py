@@ -475,10 +475,10 @@ def call_tool(name: str, arguments: dict) -> dict:
             return envelope(code == 0, "ok" if code == 0 else "nonzero", {"code": code, "stdout": out, "stderr": err})
 
         if delegation is not None and name in delegation.NAMES:
-            return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope)
+            return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope, private=_live_private())
 
         if mcp_core is not None and name in mcp_core.NAMES:
-            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, actor=_live_actor())
+            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, actor=_live_actor(), private=_live_private())
 
         if name == "search_text":
             path = _resolve_target_path(args.get("path"))
@@ -535,6 +535,17 @@ def call_tool(name: str, arguments: dict) -> dict:
     except Exception as e:
         obslog.exception("mcp.tool_exception", e, tool=name)
         return envelope(False, f"error: {e}", {"trace": traceback.format_exc()[-1500:]})
+
+
+def _live_private() -> bool:
+    """Whether the live chat session is a private one (PRIVATE_MEMORY_v1); False when it cannot be told."""
+    try:
+        import urllib.request
+        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
+        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
+            return bool(json.loads(r.read().decode("utf-8") or "{}").get("is_private"))
+    except Exception:
+        return False
 
 
 def _live_actor() -> str:

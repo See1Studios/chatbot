@@ -258,3 +258,74 @@ def migrate_pd(ws=None) -> Optional[str]:
         if f.is_file():
             f.unlink()
     return cid
+
+
+# ------------------------------------------------------------------ private memory (§12, PRIVATE_MEMORY_v1)
+# Private talk is remembered, but completely apart from work: `private-memory.md` in the character's folder is read
+# only when private mode starts and written only when it ends; work memory never sees it, and it never sees work.
+
+PRIVATE_MEMORY_CAP = 2048
+PRIVATE_ENTRY_MARK = "[시스템: 사적 모드(Private Mode) 활성화]"     # the host's own /private entry text (server.py)
+_SECRETISH = re.compile(r"(api[_-]?key|secret|password|passwd|token|bearer|sk-[A-Za-z0-9]{8,}|-----BEGIN)", re.I)
+
+
+def private_memory_path(cid: str, ws=None) -> Path:
+    return card_path(cid, ws).parent / "private-memory.md"
+
+
+def read_private_memory(cid: str, ws=None) -> str:
+    try:
+        return private_memory_path(cid, ws).read_text(encoding="utf-8").strip()
+    except (OSError, ValueError):
+        return ""
+
+
+def remember_private(cid: str, lines: List[str], today: Optional[str] = None, ws=None) -> int:
+    """Add lines to the character's private memory: no duplicates, no secret-looking lines, 200 chars each,
+    oldest lines dropped past PRIVATE_MEMORY_CAP. Returns the number added."""
+    path = private_memory_path(cid, ws)
+    if not path.parent.is_dir():
+        return 0
+    kept = [ln for ln in read_private_memory(cid, ws).splitlines() if ln.startswith("- ")]
+    known = {re.sub(r"^- \[[0-9-]+\] ", "", ln).lower() for ln in kept}
+    stamp = today or time.strftime("%Y-%m-%d")
+    added = 0
+    for raw in lines:
+        line = re.sub(r"\s+", " ", str(raw)).strip()[:200]
+        if line and not _SECRETISH.search(line) and line.lower() not in known:
+            kept.append("- [%s] %s" % (stamp, line))
+            known.add(line.lower())
+            added += 1
+    head = "# Private memory\n"
+    while kept and len((head + "\n".join(kept) + "\n").encode("utf-8")) > PRIVATE_MEMORY_CAP:
+        kept.pop(0)
+    tmp = path.with_name(".private-memory.%d.tmp" % os.getpid())
+    tmp.write_text(head + "\n".join(kept) + "\n", encoding="utf-8")
+    tmp.replace(path)
+    return added
+
+
+def private_segment(history: List[Dict]) -> List[Dict]:
+    """The user/assistant turns since the last private-mode entry (the entry turn itself excluded)."""
+    start = None
+    for i, h in enumerate(history):
+        if h.get("role") == "user" and str(h.get("text") or "").startswith(PRIVATE_ENTRY_MARK):
+            start = i
+    if start is None:
+        return []
+    return [h for h in history[start + 1:] if h.get("role") in ("user", "assistant") and (h.get("text") or "").strip()]
+
+
+def private_digest_prompt(segment: List[Dict], user_word: str, name: str) -> str:
+    """The one-shot prompt that turns a private conversation into at most three memory lines."""
+    talk = "\n".join("%s: %s" % (user_word if h["role"] == "user" else name,
+                                 re.sub(r"^\[사적 모드:[^\]]*\]\s*", "", str(h["text"])).strip()[:400])
+                     for h in segment[-40:])
+    return ("Below is a private (non-work) conversation between %s and %s. List at most three short lines worth "
+            "remembering for future private conversations with them: preferences, feelings, promises, shared moments. "
+            "Facts only, one per line starting with \"- \", in Korean. No work topics, no secrets. If nothing is worth "
+            "keeping, answer NONE.\n\n%s" % (user_word, name, talk))
+
+
+def parse_memory_lines(text: str) -> List[str]:
+    return [m.group(1).strip() for m in re.finditer(r"^\s*-\s+(.+)$", text or "", re.M)][:3]

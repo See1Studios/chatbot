@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import re
 from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
@@ -113,6 +114,17 @@ class AdapterModuleTest(unittest.TestCase):
     def test_the_envelope_has_the_servers_shape(self):
         self.assertEqual(mcp_core.envelope(True, "m", {"a": 1}), {"success": True, "message": "m", "data": {"a": 1}})
         self.assertEqual(set(mcp_core.envelope(False, "x")), {"success", "message", "data"})
+
+
+
+class PrivateSessionTest(unittest.TestCase):
+    def test_a_private_session_cannot_touch_work_memory_observations_or_tickets(self):
+        import mcp_core
+        for name, args in (("memory", {"action": "show"}), ("memory", {"action": "add", "text": "x"}),
+                           ("observation", {"action": "list"}), ("ticket", {"action": "list"})):
+            r = mcp_core.call(name, args, Path(tempfile.mkdtemp()), re.compile("SECRET"), private=True)
+            self.assertFalse(r["success"], name)
+            self.assertIn("private session", r["message"])
 
 
 if __name__ == "__main__":
