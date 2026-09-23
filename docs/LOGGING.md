@@ -8,7 +8,8 @@ sees and what an agent sees cannot drift apart.
 | Reader | Start here |
 |---|---|
 | Agent | `chatbot-ctl.sh logs --json` (findings first), then drill down with `--fp` / `--sid` / `--rid` |
-| Person | `chatbot-ctl.sh logs` (text digest), `chatbot-ctl.sh logs -f` (live, one line per event) |
+| Person | 채팅 UI 로그 탭 → **서비스** (findings, process/ops/turn cards, recent warn/error/ops events; 1h/24h/7d; "이 세션만" = merged session timeline), or `chatbot-ctl.sh logs` / `logs -f` in a terminal |
+| UI / scripts | `GET /api/service-log?since=24h[&sid=ID]` → `{digest, events}` (events newest first, ≤200, traces ≤2000 chars) |
 | Live agent via MCP `run_command` | `chatbot-ctl.sh logs [--since 6h] [--sid ID] [--fp FP] [--rid RID] [--evt PREFIX] [--json]` (follow is refused) |
 
 Other files:

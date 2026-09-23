@@ -14,6 +14,7 @@ import mimetypes
 mimetypes.add_type("image/webp", ".webp")
 import os
 import queue
+import re
 import shutil
 import signal
 import subprocess
@@ -474,6 +475,10 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 "total": len(all_artifacts),
                 "next_before": next_before,
             })
+            return self._send(code, body, "application/json; charset=utf-8")
+        if path == "/api/service-log":
+            qs = parse_qs(parsed.query)
+            code, body = _json_bytes(_service_log(qs.get("since", ["24h"])[0], qs.get("sid", [""])[0]))
             return self._send(code, body, "application/json; charset=utf-8")
         if path.startswith("/api/sessions/") and path.endswith("/log"):
             sid = path[len("/api/sessions/"):-len("/log")]
@@ -1269,6 +1274,51 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             with sess.lock:
                 if sub_queue in sess.subscribers:
                     sess.subscribers.remove(sub_queue)
+
+
+# Service log for the UI (로그 탭 → 서비스): logdigest over logs/events.jsonl (docs/LOGGING.md).
+SERVICE_LOG_EVENTS = 200
+SERVICE_LOG_TTL_SEC = 10
+_SERVICE_LOG_CACHE: Dict[tuple, tuple] = {}
+# info events that still belong in the service view: restarts, repairs, probes
+_SERVICE_LOG_INFO_EVTS = ("proc.start", "proc.exit", "repair.", "doctor.", "ctl.", "host.", "agent.recycle")
+
+
+def _trim_event(e: dict) -> dict:
+    e = {k: v for k, v in e.items() if k not in ("_t", "routes")}
+    err = e.get("err")
+    if isinstance(err, dict) and isinstance(err.get("trace"), str):
+        e["err"] = dict(err, trace=err["trace"][-2000:])
+    return e
+
+
+def _service_log(since: str, sid: str = "") -> dict:
+    import logdigest
+    if not re.fullmatch(r"\d{1,4}[smhd]", since or ""):
+        raise ValueError("since: N[s|m|h|d]")
+    if sid and not re.fullmatch(r"\d{8}-\d{6}-[0-9a-f]{6}", sid):
+        raise ValueError("bad sid")
+    key = (since, sid)
+    hit = _SERVICE_LOG_CACHE.get(key)
+    if hit and time.time() - hit[0] < SERVICE_LOG_TTL_SEC:
+        return hit[1]
+    since_s = logdigest.parse_since(since)
+    since_t = time.time() - since_s
+    if sid:
+        events = logdigest.session_timeline(sid, since_t)
+    else:
+        events = [e for e in logdigest.read_events(since_t)
+                  if e.get("lvl") in ("warn", "error") or str(e.get("evt", "")).startswith(_SERVICE_LOG_INFO_EVTS)]
+    events = [_trim_event(e) for e in events[-SERVICE_LOG_EVENTS:]][::-1]
+    d = logdigest.digest(since_s)
+    for g in d.get("errors", []):
+        g["sample_trace"] = (g.get("sample_trace") or "")[-1500:] or None
+    out = {"ok": True, "log_exists": logdigest.LOG.exists(), "since": since, "sid": sid or None,
+           "digest": {k: d.get(k) for k in ("status", "window", "findings", "processes", "errors", "turns", "ops", "mcp", "counts")},
+           "events": events}
+    _SERVICE_LOG_CACHE.clear()
+    _SERVICE_LOG_CACHE[key] = (time.time(), out)
+    return out
 
 
 def _obs_heartbeat() -> Dict[str, Any]:

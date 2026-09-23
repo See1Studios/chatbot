@@ -26,7 +26,7 @@
       } catch(e){}
     })();
   </script>
-  <link rel="stylesheet" href="./chat.css?v=28" />
+  <link rel="stylesheet" href="./chat.css?v=29" />
 </head>
 <body>
   <div class="wrap" id="appWrap">
@@ -152,6 +152,7 @@
             <button class="act-filter-btn" data-filter="system" type="button">시스템</button>
             <button class="act-filter-btn" data-filter="warn_error" type="button">경고/오류</button>
             <button class="act-filter-btn" data-filter="token" type="button">토큰</button>
+            <button id="svcLogBtn" class="act-filter-btn svc-log-btn" type="button" title="서버·운영 로그 (logs/events.jsonl)">서비스</button>
           </div>
           <div class="act-toolbar-right">
             <input type="search" id="actSearchInput" class="act-search-input" placeholder="로그 검색…" aria-label="로그 검색">
@@ -160,6 +161,7 @@
           </div>
         </div>
         <div id="activity" class="act-scroll"></div>
+        <div id="svcLog" class="act-scroll svc-log" style="display:none"></div>
       </div>
       <div id="statusPane" role="tabpanel" aria-labelledby="tabStatus">
         <section class="status-section" id="statusProviderSection">
@@ -336,6 +338,7 @@
   <script src="./markdown.js?v=9"></script>
   <script src="./slash.js?v=5"></script>
   <script src="./model-picker.js?v=2"></script>
+  <script src="./service-log.js?v=1"></script>
 </body>
 </html>
 
