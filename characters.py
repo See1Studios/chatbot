@@ -324,3 +324,88 @@ def private_digest_prompt(segment: List[Dict], user_word: str, name: str) -> str
 
 def parse_memory_lines(text: str) -> List[str]:
     return [m.group(1).strip() for m in re.finditer(r"^\s*-\s+(.+)$", text or "", re.M)][:3]
+
+
+# ------------------------------------------------------------------ art (CHARACTER_ART_v1)
+# One image format for every character, so image agents can follow it (skill `character-art`). Files live next to
+# the card so they travel with it:
+#   avatar.webp                  512x512 badge, the base look, face centred, readable as a 56px circle
+#   avatar/<provider>.webp       512x512, optional "wig" per brain: same face, only hair colour/cut and outfit change
+#   sprites/<framing>/<label>.webp  optional standing sprites for a character-only (desktop) view with speech
+#                                bubbles: transparent, one canvas and one anchor per framing, the same scale for every
+#                                label so swapping an expression never moves the body. Labels are SillyTavern's
+#                                expression-sprite labels; `neutral` is required once a framing exists.
+#   visual.md                    the character's visual lock sheet (locks, base look, wig table, rejected)
+# A .png of the same name may sit beside any .webp as the master; the page serves the .webp.
+
+ART_SIZE = (512, 512)
+ART_MAX_BYTES = 200 * 1024
+# framing -> (canvas, max bytes, anchor rule for the skill)
+FRAMINGS = {
+    "bust": ((1024, 1024), 400 * 1024, "shoulder shot: shoulders cut by the bottom edge, top of the head ~8% from the top"),
+    "full": ((1024, 2048), 800 * 1024, "full body: feet on a line 2% above the bottom edge, centred"),
+}
+EXPRESSIONS = ("admiration", "amusement", "anger", "annoyance", "approval", "caring", "confusion", "curiosity",
+               "desire", "disappointment", "disapproval", "disgust", "embarrassment", "excitement", "fear",
+               "gratitude", "grief", "joy", "love", "nervousness", "neutral", "optimism", "pride", "realization",
+               "relief", "remorse", "sadness", "surprise")
+_ART_NAME = re.compile(r"^[a-z0-9_-]{1,32}\.(webp|png)$")
+
+
+def _image_info(path: Path) -> Optional[tuple]:
+    """(width, height, has_alpha), or None without Pillow."""
+    try:
+        from PIL import Image
+        with Image.open(path) as im:
+            return im.size[0], im.size[1], im.mode in ("RGBA", "LA", "PA") or "transparency" in im.info
+    except ImportError:
+        return None
+    except Exception:  # noqa: BLE001
+        return 0, 0, False
+
+
+def check_art(cid: str, providers=(), ws=None) -> List[str]:
+    """Problems with a character's images against the format above ([] = fine). `providers` are the known provider
+    ids; a wig for any other name is reported. Sizes and transparency are checked when Pillow is installed."""
+    base = card_path(cid, ws).parent
+    problems = []
+    if not (base / "avatar.webp").is_file():
+        problems.append("avatar.webp is missing (the base look)")
+    if not (base / "visual.md").is_file():
+        problems.append("visual.md is missing (the visual lock sheet)")
+    # (file, canvas, max bytes, needs transparency)
+    files = [(base / n, ART_SIZE, ART_MAX_BYTES, False) for n in ("avatar.webp", "avatar.png")]
+    dirs = [("avatar", set(providers), "provider", ART_SIZE, ART_MAX_BYTES, False)]
+    sprites = base / "sprites"
+    for d in sorted(sprites.iterdir()) if sprites.is_dir() else []:
+        if d.name not in FRAMINGS:
+            problems.append("sprites/%s: unknown framing (%s)" % (d.name, ", ".join(FRAMINGS)))
+            continue
+        canvas, cap, _ = FRAMINGS[d.name]
+        dirs.append(("sprites/" + d.name, set(EXPRESSIONS), "expression", canvas, cap, True))
+        if not (d / "neutral.webp").is_file():
+            problems.append("sprites/%s/neutral.webp is missing (required once a framing exists)" % d.name)
+    for sub, allowed, what, canvas, cap, alpha in dirs:
+        d = base / sub
+        for f in sorted(d.iterdir()) if d.is_dir() else []:
+            if f.is_dir() or not _ART_NAME.match(f.name):
+                problems.append("%s/%s: name must be <%s>.webp or .png" % (sub, f.name, what))
+                continue
+            if f.stem not in allowed:
+                problems.append("%s/%s: unknown %s %r" % (sub, f.name, what, f.stem))
+            files.append((f, canvas, cap, alpha))
+    for f, canvas, cap, alpha in files:
+        if not f.is_file():
+            continue
+        rel = f.relative_to(base).as_posix()
+        if f.suffix == ".webp" and f.stat().st_size > cap:
+            problems.append("%s: %d KB, keep it under %d KB" % (rel, f.stat().st_size // 1024, cap // 1024))
+        info = _image_info(f)
+        if info is not None:
+            if tuple(info[:2]) != canvas:
+                problems.append("%s: %sx%s, must be %dx%d" % ((rel,) + tuple(info[:2]) + canvas))
+            if alpha and not info[2]:
+                problems.append("%s: needs a transparent background" % rel)
+        if f.suffix == ".png" and not f.with_suffix(".webp").is_file():
+            problems.append("%s: a .png master needs its .webp beside it (the page serves .webp)" % rel)
+    return problems

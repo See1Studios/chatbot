@@ -311,3 +311,10 @@ data/workspace/pd-brain.json               PD 확인의 두뇌 목록
 3. 팀 탭 = 캐릭터 카드 편집 / 상태 탭에서 캐릭터 항목 이동
 4. 채팅 캐릭터 선택 + 캐릭터별 세션 — 세션 구조(캐릭터 × 모드)는 완료(#99), 캐릭터 선택 UI는 남음
 5. 카드 가져오기·내보내기
+
+### 12.4 캐릭터 이미지 형식 (2026-09-24, CHARACTER_ART_v1 · #103)
+이미지 에이전트가 규칙대로 만들 수 있게 형식을 고정했다. 정본은 스킬 `character-art`, 검사는 `tools/check_character_art.py`(코드 `characters.check_art`).
+- `characters/<id>/avatar.webp` 512 뱃지(필수), `avatar/<provider>.webp` 두뇌별 가발(선택, 없으면 기본 룩), `visual.md` 외형 락(필수).
+- `sprites/<framing>/<label>.webp` 선 그림(선택): `bust` 1024×1024(숄더샷), `full` 1024×2048(전신). 투명 배경, 프레이밍마다 캔버스·기준선·배율 고정(표정을 바꿔도 몸이 안 움직이게), `neutral` 먼저. 표정 이름은 SillyTavern 표정 스프라이트 이름표.
+- 목적: **데스크톱 모드**(사용자 구상) — 캐릭터만 띄우고 대화는 말풍선. 가발별 스프라이트는 아직 형식 밖.
+- 냥피디의 외형 락은 `data/persona/README.md`에서 캐릭터 폴더 `visual.md`로 옮겼고, 이미지 파일은 아직 `data/persona/`에 있다.

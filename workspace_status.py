@@ -250,6 +250,8 @@ def _instruction_files() -> list:
         if not pd:                                   # the chatbot's memory is still memory/MEMORY.md
             items.append(("characters/%s/memory.md" % c["id"], "캐릭터 기억 (%s)" % label,
                           WORKSPACE / "characters" / c["id"] / "memory.md", "on_demand"))
+        items.append(("characters/%s/visual.md" % c["id"], "외형 락 (%s)" % label,
+                      WORKSPACE / "characters" / c["id"] / "visual.md", "on_demand"))
         items.append(("characters/%s/private-memory.md" % c["id"], "사적 기억 (%s)" % label,
                       WORKSPACE / "characters" / c["id"] / "private-memory.md", "private"))
     return items

@@ -53,11 +53,12 @@ class BundleBudgetTest(unittest.TestCase):
         self.assertNotIn("tools/memory.py", text)
         self.assertNotIn("셸이 있으면", text)
 
-    def test_persona_defers_appearance_to_the_visual_readme(self):
+    def test_persona_defers_appearance_to_the_visual_sheet(self):
         import identity
         text = identity.persona_body()                  # the chatbot's card (PERSONA.md before §12 step 2)
         self.assertNotIn("풀 수인", text)
-        self.assertIn("data/persona/README.md", text)
+        self.assertIn("visual.md", text)
+        self.assertIn("character-art", text)
 
 
 if __name__ == "__main__":
