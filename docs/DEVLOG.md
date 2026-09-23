@@ -1,5 +1,15 @@
 # chatbot 개발로그
 
+## 2026-09-23 — 워크트리 위임 + 두 캐릭터 콤비 리뷰 (WORKTREE_DELEGATION_v1 … WORK_CARD_FEEDBACK_v1, 티켓 #58–#73)
+
+- **배경**: 사용자 "두 미소녀 페르소나 에이전트의 티키타카 만담", 개입 최소, 병렬 없음. 설계·결정은 `docs/plans/multi-agent-worktree-delegation.md` §7–9.
+- **흐름**: chat-agent가 `delegate`(Tier 0은 바로, Tier 2는 제안 → `[맡겨]`) → `tools/worktree_runner.py`가 격리 worktree에서 작성자 캐릭터(`PERSONA.md`)가 고치고 리뷰어 캐릭터(`PERSONA-reviewer.md`)가 diff를 PASS/FAIL로 받아침(최대 2라운드) → 게이트(smoke + 중립성 가드) → Tier 0은 ff 병합, Tier 2는 `awaiting_merge` → `[병합·⚡]`. 대사는 입력창 위 작업 카드, 끝나면 채팅 알림.
+- **변경**: `tools/worktree_runner.py`(러너·Tier·환경변수 허용목록), `delegation.py`(누가 시작·병합·폐기), `mcp_server.py` `delegate`, `server.py` `/api/delegations`, `static/app.js`·`chat.css`·`index.html` 작업 카드, `tickets.py` `awaiting_merge`/`merge_go`, `evolution.py` `delegation_tier` + `protected_paths.json` `governance`(Tier 3), `identity.py` 역할별 페르소나, `host_config.py` `CHATBOT_DELEGATE_*`, `PROJECT.md` "고칠 때"(파일 변경은 `delegate`가 기본). 저장소 밖: `~/bin/ticket-quick` `fail`/`renew`/`await-merge`/`merge-go`, 라이브 챗 에이전트 호출 거부.
+- **검증**: `tests.test_worktree_runner`(30), `tests.test_delegation`(16), `tests.test_tickets`·`test_evolution`·`test_identity` 추가분, 가드·smoke. 실측 #60(claude 작성·haiku 리뷰 PASS·병합), #71(라이브 챗 → `delegate` → 병합, 2분 반).
+- **배포**: host module + static, repair 3회(유휴 3연속 확인 후). `protected_manifest.json`은 사용자가 재기준.
+- **남은 것**: 리뷰 FAIL → claude `-c` 재시도는 실측 전. 전체 스위트의 기존 실패 6모듈(bundle_budget 등)은 이번 변경 전부터. 라이브 모델이 문서 규칙을 무시해 `ticket-quick` 차단으로 강제함 — 그래도 직접 고치면 헌장 한 줄(Tier 3, 번들 예산 초과 상태) 필요.
+
+
 ## 2026-09-23 — STATUS_MCP_HOOKS_v1 (상태 탭 MCP·훅 상세)
 
 - **배경**: 실장님 "상태 탭에서 MCP나 hook에 대해 더 자세한 정보가 나오면 좋겠네. 토글해서 도구목록을 볼수있다거나".
