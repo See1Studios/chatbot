@@ -27,7 +27,7 @@ const sent = [], opened = [];
 async function api(url, opts) {
   const text = JSON.parse(opts.body).text;
   sent.push([url, text]);
-  const target = text === '/private' ? { id: 'p1', mode: 'private' } : { id: 'w1', mode: 'work' };
+  const target = text === '/private on' ? { id: 'p1', mode: 'private' } : { id: 'w1', mode: 'work' };
   return { ok: true, switched: true, session: target };
 }
 async function openSession(id) { opened.push(id); sessionId = id; updatePrivateBtn(); }
@@ -63,7 +63,7 @@ class PrivateToggle(unittest.TestCase):
         self.assertEqual(out["inPrivate"], {"mode": "private", "live": "p1", "archive": False, "pressed": "true",
                                             "active": True, "disabled": False})
         self.assertEqual(out["back"], {"mode": "work", "pressed": "false"})
-        self.assertEqual([t for _, t in out["sent"]], ["/private", "/work"])
+        self.assertEqual([t for _, t in out["sent"]], ["/private on", "/private off"])
         self.assertEqual(out["sent"][0][0], "/api/sessions/w1/message")
         self.assertEqual(out["opened"], ["p1", "w1"])
 

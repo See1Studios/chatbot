@@ -42,3 +42,7 @@ data/workspace/.impeccable/
 data/workspace/.agents/skills/role/sessions/
 data/workspace/.agents/skills/role/__pycache__/
 logs/
+
+# private talk memory stays on this machine, never in git (SESSION_SPLIT_v1)
+data/workspace/characters/*/private-memory.md
+data/workspace/characters/*/.private-memory.*.tmp

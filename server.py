@@ -414,7 +414,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             skills = _get_available_skills()
             commands = [
                 {"name": "/btw", "label": "샛길 질문", "desc": "작업 중 즉시 경량 샛길 답변", "template": "/btw "},
-                {"name": "/private", "label": "사적 모드", "desc": "🔒 비밀 보장·휘발성 일상 대화 모드", "template": "/private"},
+                {"name": "/private on", "label": "사적 대화 켜기", "desc": "♥ 사적 대화 세션으로 전환 (업무와 분리)", "template": "/private on"},
+                {"name": "/private off", "label": "사적 대화 끄기", "desc": "업무 대화 세션으로 복귀", "template": "/private off"},
                 {"name": "/continue", "label": "이어하기", "desc": "현재 대화 맥락 인계 새 세션", "template": "/continue"},
                 {"name": "/new", "label": "새 세션", "desc": "완전한 새 대화 세션 시작", "template": "/new"},
                 {"name": "/defib", "label": "심폐소생", "desc": "⚡ 호스트 전기충격·소생 (repair)", "template": "/defib"},
@@ -1050,10 +1051,11 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     client_ctx = None
 
                 # SESSION_SPLIT_v1 (plan doc §12): private talk has its own session. /private opens the
-                # character's private session, /work goes back to the work session; nothing is sent to the agent.
-                stripped = text.strip()
+                # character's private session, /private off goes back to the work session; a bare /private toggles
+                # and /work is an old alias of off. Nothing is sent to the agent.
+                stripped = " ".join(text.split()).lower()
                 if stripped in ("/private", "/private on", "/work", "/private off"):
-                    if stripped.startswith("/private") and stripped != "/private off":
+                    if stripped == "/private on" or (stripped == "/private" and not sess.is_private):
                         target = sess if sess.is_private else REG.get_private(sess.character, like=sess)
                     else:
                         if sess.is_private:

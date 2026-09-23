@@ -38,7 +38,7 @@ let archiveBrowse = false;
 let sessionMode = 'work';
 function sameSessionMode(s) { return ((s && s.mode) || 'work') === sessionMode; }
 
-// /private or /work (typed or the heart button): the other mode's session opens with its own history; nothing
+// /private on|off (typed or the heart button): the other mode's session opens with its own history; nothing
 // goes to the agent
 async function applyModeSwitch(res) {
   const target = res.session;
@@ -54,7 +54,7 @@ function updatePrivateBtn() {
   const on = sessionMode === 'private';
   privateBtn.classList.toggle('active', on);
   privateBtn.setAttribute('aria-pressed', String(on));
-  privateBtn.title = on ? '업무 대화로 돌아가기 (/work)' : '사적 대화로 전환 (/private)';
+  privateBtn.title = on ? '사적 대화 끄기 (/private off)' : '사적 대화 켜기 (/private on)';
 }
 
 async function togglePrivateMode() {
@@ -63,7 +63,7 @@ async function togglePrivateMode() {
   try {
     const res = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/message', {
       method: 'POST',
-      body: JSON.stringify({ text: sessionMode === 'private' ? '/work' : '/private' })
+      body: JSON.stringify({ text: sessionMode === 'private' ? '/private off' : '/private on' })
     });
     if (res && res.session && res.session.id) await applyModeSwitch(res);
   } catch (e) {
