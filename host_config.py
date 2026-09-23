@@ -38,6 +38,10 @@ HOME = Path(os.environ.get("HOME", "/volume1/homes/me"))
 # a different deployment point it anywhere (see docs/plans/chatbot-host-portability.md).
 WEB_ROOT = Path(_env("CHATBOT_WEB_ROOT", "AGY_CHAT_WEB_ROOT", "/volume1/web"))
 AGENT_PATH_PREFIX = f"{HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
+# Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9): which CLI does the delegated work and
+# which one plays the reviewer character (empty: the same CLI). Names are keys of tools/worktree_runner.PROVIDERS.
+DELEGATE_PROVIDER = os.environ.get("CHATBOT_DELEGATE_PROVIDER", "claude")
+DELEGATE_REVIEWER = os.environ.get("CHATBOT_DELEGATE_REVIEWER", "")
 BRAIN = HOME / ".gemini" / "antigravity-cli" / "brain"
 # Shared/manual assets not tied to any one session (2026-09-16: merged the
 # formerly-separate chatbot-data/artifacts git repo into the sessions repo,

@@ -2088,20 +2088,25 @@ function renderReviewControls(res) {
 
 // Tickets: the buttons only type the operator's command into the chat box (`/ticket approve 3`); pressing Enter
 // runs it in the page (see send()) -- it never goes to the agent, and the agent has no way to decide a ticket.
-const TICKET_STATUS_LABEL = { proposed: '제안됨', approved: '승인됨', declined: '폐기됨', wontfix: '보류(사람 필요)', done: '완료' };
+const TICKET_STATUS_LABEL = { proposed: '제안됨', approved: '승인됨', in_progress: '진행 중', awaiting_merge: '병합 대기',
+  declined: '폐기됨', wontfix: '보류(사람 필요)', done: '완료' };
+// DELEGATION_WIRING_v1: `delegate` hands the ticket to the worktree runner ([맡겨]); an awaiting_merge ticket lands
+// or is dropped by the operator ([병합·⚡] / [폐기]). Same rule as above: the button types, Enter decides.
 const TICKET_DECISIONS = {
-  proposed: [['go', '승인+진행'], ['approve', '승인'], ['decline', '폐기']],
-  approved: [['go', '진행'], ['decline', '폐기']],
+  proposed: [['go', '승인+진행'], ['delegate', '맡겨'], ['approve', '승인'], ['decline', '폐기']],
+  approved: [['go', '진행'], ['delegate', '맡겨'], ['decline', '폐기']],
+  awaiting_merge: [['merge', '병합·⚡'], ['discard', '폐기']],
   wontfix: [['reopen', '재개']],
 };
-const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행' };
+const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '맡김', merge: '병합 시작', discard: '폐기' };
+const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', discard: 'discard' };
 
 function ticketDecisionText(t, action) {
   return '/ticket ' + action + ' ' + t.id;
 }
 
 function parseTicketCommand(text) {
-  const m = /^\/ticket\s+(go|approve|decline|reopen)\s+#?(\d{1,6})$/.exec(String(text || '').trim());
+  const m = /^\/ticket\s+(go|approve|decline|reopen|delegate|merge|discard)\s+#?(\d{1,6})$/.exec(String(text || '').trim());
   return m ? { action: m[1], id: Number(m[2]) } : null;
 }
 
@@ -2120,6 +2125,11 @@ async function goTicket(cmd) {
 }
 
 async function decideTicket(cmd) {
+  if (DELEGATION_ACTION[cmd.action]) {
+    await api('/api/delegations/' + cmd.id + '/' + DELEGATION_ACTION[cmd.action], { method: 'POST', body: JSON.stringify({}) });
+    loadWork();
+    return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' → 작업 카드에서 진행을 볼 수 있어요';
+  }
   const res = await api('/api/tickets/' + cmd.id + '/' + cmd.action, { method: 'POST', body: JSON.stringify({}) });
   const t = res.ticket || {};
   return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' 처리했어요 → ' + (TICKET_STATUS_LABEL[t.status] || t.status || '');
@@ -2148,6 +2158,7 @@ function fillTicketCommand(t, action) {
 
 function renderTicketBar(waiting) {
   if (!ticketBarEl) return;
+  waiting = waiting.filter(t => t.status !== 'awaiting_merge');   // its work card carries those buttons
   ticketBarEl.textContent = '';
   ticketBarEl.hidden = !waiting.length;
   waiting.slice(0, TICKET_BAR_MAX).forEach(t => {
@@ -2162,6 +2173,90 @@ function renderTicketBar(waiting) {
     ticketBarEl.appendChild(chip);
   });
   if (waiting.length > TICKET_BAR_MAX) ticketBarEl.appendChild(obsNode('span', 'obs-meta', '+' + (waiting.length - TICKET_BAR_MAX) + '건 더 (개선 탭)'));
+}
+
+// DELEGATION_WIRING_v1: work cards -- one per delegated run, above the composer while it runs, waits for the
+// operator's merge, or has an ending the operator has not seen. The two characters' exchange is folded: the last
+// pair shows, the rest opens on demand. Names on the lines are the run's own (display values from identity).
+const WORK_PHASE_LABEL = {
+  starting: '시작 중', running: '준비 중', writing: '작업 중', gates: '테스트 중', review: '리뷰 중', merging: '병합 중',
+  awaiting_go: '맡김 대기', awaiting_merge: '병합 대기', done: '완료', failed: '실패', gate_failed: '탈락',
+  declined: '폐기됨', stalled: '멈춤', 'merged-ticket-open': '병합됨(티켓 열림)',
+};
+const WORK_ENDED = ['done', 'failed', 'gate_failed', 'declined', 'stalled', 'merged-ticket-open'];
+const workBarEl = document.getElementById('workBar');
+let workPollTimer = null;
+const workOpen = new Set();
+
+function workLine(ln) {
+  const row = obsNode('div', 'work-line' + (ln.role === 'reviewer' ? ' reviewer' : ''));
+  row.appendChild(obsNode('span', 'work-who', (ln.name || ln.role || '') + (ln.verdict ? ' · ' + ln.verdict : '')));
+  row.appendChild(obsNode('span', 'work-said', ln.text || '…'));
+  return row;
+}
+
+function renderWorkCard(r) {
+  const card = obsNode('div', 'work-card phase-' + r.phase);
+  const head = obsNode('div', 'work-head');
+  head.appendChild(obsNode('span', 'obs-id', '#' + r.ticket));
+  head.appendChild(obsNode('span', 'work-title', r.title || ''));
+  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + (r.round ? ' · ' + r.round + '라운드' : '')));
+  card.appendChild(head);
+  const lines = r.transcript || [];
+  const open = workOpen.has(r.ticket);
+  (open ? lines : lines.slice(-2)).forEach(ln => card.appendChild(workLine(ln)));
+  if (r.reason && WORK_ENDED.includes(r.phase)) card.appendChild(obsNode('div', 'obs-meta', r.reason));
+  const actions = obsNode('div', 'work-actions');
+  if (lines.length > 2) {
+    const more = obsNode('button', 'art-btn art-btn-xs', open ? '접기' : '대화 전체 (' + lines.length + ')');
+    more.type = 'button';
+    more.addEventListener('click', () => { open ? workOpen.delete(r.ticket) : workOpen.add(r.ticket); loadWork(); });
+    actions.appendChild(more);
+  }
+  if (r.phase === 'awaiting_merge') {
+    TICKET_DECISIONS.awaiting_merge.forEach(pair => {
+      const btn = obsNode('button', 'art-btn art-btn-xs' + (pair[0] === 'merge' ? ' primary' : ''), pair[1]);
+      btn.type = 'button';
+      btn.addEventListener('click', () => fillTicketCommand({ id: r.ticket }, pair[0]));
+      actions.appendChild(btn);
+    });
+  }
+  if (r.phase === 'done' && r.tier >= 2) {
+    const zap = obsNode('button', 'art-btn art-btn-xs primary', '⚡ 소생');
+    zap.type = 'button';
+    zap.addEventListener('click', () => { inputEl.value = '/defib'; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
+    actions.appendChild(zap);
+  }
+  if (WORK_ENDED.includes(r.phase)) {
+    const ok = obsNode('button', 'art-btn art-btn-xs', '확인');
+    ok.type = 'button';
+    ok.addEventListener('click', async () => {
+      try { await api('/api/delegations/' + r.ticket + '/seen', { method: 'POST', body: JSON.stringify({}) }); } catch (e) { /* the card stays */ }
+      loadWork();
+    });
+    actions.appendChild(ok);
+  }
+  if (actions.childNodes.length) card.appendChild(actions);
+  return card;
+}
+
+async function loadWork() {
+  if (!workBarEl) return;
+  let res;
+  try {
+    res = await api('/api/delegations');
+  } catch (e) {
+    workBarEl.textContent = '';
+    workBarEl.hidden = true;
+    return;
+  }
+  const shown = (res.runs || []).filter(r => r.active || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
+  workBarEl.textContent = '';
+  workBarEl.hidden = !shown.length;
+  shown.forEach(r => workBarEl.appendChild(renderWorkCard(r)));
+  const busy = shown.some(r => r.active);
+  if (busy && !workPollTimer) workPollTimer = setInterval(loadWork, 5000);
+  if (!busy && workPollTimer) { clearInterval(workPollTimer); workPollTimer = null; }
 }
 
 // EVO_TAB_HISTORY_v1: finished work, newest first (tickets closed in the last DONE_DAYS days).
@@ -5285,6 +5380,8 @@ if (statusRefreshBtn) statusRefreshBtn.addEventListener('click', () => { fetchSe
 // Waiting tickets are shown above the composer, so they are looked up at start and now and then, not only on the status tab.
 loadTickets();
 setInterval(loadTickets, 60000);
+loadWork();
+setInterval(loadWork, 60000);
 if (usageRefreshBtn) usageRefreshBtn.addEventListener('click', () => fetchUsage(true));
 if (mcpAddBtn) mcpAddBtn.addEventListener('click', async () => {
   const name = (mcpNameInput && mcpNameInput.value || '').trim();

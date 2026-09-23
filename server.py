@@ -59,6 +59,12 @@ import evolution
 import identity
 import origin_guard
 
+try:  # worktree delegation (work cards, [맡겨]/[병합·⚡]); the page still loads without it
+    from delegation import delegation_api
+except Exception:  # noqa: BLE001
+    obslog.exception("delegation.unavailable")
+    delegation_api = lambda method, path, body: None  # noqa: E731
+
 def _json_bytes(obj: Any, code: int = 200):
     raw = json.dumps(obj, ensure_ascii=False).encode("utf-8")
     return code, raw
@@ -393,7 +399,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if path == "/api/self-status":
             code, body = _json_bytes(_self_status())
             return self._send(code, body, "application/json; charset=utf-8")
-        routed = observation_api("GET", path, None) or ticket_api("GET", path, None)
+        routed = observation_api("GET", path, None) or ticket_api("GET", path, None) or delegation_api("GET", path, None)
         if routed is not None:
             code, raw = _json_bytes(routed[1], routed[0])
             return self._send(code, raw, "application/json; charset=utf-8")
@@ -858,13 +864,15 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 _write_mcp_config(cfg)
                 code, raw = _json_bytes({"ok": True, "mcpServers": cfg["mcpServers"]})
                 return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith("/api/observations") or path.startswith("/api/tickets"):
-                # Closing observations or deciding tickets is the operator's: this server's own UI only.
+            if path.startswith(("/api/observations", "/api/tickets", "/api/delegations")):
+                # Closing observations, deciding tickets or letting delegated work start or land is the
+                # operator's: this server's own UI only.
                 if not origin_guard.same_origin(self.headers.get("Origin"), self.headers.get("Host"),
                                                 self.headers.get("Sec-Fetch-Site")):
                     code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
                     return self._send(code, raw, "application/json; charset=utf-8")
-                routed = observation_api("POST", path, body) or ticket_api("POST", path, body)
+                routed = (observation_api("POST", path, body) or ticket_api("POST", path, body)
+                          or delegation_api("POST", path, body))
                 if routed is not None:
                     code, raw = _json_bytes(routed[1], routed[0])
                     return self._send(code, raw, "application/json; charset=utf-8")

@@ -302,6 +302,24 @@ class WorktreeRunner(unittest.TestCase):
         (self.repo / "protected_paths.json").unlink()
         self.assertEqual(self.run_with("true"), 2)
 
+    # ---- a ticket the caller claimed (delegation.py), and what the agent inherits
+
+    def test_a_claimed_ticket_skips_ticket_start(self) -> None:
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", extra=("--ticket", "7", "--token", "t")), 0)
+        self.assertEqual(self.ticket_cmds(), ["renew", "done"])
+        self.assertEqual(self.run_with("true", extra=("--ticket", "7")), 2)
+
+    def test_the_agent_does_not_inherit_the_host_environment(self) -> None:
+        import os
+        os.environ["CHATBOT_TEST_SECRET_KEY"] = "s3cret"
+        try:
+            self.assertEqual(self.run_with('env > ../env.txt; echo two >> a.txt; git commit -qam c'), 0)
+        finally:
+            del os.environ["CHATBOT_TEST_SECRET_KEY"]
+        env = (wr.WORKTREE_BASE / "env.txt").read_text()
+        self.assertNotIn("CHATBOT_TEST_SECRET_KEY", env)
+        self.assertIn("GIT_AUTHOR_NAME=Fake", env)
+
 
 if __name__ == "__main__":
     unittest.main()

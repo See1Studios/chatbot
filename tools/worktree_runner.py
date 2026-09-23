@@ -273,10 +273,20 @@ def said(text: str) -> str:
     return "\n".join(lines[-2:]).strip()[:500]
 
 
+# What a delegated agent inherits from this process: the basics a CLI needs, never the host's secrets
+# (the chat server's environment holds API keys; each CLI keeps its own login under HOME).
+ENV_KEEP = ("PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ", "TMPDIR")
+
+
+def clean_env(**extra: str) -> Dict[str, str]:
+    env = {k: os.environ[k] for k in ENV_KEEP if k in os.environ}
+    env.update(extra)
+    return env
+
+
 def agent_env(provider: str) -> Dict[str, str]:
     name, email = PROVIDERS[provider]["author"]
-    return dict(os.environ, GIT_AUTHOR_NAME=name, GIT_AUTHOR_EMAIL=email,
-                GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email)
+    return clean_env(GIT_AUTHOR_NAME=name, GIT_AUTHOR_EMAIL=email, GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email)
 
 
 def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False) -> Dict:
@@ -306,7 +316,7 @@ def commit_leftovers(wt_dir: Path, provider: str, tid: int) -> bool:
 def run_gates(wt_dir: Path, gates: List[str]) -> None:
     for cmd in gates:
         log("gate: %s" % cmd)
-        code, out, err = run_cmd(["sh", "-c", cmd], cwd=wt_dir, timeout=GATE_TIMEOUT)
+        code, out, err = run_cmd(["sh", "-c", cmd], cwd=wt_dir, timeout=GATE_TIMEOUT, env=clean_env())  # runs the agent's code
         if code != 0:
             raise Failure("gate_failed", "gate failed: %s (exit %s)" % (cmd, code), tail(out + "\n" + err),
                           retryable=True)
@@ -359,7 +369,7 @@ def run_review(provider: str, model: str, wt_dir: Path, prompt: str) -> Dict[str
         argv += [spec["model_flag"], model]
     if not shutil.which(argv[0]):
         raise Failure("failed", "reviewer CLI %s not installed" % argv[0])
-    code, out, err = run_cmd(argv + [prompt], cwd=wt_dir, timeout=REVIEW_TIMEOUT)
+    code, out, err = run_cmd(argv + [prompt], cwd=wt_dir, timeout=REVIEW_TIMEOUT, env=clean_env())
     if code != 0:
         raise Failure("failed", "reviewer %s exited with %s" % (provider, code), tail(err or out))
     return parse_review(out)
@@ -400,7 +410,7 @@ def write_state(tid: int, **fields) -> None:
     path = state_path(tid)
     path.parent.mkdir(parents=True, exist_ok=True)
     st = read_state(tid)
-    st.update(fields, ticket=tid, updated=time.strftime("%Y-%m-%d %H:%M:%S"))
+    st.update(fields, ticket=tid, updated=time.strftime("%Y-%m-%d %H:%M:%S"), rev=int(st.get("rev", 0)) + 1)
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
     tmp.replace(path)
@@ -527,14 +537,20 @@ def cmd_run(args) -> int:
     writer_p, reviewer_p = persona(), persona(REVIEWER_ROLE)
     actor = PROVIDERS[provider]["actor"]
 
-    # 1. ticket
-    try:
-        vals = ticket_call("start", "--title", args.title, "--paths", ",".join(paths),
-                           "--actor", actor, *sum((["--evidence", e] for e in args.evidence), []))
-        tid, token = int(vals["TICKET_ID"]), vals["CLAIM_TOKEN"]
-    except (RuntimeError, KeyError, ValueError) as e:
-        print("Error: ticket start failed: %s" % e, file=sys.stderr)
-        return 1
+    # 1. ticket: one the caller already claimed (--ticket/--token), or a new one on the operator's instruction
+    if args.ticket and args.token:
+        tid, token = args.ticket, args.token
+    elif args.ticket or args.token:
+        print("Error: --ticket and --token go together (a ticket the caller has claimed)", file=sys.stderr)
+        return 2
+    else:
+        try:
+            vals = ticket_call("start", "--title", args.title, "--paths", ",".join(paths),
+                               "--actor", actor, *sum((["--evidence", e] for e in args.evidence), []))
+            tid, token = int(vals["TICKET_ID"]), vals["CLAIM_TOKEN"]
+        except (RuntimeError, KeyError, ValueError) as e:
+            print("Error: ticket start failed: %s" % e, file=sys.stderr)
+            return 1
     branch, wt_dir = names(tid)
     result.update(ticket=tid, branch=branch, worktree=str(wt_dir))
     log("ticket #%d claimed (paths: %s)" % (tid, ", ".join(paths)))
@@ -721,6 +737,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--gate", action="append", default=[], help="Extra gate command run in the worktree (repeatable); "
                                                                "the DEFAULT_GATES always run first")
     p.add_argument("--evidence", action="append", default=[], help="Evidence ref passed to ticket-quick (repeatable)")
+    p.add_argument("--ticket", type=int, default=0, help="Work on this ticket, already claimed by the caller (with --token)")
+    p.add_argument("--token", default="", help="The caller's claim token for --ticket")
     p.add_argument("--timeout", type=int, default=1200, help="Agent timeout per round in seconds (max %d)" % MAX_AGENT_TIMEOUT)
     p.add_argument("--reviewer", choices=sorted(PROVIDERS), help="Provider for the reviewer character (default: --provider)")
     p.add_argument("--reviewer-model", default="", help="Reviewer model (default: the provider's cheap review model)")

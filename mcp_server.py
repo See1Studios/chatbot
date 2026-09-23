@@ -52,6 +52,34 @@ try:
     import mcp_core
 except Exception:
     mcp_core = None
+# Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9): the `delegate` tool.
+try:
+    import delegation
+except Exception:
+    delegation = None
+
+DELEGATE_TOOL = {
+    "name": "delegate",
+    "description": ("Hand code work the operator asked for in this conversation to a delegated worker in an isolated git "
+                    "worktree; your own persona writes it and a reviewer character checks it, and the operator sees their "
+                    "exchange on a work card. start (title, paths=[repo-relative files], instruction, evidence=[event:"
+                    "<session>#<line> of the operator's request | candidate:<epoch>]): Tier 0 paths (workspace files) start "
+                    "at once and land when gates and review pass; Tier 2 paths (host modules, tests) become a proposed "
+                    "ticket the operator starts with [맡겨] and lands with [병합·⚡]; Tier 3 (guards, gates, approval rules, "
+                    "the charter) is refused. status: the work cards. Only on the operator's request; merging and "
+                    "discarding are the operator's, not a tool's."),
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "enum": ["start", "status"]},
+            "title": {"type": "string"},
+            "paths": {"type": "array", "items": {"type": "string"}},
+            "instruction": {"type": "string"},
+            "evidence": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["action"],
+    },
+}
 
 # Generic/core roots -- always allowlisted regardless of deployment.
 # Sphere/Hermes/wiki-specific extra roots live in the optional nas_mcp_host
@@ -255,6 +283,8 @@ def tool_defs() -> List[dict]:
     ]
     if mcp_core is not None:
         defs += list(mcp_core.TOOL_DEFS)
+    if delegation is not None:
+        defs.append(DELEGATE_TOOL)
     if HOST_PLUGIN:
         defs += list(getattr(HOST_PLUGIN, "EXTRA_TOOL_DEFS", []))
     return defs
@@ -465,6 +495,25 @@ def call_tool(name: str, arguments: dict) -> dict:
                 return envelope(False, "refusing secret-related command", None)
             code, out, err = _run(["bash", "-lc", cmd], timeout=30)
             return envelope(code == 0, "ok" if code == 0 else "nonzero", {"code": code, "stdout": out, "stderr": err})
+
+        if name == "delegate" and delegation is not None:
+            action = str(args.get("action") or "")
+            if SECRET_CONTENT_RE.search("\n".join(str(args.get(k) or "") for k in ("title", "instruction"))):
+                return envelope(False, "refusing to record secret-like content", None)
+            try:
+                if action == "start":
+                    res = delegation.request(args.get("title"), args.get("paths"), args.get("instruction"),
+                                             args.get("evidence"), actor=_live_actor())
+                    msg = ("started; the work card shows its progress" if res["started"] else
+                           "proposed as ticket #%d (Tier 2); the operator starts it with [맡겨]" % res["ticket"])
+                    return envelope(True, msg, res)
+                if action == "status":
+                    return envelope(True, "ok", {"runs": [{k: r[k] for k in ("ticket", "title", "phase", "round", "tier",
+                                                                             "reason", "head")}
+                                                          for r in delegation.runs()]})
+            except (delegation.DelegationError, delegation.tickets.TicketError) as e:
+                return envelope(False, str(e), None)
+            return envelope(False, "unknown action (start, status); merging and discarding are the operator's", None)
 
         if mcp_core is not None and name in mcp_core.NAMES:
             return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, actor=_live_actor())

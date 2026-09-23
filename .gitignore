@@ -16,6 +16,8 @@ data/standby.pid
 data/secrets.env
 # per-host account observation state (accounts.py watch_loop)
 data/account_state.json
+# worktree delegation: which work cards the operator has seen (delegation.py)
+data/delegation_seen.json
 # self-evolution runtime state (recursive-self-evolution.md): locks, flags, collected candidates, live pids
 data/lifecycle.lock
 data/maintenance.flag
