@@ -1,0 +1,48 @@
+{
+ "actor": "claude-code",
+ "approved_at": "2026-09-23 15:55:11",
+ "approved_by": "operator (api) via claude-code ticket-quick (operator's instruction)",
+ "attempts": 1,
+ "closed_by": "claude-code",
+ "closed_reason": "done",
+ "created": "2026-09-23 15:55:11",
+ "evidence": [
+  "candidate:1790146511.253"
+ ],
+ "gate_failures": 0,
+ "id": 65,
+ "notes": [
+  {
+   "by": "operator (api) via claude-code ticket-quick (operator's instruction)",
+   "text": "approved",
+   "ts": "2026-09-23 15:55:11"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "claimed (attempt 1/3); paths: evolution.py, protected_paths.json, tools/worktree_runner.py, tests/test_worktree_runner.py, tests/test_evolution.py",
+   "ts": "2026-09-23 15:55:11"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done: commit 8c32101",
+   "ts": "2026-09-23 15:58:08"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done",
+   "ts": "2026-09-23 15:58:08"
+  }
+ ],
+ "paths": [
+  "evolution.py",
+  "protected_paths.json",
+  "tools/worktree_runner.py",
+  "tests/test_worktree_runner.py",
+  "tests/test_evolution.py"
+ ],
+ "status": "done",
+ "target": "evolution.py, protected_paths.json, tools/worktree_runner.py, tests/test_worktre",
+ "title": "DELEGATION_TIERS_v1: 외주 경로 Tier 판정 (governance 목록, Tier 3 거부, Tier 2 병합 대기 강제)",
+ "updated": "2026-09-23 15:58:08",
+ "worked_by": "claude-code"
+}
