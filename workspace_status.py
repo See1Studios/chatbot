@@ -242,13 +242,21 @@ _LAYER_ORDER = {"always": 0, "on_demand": 1}
 
 def _instruction_files() -> list:
     items = [(i, t, WORKSPACE / rel, layer) for i, t, rel, layer in INSTRUCTION_FILES]
-    for f in sorted((WORKSPACE / "experts").glob("*/expert.md")):
-        role = f.parent.name
-        if role.startswith("_"):
-            continue
-        items.append(("experts/%s/expert.md" % role, "전문가 캐릭터 (%s)" % role, f, "on_demand"))
-        items.append(("experts/%s/memory.md" % role, "전문가 기억 (%s)" % role, f.parent / "memory.md", "on_demand"))
+    for c in _characters():
+        label = c["name"] or c["id"]
+        items.append(("characters/%s/card.json" % c["id"], "캐릭터 카드 (%s)" % label,
+                      WORKSPACE / "characters" / c["id"] / "card.json", "on_demand"))
+        items.append(("characters/%s/memory.md" % c["id"], "캐릭터 기억 (%s)" % label,
+                      WORKSPACE / "characters" / c["id"] / "memory.md", "on_demand"))
     return items
+
+
+def _characters() -> list:
+    try:
+        import characters
+        return characters.listing(WORKSPACE)
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _protected_why(path: Path) -> Optional[str]:
@@ -309,6 +317,14 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
     content = (body or {}).get("content")
     if not isinstance(content, str) or not content.strip():
         return 400, {"ok": False, "error": "content required"}
+    if fp.name == "card.json":       # a character card must stay a Character Card V2
+        try:
+            card = json.loads(content)
+            ok = isinstance(card, dict) and card.get("spec") == "chara_card_v2" and isinstance(card.get("data"), dict)
+        except ValueError:
+            ok = False
+        if not ok:
+            return 400, {"ok": False, "error": "a character card must be Character Card V2 JSON (spec chara_card_v2)"}
     if fp == WORKSPACE / "memory" / "MEMORY.md":
         if memory_store is None:
             return 503, {"ok": False, "error": "memory core unavailable"}
@@ -330,13 +346,13 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
     return 200, {"ok": True, "id": rest, "bytes": len(content.encode("utf-8"))}
 
 
-# ------------------------------------------------------------ experts (EXPERTS_STATUS_v1)
-# The status tab's "전문가" section: each expert's brain list (experts/<role>/brain.json) and the PD's confirmation
-# list (pd-brain.json), docs/plans/multi-agent-worktree-delegation.md §11. The operator edits them here; the PD
-# cannot. Which providers a brain may name comes from the delegation runner's registry.
+# ------------------------------------------------------------ team (EXPERTS_STATUS_v1, CHARACTERS_v1)
+# The 팀 tab: the PD's confirmation brain list (pd-brain.json) and each character's work brains (its card,
+# extensions.chatbot.brains.work), docs/plans/multi-agent-worktree-delegation.md §11-12. The operator edits them here;
+# the PD cannot. Which providers a brain may name comes from the delegation runner's registry.
 
 _MAX_BRAINS = 6
-_ROLE_ID = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+_CHAR_ID = re.compile(r"^char_[0-7][0-9a-hjkmnp-tv-z]{25}$")
 
 
 def _runner_providers() -> list:
@@ -355,20 +371,12 @@ def _read_chain(path: Path) -> list:
         return []
 
 
-def _brain_path(role: str) -> Optional[Path]:
-    if role == "pd":
-        return WORKSPACE / "pd-brain.json"
-    if _ROLE_ID.match(role) and (WORKSPACE / "experts" / role / "expert.md").is_file():
-        return WORKSPACE / "experts" / role / "brain.json"
-    return None
-
-
 def experts_overview() -> dict:
     try:
         import identity
-        names = lambda role: identity.get_identity(role)  # noqa: E731
+        pd = identity.get_identity("")
     except Exception:  # noqa: BLE001
-        names = lambda role: {"name": role or "PD", "title": ""}  # noqa: E731
+        pd = {"name": "PD"}
     providers = _runner_providers()
     models = {}
     try:
@@ -378,58 +386,75 @@ def experts_overview() -> dict:
                 models[pid] = list(AGENT_ADAPTERS[pid].known_models())[:40]
     except Exception:  # noqa: BLE001
         pass
-    pd = names("")
-    out = [{"role": "pd", "name": pd["name"], "title": "PD 확인", "chain": _read_chain(WORKSPACE / "pd-brain.json"),
-            "path": "data/workspace/pd-brain.json", "editable": _protected_why(WORKSPACE / "pd-brain.json") is None}]
-    for f in sorted((WORKSPACE / "experts").glob("*/expert.md")):
-        role = f.parent.name
-        if not _ROLE_ID.match(role):
-            continue
-        ident = names(role)
-        bp = f.parent / "brain.json"
-        out.append({"role": role, "name": ident["name"], "title": ident.get("title", ""), "chain": _read_chain(bp),
-                    "path": "data/workspace/experts/%s/brain.json" % role, "editable": _protected_why(bp) is None})
+    out = [{"id": "pd", "role": "pd", "name": pd["name"], "title": "PD 확인",
+            "chain": _read_chain(WORKSPACE / "pd-brain.json"), "path": "data/workspace/pd-brain.json",
+            "editable": _protected_why(WORKSPACE / "pd-brain.json") is None}]
+    try:
+        import characters
+    except Exception:  # noqa: BLE001
+        characters = None
+    for c in _characters():
+        cp = WORKSPACE / "characters" / c["id"] / "card.json"
+        disp = characters.ext(c["card"]).get("display") or {} if characters else {}
+        out.append({"id": c["id"], "role": c["role"], "name": c["name"], "title": disp.get("title", ""),
+                    "chain": characters.brains(c["card"], "work") if characters else [],
+                    "path": "data/workspace/characters/%s/card.json" % c["id"], "editable": _protected_why(cp) is None})
     return {"ok": True, "experts": out, "providers": providers, "models": models}
 
 
-def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
-    """GET /api/experts; PUT /api/experts/<role>/brain {chain} (role `pd` = the PD's confirmation). A PUT is the
-    operator editing from the status tab, so the caller must have checked that it came from this server's own page."""
-    if not (path == "/api/experts" or path.startswith("/api/experts/")):
-        return None
-    rest = path[len("/api/experts"):].strip("/")
-    if method == "GET" and rest == "":
-        return 200, experts_overview()
-    m = re.fullmatch(r"([a-z][a-z0-9-]{0,31})/brain", rest)
-    if method != "PUT" or not m:
-        return 404, {"ok": False, "error": "not found"}
-    bp = _brain_path(m.group(1))
-    if bp is None:
-        return 404, {"ok": False, "error": "no such expert"}
-    why = _protected_why(bp)
-    if why:
-        return 403, {"ok": False, "error": "read-only: protected (%s)" % why}
-    raw = (body or {}).get("chain")
+def _clean_chain(raw) -> Tuple[Optional[list], str]:
     providers = _runner_providers()
     if not isinstance(raw, list) or not 1 <= len(raw) <= _MAX_BRAINS:
-        return 400, {"ok": False, "error": "a brain list has 1-%d entries" % _MAX_BRAINS}
+        return None, "a brain list has 1-%d entries" % _MAX_BRAINS
     chain = []
     for n, b in enumerate(raw, 1):
         if not isinstance(b, dict) or b.get("provider") not in providers:
-            return 400, {"ok": False, "error": "brain %d: provider must be one of %s" % (n, ", ".join(providers))}
+            return None, "brain %d: provider must be one of %s" % (n, ", ".join(providers))
         model = str(b.get("model") or "").strip()
         try:
             timeout = int(b.get("timeout") or 0)
         except (TypeError, ValueError):
             timeout = -1
         if len(model) > 80 or not re.fullmatch(r"[A-Za-z0-9._:/-]*", model) or not 0 <= timeout <= 3600:
-            return 400, {"ok": False, "error": "brain %d: model (letters, digits, ._:/-) or timeout (0-3600 s) is off" % n}
+            return None, "brain %d: model (letters, digits, ._:/-) or timeout (0-3600 s) is off" % n
         entry = {"provider": b["provider"], "model": model}
         if timeout:
             entry["timeout"] = timeout
         chain.append(entry)
-    _atomic_write_text(bp, json.dumps({"chain": chain}, ensure_ascii=False, indent=2) + "\n")
-    return 200, {"ok": True, "role": m.group(1), "chain": chain}
+    return chain, ""
+
+
+def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
+    """GET /api/experts; PUT /api/experts/<id>/brain {chain} (`pd` = the PD's confirmation, else a character id).
+    A PUT is the operator editing from the team tab, so the caller must have checked that it came from this
+    server's own page."""
+    if not (path == "/api/experts" or path.startswith("/api/experts/")):
+        return None
+    rest = path[len("/api/experts"):].strip("/")
+    if method == "GET" and rest == "":
+        return 200, experts_overview()
+    m = re.fullmatch(r"(pd|char_[0-9a-z]{26})/brain", rest)
+    if method != "PUT" or not m:
+        return 404, {"ok": False, "error": "not found"}
+    who = m.group(1)
+    target = WORKSPACE / "pd-brain.json" if who == "pd" else WORKSPACE / "characters" / who / "card.json"
+    if who != "pd" and (not _CHAR_ID.match(who) or not target.is_file()):
+        return 404, {"ok": False, "error": "no such character"}
+    why = _protected_why(target)
+    if why:
+        return 403, {"ok": False, "error": "read-only: protected (%s)" % why}
+    chain, err = _clean_chain((body or {}).get("chain"))
+    if chain is None:
+        return 400, {"ok": False, "error": err}
+    if who == "pd":
+        _atomic_write_text(target, json.dumps({"chain": chain}, ensure_ascii=False, indent=2) + "\n")
+    else:
+        import characters
+        card = characters.load(who, WORKSPACE)
+        characters.ext(card) or card["data"].setdefault("extensions", {}).setdefault(characters.EXT, {})
+        characters.ext(card).setdefault("brains", {})["work"] = chain
+        characters.save(who, card, WORKSPACE)
+    return 200, {"ok": True, "id": who, "chain": chain}
 
 
 def ticket_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:

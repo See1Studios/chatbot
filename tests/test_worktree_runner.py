@@ -69,7 +69,7 @@ class WorktreeRunner(unittest.TestCase):
         self.base = base
         self.saved = (wr.CHATBOT_REPO, wr.WORKTREE_BASE, wr.TICKET_QUICK, wr.DEFAULT_GATES, dict(wr.PROVIDERS), wr.persona,
                       wr.workspace_dir)
-        self.ws = base / "ws"                       # experts/<role>/brain.json and pd-brain.json for this test
+        self.ws = base / "ws"                       # characters/<id>/ and pd-brain.json for this test
         wr.workspace_dir = lambda: self.ws
         wr.persona = lambda role="": {"name": "S" if role == "staff" else "P", "label": role or "pd", "voice": "", "body": ""}
         wr.CHATBOT_REPO, wr.WORKTREE_BASE = self.repo, base / "wt"
@@ -398,10 +398,21 @@ class WorktreeRunner(unittest.TestCase):
 
     # ---- brains: each expert's ordered list, falling through on quota, limit, missing CLI or timeout
 
+    def character(self, role="staff", chain=None):
+        """A character playing `role` in this test's workspace; returns its folder."""
+        sys.path.insert(0, str(ROOT))
+        import characters
+        cid = characters.by_role(role, self.ws) or characters.new_id()
+        card = characters.new_card("S", role, brains={"work": chain} if chain else {})
+        characters.save(cid, card, self.ws)
+        return self.ws / "characters" / cid
+
     def brains(self, name, chain):
-        path = self.ws / ("pd-brain.json" if name == "pd" else "experts/%s/brain.json" % name)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"chain": chain}))
+        if name == "pd":
+            self.ws.mkdir(parents=True, exist_ok=True)
+            (self.ws / "pd-brain.json").write_text(json.dumps({"chain": chain}))
+        else:
+            self.character(name, chain)
 
     def add_provider(self, name, script, review=PASS):
         wr.PROVIDERS[name] = {"argv": ["sh", "-c", script], "review_argv": ["sh", "-c", review], "model_flag": "-m",
@@ -446,9 +457,7 @@ class WorktreeRunner(unittest.TestCase):
     LEARN = 'echo two >> a.txt; git commit -qam c; echo "LEARNED: tests live in tests/"; echo ---; echo hi'
 
     def expert_dir(self):
-        d = self.ws / "experts" / "staff"
-        d.mkdir(parents=True, exist_ok=True)
-        return d
+        return self.character("staff")
 
     def test_the_expert_reads_its_memory(self) -> None:
         (self.expert_dir() / "memory.md").write_text("# Memory\n- [2026-01-01] the user likes tabs\n")

@@ -22,7 +22,7 @@
   1. ticket-quick start  -> TICKET_ID, CLAIM_TOKEN (승인 + 클레임, 대상 경로가 메인에서 clean해야 함)
   2. git worktree add -b worktree/ticket-<ID> ~/.worktrees/chatbot/ticket-<ID> <main HEAD>
   3. 라운드 (최대 --rounds):
-     a. 전문가(data/workspace/experts/<role>/ 캐릭터)가 헤드리스로 작업·커밋하고 캐릭터 대사 한마디를 남긴다
+     a. 전문가(data/workspace/characters/<id>/ 캐릭터, 역할로 찾음)가 헤드리스로 작업·커밋하고 캐릭터 대사 한마디를 남긴다
         (미커밋 변경은 러너가 대신 커밋, 커밋 author는 제공자 신원)
      b. 기계 게이트: 커밋 존재 -> 범위(--paths 밖 변경 금지) -> 리스 연장 -> 메인 최신화(rebase)
         -> smoke + 중립성 가드 테스트 (DEFAULT_GATES) + --gate 명령들
@@ -64,7 +64,7 @@ REVIEW_TIMEOUT = 300
 GATE_TIMEOUT = 600
 TAIL_LINES = 30
 DIFF_LIMIT = 15000
-WORKER_ROLE = "staff"          # the default expert (experts/staff/); the chatbot's own persona (the PD) confirms
+WORKER_ROLE = "staff"          # the default expert's role (characters.py); the chatbot's own persona (the PD) confirms
 TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
 
 # Provider registry: how to run each CLI headless as the worker (`argv`), as the worker again in the same
@@ -267,7 +267,7 @@ def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[s
 
 
 # ------------------------------------------------------------ expert memory
-# Each expert keeps a short memory (experts/<role>/memory.md, plan doc §11 step 4): it reads it before a task and may
+# Each expert keeps a short memory (characters/<id>/memory.md, plan doc §11 step 4): it reads it before a task and may
 # end its output with LEARNED lines; the lessons of a task are kept only when the PD confirmed it (PASS).
 
 LEARNED_RULE = ("If you learned something worth remembering for future work here (about this project, the user's "
@@ -291,8 +291,19 @@ def learned(text: str) -> List[str]:
     return out
 
 
+def character_id(role: str) -> Optional[str]:
+    """The character playing `role` (or the id itself) in this workspace, or None."""
+    try:
+        return host_module("characters").resolve(role, workspace_dir())
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def memory_path(role: str) -> Path:
-    return workspace_dir() / "experts" / role / "memory.md"
+    cid = character_id(role)
+    if not cid:
+        return workspace_dir() / "characters" / "_none" / "memory.md"     # no such character: nothing is kept
+    return host_module("characters").memory_path(cid, workspace_dir())
 
 
 def read_memory(role: str) -> str:
@@ -479,7 +490,7 @@ def run_review(provider: str, model: str, wt_dir: Path, prompt: str, timeout: in
 
 
 # ------------------------------------------------------------------- brains
-# Each expert has an ordered list of brains (experts/<role>/brain.json); the PD's confirmation has its own
+# Each expert has an ordered list of brains (its card: extensions.chatbot.brains.work); the PD's confirmation has its own
 # (pd-brain.json). A brain that is out of quota, rate-limited, missing or silent past its timeout hands the turn to
 # the next one (docs/plans/multi-agent-worktree-delegation.md §11). The operator sets the lists; the PD cannot.
 
@@ -504,7 +515,7 @@ def review_with_chain(chain: List[Dict], wt_dir: Path, prompt: str, renew) -> tu
 
 
 def workspace_dir() -> Path:
-    """This instance's workspace (host_config), where experts/ and pd-brain.json live."""
+    """This instance's workspace (host_config), where characters/ and pd-brain.json live."""
     try:
         return host_module("host_config").WORKSPACE
     except Exception:  # noqa: BLE001
@@ -522,6 +533,21 @@ def load_chain(path: Path, default: List[Dict]) -> List[Dict]:
         if isinstance(b, dict) and b.get("provider") in PROVIDERS:
             chain.append({"provider": b["provider"], "model": str(b.get("model") or ""),
                           "timeout": int(b.get("timeout") or 0)})
+    return chain or default
+
+
+def expert_chain(role: str, default: List[Dict]) -> List[Dict]:
+    """The expert's brain list from its card (brains.work), checked like load_chain; `default` when none."""
+    cid = character_id(role)
+    if not cid:
+        return default
+    try:
+        C = host_module("characters")
+        raw = C.brains(C.load(cid, workspace_dir()), "work")
+    except Exception:  # noqa: BLE001
+        return default
+    chain = [{"provider": b["provider"], "model": str(b.get("model") or ""), "timeout": int(b.get("timeout") or 0)}
+             for b in raw if isinstance(b, dict) and b.get("provider") in PROVIDERS]
     return chain or default
 
 
@@ -795,8 +821,7 @@ def cmd_run(args) -> int:
                                   character_block(writer_p, reviewer_p, STAFF_RELATION), read_memory(task["role"]))
             lessons: List[str] = []
             feedback = ""
-            chain = load_chain(workspace_dir() / "experts" / task["role"] / "brain.json",
-                               [{"provider": provider, "model": args.model, "timeout": 0}])
+            chain = expert_chain(task["role"], [{"provider": provider, "model": args.model, "timeout": 0}])
             bi, last_brain = 0, None
             for rnd in range(1, args.rounds + 1):
                 if rnd > 1 or tno > 1:

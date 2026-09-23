@@ -1,6 +1,0 @@
-{
-  "chain": [
-    {"provider": "agy", "model": "gemini-3.1-pro-high"},
-    {"provider": "agy", "model": "gemini-3.8-flash-high"}
-  ]
-}

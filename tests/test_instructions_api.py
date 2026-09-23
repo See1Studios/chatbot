@@ -19,9 +19,11 @@ class InstructionsApiTest(unittest.TestCase):
         self.ws = self.root / "data" / "workspace"
         (self.ws / "memory").mkdir(parents=True)
         for name, text in (("AGENTS.md", "charter"), ("PERSONA.md", "persona"), ("PROJECT.md", "procedure"),
-                           ("SELF-MODIFY.md", "boundary"), ("experts/staff/expert.md", "staff")):
-            (self.ws / name).parent.mkdir(parents=True, exist_ok=True)
+                           ("SELF-MODIFY.md", "boundary")):
             (self.ws / name).write_text(text, encoding="utf-8")
+        import characters
+        self.cid = characters.new_id()
+        characters.save(self.cid, characters.new_card("S", "staff"), self.ws)
         (self.ws / "memory" / "MEMORY.md").write_text("# Memory\n- a fact\n", encoding="utf-8")
         (self.root / "protected_paths.json").write_text(json.dumps(
             {"protect": ["data/workspace/AGENTS.md", "data/workspace/SELF-MODIFY.md"]}), encoding="utf-8")
@@ -44,7 +46,7 @@ class InstructionsApiTest(unittest.TestCase):
         self.assertEqual({k: (v["layer"], v["editable"]) for k, v in items.items() if v["kind"] == "file"}, {
             "AGENTS.md": ("always", False), "PERSONA.md": ("always", True), "MEMORY.md": ("always", True),
             "PROJECT.md": ("on_demand", True), "SELF-MODIFY.md": ("on_demand", False),
-            "experts/staff/expert.md": ("on_demand", True)})
+            "characters/%s/card.json" % self.cid: ("on_demand", True)})
         self.assertIn("data/workspace/AGENTS.md", items["AGENTS.md"]["reason"])
         self.assertEqual(items["PROJECT.md"]["content"], "procedure")      # whole, not a preview
         for gen in ("skills-index", "status-badge"):
@@ -66,15 +68,20 @@ class InstructionsApiTest(unittest.TestCase):
         self.assertEqual((self.ws / "PROJECT.md").read_text(), "new procedure")
         self.assertTrue(list(self.ws.glob("PROJECT.md.bak-selfstatus-*")))
 
-    def test_an_expert_file_id_arrives_url_encoded(self):
-        code, _ = W.instructions_api("PUT", "/api/instructions/experts%2Fstaff%2Fexpert.md", {"content": "new staff"})
-        self.assertEqual(code, 200)
-        self.assertEqual((self.ws / "experts" / "staff" / "expert.md").read_text(), "new staff")
+    def test_a_character_card_id_arrives_url_encoded_and_must_stay_a_card(self):
+        path = "/api/instructions/characters%%2F%s%%2Fcard.json" % self.cid
+        self.assertEqual(W.instructions_api("PUT", path, {"content": "not json"})[0], 400)
+        self.assertEqual(W.instructions_api("PUT", path, {"content": '{"spec": "other", "data": {}}'})[0], 400)
+        import characters
+        card = characters.new_card("S2", "staff")
+        self.assertEqual(W.instructions_api("PUT", path, {"content": json.dumps(card)})[0], 200)
+        self.assertEqual(characters.load(self.cid, self.ws)["data"]["name"], "S2")
 
     def test_an_expert_memory_is_listed_when_it_exists(self):
-        self.assertNotIn("experts/staff/memory.md", self.items())
-        (self.ws / "experts" / "staff" / "memory.md").write_text("# Memory\n- [2026-01-01] x\n", encoding="utf-8")
-        item = self.items()["experts/staff/memory.md"]
+        key = "characters/%s/memory.md" % self.cid
+        self.assertNotIn(key, self.items())
+        (self.ws / "characters" / self.cid / "memory.md").write_text("# Memory\n- [2026-01-01] x\n", encoding="utf-8")
+        item = self.items()[key]
         self.assertEqual((item["layer"], item["editable"]), ("on_demand", True))
 
     def test_memory_is_saved_under_its_lock_and_cap(self):

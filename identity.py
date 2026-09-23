@@ -11,10 +11,11 @@ name is hardcoded here or in the UI:
                             voice       one-line tone hint for host-built prompts
   PERSONA.md  body                      the personality and tone themselves
 
-An expert character with its own role (worktree delegation, docs/plans/
-multi-agent-worktree-delegation.md §11) lives in `experts/<role>/expert.md`
-with the same keys; its `title` falls back to AGENTS.md. The role is an id, the
-name in the file is display only.
+Other characters (docs/plans/multi-agent-worktree-delegation.md §12) live in
+`characters/<id>/card.json` (Character Card V2, characters.py). Asked by role or
+character id, never by name: the name (`data.name`) and the title/voice under
+`extensions.chatbot.display` are display only; a missing title falls back to
+AGENTS.md.
 
 Always read from `WORKSPACE` at call time (never a module constant), so a second
 chatbot with its own workspace has its own identity. Anything missing or broken
@@ -89,30 +90,57 @@ def _front(path: Path) -> Dict[str, str]:
 
 
 def persona_file(role: str = "") -> Path:
-    """PERSONA.md for the chatbot itself, experts/<role>/expert.md for an expert character."""
+    """PERSONA.md for the chatbot itself; for another character (role or id), its card file."""
     if not role:
         return WORKSPACE / "PERSONA.md"
-    if not _ROLE_RE.match(role):
+    if not (_ROLE_RE.match(role) or role.startswith("char_")):
         raise ValueError("role must be a lowercase id, got %r" % role[:40])
-    return WORKSPACE / "experts" / role / "expert.md"
+    import characters
+    cid = characters.resolve(role, WORKSPACE)
+    return characters.card_path(cid, WORKSPACE) if cid else WORKSPACE / "characters" / "_missing" / "card.json"
+
+
+def _character(role: str) -> Dict:
+    try:
+        import characters
+        return characters.load(characters.resolve(role, WORKSPACE) or "", WORKSPACE)
+    except (OSError, ValueError, ImportError):
+        return {}
 
 
 def get_identity(role: str = "") -> Dict[str, str]:
     """{title, persona, user_title, voice, name}. `name` is what to call the
     chatbot in running text: the persona if there is one, else the title.
-    With `role`, the expert character of experts/<role>/expert.md."""
+    With `role` (a role or a character id), that character's card."""
     ident: Dict[str, str] = {}
-    own = _front(persona_file(role)) if role else {}
+    if role:
+        persona_file(role)                       # validates the role / id
+        card = _character(role)
+        import characters
+        disp = characters.ext(card).get("display") or {} if card else {}
+        own = {"persona": (card.get("data") or {}).get("name", "") if card else "",
+               "voice": disp.get("voice", ""), "title": disp.get("title", ""), "user_title": disp.get("user_title", "")}
+    else:
+        own = {}
     for k, default in DEFAULTS.items():
-        src = own if role and (_SOURCES[k] == "PERSONA.md" or own.get(k)) else _front(WORKSPACE / _SOURCES[k])
-        val = _clean(src.get(k, ""), _LIMITS[k])
-        ident[k] = val or default
+        if role and (own.get(k) or k in ("persona", "voice")):
+            val = own.get(k, "")
+        else:
+            val = _front(WORKSPACE / _SOURCES[k]).get(k, "")
+        ident[k] = _clean(val, _LIMITS[k]) or default
     ident["name"] = ident["persona"] or ident["title"]
     return ident
 
 
 def persona_body(role: str = "") -> str:
-    """The personality text of a persona file (front matter removed), capped."""
+    """The personality text: PERSONA.md's body, or a character card's work text (identity, voice, instructions)."""
+    if role:
+        persona_file(role)
+        card = _character(role)
+        if not card:
+            return ""
+        import characters
+        return characters.work_text(card)[:_BODY_LIMIT]
     try:
         text = persona_file(role).read_text(encoding="utf-8", errors="replace")
     except OSError:

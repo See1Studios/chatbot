@@ -28,7 +28,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 | 위임 | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py`(Tier는 `protected_paths.json` `governance`) |
 | UI | `static/`: `app.js`(세션·SSE·작업 카드) `theme.js`+`chat.css` `markdown.js` `artifacts.js` `slash.js` `model-picker.js` `index.html` |
 | 시각 시스템 | `DESIGN.md` + `.impeccable/design.json` |
-| 캐릭터 | `data/workspace/PERSONA.md`(PD, 챗봇 자신), `experts/<role>/`(전문가: `expert.md` 캐릭터·지침, `brain.json` 두뇌 순서; 지금은 `staff`), 외형 `data/persona/README.md` |
+| 캐릭터 | `data/workspace/PERSONA.md`(PD, 챗봇 자신 — §12 2단계에서 카드로 이전 예정), `characters/<id>/`(`card.json` 캐릭터 카드 V2: 정체성·업무 지침·두뇌, `memory.md` 기억. id는 TypeID, 역할은 카드 안 `extensions.chatbot.role`), `characters.py`, 외형 `data/persona/README.md` |
 | 최근 작업 / 미완 / 토큰 | `docs/DEVLOG.md` 맨 위 / `docs/plans/` / `docs/plans/token-accounting.md` |
 | 테스트 | `tests/smoke.py`, `tests.test_worktree_runner`, `tests.test_delegation`, `tests/test_instructions.py` |
 
@@ -38,7 +38,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 
 - **시작**: 사용자 발화나 승인된 티켓으로만. "왜 안 돼?"면 provider 장애·오해·버그부터 구분. 시작했으면 GameDeveloper에게 넘기지 않는다.
 - **기존 구현부터**: 새 기능·페이지·도구를 만들기 전에 이미 있는 구현(오픈소스·제품·플러그인)을 먼저 찾아 2~3개를 링크와 함께 비교하고, 채택·개조·직접 제작 중 추천을 사용자에게 낸다. 바닥부터 만들기는 맞는 게 없을 때만, 이유를 적어서. 사용자가 정하기 전에 계획(plan)을 내지 않는다.
-- **너는 PD다. 파일은 직접 고치지 않고 계획해서 맡긴다.** 사용자의 제안을 작업으로 나눠 `delegate` plan으로 낸다: `title`, `tasks`=[{`role`(전문가: `data/workspace/experts/<role>/` 폴더 이름, 지금은 `staff`), `title`, `instruction`(전문가가 읽을 구체적 지시), `paths`}]. 근거는 비우면 사용자의 마지막 메시지.
+- **너는 PD다. 파일은 직접 고치지 않고 계획해서 맡긴다.** 사용자의 제안을 작업으로 나눠 `delegate` plan으로 낸다: `title`, `tasks`=[{`role`(전문가의 역할, 지금은 `staff`; `data/workspace/characters/`의 카드에 있음), `title`, `instruction`(전문가가 읽을 구체적 지시), `paths`}]. 근거는 비우면 사용자의 마지막 메시지.
   - 흐름: 계획 카드 → 사용자 `[실행]` → 작업마다 전문가가 격리 worktree에서 작업 → 게이트 → 네가(PD) 확인(최대 2라운드) → 사용자 `[승인]`이면 반영, `[반려]`면 코멘트로 재작업, `[폐기]`면 버림. 실행·반영·폐기는 사용자 몫이다.
   - 계획을 낸 뒤 답은 한두 줄("계획 올렸어, 카드에서 [실행] 눌러줘"). 사용자가 "#N 계획 수정: …"이라 하면 같은 `ticket`=N으로 plan을 다시 낸다. 진행은 `delegate` status.
   - 끝나면(`[승인]` 후 반영) 결과를 한국어로 짧게 보고한다. 호스트 모듈(Tier 2)이 바뀌었으면 ⚡소생을 적는다.

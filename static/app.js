@@ -3285,7 +3285,7 @@ function renderTeamCard(ex, team, files) {
   const card = obsNode('div', 'status-item team-card');
   const head = obsNode('div', 'status-item-head');
   head.appendChild(obsNode('span', 'status-item-name', ex.name + (ex.title ? ' · ' + ex.title : '')));
-  if (ex.role !== 'pd') head.appendChild(obsNode('span', 'status-item-meta', ex.role));
+  if (ex.id !== 'pd') head.appendChild(obsNode('span', 'status-item-meta', ex.role || ''));
   const actions = obsNode('div', 'status-item-actions');
   head.appendChild(actions);
   card.appendChild(head);
@@ -3305,8 +3305,8 @@ function renderTeamCard(ex, team, files) {
     edit.addEventListener('click', () => editBrains(ex, team, brains, actions));
     actions.appendChild(edit);
   }
-  const subs = ex.role === 'pd' ? [['PERSONA.md', '캐릭터'], ['MEMORY.md', '기억']]
-    : [['experts/' + ex.role + '/expert.md', '캐릭터'], ['experts/' + ex.role + '/memory.md', '기억']];
+  const subs = ex.id === 'pd' ? [['PERSONA.md', '캐릭터'], ['MEMORY.md', '기억']]
+    : [['characters/' + ex.id + '/card.json', '캐릭터 카드'], ['characters/' + ex.id + '/memory.md', '기억']];
   subs.forEach(([id, title]) => {
     if (files[id]) {
       const sub = renderInstruction(Object.assign({}, files[id], { title }), false);
@@ -3334,7 +3334,7 @@ function editBrains(ex, team, brains, actions) {
       model.className = 'team-model';
       model.placeholder = '기본 모델';
       model.value = b.model || '';
-      const listId = 'teamModels-' + ex.role + '-' + i;
+      const listId = 'teamModels-' + ex.id + '-' + i;
       model.setAttribute('list', listId);
       const dl = document.createElement('datalist');
       dl.id = listId;
@@ -3378,7 +3378,7 @@ function editBrains(ex, team, brains, actions) {
   save.addEventListener('click', async () => {
     save.disabled = true;
     try {
-      await api('/api/experts/' + encodeURIComponent(ex.role) + '/brain', { method: 'PUT', body: JSON.stringify({ chain: rows }) });
+      await api('/api/experts/' + encodeURIComponent(ex.id) + '/brain', { method: 'PUT', body: JSON.stringify({ chain: rows }) });
       addActivity(ex.name + ' 두뇌 순서 저장됨 · 다음 작업부터 반영');
       loadTeam();
     } catch (e) {

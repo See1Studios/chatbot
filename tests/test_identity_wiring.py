@@ -162,8 +162,8 @@ def instance_names():
     Generic defaults (identity.DEFAULTS, e.g. 사용자) are words, not names."""
     names = set(OLD_NAMES)
     try:
-        roles = [""] + [f.parent.name for f in identity.WORKSPACE.glob("experts/*/expert.md")
-                        if not f.parent.name.startswith("_")]
+        import characters
+        roles = [""] + [c["id"] for c in characters.listing(identity.WORKSPACE)]
         for role in roles:
             ident = identity.get_identity(role)
             for key in ("persona", "title", "user_title", "name"):

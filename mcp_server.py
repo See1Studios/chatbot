@@ -64,7 +64,7 @@ DELEGATE_TOOL = {
                     "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[repo-"
                     "relative files]}][, ticket to replace a plan still waiting][, evidence; defaults to the operator's "
                     "latest message]): the plan appears as a card and runs only when the operator presses [실행]; each "
-                    "task is worked by its expert (role = a folder in data/workspace/experts/, e.g. staff) in an "
+                    "task is worked by its expert (role = a character's role, e.g. staff; see data/workspace/characters/) in an "
                     "isolated worktree, then you confirm it; the finished plan lands only when the operator presses "
                     "[승인] (or sends it back with [반려]). Tier 3 paths (guards, gates, approval rules, the charter) "
                     "are refused. start (title, paths, instruction): a one-task plan. status: the work cards. "

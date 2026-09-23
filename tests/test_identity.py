@@ -26,10 +26,12 @@ class Base(unittest.TestCase):
     def write(self, name, text):
         (self.ws / name).write_text(text, encoding="utf-8")
 
-    def write_expert(self, role, text):
-        d = self.ws / "experts" / role
-        d.mkdir(parents=True, exist_ok=True)
-        (d / "expert.md").write_text(text, encoding="utf-8")
+    def write_character(self, role, name, description="", title="", voice="", cid=None):
+        import characters
+        cid = cid or characters.new_id()
+        display = {k: v for k, v in (("title", title), ("voice", voice)) if v}
+        characters.save(cid, characters.new_card(name, role, description, display=display), self.ws)
+        return cid
 
 
 class ParseTest(unittest.TestCase):
@@ -140,20 +142,22 @@ class SeedTest(Base):
 
 
 class RoleTest(Base):
-    """An expert character (experts/<role>/expert.md), e.g. the staff member of worktree delegation."""
+    """Another character (characters/<id>/card.json), asked by role or id, e.g. the staff member of delegation."""
 
-    def test_role_reads_its_own_file_and_falls_back_for_title(self):
+    def test_a_character_by_role_or_id_and_the_title_fallback(self):
         self.write("AGENTS.md", "---\ntitle: 프로듀서\n---\n")
-        self.write("PERSONA.md", "---\npersona: 하나\nvoice: 밝게\n---\nbody one\n")
-        self.write_expert("reviewer", "---\npersona: 두리\nvoice: 새침하게\n---\n# 리뷰어\nbody two\n")
-        r = identity.get_identity("reviewer")
-        self.assertEqual((r["persona"], r["voice"], r["title"], r["name"]), ("두리", "새침하게", "프로듀서", "두리"))
+        self.write("PERSONA.md", "---\npersona: 하나\nvoice: 밝게\nuser_title: 주인님\n---\nbody one\n")
+        cid = self.write_character("reviewer", "두리", "a curt reviewer", voice="새침하게")
+        for ref in ("reviewer", cid):
+            r = identity.get_identity(ref)
+            self.assertEqual((r["persona"], r["voice"], r["title"], r["name"], r["user_title"]),
+                             ("두리", "새침하게", "프로듀서", "두리", "주인님"))
         self.assertEqual(identity.get_identity()["persona"], "하나")
-        self.assertEqual(identity.persona_body("reviewer"), "# 리뷰어\nbody two")
-        self.write_expert("reviewer", "---\npersona: 두리\ntitle: QA\n---\n")
+        self.assertEqual(identity.persona_body("reviewer"), "a curt reviewer")
+        self.write_character("reviewer", "두리", title="QA", cid=cid)
         self.assertEqual(identity.self_label("reviewer"), "QA 두리")
 
-    def test_missing_role_file_is_neutral(self):
+    def test_missing_character_is_neutral(self):
         r = identity.get_identity("reviewer")
         self.assertEqual(r["persona"], "")
         self.assertEqual(identity.persona_body("reviewer"), "")
