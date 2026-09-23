@@ -62,8 +62,9 @@ DELEGATE_TOOL = {
     "name": "delegate",
     "description": ("Hand code work the operator asked for in this conversation to a delegated worker in an isolated git "
                     "worktree; your own persona writes it and a reviewer character checks it, and the operator sees their "
-                    "exchange on a work card. start (title, paths=[repo-relative files], instruction, evidence=[event:"
-                    "<session>#<line> of the operator's request | candidate:<epoch>]): Tier 0 paths (workspace files) start "
+                    "exchange on a work card. The default for any file change the operator asks for. start (title, "
+                    "paths=[repo-relative files], instruction[, evidence]; evidence defaults to the operator's latest "
+                    "message): Tier 0 paths (workspace files) start "
                     "at once and land when gates and review pass; Tier 2 paths (host modules, tests) become a proposed "
                     "ticket the operator starts with [맡겨] and lands with [병합·⚡]; Tier 3 (guards, gates, approval rules, "
                     "the charter) is refused. status: the work cards. Only on the operator's request; merging and "
@@ -502,8 +503,9 @@ def call_tool(name: str, arguments: dict) -> dict:
                 return envelope(False, "refusing to record secret-like content", None)
             try:
                 if action == "start":
+                    evidence = args.get("evidence") or [ref for ref in [_live_request_ref()] if ref]
                     res = delegation.request(args.get("title"), args.get("paths"), args.get("instruction"),
-                                             args.get("evidence"), actor=_live_actor())
+                                             evidence, actor=_live_actor())
                     msg = ("started; the work card shows its progress" if res["started"] else
                            "proposed as ticket #%d (Tier 2); the operator starts it with [맡겨]" % res["ticket"])
                     return envelope(True, msg, res)
@@ -573,6 +575,26 @@ def call_tool(name: str, arguments: dict) -> dict:
     except Exception as e:
         obslog.exception("mcp.tool_exception", e, tool=name)
         return envelope(False, f"error: {e}", {"trace": traceback.format_exc()[-1500:]})
+
+
+def _live_request_ref() -> Optional[str]:
+    """`event:<session>#<line>` of the operator's latest message in the live session: the evidence a
+    delegation started on the operator's request carries when the agent gives none. None when unknown."""
+    try:
+        import urllib.request
+        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
+        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
+            sid = str(json.loads(r.read().decode("utf-8") or "{}").get("id") or "")
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid):
+            return None
+        last = 0
+        with open(DATA / "sessions" / sid / "events.jsonl", encoding="utf-8", errors="replace") as f:
+            for no, line in enumerate(f, 1):
+                if '"user_ack"' in line:
+                    last = no
+        return "event:%s#%d" % (sid, last) if last else None
+    except Exception:
+        return None
 
 
 def _live_actor() -> str:
