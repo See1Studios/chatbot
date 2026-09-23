@@ -241,8 +241,10 @@ function dedupeMarkdownImages(md) {
 
 function renderMarkdown(src, isFinal) {
   let raw = dedupeMarkdownImages(splitChoices(src).text);
-  // Fix CommonMark/marked edge-case where bold ending in punctuation/parenthesis immediately followed by Korean josa fails to parse (e.g. **A(B)**를)
-  raw = raw.replace(/(\*\*[^*\n]+?\))\*\*([가-힣])/g, '<strong>$1</strong>$2').replace(/<strong>\*\*/g, '<strong>');
+  // Fix CommonMark/marked edge-case where bold/italic ending in punctuation (", ), ], etc.)
+  // immediately followed by Korean josa fails to parse (e.g. **"A"**는, **A(B)**를)
+  raw = raw.replace(/\*\*([^*\n]+?)\*\*([가-힣])/g, '<strong>$1</strong>$2');
+  raw = raw.replace(/(^|[^*])\*([^*\n]+?)\*([가-힣])/g, '$1<em>$2</em>$3');
   if (window.marked && typeof marked.parse === 'function') {
     try {
       let html = marked.parse(raw);
