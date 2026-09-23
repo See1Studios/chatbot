@@ -8,50 +8,19 @@ import sys
 import time
 import shutil
 
-def run_claude_headless(prompt: str) -> dict:
-    if not shutil.which("claude"):
-        return {"success": False, "error": "claude CLI not found"}
-    
-    cmd = [
-        "claude",
-        "-p",
-        "--dangerously-skip-permissions",
-        prompt
-    ]
-    t0 = time.time()
-    try:
-        proc = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=60,
-            check=False
-        )
-        elapsed = time.time() - t0
-        return {
-            "success": proc.returncode == 0,
-            "returncode": proc.returncode,
-            "elapsed_sec": round(elapsed, 2),
-            "stdout": proc.stdout.strip(),
-            "stderr": proc.stderr.strip()
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e), "elapsed_sec": round(time.time() - t0, 2)}
+TARGETS = {
+    "claude": ["claude", "-p", "--dangerously-skip-permissions"],
+    "codex": ["codex", "exec"],
+}
 
-def run_codex_headless(prompt: str) -> dict:
-    if not shutil.which("codex"):
-        return {"success": False, "error": "codex CLI not found"}
-    
-    cmd = [
-        "codex",
-        "exec",
-        prompt
-    ]
+def run_headless(argv: list, prompt: str) -> dict:
+    if not shutil.which(argv[0]):
+        return {"success": False, "error": f"{argv[0]} CLI not found"}
+
     t0 = time.time()
     try:
         proc = subprocess.run(
-            cmd,
+            argv + [prompt],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -74,14 +43,11 @@ if __name__ == "__main__":
     test_prompt = "너는 보조 리서처 에이전트다. 'DiskStation NAS에서 서브에이전트가 갖는 최대 장점'을 1문장으로만 답하라."
     
     print(f"=== Testing Subagent CLI: {target} ===")
-    if target == "claude":
-        res = run_claude_headless(test_prompt)
-    elif target == "codex":
-        res = run_codex_headless(test_prompt)
-    else:
+    if target not in TARGETS:
         print(f"Unknown target: {target}")
         sys.exit(1)
-        
+    res = run_headless(TARGETS[target], test_prompt)
+
     print(f"Success: {res.get('success')}")
     print(f"Elapsed: {res.get('elapsed_sec')}s")
     if res.get("stdout"):
