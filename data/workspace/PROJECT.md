@@ -1,103 +1,52 @@
 # chatbot
 
-Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.**
-
-일상 UI/호스트/페르소나/스킬 수정은 여기. 자기수정 경계는 `SELF-MODIFY.md`, 라이브 사망은 `docs/EMERGENCY.md`, 설계 원칙은 `cross-cutting-principles.md`.
+Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경계 `SELF-MODIFY.md`, 라이브 사망 `docs/EMERGENCY.md`, 원칙 `cross-cutting-principles.md`, 기조 `docs/concept.md`(코드 만지기 **전에** 연다).
 
 ## Paths
 
-상대경로 기준: `~/services/chatbot/` (코드+데이터 한 트리). 웹 루트는
-하드코딩이 아니라 env `AGY_CHAT_WEB_ROOT`(`host_config.py`) — **이 배포의 실제
-값**: `/volume1/web` (다른 배포는 다를 수 있음, `docs/plans/chatbot-host-portability.md`).
-
-| 무엇 | 어디 |
-|---|---|
-| 코드 | 아래 **Where to edit**. 엔트리 `server.py` — 운영 기동은 ctl만(`chatbot-ctl.sh`가 LAN용 `AGY_CHAT_HOST=0.0.0.0`을 export). `python3 server.py` 직접 실행은 `127.0.0.1` 로컬 전용 |
-| 데이터 | `data/workspace/`, `data/sessions/`, `data/persona/` |
-| 위임 작업 상태 | `~/.worktrees/chatbot/runs/ticket-<id>.json` (러너가 씀. 읽음 표시는 `data/delegation_seen.json`) |
-| 티켓 보관 | `data/workspace/skill-observations/tickets/` |
-| 장기 기억 | `data/workspace/memory/MEMORY.md` (`tools/memory.py`) |
-| Hub FAB | `<웹 루트>/index.html` (`AGY_CHAT_FAB_*` — 이름만 레거시). 이 레포 밖 |
-| 페르소나 퍼블리시 | `<웹 루트>/chat/persona/` |
-| ctl | `~/services/chatbot-ctl.sh` (이 트리의 `chatbot-ctl.sh`와 동일) |
-| 포트 | 3011 (chat, env `AGY_CHAT_PORT`), 3012 (NAS MCP, env `NAS_MCP_PORT`) |
+루트 `~/services/chatbot/`(코드+데이터, 독립 Git). 웹 루트는 env `AGY_CHAT_WEB_ROOT`(이 배포: `/volume1/web`).
+- 데이터: `data/workspace/`·`sessions/`·`persona/`. 기억 `data/workspace/memory/MEMORY.md`. 티켓 `data/workspace/skill-observations/tickets/`
+- 위임 상태: `~/.worktrees/chatbot/runs/ticket-<id>.json`(러너가 씀, `/api/delegations`). 읽음 `data/delegation_seen.json`
+- 세션: `data/sessions/<id>/meta.json` + `artifacts/brain/*` → `/artifacts/<id>/brain/<file>`. 공유 `data/sessions/_shared/`
+- 웹(레포 밖): FAB `<웹 루트>/index.html`, 페르소나 퍼블리시 `<웹 루트>/chat/persona/`
+- 기동은 ctl만(`chatbot-ctl.sh`, LAN `0.0.0.0`). `python3 server.py`는 127.0.0.1 전용. 포트 3011 chat(`AGY_CHAT_PORT`), 3012 NAS MCP(`NAS_MCP_PORT`)
 
 ## Where to edit
 
-이어받는 에이전트는 이 표만 보고 연다. 새 파일을 만들기 전에 해당 칸을
-고친다. `static/app.js`에 SSE/세션/전송·상태 탭·프로바이더 트레이를 더
-쪼개지 말 것 (`docs/plans/monolith-split.md`).
-
-코드를 만지기 **전에** `docs/concept.md`(최대 가치·목표)를 연다. 패치는 그 기조로만 빌드업한다.
+새 파일 전에 해당 칸을 고친다. `static/app.js`를 더 쪼개지 말 것(`docs/plans/monolith-split.md`).
 
 | 작업 | 파일 |
 |---|---|
-| 제품 기조 (최대 가치·목표) | `docs/concept.md` — 수정·개발 시 항상 |
 | 경로·포트·env·토큰 임계값 | `host_config.py` |
-| 프로바이더 CLI/API (agy/claude/grok/codex + HTTP dialect) | `adapters.py`. HTTP 엔드포인트·키·모델·뱃지는 `data/providers.json` |
-| 세션 수명·스폰·로테이트·AgentSession.lock | `session.py` (`ctl guard` AST가 여기) |
-| 세션 가중치·토큰 집계·/btw 샛길 질의 | `session_weights.py` |
-| 웜 에이전트 대기 풀 (스탠바이) | `standby_pool.py` |
-| 아티팩트 경로·원자적 파일 저장 | `artifact_manager.py` |
-| 미디어/이미지 수집·마크다운 URL 치환 | `media_handler.py` |
-| HTTP 라우트·`main` | `server.py` |
-| 파일 프리뷰 보안 화이트리스트 | `preview_guard.py` |
-| 워크스페이스 규칙/스킬/MCP 상태 | `workspace_status.py` |
-| 툴 로그 한 줄 포맷 | `tool_format.py` |
-| MCP 도구 서버 (파일·명령·플러그인 배선. 서버 이름 `nas`는 각 provider의 설정 키라 그대로) | `mcp_server.py` |
-| 코어 MCP 도구 (`memory`·`observation`·`ticket`) | `mcp_core.py` — 코어 호출만 하는 어댑터 |
-| 이 NAS 전용 MCP (`ping_nas`·`list_services`·`service_ctl`·`wiki`, Sphere/Hermes) | `nas_mcp_host.py` |
-| 채팅 세션 / SSE / 전송 | `static/app.js` |
-| 테마·헤더 메뉴 | `static/theme.js` + `static/chat.css` |
-| 마크다운·머메이드 | `static/markdown.js` |
-| 아티팩트 탭 | `static/artifacts.js` |
-| `/` 메뉴 | `static/slash.js` |
-| 모델 선택 버튼·메뉴, 입력창 placeholder(현재 모델) | `static/model-picker.js` (값의 원천은 숨긴 `<select id="model">`) |
-| 셸 마크업 | `static/index.html` |
+| 프로바이더 CLI/HTTP | `adapters.py`, `data/providers.json` |
+| 세션 수명·스폰·lock / 가중치·/btw / 대기 풀 | `session.py` / `session_weights.py` / `standby_pool.py` |
+| 아티팩트 저장 / 미디어 | `artifact_manager.py` / `media_handler.py` |
+| HTTP 라우트 / 프리뷰 화이트리스트 | `server.py` / `preview_guard.py` |
+| 워크스페이스 상태 / 툴 로그 포맷 | `workspace_status.py` / `tool_format.py` |
+| MCP 서버 / 코어 도구(memory·observation·ticket) / NAS 전용 | `mcp_server.py` / `mcp_core.py` / `nas_mcp_host.py` |
+| 지침 조립 | `instructions.py` + `session.py` `_send_direct()` (`docs/plans/instruction-architecture.md`) |
+| 위임 | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py`(Tier는 `protected_paths.json` `governance`) |
+| UI | `static/`: `app.js`(세션·SSE·작업 카드) `theme.js`+`chat.css` `markdown.js` `artifacts.js` `slash.js` `model-picker.js` `index.html` |
 | 시각 시스템 | `DESIGN.md` + `.impeccable/design.json` |
-| 페르소나 (호스트/메인) | `data/workspace/PERSONA.md` (말투·호칭). 시각 빌드업 `data/persona/README.md` |
-| 리뷰어 캐릭터 | `data/workspace/PERSONA-reviewer.md` (role id `reviewer`). `identity.get_identity(role)`·`persona_body(role)` |
-| 작업 위임 (`delegate` 도구·작업 카드) | `delegation.py` (누가 무엇을 시작·병합·폐기하나), `mcp_server.py` `delegate`, `/api/delegations`, `static/app.js` 작업 카드. 설계 `docs/plans/multi-agent-worktree-delegation.md` §9 |
-| 격리 worktree 러너 | `tools/worktree_runner.py` (Tier 판정·worktree·작성자/리뷰어 라운드·게이트·ff 병합). Tier 목록은 `protected_paths.json`의 `governance` |
-| 외부 CLI 티켓 도구 | `~/bin/ticket-quick` (Claude Code 등 라이브 세션 밖 에이전트 전용) |
-| 지침 묶음 조립·주입 | `instructions.py` + `session.py` `_send_direct()`. 설계 `docs/plans/instruction-architecture.md`, 테스트 `python3 tests/test_instructions.py` |
-| 방금 뭐 했는지 | `docs/DEVLOG.md` 맨 위 |
-| 미완 시퀀스 | `docs/plans/` |
-| 토큰 집계 | `docs/plans/token-accounting.md`, `data/workspace/tools/token_audit.py` |
-| 스모크 & 위임 테스트 | `python3 tests/smoke.py`, `python3 -m unittest tests.test_worktree_runner tests.test_delegation` |
+| 캐릭터 | `data/workspace/PERSONA.md`(작성자), `PERSONA-reviewer.md`(role `reviewer`), 외형 `data/persona/README.md` |
+| 최근 작업 / 미완 / 토큰 | `docs/DEVLOG.md` 맨 위 / `docs/plans/` / `docs/plans/token-accounting.md` |
+| 테스트 | `tests/smoke.py`, `tests.test_worktree_runner`, `tests.test_delegation`, `tests/test_instructions.py` |
 
-파이썬 호스트 모듈을 고치면 ⚡소생. 정적(`static/`·페르소나)은 Ctrl+Shift+R.
+파이썬 모듈 수정 → ⚡소생. `static/`·페르소나 → Ctrl+Shift+R.
 
-## 고칠 때 (자기수정 절차)
+## 고칠 때
 
-- **시작**: 사용자 발화 또는 승인된 티켓으로만. "왜 안 돼?"만으로 Tier 2+를 시작하지 않는다 — provider 장애·오해인지 우리 버그인지부터 구분한다. 시작했으면 GameDeveloper에게 넘기지 않는다(아래 `delegate`가 기본 경로).
-- **파일을 바꾸는 요청은 `delegate` 도구로 맡긴다 (기본).** 직접 고치지 않는다. 작성자 캐릭터(`PERSONA.md`)가 격리 worktree에서 고치고 리뷰어 캐릭터(`PERSONA-reviewer.md`)가 diff를 보고 PASS/FAIL로 받아친다(최대 2라운드). 사용자는 그 주고받음을 입력창 위 작업 카드에서 본다.
-  - `delegate` start: `title`, `paths`(repo 상대 파일), `instruction`(작업자가 읽을 구체적 지시). 근거는 비우면 사용자의 마지막 메시지가 들어간다.
-  - Tier 0(워크스페이스 문서·스킬 등)은 바로 시작해 게이트·리뷰 통과 시 병합. Tier 2(호스트 모듈·테스트)는 티켓으로 제안되고 사용자가 `[맡겨]`로 시작, `[병합·⚡]`로 병합. Tier 3(가드·게이트·승인 규칙·헌장)은 거부되니 사용자에게 알린다.
-  - 맡긴 뒤 답변은 한두 줄("맡겼어, 카드에서 볼 수 있어"). 진행은 `delegate` status로 확인. 병합·폐기는 사용자 몫이다.
-  - 직접 고치는 예외: 기억 한 줄(`memory`), 관찰·티켓 기록, 사용자가 "직접 해"라고 한 경우. 이때는 `ticket` 도구로 propose ➔ 사용자 승인 ➔ claim.
-  - `tools/worktree_runner.py`를 셸로 직접 돌리지 않고, `~/bin/ticket-quick`도 쓰지 않는다(라이브 세션 밖 외부 에이전트용).
-- **순서**: `docs/concept.md` → 위 표 → `docs/DEVLOG.md` 맨 위 → 대상 파일. 가장 작은 패치로. 하네스 전용 규칙은 `AgentAdapter`·ctl에 두고 헌장·페르소나에 넣지 않는다.
-- **Tier**: 0/1(기억 한 줄·페르소나·정적 UI·새 스킬 스크립트)은 수정 → 테스트 → 사후 보고. 2(호스트 모듈·ctl)는 디스크 수정 후 사용자에게 **⚡소생**. 3(가드·`protected_paths.json`·`SELF-MODIFY.md`·헌장·이 설계서)은 승인된 티켓 없이 시작하지 않는다. 승인되면 그 티켓 범위만 고친다.
-- **검증·기록**: `python3 tests/smoke.py`, 코어를 건드렸으면 `chatbot-ctl.sh guard` + `doctor`/`probe` (`healthz`만으로는 부족). 끝나면 DEVLOG 한 블록 + `observation` 한 건 + 한국어 요약.
+- **시작**: 사용자 발화나 승인된 티켓으로만. "왜 안 돼?"면 provider 장애·오해·버그부터 구분. 시작했으면 GameDeveloper에게 넘기지 않는다.
+- **파일 변경은 `delegate`가 기본**(직접 고치지 않음): `title`·`paths`·`instruction`. 작성자가 격리 worktree에서 고치고 리뷰어가 PASS/FAIL(최대 2라운드), 사용자는 작업 카드에서 본다. 답은 한두 줄, 진행은 `delegate` status, 병합·폐기는 사용자 몫.
+- **Tier**: 0/1(문서·스킬·페르소나·정적 UI) 바로 시작 → 게이트·리뷰 통과 시 병합. 2(호스트 모듈·테스트·ctl) 티켓 제안 → `[맡겨]`/`[병합·⚡]`. 3(가드·`protected_paths.json`·`SELF-MODIFY.md`·헌장) 승인 티켓 없이는 거부, 사용자에게 알림.
+- **직접 예외**: 기억 한 줄, 관찰·티켓 기록, 사용자가 "직접 해"라 한 경우(`ticket` propose → 승인 → claim). `worktree_runner.py`를 셸로 돌리거나 `~/bin/ticket-quick`(라이브 세션 밖 외부 에이전트 전용)을 쓰지 않는다.
+- **순서·검증**: concept → 위 표 → DEVLOG → 대상 파일, 최소 패치. `tests/smoke.py`, 코어면 `chatbot-ctl.sh guard`+`doctor`/`probe`. 끝나면 DEVLOG 한 블록 + `observation` + 한국어 요약.
 
 ## Harness
 
-- 제품 호스트는 켜 둔 채로 어댑터를 붙인다. 기본 프로바이더: `agy`.
-- 어댑터 SSOT: `adapters.py` → `AGENT_ADAPTERS`. 세션 `meta.json`의 `provider`로 복원.
-- 프로바이더별 계약(플래그, usage, stdin vs one-shot, conversation id)은 어댑터에만. 이 파일·`AGENTS.md`·`PERSONA.md`에 복사하지 말 것.
-- 스폰 가시 루트는 좁게: `services/chatbot`, `<웹 루트>/chat`(env `AGY_CHAT_WEB_ROOT`). 홈 전체 / `.hermes` / 웹 루트 전체 / `services` 전체를 add-dir 하지 말 것. 추가는 DEVLOG에 사유를 남기고 최소만.
+- 기본 프로바이더 `agy`. 어댑터 SSOT `adapters.py` `AGENT_ADAPTERS`, 세션 `meta.json` `provider`로 복원. 프로바이더별 계약은 어댑터에만(이 파일·`AGENTS.md`·`PERSONA.md`에 복사 금지). 하네스 전용 규칙도 어댑터·ctl에.
+- 스폰 가시 루트는 `services/chatbot`, `<웹 루트>/chat`만. 홈·`.hermes`·웹 루트·`services` 전체 add-dir 금지.
 
 ## Git
 
-`services/chatbot/` 자체가 독립 Git 저장소(`git@github.com:See1Studios/chatbot.git`)다. 상위 홈 디렉터리(`~/`, `diskstation.git`)의 `.gitignore`에 등록되어 격리 관리된다.
-- 디스크 수정 후 `.bak-*` 만들지 말 것.
-- 커밋 단위는 항상 `services/chatbot` 저장소 기준: `git add` + `git commit` + `docs/DEVLOG.md`.
-- 원격 푸시 절차 및 배포 규칙은 `~/AGENTS.md` 준수.
-
-## Sessions & Delegations
-
-- 세션 메타/아티팩트: `data/sessions/<id>/meta.json` + `artifacts/brain/*`
-- URL: `/artifacts/<id>/brain/<file>`
-- 공유 자산: `data/sessions/_shared/` → `/artifacts/<rel>`
-- 위임 상태 카드: `~/.worktrees/chatbot/runs/ticket-<id>.json` (API: `/api/delegations`)
+`services/chatbot` 단독 저장소(`See1Studios/chatbot`), 홈 저장소에서 ignore. `.bak-*` 금지. 커밋 = `git add`+`commit`+DEVLOG. 푸시·배포는 `~/AGENTS.md`.
