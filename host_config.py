@@ -61,6 +61,7 @@ ARTIFACTS_CACHE = SESSIONS / "_shared"
 PERSISTED_LOG_KINDS = {
     "system", "btw_start", "btw", "error", "queued", "result",
     "session_heavy", "session_rotate", "stopped", "tool", "user_ack", "image",
+    "choices", "action",
 }
 DEFAULT_MODEL = _env("CHATBOT_DEFAULT_MODEL", "AGY_CHAT_MODEL", "gemini-3.8-flash-low")
 MODELS = [

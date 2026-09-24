@@ -202,8 +202,149 @@ def _scrub_text(text: str) -> str:
     return "\n".join(lines)
 
 
+# Choices MCP tool validation & session recording (OUT_OF_BAND_CHOICES_v1 1b)
+CHOICE_MIN_ITEMS = 2
+CHOICE_MAX_ITEMS = 4
+CHOICE_LABEL_MAX = 120
+CHOICE_PAYLOAD_MAX = 500
+ALLOWED_TICKET_ACTIONS = (
+    "go", "approve", "decline", "reopen", "delegate", "merge", "discard", "disown", "unqueue", "allow",
+)
+
+
+def _is_allowed_choice_command(cmd: str) -> bool:
+    c = (cmd or "").strip()
+    if not c:
+        return False
+    parts = c.split()
+    lead = parts[0]
+    if lead in ("/ticket", "ticket"):
+        return len(parts) >= 2 and parts[1] in ALLOWED_TICKET_ACTIONS
+    return lead in ("/help", "/status", "/clear", "/new", "/continue", "/compact", "/defib")
+
+
+def validate_choices(items: Any) -> Tuple[bool, str, List[dict]]:
+    if not isinstance(items, list):
+        return False, "items must be an array", []
+    if len(items) < CHOICE_MIN_ITEMS or len(items) > CHOICE_MAX_ITEMS:
+        return False, f"choices must have between {CHOICE_MIN_ITEMS} and {CHOICE_MAX_ITEMS} items (got {len(items)})", []
+
+    cleaned = []
+    for i, it in enumerate(items):
+        if not isinstance(it, dict):
+            return False, f"item {i} must be an object", []
+        label = str(it.get("label") or "").strip()
+        if not label:
+            return False, f"item {i} has empty label", []
+        if len(label) > CHOICE_LABEL_MAX:
+            return False, f"item {i} label exceeds {CHOICE_LABEL_MAX} characters", []
+
+        kind = str(it.get("kind") or "").strip()
+        if kind not in ("say", "action", "command"):
+            return False, f"item {i} has invalid kind: {kind!r} (must be say, action, or command)", []
+
+        payload = it.get("payload")
+        if payload is not None:
+            payload = str(payload).strip()
+            if len(payload) > CHOICE_PAYLOAD_MAX:
+                return False, f"item {i} payload exceeds {CHOICE_PAYLOAD_MAX} characters", []
+        else:
+            payload = label
+
+        if kind == "command" and not _is_allowed_choice_command(payload):
+            return False, f"item {i} command not allowlisted: {payload!r}", []
+
+        cleaned.append({
+            "label": label,
+            "kind": kind,
+            "payload": payload,
+        })
+    return True, "ok", cleaned
+
+
+def _find_live_session(sid: Optional[str] = None):
+    try:
+        import session
+        if sid:
+            return session.REG.get(sid) or session.REG.peek(sid)
+        sess = session.REG.get_active()
+        if sess:
+            return sess
+        with session.REG.lock:
+            for s in session.REG.sessions.values():
+                return s
+    except Exception:
+        pass
+    return None
+
+
+def _live_session_id() -> Optional[str]:
+    try:
+        import urllib.request
+        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
+        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
+            d = json.loads(r.read().decode("utf-8") or "{}")
+            sid = str(d.get("id") or "")
+            if sid and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid):
+                return sid
+    except Exception:
+        pass
+    return None
+
+
+def record_session_choices(items: List[dict], session_id: Optional[str] = None) -> dict:
+    """Record validated choices to the session event stream, disk events.jsonl, and history."""
+    ts = time.time()
+    ev = {"event": "choices", "choices": items, "ts": ts}
+    sid = session_id or _live_session_id()
+
+    sess = _find_live_session(sid)
+    if sess:
+        sid = sess.sid
+        try:
+            sess._emit(ev)
+        except Exception:
+            pass
+        if hasattr(sess, "history") and sess.history:
+            sess.history[-1]["choices"] = items
+        sess.current_choices = items
+    elif sid:
+        evt_path = DATA / "sessions" / sid / "events.jsonl"
+        if evt_path.parent.exists():
+            try:
+                with open(evt_path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(ev, ensure_ascii=False) + "\n")
+            except Exception:
+                pass
+
+    return envelope(True, "choices recorded", {"choices": items, "items": items, "session_id": sid})
+
+
 def tool_defs() -> List[dict]:
     defs = [
+        {
+            "name": "choices",
+            "description": "Present structured choices or action buttons to the user at the end of a turn (OUT_OF_BAND_CHOICES_v1).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["choices"]},
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {"type": "string"},
+                                "kind": {"type": "string", "enum": ["say", "action", "command"]},
+                                "payload": {"type": "string"},
+                            },
+                            "required": ["label", "kind"],
+                        },
+                    },
+                },
+                "required": ["items"],
+            },
+        },
         {
             "name": "list_dir",
             "description": "List directory under allowlisted roots",
@@ -473,6 +614,15 @@ def call_tool(name: str, arguments: dict) -> dict:
                 return envelope(False, "refusing secret-related command", None)
             code, out, err = _run(["bash", "-lc", cmd], timeout=30)
             return envelope(code == 0, "ok" if code == 0 else "nonzero", {"code": code, "stdout": out, "stderr": err})
+
+        if name == "choices":
+            action = args.get("action", "choices")
+            if action != "choices":
+                return envelope(False, f"unknown action: {action}", None)
+            ok, msg, cleaned = validate_choices(args.get("items"))
+            if not ok:
+                return envelope(False, msg, None)
+            return record_session_choices(cleaned, args.get("session_id"))
 
         if delegation is not None and name in delegation.NAMES:
             return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope, *_live_scope("delegate"))

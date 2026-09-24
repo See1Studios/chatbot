@@ -599,12 +599,67 @@ function addBtw(query, answer, prepend, usage, durationSeconds, ts) {
 // (`choices` on the history item and the result event). The chip renderer still reads a trailing marker, so the
 // page puts it back only for drawing: it is never stored and never reaches the CLI or the agent.
 function textWithChoices(h) {
+  function choiceItemToMarker(x) {
+    if (typeof x === 'string') return x.trim();
+    if (x && typeof x === 'object' && x.label) {
+      const lbl = String(x.label).trim();
+      if (!lbl) return '';
+      if (x.kind === 'action' || x.isAction) {
+        const act = String(x.payload || x.action || lbl).trim();
+        return lbl + ' -> ' + act;
+      }
+      if (x.kind === 'command') {
+        const cmd = String(x.payload || lbl).trim();
+        return lbl + ' -> command: ' + cmd;
+      }
+      const p = String(x.payload || '').trim();
+      return (p && p !== lbl) ? lbl + ' -> ' + p : lbl;
+    }
+    return '';
+  }
   const text = (h && h.text) || '';
-  const c = h && Array.isArray(h.choices) ? h.choices.filter(x => typeof x === 'string' && x.trim()) : [];
+  const c = h && Array.isArray(h.choices) ? h.choices.map(choiceItemToMarker).filter(Boolean) : [];
   return c.length ? text + '\n<!--choices: ' + c.join(' | ') + '-->' : text;
 }
 
-function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationSeconds, isSystem, ts, servedModel) {
+function handleChoicesEvent(data) {
+  if (!data) return;
+  const choices = Array.isArray(data.choices) ? data.choices : (Array.isArray(data.items) ? data.items : null);
+  if (!choices || !choices.length) return;
+  if (typeof logEl === 'undefined' || !logEl) return;
+  let target = (typeof assistantNode !== 'undefined' && assistantNode && assistantNode.isConnected) ? assistantNode : null;
+  if (!target) {
+    const assistants = logEl.querySelectorAll('.msg.assistant');
+    if (assistants.length) target = assistants[assistants.length - 1];
+  }
+  if (!target) return;
+  target._choices = choices;
+  if (typeof renderChoiceChips === 'function') {
+    renderChoiceChips(target, choices);
+    if (typeof syncChoiceChips === 'function') syncChoiceChips();
+  }
+}
+
+// Hook EventSource so choices events from SSE are delivered to handleChoicesEvent
+(function hookEventSourceForChoices() {
+  if (typeof window === 'undefined' || !window.EventSource) return;
+  const OrigES = window.EventSource;
+  window.EventSource = function(...args) {
+    const inst = new OrigES(...args);
+    inst.addEventListener('message', (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data && (data.event === 'choices' || data.type === 'choices')) {
+          handleChoicesEvent(data);
+        }
+      } catch (_) {}
+    });
+    return inst;
+  };
+  window.EventSource.prototype = OrigES.prototype;
+})();
+
+function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationSeconds, isSystem, ts, servedModel, choices) {
   const div = document.createElement('div');
   // NOTICE_UI_v1: isSystem may be true or a notice kind string
   const noticeKind = normalizeNoticeKind(isSystem);
@@ -615,6 +670,7 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
   div.dataset.syncRole = isBtw ? 'btw-user' : (role || '');
   if (ts) div.dataset.ts = String(ts);
   if (servedModel) div.dataset.servedModel = String(servedModel);
+  if (choices) div._choices = choices;
   if (role === 'assistant') {
     if (noticeKind) {
       const meta = NOTICE_KINDS[noticeKind] || NOTICE_KINDS.info;
@@ -628,7 +684,7 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
     const bodyText = noticeKind ? stripNoticeChromeEmojis(text) : (text || '');
     md.innerHTML = renderMarkdown(bodyText, isFinal);
     div.appendChild(md);
-    postProcessAssistant(div, isFinal, bodyText, usage, durationSeconds, Boolean(noticeKind), servedModel);
+    postProcessAssistant(div, isFinal, bodyText, usage, durationSeconds, Boolean(noticeKind), servedModel, choices || div._choices);
   } else {
     div.textContent = text || '';
   }
@@ -647,12 +703,13 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
   return div;
 }
 
-function setAssistantContent(node, text, isFinal, usage, durationSeconds, servedModel) {
+function setAssistantContent(node, text, isFinal, usage, durationSeconds, servedModel, choices) {
   if (!node) return;
   if (servedModel) node.dataset.servedModel = String(servedModel);
+  if (choices) node._choices = choices;
   const md = node.querySelector('.md') || node;
   md.innerHTML = renderMarkdown(text || '', isFinal);
-  postProcessAssistant(node, isFinal, text, usage, durationSeconds, undefined, servedModel);
+  postProcessAssistant(node, isFinal, text, usage, durationSeconds, undefined, servedModel, choices || (node && node._choices));
   syncChoiceChips();
   scrollChatToBottom(false);
 }

@@ -451,7 +451,31 @@ function renderTicketBar(waiting) {
     ticketDecisionsFor(t).forEach(pair => {
       const btn = obsNode('button', 'art-btn' + (pair[0] === 'go' ? ' primary' : ''), pair[1]);
       btn.type = 'button';
-      btn.addEventListener('click', () => fillTicketCommand(t, pair[0]));
+      btn.addEventListener('click', async () => {
+        if (pair[0] === 'go') {
+          try {
+            const go = await goTicket({ action: 'go', id: t.id });
+            if (go && go.message) addNotice('ok', go.message);
+            loadTickets();
+            inputEl.value = (go && go.prompt) || '';
+            if (typeof send === 'function') send();
+          } catch (e) {
+            addNotice('error', '작업 진행 실패: ' + obsErrorText(e));
+          }
+          return;
+        }
+        if (pair[0] === 'rework') {
+          fillTicketCommand(t, pair[0]);
+          return;
+        }
+        try {
+          const msg = await decideTicket({ action: pair[0], id: t.id });
+          addNotice('ok', msg);
+          loadTickets();
+        } catch (e) {
+          addNotice('error', '작업 결정 실패: ' + obsErrorText(e));
+        }
+      });
       chip.appendChild(btn);
     });
     ticketBarEl.appendChild(chip);
@@ -498,84 +522,130 @@ function announceWorkEnding(r) {
 
 function workLine(ln) {
   const row = obsNode('div', 'work-line' + (ln.role === 'reviewer' ? ' reviewer' : ''));
-  row.appendChild(obsNode('span', 'work-who', (ln.name || ln.role || '') + (ln.verdict ? ' · ' + ln.verdict : '')));
-  if (ln.brain) {   // which brain spoke; a fallback names the ones that could not (quota, limit, timeout)
-    row.title = ln.brain + (ln.skipped && ln.skipped.length ? ' (대체: ' + ln.skipped.join(' → ') + ' 불가)' : '');
-    row.appendChild(obsNode('span', 'work-brain', ln.brain.split('/').pop() + (ln.skipped && ln.skipped.length ? ' ↩' : '')));
+  const header = obsNode('div', 'work-line-header');
+  header.appendChild(obsNode('span', 'work-who', (ln.name || ln.role || '') + (ln.verdict ? ' · ' + ln.verdict : '')));
+  if (ln.brain) {
+    const brainSpan = obsNode('span', 'work-brain', ln.brain.split('/').pop() + (ln.skipped && ln.skipped.length ? ' ↩' : ''));
+    brainSpan.title = ln.brain + (ln.skipped && ln.skipped.length ? ' (대체: ' + ln.skipped.join(' → ') + ' 불가)' : '');
+    header.appendChild(brainSpan);
   }
-  row.appendChild(obsNode('span', 'work-said', ln.text || '…'));
+  row.appendChild(header);
+  row.appendChild(obsNode('div', 'work-said', ln.text || '…'));
   return row;
 }
 
 function renderWorkCard(r) {
   const card = obsNode('div', 'work-card phase-' + r.phase);
-  const head = obsNode('div', 'work-head');
+  const open = workOpen.has(r.ticket);
+  
+  // 1. 헤더: #ID + 제목 (길어도 잘 보임) + 상태 배지 + 토글 화살표
+  const head = obsNode('div', 'work-head clickable');
+  head.title = open ? '클릭하여 상세 접기' : '클릭하여 상세 펼치기';
   head.appendChild(obsNode('span', 'obs-id', '#' + r.ticket));
   head.appendChild(obsNode('span', 'work-title', r.title || ''));
-  // DELEGATION_CLARITY_v1: a writing round's clock against its limit, and the files its worktree changed so far
-  const since = !r.active ? '' : (r.phase === 'writing' && r.timeout_sec && r.phase_since
-    ? ' · ' + workElapsed(Date.now() / 1000 - r.phase_since) + '/' + workElapsed(r.timeout_sec)
-    : (r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : ''));
-  const files = r.active && typeof r.files_changed === 'number' ? ' · 파일 ' + r.files_changed : '';
-  const step = r.active && r.tasks_total > 1 && r.task ? ' · 작업 ' + r.task + '/' + r.tasks_total : '';
-  const brainNow = r.active && r.brain ? ' · ' + r.brain.split('/').pop() : '';
-  const waitOn = r.phase === 'queued' && r.blocked_by && r.blocked_by.ticket
-    ? ' · #' + r.blocked_by.ticket + ' ' + (r.blocked_by.paths || []).slice(0, 2).join(', ') + ' ~' + String(r.blocked_by.until || '').slice(11, 16) : '';
-  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + waitOn + step + (r.active && r.round ? ' · ' + r.round + '라운드' : '') + brainNow + since + files));
+
+  // 간결한 상태 배지 (한눈에 알아볼 수 있는 핵심 상태만)
+  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, WORK_PHASE_LABEL[r.phase] || r.phase));
+
+  // 펼침/접힘 인디케이터
+  const toggleIcon = obsNode('span', 'work-toggle-icon', open ? '▲' : '▼');
+  head.appendChild(toggleIcon);
+
+  head.addEventListener('click', (e) => {
+    // 액션 버튼 클릭 시 토글 방지
+    if (e.target.closest('button')) return;
+    if (open) workOpen.delete(r.ticket);
+    else workOpen.add(r.ticket);
+    loadWork();
+  });
   card.appendChild(head);
-  if (r.phase === 'awaiting_go' || r.phase === 'queued' || workOpen.has(r.ticket)) {
-    const list = obsNode('ol', 'work-plan');
-    (r.tasks || []).forEach(t => list.appendChild(obsNode('li', '', (workNames[t.role] || t.role) + ' — ' + t.title + ' (' + (t.paths || []).join(', ') + ')')));
-    if (list.childNodes.length) card.appendChild(list);
+
+  // 2. 상세 영역 (펼쳐졌을 때만 표시)
+  if (open) {
+    const details = obsNode('div', 'work-details');
+
+    // 상세 메타데이터 줄: 경과/제한시간, 파일 수, 라운드, 작업자(모델), 락 대기 정보
+    const metaParts = [];
+    if (r.active && r.phase === 'writing' && r.timeout_sec && r.phase_since) {
+      metaParts.push('⏱ ' + workElapsed(Date.now() / 1000 - r.phase_since) + ' / ' + workElapsed(r.timeout_sec));
+    } else if (r.active && r.started) {
+      metaParts.push('⏱ ' + workElapsed(Date.now() / 1000 - r.started));
+    }
+    if (r.active && typeof r.files_changed === 'number') metaParts.push('📁 파일 ' + r.files_changed + '개');
+    if (r.active && r.tasks_total > 1 && r.task) metaParts.push('단계 ' + r.task + '/' + r.tasks_total);
+    if (r.active && r.round) metaParts.push(r.round + '라운드');
+    if (r.active && r.brain) metaParts.push('🧠 ' + r.brain.split('/').pop());
+    if (r.phase === 'queued' && r.blocked_by && r.blocked_by.ticket) {
+      metaParts.push('🔒 #' + r.blocked_by.ticket + ' 대기 (~' + String(r.blocked_by.until || '').slice(11, 16) + ')');
+    }
+
+    if (metaParts.length) {
+      details.appendChild(obsNode('div', 'work-meta-row', metaParts.join(' · ')));
+    }
+
+    // 작업 계획 (Tasks / Need paths)
+    if (r.tasks && r.tasks.length) {
+      const list = obsNode('ol', 'work-plan');
+      r.tasks.forEach(t => list.appendChild(obsNode('li', '', (workNames[t.role] || t.role) + ' — ' + t.title + (t.paths && t.paths.length ? ' (' + t.paths.join(', ') + ')' : ''))));
+      details.appendChild(list);
+    }
+
+    if (r.phase === 'paused' && (r.need_paths || []).length) {
+      const list = obsNode('ul', 'work-plan need-paths');
+      r.need_paths.forEach(n => list.appendChild(obsNode('li', '', '경로 필요: ' + n.path + (n.why ? ' — ' + n.why : ''))));
+      details.appendChild(list);
+    }
+
+    // 대화 내역 전체
+    const lines = r.transcript || [];
+    if (lines.length) {
+      const logBox = obsNode('div', 'work-transcript');
+      lines.forEach(ln => logBox.appendChild(workLine(ln)));
+      details.appendChild(logBox);
+    }
+
+    if (r.reason && WORK_ENDED.includes(r.phase)) details.appendChild(obsNode('div', 'obs-meta', r.reason));
+    card.appendChild(details);
   }
-  const lines = r.transcript || [];
-  const open = workOpen.has(r.ticket);
-  (open ? lines : lines.slice(-2)).forEach(ln => card.appendChild(workLine(ln)));
-  if (r.reason && WORK_ENDED.includes(r.phase)) card.appendChild(obsNode('div', 'obs-meta', r.reason));
+
+  // 3. 액션 버튼 (항상 카드 우측하단에 노출되어 즉시 클릭 가능)
   const actions = obsNode('div', 'work-actions');
-  if (lines.length > 2) {
-    const more = obsNode('button', 'art-btn art-btn-xs', open ? '접기' : '대화 전체 (' + lines.length + ')');
-    more.type = 'button';
-    more.addEventListener('click', () => { open ? workOpen.delete(r.ticket) : workOpen.add(r.ticket); loadWork(); });
-    actions.appendChild(more);
-  }
   const button = (label, primary, onClick) => {
     const btn = obsNode('button', 'art-btn art-btn-xs' + (primary ? ' primary' : ''), label);
     btn.type = 'button';
-    btn.addEventListener('click', onClick);
+    btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
     actions.appendChild(btn);
   };
+
   if (r.phase === 'awaiting_go') {
     button('실행', true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
     button('계획 수정', false, () => { inputEl.value = '#' + r.ticket + ' 계획 수정: '; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
     button('취소', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
   }
-  if (r.phase === 'paused' && (r.need_paths || []).length) {   // NEED_PATH_v1: the worker asks for more files
-    const list = obsNode('ul', 'work-plan');
-    r.need_paths.forEach(n => list.appendChild(obsNode('li', '', n.path + (n.why ? ' — ' + n.why : ''))));
-    card.appendChild(list);                                  // the button row is appended after it
+  if (r.phase === 'paused' && (r.need_paths || []).length) {
     button('경로 허용', true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
     button('폐기', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
   }
-  if (r.phase === 'queued') {   // starts on its own once the files are free
+  if (r.phase === 'queued') {
     button('대기 취소', false, () => fillTicketCommand({ id: r.ticket }, 'unqueue'));
   }
   if (r.phase === 'awaiting_merge') {
     TICKET_DECISIONS.awaiting_merge.forEach(pair => button(pair[1], pair[0] === 'merge', () => fillTicketCommand({ id: r.ticket }, pair[0])));
   }
-  if (r.phase === 'stalled' && r.stalled_in === 'merging') {   // the merge process died: [승인] retries it
+  if (r.phase === 'stalled' && r.stalled_in === 'merging') {
     button('승인 다시', true, () => fillTicketCommand({ id: r.ticket }, 'merge'));
   }
   if (r.phase === 'done' && r.tier >= 2) {
     const zap = obsNode('button', 'art-btn art-btn-xs primary', '⚡ 소생');
     zap.type = 'button';
-    zap.addEventListener('click', () => { inputEl.value = '/defib'; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
+    zap.addEventListener('click', (e) => { e.stopPropagation(); inputEl.value = '/defib'; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
     actions.appendChild(zap);
   }
   if (WORK_ENDED.includes(r.phase)) {
     const ok = obsNode('button', 'art-btn art-btn-xs', '확인');
     ok.type = 'button';
-    ok.addEventListener('click', async () => {
+    ok.addEventListener('click', async (e) => {
+      e.stopPropagation();
       try { await api('/api/delegations/' + r.ticket + '/seen', { method: 'POST', body: JSON.stringify({}) }); } catch (e) { /* the card stays */ }
       loadWork();
     });

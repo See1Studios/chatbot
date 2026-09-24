@@ -207,22 +207,44 @@ function parseThought(text) {
 }
 
 function parseChoiceItem(item) {
+  if (item && typeof item === 'object') {
+    const label = String(item.label || '').trim();
+    const kind = String(item.kind || (item.isAction ? 'action' : 'say')).trim();
+    const payload = item.payload !== undefined ? String(item.payload).trim() : (item.action || label);
+    return {
+      label,
+      kind,
+      payload,
+      action: payload,
+      isAction: kind === 'action' || Boolean(item.isAction),
+    };
+  }
   const raw = String(item || '').trim();
   if (!raw) return null;
-  // Support "Label -> Action" or "Label -> action: Action"
+  // Support "Label -> Action" or "Label -> action: Action" or "Label -> command: Command"
   const arrowIdx = raw.indexOf('->');
   if (arrowIdx > 0) {
     const label = raw.slice(0, arrowIdx).trim();
     let action = raw.slice(arrowIdx + 2).trim();
+    let isCommand = false;
     if (action.toLowerCase().startsWith('action:')) {
       action = action.slice(7).trim();
+    } else if (action.toLowerCase().startsWith('command:')) {
+      action = action.slice(8).trim();
+      isCommand = true;
     }
-    return { label, action, isAction: true };
+    return {
+      label,
+      action,
+      payload: action,
+      kind: isCommand ? 'command' : 'action',
+      isAction: !isCommand,
+    };
   }
   // Support "Label: action: Action"
   const colonAction = /^(.*?):\s*action:\s*(.*)$/i.exec(raw);
   if (colonAction) {
-    return { label: colonAction[1].trim(), action: colonAction[2].trim(), isAction: true };
+    return { label: colonAction[1].trim(), action: colonAction[2].trim(), payload: colonAction[2].trim(), kind: 'action', isAction: true };
   }
   return raw;
 }
@@ -238,20 +260,57 @@ function splitChoices(src) {
 }
 
 function pickChoice(choice) {
-  if (!choice || typeof inputEl === 'undefined' || !inputEl || typeof send !== 'function') return;
-  if (typeof choice === 'object' && choice.isAction) {
-    // Action choice: send directly without polluting input or showing user bubble
+  if (!choice || typeof inputEl === 'undefined' || !inputEl) return;
+  const parsed = parseChoiceItem(choice);
+  const item = typeof parsed === 'object' && parsed ? parsed : { label: String(choice), action: String(choice), kind: 'say', payload: String(choice) };
+  const kind = item.kind || (item.isAction ? 'action' : 'say');
+  const payload = item.payload || item.action || item.label;
+
+  if (kind === 'action') {
     if (typeof sendAction === 'function') {
-      sendAction(choice.action || choice.label);
+      sendAction(payload);
       return;
     }
-    inputEl.value = '/act ' + (choice.action || choice.label);
-    send();
+    inputEl.value = '/act ' + payload;
+    if (typeof send === 'function') send();
     return;
   }
-  const label = typeof choice === 'object' ? (choice.action || choice.label) : choice;
-  inputEl.value = label;
-  send();
+
+  if (kind === 'command') {
+    const cmdText = payload.startsWith('/') ? payload : ('/' + payload);
+    const ticketCmd = typeof parseTicketCommand === 'function' ? parseTicketCommand(cmdText) : null;
+    if (ticketCmd) {
+      if (ticketCmd.action === 'go') {
+        if (typeof goTicket === 'function') {
+          goTicket(ticketCmd).then(go => {
+            if (go && go.message && typeof addNotice === 'function') addNotice('ok', go.message);
+            if (typeof loadTickets === 'function') loadTickets();
+            inputEl.value = (go && go.prompt) || '';
+            if (typeof send === 'function') send();
+          }).catch(e => {
+            if (typeof addNotice === 'function') addNotice('error', '작업 진행 실패: ' + (typeof obsErrorText === 'function' ? obsErrorText(e) : e));
+          });
+        }
+        return;
+      }
+      if (typeof decideTicket === 'function') {
+        decideTicket(ticketCmd).then(msg => {
+          if (typeof addNotice === 'function') addNotice('ok', msg);
+          if (typeof loadTickets === 'function') loadTickets();
+        }).catch(e => {
+          if (typeof addNotice === 'function') addNotice('error', '작업 결정 실패: ' + (typeof obsErrorText === 'function' ? obsErrorText(e) : e));
+        });
+      }
+      return;
+    }
+    inputEl.value = cmdText;
+    if (typeof send === 'function') send();
+    return;
+  }
+
+  // default: say
+  inputEl.value = payload || item.label;
+  if (typeof send === 'function') send();
 }
 
 function renderChoiceChips(node, choices) {
@@ -263,12 +322,16 @@ function renderChoiceChips(node, choices) {
   row.setAttribute('role', 'group');
   row.setAttribute('aria-label', '선택지');
   choices.forEach(c => {
-    const item = typeof c === 'string' ? { label: c, action: c, isAction: false } : c;
+    const parsed = parseChoiceItem(c);
+    if (!parsed) return;
+    const item = typeof parsed === 'string' ? { label: parsed, action: parsed, isAction: false, kind: 'say' } : parsed;
+    const isAct = item.isAction || item.kind === 'action';
+    const isCmd = item.kind === 'command';
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'choice-chip' + (item.isAction ? ' choice-action' : '');
-    b.textContent = (item.isAction ? '✦ ' : '') + item.label;
-    b.addEventListener('click', () => pickChoice(c));
+    b.className = 'choice-chip' + (isAct ? ' choice-action' : '') + (isCmd ? ' choice-command' : '');
+    b.textContent = (isAct ? '✦ ' : '') + item.label;
+    b.addEventListener('click', () => pickChoice(item));
     row.appendChild(b);
   });
   md.appendChild(row);
@@ -286,7 +349,7 @@ function syncChoiceChips() {
   });
 }
 
-function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, skipFooter, servedModel) {
+function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, skipFooter, servedModel, choices) {
   if (!node) return;
   const parts = splitChoices(rawText);
   rawText = parts.text;
@@ -328,7 +391,9 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     attachCodeCopyButtons(node);
     attachImageLightbox(node);
     attachFileLinkInterceptors(node);
-    if (!skipFooter) renderChoiceChips(node, parts.choices);
+    const eventChoices = (node && node._choices && node._choices.length) ? node._choices : (choices && choices.length ? choices : null);
+    const finalChoices = eventChoices || parts.choices;
+    if (!skipFooter) renderChoiceChips(node, finalChoices);
     renderMermaidIn(node);
     highlightCodeIn(node);
     // Client-side system notices (/help, /status, /clear, stop confirmation)

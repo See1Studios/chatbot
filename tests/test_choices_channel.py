@@ -70,6 +70,87 @@ process.stdout.write(JSON.stringify([textWithChoices({ text: 'a', choices: ['x',
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout), ["a\n<!--choices: x | y -> (웃음)-->", "b", "c"])
 
+    def test_text_with_choices_handles_structured_items(self):
+        js = r"""
+const src = require('fs').readFileSync(process.argv[process.argv.length - 1], 'utf8');
+const a = src.indexOf('function textWithChoices'), b = src.indexOf('function addChat', a);
+eval(src.slice(a, b));
+const items = [
+  { label: '동의', kind: 'say' },
+  { label: '미소', kind: 'action', payload: '(미소짓는다)' },
+  { label: '승인', kind: 'command', payload: '/ticket approve 10' }
+];
+process.stdout.write(JSON.stringify(textWithChoices({ text: '선택해', choices: items })));
+"""
+        r = subprocess.run(["node", "-e", js, str(app_bundle())], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout), "선택해\n<!--choices: 동의 | 미소 -> (미소짓는다) | 승인 -> command: /ticket approve 10-->")
+
+    def test_markdown_parse_choice_item(self):
+        md_file = ROOT / "static" / "markdown.js"
+        js = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
+const a = src.indexOf('function parseChoiceItem'), b = src.indexOf('function splitChoices', a);
+eval(src.slice(a, b));
+const r1 = parseChoiceItem({ label: 'A', kind: 'action', payload: '(웃음)' });
+const r2 = parseChoiceItem('B -> command: /ticket approve 1');
+const r3 = parseChoiceItem('C -> (끄덕임)');
+const r4 = parseChoiceItem('일반 보기');
+process.stdout.write(JSON.stringify([r1, r2, r3, r4]));
+"""
+        r = subprocess.run(["node", "-e", js, str(md_file)], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout)
+        self.assertEqual(out[0], {"label": "A", "kind": "action", "payload": "(웃음)", "action": "(웃음)", "isAction": True})
+        self.assertEqual(out[1], {"label": "B", "action": "/ticket approve 1", "payload": "/ticket approve 1", "kind": "command", "isAction": False})
+        self.assertEqual(out[2], {"label": "C", "action": "(끄덕임)", "payload": "(끄덕임)", "kind": "action", "isAction": True})
+        self.assertEqual(out[3], "일반 보기")
+
+    def test_markdown_event_choices_take_priority_over_text(self):
+        md_file = ROOT / "static" / "markdown.js"
+        js = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
+// Mock DOM
+let renderedChoices = null;
+global.renderChoiceChips = function(node, choices) { renderedChoices = choices; };
+global.renderMermaidIn = function() {};
+global.highlightCodeIn = function() {};
+global.attachCodeCopyButtons = function() {};
+global.attachImageLightbox = function() {};
+global.attachFileLinkInterceptors = function() {};
+global.attachMessageFooter = function() {};
+global.CHOICES_TAIL = /\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$/;
+global.CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
+global.CHOICES_MAX = 4;
+global.EXPRESSION_HEAD = /^\s*\[expression:\s*([a-zA-Z]+)\]\s*/;
+global.EXPRESSION_EMOJIS = {};
+global.THOUGHT_STATE_BLOCK = /```state\s*\{[\s\S]*?"thought":\s*"([^"]+)"[\s\S]*?\}\s*```/i;
+global.THOUGHT_STATE_ANY = /```state\s*\{[\s\S]*?\}\s*```/i;
+global.THOUGHT_TAG = /<thought>([\s\S]*?)<\/thought>/i;
+global.THOUGHT_BLOCK = /```thought\s*([\s\S]*?)```/i;
+
+const a = src.indexOf('function parseExpression'), b = src.indexOf('function dedupeMarkdownImages', a);
+eval(src.slice(a, b));
+renderChoiceChips = function(node, choices) { renderedChoices = choices; };
+
+const nodeWithEvent = { classList: { toggle() {} }, querySelector() { return null; }, _choices: ['이벤트선택1', '이벤트선택2'] };
+postProcessAssistant(nodeWithEvent, true, '답변\n<!--choices: 본문선택A | 본문선택B-->', null, null, false, null);
+const firstRun = renderedChoices;
+
+const nodeWithoutEvent = { classList: { toggle() {} }, querySelector() { return null; } };
+postProcessAssistant(nodeWithoutEvent, true, '답변\n<!--choices: 본문선택A | 본문선택B-->', null, null, false, null);
+const secondRun = renderedChoices;
+
+process.stdout.write(JSON.stringify({ eventFirst: firstRun, fallback: secondRun }));
+"""
+        r = subprocess.run(["node", "-e", js, str(md_file)], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        res = json.loads(r.stdout)
+        self.assertEqual(res["eventFirst"], ["이벤트선택1", "이벤트선택2"])
+        self.assertEqual(res["fallback"], ["본문선택A", "본문선택B"])
+
 
 if __name__ == "__main__":
     unittest.main()
