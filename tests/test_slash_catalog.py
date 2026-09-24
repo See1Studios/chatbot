@@ -126,5 +126,41 @@ class LiveWorkspace(unittest.TestCase):
         self.assertTrue(pins.isdisjoint(BANNED))
 
 
+class ActionParens(unittest.TestCase):
+    """#153: "(x)"/"((x))" is one action; wire form is always "(x)", never "((x))"."""
+
+    def _action_text_of(self, samples):
+        import json, subprocess
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not installed")
+        src = (CODE / "static" / "app-sse.js").read_text(encoding="utf-8")
+        fn = re.search(r"^function actionTextOf\(text\) \{.*?^\}", src, re.S | re.M).group(0)
+        js = fn + "\nconsole.log(JSON.stringify(%s.map(actionTextOf)));" % json.dumps(samples, ensure_ascii=False)
+        out = subprocess.run([node, "-e", js], capture_output=True, text=True, check=True).stdout
+        return json.loads(out)
+
+    def test_action_text_of_normalizes_parens(self):
+        got = self._action_text_of(["(고개를 끄덕인다)", "((고개를 끄덕인다))", "  (웃는다)  ",
+                                    "안녕", "(a) 그리고 (b)", "()", ""])
+        self.assertEqual(got, ["고개를 끄덕인다", "고개를 끄덕인다", "웃는다", "", "", "", ""])
+
+    def test_pick_choice_strips_wrapping_parens_before_act(self):
+        text = (CODE / "static" / "markdown.js").read_text(encoding="utf-8")
+        self.assertIn("String(payload).replace(/^\\(+|\\)+$/g, '').trim()", text)
+        self.assertIn("inputEl.value = '/act ' + act;", text)
+
+    def test_send_wire_form_is_single_parens(self):
+        text = (CODE / "static" / "app.js").read_text(encoding="utf-8")
+        self.assertIn(": actionTextOf(text);", text)
+        self.assertIn("isAction ? ('(' + actionText + ')') : text", text)
+
+    def test_ack_and_history_route_through_add_user_entry(self):
+        sse = (CODE / "static" / "app-sse.js").read_text(encoding="utf-8")
+        sess = (CODE / "static" / "app-session.js").read_text(encoding="utf-8")
+        self.assertIn("addUserEntry(text, false, false, data.ts);", sse)
+        self.assertEqual(sess.count("addUserEntry(h.text"), 4)
+
+
 if __name__ == "__main__":
     unittest.main()
