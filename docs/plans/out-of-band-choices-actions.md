@@ -64,6 +64,7 @@
 
 ## 5. 단계
 0. **응급 — 완료(#135)**: `CHOICES_TAIL`이 **마지막** 표식만 잡는다. `tests/test_choice_chips.py`에 "본문에 인용된 표식" 케이스.
+1a. ✅ **서버가 표식을 뗀다 (#140, 2026-09-24 Claude Code)**: `providers/adapter_base.finalize_turn`(모든 프로바이더 공통)이 답의 마지막 `<!--choices: …-->`를 떼어 기록·결과 이벤트에 `choices: [...]`로 붙인다. 기록·CLI·에이전트 맥락은 깨끗한 본문. 화면은 `textWithChoices(h)`로 그리기 직전에만 표식을 다시 붙여 기존 칩 렌더러를 쓴다(저장 안 됨). 테스트 `tests/test_choices_channel.py`. 버튼은 이미 누르면 바로 전송(`pickChoice`). 남은 것: `choices` MCP 도구, `action` 이벤트 타입, 티켓 바 직접 실행.
 1. **채널**: `choices` MCP 도구 + `choices`/`action` 이벤트 + 화면 렌더(이벤트 우선, 없으면 기존 본문 표식 폴백) + 서버의 본문 표식 → 이벤트 변환(§3.5). 버튼 → 구조화 전송, 티켓 바 이전. Tier 2(⚡소생).
 2. **지침**: 헌장 규칙 교체(Tier 3 티켓), 카드 규칙 정리. 모든 프로바이더에서 도구 호출이 나오는지 확인.
 3. **정리**: 폴백 파서 제거, 요약 보존 규칙.

@@ -52,7 +52,7 @@ function bindEvents(sid) {
     if (type === 'result') {
       if (typeof loadWork === 'function') loadWork();   // a turn that delegated work shows its card now
       // QUOTA_SILENT_FIX_v1: result residual error
-      if (text) assistantBuf = text;
+      if (text) assistantBuf = textWithChoices(data);   // the server took the choices out of the text
       if (assistantNode) delete assistantNode.dataset.progress;
       const doneNode = assistantNode;
       const doneBuf = assistantBuf;

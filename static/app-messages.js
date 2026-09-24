@@ -595,6 +595,15 @@ function addBtw(query, answer, prepend, usage, durationSeconds, ts) {
   return div;
 }
 
+// OUT_OF_BAND_CHOICES_v1: the server takes an answer's choices out of its text and sends them beside it
+// (`choices` on the history item and the result event). The chip renderer still reads a trailing marker, so the
+// page puts it back only for drawing: it is never stored and never reaches the CLI or the agent.
+function textWithChoices(h) {
+  const text = (h && h.text) || '';
+  const c = h && Array.isArray(h.choices) ? h.choices.filter(x => typeof x === 'string' && x.trim()) : [];
+  return c.length ? text + '\n<!--choices: ' + c.join(' | ') + '-->' : text;
+}
+
 function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationSeconds, isSystem, ts, servedModel) {
   const div = document.createElement('div');
   // NOTICE_UI_v1: isSystem may be true or a notice kind string

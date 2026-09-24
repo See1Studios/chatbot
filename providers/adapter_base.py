@@ -6,6 +6,7 @@ import signal
 import subprocess
 
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from host_config import HARD_TOKENS, SOFT_TOKENS, _now
@@ -21,6 +22,22 @@ def _redact_err(text: str) -> str:
         lines = [l for l in (text or "").splitlines()
                  if not any(k in l.lower() for k in ("token", "authorization", "bearer", "api_key", "refresh"))]
         return "\n".join(lines).strip()
+
+
+# OUT_OF_BAND_CHOICES_v1 (docs/plans/out-of-band-choices-actions.md 1a): the choices an answer ends with
+# (`<!--choices: A | B-->`) leave the text here, once, for every provider. History, the CLI and the agent's own
+# context keep the clean text; the page gets `choices` beside it. Only the last marker counts (a quoted one stays).
+_CHOICES_TAIL = re.compile(r"\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$")
+CHOICES_MAX, CHOICE_LEN = 4, 120
+
+
+def split_choices(text: str) -> Tuple[str, List[str]]:
+    """(text without a trailing choices marker, its items). Items are kept as written (e.g. "label -> action")."""
+    m = _CHOICES_TAIL.search(text or "")
+    if not m:
+        return text, []
+    items = [x.strip()[:CHOICE_LEN] for x in m.group(1).split("|") if x.strip()][:CHOICES_MAX]
+    return (text[:m.start()].rstrip(), items) if items else (text, [])
 
 
 class AgentAdapter:
@@ -206,7 +223,7 @@ class AgentAdapter:
         # after retries). Persisting both as answer + notice:error with the same
         # ts made every successful turn look like "답 + 쿼터 에러 공지". Error-only
         # turns emitted result with empty text so the UI stayed silent.
-        body = (final or "").strip()
+        body, choices = split_choices((final or "").strip())
         err_s = (error or "").strip() if is_err else ""
         if body:
             hist_text = body
@@ -224,6 +241,8 @@ class AgentAdapter:
             emit_as_error = False
 
         hist_item: dict = {"role": "assistant", "text": hist_text, "ts": ts}
+        if choices and not emit_as_error:
+            hist_item["choices"] = choices
         if emit_as_error:
             hist_item["notice"] = "error"
             if error:
@@ -253,6 +272,8 @@ class AgentAdapter:
         }
         if emit_as_error:
             out_ev["notice"] = "error"
+        if hist_item.get("choices"):
+            out_ev["choices"] = hist_item["choices"]
         if usage:
             out_ev["usage"] = usage
         if duration_seconds is not None:

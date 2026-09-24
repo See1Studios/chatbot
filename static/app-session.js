@@ -106,7 +106,7 @@ function enterSession(id, opts) {
         // QUOTA_ERR_DEDUP_v1: history notice via addNotice
         const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
         if (nk) addNotice(nk, h.text || '', h.ts);
-        else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+        else addChat('assistant', textWithChoices(h), true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
       }
       lastSyncedTs = Math.max(lastSyncedTs, h.ts || 0);
     });
@@ -243,7 +243,7 @@ async function resyncFromServer(sid) {
         return;
       }
       if (role === 'assistant' && assistantNode && assistantNode.dataset.live === '1') {
-        setAssistantContent(assistantNode, h.text || '', true, h.usage, h.duration_seconds, h.served_model);
+        setAssistantContent(assistantNode, textWithChoices(h), true, h.usage, h.duration_seconds, h.served_model);
         assistantNode.dataset.ts = String(h.ts);
         assistantNode.dataset.syncRole = 'assistant';
         delete assistantNode.dataset.live;
@@ -275,8 +275,8 @@ async function resyncFromServer(sid) {
           return;
         }
         const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
-        if (nk) addChat('assistant', h.text || '', true, false, false, false, null, null, nk, h.ts, null);
-        else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+        if (nk) addChat('assistant', textWithChoices(h), true, false, false, false, null, null, nk, h.ts, null);
+        else addChat('assistant', textWithChoices(h), true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
       } else {
         return;
       }
@@ -465,8 +465,8 @@ async function loadOlderHistory() {
             addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), true, null, null, false, h.ts);
           } else if (h.role === 'assistant') {
             const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
-            if (nk) addChat('assistant', h.text || '', true, false, false, true, null, null, nk, h.ts, null);
-            else addChat('assistant', h.text || '', true, false, false, true, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+            if (nk) addChat('assistant', textWithChoices(h), true, false, false, true, null, null, nk, h.ts, null);
+            else addChat('assistant', textWithChoices(h), true, false, false, true, h.usage, h.duration_seconds, false, h.ts, h.served_model);
           }
         }
         const divider = document.createElement('div');
@@ -594,8 +594,8 @@ async function loadNewerHistory() {
             addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
           } else if (h.role === 'assistant') {
             const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
-            if (nk) addChat('assistant', h.text || '', true, false, false, false, null, null, nk, h.ts, null);
-            else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+            if (nk) addChat('assistant', textWithChoices(h), true, false, false, false, null, null, nk, h.ts, null);
+            else addChat('assistant', textWithChoices(h), true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
           }
         });
       }

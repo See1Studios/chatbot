@@ -56,6 +56,7 @@ function put(n) { n.parent = logEl; logEl.children.push(n); return n; }
 
 const calls = { addChat: 0, addBtw: 0 };
 const body = helpers + `
+  const textWithChoices = h => (h && h.text) || '';   // app-messages.js (OUT_OF_BAND_CHOICES_v1); choices are not under test here
   let assistantNode = null, assistantBuf = '', lastSyncedTs = 0;
   let sessionId = 'S1', resyncInFlight = false, isBusy = false;
   const myPendingMids = new Set();
