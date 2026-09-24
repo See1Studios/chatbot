@@ -5,7 +5,9 @@ set -euo pipefail
 # docs/plans/chatbot-host-portability.md) without editing it.
 HOME_DIR="${HOME_DIR:-${HOME:-/volume1/homes/me}}"
 export PATH="$HOME_DIR/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# CTL_SYMLINK_v1: ~/services/chatbot-ctl.sh is a symlink; follow it, or CODE becomes ~/services (the doctor then
+# looked for ~/services/server.py and failed every run from 2026-09-23 19:07 to 2026-09-24 13:30).
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 CODE="${CODE:-$SCRIPT_DIR}"
 DATA="$CODE/data"  # consolidated under chatbot/ 2026-09-16
 # API-Provider plan: API-key-based adapters (e.g. omniroute) read credentials
