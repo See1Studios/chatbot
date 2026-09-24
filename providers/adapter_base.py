@@ -54,6 +54,31 @@ def tension_after(stage: int, slot: int = -1, action: bool = False) -> int:
     return max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN) + step))
 
 
+def tension_meta(meta: Dict[str, Any]) -> Tuple[int, List[str]]:
+    """(stage, recent_choices) as saved in a session's meta.json; defaults for a new session."""
+    stage = max(TENSION_MIN, min(TENSION_MAX, int(meta.get("tension_stage") or TENSION_MIN)))
+    return stage, [str(c) for c in (meta.get("recent_choices") or [])][-TENSION_RECENT_MAX:]
+
+
+def tension_step(stage: int, recent: List[str], history: List[dict], text: str,
+                 event_type: str = "") -> Tuple[int, List[str]]:
+    """Next (stage, recent_choices) for one private user turn, called before the turn joins `history`.
+    Picking one of the last offered choices moves by its slot; an action (type "action", or the page's "(...)"
+    form) nudges +1; anything else holds. The used offer (or the action) joins recent_choices, deduped, capped."""
+    said = (text or "").strip()
+    action = event_type == "action" or (len(said) > 2 and said[0] == "(" and said[-1] == ")")
+    last = next((h for h in reversed(history or []) if h.get("role") in ("user", "assistant")), {})
+    offered = [str(c) for c in (last.get("choices") or [])] if last.get("role") == "assistant" else []
+    labels = [c.split("->")[0].strip() for c in offered]
+    picked = {said, said.strip("()").strip()}
+    slot = next((i for i, (c, lab) in enumerate(zip(offered, labels)) if picked & {c.strip(), lab}), -1)
+    if slot < 0 and not action:
+        return stage, list(recent or [])
+    used = [x for x in (labels if slot >= 0 else [said.strip("()").strip()]) if x]
+    kept = [c for c in (recent or []) if c not in used] + used
+    return tension_after(stage, slot if slot < len(TENSION_SLOTS) else -1, action), kept[-TENSION_RECENT_MAX:]
+
+
 def tension_context(stage: int, recent_choices: List[str]) -> str:
     """[Tension Engine Context] block for one private turn: stage, choices not to repeat, the 3-slot contract."""
     stage = max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN)))

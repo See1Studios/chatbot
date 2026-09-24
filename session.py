@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 from providers.adapters import _persona_system_prompt, get_adapter
-from providers.adapter_base import TENSION_MIN, TENSION_RECENT_MAX, TENSION_SLOTS, tension_after
+from providers.adapter_base import tension_meta, tension_step
 from instructions import build_instruction_bundle
 from identity import display_name, user_title
 
@@ -194,9 +194,7 @@ class AgentSession:
         self.character = ""
         self.mode = "work"
         self.private_digested_ts = 0.0  # private sessions: turns up to this time are already in private memory
-        # PRIVATE_TENSION_v1 (#162): private-mode tension stage (1..4) and the choices/actions already used
-        self.tension_stage = TENSION_MIN
-        self.recent_choices: List[str] = []
+        self.tension_stage, self.recent_choices = tension_meta({})  # PRIVATE_TENSION_v1: private stage 1..4, used choices
         self._cached_summary = ""  # memoized handover summary for zero-delay rotate
         self._summary_generating = False
         self._stop_requested = False  # True after an explicit stop() until the next _spawn()
@@ -215,35 +213,6 @@ class AgentSession:
     @property
     def is_private(self) -> bool:
         return getattr(self, "mode", "work") == "private"
-
-    def note_tension_event(self, text: str, event_type: str = "") -> None:
-        """PRIVATE_TENSION_v1: advance the tension stage on a private user turn. A reply that picks one of the last
-        offered choices moves by that slot; an action (type "action", or the page's "(...)" form) nudges +1.
-        The offered choices and the action go to recent_choices so the next turn does not repeat them."""
-        if not self.is_private:
-            return
-        said = (text or "").strip()
-        action = event_type == "action" or (said.startswith("(") and said.endswith(")") and len(said) > 2)
-        offered: List[str] = []
-        for h in reversed(self.history):
-            if h.get("role") == "user":
-                break
-            if h.get("role") == "assistant":
-                offered = [str(c) for c in (h.get("choices") or [])]
-                break
-        labels = [c.split("->")[0].strip() for c in offered]
-        slot = -1
-        for i, (c, lab) in enumerate(zip(offered, labels)):
-            if said in (c.strip(), lab) or said.strip("()") in (c.strip(), lab):
-                slot = i
-                break
-        if slot < 0 and not action:
-            return
-        self.tension_stage = tension_after(getattr(self, "tension_stage", TENSION_MIN),
-                                           slot if slot < len(TENSION_SLOTS) else -1, action)
-        used = labels if slot >= 0 else [said.strip("()").strip()]
-        recent = [c for c in (getattr(self, "recent_choices", []) or []) if c not in used] + [c for c in used if c]
-        self.recent_choices = recent[-TENSION_RECENT_MAX:]
 
     def _load_meta(self) -> None:
         if self.meta_path.exists():
@@ -264,8 +233,7 @@ class AgentSession:
                 self.character = str(meta.get("character") or "")
                 self.mode = "private" if meta.get("mode") == "private" else "work"
                 self.private_digested_ts = float(meta.get("private_digested_ts") or 0)
-                self.tension_stage = int(meta.get("tension_stage") or TENSION_MIN)
-                self.recent_choices = [str(c) for c in (meta.get("recent_choices") or [])][-TENSION_RECENT_MAX:]
+                self.tension_stage, self.recent_choices = tension_meta(meta)
                 ts_list = [h.get("ts") for h in self.history if isinstance(h.get("ts"), (int, float))]
                 if ts_list:
                     self.last_activity = max(ts_list)
@@ -298,8 +266,7 @@ class AgentSession:
                 "character": getattr(self, "character", "") or "",
                 "mode": getattr(self, "mode", "work") or "work",
                 "private_digested_ts": getattr(self, "private_digested_ts", 0.0) or 0.0,
-                "tension_stage": getattr(self, "tension_stage", TENSION_MIN),
-                "recent_choices": list(getattr(self, "recent_choices", []) or []),
+                "tension_stage": getattr(self, "tension_stage", 1), "recent_choices": list(getattr(self, "recent_choices", [])),
                 "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             }
             try:
@@ -1547,8 +1514,7 @@ class AgentSession:
             new_sess._send_direct(text, client_mid)
         return new_sess
 
-    def send(self, text: str, client_mid: str = "", client_context: Optional[Dict[str, Any]] = None,
-             event_type: str = ""):
+    def send(self, text: str, client_mid: str = "", client_context: Optional[Dict[str, Any]] = None, event_type: str = ""):
         """Return None (same session) or AgentSession if hard-rotated to a fresh session."""
         text = (text or "").strip()
         if not text:
@@ -1593,12 +1559,7 @@ class AgentSession:
                 self._loop_hint = STEER_HINT
                 self.interrupt_current_turn(reason="steer")
 
-        if event_type:
-            self._send_direct(text, client_mid, client_context=client_context, event_type=event_type)
-        elif client_context:
-            self._send_direct(text, client_mid, client_context=client_context)
-        else:
-            self._send_direct(text, client_mid)
+        self._send_direct(text, client_mid, client_context=client_context, event_type=event_type)
         return None
 
     def _send_direct(self, text: str, client_mid: str = "", client_context: Optional[Dict[str, Any]] = None,
@@ -1692,12 +1653,9 @@ class AgentSession:
             if ctx_line:
                 stdin_content = f"{ctx_line}\n\n{stdin_content}"
 
-        if not notice and self.is_private:  # PRIVATE_TENSION_v1: update the stage, then tell the agent where it stands
-            with self.lock:
-                self.note_tension_event(text, event_type)
-            tension = self.adapter.turn_context(self)
-            if tension:
-                stdin_content = f"{tension}\n\n{stdin_content}"
+        if not notice and self.is_private:  # PRIVATE_TENSION_v1: move the stage, then tell the agent where it stands
+            self.tension_stage, self.recent_choices = tension_step(self.tension_stage, self.recent_choices, self.history, text, event_type)
+            stdin_content = f"{self.adapter.turn_context(self)}\n\n{stdin_content}"
 
         if self._loop_hint:  # the previous turn was stopped automatically; tell the agent once
             stdin_content = f"[시스템 안내] {self._loop_hint}\n\n{stdin_content}"

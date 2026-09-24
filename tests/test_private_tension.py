@@ -82,39 +82,38 @@ class SessionTension(unittest.TestCase):
         S.SESSIONS = self._sessions
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+    def note(self, text, event_type=""):
+        s = self.sess
+        s.tension_stage, s.recent_choices = AB.tension_step(s.tension_stage, s.recent_choices, s.history, text, event_type)
+
     def offer(self, *choices):
         self.sess.history.append({"role": "assistant", "text": "...", "ts": 1, "choices": list(choices)})
 
     def test_picking_a_slot_moves_the_stage_and_records_the_offer(self):
         self.offer("밀어낸다", "다가간다 -> 다가간다", "안긴다")
-        self.sess.note_tension_event("다가간다")
+        self.note("다가간다")
         self.assertEqual(self.sess.tension_stage, 2)
         self.assertEqual(self.sess.recent_choices, ["밀어낸다", "다가간다", "안긴다"])
 
     def test_an_action_nudges_and_free_text_holds(self):
-        self.sess.note_tension_event("그냥 얘기하자")
+        self.note("그냥 얘기하자")
         self.assertEqual((self.sess.tension_stage, self.sess.recent_choices), (1, []))
-        self.sess.note_tension_event("(고개를 끄덕인다)")
+        self.note("(고개를 끄덕인다)")
         self.assertEqual(self.sess.tension_stage, 2)
-        self.sess.note_tension_event("가까이 앉는다", event_type="action")
+        self.note("가까이 앉는다", event_type="action")
         self.assertEqual(self.sess.tension_stage, 3)
         self.assertEqual(self.sess.recent_choices, ["고개를 끄덕인다", "가까이 앉는다"])
 
     def test_recent_choices_dedupe_and_cap(self):
         for i in range(12):
-            self.sess.note_tension_event(f"(동작{i % 10})")
+            self.note(f"(동작{i % 10})")
         self.assertEqual(len(self.sess.recent_choices), AB.TENSION_RECENT_MAX)
         self.assertEqual(len(set(self.sess.recent_choices)), len(self.sess.recent_choices))
         self.assertEqual(self.sess.recent_choices[-1], "동작1")
         self.assertEqual(self.sess.tension_stage, 4)
 
-    def test_work_sessions_do_not_track_tension(self):
-        self.sess.mode = "work"
-        self.sess.note_tension_event("(웃는다)")
-        self.assertEqual((self.sess.tension_stage, self.sess.recent_choices), (1, []))
-
     def test_state_survives_a_reload(self):
-        self.sess.note_tension_event("(웃는다)")
+        self.note("(웃는다)")
         self.sess.save_meta()
         again = S.AgentSession(self.sess.sid)
         self.assertEqual((again.tension_stage, again.recent_choices), (2, ["웃는다"]))
@@ -130,8 +129,14 @@ class SessionTension(unittest.TestCase):
 
     def test_a_work_turn_has_no_tension_context(self):
         self.sess.mode = "work"
-        self.sess.send("안녕")
+        self.sess.send("(웃는다)")
         self.assertNotIn("[Tension Engine Context]", "".join(self.sess.proc.stdin.sent))
+        self.assertEqual((self.sess.tension_stage, self.sess.recent_choices), (1, []))
+
+    def test_an_explicit_action_event_reaches_the_engine(self):
+        self.sess.send("곁에 앉는다", event_type="action")
+        self.assertEqual((self.sess.tension_stage, self.sess.recent_choices), (2, ["곁에 앉는다"]))
+        self.assertIn("Stage: 2/4", "".join(self.sess.proc.stdin.sent))
 
 
 if __name__ == "__main__":
