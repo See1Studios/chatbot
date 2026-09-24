@@ -31,6 +31,8 @@
   4. 통과: 메인에서 git merge --ff-only -> ticket-quick done -> worktree/브랜치 정리
      --stop-before-merge(Tier 2): 병합 대신 ticket-quick await-merge (리스 해제), worktree/브랜치는 남긴다
      탈락: 병합 없음 -> ticket-quick fail (gate_failed | failed) -> worktree/브랜치 정리 (--keep이면 보존)
+     PD 확인 불가(모든 PD 두뇌가 한도·시간 초과): 브랜치를 남기고, 다음 --plan-from-state 실행이 통과한 작업은 건너뛰고
+     멈춘 작업의 게이트·확인부터 이어 간다.
   5. 티켓 기록(tickets/<ID>.json)만 메인에 커밋한다 (chore(tickets): close #ID | #ID <outcome>)
   두 캐릭터의 주고받은 대사는 ~/.worktrees/chatbot/transcripts/에 남는다.
   실행 상태(단계·라운드·대사·병합에 필요한 설정)는 ~/.worktrees/chatbot/runs/ticket-<ID>.json에 원자적으로 쓴다.
@@ -63,7 +65,8 @@ MAX_AGENT_TIMEOUT = 1500
 REVIEW_TIMEOUT = 300
 GATE_TIMEOUT = 600
 TAIL_LINES = 30
-DIFF_LIMIT = 15000
+# The review prompt is one argv string: Linux caps it at 128 KiB (MAX_ARG_STRLEN), so the diff stays well below.
+DIFF_LIMIT = 36000
 WORKER_ROLE = "staff"          # the default expert's role (characters.py); the chatbot's own persona (the PD) confirms
 TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
 
@@ -94,11 +97,12 @@ PROVIDERS: Dict[str, Dict] = {
 
 class Failure(Exception):
     """The attempt stops here. outcome is the ticket release outcome: gate_failed | failed.
-    retryable: another round with the writer could fix it."""
+    retryable: another round with the writer could fix it. keep: the work is sound but could not be confirmed
+    (no PD brain answered); the branch stays so the next run resumes it."""
 
-    def __init__(self, outcome: str, reason: str, detail: str = "", retryable: bool = False):
+    def __init__(self, outcome: str, reason: str, detail: str = "", retryable: bool = False, keep: bool = False):
         super().__init__(reason)
-        self.outcome, self.reason, self.detail, self.retryable = outcome, reason, detail, retryable
+        self.outcome, self.reason, self.detail, self.retryable, self.keep = outcome, reason, detail, retryable, keep
 
 
 def log(msg: str) -> None:
@@ -427,6 +431,29 @@ def parse_review(text: str) -> Dict[str, str]:
     return out
 
 
+def fit_diff(diff: str, limit: int = DIFF_LIMIT) -> str:
+    """`diff` within `limit` characters without dropping a file: every file keeps its header, and the budget is
+    shared out so small files stay whole and only the largest are cut (each cut says so)."""
+    if len(diff) <= limit:
+        return diff
+    chunks = re.split(r"(?m)^(?=diff --git )", diff)
+    chunks = [c for c in chunks if c]
+    share = {}
+    budget, left = limit, len(chunks)
+    for i in sorted(range(len(chunks)), key=lambda i: len(chunks[i])):
+        share[i] = min(len(chunks[i]), budget // left)
+        budget -= share[i]
+        left -= 1
+    out = []
+    for i, c in enumerate(chunks):
+        if share[i] >= len(c):
+            out.append(c)
+            continue
+        head = c[:share[i]].rsplit("\n", 1)[0] if "\n" in c[:share[i]] else c.split("\n", 1)[0]
+        out.append("%s\n... (%d more lines of this file cut)\n" % (head, c[len(head):].count("\n")))
+    return "".join(out)
+
+
 def review_prompt(tid: int, title: str, instruction: str, partner_said: str, diff: str,
                   gate_error: Optional[Failure], character: str) -> str:
     parts = [character, "",
@@ -437,9 +464,9 @@ def review_prompt(tid: int, title: str, instruction: str, partner_said: str, dif
                   gate_error.detail[-3000:], ""]
     else:
         parts += ["The automatic gates (tests, scope) passed."]
-    if len(diff) > DIFF_LIMIT:
-        diff = diff[:DIFF_LIMIT] + "\n... (diff truncated)"
-    parts += ["Diff of the branch:", "```diff", diff or "(empty)", "```", "",
+    parts += ["Diff of the branch:", "```diff", fit_diff(diff) or "(empty)", "```", "",
+              "You have no files here and must not use tools: do not run commands, read files or search the disk. "
+              "Judge from this prompt alone; if a cut part hides what you must see, FAIL and name it.",
               "As the producer, confirm the work: does the change do the task correctly and safely within its scope? "
               "Reply in exactly this form:",
               "VERDICT: PASS or VERDICT: FAIL",
@@ -484,6 +511,8 @@ def run_review(provider: str, model: str, wt_dir: Path, prompt: str, timeout: in
     shutil.rmtree(empty, ignore_errors=True)
     empty.mkdir(parents=True, exist_ok=True)
     code, out, err = run_cmd(argv + [prompt], cwd=empty, timeout=timeout or REVIEW_TIMEOUT, env=clean_env())
+    if code == -1 and err.startswith("timed out"):
+        raise Failure("failed", "reviewer %s %s" % (provider, err), tail(out))
     if code != 0:
         raise Failure("failed", "reviewer %s exited with %s" % (provider, code), tail(err or out))
     return parse_review(out)
@@ -499,18 +528,21 @@ UNAVAILABLE_RE = re.compile(r"quota|rate.?limit|usage limit|session limit|limit 
 
 
 def review_with_chain(chain: List[Dict], wt_dir: Path, prompt: str, renew) -> tuple:
-    """The PD's confirmation on the first brain that can give it. Returns (review, brain, skipped labels)."""
+    """The PD's confirmation on the first brain that can give it. Returns (review, brain, skipped labels).
+    When none can (quota, timeout), the work is kept for the next run (Failure.keep)."""
     skipped = []
     for i, b in enumerate(chain):
         try:
             return run_review(b["provider"], b["model"], wt_dir, prompt, b["timeout"]), b, skipped
         except Failure as f:
-            if i + 1 < len(chain) and unavailable(f.reason + "\n" + f.detail, 0):
-                skipped.append(brain_label(b))
-                log("PD brain %s unavailable; next %s" % (brain_label(b), brain_label(chain[i + 1])))
-                renew()
-                continue
-            raise
+            if not unavailable(f.reason + "\n" + f.detail, 0):
+                raise
+            if i + 1 == len(chain):
+                raise Failure("failed", "no PD brain could confirm the work (%s); it is kept for the next run"
+                              % f.reason, f.detail, keep=True)
+            skipped.append(brain_label(b))
+            log("PD brain %s unavailable; next %s" % (brain_label(b), brain_label(chain[i + 1])))
+            renew()
     raise Failure("failed", "no PD brain configured")
 
 
@@ -767,12 +799,18 @@ def cmd_run(args) -> int:
     try:
         # 2. worktree: a new one, or (--resume, a rework) the one still waiting from this ticket's last run
         st = read_state(tid)
-        if args.resume:
+        # a plan whose confirmation found no PD brain last time: go on from the kept branch
+        pick_up = (args.plan_from_state and st.get("kept") and st.get("base") and wt_dir.exists()
+                   and git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0)
+        done_tasks = int(st.get("tasks_done") or 0) if pick_up else 0
+        pending = (int(st.get("pending_task") or 0), st.get("pending_base") or "") if pick_up else (0, "")
+        if args.resume or pick_up:
             if not wt_dir.exists() or not st.get("base"):
                 raise Failure("failed", "nothing to rework: the waiting worktree of ticket %d is gone" % tid)
             base = st["base"]
             created = True
-            log("reworking in %s (branch %s)" % (wt_dir, branch))
+            log("%s in %s (branch %s)" % ("picking up after task %d" % done_tasks if pick_up else "reworking",
+                                          wt_dir, branch))
         else:
             if wt_dir.exists() or git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0:
                 raise Failure("failed", "%s or %s is left over from an earlier run; "
@@ -786,12 +824,12 @@ def cmd_run(args) -> int:
             log("worktree %s on %s (base %s)" % (wt_dir, branch, base[:8]))
         result["base"] = base
         tasks = plan_tasks(args, st, paths)
-        if args.resume:
+        if args.resume or pick_up:
             transcript = list(st.get("transcript") or [])
         write_state(tid, phase="running", round=0, task=0, tasks_total=len(tasks), started=time.time(),
                     phase_since=time.time(), title=args.title, provider=provider, reviewer=reviewer,
                     paths=paths, gates=gates, main_branch=main_branch, base=base, branch=branch,
-                    worktree=str(wt_dir), transcript=transcript, reason="")
+                    worktree=str(wt_dir), transcript=transcript, reason="", kept=False, tasks_done=done_tasks)
 
         def renew() -> None:
             try:
@@ -804,8 +842,13 @@ def cmd_run(args) -> int:
 
         # 3. tasks in order; each: the expert works -> gates -> the PD confirms (up to --rounds)
         for tno, task in enumerate(tasks, 1):
+            if tno <= done_tasks:
+                continue
             writer_p = persona(task["role"])
-            task_base = git(wt_dir, "rev-parse", "HEAD")[1]
+            # the task whose work waited for a confirmation: straight to its gates and review, on its own base
+            confirm_only = tno == pending[0] and bool(pending[1])
+            task_base = pending[1] if confirm_only else git(wt_dir, "rev-parse", "HEAD")[1]
+            write_state(tid, pending_task=tno, pending_base=task_base)
             head_line = ("This is task %d of %d in the plan \"%s\". Do only this task.\n" % (tno, len(tasks), args.title)
                          if len(tasks) > 1 else "")
             brief = writer_prompt(tid, task["title"], branch, wt_dir, task["paths"], gates, head_line + task["instruction"],
@@ -818,7 +861,8 @@ def cmd_run(args) -> int:
                 if rnd > 1 or tno > 1:
                     renew()
                 skipped = []
-                while True:
+                b = chain[bi]
+                while not (confirm_only and rnd == 1):
                     b = chain[bi]
                     resume = rnd > 1 and b == last_brain and bool(PROVIDERS[b["provider"]].get("continue_argv"))
                     prompt = brief if rnd == 1 else retry_prompt(feedback, None if resume else brief)
@@ -843,16 +887,19 @@ def cmd_run(args) -> int:
                                       tail(res["stdout"]))
                     raise Failure("failed", "agent %s exited with %s" % (brain_label(b), res["returncode"]),
                                   tail(res["stderr"] or res["stdout"]))
-                last_brain = b
-                line = {"task": tno, "round": rnd, "role": "writer", "name": writer_p["name"],
-                        "text": said(res["stdout"]), "brain": brain_label(b)}
-                round_lessons = learned(res["stdout"])
-                if round_lessons:
-                    line["learned"] = round_lessons
-                    lessons += [x for x in round_lessons if x not in lessons]
-                if skipped:
-                    line["skipped"] = skipped
-                transcript.append(line)
+                if not (confirm_only and rnd == 1):
+                    last_brain = b
+                    line = {"task": tno, "round": rnd, "role": "writer", "name": writer_p["name"],
+                            "text": said(res["stdout"]), "brain": brain_label(b)}
+                    round_lessons = learned(res["stdout"])
+                    if round_lessons:
+                        line["learned"] = round_lessons
+                        lessons += [x for x in round_lessons if x not in lessons]
+                    if skipped:
+                        line["skipped"] = skipped
+                    transcript.append(line)
+                partner_said = next((ln["text"] for ln in reversed(transcript)
+                                     if ln.get("task") == tno and ln.get("role") == "writer"), "")
 
                 write_state(tid, phase="gates", transcript=transcript, phase_since=time.time())
                 if commit_leftovers(wt_dir, b["provider"], tid):
@@ -882,7 +929,7 @@ def cmd_run(args) -> int:
                 _, diff, _ = git(wt_dir, "diff", task_base + "..HEAD")
                 rv, rb, rskipped = review_with_chain(pd_chain, wt_dir,
                                                      review_prompt(tid, task["title"], task["instruction"],
-                                                                   transcript[-1]["text"], diff, gate_error,
+                                                                   partner_said, diff, gate_error,
                                                                    character_block(reviewer_p, writer_p, PD_RELATION)),
                                                      renew)
                 verdict = "FAIL" if gate_error else rv["verdict"]
@@ -894,6 +941,7 @@ def cmd_run(args) -> int:
                 if verdict == "PASS":
                     if remember(task["role"], lessons):
                         log("task %d: lesson(s) kept in %s's memory" % (tno, task["role"]))
+                    write_state(tid, tasks_done=tno)
                     break
                 if rnd == args.rounds:
                     if gate_error:
@@ -927,8 +975,12 @@ def cmd_run(args) -> int:
             result.update(merged=True, head=ff_merge(repo, main_branch, branch))
     except Failure as f:
         release_failed(tid, token, f, provider, actor, result)
+        if f.keep and created:
+            result["kept"] = True
+            write_state(tid, kept=True)
     finally:
-        keep = created and not result["merged"] and (args.keep or result.get("outcome") == "awaiting_merge")
+        keep = created and not result["merged"] and (args.keep or result.get("kept")
+                                                     or result.get("outcome") == "awaiting_merge")
         if created and not keep:
             cleanup_worktree(repo, branch, wt_dir)
             log("worktree and branch removed")

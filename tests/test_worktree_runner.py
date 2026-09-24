@@ -454,6 +454,53 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c"), 0)
         self.assertEqual(wr.read_state(7)["transcript"][0]["brain"], "fake/default")
 
+    # ---- REVIEW_ROBUST_v1: whole-file diffs, tools-off wording, a PD that never answers keeps the work
+
+    def test_a_long_diff_keeps_every_file(self) -> None:
+        small = "diff --git a/s b/s\n+tiny\n"
+        big = "diff --git a/b b/b\n" + "".join("+line %d\n" % i for i in range(5000))
+        fitted = wr.fit_diff(big + small + big.replace("a/b b/b", "a/c b/c"), 4000)
+        self.assertLessEqual(len(fitted), 4200)
+        for head in ("diff --git a/b b/b", "diff --git a/s b/s", "diff --git a/c b/c"):
+            self.assertIn(head, fitted)
+        self.assertIn("+tiny", fitted)                      # the small file stays whole
+        self.assertEqual(fitted.count("more lines of this file cut"), 2)
+        self.assertEqual(wr.fit_diff(small, 4000), small)
+        prompt = wr.review_prompt(1, "t", "i", "", small, None, "")
+        self.assertIn("must not use tools", prompt)
+
+    def test_a_pd_that_times_out_keeps_the_work_and_the_next_run_picks_it_up(self) -> None:
+        count = self.base / "worker-runs"
+        script = 'echo x >> %s; case "$0" in *"edit a"*) echo A >> a.txt;; *) echo B >> b.txt;; esac; git commit -qam w' % count
+        # the PD passes task 1, then hangs on task 2
+        hang = self.base / "hang"
+        review = "if [ -f %s ]; then sleep 5; else touch %s; printf 'VERDICT: PASS\\nSAY: ok'; fi" % (hang, hang)
+        self.brains("pd", [{"provider": "fake", "timeout": 1}])
+        self.assertEqual(self.run_plan_with_review(script, review), 1)
+        st = wr.read_state(7)
+        self.assertTrue(st["kept"])
+        self.assertEqual(st["tasks_done"], 1)
+        self.assertIn("timed out", st["reason"])
+        self.assertTrue((wr.WORKTREE_BASE / "ticket-7").exists())
+        self.assertEqual(count.read_text().count("x"), 2)
+        # the next run: no worker again, only the confirmation of task 2
+        hang.unlink()
+        self.assertEqual(self.run_plan_with_review(script, PASS), 0)
+        self.assertEqual(count.read_text().count("x"), 2)
+        st = wr.read_state(7)
+        self.assertEqual((st["phase"], st["kept"]), ("awaiting_merge", False))
+        self.assertEqual((wr.WORKTREE_BASE / "ticket-7" / "b.txt").read_text(), "b\nB\n")
+
+    def run_plan_with_review(self, script, review):
+        wr.write_state(7, plan=self.PLAN)
+        return self.run_with(script, paths="a.txt,b.txt", review=review,
+                             extra=("--ticket", "7", "--token", "t", "--plan-from-state", "--stop-before-merge"))
+
+    def test_a_pd_that_fails_for_real_still_cleans_up(self) -> None:
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review="echo boom >&2; exit 3"), 1)
+        self.assertFalse(wr.read_state(7).get("kept"))
+        self.assert_clean_up()
+
     # ---- expert memory: read before a task, lessons kept only when the PD confirmed it
 
     LEARN = 'echo two >> a.txt; git commit -qam c; echo "LEARNED: tests live in tests/"; echo ---; echo hi'
