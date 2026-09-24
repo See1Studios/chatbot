@@ -205,7 +205,6 @@ from workspace_status import (
     instructions_api,
     observation_api,
     ticket_api,
-    RULE_FILES,
     WS_SKILLS_DIR,
     _SKILLS_CACHE,
     _extract_yaml_desc,
@@ -216,7 +215,6 @@ from workspace_status import (
     _mcp_config_path,
     _read_hooks_config,
     _read_mcp_config,
-    _rule_path,
     _self_status,
     _skill_desc,
     _write_mcp_config,
@@ -485,14 +483,6 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if routed is not None:
             code, raw = _json_bytes(routed[1], routed[0])
             return self._send(code, raw, "application/json; charset=utf-8")
-        if path.startswith("/api/rules/"):
-            name = unquote(path[len("/api/rules/"):])
-            fp = _rule_path(name)
-            if not fp or not fp.exists():
-                code, body = _json_bytes({"ok": False, "error": "not found"}, 404)
-                return self._send(code, body, "application/json; charset=utf-8")
-            code, body = _json_bytes({"ok": True, "name": name, "content": fp.read_text(encoding="utf-8", errors="replace")})
-            return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/mcp":
             cfg = _read_mcp_config()
             code, body = _json_bytes({"ok": True, "mcpServers": cfg.get("mcpServers", {})})
@@ -1247,29 +1237,6 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     return self._send(code, raw, "application/json; charset=utf-8")
                 routed = instructions_api("PUT", path, body) or experts_api("PUT", path, body)
                 code, raw = _json_bytes(routed[1], routed[0])
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith("/api/rules/"):
-                name = unquote(path[len("/api/rules/"):])
-                fp = _rule_path(name)
-                if not fp:
-                    code, raw = _json_bytes({"ok": False, "error": "unknown rule file"}, 404)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                if evolution.is_protected(ROOT, fp):
-                    code, raw = _json_bytes({"ok": False, "error": "read-only rule file (protected); edit it on disk"}, 403)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                content = body.get("content")
-                if not isinstance(content, str) or not content.strip():
-                    code, raw = _json_bytes({"ok": False, "error": "content required"}, 400)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                if fp.exists():
-                    ts = time.strftime("%Y%m%d%H%M%S")
-                    backup = fp.with_name(f"{fp.name}.bak-selfstatus-{ts}")
-                    try:
-                        backup.write_text(fp.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
-                    except Exception:
-                        pass
-                _atomic_write_text(fp, content)
-                code, raw = _json_bytes({"ok": True, "name": name, "bytes": len(content.encode("utf-8"))})
                 return self._send(code, raw, "application/json; charset=utf-8")
         except Exception as e:
             code, raw = _json_bytes({"ok": False, "error": str(e)}, 500)

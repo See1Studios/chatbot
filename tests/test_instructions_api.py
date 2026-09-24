@@ -66,7 +66,18 @@ class InstructionsApiTest(unittest.TestCase):
         code, body = self.put("PROJECT.md", "new procedure")
         self.assertEqual((code, body["ok"]), (200, True))
         self.assertEqual((self.ws / "PROJECT.md").read_text(), "new procedure")
-        self.assertTrue(list(self.ws.glob("PROJECT.md.bak-selfstatus-*")))
+        backups = self.root / "data" / "backups" / "instructions"
+        self.assertEqual([p.read_text() for p in backups.glob("PROJECT.md.*")], ["procedure"])   # outside the workspace
+        self.assertEqual([p.name for p in self.ws.iterdir() if ".bak" in p.name], [])
+
+    def test_only_the_newest_backups_are_kept(self):
+        import workspace_status as W2
+        backups = self.root / "data" / "backups" / "instructions"
+        backups.mkdir(parents=True)
+        for n in range(W2.BACKUP_KEEP + 3):
+            (backups / ("PROJECT.md.2026010100%04d" % n)).write_text("old")
+        self.put("PROJECT.md", "again")
+        self.assertEqual(len(list(backups.glob("PROJECT.md.*"))), W2.BACKUP_KEEP)
 
     def test_a_character_card_id_arrives_url_encoded_and_must_stay_a_card(self):
         path = "/api/instructions/characters%%2F%s%%2Fcard.json" % self.cid

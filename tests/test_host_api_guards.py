@@ -1,5 +1,5 @@
-"""HTTP API guards (docs/plans/recursive-self-evolution.md §3 0-3 and the /api/rules half of 0-4):
-same-origin defibrillate, CORS limited to this machine, protected rule files read-only, loopback default bind.
+"""HTTP API guards (docs/plans/recursive-self-evolution.md §3 0-3 and 0-4):
+same-origin defibrillate, CORS limited to this machine, the old /api/rules editor gone, loopback default bind.
 
 The handler runs on an ephemeral port. Nothing here restarts anything: the defibrillate scheduler is
 replaced by a recorder, and rule files live in a temp dir.
@@ -26,14 +26,13 @@ import server  # noqa: E402
 class ServerCase(unittest.TestCase):
     def setUp(self):
         self.scheduled = []
-        self._orig = {k: getattr(server, k) for k in ("_schedule_host_defibrillate", "_rule_path", "ROOT")}
+        self._orig = {k: getattr(server, k) for k in ("_schedule_host_defibrillate", "ROOT")}
         server._schedule_host_defibrillate = lambda: self.scheduled.append(1)
         self.root = Path(tempfile.mkdtemp()).resolve()
         shutil.copy(str(CODE / "protected_paths.json"), str(self.root / "protected_paths.json"))
         self.ws = self.root / "data" / "workspace"
         self.ws.mkdir(parents=True)
         server.ROOT = self.root
-        server._rule_path = lambda name: (self.ws / name) if name in ("AGENTS.md", "PERSONA.md", "PROJECT.md", "SELF-MODIFY.md") else None
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
         self.httpd.daemon_threads = True
         self.port = self.httpd.server_address[1]
@@ -139,38 +138,16 @@ class CorsTest(ServerCase):
         self.assertIsNone(bad.getheader("Access-Control-Allow-Origin"))
 
 
-class RulesPutTest(ServerCase):
-    def put(self, name, content="NEW"):
-        return self.req("PUT", "/api/rules/" + name, {"content": content})
+class RulesRouteIsGoneTest(ServerCase):
+    """ORPHANS_v1: the old /api/rules editor had no same-origin check and the page no longer used it; instruction
+    files are read and edited through /api/instructions only."""
 
-    def test_protected_rule_files_are_read_only(self):
-        for name in ("AGENTS.md", "SELF-MODIFY.md"):
-            (self.ws / name).write_text("ORIGINAL", encoding="utf-8")
-            resp, raw = self.put(name)
-            self.assertEqual(resp.status, 403, name)
-            self.assertIn("read-only", json.loads(raw)["error"])
-            self.assertEqual((self.ws / name).read_text(encoding="utf-8"), "ORIGINAL")
-            self.assertEqual([p.name for p in self.ws.iterdir() if ".bak" in p.name], [], "no backup for a refused write")
-
-    def test_other_rule_files_stay_editable(self):
-        for name in ("PERSONA.md", "PROJECT.md"):
-            (self.ws / name).write_text("ORIGINAL", encoding="utf-8")
-            resp, _ = self.put(name)
-            self.assertEqual(resp.status, 200, name)
-            self.assertEqual((self.ws / name).read_text(encoding="utf-8"), "NEW")
-
-    def test_unknown_file_is_still_404_and_reads_still_work(self):
-        self.assertEqual(self.put("nope.md")[0].status, 404)
-        (self.ws / "AGENTS.md").write_text("ORIGINAL", encoding="utf-8")
-        resp, raw = self.req("GET", "/api/rules/AGENTS.md")
-        self.assertEqual(resp.status, 200)
-        self.assertEqual(json.loads(raw)["content"], "ORIGINAL")
-
-    def test_missing_registry_makes_every_rule_file_read_only(self):
-        (self.root / "protected_paths.json").unlink()
-        (self.ws / "PERSONA.md").write_text("ORIGINAL", encoding="utf-8")
-        self.assertEqual(self.put("PERSONA.md")[0].status, 403)
-        self.assertEqual((self.ws / "PERSONA.md").read_text(encoding="utf-8"), "ORIGINAL")
+    def test_rules_route_answers_404(self):
+        (self.ws / "PROJECT.md").write_text("ORIGINAL", encoding="utf-8")
+        for method, body in (("GET", None), ("PUT", {"content": "NEW"})):
+            resp, _ = self.req(method, "/api/rules/PROJECT.md", body)
+            self.assertEqual(resp.status, 404, method)
+        self.assertEqual((self.ws / "PROJECT.md").read_text(encoding="utf-8"), "ORIGINAL")
 
 
 class DefaultBindTest(unittest.TestCase):

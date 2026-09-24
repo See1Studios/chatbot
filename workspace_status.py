@@ -65,12 +65,6 @@ def _get_available_skills() -> list:
     return results
 
 
-def _rule_path(name: str) -> Optional[Path]:
-    if name not in RULE_FILES:
-        return None
-    return WORKSPACE / name
-
-
 def _skill_desc(skill_md: Path) -> str:
     try:
         return _extract_yaml_desc(skill_md.read_text(encoding="utf-8", errors="replace")[:2000])
@@ -324,6 +318,26 @@ def agent_instructions() -> list:
     return out
 
 
+BACKUP_KEEP = 10
+
+
+def _backup(fp: Path) -> None:
+    """The previous text of an instruction file the operator is about to overwrite, in data/backups/instructions/
+    (outside the workspace agents read), the newest BACKUP_KEEP per file (ORPHANS_v1)."""
+    if not fp.exists():
+        return
+    d = WORKSPACE.parent / "backups" / "instructions"
+    stem = str(fp.relative_to(WORKSPACE)).replace("/", "__")
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        (d / ("%s.%s" % (stem, time.strftime("%Y%m%d%H%M%S")))).write_text(
+            fp.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
+        for old in sorted(d.glob(stem + ".*"))[:-BACKUP_KEEP]:
+            old.unlink()
+    except OSError:
+        pass
+
+
 def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
     """/api/instructions: GET lists everything; PUT /api/instructions/<id> saves an editable file. A PUT is the
     operator editing from the status tab, so the caller must have checked that it came from this server's own page."""
@@ -363,19 +377,14 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
         except memory_store.MemoryRefused as e:
             return 409, {"ok": False, "error": str(e)}
     else:
-        if fp.exists():
-            try:
-                fp.with_name("%s.bak-selfstatus-%s" % (fp.name, time.strftime("%Y%m%d%H%M%S"))).write_text(
-                    fp.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
-            except OSError:
-                pass
+        _backup(fp)
         _atomic_write_text(fp, content)
     return 200, {"ok": True, "id": rest, "bytes": len(content.encode("utf-8"))}
 
 
 # ------------------------------------------------------------ team (EXPERTS_STATUS_v1, CHARACTERS_v1)
-# The 팀 tab: each character's work brains (its card, extensions.chatbot.brains.work), docs/plans/multi-agent-worktree-delegation.md §11-12. The operator edits them here;
-# the PD cannot. Which providers a brain may name comes from the delegation runner's registry.
+# The 팀 tab: each character's work brains (its card, extensions.chatbot.brains.work),
+# docs/plans/multi-agent-worktree-delegation.md §11-12. The operator edits them here; the PD cannot. Which providers a brain may name comes from the delegation runner's registry.
 
 _MAX_BRAINS = 6
 _CHAR_ID = re.compile(r"^char_[0-7][0-9a-hjkmnp-tv-z]{25}$")
