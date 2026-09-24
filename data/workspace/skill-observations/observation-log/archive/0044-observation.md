@@ -1,15 +1,15 @@
 ---
 id: 44
 title: "음력 변환 도구 부재"
-status: open
+status: actioned
 type: internal
 skill: []
 proposes_skill: []
 area: ""
 date: 2026-09-22
 parked_until:
-resolved:
-resolution:
+resolved: 2026-09-23
+resolution: "도구구현완료"
 reference:
 ---
 
