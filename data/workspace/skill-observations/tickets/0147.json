@@ -1,0 +1,39 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-24 22:45:33",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-24 22:44:27",
+ "evidence": [
+  "event:20260924-223930-db4be4#24"
+ ],
+ "gate_failures": 0,
+ "id": 147,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-24 22:45:33"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/index.html, static/markdown.js",
+   "ts": "2026-09-24 22:45:33"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-147 at 01dbc73 (agy, review PASS round 1)",
+   "ts": "2026-09-24 22:49:38"
+  }
+ ],
+ "paths": [
+  "static/index.html",
+  "static/markdown.js"
+ ],
+ "status": "awaiting_merge",
+ "target": "static/index.html,static/markdown.js",
+ "title": "선택지 UI(choiceBar) DOM 바인딩 안전화 및 캐시 버저닝 갱신",
+ "updated": "2026-09-24 22:49:38",
+ "worked_by": "agy"
+}
