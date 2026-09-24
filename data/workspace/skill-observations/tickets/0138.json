@@ -1,0 +1,228 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-24 17:01:21",
+ "approved_by": "operator (ui)",
+ "attempts": 0,
+ "blocked_by": {
+  "actor": "agy",
+  "at": "2026-09-24 17:09:29",
+  "paths": [
+   "static/app-evolution.js"
+  ],
+  "ticket": 137,
+  "until": "2026-09-24 17:29:09"
+ },
+ "closed_reason": "declined",
+ "created": "2026-09-24 17:00:57",
+ "evidence": [
+  "event:20260924-161456-5b9538#239"
+ ],
+ "gate_failures": 0,
+ "id": 138,
+ "notes": [
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:03:04"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:03:14"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:03:24"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:03:35"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:03:45"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:03:55"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:04:05"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:04:15"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:04:25"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:04:35"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:04:45"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:04:56"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:05:06"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:05:16"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:05:26"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:05:36"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:05:46"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:05:56"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:06:06"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:06:16"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:06:26"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:06:37"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:06:47"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:06:57"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:07:07"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:07:17"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:07:27"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:07:37"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:07:48"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:07:58"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:08:08"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:08:18"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:08:28"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:08:38"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:08:48"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:08:59"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:09:09"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:09:19"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 137 (static/app-evolution.js)",
+   "ts": "2026-09-24 17:09:29"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "declined",
+   "ts": "2026-09-24 17:12:50"
+  }
+ ],
+ "status": "declined",
+ "target": "delegation.py,static/app-evolution.js,tests/test_delegation.py",
+ "title": "WORK_CARD_DETAILS_v1: 작업 카드 머리를 눌러 세부 상황 펼치기",
+ "updated": "2026-09-24 17:12:50"
+}
