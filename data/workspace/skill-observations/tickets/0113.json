@@ -2,7 +2,9 @@
  "actor": "chat-agent:agy",
  "approved_at": "2026-09-24 10:23:57",
  "approved_by": "operator (ui)",
- "attempts": 1,
+ "attempts": 2,
+ "closed_by": "claude-code",
+ "closed_reason": "done",
  "created": "2026-09-24 10:19:23",
  "evidence": [
   "event:20260924-101815-f14f08#3"
@@ -24,16 +26,35 @@
    "by": "agent:agy",
    "text": "failed: worktree agy: agent agy/gemini-3.8-flash-low exited with -1",
    "ts": "2026-09-24 10:43:58"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "claimed (attempt 2/3); paths: services/chatbot/session.py, services/chatbot/tests/test_session_index.py",
+   "ts": "2026-09-24 10:48:31"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "cause found: the page polls every 2.5s; /api/sessions/active re-reads all ~319 meta.json (2.8MB) under REG.lock (p50 174ms), /api/sessions re-reads 40. Fix: per-file summary cache keyed by mtime/size.",
+   "ts": "2026-09-24 10:48:31"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done: SESSION_INDEX_v1: 2.5초 폴링마다 meta.json ~320개 전체 재읽기(REG.lock 안, p50 174ms)가 원인. 파일별 요약 캐시로 실서버 active 7ms, list 4ms. 커밋 d063cab",
+   "ts": "2026-09-24 10:58:48"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done",
+   "ts": "2026-09-24 10:58:48"
   }
  ],
  "paths": [
-  "services/chatbot/static/app.js",
-  "services/chatbot/static/index.html",
-  "services/chatbot/static/style.css"
+  "services/chatbot/session.py",
+  "services/chatbot/tests/test_session_index.py"
  ],
- "status": "approved",
+ "status": "done",
  "target": "services/chatbot/static/app.js,services/chatbot/static/index.html,services/chatb",
  "title": "모바일 채팅 화면 반응성 및 덜그럭거림 개선",
- "updated": "2026-09-24 10:43:58",
- "worked_by": "agy"
+ "updated": "2026-09-24 10:58:48",
+ "worked_by": "claude-code"
 }
