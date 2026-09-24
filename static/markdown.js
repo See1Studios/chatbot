@@ -273,7 +273,7 @@ function pickChoice(choice) {
       return;
     }
     inputEl.value = '/act ' + act;
-    if (typeof send === 'function') send();
+    sendPickedChoice();
     return;
   }
 
@@ -287,7 +287,7 @@ function pickChoice(choice) {
             if (go && go.message && typeof addNotice === 'function') addNotice('ok', go.message);
             if (typeof loadTickets === 'function') loadTickets();
             inputEl.value = (go && go.prompt) || '';
-            if (typeof send === 'function') send();
+            sendPickedChoice();
           }).catch(e => {
             if (typeof addNotice === 'function') addNotice('error', '작업 진행 실패: ' + (typeof obsErrorText === 'function' ? obsErrorText(e) : e));
           });
@@ -305,13 +305,19 @@ function pickChoice(choice) {
       return;
     }
     inputEl.value = cmdText;
-    if (typeof send === 'function') send();
+    sendPickedChoice();
     return;
   }
 
   // default: say
   inputEl.value = payload || item.label;
-  if (typeof send === 'function') send();
+  sendPickedChoice();
+}
+
+// A chip tap is not typing: on touch devices send without refocusing inputEl (no keyboard pop).
+function sendPickedChoice() {
+  if (typeof send !== 'function') return;
+  send(typeof tapSendOpts === 'function' ? tapSendOpts() : undefined);
 }
 
 function getChoiceBarEl() {

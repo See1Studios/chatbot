@@ -180,7 +180,9 @@ function toggleSlashMenu() {
     hideSlashMenu();
     return;
   }
-  if (inputEl && !String(inputEl.value || '').startsWith('/') && !String(inputEl.value || '').trim()) {
+  // touch: open the menu only -- no '/' typed in, no focus, so no keyboard pop
+  const touch = typeof isTouchDevice === 'function' && isTouchDevice();
+  if (!touch && inputEl && !String(inputEl.value || '').startsWith('/') && !String(inputEl.value || '').trim()) {
     inputEl.value = '/';
     autoResizeInput();
     updateSendButton();
@@ -189,7 +191,7 @@ function toggleSlashMenu() {
   const q = val.startsWith('/') ? val.slice(1) : '';
   renderSlashMenu(q);
   slashIgnoreDismissUntil = Date.now() + 450;
-  if (inputEl) {
+  if (inputEl && !touch) {
     requestAnimationFrame(() => {
       if (slashMenuEl.hidden) return;
       inputEl.focus({ preventScroll: true });
@@ -221,6 +223,10 @@ function applySlashItem(item) {
   autoResizeInput();
   updateSendButton();
   hideSlashMenu();
+  if (typeof isTouchDevice === 'function' && isTouchDevice()) {
+    if (inputEl.blur) inputEl.blur();   // the template is filled in; the user taps the input to edit
+    return;
+  }
   inputEl.focus();
   inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
 }

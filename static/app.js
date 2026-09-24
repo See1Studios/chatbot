@@ -439,12 +439,23 @@ if (logEl) {
     }
   }, { passive: true });
 }
+// Touch devices pop the virtual keyboard on every inputEl.focus(); taps on chips,
+// actions and skill buttons must not do that (MOBILE_KEYBOARD_FOCUS_v1).
+function isTouchDevice() {
+  return Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+}
+// send() options for a tap that is not typing: keep the keyboard shut on touch.
+function tapSendOpts() {
+  return { keepFocus: !isTouchDevice() };
+}
 function sendAction(actionText) {
   if (!inputEl || typeof send !== 'function') return;
   inputEl.value = '/act ' + String(actionText || '').trim();
-  send();
+  send(tapSendOpts());
 }
-async function send() {
+async function send(opts) {
+  // a click handler passes an Event here -- only a plain { keepFocus } counts
+  const keepFocus = !(opts && opts.keepFocus === false);
   const text = inputEl.value.trim();
   if (!text) return;
 
@@ -510,7 +521,7 @@ async function send() {
         if (go.message) addNotice('ok', go.message);
         loadTickets();
         inputEl.value = go.prompt;
-        return send();   // an ordinary message to the agent from here on
+        return send(opts);   // an ordinary message to the agent from here on
       }
       addNotice('ok', await decideTicket(ticketCmd));
     } catch (e) {
@@ -658,7 +669,8 @@ async function send() {
   } finally {
     sendBtn.disabled = false;
     updateSendButton();
-    inputEl.focus();
+    if (keepFocus) inputEl.focus();
+    else if (inputEl.blur) inputEl.blur();
   }
 }
 applyIdentity();
