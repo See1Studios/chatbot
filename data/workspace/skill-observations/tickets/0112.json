@@ -1,0 +1,38 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-24 10:14:02",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-24 10:13:23",
+ "evidence": [
+  "event:20260924-100539-2408a5#13"
+ ],
+ "gate_failures": 0,
+ "id": 112,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-24 10:14:02"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: data/workspace/.agents/skills/role",
+   "ts": "2026-09-24 10:14:02"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-112 at 93ce181 (agy, review PASS round 1)",
+   "ts": "2026-09-24 10:14:56"
+  }
+ ],
+ "paths": [
+  "data/workspace/.agents/skills/role"
+ ],
+ "status": "awaiting_merge",
+ "target": "data/workspace/.agents/skills/role",
+ "title": "남은 role 디렉터리 완전 삭제",
+ "updated": "2026-09-24 10:14:56",
+ "worked_by": "agy"
+}
