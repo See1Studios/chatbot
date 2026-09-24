@@ -126,6 +126,12 @@ function enterSession(id, opts) {
   }
 
   if (opts.userEcho) addChat('user', opts.userEcho, false, false, false);
+  if (opts.sessionMarker) {
+    const marker = document.createElement('div');
+    marker.className = 'msg scrollback-marker';
+    marker.textContent = opts.sessionMarker;
+    logEl.appendChild(marker);
+  }
   if (opts.greeting) addChat('assistant', opts.greeting, true);
   if (opts.activityAfter) addActivity(opts.activityAfter);
 
@@ -791,7 +797,7 @@ async function createSession() {
   archiveBrowse = false;
   enterSession(data.session.id, {
     scrollback: prevSessionId,
-    greeting: '다시 왔다냥! ' + IDENTITY.user_title + ', 뭐부터 할까? ฅ',
+    sessionMarker: '── 세션 ' + data.session.id + ' ──',
     metaLabel: label,
     busy: false,
     activityAfter: '새 세션 ' + data.session.id,
