@@ -40,6 +40,40 @@ def split_choices(text: str) -> Tuple[str, List[str]]:
     return (text[:m.start()].rstrip(), items) if items else (text, [])
 
 
+# PRIVATE_TENSION_v1 (#162): private sessions climb a 4-stage tension ladder. The engine state lives on the session;
+# this is the one place its per-turn context is written, so every provider gets the same text.
+TENSION_MIN, TENSION_MAX = 1, 4
+TENSION_STAGES = {1: "warm-up", 2: "flirting", 3: "rising", 4: "peak"}
+TENSION_SLOTS = ("push-pull", "escalate", "peak")   # slot index -> stage delta 0 / +1 / +2
+TENSION_RECENT_MAX = 9
+
+
+def tension_after(stage: int, slot: int = -1, action: bool = False) -> int:
+    """Next stage: a picked slot moves it by its index (push-pull holds), an action nudges +1; clamped to 1..4."""
+    step = slot if 0 <= slot < len(TENSION_SLOTS) else (1 if action else 0)
+    return max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN) + step))
+
+
+def tension_context(stage: int, recent_choices: List[str]) -> str:
+    """[Tension Engine Context] block for one private turn: stage, choices not to repeat, the 3-slot contract."""
+    stage = max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN)))
+    lines = [
+        "[Tension Engine Context]",
+        f"Stage: {stage}/{TENSION_MAX} ({TENSION_STAGES[stage]}). Match the scene's intensity to this stage.",
+    ]
+    recent = [c for c in (recent_choices or []) if c][-TENSION_RECENT_MAX:]
+    if recent:
+        lines.append("Do not repeat or rephrase these recent choices: " + " | ".join(recent))
+    top = min(TENSION_MAX, stage + 2)
+    lines.append(
+        "End with exactly 3 choices in this slot order: "
+        f"1) push-pull -- tease or hold back, stays at stage {stage}; "
+        f"2) escalate -- one step closer, stage {min(TENSION_MAX, stage + 1)}; "
+        f"3) peak -- the boldest move, stage {top}."
+    )
+    return "\n".join(lines)
+
+
 class AgentAdapter:
     """Base interface for spawning/talking to a CLI agent backend.
 
@@ -66,6 +100,12 @@ class AgentAdapter:
     # docs/plans/api-provider-adapters.md) -- AgentSession branches on this before
     # touching self.proc/_spawn()/stdin. Every CLI adapter stays "process" by
     # inheriting this default; only an HTTP-dialect adapter overrides it.
+
+    def turn_context(self, session: Any) -> str:
+        """Per-turn system context prepended to the user message; private sessions get the tension engine block."""
+        if not getattr(session, "is_private", False):
+            return ""
+        return tension_context(getattr(session, "tension_stage", TENSION_MIN), getattr(session, "recent_choices", []))
 
     def find_executable(self) -> str:
         raise NotImplementedError
