@@ -1,0 +1,75 @@
+"""The newest-session lookup reads each meta.json once per change, not on every poll (SESSION_INDEX_v1).
+Run: python3 -m unittest tests.test_session_index  (from services/chatbot)
+"""
+import json
+import shutil
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import session as S  # noqa: E402
+
+
+class SessionIndex(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._sessions = S.SESSIONS
+        S.SESSIONS = self.tmp / "sessions"
+        S.SESSIONS.mkdir()
+        self.reg = S.Registry()
+
+    def tearDown(self):
+        S.SESSIONS = self._sessions
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def write(self, sid, **extra):
+        d = S.SESSIONS / sid
+        d.mkdir(exist_ok=True)
+        payload = {"id": sid, "history": [{"role": "user", "text": "hi"}], "successor_session_id": ""}
+        payload.update(extra)
+        (d / "meta.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    def test_polls_without_changes_read_no_file(self):
+        self.write("20260921-100000-aaaaaa")
+        self.write("20260921-110000-bbbbbb")
+        self.assertEqual(self.reg.get_active().sid, "20260921-110000-bbbbbb")
+        with mock.patch.object(Path, "read_text", side_effect=AssertionError("re-read")):
+            self.assertEqual(self.reg.get_active().sid, "20260921-110000-bbbbbb")
+            self.assertEqual(len(self.reg.list()), 2)
+
+    def test_a_new_session_folder_is_seen_at_once(self):
+        self.write("20260921-100000-aaaaaa")
+        self.reg.get_active()
+        self.write("20260921-120000-cccccc")
+        self.assertEqual(self.reg.get_active().sid, "20260921-120000-cccccc")
+
+    def test_own_saves_refresh_only_that_session(self):
+        a = self.reg.get_active()
+        a.history.append({"role": "user", "text": "hello there", "ts": 1})
+        a.save_meta()
+        row = {x["id"]: x for x in self.reg.list()}[a.sid]
+        self.assertEqual((row["turns"], row["preview"]), (1, "hello there"))
+
+    def test_a_probe_session_turns_real_when_it_grows(self):
+        self.write("20260921-100000-aaaaaa")
+        self.write("20260921-110000-probe1", history=[{"role": "user", "text": "[diag] ping"}])
+        self.assertEqual(self.reg.get_active().sid, "20260921-100000-aaaaaa")
+        p = S.SESSIONS / "20260921-110000-probe1" / "meta.json"
+        self.write("20260921-110000-probe1", history=[{"role": "user", "text": "[diag] ping"}] * 3)
+        S._meta_touched(p)
+        self.assertEqual(self.reg.get_active().sid, "20260921-110000-probe1")
+
+    def test_other_writers_are_picked_up_after_the_rescan_window(self):
+        self.write("20260921-100000-aaaaaa", mode="private")
+        self.write("20260921-090000-bbbbbb")
+        self.assertEqual(self.reg.get_active().sid, "20260921-090000-bbbbbb")
+        self.write("20260921-100000-aaaaaa")                          # another process flips it to work
+        with mock.patch.object(S, "_META_RESCAN_SEC", 0.0):
+            self.assertEqual(self.reg.get_active().sid, "20260921-100000-aaaaaa")
+
+
+if __name__ == "__main__":
+    unittest.main()

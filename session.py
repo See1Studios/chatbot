@@ -266,6 +266,7 @@ class AgentSession:
             }
             try:
                 _atomic_write_text(self.meta_path, json.dumps(payload, ensure_ascii=False, indent=2))
+                _meta_touched(self.meta_path)
             except Exception as e:
                 obslog.exception("session.save_meta_failed", e, sid=self.sid)
 
@@ -2212,6 +2213,76 @@ def _probe_meta(meta: dict) -> bool:
     return "[doctor-probe]" in sample or "[diag]" in sample
 
 
+# SESSION_INDEX_v1: the page asks for the newest session every 2.5s. Reading every meta.json (history and all)
+# each time cost ~170ms under REG.lock with ~320 sessions, and grew with every session. Each file is parsed
+# once per change (mtime + size) and kept as a small summary; the whole scan is skipped while nothing changed:
+# this process's own saves call _meta_touched(), a new or removed session folder changes the folder's mtime,
+# and anything else (another process) is picked up within _META_RESCAN_SEC.
+_META_INDEX: Dict[Path, tuple] = {}
+_META_INDEX_LOCK = threading.Lock()
+_META_RESCAN_SEC = 30.0
+_meta_state = {"dirty": set(), "root": None, "dir_mtime": None, "at": 0.0, "list": []}
+
+
+def _meta_touched(path: Path) -> None:
+    with _META_INDEX_LOCK:
+        _meta_state["dirty"].add(Path(path))
+
+
+def _meta_summary(p: Path) -> Optional[dict]:
+    """The cached summary of one meta.json, re-read only when its mtime or size changed; None when it is gone."""
+    try:
+        st = p.stat()
+    except OSError:
+        _META_INDEX.pop(p, None)
+        return None
+    key = (st.st_mtime_ns, st.st_size)
+    hit = _META_INDEX.get(p)
+    if hit is None or hit[0] != key:
+        try:
+            meta = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        hist = meta.get("history") or []
+        hit = (key, {
+            "id": str(meta.get("id") or p.parent.name or ""),
+            "model": meta.get("model"),
+            "mode": "private" if meta.get("mode") == "private" else "work",
+            "character": str(meta.get("character") or ""),
+            "probe": _probe_meta(meta),
+            "preview": (str(hist[-1].get("text", ""))[:80] if hist else ""),
+            "turns": len(hist),
+        })
+        _META_INDEX[p] = hit
+    return dict(hit[1], mtime=st.st_mtime, path=p)
+
+
+def _meta_summaries() -> List[dict]:
+    """One small summary per sessions/*/meta.json: id, mode, character, probe, model, preview, turns, mtime."""
+    with _META_INDEX_LOCK:
+        try:
+            dir_mtime = SESSIONS.stat().st_mtime_ns
+        except OSError:
+            return []
+        st8 = _meta_state
+        if (st8["root"] == SESSIONS and st8["dir_mtime"] == dir_mtime
+                and time.monotonic() - st8["at"] < _META_RESCAN_SEC):
+            dirty, st8["dirty"] = st8["dirty"], set()
+            if dirty:                                     # only the files this process saved
+                kept = [m for m in st8["list"] if m["path"] not in dirty]
+                st8["list"] = kept + [m for m in map(_meta_summary, dirty) if m is not None]
+            return [dict(m) for m in st8["list"]]
+        st8["dirty"] = set()
+        with os.scandir(SESSIONS) as it:
+            entries = [Path(e.path) / "meta.json" for e in it if e.is_dir()]
+        out = [m for m in map(_meta_summary, entries) if m is not None]
+        live = {m["path"] for m in out}
+        for gone in [k for k in _META_INDEX if k not in live]:
+            del _META_INDEX[gone]
+        st8.update(root=SESSIONS, dir_mtime=dir_mtime, at=time.monotonic(), list=out)
+        return [dict(m) for m in out]
+
+
 class Registry:
     def __init__(self) -> None:
         self.lock = threading.RLock()
@@ -2288,30 +2359,11 @@ class Registry:
             return sess
 
     def list(self) -> List[dict]:
-        items = []
-        for p in sorted(SESSIONS.glob("*/meta.json"), key=lambda x: x.stat().st_mtime, reverse=True)[:40]:
-            try:
-                meta = json.loads(p.read_text(encoding="utf-8"))
-                hist = meta.get("history") or []
-                items.append({
-                    "id": meta.get("id") or p.parent.name,
-                    "model": meta.get("model"),
-                    # epoch-seconds float, matching AgentSession.to_public()'s
-                    # updated_at (both derived from the same meta.json's
-                    # mtime) -- previously this returned meta.json's own
-                    # "updated_at" ISO string field instead, a different
-                    # format from the same-named field on every other
-                    # session endpoint, which is why the client needed a
-                    # _scrollbackEpochMs() normalizer to compare the two.
-                    "updated_at": p.stat().st_mtime,
-                    "preview": (hist[-1:].pop().get("text", "")[:80] if hist else ""),
-                    "turns": len(hist),
-                    "mode": "private" if meta.get("mode") == "private" else "work",
-                    "character": str(meta.get("character") or ""),
-                })
-            except Exception:
-                continue
-        return items
+        # updated_at is meta.json's mtime as epoch seconds, like AgentSession.to_public()'s (the client
+        # compares the two)
+        items = sorted(_meta_summaries(), key=lambda m: m["mtime"], reverse=True)[:40]
+        return [{"id": m["id"], "model": m["model"], "updated_at": m["mtime"], "preview": m["preview"],
+                 "turns": m["turns"], "mode": m["mode"], "character": m["character"]} for m in items]
 
     def get_active(self, character: str = "") -> AgentSession:
         """Live conversation: the character's newest *work* session id, then the successor-chain tip ("" = the
@@ -2345,24 +2397,18 @@ class Registry:
                            mode="private")
 
     def _newest(self, mode: str, character: str) -> Optional[AgentSession]:
+        default = None
+        best_id = ""
+        for m in _meta_summaries():
+            if m["probe"] or m["mode"] != mode or not _live_sid(m["id"]):
+                continue
+            if not m["character"]:                        # "" in a not-yet-migrated session = the default
+                default = _character_id("") if default is None else default
+            if (m["character"] or default) != character:
+                continue
+            if m["id"] > best_id:
+                best_id = m["id"]
         with self.lock:
-            best_id = ""
-            for p in SESSIONS.glob("*/meta.json"):
-                try:
-                    meta = json.loads(p.read_text(encoding="utf-8"))
-                    if _probe_meta(meta):
-                        continue
-                    if ("private" if meta.get("mode") == "private" else "work") != mode:
-                        continue
-                    if (str(meta.get("character") or "") or _character_id("")) != character:
-                        continue                                  # "" in a not-yet-migrated session = the default
-                    sid = str(meta.get("id") or p.parent.name or "")
-                    if not _live_sid(sid):
-                        continue
-                    if not best_id or sid > best_id:
-                        best_id = sid
-                except Exception:
-                    continue
             if not best_id:
                 return None
             sess = self.get(best_id)
