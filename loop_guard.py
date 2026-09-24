@@ -15,6 +15,10 @@ counts when the output did not change. A stop needs the outputs confirmed equal;
 output is known (a stream shape without one) the call may still warn, and stops only at twice
 the usual count.
 
+2026-09-25: agy's view_file step carries only {AbsolutePath} and the output "868 lines, 36259 bytes" -- the
+same for every range -- so honest paging was stopped as "the same call 3 times". Such a stat-only output says
+nothing about what was read: the call is left out of rules A and B, and rule C still bounds a runaway.
+
 Pure logic, no I/O. Feed one call per finished tool step; it answers when a pattern crosses
 a threshold. Three rules (thresholds are per turn, `reset()` between turns):
 
@@ -33,6 +37,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import deque
 from dataclasses import dataclass
 from typing import Deque, Dict, List, Optional, Set, Tuple
@@ -44,6 +49,7 @@ NOISE_KEYS = {"toolaction", "toolsummary", "waitforprevioustools", "explanation"
 TARGET_KEYS = ("AbsolutePath", "TargetFile", "FilePath", "filePath", "File", "file", "path", "Path",
                "SearchPath", "DirectoryPath", "Uri", "Url", "url")
 READ_ONLY_PREFIXES = ("view", "read", "list", "find", "grep", "search", "glob", "cat", "get_", "stat")
+STAT_ONLY = re.compile(r"\s*\d+ lines?, \d+ bytes?\s*")
 
 
 @dataclass(frozen=True)
@@ -90,6 +96,11 @@ def output_hash(output) -> Optional[str]:
     except (TypeError, ValueError):
         text = str(output)
     return hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()[:8]
+
+
+def is_stat_only(output) -> bool:
+    """The output is a file-size summary, identical for any range read, so it cannot show a repeat."""
+    return isinstance(output, str) and STAT_ONLY.fullmatch(output) is not None
 
 
 def _compatible(a: Optional[str], b: Optional[str]) -> bool:
@@ -139,17 +150,21 @@ class LoopGuard:
         out = output_hash(output)
         ro = is_read_only(tool)
         target = target_of(params)
+        opaque = is_stat_only(output)
 
-        if sig == self._last_sig and _compatible(out, self._last_out):
+        if opaque:
+            self._last_sig, self._last_out, self._consec, self._consec_confirmed = None, None, 0, True
+        elif sig == self._last_sig and _compatible(out, self._last_out):
             self._consec += 1
             self._consec_confirmed = self._consec_confirmed and out is not None and out == self._last_out
         else:
             self._consec, self._consec_confirmed = 1, True
-        self._last_sig, self._last_out = sig, out
+        if not opaque:
+            self._last_sig, self._last_out = sig, out
 
-        self._recent.append((sig, out) if ro else None)
+        self._recent.append((sig, out) if ro and not opaque else None)
         exact = confirmed_exact = 0
-        if ro:
+        if ro and not opaque:
             for e in self._recent:
                 if e is not None and e[0] == sig and _compatible(e[1], out):
                     exact += 1

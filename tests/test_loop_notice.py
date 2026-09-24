@@ -21,10 +21,10 @@ from tests.test_steer import Base as SteerBase, stub_adapter  # noqa: E402
 
 
 def read_done(i=0, path="/src/adapters.py"):
-    """One finished whole-file read: same arguments, same output every time (agy.md A45)."""
+    """One finished read: same arguments, same content every time (a stat-only output is not evidence)."""
     return {"event": "step_update", "step_update": {"step_index": i, "state": "DONE", "step_type": "tool",
             "tool_name": "view_file", "tool_info": {"name": "view_file", "parameters": {"AbsolutePath": path},
-                                                    "output": "1949 lines, 94302 bytes"}}}
+                                                    "output": "1: import json\n2: import os"}}}
 
 
 class NoticeCase(SteerBase):
@@ -115,7 +115,7 @@ class TheNoticeIsNotAUserMessage(SyncBase):
 class StrictAfterTheNotice(unittest.TestCase):
     def repeats_until_stop(self, g):
         for i in range(1, 12):
-            v = g.observe("view_file", {"AbsolutePath": "/a.py"}, "1949 lines, 94302 bytes")
+            v = g.observe("view_file", {"AbsolutePath": "/a.py"}, "1: import json\n2: import os")
             if v is not None and v.level == "stop":
                 return i
         return None

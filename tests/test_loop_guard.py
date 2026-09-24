@@ -95,6 +95,38 @@ class SameCallMeansNoNewInformation(unittest.TestCase):
         self.assertIsNotNone(output_hash(""))          # an empty answer is still an answer
 
 
+class StatOnlyOutputIsNotEvidence(unittest.TestCase):
+    """2026-09-25: agy's view_file reported only {AbsolutePath} and "868 lines, 36259 bytes" for every range,
+    so paging app-session.js was stopped as "the same call 3 times" after the course-change notice."""
+
+    def stat_view(self, g):
+        return g.observe("view_file", {"AbsolutePath": APP}, "868 lines, 36259 bytes")
+
+    def test_paging_with_stat_only_output_trips_no_repeat_rule_even_when_tightened(self):
+        g = LoopGuard()
+        g.tighten(3)
+        got = first_verdicts(g, [self.stat_view] * 20)
+        self.assertEqual([(n, v.rule) for n, v in got if v.rule in ("exact", "consecutive")], [])
+
+    def test_a_stat_only_runaway_is_still_stopped_by_the_run_rule(self):
+        g = LoopGuard()
+        got = first_verdicts(g, [self.stat_view] * 60)
+        self.assertEqual([(n, v.level, v.rule) for n, v in got], [(24, "warn", "run"), (48, "stop", "run")])
+
+    def test_only_a_bare_size_summary_counts_as_stat_only(self):
+        from loop_guard import is_stat_only
+        self.assertTrue(is_stat_only("868 lines, 36259 bytes"))
+        self.assertTrue(is_stat_only(" 1 line, 5 bytes\n"))
+        self.assertFalse(is_stat_only("868 lines, 36259 bytes\nfunction enterSession(id, opts) {"))
+        self.assertFalse(is_stat_only(None))
+        self.assertFalse(is_stat_only({"lines": 868}))
+
+    def test_real_content_repeats_are_still_caught_around_stat_only_calls(self):
+        g = LoopGuard()
+        got = first_verdicts(g, [self.stat_view, lambda g: view(g, 1, 20)] + [lambda g: view(g, 1, 20)] * 10)
+        self.assertIn("consecutive", [v.rule for _, v in got if v.level == "stop"])
+
+
 class HonestWorkIsLeftAlone(unittest.TestCase):
     def test_reading_a_file_in_a_few_windows_then_acting_resets_the_run(self):
         g = LoopGuard()
