@@ -34,6 +34,7 @@ function makeNode(cls) {
   return n;
 }
 function matches(n, sel) {
+  if (sel.includes(',')) return sel.split(',').some(part => matches(n, part.trim()));   // a selector list
   // supports: .cls  [data-x]  [data-x="v"]  :not([data-x])   (all concatenated, e.g. .msg.user:not([data-ts]))
   let rest = sel;
   const re = /^(?:\.([\w-]+)|:not\(\[data-([\w-]+)\]\)|\[data-([\w-]+)(?:="([^"]*)")?\])/;

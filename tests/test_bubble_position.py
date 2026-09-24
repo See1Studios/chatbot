@@ -33,6 +33,7 @@ function node(cls, label) {
 }
 // supports: .cls  :not(.cls)  [data-x]  [data-x="v"]  :not([data-x])  concatenated
 function matches(n, sel) {
+  if (sel.includes(',')) return sel.split(',').some(part => matches(n, part.trim()));   // a selector list
   let rest = sel;
   const re = /^(?:\.([\w-]+)|:not\(\.([\w-]+)\)|:not\(\[data-([\w-]+)\]\)|\[data-([\w-]+)(?:="([^"]*)")?\])/;
   while (rest) {
@@ -69,6 +70,13 @@ out.ackNoLive = run((log, add, f) => {
   const u = add('msg user', 'U2', 0, '인사해주랑');
   const r = f.adoptBareUserBubble('인사해주랑', 110);
   return { adopted: r, ts: u.dataset.ts, role: u.dataset.syncRole };
+});
+// 1b. an action bubble ("✦ waves") is stamped by its history text "(waves)" (PRIVATE_INTERACTION_v1)
+out.ackAction = run((log, add, f) => {
+  add('msg user', 'U1', 100);
+  const a = add('msg action', 'ACT', 0, '✦ 손을 흔든다');
+  const r = f.adoptBareUserBubble('(손을 흔든다)', 110);
+  return { adopted: r, ts: a.dataset.ts, role: a.dataset.syncRole };
 });
 // 2. same, plain log
 out.ackPlain = run((log, add, f) => {
@@ -118,6 +126,9 @@ class BubblePosition(unittest.TestCase):
         self.assertEqual(self.o["ackNoLive"]["order"], ["GREETING", "U1", "A1", "U2"])
         self.assertEqual(self.o["ackNoLive"]["extra"], {"adopted": True, "ts": "110", "role": "user"})
         self.assertEqual(self.o["ackPlain"]["order"], ["U1", "A1", "U2"])
+
+    def test_an_action_bubble_is_stamped_by_its_history_text(self):
+        self.assertEqual(self.o["ackAction"]["extra"], {"adopted": True, "ts": "110", "role": "action"})
 
     def test_stamping_a_bubble_never_moves_it(self):
         self.assertEqual(self.o["adoptNeverMoves"]["order"], ["U1", "A1", "U2"])

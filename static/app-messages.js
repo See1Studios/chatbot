@@ -455,11 +455,12 @@ function adoptUntimedAssistant(h) {
 // whenever no answer bubble was in flight when its ack arrived.
 function adoptBareUserBubble(text, ts) {
   if (!logEl || !ts) return false;
-  const bare = logEl.querySelectorAll('.msg.user:not([data-ts])');
+  const bare = logEl.querySelectorAll('.msg.user:not([data-ts]), .msg.action:not([data-ts])');
   for (let i = 0; i < bare.length; i++) {
-    if ((bare[i].textContent || '') === (text || '')) {
+    const content = bare[i].textContent || '';
+    if (content === (text || '') || (text && text.startsWith('(') && text.endsWith(')') && content === '✦ ' + text.slice(1, -1))) {
       bare[i].dataset.ts = String(ts);
-      bare[i].dataset.syncRole = bare[i].classList.contains('btw-user') ? 'btw-user' : 'user';
+      bare[i].dataset.syncRole = bare[i].classList.contains('action') ? 'action' : (bare[i].classList.contains('btw-user') ? 'btw-user' : 'user');
       return true;
     }
   }
