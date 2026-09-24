@@ -1563,7 +1563,7 @@ class AgentSession:
                 # stream, keep the partial answer, and run the new instruction immediately --
                 # but tell the agent the earlier work was paused, not cancelled.
                 self._loop_hint = STEER_HINT
-                self.interrupt_current_turn()
+                self.interrupt_current_turn(reason="steer")
 
         if client_context:
             self._send_direct(text, client_mid, client_context=client_context)

@@ -94,7 +94,7 @@ class AcceptWithoutCutting(Base):
     def test_providers_that_cannot_steer_still_interrupt_at_once_but_say_the_work_was_paused(self):
         s = self.make(provider="claude")
         s.send(ACTION, "m3")
-        self.assertEqual(self.interrupts, ["interrupted"])
+        self.assertEqual(self.interrupts, ["steer"])                      # same mark and no friction signal as agy's steer
         self.assertEqual(s.msg_queue, [])
         self.assertEqual(self.sent[0][2], S.STEER_HINT)                  # hint set when the message goes out
 
