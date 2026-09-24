@@ -20,7 +20,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import adapters  # noqa: E402
 
-PROVIDER_MODULES = {"adapters.py", "accounts.py", "account_login.py", "host_config.py", "ctl_proc.py"}
+# ADAPTER_SPLIT_v1: one module per provider may name it; adapter_base.py is common code and stays neutral
+PROVIDER_MODULES = {"adapters.py", "adapter_agy.py", "adapter_claude.py", "adapter_grok.py", "adapter_codex.py",
+                    "adapter_openai.py", "accounts.py", "account_login.py", "host_config.py", "ctl_proc.py"}
 # every registered provider id, plus the vendor/CLI names behind them
 PROVIDERS = sorted(set(adapters.AGENT_ADAPTERS) | {"agy", "claude", "grok", "codex", "gemini", "antigravity"})
 NAME_RE = re.compile("|".join(re.escape(p) for p in PROVIDERS), re.I)
@@ -67,7 +69,7 @@ class CommonCodeTest(unittest.TestCase):
         self.assertEqual(bad, [], "provider name in a UI identifier")
 
     def test_no_event_is_named_after_a_provider(self):
-        src = (ROOT / "adapters.py").read_text(encoding="utf-8")
+        src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(ROOT.glob("adapter*.py")))
         for pid in PROVIDERS:
             self.assertNotIn('"event": "%s"' % pid, src)
 

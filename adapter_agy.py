@@ -1,0 +1,299 @@
+"""Antigravity (agy) CLI adapter and where agy keeps a conversation's media. Callers import from adapters (ADAPTER_SPLIT_v1)."""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from host_config import AGENT_PATH_PREFIX, AGY, MODELS, WORKSPACE
+from adapter_base import AgentAdapter, _redact_err
+import media_handler as _media
+
+
+# agy ends a turn with an EMPTY result when this elapses -- and the agent may keep working unseen.
+AGY_PRINT_TIMEOUT_SEC = 8 * 60
+
+
+class AgyAdapter(AgentAdapter):
+    id = "agy"
+    keeps_stdin_open = True
+    supports_steer = True
+    ONESHOT_MODEL = "gemini-3.8-flash-low"
+
+    def has_conversation(self, conversation_id: Optional[str]) -> Optional[bool]:
+        """agy resumes `--conversation <id>` only if its store has it; otherwise it silently starts
+        an empty one."""
+        if not conversation_id:
+            return False
+        from session_weights import _conversation_db_path
+        db = _conversation_db_path(conversation_id)
+        return bool(db is not None and db.exists())
+
+    def find_executable(self) -> str:
+        return AGY
+
+    def oneshot(self, prompt: str, timeout: float = 20.0) -> Optional[Dict[str, Any]]:
+        """`agy -p` with stream-json output: the `result` event carries the answer and usage."""
+        out: Dict[str, Any] = {"text": "", "usage": None, "duration_seconds": None, "error": ""}
+        cmd = [self.find_executable(), "-p", prompt, "--output-format", "stream-json",
+               "--model", self.ONESHOT_MODEL, "--dangerously-skip-permissions"]
+        try:
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            out["error"] = "timeout"
+            return out
+        except Exception as e:  # noqa: BLE001
+            out["error"] = str(e)
+            return out
+        if res.returncode != 0 or not res.stdout.strip():
+            out["error"] = (res.stderr or "").strip()[-2000:] or "exit %s" % res.returncode
+            return out
+        for line in res.stdout.splitlines():
+            try:
+                obj = json.loads(line.strip())
+            except ValueError:
+                continue
+            if isinstance(obj, dict) and obj.get("event") == "result":
+                r = obj.get("result") or {}
+                out.update(text=str(r.get("response") or "").strip(), usage=r.get("usage"),
+                           duration_seconds=r.get("duration_seconds"))
+                break
+        if not out["text"]:
+            out["text"] = res.stdout.strip()
+        return out
+
+    def native_compact(self, conversation_id: Optional[str], timeout: float = 45.0) -> str:
+        """agy's own `/compact` of that conversation: sees the full history and tool state."""
+        if not conversation_id:
+            return ""
+        try:
+            res = subprocess.run(
+                [self.find_executable(), "-p", "/compact", "--conversation", conversation_id,
+                 "--model", self.ONESHOT_MODEL, "--dangerously-skip-permissions"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
+            return res.stdout.strip() if res.returncode == 0 and res.stdout.strip() else ""
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def known_models(self) -> List[str]:
+        return MODELS
+
+    def build_args(self, model: str, effort: str, conversation_id: Optional[str], add_dirs: List[str], prompt: str = "") -> List[str]:
+        args = [
+            self.find_executable(),
+            "--input-format", "stream-json",
+            "--output-format", "stream-json",
+            "--print-timeout", f"{AGY_PRINT_TIMEOUT_SEC // 60}m",
+            "--dangerously-skip-permissions",
+            "--mode", "accept-edits",
+            "--model", model,
+        ]
+        # Skills / AGENTS.md should expand; do NOT disable slash commands by default
+        for d in add_dirs:
+            if Path(d).exists():
+                args.extend(["--add-dir", d])
+        if effort:
+            args.extend(["--effort", effort])
+        if conversation_id:
+            args.extend(["--conversation", conversation_id])
+        return args
+
+    def build_env(self, home: Path) -> dict:
+        env = os.environ.copy()
+        env["HOME"] = str(home)
+        env["PATH"] = f"{AGENT_PATH_PREFIX}:{env.get('PATH','')}"
+        mcp_cfg = WORKSPACE / ".gemini" / "config" / "mcp_config.json"
+        if mcp_cfg.exists():
+            env["AGY_WORKSPACE"] = str(WORKSPACE)
+        return env
+
+    def format_stdin(self, content: str) -> str:
+        return json.dumps({"event": "user", "message": {"content": content}}, ensure_ascii=False) + "\n"
+
+    def normalize_line(self, session: "AgentSession", raw_line: str) -> List[dict]:
+        """Moved verbatim out of `AgentSession._handle_stdout_line` (Multi-Provider
+        plan Phase 0) -- same parsing, same session-mutation order, same
+        returned event shapes. Only structural change: events are collected
+        and returned instead of emitted inline, so `_handle_stdout_line` can
+        stay provider-agnostic (see AgentAdapter.normalize_line docstring for
+        why this still takes `session` instead of being a pure function)."""
+        try:
+            obj = json.loads(raw_line)
+        except json.JSONDecodeError:
+            return [{"event": "raw", "text": raw_line[:2000]}]
+        if not isinstance(obj, dict):
+            return []
+
+        session._maybe_capture_conversation_id(obj)
+        session._observe_agent_step(obj)
+
+        events: List[dict] = []
+        tool_ev = session._tool_summary(obj)
+        if tool_ev:
+            if isinstance(tool_ev, list):
+                events.extend(tool_ev)
+            else:
+                events.append(tool_ev)
+
+        ev = obj.get("event") or obj.get("type") or "message"
+        text = ""
+        is_delta = False
+        step = obj.get("step_update")
+        if isinstance(step, dict) and step.get("step_type") == "agent_response" and isinstance(step.get("text_delta"), str):
+            text = step.get("text_delta") or ""
+            ev = "delta"
+            is_delta = True
+        if isinstance(obj.get("text"), str) and not text:
+            text = obj["text"]
+        msg = obj.get("message")
+        if isinstance(msg, dict):
+            content = msg.get("content")
+            if isinstance(content, str):
+                text = content
+            elif isinstance(content, list):
+                bits = []
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "text":
+                        bits.append(str(part.get("text") or ""))
+                    elif isinstance(part, str):
+                        bits.append(part)
+                if bits:
+                    text = "".join(bits)
+        delta = obj.get("delta") or obj.get("content_block_delta")
+        if isinstance(delta, dict) and delta.get("text"):
+            text = str(delta.get("text"))
+            ev = "delta"
+            is_delta = True
+
+        if text:
+            text = session._rewrite_artifact_paths(text)
+
+        # Compute delta_offset AFTER rewrite so the client assistantBuf index
+        # matches the server-side rewritten-length counter (P2 fix).
+        delta_offset = None
+        if is_delta and text is not None:
+            delta_offset = len(session.current_text or "")
+            session.current_text = (session.current_text or "") + text
+
+        if ev == "result":
+            res_obj = obj.get("result") if isinstance(obj.get("result"), dict) else {}
+            raw_usage = res_obj.get("usage") if isinstance(res_obj.get("usage"), dict) else None
+            res_err = str(res_obj.get("error") or obj.get("error") or "")
+            # the operator pressed stop: the CLI's "interrupted" is the stop itself, not a failure to report
+            is_err = bool(res_err) and not session._stop_requested
+            out_ev = self.finalize_turn(
+                session=session,
+                text=text,
+                raw_usage=raw_usage,
+                is_err=is_err,
+                error=res_err if is_err else None,
+            )
+            final = out_ev.get("text") or ""
+            duration_seconds = out_ev.get("duration_seconds")
+            status = str(res_obj.get("status") or "")
+            dur = float(res_obj.get("duration_seconds") or duration_seconds or 0)
+            # TURN_END_ORDER_v1: append the terminal event FIRST, then ask
+            # session to stop the child AFTER _handle_events flushes it.
+            # Never call _end_unfinished_turn here — it _emit/_auto_stop
+            # immediately and races ahead of the answer paint.
+            events.append(out_ev)
+            need_stop = (not session._stop_requested) and (
+                status not in ("", "SUCCESS")
+                or (not final.strip() and dur >= 0.9 * AGY_PRINT_TIMEOUT_SEC)
+            )
+            if need_stop:
+                # Extra Korean unfinished notice only when finalize did not
+                # already produce error/answer — empty SUCCESS timeout case.
+                extra = None
+                if (
+                    not final.strip()
+                    and out_ev.get("event") != "error"
+                    and status in ("", "SUCCESS")
+                ):
+                    why = (
+                        f"status={status or '?'}"
+                        + (f", error={res_err}" if res_err else "")
+                        + f", {int(dur)}초"
+                    )
+                    extra = {
+                        "event": "error",
+                        "notice": "error",
+                        "text": (
+                            f"에이전트가 답을 내기 전에 턴이 끝났습니다 ({why}). "
+                            "남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다냥."
+                        ),
+                    }
+                    events.append(extra)
+                session._request_post_result_stop(status, res_err, dur)
+
+        elif ev in ("assistant", "message", "delta", "error", "system") or (ev in ("tool_use", "tool_result") and not tool_ev):
+            out = {"event": ev, "text": text, "raw_event": ev}
+            if ev == "delta" and delta_offset is not None:
+                out["offset"] = delta_offset
+            if obj.get("error"):
+                out["error"] = obj.get("error")
+            events.append(out)
+        elif not tool_ev:
+            events.append({"event": "provider_event", "text": text, "payload": {k: obj.get(k) for k in list(obj)[:12]}})
+
+        return events
+
+    def rate_limit_report(self) -> Optional[dict]:
+        """`agy --print /usage` -- the CLI's own rate-limit report; unavailable
+        inside a stream-json session, must be a separate one-shot invocation.
+        Moved out of the old module-level `_get_usage()` (Multi-Provider plan
+        Phase 0.5) so that function can become a generic provider-dispatching
+        + caching wrapper instead of hardcoding this agy-only subprocess call."""
+        try:
+            proc = subprocess.run([self.find_executable(), "--print", "/usage"], capture_output=True, text=True, timeout=30)
+            rows = []
+            # Strip CSI/C0 so a colorized post-login banner doesn't break the
+            # tab-split parsing below (same fix as ClaudeAdapter's /cost parsing).
+            stdout = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", proc.stdout or "")
+            stdout = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", stdout)
+            for line in stdout.splitlines():
+                parts = [p.strip() for p in line.split("\t")]
+                if len(parts) >= 4:
+                    rows.append({"group": parts[0], "limit_type": parts[1], "remaining_pct": parts[2], "reset_at": parts[3]})
+            if not rows and proc.stderr:
+                return {"error": _redact_err(proc.stderr)[:400]}
+            return {"rows": rows}
+        except Exception as e:
+            return {"error": str(e)}
+
+
+class AgyMediaSource(_media.MediaSource):
+    """agy writes a conversation's files under its brain store: BRAIN/<conversation id>/."""
+
+    def _dir(self, conversation_id):
+        if not conversation_id:
+            return None
+        d = _media._cfg("BRAIN") / conversation_id
+        return d if d.is_dir() else None
+
+    def artifact_dirs(self, conversation_id):
+        d = self._dir(conversation_id)
+        return [d, d / ".tempmediaStorage"] if d else []
+
+    def scan_dirs(self, conversation_id, cutoff):
+        d = self._dir(conversation_id)
+        out = [d, d / ".tempmediaStorage", d / ".system_generated"] if d else []
+        brain = _media._cfg("BRAIN")
+        try:
+            if brain.exists():
+                for sub in brain.iterdir():
+                    try:
+                        if sub != d and sub.is_dir() and sub.stat().st_mtime >= cutoff - 5:
+                            out.append(sub)
+                    except OSError:
+                        continue
+        except Exception:  # noqa: BLE001
+            pass
+        return out
+
+    def text_roots(self):
+        return [_media._cfg("BRAIN")]

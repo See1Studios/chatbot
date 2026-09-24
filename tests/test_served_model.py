@@ -78,7 +78,7 @@ class ServedModelStamp(unittest.TestCase):
 
 class ServedModelWiring(unittest.TestCase):
     def test_http_stream_returns_five_tuple(self) -> None:
-        src = ADAPTERS.read_text(encoding="utf-8")
+        src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(ROOT.glob("adapter*.py")))   # ADAPTER_SPLIT_v1
         self.assertIn("finish_reason, hop_model = yield from self._stream_once", src)
         self.assertIn("return \"\".join(text_buf), tool_calls, usage, finish_reason, served_model", src)
         self.assertIn("chunk_model = openai_chunk_model(obj)", src)

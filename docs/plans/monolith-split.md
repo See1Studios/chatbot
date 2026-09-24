@@ -142,6 +142,8 @@ server.py`, `node --check static/app.js`, `chatbot-ctl.sh guard`. 라이브는
    - 새 부분을 만들 때: 선언만 두고, 로드 때 도는 문장은 `app.js`에, `index.html`에서 `app.js` 앞에 태그.
 3. ✅ **`session.py`** (REGISTRY_SPLIT_v1, #118): 세션 목록·조회(`Registry`, 최신 세션 찾기, SESSION_INDEX_v1 요약 캐시, 세션 캐릭터 이전, 첫 두뇌)를 `session_registry.py`(297줄)로. `session.py` 2,601 → 2,335줄. `session.py`가 같은 이름으로 다시 내보내므로 호출부는 그대로(`from session import REG, Registry`). 새 모듈은 `session`의 값(SESSIONS·WORKSPACE·AgentSession·기본값)을 복사하지 않고 부를 때마다 읽는다 — 테스트가 `session.SESSIONS`를 임시 폴더로 바꾸기 때문. `session_registry`는 직접 import하지 않는다(`session`을 통해서만).
 
+4. ✅ **`adapters.py`** (ADAPTER_SPLIT_v1, #122): 2,422줄 → 허브 138줄(목록·`get_adapter`·다시 내보내기) + `adapter_base`(298, 프로바이더 이름 없음 — 중립성 테스트 대상) + `adapter_agy/claude/grok/codex/openai`(299–627). 모든 프로바이더 파일은 `adapter_base`에만 의존. `tests/test_file_sizes.py`: 파이썬 모듈 1,500줄 상한, 이미 넘은 `session.py`·`server.py`는 현재 크기가 천장.
+
 알려진 것: 테스트를 한 프로세스에서 한꺼번에(`unittest discover`) 돌리면 ~40개가 실패한다 — 몇 모듈이 전역(`instructions.WORKSPACE` 등)을 임시 폴더로 바꾸고 되돌리지 않아서. 규칙은 모듈별 실행(`for f in tests/test_*.py; do python3 -m unittest tests.$(basename $f .py); done`). 격리 정리는 별도 작업.
 
 ## 검증 방법 (매 Phase 공통)
