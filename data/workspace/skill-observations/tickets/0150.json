@@ -1,0 +1,41 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-24 23:14:25",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-24 23:14:10",
+ "evidence": [
+  "event:20260924-223930-db4be4#141"
+ ],
+ "gate_failures": 1,
+ "id": 150,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-24 23:14:25"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/chat-log.css, static/chat-panes.css, static/index.html, static/markdown.js, tests/test_choice_chips.py",
+   "ts": "2026-09-24 23:14:25"
+  },
+  {
+   "by": "agent:agy",
+   "text": "gate_failed: worktree agy: task 1: review FAIL after 2 round(s)",
+   "ts": "2026-09-24 23:17:08"
+  }
+ ],
+ "paths": [
+  "static/chat-log.css",
+  "static/chat-panes.css",
+  "static/index.html",
+  "static/markdown.js",
+  "tests/test_choice_chips.py"
+ ],
+ "status": "approved",
+ "target": "static/chat-log.css,static/chat-panes.css,static/index.html,static/markdown.js,t",
+ "title": "Choice card: drop header, adaptive chip layout",
+ "updated": "2026-09-24 23:17:08",
+ "worked_by": "agy"
+}
