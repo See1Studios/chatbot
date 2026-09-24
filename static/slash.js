@@ -4,6 +4,7 @@ const slashMenuEl = document.getElementById('slashMenu');
 const slashBtnEl = document.getElementById('slashBtn');
 let slashCatalog = {
   commands: [
+    { name: "/act", label: "직접 행동 입력", desc: "말 대신 지문(행동/상황) 전달 (예: /act 차를 건넨다)", template: "/act " },
     { name: "/btw", label: "샛길 질문", desc: "작업 중 즉시 경량 샛길 답변", template: "/btw " },
     { name: "/continue", label: "이어하기", desc: "현재 대화 요약 인계받아 새 세션", template: "/continue" },
     { name: "/new", label: "새 세션", desc: "완전한 새 대화 세션 시작", template: "/new" },

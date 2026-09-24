@@ -438,6 +438,11 @@ if (logEl) {
     }
   }, { passive: true });
 }
+function sendAction(actionText) {
+  if (!inputEl || typeof send !== 'function') return;
+  inputEl.value = '/act ' + String(actionText || '').trim();
+  send();
+}
 async function send() {
   const text = inputEl.value.trim();
   if (!text) return;
@@ -546,6 +551,8 @@ async function send() {
   const isAutoBtw = isBusy && isInquiry(text);
   const isExplicitBtw = text.startsWith('/btw ') || text.startsWith('/btw\n') || text === '/btw';
   const isBtw = isAutoBtw || isExplicitBtw;
+  const isAction = text.startsWith('/act ') || text.startsWith('/action ');
+  const actionText = isAction ? text.replace(/^\/(?:act|action)\s+/, '').trim() : '';
 
   sendBtn.disabled = true;
 
@@ -560,6 +567,11 @@ async function send() {
   if (isBtw) {
     addBtwQuestionBubble(text);
     addActivity('샛길 질문(/btw) 감지 · 처리 중…');
+  } else if (isAction) {
+    addChat('action', '✦ ' + actionText, false, false, false);
+    assistantNode = null; assistantBuf = '';
+    setBusy(true);
+    setProgress('행동 전달 · 대기 중…');
   } else if (isBusy) {
     // Steer: show the message at once, but leave the streaming answer alone -- the agent keeps
     // working until the current step ends. The server's 'interrupted' event (which comes when the
@@ -582,7 +594,7 @@ async function send() {
 
   try {
     const payload = {
-      text,
+      text: isAction ? ('(' + actionText + ')') : text,
       client_mid: clientMid
     };
     Object.assign(payload, providerFieldsForSend(

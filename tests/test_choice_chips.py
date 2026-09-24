@@ -45,7 +45,7 @@ const sent = [];
 const inputEl = { value: '' };
 const send = () => { sent.push(inputEl.value); };
 const body = code + `
-  return { splitChoices, renderChoiceChips, syncChoiceChips, pickChoice };`;
+  return { splitChoices, renderChoiceChips, syncChoiceChips, pickChoice, parseExpression, parseThought };`;
 const api = new Function('logEl', 'inputEl', 'send', 'document', body)(logEl, inputEl, send, { createElement: el });
 
 const out = {};
@@ -58,6 +58,10 @@ out.streamingHalf = api.splitChoices('질문\n<!--choices: A | B');
 out.streamingOpenOnly = api.splitChoices('질문\n<!--choices');
 out.midText = api.splitChoices('앞 <!--choices: x--> 뒤 내용');
 out.otherComment = api.splitChoices('a <!-- note -->').text;
+out.actionChoices = api.splitChoices('어느 쪽?\n<!--choices: 다가가기 -> 조용히 다가간다 | 인사하기-->');
+out.parsedExp = api.parseExpression('[expression: joy] 반갑다냥!');
+out.parsedThoughtState = api.parseThought('안녕!\n```state\n{"thought": "반가운 마음"}\n```');
+out.parsedThoughtTag = api.parseThought('안녕!\n<thought>내면 독백</thought>');
 
 // chips: only the newest message keeps them
 function msg(cls) { const m = el('div'); m.className = cls; const md = el('div'); md.className = 'md'; m.appendChild(md); logEl.appendChild(m); return m; }
@@ -77,7 +81,17 @@ api.syncChoiceChips();
 out.systemIgnored = m3.all('.choice-chips').length;
 // click sends the label
 m3.all('.choice-chip')[0].handlers.click();
-out.sent = sent;
+out.sent = sent.slice();
+
+// action chip rendering and click
+const m4 = msg('msg assistant');
+api.renderChoiceChips(m4, out.actionChoices.choices);
+out.actionRender = {
+  chips: m4.all('.choice-chip').map(c => ({ text: c.textContent, isAction: (c.className || '').includes('choice-action') }))
+};
+m4.all('.choice-chip')[0].handlers.click();
+out.actionSent = inputEl.value;
+
 api.renderChoiceChips(m3, []);
 out.cleared = m3.all('.choice-chips').length;
 console.log(JSON.stringify(out));
@@ -121,6 +135,15 @@ class ChoiceChips(unittest.TestCase):
     def test_click_sends_the_label_and_empty_choices_clear_the_row(self):
         self.assertEqual(self.o["sent"], ["Z"])
         self.assertEqual(self.o["cleared"], 0)
+
+    def test_action_choices_and_expressions(self):
+        self.assertEqual(self.o["parsedExp"], {"expression": "joy", "text": "반갑다냥!"})
+        self.assertEqual(self.o["parsedThoughtState"], {"thought": "반가운 마음", "cleanText": "안녕!"})
+        self.assertEqual(self.o["parsedThoughtTag"], {"thought": "내면 독백", "cleanText": "안녕!"})
+        chips = self.o["actionRender"]["chips"]
+        self.assertEqual(chips[0], {"text": "✦ 다가가기", "isAction": True})
+        self.assertEqual(chips[1], {"text": "인사하기", "isAction": False})
+        self.assertEqual(self.o["actionSent"], "/act 조용히 다가간다")
 
 
 if __name__ == "__main__":

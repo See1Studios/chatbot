@@ -157,21 +157,98 @@ function attachFileLinkInterceptors(container) {
 // it is cut from the rendered/copied body, including a half-streamed one, and
 // becomes buttons once the message is final. '|' instead of JSON so a stray
 // quote from the model cannot break it.
-const CHOICES_TAIL = /\s*<!--\s*choices\s*:([^<>]*)-->\s*$/;
-const CHOICES_OPEN = /\s*<!--\s*choices[^<>]*$/;
+const CHOICES_TAIL = /\s*<!--\s*choices\s*:([\s\S]*?)-->\s*$/;
+const CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
 const CHOICES_MAX = 4;
+const EXPRESSION_HEAD = /^\s*\[expression:\s*([a-zA-Z]+)\]\s*/;
+const EXPRESSION_EMOJIS = {
+  neutral: '😐 차분',
+  joy: '😊 미소',
+  shy: '😳 수줍음',
+  serious: '🧐 진지',
+  sorrow: '🥺 서운',
+  tired: '😮‍💨 피곤'
+};
+
+function parseExpression(text) {
+  const s = String(text || '');
+  const m = EXPRESSION_HEAD.exec(s);
+  if (m) {
+    return { expression: m[1].toLowerCase(), text: s.slice(m[0].length) };
+  }
+  return { expression: null, text: s };
+}
+
+const THOUGHT_STATE_BLOCK = /```state\s*\{[\s\S]*?"thought":\s*"([^"]+)"[\s\S]*?\}\s*```/i;
+const THOUGHT_STATE_ANY = /```state\s*\{[\s\S]*?\}\s*```/i;
+const THOUGHT_TAG = /<thought>([\s\S]*?)<\/thought>/i;
+const THOUGHT_BLOCK = /```thought\s*([\s\S]*?)```/i;
+
+function parseThought(text) {
+  let s = String(text || '');
+  let thought = null;
+  const sm = THOUGHT_STATE_BLOCK.exec(s);
+  if (sm) {
+    thought = sm[1].trim();
+  }
+  s = s.replace(THOUGHT_STATE_ANY, '').trim();
+  const tm = THOUGHT_TAG.exec(s);
+  if (tm) {
+    thought = (thought ? thought + '\n' : '') + tm[1].trim();
+    s = s.replace(tm[0], '').trim();
+  }
+  const bm = THOUGHT_BLOCK.exec(s);
+  if (bm) {
+    thought = (thought ? thought + '\n' : '') + bm[1].trim();
+    s = s.replace(bm[0], '').trim();
+  }
+  return { thought, cleanText: s };
+}
+
+function parseChoiceItem(item) {
+  const raw = String(item || '').trim();
+  if (!raw) return null;
+  // Support "Label -> Action" or "Label -> action: Action"
+  const arrowIdx = raw.indexOf('->');
+  if (arrowIdx > 0) {
+    const label = raw.slice(0, arrowIdx).trim();
+    let action = raw.slice(arrowIdx + 2).trim();
+    if (action.toLowerCase().startsWith('action:')) {
+      action = action.slice(7).trim();
+    }
+    return { label, action, isAction: true };
+  }
+  // Support "Label: action: Action"
+  const colonAction = /^(.*?):\s*action:\s*(.*)$/i.exec(raw);
+  if (colonAction) {
+    return { label: colonAction[1].trim(), action: colonAction[2].trim(), isAction: true };
+  }
+  return raw;
+}
+
 function splitChoices(src) {
   const s = String(src || '');
   const m = CHOICES_TAIL.exec(s);
   if (m) {
-    const choices = m[1].split('|').map(x => x.trim()).filter(Boolean).slice(0, CHOICES_MAX);
+    const choices = m[1].split('|').map(x => parseChoiceItem(x)).filter(Boolean).slice(0, CHOICES_MAX);
     return { text: s.slice(0, m.index), choices };
   }
   return { text: s.replace(CHOICES_OPEN, ''), choices: [] };
 }
 
-function pickChoice(label) {
-  if (!label || typeof inputEl === 'undefined' || !inputEl || typeof send !== 'function') return;
+function pickChoice(choice) {
+  if (!choice || typeof inputEl === 'undefined' || !inputEl || typeof send !== 'function') return;
+  if (typeof choice === 'object' && choice.isAction) {
+    // Action choice: send directly without polluting input or showing user bubble
+    if (typeof sendAction === 'function') {
+      sendAction(choice.action || choice.label);
+      return;
+    }
+    inputEl.value = '/act ' + (choice.action || choice.label);
+    send();
+    return;
+  }
+  const label = typeof choice === 'object' ? (choice.action || choice.label) : choice;
   inputEl.value = label;
   send();
 }
@@ -179,17 +256,18 @@ function pickChoice(label) {
 function renderChoiceChips(node, choices) {
   const md = node.querySelector('.md') || node;
   md.querySelectorAll('.choice-chips').forEach(el => el.remove());
-  if (!choices.length) return;
+  if (!choices || !choices.length) return;
   const row = document.createElement('div');
   row.className = 'choice-chips';
   row.setAttribute('role', 'group');
   row.setAttribute('aria-label', '선택지');
-  choices.forEach(label => {
+  choices.forEach(c => {
+    const item = typeof c === 'string' ? { label: c, action: c, isAction: false } : c;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'choice-chip';
-    b.textContent = label;
-    b.addEventListener('click', () => pickChoice(label));
+    b.className = 'choice-chip' + (item.isAction ? ' choice-action' : '');
+    b.textContent = (item.isAction ? '✦ ' : '') + item.label;
+    b.addEventListener('click', () => pickChoice(c));
     row.appendChild(b);
   });
   md.appendChild(row);
@@ -211,6 +289,39 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
   if (!node) return;
   const parts = splitChoices(rawText);
   rawText = parts.text;
+  const parsedExp = parseExpression(rawText);
+  if (parsedExp.expression) {
+    const md = node.querySelector('.md') || node;
+    let badge = node.querySelector('.exp-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'badge exp-badge';
+      md.insertBefore(badge, md.firstChild);
+    }
+    badge.textContent = EXPRESSION_EMOJIS[parsedExp.expression] || ('🎭 ' + parsedExp.expression);
+  }
+  const parsedThought = parseThought(rawText);
+  if (parsedThought.thought) {
+    const md = node.querySelector('.md') || node;
+    let box = md.querySelector('.thought-box');
+    let btn = md.querySelector('.thought-toggle');
+    if (!box) {
+      btn = document.createElement('button');
+      btn.className = 'thought-toggle';
+      btn.type = 'button';
+      btn.textContent = '속마음 보기';
+      box = document.createElement('div');
+      box.className = 'thought-box';
+      box.hidden = true;
+      btn.addEventListener('click', () => {
+        box.hidden = !box.hidden;
+        btn.textContent = box.hidden ? '속마음 보기' : '속마음 숨기기';
+      });
+      md.appendChild(btn);
+      md.appendChild(box);
+    }
+    box.textContent = parsedThought.thought;
+  }
   node.classList.toggle('streaming', !isFinal);
   if (isFinal) {
     attachCodeCopyButtons(node);
@@ -241,6 +352,14 @@ function dedupeMarkdownImages(md) {
 
 function renderMarkdown(src, isFinal) {
   let raw = dedupeMarkdownImages(splitChoices(src).text);
+  const parsedExp = parseExpression(raw);
+  if (parsedExp.expression) {
+    raw = parsedExp.text;
+  }
+  const parsedTh = parseThought(raw);
+  if (parsedTh.thought || parsedTh.cleanText !== raw) {
+    raw = parsedTh.cleanText;
+  }
   // Fix CommonMark/marked edge-case where bold/italic ending in punctuation (", ), ], etc.)
   // immediately followed by Korean josa fails to parse (e.g. **"A"**는, **A(B)**를)
   raw = raw.replace(/\*\*([^*\n]+?)\*\*([가-힣])/g, '<strong>$1</strong>$2');
