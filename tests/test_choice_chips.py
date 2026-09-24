@@ -58,6 +58,8 @@ out.streamingHalf = api.splitChoices('질문\n<!--choices: A | B');
 out.streamingOpenOnly = api.splitChoices('질문\n<!--choices');
 out.midText = api.splitChoices('앞 <!--choices: x--> 뒤 내용');
 out.otherComment = api.splitChoices('a <!-- note -->').text;
+out.quotedThenTail = api.splitChoices('본문에 `<!--choices: 라벨 -> (행동)-->`을 쓰면\n뒤 문단\n\n<!--choices: 예 | 아니오-->');
+out.quotedOnly = api.splitChoices('예시 `<!--choices: A | B-->` 뒤 문단');
 out.actionChoices = api.splitChoices('어느 쪽?\n<!--choices: 다가가기 -> 조용히 다가간다 | 인사하기-->');
 out.parsedExp = api.parseExpression('[expression: joy] 반갑다냥!');
 out.parsedThoughtState = api.parseThought('안녕!\n```state\n{"thought": "반가운 마음"}\n```');
@@ -126,6 +128,11 @@ class ChoiceChips(unittest.TestCase):
         self.assertEqual(self.o["midText"]["choices"], [])
         self.assertIn("<!--choices: x-->", self.o["midText"]["text"])
         self.assertEqual(self.o["otherComment"], "a <!-- note -->")
+
+    def test_a_quoted_marker_in_the_body_is_kept_and_only_the_last_counts(self):
+        self.assertEqual(self.o["quotedThenTail"]["choices"], ["예", "아니오"])
+        self.assertEqual(self.o["quotedThenTail"]["text"], "본문에 `<!--choices: 라벨 -> (행동)-->`을 쓰면\n뒤 문단")
+        self.assertEqual(self.o["quotedOnly"], {"text": "예시 `<!--choices: A | B-->` 뒤 문단", "choices": []})
 
     def test_only_the_newest_message_keeps_its_chips(self):
         self.assertEqual(self.o["afterTwo"], {"m1": 0, "m2": 1, "labels": ["C", "D", "E"]})

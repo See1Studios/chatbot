@@ -157,7 +157,8 @@ function attachFileLinkInterceptors(container) {
 // it is cut from the rendered/copied body, including a half-streamed one, and
 // becomes buttons once the message is final. '|' instead of JSON so a stray
 // quote from the model cannot break it.
-const CHOICES_TAIL = /\s*<!--\s*choices\s*:([\s\S]*?)-->\s*$/;
+// The body may not cross another `<!--`: a reply that quotes the syntax earlier keeps its text.
+const CHOICES_TAIL = /\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$/;
 const CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
 const CHOICES_MAX = 4;
 const EXPRESSION_HEAD = /^\s*\[expression:\s*([a-zA-Z]+)\]\s*/;
