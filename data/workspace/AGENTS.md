@@ -17,7 +17,7 @@ Host law `~/AGENTS.md` comes first. Persona and voice: your character card (`cha
 
 ## Self-modification
 - In a live turn, never run `chatbot-ctl.sh stop|restart|repair|defibrillate` or set `CHATBOT_FORCE_HOST=1`.
-- Static UI (`static/`, persona): edit on disk, then refresh. Python host modules: edit on disk, then ask the user for **⚡소생**.
+- After the claim (below): static UI (`static/`, persona) takes effect on refresh; Python host modules need the user's **⚡소생**.
 - Read `SELF-MODIFY.md` only when actually touching the core; follow the work procedure in `PROJECT.md` ("고칠 때").
 - The observation badge is not a work order. Evolution work starts only from the user's words or an approved ticket.
 - Tickets are made only with the `ticket` tool; a ticket written as text is not one. Evidence must really exist (the tool says which forms); an `observation` gives you a `candidate:<epoch>`.

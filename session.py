@@ -26,7 +26,8 @@ try:  # turn observation is best effort: a missing core module must never stop t
 except Exception:  # noqa: BLE001
     evolution = None
 import obslog
-from loop_guard import LoopGuard, extract_tool_steps, normalize
+import write_guard
+from loop_guard import LoopGuard, extract_tool_steps
 from host_config import (
     ADD_DIRS,
     ARTIFACTS_CACHE,
@@ -496,6 +497,8 @@ class AgentSession:
         if self._stop_requested or self._loop_stopping:
             return
         calls = extract_tool_steps(obj)
+        for name, params, _ in calls:
+            write_guard.check(self, name, params, ROOT)
         if calls and self.msg_queue:
             self._steer_at_boundary()  # a tool step just finished: the safe moment to take a waiting message
         for name, params, output in calls:
@@ -504,17 +507,17 @@ class AgentSession:
                 continue
             if v.level == "warn":
                 if self._can_notice_loop():
-                    self._notice_loop(v, self._loop_evidence(v, params, output))
+                    self._notice_loop(v, write_guard.loop_evidence(v, params, output))
                     return
                 if not self._loop_warned:
                     self._loop_warned = True
                     self._emit({"event": "system", "text": f"⚠ {v.text}. 계속 반복되면 자동으로 멈춥니다냥.",
-                                "evidence": self._loop_evidence(v, params, output)})
+                                "evidence": write_guard.loop_evidence(v, params, output)})
             else:
                 after = " (방향을 바꾸라고 알린 뒤에도 계속돼서)" if self._loop_noticed else ""
                 self._auto_stop(
                     event={"event": "stopped", "text": f"같은 도구 호출이 반복돼 자동으로 중단했습니다냥{after} — {v.text}",
-                           "evidence": self._loop_evidence(v, params, output)},
+                           "evidence": write_guard.loop_evidence(v, params, output)},
                     hint=f"직전 턴이 같은 작업을 반복하다({v.text}) 자동 중단됐습니다. 같은 방식을 되풀이하지 말고, 접근을 바꾸거나 "
                          f"(큰 파일은 범위를 나눠 읽기·grep 같은 검색 도구·요약 후 질문) 지금까지의 진행 상황을 짧게 정리해 어떻게 할지 물어보세요.")
                 return
@@ -552,19 +555,6 @@ class AgentSession:
             self._emit({"event": "error", "text": f"방향 전환 알림을 보내지 못했습니다냥: {e}"})
         finally:
             self._loop_stopping = False
-
-    @staticmethod
-    def _loop_evidence(v, params: Optional[dict], output) -> dict:
-        """What the repeated call actually asked and got, kept in the event log: without the arguments
-        (line range) and the output's size/ends there is no telling a truncated read from a model habit."""
-        try:
-            text = output if isinstance(output, str) else json.dumps(output, ensure_ascii=False, default=str)
-        except (TypeError, ValueError):
-            text = str(output)
-        text = "" if output is None else text
-        return {"rule": v.rule, "count": v.count, "tool": v.tool,
-                "params": json.dumps(normalize(params), ensure_ascii=False, default=str)[:300],
-                "output_chars": len(text), "output_head": text[:120], "output_tail": text[-120:] if len(text) > 120 else ""}
 
     def _observation_root(self) -> Path:
         # Derived from where this session's own files live (<data>/sessions/<sid>/meta.json), so a

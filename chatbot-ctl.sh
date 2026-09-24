@@ -207,11 +207,11 @@ except Exception as e:
     print(f"GUARD_FAIL: tickets module cannot be loaded ({e})")
     sys.exit(1)
 
-# Host modules, ctl, and protocol files (charter/design) need an open ticket.
+# Host modules, ctl, static UI, character cards and protocol files (charter/design) need an open ticket.
 try:
     cmd = [
         "git", "diff", "HEAD", "--name-only", "--",
-        "*.py", "chatbot-ctl.sh",
+        "*.py", "chatbot-ctl.sh", "static/", "data/workspace/characters/",
         "data/workspace/AGENTS.md", "data/workspace/PROJECT.md",
         "data/workspace/SELF-MODIFY.md",
         "docs/plans/recursive-self-evolution.md",
