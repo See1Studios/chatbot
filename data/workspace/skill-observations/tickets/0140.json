@@ -2,7 +2,9 @@
  "actor": "chat-agent:claude",
  "approved_at": "2026-09-24 17:17:17",
  "approved_by": "operator (ui)",
- "attempts": 2,
+ "attempts": 3,
+ "closed_by": "claude-code",
+ "closed_reason": "done",
  "created": "2026-09-24 17:17:08",
  "evidence": [
   "event:20260924-161456-5b9538#222",
@@ -36,26 +38,37 @@
    "by": "agent:agy",
    "text": "gate_failed: worktree agy: task 1: review FAIL after 2 round(s)",
    "ts": "2026-09-24 17:49:23"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "claimed (attempt 3/3); paths: providers/adapter_base.py, static/app-messages.js, static/app-session.js, static/app-sse.js, static/index.html, tests/test_choices_channel.py, tests/test_choice_chips.py, docs/plans/out-of-band-choices-actions.md, docs/DEVLOG.md",
+   "ts": "2026-09-24 21:38:05"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done: 1a 완료 ae0ee55: 서버가 선택지 표식을 떼어 choices 필드로. 나머지(choices 도구·action 이벤트·티켓 바 직접 실행)는 계획서 1단계에 남김",
+   "ts": "2026-09-24 21:47:12"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done",
+   "ts": "2026-09-24 21:47:12"
   }
  ],
  "paths": [
-  "choices.py",
-  "delegation.py",
-  "docs/plans/out-of-band-choices-actions.md",
-  "host_config.py",
-  "mcp_server.py",
-  "server.py",
-  "session.py",
-  "static/app-evolution.js",
-  "static/app.js",
-  "static/markdown.js",
-  "tests/test_choice_chips.py",
+  "providers/adapter_base.py",
+  "static/app-messages.js",
+  "static/app-session.js",
+  "static/app-sse.js",
+  "static/index.html",
   "tests/test_choices_channel.py",
-  "tests/test_delegation.py"
+  "tests/test_choice_chips.py",
+  "docs/plans/out-of-band-choices-actions.md",
+  "docs/DEVLOG.md"
  ],
- "status": "approved",
+ "status": "done",
  "target": "choices.py,delegation.py,docs/plans/out-of-band-choices-actions.md,host_config.p",
  "title": "OUT_OF_BAND_CHOICES_v1 1단계 + 작업 카드 개선(펼치기·중지)",
- "updated": "2026-09-24 17:49:23",
- "worked_by": "agy"
+ "updated": "2026-09-24 21:47:12",
+ "worked_by": "claude-code"
 }
