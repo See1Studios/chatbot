@@ -1,0 +1,147 @@
+/* chat-responsive.css: narrow screens, the on-screen keyboard, reduced motion. Part of the chat stylesheet (CSS_SPLIT_v1): the parts load in index.html order and together are
+   the old chat.css, rule for rule -- keep that order; a rule that must win goes in a later part. */
+/* 폭은 좁지만 포인터가 마우스인 경우 -- 데스크톱 허브 FAB(폭 420px iframe)이 대표적. 위 폰 값(버튼 44px,
+   입력창 36px)은 터치 대상 때문에 정한 것이라 마우스에는 필요 없고, 입력창만 버튼보다 낮아 보였다
+   (실장님: FAB에서 텍스트 입력창만 높이가 낮아). 전체 페이지 데스크톱과 같은 42px로 맞춘다. 아래의 키보드/
+   낮은 화면 블록(32px)은 뒤에 오므로 그대로 이긴다. */
+@media (max-width: 640px) and (pointer: fine) {
+  #slashBtn, #modelBtn{
+    width:42px;
+    min-width:42px;
+    height:42px;
+  }
+  #send{
+    height:42px;
+  }
+  #input{
+    min-height:42px;
+    height:42px;
+  }
+}
+
+/* 가상키보드가 올라왔거나 세로 높이가 극도로 좁은 환경 최적화.
+   "selector, @media {...}" 는 유효한 CSS가 아니라서(prelude에 셀렉터와
+   at-rule을 콤마로 못 묶음) body.keyboard-open 쪽 규칙이 통째로 파싱
+   실패해 죽어있었음 -- 두 조건을 각각 유효한 규칙으로 분리, 선언 내용은
+   동일하게 유지. */
+@media (max-height: 500px) {
+  .wrap{
+    padding:.15rem .35rem calc(max(.15rem, env(safe-area-inset-bottom)));
+    gap:.2rem;
+  }
+  header{
+    min-height:30px;
+    gap:.2rem;
+  }
+  header .avatar{
+    display:none;
+  }
+  #hubLink{
+    display:none;
+  }
+  header h1{
+    font-size:.88rem;
+  }
+  header .sub{
+    display:none;
+  }
+  .meta{
+    display:none !important;
+  }
+  .wrap > #sessionBanner{
+    display:none !important;
+  }
+  #modelBtn, #provider{
+    display:none !important; /* 키보드 입력 시 textarea 공간 확보 */
+  }
+  #log{
+    padding:.35rem .4rem;
+    gap:.35rem;
+  }
+  .msg{
+    font-size:.84rem;
+  }
+  .msg.user, .msg.assistant{
+    padding:.35rem .5rem;
+  }
+  #slashBtn{
+    width:32px;
+    min-width:32px;
+    height:32px;
+  }
+  #input{
+    min-height:32px;
+    height:32px;
+    max-height:64px;
+    padding:.3rem .5rem;
+    font-size:14px;
+  }
+  #send{
+    height:32px;
+    padding:0 .5rem;
+    font-size:.76rem;
+  }
+}
+body.keyboard-open .wrap{
+  padding:.15rem .35rem calc(max(.15rem, env(safe-area-inset-bottom)));
+  gap:.2rem;
+}
+body.keyboard-open header,
+body.keyboard-open .meta,
+body.keyboard-open .wrap > #sessionBanner,
+body.keyboard-open #hubLink,
+body.keyboard-open #scrollToBottomBtn{
+  display:none !important;
+}
+body.keyboard-open #modelBtn, body.keyboard-open #provider{
+  display:none !important; /* 키보드 입력 시 textarea 공간 확보 */
+}
+body.keyboard-open #log{
+  padding:.35rem .4rem;
+  gap:.35rem;
+}
+body.keyboard-open .msg{
+  font-size:.84rem;
+}
+body.keyboard-open .msg.user, body.keyboard-open .msg.assistant{
+  padding:.35rem .5rem;
+}
+body.keyboard-open #slashBtn{
+  width:32px;
+  min-width:32px;
+  height:32px;
+}
+body.keyboard-open #input{
+  min-height:32px;
+  height:32px;
+  max-height:64px;
+  padding:.3rem .5rem;
+  font-size:14px;
+}
+body.keyboard-open #send{
+  height:32px;
+  padding:0 .5rem;
+  font-size:.76rem;
+}
+
+/* 2026-09-18 audit P2: no prefers-reduced-motion handling anywhere.
+   Not one blanket `animation:none`: pulse-dot/token-heavy-pulse/chat-cursor-blink each layer
+     motion ON TOP OF an already-distinct static signal (proc-badge's
+     background/border already differs per state; the token badge's
+     color/icon already differs per level) -- disabling just the
+     animation keeps that state fully legible, it only removes the
+     extra emphasis. chat-cursor-blink is forced to a solid (non-blinking)
+     mark instead of animation:none, since none would leave it frozen at
+     whichever keyframe opacity happens to be current, possibly invisible. */
+@media (prefers-reduced-motion: reduce) {
+  .proc-badge.running .dot,
+  .turn-live .dot,
+  .token-badge.token-heavy,
+  .provider-tray {
+    animation: none;
+  }
+  .msg.assistant.streaming .md > *:last-child::after {
+    animation: none;
+    opacity: 1;
+  }
+}

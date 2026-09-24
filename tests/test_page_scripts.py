@@ -69,7 +69,7 @@ def page_scripts():
 
 class PageScripts(unittest.TestCase):
     def test_every_part_stays_under_the_line_cap(self):
-        for p in sorted(STATIC.glob("app*.js")):
+        for p in sorted(STATIC.glob("app*.js")) + sorted(STATIC.glob("chat-*.css")):
             n = len(p.read_text(encoding="utf-8").splitlines())
             self.assertLess(n, MAX_LINES, "%s has %d lines: split it by feature (docs/plans/monolith-split.md)" % (p.name, n))
 
@@ -79,6 +79,12 @@ class PageScripts(unittest.TestCase):
         self.assertEqual(sorted(n for n in names if n.startswith("app-")), parts)
         for n in parts:
             self.assertLess(names.index(n), names.index("app.js"), n)
+
+    def test_every_stylesheet_part_is_linked(self):
+        html = (STATIC / "index.html").read_text(encoding="utf-8")
+        linked = re.findall(r'<link rel="stylesheet" href="\./(chat-[a-z-]+\.css)', html)
+        self.assertEqual(sorted(linked), sorted(p.name for p in STATIC.glob("chat-*.css")))
+        self.assertFalse((STATIC / "chat.css").exists(), "chat.css was split into chat-*.css (CSS_SPLIT_v1)")
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_the_page_loads_without_errors(self):

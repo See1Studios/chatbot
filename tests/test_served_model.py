@@ -15,7 +15,7 @@ from tests.page_source import app_bundle  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "static"
 APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
-CSS = STATIC / "chat.css"
+from tests.page_source import css_source  # noqa: E402
 HTML = STATIC / "index.html"
 MD = STATIC / "markdown.js"
 ADAPTERS = ROOT / "providers/adapters.py"
@@ -86,7 +86,7 @@ class ServedModelWiring(unittest.TestCase):
     def test_footer_and_cache_busters(self) -> None:
         app = APP.read_text(encoding="utf-8")
         html = HTML.read_text(encoding="utf-8")
-        css = CSS.read_text(encoding="utf-8")
+        css = css_source()
         md = MD.read_text(encoding="utf-8")
         self.assertIn("function shortServedModel", app)
         self.assertIn("data.served_model", app)
@@ -95,7 +95,7 @@ class ServedModelWiring(unittest.TestCase):
         self.assertIn("servedModel", md)
         self.assertRegex(html, r"app\.js\?v=\d+")
         self.assertRegex(html, r"markdown\.js\?v=\d+")
-        self.assertRegex(html, r"chat\.css\?v=\d+")
+        self.assertRegex(html, r"chat-base\.css\?v=\d+")
         self.assertNotIn("app.js?v=100", html)
         self.assertNotIn("chat.css?v=19", html)
 
@@ -121,7 +121,7 @@ class ServedModelWiring(unittest.TestCase):
         self.assertIn("if (served) {", app)
         self.assertIn("tag.className = 'served-model'", app)
         self.assertIn("tag.textContent = shortServedModel(served)", app)
-        css = CSS.read_text(encoding="utf-8")
+        css = css_source()
         self.assertIn(".served-model{", css)
         self.assertIn("white-space:nowrap", css)
 

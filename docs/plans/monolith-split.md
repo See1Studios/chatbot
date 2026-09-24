@@ -146,6 +146,8 @@ server.py`, `node --check static/app.js`, `chatbot-ctl.sh guard`. 라이브는
 
 5. ✅ **폴더 시범 `providers/`** (FOLDERS_PROVIDERS_v1, #123): 프로바이더 모듈 9개를 `providers/`로(파일 이름 유지). 호출부는 `from providers import accounts` / `from providers.adapters import ...`로 모듈 이름을 그대로 둬서 사용처는 안 바뀜 — import 47줄, 문자열 경로 몇 곳. 발견: 보호 규칙 `*.py`는 루트만 덮어서, 옮기기만 하면 코드가 보호에서 빠진다 → `protected_paths.json`에 `providers/`, 가드 `tests/test_code_layout.py`. 나머지 폴더(`core/`·`sessions/`·`team/`·`ops/`)는 보류(사용자, 2026-09-24): 새 파일은 그룹 접두어로.
 
+6. ✅ **`chat.css`** (CSS_SPLIT_v1, #124): 1,839줄 → 순서를 지킨 여섯 조각 `chat-base/log/composer/panes/responsive/features.css`(147–547줄). 이어 붙이면 원래와 규칙 단위로 같다. 테스트는 `tests/page_source.css_source()`로 합본을 읽고, 크기 상한·링크 누락은 `test_page_scripts`가 본다.
+
 알려진 것: 테스트를 한 프로세스에서 한꺼번에(`unittest discover`) 돌리면 ~40개가 실패한다 — 몇 모듈이 전역(`instructions.WORKSPACE` 등)을 임시 폴더로 바꾸고 되돌리지 않아서. 규칙은 모듈별 실행(`for f in tests/test_*.py; do python3 -m unittest tests.$(basename $f .py); done`). 격리 정리는 별도 작업.
 
 ## 검증 방법 (매 Phase 공통)

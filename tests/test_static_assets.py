@@ -41,7 +41,8 @@ class StaticAssets(unittest.TestCase):
         self.assertNotIn("/artifacts/see_through/", HTML)
 
     def test_css_braces_balance(self):
-        css = (STATIC / "chat.css").read_text(encoding="utf-8")
+        from tests.page_source import css_source
+        css = css_source()   # chat-*.css (CSS_SPLIT_v1)
         self.assertEqual(css.count("{"), css.count("}"))
 
 

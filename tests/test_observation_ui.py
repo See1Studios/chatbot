@@ -12,7 +12,7 @@ from pathlib import Path
 from tests.page_source import app_bundle  # noqa: E402
 
 APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
-CSS = Path(__file__).resolve().parent.parent / "static" / "chat.css"
+from tests.page_source import css_source  # noqa: E402
 HTML = Path(__file__).resolve().parent.parent / "static" / "index.html"
 
 HARNESS = r"""
@@ -392,7 +392,7 @@ class MarkupTest(unittest.TestCase):
         self.assertIn('id="statusTicketBox"', html)
         self.assertIn('id="ticketBar"', html)
         self.assertLess(html.index('id="ticketBar"'), html.index('class="composer"'))
-        css = CSS.read_text(encoding="utf-8")
+        css = css_source()
         for cls in ("ticket-bar", "ticket-chip", "obs-row", "obs-head", "obs-id", "obs-title", "obs-badge", "obs-meta", "obs-actions", "obs-body",
                     "obs-form", "obs-cand"):
             self.assertIn("." + cls, css, cls)

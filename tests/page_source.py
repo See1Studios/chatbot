@@ -16,6 +16,17 @@ def app_files():
     return [STATIC / n for n in re.findall(r'<script src="\./(app(?:-[a-z-]+)?\.js)', html)]
 
 
+def css_files():
+    """The chat stylesheet parts (chat-*.css), in the order index.html links them -- which is the cascade order."""
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    return [STATIC / n for n in re.findall(r'<link rel="stylesheet" href="\./(chat-[a-z-]+\.css)', html)]
+
+
+def css_source() -> str:
+    """The whole chat stylesheet as one text, as the browser applies it (CSS_SPLIT_v1)."""
+    return "\n".join(p.read_text(encoding="utf-8") for p in css_files())
+
+
 FILE_MARK = "// ==== file: "   # starts each file in the bundle, so a slice can stop at the end of its file
 
 

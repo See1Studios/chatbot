@@ -74,7 +74,8 @@ class TestClientDeviceContext(Base):
         self.assertIn('chatbot.geoEnabled', app_js)
         self.assertIn('client_context', app_js)
 
-        chat_css = (CODE / "static" / "chat.css").read_text(encoding="utf-8")
+        from tests.page_source import css_source
+        chat_css = css_source()
         self.assertIn('.geo-trigger-btn', chat_css)
 
 

@@ -130,7 +130,8 @@ console.log(JSON.stringify(out));
 """
 
 INDEX = (STATIC / "index.html").read_text(encoding="utf-8")
-CSS = (STATIC / "chat.css").read_text(encoding="utf-8")
+from tests.page_source import css_source  # noqa: E402
+CSS = css_source()   # chat-*.css in cascade order (CSS_SPLIT_v1)
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")

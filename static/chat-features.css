@@ -1,0 +1,161 @@
+/* chat-features.css: newer pane rules (status, evolution, accounts, MCP, logs, team); loads last. Part of the chat stylesheet (CSS_SPLIT_v1): the parts load in index.html order and together are
+   the old chat.css, rule for rule -- keep that order; a rule that must win goes in a later part. */
+/* STATUS_EVOLUTION_TAB_v1 */
+.status-group-label{font-size:.78rem;font-weight:600;letter-spacing:.02em;color:var(--muted, #8a93a5);margin:.25rem 0 0;padding:.35rem .15rem;border-top:1px solid color-mix(in oklab, var(--border, #333) 80%, transparent)}
+
+/* EVOLUTION_UI_v2 — unified disclosure + compact density */
+#evolutionPane,#statusPane,#teamPane{gap:.55rem;padding:.75rem .85rem}
+#evolutionPane .status-section,#statusPane .status-section,#teamPane .status-section{margin:0}
+#evolutionPane .status-section h2,#statusPane .status-section h2,#teamPane .status-section h2{margin:0 0 .35rem;font-size:.86rem}
+#evolutionPane .status-hint{margin:0 0 .35rem;font-size:.74rem;line-height:1.35}
+.evo-sec{margin:0 0 .4rem}
+.evo-sec-head{display:flex;align-items:center;gap:.35rem;font-size:.74rem;font-weight:600;color:var(--accent2);margin:0 0 .2rem;letter-spacing:.01em;min-height:1.4rem}
+.evo-sec-title{flex:0 1 auto}
+.evo-sec-toggle{cursor:pointer;user-select:none;padding:.1rem 0}
+.evo-sec-toggle:hover{opacity:.9}
+.evo-sec-toggle .evo-chev{margin-left:auto;color:var(--muted);font-size:.65rem}
+.evo-count{font-size:.65rem;font-weight:500;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:0 .35rem;line-height:1.35}
+.evo-empty{color:var(--muted);font-size:.76rem;padding:.3rem .45rem;border:1px dashed var(--border);border-radius:8px;background:rgba(255,255,255,.02)}
+.evo-fold{display:none;flex-direction:column;gap:.25rem}
+.evo-fold.open{display:flex}
+.evo-done-list{display:none;flex-direction:column;gap:.25rem}
+.evo-done-list.open{display:flex}
+.obs-row{border:1px solid var(--border);border-radius:8px;padding:.35rem .45rem;margin:0;background:rgba(255,255,255,.03)}
+.obs-row-compact{padding:.28rem .4rem}
+.obs-row-done{opacity:.88}
+.obs-head{display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;font-size:.8rem;line-height:1.25}
+.obs-id{color:var(--muted);font-family:var(--font-mono);font-size:.7rem}
+.obs-title{flex:1;min-width:6rem;word-break:break-word;font-size:.8rem}
+.obs-badge{font-size:.64rem;padding:0 .35rem;border-radius:999px;border:1px solid var(--border);color:var(--muted);line-height:1.4;white-space:nowrap}
+.obs-meta{color:var(--muted);font-size:.68rem;margin-top:.1rem;line-height:1.3}
+.obs-actions{display:flex;gap:.25rem;margin-top:.25rem}
+.obs-actions-inline{margin-top:0;margin-left:auto;flex:0 0 auto}
+.art-btn-xs{padding:.15rem .4rem !important;font-size:.68rem !important;border-radius:5px !important;height:auto !important;min-height:0 !important}
+.obs-body{max-height:28vh;font-size:.72rem;padding:.35rem;margin:.25rem 0 0;border-radius:6px}
+.obs-form{gap:.25rem;margin-top:.25rem}
+.obs-form select,.obs-form input{padding:.28rem .4rem;font-size:.76rem;border-radius:5px}
+.obs-cands,.obs-review{margin-top:0}
+.obs-cand{border:1px solid var(--border);border-radius:8px;padding:.3rem .4rem;margin:0;background:rgba(255,255,255,.03);font-size:.72rem;color:var(--muted);border-top:1px solid var(--border);word-break:break-word;line-height:1.3}
+.obs-cand-top{display:flex;gap:.3rem;align-items:center;flex-wrap:wrap}
+.obs-cand-signal{font-size:.76rem;font-weight:560;color:var(--text)}
+.obs-cand-user{font-size:.74rem;margin-top:.1rem;color:var(--text);line-height:1.3}
+.status-group-label{margin:.1rem 0 0;padding:.25rem .1rem;font-size:.72rem}
+.status-subhead{margin:.45rem 0 .25rem !important}
+.status-subhead-row .status-subhead{margin:.45rem 0 .25rem !important}
+.status-list{gap:.3rem}
+.status-procs{margin-top:.45rem !important}
+
+
+/* AUTH_GATE_v1: selectable but not usable for chat */
+.art-filter-btn.is-blocked-provider,
+.provider-portrait-btn.is-blocked-provider {
+  opacity: 0.55;
+  border-style: dashed;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.provider-portrait-btn.is-blocked-provider img {
+  filter: grayscale(80%) contrast(90%);
+}
+.tab-btn.is-use-blocked,
+.tab-btn:disabled.is-use-blocked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+#providerUseBanner {
+  display: none;
+  margin: 6px 12px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 180, 60, 0.12);
+  border: 1px solid rgba(255, 180, 60, 0.35);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+#providerUseBanner:not([hidden]) { display: block; }
+
+/* ACCOUNTS_LOGIN_v1 — Status account login panel */
+.login-panel{
+  margin-top:.55rem;padding:.65rem.75rem;border:1px solid var(--border);
+  border-radius:10px;background:var(--panel-2, rgba(255,255,255,.03));
+  display:flex;flex-direction:column;gap:.45rem;
+}
+.login-panel-head{font-size:.85rem;display:flex;gap:.35rem;align-items:baseline}
+.login-panel-mode{color:var(--muted);font-weight:400;font-size:.78rem}
+.login-row{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
+.login-label{flex:0 0 auto;min-width:4.5rem;color:var(--muted);font-size:.75rem}
+.login-value{
+  flex:1 1 12rem;font-size:.78rem;word-break:break-all;color:var(--fg);
+}
+a.login-value{color:var(--accent2);text-decoration:underline}
+code.login-value{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  padding:.15rem .35rem;border-radius:6px;background:rgba(127,127,127,.12);
+}
+.login-copy{font-size:.72rem;padding:.15rem .45rem}
+.login-paste{margin-top:.15rem}
+.login-code-input{
+  flex:1 1 12rem;min-width:10rem;padding:.35rem .5rem;border-radius:8px;
+  border:1px solid var(--border);background:var(--bg);color:var(--fg);font-size:.85rem;
+}
+.login-panel-actions{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}
+.login-panel-err{color:#f85149;font-size:.78rem;line-height:1.4}
+.status-item-actions .art-btn{font-size:.78rem}
+
+/* STATUS_MCP_HOOKS_v1 */
+.status-tools{margin-top:.25rem}
+.status-tools>summary{cursor:pointer;font-size:.78rem;font-weight:600;color:var(--muted);padding:.15rem 0;list-style-position:inside}
+.status-tools[open]>summary{margin-bottom:.35rem}
+.status-tool-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.35rem}
+.status-tool-row{padding:.35rem .45rem;border:1px solid var(--border);border-radius:8px;background:rgba(0,0,0,.18)}
+.status-tool-name{font-size:.78rem}
+.status-tool-desc{margin-top:.2rem;font-size:.74rem;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+.status-hook-events{display:flex;flex-wrap:wrap;gap:.3rem;margin:.35rem 0 .5rem}
+.status-hook-chip{font-size:.7rem;padding:.15rem .4rem;border-radius:999px;border:1px solid var(--border);color:var(--muted);background:rgba(0,0,0,.15)}
+
+/* OBSLOG_UI_v1: 로그 탭 → 서비스 (static/service-log.js) */
+.svc-log-btn{margin-left:.35rem;border-style:dashed}
+.svc-log{display:flex;flex-direction:column;gap:.75rem}
+.svc-bar{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem}
+.svc-badge{font-size:.72rem;font-weight:700;padding:.2rem .5rem;border-radius:6px;border:1px solid var(--border);color:var(--muted)}
+.svc-badge-ok{color:#56d364;border-color:rgba(86,211,100,.45)}
+.svc-badge-warn{color:#d29922;border-color:rgba(210,153,34,.5)}
+.svc-badge-error{color:#f85149;border-color:rgba(248,81,73,.55)}
+.svc-sec h4{margin:.1rem 0 .4rem;font-size:.8rem;color:var(--muted);font-weight:600}
+.svc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.5rem}
+.svc-card{border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;background:rgba(255,255,255,.03);min-width:0}
+.svc-kv{display:flex;gap:.5rem;font-size:.75rem;line-height:1.45}
+.svc-k{color:var(--muted);flex:0 0 5.5rem}
+.svc-v{overflow-wrap:anywhere;min-width:0}
+.svc-finding{border-left:3px solid var(--border);padding:.35rem .6rem;margin-bottom:.35rem;background:rgba(255,255,255,.03);border-radius:0 6px 6px 0}
+.svc-finding.svc-error{border-left-color:#f85149}
+.svc-finding.svc-warn{border-left-color:#d29922}
+.svc-f-title{font-size:.8rem;font-weight:600;overflow-wrap:anywhere}
+.svc-f-hint{font-size:.74rem;color:var(--muted);margin-top:.15rem;overflow-wrap:anywhere}
+.svc-ok{font-size:.78rem;color:#56d364}
+.svc-empty{font-size:.78rem;color:var(--muted);padding:.4rem 0}
+.svc-src{font-size:.7rem;color:var(--muted);margin-right:.4rem;flex-shrink:0}
+.svc-ev.svc-error .act-text{color:#f85149}
+.svc-ev.svc-warn .act-text{color:#d29922}
+
+/* ACTOR_ATTRIBUTION_v1: who did it */
+.obs-badge.obs-actor{background:rgba(121,192,255,.12);color:#79c0ff;border-color:rgba(121,192,255,.35);font-weight:500}
+
+/* SESSION_SPLIT_v1: a private session is marked so it is never mistaken for work */
+body.private-session .meta{color:var(--accent-private, #c2185b)}
+body.private-session #input{border-color:var(--accent-private, #c2185b)}
+
+/* TEAM_ROLES_v2: roles are chips on an otherwise identical character card */
+.team-role-chips{display:inline-flex;gap:.3rem;flex-wrap:wrap;margin-left:.4rem}
+.team-chip{font-size:.7rem;padding:.05rem .45rem;border-radius:999px;border:1px solid var(--accent-border);color:var(--accent2);background:var(--accent-soft)}
+.team-chip-default{border-color:var(--border-hover);color:inherit;background:rgba(255,255,255,.06)}
+.team-chip-none{border-style:dashed;color:var(--muted);background:none}
+.team-role-box:empty{display:none}
+.team-role-box{display:flex;flex-direction:column;gap:.25rem;margin:.35rem 0 .2rem}
+.team-role-pick{font-size:.8rem;display:flex;align-items:center;gap:.3rem;cursor:pointer}
+
+/* OBS_HISTORY_v1: paged history of resolved observations */
+.evo-pager{display:flex;align-items:center;justify-content:center;gap:.6rem;margin-top:.4rem}
+.evo-page{font-size:.76rem;color:var(--muted);font-family:var(--font-mono)}
+.obs-when{margin-left:auto;font-size:.72rem;color:var(--muted);font-family:var(--font-mono);white-space:nowrap}

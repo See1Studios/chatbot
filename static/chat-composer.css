@@ -1,0 +1,338 @@
+/* chat-composer.css: notices, streaming, the composer, model and private buttons, process badge, session banner and nav. Part of the chat stylesheet (CSS_SPLIT_v1): the parts load in index.html order and together are
+   the old chat.css, rule for rule -- keep that order; a rule that must win goes in a later part. */
+/* NOTICE_UI_v1: host notices — compact, typed color, no reply footer */
+.msg.system{
+  align-self:stretch;
+  max-width:100%;
+  background:rgba(167,139,250,.07);
+  border:1px solid rgba(167,139,250,.28);
+  box-shadow:none;
+  backdrop-filter:none;
+  font-size:.86rem;
+  padding:.5rem .75rem;
+  border-radius:10px;
+}
+.msg.system .notice-head{
+  display:flex;align-items:center;gap:.35rem;
+  font-size:.72rem;font-weight:600;letter-spacing:.02em;
+  text-transform:uppercase;color:#c4b5fd;margin-bottom:.28rem;
+}
+.msg.system .notice-head .action-icon-svg{width:13px;height:13px;stroke:currentColor}
+.msg.system .notice-label{line-height:1}
+.msg.system .md{color:#d4c4f5}
+.msg.system .md p{margin:.2rem 0}
+.msg.system .md strong{color:#ede4ff}
+.msg.system .md code{background:rgba(167,139,250,.14);color:#ede4ff}
+.msg.system .msg-footer{display:none !important}
+.msg.system.notice-help{
+  background:rgba(110,168,254,.08);border-color:rgba(110,168,254,.30);
+}
+.msg.system.notice-help .notice-head{color:#93c5fd}
+.msg.system.notice-help .md{color:#bfdbfe}
+.msg.system.notice-status{
+  background:rgba(56,189,248,.07);border-color:rgba(56,189,248,.28);
+}
+.msg.system.notice-status .notice-head{color:#7dd3fc}
+.msg.system.notice-status .md{color:#bae6fd}
+.msg.system.notice-warn{
+  background:rgba(255,138,80,.08);border-color:rgba(255,138,80,.32);
+}
+.msg.system.notice-warn .notice-head{color:#fdba74}
+.msg.system.notice-warn .md{color:#fed7aa}
+.msg.system.notice-error{
+  background:rgba(248,81,73,.08);border-color:rgba(248,81,73,.35);
+}
+.msg.system.notice-error .notice-head{color:#fca5a5}
+.msg.system.notice-error .md{color:#fecaca}
+.msg.system.notice-stop{
+  background:rgba(155,161,163,.08);border-color:rgba(155,161,163,.28);
+}
+.msg.system.notice-stop .notice-head{color:#c4c9cb}
+.msg.system.notice-stop .md{color:#d8dde0}
+.msg.system.notice-ok{
+  background:rgba(52,211,153,.07);border-color:rgba(52,211,153,.30);
+}
+.msg.system.notice-ok .notice-head{color:#6ee7b7}
+.msg.system.notice-ok .md{color:#a7f3d0}
+.msg.btw-card .btw-head .action-icon-svg{width:14px;height:14px;stroke:currentColor;flex-shrink:0}
+/* Streaming cursor: a CSS pseudo-element on the last rendered block,
+   not a literal DOM node -- md.innerHTML is fully replaced on every
+   delta, so anything inserted via JS would just be wiped and redrawn
+   every tick anyway. */
+.msg.assistant.streaming .md > *:last-child::after{
+  content:'';display:inline-block;width:.5em;height:1em;margin-left:2px;
+  background:var(--accent2);vertical-align:text-bottom;
+  animation:chat-cursor-blink 1s steps(1) infinite;
+}
+@keyframes chat-cursor-blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+.composer{position:relative;z-index:4;overflow:visible;display:flex;gap:.5rem;flex-shrink:0;align-items:flex-end}
+.slash-menu{
+  position:absolute;
+  bottom:calc(100% + 8px);
+  left:0;
+  right:0;
+  max-height:250px;
+  background:rgba(18, 21, 28, 0.92);
+  border:1px solid var(--accent-border);
+  border-radius:14px;
+  box-shadow:0 -12px 32px rgba(0,0,0,.7), 0 0 16px var(--accent-glow), var(--glint);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+  z-index:100;
+  display:flex;
+  flex-direction:column;
+  padding:.4rem 0;
+  backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);
+}
+.slash-menu[hidden]{display:none !important}
+.slash-category{font-size:.7rem;color:var(--accent2);padding:.4rem .75rem .2rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border-subtle);margin-top:.2rem}
+.slash-category:first-child{margin-top:0}
+.slash-item{display:flex;align-items:center;gap:.55rem;padding:.5rem .75rem;cursor:pointer;transition:all .12s ease;user-select:none}
+.slash-item:hover,.slash-item.selected{background:var(--accent-soft)}
+.slash-badge{font-size:.68rem;padding:1px 5px;border-radius:4px;font-weight:600;flex-shrink:0}
+.slash-badge.cmd{background:var(--accent-soft);color:var(--accent2);border:1px solid var(--accent-border)}
+.slash-badge.skill{background:rgba(52,211,153,.18);color:#34d399;border:1px solid rgba(52,211,153,.35)}
+.slash-badge.free{background:rgba(56,189,248,.18);color:#38bdf8;border:1px solid rgba(56,189,248,.35)}
+.slash-name{font-family:var(--font-mono);font-size:.84rem;font-weight:600;color:#fff;flex-shrink:0}
+.slash-desc{font-size:.76rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;text-align:right;margin-left:auto}
+.slash-item.selected .slash-desc{color:#d8dde4}
+.slash-empty{padding:.75rem;text-align:center;color:var(--muted);font-size:.82rem}
+textarea{
+  flex:1;
+  min-height:42px;
+  height:42px;
+  max-height:120px;
+  resize:none;
+  background:var(--bg-card);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:.5rem .75rem;
+  font-family:var(--font);
+  font-size:16px;
+  line-height:1.35;
+  box-sizing:border-box;
+  overflow-y:hidden;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,0.3);
+  transition:all .15s ease;
+}
+textarea:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px var(--accent-glow), inset 0 1px 3px rgba(0,0,0,0.3);
+}
+textarea::placeholder{
+  color:var(--muted);
+  font-family:var(--font);
+  font-size:.88rem;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  overflow:hidden;
+  opacity:0.85;
+}
+.composer button{
+  height:42px;
+  padding:0 1rem;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  flex-shrink:0;
+}
+.slash-trigger-btn, .model-trigger-btn, .geo-trigger-btn{
+  width:42px;
+  min-width:42px;
+  padding:0 !important;
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--border);
+  color:var(--muted);
+  font-family:var(--font-mono);
+  font-size:1.15rem;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .15s cubic-bezier(0.2,0,0,1);
+  user-select:none;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+/* 모델은 입력창 옆 짧은 아이콘 버튼(#modelBtn) + 메뉴로 고르고, 현재 모델은 입력창 placeholder로 보인다
+   (실장님: 모바일에서 모델 select가 폭을 차지해서 -- 짧은 버튼, 탭과 같은 아이콘 스타일).
+   <select id="model">은 app.js가 읽는 값의 원천이라 DOM에 남기고 숨긴다. (Earlier: "모델 선택 콤보박스는
+   채팅창 근처에 작게 두는 게 좋을 것 같네" -- still near the composer.) */
+#model{
+  display:none !important;
+}
+.model-trigger-btn .tab-icon-svg{width:18px;height:18px}
+#provider{
+  display:none !important; /* 제공자 선택은 상단 포트레이트 트레이로 이동하여 채팅 라인 확보 */
+}
+.geo-trigger-btn .tab-icon-svg{width:18px;height:18px}
+.slash-trigger-btn:hover, .slash-trigger-btn.active,
+.model-trigger-btn:hover, .model-trigger-btn.active,
+.geo-trigger-btn:hover, .geo-trigger-btn.active{
+  background:var(--accent-soft);
+  border-color:var(--accent-border);
+  color:var(--accent2);
+  box-shadow:0 0 10px var(--accent-glow);
+}
+.geo-trigger-btn.active .tab-icon-svg{
+  stroke:var(--accent2);
+}
+/* PRIVATE_TOGGLE_v1: the heart switches to the private session; filled while it is open */
+.private-toggle-btn.active, .private-toggle-btn:hover{
+  color:var(--accent-private, #c2185b);
+  border-color:var(--accent-private, #c2185b);
+  background:rgba(194,24,91,.12);
+  box-shadow:0 0 10px rgba(194,24,91,.35);
+}
+.private-toggle-btn.active .tab-icon-svg{
+  stroke:var(--accent-private, #c2185b);
+  fill:var(--accent-private, #c2185b);
+}
+.private-toggle-btn:disabled{opacity:.5;cursor:wait}
+
+.msg-footer{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.45rem;padding-top:.35rem;border-top:1px dashed var(--border);font-size:.76rem;color:var(--muted);min-width:0;transition:border-color .2s ease, background .2s ease}
+.msg-footer.footer-warning{border-top:1px dashed rgba(245,158,11,.5)}
+.msg-footer.footer-heavy{border-top:1px solid rgba(239,68,68,.55);background:linear-gradient(180deg,rgba(239,68,68,.06) 0%,transparent 100%);border-radius:0 0 8px 8px;padding-left:.3rem;padding-right:.3rem}
+.token-badge{display:inline-flex;align-items:center;gap:.25rem;padding:.16rem .48rem;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);font-size:.73rem;cursor:help;user-select:none;transition:all .15s ease;white-space:nowrap;flex-shrink:0}
+.token-badge:hover{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent2)}
+.token-badge.token-normal{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted)}
+.token-badge.token-normal:hover{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent2)}
+.token-badge.token-moderate{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent2)}
+.token-badge.token-moderate:hover{background:rgba(var(--accent-rgb), 0.22);border-color:var(--accent);color:#fff}
+.token-badge.token-warning{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.4);color:#fbbf24;font-weight:500}
+.token-badge.token-warning:hover{background:rgba(245,158,11,.24);border-color:rgba(245,158,11,.6);color:#fef08a}
+.token-badge.token-heavy{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);color:#f87171;font-weight:600;animation:token-heavy-pulse 2s ease-in-out infinite}
+.token-badge.token-heavy:hover{background:rgba(239,68,68,.26);border-color:rgba(239,68,68,.7);color:#fca5a5}
+.served-model{display:inline-flex;align-items:center;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono);font-size:.7rem;color:var(--muted);flex:0 1 auto;min-width:0;cursor:help;user-select:none}
+@keyframes token-heavy-pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.35)}50%{box-shadow:0 0 0 4px rgba(239,68,68,0)}}
+.tts-row{margin-top:.4rem;padding-top:.35rem;border-top:1px dashed var(--border)}
+/* Not `.tts-btn` -- copy-msg-btn also carries the .tts-btn class for
+   shared visual styling, so both buttons matched and got margin-left:
+   auto at once. Two auto margins on the same row split the free space
+   between them instead of both collapsing to the right edge, landing
+   the copy button near the middle of the footer (실장님: "복사 버튼이
+   한 가운데 나오네"). :first-of-type is button-only and DOM-order-based,
+   so whichever action button renders first (copy, when present) gets
+   pushed right and the rest just follow it -- works whether copy-msg-btn
+   exists or not. */
+.msg-footer button:first-of-type{margin-left:auto}
+.turn-live{display:inline-flex;align-items:center;gap:.35rem;flex:1 1 auto;min-width:0;max-width:100%;padding:.16rem .5rem;border-radius:6px;background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent2);font-family:var(--font-mono);font-size:.73rem;user-select:none}
+.turn-live .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse-dot 1.2s infinite ease-in-out;flex-shrink:0}
+.turn-live .turn-live-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.turn-stop-btn{display:none;align-items:center;justify-content:center;gap:.25rem;height:26px;padding:0 .65rem;font-size:.75rem;border-radius:8px;flex-shrink:0;white-space:nowrap}
+.msg-footer .turn-stop-btn{margin-left:auto}
+.meta .turn-stop-btn{height:22px;padding:0 .5rem;font-size:.72rem;flex-shrink:0}
+.tts-btn{display:inline-flex;align-items:center;justify-content:center;gap:.25rem;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:.78rem;padding:.24rem .55rem;border-radius:20px;transition:all .15s ease}
+.tts-btn:hover{color:var(--accent2);border-color:var(--accent-border);background:var(--accent-soft)}
+.tts-btn.speaking{color:var(--accent2);background:var(--accent-soft);border-color:var(--accent-border)}
+.action-icon-svg{width:13px;height:13px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex-shrink:0;transition:transform .15s ease, stroke .15s ease}
+.action-icon-svg.text-accent{stroke:var(--accent2)}
+.action-icon-svg.text-danger{stroke:#f85149}
+.action-icon-svg.text-warning{stroke:#fbbf24}
+.meta{color:var(--muted);font-size:.8rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:nowrap;min-width:0}
+.meta > div:first-child{min-width:0;flex:1 1 auto;overflow:hidden}
+.proc-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.15rem .5rem;border-radius:12px;font-size:.75rem;font-family:var(--font-mono);user-select:none;transition:all .2s ease}
+.proc-badge.idle{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted)}
+.proc-badge.idle .dot{width:6px;height:6px;border-radius:50%;background:#3fb950}
+.proc-badge.running{background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent2)}
+/* Pulse kept -- tied to a genuinely live, changing process state (running
+   vs idle/dead/disconnected), not decorative fake-liveness. Dropped the
+   zero-offset colored box-shadow glow (impeccable dark-glow finding,
+   craft-floor: "a zero-offset colored halo is decoration"). */
+.proc-badge.running .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse-dot 1.2s infinite ease-in-out}
+.proc-badge.dead{background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.4);color:#f85149}
+.proc-badge.dead .dot{width:6px;height:6px;border-radius:50%;background:#f85149}
+.proc-badge.disconnected{background:rgba(255,215,0,.15);border:1px solid rgba(255,215,0,.4);color:#ffd700}
+.proc-badge.disconnected .dot{width:6px;height:6px;border-radius:50%;background:#ffd700}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.2)}}
+.session-token-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:20px;background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent2);font-family:var(--font-mono);font-size:.75rem;cursor:help;user-select:none;transition:all .15s ease;flex-shrink:0;white-space:nowrap}
+.session-token-badge:hover{background:rgba(var(--accent-rgb), 0.22);border-color:var(--accent)}
+.session-nav{display:inline-flex;align-items:center;gap:2px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:2px;flex-shrink:0}
+.session-nav-btn{display:inline-flex;align-items:center;justify-content:center;gap:3px;background:transparent;border:none;color:var(--fg);font-size:.72rem;padding:2px 6px;border-radius:5px;cursor:pointer;transition:all .15s ease;height:22px;line-height:1}
+.session-nav-btn:hover:not(:disabled){background:var(--accent-soft);color:var(--accent2)}
+.session-nav-btn:disabled{opacity:.3;cursor:not-allowed;color:var(--muted)}
+.session-nav-btn.highlight{background:var(--accent-soft);color:var(--accent2);border:1px solid var(--accent-border);font-weight:600}
+.session-nav-btn.highlight:hover{background:var(--accent);color:#000}
+@media (max-width:480px){.session-nav .nav-label{display:none}}
+.past-tag{display:inline-flex;align-items:center;font-size:.68rem;padding:1px 5px;border-radius:4px;background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.35);flex-shrink:0}
+.session-switch-btn{display:inline-flex;align-items:center;gap:3px;background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent2);border-radius:6px;font-size:.73rem;padding:2px 7px;cursor:pointer;margin-left:.35rem;transition:all .15s ease}
+.session-switch-btn:hover{background:var(--accent);color:#000}
+a{color:var(--accent2)}
+.progress{font-size:.82rem;color:var(--accent2);min-height:1.2rem;opacity:.95;flex-shrink:0;background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:8px;padding:.3rem .6rem;margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.progress[hidden]{display:none!important}
+button.danger{background:rgba(248,81,73,.18);border:1px solid rgba(248,81,73,.45);color:#f85149;cursor:pointer}
+button.danger:hover{background:rgba(248,81,73,.28);color:#fff}
+button.btw-btn{background:rgba(147,112,219,.28)!important;border-color:rgba(147,112,219,.6)!important;color:#d8b4fe!important}
+button.btw-btn:hover{background:rgba(147,112,219,.45)!important;color:#fff!important}
+button.queue-btn{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.2)!important;color:var(--muted)!important}
+.session-banner{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.55rem .75rem;border-radius:10px;border:1px solid var(--accent-border);background:var(--accent-soft);color:var(--accent2);font-size:.88rem;flex-shrink:0}
+.session-banner[hidden]{display:none!important}
+.session-banner.hard{border-color:rgba(248,81,73,.5);background:rgba(248,81,73,.12);color:#f85149}
+.session-banner .session-banner-msg{flex:1;min-width:12rem}
+.session-banner button{cursor:pointer}
+/* In-log: session tools sit in the conversation, not the header chrome. */
+#log > .session-banner{
+  align-self:stretch;
+  max-width:100%;
+  margin:.1rem 0 .2rem;
+}
+#log > .session-banner[data-mode="quiet"]{
+  background:transparent;
+  border:none;
+  box-shadow:none;
+  padding:.15rem 0 .35rem;
+  gap:.4rem;
+  color:var(--muted);
+}
+#log > .session-banner[data-mode="quiet"] .session-banner-msg{
+  display:none;
+}
+#log > .session-banner[data-mode="quiet"] #sessionBannerDismiss{
+  color:var(--muted);
+  padding:.28rem .55rem;
+}
+#log > .session-banner[data-mode="quiet"] button{
+  font-size:.78rem;
+  padding:.28rem .65rem;
+  border-radius:999px;
+}
+button.queue-btn:hover{background:rgba(255,255,255,.14)!important;color:var(--text)!important}
+.msg.btw-card{align-self:stretch;margin:.4rem 0;background:rgba(147,112,219,.09);border:1px solid rgba(147,112,219,.28);border-radius:12px;padding:.75rem .9rem}
+.msg.btw-card .btw-head{font-size:.84rem;color:#d8b4fe;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
+.msg.btw-card .btw-head .btw-q{color:var(--muted);font-weight:normal;font-size:.8rem}
+.msg.btw-card .btw-body{font-size:.9rem;line-height:1.55}
+.msg.user.queued{opacity:.75;border-style:dashed}
+.msg.user.queued::after{content:" (대기열 대기 중)";font-size:.75rem;color:var(--accent2);margin-left:.4rem}
+.msg.user.btw-user{border-color:rgba(147,112,219,.45);background:rgba(147,112,219,.12)}
+.msg.user.btw-user::before{content:"[BTW] ";font-weight:bold;color:#d8b4fe}
+header .avatar{
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  object-fit:cover;
+  object-position:center 18%;
+  border:2px solid var(--accent-border);
+  flex-shrink:0;
+  box-shadow:0 2px 12px rgba(0,0,0,0.4), 0 0 10px var(--accent-soft);
+  cursor:pointer;
+  transition:transform .2s cubic-bezier(0.2,0,0,1), border-color .2s ease, box-shadow .2s ease;
+  user-select:none;
+}
+header .avatar:hover{
+  transform:scale(1.08);
+  border-color:var(--accent);
+  box-shadow:0 4px 16px rgba(0,0,0,0.5), 0 0 16px var(--accent-glow);
+}
+header .avatar:active{
+  transform:scale(0.96);
+}
+.brand-avatar-wrap{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
