@@ -156,17 +156,29 @@ function editBrains(ex, team, brains, actions) {
       row.appendChild(obsNode('span', 'team-n', String(i + 1)));
       const sel = document.createElement('select');
       (team.providers || []).forEach(p => { const o = obsNode('option', '', p); o.value = p; if (p === b.provider) o.selected = true; sel.appendChild(o); });
-      sel.addEventListener('change', () => { b.provider = sel.value; draw(); });
-      const model = document.createElement('input');
-      model.className = 'team-model';
-      model.placeholder = '기본 모델';
-      model.value = b.model || '';
-      const listId = 'teamModels-' + ex.id + '-' + i;
-      model.setAttribute('list', listId);
-      const dl = document.createElement('datalist');
-      dl.id = listId;
-      ((team.models || {})[b.provider] || []).forEach(m => { const o = document.createElement('option'); o.value = m; dl.appendChild(o); });
-      model.addEventListener('input', () => { b.model = model.value.trim(); });
+      sel.addEventListener('change', () => { b.provider = sel.value; b.model = ''; draw(); });
+      // a <select>, not a datalist: mobile browsers hide datalist suggestions that do not match the typed value
+      const known = (team.models || {})[b.provider] || [];
+      const pick = document.createElement('select');
+      pick.className = 'team-model';
+      pick.style.cssText = 'flex:1 1 9rem;min-width:7rem';
+      [['', '기본 모델']].concat(known.map(m => [m, m]), [['\u0000custom', '직접 입력…']]).forEach(([v, label]) => {
+        const o = obsNode('option', '', label); o.value = v; pick.appendChild(o);
+      });
+      const custom = b.model && !known.includes(b.model);
+      pick.value = custom ? '\u0000custom' : (b.model || '');
+      const typed = document.createElement('input');
+      typed.className = 'team-model';
+      typed.placeholder = '모델 이름';
+      typed.value = custom ? b.model : '';
+      typed.hidden = !custom;
+      typed.addEventListener('input', () => { b.model = typed.value.trim(); });
+      pick.addEventListener('change', () => {
+        const isCustom = pick.value === '\u0000custom';
+        typed.hidden = !isCustom;
+        b.model = isCustom ? typed.value.trim() : pick.value;
+        if (isCustom && typed.focus) typed.focus();
+      });
       const to = document.createElement('input');
       to.className = 'team-timeout';
       to.type = 'number';
@@ -176,7 +188,7 @@ function editBrains(ex, team, brains, actions) {
       to.title = '이 두뇌를 기다릴 최대 시간(초). 비우면 기본값. 멈추는 모델을 빨리 포기하게 합니다.';
       to.value = b.timeout || '';
       to.addEventListener('input', () => { b.timeout = Number(to.value) || 0; });
-      row.append(sel, model, dl, to);
+      row.append(sel, pick, typed, to);
       [['↑', () => { if (i > 0) { [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]]; draw(); } }],
        ['↓', () => { if (i < rows.length - 1) { [rows[i + 1], rows[i]] = [rows[i], rows[i + 1]]; draw(); } }],
        ['✕', () => { if (rows.length > 1) { rows.splice(i, 1); draw(); } }]].forEach(([label, fn]) => {
