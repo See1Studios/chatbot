@@ -488,8 +488,6 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if path.startswith("/api/rules/"):
             name = unquote(path[len("/api/rules/"):])
             fp = _rule_path(name)
-            if not fp and name == "PRIVATE.md":
-                fp = WORKSPACE / "PRIVATE.md"
             if not fp or not fp.exists():
                 code, body = _json_bytes({"ok": False, "error": "not found"}, 404)
                 return self._send(code, body, "application/json; charset=utf-8")
@@ -1253,8 +1251,6 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             if path.startswith("/api/rules/"):
                 name = unquote(path[len("/api/rules/"):])
                 fp = _rule_path(name)
-                if not fp and name == "PRIVATE.md":
-                    fp = WORKSPACE / "PRIVATE.md"
                 if not fp:
                     code, raw = _json_bytes({"ok": False, "error": "unknown rule file"}, 404)
                     return self._send(code, raw, "application/json; charset=utf-8")

@@ -43,7 +43,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 
 ## Harness
 
-- 기본 프로바이더 `agy`. 어댑터 SSOT `providers/adapters.py` `AGENT_ADAPTERS`, 세션 `meta.json` `provider`로 복원. 프로바이더별 계약은 어댑터에만(이 파일·`AGENTS.md`·`PERSONA.md`에 복사 금지). 하네스 전용 규칙도 어댑터·ctl에.
+- 기본 프로바이더 `agy`. 어댑터 SSOT `providers/adapters.py` `AGENT_ADAPTERS`, 세션 `meta.json` `provider`로 복원. 프로바이더별 계약은 어댑터에만(이 파일·`AGENTS.md`·캐릭터 카드에 복사 금지). 하네스 전용 규칙도 어댑터·ctl에.
 - 스폰 가시 루트는 `services/chatbot`, `<웹 루트>/chat`만. 홈·`.hermes`·웹 루트·`services` 전체 add-dir 금지. 넓힐 때는 DEVLOG에 사유, 최소만.
 
 ## Git

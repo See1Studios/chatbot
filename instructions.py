@@ -7,7 +7,7 @@ of AGENTS.md / CLAUDE.md / skills differs per CLI and is NOT relied on --
 the bundle is the one channel that is identical everywhere.
 
 Layers (L0 = always injected):
-  rules   AGENTS.md + the chatbot's card     (static, hashed; PERSONA.md before the move, §12)
+  rules   AGENTS.md + the character's card  (static, hashed)
   skills  workspace skill index              (static, hashed)
   memory  MEMORY.md snapshot, if it has facts (dynamic, not hashed)
   status  open observations / last review    (dynamic, not hashed)
@@ -27,7 +27,7 @@ try:  # the candidate count is a convenience; a missing core module must not sto
 except Exception:  # noqa: BLE001
     observations = None
 
-RULE_BUNDLE_FILES = ["AGENTS.md", "PERSONA.md"]
+RULE_BUNDLE_FILES = ["AGENTS.md"]
 WS_SKILLS_DIR = WORKSPACE / ".agents" / "skills"
 MEMORY_FILE = WORKSPACE / "memory" / "MEMORY.md"
 OBS_DIR = WORKSPACE / "skill-observations" / "observation-log"
@@ -100,14 +100,14 @@ def _cid(character: str = "") -> str:
 
 
 def _persona_text(character: str = "") -> str:
-    """The character's card rendered as PERSONA.md used to read (characters.persona_text); PERSONA.md before the
-    move (plan doc §12 step 2)."""
+    """The character's card as the bundle shows it (characters.persona_text) + its own work instructions; "" when
+    there is no card (CARD_ONLY_v1)."""
     card = _card(character)
     if card:
         import characters
         work = ((characters.ext(card).get("work") or {}).get("instructions") or "").strip()
         return characters.persona_text(card).strip() + ("\n\n## How you work\n" + work if work else "")
-    return "" if character else _read(WORKSPACE / "PERSONA.md")
+    return ""
 
 
 NO_ROLE_NOTE = ("[No role] You hold no role in the team: talk and help, but plans and delegation are the PD's, and "

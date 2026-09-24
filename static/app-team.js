@@ -110,7 +110,7 @@ function renderTeamCard(ex, team, files) {
   card.appendChild(head);
   const roleBox = obsNode('div', 'team-role-box');
   card.appendChild(roleBox);
-  if (team.team_editable && ex.id !== 'pd') {
+  if (team.team_editable) {
     const rb = obsNode('button', 'art-btn art-btn-xs', '역할');
     rb.type = 'button';
     rb.addEventListener('click', () => editRoles(ex, team, roleBox, actions));
@@ -132,9 +132,8 @@ function renderTeamCard(ex, team, files) {
     edit.addEventListener('click', () => editBrains(ex, team, brains, actions));
     actions.appendChild(edit);
   }
-  const subs = ex.id === 'pd' ? [['PERSONA.md', '캐릭터']]          // before any character card
-    : [['characters/' + ex.id + '/card.json', '캐릭터 카드'], ['characters/' + ex.id + '/memory.md', '기억'],
-      ['characters/' + ex.id + '/private-memory.md', '사적 기억'], ['characters/' + ex.id + '/visual.md', '외형 락']];
+  const subs = [['characters/' + ex.id + '/card.json', '캐릭터 카드'], ['characters/' + ex.id + '/memory.md', '기억'],
+    ['characters/' + ex.id + '/private-memory.md', '사적 기억'], ['characters/' + ex.id + '/visual.md', '외형 락']];
   subs.forEach(([id, title]) => {
     if (files[id]) {
       const sub = renderInstruction(Object.assign({}, files[id], { title }), false);

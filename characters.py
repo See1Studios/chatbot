@@ -256,46 +256,11 @@ def work_text(card: Dict, cid: str = "", ws=None) -> str:
     return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
 
-# ------------------------------------------------------------------ migration
-
-def migrate_experts(ws=None) -> List[str]:
-    """experts/<role>/{expert.md, brain.json, memory.md} (plan doc §11) -> characters/<id>/. Returns new ids.
-    The expert.md body becomes the description (a person can split it into description / personality / work
-    instructions afterwards); the old folder is removed once the character is saved."""
-    import shutil
-    from identity import parse_frontmatter
-    ws = Path(ws or _default_ws())
-    made = []
-    for f in sorted((ws / "experts").glob("*/expert.md")):
-        role = f.parent.name
-        if not _ROLE_RE.match(role) or by_role(role, ws):
-            continue
-        text = f.read_text(encoding="utf-8")
-        fm = parse_frontmatter(text)
-        body = re.sub(r"\A﻿?---.*?\n---[ \t]*\n?", "", text, count=1, flags=re.S).strip()
-        try:
-            chain = json.loads((f.parent / "brain.json").read_text(encoding="utf-8")).get("chain") or []
-        except (OSError, ValueError, AttributeError):
-            chain = []
-        cid = new_id()
-        card = new_card(fm.get("persona") or role, role, description=body,
-                        display={k: fm[k] for k in ("title", "voice") if fm.get(k)},
-                        brains={"work": chain} if chain else {})
-        save(cid, card, ws)
-        if (f.parent / "memory.md").is_file():
-            (f.parent / "memory.md").replace(memory_path(cid, ws))
-        shutil.rmtree(f.parent)
-        made.append(cid)
-    return made
-
-
-# ------------------------------------------------------------------ the PD's card (§12 step 2)
-# The chatbot's own persona is the character with role `pd`. Its card replaces PERSONA.md (identity, voice),
-# PRIVATE.md (the private-mode rules, in `data.system_prompt`) and pd-brain.json (`brains.work`). Its memory stays
-# in memory/MEMORY.md for now (the memory tool's lock and file); other characters keep theirs in their folder.
+# ------------------------------------------------------------------ rendering a card
+# A card is the only source of a character (CARD_ONLY_v1): identity, voice, private rules (`data.system_prompt`) and
+# brains (`brains.work`). The house memory is memory/MEMORY.md; each character keeps its own memory in its folder.
 
 _FRONT = re.compile(r"\A﻿?---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
-_VOICE = re.compile(r"^##\s+Voice\s*$", re.M | re.I)
 
 
 def default_card(ws=None) -> Dict:
@@ -307,16 +272,8 @@ def default_card(ws=None) -> Dict:
         return {}
 
 
-def pd_card(ws=None) -> Dict:
-    cid = by_role("pd", ws)
-    try:
-        return load(cid, ws) if cid else {}
-    except (OSError, ValueError):
-        return {}
-
-
 def persona_text(card: Dict) -> str:
-    """The card rendered the way PERSONA.md used to read (front matter + body), for the instruction bundle."""
+    """The card as the instruction bundle shows it: front matter (name, how the user is addressed, voice) + body."""
     d, e = card.get("data") or {}, ext(card)
     disp = e.get("display") or {}
     head = ["---", "persona: %s" % d.get("name", "")]
@@ -330,49 +287,6 @@ def persona_text(card: Dict) -> str:
 
 def private_text(card: Dict) -> str:
     return ((card.get("data") or {}).get("system_prompt") or "").strip()
-
-
-def card_from_persona(persona_md: str, private_md: str = "", chain: Optional[List] = None) -> Dict:
-    """A PD card from PERSONA.md (+ PRIVATE.md, + the PD's confirmation brains)."""
-    from identity import parse_frontmatter
-    fm = parse_frontmatter(persona_md)
-    body = _FRONT.sub("", persona_md, count=1).strip()
-    body = re.sub(r"\A#\s+[^\n]*\n+", "", body)               # the "# Persona" heading is re-added on render
-    m = _VOICE.search(body)
-    personality = ""
-    if m:
-        nxt = re.search(r"^##\s", body[m.end():], re.M)
-        end = m.end() + nxt.start() if nxt else len(body)
-        personality = body[m.end():end].strip()
-        body = (body[:m.start()] + body[end:]).strip()
-    card = new_card(fm.get("persona") or "", "pd", description=body, personality=personality,
-                    display={k: fm[k] for k in ("user_title", "voice") if fm.get(k)},
-                    brains={"work": chain} if chain else {})
-    card["data"]["system_prompt"] = _FRONT.sub("", private_md or "", count=1).strip()
-    return card
-
-
-def migrate_pd(ws=None) -> Optional[str]:
-    """PERSONA.md, PRIVATE.md, pd-brain.json -> the PD's card; the old files are removed. None if there is nothing
-    to move or a PD character already exists."""
-    ws = Path(ws or _default_ws())
-    persona = ws / "PERSONA.md"
-    if by_role("pd", ws) or not persona.is_file():
-        return None
-    private = ws / "PRIVATE.md"
-    brain = ws / "pd-brain.json"
-    try:
-        chain = json.loads(brain.read_text(encoding="utf-8")).get("chain") or []
-    except (OSError, ValueError, AttributeError):
-        chain = []
-    card = card_from_persona(persona.read_text(encoding="utf-8"),
-                             private.read_text(encoding="utf-8") if private.is_file() else "", chain)
-    cid = new_id()
-    save(cid, card, ws)
-    for f in (persona, private, brain):
-        if f.is_file():
-            f.unlink()
-    return cid
 
 
 # ------------------------------------------------------------------ private memory (§12, PRIVATE_MEMORY_v1)

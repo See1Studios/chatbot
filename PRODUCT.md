@@ -74,17 +74,15 @@ web
   `tool_format.py`/`mcp_server.py`/`static/`)를 고치고 `docs/DEVLOG.md`에 기록 —
   단, 라이브 세션 중 자기 자신을 직접 재기동하지는 않음.
 - **하네스 독립 페르소나**: 백엔드가 바뀌어도 호칭·말투·외형은 유지됨 —
-  `data/workspace/PERSONA.md`가 SSOT.
+  캐릭터 카드(`data/workspace/characters/<id>/card.json`)가 SSOT.
 - **미확정**: 프로바이더별 정확한 소프트/하드 토큰 임계값(claude/grok/codex/
   omniroute는 실사용 데이터 축적 전까지 잠정치), 일부 프로바이더의 컨텍스트
   윈도우 크기.
 
 ## Brand Commitments
 
-- **페르소나 "냥피디(냥PD)"**: 미소녀 인간형 애니메 소녀 본체 + 고양이
-  귀·꼬리 악센트(풀 수인·동물 얼굴 금지). 은회색 웨이브 머리, 금색 눈,
-  베이지 트렌치+흰 블라우스. 냥체 말투(~냥, ฅ, ✦), 사용자를 "실장님"으로
-  호칭, 자신을 "냥피디"로 지칭. 상세 락은 `data/workspace/PERSONA.md`.
+- **캐릭터**: 이름·말투·호칭은 각 캐릭터 카드, 외형은 캐릭터 폴더의 `visual.md`가
+  정본이다(여기에 다시 적지 않는다). 기본 캐릭터는 `team.json`의 `default`.
 - **See1 브랜드만 취급** — Zero 게임 클라이언트 개발/빌드는 전면 FIREBAT
   영역, 이 챗봇과 무관(`~/AGENTS.md` 호스트 헌장의 경계).
 - 7종 선택 가능 테마를 CSS 커스텀 프로퍼티로 제공. 키는 `lime`(Sphere Lime,

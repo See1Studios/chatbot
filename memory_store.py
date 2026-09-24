@@ -37,7 +37,7 @@ _LEADING_DATE = re.compile(r"^\s*\[\d{4}-\d{2}-\d{2}\]\s*")
 # (NAME_NEUTRAL_v1). Sections are read back from the file, so an instance may rename them.
 TEMPLATE = (
     "# 장기 기억\n\n"
-    "세션을 넘는 사실만 적는다. 나는 누구 → `PERSONA.md`. 호스트 법 → `~/AGENTS.md`.\n"
+    "세션을 넘는 사실만 적는다. 나는 누구 → 내 캐릭터 카드(`characters/<id>/card.json`). 호스트 법 → `~/AGENTS.md`.\n"
     "한 줄에 사실 하나. `[YYYY-MM-DD]` 날짜. 짧게 유지 (대략 4KB).\n\n"
     "## 사용자\n\n## 운영 결정\n\n## 진행 중\n"
 )

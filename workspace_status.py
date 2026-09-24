@@ -35,7 +35,7 @@ try:  # ticket decisions from the status tab; the core holds every rule
 except Exception:  # noqa: BLE001
     tickets = None
 
-RULE_FILES = ["AGENTS.md", "PERSONA.md", "PROJECT.md", "SELF-MODIFY.md"]
+RULE_FILES = ["AGENTS.md", "PROJECT.md", "SELF-MODIFY.md"]
 WS_SKILLS_DIR = WORKSPACE / ".agents" / "skills"
 _SKILLS_CACHE = {"ts": 0.0, "data": []}
 _extract_yaml_desc = extract_yaml_desc
@@ -249,11 +249,9 @@ def observation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tu
 
 INSTRUCTION_FILES = [  # (id, title, path relative to the workspace, layer)
     ("AGENTS.md", "헌장", "AGENTS.md", "always"),
-    ("PERSONA.md", "페르소나", "PERSONA.md", "always"),
     ("MEMORY.md", "장기 기억", "memory/MEMORY.md", "always"),
     ("PROJECT.md", "작업 절차", "PROJECT.md", "on_demand"),
     ("SELF-MODIFY.md", "자기수정 경계", "SELF-MODIFY.md", "on_demand"),
-    ("PRIVATE.md", "사적 모드", "PRIVATE.md", "on_demand"),
 ]
 _LAYER_ORDER = {"always": 0, "on_demand": 1, "private": 2}   # private: read only in a private session
 
@@ -376,8 +374,7 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
 
 
 # ------------------------------------------------------------ team (EXPERTS_STATUS_v1, CHARACTERS_v1)
-# The 팀 tab: the PD's confirmation brain list (pd-brain.json) and each character's work brains (its card,
-# extensions.chatbot.brains.work), docs/plans/multi-agent-worktree-delegation.md §11-12. The operator edits them here;
+# The 팀 tab: each character's work brains (its card, extensions.chatbot.brains.work), docs/plans/multi-agent-worktree-delegation.md §11-12. The operator edits them here;
 # the PD cannot. Which providers a brain may name comes from the delegation runner's registry.
 
 _MAX_BRAINS = 6
@@ -393,20 +390,7 @@ def _runner_providers() -> list:
         return []
 
 
-def _read_chain(path: Path) -> list:
-    try:
-        chain = json.loads(path.read_text(encoding="utf-8")).get("chain")
-        return chain if isinstance(chain, list) else []
-    except (OSError, ValueError, AttributeError):
-        return []
-
-
 def experts_overview() -> dict:
-    try:
-        import identity
-        pd = identity.get_identity("")
-    except Exception:  # noqa: BLE001
-        pd = {"name": "PD"}
     providers = _runner_providers()
     models = {}
     try:
@@ -417,10 +401,7 @@ def experts_overview() -> dict:
     except Exception:  # noqa: BLE001
         pass
     chars = _characters()
-    out = [] if chars else [   # before any character card: the PD's list in pd-brain.json
-        {"id": "pd", "roles": ["pd"], "role": "pd", "default": True, "name": pd["name"], "title": "PD",
-         "chain": _read_chain(WORKSPACE / "pd-brain.json"), "path": "data/workspace/pd-brain.json",
-         "editable": _protected_why(WORKSPACE / "pd-brain.json") is None}]
+    out = []
     try:
         import characters
     except Exception:  # noqa: BLE001
@@ -495,8 +476,7 @@ def _put_team(body: dict) -> Tuple[int, dict]:
 
 
 def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
-    """GET /api/experts; PUT /api/experts/<id>/brain {chain} (a character id; `pd` = pd-brain.json before any
-    card); PUT /api/experts/team {default, members} arranges the team.
+    """GET /api/experts; PUT /api/experts/<id>/brain {chain} (a character id); PUT /api/experts/team {default, members} arranges the team.
     A PUT is the operator editing from the team tab, so the caller must have checked that it came from this
     server's own page."""
     if not (path == "/api/experts" or path.startswith("/api/experts/")):
@@ -506,12 +486,12 @@ def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[
         return 200, experts_overview()
     if method == "PUT" and rest == "team":
         return _put_team(body or {})
-    m = re.fullmatch(r"(pd|char_[0-9a-z]{26})/brain", rest)
+    m = re.fullmatch(r"(char_[0-9a-z]{26})/brain", rest)
     if method != "PUT" or not m:
         return 404, {"ok": False, "error": "not found"}
     who = m.group(1)
-    target = WORKSPACE / "pd-brain.json" if who == "pd" else WORKSPACE / "characters" / who / "card.json"
-    if who != "pd" and (not _CHAR_ID.match(who) or not target.is_file()):
+    target = WORKSPACE / "characters" / who / "card.json"
+    if not _CHAR_ID.match(who) or not target.is_file():
         return 404, {"ok": False, "error": "no such character"}
     why = _protected_why(target)
     if why:
@@ -519,14 +499,11 @@ def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[
     chain, err = _clean_chain((body or {}).get("chain"))
     if chain is None:
         return 400, {"ok": False, "error": err}
-    if who == "pd":
-        _atomic_write_text(target, json.dumps({"chain": chain}, ensure_ascii=False, indent=2) + "\n")
-    else:
-        import characters
-        card = characters.load(who, WORKSPACE)
-        characters.ext(card) or card["data"].setdefault("extensions", {}).setdefault(characters.EXT, {})
-        characters.ext(card).setdefault("brains", {})["work"] = chain
-        characters.save(who, card, WORKSPACE)
+    import characters
+    card = characters.load(who, WORKSPACE)
+    characters.ext(card) or card["data"].setdefault("extensions", {}).setdefault(characters.EXT, {})
+    characters.ext(card).setdefault("brains", {})["work"] = chain
+    characters.save(who, card, WORKSPACE)
     return 200, {"ok": True, "id": who, "chain": chain}
 
 

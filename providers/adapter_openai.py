@@ -95,7 +95,7 @@ def _mcp_openai_tools(force: bool = False) -> List[dict]:
 
 def _persona_system_prompt() -> Optional[str]:
     """The host-assembled instruction bundle (instructions.py: AGENTS.md +
-    PERSONA.md + skill index + memory snapshot + self-improve status), or
+    the character card + skill index + memory snapshot + self-improve status), or
     None when there is nothing to inject. Used by AgentSession._send_direct()
     as the first-turn injection for every process provider, and as the
     system message of the HTTP adapter -- native cwd auto-discovery differs

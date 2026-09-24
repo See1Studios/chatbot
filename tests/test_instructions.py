@@ -22,12 +22,21 @@ def _write(p: Path, text: str) -> None:
     p.write_text(text, encoding="utf-8")
 
 
+def _write_card(ws: Path, description: str, cid: str = "") -> str:
+    """The team's default character with `description`; returns its id."""
+    import characters
+    cid = cid or characters.new_id()
+    characters.save(cid, characters.new_card("", description=description), ws)
+    characters.save_team({"default": cid, "members": {cid: []}}, ws)
+    return cid
+
+
 class WorkspaceCase(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.ws = self.tmp / "workspace"
         _write(self.ws / "AGENTS.md", "# 헌장\nCHARTER-MARK")
-        _write(self.ws / "PERSONA.md", "# 페르소나\nPERSONA-MARK")
+        self.card_id = _write_card(self.ws, "PERSONA-MARK")       # the default character (CARD_ONLY_v1)
         _write(self.ws / ".agents/skills/alpha/SKILL.md",
                "---\nname: alpha\ndescription: >\n  알파 스킬 설명\n  두 번째 줄\n---\n본문")
         _write(self.ws / ".agents/skills/_off/SKILL.md", "---\nname: _off\ndescription: 꺼짐\n---\n")
@@ -96,8 +105,10 @@ class BundleTests(WorkspaceCase):
         self.assertNotEqual(h1, I.build_instruction_bundle()["hash"])
 
     def test_no_rules_means_no_bundle(self):
-        for f in ("AGENTS.md", "PERSONA.md"):
-            (self.ws / f).unlink()
+        (self.ws / "AGENTS.md").unlink()
+        import shutil as _sh
+        _sh.rmtree(self.ws / "characters")
+        (self.ws / "team.json").unlink()
         import shutil
         shutil.rmtree(self.ws / ".agents")
         self.assertEqual(I.build_instruction_bundle(), {"text": "", "hash": ""})
@@ -141,7 +152,7 @@ class InjectionTests(WorkspaceCase):
     def test_rule_change_reinjects_once_as_update(self):
         s = self.make()
         s._send_direct("a")
-        _write(self.ws / "PERSONA.md", "# 페르소나\nPERSONA-V2")
+        _write_card(self.ws, "PERSONA-V2", self.card_id)
         s._send_direct("b")
         self.assertIn("규칙이 갱신되었다", self.sent[1])
         self.assertIn("PERSONA-V2", self.sent[1])

@@ -3,7 +3,7 @@
 이 제품의 **최대 가치**와 **최대 목표**.
 수정·개발할 때 항상 연다. 패치는 이 기조를 한 칸이라도 가깝게 하기 위해서만 한다.
 
-기능 목록은 `PRODUCT.md`, UI는 `DESIGN.md`, 말투는 `PERSONA.md`, 외형은 `data/persona/README.md`. 이 문서는 그것들의 위다.
+기능 목록은 `PRODUCT.md`, UI는 `DESIGN.md`, 말투는 캐릭터 카드(`data/workspace/characters/<id>/card.json`), 외형은 그 폴더의 `visual.md`. 이 문서는 그것들의 위다.
 
 ## 최대 가치
 

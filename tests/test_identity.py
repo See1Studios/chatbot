@@ -1,4 +1,4 @@
-"""identity.py: identity comes from the instruction files, never from code.
+"""identity.py: identity comes from the charter and the default character's card, never from code (CARD_ONLY_v1).
 Run: python3 -m unittest tests.test_identity  (from services/chatbot)
 """
 import json
@@ -26,11 +26,25 @@ class Base(unittest.TestCase):
     def write(self, name, text):
         (self.ws / name).write_text(text, encoding="utf-8")
 
+    def write_default(self, name="", user_title="", voice="", title="", private="", description=""):
+        """The team's default character (what PERSONA.md and PRIVATE.md used to be)."""
+        import characters
+        cid = characters.new_id()
+        display = {k: v for k, v in (("user_title", user_title), ("voice", voice), ("title", title)) if v}
+        card = characters.new_card(name, description=description, display=display)
+        card["data"]["system_prompt"] = private
+        characters.save(cid, card, self.ws)
+        characters.save_team({"default": cid, "members": {cid: []}}, self.ws)
+        return cid
+
     def write_character(self, role, name, description="", title="", voice="", cid=None):
         import characters
         cid = cid or characters.new_id()
         display = {k: v for k, v in (("title", title), ("voice", voice)) if v}
-        characters.save(cid, characters.new_card(name, role, description, display=display), self.ws)
+        characters.save(cid, characters.new_card(name, description=description, display=display), self.ws)
+        team = characters.load_team(self.ws)                # roles are the roster's (TEAM_ROLES_v1)
+        team["members"][cid] = [role]
+        characters.save_team(team, self.ws)
         return cid
 
 
@@ -58,19 +72,21 @@ class IdentityTest(Base):
         self.assertEqual(identity.get_identity(),
                          {"title": "Assistant", "persona": "", "user_title": "사용자", "voice": "", "name": "Assistant"})
 
-    def test_title_comes_from_agents_and_the_rest_from_persona(self):
+    def test_title_comes_from_agents_and_the_rest_from_the_card(self):
         self.write("AGENTS.md", "---\ntitle: 프로듀서\n---\n# 헌장\n")
-        self.write("PERSONA.md", "---\npersona: 냥피디\nuser_title: 실장님\nvoice: 친근한 냥체\n---\n# 페르소나\n")
+        self.write_default("냥피디", user_title="실장님", voice="친근한 냥체")
         i = identity.get_identity()
         self.assertEqual((i["title"], i["persona"], i["user_title"], i["voice"], i["name"]),
                          ("프로듀서", "냥피디", "실장님", "친근한 냥체", "냥피디"))
 
-    def test_each_key_is_read_only_from_its_own_file(self):
-        # a title in PERSONA.md or a persona in AGENTS.md must be ignored
+    def test_each_key_is_read_only_from_its_own_source(self):
+        # a persona in AGENTS.md is ignored; the card's own title wins over the charter's
         self.write("AGENTS.md", "---\ntitle: 아트디렉터\npersona: 몰래\n---\n")
-        self.write("PERSONA.md", "---\ntitle: 가짜\npersona: 루나\n---\n")
+        self.write_default("루나")
         i = identity.get_identity()
         self.assertEqual((i["title"], i["persona"]), ("아트디렉터", "루나"))
+        self.write_default("루나", title="감독")
+        self.assertEqual(identity.get_identity()["title"], "감독")
 
     def test_title_only_bot_has_no_persona_and_is_named_by_its_title(self):
         self.write("AGENTS.md", "---\ntitle: 테크디렉터\n---\n")
@@ -79,7 +95,7 @@ class IdentityTest(Base):
 
     def test_self_label_joins_title_and_persona(self):
         self.write("AGENTS.md", "---\ntitle: 프로듀서\n---\n")
-        self.write("PERSONA.md", "---\npersona: 냥피디\n---\n")
+        self.write_default("냥피디")
         self.assertEqual(identity.self_label(), "프로듀서 냥피디")
 
     def test_two_workspaces_two_identities(self):
@@ -92,7 +108,7 @@ class IdentityTest(Base):
         self.assertEqual((first, second), ("테크디렉터", "아트디렉터"))
 
     def test_values_are_cleaned_and_capped(self):
-        self.write("PERSONA.md", "---\nuser_title: " + "가" * 100 + "\npersona: 냥\x07\x1b피\n---\n")
+        self.write_default("냥\x07\x1b피", user_title="가" * 100)
         i = identity.get_identity()
         self.assertEqual(len(i["user_title"]), 20)
         self.assertNotIn("\x07", i["persona"])
@@ -107,7 +123,7 @@ class IdentityTest(Base):
 
     def test_voice_phrase(self):
         self.assertEqual(identity.voice_phrase(), "")
-        self.write("PERSONA.md", "---\nvoice: 차분한 존댓말\n---\n")
+        self.write_default("", voice="차분한 존댓말")
         self.assertEqual(identity.voice_phrase(), "차분한 존댓말로")
         self.assertEqual(identity.voice_phrase("이다"), "차분한 존댓말이다")
 
@@ -121,42 +137,42 @@ class ScriptSafetyTest(Base):
         self.assertEqual(json.loads(out)["title"], "</script><script>alert(1)</script>")   # round-trips intact
 
     def test_line_separators_are_escaped(self):
-        self.write("PERSONA.md", "---\npersona: a b\n---\n")
+        self.write_default("a\u2028b")
         self.assertNotIn(" ", identity.script_json())
 
 
 class SeedTest(Base):
-    def test_seeding_makes_the_chatbot_a_card_once(self):
+    def test_a_new_install_starts_with_one_neutral_card_as_the_default(self):
         import characters
-        tpl = Path(tempfile.mkdtemp())
-        (tpl / "PERSONA.md").write_text("---\npersona: 하나\nuser_title: 손님\n---\n# Persona\nbody\n", encoding="utf-8")
-        self.assertEqual(identity.seed_workspace_files(tpl, self.ws), ["PERSONA.md", "card"])
-        self.assertFalse((self.ws / "PERSONA.md").exists())                  # the template became the card
-        self.assertEqual((identity.get_identity()["persona"], identity.get_identity()["user_title"]), ("하나", "손님"))
-        cid = characters.by_role("pd", self.ws)
+        (self.ws / "roles" / "pd").mkdir(parents=True)
+        (self.ws / "roles" / "pd" / "role.md").write_text("---\ntitle: PD\n---\nPlan and delegate.\n", encoding="utf-8")
+        self.assertEqual(identity.seed_workspace_files(workspace=self.ws), ["card"])
+        cid = characters.default_character(self.ws)
+        self.assertTrue(cid)
+        self.assertEqual(characters.roles_of(cid, self.ws), ["pd"])
+        self.assertEqual((identity.get_identity()["persona"], identity.get_identity()["user_title"]), ("", "사용자"))
         card = characters.load(cid, self.ws)
         card["data"]["name"] = "MY OWN"
         characters.save(cid, card, self.ws)
-        self.assertEqual(identity.seed_workspace_files(tpl, self.ws), [])      # an existing card is never touched
+        self.assertEqual(identity.seed_workspace_files(workspace=self.ws), [])   # an existing character is never touched
         self.assertEqual(identity.get_identity()["persona"], "MY OWN")
 
-    def test_an_old_install_moves_to_a_card_with_its_private_rules(self):
-        self.write("PERSONA.md", "---\npersona: 하나\nvoice: 밝게\n---\n# Persona\n## Identity\nx\n## Voice\nbright\n")
-        self.write("PRIVATE.md", "---\ntitle: p\n---\n# 사적 모드\nrule one\n")
+    def test_private_rules_and_body_come_from_the_card(self):
+        self.write_default("하나", voice="밝게", private="# 사적 모드\nrule one", description="## Identity\nx")
         self.assertEqual(identity.private_rules(), "# 사적 모드\nrule one")
-        self.assertEqual(identity.seed_workspace_files(Path(tempfile.mkdtemp()), self.ws), ["card"])
-        self.assertEqual(identity.private_rules(), "# 사적 모드\nrule one")
-        self.assertFalse((self.ws / "PRIVATE.md").exists())
         self.assertEqual(identity.get_identity()["voice"], "밝게")
-        body = identity.persona_body()
-        self.assertIn("## Identity\nx", body)
-        self.assertIn("## Voice\nbright", body)
+        self.assertIn("## Identity\nx", identity.persona_body())
 
-    def test_shipped_template_is_neutral_and_parses(self):
-        tpl = Path(identity.__file__).parent / "templates" / "PERSONA.md"
-        fm = identity.parse_frontmatter(tpl.read_text(encoding="utf-8"))
-        self.assertEqual((fm.get("persona"), fm.get("user_title")), ("", "사용자"))
-        self.assertNotIn("냥피디", tpl.read_text(encoding="utf-8"))
+    def test_nothing_without_a_card(self):
+        self.assertEqual((identity.private_rules(), identity.persona_body()), ("", ""))
+
+    def test_shipped_template_is_a_neutral_card(self):
+        import characters
+        tpl = json.loads((Path(identity.__file__).parent / "templates" / "character.json").read_text(encoding="utf-8"))
+        self.assertEqual(tpl["spec"], characters.SPEC)
+        self.assertEqual(tpl["data"]["name"], "")
+        self.assertNotIn("냥", json.dumps(tpl, ensure_ascii=False))
+        self.assertNotIn("role", characters.ext(tpl))
 
 
 class RoleTest(Base):
@@ -164,7 +180,7 @@ class RoleTest(Base):
 
     def test_a_character_by_role_or_id_and_the_title_fallback(self):
         self.write("AGENTS.md", "---\ntitle: 프로듀서\n---\n")
-        self.write("PERSONA.md", "---\npersona: 하나\nvoice: 밝게\nuser_title: 주인님\n---\nbody one\n")
+        self.write_default("하나", voice="밝게", user_title="주인님", description="body one")
         cid = self.write_character("reviewer", "두리", "a curt reviewer", voice="새침하게")
         for ref in ("reviewer", cid):
             r = identity.get_identity(ref)

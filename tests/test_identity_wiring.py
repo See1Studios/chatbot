@@ -24,9 +24,12 @@ def _workspace(title=None, persona=None, user_title=None, voice=None) -> Path:
     ws = Path(tempfile.mkdtemp())
     if title is not None:
         (ws / "AGENTS.md").write_text(f"---\ntitle: {title}\n---\n# 헌장\n", encoding="utf-8")
-    lines = [f"{k}: {v}" for k, v in (("persona", persona), ("user_title", user_title), ("voice", voice)) if v is not None]
-    if lines:
-        (ws / "PERSONA.md").write_text("---\n" + "\n".join(lines) + "\n---\n# 페르소나\n", encoding="utf-8")
+    if any(v is not None for v in (persona, user_title, voice)):   # the default character's card (CARD_ONLY_v1)
+        import characters
+        cid = characters.new_id()
+        display = {k: v for k, v in (("user_title", user_title), ("voice", voice)) if v}
+        characters.save(cid, characters.new_card(persona or "", display=display), ws)
+        characters.save_team({"default": cid, "members": {cid: []}}, ws)
     return ws
 
 
@@ -71,7 +74,7 @@ class PromptsTest(Base):
         self.use(ROOT / "data" / "workspace")
         i = identity.get_identity()
         self.assertNotEqual(i["title"], identity.DEFAULTS["title"], "AGENTS.md has no `title:` front matter")
-        self.assertTrue(i["persona"], "PERSONA.md has no `persona:` front matter")
+        self.assertTrue(i["persona"], "the default character's card has no name")
         self.assertNotEqual(i["user_title"], identity.DEFAULTS["user_title"])
         prompt = session._btw_prompt("q", False, [])
         self.assertIn(f"{identity.self_label()}입니다. (사용자: {i['user_title']})", prompt)

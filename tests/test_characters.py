@@ -58,23 +58,6 @@ class CardTest(unittest.TestCase):
         self.assertEqual(C.listing(self.ws), [])
         self.assertEqual(C.ext({"data": {"extensions": {}}}), {})     # a card from elsewhere has no work side
 
-    def test_experts_move_to_character_folders(self):
-        d = self.ws / "experts" / "staff"
-        d.mkdir(parents=True)
-        (d / "expert.md").write_text("---\npersona: 루루\ntitle: 막내 스태프\n---\n# body\nworks hard\n")
-        (d / "brain.json").write_text(json.dumps({"chain": [{"provider": "agy", "model": "m"}]}))
-        (d / "memory.md").write_text("# Memory\n- [2026-01-01] x\n")
-        [cid] = C.migrate_experts(self.ws)
-        card = C.load(cid, self.ws)
-        self.assertEqual((card["data"]["name"], C.ext(card)["role"], C.ext(card)["display"]["title"]),
-                         ("루루", "staff", "막내 스태프"))
-        self.assertIn("works hard", card["data"]["description"])
-        self.assertEqual(C.brains(card)[0]["model"], "m")
-        self.assertIn("- [2026-01-01] x", C.memory_path(cid, self.ws).read_text())
-        self.assertFalse(d.exists())
-        self.assertEqual(C.migrate_experts(self.ws), [])               # nothing left to move
-
-
 
 class PrivateMemoryTest(unittest.TestCase):
     def setUp(self):

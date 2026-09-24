@@ -13,7 +13,7 @@ const providerTrayEl = document.getElementById('providerTray');
 const brandNameEl = document.getElementById('brandName');
 const brandRoleEl = document.getElementById('brandRole');
 const brandProviderEl = document.getElementById('brandProvider');
-// 이름·호칭은 코드가 아니라 지침 파일(AGENTS.md `title`, PERSONA.md `persona`/`user_title`)에서 온다.
+// 이름·호칭은 코드가 아니라 헌장(AGENTS.md `title`)과 기본 캐릭터 카드(이름, `user_title`)에서 온다.
 // 서버가 <!--IDENTITY--> 자리에 window.__IDENTITY__를 심어 준다 (없으면 /api/identity로 폴백).
 const IDENTITY = Object.assign({ title: 'Assistant', persona: '', user_title: '사용자', voice: '', name: 'Assistant' }, window.__IDENTITY__ || {});
 function escapeRegExp(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }

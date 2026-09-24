@@ -6,15 +6,11 @@ what the model reads and what the host shows/prompts can never disagree, and no
 name is hardcoded here or in the UI:
 
   AGENTS.md   front matter  title       the chatbot's job/role (top-of-window title)
-  PERSONA.md  front matter  persona     the character's name (optional)
-                            user_title  how the user is addressed
-                            voice       one-line tone hint for host-built prompts
-  PERSONA.md  body                      the personality and tone themselves
-
-Since §12 step 2 the chatbot itself is the character with role `pd`: when that
-card exists it replaces PERSONA.md (persona, user_title, voice, body) and
-PRIVATE.md (private_rules); PERSONA.md is only the fallback of an install that
-has not moved yet (and the new-install template, converted on seeding).
+  the default character's card (characters/<id>/card.json, CARD_ONLY_v1):
+    data.name                           persona: the character's name (optional)
+    extensions.chatbot.display          user_title (how the user is addressed), voice, title
+    description / personality           the personality and tone themselves
+    data.system_prompt                  the private-mode rules
 
 Other characters (docs/plans/multi-agent-worktree-delegation.md §12) live in
 `characters/<id>/card.json` (Character Card V2, characters.py). Asked by role or
@@ -31,7 +27,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 import threading
 from pathlib import Path
 from typing import Dict, Optional
@@ -40,7 +35,6 @@ from host_config import ROOT, WORKSPACE
 
 DEFAULTS = {"title": "Assistant", "persona": "", "user_title": "사용자", "voice": ""}
 _LIMITS = {"title": 60, "persona": 40, "user_title": 20, "voice": 120}
-_SOURCES = {"title": "AGENTS.md", "persona": "PERSONA.md", "user_title": "PERSONA.md", "voice": "PERSONA.md"}
 
 _ROLE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 _BODY_LIMIT = 4000
@@ -103,11 +97,12 @@ def _pd() -> Dict:
 
 
 def persona_file(role: str = "") -> Path:
-    """The chatbot's own card (or PERSONA.md before the move); for another character (role or id), its card."""
+    """The card of the default character, or of another character by role or id; a path under `_missing` when
+    there is none."""
     if not role:
         import characters
         cid = characters.default_character(WORKSPACE)
-        return characters.card_path(cid, WORKSPACE) if cid else WORKSPACE / "PERSONA.md"
+        return characters.card_path(cid, WORKSPACE) if cid else WORKSPACE / "characters" / "_missing" / "card.json"
     if not (_ROLE_RE.match(role) or role.startswith("char_")):
         raise ValueError("role must be a lowercase id, got %r" % role[:40])
     import characters
@@ -124,17 +119,15 @@ def _character(role: str) -> Dict:
 
 
 def _own_values() -> Dict[str, str]:
-    """The chatbot's own persona, user_title, voice and title: from its card, else from PERSONA.md / AGENTS.md."""
+    """The default character's persona, user_title, voice and title (a missing title falls back to AGENTS.md)."""
     title = _front(WORKSPACE / "AGENTS.md").get("title", "")
     card = _pd()
-    if card:
-        import characters
-        disp = characters.ext(card).get("display") or {}
-        return {"persona": (card.get("data") or {}).get("name", ""), "user_title": disp.get("user_title", ""),
-                "voice": disp.get("voice", ""), "title": disp.get("title", "") or title}
-    fm = _front(WORKSPACE / "PERSONA.md")
-    return {"persona": fm.get("persona", ""), "user_title": fm.get("user_title", ""), "voice": fm.get("voice", ""),
-            "title": title}
+    if not card:
+        return {"persona": "", "user_title": "", "voice": "", "title": title}
+    import characters
+    disp = characters.ext(card).get("display") or {}
+    return {"persona": (card.get("data") or {}).get("name", ""), "user_title": disp.get("user_title", ""),
+            "voice": disp.get("voice", ""), "title": disp.get("title", "") or title}
 
 
 def get_identity(role: str = "") -> Dict[str, str]:
@@ -158,7 +151,8 @@ def get_identity(role: str = "") -> Dict[str, str]:
 
 
 def persona_body(role: str = "") -> str:
-    """The personality text: PERSONA.md's body, or a character card's work text (identity, voice, instructions)."""
+    """The personality text: the default character's card, or another character's work text (identity, voice,
+    instructions)."""
     if role:
         persona_file(role)
         card = _character(role)
@@ -167,26 +161,19 @@ def persona_body(role: str = "") -> str:
         import characters
         return characters.work_text(card, characters.resolve(role, WORKSPACE) or "", WORKSPACE)[:_BODY_LIMIT]
     card = _pd()
-    if card:
-        import characters
-        return _FRONT.sub("", characters.persona_text(card), count=1).strip()[:_BODY_LIMIT]
-    try:
-        text = persona_file(role).read_text(encoding="utf-8", errors="replace")
-    except OSError:
+    if not card:
         return ""
-    return _FRONT.sub("", text, count=1).strip()[:_BODY_LIMIT]
+    import characters
+    return _FRONT.sub("", characters.persona_text(card), count=1).strip()[:_BODY_LIMIT]
 
 
 def private_rules() -> str:
-    """The chatbot's private-mode rules: its card's system prompt, or PRIVATE.md before the move."""
+    """The default character's private-mode rules (its card's system prompt)."""
     card = _pd()
-    if card:
-        import characters
-        return characters.private_text(card)
-    try:
-        return _FRONT.sub("", (WORKSPACE / "PRIVATE.md").read_text(encoding="utf-8", errors="replace"), count=1).strip()
-    except OSError:
+    if not card:
         return ""
+    import characters
+    return characters.private_text(card)
 
 
 def user_title() -> str:
@@ -222,23 +209,17 @@ def script_json(ident: Optional[Dict[str, str]] = None) -> str:
 
 
 def seed_workspace_files(templates_dir: Optional[Path] = None, workspace: Optional[Path] = None) -> list:
-    """New install: the neutral PERSONA.md template becomes the chatbot's card (role pd) when the workspace has
-    neither a card nor a PERSONA.md; an install that still has PERSONA.md (+ PRIVATE.md, pd-brain.json) is moved
-    to a card. An existing card is never touched."""
+    """New install: the neutral card template becomes the first character, the team's default, holding the pd role
+    when its pack exists (CARD_ONLY_v1). A workspace that already has a character is never touched. Returns what was
+    made."""
     import characters
-    src_dir = templates_dir or (ROOT / "templates")
+    src = (templates_dir or (ROOT / "templates")) / "character.json"
     dst_dir = workspace or WORKSPACE
-    seeded = []
-    if characters.default_character(dst_dir):
-        characters.migrate_team(dst_dir)             # TEAM_ROLES_v1: an older install gets its roster once
-        return seeded
-    for name in ("PERSONA.md",):
-        src, dst = src_dir / name, dst_dir / name
-        if src.is_file() and not dst.exists():
-            dst_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(src, dst)
-            seeded.append(name)
-    if characters.migrate_pd(dst_dir):
-        seeded.append("card")
-        characters.migrate_team(dst_dir)
-    return seeded
+    if characters.default_character(dst_dir) or characters.listing(dst_dir) or not src.is_file():
+        return []
+    card = json.loads(src.read_text(encoding="utf-8"))
+    cid = characters.new_id()
+    characters.save(cid, card, dst_dir)
+    roles = ["pd"] if characters.role_pack("pd", dst_dir).get("text") else []
+    characters.save_team({"default": cid, "members": {cid: roles}}, dst_dir)
+    return ["card"]

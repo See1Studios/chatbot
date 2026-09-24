@@ -26,7 +26,7 @@
         (미커밋 변경은 러너가 대신 커밋, 커밋 author는 제공자 신원)
      b. 기계 게이트: 커밋 존재 -> 범위(--paths 밖 변경 금지) -> 리스 연장 -> 메인 최신화(rebase)
         -> smoke + 중립성 가드 테스트 (DEFAULT_GATES) + --gate 명령들
-     c. PD(PERSONA.md 캐릭터, 챗봇 자신)가 diff(또는 게이트 실패)를 보고 확인: VERDICT + 대사 + 수정 요청
+     c. PD(pd 역할을 가진 캐릭터)가 diff(또는 게이트 실패)를 보고 확인: VERDICT + 대사 + 수정 요청
      d. 게이트 통과 + PASS면 종료, 아니면 수정 요청을 들고 다음 라운드
   4. 통과: 메인에서 git merge --ff-only -> ticket-quick done -> worktree/브랜치 정리
      --stop-before-merge(Tier 2): 병합 대신 ticket-quick await-merge (리스 해제), worktree/브랜치는 남긴다
@@ -490,8 +490,8 @@ def run_review(provider: str, model: str, wt_dir: Path, prompt: str, timeout: in
 
 
 # ------------------------------------------------------------------- brains
-# Each expert has an ordered list of brains (its card: extensions.chatbot.brains.work); the PD's confirmation has its own
-# (pd-brain.json). A brain that is out of quota, rate-limited, missing or silent past its timeout hands the turn to
+# Each character has an ordered list of brains (its card: extensions.chatbot.brains.work), the PD's confirmation
+# included. A brain that is out of quota, rate-limited, missing or silent past its timeout hands the turn to
 # the next one (docs/plans/multi-agent-worktree-delegation.md §11). The operator sets the lists; the PD cannot.
 
 UNAVAILABLE_RE = re.compile(r"quota|rate.?limit|usage limit|session limit|limit reached|resets? (at|in)|\b429\b|"
@@ -515,29 +515,15 @@ def review_with_chain(chain: List[Dict], wt_dir: Path, prompt: str, renew) -> tu
 
 
 def workspace_dir() -> Path:
-    """This instance's workspace (host_config), where characters/ and pd-brain.json live."""
+    """This instance's workspace (host_config), where characters/ live."""
     try:
         return host_module("host_config").WORKSPACE
     except Exception:  # noqa: BLE001
         return CODE_DIR / "data" / "workspace"
 
 
-def load_chain(path: Path, default: List[Dict]) -> List[Dict]:
-    """The brains in `path` ({"chain": [{"provider", "model", "timeout"?}]}); `default` when missing or unusable."""
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8")).get("chain")
-    except (OSError, ValueError, AttributeError):
-        return default
-    chain = []
-    for b in raw if isinstance(raw, list) else []:
-        if isinstance(b, dict) and b.get("provider") in PROVIDERS:
-            chain.append({"provider": b["provider"], "model": str(b.get("model") or ""),
-                          "timeout": int(b.get("timeout") or 0)})
-    return chain or default
-
-
 def expert_chain(role: str, default: List[Dict]) -> List[Dict]:
-    """The expert's brain list from its card (brains.work), checked like load_chain; `default` when none."""
+    """The character's brain list from its card (brains.work), known providers only; `default` when none."""
     cid = character_id(role)
     if not cid:
         return default
@@ -813,9 +799,8 @@ def cmd_run(args) -> int:
             except RuntimeError as e:
                 raise Failure("failed", "author lease lost during the run", str(e))
 
-        pd_chain = expert_chain("pd", load_chain(workspace_dir() / "pd-brain.json",   # the PD's card, else the file
-                                                 [{"provider": reviewer, "model": args.reviewer_model, "timeout": 0}]
-                                                 )) if reviewer else []
+        pd_chain = expert_chain("pd", [{"provider": reviewer, "model": args.reviewer_model, "timeout": 0}]
+                                ) if reviewer else []
 
         # 3. tasks in order; each: the expert works -> gates -> the PD confirms (up to --rounds)
         for tno, task in enumerate(tasks, 1):

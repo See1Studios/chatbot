@@ -1,0 +1,26 @@
+{
+  "spec": "chara_card_v2",
+  "spec_version": "2.0",
+  "data": {
+    "name": "",
+    "description": "",
+    "personality": "",
+    "scenario": "",
+    "first_mes": "",
+    "mes_example": "",
+    "creator_notes": "The neutral first character of a new install (CARD_ONLY_v1). Give it a name, a description, a voice and private rules in the team tab.",
+    "system_prompt": "",
+    "post_history_instructions": "",
+    "alternate_greetings": [],
+    "tags": [],
+    "creator": "",
+    "character_version": "",
+    "extensions": {
+      "chatbot": {
+        "display": {
+          "user_title": "사용자"
+        }
+      }
+    }
+  }
+}

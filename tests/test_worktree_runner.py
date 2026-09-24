@@ -413,12 +413,8 @@ class WorktreeRunner(unittest.TestCase):
         characters.save(cid, card, self.ws)
         return self.ws / "characters" / cid
 
-    def brains(self, name, chain):
-        if name == "pd":
-            self.ws.mkdir(parents=True, exist_ok=True)
-            (self.ws / "pd-brain.json").write_text(json.dumps({"chain": chain}))
-        else:
-            self.character(name, chain)
+    def brains(self, role, chain):
+        self.character(role, chain)          # the PD's list is the pd character's card too (CARD_ONLY_v1)
 
     def add_provider(self, name, script, review=PASS):
         wr.PROVIDERS[name] = {"argv": ["sh", "-c", script], "review_argv": ["sh", "-c", review], "model_flag": "-m",

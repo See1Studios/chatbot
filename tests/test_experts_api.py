@@ -69,8 +69,7 @@ class ExpertsApiTest(unittest.TestCase):
         self.assertEqual(self.C.brains(card), [{"provider": "agy", "model": "gemini-3.8-flash-high", "timeout": 45},
                                                {"provider": "codex", "model": ""}])
         self.assertEqual(card["data"]["name"], "S")                       # the rest of the card is untouched
-        self.assertEqual(self.put("pd", [{"provider": "agy", "model": "gemini-3.1-pro-high"}])[0], 200)
-        self.assertTrue((self.ws / "pd-brain.json").is_file())
+        self.assertEqual(self.put("pd", [{"provider": "agy"}])[0], 404)   # no pd-brain.json any more (CARD_ONLY_v1)
 
     def test_bad_lists_and_unknown_characters_are_refused(self):
         for chain in ([], [{"provider": "nope"}], [{"provider": "agy", "model": "a b"}],

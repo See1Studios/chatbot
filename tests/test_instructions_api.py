@@ -18,7 +18,7 @@ class InstructionsApiTest(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp()).resolve()
         self.ws = self.root / "data" / "workspace"
         (self.ws / "memory").mkdir(parents=True)
-        for name, text in (("AGENTS.md", "charter"), ("PERSONA.md", "persona"), ("PROJECT.md", "procedure"),
+        for name, text in (("AGENTS.md", "charter"), ("PROJECT.md", "procedure"),
                            ("SELF-MODIFY.md", "boundary")):
             (self.ws / name).write_text(text, encoding="utf-8")
         import characters
@@ -44,7 +44,7 @@ class InstructionsApiTest(unittest.TestCase):
     def test_everything_is_listed_with_its_layer_and_whether_it_is_editable(self):
         items = self.items()
         self.assertEqual({k: (v["layer"], v["editable"]) for k, v in items.items() if v["kind"] == "file"}, {
-            "AGENTS.md": ("always", False), "PERSONA.md": ("always", True), "MEMORY.md": ("always", True),
+            "AGENTS.md": ("always", False), "MEMORY.md": ("always", True),
             "PROJECT.md": ("on_demand", True), "SELF-MODIFY.md": ("on_demand", False),
             "characters/%s/card.json" % self.cid: ("on_demand", True)})
         self.assertIn("data/workspace/AGENTS.md", items["AGENTS.md"]["reason"])
