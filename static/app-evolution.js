@@ -379,7 +379,8 @@ function parseTicketCommand(text) {
 // `/ticket go N`: approve it if it still waits for that (the operator's decision), then hand the agent the obvious
 // instruction as an ordinary message -- the sentence nobody wants to type. Returns { message, prompt }.
 function ticketGoPrompt(t) {
-  return '작업 #' + t.id + ' 진행해줘. ticket 도구로 claim해서 이 작업의 대상(' + (t.target || '') + ')만 고치고, 끝나면 release로 결과(done/gate_failed/failed)를 기록해. 범위 밖은 건드리지 마.';
+  return '작업 #' + t.id + ' 진행해줘 (대상: ' + (t.target || '') + '). 맡길 담당자가 있으면 delegate로 계획을 올리고 확인만 해 — 그 계획이 #' + t.id +
+    '을(를) 대신한다고 알려줘. 담당자가 없거나 대상이 Tier 3이면 ticket 도구로 claim해서 대상만 직접 고치고, 끝나면 release로 결과(done/gate_failed/failed)를 기록해. 범위 밖은 건드리지 마.';
 }
 
 async function goTicket(cmd) {
