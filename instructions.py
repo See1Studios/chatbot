@@ -194,9 +194,21 @@ def _card(character: str) -> Dict:
         return {}
 
 
-PRIVATE_SESSION_NOTE = ("[Private session] This is a private conversation, kept apart from work. Work tools, tickets, "
-                        "delegation and work memory are closed here; do not do work or bring up work memory. Follow "
-                        "the private rules below.")
+PRIVATE_SESSION_NOTE = ("[Private session] A private conversation, kept apart from work. Work tools, tickets, "
+                        "delegation and work memory are closed; do not work or bring up work. The host keeps what is "
+                        "worth remembering in your private memory when the session closes. The user switches with "
+                        "`/private on|off` or the heart button; asked for work, ask them to switch with `/private off`. "
+                        "Follow the character's private rules below.")
+# PRIVATE_BUDGET_v1: a private session gets the charter's preamble and these sections only. The rest is work
+# procedure it cannot use, and "## Memory" would point it at the work memory tool.
+PRIVATE_CHARTER_SECTIONS = ("Scope",)
+
+
+def _private_charter() -> str:
+    text = re.sub(r"\A---\n.*?\n---\n*", "", _read(WORKSPACE / "AGENTS.md"), flags=re.S)
+    parts = re.split(r"(?m)^(?=## )", text)
+    keep = [parts[0].strip()] + [x.strip() for x in parts[1:] if x[3:].split("\n", 1)[0].strip() in PRIVATE_CHARTER_SECTIONS]
+    return "\n\n".join(t for t in keep if t)
 
 
 def _private_bundle(character: str) -> Dict[str, str]:
@@ -205,7 +217,7 @@ def _private_bundle(character: str) -> Dict[str, str]:
     if not card:
         return {"text": "", "hash": ""}
     rules = characters.private_text(card)
-    static = "\n\n---\n\n".join(t for t in (_read(WORKSPACE / "AGENTS.md"), characters.persona_text(card).strip(),
+    static = "\n\n---\n\n".join(t for t in (_private_charter(), characters.persona_text(card).strip(),
                                             PRIVATE_SESSION_NOTE + ("\n\n" + rules if rules else "")) if t)
     cid = _cid(character)
     memory = characters.read_private_memory(cid, WORKSPACE) if cid else ""

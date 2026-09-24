@@ -31,6 +31,20 @@ class BundleBudgetTest(unittest.TestCase):
             "charter + persona + skill index are %d bytes, budget %d. Delete guidance the core already carries "
             "(tool descriptions, refusals) before asking the operator to raise bundle_budget.json." % (size, limit))
 
+    def test_a_private_session_fits_the_same_budget_without_work_procedure(self):
+        # PRIVATE_BUDGET_v1: charter preamble + safety sections, the card, the host note and the private rules
+        text = I.build_instruction_bundle(mode="private")["text"]
+        static = text.split("\n\n[Private memory]")[0]
+        self.assertLessEqual(len(static.encode("utf-8")), BUDGET["static_max_bytes"])
+        for work in ("## Self-modification", "## Memory", "## Approval first", "## Progress"):
+            self.assertNotIn(work, text)
+
+    def test_the_private_charter_sections_still_exist(self):
+        # a renamed charter heading would silently drop a safety rule from private sessions
+        charter = (I.WORKSPACE / "AGENTS.md").read_text(encoding="utf-8")
+        for name in I.PRIVATE_CHARTER_SECTIONS:
+            self.assertIn("\n## %s\n" % name, charter)
+
     def test_the_budget_is_a_real_bound_not_a_formality(self):
         self.assertLess(BUDGET["static_max_bytes"], 8000)
         self.assertGreater(BUDGET["static_max_bytes"], 0)
