@@ -3,6 +3,18 @@
 최근 항목만 여기 둔다(맨 위가 최신). 지난 날짜는 `docs/devlog/YYYY-MM-DD.md` — 코드가 "2026-09-17 DEVLOG"를 가리키면 그 파일이다.
 이 파일이 40KB를 넘으면 가장 오래된 날짜를 `docs/devlog/`로 옮긴다(`tests/test_docs_budget.py`).
 
+## 2026-09-24 (밤) — 선택지(choices) UI 독립 작업카드 컨테이너 분리 (OUT_OF_BAND_CHOICES_UI, 티켓 #146)
+
+- **배경**: 실장님 피드백 — 선택지가 대화 말풍선 밑에 달리는 칩 형태가 아니라 작업카드(`work-card`/`ticket-bar`)처럼 입력창 상단의 독립 카드 컨테이너에 표시되도록 UI 개편 요청.
+- **변경**:
+  - `static/index.html`: `workBar`/`ticketBar`와 나란히 입력창 위쪽에 `#choiceBar` 컨테이너 추가.
+  - `static/app.js`: 전역 `choiceBarEl` 요소 바인딩.
+  - `static/chat-panes.css`: `.choice-bar`, `.choice-card`, `.choice-card-head`, `.choice-card-body` 스타일 정의 (반투명 백드롭, 테두리 글로우, 카드 헤더).
+  - `static/markdown.js`: `renderChoiceChips()`를 개편하여 `choiceBarEl`이 존재할 때 독립 `.choice-card`로 렌더링하고, 없으면 기존 마크다운 영역으로 안전 폴백. `syncChoiceChips()`에서 최신 응답 여부에 따라 독립 카드/칩 가시성을 정확히 동기화.
+  - `tests/test_choices_channel.py`: 마크다운 선택지 렌더러가 `#choiceBar` 컨테이너에 카드로 정상 렌더링되는지 검증하는 단위 테스트 추가.
+- **검증**: `tests.test_choice_chips`, `tests.test_choices_channel`, `tests.test_page_scripts` 전체 통과.
+- **배포**: 정적 UI 변경(Tier 0/1)이므로 새로고침(F5)으로 즉시 반영.
+
 ## 2026-09-24 (저녁) — 오후 정리와 위임 절차 보강 A·C·D (STABILIZE_v1, DELEGATION_HARDENING_v1, 티켓 #143, #142)
 
 - **배경**: 오후에 여러 에이전트(Hermes, Claude Code 세션 둘, 챗봇 claude·agy)가 같은 저장소를 동시에 고쳤고, #140(선택지 밖 채널 1단계)이 리뷰 시간 초과·불합격으로 두 번 실패. 챗봇이 드러난 구멍을 #142로 모음. 사용자: "난리가 났어… 알아서 해줘".

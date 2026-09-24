@@ -202,6 +202,7 @@ const statusObserverEl = document.getElementById('statusObserver');
 const statusObsBoxEl = document.getElementById('statusObsBox');
 const statusTicketBoxEl = document.getElementById('statusTicketBox');
 const ticketBarEl = document.getElementById('ticketBar');
+const choiceBarEl = document.getElementById('choiceBar');
 const mcpNameInput = document.getElementById('mcpNameInput');
 const mcpUrlInput = document.getElementById('mcpUrlInput');
 const mcpAddBtn = document.getElementById('mcpAddBtn');

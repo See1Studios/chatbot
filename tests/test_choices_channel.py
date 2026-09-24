@@ -151,6 +151,58 @@ process.stdout.write(JSON.stringify({ eventFirst: firstRun, fallback: secondRun 
         self.assertEqual(res["eventFirst"], ["이벤트선택1", "이벤트선택2"])
         self.assertEqual(res["fallback"], ["본문선택A", "본문선택B"])
 
+    def test_markdown_renders_choices_into_choice_bar_container(self):
+        md_file = ROOT / "static" / "markdown.js"
+        js = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
+
+function el(tag) {
+  return {
+    tag, className: '', textContent: '', children: [], hidden: true,
+    appendChild(c) { this.children.push(c); return c; },
+    querySelectorAll() { return []; },
+    querySelector() { return null; }
+  };
+}
+
+global.choiceBarEl = el('div');
+global.CHOICES_TAIL = /\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$/;
+global.CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
+global.CHOICES_MAX = 4;
+global.document = {
+  createElement(tag) {
+    return {
+      tag, className: '', textContent: '', children: [], attrs: {}, handlers: {},
+      setAttribute(k, v) { this.attrs[k] = v; },
+      addEventListener(t, f) { this.handlers[t] = f; },
+      appendChild(c) { this.children.push(c); return c; },
+      remove() {}
+    };
+  }
+};
+
+const a = src.indexOf('function parseChoiceItem'), b = src.indexOf('function postProcessAssistant');
+eval(src.slice(a, b));
+
+renderChoiceChips(null, ['선택1', '선택2']);
+const card = choiceBarEl.children[0] || {};
+const body = card.children ? card.children[1] : null;
+const chipCount = body ? body.children.length : 0;
+
+process.stdout.write(JSON.stringify({
+  hidden: choiceBarEl.hidden,
+  cardClass: card.className,
+  chipCount
+}));
+"""
+        r = subprocess.run(["node", "-e", js, str(md_file)], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        res = json.loads(r.stdout)
+        self.assertEqual(res["hidden"], False)
+        self.assertEqual(res["cardClass"], "choice-card")
+        self.assertEqual(res["chipCount"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

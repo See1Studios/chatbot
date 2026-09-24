@@ -314,11 +314,24 @@ function pickChoice(choice) {
 }
 
 function renderChoiceChips(node, choices) {
-  const md = node.querySelector('.md') || node;
-  md.querySelectorAll('.choice-chips').forEach(el => el.remove());
+  const md = node ? (node.querySelector('.md') || node) : null;
+  if (md) md.querySelectorAll('.choice-chips').forEach(el => el.remove());
+  if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
+    choiceBarEl.textContent = '';
+    choiceBarEl.hidden = true;
+  }
   if (!choices || !choices.length) return;
+
+  const card = document.createElement('div');
+  card.className = 'choice-card';
+
+  const head = document.createElement('div');
+  head.className = 'choice-card-head';
+  head.textContent = '✦ 선택지 카드';
+  card.appendChild(head);
+
   const row = document.createElement('div');
-  row.className = 'choice-chips';
+  row.className = 'choice-card-body choice-chips';
   row.setAttribute('role', 'group');
   row.setAttribute('aria-label', '선택지');
   choices.forEach(c => {
@@ -334,7 +347,14 @@ function renderChoiceChips(node, choices) {
     b.addEventListener('click', () => pickChoice(item));
     row.appendChild(b);
   });
-  md.appendChild(row);
+  card.appendChild(row);
+
+  if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
+    choiceBarEl.appendChild(card);
+    choiceBarEl.hidden = false;
+  } else if (md) {
+    md.appendChild(card);
+  }
 }
 
 // Only the newest message may offer choices: once anything follows (the user's
@@ -344,8 +364,22 @@ function syncChoiceChips() {
   if (typeof logEl === 'undefined' || !logEl) return;
   const msgs = logEl.querySelectorAll('.msg:not(.system)');
   const last = msgs.length ? msgs[msgs.length - 1] : null;
+  const hasChoicesOnLast = last && ((last._choices && last._choices.length) || last.querySelector('.choice-chips'));
+  const isAssistant = last && (last.classList ? last.classList.contains('assistant') : /\bassistant\b/.test(last.className || ''));
+  if (!last || !isAssistant || !hasChoicesOnLast) {
+    if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
+      choiceBarEl.textContent = '';
+      choiceBarEl.hidden = true;
+    }
+  }
   logEl.querySelectorAll('.choice-chips').forEach(row => {
-    if (!last || !last.contains(row)) row.remove();
+    if (!last || !last.contains(row)) {
+      if (row.parentElement && row.parentElement.className === 'choice-card') {
+        row.parentElement.remove();
+      } else {
+        row.remove();
+      }
+    }
   });
 }
 
