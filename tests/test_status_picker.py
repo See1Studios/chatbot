@@ -55,7 +55,7 @@ const stubs = [ () => calls.fetchAccounts++, () => calls.fetchUsage++, () => cal
 const { api } = f(env.providerEl, env.providerCatalog, env.currentTab, env.IDENTITY,
                   { createElement: button }, picked.el, ...stubs);
 
-const snap = () => picked.el.children.map(b => ({ label:b.textContent, on:/ on/.test(b.className), chat:/ is-chat/.test(b.className), disabled:b.disabled }));
+const snap = () => picked.el.children.map(b => ({ label:b.textContent, on:/ on/.test(b.className), chat:/ is-chat/.test(b.className), disabled:b.disabled, blocked:/ is-blocked-provider/.test(b.className) }));
 const out = {};
 api.render();
 out.initial = { view: api.view, current: api.current(), chips: snap() };
@@ -97,8 +97,10 @@ class StatusPicker(unittest.TestCase):
         self.assertEqual([c["on"] for c in o["chips"]], [True, False, False, False])
         self.assertEqual([c["chat"] for c in o["chips"]], [True, False, False, False])
 
-    def test_unavailable_providers_cannot_be_picked(self):
-        self.assertEqual([c["disabled"] for c in self.out["initial"]["chips"]], [False, False, True, False])
+    def test_unavailable_providers_stay_viewable_but_are_marked(self):
+        # AUTH_GATE_v1: a provider that cannot be used is still viewable on the status tab, only marked
+        self.assertEqual([c["disabled"] for c in self.out["initial"]["chips"]], [False, False, False, False])
+        self.assertEqual([c["blocked"] for c in self.out["initial"]["chips"]], [False, False, True, False])
 
     def test_picking_another_provider_only_changes_what_is_viewed(self):
         o = self.out["afterClickClaude"]

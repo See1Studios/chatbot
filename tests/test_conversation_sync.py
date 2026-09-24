@@ -142,21 +142,26 @@ class RespawnKeepsTheAgentInSync(Base):
 
 
 class UnfinishedTurns(Base):
+    """TURN_END_ORDER_v1: the adapter returns the turn's terminal events (it no longer emits them itself) and only
+    asks the session to stop the child; the session stops it after those events are flushed."""
     def result(self, s, **kw):
         res = {"conversation_id": REAL, "status": "SUCCESS", "response": "", "duration_seconds": 5, **kw}
-        return self.feed(s, {"event": "result", "result": res})
+        out = self.feed(s, {"event": "result", "result": res}) or []
+        self.events.extend(out)
+        return out
 
     def test_the_print_timeout_empty_result_is_surfaced_and_the_child_is_stopped(self):
         s = self.make()
-        self.result(s, duration_seconds=AGY_PRINT_TIMEOUT_SEC + 1)      # what 00:48:30 looked like
         s._auto_stop_worker = lambda: self.stops.append("worker")
-        # _auto_stop started a real thread; give it a moment to run stop()
-        import time; time.sleep(0.2)
+        self.result(s, duration_seconds=AGY_PRINT_TIMEOUT_SEC + 1)      # what 00:48:30 looked like
         errors = [e for e in self.events if e.get("event") == "error"]
         self.assertEqual(len(errors), 1)
         self.assertIn("답을 내기 전에", errors[0]["text"])
+        self.assertEqual(self.stops, [], "not before the events are flushed")
+        s._run_post_result_stop()                                      # what the session does after the flush
+        import time; time.sleep(0.2)
         self.assertTrue(self.stops, "the still-running child must be stopped")
-        self.assertIn("답을 내지 못하고", s._loop_hint)
+        self.assertIn("답을 내기 전에", s._loop_hint)
 
     def test_a_normal_short_empty_success_is_left_alone(self):
         s = self.make()

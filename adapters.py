@@ -459,7 +459,8 @@ class AgyAdapter(AgentAdapter):
             res_obj = obj.get("result") if isinstance(obj.get("result"), dict) else {}
             raw_usage = res_obj.get("usage") if isinstance(res_obj.get("usage"), dict) else None
             res_err = str(res_obj.get("error") or obj.get("error") or "")
-            is_err = bool(res_err)
+            # the operator pressed stop: the CLI's "interrupted" is the stop itself, not a failure to report
+            is_err = bool(res_err) and not session._stop_requested
             out_ev = self.finalize_turn(
                 session=session,
                 text=text,

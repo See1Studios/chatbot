@@ -128,6 +128,19 @@ server.py`, `node --check static/app.js`, `chatbot-ctl.sh guard`. 라이브는
 - `server.py`, `session.py`, `static/app.js` 내 데드 코드 및 중복 유틸 정리.
 - 전체 단위 테스트 209개 전원 통과 확인 (`Ran 209 tests OK`).
 
+## Phase 5 — 다시 커진 `app.js`·`session.py` (2026-09-24, 실장님 승인)
+
+**왜 다시**: `static/app.js` 6,197줄(Phase 2 뒤 ~3,000 → 두 배), `session.py` 2,601줄. 위임 작업 #113이 가벼운 모델로 `app.js`를 읽다가 20분 제한에 걸려 한 줄도 못 고치고 실패했다 — 파일이 크면 챗봇 위임이 계속 실패한다.
+
+**원칙**: 동작·화면·문구 불변(Phase 0–4와 같음). 번들러 없음, 고전 `<script>` 순서 로드. 한 파일 1,000줄 미만을 테스트로 강제(`mcp_server.py` 700줄 가드와 같은 방식).
+
+순서:
+1. ✅ **안전망** (TEST_BASELINE_v1, #116): 오래전부터 실패하던 테스트 4개를 현재 동작에 맞춤 — conversation_sync(TURN_END_ORDER_v1: 어댑터는 종료 이벤트를 돌려주고 멈춤은 세션이 flush 뒤에), observation_ui(개선 탭 재설계·OBS_HISTORY_v1·문구 "작업/이슈"), served_model(캐시 버전 고정값 → 정규식), status_picker(AUTH_GATE_v1: 못 쓰는 프로바이더도 상태 보기는 가능, 표시만). 덤으로 버그 하나: 중지를 누른 뒤 agy의 "interrupted"가 에러 공지로 남던 것(`adapters.py`). 이제 모듈별 실행 전부 통과.
+2. **`app.js` 기능별 분리**: 작업·티켓·작업 카드 / 캐릭터·프로바이더 선택기 / 상태 탭 / 팀 탭 / 개선 탭(관찰·이력) / 세션 이동·최신 점프. `app.js`에는 부팅·세션·SSE·전송만. `app.js`를 잘라 읽는 node 테스트(마커 기반)는 옮긴 파일을 읽게 함께 고친다.
+3. **`session.py`**: 세션 목록·조회(Registry, SESSION_INDEX_v1 캐시, 이전 함수)를 `session_registry.py`로.
+
+알려진 것: 테스트를 한 프로세스에서 한꺼번에(`unittest discover`) 돌리면 ~40개가 실패한다 — 몇 모듈이 전역(`instructions.WORKSPACE` 등)을 임시 폴더로 바꾸고 되돌리지 않아서. 규칙은 모듈별 실행(`for f in tests/test_*.py; do python3 -m unittest tests.$(basename $f .py); done`). 격리 정리는 별도 작업.
+
 ## 검증 방법 (매 Phase 공통)
 
 `py_compile`/`node --check` → `chatbot-ctl.sh guard` → (코어면) 실장님 ⚡소생
