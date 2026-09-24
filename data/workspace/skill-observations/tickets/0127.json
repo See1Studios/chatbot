@@ -3,6 +3,8 @@
  "approved_at": "2026-09-24 13:34:34",
  "approved_by": "operator (api) via claude-code ticket-quick (operator's instruction)",
  "attempts": 1,
+ "closed_by": "claude-code",
+ "closed_reason": "done",
  "created": "2026-09-24 13:34:34",
  "evidence": [
   "candidate:1790224474.519"
@@ -24,6 +26,16 @@
    "by": "agent:claude-code",
    "text": "claimed (attempt 1/3); paths: server.py, workspace_status.py, tests, tools/test_subagent_task.py, static/.impeccable, .gitignore, data/workspace/.gitignore",
    "ts": "2026-09-24 13:34:34"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done: ORPHANS_v1 ff5623d: /api/rules(동일출처 검사 없음) 제거, 백업 data/backups로·최근 10개, 고아 파일·빈 폴더 삭제, 캐시·임대 파일 ignore. 데이터 미커밋분 커밋(MEMORY.md는 개인정보라 보류)",
+   "ts": "2026-09-24 13:39:10"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done",
+   "ts": "2026-09-24 13:39:10"
   }
  ],
  "owner": "claude-code",
@@ -36,9 +48,9 @@
   ".gitignore",
   "data/workspace/.gitignore"
  ],
- "status": "in_progress",
+ "status": "done",
  "target": "server.py, workspace_status.py, tests, tools/test_subagent_task.py, static/.impe",
  "title": "고아 파일 정리: 옛 /api/rules, 워크스페이스 백업 찌꺼기, 참조 없는 파일 (ORPHANS_v1)",
- "updated": "2026-09-24 13:34:34",
+ "updated": "2026-09-24 13:39:10",
  "worked_by": "claude-code"
 }
