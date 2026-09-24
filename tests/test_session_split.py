@@ -11,7 +11,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import characters as C  # noqa: E402
+import host_config  # noqa: E402
 import instructions as I  # noqa: E402
+import server  # noqa: E402
 import session as S  # noqa: E402
 
 
@@ -73,6 +75,45 @@ class SessionSplit(unittest.TestCase):
         self.write("20260921-110000-priv01", mode="private", successor_session_id="20260921-130000-priv02")
         self.write("20260921-130000-priv02", mode="private")
         self.assertEqual(self.reg.get_private("").sid, "20260921-130000-priv02")
+
+
+class NewSessionKeepsKind(unittest.TestCase):
+    """/new (POST /api/sessions) in a private or non-default character's session stays there (#154)."""
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
+        self.ws = self.tmp / "workspace"
+        self.ws.mkdir()
+        self.pd, self.lulu = C.new_id(), C.new_id()
+        C.save(self.pd, C.new_card("P", "pd"), self.ws)
+        C.save(self.lulu, C.new_card("L", "staff"), self.ws)
+        self.saved = (S.SESSIONS, S.WORKSPACE, I.WORKSPACE, host_config.WORKSPACE)
+        S.SESSIONS = self.tmp / "sessions"
+        S.SESSIONS.mkdir()
+        S.WORKSPACE = I.WORKSPACE = host_config.WORKSPACE = self.ws
+        self.reg = S.Registry()
+
+    def tearDown(self):
+        S.SESSIONS, S.WORKSPACE, I.WORKSPACE, host_config.WORKSPACE = self.saved
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def new(self, body):
+        mode, character = server._new_session_kind(body)
+        return self.reg.create(model="m", provider="agy", mode=mode, character=character)
+
+    def test_a_private_session_with_a_character_keeps_both(self):
+        sess = self.new({"mode": "private", "character": self.lulu})
+        self.assertEqual((sess.mode, sess.character), ("private", self.lulu))
+        again = S.Registry().get(sess.sid)
+        self.assertEqual((again.mode, again.character), ("private", self.lulu))
+
+    def test_no_mode_or_character_is_the_default_work_session(self):
+        sess = self.new({})
+        self.assertEqual((sess.mode, sess.character), ("work", self.pd))
+        self.assertEqual(server._new_session_kind({"mode": "bogus", "character": ""}), ("work", ""))
+
+    def test_an_unknown_character_is_refused(self):
+        self.assertIsNone(server._new_session_kind({"character": C.new_id()}))
+        self.assertIsNone(server._new_session_kind({"character": "../x"}))
 
 
 class PrivateBundle(unittest.TestCase):

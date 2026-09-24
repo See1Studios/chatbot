@@ -783,7 +783,7 @@ async function createSession() {
   // it'll keep walking that session's own real predecessor chain from there.
   const model = modelEl.value;
   const provider = providerEl ? providerEl.value : defaultProviderId;
-  const data = await api('/api/sessions', {method:'POST', body: JSON.stringify({model, provider})});
+  const data = await api('/api/sessions', {method:'POST', body: JSON.stringify({model, provider, mode: sessionMode, character: sessionCharacter})});
   const label = (data.session.provider && data.session.provider !== defaultProviderId)
     ? data.session.provider + (data.session.model ? ':' + data.session.model : '')
     : data.session.model;

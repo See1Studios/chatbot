@@ -264,6 +264,16 @@ def _session_character(ref: str):
     return ref if characters.ID_RE.match(ref) and characters.card_path(ref).is_file() else None
 
 
+def _new_session_kind(body: dict):
+    """(mode, character) for a new session from a POST /api/sessions body, so /new stays in the open session's
+    mode and character; None when the character is unknown."""
+    ref = str(body.get("character") or "")
+    who = _session_character(ref) if ref else ""       # "" = the default, resolved by REG.create
+    if who is None:
+        return None
+    return ("private" if body.get("mode") == "private" else "work"), who
+
+
 def _character_list() -> list:
     """The characters for the picker: the team's default first, then the rest, oldest first. Roles are shown,
     never used to tell characters apart (TEAM_ROLES_v2)."""
@@ -1082,10 +1092,16 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 # (verified live for claude: omitting --model just used its
                 # account default, claude-sonnet-5).
                 default_model = DEFAULT_MODEL if provider == DEFAULT_PROVIDER else ""
+                kind = _new_session_kind(body)
+                if kind is None:
+                    code, raw = _json_bytes({"ok": False, "error": "unknown character"}, 404)
+                    return self._send(code, raw, "application/json; charset=utf-8")
                 sess = REG.create(
                     model=str(body.get("model") or default_model),
                     effort=str(body.get("effort") or ""),
                     provider=provider,
+                    mode=kind[0],
+                    character=kind[1],
                 )
                 code, raw = _json_bytes({"ok": True, "session": sess.to_public()})
                 return self._send(code, raw, "application/json; charset=utf-8")
