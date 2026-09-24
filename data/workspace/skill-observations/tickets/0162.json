@@ -3,13 +3,15 @@
  "approved_at": "2026-09-25 08:20:03",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-25 08:19:57",
  "evidence": [
   "event:20260925-081132-d48414#25"
  ],
  "gate_failures": 0,
  "id": 162,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,6 +27,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-162 at d87c0d8 (agy, review PASS round 1)",
    "ts": "2026-09-25 08:26:04"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-25 08:26:23"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged c7c2a95 on the operator's word (agy)",
+   "ts": "2026-09-25 08:26:34"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-25 08:26:34"
   }
  ],
  "paths": [
@@ -32,9 +49,9 @@
   "session.py",
   "tests/test_private_tension.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "providers/adapter_base.py,session.py,tests/test_private_tension.py",
  "title": "사적 모드 텐션 에스컬레이션 엔진 (TENSION_ESCALATION_v1)",
- "updated": "2026-09-25 08:26:04",
+ "updated": "2026-09-25 08:26:34",
  "worked_by": "agy"
 }
