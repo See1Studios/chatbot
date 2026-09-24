@@ -22,12 +22,11 @@ OLD_NAMES = ("냥피디", "냥PD", "실장님")
 
 def _workspace(title=None, persona=None, user_title=None, voice=None) -> Path:
     ws = Path(tempfile.mkdtemp())
-    if title is not None:
-        (ws / "AGENTS.md").write_text(f"---\ntitle: {title}\n---\n# 헌장\n", encoding="utf-8")
-    if any(v is not None for v in (persona, user_title, voice)):   # the default character's card (CARD_ONLY_v1)
+    (ws / "AGENTS.md").write_text("# 헌장\n", encoding="utf-8")
+    if any(v is not None for v in (title, persona, user_title, voice)):   # the default character's card (CARD_ONLY_v1)
         import characters
         cid = characters.new_id()
-        display = {k: v for k, v in (("user_title", user_title), ("voice", voice)) if v}
+        display = {k: v for k, v in (("title", title), ("user_title", user_title), ("voice", voice)) if v}
         characters.save(cid, characters.new_card(persona or "", display=display), ws)
         characters.save_team({"default": cid, "members": {cid: []}}, ws)
     return ws
@@ -73,7 +72,7 @@ class PromptsTest(Base):
         # change (that is the point), so assert they are read and used, never what they are.
         self.use(ROOT / "data" / "workspace")
         i = identity.get_identity()
-        self.assertNotEqual(i["title"], identity.DEFAULTS["title"], "AGENTS.md has no `title:` front matter")
+        self.assertNotEqual(i["title"], identity.DEFAULTS["title"], "no job title: neither the card nor its role pack names one")
         self.assertTrue(i["persona"], "the default character's card has no name")
         self.assertNotEqual(i["user_title"], identity.DEFAULTS["user_title"])
         prompt = session._btw_prompt("q", False, [])
@@ -166,12 +165,14 @@ def instance_names():
     names = set(OLD_NAMES)
     try:
         import characters
+        # a role pack's title (PD, Staff) is role vocabulary the code may use, not a name the user gave
+        vocabulary = {characters.role_pack(r, identity.WORKSPACE)["title"] for r in characters.roles(identity.WORKSPACE)}
         roles = [""] + [c["id"] for c in characters.listing(identity.WORKSPACE)]
         for role in roles:
             ident = identity.get_identity(role)
             for key in ("persona", "title", "user_title", "name"):
                 v = str(ident.get(key) or "").strip()
-                if v and v not in identity.DEFAULTS.values() and len(v) >= 2:
+                if v and v not in identity.DEFAULTS.values() and v not in vocabulary and len(v) >= 2:
                     names.add(v)
     except Exception:
         pass

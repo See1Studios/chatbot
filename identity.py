@@ -5,18 +5,19 @@ Every identity fact comes from the instructions the model itself is given, so
 what the model reads and what the host shows/prompts can never disagree, and no
 name is hardcoded here or in the UI:
 
-  AGENTS.md   front matter  title       the chatbot's job/role (top-of-window title)
   the default character's card (characters/<id>/card.json, CARD_ONLY_v1):
     data.name                           persona: the character's name (optional)
-    extensions.chatbot.display          user_title (how the user is addressed), voice, title
+    extensions.chatbot.display          user_title (how the user is addressed), voice, title (the job title)
     description / personality           the personality and tone themselves
     data.system_prompt                  the private-mode rules
 
 Other characters (docs/plans/multi-agent-worktree-delegation.md §12) live in
 `characters/<id>/card.json` (Character Card V2, characters.py). Asked by role or
 character id, never by name: the name (`data.name`) and the title/voice under
-`extensions.chatbot.display` are display only; a missing title falls back to
-AGENTS.md.
+`extensions.chatbot.display` are display only. A job title is a name the user
+gives (TITLE_DISPLAY_v1): the card's `display.title`, else the title of the first
+role pack the character holds. What the character does is the role pack's text,
+never its title.
 
 Always read from `WORKSPACE` at call time (never a module constant), so a second
 chatbot with its own workspace has its own identity. Anything missing or broken
@@ -118,16 +119,27 @@ def _character(role: str) -> Dict:
         return {}
 
 
+def _title(cid: str, card: Dict) -> str:
+    """The job title shown for a character: its card's `display.title`, else its first role pack's title."""
+    import characters
+    title = (characters.ext(card).get("display") or {}).get("title", "")
+    for role in ([] if title or not cid else characters.roles_of(cid, WORKSPACE)):
+        pack = characters.role_pack(role, WORKSPACE)
+        title = pack.get("title", "") if pack.get("text") else ""       # only a pack that exists names a title
+        if title:
+            break
+    return title
+
+
 def _own_values() -> Dict[str, str]:
-    """The default character's persona, user_title, voice and title (a missing title falls back to AGENTS.md)."""
-    title = _front(WORKSPACE / "AGENTS.md").get("title", "")
+    """The default character's persona, user_title, voice and title."""
     card = _pd()
     if not card:
-        return {"persona": "", "user_title": "", "voice": "", "title": title}
+        return {"persona": "", "user_title": "", "voice": "", "title": ""}
     import characters
     disp = characters.ext(card).get("display") or {}
     return {"persona": (card.get("data") or {}).get("name", ""), "user_title": disp.get("user_title", ""),
-            "voice": disp.get("voice", ""), "title": disp.get("title", "") or title}
+            "voice": disp.get("voice", ""), "title": _title(characters.default_character(WORKSPACE), card)}
 
 
 def get_identity(role: str = "") -> Dict[str, str]:
@@ -142,7 +154,8 @@ def get_identity(role: str = "") -> Dict[str, str]:
         import characters
         disp = characters.ext(card).get("display") or {} if card else {}
         vals = {"persona": (card.get("data") or {}).get("name", "") if card else "", "voice": disp.get("voice", ""),
-                "title": disp.get("title", "") or base["title"], "user_title": disp.get("user_title", "") or base["user_title"]}
+                "title": (_title(characters.resolve(role, WORKSPACE) or "", card) if card else "") or base["title"],
+                "user_title": disp.get("user_title", "") or base["user_title"]}
     else:
         vals = base
     ident = {k: _clean(vals.get(k, ""), _LIMITS[k]) or default for k, default in DEFAULTS.items()}

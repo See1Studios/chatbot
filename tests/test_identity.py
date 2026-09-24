@@ -26,9 +26,23 @@ class Base(unittest.TestCase):
     def write(self, name, text):
         (self.ws / name).write_text(text, encoding="utf-8")
 
+    def set_title(self, title):
+        """The job title the user gives the default character (TITLE_DISPLAY_v1; the charter holds none)."""
+        self._title = title
+        import characters
+        cid = characters.default_character(self.ws)
+        if not cid:
+            self.write_default()
+            return
+        card = characters.load(cid, self.ws)
+        characters.ext(card) or card["data"].setdefault("extensions", {}).setdefault(characters.EXT, {})
+        characters.ext(card).setdefault("display", {})["title"] = title
+        characters.save(cid, card, self.ws)
+
     def write_default(self, name="", user_title="", voice="", title="", private="", description=""):
         """The team's default character (what PERSONA.md and PRIVATE.md used to be)."""
         import characters
+        title = title or getattr(self, "_title", "")
         cid = characters.new_id()
         display = {k: v for k, v in (("user_title", user_title), ("voice", voice), ("title", title)) if v}
         card = characters.new_card(name, description=description, display=display)
@@ -73,15 +87,15 @@ class IdentityTest(Base):
                          {"title": "Assistant", "persona": "", "user_title": "사용자", "voice": "", "name": "Assistant"})
 
     def test_title_comes_from_agents_and_the_rest_from_the_card(self):
-        self.write("AGENTS.md", "---\ntitle: 프로듀서\n---\n# 헌장\n")
+        self.set_title('프로듀서')
         self.write_default("냥피디", user_title="실장님", voice="친근한 냥체")
         i = identity.get_identity()
         self.assertEqual((i["title"], i["persona"], i["user_title"], i["voice"], i["name"]),
                          ("프로듀서", "냥피디", "실장님", "친근한 냥체", "냥피디"))
 
     def test_each_key_is_read_only_from_its_own_source(self):
-        # a persona in AGENTS.md is ignored; the card's own title wins over the charter's
-        self.write("AGENTS.md", "---\ntitle: 아트디렉터\npersona: 몰래\n---\n")
+        # the charter holds no identity; the card's own title is the job title (TITLE_DISPLAY_v1)
+        self.set_title('아트디렉터')
         self.write_default("루나")
         i = identity.get_identity()
         self.assertEqual((i["title"], i["persona"]), ("아트디렉터", "루나"))
@@ -89,19 +103,22 @@ class IdentityTest(Base):
         self.assertEqual(identity.get_identity()["title"], "감독")
 
     def test_title_only_bot_has_no_persona_and_is_named_by_its_title(self):
-        self.write("AGENTS.md", "---\ntitle: 테크디렉터\n---\n")
+        self.set_title('테크디렉터')
         self.assertEqual((identity.display_name(), identity.self_label(), identity.get_identity()["persona"]),
                          ("테크디렉터", "테크디렉터", ""))
 
     def test_self_label_joins_title_and_persona(self):
-        self.write("AGENTS.md", "---\ntitle: 프로듀서\n---\n")
+        self.set_title('프로듀서')
         self.write_default("냥피디")
         self.assertEqual(identity.self_label(), "프로듀서 냥피디")
 
     def test_two_workspaces_two_identities(self):
         other = Path(tempfile.mkdtemp())
-        (other / "AGENTS.md").write_text("---\ntitle: 아트디렉터\n---\n", encoding="utf-8")
-        self.write("AGENTS.md", "---\ntitle: 테크디렉터\n---\n")
+        import characters
+        oid = characters.new_id()
+        characters.save(oid, characters.new_card("", display={"title": "아트디렉터"}), other)
+        characters.save_team({"default": oid, "members": {oid: []}}, other)
+        self.set_title('테크디렉터')
         first = identity.get_identity()["title"]
         identity.WORKSPACE = other
         second = identity.get_identity()["title"]
@@ -115,10 +132,10 @@ class IdentityTest(Base):
         self.assertNotIn("\x1b", i["persona"])
 
     def test_edit_is_picked_up_without_restart(self):
-        self.write("AGENTS.md", "---\ntitle: 하나\n---\n")
+        self.set_title('하나')
         self.assertEqual(identity.get_identity()["title"], "하나")
         time.sleep(0.01)
-        self.write("AGENTS.md", "---\ntitle: 둘둘\n---\n")     # different size -> cache key changes
+        self.set_title('둘둘')     # different size -> cache key changes
         self.assertEqual(identity.get_identity()["title"], "둘둘")
 
     def test_voice_phrase(self):
@@ -130,7 +147,7 @@ class IdentityTest(Base):
 
 class ScriptSafetyTest(Base):
     def test_script_json_cannot_break_out_of_an_inline_script(self):
-        self.write("AGENTS.md", "---\ntitle: </script><script>alert(1)</script>\n---\n")
+        self.set_title('</script><script>alert(1)</script>')
         out = identity.script_json()
         for bad in ("<", ">", "</script"):
             self.assertNotIn(bad, out)
@@ -151,6 +168,7 @@ class SeedTest(Base):
         self.assertTrue(cid)
         self.assertEqual(characters.roles_of(cid, self.ws), ["pd"])
         self.assertEqual((identity.get_identity()["persona"], identity.get_identity()["user_title"]), ("", "사용자"))
+        self.assertEqual(identity.get_identity()["title"], "PD")          # no title on the card: the role pack's
         card = characters.load(cid, self.ws)
         card["data"]["name"] = "MY OWN"
         characters.save(cid, card, self.ws)
@@ -166,6 +184,11 @@ class SeedTest(Base):
     def test_nothing_without_a_card(self):
         self.assertEqual((identity.private_rules(), identity.persona_body()), ("", ""))
 
+    def test_the_charter_names_no_title(self):
+        # TITLE_DISPLAY_v1: a job title is the user's display value; the charter defines no name
+        charter = (Path(identity.__file__).parent / "data" / "workspace" / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertEqual(identity.parse_frontmatter(charter).get("title"), None)
+
     def test_shipped_template_is_a_neutral_card(self):
         import characters
         tpl = json.loads((Path(identity.__file__).parent / "templates" / "character.json").read_text(encoding="utf-8"))
@@ -179,7 +202,7 @@ class RoleTest(Base):
     """Another character (characters/<id>/card.json), asked by role or id, e.g. the staff member of delegation."""
 
     def test_a_character_by_role_or_id_and_the_title_fallback(self):
-        self.write("AGENTS.md", "---\ntitle: 프로듀서\n---\n")
+        self.set_title('프로듀서')
         self.write_default("하나", voice="밝게", user_title="주인님", description="body one")
         cid = self.write_character("reviewer", "두리", "a curt reviewer", voice="새침하게")
         for ref in ("reviewer", cid):
