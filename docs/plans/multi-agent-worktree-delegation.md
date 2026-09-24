@@ -308,13 +308,22 @@ data/workspace/pd-brain.json               PD 확인의 두뇌 목록
 ### 12.3 구현 순서
 1. ✅ 캐릭터 폴더(`data/workspace/characters/<id>/card.json` + `memory.md`)와 카드 V2 읽기·쓰기, 냥피디(PERSONA·PRIVATE·MEMORY·pd-brain)와 루루(experts/staff) 이전 — 화면 변화 없이 (#94)
 2. ✅ 지침 묶음을 캐릭터별로 조립 (공통 헌장 + 카드 + 기억) (#97; 업무 기억 MEMORY.md의 캐릭터 폴더 이전은 남음)
-3. 팀 탭 = 캐릭터 카드 편집 / 상태 탭에서 캐릭터 항목 이동
-4. 채팅 캐릭터 선택 + 캐릭터별 세션 — 세션 구조(캐릭터 × 모드)는 완료(#99), 캐릭터 선택 UI는 남음
+3. ✅ 팀 탭 = 캐릭터 카드·기억·외형 락 보기, `[역할]`·`[두뇌]` 편집 (#90, #105; 카드 본문 편집기는 남음)
+4. ✅ 채팅 캐릭터 선택 + 캐릭터별 세션 — 세션 구조(캐릭터 × 모드, #99), 아바타 = 캐릭터 선택·프로바이더 이름 = 두뇌 선택, 캐릭터마다 마지막 두뇌 기억 (#102)
 5. 카드 가져오기·내보내기
 
 ### 12.4 캐릭터 이미지 형식 (2026-09-24, CHARACTER_ART_v1 · #103)
 이미지 에이전트가 규칙대로 만들 수 있게 형식을 고정했다. 정본은 스킬 `character-art`, 검사는 `tools/check_character_art.py`(코드 `characters.check_art`).
 - `characters/<id>/avatar.webp` 512 뱃지(필수), `avatar/<provider>.webp` 두뇌별 가발(선택, 없으면 기본 룩), `visual.md` 외형 락(필수).
 - `sprites/<framing>/<label>.webp` 선 그림(선택): `bust` 1024×1024(숄더샷), `full` 1024×2048(전신). 투명 배경, 프레이밍마다 캔버스·기준선·배율 고정(표정을 바꿔도 몸이 안 움직이게), `neutral` 먼저. 표정 이름은 SillyTavern 표정 스프라이트 이름표.
-- 목적: **데스크톱 모드**(사용자 구상) — 캐릭터만 띄우고 대화는 말풍선. 가발별 스프라이트는 아직 형식 밖.
-- 냥피디의 외형 락은 `data/persona/README.md`에서 캐릭터 폴더 `visual.md`로 옮겼고, 이미지 파일은 아직 `data/persona/`에 있다.
+- `stage.webp` / `stage/<provider>.webp` 1024×1024 채팅 배경(선택, 없으면 공용 스튜디오 배경). 선택기·프로바이더 트레이·배경 모두 열린 캐릭터 기준 (#109).
+- 먼 구상: **데스크톱 모드** — 같은 서버에 붙는 설치형 앱, 캐릭터만 띄우고 대화는 말풍선(사용자, 2026-09-24: "상당히 멀고 흐릿한 목표"). 스프라이트 형식은 그 자리만 남겨 둔 것. 가발별 스프라이트는 아직 형식 밖.
+- 냥냥(옛 냥피디, #110)의 외형 락은 `data/persona/README.md`에서 캐릭터 폴더 `visual.md`로 옮겼고, Hub용 원본 이미지는 아직 `data/persona/`에 있다.
+
+### 12.5 역할 팩과 팀 편성 (2026-09-24, TEAM_ROLES_v1/v2 · #104–#105)
+사용자 결정: **모든 캐릭터는 동등하다. PD는 캐릭터가 아니라 PD 지침과 PD 스킬셋으로 정해진다.**
+- 카드에는 역할이 없다. 역할 = `data/workspace/roles/<role>/role.md`(앞머리 `title`·`tools`·`skills`, 본문은 매 턴) + 선택 `procedure.md`(필요할 때 읽음). 지금 `pd`(tools: `delegate`, `house-memory`)와 `staff`(도구 없음).
+- 편성 = `data/workspace/team.json` `{"default": id, "members": {id: [roles]}}`. 팀 탭 `[역할]`로 바꾼다. PD = pd를 가진 캐릭터, 기본 캐릭터 = `default`.
+- 도구 권한은 역할 팩이 준다: MCP 서버가 응답 중인 세션의 캐릭터 도구(`/api/sessions/busy`의 `tools`)로 `delegate`·집 기억 쓰기를 열고 닫는다.
+- 기억: `memory/MEMORY.md` = 집 공용 기억(모두 읽고 `house-memory` 권한만 씀), 캐릭터마다 자기 `memory.md`, 사적 기억은 §12 1번대로.
+- `roles/`·`team.json`은 Tier 3(governance). 스킬 중 역할 팩이 요구하는 것은 그 역할을 가진 캐릭터에게만 보인다.
