@@ -3,6 +3,8 @@
  "approved_at": "2026-09-24 22:02:53",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-24 22:01:18",
  "evidence": [
   "event:20260924-200457-4b82e7#8"
@@ -35,6 +37,11 @@
    "by": "agent:agy",
    "text": "failed: worktree agy: fast-forward merge into main refused (it moved or local changes are in the way)",
    "ts": "2026-09-24 22:16:13"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "done: merged and verified manually",
+   "ts": "2026-09-24 22:23:55"
   }
  ],
  "paths": [
@@ -46,9 +53,9 @@
   "tests/test_choices_channel.py",
   "tests/test_choices_tool.py"
  ],
- "status": "approved",
+ "status": "done",
  "target": "host_config.py,mcp_server.py,static/app-evolution.js,static/app-messages.js,stat",
  "title": "선택지·액션 1b단계: choices 도구·이벤트 채널 및 티켓 바 직접 실행 (OUT_OF_BAND_CHOICES_v1 1b)",
- "updated": "2026-09-24 22:16:13",
+ "updated": "2026-09-24 22:23:55",
  "worked_by": "agy"
 }
