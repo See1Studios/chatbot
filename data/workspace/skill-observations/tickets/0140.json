@@ -1,0 +1,51 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-24 17:17:17",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-24 17:17:08",
+ "evidence": [
+  "event:20260924-161456-5b9538#222",
+  "event:20260924-161456-5b9538#233",
+  "event:20260924-161456-5b9538#269"
+ ],
+ "gate_failures": 0,
+ "id": 140,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-24 17:17:17"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: choices.py, delegation.py, docs/plans/out-of-band-choices-actions.md, host_config.py, mcp_server.py, server.py, session.py, static/app-evolution.js, static/app.js, static/markdown.js, tests/test_choice_chips.py, tests/test_choices_channel.py, tests/test_delegation.py",
+   "ts": "2026-09-24 17:17:17"
+  },
+  {
+   "by": "agent:agy",
+   "text": "failed: worktree agy: reviewer agy exited with -1",
+   "ts": "2026-09-24 17:27:44"
+  }
+ ],
+ "paths": [
+  "choices.py",
+  "delegation.py",
+  "docs/plans/out-of-band-choices-actions.md",
+  "host_config.py",
+  "mcp_server.py",
+  "server.py",
+  "session.py",
+  "static/app-evolution.js",
+  "static/app.js",
+  "static/markdown.js",
+  "tests/test_choice_chips.py",
+  "tests/test_choices_channel.py",
+  "tests/test_delegation.py"
+ ],
+ "status": "approved",
+ "target": "choices.py,delegation.py,docs/plans/out-of-band-choices-actions.md,host_config.p",
+ "title": "OUT_OF_BAND_CHOICES_v1 1단계 + 작업 카드 개선(펼치기·중지)",
+ "updated": "2026-09-24 17:27:44",
+ "worked_by": "agy"
+}
