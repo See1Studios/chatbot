@@ -540,8 +540,13 @@ async function send() {
       '- `세션` 탭에서도 새 세션을 열 수 있다냥\n\n' +
       '**슬래시 명령어**\n' +
       '- `/btw <질문>` 작업 중 샛길 질문 · `/continue` 맥락 요약 인계 새 세션 · `/new` 완전 새 세션\n' +
-      '- `/status` 상태 확인 · `/clear` 화면 비우기 · `/compact` 대화 압축 · `/defib` 호스트 소생\n' +
-      '- 이 외에 `/`만 눌러도 뜨는 메뉴에 날씨·뉴스·주식 등 스킬 단축어들도 있다냥\n\n' +
+      '- `/act <행동>` (별칭 `/me`) 말 대신 행동·상황 지문 전달\n' +
+      '- `/private on|off` 사적 대화 전환 · `/review` 관찰 리뷰\n' +
+      '- `/status` 상태 확인 · `/clear` 화면 비우기 · `/compact` 대화 압축 · `/defib` 호스트 소생\n\n' +
+      '**작업 결정** (`/ticket <결정> 번호`, 에이전트에게 안 가고 바로 처리)\n' +
+      '- `go` 승인+착수 · `approve` 승인 · `decline` 폐기 · `reopen` 재개\n' +
+      '- 위임: `delegate` 실행 · `merge` 승인 · `rework 번호 사유` 반려 · `discard` 폐기 · `allow` 경로 허용\n\n' +
+      '**스킬**: `/`만 눌러도 켜 둔 워크스페이스 스킬이 메뉴에 뜨고, `/skill 이름`으로 검색할 수 있다냥\n\n' +
       '더 궁금한 거 있으면 그냥 물어봐도 된다냥!');
     currentSessionHasUser = hadUser;
     return;
@@ -552,8 +557,8 @@ async function send() {
   const isAutoBtw = isBusy && isInquiry(text);
   const isExplicitBtw = text.startsWith('/btw ') || text.startsWith('/btw\n') || text === '/btw';
   const isBtw = isAutoBtw || isExplicitBtw;
-  const isAction = text.startsWith('/act ') || text.startsWith('/action ');
-  const actionText = isAction ? text.replace(/^\/(?:act|action)\s+/, '').trim() : '';
+  const isAction = /^\/(?:act|action|me)\s+\S/.test(text);
+  const actionText = isAction ? text.replace(/^\/(?:act|action|me)\s+/, '').trim() : '';
 
   sendBtn.disabled = true;
 
@@ -598,6 +603,8 @@ async function send() {
       text: isAction ? ('(' + actionText + ')') : text,
       client_mid: clientMid
     };
+    // Structured action: type + raw text; `text` keeps the (…) form until the server reads `type`.
+    if (isAction) Object.assign(payload, { type: 'action', action_text: actionText });
     Object.assign(payload, providerFieldsForSend(
       providerEl ? providerEl.value : '',
       modelEl ? modelEl.value : '',

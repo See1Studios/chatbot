@@ -4,14 +4,26 @@ const slashMenuEl = document.getElementById('slashMenu');
 const slashBtnEl = document.getElementById('slashBtn');
 let slashCatalog = {
   commands: [
-    { name: "/act", label: "직접 행동 입력", desc: "말 대신 지문(행동/상황) 전달 (예: /act 차를 건넨다)", template: "/act " },
+    { name: "/act", label: "행동 지문", desc: "말 대신 행동·상황 지문을 전달 (예: /act 차를 건넨다) — 별칭 /me", template: "/act " },
+    { name: "/me", label: "행동 지문 (별칭)", desc: "/act 와 같음 (예: /me 기지개를 켠다)", template: "/me " },
     { name: "/btw", label: "샛길 질문", desc: "작업 중 즉시 경량 샛길 답변", template: "/btw " },
     { name: "/continue", label: "이어하기", desc: "현재 대화 요약 인계받아 새 세션", template: "/continue" },
     { name: "/new", label: "새 세션", desc: "완전한 새 대화 세션 시작", template: "/new" },
     { name: "/defib", label: "심폐소생", desc: "호스트 전기충격·소생 (repair)", template: "/defib" },
     { name: "/status", label: "상태 확인", desc: "챗봇 및 NAS 시스템 상태 점검", template: "/status" },
     { name: "/review", label: "관찰 리뷰", desc: "열린 관찰과 미검토 후보를 함께 검토 (작업 시작 아님)", template: "관찰 리뷰를 해줘. observation 도구의 review로 열린 관찰과 미검토 후보를 받아서 나와 하나씩 검토하고, 정리(resolve)와 티켓 제안까지만 해. 끝나면 reviewed로 기록해줘. 작업은 시작하지 마." },
-    { name: "/ticket", label: "티켓 결정", desc: "/ticket go|approve|decline|reopen 번호 — 결정은 에이전트에게 안 가고, go는 승인 뒤 착수 요청", template: "/ticket " },
+    { name: "/ticket", label: "티켓 결정", desc: "/ticket <결정> 번호 — 화면에서 바로 처리, 에이전트에게는 안 감 (go만 착수 지시 전달)", template: "/ticket " },
+    { name: "/ticket go", label: "티켓 착수", desc: "제안 상태면 승인한 뒤 에이전트에게 착수 지시 (예: /ticket go 152)", template: "/ticket go " },
+    { name: "/ticket approve", label: "티켓 승인", desc: "제안된 작업 승인만 (착수는 안 함)", template: "/ticket approve " },
+    { name: "/ticket decline", label: "티켓 폐기", desc: "제안된 작업 폐기 (진행 안 함)", template: "/ticket decline " },
+    { name: "/ticket reopen", label: "티켓 재개", desc: "폐기·완료된 작업 다시 열기", template: "/ticket reopen " },
+    { name: "/ticket delegate", label: "위임 실행", desc: "PD 계획의 [실행] — 스태프 작업 시작 (격리 워크트리)", template: "/ticket delegate " },
+    { name: "/ticket merge", label: "위임 승인", desc: "검증 통과한 위임 결과 승인 → 반영 시작", template: "/ticket merge " },
+    { name: "/ticket rework", label: "위임 반려", desc: "위임 결과 반려 + 사유 (예: /ticket rework 152 버튼 크기 다시)", template: "/ticket rework " },
+    { name: "/ticket discard", label: "위임 폐기", desc: "위임 결과 버리기", template: "/ticket discard " },
+    { name: "/ticket disown", label: "담당 해제", desc: "다른 에이전트가 잡은 작업을 넘겨받게 담당 해제", template: "/ticket disown " },
+    { name: "/ticket unqueue", label: "대기 취소", desc: "잠금 대기 중인 위임 실행 취소", template: "/ticket unqueue " },
+    { name: "/ticket allow", label: "경로 허용", desc: "스태프가 요청한 범위 밖 경로(NEED_PATH) 허용", template: "/ticket allow " },
     { name: "/clear", label: "화면 비우기", desc: "대화창 화면 로그 초기화", template: "/clear" },
     { name: "/compact", label: "세션 압축", desc: "대화 히스토리 수동 압축/요약", template: "/compact" },
     { name: "/help", label: "사용법", desc: "탭·단축키·슬래시 명령어 요약", template: "/help" },
@@ -27,7 +39,11 @@ async function loadSlashSkills() {
   try {
     const data = await api('/api/skills');
     if (data && data.ok) {
-      if (Array.isArray(data.commands) && data.commands.length) slashCatalog.commands = data.commands;
+      if (Array.isArray(data.commands) && data.commands.length) {
+        // Server list wins per name; client-only commands (/act, /me, /ticket …) stay.
+        const served = new Set(data.commands.map(c => c.name));
+        slashCatalog.commands = data.commands.concat(slashCatalog.commands.filter(c => !served.has(c.name)));
+      }
       if (Array.isArray(data.popular)) slashCatalog.popular = data.popular;
       if (Array.isArray(data.skills)) slashCatalog.skills = data.skills;
     }

@@ -1,6 +1,7 @@
 """Slash popular pins are enabled workspace skills, not a hardcoded k-skill list.
 Run: python3 -m unittest tests.test_slash_catalog  (from services/chatbot)
 """
+import re
 import shutil
 import tempfile
 import unittest
@@ -63,6 +64,58 @@ class StaticFallback(unittest.TestCase):
         for name in BANNED:
             self.assertNotIn(name, text, name)
         self.assertIn("_popular_slash_skills", text)
+
+
+def _static(name: str) -> str:
+    return (CODE / "static" / name).read_text(encoding="utf-8")
+
+
+def _catalog_names(text: str) -> list:
+    return re.findall(r'\{ name: "(/[^"]+)"', text)
+
+
+class CommandCatalog(unittest.TestCase):
+    def test_act_and_me_alias_are_listed(self):
+        names = _catalog_names(_static("slash.js"))
+        self.assertIn("/act", names)
+        self.assertIn("/me", names)
+
+    def test_every_ticket_decision_has_a_catalog_entry(self):
+        names = set(_catalog_names(_static("slash.js")))
+        evo = _static("app-evolution.js")
+        m = re.search(r"\^\\/ticket\\s\+\(([a-z|]+)\)", evo)
+        self.assertIsNotNone(m, "parseTicketCommand regex moved")
+        actions = set(m.group(1).split("|")) | {"rework"}
+        for a in actions:
+            self.assertIn("/ticket " + a, names, a)
+
+    def test_catalog_entries_carry_label_desc_template(self):
+        text = _static("slash.js")
+        for line in text.splitlines():
+            if line.strip().startswith('{ name: "/'):
+                for key in ("label:", "desc:", "template:"):
+                    self.assertIn(key, line, line)
+
+    def test_server_commands_merge_not_replace(self):
+        text = _static("slash.js")
+        self.assertNotIn("slashCatalog.commands = data.commands;", text)
+        self.assertIn("!served.has(c.name)", text)
+
+
+class ActionAndHelp(unittest.TestCase):
+    def test_me_is_an_action_alias_and_payload_is_structured(self):
+        text = _static("app.js")
+        self.assertIn("(?:act|action|me)", text)
+        self.assertIn("type: 'action'", text)
+        self.assertIn("action_text: actionText", text)
+
+    def test_help_lists_current_commands_not_legacy_skill_shortcuts(self):
+        text = _static("app.js")
+        start = text.index("if (text === '/help')")
+        help_block = text[start:text.index("currentSessionHasUser = hadUser;", start)]
+        self.assertNotIn("날씨·뉴스·주식", help_block)
+        for cmd in ("/act", "/me", "/ticket", "/skill", "/btw", "/status"):
+            self.assertIn(cmd, help_block, cmd)
 
 
 class LiveWorkspace(unittest.TestCase):
