@@ -1,6 +1,23 @@
 // app-sse.js -- split out of app.js (APP_SPLIT_v1, docs/plans/monolith-split.md Phase 5). Declarations only: it
 // loads before app.js, which runs everything that happens at load (listeners, timers, boot). Top-level code
 // here may use the page's DOM, never a binding from a later file.
+
+// A user line that is only "(지문)" / "((지문))" is a stage action, not speech: returns the bare
+// action text ('' otherwise). send(), user_ack and history all route through this.
+function actionTextOf(text) {
+  const m = /^\s*\({1,2}(.+?)\){1,2}\s*$/.exec(String(text || ''));
+  if (!m) return '';
+  const inner = m[1].replace(/^\(+|\)+$/g, '').trim();
+  return /[()]/.test(inner) ? '' : inner;   // "(a) 그리고 (b)" is speech, not one action
+}
+
+// Draws a user history/ack entry: action lines as .msg.action, the rest as a user bubble.
+function addUserEntry(text, isQueued, prepend, ts) {
+  const act = actionTextOf(text);
+  if (act) return addChat('action', '\u2726 ' + act, false, isQueued, false, prepend, null, null, false, ts);
+  return addChat('user', text || '', false, isQueued, (text || '').startsWith('/btw'), prepend, null, null, false, ts);
+}
+
 function bindEvents(sid) {
   if (window.__chatEsTimer) { clearTimeout(window.__chatEsTimer); window.__chatEsTimer = null; }
   if (es) { try { es.close(); } catch (_) {} es = null; }
@@ -183,7 +200,7 @@ function bindEvents(sid) {
       const mid = data.client_mid || '';
       const isMine = Boolean(mid) && myPendingMids.has(mid);
       // A resync can have drawn (or stamped) this message before its ack arrives.
-      const drawn = Boolean(data.ts && (findRenderedByTs('user', data.ts) || findRenderedByTs('btw-user', data.ts)));
+      const drawn = Boolean(data.ts && (findRenderedByTs('user', data.ts) || findRenderedByTs('action', data.ts) || findRenderedByTs('btw-user', data.ts)));
       if (isMine) {
         myPendingMids.delete(mid);
         const queuedNodes = logEl.querySelectorAll('.msg.user.queued');
@@ -200,7 +217,7 @@ function bindEvents(sid) {
           }
         }
       } else if (!drawn && !adoptBareUserBubble(text, data.ts)) {
-        addChat('user', text, false, false, (text || '').startsWith('/btw'), false, null, null, false, data.ts);
+        addUserEntry(text, false, false, data.ts);
       }
       if (data.ts) lastSyncedTs = Math.max(lastSyncedTs, data.ts);
       repairMsgOrder();

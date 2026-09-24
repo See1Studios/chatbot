@@ -267,11 +267,12 @@ function pickChoice(choice) {
   const payload = item.payload || item.action || item.label;
 
   if (kind === 'action') {
+    const act = String(payload).replace(/^\(+|\)+$/g, '').trim();   // "(x)" payload must not become "((x))"
     if (typeof sendAction === 'function') {
-      sendAction(payload);
+      sendAction(act);
       return;
     }
-    inputEl.value = '/act ' + payload;
+    inputEl.value = '/act ' + act;
     if (typeof send === 'function') send();
     return;
   }

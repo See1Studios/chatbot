@@ -557,8 +557,11 @@ async function send() {
   const isAutoBtw = isBusy && isInquiry(text);
   const isExplicitBtw = text.startsWith('/btw ') || text.startsWith('/btw\n') || text === '/btw';
   const isBtw = isAutoBtw || isExplicitBtw;
-  const isAction = /^\/(?:act|action|me)\s+\S/.test(text);
-  const actionText = isAction ? text.replace(/^\/(?:act|action|me)\s+/, '').trim() : '';
+  // "/act x", "(x)" and "((x))" are all one action; strip stray parens so the wire form is always "(x)".
+  const actionText = /^\/(?:act|action|me)\s+\S/.test(text)
+    ? text.replace(/^\/(?:act|action|me)\s+/, '').trim().replace(/^\(+|\)+$/g, '').trim()
+    : actionTextOf(text);
+  const isAction = Boolean(actionText);
 
   sendBtn.disabled = true;
 

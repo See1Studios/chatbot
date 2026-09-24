@@ -101,7 +101,7 @@ function enterSession(id, opts) {
       if (h.role === 'btw') {
         addBtw(h.query, h.text, false, h.usage, h.duration_seconds, h.ts);
       } else if (h.role === 'user') {
-        addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
+        addUserEntry(h.text, Boolean(h.queued), false, h.ts);
       } else if (h.role === 'assistant') {
         // QUOTA_ERR_DEDUP_v1: history notice via addNotice
         const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
@@ -223,7 +223,8 @@ async function resyncFromServer(sid) {
 
     const seen = new Set();
     logEl.querySelectorAll('.msg[data-ts]').forEach(n => {
-      seen.add(msgSyncKey(n.dataset.syncRole || '', n.dataset.ts));
+      const r = n.dataset.syncRole || '';
+      seen.add(msgSyncKey(r === 'action' ? 'user' : r, n.dataset.ts));   // an action line is the server's user entry
     });
 
     let added = 0;
@@ -258,14 +259,16 @@ async function resyncFromServer(sid) {
       if (role === 'btw') {
         addBtw(h.query, h.text, false, h.usage, h.duration_seconds, h.ts);
       } else if (role === 'user') {
-        const bare = Array.prototype.slice.call(logEl.querySelectorAll('.msg.user:not([data-ts])'));
-        const match = bare.find(function (n) { return (n.textContent || '') === (h.text || ''); });
+        const act = actionTextOf(h.text);
+        const bare = Array.prototype.slice.call(logEl.querySelectorAll(act ? '.msg.action:not([data-ts])' : '.msg.user:not([data-ts])'));
+        const want = act ? '\u2726 ' + act : (h.text || '');
+        const match = bare.find(function (n) { return (n.textContent || '') === want; });
         if (match) {
           match.dataset.ts = String(h.ts);
-          match.dataset.syncRole = 'user';
+          match.dataset.syncRole = act ? 'action' : 'user';
           placeMsgByTs(match, h.ts);
         } else {
-          addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
+          addUserEntry(h.text, Boolean(h.queued), false, h.ts);
         }
       } else if (role === 'assistant') {
         // the client already closed this one itself (interrupt/stop) and has it, ts-less, on screen
@@ -462,7 +465,7 @@ async function loadOlderHistory() {
           if (h.role === 'btw') {
             addBtw(h.query, h.text, true, h.usage, h.duration_seconds, h.ts);
           } else if (h.role === 'user') {
-            addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), true, null, null, false, h.ts);
+            addUserEntry(h.text, Boolean(h.queued), true, h.ts);
           } else if (h.role === 'assistant') {
             const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
             if (nk) addChat('assistant', textWithChoices(h), true, false, false, true, null, null, nk, h.ts, null);
@@ -591,7 +594,7 @@ async function loadNewerHistory() {
           if (h.role === 'btw') {
             addBtw(h.query, h.text, false, h.usage, h.duration_seconds, h.ts);
           } else if (h.role === 'user') {
-            addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
+            addUserEntry(h.text, Boolean(h.queued), false, h.ts);
           } else if (h.role === 'assistant') {
             const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
             if (nk) addChat('assistant', textWithChoices(h), true, false, false, false, null, null, nk, h.ts, null);
