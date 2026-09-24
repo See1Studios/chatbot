@@ -69,7 +69,7 @@ TOOL_DEFS: List[dict] = [
     },
     {
         "name": "ticket",
-        "description": "The only way to create an evolution ticket; a ticket written out as free text is not one. Host or self changes start only from the operator's words or an APPROVED ticket. propose (title, target, evidence=[event:<session>#<line> | candidate:<epoch> | log:fp:<fp> | log:rid:<rid>] (log refs: `chatbot-ctl.sh logs`)) -> the operator approves it outside this tool; list/get read; claim (id[, token][, paths]) takes the single author lock, records repo-relative files, and returns a token; note (id, text[, token]); release (id, token, outcome=done|gate_failed|failed|abandoned[, text]). done is refused while those paths are uncommitted. Max 3 attempts per ticket.",
+        "description": "The only way to create an evolution ticket; a ticket written out as free text is not one. Host or self changes start only from the operator's words or an APPROVED ticket. propose (title, target, evidence=[event:<session>#<line> | candidate:<epoch> | log:fp:<fp> | log:rid:<rid>] (log refs: `chatbot-ctl.sh logs`)) -> the operator approves it outside this tool; list/get read; claim (id[, token][, paths]) takes the author lease on those repo-relative files (none named = every file; refused while another ticket holds any of them, or when the ticket is another agent's own) and returns a token; note (id, text[, token]); release (id, token, outcome=done|gate_failed|failed|abandoned[, text]). done is refused while those paths are uncommitted. Max 3 attempts per ticket.",
         "inputSchema": {
             "type": "object",
             "properties": {

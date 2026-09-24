@@ -1516,6 +1516,8 @@ def main() -> None:
     if AUTO_RECYCLE_ENABLED:
         threading.Thread(target=_auto_recycle_loop, daemon=True).start()
     threading.Thread(target=_host_signal_loop, name="host-signals", daemon=True).start()
+    import delegation
+    threading.Thread(target=delegation.queue_loop, name="delegation-queue", daemon=True).start()   # LEASE_SCOPE_v1
     print(f"chatbot on http://{HOST}:{PORT} (VibeCat-class NAS)", flush=True)
 
     def _stop(signum=None, *_a):

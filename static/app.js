@@ -2193,9 +2193,41 @@ const TICKET_DECISIONS = {
   awaiting_merge: [['merge', '승인'], ['rework', '반려'], ['discard', '폐기']],
   wontfix: [['reopen', '재개']],
 };
-const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '실행', merge: '승인(반영 시작)', rework: '반려', discard: '폐기' };
+const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '실행', merge: '승인(반영 시작)', rework: '반려', discard: '폐기', disown: '담당 해제', unqueue: '대기 취소' };
 // PD_PLAN_v1: the operator's two confirmations on a PD plan -- [실행] (`delegate`) and [승인]/[반려]/[폐기].
-const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', rework: 'rework', discard: 'discard' };
+const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', rework: 'rework', discard: 'discard', unqueue: 'unqueue' };
+
+// LEASE_SCOPE_v1: one author per file. The live leases come with /api/tickets; a ticket another agent opened to do
+// itself (`owner`, not the chat's own) is not offered to the chat -- the operator can hand it over ([담당 해제]).
+let ticketLeases = [];
+function ticketOwnedElsewhere(t) {
+  return Boolean(t && t.owner && !String(t.owner).startsWith('chat-agent'));
+}
+function ticketDecisionsFor(t) {
+  const pairs = TICKET_DECISIONS[t.status] || [];
+  if (ticketOwnedElsewhere(t) && (t.status === 'approved' || t.status === 'proposed')) return [['disown', '담당 해제'], ['decline', '폐기']];
+  return pairs;
+}
+function leasePathsOverlap(a, b) {
+  if (!a.length || !b.length) return true;   // no files = every file
+  return a.some(x => b.some(y => {
+    const xs = String(x).replace(/\/+$/, ''), ys = String(y).replace(/\/+$/, '');
+    return xs === ys || xs.startsWith(ys + '/') || ys.startsWith(xs + '/');
+  }));
+}
+function ticketPaths(t) {
+  if (t.paths && t.paths.length) return t.paths;
+  const tgt = String(t.target || '').trim();
+  return (tgt.includes('/') && !tgt.includes(' ') && !tgt.startsWith('/')) ? [tgt] : [];
+}
+// The live lease that keeps `t` waiting, or null.
+function ticketBlocker(t) {
+  const mine = ticketPaths(t);
+  return ticketLeases.find(l => l.ticket !== t.id && leasePathsOverlap(mine, l.paths || [])) || null;
+}
+function leaseWaitText(l) {
+  return '잠금 대기 · #' + l.ticket + (l.paths && l.paths.length ? ' ' + l.paths.slice(0, 2).join(', ') : ' (전체)') + ' ~' + String(l.until || '').slice(11, 16);
+}
 
 function ticketDecisionText(t, action) {
   return '/ticket ' + action + ' ' + t.id;
@@ -2205,7 +2237,7 @@ function parseTicketCommand(text) {
   const t = String(text || '').trim();
   const rw = /^\/ticket\s+rework\s+#?(\d{1,6})\s+([\s\S]+)$/.exec(t);   // [반려]: the comment follows the number
   if (rw) return { action: 'rework', id: Number(rw[1]), comment: rw[2].trim() };
-  const m = /^\/ticket\s+(go|approve|decline|reopen|delegate|merge|discard)\s+#?(\d{1,6})$/.exec(t);
+  const m = /^\/ticket\s+(go|approve|decline|reopen|delegate|merge|discard|disown|unqueue)\s+#?(\d{1,6})$/.exec(t);
   return m ? { action: m[1], id: Number(m[2]) } : null;
 }
 
@@ -2217,16 +2249,25 @@ function ticketGoPrompt(t) {
 
 async function goTicket(cmd) {
   const cur = (await api('/api/tickets/' + cmd.id)).ticket || {};
+  const refuse = (msg) => { throw new Error(JSON.stringify({ ok: false, error: msg })); };
+  if (ticketOwnedElsewhere(cur)) refuse('작업 #' + cmd.id + '은(는) ' + cur.owner + ' 담당이에요. 넘기려면 [담당 해제]');
+  try { ticketLeases = (await api('/api/tickets')).leases || []; } catch (_) { /* the claim still checks */ }
+  const blocker = ticketBlocker(cur);
+  if (blocker) refuse('작업 #' + cmd.id + ' ' + leaseWaitText(blocker) + ' — 끝나면 다시 눌러 주세요');
   let message = '';
   if (cur.status === 'proposed') message = await decideTicket({ action: 'approve', id: cmd.id });
-  else if (cur.status !== 'approved') throw new Error(JSON.stringify({ ok: false, error: '작업 #' + cmd.id + '은(는) ' + (TICKET_STATUS_LABEL[cur.status] || cur.status) + ' 상태라 진행할 수 없어요' }));
+  else if (cur.status !== 'approved') refuse('작업 #' + cmd.id + '은(는) ' + (TICKET_STATUS_LABEL[cur.status] || cur.status) + ' 상태라 진행할 수 없어요');
   return { message, prompt: ticketGoPrompt(cur) };
 }
 
 async function decideTicket(cmd) {
   if (DELEGATION_ACTION[cmd.action]) {
-    await api('/api/delegations/' + cmd.id + '/' + DELEGATION_ACTION[cmd.action], { method: 'POST', body: JSON.stringify({ comment: cmd.comment || '' }) });
+    const r = await api('/api/delegations/' + cmd.id + '/' + DELEGATION_ACTION[cmd.action], { method: 'POST', body: JSON.stringify({ comment: cmd.comment || '' }) });
     loadWork();
+    if (r && r.queued) {
+      const b = r.blocked_by || {};
+      return '작업 #' + cmd.id + ' 실행 대기 — #' + b.ticket + '이(가) ' + (b.paths || []).join(', ') + '를 쓰는 중이라, 끝나면(~' + String(b.until || '').slice(11, 16) + ') 자동으로 시작해요';
+    }
     return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' → 작업 카드에서 진행을 볼 수 있어요';
   }
   const res = await api('/api/tickets/' + cmd.id + '/' + cmd.action, { method: 'POST', body: JSON.stringify({}) });
@@ -2255,6 +2296,13 @@ function fillTicketCommand(t, action) {
   if (inputEl.focus) inputEl.focus();
 }
 
+// Who owns it (another agent) or what it waits for (a live lease on its files), as a small badge; null for neither.
+function ticketStateBadge(t) {
+  if (ticketOwnedElsewhere(t)) return obsNode('span', 'obs-badge owner', '담당 ' + t.owner);
+  const b = (t.status === 'approved' || t.status === 'proposed') ? ticketBlocker(t) : null;
+  return b ? obsNode('span', 'obs-badge queued', leaseWaitText(b)) : null;
+}
+
 function renderTicketBar(waiting) {
   if (!ticketBarEl) return;
   waiting = waiting.filter(t => t.status !== 'awaiting_merge' && !workCardIds.has(t.id));   // a work card carries those buttons
@@ -2263,7 +2311,9 @@ function renderTicketBar(waiting) {
   waiting.slice(0, TICKET_BAR_MAX).forEach(t => {
     const chip = obsNode('div', 'ticket-chip');
     chip.appendChild(obsNode('span', 'ticket-chip-title', '#' + t.id + ' ' + (t.title || '')));
-    TICKET_DECISIONS[t.status].forEach(pair => {
+    const wait = ticketStateBadge(t);
+    if (wait) chip.appendChild(wait);
+    ticketDecisionsFor(t).forEach(pair => {
       const btn = obsNode('button', 'art-btn' + (pair[0] === 'go' ? ' primary' : ''), pair[1]);
       btn.type = 'button';
       btn.addEventListener('click', () => fillTicketCommand(t, pair[0]));
@@ -2279,7 +2329,7 @@ function renderTicketBar(waiting) {
 // pair shows, the rest opens on demand. Names on the lines are the run's own (display values from identity).
 const WORK_PHASE_LABEL = {
   starting: '시작 중', running: '준비 중', writing: '작업 중', gates: '테스트 중', review: '리뷰 중', merging: '병합 중',
-  awaiting_go: '실행 대기', awaiting_merge: '최종 확인 대기', done: '완료', failed: '실패', gate_failed: '탈락',
+  awaiting_go: '실행 대기', queued: '잠금 대기', awaiting_merge: '최종 확인 대기', done: '완료', failed: '실패', gate_failed: '탈락',
   declined: '폐기됨', stalled: '멈춤', 'merged-ticket-open': '병합됨(티켓 열림)',
 };
 const WORK_ENDED = ['done', 'failed', 'gate_failed', 'declined', 'stalled', 'merged-ticket-open'];
@@ -2323,9 +2373,11 @@ function renderWorkCard(r) {
   const since = r.active && r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : '';
   const step = r.active && r.tasks_total > 1 && r.task ? ' · 작업 ' + r.task + '/' + r.tasks_total : '';
   const brainNow = r.active && r.brain ? ' · ' + r.brain.split('/').pop() : '';
-  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + step + (r.active && r.round ? ' · ' + r.round + '라운드' : '') + brainNow + since));
+  const waitOn = r.phase === 'queued' && r.blocked_by && r.blocked_by.ticket
+    ? ' · #' + r.blocked_by.ticket + ' ' + (r.blocked_by.paths || []).slice(0, 2).join(', ') + ' ~' + String(r.blocked_by.until || '').slice(11, 16) : '';
+  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + waitOn + step + (r.active && r.round ? ' · ' + r.round + '라운드' : '') + brainNow + since));
   card.appendChild(head);
-  if (r.phase === 'awaiting_go' || workOpen.has(r.ticket)) {
+  if (r.phase === 'awaiting_go' || r.phase === 'queued' || workOpen.has(r.ticket)) {
     const list = obsNode('ol', 'work-plan');
     (r.tasks || []).forEach(t => list.appendChild(obsNode('li', '', (workNames[t.role] || t.role) + ' — ' + t.title + ' (' + (t.paths || []).join(', ') + ')')));
     if (list.childNodes.length) card.appendChild(list);
@@ -2351,6 +2403,9 @@ function renderWorkCard(r) {
     button('실행', true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
     button('계획 수정', false, () => { inputEl.value = '#' + r.ticket + ' 계획 수정: '; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
     button('취소', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
+  }
+  if (r.phase === 'queued') {   // starts on its own once the files are free
+    button('대기 취소', false, () => fillTicketCommand({ id: r.ticket }, 'unqueue'));
   }
   if (r.phase === 'awaiting_merge') {
     TICKET_DECISIONS.awaiting_merge.forEach(pair => button(pair[1], pair[0] === 'merge', () => fillTicketCommand({ id: r.ticket }, pair[0])));
@@ -2396,7 +2451,7 @@ async function loadWork() {
     });
   }
   workLastPhase = new Map(runs.map(r => [r.ticket, r.phase]));
-  const shown = runs.filter(r => r.active || r.phase === 'awaiting_go' || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
+  const shown = runs.filter(r => r.active || r.phase === 'awaiting_go' || r.phase === 'queued' || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
   const ids = new Set(shown.map(r => r.ticket));
   const changed = ids.size !== workCardIds.size || [...ids].some(id => !workCardIds.has(id));
   workCardIds = ids;
@@ -2439,6 +2494,7 @@ function renderDoneRow(t) {
 
 function renderTickets(res) {
   const all = res.tickets || [];
+  ticketLeases = res.leases || [];
   const rows = all.filter(t => TICKET_DECISIONS[t.status]);
   renderTicketBar(rows);
   if (!statusTicketBoxEl) return;
@@ -2466,8 +2522,10 @@ function renderTicketRow(t) {
   head.appendChild(obsNode('span', 'obs-badge ' + t.status, TICKET_STATUS_LABEL[t.status] || t.status));
   const prop = actorBadge(t.actor, '제안 ');
   if (prop) head.appendChild(prop);
+  const wait = ticketStateBadge(t);
+  if (wait) head.appendChild(wait);
   const actions = obsNode('div', 'obs-actions obs-actions-inline');
-  TICKET_DECISIONS[t.status].forEach(pair => {
+  ticketDecisionsFor(t).forEach(pair => {
     const btn = obsNode('button', 'art-btn art-btn-xs' + (pair[0] === 'approve' || pair[0] === 'go' ? ' primary' : ''), pair[1]);
     btn.type = 'button';
     btn.addEventListener('click', () => fillTicketCommand(t, pair[0]));

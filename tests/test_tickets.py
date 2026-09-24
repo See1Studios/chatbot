@@ -1,4 +1,4 @@
-"""tickets.py: evidence, merging, attempt budget, the single author lease, operator-only decisions.
+"""tickets.py: evidence, merging, attempt budget, author leases per file, owners, operator-only decisions.
 Run: python3 -m unittest tests.test_tickets  (from services/chatbot)
 """
 import ast
@@ -264,8 +264,143 @@ class ClaimTest(Base):
         for path in tickets.tickets_dir(self.data).iterdir():
             if path.is_file():
                 self.assertNotIn(c["token"], path.read_text(encoding="utf-8"), path.name)
-        self.assertIn("token_sha256", (tickets.tickets_dir(self.data) / "author.lease").read_text(encoding="utf-8"))
+        self.assertIn("token_sha256", (tickets.tickets_dir(self.data) / "leases.json").read_text(encoding="utf-8"))
         self.assertNotIn(c["token"], json.dumps(tickets.get(self.data, t["id"])))
+
+
+class LeaseScopeTest(Base):
+    """One author per file, not one for the whole host (LEASE_SCOPE_v1)."""
+
+    def test_tickets_on_different_files_run_side_by_side(self):
+        a = self.approved(target="a")
+        b = self.approved(target="b")
+        tickets.claim(self.data, a["id"], paths=["services/chatbot/static/app.js"], now=T0)
+        c = tickets.claim(self.data, b["id"], paths=["services/chatbot/docs/DEVLOG.md"], now=T0 + 1)
+        self.assertTrue(c["new_attempt"])
+        self.assertEqual(sorted(x["ticket"] for x in tickets.leases(self.data, now=T0 + 2)), [a["id"], b["id"]])
+
+    def test_a_shared_file_or_folder_blocks_and_says_what_and_until_when(self):
+        a = self.approved(target="a")
+        b = self.approved(target="b")
+        tickets.claim(self.data, a["id"], paths=["services/chatbot/static/app.js"], now=T0)
+        for paths in (["services/chatbot/static/app.js"], ["services/chatbot/static"], ["services/chatbot/static/"]):
+            with self.assertRaises(tickets.TicketError) as cm:
+                tickets.claim(self.data, b["id"], paths=paths, now=T0 + 5)
+            self.assertIn("ticket %d on services/chatbot/static/app.js until" % a["id"], str(cm.exception))
+        blocked = tickets.get(self.data, b["id"])
+        self.assertEqual(blocked["blocked_by"]["ticket"], a["id"])
+        self.assertEqual(blocked["attempts"], 0)
+        # a name that merely starts the same is another file
+        tickets.claim(self.data, b["id"], paths=["services/chatbot/static/app.js.map"], now=T0 + 6)
+
+    def test_the_blocked_mark_goes_once_the_ticket_is_claimed(self):
+        a = self.approved(target="a")
+        b = self.approved(target="b")
+        ca = tickets.claim(self.data, a["id"], paths=["x/y.py"], now=T0)
+        with self.assertRaises(tickets.TicketError):
+            tickets.claim(self.data, b["id"], paths=["x/y.py"], now=T0 + 1)
+        tickets.release(self.data, a["id"], ca["token"], "abandoned", now=T0 + 2)
+        tickets.claim(self.data, b["id"], paths=["x/y.py"], now=T0 + 3)
+        self.assertNotIn("blocked_by", tickets.get(self.data, b["id"]))
+
+    def test_a_claim_without_files_takes_every_file_and_waits_for_any(self):
+        a = self.approved(target="a")
+        b = self.approved(target="b")
+        ca = tickets.claim(self.data, a["id"], now=T0)
+        with self.assertRaises(tickets.TicketError):
+            tickets.claim(self.data, b["id"], paths=["any/file.py"], now=T0 + 1)
+        tickets.release(self.data, a["id"], ca["token"], "abandoned", now=T0 + 2)
+        tickets.claim(self.data, b["id"], paths=["any/file.py"], now=T0 + 3)
+        with self.assertRaises(tickets.TicketError):
+            tickets.claim(self.data, a["id"], now=T0 + 4)
+
+    def test_the_holder_cannot_widen_onto_another_tickets_files(self):
+        a = self.approved(target="a")
+        b = self.approved(target="b")
+        tickets.claim(self.data, a["id"], paths=["x/a.py"], now=T0)
+        cb = tickets.claim(self.data, b["id"], paths=["x/b.py"], now=T0)
+        with self.assertRaises(tickets.TicketError):
+            tickets.claim(self.data, b["id"], token=cb["token"], paths=["x/a.py"], now=T0 + 1)
+        self.assertEqual(tickets.get(self.data, b["id"])["paths"], ["x/b.py"])
+
+    def test_the_old_single_lease_file_is_moved_in(self):
+        a = self.approved(target="a")
+        a_raw = self.raw(a["id"])
+        a_raw.update(status="in_progress", attempts=1, paths=["x/a.py"])
+        (tickets.tickets_dir(self.data) / ("%04d.json" % a["id"])).write_text(json.dumps(a_raw), encoding="utf-8")
+        (tickets.tickets_dir(self.data) / "author.lease").write_text(json.dumps(
+            {"ticket": a["id"], "token_sha256": tickets._hash("tok"), "taken": "", "expires": T0 + 100}), encoding="utf-8")
+        b = self.approved(target="b")
+        tickets.claim(self.data, b["id"], paths=["x/b.py"], now=T0)
+        self.assertFalse((tickets.tickets_dir(self.data) / "author.lease").exists())
+        self.assertTrue(tickets.holds(self.data, a["id"], "tok", now=T0))
+        with self.assertRaises(tickets.TicketError):
+            tickets.claim(self.data, self.approved(target="c")["id"], paths=["x/a.py"], now=T0)
+
+    def test_a_merge_waits_only_for_its_own_files(self):
+        a = self.approved(target="a")
+        ca = tickets.claim(self.data, a["id"], paths=["x/a.py"], now=T0)
+        tickets.await_merge(self.data, a["id"], ca["token"], now=T0)
+        b = self.approved(target="b")
+        cb = tickets.claim(self.data, b["id"], paths=["x/a.py"], now=T0 + 1)
+        with self.assertRaises(tickets.TicketError):
+            tickets.merge_go(self.data, a["id"], now=T0 + 2, operator=tickets.OPERATOR_CONFIRMED)
+        self.assertEqual(tickets.get(self.data, a["id"])["status"], "awaiting_merge")
+        tickets.release(self.data, b["id"], cb["token"], "abandoned", now=T0 + 3)
+        tickets.claim(self.data, self.approved(target="c")["id"], paths=["y/c.py"], now=T0 + 3)
+        m = tickets.merge_go(self.data, a["id"], now=T0 + 4, operator=tickets.OPERATOR_CONFIRMED)
+        self.assertTrue(tickets.holds(self.data, a["id"], m["token"], now=T0 + 4))
+
+    def test_leases_list_shows_no_token_hash(self):
+        a = self.approved(target="a")
+        tickets.claim(self.data, a["id"], paths=["x/a.py"], now=T0, actor="claude-code")
+        [row] = tickets.leases(self.data, now=T0)
+        self.assertEqual((row["ticket"], row["paths"], row["actor"]), (a["id"], ["x/a.py"], "claude-code"))
+        self.assertNotIn("token_sha256", row)
+
+    def test_paths_written_from_a_parent_folder_are_cut_to_the_repo(self):
+        root = self.data / "repo"
+        (root / ".git").mkdir(parents=True)
+        (root / "chatbot").mkdir()                        # a real folder of that name stays as written
+        data = root / "data"
+        (data / "sessions" / "s1").mkdir(parents=True)
+        tail = "/".join(root.parts[-2:])
+        self.assertEqual(tickets._norm_paths([tail + "/static/app.js", "repo/x.py", "chatbot/y.py", "z.py"], data),
+                         ["static/app.js", "x.py", "chatbot/y.py", "z.py"])
+
+
+class OwnerTest(Base):
+    """A ticket an agent opened to do itself is that agent's until the operator hands it over."""
+
+    def test_only_the_owner_may_claim(self):
+        t, _ = tickets.propose(self.data, "Docs", "docs", [EVENT], now=T0, actor="claude-code")
+        tickets.set_owner(self.data, t["id"], "claude-code", now=T0)
+        tickets.approve(self.data, t["id"], now=T0, operator=tickets.OPERATOR_CONFIRMED)
+        with self.assertRaises(tickets.TicketError) as cm:
+            tickets.claim(self.data, t["id"], paths=["docs/a.md"], now=T0, actor="chat-agent:agy")
+        self.assertIn("claude-code's", str(cm.exception))
+        with self.assertRaises(tickets.TicketError):
+            tickets.claim(self.data, t["id"], now=T0)       # nobody named: not the owner either
+        self.assertEqual(tickets.get(self.data, t["id"])["attempts"], 0)
+        tickets.claim(self.data, t["id"], paths=["docs/a.md"], now=T0, actor="claude-code")
+
+    def test_the_operator_hands_it_over(self):
+        t, _ = tickets.propose(self.data, "Docs", "docs", [EVENT], now=T0, actor="claude-code")
+        tickets.set_owner(self.data, t["id"], "claude-code", now=T0)
+        tickets.approve(self.data, t["id"], now=T0, operator=tickets.OPERATOR_CONFIRMED)
+        with self.assertRaises(tickets.TicketError):
+            tickets.disown(self.data, t["id"], now=T0)       # an agent cannot
+        tickets.disown(self.data, t["id"], now=T0, operator=tickets.OPERATOR_UI)
+        self.assertNotIn("owner", tickets.get(self.data, t["id"]))
+        tickets.claim(self.data, t["id"], now=T0, actor="chat-agent:agy")
+
+    def test_only_the_proposer_can_own_and_nobody_can_take_it(self):
+        t, _ = tickets.propose(self.data, "Docs", "docs", [EVENT], now=T0, actor="chat-agent:agy")
+        with self.assertRaises(tickets.TicketError):
+            tickets.set_owner(self.data, t["id"], "claude-code", now=T0)
+        tickets.set_owner(self.data, t["id"], "chat-agent:agy", now=T0)
+        with self.assertRaises(tickets.TicketError):
+            tickets.set_owner(self.data, t["id"], "grok", now=T0)
 
 
 class ReleaseTest(Base):
@@ -277,7 +412,7 @@ class ReleaseTest(Base):
         t, c = self.claimed()
         r = tickets.release(self.data, t["id"], c["token"], "done", "tests pass", now=T0)
         self.assertEqual((r["ticket"]["status"], r["ticket"]["closed_reason"]), ("done", "done"))
-        self.assertFalse((tickets.tickets_dir(self.data) / "author.lease").exists())
+        self.assertEqual(tickets.leases(self.data, now=T0), [])
         other = self.approved(target="other")
         tickets.claim(self.data, other["id"], now=T0)  # the lock is free again
 

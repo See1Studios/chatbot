@@ -2,7 +2,7 @@
 
 Work on the host itself starts only from the operator's own words or from a
 ticket the operator approved. A ticket must carry evidence that really exists,
-has a small attempt budget, and can be worked on by one author at a time.
+has a small attempt budget, and each file can be worked on by one author at a time.
 
 - Evidence is verified, not trusted: `event:<sid>#<line>` must be a line of that
   session's events.jsonl, `candidate:<epoch>` a line of candidates.jsonl.
@@ -11,10 +11,15 @@ has a small attempt budget, and can be worked on by one author at a time.
 - Budget: at most MAX_ATTEMPTS attempts; after that the ticket is closed as
   `wontfix` with reason `needs-human`. Two gate failures in a row advise
   changing the approach or stopping.
-- One author: `claim` takes a lease (`author.lease`). Nobody waits: a busy
-  claim leaves a note on the ticket and fails. Leases expire (LEASE_TTL_SEC),
-  so a session that vanished does not block the work forever. The lease is
-  identified by a random token that only the claimer holds (stored hashed).
+- One author per file (LEASE_SCOPE_v1): `claim` takes a lease on the files it
+  names (`leases.json`); a claim that names none takes every file. Two tickets
+  whose files do not overlap run side by side (the runner rebases and gates its
+  branch before it lands). Nobody waits: a busy claim records what blocks it
+  (`blocked_by`), leaves a note and fails. Leases expire (LEASE_TTL_SEC), so a
+  session that vanished does not block the work forever. A lease is identified
+  by a random token that only the claimer holds (stored hashed).
+- Owner: a ticket an agent opened to do itself (`ticket-quick start`) names its
+  `owner`; nobody else may claim it until the operator hands it over (`disown`).
 - Paths: `claim(..., paths=[...])` records repo-relative files. A new claim is
   refused if those paths already have uncommitted leftover. `release(done)` is
   refused until those paths (or a filesystem-looking `target`) are clean in git.
@@ -45,7 +50,8 @@ Command line (operator):
   approve N          proposed -> approved    decline N    close as declined
   reopen N           a wontfix ticket gets a fresh budget
                      (decline also drops an awaiting_merge ticket's change)
-  drop-lease         clear the author lease (after a crashed session)
+  drop-lease [N]     clear ticket N's author lease, or all of them (after a crashed session)
+  disown N           take the owner off a ticket so another agent may work on it
 """
 from __future__ import annotations
 
@@ -89,7 +95,12 @@ def tickets_dir(data) -> Path:
 
 
 def _lease_path(data) -> Path:
+    """The single lease from before LEASE_SCOPE_v1; read once and moved into leases.json."""
     return tickets_dir(data) / "author.lease"
+
+
+def _leases_path(data) -> Path:
+    return tickets_dir(data) / "leases.json"
 
 
 @contextmanager
@@ -268,18 +279,24 @@ def _in_host_log(data, kind: str, val: str) -> bool:
 
 # ---------------------------------------------------------------- ship-gate
 
-def _norm_paths(paths) -> List[str]:
+def _norm_paths(paths, data=None) -> List[str]:
+    """Repo-relative paths. With `data`, a path that starts with the repo's own folder names (e.g. `<dir>/<repo>/x`
+    written from a parent folder) is cut to `x`, so leases compare and the ship gate asks git the right thing."""
     if not paths:
         return []
     if isinstance(paths, str):
         paths = [paths]
     if not isinstance(paths, list):
         raise TicketError("paths must be a list of repo-relative files")
+    root = _git_root(data) if data is not None else None
+    tails = ["/".join(root.parts[-k:]) + "/" for k in range(len(root.parts) - 1, 0, -1)] if root else []
     out = []
     for raw in paths[:MAX_PATHS]:
         s = _txt(raw).strip().replace("\\", "/")
         if not s or s.startswith("/") or ".." in s.split("/"):
             raise TicketError("path must be repo-relative, got: %s" % s[:60])
+        if tails and not (root / s).exists():
+            s = next((s[len(t):] for t in tails if s.startswith(t) and len(s) > len(t)), s)
         if s not in out:
             out.append(s[:200])
     return out
@@ -432,51 +449,199 @@ def reopen(data, ticket_id, now: Optional[float] = None, operator: Optional[str]
         return public(t)
 
 
-def drop_lease(data, now: Optional[float] = None, operator: Optional[str] = None) -> Optional[Dict]:
-    """Clear the author lease (a session crashed); its ticket goes back to approved."""
+def drop_lease(data, now: Optional[float] = None, operator: Optional[str] = None,
+               ticket_id=None) -> Optional[Dict]:
+    """Clear ticket `ticket_id`'s author lease, or every lease when None (a session crashed); the ticket goes back
+    to approved. Returns the (last) lease dropped."""
     by = _operator_by(operator, "dropping the author lease")
     with _locked(data):
-        lease = _read_lease(data)
-        if lease is None:
+        leases = _read_leases(data)
+        gone = [x for x in leases if ticket_id is None or x.get("ticket") == int(ticket_id)]
+        if not gone:
             return None
-        _lease_path(data).unlink()
-        try:
-            t = _load(data, lease["ticket"])
-            if t["status"] == "in_progress":
-                t["status"] = _unleased_status(t)
-                _note(t, by, "author lease dropped", _now(now))
-                _save(data, t)
-        except TicketError:
-            pass
-        return lease
+        _write_leases(data, [x for x in leases if x not in gone])
+        for lease in gone:
+            try:
+                t = _load(data, lease["ticket"])
+                if t["status"] == "in_progress":
+                    t["status"] = _unleased_status(t)
+                    _note(t, by, "author lease dropped", _now(now))
+                    _save(data, t)
+            except TicketError:
+                pass
+        return gone[-1]
 
 
-# ------------------------------------------------------------- the one author
+def disown(data, ticket_id, now: Optional[float] = None, operator: Optional[str] = None,
+           on_behalf: Optional[str] = None) -> Dict:
+    """The operator hands an owned ticket over: anyone may claim it afterwards."""
+    by = _operator_by(operator, "handing a ticket over", on_behalf)
+    with _locked(data):
+        t = _load(data, ticket_id)
+        owner = t.pop("owner", None)
+        if not owner:
+            raise TicketError("ticket %d has no owner" % t["id"])
+        if t["status"] == "in_progress":
+            raise TicketError("ticket %d is being worked on by %s; wait for it to stop" % (t["id"], owner))
+        _note(t, by, "handed over (was %s's)" % owner, _now(now))
+        _save(data, t)
+        return public(t)
+
+
+def set_owner(data, ticket_id, actor: str, now: Optional[float] = None) -> Dict:
+    """An agent that opened a ticket to do itself marks it as its own (`ticket-quick start`). Only an unowned,
+    open ticket; the proposer and the owner must be the same agent."""
+    who = _clean_actor(actor)
+    if not who:
+        raise TicketError("say who owns it (actor)")
+    with _locked(data):
+        t = _load(data, ticket_id)
+        if t.get("owner") and t["owner"] != who:
+            raise TicketError("ticket %d is %s's" % (t["id"], t["owner"]))
+        if t["status"] not in ("proposed", "approved", "in_progress"):
+            raise TicketError("ticket %d is %s" % (t["id"], t["status"]))
+        if t.get("actor") and t["actor"] != who:
+            raise TicketError("ticket %d was proposed by %s" % (t["id"], t["actor"]))
+        if t.get("owner") != who:
+            t["owner"] = who
+            _note(t, _agent_by(who), "owner: %s" % who, _now(now))
+            _save(data, t)
+        return public(t)
+
+
+# ------------------------------------------------------------- one author per file
 
 def _hash(token: str) -> str:
     return hashlib.sha256(str(token).encode("utf-8")).hexdigest()
 
 
-def _read_lease(data) -> Optional[Dict]:
+def _read_leases(data) -> List[Dict]:
+    """Every lease, live or expired: {ticket, token_sha256, taken, expires, paths, actor}. `paths` [] = every file.
+    The single author.lease from before LEASE_SCOPE_v1 is moved in on first read (under the store lock)."""
     try:
-        return json.loads(_lease_path(data).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+        leases = list(json.loads(_leases_path(data).read_text(encoding="utf-8")).get("leases") or [])
+    except (OSError, ValueError, AttributeError):
+        leases = []
+    old = _lease_path(data)
+    if old.exists():
+        try:
+            lease = json.loads(old.read_text(encoding="utf-8"))
+            if not any(x.get("ticket") == lease.get("ticket") for x in leases):
+                try:
+                    lease.setdefault("paths", _load(data, lease["ticket"]).get("paths") or [])
+                except (TicketError, KeyError):
+                    lease.setdefault("paths", [])
+                leases.append(lease)
+            _write_leases(data, leases)
+        except (OSError, ValueError):
+            pass
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    return leases
 
 
-def _write_lease(data, ticket_id: int, token: str, now: float) -> float:
-    expires = now + LEASE_TTL_SEC
-    path = _lease_path(data)
+def _write_leases(data, leases: List[Dict]) -> None:
+    path = _leases_path(data)
     tmp = path.with_name(".%s.%d.tmp" % (path.name, os.getpid()))
-    tmp.write_text(json.dumps({"ticket": ticket_id, "token_sha256": _hash(token), "taken": _stamp(now),
-                               "expires": expires}) + "\n", encoding="utf-8")
+    tmp.write_text(json.dumps({"leases": leases}, indent=1) + "\n", encoding="utf-8")
     tmp.replace(path)
+
+
+def _read_lease(data, ticket_id=None) -> Optional[Dict]:
+    """Ticket `ticket_id`'s lease (live or expired), or with None any one lease; None when there is none."""
+    for lease in _read_leases(data):
+        if ticket_id is None or lease.get("ticket") == int(ticket_id):
+            return lease
+    return None
+
+
+def _write_lease(data, ticket_id: int, token: str, now: float, paths: Optional[List[str]] = None,
+                 actor: Optional[str] = None) -> float:
+    """Take or renew ticket_id's lease. `paths` None keeps the files it already had."""
+    expires = now + LEASE_TTL_SEC
+    leases = _read_leases(data)
+    mine = next((x for x in leases if x.get("ticket") == ticket_id), None)
+    lease = {"ticket": ticket_id, "token_sha256": _hash(token), "taken": _stamp(now), "expires": expires,
+             "paths": list(paths if paths is not None else (mine or {}).get("paths") or []),
+             "actor": _clean_actor(actor) or (mine or {}).get("actor") or ""}
+    _write_leases(data, [x for x in leases if x.get("ticket") != ticket_id] + [lease])
     return expires
+
+
+def _drop_own_lease(data, ticket_id: int) -> None:
+    _write_leases(data, [x for x in _read_leases(data) if x.get("ticket") != ticket_id])
 
 
 def _holds(lease: Optional[Dict], ticket_id: int, token: Optional[str], now: float) -> bool:
     return bool(lease and token and lease.get("ticket") == ticket_id and lease.get("expires", 0) > now
                 and lease.get("token_sha256") == _hash(token))
+
+
+def holds(data, ticket_id, token: Optional[str], now: Optional[float] = None) -> bool:
+    """Does `token` hold ticket_id's live lease?"""
+    tid = int(ticket_id)
+    return _holds(_read_lease(data, tid), tid, token, _now(now))
+
+
+def _overlap(a: List[str], b: List[str]) -> List[str]:
+    """The files two leases share: an empty list of paths means every file; a folder covers what is in it."""
+    if not a or not b:
+        return list(a or b or ["*"])
+    out = []
+    for x in a:
+        for y in b:
+            xs, ys = x.rstrip("/"), y.rstrip("/")
+            if xs == ys or xs.startswith(ys + "/") or ys.startswith(xs + "/"):
+                out.append(x if len(xs) >= len(ys) else y)
+    return out
+
+
+def _conflicts(data, ticket_id: int, paths: List[str], now: float) -> Optional[Dict]:
+    """The first live lease of another ticket that shares files with `paths`, as {ticket, paths, until}; expired
+    leases are cleared on the way (their tickets go back to waiting)."""
+    leases = _read_leases(data)
+    live = []
+    for lease in leases:
+        if lease.get("expires", 0) > now:
+            live.append(lease)
+            continue
+        try:
+            stale = _load(data, lease["ticket"])
+            if stale["status"] == "in_progress":
+                stale["status"] = _unleased_status(stale)
+                _note(stale, "host", "author lease expired", now)
+                _save(data, stale)
+        except (TicketError, KeyError):
+            pass
+    if len(live) != len(leases):
+        _write_leases(data, live)
+    for lease in live:
+        if lease.get("ticket") == ticket_id:
+            continue
+        shared = _overlap(paths, lease.get("paths") or [])
+        if shared:
+            return {"ticket": lease.get("ticket"), "paths": shared[:5], "until": _stamp(lease["expires"]),
+                    "actor": lease.get("actor") or ""}
+    return None
+
+
+def _blocked(data, t: Dict, by: str, what: str, block: Dict, now: float) -> TicketError:
+    """Record on `t` what blocks it and return the error to raise."""
+    t["blocked_by"] = dict(block, at=_stamp(now))
+    files = ", ".join(block["paths"])
+    _note(t, by, "%s refused: author lock is held for ticket %s (%s)" % (what, block["ticket"], files), now)
+    _save(data, t)
+    return TicketError("author lock is held for ticket %s on %s until %s; not waiting (a note was left on ticket %d)"
+                       % (block["ticket"], files, block["until"], t["id"]))
+
+
+def leases(data, now: Optional[float] = None) -> List[Dict]:
+    """The live leases, for the page: ticket, files, until, who (no token hashes)."""
+    t_now = _now(now)
+    return [{"ticket": x.get("ticket"), "paths": x.get("paths") or [], "until": _stamp(x["expires"]),
+             "actor": x.get("actor") or ""} for x in _read_leases(data) if x.get("expires", 0) > t_now]
 
 
 def _unleased_status(t: Dict) -> str:
@@ -492,46 +657,44 @@ def _exhaust(t: Dict, now: float) -> None:
 
 def claim(data, ticket_id, token: Optional[str] = None, now: Optional[float] = None,
           paths=None, actor: Optional[str] = None) -> Dict:
-    """Become the single author of an approved ticket. Never waits.
+    """Become the author of an approved ticket for the files in `paths` (none = every file). Never waits.
 
     A new attempt is counted unless the caller already holds the lease (then this
     only extends it). Returns the ticket, the token to present later, attempts_left.
     Optional `paths` are repo-relative files this attempt will touch.
     """
     t_now = _now(now)
-    norm_paths = _norm_paths(paths)
+    norm_paths = _norm_paths(paths, data)
     with _locked(data):
         t = _load(data, ticket_id)
         tid = t["id"]
-        lease = _read_lease(data)
-        if _holds(lease, tid, token, t_now) and t["status"] == "in_progress":
+        if _holds(_read_lease(data, tid), tid, token, t_now) and t["status"] == "in_progress":
             if norm_paths:
+                block = _conflicts(data, tid, norm_paths, t_now)
+                if block:
+                    raise _blocked(data, t, _agent_by(actor, t), "paths", block, t_now)
                 t["paths"] = norm_paths
                 _note(t, _agent_by(actor, t), "paths: " + ", ".join(norm_paths), t_now)
                 _save(data, t)
-            expires = _write_lease(data, tid, token, t_now)
+            expires = _write_lease(data, tid, token, t_now, paths=norm_paths or None, actor=actor)
             return {"ticket": public(t), "token": token, "attempts_left": MAX_ATTEMPTS - t["attempts"],
                     "expires_in_sec": int(expires - t_now), "new_attempt": False}
         if t["status"] not in ("approved", "in_progress"):
             raise TicketError("ticket %d is %s; only an approved ticket can be worked on" % (tid, t["status"]))
-        if lease and lease.get("expires", 0) > t_now:
-            _note(t, _agent_by(actor), "claim refused: author lock is held for ticket %s" % lease.get("ticket"), t_now)
+        who = _clean_actor(actor)
+        if t.get("owner") and who != t["owner"]:
+            _note(t, _agent_by(actor), "claim refused: the ticket is %s's" % t["owner"], t_now)
             _save(data, t)
-            raise TicketError("author lock is held for ticket %s until %s; not waiting (a note was left on ticket %d)"
-                              % (lease.get("ticket"), _stamp(lease["expires"]), tid))
-        if lease:  # expired: its session is gone
-            try:
-                stale = _load(data, lease["ticket"])
-                if stale["status"] == "in_progress":
-                    stale["status"] = _unleased_status(stale)
-                    _note(stale, "host", "author lease expired", t_now)
-                    if stale["id"] == tid:
-                        t = stale
-                    else:
-                        _save(data, stale)
-                        t = _load(data, tid)
-            except TicketError:
-                pass
+            raise TicketError("ticket %d is %s's; the operator can hand it over (disown) first" % (tid, t["owner"]))
+        block = _conflicts(data, tid, norm_paths, t_now)    # also clears expired leases
+        t = _load(data, tid)                                  # an expired lease of this very ticket changed it
+        if block:
+            raise _blocked(data, t, _agent_by(actor), "claim", block, t_now)
+        stale = _read_lease(data, tid)                        # this ticket's own lease, held by a stranger
+        if stale and stale.get("expires", 0) > t_now:
+            block = {"ticket": tid, "paths": stale.get("paths") or ["*"], "until": _stamp(stale["expires"]),
+                     "actor": stale.get("actor") or ""}
+            raise _blocked(data, t, _agent_by(actor), "claim", block, t_now)
         if t["attempts"] >= MAX_ATTEMPTS:
             _exhaust(t, t_now)
             _save(data, t)
@@ -546,10 +709,11 @@ def claim(data, ticket_id, token: Optional[str] = None, now: Optional[float] = N
             t["paths"] = norm_paths
         t["attempts"] += 1
         t["status"] = "in_progress"
-        if _clean_actor(actor):
-            t["worked_by"] = _clean_actor(actor)
+        t.pop("blocked_by", None)
+        if who:
+            t["worked_by"] = who
         new_token = secrets.token_hex(16)
-        expires = _write_lease(data, tid, new_token, t_now)
+        expires = _write_lease(data, tid, new_token, t_now, paths=norm_paths, actor=who)
         note = "claimed (attempt %d/%d)" % (t["attempts"], MAX_ATTEMPTS)
         if norm_paths:
             note += "; paths: " + ", ".join(norm_paths)
@@ -567,10 +731,10 @@ def add_note(data, ticket_id, text: str, token: Optional[str] = None, now: Optio
         raise TicketError("text is required")
     with _locked(data):
         t = _load(data, ticket_id)
-        _note(t, _agent_by(actor) if actor or not _holds(_read_lease(data), t["id"], token, t_now) else _agent_by(None, t),
-              text, t_now)
+        mine = _holds(_read_lease(data, t["id"]), t["id"], token, t_now)
+        _note(t, _agent_by(actor) if actor or not mine else _agent_by(None, t), text, t_now)
         _save(data, t)
-        if _holds(_read_lease(data), t["id"], token, t_now):
+        if mine:
             _write_lease(data, t["id"], token, t_now)
         return public(t)
 
@@ -583,13 +747,13 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
         raise TicketError("outcome must be done, gate_failed, failed or abandoned")
     with _locked(data):
         t = _load(data, ticket_id)
-        if not _holds(_read_lease(data), t["id"], token, t_now):
+        if not _holds(_read_lease(data, t["id"]), t["id"], token, t_now):
             raise TicketError("you do not hold the author lease for ticket %d (missing, wrong or expired token)" % t["id"])
         if outcome == "done":
             leftover = _ship_blockers(data, t)
             if leftover:
                 raise TicketError("cannot mark done: uncommitted changes in %s" % ", ".join(leftover[:8]))
-        _lease_path(data).unlink()
+        _drop_own_lease(data, t["id"])
         advice = ""
         if _txt(text).strip():
             _note(t, _agent_by(actor, t), "%s: %s" % (outcome, _txt(text)), t_now)
@@ -623,9 +787,9 @@ def await_merge(data, ticket_id, token: Optional[str], text: str = "", now: Opti
     t_now = _now(now)
     with _locked(data):
         t = _load(data, ticket_id)
-        if not _holds(_read_lease(data), t["id"], token, t_now) or t["status"] != "in_progress":
+        if not _holds(_read_lease(data, t["id"]), t["id"], token, t_now) or t["status"] != "in_progress":
             raise TicketError("you do not hold the author lease for ticket %d (missing, wrong or expired token)" % t["id"])
-        _lease_path(data).unlink()
+        _drop_own_lease(data, t["id"])
         t["status"] = "awaiting_merge"
         t["merge_pending"] = True
         _note(t, _agent_by(actor, t), "awaiting merge" + (": " + _txt(text) if _txt(text).strip() else ""), t_now)
@@ -643,27 +807,17 @@ def merge_go(data, ticket_id, now: Optional[float] = None, operator: Optional[st
         t = _load(data, ticket_id)
         if t["status"] != "awaiting_merge":
             raise TicketError("ticket %d is %s, not awaiting_merge" % (t["id"], t["status"]))
-        lease = _read_lease(data)
-        if lease and lease.get("expires", 0) > t_now:
-            _note(t, by, "merge refused: author lock is held for ticket %s" % lease.get("ticket"), t_now)
-            _save(data, t)
-            raise TicketError("author lock is held for ticket %s until %s; not waiting (a note was left on ticket %d)"
-                              % (lease.get("ticket"), _stamp(lease["expires"]), t["id"]))
-        if lease:  # expired: its session is gone
-            try:
-                stale = _load(data, lease["ticket"])
-                if stale["status"] == "in_progress":
-                    stale["status"] = _unleased_status(stale)
-                    _note(stale, "host", "author lease expired", t_now)
-                    _save(data, stale)
-            except TicketError:
-                pass
+        paths = _paths_of(t)
+        block = _conflicts(data, t["id"], paths, t_now)
+        if block:
+            raise _blocked(data, t, by, "merge", block, t_now)
         t["status"] = "in_progress"
         t["merge_approved_by"] = by
+        t.pop("blocked_by", None)
         if _clean_actor(actor):
             t["worked_by"] = _clean_actor(actor)
         token = secrets.token_hex(16)
-        expires = _write_lease(data, t["id"], token, t_now)
+        expires = _write_lease(data, t["id"], token, t_now, paths=paths, actor=actor)
         _note(t, by, "merge approved", t_now)
         _save(data, t)
         return {"ticket": public(t), "token": token, "expires_in_sec": int(expires - t_now)}
@@ -684,17 +838,18 @@ def rework(data, ticket_id, text: str, now: Optional[float] = None, operator: Op
         if t["attempts"] >= MAX_ATTEMPTS:
             raise TicketError("ticket %d used up its %d attempts; land it, drop it, or reopen it at a terminal"
                               % (t["id"], MAX_ATTEMPTS))
-        lease = _read_lease(data)
-        if lease and lease.get("expires", 0) > t_now:
-            raise TicketError("author lock is held for ticket %s until %s; not waiting"
-                              % (lease.get("ticket"), _stamp(lease["expires"])))
+        paths = _paths_of(t)
+        block = _conflicts(data, t["id"], paths, t_now)
+        if block:
+            raise _blocked(data, t, by, "rework", block, t_now)
         t["status"] = "in_progress"
         t["attempts"] += 1
         t.pop("merge_pending", None)
+        t.pop("blocked_by", None)
         if _clean_actor(actor):
             t["worked_by"] = _clean_actor(actor)
         token = secrets.token_hex(16)
-        expires = _write_lease(data, t["id"], token, t_now)
+        expires = _write_lease(data, t["id"], token, t_now, paths=paths, actor=actor)
         _note(t, by, "sent back (attempt %d/%d): %s" % (t["attempts"], MAX_ATTEMPTS, _txt(text)[:300]), t_now)
         _save(data, t)
         return {"ticket": public(t), "token": token, "expires_in_sec": int(expires - t_now)}
@@ -749,10 +904,15 @@ def main(argv: List[str]) -> int:
             t = {"approve": approve, "decline": decline, "reopen": reopen}[cmd](data, argv[1], operator=OPERATOR_TTY)
             print("ticket %d is now %s" % (t["id"], t["status"]))
             return 0
-        if cmd == "drop-lease":
+        if cmd == "drop-lease" and len(argv) <= 2:
             _confirm_at_terminal("drop-lease", "drop-lease")
-            lease = drop_lease(data, operator=OPERATOR_TTY)
+            lease = drop_lease(data, operator=OPERATOR_TTY, ticket_id=argv[1] if len(argv) == 2 else None)
             print("lease dropped (ticket %s)" % lease["ticket"] if lease else "no lease")
+            return 0
+        if cmd == "disown" and len(argv) == 2:
+            _confirm_at_terminal("disown ticket %s" % argv[1], str(argv[1]))
+            t = disown(data, argv[1], operator=OPERATOR_TTY)
+            print("ticket %d has no owner now" % t["id"])
             return 0
     except TicketError as e:
         print("tickets: %s" % e, file=sys.stderr)

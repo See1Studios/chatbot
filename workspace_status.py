@@ -531,10 +531,11 @@ def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[
 
 
 def ticket_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
-    """The /api/tickets routes: list, detail, and the operator's decisions (approve, decline, reopen).
+    """The /api/tickets routes: list (with the live author leases), detail, and the operator's decisions
+    (approve, decline, reopen, disown -- hand an agent's own ticket over, LEASE_SCOPE_v1).
     Returns None when `path` is not one of ours. A POST is the operator deciding (the chat page's
     `/ticket ...` command), so the caller must have checked that it came from this server's own page;
-    the core still refuses anything but those three decisions and applies its own state rules."""
+    the core still refuses anything but those decisions and applies its own state rules."""
     if not (path == "/api/tickets" or path.startswith("/api/tickets/")):
         return None
     if tickets is None:
@@ -544,11 +545,12 @@ def ticket_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[i
     try:
         if method == "GET":
             if rest == "":
-                return 200, {"ok": True, "tickets": [tickets.get(data, r["id"]) for r in tickets.list_tickets(data)]}
+                return 200, {"ok": True, "tickets": [tickets.get(data, r["id"]) for r in tickets.list_tickets(data)],
+                             "leases": tickets.leases(data)}
             if rest.isdigit():
                 return 200, {"ok": True, "ticket": tickets.get(data, int(rest))}
         elif method == "POST":
-            m = re.fullmatch(r"(\d+)/(approve|decline|reopen)", rest)
+            m = re.fullmatch(r"(\d+)/(approve|decline|reopen|disown)", rest)
             if m:
                 done = getattr(tickets, m.group(2))(data, int(m.group(1)), operator=tickets.OPERATOR_UI)
                 return 200, {"ok": True, "ticket": done}

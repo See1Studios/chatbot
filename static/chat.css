@@ -1178,6 +1178,9 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
 .obs-title{flex:1;min-width:8rem;word-break:break-word}
 .obs-badge{font-size:.68rem;padding:.05rem .45rem;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
 .obs-badge.open,.obs-badge.proposed,.obs-badge.approved{color:var(--accent2);border-color:var(--accent-border)}
+/* LEASE_SCOPE_v1: waiting for files another ticket holds; another agent's own ticket */
+.obs-badge.queued{color:#e3b341;border-color:rgba(227,179,65,.45)}
+.obs-badge.owner{color:#79c0ff;border-color:rgba(121,192,255,.35)}
 .obs-meta{color:var(--muted);font-size:.74rem;margin-top:.15rem;line-height:1.45}
 .obs-actions{display:flex;gap:.4rem;margin-top:.4rem}
 .obs-actions .art-btn{flex:0 0 auto}

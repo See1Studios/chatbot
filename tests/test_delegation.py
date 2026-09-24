@@ -98,6 +98,56 @@ class PlanTest(Base):
             self.plan([self.task(TIER0)], ticket_id=tid)
 
 
+class QueueTest(Base):
+    """[실행] on files another ticket holds waits in the queue and starts once they are free (LEASE_SCOPE_v1)."""
+
+    def hold(self, paths):
+        t, _ = tickets.propose(self.data, "other work", "other", [CAND])
+        tickets.approve(self.data, t["id"], operator=tickets.OPERATOR_UI)
+        return t["id"], tickets.claim(self.data, t["id"], paths=paths, actor="claude-code")["token"]
+
+    def test_go_on_held_files_queues_and_starts_when_they_are_free(self):
+        other, token = self.hold(TIER0)
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        res = delegation.go(tid)
+        self.assertTrue(res["queued"])
+        self.assertEqual(res["blocked_by"]["ticket"], other)
+        card = [r for r in delegation.runs() if r["ticket"] == tid][0]
+        self.assertEqual((card["phase"], card["blocked_by"]["paths"]), ("queued", TIER0))
+        self.assertEqual(self.spawned, [])
+        self.assertEqual(delegation.advance_queue(), [])           # still held
+        tickets.release(self.data, other, token, "abandoned")
+        self.assertEqual(delegation.advance_queue(), [tid])
+        self.assertEqual(self.state(tid)["phase"], "starting")
+        self.assertEqual(tickets.get(self.data, tid)["status"], "in_progress")
+
+    def test_go_on_other_files_starts_at_once(self):
+        self.hold(TIER2)
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        self.assertNotIn("queued", delegation.go(tid))
+        self.assertEqual(self.state(tid)["phase"], "starting")
+
+    def test_a_queued_run_can_be_taken_out_of_the_queue(self):
+        self.hold(TIER0)
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.go(tid)
+        code, body = delegation.delegation_api("POST", "/api/delegations/%d/unqueue" % tid, {})
+        self.assertEqual((code, body["phase"]), (200, "awaiting_go"))
+        self.assertEqual(delegation.advance_queue(), [])
+        with self.assertRaises(delegation.DelegationError):
+            delegation.unqueue(tid)
+
+    def test_a_queued_run_that_can_no_longer_start_is_marked_failed(self):
+        other, token = self.hold(TIER0)
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.go(tid)
+        tickets.decline(self.data, tid, operator=tickets.OPERATOR_UI)
+        tickets.release(self.data, other, token, "abandoned")
+        self.assertEqual(delegation.advance_queue(), [])
+        self.assertEqual(self.state(tid)["phase"], "failed")
+        self.assertIn("could not start from the queue", self.state(tid)["reason"])
+
+
 class OperatorTest(Base):
     def test_go_approves_as_the_operator_and_runs_the_plan_to_final_confirmation(self):
         tid = self.plan([self.task(TIER0), self.task(TIER2)])["ticket"]

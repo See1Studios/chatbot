@@ -24,6 +24,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -36,6 +37,7 @@ SEEN_FILE = DATA / "delegation_seen.json"
 ACTIVE_PHASES = ("starting", "running", "writing", "gates", "review", "merging")
 PASS_ENV = ("CHATBOT_ROOT", "CHATBOT_DATA")   # where the runner finds this instance; nothing secret
 MAX_RUNS = 20
+QUEUE_POLL_SEC = 10          # how often a queued [실행] checks whether its files came free
 _TITLE_MAX = 120
 _INSTRUCTION_MAX = 8000
 _lock = threading.Lock()
@@ -146,8 +148,10 @@ def request(title: str, paths, instruction: str, evidence, actor: str) -> Dict:
 
 # ------------------------------------------------------------- the operator decides
 
-def go(ticket_id: int) -> Dict:
-    """`[실행]`: approve the ticket if it still waits for that, claim it and launch the plan."""
+def go(ticket_id: int, queue: bool = True) -> Dict:
+    """`[실행]`: approve the ticket if it still waits for that, claim it and launch the plan. When another ticket
+    holds some of its files, it waits in the queue (phase `queued`) and starts on its own once they are free
+    (LEASE_SCOPE_v1)."""
     t = tickets.get(DATA, ticket_id)
     tid = t["id"]
     st = runner().read_state(tid)
@@ -166,8 +170,15 @@ def go(ticket_id: int) -> Dict:
         t = tickets.approve(DATA, tid, operator=tickets.OPERATOR_UI)
     if t["status"] != "approved":
         raise DelegationError("ticket %d is %s; only an approved ticket can be run" % (tid, t["status"]))
-    c = tickets.claim(DATA, tid, paths=st["paths"], actor=worker_role())
-    runner().write_state(tid, phase="starting", tier=tier, transcript=[], reason="")
+    try:
+        c = tickets.claim(DATA, tid, paths=st["paths"], actor=worker_role())
+    except tickets.TicketError as e:
+        if not (queue and _lock_busy(e)):
+            raise
+        blocked = tickets.get(DATA, tid).get("blocked_by") or {}
+        runner().write_state(tid, phase="queued", queued_at=time.time(), blocked_by=blocked, tier=tier, reason="")
+        return {"ticket": tid, "tier": tier, "queued": True, "blocked_by": blocked}
+    runner().write_state(tid, phase="starting", tier=tier, transcript=[], reason="", blocked_by={})
     args = ["run", "--ticket", str(tid), "--token", c["token"], "--plan-from-state"]
     return {"ticket": tid, "tier": tier, "pid": _launch(tid, c["token"], args)}
 
@@ -192,15 +203,14 @@ def merge(ticket_id: int) -> Dict:
     raw, phase = st.get("phase"), _phase(st)
     if not (raw == "awaiting_merge" or (raw == "merging" and phase == "stalled")):
         raise DelegationError("ticket %d has no delegated change awaiting a merge" % tid)
-    lease = tickets._read_lease(DATA)
-    if raw == "merging" and lease and lease.get("ticket") == tid:
-        tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI)   # back to awaiting_merge
+    if raw == "merging" and tickets._read_lease(DATA, tid):
+        tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI, ticket_id=tid)   # back to awaiting_merge
     m = tickets.merge_go(DATA, tid, operator=tickets.OPERATOR_UI, actor=worker_role())
     runner().write_state(tid, phase="merging")   # before the runner starts: it reads this state
     try:
         pid = _spawn(tid, ["merge", "--ticket", str(tid), "--token", m["token"], "--json"])
     except OSError as e:
-        tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI)   # back to awaiting_merge
+        tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI, ticket_id=tid)   # back to awaiting_merge
         runner().write_state(tid, phase="awaiting_merge")
         raise DelegationError("could not start the merge: %s" % e)
     return {"ticket": tid, "pid": pid}
@@ -213,9 +223,8 @@ def discard(ticket_id: int) -> Dict:
     st = r.read_state(tid)
     if _phase(st) in ACTIVE_PHASES:
         raise DelegationError("ticket %d is still running; wait for it to stop" % tid)
-    lease = tickets._read_lease(DATA)
-    if lease and lease.get("ticket") == tid:   # a stalled run still holds it
-        tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI)
+    if tickets._read_lease(DATA, tid):   # a stalled run still holds it
+        tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI, ticket_id=tid)
     t = tickets.decline(DATA, tid, operator=tickets.OPERATOR_UI)
     branch, wt_dir = r.names(tid)
     r.cleanup_worktree(r.CHATBOT_REPO, branch, wt_dir)
@@ -225,6 +234,60 @@ def discard(ticket_id: int) -> Dict:
                                "chore(tickets): #%d declined -- %s" % (tid, str(t.get("title", ""))[:80]))
     r.write_state(tid, phase="declined")
     return {"ticket": tid, "status": t["status"]}
+
+
+def unqueue(ticket_id: int) -> Dict:
+    """`[취소]` on a queued [실행]: back to a plan waiting for [실행]."""
+    tid = int(ticket_id)
+    if runner().read_state(tid).get("phase") != "queued":
+        raise DelegationError("ticket %d is not waiting in the queue" % tid)
+    runner().write_state(tid, phase="awaiting_go", blocked_by={}, queued_at=0)
+    return {"ticket": tid, "phase": "awaiting_go"}
+
+
+def _lock_busy(e: Exception) -> bool:
+    return "author lock is held" in str(e)
+
+
+def advance_queue() -> List[int]:
+    """Start queued runs whose files came free, oldest first. Returns the tickets started."""
+    d = runner().state_path(0).parent
+    if not d.is_dir():
+        return []
+    queued = []
+    for f in d.glob("ticket-*.json"):
+        try:
+            st = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if st.get("phase") == "queued" and st.get("ticket"):
+            queued.append((float(st.get("queued_at") or 0), int(st["ticket"])))
+    started = []
+    for _, tid in sorted(queued):
+        try:
+            go(tid, queue=False)
+            started.append(tid)
+        except (DelegationError, tickets.TicketError) as e:
+            if _lock_busy(e):                              # still waiting; keep what blocks it current
+                try:
+                    blocked = tickets.get(DATA, tid).get("blocked_by") or {}
+                    if blocked != runner().read_state(tid).get("blocked_by"):
+                        runner().write_state(tid, blocked_by=blocked)
+                except tickets.TicketError:
+                    pass
+                continue
+            runner().write_state(tid, phase="failed", reason="could not start from the queue: %s" % e)
+    return started
+
+
+def queue_loop(stop: Optional[threading.Event] = None) -> None:
+    """The chat server's watcher for queued runs (the tool server does not run it)."""
+    stop = stop or threading.Event()
+    while not stop.wait(QUEUE_POLL_SEC):
+        try:
+            advance_queue()
+        except Exception:  # noqa: BLE001 -- a bad state file must not end the watcher
+            pass
 
 
 # ------------------------------------------------------------------- launching
@@ -321,6 +384,7 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                     "tasks": [{k: t.get(k) for k in ("role", "title", "paths")}
                               for t in (st.get("plan") or {}).get("tasks", [])],
                     "transcript": st.get("transcript", []), "active": phase in ACTIVE_PHASES,
+                    "blocked_by": (st.get("blocked_by") or {}) if phase == "queued" else {},
                     "seen": seen.get(str(tid)) == st.get("rev")})
     return out
 
@@ -356,7 +420,7 @@ def delegation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tup
         if method == "GET" and rest == "":
             return 200, {"ok": True, "runs": runs(), "names": display_names()}
         if method == "POST":
-            m = re.fullmatch(r"(\d+)/(go|merge|rework|discard|seen)", rest)
+            m = re.fullmatch(r"(\d+)/(go|merge|rework|discard|seen|unqueue)", rest)
             if m:
                 tid, action = int(m.group(1)), m.group(2)
                 if action == "seen":
@@ -364,7 +428,8 @@ def delegation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tup
                     return 200, {"ok": True}
                 if action == "rework":
                     return 200, {"ok": True, **rework(tid, str((body or {}).get("comment") or ""))}
-                return 200, {"ok": True, **{"go": go, "merge": merge, "discard": discard}[action](tid)}
+                return 200, {"ok": True, **{"go": go, "merge": merge, "discard": discard,
+                                            "unqueue": unqueue}[action](tid)}
     except (DelegationError, tickets.TicketError) as e:
         return (404 if str(e).startswith("no such ticket") else 400), {"ok": False, "error": str(e)}
     return 404, {"ok": False, "error": "not found"}
