@@ -15,7 +15,7 @@ import characters  # noqa: E402
 
 def main(argv) -> int:
     try:
-        from adapters import AGENT_ADAPTERS
+        from providers.adapters import AGENT_ADAPTERS
         providers = sorted(AGENT_ADAPTERS)
     except Exception:  # noqa: BLE001
         providers = []

@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from adapters import AGENT_ADAPTERS, DEFAULT_PROVIDER, get_adapter, is_openrouter_free_model
+from providers.adapters import AGENT_ADAPTERS, DEFAULT_PROVIDER, get_adapter, is_openrouter_free_model
 from session import _billed_tokens, _current_context_tokens, _turn_billed
 from tool_format import _format_tool_call
 

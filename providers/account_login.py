@@ -27,7 +27,7 @@ from typing import Dict, Optional
 
 from host_config import AGY, CLAUDE_BIN, CODEX_BIN, GROK_BIN, AGENT_PATH_PREFIX
 
-import accounts
+from providers import accounts
 
 
 # Codex (and some other CLIs) colorize device URL/code with CSI sequences. Those

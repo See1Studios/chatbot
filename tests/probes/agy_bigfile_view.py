@@ -28,11 +28,11 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from adapters import AgyAdapter  # noqa: E402
+from providers.adapters import AgyAdapter  # noqa: E402
 from host_config import DEFAULT_MODEL, HOME, WORKSPACE  # noqa: E402
 from loop_guard import LoopGuard  # noqa: E402
 
-DEFAULT_FILE = str(Path(__file__).resolve().parents[2] / "adapters.py")
+DEFAULT_FILE = str(Path(__file__).resolve().parents[2] / "providers/adapters.py")
 
 
 def main() -> int:

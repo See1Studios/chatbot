@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import session as S  # noqa: E402
-from adapters import AgyAdapter  # noqa: E402
+from providers.adapters import AgyAdapter  # noqa: E402
 from tests.test_instructions import WorkspaceCase  # noqa: E402
 
 TOOL_DONE = {"event": "step_update", "step_update": {"step_index": 3, "state": "DONE", "step_type": "tool",
@@ -25,7 +25,7 @@ ACTION = "이 함수도 같이 고쳐줘"
 
 def stub_adapter(provider="agy", process=True):
     # capabilities, not the provider id, decide (PROVIDER_NEUTRAL_v1): steer is what agy's adapter declares
-    import adapters
+    from providers import adapters
     real = adapters.AGENT_ADAPTERS.get(provider)
     return types.SimpleNamespace(id=provider, keeps_stdin_open=process, transport_kind="process" if process else "http",
                                  format_stdin=lambda c: c, mints_own_conversation_id=lambda: provider != "agy",

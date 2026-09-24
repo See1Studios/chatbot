@@ -9,7 +9,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-from adapters import openai_chunk_model, stamp_served_model
+from providers.adapters import openai_chunk_model, stamp_served_model
 from tests.page_source import app_bundle  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +18,7 @@ APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
 CSS = STATIC / "chat.css"
 HTML = STATIC / "index.html"
 MD = STATIC / "markdown.js"
-ADAPTERS = ROOT / "adapters.py"
+ADAPTERS = ROOT / "providers/adapters.py"
 
 HARNESS = r"""
 const fs = require('fs');
@@ -78,7 +78,7 @@ class ServedModelStamp(unittest.TestCase):
 
 class ServedModelWiring(unittest.TestCase):
     def test_http_stream_returns_five_tuple(self) -> None:
-        src = "\n".join(p.read_text(encoding="utf-8") for p in sorted(ROOT.glob("adapter*.py")))   # ADAPTER_SPLIT_v1
+        src = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "providers").glob("adapter*.py")))   # ADAPTER_SPLIT_v1
         self.assertIn("finish_reason, hop_model = yield from self._stream_once", src)
         self.assertIn("return \"\".join(text_buf), tool_calls, usage, finish_reason, served_model", src)
         self.assertIn("chunk_model = openai_chunk_model(obj)", src)

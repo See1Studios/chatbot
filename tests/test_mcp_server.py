@@ -261,7 +261,7 @@ class WriteFileTest(Base):
         self.assertEqual(target.read_text(encoding="utf-8"), "two")
 
     def test_host_modules_are_protected(self):
-        for rel in ("server.py", "session.py", "adapters.py", "mcp_server.py", "mcp_core.py", "nas_mcp_host.py", "evolution.py",
+        for rel in ("server.py", "session.py", "providers/adapters.py", "mcp_server.py", "mcp_core.py", "nas_mcp_host.py", "evolution.py",
                     "brand_new_module.py"):
             self.assertProtected(rel)
 

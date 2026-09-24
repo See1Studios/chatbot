@@ -15,7 +15,7 @@ CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 
 import session as S
-from adapters import get_adapter
+from providers.adapters import get_adapter
 from tests.test_conversation_sync import Base
 
 

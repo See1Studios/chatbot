@@ -478,7 +478,7 @@ def reap_stray_cli_procs(provider: str, me: Optional[int] = None) -> list:
         return []
     me = os.getpid() if me is None else me
     try:
-        import account_login
+        from providers import account_login
         protect_pid = account_login.active_pid(provider)
     except Exception:
         protect_pid = None

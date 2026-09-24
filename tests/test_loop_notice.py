@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import session as S  # noqa: E402
-from adapters import AgyAdapter  # noqa: E402
+from providers.adapters import AgyAdapter  # noqa: E402
 from loop_guard import LoopGuard  # noqa: E402
 from tests.test_conversation_sync import Base as SyncBase  # noqa: E402
 from tests.test_steer import Base as SteerBase, stub_adapter  # noqa: E402

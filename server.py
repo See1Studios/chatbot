@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from adapters import AGENT_ADAPTERS, PROVIDER_META, get_adapter
+from providers.adapters import AGENT_ADAPTERS, PROVIDER_META, get_adapter
 from host_config import (
     DATA,
     DEFAULT_MODEL,
@@ -52,8 +52,8 @@ from session import (
     owned_agent_procs,
     recycle_agents,
 )
-import accounts
-import account_login
+from providers import accounts
+from providers import account_login
 import obslog
 import evolution
 import identity

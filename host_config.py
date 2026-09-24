@@ -1,6 +1,6 @@
 """Process-wide paths, env, and session-length constants for the chat host.
 
-Imported by server.py and adapters.py. Side effect: ensures data dirs exist.
+Imported by server.py and providers/. Side effect: ensures data dirs exist.
 """
 from __future__ import annotations
 

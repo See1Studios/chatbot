@@ -12,7 +12,7 @@ from typing import List, Optional, Tuple
 from artifact_manager import _atomic_write_text
 from host_config import AGENT_PATH_PREFIX, CLAUDE_BIN, HARD_TOKENS, SOFT_TOKENS, WORKSPACE, _now
 from tool_format import _format_tool_call, _format_tool_result
-from adapter_base import AgentAdapter, _redact_err
+from providers.adapter_base import AgentAdapter, _redact_err
 
 
 class ClaudeAdapter(AgentAdapter):

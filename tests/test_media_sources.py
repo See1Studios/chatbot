@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import adapters  # noqa: E402,F401  (registers the sources)
+from providers import adapters  # noqa: E402,F401  (registers the sources)
 import media_handler as MH  # noqa: E402
 import session as S  # noqa: E402
 from tests.test_instructions import WorkspaceCase  # noqa: E402

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import obslog
-from adapters import get_adapter
+from providers.adapters import get_adapter
 from host_config import (
     ADD_DIRS,
     DATA,

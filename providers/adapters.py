@@ -16,21 +16,21 @@ from typing import Dict
 from host_config import DATA, DEFAULT_PROVIDER
 
 # ADAPTER_SPLIT_v1: one module per provider; every name is re-exported here, so callers keep `from adapters import ...`.
-from adapter_base import (  # noqa: E402,F401
+from providers.adapter_base import (  # noqa: E402,F401
     _redact_err,
     AgentAdapter,
     openai_chunk_model,
     stamp_served_model,
 )
-from adapter_agy import (  # noqa: E402,F401
+from providers.adapter_agy import (  # noqa: E402,F401
     AGY_PRINT_TIMEOUT_SEC,
     AgyAdapter,
     AgyMediaSource,
 )
-from adapter_claude import (  # noqa: E402,F401
+from providers.adapter_claude import (  # noqa: E402,F401
     ClaudeAdapter,
 )
-from adapter_grok import (  # noqa: E402,F401
+from providers.adapter_grok import (  # noqa: E402,F401
     _grok_tool_display,
     _grok_tool_output_text,
     _GROK_PERIOD_LABEL,
@@ -41,12 +41,12 @@ from adapter_grok import (  # noqa: E402,F401
     GrokAdapter,
     GrokMediaSource,
 )
-from adapter_codex import (  # noqa: E402,F401
+from providers.adapter_codex import (  # noqa: E402,F401
     _codex_rate_limit_to_rows,
     _fetch_codex_rate_limits,
     CodexAdapter,
 )
-from adapter_openai import (  # noqa: E402,F401
+from providers.adapter_openai import (  # noqa: E402,F401
     OPENROUTER_FREE_ROUTERS,
     is_openrouter_free_model,
     NAS_MCP_URL,

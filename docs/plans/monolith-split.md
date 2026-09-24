@@ -144,6 +144,8 @@ server.py`, `node --check static/app.js`, `chatbot-ctl.sh guard`. 라이브는
 
 4. ✅ **`adapters.py`** (ADAPTER_SPLIT_v1, #122): 2,422줄 → 허브 138줄(목록·`get_adapter`·다시 내보내기) + `adapter_base`(298, 프로바이더 이름 없음 — 중립성 테스트 대상) + `adapter_agy/claude/grok/codex/openai`(299–627). 모든 프로바이더 파일은 `adapter_base`에만 의존. `tests/test_file_sizes.py`: 파이썬 모듈 1,500줄 상한, 이미 넘은 `session.py`·`server.py`는 현재 크기가 천장.
 
+5. ✅ **폴더 시범 `providers/`** (FOLDERS_PROVIDERS_v1, #123): 프로바이더 모듈 9개를 `providers/`로(파일 이름 유지). 호출부는 `from providers import accounts` / `from providers.adapters import ...`로 모듈 이름을 그대로 둬서 사용처는 안 바뀜 — import 47줄, 문자열 경로 몇 곳. 발견: 보호 규칙 `*.py`는 루트만 덮어서, 옮기기만 하면 코드가 보호에서 빠진다 → `protected_paths.json`에 `providers/`, 가드 `tests/test_code_layout.py`. 나머지 폴더(`core/`·`sessions/`·`team/`·`ops/`)는 보류(사용자, 2026-09-24): 새 파일은 그룹 접두어로.
+
 알려진 것: 테스트를 한 프로세스에서 한꺼번에(`unittest discover`) 돌리면 ~40개가 실패한다 — 몇 모듈이 전역(`instructions.WORKSPACE` 등)을 임시 폴더로 바꾸고 되돌리지 않아서. 규칙은 모듈별 실행(`for f in tests/test_*.py; do python3 -m unittest tests.$(basename $f .py); done`). 격리 정리는 별도 작업.
 
 ## 검증 방법 (매 Phase 공통)

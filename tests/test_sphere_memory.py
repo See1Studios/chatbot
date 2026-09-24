@@ -227,7 +227,7 @@ class LiveCatalog(unittest.TestCase):
 
 class ClaudeAllowlist(unittest.TestCase):
     def test_claude_may_call_wiki(self):
-        import adapters
+        from providers import adapters
         self.assertIn("wiki", adapters.ClaudeAdapter._NAS_MCP_TOOLS)
         self.assertNotIn("tech_memory", adapters.ClaudeAdapter._NAS_MCP_TOOLS)
 

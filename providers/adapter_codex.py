@@ -13,7 +13,7 @@ from typing import List, Optional, Tuple
 
 from host_config import AGENT_PATH_PREFIX, CODEX_BIN, HARD_TOKENS, SOFT_TOKENS, _now
 from tool_format import _format_tool_call, _format_tool_result
-from adapter_base import AgentAdapter
+from providers.adapter_base import AgentAdapter
 
 
 def _codex_rate_limit_to_rows(payload: dict) -> List[dict]:

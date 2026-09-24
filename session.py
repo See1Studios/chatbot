@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-from adapters import _persona_system_prompt, get_adapter
+from providers.adapters import _persona_system_prompt, get_adapter
 from instructions import build_instruction_bundle
 from identity import display_name, user_title
 

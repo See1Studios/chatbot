@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from host_config import AGENT_PATH_PREFIX, AGY, MODELS, WORKSPACE
-from adapter_base import AgentAdapter, _redact_err
+from providers.adapter_base import AgentAdapter, _redact_err
 import media_handler as _media
 
 

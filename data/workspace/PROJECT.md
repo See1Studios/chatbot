@@ -13,12 +13,12 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 
 ## Where to edit
 
-새 파일 전에 해당 칸을 고친다. 페이지 스크립트는 한 파일 1,000줄 미만(`tests/test_page_scripts.py`, `docs/plans/monolith-split.md` Phase 5).
+새 파일 전에 해당 칸을 고친다. 코드 폴더를 새로 만들면 `protected_paths.json`에 넣는다(`tests/test_code_layout.py`). 새 모듈은 그룹 접두어를 붙인다(`session_`, `adapter_`, …). 페이지 스크립트는 한 파일 1,000줄 미만(`tests/test_page_scripts.py`, `docs/plans/monolith-split.md` Phase 5).
 
 | 작업 | 파일 |
 |---|---|
 | 경로·포트·env·토큰 임계값 | `host_config.py` |
-| 프로바이더 CLI/HTTP | `adapters.py`(목록·`get_adapter`) + `adapter_base.py`(공통) + `adapter_<agy|claude|grok|codex|openai>.py`(프로바이더별), `data/providers.json` |
+| 프로바이더 CLI/HTTP·계정 | `providers/`: `adapters.py`(목록·`get_adapter`) + `adapter_base.py`(공통) + `adapter_<agy|claude|grok|codex|openai>.py`, `accounts.py`·`account_login.py`; `data/providers.json` |
 | 세션 수명·스폰·lock / 세션 목록·최신 찾기 / 가중치·/btw / 대기 풀 | `session.py` / `session_registry.py` / `session_weights.py` / `standby_pool.py` |
 | 아티팩트 저장 / 미디어 | `artifact_manager.py` / `media_handler.py` |
 | HTTP 라우트 / 프리뷰 화이트리스트 | `server.py` / `preview_guard.py` |
@@ -43,7 +43,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 
 ## Harness
 
-- 기본 프로바이더 `agy`. 어댑터 SSOT `adapters.py` `AGENT_ADAPTERS`, 세션 `meta.json` `provider`로 복원. 프로바이더별 계약은 어댑터에만(이 파일·`AGENTS.md`·`PERSONA.md`에 복사 금지). 하네스 전용 규칙도 어댑터·ctl에.
+- 기본 프로바이더 `agy`. 어댑터 SSOT `providers/adapters.py` `AGENT_ADAPTERS`, 세션 `meta.json` `provider`로 복원. 프로바이더별 계약은 어댑터에만(이 파일·`AGENTS.md`·`PERSONA.md`에 복사 금지). 하네스 전용 규칙도 어댑터·ctl에.
 - 스폰 가시 루트는 `services/chatbot`, `<웹 루트>/chat`만. 홈·`.hermes`·웹 루트·`services` 전체 add-dir 금지. 넓힐 때는 DEVLOG에 사유, 최소만.
 
 ## Git

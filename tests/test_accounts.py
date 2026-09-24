@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import accounts  # noqa: E402
+from providers import accounts  # noqa: E402
 
 OLD, NEW = "old@example.com", "new@example.com"
 

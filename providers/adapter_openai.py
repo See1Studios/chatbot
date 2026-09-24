@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from urllib.request import Request, urlopen
 
 from tool_format import _format_tool_call, _format_tool_result
-from adapter_base import AgentAdapter, openai_chunk_model
+from providers.adapter_base import AgentAdapter, openai_chunk_model
 
 
 OPENROUTER_FREE_ROUTERS = frozenset({"openrouter/free"})

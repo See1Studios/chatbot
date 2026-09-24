@@ -12,7 +12,7 @@ CEILINGS = {"session.py": 2335, "server.py": 1538}   # over the cap already: no 
 
 
 def modules():
-    return sorted(list(ROOT.glob("*.py")) + list((ROOT / "tools").glob("*.py")))
+    return sorted(list(ROOT.glob("*.py")) + list((ROOT / "tools").glob("*.py")) + list((ROOT / "providers").glob("*.py")))
 
 
 class FileSizes(unittest.TestCase):

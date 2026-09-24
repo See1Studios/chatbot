@@ -125,8 +125,8 @@ class HttpTest(Base):
 class NoHardcodedNamesGuard(unittest.TestCase):
     """The principle, enforced: runtime code holds no persona/title/user-title literal."""
 
-    FILES = ["server.py", "session.py", "adapters.py", "host_config.py", "instructions.py",
-             "accounts.py", "identity.py", "tool_format.py"]
+    FILES = ["server.py", "session.py", "providers/adapters.py", "host_config.py", "instructions.py",
+             "providers/accounts.py", "identity.py", "tool_format.py"]
 
     def test_no_string_literal_names_the_persona_or_user(self):
         offenders = []
@@ -209,7 +209,8 @@ class NameNeutralityGuard(unittest.TestCase):
         return out
 
     def test_python_everywhere(self):
-        files = sorted(ROOT.glob("*.py")) + sorted((ROOT / "data" / "workspace" / "tools").glob("*.py"))
+        files = sorted(ROOT.glob("*.py")) + sorted((ROOT / "providers").glob("*.py"))
+        files += sorted((ROOT / "data" / "workspace" / "tools").glob("*.py"))
         files += sorted(p for p in (ROOT / "data" / "workspace" / ".agents" / "skills").rglob("*.py")
                         if "sessions" not in p.parts and "__pycache__" not in p.parts)
         offenders = [o for f in files for o in self.py_offenders(f)]

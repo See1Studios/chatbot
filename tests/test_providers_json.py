@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from adapters import (
+from providers.adapters import (
     AGENT_ADAPTERS,
     PROVIDERS_JSON,
     get_adapter,

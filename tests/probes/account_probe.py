@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-import accounts  # noqa: E402
+from providers import accounts  # noqa: E402
 
 SOURCES = {
     "agy": lambda: accounts.AGY_TOKEN,

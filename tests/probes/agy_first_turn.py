@@ -31,7 +31,7 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from adapters import AgyAdapter  # noqa: E402
+from providers.adapters import AgyAdapter  # noqa: E402
 from host_config import DEFAULT_MODEL, HOME, WEB_ROOT, WORKSPACE  # noqa: E402
 
 AGY_LOG_GLOB = os.path.expanduser("~/.gemini/antigravity-cli/log/cli-*.log")

@@ -57,7 +57,7 @@ web
   (`data/secrets.env`의 `CHATBOT_OMNIROUTE_API_KEY` / `OPENROUTER_API_KEY`)이
   공존. OpenRouter는 JSON `free_only`로 무료 모델(`:free` 및 `openrouter/free`)만
   노출·호출한다. 프로바이더별 프로세스 모델(지속형 vs one-shot exec vs HTTP)과
-  사용량 체계가 서로 다름 (`adapters.py`의 `AGENT_ADAPTERS`).
+  사용량 체계가 서로 다름 (`providers/adapters.py`의 `AGENT_ADAPTERS`).
 - **MCP 연동**: `mcp_server.py`(포트 3012, 서버 이름 `nas`) — 파일
   읽기/쓰기(화이트리스트), 명령 실행(화이트리스트), 그리고 코어 도구(`memory`·
   `observation`·`ticket`, `mcp_core.py`). 이 NAS의 서비스 목록/제어·호스트 상태
@@ -70,7 +70,7 @@ web
   FAB 소생 / `POST /api/host/defibrillate` / `chatbot-ctl.sh repair` 만
   재기동한다 (`SELF-MODIFY.md` + host-force ticket).
 - **자가진화형(self-evolving)**: 실장님의 피드백을 받아 챗봇 스스로
-  자기 코드(`server.py`/`session.py`/`adapters.py`/`host_config.py`/
+  자기 코드(`server.py`/`session.py`/`providers/`/`host_config.py`/
   `tool_format.py`/`mcp_server.py`/`static/`)를 고치고 `docs/DEVLOG.md`에 기록 —
   단, 라이브 세션 중 자기 자신을 직접 재기동하지는 않음.
 - **하네스 독립 페르소나**: 백엔드가 바뀌어도 호칭·말투·외형은 유지됨 —

@@ -410,7 +410,7 @@ def experts_overview() -> dict:
     providers = _runner_providers()
     models = {}
     try:
-        from adapters import AGENT_ADAPTERS
+        from providers.adapters import AGENT_ADAPTERS
         for pid in providers:
             if pid in AGENT_ADAPTERS:
                 models[pid] = list(AGENT_ADAPTERS[pid].known_models())[:40]

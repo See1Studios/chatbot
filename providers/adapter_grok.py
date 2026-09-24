@@ -14,7 +14,7 @@ from urllib.request import Request, urlopen
 
 from host_config import AGENT_PATH_PREFIX, GROK_BIN, HARD_TOKENS, HOME, SOFT_TOKENS, WORKSPACE
 from tool_format import _format_tool_call, _format_tool_result
-from adapter_base import AgentAdapter
+from providers.adapter_base import AgentAdapter
 import media_handler as _media
 
 

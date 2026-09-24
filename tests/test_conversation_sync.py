@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import session as S  # noqa: E402
-from adapters import AgyAdapter, AGY_PRINT_TIMEOUT_SEC  # noqa: E402
+from providers.adapters import AgyAdapter, AGY_PRINT_TIMEOUT_SEC  # noqa: E402
 from tests.test_instructions import WorkspaceCase  # noqa: E402
 import session_weights as SW  # noqa: E402
 
@@ -30,7 +30,7 @@ class Base(WorkspaceCase):
         SW.HOME = S.HOME                                             # _conversation_db_path uses session_weights.HOME
         (S.HOME / ".gemini" / "antigravity-cli" / "conversations").mkdir(parents=True, exist_ok=True)
         s = S.AgentSession("t", provider="agy")
-        import adapters
+        from providers import adapters
         s.adapter = types.SimpleNamespace(id="agy", keeps_stdin_open=False, transport_kind="process",
                                           format_stdin=lambda c: c, mints_own_conversation_id=lambda: False,
                                           # a store-backed CLI (agy's real check), not "because the id is agy"
