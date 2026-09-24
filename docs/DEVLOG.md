@@ -3,6 +3,17 @@
 최근 항목만 여기 둔다(맨 위가 최신). 지난 날짜는 `docs/devlog/YYYY-MM-DD.md` — 코드가 "2026-09-17 DEVLOG"를 가리키면 그 파일이다.
 이 파일이 40KB를 넘으면 가장 오래된 날짜를 `docs/devlog/`로 옮긴다(`tests/test_docs_budget.py`).
 
+## 2026-09-24 — 사적 모드 액션 선택지 · 직접 행동 입력 · 표정 연동 · 속마음 연출 (PRIVATE_INTERACTION_v1, 티켓 #130)
+
+- **배경**: 실장님 제안 — `character-chat` 서비스의 검증된 상호작용 메커니즘을 참고하여 See1 챗봇 규격에 맞게 흡수 및 리네이밍. 지문/대사 분리, 표정 태그 연동, 속마음 토글 박스, 액션 선택지 및 직접 행동 전달 방식 구현.
+- **변경**:
+  - 표정 태그 연동 (`static/markdown.js`, `static/chat-log.css`): 응답 헤더의 `[expression: neutral|joy|shy|serious|sorrow|tired]`를 파싱해 메시지 상단에 감정 뱃지(`.exp-badge`)로 렌더링하고 마크다운 본문에서는 깔끔하게 제거.
+  - 속마음 독백 연출 (`static/markdown.js`, `static/chat-log.css`): SimCore `state` JSON 블록의 `thought` 및 `<thought>` 태그를 본문에서 분리, 하단에 '속마음 보기' 토글 버튼(`.thought-toggle`)과 독백 상자(`.thought-box`)로 연출.
+  - 액션 선택지 (`static/markdown.js`, `static/chat-log.css`): `<!--choices: 라벨 -> 행동 | ...-->` 화살표 구문 파싱 지원, 선택지 버튼에 `✦ ` 및 `.choice-action` 스타일 적용, 클릭 시 사용자 말풍선 없이 즉시 지문 액션 발송.
+  - 직접 행동 입력 (`static/app.js`, `static/slash.js`, `static/app-messages.js`): `/act <행동>` 슬래시 명령어 등록 및 `sendAction()` 연동. 사용자 입력창에서 행동 전달 시 대화 말풍선 대신 지문(`.msg.action`)으로 표시하고 모델에는 `(<행동>)` 지문으로 전달.
+- **검증**: `tests/test_choice_chips.py` 8개 테스트 전체 통과(액션 선택지, 표정, 속마음, 화살표 구문), `tests/test_page_scripts.py` 4개 통과(1,000줄 미만 유지), `tests/smoke.py` 및 관련 테스트 전체 통과.
+- **배포**: 정적 UI 자산이므로 브라우저 새로고침(Ctrl+Shift+R / F5)으로 즉시 적용.
+
 ## 2026-09-24 (오후) — 세션 조회 캐시 · 파일 단위 잠금 · 테스트 기준선 · app.js 분리 (SESSION_INDEX_v1 … APP_SPLIT_v1, 티켓 #113–#117)
 
 - **배경**: 사용자 "전체적으로 반응이 나빠진 것 같아"; 이번 대화에서 드러난 불편(잠금 하나에 다른 작업이 막힘, 막힌 [진행]이 조용히 실패, 남의 티켓에 버튼) 1–3번 개선 승인; "리팩토링 한 번 해야 하지 않을까?" → 추천안(안전망 → app.js → session.py) 승인.

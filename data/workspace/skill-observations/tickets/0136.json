@@ -1,0 +1,45 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-24 16:41:40",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "closed_by": "chat-agent:claude",
+ "closed_reason": "done",
+ "created": "2026-09-24 16:40:24",
+ "evidence": [
+  "log:rid:2a12ab4b25be",
+  "log:rid:07761674fc58"
+ ],
+ "gate_failures": 0,
+ "id": 136,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-24 16:41:40"
+  },
+  {
+   "by": "agent:chat-agent:claude",
+   "text": "claimed (attempt 1/3); paths: session_registry.py",
+   "ts": "2026-09-24 16:41:46"
+  },
+  {
+   "by": "agent:chat-agent:claude",
+   "text": "done: e9d3d05: Registry.get fills the default character via _character_id. Verified: bare id -> char_01m376…, tools [delegate, house-memory]. Related tests (27) pass; the 7 modules that fail do so identically with and without the fix (9 failures, 3 errors, pre-existing). No new test: the ticket scope was session_registry.py only. Needs ⚡소생. Follow-ups not done: UI latching onto a doctor-probe session; Registry.get resurrecting deleted sessions.",
+   "ts": "2026-09-24 16:48:11"
+  },
+  {
+   "by": "agent:chat-agent:claude",
+   "text": "done",
+   "ts": "2026-09-24 16:48:11"
+  }
+ ],
+ "paths": [
+  "session_registry.py"
+ ],
+ "status": "done",
+ "target": "session_registry.py (registry.get: a session built from a bare id names the defa",
+ "title": "SESSION_GET_CHARACTER_v1: 지워진 세션 ID로 요청이 오면 캐릭터 없이 되살아나 PD 권한(delegate)이 막힘",
+ "updated": "2026-09-24 16:48:11",
+ "worked_by": "chat-agent:claude"
+}

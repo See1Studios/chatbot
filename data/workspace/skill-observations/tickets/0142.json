@@ -1,0 +1,34 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-24 18:03:46",
+ "approved_by": "operator (ui)",
+ "attempts": 0,
+ "created": "2026-09-24 18:02:55",
+ "evidence": [
+  "event:20260924-172100-c22fe0#220",
+  "event:20260924-172100-c22fe0#18"
+ ],
+ "gate_failures": 0,
+ "id": 142,
+ "notes": [
+  {
+   "by": "agent:chat-agent:claude",
+   "text": "Scope, from #140 runs 1-2 (transcripts ~/.worktrees/chatbot/transcripts/ticket-140-*):\n(A) runner: review_prompt drops instruction[:2000] cut; prompts go to the CLI on stdin where the provider reads it (claude -p, codex exec), lifting the 128 KiB argv cap, so DIFF_LIMIT can grow; argv stays for agy/grok.\n(B) runner: a worker line `NEED_PATH: <repo path> — <why>` does not burn a round: the run stops as phase=needs_path (branch kept, lease released), the card shows the request; the operator's OK a",
+   "ts": "2026-09-24 18:03:02"
+  },
+  {
+   "by": "agent:chat-agent:claude",
+   "text": "(B) also needs the card UI and its route: static/app-evolution.js (show NEED_PATH request, [경로 허용] button) and the server route calling delegation's add-path action. Host modules change (delegation.py, server.py) -> ⚡소생 after landing.",
+   "ts": "2026-09-24 18:03:06"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-24 18:03:46"
+  }
+ ],
+ "status": "approved",
+ "target": "tools/worktree_runner.py, tickets.py, delegation.py, data/workspace/roles/pd/pro",
+ "title": "DELEGATION_HARDENING_v1: 위임 절차 보강 — 지시문 잘림·요청 표준입력·경로 요청 통로·장애는 시도 제외·PD 계획 규모 상한",
+ "updated": "2026-09-24 18:03:46"
+}
