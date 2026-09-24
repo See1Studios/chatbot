@@ -313,12 +313,24 @@ function pickChoice(choice) {
   if (typeof send === 'function') send();
 }
 
+function getChoiceBarEl() {
+  if (typeof document !== 'undefined' && document && typeof document.getElementById === 'function') {
+    const el = document.getElementById('choiceBar');
+    if (el) return el;
+  }
+  if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
+    return choiceBarEl;
+  }
+  return null;
+}
+
 function renderChoiceChips(node, choices) {
   const md = node ? (node.querySelector('.md') || node) : null;
   if (md) md.querySelectorAll('.choice-chips').forEach(el => el.remove());
-  if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
-    choiceBarEl.textContent = '';
-    choiceBarEl.hidden = true;
+  const bar = getChoiceBarEl();
+  if (bar) {
+    bar.textContent = '';
+    bar.hidden = true;
   }
   if (!choices || !choices.length) return;
 
@@ -349,9 +361,9 @@ function renderChoiceChips(node, choices) {
   });
   card.appendChild(row);
 
-  if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
-    choiceBarEl.appendChild(card);
-    choiceBarEl.hidden = false;
+  if (bar) {
+    bar.appendChild(card);
+    bar.hidden = false;
   } else if (md) {
     md.appendChild(card);
   }
@@ -367,9 +379,10 @@ function syncChoiceChips() {
   const hasChoicesOnLast = last && ((last._choices && last._choices.length) || last.querySelector('.choice-chips'));
   const isAssistant = last && (last.classList ? last.classList.contains('assistant') : /\bassistant\b/.test(last.className || ''));
   if (!last || !isAssistant || !hasChoicesOnLast) {
-    if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
-      choiceBarEl.textContent = '';
-      choiceBarEl.hidden = true;
+    const bar = getChoiceBarEl();
+    if (bar) {
+      bar.textContent = '';
+      bar.hidden = true;
     }
   }
   logEl.querySelectorAll('.choice-chips').forEach(row => {
