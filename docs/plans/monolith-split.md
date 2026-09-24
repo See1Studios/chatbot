@@ -140,7 +140,7 @@ server.py`, `node --check static/app.js`, `chatbot-ctl.sh guard`. 라이브는
    - 부분: `app-api`(api·탭 전환·소생) `app-device`(위치·시간대) `app-messages`(말풍선·공지·푸터·TTS·스크롤) `app-turn`(전송 버튼·진행 표시) `app-activity`(로그 탭) `app-evolution`(개선 탭·티켓·작업 카드) `app-status`(상태 탭: 프로바이더·계정·로그인·사용량·지침·스킬·MCP·훅) `app-sessions-tab` `app-team` `app-sse`(`bindEvents`) `app-session`(모드 전환·세션 열기·재동기화·스크롤백·최신 점프) `app-characters`(정체성·캐릭터·프로바이더 선택기) `app-viewport`(입력창 높이·키보드).
    - 테스트: `tests/page_source.py`가 `index.html` 순서대로 이어 붙인 합본을 주고(파일마다 `// ==== file:` 표시), 잘라 읽는 node 테스트는 그걸 읽는다. `tests/test_page_scripts.py`: 부분마다 1,000줄 미만, 모든 부분이 `app.js`보다 먼저 로드, 가짜 브라우저에서 전체를 순서대로 로드해 로드 시 오류 0.
    - 새 부분을 만들 때: 선언만 두고, 로드 때 도는 문장은 `app.js`에, `index.html`에서 `app.js` 앞에 태그.
-3. **`session.py`**: 세션 목록·조회(Registry, SESSION_INDEX_v1 캐시, 이전 함수)를 `session_registry.py`로.
+3. ✅ **`session.py`** (REGISTRY_SPLIT_v1, #118): 세션 목록·조회(`Registry`, 최신 세션 찾기, SESSION_INDEX_v1 요약 캐시, 세션 캐릭터 이전, 첫 두뇌)를 `session_registry.py`(297줄)로. `session.py` 2,601 → 2,335줄. `session.py`가 같은 이름으로 다시 내보내므로 호출부는 그대로(`from session import REG, Registry`). 새 모듈은 `session`의 값(SESSIONS·WORKSPACE·AgentSession·기본값)을 복사하지 않고 부를 때마다 읽는다 — 테스트가 `session.SESSIONS`를 임시 폴더로 바꾸기 때문. `session_registry`는 직접 import하지 않는다(`session`을 통해서만).
 
 알려진 것: 테스트를 한 프로세스에서 한꺼번에(`unittest discover`) 돌리면 ~40개가 실패한다 — 몇 모듈이 전역(`instructions.WORKSPACE` 등)을 임시 폴더로 바꾸고 되돌리지 않아서. 규칙은 모듈별 실행(`for f in tests/test_*.py; do python3 -m unittest tests.$(basename $f .py); done`). 격리 정리는 별도 작업.
 

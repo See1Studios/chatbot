@@ -19,7 +19,7 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 |---|---|
 | 경로·포트·env·토큰 임계값 | `host_config.py` |
 | 프로바이더 CLI/HTTP | `adapters.py`, `data/providers.json` |
-| 세션 수명·스폰·lock / 가중치·/btw / 대기 풀 | `session.py` / `session_weights.py` / `standby_pool.py` |
+| 세션 수명·스폰·lock / 세션 목록·최신 찾기 / 가중치·/btw / 대기 풀 | `session.py` / `session_registry.py` / `session_weights.py` / `standby_pool.py` |
 | 아티팩트 저장 / 미디어 | `artifact_manager.py` / `media_handler.py` |
 | HTTP 라우트 / 프리뷰 화이트리스트 | `server.py` / `preview_guard.py` |
 | 워크스페이스 상태 / 툴 로그 포맷 | `workspace_status.py` / `tool_format.py` |

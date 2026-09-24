@@ -11,6 +11,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import session as S  # noqa: E402
+import session_registry as SR  # noqa: E402
 
 
 class SessionIndex(unittest.TestCase):
@@ -67,7 +68,7 @@ class SessionIndex(unittest.TestCase):
         self.write("20260921-090000-bbbbbb")
         self.assertEqual(self.reg.get_active().sid, "20260921-090000-bbbbbb")
         self.write("20260921-100000-aaaaaa")                          # another process flips it to work
-        with mock.patch.object(S, "_META_RESCAN_SEC", 0.0):
+        with mock.patch.object(SR, "_META_RESCAN_SEC", 0.0):
             self.assertEqual(self.reg.get_active().sid, "20260921-100000-aaaaaa")
 
 
