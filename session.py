@@ -1559,7 +1559,10 @@ class AgentSession:
                 self._loop_hint = STEER_HINT
                 self.interrupt_current_turn(reason="steer")
 
-        self._send_direct(text, client_mid, client_context=client_context, event_type=event_type)
+        kw = {"event_type": event_type} if event_type else {}
+        if client_context:
+            kw["client_context"] = client_context
+        self._send_direct(text, client_mid, **kw)
         return None
 
     def _send_direct(self, text: str, client_mid: str = "", client_context: Optional[Dict[str, Any]] = None,
