@@ -203,6 +203,81 @@ process.stdout.write(JSON.stringify({
         self.assertEqual(res["cardClass"], "choice-card")
         self.assertEqual(res["chipCount"], 2)
 
+    def test_sync_keeps_the_bar_its_newest_message_drew(self):
+        """#148: the card sits in #choiceBar, outside the bubble. Choices drawn from the marker (result event, resync,
+        history -- the paths a phone takes) set no _choices, and syncChoiceChips right after must not hide them."""
+        md_file = ROOT / "static" / "markdown.js"
+        js = r"""
+const src = require('fs').readFileSync(process.argv[process.argv.length - 1], 'utf8');
+function el(tag) {
+  return { tag, className: '', textContent: '', children: [], attrs: {}, hidden: true, parent: null,
+    setAttribute(k, v) { this.attrs[k] = v; }, addEventListener() {},
+    appendChild(c) { c.parent = this; this.children.push(c); return c; },
+    remove() { if (this.parent) this.parent.children = this.parent.children.filter(x => x !== this); },
+    contains(o) { for (let n = o; n; n = n.parent) if (n === this) return true; return false; },
+    querySelectorAll(sel) {
+      if (sel === '.msg:not(.system)') return this.children.filter(c => /\bmsg\b/.test(c.className));
+      const cls = sel.slice(1), out = [];
+      (function walk(n) { n.children.forEach(c => { if (c.className.split(' ').includes(cls)) out.push(c); walk(c); }); })(this);
+      return out;
+    },
+    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; } };
+}
+const logEl = el('div'), choiceBarEl = el('div');
+const a = src.indexOf('const CHOICES_TAIL'), b = src.indexOf('function postProcessAssistant');
+const api = new Function('logEl', 'choiceBarEl', 'document', src.slice(a, b) +
+  ';return { splitChoices, renderChoiceChips, syncChoiceChips };')(logEl, choiceBarEl, { createElement: el });
+function msg(cls) { const m = el('div'); m.className = cls; const md = el('div'); md.className = 'md'; m.appendChild(md); logEl.appendChild(m); return m; }
+const m = msg('msg assistant');
+api.renderChoiceChips(m, api.splitChoices('골라\n<!--choices: A | B-->').choices);
+api.syncChoiceChips();
+const kept = !choiceBarEl.hidden && choiceBarEl.children.length === 1;
+msg('msg user');
+api.syncChoiceChips();
+process.stdout.write(JSON.stringify({ kept, clearedAfterUser: choiceBarEl.hidden }));
+"""
+        r = subprocess.run(["node", "-e", js, str(md_file)], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout), {"kept": True, "clearedAfterUser": True})
+
+    def test_choices_event_before_the_first_chunk_waits_for_the_bubble(self):
+        """#148: a `choices` SSE event that beats the turn's first text chunk is held for the new bubble, not put on
+        the previous answer; a new user turn drops what no bubble took."""
+        js = r"""
+const src = require('fs').readFileSync(process.argv[process.argv.length - 1], 'utf8');
+const a = src.indexOf('let pendingChoices'), b = src.indexOf('function setAssistantContent', a);
+function el() {
+  return { className: '', dataset: {}, classList: { add() {} }, isConnected: true, children: [],
+    appendChild(c) { this.children.push(c); return c; },
+    querySelectorAll(sel) { return sel === '.msg.assistant' ? this.children.filter(c => /\bassistant\b/.test(c.className)) : []; } };
+}
+const logEl = el();
+const drawn = [];
+const deps = {
+  logEl, document: { createElement: el }, normalizeNoticeKind: () => '', NOTICE_KINDS: {}, getActionSvg: () => '',
+  stripNoticeChromeEmojis: t => t, renderMarkdown: t => t, parkSessionBanner() {}, scrollChatToBottom() {},
+  placeMsgByTs() {}, syncChoiceChips() {}, renderChoiceChips(n, c) { drawn.push(c); },
+  postProcessAssistant(node, isFinal, text, u, d, s, m, choices) { if (isFinal) drawn.push(choices); },
+};
+const names = Object.keys(deps);
+const api = new Function(...names, 'let assistantNode = null; let isBusy = true; let currentSessionHasUser = false;\n' +
+  src.slice(a, b) + ';return { handleChoicesEvent, addChat, get pending() { return pendingChoices; } };')(...names.map(k => deps[k]));
+const prev = api.addChat('assistant', '지난 답', true);
+drawn.length = 0;
+api.handleChoicesEvent({ event: 'choices', choices: ['A', 'B'] });
+const heldBeforeBubble = { prevUntouched: !prev._choices, drawnEarly: drawn.length };
+const bubble = api.addChat('assistant', '', false);
+const taken = bubble._choices;
+api.handleChoicesEvent({ event: 'choices', choices: ['stale'] });
+api.addChat('user', '다음 질문', false);
+const next = api.addChat('assistant', '', false);
+process.stdout.write(JSON.stringify({ heldBeforeBubble, taken, droppedOnUserTurn: next._choices === undefined && api.pending === null }));
+"""
+        r = subprocess.run(["node", "-e", js, str(app_bundle())], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout), {"heldBeforeBubble": {"prevUntouched": True, "drawnEarly": 0},
+                                                "taken": ["A", "B"], "droppedOnUserTurn": True})
+
 
 if __name__ == "__main__":
     unittest.main()

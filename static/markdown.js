@@ -331,6 +331,7 @@ function renderChoiceChips(node, choices) {
   if (bar) {
     bar.textContent = '';
     bar.hidden = true;
+    bar._owner = null;
   }
   if (!choices || !choices.length) return;
 
@@ -364,6 +365,7 @@ function renderChoiceChips(node, choices) {
   if (bar) {
     bar.appendChild(card);
     bar.hidden = false;
+    bar._owner = node;   // the card lives outside the bubble, so syncChoiceChips asks the bar whose it is
   } else if (md) {
     md.appendChild(card);
   }
@@ -376,13 +378,14 @@ function syncChoiceChips() {
   if (typeof logEl === 'undefined' || !logEl) return;
   const msgs = logEl.querySelectorAll('.msg:not(.system)');
   const last = msgs.length ? msgs[msgs.length - 1] : null;
-  const hasChoicesOnLast = last && ((last._choices && last._choices.length) || last.querySelector('.choice-chips'));
+  const bar = getChoiceBarEl();
+  const hasChoicesOnLast = last && ((last._choices && last._choices.length) || last.querySelector('.choice-chips') || (bar && bar._owner === last));
   const isAssistant = last && (last.classList ? last.classList.contains('assistant') : /\bassistant\b/.test(last.className || ''));
   if (!last || !isAssistant || !hasChoicesOnLast) {
-    const bar = getChoiceBarEl();
     if (bar) {
       bar.textContent = '';
       bar.hidden = true;
+      bar._owner = null;
     }
   }
   logEl.querySelectorAll('.choice-chips').forEach(row => {

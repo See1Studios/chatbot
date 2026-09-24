@@ -622,12 +622,20 @@ function textWithChoices(h) {
   return c.length ? text + '\n<!--choices: ' + c.join(' | ') + '-->' : text;
 }
 
+// A choices event can beat the turn's first text chunk (the tool runs before the answer streams): it waits here
+// for this turn's bubble instead of landing on the previous answer. addChat takes it; the next user turn drops it.
+let pendingChoices = null;
+
 function handleChoicesEvent(data) {
   if (!data) return;
   const choices = Array.isArray(data.choices) ? data.choices : (Array.isArray(data.items) ? data.items : null);
   if (!choices || !choices.length) return;
   if (typeof logEl === 'undefined' || !logEl) return;
   let target = (typeof assistantNode !== 'undefined' && assistantNode && assistantNode.isConnected) ? assistantNode : null;
+  if (!target && typeof isBusy !== 'undefined' && isBusy) {
+    pendingChoices = choices;
+    return;
+  }
   if (!target) {
     const assistants = logEl.querySelectorAll('.msg.assistant');
     if (assistants.length) target = assistants[assistants.length - 1];
@@ -670,6 +678,11 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
   div.dataset.syncRole = isBtw ? 'btw-user' : (role || '');
   if (ts) div.dataset.ts = String(ts);
   if (servedModel) div.dataset.servedModel = String(servedModel);
+  if (role === 'user' && !prepend) pendingChoices = null;
+  if (role === 'assistant' && !noticeKind && !prepend && !ts && !choices && pendingChoices) {
+    choices = pendingChoices;
+    pendingChoices = null;
+  }
   if (choices) div._choices = choices;
   if (role === 'assistant') {
     if (noticeKind) {
