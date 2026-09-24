@@ -278,6 +278,16 @@ process.stdout.write(JSON.stringify({ heldBeforeBubble, taken, droppedOnUserTurn
         self.assertEqual(json.loads(r.stdout), {"heldBeforeBubble": {"prevUntouched": True, "drawnEarly": 0},
                                                 "taken": ["A", "B"], "droppedOnUserTurn": True})
 
+    def test_keyboard_open_sizes_the_bars_from_the_visible_height(self):
+        """#148: with the phone keyboard up .wrap is --app-height tall and clips; #workBar's 40vh (layout viewport)
+        could fill it and push #choiceBar under the clip, so both bars are capped by --app-height there."""
+        import re
+        css = (ROOT / "static" / "chat-responsive.css").read_text(encoding="utf-8")
+        for sel in ("#workBar", "#choiceBar"):
+            m = re.search(r"body\.keyboard-open " + re.escape(sel) + r"\{([^}]*)\}", css)
+            self.assertIsNotNone(m, sel)
+            self.assertIn("max-height:calc(var(--app-height", m.group(1), sel)
+
 
 if __name__ == "__main__":
     unittest.main()

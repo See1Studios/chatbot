@@ -123,6 +123,16 @@ body.keyboard-open #send{
   padding:0 .5rem;
   font-size:.76rem;
 }
+/* .wrap is --app-height tall with overflow:hidden; #workBar's 40vh follows the layout viewport, which the
+   on-screen keyboard does not shrink, so it could fill the whole short wrap and push #choiceBar and the
+   composer below the clip. Size both bars from the visible height instead. */
+body.keyboard-open #workBar{
+  max-height:calc(var(--app-height, 100dvh) * .2);
+}
+body.keyboard-open #choiceBar{
+  max-height:calc(var(--app-height, 100dvh) * .35);
+  overflow-y:auto;
+}
 
 /* 2026-09-18 audit P2: no prefers-reduced-motion handling anywhere.
    Not one blanket `animation:none`: pulse-dot/token-heavy-pulse/chat-cursor-blink each layer
