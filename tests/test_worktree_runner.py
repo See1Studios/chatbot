@@ -157,6 +157,21 @@ class WorktreeRunner(unittest.TestCase):
         self.assertIn("timed out after 1s", " ".join(map(str, self.last_fail())))
         self.assert_clean_up()
 
+    def test_when_no_brain_can_work_the_attempt_is_not_counted(self) -> None:
+        # DELEGATION_HARDENING_v1: the last brain out of quota releases as `unavailable`, not `failed`
+        self.assertEqual(self.run_with("echo 'Error: quota exceeded' >&2; exit 1"), 1)
+        self.assertIn("unavailable", self.last_fail())
+        self.assert_clean_up()
+
+    def test_a_stdin_cli_gets_the_whole_instruction(self) -> None:
+        long = "x" * 3000 + " THE-END"
+        wr.PROVIDERS["fake"] = {"argv": ["sh", "-c", "cat > ../prompt.txt; echo two >> a.txt; git commit -qam c"],
+                                "stdin_prompt": [], "review_argv": ["sh", "-c", PASS], "model_flag": "-m",
+                                "actor": "fake-agent", "author": ("Fake", "fake@localhost")}
+        self.assertEqual(wr.main(["run", "--provider", "fake", "--title", "t", "--paths", "a.txt", "--prompt", long,
+                                  "--timeout", "30"]), 0)
+        self.assertIn("THE-END", (wr.WORKTREE_BASE / "prompt.txt").read_text())
+
     def test_main_that_moved_is_rebased_onto(self) -> None:
         script = ("echo two >> a.txt && git commit -qam change && "
                   "cd %s && echo c > c.txt && git add c.txt && git commit -qm main-moved" % self.repo)

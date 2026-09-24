@@ -8,6 +8,10 @@ Read when work is asked for. The every-turn part is `role.md`.
 - Flow: plan card → the user presses `[실행]` → each task is done by its worker in an isolated worktree → gates →
   you confirm it (at most two rounds) → the user presses `[승인]` to land it, `[반려]` to send it back with a
   comment, or `[폐기]` to drop it. Running, landing and dropping are the user's.
+- Size (DELEGATION_HARDENING_v1): one task = one concern, small enough to review whole (a few files, roughly 300
+  changed lines); split bigger work into more tasks or plans. `paths` are existing files (a guessed name is refused);
+  new files go in `creates`; include the tests the change needs. Tell the worker: no unrelated edits (comments,
+  formatting) outside what the task asks.
 - After submitting a plan, reply in a line or two ("계획 올렸어, 카드에서 [실행] 눌러줘"). "#N 계획 수정: …" means
   submit the plan again with the same `ticket` = N. Progress: `delegate` status.
 - When it has landed, report briefly in Korean. If a host module (Tier 2) changed, say ⚡소생.

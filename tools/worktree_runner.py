@@ -65,8 +65,10 @@ MAX_AGENT_TIMEOUT = 1500
 REVIEW_TIMEOUT = 300
 GATE_TIMEOUT = 600
 TAIL_LINES = 30
-# The review prompt is one argv string: Linux caps it at 128 KiB (MAX_ARG_STRLEN), so the diff stays well below.
+# A prompt passed as one argv string is capped by Linux at 128 KiB (MAX_ARG_STRLEN); CLIs that read the prompt
+# from stdin (`stdin_prompt`) have no such cap, so they get the whole diff up to DIFF_LIMIT_STDIN (DELEGATION_HARDENING_v1).
 DIFF_LIMIT = 36000
+DIFF_LIMIT_STDIN = 200000
 WORKER_ROLE = "staff"          # the default expert's role (characters.py); the chatbot's own persona (the PD) confirms
 TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
 
@@ -78,11 +80,11 @@ TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_di
 # when none is given; `workdir_flag`: how to let the CLI write in the worktree (agy writes to its own scratch
 # folder unless the directory is added).
 PROVIDERS: Dict[str, Dict] = {
-    "claude": {"argv": ["claude", "--dangerously-skip-permissions", "-p"],
+    "claude": {"argv": ["claude", "--dangerously-skip-permissions", "-p"], "stdin_prompt": [],
                "continue_argv": ["claude", "-c", "--dangerously-skip-permissions", "-p"],
                "review_argv": ["claude", "--tools", "", "-p"], "model_flag": "--model", "review_model": "sonnet",
                "actor": "claude-code", "author": ("Claude Code", "noreply@anthropic.com")},
-    "codex": {"argv": ["codex", "exec", "-s", "workspace-write"],
+    "codex": {"argv": ["codex", "exec", "-s", "workspace-write"], "stdin_prompt": ["-"],
               "review_argv": ["codex", "exec", "-s", "read-only"], "model_flag": "-m",
               "actor": "codex", "author": ("Codex", "codex@localhost")},
     "agy": {"argv": ["agy", "--dangerously-skip-permissions", "-p"], "workdir_flag": "--add-dir",
@@ -96,7 +98,8 @@ PROVIDERS: Dict[str, Dict] = {
 
 
 class Failure(Exception):
-    """The attempt stops here. outcome is the ticket release outcome: gate_failed | failed.
+    """The attempt stops here. outcome is the ticket release outcome: gate_failed | failed | unavailable (no brain
+    answered at all: quota, limit, timeout, missing CLI -- the ticket gives the attempt back).
     retryable: another round with the writer could fix it. keep: the work is sound but could not be confirmed
     (no PD brain answered); the branch stays so the next run resumes it."""
 
@@ -110,10 +113,11 @@ def log(msg: str) -> None:
 
 
 def run_cmd(cmd: List[str], cwd: Optional[Path] = None, timeout: int = 120,
-            env: Optional[Dict[str, str]] = None) -> tuple:
+            env: Optional[Dict[str, str]] = None, stdin: Optional[str] = None) -> tuple:
     try:
         res = subprocess.run(cmd, cwd=str(cwd) if cwd else None, env=env, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, text=True, errors="replace", timeout=timeout, check=False)
+                             stderr=subprocess.PIPE, text=True, errors="replace", timeout=timeout, check=False,
+                             input=stdin, stdin=None if stdin is not None else subprocess.DEVNULL)
         return res.returncode, res.stdout.strip(), res.stderr.strip()
     except subprocess.TimeoutExpired:
         return -1, "", "timed out after %ds" % timeout
@@ -372,12 +376,25 @@ def agent_env(provider: str) -> Dict[str, str]:
     return clean_env(GIT_AUTHOR_NAME=name, GIT_AUTHOR_EMAIL=email, GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email)
 
 
+def prompt_args(provider: str, prompt: str) -> tuple:
+    """(extra argv, stdin text): the prompt on stdin where the CLI reads it there, else as the last argument."""
+    spec = PROVIDERS[provider]
+    if "stdin_prompt" in spec:
+        return list(spec["stdin_prompt"]), prompt
+    return [prompt], None
+
+
+def diff_limit(provider: str) -> int:
+    return DIFF_LIMIT_STDIN if "stdin_prompt" in PROVIDERS.get(provider, {}) else DIFF_LIMIT
+
+
 def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False, model: str = "") -> Dict:
     argv = work_command(provider, wt_dir, model, resume)
     if not shutil.which(argv[0]):
         return {"ok": False, "returncode": None, "elapsed_sec": 0, "stdout": "", "stderr": "%s CLI not installed" % argv[0]}
     t0 = time.time()
-    code, out, err = run_cmd(argv + [prompt], cwd=wt_dir, timeout=timeout, env=agent_env(provider))
+    extra, stdin = prompt_args(provider, prompt)
+    code, out, err = run_cmd(argv + extra, cwd=wt_dir, timeout=timeout, env=agent_env(provider), stdin=stdin)
     return {"ok": code == 0, "returncode": code, "elapsed_sec": round(time.time() - t0, 1), "stdout": out, "stderr": err}
 
 
@@ -455,16 +472,16 @@ def fit_diff(diff: str, limit: int = DIFF_LIMIT) -> str:
 
 
 def review_prompt(tid: int, title: str, instruction: str, partner_said: str, diff: str,
-                  gate_error: Optional[Failure], character: str) -> str:
+                  gate_error: Optional[Failure], character: str, limit: int = DIFF_LIMIT) -> str:
     parts = [character, "",
-             "Your staff member just worked on ticket #%d (%s). The task was:" % (tid, title), instruction[:2000], "",
+             "Your staff member just worked on ticket #%d (%s). The task was:" % (tid, title), instruction, "",
              "Your staff member said: %s" % (partner_said or "(nothing)"), ""]
     if gate_error:
         parts += ["The automatic gate FAILED, so the verdict is FAIL: %s" % gate_error.reason,
                   gate_error.detail[-3000:], ""]
     else:
         parts += ["The automatic gates (tests, scope) passed."]
-    parts += ["Diff of the branch:", "```diff", fit_diff(diff) or "(empty)", "```", "",
+    parts += ["Diff of the branch:", "```diff", fit_diff(diff, limit) or "(empty)", "```", "",
               "You have no files here and must not use tools: do not run commands, read files or search the disk. "
               "Judge from this prompt alone; if a cut part hides what you must see, FAIL and name it.",
               "As the producer, confirm the work: does the change do the task correctly and safely within its scope? "
@@ -510,7 +527,8 @@ def run_review(provider: str, model: str, wt_dir: Path, prompt: str, timeout: in
     empty = WORKTREE_BASE / "review-room"          # one fixed room, emptied each time
     shutil.rmtree(empty, ignore_errors=True)
     empty.mkdir(parents=True, exist_ok=True)
-    code, out, err = run_cmd(argv + [prompt], cwd=empty, timeout=timeout or REVIEW_TIMEOUT, env=clean_env())
+    extra, stdin = prompt_args(provider, prompt)
+    code, out, err = run_cmd(argv + extra, cwd=empty, timeout=timeout or REVIEW_TIMEOUT, env=clean_env(), stdin=stdin)
     if code == -1 and err.startswith("timed out"):
         raise Failure("failed", "reviewer %s %s" % (provider, err), tail(out))
     if code != 0:
@@ -527,18 +545,20 @@ UNAVAILABLE_RE = re.compile(r"quota|rate.?limit|usage limit|session limit|limit 
                             r"exhausted|capacity|overloaded|too many requests|timed out|not installed", re.I)
 
 
-def review_with_chain(chain: List[Dict], wt_dir: Path, prompt: str, renew) -> tuple:
+def review_with_chain(chain: List[Dict], wt_dir: Path, prompt, renew) -> tuple:
     """The PD's confirmation on the first brain that can give it. Returns (review, brain, skipped labels).
+    `prompt` is the text, or a function of the provider (each brain may take a different diff size).
     When none can (quota, timeout), the work is kept for the next run (Failure.keep)."""
     skipped = []
     for i, b in enumerate(chain):
         try:
-            return run_review(b["provider"], b["model"], wt_dir, prompt, b["timeout"]), b, skipped
+            text = prompt(b["provider"]) if callable(prompt) else prompt
+            return run_review(b["provider"], b["model"], wt_dir, text, b["timeout"]), b, skipped
         except Failure as f:
             if not unavailable(f.reason + "\n" + f.detail, 0):
                 raise
             if i + 1 == len(chain):
-                raise Failure("failed", "no PD brain could confirm the work (%s); it is kept for the next run"
+                raise Failure("unavailable", "no PD brain could confirm the work (%s); it is kept for the next run"
                               % f.reason, f.detail, keep=True)
             skipped.append(brain_label(b))
             log("PD brain %s unavailable; next %s" % (brain_label(b), brain_label(chain[i + 1])))
@@ -883,8 +903,10 @@ def cmd_run(args) -> int:
                         renew()
                         continue
                     if res["returncode"] == -1 and str(res["stderr"]).startswith("timed out"):
-                        raise Failure("failed", "agent %s timed out after %ds" % (brain_label(b), timeout),
+                        raise Failure("unavailable", "agent %s timed out after %ds" % (brain_label(b), timeout),
                                       tail(res["stdout"]))
+                    if unavailable(why, res["returncode"]):      # the last brain could not work either: not a try
+                        raise Failure("unavailable", "no brain could work (%s): %s" % (brain_label(b), why[:200]))
                     raise Failure("failed", "agent %s exited with %s" % (brain_label(b), res["returncode"]),
                                   tail(res["stderr"] or res["stdout"]))
                 if not (confirm_only and rnd == 1):
@@ -927,11 +949,12 @@ def cmd_run(args) -> int:
                     break
                 write_state(tid, phase="review", phase_since=time.time())
                 _, diff, _ = git(wt_dir, "diff", task_base + "..HEAD")
-                rv, rb, rskipped = review_with_chain(pd_chain, wt_dir,
-                                                     review_prompt(tid, task["title"], task["instruction"],
-                                                                   partner_said, diff, gate_error,
-                                                                   character_block(reviewer_p, writer_p, PD_RELATION)),
-                                                     renew)
+                pd_block = character_block(reviewer_p, writer_p, PD_RELATION)
+                rv, rb, rskipped = review_with_chain(
+                    pd_chain, wt_dir,
+                    lambda prov: review_prompt(tid, task["title"], task["instruction"], partner_said, diff, gate_error,
+                                               pd_block, diff_limit(prov)),
+                    renew)
                 verdict = "FAIL" if gate_error else rv["verdict"]
                 transcript.append({"task": tno, "round": rnd, "role": "reviewer", "name": reviewer_p["name"],
                                    "brain": brain_label(rb), **({"skipped": rskipped} if rskipped else {}),

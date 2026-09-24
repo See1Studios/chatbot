@@ -369,6 +369,21 @@ class LeaseScopeTest(Base):
                          ["static/app.js", "x.py", "chatbot/y.py", "z.py"])
 
 
+class UnavailableTest(Base):
+    """No brain answered (quota, limit, timeout): the attempt is given back, a few times (DELEGATION_HARDENING_v1)."""
+
+    def test_unavailable_gives_the_attempt_back_up_to_the_cap(self):
+        t = self.approved()
+        for n in range(tickets.UNAVAILABLE_REFUNDS):
+            c = tickets.claim(self.data, t["id"], now=T0)
+            r = tickets.release(self.data, t["id"], c["token"], "unavailable", now=T0)
+            self.assertEqual((r["ticket"]["attempts"], r["ticket"]["unavailable"]), (0, n + 1))
+        c = tickets.claim(self.data, t["id"], now=T0)
+        r = tickets.release(self.data, t["id"], c["token"], "unavailable", now=T0)
+        self.assertEqual(r["ticket"]["attempts"], 1)                     # past the cap it counts
+        self.assertEqual(r["ticket"]["status"], "approved")
+
+
 class OwnerTest(Base):
     """A ticket an agent opened to do itself is that agent's until the operator hands it over."""
 

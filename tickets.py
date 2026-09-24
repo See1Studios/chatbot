@@ -73,6 +73,7 @@ OPERATOR_TTY = "tty"          # the command line, at a terminal, after retyping 
 OPERATOR_CONFIRMED = "api"    # a caller that states outright that it acts for the operator
 OPERATOR_UI = "ui"            # the operator's own `/ticket ...` command in the host's chat page (same-origin POST)
 MAX_ATTEMPTS = 3
+UNAVAILABLE_REFUNDS = 3    # attempts given back when no brain answered (quota, limit, timeout); then they count
 GATE_FAILURES_ADVICE = 2
 LEASE_TTL_SEC = 1800
 MAX_PROPOSED = 10          # unreviewed proposals; more is a runaway, not a review
@@ -741,10 +742,11 @@ def add_note(data, ticket_id, text: str, token: Optional[str] = None, now: Optio
 
 def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "", now: Optional[float] = None,
             actor: Optional[str] = None) -> Dict:
-    """Give up the author lease. outcome: done | gate_failed | failed | abandoned."""
+    """Give up the author lease. outcome: done | gate_failed | failed | abandoned | unavailable (no brain answered:
+    the attempt is given back, at most UNAVAILABLE_REFUNDS times per ticket -- DELEGATION_HARDENING_v1)."""
     t_now = _now(now)
-    if outcome not in ("done", "gate_failed", "failed", "abandoned"):
-        raise TicketError("outcome must be done, gate_failed, failed or abandoned")
+    if outcome not in ("done", "gate_failed", "failed", "abandoned", "unavailable"):
+        raise TicketError("outcome must be done, gate_failed, failed, abandoned or unavailable")
     with _locked(data):
         t = _load(data, ticket_id)
         if not _holds(_read_lease(data, t["id"]), t["id"], token, t_now):
@@ -767,6 +769,11 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
         else:
             if outcome == "gate_failed":
                 t["gate_failures"] = t.get("gate_failures", 0) + 1
+            if outcome == "unavailable" and t.get("unavailable", 0) < UNAVAILABLE_REFUNDS and t["attempts"] > 0:
+                t["unavailable"] = t.get("unavailable", 0) + 1
+                t["attempts"] -= 1
+                _note(t, "host", "no brain answered: attempt given back (%d/%d)" % (t["unavailable"], UNAVAILABLE_REFUNDS),
+                      t_now)
             t.pop("merge_pending", None)
             t["status"] = "approved"
             if t["attempts"] >= MAX_ATTEMPTS:
