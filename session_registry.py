@@ -183,6 +183,8 @@ class Registry:
             if sid in self.sessions:
                 return self.sessions[sid]
             sess = _s().AgentSession(sid)
+            # an id with no meta (e.g. a deleted probe session) must not come back role-less
+            sess.character = _character_id(sess.character)
             self.sessions[sid] = sess
             return sess
 
