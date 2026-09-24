@@ -1,5 +1,5 @@
 """Private sessions climb a 4-stage tension ladder and every private turn carries a [Tension Engine Context] block
-with the stage, the recent choices not to repeat and the 3-slot contract (PRIVATE_TENSION_v1, #162).
+with the stage, the recent choices not to repeat and the 3-slot natural sequence contract (NATURAL_SEQUENCE_v1, #163).
 Run: python3 -m unittest tests.test_private_tension  (from services/chatbot)
 """
 import shutil
@@ -53,10 +53,11 @@ class TensionLadder(unittest.TestCase):
         self.assertTrue(ctx.startswith("[Tension Engine Context]"))
         self.assertIn("Stage: 2/4", ctx)
         self.assertIn("손을 잡는다 | 눈을 피한다", ctx)
-        self.assertIn("exactly 3 choices", ctx)
-        for slot in ("push-pull", "escalate", "peak"):
+        self.assertIn("3가지 슬롯 순서", ctx)
+        for slot in ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉"):
             self.assertIn(slot, ctx)
-        self.assertNotIn("recent choices", AB.tension_context(1, []))
+        self.assertIn("포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정", ctx)
+        self.assertNotIn("최근 사용한 선택지", AB.tension_context(1, []))
 
     def test_turn_context_is_private_only(self):
         class Sess:

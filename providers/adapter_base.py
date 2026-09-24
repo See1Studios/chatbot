@@ -40,16 +40,16 @@ def split_choices(text: str) -> Tuple[str, List[str]]:
     return (text[:m.start()].rstrip(), items) if items else (text, [])
 
 
-# PRIVATE_TENSION_v1 (#162): private sessions climb a 4-stage tension ladder. The engine state lives on the session;
+# NATURAL_SEQUENCE_v1 (#163): private sessions climb a 4-stage tension ladder. The engine state lives on the session;
 # this is the one place its per-turn context is written, so every provider gets the same text.
 TENSION_MIN, TENSION_MAX = 1, 4
-TENSION_STAGES = {1: "warm-up", 2: "flirting", 3: "rising", 4: "peak"}
-TENSION_SLOTS = ("push-pull", "escalate", "peak")   # slot index -> stage delta 0 / +1 / +2
+TENSION_STAGES = {1: "도입", 2: "고조", 3: "밀착", 4: "절정"}
+TENSION_SLOTS = ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉")  # slot index -> stage delta 0 / +1 / +2
 TENSION_RECENT_MAX = 9
 
 
 def tension_after(stage: int, slot: int = -1, action: bool = False) -> int:
-    """Next stage: a picked slot moves it by its index (push-pull holds), an action nudges +1; clamped to 1..4."""
+    """Next stage: a picked slot moves it by its index (slot 0 holds, 1 nudges +1, 2 nudges +2), an action nudges +1; clamped to 1..4."""
     step = slot if 0 <= slot < len(TENSION_SLOTS) else (1 if action else 0)
     return max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN) + step))
 
@@ -80,21 +80,23 @@ def tension_step(stage: int, recent: List[str], history: List[dict], text: str,
 
 
 def tension_context(stage: int, recent_choices: List[str]) -> str:
-    """[Tension Engine Context] block for one private turn: stage, choices not to repeat, the 3-slot contract."""
+    """[Tension Engine Context] block for one private turn: stage, choices not to repeat, 3-slot natural sequence contract."""
     stage = max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN)))
     lines = [
         "[Tension Engine Context]",
-        f"Stage: {stage}/{TENSION_MAX} ({TENSION_STAGES[stage]}). Match the scene's intensity to this stage.",
+        f"Stage: {stage}/{TENSION_MAX} ({TENSION_STAGES[stage]}). 현재 단계의 무드와 스킨십 수위에 맞게 장면을 연출할 것.",
     ]
     recent = [c for c in (recent_choices or []) if c][-TENSION_RECENT_MAX:]
     if recent:
-        lines.append("Do not repeat or rephrase these recent choices: " + " | ".join(recent))
+        lines.append("최근 사용한 선택지 반복 및 유사 표현 금지: " + " | ".join(recent))
     top = min(TENSION_MAX, stage + 2)
     lines.append(
-        "End with exactly 3 choices in this slot order: "
-        f"1) push-pull -- tease or hold back, stays at stage {stage}; "
-        f"2) escalate -- one step closer, stage {min(TENSION_MAX, stage + 1)}; "
-        f"3) peak -- the boldest move, stage {top}."
+        "직전 행동의 신체 부위와 거리감에서 끊김 없이 자연스럽게 이어지는 행동 시퀀스를 구성할 것. "
+        "(예: 포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정)\n"
+        "억지 밀당이나 어색한 화제 전환을 배제하고, 반드시 다음 3가지 슬롯 순서대로 정확히 3개의 선택지를 제시할 것:\n"
+        f"1) {TENSION_SLOTS[0]} -- 직전 신체 부위/거리감에서 이어지는 다음 행동 (단계 {stage} 유지)\n"
+        f"2) {TENSION_SLOTS[1]} -- 한 걸음 더 깊이 파고드는 과감한 스킨십과 밀착 (단계 {min(TENSION_MAX, stage + 1)})\n"
+        f"3) {TENSION_SLOTS[2]} -- 신체 감각과 짙은 분위기에 온전히 젖어드는 탐닉 (단계 {top})"
     )
     return "\n".join(lines)
 
