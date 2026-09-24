@@ -338,11 +338,6 @@ function renderChoiceChips(node, choices) {
   const card = document.createElement('div');
   card.className = 'choice-card';
 
-  const head = document.createElement('div');
-  head.className = 'choice-card-head';
-  head.textContent = '✦ 선택지 카드';
-  card.appendChild(head);
-
   const row = document.createElement('div');
   row.className = 'choice-card-body choice-chips';
   row.setAttribute('role', 'group');
