@@ -45,6 +45,8 @@ logs/
 
 # private talk memory stays on this machine, never in git (SESSION_SPLIT_v1)
 data/workspace/characters/*/private-memory.md
+# style references are other artists' work: kept beside the character, never committed or shipped
+data/workspace/characters/*/references/
 data/workspace/characters/*/.private-memory.*.tmp
 data/workspace/skill-observations/tickets/leases.json
 # the operator's instruction edits keep their previous text here (workspace_status._backup), not in the workspace

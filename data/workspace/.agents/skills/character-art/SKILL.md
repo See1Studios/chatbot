@@ -20,6 +20,7 @@ Next to the card, so they travel with it: `data/workspace/characters/<id>/`
 | `sprites/bust/<label>.webp` | 1024x1024, transparent | Optional shoulder shot: shoulders cut by the bottom edge, top of the head about 8% from the top. |
 | `sprites/full/<label>.webp` | 1024x2048, transparent | Optional full body: feet on a line 2% above the bottom edge, centred. |
 | `visual.md` | text | The lock sheet. Required. |
+| `references/` | any | Style references (often other artists' work): study only, never copy; git-ignored, never shipped. Optional. |
 
 - Sprites are for a character-only view (desktop mode) where the character talks in speech bubbles. Within one
   framing every label uses the same canvas, anchor and scale, so swapping an expression never moves the body:

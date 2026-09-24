@@ -6,6 +6,7 @@
 |---|---|---|
 | [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md) | **진행** — §10 PD 모델, §11 전문가, §12 캐릭터(카드·사적 기억·이미지 형식·역할 팩) | 위임·PD·캐릭터·역할을 건드릴 때 |
 | [monolith-split.md](monolith-split.md) | **진행** — Phase 5 완료(app.js·session.py 분리), 파일 상한 규칙 | 파일을 나누거나 새 파일을 만들 때 |
+| [user-data-and-editing.md](user-data-and-editing.md) | **계획** — 사용자 데이터 분리(배포), 직책 이름은 표시값, 카드 폼 편집, 옛 프로토타입 삭제 | 배포 준비·팀 탭 편집·직책을 건드릴 때 |
 | [recursive-self-evolution.md](recursive-self-evolution.md) | 참고 — 관찰·티켓·보호 경로의 설계 근거(코어는 구현됨, 코드가 정본) | 개선 루프·티켓·보호 규칙의 이유가 궁금할 때 |
 | [instruction-architecture.md](instruction-architecture.md) | 참고 — 지침 묶음 계층. 역할 팩(§12.5)이 캐릭터 부분을 대체 | 매 턴 지침 조립을 바꿀 때 |
 | [token-accounting.md](token-accounting.md) | 참고 — 창 점유 vs 과금 | 토큰 수치를 해석할 때 |

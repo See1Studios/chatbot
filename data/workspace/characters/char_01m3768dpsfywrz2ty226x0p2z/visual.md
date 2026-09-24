@@ -3,7 +3,7 @@
 Format and procedure: skill `character-art`. The page uses this folder (`avatar.webp`, `avatar/<provider>.webp`).
 Voice and manner are in the card, not here.
 
-Status: first pass shipped (operator: 별로, replace later). Base is three-quarter (반측면), long ash-brown hair, grey eyes, black turtleneck. Style from data/persona/references/ (commercial anime, not Nyang PD's current portraits).
+Status: first pass shipped (operator: 별로, replace later). Base is three-quarter (반측면), long ash-brown hair, grey eyes, black turtleneck. Style from `references/` in this folder (third-party art: style only, never copied, never committed).
 
 ## Locks
 - Adult woman in her mid-twenties, NOT childlike.
