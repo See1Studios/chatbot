@@ -372,6 +372,13 @@ class LeaseScopeTest(Base):
 class UnavailableTest(Base):
     """No brain answered (quota, limit, timeout): the attempt is given back, a few times (DELEGATION_HARDENING_v1)."""
 
+    def test_paused_gives_the_attempt_back(self):
+        t = self.approved()
+        for _ in range(5):                                                   # only the operator resumes it: no cap
+            c = tickets.claim(self.data, t["id"], now=T0)
+            r = tickets.release(self.data, t["id"], c["token"], "paused", now=T0)
+        self.assertEqual((r["ticket"]["attempts"], r["ticket"]["status"]), (0, "approved"))
+
     def test_unavailable_gives_the_attempt_back_up_to_the_cap(self):
         t = self.approved()
         for n in range(tickets.UNAVAILABLE_REFUNDS):

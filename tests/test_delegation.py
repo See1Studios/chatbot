@@ -177,6 +177,38 @@ class PlanPathsTest(Base):
         self.assertEqual(self.state(tid)["paths"], ["static/app-new.js"])
 
 
+class AllowPathsTest(Base):
+    """[경로 허용] (NEED_PATH_v1): the files a paused worker asked for join its task and the plan runs again."""
+
+    def paused(self, asked):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.go(tid)
+        tickets.drop_lease(self.data, operator=tickets.OPERATOR_UI, ticket_id=tid)   # the runner released it
+        delegation.runner().write_state(tid, phase="paused", need_paths=asked, need_task=1, kept=True)
+        self.spawned.clear()
+        return tid
+
+    def test_allowing_adds_the_files_and_runs_again(self):
+        (delegation.PLAN_ROOT / "data/workspace/notes/y.md").write_text("y")
+        tid = self.paused([{"path": "data/workspace/notes/y.md", "why": "the list is there"}])
+        res = delegation.allow(tid)
+        self.assertEqual(res["allowed"], ["data/workspace/notes/y.md"])
+        st = self.state(tid)
+        self.assertIn("data/workspace/notes/y.md", st["plan"]["tasks"][0]["paths"])
+        self.assertEqual(st["need_paths"], [])
+        args = self.spawned[-1][1]
+        self.assertIn("data/workspace/notes/y.md", args[args.index("--paths") + 1])
+
+    def test_tier_3_missing_folders_and_other_phases_are_refused(self):
+        for asked in ([{"path": "tickets.py"}], [{"path": "nope/dir/x.md"}]):
+            tid = self.paused(asked)
+            with self.assertRaises(delegation.DelegationError):
+                delegation.allow(tid)
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        with self.assertRaises(delegation.DelegationError):
+            delegation.allow(tid)
+
+
 class OperatorTest(Base):
     def test_go_approves_as_the_operator_and_runs_the_plan_to_final_confirmation(self):
         tid = self.plan([self.task(TIER0), self.task(TIER2)])["ticket"]

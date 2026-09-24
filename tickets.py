@@ -743,10 +743,11 @@ def add_note(data, ticket_id, text: str, token: Optional[str] = None, now: Optio
 def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "", now: Optional[float] = None,
             actor: Optional[str] = None) -> Dict:
     """Give up the author lease. outcome: done | gate_failed | failed | abandoned | unavailable (no brain answered:
-    the attempt is given back, at most UNAVAILABLE_REFUNDS times per ticket -- DELEGATION_HARDENING_v1)."""
+    the attempt is given back, at most UNAVAILABLE_REFUNDS times per ticket -- DELEGATION_HARDENING_v1) | paused
+    (the worker asked for files outside its scope, NEED_PATH_v1: given back; only the operator's allow resumes it)."""
     t_now = _now(now)
-    if outcome not in ("done", "gate_failed", "failed", "abandoned", "unavailable"):
-        raise TicketError("outcome must be done, gate_failed, failed, abandoned or unavailable")
+    if outcome not in ("done", "gate_failed", "failed", "abandoned", "unavailable", "paused"):
+        raise TicketError("outcome must be done, gate_failed, failed, abandoned, unavailable or paused")
     with _locked(data):
         t = _load(data, ticket_id)
         if not _holds(_read_lease(data, t["id"]), t["id"], token, t_now):
@@ -769,6 +770,9 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
         else:
             if outcome == "gate_failed":
                 t["gate_failures"] = t.get("gate_failures", 0) + 1
+            if outcome == "paused" and t["attempts"] > 0:
+                t["attempts"] -= 1
+                _note(t, "host", "waiting for the operator to allow more paths: attempt given back", t_now)
             if outcome == "unavailable" and t.get("unavailable", 0) < UNAVAILABLE_REFUNDS and t["attempts"] > 0:
                 t["unavailable"] = t.get("unavailable", 0) + 1
                 t["attempts"] -= 1

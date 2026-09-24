@@ -328,9 +328,9 @@ const TICKET_DECISIONS = {
   awaiting_merge: [['merge', '승인'], ['rework', '반려'], ['discard', '폐기']],
   wontfix: [['reopen', '재개']],
 };
-const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '실행', merge: '승인(반영 시작)', rework: '반려', discard: '폐기', disown: '담당 해제', unqueue: '대기 취소' };
+const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '실행', merge: '승인(반영 시작)', rework: '반려', discard: '폐기', disown: '담당 해제', unqueue: '대기 취소', allow: '경로 허용' };
 // PD_PLAN_v1: the operator's two confirmations on a PD plan -- [실행] (`delegate`) and [승인]/[반려]/[폐기].
-const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', rework: 'rework', discard: 'discard', unqueue: 'unqueue' };
+const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', rework: 'rework', discard: 'discard', unqueue: 'unqueue', allow: 'allow' };
 
 // LEASE_SCOPE_v1: one author per file. The live leases come with /api/tickets; a ticket another agent opened to do
 // itself (`owner`, not the chat's own) is not offered to the chat -- the operator can hand it over ([담당 해제]).
@@ -372,7 +372,7 @@ function parseTicketCommand(text) {
   const t = String(text || '').trim();
   const rw = /^\/ticket\s+rework\s+#?(\d{1,6})\s+([\s\S]+)$/.exec(t);   // [반려]: the comment follows the number
   if (rw) return { action: 'rework', id: Number(rw[1]), comment: rw[2].trim() };
-  const m = /^\/ticket\s+(go|approve|decline|reopen|delegate|merge|discard|disown|unqueue)\s+#?(\d{1,6})$/.exec(t);
+  const m = /^\/ticket\s+(go|approve|decline|reopen|delegate|merge|discard|disown|unqueue|allow)\s+#?(\d{1,6})$/.exec(t);
   return m ? { action: m[1], id: Number(m[2]) } : null;
 }
 
@@ -464,7 +464,7 @@ function renderTicketBar(waiting) {
 // pair shows, the rest opens on demand. Names on the lines are the run's own (display values from identity).
 const WORK_PHASE_LABEL = {
   starting: '시작 중', running: '준비 중', writing: '작업 중', gates: '테스트 중', review: '리뷰 중', merging: '병합 중',
-  awaiting_go: '실행 대기', queued: '잠금 대기', awaiting_merge: '최종 확인 대기', done: '완료', failed: '실패', gate_failed: '탈락',
+  awaiting_go: '실행 대기', queued: '잠금 대기', paused: '경로 요청', awaiting_merge: '최종 확인 대기', done: '완료', failed: '실패', gate_failed: '탈락',
   declined: '폐기됨', stalled: '멈춤', 'merged-ticket-open': '병합됨(티켓 열림)',
 };
 const WORK_ENDED = ['done', 'failed', 'gate_failed', 'declined', 'stalled', 'merged-ticket-open'];
@@ -550,6 +550,13 @@ function renderWorkCard(r) {
     button('계획 수정', false, () => { inputEl.value = '#' + r.ticket + ' 계획 수정: '; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
     button('취소', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
   }
+  if (r.phase === 'paused' && (r.need_paths || []).length) {   // NEED_PATH_v1: the worker asks for more files
+    const list = obsNode('ul', 'work-plan');
+    r.need_paths.forEach(n => list.appendChild(obsNode('li', '', n.path + (n.why ? ' — ' + n.why : ''))));
+    card.appendChild(list);                                  // the button row is appended after it
+    button('경로 허용', true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
+    button('폐기', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
+  }
   if (r.phase === 'queued') {   // starts on its own once the files are free
     button('대기 취소', false, () => fillTicketCommand({ id: r.ticket }, 'unqueue'));
   }
@@ -599,7 +606,7 @@ async function loadWork() {
   workLastPhase = new Map(runs.map(r => [r.ticket, r.phase]));
   activeWorkRun = runs.find(r => r.active) || null;   // the chat's badge says who is working (DELEGATION_CLARITY_v1)
   if (!isBusy) updateProcBadge('idle');
-  const shown = runs.filter(r => r.active || r.phase === 'awaiting_go' || r.phase === 'queued' || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
+  const shown = runs.filter(r => r.active || r.phase === 'awaiting_go' || r.phase === 'queued' || r.phase === 'paused' || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
   const ids = new Set(shown.map(r => r.ticket));
   const changed = ids.size !== workCardIds.size || [...ids].some(id => !workCardIds.has(id));
   workCardIds = ids;

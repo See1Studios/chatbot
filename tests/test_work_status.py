@@ -41,10 +41,14 @@ const run = { ticket: 113, title: 'T', phase: 'writing', active: true, round: 1,
   files_changed: 2, brain: 'agy/flash', transcript: [] };
 const card = renderWorkCard(run);
 const badgeText = card.children[0].children.map(c => c.textContent).join('|');
+const texts = n => [n.textContent].concat(n.children.flatMap(texts));
+const paused = renderWorkCard(Object.assign({}, run, { phase: 'paused', active: false,
+  need_paths: [{ path: 'b.txt', why: 'the helper lives there' }] }));
+const pausedTexts = texts(paused);
 activeWorkRun = run; updateProcBadge('idle');
 const delegated = { text: els.procBadgeText.textContent, cls: els.procBadge.className };
 activeWorkRun = null; updateProcBadge('idle');
-process.stdout.write(JSON.stringify({ badgeText, delegated, idle: els.procBadgeText.textContent }));
+process.stdout.write(JSON.stringify({ badgeText, delegated, idle: els.procBadgeText.textContent, pausedTexts }));
 """
 
 
@@ -60,6 +64,12 @@ class WorkStatus(unittest.TestCase):
     def test_the_card_shows_the_round_clock_and_files(self):
         self.assertIn("12:30/20:00", self.out["badgeText"])
         self.assertIn("파일 2", self.out["badgeText"])
+
+    def test_a_paused_card_lists_the_asked_files_and_offers_allow(self):
+        t = self.out["pausedTexts"]
+        self.assertIn("b.txt — the helper lives there", t)
+        self.assertIn("경로 허용", t)
+        self.assertTrue(any("경로 요청" in x for x in t))
 
     def test_the_chat_badge_says_who_works(self):
         self.assertEqual(self.out["delegated"]["text"], "루루 작업 중 · 12:30")

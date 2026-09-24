@@ -270,6 +270,30 @@ def discard(ticket_id: int) -> Dict:
     return {"ticket": tid, "status": t["status"]}
 
 
+def allow(ticket_id: int) -> Dict:
+    """`[경로 허용]`: the worker asked for files outside its task (NEED_PATH_v1, phase `paused`); add them to that task
+    and run the plan again -- it picks up the kept work where it stopped. Tier 3 files and missing folders are refused."""
+    tid = int(ticket_id)
+    r = runner()
+    st = r.read_state(tid)
+    asked = st.get("need_paths") or []
+    if st.get("phase") != "paused" or not asked:
+        raise DelegationError("ticket %d is not waiting for paths" % tid)
+    new = tickets._norm_paths([x.get("path", "") for x in asked], DATA)
+    for rel in new:
+        if not ((PLAN_ROOT / rel).exists() or (PLAN_ROOT / rel).parent.is_dir()):
+            raise DelegationError("%s: folder %s does not exist" % (rel, str(Path(rel).parent)))
+    paths = sorted(set(st.get("paths") or []) | set(new))
+    tier = tier_of(paths)                                   # refuses Tier 3
+    plan = st.get("plan") or {"tasks": []}
+    n = int(st.get("need_task") or 1)
+    if 1 <= n <= len(plan["tasks"]):
+        plan["tasks"][n - 1]["paths"] = list(plan["tasks"][n - 1]["paths"]) + [p for p in new
+                                                                             if p not in plan["tasks"][n - 1]["paths"]]
+    r.write_state(tid, paths=paths, plan=plan, tier=tier, need_paths=[], allowed=new)
+    return dict(go(tid, queue=True), allowed=new)
+
+
 def unqueue(ticket_id: int) -> Dict:
     """`[취소]` on a queued [실행]: back to a plan waiting for [실행]."""
     tid = int(ticket_id)
@@ -443,6 +467,7 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                               for t in (st.get("plan") or {}).get("tasks", [])],
                     "transcript": st.get("transcript", []), "active": phase in ACTIVE_PHASES,
                     "blocked_by": (st.get("blocked_by") or {}) if phase == "queued" else {},
+                    "need_paths": (st.get("need_paths") or []) if phase == "paused" else [],
                     "seen": seen.get(str(tid)) == st.get("rev")})
     return out
 
@@ -478,7 +503,7 @@ def delegation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tup
         if method == "GET" and rest == "":
             return 200, {"ok": True, "runs": runs(), "names": display_names()}
         if method == "POST":
-            m = re.fullmatch(r"(\d+)/(go|merge|rework|discard|seen|unqueue)", rest)
+            m = re.fullmatch(r"(\d+)/(go|merge|rework|discard|seen|unqueue|allow)", rest)
             if m:
                 tid, action = int(m.group(1)), m.group(2)
                 if action == "seen":
@@ -487,7 +512,7 @@ def delegation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tup
                 if action == "rework":
                     return 200, {"ok": True, **rework(tid, str((body or {}).get("comment") or ""))}
                 return 200, {"ok": True, **{"go": go, "merge": merge, "discard": discard,
-                                            "unqueue": unqueue}[action](tid)}
+                                            "unqueue": unqueue, "allow": allow}[action](tid)}
     except (DelegationError, tickets.TicketError) as e:
         return (404 if str(e).startswith("no such ticket") else 400), {"ok": False, "error": str(e)}
     return 404, {"ok": False, "error": "not found"}

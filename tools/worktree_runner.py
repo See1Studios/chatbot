@@ -99,7 +99,8 @@ PROVIDERS: Dict[str, Dict] = {
 
 class Failure(Exception):
     """The attempt stops here. outcome is the ticket release outcome: gate_failed | failed | unavailable (no brain
-    answered at all: quota, limit, timeout, missing CLI -- the ticket gives the attempt back).
+    answered at all: quota, limit, timeout, missing CLI -- the ticket gives the attempt back) | paused (the worker
+    asked for files outside its scope, NEED_PATH_v1: the work is kept, the attempt given back).
     retryable: another round with the writer could fix it. keep: the work is sound but could not be confirmed
     (no PD brain answered); the branch stays so the next run resumes it."""
 
@@ -252,6 +253,21 @@ LINE_RULE = ("At the very end of your final message, write a line containing onl
              "sentences in character, spoken to your partner, about what you did.")
 
 
+_NEED_PATH = re.compile(r"^\s*NEED_PATH:\s*(\S+)\s*(?:--|—|-|:)?\s*(.*)$", re.M)
+
+
+def need_paths(text: str, paths: List[str]) -> List[Dict[str, str]]:
+    """The files a worker asked for (NEED_PATH_v1) that its scope does not already cover."""
+    out = []
+    for m in _NEED_PATH.finditer(text or ""):
+        path = m.group(1).strip("`'\"").replace("\\", "/")
+        if path.startswith("/") or ".." in path.split("/") or in_scope(path, paths):
+            continue
+        if path not in [x["path"] for x in out]:
+            out.append({"path": path[:200], "why": m.group(2).strip()[:300]})
+    return out[:10]
+
+
 def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[str], gates: List[str],
                   instruction: str, character: str, memory: str = "") -> str:
     remembered = ["What you remember from earlier work (yours alone):", memory, ""] if memory.strip() else []
@@ -260,6 +276,8 @@ def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[s
         "Working directory: %s (branch %s). Stay inside it: do not modify %s or any other path, "
         "do not push, do not restart or deploy services." % (wt_dir, branch, CHATBOT_REPO),
         "Change only these repo-relative paths: %s. Changes anywhere else fail the scope gate." % ", ".join(paths),
+        "If the task truly needs a file outside them, do not touch it: end your answer with one line per file "
+        "`NEED_PATH: <repo-relative path> -- <why>` and stop; the operator can allow it and you will continue.",
         "When done, commit your work on this branch (git add <files> && git commit -m '...'); "
         "the author identity is already set.",
         "Afterwards the runner runs: %s; then your producer confirms the diff. Only a branch that passes both is merged."
@@ -922,6 +940,12 @@ def cmd_run(args) -> int:
                     transcript.append(line)
                 partner_said = next((ln["text"] for ln in reversed(transcript)
                                      if ln.get("task") == tno and ln.get("role") == "writer"), "")
+                asked = [] if confirm_only and rnd == 1 else need_paths(res["stdout"], task["paths"])
+                if asked:   # the worker needs files outside its scope: keep the work, wait for the operator
+                    commit_leftovers(wt_dir, b["provider"], tid)
+                    write_state(tid, phase="needs_path", need_paths=asked, need_task=tno, tasks_done=tno - 1,
+                                pending_task=0, pending_base="", transcript=transcript, phase_since=time.time())
+                    raise Failure("paused", "task %d needs %s" % (tno, ", ".join(x["path"] for x in asked)), keep=True)
 
                 write_state(tid, phase="gates", transcript=transcript, phase_since=time.time())
                 if commit_leftovers(wt_dir, b["provider"], tid):

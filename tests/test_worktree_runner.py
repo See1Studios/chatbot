@@ -172,6 +172,17 @@ class WorktreeRunner(unittest.TestCase):
                                   "--timeout", "30"]), 0)
         self.assertIn("THE-END", (wr.WORKTREE_BASE / "prompt.txt").read_text())
 
+    def test_a_worker_asking_for_more_files_pauses_and_keeps_the_work(self) -> None:
+        # NEED_PATH_v1: the attempt is released as `paused`, the branch kept, the request recorded
+        script = "echo two >> a.txt && git commit -qam part; echo 'NEED_PATH: b.txt -- the helper lives there'"
+        self.assertEqual(self.run_with(script), 1)
+        self.assertIn("paused", self.last_fail())
+        st = wr.read_state(7)
+        self.assertEqual(st["phase"], "paused")
+        self.assertEqual(st["need_paths"], [{"path": "b.txt", "why": "the helper lives there"}])
+        self.assertTrue((wr.WORKTREE_BASE / "ticket-7").exists())            # the work waits for the operator
+        self.assertEqual(wr.need_paths("NEED_PATH: a.txt -- in scope\nNEED_PATH: /etc/x\n", ["a.txt"]), [])
+
     def test_main_that_moved_is_rebased_onto(self) -> None:
         script = ("echo two >> a.txt && git commit -qam change && "
                   "cd %s && echo c > c.txt && git add c.txt && git commit -qm main-moved" % self.repo)
