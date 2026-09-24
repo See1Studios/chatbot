@@ -1,0 +1,44 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-24 22:02:53",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-24 22:01:18",
+ "evidence": [
+  "event:20260924-200457-4b82e7#8"
+ ],
+ "gate_failures": 0,
+ "id": 145,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-24 22:02:53"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: host_config.py, mcp_server.py, static/app-evolution.js, static/app-messages.js, static/markdown.js, tests/test_choices_channel.py, tests/test_choices_tool.py",
+   "ts": "2026-09-24 22:02:53"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-145 at 8d302de (agy, review PASS round 1)",
+   "ts": "2026-09-24 22:15:39"
+  }
+ ],
+ "paths": [
+  "host_config.py",
+  "mcp_server.py",
+  "static/app-evolution.js",
+  "static/app-messages.js",
+  "static/markdown.js",
+  "tests/test_choices_channel.py",
+  "tests/test_choices_tool.py"
+ ],
+ "status": "awaiting_merge",
+ "target": "host_config.py,mcp_server.py,static/app-evolution.js,static/app-messages.js,stat",
+ "title": "선택지·액션 1b단계: choices 도구·이벤트 채널 및 티켓 바 직접 실행 (OUT_OF_BAND_CHOICES_v1 1b)",
+ "updated": "2026-09-24 22:15:39",
+ "worked_by": "agy"
+}
