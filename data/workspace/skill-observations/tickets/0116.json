@@ -1,0 +1,60 @@
+{
+ "actor": "claude-code",
+ "approved_at": "2026-09-24 11:28:35",
+ "approved_by": "operator (api) via claude-code ticket-quick (operator's instruction)",
+ "attempts": 1,
+ "closed_by": "claude-code",
+ "closed_reason": "done",
+ "created": "2026-09-24 11:28:35",
+ "evidence": [
+  "candidate:1790216915.685"
+ ],
+ "gate_failures": 0,
+ "id": 116,
+ "notes": [
+  {
+   "by": "agent:claude-code",
+   "text": "owner: claude-code",
+   "ts": "2026-09-24 11:28:35"
+  },
+  {
+   "by": "operator (api) via claude-code ticket-quick (operator's instruction)",
+   "text": "approved",
+   "ts": "2026-09-24 11:28:35"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "claimed (attempt 1/3); paths: tests/test_conversation_sync.py, tests/test_observation_ui.py, tests/test_served_model.py, tests/test_status_picker.py, docs/plans/monolith-split.md",
+   "ts": "2026-09-24 11:28:35"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "paths: tests/test_conversation_sync.py, tests/test_observation_ui.py, tests/test_served_model.py, tests/test_status_picker.py, docs/plans/monolith-split.md, adapters.py",
+   "ts": "2026-09-24 11:29:04"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done: TEST_BASELINE_v1 4bee41b: 테스트 4개 현재 동작에 맞춤, 중지 후 interrupted 에러 공지 버그 수정. 모듈별 실행 전부 통과. repair 후 probe OK",
+   "ts": "2026-09-24 11:40:53"
+  },
+  {
+   "by": "agent:claude-code",
+   "text": "done",
+   "ts": "2026-09-24 11:40:53"
+  }
+ ],
+ "owner": "claude-code",
+ "paths": [
+  "tests/test_conversation_sync.py",
+  "tests/test_observation_ui.py",
+  "tests/test_served_model.py",
+  "tests/test_status_picker.py",
+  "docs/plans/monolith-split.md",
+  "adapters.py"
+ ],
+ "status": "done",
+ "target": "tests/test_conversation_sync.py, tests/test_observation_ui.py, tests/test_served",
+ "title": "리팩토링 1단계: 오래된 테스트 4개를 현재 동작에 맞추기 (TEST_BASELINE_v1)",
+ "updated": "2026-09-24 11:40:53",
+ "worked_by": "claude-code"
+}
