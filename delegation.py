@@ -28,11 +28,14 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import difflib
+
 import tickets
 from host_config import (AGENT_PATH_PREFIX, DATA, DELEGATE_MODEL, DELEGATE_PROVIDER, DELEGATE_REVIEWER,
                          DELEGATE_REVIEWER_MODEL, ROOT)
 
 RUNNER_PATH = ROOT / "tools" / "worktree_runner.py"
+PLAN_ROOT = ROOT             # where a plan's files must exist (DELEGATION_CLARITY_v1); tests point it elsewhere
 SEEN_FILE = DATA / "delegation_seen.json"
 ACTIVE_PHASES = ("starting", "running", "writing", "gates", "review", "merging")
 PASS_ENV = ("CHATBOT_ROOT", "CHATBOT_DATA")   # where the runner finds this instance; nothing secret
@@ -114,8 +117,39 @@ def _tasks(raw) -> List[Dict]:
         instruction = str(t.get("instruction") or "").strip()[:_INSTRUCTION_MAX]
         if not title or not instruction:
             raise DelegationError("task %d needs a title and an instruction" % n)
-        out.append({"role": role, "title": title, "instruction": instruction, "paths": _paths(t.get("paths"))})
+        out.append({"role": role, "title": title, "instruction": instruction,
+                    "paths": _task_paths(n, t.get("paths"), t.get("creates"))})
     return out
+
+
+def _task_paths(n: int, paths, creates) -> List[str]:
+    """A task's files: `paths` must exist, `creates` must not (its folder must). A guessed name is refused with the
+    real files nearest to it -- #113 named static/style.css and ran 20 minutes; the file is static/chat.css."""
+    have = tickets._norm_paths(_paths(paths), DATA) if paths else []
+    new = tickets._norm_paths(_paths(creates), DATA) if creates else []
+    if not have and not new:
+        raise DelegationError("task %d: paths are required: the repo-relative files the work may change" % n)
+    for rel in have:
+        if not (PLAN_ROOT / rel).exists():
+            raise DelegationError("task %d: %s does not exist%s. paths = existing files; new files go in creates."
+                                  % (n, rel, _nearest(rel)))
+    for rel in new:
+        if (PLAN_ROOT / rel).exists():
+            raise DelegationError("task %d: %s already exists; put it in paths" % (n, rel))
+        if not (PLAN_ROOT / rel).parent.is_dir():
+            raise DelegationError("task %d: folder %s does not exist" % (n, str(Path(rel).parent)))
+    return have + [x for x in new if x not in have]
+
+
+def _nearest(rel: str) -> str:
+    """ ' (nearest: a, b)' from the same folder, or ''."""
+    folder = (PLAN_ROOT / rel).parent
+    if not folder.is_dir():
+        return " (no folder %s)" % str(Path(rel).parent)
+    names = sorted(x.name for x in folder.iterdir() if not x.name.startswith("."))
+    near = difflib.get_close_matches(Path(rel).name, names, n=3, cutoff=0.3)
+    base = str(Path(rel).parent)
+    return " (nearest: %s)" % ", ".join((base + "/" + x) if base != "." else x for x in near) if near else ""
 
 
 def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = None) -> Dict:
@@ -139,11 +173,11 @@ def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = Non
     return {"ticket": tid, "tier": tier, "tasks": len(tasks)}
 
 
-def request(title: str, paths, instruction: str, evidence, actor: str) -> Dict:
+def request(title: str, paths, instruction: str, evidence, actor: str, creates=None) -> Dict:
     """A one-task plan (the older `start` call); it waits for [실행] like any plan."""
     roles = experts()
     return plan(title, [{"role": roles[0] if roles else "", "title": title, "instruction": instruction,
-                         "paths": paths}], evidence, actor)
+                         "paths": paths, "creates": creates}], evidence, actor)
 
 
 # ------------------------------------------------------------- the operator decides
@@ -351,6 +385,29 @@ def _phase(st: Dict) -> str:
     return phase
 
 
+_changed_cache: Dict[int, Tuple[float, int]] = {}
+CHANGED_TTL_SEC = 10
+
+
+def _files_changed(tid: int, base: str) -> Optional[int]:
+    """How many files the run's worktree changed since `base` (committed or not, new ones too); None when unknown.
+    Cached for CHANGED_TTL_SEC: the page asks every few seconds while a run is active."""
+    hit = _changed_cache.get(tid)
+    if hit and time.monotonic() - hit[0] < CHANGED_TTL_SEC:
+        return hit[1]
+    _, wt_dir = runner().names(tid)
+    if not base or not Path(wt_dir).is_dir():
+        return None
+    run = runner().git
+    c1, diff, _ = run(Path(wt_dir), "diff", "--name-only", base, timeout=10)
+    c2, new, _ = run(Path(wt_dir), "ls-files", "--others", "--exclude-standard", timeout=10)
+    if c1 != 0 or c2 != 0:
+        return None
+    n = len({x for x in (diff + "\n" + new).splitlines() if x.strip()})
+    _changed_cache[tid] = (time.monotonic(), n)
+    return n
+
+
 def _seen() -> Dict[str, int]:
     try:
         raw = json.loads(SEEN_FILE.read_text(encoding="utf-8"))
@@ -379,7 +436,8 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                     "head": st.get("head", ""), "updated": st.get("updated", ""),
                     "started": st.get("started", 0), "phase_since": st.get("phase_since", 0),
                     "task": st.get("task", 0), "tasks_total": st.get("tasks_total", 0),
-                    "brain": st.get("brain", ""),
+                    "brain": st.get("brain", ""), "timeout_sec": st.get("timeout_sec", 0),
+                    "files_changed": _files_changed(tid, st.get("base", "")) if phase in ACTIVE_PHASES else None,
                     "stalled_in": st.get("phase", "") if phase == "stalled" else "",
                     "tasks": [{k: t.get(k) for k in ("role", "title", "paths")}
                               for t in (st.get("plan") or {}).get("tasks", [])],
@@ -463,13 +521,13 @@ NAMES = ("delegate",)
 _DELEGATE_TOOL = {
     "name": "delegate",
     "description": ("You are the producer (PD): you do not change files yourself. For work the operator proposes, "
-                    "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[repo-"
-                    "relative files]}][, ticket to replace a plan still waiting][, evidence; defaults to the operator's "
+                    "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[existing repo-"
+                    "relative files][, creates=[new files]]}][, ticket to replace a plan still waiting][, evidence; defaults to the operator's "
                     "latest message]): the plan appears as a card and runs only when the operator presses [실행]; each "
                     "task is worked by its expert (role = a character's role, e.g. staff; see data/workspace/characters/) in an "
                     "isolated worktree, then you confirm it; the finished plan lands only when the operator presses "
                     "[승인] (or sends it back with [반려]). Tier 3 paths (guards, gates, approval rules, the charter) "
-                    "are refused. start (title, paths, instruction): a one-task plan. status: the work cards. "
+                    "are refused. start (title, paths, instruction[, creates]): a one-task plan. A path that does not exist is refused with the nearest real files: look before you name one. status: the work cards. "
                     "Running, landing, reworking and discarding are the operator's, not a tool's."),
     "inputSchema": {
         "type": "object",
@@ -478,9 +536,11 @@ _DELEGATE_TOOL = {
             "title": {"type": "string"},
             "tasks": {"type": "array", "items": {"type": "object", "properties": {
                 "role": {"type": "string"}, "title": {"type": "string"}, "instruction": {"type": "string"},
-                "paths": {"type": "array", "items": {"type": "string"}}}}},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "creates": {"type": "array", "items": {"type": "string"}}}}},
             "ticket": {"type": "integer"},
             "paths": {"type": "array", "items": {"type": "string"}},
+            "creates": {"type": "array", "items": {"type": "string"}},
             "instruction": {"type": "string"},
             "evidence": {"type": "array", "items": {"type": "string"}},
         },
@@ -509,7 +569,8 @@ def tool_call(name: str, args: dict, actor: str, secret_re, envelope, private: b
             if action == "plan":
                 res = plan(args.get("title"), args.get("tasks"), evidence, actor=actor, ticket_id=args.get("ticket") or None)
             else:
-                res = request(args.get("title"), args.get("paths"), args.get("instruction"), evidence, actor=actor)
+                res = request(args.get("title"), args.get("paths"), args.get("instruction"), evidence, actor=actor,
+                              creates=args.get("creates"))
             return envelope(True, "plan #%d (%d task(s)) is on the operator's card; it runs when they press [실행]. "
                             "Tell them in a line or two." % (res["ticket"], res["tasks"]), res)
         if action == "status":

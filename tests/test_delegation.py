@@ -29,8 +29,12 @@ class Base(unittest.TestCase):
         characters.save(characters.new_id(), characters.new_card("P", "pd"), self.data / "workspace")   # the PD is not an expert
         r = delegation.runner()
         self.saved = (delegation.DATA, delegation.SEEN_FILE, delegation._spawn, r.WORKTREE_BASE,
-                      r.cleanup_worktree, r.commit_ticket_record)
+                      r.cleanup_worktree, r.commit_ticket_record, delegation.PLAN_ROOT)
         delegation.DATA = self.data
+        delegation.PLAN_ROOT = self.data / "repo"             # the files a plan may name exist here
+        for rel in TIER0 + TIER2 + ["static/chat.css", "static/app.js"]:
+            (delegation.PLAN_ROOT / rel).parent.mkdir(parents=True, exist_ok=True)
+            (delegation.PLAN_ROOT / rel).write_text("x", encoding="utf-8")
         delegation.SEEN_FILE = self.data / "delegation_seen.json"
         r.WORKTREE_BASE = self.data / "wt"
         self.spawned = []
@@ -47,7 +51,7 @@ class Base(unittest.TestCase):
     def tearDown(self):
         r = delegation.runner()
         (delegation.DATA, delegation.SEEN_FILE, delegation._spawn, r.WORKTREE_BASE,
-         r.cleanup_worktree, r.commit_ticket_record) = self.saved
+         r.cleanup_worktree, r.commit_ticket_record, delegation.PLAN_ROOT) = self.saved
 
     def request(self, paths, title="Fix it"):
         return delegation.request(title, paths, "do the thing", [CAND], actor="chat-agent:x")
@@ -146,6 +150,31 @@ class QueueTest(Base):
         self.assertEqual(delegation.advance_queue(), [])
         self.assertEqual(self.state(tid)["phase"], "failed")
         self.assertIn("could not start from the queue", self.state(tid)["reason"])
+
+
+class PlanPathsTest(Base):
+    """A plan names files that exist; new files are declared (DELEGATION_CLARITY_v1)."""
+
+    def test_a_guessed_file_is_refused_with_the_nearest_real_ones(self):
+        with self.assertRaises(delegation.DelegationError) as cm:
+            self.plan([self.task(["static/style.css"])])
+        msg = str(cm.exception)
+        self.assertIn("task 1: static/style.css does not exist", msg)
+        self.assertIn("static/chat.css", msg)
+        self.assertIn("creates", msg)
+
+    def test_new_files_go_in_creates_and_join_the_scope(self):
+        t = dict(self.task(["static/app.js"]), creates=["static/app-new.js"])
+        tid = self.plan([t])["ticket"]
+        self.assertEqual(self.state(tid)["plan"]["tasks"][0]["paths"], ["static/app.js", "static/app-new.js"])
+        for bad, why in ((["static/app.js"], "already exists"), (["nope/x.js"], "folder nope does not exist")):
+            with self.assertRaises(delegation.DelegationError) as cm:
+                self.plan([dict(self.task(["static/app.js"]), creates=bad)])
+            self.assertIn(why, str(cm.exception))
+
+    def test_only_new_files_is_a_plan_too(self):
+        tid = self.plan([{"role": "staff", "title": "t", "instruction": "i", "creates": ["static/app-new.js"]}])["ticket"]
+        self.assertEqual(self.state(tid)["paths"], ["static/app-new.js"])
 
 
 class OperatorTest(Base):

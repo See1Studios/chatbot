@@ -151,6 +151,12 @@ class WorktreeRunner(unittest.TestCase):
         self.assertIn("failed", self.last_fail())
         self.assert_clean_up()
 
+    def test_a_timeout_says_so(self) -> None:
+        # DELEGATION_CLARITY_v1: not "exited with -1"
+        self.assertEqual(self.run_with("sleep 5", extra=("--timeout", "1")), 1)
+        self.assertIn("timed out after 1s", " ".join(map(str, self.last_fail())))
+        self.assert_clean_up()
+
     def test_main_that_moved_is_rebased_onto(self) -> None:
         script = ("echo two >> a.txt && git commit -qam change && "
                   "cd %s && echo c > c.txt && git add c.txt && git commit -qm main-moved" % self.repo)

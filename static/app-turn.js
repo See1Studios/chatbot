@@ -44,6 +44,11 @@ function updateProcBadge(state, detail) {
   } else if (state === 'disconnected') {
     textEl.textContent = '다시 연결하는 중…';
     badge.title = textEl.textContent;
+  } else if (activeWorkRun) {   // the chat waits while an expert works (DELEGATION_CLARITY_v1)
+    const r = activeWorkRun;
+    badge.className = 'proc-badge running delegated';
+    textEl.textContent = workRunWho(r) + ' 작업 중' + (r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : '');
+    badge.title = '#' + r.ticket + ' ' + (r.title || '') + ' · ' + (WORK_PHASE_LABEL[r.phase] || r.phase);
   } else {
     textEl.textContent = '대기 중';
     badge.title = '에이전트 프로세스 실시간 상태';

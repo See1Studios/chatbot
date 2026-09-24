@@ -473,7 +473,14 @@ let workPollTimer = null;
 let workCardIds = new Set();   // tickets shown as work cards: the ticket bar leaves them out
 let workNames = {};            // role id ('' = the PD) -> display name, from the server's identity files
 const workOpen = new Set();
-let workLastPhase = null;   // ticket -> phase seen on the previous poll; null until the first poll
+let workLastPhase = null;
+let activeWorkRun = null;   // the delegated run working now, or null
+
+// Who works on a run now: the current task's expert, by display name.
+function workRunWho(r) {
+  const t = (r.tasks || [])[Math.max(0, (r.task || 1) - 1)] || {};
+  return workNames[t.role] || t.role || '작업자';
+}   // ticket -> phase seen on the previous poll; null until the first poll
 
 function workElapsed(sec) {
   sec = Math.max(0, Math.floor(sec));
@@ -505,12 +512,16 @@ function renderWorkCard(r) {
   const head = obsNode('div', 'work-head');
   head.appendChild(obsNode('span', 'obs-id', '#' + r.ticket));
   head.appendChild(obsNode('span', 'work-title', r.title || ''));
-  const since = r.active && r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : '';
+  // DELEGATION_CLARITY_v1: a writing round's clock against its limit, and the files its worktree changed so far
+  const since = !r.active ? '' : (r.phase === 'writing' && r.timeout_sec && r.phase_since
+    ? ' · ' + workElapsed(Date.now() / 1000 - r.phase_since) + '/' + workElapsed(r.timeout_sec)
+    : (r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : ''));
+  const files = r.active && typeof r.files_changed === 'number' ? ' · 파일 ' + r.files_changed : '';
   const step = r.active && r.tasks_total > 1 && r.task ? ' · 작업 ' + r.task + '/' + r.tasks_total : '';
   const brainNow = r.active && r.brain ? ' · ' + r.brain.split('/').pop() : '';
   const waitOn = r.phase === 'queued' && r.blocked_by && r.blocked_by.ticket
     ? ' · #' + r.blocked_by.ticket + ' ' + (r.blocked_by.paths || []).slice(0, 2).join(', ') + ' ~' + String(r.blocked_by.until || '').slice(11, 16) : '';
-  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + waitOn + step + (r.active && r.round ? ' · ' + r.round + '라운드' : '') + brainNow + since));
+  head.appendChild(obsNode('span', 'obs-badge ' + r.phase, (WORK_PHASE_LABEL[r.phase] || r.phase) + waitOn + step + (r.active && r.round ? ' · ' + r.round + '라운드' : '') + brainNow + since + files));
   card.appendChild(head);
   if (r.phase === 'awaiting_go' || r.phase === 'queued' || workOpen.has(r.ticket)) {
     const list = obsNode('ol', 'work-plan');
@@ -586,6 +597,8 @@ async function loadWork() {
     });
   }
   workLastPhase = new Map(runs.map(r => [r.ticket, r.phase]));
+  activeWorkRun = runs.find(r => r.active) || null;   // the chat's badge says who is working (DELEGATION_CLARITY_v1)
+  if (!isBusy) updateProcBadge('idle');
   const shown = runs.filter(r => r.active || r.phase === 'awaiting_go' || r.phase === 'queued' || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
   const ids = new Set(shown.map(r => r.ticket));
   const changed = ids.size !== workCardIds.size || [...ids].some(id => !workCardIds.has(id));

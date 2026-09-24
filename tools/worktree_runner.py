@@ -837,8 +837,9 @@ def cmd_run(args) -> int:
                     b = chain[bi]
                     resume = rnd > 1 and b == last_brain and bool(PROVIDERS[b["provider"]].get("continue_argv"))
                     prompt = brief if rnd == 1 else retry_prompt(feedback, None if resume else brief)
-                    write_state(tid, phase="writing", task=tno, round=rnd, brain=brain_label(b), phase_since=time.time())
                     timeout = b["timeout"] or args.timeout
+                    write_state(tid, phase="writing", task=tno, round=rnd, brain=brain_label(b), phase_since=time.time(),
+                                timeout_sec=timeout)
                     log("task %d/%d round %d: running %s (timeout %ds)..." % (tno, len(tasks), rnd, brain_label(b), timeout))
                     res = run_agent(b["provider"], wt_dir, prompt, timeout, resume=resume, model=b["model"])
                     result["agent"] = {k: res[k] for k in ("ok", "returncode", "elapsed_sec")}
@@ -852,6 +853,9 @@ def cmd_run(args) -> int:
                         bi += 1
                         renew()
                         continue
+                    if res["returncode"] == -1 and str(res["stderr"]).startswith("timed out"):
+                        raise Failure("failed", "agent %s timed out after %ds" % (brain_label(b), timeout),
+                                      tail(res["stdout"]))
                     raise Failure("failed", "agent %s exited with %s" % (brain_label(b), res["returncode"]),
                                   tail(res["stderr"] or res["stdout"]))
                 last_brain = b
