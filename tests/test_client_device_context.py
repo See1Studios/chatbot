@@ -68,7 +68,8 @@ class TestClientDeviceContext(Base):
         self.assertIn('id="geoBtn"', index_html)
         self.assertIn('class="geo-trigger-btn"', index_html)
 
-        app_js = (CODE / "static" / "app.js").read_text(encoding="utf-8")
+        from tests.page_source import app_source
+        app_js = app_source()   # app.js and its app-*.js parts (APP_SPLIT_v1)
         self.assertIn('getClientContext', app_js)
         self.assertIn('chatbot.geoEnabled', app_js)
         self.assertIn('client_context', app_js)

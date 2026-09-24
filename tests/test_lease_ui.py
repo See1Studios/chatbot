@@ -8,9 +8,9 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import app_bundle  # noqa: E402
 
-APP = Path(__file__).resolve().parent.parent / "static" / "app.js"
-
+APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
 HARNESS = r"""
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');

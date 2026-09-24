@@ -12,15 +12,16 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import app_bundle  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
-APP = STATIC / "app.js"
+APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
 CSS = (STATIC / "chat.css").read_text(encoding="utf-8")
 
 HARNESS = r"""
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
-const a = src.indexOf('function autoResizeInput'), b = src.indexOf('if (window.visualViewport) {');
+const a = src.indexOf('function autoResizeInput'), b = src.indexOf('// ==== file: ', a);   // to the end of its file
 if (a < 0 || b < 0) throw new Error('markers missing');
 const code = src.slice(a, b);
 

@@ -1,0 +1,864 @@
+// app-session.js -- split out of app.js (APP_SPLIT_v1, docs/plans/monolith-split.md Phase 5). Declarations only: it
+// loads before app.js, which runs everything that happens at load (listeners, timers, boot). Top-level code
+// here may use the page's DOM, never a binding from a later file.
+function defaultCharacterId() {
+  const d = (typeof characterCatalog !== 'undefined' ? characterCatalog : []).find(c => c.default);
+  return d ? d.id : '';
+}
+function openCharacterId() { return sessionCharacter || defaultCharacterId(); }
+function sameSessionMode(s) {
+  return ((s && s.mode) || 'work') === sessionMode && ((s && s.character) || defaultCharacterId()) === openCharacterId();
+}
+
+// /private on|off (typed or the heart button): the other mode's session opens with its own history; nothing
+// goes to the agent
+async function applyModeSwitch(res) {
+  const target = res.session;
+  sessionMode = target.mode === 'private' ? 'private' : 'work';
+  sessionCharacter = target.character || '';
+  liveSessionId = target.id;
+  archiveBrowse = false;
+  await openSession(target.id, 0, null, true);
+  addActivity(sessionMode === 'private' ? '사적 대화로 전환: ' + target.id : '업무 대화로 복귀: ' + target.id, 'system');
+}
+
+function updatePrivateBtn() {
+  if (!privateBtn) return;
+  const on = sessionMode === 'private';
+  privateBtn.classList.toggle('active', on);
+  privateBtn.setAttribute('aria-pressed', String(on));
+  privateBtn.title = on ? '사적 대화 끄기 (/private off)' : '사적 대화 켜기 (/private on)';
+}
+
+async function togglePrivateMode() {
+  if (!sessionId || !privateBtn || privateBtn.disabled) return;
+  privateBtn.disabled = true;
+  try {
+    const res = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/message', {
+      method: 'POST',
+      body: JSON.stringify({ text: sessionMode === 'private' ? '/private off' : '/private on' })
+    });
+    if (res && res.session && res.session.id) await applyModeSwitch(res);
+  } catch (e) {
+    addActivity('모드 전환 실패: ' + (e.message || e));
+  } finally {
+    privateBtn.disabled = false;
+  }
+}
+function enterSession(id, opts) {
+  opts = opts || {};
+  rememberSession(id);
+  if (!opts.preserveLog) {
+    detachSessionBanner();
+    logEl.innerHTML = '';
+    activityEvents = [];
+    if (activityEl) activityEl.innerHTML = '';
+    activityNextBefore = null;
+    activityLogFetched = false;
+    currentSessionHasUser = Boolean((opts.history || []).some(h => h.role === 'user'));
+    sessionActionsDismissed = false;
+  } else if (!opts.weight || !opts.weight.level || opts.weight.level === 'ok') {
+    sessionActionsDismissed = false;
+  }
+  if (opts.userEcho) currentSessionHasUser = true;
+
+  if (opts.scrollback !== undefined) {
+    // syncedTs (used by send()'s preserveLog rotate branch): the new
+    // session already has one bit of history -- the message just sent,
+    // already visible on screen from send()'s own optimistic render --
+    // seed lastSyncedTs to its real ts instead of 0 so the new SSE
+    // connection's resyncFromServer() doesn't treat it as "missed" and
+    // render a duplicate copy of it.
+    lastSyncedTs = opts.syncedTs != null ? opts.syncedTs : 0;
+    if (opts.scrollback === 'self') {
+      scrollbackSid = id;
+      scrollbackExhausted = false;
+      scrollbackVisited = new Set([id]);
+
+      scrollforwardSid = id;
+      scrollforwardExhausted = false;
+      scrollforwardVisited = new Set([id]);
+    } else {
+      scrollbackSid = opts.scrollback;
+      scrollbackExhausted = !opts.scrollback;
+      scrollbackVisited = new Set();
+
+      scrollforwardSid = '';
+      scrollforwardExhausted = true;
+      scrollforwardVisited = new Set();
+    }
+  }
+
+  if (opts.history) {
+    // QUOTA_SILENT_FIX_v1: drop notice:error twins sharing ts with a real reply
+    const hist = (opts.history || []).filter(h => {
+      if (h.role !== 'assistant' || h.notice !== 'error' || !h.ts) return true;
+      return !(opts.history || []).some(o => o !== h && o.role === 'assistant' && !o.notice && o.ts === h.ts && String(o.text || '').trim());
+    });
+    hist.forEach(h => {
+      // EMPTY_BUBBLE_FIX_v1: skip empty history — never paint hollow bubbles
+      if (h.role !== 'btw' && !(String(h.text || '').trim())) return;
+      if (h.role === 'btw') {
+        addBtw(h.query, h.text, false, h.usage, h.duration_seconds, h.ts);
+      } else if (h.role === 'user') {
+        addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
+      } else if (h.role === 'assistant') {
+        // QUOTA_ERR_DEDUP_v1: history notice via addNotice
+        const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
+        if (nk) addNotice(nk, h.text || '', h.ts);
+        else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+      }
+      lastSyncedTs = Math.max(lastSyncedTs, h.ts || 0);
+    });
+    // Each addChat() call already scrolls to bottom as it's added, but
+    // that's measured against scrollHeight *at that instant* -- an
+    // assistant message with an image (common: 냥피디 generates a lot of
+    // these) grows taller once the image finishes loading, after the last
+    // addChat already ran, leaving the view short of the true bottom
+    // (실장님: "냥피디 창이 처음 열릴 때 가장 최근 메시지까지 이동하지
+    // 않고 있어"). Re-pin now and once more shortly after, by which point
+    // any images have almost certainly finished loading.
+    logEl.scrollTop = logEl.scrollHeight;
+    setTimeout(() => { logEl.scrollTop = logEl.scrollHeight; }, 200);
+    setSessionTokensFromHistory(opts.history);
+  } else {
+    setSessionTokensFromHistory([]);
+  }
+
+  if (opts.userEcho) addChat('user', opts.userEcho, false, false, false);
+  if (opts.greeting) addChat('assistant', opts.greeting, true);
+  if (opts.activityAfter) addActivity(opts.activityAfter);
+
+  // Moved out of the `opts.history` branch above: createSession()/
+  // continueSession() set up scrollback (opts.scrollback) too but never pass
+  // opts.history (a brand-new session has none yet), so this never used to
+  // run for them -- their only content is the short greeting bubble, which
+  // never overflows the viewport on its own, so there was no scrollbar to
+  // manually scroll-near-top with in the first place. The scroll listener's
+  // own overflow guard (see below) now also refuses to backfill from a
+  // spurious clamp-to-zero scroll event, so without this, a brand-new
+  // session had no way at all to pull in older sessions' content -- from
+  // 실장님's side that read as "예전 세션 내용들이 다 사라져버렸는걸".
+  // Running it here for every scrollback-tracked entry (not just
+  // history-restoring ones) chain-loads previous sessions until the
+  // viewport is filled, same as opening an existing short session already did.
+  if (opts.scrollback !== undefined) setTimeout(maybeBackfillScrollback, 0);
+
+  document.body.classList.toggle('private-session', sessionMode === 'private');
+  updatePrivateBtn();
+  setMeta((sessionMode === 'private' ? '🔒 사적 대화 · ' : '') + '세션 ' + id + ' · ' + (opts.metaLabel || ''));
+  updateSessionNav(id, opts.sessionInfo);
+
+  if (sessionBanner) {
+    if (opts.weight && opts.weight.level) {
+      sessionBanner.dataset.level = opts.weight.level;
+      sessionBanner.dataset.message = opts.weight.message_ko || '';
+    } else if (!opts.preserveLog) {
+      sessionBanner.dataset.level = 'ok';
+      sessionBanner.dataset.message = '';
+    }
+  }
+
+  if (opts.busy !== undefined) setBusy(Boolean(opts.busy));
+  else syncSessionActions();
+
+  bindEvents(id);
+  fetchArtifacts(true);
+  fetchLog();
+}
+
+async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
+  const info = await api('/api/sessions/' + encodeURIComponent(id));
+  if (!noRedirect) {
+    const bounced = await maybeRedirectHardSession(id, info, _redirDepth || 0);
+    if (bounced) return;
+  }
+  const infoMode = info && info.mode === 'private' ? 'private' : 'work';
+  const infoCharacter = (info && info.character) || '';
+  if (infoMode !== sessionMode || infoCharacter !== sessionCharacter) {
+    // opened a session of another mode or character: that one's tip becomes live
+    sessionMode = infoMode;
+    sessionCharacter = infoCharacter;
+    liveSessionId = '';
+  }
+  if (liveSessionId && id !== liveSessionId) archiveBrowse = true;
+  else {
+    archiveBrowse = false;
+    if (isLiveSid(id)) liveSessionId = liveSessionId || id;
+  }
+  enterSession(id, {
+    scrollback: 'self',
+    sessionInfo: info,
+    history: info.history || [],
+    metaLabel: info.model || '',
+    // bannerOverride (set only by maybeRedirectHardSession's own bounce
+    // paths) forces the hard-session banner to show here even though this
+    // freshly-landed-on session's own weight is 'ok' -- the point is to
+    // explain to the user, in the 대화 tab itself, that they were just
+    // auto-redirected here from a different session (previously this was
+    // only ever logged to the non-default 로그 tab via addActivity, which
+    // read as an unexplained context switch -- 2026 impeccable critique P0).
+    weight: bannerOverride || info.weight,
+    busy: info.busy,
+    activityAfter: '세션 복원 ' + id,
+  });
+  applySessionProvider(info);
+  updateBrandAvatar(info.provider || (providerEl ? providerEl.value : ''));
+}
+
+// Re-syncs the live view against server history + in-flight draft.
+// SSE can go zombie on a backgrounded phone, so this also runs on a
+// visibility/poll loop — not only on EventSource onopen. Missed items
+// are keyed by role+ts and inserted in timestamp order (before any
+// live streaming bubble) so a late user_ack cannot land under the answer.
+let resyncInFlight = false;
+async function resyncFromServer(sid) {
+  if (!sid || sid !== sessionId) return;
+  if (resyncInFlight) return;
+  resyncInFlight = true;
+  try {
+    let info;
+    try { info = await api('/api/sessions/' + encodeURIComponent(sid)); } catch (_) { return; }
+    if (!info || info.id !== sid || sid !== sessionId) return;
+
+    const seen = new Set();
+    logEl.querySelectorAll('.msg[data-ts]').forEach(n => {
+      seen.add(msgSyncKey(n.dataset.syncRole || '', n.dataset.ts));
+    });
+
+    let added = 0;
+    (info.history || []).forEach(h => {
+      if (!h.ts) return;
+      const role = h.role || '';
+      // EMPTY_BUBBLE_FIX_v1: skip empty history
+      if (role !== 'btw' && !(String(h.text || '').trim())) return;
+      // QUOTA_SILENT_FIX_v1
+      if (role === 'assistant' && h.notice === 'error' && h.ts) {
+        const twinReply = (info.history || []).some(o => o !== h && o.role === 'assistant' && !o.notice && o.ts === h.ts && String(o.text || '').trim());
+        if (twinReply) return;
+      }
+      const k = msgSyncKey(role, h.ts);
+      if (seen.has(k)) {
+        lastSyncedTs = Math.max(lastSyncedTs, h.ts);
+        return;
+      }
+      if (role === 'assistant' && assistantNode && assistantNode.dataset.live === '1') {
+        setAssistantContent(assistantNode, h.text || '', true, h.usage, h.duration_seconds, h.served_model);
+        assistantNode.dataset.ts = String(h.ts);
+        assistantNode.dataset.syncRole = 'assistant';
+        delete assistantNode.dataset.live;
+        delete assistantNode.dataset.progress;
+        assistantNode = null;
+        assistantBuf = '';
+        seen.add(k);
+        lastSyncedTs = Math.max(lastSyncedTs, h.ts);
+        added++;
+        return;
+      }
+      if (role === 'btw') {
+        addBtw(h.query, h.text, false, h.usage, h.duration_seconds, h.ts);
+      } else if (role === 'user') {
+        const bare = Array.prototype.slice.call(logEl.querySelectorAll('.msg.user:not([data-ts])'));
+        const match = bare.find(function (n) { return (n.textContent || '') === (h.text || ''); });
+        if (match) {
+          match.dataset.ts = String(h.ts);
+          match.dataset.syncRole = 'user';
+          placeMsgByTs(match, h.ts);
+        } else {
+          addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
+        }
+      } else if (role === 'assistant') {
+        // the client already closed this one itself (interrupt/stop) and has it, ts-less, on screen
+        if (adoptUntimedAssistant(h)) {
+          seen.add(k);
+          lastSyncedTs = Math.max(lastSyncedTs, h.ts);
+          return;
+        }
+        const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
+        if (nk) addChat('assistant', h.text || '', true, false, false, false, null, null, nk, h.ts, null);
+        else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+      } else {
+        return;
+      }
+      seen.add(k);
+      lastSyncedTs = Math.max(lastSyncedTs, h.ts);
+      added++;
+    });
+
+    if (info.busy) {
+      setBusy(true);
+      if (info.last_progress) setProgress('작업 중 · ' + shortToolLine(info.last_progress));
+      const draft = info.current_text || '';
+      if (draft) {
+        if (!assistantNode) {
+          assistantNode = addChat('assistant', '', false);
+          assistantNode.dataset.live = '1';
+        }
+        if (draft.length >= (assistantBuf || '').length) {
+          assistantBuf = draft;
+          setAssistantContent(assistantNode, assistantBuf, false);
+        }
+      }
+    } else {
+      // Server is NOT busy — SESSION_DESYNC_GAPFIX_v2
+      try {
+        logEl.querySelectorAll('.msg[data-progress="1"]').forEach(function (n) {
+          if (n !== assistantNode) n.remove();
+        });
+      } catch (_) {}
+      if (assistantNode && assistantNode.dataset.live === '1') {
+        if (assistantBuf && assistantBuf.trim() && assistantNode.dataset.progress !== '1') {
+          markUntimed(assistantNode, assistantBuf);
+          setAssistantContent(assistantNode, assistantBuf, true);
+          delete assistantNode.dataset.live;
+          delete assistantNode.dataset.progress;
+        } else {
+          assistantNode.remove();
+        }
+        assistantNode = null;
+        assistantBuf = '';
+      }
+      setProgress('');
+      // myPendingMids is deliberately NOT cleared here: an idle server does not mean my sent
+      // message is done -- during a steer respawn the server is idle until it writes the
+      // message and acks it, and clearing turned my own ack into "someone else's" (a 2nd bubble).
+      if (isBusy) {
+        setBusy(false);
+      }
+    }
+
+    repairMsgOrder();
+
+    if (added) {
+      addActivity('동기화: 놓친 메시지 ' + added + '건 반영', 'system');
+      fetchArtifacts(true);
+    }
+    // Chat history already syncs here; provider chrome used to stay on
+    // this device's localStorage until a full reload.
+    if (typeof applySessionProvider === 'function') applySessionProvider(info);
+  } finally {
+    resyncInFlight = false;
+  }
+}
+
+function startSessionSyncLoop() {
+  if (window.__sessionSyncTimer) return;
+  window.__sessionSyncTimer = setInterval(() => {
+    if (document.visibilityState === 'hidden') return;
+    if (!sessionId) return;
+    followLiveIfNeeded().then(() => {
+      resyncFromServer(sessionId);
+    }).catch(() => {});
+    if (es && es.readyState === EventSource.CLOSED) bindEvents(sessionId);
+  }, 2500);
+  if (!window.__sessionSyncVis) {
+    window.__sessionSyncVis = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !sessionId) return;
+      if (!es || es.readyState === EventSource.CLOSED) bindEvents(sessionId);
+      else resyncFromServer(sessionId);
+    });
+    window.addEventListener('pageshow', () => {
+      if (!sessionId) return;
+      if (!es || es.readyState === EventSource.CLOSED) bindEvents(sessionId);
+      else resyncFromServer(sessionId);
+    });
+  }
+}
+
+// Loads one predecessor-session hop of history and prepends it above the
+// current top of #log, walking scrollbackSid back one link at a time. Never
+// feeds anything back into agy's context -- purely a read-only archive view.
+// Resolves the "previous session" for scrollback purposes: the real
+// predecessor_session_id when set, or -- for an explicit "완전 새 세션" reset,
+// which intentionally has no predecessor link -- the chronologically-next-
+// older session overall, purely as a browsing convenience (never affects
+// agy context). Returns '' when there's truly nothing older.
+// GET /api/sessions/:id returns updated_at as an epoch-seconds float
+// (file mtime), while GET /api/sessions (list) returns it as an ISO
+// string from meta.json -- two different pre-existing endpoints, two
+// different formats. Normalize both to epoch-ms before comparing.
+function _scrollbackEpochMs(v) {
+  // SESSION_LIST_DATE_FIX_v1: list may send ISO string; detail/mtime may send epoch seconds
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number' && isFinite(v)) {
+    // seconds if looks like unix seconds (< year 2100 in ms threshold)
+    return v < 1e12 ? Math.round(v * 1000) : Math.round(v);
+  }
+  const s = String(v).trim();
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    return n < 1e12 ? Math.round(n * 1000) : Math.round(n);
+  }
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : 0;
+}
+
+async function resolveScrollbackFallback(sid, updatedAt, visited) {
+  const cur = _scrollbackEpochMs(updatedAt);
+  try {
+    const list = await api('/api/sessions');
+    const valid = (list.sessions || []).filter(s => s.id !== sid && !visited.has(s.id) && sameSessionMode(s) && (s.preview || (s.turns && s.turns > 0)));
+    let cands = valid.filter(s => s.updated_at && (!cur || _scrollbackEpochMs(s.updated_at) < cur))
+      .sort((a, b) => _scrollbackEpochMs(b.updated_at) - _scrollbackEpochMs(a.updated_at));
+    if (cands.length) return cands[0].id;
+    cands = valid.filter(s => s.id < sid).sort((a, b) => b.id.localeCompare(a.id));
+    return cands.length ? cands[0].id : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function loadOlderHistory() {
+  if (scrollbackLoading || scrollbackExhausted || !scrollbackSid) return;
+  scrollbackLoading = true;
+  const marker = document.createElement('div');
+  marker.className = 'msg scrollback-marker';
+  marker.textContent = '이전 대화 불러오는 중…';
+  logEl.insertBefore(marker, logEl.firstChild);
+  const prevScrollHeight = logEl.scrollHeight;
+  const prevScrollTop = logEl.scrollTop;
+  try {
+    // Skip transparently through any hop(s) that turn out to have no real
+    // content (e.g. a chain of back-to-back "새 세션" resets nobody typed
+    // into) instead of showing an empty divider for each one.
+    let lastKnownTs = 0; // last hop's updated_at we actually saw -- used to
+    // anchor the fallback search when the NEXT hop turns out to be deleted
+    for (let hops = 0; hops < 20; hops++) {
+      // openSession() pre-seeds this with the session it just rendered in
+      // full via its own forEach, specifically so this first hop can reuse
+      // it as the fallback anchor WITHOUT re-rendering the same messages a
+      // second time.
+      const alreadyRendered = scrollbackVisited.has(scrollbackSid);
+      scrollbackVisited.add(scrollbackSid);
+      let info;
+      try {
+        info = await api('/api/sessions/' + encodeURIComponent(scrollbackSid) + '?full=1');
+      } catch (_) {
+        // This session was deleted (실장님's new 🗑 삭제 button) -- route
+        // around the dead link instead of aborting the whole scrollback.
+        const fallback = await resolveScrollbackFallback(scrollbackSid, lastKnownTs, scrollbackVisited);
+        if (fallback) {
+          scrollbackSid = fallback;
+          continue;
+        }
+        scrollbackExhausted = true;
+        const cap = document.createElement('div');
+        cap.className = 'msg scrollback-marker';
+        cap.textContent = '── 대화 시작 (더 이전 기록 없음) ──';
+        logEl.insertBefore(cap, logEl.firstChild);
+        break;
+      }
+      lastKnownTs = _scrollbackEpochMs(info.updated_at) || lastKnownTs;
+      const hist = info.history || [];
+      let nextSid = info.predecessor_session_id || '';
+      if (nextSid && scrollbackVisited.has(nextSid)) nextSid = ''; // cycle guard
+      if (!nextSid) nextSid = await resolveScrollbackFallback(scrollbackSid, info.updated_at, scrollbackVisited);
+
+      const showThisHop = hist.length && !alreadyRendered;
+      if (showThisHop) {
+        for (let i = hist.length - 1; i >= 0; i--) {
+          const h = hist[i];
+          if (h.role === 'btw') {
+            addBtw(h.query, h.text, true, h.usage, h.duration_seconds, h.ts);
+          } else if (h.role === 'user') {
+            addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), true, null, null, false, h.ts);
+          } else if (h.role === 'assistant') {
+            const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
+            if (nk) addChat('assistant', h.text || '', true, false, false, true, null, null, nk, h.ts, null);
+            else addChat('assistant', h.text || '', true, false, false, true, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+          }
+        }
+        const divider = document.createElement('div');
+        divider.className = 'msg scrollback-marker';
+        divider.innerHTML = '── 세션 ' + escapeHtml(scrollbackSid) + ' ──' +
+          ' <button class="session-switch-btn" data-switch-sid="' + escapeHtml(scrollbackSid) + '" type="button">이 세션으로 전환</button>' +
+          ' <button class="session-import-btn" data-import-sid="' + escapeHtml(scrollbackSid) + '" type="button">' + getActionSvg('pin') + ' 가져오기</button>';
+        logEl.insertBefore(divider, logEl.firstChild);
+        divider.querySelectorAll('[data-switch-sid]').forEach(btn => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openSession(btn.getAttribute('data-switch-sid'), 0, null, true);
+          });
+        });
+        divider.querySelectorAll('[data-import-sid]').forEach(btn => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            importSessionContext(btn.getAttribute('data-import-sid'));
+          });
+        });
+      }
+
+      if (nextSid) {
+        scrollbackSid = nextSid;
+        if (showThisHop) break; // showed something this call -- let the user see it before loading more
+        // else: this hop was empty or already-rendered, loop again and skip past it silently
+      } else {
+        scrollbackExhausted = true;
+        const cap = document.createElement('div');
+        cap.className = 'msg scrollback-marker';
+        cap.textContent = '── 대화 시작 (더 이전 기록 없음) ──';
+        logEl.insertBefore(cap, logEl.firstChild);
+        break;
+      }
+    }
+    marker.remove();
+    logEl.scrollTop = prevScrollTop + (logEl.scrollHeight - prevScrollHeight);
+  } catch (_) {
+    marker.remove();
+  }
+  scrollbackLoading = false;
+  // A short/freshly-rotated session's history often doesn't fill the
+  // viewport at all, so there's nothing to physically scroll and the
+  // 'scroll' listener below never fires even though older content exists.
+  // Chain-backfill until there's enough content to actually scroll, or the
+  // predecessor chain runs out.
+  maybeBackfillScrollback();
+}
+
+function maybeBackfillScrollback() {
+  if (currentTab !== 'chat' || scrollbackExhausted || scrollbackLoading || !logEl) return;
+  if (logEl.scrollHeight <= logEl.clientHeight + 20) {
+    loadOlderHistory();
+  }
+}
+
+async function resolveScrollforwardFallback(sid, updatedAt, visited) {
+  try {
+    const list = await api('/api/sessions');
+    const valid = (list.sessions || []).filter(s => s.id !== sid && !visited.has(s.id) && sameSessionMode(s) && (s.preview || (s.turns && s.turns > 0)));
+    const cands = valid.filter(s => s.id > sid).sort((a, b) => a.id.localeCompare(b.id));
+    return cands.length ? cands[0].id : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function loadNewerHistory() {
+  if (scrollforwardLoading || scrollforwardExhausted || !scrollforwardSid) return;
+  scrollforwardLoading = true;
+  const marker = document.createElement('div');
+  marker.className = 'msg scrollback-marker scrollforward-marker';
+  marker.textContent = '다음 대화 불러오는 중…';
+  logEl.appendChild(marker);
+  try {
+    let lastKnownTs = 0;
+    for (let hops = 0; hops < 20; hops++) {
+      const alreadyRendered = scrollforwardVisited.has(scrollforwardSid);
+      scrollforwardVisited.add(scrollforwardSid);
+      let info;
+      try {
+        info = await api('/api/sessions/' + encodeURIComponent(scrollforwardSid) + '?full=1');
+      } catch (_) {
+        const fallback = await resolveScrollforwardFallback(scrollforwardSid, lastKnownTs, scrollforwardVisited);
+        if (fallback) {
+          scrollforwardSid = fallback;
+          continue;
+        }
+        // End of forward chain — no end-cap (실장님: 최신 대화 중에도
+        // 뜨고 가치 없음). Just stop loading newer hops.
+        scrollforwardExhausted = true;
+        break;
+      }
+      lastKnownTs = _scrollbackEpochMs(info.updated_at) || lastKnownTs;
+      const hist = info.history || [];
+      let nextSid = info.successor_session_id || '';
+      if (nextSid && scrollforwardVisited.has(nextSid)) nextSid = '';
+      if (!nextSid) nextSid = await resolveScrollforwardFallback(scrollforwardSid, info.updated_at, scrollforwardVisited);
+
+      const showThisHop = hist.length && !alreadyRendered;
+      if (showThisHop) {
+        const divider = document.createElement('div');
+        divider.className = 'msg scrollback-marker';
+        divider.innerHTML = '── 세션 ' + escapeHtml(scrollforwardSid) + ' (이후 대화) ──' +
+          ' <button class="session-switch-btn" data-switch-sid="' + escapeHtml(scrollforwardSid) + '" type="button">이 세션으로 전환</button>' +
+          ' <button class="session-import-btn" data-import-sid="' + escapeHtml(scrollforwardSid) + '" type="button">' + getActionSvg('pin') + ' 가져오기</button>';
+        logEl.appendChild(divider);
+        divider.querySelectorAll('[data-switch-sid]').forEach(btn => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openSession(btn.getAttribute('data-switch-sid'));
+          });
+        });
+        divider.querySelectorAll('[data-import-sid]').forEach(btn => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            importSessionContext(btn.getAttribute('data-import-sid'));
+          });
+        });
+
+        hist.forEach(h => {
+          if (h.role === 'btw') {
+            addBtw(h.query, h.text, false, h.usage, h.duration_seconds, h.ts);
+          } else if (h.role === 'user') {
+            addChat('user', h.text || '', false, Boolean(h.queued), (h.text || '').startsWith('/btw'), false, null, null, false, h.ts);
+          } else if (h.role === 'assistant') {
+            const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
+            if (nk) addChat('assistant', h.text || '', true, false, false, false, null, null, nk, h.ts, null);
+            else addChat('assistant', h.text || '', true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+          }
+        });
+      }
+
+      if (nextSid) {
+        scrollforwardSid = nextSid;
+        if (showThisHop) break;
+      } else {
+        // End of forward chain — no end-cap (실장님: 최신 대화 중에도
+        // 뜨고 가치 없음). Just stop loading newer hops.
+        scrollforwardExhausted = true;
+        break;
+      }
+    }
+  } catch (_) {
+    scrollforwardExhausted = true;
+  } finally {
+    marker.remove();
+    scrollforwardLoading = false;
+    updateScrollBottomButton();
+  }
+}
+
+async function updateSessionNav(id, sessionInfo) {
+  const prevBtn = document.getElementById('sessionNavPrev');
+  const nextBtn = document.getElementById('sessionNavNext');
+  const latestBtn = document.getElementById('sessionNavLatest');
+  const pastBadge = document.getElementById('pastSessionBadge');
+  if (!prevBtn || !nextBtn) return;
+
+  sessionNavPrevSid = '';
+  sessionNavNextSid = '';
+
+  if (!id) {
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    if (latestBtn) latestBtn.hidden = true;
+    if (pastBadge) pastBadge.style.display = 'none';
+    updateScrollBottomButton();
+    return;
+  }
+
+  try {
+    let info = sessionInfo;
+    if (!info || info.id !== id) {
+      info = await api('/api/sessions/' + encodeURIComponent(id));
+    }
+    const updatedAt = info ? info.updated_at : null;
+
+    let prevSid = (info && info.predecessor_session_id) || '';
+    if (!prevSid) {
+      prevSid = await resolveScrollbackFallback(id, updatedAt, new Set([id]));
+    }
+    sessionNavPrevSid = prevSid;
+    prevBtn.disabled = !prevSid;
+    prevBtn.title = prevSid ? ('이전 세션 (과거): ' + prevSid) : '더 이전 세션 없음';
+
+    let nextSid = (info && info.successor_session_id) || '';
+    if (!nextSid) {
+      nextSid = await resolveScrollforwardFallback(id, updatedAt, new Set([id]));
+    }
+    if (nextSid && nextSid <= id) nextSid = '';
+    sessionNavNextSid = nextSid;
+    nextBtn.disabled = !nextSid;
+    nextBtn.title = nextSid ? ('다음 세션 (미래): ' + nextSid) : '최신 세션 (더 이후 세션 없음)';
+
+    if (latestBtn) {
+      latestBtn.hidden = !viewingPastSession();
+      if (nextSid) latestBtn.title = '최신 세션으로 점프';
+    }
+    if (pastBadge) {
+      pastBadge.style.display = viewingPastSession() ? 'inline-flex' : 'none';
+    }
+    updateScrollBottomButton();
+  } catch (_) {
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    if (latestBtn) latestBtn.hidden = true;
+    if (pastBadge) pastBadge.style.display = 'none';
+    updateScrollBottomButton();
+  }
+}
+
+// ---- latest-conversation jump ----
+function isLiveSid(sid) {
+  return /^\d{8}-\d{6}-/.test(String(sid || ''));
+}
+
+function viewingPastSession() {
+  if (archiveBrowse && liveSessionId && liveSessionId !== sessionId) return true;
+  return Boolean(sessionNavNextSid) && sessionNavNextSid > (sessionId || '');
+}
+
+async function resolveLatestSessionId() {
+  const ids = [];
+  try {
+    const list = await api('/api/sessions');
+    for (const s of (list.sessions || [])) {
+      if (s && isLiveSid(s.id) && sameSessionMode(s)) ids.push(s.id);
+    }
+  } catch (_) {}
+  if (sessionMode === 'work' && openCharacterId() === defaultCharacterId()) {
+    try {
+      const act = await api('/api/sessions/active');
+      if (act && isLiveSid(act.id)) ids.push(act.id);
+    } catch (_) {}
+  }
+  if (liveSessionId && isLiveSid(liveSessionId)) ids.push(liveSessionId);
+  if (sessionNavNextSid && isLiveSid(sessionNavNextSid)) ids.push(sessionNavNextSid);
+  let best = '';
+  for (const id of ids) {
+    if (!best || id > best) best = id;
+  }
+  if (!best) return sessionId || '';
+  let id = best;
+  const seen = new Set([id]);
+  let lastWithTurns = '';
+  for (let hops = 0; hops < 40; hops++) {
+    let info;
+    try { info = await api('/api/sessions/' + encodeURIComponent(id)); }
+    catch (_) { return lastWithTurns || id; }
+    const turns = (info && Array.isArray(info.history)) ? info.history.length : 0;
+    if (turns > 0) lastWithTurns = id;
+    const next = (info && info.successor_session_id) || '';
+    if (!next || seen.has(next) || !isLiveSid(next)) {
+      // EMPTY_TIP_BOOT_FIX_v1: unused empty successor looked like "대화를 못 불러와"
+      if (turns === 0 && lastWithTurns) return lastWithTurns;
+      return id;
+    }
+    seen.add(next);
+    id = next;
+  }
+  return lastWithTurns || id;
+}
+
+function pinChatToBottom() {
+  historyLoadHoldUntil = Date.now() + 600;
+  if (!logEl) {
+    updateScrollBottomButton(true);
+    return;
+  }
+  if (typeof logEl.scrollTo === 'function') {
+    logEl.scrollTo({ top: logEl.scrollHeight, behavior: 'auto' });
+  } else {
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  updateScrollBottomButton(true);
+}
+
+async function goToLatestConversation() {
+  const latestId = await resolveLatestSessionId();
+  if (latestId) liveSessionId = latestId;
+  archiveBrowse = false;
+  if (latestId && latestId !== sessionId) {
+    await openSession(latestId);
+    pinChatToBottom();
+    return 'jump';
+  }
+  pinChatToBottom();
+  return 'scroll';
+}
+
+async function followLiveIfNeeded() {
+  if (archiveBrowse) return false;
+  const latestId = await resolveLatestSessionId();
+  if (latestId) liveSessionId = latestId;
+  if (latestId && latestId !== sessionId) {
+    await openSession(latestId);
+    return true;
+  }
+  return false;
+}
+// ---- end latest-conversation jump ----
+
+
+
+async function createSession() {
+  const prevSessionId = sessionId; // "완전 새 세션" has no real predecessor_session_id link
+  // (intentional -- no handoff summary should leak into agy's context), but
+  // 실장님 still wants to be able to scroll up into whatever was open right
+  // before it. Point scrollback at that browser-previous session directly;
+  // it'll keep walking that session's own real predecessor chain from there.
+  const model = modelEl.value;
+  const provider = providerEl ? providerEl.value : defaultProviderId;
+  const data = await api('/api/sessions', {method:'POST', body: JSON.stringify({model, provider})});
+  const label = (data.session.provider && data.session.provider !== defaultProviderId)
+    ? data.session.provider + (data.session.model ? ':' + data.session.model : '')
+    : data.session.model;
+  liveSessionId = data.session.id;
+  archiveBrowse = false;
+  enterSession(data.session.id, {
+    scrollback: prevSessionId,
+    greeting: '다시 왔다냥! ' + IDENTITY.user_title + ', 뭐부터 할까? ฅ',
+    metaLabel: label,
+    busy: false,
+    activityAfter: '새 세션 ' + data.session.id,
+  });
+  applySessionProvider(data.session);
+}
+
+async function continueSession() {
+  if (!sessionId) {
+    await createSession();
+    return;
+  }
+  const oldId = sessionId;
+  setBusy(true);
+  setProgress('이전 대화 핵심 요약 및 인계 준비 중…');
+  try {
+    const model = modelEl.value;
+    const res = await api('/api/sessions/' + encodeURIComponent(oldId) + '/continue', {
+      method: 'POST',
+      body: JSON.stringify({ model })
+    });
+    if (res && res.ok && res.session) {
+      const nid = res.session.id;
+      const note = res.summary
+        ? '\n\n> **[인계된 핵심 맥락]**\n> ' + res.summary.replace(/\n/g, '\n> ')
+        : '';
+      liveSessionId = nid;
+      archiveBrowse = false;
+      enterSession(nid, {
+        scrollback: 'self',
+        greeting: '이전 대화의 핵심 맥락을 인계받아 새 세션을 열었다냥! ฅ' + note + '\n\n무엇부터 이어서 진행할까?',
+        metaLabel: res.session.model || '',
+        activityAfter: '이전 세션(' + oldId + ') 맥락 인계 → 새 세션(' + nid + ')',
+      });
+      applySessionProvider(res.session);
+    }
+  } catch (e) {
+    addActivity('세션 이어하기 오류: ' + (e.message || e));
+    await alertModal('세션 이어하기 실패: ' + (e.message || e));
+  } finally {
+    setBusy(false);
+    setProgress('');
+  }
+}
+
+async function ensureSession() {
+  const sp = new URLSearchParams(location.search);
+  const urlSid = sp.get('session');
+  if (urlSid) {
+    try {
+      try { liveSessionId = await resolveLatestSessionId(); } catch (_) {}
+      await openSession(urlSid);
+      return;
+    } catch (_) {}
+  }
+  try {
+    const latestId = await resolveLatestSessionId();
+    if (latestId) {
+      liveSessionId = latestId;
+      archiveBrowse = false;
+      await openSession(latestId);
+      return;
+    }
+  } catch (_) {}
+  if (sessionId) {
+    try { await openSession(sessionId); return; }
+    catch (_) {
+      sessionId = '';
+      localStorage.removeItem(SESSION_KEY);
+    }
+  }
+  await createSession();
+}

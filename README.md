@@ -14,7 +14,7 @@ Sphere Hub용 DiskStation 채팅 에이전트 호스트.
 |------|------|
 | `server.py` | HTTP 엔트리 (:3011). `session.py` / `adapters.py` / `host_config.py`를 로드 |
 | `mcp_server.py` | MCP 도구 서버 (:3012, 서버 이름 `nas`). 코어 도구는 `mcp_core.py`, 이 NAS 전용은 `nas_mcp_host.py` |
-| `static/` | 전체 창 UI. `app.js`가 세션/SSE, 나머지는 theme/markdown/artifacts/slash |
+| `static/` | 전체 창 UI. `app.js`(전역·전송·부팅)와 기능별 `app-*.js`(먼저 로드), 나머지는 theme/markdown/artifacts/slash |
 | `data/workspace/PERSONA.md` | 페르소나 SSOT |
 | `data/` | 세션·아티팩트·워크스페이스·페르소나 이미지 |
 | `chatbot-ctl.sh` | start/stop/status/probe/repair. `~/services/chatbot-ctl.sh`와 동일 |

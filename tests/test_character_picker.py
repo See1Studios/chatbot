@@ -109,7 +109,8 @@ class Picker(unittest.TestCase):
 class PageUrls(unittest.TestCase):
     def test_every_api_url_built_outside_api_carries_the_base_path(self):
         import re
-        src = (Path(__file__).resolve().parent.parent / "static" / "app.js").read_text(encoding="utf-8")
+        from tests.page_source import app_source
+        src = app_source()   # every part of the page script (APP_SPLIT_v1)
         for m in re.finditer(r"(\S+)\s*\+?\s*'/api/", src):
             line = src[src.rfind("\n", 0, m.start()) + 1:src.find("\n", m.end())]
             if "api(" in line or line.strip().startswith("//"):

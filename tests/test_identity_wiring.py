@@ -146,7 +146,7 @@ class NoHardcodedNamesGuard(unittest.TestCase):
 
     def test_shipped_static_ui_holds_no_baked_in_names(self):
         offenders = []
-        for name in ("app.js",):
+        for name in sorted(p.name for p in (ROOT / "static").glob("app*.js")):   # app.js and its parts (APP_SPLIT_v1)
             for no, line in enumerate((ROOT / "static" / name).read_text(encoding="utf-8").splitlines(), 1):
                 code = line.split("//", 1)[0] if "//" in line and "://" not in line else line
                 if line.lstrip().startswith(("//", "*", "/*")):

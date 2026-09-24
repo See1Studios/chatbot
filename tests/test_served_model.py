@@ -10,10 +10,11 @@ import unittest
 from pathlib import Path
 
 from adapters import openai_chunk_model, stamp_served_model
+from tests.page_source import app_bundle  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "static"
-APP = STATIC / "app.js"
+APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
 CSS = STATIC / "chat.css"
 HTML = STATIC / "index.html"
 MD = STATIC / "markdown.js"

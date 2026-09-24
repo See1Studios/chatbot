@@ -1,0 +1,92 @@
+"""The page script stays in parts a person or a small model can read (APP_SPLIT_v1, monolith-split Phase 5), and the
+parts load in an order that works: every script index.html names is run, in that order, in one global scope with a
+permissive fake browser, and nothing may fail at load (a part calling into a later one, a name used before it is
+declared). Skipped when node is not installed.
+Run: python3 -m unittest tests.test_page_scripts  (from services/chatbot)
+"""
+import json
+import re
+import shutil
+import subprocess
+import unittest
+from pathlib import Path
+
+STATIC = Path(__file__).resolve().parent.parent / "static"
+MAX_LINES = 1000
+
+HARNESS = r"""
+// Load the page's scripts in order in one global scope with a permissive fake browser; report load-time errors.
+const fs = require('fs'), vm = require('vm');
+const files = process.argv.slice(1).filter(a => a.endsWith('.js'));   // node -e: argv[1] is the first file
+function stub(name) {
+  const f = function () { return stub(name + '()'); };
+  return new Proxy(f, {
+    get(t, k) {
+      if (k === Symbol.toPrimitive) return () => '';
+      if (k === 'then') return undefined;
+      if (k === Symbol.iterator) return function* () {};
+      if (k === 'length') return 0;
+      if (k === 'getItem') return () => null;
+      if (k === 'matches') return false;
+      if (k === 'pathname') return '/chat/';
+      if (k === 'search' || k === 'hash' || k === 'value' || k === 'textContent' || k === 'innerHTML') return '';
+      if (k in t && k !== 'name' && k !== 'call' && k !== 'apply' && k !== 'bind') return t[k];
+      return stub(name + '.' + String(k));
+    },
+    set() { return true; }, apply() { return stub(name + '()'); }, construct() { return stub('new ' + name); },
+    has() { return true; },
+  });
+}
+const errors = [];
+const ctx = { console, setTimeout: () => 0, setInterval: () => 0, clearTimeout() {}, clearInterval() {},
+  Promise, JSON, Math, Date, Object, Array, String, Number, Boolean, RegExp, Map, Set, WeakMap, Symbol, Error, TypeError,
+  URL, URLSearchParams, encodeURIComponent, decodeURIComponent, parseInt, parseFloat, isNaN, Intl, Proxy, Reflect,
+  queueMicrotask, structuredClone: (x) => x, TextEncoder, TextDecoder, AbortController, performance };
+for (const n of ['document', 'navigator', 'localStorage', 'sessionStorage', 'location', 'history', 'EventSource', 'fetch',
+  'requestAnimationFrame', 'cancelAnimationFrame', 'matchMedia', 'getComputedStyle', 'MutationObserver', 'ResizeObserver',
+  'IntersectionObserver', 'Image', 'Audio', 'speechSynthesis', 'SpeechSynthesisUtterance', 'marked', 'hljs', 'DOMPurify',
+  'mermaid', 'visualViewport', 'Notification', 'Blob', 'FileReader', 'FormData', 'HTMLElement', 'Node', 'CustomEvent',
+  'Event', 'KeyboardEvent', 'crypto', 'screen', 'alert', 'confirm', 'prompt', 'open', 'scrollTo', 'addEventListener',
+  'removeEventListener', 'dispatchEvent', 'getSelection', 'innerWidth', 'innerHeight', 'devicePixelRatio', 'caches',
+  'indexedDB', 'Worker', 'WebSocket', 'XMLHttpRequest', 'btoa', 'atob', 'CSS', 'ClipboardItem', 'Live2DCubismCore', 'PIXI']) ctx[n] = stub(n);
+ctx.location = stub('location');
+ctx.fetch = () => new Promise(() => {});
+ctx.window = ctx; ctx.self = ctx; ctx.globalThis = ctx;
+vm.createContext(ctx);
+process.on('unhandledRejection', (e) => { if (e instanceof Error && /ReferenceError|before initialization|is not defined/.test(String(e))) errors.push('async ' + String(e)); });
+for (const f of files) {
+  try { vm.runInContext(fs.readFileSync(f, 'utf8'), ctx, { filename: f }); }
+  catch (e) { errors.push(f + ': ' + e.constructor.name + ': ' + e.message + ' @ ' + String(e.stack).split('\n')[1]); }
+}
+setImmediate(() => { console.log(JSON.stringify(errors)); });
+"""
+
+
+def page_scripts():
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    return [STATIC / n for n in re.findall(r'<script src="\./([a-z0-9-]+\.js)', html)]
+
+
+class PageScripts(unittest.TestCase):
+    def test_every_part_stays_under_the_line_cap(self):
+        for p in sorted(STATIC.glob("app*.js")):
+            n = len(p.read_text(encoding="utf-8").splitlines())
+            self.assertLess(n, MAX_LINES, "%s has %d lines: split it by feature (docs/plans/monolith-split.md)" % (p.name, n))
+
+    def test_every_part_is_loaded_and_before_app_js(self):
+        names = [p.name for p in page_scripts()]
+        parts = sorted(p.name for p in STATIC.glob("app-*.js"))
+        self.assertEqual(sorted(n for n in names if n.startswith("app-")), parts)
+        for n in parts:
+            self.assertLess(names.index(n), names.index("app.js"), n)
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_the_page_loads_without_errors(self):
+        files = [str(p) for p in page_scripts()]
+        r = subprocess.run(["node", "-e", HARNESS] + files, capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        self.assertEqual(json.loads(r.stdout.strip().splitlines()[-1]), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

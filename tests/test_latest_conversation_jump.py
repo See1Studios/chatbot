@@ -9,9 +9,10 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import app_bundle  # noqa: E402
 
 CODE = Path(__file__).resolve().parent.parent
-APP = CODE / "static" / "app.js"
+APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
 HTML = CODE / "static" / "index.html"
 
 HARNESS = r"""
