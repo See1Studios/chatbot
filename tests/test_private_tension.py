@@ -58,10 +58,39 @@ class TensionLadder(unittest.TestCase):
         self.assertIn('라벨 -> "대사"', ctx)
         self.assertIn("라벨 -> (행동)", ctx)
         self.assertIn('라벨 -> "대사" (행동)', ctx)
-        for slot in ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉"):
+        for slot in ("자연스러운 다음 흐름", "한 걸음 더 다가서기", "깊은 감정 교감"):
             self.assertIn(slot, ctx)
-        self.assertIn("포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정", ctx)
+        self.assertIn("(단계 2 유지)", ctx)
+        self.assertIn("(단계 4)", ctx)
+        for word in ("애무", "눕히기", "벗기기", "절정", "탐닉", "스킨십"):
+            self.assertNotIn(word, ctx)
         self.assertNotIn("최근 사용한 선택지", PE.tension_context(1, []))
+
+    def test_stages_slots_and_texts_come_from_the_defaults_file(self):
+        import json
+        raw = json.loads(PE.DEFAULTS_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(PE.DEFAULTS_PATH.name, "private_tension_defaults.json")
+        self.assertEqual(PE.TENSION_STAGES, {int(k): v for k, v in raw["stages"].items()})
+        self.assertEqual((PE.TENSION_MIN, PE.TENSION_MAX), (1, 4))
+        self.assertEqual(PE.TENSION_SLOTS, tuple(s["label"] for s in raw["slots"]))
+        self.assertEqual(PE.TENSION_SLOT_GUIDES, tuple(s["guide"] for s in raw["slots"]))
+        ctx = PE.tension_context(1, [])
+        for text in raw["texts"].values():
+            if text != raw["texts"]["recent_prefix"]:
+                self.assertIn(text, ctx)
+
+    def test_load_defaults_reads_a_given_file(self):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            p = tmp / "t.json"
+            p.write_text('{"stages": {"1": "a", "2": "b"}, "slots": [{"label": "x", "guide": "y"}], '
+                         '"texts": {"k": "v"}}', encoding="utf-8")
+            d = PE.load_defaults(p)
+            self.assertEqual(d["stages"], {1: "a", 2: "b"})
+            self.assertEqual(d["slots"], (("x", "y"),))
+            self.assertEqual(d["texts"], {"k": "v"})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
     def test_turn_context_is_private_only(self):
         class Sess:

@@ -6,14 +6,33 @@ and uniform across all private characters.
 """
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 # NATURAL_SEQUENCE_v1 (#163): private sessions climb a 4-stage tension ladder. The engine state lives on the session;
 # this is the one place its per-turn context is written, so every provider gets the same text.
-TENSION_MIN, TENSION_MAX = 1, 4
-TENSION_STAGES = {1: "도입", 2: "고조", 3: "밀착", 4: "절정"}
-TENSION_SLOTS = ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉")  # slot index -> stage delta 0 / +1 / +2
+# Stage names, slot definitions and context wording live in data/private_tension_defaults.json (#199).
+DEFAULTS_PATH = Path(__file__).resolve().parent / "data" / "private_tension_defaults.json"
+
+
+def load_defaults(path: Optional[Path] = None) -> Dict[str, Any]:
+    """Tension stages, slots and context texts from the defaults JSON (raises if missing or malformed)."""
+    data = json.loads(Path(path or DEFAULTS_PATH).read_text(encoding="utf-8"))
+    return {
+        "stages": {int(k): str(v) for k, v in data["stages"].items()},
+        "slots": tuple((str(s["label"]), str(s["guide"])) for s in data["slots"]),
+        "texts": {k: str(v) for k, v in data["texts"].items()},
+    }
+
+
+_DEFAULTS = load_defaults()
+TENSION_STAGES = _DEFAULTS["stages"]
+TENSION_MIN, TENSION_MAX = min(TENSION_STAGES), max(TENSION_STAGES)
+TENSION_SLOTS = tuple(label for label, _ in _DEFAULTS["slots"])  # slot index -> stage delta 0 / +1 / +2
+TENSION_SLOT_GUIDES = tuple(guide for _, guide in _DEFAULTS["slots"])
+TENSION_TEXTS = _DEFAULTS["texts"]
 TENSION_RECENT_MAX = 9
 
 
@@ -68,24 +87,18 @@ def tension_step(stage: int, recent: List[str], history: List[dict], text: str,
 def tension_context(stage: int, recent_choices: List[str]) -> str:
     """[Tension Engine Context] block for one private turn: stage, choices not to repeat, 3-slot natural sequence contract."""
     stage = max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN)))
+    t = TENSION_TEXTS
     lines = [
         "[Tension Engine Context]",
-        f"Stage: {stage}/{TENSION_MAX} ({TENSION_STAGES[stage]}). 현재 단계의 무드와 스킨십 수위에 맞게 장면을 연출할 것.",
+        f"Stage: {stage}/{TENSION_MAX} ({TENSION_STAGES[stage]}). {t['stage_mood']}",
     ]
     recent = [c for c in (recent_choices or []) if c][-TENSION_RECENT_MAX:]
     if recent:
-        lines.append("최근 사용한 선택지 반복 및 유사 표현 금지: " + " | ".join(recent))
-    top = min(TENSION_MAX, stage + 2)
-    lines.append(
-        "직전 행동의 신체 부위와 거리감에서 끊김 없이 자연스럽게 이어지는 행동 시퀀스를 구성할 것. "
-        "(예: 포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정)\n"
-        "선택지는 '라벨 -> \"대사\"' 형태의 순수 대사형, '라벨 -> (행동)' 형태의 행동형, "
-        "'라벨 -> \"대사\" (행동)' 결합형을 상황과 흐름에 맞게 자연스럽게 혼합 구성할 것.\n"
-        "억지 밀당이나 어색한 화제 전환을 배제하고, 반드시 다음 3가지 슬롯 순서대로 정확히 3개의 선택지를 제시할 것:\n"
-        f"1) {TENSION_SLOTS[0]} -- 직전 신체 부위/거리감에서 이어지는 다음 행동 (단계 {stage} 유지)\n"
-        f"2) {TENSION_SLOTS[1]} -- 한 걸음 더 깊이 파고드는 과감한 스킨십과 밀착 (단계 {min(TENSION_MAX, stage + 1)})\n"
-        f"3) {TENSION_SLOTS[2]} -- 신체 감각과 짙은 분위기에 온전히 젖어드는 탐닉 (단계 {top})"
-    )
+        lines.append(t["recent_prefix"] + " | ".join(recent))
+    lines += [t["sequence"], t["choice_forms"], t["slot_contract"]]
+    for i, (label, guide) in enumerate(zip(TENSION_SLOTS, TENSION_SLOT_GUIDES)):
+        hold = " 유지" if i == 0 else ""
+        lines.append(f"{i + 1}) {label} -- {guide} (단계 {min(TENSION_MAX, stage + i)}{hold})")
     return "\n".join(lines)
 
 
