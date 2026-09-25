@@ -336,6 +336,9 @@ function renderChoiceChips(node, choices) {
   if (md) md.querySelectorAll('.choice-chips').forEach(el => el.remove());
   const bar = getChoiceBarEl();
   if (bar) {
+    if (bar.classList && typeof bar.classList.remove === 'function') {
+      bar.classList.remove('closing');
+    }
     bar.textContent = '';
     bar.hidden = true;
     bar._owner = null;
@@ -344,6 +347,45 @@ function renderChoiceChips(node, choices) {
 
   const card = document.createElement('div');
   card.className = 'choice-card';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'choice-close-btn';
+  closeBtn.setAttribute('aria-label', '선택지 닫기');
+  closeBtn.textContent = '✕';
+  closeBtn.addEventListener('click', (e) => {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    if (bar) {
+      if (bar.classList && typeof bar.classList.add === 'function') {
+        bar.classList.add('closing');
+      }
+      const hideBar = () => {
+        bar.hidden = true;
+        if (bar.classList && typeof bar.classList.remove === 'function') {
+          bar.classList.remove('closing');
+        }
+        bar.textContent = '';
+        bar._owner = null;
+      };
+      if (typeof setTimeout === 'function') {
+        setTimeout(hideBar, 180);
+      } else {
+        hideBar();
+      }
+    } else if (card) {
+      if (card.classList && typeof card.classList.add === 'function') {
+        card.classList.add('closing');
+        if (typeof setTimeout === 'function') {
+          setTimeout(() => { if (typeof card.remove === 'function') card.remove(); }, 180);
+        } else {
+          if (typeof card.remove === 'function') card.remove();
+        }
+      } else if (typeof card.remove === 'function') {
+        card.remove();
+      }
+    }
+  });
+  card.appendChild(closeBtn);
 
   const row = document.createElement('div');
   row.className = 'choice-card-body choice-chips';
@@ -385,6 +427,9 @@ function syncChoiceChips() {
   const isAssistant = last && (last.classList ? last.classList.contains('assistant') : /\bassistant\b/.test(last.className || ''));
   if (!last || !isAssistant || !hasChoicesOnLast) {
     if (bar) {
+      if (bar.classList && typeof bar.classList.remove === 'function') {
+        bar.classList.remove('closing');
+      }
       bar.textContent = '';
       bar.hidden = true;
       bar._owner = null;

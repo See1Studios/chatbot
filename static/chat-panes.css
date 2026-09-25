@@ -203,12 +203,80 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
 .obs-form select,.obs-form input{background:#14171d;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.4rem .5rem;font-size:.82rem;max-width:100%}
 .ticket-bar{display:flex;flex-wrap:wrap;gap:.4rem;flex-shrink:0;align-items:center;padding:.15rem 0}
 .ticket-bar[hidden]{display:none}
-.choice-bar{display:flex;flex-direction:column;gap:.4rem;flex-shrink:0;padding:.15rem 0}
+.choice-bar{
+  display:flex;
+  flex-direction:column;
+  gap:.4rem;
+  flex-shrink:0;
+  padding:.15rem 0;
+  animation:choice-bar-in .2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin:bottom center;
+}
 .choice-bar[hidden]{display:none}
-.choice-card{border:1px solid var(--accent-border);border-radius:12px;padding:.35rem .5rem;background:rgba(255,255,255,.04);font-size:.82rem;display:flex;flex-direction:column;gap:.4rem;box-shadow:0 4px 16px rgba(0,0,0,.25);backdrop-filter:blur(8px)}
+.choice-bar.closing{
+  animation:choice-bar-out .18s cubic-bezier(0.2, 0, 0.4, 1) forwards;
+  pointer-events:none;
+}
+@keyframes choice-bar-in{
+  from{opacity:0;transform:translateY(6px) scale(0.98)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes choice-bar-out{
+  from{opacity:1;transform:translateY(0) scale(1)}
+  to{opacity:0;transform:translateY(6px) scale(0.98)}
+}
+.choice-card{
+  position:relative;
+  border:1px solid var(--accent-border);
+  border-radius:12px;
+  padding:.35rem 1.85rem .35rem .5rem;
+  background:rgba(255,255,255,.04);
+  font-size:.82rem;
+  display:flex;
+  flex-direction:column;
+  gap:.4rem;
+  box-shadow:0 4px 16px rgba(0,0,0,.25);
+  backdrop-filter:blur(8px);
+}
+.choice-card.closing{
+  animation:choice-bar-out .18s cubic-bezier(0.2, 0, 0.4, 1) forwards;
+  pointer-events:none;
+}
+.choice-close-btn{
+  position:absolute;
+  top:.3rem;
+  right:.35rem;
+  width:20px;
+  height:20px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:transparent;
+  border:none;
+  border-radius:6px;
+  color:var(--muted);
+  font-size:.75rem;
+  line-height:1;
+  cursor:pointer;
+  padding:0;
+  transition:color .15s ease,background .15s ease,transform .12s ease;
+  z-index:2;
+}
+.choice-close-btn:hover{
+  color:var(--text);
+  background:rgba(255,255,255,.1);
+  transform:scale(1.08);
+}
+.choice-close-btn:active{
+  transform:scale(0.94);
+}
 .choice-card-body{display:flex;flex-wrap:wrap;gap:.4rem}
 .choice-bar .choice-card-body{display:flex;flex-wrap:wrap;gap:.3rem;align-items:flex-start}
 .choice-bar .choice-chip{flex:0 1 auto;max-width:100%;overflow-wrap:anywhere}
+@media (hover: none) and (pointer: coarse){
+  .choice-card{padding-right:2.2rem}
+  .choice-close-btn{width:26px;height:26px;font-size:.82rem;top:.25rem;right:.25rem}
+}
 .ticket-chip{display:flex;align-items:center;gap:.35rem;border:1px solid var(--border);border-radius:999px;padding:.15rem .35rem .15rem .6rem;font-size:.76rem;max-width:100%;background:rgba(255,255,255,.03)}
 .ticket-chip-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14rem;color:var(--muted)}
 .ticket-chip .art-btn{flex:0 0 auto;padding:.1rem .5rem;font-size:.74rem;height:auto}
