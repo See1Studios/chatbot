@@ -54,6 +54,7 @@ from session import (
 )
 from providers import accounts
 from providers import account_login
+import content_guard
 import obslog
 import evolution
 import identity
@@ -1016,6 +1017,18 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     pub["is_private"] = target.is_private
                     code, raw = _json_bytes({"ok": True, "switched": target.sid != sid, "old_session_id": sid,
                                              "session": pub})
+                    return self._send(code, raw, "application/json; charset=utf-8")
+
+                # CONTENT_GUARD_v1: a message the provider would refuse never leaves the host (0 tokens)
+                blocked, notice_text = content_guard.check_preflight(sess.provider, text)
+                if blocked:
+                    item, ev = content_guard.notice_item(notice_text)
+                    sess.history.append(item)
+                    sess.save_meta()
+                    sess._emit(ev)
+                    pub = sess.to_public()
+                    pub["is_private"] = sess.is_private
+                    code, raw = _json_bytes({"ok": True, "blocked": True, "notice": item, "session": pub})
                     return self._send(code, raw, "application/json; charset=utf-8")
 
                 try:

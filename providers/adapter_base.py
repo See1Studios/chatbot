@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+import content_guard
 from host_config import HARD_TOKENS, SOFT_TOKENS, _now
 
 
@@ -201,6 +202,7 @@ class AgentAdapter:
         error: Optional[str] = None,
         served_model: Optional[str] = None,
         images: Optional[List[str]] = None,
+        finish_reason: Optional[str] = None,
     ) -> dict:
         """Single end-of-turn finalizer for all adapters (T3.1).
 
@@ -244,12 +246,18 @@ class AgentAdapter:
         else:
             hist_text = ""
             emit_as_error = False
+        # CONTENT_GUARD_v1: a provider refusal is a warn system notice, not an assistant bubble
+        refused, guard_text = content_guard.intercept_refusal(
+            getattr(session, "provider", "") or self.id, body or err_s, finish_reason)
+        notice_kind = "warn" if refused else ("error" if emit_as_error else "")
+        if refused:
+            hist_text, choices, emit_as_error = guard_text, [], True
 
         hist_item: dict = {"role": "assistant", "text": hist_text, "ts": ts}
         if choices and not emit_as_error:
             hist_item["choices"] = choices
         if emit_as_error:
-            hist_item["notice"] = "error"
+            hist_item["notice"] = notice_kind
             if error:
                 hist_item["error"] = error
         elif is_err and error:
@@ -276,7 +284,7 @@ class AgentAdapter:
             "ts": ts,
         }
         if emit_as_error:
-            out_ev["notice"] = "error"
+            out_ev["notice"] = notice_kind
         if hist_item.get("choices"):
             out_ev["choices"] = hist_item["choices"]
         if usage:

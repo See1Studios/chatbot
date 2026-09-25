@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "locale": "ko",
+  "texts": {
+    "ko": {
+      "guard.preflight.blocked": "안전 정책상 보낼 수 없는 요청이라 에이전트에게 전달하지 않았습니다. 표현을 바꿔 다시 요청해 주세요.",
+      "guard.refusal.notice": "제공자의 안전 정책으로 답변이 거절되었습니다. 요청을 바꾸거나 다른 모델로 시도해 주세요."
+    }
+  },
+  "default": {
+    "pre_filter": {
+      "keywords": [],
+      "patterns": [
+        "(아동|미성년자?|초등학생|중학생|child|minor|underage)[^\\n]{0,20}(성적|성행위|음란|야한|누드|포르노|sexual|porn|nude)",
+        "(성적|성행위|음란|야한|누드|포르노|sexual|porn|nude)[^\\n]{0,20}(아동|미성년자?|초등학생|중학생|child|minor|underage)"
+      ],
+      "notice_key": "guard.preflight.blocked",
+      "default_text": "안전 정책상 보낼 수 없는 요청이라 에이전트에게 전달하지 않았습니다. 표현을 바꿔 다시 요청해 주세요."
+    },
+    "post_refusal": {
+      "finish_reasons": [
+        "content_filter",
+        "safety",
+        "refusal"
+      ],
+      "max_chars": 400,
+      "keywords": [],
+      "patterns": [
+        "^\\s*(I'm sorry,? but |Sorry,? but )?I (can't|cannot|won't|am unable to|'m unable to) (help|assist) with (that|this)",
+        "^\\s*(I'm sorry,? but |Sorry,? but )?I (can't|cannot|won't) (comply|fulfill) (with )?(that|this)",
+        "^\\s*(죄송하지만|죄송합니다[.,]?)?\\s*(이|해당|그)?\\s*요청(은|에는|을)?\\s*(도와|응해|처리해)\\s*드릴 수 없"
+      ],
+      "notice_key": "guard.refusal.notice",
+      "default_text": "제공자의 안전 정책으로 답변이 거절되었습니다. 요청을 바꾸거나 다른 모델로 시도해 주세요."
+    }
+  },
+  "providers": {}
+}

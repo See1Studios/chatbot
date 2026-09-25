@@ -290,7 +290,7 @@ class AgentSession:
             self.last_progress = ""
             # QUOTA_FAILFAST_v1: real terminal event — cancel pending failfast
             self._cancel_error_message_failfast()
-        if kind in ("error", "stopped") or (kind == "interrupted" and event.get("reason") != "steer"):
+        if (kind in ("error", "stopped") and event.get("notice") != "warn") or (kind == "interrupted" and event.get("reason") != "steer"):
             try:
                 self._turn_marks.append((self._last_user_turn()[0], kind))
             except Exception:  # noqa: BLE001 -- observing must never disturb a turn
