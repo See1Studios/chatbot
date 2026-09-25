@@ -671,4 +671,16 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
     max-width:100%;
     font-size:15px;
   }
+  /* host notices: head and text flow on one line, wrap only when needed */
+  .msg.system{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    column-gap:.4rem;
+    padding:.3rem .5rem;
+    font-size:.78rem;
+  }
+  .msg.system .notice-head{margin-bottom:0;flex:0 0 auto}
+  .msg.system .md{flex:1 1 auto;min-width:0}
+  .msg.system .md p{margin:0}
 }

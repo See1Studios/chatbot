@@ -408,7 +408,7 @@ async function decideTicket(cmd) {
         const b = r.blocked_by || {};
         return '작업 #' + cmd.id + ' 실행 대기 — #' + b.ticket + '이(가) ' + (b.paths || []).join(', ') + '를 쓰는 중이라, 끝나면(~' + String(b.until || '').slice(11, 16) + ') 자동으로 시작해요';
       }
-      return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' → 작업 카드에서 진행을 볼 수 있어요';
+      return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' → 작업 카드에서 진행 확인';
     } catch (e) {
       loadWork();
       try {
