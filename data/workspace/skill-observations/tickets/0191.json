@@ -1,0 +1,22 @@
+{
+ "actor": "chat-agent:agy",
+ "attempts": 0,
+ "closed_reason": "declined",
+ "created": "2026-09-25 20:46:24",
+ "evidence": [
+  "event:20260925-203103-a47eea#20"
+ ],
+ "gate_failures": 0,
+ "id": 191,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "declined",
+   "ts": "2026-09-25 20:47:29"
+  }
+ ],
+ "status": "declined",
+ "target": "static/markdown.js,tests/test_choice_chips.py",
+ "title": "parseThought 태그 오인식 방어 및 본문/choices 절단 방지",
+ "updated": "2026-09-25 20:47:29"
+}
