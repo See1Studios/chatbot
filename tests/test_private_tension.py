@@ -66,12 +66,16 @@ class TensionLadder(unittest.TestCase):
         self.assertEqual(_Adapter().turn_context(Sess()), "")
         Sess.is_private = True
         ctx = _Adapter().turn_context(Sess())
+        self.assertIn("[Tension Engine Context]", ctx)
         self.assertIn("Stage: 3/4", ctx)
-        self.assertIn(PE.RENDER_PROTOCOL, ctx)
+        self.assertNotIn(PE.RENDER_PROTOCOL, ctx)
 
     def test_render_protocol(self):
         self.assertIn("## Voice & Actions", PE.RENDER_PROTOCOL)
         self.assertIn("## Expressions & Thoughts", PE.RENDER_PROTOCOL)
+        self.assertIn("## Choices", PE.RENDER_PROTOCOL)
+        self.assertIn("<!--choices:", PE.RENDER_PROTOCOL)
+        self.assertIn(" -> (", PE.RENDER_PROTOCOL)
         self.assertIn("[expression: neutral|joy|shy|serious|sorrow|tired]", PE.RENDER_PROTOCOL)
         self.assertIn("<thought>...</thought>", PE.RENDER_PROTOCOL)
         self.assertEqual(PE.render_protocol_text(None), PE.RENDER_PROTOCOL)

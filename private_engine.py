@@ -77,7 +77,11 @@ RENDER_PROTOCOL = """## Voice & Actions
 
 ## Expressions & Thoughts
 - Expression tag `[expression: neutral|joy|shy|serious|sorrow|tired]` at the very start to reflect your current emotion (read by the UI).
-- Internal private thoughts wrapped in `<thought>...</thought>` when holding unexpressed feelings."""
+- Internal private thoughts wrapped in `<thought>...</thought>` when holding unexpressed feelings.
+
+## Choices
+- End every reply with one line `<!--choices: label -> (action) | label -> (action) | label -> (action)-->`.
+- Each item is an action the user takes, not a spoken line: a short label, ` -> `, then the action text in parentheses, e.g. `더 깊게 키스하기 -> (허리를 끌어안으며 깊게 입맞춘다)`."""
 
 
 def render_protocol_text(card: Any = None) -> str:
@@ -89,7 +93,8 @@ def turn_context(session: Any) -> str:
     """Per-turn system context prepended to the user message for private sessions."""
     if not getattr(session, "is_private", False):
         return ""
-    return render_protocol_text(None) + "\n\n" + tension_context(
+    return tension_context(
         getattr(session, "tension_stage", TENSION_MIN),
         getattr(session, "recent_choices", []),
     )
+
