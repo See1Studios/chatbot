@@ -136,6 +136,8 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정", gem)
         self.assertIn("코치(사용자)가 상대에게", gem)
         self.assertIn("신체 접촉 지문", gem)
+        self.assertIn("노골적인 성적 묘사 대신 긴장감과 여운으로 연출한다", gem)
+        self.assertIn("두 사람 모두 원하고 즐기는", gem)
         self.assertIn("Stage: 2/4 (고조)", gem)
         self.assertIn("(단계 4)", gem)
         self.assertNotIn("자연스러운 다음 흐름", gem)
