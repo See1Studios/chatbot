@@ -64,6 +64,8 @@ out.actionChoices = api.splitChoices('어느 쪽?\n<!--choices: 다가가기 -> 
 out.parsedExp = api.parseExpression('[expression: joy] 반갑다냥!');
 out.parsedThoughtState = api.parseThought('안녕!\n```state\n{"thought": "반가운 마음"}\n```');
 out.parsedThoughtTag = api.parseThought('안녕!\n<thought>내면 독백</thought>');
+out.parsedThoughtOpen = api.parseThought('안녕! <thought>아직 안 끝난 속마음');
+out.parsedThoughtPartialTag = api.parseThought('안녕! <thoug');
 
 // chips: only the newest message keeps them
 function msg(cls) { const m = el('div'); m.className = cls; const md = el('div'); md.className = 'md'; m.appendChild(md); logEl.appendChild(m); return m; }
@@ -151,6 +153,17 @@ class ChoiceChips(unittest.TestCase):
         self.assertEqual(chips[0], {"text": "✦ 다가가기", "isAction": True})
         self.assertEqual(chips[1], {"text": "인사하기", "isAction": False})
         self.assertEqual(self.o["actionSent"], "/act 조용히 다가간다")
+
+    def test_dangling_or_partial_thought_tag_is_hidden(self):
+        self.assertNotIn("<thought", self.o["parsedThoughtOpen"]["cleanText"])
+        self.assertNotIn("<thoug", self.o["parsedThoughtOpen"]["cleanText"])
+        self.assertEqual(self.o["parsedThoughtOpen"]["thought"], "아직 안 끝난 속마음")
+        self.assertEqual(self.o["parsedThoughtOpen"]["cleanText"], "안녕!")
+
+        self.assertNotIn("<thought", self.o["parsedThoughtPartialTag"]["cleanText"])
+        self.assertNotIn("<thoug", self.o["parsedThoughtPartialTag"]["cleanText"])
+        self.assertIsNone(self.o["parsedThoughtPartialTag"]["thought"])
+        self.assertEqual(self.o["parsedThoughtPartialTag"]["cleanText"], "안녕!")
 
 
 if __name__ == "__main__":
