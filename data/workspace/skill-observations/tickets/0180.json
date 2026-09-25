@@ -3,13 +3,15 @@
  "approved_at": "2026-09-25 16:52:24",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-25 16:51:49",
  "evidence": [
   "event:20260925-152341-e46ad3#100"
  ],
  "gate_failures": 0,
  "id": 180,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,15 +27,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-180 at e9b78af (agy, review PASS round 1)",
    "ts": "2026-09-25 16:58:38"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-25 16:59:13"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged bcb0a86 on the operator's word (agy)",
+   "ts": "2026-09-25 16:59:24"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-25 16:59:24"
   }
  ],
  "paths": [
   "static/markdown.js",
   "tests/test_choice_chips.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/markdown.js,tests/test_choice_chips.py",
  "title": "Guard unclosed &lt;thought&gt; tag from leaking into private-mode chat bubbles",
- "updated": "2026-09-25 16:58:38",
+ "updated": "2026-09-25 16:59:24",
  "worked_by": "agy"
 }
