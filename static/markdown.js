@@ -181,45 +181,114 @@ function parseExpression(text) {
 }
 
 const THOUGHT_STATE_BLOCK = /```state\s*\{[\s\S]*?"thought":\s*"([^"]+)"[\s\S]*?\}\s*```/i;
-const THOUGHT_STATE_ANY = /```state\s*\{[\s\S]*?\}\s*```/i;
-const THOUGHT_TAG = /<thought(?:\s+[^>]*)?>([\s\S]*?)<\/thought>/i;
-const THOUGHT_OPEN = /\s*(?:<thought>((?:(?!<\/thought>)[\s\S])*)|<(?:thought|though|thoug|thou|tho|th|t)(?:\.\.\.)?)$/i;
-const THOUGHT_FRAGMENT = /<\/?(?:thought|though|thoug|thou)(?:\uFFFD+|\.\.\.>?|(?:\s+[^>]*?)?>|>|(?=[^\w\s])|$)\s*/gi;
-const THOUGHT_BLOCK = /```thought\s*([\s\S]*?)```/i;
+const THOUGHT_STATE_ANY = /```state\s*\{[\s\S]*?\}\s*```/iy;
+const THOUGHT_TAG = /<thought(?:\s+[^>]*)?>([\s\S]*?)<\/thought>/iy;
+const THOUGHT_OPEN_TAG = /<thought(?:\s+[^>]*)?>/iy;
+// A strictly partial tag at the very end: '<' .. '<thought' (no '>') -- only a stream cut looks like this.
+const THOUGHT_PARTIAL = /<(?:t(?:h(?:o(?:u(?:g(?:h(?:t(?:\s[^>]*)?)?)?)?)?)?)?)?$/iy;
+// Legacy corrupt fragments (#187): '<thoug' + U+FFFD, '<thoug...>', an orphan '</thought>', a name cut by a non-word char.
+const THOUGHT_FRAGMENT = /(?:<\/?(?:thought|though|thoug|thou)(?:�+|\.\.\.>?|(?=[^\w\s<>]))|<\/thought\s*>|<(?:though|thoug|thou)>)\s*/iy;
+const THOUGHT_FENCE_INFO = /thought(?![\w-])/iy;
 
-function parseThought(text) {
-  let s = String(text || '');
-  let thought = null;
-  const sm = THOUGHT_STATE_BLOCK.exec(s);
-  if (sm) {
-    thought = sm[1].trim();
-  }
-  s = s.replace(THOUGHT_STATE_ANY, '').trim();
+function stickyAt(re, s, i) {
+  re.lastIndex = i;
+  return re.exec(s);
+}
 
-  let tm;
-  while ((tm = THOUGHT_TAG.exec(s)) !== null) {
-    if (tm[1] !== undefined && tm[1].trim()) {
-      thought = (thought ? thought + '\n' : '') + tm[1].trim();
+function backtickRun(s, i) {
+  let j = i;
+  while (s[j] === '`') j++;
+  return j - i;
+}
+
+// Single pass: code (inline spans, fences other than ```thought) is copied verbatim and never read
+// as a thought marker; complete <thought>..</thought> pairs, ```thought fences and ```state blocks
+// move to `thought`; an unclosed marker or a partial tag at the end is hidden only while streaming.
+function parseThought(text, streaming) {
+  const s = String(text || '');
+  const thoughts = [];
+  let out = '';
+  let i = 0;
+  const addThought = t => { if (t && t.trim()) thoughts.push(t.trim()); };
+  while (i < s.length) {
+    const c = s[i];
+    if (c === '`') {
+      const n = backtickRun(s, i);
+      const lineStart = s.lastIndexOf('\n', i - 1) + 1;
+      if (n >= 3 && /^ {0,3}$/.test(s.slice(lineStart, i))) {
+        const st = n === 3 && stickyAt(THOUGHT_STATE_ANY, s, i);
+        if (st) {
+          const sm = THOUGHT_STATE_BLOCK.exec(st[0]);
+          if (sm) addThought(sm[1]);
+          i += st[0].length;
+          continue;
+        }
+        if (stickyAt(THOUGHT_FENCE_INFO, s, i + n)) {
+          const bodyStart = i + n + 'thought'.length;
+          const close = new RegExp('`{' + n + ',}', 'g');
+          close.lastIndex = bodyStart;
+          const cm = close.exec(s);
+          if (cm) {
+            addThought(s.slice(bodyStart, cm.index));
+            i = cm.index + cm[0].length;
+            continue;
+          }
+          if (streaming) {
+            addThought(s.slice(bodyStart));
+            break;
+          }
+          out += s.slice(i);
+          break;
+        }
+        const eol = s.indexOf('\n', i);
+        const close = new RegExp('\\n {0,3}`{' + n + ',}[ \\t]*(?=\\n|$)', 'g');
+        close.lastIndex = eol < 0 ? s.length : eol;
+        const cm = eol < 0 ? null : close.exec(s);
+        const end = cm ? cm.index + cm[0].length : s.length;
+        out += s.slice(i, end);
+        i = end;
+        continue;
+      }
+      const run = /`+/g;
+      run.lastIndex = i + n;
+      let m;
+      while ((m = run.exec(s)) !== null && m[0].length !== n) { /* skip runs of other lengths */ }
+      if (m) {
+        out += s.slice(i, m.index + n);
+        i = m.index + n;
+      } else {
+        // Unmatched opener is literal text; keep scanning after it.
+        out += s.slice(i, i + n);
+        i += n;
+      }
+      continue;
     }
-    s = s.replace(tm[0], '').trim();
-  }
-
-  const om = THOUGHT_OPEN.exec(s);
-  if (om) {
-    if (om[1] !== undefined && om[1].trim()) {
-      thought = (thought ? thought + '\n' : '') + om[1].trim();
+    if (c === '<') {
+      let m = stickyAt(THOUGHT_TAG, s, i);
+      if (m) {
+        addThought(m[1]);
+        i += m[0].length;
+        continue;
+      }
+      if ((m = stickyAt(THOUGHT_OPEN_TAG, s, i))) {
+        if (streaming) {
+          addThought(s.slice(i + m[0].length));
+          break;
+        }
+        out += m[0];
+        i += m[0].length;
+        continue;
+      }
+      if (streaming && stickyAt(THOUGHT_PARTIAL, s, i)) break;
+      if ((m = stickyAt(THOUGHT_FRAGMENT, s, i))) {
+        i += m[0].length;
+        continue;
+      }
     }
-    s = s.replace(THOUGHT_OPEN, '').trim();
+    out += c;
+    i++;
   }
-
-  s = s.replace(THOUGHT_FRAGMENT, '').trim();
-
-  const bm = THOUGHT_BLOCK.exec(s);
-  if (bm) {
-    thought = (thought ? thought + '\n' : '') + bm[1].trim();
-    s = s.replace(bm[0], '').trim();
-  }
-  return { thought, cleanText: s };
+  return { thought: thoughts.length ? thoughts.join('\n') : null, cleanText: out.trim() };
 }
 
 function parseChoiceItem(item) {
@@ -477,7 +546,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     }
     badge.textContent = EXPRESSION_EMOJIS[parsedExp.expression] || ('🎭 ' + parsedExp.expression);
   }
-  const parsedThought = parseThought(rawText);
+  const parsedThought = parseThought(rawText, isFinal === false);
   if (parsedThought.thought) {
     const md = node.querySelector('.md') || node;
     let box = md.querySelector('.thought-box');
@@ -535,7 +604,7 @@ function renderMarkdown(src, isFinal) {
   if (parsedExp.expression) {
     raw = parsedExp.text;
   }
-  const parsedTh = parseThought(raw);
+  const parsedTh = parseThought(raw, isFinal === false);
   if (parsedTh.thought || parsedTh.cleanText !== raw) {
     raw = parsedTh.cleanText;
   }

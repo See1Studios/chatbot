@@ -64,8 +64,9 @@ out.actionChoices = api.splitChoices('어느 쪽?\n<!--choices: 다가가기 -> 
 out.parsedExp = api.parseExpression('[expression: joy] 반갑다냥!');
 out.parsedThoughtState = api.parseThought('안녕!\n```state\n{"thought": "반가운 마음"}\n```');
 out.parsedThoughtTag = api.parseThought('안녕!\n<thought>내면 독백</thought>');
-out.parsedThoughtOpen = api.parseThought('안녕! <thought>아직 안 끝난 속마음');
-out.parsedThoughtPartialTag = api.parseThought('안녕! <thoug');
+// rule 3: an unclosed tag / partial tag is hidden only while streaming (2nd arg true)
+out.parsedThoughtOpen = api.parseThought('안녕! <thought>아직 안 끝난 속마음', true);
+out.parsedThoughtPartialTag = api.parseThought('안녕! <thoug', true);
 out.parsedThoughtPartialTagWithTail = api.parseThought('안녕! <thoug뒷이야기가 이어짐');
 out.parsedThoughtBareLt = api.parseThought('안녕 <');
 out.parsedThoughtMath = api.parseThought('1 < 2');
@@ -79,6 +80,26 @@ out.parsedThoughtSessionEvent = api.parseThought('[expression: shy]\n<thoug없�
 out.parsedThoughtSessionRepl = api.parseThought('[expression: shy]\n<thoug\ufffd\ufffd한 침대 위로');
 out.parsedThoughtCodeLt = api.parseThought('count<thought_count');
 out.parsedThoughtMultiTag = api.parseThought('<thought>하나</thought>본문<thought>둘</thought>');
+// #189: code is never a thought marker; unclosed markers hide only while streaming
+const quotedTag = '태그는 `<thought>` 이렇게 써.\n뒤 문단도 남아야 해';
+out.quotedTagFinal = api.parseThought(quotedTag, false);
+out.quotedTagStreaming = api.parseThought(quotedTag, true);
+const quotedFence = '` ```thought ` 로 열고 ` ``` ` 로 닫아.\n끝';
+out.quotedFenceFinal = api.parseThought(quotedFence, false);
+// companion (regression guard): an unmatched backtick stays literal and scanning goes on
+out.unmatchedThenTag = api.parseThought('`로 시작 <thought>x</thought> 끝', false);
+// companion (regression guard)
+out.fenceBlock = api.parseThought('안녕!\n```thought\n속마음\n```\n뒤', false);
+const openFence = '안녕!\n```thought\n반쯤 쓴';
+out.openFenceStreaming = api.parseThought(openFence, true);
+// companion (regression guard)
+out.openFenceFinal = api.parseThought(openFence, false);
+// companion (regression guard)
+out.plainWordsFinal = api.parseThought('I thought th tho though it was fine', false);
+// companion (regression guard)
+out.plainWordsStreaming = api.parseThought('I thought th tho though it was fine', true);
+out.bareLtStreaming = api.parseThought('안녕 <', true);
+out.openTagNoFlag = api.parseThought('안녕! <thought>미완', undefined);
 
 // chips: only the newest message keeps them
 function msg(cls) { const m = el('div'); m.className = cls; const md = el('div'); md.className = 'md'; m.appendChild(md); logEl.appendChild(m); return m; }
@@ -204,6 +225,37 @@ class ChoiceChips(unittest.TestCase):
         self.assertEqual(self.o["parsedThoughtSessionRepl"], {"thought": None, "cleanText": "[expression: shy]\n한 침대 위로"})
         self.assertEqual(self.o["parsedThoughtCodeLt"], {"thought": None, "cleanText": "count<thought_count"})
         self.assertEqual(self.o["parsedThoughtMultiTag"], {"thought": "하나\n둘", "cleanText": "본문"})
+
+    def test_code_is_never_a_thought_marker(self):
+        # rule 1: a quoted <thought> in inline code keeps the whole body, final or streaming
+        body = "태그는 `<thought>` 이렇게 써.\n뒤 문단도 남아야 해"
+        self.assertEqual(self.o["quotedTagFinal"], {"thought": None, "cleanText": body})
+        self.assertEqual(self.o["quotedTagStreaming"], {"thought": None, "cleanText": body})
+        # rule 1: ```thought and ``` inside code spans do not open/close a thought fence
+        self.assertEqual(self.o["quotedFenceFinal"], {"thought": None, "cleanText": "` ```thought ` 로 열고 ` ``` ` 로 닫아.\n끝"})
+        # rule 1+2: the lone backtick is copied, the real pair after it is still removed (companion)
+        self.assertEqual(self.o["unmatchedThenTag"], {"thought": "x", "cleanText": "`로 시작  끝"})
+
+    def test_thought_fence_and_streaming_only_hiding(self):
+        # rule 2 (companion)
+        self.assertEqual(self.o["fenceBlock"], {"thought": "속마음", "cleanText": "안녕!\n\n뒤"})
+        # rule 3: unclosed ```thought hidden while streaming, shown verbatim once final (final is companion)
+        self.assertEqual(self.o["openFenceStreaming"], {"thought": "반쯤 쓴", "cleanText": "안녕!"})
+        self.assertEqual(self.o["openFenceFinal"], {"thought": None, "cleanText": "안녕!\n```thought\n반쯤 쓴"})
+        # rule 3: a bare trailing '<' is a possible tag start only mid-stream
+        self.assertEqual(self.o["bareLtStreaming"], {"thought": None, "cleanText": "안녕"})
+        # rule 5 (companion): plain th/tho/though words are body text in both modes
+        words = {"thought": None, "cleanText": "I thought th tho though it was fine"}
+        self.assertEqual(self.o["plainWordsFinal"], words)
+        self.assertEqual(self.o["plainWordsStreaming"], words)
+
+    def test_omitted_is_final_shows_body(self):
+        # rule 3: no streaming flag means not streaming, so an unclosed tag stays visible
+        self.assertEqual(self.o["openTagNoFlag"], {"thought": None, "cleanText": "안녕! <thought>미완"})
+        # both callers map only an explicit isFinal === false to streaming
+        src = MD.read_text(encoding="utf-8")
+        self.assertIn("parseThought(rawText, isFinal === false)", src)
+        self.assertIn("parseThought(raw, isFinal === false)", src)
 
 
 if __name__ == "__main__":
