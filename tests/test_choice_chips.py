@@ -44,9 +44,28 @@ logEl.querySelectorAll = function (sel) {
 const sent = [];
 const inputEl = { value: '' };
 const send = () => { sent.push(inputEl.value); };
+
+const choiceBar = el('div');
+choiceBar.classList = { add() {}, remove() {} };
+let choiceBarAttached = false;
+const doc = {
+  createElement: el,
+  getElementById: (id) => (id === 'choiceBar' && choiceBarAttached ? choiceBar : null),
+};
+
+const scrollCalls = [];
+let nearBottom = true;
+const isUserNearBottom = () => nearBottom;
+const scrollChatToBottom = (force) => { scrollCalls.push(['scrollChatToBottom', force]); };
+const updateScrollBottomButton = () => { scrollCalls.push(['updateScrollBottomButton']); };
+
 const body = code + `
   return { splitChoices, renderChoiceChips, syncChoiceChips, pickChoice, parseExpression, parseThought };`;
-const api = new Function('logEl', 'inputEl', 'send', 'document', body)(logEl, inputEl, send, { createElement: el });
+const api = new Function(
+  'logEl', 'inputEl', 'send', 'document',
+  'isUserNearBottom', 'scrollChatToBottom', 'updateScrollBottomButton',
+  body
+)(logEl, inputEl, send, doc, isUserNearBottom, scrollChatToBottom, updateScrollBottomButton);
 
 const out = {};
 out.plain = api.splitChoices('그냥 답변');
@@ -132,6 +151,36 @@ out.actionSent = inputEl.value;
 
 api.renderChoiceChips(m3, []);
 out.cleared = m3.all('.choice-chips').length;
+
+// choiceBar and scroll hooks (#210)
+choiceBarAttached = true;
+scrollCalls.length = 0;
+nearBottom = true;
+const m5 = msg('msg assistant');
+api.renderChoiceChips(m5, ['Option 1', 'Option 2']);
+const renderNearBottom = scrollCalls.slice();
+
+scrollCalls.length = 0;
+api.renderChoiceChips(m5, []);
+const clearNearBottom = scrollCalls.slice();
+
+scrollCalls.length = 0;
+nearBottom = false;
+api.renderChoiceChips(m5, ['Option 1']);
+const renderAway = scrollCalls.slice();
+
+scrollCalls.length = 0;
+api.renderChoiceChips(m5, []);
+const clearAway = scrollCalls.slice();
+
+out.scrollHooks = {
+  renderNearBottom,
+  clearNearBottom,
+  renderAway,
+  clearAway,
+  barHidden: choiceBar.hidden,
+};
+
 console.log(JSON.stringify(out));
 """
 
@@ -256,6 +305,15 @@ class ChoiceChips(unittest.TestCase):
         src = MD.read_text(encoding="utf-8")
         self.assertIn("parseThought(rawText, isFinal === false)", src)
         self.assertIn("parseThought(raw, isFinal === false)", src)
+
+    def test_scroll_hooks_on_render_and_clear(self):
+        # When near bottom: scrollChatToBottom(true) on both render and clear
+        self.assertEqual(self.o["scrollHooks"]["renderNearBottom"], [["scrollChatToBottom", True]])
+        self.assertEqual(self.o["scrollHooks"]["clearNearBottom"], [["scrollChatToBottom", True]])
+        # When scrolled away from bottom: updateScrollBottomButton() without forcing scroll
+        self.assertEqual(self.o["scrollHooks"]["renderAway"], [["updateScrollBottomButton"]])
+        self.assertEqual(self.o["scrollHooks"]["clearAway"], [["updateScrollBottomButton"]])
+        self.assertTrue(self.o["scrollHooks"]["barHidden"])
 
 
 if __name__ == "__main__":
