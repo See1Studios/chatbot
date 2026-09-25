@@ -138,6 +138,8 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("신체 접촉 지문", gem)
         self.assertIn("결정타(킬)", gem)
         self.assertIn("과감하고 몰입감 넘치는 스킨십 텐션을 적극적으로 연출한다", gem)
+        self.assertIn("완급조절 페이싱을 유지할 것", gem)
+        self.assertIn("현재 단계의 곡선에 엄격히 비례할 것", gem)
         self.assertIn("두 사람 모두 원하고 즐기는", gem)
         self.assertIn("Stage: 2/4 (고조)", gem)
         self.assertIn("(단계 4)", gem)
