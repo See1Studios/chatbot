@@ -3,13 +3,15 @@
  "approved_at": "2026-09-25 11:19:15",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-25 11:19:08",
  "evidence": [
   "event:20260925-085313-e7ccea#169"
  ],
  "gate_failures": 0,
  "id": 169,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,15 +27,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-169 at 16eec14 (agy, review PASS round 1)",
    "ts": "2026-09-25 11:26:11"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-25 11:31:17"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 81c5376 on the operator's word (agy)",
+   "ts": "2026-09-25 11:31:28"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-25 11:31:28"
   }
  ],
  "paths": [
   "static/chat-panes.css",
   "static/markdown.js"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/chat-panes.css,static/markdown.js",
  "title": "선택지 바 닫기 버튼 추가 (CHOICE_BAR_CLOSE_v1)",
- "updated": "2026-09-25 11:26:11",
+ "updated": "2026-09-25 11:31:28",
  "worked_by": "agy"
 }
