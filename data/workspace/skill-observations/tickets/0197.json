@@ -1,0 +1,39 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-25 22:24:42",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-25 22:24:31",
+ "evidence": [
+  "event:20260925-221031-8bc14d#8"
+ ],
+ "gate_failures": 0,
+ "id": 197,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-25 22:24:42"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/app.js, static/index.html",
+   "ts": "2026-09-25 22:24:42"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-197 at fe6d42b (agy, review PASS round 2)",
+   "ts": "2026-09-25 22:26:49"
+  }
+ ],
+ "paths": [
+  "static/app.js",
+  "static/index.html"
+ ],
+ "status": "awaiting_merge",
+ "target": "static/app.js,static/index.html",
+ "title": "새 세션 추천 배너 UI 비활성화",
+ "updated": "2026-09-25 22:26:49",
+ "worked_by": "agy"
+}
