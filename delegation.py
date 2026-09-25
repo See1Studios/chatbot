@@ -203,6 +203,11 @@ def go(ticket_id: int, queue: bool = True) -> Dict:
     if t["status"] == "proposed":
         t = tickets.approve(DATA, tid, operator=tickets.OPERATOR_UI)
     if t["status"] != "approved":
+        if queue and t["status"] in ("done", "declined", "wontfix"):
+            target_phase = "done" if t["status"] == "done" else "declined"
+            runner().write_state(tid, phase=target_phase, reason="ticket is already %s" % t["status"])
+            mark_seen(tid)
+            return {"ticket": tid, "tier": tier, "status": t["status"], "phase": target_phase, "healed": True}
         raise DelegationError("ticket %d is %s; only an approved ticket can be run" % (tid, t["status"]))
     try:
         c = tickets.claim(DATA, tid, paths=st["paths"], actor=worker_role())
@@ -259,15 +264,30 @@ def discard(ticket_id: int) -> Dict:
         raise DelegationError("ticket %d is still running; wait for it to stop" % tid)
     if tickets._read_lease(DATA, tid):   # a stalled run still holds it
         tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI, ticket_id=tid)
-    t = tickets.decline(DATA, tid, operator=tickets.OPERATOR_UI)
+    try:
+        t = tickets.decline(DATA, tid, operator=tickets.OPERATOR_UI)
+        status = t.get("status", "declined")
+        title = t.get("title", "")
+    except tickets.TicketError:
+        try:
+            t = tickets.get(DATA, tid)
+            status = t.get("status", "declined")
+            title = t.get("title", "")
+        except tickets.TicketError:
+            status = "declined"
+            title = st.get("title", "")
     branch, wt_dir = r.names(tid)
     r.cleanup_worktree(r.CHATBOT_REPO, branch, wt_dir)
     provider = st.get("provider") or DELEGATE_PROVIDER
     if provider in r.PROVIDERS:
-        r.commit_ticket_record(r.CHATBOT_REPO, tid, provider,
-                               "chore(tickets): #%d declined -- %s" % (tid, str(t.get("title", ""))[:80]))
+        try:
+            r.commit_ticket_record(r.CHATBOT_REPO, tid, provider,
+                                   "chore(tickets): #%d declined -- %s" % (tid, str(title)[:80]))
+        except Exception:
+            pass
     r.write_state(tid, phase="declined")
-    return {"ticket": tid, "status": t["status"]}
+    mark_seen(tid)
+    return {"ticket": tid, "status": status}
 
 
 def allow(ticket_id: int) -> Dict:
@@ -455,6 +475,20 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
             continue
         tid = st.get("ticket")
         phase = _phase(st)
+        if tid is not None:
+            try:
+                t = tickets.get(DATA, tid)
+                t_status = t.get("status")
+            except tickets.TicketError:
+                t_status = None
+            if t_status in ("done", "declined", "wontfix"):
+                target_phase = "done" if t_status == "done" else "declined"
+                if phase != target_phase and phase not in ACTIVE_PHASES:
+                    runner().write_state(tid, phase=target_phase, reason="ticket is %s" % t_status)
+                    mark_seen(tid)
+                    st = runner().read_state(tid)
+                    phase = target_phase
+                    seen[str(tid)] = st.get("rev")
         out.append({"ticket": tid, "title": st.get("title", ""), "phase": phase, "round": st.get("round", 0),
                     "tier": st.get("tier", 0), "paths": st.get("paths", []), "reason": st.get("reason", ""),
                     "head": st.get("head", ""), "updated": st.get("updated", ""),

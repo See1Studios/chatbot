@@ -335,6 +335,48 @@ class CardsTest(Base):
         delegation.runner().write_state(tid, phase="done", head="abc")   # a newer update is unseen again
         self.assertFalse(delegation.runs()[0]["seen"])
 
+    def test_finalized_ticket_auto_rectifies_and_marks_seen(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        self.assertEqual(self.state(tid)["phase"], "awaiting_go")
+        tickets.approve(self.data, tid, operator=tickets.OPERATOR_UI)
+        c = tickets.claim(self.data, tid, paths=TIER0)
+        tickets.release(self.data, tid, c["token"], "done")
+        self.assertEqual(tickets.get(self.data, tid)["status"], "done")
+        card = [r for r in delegation.runs() if r["ticket"] == tid][0]
+        self.assertEqual(card["phase"], "done")
+        self.assertTrue(card["seen"])
+        self.assertEqual(self.state(tid)["phase"], "done")
+
+    def test_declined_ticket_auto_rectifies_and_marks_seen(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        tickets.decline(self.data, tid, operator=tickets.OPERATOR_UI)
+        self.assertEqual(tickets.get(self.data, tid)["status"], "declined")
+        card = [r for r in delegation.runs() if r["ticket"] == tid][0]
+        self.assertEqual(card["phase"], "declined")
+        self.assertTrue(card["seen"])
+        self.assertEqual(self.state(tid)["phase"], "declined")
+
+    def test_go_on_finalized_ticket_heals_instead_of_failing(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        tickets.approve(self.data, tid, operator=tickets.OPERATOR_UI)
+        c = tickets.claim(self.data, tid, paths=TIER0)
+        tickets.release(self.data, tid, c["token"], "done")
+        res = delegation.go(tid)
+        self.assertTrue(res.get("healed"))
+        self.assertEqual(res.get("status"), "done")
+        self.assertEqual(self.state(tid)["phase"], "done")
+        self.assertTrue([r for r in delegation.runs() if r["ticket"] == tid][0]["seen"])
+
+    def test_discard_on_already_closed_ticket_succeeds(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        tickets.approve(self.data, tid, operator=tickets.OPERATOR_UI)
+        c = tickets.claim(self.data, tid, paths=TIER0)
+        tickets.release(self.data, tid, c["token"], "done")
+        res = delegation.discard(tid)
+        self.assertEqual(res["status"], "done")
+        self.assertEqual(self.state(tid)["phase"], "declined")
+        self.assertTrue([r for r in delegation.runs() if r["ticket"] == tid][0]["seen"])
+
     def test_api_routes(self):
         tid = self.request(TIER2)["ticket"]
         self.assertIsNone(delegation.delegation_api("GET", "/api/tickets", None))

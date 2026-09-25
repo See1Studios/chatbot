@@ -398,13 +398,29 @@ async function goTicket(cmd) {
 
 async function decideTicket(cmd) {
   if (DELEGATION_ACTION[cmd.action]) {
-    const r = await api('/api/delegations/' + cmd.id + '/' + DELEGATION_ACTION[cmd.action], { method: 'POST', body: JSON.stringify({ comment: cmd.comment || '' }) });
-    loadWork();
-    if (r && r.queued) {
-      const b = r.blocked_by || {};
-      return '작업 #' + cmd.id + ' 실행 대기 — #' + b.ticket + '이(가) ' + (b.paths || []).join(', ') + '를 쓰는 중이라, 끝나면(~' + String(b.until || '').slice(11, 16) + ') 자동으로 시작해요';
+    try {
+      const r = await api('/api/delegations/' + cmd.id + '/' + DELEGATION_ACTION[cmd.action], { method: 'POST', body: JSON.stringify({ comment: cmd.comment || '' }) });
+      loadWork();
+      if (r && r.healed) {
+        return '작업 #' + cmd.id + '은(는) 이미 ' + (TICKET_STATUS_LABEL[r.status] || r.status) + ' 상태여서 작업 카드를 정리했어요';
+      }
+      if (r && r.queued) {
+        const b = r.blocked_by || {};
+        return '작업 #' + cmd.id + ' 실행 대기 — #' + b.ticket + '이(가) ' + (b.paths || []).join(', ') + '를 쓰는 중이라, 끝나면(~' + String(b.until || '').slice(11, 16) + ') 자동으로 시작해요';
+      }
+      return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' → 작업 카드에서 진행을 볼 수 있어요';
+    } catch (e) {
+      loadWork();
+      try {
+        const tr = await api('/api/tickets/' + cmd.id);
+        const ts = (tr && tr.ticket && tr.ticket.status) || '';
+        if (['done', 'declined', 'wontfix'].includes(ts)) {
+          await dismissWorkCard({ ticket: cmd.id, phase: 'declined' });
+          return '작업 #' + cmd.id + '은(는) 이미 ' + (TICKET_STATUS_LABEL[ts] || ts) + ' 상태여서 카드를 정리했어요';
+        }
+      } catch (_) {}
+      throw e;
     }
-    return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' → 작업 카드에서 진행을 볼 수 있어요';
   }
   const res = await api('/api/tickets/' + cmd.id + '/' + cmd.action, { method: 'POST', body: JSON.stringify({}) });
   const t = res.ticket || {};
@@ -500,6 +516,27 @@ let workNames = {};            // role id ('' = the PD) -> display name, from th
 const workOpen = new Set();
 let workLastPhase = null;
 let activeWorkRun = null;   // the delegated run working now, or null
+const workDismissed = new Set();
+
+async function dismissWorkCard(r) {
+  if (!r || !r.ticket) return;
+  workDismissed.add(r.ticket);
+  try {
+    if (WORK_ENDED.includes(r.phase)) {
+      await api('/api/delegations/' + r.ticket + '/seen', { method: 'POST', body: JSON.stringify({}) });
+    } else if (r.phase === 'awaiting_go' || r.phase === 'paused') {
+      await api('/api/delegations/' + r.ticket + '/discard', { method: 'POST', body: JSON.stringify({}) });
+    } else if (r.phase === 'queued') {
+      try { await api('/api/delegations/' + r.ticket + '/unqueue', { method: 'POST', body: JSON.stringify({}) }); } catch (_) {}
+      await api('/api/delegations/' + r.ticket + '/discard', { method: 'POST', body: JSON.stringify({}) });
+    } else {
+      await api('/api/delegations/' + r.ticket + '/seen', { method: 'POST', body: JSON.stringify({}) });
+    }
+  } catch (_) {
+    try { await api('/api/delegations/' + r.ticket + '/seen', { method: 'POST', body: JSON.stringify({}) }); } catch (_) {}
+  }
+  loadWork();
+}
 
 // Who works on a run now: the current task's expert, by display name.
 function workRunWho(r) {
@@ -551,6 +588,21 @@ function renderWorkCard(r) {
   // 펼침/접힘 인디케이터
   const toggleIcon = obsNode('span', 'work-toggle-icon', open ? '▲' : '▼');
   head.appendChild(toggleIcon);
+
+  // 고아 카드 및 비활성 카드 UI 닫기 수단
+  if (!r.active) {
+    const closeBtn = obsNode('button', 'art-btn art-btn-xs', '✕');
+    closeBtn.type = 'button';
+    closeBtn.title = '카드 닫기';
+    closeBtn.style.padding = '0 .3rem';
+    closeBtn.style.lineHeight = '1';
+    closeBtn.style.marginLeft = 'auto';
+    closeBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await dismissWorkCard(r);
+    });
+    head.appendChild(closeBtn);
+  }
 
   head.addEventListener('click', (e) => {
     // 액션 버튼 클릭 시 토글 방지
@@ -621,7 +673,10 @@ function renderWorkCard(r) {
   if (r.phase === 'awaiting_go') {
     button('실행', true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
     button('계획 수정', false, () => { inputEl.value = '#' + r.ticket + ' 계획 수정: '; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
-    button('취소', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
+    button('취소', false, async () => {
+      await dismissWorkCard(r);
+      addNotice('info', '작업 #' + r.ticket + ' 계획을 취소하고 카드를 닫았어요');
+    });
   }
   if (r.phase === 'paused' && (r.need_paths || []).length) {
     button('경로 허용', true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
@@ -677,7 +732,7 @@ async function loadWork() {
   workLastPhase = new Map(runs.map(r => [r.ticket, r.phase]));
   activeWorkRun = runs.find(r => r.active) || null;   // the chat's badge says who is working (DELEGATION_CLARITY_v1)
   if (!isBusy) updateProcBadge('idle');
-  const shown = runs.filter(r => r.active || r.phase === 'awaiting_go' || r.phase === 'queued' || r.phase === 'paused' || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen));
+  const shown = runs.filter(r => !workDismissed.has(r.ticket) && (r.active || r.phase === 'awaiting_go' || r.phase === 'queued' || r.phase === 'paused' || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen)));
   const ids = new Set(shown.map(r => r.ticket));
   const changed = ids.size !== workCardIds.size || [...ids].some(id => !workCardIds.has(id));
   workCardIds = ids;
