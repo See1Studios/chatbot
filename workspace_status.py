@@ -5,7 +5,9 @@ Extracted from server.py during modular refactoring.
 from __future__ import annotations
 
 import json
+import logging
 import re
+import subprocess
 import time
 from pathlib import Path
 from typing import Optional, Tuple
@@ -34,6 +36,13 @@ try:  # ticket decisions from the status tab; the core holds every rule
     import tickets
 except Exception:  # noqa: BLE001
     tickets = None
+
+logger = logging.getLogger(__name__)
+
+try:
+    import obslog
+except Exception:  # noqa: BLE001
+    obslog = None
 
 RULE_FILES = ["AGENTS.md", "PROJECT.md", "SELF-MODIFY.md"]
 WS_SKILLS_DIR = WORKSPACE / ".agents" / "skills"
@@ -338,6 +347,57 @@ def _backup(fp: Path) -> None:
         pass
 
 
+def _maybe_git_commit(fp: Path, message: str) -> bool:
+    """Commit changes to fp if inside a git repository, isolating failures safely."""
+    try:
+        p = Path(fp).resolve()
+        if not p.is_file():
+            return False
+        p_add = subprocess.run(
+            ["git", "add", "--", p.name],
+            cwd=p.parent,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if p_add.returncode != 0:
+            err = (p_add.stderr or p_add.stdout).strip()
+            logger.warning("git auto-commit add failed for %s: %s", p, err)
+            if obslog:
+                obslog.event("git.commit_failed", lvl="warn", path=str(p), phase="add", err=err)
+            return False
+
+        p_diff = subprocess.run(
+            ["git", "diff", "--cached", "--quiet", "--", p.name],
+            cwd=p.parent,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if p_diff.returncode == 0:
+            return False
+
+        p_commit = subprocess.run(
+            ["git", "commit", "-m", message, "--", p.name],
+            cwd=p.parent,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if p_commit.returncode != 0:
+            err = (p_commit.stderr or p_commit.stdout).strip()
+            logger.warning("git auto-commit failed for %s: %s", p, err)
+            if obslog:
+                obslog.event("git.commit_failed", lvl="warn", path=str(p), phase="commit", err=err)
+            return False
+        return True
+    except Exception as e:  # noqa: BLE001
+        logger.warning("git auto-commit exception for %s: %s", fp, e)
+        if obslog:
+            obslog.event("git.commit_failed", lvl="warn", path=str(fp), err=str(e))
+        return False
+
+
 def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
     """/api/instructions: GET lists everything; PUT /api/instructions/<id> saves an editable file. A PUT is the
     operator editing from the status tab, so the caller must have checked that it came from this server's own page."""
@@ -379,6 +439,8 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
     else:
         _backup(fp)
         _atomic_write_text(fp, content)
+    msg = f"chore(team): update card {fp.parent.name}" if fp.name == "card.json" else f"chore(team): update {rest}"
+    _maybe_git_commit(fp, msg)
     return 200, {"ok": True, "id": rest, "bytes": len(content.encode("utf-8"))}
 
 
@@ -481,6 +543,7 @@ def _put_team(body: dict) -> Tuple[int, dict]:
         if rs:
             clean[cid] = sorted(set(rs), key=rs.index)
     characters.save_team({"default": default, "members": clean}, WORKSPACE)
+    _maybe_git_commit(target, "chore(team): update team configuration")
     return 200, {"ok": True}
 
 
@@ -513,6 +576,7 @@ def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[
     characters.ext(card) or card["data"].setdefault("extensions", {}).setdefault(characters.EXT, {})
     characters.ext(card).setdefault("brains", {})["work"] = chain
     characters.save(who, card, WORKSPACE)
+    _maybe_git_commit(target, f"chore(team): update brains for {who}")
     return 200, {"ok": True, "id": who, "chain": chain}
 
 

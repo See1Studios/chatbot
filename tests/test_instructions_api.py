@@ -105,6 +105,43 @@ class InstructionsApiTest(unittest.TestCase):
         self.assertFalse(any(x["editable"] for x in W.agent_instructions()))
         self.assertEqual(self.put("PROJECT.md", "x")[0], 403)
 
+    def test_git_auto_commit_on_instruction_and_card_save(self):
+        import subprocess
+        subprocess.check_call(["git", "init", "-q"], cwd=str(self.root))
+        subprocess.check_call(["git", "config", "user.name", "test-user"], cwd=str(self.root))
+        subprocess.check_call(["git", "config", "user.email", "test@test.local"], cwd=str(self.root))
+        subprocess.check_call(["git", "add", "."], cwd=str(self.root))
+        subprocess.check_call(["git", "commit", "-qm", "initial"], cwd=str(self.root))
+
+        code, body = self.put("PROJECT.md", "updated procedure for test")
+        self.assertEqual((code, body["ok"]), (200, True))
+        msg = subprocess.check_output(["git", "log", "-1", "--pretty=%B"], cwd=str(self.root), text=True).strip()
+        self.assertEqual(msg, "chore(team): update PROJECT.md")
+
+        import characters
+        card = characters.new_card("S_Updated", "staff")
+        card_path = "/api/instructions/characters%2F" + self.cid + "%2Fcard.json"
+        code, body = W.instructions_api("PUT", card_path, {"content": json.dumps(card)})
+        self.assertEqual((code, body["ok"]), (200, True))
+        msg = subprocess.check_output(["git", "log", "-1", "--pretty=%B"], cwd=str(self.root), text=True).strip()
+        self.assertEqual(msg, "chore(team): update card " + self.cid)
+
+    def test_git_auto_commit_failure_is_safely_isolated(self):
+        import subprocess
+        subprocess.check_call(["git", "init", "-q"], cwd=str(self.root))
+        subprocess.check_call(["git", "config", "user.name", "test-user"], cwd=str(self.root))
+        subprocess.check_call(["git", "config", "user.email", "test@test.local"], cwd=str(self.root))
+
+        lock_file = self.root / ".git" / "index.lock"
+        lock_file.write_text("lock")
+        try:
+            code, body = self.put("PROJECT.md", "lock test procedure")
+            self.assertEqual((code, body["ok"]), (200, True))
+            self.assertEqual((self.ws / "PROJECT.md").read_text(encoding="utf-8"), "lock test procedure")
+        finally:
+            if lock_file.exists():
+                lock_file.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()

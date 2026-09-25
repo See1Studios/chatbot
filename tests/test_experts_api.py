@@ -85,6 +85,43 @@ class ExpertsApiTest(unittest.TestCase):
         (self.root / "protected_paths.json").unlink()
         self.assertEqual(self.put(self.cid, [{"provider": "agy"}])[0], 403)
 
+    def test_git_auto_commit_on_brain_and_team_save(self):
+        import subprocess
+        subprocess.check_call(["git", "init", "-q"], cwd=str(self.root))
+        subprocess.check_call(["git", "config", "user.name", "test-user"], cwd=str(self.root))
+        subprocess.check_call(["git", "config", "user.email", "test@test.local"], cwd=str(self.root))
+        subprocess.check_call(["git", "add", "."], cwd=str(self.root))
+        subprocess.check_call(["git", "commit", "-qm", "initial"], cwd=str(self.root))
+
+        # 1. Update brain
+        code, body = self.put(self.cid, [{"provider": "agy", "model": "gemini-3.8-flash-high"}])
+        self.assertEqual((code, body["ok"]), (200, True))
+        msg = subprocess.check_output(["git", "log", "-1", "--pretty=%B"], cwd=str(self.root), text=True).strip()
+        self.assertEqual(msg, "chore(team): update brains for " + self.cid)
+
+        # 2. Update team
+        code, body = self.put_team({"default": self.cid, "members": {self.cid: []}})
+        self.assertEqual((code, body["ok"]), (200, True))
+        msg = subprocess.check_output(["git", "log", "-1", "--pretty=%B"], cwd=str(self.root), text=True).strip()
+        self.assertEqual(msg, "chore(team): update team configuration")
+
+    def test_git_auto_commit_failure_is_safely_isolated(self):
+        import subprocess
+        subprocess.check_call(["git", "init", "-q"], cwd=str(self.root))
+        subprocess.check_call(["git", "config", "user.name", "test-user"], cwd=str(self.root))
+        subprocess.check_call(["git", "config", "user.email", "test@test.local"], cwd=str(self.root))
+
+        lock_file = self.root / ".git" / "index.lock"
+        lock_file.write_text("lock")
+        try:
+            code, body = self.put(self.cid, [{"provider": "agy", "model": "gemini-3.8-flash-high"}])
+            self.assertEqual((code, body["ok"]), (200, True))
+            code, body = self.put_team({"default": self.cid, "members": {self.cid: []}})
+            self.assertEqual((code, body["ok"]), (200, True))
+        finally:
+            if lock_file.exists():
+                lock_file.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()
