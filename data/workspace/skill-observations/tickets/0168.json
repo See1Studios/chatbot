@@ -1,0 +1,39 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-25 11:08:27",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-25 11:08:19",
+ "evidence": [
+  "event:20260925-085313-e7ccea#159"
+ ],
+ "gate_failures": 0,
+ "id": 168,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-25 11:08:27"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: private_engine.py, tests/test_private_tension.py",
+   "ts": "2026-09-25 11:08:27"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-168 at 9450d62 (agy, review PASS round 1)",
+   "ts": "2026-09-25 11:14:46"
+  }
+ ],
+ "paths": [
+  "private_engine.py",
+  "tests/test_private_tension.py"
+ ],
+ "status": "awaiting_merge",
+ "target": "private_engine.py,tests/test_private_tension.py",
+ "title": "사적 대화 텐션 선택지 순수대사 및 행동 혼합 규격 개선",
+ "updated": "2026-09-25 11:14:46",
+ "worked_by": "agy"
+}
