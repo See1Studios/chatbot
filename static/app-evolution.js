@@ -538,6 +538,18 @@ async function dismissWorkCard(r) {
   loadWork();
 }
 
+// The ✕ close button: hide the card locally only, never discard server-side.
+// Ended runs are marked seen so they stay hidden after a reload.
+function hideWorkCard(r, card) {
+  if (!r || !r.ticket) return;
+  workDismissed.add(r.ticket);
+  if (card && card.remove) card.remove();
+  if (WORK_ENDED.includes(r.phase)) {
+    api('/api/delegations/' + r.ticket + '/seen', { method: 'POST', body: JSON.stringify({}) }).catch(() => {});
+  }
+  loadWork();
+}
+
 // Who works on a run now: the current task's expert, by display name.
 function workRunWho(r) {
   const t = (r.tasks || [])[Math.max(0, (r.task || 1) - 1)] || {};
@@ -597,9 +609,9 @@ function renderWorkCard(r) {
     closeBtn.style.padding = '0 .3rem';
     closeBtn.style.lineHeight = '1';
     closeBtn.style.marginLeft = 'auto';
-    closeBtn.addEventListener('click', async (e) => {
+    closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      await dismissWorkCard(r);
+      hideWorkCard(r, card);
     });
     head.appendChild(closeBtn);
   }
