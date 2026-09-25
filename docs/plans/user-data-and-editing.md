@@ -61,6 +61,11 @@
 
 ## 4. 옛 프로토타입 정리 + 위키
 
+**✅ 완료 (CLEANUP_LEGACY_PROTOTYPES_v1, #178)**:
+- `static/live.html`(Live 2.5D 뷰어), `static/role.html`·`role.css`(Role Studio) 삭제 (커밋 `0ee09b3`).
+- `server.py`의 `/api/roles` 레거시 엔드포인트(147줄) 제거 및 `tests/test_file_sizes.py` 상한 검증 (커밋 `e84df03`).
+- 위키 `~/wiki/concepts/ai-character/character-chat-ecosystem.md`의 Role Studio·live.html 언급을 "삭제됨(캐릭터 카드·팀 탭·스프라이트 형식으로 대체)"으로 갱신 완료 (복원 필요 시 커밋 `0ee09b3`, `e84df03` 참조).
+
 - `static/live.html`(Live 2.5D 뷰어), `static/role.html`·`role.css`(Role Studio)와 `server.py`의 `/api/roles`
   GET/POST/DELETE(약 100줄): 앱에서 링크 없음. 데스크톱 모드(먼 구상)는 스프라이트 형식·서버 API 위에 새로
   만들 것이라 이어 쓰지 않는다 → 삭제. 필요하면 git 기록에서 복원(삭제 커밋 번호를 위키에 남김).
