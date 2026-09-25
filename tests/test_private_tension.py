@@ -10,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import session as S  # noqa: E402
+import private_engine as PE  # noqa: E402
 from providers import adapter_base as AB  # noqa: E402
 
 
@@ -41,15 +42,15 @@ class _Adapter(AB.AgentAdapter):
 
 class TensionLadder(unittest.TestCase):
     def test_slots_move_by_index_and_actions_nudge(self):
-        self.assertEqual(AB.tension_after(1, slot=0), 1)
-        self.assertEqual(AB.tension_after(1, slot=1), 2)
-        self.assertEqual(AB.tension_after(2, slot=2), 4)
-        self.assertEqual(AB.tension_after(4, slot=2), 4)
-        self.assertEqual(AB.tension_after(3, action=True), 4)
-        self.assertEqual(AB.tension_after(0), 1)
+        self.assertEqual(PE.tension_after(1, slot=0), 1)
+        self.assertEqual(PE.tension_after(1, slot=1), 2)
+        self.assertEqual(PE.tension_after(2, slot=2), 4)
+        self.assertEqual(PE.tension_after(4, slot=2), 4)
+        self.assertEqual(PE.tension_after(3, action=True), 4)
+        self.assertEqual(PE.tension_after(0), 1)
 
     def test_context_names_stage_exclusions_and_three_slots(self):
-        ctx = AB.tension_context(2, ["손을 잡는다", "", "눈을 피한다"])
+        ctx = PE.tension_context(2, ["손을 잡는다", "", "눈을 피한다"])
         self.assertTrue(ctx.startswith("[Tension Engine Context]"))
         self.assertIn("Stage: 2/4", ctx)
         self.assertIn("손을 잡는다 | 눈을 피한다", ctx)
@@ -57,14 +58,28 @@ class TensionLadder(unittest.TestCase):
         for slot in ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉"):
             self.assertIn(slot, ctx)
         self.assertIn("포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정", ctx)
-        self.assertNotIn("최근 사용한 선택지", AB.tension_context(1, []))
+        self.assertNotIn("최근 사용한 선택지", PE.tension_context(1, []))
 
     def test_turn_context_is_private_only(self):
         class Sess:
             is_private, tension_stage, recent_choices = False, 3, []
         self.assertEqual(_Adapter().turn_context(Sess()), "")
         Sess.is_private = True
-        self.assertIn("Stage: 3/4", _Adapter().turn_context(Sess()))
+        ctx = _Adapter().turn_context(Sess())
+        self.assertIn("Stage: 3/4", ctx)
+        self.assertIn(PE.RENDER_PROTOCOL, ctx)
+
+    def test_render_protocol(self):
+        self.assertIn("## Voice & Actions", PE.RENDER_PROTOCOL)
+        self.assertIn("## Expressions & Thoughts", PE.RENDER_PROTOCOL)
+        self.assertIn("[expression: neutral|joy|shy|serious|sorrow|tired]", PE.RENDER_PROTOCOL)
+        self.assertIn("<thought>...</thought>", PE.RENDER_PROTOCOL)
+        self.assertEqual(PE.render_protocol_text(None), PE.RENDER_PROTOCOL)
+
+    def test_private_instruction_bundle_includes_render_protocol(self):
+        import instructions
+        bundle = instructions.build_instruction_bundle(mode="private")
+        self.assertIn(PE.RENDER_PROTOCOL, bundle["text"])
 
 
 class SessionTension(unittest.TestCase):
@@ -85,7 +100,7 @@ class SessionTension(unittest.TestCase):
 
     def note(self, text, event_type=""):
         s = self.sess
-        s.tension_stage, s.recent_choices = AB.tension_step(s.tension_stage, s.recent_choices, s.history, text, event_type)
+        s.tension_stage, s.recent_choices = PE.tension_step(s.tension_stage, s.recent_choices, s.history, text, event_type)
 
     def offer(self, *choices):
         self.sess.history.append({"role": "assistant", "text": "...", "ts": 1, "choices": list(choices)})
@@ -108,7 +123,7 @@ class SessionTension(unittest.TestCase):
     def test_recent_choices_dedupe_and_cap(self):
         for i in range(12):
             self.note(f"(동작{i % 10})")
-        self.assertEqual(len(self.sess.recent_choices), AB.TENSION_RECENT_MAX)
+        self.assertEqual(len(self.sess.recent_choices), PE.TENSION_RECENT_MAX)
         self.assertEqual(len(set(self.sess.recent_choices)), len(self.sess.recent_choices))
         self.assertEqual(self.sess.recent_choices[-1], "동작1")
         self.assertEqual(self.sess.tension_stage, 4)

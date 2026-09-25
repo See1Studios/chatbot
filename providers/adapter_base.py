@@ -40,67 +40,6 @@ def split_choices(text: str) -> Tuple[str, List[str]]:
     return (text[:m.start()].rstrip(), items) if items else (text, [])
 
 
-# NATURAL_SEQUENCE_v1 (#163): private sessions climb a 4-stage tension ladder. The engine state lives on the session;
-# this is the one place its per-turn context is written, so every provider gets the same text.
-TENSION_MIN, TENSION_MAX = 1, 4
-TENSION_STAGES = {1: "도입", 2: "고조", 3: "밀착", 4: "절정"}
-TENSION_SLOTS = ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉")  # slot index -> stage delta 0 / +1 / +2
-TENSION_RECENT_MAX = 9
-
-
-def tension_after(stage: int, slot: int = -1, action: bool = False) -> int:
-    """Next stage: a picked slot moves it by its index (slot 0 holds, 1 nudges +1, 2 nudges +2), an action nudges +1; clamped to 1..4."""
-    step = slot if 0 <= slot < len(TENSION_SLOTS) else (1 if action else 0)
-    return max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN) + step))
-
-
-def tension_meta(meta: Dict[str, Any]) -> Tuple[int, List[str]]:
-    """(stage, recent_choices) as saved in a session's meta.json; defaults for a new session."""
-    stage = max(TENSION_MIN, min(TENSION_MAX, int(meta.get("tension_stage") or TENSION_MIN)))
-    return stage, [str(c) for c in (meta.get("recent_choices") or [])][-TENSION_RECENT_MAX:]
-
-
-def tension_step(stage: int, recent: List[str], history: List[dict], text: str,
-                 event_type: str = "") -> Tuple[int, List[str]]:
-    """Next (stage, recent_choices) for one private user turn, called before the turn joins `history`.
-    Picking one of the last offered choices moves by its slot; an action (type "action", or the page's "(...)"
-    form) nudges +1; anything else holds. The used offer (or the action) joins recent_choices, deduped, capped."""
-    said = (text or "").strip()
-    action = event_type == "action" or (len(said) > 2 and said[0] == "(" and said[-1] == ")")
-    last = next((h for h in reversed(history or []) if h.get("role") in ("user", "assistant")), {})
-    offered = [str(c) for c in (last.get("choices") or [])] if last.get("role") == "assistant" else []
-    labels = [c.split("->")[0].strip() for c in offered]
-    picked = {said, said.strip("()").strip()}
-    slot = next((i for i, (c, lab) in enumerate(zip(offered, labels)) if picked & {c.strip(), lab}), -1)
-    if slot < 0 and not action:
-        return stage, list(recent or [])
-    used = [x for x in (labels if slot >= 0 else [said.strip("()").strip()]) if x]
-    kept = [c for c in (recent or []) if c not in used] + used
-    return tension_after(stage, slot if slot < len(TENSION_SLOTS) else -1, action), kept[-TENSION_RECENT_MAX:]
-
-
-def tension_context(stage: int, recent_choices: List[str]) -> str:
-    """[Tension Engine Context] block for one private turn: stage, choices not to repeat, 3-slot natural sequence contract."""
-    stage = max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN)))
-    lines = [
-        "[Tension Engine Context]",
-        f"Stage: {stage}/{TENSION_MAX} ({TENSION_STAGES[stage]}). 현재 단계의 무드와 스킨십 수위에 맞게 장면을 연출할 것.",
-    ]
-    recent = [c for c in (recent_choices or []) if c][-TENSION_RECENT_MAX:]
-    if recent:
-        lines.append("최근 사용한 선택지 반복 및 유사 표현 금지: " + " | ".join(recent))
-    top = min(TENSION_MAX, stage + 2)
-    lines.append(
-        "직전 행동의 신체 부위와 거리감에서 끊김 없이 자연스럽게 이어지는 행동 시퀀스를 구성할 것. "
-        "(예: 포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정)\n"
-        "억지 밀당이나 어색한 화제 전환을 배제하고, 반드시 다음 3가지 슬롯 순서대로 정확히 3개의 선택지를 제시할 것:\n"
-        f"1) {TENSION_SLOTS[0]} -- 직전 신체 부위/거리감에서 이어지는 다음 행동 (단계 {stage} 유지)\n"
-        f"2) {TENSION_SLOTS[1]} -- 한 걸음 더 깊이 파고드는 과감한 스킨십과 밀착 (단계 {min(TENSION_MAX, stage + 1)})\n"
-        f"3) {TENSION_SLOTS[2]} -- 신체 감각과 짙은 분위기에 온전히 젖어드는 탐닉 (단계 {top})"
-    )
-    return "\n".join(lines)
-
-
 class AgentAdapter:
     """Base interface for spawning/talking to a CLI agent backend.
 
@@ -130,9 +69,8 @@ class AgentAdapter:
 
     def turn_context(self, session: Any) -> str:
         """Per-turn system context prepended to the user message; private sessions get the tension engine block."""
-        if not getattr(session, "is_private", False):
-            return ""
-        return tension_context(getattr(session, "tension_stage", TENSION_MIN), getattr(session, "recent_choices", []))
+        import private_engine
+        return private_engine.turn_context(session)
 
     def find_executable(self) -> str:
         raise NotImplementedError

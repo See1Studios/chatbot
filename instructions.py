@@ -213,12 +213,14 @@ def _private_charter() -> str:
 
 def _private_bundle(character: str) -> Dict[str, str]:
     import characters
+    import private_engine
     card = _card(character)
     if not card:
         return {"text": "", "hash": ""}
     rules = characters.private_text(card)
     static = "\n\n---\n\n".join(t for t in (_private_charter(), characters.persona_text(card).strip(),
-                                            PRIVATE_SESSION_NOTE + ("\n\n" + rules if rules else "")) if t)
+                                            PRIVATE_SESSION_NOTE + ("\n\n" + rules if rules else ""),
+                                            private_engine.render_protocol_text(card)) if t)
     cid = _cid(character)
     memory = characters.read_private_memory(cid, WORKSPACE) if cid else ""
     text = static + ("\n\n[Private memory]\n" + memory if "- " in memory else "")

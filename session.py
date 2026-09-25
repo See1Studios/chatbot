@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 from providers.adapters import _persona_system_prompt, get_adapter
-from providers.adapter_base import tension_meta, tension_step
+from private_engine import tension_meta, tension_step
 from instructions import build_instruction_bundle
 from identity import display_name, user_title
 
