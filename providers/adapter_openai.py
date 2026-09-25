@@ -621,6 +621,7 @@ class OpenAIDialectAdapter(AgentAdapter):
                 raw_usage=usage,
                 is_err=False,
                 served_model=served_model,
+                finish_reason=finish_reason,
             )
             yield out
             return
