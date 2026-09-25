@@ -3,13 +3,15 @@
  "approved_at": "2026-09-26 01:12:13",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-26 01:11:54",
  "evidence": [
   "candidate:1790352321.851"
  ],
  "gate_failures": 0,
  "id": 209,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "agent:chat-agent:agy",
@@ -30,15 +32,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-209 at e345923 (agy, review PASS round 1)",
    "ts": "2026-09-26 01:17:45"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-26 08:18:57"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged a2154ea on the operator's word (agy)",
+   "ts": "2026-09-26 08:19:08"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-26 08:19:08"
   }
  ],
  "paths": [
   "data/private_tension_gemini.json",
   "tests/test_private_tension.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "data/private_tension_gemini.json,tests/test_private_tension.py",
  "title": "사적 텐션 엔진 애무/전희 구간(1~2단계) 디테일 및 부위별 섬세한 빌드업 강화",
- "updated": "2026-09-26 01:17:45",
+ "updated": "2026-09-26 08:19:08",
  "worked_by": "agy"
 }
