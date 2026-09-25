@@ -629,7 +629,8 @@ function renderWorkCard(r) {
     if (r.active && r.round) metaParts.push(r.round + '라운드');
     if (r.active && r.brain) metaParts.push('🧠 ' + r.brain.split('/').pop());
     if (r.phase === 'queued' && r.blocked_by && r.blocked_by.ticket) {
-      metaParts.push('🔒 #' + r.blocked_by.ticket + ' 대기 (~' + String(r.blocked_by.until || '').slice(11, 16) + ')');
+      const until = String(r.blocked_by.until || '').slice(11, 16);
+      metaParts.push('선행 #' + r.blocked_by.ticket + (until ? ' (~' + until + ')' : ''));
     }
 
     if (metaParts.length) {

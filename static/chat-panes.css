@@ -314,7 +314,8 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
 .work-brain{flex:0 0 auto;font-size:.65rem;color:var(--muted);font-family:var(--font-mono);background:rgba(255,255,255,.04);padding:.05rem .3rem;border-radius:4px;max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .work-said{color:var(--text);font-size:.78rem;line-height:1.45;word-break:break-word}
 .work-actions{display:flex;flex-wrap:wrap;gap:.35rem;justify-content:flex-end;margin-top:.15rem}
-.work-plan{margin:0;padding-left:1.2rem;color:var(--muted);line-height:1.5;font-size:.76rem}
+.work-plan{margin:0;padding-left:1.2rem;color:var(--muted);line-height:1.5;font-size:.76rem;overflow-wrap:break-word;word-break:break-all}
+.work-plan li{overflow-wrap:break-word;word-break:break-all}
 .work-plan.need-paths{color:var(--accent2)}
 .work-card.phase-awaiting_go{border-color:var(--accent2)}
 .obs-cands,.obs-review{margin-top:.6rem}
