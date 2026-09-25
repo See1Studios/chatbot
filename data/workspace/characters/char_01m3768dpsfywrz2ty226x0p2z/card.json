@@ -25,8 +25,8 @@
         "brains": {
           "work": [
             {
-              "provider": "agy",
-              "model": "gemini-3.8-flash-high"
+              "provider": "claude",
+              "model": "opus"
             }
           ]
         }
