@@ -3,13 +3,15 @@
  "approved_at": "2026-09-25 20:55:42",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-25 20:55:31",
  "evidence": [
   "event:20260925-204753-bedb46#16"
  ],
  "gate_failures": 0,
  "id": 193,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,14 +27,29 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-193 at 849abcb (agy, review PASS round 1)",
    "ts": "2026-09-25 20:57:06"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-25 21:03:42"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged e23b532 on the operator's word (agy)",
+   "ts": "2026-09-25 21:03:53"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-25 21:03:53"
   }
  ],
  "paths": [
   "static/app-evolution.js"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/app-evolution.js",
  "title": "작업 카드 ✕ 닫기 클릭 시 자동 폐기 방지 (UI 숨김 분리)",
- "updated": "2026-09-25 20:57:06",
+ "updated": "2026-09-25 21:03:53",
  "worked_by": "agy"
 }
