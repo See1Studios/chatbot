@@ -80,54 +80,12 @@ function parkSessionBanner() {
   if (logEl.lastElementChild !== sessionBanner) logEl.appendChild(sessionBanner);
 }
 
-function applySessionActionMode(mode, text) {
-  if (!sessionBanner) return;
-  sessionBanner.dataset.mode = mode;
-  sessionBanner.classList.toggle('hard', mode === 'hard');
-  const msgEl = sessionBanner.querySelector('.session-banner-msg');
-  if (sessionBannerContinue) {
-    sessionBannerContinue.className = (mode === 'quiet') ? 'ghost' : 'primary';
-    sessionBannerContinue.textContent = (mode === 'quiet') ? '맥락 이어가기' : '맥락 이어 새 대화';
-  }
-  if (sessionBannerBtn) {
-    sessionBannerBtn.textContent = (mode === 'quiet') ? '새 대화' : '완전 새 세션';
-  }
-  if (msgEl) {
-    msgEl.textContent = (mode === 'quiet')
-      ? ''
-      : (text || (mode === 'hard'
-        ? '세션이 길어져 새 채팅으로 전환하는 게 좋다냥'
-        : '세션이 길어져서 느려질 수 있어요. 새 채팅을 권장합니다'));
-  }
-}
-
+// The new-session suggestion banner is permanently off (#197): it covered the
+// chat mid-conversation. Weight data is still recorded; the banner never shows.
 function syncSessionActions() {
   if (!sessionBanner) return;
-  const weight = sessionBanner.dataset.level || 'ok';
-  const needsPrompt = (weight === 'hard') || (weight === 'soft' && !sessionActionsDismissed);
-  if (isBusy) {
-    sessionBanner.hidden = true;
-    return;
-  }
-  if (!currentSessionHasUser && !needsPrompt) {
-    sessionBanner.hidden = true;
-    return;
-  }
-  if (sessionActionsDismissed && weight !== 'hard') {
-    sessionBanner.hidden = true;
-    return;
-  }
-  let mode = 'quiet';
-  let text = sessionBanner.dataset.message || '';
-  if (weight === 'hard') mode = 'hard';
-  else if (weight === 'soft' && !sessionActionsDismissed) mode = 'soft';
-  applySessionActionMode(mode, text);
-  sessionBanner.hidden = false;
-  parkSessionBanner();
-  if (logEl && typeof currentTab !== 'undefined' && currentTab === 'chat') {
-    const room = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight;
-    if (room < 96) logEl.scrollTop = logEl.scrollHeight;
-  }
+  sessionBanner.hidden = true;
+  detachSessionBanner();
 }
 
 function showSessionHeavyBanner(level, text) {
