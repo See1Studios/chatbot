@@ -1,0 +1,39 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-25 16:52:24",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-25 16:51:49",
+ "evidence": [
+  "event:20260925-152341-e46ad3#100"
+ ],
+ "gate_failures": 0,
+ "id": 180,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-25 16:52:24"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/markdown.js, tests/test_choice_chips.py",
+   "ts": "2026-09-25 16:52:24"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-180 at e9b78af (agy, review PASS round 1)",
+   "ts": "2026-09-25 16:58:38"
+  }
+ ],
+ "paths": [
+  "static/markdown.js",
+  "tests/test_choice_chips.py"
+ ],
+ "status": "awaiting_merge",
+ "target": "static/markdown.js,tests/test_choice_chips.py",
+ "title": "Guard unclosed &lt;thought&gt; tag from leaking into private-mode chat bubbles",
+ "updated": "2026-09-25 16:58:38",
+ "worked_by": "agy"
+}
