@@ -182,8 +182,9 @@ function parseExpression(text) {
 
 const THOUGHT_STATE_BLOCK = /```state\s*\{[\s\S]*?"thought":\s*"([^"]+)"[\s\S]*?\}\s*```/i;
 const THOUGHT_STATE_ANY = /```state\s*\{[\s\S]*?\}\s*```/i;
-const THOUGHT_TAG = /<thought>([\s\S]*?)<\/thought>/i;
-const THOUGHT_OPEN = /\s*(?:<thought>((?:(?!<\/thought>)[\s\S])*)|<(?:thought|though|thoug|thou|tho|th|t))$/i;
+const THOUGHT_TAG = /<thought(?:\s+[^>]*)?>([\s\S]*?)<\/thought>/i;
+const THOUGHT_OPEN = /\s*(?:<thought>((?:(?!<\/thought>)[\s\S])*)|<(?:thought|though|thoug|thou|tho|th|t)(?:\.\.\.)?)$/i;
+const THOUGHT_FRAGMENT = /<\/?(?:thought|though|thoug|thou)(?:\uFFFD+|\.\.\.>?|(?:\s+[^>]*?)?>|>|(?=[^\w\s])|$)\s*/gi;
 const THOUGHT_BLOCK = /```thought\s*([\s\S]*?)```/i;
 
 function parseThought(text) {
@@ -194,19 +195,25 @@ function parseThought(text) {
     thought = sm[1].trim();
   }
   s = s.replace(THOUGHT_STATE_ANY, '').trim();
-  const tm = THOUGHT_TAG.exec(s);
-  if (tm) {
-    thought = (thought ? thought + '\n' : '') + tm[1].trim();
-    s = s.replace(tm[0], '').trim();
-  } else {
-    const om = THOUGHT_OPEN.exec(s);
-    if (om) {
-      if (om[1] !== undefined && om[1].trim()) {
-        thought = (thought ? thought + '\n' : '') + om[1].trim();
-      }
-      s = s.replace(THOUGHT_OPEN, '').trim();
+
+  let tm;
+  while ((tm = THOUGHT_TAG.exec(s)) !== null) {
+    if (tm[1] !== undefined && tm[1].trim()) {
+      thought = (thought ? thought + '\n' : '') + tm[1].trim();
     }
+    s = s.replace(tm[0], '').trim();
   }
+
+  const om = THOUGHT_OPEN.exec(s);
+  if (om) {
+    if (om[1] !== undefined && om[1].trim()) {
+      thought = (thought ? thought + '\n' : '') + om[1].trim();
+    }
+    s = s.replace(THOUGHT_OPEN, '').trim();
+  }
+
+  s = s.replace(THOUGHT_FRAGMENT, '').trim();
+
   const bm = THOUGHT_BLOCK.exec(s);
   if (bm) {
     thought = (thought ? thought + '\n' : '') + bm[1].trim();

@@ -71,6 +71,14 @@ out.parsedThoughtBareLt = api.parseThought('안녕 <');
 out.parsedThoughtMath = api.parseThought('1 < 2');
 out.parsedThoughtChoices = api.parseThought('질문\n<!--choices: A | B-->');
 out.parsedThoughtChoicesOpen = api.parseThought('질문\n<!--choices');
+out.parsedThoughtPartialDots = api.parseThought('안녕! <thoug...');
+out.parsedThoughtCorruptDots = api.parseThought('안녕! <thoug...> 뒷이야기');
+out.parsedThoughtCorruptThoughtDots = api.parseThought('안녕! <thought...> 뒷이야기');
+out.parsedThoughtOrphanClose = api.parseThought('안녕! </thought> 뒷이야기');
+out.parsedThoughtSessionEvent = api.parseThought('[expression: shy]\n<thoug없이 거세게 몰아치는 충격');
+out.parsedThoughtSessionRepl = api.parseThought('[expression: shy]\n<thoug\ufffd\ufffd한 침대 위로');
+out.parsedThoughtCodeLt = api.parseThought('count<thought_count');
+out.parsedThoughtMultiTag = api.parseThought('<thought>하나</thought>본문<thought>둘</thought>');
 
 // chips: only the newest message keeps them
 function msg(cls) { const m = el('div'); m.className = cls; const md = el('div'); md.className = 'md'; m.appendChild(md); logEl.appendChild(m); return m; }
@@ -184,7 +192,18 @@ class ChoiceChips(unittest.TestCase):
         self.assertEqual(self.o["parsedThoughtChoicesOpen"]["cleanText"], "질문\n<!--choices")
 
         self.assertIsNone(self.o["parsedThoughtPartialTagWithTail"]["thought"])
-        self.assertEqual(self.o["parsedThoughtPartialTagWithTail"]["cleanText"], "안녕! <thoug뒷이야기가 이어짐")
+        self.assertEqual(self.o["parsedThoughtPartialTagWithTail"]["cleanText"], "안녕! 뒷이야기가 이어짐")
+        self.assertNotIn("<thoug", self.o["parsedThoughtPartialTagWithTail"]["cleanText"])
+
+    def test_corrupt_thought_fragment_recovery(self):
+        self.assertEqual(self.o["parsedThoughtPartialDots"], {"thought": None, "cleanText": "안녕!"})
+        self.assertEqual(self.o["parsedThoughtCorruptDots"], {"thought": None, "cleanText": "안녕! 뒷이야기"})
+        self.assertEqual(self.o["parsedThoughtCorruptThoughtDots"], {"thought": None, "cleanText": "안녕! 뒷이야기"})
+        self.assertEqual(self.o["parsedThoughtOrphanClose"], {"thought": None, "cleanText": "안녕! 뒷이야기"})
+        self.assertEqual(self.o["parsedThoughtSessionEvent"], {"thought": None, "cleanText": "[expression: shy]\n없이 거세게 몰아치는 충격"})
+        self.assertEqual(self.o["parsedThoughtSessionRepl"], {"thought": None, "cleanText": "[expression: shy]\n한 침대 위로"})
+        self.assertEqual(self.o["parsedThoughtCodeLt"], {"thought": None, "cleanText": "count<thought_count"})
+        self.assertEqual(self.o["parsedThoughtMultiTag"], {"thought": "하나\n둘", "cleanText": "본문"})
 
 
 if __name__ == "__main__":
