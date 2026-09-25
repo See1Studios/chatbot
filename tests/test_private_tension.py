@@ -102,6 +102,45 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("Stage: 3/4", ctx)
         self.assertNotIn(PE.RENDER_PROTOCOL, ctx)
 
+    def test_detect_model_family_prefers_the_model_name(self):
+        self.assertEqual(PE.detect_model_family("claude", "claude-sonnet-4-6"), "claude")
+        self.assertEqual(PE.detect_model_family("agy", "claude-opus-4-6-thinking"), "claude")
+        self.assertEqual(PE.detect_model_family("agy", "gemini-3.1-pro-high"), "gemini")
+        self.assertEqual(PE.detect_model_family("agy", ""), "gemini")
+        self.assertEqual(PE.detect_model_family("claude", ""), "claude")
+        self.assertEqual(PE.detect_model_family("openrouter", "qwen/qwen3-coder:free"), "local")
+        self.assertEqual(PE.detect_model_family("ollama", ""), "local")
+        self.assertEqual(PE.detect_model_family("", ""), "other")
+        self.assertEqual(PE.detect_model_family("grok", "grok-4"), "other")
+
+    def test_family_tables_pick_the_file(self):
+        import json
+        raw = json.loads(PE.FAMILY_FILES["gemini"].read_text(encoding="utf-8"))
+        self.assertEqual(PE.FAMILY_FILES["gemini"].name, "private_tension_gemini.json")
+        gem = PE.family_table("gemini")
+        self.assertEqual(gem["slots"], tuple((s["label"], s["guide"]) for s in raw["slots"]))
+        self.assertEqual((min(gem["stages"]), max(gem["stages"])), (PE.TENSION_MIN, PE.TENSION_MAX))
+        self.assertEqual(len(gem["slots"]), len(PE.TENSION_SLOTS))
+        for family in ("claude", "local", "other"):
+            self.assertIs(PE.family_table(family), PE.family_table("other"))
+            self.assertEqual(PE.family_table(family)["slots"][0][0], PE.TENSION_SLOTS[0])
+
+    def test_turn_context_uses_the_family_table(self):
+        class Sess:
+            is_private, tension_stage, recent_choices = True, 2, []
+            provider, model = "agy", "gemini-3.8-flash-low"
+        gem = _Adapter().turn_context(Sess())
+        for label in ("설레는 거리 좁히기", "과감한 행동", "밀당"):
+            self.assertIn(label, gem)
+        self.assertIn("Stage: 2/4 (설렘)", gem)
+        self.assertIn("(단계 4)", gem)
+        self.assertNotIn("자연스러운 다음 흐름", gem)
+        Sess.provider, Sess.model = "claude", "claude-sonnet-4-6"
+        safe = _Adapter().turn_context(Sess())
+        self.assertEqual(safe, PE.tension_context(2, []))
+        self.assertIn("자연스러운 다음 흐름", safe)
+        self.assertNotIn("과감한 행동", safe)
+
     def test_render_protocol(self):
         self.assertIn("## Voice & Actions", PE.RENDER_PROTOCOL)
         self.assertIn("## Expressions & Thoughts", PE.RENDER_PROTOCOL)
@@ -226,6 +265,14 @@ class SessionTension(unittest.TestCase):
         self.assertIn("Stage: 3/4", wire)
         self.assertIn("모른 척한다 | 손을 잡는다 | 입을 맞춘다", wire)
         self.assertTrue(wire.rstrip().endswith("입을 맞춘다"))
+
+    def test_a_gemini_session_gets_the_gemini_tension(self):
+        self.sess.provider, self.sess.model = "agy", "gemini-3.1-pro-low"
+        self.sess.send("곁에 앉는다", event_type="action")
+        wire = "".join(self.sess.proc.stdin.sent)
+        self.assertIn("Stage: 2/4 (설렘)", wire)
+        self.assertIn("1) 설레는 거리 좁히기", wire)
+        self.assertIn("3) 밀당", wire)
 
     def test_a_work_turn_has_no_tension_context(self):
         self.sess.mode = "work"

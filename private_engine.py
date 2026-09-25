@@ -35,6 +35,37 @@ TENSION_SLOT_GUIDES = tuple(guide for _, guide in _DEFAULTS["slots"])
 TENSION_TEXTS = _DEFAULTS["texts"]
 TENSION_RECENT_MAX = 9
 
+# MODEL_FAMILY_TENSION_v1 (#201): a model family may carry its own tension table; families without one use the defaults.
+# Families are data (string literals), not code names, so this module stays provider-neutral.
+FAMILY_FILES = {"gemini": DEFAULTS_PATH.with_name("private_tension_gemini.json")}
+FAMILY_MARKERS = (  # (family, substrings matched against the model name first, then the provider id)
+    ("claude", ("claude", "anthropic", "opus", "sonnet", "haiku")),
+    ("gemini", ("gemini", "agy", "antigravity")),
+    ("local", ("local", "ollama", "llama", "qwen", "mistral", "gemma", "lmstudio")),
+)
+_FAMILY_TABLES: Dict[str, Dict[str, Any]] = {}
+
+
+def detect_model_family(provider: str = "", model_name: str = "") -> str:
+    """Model family from the model name (preferred) or the provider id; "other" when neither is recognised."""
+    for probe in ((model_name or "").lower(), (provider or "").lower()):
+        if not probe:
+            continue
+        for family, marks in FAMILY_MARKERS:
+            if any(m in probe for m in marks):
+                return family
+    return "other"
+
+
+def family_table(family: str) -> Dict[str, Any]:
+    """Tension table for a family: its own file if it has one, else the defaults (cached per family)."""
+    path = FAMILY_FILES.get(family)
+    if path is None:
+        return _DEFAULTS
+    if family not in _FAMILY_TABLES:
+        _FAMILY_TABLES[family] = load_defaults(path)
+    return _FAMILY_TABLES[family]
+
 
 def tension_after(stage: int, slot: int = -1, action: bool = False) -> int:
     """Next stage: a picked slot moves it by its index (slot 0 holds, 1 nudges +1, 2 nudges +2), an action nudges +1; clamped to 1..4."""
@@ -84,21 +115,23 @@ def tension_step(stage: int, recent: List[str], history: List[dict], text: str,
     return tension_after(stage, slot if slot < len(TENSION_SLOTS) else -1, action), kept[-TENSION_RECENT_MAX:]
 
 
-def tension_context(stage: int, recent_choices: List[str]) -> str:
+def tension_context(stage: int, recent_choices: List[str], table: Optional[Dict[str, Any]] = None) -> str:
     """[Tension Engine Context] block for one private turn: stage, choices not to repeat, 3-slot natural sequence contract."""
-    stage = max(TENSION_MIN, min(TENSION_MAX, int(stage or TENSION_MIN)))
-    t = TENSION_TEXTS
+    table = table or _DEFAULTS
+    stages, t = table["stages"], table["texts"]
+    lo, hi = min(stages), max(stages)
+    stage = max(lo, min(hi, int(stage or lo)))
     lines = [
         "[Tension Engine Context]",
-        f"Stage: {stage}/{TENSION_MAX} ({TENSION_STAGES[stage]}). {t['stage_mood']}",
+        f"Stage: {stage}/{hi} ({stages[stage]}). {t['stage_mood']}",
     ]
     recent = [c for c in (recent_choices or []) if c][-TENSION_RECENT_MAX:]
     if recent:
         lines.append(t["recent_prefix"] + " | ".join(recent))
     lines += [t["sequence"], t["choice_forms"], t["slot_contract"]]
-    for i, (label, guide) in enumerate(zip(TENSION_SLOTS, TENSION_SLOT_GUIDES)):
+    for i, (label, guide) in enumerate(table["slots"]):
         hold = " 유지" if i == 0 else ""
-        lines.append(f"{i + 1}) {label} -- {guide} (단계 {min(TENSION_MAX, stage + i)}{hold})")
+        lines.append(f"{i + 1}) {label} -- {guide} (단계 {min(hi, stage + i)}{hold})")
     return "\n".join(lines)
 
 
@@ -130,8 +163,10 @@ def turn_context(session: Any) -> str:
     """Per-turn system context prepended to the user message for private sessions."""
     if not getattr(session, "is_private", False):
         return ""
+    family = detect_model_family(getattr(session, "provider", ""), getattr(session, "model", ""))
     return tension_context(
         getattr(session, "tension_stage", TENSION_MIN),
         getattr(session, "recent_choices", []),
+        family_table(family),
     )
 
