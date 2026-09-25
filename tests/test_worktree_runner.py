@@ -258,6 +258,14 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(wr.said("work\n---\nnot this\n---\n다 했다냥!"), "다 했다냥!")
         self.assertEqual(wr.said("a\nb\nc"), "b\nc")
 
+    def test_report_reaches_the_reviewer(self) -> None:
+        out = "| case | old |\n|---|---|\n| x | fail |\nLEARNED: skip me\n---\n다 적어 왔거든?"
+        self.assertEqual(wr.report(out), "| case | old |\n|---|---|\n| x | fail |")
+        self.assertEqual(wr.report("a" * 10, limit=4), "…aaaa")
+        p = wr.review_prompt(1, "t", "do it", "다 했다냥", "", None, "PD", partner_report="the table")
+        self.assertIn("the table", p)
+        self.assertNotIn("report (their", wr.review_prompt(1, "t", "do it", "hi", "", None, "PD"))
+
     # ---- Tier 2: stop before merge, land on the operator's word
 
     def waiting(self) -> None:

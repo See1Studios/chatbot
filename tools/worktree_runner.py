@@ -378,6 +378,21 @@ def said(text: str) -> str:
     return "\n".join(lines[-2:]).strip()[:500]
 
 
+REPORT_LIMIT = 4000
+
+
+def report(text: str, limit: int = REPORT_LIMIT) -> str:
+    """The worker's final message before its last `---` line (the report the PD reviews), its end kept; LEARNED
+    lines left out. said() is only the short in-character line after it."""
+    lines = [ln for ln in (text or "").strip().splitlines() if not _LEARNED.match(ln)]
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].strip() == "---":
+            lines = lines[:i]
+            break
+    body = "\n".join(lines).strip()
+    return body if len(body) <= limit else "…" + body[-limit:]
+
+
 # What a delegated agent inherits from this process: the basics a CLI needs, never the host's secrets
 # (the chat server's environment holds API keys; each CLI keeps its own login under HOME).
 ENV_KEEP = ("PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ", "TMPDIR")
@@ -490,10 +505,13 @@ def fit_diff(diff: str, limit: int = DIFF_LIMIT) -> str:
 
 
 def review_prompt(tid: int, title: str, instruction: str, partner_said: str, diff: str,
-                  gate_error: Optional[Failure], character: str, limit: int = DIFF_LIMIT) -> str:
+                  gate_error: Optional[Failure], character: str, limit: int = DIFF_LIMIT,
+                  partner_report: str = "") -> str:
     parts = [character, "",
-             "Your staff member just worked on ticket #%d (%s). The task was:" % (tid, title), instruction, "",
-             "Your staff member said: %s" % (partner_said or "(nothing)"), ""]
+             "Your staff member just worked on ticket #%d (%s). The task was:" % (tid, title), instruction, ""]
+    if partner_report:
+        parts += ["Your staff member's report (their final message):", partner_report, ""]
+    parts += ["Your staff member said: %s" % (partner_said or "(nothing)"), ""]
     if gate_error:
         parts += ["The automatic gate FAILED, so the verdict is FAIL: %s" % gate_error.reason,
                   gate_error.detail[-3000:], ""]
@@ -895,6 +913,7 @@ def cmd_run(args) -> int:
             feedback = ""
             chain = expert_chain(task["role"], [{"provider": provider, "model": args.model, "timeout": 0}])
             bi, last_brain = 0, None
+            partner_report = ""
             for rnd in range(1, args.rounds + 1):
                 if rnd > 1 or tno > 1:
                     renew()
@@ -929,6 +948,7 @@ def cmd_run(args) -> int:
                                   tail(res["stderr"] or res["stdout"]))
                 if not (confirm_only and rnd == 1):
                     last_brain = b
+                    partner_report = report(res["stdout"])
                     line = {"task": tno, "round": rnd, "role": "writer", "name": writer_p["name"],
                             "text": said(res["stdout"]), "brain": brain_label(b)}
                     round_lessons = learned(res["stdout"])
@@ -977,7 +997,7 @@ def cmd_run(args) -> int:
                 rv, rb, rskipped = review_with_chain(
                     pd_chain, wt_dir,
                     lambda prov: review_prompt(tid, task["title"], task["instruction"], partner_said, diff, gate_error,
-                                               pd_block, diff_limit(prov)),
+                                               pd_block, diff_limit(prov), partner_report),
                     renew)
                 verdict = "FAIL" if gate_error else rv["verdict"]
                 transcript.append({"task": tno, "round": rnd, "role": "reviewer", "name": reviewer_p["name"],
