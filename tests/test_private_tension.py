@@ -55,6 +55,9 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("Stage: 2/4", ctx)
         self.assertIn("손을 잡는다 | 눈을 피한다", ctx)
         self.assertIn("3가지 슬롯 순서", ctx)
+        self.assertIn('라벨 -> "대사"', ctx)
+        self.assertIn("라벨 -> (행동)", ctx)
+        self.assertIn('라벨 -> "대사" (행동)', ctx)
         for slot in ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉"):
             self.assertIn(slot, ctx)
         self.assertIn("포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정", ctx)
@@ -76,6 +79,10 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("## Choices", PE.RENDER_PROTOCOL)
         self.assertIn("<!--choices:", PE.RENDER_PROTOCOL)
         self.assertIn(" -> (", PE.RENDER_PROTOCOL)
+        self.assertIn(' -> "', PE.RENDER_PROTOCOL)
+        self.assertIn('라벨 -> "대사"', PE.RENDER_PROTOCOL)
+        self.assertIn("라벨 -> (행동)", PE.RENDER_PROTOCOL)
+        self.assertIn('라벨 -> "대사" (행동)', PE.RENDER_PROTOCOL)
         self.assertIn("[expression: neutral|joy|shy|serious|sorrow|tired]", PE.RENDER_PROTOCOL)
         self.assertIn("<thought>...</thought>", PE.RENDER_PROTOCOL)
         self.assertEqual(PE.render_protocol_text(None), PE.RENDER_PROTOCOL)
@@ -114,6 +121,49 @@ class SessionTension(unittest.TestCase):
         self.note("다가간다")
         self.assertEqual(self.sess.tension_stage, 2)
         self.assertEqual(self.sess.recent_choices, ["밀어낸다", "다가간다", "안긴다"])
+
+    def test_picking_pure_dialogue_or_action_or_combined_slot(self):
+        # slot 0: pure dialogue ("조금만 더 있자") -> stage holds at 2
+        self.sess.tension_stage = 2
+        self.offer(
+            '더 머물기 -> "조금만 더 있자"',
+            '다가서기 -> (한 걸음 더 다가선다)',
+            '고백 -> "좋아해" (손을 꼭 쥔다)',
+        )
+        self.note('"조금만 더 있자"')
+        self.assertEqual(self.sess.tension_stage, 2)
+        self.assertEqual(self.sess.recent_choices, ["더 머물기", "다가서기", "고백"])
+
+        # slot 1: action -> stage moves +1 (2 -> 3)
+        self.offer(
+            '바라보기 -> (눈을 마주친다)',
+            '손잡기 -> (살며시 손을 잡는다)',
+            '안기기 -> "가지 마" (품에 안긴다)',
+        )
+        self.note("(살며시 손을 잡는다)")
+        self.assertEqual(self.sess.tension_stage, 3)
+        self.assertEqual(self.sess.recent_choices[-3:], ["바라보기", "손잡기", "안기기"])
+
+        # slot 2: combined -> stage moves +2 (clamped to 4: 3 -> 4)
+        self.offer(
+            '미소짓기 -> "고마워"',
+            '기대기 -> (어깨에 머리를 기댄다)',
+            '속삭이기 -> "더 곁에 있어줘" (허리를 끌어안는다)',
+        )
+        self.note('"더 곁에 있어줘" (허리를 끌어안는다)')
+        self.assertEqual(self.sess.tension_stage, 4)
+        self.assertEqual(self.sess.recent_choices[-3:], ["미소짓기", "기대기", "속삭이기"])
+
+        # pure dialogue sent without quotes or with outer parens matches slot 0
+        self.sess.tension_stage = 2
+        self.offer(
+            '대화하기 -> "여기 있어"',
+            '손잡기 -> (손을 뻗는다)',
+            '끌어안기 -> "안아줘" (품에 안긴다)',
+        )
+        self.note("여기 있어")
+        self.assertEqual(self.sess.tension_stage, 2)
+        self.assertEqual(self.sess.recent_choices[-3:], ["대화하기", "손잡기", "끌어안기"])
 
     def test_an_action_nudges_and_free_text_holds(self):
         self.note("그냥 얘기하자")
