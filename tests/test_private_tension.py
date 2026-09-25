@@ -131,12 +131,11 @@ class TensionLadder(unittest.TestCase):
             is_private, tension_stage, recent_choices = True, 2, []
             provider, model = "agy", "gemini-3.8-flash-low"
         gem = _Adapter().turn_context(Sess())
-        for label in ("자연스러운 다음 진도", "기상천외 소품 플레이", "주도권·벌칙 룰 도발"):
+        for label in ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉"):
             self.assertIn(label, gem)
-        for prop in ("체리", "얼음", "시럽", "리본", "안대", "이어폰", "테이프", "깃털"):
-            self.assertIn(prop, gem)
-        for rule in ("참기 내기", "움직이면 벌칙", "대담한 명령"):
-            self.assertIn(rule, gem)
+        self.assertIn("포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정", gem)
+        self.assertIn("코치(사용자)가 상대에게", gem)
+        self.assertIn("신체 접촉 지문", gem)
         self.assertIn("Stage: 2/4 (고조)", gem)
         self.assertIn("(단계 4)", gem)
         self.assertNotIn("자연스러운 다음 흐름", gem)
@@ -144,7 +143,7 @@ class TensionLadder(unittest.TestCase):
         safe = _Adapter().turn_context(Sess())
         self.assertEqual(safe, PE.tension_context(2, []))
         self.assertIn("자연스러운 다음 흐름", safe)
-        self.assertNotIn("기상천외 소품 플레이", safe)
+        self.assertNotIn("더 과감한 밀착/직진", safe)
 
     def test_render_protocol(self):
         self.assertIn("## Voice & Actions", PE.RENDER_PROTOCOL)
@@ -277,8 +276,8 @@ class SessionTension(unittest.TestCase):
         wire = "".join(self.sess.proc.stdin.sent)
         self.assertIn("Stage: 2/4 (고조)", wire)
         self.assertIn("1) 자연스러운 다음 진도", wire)
-        self.assertIn("2) 기상천외 소품 플레이", wire)
-        self.assertIn("3) 주도권·벌칙 룰 도발", wire)
+        self.assertIn("2) 더 과감한 밀착/직진", wire)
+        self.assertIn("3) 깊은 감각/분위기 탐닉", wire)
 
     def test_a_work_turn_has_no_tension_context(self):
         self.sess.mode = "work"
