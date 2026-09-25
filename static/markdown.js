@@ -183,7 +183,7 @@ function parseExpression(text) {
 const THOUGHT_STATE_BLOCK = /```state\s*\{[\s\S]*?"thought":\s*"([^"]+)"[\s\S]*?\}\s*```/i;
 const THOUGHT_STATE_ANY = /```state\s*\{[\s\S]*?\}\s*```/i;
 const THOUGHT_TAG = /<thought>([\s\S]*?)<\/thought>/i;
-const THOUGHT_OPEN = /\s*(?:<thought>((?:(?!<\/thought>)[\s\S])*)|<(?:thought|though|thoug|thou|tho|th|t)?)$/i;
+const THOUGHT_OPEN = /\s*(?:<thought>((?:(?!<\/thought>)[\s\S])*)|<(?:thought|though|thoug|thou|tho|th|t)?((?:(?!<\/thought>)[\s\S])*))$/i;
 const THOUGHT_BLOCK = /```thought\s*([\s\S]*?)```/i;
 
 function parseThought(text) {

@@ -66,6 +66,7 @@ out.parsedThoughtState = api.parseThought('안녕!\n```state\n{"thought": "반�
 out.parsedThoughtTag = api.parseThought('안녕!\n<thought>내면 독백</thought>');
 out.parsedThoughtOpen = api.parseThought('안녕! <thought>아직 안 끝난 속마음');
 out.parsedThoughtPartialTag = api.parseThought('안녕! <thoug');
+out.parsedThoughtPartialTagWithTail = api.parseThought('안녕! <thoug뒷이야기가 이어짐');
 
 // chips: only the newest message keeps them
 function msg(cls) { const m = el('div'); m.className = cls; const md = el('div'); md.className = 'md'; m.appendChild(md); logEl.appendChild(m); return m; }
@@ -164,6 +165,9 @@ class ChoiceChips(unittest.TestCase):
         self.assertNotIn("<thoug", self.o["parsedThoughtPartialTag"]["cleanText"])
         self.assertIsNone(self.o["parsedThoughtPartialTag"]["thought"])
         self.assertEqual(self.o["parsedThoughtPartialTag"]["cleanText"], "안녕!")
+
+        self.assertNotIn("<thoug", self.o["parsedThoughtPartialTagWithTail"]["cleanText"])
+        self.assertEqual(self.o["parsedThoughtPartialTagWithTail"]["cleanText"], "안녕!")
 
 
 if __name__ == "__main__":
