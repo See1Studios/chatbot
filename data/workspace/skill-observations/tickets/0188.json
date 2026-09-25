@@ -1,0 +1,38 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-25 19:10:50",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-25 19:10:02",
+ "evidence": [
+  "event:20260925-182023-373178#11"
+ ],
+ "gate_failures": 1,
+ "id": 188,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-25 19:10:50"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/markdown.js, tests/test_choice_chips.py",
+   "ts": "2026-09-25 19:10:50"
+  },
+  {
+   "by": "agent:agy",
+   "text": "gate_failed: worktree agy: task 1: review FAIL after 2 round(s)",
+   "ts": "2026-09-25 19:31:46"
+  }
+ ],
+ "paths": [
+  "static/markdown.js",
+  "tests/test_choice_chips.py"
+ ],
+ "status": "approved",
+ "target": "static/markdown.js,tests/test_choice_chips.py",
+ "title": "대화창 텍스트 렌더러 근본 재검토 (문장 앞 글자 실종·' 뒤 글자 실종)",
+ "updated": "2026-09-25 19:31:46",
+ "worked_by": "agy"
+}
