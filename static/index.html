@@ -104,7 +104,7 @@
       </div>
     </header>
     <div class="meta" id="meta">
-      <div style="display:inline-flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+      <div class="meta-main">
         <div class="session-nav" id="sessionNav" role="group" aria-label="세션 이동 네비게이션">
           <button id="sessionNavPrev" class="session-nav-btn" type="button" title="이전 세션 (과거)" aria-label="이전 세션 (과거)" disabled>
             <svg class="action-icon-svg" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
@@ -118,7 +118,7 @@
             <span>최신 ⇥</span>
           </button>
         </div>
-        <span id="metaSessionText">세션 없음</span>
+        <span id="metaSessionText" class="meta-session-text">세션 없음</span>
         <span id="pastSessionBadge" class="past-tag" style="display:none">과거 열람</span>
         <span id="procBadge" class="proc-badge idle" title="에이전트 프로세스 실시간 상태"><span class="dot"></span><span id="procBadgeText">대기 중</span></span>
       </div>

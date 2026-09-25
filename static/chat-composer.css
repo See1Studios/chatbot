@@ -235,6 +235,8 @@ textarea::placeholder{
 .action-icon-svg.text-warning{stroke:#fbbf24}
 .meta{color:var(--muted);font-size:.8rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:nowrap;min-width:0}
 .meta > div:first-child{min-width:0;flex:1 1 auto;overflow:hidden}
+.meta-main{display:inline-flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.meta-session-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .proc-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.15rem .5rem;border-radius:12px;font-size:.75rem;font-family:var(--font-mono);user-select:none;transition:all .2s ease}
 .proc-badge.idle{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted)}
 .proc-badge.idle .dot{width:6px;height:6px;border-radius:50%;background:#3fb950}

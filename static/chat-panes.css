@@ -525,6 +525,22 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
     line-height:1.15;
     padding:0 .2rem;
     min-height:16px;
+    gap:.3rem;
+    flex-wrap:nowrap;
+  }
+  .meta-main{
+    flex-wrap:nowrap;
+    gap:.3rem;
+  }
+  .meta-session-text{
+    flex:0 1 auto;
+  }
+  .meta .session-nav,
+  .meta .past-tag,
+  .meta .proc-badge,
+  .meta .session-token-badge{
+    flex-shrink:0;
+    white-space:nowrap;
   }
   .session-token-badge{
     font-size:.68rem;
