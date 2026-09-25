@@ -2,13 +2,14 @@
  "actor": "chat-agent:claude",
  "approved_at": "2026-09-25 19:42:41",
  "approved_by": "operator (ui)",
- "attempts": 2,
+ "attempts": 3,
  "created": "2026-09-25 19:40:28",
  "evidence": [
   "event:20260925-182023-373178#11"
  ],
  "gate_failures": 2,
  "id": 189,
+ "merge_pending": true,
  "notes": [
   {
    "by": "operator (ui)",
@@ -39,6 +40,21 @@
    "by": "agent:agy",
    "text": "gate_failed: worktree agy: task 2: review FAIL after 2 round(s)",
    "ts": "2026-09-25 20:05:25"
+  },
+  {
+   "by": "agent:chat-agent:claude",
+   "text": "proposal merged (+0 evidence)",
+   "ts": "2026-09-25 20:12:17"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 3/3); paths: private_engine.py, static/markdown.js, tests/test_choice_chips.py, tests/test_private_tension.py",
+   "ts": "2026-09-25 20:15:44"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-189 at cc75ddd (agy, review PASS round 1)",
+   "ts": "2026-09-25 20:26:54"
   }
  ],
  "paths": [
@@ -47,9 +63,9 @@
   "tests/test_choice_chips.py",
   "tests/test_private_tension.py"
  ],
- "status": "approved",
+ "status": "awaiting_merge",
  "target": "private_engine.py,static/markdown.js,tests/test_choice_chips.py,tests/test_priva",
  "title": "속마음 표기 교체 + 렌더러 thought 규칙 재정의 (#188 후속, 본문 실종 근본 해결)",
- "updated": "2026-09-25 20:05:25",
+ "updated": "2026-09-25 20:26:54",
  "worked_by": "agy"
 }
