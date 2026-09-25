@@ -6,6 +6,11 @@ function defaultCharacterId() {
   return d ? d.id : '';
 }
 function openCharacterId() { return sessionCharacter || defaultCharacterId(); }
+function sessionCharacterName(cid) {
+  const targetId = cid || openCharacterId();
+  const c = (typeof characterCatalog !== 'undefined' ? characterCatalog : []).find(x => x.id === targetId);
+  return c ? (c.name || c.title || '') : '';
+}
 function sameSessionMode(s) {
   return ((s && s.mode) || 'work') === sessionMode && ((s && s.character) || defaultCharacterId()) === openCharacterId();
 }
@@ -112,11 +117,11 @@ function enterSession(id, opts) {
     });
     // Each addChat() call already scrolls to bottom as it's added, but
     // that's measured against scrollHeight *at that instant* -- an
-    // assistant message with an image (common: 냥피디 generates a lot of
+    // assistant message with an image (common: image responses generate a lot of
     // these) grows taller once the image finishes loading, after the last
     // addChat already ran, leaving the view short of the true bottom
-    // (실장님: "냥피디 창이 처음 열릴 때 가장 최근 메시지까지 이동하지
-    // 않고 있어"). Re-pin now and once more shortly after, by which point
+    // (scrollpin guard: ensure viewport reaches bottom after image load).
+    // Re-pin now and once more shortly after, by which point
     // any images have almost certainly finished loading.
     logEl.scrollTop = logEl.scrollHeight;
     setTimeout(() => { logEl.scrollTop = logEl.scrollHeight; }, 200);
@@ -144,7 +149,7 @@ function enterSession(id, opts) {
   // own overflow guard (see below) now also refuses to backfill from a
   // spurious clamp-to-zero scroll event, so without this, a brand-new
   // session had no way at all to pull in older sessions' content -- from
-  // 실장님's side that read as "예전 세션 내용들이 다 사라져버렸는걸".
+  // the user's side that read as previous session content being gone.
   // Running it here for every scrollback-tracked entry (not just
   // history-restoring ones) chain-loads previous sessions until the
   // viewport is filled, same as opening an existing short session already did.
@@ -152,7 +157,9 @@ function enterSession(id, opts) {
 
   document.body.classList.toggle('private-session', sessionMode === 'private');
   updatePrivateBtn();
-  setMeta((sessionMode === 'private' ? '🔒 사적 대화 · ' : '') + '세션 ' + id + ' · ' + (opts.metaLabel || ''));
+  const chName = sessionCharacterName((opts.sessionInfo && opts.sessionInfo.character) || sessionCharacter);
+  const chPrefix = chName ? (chName + ' · ') : '';
+  setMeta((sessionMode === 'private' ? '🔒 사적 대화 · ' : '') + chPrefix + '세션 ' + id + ' · ' + (opts.metaLabel || ''));
   updateSessionNav(id, opts.sessionInfo);
 
   if (sessionBanner) {
@@ -826,9 +833,13 @@ async function continueSession() {
         : '';
       liveSessionId = nid;
       archiveBrowse = false;
+      const chName = sessionCharacterName((res.session && res.session.character) || sessionCharacter);
+      const greetingHead = chName
+        ? (chName + ': 이전 대화의 핵심 맥락을 인계받아 새 세션을 열었습니다.')
+        : '이전 대화의 핵심 맥락을 인계받아 새 세션을 열었습니다.';
       enterSession(nid, {
         scrollback: 'self',
-        greeting: '이전 대화의 핵심 맥락을 인계받아 새 세션을 열었다냥! ฅ' + note + '\n\n무엇부터 이어서 진행할까?',
+        greeting: greetingHead + note + '\n\n무엇부터 이어서 진행할까요?',
         metaLabel: res.session.model || '',
         activityAfter: '이전 세션(' + oldId + ') 맥락 인계 → 새 세션(' + nid + ')',
       });

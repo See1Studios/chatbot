@@ -192,8 +192,17 @@ class Registry:
         # updated_at is meta.json's mtime as epoch seconds, like AgentSession.to_public()'s (the client
         # compares the two)
         items = sorted(_meta_summaries(), key=lambda m: m["mtime"], reverse=True)[:40]
-        return [{"id": m["id"], "model": m["model"], "updated_at": m["mtime"], "preview": m["preview"],
-                 "turns": m["turns"], "mode": m["mode"], "character": m["character"]} for m in items]
+        names: Dict[str, str] = {}
+        out = []
+        for m in items:
+            cid = m["character"]
+            if cid not in names:
+                names[cid] = character_name(cid)
+            out.append({
+                "id": m["id"], "model": m["model"], "updated_at": m["mtime"], "preview": m["preview"],
+                "turns": m["turns"], "mode": m["mode"], "character": cid, "character_name": names[cid],
+            })
+        return out
 
     def get_active(self, character: str = "") -> "AgentSession":
         """Live conversation: the character's newest *work* session id, then the successor-chain tip ("" = the
@@ -261,6 +270,46 @@ def _character_id(character: str = "") -> str:
         return characters.default_character(_s().WORKSPACE)
     except Exception:  # noqa: BLE001
         return ""
+
+
+def character_name(character: str = "") -> str:
+    """The character's display name dynamically resolved from its TypeID (via characters.py).
+    Empty string if unresolvable."""
+    cid = _character_id(character)
+    if not cid:
+        return ""
+    try:
+        import characters
+        return characters.name(cid, _s().WORKSPACE)
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def session_character(sid_or_meta: Any) -> str:
+    """The character TypeID of a session, meta dict or session ID, resolving empty to the default character."""
+    if isinstance(sid_or_meta, dict):
+        cid = sid_or_meta.get("character") or ""
+    elif isinstance(sid_or_meta, str):
+        cid = ""
+        try:
+            sess = _s().REG.peek(sid_or_meta)
+            if sess is not None:
+                cid = getattr(sess, "character", "") or ""
+        except Exception:  # noqa: BLE001
+            pass
+        if not cid:
+            for m in _meta_summaries():
+                if m.get("id") == sid_or_meta:
+                    cid = m.get("character") or ""
+                    break
+    else:
+        cid = getattr(sid_or_meta, "character", "") or ""
+    return _character_id(cid)
+
+
+def session_character_name(sid_or_meta: Any) -> str:
+    """Dynamically look up the character name for a session object, meta dict, or session ID."""
+    return character_name(session_character(sid_or_meta))
 
 
 def migrate_session_characters() -> int:

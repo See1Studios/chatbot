@@ -98,12 +98,106 @@ def load(cid: str, ws=None) -> Dict:
     return card
 
 
+_CARD_INFO_CACHE: Dict[Path, tuple] = {}
+
+
+def _card_info(cid: str, ws=None) -> Optional[dict]:
+    try:
+        p = card_path(cid, ws)
+        st = p.stat()
+    except (OSError, ValueError):
+        return None
+    key = (st.st_mtime_ns, st.st_size)
+    hit = _CARD_INFO_CACHE.get(p)
+    if hit is not None and hit[0] == key:
+        return hit[1]
+    try:
+        card = json.loads(p.read_text(encoding="utf-8"))
+        if card.get("spec") != SPEC or not isinstance(card.get("data"), dict):
+            return None
+    except (OSError, ValueError):
+        return None
+    d = card.get("data") or {}
+    disp = ext(card).get("display") or {}
+    info = {
+        "name": str(d.get("name") or "").strip(),
+        "title": str(disp.get("title") or "").strip(),
+        "user_title": str(disp.get("user_title") or "").strip(),
+        "voice": str(disp.get("voice") or "").strip(),
+    }
+    _CARD_INFO_CACHE[p] = (key, info)
+    return info
+
+
+def name(card_or_id, ws=None) -> str:
+    """The character's name (`data.name`), or ''."""
+    if isinstance(card_or_id, dict):
+        return str((card_or_id.get("data") or {}).get("name") or "").strip()
+    cid = str(card_or_id or "").strip()
+    if not cid:
+        return ""
+    info = _card_info(cid, ws)
+    if info is not None:
+        return info["name"]
+    try:
+        card = load(cid, ws)
+        return str((card.get("data") or {}).get("name") or "").strip()
+    except (OSError, ValueError):
+        return ""
+
+
+def title(card_or_id, cid: str = "", ws=None) -> str:
+    """The job title shown for a character: its card's `display.title`, else its first role pack's title,
+    else fallback to its name."""
+    if isinstance(card_or_id, dict):
+        card = card_or_id
+        disp = ext(card).get("display") or {}
+        t = str(disp.get("title") or "").strip()
+        if t:
+            return t
+        cid = cid or ""
+        if cid:
+            for r in roles_of(cid, ws):
+                pack = role_pack(r, ws)
+                if pack.get("text") and pack.get("title"):
+                    return pack["title"]
+        return name(card)
+    cid = cid or str(card_or_id or "").strip()
+    if not cid:
+        return ""
+    info = _card_info(cid, ws)
+    if info is not None and info["title"]:
+        return info["title"]
+    if cid:
+        for r in roles_of(cid, ws):
+            pack = role_pack(r, ws)
+            if pack.get("text") and pack.get("title"):
+                return pack["title"]
+    return name(cid, ws)
+
+
+def user_title(card_or_id, ws=None) -> str:
+    """How the user is addressed by this character (`display.user_title`), or ''."""
+    if isinstance(card_or_id, dict):
+        card = card_or_id
+        disp = ext(card).get("display") or {}
+        return str(disp.get("user_title") or "").strip()
+    cid = str(card_or_id or "").strip()
+    if not cid:
+        return ""
+    info = _card_info(cid, ws)
+    if info is not None:
+        return info["user_title"]
+    return ""
+
+
 def save(cid: str, card: Dict, ws=None) -> None:
     path = card_path(cid, ws)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(".card.%d.tmp" % os.getpid())
     tmp.write_text(json.dumps(card, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(path)
+    _CARD_INFO_CACHE.pop(path, None)
 
 
 def listing(ws=None) -> List[Dict]:
@@ -117,11 +211,12 @@ def listing(ws=None) -> List[Dict]:
             card = load(d.name, ws)
         except (OSError, ValueError):
             continue
-        out.append({"id": d.name, "name": str(card["data"].get("name") or ""), "card": card})
+        out.append({"id": d.name, "name": name(card), "card": card})
     members = load_team(ws, out)["members"]
     for c in out:
         c["roles"] = list(members.get(c["id"]) or [])
         c["role"] = c["roles"][0] if c["roles"] else ""      # the first role, for callers that show one
+        c["title"] = title(c["card"], c["id"], ws)
     return out
 
 
@@ -276,8 +371,8 @@ def persona_text(card: Dict) -> str:
     """The card as the instruction bundle shows it: front matter (name, how the user is addressed, voice) + body."""
     d, e = card.get("data") or {}, ext(card)
     disp = e.get("display") or {}
-    head = ["---", "persona: %s" % d.get("name", "")]
-    head += ["%s: %s" % (k, disp[k]) for k in ("user_title", "voice") if disp.get(k)]
+    head = ["---", "persona: %s" % (d.get("name") or "")]
+    head += ["%s: %s" % (k, disp[k]) for k in ("title", "user_title", "voice") if disp.get(k)]
     head.append("---")
     body = ["# Persona", "", (d.get("description") or "").strip()]
     if (d.get("personality") or "").strip():
