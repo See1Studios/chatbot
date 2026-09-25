@@ -121,6 +121,7 @@ class TensionLadder(unittest.TestCase):
         self.assertEqual(gem["slots"], tuple((s["label"], s["guide"]) for s in raw["slots"]))
         self.assertEqual((min(gem["stages"]), max(gem["stages"])), (PE.TENSION_MIN, PE.TENSION_MAX))
         self.assertEqual(len(gem["slots"]), len(PE.TENSION_SLOTS))
+        self.assertEqual(gem["stages"], {1: "도입", 2: "고조", 3: "밀착", 4: "절정"})
         for family in ("claude", "local", "other"):
             self.assertIs(PE.family_table(family), PE.family_table("other"))
             self.assertEqual(PE.family_table(family)["slots"][0][0], PE.TENSION_SLOTS[0])
@@ -130,16 +131,20 @@ class TensionLadder(unittest.TestCase):
             is_private, tension_stage, recent_choices = True, 2, []
             provider, model = "agy", "gemini-3.8-flash-low"
         gem = _Adapter().turn_context(Sess())
-        for label in ("설레는 거리 좁히기", "과감한 행동", "밀당"):
+        for label in ("자연스러운 다음 진도", "기상천외 소품 플레이", "주도권·벌칙 룰 도발"):
             self.assertIn(label, gem)
-        self.assertIn("Stage: 2/4 (설렘)", gem)
+        for prop in ("체리", "얼음", "시럽", "리본", "안대", "이어폰", "테이프", "깃털"):
+            self.assertIn(prop, gem)
+        for rule in ("참기 내기", "움직이면 벌칙", "대담한 명령"):
+            self.assertIn(rule, gem)
+        self.assertIn("Stage: 2/4 (고조)", gem)
         self.assertIn("(단계 4)", gem)
         self.assertNotIn("자연스러운 다음 흐름", gem)
         Sess.provider, Sess.model = "claude", "claude-sonnet-4-6"
         safe = _Adapter().turn_context(Sess())
         self.assertEqual(safe, PE.tension_context(2, []))
         self.assertIn("자연스러운 다음 흐름", safe)
-        self.assertNotIn("과감한 행동", safe)
+        self.assertNotIn("기상천외 소품 플레이", safe)
 
     def test_render_protocol(self):
         self.assertIn("## Voice & Actions", PE.RENDER_PROTOCOL)
@@ -270,9 +275,10 @@ class SessionTension(unittest.TestCase):
         self.sess.provider, self.sess.model = "agy", "gemini-3.1-pro-low"
         self.sess.send("곁에 앉는다", event_type="action")
         wire = "".join(self.sess.proc.stdin.sent)
-        self.assertIn("Stage: 2/4 (설렘)", wire)
-        self.assertIn("1) 설레는 거리 좁히기", wire)
-        self.assertIn("3) 밀당", wire)
+        self.assertIn("Stage: 2/4 (고조)", wire)
+        self.assertIn("1) 자연스러운 다음 진도", wire)
+        self.assertIn("2) 기상천외 소품 플레이", wire)
+        self.assertIn("3) 주도권·벌칙 룰 도발", wire)
 
     def test_a_work_turn_has_no_tension_context(self):
         self.sess.mode = "work"
