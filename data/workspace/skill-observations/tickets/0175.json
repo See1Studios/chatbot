@@ -3,13 +3,15 @@
  "approved_at": "2026-09-25 12:44:41",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-25 12:44:16",
  "evidence": [
   "event:20260925-124322-a7a975#7"
  ],
  "gate_failures": 0,
  "id": 175,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,6 +27,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-175 at f1b1564 (agy, review PASS round 1)",
    "ts": "2026-09-25 12:56:31"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-25 12:56:40"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 08c5bfc on the operator's word (agy)",
+   "ts": "2026-09-25 12:56:51"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-25 12:56:51"
   }
  ],
  "paths": [
@@ -33,9 +50,9 @@
   "session_registry.py",
   "static/app-session.js"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "characters.py,instructions.py,session_registry.py,static/app-session.js",
  "title": "DYNAMIC_CHARACTER_IDENTITY_v1: 캐릭터 이름·호칭 동적 동기화 및 SSOT 구조 점검·설계",
- "updated": "2026-09-25 12:56:31",
+ "updated": "2026-09-25 12:56:51",
  "worked_by": "agy"
 }
