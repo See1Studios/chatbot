@@ -138,6 +138,8 @@ function enterSession(id, opts) {
     logEl.appendChild(marker);
   }
   if (opts.greeting) addChat('assistant', opts.greeting, true);
+  // Host-generated copy (not LLM output) goes in as a system notice, never an assistant turn.
+  if (opts.notice) addNotice('info', opts.notice);
   if (opts.activityAfter) addActivity(opts.activityAfter);
 
   // Moved out of the `opts.history` branch above: createSession()/
@@ -833,13 +835,9 @@ async function continueSession() {
         : '';
       liveSessionId = nid;
       archiveBrowse = false;
-      const chName = sessionCharacterName((res.session && res.session.character) || sessionCharacter);
-      const greetingHead = chName
-        ? (chName + ': 이전 대화의 핵심 맥락을 인계받아 새 세션을 열었습니다.')
-        : '이전 대화의 핵심 맥락을 인계받아 새 세션을 열었습니다.';
       enterSession(nid, {
         scrollback: 'self',
-        greeting: greetingHead + note + '\n\n무엇부터 이어서 진행할까요?',
+        notice: '이전 대화 맥락을 인계받아 새 세션을 열었습니다.' + note,
         metaLabel: res.session.model || '',
         activityAfter: '이전 세션(' + oldId + ') 맥락 인계 → 새 세션(' + nid + ')',
       });
