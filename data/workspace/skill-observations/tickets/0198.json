@@ -1,0 +1,47 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-25 22:38:30",
+ "approved_by": "operator (ui)",
+ "attempts": 0,
+ "created": "2026-09-25 22:35:48",
+ "evidence": [
+  "event:20260925-222745-5a48ad#6"
+ ],
+ "gate_failures": 0,
+ "id": 198,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-25 22:38:30"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: content_guard.py, data/content_guards.json, providers/adapter_base.py, server.py, session.py, tests/test_content_guards.py",
+   "ts": "2026-09-25 22:43:49"
+  },
+  {
+   "by": "agent:agy",
+   "text": "paused: worktree agy: task 1 needs providers/adapter_openai.py",
+   "ts": "2026-09-25 22:49:02"
+  },
+  {
+   "by": "host",
+   "text": "waiting for the operator to allow more paths: attempt given back",
+   "ts": "2026-09-25 22:49:02"
+  }
+ ],
+ "paths": [
+  "content_guard.py",
+  "data/content_guards.json",
+  "providers/adapter_base.py",
+  "server.py",
+  "session.py",
+  "tests/test_content_guards.py"
+ ],
+ "status": "approved",
+ "target": "content_guard_table_v1",
+ "title": "프로바이더 안전 거부 메시지 시스템 공지 전환 및 사전 차단 가드 구축",
+ "updated": "2026-09-25 22:49:02",
+ "worked_by": "agy"
+}
