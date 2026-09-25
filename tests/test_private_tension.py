@@ -84,7 +84,8 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("라벨 -> (행동)", PE.RENDER_PROTOCOL)
         self.assertIn('라벨 -> "대사" (행동)', PE.RENDER_PROTOCOL)
         self.assertIn("[expression: neutral|joy|shy|serious|sorrow|tired]", PE.RENDER_PROTOCOL)
-        self.assertIn("<thought>...</thought>", PE.RENDER_PROTOCOL)
+        self.assertIn("```thought\n", PE.RENDER_PROTOCOL)
+        self.assertNotIn("<thought>", PE.RENDER_PROTOCOL)
         self.assertEqual(PE.render_protocol_text(None), PE.RENDER_PROTOCOL)
 
     def test_private_instruction_bundle_includes_render_protocol(self):

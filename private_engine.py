@@ -97,7 +97,10 @@ RENDER_PROTOCOL = """## Voice & Actions
 
 ## Expressions & Thoughts
 - Expression tag `[expression: neutral|joy|shy|serious|sorrow|tired]` at the very start to reflect your current emotion (read by the UI).
-- Internal private thoughts wrapped in `<thought>...</thought>` when holding unexpressed feelings.
+- Internal private thoughts, when holding unexpressed feelings, go in a fenced block on their own lines:
+  ```thought
+  ...
+  ```
 
 ## Choices
 - End every reply with one line `<!--choices: 라벨 -> "대사" | 라벨 -> (행동) | 라벨 -> "대사" (행동)-->` (mix pure dialogue, action, or combined forms as appropriate).
