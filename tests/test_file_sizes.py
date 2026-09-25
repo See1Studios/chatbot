@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_LINES = 1500
-CEILINGS = {"session.py": 2335, "server.py": 1538}   # over the cap already: no growth
+CEILINGS = {"session.py": 2335}   # over the cap already: no growth
 
 
 def modules():

@@ -678,105 +678,6 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 "raw_url": raw_url,
             })
             return self._send(code, body, "application/json; charset=utf-8")
-        # --- Role Studio API ---
-        if path == "/api/roles":
-            try:
-                import yaml as _yaml
-            except ImportError:
-                code, body = _json_bytes({"ok": False, "error": "PyYAML is not installed. Run: pip install -r requirements.txt"}, 503)
-                return self._send(code, body, "application/json; charset=utf-8")
-            char_dir = HOME / "data" / "characters"
-            roles = []
-            if char_dir.is_dir():
-                for yaml_path in sorted(char_dir.glob("*.yaml")):
-                    try:
-                        raw = _yaml.safe_load(yaml_path.read_text("utf-8")) or {}
-                        slug = yaml_path.stem
-                        state = raw.get("state", {})
-                        # Merge saved SimCore session state if exists
-                        session_dir = WORKSPACE / ".agents" / "skills" / "character-chat" / "sessions"
-                        saved_state = {}
-                        if session_dir.is_dir():
-                            import glob as _glob
-                            session_files = sorted(session_dir.glob(f"{slug}-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-                            if session_files:
-                                try:
-                                    sdata = json.loads(session_files[0].read_text("utf-8"))
-                                    saved_state = sdata.get("state", {})
-                                except Exception:
-                                    pass
-                        merged_state = {**state, **saved_state} if saved_state else state
-                        roles.append({
-                            "slug": slug,
-                            "name": raw.get("name", slug),
-                            "description": raw.get("description", ""),
-                            "version": raw.get("version", "1.0.0"),
-                            "state": merged_state,
-                            "persona": raw.get("persona", {}),
-                            "has_image": (char_dir / "images" / slug / "avatar.webp").exists()
-                                         or (char_dir / "images" / slug / "avatar.png").exists(),
-                        })
-                    except Exception:
-                        pass
-            code, body = _json_bytes({"ok": True, "roles": roles})
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path.startswith("/api/roles/") and not path.endswith("/chat"):
-            slug = path[len("/api/roles/"):].strip("/")
-            if not slug or "/" in slug or ".." in slug:
-                code, body = _json_bytes({"ok": False, "error": "invalid slug"}, 400)
-                return self._send(code, body, "application/json; charset=utf-8")
-            char_dir = HOME / "data" / "characters"
-            yaml_path = char_dir / f"{slug}.yaml"
-            if not yaml_path.is_file():
-                code, body = _json_bytes({"ok": False, "error": "not found"}, 404)
-                return self._send(code, body, "application/json; charset=utf-8")
-            try:
-                import yaml as _yaml
-            except ImportError:
-                code, body = _json_bytes({"ok": False, "error": "PyYAML is not installed. Run: pip install -r requirements.txt"}, 503)
-                return self._send(code, body, "application/json; charset=utf-8")
-            try:
-                raw = _yaml.safe_load(yaml_path.read_text("utf-8")) or {}
-                raw["slug"] = slug
-                # Merge latest SimCore session state
-                session_dir = WORKSPACE / ".agents" / "skills" / "character-chat" / "sessions"
-                if session_dir.is_dir():
-                    session_files = sorted(session_dir.glob(f"{slug}-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-                    if session_files:
-                        try:
-                            sdata = json.loads(session_files[0].read_text("utf-8"))
-                            raw["_session"] = {
-                                "id": session_files[0].stem,
-                                "state": sdata.get("state", {}),
-                                "turn_count": sdata.get("turn_count", 0),
-                            }
-                        except Exception:
-                            pass
-                img_dir = char_dir / "images" / slug
-                image_url = None
-                for ext in ("webp", "png", "jpg"):
-                    p = img_dir / f"avatar.{ext}"
-                    if p.exists():
-                        image_url = f"/api/roles/{slug}/image"
-                        break
-                raw["image_url"] = image_url
-                code, body = _json_bytes({"ok": True, "role": raw})
-                return self._send(code, body, "application/json; charset=utf-8")
-            except Exception as e:
-                code, body = _json_bytes({"ok": False, "error": str(e)}, 500)
-                return self._send(code, body, "application/json; charset=utf-8")
-        if path.startswith("/api/roles/") and path.endswith("/image"):
-            slug = path[len("/api/roles/"):-len("/image")].strip("/")
-            if not slug or "/" in slug or ".." in slug:
-                return self._send(404, b"not found", "text/plain")
-            img_dir = HOME / "data" / "characters" / "images" / slug
-            for ext in ("webp", "png", "jpg"):
-                p = img_dir / f"avatar.{ext}"
-                if p.exists():
-                    ctype = mimetypes.guess_type(str(p))[0] or "image/png"
-                    return self._send(200, p.read_bytes(), ctype, cache_control="public, max-age=300")
-            return self._send(404, b"no image", "text/plain")
-        # --- End Role Studio API ---
         if path == "/api/file/raw":
             raw_target = parse_qs(parsed.query).get("path", [""])[0]
             fp, reason = _resolve_safe_preview_file(raw_target)
@@ -910,36 +811,6 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             code, raw = _json_bytes({"ok": False, "error": str(e)}, status)
             return self._send(code, raw, "application/json; charset=utf-8")
         try:
-            # --- Role Studio POST ---
-            if path == "/api/roles" or (path.startswith("/api/roles/") and not path.endswith("/chat")):
-                try:
-                    import yaml as _yaml
-                except ImportError:
-                    code, raw = _json_bytes({"ok": False, "error": "PyYAML is not installed. Run: pip install -r requirements.txt"}, 503)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                char_dir = HOME / "data" / "characters"
-                char_dir.mkdir(parents=True, exist_ok=True)
-                slug = body.get("slug", "").strip().lower().replace(" ", "_")
-                if not slug or "/" in slug or ".." in slug:
-                    code, raw = _json_bytes({"ok": False, "error": "invalid or missing slug"}, 400)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                # Build YAML dict from body
-                card = {
-                    "name": body.get("name", slug),
-                    "version": body.get("version", "1.0.0"),
-                    "description": body.get("description", ""),
-                    "state": body.get("state", {
-                        "affinity": 0, "stress": 0, "mood": "차분함",
-                        "act": 1, "turn_count": 0, "current_location": "미정",
-                    }),
-                    "persona": body.get("persona", {}),
-                    "guidelines": body.get("guidelines", []),
-                }
-                yaml_path = char_dir / f"{slug}.yaml"
-                yaml_path.write_text(_yaml.dump(card, allow_unicode=True, sort_keys=False), "utf-8")
-                code, raw = _json_bytes({"ok": True, "slug": slug})
-                return self._send(code, raw, "application/json; charset=utf-8")
-            # --- End Role Studio POST ---
             if path.startswith("/api/skills/") and path.endswith("/toggle"):
                 name = unquote(path[len("/api/skills/"):-len("/toggle")])
                 enabled_dir = WS_SKILLS_DIR / name
@@ -1264,24 +1135,6 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
-            # --- Role Studio DELETE ---
-            if path.startswith("/api/roles/"):
-                slug = path[len("/api/roles/"):].strip("/")
-                if not slug or "/" in slug or ".." in slug:
-                    code, raw = _json_bytes({"ok": False, "error": "invalid slug"}, 400)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                yaml_path = HOME / "data" / "characters" / f"{slug}.yaml"
-                if not yaml_path.is_file():
-                    code, raw = _json_bytes({"ok": False, "error": "not found"}, 404)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                yaml_path.unlink()
-                img_dir = HOME / "data" / "characters" / "images" / slug
-                if img_dir.is_dir():
-                    import shutil as _shutil
-                    _shutil.rmtree(img_dir)
-                code, raw = _json_bytes({"ok": True, "slug": slug, "deleted": True})
-                return self._send(code, raw, "application/json; charset=utf-8")
-            # --- End Role Studio DELETE ---
             if path.startswith("/api/mcp/"):
                 name = unquote(path[len("/api/mcp/"):])
                 if name == "nas":
