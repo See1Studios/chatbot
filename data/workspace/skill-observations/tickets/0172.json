@@ -3,13 +3,15 @@
  "approved_at": "2026-09-25 12:11:55",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-25 12:11:36",
  "evidence": [
   "event:20260925-120326-bb3cbf#82"
  ],
  "gate_failures": 0,
  "id": 172,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,15 +27,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-172 at 2f0b076 (agy, review PASS round 1)",
    "ts": "2026-09-25 12:24:50"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-25 12:25:37"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged baea2c5 on the operator's word (agy)",
+   "ts": "2026-09-25 12:25:47"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-25 12:25:47"
   }
  ],
  "paths": [
   "docs/devlog/2026-09-25.md",
   "docs/plans/token-accounting.md"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "docs/devlog/2026-09-25.md,docs/plans/token-accounting.md",
  "title": "agy(제미나이) 시작 세금 잔여 ~35k 격차 실측 (티켓 #171)",
- "updated": "2026-09-25 12:24:50",
+ "updated": "2026-09-25 12:25:47",
  "worked_by": "agy"
 }
