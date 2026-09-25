@@ -134,7 +134,10 @@ class TensionLadder(unittest.TestCase):
         for label in ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉"):
             self.assertIn(label, gem)
         self.assertIn("포옹 -> 키스 -> 애무 -> 눕히기 -> 벗기기 -> 절정", gem)
-        self.assertIn("코치(사용자)가 상대에게", gem)
+        self.assertIn("선택지의 액션 주체는 항상 코치(사용자)이다", gem)
+        self.assertIn("다양한 체위/자세 전환", gem)
+        self.assertIn("소품/도구 활용", gem)
+        self.assertIn("상대의 행동을 직접 명령하거나 유도하는 지문", gem)
         self.assertIn("신체 접촉 지문", gem)
         self.assertIn("결정타(킬)", gem)
         self.assertIn("과감하고 몰입감 넘치는 스킨십 텐션을 적극적으로 연출한다", gem)
