@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
+import time
 import uuid
 
 from pathlib import Path
@@ -160,6 +162,9 @@ def _fetch_grok_billing(token: str) -> dict:
     if not isinstance(obj, dict):
         raise ValueError("Grok billing 응답이 JSON 객체가 아닙니다")
     return obj
+
+
+_GROK_MODELS_CACHE = {"ts": 0.0, "models": []}
 
 
 class GrokAdapter(AgentAdapter):
@@ -409,9 +414,52 @@ class GrokAdapter(AgentAdapter):
         return {"rows": rows}
 
     def known_models(self) -> List[str]:
-        # From `grok models` output (2026-09-17): "grok-4.6 (default)",
-        # "grok-4.5".
-        return ["grok-4.6", "grok-4.5"]
+        now = time.time()
+        if _GROK_MODELS_CACHE.get("models") and (now - float(_GROK_MODELS_CACHE.get("ts", 0.0)) < 300):
+            return _GROK_MODELS_CACHE["models"]
+        try:
+            res = subprocess.run(
+                [self.find_executable(), "models"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10,
+            )
+            if res.returncode == 0 or not isinstance(res.returncode, int):
+                default_models: List[str] = []
+                other_models: List[str] = []
+                for line in (res.stdout or "").splitlines():
+                    s = line.strip()
+                    if s.startswith("*"):
+                        cleaned = re.sub(r"\(.*?\)", "", s[1:]).strip()
+                        parts = cleaned.split()
+                        m = parts[0].strip(" ()") if parts else ""
+                        if m.lower() == "default" and len(parts) > 1:
+                            m = parts[1].strip(" ()")
+                        if m and m not in default_models:
+                            default_models.append(m)
+                    elif s.startswith("-"):
+                        cleaned = re.sub(r"\(.*?\)", "", s[1:]).strip()
+                        parts = cleaned.split()
+                        m = parts[0].strip(" ()") if parts else ""
+                        if m.lower() == "default" and len(parts) > 1:
+                            m = parts[1].strip(" ()")
+                        if m and m not in other_models:
+                            other_models.append(m)
+                models: List[str] = []
+                for m in default_models:
+                    if m not in models:
+                        models.append(m)
+                for m in other_models:
+                    if m not in models:
+                        models.append(m)
+                if models:
+                    _GROK_MODELS_CACHE["ts"] = time.time()
+                    _GROK_MODELS_CACHE["models"] = models
+                    return models
+        except Exception:  # noqa: BLE001
+            pass
+        return ["grok-4.7", "grok-4.6", "grok-4.5"]
 
     def mints_own_conversation_id(self) -> bool:
         # Verified live 2026-09-17: `--resume <a fresh uuid grok has never
