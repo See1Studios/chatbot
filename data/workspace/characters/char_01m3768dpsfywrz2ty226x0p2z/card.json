@@ -25,8 +25,8 @@
         "brains": {
           "work": [
             {
-              "provider": "claude",
-              "model": "opus"
+              "provider": "grok",
+              "model": "grok-4.6"
             }
           ]
         }
