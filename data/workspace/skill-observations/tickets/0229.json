@@ -1,0 +1,44 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-26 15:59:34",
+ "approved_by": "operator (ui)",
+ "attempts": 0,
+ "created": "2026-09-26 15:52:58",
+ "evidence": [
+  "event:20260926-152434-6aa8e8#43"
+ ],
+ "gate_failures": 0,
+ "id": 229,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-26 15:59:34"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: data/workspace/.agents/skills/character-art/SKILL.md, data/workspace/.agents/skills/character-pipeline/SKILL.md, tools/crop_avatar.py",
+   "ts": "2026-09-26 16:14:53"
+  },
+  {
+   "by": "agent:agy",
+   "text": "paused: worktree agy: task 1 needs data/workspace/characters/char_01m376xaa1e0fsdhm3e3kbnybd/avatar.webp, data/workspace/characters/char_01m376xaa1e0fsdhm3e3kbnybd/avatar/agy.webp",
+   "ts": "2026-09-26 16:16:46"
+  },
+  {
+   "by": "host",
+   "text": "waiting for the operator to allow more paths: attempt given back",
+   "ts": "2026-09-26 16:16:46"
+  }
+ ],
+ "paths": [
+  "data/workspace/.agents/skills/character-art/SKILL.md",
+  "data/workspace/.agents/skills/character-pipeline/SKILL.md",
+  "tools/crop_avatar.py"
+ ],
+ "status": "approved",
+ "target": "data/workspace/.agents/skills/character-art/skill.md,data/workspace/.agents/skil",
+ "title": "노노 아바타 얼굴 클로즈업 크롭 및 캐릭터 파이프라인 반영",
+ "updated": "2026-09-26 16:16:46",
+ "worked_by": "agy"
+}
