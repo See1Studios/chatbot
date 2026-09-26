@@ -237,7 +237,13 @@ class GrokAdapter(AgentAdapter):
             "--trust",
         ]
         if model and model != "default":
+            # Private cheap path (#240): never pass build-fast; prefer grok-4.7 over 4.6.
+            if model == "grok-4.7-build-fast":
+                model = "grok-4.7"
             args.extend(["--model", model])
+        # CLI enum (live 2026-09-26): xhigh|high|medium|low — lowest is low (no off).
+        if not effort or effort == "default":
+            effort = "low"
         if effort and effort != "default":
             args.extend(["--reasoning-effort", effort])
         if conversation_id:

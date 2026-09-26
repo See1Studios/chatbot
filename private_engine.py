@@ -157,9 +157,18 @@ RENDER_PROTOCOL = """## Voice & Actions
 - Each item offers what the user might say or do next: a short label, ` -> `, followed by pure dialogue in quotes (`"대사"`), action in parentheses (`(행동)`), or mixed dialogue and action (`"대사" (행동)`).
 - Naturally mix pure dialogue (`라벨 -> "대사"`), action (`라벨 -> (행동)`), and combined (`라벨 -> "대사" (행동)`) choices to fit the moment (e.g. `더 가까이 -> "조금만 더 가까이 와줘" | 안아주기 -> (조용히 끌어안는다) | 속삭이기 -> "좋아해" (귀에 대고 속삭인다)`)."""
 
+# Grok-family private overlay (#240): softens the messenger 1-2 line ceiling for erotic scene
+# painting without changing the shared RENDER_PROTOCOL used by other families.
+RENDER_PROTOCOL_GROK_OVERLAY = """## Voice & Actions (Grok private overlay)
+- For this private Grok turn, soften the messenger 1-2 line ceiling: paint place (room, light, bed, distance), weave multi-sense beats (touch, breath, warmth, sound, scent -- in the scene, not laundry lists), and pair dialogue with action when the stage allows.
+- Keep replies vivid but bounded (short paragraphs, not a novel chapter). Choice UI stays exactly 3 slots; *action* / "dialogue", expression tag, and thought fence still apply.
+- Do not collapse into a mechanical climax loop; follow the tension stage pacing."""
 
-def render_protocol_text(card: Any = None) -> str:
-    """The common private-mode rendering contract text (card param placeholder for future overrides)."""
+
+def render_protocol_text(card: Any = None, family: str = "") -> str:
+    """Common private render contract; Grok family appends a scene-painting overlay."""
+    if (family or "") == "grok":
+        return RENDER_PROTOCOL + "\n\n" + RENDER_PROTOCOL_GROK_OVERLAY
     return RENDER_PROTOCOL
 
 
@@ -168,9 +177,11 @@ def turn_context(session: Any) -> str:
     if not getattr(session, "is_private", False):
         return ""
     family = detect_model_family(getattr(session, "provider", ""), getattr(session, "model", ""))
-    return tension_context(
+    tension = tension_context(
         getattr(session, "tension_stage", TENSION_MIN),
         getattr(session, "recent_choices", []),
         family_table(family),
     )
-
+    if family == "grok":
+        return RENDER_PROTOCOL_GROK_OVERLAY + "\n\n" + tension
+    return tension

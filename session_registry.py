@@ -246,13 +246,23 @@ class Registry:
 
     def get_private(self, character: str = "", like: Optional["AgentSession"] = None) -> "AgentSession":
         """The character's private session (its successor-chain tip), created on first use with `like`'s
-        provider and model."""
+        provider and model. Private Grok (#240): prefer grok-4.7 (not 4.6 / not build-fast) and effort low."""
         character = _character_id(character)
         sess = self._newest(mode="private", character=character)
         if sess is not None:
             return sess
         like = like or self.get_active(character)
-        return self.create(model=like.model, effort=like.effort, provider=like.provider, character=character,
+        brain = _first_brain(character, mode="private") or {}
+        provider = brain.get("provider") or like.provider
+        model = brain.get("model") or like.model
+        effort = brain.get("effort") or like.effort
+        if (provider or "").lower() == "grok" or "grok" in (model or "").lower():
+            # Cheap+faster private defaults: base grok-4.7 + lowest reasoning effort (not build-fast).
+            if not model or model in ("default", "grok-4.6", "grok-4.7-build-fast"):
+                model = "grok-4.7"
+            if not effort or effort == "default":
+                effort = "low"
+        return self.create(model=model, effort=effort, provider=provider, character=character,
                            mode="private")
 
     def _newest(self, mode: str, character: str) -> Optional["AgentSession"]:
@@ -358,11 +368,12 @@ def migrate_session_characters() -> int:
     return n
 
 
-def _first_brain(character: str) -> Dict[str, Any]:
-    """The first entry of the character's work brain list, or {}."""
+def _first_brain(character: str, mode: str = "work") -> Dict[str, Any]:
+    """The first entry of the character's brain list for `mode` (falls back to work), or {}."""
     try:
         import characters
-        chain = characters.brains(characters.load(character, _s().WORKSPACE))
+        card = characters.load(character, _s().WORKSPACE)
+        chain = characters.brains(card, mode) or (characters.brains(card, "work") if mode != "work" else [])
         return chain[0] if chain else {}
     except Exception:  # noqa: BLE001
         return {}

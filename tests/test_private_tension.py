@@ -111,7 +111,9 @@ class TensionLadder(unittest.TestCase):
         self.assertEqual(PE.detect_model_family("openrouter", "qwen/qwen3-coder:free"), "local")
         self.assertEqual(PE.detect_model_family("ollama", ""), "local")
         self.assertEqual(PE.detect_model_family("", ""), "other")
-        self.assertEqual(PE.detect_model_family("grok", "grok-4"), "other")
+        self.assertEqual(PE.detect_model_family("grok", "grok-4"), "grok")
+        self.assertEqual(PE.detect_model_family("grok", "grok-4.7"), "grok")
+        self.assertEqual(PE.detect_model_family("", "grok-4.6"), "grok")
 
     def test_family_tables_pick_the_file(self):
         import json
@@ -156,6 +158,13 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("자연스러운 다음 흐름", safe)
         self.assertNotIn("더 과감한 밀착/직진", safe)
 
+        Sess.provider, Sess.model = "grok", "grok-4.7"
+        grok = _Adapter().turn_context(Sess())
+        self.assertIn("Grok private overlay", grok)
+        self.assertIn("방·빛·침대", grok)
+        self.assertIn("자연스러운 다음 진도", grok)
+        self.assertNotIn("자연스러운 다음 흐름", grok)
+
     def test_render_protocol(self):
         self.assertIn("## Voice & Actions", PE.RENDER_PROTOCOL)
         self.assertIn("## Expressions & Thoughts", PE.RENDER_PROTOCOL)
@@ -170,6 +179,11 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("```thought\n", PE.RENDER_PROTOCOL)
         self.assertNotIn("<thought>", PE.RENDER_PROTOCOL)
         self.assertEqual(PE.render_protocol_text(None), PE.RENDER_PROTOCOL)
+        self.assertEqual(PE.render_protocol_text(None, family=""), PE.RENDER_PROTOCOL)
+        grok_rp = PE.render_protocol_text(None, family="grok")
+        self.assertIn(PE.RENDER_PROTOCOL, grok_rp)
+        self.assertIn(PE.RENDER_PROTOCOL_GROK_OVERLAY, grok_rp)
+        self.assertIn("Grok private overlay", grok_rp)
 
     def test_private_instruction_bundle_includes_render_protocol(self):
         import instructions
@@ -288,6 +302,16 @@ class SessionTension(unittest.TestCase):
         self.assertIn("Stage: 2/4 (고조)", wire)
         self.assertIn("1) 자연스러운 다음 진도", wire)
         self.assertIn("2) 더 과감한 밀착/직진", wire)
+        self.assertIn("3) 깊은 감각/분위기 탐닉", wire)
+
+    def test_a_grok_session_gets_the_grok_tension_and_overlay(self):
+        self.sess.provider, self.sess.model = "grok", "grok-4.7"
+        self.sess.send("곁에 앉는다", event_type="action")
+        wire = "".join(self.sess.proc.stdin.sent)
+        self.assertIn("Stage: 2/4 (고조)", wire)
+        self.assertIn("Grok private overlay", wire)
+        self.assertIn("방·빛·침대", wire)
+        self.assertIn("1) 자연스러운 다음 진도", wire)
         self.assertIn("3) 깊은 감각/분위기 탐닉", wire)
 
     def test_a_work_turn_has_no_tension_context(self):

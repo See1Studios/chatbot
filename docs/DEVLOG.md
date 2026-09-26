@@ -3,6 +3,15 @@
 최근 항목만 여기 둔다(맨 위가 최신). 지난 날짜는 `docs/devlog/YYYY-MM-DD.md` — 코드가 "2026-09-17 DEVLOG"를 가리키면 그 파일이다.
 이 파일이 40KB를 넘으면 가장 오래된 날짜를 `docs/devlog/`로 옮긴다(`tests/test_docs_budget.py`).
 
+## 2026-09-26 (밤) — 사적 Grok 보완 (텐션·속도·렌더 오버레이, #240)
+
+- **배경**: 사적 모드 Grok 보완(야설 작가). FULL 스코프. build-fast는 비싸서 제외 → **grok-4.7 + reasoning-effort low**.
+- **A** `data/private_tension_grok.json` v4: 장소·거리 연속, 다감각, 대사+지문 밀도, 기계적 절정 루프 방지. gemini 표보다 짧게 유지.
+- **B** `session_registry.get_private`: brains.private 우선, Grok이면 model=grok-4.7·effort=low. `adapter_grok.build_args`: 빈 effort→low, build-fast→4.7 치환. CLI enum 확인: xhigh|high|medium|low.
+- **C** `private_engine.RENDER_PROTOCOL_GROK_OVERLAY`: 사적+Grok 턴만 메신저 1–2줄 천장 완화(가족 스코프). stale 테스트 `detect_model_family("grok","grok-4")`→`grok`. 노노 카드 Voice 완화 + brains.private.
+- **검증**: `python3 -m unittest tests.test_private_tension`. 호스트 py 변경 → ⚡소생(repair 우선).
+- **배포**: 새 사적 세션에서 provider=grok / model=grok-4.7 / effort=low 확인. 기존 사적 세션은 메타에 박힌 model·effort 유지.
+
 ## 2026-09-24 (밤) — 선택지(choices) UI 독립 작업카드 컨테이너 분리 (OUT_OF_BAND_CHOICES_UI, 티켓 #146)
 
 - **배경**: 실장님 피드백 — 선택지가 대화 말풍선 밑에 달리는 칩 형태가 아니라 작업카드(`work-card`/`ticket-bar`)처럼 입력창 상단의 독립 카드 컨테이너에 표시되도록 UI 개편 요청.
