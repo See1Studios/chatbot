@@ -24,6 +24,21 @@
    "by": "agent:agy",
    "text": "gate_failed: worktree agy: changes outside the ticket's paths: tests/test_private_tension.py",
    "ts": "2026-09-26 20:36:03"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 2/3); paths: data/private_tension_grok.json, private_engine.py",
+   "ts": "2026-09-26 20:39:15"
+  },
+  {
+   "by": "agent:agy",
+   "text": "unavailable: worktree agy: no PD brain could confirm the work (reviewer agy timed out after 300s); it is kept for the next run",
+   "ts": "2026-09-26 20:44:49"
+  },
+  {
+   "by": "host",
+   "text": "no brain answered: attempt given back (1/3)",
+   "ts": "2026-09-26 20:44:49"
   }
  ],
  "paths": [
@@ -33,6 +48,7 @@
  "status": "approved",
  "target": "data/private_tension_grok.json,private_engine.py",
  "title": "#236 Grok 패밀리 텐션 테이블 추가",
- "updated": "2026-09-26 20:36:03",
+ "unavailable": 1,
+ "updated": "2026-09-26 20:44:49",
  "worked_by": "agy"
 }
