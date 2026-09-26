@@ -39,6 +39,25 @@ let _composerMode = '';         // narrow/wide + keyboard-open of the last updat
 let _prevVvHeight = 0;          // 직전 visualViewport 높이
 let _savedScrollTop = null;     // 키보드 열릴 때 보존한 scrollTop
 let _wasNearBottomBeforeKeyboard = true; // 키보드 열리기 직전의 nearBottom 상태
+let _isKeyboardTransitioning = false;
+let _keyboardTransitionTimer = null;
+
+function markKeyboardTransition(duration = 300) {
+  _isKeyboardTransitioning = true;
+  if (_keyboardTransitionTimer) clearTimeout(_keyboardTransitionTimer);
+  if (typeof setTimeout === 'function') {
+    _keyboardTransitionTimer = setTimeout(() => {
+      _isKeyboardTransitioning = false;
+      _keyboardTransitionTimer = null;
+    }, duration);
+  } else {
+    _isKeyboardTransitioning = false;
+  }
+}
+
+function isKeyboardTransitioning() {
+  return Boolean(_isKeyboardTransitioning);
+}
 
 // Is the on-screen keyboard (probably) up? A short viewport says so on any device. "The input has focus"
 // only says so when there IS an on-screen keyboard -- i.e. a touch device. On a desktop FAB (an iframe
@@ -59,7 +78,11 @@ function updateViewport() {
   const isShort = h < 520;
   const isInputFocused = document.activeElement === inputEl;
   const isTouch = Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const prevKeyboardOpen = document.body.classList.contains('keyboard-open');
   const isKeyboardOpen = keyboardOpenState(isNarrow, isShort, isInputFocused, isTouch);
+  if (!prevKeyboardOpen && isKeyboardOpen) {
+    markKeyboardTransition(350);
+  }
   document.body.classList.toggle('keyboard-open', Boolean(isKeyboardOpen));
   // the composer's CSS heights depend on both -- re-measure the input when either flips
   const composerMode = (isNarrow ? 'n' : 'w') + (isKeyboardOpen ? 'k' : '-');
@@ -77,6 +100,7 @@ function updateViewport() {
     if (delta < -60) {
       // 키보드 열림(또는 내렸다가 다시 올라옴): 보던 위치를 저장하고,
       // 바닥 근처였으면 새 높이에 맞춰 snap.
+      markKeyboardTransition(300);
       _savedScrollTop = logEl.scrollTop;
       if (_wasNearBottomBeforeKeyboard) {
         logEl.scrollTop = logEl.scrollHeight;
@@ -85,6 +109,7 @@ function updateViewport() {
     } else if (delta > 60 && _savedScrollTop !== null) {
       // 키보드 닫힘: viewport 높이가 복원됨.
       // 바닥 근처였으면 snap, 아니었으면 저장된 위치로 복원.
+      markKeyboardTransition(300);
       if (_wasNearBottomBeforeKeyboard) {
         logEl.scrollTop = logEl.scrollHeight;
       } else {

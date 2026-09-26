@@ -6,9 +6,13 @@
 // avoid hijacking their scroll position on incoming streaming chunks or tool events.
 const SCROLL_BOTTOM_THRESHOLD = 140;
 
+let isLogPinnedToBottom = true;
+let isProgrammaticScroll = false;
+
 function isUserNearBottom() {
-  if (!logEl) return true;
-  const distance = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight;
+  const el = (typeof logEl !== 'undefined' && logEl) ? logEl : (typeof document !== 'undefined' && document.getElementById ? document.getElementById('log') : null);
+  if (!el) return true;
+  const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
   return distance <= SCROLL_BOTTOM_THRESHOLD;
 }
 
@@ -29,11 +33,48 @@ function updateScrollBottomButton(nearBottomOverride) {
 }
 
 function scrollChatToBottom(force = false) {
-  if (!logEl) return;
-  if (force || isUserNearBottom()) {
-    logEl.scrollTop = logEl.scrollHeight;
+  const el = (typeof logEl !== 'undefined' && logEl) ? logEl : (typeof document !== 'undefined' && document.getElementById ? document.getElementById('log') : null);
+  if (!el) return;
+  if (force || isLogPinnedToBottom || isUserNearBottom()) {
+    isProgrammaticScroll = true;
+    el.scrollTop = el.scrollHeight;
+    isProgrammaticScroll = false;
+    isLogPinnedToBottom = true;
   }
   updateScrollBottomButton();
+}
+
+function handleMsgResize(entries) {
+  if (typeof isKeyboardTransitioning === 'function' && isKeyboardTransitioning()) {
+    return;
+  }
+  const el = (typeof logEl !== 'undefined' && logEl) ? logEl : (typeof document !== 'undefined' && document.getElementById ? document.getElementById('log') : null);
+  if (!el) return;
+  if (isLogPinnedToBottom) {
+    isProgrammaticScroll = true;
+    el.scrollTop = el.scrollHeight;
+    isProgrammaticScroll = false;
+  }
+  updateScrollBottomButton();
+}
+
+let msgResizeObserver = null;
+if (typeof ResizeObserver !== 'undefined') {
+  msgResizeObserver = new ResizeObserver((entries) => {
+    handleMsgResize(entries);
+  });
+}
+
+function observeMessage(node) {
+  if (!node) return;
+  if (!msgResizeObserver && typeof ResizeObserver !== 'undefined') {
+    msgResizeObserver = new ResizeObserver((entries) => {
+      handleMsgResize(entries);
+    });
+  }
+  if (msgResizeObserver) {
+    msgResizeObserver.observe(node);
+  }
 }
 
 
@@ -477,6 +518,7 @@ function inFlightAssistant() {
 
 function placeMsgByTs(div, ts) {
   if (!logEl) return;
+  observeMessage(div);
   if (ts) div.dataset.ts = String(ts);
   const live = inFlightAssistant();
   if (ts) {
@@ -566,6 +608,7 @@ function findBtwQuestionBubble(query) {
 function addBtw(query, answer, prepend, usage, durationSeconds, ts) {
   const div = document.createElement('div');
   div.className = 'msg btw-card';
+  observeMessage(div);
   div.dataset.syncRole = 'btw';
   if (ts) div.dataset.ts = String(ts);
   const head = document.createElement('div');
@@ -669,6 +712,7 @@ function handleChoicesEvent(data) {
 
 function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationSeconds, isSystem, ts, servedModel, choices) {
   const div = document.createElement('div');
+  observeMessage(div);
   // NOTICE_UI_v1: isSystem may be true or a notice kind string
   const noticeKind = normalizeNoticeKind(isSystem);
   div.className = 'msg ' + role + (noticeKind ? ' system notice-' + noticeKind : '');

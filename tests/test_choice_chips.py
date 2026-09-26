@@ -20,6 +20,7 @@ const code = src.slice(a, b);
 
 function el(tag) {
   const e = { tag, className: '', textContent: '', children: [], attrs: {}, handlers: {}, parent: null,
+    scrollHeight: 0, scrollTop: 0, clientHeight: 0,
     setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.handlers[t] = f; },
     appendChild(c) { c.parent = this; this.children.push(c); return c; },
     remove() { if (this.parent) this.parent.children = this.parent.children.filter(x => x !== this); this.parent = null; },
@@ -152,33 +153,114 @@ out.actionSent = inputEl.value;
 api.renderChoiceChips(m3, []);
 out.cleared = m3.all('.choice-chips').length;
 
-// choiceBar and scroll hooks (#210)
+// choiceBar attach and cleanup
 choiceBarAttached = true;
-scrollCalls.length = 0;
-nearBottom = true;
 const m5 = msg('msg assistant');
 api.renderChoiceChips(m5, ['Option 1', 'Option 2']);
-const renderNearBottom = scrollCalls.slice();
-
-scrollCalls.length = 0;
+const barVisible = !choiceBar.hidden;
 api.renderChoiceChips(m5, []);
-const clearNearBottom = scrollCalls.slice();
+const barHidden = choiceBar.hidden;
 
-scrollCalls.length = 0;
-nearBottom = false;
-api.renderChoiceChips(m5, ['Option 1']);
-const renderAway = scrollCalls.slice();
+// Generalized sticky-bottom scroll with shared ResizeObserver (#211)
+const path = require('path');
+const messagesPath = path.resolve(path.dirname(process.argv[process.argv.length - 1]), 'app-messages.js');
+const messagesCode = fs.readFileSync(messagesPath, 'utf8');
 
-scrollCalls.length = 0;
-api.renderChoiceChips(m5, []);
-const clearAway = scrollCalls.slice();
+class FakeResizeObserver {
+  constructor(cb) {
+    this.cb = cb;
+    FakeResizeObserver.observedList = this.observed = [];
+    FakeResizeObserver.instance = this;
+  }
+  observe(target) {
+    if (!this.observed.includes(target)) this.observed.push(target);
+  }
+  unobserve(target) {
+    this.observed = this.observed.filter(t => t !== target);
+  }
+  disconnect() {
+    this.observed = [];
+  }
+  trigger() {
+    this.cb(this.observed.map(target => ({ target })));
+  }
+}
+FakeResizeObserver.observedList = [];
 
-out.scrollHooks = {
-  renderNearBottom,
-  clearNearBottom,
-  renderAway,
-  clearAway,
-  barHidden: choiceBar.hidden,
+const testLogEl = el('div');
+testLogEl.scrollHeight = 600;
+testLogEl.clientHeight = 400;
+testLogEl.scrollTop = 200;
+
+const testScrollBtn = el('button');
+testScrollBtn.hidden = true;
+
+let isKbTransitioning = false;
+
+const testDoc = {
+  createElement: el,
+  getElementById: (id) => (id === 'log' ? testLogEl : (id === 'scrollToBottomBtn' ? testScrollBtn : null)),
+  body: { classList: { contains: () => false, toggle: () => {} } },
+};
+
+const msgApi = new Function(
+  'document', 'ResizeObserver', 'logEl', 'scrollToBottomBtn', 'currentTab', 'isKeyboardTransitioning', 'viewingPastSession',
+  messagesCode + `
+  return {
+    isUserNearBottom,
+    scrollChatToBottom,
+    updateScrollBottomButton,
+    handleMsgResize,
+    observeMessage,
+    getIsLogPinnedToBottom: () => isLogPinnedToBottom,
+    setIsLogPinnedToBottom: (v) => { isLogPinnedToBottom = v; },
+  };`
+)(testDoc, FakeResizeObserver, testLogEl, testScrollBtn, 'chat', () => isKbTransitioning, () => false);
+
+// 1. Observe a message bubble as it is added
+const bubble = el('div');
+bubble.className = 'msg assistant';
+msgApi.observeMessage(bubble);
+testLogEl.appendChild(bubble);
+
+// When pinned before growth: asserts log stays pinned
+testLogEl.scrollHeight = 1000;
+msgApi.handleMsgResize();
+const resizePinned = {
+  scrollTop: testLogEl.scrollTop,
+  scrollHeight: testLogEl.scrollHeight,
+  btnHidden: testScrollBtn.hidden,
+};
+
+// 2. When user scrolled away from bottom: asserts log stays put
+testLogEl.scrollTop = 150;
+msgApi.setIsLogPinnedToBottom(false);
+msgApi.updateScrollBottomButton();
+testLogEl.scrollHeight = 1500;
+msgApi.handleMsgResize();
+const resizeScrolledAway = {
+  scrollTop: testLogEl.scrollTop,
+  scrollHeight: testLogEl.scrollHeight,
+  btnHidden: testScrollBtn.hidden,
+};
+
+// 3. Mid keyboard-open transition: must not re-pin
+testLogEl.scrollTop = 1500;
+msgApi.setIsLogPinnedToBottom(true);
+isKbTransitioning = true;
+testLogEl.scrollHeight = 2000;
+msgApi.handleMsgResize();
+const resizeMidKeyboard = {
+  scrollTop: testLogEl.scrollTop,
+};
+
+out.stickyScroll = {
+  barVisible,
+  barHidden,
+  observedBubble: FakeResizeObserver.observedList.includes(bubble),
+  resizePinned,
+  resizeScrolledAway,
+  resizeMidKeyboard,
 };
 
 console.log(JSON.stringify(out));
@@ -306,14 +388,22 @@ class ChoiceChips(unittest.TestCase):
         self.assertIn("parseThought(rawText, isFinal === false)", src)
         self.assertIn("parseThought(raw, isFinal === false)", src)
 
-    def test_scroll_hooks_on_render_and_clear(self):
-        # When near bottom: scrollChatToBottom(true) on both render and clear
-        self.assertEqual(self.o["scrollHooks"]["renderNearBottom"], [["scrollChatToBottom", True]])
-        self.assertEqual(self.o["scrollHooks"]["clearNearBottom"], [["scrollChatToBottom", True]])
-        # When scrolled away from bottom: updateScrollBottomButton() without forcing scroll
-        self.assertEqual(self.o["scrollHooks"]["renderAway"], [["updateScrollBottomButton"]])
-        self.assertEqual(self.o["scrollHooks"]["clearAway"], [["updateScrollBottomButton"]])
-        self.assertTrue(self.o["scrollHooks"]["barHidden"])
+    def test_bubble_resize_sticky_bottom(self):
+        sticky = self.o["stickyScroll"]
+        self.assertTrue(sticky["observedBubble"])
+        self.assertTrue(sticky["barVisible"])
+        self.assertTrue(sticky["barHidden"])
+
+        # 1. Bubble grows when pinned: log stays pinned to bottom
+        self.assertEqual(sticky["resizePinned"]["scrollTop"], sticky["resizePinned"]["scrollHeight"])
+        self.assertTrue(sticky["resizePinned"]["btnHidden"])
+
+        # 2. Bubble grows when user had scrolled up: scroll position stays put
+        self.assertEqual(sticky["resizeScrolledAway"]["scrollTop"], 150)
+        self.assertFalse(sticky["resizeScrolledAway"]["btnHidden"])
+
+        # 3. Bubble grows mid keyboard-open transition: does not re-pin
+        self.assertEqual(sticky["resizeMidKeyboard"]["scrollTop"], 1500)
 
 
 if __name__ == "__main__":

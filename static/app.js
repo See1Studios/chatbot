@@ -376,6 +376,11 @@ function alertModal(message) {
 
 if (logEl) {
   logEl.addEventListener('scroll', () => {
+    if (typeof isProgrammaticScroll !== 'undefined' && !isProgrammaticScroll) {
+      if (typeof isUserNearBottom === 'function') {
+        isLogPinnedToBottom = isUserNearBottom();
+      }
+    }
     if (currentTab === 'chat' && Date.now() >= historyLoadHoldUntil) {
       if (logEl.scrollTop < 120 && logEl.scrollHeight > logEl.clientHeight + 20) {
         loadOlderHistory();
@@ -907,9 +912,15 @@ inputEl.addEventListener('focus', () => {
   if (_savedScrollTop === null) {
     _wasNearBottomBeforeKeyboard = isUserNearBottom();
   }
+  if (typeof markKeyboardTransition === 'function') {
+    markKeyboardTransition(350);
+  }
   setTimeout(updateViewport, 120);
 });
 inputEl.addEventListener('blur', () => {
+  if (typeof markKeyboardTransition === 'function') {
+    markKeyboardTransition(250);
+  }
   setTimeout(updateViewport, 120);
 });
 inputEl.addEventListener('keydown', (e) => {

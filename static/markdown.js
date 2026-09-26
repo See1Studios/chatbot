@@ -417,7 +417,6 @@ function getChoiceBarEl() {
 }
 
 function renderChoiceChips(node, choices) {
-  const wasNearBottom = (typeof isUserNearBottom === 'function') ? isUserNearBottom() : true;
   const md = node ? (node.querySelector('.md') || node) : null;
   if (md) md.querySelectorAll('.choice-chips').forEach(el => el.remove());
   const bar = getChoiceBarEl();
@@ -429,10 +428,7 @@ function renderChoiceChips(node, choices) {
     bar.hidden = true;
     bar._owner = null;
   }
-  if (!choices || !choices.length) {
-    if (wasNearBottom) { if (typeof scrollChatToBottom === 'function') scrollChatToBottom(true); } else if (typeof updateScrollBottomButton === 'function') { updateScrollBottomButton(); }
-    return;
-  }
+  if (!choices || !choices.length) return;
 
   const card = document.createElement('div');
   card.className = 'choice-card';
@@ -503,7 +499,6 @@ function renderChoiceChips(node, choices) {
   } else if (md) {
     md.appendChild(card);
   }
-  if (wasNearBottom) { if (typeof scrollChatToBottom === 'function') scrollChatToBottom(true); } else if (typeof updateScrollBottomButton === 'function') { updateScrollBottomButton(); }
 }
 
 // Only the newest message may offer choices: once anything follows (the user's
