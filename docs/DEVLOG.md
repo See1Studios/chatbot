@@ -3,6 +3,17 @@
 최근 항목만 여기 둔다(맨 위가 최신). 지난 날짜는 `docs/devlog/YYYY-MM-DD.md` — 코드가 "2026-09-17 DEVLOG"를 가리키면 그 파일이다.
 이 파일이 40KB를 넘으면 가장 오래된 날짜를 `docs/devlog/`로 옮긴다(`tests/test_docs_budget.py`).
 
+## 2026-09-26 (밤) — 사적 선택지=코치 행동 + Grok 작법 밀도 (#242)
+- **Gemini 채굴**: 사적 agy/gemini 세션 신음·의태 강세(하아앙/하읏/응으읏, 파르르·찌릿)를 오버레이에 증류. SFX는 행위 짝짓기(**찌걱=삽입만**, 쪽쪽=입). 손애무에 삽입 SFX 금지.
+
+- **배경**: #241 이후 피드백 — 선택지 `"대사"`가 캐릭터 대사/신음처럼 쓰이고, 클릭 시 전부 `/act`로 들어가 사용자 말이 액션 지문에 삼켜짐. 상황 서사 미사여구·약한 의태어(움찔) 남발, 직설/천박 부족.
+- **제품 규약**: 선택지 = **코치/USER 행동(+사용자 대사)**. 캐릭터 반응은 **다음 턴 어시스턴트 본문만**. 권장 형식 `라벨 -> "사용자 대사" (행동)`.
+- **A** `private_engine.RENDER_PROTOCOL` Choices: USER 주체·캐릭터 대사 금지. `RENDER_PROTOCOL_GROK_OVERLAY`: dense not purple(미사여구 컷) · 젖은/천박 의성(찌걱찌걱·찔꺽·찐득) · 직설/천박 권장 · 한국어 only · grok-4.7+low 유지.
+- **B** `private_tension_{defaults,gemini,grok}.json` choice_forms/slots (grok v8). 노노·코코 카드 Voice 동기화.
+- **C** `static/markdown.js`: `classifyChoicePayload` — `(행동)`→silent `/act`, `"대사"`→say, `"대사" (행동)`→사용자 말+행동(비-/act). aria `내 다음 행동`. `markdown.js?v=16`.
+- **검증**: `python3 -m unittest tests.test_private_tension tests.test_choice_chips`. 호스트 py → repair. **새 사적 세션**에서 재시험.
+- **재시험**: 선택지 따옴표가 코치 대사인지 · 클릭 시 말풍선에 사용자 말이 사리는지 · 캐릭터 반응이 다음 턴에만 오는지 · 본문이 미사여구 없이 젖은 의성+직설인지.
+
 ## 2026-09-26 (밤) — 사적 Grok 작법 교정 (반응 우선·한국어 only, #241)
 
 - **배경**: #240 이후 실장님 피드백 — 지문 늘린다고 야설 작가가 되지 않음. Gemini 사적 대비 상대 반응이 목석, 영어 누수, 기계적 절정. 길이 말고 작법 수정 요청.

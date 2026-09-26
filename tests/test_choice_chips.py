@@ -406,5 +406,40 @@ class ChoiceChips(unittest.TestCase):
         self.assertEqual(sticky["resizeMidKeyboard"]["scrollTop"], 1500)
 
 
+
+    def test_private_choice_forms_say_action_combo(self):
+        """Private forms: (action)->/act; \"line\"->say; \"line\" (act)->user speech+action not /act."""
+        if not shutil.which("node"):
+            self.skipTest("node not installed")
+        js = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[1], 'utf8');
+const a = src.indexOf('function classifyChoicePayload');
+const b = src.indexOf('function splitChoices');
+if (a < 0 || b < 0) throw new Error('markers');
+eval(src.slice(a, b));
+const act = classifyChoicePayload('(조용히 끌어안는다)');
+const say = classifyChoicePayload('"조금만 더 가까이"');
+const combo = classifyChoicePayload('"자기, 여기" (귀에 숨을 흘린다)');
+const charLeak = classifyChoicePayload('"하읏… 안 돼" (몸을 떤다)');
+console.log(JSON.stringify({act, say, combo, charLeak}));
+"""
+        r = subprocess.run(
+            ["node", "-e", js, str(MD)],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        o = json.loads(r.stdout)
+        self.assertEqual(o["act"]["kind"], "action")
+        self.assertTrue(o["act"]["isAction"])
+        self.assertEqual(o["say"]["kind"], "say")
+        self.assertFalse(o["say"]["isAction"])
+        self.assertEqual(o["say"]["payload"], "조금만 더 가까이")
+        self.assertEqual(o["combo"]["kind"], "say")
+        self.assertFalse(o["combo"]["isAction"])
+        self.assertIn("자기, 여기", o["combo"]["payload"])
+        self.assertIn("귀에 숨을", o["combo"]["payload"])
+
+
 if __name__ == "__main__":
     unittest.main()

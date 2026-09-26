@@ -291,11 +291,54 @@ function parseThought(text, streaming) {
   return { thought: thoughts.length ? thoughts.join('\n') : null, cleanText: out.trim() };
 }
 
+function classifyChoicePayload(rawPayload) {
+  const s = String(rawPayload || '').trim();
+  if (!s) return { kind: 'say', payload: '', isAction: false };
+  // Combined: "user line" (action) — preferred coach turn with speech
+  const combo = /^"([^"]*)"\s*\(([\s\S]+)\)\s*$/.exec(s);
+  if (combo) {
+    const line = combo[1].trim();
+    const act = combo[2].trim().replace(/^\(+|\)+$/g, '').trim();
+    const payload = line ? ('"' + line + '" (' + act + ')') : ('(' + act + ')');
+    // If only action survived, treat as silent action; else user message with speech+action
+    if (!line) return { kind: 'action', payload: act, action: act, isAction: true };
+    return { kind: 'say', payload, action: payload, isAction: false };
+  }
+  // Action-only: (action)
+  const actOnly = /^\(([\s\S]+)\)\s*$/.exec(s);
+  if (actOnly) {
+    const act = actOnly[1].trim().replace(/^\(+|\)+$/g, '').trim();
+    return { kind: 'action', payload: act, action: act, isAction: true };
+  }
+  // Dialogue-only: "user line"
+  const sayOnly = /^"([^"]*)"\s*$/.exec(s);
+  if (sayOnly) {
+    const line = sayOnly[1].trim();
+    return { kind: 'say', payload: line, action: line, isAction: false };
+  }
+  // Legacy bare text after -> : treat as action (label -> 조용히 다가간다)
+  const bare = s.replace(/^\(+|\)+$/g, '').trim();
+  return { kind: 'action', payload: bare, action: bare, isAction: true };
+}
+
 function parseChoiceItem(item) {
   if (item && typeof item === 'object') {
     const label = String(item.label || '').trim();
-    const kind = String(item.kind || (item.isAction ? 'action' : 'say')).trim();
-    const payload = item.payload !== undefined ? String(item.payload).trim() : (item.action || label);
+    let kind = String(item.kind || (item.isAction ? 'action' : 'say')).trim();
+    let payload = item.payload !== undefined ? String(item.payload).trim() : String(item.action || label || '').trim();
+    // Re-classify string payloads that still carry private-mode forms
+    if (kind !== 'command' && /^(?:"[\s\S]*"|[\s\S]*\([\s\S]*\))/.test(payload)) {
+      const c = classifyChoicePayload(payload);
+      kind = c.kind;
+      payload = c.payload;
+      return {
+        label,
+        kind,
+        payload,
+        action: payload,
+        isAction: kind === 'action',
+      };
+    }
     return {
       label,
       kind,
@@ -311,19 +354,22 @@ function parseChoiceItem(item) {
   if (arrowIdx > 0) {
     const label = raw.slice(0, arrowIdx).trim();
     let action = raw.slice(arrowIdx + 2).trim();
-    let isCommand = false;
     if (action.toLowerCase().startsWith('action:')) {
       action = action.slice(7).trim();
-    } else if (action.toLowerCase().startsWith('command:')) {
-      action = action.slice(8).trim();
-      isCommand = true;
+      const act = action.replace(/^\(+|\)+$/g, '').trim();
+      return { label, action: act, payload: act, kind: 'action', isAction: true };
     }
+    if (action.toLowerCase().startsWith('command:')) {
+      action = action.slice(8).trim();
+      return { label, action, payload: action, kind: 'command', isAction: false };
+    }
+    const c = classifyChoicePayload(action);
     return {
       label,
-      action,
-      payload: action,
-      kind: isCommand ? 'command' : 'action',
-      isAction: !isCommand,
+      action: c.payload,
+      payload: c.payload,
+      kind: c.kind,
+      isAction: c.isAction,
     };
   }
   // Support "Label: action: Action"
@@ -436,7 +482,7 @@ function renderChoiceChips(node, choices) {
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'choice-close-btn';
-  closeBtn.setAttribute('aria-label', '선택지 닫기');
+  closeBtn.setAttribute('aria-label', '내 다음 행동 닫기');
   closeBtn.textContent = '✕';
   closeBtn.addEventListener('click', (e) => {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
@@ -476,7 +522,7 @@ function renderChoiceChips(node, choices) {
   const row = document.createElement('div');
   row.className = 'choice-card-body choice-chips';
   row.setAttribute('role', 'group');
-  row.setAttribute('aria-label', '선택지');
+  row.setAttribute('aria-label', '내 다음 행동');
   choices.forEach(c => {
     const parsed = parseChoiceItem(c);
     if (!parsed) return;
