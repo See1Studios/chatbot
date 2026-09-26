@@ -242,7 +242,7 @@ class RunawayLoopIsStopped(Base):
 
 
 class SilentHangWatchdog(Base):
-    """SILENT_HANG_v1: busy + no assistant delta + no error_message closes before print-timeout."""
+    """SILENT_HANG_v1: busy + no text + no tool/progress + no error_message closes before print-timeout."""
 
     def setUp(self):
         # WorkspaceCase may define setUp; keep short timers for unit tests.
@@ -258,6 +258,7 @@ class SilentHangWatchdog(Base):
         s._err_msg_failfast_done = False
         s._err_msg_failfast_timer = None
         s._last_assistant_delta_at = s.turn_started_at
+        s._last_turn_activity_at = s.turn_started_at
         # finalize_turn must exist on the stub adapter
         def finalize_turn(session, text="", raw_usage=None, is_err=False, error=None):
             if is_err:
@@ -308,6 +309,72 @@ class SilentHangWatchdog(Base):
         time.sleep(0.35)
         hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
         self.assertEqual(hang, [], "silent hang must not fire after error_message")
+        s._cancel_error_message_failfast()
+
+    def test_tool_call_rearms_and_avoids_false_hang(self):
+        """Tool start (no assistant text) must reset the idle clock — multi-tool turns."""
+        import time
+        s = self._busy(self.make(), hang_sec=0.35)
+        s._arm_silent_hang()
+        time.sleep(0.2)
+        # Real _emit path: tool call without any delta
+        S.AgentSession._emit(s, {"event": "tool", "text": "bash ls", "title": "bash",
+                                 "kind": "call", "status": "calling", "step_type": "run_command"})
+        time.sleep(0.2)  # 0.4s from start, but only ~0.2s since tool activity
+        self.assertTrue(s.busy, "tool call must reset the idle clock")
+        self.assertFalse(getattr(s, "_silent_hang_done", False))
+        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        self.assertEqual(hang, [])
+        # After a full idle window with no further activity, hang fires.
+        time.sleep(0.4)
+        self.assertTrue(getattr(s, "_silent_hang_done", False))
+
+    def test_tool_progress_heartbeat_rearms_during_long_tool(self):
+        """Ongoing tool progress/heartbeats keep resetting — single tool > hang window OK."""
+        import time
+        s = self._busy(self.make(), hang_sec=0.3)
+        s._arm_silent_hang()
+        # Tool start
+        S.AgentSession._emit(s, {"event": "tool", "text": "bash long-job", "title": "bash",
+                                 "kind": "call", "status": "calling", "step_type": "run_command"})
+        # Heartbeats every ~0.2s across > hang_sec total wall time
+        for i in range(4):
+            time.sleep(0.2)
+            S.AgentSession._emit(s, {
+                "event": "tool",
+                "text": f"progress {i}",
+                "title": "bash",
+                "kind": "call",
+                "status": "running",
+                "step_type": "run_command",
+            })
+            self.assertTrue(s.busy, f"progress heartbeat {i} must keep turn alive")
+            self.assertFalse(getattr(s, "_silent_hang_done", False), f"hang must not fire at heartbeat {i}")
+        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        self.assertEqual(hang, [], "long tool with progress must not false-positive hang")
+        # Tool result also counts as activity, then silence → hang
+        S.AgentSession._emit(s, {"event": "tool", "text": "↳ done", "title": "result",
+                                 "kind": "result", "status": "done"})
+        time.sleep(0.2)
+        self.assertFalse(getattr(s, "_silent_hang_done", False))
+        time.sleep(0.35)
+        self.assertTrue(getattr(s, "_silent_hang_done", False), "true silence after tool ends must hang")
+
+    def test_error_message_tool_event_does_not_rearm_silent_hang(self):
+        """error_message tool/system events must not re-arm; QUOTA_FAILFAST owns that path."""
+        import time
+        s = self._busy(self.make(), hang_sec=0.25)
+        s._arm_silent_hang()
+        # Mimic _emit seeing error_message BEFORE failfast arm (order in practice:
+        # translator arms failfast, then emits). Even if emit sees it first, must not re-arm.
+        S.AgentSession._emit(s, {"event": "tool", "text": "error_message", "title": "error_message",
+                                 "step_type": "error_message", "kind": "call", "status": ""})
+        s._err_msg_hint = "quota exhausted"
+        s._arm_error_message_failfast()
+        self.assertIsNone(getattr(s, "_silent_hang_timer", None))
+        time.sleep(0.35)
+        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        self.assertEqual(hang, [], "error_message must not produce silent-hang notice")
         s._cancel_error_message_failfast()
 
     def test_terminal_result_cancels_silent_hang(self):

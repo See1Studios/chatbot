@@ -1,5 +1,14 @@
 # chatbot 개발로그
 
+## 2026-09-27 (새벽) — SILENT_HANG 도구활동 재장전 · 오탐 수정 (#248, #247 follow-up)
+
+- **배경**: SILENT_HANG_v1이 assistant **TEXT delta만** 재장전 → 멀티툴/장시간 도구 턴(수 분)은 텍스트가 없어 90초에 오탐 종료. 의도는 Gemini 무응답 스톨 감지이지, 바쁜 도구 작업을 죽이는 것이 아님.
+- **변경** `session.py`: `_touch_turn_activity()` — assistant delta **및** tool start/result/progress(heartbeat)마다 90s 타이머 재장전. `error_message`는 계속 QUOTA_FAILFAST 전용(재장전 안 함). 진짜 침묵(텍스트·도구활동 둘 다 없음)만 발화. `SILENT_HANG_SEC=90` 유지. TURN_END_ORDER·QUOTA_FAILFAST 불변.
+- **검증**: `SilentHangWatchdog` — tool call 재장전 · 장시간 progress heartbeat · error_message 비재장전 + 기존 4건.
+- **배포**: 호스트 py → `chatbot-ctl.sh repair` / ⚡소생.
+- **마커**: `SILENT_HANG_v1` (activity reset)
+- **티켓**: #248
+
 ## 2026-09-27 (새벽) — 무응답 silent-hang 워치독 (SILENT_HANG_v1, #247)
 
 - **배경**: busy인데 assistant delta도 `error_message`도 없으면 agy print-timeout(8분)까지 대기. orphan `agy` 잔존·체감 행 유발.

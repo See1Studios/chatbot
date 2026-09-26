@@ -283,13 +283,19 @@ class AgentSession:
             # QUOTA_ERR_DEDUP_v1: agy surfaces quota as step_type/title error_message
             step = str(event.get("step_type") or event.get("title") or "").strip()
             line = (event.get("title") or event.get("text") or "").strip()
-            if step == "error_message" or line == "error_message":
+            is_err_msg = step == "error_message" or line == "error_message"
+            if is_err_msg:
                 line = "쿼터·오류 확인 중…"
             if line:
                 self.last_progress = line[:240]
+            # SILENT_HANG_v1: tool start/result/progress heartbeats reset the idle
+            # clock (not only assistant text). Long tools are fine while progress
+            # continues. error_message is owned by QUOTA_FAILFAST — do not re-arm.
+            if not is_err_msg:
+                self._touch_turn_activity()
         elif kind == "delta":
             # SILENT_HANG_v1: streaming assistant text resets the idle clock
-            self._touch_assistant_delta()
+            self._touch_turn_activity()
         elif kind in ("result", "error", "stopped"):
             self.last_progress = ""
             # QUOTA_FAILFAST_v1: real terminal event — cancel pending failfast
@@ -687,11 +693,15 @@ class AgentSession:
                 pass
 
 
-    # SILENT_HANG_v1: busy turn with no assistant delta and no error_message path
-    # sits idle until agy print-timeout (8m). Close earlier with a clear hang notice.
+    # SILENT_HANG_v1: busy turn with no assistant text AND no tool/progress activity
+    # (and no error_message path) sits idle until agy print-timeout (8m). Close earlier
+    # with a clear hang notice. Intent: catch true Gemini/provider stalls — not busy
+    # multi-tool turns.
     # Default 90s: inside the approved 60–120s band; longer than QUOTA_FAILFAST (8s),
-    # far shorter than AGY_PRINT_TIMEOUT_SEC (480s). Assistant deltas re-arm the timer;
-    # error_message hands off to QUOTA_FAILFAST; result/error/stopped cancel.
+    # far shorter than AGY_PRINT_TIMEOUT_SEC (480s). Assistant deltas AND tool
+    # start/result/progress heartbeats re-arm the timer (a single long tool is OK
+    # while progress continues). error_message hands off to QUOTA_FAILFAST;
+    # result/error/stopped cancel.
     SILENT_HANG_SEC = 90
 
     def _cancel_silent_hang(self) -> None:
@@ -715,9 +725,12 @@ class AgentSession:
         self._silent_hang_timer = timer
         timer.start()
 
-    def _touch_assistant_delta(self) -> None:
-        """An assistant delta proves the turn is still producing text — reset the idle clock."""
-        self._last_assistant_delta_at = _now()
+    def _touch_turn_activity(self) -> None:
+        """Text delta OR tool/progress proves the turn is alive — reset the idle clock."""
+        now = _now()
+        self._last_turn_activity_at = now
+        # Keep legacy stamp so older callers/tests reading delta-at still see activity.
+        self._last_assistant_delta_at = now
         if self.busy and not getattr(self, "_silent_hang_done", False):
             # Do not compete with QUOTA_FAILFAST once error_message was seen.
             if getattr(self, "_err_msg_failfast_timer", None) is not None:
@@ -726,8 +739,12 @@ class AgentSession:
                 return
             self._arm_silent_hang()
 
+    def _touch_assistant_delta(self) -> None:
+        """Back-compat alias — assistant deltas are one form of turn activity."""
+        self._touch_turn_activity()
+
     def _silent_hang_fire(self) -> None:
-        """Close a busy turn that produced no assistant delta for SILENT_HANG_SEC."""
+        """Close a busy turn with no text and no tool/progress for SILENT_HANG_SEC."""
         self._silent_hang_timer = None
         with self.lock:
             if not self.busy or self._stop_requested:
@@ -744,7 +761,11 @@ class AgentSession:
         if getattr(self, "turn_started_at", 0):
             dur = max(0.0, _now() - float(self.turn_started_at))
         idle = float(self.SILENT_HANG_SEC)
-        last = getattr(self, "_last_assistant_delta_at", 0) or 0
+        last = (
+            getattr(self, "_last_turn_activity_at", 0)
+            or getattr(self, "_last_assistant_delta_at", 0)
+            or 0
+        )
         if last:
             idle = max(idle, _now() - float(last))
         err = (
@@ -1788,7 +1809,7 @@ class AgentSession:
             self._loop_noticed = False
         with self.lock:
             self.current_text = ""
-            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None; self._cancel_silent_hang(); self._silent_hang_done = False; self._last_assistant_delta_at = 0.0
+            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None; self._cancel_silent_hang(); self._silent_hang_done = False; self._last_assistant_delta_at = 0.0; self._last_turn_activity_at = 0.0
             self.pending_images = []
             ts = _now()
             if not notice:
@@ -1866,8 +1887,11 @@ class AgentSession:
                             pass
 
         # SILENT_HANG_v1: idle clock starts once the turn is live (any transport).
+        # Resets on assistant text OR tool/progress activity; fires only on true silence.
         if self.busy:
-            self._last_assistant_delta_at = float(self.turn_started_at or _now())
+            t0 = float(self.turn_started_at or _now())
+            self._last_assistant_delta_at = t0
+            self._last_turn_activity_at = t0
             self._arm_silent_hang()
 
     def _stop_for_swap(self, what: str) -> None:
