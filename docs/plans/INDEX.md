@@ -8,7 +8,7 @@
 | [monolith-split.md](monolith-split.md) | **진행** — Phase 5 완료(app.js·session.py 분리), 파일 상한 규칙 | 파일을 나누거나 새 파일을 만들 때 |
 | [user-data-and-editing.md](user-data-and-editing.md) | **계획** — 사용자 데이터 분리(배포), ~~직책 이름은 표시값~~(완료 #129), 카드 폼 편집, 옛 프로토타입 삭제 | 배포 준비·팀 탭 편집·직책을 건드릴 때 |
 | [out-of-band-choices-actions.md](out-of-band-choices-actions.md) | **계획** — 선택지·액션을 답변 본문 밖 채널(`choices` 도구·이벤트)로, 버튼 직접 전송(#134) | 선택지·버튼·액션 전달·티켓 바를 건드릴 때 |
-| [private-action-interaction.md](private-action-interaction.md) | **진행** — 사적 모드 행위 지시문 및 동적 예측 선택지(PRIVATE_INTERACTION). 3단계는 위 문서로 대체 | 사적 모드·액션 지문·동적 선택지 건드릴 때 |
+| [private-mode.md](private-mode.md) | **진행** — 사적 모드 SSOT: 액션·선택지·텐션 4단계(구현됨), 8단계 초안·호감도·HUD·렌더 데코레이터(계획), 결정 필요 D1–D12 | 사적 모드·텐션·호감도·HUD·렌더링을 건드릴 때 |
 | [recursive-self-evolution.md](recursive-self-evolution.md) | 참고 — 관찰·티켓·보호 경로의 설계 근거(코어는 구현됨, 코드가 정본) | 개선 루프·티켓·보호 규칙의 이유가 궁금할 때 |
 | [instruction-architecture.md](instruction-architecture.md) | 참고 — 지침 묶음 계층. 역할 팩(§12.5)이 캐릭터 부분을 대체 | 매 턴 지침 조립을 바꿀 때 |
 | [token-accounting.md](token-accounting.md) | 참고 — 창 점유 vs 과금 | 토큰 수치를 해석할 때 |
