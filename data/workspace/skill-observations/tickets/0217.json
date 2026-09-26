@@ -3,13 +3,15 @@
  "approved_at": "2026-09-26 10:54:47",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-26 10:54:38",
  "evidence": [
   "event:20260926-100536-a7ac6f#188"
  ],
  "gate_failures": 0,
  "id": 217,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,15 +27,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-217 at 6d8ef24 (agy, review PASS round 1)",
    "ts": "2026-09-26 10:56:13"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-26 10:56:25"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 3f68b9b on the operator's word (agy)",
+   "ts": "2026-09-26 10:56:36"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-26 10:56:36"
   }
  ],
  "paths": [
   "delegation.py",
   "tests/test_delegation.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "delegation.py,tests/test_delegation.py",
  "title": "위임 정비 A: 계획 제출 시 미커밋 경로 사전 점검",
- "updated": "2026-09-26 10:56:13",
+ "updated": "2026-09-26 10:56:36",
  "worked_by": "agy"
 }
