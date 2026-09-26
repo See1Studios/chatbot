@@ -239,5 +239,98 @@ class RunawayLoopIsStopped(Base):
         self.assertEqual(self.events, [])
 
 
+
+
+class SilentHangWatchdog(Base):
+    """SILENT_HANG_v1: busy + no assistant delta + no error_message closes before print-timeout."""
+
+    def setUp(self):
+        # WorkspaceCase may define setUp; keep short timers for unit tests.
+        if hasattr(super(), "setUp"):
+            super().setUp()
+
+    def _busy(self, s, hang_sec=0.25):
+        s.SILENT_HANG_SEC = hang_sec
+        s.ERROR_MESSAGE_FAILFAST_SEC = 30  # keep quota path from racing these tests
+        s.busy = True
+        s.turn_started_at = __import__("time").time()
+        s._silent_hang_done = False
+        s._err_msg_failfast_done = False
+        s._err_msg_failfast_timer = None
+        s._last_assistant_delta_at = s.turn_started_at
+        # finalize_turn must exist on the stub adapter
+        def finalize_turn(session, text="", raw_usage=None, is_err=False, error=None):
+            if is_err:
+                return {"event": "error", "notice": "error", "text": error or "err"}
+            return {"event": "result", "text": text or ""}
+        s.adapter.finalize_turn = finalize_turn
+        s._finish_turn = lambda outcome="result": None
+        s._auto_stop_worker = lambda: self.stops.append("worker")
+        return s
+
+    def test_silent_idle_finalizes_with_hang_notice_and_stops_child(self):
+        import time
+        s = self._busy(self.make())
+        s._arm_silent_hang()
+        time.sleep(0.45)
+        errs = [e for e in self.events if e.get("event") == "error"]
+        self.assertTrue(errs, "hang must surface an error notice")
+        self.assertTrue(any("무응답" in str(e.get("text")) or "오랫동안" in str(e.get("text")) for e in errs))
+        self.assertFalse(s.busy)
+        time.sleep(0.15)
+        self.assertTrue(self.stops, "child must be stopped after terminal flush (TURN_END_ORDER)")
+
+    def test_assistant_delta_rearms_and_avoids_false_hang(self):
+        import time
+        s = self._busy(self.make(), hang_sec=0.35)
+        s._arm_silent_hang()
+        time.sleep(0.2)
+        # A mid-turn assistant delta must reset the idle clock (no hang yet).
+        s._touch_assistant_delta()
+        time.sleep(0.2)  # 0.4s from start, but only 0.2s since delta
+        self.assertTrue(s.busy, "delta must reset the idle clock")
+        self.assertFalse(getattr(s, "_silent_hang_done", False))
+        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        self.assertEqual(hang, [])
+        # After another full idle window with no further deltas, hang fires.
+        time.sleep(0.25)
+        self.assertTrue(getattr(s, "_silent_hang_done", False))
+        self.assertTrue(any(e.get("event") == "error" for e in self.events))
+
+    def test_error_message_path_is_owned_by_quota_failfast_not_silent_hang(self):
+        import time
+        s = self._busy(self.make(), hang_sec=0.2)
+        s._arm_silent_hang()
+        # Mimic error_message: arm quota failfast, which cancels silent hang
+        s._err_msg_hint = "quota exhausted"
+        s._arm_error_message_failfast()
+        self.assertIsNone(getattr(s, "_silent_hang_timer", None))
+        time.sleep(0.35)
+        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        self.assertEqual(hang, [], "silent hang must not fire after error_message")
+        s._cancel_error_message_failfast()
+
+    def test_terminal_result_cancels_silent_hang(self):
+        import time
+        s = self._busy(self.make(), hang_sec=0.3)
+        # Use real _emit for cancel path; collect via wrapper
+        real_emit = S.AgentSession._emit.__get__(s, S.AgentSession)
+        def wrap(ev):
+            self.events.append(ev)
+            # only run cancel side of _emit for terminal kinds without subscriber noise
+            kind = ev.get("event")
+            if kind in ("result", "error", "stopped"):
+                s._cancel_error_message_failfast()
+                s._cancel_silent_hang()
+                s.last_progress = ""
+        s._emit = wrap
+        s._arm_silent_hang()
+        s._emit({"event": "result", "text": "ok"})
+        time.sleep(0.45)
+        hang = [e for e in self.events if "무응답" in str(e.get("text"))]
+        self.assertEqual(hang, [])
+        self.assertIsNone(getattr(s, "_silent_hang_timer", None))
+
+
 if __name__ == "__main__":
     unittest.main()

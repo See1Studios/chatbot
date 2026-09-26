@@ -287,10 +287,15 @@ class AgentSession:
                 line = "쿼터·오류 확인 중…"
             if line:
                 self.last_progress = line[:240]
+        elif kind == "delta":
+            # SILENT_HANG_v1: streaming assistant text resets the idle clock
+            self._touch_assistant_delta()
         elif kind in ("result", "error", "stopped"):
             self.last_progress = ""
             # QUOTA_FAILFAST_v1: real terminal event — cancel pending failfast
             self._cancel_error_message_failfast()
+            # SILENT_HANG_v1: turn ended — cancel idle watchdog
+            self._cancel_silent_hang()
         if (kind in ("error", "stopped") and event.get("notice") != "warn") or (kind == "interrupted" and event.get("reason") != "steer"):
             try:
                 self._turn_marks.append((self._last_user_turn()[0], kind))
@@ -632,6 +637,8 @@ class AgentSession:
 
     def _arm_error_message_failfast(self) -> None:
         self._err_msg_failfast_done = False
+        # SILENT_HANG_v1: error_message path is owned by QUOTA_FAILFAST
+        self._cancel_silent_hang()
         if getattr(self, "_err_msg_failfast_timer", None) is not None:
             return
         timer = threading.Timer(float(self.ERROR_MESSAGE_FAILFAST_SEC), self._error_message_failfast)
@@ -676,6 +683,105 @@ class AgentSession:
             obslog.exception("turn.failfast_failed", e, sid=self.sid)
             try:
                 self._end_unfinished_turn("ERROR", err, dur, emit_error=True)
+            except Exception:
+                pass
+
+
+    # SILENT_HANG_v1: busy turn with no assistant delta and no error_message path
+    # sits idle until agy print-timeout (8m). Close earlier with a clear hang notice.
+    # Default 90s: inside the approved 60–120s band; longer than QUOTA_FAILFAST (8s),
+    # far shorter than AGY_PRINT_TIMEOUT_SEC (480s). Assistant deltas re-arm the timer;
+    # error_message hands off to QUOTA_FAILFAST; result/error/stopped cancel.
+    SILENT_HANG_SEC = 90
+
+    def _cancel_silent_hang(self) -> None:
+        timer = getattr(self, "_silent_hang_timer", None)
+        if timer is not None:
+            try:
+                timer.cancel()
+            except Exception:
+                pass
+            self._silent_hang_timer = None
+
+    def _arm_silent_hang(self, delay: Optional[float] = None) -> None:
+        self._cancel_silent_hang()
+        if getattr(self, "_silent_hang_done", False):
+            return
+        sec = float(self.SILENT_HANG_SEC if delay is None else delay)
+        if sec <= 0:
+            return
+        timer = threading.Timer(sec, self._silent_hang_fire)
+        timer.daemon = True
+        self._silent_hang_timer = timer
+        timer.start()
+
+    def _touch_assistant_delta(self) -> None:
+        """An assistant delta proves the turn is still producing text — reset the idle clock."""
+        self._last_assistant_delta_at = _now()
+        if self.busy and not getattr(self, "_silent_hang_done", False):
+            # Do not compete with QUOTA_FAILFAST once error_message was seen.
+            if getattr(self, "_err_msg_failfast_timer", None) is not None:
+                return
+            if getattr(self, "_err_msg_failfast_done", False):
+                return
+            self._arm_silent_hang()
+
+    def _silent_hang_fire(self) -> None:
+        """Close a busy turn that produced no assistant delta for SILENT_HANG_SEC."""
+        self._silent_hang_timer = None
+        with self.lock:
+            if not self.busy or self._stop_requested:
+                return
+            if getattr(self, "_silent_hang_done", False):
+                return
+            # QUOTA_FAILFAST_v1 owns stalls after error_message — do not double-close.
+            if getattr(self, "_err_msg_failfast_timer", None) is not None:
+                return
+            if getattr(self, "_err_msg_failfast_done", False):
+                return
+            self._silent_hang_done = True
+        dur = 0.0
+        if getattr(self, "turn_started_at", 0):
+            dur = max(0.0, _now() - float(self.turn_started_at))
+        idle = float(self.SILENT_HANG_SEC)
+        last = getattr(self, "_last_assistant_delta_at", 0) or 0
+        if last:
+            idle = max(idle, _now() - float(last))
+        err = (
+            f"응답이 오랫동안 없어 턴을 닫았습니다(무응답 {int(idle)}초). "
+            "남은 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다냥."
+        )
+        try:
+            out = self.adapter.finalize_turn(
+                self, text="", raw_usage=None, is_err=True, error=err
+            )
+            self._emit(out)
+            with self.lock:
+                self.busy = False
+            try:
+                self._finish_turn("error")
+            except Exception:
+                pass
+            already = out.get("event") == "error"
+            # TURN_END_ORDER_v1: terminal event already flushed; stop child after.
+            self._end_unfinished_turn("HANG", err, dur, emit_error=not already)
+            try:
+                obslog.event(
+                    "turn.silent_hang",
+                    lvl="warn",
+                    sid=self.sid,
+                    provider=self.provider,
+                    idle_sec=int(idle),
+                    duration_sec=int(dur),
+                )
+            except Exception:
+                pass
+        except TypeError:
+            self._end_unfinished_turn("HANG", err, dur)
+        except Exception as e:
+            obslog.exception("turn.silent_hang_failed", e, sid=self.sid)
+            try:
+                self._end_unfinished_turn("HANG", err, dur, emit_error=True)
             except Exception:
                 pass
 
@@ -1682,7 +1788,7 @@ class AgentSession:
             self._loop_noticed = False
         with self.lock:
             self.current_text = ""
-            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None
+            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None; self._cancel_silent_hang(); self._silent_hang_done = False; self._last_assistant_delta_at = 0.0
             self.pending_images = []
             ts = _now()
             if not notice:
@@ -1758,6 +1864,11 @@ class AgentSession:
                             self.proc.stdin.close()
                         except Exception:
                             pass
+
+        # SILENT_HANG_v1: idle clock starts once the turn is live (any transport).
+        if self.busy:
+            self._last_assistant_delta_at = float(self.turn_started_at or _now())
+            self._arm_silent_hang()
 
     def _stop_for_swap(self, what: str) -> None:
         """Stop the live process because the provider/model is being swapped.
@@ -1940,6 +2051,7 @@ class AgentSession:
         # making it look like stop did nothing or a new answer appeared
         # right after (실장님: "작성 중인 상태에서 중지같은 게 안되네").
         self._stop_requested = True
+        self._cancel_silent_hang()
         was_busy = self.busy
         proc = self.proc
         self.proc = None

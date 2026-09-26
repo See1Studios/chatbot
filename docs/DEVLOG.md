@@ -1,5 +1,14 @@
 # chatbot 개발로그
 
+## 2026-09-27 (새벽) — 무응답 silent-hang 워치독 (SILENT_HANG_v1, #247)
+
+- **배경**: busy인데 assistant delta도 `error_message`도 없으면 agy print-timeout(8분)까지 대기. orphan `agy` 잔존·체감 행 유발.
+- **변경** `session.py`: `SILENT_HANG_SEC=90`(승인 구간 60–120초 중 기본, QUOTA_FAILFAST 8초보다 길고 print-timeout 480초보다 짧음). busy 시작 시 타이머 — assistant delta마다 재장전 — `error_message`는 QUOTA_FAILFAST에 양보 — result/error/stopped·stop()에서 취소. 발화 시 한글 무응답 공지 + finalize 후 자식 중지(`TURN_END_ORDER` 유지).
+- **검증**: `tests.test_conversation_sync.SilentHangWatchdog`.
+- **Ops**: DiskStation orphan `agy` pid 16420(PPID1·deleted exe·live_pids 외) TERM 후 소멸. chatbot/mcp 유지.
+- **배포**: 호스트 py → `chatbot-ctl.sh repair` / ⚡소생.
+- **마커**: `SILENT_HANG_v1`
+
 ## 2026-09-26 (밤) — 사적 선택지 ALL=action · 본문 action-echo 금지 (#246)
 
 - **실장님 Clarification**: (1) 선택지 클릭은 **전부 ACTION** — 칩의 대사는 optional flavor로 액션에 굽힘(`/act` 와이어). 진짜 말은 사용자가 타이핑. (2) 캐릭터 본문은 사용자 행동 재진술 금지 — 반응(액체/신음/몸)만 dense.
