@@ -145,6 +145,9 @@ code.login-value{
 /* SESSION_SPLIT_v1: a private session is marked so it is never mistaken for work */
 body.private-session .meta{color:var(--accent-private, #c2185b)}
 body.private-session #input{border-color:var(--accent-private, #c2185b)}
+/* Narration is markdown *...* -> <em>: smaller and faint so spoken lines lead. Opacity over --text, not
+   --muted: mono theme's --muted would drop below 3:1 on the bubble. */
+body.private-session .msg.assistant .md em{font-style:italic;font-size:.88em;opacity:.65}
 
 /* TEAM_ROLES_v2: roles are chips on an otherwise identical character card */
 .team-role-chips{display:inline-flex;gap:.3rem;flex-wrap:wrap;margin-left:.4rem}
