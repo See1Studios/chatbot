@@ -37,7 +37,10 @@ TENSION_RECENT_MAX = 9
 
 # MODEL_FAMILY_TENSION_v1 (#201): a model family may carry its own tension table; families without one use the defaults.
 # Families are data (string literals), not code names, so this module stays provider-neutral.
-FAMILY_FILES = {"gemini": DEFAULTS_PATH.with_name("private_tension_gemini.json")}
+FAMILY_FILES = {
+    "gemini": DEFAULTS_PATH.with_name("private_tension_gemini.json"),
+    "grok": DEFAULTS_PATH.with_name("private_tension_grok.json"),  # #236: 3단계(uncensored) 전용 테이블
+}
 FAMILY_MARKERS = (  # (family, substrings matched against the model name first, then the provider id)
     ("claude", ("claude", "anthropic", "opus", "sonnet", "haiku")),
     ("gemini", ("gemini", "agy", "antigravity")),
