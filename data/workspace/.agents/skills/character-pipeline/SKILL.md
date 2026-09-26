@@ -40,7 +40,7 @@ flowchart TD
 
 ### 4. Build App-Standard Assets
 Generate/derive required files under `data/workspace/characters/<id>/`:
-- **`avatar.webp`** (512x512, <=200KB): Face centered, 56px circle crop safe.
+- **`avatar.webp`** (512x512, <=200KB): Full-bleed square. Face fills the 56px circle (eyes in the upper half, chin above the bottom third, species ears in frame). No inner circle on empty canvas. Bust and body go in sprites.
 - **`avatar/<provider>.webp`** (512x512): Optional per-brain wigs (hair cut/dye + outfit only, same face).
 - **`sprites/bust/<label>.webp`** (1024x1024, transparent, <=400KB):
   - Start with `neutral`, then derive `joy`, `embarrassment`, `anger`.

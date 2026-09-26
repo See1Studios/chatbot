@@ -14,7 +14,7 @@ Next to the card, so they travel with it: `data/workspace/characters/<id>/`
 
 | File | Size | What |
 |---|---|---|
-| `avatar.webp` | 512x512 | The base look. Face centred; it must read as a 56px circle. Required. |
+| `avatar.webp` | 512x512 | The base look. Full-bleed square (no inner circle on empty canvas). Face fills a 56px circle: eyes in the upper half, chin above the bottom third, species ears in frame. Bust and body go in sprites. Required. |
 | `avatar/<provider>.webp` | 512x512 | Optional "wig" for one brain (`agy`, `claude`, `codex`, `grok`, `omniroute`, `openrouter`). Same face; only hair colour, cut and outfit change. Missing = the base look is used. |
 | `stage.webp`, `stage/<provider>.webp` | 1024x1024 | Optional chat background, one per brain like the wigs (same face and wig as that brain's badge). Missing = the neutral studio background. |
 | `sprites/bust/<label>.webp` | 1024x1024, transparent | Optional shoulder shot: shoulders cut by the bottom edge, top of the head about 8% from the top. |
@@ -43,7 +43,7 @@ Next to the card, so they travel with it: `data/workspace/characters/<id>/`
    `neutral` comes before its other labels.
 3. Wigs and sprite expressions: edit the base image with the face locked (your image tool's edit mode), never a fresh
    generation. The key colour is dyed into the hair, not a coloured light on the base hair.
-4. Check wigs as a 56px circle (the cut and colour must tell the brains apart), and sprites by laying each
+4. Check the base look and wigs as a 56px circle (the face must fill it; the cut and colour must tell the brains apart), and sprites by laying each
    label over `neutral` (the body must not move).
 5. Write `.webp` (and the `.png` master if you have one), then run
    `python3 tools/check_character_art.py <id>` from `services/chatbot` until it says ok.
@@ -75,7 +75,7 @@ folder instead.
 - Palette: Primary #[HEX], Secondary #[HEX], Accent #[HEX]
 
 ### 3. Framing (구도 키워드)
-- Avatar: close-up portrait, face centered, neutral background
+- Avatar: full-bleed close-up, face fills the 56px circle, eyes upper half, chin above the bottom third
 - Bust: medium close-up, cut at shoulders, transparent background
 - Full: full body shot, feet grounded at bottom 2%, transparent background
 

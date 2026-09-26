@@ -491,6 +491,44 @@ def _image_info(path: Path) -> Optional[tuple]:
         return 0, 0, False
 
 
+_CORNER = 48
+_CENTER = 256
+_WHITE = 240
+
+
+def _white_frac(im, box) -> float:
+    crop = im.crop(box)
+    n = crop.size[0] * crop.size[1]
+    if not n:
+        return 0.0
+    return sum(1 for r, g, b in crop.getdata() if (r + g + b) / 3 > _WHITE) / n
+
+
+def _empty_corner_padding(path: Path) -> bool:
+    """True when the square is an inner badge on empty canvas (a 56px picker crop would hide the face)."""
+    try:
+        from PIL import Image
+        with Image.open(path) as im:
+            im = im.convert("RGB")
+            w, h = im.size
+            if (w, h) != ART_SIZE:
+                return False
+            s = _CORNER
+            corners = (
+                _white_frac(im, (0, 0, s, s)),
+                _white_frac(im, (w - s, 0, w, s)),
+                _white_frac(im, (0, h - s, s, h)),
+                _white_frac(im, (w - s, h - s, w, h)),
+            )
+            c0, r0 = (w - _CENTER) // 2, (h - _CENTER) // 2
+            center = _white_frac(im, (c0, r0, c0 + _CENTER, r0 + _CENTER))
+            return all(c >= 0.8 for c in corners) and center < 0.2
+    except ImportError:
+        return False
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def check_art(cid: str, providers=(), ws=None) -> List[str]:
     """Problems with a character's images against the format above ([] = fine). `providers` are the known provider
     ids; a wig for any other name is reported. Sizes and transparency are checked when Pillow is installed."""
@@ -535,6 +573,8 @@ def check_art(cid: str, providers=(), ws=None) -> List[str]:
                 problems.append("%s: %sx%s, must be %dx%d" % ((rel,) + tuple(info[:2]) + canvas))
             if alpha and not info[2]:
                 problems.append("%s: needs a transparent background" % rel)
+        if canvas == ART_SIZE and (rel == "avatar.webp" or rel.startswith("avatar/")) and _empty_corner_padding(f):
+            problems.append("%s: empty corner padding; fill the square so the face reads in a 56px circle" % rel)
         if f.suffix == ".png" and not f.with_suffix(".webp").is_file():
             problems.append("%s: a .png master needs its .webp beside it (the page serves .webp)" % rel)
     return problems

@@ -69,6 +69,19 @@ class ArtFormat(unittest.TestCase):
             "stage/claude.webp: 512x512, must be 1024x1024",
         ]))
 
+    def test_avatar_empty_corner_padding_is_rejected(self):
+        (self.base / "visual.md").write_text("# L\n", encoding="utf-8")
+        from PIL import ImageDraw
+        badge = Image.new("RGB", (512, 512), (255, 255, 255))
+        ImageDraw.Draw(badge).ellipse((8, 8, 503, 503), fill=(200, 80, 80))
+        badge.save(self.base / "avatar.webp")
+        self.assertIn(
+            "avatar.webp: empty corner padding; fill the square so the face reads in a 56px circle",
+            self.check(),
+        )
+        Image.new("RGB", (512, 512), (40, 40, 40)).save(self.base / "avatar.webp")
+        self.assertEqual(self.check(), [])
+
     def test_the_skill_and_the_code_agree(self):
         skill = (ROOT / "data/workspace/.agents/skills/character-art/SKILL.md").read_text(encoding="utf-8")
         for framing, ((w, h), _, _) in C.FRAMINGS.items():

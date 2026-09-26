@@ -3,14 +3,14 @@
 Format and procedure: skill `character-art`. The page uses this folder (`avatar.webp`).
 Voice and manner are in the card, not here.
 
-Status: operator locked 2026-09-26, session image 4 (`gallery/lock-blonde-fox.jpg`).
+Status: operator locked 2026-09-26, session image 4 (`gallery/lock-blonde-fox.jpg`). Picker crop locked to face-fill `avatar.webp` (master stays wider).
 
 ## Locks
 - Cute anime fox kemonomimi woman (human face, fluffy fox ears, fox tail). No snout, no full kemono.
 - Teal/cyan eyes. Adult frame. Hyper-voluptuous bust.
 - Base look: long golden-blonde hair with a middle wave (not tight curls, not stick-straight), peach inner ears, cream/white open-collar blouse. Reference `avatar_master.jpg`.
 - Distinct from 노노 (silver waves, gold star eyes, cat ears, white blouse) and 리리 (dark ash-brown messy hair, violet eyes, bunny ears, oversized hoodie).
-- Avatar framing matches the house portraits: front-facing, face centered, fox ears and bust in the 56px circle crop.
+- Avatar is a full-bleed front close-up: face and fox ears fill the 56px circle. Bust and body belong in sprites.
 
 ## Prompt Specification (SSOT)
 Modern anime standard (thin clean lineart, crisp cel shading):
@@ -27,7 +27,7 @@ Modern anime standard (thin clean lineart, crisp cel shading):
 - **Reference-based Inpainting / I2I:** All expressions, wigs, and gestures MUST use `avatar_master.jpg` as the reference image, modifying only the target region.
 
 ### 4. Framing & Composition
-- **avatar.webp (512x512):** `close-up portrait, front-facing, face centered, fox ears fully in frame, open collar and bust visible, neutral studio background, 56px circle crop safe`
+- **avatar.webp (512x512):** `full-bleed close-up, front-facing, face centered, fox ears in frame, eyes in the upper half, chin above the bottom third, 56px circle crop fills with the face`
 - **sprites/bust (1024x1024):** `medium close-up, cut at shoulders, centered, transparent background`
 - **sprites/full (1024x2048):** `full body shot, standing grounded 2% from bottom, centered, transparent background`
 
