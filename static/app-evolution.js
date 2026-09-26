@@ -329,6 +329,23 @@ const TICKET_DECISIONS = {
   wontfix: [['reopen', '재개']],
 };
 const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '실행', merge: '승인(반영 시작)', rework: '반려', discard: '폐기', disown: '담당 해제', unqueue: '대기 취소', allow: '경로 허용' };
+// Delegation API refusal reasons (English, from the server) -> one short Korean line. [pattern, (match) => line].
+const DELEGATION_REFUSAL_KO = [
+  [/uncommitted leftover in ([^;]+)/, (m) => '실행 거절: 커밋 안 된 파일이 남아 있어요 (' + m[1].trim() + ')'],
+  [/not a plan waiting for \[실행\]/, () => '실행 거절: [실행] 대기 중인 계획이 아니에요'],
+  [/lock is held|held by another ticket/, () => '실행 거절: 다른 작업이 같은 파일을 쓰는 중이에요'],
+  [/^no such ticket/, () => '작업을 찾을 수 없어요'],
+];
+
+function delegationRefusalText(e) {
+  let reason = String((e && e.message) || e || '');
+  try { const j = JSON.parse(reason); if (j && j.error) reason = String(j.error); } catch (_) { /* raw text */ }
+  for (const [re, line] of DELEGATION_REFUSAL_KO) {
+    const m = re.exec(reason);
+    if (m) return line(m);
+  }
+  return '실행 거절: ' + (reason.length > 120 ? reason.slice(0, 120) + '…' : reason);
+}
 // PD_PLAN_v1: the operator's two confirmations on a PD plan -- [실행] (`delegate`) and [승인]/[반려]/[폐기].
 const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', rework: 'rework', discard: 'discard', unqueue: 'unqueue', allow: 'allow' };
 
@@ -419,7 +436,7 @@ async function decideTicket(cmd) {
           return '작업 #' + cmd.id + '은(는) 이미 ' + (TICKET_STATUS_LABEL[ts] || ts) + ' 상태여서 카드를 정리했어요';
         }
       } catch (_) {}
-      throw e;
+      throw new Error(delegationRefusalText(e));
     }
   }
   const res = await api('/api/tickets/' + cmd.id + '/' + cmd.action, { method: 'POST', body: JSON.stringify({}) });
