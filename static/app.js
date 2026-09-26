@@ -376,7 +376,8 @@ function alertModal(message) {
 
 if (logEl) {
   logEl.addEventListener('scroll', () => {
-    if (typeof isProgrammaticScroll !== 'undefined' && !isProgrammaticScroll) {
+    // scroll events arrive async: during a keyboard transition they are layout shifts, not the user
+    if (typeof isProgrammaticScroll !== 'undefined' && !isProgrammaticScroll && !isKeyboardTransitioning()) {
       if (typeof isUserNearBottom === 'function') {
         isLogPinnedToBottom = isUserNearBottom();
       }
@@ -906,12 +907,6 @@ inputEl.addEventListener('input', () => {
   autoResizeInput();
 });
 inputEl.addEventListener('focus', () => {
-  // 키보드가 열리기 직전(clientHeight가 줄기 전)의 nearBottom 상태를 기록.
-  // _savedScrollTop이 null일 때(완전히 닫힌 상태)만 갱신 —
-  // 키보드를 내렸다 다시 올리는 중간 상태에서 덮어쓰지 않기 위함.
-  if (_savedScrollTop === null) {
-    _wasNearBottomBeforeKeyboard = isUserNearBottom();
-  }
   if (typeof markKeyboardTransition === 'function') {
     markKeyboardTransition(350);
   }

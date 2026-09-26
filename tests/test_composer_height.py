@@ -89,6 +89,88 @@ console.log(JSON.stringify(out));
 """
 
 
+# Keyboard up/down on a phone with the REAL pinned-bottom code (#211: isLogPinnedToBottom / isProgrammaticScroll,
+# static/app-messages.js) and the real pinned-state line of the log's scroll listener (static/app.js). (#212: the
+# '최신 대화로' button flashed or the newest message ended up covered when entering/leaving keyboard-open.)
+SCROLL_HARNESS = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
+function slice(from, to) {
+  const a = src.indexOf(from), b = src.indexOf(to, a + from.length);
+  if (a < 0 || b < 0) throw new Error('marker missing: ' + from + ' .. ' + to);
+  return src.slice(a + from.length, b);
+}
+const pinned = 'const SCROLL_BOTTOM_THRESHOLD' + slice('const SCROLL_BOTTOM_THRESHOLD', 'let msgResizeObserver');
+const viewport = 'function autoResizeInput' + slice('function autoResizeInput', '// ==== file: ');
+const listener = slice("logEl.addEventListener('scroll', () => {", "    if (currentTab === 'chat' && Date.now()");
+
+const timers = [];
+const setTimeout = (fn) => { timers.push(fn); return timers.length; };
+const clearTimeout = () => {};
+const flush = () => { while (timers.length) timers.shift()(); };
+const cls = new Set();
+const win = { innerWidth: 420, visualViewport: { height: 800 }, scrollY: 0, scrollTo() {},
+  matchMedia: q => ({ matches: q === '(pointer: coarse)' }),
+  getComputedStyle: () => ({ minHeight: '36px', maxHeight: '80px' }) };
+const inputEl = { value: '', style: {}, scrollHeight: 0 };
+const document = { activeElement: null, body: { classList: { toggle: (c, on) => { on ? cls.add(c) : cls.delete(c); }, contains: c => cls.has(c) } },
+  documentElement: { style: { setProperty() {} } }, getElementById: () => null };
+const buttonLog = [];
+const scrollToBottomBtn = { set hidden(v) { buttonLog.push(v); this._h = v; }, get hidden() { return this._h; } };
+let unguardedWrites = 0;
+let onScroll = () => {};
+const logEl = { scrollHeight: 2000, clientHeight: 600, _top: 0,
+  get scrollTop() { return this._top; },
+  set scrollTop(v) { if (!isProgrammatic()) unguardedWrites++; this._top = Math.max(0, Math.min(v, this.scrollHeight - this.clientHeight)); onScroll(); },
+  // the layout moves under the log (keyboard, .msg resize): the browser clamps scrollTop and fires a scroll event
+  layout(sh, ch) { this.scrollHeight = sh; this.clientHeight = ch; const t = Math.min(this._top, sh - ch); if (t !== this._top) { this._top = t; onScroll(); } },
+};
+const currentTab = 'chat';
+function viewingPastSession() { return false; }
+function positionSlashMenu() {}
+let isProgrammatic = () => false;
+const api = new Function('window', 'document', 'inputEl', 'logEl', 'scrollToBottomBtn', 'currentTab', 'viewingPastSession',
+  'positionSlashMenu', 'setTimeout', 'clearTimeout',
+  pinned + '\n' + viewport + `
+  return { updateViewport, isKeyboardTransitioning,
+    listener() {` + listener + `},
+    get pinned() { return isLogPinnedToBottom; },
+    get guarded() { return isProgrammaticScroll; } };`)(
+  win, document, inputEl, logEl, scrollToBottomBtn, currentTab, viewingPastSession, positionSlashMenu, setTimeout, clearTimeout);
+isProgrammatic = () => api.guarded;
+onScroll = () => api.listener();
+
+const bottom = () => logEl.scrollHeight - logEl.clientHeight;
+const state = () => ({ top: logEl.scrollTop, bottom: bottom(), pinned: api.pinned, hidden: scrollToBottomBtn.hidden,
+  unguarded: unguardedWrites, transitioning: api.isKeyboardTransitioning() });
+function run(startTop) {
+  cls.clear(); flush(); win.visualViewport.height = 800; document.activeElement = null;
+  logEl.layout(2000, 600); api.updateViewport(); flush();
+  logEl.scrollTop = startTop;           // the user's own scroll: the listener decides pinned
+  api.updateViewport(); flush();
+  unguardedWrites = 0; buttonLog.length = 0;
+  const out = { before: state() };
+  // enter: focus alone flips keyboard-open (no height change yet), .msg shrinks from the CSS rule
+  document.activeElement = inputEl; api.updateViewport();
+  logEl.layout(1900, 600);
+  // then the keyboard itself takes the viewport height
+  win.visualViewport.height = 500; logEl.layout(1900, 300); api.updateViewport();
+  out.enterMid = state();
+  flush();
+  out.enter = state(); out.enterButtons = buttonLog.splice(0);
+  // leave: blur flips it back, the viewport grows again, .msg grows back
+  document.activeElement = null; win.visualViewport.height = 800; logEl.layout(1900, 600); api.updateViewport();
+  logEl.layout(2000, 600);
+  out.leaveMid = state();
+  flush();
+  out.leave = state(); out.leaveButtons = buttonLog.splice(0);
+  return out;
+}
+const out = { pinnedCase: run(1400), scrolledCase: run(500) };
+console.log(JSON.stringify(out));
+"""
+
+
 def rule(selector, css=CSS, after=None):
     """Body of the first rule `selector{...}` at/after an anchor string (whitespace-insensitive)."""
     start = css.index(after) if after else 0
@@ -188,6 +270,41 @@ class InputFollowsTheStylesheet(unittest.TestCase):
 
     def test_a_slash_command_no_longer_changes_the_input_height(self):
         self.assertEqual(self.o["afterSlashReset"], {"cssFallback": "36px", "js": "36px"})
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class KeyboardKeepsTheLogWhereItWas(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        r = subprocess.run(["node", "-e", SCROLL_HARNESS, str(APP)], capture_output=True, text=True, timeout=30)
+        assert r.returncode == 0, r.stderr
+        cls.o = json.loads(r.stdout.strip().splitlines()[-1])
+
+    def test_a_pinned_log_ends_at_the_true_bottom_both_ways(self):
+        c = self.o["pinnedCase"]
+        self.assertTrue(c["before"]["pinned"])
+        for phase in ("enter", "leave"):
+            s = c[phase]
+            self.assertEqual(s["top"], s["bottom"], phase)       # newest message not covered
+            self.assertTrue(s["pinned"], phase)                  # the single truth survives the transition
+            self.assertTrue(s["hidden"], phase)
+            self.assertFalse(s["transitioning"], phase)
+            self.assertNotIn(False, c[phase + "Buttons"], phase)   # the button never flashed on
+
+    def test_a_scrolled_up_log_keeps_its_reading_position_both_ways(self):
+        c = self.o["scrolledCase"]
+        self.assertFalse(c["before"]["pinned"])
+        self.assertFalse(c["before"]["hidden"])
+        for phase in ("enterMid", "enter", "leave"):
+            self.assertEqual(c[phase]["top"], 500, phase)
+            self.assertFalse(c[phase]["pinned"], phase)
+        self.assertTrue(c["enter"]["hidden"])                    # keyboard-open always hides the button
+        self.assertFalse(c["leave"]["hidden"])                   # ...and it is back as before, once
+        self.assertEqual(c["leaveButtons"], [False] * len(c["leaveButtons"]))
+
+    def test_every_scroll_write_is_guarded(self):
+        for case in ("pinnedCase", "scrolledCase"):
+            self.assertEqual(self.o[case]["leave"]["unguarded"], 0, case)
 
 
 class DecidedSizesStayAsDocumented(unittest.TestCase):

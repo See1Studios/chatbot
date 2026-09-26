@@ -37,8 +37,7 @@ function autoResizeInput() {
 // 포커스를 유지한 채 키보드만 올/내려도 올바르게 동작한다.
 let _composerMode = '';         // narrow/wide + keyboard-open of the last updateViewport (input height follows the CSS for it)
 let _prevVvHeight = 0;          // 직전 visualViewport 높이
-let _savedScrollTop = null;     // 키보드 열릴 때 보존한 scrollTop
-let _wasNearBottomBeforeKeyboard = true; // 키보드 열리기 직전의 nearBottom 상태
+let _savedScrollTop = null;     // 키보드 열릴 때 보존한 scrollTop (바닥 고정이 아닐 때만)
 let _isKeyboardTransitioning = false;
 let _keyboardTransitionTimer = null;
 
@@ -49,6 +48,10 @@ function markKeyboardTransition(duration = 300) {
     _keyboardTransitionTimer = setTimeout(() => {
       _isKeyboardTransitioning = false;
       _keyboardTransitionTimer = null;
+      // the layout has settled (the .msg resizes were skipped meanwhile): land a pinned log at the true bottom once
+      if (typeof isLogPinnedToBottom !== 'undefined' && isLogPinnedToBottom && typeof scrollChatToBottom === 'function') {
+        scrollChatToBottom(true);
+      }
     }, duration);
   } else {
     _isKeyboardTransitioning = false;
@@ -67,6 +70,25 @@ function keyboardOpenState(narrow, short, focused, touch) {
   return Boolean(narrow && (short || (focused && touch)));
 }
 
+// Keyboard up/down: a pinned log (isLogPinnedToBottom, the single truth since #211) snaps to the bottom; an
+// unpinned one keeps its reading position. Every write goes through the isProgrammaticScroll guard, so the
+// log's scroll listener does not take it for a user scroll.
+function holdLogPosition(opening) {
+  if (isLogPinnedToBottom) {
+    _savedScrollTop = null;
+    scrollChatToBottom(true);
+    return;
+  }
+  if (opening) {
+    if (_savedScrollTop === null) _savedScrollTop = logEl.scrollTop;
+  } else if (_savedScrollTop !== null) {
+    isProgrammaticScroll = true;
+    logEl.scrollTop = _savedScrollTop;
+    isProgrammaticScroll = false;
+    _savedScrollTop = null;
+  }
+}
+
 function updateViewport() {
   const vv = window.visualViewport;
   const h = vv ? Math.round(vv.height) : window.innerHeight;
@@ -80,9 +102,9 @@ function updateViewport() {
   const isTouch = Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   const prevKeyboardOpen = document.body.classList.contains('keyboard-open');
   const isKeyboardOpen = keyboardOpenState(isNarrow, isShort, isInputFocused, isTouch);
-  if (!prevKeyboardOpen && isKeyboardOpen) {
-    markKeyboardTransition(350);
-  }
+  const keyboardFlipped = prevKeyboardOpen !== isKeyboardOpen;
+  // every real flip (a height change or just focus on a touch device) resizes .msg via body.keyboard-open
+  if (keyboardFlipped) markKeyboardTransition(350);
   document.body.classList.toggle('keyboard-open', Boolean(isKeyboardOpen));
   // the composer's CSS heights depend on both -- re-measure the input when either flips
   const composerMode = (isNarrow ? 'n' : 'w') + (isKeyboardOpen ? 'k' : '-');
@@ -94,35 +116,14 @@ function updateViewport() {
   const liveSlashMenu = document.getElementById('slashMenu');
   if (liveSlashMenu && !liveSlashMenu.hidden) positionSlashMenu();
 
-  if (logEl && currentTab === 'chat' && isNarrow && _prevVvHeight > 0) {
-    const delta = h - _prevVvHeight; // 양수 = viewport 커짐(키보드 닫힘), 음수 = 작아짐(키보드 열림)
-
-    if (delta < -60) {
-      // 키보드 열림(또는 내렸다가 다시 올라옴): 보던 위치를 저장하고,
-      // 바닥 근처였으면 새 높이에 맞춰 snap.
-      markKeyboardTransition(300);
-      _savedScrollTop = logEl.scrollTop;
-      if (_wasNearBottomBeforeKeyboard) {
-        logEl.scrollTop = logEl.scrollHeight;
-      }
-      // 읽던 중이었으면 저장한 scrollTop 그대로 → 변경 없음
-    } else if (delta > 60 && _savedScrollTop !== null) {
-      // 키보드 닫힘: viewport 높이가 복원됨.
-      // 바닥 근처였으면 snap, 아니었으면 저장된 위치로 복원.
-      markKeyboardTransition(300);
-      if (_wasNearBottomBeforeKeyboard) {
-        logEl.scrollTop = logEl.scrollHeight;
-      } else {
-        logEl.scrollTop = _savedScrollTop;
-      }
-      _savedScrollTop = null;
-      // 버튼 가시성: clientHeight 복원 직후 isUserNearBottom()은 부정확하므로
-      // 키보드 열리기 전 상태(_wasNearBottomBeforeKeyboard)로 직접 결정
-      updateScrollBottomButton(_wasNearBottomBeforeKeyboard);
-      _prevVvHeight = h;
-      return;
+  if (logEl && currentTab === 'chat' && isNarrow) {
+    const delta = _prevVvHeight > 0 ? h - _prevVvHeight : 0; // 양수 = viewport 커짐(키보드 닫힘), 음수 = 작아짐(키보드 열림)
+    if (keyboardFlipped || Math.abs(delta) > 60) {
+      if (!keyboardFlipped) markKeyboardTransition(300);
+      holdLogPosition(keyboardFlipped ? isKeyboardOpen : delta < 0);
     }
-    updateScrollBottomButton();
+    // clientHeight is still moving: the pinned state, not a fresh measurement, decides the button
+    updateScrollBottomButton(isLogPinnedToBottom);
   }
 
   _prevVvHeight = h;
