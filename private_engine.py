@@ -44,6 +44,7 @@ FAMILY_FILES = {
 FAMILY_MARKERS = (  # (family, substrings matched against the model name first, then the provider id)
     ("claude", ("claude", "anthropic", "opus", "sonnet", "haiku")),
     ("gemini", ("gemini", "agy", "antigravity")),
+    ("grok", ("grok", "xai", "x-ai")),  # #236
     ("local", ("local", "ollama", "llama", "qwen", "mistral", "gemma", "lmstudio")),
 )
 _FAMILY_TABLES: Dict[str, Dict[str, Any]] = {}
