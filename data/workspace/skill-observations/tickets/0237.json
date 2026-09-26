@@ -3,13 +3,15 @@
  "approved_at": "2026-09-26 20:31:45",
  "approved_by": "operator (ui)",
  "attempts": 2,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-26 19:54:16",
  "evidence": [
   "event:20260926-195018-d349f9#7"
  ],
  "gate_failures": 1,
  "id": 237,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -50,16 +52,31 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-237 at ebf6c28 (agy, review PASS round 1)",
    "ts": "2026-09-26 20:51:36"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-26 21:00:58"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 1196f06 on the operator's word (agy)",
+   "ts": "2026-09-26 21:01:09"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-26 21:01:09"
   }
  ],
  "paths": [
   "data/private_tension_grok.json",
   "private_engine.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "data/private_tension_grok.json,private_engine.py",
  "title": "#236 Grok 패밀리 텐션 테이블 추가",
  "unavailable": 1,
- "updated": "2026-09-26 20:51:36",
+ "updated": "2026-09-26 21:01:09",
  "worked_by": "agy"
 }
