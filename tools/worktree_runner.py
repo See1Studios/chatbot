@@ -282,13 +282,14 @@ def need_paths(text: str, paths: List[str]) -> List[Dict[str, str]]:
 
 
 def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[str], gates: List[str],
-                  instruction: str, character: str, memory: str = "") -> str:
+                  instruction: str, character: str, memory: str = "", reads: Optional[List[str]] = None) -> str:
     remembered = ["What you remember from earlier work (yours alone):", memory, ""] if memory.strip() else []
     return "\n".join(remembered + [
         "You are working on ticket #%d (%s) in an isolated git worktree of the services/chatbot repository." % (tid, title),
         "Working directory: %s (branch %s). Stay inside it: do not modify %s or any other path, "
         "do not push, do not restart or deploy services." % (wt_dir, branch, CHATBOT_REPO),
         "Change only these repo-relative paths: %s. Changes anywhere else fail the scope gate." % ", ".join(paths),
+    ] + (["Read these for reference only; do not change them: %s." % ", ".join(reads)] if reads else []) + [
         "If the task truly needs a file outside them, do not touch it: end your answer with one line per file "
         "`NEED_PATH: <repo-relative path> -- <why>` and stop; the operator can allow it and you will continue.",
         "When done, commit your work on this branch (git add <files> && git commit -m '...'); "
@@ -793,7 +794,8 @@ def plan_tasks(args, st: Dict, paths: List[str]) -> List[Dict]:
             if not tp or not all(any(in_scope(x, [p]) for p in paths) for x in tp):
                 raise Failure("failed", "task %r names paths outside the plan's" % t.get("title", "")[:40])
             out.append({"role": t.get("role") or WORKER_ROLE, "title": t.get("title") or args.title,
-                        "instruction": t.get("instruction") or "", "paths": tp})
+                        "instruction": t.get("instruction") or "", "paths": tp,
+                        "reads": [x for x in (t.get("reads") or []) if x and x not in tp]})
         return out
     return [{"role": WORKER_ROLE, "title": args.title, "instruction": args.prompt, "paths": paths}]
 
@@ -939,7 +941,8 @@ def cmd_run(args) -> int:
             head_line = ("This is task %d of %d in the plan \"%s\". Do only this task.\n" % (tno, len(tasks), args.title)
                          if len(tasks) > 1 else "")
             brief = writer_prompt(tid, task["title"], branch, wt_dir, task["paths"], gates, head_line + task["instruction"],
-                                  character_block(writer_p, reviewer_p, STAFF_RELATION), read_memory(task["role"]))
+                                  character_block(writer_p, reviewer_p, STAFF_RELATION), read_memory(task["role"]),
+                                  task.get("reads"))
             lessons: List[str] = []
             feedback = ""
             chain = expert_chain(task["role"], [{"provider": provider, "model": args.model, "timeout": 0}])

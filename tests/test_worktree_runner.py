@@ -214,6 +214,18 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(self.run_with("true", extra=("--ticket", "7", "--token", "tok", "--from-attic")), 1)
         self.assertIn("no refs/attic/ticket-7", " ".join(map(str, self.last_fail())))
 
+    def test_reads_reach_the_worker_but_not_the_scope(self) -> None:
+        wr.write_state(7, plan={"tasks": [{"role": "staff", "title": "t", "instruction": "i", "paths": ["a.txt"],
+                                           "reads": ["b.txt", "a.txt"]}]})
+        rc = self.run_with("cat > /dev/null; echo two >> a.txt && git commit -qam c",
+                           extra=("--ticket", "7", "--token", "tok", "--plan-from-state"))
+        self.assertEqual(rc, 0)
+        tasks = wr.plan_tasks(type("A", (), {"resume": False, "plan_from_state": True, "title": "t"})(),
+                              wr.read_state(7), ["a.txt"])
+        self.assertEqual(tasks[0]["reads"], ["b.txt"])
+        prompt = wr.writer_prompt(7, "t", "b", self.base, ["a.txt"], [], "i", "", reads=["b.txt"])
+        self.assertIn("reference only; do not change them: b.txt", prompt)
+
     def test_keep_retains_a_failed_worktree(self) -> None:
         self.run_with("true", extra=("--keep",))
         self.assertTrue((wr.WORKTREE_BASE / "ticket-7").exists())

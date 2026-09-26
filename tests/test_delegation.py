@@ -209,6 +209,15 @@ class PlanPathsTest(Base):
                 self.plan([dict(self.task(["static/app.js"]), creates=bad)])
             self.assertIn(why, str(cm.exception))
 
+    def test_reads_stay_out_of_the_scope_and_the_tier(self):
+        tid = self.plan([dict(self.task(TIER0), reads=TIER2 + TIER0)])["ticket"]
+        st = self.state(tid)
+        self.assertEqual((st["tier"], st["paths"]), (0, TIER0))
+        self.assertEqual(st["plan"]["tasks"][0]["reads"], TIER2)
+        with self.assertRaises(delegation.DelegationError) as cm:
+            self.plan([dict(self.task(TIER0), reads=["static/style.css"])])
+        self.assertIn("reads static/style.css does not exist", str(cm.exception))
+
     def test_only_new_files_is_a_plan_too(self):
         tid = self.plan([{"role": "staff", "title": "t", "instruction": "i", "creates": ["static/app-new.js"]}])["ticket"]
         self.assertEqual(self.state(tid)["paths"], ["static/app-new.js"])
@@ -277,6 +286,17 @@ class OperatorTest(Base):
             self.assertIn(flag, args)
         self.assertEqual(args[args.index("--paths") + 1], ",".join(sorted(TIER0 + TIER2)))
         self.assertEqual(self.state(tid)["phase"], "starting")
+
+    def test_go_goes_on_from_the_attic_when_a_failed_attempt_left_one(self):
+        saved = delegation._has_attic
+        try:
+            for has, paths in ((False, TIER0), (True, TIER2)):
+                delegation._has_attic = lambda tid, has=has: has
+                tid = self.plan([self.task(paths)], title="attic %s" % has)["ticket"]
+                delegation.go(tid)
+                self.assertEqual("--from-attic" in self.spawned[-1][1], has)
+        finally:
+            delegation._has_attic = saved
 
     def test_go_on_a_ticket_from_elsewhere_makes_a_one_task_plan(self):
         t, _ = tickets.propose(self.data, "fix notes", TIER0[0], [CAND])

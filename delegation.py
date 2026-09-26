@@ -117,9 +117,19 @@ def _tasks(raw) -> List[Dict]:
         instruction = str(t.get("instruction") or "").strip()[:_INSTRUCTION_MAX]
         if not title or not instruction:
             raise DelegationError("task %d needs a title and an instruction" % n)
-        out.append({"role": role, "title": title, "instruction": instruction,
-                    "paths": _task_paths(n, t.get("paths"), t.get("creates"))})
+        paths = _task_paths(n, t.get("paths"), t.get("creates"))
+        out.append({"role": role, "title": title, "instruction": instruction, "paths": paths,
+                    "reads": [p for p in _task_reads(n, t.get("reads")) if p not in paths]})
     return out
+
+
+def _task_reads(n: int, reads) -> List[str]:
+    """Files the task only reads: not leased, not in the tier or scope checks, so they must exist."""
+    rels = tickets._norm_paths(_paths(reads), DATA) if reads else []
+    for rel in rels:
+        if not (PLAN_ROOT / rel).exists():
+            raise DelegationError("task %d: reads %s does not exist%s" % (n, rel, _nearest(rel)))
+    return rels
 
 
 def _task_paths(n: int, paths, creates) -> List[str]:
@@ -227,7 +237,14 @@ def go(ticket_id: int, queue: bool = True) -> Dict:
         return {"ticket": tid, "tier": tier, "queued": True, "blocked_by": blocked}
     runner().write_state(tid, phase="starting", tier=tier, transcript=[], reason="", blocked_by={})
     args = ["run", "--ticket", str(tid), "--token", c["token"], "--plan-from-state"]
+    if _has_attic(tid):   # a re-plan after gate_failed/failed goes on from the work that attempt left
+        args.append("--from-attic")
     return {"ticket": tid, "tier": tier, "pid": _launch(tid, c["token"], args)}
+
+
+def _has_attic(tid: int) -> bool:
+    r = runner()
+    return r.git(r.CHATBOT_REPO, "rev-parse", "--verify", "--quiet", r.attic_ref(tid))[0] == 0
 
 
 def rework(ticket_id: int, comment: str) -> Dict:
@@ -589,7 +606,7 @@ _DELEGATE_TOOL = {
     "name": "delegate",
     "description": ("You are the producer (PD): you do not change files yourself. For work the operator proposes, "
                     "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[existing repo-"
-                    "relative files][, creates=[new files]]}][, ticket to replace a plan still waiting, or one that gate_failed/failed with attempts left][, evidence; defaults to the operator's "
+                    "relative files it changes][, creates=[new files]][, reads=[existing files to read only; they do not raise the tier]]}][, ticket to replace a plan still waiting, or one that gate_failed/failed with attempts left][, evidence; defaults to the operator's "
                     "latest message]): the plan appears as a card and runs only when the operator presses [실행]; each "
                     "task is worked by its expert (role = a character's role, e.g. staff; see data/workspace/characters/) in an "
                     "isolated worktree, then you confirm it; the finished plan lands only when the operator presses "
@@ -604,7 +621,8 @@ _DELEGATE_TOOL = {
             "tasks": {"type": "array", "items": {"type": "object", "properties": {
                 "role": {"type": "string"}, "title": {"type": "string"}, "instruction": {"type": "string"},
                 "paths": {"type": "array", "items": {"type": "string"}},
-                "creates": {"type": "array", "items": {"type": "string"}}}}},
+                "creates": {"type": "array", "items": {"type": "string"}},
+                "reads": {"type": "array", "items": {"type": "string"}}}}},
             "ticket": {"type": "integer"},
             "paths": {"type": "array", "items": {"type": "string"}},
             "creates": {"type": "array", "items": {"type": "string"}},
