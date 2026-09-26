@@ -1,5 +1,15 @@
 # chatbot 개발로그
 
+## 2026-09-26 (밤) — 사적 선택지 speech-optional · silent /act 기본 + POST type=action (#245)
+
+- **진단(라이브)**: `markdown.js?v=17` 분류기는 정상 — `(행동)`→`/act`→wire `(…)`, `"대사"`→say, 콤보→say 유지. 그런데 최근 사적 세션(`20260926-233858` 등) 모델 제안이 **combo 30 / action 0**. 프로토콜 `Combined (preferred)` + 텐션 `권장 콤보`가 매 칩에 대사를 강제 → 클릭이 전부 say로만 나감. 또한 `server.py` `/message`가 클라이언트의 `type: "action"` / `action_text`를 무시하고 `sess.send`에 `event_type`을 안 넘김.
+- **A** `RENDER_PROTOCOL` + `RENDER_PROTOCOL_GROK_OVERLAY`: **Default = action-only** `(행동)` (silent /act). **Speech is OPTIONAL** — 자연스러울 때만 대사/콤보, 강제 대사 금지. `Combined (preferred)` 제거.
+- **B** `private_tension_{grok,defaults,gemini}.json` `choice_forms`: 동일 원칙. grok **v12**.
+- **C** `server.py`: `body.type=="action"` → wire `(action_text)` + `sess.send(..., event_type="action")`.
+- **D** `app-messages.js` `choiceItemToMarker`: action 재조립 시 `(행동)` 유지. `markdown.js?v=18` · `app-messages.js?v=5`.
+- **검증**: `python3 -m unittest tests.test_private_tension tests.test_choice_chips`. py 변경 → repair. **새 사적 세션**에서 ✦ 행동 칩 클릭 시 지문(`/act` wire) 확인. 하드 리프레시(캐시 무시) 필요.
+- **티켓**: #245.
+
 ## 2026-09-26 (밤) — 사적 Grok 선택지 USER 대사: 말≠행동재진술 · 상황 주소 (#244)
 
 - **배경**: 행동/상황 선택지는 충분한 데 `"대사"`가 행동을 말로 반복(action-narration)하거나 캐릭터 신음이 따옴표에 섞임. 말은 상대를 향한 상황적 의도·놀림·명령·애원·돌봄이어야 함.

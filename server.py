@@ -1034,8 +1034,25 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     code, raw = _json_bytes({"ok": True, "blocked": True, "notice": item, "session": pub})
                     return self._send(code, raw, "application/json; charset=utf-8")
 
+                # Structured action from the page (/act → type=action + action_text).
+                # Keep wire text as "(…)" for history/UI; pass event_type so tension_step
+                # and any future action formatting see an explicit action even if parens
+                # are missing or malformed.
+                event_type = str(body.get("type") or "").strip().lower()
+                if event_type == "action":
+                    action_text = str(body.get("action_text") or "").strip()
+                    if action_text:
+                        bare = action_text.strip("()").strip()
+                        if bare:
+                            text = "(" + bare + ")"
+                    elif text.startswith("/act ") or text.startswith("/me ") or text.startswith("/action "):
+                        bare = text.split(None, 1)[1].strip().strip("()").strip()
+                        if bare:
+                            text = "(" + bare + ")"
+                else:
+                    event_type = ""
                 try:
-                    rotated = sess.send(text, client_mid, client_context=client_ctx)
+                    rotated = sess.send(text, client_mid, client_context=client_ctx, event_type=event_type)
                 except Exception as e:
                     # skill-observations 0011 (2026-09-17): this route
                     # intermittently 500'd on a brand-new session's first

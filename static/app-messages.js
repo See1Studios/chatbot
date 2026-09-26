@@ -648,7 +648,9 @@ function textWithChoices(h) {
       const lbl = String(x.label).trim();
       if (!lbl) return '';
       if (x.kind === 'action' || x.isAction) {
-        const act = String(x.payload || x.action || lbl).trim();
+        let act = String(x.payload || x.action || lbl).trim();
+        // Keep (행동) form so re-parse via classifyChoicePayload stays action → /act.
+        if (act && !(act.startsWith('(') && act.endsWith(')'))) act = '(' + act.replace(/^\(+|\)+$/g, '').trim() + ')';
         return lbl + ' -> ' + act;
       }
       if (x.kind === 'command') {
