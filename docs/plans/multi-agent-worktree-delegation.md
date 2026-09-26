@@ -327,3 +327,27 @@ data/workspace/pd-brain.json               PD 확인의 두뇌 목록
 - 도구 권한은 역할 팩이 준다: MCP 서버가 응답 중인 세션의 캐릭터 도구(`/api/sessions/busy`의 `tools`)로 `delegate`·집 기억 쓰기를 열고 닫는다.
 - 기억: `memory/MEMORY.md` = 집 공용 기억(모두 읽고 `house-memory` 권한만 씀), 캐릭터마다 자기 `memory.md`, 사적 기억은 §12 1번대로.
 - `roles/`·`team.json`은 Tier 3(governance). 스킬 중 역할 팩이 요구하는 것은 그 역할을 가진 캐릭터에게만 보인다.
+
+## 13. 파이프라인 정비 (2026-09-26 회고, 계획)
+상태: **계획** (착수는 사용자 승인 후). 항목마다 티켓 하나.
+
+### 13.1 회고 (2026-09-26에 깨진 것)
+1. `[실행]` → `POST /api/delegations/213/go` HTTP 400 (로그 rid `cd515c6a7990`). 원인: 티켓 없이 디스크에 쓴 계획 문서 4개 때문에 `tickets.claim`이 `uncommitted leftover`로 거절(`tickets.py` L706–708). 사유는 티켓 노트에만 있고 카드엔 맨 오류만 떴다.
+2. 파일을 지우거나 이름 바꾸는 문서 작업이 실행 중에야 다른 파일의 링크도 고쳐야 함을 발견 → `NEED_PATH` 일시정지 → 재개 시 리뷰 diff에서 정지 전 커밋이 빠져 PD가 두 번 FAIL (#214, `3cd53af`에서 수정).
+3. `gate_failed` 정리가 워크트리·브랜치를 지워 멀쩡한 작업 커밋 `90d85a9`가 dangling으로 남음(`git gc`면 소실). `tools/worktree_runner.py` L33 "탈락 -> ... 정리".
+4. `gate_failed` 뒤 같은 티켓으로 계획 수정 불가: `delegation.py` L167 `not a plan waiting for [실행]`(시도 1/3인데도). #213을 새 티켓 #215로 대체해야 했다.
+5. `paths`에 넣은 읽기 전용 참고 파일이 문서 전용 계획을 Tier 2로 올림 — tier는 `paths` 전체로 계산(`delegation.py` L162–163 `tier_of(paths)`).
+
+### 13.2 제안
+| id | 변경 | 막는 문제 | 대상 파일 | tier |
+|---|---|---|---|---|
+| A | `delegate plan` 시점 사전 점검: untracked/dirty/없는 `paths`는 거절 또는 경고; 삭제·이름변경 대상은 참조처를 grep해 `paths` 추가 제안 | 1, 2 | `delegation.py` | 2 |
+| B | 카드에 API 오류의 거절 사유를 한국어 한 줄로 표시 | 1 | `static/app-evolution.js` | 0 |
+| C | `gate_failed`/`failed` 시 브랜치 헤드를 `refs/attic/ticket-N`에 보존; 같은 티켓 재실행은 거기서 시작 가능 | 3 | `tools/worktree_runner.py` | 3 (승인 티켓 아래 PD가 직접) |
+| D | `gate_failed` 티켓 재계획 허용 (같은 id, 시도 횟수 규칙 그대로) | 4 | `delegation.py` | 2 |
+| E | 작업 스키마를 `paths`(변경)·`reads`(참고만)로 분리; tier와 범위 검사는 `paths`만 | 5 | `delegation.py`, `tools/worktree_runner.py` | 3 |
+
+### 13.3 순서
+1. A+B 먼저 — 싸고, 오늘의 오류를 막는다.
+2. C+D 함께 — 실패를 이어서 재개 가능하게.
+3. E 마지막 — 스키마 변경.
