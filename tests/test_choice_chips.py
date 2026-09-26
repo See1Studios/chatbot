@@ -414,10 +414,11 @@ class ChoiceChips(unittest.TestCase):
         js = r"""
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[1], 'utf8');
+const a0 = src.indexOf('function stripOuterParens');
 const a = src.indexOf('function classifyChoicePayload');
 const b = src.indexOf('function splitChoices');
 if (a < 0 || b < 0) throw new Error('markers');
-eval(src.slice(a, b));
+eval(src.slice(a0 >= 0 ? a0 : a, b));
 const act = classifyChoicePayload('(조용히 끌어안는다)');
 const say = classifyChoicePayload('"조금만 더 가까이"');
 const combo = classifyChoicePayload('"자기, 여기" (귀에 숨을 흘린다)');
@@ -435,17 +436,17 @@ console.log(JSON.stringify({act, say, combo, charLeak, curlyAct, smartCombo, bar
         o = json.loads(r.stdout)
         self.assertEqual(o["act"]["kind"], "action")
         self.assertTrue(o["act"]["isAction"])
-        self.assertEqual(o["say"]["kind"], "say")
-        self.assertFalse(o["say"]["isAction"])
-        self.assertEqual(o["say"]["payload"], "조금만 더 가까이")
-        self.assertEqual(o["combo"]["kind"], "say")
-        self.assertFalse(o["combo"]["isAction"])
+        self.assertEqual(o["say"]["kind"], "action")
+        self.assertTrue(o["say"]["isAction"])
+        self.assertIn("조금만 더 가까이", o["say"]["payload"])
+        self.assertEqual(o["combo"]["kind"], "action")
+        self.assertTrue(o["combo"]["isAction"])
         self.assertIn("자기, 여기", o["combo"]["payload"])
         self.assertIn("귀에 숨을", o["combo"]["payload"])
         self.assertEqual(o["curlyAct"]["kind"], "action")
         self.assertTrue(o["curlyAct"]["isAction"])
-        self.assertEqual(o["smartCombo"]["kind"], "say")
-        self.assertFalse(o["smartCombo"]["isAction"])
+        self.assertEqual(o["smartCombo"]["kind"], "action")
+        self.assertTrue(o["smartCombo"]["isAction"])
         self.assertEqual(o["bareAct"]["kind"], "action")
         self.assertTrue(o["bareAct"]["isAction"])
 

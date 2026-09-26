@@ -239,6 +239,12 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("Default each slot to action-only", PE.RENDER_PROTOCOL_GROK_OVERLAY)
         self.assertIn("forced dialogue", PE.RENDER_PROTOCOL_GROK_OVERLAY)
 
+        # #246 ALL choices are ACTIONS + ACTION-ECHO BAN
+        self.assertIn("ALL choices are ACTIONS", PE.RENDER_PROTOCOL)
+        self.assertIn("ACTION-ECHO BAN", PE.RENDER_PROTOCOL)
+        self.assertIn("ALL choice clicks are ACTIONS", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("ACTION-ECHO BAN", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+
 
     def test_private_instruction_bundle_includes_render_protocol(self):
         import instructions
@@ -359,12 +365,13 @@ class SessionTension(unittest.TestCase):
         self.assertIn("2) 더 과감한 밀착/직진", wire)
         self.assertIn("3) 깊은 감각/분위기 탐닉", wire)
 
-    def test_grok_tension_v12_is_reaction_craft(self):
+    def test_grok_tension_v13_is_reaction_craft(self):
         import json
         raw = json.loads(PE.FAMILY_FILES["grok"].read_text(encoding="utf-8"))
-        self.assertEqual(raw["version"], 12)
+        self.assertEqual(raw["version"], 13)
         self.assertIn("대사(speech)는 OPTIONAL", raw["texts"]["choice_forms"])
         self.assertIn("silent /act", raw["texts"]["choice_forms"])
+        self.assertIn("ALL choices are ACTIONS", raw["texts"]["choice_forms"])
         blob = " ".join(raw["texts"].values())
         self.assertIn("REACTION-first", blob)
         self.assertIn("목석", blob)

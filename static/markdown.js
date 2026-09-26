@@ -291,44 +291,78 @@ function parseThought(text, streaming) {
   return { thought: thoughts.length ? thoughts.join('\n') : null, cleanText: out.trim() };
 }
 
+function stripOuterParens(s) {
+  // Balanced outer (...) only — do not eat trailing ) of an inner "(act)" in "line" (act).
+  let out = String(s || '').trim();
+  while (out.length >= 2 && out[0] === '(' && out[out.length - 1] === ')') {
+    let depth = 0, balanced = true;
+    for (let i = 0; i < out.length; i++) {
+      const ch = out[i];
+      if (ch === '(') depth++;
+      else if (ch === ')') {
+        depth--;
+        if (depth === 0 && i !== out.length - 1) { balanced = false; break; }
+        if (depth < 0) { balanced = false; break; }
+      }
+    }
+    if (!balanced || depth !== 0) break;
+    out = out.slice(1, -1).trim();
+  }
+  return out;
+}
+
 function classifyChoicePayload(rawPayload) {
   // Normalize curly/smart quotes and fullwidth parens so pure (행동) still → /act.
+  // #246: ALL choice clicks are ACTIONS. Dialogue on a chip is optional flavor baked
+  // into the action (/act wire) — NOT plain say. Real speech = user typing.
   let s = String(rawPayload || '').trim();
   if (!s) return { kind: 'say', payload: '', isAction: false };
   s = s
     .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
     .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
     .replace(/\uFF08/g, '(').replace(/\uFF09/g, ')');
-  // Combined: "user line" (action) — speech stays speech (not /act)
+  // Combined: "user line" (action) — still action; flavor baked in
   const combo = /^"([^"]*)"\s*\(([\s\S]+)\)\s*$/.exec(s);
   if (combo) {
     const line = combo[1].trim();
-    const act = combo[2].trim().replace(/^\(+|\)+$/g, '').trim();
+    const act = stripOuterParens(combo[2].trim());
     if (!line) return { kind: 'action', payload: act, action: act, isAction: true };
     const payload = '"' + line + '" (' + act + ')';
-    return { kind: 'say', payload, action: payload, isAction: false };
+    return { kind: 'action', payload, action: payload, isAction: true };
   }
   // Action-only: (action) — silent /act. Also accept * (action) * italics wrappers.
+  // Outer wrap may enclose dialogue-flavor or combo: ("line") / ("line" (act)).
   const actOnly = /^\*?\s*\(([\s\S]+)\)\s*\*?\s*$/.exec(s);
   if (actOnly) {
-    const act = actOnly[1].trim().replace(/^\(+|\)+$/g, '').trim();
+    const inner = actOnly[1].trim();
+    const nestedCombo = /^"([^"]*)"\s*\(([\s\S]+)\)\s*$/.exec(inner);
+    if (nestedCombo) {
+      const line = nestedCombo[1].trim();
+      const act = stripOuterParens(nestedCombo[2].trim());
+      if (!line) return { kind: 'action', payload: act, action: act, isAction: true };
+      const payload = '"' + line + '" (' + act + ')';
+      return { kind: 'action', payload, action: payload, isAction: true };
+    }
+    const nestedSay = /^"([^"]*)"\s*$/.exec(inner);
+    if (nestedSay) {
+      const payload = '"' + nestedSay[1].trim() + '"';
+      return { kind: 'action', payload, action: payload, isAction: true };
+    }
+    const act = stripOuterParens(inner);
     return { kind: 'action', payload: act, action: act, isAction: true };
   }
-  // Dialogue-only: "user line"
+  // Dialogue-flavor: "user line" — still action (flavor), not composer say
   const sayOnly = /^"([^"]*)"\s*$/.exec(s);
   if (sayOnly) {
-    const line = sayOnly[1].trim();
-    // Quoted text that is clearly a stage direction / bare verb phrase with no speech intent
-    // still counts as say (quotes mean speech). Models must use (행동) for /act.
-    return { kind: 'say', payload: line, action: line, isAction: false };
+    const payload = '"' + sayOnly[1].trim() + '"';
+    return { kind: 'action', payload, action: payload, isAction: true };
   }
-  // Legacy bare text after -> : treat as action (label -> 조용히 다가간다)
-  // But if it still looks like quoted speech with mismatched quotes, strip and say.
+  // Legacy mismatched quotes
   if (/^["'].*["']$/.test(s)) {
-    const line = s.slice(1, -1).trim();
-    return { kind: 'say', payload: line, action: line, isAction: false };
+    const payload = '"' + s.slice(1, -1).trim() + '"';
+    return { kind: 'action', payload, action: payload, isAction: true };
   }
-  const bare = s.replace(/^\(+|\)+$/g, '').trim();
+  const bare = stripOuterParens(s);
   return { kind: 'action', payload: bare, action: bare, isAction: true };
 }
 
@@ -423,19 +457,17 @@ function pickChoice(choice) {
   const payload = item.payload || item.action || item.label;
 
   if (kind === 'action' || item.isAction) {
-    // Re-confirm: if payload is still "line" (act) combo, speech stays speech.
+    // #246: choices (incl. dialogue-flavor / combo) always go as action — never flip to say.
     const reclass = classifyChoicePayload(payload);
-    if (reclass.kind === 'say' && /^"/.test(String(payload).trim())) {
-      inputEl.value = reclass.payload;
-      sendPickedChoice();
-      return;
-    }
-    const act = String(reclass.kind === 'action' ? reclass.payload : payload).replace(/^\(+|\)+$/g, '').trim();
+    const act = String(reclass.kind === 'action' ? reclass.payload : payload);
+    const bare = (typeof stripOuterParens === 'function') ? stripOuterParens(act) : act.replace(/^\(+|\)+$/g, '').trim();
+    // Keep dialogue-flavor / combo payload intact (starts with quote); bare actions lose outer wraps.
+    const wire = /^"/.test(String(act).trim()) ? String(act).trim() : bare;
     if (typeof sendAction === 'function') {
-      sendAction(act);
+      sendAction(wire);
       return;
     }
-    inputEl.value = '/act ' + act;
+    inputEl.value = '/act ' + wire;
     sendPickedChoice();
     return;
   }

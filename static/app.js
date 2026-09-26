@@ -532,9 +532,12 @@ async function send(opts) {
   const isAutoBtw = isBusy && isInquiry(text);
   const isExplicitBtw = text.startsWith('/btw ') || text.startsWith('/btw\n') || text === '/btw';
   const isBtw = isAutoBtw || isExplicitBtw;
-  // "/act x", "(x)" and "((x))" are all one action; strip stray parens so the wire form is always "(x)".
+  // "/act x", "(x)" and "((x))" are all one action; strip only balanced outer parens so
+  // flavored combo '"line" (act)' keeps its inner group (#246).
   const actionText = /^\/(?:act|action|me)\s+\S/.test(text)
-    ? text.replace(/^\/(?:act|action|me)\s+/, '').trim().replace(/^\(+|\)+$/g, '').trim()
+    ? (typeof stripOuterParens === 'function'
+        ? stripOuterParens(text.replace(/^\/(?:act|action|me)\s+/, '').trim())
+        : text.replace(/^\/(?:act|action|me)\s+/, '').trim().replace(/^\(+|\)+$/g, '').trim())
     : actionTextOf(text);
   const isAction = Boolean(actionText);
 

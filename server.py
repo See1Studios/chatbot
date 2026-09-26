@@ -1040,13 +1040,14 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 # are missing or malformed.
                 event_type = str(body.get("type") or "").strip().lower()
                 if event_type == "action":
+                    from private_engine import strip_outer_parens as _strip_outer_parens
                     action_text = str(body.get("action_text") or "").strip()
                     if action_text:
-                        bare = action_text.strip("()").strip()
+                        bare = _strip_outer_parens(action_text)
                         if bare:
                             text = "(" + bare + ")"
                     elif text.startswith("/act ") or text.startswith("/me ") or text.startswith("/action "):
-                        bare = text.split(None, 1)[1].strip().strip("()").strip()
+                        bare = _strip_outer_parens(text.split(None, 1)[1].strip())
                         if bare:
                             text = "(" + bare + ")"
                 else:

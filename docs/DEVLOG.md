@@ -1,5 +1,16 @@
 # chatbot 개발로그
 
+## 2026-09-26 (밤) — 사적 선택지 ALL=action · 본문 action-echo 금지 (#246)
+
+- **실장님 Clarification**: (1) 선택지 클릭은 **전부 ACTION** — 칩의 대사는 optional flavor로 액션에 굽힘(`/act` 와이어). 진짜 말은 사용자가 타이핑. (2) 캐릭터 본문은 사용자 행동 재진술 금지 — 반응(액체/신음/몸)만 dense.
+- **A** `static/markdown.js` `classifyChoicePayload`/`pickChoice`: `"대사"`·콤보도 `kind:action` → `sendAction`. 균형 괄호 `stripOuterParens` (안쪽 `(행동)` 보존).
+- **B** `static/app-sse.js` `actionTextOf` · `app.js` `/act` 파싱 · `server.py` action wire · `private_engine.strip_outer_parens`/`tension_step`: 콤보 와이어 `("대사" (행동))` 안전.
+- **C** `RENDER_PROTOCOL` + Grok overlay + `private_tension_{grok,defaults,gemini}.json`(grok **v13**): ALL choices=action · ACTION-ECHO BAN.
+- **D** 캐시 `markdown.js?v=19` · `app.js?v=161` · `app-messages.js?v=6` · `app-sse.js?v=2`.
+- **검증**: `python3 -m unittest tests.test_private_tension tests.test_choice_chips`. py → repair. **새 사적 세션**+하드 리프레시.
+- **티켓**: #246.
+
+
 ## 2026-09-26 (밤) — 사적 선택지 speech-optional · silent /act 기본 + POST type=action (#245)
 
 - **진단(라이브)**: `markdown.js?v=17` 분류기는 정상 — `(행동)`→`/act`→wire `(…)`, `"대사"`→say, 콤보→say 유지. 그런데 최근 사적 세션(`20260926-233858` 등) 모델 제안이 **combo 30 / action 0**. 프로토콜 `Combined (preferred)` + 텐션 `권장 콤보`가 매 칩에 대사를 강제 → 클릭이 전부 say로만 나감. 또한 `server.py` `/message`가 클라이언트의 `type: "action"` / `action_text`를 무시하고 `sess.send`에 `event_type`을 안 넘김.

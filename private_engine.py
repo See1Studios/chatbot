@@ -71,6 +71,31 @@ def family_table(family: str) -> Dict[str, Any]:
     return _FAMILY_TABLES[family]
 
 
+
+def strip_outer_parens(s: str) -> str:
+    """Strip balanced outer (...) wraps only. Unlike str.strip('()'), keeps
+    trailing ')' that close an inner group (e.g. '"line" (act)' stays intact)."""
+    out = (s or "").strip()
+    while len(out) >= 2 and out[0] == "(" and out[-1] == ")":
+        depth = 0
+        balanced = True
+        for i, ch in enumerate(out):
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0 and i != len(out) - 1:
+                    balanced = False
+                    break
+                if depth < 0:
+                    balanced = False
+                    break
+        if not balanced or depth != 0:
+            break
+        out = out[1:-1].strip()
+    return out
+
+
 def tension_after(stage: int, slot: int = -1, action: bool = False) -> int:
     """Next stage: a picked slot moves it by its index (slot 0 holds, 1 nudges +1, 2 nudges +2), an action nudges +1; clamped to 1..4."""
     step = slot if 0 <= slot < len(TENSION_SLOTS) else (1 if action else 0)
@@ -108,7 +133,7 @@ def tension_step(stage: int, recent: List[str], history: List[dict], text: str,
     last = next((h for h in reversed(history or []) if h.get("role") in ("user", "assistant")), {})
     offered = [str(c) for c in (last.get("choices") or [])] if last.get("role") == "assistant" else []
     labels = [c.split("->")[0].strip() for c in offered]
-    said_unwrapped = said.strip("()").strip()
+    said_unwrapped = strip_outer_parens(said)
     picked = {said, said_unwrapped, said.strip('"').strip(), said_unwrapped.strip('"').strip()}
     candidates = [_choice_candidates(c) for c in offered]
     slot = next((i for i, cand in enumerate(candidates) if picked & cand), -1)
@@ -143,6 +168,7 @@ def tension_context(stage: int, recent_choices: List[str], table: Optional[Dict[
 RENDER_PROTOCOL = """## Voice & Actions
 - Physical actions, body language, gaze, motions, and touch should be written in concise italics (*...*). Spoken dialogue must be in quotes ("...").
 - Keep responses short: one or two spoken sentences with vivid, light physical actions. No novel or visual-novel prose, no stage directions.
+- **ACTION-ECHO BAN**: Do NOT restate/repeat the user's action description in your body. The user already acted — write only YOUR reaction (liquid/wet, moan/breath, body micro-react). Dense. No narrating their move back at them.
 - No AI tells: no meta commentary ("내가 생각해도 ~", "~톤으로 맞췄어", "마음에 들어?"), no over-eager or textbook empathy.
 
 ## Expressions & Thoughts
@@ -154,20 +180,21 @@ RENDER_PROTOCOL = """## Voice & Actions
 
 ## Choices
 - Choices are the **coach/USER's next move**, never the character's lines. Clicking one inputs the user's turn; **you** react only in the *next* assistant reply.
-- End every reply with one line `<!--choices: 라벨 -> (행동) | 라벨 -> "사용자 대사" | 라벨 -> "사용자 대사" (행동)-->` (2–4 items). **Default = action-only** `라벨 -> (행동)` (click → silent /act). **Speech is OPTIONAL** — add `"대사"` only when a short coach line naturally fits; never force dialogue into every chip (forced speech feels awkward). Combo only when the user truly both speaks and acts. Never quote-wrap a pure action.
-- Forms (subject = coach/USER only):
+- **ALL choices are ACTIONS.** A spoken line on a chip is optional flavor baked INTO the action (click → `/act` / action wire) — NOT plain say. Real speech = the user typing in the composer.
+- End every reply with one line `<!--choices: 라벨 -> (행동) | 라벨 -> "사용자 대사" | 라벨 -> "사용자 대사" (행동)-->` (2–4 items). **Default = action-only** `라벨 -> (행동)` (click → silent /act). **Speech is OPTIONAL** — add `"대사"` only when a short coach line naturally fits; never force dialogue into every chip (forced speech feels awkward). Combo only when a short line naturally fits with the act. Never quote-wrap a pure action.
+- Forms (subject = coach/USER only; **every form clicks as action**):
   - Action-only (**preferred / default**): `라벨 -> (행동)` — silent /act when clicked.
-  - Dialogue-only (optional): `라벨 -> "사용자가 말하는 한 줄"` — user speech.
-  - Combined (optional, only when speech naturally fits): `라벨 -> "사용자 대사" (행동)` — speech stays say; do not force a quote.
+  - Dialogue-flavor (optional): `라벨 -> "사용자가 말하는 한 줄"` — still /act; quote is flavor inside the action, not composer say.
+  - Combined (optional): `라벨 -> "사용자 대사" (행동)` — still /act; dialogue flavor baked into the action wire.
 - NEVER put the character's dialogue, moans, pleas, or reaction lines inside a choice (no character `"하읏…"`, `"안 돼"`, `"빼지 마, 코치"` as choice content). Those belong only in your assistant body after the user picks.
-- USER `"대사"` craft (when speech is present): short coach/USER line aimed at the partner — situational intent, tease, heated command, plea, or care. **Speech ≠ restating the act** (action-narration ban): the quote must not verbally repeat what `(행동)` already does. **Speech = situational address to the partner** (intent / command / tease / care fitting the stage). If the only words you have would narrate the act, **or speech does not naturally fit**, omit the quote — action-only `라벨 -> (행동)`.
+- USER `"대사"` craft (when speech flavor is present): short coach/USER line aimed at the partner — situational intent, tease, heated command, plea, or care. **Speech ≠ restating the act** (action-narration ban): the quote must not verbally repeat what `(행동)` already does. **Speech = situational address to the partner** (intent / command / tease / care fitting the stage). If the only words you have would narrate the act, **or speech does not naturally fit**, omit the quote — action-only `라벨 -> (행동)`.
 - Example form: action-only `라벨 -> (행동)` (default); or `라벨 -> "상대에게 거는 상황 대사" (행동)` only when speech fits.
 """
 
 # Grok-family private overlay (#241 craft, supersedes #240 length bias):
 # reaction-first erotic craft + strict Korean-only. Shared RENDER_PROTOCOL unchanged for other families.
 RENDER_PROTOCOL_GROK_OVERLAY = """## Voice & Actions (Grok private overlay)
-- Partner REACTION-first: the coach enjoys watching YOU react — breath, voice, tremble, hesitation→surrender, playful pushback/tease.
+- Partner REACTION-first: the coach enjoys watching YOU react — breath, voice, tremble, hesitation→surrender, playful pushback/tease. Do not replay the coach's action text; only your reaction.
 - **ZERO FILLER / every syllable arouses (매 음절 각성)**: dump all mood-killing/산통깨는 decorative description. If a syllable does not arouse the reader, cut it. Only arousal-relevant beats survive.
 - **LIQUID-FIRST arousal craft (주력)**: prioritize wet/liquid description as the main heat — saliva/침·침줄, wetness/촉촉·젖은, fluids/애액·점성, cum/정액 as stage-appropriate. Name the wet plainly in Korean. Dry scenery without liquid/reaction heat is filler — cut it.
 - DENSITY (not 'shorten every sentence'): cut ornamental/미사여구 fluff and purple prose. Keep only essential sensory/reaction. Dense, not purple. Aim ≈ **3–5 arousal beats** (wet/liquid · breath/의성어 · touch · one hot KO line · body micro-react) — full useful heat in those beats is fine; padding is failure.
@@ -183,8 +210,9 @@ RENDER_PROTOCOL_GROK_OVERLAY = """## Voice & Actions (Grok private overlay)
 - Direct Korean sexual vocabulary (직설) is allowed when the **character's personality** and tension stage warrant it — name body and acts plainly when that voice fits. Do **NOT** force vulgar/천박 diction on every beat; only when the character would naturally speak that way. Heat = liquid/wet + reaction + 의성어/의태어 (+ 직설 only if in-character), not vague poetic detours.
 - Dialogue must have heat: tease, plea, nickname (코치/자기), breathy broken Korean. Ban wooden/목석 lines that only command the coach's body ("허리 잡아", "더 깊게 들어와", "리듬 유지해"). (Assistant body craft — choice USER `"대사"` has its own ban on action-narration below.)
 - STRICT Korean-only in *action*, "dialogue", and thought body: no English/meta ("Wait", "Need 3 choices", "Stage 3"). Choice labels Korean.
-- Choices = coach/USER action; **speech is OPTIONAL**. **Default each slot to action-only** `라벨 -> (행동)` (click → silent /act). Add `"대사"` or combo only when a short coach line naturally fits — never pad every chip with forced dialogue (awkward). Use dialogue `라벨 -> "사용자 대사"` for speech-only; combo `라벨 -> "사용자 대사" (행동)` only when the user truly both speaks and acts. NEVER character dialogue/moans as choice content; your reaction is the *next* assistant turn only. Exactly 3 slots. Do not wrap pure actions in quotes.
-- **USER choice `"대사"` principle** (speech-optional): quote = coach speech *to the partner* (situational intent / tease / heated command / plea / care matching stage). **Speech ≠ restating the act**; **speech = situational address**. Ban (1) character moans/reactions in the quote; (2) action-narration (verbally repeating the `(행동)`); (3) wooden body-only orders with no situational heat toward the partner; (4) **forced dialogue on every choice**. If speech would only narrate the act **or does not naturally fit**, omit the quote — action-only `(행동)`.
+- Choices = coach/USER action; **ALL choice clicks are ACTIONS** (/act wire) — even when a chip includes a spoken flavor line. **speech is OPTIONAL** flavor baked into the action; real speech = user typing. **Default each slot to action-only** `라벨 -> (행동)` (click → silent /act). Add `"대사"` or combo only when a short coach line naturally fits — never pad every chip with forced dialogue (awkward). Dialogue-flavor `라벨 -> "사용자 대사"` and combo `라벨 -> "사용자 대사" (행동)` still click as /act (not plain say). NEVER character dialogue/moans as choice content; your reaction is the *next* assistant turn only. Exactly 3 slots. Do not wrap pure actions in quotes.
+- **USER choice `"대사"` principle** (speech-optional flavor): quote = coach speech *to the partner* (situational intent / tease / heated command / plea / care matching stage). **Speech ≠ restating the act**; **speech = situational address**. Ban (1) character moans/reactions in the quote; (2) action-narration (verbally repeating the `(행동)`); (3) wooden body-only orders with no situational heat toward the partner; (4) **forced dialogue on every choice**. If speech would only narrate the act **or does not naturally fit**, omit the quote — action-only `(행동)`.
+- **ACTION-ECHO BAN (assistant body)**: Never restate/repeat the user's action description. Reply with reaction only — liquid/wet, moan/breath, body. Dense. No echo of their move.
 - No mechanical climax loop (same moan / "다 느껴져" / identical finish). Follow tension stage pacing."""
 
 

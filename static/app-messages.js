@@ -649,8 +649,11 @@ function textWithChoices(h) {
       if (!lbl) return '';
       if (x.kind === 'action' || x.isAction) {
         let act = String(x.payload || x.action || lbl).trim();
-        // Keep (행동) form so re-parse via classifyChoicePayload stays action → /act.
-        if (act && !(act.startsWith('(') && act.endsWith(')'))) act = '(' + act.replace(/^\(+|\)+$/g, '').trim() + ')';
+        // #246: dialogue-flavor / combo stay as-is (still action on click). Bare acts → (행동).
+        if (act && !/^"/.test(act)) {
+          const bare = (typeof stripOuterParens === 'function') ? stripOuterParens(act) : act.replace(/^\(+|\)+$/g, '').trim();
+          act = '(' + bare + ')';
+        }
         return lbl + ' -> ' + act;
       }
       if (x.kind === 'command') {

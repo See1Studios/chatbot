@@ -4,11 +4,42 @@
 
 // A user line that is only "(지문)" / "((지문))" is a stage action, not speech: returns the bare
 // action text ('' otherwise). send(), user_ack and history all route through this.
+function stripOuterParens(s) {
+  // Balanced outer (...) only — do not eat trailing ) of an inner "(act)" in "line" (act).
+  let out = String(s || '').trim();
+  while (out.length >= 2 && out[0] === '(' && out[out.length - 1] === ')') {
+    let depth = 0, balanced = true;
+    for (let i = 0; i < out.length; i++) {
+      const ch = out[i];
+      if (ch === '(') depth++;
+      else if (ch === ')') {
+        depth--;
+        if (depth === 0 && i !== out.length - 1) { balanced = false; break; }
+        if (depth < 0) { balanced = false; break; }
+      }
+    }
+    if (!balanced || depth !== 0) break;
+    out = out.slice(1, -1).trim();
+  }
+  return out;
+}
+
 function actionTextOf(text) {
-  const m = /^\s*\({1,2}(.+?)\){1,2}\s*$/.exec(String(text || ''));
-  if (!m) return '';
-  const inner = m[1].replace(/^\(+|\)+$/g, '').trim();
-  return /[()]/.test(inner) ? '' : inner;   // "(a) 그리고 (b)" is speech, not one action
+  // A user line that is only "(지문)" — including flavored ("대사") / ("대사" (행동)) — is a stage action.
+  // Reject multi-wrap speech like "(a) 그리고 (b)".
+  const s = String(text || '').trim();
+  if (s.length < 3 || s[0] !== '(' || s[s.length - 1] !== ')') return '';
+  let depth = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '(') depth++;
+    else if (s[i] === ')') {
+      depth--;
+      if (depth === 0 && i !== s.length - 1) return '';
+      if (depth < 0) return '';
+    }
+  }
+  if (depth !== 0) return '';
+  return stripOuterParens(s);
 }
 
 // Draws a user history/ack entry: action lines as .msg.action, the rest as a user bubble.
