@@ -1,0 +1,39 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-26 10:54:47",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-26 10:54:38",
+ "evidence": [
+  "event:20260926-100536-a7ac6f#188"
+ ],
+ "gate_failures": 0,
+ "id": 217,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-26 10:54:47"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: delegation.py, tests/test_delegation.py",
+   "ts": "2026-09-26 10:54:47"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-217 at 6d8ef24 (agy, review PASS round 1)",
+   "ts": "2026-09-26 10:56:13"
+  }
+ ],
+ "paths": [
+  "delegation.py",
+  "tests/test_delegation.py"
+ ],
+ "status": "awaiting_merge",
+ "target": "delegation.py,tests/test_delegation.py",
+ "title": "위임 정비 A: 계획 제출 시 미커밋 경로 사전 점검",
+ "updated": "2026-09-26 10:56:13",
+ "worked_by": "agy"
+}
