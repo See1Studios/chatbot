@@ -31,6 +31,8 @@
   4. 통과: 메인에서 git merge --ff-only -> ticket-quick done -> worktree/브랜치 정리
      --stop-before-merge(Tier 2): 병합 대신 ticket-quick await-merge (리스 해제), worktree/브랜치는 남긴다
      탈락: 병합 없음 -> ticket-quick fail (gate_failed | failed) -> worktree/브랜치 정리 (--keep이면 보존)
+       정리 전 브랜치 헤드는 refs/attic/ticket-<ID>에 남는다; 같은 티켓의 다음 run --from-attic이 거기서 시작한다
+       (첫 작업의 확인 diff는 그 작업 전체를 본다). 병합되면 attic 참조는 지운다.
      PD 확인 불가(모든 PD 두뇌가 한도·시간 초과): 브랜치를 남기고, 다음 --plan-from-state 실행이 통과한 작업은 건너뛰고
      멈춘 작업의 게이트·확인부터 이어 간다.
   5. 티켓 기록(tickets/<ID>.json)만 메인에 커밋한다 (chore(tickets): close #ID | #ID <outcome>)
@@ -237,13 +239,24 @@ def commit_ticket_record(repo: Path, tid: int, provider: str, subject: str) -> O
 
 # ----------------------------------------------------------------- worktree
 
-def cleanup_worktree(repo: Path, branch: str, wt_dir: Path) -> None:
+def attic_ref(ticket_id: int) -> str:
+    return "refs/attic/ticket-%d" % ticket_id
+
+
+def cleanup_worktree(repo: Path, branch: str, wt_dir: Path, attic: str = "") -> None:
+    """attic: keep the branch head under this ref before the branch goes, so the work is not left to git gc."""
     if wt_dir.exists():
         git(repo, "worktree", "remove", "--force", str(wt_dir))
         if wt_dir.exists():
             shutil.rmtree(wt_dir, ignore_errors=True)
     git(repo, "worktree", "prune")
+    if attic and git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0:
+        git(repo, "update-ref", attic, "refs/heads/" + branch)
     git(repo, "branch", "-D", branch)
+
+
+def drop_attic(repo: Path, ticket_id: int) -> None:
+    git(repo, "update-ref", "-d", attic_ref(ticket_id))
 
 
 STAFF_RELATION = "You are a staff member; %s is your producer (PD), who confirms your work before it ships."
@@ -804,8 +817,8 @@ def cmd_run(args) -> int:
     if args.rounds < 1:
         print("Error: --rounds must be at least 1", file=sys.stderr)
         return 2
-    if (args.resume or args.plan_from_state) and not args.ticket:
-        print("Error: --resume and --plan-from-state work on a --ticket", file=sys.stderr)
+    if (args.resume or args.plan_from_state or args.from_attic) and not args.ticket:
+        print("Error: --resume, --plan-from-state and --from-attic work on a --ticket", file=sys.stderr)
         return 2
     if not args.plan_from_state and not args.prompt.strip():
         print("Error: --prompt is required (unless the tasks come from the ticket's plan)", file=sys.stderr)
@@ -851,6 +864,7 @@ def cmd_run(args) -> int:
     log("ticket #%d claimed (paths: %s)" % (tid, ", ".join(paths)))
 
     created = False
+    from_attic = False
     rnd = 0
     try:
         # 2. worktree: a new one, or (--resume, a rework) the one still waiting from this ticket's last run
@@ -874,12 +888,20 @@ def cmd_run(args) -> int:
                 raise Failure("failed", "%s or %s is left over from an earlier run; "
                               "inspect it, then `worktree_runner.py cleanup --ticket %d`" % (branch, wt_dir, tid))
             _, base, _ = git(repo, "rev-parse", "HEAD")
+            start = base
+            if args.from_attic:   # go on from the head a failed attempt left; base is where that work forked
+                code, start, _ = git(repo, "rev-parse", "--verify", "--quiet", attic_ref(tid))
+                if code != 0:
+                    raise Failure("failed", "no %s to start from" % attic_ref(tid))
+                base = git(repo, "merge-base", base, start)[1]
+                from_attic = True
             WORKTREE_BASE.mkdir(parents=True, exist_ok=True)
-            code, _, err = git(repo, "worktree", "add", "-b", branch, str(wt_dir), base)
+            code, _, err = git(repo, "worktree", "add", "-b", branch, str(wt_dir), start)
             if code != 0:
                 raise Failure("failed", "git worktree add failed", err)
             created = True
-            log("worktree %s on %s (base %s)" % (wt_dir, branch, base[:8]))
+            log("worktree %s on %s (base %s%s)" % (wt_dir, branch, base[:8],
+                                                   ", from %s %s" % (attic_ref(tid), start[:8]) if from_attic else ""))
         result["base"] = base
         tasks = plan_tasks(args, st, paths)
         if args.resume or pick_up:
@@ -909,6 +931,8 @@ def cmd_run(args) -> int:
                 task_base = pending[1]
             elif tno == paused[0] and paused[1]:
                 task_base = paused[1]
+            elif tno == 1 and from_attic:   # the carried-over work is reviewed with this task
+                task_base = base
             else:
                 task_base = git(wt_dir, "rev-parse", "HEAD")[1]
             write_state(tid, pending_task=tno, pending_base=task_base)
@@ -1057,8 +1081,11 @@ def cmd_run(args) -> int:
         keep = created and not result["merged"] and (args.keep or result.get("kept")
                                                      or result.get("outcome") == "awaiting_merge")
         if created and not keep:
-            cleanup_worktree(repo, branch, wt_dir)
-            log("worktree and branch removed")
+            cleanup_worktree(repo, branch, wt_dir, attic="" if result["merged"] else attic_ref(tid))
+            log("worktree and branch removed" if result["merged"] else "worktree removed; branch head kept at %s"
+                % attic_ref(tid))
+        if result["merged"]:
+            drop_attic(repo, tid)
         elif keep:
             log("kept %s (branch %s)" % (wt_dir, branch))
 
@@ -1106,8 +1133,10 @@ def cmd_merge(args) -> int:
         release_failed(tid, token, f, provider, actor, result)
     finally:
         if result["merged"] or not args.keep:
-            cleanup_worktree(repo, branch, wt_dir)
+            cleanup_worktree(repo, branch, wt_dir, attic="" if result["merged"] else attic_ref(tid))
             log("worktree and branch removed")
+        if result["merged"]:
+            drop_attic(repo, tid)
     if result["merged"]:
         close_done(tid, token, actor, "merged %s on the operator's word (%s)" % (result["head"][:7], provider), result)
     return record_and_report(repo, tid, provider, title, result, args.json)
@@ -1115,8 +1144,8 @@ def cmd_merge(args) -> int:
 
 def cmd_cleanup(args) -> int:
     branch, wt_dir = names(args.ticket)
-    cleanup_worktree(CHATBOT_REPO, branch, wt_dir)
-    print("removed %s and branch %s (if they existed)" % (wt_dir, branch))
+    cleanup_worktree(CHATBOT_REPO, branch, wt_dir, attic=attic_ref(args.ticket))
+    print("removed %s and branch %s (if they existed; its head is kept at %s)" % (wt_dir, branch, attic_ref(args.ticket)))
     return 0
 
 
@@ -1137,6 +1166,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                    help="Take the tasks from the ticket's run state (the PD's plan; with --ticket)")
     p.add_argument("--resume", action="store_true",
                    help="Rework the ticket's waiting branch with --prompt as the operator's comment (with --ticket)")
+    p.add_argument("--from-attic", action="store_true",
+                   help="Start a new worktree from the head a failed attempt of --ticket left at refs/attic/ticket-<ID>")
     p.add_argument("--token", default="", help="The caller's claim token for --ticket")
     p.add_argument("--timeout", type=int, default=1200, help="Agent timeout per round in seconds (max %d)" % MAX_AGENT_TIMEOUT)
     p.add_argument("--reviewer", choices=sorted(PROVIDERS), help="Provider for the PD's confirmation (default: --provider)")

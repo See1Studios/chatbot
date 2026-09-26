@@ -190,6 +190,30 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(sh(self.repo, "git", "log", "--format=%s", "-4").splitlines(),
                          ["chore(tickets): close #7 -- t", "change", "main-moved", "init"])
 
+    def test_a_failed_attempt_keeps_its_head_in_the_attic(self) -> None:
+        fail = "printf 'VERDICT: FAIL\\nSAY: no\\nFIX: 1. more'"
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam part", review=fail), 1)
+        self.assertIn("gate_failed", self.last_fail())
+        self.assert_clean_up()
+        self.assertEqual(sh(self.repo, "git", "log", "-1", "--format=%s", wr.attic_ref(7)), "part")
+
+    def test_from_attic_goes_on_from_the_kept_work_and_drops_it_on_merge(self) -> None:
+        fail = "printf 'VERDICT: FAIL\\nSAY: no\\nFIX: 1. more'"
+        self.run_with("echo two >> a.txt && git commit -qam part", review=fail, extra=("--rounds", "1"))
+        sh(self.repo, "sh", "-c", "echo c > c.txt && git add c.txt && git -c user.name=t -c user.email=t@t "
+                                  "commit -qm main-moved")
+        rc = self.run_with("echo three >> a.txt && git commit -qam more",
+                           extra=("--ticket", "7", "--token", "tok", "--from-attic"))
+        self.assertEqual(rc, 0)
+        self.assertEqual((self.repo / "a.txt").read_text(), "one\ntwo\nthree\n")
+        self.assertEqual(wr.read_state(7)["pending_base"], self.init)       # the review diff covers "part" too
+        self.assertNotEqual(subprocess.call(["git", "rev-parse", "--verify", "--quiet", wr.attic_ref(7)],
+                                            cwd=str(self.repo), stdout=subprocess.DEVNULL), 0)
+
+    def test_from_attic_without_one_fails(self) -> None:
+        self.assertEqual(self.run_with("true", extra=("--ticket", "7", "--token", "tok", "--from-attic")), 1)
+        self.assertIn("no refs/attic/ticket-7", " ".join(map(str, self.last_fail())))
+
     def test_keep_retains_a_failed_worktree(self) -> None:
         self.run_with("true", extra=("--keep",))
         self.assertTrue((wr.WORKTREE_BASE / "ticket-7").exists())
