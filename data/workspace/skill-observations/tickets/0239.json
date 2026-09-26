@@ -3,13 +3,15 @@
  "approved_at": "2026-09-26 21:21:56",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-26 21:14:17",
  "evidence": [
   "event:20260926-195018-d349f9#50"
  ],
  "gate_failures": 0,
  "id": 239,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,15 +27,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-239 at f649815 (agy, review PASS round 1)",
    "ts": "2026-09-26 21:39:50"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-26 21:41:28"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 205769c on the operator's word (agy)",
+   "ts": "2026-09-26 21:41:43"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-26 21:41:43"
   }
  ],
  "paths": [
   "providers/adapter_agy.py",
   "providers/adapter_grok.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "providers/adapter_agy.py,providers/adapter_grok.py",
  "title": "#238 DYNAMIC_MODELS_v1: agy·grok known_models() 동적 CLI 조회",
- "updated": "2026-09-26 21:39:50",
+ "updated": "2026-09-26 21:41:43",
  "worked_by": "agy"
 }
