@@ -161,6 +161,8 @@ class TensionLadder(unittest.TestCase):
         Sess.provider, Sess.model = "grok", "grok-4.7"
         grok = _Adapter().turn_context(Sess())
         self.assertIn("Grok private overlay", grok)
+        self.assertIn("REACTION-first", grok)
+        self.assertIn("Korean-only", grok)
         self.assertIn("방·빛·침대", grok)
         self.assertIn("자연스러운 다음 진도", grok)
         self.assertNotIn("자연스러운 다음 흐름", grok)
@@ -184,6 +186,9 @@ class TensionLadder(unittest.TestCase):
         self.assertIn(PE.RENDER_PROTOCOL, grok_rp)
         self.assertIn(PE.RENDER_PROTOCOL_GROK_OVERLAY, grok_rp)
         self.assertIn("Grok private overlay", grok_rp)
+        self.assertIn("REACTION-first", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("Korean-only", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("목석", PE.RENDER_PROTOCOL_GROK_OVERLAY)
 
     def test_private_instruction_bundle_includes_render_protocol(self):
         import instructions
@@ -304,12 +309,28 @@ class SessionTension(unittest.TestCase):
         self.assertIn("2) 더 과감한 밀착/직진", wire)
         self.assertIn("3) 깊은 감각/분위기 탐닉", wire)
 
+    def test_grok_tension_v5_is_reaction_craft(self):
+        import json
+        raw = json.loads(PE.FAMILY_FILES["grok"].read_text(encoding="utf-8"))
+        self.assertEqual(raw["version"], 5)
+        blob = " ".join(raw["texts"].values())
+        self.assertIn("REACTION-first", blob)
+        self.assertIn("목석", blob)
+        self.assertIn("한국어", blob)
+        # bust cache then reload
+        PE._FAMILY_TABLES.pop("grok", None)
+        ctx = PE.tension_context(2, [], PE.family_table("grok"))
+        self.assertIn("REACTION-first", ctx)
+        self.assertIn("목석", ctx)
+
     def test_a_grok_session_gets_the_grok_tension_and_overlay(self):
         self.sess.provider, self.sess.model = "grok", "grok-4.7"
         self.sess.send("곁에 앉는다", event_type="action")
         wire = "".join(self.sess.proc.stdin.sent)
         self.assertIn("Stage: 2/4 (고조)", wire)
         self.assertIn("Grok private overlay", wire)
+        self.assertIn("REACTION-first", wire)
+        self.assertIn("Korean-only", wire)
         self.assertIn("방·빛·침대", wire)
         self.assertIn("1) 자연스러운 다음 진도", wire)
         self.assertIn("3) 깊은 감각/분위기 탐닉", wire)

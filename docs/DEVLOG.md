@@ -3,6 +3,16 @@
 최근 항목만 여기 둔다(맨 위가 최신). 지난 날짜는 `docs/devlog/YYYY-MM-DD.md` — 코드가 "2026-09-17 DEVLOG"를 가리키면 그 파일이다.
 이 파일이 40KB를 넘으면 가장 오래된 날짜를 `docs/devlog/`로 옮긴다(`tests/test_docs_budget.py`).
 
+## 2026-09-26 (밤) — 사적 Grok 작법 교정 (반응 우선·한국어 only, #241)
+
+- **배경**: #240 이후 실장님 피드백 — 지문 늘린다고 야설 작가가 되지 않음. Gemini 사적 대비 상대 반응이 목석, 영어 누수, 기계적 절정. 길이 말고 작법 수정 요청.
+- **진단(요약)**: 오늘 밤 Grok 사적(코코 등)에서 EN 메타 누수(`Wait, I need to write…`, `Need 3 choices`/`Stage 3`), 대사가 사용자 몸 지휘 명령형(「허리 잡아」「리듬 유지해」). Gemini 사적은 숨결·놀림·주저→항복 반응이 살아 있음. #240 오버레이가 장면 페인팅 길이만 키운 것이 원인 축.
+- **A** `data/private_tension_grok.json` v5: REACTION-first·목석 대사 금지·한국어 only·방/빛/침대는 반응에 복무. Gemini 표보다 짧게 유지.
+- **B** `RENDER_PROTOCOL_GROK_OVERLAY`(#241): 길이 완화 → 반응 우선 + 열 있는 한국어 대사 + EN/메타 금지로 교체. 공용 `RENDER_PROTOCOL`·타 계열 불변. 여전히 grok-4.7+low, 크로스모델 라우팅 없음.
+- **C** 노노·코코 카드 `system_prompt` Voice를 반응 우선/한국어 only로. 코코 `brains.private`=grok-4.7 effort low 추가.
+- **검증**: `python3 -m unittest tests.test_private_tension` 21 OK.
+- **배포**: 호스트 py 변경 → repair/⚡소생. **반드시 새 사적 세션**에서 재시험(기존 세션 meta의 model·effort·프롬프트 캐시 유지).
+
 ## 2026-09-26 (밤) — 사적 Grok 보완 (텐션·속도·렌더 오버레이, #240)
 
 - **배경**: 사적 모드 Grok 보완(야설 작가). FULL 스코프. build-fast는 비싸서 제외 → **grok-4.7 + reasoning-effort low**.

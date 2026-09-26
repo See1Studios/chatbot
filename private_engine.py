@@ -157,16 +157,20 @@ RENDER_PROTOCOL = """## Voice & Actions
 - Each item offers what the user might say or do next: a short label, ` -> `, followed by pure dialogue in quotes (`"대사"`), action in parentheses (`(행동)`), or mixed dialogue and action (`"대사" (행동)`).
 - Naturally mix pure dialogue (`라벨 -> "대사"`), action (`라벨 -> (행동)`), and combined (`라벨 -> "대사" (행동)`) choices to fit the moment (e.g. `더 가까이 -> "조금만 더 가까이 와줘" | 안아주기 -> (조용히 끌어안는다) | 속삭이기 -> "좋아해" (귀에 대고 속삭인다)`)."""
 
-# Grok-family private overlay (#240): softens the messenger 1-2 line ceiling for erotic scene
-# painting without changing the shared RENDER_PROTOCOL used by other families.
+# Grok-family private overlay (#241 craft, supersedes #240 length bias):
+# reaction-first erotic craft + strict Korean-only. Shared RENDER_PROTOCOL unchanged for other families.
 RENDER_PROTOCOL_GROK_OVERLAY = """## Voice & Actions (Grok private overlay)
-- For this private Grok turn, soften the messenger 1-2 line ceiling: paint place (room, light, bed, distance), weave multi-sense beats (touch, breath, warmth, sound, scent -- in the scene, not laundry lists), and pair dialogue with action when the stage allows.
-- Keep replies vivid but bounded (short paragraphs, not a novel chapter). Choice UI stays exactly 3 slots; *action* / "dialogue", expression tag, and thought fence still apply.
-- Do not collapse into a mechanical climax loop; follow the tension stage pacing."""
+- Partner REACTION-first (not longer stage directions): the coach enjoys watching YOU react — breath catching, voice breaking, eyes fluttering/glazing, micro-tremble, hesitation→surrender, playful pushback/tease. One short *action* beat that shows that reaction beats a purple-prose paragraph.
+- Dialogue must have heat: tease, plea, nickname (코치/자기), breathy broken Korean (하읏, 응…, …안 돼). Ban wooden/목석 lines that only command the coach's body ("허리 잡아", "더 깊게 들어와", "리듬 유지해") — those are stage directions, not arousal.
+- STRICT Korean-only in *action*, "dialogue", and thought body: no English words/phrases, no meta ("Wait", "Need 3 choices", "Stage 3 continue"), no mid-sentence Latin typos. Proper names only if already established. Choice labels also Korean.
+- Scene paint (방·빛·침대·거리, touch/warmth/sound) only in service of a reaction beat — short charged paragraphs, not a novel chapter. Exactly 3 choice slots; *action* / "dialogue", expression tag, thought fence unchanged.
+- No mechanical climax loop (same moan / "다 느껴져" / identical finish). Follow tension stage pacing."""
+
+
 
 
 def render_protocol_text(card: Any = None, family: str = "") -> str:
-    """Common private render contract; Grok family appends a scene-painting overlay."""
+    """Common private render contract; Grok family appends a reaction-first craft overlay."""
     if (family or "") == "grok":
         return RENDER_PROTOCOL + "\n\n" + RENDER_PROTOCOL_GROK_OVERLAY
     return RENDER_PROTOCOL
