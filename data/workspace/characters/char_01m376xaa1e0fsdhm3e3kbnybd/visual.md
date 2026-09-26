@@ -9,11 +9,34 @@ Status: rough. Polish the images only after the character settles one step furth
 ## Locks
 - An anime-style human girl. Cat ears and tail are accents only: no full kemono, no animal face.
 - Golden eyes with star highlights. No overweight depiction.
-- Base look (no provider): silver-grey wavy hair, beige trench coat, white blouse. Reference `data/persona/avatar.png`.
+- Base look (no provider): silver-grey wavy hair, comfortable white collared blouse, minimal smart-casual look. Reference `avatar_master.jpg`.
 - Providers are wigs: the same face; only hair colour, cut and a themed outfit change.
 - The key colour is the hair **dye**. Coloured light on silver hair is not a wig.
 - Cuts must tell apart in a 56px circle badge.
 - Do not copy one provider's chosen cut across the roster.
+
+## Prompt Specification (SSOT)
+Modern anime standard (thin clean lineart, crisp cel shading, no fluff words):
+
+### 1. Style Anchor (화풍 고정)
+- `clean thin line art, crisp cel shading, subtle flat color tones, soft rim light on hair, high-end 2D anime illustration, vibrant yet soft palette`
+
+### 2. Character Anchor (노노 고유 특징)
+- `1girl, cute anime producer, golden eyes with delicate star highlights, silver-grey semi-long wavy hair, fluffy cat ears on head, subtle grey cat tail`
+- Outfit (Base): `crisp white collared button-up blouse, relaxed open collar, minimal smart-casual style`
+
+### 3. Generation Rule (일관성 보장 원칙)
+- **Master Image Required:** Once `avatar_master.jpg` is approved, NEVER generate new expressions or outfits from scratch with pure text prompts.
+- **Reference-based Inpainting / I2I:** All expressions, wigs, and gestures MUST use `avatar_master.jpg` as the reference image, modifying only the target region (face for expression, hair for wigs) to guarantee 100% linework and style consistency.
+
+### 4. Framing & Composition
+- **avatar.webp (512x512):** `close-up portrait, face centered, collar visible, neutral studio background, 56px circle crop safe`
+- **sprites/bust (1024x1024):** `medium close-up, cut at upper chest, centered, transparent background, clean silhouette`
+- **sprites/full (1024x2048):** `full body shot, standing grounded 2% from bottom, centered, relaxed confident pose, transparent background`
+
+### 5. Negative Lock
+- `bad anatomy, extra limbs, bad hands, full furry face, animal snout, human ears alongside cat ears, 3d render, photorealistic, painterly mess, jpeg artifacts, watermark, text`
+
 
 ## Wigs (rough snapshot, 2026-09-20)
 | Brain | Theme | Hair (cut + dye) | Outfit |
