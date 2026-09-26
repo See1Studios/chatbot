@@ -41,6 +41,9 @@ def _probe_meta(meta: dict) -> bool:
     return "[doctor-probe]" in sample or "[diag]" in sample
 
 
+PROBE_MARKER = ".probe"  # sessions/<sid>/.probe: created by a health probe (X-Chatbot-Caller: doctor-probe)
+
+
 # SESSION_INDEX_v1: the page asks for the newest session every 2.5s. Reading every meta.json (history and all)
 # each time cost ~170ms under REG.lock with ~320 sessions, and grew with every session. Each file is parsed
 # once per change (mtime + size) and kept as a small summary; the whole scan is skipped while nothing changed:
@@ -77,7 +80,7 @@ def _meta_summary(p: Path) -> Optional[dict]:
             "model": meta.get("model"),
             "mode": "private" if meta.get("mode") == "private" else "work",
             "character": str(meta.get("character") or ""),
-            "probe": _probe_meta(meta),
+            "probe": _probe_meta(meta) or (p.parent / PROBE_MARKER).exists(),
             "preview": (str(hist[-1].get("text", ""))[:80] if hist else ""),
             "turns": len(hist),
         })
@@ -125,9 +128,13 @@ class Registry:
         provider: str = _s().DEFAULT_PROVIDER,
         character: str = "",
         mode: str = "work",
+        probe: bool = False,
     ) -> "AgentSession":
         sid = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
         sess = _s().AgentSession(sid, model=model, effort=effort, provider=provider)
+        if probe:  # before the first save, so no summary ever sees it unmarked
+            sess.meta_path.parent.mkdir(parents=True, exist_ok=True)
+            (sess.meta_path.parent / PROBE_MARKER).touch()
         sess.character = _character_id(character)
         sess.mode = "private" if mode == "private" else "work"
         sess.predecessor_session_id = predecessor_sid
@@ -177,6 +184,19 @@ class Registry:
             return self.get(sid)
         return None
 
+    def is_probe(self, sid: str) -> bool:
+        """True for a health-probe session (marker or probe-only history): never listed, active or streamed to the UI."""
+        try:
+            d = _s().SESSIONS / _s()._safe_session_id(sid)
+        except ValueError:
+            return False
+        if (d / PROBE_MARKER).exists():
+            return True
+        try:
+            return _probe_meta(json.loads((d / "meta.json").read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            return False
+
     def get(self, sid: str) -> "AgentSession":
         sid = _s()._safe_session_id(sid)
         with self.lock:
@@ -191,7 +211,7 @@ class Registry:
     def list(self) -> List[dict]:
         # updated_at is meta.json's mtime as epoch seconds, like AgentSession.to_public()'s (the client
         # compares the two)
-        items = sorted(_meta_summaries(), key=lambda m: m["mtime"], reverse=True)[:40]
+        items = sorted((m for m in _meta_summaries() if not m["probe"]), key=lambda m: m["mtime"], reverse=True)[:40]
         names: Dict[str, str] = {}
         out = []
         for m in items:

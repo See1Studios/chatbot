@@ -976,6 +976,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     provider=provider,
                     mode=kind[0],
                     character=kind[1],
+                    probe=self.headers.get("X-Chatbot-Caller") == "doctor-probe",
                 )
                 code, raw = _json_bytes({"ok": True, "session": sess.to_public()})
                 return self._send(code, raw, "application/json; charset=utf-8")
@@ -1187,6 +1188,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         self._send(code, raw, "application/json; charset=utf-8")
 
     def _sse(self, sid: str) -> None:
+        if REG.is_probe(sid):  # a health probe's turn never streams to the UI
+            return self._send(404, b"probe session", "text/plain")
         try:
             sess = REG.get(sid)
         except Exception as e:
