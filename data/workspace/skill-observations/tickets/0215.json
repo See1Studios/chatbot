@@ -1,0 +1,49 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-26 10:48:50",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-26 10:48:37",
+ "evidence": [
+  "event:20260926-100536-a7ac6f#163"
+ ],
+ "gate_failures": 0,
+ "id": 215,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-26 10:48:50"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: docs/plans/INDEX.md, docs/plans/out-of-band-choices-actions.md, docs/plans/private-action-interaction.md, docs/plans/private-affection-system.md, docs/plans/private-hud-ux-design.md, docs/plans/private-mode.md, docs/plans/private-tension-8phases.md, docs/plans/private-tension-escalation.md, private_engine.py, static/app-session.js, static/chat-features.css, static/markdown.js",
+   "ts": "2026-09-26 10:48:50"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-215 at 852e1f1 (agy, review PASS round 1)",
+   "ts": "2026-09-26 10:50:18"
+  }
+ ],
+ "paths": [
+  "docs/plans/INDEX.md",
+  "docs/plans/out-of-band-choices-actions.md",
+  "docs/plans/private-action-interaction.md",
+  "docs/plans/private-affection-system.md",
+  "docs/plans/private-hud-ux-design.md",
+  "docs/plans/private-mode.md",
+  "docs/plans/private-tension-8phases.md",
+  "docs/plans/private-tension-escalation.md",
+  "private_engine.py",
+  "static/app-session.js",
+  "static/chat-features.css",
+  "static/markdown.js"
+ ],
+ "status": "awaiting_merge",
+ "target": "docs/plans/index.md,docs/plans/out-of-band-choices-actions.md,docs/plans/private",
+ "title": "사적 모드 계획 문서 통합 + 모드별 렌더 데코레이터 (#213 대체)",
+ "updated": "2026-09-26 10:50:18",
+ "worked_by": "agy"
+}
