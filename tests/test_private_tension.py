@@ -168,6 +168,9 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("방·빛·침대", grok)
         self.assertIn("자연스러운 다음 진도", grok)
         self.assertNotIn("자연스러운 다음 흐름", grok)
+        self.assertIn("행동 재진술", grok)
+        self.assertIn("상황 주소", grok)
+        self.assertIn("action-narration", grok)
 
     def test_render_protocol(self):
         self.assertIn("## Voice & Actions", PE.RENDER_PROTOCOL)
@@ -220,6 +223,14 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("character's personality", PE.RENDER_PROTOCOL_GROK_OVERLAY)
         self.assertIn("Do **NOT** force vulgar", PE.RENDER_PROTOCOL_GROK_OVERLAY)
         self.assertIn("Do not wrap pure actions in quotes", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        # #244 USER choice dialogue: generalized speech≠act / speech=situational address
+        self.assertIn("action-narration", PE.RENDER_PROTOCOL)
+        self.assertIn("Speech ≠ restating the act", PE.RENDER_PROTOCOL)
+        self.assertIn("situational address", PE.RENDER_PROTOCOL)
+        self.assertIn("action-narration", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("Speech ≠ restating the act", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("situational address", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("USER choice", PE.RENDER_PROTOCOL_GROK_OVERLAY)
 
 
     def test_private_instruction_bundle_includes_render_protocol(self):
@@ -341,10 +352,10 @@ class SessionTension(unittest.TestCase):
         self.assertIn("2) 더 과감한 밀착/직진", wire)
         self.assertIn("3) 깊은 감각/분위기 탐닉", wire)
 
-    def test_grok_tension_v10_is_reaction_craft(self):
+    def test_grok_tension_v11_is_reaction_craft(self):
         import json
         raw = json.loads(PE.FAMILY_FILES["grok"].read_text(encoding="utf-8"))
-        self.assertEqual(raw["version"], 10)
+        self.assertEqual(raw["version"], 11)
         blob = " ".join(raw["texts"].values())
         self.assertIn("REACTION-first", blob)
         self.assertIn("목석", blob)

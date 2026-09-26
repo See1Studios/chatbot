@@ -1,7 +1,14 @@
 # chatbot 개발로그
 
-최근 항목만 여기 둔다(맨 위가 최신). 지난 날짜는 `docs/devlog/YYYY-MM-DD.md` — 코드가 "2026-09-17 DEVLOG"를 가리키면 그 파일이다.
-이 파일이 40KB를 넘으면 가장 오래된 날짜를 `docs/devlog/`로 옮긴다(`tests/test_docs_budget.py`).
+## 2026-09-26 (밤) — 사적 Grok 선택지 USER 대사: 말≠행동재진술 · 상황 주소 (#244)
+
+- **배경**: 행동/상황 선택지는 충분한 데 `"대사"`가 행동을 말로 반복(action-narration)하거나 캐릭터 신음이 따옴표에 섞임. 말은 상대를 향한 상황적 의도·놀림·명령·애원·돌봄이어야 함.
+- **유지 #243**: LIQUID-FIRST·ZERO FILLER·장식 지문 금지·직설은 캐릭터 말투일 때만·`/act` 분류 고정.
+- **원칙(사례 나열 없이)**: **Speech ≠ restating the act** · **Speech = situational address** (intent/tease/command/plea/care). 서술뿐이면 `(행동)`만.
+- **A** `RENDER_PROTOCOL` Choices + `RENDER_PROTOCOL_GROK_OVERLAY`: 위 일반 원칙. 캐릭터 신음·목석 몸명령 금지 유지.
+- **B** `private_tension_grok.json` v11 `choice_forms`·슬롯 가이드: 동일 원칙.
+- **검증**: `python3 -m unittest tests.test_private_tension`. 호스트 py → repair. **새 사적 세션** 재시험.
+
 
 ## 2026-09-26 (밤) — 사적 Grok 장식 지문 금지·액체 주력·선택지 /act 고정 (#243)
 

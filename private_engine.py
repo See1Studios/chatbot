@@ -160,7 +160,8 @@ RENDER_PROTOCOL = """## Voice & Actions
   - Dialogue-only: `라벨 -> "사용자가 말하는 한 줄"` — user speech.
   - Combined (preferred): `라벨 -> "사용자 대사" (행동)` — user speaks and acts in one turn.
 - NEVER put the character's dialogue, moans, pleas, or reaction lines inside a choice (no character `"하읏…"`, `"안 돼"`, `"빼지 마, 코치"` as choice content). Those belong only in your assistant body after the user picks.
-- Example: `더 가까이 -> "조금만 더 가까이" (한 걸음 좁힌다) | 안아주기 -> (조용히 끌어안는다) | 속삭이기 -> "자기, 여기" (귀에 숨을 흘린다)`.
+- USER `"대사"` craft (when speech is present): short coach/USER line aimed at the partner — situational intent, tease, heated command, plea, or care. **Speech ≠ restating the act** (action-narration ban): the quote must not verbally repeat what `(행동)` already does. **Speech = situational address to the partner** (intent / command / tease / care fitting the stage). If the only words you have would narrate the act, drop the quote and use action-only `라벨 -> (행동)`.
+- Example form: `라벨 -> "상대에게 거는 상황 대사" (행동)` or action-only `라벨 -> (행동)`.
 """
 
 # Grok-family private overlay (#241 craft, supersedes #240 length bias):
@@ -180,9 +181,10 @@ RENDER_PROTOCOL_GROK_OVERLAY = """## Voice & Actions (Grok private overlay)
   - Body 의태 matched to stimulus: 파르르(떨림), 찌릿(안쪽·전율), 촉촉, 스르륵, 꿀꺽. Mild 움찔 alone is not enough.
   - Wet/doujin contact SFX only when the act matches: 쪽쪽/츄읍=입·키스·빨기; 철퍽=충돌·치기; **찌걱/찌걱찌걱=penetration/삽입만** (never for hand fondling); 찐득/질척=점성·애액. PAIR SFX TO THE ACT AND STAGE.
 - Direct Korean sexual vocabulary (직설) is allowed when the **character's personality** and tension stage warrant it — name body and acts plainly when that voice fits. Do **NOT** force vulgar/천박 diction on every beat; only when the character would naturally speak that way. Heat = liquid/wet + reaction + 의성어/의태어 (+ 직설 only if in-character), not vague poetic detours.
-- Dialogue must have heat: tease, plea, nickname (코치/자기), breathy broken Korean. Ban wooden/목석 lines that only command the coach's body ("허리 잡아", "더 깊게 들어와", "리듬 유지해").
+- Dialogue must have heat: tease, plea, nickname (코치/자기), breathy broken Korean. Ban wooden/목석 lines that only command the coach's body ("허리 잡아", "더 깊게 들어와", "리듬 유지해"). (Assistant body craft — choice USER `"대사"` has its own ban on action-narration below.)
 - STRICT Korean-only in *action*, "dialogue", and thought body: no English/meta ("Wait", "Need 3 choices", "Stage 3"). Choice labels Korean.
 - Choices = coach/USER action (+ optional user spoken line). Use action-only `라벨 -> (행동)` when no speech is needed (click → silent /act). Use dialogue `라벨 -> "사용자 대사"` for speech. Use combo `라벨 -> "사용자 대사" (행동)` only when the user both speaks and acts. NEVER character dialogue/moans as choice content; your reaction is the *next* assistant turn only. Exactly 3 slots. Do not wrap pure actions in quotes.
+- **USER choice `"대사"` principle**: quote = coach speech *to the partner* (situational intent / tease / heated command / plea / care matching stage). **Speech ≠ restating the act**; **speech = situational address**. Ban (1) character moans/reactions in the quote; (2) action-narration (verbally repeating the `(행동)`); (3) wooden body-only orders with no situational heat toward the partner. If speech would only narrate the act, omit the quote — action-only `(행동)`.
 - No mechanical climax loop (same moan / "다 느껴져" / identical finish). Follow tension stage pacing."""
 
 
