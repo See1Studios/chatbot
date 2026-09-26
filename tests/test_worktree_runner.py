@@ -525,6 +525,25 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual((st["phase"], st["kept"]), ("awaiting_merge", False))
         self.assertEqual((wr.WORKTREE_BASE / "ticket-7" / "b.txt").read_text(), "b\nB\n")
 
+    def test_a_task_picked_up_after_a_paths_pause_is_reviewed_from_its_own_base(self) -> None:
+        # #214: the review diff and the scope check must include the commits made before the pause
+        seen = self.base / "review-prompt"
+        script = ('if [ -f ../paused ]; then echo B >> b.txt; git commit -qam after; '
+                  'else touch ../paused; echo A >> a.txt; git commit -qam before; echo "NEED_PATH: b.txt -- helper"; fi')
+        review = 'printf "%%s" "$0" > %s; printf "VERDICT: PASS\\nSAY: ok"' % seen
+        one = {"tasks": [{"role": "staff", "title": "t1", "instruction": "edit", "paths": ["a.txt"]}]}
+        run = ("--ticket", "7", "--token", "t", "--plan-from-state", "--stop-before-merge")
+        wr.write_state(7, plan=one)
+        self.assertEqual(self.run_with(script, paths="a.txt", review=review, extra=run), 1)
+        self.assertEqual(wr.read_state(7)["need_base"], self.init)
+        one["tasks"][0]["paths"] = ["a.txt", "b.txt"]              # the operator allowed b.txt
+        wr.write_state(7, plan=one)
+        self.assertEqual(self.run_with(script, paths="a.txt,b.txt", review=review, extra=run), 0)
+        diff = seen.read_text()
+        self.assertIn("+A", diff)                                   # the pre-pause commit is reviewed
+        self.assertIn("+B", diff)
+        self.assertEqual(wr.read_state(7)["phase"], "awaiting_merge")
+
     def run_plan_with_review(self, script, review):
         wr.write_state(7, plan=self.PLAN)
         return self.run_with(script, paths="a.txt,b.txt", review=review,

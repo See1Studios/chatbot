@@ -860,6 +860,8 @@ def cmd_run(args) -> int:
                    and git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0)
         done_tasks = int(st.get("tasks_done") or 0) if pick_up else 0
         pending = (int(st.get("pending_task") or 0), st.get("pending_base") or "") if pick_up else (0, "")
+        # the task that paused for more paths: worked again, but reviewed from its own base so pre-pause commits count
+        paused = (int(st.get("need_task") or 0), st.get("need_base") or "") if pick_up else (0, "")
         if args.resume or pick_up:
             if not wt_dir.exists() or not st.get("base"):
                 raise Failure("failed", "nothing to rework: the waiting worktree of ticket %d is gone" % tid)
@@ -903,7 +905,12 @@ def cmd_run(args) -> int:
             writer_p = persona(task["role"])
             # the task whose work waited for a confirmation: straight to its gates and review, on its own base
             confirm_only = tno == pending[0] and bool(pending[1])
-            task_base = pending[1] if confirm_only else git(wt_dir, "rev-parse", "HEAD")[1]
+            if confirm_only:
+                task_base = pending[1]
+            elif tno == paused[0] and paused[1]:
+                task_base = paused[1]
+            else:
+                task_base = git(wt_dir, "rev-parse", "HEAD")[1]
             write_state(tid, pending_task=tno, pending_base=task_base)
             head_line = ("This is task %d of %d in the plan \"%s\". Do only this task.\n" % (tno, len(tasks), args.title)
                          if len(tasks) > 1 else "")
@@ -963,8 +970,9 @@ def cmd_run(args) -> int:
                 asked = [] if confirm_only and rnd == 1 else need_paths(res["stdout"], task["paths"])
                 if asked:   # the worker needs files outside its scope: keep the work, wait for the operator
                     commit_leftovers(wt_dir, b["provider"], tid)
-                    write_state(tid, phase="needs_path", need_paths=asked, need_task=tno, tasks_done=tno - 1,
-                                pending_task=0, pending_base="", transcript=transcript, phase_since=time.time())
+                    write_state(tid, phase="needs_path", need_paths=asked, need_task=tno, need_base=task_base,
+                                tasks_done=tno - 1, pending_task=0, pending_base="", transcript=transcript,
+                                phase_since=time.time())
                     raise Failure("paused", "task %d needs %s" % (tno, ", ".join(x["path"] for x in asked)), keep=True)
 
                 write_state(tid, phase="gates", transcript=transcript, phase_since=time.time())
@@ -1008,7 +1016,7 @@ def cmd_run(args) -> int:
                 if verdict == "PASS":
                     if remember(task["role"], lessons):
                         log("task %d: lesson(s) kept in %s's memory" % (tno, task["role"]))
-                    write_state(tid, tasks_done=tno)
+                    write_state(tid, tasks_done=tno, need_base="")
                     break
                 if rnd == args.rounds:
                     if gate_error:
