@@ -1,0 +1,40 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-26 09:40:49",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-26 09:30:08",
+ "evidence": [
+  "event:20260926-081936-4b6327#186"
+ ],
+ "gate_failures": 0,
+ "id": 212,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-26 09:40:49"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/app-messages.js, static/app-viewport.js, static/app.js, tests/test_composer_height.py",
+   "ts": "2026-09-26 09:40:49"
+  },
+  {
+   "by": "agent:agy",
+   "text": "failed: worktree agy: agent agy/gemini-3.8-flash-high exited with 3",
+   "ts": "2026-09-26 09:50:38"
+  }
+ ],
+ "paths": [
+  "static/app-messages.js",
+  "static/app-viewport.js",
+  "static/app.js",
+  "tests/test_composer_height.py"
+ ],
+ "status": "approved",
+ "target": "static/app-messages.js,static/app-viewport.js,static/app.js,tests/test_composer_",
+ "title": "집중 대화 모드(가상 키보드) 진입/이탈 시 스크롤 밀림 통합 수정",
+ "updated": "2026-09-26 09:50:38",
+ "worked_by": "agy"
+}
