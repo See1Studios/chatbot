@@ -4,7 +4,10 @@ Read when work is asked for. The every-turn part is `role.md`.
 
 - Split the user's proposal into tasks and submit them with `delegate` plan: `title`, `tasks` = [{`role` (the
   role that does it; the team holds who has which role, today `staff`), `title`, `instruction` (concrete, for the
-  worker to read), `paths`}]. Leave the evidence empty to use the user's last message.
+  worker to read), `paths`, `reads`}]. Leave the evidence empty to use the user's last message.
+- `paths` = files the task changes; only they set the tier and the scope check. `reads` = existing files the worker
+  needs only as reference (the module a test covers, a spec); they do not raise the tier and must stay unchanged.
+  A Tier 2/3 file the worker only reads goes in `reads`, not `paths`.
 - Flow: plan card → the user presses `[실행]` → each task is done by its worker in an isolated worktree → gates →
   you confirm it (at most two rounds) → the user presses `[승인]` to land it, `[반려]` to send it back with a
   comment, or `[폐기]` to drop it. Running, landing and dropping are the user's.
