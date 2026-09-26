@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess
+import time
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -16,6 +17,8 @@ import media_handler as _media
 
 # agy ends a turn with an EMPTY result when this elapses -- and the agent may keep working unseen.
 AGY_PRINT_TIMEOUT_SEC = 8 * 60
+
+_AGY_MODELS_CACHE = {"ts": 0.0, "models": []}
 
 
 class AgyAdapter(AgentAdapter):
@@ -80,6 +83,35 @@ class AgyAdapter(AgentAdapter):
             return ""
 
     def known_models(self) -> List[str]:
+        now = time.time()
+        if _AGY_MODELS_CACHE.get("models") and (now - float(_AGY_MODELS_CACHE.get("ts", 0.0)) < 300):
+            return _AGY_MODELS_CACHE["models"]
+        try:
+            res = subprocess.run(
+                [self.find_executable(), "models"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=10,
+            )
+            if res.returncode == 0 or not isinstance(res.returncode, int):
+                models: List[str] = []
+                for line in (res.stdout or "").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("Fetching"):
+                        continue
+                    cols = line.split("\t")
+                    model_name = cols[0].strip()
+                    if model_name and model_name not in models:
+                        models.append(model_name)
+                if models:
+                    _AGY_MODELS_CACHE["ts"] = time.time()
+                    _AGY_MODELS_CACHE["models"] = models
+                    return models
+        except Exception:  # noqa: BLE001
+            pass
+        if _AGY_MODELS_CACHE.get("models"):
+            return _AGY_MODELS_CACHE["models"]
         return MODELS
 
     def build_args(self, model: str, effort: str, conversation_id: Optional[str], add_dirs: List[str], prompt: str = "") -> List[str]:
