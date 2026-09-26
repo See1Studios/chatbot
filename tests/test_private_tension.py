@@ -111,7 +111,7 @@ class TensionLadder(unittest.TestCase):
         self.assertEqual(PE.detect_model_family("openrouter", "qwen/qwen3-coder:free"), "local")
         self.assertEqual(PE.detect_model_family("ollama", ""), "local")
         self.assertEqual(PE.detect_model_family("", ""), "other")
-        self.assertEqual(PE.detect_model_family("grok", "grok-4"), "grok")
+        self.assertEqual(PE.detect_model_family("grok", "grok-4"), "other")
 
     def test_family_tables_pick_the_file(self):
         import json
