@@ -336,8 +336,27 @@ function bindEvents(sid) {
     if (!isBusy) updateProcBadge('idle');
     setProgress('');
     resyncFromServer(sid);
+    checkRevived();
   };
   startSessionSyncLoop();
+}
+
+// REVIVE_TOAST_v1 (#224): the first SSE open only records the server's boot_ts;
+// a later open that sees a different one means the host restarted, so flash
+// '소생 완료 ✦' in the progress bar. No boot_ts (older server) -> nothing.
+let lastBootTs = null;
+async function checkRevived() {
+  let ts;
+  try { ts = (await api('/healthz', { timeoutMs: 5000 })).boot_ts; } catch (_) { return; }
+  if (!ts) return;
+  const revived = lastBootTs !== null && ts !== lastBootTs;
+  lastBootTs = ts;
+  if (!revived) return;
+  const msg = '소생 완료 ✦';
+  setProgress(msg, true);
+  setTimeout(() => {
+    if (progressEl && !progressEl.hidden && progressEl.textContent.trim() === msg) setProgress('');
+  }, 3000);
 }
 
 // Shared "we're now looking at session `id`" transition. openSession,
