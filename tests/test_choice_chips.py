@@ -422,7 +422,10 @@ const act = classifyChoicePayload('(조용히 끌어안는다)');
 const say = classifyChoicePayload('"조금만 더 가까이"');
 const combo = classifyChoicePayload('"자기, 여기" (귀에 숨을 흘린다)');
 const charLeak = classifyChoicePayload('"하읏… 안 돼" (몸을 떤다)');
-console.log(JSON.stringify({act, say, combo, charLeak}));
+const curlyAct = classifyChoicePayload('（조용히 끌어안는다）');
+const smartCombo = classifyChoicePayload('\u201C자기, 여기\u201D (귀에 숨을 흘린다)');
+const bareAct = classifyChoicePayload('허리를 바짝 붙인다');
+console.log(JSON.stringify({act, say, combo, charLeak, curlyAct, smartCombo, bareAct}));
 """
         r = subprocess.run(
             ["node", "-e", js, str(MD)],
@@ -439,6 +442,12 @@ console.log(JSON.stringify({act, say, combo, charLeak}));
         self.assertFalse(o["combo"]["isAction"])
         self.assertIn("자기, 여기", o["combo"]["payload"])
         self.assertIn("귀에 숨을", o["combo"]["payload"])
+        self.assertEqual(o["curlyAct"]["kind"], "action")
+        self.assertTrue(o["curlyAct"]["isAction"])
+        self.assertEqual(o["smartCombo"]["kind"], "say")
+        self.assertFalse(o["smartCombo"]["isAction"])
+        self.assertEqual(o["bareAct"]["kind"], "action")
+        self.assertTrue(o["bareAct"]["isAction"])
 
 
 if __name__ == "__main__":

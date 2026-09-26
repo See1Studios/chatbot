@@ -292,20 +292,24 @@ function parseThought(text, streaming) {
 }
 
 function classifyChoicePayload(rawPayload) {
-  const s = String(rawPayload || '').trim();
+  // Normalize curly/smart quotes and fullwidth parens so pure (행동) still → /act.
+  let s = String(rawPayload || '').trim();
   if (!s) return { kind: 'say', payload: '', isAction: false };
-  // Combined: "user line" (action) — preferred coach turn with speech
+  s = s
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+    .replace(/\uFF08/g, '(').replace(/\uFF09/g, ')');
+  // Combined: "user line" (action) — speech stays speech (not /act)
   const combo = /^"([^"]*)"\s*\(([\s\S]+)\)\s*$/.exec(s);
   if (combo) {
     const line = combo[1].trim();
     const act = combo[2].trim().replace(/^\(+|\)+$/g, '').trim();
-    const payload = line ? ('"' + line + '" (' + act + ')') : ('(' + act + ')');
-    // If only action survived, treat as silent action; else user message with speech+action
     if (!line) return { kind: 'action', payload: act, action: act, isAction: true };
+    const payload = '"' + line + '" (' + act + ')';
     return { kind: 'say', payload, action: payload, isAction: false };
   }
-  // Action-only: (action)
-  const actOnly = /^\(([\s\S]+)\)\s*$/.exec(s);
+  // Action-only: (action) — silent /act. Also accept * (action) * italics wrappers.
+  const actOnly = /^\*?\s*\(([\s\S]+)\)\s*\*?\s*$/.exec(s);
   if (actOnly) {
     const act = actOnly[1].trim().replace(/^\(+|\)+$/g, '').trim();
     return { kind: 'action', payload: act, action: act, isAction: true };
@@ -314,9 +318,16 @@ function classifyChoicePayload(rawPayload) {
   const sayOnly = /^"([^"]*)"\s*$/.exec(s);
   if (sayOnly) {
     const line = sayOnly[1].trim();
+    // Quoted text that is clearly a stage direction / bare verb phrase with no speech intent
+    // still counts as say (quotes mean speech). Models must use (행동) for /act.
     return { kind: 'say', payload: line, action: line, isAction: false };
   }
   // Legacy bare text after -> : treat as action (label -> 조용히 다가간다)
+  // But if it still looks like quoted speech with mismatched quotes, strip and say.
+  if (/^["'].*["']$/.test(s)) {
+    const line = s.slice(1, -1).trim();
+    return { kind: 'say', payload: line, action: line, isAction: false };
+  }
   const bare = s.replace(/^\(+|\)+$/g, '').trim();
   return { kind: 'action', payload: bare, action: bare, isAction: true };
 }
@@ -392,13 +403,34 @@ function splitChoices(src) {
 
 function pickChoice(choice) {
   if (!choice || typeof inputEl === 'undefined' || !inputEl) return;
-  const parsed = parseChoiceItem(choice);
-  const item = typeof parsed === 'object' && parsed ? parsed : { label: String(choice), action: String(choice), kind: 'say', payload: String(choice) };
+  // If the chip already carries a classified action/command, honor it (avoid re-parse flipping
+  // bare action payloads without parens into the wrong path).
+  let item;
+  if (choice && typeof choice === 'object' && (choice.kind === 'action' || choice.isAction === true || choice.kind === 'command' || choice.kind === 'say')) {
+    item = {
+      label: String(choice.label || '').trim(),
+      kind: String(choice.kind || (choice.isAction ? 'action' : 'say')).trim(),
+      payload: String(choice.payload !== undefined ? choice.payload : (choice.action || choice.label || '')).trim(),
+      action: String(choice.action || choice.payload || choice.label || '').trim(),
+      isAction: Boolean(choice.isAction) || choice.kind === 'action',
+    };
+    if (item.kind === 'action') item.isAction = true;
+  } else {
+    const parsed = parseChoiceItem(choice);
+    item = typeof parsed === 'object' && parsed ? parsed : { label: String(choice), action: String(choice), kind: 'say', payload: String(choice) };
+  }
   const kind = item.kind || (item.isAction ? 'action' : 'say');
   const payload = item.payload || item.action || item.label;
 
-  if (kind === 'action') {
-    const act = String(payload).replace(/^\(+|\)+$/g, '').trim();   // "(x)" payload must not become "((x))"
+  if (kind === 'action' || item.isAction) {
+    // Re-confirm: if payload is still "line" (act) combo, speech stays speech.
+    const reclass = classifyChoicePayload(payload);
+    if (reclass.kind === 'say' && /^"/.test(String(payload).trim())) {
+      inputEl.value = reclass.payload;
+      sendPickedChoice();
+      return;
+    }
+    const act = String(reclass.kind === 'action' ? reclass.payload : payload).replace(/^\(+|\)+$/g, '').trim();
     if (typeof sendAction === 'function') {
       sendAction(act);
       return;
@@ -407,7 +439,6 @@ function pickChoice(choice) {
     sendPickedChoice();
     return;
   }
-
   if (kind === 'command') {
     const cmdText = payload.startsWith('/') ? payload : ('/' + payload);
     const ticketCmd = typeof parseTicketCommand === 'function' ? parseTicketCommand(cmdText) : null;

@@ -208,6 +208,18 @@ class TensionLadder(unittest.TestCase):
         self.assertIn("찌걱", PE.RENDER_PROTOCOL_GROK_OVERLAY)
         # 움찔 may appear only as banned/mild negative example
         self.assertTrue("찌걱찌걱" in PE.RENDER_PROTOCOL_GROK_OVERLAY or "찌걱" in PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        # #243 zero-filler / liquid-first / ban decorative prop filler / personality-gated 직설
+        self.assertIn("ZERO FILLER", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("매 음절", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("산통", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("LIQUID-FIRST", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("창가", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("청록", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("꼬리", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("does something erotic", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("character's personality", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("Do **NOT** force vulgar", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+        self.assertIn("Do not wrap pure actions in quotes", PE.RENDER_PROTOCOL_GROK_OVERLAY)
 
 
     def test_private_instruction_bundle_includes_render_protocol(self):
@@ -329,14 +341,19 @@ class SessionTension(unittest.TestCase):
         self.assertIn("2) 더 과감한 밀착/직진", wire)
         self.assertIn("3) 깊은 감각/분위기 탐닉", wire)
 
-    def test_grok_tension_v9_is_reaction_craft(self):
+    def test_grok_tension_v10_is_reaction_craft(self):
         import json
         raw = json.loads(PE.FAMILY_FILES["grok"].read_text(encoding="utf-8"))
-        self.assertEqual(raw["version"], 9)
+        self.assertEqual(raw["version"], 10)
         blob = " ".join(raw["texts"].values())
         self.assertIn("REACTION-first", blob)
         self.assertIn("목석", blob)
         self.assertIn("한국어", blob)
+        self.assertIn("창가", blob)
+        self.assertIn("청록", blob)
+        self.assertIn("꼬리", blob)
+        self.assertIn("액체", blob)
+        self.assertIn("매 음절", blob)
         # bust cache then reload
         PE._FAMILY_TABLES.pop("grok", None)
         ctx = PE.tension_context(2, [], PE.family_table("grok"))

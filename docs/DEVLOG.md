@@ -3,6 +3,13 @@
 최근 항목만 여기 둔다(맨 위가 최신). 지난 날짜는 `docs/devlog/YYYY-MM-DD.md` — 코드가 "2026-09-17 DEVLOG"를 가리키면 그 파일이다.
 이 파일이 40KB를 넘으면 가장 오래된 날짜를 `docs/devlog/`로 옮긴다(`tests/test_docs_budget.py`).
 
+## 2026-09-26 (밤) — 사적 Grok 장식 지문 금지·액체 주력·선택지 /act 고정 (#243)
+
+- **배경**: 창가·청록눈·장식꼬리 반복이 산통을 깸. 선택지 클릭이 대사/say로 새는 버그 잔존. 강제 천박 지양.
+- **작법** `RENDER_PROTOCOL_GROK_OVERLAY` + `private_tension_grok.json` v10: ZERO FILLER(매 음절 각성) · LIQUID-FIRST(침/애액/점성/정액) · 창가·청록눈 금지(행동 관련만) · 꼬리는 핫할 때만 · 직설은 캐릭터 말투에 맞을 때만 · #242 유지(USER 선택지·Gemini 신음·SFX↔행위·dense·grok-4.7 low).
+- **선택지 UI** `static/markdown.js`: 스마트쿼트/전각괄호 정규화, pure `(행동)`→/act, `"대사"`는 say, combo는 말 유지. `pickChoice`가 이미 action인 칩을 재파싱으로 뒤집지 않음. 순수 행동은 따옴표로 감싸지 말 것(오버레이·choice_forms).
+- **검증**: `python3 -m unittest tests.test_private_tension tests.test_choice_chips`. 호스트 py → repair. **새 사적 세션** 재시험.
+
 ## 2026-09-26 (밤) — 사적 선택지=코치 행동 + Grok 작법 밀도 (#242)
 - **Gemini 채굴**: 사적 agy/gemini 세션 신음·의태 강세(하아앙/하읏/응으읏, 파르르·찌릿)를 오버레이에 증류. SFX는 행위 짝짓기(**찌걱=삽입만**, 쪽쪽=입). 손애무에 삽입 SFX 금지.
 
