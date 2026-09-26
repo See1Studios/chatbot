@@ -422,6 +422,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 "class": "NAS agent (VibeCat-class)",
                 "skip_permissions": True,
                 "mcp_port": MCP_PORT,
+                "boot_ts": BOOT_INFO["boot_ts"],
             })
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/host/status":
@@ -434,6 +435,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             code, body = _json_bytes({
                 "ok": True,
                 "chat": chat_ok,
+                "boot_ts": BOOT_INFO["boot_ts"],
                 "label_ko": "전기충격 · 심폐소생",
                 "hint_ko": "연결이 죽었거나 응답이 안 올 때 호스트를 재기동합니다. 몇 초 끊겼다가 다시 붙습니다.",
             })
@@ -1322,6 +1324,56 @@ def _provider_availability() -> Dict[str, bool]:
     return out
 
 
+BOOT_INFO: Dict[str, Any] = {"boot_ts": 0.0, "head": "", "landed": []}  # set once by _record_boot() in main()
+LANDED_MAX = 10
+
+
+def _git(*args: str) -> str:
+    """Run git in the service repo; any failure is "" (never blocks boot)."""
+    try:
+        r = subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True, timeout=10)
+        return r.stdout.strip() if r.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+def _landed(old: str, new: str) -> list:
+    """One-line subjects of the commits between the previous boot's HEAD and this one (newest first, capped)."""
+    if not old or not new or old == new:
+        return []
+    out = _git("log", "--format=%s", "-n", str(LANDED_MAX), "%s..%s" % (old, new))
+    return [ln for ln in out.splitlines() if ln.strip()][:LANDED_MAX]
+
+
+def _record_boot(state: Path = None) -> Dict[str, Any]:
+    """Note this boot's time and HEAD, diff against the previous boot's HEAD, and remember this one for next time."""
+    state = state or DATA / "last_boot.json"
+    head = _git("rev-parse", "HEAD")
+    try:
+        old = str((json.loads(state.read_text(encoding="utf-8")) or {}).get("head") or "")
+    except Exception:
+        old = ""
+    BOOT_INFO.update(boot_ts=time.time(), head=head, landed=_landed(old, head))
+    try:
+        _atomic_write_text(state, json.dumps({"ts": BOOT_INFO["boot_ts"], "head": head}))
+    except Exception as e:  # noqa: BLE001
+        obslog.event("boot.state_write_failed", lvl="warn", error=str(e))
+    import session as _session_mod
+    _session_mod.boot_notice = _boot_notice
+    return BOOT_INFO
+
+
+def _boot_notice(sess) -> str:
+    """The one-line restart notice for a session's first turn after this boot; "" once it was given (or no boot info)."""
+    ts = BOOT_INFO.get("boot_ts") or 0
+    if not ts or getattr(sess, "_boot_noticed", 0) == ts:
+        return ""
+    sess._boot_noticed = ts
+    landed = " · ".join(BOOT_INFO.get("landed") or []) or "새 커밋 없음"
+    head = (BOOT_INFO.get("head") or "?")[:7]
+    return "[시스템 안내] 호스트가 %s에 재기동됨 (HEAD %s). 반영: %s" % (time.strftime("%H:%M", time.localtime(ts)), head, landed)
+
+
 def _obs_heartbeat() -> Dict[str, Any]:
     """Merged into every proc.heartbeat (obslog, every 5 min)."""
     with REG.lock:
@@ -1343,6 +1395,7 @@ def main() -> None:
     elif not avail.get(DEFAULT_PROVIDER):
         obslog.event("providers.default_unavailable", lvl="warn", default=DEFAULT_PROVIDER, providers=avail)
     seeded = identity.seed_workspace_files()
+    _record_boot()
     try:
         import session as _session_mod
         moved = _session_mod.migrate_session_characters()

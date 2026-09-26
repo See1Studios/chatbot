@@ -78,6 +78,7 @@ from media_handler import (
 _OBS_FORWARD = {"error", "stopped", "interrupted", "session_rotate", "session_heavy", "steer_queued", "system"}
 
 STEER_MAX_WAIT_SEC = 90   # no boundary for this long (long reasoning, no tools): interrupt anyway
+boot_notice = lambda sess: ""  # server.py hook: "[시스템 안내]" restart line, once per session per boot
 LOOP_STOP_AFTER_NOTICE = 3   # repeats that still continue after the agent was told to change course -> stop
 LOOP_NOTICE = ("같은 도구 호출을 반복하고 있습니다 ({what}). 새 정보가 없으니 여기서 멈추고, 지금까지 알게 된 것을 세 줄로 정리한 뒤 "
                "접근을 바꾸세요 (큰 파일은 StartLine/EndLine으로 나눠 읽거나 grep으로 필요한 부분만 찾기). 이미 끝낸 단계는 처음부터 "
@@ -1655,6 +1656,7 @@ class AgentSession:
             ctx_line = format_client_context(client_context)
             if ctx_line:
                 stdin_content = f"{ctx_line}\n\n{stdin_content}"
+        stdin_content = "\n\n".join(filter(None, ["" if notice else boot_notice(self), stdin_content]))
 
         if not notice and self.is_private:  # PRIVATE_TENSION_v1: move the stage, then tell the agent where it stands
             self.tension_stage, self.recent_choices = tension_step(self.tension_stage, self.recent_choices, self.history, text, event_type)
