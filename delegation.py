@@ -154,7 +154,7 @@ def _nearest(rel: str) -> str:
 
 def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = None) -> Dict:
     """The PD submits a plan; it waits for the operator's [실행]. With `ticket_id`, it replaces the plan of a
-    ticket still waiting for that (the operator asked for a new one). Returns {ticket, tier, tasks}."""
+    ticket still waiting for that, or of one that gate_failed/failed with attempts left (same id, attempts kept). Returns {ticket, tier, tasks}."""
     title = re.sub(r"\s+", " ", str(title or "")).strip()[:_TITLE_MAX]
     if not title:
         raise DelegationError("the plan needs a title")
@@ -166,8 +166,13 @@ def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = Non
         raise DelegationError("uncommitted: %s; commit or revert them first, then plan again" % ", ".join(dirty[:5]))
     if ticket_id:
         t = tickets.get(DATA, ticket_id)
-        if t["status"] not in ("proposed", "approved") or runner().read_state(t["id"]).get("phase") != "awaiting_go":
-            raise DelegationError("ticket %d is not a plan waiting for [실행]" % t["id"])
+        phase = runner().read_state(t["id"]).get("phase")
+        if phase in ("gate_failed", "failed") and t["attempts"] >= tickets.MAX_ATTEMPTS:
+            raise DelegationError("ticket %d used all %d attempts; open a new ticket" % (t["id"], tickets.MAX_ATTEMPTS))
+        if not (t["status"] in ("proposed", "approved") and phase == "awaiting_go"
+                or t["status"] == "approved" and phase in ("gate_failed", "failed")):
+            raise DelegationError("ticket %d is %s/%s; only a plan waiting for [실행] or one that gate_failed/failed "
+                                  "can be replaced" % (t["id"], t["status"], phase))
     else:
         t, _ = tickets.propose(DATA, title, ",".join(paths), evidence, actor=actor)
     tid = t["id"]
@@ -584,7 +589,7 @@ _DELEGATE_TOOL = {
     "name": "delegate",
     "description": ("You are the producer (PD): you do not change files yourself. For work the operator proposes, "
                     "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[existing repo-"
-                    "relative files][, creates=[new files]]}][, ticket to replace a plan still waiting][, evidence; defaults to the operator's "
+                    "relative files][, creates=[new files]]}][, ticket to replace a plan still waiting, or one that gate_failed/failed with attempts left][, evidence; defaults to the operator's "
                     "latest message]): the plan appears as a card and runs only when the operator presses [실행]; each "
                     "task is worked by its expert (role = a character's role, e.g. staff; see data/workspace/characters/) in an "
                     "isolated worktree, then you confirm it; the finished plan lands only when the operator presses "

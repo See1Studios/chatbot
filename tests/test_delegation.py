@@ -102,6 +102,42 @@ class PlanTest(Base):
         with self.assertRaises(delegation.DelegationError):
             self.plan([self.task(TIER0)], ticket_id=tid)
 
+    def ended(self, outcome, runs=1):
+        paths = TIER0 if outcome == "gate_failed" else TIER2   # one open ticket per target
+        tid = self.plan([self.task(paths)])["ticket"]
+        tickets.approve(self.data, tid, operator=tickets.OPERATOR_UI)
+        for _ in range(runs):
+            c = tickets.claim(self.data, tid, paths=paths)
+            tickets.release(self.data, tid, c["token"], outcome)
+        delegation.runner().write_state(tid, phase=outcome, reason="gate said no", transcript=["old"], task=1)
+        return tid
+
+    def test_a_gate_failed_plan_can_be_replaced_under_the_same_id(self):
+        for outcome in ("gate_failed", "failed"):
+            tid = self.ended(outcome)
+            res = self.plan([self.task(TIER0, "fixed")], ticket_id=tid)
+            self.assertEqual(res["ticket"], tid)
+            st = self.state(tid)
+            self.assertEqual((st["phase"], st["reason"], st["transcript"], st["task"]), ("awaiting_go", "", [], 0))
+            self.assertEqual(st["plan"]["tasks"][0]["title"], "fixed")
+            t = tickets.get(self.data, tid)
+            self.assertEqual((t["status"], t["attempts"]), ("approved", 1))
+            self.assertEqual(t["gate_failures"], 1 if outcome == "gate_failed" else 0)
+
+    def test_a_spent_ticket_cannot_be_replanned(self):
+        tid = self.ended("gate_failed", runs=tickets.MAX_ATTEMPTS)
+        with self.assertRaises(delegation.DelegationError) as cm:
+            self.plan([self.task(TIER0)], ticket_id=tid)
+        self.assertIn("used all %d attempts; open a new ticket" % tickets.MAX_ATTEMPTS, str(cm.exception))
+
+    def test_running_or_awaiting_merge_tickets_cannot_be_replanned(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.go(tid)
+        for phase in ("running", "awaiting_merge"):
+            delegation.runner().write_state(tid, phase=phase)
+            with self.assertRaises(delegation.DelegationError):
+                self.plan([self.task(TIER0)], ticket_id=tid)
+
 
 class QueueTest(Base):
     """[실행] on files another ticket holds waits in the queue and starts once they are free (LEASE_SCOPE_v1)."""
