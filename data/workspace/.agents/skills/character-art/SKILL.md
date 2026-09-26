@@ -62,6 +62,26 @@ folder instead.
 - Eyes, face, build limits
 - Base look: hair, outfit (reference: avatar.webp)
 
+## Prompt Specification (SSOT)
+### 1. Style Anchor (화풍 고정)
+- Style: Clean 2D anime digital illustration, crisp cel shading, subtle soft gradients
+- Linework: Thin and defined clean lineart
+- Lighting: Soft studio key lighting, neutral ambient light
+
+### 2. Character Anchor (외형 불변)
+- Face & Eyes: [눈 모양/색상, 동공 특징]
+- Hair: [기본 머리색, 헤어스타일, 앞머리/잔머리]
+- Features: [귀/꼬리/헤어핀 등 고유 특징]
+- Palette: Primary #[HEX], Secondary #[HEX], Accent #[HEX]
+
+### 3. Framing (구도 키워드)
+- Avatar: close-up portrait, face centered, neutral background
+- Bust: medium close-up, cut at shoulders, transparent background
+- Full: full body shot, feet grounded at bottom 2%, transparent background
+
+### 4. Negative Lock
+- bad anatomy, bad hands, blurry, text, watermark, photorealistic, 3d render
+
 ## Wigs (optional)
 | Brain | Hair (cut + dye) | Outfit |
 |---|---|---|
