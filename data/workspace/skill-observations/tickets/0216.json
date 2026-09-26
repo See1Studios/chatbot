@@ -1,0 +1,38 @@
+{
+ "actor": "chat-agent:claude",
+ "approved_at": "2026-09-26 10:52:20",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-26 10:52:08",
+ "evidence": [
+  "event:20260926-100536-a7ac6f#179"
+ ],
+ "gate_failures": 0,
+ "id": 216,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-26 10:52:20"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: docs/plans/multi-agent-worktree-delegation.md",
+   "ts": "2026-09-26 10:52:20"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-216 at 32b4ff1 (agy, review PASS round 1)",
+   "ts": "2026-09-26 10:53:34"
+  }
+ ],
+ "paths": [
+  "docs/plans/multi-agent-worktree-delegation.md"
+ ],
+ "status": "awaiting_merge",
+ "target": "docs/plans/multi-agent-worktree-delegation.md",
+ "title": "위임 파이프라인 개선 계획 문서화 (2026-09-26 회고)",
+ "updated": "2026-09-26 10:53:34",
+ "worked_by": "agy"
+}
