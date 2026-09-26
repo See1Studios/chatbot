@@ -3,13 +3,15 @@
  "approved_at": "2026-09-26 11:58:05",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-26 11:57:55",
  "evidence": [
   "event:20260926-113704-93ce20#90"
  ],
  "gate_failures": 0,
  "id": 228,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,14 +27,29 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-228 at 17840ac (agy, review PASS round 1)",
    "ts": "2026-09-26 11:59:19"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-26 11:59:50"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 175f8fd on the operator's word (agy)",
+   "ts": "2026-09-26 12:00:01"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-26 12:00:01"
   }
  ],
  "paths": [
   "static/chat-features.css"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/chat-features.css",
  "title": "사적 모드 상황 묘사를 작고 희미하게 — 대사 강조",
- "updated": "2026-09-26 11:59:19",
+ "updated": "2026-09-26 12:00:01",
  "worked_by": "agy"
 }
