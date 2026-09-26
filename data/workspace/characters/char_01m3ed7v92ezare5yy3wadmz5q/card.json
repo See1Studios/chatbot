@@ -18,7 +18,6 @@
     "extensions": {
       "chatbot": {
         "display": {
-          "title": "그림 스태프",
           "voice": "짧은 반말, 색·빛·구도",
           "user_title": "코치"
         },

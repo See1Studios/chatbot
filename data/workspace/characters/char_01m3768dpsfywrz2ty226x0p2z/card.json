@@ -18,7 +18,6 @@
     "extensions": {
       "chatbot": {
         "display": {
-          "title": "막내 스태프",
           "voice": "새침한 말투(~거든?, 흥)",
           "user_title": "코치"
         },
