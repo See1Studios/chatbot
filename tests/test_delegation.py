@@ -3,6 +3,7 @@ The runner itself is tested in tests/test_worktree_runner.py; here its launch is
 Run: python3 -m unittest tests.test_delegation  (from services/chatbot)
 """
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -175,6 +176,26 @@ class PlanPathsTest(Base):
     def test_only_new_files_is_a_plan_too(self):
         tid = self.plan([{"role": "staff", "title": "t", "instruction": "i", "creates": ["static/app-new.js"]}])["ticket"]
         self.assertEqual(self.state(tid)["paths"], ["static/app-new.js"])
+
+    def git(self, *args):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=str(delegation.PLAN_ROOT),
+                       check=True, capture_output=True)
+
+    def test_uncommitted_files_are_refused_before_run(self):
+        self.git("init", "-q")
+        self.git("add", "static/chat.css")
+        self.git("commit", "-qm", "init")
+        tid = self.plan([self.task(["static/chat.css"])])["ticket"]              # clean: a plan
+        for rel in ("static/app.js", "static/chat.css"):                          # untracked, then modified
+            if rel == "static/chat.css":
+                (delegation.PLAN_ROOT / rel).write_text("changed", encoding="utf-8")
+            for ticket_id in (None, tid):
+                with self.assertRaises(delegation.DelegationError) as cm:
+                    self.plan([self.task([rel])], ticket_id=ticket_id)
+                self.assertIn("uncommitted: " + rel, str(cm.exception))
+        self.git("checkout", "--", "static/chat.css")
+        t = dict(self.task(["static/chat.css"]), creates=["static/app-new.js"])  # creates-only files are exempt
+        self.assertTrue(self.plan([t])["ticket"])
 
 
 class AllowPathsTest(Base):

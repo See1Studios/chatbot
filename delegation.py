@@ -161,6 +161,9 @@ def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = Non
     tasks = _tasks(tasks)
     paths = sorted({p for t in tasks for p in t["paths"]})
     tier = tier_of(paths)
+    dirty = tickets._ship_blockers(PLAN_ROOT, {"paths": [p for p in paths if (PLAN_ROOT / p).exists()]})
+    if dirty:   # [실행]'s claim would refuse them (#213); `creates` files do not exist yet, so they are exempt
+        raise DelegationError("uncommitted: %s; commit or revert them first, then plan again" % ", ".join(dirty[:5]))
     if ticket_id:
         t = tickets.get(DATA, ticket_id)
         if t["status"] not in ("proposed", "approved") or runner().read_state(t["id"]).get("phase") != "awaiting_go":
