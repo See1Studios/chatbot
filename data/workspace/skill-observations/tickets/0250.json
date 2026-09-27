@@ -3,13 +3,15 @@
  "approved_at": "2026-09-27 14:23:55",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-27 14:21:57",
  "evidence": [
   "event:20260927-091305-ec31ff#43"
  ],
  "gate_failures": 0,
  "id": 250,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -40,6 +42,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-250 at 28847d3 (agy, review PASS round 1)",
    "ts": "2026-09-27 15:27:41"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-27 15:36:39"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 44055ca on the operator's word (agy)",
+   "ts": "2026-09-27 15:36:54"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-27 15:36:54"
   }
  ],
  "paths": [
@@ -54,9 +71,9 @@
   "tests/test_st_import_api.py",
   "tools/st_import.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "characters.py,instructions.py,server.py,static/app-characters.js,static/index.ht",
  "title": "Phase 1+2: ST PNG 카드 임포터 + 로어북 엔진",
- "updated": "2026-09-27 15:27:41",
+ "updated": "2026-09-27 15:36:54",
  "worked_by": "agy"
 }
