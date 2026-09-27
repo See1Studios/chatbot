@@ -1,5 +1,23 @@
 # chatbot 개발로그
 
+## 2026-09-27 — 사용자 데이터 경로 `~/.pe` + 릴리스 파이프라인 계획
+
+- **배경**: Private Engine 배포 준비 — 엔진/개인 데이터 분리와 릴리스 로드맵을 계획 문서로 고정. 구현·마이그레이션 착수는 실장님 말 후.
+- **경로 SSOT** ([user-data-separation.md](plans/user-data-separation.md) §0 갱신):
+  - 배포 기본: **`~/.pe`** (`~/.privateengine` 아님)
+  - env: `CHATBOT_DATA` → `PE_HOME` → `PRIVATEENGINE_HOME` → 레거시 `AGY_CHAT_DATA`
+  - 개발: `CHATBOT_DATA=$CODE/data`
+  - **ctl** `DATA="$CODE/data"` 하드코딩 제거 MUST
+  - Windows: `%USERPROFILE%\.pe` (XDG 등은 이후)
+- **신규** [release-pipeline.md](plans/release-pipeline.md) (`active`):
+  - **Now**: repo private/PII, VERSION+CHANGELOG+tag, RELEASE.md, run-tests.sh, repair→smoke, secrets.env.example
+  - **Next 1–2mo**: `~/.pe` 기본, migrate, templates bootstrap, `data/` gitignore, 최소 CI
+  - **Pre-Steam**: thin launcher, installer, signing — Steam은 브랜드·도메인 이후
+  - **NOT**: 공개 푸시·히스토리 scrub 단독, 두꺼운 데스크톱 셸, `~/.privateengine` 기본 고정 등
+- **INDEX**: user-data-separation 행 갱신 + release-pipeline Active 행. **concept** 열린 축 1줄.
+- **교차**: private-engine-brand, user-data-and-editing §1, character-memory-adapter.
+- **실장님 경로 요약**: 배포 `~/.pe` · 개발 `$CODE/data` · ctl 하드코딩 금지 · Steam은 브랜드 후.
+
 ## 2026-09-27 — 캐릭터 스코프 관계 기억 어댑터 계획 문서화
 
 - **배경**: 개인화 에이전트 하네스(걸프렌드-퍼스트 아님). 사적 관계는 opt-in 능력. Joi식 공감·연속성. 현행 `MEMORY.md`/`memory.md`/`private-memory.md`는 동반자 깊이에 부족.

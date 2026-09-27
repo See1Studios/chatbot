@@ -31,7 +31,8 @@
 | [monolith-split.md](monolith-split.md) | `active` — Phase 5 완료(app.js·session.py 분리), 파일 상한 규칙 | 파일을 나누거나 새 파일을 만들 때 |
 | [character-resource-pipeline.md](character-resource-pipeline.md) | `active` — 캐릭터 폴더 SSOT, 정본/파생/인스턴스, `needed_art`, 자기진화 완결성 관찰 | 캐릭터 생성·수정·그림·Hub 페르소나 경로를 건드릴 때 |
 | [user-data-and-editing.md](user-data-and-editing.md) | `active` — 사용자 데이터 분리(배포), ~~직책 이름은 표시값~~(완료 #129), 카드 폼 편집, 옛 프로토타입 삭제 | 배포 준비·팀 탭 편집·직책을 건드릴 때 |
-| [user-data-separation.md](user-data-separation.md) | `active` — 엔진/사용자 데이터 물리 분리·`CHATBOT_DATA`·마이그레이션 (user-data-and-editing §1 상세) | 배포·데이터 경로·gitignore를 건드릴 때 |
+| [user-data-separation.md](user-data-separation.md) | `active` — 기본 `~/.pe`·`CHATBOT_DATA`/`PE_HOME`·ctl 하드코딩 제거·마이그레이션 (user-data-and-editing §1 상세) | 배포·데이터 경로·`~/.pe`·gitignore를 건드릴 때 |
+| [release-pipeline.md](release-pipeline.md) | `active` — Now/Next/Pre-Steam 배포 로드맵, `~/.pe`, CI·런처·Steam은 브랜드 이후 | 릴리스·버전·CI·인스톨러·Steam 전 배포를 건드릴 때 |
 | [out-of-band-choices-actions.md](out-of-band-choices-actions.md) | `active` — 선택지·액션을 답변 본문 밖 채널(`choices` 도구·이벤트)로, 버튼 직접 전송(#134) | 선택지·버튼·액션 전달·티켓 바를 건드릴 때 |
 | [private-mode.md](private-mode.md) | `active` — 사적 모드 SSOT: 액션·선택지·텐션 4단계(구현됨), 8단계 초안·호감도·HUD·렌더 데코레이터(계획), 결정 필요 D1–D12 | 사적 모드·텐션·호감도·HUD·렌더링을 건드릴 때 |
 | [private-engine-brand.md](private-engine-brand.md) | `active` — Private Engine / 프라이빗엔진 브랜드·도메인 공개 스캔(2026-09-27), privateengine.ai 기울기, 상표≠도메인 | 브랜드명·도메인·상표 클리어런스·외부 배포 명칭을 건드릴 때 |
