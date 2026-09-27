@@ -27,6 +27,7 @@
 
 | 문서 | 상태 | 언제 읽나 |
 |---|---|---|
+| [direction-alignment.md](direction-alignment.md) | `active` — 개인화 하네스로의 전환(전영소녀·조이, 업무 경쟁 안 함): 기조 재작성 → 제품 문서 → 계획 적합성 → 코드(NAS 플러그인·호칭 중립) → 개인화 고리 설계 | 기조·제품 정체성·방향 적합성을 판단하거나 바꿀 때 (**다른 계획보다 먼저**) |
 | [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md) | `active` — §10 PD 모델, §11 전문가, §12 캐릭터(카드·사적 기억·이미지 형식·역할 팩) | 위임·PD·캐릭터·역할을 건드릴 때 |
 | [monolith-split.md](monolith-split.md) | `active` — Phase 5 완료(app.js·session.py 분리), 파일 상한 규칙 | 파일을 나누거나 새 파일을 만들 때 |
 | [character-resource-pipeline.md](character-resource-pipeline.md) | `active` — 캐릭터 폴더 SSOT, 정본/파생/인스턴스, `needed_art`, 자기진화 완결성 관찰 | 캐릭터 생성·수정·그림·Hub 페르소나 경로를 건드릴 때 |
