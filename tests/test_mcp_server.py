@@ -18,6 +18,8 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # the host plugin is off by default (align/F); these tests cover it, so turn it on before the import
 os.environ.setdefault("NAS_MCP_HOST_PLUGIN", "1")
+# and these cover the dev build's tools (ticket, run_command, delegate); the shipped build is pinned in test_edition_boundary
+os.environ.setdefault("CHATBOT_EDITION", "dev")
 import mcp_server as mcp  # noqa: E402  -- the only place tests import the tool server
 
 CODE = Path(__file__).resolve().parent.parent

@@ -231,6 +231,10 @@
     {
       "path": "ratchet_baseline.json",
       "reason": "a gate threshold (ratchets may only go down)"
+    },
+    {
+      "path": "tests/test_edition_boundary.py",
+      "reason": "a guard test (run-tests.sh FAST)"
     }
   ]
 }

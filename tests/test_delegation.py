@@ -3,6 +3,7 @@ The runner itself is tested in tests/test_worktree_runner.py; here its launch is
 Run: python3 -m unittest tests.test_delegation  (from services/chatbot)
 """
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+# delegation is a dev-build feature (edition-boundary); pin the edition before host_config is first imported
+os.environ.setdefault("CHATBOT_EDITION", "dev")
 import delegation  # noqa: E402
 import tickets  # noqa: E402
 

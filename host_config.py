@@ -30,6 +30,10 @@ WORKSPACE = DATA / "workspace"
 # web server leaves it unset and gets a folder in its own data; a host that has one names it in
 # $CHATBOT_DATA/host.env (templates/host.env.example). align/F: no host path is baked in.
 WEB_ROOT = Path(_env("CHATBOT_WEB_ROOT", "AGY_CHAT_WEB_ROOT", str(DATA / "web")))
+# Which build this install is (docs/plans/edition-boundary.md): "shipped" (end users -- the agent never touches engine
+# code, dev tools are off) unless the install opts in with CHATBOT_EDITION=dev in $CHATBOT_DATA/host.env. Least
+# privilege by default; this is the one place the edition is decided.
+EDITION = "dev" if os.environ.get("CHATBOT_EDITION", "").strip().lower() == "dev" else "shipped"
 AGENT_PATH_PREFIX = f"{HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
 HOST = _env("CHATBOT_HOST", "AGY_CHAT_HOST", "127.0.0.1")

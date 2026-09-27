@@ -29,6 +29,7 @@ FAST=(
   test_githooks
   test_doc_names
   test_ratchets
+  test_edition_boundary
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import obslog
+from host_config import EDITION  # edition-boundary: "shipped" hides dev tools and limits writes to user data
 
 HOST = os.environ.get("NAS_MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))
@@ -406,6 +407,9 @@ def tool_defs() -> List[dict]:
         defs += list(delegation.TOOL_DEFS)
     if HOST_PLUGIN:
         defs += list(getattr(HOST_PLUGIN, "EXTRA_TOOL_DEFS", []))
+    if EDITION != "dev":
+        hidden = _dev_only_tools()
+        defs = [d for d in defs if d.get("name") not in hidden]
     return defs
 
 
@@ -442,15 +446,26 @@ if os.environ.get("NAS_MCP_HOST_PLUGIN", "0") == "1":
         HOST_PLUGIN = None
 
 
+def _shipped_roots() -> List[Path]:
+    """The shipped build writes and reads only the install's own user data (+ tmp): never the engine repo, never
+    host-wide agent folders (edition-boundary 4.2)."""
+    return [DATA.resolve(), (DATA / "workspace").resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve()]
+
+
+def _dev_only_tools() -> set:
+    """Tools only the dev build has: raw commands (D3), tickets (D4, shipped uses proposal cards), delegation."""
+    return {"run_command", "ticket"} | set(getattr(delegation, "NAMES", ()) if delegation is not None else ())
+
+
 def _allow_roots() -> List[Path]:
-    roots = list(ALLOW_ROOTS)
+    roots = list(ALLOW_ROOTS) if EDITION == "dev" else _shipped_roots()
     if HOST_PLUGIN:
         roots += list(getattr(HOST_PLUGIN, "EXTRA_ALLOW_ROOTS", []))
     return roots
 
 
 def _read_roots() -> List[Path]:
-    roots = list(READ_ROOTS)
+    roots = list(READ_ROOTS) if EDITION == "dev" else _shipped_roots()
     if HOST_PLUGIN:
         roots += list(getattr(HOST_PLUGIN, "EXTRA_READ_ROOTS", []))
     return roots
@@ -534,6 +549,8 @@ def _command_refusal(cmd: str) -> Optional[str]:
 
 def call_tool(name: str, arguments: dict) -> dict:
     args = arguments or {}
+    if EDITION != "dev" and name in _dev_only_tools():
+        return envelope(False, "%s is not available in this edition (shipped build)" % name)
     try:
         if name == "list_dir":
             path = _resolve_target_path(args.get("path"))

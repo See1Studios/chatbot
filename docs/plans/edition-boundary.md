@@ -95,9 +95,9 @@
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `edition/A` | 이 문서 + INDEX 행 + 정렬 계획 연결 | `docs/plans/edition-boundary.md`, `docs/plans/INDEX.md`, `docs/plans/direction-alignment.md` | INDEX 행, 커밋 | 0 · — | S | — | ✅ 티켓 없음(pew D3) |
-| `edition/B` | `host_config.EDITION` + 이 NAS `host.env`에 `dev` + `templates/host.env.example` | `host_config.py`, `templates/host.env.example` | 미설정 시 `shipped`, 이 NAS는 재기동 후에도 개발판 | 2 · ⚡ | S | D1 | 대기 |
-| `edition/C` | 판별 MCP 도구·쓰기 범위(4.2) | `mcp_server.py`, `mcp_core.py` | `shipped`에서 `ticket`·`delegate` 없음, 쓰기 루트는 사용자 데이터만 | 3 · ⚡ | M | edition/B, D3, D4 | 대기 |
-| `edition/D` | `test_edition_boundary`(4.5) — 가드 목록·보호 목록에 등록 | `tests/`, `run-tests.sh`, `protected_paths.json` | 4.5의 다섯 항목이 테스트로 고정, 일부러 어기면 실패 | 3 · — | M | edition/C | 대기 |
+| `edition/B` | `host_config.EDITION` + 이 NAS `host.env`에 `dev` + `templates/host.env.example` | `host_config.py`, `templates/host.env.example` | 미설정 시 `shipped`, 이 NAS는 재기동 후에도 개발판 | 2 · ⚡ | S | D1 | ✅ #282 |
+| `edition/C` | 판별 MCP 도구·쓰기 범위(4.2) | `mcp_server.py`, `mcp_core.py` | `shipped`에서 `ticket`·`delegate` 없음, 쓰기 루트는 사용자 데이터만 | 3 · ⚡ | M | edition/B, D3, D4 | ✅ #282 |
+| `edition/D` | `test_edition_boundary`(4.5) — 가드 목록·보호 목록에 등록 | `tests/`, `run-tests.sh`, `protected_paths.json` | 4.5의 다섯 항목이 테스트로 고정, 일부러 어기면 실패 | 3 · — | M | edition/C | ✅ #282 |
 | `edition/E` | `evolution.py` 분리(D2) | `evolution.py`, 새 모듈, 호출부, `core_modules.json` | 공통 부분만으로 서버가 뜸, 개발판 부분은 `dev`에서만 | 3 · ⚡ | M | D2 | 대기 |
 | `edition/F` | 패키지 제외 목록(4.4)과 release-pipeline 연결 | `edition_exclude.txt`, `docs/plans/release-pipeline.md` | 목록의 모듈을 가린 경계 테스트 통과 | 2 · — | S | edition/D | 대기 |
 | `edition/G` | UI: `shipped`에서 개선 탭 대신 제안 목록 | `static/` | `shipped`에서 티켓·작업 카드 UI가 보이지 않음 | 2 · — | M | ladder/E | 대기 |
