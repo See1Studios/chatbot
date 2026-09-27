@@ -241,10 +241,14 @@ class OpenAIDialectAdapter(AgentAdapter):
         return True
 
     def _get_models_meta(self) -> Dict[str, dict]:
-        """Fetch and cache `/v1/models` metadata (context_length, etc.). Cached for 10 min."""
+        """Fetch and cache `/v1/models` metadata (context_length, etc.). Cached for 10 min; a failed fetch is
+        remembered for 60 s, or an unreachable endpoint costs the 10 s timeout on every call (/api/providers
+        took 30 s on 2026-09-27)."""
         now = time.time()
         if self._models_meta_cache["data"] and (now - self._models_meta_cache["ts"] < 600):
             return self._models_meta_cache["data"]
+        if now - self._models_meta_cache.get("failed_ts", 0) < 60:
+            return {}
         meta_by_id = {}
         try:
             req = Request(
@@ -261,7 +265,7 @@ class OpenAIDialectAdapter(AgentAdapter):
             self._models_meta_cache["ts"] = now
             self._models_meta_cache["data"] = meta_by_id
         except Exception:
-            pass
+            self._models_meta_cache["failed_ts"] = now
         return meta_by_id
 
     def soft_hard_tokens(self, model: str) -> Tuple[int, int]:
