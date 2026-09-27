@@ -2,14 +2,18 @@
 """Commit hooks for this repo (plan-execution-workflow pew/E). Installed with `git config core.hooksPath .githooks`
 (run-tests.sh warns when it is not); worktrees share the setting, so delegated workers get the same checks.
 
-  check_staged.py pre-commit        forbidden files, secrets in added lines, then ./run-tests.sh --fast
+  check_staged.py pre-commit        forbidden files, secrets in added lines, then ./run-tests.sh --fast on the
+                                    staged snapshot (a throwaway worktree; others' unstaged work does not count)
   check_staged.py commit-msg FILE   Conventional Commits subject; `Plan:` trailer when docs/plans/ changes
 
 Never bypass with --no-verify (root AGENTS.md). Messages name the file and the rule, never a secret's value.
 """
+import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 TYPES = "feat|fix|docs|test|refactor|chore|perf|style|build|ci|revert"
@@ -41,6 +45,44 @@ def staged():
     return [p for p in git("diff", "--cached", "--name-only", "--diff-filter=ACMR").splitlines() if p]
 
 
+def _clean_git_env():
+    """git hands hooks GIT_INDEX_FILE (a temp index for `commit -a` / `commit <paths>`) and may set GIT_DIR: a new
+    worktree and the guards must not inherit them, or they would read or write that index."""
+    return {k: v for k, v in os.environ.items()
+            if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE", "GIT_PREFIX", "GIT_OBJECT_DIRECTORY")}
+
+
+def run_guards_on_snapshot(root):
+    """Run ./run-tests.sh --fast on what is being committed, not on the shared working tree (pew/Q): agents that share
+    one tree must not block each other's commits with their own unstaged work. The snapshot is a throwaway worktree at
+    HEAD with the staged diff applied. Returns None when there is no runner. Falls back to the working tree only when
+    there is no HEAD yet (a repository's first commit) or the diff will not apply."""
+    diff = subprocess.run(["git", "diff", "--cached", "--binary"], cwd=str(root), capture_output=True).stdout  # this commit's index
+    env = _clean_git_env()
+    base = Path.home() / ".cache" / "chatbot-hook-snapshot"   # /tmp is noexec on this host
+    base.mkdir(parents=True, exist_ok=True)
+    tmp = Path(tempfile.mkdtemp(dir=str(base)))
+    tree = tmp / "tree"
+    added = subprocess.run(["git", "worktree", "add", "--detach", "--quiet", str(tree), "HEAD"], cwd=str(root),
+                           env=env, capture_output=True, text=True)
+    try:
+        where = tree if added.returncode == 0 else root
+        if added.returncode == 0 and diff:
+            ap = subprocess.run(["git", "apply", "--index", "--whitespace=nowarn"], cwd=str(tree), env=env,
+                                input=diff, capture_output=True)
+            if ap.returncode != 0:
+                print("[pre-commit] could not rebuild the staged snapshot; checking the working tree instead")
+                where = root
+        runner = where / "run-tests.sh"
+        if not runner.is_file():
+            return None
+        return subprocess.run(["bash", str(runner), "--fast"], cwd=str(where), env=env, capture_output=True, text=True)
+    finally:
+        if added.returncode == 0:
+            subprocess.run(["git", "worktree", "remove", "--force", str(tree)], cwd=str(root), env=env, capture_output=True)
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def pre_commit():
     root = Path(git("rev-parse", "--show-toplevel").strip())
     files = staged()
@@ -66,10 +108,9 @@ def pre_commit():
         return 1
     if files and all(f.startswith(RECORDS) for f in files):
         return 0
-    runner = root / "run-tests.sh"
-    if not runner.exists():
+    r = run_guards_on_snapshot(root)
+    if r is None:
         return 0
-    r = subprocess.run([str(runner), "--fast"], cwd=str(root), capture_output=True, text=True)
     if r.returncode != 0:
         tail = "\n".join(r.stdout.strip().splitlines()[-25:])
         print("[pre-commit] guard tests failed; fix them before committing (never --no-verify):\n" + tail)

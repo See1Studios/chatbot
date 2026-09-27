@@ -60,6 +60,25 @@ class Hooks(unittest.TestCase):
         self.assertNotIn(fake, r.stdout + r.stderr)
         self.assertEqual(self.commit("b.py", "KEY = '%s'  # %s\n" % (fake, check.ALLOW), "test: fixture").returncode, 0)
 
+    def test_guards_judge_the_staged_snapshot_not_the_shared_tree(self):
+        # pew/Q: agents share one working tree; another agent's unstaged work must not decide my commit
+        (self.repo / "run-tests.sh").write_text('grep -q bad guard.txt && { echo "failed: guard"; exit 1; }; exit 0\n',
+                                                encoding="utf-8")
+        self.assertEqual(self.commit("guard.txt", "ok\n", "chore: start").returncode, 0)   # first commit: no HEAD yet
+        self.git("add", "run-tests.sh")
+        self.assertEqual(self.git("commit", "-qm", "chore: runner").returncode, 0)
+        (self.repo / "guard.txt").write_text("bad\n", encoding="utf-8")                   # someone else's unstaged work
+        self.assertEqual(self.commit("mine.txt", "x\n", "feat: mine").returncode, 0)
+        (self.repo / "only.txt").write_text("y\n", encoding="utf-8")
+        self.git("add", "only.txt")
+        self.assertEqual(self.git("commit", "-qm", "feat: by path", "--", "only.txt").returncode, 0)   # temp index
+        self.git("add", "guard.txt")                                                        # now I stage the breakage
+        self.assertNotEqual(self.git("commit", "-qm", "feat: breaks").returncode, 0)
+        self.git("reset", "-q", "guard.txt")
+        self.assertNotEqual(self.git("commit", "-qam", "feat: all").returncode, 0)          # -a stages it too
+        worktrees = self.git("worktree", "list").stdout.strip().splitlines()
+        self.assertEqual(len(worktrees), 1, "the snapshot worktree must be removed: %s" % worktrees)
+
     def test_the_hooks_are_committed_executable(self):
         # a hook that lost its exec bit is skipped with only a hint -- the check would vanish silently
         out = subprocess.run(["git", "ls-files", "-s", ".githooks"], cwd=str(ROOT), capture_output=True, text=True).stdout
