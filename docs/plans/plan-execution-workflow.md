@@ -225,7 +225,7 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 | `pew/D` | 가드 테스트 1차: `test_rule_registry`, `test_entrypoints`, `test_plans_index`, `test_doc_refs` | `tests/` | 현재 저장소에서 실패하는 항목(P11 등)을 먼저 고치고 통과. 일부러 규칙을 어기면 실패 | 3 · — | M | pew/B, pew/C | 대기 |
 | `pew/E` | 훅: `.githooks/pre-commit`, `commit-msg` + 설치 확인 | `.githooks/`, `run-tests.sh` | 비밀 패턴이 든 파일, untracked 계획, 형식이 틀린 메시지로 커밋하면 각각 거절됨 | 3 · — | S | pew/B, D6 | 대기 |
 | `pew/F` | 러너 게이트(`DEFAULT_GATES`)를 `run-tests.sh --fast` + 변경 경로 관련 모듈로 교체 | `tools/worktree_runner.py` | 위임 실행 로그에 `run-tests.sh` 결과가 남음 | 3 · — | S | pew/N | 대기 |
-| `pew/N` | **기준선 녹색화**: 실패 14개를 세 티켓으로 — N1 구조 가드 초과(`test_bundle_budget` 헌장 묶음 축소, `test_file_sizes` `server.py` 분할) · N2 코드 분리 후 낡은 UI 하네스·소스 문자열 테스트 8개 · N3 동작 기대 불일치 3개(각각 코드와 테스트 중 무엇이 맞는지 운영자 확인) | 티켓별 | `./run-tests.sh` 종료 코드 0 | 3 · ⚡(N1 `server.py`) | M×3 | pew/B | 대기 |
+| `pew/N` | **기준선 녹색화**: 실패 14개를 세 티켓으로 — N1 구조 가드 초과(`test_bundle_budget` 헌장 묶음 축소, `test_file_sizes` `server.py` 분할) · N2 코드 분리 후 낡은 UI 하네스·소스 문자열 테스트 8개 · N3 동작 기대 불일치 3개(각각 코드와 테스트 중 무엇이 맞는지 운영자 확인) | 티켓별 | `./run-tests.sh` 종료 코드 0 | 3 · ⚡(N1 `server.py`) | M×3 | pew/B | ✅ #255–#261 (`git log --grep="Plan: pew/N"`) |
 | `pew/O` | `tickets.release(done)`이 `run-tests.sh --fast`를 통과해야 완료되게 함(훅 우회의 백스톱, 경로 ①·③) | `tickets.py`, `tests/test_tickets.py` | 가드 테스트가 빨간 상태에서 `done`이 짧은 이유와 함께 거절됨 | 3 · ⚡ | S | pew/N | 대기 |
 | `pew/G` | 계획 템플릿 + INDEX 규칙에 수명주기 요약과 링크 | `docs/plans/_TEMPLATE.md`, `docs/plans/INDEX.md` | 템플릿이 §6 섹션을 모두 포함 | 0 · — | S | D2 | 대기 |
 | `pew/H` | ADR 도입 + `0001-user-data-default-pe.md`(`~/.pe` 결정 소급) | `docs/decisions/` | MADR 축약 형식, 루트 AGENTS.md 정본 지도에서 링크 | 0 · — | S | D1 | 대기 |
@@ -237,7 +237,7 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 
 **순서**
 
-1. **토대**: A ✅ → B ✅ → **N(녹색화)** → C → D → E·F·O. 입구와 강제층을 먼저 세우되, 빨간 기준선 위에는 걸지 않는다. 이후 작업은 모두 이 그물 아래에서 진행된다.
+1. **토대**: A ✅ → B ✅ → N ✅(93/93, 2026-09-27) → C → D → E·F·O. 입구와 강제층을 먼저 세우되, 빨간 기준선 위에는 걸지 않는다. 이후 작업은 모두 이 그물 아래에서 진행된다.
 2. **절차**: G·H → J(파일럿) → I. 파일럿을 수작업으로 한 번 돌려 본 뒤 항목 검사를 자동화한다.
 3. **정리**: K(`uds/B` 뒤) · L · M.
 
