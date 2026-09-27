@@ -23,7 +23,12 @@
     "data/workspace/skill-observations/candidates.jsonl",
     "data/sessions/*/events.jsonl",
     "core_modules.json",
-    "bundle_budget.json"
+    "bundle_budget.json",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    ".githooks/",
+    "run-tests.sh"
   ],
   "except": [
     {
@@ -134,7 +139,7 @@
       "reason": "emergency procedure"
     },
     {
-      "path": "docs/plans/recursive-self-evolution.md",
+      "path": "docs/plans/archive/2026/recursive-self-evolution.md",
       "reason": "the self-evolution design"
     },
     {
@@ -144,6 +149,74 @@
     {
       "path": "~/.agents/",
       "reason": "host-wide agent rules"
+    },
+    {
+      "path": "AGENTS.md",
+      "reason": "the engine development charter"
+    },
+    {
+      "path": "CLAUDE.md",
+      "reason": "entry pointer to the charter"
+    },
+    {
+      "path": "GEMINI.md",
+      "reason": "entry pointer to the charter"
+    },
+    {
+      "path": ".githooks/",
+      "reason": "commit hooks, a gate every commit passes"
+    },
+    {
+      "path": "run-tests.sh",
+      "reason": "the test runner every gate calls"
+    },
+    {
+      "path": "tests/test_docs_budget.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_code_layout.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_file_sizes.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_no_trace.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_tool_format_clean.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_bundle_budget.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_static_assets.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_entrypoints.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_rule_registry.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_plans_index.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_doc_refs.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_githooks.py",
+      "reason": "a guard test (run-tests.sh FAST)"
     }
   ]
 }

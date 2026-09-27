@@ -26,6 +26,25 @@ class CodeLayout(unittest.TestCase):
             if p.is_dir() and (p / "__init__.py").exists():
                 self.assertIn(p.name, CODE_DIRS, "%s/ is a code package: list it in CODE_DIRS and protect it" % p.name)
 
+    def test_every_pass_condition_is_governance(self):
+        # a guard, the runner that calls it, the hooks and the charter are pass conditions: tier 3, operator only
+        import re
+        fast = re.search(r"^FAST=\((.*?)^\)", (ROOT / "run-tests.sh").read_text(encoding="utf-8"), re.S | re.M)
+        paths = ["tests/%s.py" % m for m in fast.group(1).split()]
+        paths += ["run-tests.sh", ".githooks/pre-commit", ".githooks/check_staged.py", "AGENTS.md", "CLAUDE.md",
+                  "GEMINI.md"]
+        for rel in paths:
+            self.assertEqual(evolution.delegation_tier(ROOT, rel)[0], 3,
+                             "%s must be listed under governance in protected_paths.json" % rel)
+
+    def test_governance_entries_point_at_real_paths(self):
+        import json
+        for g in json.loads((ROOT / "protected_paths.json").read_text(encoding="utf-8"))["governance"]:
+            path = g["path"]
+            if path.startswith("~/") or any(c in path for c in "*?"):
+                continue
+            self.assertTrue((ROOT / path).exists(), "governance lists %s, which is gone: fix or drop it" % path)
+
 
 if __name__ == "__main__":
     unittest.main()
