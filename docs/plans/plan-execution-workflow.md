@@ -1,7 +1,7 @@
 # 계획 → 실행 워크플로우 (제품화 기준)
 
-> 상태: **active** (초안 2026-09-27, 개정 2026-09-27: 누수 방지·강제층 추가, D1–D8 결정)
-> 목적: **어떤 에이전트가 들어와도** 같은 입구로 들어오고, 같은 정본을 읽고, 규칙을 어기면 기계가 막는 구조를 만든다. 계획이 티켓·커밋·릴리스까지 끊기지 않고 추적되게 한다. 첫 적용 대상은 제품화 작업([release-pipeline.md](release-pipeline.md), [user-data-separation.md](user-data-separation.md))이다.
+> 상태: **active** (초안 2026-09-27, 개정 2026-09-27: 누수 방지·강제층 추가, D1–D8 결정, PE 내부 경로 우선)
+> 목적: **어떤 에이전트가 들어와도**(작업 대부분은 **PE(챗봇) 안의 에이전트**가 한다 — 외부 CLI는 소수 경로) 같은 입구로 들어오고, 같은 정본을 읽고, 규칙을 어기면 기계가 막는 구조를 만든다. 계획이 티켓·커밋·릴리스까지 끊기지 않고 추적되게 한다. 첫 적용 대상은 제품화 작업([release-pipeline.md](release-pipeline.md), [user-data-separation.md](user-data-separation.md))이다.
 > 관련: [INDEX.md](INDEX.md)(계획 상태 SSOT) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md) §9–10·§13(티켓·PD 실행 경로) · `tickets.py`(티켓 규칙 SSOT)
 > 범위: 진입점, 정본 배치, 강제 장치, 계획 → 티켓 이음매, 완료·릴리스 기록. 티켓 엔진·러너·PD 흐름 자체는 바꾸지 않는다.
 
@@ -92,13 +92,30 @@ $CHATBOT_DATA/workspace/AGENTS.md          # 챗 에이전트(제품 런타임) 
 
 **저장소 밖 도구는 저장소로 들인다.** `~/bin/ticket-quick` → `tools/ticket_quick.py`(테스트 포함, `host_config` 사용). `~/bin/`에는 한 줄짜리 실행 포인터만 남긴다(P10).
 
+### 3.1 PE 내부 경로가 주 경로다 (2026-09-27 운영자)
+
+작업 대부분은 PE 안에서 일어난다. 규칙은 외부 CLI뿐 아니라 **PE 안의 모든 에이전트 경로**에서 똑같이 지켜져야 한다.
+
+| 경로 | 누가 | 규칙을 받는 곳 | 끝나는 곳 |
+|---|---|---|---|
+| ① 라이브 수정 | 챗 에이전트(PD 직접, Tier 0/1·승인된 Tier 3) | `$WORKSPACE/AGENTS.md` 주입 묶음(`instructions.py`, **상한 4,800 B**) + 도구 응답 | 커밋 → `tickets.release(done)` |
+| ② 위임 | 러너가 띄운 전문가 CLI(`tools/worktree_runner.py`) | 워크트리 = 저장소 루트 → CLI가 루트 `AGENTS.md`/`CLAUDE.md`를 자동으로 읽음 + 작업 지시 | 러너 게이트 → 커밋 → 병합 → `release` |
+| ③ 외부 | 터미널의 Claude Code·Grok·Gemini 등 | 루트 `AGENTS.md` | 커밋 → `ticket-quick done` |
+
+설계 규칙:
+
+- **세 경로가 모두 지나는 길목에 집행자를 둔다**: `git commit`(훅, 워크트리도 `core.hooksPath` 공유), `tickets.release(done)`(이미 dirty 경로를 거절함), 러너 게이트. 한 경로에만 있는 집행자는 누수다.
+- **①에는 글을 더 얹지 않는다.** 주입 묶음이 이미 상한을 넘었다(`test_bundle_budget` 5,504/4,800 B). 챗 에이전트에게는 포인터 한 줄만 주고, 규칙은 **도구가 거절하면서 짧게 알려 주는 방식**으로 전한다(기존 `ticket` 도구가 증거 형식을 알려 주는 방식과 같음).
+- **②는 루트 `AGENTS.md`로 자동 해결된다.** 워커 CLI는 워크트리 루트에서 돌기 때문이다. 그래서 루트 `AGENTS.md`는 외부용이 아니라 **PE 위임 워커와 외부 에이전트가 함께 쓰는 입구**다.
+- **훅 우회(`--no-verify`)는 ②의 러너 게이트와 ①·③의 `release` 관문이 다시 잡는다**(D8).
+
 ---
 
 ## 4. 강제층
 
 ### 4.1 단일 실행 진입점
 
-`run-tests.sh [--fast]` 하나만 둔다. 훅, 러너 게이트(`worktree_runner` 기본 게이트), 이후 CI가 모두 이것을 부른다. `--fast`는 커밋 훅용 부분 집합(가드 테스트 + 변경된 파일 관련 모듈)이다.
+`run-tests.sh [--fast | 모듈…]` 하나만 둔다(`pew/B` 완료). 기준선(2026-09-27): 92개 중 78개 통과, 14개 실패(DEVLOG 2026-09-27 pew/B 항목에 분류). **빨간 기준선 위에 훅·게이트를 걸면 모든 작업이 막히므로 녹색화(`pew/N`)가 먼저다.** 훅, 러너 게이트(`worktree_runner` 기본 게이트), 이후 CI가 모두 이것을 부른다. `--fast`는 커밋 훅용 부분 집합(가드 테스트 + 변경된 파일 관련 모듈)이다.
 
 ### 4.2 커밋 훅 (`.githooks/`, `core.hooksPath`)
 
@@ -202,22 +219,24 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `pew/A` | 이 문서 + INDEX 행 | `docs/plans/plan-execution-workflow.md`, `docs/plans/INDEX.md` | INDEX에 행이 있고 커밋됨 | 0 · — | S | — | ✅ 티켓 없음(D3), `git log --grep="Plan: pew/A"` |
-| `pew/B` | `run-tests.sh [--fast]` 단일 진입점(`rp/A`와 공유, 소유는 여기) | `run-tests.sh`, `README.md` | 모든 `tests/test_*.py` 모듈을 개별 실행하고 실패 목록 출력, 종료 코드 반영 | 1 · — | S | — | 대기 |
+| `pew/B` | `run-tests.sh [--fast]` 단일 진입점(`rp/A`와 공유, 소유는 여기) + DEVLOG 크기 복구 | `run-tests.sh`, `README.md`, `docs/DEVLOG.md` | 모든 `tests/test_*.py` 모듈을 개별 실행하고 실패 목록 출력, 종료 코드 반영 | 1 · — | S | — | ✅ #254 `09aca4a` |
 | `pew/C` | 루트 진입점: `AGENTS.md`(정본 지도, 시작 순서, 커밋 규약, 규칙 레지스트리 초판) + `CLAUDE.md`·`GEMINI.md` 포인터 | 루트 3파일 | 포인터 두 파일이 각각 5줄 이하, `AGENTS.md` 링크 포함 | 3 · — | M | D7 | 대기 |
 | `pew/D` | 가드 테스트 1차: `test_rule_registry`, `test_entrypoints`, `test_plans_index`, `test_doc_refs` | `tests/` | 현재 저장소에서 실패하는 항목(P11 등)을 먼저 고치고 통과. 일부러 규칙을 어기면 실패 | 3 · — | M | pew/B, pew/C | 대기 |
 | `pew/E` | 훅: `.githooks/pre-commit`, `commit-msg` + 설치 확인 | `.githooks/`, `run-tests.sh` | 비밀 패턴이 든 파일, untracked 계획, 형식이 틀린 메시지로 커밋하면 각각 거절됨 | 3 · — | S | pew/B, D6 | 대기 |
-| `pew/F` | 러너 게이트가 `run-tests.sh`를 부르도록 | `tools/worktree_runner.py` | 위임 실행 로그에 `run-tests.sh` 결과가 남음 | 3 · — | S | pew/B | 대기 |
+| `pew/F` | 러너 게이트(`DEFAULT_GATES`)를 `run-tests.sh --fast` + 변경 경로 관련 모듈로 교체 | `tools/worktree_runner.py` | 위임 실행 로그에 `run-tests.sh` 결과가 남음 | 3 · — | S | pew/N | 대기 |
+| `pew/N` | **기준선 녹색화**: 실패 14개를 세 티켓으로 — N1 구조 가드 초과(`test_bundle_budget` 헌장 묶음 축소, `test_file_sizes` `server.py` 분할) · N2 코드 분리 후 낡은 UI 하네스·소스 문자열 테스트 8개 · N3 동작 기대 불일치 3개(각각 코드와 테스트 중 무엇이 맞는지 운영자 확인) | 티켓별 | `./run-tests.sh` 종료 코드 0 | 3 · ⚡(N1 `server.py`) | M×3 | pew/B | 대기 |
+| `pew/O` | `tickets.release(done)`이 `run-tests.sh --fast`를 통과해야 완료되게 함(훅 우회의 백스톱, 경로 ①·③) | `tickets.py`, `tests/test_tickets.py` | 가드 테스트가 빨간 상태에서 `done`이 짧은 이유와 함께 거절됨 | 3 · ⚡ | S | pew/N | 대기 |
 | `pew/G` | 계획 템플릿 + INDEX 규칙에 수명주기 요약과 링크 | `docs/plans/_TEMPLATE.md`, `docs/plans/INDEX.md` | 템플릿이 §6 섹션을 모두 포함 | 0 · — | S | D2 | 대기 |
 | `pew/H` | ADR 도입 + `0001-user-data-default-pe.md`(`~/.pe` 결정 소급) | `docs/decisions/` | MADR 축약 형식, 루트 AGENTS.md 정본 지도에서 링크 | 0 · — | S | D1 | 대기 |
 | `pew/I` | `test_plan_items`(항목 표·티켓 대조) | `tests/test_plan_items.py` | 파일럿 두 문서에서 통과, 틀린 `#N`은 실패 | 3 · — | M | pew/J | 대기 |
 | `pew/J` | **파일럿**: release-pipeline·user-data-separation을 §6 표준으로 개편(P1–P3 해소, `rp/*`·`uds/*` 재정의, `test_data_paths`는 `uds/B`에 포함) | 두 계획 문서 | 항목마다 §7 DoR 충족, 문서 간 모순 0건 | 0 · — | M | pew/G | 대기 |
 | `pew/K` | `~/bin/ticket-quick` → `tools/ticket_quick.py` + 테스트, `~/bin`에는 포인터만 | `tools/ticket_quick.py`, `tests/`, `~/bin/ticket-quick` | 기존 명령줄 사용법 그대로 동작, 경로는 `host_config`에서 | 3 · — | S | uds/B | 대기 |
-| `pew/L` | 챗 에이전트 헌장에 포인터(엔진 규칙은 루트 AGENTS.md, `--no-verify` 금지) | `data/workspace/AGENTS.md` | 포인터만, 본문 복제 없음 | 3 · — | S | pew/C | 대기 |
+| `pew/L` | 챗 에이전트 헌장에 포인터 한 줄(엔진 규칙은 루트 AGENTS.md, `--no-verify` 금지). 도구 거절 메시지가 규칙을 전하도록 점검 | `data/workspace/AGENTS.md`, 도구 응답 | 포인터만, `test_bundle_budget` 녹색 유지 | 3 · — | S | pew/C, pew/N | 대기 |
 | `pew/M` | CHANGELOG 자동화(`rp/A`와 합침) | release 쪽 | `git-cliff`로 `Unreleased` 생성 | 1 · — | S | D5 | 대기 |
 
 **순서**
 
-1. **토대**: A → B → C → D → E·F. 입구와 강제층을 먼저 세운다. 이후 작업은 모두 이 그물 아래에서 진행된다.
+1. **토대**: A ✅ → B ✅ → **N(녹색화)** → C → D → E·F·O. 입구와 강제층을 먼저 세우되, 빨간 기준선 위에는 걸지 않는다. 이후 작업은 모두 이 그물 아래에서 진행된다.
 2. **절차**: G·H → J(파일럿) → I. 파일럿을 수작업으로 한 번 돌려 본 뒤 항목 검사를 자동화한다.
 3. **정리**: K(`uds/B` 뒤) · L · M.
 
