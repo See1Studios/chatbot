@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent
 # LOG_PATH_v1: the stream obslog writes and this reader parses come from one resolver (host_config),
 # env override included. Tests still swap logdigest.LOG directly.
 from host_config import EVENTS_LOG as LOG  # noqa: E402
-SESSIONS = ROOT / "data" / "sessions"
+from host_config import SESSIONS, WORKSPACE  # noqa: E402  -- one data-path resolver (uds/B)
 HEARTBEAT_SEC = int(os.environ.get("CHATBOT_OBSLOG_SUMMARY_SEC", "300"))
 
 # Thresholds for findings. Tune here, and keep docs/LOGGING.md "Findings" in step.
@@ -45,7 +45,7 @@ _CLIENT_GONE_TYPES = ("BrokenPipeError", "ConnectionResetError", "ConnectionAbor
 HOST_SIGNAL_EVERY_SEC = 3600
 HOST_SIGNAL_WINDOW_SEC = 2 * 3600
 HOST_SIGNAL_STAMP = LOG.with_name(".host-signals.stamp")
-OBS_ROOT = Path(os.environ.get("CHATBOT_DATA") or os.environ.get("AGY_CHAT_DATA") or ROOT / "data") / "workspace" / "skill-observations"
+OBS_ROOT = WORKSPACE / "skill-observations"
 
 
 def parse_since(text: str) -> float:

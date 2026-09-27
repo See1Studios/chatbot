@@ -9,7 +9,9 @@ export PATH="$HOME_DIR/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 # looked for ~/services/server.py and failed every run from 2026-09-23 19:07 to 2026-09-24 13:30).
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 CODE="${CODE:-$SCRIPT_DIR}"
-DATA="$CODE/data"  # consolidated under chatbot/ 2026-09-16
+# uds/B: the data dir follows the same order as host_config.DATA_ENV; default unchanged ($CODE/data) until the
+# shipped default moves to ~/.pe (user-data-separation). Exported below so every child agrees.
+DATA="${CHATBOT_DATA:-${PE_HOME:-${PRIVATEENGINE_HOME:-${AGY_CHAT_DATA:-$CODE/data}}}}"
 # API-Provider plan: API-key-based adapters (e.g. omniroute) read credentials
 # from os.environ, not a config file -- server.py is git-tracked, so the key
 # must never be hardcoded into it. This is the one place that env lives:

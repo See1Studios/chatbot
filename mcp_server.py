@@ -33,10 +33,10 @@ HOST = os.environ.get("NAS_MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))
 HOME = Path(os.environ.get("HOME") or Path.home())
 SERVICES = HOME / "services"
-DATA = SERVICES / "chatbot" / "data"  # consolidated under chatbot/ 2026-09-16
+from host_config import DATA  # noqa: E402  -- one data-path resolver (uds/B)
 # Same env vars and default as host_config.WEB_ROOT (align/F: no host path baked in).
 WEB_ROOT = Path(os.environ.get("CHATBOT_WEB_ROOT") or os.environ.get("AGY_CHAT_WEB_ROOT")
-                or Path(os.environ.get("CHATBOT_DATA") or DATA) / "web")
+                or DATA / "web")
 AGENTS = HOME / ".agents"
 TMP_ROOT = Path("/tmp/chatbot-mcp")
 CODE_ROOT = Path(__file__).resolve().parent  # where protected_paths.json lives

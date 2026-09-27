@@ -22,7 +22,12 @@ ROOT = Path(_env("CHATBOT_ROOT", "AGY_CHAT_ROOT", str(Path(__file__).resolve().p
 # own separate git repos) into chatbot/data/ -- one project, one folder, one
 # repo, instead of code and data living apart and needing separate publish
 # subtrees to back up together.
-DATA = Path(_env("CHATBOT_DATA", "AGY_CHAT_DATA", str(ROOT / "data")))
+# The user-data directory, decided HERE only (user-data-separation §0, uds/B; test_data_paths): the first of these
+# that is set, else the repo's data/ (the shipped default becomes ~/.pe later, in one line). PE_HOME and
+# PRIVATEENGINE_HOME are brand aliases; AGY_CHAT_DATA is the legacy name. tickets.py (a core module, which may not
+# import this one) repeats the same order; the test keeps the two identical.
+DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")
+DATA = Path(next((os.environ[k] for k in DATA_ENV if os.environ.get(k)), str(ROOT / "data")))
 STATIC = ROOT / "static"
 SESSIONS = DATA / "sessions"
 WORKSPACE = DATA / "workspace"

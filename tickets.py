@@ -908,7 +908,11 @@ def list_tickets(data, status: Optional[str] = None) -> List[Dict]:
 # -------------------------------------------------------------- command line
 
 def _data_dir() -> Path:
-    return Path(os.environ.get("CHATBOT_DATA") or os.environ.get("AGY_CHAT_DATA") or (Path(__file__).resolve().parent / "data"))
+    """Same order as host_config.DATA_ENV (a core module may not import host_config; test_data_paths keeps them equal)."""
+    for k in ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA"):
+        if os.environ.get(k):
+            return Path(os.environ[k])
+    return Path(__file__).resolve().parent / "data"
 
 
 def _confirm_at_terminal(cmd: str, what: str) -> None:

@@ -30,6 +30,7 @@ FAST=(
   test_doc_names
   test_ratchets
   test_edition_boundary
+  test_data_paths
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

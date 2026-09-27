@@ -235,6 +235,10 @@
     {
       "path": "tests/test_edition_boundary.py",
       "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_data_paths.py",
+      "reason": "a guard test (run-tests.sh FAST)"
     }
   ]
 }
