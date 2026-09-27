@@ -343,10 +343,53 @@ def _digest_private_later(sess) -> None:
             obslog.exception("private.digest_exception", e, session=sess.sid)
     threading.Thread(target=run, name="private-digest", daemon=True).start()
 
+
+_EMOTION_KEYWORDS = (
+    "happy", "sad", "angry", "surprised", "neutral",
+    "embarrassed", "thinking", "smiling",
+)
+_EMOTION_RE = "|".join(_EMOTION_KEYWORDS)
+
+
+def _parse_emotion(text: str) -> str | None:
+    if not text or not isinstance(text, str):
+        return None
+    s = text.strip()
+    if not s:
+        return None
+
+    # Priority a: *표정: happy* / *emotion: happy* 형식
+    m = re.search(r"\*\s*(?:표정|emotion|expression)\s*:\s*([a-zA-Z_-]+)\s*\*", s, re.IGNORECASE)
+    if m:
+        return m.group(1).lower()
+
+    # Priority b: [happy] / [표정:sad] 형식
+    m = re.search(r"\[\s*(?:표정|emotion|expression)\s*:\s*([a-zA-Z_-]+)\s*\]", s, re.IGNORECASE)
+    if m:
+        return m.group(1).lower()
+
+    for m in re.finditer(r"\[\s*([a-zA-Z_-]+)\s*\]", s):
+        val = m.group(1).lower()
+        if val in _EMOTION_KEYWORDS or val in ("joy", "shy", "serious", "sorrow", "tired", "smile", "grin"):
+            return val
+
+    # Priority c: 텍스트 맨 앞/끝의 감정 키워드: happy, sad, angry, surprised, neutral, embarrassed, thinking, smiling
+    m = re.search(r"^\s*(?:[^\w\s]\s*)*\b(" + _EMOTION_RE + r")\b", s, re.IGNORECASE)
+    if m:
+        return m.group(1).lower()
+
+    m = re.search(r"\b(" + _EMOTION_RE + r")\b\s*(?:[^\w\s]\s*)*$", s, re.IGNORECASE)
+    if m:
+        return m.group(1).lower()
+
+    return None
+
+
 class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
     """Access/exception logging comes from obslog.HTTPLogMixin (docs/LOGGING.md): every request
     is timed and counted; errors, slow and mutating requests are written one by one."""
     server_version = "Chatbot/1.0"
+    _parse_emotion = staticmethod(_parse_emotion)
 
     def _obs_path(self, raw: str) -> str:
         return self._normalize_req_path(raw)
@@ -1296,6 +1339,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             # on a long job used to hit this wall, show "연결이 끊겼다냥",
             # and leave the other phone with no live stream at all.
             idle_until = _now() + 900
+            emotion_sent = False
+            sentence_buf = ""
             while True:
                 if not sess.busy and _now() > idle_until:
                     break
@@ -1312,6 +1357,52 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     continue
                 if sess.busy:
                     idle_until = _now() + 900
+
+                ev_type = ev.get("event") or ev.get("type") or ""
+                if ev_type in ("result", "error", "stopped", "interrupted", "user_ack"):
+                    if not emotion_sent and ev_type == "result":
+                        try:
+                            res_text = str(ev.get("text") or sentence_buf or "")
+                            detected = _parse_emotion(res_text)
+                            if detected:
+                                emotion_payload = json.dumps({"type": "emotion", "label": detected}, separators=(",", ":"))
+                                try:
+                                    self.wfile.write(f"data: {emotion_payload}\n\n".encode("utf-8"))
+                                    self.wfile.flush()
+                                except Exception:
+                                    break
+                        except Exception:
+                            pass
+                    emotion_sent = False
+                    sentence_buf = ""
+                elif not emotion_sent and ev_type in ("delta", "assistant", "message"):
+                    try:
+                        chunk = str(ev.get("text") or ev.get("message") or ev.get("content") or "")
+                        if chunk:
+                            sentence_buf += chunk
+                            parts = re.split(r"(?<=[.!?\n])", sentence_buf)
+                            completed, current = parts[:-1], parts[-1]
+                            detected = None
+                            for s in completed:
+                                detected = _parse_emotion(s)
+                                if detected:
+                                    break
+                            if not detected and current:
+                                detected = _parse_emotion(current)
+                            if detected:
+                                emotion_sent = True
+                                sentence_buf = ""
+                                emotion_payload = json.dumps({"type": "emotion", "label": detected}, separators=(",", ":"))
+                                try:
+                                    self.wfile.write(f"data: {emotion_payload}\n\n".encode("utf-8"))
+                                    self.wfile.flush()
+                                except Exception:
+                                    break
+                            else:
+                                sentence_buf = current
+                    except Exception:
+                        pass
+
                 safe = {k: v for k, v in ev.items()}
                 if "payload" in safe and isinstance(safe["payload"], dict):
                     safe["payload"] = {k: safe["payload"].get(k) for k in list(safe["payload"])[:8]}
