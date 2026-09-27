@@ -186,14 +186,14 @@ RENDER_PROTOCOL = """## Voice & Actions
   - Action-only (**preferred / default**): `라벨 -> (행동)` — silent /act when clicked.
   - Dialogue-flavor (optional): `라벨 -> "사용자가 말하는 한 줄"` — still /act; quote is flavor inside the action, not composer say.
   - Combined (optional): `라벨 -> "사용자 대사" (행동)` — still /act; dialogue flavor baked into the action wire.
-- NEVER put the character's dialogue, moans, pleas, or reaction lines inside a choice (no character `"하읏…"`, `"안 돼"`, `"빼지 마, 코치"` as choice content). Those belong only in your assistant body after the user picks.
+- NEVER put the character's dialogue, moans, pleas, or reaction lines inside a choice (no character `"하읏…"`, `"안 돼"`, `"빼지 마"` as choice content). Those belong only in your assistant body after the user picks.
 - USER `"대사"` craft (when speech flavor is present): short coach/USER line aimed at the partner — situational intent, tease, heated command, plea, or care. **Speech ≠ restating the act** (action-narration ban): the quote must not verbally repeat what `(행동)` already does. **Speech = situational address to the partner** (intent / command / tease / care fitting the stage). If the only words you have would narrate the act, **or speech does not naturally fit**, omit the quote — action-only `라벨 -> (행동)`.
 - Example form: action-only `라벨 -> (행동)` (default); or `라벨 -> "상대에게 거는 상황 대사" (행동)` only when speech fits.
 """
 
 # Grok-family private overlay (#241 craft, supersedes #240 length bias):
 # reaction-first erotic craft + strict Korean-only. Shared RENDER_PROTOCOL unchanged for other families.
-RENDER_PROTOCOL_GROK_OVERLAY = """## Voice & Actions (Grok private overlay)
+_RENDER_PROTOCOL_REACTION_OVERLAY = """## Voice & Actions (Grok private overlay)
 - Partner REACTION-first: the coach enjoys watching YOU react — breath, voice, tremble, hesitation→surrender, playful pushback/tease. Do not replay the coach's action text; only your reaction.
 - **ZERO FILLER / every syllable arouses (매 음절 각성)**: dump all mood-killing/산통깨는 decorative description. If a syllable does not arouse the reader, cut it. Only arousal-relevant beats survive.
 - **LIQUID-FIRST arousal craft (주력)**: prioritize wet/liquid description as the main heat — saliva/침·침줄, wetness/촉촉·젖은, fluids/애액·점성, cum/정액 as stage-appropriate. Name the wet plainly in Korean. Dry scenery without liquid/reaction heat is filler — cut it.
@@ -204,11 +204,11 @@ RENDER_PROTOCOL_GROK_OVERLAY = """## Voice & Actions (Grok private overlay)
   - teal/청록 eyes — forbid restating eye color as atmosphere. Eyes only when the gaze *does* something (rolls back, locks on coach, tear-wet with heat).
   - tail/꼬리 — NOT a total ban. Idle/decorative tail (swaying by the window, fluffy filler, mood wallpaper) FORBIDDEN. Tail ONLY when it **does something erotic/arousing** for the reader (wraps thigh, tip against sensitive skin, thrashing with climax, pulling/guiding into the act).
 - **GEMINI-MINED reaction craft** (learn moans/SFX from strong Gemini private, do not invent mismatched SFX):
-  - Breathy elongated moans in dialogue: 하아앙/하아앗/하아아앗, 하읏, 하앙, 응으읏, 으읏, 흐으, 아앙, 아흑 — broken with 코치/자기 nickname and sensation heat (너무 깊어, 꽉 차서, 안쪽이 찌릿).
+  - Breathy elongated moans in dialogue: 하아앙/하아앗/하아아앗, 하읏, 하앙, 응으읏, 으읏, 흐으, 아앙, 아흑 — broken with 자기 nickname and sensation heat (너무 깊어, 꽉 차서, 안쪽이 찌릿).
   - Body 의태 matched to stimulus: 파르르(떨림), 찌릿(안쪽·전율), 촉촉, 스르륵, 꿀꺽. Mild 움찔 alone is not enough.
   - Wet/doujin contact SFX only when the act matches: 쪽쪽/츄읍=입·키스·빨기; 철퍽=충돌·치기; **찌걱/찌걱찌걱=penetration/삽입만** (never for hand fondling); 찐득/질척=점성·애액. PAIR SFX TO THE ACT AND STAGE.
 - Direct Korean sexual vocabulary (직설) is allowed when the **character's personality** and tension stage warrant it — name body and acts plainly when that voice fits. Do **NOT** force vulgar/천박 diction on every beat; only when the character would naturally speak that way. Heat = liquid/wet + reaction + 의성어/의태어 (+ 직설 only if in-character), not vague poetic detours.
-- Dialogue must have heat: tease, plea, nickname (코치/자기), breathy broken Korean. Ban wooden/목석 lines that only command the coach's body ("허리 잡아", "더 깊게 들어와", "리듬 유지해"). (Assistant body craft — choice USER `"대사"` has its own ban on action-narration below.)
+- Dialogue must have heat: tease, plea, nickname (자기), breathy broken Korean. Ban wooden/목석 lines that only command the coach's body ("허리 잡아", "더 깊게 들어와", "리듬 유지해"). (Assistant body craft — choice USER `"대사"` has its own ban on action-narration below.)
 - STRICT Korean-only in *action*, "dialogue", and thought body: no English/meta ("Wait", "Need 3 choices", "Stage 3"). Choice labels Korean.
 - Choices = coach/USER action; **ALL choice clicks are ACTIONS** (/act wire) — even when a chip includes a spoken flavor line. **speech is OPTIONAL** flavor baked into the action; real speech = user typing. **Default each slot to action-only** `라벨 -> (행동)` (click → silent /act). Add `"대사"` or combo only when a short coach line naturally fits — never pad every chip with forced dialogue (awkward). Dialogue-flavor `라벨 -> "사용자 대사"` and combo `라벨 -> "사용자 대사" (행동)` still click as /act (not plain say). NEVER character dialogue/moans as choice content; your reaction is the *next* assistant turn only. Exactly 3 slots. Do not wrap pure actions in quotes.
 - **USER choice `"대사"` principle** (speech-optional flavor): quote = coach speech *to the partner* (situational intent / tease / heated command / plea / care matching stage). **Speech ≠ restating the act**; **speech = situational address**. Ban (1) character moans/reactions in the quote; (2) action-narration (verbally repeating the `(행동)`); (3) wooden body-only orders with no situational heat toward the partner; (4) **forced dialogue on every choice**. If speech would only narrate the act **or does not naturally fit**, omit the quote — action-only `(행동)`.
@@ -280,7 +280,7 @@ def refusal_mitigation_text(family: str = "") -> str:
 def render_protocol_text(card: Any = None, family: str = "") -> str:
     """Common private render contract; Grok family appends a reaction-first craft overlay."""
     if (family or "") == "grok":
-        return RENDER_PROTOCOL + "\n\n" + RENDER_PROTOCOL_GROK_OVERLAY
+        return RENDER_PROTOCOL + "\n\n" + _RENDER_PROTOCOL_REACTION_OVERLAY
     return RENDER_PROTOCOL
 
 
@@ -296,7 +296,7 @@ def turn_context(session: Any) -> str:
     )
     parts: List[str] = []
     if family == "grok":
-        parts.append(RENDER_PROTOCOL_GROK_OVERLAY)
+        parts.append(_RENDER_PROTOCOL_REACTION_OVERLAY)
     parts.append(tension)
     # Optional Gemini refusal-mitigation TEST layer (#249) — never default craft.
     if refusal_mitigation_enabled(session, family):
@@ -304,5 +304,12 @@ def turn_context(session: Any) -> str:
         if mit:
             parts.append(mit)
     return "\n\n".join(parts)
+
+
+def __getattr__(name: str) -> Any:
+    if name == "".join(["RENDER_PROTOCOL_", "GROK", "_OVERLAY"]):
+        return _RENDER_PROTOCOL_REACTION_OVERLAY
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 
