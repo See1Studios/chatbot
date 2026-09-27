@@ -3,6 +3,7 @@
 > 상태: **계획** (2026-09-25)  
 > 선행 문서: [user-data-and-editing.md §1](user-data-and-editing.md)  
 > 목적: 엔진 코드 저장소와 개인화 데이터(기억, 캐릭터, 세션, 비밀 등)의 물리적·논리적 완전 분리
+> 관련(설계): 캐릭터 스코프 **관계 기억** 저장·암호화 경계는 [character-memory-adapter.md](character-memory-adapter.md) Q1–Q2 (본 문서 Memory/`CHATBOT_DATA` 분류와 맞출 것).
 
 ---
 

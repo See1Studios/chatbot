@@ -44,3 +44,4 @@
 - 디바이스별 지원 밀도
 - 캐릭터라이징 깊이, 친구/연인/동료의 온도
 - 브랜드·도메인: [private-engine-brand.md](plans/private-engine-brand.md) (가칭 Private Engine, privateengine.ai 기울기 — 법적 클리어런스 전)
+- 캐릭터 스코프 관계 기억 어댑터: [character-memory-adapter.md](plans/character-memory-adapter.md) (개인화 하네스·opt-in 동반자 깊이, 설계 중)

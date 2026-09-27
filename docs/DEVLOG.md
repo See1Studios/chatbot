@@ -1,5 +1,13 @@
 # chatbot 개발로그
 
+## 2026-09-27 — 캐릭터 스코프 관계 기억 어댑터 계획 문서화
+
+- **배경**: 개인화 에이전트 하네스(걸프렌드-퍼스트 아님). 사적 관계는 opt-in 능력. Joi식 공감·연속성. 현행 `MEMORY.md`/`memory.md`/`private-memory.md`는 동반자 깊이에 부족.
+- **추가**: `docs/plans/character-memory-adapter.md` (`active`) — provider/visual 옆 **per-character memory adapter** 층. 개념 슬롯(진행·약속·선호·금기·관계 온도·사적 히스토리). 구현 없음.
+- **열린 질문**: 저장 vs `CHATBOT_DATA`, 암호화·user-data-separation 연동, `turn_context` 주입, vs lorebook, opt-in depth, private-mode 호감도 경계.
+- **INDEX**: Active 행 추가. **concept** `열린 축` 1줄 링크.
+- **교차**: `private-mode.md`, `user-data-separation.md`, delegation §12.
+
 ## 2026-09-27 — Private Engine 브랜드·도메인 검토 계획 문서화
 
 - **배경**: 대화(2026-09-27) 공개 스캔 — Private Engine / PrivateEngine / 프라이빗엔진 채택 가능성, 도메인·레지스트리, 상표 리스크. 법률 자문 아님.
