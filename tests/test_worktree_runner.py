@@ -283,11 +283,25 @@ class WorktreeRunner(unittest.TestCase):
         guard = wr.guard_gate(self.repo)
         self.assertEqual(guard, "./run-tests.sh tests/test_guard.py")
         self.assertIn("tests/test_guard.py", wr.gate_files(self.repo, [guard]))
-        related = wr.related_gate(self.repo, ["widget.py", "tests/test_guard.py", "none.py"])
-        self.assertEqual(related, "./run-tests.sh test_widget test_guard")
+        related = wr.related_gate(self.repo, ["widget.py", "none.py"])
+        self.assertEqual(related, "./run-tests.sh test_widget")
         self.assertEqual(wr.gate_files(self.repo, [related]), ["run-tests.sh"])
+        self.assertIsNone(wr.related_gate(self.repo, ["tests/test_guard.py"]))   # a guard already runs in DEFAULT_GATES
         # the runner itself is a pass condition: a worker must not be able to edit it (tier 3)
         self.assertEqual(wr.tier_of(self.repo, "run-tests.sh", wr.gate_files(self.repo, [guard]))[0], 3)
+
+    def test_related_tests_include_importers_and_mentions(self) -> None:
+        # pew/P: a config change must pull in the tests that read it (protected_paths.json -> test_lifecycle, 2026-09-28)
+        t = self.repo / "tests"
+        t.mkdir(exist_ok=True)
+        (t / "test_reads_cfg.py").write_text('CFG = "registry.json"\n', encoding="utf-8")
+        (t / "test_imports.py").write_text("import helper_mod\n", encoding="utf-8")
+        (t / "test_from_pkg.py").write_text("from providers import helper_mod\n", encoding="utf-8")
+        (t / "test_word_only.py").write_text("# helper_mod is discussed here but not used\n", encoding="utf-8")
+        (t / "test_page.py").write_text("from tests.page_source import app_bundle\n", encoding="utf-8")
+        self.assertEqual(wr.related_gate(self.repo, ["registry.json"]), "./run-tests.sh test_reads_cfg")
+        self.assertEqual(wr.related_gate(self.repo, ["providers/helper_mod.py"]), "./run-tests.sh test_from_pkg test_imports")
+        self.assertEqual(wr.related_gate(self.repo, ["static/app-x.js"]), "./run-tests.sh test_page")
 
     def test_no_review_merges_on_the_gates_alone(self) -> None:
         self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review="exit 9",

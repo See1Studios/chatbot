@@ -74,15 +74,45 @@ def guard_gate(repo: Path) -> Optional[str]:
     return "./run-tests.sh " + " ".join(files) if files else None
 
 
+def _mentions(path: str) -> "re.Pattern":
+    """How a test shows it depends on `path`: a .py module imported (`import x`, `from x import`, `from pkg import x`)
+    or named as a file (`x.py`); any other file by its name (`protected_paths.json`). A bare word is not enough --
+    `session` appears in half the tests."""
+    name = Path(path).name
+    if name.endswith(".py"):
+        stem = re.escape(Path(path).stem)
+        return re.compile(r"(?:^|\s)(?:import\s+(?:\w+\.)*%s\b|from\s+(?:\w+\.)*%s\s+import\b|from\s+[\w.]+\s+import\s+"
+                          r"(?:[\w, ]*,\s*)?%s\b)|\b%s\b" % (stem, stem, stem, re.escape(name)), re.M)
+    return re.compile(r"\b%s\b" % re.escape(name))
+
+
 def related_gate(repo: Path, paths: List[str]) -> Optional[str]:
-    """The test modules that belong to the changed files (tests/test_<stem>.py, or a changed test itself). Named
-    without a path on purpose: gate_files() must not lock a test the task is meant to update."""
+    """The test modules that belong to the changed files: tests/test_<stem>.py, a changed test itself, and every test
+    that imports or names a changed file (pew/P: protected_paths.json -> test_lifecycle, missed on 2026-09-28).
+    Guards already run in DEFAULT_GATES are left out. Named without a path on purpose: gate_files() must not lock a
+    test the task is meant to update."""
+    guard = guard_gate(repo) or ""
+    tests = sorted((repo / "tests").glob("test_*.py"))
     mods = []
+
+    def add(name):
+        if name not in mods and ("tests/%s.py" % name) not in guard:
+            mods.append(name)
     for p in paths:
         stem = Path(p).stem
         name = stem if p.startswith("tests/test_") and p.endswith(".py") else "test_" + stem
-        if (repo / "tests" / (name + ".py")).is_file() and name not in mods:
-            mods.append(name)
+        if (repo / "tests" / (name + ".py")).is_file():
+            add(name)
+        rx = _mentions(p)
+        # page code is read through tests/page_source.py (the whole bundle), so those tests never name the file
+        page = re.compile(r"\bpage_source\b") if p.startswith("static/") else None
+        for t in tests:
+            try:
+                text = t.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if rx.search(text) or (page and page.search(text)):
+                add(t.stem)
     return "./run-tests.sh " + " ".join(mods) if mods else None
 
 
