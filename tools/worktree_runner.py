@@ -292,8 +292,9 @@ def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[s
     ] + (["Read these for reference only; do not change them: %s." % ", ".join(reads)] if reads else []) + [
         "If the task truly needs a file outside them, do not touch it: end your answer with one line per file "
         "`NEED_PATH: <repo-relative path> -- <why>` and stop; the operator can allow it and you will continue.",
-        "When done, commit your work on this branch (git add <files> && git commit -m '...'); "
-        "the author identity is already set.",
+        "When done, commit your work on this branch (git add <files> && git commit -m '<type>(<scope>): <summary>'); "
+        "the subject must be Conventional Commits (feat, fix, docs, test, refactor, chore, ...). The author identity "
+        "is already set. The repo's commit hooks run guard tests: fix what they report, never use --no-verify.",
         "Afterwards the runner runs: %s; then your producer confirms the diff. Only a branch that passes both is merged."
         % "; ".join(gates),
         "",
@@ -453,7 +454,7 @@ def commit_leftovers(wt_dir: Path, provider: str, tid: int) -> bool:
     name, email = PROVIDERS[provider]["author"]
     git(wt_dir, "add", "-A")
     code, _, err = git(wt_dir, "-c", "user.name=" + name, "-c", "user.email=" + email,
-                       "commit", "-m", "ticket #%d: changes the agent left uncommitted" % tid)
+                       "commit", "-m", "chore(ticket #%d): changes the agent left uncommitted" % tid)
     if code != 0:
         raise Failure("failed", "could not commit the agent's leftover changes", err)
     return True

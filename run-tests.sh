@@ -26,6 +26,7 @@ FAST=(
   test_rule_registry
   test_plans_index
   test_doc_refs
+  test_githooks
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 
@@ -36,6 +37,12 @@ elif [ $# -gt 0 ]; then
   for m in "$@"; do mods+=("$(basename "${m%.py}")"); done
 else
   for f in tests/test_*.py; do mods+=("$(basename "$f" .py)"); done
+fi
+
+if [ "$(git config --get core.hooksPath 2>/dev/null)" != ".githooks" ]; then
+  echo "warning: commit hooks are not installed; run: git config core.hooksPath .githooks"
+elif [ ! -x .githooks/pre-commit ] || [ ! -x .githooks/commit-msg ]; then
+  echo "warning: a commit hook is not executable, so git skips it; run: chmod +x .githooks/*"
 fi
 
 ms() { echo $(( $(date +%s%N) / 1000000 )); }

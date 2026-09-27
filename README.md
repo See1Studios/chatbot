@@ -36,3 +36,5 @@ Sphere Hub용 DiskStation 채팅 에이전트 호스트. 캐릭터와 업무·�
 ```
 
 테스트를 도는 방법은 `run-tests.sh` 한 곳뿐이다. 훅·위임 러너 게이트·CI도 이 스크립트를 부른다.
+
+클론마다 한 번 커밋 훅을 켠다: `git config core.hooksPath .githooks` (가드 테스트·비밀 검사·커밋 메시지 형식).

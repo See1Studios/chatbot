@@ -87,7 +87,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
 
 1. Start only from the operator's words or an approved ticket. External CLI: `python3 ~/bin/ticket-quick start --title "[<plan id>] …" --paths a,b`. Keep the claim token (it cannot be recovered).
 2. Change only the claimed paths.
-3. `./run-tests.sh` (all) or `./run-tests.sh test_x …`; green before commit.
+3. `./run-tests.sh` (all) or `./run-tests.sh test_x …`; green before commit. The commit hooks (`.githooks/`, install once per clone: `git config core.hooksPath .githooks`) rerun the guard tests and check the message.
 4. Commit only your paths. Author = your agent (e.g. `git -c user.name="Claude Code" …`); Conventional Commits; trailers:
    ```
    Plan: <plan>/<item>
@@ -106,9 +106,11 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Rule | Audience | Enforcer |
 |---|---|---|
 | Work starts from the operator's words or an approved, claimed ticket; claim names the paths | all | `test_tickets` (release refuses dirty paths); `test_unticketed_write` (PE sessions) |
-| `./run-tests.sh` green before commit | all | manual (pew/E hook, pew/F runner gate, pew/O release gate) |
-| Commit trailers `Plan:` / `Ticket:`, Conventional Commits, own author name | all | manual (pew/E `commit-msg`) |
-| Never `--no-verify` | all | manual |
+| Guard tests green before commit (`./run-tests.sh --fast`); full suite before release | all | `.githooks/check_staged.py` (pre-commit; pew/F runner gate, pew/O release gate) |
+| Conventional Commits subject; `Plan:` trailer when `docs/plans/` changes | all | `test_githooks` (commit-msg hook) |
+| `Ticket:` trailer, own author name | all | manual |
+| No secrets, `.env`, private memory or style references in commits | all | `test_githooks` (pre-commit hook) |
+| Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns; pew/F, pew/O backstops) |
 | Data paths only through `host_config` | all | manual (`test_data_paths`, uds/B) |
 | Python module ≤ 1,500 lines; listed ceilings only go down | all | `test_file_sizes` |
 | Page script < 1,000 lines | all | `test_page_scripts` |
