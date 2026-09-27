@@ -24,7 +24,7 @@ function slice(from, to) {
 const els = {};
 function el() {
   const n = { className: '', textContent: '', title: '', children: [], appendChild(c) { this.children.push(c); return c; },
-           addEventListener() {}, classList: { add() {}, contains() { return false; } } };
+           addEventListener() {}, classList: { add() {}, contains() { return false; } }, style: {} };   // style: card close button (#176)
   Object.defineProperty(n, 'childNodes', { get() { return n.children; } });
   return n;
 }
@@ -39,9 +39,10 @@ workNames = { staff: '루루' };
 const run = { ticket: 113, title: 'T', phase: 'writing', active: true, round: 1, task: 1, tasks_total: 1,
   tasks: [{ role: 'staff', title: 't', paths: [] }], started: now - 750, phase_since: now - 750, timeout_sec: 1200,
   files_changed: 2, brain: 'agy/flash', transcript: [] };
+workOpen.add(113);   // the clock, file count and asked paths show in the opened card's details
 const card = renderWorkCard(run);
-const badgeText = card.children[0].children.map(c => c.textContent).join('|');
 const texts = n => [n.textContent].concat(n.children.flatMap(texts));
+const badgeText = texts(card).join('|');
 const paused = renderWorkCard(Object.assign({}, run, { phase: 'paused', active: false,
   need_paths: [{ path: 'b.txt', why: 'the helper lives there' }] }));
 const pausedTexts = texts(paused);
@@ -62,12 +63,12 @@ class WorkStatus(unittest.TestCase):
         cls.out = json.loads(r.stdout)
 
     def test_the_card_shows_the_round_clock_and_files(self):
-        self.assertIn("12:30/20:00", self.out["badgeText"])
-        self.assertIn("파일 2", self.out["badgeText"])
+        self.assertIn("12:30 / 20:00", self.out["badgeText"])
+        self.assertIn("파일 2개", self.out["badgeText"])
 
     def test_a_paused_card_lists_the_asked_files_and_offers_allow(self):
         t = self.out["pausedTexts"]
-        self.assertIn("b.txt — the helper lives there", t)
+        self.assertIn("경로 필요: b.txt — the helper lives there", t)
         self.assertIn("경로 허용", t)
         self.assertTrue(any("경로 요청" in x for x in t))
 

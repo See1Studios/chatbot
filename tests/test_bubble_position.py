@@ -57,7 +57,7 @@ function mkLog() {
 }
 function run(build) {
   const logEl = mkLog();
-  const f = new Function('logEl', 'parkSessionBanner', 'scrollChatToBottom', code + ';return { adoptBareUserBubble, placeMsgByTs };')(logEl, () => {}, () => {});
+  const f = new Function('logEl', 'parkSessionBanner', 'scrollChatToBottom', 'observeMessage', code + ';return { adoptBareUserBubble, placeMsgByTs };')(logEl, () => {}, () => {}, () => {});
   const add = (cls, label, ts, text) => { const n = node(cls, label); if (ts) n.dataset.ts = String(ts); n.textContent = text || label; logEl.appendChild(n); return n; };
   const extra = build(logEl, add, f);
   return { order: logEl.children.map(c => c.label), extra };

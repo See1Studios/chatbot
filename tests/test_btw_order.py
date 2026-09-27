@@ -63,7 +63,7 @@ function addChat(role, text, isFinal, q, isBtw) {            // stand-in for the
 const stubs = {
   logEl, addChat, document: { createElement: () => node() },
   escapeHtml: s => s, renderMarkdown: s => s, postProcessAssistant() {},
-  parkSessionBanner() {}, scrollChatToBottom() {},
+  parkSessionBanner() {}, scrollChatToBottom() {}, observeMessage() {},   // #211 resize observer
 };
 const names = Object.keys(stubs);
 const api = new Function(...names, code + ';return { placeMsgByTs, repairMsgOrder, addBtw, addBtwQuestionBubble, btwQueryOf };')

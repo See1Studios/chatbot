@@ -54,7 +54,7 @@ const all = (n, out = []) => { out.push(n); n.children.forEach(c => all(c, out))
 const find = (n, cls) => all(n).filter(x => (x.className || '').split(' ').includes(cls));
 const text = n => [n.textContent].concat(n.children.map(text)).join(' ');
 
-const calls = [], alerts = [], activity = [];
+const calls = [], alerts = [], activity = [], notices = [];
 let fetched = 0;
 let apiImpl = async () => ({});
 const api = (path, opts) => { calls.push({ path, opts: opts || null }); return apiImpl(path, opts); };
@@ -66,9 +66,9 @@ const tabs = [];
 const body = code + `
   return { loadObservations, renderObservations, obsErrorText, loadTickets, renderTickets, parseTicketCommand, decideTicket, goTicket };`;
 const mod = new Function('document', 'api', 'statusObsBoxEl', 'alertModal', 'addActivity', 'fetchSelfStatus',
-                         'statusTicketBoxEl', 'inputEl', 'switchTab', 'ticketBarEl', body)(
+                         'statusTicketBoxEl', 'inputEl', 'switchTab', 'ticketBarEl', 'addNotice', body)(
   { createElement: el, getElementById: () => null }, api, box, async m => { alerts.push(m); }, m => activity.push(m), () => { fetched++; },
-  tbox, inputEl, t => tabs.push(t), bar);
+  tbox, inputEl, t => tabs.push(t), bar, (kind, m) => notices.push([kind, m]));   // chat notices (#145)
 
 const HOSTILE = '<img src=x onerror=alert(1)>';
 const overview = {
@@ -339,7 +339,7 @@ class ObservationUiTest(unittest.TestCase):
         self.assertFalse(o["bar"]["hidden"])
         self.assertEqual(o["bar"]["titles"], ["#1 <img src=x onerror=alert(1)>", "#2 T2", "#3 T3"])   # text, never markup
         self.assertEqual(o["bar"]["buttons"], [["승인+진행", "실행", "승인", "폐기"], ["진행", "실행", "폐기"], ["재개"]])
-        self.assertEqual((o["barFill"], o["barCalls"], o["barFocused"]), ("/ticket go 1", 0, True))   # types it, sends nothing
+        self.assertEqual((o["barFill"], o["barCalls"], o["barFocused"]), ("", 1, False))   # acts directly: one go call, nothing typed (#145)
         self.assertEqual(o["barMany"]["chips"], 3)
         self.assertEqual(o["barMany"]["more"], ["+2건 더 (개선 탭)"])
         self.assertTrue(o["barEmptyHidden"] and o["barDegradedHidden"])
@@ -401,9 +401,9 @@ class MarkupTest(unittest.TestCase):
         src = APP.read_text(encoding="utf-8")
         evo = src[src.index("async function fetchEvolution()"):]
         self.assertIn("  loadObservations();\n  loadTickets();\n}", evo[:1200])   # the evolution tab, after its summary
-        send = src[src.index("async function send()"):]
+        send = src[src.index("async function send("):]   # send(opts) since #161
         self.assertIn("const ticketCmd = parseTicketCommand(text);", send)
-        self.assertIn("return send();", send[send.index("ticketCmd.action === 'go'"):][:400])
+        self.assertIn("return send(opts);", send[send.index("ticketCmd.action === 'go'"):][:400])
         self.assertLess(send.index("parseTicketCommand(text)"), send.index("/api/chat") if "/api/chat" in send else len(send))
         self.assertIn("setInterval(loadTickets, 60000);", src)       # the bar is not only for people who open the status tab
         self.assertIn("const statusTicketBoxEl = document.getElementById('statusTicketBox');", src)

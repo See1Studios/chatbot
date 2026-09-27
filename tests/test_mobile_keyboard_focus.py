@@ -56,6 +56,7 @@ class MobileKeyboardFocusTest(unittest.TestCase):
         code = "\n".join([
             fn_src("app.js", "isTouchDevice"), fn_src("app.js", "tapSendOpts"), fn_src("app.js", "sendAction"),
             fn_src("slash.js", "toggleSlashMenu"), fn_src("slash.js", "applySlashItem"),
+            fn_src("markdown.js", "stripOuterParens"), fn_src("markdown.js", "classifyChoicePayload"),   # #243
             fn_src("markdown.js", "parseChoiceItem"), fn_src("markdown.js", "pickChoice"),
             fn_src("markdown.js", "sendPickedChoice"),
         ])

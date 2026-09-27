@@ -85,6 +85,9 @@ const stubs = {
   setBusy() {}, repairMsgOrder() {}, fetchArtifacts() {}, logTurnUsage() {}, addActivity() {}, setProgress() {},
   shortToolLine: s => s,
 };
+// user lines go through addUserEntry since #153 (app-sse.js); these fixtures hold no (action) lines
+stubs.addUserEntry = (text, q, prepend, ts) =>
+  stubs.addChat('user', text || '', false, q, (text || '').startsWith('/btw'), prepend, null, null, false, ts);
 const names = Object.keys(stubs);
 const env = new Function(...names, body)(...names.map(k => stubs[k]));
 

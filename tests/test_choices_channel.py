@@ -91,7 +91,7 @@ process.stdout.write(JSON.stringify(textWithChoices({ text: '선택해', choices
         js = r"""
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
-const a = src.indexOf('function parseChoiceItem'), b = src.indexOf('function splitChoices', a);
+const a = src.indexOf('function stripOuterParens'), b = src.indexOf('function splitChoices', a);   // + its helpers (#243)
 eval(src.slice(a, b));
 const r1 = parseChoiceItem({ label: 'A', kind: 'action', payload: '(웃음)' });
 const r2 = parseChoiceItem('B -> command: /ticket approve 1');
@@ -102,9 +102,9 @@ process.stdout.write(JSON.stringify([r1, r2, r3, r4]));
         r = subprocess.run(["node", "-e", js, str(md_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout)
-        self.assertEqual(out[0], {"label": "A", "kind": "action", "payload": "(웃음)", "action": "(웃음)", "isAction": True})
+        self.assertEqual(out[0], {"label": "A", "kind": "action", "payload": "웃음", "action": "웃음", "isAction": True})   # parens stripped (#153)
         self.assertEqual(out[1], {"label": "B", "action": "/ticket approve 1", "payload": "/ticket approve 1", "kind": "command", "isAction": False})
-        self.assertEqual(out[2], {"label": "C", "action": "(끄덕임)", "payload": "(끄덕임)", "kind": "action", "isAction": True})
+        self.assertEqual(out[2], {"label": "C", "action": "끄덕임", "payload": "끄덕임", "kind": "action", "isAction": True})
         self.assertEqual(out[3], "일반 보기")
 
     def test_markdown_event_choices_take_priority_over_text(self):
@@ -256,7 +256,7 @@ const drawn = [];
 const deps = {
   logEl, document: { createElement: el }, normalizeNoticeKind: () => '', NOTICE_KINDS: {}, getActionSvg: () => '',
   stripNoticeChromeEmojis: t => t, renderMarkdown: t => t, parkSessionBanner() {}, scrollChatToBottom() {},
-  placeMsgByTs() {}, syncChoiceChips() {}, renderChoiceChips(n, c) { drawn.push(c); },
+  placeMsgByTs() {}, syncChoiceChips() {}, renderChoiceChips(n, c) { drawn.push(c); }, observeMessage() {},
   postProcessAssistant(node, isFinal, text, u, d, s, m, choices) { if (isFinal) drawn.push(choices); },
 };
 const names = Object.keys(deps);

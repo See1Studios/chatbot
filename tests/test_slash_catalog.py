@@ -136,6 +136,8 @@ class ActionParens(unittest.TestCase):
             self.skipTest("node not installed")
         src = (CODE / "static" / "app-sse.js").read_text(encoding="utf-8")
         fn = re.search(r"^function actionTextOf\(text\) \{.*?^\}", src, re.S | re.M).group(0)
+        md = (CODE / "static" / "markdown.js").read_text(encoding="utf-8")   # actionTextOf calls stripOuterParens
+        fn = re.search(r"^function stripOuterParens\(s\) \{.*?^\}", md, re.S | re.M).group(0) + "\n" + fn
         js = fn + "\nconsole.log(JSON.stringify(%s.map(actionTextOf)));" % json.dumps(samples, ensure_ascii=False)
         out = subprocess.run([node, "-e", js], capture_output=True, text=True, check=True).stdout
         return json.loads(out)
@@ -146,9 +148,23 @@ class ActionParens(unittest.TestCase):
         self.assertEqual(got, ["고개를 끄덕인다", "고개를 끄덕인다", "웃는다", "", "", "", ""])
 
     def test_pick_choice_strips_wrapping_parens_before_act(self):
-        text = (CODE / "static" / "markdown.js").read_text(encoding="utf-8")
-        self.assertIn("String(payload).replace(/^\\(+|\\)+$/g, '').trim()", text)
-        self.assertIn("inputEl.value = '/act ' + act;", text)
+        # behaviour, not source text: the helpers moved and were renamed in #243 and the string check went stale
+        import json, subprocess
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not installed")
+        src = (CODE / "static" / "markdown.js").read_text(encoding="utf-8")
+        a, b = src.index("function stripOuterParens"), src.index("function splitChoices")
+        c, d = src.index("function pickChoice"), src.index("function sendPickedChoice")
+        js = ("var inputEl = { value: '' }; var sent = []; function sendPickedChoice() {}\n" + src[a:b] + src[c:d] +
+              "\nvar sendAction = t => sent.push(t);\n"
+              "pickChoice({ label: 'x', kind: 'action', payload: '(고개를 끄덕인다)' });\n"
+              "pickChoice('A -> ((웃는다))');\n"
+              "sendAction = undefined; pickChoice({ label: 'y', kind: 'action', payload: '(손을 흔든다)' });\n"
+              "console.log(JSON.stringify({ sent: sent, input: inputEl.value }));")
+        out = json.loads(subprocess.run([node, "-e", js], capture_output=True, text=True, check=True).stdout)
+        self.assertEqual(out["sent"], ["고개를 끄덕인다", "웃는다"])
+        self.assertEqual(out["input"], "/act 손을 흔든다")
 
     def test_send_wire_form_is_single_parens(self):
         text = (CODE / "static" / "app.js").read_text(encoding="utf-8")

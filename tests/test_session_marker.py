@@ -1,5 +1,5 @@
 """A brand-new session opens with a quiet centered divider, not the assistant greeting bubble (#160).
-continueSession keeps its handoff-note greeting.
+continueSession shows its handoff note as a system notice, not an assistant turn (#196).
 Run: python3 -m unittest tests.test_session_marker  (from services/chatbot)
 """
 import re
@@ -35,8 +35,10 @@ class SessionMarkerTest(unittest.TestCase):
         self.assertNotIn('innerHTML', block)
         self.assertIn('logEl.appendChild(marker)', block)
 
-    def test_continue_session_keeps_greeting(self):
-        self.assertIn('greeting:', enter_call(func_body('continueSession')))
+    def test_continue_session_shows_handoff_as_notice(self):
+        call = enter_call(func_body('continueSession'))
+        self.assertIn('notice:', call)
+        self.assertNotIn('greeting:', call)
 
 
 if __name__ == '__main__':
