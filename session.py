@@ -643,9 +643,13 @@ class AgentSession:
             except Exception:
                 pass
             self._err_msg_failfast_timer = None
+        self._err_msg_failfast_done = False
+        self._err_msg_hint = ""
 
     def _arm_error_message_failfast(self) -> None:
         self._err_msg_failfast_done = False
+        if (self.current_text or "").strip():
+            return
         # SILENT_HANG_v1: error_message path is owned by QUOTA_FAILFAST
         self._cancel_silent_hang()
         if getattr(self, "_err_msg_failfast_timer", None) is not None:
@@ -662,6 +666,8 @@ class AgentSession:
             if not self.busy or self._stop_requested:
                 return
             if getattr(self, "_err_msg_failfast_done", False):
+                return
+            if (self.current_text or "").strip() or (_now() - float(getattr(self, "_last_turn_activity_at", 0) or 0) < 5.0):
                 return
             self._err_msg_failfast_done = True
         dur = 0.0
@@ -734,12 +740,9 @@ class AgentSession:
         self._last_turn_activity_at = now
         # Keep legacy stamp so older callers/tests reading delta-at still see activity.
         self._last_assistant_delta_at = now
+        # Activity proves the agent is actively responding; cancel any pending failfast timer.
+        self._cancel_error_message_failfast()
         if self.busy and not getattr(self, "_silent_hang_done", False):
-            # Do not compete with QUOTA_FAILFAST once error_message was seen.
-            if getattr(self, "_err_msg_failfast_timer", None) is not None:
-                return
-            if getattr(self, "_err_msg_failfast_done", False):
-                return
             self._arm_silent_hang()
 
     def _touch_assistant_delta(self) -> None:

@@ -398,6 +398,24 @@ class SilentHangWatchdog(Base):
         self.assertEqual(hang, [])
         self.assertIsNone(getattr(s, "_silent_hang_timer", None))
 
+    def test_delta_after_error_message_cancels_failfast_and_rearms_silent_hang(self):
+        """When an agent recovers from transient error and emits delta, failfast must cancel."""
+        import time
+        s = self._busy(self.make(), hang_sec=0.4)
+        s._arm_silent_hang()
+        s._err_msg_hint = "transient 500 error"
+        s._arm_error_message_failfast()
+        self.assertIsNotNone(getattr(s, "_err_msg_failfast_timer", None))
+
+        # Real _emit path: assistant delta arrives
+        S.AgentSession._emit(s, {"event": "delta", "text": "Hello"})
+        self.assertIsNone(getattr(s, "_err_msg_failfast_timer", None), "delta must cancel failfast timer")
+        self.assertIsNotNone(getattr(s, "_silent_hang_timer", None), "delta must re-arm silent hang")
+        time.sleep(0.2)
+        self.assertTrue(s.busy, "turn must remain active")
+        self.assertFalse(getattr(s, "_err_msg_failfast_done", False))
+
 
 if __name__ == "__main__":
     unittest.main()
+

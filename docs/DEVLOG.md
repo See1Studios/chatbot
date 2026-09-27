@@ -1,5 +1,17 @@
 # chatbot 개발로그
 
+## 2026-09-27 — QUOTA_FAILFAST 턴 활동 재개 시 타이머 취소 및 정상 응답 절단 방지 (#253)
+
+- **배경**: agy가 백엔드(Gemini API 500/503 등) 일시 재시도 시 `step_type: error_message`를 발행하면 챗봇이 8초 failfast 타이머를 가동함. 그러나 agy가 4~5초 후 정상 복구되어 답변(`delta`)을 생성 중임에도 `_touch_turn_activity()`가 failfast 타이머를 취소하지 않아, 정확히 8초 시점에 턴을 강제 에러 종료(`에이전트가 답을 내기 전에 턴이 끝났습니다`)하고 세션을 끊어버리는 치명적 결함 발생.
+- **변경**:
+  - `session.py`:
+    - `_touch_turn_activity()`에서 텍스트 수신(`delta`)이나 도구 진행이 감지되면 대기 중인 `_cancel_error_message_failfast()`를 즉시 호출하여 타이머 해제 및 silent hang 재가동.
+    - `_arm_error_message_failfast()`: 이미 `self.current_text`가 버퍼에 누적되어 활발히 답변 중인 경우 8초 타이머 격발 방지.
+    - `_error_message_failfast()`: 타이머 만료 시점에도 버퍼에 텍스트가 있거나 최근 5초 이내 턴 활동이 있었으면 턴을 강제 종료하지 않고 회귀.
+  - `tests/test_conversation_sync.py`: `test_delta_after_error_message_cancels_failfast_and_rearms_silent_hang` 테스트 추가.
+- **검증**: `python3 -m unittest tests.test_conversation_sync`, `python3 tests/smoke.py`, `chatbot-ctl.sh guard` 통과.
+- **티켓**: #253 (claim -> done)
+
 ## 2026-09-27 — 사용자 데이터 경로 `~/.pe` + 릴리스 파이프라인 계획
 
 - **배경**: Private Engine 배포 준비 — 엔진/개인 데이터 분리와 릴리스 로드맵을 계획 문서로 고정. 구현·마이그레이션 착수는 실장님 말 후.
