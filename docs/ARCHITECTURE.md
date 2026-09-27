@@ -177,6 +177,8 @@ class TTSAdapter:
 
 ## 4. Plugin Layer (커뮤니티 커스텀)
 
+> 설계·순서·결정은 [plans/plugin-architecture.md](plans/plugin-architecture.md) (콘텐츠/코드 구분, 매니페스트, 로딩, 격리, 등급, Workshop).
+
 ### 4.1 UI Theme
 - ST에 없는 PE 전용 UI 테마 시스템
 - 로드 경로: `$CHATBOT_DATA/workspace/themes/<name>/theme.css` (배포 기본 `~/.pe`)

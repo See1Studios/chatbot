@@ -1,5 +1,15 @@
 # chatbot 개발로그
 
+## 2026-09-28 — 방향 정렬: 개인화 하네스로 (기조 재작성·제품 문서·관문 마무리·래칫·플러그인 계획)
+
+- **배경**: 운영자가 지향점을 다시 정함 — 표면은 진입장벽이 매우 낮은 **프리메이드 개인화 하네스**, 가치는 **전영소녀·조이**, 시장은 **Wallpaper Engine**(배경화면 대신 에이전트 커스터마이즈). 업무 효율로 경쟁하지 않고 개인화 레이어와 창작마당으로 경쟁. 배포판 에이전트는 엔진 코드를 고치지 않고 스킬·기억·지침을 스스로 다듬음. 계획 [direction-alignment.md](plans/direction-alignment.md).
+- **기조·제품 문서**: `docs/CONCEPT.md` 재작성(세 얼굴·해자·축 우선순위·배포판/개발판, 로어 절은 그대로), `PRODUCT.md`·`README.md` 엔드유저 기준, `DESIGN.md`는 NAS·캐릭터 이름만 정리(중심 은유는 align D10 열림). Grok 대화의 사업 모델($9.99·BYOK·무료 맛보기·연령·일정)은 release-pipeline §3.1, 아키텍처 문서는 `data/workspace/docs/`에서 `docs/ARCHITECTURE.md`로.
+- **관문 마무리 (pew/E·F·O·P, #266–#270)**: 커밋 훅(`.githooks/`, 가드·비밀·메시지), 러너 관문(가드 + 관련 테스트, `run-tests.sh` 자체 보호 구멍 수정), 티켓 완료 관문(가드 실패 시 done 거절), 관련 테스트를 import·파일 언급으로 확장. 보호 목록에 헌장·훅·러너·가드 추가(#268–#269).
+- **규칙**: 문서 이름(상시 대문자·쌓이는 문서 소문자-하이픈, `test_doc_names`, #273), 계획마다 방향 적합성 줄(`test_plans_index`, #275), 래칫(한국어 1,303줄·호스트/페르소나 123줄은 늘 수 없음, `test_ratchets`, #276).
+- **설계**: [plugin-architecture.md](plans/plugin-architecture.md) — 콘텐츠/코드 플러그인, `pe-plugin.json`, 내장도 같은 API, `~/.pe/plugins`, 코드는 별도 프로세스·권한, 등급, Workshop은 브랜드 이후. 결정 D1–D6 열림.
+- **배포**: 서버 쪽 미반영 — #263(openrouter 캐시), pew/O(완료 관문, 서버 경로), `server.py` 설명문. 다음 ⚡ 때.
+- **기준선**: `./run-tests.sh` 101/101.
+
 ## 2026-09-27 (밤) — 파이프라인 토대: 기준선 93→98 녹색, 루트 AGENTS.md, 가드 테스트 (pew/N·C·D, #255–#264)
 
 - **배경**: [plan-execution-workflow.md](plans/plan-execution-workflow.md) 토대 단계. 운영자 결정: 계획 절차 D1–D8, 현지화 D1–D7, 사적 세션 두뇌 규칙 (a).

@@ -41,6 +41,7 @@
 | [plan-execution-workflow.md](plan-execution-workflow.md) | `active` · 방향 **개발 기반** — 누수 없는 계획→실행(PE 내부 경로 우선): 루트 AGENTS.md 단일 입구·정본 지도, 규칙↔집행자 레지스트리, 훅·가드 테스트, 게이트 G0–G9·DoR/DoD·항목 id·ADR·트레일러, 파일럿=release·user-data | 계획을 새로 쓰거나 항목을 티켓으로 옮길 때, 에이전트 진입·규칙 강제를 건드릴 때 |
 | [localization.md](localization.md) | `active` · 방향 **기반** — 주요 언어 현지화: 1차 ko+en, 2차 ja·zh-Hans(D1–D7 결정), 래칫 가드·카탈로그·답변 언어 변수화, 말투 분리 | UI·서버 문자열, 날짜 형식, 답변 언어, 번역을 건드릴 때 |
 | [out-of-band-choices-actions.md](out-of-band-choices-actions.md) | `active` · 방향 **핵심** — 선택지·액션을 답변 본문 밖 채널(`choices` 도구·이벤트)로, 버튼 직접 전송(#134) | 선택지·버튼·액션 전달·티켓 바를 건드릴 때 |
+| [plugin-architecture.md](plugin-architecture.md) | `active` · 방향 **핵심** — 플러그인 플랫폼: 콘텐츠/코드 구분, `pe-plugin.json` 매니페스트, 내장도 같은 API, `~/.pe/plugins` 로딩, 코드는 별도 프로세스·권한, 등급, Workshop은 브랜드 이후 | 플러그인·확장·가져오기/내보내기·창작 도구·Workshop을 건드릴 때 |
 | [private-mode.md](private-mode.md) | `active` · 방향 **핵심** — 사적 모드 SSOT: 액션·선택지·텐션 4단계(구현됨), 8단계 초안·호감도·HUD·렌더 데코레이터(계획), 결정 필요 D1–D12 | 사적 모드·텐션·호감도·HUD·렌더링을 건드릴 때 |
 | [private-engine-brand.md](private-engine-brand.md) | `active` · 방향 **기반** — Private Engine / 프라이빗엔진 브랜드·도메인 공개 스캔(2026-09-27), privateengine.ai 기울기, 상표≠도메인 | 브랜드명·도메인·상표 클리어런스·외부 배포 명칭을 건드릴 때 |
 | [character-memory-adapter.md](character-memory-adapter.md) | `active` · 방향 **핵심** — 캐릭터 스코프 관계 기억 어댑터(설계·열린 질문), provider/visual 옆 층, Joi식 연속성·opt-in | 관계 기억·사적 continuity·캐릭터 메모리 층을 건드릴 때 |
