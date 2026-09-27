@@ -51,6 +51,39 @@
 
 ---
 
+## 2.1 분류 감사 (uds/C, 2026-09-28)
+
+`git ls-files data` = **426개**. §2의 분류를 실제 파일에 적용한 결과다. 옮기기·추적 해제는 아래 결정(C1–C6) 뒤에 항목별로 한다.
+
+| 묶음 | 파일 수 | 분류 | 가야 할 곳 | 비고 |
+|---|---|---|---|---|
+| `content_guards.json`, `private_tension_{defaults,gemini,grok}.json`, `private_refusal_mitigation_gemini.json` | 5 | **엔진** | 저장소의 엔진 폴더(C1) | 코드가 읽는 규칙표. `data/`가 `~/.pe`로 가면 엔진이 못 찾는다(`test_data_paths` 허용 목록의 이유) |
+| `providers.json` | 1 | **템플릿** | `templates/`의 기본값 → 설치 때 `~/.pe`로 복사 | 사용자가 API 프로바이더를 더하면 사용자 데이터가 된다 |
+| `workspace/AGENTS.md`, `PROJECT.md`, `CROSS-CUTTING-PRINCIPLES.md`, `team.json`, `.mcp.json`, `.gemini/config/mcp_config.json`, `.gitignore` | 7 | **템플릿** | `templates/workspace/` → 부트스트랩(uds/D) | 챗 에이전트 헌장·기본 팀·CLI MCP 설정 |
+| `workspace/SELF-MODIFY.md`, `roles/pd/procedure.md` | 2 | **개발판 템플릿** | 개발판에서만(edition) | 엔진 코드 자가진화 절차 |
+| `workspace/roles/{artist,staff,pd}/role.md` | 3 | **템플릿** | `templates/workspace/roles/` | 역할 팩(pd는 배포판용으로 다듬기, pew/L) |
+| `workspace/tools/*.py`(memory·recall_memory·lunar_calendar·token_audit) | 4 | **템플릿(에이전트 도구)** | `templates/workspace/tools/` | 에이전트가 쓰는 도구 스크립트 |
+| `workspace/.agents/skills/*`(character-art·character-pipeline·image-brief·fact-check·anime-layer-animator) | 7 | **템플릿(기본 스킬)** | `templates/workspace/.agents/skills/` | 표준 `SKILL.md` |
+| `workspace/.agents/skills/nas-sphere` | 1 | **환경 플러그인** | NAS 설치에만 | align/F와 같은 성격 |
+| `persona/providers/*` | 12 | **엔진(UI 자산)** | `static/` 쪽 | 프로바이더 아이콘 |
+| `persona/*`(avatar·half·wave·face-icon·icon·bg-studio·gallery·README) | 24 | **템플릿(기본 캐릭터 자산)** | 프리메이드 팩 | 기본 페르소나 이미지 |
+| `workspace/characters/<id>/`(3명: card·visual·avatar·stage·gallery) | 43 | **템플릿 후보 + 사용자** | 프리메이드 팩으로 고를 것만(C3) | `memory.md`는 사용자 데이터 |
+| `workspace/memory/MEMORY.md` | 1 | **사용자(개인 정보)** | 추적 해제(C4) | 사용자·가족·위치 사실이 들어 있다 |
+| `workspace/characters/*/memory.md` | 1 | **사용자** | 추적 해제(C4) | 캐릭터별 기억 |
+| `sessions/_shared/*`, `session-quarantine/*` | 42 | **사용자·런타임** | 추적 해제(C4) | 공유 아티팩트, 격리된 세션 메타 |
+| `workspace/skill-observations/`(tickets 209·observation-log 62·기타 3) | 274 | **개발판 기록** | 개발 저장소에 남김(C2) | 이 엔진의 개발 이력. 배포판 `~/.pe`는 빈 상태로 시작 |
+
+### 결정 (uds/C)
+
+| C | 질문 | 추천 | 상태 |
+|---|---|---|---|
+| C1 | 엔진 규칙표 5개의 자리 | 저장소 `engine_data/`(가칭)로 옮기고 `content_guard.py`·`private_engine.py`가 `host_config.ROOT` 기준으로 읽는다. `test_data_paths` 허용 목록에서 두 항목 제거 | 열림 |
+| C2 | 개발판 기록(티켓·관찰, 274개) | 개발 저장소에 그대로 둔다(개발판은 `CHATBOT_DATA=$CODE/data`). 배포 패키지에서는 제외(edition/F) | 열림 |
+| C3 | 기본 캐릭터 | 프리메이드 팩 후보를 운영자가 고른다. 고른 캐릭터에서 사적 규칙·기억 등 개인 부분을 걷어 템플릿으로. 가져온 저작권 캐릭터(예: 게임 캐릭터 카드)는 팩에서 제외 | 열림 |
+| C4 | 개인 정보·런타임 파일(45개) | **지금 추적 해제**(`git rm --cached` + `.gitignore`, 파일은 로컬에 남음). 과거 이력에 남은 부분의 정리(히스토리 재작성)는 운영자가 따로 결정(release-pipeline What NOT) | 열림 |
+| C5 | 템플릿으로 갈 파일(약 60개)의 이동 방식 | `templates/workspace/`로 **복사**해 정본으로 두고, 개발 설치의 `data/` 쪽은 그대로(부트스트랩이 빈 `~/.pe`에만 복사, uds/D) | 열림 |
+| C6 | 프로바이더 아이콘 | `static/providers/`로 옮긴다(엔진 UI 자산) | 열림 |
+
 ## 3. 아키텍처 및 경로 추상화 설계
 
 ### 3.1 `host_config.py` 기준 경로 체계 개편
