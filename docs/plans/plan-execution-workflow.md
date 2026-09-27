@@ -222,7 +222,7 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 | `pew/A` | 이 문서 + INDEX 행 | `docs/plans/plan-execution-workflow.md`, `docs/plans/INDEX.md` | INDEX에 행이 있고 커밋됨 | 0 · — | S | — | ✅ 티켓 없음(D3), `git log --grep="Plan: pew/A"` |
 | `pew/B` | `run-tests.sh [--fast]` 단일 진입점(`rp/A`와 공유, 소유는 여기) + DEVLOG 크기 복구 | `run-tests.sh`, `README.md`, `docs/DEVLOG.md` | 모든 `tests/test_*.py` 모듈을 개별 실행하고 실패 목록 출력, 종료 코드 반영 | 1 · — | S | — | ✅ #254 `09aca4a` |
 | `pew/C` | 루트 진입점: `AGENTS.md`(정본 지도, 시작 순서, 커밋 규약, 규칙 레지스트리 초판) + `CLAUDE.md`·`GEMINI.md` 포인터 | 루트 3파일 | 포인터 두 파일이 각각 5줄 이하, `AGENTS.md` 링크 포함 | 3 · — | M | D7 | ✅ #262 `ace91b3` |
-| `pew/D` | 가드 테스트 1차: `test_rule_registry`, `test_entrypoints`, `test_plans_index`, `test_doc_refs` | `tests/` | 현재 저장소에서 실패하는 항목(P11 등)을 먼저 고치고 통과. 일부러 규칙을 어기면 실패 | 3 · — | M | pew/B, pew/C | 대기 |
+| `pew/D` | 가드 테스트 1차: `test_rule_registry`, `test_entrypoints`, `test_plans_index`, `test_doc_refs` | `tests/` | 현재 저장소에서 실패하는 항목(P11 등)을 먼저 고치고 통과. 일부러 규칙을 어기면 실패 | 3 · — | M | pew/B, pew/C | ✅ #264 `ad095f7` |
 | `pew/E` | 훅: `.githooks/pre-commit`, `commit-msg` + 설치 확인 | `.githooks/`, `run-tests.sh` | 비밀 패턴이 든 파일, untracked 계획, 형식이 틀린 메시지로 커밋하면 각각 거절됨 | 3 · — | S | pew/B, D6 | 대기 |
 | `pew/F` | 러너 게이트(`DEFAULT_GATES`)를 `run-tests.sh --fast` + 변경 경로 관련 모듈로 교체 | `tools/worktree_runner.py` | 위임 실행 로그에 `run-tests.sh` 결과가 남음 | 3 · — | S | pew/N | 대기 |
 | `pew/N` | **기준선 녹색화**: 실패 14개를 세 티켓으로 — N1 구조 가드 초과(`test_bundle_budget` 헌장 묶음 축소, `test_file_sizes` `server.py` 분할) · N2 코드 분리 후 낡은 UI 하네스·소스 문자열 테스트 8개 · N3 동작 기대 불일치 3개(각각 코드와 테스트 중 무엇이 맞는지 운영자 확인) | 티켓별 | `./run-tests.sh` 종료 코드 0 | 3 · ⚡(N1 `server.py`) | M×3 | pew/B | ✅ #255–#261 (`git log --grep="Plan: pew/N"`) |
