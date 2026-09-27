@@ -1,5 +1,13 @@
 # chatbot 개발로그
 
+## 2026-09-27 — docs/plans 아카이브 절차 + 에이전트 MUST
+
+- **INDEX**: 상태 `active|done|superseded|abandoned`, 아카이브 절차, Active/Archived 표 분리.
+- **이동**: 완료·대체 계획 12개를 `docs/plans/archive/2026/`로 (README 추가).
+- **MUST 경로**: `data/workspace/AGENTS.md` § Plans, `PROJECT.md` 계획 칸 포인터; Grok Bot `sphere-hub-chatbot-protocol`과 동기.
+- **규칙**: 새 계획 전 INDEX 확인·active 행 추가; 종료 주 아카이브; 아카이브 문서 확장/부활 금지.
+
+
 ## 2026-09-27 — Gemini 사적 OPTIONAL refusal-mitigation TEST LAYER (#249)
 
 - **목표**: craft(텐션/반응/액체/선택지)와 **분리**된 Gemini/agy 사적 전용 **옵트인** 거부완화 A/B 테스트 레이어. 기본 OFF. 긴 disregard 탈옥 덤프 금지 — 짧은 친밀 RP 연속성 프레이밍(KO+EN).

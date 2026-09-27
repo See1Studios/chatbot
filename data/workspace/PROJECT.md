@@ -24,13 +24,13 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 | HTTP 라우트 / 프리뷰 화이트리스트 | `server.py` / `preview_guard.py` |
 | 워크스페이스 상태 / 툴 로그 포맷 | `workspace_status.py` / `tool_format.py` |
 | MCP 서버 / 코어 도구(memory·observation·ticket) / NAS 전용 | `mcp_server.py` / `mcp_core.py` / `nas_mcp_host.py`. 서버 이름 `nas`는 각 provider 설정 키라 바꾸지 않는다 |
-| 지침 조립 | `instructions.py` + `session.py` `_send_direct()` (`docs/plans/instruction-architecture.md`) |
+| 지침 조립 | `instructions.py` + `session.py` `_send_direct()` (`docs/plans/archive/2026/instruction-architecture.md`) |
 | 위임 | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py`(Tier는 `protected_paths.json` `governance`) |
 | UI | `static/`: `app.js`(전역·전송·부팅, 로드 때 도는 코드는 여기만) + 먼저 로드되는 부분들 `app-api` `app-device` `app-messages`(말풍선·공지) `app-turn`(진행 표시) `app-activity`(로그 탭) `app-evolution`(개선 탭·티켓·작업 카드) `app-status`(상태 탭) `app-sessions-tab` `app-team` `app-sse` `app-session`(세션 열기·이동) `app-characters`(캐릭터·프로바이더 선택기) `app-viewport`; `theme.js` + 스타일 `chat-{base,log,composer,panes,responsive,features}.css`(이 순서가 캐스케이드 순서, 나중 것이 이김) `markdown.js` `artifacts.js` `slash.js` `model-picker.js` `index.html` |
 | 시각 시스템 | `DESIGN.md` + `.impeccable/design.json` |
 | 캐릭터 | `characters/<id>/`: `card.json`(캐릭터 카드 V2 — 정체성·말투·사적 규칙(`system_prompt`)·업무 지침·두뇌), `memory.md`(그 캐릭터의 기억). 집 기억(사용자·호스트 사실, 모든 캐릭터가 읽음) `memory/MEMORY.md`. id는 TypeID. 카드에는 역할이 없다: 역할 팩 `roles/<role>/role.md`(지침·스킬·도구 권한), 편성 `team.json`(기본 캐릭터, 누가 어떤 역할). `characters.py`, 외형 `characters/<id>/visual.md` + 이미지(형식·절차: 스킬 `character-art`, 검사 `tools/check_character_art.py`) |
 | 사적 텐션 표(계열별) | `data/private_tension_{defaults,gemini,grok}.json` + `private_engine.py` (`FAMILY_FILES`, `RENDER_PROTOCOL` / Grok overlay) |
-| 최근 작업 / 계획 상태 | `docs/DEVLOG.md` 맨 위(지난 날짜 `docs/devlog/YYYY-MM-DD.md`) / `docs/plans/INDEX.md` — 계획 문서는 인덱스에서 골라 연다 |
+| 최근 작업 / 계획 상태 | `docs/DEVLOG.md` 맨 위(지난 날짜 `docs/devlog/YYYY-MM-DD.md`) / `docs/plans/INDEX.md`(**MUST**: 새·종료 계획 시 INDEX+`archive/YYYY/` 규칙, 상태 active|done|superseded|abandoned; 헌장 AGENTS.md § Plans) — 계획 문서는 인덱스에서 골라 연다 |
 | 테스트 | `tests/smoke.py`, `tests.test_worktree_runner`, `tests.test_delegation`, `tests/test_instructions.py` |
 
 파이썬 모듈 수정 → ⚡소생. `static/`·페르소나 → Ctrl+Shift+R.

@@ -1,21 +1,53 @@
 # 계획 문서 인덱스
 
-여기서 상태를 보고 필요한 문서만 연다. 새 계획은 이 표에 한 줄 추가, 상태가 바뀌면 이 줄만 고친다(문서 안의 "상태" 줄보다 이 표가 우선).
+여기서 상태를 보고 필요한 문서만 연다. **이 표가 SSOT**다(문서 안의 "상태" 줄보다 우선).
+
+## 상태 값 (필수)
+
+| 값 | 의미 |
+|---|---|
+| `active` | 진행·계획 중. `docs/plans/` 루트에 둔다 |
+| `done` | 티켓 완료 또는 스펙이 코드에 흡수됨 → 그 주에 아카이브 |
+| `superseded` | 다른 active 계획으로 대체됨 → 그 주에 아카이브 |
+| `abandoned` | 착수하지 않고 폐기 → 그 주에 아카이브 |
+
+표시용으로 한국어 요약(`진행`/`계획` 등)을 덧붙여도 되지만, **첫 토큰은 위 네 값 중 하나**여야 한다.
+
+## 아카이브 절차 (MUST)
+
+1. **트리거**: 티켓 done · 스펙이 코드에 흡수 · 다른 문서로 대체 → **그 주 안에** 아카이브.
+2. **이동**: `docs/plans/<파일>.md` → `docs/plans/archive/YYYY/<파일>.md` (년도 = 아카이브한 해).
+3. **INDEX**: 표에서 경로를 `archive/YYYY/…`로 바꾸고, 상태 + **종료 사유 한 줄**만 남긴다.
+4. **금지**: 아카이브 문서를 그 자리에서 늘리거나 이어서 쓰지 않는다. 후속 작업 = **새 active 계획** + INDEX 한 줄. 옛 문서는 `superseded`로 링크만.
+5. **새 계획 만들기 전**: 이 INDEX를 먼저 읽고, 중복·아카이브 부활 여부를 확인한다. 새 파일은 상태 `active`, **같은 변경에 INDEX 행 추가**.
+
+상세·폴더 규칙은 [`archive/README.md`](archive/README.md).
+
+## Active
 
 | 문서 | 상태 | 언제 읽나 |
 |---|---|---|
-| [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md) | **진행** — §10 PD 모델, §11 전문가, §12 캐릭터(카드·사적 기억·이미지 형식·역할 팩) | 위임·PD·캐릭터·역할을 건드릴 때 |
-| [monolith-split.md](monolith-split.md) | **진행** — Phase 5 완료(app.js·session.py 분리), 파일 상한 규칙 | 파일을 나누거나 새 파일을 만들 때 |
-| [user-data-and-editing.md](user-data-and-editing.md) | **계획** — 사용자 데이터 분리(배포), ~~직책 이름은 표시값~~(완료 #129), 카드 폼 편집, 옛 프로토타입 삭제 | 배포 준비·팀 탭 편집·직책을 건드릴 때 |
-| [out-of-band-choices-actions.md](out-of-band-choices-actions.md) | **계획** — 선택지·액션을 답변 본문 밖 채널(`choices` 도구·이벤트)로, 버튼 직접 전송(#134) | 선택지·버튼·액션 전달·티켓 바를 건드릴 때 |
-| [private-mode.md](private-mode.md) | **진행** — 사적 모드 SSOT: 액션·선택지·텐션 4단계(구현됨), 8단계 초안·호감도·HUD·렌더 데코레이터(계획), 결정 필요 D1–D12 | 사적 모드·텐션·호감도·HUD·렌더링을 건드릴 때 |
-| [recursive-self-evolution.md](recursive-self-evolution.md) | 참고 — 관찰·티켓·보호 경로의 설계 근거(코어는 구현됨, 코드가 정본) | 개선 루프·티켓·보호 규칙의 이유가 궁금할 때 |
-| [instruction-architecture.md](instruction-architecture.md) | 참고 — 지침 묶음 계층. 역할 팩(§12.5)이 캐릭터 부분을 대체 | 매 턴 지침 조립을 바꿀 때 |
-| [token-accounting.md](token-accounting.md) | 참고 — 창 점유 vs 과금 | 토큰 수치를 해석할 때 |
-| [api-provider-adapters.md](api-provider-adapters.md) | 완료 — API 프로바이더(Phase 0–5) | API 어댑터를 고칠 때 |
-| [in-flight-interruption.md](in-flight-interruption.md) | 완료 — §4(2026-09-20)가 최종, §1–3은 대체됨 | 작업 중 개입(steer)을 고칠 때 |
-| [chatbot-host-portability.md](chatbot-host-portability.md) | 완료 — 호스트 일반화 Phase 0–3 | 호스트 결합을 건드릴 때 |
-| [direction-2026-09-22.md](direction-2026-09-22.md) | 대체됨 — PD·캐릭터 방향(delegation §10–12)으로 | 읽지 않아도 됨 |
-| [audit-2026-09-22-work-ordered.md](audit-2026-09-22-work-ordered.md), [audit-2026-09-22-recheck.md](audit-2026-09-22-recheck.md) | 완료 — 감사와 재확인 | 읽지 않아도 됨 |
-| [self-evolution-loop-review-2026-09-22.md](self-evolution-loop-review-2026-09-22.md) | 완료 — 평가 보고 | 읽지 않아도 됨 |
-| [recursive-self-evolution-review-grok-v2.md](recursive-self-evolution-review-grok-v2.md), [-v3](recursive-self-evolution-review-grok-v3.md) | 완료 — 교차 검증 | 읽지 않아도 됨 |
+| [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md) | `active` — §10 PD 모델, §11 전문가, §12 캐릭터(카드·사적 기억·이미지 형식·역할 팩) | 위임·PD·캐릭터·역할을 건드릴 때 |
+| [monolith-split.md](monolith-split.md) | `active` — Phase 5 완료(app.js·session.py 분리), 파일 상한 규칙 | 파일을 나누거나 새 파일을 만들 때 |
+| [character-resource-pipeline.md](character-resource-pipeline.md) | `active` — 캐릭터 폴더 SSOT, 정본/파생/인스턴스, `needed_art`, 자기진화 완결성 관찰 | 캐릭터 생성·수정·그림·Hub 페르소나 경로를 건드릴 때 |
+| [user-data-and-editing.md](user-data-and-editing.md) | `active` — 사용자 데이터 분리(배포), ~~직책 이름은 표시값~~(완료 #129), 카드 폼 편집, 옛 프로토타입 삭제 | 배포 준비·팀 탭 편집·직책을 건드릴 때 |
+| [user-data-separation.md](user-data-separation.md) | `active` — 엔진/사용자 데이터 물리 분리·`CHATBOT_DATA`·마이그레이션 (user-data-and-editing §1 상세) | 배포·데이터 경로·gitignore를 건드릴 때 |
+| [out-of-band-choices-actions.md](out-of-band-choices-actions.md) | `active` — 선택지·액션을 답변 본문 밖 채널(`choices` 도구·이벤트)로, 버튼 직접 전송(#134) | 선택지·버튼·액션 전달·티켓 바를 건드릴 때 |
+| [private-mode.md](private-mode.md) | `active` — 사적 모드 SSOT: 액션·선택지·텐션 4단계(구현됨), 8단계 초안·호감도·HUD·렌더 데코레이터(계획), 결정 필요 D1–D12 | 사적 모드·텐션·호감도·HUD·렌더링을 건드릴 때 |
+
+## Archived (한 줄 · 펼치지 말 것)
+
+| 문서 | 상태 | 종료 사유 |
+|---|---|---|
+| [archive/2026/recursive-self-evolution.md](archive/2026/recursive-self-evolution.md) | `done` | 코어(관찰·티켓·보호) 구현됨 — 코드가 정본 |
+| [archive/2026/instruction-architecture.md](archive/2026/instruction-architecture.md) | `done` | 지침 계층 흡수; 역할 팩(§12.5)이 캐릭터 부분 대체 |
+| [archive/2026/token-accounting.md](archive/2026/token-accounting.md) | `done` | 창 점유 vs 과금 해설 — 필요 시 참고만 |
+| [archive/2026/api-provider-adapters.md](archive/2026/api-provider-adapters.md) | `done` | API 프로바이더 Phase 0–5 완료 |
+| [archive/2026/in-flight-interruption.md](archive/2026/in-flight-interruption.md) | `done` | §4(2026-09-20) 최종; §1–3 대체됨 |
+| [archive/2026/chatbot-host-portability.md](archive/2026/chatbot-host-portability.md) | `done` | 호스트 일반화 Phase 0–3 완료 |
+| [archive/2026/direction-2026-09-22.md](archive/2026/direction-2026-09-22.md) | `superseded` | PD·캐릭터 방향 → delegation §10–12 |
+| [archive/2026/audit-2026-09-22-work-ordered.md](archive/2026/audit-2026-09-22-work-ordered.md) | `done` | 감사 작업 목록 완료 |
+| [archive/2026/audit-2026-09-22-recheck.md](archive/2026/audit-2026-09-22-recheck.md) | `done` | 감사 재확인 완료 |
+| [archive/2026/self-evolution-loop-review-2026-09-22.md](archive/2026/self-evolution-loop-review-2026-09-22.md) | `done` | 평가 보고 완료 |
+| [archive/2026/recursive-self-evolution-review-grok-v2.md](archive/2026/recursive-self-evolution-review-grok-v2.md) | `done` | 교차 검증 v2 완료 |
+| [archive/2026/recursive-self-evolution-review-grok-v3.md](archive/2026/recursive-self-evolution-review-grok-v3.md) | `done` | 교차 검증 v3 완료 |
