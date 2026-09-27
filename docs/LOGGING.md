@@ -20,6 +20,40 @@ Other files:
 - `data/sessions/<sid>/events.jsonl`: the conversation's own log (UI 로그 tab). `logdigest --sid`
   merges it with the global stream by time.
 
+## Where the log lives (LOG_PATH_v1)
+
+One resolver, `host_config.py`: `LOG_DIR` (the directory) and `EVENTS_LOG` (the stream).
+`obslog.py`, `logdigest.py` and `chatbot-ctl.sh` all read it and none of them composes a path of
+its own, so they cannot drift apart. `CHATBOT_LOG_DIR` moves the directory, `CHATBOT_OBSLOG_PATH`
+moves the stream and still wins over both — where lines are actually written is decided by
+`obslog.configure()`, never by the default.
+
+The default is the repo's `logs/`, which is where the development install keeps it. **The shipped
+build puts it under user data** (`$CHATBOT_DATA/logs`, i.e. `~/.pe/logs`) because a conversation log
+belongs to the install it describes and must survive an engine update
+([user-data-separation.md](plans/user-data-separation.md) §2). That is a one-line change in
+`host_config.py` — the default in `LOG_DIR` — and nothing else has to move.
+
+## What is not in this log
+
+The global stream is host metadata: event, `sid`, provider/model, outcome, durations, error class
+and hint, counts. A turn's words are **not** here — the question goes nowhere (`turn.start` logs
+`chars`, its length) and neither does the answer. They live in `data/sessions/<sid>/events.jsonl`,
+which is user data and is encrypted in the shipped build. Private sessions are must-not-be-seen
+data, so nothing is copied out of them.
+
+`tests/test_log_no_content.py` guards this: it drives a real private-mode turn, proves the words
+reached the session log, then proves neither is anywhere in `logs/events.jsonl`. If you add a kind
+to `_OBS_FORWARD` (`session.py`) that carries text, that test fails.
+
+Known exceptions, still open (they are host notices, not conversation content, but they are
+persona-flavoured and belong to the tone work — `align/G`·`l10n/D`):
+
+- `session.stopped` / `session.interrupted` / `session.session_rotate` / `session.steer_queued` and
+  `turn.loop_notice` / `turn.quiet_close` log the notice text, which is written in the persona's
+  voice in the engine strings.
+- `mcp.call` logs `msg` on refusal or failure, and a tool can answer in prose.
+
 ## Investigating (agent runbook)
 
 1. `chatbot-ctl.sh logs --since 24h --json` and read `findings` (sorted error → warn). Each finding
@@ -183,8 +217,8 @@ request, so 5xx rates stay exact.
 
 ## Storage
 
-Lines are written only where `CHATBOT_OBSLOG_PATH` points; `chatbot-ctl.sh` exports it
-(`logs/events.jsonl`) for everything it starts. Tests and hand-started servers leave it unset, so
+Lines are written only where `CHATBOT_OBSLOG_PATH` points; `chatbot-ctl.sh` exports it (the
+resolver's `EVENTS_LOG`) for everything it starts. Tests and hand-started servers leave it unset, so
 their events stay in memory (`obslog.RECENT`) and warn/error still reach stderr: a test server can
 never write fake restarts into the production log. A started server removes `CHATBOT_OBSLOG_PATH`
 and `CHATBOT_CALLER` from its own environment once configured, so the CLI agents it spawns (and any
@@ -199,3 +233,4 @@ share it safely. Expected volume is a few MB a week: successful polling is summa
 Use `obslog.event("area.name", lvl=..., **fields)` / `obslog.exception("area.name")`, or from the shell
 `obs area.name warn key=value`. Pick a dotted, stable `evt`, put variable text in `msg` or fields,
 use `dedup=` for anything that can repeat in a loop, and add the event to the dictionary above.
+Metadata only — see 「What is not in this log」 before you reach for a field that holds a message.

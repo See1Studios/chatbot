@@ -53,7 +53,10 @@ except ImportError:  # pragma: no cover -- non-POSIX
     fcntl = None
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_PATH = ROOT / "logs" / "events.jsonl"
+# LOG_PATH_v1: the default lives in host_config, the one resolver ctl and logdigest also read, so the
+# three cannot drift. It is a fallback name only -- where lines are actually written is decided by
+# configure() (CHATBOT_OBSLOG_PATH), never from here.
+from host_config import EVENTS_LOG as DEFAULT_PATH  # noqa: E402
 MAX_BYTES = int(os.environ.get("CHATBOT_OBSLOG_MAX_BYTES", str(10 * 1024 * 1024)))
 BACKUPS = 5
 LEVELS = {"debug": 10, "info": 20, "warn": 30, "error": 40}

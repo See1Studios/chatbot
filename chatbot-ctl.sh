@@ -30,7 +30,22 @@ if [ -f "$DATA/secrets.env" ]; then
   . "$DATA/secrets.env"
   set +a
 fi
-LOG_DIR="$CODE/logs"
+# LOG_PATH_v1: both log names come from the ONE resolver in host_config, so ctl cannot drift from
+# obslog/logdigest and never composes a path of its own. host.env above is already sourced, so a
+# per-install CHATBOT_LOG_DIR / CHATBOT_OBSLOG_PATH applies. Two things matter here:
+#   - `cd "$CODE"`: python puts the working directory on sys.path, so without it `import host_config`
+#     resolves to whatever checkout the caller happens to be standing in, and a copied ctl would
+#     write into another tree's log dir (the CTL_SYMLINK_v1 lesson, one level down).
+#   - no pipe: set -o pipefail turns a closed pipe into exit 141 and would kill the script.
+# If python cannot answer (a broken checkout), fall back to the repo's logs/ exactly as before.
+_paths="$(cd "$CODE" && python3 -c 'import host_config; print("%s\t%s" % (host_config.LOG_DIR, host_config.EVENTS_LOG))' 2>/dev/null || true)"
+LOG_DIR=""
+EVENTS_LOG=""
+if [ -n "$_paths" ]; then
+  IFS=$'\t' read -r LOG_DIR EVENTS_LOG <<<"$_paths"
+fi
+[ -n "$LOG_DIR" ] || LOG_DIR="$CODE/logs"
+[ -n "$EVENTS_LOG" ] || EVENTS_LOG="$LOG_DIR/events.jsonl"
 mkdir -p "$DATA/workspace" "$DATA/sessions" "$DATA/artifacts" "$DATA/persona" "$LOG_DIR"
 LOG_CHAT="$LOG_DIR/chatbot.log"
 LOG_MCP="$LOG_DIR/chatbot-mcp.log"
@@ -55,7 +70,7 @@ rotate_log() {
 # OBSLOG_v1: structured events go to logs/events.jsonl (docs/LOGGING.md). CHATBOT_CALLER says
 # who started this run (api-defibrillate, doctor-auto, cli-tty, ppid:<parent>); it is exported
 # before the lifecycle lock re-exec so the locked child keeps it.
-export CHATBOT_OBSLOG_PATH="${CHATBOT_OBSLOG_PATH:-$LOG_DIR/events.jsonl}"
+export CHATBOT_OBSLOG_PATH="${CHATBOT_OBSLOG_PATH:-$EVENTS_LOG}"
 if [ -z "${CHATBOT_CALLER:-}" ]; then
   if [ -t 0 ] || [ -t 1 ]; then
     CHATBOT_CALLER="cli-tty"

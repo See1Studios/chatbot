@@ -25,7 +25,9 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 ROOT = Path(__file__).resolve().parent
-LOG = Path(os.environ.get("CHATBOT_OBSLOG_PATH") or ROOT / "logs" / "events.jsonl")
+# LOG_PATH_v1: the stream obslog writes and this reader parses come from one resolver (host_config),
+# env override included. Tests still swap logdigest.LOG directly.
+from host_config import EVENTS_LOG as LOG  # noqa: E402
 SESSIONS = ROOT / "data" / "sessions"
 HEARTBEAT_SEC = int(os.environ.get("CHATBOT_OBSLOG_SUMMARY_SEC", "300"))
 

@@ -54,6 +54,14 @@ BRAIN = HOME / ".gemini" / "antigravity-cli" / "brain"
 # standing brand/persona images). Per-conversation generated images live in
 # sessions/<sid>/artifacts/ instead (see _stage_image).
 ARTIFACTS_CACHE = SESSIONS / "_shared"
+# Log location (LOG_PATH_v1): ONE resolver, so obslog, logdigest and chatbot-ctl.sh cannot drift
+# apart. CHATBOT_OBSLOG_PATH still wins where it is set (obslog only writes where it is set, so a
+# hand-started server and every test keep their events in memory instead of the production stream).
+# The default is the repo's logs/ for now; the shipped build moves it under user data by changing
+# this one line to DATA/"logs" (docs/plans/user-data-separation.md §2: logs are user data, not
+# engine, and a conversation log must travel with the install it describes).
+LOG_DIR = Path(os.environ.get("CHATBOT_LOG_DIR") or ROOT / "logs")
+EVENTS_LOG = Path(os.environ.get("CHATBOT_OBSLOG_PATH") or LOG_DIR / "events.jsonl")
 # Event kinds worth keeping durable (sessions/<sid>/events.jsonl) for both
 # operator's 로그 tab history and the self-improve loop's own debugging --
 # excludes the high-frequency streaming noise (delta/raw/agy/stderr/user)
@@ -111,7 +119,7 @@ SOFT_TOKENS = 150_000
 HARD_TOKENS = 400_000
 INACTIVITY_ROTATE_SEC = 3 * 3600  # 3 hours gap triggers auto-compaction and fresh rotate
 
-for p in (SESSIONS, WORKSPACE, STATIC, ARTIFACTS_CACHE):
+for p in (SESSIONS, WORKSPACE, STATIC, ARTIFACTS_CACHE, LOG_DIR):
     p.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_PROVIDER = os.environ.get("CHATBOT_DEFAULT_PROVIDER", "agy")
