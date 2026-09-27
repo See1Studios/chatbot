@@ -31,6 +31,7 @@
 | gitignore | 저장소 `data/` 전면 제외 + 커밋 가드(PII/비밀 패턴) |
 | 최소 CI | 테스트 + 린트/가드 정도 (배포 파이프라인 전체는 아직) |
 | ctl | `DATA="$CODE/data"` 하드코딩 제거 — 개발은 `CHATBOT_DATA=$CODE/data` |
+| 현지화 기반 | [localization.md](localization.md) `l10n/B`(래칫 가드)·`C`(카탈로그·`t()`)·`D`(말투 분리) |
 
 개발 오버라이드·Windows `%USERPROFILE%\.pe`·`PE_HOME`/`PRIVATEENGINE_HOME` 별칭은 user-data-separation SSOT.
 
@@ -43,6 +44,7 @@
 | 씬 런처 | 엔진을 감싸는 thin launcher (호스트/포트/데이터 경로) |
 | 인스톨러 | OS별 설치·업데이트 (코드 ↔ `~/.pe` 분리 전제) |
 | 코드 서명 | 플랫폼 요구에 맞는 signing |
+| 현지화 완료 | 영어 카탈로그 완성·검수, 2차 언어, 스토어 페이지 언어, 언어별 사적 모드 품질 확인 ([localization.md](localization.md) `l10n/I`·`J`·`H`) |
 | Steam | **브랜드·도메인 클리어런스 후** ([private-engine-brand.md](private-engine-brand.md)). 상표≠도메인 — 변호사 전 스케일 금지 |
 
 ---
