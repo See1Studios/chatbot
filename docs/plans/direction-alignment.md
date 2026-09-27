@@ -68,7 +68,7 @@
 | `align/A` | 이 문서 + INDEX 행 | `docs/plans/direction-alignment.md`, `docs/plans/INDEX.md` | INDEX 행, 커밋 | 0 · — | S | — | ✅ 티켓 없음(pew D3) |
 | `align/B` | `CONCEPT.md` 기조 재작성 초안 → 운영자 확정 | `docs/CONCEPT.md` | 운영자 확정 문안, "만능·유능" 중심 문장 제거, 축 목록이 개인화 중심 | 0 · — | S | D1 | ✅ 운영자 확정 2026-09-28 |
 | `align/C` | `PRODUCT.md`·`README.md`·`DESIGN.md` 엔드유저 기준 재작성 | 세 파일 | NAS 시절 정체성은 "개발 환경" 절에만 | 0 · — | M | align/B | ✅ #274 (디자인 방향은 D10으로 분리) |
-| `align/D` | 활성 계획마다 방향 적합성 한 줄 + INDEX 반영, 맞지 않는 계획은 재정의 또는 대체 | `docs/plans/*.md`, `INDEX.md` | 모든 활성 계획에 적합성 표시 | 0 · — | M | align/B | 대기 |
+| `align/D` | 활성 계획마다 방향 적합성 한 줄 + INDEX 반영, 맞지 않는 계획은 재정의 또는 대체 | `docs/plans/*.md`, `INDEX.md` | 모든 활성 계획에 적합성 표시 | 0 · — | M | align/B | ✅ #275 `ea0d954` |
 | `align/E` | **래칫 가드**: 엔진 코드(호스트 플러그인 제외)에 NAS·개인 정체성 문자열이 늘면 실패 | `tests/test_host_identity_ratchet.py` | 새로 늘면 실패, 줄면 기준선 낮춤 | 3 · — | S | — | 대기 |
 | `align/F` | NAS 기능을 선택 플러그인으로(D3): 설정 없으면 로드 안 함 | `nas_mcp_host.py`, `mcp_server.py`, `host_config.py` | NAS가 아닌 환경에서 기본 설치가 NAS 도구 없이 동작 | 3 · ⚡ | M | D3 | 대기 |
 | `align/G` | 호칭·말투 중립화(D4) — l10n/D와 한 번에 | `static/*.js`, `*.py` | 래칫 기준선 0 | 2 · ⚡ | M | D4, l10n/D | 대기 |
