@@ -150,7 +150,51 @@ server.py`, `node --check static/app.js`, `chatbot-ctl.sh guard`. 라이브는
 
 6. ✅ **`chat.css`** (CSS_SPLIT_v1, #124): 1,839줄 → 순서를 지킨 여섯 조각 `chat-base/log/composer/panes/responsive/features.css`(147–547줄). 이어 붙이면 원래와 규칙 단위로 같다. 테스트는 `tests/page_source.css_source()`로 합본을 읽고, 크기 상한·링크 누락은 `test_page_scripts`가 본다.
 
-알려진 것: 테스트를 한 프로세스에서 한꺼번에(`unittest discover`) 돌리면 ~40개가 실패한다 — 몇 모듈이 전역(`instructions.WORKSPACE` 등)을 임시 폴더로 바꾸고 되돌리지 않아서. 규칙은 모듈별 실행(`for f in tests/test_*.py; do python3 -m unittest tests.$(basename $f .py); done`). 격리 정리는 별도 작업.
+알려진 것: 테스트를 한 프로세스에서 한꺼번에(`unittest discover`) 돌리면 실패한다 — 몇 모듈이 전역(`instructions.WORKSPACE` 등)을 임시 폴더로 바꾸고 되돌리지 않아서. 규칙은 모듈별 실행(`for f in tests/test_*.py; do python3 -m unittest tests.$(basename $f .py); done`). 격리 정리는 Phase 6 `split/A`다.
+
+## Phase 6 — 구조 부채 실측 (2026-09-28)
+
+Phase 0–5는 **크기**를 다뤘다. 이 단계는 그 규칙이 통과하는 것과 통과하는 것을 구분해 잰다 — `test_file_sizes`와 `test_page_scripts`를 모두 통과한 트리에 남는 부채.
+
+측정 트리: `72acf1a` 이후, edition 경계 작업 착수 전. 아래 숫자는 그때의 실측이고 항목마다 재는 방법을 적었다. **규칙이 이미 잡는 것(파일 크기·페이지 스크립트·프로바이더 중립성·문서 규칙)은 제외**했다.
+
+### 6.1 실측
+
+| 측정 | 값 | 다시 재는 방법 |
+|---|---|---|
+| 단일 프로세스 전체 실행 | **93 실패 / 1,190 테스트** (모듈 104개) | `run-tests.sh` 대신 `unittest`로 `tests.test_*` 전체를 한 프로세스에 로드 |
+| 모듈별 프로세스 실행 | 102/103 모듈 통과, 224초 | `./run-tests.sh` |
+| 대문자 모듈 전역을 가진 모듈 | 42개 (`host_config` fan-in 25) | `ast`로 모듈 최상위 대입과 `import` 별칭 집계 |
+| import 순환 | 3쌍 + 자기참조 1 | `ast` 임포트 그래프 DFS |
+| 60줄 이상 함수 | 34개 | `ast` 함수별 `(end_lineno - lineno)` |
+| 미해소 상한 | `session.py` 여유 **0줄**, `server.py` 여유 **+22줄** | `test_file_sizes`의 `CEILINGS`와 실제 길이 |
+
+### 6.2 항목
+
+| id | 지점 | 측정 | 리팩터 방향 | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
+|---|---|---|---|---|---|---|---|---|
+| `split/A` | **테스트 격리** | 93/1,190 실패. 원인: 대문자 모듈 전역 42개와 되돌리지 않는 캐시 2개 — `characters.py::_CARD_INFO_CACHE`, `workspace_status.py::_SKILLS_CACHE` | DI가 아니라 **리셋 지점** 하나와 캐시 명시적 리셋. 테스트 하네스로 전역 격리 | 단일 프로세스 0 실패. `run-tests.sh`는 그대로 통과. `host_config` 공개면 안 바뀜 | 2 · — | M | — | 대기 |
+| `split/B` | **`server.py` 라우터** | 1,478줄 중 719줄이 라우팅. `server.py::_do_GET` 366줄/54분기, `do_POST` 353줄/50분기, 라우트 문자열 35개, 테이블 디스패치 0개. 여유 +22줄 | `(method, path pattern) → handler` 테이블, 도메인별 핸들러 모듈로 | 라우팅이 표 1곳에서 보임. 새 엔드포인트가 상한을 넘지 않음 | 2 · ⚡ | M | — | 대기 |
+| `split/C` | **`session.py` 경계** | 2,298줄 / 상한 2,298 → **여유 0줄**. `session.py::_send_direct` 200줄, `session.py::_tool_summary` 180줄 | `turn_watchdog.py`를 뽑은 같은 방식으로 문 responsibility 경계 | 한 줄도 못 붙이는 상태가 끝남. 상한을 낮추고 테스트로 고정 | 2 · ⚡ | M | — | 대기 |
+| `split/D` | **`characters`·`identity` 순환** | `identity.py` 238줄에 안쪽 `import characters` **11회, 17개 함수**. `characters.py`가 `parse_frontmatter` 하나 때문에 `identity`를 씀 | 카드 원본을 읽는 얇은 공유 계층을 만들고 양쪽이 그걸 읽게 한다. 세 순환이 한 번에 풀려야 한다 | 순환 0. 안쪽 import 0. 계층 방향을 가드로 못 박아야 한다(계측은 `ast`) | 2 · — | M | split/A | 대기 |
+| `split/E` | **생성물 커플링** | `protected_manifest.json`이 소스 옆에 커밋되고, 보호 파일을 건드리면 `evolution.py`의 `manifest-update`을 사람이 돌려야 한다. 테스트는 계속 추가 중 | 스텝을 자동화하거나, 커밋 대상에서 빼고 doctor에서 만든다 | 보호 파일 변경 뒤 사람이 손대지 않아도 가드가 통과 | 2 · — | S | — | 대기 |
+| `split/F` | **`static/role.js`** | 308줄. `index.html`이 참조하지 않고 `static/` 안에서도 아무도 부르지 않는데 `ratchet_baseline.json`에 남아 래칫이 세고 있다 | 쓰는 곳을 찾아 연결하거나, 죽은 파일이면 지우고 래칫 기준선에서 뺀다 | `ratchet_baseline.json`에 없는 파일은 어디에서도 로드되지 않음 | 2 · — | S | — | 대기 |
+
+### 6.3 순서와 충돌
+
+`split/A` → `split/B` → `split/C` → `split/D`, `split/E`·`split/F`는 독립. 수령 대비 순서: `split/A`가 압도적이다(8% 테스트가 그 위에 있고 프로덕션 위험이 거의 없다).
+
+**경고 — 이미 손이 가고 있다.** edition 경계(`align/I` 계열, `host_config.EDITION` + `test_edition_boundary`) 작업이 `host_config.py`·`mcp_server.py`·`run-tests.sh`·`protected_paths.json`을 고쳤다. `split/A`는 `host_config`의 경로 전역을 다루므로 **그 작업이 끝나기 전에 착수하지 않는다.** `split/B`는 `server.py`만이라 lesser conflict지만, 라우팅이 `mcp_server`를 호출하므로 순서를 본다.
+
+### 6.4 손대지 말 것 (측측 결과 판단)
+
+- **프런트 전역**: 23개 클래식 스크립트에 최상위 선언 571개지만 **이름 충돌은 3개뿐**(`api`, `stripOuterParens`, `BASE_PATH`). `app.js` 933줄 + 파트 13개가 전부 1,000줄 미만이고 `test_page_scripts`가 가짜 브라우저로 로드까지 검증한다. Phase 2가 이미 해냈다.
+- **계층 방향 자체**: 순환이 3쌍이고 무한 층상 순환은 아니다. `host_config` fan-in 25는 그 파일이 SSOT이므로 설계다.
+- **파일 크기 규칙 자체**: Phase 5가 만들었고 잘 작동한다. Phase 6은 여유분을 벌기 위한 것이지 상한을 올리려는 것이 아니다.
+
+### 6.5 이 부채와 시장 쪽의 관계 (알아둘 것)
+
+이 여섯 항목은 전부 **공급 쪽**이다. [market-direction-review.md](market-direction-review.md) §2.4가 지적한 "공급이 수요 증빙보다 한 사이클 앞선다"는 판정은 이 Phase를 시작해도 그대로다. `split/B`는 여유 22줄이 급해 언젠가는 필요하지만, 그 급함은 **데모(그 문서의 `rev/D`)를 만들고 나서도 그대로**다. 순서를 뒤집을 이유는 없지만, "구조를 다듬었으니 이제 수요 측이다"로 읽으면 안 된다.
 
 ## 검증 방법 (매 Phase 공통)
 
