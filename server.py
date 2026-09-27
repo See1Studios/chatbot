@@ -54,7 +54,9 @@ from session import (
 )
 from providers import accounts
 from providers import account_login
+import card_upload
 import content_guard
+import emotion
 import obslog
 import evolution
 import identity
@@ -344,52 +346,10 @@ def _digest_private_later(sess) -> None:
     threading.Thread(target=run, name="private-digest", daemon=True).start()
 
 
-_EMOTION_KEYWORDS = (
-    "happy", "sad", "angry", "surprised", "neutral",
-    "embarrassed", "thinking", "smiling",
-)
-_EMOTION_RE = "|".join(_EMOTION_KEYWORDS)
-
-
-def _parse_emotion(text: str) -> str | None:
-    if not text or not isinstance(text, str):
-        return None
-    s = text.strip()
-    if not s:
-        return None
-
-    # Priority a: *표정: happy* / *emotion: happy* 형식
-    m = re.search(r"\*\s*(?:표정|emotion|expression)\s*:\s*([a-zA-Z_-]+)\s*\*", s, re.IGNORECASE)
-    if m:
-        return m.group(1).lower()
-
-    # Priority b: [happy] / [표정:sad] 형식
-    m = re.search(r"\[\s*(?:표정|emotion|expression)\s*:\s*([a-zA-Z_-]+)\s*\]", s, re.IGNORECASE)
-    if m:
-        return m.group(1).lower()
-
-    for m in re.finditer(r"\[\s*([a-zA-Z_-]+)\s*\]", s):
-        val = m.group(1).lower()
-        if val in _EMOTION_KEYWORDS or val in ("joy", "shy", "serious", "sorrow", "tired", "smile", "grin"):
-            return val
-
-    # Priority c: 텍스트 맨 앞/끝의 감정 키워드: happy, sad, angry, surprised, neutral, embarrassed, thinking, smiling
-    m = re.search(r"^\s*(?:[^\w\s]\s*)*\b(" + _EMOTION_RE + r")\b", s, re.IGNORECASE)
-    if m:
-        return m.group(1).lower()
-
-    m = re.search(r"\b(" + _EMOTION_RE + r")\b\s*(?:[^\w\s]\s*)*$", s, re.IGNORECASE)
-    if m:
-        return m.group(1).lower()
-
-    return None
-
-
 class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
     """Access/exception logging comes from obslog.HTTPLogMixin (docs/LOGGING.md): every request
     is timed and counted; errors, slow and mutating requests are written one by one."""
     server_version = "Chatbot/1.0"
-    _parse_emotion = staticmethod(_parse_emotion)
 
     def _obs_path(self, raw: str) -> str:
         return self._normalize_req_path(raw)
@@ -851,68 +811,9 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
             return self._send(code, raw, "application/json; charset=utf-8")
         if path == "/api/characters/import":
-            try:
-                ct = self.headers.get("Content-Type") or ""
-                try:
-                    n = int(self.headers.get("Content-Length") or 0)
-                except ValueError:
-                    code, raw = _json_bytes({"success": False, "ok": False, "error": "invalid Content-Length"}, 400)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                if n <= 0:
-                    code, raw = _json_bytes({"success": False, "ok": False, "error": "empty body"}, 400)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                if n > 25 * 1024 * 1024:
-                    code, raw = _json_bytes({"success": False, "ok": False, "error": "payload too large (max 25MB)"}, 413)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                raw_body = self.rfile.read(n)
-
-                png_bytes = None
-                if "multipart/form-data" in ct.lower():
-                    import email
-                    import email.policy
-                    hdr = f"Content-Type: {ct}\r\n\r\n".encode("utf-8")
-                    msg = email.message_from_bytes(hdr + raw_body, policy=email.policy.default)
-                    first_binary = None
-                    if msg.is_multipart():
-                        for part in msg.iter_parts():
-                            p_data = part.get_payload(decode=True)
-                            if not p_data:
-                                continue
-                            filename = part.get_filename() or ""
-                            p_ct = (part.get_content_type() or "").lower()
-                            if filename.lower().endswith(".png") or p_ct == "image/png" or p_data.startswith(b"\x89PNG\r\n\x1a\n"):
-                                png_bytes = p_data
-                                break
-                            if first_binary is None:
-                                first_binary = p_data
-                        if not png_bytes and first_binary:
-                            png_bytes = first_binary
-                    else:
-                        p_data = msg.get_payload(decode=True)
-                        if p_data:
-                            png_bytes = p_data
-                elif raw_body.startswith(b"\x89PNG\r\n\x1a\n"):
-                    png_bytes = raw_body
-
-                if not png_bytes:
-                    code, raw = _json_bytes({"success": False, "ok": False, "error": "No valid PNG file provided"}, 400)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-
-                from tools.st_import import import_st_png_bytes
-                res = import_st_png_bytes(png_bytes, ws=WORKSPACE)
-                code, raw = _json_bytes({
-                    "success": True,
-                    "ok": True,
-                    "character": {
-                        "id": res["id"],
-                        "name": res["name"],
-                        "path": res["path"],
-                    },
-                })
-                return self._send(code, raw, "application/json; charset=utf-8")
-            except Exception as e:
-                code, raw = _json_bytes({"success": False, "ok": False, "error": str(e)}, 400)
-                return self._send(code, raw, "application/json; charset=utf-8")
+            status, payload = card_upload.handle(self.headers, self.rfile, WORKSPACE)
+            code, raw = _json_bytes(payload, status)
+            return self._send(code, raw, "application/json; charset=utf-8")
         try:
             body = self._read_json()
         except Exception as e:
@@ -1339,8 +1240,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             # on a long job used to hit this wall, show "연결이 끊겼다냥",
             # and leave the other phone with no live stream at all.
             idle_until = _now() + 900
-            emotion_sent = False
-            sentence_buf = ""
+            emotions = emotion.Tracker()
             while True:
                 if not sess.busy and _now() > idle_until:
                     break
@@ -1358,50 +1258,17 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 if sess.busy:
                     idle_until = _now() + 900
 
-                ev_type = ev.get("event") or ev.get("type") or ""
-                if ev_type in ("result", "error", "stopped", "interrupted", "user_ack"):
-                    if not emotion_sent and ev_type == "result":
-                        try:
-                            res_text = str(ev.get("text") or sentence_buf or "")
-                            detected = _parse_emotion(res_text)
-                            if detected:
-                                emotion_payload = json.dumps({"type": "emotion", "label": detected}, separators=(",", ":"))
-                                try:
-                                    self.wfile.write(f"data: {emotion_payload}\n\n".encode("utf-8"))
-                                    self.wfile.flush()
-                                except Exception:
-                                    break
-                        except Exception:
-                            pass
-                    emotion_sent = False
-                    sentence_buf = ""
-                elif not emotion_sent and ev_type in ("delta", "assistant", "message"):
+                try:
+                    label = emotions.feed(ev)
+                except Exception:  # noqa: BLE001
+                    label = None
+                if label:
                     try:
-                        chunk = str(ev.get("text") or ev.get("message") or ev.get("content") or "")
-                        if chunk:
-                            sentence_buf += chunk
-                            parts = re.split(r"(?<=[.!?\n])", sentence_buf)
-                            completed, current = parts[:-1], parts[-1]
-                            detected = None
-                            for s in completed:
-                                detected = _parse_emotion(s)
-                                if detected:
-                                    break
-                            if not detected and current:
-                                detected = _parse_emotion(current)
-                            if detected:
-                                emotion_sent = True
-                                sentence_buf = ""
-                                emotion_payload = json.dumps({"type": "emotion", "label": detected}, separators=(",", ":"))
-                                try:
-                                    self.wfile.write(f"data: {emotion_payload}\n\n".encode("utf-8"))
-                                    self.wfile.flush()
-                                except Exception:
-                                    break
-                            else:
-                                sentence_buf = current
+                        self.wfile.write(("data: %s\n\n" % json.dumps({"type": "emotion", "label": label},
+                                                                       separators=(",", ":"))).encode("utf-8"))
+                        self.wfile.flush()
                     except Exception:
-                        pass
+                        break
 
                 safe = {k: v for k, v in ev.items()}
                 if "payload" in safe and isinstance(safe["payload"], dict):
