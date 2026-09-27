@@ -8,12 +8,12 @@
 
 선택지를 답변 본문 끝의 `<!--choices: A | B-->`로 쓰고 화면이 파싱한다. 부작용:
 
-1. **본문 잘림**: `static/markdown.js:160` `CHOICES_TAIL`이 본문의 **첫** `<!--choices`부터 끝의 `-->`까지를 잡는다. 문법을 인라인 코드로 인용만 해도 그 지점 뒤가 사라진다(세션 `20260924-161456-5b9538` #61).
+1. **본문 잘림**: `static/markdown.js::CHOICES_TAIL`이 본문의 **첫** `<!--choices`부터 끝의 `-->`까지를 잡는다. 문법을 인라인 코드로 인용만 해도 그 지점 뒤가 사라진다(세션 `20260924-161456-5b9538` #61).
 2. **노출**: CLI·다른 클라이언트에는 표식이 그대로 보인다.
 3. **파서 복잡도**: 사적 모드 `라벨 -> (행동)` 화살표, `[expression:]`, `<thought>`가 모두 본문 텍스트 파싱에 기대고 있다.
-4. **입력 우회**: 버튼이 입력창에 텍스트를 채운다(선택지 → 라벨, `/act`, 티켓 `/ticket approve N`). 액션은 `(…)` 텍스트로 보내져 서버·기록에서 일반 발화와 구별되지 않는다(`static/app.js:596`).
+4. **입력 우회**: 버튼이 입력창에 텍스트를 채운다(선택지 → 라벨, `/act`, 티켓 `/ticket approve N`). 액션은 `(…)` 텍스트로 보내져 서버·기록에서 일반 발화와 구별되지 않는다(`static/app.js::send`).
 
-관련 표시 문제(범위 밖, 기록만): 저장된 답변에서 도구 호출 앞 문장과 최종 답이 줄바꿈 없이 붙는다(`…볼게요.구조를…`). 새 티켓이 생겨도 티켓 바는 60초 폴링(`static/app.js:792`) 전까지 뜨지 않는다.
+관련 표시 문제(범위 밖, 기록만): 저장된 답변에서 도구 호출 앞 문장과 최종 답이 줄바꿈 없이 붙는다(`…볼게요.구조를…`). 새 티켓이 생겨도 티켓 바는 60초 폴링(`static/app.js`의 `setInterval(loadTickets, 60000)`) 전까지 뜨지 않는다.
 
 ## 2. 기존 구현 조사 (재사용 우선)
 
@@ -21,16 +21,16 @@
 |---|---|
 | **NAS MCP 도구 계층** (`mcp_server.py` + `mcp_core.py`의 memory·observation·ticket, `delegation.py`의 delegate) | **재사용.** 모든 프로바이더가 같은 MCP로 붙으므로 `choices` 도구 하나로 프로바이더 중립이 된다. adapter 모듈 패턴 그대로. |
 | **세션 이벤트 스트림** (`/api/sessions/<sid>/events`, `session.py` 이벤트 종류, `host_config.PERSISTED_LOG_KINDS`) | **재사용.** 새 이벤트 종류 `choices`·`action`만 추가. 다른 창·탭 동기화도 기존 방송으로 공짜. |
-| **클라이언트 명령 처리** (`/ticket …`를 에이전트 없이 페이지가 처리, `app.js:505-520`) | **재사용.** 버튼이 텍스트를 거치지 않고 같은 함수를 직접 부르면 된다. |
+| **클라이언트 명령 처리** (`/ticket …`를 에이전트 없이 페이지가 처리, `static/app.js::send`의 `parseTicketCommand`) | **재사용.** 버튼이 텍스트를 거치지 않고 같은 함수를 직접 부르면 된다. |
 | Claude Code `AskUserQuestion` 류 내장 도구 | **채택 안 함.** 특정 프로바이더 전용이라 공통 코드 원칙에 어긋나고, 헤드리스(`-p`) 실행에서 호스트 UI로 연결되는 경로가 없다(미검증, 필요 시 확인). |
-| 기존 칩 렌더러 `renderChoiceChips` (`markdown.js:256`) | **재사용.** 입력만 파싱 결과 → 이벤트 데이터로 바꾼다. |
+| 기존 칩 렌더러 `renderChoiceChips` (`static/markdown.js::renderChoiceChips`) | **재사용.** 입력만 파싱 결과 → 이벤트 데이터로 바꾼다. |
 
 ## 3. 설계
 
 ### 3.1 내보내기: `choices` 도구
 - 에이전트는 본문에 선택지를 쓰지 않고 턴 끝에 `choices` MCP 도구를 부른다.
 - 인자: `items = [{label, kind: say|action|command, payload?}]` (2–4개). `payload` 없으면 `label`.
-- 서버는 검증(개수·길이·kind·command 허용 목록) 후 세션 이벤트 `choices`로 방송·저장한다. 화면은 이 이벤트로만 버튼을 그린다. "마지막 메시지만 선택지" 규칙(`markdown.js:276`)은 유지.
+- 서버는 검증(개수·길이·kind·command 허용 목록) 후 세션 이벤트 `choices`로 방송·저장한다. 화면은 이 이벤트로만 버튼을 그린다. "마지막 메시지만 선택지" 규칙(`static/markdown.js::syncChoiceChips`)은 유지.
 - 본문 텍스트에는 아무것도 남지 않으므로 CLI 노출·잘림이 원천적으로 없다.
 
 ### 3.2 받기: 버튼 → 구조화 이벤트 (입력창 경유 없음)
@@ -41,7 +41,7 @@
 | `command` | 서버·페이지가 직접 실행, 에이전트로 안 감 | 결과 알림 | 없음 |
 
 - **확정 단계 없음**(결정 2026-09-24): 모든 버튼은 누르면 바로 전송·실행한다.
-- **티켓 바 이전**: 지금은 버튼 → 입력창 `/ticket approve N` → Enter(`app-evolution.js:319-331`). 새 방식은 버튼 → `decideTicket` 직접 호출. 입력창에 명령을 쳐서 쓰는 경로는 그대로 둔다.
+- **티켓 바 이전**: 지금은 버튼 → 입력창 `/ticket approve N` → Enter(당시 `static/app-evolution.js`의 티켓 바, 지금은 `renderTicketBar`). 새 방식은 버튼 → `decideTicket` 직접 호출. 입력창에 명령을 쳐서 쓰는 경로는 그대로 둔다.
 - `/act` 명령은 **유지**(키보드 사용자용), 내부적으로 같은 `action` 이벤트를 보낸다.
 
 ### 3.3 기록
@@ -58,7 +58,7 @@
 | 대상 | 경로 | 단계 |
 |---|---|---|
 | 본문 표식 파서 `CHOICES_TAIL`/`CHOICES_OPEN`, `->` 화살표 파싱 | `static/markdown.js` | 3 (폴백 기간 후) |
-| 헌장의 "Choices" 규칙 → "선택지는 `choices` 도구로" | `data/workspace/AGENTS.md:33` | **Tier 3, 별도 승인 티켓** |
+| 헌장의 "Choices" 규칙 → "선택지는 `choices` 도구로" | `data/workspace/AGENTS.md` § Choices | **Tier 3, 별도 승인 티켓** |
 | 캐릭터 카드의 선택지 문법 규칙(#131) | `characters/char_01m376…/card.json` | 2 |
 | 사적 모드 계획의 `->` 문법 예시 | [private-mode.md §1.2](private-mode.md#action) | 2 |
 

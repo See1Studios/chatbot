@@ -10,7 +10,7 @@
 |---|---|---|---|
 | 1 | 액션·표정·속마음·선택지 파싱, `/act`, 렌더 계약 | **구현됨** | `static/markdown.js` `parseExpression`·`parseThought`·`postProcessAssistant`, `private_engine.RENDER_PROTOCOL`, `tests/test_private_tension.py` `test_render_protocol`·`test_private_instruction_bundle_includes_render_protocol` |
 | 1 | 선택지·액션을 본문 밖 채널로 | 별도 문서 | [out-of-band-choices-actions.md](out-of-band-choices-actions.md) (`choices` 도구 #145, `action` 이벤트 — `test_choices_tool.py`, `test_an_explicit_action_event_reaches_the_engine`) |
-| 2 | 텐션 4단계 엔진(stage 1–4, 3슬롯, recent_choices, 모델 계열별 표) | **구현됨** | `private_engine.py` `tension_after`·`tension_step`·`tension_context`, `session.py:1660`, `data/private_tension_*.json`, `tests/test_private_tension.py` |
+| 2 | 텐션 4단계 엔진(stage 1–4, 3슬롯, recent_choices, 모델 계열별 표) | **구현됨** | `private_engine.py` `tension_after`·`tension_step`·`tension_context`, `session.py::AgentSession._send_direct`, `data/private_tension_*.json`, `tests/test_private_tension.py` |
 | 2 | 선택지 상투성 검증·필터 | 계획 | 코드 없음 |
 | 2 | 8단계 0–100 점수 엔진 | **초안** | 코드 없음, 승인 대기 |
 | 3 | 영구 호감도 | 계획 | 코드 없음 |
@@ -174,10 +174,10 @@ HUD 최소 높이 34px. 드로어는 로그 영역 탭 또는 `✕`로 닫힌다
 | 사실 | 위치 |
 |---|---|
 | `renderMarkdown()`은 두 모드 공용, 모드 분기 없음 | `static/markdown.js` |
-| `postProcessAssistant()`가 사적 전용(표정 뱃지, 속마음 박스)을 하드코딩, 업무용(`highlightCodeIn`, `renderMermaidIn`)은 모든 모드에서 실행 | `static/markdown.js:536` |
-| 모드 신호: `body.private-session` 토글 | `static/app-session.js:160` |
-| 사적 CSS는 두 줄뿐(`.meta`, `#input` 색) | `static/chat-features.css:146-147` |
-| `RENDER_PROTOCOL`은 행동 `*이탤릭*`, 대사 `"따옴표"`를 요구하나 `.md em` 스타일이 없고 한글 폰트엔 진짜 이탤릭이 없어 모바일에서 지문과 대사가 똑같이 보임 | `private_engine.py:139` |
+| `postProcessAssistant()`가 사적 전용(표정 뱃지, 속마음 박스)을 하드코딩, 업무용(`highlightCodeIn`, `renderMermaidIn`)은 모든 모드에서 실행 | `static/markdown.js::postProcessAssistant` |
+| 모드 신호: `body.private-session` 토글 | `static/app-session.js::enterSession` |
+| 사적 CSS는 두 줄뿐(`.meta`, `#input` 색) | `static/chat-features.css` (`body.private-session`) |
+| `RENDER_PROTOCOL`은 행동 `*이탤릭*`, 대사 `"따옴표"`를 요구하나 `.md em` 스타일이 없고 한글 폰트엔 진짜 이탤릭이 없어 모바일에서 지문과 대사가 똑같이 보임 | `private_engine.py::RENDER_PROTOCOL` |
 
 ### 5.2 설계
 - 공용 코어 하나 + 모드별 데코레이터: `registerDecorator({id, modes, run(node, raw, isFinal)})`.

@@ -1,5 +1,5 @@
 """Docs an agent reads stay cheap and findable (AGENT_FIRST_v1): the recent log is small, older days live in one file
-per date, and every plan is listed with its state in docs/plans/INDEX.md.
+per date, (Plan/INDEX pairing moved to test_plans_index.)
 Run: python3 -m unittest tests.test_docs_budget  (from services/chatbot)
 """
 import re
@@ -26,12 +26,6 @@ class DocsBudget(unittest.TestCase):
             m = re.search(r"\d{4}-\d{2}-\d{2}", head)
             self.assertTrue(m, head)
             self.assertNotIn(m.group(0), moved, "%s is split between DEVLOG.md and docs/devlog/" % m.group(0))
-
-    def test_every_plan_is_in_the_index(self):
-        index = (DOCS / "plans" / "INDEX.md").read_text(encoding="utf-8")
-        for p in (DOCS / "plans").glob("*.md"):
-            if p.name != "INDEX.md":
-                self.assertIn("(%s)" % p.name, index, "add %s to docs/plans/INDEX.md" % p.name)
 
 
 if __name__ == "__main__":

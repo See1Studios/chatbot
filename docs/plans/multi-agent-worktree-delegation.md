@@ -332,11 +332,11 @@ data/workspace/pd-brain.json               PD 확인의 두뇌 목록
 상태: **계획** (착수는 사용자 승인 후). 항목마다 티켓 하나.
 
 ### 13.1 회고 (2026-09-26에 깨진 것)
-1. `[실행]` → `POST /api/delegations/213/go` HTTP 400 (로그 rid `cd515c6a7990`). 원인: 티켓 없이 디스크에 쓴 계획 문서 4개 때문에 `tickets.claim`이 `uncommitted leftover`로 거절(`tickets.py` L706–708). 사유는 티켓 노트에만 있고 카드엔 맨 오류만 떴다.
+1. `[실행]` → `POST /api/delegations/213/go` HTTP 400 (로그 rid `cd515c6a7990`). 원인: 티켓 없이 디스크에 쓴 계획 문서 4개 때문에 `tickets.claim`이 `uncommitted leftover`로 거절(`tickets.py::claim`). 사유는 티켓 노트에만 있고 카드엔 맨 오류만 떴다.
 2. 파일을 지우거나 이름 바꾸는 문서 작업이 실행 중에야 다른 파일의 링크도 고쳐야 함을 발견 → `NEED_PATH` 일시정지 → 재개 시 리뷰 diff에서 정지 전 커밋이 빠져 PD가 두 번 FAIL (#214, `3cd53af`에서 수정).
-3. `gate_failed` 정리가 워크트리·브랜치를 지워 멀쩡한 작업 커밋 `90d85a9`가 dangling으로 남음(`git gc`면 소실). `tools/worktree_runner.py` L33 "탈락 -> ... 정리".
-4. `gate_failed` 뒤 같은 티켓으로 계획 수정 불가: `delegation.py` L167 `not a plan waiting for [실행]`(시도 1/3인데도). #213을 새 티켓 #215로 대체해야 했다.
-5. `paths`에 넣은 읽기 전용 참고 파일이 문서 전용 계획을 Tier 2로 올림 — tier는 `paths` 전체로 계산(`delegation.py` L162–163 `tier_of(paths)`).
+3. `gate_failed` 정리가 워크트리·브랜치를 지워 멀쩡한 작업 커밋 `90d85a9`가 dangling으로 남음(`git gc`면 소실). `tools/worktree_runner.py` 모듈 설명 "탈락 -> ... 정리".
+4. `gate_failed` 뒤 같은 티켓으로 계획 수정 불가: `delegation.py` 당시 거절 문구 `not a plan waiting for [실행]`(시도 1/3인데도). #213을 새 티켓 #215로 대체해야 했다.
+5. `paths`에 넣은 읽기 전용 참고 파일이 문서 전용 계획을 Tier 2로 올림 — tier는 `paths` 전체로 계산(`delegation.py::plan`의 `tier_of(paths)`).
 
 ### 13.2 제안
 | id | 변경 | 막는 문제 | 대상 파일 | tier |

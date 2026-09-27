@@ -37,7 +37,7 @@
 | P8 | 강제 장치가 없다 | `.git/hooks`에 활성 훅 0개, `core.hooksPath` 미설정, CI 없음. 테스트는 README 루프로만 돌린다 |
 | P9 | 코딩 에이전트의 입구가 없다 | 저장소 루트에 `AGENTS.md`·`CLAUDE.md`·`GEMINI.md`가 없다. 헌장과 코드 지도(`PROJECT.md` "Where to edit")는 `data/workspace/` 아래에 있다. 사용자 데이터를 분리하면 **엔진 문서가 저장소 밖으로 빠진다** |
 | P10 | 저장소 밖 도구가 낡는다 | `~/bin/ticket-quick`: 경로 고정, 테스트 없음, 저장소 변경 이력에 잡히지 않음 |
-| P11 | 참조가 이미 썩고 있다 | active 계획에 `file.py:L123`식 줄 번호 참조 14개, 깨진 상대 링크 1개(`character-resource-pipeline.md` → 아카이브된 `recursive-self-evolution.md`) |
+| P11 | 참조가 이미 썩고 있다 | active 계획에 줄 번호 참조(파일명 뒤 `:줄번호`, `L줄번호`) 18개, 깨진 상대 링크 1개(`character-resource-pipeline.md` → 아카이브된 `recursive-self-evolution.md`) |
 | P12 | 가드 테스트가 있어도 돌리지 않으면 깨진 채로 남는다 | `tests.test_docs_budget` 현재 실패: `docs/DEVLOG.md` 52,710 B > 상한 40,960 B. 아무도 발견하지 못했다 |
 | P13 | 규칙의 적용 대상이 표시되지 않아 다른 에이전트가 가져다 쓴다 | 2026-09-27 Claude Code가 챗 에이전트 헌장의 `<!--choices: …-->` 버튼 규칙을 터미널 답변에 따라 씀(운영자 지적). 루트 `AGENTS.md`(pew/C)는 규칙마다 적용 대상(PE 챗 에이전트 / 저장소 작업 에이전트 전부)을 표시한다 |
 
@@ -134,7 +134,7 @@ $CHATBOT_DATA/workspace/AGENTS.md          # 챗 에이전트(제품 런타임) 
 | `test_rule_registry` | 루트 `AGENTS.md`의 MUST 규칙마다 집행자(테스트 이름·훅) 또는 `manual: <사유>`가 있음. 적힌 테스트가 실제로 존재함 |
 | `test_entrypoints` | `CLAUDE.md`·`GEMINI.md`는 포인터만 있음(줄 수 상한 + `AGENTS.md` 링크) |
 | `test_plans_index` | `docs/plans/*.md` ↔ INDEX 행이 1:1 대응 · 상태 값 4종 · 계획 안의 상태 줄 = INDEX · `archive/`에 있는 문서는 archived 표에만 |
-| `test_doc_refs` | active 계획·ADR·AGENTS.md의 상대 링크가 존재 · `path::symbol` 참조가 실제로 grep됨 · 줄 번호 참조(`:L123`, `:123`) 금지 |
+| `test_doc_refs` | active 계획·ADR·AGENTS.md의 상대 링크가 존재 · `path::symbol` 참조가 실제로 grep됨 · 줄 번호 참조(파일명 뒤 `:줄번호`, `L줄번호`) 금지 |
 | `test_plan_items` | 항목 표 열 형식 · 항목 id 중복 없음 · `#N`이 실제 티켓이고, 티켓이 `done`이면 행이 `✅` · G0 방향 문서에는 항목 id 없음 |
 | `test_data_paths` | `host_config.py` 밖에서 데이터 경로 리터럴·env 직접 읽기 금지(`uds/B`와 함께 들어감) |
 

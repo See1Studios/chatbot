@@ -3,7 +3,7 @@
 - **상태:** 계획. 착수는 사용자 말로.
 - **작성:** 2026-09-26
 - **결정:** 사용자, 같은 날 — 캐릭터 생성·수정 시 SSOT가 필요 리소스를 만들고 있어야 할 곳에 둔다. 자기진화 루프와 맞춘다. 코드가 아니라 캐릭터 파일의 집.
-- **선행:** `character-art` 스킬, `characters.check_art` (CHARACTER_ART_v1), [multi-agent-worktree-delegation.md](./multi-agent-worktree-delegation.md) §12.4, [user-data-separation.md](./user-data-separation.md), [recursive-self-evolution.md](./recursive-self-evolution.md) P1·P3
+- **선행:** `character-art` 스킬, `characters.check_art` (CHARACTER_ART_v1), [multi-agent-worktree-delegation.md](./multi-agent-worktree-delegation.md) §12.4, [user-data-separation.md](./user-data-separation.md), [recursive-self-evolution.md](archive/2026/recursive-self-evolution.md) P1·P3
 - **대체하는 절차:** 스킬 `character-pipeline` 6단계의 “웹 루트에 손으로 복사”. 채팅은 이미 캐릭터 폴더 API를 읽는다.
 
 ---

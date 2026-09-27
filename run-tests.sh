@@ -22,6 +22,10 @@ FAST=(
   test_tool_format_clean
   test_bundle_budget
   test_static_assets
+  test_entrypoints
+  test_rule_registry
+  test_plans_index
+  test_doc_refs
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

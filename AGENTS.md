@@ -105,7 +105,7 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 
 | Rule | Audience | Enforcer |
 |---|---|---|
-| Work starts from the operator's words or an approved, claimed ticket; claim names the paths | all | `tickets.release` refuses dirty paths; `write_guard` (`test_unticketed_write`) for PE sessions |
+| Work starts from the operator's words or an approved, claimed ticket; claim names the paths | all | `test_tickets` (release refuses dirty paths); `test_unticketed_write` (PE sessions) |
 | `./run-tests.sh` green before commit | all | manual (pew/E hook, pew/F runner gate, pew/O release gate) |
 | Commit trailers `Plan:` / `Ticket:`, Conventional Commits, own author name | all | manual (pew/E `commit-msg`) |
 | Never `--no-verify` | all | manual |
@@ -117,8 +117,11 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | No provider names in common code | all | `test_provider_neutrality` |
 | Persona names/titles are display values, never ids or keys | all | `test_identity_wiring` |
 | Injected instruction bundles within `bundle_budget.json` | all | `test_bundle_budget` |
-| Every plan has an INDEX row; DEVLOG stays small | all | `test_docs_budget` (pew/D `test_plans_index`) |
-| Docs cite code as `path` or `path::symbol`, never line numbers | all | manual (pew/D `test_doc_refs`) |
+| Every plan file has one INDEX row with a valid status | all | `test_plans_index` |
+| DEVLOG stays small; old dates in `docs/devlog/` | all | `test_docs_budget` |
+| Docs cite code as `path` or `path::symbol`, never line numbers; links resolve | all | `test_doc_refs` |
+| `CLAUDE.md` / `GEMINI.md` only point here | all | `test_entrypoints` |
+| Every registry row names an audience and a real enforcer | all | `test_rule_registry` |
 | No new hardcoded Korean in UI/server strings | all | manual (l10n/B ratchet) |
 | Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |
 | Agent-facing text in English; human docs Korean | all | manual |
