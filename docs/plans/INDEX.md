@@ -40,6 +40,7 @@
 | [user-data-separation.md](user-data-separation.md) | `active` · 방향 **기반** — 기본 `~/.pe`·`CHATBOT_DATA`/`PE_HOME`·ctl 하드코딩 제거·마이그레이션 (user-data-and-editing §1 상세) | 배포·데이터 경로·`~/.pe`·gitignore를 건드릴 때 |
 | [release-pipeline.md](release-pipeline.md) | `active` · 방향 **기반** — Now/Next/Pre-Steam 배포 로드맵, `~/.pe`, CI·런처·Steam은 브랜드 이후 | 릴리스·버전·CI·인스톨러·Steam 전 배포를 건드릴 때 |
 | [plan-execution-workflow.md](plan-execution-workflow.md) | `active` · 방향 **개발 기반** — 누수 없는 계획→실행(PE 내부 경로 우선): 루트 AGENTS.md 단일 입구·정본 지도, 규칙↔집행자 레지스트리, 훅·가드 테스트, 게이트 G0–G9·DoR/DoD·항목 id·ADR·트레일러, 파일럿=release·user-data | 계획을 새로 쓰거나 항목을 티켓으로 옮길 때, 에이전트 진입·규칙 강제를 건드릴 때 |
+| [edition-boundary.md](edition-boundary.md) | `active` · 방향 **기반** — 배포판/개발판 경계: 판은 `host_config.EDITION` 한 곳(기본 `shipped`), 배포판 쓰기 범위는 사용자 데이터만, 개발 장치(티켓·위임·쓰기 감시·보호 경로)는 없어도 도는 구조, 패키지 제외 목록, 경계 테스트 | 판·도구 권한·배포 패키지·개발 장치의 결합을 건드릴 때 |
 | [localization.md](localization.md) | `active` · 방향 **기반** — 주요 언어 현지화: 1차 ko+en, 2차 ja·zh-Hans(D1–D7 결정), 래칫 가드·카탈로그·답변 언어 변수화, 말투 분리 | UI·서버 문자열, 날짜 형식, 답변 언어, 번역을 건드릴 때 |
 | [out-of-band-choices-actions.md](out-of-band-choices-actions.md) | `active` · 방향 **핵심** — 선택지·액션을 답변 본문 밖 채널(`choices` 도구·이벤트)로, 버튼 직접 전송(#134) | 선택지·버튼·액션 전달·티켓 바를 건드릴 때 |
 | [personalization-ladder.md](personalization-ladder.md) | `active` · 방향 **핵심** — 배포판 개인화 사다리: 층별 편집·승인·되돌리기, 공통 뼈대(모든 층의 변경 기록·스냅숏, 엔드유저용 제안 카드), 기억 화면, 에이전트가 돕는 흐름(말투 다듬기·기억 정리·인터뷰·Hermes식 스킬 제안) | 캐릭터·기억·지침·스킬을 사용자나 에이전트가 바꾸는 흐름을 건드릴 때 |
