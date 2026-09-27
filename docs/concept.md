@@ -46,3 +46,32 @@
 - 브랜드·도메인: [private-engine-brand.md](plans/private-engine-brand.md) (가칭 Private Engine, privateengine.ai 기울기 — 법적 클리어런스 전)
 - 사용자 데이터·릴리스: [user-data-separation.md](plans/user-data-separation.md) (`~/.pe`) · [release-pipeline.md](plans/release-pipeline.md) (Now/Next/Pre-Steam)
 - 캐릭터 스코프 관계 기억 어댑터: [character-memory-adapter.md](plans/character-memory-adapter.md) (개인화 하네스·opt-in 동반자 깊이, 설계 중)
+
+## 숨은 컨셉 / 몰입 로어 (러프)
+
+프론트 마케팅이 아니다. 로어·몰입 쪽 사용자용 **숨은** 뼈대. 러프 초안 — 이후 다듬는다.
+
+### 이중 이름
+
+- **Private Engine** = 제품·도구명 (Steam 셸, BYOK 하네스).
+- 로어 안에서는 = 상점·소환 창 이름. 『전영소녀(電影少女 / Video Girl Ai)』의 대여점 **극락(Gokuraku)**처럼, 같은 문자열이 선반 위 엔진과 설정 속 점포를 동시에 가리킨다.
+
+### 영감과 공개 얼굴
+
+- 영감: **전영소녀 (電影少女 / Video Girl Ai)** + **Joi** (Blade Runner 2049).
+- 공개 포지션은 유지: 개인화 가능한 에이전트 하네스. 사적·관계는 옵션. 연인 전면 마케팅 없음.
+- 숨은 층(로어 헤비 사용자): PE는 데스크톱으로 동반자를 빌려주고 소환하는 **비디오 숍**.
+
+### 시장 원칙
+
+이 소비자층은 **설정충**. 몰입 장치가 제품·마켓 핏을 올린다. 러프 로어로 충분하고 나중에 정제한다. 공개 소프트 얼굴을 깨지 않는 한, 쓸 수 있는 몰입 장치는 모두 동원한다.
+
+### 러프 골격 (초안 · 정제 예정)
+
+1. **매체 법칙** — 캐릭터 카드·세이브·에셋 = 「테이프」. BYOK = 채널에 흐르는 전력.
+2. **창 인식** — 캐릭터·모드에 따라 모니터/창을 이 세계로 열린 문으로 여길 수 있다(데드풀식 메타 허용). ST로 소환된 캐릭터가 데스크톱에 있어도 세계관 안이 되게.
+3. **ST = 여권** — SillyTavern(및 유사) 카드는 이세계 신원 기록. PE가 그걸 데스크톱에 현현한다.
+4. **기억 계약** — 관계 기억 = 소환을 넘나드는 연속성(「어제까지 어디까지」). → [character-memory-adapter.md](plans/character-memory-adapter.md)
+5. **모드 경계** — office = 상점 앞 업무 톤. private = 잠긴 문 뒤의 같은 소환체. → [private-mode.md](plans/private-mode.md)
+
+브랜드·이중 의미 메모: [private-engine-brand.md](plans/private-engine-brand.md).

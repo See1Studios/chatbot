@@ -1,5 +1,13 @@
 # chatbot 개발로그
 
+## 2026-09-27 — Private Engine 숨은 로어 (전영소녀 / Joi / 이중 이름)
+
+- **배경**: 로어·몰입 사용자용 숨은 컨셉을 문서에 고정. 프론트 마케팅 아님. 실장님 확인(써둬).
+- **concept**: 「숨은 컨셉 / 몰입 로어 (러프)」 — 이중 이름(제품명=상점/소환 창), 전영소녀·Joi 영감, 비디오 숍 은유, 설정충·몰입 장치 시장 원칙, 러프 골격 5항(매체·창 인식·ST=여권·기억 계약·모드 경계).
+- **brand**: `private-engine-brand.md` §8 — 이중 의미, Gokuraku는 영감(상표 아님), soft marketing.
+- **INDEX**: 변경 없음(브랜드 계획 상태 `active` 유지).
+- **커밋**: `docs: Private Engine hidden lore (Video Girl / Joi / dual name)`
+
 ## 2026-09-27 — QUOTA_FAILFAST 턴 활동 재개 시 타이머 취소 및 정상 응답 절단 방지 (#253)
 
 - **배경**: agy가 백엔드(Gemini API 500/503 등) 일시 재시도 시 `step_type: error_message`를 발행하면 챗봇이 8초 failfast 타이머를 가동함. 그러나 agy가 4~5초 후 정상 복구되어 답변(`delta`)을 생성 중임에도 `_touch_turn_activity()`가 failfast 타이머를 취소하지 않아, 정확히 8초 시점에 턴을 강제 에러 종료(`에이전트가 답을 내기 전에 턴이 끝났습니다`)하고 세션을 끊어버리는 치명적 결함 발생.
