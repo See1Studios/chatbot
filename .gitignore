@@ -30,10 +30,13 @@ data/workspace/skill-observations/tickets/author.lease
 data/workspace/memory/.MEMORY.lock
 data/workspace/memory/MEMORY.md.bak
 data/workspace/memory/.MEMORY.*.tmp
-# per-session conversation runtime; keep shared artifact assets
-data/sessions/*
-!data/sessions/_shared/
-!data/sessions/_shared/**
+# per-session conversation runtime and the shared artifact cache (sessions/_shared): user data, not engine
+# (uds/C4, 2026-09-28 -- _shared used to be tracked as an exception)
+data/sessions/
+data/session-quarantine/
+# personal long-term memory and per-character memory: user data, never in git (uds/C4)
+data/workspace/memory/MEMORY.md
+data/workspace/characters/*/memory.md
 # leftover stub; SSOT is data/workspace/memory/MEMORY.md
 data/MEMORY.md
 # grok harness scratch
