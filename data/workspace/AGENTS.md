@@ -9,7 +9,7 @@ Host law `~/AGENTS.md` comes first. Persona and voice: your character card (`cha
 - Workspace: `services/chatbot/` + `data/workspace/`. Zero game logic, Godot and the turn pipeline belong to FIREBAT.
 - Start and stop services only with `~/services/*-ctl.sh`.
 - Never read or treat as truth other agents' memories or sessions (`~/.grok/memory`, `~/.hermes/memories`, backend CLI runtime folders). Shared: `~/.agents`, `~/wiki`, `~/bin`.
-- Branding is See1 only. No Zero in lore/IP.
+- Project identity is chatbot (working distribution name: Private Engine / PE).
 
 ## Memory
 - On "기억해"/"메모해", use the `memory` tool: one fact per line. No persona, host law or secrets.

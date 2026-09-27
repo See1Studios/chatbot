@@ -2,7 +2,7 @@
 
 1. Paths match product names (`chatbot`, not character names).
 2. Persona is swappable config; never bake character into project identity.
-3. Lore/IP surfaces brand See1 only (no Zero).
+3. Project is chatbot; distribution working title is Private Engine (PE).
 4. Chat UI shows user/assistant only; system/tool go to the activity log view.
 5. Prefer restoring the latest session over auto-creating a new one.
 6. Product (host/UI/persona/self-modify) is independent of the session backend. Adapter contracts stay in `AgentAdapter` + ctl.
