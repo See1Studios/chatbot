@@ -1,3 +1,20 @@
+---
+id: 90
+title: "QUOTA_FAILFAST cancels on turn activity (#253)"
+status: actioned
+type: internal
+skill: []
+proposes_skill: []
+area: "session"
+date: 2026-09-27
+parked_until:
+resolved: 2026-09-27
+resolution: "Ticket #253 done (4f34e29). Front matter added later (pew/N3): the file was written by hand without it."
+reference:
+actor: "antigravity"
+resolved_by: "antigravity"
+---
+
 # Observation 0090 — QUOTA_FAILFAST cancel on activity (#253)
 
 - Date: 2026-09-27

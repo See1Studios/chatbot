@@ -1,3 +1,20 @@
+---
+id: 88
+title: "Private Grok complement: tension, speed, render overlay (#240)"
+status: actioned
+type: internal
+skill: []
+proposes_skill: []
+area: "private"
+date: 2026-09-26
+parked_until:
+resolved: 2026-09-26
+resolution: "Ticket #240 done (2448833). Front matter added later (pew/N3): the file was written by hand without it."
+reference:
+actor: "grok"
+resolved_by: "grok"
+---
+
 # Observation 0088 — private Grok complement (#240)
 
 - Date: 2026-09-26
