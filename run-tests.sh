@@ -28,6 +28,7 @@ FAST=(
   test_doc_refs
   test_githooks
   test_doc_names
+  test_ratchets
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

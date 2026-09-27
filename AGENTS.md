@@ -134,7 +134,8 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | `CLAUDE.md` / `GEMINI.md` only point here | all | `test_entrypoints` |
 | Document names: standing UPPERCASE, accumulating lower-kebab, no snake_case | all | `test_doc_names` |
 | Every registry row names an audience and a real enforcer | all | `test_rule_registry` |
-| No new hardcoded Korean in UI/server strings | all | manual (l10n/B ratchet) |
+| No new hardcoded Korean in engine/page code (i18n catalogs instead); mark intended lines `l10n-ok` | all | `test_ratchets` (`ratchet_baseline.json`) |
+| No new host/persona identity (DiskStation, `/volume1`, Sphere, 실장님, 냥) in engine code outside the host plugin | all | `test_ratchets` |
 | Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |
 | Agent-facing text in English; human docs Korean | all | manual |
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |

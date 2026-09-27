@@ -28,7 +28,8 @@
     "CLAUDE.md",
     "GEMINI.md",
     ".githooks/",
-    "run-tests.sh"
+    "run-tests.sh",
+    "ratchet_baseline.json"
   ],
   "except": [
     {
@@ -222,6 +223,14 @@
     {
       "path": "tests/test_doc_names.py",
       "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_ratchets.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "ratchet_baseline.json",
+      "reason": "a gate threshold (ratchets may only go down)"
     }
   ]
 }

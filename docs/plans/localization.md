@@ -76,7 +76,7 @@
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `l10n/A` | 이 문서 + INDEX 행 + release-pipeline 연결 | `docs/plans/localization.md`, `docs/plans/INDEX.md`, `docs/plans/release-pipeline.md` | INDEX 행이 있고 커밋됨 | 0 · — | S | — | ✅ 티켓 없음(pew D3) |
-| `l10n/B` | **래칫 가드**: `test_l10n_ratchet`(UI·서버의 하드코딩 한국어 줄 수가 기준선보다 늘면 실패, 줄어들면 기준선도 낮춤) | `tests/test_l10n_ratchet.py`, `l10n_baseline.json` | 새 한국어 하드코딩을 추가하면 실패 | 3 · — | S | — | 대기 |
+| `l10n/B` | **래칫 가드**: 하드코딩 한국어 줄 수가 파일별 기준선보다 늘면 실패, 줄면 기준선을 낮춘다(`--update`는 낮추기만). 의도된 줄은 `l10n-ok` | `tests/test_ratchets.py`, `ratchet_baseline.json` (align/E와 한 장치) | 새 한국어 하드코딩을 추가하면 실패 | 3 · — | S | — | ✅ #276 |
 | `l10n/C` | i18n 기반: 카탈로그 `static/i18n/<lang>.json`, `t()`, 언어 결정(D4), `Intl` 형식 헬퍼, `<html lang>` | `static/i18n/`, `static/app-i18n.js`, `static/index.html` | `?lang=en`으로 열면 이미 옮긴 문자열이 영어로 나옴 | 0 · — | M | D1–D4 | 대기 |
 | `l10n/D` | 페르소나 말투 분리: 엔진 문자열 58줄을 중립 문구로 | `static/*.js`, `*.py` | `grep "냥"` 결과가 엔진 코드에서 0건(카드 제외) | 2 · ⚡ | M | D7 | 대기 |
 | `l10n/E` | UI 문자열 이관(파일 단위 티켓 여러 장, 큰 파일부터) | `static/app-*.js`, `index.html` | 파일마다 래칫 기준선이 0으로 내려감 | 0 · — | L → 파일별 S/M | l10n/B, C, D | 대기 |
@@ -88,7 +88,7 @@
 | `l10n/K` | 기본 템플릿 콘텐츠(L5)의 언어별 버전 | `templates/` | 새 설치가 설정 언어의 기본 캐릭터로 시작 | 0 · — | S | uds 템플릿 단계 | 대기 |
 
 강제 장치(plan-execution-workflow §0 원칙):
-- `test_l10n_ratchet`: 하드코딩된 한국어는 **줄어들 수만 있다**. 기준선 862줄(UI)에서 시작해 0을 향한다.
+- `test_ratchets`(l10n): 하드코딩된 한국어는 **줄어들 수만 있다**. 기준선(2026-09-28) 1,303줄(UI 893, 서버 410)에서 시작해 0을 향한다.
 - `test_l10n_catalogs`(`l10n/I`에서 추가): 모든 언어 카탈로그가 같은 키를 가지고, 코드가 쓰는 키가 카탈로그에 있다.
 
 ---
