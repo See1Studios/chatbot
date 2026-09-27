@@ -69,7 +69,7 @@
 | 최근 선택지 | `recent_choices` 최대 9개, 중복 제거 | 동일(반복 금지 줄) |
 | 컨텍스트 | `[Tension Engine Context]` Stage n/4 + 분위기 + 반복 금지 + 3슬롯 계약(`tension_context`) | `Phase p/7 [Score s/100]` + 분위기 + 제약 규칙 + 슬롯별 목표 점수 |
 | 계열별 표 | `FAMILY_FILES`(gemini만 자체 표), 없으면 defaults | 두 JSON 모두 8페이즈로 갱신 |
-| 파일 | `private_engine.py`, `data/private_tension_{defaults,gemini}.json`, `session.py`, `tests/test_private_tension.py` | 같음 |
+| 파일 | `private_engine.py`, `engine_data/private_tension_{defaults,gemini}.json`, `session.py`, `tests/test_private_tension.py` | 같음 |
 
 충돌은 풀지 않는다 → §6 D1–D4.
 

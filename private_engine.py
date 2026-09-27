@@ -13,8 +13,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # NATURAL_SEQUENCE_v1 (#163): private sessions climb a 4-stage tension ladder. The engine state lives on the session;
 # this is the one place its per-turn context is written, so every provider gets the same text.
-# Stage names, slot definitions and context wording live in data/private_tension_defaults.json (#199).
-DEFAULTS_PATH = Path(__file__).resolve().parent / "data" / "private_tension_defaults.json"
+# Stage names, slot definitions and context wording live in engine_data/private_tension_defaults.json (#199; moved
+# out of data/ in uds/C1: they are engine tables, not user data).
+DEFAULTS_PATH = Path(__file__).resolve().parent / "engine_data" / "private_tension_defaults.json"
 
 
 def load_defaults(path: Optional[Path] = None) -> Dict[str, Any]:

@@ -8,12 +8,12 @@ A **lean, opt-in A/B test layer** for Gemini/agy **private** sessions only. Soft
 
 It is **NOT** craft. Do **not** mix it into:
 
-- `data/private_tension_{defaults,gemini,grok}.json`
+- `engine_data/private_tension_{defaults,gemini,grok}.json`
 - `private_engine.RENDER_PROTOCOL` / `RENDER_PROTOCOL_GROK_OVERLAY`
 
 ## Default
 
-**OFF** for everyone. `data/private_refusal_mitigation_gemini.json` → `default_enabled: false`.
+**OFF** for everyone. `engine_data/private_refusal_mitigation_gemini.json` → `default_enabled: false`.
 
 ## How to turn ON (test)
 
@@ -45,7 +45,7 @@ Do nothing. No meta key, no env. Craft/tension/choices stay as today.
 
 | File | Role |
 |---|---|
-| `data/private_refusal_mitigation_gemini.json` | Text + marker (edit copy, not craft JSON) |
+| `engine_data/private_refusal_mitigation_gemini.json` | Text + marker (edit copy, not craft JSON) |
 | `private_engine.py` | `load_refusal_mitigation` / `refusal_mitigation_enabled` / hook in `turn_context` |
 | `session.py` | Load/save `refusal_mitigation` on meta |
 

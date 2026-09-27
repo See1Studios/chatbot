@@ -19,8 +19,6 @@ ENV_READ = re.compile(r"environ(?:\.get\(|\[)\s*[\"'](%s)[\"']" % "|".join(ENV_N
 OWN_DATA_DIR = re.compile(r"""(?:ROOT|_ROOT|CODE_DIR|SERVICES|parent)\s*/\s*["']chatbot["']\s*/\s*["']data["']|(?:ROOT|_ROOT|CODE_DIR|parent)\s*/\s*["']data["']""")
 ENV_READERS = {"host_config.py", "tickets.py"}
 ALLOWED_OWN_DATA = {
-    "content_guard.py": "engine table content_guards.json still sits in data/ (moves out in uds/C)",
-    "private_engine.py": "engine table private_tension_*.json still sits in data/ (moves out in uds/C)",
     "tools/st_import.py": "fallback only when characters/host_config cannot be imported",
     "tools/worktree_runner.py": "fallback only when host_config cannot be imported (dev-build runner)",
     "nas_mcp_host.py": "another site's data folder (TECH_ROOT), not ours",

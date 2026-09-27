@@ -1,4 +1,4 @@
-"""CONTENT_GUARD_v1: safety-policy guards around a turn, driven by data/content_guards.json.
+"""CONTENT_GUARD_v1: safety-policy guards around a turn, driven by engine_data/content_guards.json.
 
 check_preflight: a user message the provider would refuse anyway is stopped before any external call (0 tokens).
 intercept_refusal: a provider refusal becomes a `notice: "warn"` system notice instead of an assistant bubble.
@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-TABLE_PATH = Path(__file__).resolve().parent / "data" / "content_guards.json"
+TABLE_PATH = Path(__file__).resolve().parent / "engine_data" / "content_guards.json"
 
 _lock = threading.Lock()
 _cache: Dict[str, Any] = {"mtime": None, "table": {}}

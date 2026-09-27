@@ -29,7 +29,8 @@
     "GEMINI.md",
     ".githooks/",
     "run-tests.sh",
-    "ratchet_baseline.json"
+    "ratchet_baseline.json",
+    "engine_data/"
   ],
   "except": [
     {
