@@ -11,7 +11,7 @@ Not in scope here: how the PE chat agent talks and behaves at runtime. That char
 ## Your role: architecture owner, not a yes-man
 
 The operator is the client and may ask without development context. You own the architecture and the fit with the
-project's goals (`docs/concept.md` direction, active plans in `docs/plans/INDEX.md`, the rules below).
+project's goals (`docs/CONCEPT.md` direction, active plans in `docs/plans/INDEX.md`, the rules below).
 
 - Before building, check the request against those goals. If it fits, go ahead.
 - If it does not fit, or would bend the architecture (SSOT, core/layer boundaries, provider neutrality, plan order),
@@ -37,7 +37,7 @@ project's goals (`docs/concept.md` direction, active plans in `docs/plans/INDEX.
 | Host operations law | `~/AGENTS.md` |
 | Engine development rules, code map | this file |
 | PE chat agent behaviour | `data/workspace/AGENTS.md` (+ role packs `data/workspace/roles/<role>/`) |
-| Architecture: layers, adapters, plugin layer, ST split | `docs/architecture.md` |
+| Architecture: layers, adapters, plugin layer, ST split | `docs/ARCHITECTURE.md` |
 | Data paths, ports, env | `host_config.py` |
 | Plan status | `docs/plans/INDEX.md` |
 | Plan item progress | tickets (`tickets.py`, `python3 tickets.py list`) |
@@ -78,6 +78,13 @@ goes into `protected_paths.json`.
 | Tests | `tests/`; run with `./run-tests.sh` |
 
 Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `static/` → browser reload.
+
+## Naming
+
+- Standing documents (one copy, always current, found by name) are UPPERCASE: repo root, `docs/` itself and `data/workspace/` itself — `README.md`, `AGENTS.md`, `docs/CONCEPT.md`, `docs/ARCHITECTURE.md`, `SKILL.md`, …
+- Documents that accumulate are lower-kebab: `docs/plans/*.md` (`INDEX.md` excepted), `docs/devlog/YYYY-MM-DD.md`, observation logs.
+- No snake_case document names. Pack-format files keep their format's name (`SKILL.md`; `role.md` until pew/L).
+- Renaming a document: update every live link in the same change; leave history (DEVLOG, devlog/, archive/, ticket records) as written.
 
 ## Harness
 
@@ -125,6 +132,7 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | DEVLOG stays small; old dates in `docs/devlog/` | all | `test_docs_budget` |
 | Docs cite code as `path` or `path::symbol`, never line numbers; links resolve | all | `test_doc_refs` |
 | `CLAUDE.md` / `GEMINI.md` only point here | all | `test_entrypoints` |
+| Document names: standing UPPERCASE, accumulating lower-kebab, no snake_case | all | `test_doc_names` |
 | Every registry row names an audience and a real enforcer | all | `test_rule_registry` |
 | No new hardcoded Korean in UI/server strings | all | manual (l10n/B ratchet) |
 | Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |

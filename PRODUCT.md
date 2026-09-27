@@ -16,7 +16,7 @@ web
 
 ## Product Purpose
 
-최대 가치·최대 목표는 [`docs/concept.md`](docs/concept.md). 이 문서의 목적·원칙은 그 기조를 구현하는 운영 규칙이다.
+최대 가치·최대 목표는 [`docs/CONCEPT.md`](docs/CONCEPT.md). 이 문서의 목적·원칙은 그 기조를 구현하는 운영 규칙이다.
 
 호스트(DiskStation) 자체에 상시로 떠 있는 채팅 에이전트. 실장님이 매일 쓰는
 개인 AI 비서이자, 이 NAS 인프라를 직접 조작할 수 있는 관제 콘솔 역할을 겸함.

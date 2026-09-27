@@ -3,7 +3,7 @@
 > 상태: **active** (갱신 2026-09-27; 초안 2026-09-25)
 > 선행 문서: [user-data-and-editing.md §1](user-data-and-editing.md)
 > 목적: 엔진 코드 저장소와 개인화 데이터(기억, 캐릭터, 세션, 비밀 등)의 물리적·논리적 완전 분리
-> 관련: [release-pipeline.md](release-pipeline.md) · [private-engine-brand.md](private-engine-brand.md) · [character-memory-adapter.md](character-memory-adapter.md) Q1–Q2 (Memory/`CHATBOT_DATA` 분류와 맞출 것) · [concept.md](../concept.md)
+> 관련: [release-pipeline.md](release-pipeline.md) · [private-engine-brand.md](private-engine-brand.md) · [character-memory-adapter.md](character-memory-adapter.md) Q1–Q2 (Memory/`CHATBOT_DATA` 분류와 맞출 것) · [CONCEPT.md](../CONCEPT.md)
 
 ---
 

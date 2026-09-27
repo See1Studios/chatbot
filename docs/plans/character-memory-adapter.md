@@ -4,7 +4,7 @@
 - **작성:** 2026-09-27
 - **범위:** 설계·열린 질문만. **구현·스키마·코드 경로 가정 금지.**
 - **관련:**
-  - [`docs/concept.md`](../concept.md) — 제품 기조·열린 축
+  - [`docs/CONCEPT.md`](../CONCEPT.md) — 제품 기조·열린 축
   - [`private-mode.md`](private-mode.md) — 사적 모드·텐션·호감도(계획)
   - [`user-data-separation.md`](user-data-separation.md) — `CHATBOT_DATA`·기억 경로·배포 분리
   - [`multi-agent-worktree-delegation.md`](multi-agent-worktree-delegation.md) §12 — 캐릭터별 업무/사적 기억 분리
@@ -119,4 +119,4 @@
 ## 7. INDEX·기조
 
 - INDEX Active 행: 본 문서
-- [`docs/concept.md`](../concept.md) `열린 축`에 캐릭터 스코프 관계 기억 어댑터 1줄 링크
+- [`docs/CONCEPT.md`](../CONCEPT.md) `열린 축`에 캐릭터 스코프 관계 기억 어댑터 1줄 링크

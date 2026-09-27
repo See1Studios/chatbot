@@ -196,7 +196,7 @@ Hub `index.html`은 `/chat/persona/providers/<id>.webp`를 FAB 아이콘으로 �
 - 스킬 `character-art`·`character-pipeline`에서 웹 루트 수동 복사 문장 삭제, 이 계획서를 가리킴
 - `docs/plans/INDEX.md`는 이 문서가 이미 한 줄
 
-대상: `characters.py`, `tests/test_character_art.py`, `.gitignore`, 스킬 두 개, `data/workspace/docs/character_pipeline.md`
+대상: `characters.py`, `tests/test_character_art.py`, `.gitignore`, 스킬 두 개, 스킬 `character-pipeline`(`data/workspace/.agents/skills/character-pipeline/SKILL.md`, 정본)
 
 ### PR 2 — 관찰 신호 (Tier 1)
 
@@ -242,7 +242,7 @@ Hub `index.html`은 `/chat/persona/providers/<id>.webp`를 FAB 아이콘으로 �
 
 | 순서 | 제목 | 파일 | 의존 |
 |---|---|---|---|
-| 1 | `needed_art` + ignore + 스킬 정합 | `characters.py`, 테스트, `.gitignore`, 스킬 2, 워크스페이스 `docs/character_pipeline.md` | 없음 |
+| 1 | `needed_art` + ignore + 스킬 정합 | `characters.py`, 테스트, `.gitignore`, 스킬 2, 스킬 `character-pipeline` | 없음 |
 | 2 | 캐릭터 완결성 관찰 | doctor/status 쪽, 신호는 승인 티켓 있을 때만 | 1 |
 | 3 | Hub 경로 단일화 | Hub `index.html` 또는 얇은 publisher | Q2 |
 | 4 | 인스턴스 데이터로 이전 | `user-data-separation`과 같이 | 그 계획 착수 |

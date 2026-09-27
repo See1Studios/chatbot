@@ -1,8 +1,8 @@
 # 방향 정렬 (개인화 하네스로의 전환)
 
 > 상태: **active** (초안 2026-09-28)
-> 목적: 바뀐 제품 지향점에 맞춰 기조 문서·계획·코드의 낡은 부분을 정렬한다. 기조(`docs/concept.md`)를 다시 쓰는 일이 첫 단계이고, 나머지는 그 기조를 기준으로 한다.
-> 관련: [concept.md](../concept.md) · [plan-execution-workflow.md](plan-execution-workflow.md) · [release-pipeline.md](release-pipeline.md) · [localization.md](localization.md) · [character-memory-adapter.md](character-memory-adapter.md) · [private-mode.md](private-mode.md)
+> 목적: 바뀐 제품 지향점에 맞춰 기조 문서·계획·코드의 낡은 부분을 정렬한다. 기조(`docs/CONCEPT.md`)를 다시 쓰는 일이 첫 단계이고, 나머지는 그 기조를 기준으로 한다.
+> 관련: [CONCEPT.md](../CONCEPT.md) · [plan-execution-workflow.md](plan-execution-workflow.md) · [release-pipeline.md](release-pipeline.md) · [localization.md](localization.md) · [character-memory-adapter.md](character-memory-adapter.md) · [private-mode.md](private-mode.md)
 > 방향 인용(G0): 숨은 로어(전영소녀·조이)는 방향만 쓴다. 로어 세부는 이 계획의 항목이 아니다.
 > 약칭: `align`
 
@@ -16,7 +16,7 @@
 
 | 항목 | 지금 문서·코드가 말하는 것 | 새 지향점 |
 |---|---|---|
-| 최대 가치 | "친근하면서 유능, 다재다능·만능에 가깝다" (`concept.md`) | 취향대로 쌓이는 개인화된 동반자. 유능함은 목적이 아니라 수단 |
+| 최대 가치 | "친근하면서 유능, 다재다능·만능에 가깝다" (`CONCEPT.md`) | 취향대로 쌓이는 개인화된 동반자. 유능함은 목적이 아니라 수단 |
 | 사용자 | 실장님 한 명의 개인 NAS 비서 (`PRODUCT.md`) | 자기 PC·서버에 설치하는 엔드유저 |
 | 차별점 | NAS 직접 제어 (`PRODUCT.md` Positioning) | 두꺼운 개인화 레이어(캐릭터·기억·외형·말투·관계의 연속성) |
 | 경쟁 축 | 업무 수행 | 업무 경쟁은 하지 않음 |
@@ -48,7 +48,7 @@
 
 | D | 질문 | 추천 | 상태 |
 |---|---|---|---|
-| D1 | 기조 문안 | 운영자의 §0 발언을 기준으로 `concept.md`의 "최대 가치·최대 목표·열린 축"을 다시 쓴다. 초안은 에이전트가 쓰고 문안은 운영자가 확정 | 결정 2026-09-28 (`concept.md` 재작성 확정) |
+| D1 | 기조 문안 | 운영자의 §0 발언을 기준으로 `CONCEPT.md`의 "최대 가치·최대 목표·열린 축"을 다시 쓴다. 초안은 에이전트가 쓰고 문안은 운영자가 확정 | 결정 2026-09-28 (`CONCEPT.md` 재작성 확정) |
 | D2 | 자기 진화의 자리 | **배포판에도 자기 진화가 있다. 대상이 다르다**(운영자 2026-09-28: "코어는 직접 개발하지 않지만 Hermes Agent처럼 스킬·기억·지침 편집에 의한 자기 개발은 필요"). 배포판: 에이전트가 `~/.pe`의 **스킬·기억·지침**(과 캐릭터·역할)을 스스로 쓰고 다듬는다 — 관찰 → 제안 → 사용자 승인 → 반영, 백업과 되돌리기. 개발판에만: 엔진 **코드** 수정과 그 장치(워크트리 위임 러너, 커밋 훅, 코드 테스트 관문). 관찰·티켓·지침 예산·지침 백업은 대상만 `~/.pe`로 좁혀 배포판 기능으로 쓴다 | 결정 2026-09-28 (방향), 경계 구조는 align/I |
 | D3 | NAS·호스트 기능 | 설치 환경별 **선택 플러그인**. 배포판 기본값은 꺼짐. 이미 분리된 `nas_mcp_host.py`가 출발점 | 열림 |
 | D4 | 코드·UI에 박힌 개인 호칭과 페르소나("실장님", "냥") | 엔진 문자열은 중립으로, 호칭과 말투는 캐릭터 카드와 사용자 설정으로(l10n/D와 같은 작업) | 열림 |
@@ -63,7 +63,7 @@
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `align/A` | 이 문서 + INDEX 행 | `docs/plans/direction-alignment.md`, `docs/plans/INDEX.md` | INDEX 행, 커밋 | 0 · — | S | — | ✅ 티켓 없음(pew D3) |
-| `align/B` | `concept.md` 기조 재작성 초안 → 운영자 확정 | `docs/concept.md` | 운영자 확정 문안, "만능·유능" 중심 문장 제거, 축 목록이 개인화 중심 | 0 · — | S | D1 | ✅ 운영자 확정 2026-09-28 |
+| `align/B` | `CONCEPT.md` 기조 재작성 초안 → 운영자 확정 | `docs/CONCEPT.md` | 운영자 확정 문안, "만능·유능" 중심 문장 제거, 축 목록이 개인화 중심 | 0 · — | S | D1 | ✅ 운영자 확정 2026-09-28 |
 | `align/C` | `PRODUCT.md`·`README.md`·`DESIGN.md` 엔드유저 기준 재작성 | 세 파일 | NAS 시절 정체성은 "개발 환경" 절에만 | 0 · — | M | align/B | 대기 |
 | `align/D` | 활성 계획마다 방향 적합성 한 줄 + INDEX 반영, 맞지 않는 계획은 재정의 또는 대체 | `docs/plans/*.md`, `INDEX.md` | 모든 활성 계획에 적합성 표시 | 0 · — | M | align/B | 대기 |
 | `align/E` | **래칫 가드**: 엔진 코드(호스트 플러그인 제외)에 NAS·개인 정체성 문자열이 늘면 실패 | `tests/test_host_identity_ratchet.py` | 새로 늘면 실패, 줄면 기준선 낮춤 | 3 · — | S | — | 대기 |
@@ -71,7 +71,7 @@
 | `align/G` | 호칭·말투 중립화(D4) — l10n/D와 한 번에 | `static/*.js`, `*.py` | 래칫 기준선 0 | 2 · ⚡ | M | D4, l10n/D | 대기 |
 | `align/H` | **개인화 사다리 설계**(배포판 ①·②): 새 계획 문서. 에이전트가 사용자와 함께 캐릭터·기억·외형·말투·규칙을 쌓는 흐름, 생태계 진입(D7: ST 카드·로어북·프로바이더 연결), 저장 위치(`~/.pe`)와 업데이트 후 보존, 기존 역할 팩·카드 편집·기억 어댑터와의 관계 | 새 계획 | 운영자 검토를 거친 설계 | 0 · — | M | align/B | 대기 |
 | `align/I` | **배포판/개발판 경계**: 자기 진화의 대상을 배포판에서는 `~/.pe`(스킬·기억·지침·캐릭터·역할)로 한정하고, 코드용 장치(워크트리 위임 러너, 커밋 훅, 코드 테스트 관문, PD 개발 역할)는 개발판에만 둔다. 이 장치들 없이 엔진이 동작하도록 계층을 나누고 배포 제외 목록을 정한다(`test_core_standalone`의 코어/계층 규칙이 출발점) — release-pipeline·uds와 연결 | 새 계획 또는 release-pipeline 항목, 모듈 경계 | 코드 장치를 뺀 빌드가 테스트를 통과하고, 배포판 자기 진화가 엔진 파일을 바꾸지 못함 | 3 · ⚡ | L → 쪼갬 | align/H, D2 | 대기 |
-| `align/J` | **플러그인 아키텍처 계획**(D8, Wallpaper Engine 포지션): 새 계획 문서. 출발점은 [architecture.md](../architecture.md)(레이어·어댑터 명세·ST 위임·플러그인 층·로드맵 1–3단계 완료). 창작 도구(캐릭터·외형 팩·로어북·스킬 에디터)와 콘텐츠 등급 관리 포함. 레이어 목록과 인터페이스(프로바이더 `AgentAdapter`, 외형 `visual-adapter.js`, 기억 어댑터, 도구=MCP, 콘텐츠 패키지), 매니페스트·버전(플러그인 API semver)·권한, 콘텐츠/코드 구분과 코드 격리 방식, 로딩 위치(`~/.pe/plugins`), Workshop 단계. 선행 사례(VS Code 확장 호스트, SillyTavern 확장, Obsidian, Wallpaper Engine·RimWorld Workshop) 비교 후 추천 | 새 계획 | 운영자 검토를 거친 설계 | 0 · — | M | align/B, D8 | 대기 |
+| `align/J` | **플러그인 아키텍처 계획**(D8, Wallpaper Engine 포지션): 새 계획 문서. 출발점은 [ARCHITECTURE.md](../ARCHITECTURE.md)(레이어·어댑터 명세·ST 위임·플러그인 층·로드맵 1–3단계 완료). 창작 도구(캐릭터·외형 팩·로어북·스킬 에디터)와 콘텐츠 등급 관리 포함. 레이어 목록과 인터페이스(프로바이더 `AgentAdapter`, 외형 `visual-adapter.js`, 기억 어댑터, 도구=MCP, 콘텐츠 패키지), 매니페스트·버전(플러그인 API semver)·권한, 콘텐츠/코드 구분과 코드 격리 방식, 로딩 위치(`~/.pe/plugins`), Workshop 단계. 선행 사례(VS Code 확장 호스트, SillyTavern 확장, Obsidian, Wallpaper Engine·RimWorld Workshop) 비교 후 추천 | 새 계획 | 운영자 검토를 거친 설계 | 0 · — | M | align/B, D8 | 대기 |
 
 ## 5. 원칙
 

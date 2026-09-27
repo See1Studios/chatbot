@@ -218,6 +218,10 @@
     {
       "path": "tests/test_githooks.py",
       "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_doc_names.py",
+      "reason": "a guard test (run-tests.sh FAST)"
     }
   ]
 }

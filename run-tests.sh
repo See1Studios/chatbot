@@ -27,6 +27,7 @@ FAST=(
   test_plans_index
   test_doc_refs
   test_githooks
+  test_doc_names
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

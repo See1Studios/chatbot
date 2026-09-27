@@ -1,6 +1,6 @@
 # chatbot
 
-Sphere Hub용 DiskStation 채팅 에이전트 호스트. 캐릭터와 업무·사적 관계를 이어 가는 캐릭터 에이전트(개념: [docs/concept.md](./docs/concept.md)).
+Sphere Hub용 DiskStation 채팅 에이전트 호스트. 캐릭터와 업무·사적 관계를 이어 가는 캐릭터 에이전트(개념: [docs/CONCEPT.md](./docs/CONCEPT.md)).
 
 **에이전트 입구 — 코드 지도·엔진 규칙·정본 지도는 루트 [`AGENTS.md`](./AGENTS.md) 한 곳뿐이다.** 여기에 따로 적지 않는다.
 

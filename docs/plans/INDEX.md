@@ -21,6 +21,8 @@
 4. **금지**: 아카이브 문서를 그 자리에서 늘리거나 이어서 쓰지 않는다. 후속 작업 = **새 active 계획** + INDEX 한 줄. 옛 문서는 `superseded`로 링크만.
 5. **새 계획 만들기 전**: 이 INDEX를 먼저 읽고, 중복·아카이브 부활 여부를 확인한다. 새 파일은 상태 `active`, **같은 변경에 INDEX 행 추가**.
 
+파일 이름: 계획 문서는 **소문자-하이픈**(`my-plan.md`), 이 `INDEX.md`만 예외. 전체 규칙은 루트 `AGENTS.md` "Naming".
+
 상세·폴더 규칙은 [`archive/README.md`](archive/README.md).
 
 ## Active

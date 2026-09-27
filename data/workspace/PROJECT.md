@@ -1,6 +1,6 @@
 # chatbot
 
-Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경계 `SELF-MODIFY.md`, 라이브 사망 `docs/EMERGENCY.md`, 원칙 `cross-cutting-principles.md`, 기조 `docs/concept.md`(코드 만지기 **전에** 연다).
+Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경계 `SELF-MODIFY.md`, 라이브 사망 `docs/EMERGENCY.md`, 원칙 `CROSS-CUTTING-PRINCIPLES.md`, 기조 `docs/CONCEPT.md`(코드 만지기 **전에** 연다).
 
 ## Paths
 
