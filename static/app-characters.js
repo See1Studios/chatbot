@@ -510,3 +510,119 @@ function populateModelsForProvider(providerId, preferredModel) {
   }
   if (typeof syncModelUi === 'function') syncModelUi();
 }
+
+// ------------------------------------------------------------------------ ST Character Card Importer
+
+function showCharacterToast(msg) {
+  if (typeof setProgress === 'function') {
+    setProgress(msg, true);
+    setTimeout(() => {
+      if (typeof progressEl !== 'undefined' && progressEl && !progressEl.hidden && progressEl.textContent.includes(msg)) {
+        setProgress('');
+      }
+    }, 3500);
+  } else if (typeof toast === 'function') {
+    toast(msg);
+  }
+}
+
+async function importStCard(file) {
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file, file.name || 'card.png');
+
+  try {
+    const res = await api('/api/characters/import', {
+      method: 'POST',
+      body: formData,
+      headers: {},
+    });
+    if (res && (res.success || res.ok)) {
+      if (typeof loadCharacters === 'function') await loadCharacters();
+      if (typeof loadTeam === 'function') {
+        try { await loadTeam(); } catch (_) {}
+      }
+      if (typeof renderCharacterTray === 'function') renderCharacterTray();
+      const charName = (res.character && res.character.name) || '캐릭터';
+      showCharacterToast('ST 카드 가져오기 완료: ' + charName);
+      if (typeof addActivity === 'function') {
+        addActivity('ST 카드 가져오기 성공: ' + charName);
+      }
+      return res;
+    } else {
+      const errMsg = (res && res.error) || '가져오기 실패';
+      showCharacterToast('ST 카드 가져오기 실패: ' + errMsg);
+      if (typeof addActivity === 'function') {
+        addActivity('ST 카드 가져오기 실패: ' + errMsg, 'warn');
+      }
+      return res;
+    }
+  } catch (e) {
+    let errMsg = (e && e.message) || String(e);
+    try {
+      const parsed = JSON.parse(errMsg);
+      if (parsed.error) errMsg = parsed.error;
+    } catch (_) {}
+    showCharacterToast('ST 카드 가져오기 실패: ' + errMsg);
+    if (typeof addActivity === 'function') {
+      addActivity('ST 카드 가져오기 실패: ' + errMsg, 'warn');
+    }
+    throw e;
+  }
+}
+
+function initStImportUi() {
+  const fileInput = document.getElementById('stCardFileInput');
+  const importBtn = document.getElementById('stCardImportBtn');
+  const teamPane = document.getElementById('teamPane');
+
+  if (importBtn && fileInput && !importBtn._stBound) {
+    importBtn._stBound = true;
+    importBtn.addEventListener('click', () => {
+      fileInput.value = '';
+      fileInput.click();
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files && fileInput.files[0]) {
+        importStCard(fileInput.files[0]);
+      }
+    });
+  }
+
+  if (teamPane && !teamPane._stDropBound) {
+    teamPane._stDropBound = true;
+    teamPane.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      teamPane.style.outline = '2px dashed var(--accent, #a3e635)';
+      teamPane.style.outlineOffset = '-4px';
+    });
+    ['dragleave', 'dragend'].forEach(ev => {
+      teamPane.addEventListener(ev, () => {
+        teamPane.style.outline = '';
+        teamPane.style.outlineOffset = '';
+      });
+    });
+    teamPane.addEventListener('drop', (e) => {
+      e.preventDefault();
+      teamPane.style.outline = '';
+      teamPane.style.outlineOffset = '';
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        if (file.name.toLowerCase().endsWith('.png') || file.type === 'image/png') {
+          importStCard(file);
+        } else {
+          showCharacterToast('PNG 파일만 가져올 수 있어요');
+        }
+      }
+    });
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initStImportUi);
+} else {
+  initStImportUi();
+}
+

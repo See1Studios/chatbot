@@ -807,6 +807,69 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         ):
             code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
             return self._send(code, raw, "application/json; charset=utf-8")
+        if path == "/api/characters/import":
+            try:
+                ct = self.headers.get("Content-Type") or ""
+                try:
+                    n = int(self.headers.get("Content-Length") or 0)
+                except ValueError:
+                    code, raw = _json_bytes({"success": False, "ok": False, "error": "invalid Content-Length"}, 400)
+                    return self._send(code, raw, "application/json; charset=utf-8")
+                if n <= 0:
+                    code, raw = _json_bytes({"success": False, "ok": False, "error": "empty body"}, 400)
+                    return self._send(code, raw, "application/json; charset=utf-8")
+                if n > 25 * 1024 * 1024:
+                    code, raw = _json_bytes({"success": False, "ok": False, "error": "payload too large (max 25MB)"}, 413)
+                    return self._send(code, raw, "application/json; charset=utf-8")
+                raw_body = self.rfile.read(n)
+
+                png_bytes = None
+                if "multipart/form-data" in ct.lower():
+                    import email
+                    import email.policy
+                    hdr = f"Content-Type: {ct}\r\n\r\n".encode("utf-8")
+                    msg = email.message_from_bytes(hdr + raw_body, policy=email.policy.default)
+                    first_binary = None
+                    if msg.is_multipart():
+                        for part in msg.iter_parts():
+                            p_data = part.get_payload(decode=True)
+                            if not p_data:
+                                continue
+                            filename = part.get_filename() or ""
+                            p_ct = (part.get_content_type() or "").lower()
+                            if filename.lower().endswith(".png") or p_ct == "image/png" or p_data.startswith(b"\x89PNG\r\n\x1a\n"):
+                                png_bytes = p_data
+                                break
+                            if first_binary is None:
+                                first_binary = p_data
+                        if not png_bytes and first_binary:
+                            png_bytes = first_binary
+                    else:
+                        p_data = msg.get_payload(decode=True)
+                        if p_data:
+                            png_bytes = p_data
+                elif raw_body.startswith(b"\x89PNG\r\n\x1a\n"):
+                    png_bytes = raw_body
+
+                if not png_bytes:
+                    code, raw = _json_bytes({"success": False, "ok": False, "error": "No valid PNG file provided"}, 400)
+                    return self._send(code, raw, "application/json; charset=utf-8")
+
+                from tools.st_import import import_st_png_bytes
+                res = import_st_png_bytes(png_bytes, ws=WORKSPACE)
+                code, raw = _json_bytes({
+                    "success": True,
+                    "ok": True,
+                    "character": {
+                        "id": res["id"],
+                        "name": res["name"],
+                        "path": res["path"],
+                    },
+                })
+                return self._send(code, raw, "application/json; charset=utf-8")
+            except Exception as e:
+                code, raw = _json_bytes({"success": False, "ok": False, "error": str(e)}, 400)
+                return self._send(code, raw, "application/json; charset=utf-8")
         try:
             body = self._read_json()
         except Exception as e:

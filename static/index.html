@@ -257,9 +257,14 @@
       </div>
       <div id="teamPane" role="tabpanel" aria-labelledby="tabTeam">
         <section class="status-section">
-          <h2>
+          <h2 class="status-head-row">
             <svg class="btn-icon-svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             <span>팀</span>
+            <input type="file" id="stCardFileInput" accept=".png" style="display:none" />
+            <button id="stCardImportBtn" class="art-filter-btn" type="button" title="SillyTavern PNG 캐릭터 카드 가져오기">
+              <svg class="action-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              ST 카드 가져오기
+            </button>
           </h2>
           <div class="status-hint">PD와 전문가. 두뇌는 위에서부터 쓰고, 쿼터·한도·무응답이면 다음으로 넘어갑니다.</div>
           <div id="teamList" class="status-list"></div>
@@ -362,7 +367,7 @@
   <script src="./app-team.js?v=2"></script>
   <script src="./app-sse.js?v=2"></script>
   <script src="./app-session.js?v=3"></script>
-  <script src="./app-characters.js?v=2"></script>
+  <script src="./app-characters.js?v=3"></script>
   <script src="./app-viewport.js?v=1"></script>
   <script src="./app.js?v=161"></script>
   <script src="./theme.js?v=3"></script>
