@@ -41,6 +41,7 @@
     "providers/__pycache__/",
     "tests/__pycache__/",
     "tests/*/__pycache__/",
+    ".githooks/__pycache__/",
     "protected_manifest.json",
     "data/host-force.ticket",
     "data/lifecycle.lock",
