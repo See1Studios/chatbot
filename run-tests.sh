@@ -49,6 +49,14 @@ elif [ ! -x .githooks/pre-commit ] || [ ! -x .githooks/commit-msg ]; then
   echo "warning: a commit hook is not executable, so git skips it; run: chmod +x .githooks/*"
 fi
 
+# Each run gets its own TMPDIR under /tmp and removes it at exit (2026-09-28: tests that never cleaned their
+# tempfile dirs left ~114k folders in /tmp -- a small tmpfs -- until every inode was used and the whole host could
+# not create a temp file). It stays under /tmp on purpose: under $HOME, tests saw the home directory's own git
+# repository and behaved differently.
+RUN_TMP="$(mktemp -d /tmp/chatbot-tests.XXXXXX)" || exit 2
+export TMPDIR="$RUN_TMP"
+trap 'rm -rf "$RUN_TMP"' EXIT
+
 ms() { echo $(( $(date +%s%N) / 1000000 )); }
 failed=()
 t0=$(ms)
