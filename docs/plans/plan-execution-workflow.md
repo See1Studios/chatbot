@@ -39,6 +39,7 @@
 | P10 | 저장소 밖 도구가 낡는다 | `~/bin/ticket-quick`: 경로 고정, 테스트 없음, 저장소 변경 이력에 잡히지 않음 |
 | P11 | 참조가 이미 썩고 있다 | active 계획에 `file.py:L123`식 줄 번호 참조 14개, 깨진 상대 링크 1개(`character-resource-pipeline.md` → 아카이브된 `recursive-self-evolution.md`) |
 | P12 | 가드 테스트가 있어도 돌리지 않으면 깨진 채로 남는다 | `tests.test_docs_budget` 현재 실패: `docs/DEVLOG.md` 52,710 B > 상한 40,960 B. 아무도 발견하지 못했다 |
+| P13 | 규칙의 적용 대상이 표시되지 않아 다른 에이전트가 가져다 쓴다 | 2026-09-27 Claude Code가 챗 에이전트 헌장의 `<!--choices: …-->` 버튼 규칙을 터미널 답변에 따라 씀(운영자 지적). 루트 `AGENTS.md`(pew/C)는 규칙마다 적용 대상(PE 챗 에이전트 / 저장소 작업 에이전트 전부)을 표시한다 |
 
 ---
 
