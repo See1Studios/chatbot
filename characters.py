@@ -73,6 +73,10 @@ def memory_path(cid: str, ws=None) -> Path:
     return card_path(cid, ws).parent / "memory.md"
 
 
+def lorebook_path(cid: str, ws=None) -> Path:
+    return card_path(cid, ws).parent / "lorebook.json"
+
+
 def new_card(name: str, role: str = "", description: str = "", personality: str = "", **chatbot) -> Dict:
     """A new card. Cards carry no role: who does what is the team roster's (team.json). `role` is only for a
     workspace without a roster, which then derives one from the cards (TEAM_ROLES_v1)."""
@@ -96,6 +100,111 @@ def load(cid: str, ws=None) -> Dict:
     if card.get("spec") != SPEC or not isinstance(card.get("data"), dict):
         raise ValueError("%s is not a Character Card V2" % cid)
     return card
+
+
+def normalize_lorebook(data: Dict) -> Dict:
+    """Normalize a SillyTavern or standard lorebook dict to canonical format."""
+    if not isinstance(data, dict):
+        return {"name": "", "entries": []}
+    raw_entries = data.get("entries")
+    if isinstance(raw_entries, dict):
+        entries_list = list(raw_entries.values())
+    elif isinstance(raw_entries, list):
+        entries_list = raw_entries
+    else:
+        entries_list = []
+
+    norm_entries = []
+    for idx, raw in enumerate(entries_list):
+        if not isinstance(raw, dict):
+            continue
+        entry = dict(raw)
+        # keys
+        keys = entry.get("keys")
+        if keys is None:
+            keys = entry.get("key")
+        if isinstance(keys, str):
+            keys = [k.strip() for k in keys.split(",") if k.strip()]
+        elif isinstance(keys, list):
+            keys = [str(k).strip() for k in keys if str(k).strip()]
+        else:
+            keys = []
+        entry["keys"] = keys
+
+        # content
+        entry["content"] = str(entry.get("content") or "")
+
+        # enabled
+        if "enabled" in entry:
+            entry["enabled"] = bool(entry["enabled"])
+        else:
+            entry["enabled"] = not bool(entry.get("disable") or entry.get("disabled"))
+
+        # priority
+        if "priority" in entry and entry["priority"] is not None:
+            try:
+                entry["priority"] = int(entry["priority"])
+            except (ValueError, TypeError):
+                entry["priority"] = 10
+        elif "order" in entry and entry["order"] is not None:
+            try:
+                entry["priority"] = int(entry["order"])
+            except (ValueError, TypeError):
+                entry["priority"] = 10
+        elif "insertion_order" in entry and entry["insertion_order"] is not None:
+            try:
+                entry["priority"] = int(entry["insertion_order"])
+            except (ValueError, TypeError):
+                entry["priority"] = 10
+        else:
+            entry["priority"] = 10
+
+        # position
+        pos = entry.get("position")
+        if pos in (0, "0") or (isinstance(pos, str) and "before" in pos.lower()):
+            entry["position"] = "before_char"
+        elif pos in (1, "1") or (isinstance(pos, str) and "after" in pos.lower()):
+            entry["position"] = "after_char"
+        elif not pos:
+            entry["position"] = "after_char"
+        else:
+            entry["position"] = str(pos)
+
+        # id
+        if "id" not in entry and "uid" in entry:
+            entry["id"] = entry["uid"]
+        elif "id" not in entry:
+            entry["id"] = idx + 1
+
+        norm_entries.append(entry)
+
+    return {
+        "name": str(data.get("name") or ""),
+        "entries": norm_entries,
+    }
+
+
+def load_lorebook(cid: str, ws=None) -> Optional[Dict]:
+    """Load lorebook.json for character cid if it exists, else None."""
+    try:
+        p = lorebook_path(cid, ws)
+        if not p.is_file():
+            return None
+        data = json.loads(p.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return None
+        return normalize_lorebook(data)
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def save_lorebook(cid: str, lorebook: Dict, ws=None) -> None:
+    """Save lorebook.json for character cid atomically."""
+    path = lorebook_path(cid, ws)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(".lorebook.%d.tmp" % os.getpid())
+    tmp.write_text(json.dumps(lorebook, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
 
 
 _CARD_INFO_CACHE: Dict[Path, tuple] = {}

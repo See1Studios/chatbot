@@ -18,7 +18,7 @@ the bundle; editing the rules/persona/skills does.
 import hashlib
 import re
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from host_config import WORKSPACE
 
@@ -148,8 +148,154 @@ def _roles_text(character: str = "") -> str:
     return "\n\n".join(p["text"] for p in packs if p["text"])
 
 
-def _rules_text(character: str = "") -> str:
-    parts = [t for t in (_read(WORKSPACE / "AGENTS.md"), _persona_text(character), _roles_text(character)) if t]
+LOREBOOK_SCAN_DEPTH = 5
+LOREBOOK_MAX_ENTRIES = 3
+LOREBOOK_MAX_ENTRY_CHARS = 500
+
+
+def match_lorebook_entries(
+    lorebook: Optional[Dict],
+    history: Optional[Union[List, str]],
+    max_entries: int = LOREBOOK_MAX_ENTRIES,
+    scan_depth: int = LOREBOOK_SCAN_DEPTH,
+    max_chars: int = LOREBOOK_MAX_ENTRY_CHARS,
+) -> List[Dict]:
+    """Find matching lorebook entries from recent history messages.
+
+    - Scans last `scan_depth` messages in history
+    - Matches if any entry key appears in history text (case-insensitive) or entry is constant
+    - Filters to enabled entries only
+    - Orders by priority descending
+    - Limits to `max_entries` (default 3)
+    - Truncates each entry content to `max_chars` (default 500)
+    """
+    if not lorebook or not isinstance(lorebook, dict):
+        return []
+
+    entries = lorebook.get("entries")
+    if isinstance(entries, dict):
+        entries = list(entries.values())
+    if not isinstance(entries, list) or not entries:
+        return []
+
+    # Extract text from the last `scan_depth` messages
+    scan_text = ""
+    if history:
+        if isinstance(history, str):
+            scan_text = history
+        elif isinstance(history, list):
+            recent = history[-scan_depth:] if scan_depth > 0 else history
+            parts = []
+            for item in recent:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    txt = item.get("text") or item.get("content") or item.get("message") or ""
+                    if txt:
+                        parts.append(str(txt))
+            scan_text = " ".join(parts)
+
+    scan_lower = scan_text.lower()
+
+    matched = []
+    for raw in entries:
+        if not isinstance(raw, dict):
+            continue
+        # enabled check
+        is_enabled = raw.get("enabled")
+        if is_enabled is None:
+            is_enabled = not bool(raw.get("disable") or raw.get("disabled"))
+        if not is_enabled:
+            continue
+
+        # keys
+        keys = raw.get("keys")
+        if keys is None:
+            keys = raw.get("key")
+        if isinstance(keys, str):
+            key_list = [k.strip() for k in keys.split(",") if k.strip()]
+        elif isinstance(keys, list):
+            key_list = [str(k).strip() for k in keys if str(k).strip()]
+        else:
+            key_list = []
+
+        is_constant = bool(raw.get("constant"))
+        hit = is_constant
+        if not hit and scan_lower and key_list:
+            for k in key_list:
+                if k.lower() in scan_lower:
+                    hit = True
+                    break
+
+        if hit:
+            # priority
+            try:
+                prio = int(raw.get("priority") if raw.get("priority") is not None
+                           else raw.get("order") if raw.get("order") is not None
+                           else raw.get("insertion_order") if raw.get("insertion_order") is not None
+                           else 10)
+            except (ValueError, TypeError):
+                prio = 10
+
+            # position
+            pos = raw.get("position")
+            if pos in (0, "0") or (isinstance(pos, str) and "before" in pos.lower()):
+                pos_str = "before_char"
+            else:
+                pos_str = "after_char"
+
+            content = str(raw.get("content") or "").strip()
+            if max_chars > 0 and len(content) > max_chars:
+                content = content[:max_chars]
+
+            entry_copy = dict(raw)
+            entry_copy["priority"] = prio
+            entry_copy["position"] = pos_str
+            entry_copy["content"] = content
+            matched.append(entry_copy)
+
+    # Sort by priority descending (stable sort preserves original ordering on ties)
+    matched.sort(key=lambda e: e["priority"], reverse=True)
+
+    if max_entries > 0:
+        matched = matched[:max_entries]
+
+    return matched
+
+
+def lorebook_context(
+    character: str = "",
+    history: Optional[Union[List, str]] = None,
+    ws=None,
+    max_entries: int = LOREBOOK_MAX_ENTRIES,
+    scan_depth: int = LOREBOOK_SCAN_DEPTH,
+    max_chars: int = LOREBOOK_MAX_ENTRY_CHARS,
+) -> Dict[str, str]:
+    """Return {'before_char': '...', 'after_char': '...'} containing matched lorebook content."""
+    target_ws = ws or WORKSPACE
+    try:
+        import characters
+        cid = _cid(character)
+        lb = characters.load_lorebook(cid, target_ws) if cid else None
+    except Exception:  # noqa: BLE001
+        return {"before_char": "", "after_char": ""}
+
+    if not lb:
+        return {"before_char": "", "after_char": ""}
+
+    matched = match_lorebook_entries(lb, history, max_entries=max_entries, scan_depth=scan_depth, max_chars=max_chars)
+    before_parts = [e["content"] for e in matched if e.get("position") == "before_char" and e.get("content")]
+    after_parts = [e["content"] for e in matched if e.get("position") == "after_char" and e.get("content")]
+
+    return {
+        "before_char": "\n\n".join(before_parts),
+        "after_char": "\n\n".join(after_parts),
+    }
+
+
+def _rules_text(character: str = "", history: Optional[Union[List, str]] = None) -> str:
+    lore = lorebook_context(character, history)
+    parts = [t for t in (_read(WORKSPACE / "AGENTS.md"), lore["before_char"], _persona_text(character), lore["after_char"], _roles_text(character)) if t]
     return "\n\n---\n\n".join(parts)
 
 
@@ -230,14 +376,16 @@ def _private_charter() -> str:
     return "\n\n".join(t for t in keep if t)
 
 
-def _private_bundle(character: str) -> Dict[str, str]:
+def _private_bundle(character: str, history: Optional[Union[List, str]] = None) -> Dict[str, str]:
     import characters
     import private_engine
     card = _card(character)
     if not card:
         return {"text": "", "hash": ""}
     rules = characters.private_text(card)
-    static = "\n\n---\n\n".join(t for t in (_private_charter(), characters.persona_text(card).strip(),
+    lore = lorebook_context(character, history)
+    static = "\n\n---\n\n".join(t for t in (_private_charter(), lore["before_char"], characters.persona_text(card).strip(),
+                                            lore["after_char"],
                                             PRIVATE_SESSION_NOTE + ("\n\n" + rules if rules else ""),
                                             private_engine.render_protocol_text(card)) if t)
     cid = _cid(character)
@@ -246,16 +394,16 @@ def _private_bundle(character: str) -> Dict[str, str]:
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
 
 
-def build_instruction_bundle(mode: str = "work", character: str = "") -> Dict[str, str]:
+def build_instruction_bundle(mode: str = "work", character: str = "", history: Optional[Union[List, str]] = None) -> Dict[str, str]:
     """{"text": full bundle, "hash": digest of the static layers}. Empty text
     when there are no rule files at all (caller then injects nothing).
     A private session (SESSION_SPLIT_v1) gets the character's private rules and private memory instead of skills,
     work memory and the status badge."""
     if mode == "private":
-        return _private_bundle(character)
+        return _private_bundle(character, history=history)
     # every character alike (TEAM_ROLES_v1): charter + card + held role packs + skills; house memory, own memory,
     # status
-    static = "\n\n".join(t for t in (_rules_text(character), _skills_text(character)) if t)
+    static = "\n\n".join(t for t in (_rules_text(character, history=history), _skills_text(character)) if t)
     if not static:
         return {"text": "", "hash": ""}
     dynamic = [t for t in (_memory_text(), _own_memory_text(character), _status_text()) if t]
