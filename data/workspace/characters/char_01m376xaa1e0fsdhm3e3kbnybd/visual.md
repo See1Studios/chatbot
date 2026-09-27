@@ -54,8 +54,11 @@ Modern anime standard (thin clean lineart, crisp cel shading, no fluff words):
   `gallery/openrouter-box.png`. Chosen: `gallery/openrouter-odango.png`.
 
 ## Sprites
-None in the format yet. The shoulder and waist shots in `data/persona/` (`half`, `wave`, `icon`, 1920x1080, opaque)
-are rough references, not `sprites/bust`. Make `sprites/bust/neutral.webp` from the base look first.
+| Framing | Labels made | Notes |
+|---|---|---|
+| bust | neutral, joy, embarrassment, anger | Derived from `avatar_master.jpg` (I2I, face only after `neutral`). Magenta keyed to alpha. |
+
+Shoulder/waist shots in `data/persona/` (`half`, `wave`, `icon`) stay Hub leftovers, not this format.
 
 ## Rejected
 - Only gel or lighting on the silver hair
