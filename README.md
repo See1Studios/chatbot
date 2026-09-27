@@ -30,6 +30,9 @@ Sphere Hub용 DiskStation 채팅 에이전트 호스트. 캐릭터와 업무·�
 - **모듈별로 돌린다.** 한 프로세스(`unittest discover`)는 몇 모듈이 전역을 되돌리지 않아 실패한다.
 
 ```bash
-for f in tests/test_*.py; do python3 -m unittest tests.$(basename $f .py) >/dev/null 2>&1 || echo "FAIL $f"; done
-python3 -m unittest tests.test_identity_wiring   # 하나만
+./run-tests.sh                      # 전체 (모듈별 한 프로세스, 실패 시 종료 코드 1)
+./run-tests.sh --fast               # 가드 테스트만 (커밋 훅용, 목록은 스크립트 FAST)
+./run-tests.sh test_identity_wiring # 하나만
 ```
+
+테스트를 도는 방법은 `run-tests.sh` 한 곳뿐이다. 훅·위임 러너 게이트·CI도 이 스크립트를 부른다.
