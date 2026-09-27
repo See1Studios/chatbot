@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Chat HTTP host (:3011). Entry: Handler + main.
 
-Siblings (see data/workspace/PROJECT.md Where to edit):
+Siblings (see the code map in AGENTS.md):
   host_config.py  paths/env
   adapters.py     AGENT_ADAPTERS
   session.py      AgentSession / REG  (ctl guard AST-scans this)
