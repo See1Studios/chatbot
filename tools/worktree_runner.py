@@ -25,7 +25,7 @@
      a. 전문가(data/workspace/characters/<id>/ 캐릭터, 역할로 찾음)가 헤드리스로 작업·커밋하고 캐릭터 대사 한마디를 남긴다
         (미커밋 변경은 러너가 대신 커밋, 커밋 author는 제공자 신원)
      b. 기계 게이트: 커밋 존재 -> 범위(--paths 밖 변경 금지) -> 리스 연장 -> 메인 최신화(rebase)
-        -> smoke + 중립성 가드 테스트 (DEFAULT_GATES) + --gate 명령들
+        -> 가드 테스트(run-tests.sh FAST) + smoke + 변경 파일 관련 테스트 (DEFAULT_GATES, related_gate) + --gate 명령들
      c. PD(pd 역할을 가진 캐릭터)가 diff(또는 게이트 실패)를 보고 확인: VERDICT + 대사 + 수정 요청
      d. 게이트 통과 + PASS면 종료, 아니면 수정 요청을 들고 다음 라운드
   4. 통과: 메인에서 git merge --ff-only -> ticket-quick done -> worktree/브랜치 정리
@@ -61,7 +61,32 @@ CHATBOT_REPO = CODE_DIR                              # the repository it works o
 WORKTREE_BASE = Path.home() / ".worktrees" / "chatbot"
 TICKET_QUICK = [sys.executable, str(Path.home() / "bin" / "ticket-quick")]
 # smoke plus the repo-wide guards (design doc §7-9, NAME_NEUTRAL_v1); a few seconds each
-DEFAULT_GATES = ["python3 tests/smoke.py", "python3 tests/test_provider_neutrality.py", "python3 tests/test_identity_wiring.py"]
+def guard_gate(repo: Path) -> Optional[str]:
+    """`./run-tests.sh` over the FAST guard list in run-tests.sh (its SSOT), each module named as a path so that
+    gate_files() protects every guard file: a worker must not be able to change its own pass condition (pew/F)."""
+    try:
+        text = (repo / "run-tests.sh").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(r"^FAST=\((.*?)^\)", text, re.S | re.M)
+    mods = [w for w in (m.group(1).split() if m else []) if re.match(r"^test_\w+$", w)]
+    files = ["tests/%s.py" % w for w in mods if (repo / "tests" / (w + ".py")).is_file()]
+    return "./run-tests.sh " + " ".join(files) if files else None
+
+
+def related_gate(repo: Path, paths: List[str]) -> Optional[str]:
+    """The test modules that belong to the changed files (tests/test_<stem>.py, or a changed test itself). Named
+    without a path on purpose: gate_files() must not lock a test the task is meant to update."""
+    mods = []
+    for p in paths:
+        stem = Path(p).stem
+        name = stem if p.startswith("tests/test_") and p.endswith(".py") else "test_" + stem
+        if (repo / "tests" / (name + ".py")).is_file() and name not in mods:
+            mods.append(name)
+    return "./run-tests.sh " + " ".join(mods) if mods else None
+
+
+DEFAULT_GATES = [g for g in (guard_gate(CHATBOT_REPO),) if g] + ["python3 tests/smoke.py", "python3 tests/test_identity_wiring.py"]
 LEASE_TTL_SEC = 1800          # tickets.LEASE_TTL_SEC: renewed before and after each agent run
 MAX_AGENT_TIMEOUT = 1500
 REVIEW_TIMEOUT = 300
@@ -161,7 +186,10 @@ def gate_files(repo: Path, gates: List[str]) -> List[str]:
             words = shlex.split(cmd)
         except ValueError:
             continue
-        out += [w for w in words if not w.startswith("-") and "/" in w and (repo / w).is_file() and w not in out]
+        for w in words:
+            rel = w[2:] if w.startswith("./") else w   # `./run-tests.sh` is the file run-tests.sh (pew/F)
+            if not w.startswith("-") and "/" in w and (repo / rel).is_file() and rel not in out:
+                out.append(rel)
     return out
 
 
@@ -806,7 +834,7 @@ def cmd_run(args) -> int:
     provider = args.provider
     reviewer = None if args.no_review else (args.reviewer or provider)
     paths = [p.strip() for p in args.paths.split(",") if p.strip()]
-    gates = DEFAULT_GATES + list(args.gate or [])
+    gates = DEFAULT_GATES + [g for g in (related_gate(repo, paths),) if g] + list(args.gate or [])
     result: Dict = {"provider": provider, "reviewer": reviewer, "paths": paths, "merged": False}
     transcript: List[Dict] = []
 

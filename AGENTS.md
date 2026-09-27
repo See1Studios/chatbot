@@ -106,11 +106,12 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Rule | Audience | Enforcer |
 |---|---|---|
 | Work starts from the operator's words or an approved, claimed ticket; claim names the paths | all | `test_tickets` (release refuses dirty paths); `test_unticketed_write` (PE sessions) |
-| Guard tests green before commit (`./run-tests.sh --fast`); full suite before release | all | `.githooks/check_staged.py` (pre-commit; pew/F runner gate, pew/O release gate) |
+| A delegated worker cannot change its own pass condition (guard tests, `run-tests.sh`) | all | `test_worktree_runner` |
+| Guard tests green before commit (`./run-tests.sh --fast`); full suite before release | all | `.githooks/check_staged.py` (pre-commit); `test_worktree_runner` (runner gates: guards + related tests); `test_tickets` (done refused while guards fail) |
 | Conventional Commits subject; `Plan:` trailer when `docs/plans/` changes | all | `test_githooks` (commit-msg hook) |
 | `Ticket:` trailer, own author name | all | manual |
 | No secrets, `.env`, private memory or style references in commits | all | `test_githooks` (pre-commit hook) |
-| Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns; pew/F, pew/O backstops) |
+| Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns); backstops `test_worktree_runner`, `test_tickets` |
 | Data paths only through `host_config` | all | manual (`test_data_paths`, uds/B) |
 | Python module ≤ 1,500 lines; listed ceilings only go down | all | `test_file_sizes` |
 | Page script < 1,000 lines | all | `test_page_scripts` |

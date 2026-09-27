@@ -651,6 +651,23 @@ class ShipGateTest(Base):
         r = tickets.release(self.data, t["id"], c["token"], "done", now=T0)
         self.assertEqual(r["ticket"]["status"], "done")
 
+    def test_done_is_refused_while_the_guard_tests_fail(self):
+        # pew/O: the repo's run-tests.sh --fast is the backstop for a commit that skipped its hooks
+        self.git_init()
+        runner = self.data / "run-tests.sh"
+        runner.write_text('echo "failed: test_x"; exit 1\n', encoding="utf-8")
+        t, c = self.claimed()
+        with self.assertRaises(tickets.TicketError) as cm:
+            tickets.release(self.data, t["id"], c["token"], "done", now=T0)
+        self.assertIn("guard tests fail (failed: test_x)", str(cm.exception))
+        self.assertEqual(tickets.get(self.data, t["id"])["status"], "in_progress")   # lease kept
+        r = tickets.release(self.data, t["id"], c["token"], "gate_failed", now=T0)    # other outcomes still work
+        self.assertEqual(r["ticket"]["status"], "approved")
+        c = tickets.claim(self.data, t["id"], now=T0)
+        runner.write_text("exit 0\n", encoding="utf-8")
+        r = tickets.release(self.data, t["id"], c["token"], "done", now=T0)
+        self.assertEqual(r["ticket"]["status"], "done")
+
     def test_new_claim_is_refused_when_paths_already_have_leftover(self):
         self.git_init()
         (self.data / "host.py").write_text("leftover\n", encoding="utf-8")

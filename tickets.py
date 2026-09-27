@@ -20,6 +20,8 @@ has a small attempt budget, and each file can be worked on by one author at a ti
   by a random token that only the claimer holds (stored hashed).
 - Owner: a ticket an agent opened to do itself (`ticket-quick start`) names its
   `owner`; nobody else may claim it until the operator hands it over (`disown`).
+- Guards (pew/O): `release(done)` is refused while the repo's `run-tests.sh --fast` fails -- the backstop
+  for a commit that skipped its hooks. The lease stays with the caller.
 - Paths: `claim(..., paths=[...])` records repo-relative files. A new claim is
   refused if those paths already have uncommitted leftover. `release(done)` is
   refused until those paths (or a filesystem-looking `target`) are clean in git.
@@ -78,6 +80,7 @@ GATE_FAILURES_ADVICE = 2
 LEASE_TTL_SEC = 1800
 MAX_PROPOSED = 10          # unreviewed proposals; more is a runaway, not a review
 MAX_EVIDENCE = 20
+GUARD_TIMEOUT_SEC = 300    # run-tests.sh --fast before `done` (pew/O); about 11 s on this NAS
 MAX_NOTES = 40
 MAX_PATHS = 20
 OPEN_STATES = ("proposed", "approved", "in_progress", "awaiting_merge")
@@ -343,6 +346,24 @@ def _paths_of(t: Dict) -> List[str]:
     if "/" in tgt and " " not in tgt and not tgt.startswith("/") and ".." not in tgt.split("/"):
         return [tgt]
     return []
+
+
+def _guard_failure(data) -> str:
+    """Why the repo's guard tests fail, or "" (pew/O: the backstop for a commit that skipped its hooks). Runs
+    `run-tests.sh --fast` of the git root that holds `data`; nothing to check without a git root or that script."""
+    root = _git_root(data)
+    runner = root / "run-tests.sh" if root is not None else None
+    if runner is None or not runner.is_file():
+        return ""
+    try:
+        r = subprocess.run(["bash", str(runner), "--fast"], cwd=str(root), capture_output=True, text=True,
+                           timeout=GUARD_TIMEOUT_SEC)
+    except subprocess.TimeoutExpired:
+        return "guard tests timed out after %ds" % GUARD_TIMEOUT_SEC
+    if r.returncode == 0:
+        return ""
+    failed = [l for l in r.stdout.splitlines() if l.startswith("failed:")]
+    return failed[-1] if failed else "run-tests.sh --fast exited %d" % r.returncode
 
 
 def _ship_blockers(data, t: Dict) -> List[str]:
@@ -748,6 +769,11 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
     t_now = _now(now)
     if outcome not in ("done", "gate_failed", "failed", "abandoned", "unavailable", "paused"):
         raise TicketError("outcome must be done, gate_failed, failed, abandoned, unavailable or paused")
+    if outcome == "done":
+        guard = _guard_failure(data)   # before the lock: ~11 s must not hold up everyone else's ticket calls
+        if guard:
+            raise TicketError("cannot mark done: guard tests fail (%s); fix them and release again, "
+                              "the lease is still yours" % guard)
     with _locked(data):
         t = _load(data, ticket_id)
         if not _holds(_read_lease(data, t["id"]), t["id"], token, t_now):

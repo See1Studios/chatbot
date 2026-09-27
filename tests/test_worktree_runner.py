@@ -274,6 +274,21 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(self.run_with(script), 0)
         self.assertEqual((self.repo / "a.txt").read_text(), "good\n")
 
+    def test_guard_and_related_gates_come_from_run_tests_sh(self) -> None:
+        # pew/F: guard files are named as paths (protected by gate_files); related tests are not (a task may edit them)
+        (self.repo / "tests").mkdir(exist_ok=True)
+        for name in ("test_guard", "test_widget"):
+            (self.repo / "tests" / (name + ".py")).write_text("", encoding="utf-8")
+        (self.repo / "run-tests.sh").write_text("FAST=(\n  test_guard\n  test_missing\n)\n", encoding="utf-8")
+        guard = wr.guard_gate(self.repo)
+        self.assertEqual(guard, "./run-tests.sh tests/test_guard.py")
+        self.assertIn("tests/test_guard.py", wr.gate_files(self.repo, [guard]))
+        related = wr.related_gate(self.repo, ["widget.py", "tests/test_guard.py", "none.py"])
+        self.assertEqual(related, "./run-tests.sh test_widget test_guard")
+        self.assertEqual(wr.gate_files(self.repo, [related]), ["run-tests.sh"])
+        # the runner itself is a pass condition: a worker must not be able to edit it (tier 3)
+        self.assertEqual(wr.tier_of(self.repo, "run-tests.sh", wr.gate_files(self.repo, [guard]))[0], 3)
+
     def test_no_review_merges_on_the_gates_alone(self) -> None:
         self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review="exit 9",
                                        extra=("--no-review",)), 0)
