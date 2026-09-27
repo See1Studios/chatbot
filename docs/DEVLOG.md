@@ -1,5 +1,16 @@
 # chatbot 개발로그
 
+## 2026-09-28 — 정적 자산 재검사 + 압축 (STATIC_DELIVERY_v1, #287)
+
+- **배경**: 운영자 요청 — 프런트 로딩/렌더링이 느린 느낌. 추측으로 손대지 않고 층별로 잰다. 데스크톱 브라우저가 이 세션에 연결돼 있지 않아 트레이스를 못 써, 전송 계층을 curl/HTTP로 잰다.
+- **측정 (변경 전)**: 풀 로드 **32개 요청 / 685 KB**. `Cache-Control: no-cache`에 ETag·Last-Modified가 없어서 **새로고침마다 전량 재다운로드**, `?v=` 캐시버스팅이 제 역할을 못 함. 압축은 클라이언트가 gzip을 제시해도 `Content-Encoding`을 안 줌. `HTTP/1.0`(keep-alive 없음). mermaid 3.3MB는 지연 로드라 풀 로드에 없었음.
+- **변경**: 새 모듈 `static_delivery.py`(순수 함수) — ETag(mtime+size, 콘텐츠 해싱 안 함: 3MB 벤더 JS를 요청마다 읽고 해싱할 이유가 없다), If-None-Match(RFC 9110), gzip 협상. `server.py::_send()`가 선택적으로 `etag`/`encoding`을 받고, 정적 텍스트 경로만 넘긴다 → **API 라우트는 완전히 그대로**(테스트로 증명). `Cache-Control: no-cache`는 **의도적으로 유지** — "정적 고치고 새로고침"이 이 저장소의 습관이라 긴 max-age는 편집을 숨긴다.
+- **결과 (동일 자산 32개, 동일 헤더, 격리 인스턴스 2개)**: 첫 방문 **685 KB → 216 KB (−68%)**, 재검사 **685 KB → 0 KB**(32/32 304). gzip level 6 CPU는 685KB 전체에 **47ms**(격리 측정) — 버밀 가치가 압도적. 벽시계 시간은 이 박스에서 신뢰 불가(같은 설정에서 386~1043ms 산포 — 다른 에이전트가 테스트를 돌리는 중). **일타일 변환을 단정하지 않는다.**
+- **남긴 판단**: HTTP/1.1 keep-alive(연결 31회 → 1회)는 아직 안 함. 응답마다 정확한 Content-Length가 필요해 SSE·전체 라우트가 걸리고, 절약预期치가 바이트 절감보다 작다. 별건.
+- **여유**: `server.py` 1499/1500 — **여유 1줄**. 다음 엔드포인트 하나면 가드가 깨진다. `monolith-split.md` `split/B`가 이 파일의 유일한 해법이다.
+- **절차 실패 (자기계정)**: 라이브 서비스가 03:27에 ⚡소생으로 재시작되어 **편집 중인 코드를 그대로 로드했다**(NameError 난 `_send`를 거칠 뻔한 창이 있었다). charter는 "파이썬 모듈 변경은 ⚡을 먼저 알리고, 재시작은 운영자가 동의할 때"를 요구하는데, 알리지 않고 편집했다. 이후 측정은 전부 격리 인스턴스로 옮겼다.
+- **기준선**: 가드 17/17 · 신규 테스트 9/9 · 관련 24/24. ⚡ 반영됨(03:27 재시작).
+
 ## 2026-09-28 — 세션 탭 캐릭터별 탭 (SESSION_CHAR_TABS_v1, #285)
 
 - **배경**: 운영자 요청 — 세션 탭 안에서 캐릭터별로 세션을 탐색. **백엔드 변경 0건**: `/api/sessions`가 이미 모든 행에 `character`·`character_name`을 실어 보내고(`session_registry.py`), 행마다 이름도 이미 찍히 있었다. UI가 데이터 모델을 따라잡은 것.
@@ -214,66 +225,3 @@
 - **검증**: `python3 -m unittest tests.test_private_tension`. 호스트 py 변경 → ⚡소생(repair 우선).
 - **배포**: 새 사적 세션에서 provider=grok / model=grok-4.7 / effort=low 확인. 기존 사적 세션은 메타에 박힌 model·effort 유지.
 
-## 2026-09-24 (밤) — 선택지(choices) UI 독립 작업카드 컨테이너 분리 (OUT_OF_BAND_CHOICES_UI, 티켓 #146)
-
-- **배경**: 실장님 피드백 — 선택지가 대화 말풍선 밑에 달리는 칩 형태가 아니라 작업카드(`work-card`/`ticket-bar`)처럼 입력창 상단의 독립 카드 컨테이너에 표시되도록 UI 개편 요청.
-- **변경**:
-  - `static/index.html`: `workBar`/`ticketBar`와 나란히 입력창 위쪽에 `#choiceBar` 컨테이너 추가.
-  - `static/app.js`: 전역 `choiceBarEl` 요소 바인딩.
-  - `static/chat-panes.css`: `.choice-bar`, `.choice-card`, `.choice-card-head`, `.choice-card-body` 스타일 정의 (반투명 백드롭, 테두리 글로우, 카드 헤더).
-  - `static/markdown.js`: `renderChoiceChips()`를 개편하여 `choiceBarEl`이 존재할 때 독립 `.choice-card`로 렌더링하고, 없으면 기존 마크다운 영역으로 안전 폴백. `syncChoiceChips()`에서 최신 응답 여부에 따라 독립 카드/칩 가시성을 정확히 동기화.
-  - `tests/test_choices_channel.py`: 마크다운 선택지 렌더러가 `#choiceBar` 컨테이너에 카드로 정상 렌더링되는지 검증하는 단위 테스트 추가.
-- **검증**: `tests.test_choice_chips`, `tests.test_choices_channel`, `tests.test_page_scripts` 전체 통과.
-- **배포**: 정적 UI 변경(Tier 0/1)이므로 새로고침(F5)으로 즉시 반영.
-
-## 2026-09-24 (저녁) — 오후 정리와 위임 절차 보강 A·C·D (STABILIZE_v1, DELEGATION_HARDENING_v1, 티켓 #143, #142)
-
-- **배경**: 오후에 여러 에이전트(Hermes, Claude Code 세션 둘, 챗봇 claude·agy)가 같은 저장소를 동시에 고쳤고, #140(선택지 밖 채널 1단계)이 리뷰 시간 초과·불합격으로 두 번 실패. 챗봇이 드러난 구멍을 #142로 모음. 사용자: "난리가 났어… 알아서 해줘".
-- **정리 (#143)**: #130이 커밋을 빠뜨린 `app-messages.js`(액션 말풍선 `✦ …`을 기록 `(…)`로 맞춤)를 살리고 테스트 가짜 DOM에 선택자 목록 지원·사례 추가. 커밋 안 된 티켓 기록 #130–#143, #130의 DEVLOG, 기본 캐릭터 두뇌 변경(claude/opus)을 커밋. `MEMORY.md`는 개인정보라 제외.
-- **보강 (#142 A·C·D)**:
-  - A. 지시문 2,000자 자르기 없앰. claude·codex는 프롬프트를 표준 입력으로(`stdin_prompt`) — 128KB 인자 상한이 없어 리뷰 diff 한도 200KB, 인자로 받는 agy·grok은 36KB 유지. 리뷰 프롬프트는 두뇌마다 그 한도로 만든다.
-  - C. 응답 자체가 없던 실패(한도·시간 초과·CLI 없음)는 `unavailable`로 반납, 티켓이 시도를 돌려준다(티켓당 3번까지). `ticket-quick fail --outcome unavailable`.
-  - D. PD 절차: 작업 하나 = 관심사 하나(대략 파일 몇 개·300줄), 경로는 실제 파일·새 파일은 `creates`, 테스트 포함, 무관한 수정 금지.
-- **B (NEED_PATH_v1, #144)**: 작업자가 범위 밖 파일이 필요하면 `NEED_PATH: 경로 -- 이유`로 멈춘다 → 러너가 작업을 보존하고 `paused`로 반납(시도 반환, 횟수 제한 없음 — 재개는 실장님만). 작업 카드 "경로 요청"에 파일·이유와 [경로 허용]·[폐기]. 허용하면 경로 검사(Tier 3·없는 폴더 거절) 후 그 작업에 더해 보존된 브랜치에서 다시 실행.
-- **#140 1a (OUT_OF_BAND_CHOICES_v1)**: 선택지 표식을 서버(`finalize_turn`, 모든 프로바이더 공통)가 답에서 떼어 `choices` 필드로 기록·전송. 기록·CLI·에이전트 맥락에 표식이 남지 않고, 화면은 그 값으로 버튼을 그림. #140의 나머지(`choices` 도구·`action` 이벤트·티켓 바 직접 실행)는 계획서 1단계에 남김. agy 리뷰어는 도구를 끌 수 없으니 PD 두뇌 목록에서 claude를 앞에.
-
-## 2026-09-24 — 사적 모드 액션 선택지 · 직접 행동 입력 · 표정 연동 · 속마음 연출 (PRIVATE_INTERACTION_v1, 티켓 #130)
-
-- **배경**: 실장님 제안 — `character-chat` 서비스의 검증된 상호작용 메커니즘을 참고하여 See1 챗봇 규격에 맞게 흡수 및 리네이밍. 지문/대사 분리, 표정 태그 연동, 속마음 토글 박스, 액션 선택지 및 직접 행동 전달 방식 구현.
-- **변경**:
-  - 표정 태그 연동 (`static/markdown.js`, `static/chat-log.css`): 응답 헤더의 `[expression: neutral|joy|shy|serious|sorrow|tired]`를 파싱해 메시지 상단에 감정 뱃지(`.exp-badge`)로 렌더링하고 마크다운 본문에서는 깔끔하게 제거.
-  - 속마음 독백 연출 (`static/markdown.js`, `static/chat-log.css`): SimCore `state` JSON 블록의 `thought` 및 `<thought>` 태그를 본문에서 분리, 하단에 '속마음 보기' 토글 버튼(`.thought-toggle`)과 독백 상자(`.thought-box`)로 연출.
-  - 액션 선택지 (`static/markdown.js`, `static/chat-log.css`): `<!--choices: 라벨 -> 행동 | ...-->` 화살표 구문 파싱 지원, 선택지 버튼에 `✦ ` 및 `.choice-action` 스타일 적용, 클릭 시 사용자 말풍선 없이 즉시 지문 액션 발송.
-  - 직접 행동 입력 (`static/app.js`, `static/slash.js`, `static/app-messages.js`): `/act <행동>` 슬래시 명령어 등록 및 `sendAction()` 연동. 사용자 입력창에서 행동 전달 시 대화 말풍선 대신 지문(`.msg.action`)으로 표시하고 모델에는 `(<행동>)` 지문으로 전달.
-- **검증**: `tests/test_choice_chips.py` 8개 테스트 전체 통과(액션 선택지, 표정, 속마음, 화살표 구문), `tests/test_page_scripts.py` 4개 통과(1,000줄 미만 유지), `tests/smoke.py` 및 관련 테스트 전체 통과.
-- **배포**: 정적 UI 자산이므로 브라우저 새로고침(Ctrl+Shift+R / F5)으로 즉시 적용.
-
-## 2026-09-24 (오후) — 세션 조회 캐시 · 파일 단위 잠금 · 테스트 기준선 · app.js 분리 (SESSION_INDEX_v1 … APP_SPLIT_v1, 티켓 #113–#117)
-
-- **배경**: 사용자 "전체적으로 반응이 나빠진 것 같아"; 이번 대화에서 드러난 불편(잠금 하나에 다른 작업이 막힘, 막힌 [진행]이 조용히 실패, 남의 티켓에 버튼) 1–3번 개선 승인; "리팩토링 한 번 해야 하지 않을까?" → 추천안(안전망 → app.js → session.py) 승인.
-- **변경**:
-  - 반응성: 페이지가 2.5초마다 묻는 최신 세션 조회가 `meta.json` ~320개(2.8MB)를 매번 전부 읽었다(REG.lock 안, p50 174ms). 파일별 요약 캐시(수정 시각·크기)로 실서버 7ms, 목록 4ms (#113; 챗봇 위임 1차는 20분 제한으로 실패 — 증상 없는 티켓, 없는 파일 경로).
-  - 잠금 (#115): 파일 단위 잠금 `leases.json`(겹칠 때만 대기, 파일을 안 적으면 전체), 막힌 이유 `blocked_by` 표시, [실행] 대기열(파일이 풀리면 서버가 시작, [대기 취소]), 담당자 `owner`(`ticket-quick start`로 연 티켓은 그 에이전트만; [담당 해제]), 상위 폴더부터 적은 경로를 저장소 기준으로 맞춤. `~/bin/ticket-quick`에 `claim`.
-  - 테스트 기준선 (#116): 오래 실패하던 4개를 현재 동작에 맞춤. 덤: 중지 후 agy의 "interrupted"가 에러 공지로 남던 버그.
-  - app.js 분리 (#117): 6,197줄 → 931줄 + 13개 부분, 로드 순서 가드 테스트. `PROJECT.md`의 "더 쪼개지 말 것" 지침을 새 지도로 교체.
-  - session.py 분리 (#118): 세션 목록·조회를 `session_registry.py`(297줄)로, `session.py` 2,601 → 2,335줄. 이름은 `session`에서 그대로 다시 내보냄.
-  - 위임 명확화 (#119): 계획의 `paths`는 실제 파일만(없으면 가장 가까운 실제 파일을 알려 주며 거절), 새 파일은 `creates`. 작업 카드에 라운드 시계(12:30/20:00)와 바뀐 파일 수, 시간 초과는 "timed out after Ns". 위임 중 채팅 배지는 "루루 작업 중 · mm:ss".
-  - 에이전트 중심 구조 (#120–#122): DEVLOG 401→29KB(지난 날짜 `docs/devlog/`), `docs/plans/INDEX.md`, README는 입구만(지도는 PROJECT.md 하나), 사적 세션 지침 7.6→4.2KB(헌장은 앞머리+Scope, 전환 규칙은 호스트 안내 한 곳, 카드 규칙 영어), `adapters.py` 프로바이더별 분리(#122), `providers/` 폴더 시범과 보호 누락 수정(#123), `chat.css` 여섯 조각(#124), 문서·파일 크기·보호 가드 테스트.
-- **검증**: 모든 테스트 모듈 개별 실행 통과(이전 실패 4개 포함). 한 프로세스 `discover`는 전역 누수로 ~40개 실패 — 규칙은 모듈별 실행, 격리는 별도 작업.
-- **배포**: repair 3회(유휴 3연속 확인 후). app.js 분리는 정적 파일만(새로고침).
-- **남은 것**: 테스트 격리(한 번 test_delegation·test_mcp_server가 개별 실행에서도 실패했다가 재실행 3회는 통과 — 원인 미상),.
-
-## 2026-09-24 — 캐릭터 선택기 · 이미지 형식 · 역할 팩 · 개선 히스토리 (CHARACTER_PICKER_v1 … AVATAR_BASE_PATH_v1, 티켓 #102–#112)
-
-- **배경**: 사용자 결정 — 왼쪽 위는 캐릭터 선택, 프로바이더는 이름을 눌러 고름(캐릭터마다 마지막 두뇌 기억). 이미지 에이전트가 따를 형식이 필요하고, 전신·표정도 같은 형식으로 만들 수 있게 한다(데스크톱 모드는 먼 구상). "모든 캐릭터는 동등하다 — PD는 PD 지침과 PD 스킬셋으로 정해진다."
-- **변경**:
-  - 캐릭터 선택기: 아바타 = 캐릭터 트레이, 프로바이더 이름 = 두뇌 트레이. 캐릭터를 고르면 그 캐릭터의 같은 모드 최신 세션(없으면 카드의 첫 두뇌로 새 세션) (#102).
-  - 이미지 형식 `character-art` 스킬 + `tools/check_character_art.py`: 아바타 512·가발, 투명 스프라이트 `bust` 1024²·`full` 1024×2048(SillyTavern 표정 이름표, `neutral` 먼저), `visual.md` 외형 락 (#103).
-  - 역할 팩: 카드에는 역할이 없다. `roles/<role>/role.md`(매 턴, `tools`·`skills`) + `procedure.md`(필요할 때), `team.json`(`default`, `members`). 도구 권한 `delegate`·`house-memory`는 역할 팩이 준다(PD 팩만 가짐). `memory/MEMORY.md`는 집 공용 기억, 캐릭터마다 자기 `memory.md`. 팀 탭은 캐릭터를 똑같이 보여 주고 `[역할]`로 편성 (#104–#105). 루루 카드·그림은 챗봇이 직접 (#106–#107).
-  - 개선 탭: "오늘 처리" 대신 처리된 관찰 전체를 10개씩 페이지로 (#108).
-  - 그림 주소에 `BASE_PATH`와 파일 시각 버전, 선택기는 열 때마다 목록 새로 읽음, 프로바이더 트레이·채팅 배경도 열린 캐릭터 기준. 배경은 형식에 추가: `stage.webp`·`stage/<provider>.webp` 1024² (#109).
-  - 챗봇 직접: 냥피디 → 냥냥 이름 변경(#110), 옛 `role` 스킬 폴더 삭제(#111–#112).
-- **사고**: 세션 캐릭터 이전(#105)이 `meta.json` 312개를 다시 쓰면서 수정 시각이 모두 같아져 세션 목록 순서가 뒤섞임(사용자 "세션이 꼬여서…"). `updated_at`으로 311개 복구, 이전 코드는 수정 시각을 보존하게 고침.
-- **검증**: 새 테스트 test_character_picker(`BASE_PATH` 가드 포함)·test_character_art·test_team_roles·test_observation_history 통과, 전체 실패 목록은 작업 전과 같음. 실서버에서 선택기·가발·배경·역할 편성 확인.
-- **배포**: repair는 모두 유휴 3연속 확인 후. 헌장·`protected_paths.json`이 바뀌어 `evolution.py manifest-update`는 사용자 몫.
-- **남은 것**: 카드 가져오기·내보내기, §11 5단계(PD의 영입 제안), 냥냥 이미지를 `data/persona/`에서 캐릭터 폴더로. 작성자 잠금이 하나라 사람이 티켓을 쥐면 챗봇 위임이 막힘.

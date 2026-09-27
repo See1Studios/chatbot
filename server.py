@@ -61,6 +61,7 @@ import obslog
 import evolution
 import identity
 import origin_guard
+import static_delivery
 
 try:  # worktree delegation (work cards, [맡겨]/[병합·⚡]); the page still loads without it
     from delegation import delegation_api
@@ -367,12 +368,30 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
-    def _send(self, code: int, body: bytes, content_type: str, cache_control: str = "no-store") -> None:
+    def _send(self, code: int, body: bytes, content_type: str, cache_control: str = "no-store",
+              etag: str = "", encoding: str = "") -> None:
+        # STATIC_DELIVERY_v1 (static_delivery.py): a revalidating client gets 304 with no body, and a
+        # gzip-capable one gets the body compressed. Both are opt-in per call, so the API routes
+        # that pass neither keep exactly the behaviour they had.
+        if etag and static_delivery.if_none_match(self.headers.get("If-None-Match"), etag):
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", cache_control)
+            self.send_header("Vary", "Accept-Encoding")
+            self.end_headers()
+            return
+        if encoding:
+            body = static_delivery.compress(body)
         self.send_response(code)
         self._cors()
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", cache_control)
+        if etag:
+            self.send_header("ETag", etag)
+            self.send_header("Vary", "Accept-Encoding")
+        if encoding:
+            self.send_header("Content-Encoding", encoding)
         self.end_headers()
         self.wfile.write(body)
 
@@ -759,6 +778,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             return self._send(404, b"not found", "text/plain")
         data = fp.read_bytes()
         ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
+        etag = static_delivery.etag_for(fp)
+        gz = static_delivery.negotiate(self.headers.get("Accept-Encoding"), ctype, len(data))
         if rel.endswith(".html") or rel == "index.html":
             ctype = "text/html; charset=utf-8"
             if rel == "index.html":
@@ -768,13 +789,13 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 data = data.replace(
                     b"<!--IDENTITY-->",
                     ("<script>window.__IDENTITY__=" + identity.script_json() + ";</script>").encode("utf-8"), 1)
-            return self._send(200, data, ctype, cache_control="no-cache")
+            return self._send(200, data, ctype, cache_control="no-cache", etag=etag, encoding=gz)
         elif rel.endswith(".js"):
             ctype = "application/javascript; charset=utf-8"
-            return self._send(200, data, ctype, cache_control="no-cache")
+            return self._send(200, data, ctype, cache_control="no-cache", etag=etag, encoding=gz)
         elif rel.endswith(".css"):
             ctype = "text/css; charset=utf-8"
-            return self._send(200, data, ctype, cache_control="no-cache")
+            return self._send(200, data, ctype, cache_control="no-cache", etag=etag, encoding=gz)
         elif rel.lower().endswith((".png", ".webp", ".jpg", ".jpeg", ".svg", ".ico", ".woff", ".woff2")):
             return self._send(200, data, ctype, cache_control="public, max-age=86400")
         return self._send(200, data, ctype)
