@@ -144,6 +144,14 @@
 .session-row-preview{font-size:.85rem;color:var(--text);opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .session-import-btn{display:inline-flex;align-items:center;gap:.3rem;background:none;border:1px solid var(--border);color:var(--accent2);border-radius:8px;padding:.2rem .55rem;font-size:.75rem;cursor:pointer;white-space:nowrap;transition:all .15s ease}
 .session-import-btn:hover{border-color:var(--accent2);background:var(--accent-soft)}
+/* SESSION_CHAR_TABS_v1: one tab per character above the session list. Same chip idiom as the
+   team-role chips in chat-features.css, so it reads as part of the same surface. Hidden until
+   there is more than one character to choose between. */
+.session-char-tabs{display:none;gap:.35rem;flex-wrap:wrap;align-items:center;margin:.45rem 0 .1rem}
+.session-char-tabs.on{display:flex}
+.session-char-tab{background:rgba(0,0,0,.15);border:1px solid var(--border);color:var(--muted);border-radius:999px;padding:.15rem .55rem;font-size:.75rem;cursor:pointer;white-space:nowrap;transition:all .15s ease}
+.session-char-tab:hover{border-color:var(--accent2);color:var(--accent2)}
+.session-char-tab.on{border-color:var(--accent-border);background:var(--accent-soft);color:var(--accent2);font-weight:600}
 .scrollback-marker{text-align:center;font-size:.78rem;color:var(--muted);padding:.5rem 0;display:flex;align-items:center;justify-content:center;gap:.5rem}
 .art-loading-marker{grid-column:1/-1;text-align:center;font-size:.78rem;color:var(--muted);padding:.5rem 0}
 .status-toolbar{display:flex;justify-content:flex-end}

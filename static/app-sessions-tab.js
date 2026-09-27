@@ -20,24 +20,108 @@ async function fetchSessionsList(retryCount = 0) {
   }
 }
 
+// SESSION_CHAR_TABS_v1 (2026-09-28): browse the session list per character. No backend change --
+// /api/sessions already carries `character` and `character_name` on every row (session_registry.py)
+// and every row already printed the name, so this only groups what the list was already showing.
+// sessionCharacterLabel is the one resolver both the tab strip and the row go through, so a tab
+// and its rows can never disagree about who a character is.
+var SESSION_CHAR_TABS_KEY = 'pe_session_char_tabs';
+var sessionCharFilter = localStorage.getItem(SESSION_CHAR_TABS_KEY) || '';
+var sessionListCache = [];
+const sessionCharTabsEl = document.getElementById('sessionCharTabs');
+
+function sessionCharacterLabel(s) {
+  // PRODUCT Brand Commitments: the card owns the name. Live catalog first, then what the server
+  // resolved, then the bare id. A session with no character is the team default.
+  const id = (s && s.character) || '';
+  const c = characterCatalog.find(x => x.id === id);
+  if (c && (c.name || c.title)) return c.name || c.title;
+  if (s && s.character_name) return s.character_name;
+  return id ? id.slice(0, 10) : '기본'; // l10n-ok
+}
+
 function sessionRowWho(s) {
   if (!s || !s.character) return '';
-  const c = characterCatalog.find(x => x.id === s.character);
-  return (c ? c.name : s.character.slice(0, 10)) + ' · ';
+  return sessionCharacterLabel(s) + ' · ';
+}
+
+function sessionCharacterGroups(visible) {
+  // The "all" group first, then one group per character in catalog order (the order team.json
+  // sets), then anything left over sorted by name, so the strip does not reshuffle as counts change.
+  // Counts come from `visible`, not the raw list, so a tab's number always matches the rows under it.
+  const seen = new Map();
+  visible.forEach(s => {
+    const id = (s && s.character) || '';
+    if (!seen.has(id)) seen.set(id, { id: id, label: sessionCharacterLabel(s), count: 0 });
+    seen.get(id).count++;
+  });
+  const order = characterCatalog.map(c => c.id).filter(id => seen.has(id));
+  const rest = Array.from(seen.keys()).filter(id => order.indexOf(id) < 0)
+    .sort((a, b) => seen.get(a).label.localeCompare(seen.get(b).label, 'ko'));
+  return [{ id: '', label: '전체', count: visible.length }] // l10n-ok
+    .concat(order.concat(rest).map(id => seen.get(id)));
+}
+
+function setSessionCharFilter(id) {
+  sessionCharFilter = id || '';
+  try { localStorage.setItem(SESSION_CHAR_TABS_KEY, sessionCharFilter); } catch (_) {}
+}
+
+function renderSessionCharTabs(groups) {
+  if (!sessionCharTabsEl) return;
+  // groups[0] is always the "all" group, so fewer than three entries means a single character --
+  // and then the strip offers a choice between a list and itself. Stay out of the way.
+  if (groups.length < 3) {
+    if (sessionCharFilter) setSessionCharFilter('');   // a leftover filter for a strip we are hiding
+    sessionCharTabsEl.innerHTML = '';
+    sessionCharTabsEl.className = 'session-char-tabs';
+    return;
+  }
+  sessionCharTabsEl.className = 'session-char-tabs on';
+  sessionCharTabsEl.innerHTML = '';
+  groups.forEach(g => {
+    const on = g.id === sessionCharFilter;
+    const b = document.createElement('button');
+    b.className = 'session-char-tab' + (on ? ' on' : '');
+    b.setAttribute('type', 'button');
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    b.setAttribute('data-char-id', g.id);
+    b.textContent = g.label + ' (' + g.count + ')';
+    b.addEventListener('click', () => {
+      if (sessionCharFilter === g.id) return;
+      setSessionCharFilter(g.id);
+      renderSessionsList(sessionListCache);
+    });
+    sessionCharTabsEl.appendChild(b);
+  });
 }
 
 function renderSessionsList(sessions) {
   if (!sessionsListEl) return;
+  sessionListCache = sessions || [];
   sessionsListEl.innerHTML = '';
   // Hide empty throwaway sessions (e.g. repeated "새 세션" clicks nobody
   // typed into) -- they clutter the list with nothing useful to open --
   // but never hide the one currently open, even if it happens to be empty.
-  const visible = sessions.filter(s => s.preview || s.id === sessionId);
+  const visible = sessionListCache.filter(s => s.preview || s.id === sessionId);
   if (!visible.length) {
+    renderSessionCharTabs([]);
     sessionsListEl.innerHTML = '<div class="status-hint">세션이 없습니다.</div>';
     return;
   }
-  visible.forEach(s => {
+  const groups = sessionCharacterGroups(visible);
+  // A filter whose character has no sessions left (all of them deleted) must not blank the list.
+  if (!groups.some(g => g.id === sessionCharFilter)) setSessionCharFilter('');
+  renderSessionCharTabs(groups);
+  const shown = sessionCharFilter
+    ? visible.filter(s => ((s && s.character) || '') === sessionCharFilter)
+    : visible;
+  if (!shown.length) {
+    sessionsListEl.innerHTML = '<div class="status-hint">이 캐릭터의 세션이 없습니다.</div>'; // l10n-ok
+    return;
+  }
+  shown.forEach(s => {
     const isCurrent = s.id === sessionId;
     const item = document.createElement('div');
     item.className = 'status-item session-row' + (isCurrent ? ' current' : '');

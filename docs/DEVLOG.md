@@ -1,5 +1,15 @@
 # chatbot 개발로그
 
+## 2026-09-28 — 세션 탭 캐릭터별 탭 (SESSION_CHAR_TABS_v1, #285)
+
+- **배경**: 운영자 요청 — 세션 탭 안에서 캐릭터별로 세션을 탐색. **백엔드 변경 0건**: `/api/sessions`가 이미 모든 행에 `character`·`character_name`을 실어 보내고(`session_registry.py`), 행마다 이름도 이미 찍히 있었다. UI가 데이터 모델을 따라잡은 것.
+- **변경**: `static/index.html`(목록 위 `sessionCharTabs`), `static/chat-panes.css`(칩 아이iom — `chat-features.css`의 팀-role 칩과 같은 문법), `static/app-sessions-tab.js`(그룹·필터·스트립). 라벨 해석은 `sessionCharacterLabel` **하나**로 묶어 탭과 행이 서로 다른 이름을 쓰지 못하게 했다. 카탈로그 순서 → 카탈로그에 없는 캐릭터는 이름순, 개수는 이미 숨겨진 빈 세션을 뺀 값. 선택은 `localStorage`에 남고, 그 캐릭터의 세션이 다 없어지면 `전체`로 되돌아온다. 캐릭터가 하나뿐이면 스트립을 내린다(선택지가 하나뿐인 선택지).
+- **테스트**: `tests/test_session_character_filter.py` 9개 — 번들에서 실제 함수를 잘라 스텁 DOM으로. 변이 2종(필터 무효화, 카탈로그 조회 제거) 모두 실패 확인.
+- **테스트가 잡은 버그**: 캐릭터 1명인데도 `전체` 탭 때문에 스트립이 올라오던 것. `groups.length < 3`으로 고침.
+- **비용**: 정적 변경뿐 — ⚡소생 불필요, 브라우저 새로고침이면 된다.
+- **참고**: `static/*` 세 파일이 l10n 래칫 한계(17/17·110/110·9/9)에 딱 걸려 있어 새 한국어 줄은 전부 `l10n-ok`. 이 문자열들은 `localization.md l10n/C`의 카탈로그 이관 대상.
+- **기준선**: 가드 16/16, 신규 테스트 9/9.
+
 ## 2026-09-28 — 구조 부채 실측: monolith-split Phase 6 (문서만, #283)
 
 - **배경**: 운영자 요청 — 리팩터링 지점 탐색. 규칙(`test_file_sizes`·`test_page_scripts`·래칫)이 이미 통과하는 트리에 남는 부채만 잰다.
