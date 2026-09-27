@@ -1,5 +1,17 @@
 # chatbot 개발로그
 
+## 2026-09-27 (밤) — 파이프라인 토대: 기준선 93→98 녹색, 루트 AGENTS.md, 가드 테스트 (pew/N·C·D, #255–#264)
+
+- **배경**: [plan-execution-workflow.md](plans/plan-execution-workflow.md) 토대 단계. 운영자 결정: 계획 절차 D1–D8, 현지화 D1–D7, 사적 세션 두뇌 규칙 (a).
+- **pew/N 기준선 녹색화 (#255–#261)**: 낡은 UI 하네스 9개 갱신(#153·#176·#196·#211·#243 이후), 관찰 0088–0090 머리말, 사적 세션은 카드 `brains.private` → 없으면 사용자가 쓰던 두뇌(#240의 work 폴백 제거), `server.py` 1,611→1,478줄(`emotion.py`·`card_upload.py`, 감정 감지 테스트 신설), 헌장·사적 규칙 묶음 예산 안으로(공용 5,504→4,767 B, 사적 6,184→~4,576 B, 테스트 고정 문구 유지), `session.py` 2,477→2,298줄(`turn_watchdog.py`).
+- **#263**: OpenRouter `/models` 실패를 60초 기억 — 연결이 막히면 `/api/providers`가 30초 걸려 `test_identity_wiring` 시간 초과.
+- **pew/C (#262)**: 루트 `AGENTS.md` = 엔진 개발 단일 입구(정본 지도·코드 지도·하네스·작업 절차·규칙 레지스트리, "아키텍처 책임자" 역할). `CLAUDE.md`/`GEMINI.md`는 포인터. `data/workspace/AGENTS.md`는 챗 에이전트 헌장 그대로, `PROJECT.md`는 챗 에이전트 절차만.
+- **pew/D (#264)**: `test_entrypoints`·`test_rule_registry`·`test_plans_index`·`test_doc_refs`(`--fast`), 기존 줄 번호 참조 18곳을 `path::symbol`로. 각 가드는 규칙을 일부러 어겨 실패를 확인.
+- **조사**: agy 오류는 구글 쪽 재시도가 출발점이나, #253 전에는 우리 QUOTA_FAILFAST(8초)가 18/18을 닫음. #253 후 14/17 회복. 관찰 0091, 2026-09-28 재집계.
+- **계획**: [localization.md](plans/localization.md) 신설(1차 ko+en, 2차 ja·zh-Hans, 래칫 가드 먼저).
+- **배포**: N4·server/session 분할·사적 규칙은 23:07 소생으로 반영. #263·pew/C 설명문은 다음 소생 때.
+- **기준선**: `./run-tests.sh` 98/98.
+
 ## 2026-09-27 — 테스트 단일 진입점 `run-tests.sh` + DEVLOG 크기 복구 (pew/B, #254)
 
 - **배경**: [plan-execution-workflow.md](plans/plan-execution-workflow.md) 토대 1단계. 테스트를 도는 방법이 README 루프뿐이라 아무도 돌리지 않았고, 가드 테스트가 깨진 채 방치됨(P8·P12).
