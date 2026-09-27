@@ -55,7 +55,7 @@ BRAIN = HOME / ".gemini" / "antigravity-cli" / "brain"
 # sessions/<sid>/artifacts/ instead (see _stage_image).
 ARTIFACTS_CACHE = SESSIONS / "_shared"
 # Event kinds worth keeping durable (sessions/<sid>/events.jsonl) for both
-# 실장님's 로그 tab history and the self-improve loop's own debugging --
+# operator's 로그 tab history and the self-improve loop's own debugging --
 # excludes the high-frequency streaming noise (delta/raw/agy/stderr/user)
 # that would otherwise make the log unbounded for no real signal.
 PERSISTED_LOG_KINDS = {

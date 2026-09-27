@@ -153,7 +153,7 @@ function attachFileLinkInterceptors(container) {
 
 // Quick-reply chips. The agent ends a question with one line
 //   <!--choices: 보기A | 보기B | 보기C-->
-// (실장님: "의견을 물을 때 마지막에 선택지 버튼"). The marker never shows as text:
+// (operator: "의견을 물을 때 마지막에 선택지 버튼"). The marker never shows as text:
 // it is cut from the rendered/copied body, including a half-streamed one, and
 // becomes buttons once the message is final. '|' instead of JSON so a stray
 // quote from the model cannot break it.
@@ -691,7 +691,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     highlightCodeIn(node);
     // Client-side system notices (/help, /status, /clear, stop confirmation)
     // reuse the assistant bubble's markdown rendering but aren't real LLM
-    // replies -- no token badge / copy / TTS chips belong on them (실장님:
+    // replies -- no token badge / copy / TTS chips belong on them (operator:
     // "시스템 메시지는 복사 스피커 등 추가 칩을 없애고 간결하게").
     if (!skipFooter) attachMessageFooter(node, rawText, usage, durationSeconds, servedModel);
   }

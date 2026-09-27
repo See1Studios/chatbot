@@ -256,7 +256,7 @@ class AgyAdapter(AgentAdapter):
                         "notice": "error",
                         "text": (
                             f"에이전트가 답을 내기 전에 턴이 끝났습니다 ({why}). "
-                            "남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다냥."
+                            "남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다."
                         ),
                     }
                     events.append(extra)

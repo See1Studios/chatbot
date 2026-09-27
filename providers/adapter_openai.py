@@ -629,4 +629,4 @@ class OpenAIDialectAdapter(AgentAdapter):
             )
             yield out
             return
-        yield {"event": "error", "text": f"툴 호출이 {self.MAX_TOOL_HOPS}회를 넘어 강제 종료했습니다냥."}
+        yield {"event": "error", "text": f"툴 호출이 {self.MAX_TOOL_HOPS}회를 넘어 강제 종료했습니다."}

@@ -401,7 +401,7 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
     padding:.35rem .45rem calc(max(.35rem, env(safe-area-inset-bottom)));
     gap:.35rem;
   }
-  /* 모바일 헤더: 냥피디 + 제공자명 세로 스택, 오른쪽 위젯은 고정 */
+  /* 모바일 헤더: 캐릭터 이름 + 제공자명 세로 스택, 오른쪽 위젯은 고정 */
   header{
     display:flex;
     flex-wrap:nowrap;
@@ -578,7 +578,7 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
   }
   /* Stop lives on the answering bubble now — do not inherit the
      composer 44px #stopBtn size, which overflowed the footer and
-     got clipped by #log's overflow-x:hidden (실장님: 모바일에서 중지
+     got clipped by #log's overflow-x:hidden (operator: 모바일에서 중지
      버튼이 잘려 보임). */
   .msg-footer .turn-stop-btn, #stopBtn.turn-stop-btn{
     height:32px;

@@ -1237,7 +1237,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         try:
             # Recycle idle SSE sockets after 15 min so leaked mobile
             # connections die. Do NOT cut a busy turn — a tablet sitting
-            # on a long job used to hit this wall, show "연결이 끊겼다냥",
+            # on a long job used to hit this wall, show "연결이 끊겼다",
             # and leave the other phone with no live stream at all.
             idle_until = _now() + 900
             emotions = emotion.Tracker()

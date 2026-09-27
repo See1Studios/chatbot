@@ -82,7 +82,7 @@ def check(session, tool: str, params: Optional[dict], root: Path) -> None:
     if not rel or rel in warned:
         return
     warned.add(rel)
-    session._emit({"event": "system", "text": f"⚠ 티켓 없이 {rel} 파일을 고쳤습니다. 승인된 티켓을 claim한 뒤 작업해야 합니다냥.",
+    session._emit({"event": "system", "text": f"⚠ 티켓 없이 {rel} 파일을 고쳤습니다. 승인된 티켓을 claim한 뒤 작업해야 합니다.",
                    "evidence": {"rule": "unticketed_write", "tool": tool, "path": rel}})
     if evolution is not None:
         evolution.record_candidate(session._observation_root(), "unticketed_write", session.sid, session.provider,

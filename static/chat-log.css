@@ -77,7 +77,7 @@
      switch, scrollback prepend), not a user-facing smooth-scroll gesture.
      `smooth` animates the setter itself in Chrome/Firefox, so those
      corrections raced each other and could settle mid-animation instead
-     of at the intended position (실장님: "새 세션을 누르면 최근 대화로
+     of at the intended position (operator: "새 세션을 누르면 최근 대화로
      스크롤되지 않고 중간 지점에 스크롤이 이동"). */
   /* overflow-anchor:none -- loadOlderHistory() already manually restores
      scroll position after prepending older history

@@ -159,7 +159,7 @@ class TurnWatchdog:
             idle = max(idle, _now() - float(last))
         err = (
             f"응답이 오랫동안 없어 턴을 닫았습니다(무응답 {int(idle)}초). "
-            "남은 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다냥."
+            "남은 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다."
         )
         try:
             out = self.adapter.finalize_turn(

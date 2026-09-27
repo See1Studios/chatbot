@@ -110,7 +110,7 @@ def _fetch_codex_rate_limits(executable: str) -> dict:
 
 class CodexAdapter(AgentAdapter):
     """Multi-Provider plan Phase 3. Originally scoped "design only, codex not
-    installed" -- 실장님 installed codex-cli 0.154.0 on this host mid-Phase-2,
+    installed" -- operator installed codex-cli 0.154.0 on this host mid-Phase-2,
     so this got the same live-verification treatment as claude/grok instead
     of staying a paper design.
 

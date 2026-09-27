@@ -6,7 +6,7 @@ function autoResizeInput() {
   // Min/max come from the stylesheet (#input, the <=640px block, the keyboard/short-screen block), so
   // this can't drift from it again. It used to keep its own 38/42 and 90/120: the input was 38px
   // while the CSS said 36 (32 with the keyboard up) and the buttons next to it were 44 (32), and it
-  // fell back to the CSS value after a slash command cleared the inline height. (실장님: 하단 위젯들
+  // fell back to the CSS value after a slash command cleared the inline height. (operator: 하단 위젯들
   // 높이가 상황에 따라 조금씩 다름.)
   const cs = window.getComputedStyle(inputEl);
   const minH = parseFloat(cs.minHeight) || 42;
@@ -65,7 +65,7 @@ function isKeyboardTransitioning() {
 // Is the on-screen keyboard (probably) up? A short viewport says so on any device. "The input has focus"
 // only says so when there IS an on-screen keyboard -- i.e. a touch device. On a desktop FAB (an iframe
 // 420px wide) it used to count too: clicking the text box shrank the row and hid the header, tabs and
-// model button, with a mouse and a physical keyboard. (실장님: FAB 텍스트창 높이가 달라 / 포커스하면 레이아웃이 흔들려.)
+// model button, with a mouse and a physical keyboard. (operator: FAB 텍스트창 높이가 달라 / 포커스하면 레이아웃이 흔들려.)
 function keyboardOpenState(narrow, short, focused, touch) {
   return Boolean(narrow && (short || (focused && touch)));
 }

@@ -128,9 +128,9 @@ const statusRefreshBtn = document.getElementById('statusRefreshBtn');
 
 // Compact mode (?compact=1): this exact same page, embedded in a small
 // iframe from the Hub FAB popup, instead of maintaining a second ~950-line
-// FAB-only implementation that drifts out of sync with this one (실장님:
+// FAB-only implementation that drifts out of sync with this one (operator:
 // "본체의 compact한 버전이니까" -- share everything, design/layout only
-// differs). Keeps 대화/아티팩트/로그/세션 (실장님: "위에 공간이 많이 남았으니
+// differs). Keeps 대화/아티팩트/로그/세션 (operator: "위에 공간이 많이 남았으니
 // 로그도 노출해도 될 것 같네" / "아티팩트도" -- there's headroom for them
 // after all), drops only 상태 (host-admin, not a casual-popup concern), the
 // "← Hub" link (meaningless inside an iframe already sitting on
@@ -430,7 +430,7 @@ async function send(opts) {
     logEl.innerHTML = '';
     activityEvents = [];
     if (activityEl) activityEl.innerHTML = '';
-    addNotice('ok', '대화 로그를 깨끗하게 비웠습니다냥.');
+    addNotice('ok', '대화 로그를 깨끗하게 비웠습니다.');
     syncSessionActions();
     updateSendButton();
     return;
@@ -505,14 +505,14 @@ async function send(opts) {
     const hadUser = currentSessionHasUser;
     addChat('user', '/help', false);
     addNotice('help',
-      IDENTITY.title + ' 사용법 요약이다냥.\n\n' +
+      IDENTITY.title + ' 사용법 요약입니다.\n\n' +
       '**탭** (숫자는 `Alt+숫자`로 바로 전환)\n' +
       '- `Alt+1` 대화 · `Alt+2` 세션 · `Alt+3` 로그 · `Alt+4` 아티팩트 · `Alt+5` 상태 · `Alt+6` 개선\n\n' +
       '**어디서나 되는 것**\n' +
       '- `/` 키: 바로 컴포저로 이동해서 슬래시 메뉴 열기\n' +
       '- 헤더의 `⋯` 버튼: 테마 색상 선택, 호스트 소생(repair)\n' +
-      '- 대화가 한 턴 이상이면 채팅창 아래에 새 대화·이어가기 버튼이 뜬다냥. 세션이 길어지면 거기서 바로 갈아탈 수 있다냥\n' +
-      '- `세션` 탭에서도 새 세션을 열 수 있다냥\n\n' +
+      '- 대화가 한 턴 이상이면 채팅창 아래에 새 대화·이어가기 버튼이 뜬다. 세션이 길어지면 거기서 바로 갈아탈 수 있다\n' +
+      '- `세션` 탭에서도 새 세션을 열 수 있다\n\n' +
       '**슬래시 명령어**\n' +
       '- `/btw <질문>` 작업 중 샛길 질문 · `/continue` 맥락 요약 인계 새 세션 · `/new` 완전 새 세션\n' +
       '- `/act <행동>` (별칭 `/me`) 말 대신 행동·상황 지문 전달\n' +
@@ -521,8 +521,8 @@ async function send(opts) {
       '**작업 결정** (`/ticket <결정> 번호`, 에이전트에게 안 가고 바로 처리)\n' +
       '- `go` 승인+착수 · `approve` 승인 · `decline` 폐기 · `reopen` 재개\n' +
       '- 위임: `delegate` 실행 · `merge` 승인 · `rework 번호 사유` 반려 · `discard` 폐기 · `allow` 경로 허용\n\n' +
-      '**스킬**: `/`만 눌러도 켜 둔 워크스페이스 스킬이 메뉴에 뜨고, `/skill 이름`으로 검색할 수 있다냥\n\n' +
-      '더 궁금한 거 있으면 그냥 물어봐도 된다냥!');
+      '**스킬**: `/`만 눌러도 켜 둔 워크스페이스 스킬이 메뉴에 뜨고, `/skill 이름`으로 검색할 수 있다\n\n' +
+      '더 궁금한 게 있으면 그냥 물어보세요!');
     currentSessionHasUser = hadUser;
     return;
   }
@@ -605,11 +605,11 @@ async function send(opts) {
     } else if (msgRes && msgRes.rotated && msgRes.session && msgRes.session.id) {
       const nid = msgRes.session.id;
       addActivity('서버가 긴 세션을 새 채팅으로 인계 전환: ' + nid);
-      // Seamless in-flow handoff (실장님: "세션 간 경계가 느껴지지 않게") --
+      // Seamless in-flow handoff (operator: "세션 간 경계가 느껴지지 않게") --
       // the message this branch is handling is already visible on screen
       // (send()'s own optimistic addChat at the top of this function, well
       // before this POST resolved), so don't clear the log or re-add it --
-      // that clear-then-refill was the actual bug (실장님: "내가 말을
+      // that clear-then-refill was the actual bug (operator: "내가 말을
       // 하면 바로 새 세션으로 넘어가면서 내가 한 말을 또 해야 되는 상황이
       // 생겨"), and even fixed, a wipe-and-rebuild still reads as a visible
       // seam. The handoff summary still reaches the model (server injects
@@ -854,7 +854,7 @@ if (stopBtn) {
         assistantNode.remove();
       }
       assistantNode = null; assistantBuf = '';
-      var _stopBubble = addNotice('stop', '작업을 중지했습니다냥.', null, true);
+      var _stopBubble = addNotice('stop', '작업을 중지했습니다.', null, true);
       if (_stopBubble) { _stopBubble.dataset.ephemeral = '1'; } // SESSION_DESYNC_GAPFIX_v2
     } catch (e) {
       addActivity('중지 오류: ' + (e.message || e));

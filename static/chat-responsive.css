@@ -2,7 +2,7 @@
    the old chat.css, rule for rule -- keep that order; a rule that must win goes in a later part. */
 /* 폭은 좁지만 포인터가 마우스인 경우 -- 데스크톱 허브 FAB(폭 420px iframe)이 대표적. 위 폰 값(버튼 44px,
    입력창 36px)은 터치 대상 때문에 정한 것이라 마우스에는 필요 없고, 입력창만 버튼보다 낮아 보였다
-   (실장님: FAB에서 텍스트 입력창만 높이가 낮아). 전체 페이지 데스크톱과 같은 42px로 맞춘다. 아래의 키보드/
+   (operator: FAB에서 텍스트 입력창만 높이가 낮아). 전체 페이지 데스크톱과 같은 42px로 맞춘다. 아래의 키보드/
    낮은 화면 블록(32px)은 뒤에 오므로 그대로 이긴다. */
 @media (max-width: 640px) and (pointer: fine) {
   #slashBtn, #modelBtn{

@@ -158,7 +158,7 @@ function renderSlashMenu(query) {
   }
 
   if (!slashVisibleItems.length) {
-    html = '<div class="slash-empty">일치하는 명령어 또는 스킬이 없습니다냥 ฅ</div>';
+    html = '<div class="slash-empty">일치하는 명령어 또는 스킬이 없습니다</div>';
   }
 
   slashMenuEl.innerHTML = html;

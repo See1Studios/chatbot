@@ -74,7 +74,7 @@ def _grok_home() -> Path:
 
 def _grok_access_token() -> Optional[str]:
     """Read grok CLI's own OIDC access token (same file `grok login` writes).
-    Adapter-only — not 냥피디 memory SSOT."""
+    Adapter-only — not the characters' memory SSOT."""
     try:
         data = json.loads((_grok_home() / "auth.json").read_text(encoding="utf-8"))
     except Exception:

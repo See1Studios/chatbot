@@ -200,7 +200,7 @@ def display_name() -> str:
 
 def self_label(role: str = "") -> str:
     """How a host-built prompt introduces the chatbot: '<title> <persona>' when
-    both exist and differ (프로듀서 냥피디), else whichever there is."""
+    both exist and differ (title, then name), else whichever there is."""
     i = get_identity(role)
     if i["persona"] and i["persona"] != i["title"]:
         return f"{i['title']} {i['persona']}"
@@ -208,7 +208,7 @@ def self_label(role: str = "") -> str:
 
 
 def voice_phrase(suffix: str = "로") -> str:
-    """The tone hint as a clause ('친근한 냥체(~냥, ✦)로'), or '' when none is set."""
+    """The tone hint as a clause ('친근한 반말로'), or '' when none is set."""
     v = get_identity()["voice"]
     return f"{v}{suffix}" if v else ""
 

@@ -1,6 +1,6 @@
 /* Model picker -- a short icon button + menu instead of a wide <select>, and a composer
    placeholder that always names the model in use.
-   (실장님: 모바일에서 모델 선택이 폭을 차지해서 -- 짧은 버튼, 탭과 같은 스타일의 아이콘, 현재 모델은
+   (operator: 모바일에서 모델 선택이 폭을 차지해서 -- 짧은 버튼, 탭과 같은 스타일의 아이콘, 현재 모델은
    placeholder로 명확히.)
    <select id="model"> (app.js: modelEl) stays in the DOM, hidden, as the single source of truth:
    everything that sends or saves a model still reads modelEl.value, so this file only

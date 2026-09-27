@@ -86,7 +86,7 @@ function renderAllActivity() {
     empty.className = 'act-row';
     empty.style.color = 'var(--muted)';
     empty.style.padding = '1rem 0';
-    empty.textContent = activitySearchQuery ? '검색 결과가 없습니다냥.' : '기록된 활동 로그가 없습니다냥.';
+    empty.textContent = activitySearchQuery ? '검색 결과가 없습니다.' : '기록된 활동 로그가 없습니다.';
     activityEl.appendChild(empty);
     return;
   }
@@ -184,7 +184,7 @@ async function fetchLog() {
 }
 
 // 아티팩트 탭과 같은 커서 페이지네이션이지만, 로그 탭은 대화 탭처럼 위로
-// 스크롤할 때 옛 기록을 불러온다 (실장님 2026-09-18: "위로 스크롤해서
+// 스크롤할 때 옛 기록을 불러온다 (operator 2026-09-18: "위로 스크롤해서
 // 로딩해가며 보여주는 것처럼 아티팩트와 로그도").
 async function loadMoreLog() {
   if (!sessionId || activityLoadingMore || !activityNextBefore) return;

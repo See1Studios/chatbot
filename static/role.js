@@ -57,14 +57,14 @@ async function loadRoles() {
       if (still) selectRole(still.slug);
     }
   } catch (e) {
-    charListEl.innerHTML = '<div class="rs-empty" style="height:80px;font-size:0.8rem;color:#f87171">로드 실패냥 ฅ</div>';
+    charListEl.innerHTML = '<div class="rs-empty" style="height:80px;font-size:0.8rem;color:#f87171">로드 실패</div>';
   }
 }
 
 // ── Render list ────────────────────────────────────────────────────────────
 function renderList() {
   if (!roles.length) {
-    charListEl.innerHTML = '<div class="rs-empty" style="height:100px;font-size:0.8rem">캐릭터가 없냥. 새로 만들어보자냥! ✦</div>';
+    charListEl.innerHTML = '<div class="rs-empty" style="height:100px;font-size:0.8rem">캐릭터가 없어요. 새로 만들어 보세요! ✦</div>';
     return;
   }
   charListEl.innerHTML = roles.map(r => `
@@ -100,7 +100,7 @@ async function selectRole(slug) {
 
   try {
     const data = await api(`/api/roles/${encodeURIComponent(slug)}`);
-    if (!data.ok) { toast('캐릭터 로드 실패냥'); return; }
+    if (!data.ok) { toast('캐릭터 로드 실패'); return; }
     const r = data.role;
     editing = JSON.parse(JSON.stringify(r));   // deep copy as draft
     renderDetail(r);
@@ -224,7 +224,7 @@ async function saveRole() {
       body: JSON.stringify(payload),
     });
     if (data.ok) {
-      toast('✅ 저장 완료냥!');
+      toast('✅ 저장 완료!');
       await loadRoles();
     } else {
       toast('저장 실패: ' + (data.error || '?'));
@@ -241,11 +241,11 @@ async function saveRole() {
 async function deleteRole() {
   if (!activeSlug) return;
   const r = roles.find(r => r.slug === activeSlug);
-  if (!confirm(`"${r ? r.name : activeSlug}" 캐릭터를 삭제할까냥? 되돌릴 수 없냥.`)) return;
+  if (!confirm(`"${r ? r.name : activeSlug}" 캐릭터를 삭제할까요? 되돌릴 수 없어요.`)) return;
   try {
     const data = await api(`/api/roles/${encodeURIComponent(activeSlug)}`, { method: 'DELETE' });
     if (data.ok) {
-      toast('🗑️ 삭제 완료냥');
+      toast('🗑️ 삭제 완료');
       activeSlug = null;
       emptyStateEl.style.display = '';
       detailContentEl.style.display = 'none';
@@ -264,7 +264,7 @@ function startNew() {
   const slug = prompt('캐릭터 ID를 입력하세요 (영소문자, _ 만 가능)\n예: soyeon');
   if (!slug) return;
   const clean = slug.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
-  if (!clean) { alert('유효하지 않은 ID냥'); return; }
+  if (!clean) { alert('유효하지 않은 ID예요'); return; }
   editing = {
     slug: clean,
     name: clean,
@@ -285,7 +285,7 @@ function startNew() {
   detailContentEl.style.display = '';
   renderDetail(editing);
   detailActionsEl.style.display = '';
-  toast('새 캐릭터 초안 생성! 저장 버튼으로 확정하세냥 ✦');
+  toast('새 캐릭터 초안 생성! 저장 버튼으로 확정하세요 ✦');
 }
 
 // ── Open chat ──────────────────────────────────────────────────────────────

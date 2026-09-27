@@ -85,7 +85,7 @@ class ClaudeAdapter(AgentAdapter):
             "--strict-mcp-config",
             # Isolates this child from this real account's own ~/.claude
             # skills/plugins (the ones this very assistant session uses) --
-            # 냥피디 should not inherit them.
+            # The character should not inherit them.
             "--setting-sources", "project",
             "--allowedTools", self.ALLOWED_TOOLS,
             "--disallowedTools", self.DISALLOWED_TOOLS,
@@ -169,7 +169,7 @@ class ClaudeAdapter(AgentAdapter):
                         break
                 if not err_text:
                     err_text = str(obj.get("error") or "Claude API 에러")
-                msg = f"클로드 세션 한도/오류에 도달했습니다냥: {err_text}"
+                msg = f"클로드 세션 한도/오류에 도달했습니다: {err_text}"
                 session.history.append({"role": "assistant", "text": msg, "ts": _now()})
                 session.save_meta()
                 return [

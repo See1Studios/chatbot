@@ -491,7 +491,7 @@ class AgentSession(TurnWatchdog):
                 self.handoff_summary = self._host_history_digest()
                 self.handoff_injected = False
         self.save_meta()
-        self._emit({"event": "system", "text": "에이전트가 이전 대화를 기억하지 못해서, 다음 메시지에 지침과 최근 대화 요약을 다시 넣습니다냥."})
+        self._emit({"event": "system", "text": "에이전트가 이전 대화를 기억하지 못해서, 다음 메시지에 지침과 최근 대화 요약을 다시 넣습니다."})
 
     def _host_history_digest(self, max_turns: int = 8, per_turn: int = 700, total: int = 5000,
                              header: str = "(에이전트 프로세스가 다시 시작되어 기억이 이어지지 않았습니다. 아래는 화면 기록의 최근 대화입니다.)") -> str:
@@ -531,12 +531,12 @@ class AgentSession(TurnWatchdog):
                     return
                 if not self._loop_warned:
                     self._loop_warned = True
-                    self._emit({"event": "system", "text": f"⚠ {v.text}. 계속 반복되면 자동으로 멈춥니다냥.",
+                    self._emit({"event": "system", "text": f"⚠ {v.text}. 계속 반복되면 자동으로 멈춥니다.",
                                 "evidence": write_guard.loop_evidence(v, params, output)})
             else:
                 after = " (방향을 바꾸라고 알린 뒤에도 계속돼서)" if self._loop_noticed else ""
                 self._auto_stop(
-                    event={"event": "stopped", "text": f"같은 도구 호출이 반복돼 자동으로 중단했습니다냥{after} — {v.text}",
+                    event={"event": "stopped", "text": f"같은 도구 호출이 반복돼 자동으로 중단했습니다{after} — {v.text}",
                            "evidence": write_guard.loop_evidence(v, params, output)},
                     hint=f"직전 턴이 같은 작업을 반복하다({v.text}) 자동 중단됐습니다. 같은 방식을 되풀이하지 말고, 접근을 바꾸거나 "
                          f"(큰 파일은 범위를 나눠 읽기·grep 같은 검색 도구·요약 후 질문) 지금까지의 진행 상황을 짧게 정리해 어떻게 할지 물어보세요.")
@@ -557,7 +557,7 @@ class AgentSession(TurnWatchdog):
                 return
             self._loop_stopping = True
             self._loop_noticed = True
-        self._emit({"event": "system", "text": f"⚠ {v.text}. 방향을 바꾸라고 알리고 이어서 진행합니다냥.",
+        self._emit({"event": "system", "text": f"⚠ {v.text}. 방향을 바꾸라고 알리고 이어서 진행합니다.",
                     "evidence": {**evidence, "action": "notice"}})
         threading.Thread(target=self._notice_loop_worker, args=(v.text,), daemon=True).start()
 
@@ -572,7 +572,7 @@ class AgentSession(TurnWatchdog):
                 self.msg_queue[:] = rest
             self._send_direct(LOOP_NOTICE.format(what=what, user=user_title()), notice=True)
         except Exception as e:  # noqa: BLE001 -- a failed notice must not leave the turn hanging silently
-            self._emit({"event": "error", "text": f"방향 전환 알림을 보내지 못했습니다냥: {e}"})
+            self._emit({"event": "error", "text": f"방향 전환 알림을 보내지 못했습니다: {e}"})
         finally:
             self._loop_stopping = False
 
@@ -652,7 +652,7 @@ class AgentSession(TurnWatchdog):
         why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}초"
         self._loop_hint = (
             f"에이전트가 답을 내기 전에 턴이 끝났습니다({why}). "
-            "남은 작업은 멈췄고, 다음 메시지부터 이어서 합니다냥."
+            "남은 작업은 멈췄고, 다음 메시지부터 이어서 합니다."
         )
         with self.lock:
             if self._loop_stopping:
@@ -670,10 +670,10 @@ class AgentSession(TurnWatchdog):
         but skips the Korean error notice when finalize_turn already persisted notice:error.
         """
         why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}초"
-        hint = f"에이전트가 답을 내기 전에 턴이 끝났습니다({why}). 남은 작업은 멈췄고, 다음 메시지부터 이어서 합니다냥."
+        hint = f"에이전트가 답을 내기 전에 턴이 끝났습니다({why}). 남은 작업은 멈췄고, 다음 메시지부터 이어서 합니다."
         if emit_error:
             self._auto_stop(
-                event={"event": "error", "text": f"에이전트가 답을 내기 전에 턴이 끝났습니다 ({why}). 남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다냥."},
+                event={"event": "error", "text": f"에이전트가 답을 내기 전에 턴이 끝났습니다 ({why}). 남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다."},
                 hint=hint,
             )
         else:
@@ -928,7 +928,7 @@ class AgentSession(TurnWatchdog):
                 if self.busy and self.proc is proc:  # only if THIS child died mid-turn
                     self.busy = False
                     died_mid_turn = True
-                    err_text = "에이전트 프로세스가 종료되었습니다냥."
+                    err_text = "에이전트 프로세스가 종료되었습니다."
                     # Persist what streamed in before the child died -- the live view
                     # already finalizes this same draft into a normal bubble, so a
                     # reload silently erasing it would be a desync (SESSION_DESYNC_GAPFIX_v2).
@@ -1006,7 +1006,7 @@ class AgentSession(TurnWatchdog):
         providers get the same bundle as a first-turn preamble from
         _send_direct(); OpenAIDialectAdapter is a stateless HTTP call, so the
         system message is its only persistent channel -- confirmed live that
-        냥피디 answered in flat, personaless tone on OmniRoute without it. No tool_calls/tool-result reconstruction (that's Phase 2, once
+        The persona answered in flat, personaless tone on OmniRoute without it. No tool_calls/tool-result reconstruction (that's Phase 2, once
         the tool loop exists and needs its own turns represented here too).
         Queued messages not yet sent (`queued: True`) are intentionally
         skipped -- they aren't part of the conversation the model has "seen" yet.
@@ -1083,7 +1083,7 @@ class AgentSession(TurnWatchdog):
                 return
         self.stop(notify=False)
         minutes = timeout_sec // 60
-        text = f"⏱️ 응답이 {minutes}분 넘게 안 와서 자동으로 중단했어요냥. 다시 시도해 주세요."
+        text = f"⏱️ 응답이 {minutes}분 넘게 안 와서 자동으로 중단했어요. 다시 시도해 주세요."
         with self.lock:
             self.history.append({"role": "assistant", "text": text, "ts": _now()})
             self.save_meta()
@@ -1132,7 +1132,7 @@ class AgentSession(TurnWatchdog):
             self.msg_queue.append((text, client_mid))
             n = len(self.msg_queue)
         self._emit({"event": "steer_queued", "queue_len": n,
-                    "text": "새 지시를 받았어요 — 지금 진행 중인 단계가 끝나면 바로 반영합니다냥."})
+                    "text": "새 지시를 받았어요 — 지금 진행 중인 단계가 끝나면 바로 반영합니다."})
         timer = threading.Timer(STEER_MAX_WAIT_SEC, self._steer_at_boundary, kwargs={"forced": True})
         timer.daemon = True
         timer.start()
@@ -1181,7 +1181,7 @@ class AgentSession(TurnWatchdog):
     def _run_btw(self, query: str) -> None:
         query = (query or "").strip()
         if not query:
-            self._emit({"event": "btw", "query": "", "text": f"{user_title()}, `/btw <질문 내용>` 형태로 궁금한 점을 적어주세요냥!"})
+            self._emit({"event": "btw", "query": "", "text": f"{user_title()}, `/btw <질문 내용>` 형태로 궁금한 점을 적어주세요!"})
             return
         self._emit({"event": "btw_start", "query": query})
         context_snippets = []
@@ -1200,16 +1200,16 @@ class AgentSession(TurnWatchdog):
             context_snippets.append("[최근 대화 맥락:\n" + "\n".join(recent_hist) + "]")
 
         prompt = _btw_prompt(query, is_active, context_snippets)
-        ans = "답변을 가져오지 못했습니다냥."
+        ans = "답변을 가져오지 못했습니다."
         usage = None
         duration_seconds = None
         r = _oneshot(prompt, 20)
         if r is None:
-            ans = "간이 질문에 답할 제공자가 설정되지 않았습니다냥 (CHATBOT_ONESHOT_PROVIDER)."
+            ans = "간이 질문에 답할 제공자가 설정되지 않았습니다 (CHATBOT_ONESHOT_PROVIDER)."
         elif r.get("text"):
             ans, usage, duration_seconds = r["text"], r.get("usage"), r.get("duration_seconds")
         elif r.get("error") == "timeout":
-            ans = "간이 질문 응답 시간이 초과되었습니다냥."
+            ans = "간이 질문 응답 시간이 초과되었습니다."
         elif r.get("error"):
             ans = _redact_text(r["error"]) or ans
 
@@ -1279,7 +1279,7 @@ class AgentSession(TurnWatchdog):
         # summary above -- a summary can lose exact wording/details from
         # what was *just* discussed right before a handoff; the raw last
         # turn gives the new session a high-fidelity anchor on top of the
-        # compressed long-range context (실장님 제안, 2026-09-17).
+        # compressed long-range context (operator 제안, 2026-09-17).
         full = self._with_last_exchange(base)
         if use_cache:
             self._cached_summary = full
@@ -1411,11 +1411,11 @@ class AgentSession(TurnWatchdog):
         """Sticky rotate: reuse successor_session_id when usable; else create once and remember with handover."""
         if reason == "inactivity":
             msg = (
-                "이전 대화 이후 시간이 경과하여 이전 맥락을 인계받아 새 세션으로 이어갑니다냥 ✦ (이전 대화는 보존됩니다)"
+                "이전 대화 이후 시간이 경과하여 이전 맥락을 인계받아 새 세션으로 이어갑니다 ✦ (이전 대화는 보존됩니다)"
             )
         else:
             msg = (
-                "세션이 길어져서 이전 맥락을 인계받아 새 채팅으로 전환합니다. 이전 세션 데이터는 그대로 보존됩니다냥 ✦"
+                "세션이 길어져서 이전 맥락을 인계받아 새 채팅으로 전환합니다. 이전 세션 데이터는 그대로 보존됩니다 ✦"
             )
         succ_id = getattr(self, "successor_session_id", "") or ""
         if succ_id and self._successor_usable(succ_id):
@@ -1448,7 +1448,7 @@ class AgentSession(TurnWatchdog):
         # spawn/send below) and the POST response (arriving after) independently
         # re-entered the new session, and the SSE one (missing the user's
         # own just-typed text) usually rendered first, making the message
-        # look like it vanished (실장님: "내가 말을 하면 바로 새 세션으로
+        # look like it vanished (operator: "내가 말을 하면 바로 새 세션으로
         # 넘어가면서 내가 한 말을 또 해야 되는 상황이 생겨").
         self._emit({
             "event": "session_rotate",
@@ -1583,7 +1583,7 @@ class AgentSession(TurnWatchdog):
                 # itself as the thing to respond to/discuss, rather than
                 # background for the actual instruction below it, so a task
                 # given right as a session rotated came back ignored with an
-                # off-topic reply about the summary instead (실장님: "일을
+                # off-topic reply about the summary instead (operator: "일을
                 # 시켰는데 세션이 전환되면서 내가 시킨 일을 잊어버리고 딴
                 # 소리를 하고 있어"). agy's own /compact summary style (the
                 # preferred summary source) isn't written with a "here's the
@@ -1603,7 +1603,7 @@ class AgentSession(TurnWatchdog):
                 self.handoff_injected = True
                 self._emit({
                     "event": "system",
-                    "text": f"{label} 맥락을 인계받아 대화를 시작했습니다냥 ✦",
+                    "text": f"{label} 맥락을 인계받아 대화를 시작했습니다 ✦",
                 })
 
         if client_context:
@@ -1733,7 +1733,7 @@ class AgentSession(TurnWatchdog):
         was_busy = self.busy
         self.stop(notify=False)
         if was_busy:
-            self._emit({"event": "stopped", "text": f"{what} 바꿔서 진행 중이던 작업을 중단했습니다냥."})
+            self._emit({"event": "stopped", "text": f"{what} 바꿔서 진행 중이던 작업을 중단했습니다."})
 
     def maybe_swap_model(self, model: str) -> None:
         """If `model` names a different model than this session is currently
@@ -1758,7 +1758,7 @@ class AgentSession(TurnWatchdog):
         session's history, even though self.history (and the UI) carries
         right on. Without a handoff, that new process would answer the very
         next message with zero awareness anything was discussed before
-        (실장님: "도중에 바뀌면 다시 해줘야하는 게 있을 것 같네" -- confirmed
+        (operator: "도중에 바뀌면 다시 해줘야하는 게 있을 것 같네" -- confirmed
         real, 2026-09-18). Reuse the same handoff_summary/handoff_injected
         relay _send_direct() already does for /continue rotations, computed
         here (before conversation_id/provider are overwritten, since
@@ -1799,7 +1799,7 @@ class AgentSession(TurnWatchdog):
         that happened to load the same hard session before any of them
         finished handing off would each mint its own orphan successor, so N
         open windows meant N disconnected new chats and the old context
-        never settled on one continuation (실장님 보고: 창을 여러 개 열면
+        never settled on one continuation (operator 보고: 창을 여러 개 열면
         각자 다른 새 세션이 뜨고 예전 내용이 안 보임). The manual "이어하기"
         button intentionally keeps the old always-fork behavior (sticky
         False) -- that's a deliberate cost-reset the user asks for
@@ -1851,9 +1851,9 @@ class AgentSession(TurnWatchdog):
             # If there was partial assistant text generated so far, preserve it in history
             cur = (self.current_text or "").strip()
             if cur:
-                mark = (f"*(🧭 {user_title()}의 새 지시를 반영하려고 여기서 잠시 멈췄습니다냥)*" if reason == "steer"
-                        else "*(🧭 같은 호출이 반복돼 여기서 잠시 멈추고 방향을 바꾸도록 알렸습니다냥)*" if reason == "loop"
-                        else f"*(⚡ {user_title()}의 새 지시로 이전 작업이 중단되었습니다냥)*")
+                mark = (f"*(🧭 {user_title()}의 새 지시를 반영하려고 여기서 잠시 멈췄습니다)*" if reason == "steer"
+                        else "*(🧭 같은 호출이 반복돼 여기서 잠시 멈추고 방향을 바꾸도록 알렸습니다)*" if reason == "loop"
+                        else f"*(⚡ {user_title()}의 새 지시로 이전 작업이 중단되었습니다)*")
                 annotated = self._rewrite_artifact_paths(cur) + "\n\n" + mark
                 self.history.append({"role": "assistant", "text": annotated, "ts": _now(), "interrupted": True})
             self.current_text = ""
@@ -1887,9 +1887,9 @@ class AgentSession(TurnWatchdog):
                 pass
             self._http_resp = None
         self._emit({"event": "interrupted", "reason": reason,
-                    "text": ("새 지시를 반영하는 중이에요 — 하던 작업은 이어서 합니다냥 ✦" if reason == "steer"
-                             else "방향을 바꾸도록 알리는 중이에요 — 하던 작업은 이어서 합니다냥 ✦" if reason == "loop"
-                             else f"진행 중인 작업이 {user_title()}의 새 지시로 전환되었습니다냥 ✦")})
+                    "text": ("새 지시를 반영하는 중이에요 — 하던 작업은 이어서 합니다 ✦" if reason == "steer"
+                             else "방향을 바꾸도록 알리는 중이에요 — 하던 작업은 이어서 합니다 ✦" if reason == "loop"
+                             else f"진행 중인 작업이 {user_title()}의 새 지시로 전환되었습니다 ✦")})
         self._finish_turn("steer" if reason in ("steer", "loop") else "interrupted")
         _record_live_pids()
 
@@ -1900,7 +1900,7 @@ class AgentSession(TurnWatchdog):
         # that (including what looks like a genuine "result" event, with
         # stale/reused usage stats) after the user explicitly asked to stop,
         # making it look like stop did nothing or a new answer appeared
-        # right after (실장님: "작성 중인 상태에서 중지같은 게 안되네").
+        # right after (operator: "작성 중인 상태에서 중지같은 게 안되네").
         self._stop_requested = True
         self._cancel_silent_hang()
         was_busy = self.busy
@@ -1959,7 +1959,7 @@ class AgentSession(TurnWatchdog):
             except Exception:
                 pass
         if notify:
-            self._emit({"event": "stopped", "text": f"{user_title()}의 요청으로 작업이 중지되었습니다냥."})
+            self._emit({"event": "stopped", "text": f"{user_title()}의 요청으로 작업이 중지되었습니다."})
             if was_busy:
                 self._finish_turn("stopped")
         _record_live_pids()
@@ -2072,7 +2072,7 @@ class AgentSession(TurnWatchdog):
 
         # First cut (2026-09-18) only walked self.sid + predecessor_session_id,
         # on the theory that images just needed to survive a /continue or
-        # heavy-session auto-rotate. 실장님 corrected that framing: "아티팩트
+        # heavy-session auto-rotate. operator corrected that framing: "아티팩트
         # 탭은 모든 디바이스 모든 세션 공통인데" -- the tab is meant to be one
         # shared gallery across every session/device, not scoped to whichever
         # conversation happens to be open. So scan every session's own
@@ -2260,7 +2260,7 @@ def _reap_sessions() -> None:
                     if sess.busy:
                         sess.busy = False
                         died.append(sess)
-                        sess._emit({"event": "error", "text": "에이전트 프로세스가 종료되었습니다냥."})
+                        sess._emit({"event": "error", "text": "에이전트 프로세스가 종료되었습니다."})
                         has_queued = bool(getattr(sess, "msg_queue", []))
                         if has_queued:
                             threading.Thread(target=sess._dispatch_queued, daemon=True).start()

@@ -37,7 +37,7 @@ async function maybeRedirectHardSession(id, info, depth) {
     addActivity('hard 세션 → successor로 이동: ' + redir);
     await openSession(redir, depth + 1, {
       level: 'hard',
-      message_ko: '열려던 대화가 너무 길어져서 자동으로 이어진 세션이에요냥 — 예전 대화 내용은 그대로 보존됩니다.',
+      message_ko: '열려던 대화가 너무 길어져서 자동으로 이어진 세션이에요 — 예전 대화 내용은 그대로 보존됩니다.',
     });
     return redir;
   }
@@ -45,7 +45,7 @@ async function maybeRedirectHardSession(id, info, depth) {
     // Auto-redirect on open must land every window/tab on the SAME
     // successor -- a plain createSession() here (old behavior) never links
     // back to `id`, so each window that loaded this hard session before any
-    // of them finished would mint its own disconnected new chat (실장님:
+    // of them finished would mint its own disconnected new chat (operator:
     // "창을 여러 개 열었더니 각자 다른 새 세션이 시작되고 예전 세션 내용이
     // 안 나옴"). sticky:true asks the server to reuse an already-usable
     // successor instead of forking again -- safe even if two windows race,
@@ -61,7 +61,7 @@ async function maybeRedirectHardSession(id, info, depth) {
         addActivity('hard 세션 → 자동 이어하기 successor로 이동: ' + nid + (res.reused ? ' (기존 재사용)' : ' (신규)'));
         await openSession(nid, depth + 1, {
           level: 'hard',
-          message_ko: '열려던 대화가 너무 길어져서 자동으로 이어진 세션이에요냥 — 예전 대화 내용은 그대로 보존됩니다.',
+          message_ko: '열려던 대화가 너무 길어져서 자동으로 이어진 세션이에요 — 예전 대화 내용은 그대로 보존됩니다.',
         });
         return nid;
       }

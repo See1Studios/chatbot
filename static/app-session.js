@@ -453,7 +453,7 @@ async function loadOlderHistory() {
       try {
         info = await api('/api/sessions/' + encodeURIComponent(scrollbackSid) + '?full=1');
       } catch (_) {
-        // This session was deleted (실장님's new 🗑 삭제 button) -- route
+        // This session was deleted (operator's new 🗑 삭제 button) -- route
         // around the dead link instead of aborting the whole scrollback.
         const fallback = await resolveScrollbackFallback(scrollbackSid, lastKnownTs, scrollbackVisited);
         if (fallback) {
@@ -573,7 +573,7 @@ async function loadNewerHistory() {
           scrollforwardSid = fallback;
           continue;
         }
-        // End of forward chain — no end-cap (실장님: 최신 대화 중에도
+        // End of forward chain — no end-cap (operator: 최신 대화 중에도
         // 뜨고 가치 없음). Just stop loading newer hops.
         scrollforwardExhausted = true;
         break;
@@ -622,7 +622,7 @@ async function loadNewerHistory() {
         scrollforwardSid = nextSid;
         if (showThisHop) break;
       } else {
-        // End of forward chain — no end-cap (실장님: 최신 대화 중에도
+        // End of forward chain — no end-cap (operator: 최신 대화 중에도
         // 뜨고 가치 없음). Just stop loading newer hops.
         scrollforwardExhausted = true;
         break;
@@ -793,7 +793,7 @@ async function followLiveIfNeeded() {
 async function createSession() {
   const prevSessionId = sessionId; // "완전 새 세션" has no real predecessor_session_id link
   // (intentional -- no handoff summary should leak into agy's context), but
-  // 실장님 still wants to be able to scroll up into whatever was open right
+  // operator still wants to be able to scroll up into whatever was open right
   // before it. Point scrollback at that browser-previous session directly;
   // it'll keep walking that session's own real predecessor chain from there.
   const model = modelEl.value;

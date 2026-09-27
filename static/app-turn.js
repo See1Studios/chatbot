@@ -32,7 +32,7 @@ function updateProcBadge(state, detail) {
   const textEl = document.getElementById('procBadgeText');
   if (!badge || !textEl) return;
   badge.className = 'proc-badge ' + state;
-  // Status chrome stays persona-neutral. 냥체 is the current 냥피디 voice,
+  // Status chrome stays persona-neutral. A character's speech style (e.g. a verbal tic) is its voice,
   // not a shell label — persona can change.
   if (state === 'running') {
     textEl.textContent = '작업 중';
@@ -91,7 +91,7 @@ function startTurnTimer() {
           busyHeartbeatTimer = null;
           setBusy(false);
           updateProcBadge('dead');
-          setProgress('백엔드 프로세스가 중단되었습니다냥.', true);
+          setProgress('백엔드 프로세스가 중단되었습니다.', true);
           addActivity('오류: 백엔드 프로세스가 예기치 않게 종료되었습니다.', 'error');
         } else if (data.busy === false && isBusy) {
           // Backend finished the turn, but client missed the SSE 'result' event (e.g. background sleep)
@@ -195,7 +195,7 @@ function clearTurnLive(node) {
   if (stopBtn && node.contains(stopBtn)) parkStopBtn();
 }
 
-// The composer placeholder always leads with the model in use (실장님: 모델 select를 짧은 버튼으로 줄이는
+// The composer placeholder always leads with the model in use (operator: 모델 select를 짧은 버튼으로 줄이는
 // 대신 현재 모델은 placeholder로 명확히). The text itself is composerPlaceholder() in model-picker.js.
 function refreshComposerPlaceholder(busySec) {
   if (!inputEl || typeof composerPlaceholder !== 'function') return;

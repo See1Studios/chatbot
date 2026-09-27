@@ -96,7 +96,7 @@ async function deleteSession(sid) {
 
 // Fetches a read-only handover-style summary of an arbitrary (often archived)
 // session and prefills the composer with it, labeled by source session id.
-// Never auto-sends -- 실장님 reviews/edits before it becomes part of the live
+// Never auto-sends -- operator reviews/edits before it becomes part of the live
 // conversation, and the target session itself is never modified.
 async function importSessionContext(sid) {
   if (!sid) return;

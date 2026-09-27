@@ -293,7 +293,7 @@ function getUsageLevel(usage) {
 // localhost) -- this host is served plain http:// on a LAN hostname
 // (server.py binds 0.0.0.0, no TLS anywhere), so navigator.clipboard is
 // undefined in the browser and every copy button (code blocks, this one)
-// silently threw and landed in the catch block (실장님: "눌러도 복사
+// silently threw and landed in the catch block (operator: "눌러도 복사
 // 안되네"). Falls back to the classic hidden-textarea + execCommand('copy')
 // trick, which still works without a secure context.
 async function copyText(text) {
@@ -451,7 +451,7 @@ function msgSyncKey(role, ts) {
 // Two writers draw the log: SSE events and resyncFromServer() (every 2.5s). Whichever
 // arrives second must find the message already on screen and stop -- the server stamps
 // every history entry and its event with the same ts, so role+ts is the identity.
-// (실장님: 샛길 카드가 두 장 / 내 말·답이 두 번 -- a late SSE event redrew what a resync
+// (operator: 샛길 카드가 두 장 / 내 말·답이 두 번 -- a late SSE event redrew what a resync
 // had already put there.)
 function findRenderedByTs(role, ts) {
   if (!logEl || !ts) return null;
@@ -554,7 +554,7 @@ function repairMsgOrder() {
       // "still streaming" -- treating it as ts=Infinity used to yank every
       // following user bubble in front of it on every pass, clumping a
       // whole backfilled session into "all questions, then all answers"
-      // (실장님 2026-09-18, right after a reload auto-backfilled scrollback).
+      // (operator 2026-09-18, right after a reload auto-backfilled scrollback).
       if (!live && !aTs) continue;
       let sib = a.nextElementSibling;
       while (sib && sib.classList.contains('msg') && sib.classList.contains('user')) {
@@ -579,7 +579,7 @@ function repairMsgOrder() {
 // The user's /btw question is a client-only bubble: no ts, and the server neither stores nor
 // acks it. So the answer card can't be ordered against it by ts, and the resync's
 // repairMsgOrder() hoists ts-less user bubbles above a streaming answer -- which left the card
-// ahead of its own question whenever the answer beat the next 2.5s tick (실장님: "첫 질문은
+// ahead of its own question whenever the answer beat the next 2.5s tick (operator: "첫 질문은
 // 질문 다음에 대답인데 그 다음 btw는 대답이 질문 전에"). Two rules make the order fixed:
 //   1. the question goes above the streaming bubble from the start (where hoisting would put it)
 //   2. the answer card is placed right after ITS question bubble, paired by the question text

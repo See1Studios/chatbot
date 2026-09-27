@@ -150,7 +150,7 @@ function bindEvents(sid) {
       // response -- and since this event fires earlier server-side (before
       // the successor's spawn/send even runs), it usually rendered FIRST,
       // wiping the just-sent message from view and making it look lost
-      // (실장님: "내가 말을 하면 바로 새 세션으로 넘어가면서 내가 한 말을
+      // (operator: "내가 말을 하면 바로 새 세션으로 넘어가면서 내가 한 말을
       // 또 해야 되는 상황이 생겨"). client_mid tells us which case this is.
       const isMine = Boolean(data.client_mid) && myPendingMids.has(data.client_mid);
       if (isMine) {
@@ -161,7 +161,7 @@ function bindEvents(sid) {
       if (nid) {
         enterSession(nid, {
           scrollback: 'self',
-          greeting: text || '새 채팅으로 전환했습니다냥. 이어서 진행한다냥!',
+          greeting: text || '새 채팅으로 전환했습니다. 이어서 진행합니다.',
           metaLabel: '(자동 전환)',
           weight: { level: 'hard', message_ko: text || '세션이 길어져 새 채팅으로 전환합니다' },
         });
@@ -175,7 +175,7 @@ function bindEvents(sid) {
     if (type === 'stopped') {
       // NOTICE_UI_v1: host stop is its own notice bubble (no reply footer)
       addActivity('작업 중지: ' + (text || ''), 'system');
-      const stopMsg = text || '작업이 중단되었습니다냥.';
+      const stopMsg = text || '작업이 중단되었습니다.';
       if (assistantNode) {
         clearTurnLive(assistantNode);
         if (assistantBuf && assistantBuf.trim() && assistantNode.dataset.progress !== '1') {
@@ -225,7 +225,7 @@ function bindEvents(sid) {
       // by an EXACT one of the other windows. This window's own just-sent
       // message was already rendered optimistically at send() time (with a
       // client_mid tag), so only render here when the mid doesn't match
-      // anything this window itself sent (실장님: "다른 창에서 보낸 질의는
+      // anything this window itself sent (operator: "다른 창에서 보낸 질의는
       // 안 보이네" -- previously this handler only ever un-queued this
       // window's own bubble and never rendered anyone else's).
       const mid = data.client_mid || '';
@@ -353,7 +353,7 @@ function bindEvents(sid) {
       addActivity('연결 끊김 · 재연결 시도…', 'warn');
     }
     if (window.__chatEsRetry >= 2) {
-      setProgress('연결이 끊겼다냥 · 다시 연결하는 중…');
+      setProgress('연결이 끊겼어요 · 다시 연결하는 중…');
       addActivity('연결 끊김 · 재연결 재시도 (' + window.__chatEsRetry + ')', 'warn');
     }
     if (window.__chatEsTimer) clearTimeout(window.__chatEsTimer);

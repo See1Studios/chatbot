@@ -34,7 +34,7 @@ async function fetchArtifacts(silent) {
 // 아티팩트 탭은 세션이 아니라 모든 세션 통틀어 최신순 -- 대화 탭의
 // scroll-up-to-load-older(loadOlderHistory)와 같은 정책이지만, 대화는
 // predecessor_session_id 체인을 걷는 것이고 이건 그냥 mtime 커서 페이지네이션
-// (실장님 2026-09-18: "전체 세션 통틀어 최신순 무한 스크롤" -- 대화 탭 스크롤과는
+// (operator 2026-09-18: "전체 세션 통틀어 최신순 무한 스크롤" -- 대화 탭 스크롤과는
 // 무관하게 독립 동작으로 확인).
 async function loadMoreArtifacts() {
   if (!sessionId || artifactsLoadingMore || !artifactsNextBefore) return;
