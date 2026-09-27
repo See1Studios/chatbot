@@ -221,7 +221,7 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 |---|---|---|---|---|---|---|---|
 | `pew/A` | 이 문서 + INDEX 행 | `docs/plans/plan-execution-workflow.md`, `docs/plans/INDEX.md` | INDEX에 행이 있고 커밋됨 | 0 · — | S | — | ✅ 티켓 없음(D3), `git log --grep="Plan: pew/A"` |
 | `pew/B` | `run-tests.sh [--fast]` 단일 진입점(`rp/A`와 공유, 소유는 여기) + DEVLOG 크기 복구 | `run-tests.sh`, `README.md`, `docs/DEVLOG.md` | 모든 `tests/test_*.py` 모듈을 개별 실행하고 실패 목록 출력, 종료 코드 반영 | 1 · — | S | — | ✅ #254 `09aca4a` |
-| `pew/C` | 루트 진입점: `AGENTS.md`(정본 지도, 시작 순서, 커밋 규약, 규칙 레지스트리 초판) + `CLAUDE.md`·`GEMINI.md` 포인터 | 루트 3파일 | 포인터 두 파일이 각각 5줄 이하, `AGENTS.md` 링크 포함 | 3 · — | M | D7 | 대기 |
+| `pew/C` | 루트 진입점: `AGENTS.md`(정본 지도, 시작 순서, 커밋 규약, 규칙 레지스트리 초판) + `CLAUDE.md`·`GEMINI.md` 포인터 | 루트 3파일 | 포인터 두 파일이 각각 5줄 이하, `AGENTS.md` 링크 포함 | 3 · — | M | D7 | ✅ #262 `ace91b3` |
 | `pew/D` | 가드 테스트 1차: `test_rule_registry`, `test_entrypoints`, `test_plans_index`, `test_doc_refs` | `tests/` | 현재 저장소에서 실패하는 항목(P11 등)을 먼저 고치고 통과. 일부러 규칙을 어기면 실패 | 3 · — | M | pew/B, pew/C | 대기 |
 | `pew/E` | 훅: `.githooks/pre-commit`, `commit-msg` + 설치 확인 | `.githooks/`, `run-tests.sh` | 비밀 패턴이 든 파일, untracked 계획, 형식이 틀린 메시지로 커밋하면 각각 거절됨 | 3 · — | S | pew/B, D6 | 대기 |
 | `pew/F` | 러너 게이트(`DEFAULT_GATES`)를 `run-tests.sh --fast` + 변경 경로 관련 모듈로 교체 | `tools/worktree_runner.py` | 위임 실행 로그에 `run-tests.sh` 결과가 남음 | 3 · — | S | pew/N | 대기 |
@@ -232,7 +232,7 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 | `pew/I` | `test_plan_items`(항목 표·티켓 대조) | `tests/test_plan_items.py` | 파일럿 두 문서에서 통과, 틀린 `#N`은 실패 | 3 · — | M | pew/J | 대기 |
 | `pew/J` | **파일럿**: release-pipeline·user-data-separation을 §6 표준으로 개편(P1–P3 해소, `rp/*`·`uds/*` 재정의, `test_data_paths`는 `uds/B`에 포함) | 두 계획 문서 | 항목마다 §7 DoR 충족, 문서 간 모순 0건 | 0 · — | M | pew/G | 대기 |
 | `pew/K` | `~/bin/ticket-quick` → `tools/ticket_quick.py` + 테스트, `~/bin`에는 포인터만 | `tools/ticket_quick.py`, `tests/`, `~/bin/ticket-quick` | 기존 명령줄 사용법 그대로 동작, 경로는 `host_config`에서 | 3 · — | S | uds/B | 대기 |
-| `pew/L` | 챗 에이전트 헌장에 포인터 한 줄(엔진 규칙은 루트 AGENTS.md, `--no-verify` 금지). 도구 거절 메시지가 규칙을 전하도록 점검 | `data/workspace/AGENTS.md`, 도구 응답 | 포인터만, `test_bundle_budget` 녹색 유지 | 3 · — | S | pew/C, pew/N | 대기 |
+| `pew/L` | 역할별 개발 안내(2026-09-27 운영자): 챗봇은 여러 캐릭터가 역할을 나눠 맡으므로, 개발 규칙 포인터(루트 `AGENTS.md`, `--no-verify` 금지, "아키텍처 책임자" 역할)는 **개발에 관여하는 역할 팩에만**, 개발 작업일 때만 싣는다. 공용 헌장(`data/workspace/AGENTS.md`)에는 넣지 않고, 지금 공용 헌장에 있는 개발 절(Self-modification)도 역할 팩으로 옮길 수 있는지 검토 | `data/workspace/roles/<개발 역할>/`, `data/workspace/AGENTS.md` | 개발 역할이 아닌 캐릭터의 주입 묶음에 개발 규칙이 없음(테스트), `test_bundle_budget` 녹색 | 3 · — | M | pew/C | 대기 |
 | `pew/M` | CHANGELOG 자동화(`rp/A`와 합침) | release 쪽 | `git-cliff`로 `Unreleased` 생성 | 1 · — | S | D5 | 대기 |
 
 **순서**
