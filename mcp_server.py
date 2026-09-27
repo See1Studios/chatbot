@@ -34,6 +34,7 @@ PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))
 HOME = Path(os.environ.get("HOME") or Path.home())
 SERVICES = HOME / "services"
 from host_config import DATA  # noqa: E402  -- one data-path resolver (uds/B)
+from host_config import ROOT as ENGINE  # noqa: E402  -- this engine's own folder, wherever it is installed
 # Same env vars and default as host_config.WEB_ROOT (align/F: no host path baked in).
 WEB_ROOT = Path(os.environ.get("CHATBOT_WEB_ROOT") or os.environ.get("AGY_CHAT_WEB_ROOT")
                 or DATA / "web")
@@ -70,7 +71,7 @@ ALLOW_ROOTS = [
     (WEB_ROOT / "chat").resolve(),
     TMP_ROOT.resolve(),
     (DATA / "workspace").resolve(),
-    (SERVICES / "chatbot").resolve(),  # host py/static; not in agy ADD_DIRS (token tax)
+    ENGINE.resolve(),  # engine py/static (dev build only, edition-boundary); not in agy ADD_DIRS (token tax)
 ]
 
 # Also allowlist these for read/list (broader read roots)
@@ -107,7 +108,7 @@ CMD_PREFIXES = (
 # chatbot-ctl.sh is a lifecycle script: only these read/diagnose subcommands, and
 # no arguments except probe's timeout. `doctor --auto-repair` reaches repair, so
 # doctor takes none. repair/start/stop/restart/defibrillate are for people.
-CTL_NAMES = (str(SERVICES / "chatbot-ctl.sh"), "chatbot-ctl.sh")
+CTL_NAMES = (str(SERVICES / "chatbot-ctl.sh"), str(ENGINE / "chatbot-ctl.sh"), "chatbot-ctl.sh")
 CTL_SUBCOMMANDS = ("status", "doctor", "probe", "guard", "logs")
 # `logs` (read-only logdigest.py) takes only these flag/value shapes.
 CTL_LOGS_FLAGS = {"--since": re.compile(r"\d{1,4}[smhd]"), "--sid": re.compile(r"\d{8}-\d{6}-[0-9a-f]{6}"),
@@ -149,14 +150,14 @@ def _resolve_target_path(raw_path: str) -> Path:
         ws_candidate = (DATA / "workspace" / p).resolve()
         if ws_candidate.exists():
             return ws_candidate
-        svc_candidate = (SERVICES / "chatbot" / p).resolve()
+        svc_candidate = (ENGINE / p).resolve()
         if svc_candidate.exists():
             return svc_candidate
         home_candidate = (HOME / p).resolve()
         if home_candidate.exists():
             return home_candidate
         if str(p).startswith("data/"):
-            return (SERVICES / "chatbot" / p).resolve()
+            return (ENGINE / p).resolve()
         return ws_candidate
     return p.resolve()
 

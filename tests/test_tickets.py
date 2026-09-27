@@ -615,7 +615,8 @@ class ImportDisciplineTest(unittest.TestCase):
             elif isinstance(node, ast.ImportFrom):
                 imported.add((node.module or "").split(".")[0])
         self.assertLessEqual(imported, {"__future__", "contextlib", "evolution", "hashlib", "json", "os", "pathlib",
-                                        "re", "secrets", "subprocess", "sys", "time", "typing"})
+                                        "re", "secrets", "shutil", "subprocess", "sys", "tempfile", "time", "typing"})
+        # shutil/tempfile: the release gate judges a throwaway worktree at HEAD (pew/Q)
         self.assertNotIn("nas_mcp", (CODE / "tickets.py").read_text(encoding="utf-8"))
 
 
@@ -656,6 +657,8 @@ class ShipGateTest(Base):
         self.git_init()
         runner = self.data / "run-tests.sh"
         runner.write_text('echo "failed: test_x"; exit 1\n', encoding="utf-8")
+        subprocess.check_call(["git", "add", "run-tests.sh"], cwd=str(self.data))   # the gate judges HEAD (pew/Q)
+        subprocess.check_call(["git", "commit", "-qm", "runner"], cwd=str(self.data))
         t, c = self.claimed()
         with self.assertRaises(tickets.TicketError) as cm:
             tickets.release(self.data, t["id"], c["token"], "done", now=T0)
@@ -665,6 +668,9 @@ class ShipGateTest(Base):
         self.assertEqual(r["ticket"]["status"], "approved")
         c = tickets.claim(self.data, t["id"], now=T0)
         runner.write_text("exit 0\n", encoding="utf-8")
+        with self.assertRaises(tickets.TicketError):
+            tickets.release(self.data, t["id"], c["token"], "done", now=T0)
+        subprocess.check_call(["git", "commit", "-qam", "fix runner"], cwd=str(self.data))
         r = tickets.release(self.data, t["id"], c["token"], "done", now=T0)
         self.assertEqual(r["ticket"]["status"], "done")
 

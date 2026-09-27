@@ -62,8 +62,10 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -350,16 +352,33 @@ def _paths_of(t: Dict) -> List[str]:
 
 def _guard_failure(data) -> str:
     """Why the repo's guard tests fail, or "" (pew/O: the backstop for a commit that skipped its hooks). Runs
-    `run-tests.sh --fast` of the git root that holds `data`; nothing to check without a git root or that script."""
+    `run-tests.sh --fast` on the committed state (HEAD) of the git root that holds `data`; nothing to check without a
+    git root or that script."""
     root = _git_root(data)
-    runner = root / "run-tests.sh" if root is not None else None
-    if runner is None or not runner.is_file():
+    if root is None:
         return ""
+    # Judge what is committed (HEAD), not the shared working tree: other agents' unfinished work must not refuse
+    # this ticket's `done` (pew/Q). A throwaway worktree at HEAD; the working tree only when HEAD is missing.
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE")}
+    base = Path.home() / ".cache" / "chatbot-release-snapshot"
+    base.mkdir(parents=True, exist_ok=True)
+    tmp = Path(tempfile.mkdtemp(dir=str(base)))
+    tree = tmp / "tree"
+    added = subprocess.run(["git", "worktree", "add", "--detach", "--quiet", str(tree), "HEAD"], cwd=str(root),
+                           env=env, capture_output=True, text=True)
+    where = tree if added.returncode == 0 else root
     try:
-        r = subprocess.run(["bash", str(runner), "--fast"], cwd=str(root), capture_output=True, text=True,
+        runner = where / "run-tests.sh"
+        if not runner.is_file():
+            return ""
+        r = subprocess.run(["bash", str(runner), "--fast"], cwd=str(where), env=env, capture_output=True, text=True,
                            timeout=GUARD_TIMEOUT_SEC)
     except subprocess.TimeoutExpired:
         return "guard tests timed out after %ds" % GUARD_TIMEOUT_SEC
+    finally:
+        if added.returncode == 0:
+            subprocess.run(["git", "worktree", "remove", "--force", str(tree)], cwd=str(root), env=env, capture_output=True)
+        shutil.rmtree(str(tmp), ignore_errors=True)
     if r.returncode == 0:
         return ""
     failed = [l for l in r.stdout.splitlines() if l.startswith("failed:")]
