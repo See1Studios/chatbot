@@ -37,6 +37,7 @@ project's goals (`docs/concept.md` direction, active plans in `docs/plans/INDEX.
 | Host operations law | `~/AGENTS.md` |
 | Engine development rules, code map | this file |
 | PE chat agent behaviour | `data/workspace/AGENTS.md` (+ role packs `data/workspace/roles/<role>/`) |
+| Architecture: layers, adapters, plugin layer, ST split | `docs/architecture.md` |
 | Data paths, ports, env | `host_config.py` |
 | Plan status | `docs/plans/INDEX.md` |
 | Plan item progress | tickets (`tickets.py`, `python3 tickets.py list`) |
