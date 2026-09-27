@@ -1,5 +1,13 @@
 # chatbot 개발로그
 
+## 2026-09-27 — Private Engine 브랜드·도메인 검토 계획 문서화
+
+- **배경**: 대화(2026-09-27) 공개 스캔 — Private Engine / PrivateEngine / 프라이빗엔진 채택 가능성, 도메인·레지스트리, 상표 리스크. 법률 자문 아님.
+- **추가**: `docs/plans/private-engine-brand.md` (`active`) — 스캔 요약, privateengine.ai 기울기, PrivacyEngine.io·Wallpaper Engine 인접, pe.ai TAKEN, 도메인 홀드→클리어런스 권고.
+- **INDEX**: Active 표에 행 추가.
+- **concept**: `열린 축`에 브랜드·도메인 검토 링크 1줄.
+- **면책**: 공개 스캔 기록만. KR/US/(EU) 변호사 전 스케일 금지 고지 문서에 포함.
+
 ## 2026-09-27 — docs/plans 아카이브 절차 + 에이전트 MUST
 
 - **INDEX**: 상태 `active|done|superseded|abandoned`, 아카이브 절차, Active/Archived 표 분리.

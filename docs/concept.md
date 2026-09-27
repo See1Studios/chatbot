@@ -43,3 +43,4 @@
 - 언제 어디서나 접속 (지금은 LAN 평문)
 - 디바이스별 지원 밀도
 - 캐릭터라이징 깊이, 친구/연인/동료의 온도
+- 브랜드·도메인: [private-engine-brand.md](plans/private-engine-brand.md) (가칭 Private Engine, privateengine.ai 기울기 — 법적 클리어런스 전)
