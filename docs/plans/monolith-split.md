@@ -1,5 +1,7 @@
 # chatbot 모노리스 분리 (동작 불변)
 
+> 방향 (align/D, 2026-09-28): **개발 기반** — 파일 크기·구조 규칙. 누가 개발하든 필요하고 배포판 동작과는 무관
+
 ## Context
 
 `server.py` ~4920줄, `static/app.js` ~4021줄, `static/index.html` 인라인 CSS

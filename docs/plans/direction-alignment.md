@@ -1,5 +1,7 @@
 # 방향 정렬 (개인화 하네스로의 전환)
 
+> 방향 (align/D, 2026-09-28): **정렬** — 기조(`docs/CONCEPT.md`)에 다른 계획을 맞추는 계획
+
 > 상태: **active** (초안 2026-09-28)
 > 목적: 바뀐 제품 지향점에 맞춰 기조 문서·계획·코드의 낡은 부분을 정렬한다. 기조(`docs/CONCEPT.md`)를 다시 쓰는 일이 첫 단계이고, 나머지는 그 기조를 기준으로 한다.
 > 관련: [CONCEPT.md](../CONCEPT.md) · [plan-execution-workflow.md](plan-execution-workflow.md) · [release-pipeline.md](release-pipeline.md) · [localization.md](localization.md) · [character-memory-adapter.md](character-memory-adapter.md) · [private-mode.md](private-mode.md)

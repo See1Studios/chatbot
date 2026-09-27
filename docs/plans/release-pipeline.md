@@ -1,5 +1,7 @@
 # Private Engine 릴리스·배포 파이프라인 (계획)
 
+> 방향 (align/D, 2026-09-28): **기반** — 배포 경로(셸·설치기·Steam)와 사업 모델
+
 > 상태: **active** (2026-09-27)
 > 목적: 엔진/사용자 데이터 분리 이후 **언제·무엇을** 배포 가능하게 할지 로드맵. 구현 착수 전 계획만.
 > 관련: [user-data-separation.md](user-data-separation.md) · [private-engine-brand.md](private-engine-brand.md) · [CONCEPT.md](../CONCEPT.md) · [user-data-and-editing.md](user-data-and-editing.md) §1

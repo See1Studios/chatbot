@@ -50,6 +50,19 @@ class PlansIndex(unittest.TestCase):
             rel = p.relative_to(PLANS).as_posix()
             self.assertIn(rel, listed, "%s is archived but has no INDEX row" % rel)
 
+    def test_every_active_plan_states_its_direction_fit(self):
+        # align/D: judged against docs/CONCEPT.md; a new plan states its fit under its title, and INDEX shows it
+        grades = {"핵심", "기반", "개발 기반", "개발판 전용", "정렬"}
+        index = (PLANS / "INDEX.md").read_text(encoding="utf-8")
+        for target, _ in section_rows("## Active"):
+            head = "\n".join((PLANS / target).read_text(encoding="utf-8").splitlines()[:6])
+            m = re.search(r"^> 방향 \([^)]*\): \*\*(.+?)\*\* — \S", head, re.M)
+            self.assertTrue(m, "%s: add `> 방향 (…): **등급** — 이유` under the title (grades: %s)" % (target, sorted(grades)))
+            for g in m.group(1).split(" + "):
+                self.assertIn(g, grades, "%s: unknown direction grade %r" % (target, g))
+            row = next(l for l in index.splitlines() if "](%s)" % target in l)
+            self.assertIn("방향 **%s**" % m.group(1), row, "%s: INDEX row must show 방향 **%s**" % (target, m.group(1)))
+
     def test_a_plan_states_the_same_status_as_its_row(self):
         for target, status in section_rows("## Active"):
             head = (PLANS / target).read_text(encoding="utf-8")[:1500]

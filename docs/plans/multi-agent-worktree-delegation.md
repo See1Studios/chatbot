@@ -1,5 +1,7 @@
 # 멀티 에이전트 Git Worktree 격리 외주 계획서 (Multi-Agent Worktree Delegation)
 
+> 방향 (align/D, 2026-09-28): **개발판 전용 + 핵심** — §1–10·§13의 코드 위임(워크트리·러너·PD 계획)은 개발판 전용(align D2). §11–12의 캐릭터·역할 팩·팀 편성은 규칙 층 개인화로 배포판 핵심
+
 - **작성일:** 2026-09-23
 - **상태:** 계획 (Proposed)
 - **대상:** `services/chatbot/`, `~/bin/`, `~/tools/`
