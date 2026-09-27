@@ -227,6 +227,7 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 | `pew/F` | 러너 게이트(`DEFAULT_GATES`)를 `run-tests.sh --fast` + 변경 경로 관련 모듈로 교체 | `tools/worktree_runner.py` | 위임 실행 로그에 `run-tests.sh` 결과가 남음 | 3 · — | S | pew/N | ✅ #267 `d0acc0a` |
 | `pew/N` | **기준선 녹색화**: 실패 14개를 세 티켓으로 — N1 구조 가드 초과(`test_bundle_budget` 헌장 묶음 축소, `test_file_sizes` `server.py` 분할) · N2 코드 분리 후 낡은 UI 하네스·소스 문자열 테스트 8개 · N3 동작 기대 불일치 3개(각각 코드와 테스트 중 무엇이 맞는지 운영자 확인) | 티켓별 | `./run-tests.sh` 종료 코드 0 | 3 · ⚡(N1 `server.py`) | M×3 | pew/B | ✅ #255–#261 (`git log --grep="Plan: pew/N"`) |
 | `pew/O` | `tickets.release(done)`이 `run-tests.sh --fast`를 통과해야 완료되게 함(훅 우회의 백스톱, 경로 ①·③) | `tickets.py`, `tests/test_tickets.py` | 가드 테스트가 빨간 상태에서 `done`이 짧은 이유와 함께 거절됨 | 3 · ⚡ | S | pew/N | ✅ #267 `d0acc0a` |
+| `pew/P` | 러너 관련 테스트 확장: 바뀐 파일 이름을 **본문에서 언급하는** 테스트도 포함(예: `protected_paths.json` → `test_lifecycle`·`test_evolution`·`test_code_layout`). 2026-09-28 `7b54fd9`에서 `test_lifecycle` 실패가 훅·완료 관문(가드만)을 통과한 사례 | `tools/worktree_runner.py`, `tests/test_worktree_runner.py` | `related_gate(["protected_paths.json"])`이 위 세 모듈을 포함 | 3 · — | S | pew/F | 대기 |
 | `pew/G` | 계획 템플릿 + INDEX 규칙에 수명주기 요약과 링크 | `docs/plans/_TEMPLATE.md`, `docs/plans/INDEX.md` | 템플릿이 §6 섹션을 모두 포함 | 0 · — | S | D2 | 대기 |
 | `pew/H` | ADR 도입 + `0001-user-data-default-pe.md`(`~/.pe` 결정 소급) | `docs/decisions/` | MADR 축약 형식, 루트 AGENTS.md 정본 지도에서 링크 | 0 · — | S | D1 | 대기 |
 | `pew/I` | `test_plan_items`(항목 표·티켓 대조) | `tests/test_plan_items.py` | 파일럿 두 문서에서 통과, 틀린 `#N`은 실패 | 3 · — | M | pew/J | 대기 |
