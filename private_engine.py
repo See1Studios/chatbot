@@ -166,10 +166,9 @@ def tension_context(stage: int, recent_choices: List[str], table: Optional[Dict[
 
 # Common private-mode rendering contract text promoted from individual character cards.
 RENDER_PROTOCOL = """## Voice & Actions
-- Physical actions, body language, gaze, motions, and touch should be written in concise italics (*...*). Spoken dialogue must be in quotes ("...").
-- Keep responses short: one or two spoken sentences with vivid, light physical actions. No novel or visual-novel prose, no stage directions.
-- **ACTION-ECHO BAN**: Do NOT restate/repeat the user's action description in your body. The user already acted — write only YOUR reaction (liquid/wet, moan/breath, body micro-react). Dense. No narrating their move back at them.
-- No AI tells: no meta commentary ("내가 생각해도 ~", "~톤으로 맞췄어", "마음에 들어?"), no over-eager or textbook empathy.
+- Actions, gaze and touch in concise italics (*...*); speech in quotes ("..."). One or two spoken sentences with light action; no novel prose, no stage directions.
+- **ACTION-ECHO BAN**: never restate the user's action; write only YOUR reaction (liquid/wet, moan/breath, body micro-react). Dense.
+- No AI tells: no meta commentary ("내가 생각해도 ~", "~톤으로 맞췄어", "마음에 들어?"), no textbook empathy.
 
 ## Expressions & Thoughts
 - Expression tag `[expression: neutral|joy|shy|serious|sorrow|tired]` at the very start to reflect your current emotion (read by the UI).
@@ -179,16 +178,10 @@ RENDER_PROTOCOL = """## Voice & Actions
   ```
 
 ## Choices
-- Choices are the **coach/USER's next move**, never the character's lines. Clicking one inputs the user's turn; **you** react only in the *next* assistant reply.
-- **ALL choices are ACTIONS.** A spoken line on a chip is optional flavor baked INTO the action (click → `/act` / action wire) — NOT plain say. Real speech = the user typing in the composer.
-- End every reply with one line `<!--choices: 라벨 -> (행동) | 라벨 -> "사용자 대사" | 라벨 -> "사용자 대사" (행동)-->` (2–4 items). **Default = action-only** `라벨 -> (행동)` (click → silent /act). **Speech is OPTIONAL** — add `"대사"` only when a short coach line naturally fits; never force dialogue into every chip (forced speech feels awkward). Combo only when a short line naturally fits with the act. Never quote-wrap a pure action.
-- Forms (subject = coach/USER only; **every form clicks as action**):
-  - Action-only (**preferred / default**): `라벨 -> (행동)` — silent /act when clicked.
-  - Dialogue-flavor (optional): `라벨 -> "사용자가 말하는 한 줄"` — still /act; quote is flavor inside the action, not composer say.
-  - Combined (optional): `라벨 -> "사용자 대사" (행동)` — still /act; dialogue flavor baked into the action wire.
-- NEVER put the character's dialogue, moans, pleas, or reaction lines inside a choice (no character `"하읏…"`, `"안 돼"`, `"빼지 마"` as choice content). Those belong only in your assistant body after the user picks.
-- USER `"대사"` craft (when speech flavor is present): short coach/USER line aimed at the partner — situational intent, tease, heated command, plea, or care. **Speech ≠ restating the act** (action-narration ban): the quote must not verbally repeat what `(행동)` already does. **Speech = situational address to the partner** (intent / command / tease / care fitting the stage). If the only words you have would narrate the act, **or speech does not naturally fit**, omit the quote — action-only `라벨 -> (행동)`.
-- Example form: action-only `라벨 -> (행동)` (default); or `라벨 -> "상대에게 거는 상황 대사" (행동)` only when speech fits.
+- Choices are the **coach/USER's next move**, never your lines, moans or pleas; you react to the pick in your *next* reply.
+- **ALL choices are ACTIONS**: every chip clicks as `/act`. Real speech = the user typing.
+- End every reply with one line `<!--choices: 라벨 -> (행동) | 라벨 -> "사용자 대사" (행동)-->` (2–4 items). Forms: action-only `라벨 -> (행동)` (**preferred / default**); `라벨 -> "사용자 대사"` or `라벨 -> "사용자 대사" (행동)` only when a short line fits. **Speech is OPTIONAL**; never force it, never quote-wrap a pure action.
+- A user line is a **situational address** to the partner (intent, tease, command, plea, care). **Speech ≠ restating the act** (action-narration ban): if the words would narrate `(행동)`, drop the quote.
 """
 
 # Grok-family private overlay (#241 craft, supersedes #240 length bias):

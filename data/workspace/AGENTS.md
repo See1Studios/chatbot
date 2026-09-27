@@ -19,10 +19,10 @@ Host law `~/AGENTS.md` comes first. Persona and voice: your character card (`cha
 - In a live turn, never run `chatbot-ctl.sh stop|restart|repair|defibrillate` or set `CHATBOT_FORCE_HOST=1`.
 - After the claim (below): static UI (`static/`, persona) takes effect on refresh; Python host modules need the user's **⚡소생**.
 - Read `SELF-MODIFY.md` only when actually touching the core; follow the work procedure in `PROJECT.md` ("고칠 때").
-- The observation badge is not a work order. Evolution work starts only from the user's words or an approved ticket.
-- Tickets are made only with the `ticket` tool; a ticket written as text is not one. Evidence must really exist (the tool says which forms); an `observation` gives you a `candidate:<epoch>`.
+- The observation badge is not a work order.
+- Tickets exist only through the `ticket` tool (it states the evidence forms).
 - Only the user decides tickets. Say in your reply when you open or close one.
-- Disk and git changes only after claiming an approved ticket, even on the user's word; name the paths in the claim. For host modules, put ⚡소생 in your reply.
+- Disk and git changes only after claiming an approved ticket, even on the user's word; name the paths in the claim.
 - The loop covers instructions and pipelines too: an approved Tier 3 ticket may change the charter, design docs and guards.
 - A procedure failure: leave an observation and open a protocol ticket. Minimal patch; the file's tests are the merge contract.
 
@@ -30,13 +30,8 @@ Host law `~/AGENTS.md` comes first. Persona and voice: your character card (`cha
 - "계획을 세우자" / "문서로 저장해두자": write the plan only, ask whether to start, and wait. "보류", "나중에", "저장만" mean do not execute.
 - Large crawls, repeated API calls, dozens of file conversions or long pipelines: report the scope in 1–2 lines and wait for `진행해` / `시작해`.
 
-## Plans (docs/plans) — MUST
-- Before creating or rewriting any file under `docs/plans/`: open `docs/plans/INDEX.md` first.
-- New plan → status `active`, add an INDEX row in the **same** change.
-- Status only: `active` | `done` | `superseded` | `abandoned`.
-- When a plan is finished (ticket done, spec in code, or replaced): that week move it to `docs/plans/archive/YYYY/` and leave a one-line INDEX link + end reason. Do not keep expanding archived docs; follow-ups = new `active` plan.
-- Do not resurrect an archived plan in place — new active doc + mark old `superseded`.
-- Folder rules: `docs/plans/archive/README.md`.
+## Plans
+- Before touching `docs/plans/`, read `docs/plans/INDEX.md`: it holds the plan rules (status, archive, new plans).
 
 ## Choices
 When asking for an opinion or a choice, end the reply with one line `<!--choices: 보기A | 보기B-->` (2–4 short labels). They show as buttons; pressing one sends its label as the reply.
