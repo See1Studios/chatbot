@@ -1,6 +1,6 @@
 ---
 name: chatbot
-description: Dark glass NAS night console — Pretendard, charcoal shell, seven accent dials.
+description: Dark glass night console — Pretendard, charcoal shell, seven accent dials.
 colors:
   bg: "#0a0c0f"
   bg-card: "#14171d"
@@ -102,7 +102,7 @@ components:
 
 **Creative North Star: "The Night Console"**
 
-This is a NAS night console, not a chat-product landing page. The shell is charcoal glass: dark cards, an inset glint on raised chips, blur on menus and assistant bubbles. Accent is a lamp on the dashboard — rare, theme-swappable, never the wallpaper. 냥피디 lives here as the operator's PD (portrait, studio wash at 12% opacity), not as a theme-park skin.
+This is a night console, not a chat-product landing page. The shell is charcoal glass: dark cards, an inset glint on raised chips, blur on menus and assistant bubbles. Accent is a lamp on the dashboard — rare, theme-swappable, never the wallpaper. The active character lives here (portrait, studio wash at 12% opacity), not as a theme-park skin. Its name and look come from its card and `visual.md`, never from this file.
 
 Density is Operate-mode: scan the header, read the log, type in the composer. Personality sits in the lime (or current dial) lamp, the cat producer portrait, and the slightly lifted chips — not in extra chrome.
 
@@ -150,7 +150,7 @@ Omitted as a second brand color. The four other dials are the same *role* as Pri
 **Character:** One family for the console. Weight and size do the hierarchy; do not add a display serif or Hub's Noto as the chat face.
 
 ### Hierarchy
-- **Display** (700, 1.35rem / 0.95rem at 640px, 1.15, -0.02em): header `h1` "냥피디" only
+- **Display** (700, 1.35rem / 0.95rem at 640px, 1.15, -0.02em): header `h1` with the active character's display name only
 - **Headline** (600, 1.15–1.25rem, 1.3): markdown `h1`/`h2` inside assistant bubbles
 - **Title** (600, 1.02rem, 1.3): markdown `h3`, uses `--accent2`
 - **Body** (400, 16px on the composer, 1.6 in bubbles): chat copy and textarea (16px is the mobile zoom floor)
@@ -216,7 +216,7 @@ Slightly floating chips, not marketing CTAs.
 
 ### Navigation
 - **Header:** brand (avatar + name + provider caption in `--accent2`) left; tabs + overflow right
-- **Hub chip:** fixed top-left glass pill; static in the header on mobile
+- **Hub chip** (dev install only: link back to the host hub): fixed top-left glass pill; static in the header on mobile
 - **Active tab:** `.on` + accent icon. `role="tablist"` on the bar
 - **Mobile:** nowrap header; tab labels may collapse — keep the icon
 
@@ -235,7 +235,7 @@ The floating layered-PNG mascot was removed on 2026-09-19: its position was ambi
 - **Do** snap `#log` instantly on session change and new messages.
 
 ### Don't:
-- **Don't** treat Sphere Hub `sphere-theme.css` (Noto + orange) as this chat's type or accent.
+- **Don't** treat the dev install's host hub theme (Sphere Hub `sphere-theme.css`, Noto + orange) as this chat's type or accent.
 - **Don't** hardcode `#d1fe17` on new UI except as the `lime` token itself.
 - **Don't** add `scroll-behavior: smooth` on `#log`.
 - **Don't** flood a screen with accent glow; the lamp is rare on purpose.
