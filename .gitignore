@@ -14,6 +14,8 @@ data/doctor-probe.stamp
 data/standby.pid
 # API-Provider plan: API keys (e.g. CHATBOT_OMNIROUTE_API_KEY) -- never committed
 data/secrets.env
+# align/F: per-install settings (host plugin, web root) -- never committed
+data/host.env
 # per-host account observation state (accounts.py watch_loop)
 data/account_state.json
 # worktree delegation: which work cards the operator has seen (delegation.py)

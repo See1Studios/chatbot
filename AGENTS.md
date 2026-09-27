@@ -39,6 +39,7 @@ project's goals (`docs/CONCEPT.md` direction, active plans in `docs/plans/INDEX.
 | PE chat agent behaviour | `data/workspace/AGENTS.md` (+ role packs `data/workspace/roles/<role>/`) |
 | Architecture: layers, adapters, plugin layer, ST split | `docs/ARCHITECTURE.md` |
 | Data paths, ports, env | `host_config.py` |
+| Per-install settings (host plugin on/off, web root, ports) | `$CHATBOT_DATA/host.env`, read by `chatbot-ctl.sh` (options: `templates/host.env.example`) |
 | Plan status | `docs/plans/INDEX.md` |
 | Plan item progress | tickets (`tickets.py`, `python3 tickets.py list`) |
 | Decisions | `docs/decisions/` (planned, pew/H); until then the plan's decision table |

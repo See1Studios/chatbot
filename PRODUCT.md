@@ -48,7 +48,7 @@ web — 로컬에서 도는 Python 엔진 + 브라우저 UI. 배포는 그 위�
 - 평문 HTTP, LAN 내부 접속(TLS 없음). 보안 컨텍스트가 필요한 브라우저 API는 폴백이 필요했던 전례가 있다(docs/DEVLOG.md).
 - UI 표면은 전체 창 채팅 하나: `http://diskstation:3011/`와 숏컷 `http://diskstation/chat/`가 같은 `static/index.html`을 연다. `static/live.html`(2.5D 뷰어)은 제품 표면이 아니다.
 - Sphere Hub(이 NAS의 허브 홈)의 FAB은 레포 밖 호스트 셸이다. 입구·호스트 소생 경로로만 존재하고 이 제품의 디자인 표면이 아니다.
-- NAS 서비스 제어(`nas_mcp_host.py`)는 이 설치 환경의 플러그인이다. 제품 기능이 아니다([direction-alignment.md](docs/plans/direction-alignment.md) D3).
+- NAS 서비스 제어(`nas_mcp_host.py`)는 이 설치 환경의 플러그인이다. 제품 기능이 아니다([direction-alignment.md](docs/plans/direction-alignment.md) D3). 기본은 꺼짐이고, 이 NAS는 `data/host.env`의 `NAS_MCP_HOST_PLUGIN=1`·`CHATBOT_WEB_ROOT=/volume1/web`로 켠다(선택지는 `templates/host.env.example`).
 
 ## Capabilities and Constraints
 

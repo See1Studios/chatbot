@@ -1,8 +1,8 @@
 {
  "host_identity": {
-  "host_config.py": 5,
+  "host_config.py": 2,
   "identity.py": 2,
-  "mcp_server.py": 6,
+  "mcp_server.py": 1,
   "providers/account_login.py": 1,
   "providers/adapter_agy.py": 1,
   "providers/adapter_claude.py": 2,

@@ -30,12 +30,12 @@ import obslog
 
 HOST = os.environ.get("NAS_MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))
-HOME = Path(os.environ.get("HOME") or "/volume1/homes/me")
+HOME = Path(os.environ.get("HOME") or Path.home())
 SERVICES = HOME / "services"
 DATA = SERVICES / "chatbot" / "data"  # consolidated under chatbot/ 2026-09-16
-# Same env var as server.py's WEB_ROOT -- only this NAS's actual value
-# (/volume1/web) is host-specific, not the mechanism.
-WEB_ROOT = Path(os.environ.get("CHATBOT_WEB_ROOT") or os.environ.get("AGY_CHAT_WEB_ROOT") or "/volume1/web")
+# Same env vars and default as host_config.WEB_ROOT (align/F: no host path baked in).
+WEB_ROOT = Path(os.environ.get("CHATBOT_WEB_ROOT") or os.environ.get("AGY_CHAT_WEB_ROOT")
+                or Path(os.environ.get("CHATBOT_DATA") or DATA) / "web")
 AGENTS = HOME / ".agents"
 TMP_ROOT = Path("/tmp/chatbot-mcp")
 CODE_ROOT = Path(__file__).resolve().parent  # where protected_paths.json lives
@@ -428,14 +428,14 @@ def _run(cmd: List[str], timeout: int = 20, cwd: Optional[str] = None) -> Tuple[
         return 1, "", str(e)
 
 
-# Optional DiskStation host-plugin (Sphere/Hermes/NamuWatcher awareness) --
-# a different deployment just doesn't ship nas_mcp_host.py, or sets
-# NAS_MCP_HOST_PLUGIN=0, and gets the generic core tool set only. Loaded
+# Optional host plugin (nas_mcp_host.py: one NAS install's own services and siblings). Off unless the install turns
+# it on with NAS_MCP_HOST_PLUGIN=1 in $CHATBOT_DATA/host.env (align/F, direction-alignment D3): the shipped build
+# runs on users' own machines and gets the generic core tool set only. Loaded
 # here (not at the top of the file) because nas_mcp_host imports envelope/
 # _run/_scrub_text back from this module -- they must already exist in
 # this module's namespace when that import runs.
 HOST_PLUGIN = None
-if os.environ.get("NAS_MCP_HOST_PLUGIN", "1") != "0":
+if os.environ.get("NAS_MCP_HOST_PLUGIN", "0") == "1":
     try:
         import nas_mcp_host as HOST_PLUGIN  # noqa: N813
     except Exception:
@@ -734,7 +734,7 @@ def _obs_tool_call(name: str, arguments: dict) -> dict:
 class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
     """Access/exception logging: obslog.HTTPLogMixin (docs/LOGGING.md). /mcp traffic is
     summarised; the tool calls themselves are logged as mcp.call."""
-    server_version = "SphereNasMcp/1.0"
+    server_version = "ChatbotMcp/1.0"
 
     def _obs_quiet(self, method: str, path: str) -> bool:
         return True

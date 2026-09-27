@@ -3,7 +3,7 @@ set -euo pipefail
 # ${HOME_DIR:-...}: this NAS's actual value is the default, but a different
 # deployment can export HOME_DIR before calling this script (see
 # docs/plans/chatbot-host-portability.md) without editing it.
-HOME_DIR="${HOME_DIR:-${HOME:-/volume1/homes/me}}"
+HOME_DIR="${HOME_DIR:-$HOME}"
 export PATH="$HOME_DIR/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 # CTL_SYMLINK_v1: ~/services/chatbot-ctl.sh is a symlink; follow it, or CODE becomes ~/services (the doctor then
 # looked for ~/services/server.py and failed every run from 2026-09-23 19:07 to 2026-09-24 13:30).
@@ -16,6 +16,14 @@ DATA="$CODE/data"  # consolidated under chatbot/ 2026-09-16
 # untracked (see .gitignore), sourced before every spawn of server.py below,
 # so start/restart/repair all pick it up the same way regardless of which
 # one actually launches the process.
+# align/F: this install's own settings (host plugin, web root, ports) live beside its data, not in code;
+# see templates/host.env.example. Sourced before secrets.env so a secret can never be overridden by it.
+if [ -f "$DATA/host.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$DATA/host.env"
+  set +a
+fi
 if [ -f "$DATA/secrets.env" ]; then
   set -a
   # shellcheck disable=SC1091

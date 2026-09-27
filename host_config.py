@@ -16,7 +16,7 @@ def _env(name: str, legacy: str, default: str) -> str:
     return os.environ.get(name) or os.environ.get(legacy) or default
 
 
-HOME = Path(os.environ.get("HOME") or "/volume1/homes/me")
+HOME = Path(os.environ.get("HOME") or Path.home())
 ROOT = Path(_env("CHATBOT_ROOT", "AGY_CHAT_ROOT", str(Path(__file__).resolve().parent)))
 # 2026-09-16: consolidated from a sibling chatbot-data/ directory (and its
 # own separate git repos) into chatbot/data/ -- one project, one folder, one
@@ -26,10 +26,10 @@ DATA = Path(_env("CHATBOT_DATA", "AGY_CHAT_DATA", str(ROOT / "data")))
 STATIC = ROOT / "static"
 SESSIONS = DATA / "sessions"
 WORKSPACE = DATA / "workspace"
-# Static web host root -- NOT this service's own ROOT/DATA. Only this NAS's
-# actual layout (/volume1/web) is DiskStation-specific; the var itself lets
-# a different deployment point it anywhere (see docs/plans/chatbot-host-portability.md).
-WEB_ROOT = Path(_env("CHATBOT_WEB_ROOT", "AGY_CHAT_WEB_ROOT", "/volume1/web"))
+# An external static web root the install publishes into (persona images, the /chat shortcut). An install with no
+# web server leaves it unset and gets a folder in its own data; a host that has one names it in
+# $CHATBOT_DATA/host.env (templates/host.env.example). align/F: no host path is baked in.
+WEB_ROOT = Path(_env("CHATBOT_WEB_ROOT", "AGY_CHAT_WEB_ROOT", str(DATA / "web")))
 AGENT_PATH_PREFIX = f"{HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
 HOST = _env("CHATBOT_HOST", "AGY_CHAT_HOST", "127.0.0.1")
@@ -85,8 +85,7 @@ MODELS = [
 # mermaid.min.js (3.2M) is inside STATIC, so --add-dir static == ROOT tax.
 # /chat is free. Do not add ROOT or STATIC. Code/UI edits: MCP ALLOW_ROOTS
 # includes services/chatbot.
-ADD_DIRS = [
-    str(WEB_ROOT / "chat"),
+ADD_DIRS = [d for d in (str(WEB_ROOT / "chat"),) if Path(d).is_dir()] + [   # only a web root that exists (align/F)
     str(WORKSPACE),   # MCP(.gemini/config/mcp_config.json), skills(.agents/), hooks -- required
                       # Measured 2026-09-19: agy adds ~+34k tokens/turn when an add-dir
                       # sits inside the home git repo (independent of the dir's contents --
