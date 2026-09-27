@@ -196,6 +196,7 @@ class AgentSession:
         self.mode = "work"
         self.private_digested_ts = 0.0  # private sessions: turns up to this time are already in private memory
         self.tension_stage, self.recent_choices = tension_meta({})  # PRIVATE_TENSION_v1: private stage 1..4, used choices
+        self.refusal_mitigation = False  # GEMINI_REFUSAL_MITIGATION_TEST_v1 (#249): opt-in Gemini refusal layer
         self._cached_summary = ""  # memoized handover summary for zero-delay rotate
         self._summary_generating = False
         self._stop_requested = False  # True after an explicit stop() until the next _spawn()
@@ -235,6 +236,7 @@ class AgentSession:
                 self.mode = "private" if meta.get("mode") == "private" else "work"
                 self.private_digested_ts = float(meta.get("private_digested_ts") or 0)
                 self.tension_stage, self.recent_choices = tension_meta(meta)
+                self.refusal_mitigation = bool(meta.get("refusal_mitigation", False))  # #249 opt-in
                 ts_list = [h.get("ts") for h in self.history if isinstance(h.get("ts"), (int, float))]
                 if ts_list:
                     self.last_activity = max(ts_list)
@@ -268,6 +270,7 @@ class AgentSession:
                 "mode": getattr(self, "mode", "work") or "work",
                 "private_digested_ts": getattr(self, "private_digested_ts", 0.0) or 0.0,
                 "tension_stage": getattr(self, "tension_stage", 1), "recent_choices": list(getattr(self, "recent_choices", [])),
+                "refusal_mitigation": bool(getattr(self, "refusal_mitigation", False)),
                 "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             }
             try:

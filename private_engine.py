@@ -218,6 +218,65 @@ RENDER_PROTOCOL_GROK_OVERLAY = """## Voice & Actions (Grok private overlay)
 
 
 
+# GEMINI_REFUSAL_MITIGATION_TEST_v1 (#249): OPTIONAL opt-in test layer for Gemini/agy private only.
+# Soft intimate-RP continuity framing when the model starts refusing kink escalation.
+# Separate from craft (tension tables / RENDER_PROTOCOL*). Default OFF — never bake into craft JSON.
+REFUSAL_MITIGATION_PATH = DEFAULTS_PATH.with_name("private_refusal_mitigation_gemini.json")
+_REFUSAL_MITIGATION_CACHE: Optional[Dict[str, Any]] = None
+
+
+def load_refusal_mitigation(path: Optional[Path] = None) -> Dict[str, Any]:
+    """Load the Gemini refusal-mitigation TEST layer JSON (cached)."""
+    global _REFUSAL_MITIGATION_CACHE
+    p = Path(path or REFUSAL_MITIGATION_PATH)
+    if _REFUSAL_MITIGATION_CACHE is not None and path is None:
+        return _REFUSAL_MITIGATION_CACHE
+    data = json.loads(p.read_text(encoding="utf-8"))
+    out = {
+        "version": int(data.get("version") or 1),
+        "test_layer": bool(data.get("test_layer", True)),
+        "marker": str(data.get("marker") or "GEMINI_REFUSAL_MITIGATION_TEST_v1"),
+        "default_enabled": bool(data.get("default_enabled", False)),
+        "families": tuple(str(f) for f in (data.get("families") or ["gemini"])),
+        "text": str(data.get("text") or "").strip(),
+    }
+    if path is None:
+        _REFUSAL_MITIGATION_CACHE = out
+    return out
+
+
+def refusal_mitigation_enabled(session: Any = None, family: str = "") -> bool:
+    """Opt-in only (default OFF). Gemini-family private A/B test.
+
+    Enable with either:
+      - session.refusal_mitigation / meta.json "refusal_mitigation": true  (per-session)
+      - env CHATBOT_PRIVATE_REFUSAL_MITIGATION=1|true|on|yes               (host-wide A/B)
+    JSON default_enabled is informational only and must stay false so craft stays clean.
+    """
+    import os
+    fam = (family or "").strip()
+    if not fam and session is not None:
+        fam = detect_model_family(getattr(session, "provider", ""), getattr(session, "model", ""))
+    data = load_refusal_mitigation()
+    if fam not in data["families"]:
+        return False
+    if session is not None and bool(getattr(session, "refusal_mitigation", False)):
+        return True
+    env = (os.environ.get("CHATBOT_PRIVATE_REFUSAL_MITIGATION") or "").strip().lower()
+    return env in ("1", "true", "on", "yes")
+
+
+def refusal_mitigation_text(family: str = "") -> str:
+    """Lean soft-framing block for the TEST layer; empty when family is not covered."""
+    data = load_refusal_mitigation()
+    if family and family not in data["families"]:
+        return ""
+    body = data["text"]
+    if not body:
+        return ""
+    return f"[{data['marker']}]\n{body}"
+
+
 def render_protocol_text(card: Any = None, family: str = "") -> str:
     """Common private render contract; Grok family appends a reaction-first craft overlay."""
     if (family or "") == "grok":
@@ -235,6 +294,15 @@ def turn_context(session: Any) -> str:
         getattr(session, "recent_choices", []),
         family_table(family),
     )
+    parts: List[str] = []
     if family == "grok":
-        return RENDER_PROTOCOL_GROK_OVERLAY + "\n\n" + tension
-    return tension
+        parts.append(RENDER_PROTOCOL_GROK_OVERLAY)
+    parts.append(tension)
+    # Optional Gemini refusal-mitigation TEST layer (#249) — never default craft.
+    if refusal_mitigation_enabled(session, family):
+        mit = refusal_mitigation_text(family)
+        if mit:
+            parts.append(mit)
+    return "\n\n".join(parts)
+
+

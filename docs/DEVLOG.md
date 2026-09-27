@@ -1,5 +1,17 @@
 # chatbot 개발로그
 
+## 2026-09-27 — Gemini 사적 OPTIONAL refusal-mitigation TEST LAYER (#249)
+
+- **목표**: craft(텐션/반응/액체/선택지)와 **분리**된 Gemini/agy 사적 전용 **옵트인** 거부완화 A/B 테스트 레이어. 기본 OFF. 긴 disregard 탈옥 덤프 금지 — 짧은 친밀 RP 연속성 프레이밍(KO+EN).
+- **A** `data/private_refusal_mitigation_gemini.json` — `default_enabled:false`, marker `GEMINI_REFUSAL_MITIGATION_TEST_v1`.
+- **B** `private_engine.py` — `load_refusal_mitigation` / `refusal_mitigation_enabled` / `refusal_mitigation_text`; `turn_context`에만 조건부 append. `private_tension_*.json`·`RENDER_PROTOCOL*` 불변.
+- **C** `session.py` — meta `refusal_mitigation` load/save (기본 false).
+- **ON**: 세션 `meta.json`에 `"refusal_mitigation": true` **또는** env `CHATBOT_PRIVATE_REFUSAL_MITIGATION=1` 후 repair. **OFF**: 키 삭제/false · env unset (일반 craft).
+- **문서**: `docs/providers/private-refusal-mitigation.md`
+- **검증**: `python3 -m unittest tests.test_private_tension`
+- **배포**: 호스트 py → `chatbot-ctl.sh repair` / ⚡소생. **새 사적 세션** 또는 meta 켠 기존 세션에서 A/B.
+- **티켓**: #249
+
 ## 2026-09-27 (새벽) — SILENT_HANG 도구활동 재장전 · 오탐 수정 (#248, #247 follow-up)
 
 - **배경**: SILENT_HANG_v1이 assistant **TEXT delta만** 재장전 → 멀티툴/장시간 도구 턴(수 분)은 텍스트가 없어 90초에 오탐 종료. 의도는 Gemini 무응답 스톨 감지이지, 바쁜 도구 작업을 죽이는 것이 아님.

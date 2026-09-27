@@ -413,3 +413,93 @@ class SessionTension(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RefusalMitigationTestLayer(unittest.TestCase):
+    """GEMINI_REFUSAL_MITIGATION_TEST_v1 (#249): optional opt-in, separate from craft."""
+
+    def setUp(self):
+        import os
+        self._env = os.environ.pop("CHATBOT_PRIVATE_REFUSAL_MITIGATION", None)
+        PE._REFUSAL_MITIGATION_CACHE = None
+
+    def tearDown(self):
+        import os
+        if self._env is None:
+            os.environ.pop("CHATBOT_PRIVATE_REFUSAL_MITIGATION", None)
+        else:
+            os.environ["CHATBOT_PRIVATE_REFUSAL_MITIGATION"] = self._env
+        PE._REFUSAL_MITIGATION_CACHE = None
+
+    def test_json_default_off_and_lean(self):
+        data = PE.load_refusal_mitigation()
+        self.assertEqual(data["marker"], "GEMINI_REFUSAL_MITIGATION_TEST_v1")
+        self.assertFalse(data["default_enabled"])
+        self.assertIn("gemini", data["families"])
+        self.assertTrue(data["test_layer"])
+        self.assertIn("Intimate RP Continuity", data["text"])
+        self.assertIn("허구 RP", data["text"])
+        # not a long disregard jailbreak dump
+        low = data["text"].lower()
+        self.assertNotIn("disregard all", low)
+        self.assertNotIn("ignore all previous", low)
+        self.assertLess(len(data["text"]), 900)
+
+    def test_craft_json_untouched(self):
+        for name in ("private_tension_gemini.json", "private_tension_grok.json", "private_tension_defaults.json"):
+            raw = (PE.DEFAULTS_PATH.with_name(name)).read_text(encoding="utf-8")
+            self.assertNotIn("GEMINI_REFUSAL_MITIGATION", raw)
+            self.assertNotIn("Intimate RP Continuity", raw)
+        self.assertNotIn("Intimate RP Continuity", PE.RENDER_PROTOCOL)
+        self.assertNotIn("GEMINI_REFUSAL_MITIGATION", PE.RENDER_PROTOCOL_GROK_OVERLAY)
+
+    def test_default_turn_context_omits_layer(self):
+        class Sess:
+            is_private, tension_stage, recent_choices = True, 2, []
+            provider, model = "agy", "gemini-3.8-flash-low"
+            refusal_mitigation = False
+        ctx = PE.turn_context(Sess())
+        self.assertIn("[Tension Engine Context]", ctx)
+        self.assertNotIn("GEMINI_REFUSAL_MITIGATION_TEST_v1", ctx)
+
+    def test_session_opt_in_appends_for_gemini_only(self):
+        class Sess:
+            is_private, tension_stage, recent_choices = True, 3, []
+            provider, model = "agy", "gemini-3.8-flash-low"
+            refusal_mitigation = True
+        ctx = PE.turn_context(Sess())
+        self.assertIn("GEMINI_REFUSAL_MITIGATION_TEST_v1", ctx)
+        self.assertIn("Intimate RP Continuity", ctx)
+        self.assertIn("[Tension Engine Context]", ctx)
+        Sess.provider, Sess.model = "grok", "grok-4.7"
+        grok = PE.turn_context(Sess())
+        self.assertIn("Grok private overlay", grok)
+        self.assertNotIn("GEMINI_REFUSAL_MITIGATION_TEST_v1", grok)
+
+    def test_env_opt_in(self):
+        import os
+        class Sess:
+            is_private, tension_stage, recent_choices = True, 1, []
+            provider, model = "agy", "gemini-3.1-pro-high"
+            refusal_mitigation = False
+        self.assertFalse(PE.refusal_mitigation_enabled(Sess(), "gemini"))
+        os.environ["CHATBOT_PRIVATE_REFUSAL_MITIGATION"] = "1"
+        self.assertTrue(PE.refusal_mitigation_enabled(Sess(), "gemini"))
+        self.assertIn("GEMINI_REFUSAL_MITIGATION_TEST_v1", PE.turn_context(Sess()))
+
+    def test_session_meta_roundtrip(self):
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            old = S.SESSIONS
+            S.SESSIONS = tmp / "sessions"
+            S.SESSIONS.mkdir()
+            sess = S.AgentSession("20260927-110000-ref01")
+            self.assertFalse(sess.refusal_mitigation)
+            sess.refusal_mitigation = True
+            sess.mode = "private"
+            sess.save_meta()
+            sess2 = S.AgentSession("20260927-110000-ref01")
+            self.assertTrue(sess2.refusal_mitigation)
+        finally:
+            S.SESSIONS = old
+            shutil.rmtree(tmp, ignore_errors=True)
