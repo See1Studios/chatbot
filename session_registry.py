@@ -245,8 +245,9 @@ class Registry:
                            character=character)
 
     def get_private(self, character: str = "", like: Optional["AgentSession"] = None) -> "AgentSession":
-        """The character's private session (its successor-chain tip), created on first use with `like`'s
-        provider and model. Private Grok (#240): prefer grok-4.7 (not 4.6 / not build-fast) and effort low."""
+        """The character's private session (its successor-chain tip), created on first use with the card's
+        `brains.private` first entry if it names one, else `like`'s provider and model (pew/N4).
+        Private Grok (#240): prefer grok-4.7 (not 4.6 / not build-fast) and effort low."""
         character = _character_id(character)
         sess = self._newest(mode="private", character=character)
         if sess is not None:
@@ -369,11 +370,13 @@ def migrate_session_characters() -> int:
 
 
 def _first_brain(character: str, mode: str = "work") -> Dict[str, Any]:
-    """The first entry of the character's brain list for `mode` (falls back to work), or {}."""
+    """The first entry of the character's brain list for `mode`, or {}. No fallback to `work`: a private
+    session without a card-named private brain keeps the brain the user is on (get_private's `like`,
+    operator decision 2026-09-27, pew/N4) instead of snapping back to the card's work default."""
     try:
         import characters
         card = characters.load(character, _s().WORKSPACE)
-        chain = characters.brains(card, mode) or (characters.brains(card, "work") if mode != "work" else [])
+        chain = characters.brains(card, mode)
         return chain[0] if chain else {}
     except Exception:  # noqa: BLE001
         return {}

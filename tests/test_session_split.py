@@ -7,6 +7,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -43,10 +44,20 @@ class SessionSplit(unittest.TestCase):
         self.assertEqual(self.reg.get_active().sid, "20260921-100000-work01")
         self.assertEqual(self.reg.get_active().mode, "work")
 
+    def test_a_card_named_private_brain_wins_over_the_current_one(self):
+        # pew/N4 (operator 2026-09-27): card brains.private first, else the brain the user is on
+        work = self.reg.get_active()
+        work.provider, work.model = "codex", "gpt-x"
+        with mock.patch("session_registry._first_brain", return_value={"provider": "grok", "model": "grok-4.7"}):
+            priv = self.reg.get_private("", like=work)
+        self.assertEqual((priv.provider, priv.model), ("grok", "grok-4.7"))
+
     def test_a_private_session_is_created_once_and_keeps_its_mode(self):
         work = self.reg.get_active()
         work.provider, work.model = "agy", "gemini-3.1-pro-high"
-        priv = self.reg.get_private("", like=work)
+        # hermetic: no card-named private brain, whatever the live default character's card says (#240 gave it one)
+        with mock.patch("session_registry._first_brain", return_value={}):
+            priv = self.reg.get_private("", like=work)
         self.assertTrue(priv.is_private)
         self.assertEqual((priv.provider, priv.model), ("agy", "gemini-3.1-pro-high"))
         self.assertTrue(priv.history == [] and priv.sid != work.sid)
