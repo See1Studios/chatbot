@@ -195,6 +195,9 @@ function updateBrandAvatar(providerId) {
     brandRoleEl.setAttribute('aria-label', `제공자 ${credit}`);
   }
   updateStageBackground(p.id);
+  if (typeof loadVisualAdapterForCharacter === 'function') {
+    loadVisualAdapterForCharacter(ch);
+  }
 }
 
 // CHARACTER_PICKER_v1: the avatar picks the character; each character's picture follows the provider
@@ -224,6 +227,9 @@ async function loadCharacters() {
     characterCatalog = res.characters || [];
   } catch (_) {
     characterCatalog = [];
+  }
+  if (typeof loadVisualAdapterForCharacter === 'function') {
+    loadVisualAdapterForCharacter();
   }
 }
 
@@ -464,7 +470,12 @@ async function selectCharacter(c) {
       method: 'POST',
       body: JSON.stringify({ mode: sessionMode })
     });
-    if (res && res.session && res.session.id) await applyModeSwitch(res);
+    if (res && res.session && res.session.id) {
+      await applyModeSwitch(res);
+      if (typeof loadVisualAdapterForCharacter === 'function') {
+        loadVisualAdapterForCharacter(c);
+      }
+    }
   } catch (e) {
     addActivity('캐릭터 전환 실패: ' + (e.message || e));
   }
@@ -625,4 +636,103 @@ if (document.readyState === 'loading') {
 } else {
   initStImportUi();
 }
+
+// ------------------------------------------------------------------------ Visual Adapter Integration (Phase 3)
+
+function ensureCharacterSprite() {
+  if (typeof document === 'undefined') return null;
+  let img = document.querySelector('.character-sprite');
+  if (!img) {
+    const container = document.querySelector('.stage') ||
+                      document.querySelector('.stage-shell') ||
+                      (document.getElementById('log') && document.getElementById('log').parentElement) ||
+                      document.body;
+    img = document.createElement('img');
+    img.className = 'character-sprite';
+    img.alt = 'Character Sprite';
+    img.style.position = 'absolute';
+    img.style.bottom = '0';
+    img.style.right = '1.5rem';
+    img.style.maxHeight = '70%';
+    img.style.maxWidth = '45%';
+    img.style.objectFit = 'contain';
+    img.style.pointerEvents = 'none';
+    img.style.zIndex = '0';
+    img.style.opacity = '0';
+    img.style.transition = 'opacity 0.2s ease';
+    if (container) {
+      container.appendChild(img);
+    }
+  }
+  return img;
+}
+
+let visualAdapterRegistry = null;
+
+async function initVisualAdapters() {
+  try {
+    const { AdapterRegistry } = await import('./visual-adapter.js');
+    const { SpriteAdapter } = await import('./visual-sprite-adapter.js');
+    visualAdapterRegistry = new AdapterRegistry();
+    visualAdapterRegistry.register('sprite', SpriteAdapter);
+    if (typeof window !== 'undefined') {
+      window._adapterRegistry = visualAdapterRegistry;
+    }
+    const ch = typeof currentCharacter === 'function' ? currentCharacter() : null;
+    if (ch) {
+      await loadVisualAdapterForCharacter(ch);
+    }
+  } catch (_) {}
+}
+
+async function loadVisualAdapterForCharacter(char) {
+  const c = char || (typeof currentCharacter === 'function' ? currentCharacter() : null);
+  if (!c) return;
+  ensureCharacterSprite();
+  if (typeof window === 'undefined') return;
+  try {
+    if (!window._visualAdapter) {
+      if (visualAdapterRegistry) {
+        window._visualAdapter = visualAdapterRegistry.create('sprite');
+      } else {
+        const { SpriteAdapter } = await import('./visual-sprite-adapter.js');
+        window._visualAdapter = new SpriteAdapter();
+      }
+    }
+    if (window._visualAdapter && typeof window._visualAdapter.load === 'function') {
+      await window._visualAdapter.load(c);
+      if (typeof window._visualAdapter.setEmotion === 'function') {
+        window._visualAdapter.setEmotion('default');
+      }
+    }
+  } catch (_) {}
+}
+
+(function hookEventSourceForVisualEmotion() {
+  if (typeof window === 'undefined' || !window.EventSource) return;
+  const OrigES = window.EventSource;
+  window.EventSource = function(...args) {
+    const inst = new OrigES(...args);
+    inst.addEventListener('message', (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data && (data.event === 'emotion' || data.type === 'emotion')) {
+          const label = data.label || data.emotion || '';
+          if (label && window._visualAdapter && typeof window._visualAdapter.setEmotion === 'function') {
+            window._visualAdapter.setEmotion(label);
+          }
+        }
+      } catch (_) {}
+    });
+    return inst;
+  };
+  window.EventSource.prototype = OrigES.prototype;
+})();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initVisualAdapters);
+} else {
+  initVisualAdapters();
+}
+
 
