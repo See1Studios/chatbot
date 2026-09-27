@@ -1,0 +1,50 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-27 14:23:55",
+ "approved_by": "operator (ui)",
+ "attempts": 0,
+ "created": "2026-09-27 14:21:57",
+ "evidence": [
+  "event:20260927-091305-ec31ff#43"
+ ],
+ "gate_failures": 0,
+ "id": 250,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-27 14:23:55"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: characters.py, instructions.py, server.py, static/app-characters.js, static/index.html, tests/test_lorebook.py, tests/test_st_import.py, tests/test_st_import_api.py, tools/st_import.py",
+   "ts": "2026-09-27 14:23:55"
+  },
+  {
+   "by": "agent:agy",
+   "text": "paused: worktree agy: task 1 needs private_engine.py",
+   "ts": "2026-09-27 14:44:13"
+  },
+  {
+   "by": "host",
+   "text": "waiting for the operator to allow more paths: attempt given back",
+   "ts": "2026-09-27 14:44:13"
+  }
+ ],
+ "paths": [
+  "characters.py",
+  "instructions.py",
+  "server.py",
+  "static/app-characters.js",
+  "static/index.html",
+  "tests/test_lorebook.py",
+  "tests/test_st_import.py",
+  "tests/test_st_import_api.py",
+  "tools/st_import.py"
+ ],
+ "status": "approved",
+ "target": "characters.py,instructions.py,server.py,static/app-characters.js,static/index.ht",
+ "title": "Phase 1+2: ST PNG 카드 임포터 + 로어북 엔진",
+ "updated": "2026-09-27 14:44:13",
+ "worked_by": "agy"
+}
