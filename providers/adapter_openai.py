@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from tool_format import _format_tool_call, _format_tool_result
@@ -14,6 +16,32 @@ from providers.adapter_base import AgentAdapter, openai_chunk_model
 
 
 OPENROUTER_FREE_ROUTERS = frozenset({"openrouter/free"})
+
+
+# UPSTREAM_ERROR_v1 (2026-09-28): an OpenAI-dialect gateway puts the reason in the response body --
+# "this model is unavailable for free, the paid version is available now, use this slug instead" --
+# while urllib's own text is only "HTTP Error 404: Not Found". An adapter that drops the body turns a
+# self-diagnosing outage into a bare status code, which is exactly how a retired model id went
+# unnoticed until someone picked the provider. Read it, and keep the status code with it.
+_UPSTREAM_DETAIL_MAX = 300
+
+
+def upstream_error_text(err: HTTPError) -> str:
+    """`HTTP <code>: <what the gateway said>`, whitespace-flattened and length-bounded."""
+    try:
+        raw = err.read() or b""
+    except Exception:  # noqa: BLE001 -- a body we cannot read must not hide the status
+        raw = b""
+    detail = ""
+    try:
+        obj = json.loads(raw.decode("utf-8", "replace"))
+        detail = str((obj.get("error") or {}).get("message") or "") if isinstance(obj, dict) else ""
+    except Exception:  # noqa: BLE001
+        detail = ""
+    if not detail.strip():
+        detail = raw.decode("utf-8", "replace")
+    detail = re.sub(r"\s+", " ", detail).strip()[:_UPSTREAM_DETAIL_MAX]
+    return "HTTP %s: %s" % (err.code, detail or (err.reason or ""))
 
 
 def is_openrouter_free_model(model: str) -> bool:
@@ -479,7 +507,10 @@ class OpenAIDialectAdapter(AgentAdapter):
         served_model = ""
         if seq is not None and getattr(session, "_turn_seq", None) != seq:
             return "", {}, None, None, ""
-        resp = urlopen(req, timeout=120)
+        try:
+            resp = urlopen(req, timeout=120)
+        except HTTPError as e:   # UPSTREAM_ERROR_v1: keep the gateway's own explanation
+            raise RuntimeError(upstream_error_text(e)) from None
         session._http_resp = resp
         try:
             for raw_line in resp:
