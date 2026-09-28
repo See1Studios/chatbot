@@ -157,7 +157,7 @@ textarea::placeholder{
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
 }
-/* 모델은 입력창 옆 짧은 아이콘 버튼(#modelBtn) + 메뉴로 고르고, 현재 모델은 입력창 placeholder로 보인다
+/* 모델은 입력창 오른쪽 구석의 버튼(#modelBtn, MODEL_TAG_v2) + 메뉴로 고르고, 버튼이 현재 모델을 보인다
    (operator: 모바일에서 모델 select가 폭을 차지해서 -- 짧은 버튼, 탭과 같은 아이콘 스타일).
    <select id="model">은 app.js가 읽는 값의 원천이라 DOM에 남기고 숨긴다. (Earlier: "모델 선택 콤보박스는
    채팅창 근처에 작게 두는 게 좋을 것 같네" -- still near the composer.) */
@@ -398,10 +398,16 @@ body.attach-drop.attach-drop-no .stage::after{/* l10n-ok */content:'사적 모�
 .item-toast.show{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){.item-toast,.item-card{transition:none}}
 
-/* MODEL_TAG_v1 (model-picker.js placeModelTag): the model in use, small in the empty box's right corner; the
-   placeholder keeps clear of it. Hidden (not removed, so it can still be measured) once there is text. */
-.composer .model-tag{position:absolute;z-index:2;transform:translateY(-50%);max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem;line-height:1.2;padding:2px 5px;border-radius:6px;color:var(--muted);opacity:.7;cursor:pointer;user-select:none}
-.composer .model-tag:hover{opacity:1;color:var(--accent2);background:rgba(255,255,255,.06)}
-.composer .model-tag:empty,.composer #input:not(:placeholder-shown) ~ .model-tag{visibility:hidden}
+/* MODEL_TAG_v2 (model-picker.js placeModelTag; operator, 2026-09-28/29): the model button sits in the input's right
+   corner, left of the inline button. The empty box shows the model's name when it fits; a narrow box, a short
+   screen (chat-responsive.css), an open phone keyboard or text being typed leaves only the icon. The input keeps clear of it. */
+.composer #modelBtn.model-tag{position:absolute;z-index:2;order:0;transform:translateY(-50%);display:inline-flex;align-items:center;gap:4px;width:auto;min-width:0;height:24px;max-width:45%;padding:0 6px !important;border:0;border-radius:6px;background:none;box-shadow:none;font-family:var(--font);font-size:.68rem;font-weight:400;line-height:1;color:var(--muted);opacity:.75}
+.composer #modelBtn.model-tag:hover,.composer #modelBtn.model-tag.active{opacity:1;color:var(--accent2);background:rgba(255,255,255,.06);border:0;box-shadow:none}
+.composer #modelBtn.model-tag .tab-icon-svg{display:none;width:16px;height:16px;flex:0 0 auto}
+.composer #modelBtn.model-tag .model-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.composer #modelBtn.model-tag.icon-only .tab-icon-svg,.composer #input:not(:placeholder-shown) ~ #modelBtn.model-tag .tab-icon-svg,body.keyboard-open .composer #modelBtn.model-tag .tab-icon-svg{display:block}
+.composer #modelBtn.model-tag.icon-only .model-name,.composer #input:not(:placeholder-shown) ~ #modelBtn.model-tag .model-name,body.keyboard-open .composer #modelBtn.model-tag .model-name{display:none}
 .composer #input:placeholder-shown{padding-right:calc(.75rem + var(--model-tag-w, 0px))}
 .composer #input.has-inline-btn:placeholder-shown{padding-right:calc(2.9rem + var(--model-tag-w, 0px))}
+.composer #input:not(:placeholder-shown){padding-right:calc(.75rem + 30px)}
+.composer #input.has-inline-btn:not(:placeholder-shown){padding-right:calc(2.9rem + 30px)}

@@ -51,9 +51,11 @@
   .wrap > #sessionBanner{
     display:none !important;
   }
-  #modelBtn, #provider{
-    display:none !important; /* 키보드 입력 시 textarea 공간 확보 */
+  #provider{
+    display:none !important; /* 키보드 입력 시 textarea 공간 확보 (#modelBtn은 입력창 안 아이콘, MODEL_TAG_v2) */
   }
+  .composer #modelBtn.model-tag .tab-icon-svg{display:block}   /* MODEL_TAG_v2: a short screen shows the icon */
+  .composer #modelBtn.model-tag .model-name{display:none}
   #log{
     padding:.35rem .4rem;
     gap:.35rem;
@@ -93,8 +95,8 @@ body.keyboard-open #hubLink,
 body.keyboard-open #scrollToBottomBtn{
   display:none !important;
 }
-body.keyboard-open #modelBtn, body.keyboard-open #provider{
-  display:none !important; /* 키보드 입력 시 textarea 공간 확보 */
+body.keyboard-open #provider{
+  display:none !important; /* 키보드 입력 시 textarea 공간 확보 (#modelBtn은 입력창 안 아이콘, MODEL_TAG_v2) */
 }
 body.keyboard-open #log{
   padding:.35rem .4rem;

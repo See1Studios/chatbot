@@ -166,33 +166,36 @@ function setupModelPicker() {
   syncModelUi();
 }
 
-// MODEL_TAG_v1: the model in use sits small in the composer's right corner while the box is empty (operator,
-// 2026-09-28), left of the inline button; the placeholder keeps clear of it (--model-tag-w, chat-composer.css).
-// A tap opens the model menu. Placed from the input's box, since the phone composer reorders its children.
-function placeModelTag(tag, input, model) {
-  if (!tag || !input) return;
-  tag.textContent = modelLabel(model);
+// MODEL_TAG_v2: the model button (#modelBtn) sits in the composer's right corner, left of the inline button
+// (operator, 2026-09-28/29). The empty box shows the model's name when it takes at most a third of the box, else the
+// icon; typing, a short screen and an open phone keyboard leave the icon (chat-composer.css). The input keeps clear
+// of it (--model-tag-w). Placed from the input's box, since the phone composer reorders its children.
+const MODEL_TAG_ROOM = 0.35;
+function placeModelTag(btn, input, model) {
+  if (!btn || !input) return;
+  const name = btn.querySelector ? btn.querySelector('.model-name') : null;
+  if (name) name.textContent = modelLabel(model);
   const box = input.offsetParent;
   if (box) {
     const inset = input.classList.contains('has-inline-btn') ? 44 : 10;
-    tag.style.right = Math.max(0, box.clientWidth - input.offsetLeft - input.offsetWidth + inset) + 'px';
-    tag.style.top = (input.offsetTop + input.offsetHeight / 2) + 'px';
+    const h = input.offsetHeight;
+    btn.style.right = Math.max(0, box.clientWidth - input.offsetLeft - input.offsetWidth + inset) + 'px';
+    btn.style.top = (input.offsetTop + h - Math.min(h / 2, 21)) + 'px';   // on the last line, like the send button
   }
-  input.style.setProperty('--model-tag-w', (tag.offsetWidth ? tag.offsetWidth + 6 : 0) + 'px');
+  if (input.value) return;                       // typing: CSS shows the icon; the empty-box width stays as it was
+  btn.classList.remove('icon-only');
+  if (btn.offsetWidth > input.offsetWidth * MODEL_TAG_ROOM) btn.classList.add('icon-only');
+  input.style.setProperty('--model-tag-w', (btn.offsetWidth ? btn.offsetWidth + 6 : 0) + 'px');
 }
 
 function refreshModelTag() {
-  const tag = typeof document.getElementById === 'function' ? document.getElementById('modelTag') : null;
-  if (tag && typeof inputEl !== 'undefined') placeModelTag(tag, inputEl, typeof modelEl !== 'undefined' && modelEl ? modelEl.value : '');
+  if (modelBtnEl && typeof inputEl !== 'undefined') placeModelTag(modelBtnEl, inputEl, typeof modelEl !== 'undefined' && modelEl ? modelEl.value : '');
 }
 
 function setupModelTag() {
-  const tag = document.getElementById('modelTag');
-  if (!tag) return;
-  tag.addEventListener('pointerdown', (e) => e.preventDefault());   // keep the input's focus, like #modelBtn
-  tag.addEventListener('click', () => { if (modelBtnEl) modelBtnEl.click(); });
+  if (!modelBtnEl || typeof inputEl === 'undefined' || !inputEl) return;
   window.addEventListener('resize', refreshModelTag);
-  if (typeof ResizeObserver === 'function' && typeof inputEl !== 'undefined') new ResizeObserver(refreshModelTag).observe(inputEl);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(refreshModelTag).observe(inputEl);
   refreshModelTag();
 }
 

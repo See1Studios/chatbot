@@ -49,7 +49,7 @@ const fire = (n, type, ev) => (n.handlers[type] || []).forEach(f => f(Object.ass
 
 const modelBtnEl = node('model-trigger-btn'), modelMenuEl = node('slash-menu'); modelMenuEl.hidden = true;
 const inputEl = node(); inputEl.placeholder = 'STATIC'; inputEl.style.setProperty = (k, v) => { inputEl.style[k] = v; };
-const tagEl = node();
+const tagEl = node('model-trigger-btn model-tag'); const nameEl = tagEl.appendChild(node('model-name'));
 const saved = []; const calls = { hideSlash: 0, position: [], refresh: 0 };
 const modelEl = { options: [{ value: 'flash-low', textContent: 'flash-low' }, { value: 'pro-high', textContent: 'pro-high' }, { value: 'opus', textContent: 'opus' }],
   value: 'flash-low', onchange: null,
@@ -89,7 +89,7 @@ out.opened = { hidden: modelMenuEl.hidden, active: modelBtnEl.classList.contains
 // 4. pick another model
 modelMenuEl.children[1].handlers.click[0]();
 out.picked = { value: modelEl.value, saved: globalThis.__saved.slice(), hidden: modelMenuEl.hidden, active: modelBtnEl.classList.contains('active'),
-  placeholder: inputEl.placeholder, tag: tagEl.textContent, title: modelBtnEl.title, inlineStyleCleared: Object.values(modelMenuEl.style).every(v => v === '') };
+  placeholder: inputEl.placeholder, tag: nameEl.textContent, title: modelBtnEl.title, inlineStyleCleared: Object.values(modelMenuEl.style).every(v => v === '') };
 // 5. picking the model already in use changes nothing but closes
 fire(modelBtnEl, 'pointerdown');
 const savedBefore = globalThis.__saved.length;
@@ -219,9 +219,10 @@ class ModelPickerMarkupAndCss(unittest.TestCase):
         self.assertIsNotNone(m)
         self.assertNotIn("max-width:58px", CSS)
 
-    def test_it_is_hidden_where_the_select_used_to_be_hidden_for_input_room(self):
-        self.assertIn("body.keyboard-open #modelBtn", CSS)
-        self.assertRegex(CSS, r"#modelBtn, #provider\{\s*display:none !important;")
+    def test_it_is_never_hidden_now_that_it_sits_in_the_input(self):
+        # MODEL_TAG_v2: once a separate button hidden for input room; now an icon inside the input (test_model_tag)
+        rules = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
+        self.assertNotRegex(rules, r"#modelBtn\s*(,[^{]*)?\{\s*display:none")
 
     def test_the_script_is_loaded_after_slash_js_which_it_borrows_placement_from(self):
         self.assertLess(INDEX.index("./slash.js"), INDEX.index("./model-picker.js"))
