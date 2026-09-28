@@ -360,30 +360,33 @@
 
 /* REVEAL_BLOCKS_v1 -- the motion vocabulary, one per kind.
 
-   The entrance is applied to a block that has just closed, and which way it arrives says what kind
-   of thing arrived: an action came from the side, the way a hand moves; a spoken line rose and
-   settled, the way a breath leaves; narration just arrives, because the room is not doing anything.
+   The entrance lands about one beat AFTER a block closes, not the instant it does. Racing the stream
+   is what made it strobe: a 300ms fade firing on every closure overlaps the next one, and three
+   half-finished fades stacked on each other read as a shimmer rather than as motion. Lagged, the
+   text is already still and readable when it moves, and exactly one entrance is ever in flight.
 
-   The block still being written carries a slow flow of its own kind, so the answer is alive while it
-   is being said. It is deliberately the ONLY infinite animation in the log: one element at a time,
-   and it stops the moment the block closes. The amplitude is under two pixels on purpose -- text that
-   moves enough to notice is text that is hard to read. */
-.msg.assistant .md-block.arrive[data-kind="narration"]{animation:arrive-quiet 300ms cubic-bezier(0.16,1,0.3,1) both}
-.msg.assistant .md-block.arrive[data-kind="action"]{animation:arrive-action 320ms cubic-bezier(0.16,1,0.3,1) both}
-.msg.assistant .md-block.arrive[data-kind="dialogue"]{animation:arrive-dialogue 340ms cubic-bezier(0.16,1,0.3,1) both}
-@keyframes arrive-quiet{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@keyframes arrive-action{from{opacity:0;transform:translateX(-9px) translateY(2px)}to{opacity:1;transform:none}}
-@keyframes arrive-dialogue{from{opacity:0;transform:translateY(9px) scale(.985)}to{opacity:1;transform:none}}
+   Which way it arrives says what kind of thing arrived: an action came from the side, the way a
+   hand moves; a spoken line rose and settled, the way a breath leaves; narration just arrives,
+   because the room is not doing anything. Fade and scale are both safe here precisely because the
+   block is genuinely new when its animation runs -- a fade over text the reader is already looking
+   at is a blink, and that is the rule this whole arrangement is built on. */
+.msg.assistant .md-block.arrive[data-kind="narration"]{animation:arrive-quiet 260ms cubic-bezier(0.16,1,0.3,1) both}
+.msg.assistant .md-block.arrive[data-kind="action"]{animation:arrive-action 280ms cubic-bezier(0.16,1,0.3,1) both}
+.msg.assistant .md-block.arrive[data-kind="dialogue"]{animation:arrive-dialogue 300ms cubic-bezier(0.16,1,0.3,1) both}
+@keyframes arrive-quiet{from{opacity:0}to{opacity:1}}
+@keyframes arrive-action{from{opacity:0;transform:translateX(-7px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes arrive-dialogue{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
 
 /* The kind being written, flowing: a body shifts, a voice breathes, a room holds still. This is the
    continuous sound of something being said, and it is the only infinite animation in the log. The
-   vocabulary lives here so a kind can be retimed without touching parsing. */
+   amplitude is deliberately small and it never translates or scales: sub-pixel movement of glyphs
+   rasterises unevenly and reads as shimmer, which is the opposite of smooth. */
 .msg.assistant .md-block.open[data-kind="narration"]{animation:flow-quiet 2.6s ease-in-out infinite}
 .msg.assistant .md-block.open[data-kind="action"]{animation:flow-action 1.5s ease-in-out infinite}
 .msg.assistant .md-block.open[data-kind="dialogue"]{animation:flow-dialogue 1.9s ease-in-out infinite}
-@keyframes flow-quiet{0%,100%{opacity:.94}50%{opacity:1}}
-@keyframes flow-action{0%,100%{transform:translateX(0)}35%{transform:translateX(1.4px)}70%{transform:translateX(-.8px)}}
-@keyframes flow-dialogue{0%,100%{transform:translateY(0) scale(1)}40%{transform:translateY(-.9px) scale(1.008)}}
+@keyframes flow-quiet{0%,100%{opacity:.95}50%{opacity:1}}
+@keyframes flow-action{0%,100%{opacity:.95}50%{opacity:1}}
+@keyframes flow-dialogue{0%,100%{opacity:.93}50%{opacity:1}}
 
 @media (prefers-reduced-motion:reduce){
   .msg.assistant .md-block.arrive{animation:none}
@@ -401,32 +404,3 @@
 .msg.assistant .md-block[data-kind="dialogue"] > *:first-child,
 .msg.assistant .md-dialogue > *:first-child{margin-top:0}
 .msg.assistant .md-block > *:last-child{margin-bottom:0}
-
-/* Motion belongs to what the final parse ADDS, and to nothing else. Prose was already on screen
-   while it streamed, so fading it in would mean hiding text the reader is looking at and handing it
-   back -- the exact flicker this exists to remove. A code block, a list and a quote are different:
-   those are genuinely new boxes at `result`, arriving at a different height than the text that was
-   there a frame ago, and that is the only transition worth watching.
-   :not(.arrive) because the last block is arriving as a whole; settling its children at the same
-   time would run two fades over the same pixels. :not(.open) because the block being written is
-   already carrying its own flow. */
-@keyframes block-settle{from{opacity:.45;transform:translateY(5px)}to{opacity:1;transform:none}}
-.msg.assistant .md-block:not(.arrive):not(.open) > pre,
-.msg.assistant .md-block:not(.arrive):not(.open) > h1, .msg.assistant .md-block:not(.arrive):not(.open) > h2,
-.msg.assistant .md-block:not(.arrive):not(.open) > h3, .msg.assistant .md-block:not(.arrive):not(.open) > h4,
-.msg.assistant .md-block:not(.arrive):not(.open) > h5, .msg.assistant .md-block:not(.arrive):not(.open) > h6,
-.msg.assistant .md-block:not(.arrive):not(.open) > ul,
-.msg.assistant .md-block:not(.arrive):not(.open) > ol,
-.msg.assistant .md-block:not(.arrive):not(.open) > blockquote,
-.msg.assistant .md-block:not(.arrive):not(.open) > table{animation:block-settle 240ms cubic-bezier(0.16,1,0.3,1) both}
-
-@media (prefers-reduced-motion:reduce){
-  .msg.assistant .md-block:not(.arrive):not(.open) > pre,
-  .msg.assistant .md-block:not(.arrive):not(.open) > h1, .msg.assistant .md-block:not(.arrive):not(.open) > h2,
-  .msg.assistant .md-block:not(.arrive):not(.open) > h3, .msg.assistant .md-block:not(.arrive):not(.open) > h4,
-  .msg.assistant .md-block:not(.arrive):not(.open) > h5, .msg.assistant .md-block:not(.arrive):not(.open) > h6,
-  .msg.assistant .md-block:not(.arrive):not(.open) > ul,
-  .msg.assistant .md-block:not(.arrive):not(.open) > ol,
-  .msg.assistant .md-block:not(.arrive):not(.open) > blockquote,
-  .msg.assistant .md-block:not(.arrive):not(.open) > table{animation:none}
-}

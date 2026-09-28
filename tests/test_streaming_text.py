@@ -101,6 +101,27 @@ let frames = [];
 const window = {
   requestAnimationFrame(cb) { frames.push(cb); return frames.length; },
   cancelAnimationFrame() {},
+  // The reveal is one beat behind the text, so the tests have to be able to wind the clock
+  // themselves rather than wait on it.
+  matchMedia: (q) => ({ matches: /reduce/.test(q) ? REDUCE_MOTION : false }),
+};
+let REDUCE_MOTION = false;
+let timers = [];
+let clock = 0;
+global.setTimeout = (fn, ms) => { timers.push({ at: clock + (ms || 0), fn }); return timers.length; };
+global.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].fn = null; };
+// Run every timer due within `ms` of now, in order, and return how many fired.
+const advance = (ms) => {
+  const until = clock + ms;
+  let fired = 0;
+  for (;;) {
+    const due = timers.filter(t => t.fn && t.at <= until).sort((x, y) => x.at - y.at)[0];
+    if (!due) break;
+    const run = due.fn; due.fn = null;   // one shot, or the loop refires it forever
+    run(); fired++; clock = due.at;
+  }
+  clock = until;
+  return fired;
 };
 const scrolls = [];
 function scrollChatToBottom() { scrolls.push(1); }
@@ -202,12 +223,13 @@ const CASES = {
     }
     const framesQueued = frames.length;
     flush();
+    advance(6000);
     return { deltas: FULL.length, frames_queued: framesQueued, chars: text(n).length,
              landed: landed(n).length, blocks: blocks(n).length };
   },
   cost_is_per_block_not_per_frame: () => {
     // The invariant that replaced "never render markdown while streaming": two hundred deltas
-    // that close twenty blocks cost twenty renders, not two hundred and not one.
+    // closing twenty blocks cost twenty renders, not two hundred and not one.
     const n = newBubble();
     let paintBuf = '';
     for (let i = 1; i <= FULL.length; i++) {
@@ -215,12 +237,14 @@ const CASES = {
       scheduleStreamPaint(() => setStreamingContent(n, paintBuf));
     }
     flush();
+    advance(6000);
     return { deltas: FULL.length, renders: renderMarkdownCalls, marked: markedCalls,
              purify: purifyCalls, postProcess: postProcessCalls, landed: landed(n).length };
   },
   a_closed_block_uses_the_real_renderer: () => {
     const n = newBubble();
     setStreamingContent(n, '하나\n\n둘');
+    advance(2000);
     const done = blocks(n).filter(c => c._viaBlockRenderer);
     const open = openOf(n);
     return { closed: done.map(c => c.textContent), closed_kinds: done.map(c => c.getAttribute('data-kind')),
@@ -237,13 +261,13 @@ const CASES = {
   the_open_block_is_last_so_the_caret_finds_it: () => {
     const n = newBubble();
     setStreamingContent(n, '하나\n\n둘\n\n셋');
+    advance(2000);
     const kids = body(n).children;
     return { last_is_open: /\bopen\b/.test(kids[kids.length - 1].className) };
   },
   the_open_block_carries_the_kind_being_written: () => {
-    const n = newBubble();
     const seen = [];
-    for (const t of ['*눈을', '*눈을 깜빡*', '*눈을 깜빡*\n\n"안녕', '*눈을 깜빡*\n\n"안녕"']) {
+    for (const t of ['*눈을', '*눈을 깜빡*', '"안녕', '"안녕"']) {
       const b = newBubble();
       setStreamingContent(b, t);
       seen.push(openOf(b) ? openOf(b).getAttribute('data-kind') : null);
@@ -253,6 +277,7 @@ const CASES = {
   each_block_animates_exactly_once: () => {
     const n = newBubble();
     setStreamingContent(n, '*고개를*\n\n둘');
+    advance(2000);
     const el0 = landed(n)[0];
     const before = el0.className;
     const listened = typeof el0.handlers['animationend'];
@@ -262,20 +287,69 @@ const CASES = {
   a_block_is_a_whole_block_and_not_a_fragment: () => {
     const n = newBubble();
     setStreamingContent(n, FULL);
+    advance(6000);
     const sizes = landed(n).map(c => c.textContent.length);
     return { count: sizes.length, min: Math.min(...sizes), max: Math.max(...sizes) };
+  },
+  // --- the beat: the appearance lags the text, one block at a time ---
+  the_appearance_lags_the_text: () => {
+    const n = newBubble();
+    setStreamingContent(n, '하나\n\n둘\n\n셋\n\n넷');
+    const marks = [];
+    marks.push(landed(n).length);                       // closed but not on screen yet
+    advance(1); marks.push(landed(n).length);           // a timer of 200ms has not come due
+    advance(199); marks.push(landed(n).length);
+    advance(1); marks.push(landed(n).length);           // the first tick
+    advance(1000); marks.push(landed(n).length);
+    return marks;
+  },
+  the_order_is_kept_while_it_lags: () => {
+    const n = newBubble();
+    setStreamingContent(n, '하나\n\n둘\n\n셋');
+    advance(6000);
+    return landed(n).map(c => c.textContent);
+  },
+  the_open_text_waits_for_its_turn: () => {
+    const n = newBubble();
+    setStreamingContent(n, '하나\n\n아직 쓰는 중');
+    const before = openOf(n).textContent;
+    advance(6000);
+    return { before, after: openOf(n).textContent };
+  },
+  a_backlog_drains_faster_than_one_per_beat: () => {
+    const n = newBubble();
+    setStreamingContent(n, FULL);
+    const queued = (n._streamQueue || []).length;
+    const firstDelay = timers.filter(t => t.fn).map(t => t.at - clock)[0];
+    let spent = 0;
+    while ((n._streamQueue || []).length && spent < 30000) { spent += advance(60); }
+    return { queued, firstDelay, drain_ms: spent, total: landed(n).length };
+  },
+  reduced_motion_gets_no_beat: () => {
+    REDUCE_MOTION = true;
+    const n = newBubble();
+    setStreamingContent(n, '하나\n\n둘\n\n셋');
+    // No .arrive, because there is no animation -- but on screen, and with no timer pending.
+    const out = { on_screen: blocks(n).length, pending: (n._streamQueue || []).length,
+                  timers: timers.filter(t => t.fn).length };
+    REDUCE_MOTION = false;
+    return out;
   },
   rewrite_restarts_the_body: () => {
     const n = newBubble();
     setStreamingContent(n, '하나\n\n둘\n\n셋');
+    advance(6000);
     const before = text(n);
     setStreamingContent(n, '처음부터\n\n다시');
-    return { before, after: text(n), units: n._streamUnits, blocks: blocks(n).length,
+    const justAfter = { text: text(n), blocks: blocks(n).length, units: n._streamUnits };
+    advance(2000);
+    return { before, justAfter, after: text(n), blocks: blocks(n).length,
              streaming: n.classList.contains('streaming') };
   },
   equal_text_does_not_touch_dom: () => {
     const n = newBubble();
     setStreamingContent(n, '같은내용\n\n둘째');
+    advance(2000);
     const before = body(n).children.length;
     setStreamingContent(n, '같은내용\n\n둘째');
     return { before, after: body(n).children.length };
@@ -289,6 +363,7 @@ const CASES = {
   hides_thought: () => {
     const n = newBubble();
     setStreamingContent(n, '보이는말\n```thought\n숨겨질말\n```');
+    advance(2000);
     return { shown: text(n).replace(/\n/g, '\\n') };
   },
   caret_class_on: () => {
@@ -301,7 +376,10 @@ const CASES = {
     setStreamingContent(n, '다 끝났어\n\n마지막');
     endStreamingContent(n);
     return { streaming: n.classList.contains('streaming'), md_stream: body(n).classList.contains('md-stream'),
-             shown: text(n), remembered: n._streamShown, units: n._streamUnits, open: n._streamOpen };
+             // A turn that ends with a backlog must not leave the last paragraph invisible: the
+             // entrance is dropped, not the text.
+             shown: text(n), remembered: n._streamShown, units: n._streamUnits, open: n._streamOpen,
+             queue: n._streamQueue.length, timer: n._streamTimer };
   },
   cancel_stops_the_frame: () => {
     const n = newBubble();
@@ -421,13 +499,54 @@ class StreamingText(unittest.TestCase):
         self.assertEqual(out["count"], 19)
         self.assertEqual((out["min"], out["max"]), (10, 10))
 
+    # --- the beat: the appearance lags the text, one block at a time ---
+
+    def test_the_appearance_lags_the_text_by_about_a_beat(self):
+        # Racing the stream is what made it strobe: a fade firing on every block closure overlaps the
+        # next one, and half-finished fades stacked on each other read as shimmer. Putting the
+        # appearance a beat behind means the text is already still and readable when it moves, and
+        # exactly one entrance is ever in flight.
+        out = run("the_appearance_lags_the_text")
+        self.assertEqual(out[0], 0, "three closed blocks, none on screen yet")
+        self.assertEqual(out[1], 0, "the first tick is 200ms out")
+        self.assertEqual(out[2], 2, "by 200ms the backlog is draining, at the floor not the beat")
+        self.assertEqual(out[4], 3)
+
+    def test_the_order_is_kept_while_it_lags(self):
+        self.assertEqual(run("the_order_is_kept_while_it_lags"), ["하나", "둘"])
+
+    def test_the_block_being_written_waits_for_its_turn(self):
+        # Otherwise the tail of the answer sits above the middle of it for a beat, and the text
+        # arrives out of order -- which is the one thing the lag must not cost.
+        out = run("the_open_text_waits_for_its_turn")
+        self.assertEqual(out["before"], "", "a queued block comes before the open one, so it waits")
+        self.assertEqual(out["after"], "아직 쓰는 중")
+
+    def test_a_backlog_drains_at_the_floor_and_not_at_the_beat(self):
+        out = run("a_backlog_drains_faster_than_one_per_beat")
+        self.assertEqual(out["queued"], 19)
+        self.assertEqual(out["firstDelay"], 55,
+                         "a burst must not turn into a 200ms-per-block crawl")
+        self.assertEqual(out["total"], 19)
+        self.assertLess(out["drain_ms"], 19 * 200, "the lag has to stay bounded on a long answer")
+
+    def test_reduced_motion_gets_no_beat_at_all(self):
+        # There is no animation to smooth out, so the beat would be pure latency for someone who
+        # asked for none.
+        out = run("reduced_motion_gets_no_beat")
+        self.assertEqual(out["on_screen"], 3, "everything is on screen at once")
+        self.assertEqual(out["pending"], 0)
+        self.assertEqual(out["timers"], 0, "no reveal timer may be left running")
+
     def test_a_rewritten_draft_restarts_the_body(self):
         out = run("rewrite_restarts_the_body")
         self.assertEqual(out["before"], "하나둘셋", "two closed paragraphs and the open third")
-        self.assertEqual(out["after"], "처음부터다시", "the stale blocks must be gone")
+        self.assertEqual(out["justAfter"]["text"], "", "the stale text is gone at once")
+        self.assertEqual(out["justAfter"]["blocks"], 1, "only the fresh open block, nothing stale")
+        self.assertEqual(out["justAfter"]["units"], 1, "the count restarts from the new answer")
+        self.assertEqual(out["after"], "처음부터다시", "and the new answer then arrives in order")
         self.assertEqual(out["blocks"], 2, "one closed paragraph and the open one, nothing stale")
         self.assertTrue(out["streaming"], "the caret class must survive a rewrite")
-
     def test_an_unchanged_buffer_does_not_touch_the_dom(self):
         out = run("equal_text_does_not_touch_dom")
         self.assertEqual(out["before"], out["after"])
@@ -471,6 +590,11 @@ class StreamingText(unittest.TestCase):
         self.assertEqual(out["remembered"], "")
         self.assertEqual(out["units"], 0, "the count has to reset with the rest of the streaming state")
         self.assertIsNone(out["open"], "the open element is detached by the final render")
+        # A turn that ends with a backlog, or ends badly with no `result` to rebuild the body, must
+        # not leave the last paragraph of the answer permanently invisible. The motion is dropped,
+        # not the text.
+        self.assertEqual(out["shown"], "다 끝났어마지막")
+        self.assertEqual((out["queue"], out["timer"]), (0, None))
 
     # --- PLAIN_RENDER_v1: the block being written is already close to its finished shape ---
 
