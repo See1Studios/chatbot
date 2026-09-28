@@ -229,6 +229,81 @@ Hub `index.html`은 `/chat/persona/providers/<id>.webp`를 FAB 아이콘으로 �
 
 ---
 
+## 10. 무대·스프라이트 사양과 대체 사슬 (2026-09-29 운영자)
+
+운영자: "스테이지 배경 + 알파 적용된 캐릭터를 기본 배경 사양으로" → "캐릭터당 스프라이트 목록을 정하고, 리소스가 없을 때 어떤 리소스로 fallback 될지 정하면 좋겠어. 최종 fallback은 placeholder."
+
+### 10.1 지금 사실 (2026-09-29 확인)
+
+| 캐릭터 | `stage.webp` | 스프라이트 | 화면 |
+|---|---|---|---|
+| 리리 | 인물이 그려짐 | 없음 | 무대 = 큰 캐릭터 |
+| 노노 | 인물이 그려짐 | bust 4종(neutral·joy·embarrassment·anger) | 캐릭터가 **두 번** (무대 + 오른쪽 아래 스프라이트) |
+| 코코 | 장소만 | 없음 | 정상 |
+| Yae Miko | 장소만 | 없음 | 정상 |
+
+- 원인: 스킬 `character-art`가 무대를 "그 두뇌 배지와 같은 얼굴·가발"로 그리라고 지시한다.
+- 표정 어휘가 세 벌이다(10.4에서 하나로): 모델 지시 `neutral|joy|shy|serious|sorrow|tired`(`private_engine.py`), 감정 파서 `happy|sad|angry|…`(`emotion.py`), 스프라이트 파일 SillyTavern 이름표(`characters.EXPRESSIONS` 28개). 모델이 `shy`라고 해도 `embarrassment` 스프라이트를 못 찾고 `neutral`로 떨어진다.
+
+### 10.2 무대 = 장소, 캐릭터 = 투명 스프라이트
+
+- `stage.webp`: **인물 없는 장소**. 1024², ≤300KB. 캐릭터와 무관하게 여러 캐릭터가 같이 써도 된다.
+- 캐릭터는 `sprites/<framing>/<label>.webp`(투명)로만 무대에 선다. 두뇌별 가발 차이는 무대가 아니라 스프라이트로(`sprites/<framing>/<brain>/<label>.webp`, 선택).
+- `stage/<provider>.webp`는 읽기 호환만 두고 새로 만들지 않는다(장소는 두뇌와 무관).
+
+### 10.3 차용하는 커뮤니티 표준 (2026-09-29 원문 확인)
+
+운영자: "리소스 목록은 커뮤니티 스탠다드 같은 게 있으면 차용하는 게 좋아". 새 형식을 만들지 않는다.
+
+| 표준 | 정한 것 | 우리가 쓰는 곳 | 출처 |
+|---|---|---|---|
+| SillyTavern 표정 이미지 | 표정 이름 = 분류 모델의 이름표. 기본 28개(go_emotions), 작은 모델은 6개(`sadness` `joy` `love` `anger` `fear` `surprise`). 캐릭터 폴더에 `<표정>.png` 평평하게. 한 표정 여러 장은 **`joy-1.png`, `joy.expressive.png`처럼 표정 이름 + `.`/`-` 접미사**. 없는 표정은 설정한 대체 표정(보통 `neutral`), 또는 없음, 또는 기본 이모지. **폴더 덮어쓰기**로 같은 캐릭터의 다른 세트(의상 등) | 표정 이름·파일 이름·대체·두뇌별 가발 폴더 | [Expression Images](https://docs.sillytavern.app/extensions/expression-images/) |
+| Character Card V3 `assets` | 그림 종류 `icon`(대표 `main`), `background`(대표 `main`, 이름은 장소 `forest`…), `emotion`(이름 = 표정, 기본은 `neutral`), `user_icon`, 앱 전용은 `x_` 접두. CHARX(zip) 안 위치 `assets/{type}/images/` | 종류 이름·내보내기/가져오기 형식 | [SPEC_V3.md](https://github.com/kwaroran/character-card-spec-v3/blob/main/SPEC_V3.md) |
+
+### 10.4 이름이 곧 대체 사슬 (별도 데이터 없음)
+
+운영자: "따로 데이터 구조 만들지 않고 네이밍으로 자동 fallback". 규칙은 SillyTavern의 여러 장 규칙을 그대로 뒤집어 쓴다:
+
+> 이름의 마지막 `.`/`-` 접미사를 **하나씩 떼며** 파일을 찾는다. 다 떼면 그 종류의 기본 이름(`neutral` / `main`), 그것도 없으면 placeholder.
+
+- 표정: `joy.giggle` → `joy` → `neutral` → placeholder `sprite-<framing>`. `joy-1`·`joy-2`처럼 같은 표정 여러 장이 있으면 SillyTavern처럼 그중 하나.
+- 두뇌별 가발 = SillyTavern의 폴더 덮어쓰기: `sprites/bust/grok/joy.webp` → `sprites/bust/joy.webp`.
+- 다른 종류도 같은 규칙: 아이콘 `avatar/grok` → `avatar` → placeholder, 배경 `stage.night` → `stage` → placeholder, 아이템 `items/<id>` → placeholder `item`.
+- 옛 이름(`shy`·`sorrow`·`serious`·`tired`)은 표준 이름이 아니다. 모델에게 표준 이름만 알려 주면(아래) 별칭 표가 필요 없다.
+
+### 10.5 캐릭터당 스프라이트 목록 = 그 폴더의 파일 이름
+
+- 목록을 따로 적지 않는다. `sprites/<framing>/`의 이름이 그 캐릭터의 표정 목록이다(`sprite_map`).
+- **모델에게는 그 캐릭터가 가진 표정 이름을 알려 준다**(없으면 `neutral`만). 모델 어휘와 파일이 어긋날 수 없다. 지금의 세 벌 어휘(모델 지시·`emotion.py`·페이지 이모지)는 이것으로 대체: 파서는 `[expression: <이름>]`을 그대로 받고, 페이지 이모지는 아는 이름만, 모르면 🎭.
+- 필수는 `neutral` 하나. 새 캐릭터 권장 세트 = SillyTavern 6개 + `neutral`(SD1). 전부 그리면 28개.
+- 프레이밍은 `bust` 우선, `full` 선택. 요청한 프레이밍에 없으면 다른 프레이밍에서 같은 사슬.
+
+### 10.6 판정은 서버 한 곳
+
+`characters.art_file(cid, kind, name, framing, brain)` 하나가 10.4 규칙으로 파일을 고르고, 모든 끝은 placeholder다. 페이지는 받은 그림을 그리기만 한다. 규칙이 코드 한 함수라 테스트로 사슬 전체를 확인한다.
+
+### 10.7 결정 (운영자 확인 필요)
+
+| D | 질문 | 추천 | 상태 |
+|---|---|---|---|
+| SD1 | 새 캐릭터 권장 표정(스킬이 그리는 목록) | SillyTavern 6개(`sadness` `joy` `love` `anger` `fear` `surprise`) + `neutral`. 데이터가 아니라 스킬 문장 | 대기 |
+| SD2 | 스프라이트가 하나도 없는 캐릭터의 무대 | 운영자 말대로 placeholder 실루엣. 대안: 무대에 아무도 세우지 않음(말풍선 프로필 그림만) | 대기 |
+| SD3 | 스프라이트 배치 | 비주얼노벨식 — 높이 약 90%, 가운데보다 약간 오른쪽, 말풍선 유리 뒤. 지금은 오른쪽 아래 45%×70% | 대기 |
+| SD4 | 리리·노노의 인물 든 무대 | 새 장소 그림이 올 때까지 `_old/`로 옮기고 placeholder 무대. 새 그림은 `character-art` 에이전트가 10.2 사양으로 | 대기 |
+
+### 10.8 항목
+
+| id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
+|---|---|---|---|---|---|---|---|
+| `crp/S1` | 이 절 | 이 문서 | 커밋 | 0 · — | S | — | ✅ #369 |
+| `crp/S2` | 이름 사슬 판정 | `characters.py`(`art_file`), 테스트 | 10.4 규칙(접미사 떼기·폴더 떼기·같은 표정 여러 장·다른 프레이밍·placeholder)을 테스트가 확인, 데이터 파일 없음 | 1 · ⚡ | M | — | 대기 |
+| `crp/S3` | 모델에게 그 캐릭터의 표정 이름을 | `private_engine.py`, `emotion.py`, `static/markdown.js`, 테스트 | 지시 문장의 이름 = 폴더의 이름(+`neutral`), 파서가 임의 이름을 받음 | 1 · ⚡ | S | crp/S2 | 대기 |
+| `crp/S4` | 사양 문서화: 스킬 `character-art`·`characters.py` 주석을 10.2–10.5로, 가져오기·내보내기는 CCv3 `assets` 이름 | 스킬, `characters.py` | "무대에 인물 금지" 문장, 두뇌별 차이는 스프라이트로 | 1 · — | S | — | 대기 |
+| `crp/S5` | 스프라이트 배치 | `static/`(스프라이트 층) | SD3대로, 모바일·데스크톱 | 1 · — | S | SD3 | 대기 |
+| `crp/S6` | 리리·노노 무대 정리 | 캐릭터 폴더(운영자 데이터) | SD4대로 | 운영자 | S | SD4 | 대기 |
+
+---
+
 ## Key Decisions
 
 1. **정본은 캐릭터 폴더 하나.** 채팅은 이미 API로 읽는다. 같은 그림의 두 번째·세 번째 복사본을 파이프라인에 두지 않는다.
