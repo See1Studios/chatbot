@@ -44,13 +44,13 @@ function actionTextOf(text) {
 
 // Draws a user history/ack entry: action lines as .msg.action, the rest as a user bubble.
 function addUserEntry(text, isQueued, prepend, ts) {
-  // plus/G: a gift's host note rides after the action; it is a chip on screen, not part of the words
-  const g = typeof splitGiftNote === 'function' ? splitGiftNote(text) : { text: text, gift: null };
+  // plus/G: an item's host note rides after the action; it is a chip on screen, not part of the words
+  const g = typeof splitItemNote === 'function' ? splitItemNote(text) : { text: text, item: null };
   const act = actionTextOf(g.text);
   const node = act
     ? addChat('action', '\u2726 ' + act, false, isQueued, false, prepend, null, null, false, ts)
     : addChat('user', g.text || '', false, isQueued, (g.text || '').startsWith('/btw'), prepend, null, null, false, ts);
-  if (g.gift && typeof renderGiftChip === 'function') renderGiftChip(node, g.gift);
+  if (g.item && typeof renderItemChip === 'function') renderItemChip(node, g.item);
   return node;
 }
 

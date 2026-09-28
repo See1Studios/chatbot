@@ -56,7 +56,7 @@ from providers import accounts
 from providers import account_login
 import card_upload
 import chat_upload
-import gifts
+import items
 import character_art
 import content_guard
 import emotion
@@ -543,7 +543,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if path == "/api/characters":
             code, body = _json_bytes({"characters": _character_list()})
             return self._send(code, body, "application/json; charset=utf-8")
-        gift = gifts.handle_get(path) or chat_upload.handle_get(path, parse_qs(parsed.query))   # plus/F, sees-images
+        gift = items.handle_get(path) or chat_upload.handle_get(path, parse_qs(parsed.query))   # plus/F items, sees-images
         if gift:
             return self._send(*_json_bytes(gift[1], gift[0]), "application/json; charset=utf-8")
         art = character_art.handle(path, parse_qs(parsed.query))   # ART_PLACEHOLDER_v1: avatar, stage, sprites
@@ -1069,7 +1069,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                             text = "(" + bare + ")"
                 else:
                     event_type = ""
-                text = gifts.take_pending(sid, chat_upload.take_pending(sid, text))   # plus/C files, plus/F gift note
+                text = items.take_pending(sid, chat_upload.take_pending(sid, text))   # plus/C files, plus/F item note
                 try:
                     rotated = sess.send(text, client_mid, client_context=client_ctx, event_type=event_type)
                 except Exception as e:
@@ -1106,7 +1106,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 else:
                     code, raw = _json_bytes({"ok": True, "session": pub})
                 return self._send(code, raw, "application/json; charset=utf-8")
-            gift = gifts.handle_post(path, body)   # plus/F: give a gift (private mode)
+            gift = items.handle_post(path, body)   # plus/F: give or use an item (private mode)
             if gift:
                 return self._send(*_json_bytes(gift[1], gift[0]), "application/json; charset=utf-8")
             if path.startswith("/api/sessions/") and path.endswith("/provider"):

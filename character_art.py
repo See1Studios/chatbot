@@ -4,6 +4,7 @@
   GET /api/characters/<id>/stage?provider=       the chat background
   GET /api/characters/<id>/sprites?framing=      JSON {"framing", "sprites": {label: "<framing>/<label>.webp"}}
   GET /api/characters/<id>/sprites/<[framing/]label>.webp
+  GET /api/items/<id>/image                       an item's picture (items.image_file)
 
 Pictures never 404 for a known kind: a missing one is the engine placeholder (characters.art_file). Unknown kinds
 or bad paths are not ours (None).
@@ -20,6 +21,9 @@ PREFIX = "/api/characters/"
 
 def handle(path: str, query: Dict[str, List[str]]) -> Optional[Tuple[int, bytes, str, str]]:
     """(status, body, content type, Cache-Control) for a character art path, or None when it is not one."""
+    if path.startswith("/api/items/") and path.endswith("/image"):   # an item's picture, same fallback rule
+        import items
+        return _picture(*items.image_file(path[len("/api/items/"):-len("/image")]))
     if not path.startswith(PREFIX):
         return None
     parts = path[len(PREFIX):].split("/")

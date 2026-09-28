@@ -1,7 +1,7 @@
 // app-attach.js -- the small button inside the message box (docs/plans/composer-plus-menu.md plus/B, plus/D).
 //
 // Giving something is part of the message, so the button sits inside the input, not beside it: in work mode it
-// attaches one file, in private mode it opens the gift picker (app-gift.js). A file is uploaded the moment it is
+// attaches one file, in private mode it opens the item picker (app-item.js). A file is uploaded the moment it is
 // attached (pick, drag and drop, or paste) and waits on the server as the session's pending attachment; the next
 // message carries it (chat_upload.take_pending), so the send path in app.js is unchanged. While a file is attached
 // the button becomes that file's icon (click: take it back); once the message goes, the file shows on its bubble.
@@ -12,9 +12,9 @@ const ATTACH_MAX_BYTES = 20 * 1024 * 1024;
 const ATTACH_HEAD_RE = /\[Attached files[^\]\n]*\]/g;
 // On-screen words, one place (localization l10n/C moves them into the catalog).
 const ATTACH_TEXT = {
-  attach: '파일 첨부', gift: '선물하기', remove: '클릭하여 첨부 취소', uploading: '올리는 중…',   // l10n-ok
+  attach: '파일 첨부', item: '아이템', remove: '클릭하여 첨부 취소', uploading: '올리는 중…',   // l10n-ok
   preview: '클릭하여 파일 미리보기', failed: '첨부 실패: ', one: '파일은 하나만 첨부할 수 있어요.',   // l10n-ok
-  tooBig: '파일이 너무 큽니다 (최대 20 MB)', privateNo: '사적 모드에서는 파일 대신 선물을 건넬 수 있어요.',   // l10n-ok
+  tooBig: '파일이 너무 큽니다 (최대 20 MB)', privateNo: '사적 모드에서는 파일 대신 아이템을 건네거나 쓸 수 있어요.',   // l10n-ok
   blind: '이 모델은 이미지를 볼 수 없어요 — 이미지를 보는 모델로 바꿔 주세요',   // l10n-ok
 };
 let attachItem = null;         // {label, state: 'uploading'|'ready'|'error', file: server item, error}
@@ -77,7 +77,7 @@ function attachDisplayName(path) {
 // Line icons in the page's own style (the tab icons: 24 grid, 2px stroke, round joins).
 const ICON_PATHS = {
   clip: '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
-  gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+  item: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
   file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
   text: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
@@ -165,9 +165,9 @@ function redrawInlineButton() {
   if (!btn) return;
   btn.classList.remove('attached', 'uploading', 'error');
   if (inlineMode() === 'private') {
-    btn.innerHTML = iconSvg('gift');
-    btn.title = ATTACH_TEXT.gift;
-    btn.setAttribute('aria-label', ATTACH_TEXT.gift);
+    btn.innerHTML = iconSvg('item');
+    btn.title = ATTACH_TEXT.item;
+    btn.setAttribute('aria-label', ATTACH_TEXT.item);
   } else if (!attachItem) {
     btn.innerHTML = iconSvg('clip');
     btn.title = ATTACH_TEXT.attach;
@@ -277,7 +277,7 @@ function initInlineButton() {
   input.classList.add('has-inline-btn');
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (inlineMode() === 'private') { if (typeof openGiftPicker === 'function') openGiftPicker(); return; }
+    if (inlineMode() === 'private') { if (typeof openItemPicker === 'function') openItemPicker(); return; }
     if (attachItem) attachRemove(); else attachPick();
   });
   redrawInlineButton();

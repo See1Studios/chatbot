@@ -1,0 +1,197 @@
+{
+  "notes": "Items the private-mode button offers (composer-plus-menu plus/F). An item is given unless it lists actions; \"use\" is the phrase for using it on or with the character. tags are matched against a card's extensions.chatbot.item_prefs {loves, likes, dislikes}. Pictures go in items/<id>.webp (else the engine placeholder). The default list is all-ages (Steam build, market-direction-review R11); more items arrive as content packs.",
+  "items": [
+    {
+      "id": "rose-bouquet",
+      "icon": "🌹",
+      "name": "장미 꽃다발",
+      "tags": [
+        "flower",
+        "romantic"
+      ]
+    },
+    {
+      "id": "wildflowers",
+      "icon": "💐",
+      "name": "들꽃 한 다발",
+      "tags": [
+        "flower",
+        "cute"
+      ]
+    },
+    {
+      "id": "handmade-chocolate",
+      "icon": "🍫",
+      "name": "수제 초콜릿",
+      "tags": [
+        "sweet",
+        "romantic",
+        "handmade"
+      ]
+    },
+    {
+      "id": "strawberry-cake",
+      "icon": "🍰",
+      "name": "딸기 케이크",
+      "tags": [
+        "sweet"
+      ]
+    },
+    {
+      "id": "dango",
+      "icon": "🍡",
+      "name": "경단",
+      "tags": [
+        "sweet",
+        "traditional"
+      ]
+    },
+    {
+      "id": "warm-latte",
+      "icon": "☕",
+      "name": "따뜻한 라떼",
+      "tags": [
+        "drink",
+        "cozy"
+      ]
+    },
+    {
+      "id": "new-novel",
+      "icon": "📚",
+      "name": "좋아하는 작가의 신간",
+      "tags": [
+        "book",
+        "intellectual"
+      ]
+    },
+    {
+      "id": "teddy-bear",
+      "icon": "🧸",
+      "name": "곰 인형",
+      "tags": [
+        "cute",
+        "cozy"
+      ]
+    },
+    {
+      "id": "silver-ring",
+      "icon": "💍",
+      "name": "은반지",
+      "tags": [
+        "jewelry",
+        "romantic"
+      ]
+    },
+    {
+      "id": "ribbon",
+      "icon": "🎀",
+      "name": "리본 머리끈",
+      "tags": [
+        "accessory",
+        "cute"
+      ]
+    },
+    {
+      "id": "knit-scarf",
+      "icon": "🧣",
+      "name": "손뜨개 목도리",
+      "tags": [
+        "handmade",
+        "cozy"
+      ]
+    },
+    {
+      "id": "hand-letter",
+      "icon": "✉️",
+      "name": "손편지",
+      "tags": [
+        "handmade",
+        "romantic"
+      ]
+    },
+    {
+      "id": "lunchbox",
+      "icon": "🍱",
+      "name": "직접 싼 도시락",
+      "tags": [
+        "food",
+        "handmade",
+        "cozy"
+      ]
+    },
+    {
+      "id": "new-game",
+      "icon": "🎮",
+      "name": "같이 할 게임",
+      "tags": [
+        "game",
+        "fun"
+      ]
+    },
+    {
+      "id": "comb",
+      "icon": "🪮",
+      "name": "빗",
+      "tags": [
+        "grooming",
+        "cozy"
+      ],
+      "actions": [
+        "use"
+      ],
+      "use": "빗으로 머리를 천천히 빗겨준다"
+    },
+    {
+      "id": "blanket",
+      "icon": "🛏️",
+      "name": "담요",
+      "tags": [
+        "cozy"
+      ],
+      "actions": [
+        "use",
+        "give"
+      ],
+      "use": "담요를 어깨에 덮어준다"
+    },
+    {
+      "id": "hand-cream",
+      "icon": "🧴",
+      "name": "핸드크림",
+      "tags": [
+        "grooming",
+        "caring"
+      ],
+      "actions": [
+        "use",
+        "give"
+      ],
+      "use": "핸드크림을 손등에 발라준다"
+    },
+    {
+      "id": "umbrella",
+      "icon": "☂️",
+      "name": "우산",
+      "tags": [
+        "caring"
+      ],
+      "actions": [
+        "use"
+      ],
+      "use": "우산을 함께 쓰려고 가까이 씌워준다"
+    },
+    {
+      "id": "camera",
+      "icon": "📷",
+      "name": "카메라",
+      "tags": [
+        "fun",
+        "memory"
+      ],
+      "actions": [
+        "use"
+      ],
+      "use": "카메라를 들고 같이 사진을 찍자고 한다"
+    }
+  ]
+}

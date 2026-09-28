@@ -15,7 +15,7 @@
 | 2 | 텐션 4단계 엔진(stage 1–4, 3슬롯, recent_choices, 모델 계열별 표) | **구현됨** | `private_engine.py` `tension_after`·`tension_step`·`tension_context`, `session.py::AgentSession._send_direct`, `data/private_tension_*.json`, `tests/test_private_tension.py` |
 | 2 | 선택지 상투성 검증·필터 | 계획 | 코드 없음 |
 | 2 | 8단계 0–100 점수 엔진 | **초안** | 코드 없음, 승인 대기 |
-| 3 | 영구 호감도 | 일부 구현 | 선물로만 증감(`gifts.py`, #336). 대화 기반 증감·시작 텐션 연동(§3.6-2)은 아직 |
+| 3 | 영구 호감도 | 일부 구현 | 아이템 건네기로만 증감(`items.py`, #336·#347). 대화 기반 증감·시작 텐션 연동(§3.6-2)은 아직 |
 | 4 | HUD·UX | 계획 | 코드 없음(`privateHud` 없음) |
 | 5 | 렌더러 코어 + 모드별 데코레이터 | 계획 | 신규 설계 |
 

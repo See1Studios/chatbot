@@ -360,7 +360,7 @@ header .avatar:active{
 body.attach-drop .stage::after{
   content:'여기에 놓으면 첨부돼요';/* l10n-ok */position:absolute;inset:.6rem;z-index:5;display:flex;align-items:center;justify-content:center;
   border:2px dashed var(--accent2);border-radius:14px;background:rgba(10,12,16,.72);color:var(--fg);font-size:1rem;pointer-events:none}
-body.attach-drop.attach-drop-no .stage::after{/* l10n-ok */content:'사적 모드에서는 파일 대신 선물을 건네요 (준비 중)';border-color:var(--muted);color:var(--muted)}
+body.attach-drop.attach-drop-no .stage::after{/* l10n-ok */content:'사적 모드에서는 파일 대신 아이템을 건네요';border-color:var(--muted);color:var(--muted)}
 .msg.user .attach-cards{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}
 .attach-card{display:inline-flex;align-items:center;gap:.4rem;max-width:100%;padding:.3rem .55rem;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.18);color:inherit;font-size:.8rem;cursor:zoom-in;text-align:left}
 .attach-card-icon{display:inline-flex;align-self:center;opacity:.85}
@@ -373,19 +373,26 @@ body.attach-drop.attach-drop-no .stage::after{/* l10n-ok */content:'사적 모�
    percentage cap on a large picture still let the bubble grow to its full width. The picture keeps its shape. */
 .attach-thumb{display:block;width:auto;height:auto;max-width:220px;max-height:220px;border-radius:6px;background:rgba(0,0,0,.25)}
 
-/* composer-plus-menu plus/G (app-gift.js): the gift picker above the composer, the chip on the giving bubble and
-   the toast that says how it landed. */
-.gift-picker{margin:.3rem .2rem;padding:.55rem;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.35)}
-.gift-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.85rem;color:var(--muted);margin-bottom:.45rem}
-.gift-close{border:0;background:none;color:var(--muted);cursor:pointer;font-size:.9rem}
-.gift-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(5.6rem,1fr));gap:.4rem;max-height:14rem;overflow:auto}
-.gift-item{display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.5rem .3rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--fg);cursor:pointer}
-.gift-item:hover:not(:disabled){border-color:var(--accent2);background:rgba(255,255,255,.08)}
-.gift-item:disabled{opacity:.45;cursor:default}
-.gift-icon{font-size:1.5rem;line-height:1}
-.gift-name{font-size:.74rem;text-align:center;line-height:1.25;word-break:keep-all}
-.gift-none{margin-top:.4rem;font-size:.8rem;color:var(--muted)}
-.gift-chip{display:inline-block;margin-left:.45rem;padding:.1rem .5rem;border-radius:999px;background:rgba(244,114,182,.15);border:1px solid rgba(244,114,182,.35);font-size:.78rem;font-style:normal}
-.gift-toast{position:fixed;left:50%;bottom:6.5rem;z-index:50;transform:translate(-50%,.6rem);opacity:0;padding:.55rem .9rem;border-radius:999px;background:rgba(20,22,28,.94);border:1px solid rgba(244,114,182,.45);color:var(--fg);font-size:.88rem;pointer-events:none;transition:opacity .25s ease,transform .25s ease}
-.gift-toast.show{opacity:1;transform:translate(-50%,0)}
-@media (prefers-reduced-motion:reduce){.gift-toast{transition:none}}
+/* composer-plus-menu plus/G (app-item.js): the item picker is a coverflow -- the item in the middle faces the reader,
+   its neighbours turn away (transforms come from flowStyle); then the chip on the bubble and the toast after a gift. */
+.item-picker{margin:.3rem .2rem;padding:.55rem .55rem .6rem;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.item-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.82rem;color:var(--muted)}
+.item-close{border:0;background:none;color:var(--muted);cursor:pointer;font-size:.9rem}
+.item-flow{position:relative;height:176px;margin:.35rem 0 .1rem;perspective:900px;overflow:hidden;outline:none;touch-action:pan-y;user-select:none}
+.item-card{position:absolute;left:50%;top:8px;width:138px;height:158px;margin-left:-69px;padding:0;border-radius:14px;border:1px solid var(--border);background:#151923;overflow:hidden;cursor:pointer;transform-style:preserve-3d;transition:transform .38s cubic-bezier(.2,.8,.2,1),opacity .38s ease;box-shadow:0 10px 24px rgba(0,0,0,.45)}
+.item-card.current{border-color:var(--accent2);box-shadow:0 10px 28px rgba(0,0,0,.5),0 0 0 1px var(--accent-border),0 0 18px var(--accent-glow)}
+.item-card img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.item-glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:3.1rem;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5));pointer-events:none}
+.item-info{text-align:center;min-height:2.6rem}
+.item-name{font-size:.95rem;font-weight:600}
+.item-use{font-size:.78rem;color:var(--muted);margin-top:.15rem}
+.item-actions{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:.35rem}
+.item-actions-main{display:flex;gap:.4rem}
+.item-act{min-width:5.2rem;padding:.4rem .8rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--fg);cursor:pointer}
+.item-act:disabled{opacity:.4;cursor:default}
+.item-prev,.item-next{width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);background:none;color:var(--fg);font-size:1.2rem;line-height:1;cursor:pointer}
+.item-prev:disabled,.item-next:disabled{opacity:.3;cursor:default}
+.item-chip{display:inline-block;margin-left:.45rem;padding:.1rem .5rem;border-radius:999px;background:rgba(244,114,182,.15);border:1px solid rgba(244,114,182,.35);font-size:.78rem;font-style:normal}
+.item-toast{position:fixed;left:50%;bottom:6.5rem;z-index:50;transform:translate(-50%,.6rem);opacity:0;padding:.55rem .9rem;border-radius:999px;background:rgba(20,22,28,.94);border:1px solid rgba(244,114,182,.45);color:var(--fg);font-size:.88rem;pointer-events:none;transition:opacity .25s ease,transform .25s ease}
+.item-toast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.item-toast,.item-card{transition:none}}

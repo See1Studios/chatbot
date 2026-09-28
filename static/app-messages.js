@@ -503,10 +503,10 @@ function bubbleOwnText(node) {
 
 function adoptBareUserBubble(text, ts) {
   if (!logEl || !ts) return false;
-  // The server's text carries what the page shows as chips: a gift's host note, the attached-files list. Compared
-  // with them, a gift or an attachment was never recognised as this window's own and was drawn a second time.
+  // The server's text carries what the page shows as chips: an item's host note, the attached-files list. Compared
+  // with them, an item or an attachment was never recognised as this window's own and was drawn a second time.
   let said = text || '';
-  if (typeof splitGiftNote === 'function') said = splitGiftNote(said).text;
+  if (typeof splitItemNote === 'function') said = splitItemNote(said).text;
   if (typeof splitAttachmentBlock === 'function') said = splitAttachmentBlock(said).text;
   const bare = logEl.querySelectorAll('.msg.user:not([data-ts]), .msg.action:not([data-ts])');
   for (let i = 0; i < bare.length; i++) {
