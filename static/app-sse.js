@@ -91,16 +91,39 @@ function streamBody(node) {
   return md;
 }
 
-// The buffer only grows, so the normal case is appending one span. Anything else -- a resync that
-// rewrote the draft, a thought block that just closed and retracted its text -- falls back to a
-// full swap.
+// REVEAL_UNIT_v1 (2026-09-28): what the entrance animation is applied to.
 //
-// PLAIN_RENDER_v1: the appended text goes through renderPlainText, not textContent. Showing raw
+// It used to be the arriving chunk, which is one paint's worth of text. Measured on a real reply at
+// a real token rate, the median chunk was ONE character and the best case two, with four to seven
+// 150ms fades overlapping at any moment -- and dropping to 30fps changed none of those numbers. The
+// animation was not failing and the frame rate was not the problem: it was applied to something too
+// small for anyone to see. That is the whole reason "there is no animation" was true.
+//
+// So the unit is a finished line, which a reader can watch arrive, and each one animates exactly
+// once. 'paragraph' is the same code with the coarser split, for a slower, more deliberate answer.
+var STREAM_REVEAL_UNIT = 'line';          // 'line' | 'paragraph'
+
+// A unit still being written is not shown, and that is forced rather than chosen: an entrance
+// animation on text that is already on screen is the flicker this exists to remove, so a unit that
+// has not finished yet is simply not there, and the caret stands in for it. The cap is the safety
+// valve -- a stretch with no line break in it (one very long sentence, a table row) would otherwise
+// leave the reader watching a blinking cursor for seconds.
+var STREAM_REVEAL_MAX = 240;
+
+// Splits a growing answer into the units already finished and the one still being written. A line
+// counts as finished when the newline after it has arrived, and that is the only signal there is.
+function streamUnits(text) {
+  const parts = (STREAM_REVEAL_UNIT === 'paragraph')
+    ? String(text || '').split(/\n[ \t]*\n+/)
+    : String(text || '').split('\n');
+  return { done: parts.slice(0, -1), open: parts[parts.length - 1] || '' };
+}
+
+// PLAIN_RENDER_v1: a unit is rendered through renderPlainText, not textContent. Showing raw
 // `**bold**` and then replacing it with rendered bold at `result` is a single-frame swap of
-// different content in a different layout, and no transition can hide that -- the only way to make
-// the end of a stream feel like an arrival instead of a glitch is for the text to already look like
-// its finished self. renderPlainText is escaping plus a handful of regexes, so it stays off the
-// O(n^2) path: one paint per frame, and the chunk is the only thing re-read.
+// different content in a different layout, and no transition can hide that. renderPlainText is
+// escaping plus a handful of regexes, so it stays off the O(n^2) path: one paint per frame, and
+// only the units that just finished are ever rendered.
 function setStreamingContent(node, text) {
   if (!node) return;
   // The body must exist before the badge: otherwise the first paint puts the badge on the node
@@ -108,39 +131,58 @@ function setStreamingContent(node, text) {
   const md = streamBody(node);
   const shown = prepareStreamText(text);
   const prev = node._streamShown || '';
-  if (shown !== prev) {
-    if (shown.indexOf(prev) === 0) {
-      // Covers the first paint too (prev === ''), so every character that arrives while the
-      // character is speaking gets the same reveal -- no special case for the opening words.
-      const html = renderPlainText(shown.slice(prev.length));
-      // renderPlainText emits exactly one block-level tag, <pre>, and a <pre> inside a <span> is
-      // invalid nesting that a parser is free to resolve by hoisting. The chunk becomes a div the
-      // moment it holds a code block, which is also the only place a line break belongs.
-      const span = document.createElement(html.indexOf('<pre') >= 0 ? 'div' : 'span');
-      span.className = 'flow';
-      span.innerHTML = html;
-      md.appendChild(span);
-    } else {
-      md.innerHTML = renderPlainText(shown);
-    }
-    node._streamShown = shown;
+  // Not an append -- a resync rewrote the draft, or a thought block closed and retracted its text.
+  // Start the body over rather than leaving a stale unit in front of the new answer.
+  if (shown.indexOf(prev) !== 0) resetStreamBody(node, md);
+  const units = streamUnits(shown);
+  // Fewer finished units than are on screen means the text shrank, which is the same situation.
+  if (units.done.length < (node._streamUnits || 0)) resetStreamBody(node, md);
+  // The open unit is always the last child, so the existing caret -- a ::after on .md > *:last-child
+  // (chat-composer.css) -- lands on it and keeps one caret instead of two. It is created before the
+  // finished units so those can be inserted in front of it.
+  let openEl = node._streamOpen;
+  if (!openEl) {
+    openEl = document.createElement('div');
+    openEl.className = 'flow open';
+    md.appendChild(openEl);
+    node._streamOpen = openEl;
   }
-  // The blinking caret is the one that was already here: a ::after on the last child
-  // (chat-composer.css). It used to be drawn that way because the body was replaced on every
-  // delta and a real node would have been wiped; now the body is incremental, and reusing it
-  // keeps one caret instead of two and keeps its reduced-motion rule working.
+  for (let i = node._streamUnits || 0; i < units.done.length; i++) {
+    const el = document.createElement('div');
+    el.className = 'flow';
+    // A div, not a span: renderPlainText emits a <pre> for a code fence and a <pre> inside a <span>
+    // is invalid nesting a parser is free to resolve by hoisting. A unit is its own line anyway.
+    el.innerHTML = renderPlainText(units.done[i]);
+    // A blank line holds the paragraph gap while the answer streams, so the element is kept -- but
+    // there is nothing in it to arrive, and a 300ms animation on an empty box is a lie about there
+    // having been motion.
+    if (units.done[i].trim()) markArrive(el);
+    md.insertBefore(el, openEl);
+  }
+  node._streamUnits = units.done.length;
+  openEl.innerHTML = units.open.length > STREAM_REVEAL_MAX ? renderPlainText(units.open) : '';
+  node._streamShown = shown;
   node.classList.add('streaming');
-  // After the body, never before: the first paint writes textContent over .md and would take the
-  // badge with it. This is the order postProcessAssistant effectively runs in.
+  // After the body, never before: the first paint writes over .md and would take the badge with it.
+  // This is the order postProcessAssistant effectively runs in.
   paintExpressionBadge(node, text);
   scrollChatToBottom(false);
 }
 
-// The final render replaces the body wholesale, so this only drops the streaming state: the class,
-// and what we think we have shown. Nothing is left moving.
+function resetStreamBody(node, md) {
+  md.textContent = '';
+  node._streamUnits = 0;
+  node._streamOpen = null;      // the old open element is detached with the rest of the body
+}
+
+// The final render replaces the body wholesale, so this drops the streaming state: the class, and
+// what we think we have shown. The unit count and the open element go too -- the next stream on
+// this node must not try to insert in front of an element the final render already removed.
 function endStreamingContent(node) {
   if (!node) return;
   node._streamShown = '';
+  node._streamUnits = 0;
+  node._streamOpen = null;
   node.classList.remove('streaming');
   const md = node.querySelector && node.querySelector('.md');
   if (md) md.classList.remove('md-stream');

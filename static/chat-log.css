@@ -352,17 +352,22 @@
    per-token .hljs-* colors from the theme actually show through. */
 .msg.assistant .md pre .code-lang{position:absolute;top:6px;left:10px;font-size:.68rem;padding:1px 7px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);border-radius:4px;text-transform:uppercase;letter-spacing:.4px;pointer-events:none}
 .msg.assistant .md pre:has(.code-lang) code{padding-top:1.6rem}
-/* STREAM_FLOW_v1: the live answer is the only thing in the log that moves. While the model is still
-   speaking the body is plain text (no markdown yet), so it needs pre-wrap to keep the newlines; the
-   final render puts the markup back and takes this class off. Only the newest chunk is in motion,
-   and a finished message is still -- the reveal does not survive the result. */
-.msg.assistant .md.md-stream{white-space:pre-wrap}
-.md-stream .flow{animation:stream-flow-in 150ms cubic-bezier(0.16,1,0.3,1) both}
-@keyframes stream-flow-in{from{opacity:.35}to{opacity:1}}
-/* Reduced motion keeps the meaning: the text still arrives, and the caret still says "speaking".
-   The caret's own rule lives in chat-responsive.css; this is the reveal half. */
+/* STREAM_FLOW_v1: the live answer is the only thing in the log that moves, and it is already
+   formatted while it streams (PLAIN_RENDER_v1), so it does not need pre-wrap to keep its line
+   breaks -- renderPlainText has turned them into <br> and every unit is its own block. A finished
+   message is still: the reveal does not survive the result. */
+.msg.assistant .md.md-stream{white-space:normal}
+
+/* REVEAL_UNIT_v1: the entrance is applied to a finished line, because that is the smallest unit a
+   reader can watch arrive. On a chunk it was one character, and nobody saw anything at any frame
+   rate. The open unit is the line being written right now: it is empty, and the caret that follows
+   it is the only thing that says more is coming. */
+.msg.assistant .flow.arrive{animation:line-arrive 300ms cubic-bezier(0.16,1,0.3,1) both}
+@keyframes line-arrive{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+/* An open unit past the cap shows its text, so it must not reserve a second line's worth of space. */
+.msg.assistant .flow.open:empty{height:0}
 @media (prefers-reduced-motion:reduce){
-  .md-stream .flow{animation:none}
+  .msg.assistant .flow.arrive{animation:none}
 }
 
 /* BLOCK_KINDS_v1: the answer is made of kinds, and each is read a little differently. Narration is
@@ -381,22 +386,26 @@
    while it streamed, so fading it in would mean hiding text the reader is looking at and handing it
    back -- the exact flicker this exists to remove. A code block, a list and a quote are different:
    those are genuinely new boxes at `result`, arriving at a different height than the text that was
-   there a frame ago, and that is the only transition worth watching. */
+   there a frame ago, and that is the only transition worth watching.
+   :not(.arrive) because the last block is arriving as a whole; settling its children at the same
+   time would run two fades over the same pixels. */
 @keyframes block-settle{from{opacity:.45;transform:translateY(5px)}to{opacity:1;transform:none}}
-.msg.assistant .md-block > pre,
-.msg.assistant .md-block > h1, .msg.assistant .md-block > h2, .msg.assistant .md-block > h3,
-.msg.assistant .md-block > h4, .msg.assistant .md-block > h5, .msg.assistant .md-block > h6,
-.msg.assistant .md-block > ul,
-.msg.assistant .md-block > ol,
-.msg.assistant .md-block > blockquote,
-.msg.assistant .md-block > table{animation:block-settle 240ms cubic-bezier(0.16,1,0.3,1) both}
+.msg.assistant .md-block:not(.arrive) > pre,
+.msg.assistant .md-block:not(.arrive) > h1, .msg.assistant .md-block:not(.arrive) > h2,
+.msg.assistant .md-block:not(.arrive) > h3, .msg.assistant .md-block:not(.arrive) > h4,
+.msg.assistant .md-block:not(.arrive) > h5, .msg.assistant .md-block:not(.arrive) > h6,
+.msg.assistant .md-block:not(.arrive) > ul,
+.msg.assistant .md-block:not(.arrive) > ol,
+.msg.assistant .md-block:not(.arrive) > blockquote,
+.msg.assistant .md-block:not(.arrive) > table{animation:block-settle 240ms cubic-bezier(0.16,1,0.3,1) both}
 
 @media (prefers-reduced-motion:reduce){
-  .msg.assistant .md-block > pre,
-  .msg.assistant .md-block > h1, .msg.assistant .md-block > h2, .msg.assistant .md-block > h3,
-  .msg.assistant .md-block > h4, .msg.assistant .md-block > h5, .msg.assistant .md-block > h6,
-  .msg.assistant .md-block > ul,
-  .msg.assistant .md-block > ol,
-  .msg.assistant .md-block > blockquote,
-  .msg.assistant .md-block > table{animation:none}
+  .msg.assistant .md-block:not(.arrive) > pre,
+  .msg.assistant .md-block:not(.arrive) > h1, .msg.assistant .md-block:not(.arrive) > h2,
+  .msg.assistant .md-block:not(.arrive) > h3, .msg.assistant .md-block:not(.arrive) > h4,
+  .msg.assistant .md-block:not(.arrive) > h5, .msg.assistant .md-block:not(.arrive) > h6,
+  .msg.assistant .md-block:not(.arrive) > ul,
+  .msg.assistant .md-block:not(.arrive) > ol,
+  .msg.assistant .md-block:not(.arrive) > blockquote,
+  .msg.assistant .md-block:not(.arrive) > table{animation:none}
 }

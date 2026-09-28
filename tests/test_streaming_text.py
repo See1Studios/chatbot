@@ -1,11 +1,21 @@
-"""The streaming answer is painted, not re-rendered (STREAM_FLOW_v1, 2026-09-28).
+"""The streaming answer is painted, not re-rendered, and it arrives a line at a time.
 
-A provider emits far more tokens than a screen paints frames, and the old path re-parsed the whole
-growing answer with marked + DOMPurify and rebuilt the bubble on every single delta. This runs the
-real block out of the concatenated page bundle against a stub DOM and asserts the properties that
-matter: one paint per frame no matter the token rate, no markdown machinery on the streaming path,
-incremental appends, a correct fallback when the draft is rewritten, and a finished message with
-nothing left moving.
+Two properties, both learned the hard way.
+
+STREAM_FLOW_v1: a provider emits far more tokens than a screen paints frames, and the old path
+re-parsed the whole growing answer with marked + DOMPurify and rebuilt the bubble on every single
+delta. This runs the real block out of the concatenated page bundle against a stub DOM and asserts
+the properties that matter -- one paint per frame no matter the token rate, no markdown machinery on
+the streaming path, a body that restarts when a resync rewrites the draft, and a finished message
+with nothing left moving.
+
+REVEAL_UNIT_v1: the entrance used to be applied to the arriving chunk, which is one paint's worth
+of text. Measured against a real reply at a real token rate, the median chunk was one character and
+the best case two, with four to seven 150ms fades overlapping at once -- invisible, and unchanged at
+30fps. The unit is now a finished line: a unit that has not finished is not on screen at all, and
+the caret stands in for it. The tests here pin that unit size, because "the animation is too small
+to see" is a property of the code, not a matter of taste, and it is exactly what two rounds of
+eyeballing got wrong.
 
 Run: python3 -m unittest tests.test_streaming_text  (from services/chatbot)
 """
@@ -31,29 +41,30 @@ const b = src.indexOf('\nfunction bindEvents(sid)');
 if (a < 0 || b < 0) throw new Error('STREAM_FLOW block markers missing');
 const code = src.slice(a, b);
 
-// PLAIN_RENDER_v1, the real one.
-const md = fs.readFileSync(process.argv[3], 'utf8');
-const ra = md.indexOf('function renderPlainText');
-if (ra < 0) throw new Error('renderPlainText missing from markdown.js');
-const rb = md.indexOf('\n}', md.indexOf('return t;', ra)) + 2;
-function absArtifact(p) { return p; }        // markdown.js's helper; no artifacts in this text
-eval(md.slice(ra, rb));
-
 function el(tag) {
   const e = {
     tag, className: '', children: [], attrs: {}, dataset: {}, handlers: {},
-    classList: {
-      _s: new Set(),
-      add(...c) { c.forEach(x => this._s.add(x)); },
-      remove(...c) { c.forEach(x => this._s.delete(x)); },
-      contains(c) { return this._s.has(c); },
-    },
     setAttribute(k, v) { this.attrs[k] = v; },
     getAttribute(k) { return this.attrs[k]; },
-    addEventListener(t, f) { this.handlers[t] = f; },
-    appendChild(c) { c.parentNode = e; e.children.push(c); return c; },
-    insertBefore(c) { c.parentNode = e; e.children.push(c); return c; },
-    remove() { if (e.parentNode) { e.parentNode.children = e.parentNode.children.filter(x => x !== c_of(e)); } e.parentNode = null; },
+    // className and classList are one thing in a browser. The stub used to keep them apart, which
+    // hid every assertion about a class the code adds rather than assigns.
+    classList: {
+      _set() { return new Set((e.className || '').split(' ').filter(Boolean)); },
+      _put(s) { e.className = [...s].join(' '); },
+      add(...c) { const s = this._set(); c.forEach(x => s.add(x)); this._put(s); },
+      remove(...c) { const s = this._set(); c.forEach(x => s.delete(x)); this._put(s); },
+      contains(c) { return this._set().has(c); },
+    },
+    addEventListener(t, f) { e.handlers[t] = f; },
+    appendChild(c) { e.children.push(c); return c; },
+    // insertBefore used to shove to the front regardless of the reference node, which happened to be
+    // right only while the reveal appended at the end. The reveal inserts each finished unit in
+    // front of the open one, so the reference has to be honoured.
+    insertBefore(c, ref) {
+      const i = e.children.indexOf(ref);
+      e.children.splice(i < 0 ? e.children.length : i, 0, c);
+      return c;
+    },
     all(sel) {
       const cls = sel.replace(/^\./, '');
       const out = [];
@@ -63,11 +74,9 @@ function el(tag) {
     querySelector(sel) { return e.all(sel)[0] || null; },
     querySelectorAll(sel) { return e.all(sel); },
   };
-  const c_of = (x) => x;
   e.remove = function () { if (e.parentNode) { e.parentNode.children = e.parentNode.children.filter(x => x !== e); } e.parentNode = null; };
-  // A real element's textContent is a text node; children only holds elements. The streaming path
-  // sets textContent once and then appends, so both have to be modelled or the first characters
-  // vanish from the assertion.
+  // A real element's textContent is a text node; children only holds elements. Both have to be
+  // modelled or the first characters vanish from the assertion.
   Object.defineProperty(e, 'textContent', {
     get() { return (e._text || '') + e.children.map(c => c.textContent || '').join(''); },
     set(v) { e._text = v; e.children = []; },
@@ -82,7 +91,7 @@ function el(tag) {
 
 // A browser parses innerHTML into child nodes; the stub cannot, so it reproduces what the reader
 // would see instead: <br> is a line break and the four escaped entities come back as themselves.
-// The streaming path now writes HTML, and an assertion on textContent has to mean the visible text.
+// The streaming path writes HTML, and an assertion on textContent has to mean the visible text.
 function visibleText(h) {
   return String(h == null ? '' : h)
     .replace(/<br\s*\/?>/g, '\n')
@@ -106,6 +115,10 @@ const marked = { parse() { markedCalls++; return '<p>MARKDOWN</p>'; } };
 const DOMPurify = { sanitize(h) { purifyCalls++; return h; } };
 function renderMarkdown() { renderMarkdownCalls++; return '<p>FULL</p>'; }
 function postProcessAssistant() { postProcessCalls++; }
+function markArrive(el) {             // app-messages.js's helper, which the reveal calls
+  el.classList.add('arrive');
+  el.addEventListener('animationend', function () { el.classList.remove('arrive'); }, { once: true });
+}
 
 // The two cheap helpers the streaming path is allowed to use, with the real shapes.
 const EXPRESSION_EMOJIS = { joy: '\u{1F60A}', sad: '\u{1F622}' };
@@ -135,60 +148,120 @@ function prepareStreamText(src) {                        // markdown.js's extrac
   return raw;
 }
 
+// PLAIN_RENDER_v1, the real one.
+const md = fs.readFileSync(process.argv[3], 'utf8');
+const ra = md.indexOf('function renderPlainText');
+if (ra < 0) throw new Error('renderPlainText missing from markdown.js');
+const rb = md.indexOf('\n}', md.indexOf('return t;', ra)) + 2;
+function absArtifact(p) { return p; }        // markdown.js's helper; no artifacts in this text
+eval(md.slice(ra, rb));
+
 eval(code);
 
 const flush = () => { const q = frames; frames = []; q.forEach(f => f()); return q.length; };
 const newBubble = () => { const n = el('div'); n.className = 'msg assistant'; n.dataset.live = '1'; return n; };
 const body = (n) => n.querySelector('.md');
+const units = (n) => body(n).children.filter(c => /\bflow\b/.test(c.className));
 const text = (n) => {
-  const md = body(n);
+  const b = body(n);
   const parts = [];
-  if (md._text) parts.push(md._text);
-  md.children.filter(c => !/\bexp-badge\b/.test(c.className)).forEach(c => parts.push(c.textContent));
+  if (b._text) parts.push(b._text);
+  b.children.filter(c => !/\bexp-badge\b/.test(c.className)).forEach(c => parts.push(c.textContent));
   return parts.join('');
 };
 const htmlOf = (n) => body(n).children.filter(c => !/\bexp-badge\b/.test(c.className))
   .map(c => c.innerHTML).join('');
+const LINES = 20, WIDTH = 10;
+const FULL = Array.from({ length: LINES }, () => '가'.repeat(WIDTH)).join('\n');
 
 const CASES = {
   coalesces: () => {
     const n = newBubble();
-    for (let i = 1; i <= 200; i++) { setStreamingContent(n, '가'.repeat(i)); }
-    const queued = frames.length;
+    // The paint reads the buffer when the frame runs, not the value at the moment it was
+    // scheduled -- that is how app-sse.js does it, and it is the whole point: 219 deltas, one
+    // paint, and the paint shows everything that arrived.
+    let paintBuf = '';
+    for (let i = 1; i <= FULL.length; i++) {
+      paintBuf = FULL.slice(0, i);
+      scheduleStreamPaint(() => setStreamingContent(n, paintBuf));
+    }
+    const framesQueued = frames.length;
     flush();
-    return { deltas: 200, frames_queued: queued, painted: text(n).length };
+    const all = units(n);
+    return { deltas: FULL.length, frames_queued: framesQueued, chars: text(n).length,
+             arrived: all.filter(c => /\barrive\b/.test(c.className)).length, total: all.length };
   },
   no_heavy_path: () => {
     const n = newBubble();
-    for (let i = 1; i <= 50; i++) setStreamingContent(n, 'x'.repeat(i));
+    for (let i = 1; i <= 50; i++) setStreamingContent(n, 'x'.repeat(i) + '\n');
     flush();
     return { marked: markedCalls, purify: purifyCalls, renderMarkdown: renderMarkdownCalls,
              postProcess: postProcessCalls, shown: text(n).length, scrolls: scrolls.length };
   },
-  incremental: () => {
+  unit_appears_only_when_finished: () => {
     const n = newBubble();
-    setStreamingContent(n, '안녕');
-    const after1 = body(n).children.length;
-    setStreamingContent(n, '안녕하');
-    const spans = body(n).children.filter(c => c.className === 'flow');
-    return { after1, spans: spans.length, texts: spans.map(s => s.textContent), shown: text(n) };
+    setStreamingContent(n, '하나');
+    const mid = units(n).map(c => c.className);
+    setStreamingContent(n, '하나\n둘');
+    return { mid, done: units(n).map(c => c.className), shown: text(n) };
   },
-  rewrite_falls_back: () => {
+  the_open_unit_is_last_and_hosts_the_caret: () => {
     const n = newBubble();
-    setStreamingContent(n, '처음Draft');
-    setStreamingContent(n, 'resync으로 다시 온 본문');
-    return { shown: text(n), streaming: n.classList.contains('streaming') };
+    setStreamingContent(n, '하나\n둘\n셋');
+    const kids = body(n).children;
+    return { last: kids[kids.length - 1].className, last_is_open: /\bopen\b/.test(kids[kids.length - 1].className) };
+  },
+  each_unit_animates_exactly_once: () => {
+    const n = newBubble();
+    setStreamingContent(n, '하나\n');
+    const el0 = units(n)[0];
+    const before = el0.className;
+    const listened = typeof el0.handlers['animationend'];
+    el0.handlers['animationend']();          // the browser fires this; the stub does not
+    return { before, listened, after: el0.className };
+  },
+  the_unit_is_bigger_than_a_chunk: () => {
+    // The measurement that started this: a chunk was one character, which is why nothing was seen.
+    const n = newBubble();
+    setStreamingContent(n, FULL);
+    const sizes = units(n).map(u => u.textContent.length).filter(s => s > 0);
+    return { count: sizes.length, min: Math.min(...sizes), max: Math.max(...sizes) };
+  },
+  paragraph_unit: () => {
+    STREAM_REVEAL_UNIT = 'paragraph';
+    const n = newBubble();
+    setStreamingContent(n, '하나\n둘\n\n셋\n넷\n\n오');
+    const out = { shown: text(n), kinds: units(n).map(c => c.textContent) };
+    STREAM_REVEAL_UNIT = 'line';
+    return out;
+  },
+  a_long_unbroken_run_is_shown: () => {
+    const n = newBubble();
+    const long = '가'.repeat(STREAM_REVEAL_MAX + 20);
+    setStreamingContent(n, long);
+    const short = '가'.repeat(10);
+    const m = newBubble();
+    setStreamingContent(m, short);
+    return { long_shown: text(n).length, short_shown: text(m).length };
+  },
+  rewrite_restarts_the_body: () => {
+    const n = newBubble();
+    setStreamingContent(n, '하나\n둘\n셋');
+    const before = text(n);
+    setStreamingContent(n, '처음부터\n다시');
+    return { before, after: text(n), units: n._streamUnits, children: body(n).children.length,
+             streaming: n.classList.contains('streaming') };
   },
   equal_text_does_not_touch_dom: () => {
     const n = newBubble();
-    setStreamingContent(n, '같은내용');
+    setStreamingContent(n, '같은내용\n');
     const before = body(n).children.length;
-    setStreamingContent(n, '같은내용');
+    setStreamingContent(n, '같은내용\n');
     return { before, after: body(n).children.length };
   },
   stripped_tags: () => {
     const n = newBubble();
-    setStreamingContent(n, '[expression: joy]안녕');
+    setStreamingContent(n, '[expression: joy]안녕\n');
     const b = n.querySelector('.exp-badge');
     return { shown: text(n), badge: b ? b.textContent : null };
   },
@@ -204,52 +277,43 @@ const CASES = {
   },
   finished_is_still: () => {
     const n = newBubble();
-    setStreamingContent(n, '다 끝났어');
+    setStreamingContent(n, '다 끝났어\n마지막');
     endStreamingContent(n);
     return { streaming: n.classList.contains('streaming'), md_stream: body(n).classList.contains('md-stream'),
-             shown: text(n), remembered: n._streamShown };
+             shown: text(n), remembered: n._streamShown, units: n._streamUnits, open: n._streamOpen };
   },
   cancel_stops_the_frame: () => {
     const n = newBubble();
-    scheduleStreamPaint(function () { setStreamingContent(n, '늦게도착'); });
+    scheduleStreamPaint(function () { setStreamingContent(n, '늦게도착\n끝'); });
     const queued = frames.length;
     cancelStreamPaint();
     const after = frames.length;
     return { queued, after, shown: text(n) };
   },
-  // PLAIN_RENDER_v1: the point of rendering while streaming is that the answer already looks like
-  // its finished self, so the swap at `result` is a refinement instead of a different document
-  // replacing another one in a single frame.
+  // --- PLAIN_RENDER_v1: a revealed unit is already the finished shape ---
   bold_while_streaming: () => {
     const n = newBubble();
-    setStreamingContent(n, '**중요**한 일');
+    setStreamingContent(n, '**중요**한 일\n');
     return { shown: text(n), html: htmlOf(n) };
   },
   action_italic_while_streaming: () => {
     const n = newBubble();
-    setStreamingContent(n, '*고개를 기울이며*');
+    setStreamingContent(n, '*고개를 기울이며*\n');
     return { shown: text(n), html: htmlOf(n) };
   },
   open_code_fence_while_streaming: () => {
     const n = newBubble();
-    setStreamingContent(n, '```py\nprint(1)');
-    return { html: htmlOf(n), tag: body(n).children[0].tag };
-  },
-  a_code_block_does_not_nest_a_pre_inside_a_span: () => {
-    const n = newBubble();
-    setStreamingContent(n, '설명.');
-    setStreamingContent(n, '설명.\n\n```py');          // the fence opens
-    setStreamingContent(n, '설명.\n\n```py\nprint(1)');  // and fills
-    return { tag: body(n).children.map(c => c.tag) };
+    setStreamingContent(n, '```py\nprint(1)\n```\n');
+    return { html: htmlOf(n), tags: units(n).map(c => c.tag) };
   },
   markup_cannot_inject: () => {
     const n = newBubble();
-    setStreamingContent(n, '<img src=x onerror=alert(1)>');
+    setStreamingContent(n, '<img src=x onerror=alert(1)>\n');
     return { shown: text(n), html: htmlOf(n) };
   },
   arithmetic_asterisks_stay_literal: () => {
     const n = newBubble();
-    setStreamingContent(n, '2 * 3 * 4 라고 했다');
+    setStreamingContent(n, '2 * 3 * 4 라고 했다\n');
     return { shown: text(n), html: htmlOf(n) };
   },
 };
@@ -269,26 +333,68 @@ def run(case):
 
 
 class StreamingText(unittest.TestCase):
-    def test_two_hundred_deltas_cost_at_most_one_frame_each(self):
+    # --- STREAM_FLOW_v1: the cost of showing a stream ---
+
+    def test_two_hundred_deltas_cost_one_frame(self):
         out = run("coalesces")
         # The whole point: a 200-token answer must not schedule 200 paints before a frame runs.
-        self.assertLessEqual(out["frames_queued"], 200)
-        self.assertEqual(out["painted"], 200, "the text must still all be there after the flush")
+        self.assertEqual(out["frames_queued"], 1,
+                         "%d deltas queued %d paints" % (out["deltas"], out["frames_queued"]))
+        self.assertEqual(out["total"], 20, "twenty finished lines plus the open one")
+        self.assertEqual(out["arrived"], 19, "the twentieth line is still being written")
+        self.assertEqual(out["chars"], 19 * 10)
 
     def test_the_streaming_path_never_touches_markdown_or_sanitising(self):
         out = run("no_heavy_path")
         self.assertEqual((out["marked"], out["purify"], out["renderMarkdown"], out["postProcess"]), (0, 0, 0, 0),
                          "the streaming path reached the heavy render -- this is the O(n^2) again")
-        self.assertEqual(out["shown"], 50, "the text must still render while streaming")
+        self.assertEqual(out["shown"], 50, "every finished line must still render while streaming")
 
-    def test_each_paint_appends_only_the_new_text(self):
-        out = run("incremental")
-        self.assertEqual(out["texts"], ["안녕", "하"], "only the new characters should be appended")
-        self.assertEqual(out["shown"], "안녕하")
+    def test_a_unit_joins_the_dom_only_once_it_is_finished(self):
+        out = run("unit_appears_only_when_finished")
+        self.assertEqual(out["mid"], ["flow open"],
+                         "a line still being written must not be in the DOM yet")
+        self.assertEqual(out["done"], ["flow arrive", "flow open"])
+        self.assertEqual(out["shown"], "하나")
 
-    def test_a_rewritten_draft_is_swapped_not_appended(self):
-        out = run("rewrite_falls_back")
-        self.assertEqual(out["shown"], "resync으로 다시 온 본문", "a non-append delta must replace the body")
+    def test_the_open_unit_is_the_last_child_so_the_caret_finds_it(self):
+        out = run("the_open_unit_is_last_and_hosts_the_caret")
+        self.assertTrue(out["last_is_open"], "the caret is a ::after on .md > *:last-child")
+        self.assertEqual(out["last"], "flow open")
+
+    def test_each_unit_animates_exactly_once(self):
+        out = run("each_unit_animates_exactly_once")
+        self.assertEqual(out["before"], "flow arrive")
+        self.assertTrue(out["listened"], "the class has to come off, or a later render replays it")
+        self.assertEqual(out["after"], "flow")
+
+    def test_the_animating_unit_is_a_line_and_not_a_chunk(self):
+        # This is the assertion that would have caught it. The entrance used to run on whatever one
+        # paint delivered -- median one character, best case two -- and no frame rate changes that.
+        out = run("the_unit_is_bigger_than_a_chunk")
+        self.assertEqual(out["count"], 19)
+        self.assertEqual((out["min"], out["max"]), (10, 10),
+                         "a unit must be a whole line, not a fragment of one")
+
+    def test_a_paragraph_can_be_the_unit_instead(self):
+        out = run("paragraph_unit")
+        # A paragraph unit keeps its single newlines; renderPlainText has turned them into <br>.
+        self.assertEqual(out["kinds"], ["하나\n둘", "셋\n넷", ""],
+                         "'line' and 'paragraph' are one branch on one constant")
+        self.assertEqual(out["shown"], "하나\n둘셋\n넷")
+
+    def test_a_long_unbroken_run_is_not_left_invisible(self):
+        # The safety valve. Without it, one very long sentence is a blinking cursor and nothing else.
+        out = run("a_long_unbroken_run_is_shown")
+        self.assertEqual(out["long_shown"], 260, "a run past the cap has to show its text")
+        self.assertEqual(out["short_shown"], 0, "a short run stays hidden until it is finished")
+
+    def test_a_rewritten_draft_restarts_the_body(self):
+        out = run("rewrite_restarts_the_body")
+        self.assertEqual(out["before"], "하나둘", "two finished lines before the rewrite")
+        self.assertEqual(out["after"], "처음부터", "the stale lines must not sit in front of the new answer")
+        self.assertEqual(out["units"], 1, "the count restarts: one new line is already finished")
+        self.assertEqual(out["children"], 2, "the one finished line and the open one, nothing stale")
         self.assertTrue(out["streaming"], "the caret class must survive a rewrite")
 
     def test_an_unchanged_buffer_does_not_touch_the_dom(self):
@@ -302,7 +408,7 @@ class StreamingText(unittest.TestCase):
 
     def test_a_thought_block_stays_hidden_until_the_message_ends(self):
         out = run("hides_thought")
-        self.assertEqual(out["shown"], "보이는말\\n")
+        self.assertEqual(out["shown"], "보이는말")
 
     def test_the_existing_cursor_class_is_set_during_streaming(self):
         out = run("caret_class_on")
@@ -332,8 +438,10 @@ class StreamingText(unittest.TestCase):
         self.assertFalse(out["streaming"], "the finished message is still motion")
         self.assertFalse(out["md_stream"])
         self.assertEqual(out["remembered"], "")
+        self.assertEqual(out["units"], 0, "the count has to reset with the rest of the streaming state")
+        self.assertIsNone(out["open"], "the open element is detached by the final render")
 
-    # --- PLAIN_RENDER_v1: the streaming body is already the finished shape ---
+    # --- PLAIN_RENDER_v1: a revealed unit is already the finished shape ---
 
     def test_bold_is_bold_while_it_is_still_streaming(self):
         out = run("bold_while_streaming")
@@ -351,13 +459,8 @@ class StreamingText(unittest.TestCase):
         out = run("open_code_fence_while_streaming")
         self.assertIn("<pre><code>", out["html"],
                       "a fence with no closing ``` yet is the normal mid-stream state")
-        self.assertEqual(out["tag"], "div", "a <pre> inside a <span> is invalid nesting")
-
-    def test_prose_chunks_stay_inline_and_a_code_chunk_becomes_a_block(self):
-        out = run("a_code_block_does_not_nest_a_pre_inside_a_span")
-        self.assertEqual(out["tag"], ["span", "div", "span"],
-                         "prose must not be forced onto its own line; the chunk that opens the "
-                         "fence is the one that becomes a block, and the rest fills it")
+        self.assertEqual(set(out["tags"]), set(["div"]),
+                         "a <pre> inside a <span> is invalid nesting")
 
     def test_rendering_while_streaming_cannot_inject_markup(self):
         out = run("markup_cannot_inject")

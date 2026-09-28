@@ -775,6 +775,13 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
 // are what the entrance animation is applied to, so a short reply that happens to be one kind of
 // sentence has to have them too -- an earlier version skipped them for that case and the animation
 // simply could not appear on most replies.
+// One entrance per unit, ever. The class comes off when the animation ends, so nothing can replay
+// it and a later render of the same text does not restart a motion the reader has already watched.
+function markArrive(el) {
+  el.classList.add('arrive');
+  el.addEventListener('animationend', function () { el.classList.remove('arrive'); }, { once: true });
+}
+
 function renderTypedBody(md, rawText, isFinal) {
   const body = rawText || '';
   try {
@@ -797,6 +804,11 @@ function renderTypedBody(md, rawText, isFinal) {
         holder.innerHTML = renderMarkdown(run.text, isFinal);
         while (holder.firstChild) box.appendChild(holder.firstChild);
       });
+      // Only the last block moves. Every earlier one was already on screen, line by line, while the
+      // answer was arriving -- animating it now would take text away from a reader looking at it,
+      // which is the one thing the settle is not allowed to do. The last block is the one that was
+      // still being written when the stream ended, so it is the one that has just landed.
+      if (bi === blocks.length - 1) markArrive(box);
       md.appendChild(box);
     });
   } catch (e) {
