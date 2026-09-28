@@ -36,6 +36,7 @@
 | [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md) | `active` · 방향 **개발판 전용 + 핵심** — §10 PD 모델, §11 전문가, §12 캐릭터(카드·사적 기억·이미지 형식·역할 팩) | 위임·PD·캐릭터·역할을 건드릴 때 |
 | [monolith-split.md](monolith-split.md) | `active` · 방향 **개발 기반** — Phase 5 완료(app.js·session.py 분리), Phase 6 구조 부채 실측(테스트 격리 93/1,190·`server.py` 라우터·`session.py` 여유 0줄·순환 3쌍), 파일 상한 규칙 | 파일을 나누거나 새 파일을 만들 때 · 구조 부채(`split/A`–`split/F`)를 다룰 때 |
 | [character-resource-pipeline.md](character-resource-pipeline.md) | `active` · 방향 **핵심** — 캐릭터 폴더 SSOT, 정본/파생/인스턴스, `needed_art`, 자기진화 완결성 관찰. §10(2026-09-29): 무대=장소·캐릭터=투명 스프라이트, 이름 접미사로 자동 대체(SillyTavern 표정 규칙·CCv3 `assets` 차용), SD1–SD4 대기 | 캐릭터 생성·수정·그림·Hub 페르소나 경로를 건드릴 때 |
+| [character-art-manager.md](character-art-manager.md) | `active` · 방향 **핵심** — 캐릭터 그림 관리 모달: 탭 아이콘·배경·표정(CCv3 이름), 칸마다 올리기·지우기·생성 요청, 칸이 있음/대체됨/placeholder를 보임, SillyTavern ZIP 팩, 서버 쓰기 라우트(WebP 변환·검증). AM1–AM4 대기 | 캐릭터 그림 올리기·지우기·생성 요청·스프라이트 팩을 건드릴 때 |
 | [user-data-and-editing.md](user-data-and-editing.md) | `active` · 방향 **핵심 + 기반** — 사용자 데이터 분리(배포), ~~직책 이름은 표시값~~(완료 #129), 카드 폼 편집, 옛 프로토타입 삭제 | 배포 준비·팀 탭 편집·직책을 건드릴 때 |
 | [user-data-separation.md](user-data-separation.md) | `active` · 방향 **기반** — 기본 `~/.pe`·`CHATBOT_DATA`/`PE_HOME`·ctl 하드코딩 제거·마이그레이션 (user-data-and-editing §1 상세) | 배포·데이터 경로·`~/.pe`·gitignore를 건드릴 때 |
 | [release-pipeline.md](release-pipeline.md) | `active` · 방향 **기반** — Now/Next/Pre-Steam 배포 로드맵, `~/.pe`, CI·런처·Steam은 브랜드 이후 | 릴리스·버전·CI·인스톨러·Steam 전 배포를 건드릴 때 |
