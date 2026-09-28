@@ -48,6 +48,7 @@
 | [plugin-architecture.md](plugin-architecture.md) | `active` · 방향 **핵심** — 플러그인 플랫폼: 콘텐츠/코드 구분, `pe-plugin.json` 매니페스트, 내장도 같은 API, `~/.pe/plugins` 로딩, 코드는 별도 프로세스·권한, 등급, Workshop은 브랜드 이후 | 플러그인·확장·가져오기/내보내기·창작 도구·Workshop을 건드릴 때 |
 | [composer-plus-menu.md](composer-plus-menu.md) | `active` · 방향 **핵심** — 입력창 + 메뉴(모드별): 업무는 파일 첨부(선택·드래그·붙여넣기, 세션 uploads, 에이전트 전달), 사적은 선물(목록·캐릭터 취향·엔진 판정·호감도, private-mode D6–D8에 의존). D1–D7 대기 | 입력창 첨부·업로드·드래그·선물·호감도 연출을 건드릴 때 |
 | [private-mode.md](private-mode.md) | `active` · 방향 **핵심** — 사적 모드 SSOT: 액션·선택지·텐션 4단계(구현됨), 8단계 초안·호감도·HUD·렌더 데코레이터(계획), 결정 필요 D1–D12 | 사적 모드·텐션·호감도·HUD·렌더링을 건드릴 때 |
+| [private-security.md](private-security.md) | `active` · 방향 **핵심** — 사적 대화 보안(사생활): 위협 모델 T1–T7(옆 사람·네트워크·업무 에이전트·개발 에이전트·모델 제공자·백업·공유), 사적 데이터를 작업공간 밖 한 폴더로, 미리보기 가드, 본문 없는 세션 메타 도구, 빠른 가리기·잠금, 제공자 고지, 잊기. D1–D6 대기 | 사적 세션·사적 기억·호감도 저장, 파일 미리보기, 세션 목록 미리보기, 내보내기를 건드릴 때 |
 | [private-engine-brand.md](private-engine-brand.md) | `active` · 방향 **기반** — Private Engine / 프라이빗엔진 브랜드·도메인 공개 스캔(2026-09-27), privateengine.ai 기울기, 상표≠도메인 | 브랜드명·도메인·상표 클리어런스·외부 배포 명칭을 건드릴 때 |
 | [character-memory-adapter.md](character-memory-adapter.md) | `active` · 방향 **핵심** — 캐릭터 스코프 관계 기억 어댑터(설계·열린 질문), provider/visual 옆 층, Joi식 연속성·opt-in | 관계 기억·사적 continuity·캐릭터 메모리 층을 건드릴 때 |
 
