@@ -314,7 +314,10 @@ async function resyncFromServer(sid) {
         }
         if (draft.length >= (assistantBuf || '').length) {
           assistantBuf = draft;
-          setAssistantContent(assistantNode, assistantBuf, false);
+          // STREAM_FLOW_v1: the sync poll also writes the live body, on a timer, while the turn
+          // runs. Rendering it through the final path is what erased the flowing text: it replaced
+          // the bubble wholesale and took the reveal spans with it.
+          setStreamingContent(assistantNode, assistantBuf);
         }
       }
     } else {
@@ -328,6 +331,7 @@ async function resyncFromServer(sid) {
         if (assistantBuf && assistantBuf.trim() && assistantNode.dataset.progress !== '1') {
           markUntimed(assistantNode, assistantBuf);
           setAssistantContent(assistantNode, assistantBuf, true);
+          endStreamingContent(assistantNode);   // STREAM_FLOW_v1: nothing is left moving
           delete assistantNode.dataset.live;
           delete assistantNode.dataset.progress;
         } else {

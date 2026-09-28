@@ -155,7 +155,7 @@ function bindEvents(sid) {
           assistantNode.dataset.live = '1';
         }
         assistantBuf = (assistantBuf || '') + '\n\n![](' + u + ')\n';
-        setAssistantContent(assistantNode, assistantBuf, false);
+        setStreamingContent(assistantNode, assistantBuf);   // STREAM_FLOW_v1: still speaking
       }
       fetchArtifacts(true);
       return;

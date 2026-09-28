@@ -82,10 +82,10 @@ const stubs = {
     return put(n);
   },
   setAssistantContent: (n, t) => { n.textContent = t; },
-  // STREAM_FLOW_v1 (app-sse.js): the result block now cancels a queued stream paint and clears the
-  // streaming state. This harness slices that block out on its own, so its new collaborators are
-  // stubbed here like every other one.
-  cancelStreamPaint() {}, endStreamingContent() {},
+  // STREAM_FLOW_v1 (app-sse.js / app-session.js): the sliced blocks -- the result block and the sync
+  // poll's live render -- now call the streaming painter instead of the final renderer. Stubbed
+  // here like every other collaborator; the behaviour under test is the resync dedupe, not the paint.
+  cancelStreamPaint() {}, endStreamingContent() {}, setStreamingContent(n, t) { n.textContent = t; },
   setBusy() {}, repairMsgOrder() {}, fetchArtifacts() {}, logTurnUsage() {}, addActivity() {}, setProgress() {},
   shortToolLine: s => s,
 };

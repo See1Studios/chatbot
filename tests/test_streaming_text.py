@@ -248,6 +248,24 @@ class StreamingText(unittest.TestCase):
         self.assertTrue(out["streaming"], "no .streaming class means the existing caret never shows")
         self.assertTrue(out["md_stream"])
 
+    def test_every_live_render_goes_through_the_streaming_paint(self):
+        """A live region has more than one writer.
+
+        The delta branch was converted first and the flow still did not show: the sync poll and the
+        image event also write the live body, on timers, and rendering either through the final path
+        replaced the bubble and took the reveal spans with it. This pins the rule so the next writer
+        added to this region cannot reintroduce it.
+        """
+        import re
+        offenders = []
+        for name in ("app-sse.js", "app-session.js"):
+            text = (CODE / "static" / name).read_text(encoding="utf-8")
+            for no, line in enumerate(text.splitlines(), 1):
+                if re.search(r"setAssistantContent\([^)]*,\s*false\s*\)", line):
+                    offenders.append("%s:%d: %s" % (name, no, line.strip()[:70]))
+        self.assertEqual(offenders, [],
+                         "a live render still goes through the final path, which erases the flow: %s" % offenders)
+
     def test_a_finished_message_is_left_completely_still(self):
         out = run("finished_is_still")
         self.assertFalse(out["streaming"], "the finished message is still motion")
