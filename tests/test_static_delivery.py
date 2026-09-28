@@ -161,13 +161,27 @@ class OverHttp(unittest.TestCase):
         self.assertFalse(sd.negotiate("gzip", "image/png", 999_999))
 
     def test_an_api_route_is_untouched(self):
-        """Only static assets gained ETag/gzip; the API must behave exactly as before."""
+        """Only static assets gained ETag; without Accept-Encoding the API answers exactly as before."""
         status, headers, body = self.get("/api/providers")
         self.assertEqual(status, 200)
         self.assertIsNone(headers.get("ETag"))
         self.assertIsNone(headers.get("Content-Encoding"))
         self.assertEqual(headers.get("Cache-Control"), "no-store")
         self.assertIn("providers", body.decode("utf-8")[:400])
+
+    def test_a_json_api_answer_is_gzipped_for_a_client_that_asks(self):
+        """API_GZIP_v1: the page's session sync pulls 20-30 KB of JSON; a gzip-capable client gets it packed."""
+        status, headers, packed = self.get("/api/providers", {"Accept-Encoding": "gzip"})
+        self.assertEqual(status, 200)
+        plain = self.get("/api/providers")[2]
+        if len(plain) < sd.MIN_COMPRESS_BYTES:
+            self.assertIsNone(headers.get("Content-Encoding"), "too small to be worth it")
+            return
+        self.assertEqual(headers.get("Content-Encoding"), "gzip")
+        self.assertIn("Accept-Encoding", headers.get("Vary", ""))
+        self.assertEqual(int(headers["Content-Length"]), len(packed))
+        self.assertEqual(gzip.decompress(packed), plain)
+        self.assertIsNone(headers.get("ETag"))
 
 
 if __name__ == "__main__":

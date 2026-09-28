@@ -358,8 +358,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
     def _send(self, code: int, body: bytes, content_type: str, cache_control: str = "no-store",
               etag: str = "", encoding: str = "") -> None:
         # STATIC_DELIVERY_v1 (static_delivery.py): a revalidating client gets 304 with no body, and a
-        # gzip-capable one gets the body compressed. Both are opt-in per call, so the API routes
-        # that pass neither keep exactly the behaviour they had.
+        # gzip-capable one gets the body compressed. ETag is opt-in per call; JSON API bodies are
+        # gzipped for a client that asks (API_GZIP_v1: the page's session sync, 20-30 KB each).
         if etag and static_delivery.if_none_match(self.headers.get("If-None-Match"), etag):
             self.send_response(304)
             self.send_header("ETag", etag)
@@ -367,6 +367,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             self.send_header("Vary", "Accept-Encoding")
             self.end_headers()
             return
+        if not encoding and content_type.startswith("application/json"):
+            encoding = static_delivery.negotiate(self.headers.get("Accept-Encoding"), content_type, len(body))
         if encoding:
             body = static_delivery.compress(body)
         self.send_response(code)
@@ -379,6 +381,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             self.send_header("Vary", "Accept-Encoding")
         if encoding:
             self.send_header("Content-Encoding", encoding)
+            if not etag:
+                self.send_header("Vary", "Accept-Encoding")
         self.end_headers()
         self.wfile.write(body)
 

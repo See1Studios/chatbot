@@ -5,6 +5,8 @@
 // STOP_NOTICE_ONCE_v1: when the server last said a turn was stopped; the stop button (app.js) waits this long for it.
 let lastStopNoticeAt = 0;
 const STOP_NOTICE_WAIT_MS = 1500;
+// SYNC_THROTTLE_v1: when the stream last delivered anything; the sync poll (app-session.js) leans on it.
+let lastStreamAt = 0;
 
 // A user line that is only "(지문)" / "((지문))" is a stage action, not speech: returns the bare
 // action text ('' otherwise). send(), user_ack and history all route through this.
@@ -430,6 +432,7 @@ function bindEvents(sid) {
   else { assistantNode = null; assistantBuf = ''; }
   es = new EventSource(BASE_PATH + '/api/sessions/' + encodeURIComponent(sid) + '/events');
   es.onmessage = (ev) => {
+    lastStreamAt = Date.now();   // SYNC_THROTTLE_v1
     let data; try { data = JSON.parse(ev.data); } catch (_) { return; }
     const type = data.event || data.type || '';
     const text = data.text || data.message || data.content || '';

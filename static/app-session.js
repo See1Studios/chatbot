@@ -227,10 +227,22 @@ async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
 // are keyed by role+ts and inserted in timestamp order (before any
 // live streaming bubble) so a late user_ack cannot land under the answer.
 let resyncInFlight = false;
+// SYNC_THROTTLE_v1: the stream carries every change, so with it open the poll is only a safety net -- every
+// SYNC_SAFETY_MS, or after SYNC_STALL_MS of silence while a turn runs (a stream that died quietly). With the
+// stream closed, every tick as before. It used to fetch the whole session (and the session list) every 2.5s.
+const SYNC_SAFETY_MS = 30000;
+const SYNC_STALL_MS = 10000;
+let lastSyncAt = 0;
+function syncDue(now, streamOpen, busy, lastSync, lastStream) {
+  if (!streamOpen) return true;
+  if (now - lastSync >= SYNC_SAFETY_MS) return true;
+  return Boolean(busy) && now - Math.max(lastSync, lastStream) >= SYNC_STALL_MS;
+}
 async function resyncFromServer(sid) {
   if (!sid || sid !== sessionId) return;
   if (resyncInFlight) return;
   resyncInFlight = true;
+  lastSyncAt = Date.now();
   try {
     let info;
     try { info = await api('/api/sessions/' + encodeURIComponent(sid)); } catch (_) { return; }
@@ -368,6 +380,9 @@ function startSessionSyncLoop() {
   window.__sessionSyncTimer = setInterval(() => {
     if (document.visibilityState === 'hidden') return;
     if (!sessionId) return;
+    const open = Boolean(es) && es.readyState === EventSource.OPEN;
+    if (!syncDue(Date.now(), open, isBusy, lastSyncAt, lastStreamAt)) return;
+    lastSyncAt = Date.now();
     followLiveIfNeeded().then(() => {
       resyncFromServer(sessionId);
     }).catch(() => {});
