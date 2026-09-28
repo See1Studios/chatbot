@@ -4,10 +4,9 @@
 .msg.system{
   align-self:stretch;
   max-width:100%;
-  background:rgba(167,139,250,.07);
+  --tint:rgba(167,139,250,.08);
   border:1px solid rgba(167,139,250,.28);
   box-shadow:none;
-  backdrop-filter:none;
   font-size:.8rem;
   line-height:1.35;
   padding:.35rem .6rem;
@@ -26,32 +25,32 @@
 .msg.system .md code{background:rgba(167,139,250,.14);color:#ede4ff}
 .msg.system .msg-footer{display:none !important}
 .msg.system.notice-help{
-  background:rgba(110,168,254,.08);border-color:rgba(110,168,254,.30);
+  --tint:rgba(110,168,254,.08);border-color:rgba(110,168,254,.30);
 }
 .msg.system.notice-help .notice-head{color:#93c5fd}
 .msg.system.notice-help .md{color:#bfdbfe}
 .msg.system.notice-status{
-  background:rgba(56,189,248,.07);border-color:rgba(56,189,248,.28);
+  --tint:rgba(56,189,248,.07);border-color:rgba(56,189,248,.28);
 }
 .msg.system.notice-status .notice-head{color:#7dd3fc}
 .msg.system.notice-status .md{color:#bae6fd}
 .msg.system.notice-warn{
-  background:rgba(255,138,80,.08);border-color:rgba(255,138,80,.32);
+  --tint:rgba(255,138,80,.08);border-color:rgba(255,138,80,.32);
 }
 .msg.system.notice-warn .notice-head{color:#fdba74}
 .msg.system.notice-warn .md{color:#fed7aa}
 .msg.system.notice-error{
-  background:rgba(248,81,73,.08);border-color:rgba(248,81,73,.35);
+  --tint:rgba(248,81,73,.08);border-color:rgba(248,81,73,.35);
 }
 .msg.system.notice-error .notice-head{color:#fca5a5}
 .msg.system.notice-error .md{color:#fecaca}
 .msg.system.notice-stop{
-  background:rgba(155,161,163,.08);border-color:rgba(155,161,163,.28);
+  --tint:rgba(155,161,163,.08);border-color:rgba(155,161,163,.28);
 }
 .msg.system.notice-stop .notice-head{color:#c4c9cb}
 .msg.system.notice-stop .md{color:#d8dde0}
 .msg.system.notice-ok{
-  background:rgba(52,211,153,.07);border-color:rgba(52,211,153,.30);
+  --tint:rgba(52,211,153,.07);border-color:rgba(52,211,153,.30);
 }
 .msg.system.notice-ok .notice-head{color:#6ee7b7}
 .msg.system.notice-ok .md{color:#a7f3d0}
@@ -303,13 +302,13 @@ button.queue-btn{background:rgba(255,255,255,.08)!important;border-color:rgba(25
   border-radius:999px;
 }
 button.queue-btn:hover{background:rgba(255,255,255,.14)!important;color:var(--text)!important}
-.msg.btw-card{align-self:stretch;margin:.4rem 0;background:rgba(147,112,219,.09);border:1px solid rgba(147,112,219,.28);border-radius:12px;padding:.75rem .9rem}
+.msg.btw-card{align-self:stretch;margin:.4rem 0;--tint:rgba(147,112,219,.10);border:1px solid rgba(147,112,219,.28);border-radius:12px;padding:.75rem .9rem}
 .msg.btw-card .btw-head{font-size:.84rem;color:#d8b4fe;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
 .msg.btw-card .btw-head .btw-q{color:var(--muted);font-weight:normal;font-size:.8rem}
 .msg.btw-card .btw-body{font-size:.9rem;line-height:1.55}
 .msg.user.queued{opacity:.75;border-style:dashed}
 .msg.user.queued::after{content:" (대기열 대기 중)";font-size:.75rem;color:var(--accent2);margin-left:.4rem}
-.msg.user.btw-user{border-color:rgba(147,112,219,.45);background:rgba(147,112,219,.12)}
+.msg.user.btw-user{border-color:rgba(147,112,219,.45);--tint:rgba(147,112,219,.14)}
 .msg.user.btw-user::before{content:"[BTW] ";font-weight:bold;color:#d8b4fe}
 header .avatar{
   width:56px;

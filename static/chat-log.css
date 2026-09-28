@@ -270,9 +270,19 @@
 .wrap.show-activity #log{display:none}
 .wrap.show-activity #activityPane{display:flex}
 .msg{max-width:92%}
+/* BUBBLE_GLASS_v1 (operator, 2026-09-28): every bubble is the same frosted glass -- one dark base, one blur -- so
+   text reads the same over the stage and character art; only the tint (--tint, laid over the base) and the border
+   say which kind it is. A kind sets --tint, never its own background. */
+:root{--bubble-base:rgba(20,23,30,.8);--bubble-blur:blur(12px) saturate(1.1)}
+.msg.user,.msg.assistant,.msg.action,.msg.system,.msg.btw-card{
+  --tint:transparent;
+  background:linear-gradient(var(--tint),var(--tint)),var(--bubble-base);
+  backdrop-filter:var(--bubble-blur);
+  -webkit-backdrop-filter:var(--bubble-blur);
+}
 .msg.user{
   align-self:flex-end;
-  background:linear-gradient(180deg, rgba(var(--accent-rgb), 0.16) 0%, rgba(var(--accent-rgb), 0.08) 100%);
+  --tint:rgba(var(--accent-rgb),.14);
   border:1px solid var(--accent-border);
   padding:.7rem .85rem;
   border-radius:14px 14px 4px 14px;
@@ -281,11 +291,9 @@
 }
 .msg.assistant{
   align-self:flex-start;
-  background:rgba(20,23,30,.82);
   border:1px solid var(--border);
   padding:.7rem .85rem;
   border-radius:14px 14px 14px 4px;
-  backdrop-filter:blur(8px);
   box-shadow:0 4px 16px rgba(0,0,0,0.3), var(--glint);
 }
 /* FILE_LINKS_v1: a path that opens the file preview -- a dotted underline says "this opens something here",
@@ -343,7 +351,7 @@
 .msg.assistant .thought-toggle:hover{color:var(--accent2)}
 .msg.assistant .thought-box{margin-top:.35rem;padding:.45rem .65rem;border-radius:8px;background:rgba(255,255,255,.035);border:1px dashed var(--border);font-size:.82rem;color:var(--muted);font-style:italic;line-height:1.45}
 .msg.assistant .thought-box[hidden]{display:none}
-.msg.action{align-self:center;font-size:.86rem;font-style:italic;color:var(--muted);background:rgba(255,255,255,.04);border:1px dashed var(--border);border-radius:12px;padding:.3rem .85rem;margin:.35rem auto;text-align:center;max-width:85%}
+.msg.action{align-self:center;font-size:.86rem;font-style:italic;color:var(--muted);--tint:rgba(255,255,255,.04);border:1px dashed var(--border);border-radius:12px;padding:.3rem .85rem;margin:.35rem auto;text-align:center;max-width:85%}
 @media (hover: none) and (pointer: coarse) {
   .msg.assistant .md .choice-chip,.choice-bar .choice-chip{min-height:28px}
 }
