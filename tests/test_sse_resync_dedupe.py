@@ -86,6 +86,8 @@ const stubs = {
   // poll's live render -- now call the streaming painter instead of the final renderer. Stubbed
   // here like every other collaborator; the behaviour under test is the resync dedupe, not the paint.
   cancelStreamPaint() {}, endStreamingContent() {}, setStreamingContent(n, t) { n.textContent = t; },
+  // CHAR_REVEAL_v1: the letter clock is not what this file tests; the answer lands at once.
+  revealTarget(n, t) { n.textContent = t; }, revealFinish(n, t, done) { done(); },
   setBusy() {}, repairMsgOrder() {}, fetchArtifacts() {}, logTurnUsage() {}, addActivity() {}, setProgress() {},
   shortToolLine: s => s,
 };

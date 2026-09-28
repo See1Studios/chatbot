@@ -317,7 +317,7 @@ async function resyncFromServer(sid) {
           // STREAM_FLOW_v1: the sync poll also writes the live body, on a timer, while the turn
           // runs. Rendering it through the final path is what erased the flowing text: it replaced
           // the bubble wholesale and took the reveal spans with it.
-          setStreamingContent(assistantNode, assistantBuf);
+          revealTarget(assistantNode, assistantBuf);   // CHAR_REVEAL_v1: through the letter clock
         }
       }
     } else {

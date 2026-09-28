@@ -1,4 +1,5 @@
-"""The answer is the finished thing while it is still arriving (REVEAL_BLOCKS_v1).
+"""The answer is the finished thing while it is still arriving (REVEAL_BLOCKS_v1), and its letters
+arrive one by one on their own clock (CHAR_REVEAL_v1).
 
 Three complaints had one cause, and this is the file that holds the line on it.
 
@@ -104,7 +105,9 @@ function el(tag) {
   let html = null;
   Object.defineProperty(e, 'innerHTML', {
     get() { return html === null ? e.textContent : html; },
-    set(v) { html = v; e._text = visibleText(v); e.children = []; },
+    // One text node with what the reader would see, so code that walks text nodes (the letter
+    // reveal) has something to walk, as it would in a browser.
+    set(v) { html = v; e._text = ''; e.childNodes = [makeNode(3, visibleText(v))]; },
   });
   return e;
 }
@@ -170,44 +173,9 @@ function markArrive(el, kind) {
   el.classList.add('arrive');
   el.addEventListener('animationend', function () { el.classList.remove('arrive'); }, { once: true });
 }
-// app-messages.js's buildBlock, stood in for in one respect only: the stub cannot parse markdown
-// into child nodes, so it puts the block's text in as a single text node and then runs the REAL
-// rippleWords over it. The word splitting, the index and the step are therefore genuinely tested;
-// only the markdown parse is not.
-function markArriveFor(box, kind) { box.classList.add('arrive'); box.setAttribute('data-kind', kind || 'narration'); }
-const RIPPLE_MIN_STEP = 14, RIPPLE_MAX_STEP = 26, RIPPLE_SPAN_MS = 700;
-function rippleWords(box, blockOffset) {
-  let index = 0;
-  const step = function (node) {
-    for (let i = 0; i < node.childNodes.length; i++) {
-      const child = node.childNodes[i];
-      if (child.nodeType === 3) {
-        if (!child.nodeValue || !child.nodeValue.trim()) continue;
-        const frag = document.createDocumentFragment();
-        child.nodeValue.split(/(\s+)/).forEach(function (part) {
-          if (!part) return;
-          if (!part.trim()) { frag.appendChild(document.createTextNode(part)); return; }
-          const w = document.createElement('span');
-          w.className = 'w';
-          w.style.setProperty('--i', String(index++));
-          w.textContent = part;
-          frag.appendChild(w);
-        });
-        node.replaceChild(frag, child);
-        i--;
-      } else if (child.nodeType === 1) {
-        step(child);
-      }
-    }
-  };
-  step(box);
-  if (!index) return 0;
-  const per = Math.max(RIPPLE_MIN_STEP, Math.min(RIPPLE_MAX_STEP, Math.round(RIPPLE_SPAN_MS / index)));
-  box.style.setProperty('--wd', per + 'ms');
-  box.style.setProperty('--bd', (blockOffset || 0) * 60 + 'ms');
-  return index;
-}
-function buildBlock(block, isFinal, reveal, blockOffset) {
+// app-messages.js's buildBlock, stood in for: the stub cannot parse markdown into child nodes, so it
+// puts the block's text in as one text node. What matters is WHICH renderer a block went through.
+function buildBlock(block, isFinal) {
   const box = document.createElement('div');
   box.className = 'md-block';
   box.setAttribute('data-kind', block.kind);
@@ -216,11 +184,6 @@ function buildBlock(block, isFinal, reveal, blockOffset) {
   blockRuns(block).forEach(run => { renderMarkdown(run.text); });
   box.appendChild(document.createTextNode(block.text));
   box._viaBlockRenderer = true;
-  if (reveal) {
-    box.classList.add('ripple');
-    const words = rippleWords(box, blockOffset);
-    if (!words) markArriveFor(box, block.kind);
-  }
   return box;
 }
 
@@ -260,13 +223,19 @@ function absArtifact(p) { return p; }
 eval(md.slice(ra, rb));
 
 eval(code);
+// The letter clock reads revealNow(); the tests wind it themselves.
+revealNow = () => clock;
 
 const flush = () => { const q = frames; frames = []; q.forEach(f => f()); return q.length; };
+// Run animation frames for `ms` of wall time, one every 16ms, the way a display would.
+const play = (ms) => { const until = clock + ms; while (clock < until) { clock += 16; flush(); } };
+const letters = (n) => n.querySelectorAll('rv-l');
+const wordsOf = (n) => n.querySelectorAll('rv-w');
 const newBubble = () => { const n = el('div'); n.className = 'msg assistant'; n.dataset.live = '1'; return n; };
 const body = (n) => n.querySelector('.md');
 const blocks = (n) => body(n).children.filter(c => /\bmd-block\b/.test(c.className));
 const landed = (n) => blocks(n).filter(c => /\barrive\b/.test(c.className));
-const rippled = (n) => blocks(n).filter(c => /\bripple\b/.test(c.className));
+const closed = (n) => blocks(n).filter(c => !/\bopen\b/.test(c.className));
 const openOf = (n) => blocks(n).filter(c => /\bopen\b/.test(c.className))[0] || null;
 const text = (n) => {
   const b = body(n);
@@ -297,7 +266,7 @@ const CASES = {
     flush();
     advance(6000);
     return { deltas: FULL.length, frames_queued: framesQueued, chars: text(n).length,
-             landed: rippled(n).length, blocks: blocks(n).length };
+             landed: closed(n).length, blocks: blocks(n).length };
   },
   cost_is_per_block_not_per_frame: () => {
     // The invariant that replaced "never render markdown while streaming": two hundred deltas
@@ -311,7 +280,7 @@ const CASES = {
     flush();
     advance(6000);
     return { deltas: FULL.length, renders: renderMarkdownCalls, marked: markedCalls,
-             purify: purifyCalls, postProcess: postProcessCalls, landed: rippled(n).length };
+             purify: purifyCalls, postProcess: postProcessCalls, landed: closed(n).length };
   },
   a_closed_block_uses_the_real_renderer: () => {
     const n = newBubble();
@@ -346,73 +315,111 @@ const CASES = {
     }
     return seen;
   },
-  the_wave_is_never_applied_twice: () => {
-    // A block is built once and then left alone. If the ripple ran again on a later paint the words
-    // would double, and a paragraph that reads every word twice is worse than no motion at all.
-    const n = newBubble();
-    setStreamingContent(n, '하나 둘\n\n셋 넷');
-    const before = rippled(n).map(b => b.querySelectorAll('w').length);
-    // The tail keeps growing, which is the real case: many paints over a block that is already done.
-    for (let i = 1; i <= 20; i++) setStreamingContent(n, '하나 둘\n\n셋 넷 ' + '가'.repeat(i));
-    const after = rippled(n).map(b => b.querySelectorAll('w').length);
-    return { before, after, text: text(n) };
-  },
+
   a_block_is_a_whole_block_and_not_a_fragment: () => {
     const n = newBubble();
     setStreamingContent(n, FULL);
     advance(6000);
-    const sizes = rippled(n).map(c => c.textContent.length);
+    const sizes = closed(n).map(c => c.textContent.length);
     return { count: sizes.length, min: Math.min(...sizes), max: Math.max(...sizes) };
   },
-  // --- the wave: the words arrive as the block does, not after it ---
-  the_words_arrive_instead_of_the_block_being_stamped: () => {
-    const n = newBubble();
-    setStreamingContent(n, '하나 둘 셋\n\n가나다라마바');
-    const done = blocks(n).filter(c => /\bripple\b/.test(c.className));
-    const words = (b) => b.childNodes.filter(c => c.nodeType === 1 && c.className === 'w');
-    return { rippling: done.length, first: words(done[0]).map(w => w.nodeValue || w.textContent),
-             indices: words(done[0]).map(w => w.style['--i']), step: done[0].style['--wd'],
-             text: text(n) };
-  },
-  the_wave_step_shrinks_so_a_long_block_still_lands: () => {
-    // A forty word paragraph must not take a second and a half to finish arriving, and a hundred
-    // word one must not take four, so the per-word step shrinks with the length.
-    const words = (n) => Array.from({ length: n }, (_, i) => '말' + i).join(' ');
-    const three = newBubble();  setStreamingContent(three, words(3) + '\n\n끝');
-    const forty = newBubble();  setStreamingContent(forty, words(40) + '\n\n끝');
-    const hundred = newBubble(); setStreamingContent(hundred, words(100) + '\n\n끝');
-    const first = (b) => blocks(b).filter(c => /\bripple\b/.test(c.className))[0];
-    const stepOf = (b) => b.style['--wd'];
-    const ms = (v) => parseInt(v, 10);
-    return { words: [first(three), first(forty), first(hundred)].map(b => b.querySelectorAll('w').length),
-             steps: [first(three), first(forty), first(hundred)].map(b => ms(stepOf(b))) };
-  },
-  a_burst_of_blocks_cascades_rather_than_moving_together: () => {
-    const n = newBubble();
-    setStreamingContent(n, Array.from({ length: 6 }, (_, i) => '문단 ' + i).join('\n\n') + '\n\n끝');
-    const offs = blocks(n).filter(c => /\bripple\b/.test(c.className)).map(c => c.style['--bd']);
-    return { count: offs.length, offsets: offs };
-  },
+
+
+
   a_block_with_no_text_still_arrives: () => {
     const n = newBubble();
     setStreamingContent(n, '-  항목 하나');
     advance(50);
     return { blocks: blocks(n).length };
   },
-  the_wave_does_not_change_the_words: () => {
+
+
+  // --- CHAR_REVEAL_v1: the letters, on their own clock ---
+  letters_arrive_one_by_one: () => {
     const n = newBubble();
-    setStreamingContent(n, '**굵게** 그리고 "대사" 그리고 2 * 3\n\n끝');
-    advance(50);
-    return { text: text(n), words: n.querySelectorAll('w').length };
+    const full = '안녕하세요 오늘은 날씨가 좋네요';
+    revealTarget(n, full);
+    play(16); const first = text(n).length;
+    play(150); const mid = text(n).length;
+    play(3000);
+    return { first, mid, end: text(n), total: full.length };
   },
-  reduced_motion_does_not_split_the_words: () => {
+  a_rendered_letter_carries_its_age: () => {
+    const n = newBubble();
+    revealTarget(n, '가'.repeat(60));
+    play(200);
+    const delays = letters(n).map(l => parseInt(l.style.animationDelay, 10));
+    const groups = wordsOf(n).map(w => w.textContent);
+    return { count: delays.length, min: Math.min(...delays), max: Math.max(...delays), groups: groups.length };
+  },
+  an_old_letter_is_plain_text: () => {
+    const n = newBubble();
+    revealTarget(n, '하나 둘 셋');
+    play(3000);
+    const settled = letters(n).length;
+    revealTarget(n, '하나 둘 셋 넷');
+    play(120);                                   // a space and a letter, at the slowest pace
+    return { settled, fresh: letters(n).map(l => l.textContent), text: text(n) };
+  },
+  words_do_not_break_inside: () => {
+    const n = newBubble();
+    revealTarget(n, 'hello brave new world');
+    play(120);
+    return { groups: wordsOf(n).map(w => w.textContent), spaced: wordsOf(n).some(w => /\s/.test(w.textContent)) };
+  },
+  a_burst_is_paced_and_catches_up: () => {
+    const n = newBubble();
+    revealTarget(n, 'x'.repeat(300));
+    play(100); const early = text(n).length;
+    play(2400); const late = text(n).length;
+    return { early, late };
+  },
+  the_final_render_waits_for_the_last_letter: () => {
+    const n = newBubble();
+    const full = '끝까지 다 보여주고 나서';
+    revealTarget(n, full.slice(0, 3));
+    let done = 0, doneAt = null, shownAtDone = null;
+    revealFinish(n, full, () => { done++; doneAt = clock; shownAtDone = text(n); });
+    const immediately = done;
+    const start = clock;
+    play(3000);
+    return { immediately, done, shownAtDone, took: doneAt - start };
+  },
+  a_hidden_tab_still_finishes: () => {
+    const n = newBubble();
+    revealTarget(n, '프레임이 오지 않는 탭');
+    let done = 0;
+    revealFinish(n, '프레임이 오지 않는 탭', () => { done++; });
+    advance(REVEAL_FORCE_MS + 10);               // no frames at all, only the timer
+    play(100);                                   // and a frame arriving late must not run it twice
+    return { done };
+  },
+  reduced_motion_gets_the_text_at_once: () => {
     REDUCE_MOTION = true;
     const n = newBubble();
-    setStreamingContent(n, '하나 둘 셋\n\n가나다라마바');
-    const out = { rippling: blocks(n).filter(c => /\bripple\b/.test(c.className)).length,
-                  words: n.querySelectorAll('w').length, text: text(n) };
+    revealTarget(n, '움직임 없이 한 번에');
+    const out = { text: text(n), letters: letters(n).length, frames: frames.length };
+    let done = 0;
+    revealFinish(n, '움직임 없이 한 번에', () => { done++; });
+    out.done = done;
     REDUCE_MOTION = false;
     return out;
+  },
+  a_rewrite_keeps_what_matched_still: () => {
+    const n = newBubble();
+    revealTarget(n, '하나 둘 셋');
+    play(3000);
+    revealTarget(n, '하나 둘 넷 다섯');
+    const justAfter = { text: text(n), letters: letters(n).length };
+    play(3000);
+    return { justAfter, end: text(n) };
+  },
+  the_badge_is_not_a_letter: () => {
+    const n = newBubble();
+    revealTarget(n, '[expression: joy]안녕');
+    play(40);
+    const b = n.querySelector('.exp-badge');
+    return { badge: b ? b.textContent : null, badgeWrapped: b ? b.querySelectorAll('rv-l').length : null };
   },
   // --- the beat: the MOTION lags the text, the text never does ---
   the_motion_lags_the_text: () => {
@@ -493,13 +500,13 @@ const CASES = {
   finished_is_still: () => {
     const n = newBubble();
     setStreamingContent(n, '다 끝났어\n\n마지막');
-    const beforeEnd = { on: blocks(n).length, moving: rippled(n).length };
+    const beforeEnd = { on: blocks(n).length, moving: closed(n).length };
     endStreamingContent(n);
     return { streaming: n.classList.contains('streaming'), md_stream: body(n).classList.contains('md-stream'),
              // A turn that ends with a backlog must not leave the last paragraph invisible: the
              // entrance is dropped, not the text.
              shown: text(n), remembered: n._streamShown, units: n._streamUnits, open: n._streamOpen,
-             beforeEnd, moved: rippled(n).length, timers: timers.filter(t => t.fn).length };
+             beforeEnd, moved: closed(n).length, timers: timers.filter(t => t.fn).length };
   },
   cancel_stops_the_frame: () => {
     const n = newBubble();
@@ -605,13 +612,6 @@ class StreamingText(unittest.TestCase):
         # guessing where a sentence was meant to end is how a stray quote mark gets left on screen.
         self.assertEqual(out, ["narration", "action", "narration", "dialogue"])
 
-    def test_the_wave_is_never_applied_twice(self):
-        # A block is built once and then left alone. Re-rippling it on a later paint would double
-        # the words, and a paragraph that reads every word twice is worse than no motion at all.
-        out = run("the_wave_is_never_applied_twice")
-        self.assertEqual(out["before"], [2], "one closed block, two words")
-        self.assertEqual(out["after"], [2], "twenty more paints, the same two words")
-
     def test_the_animating_unit_is_a_whole_block(self):
         # The assertion that would have caught the original: the entrance used to run on whatever
         # one paint delivered -- median one character -- and no frame rate changes that.
@@ -619,45 +619,64 @@ class StreamingText(unittest.TestCase):
         self.assertEqual(out["count"], 19)
         self.assertEqual((out["min"], out["max"]), (10, 10))
 
-      # --- the wave: the words arrive as the block does, not after it ---
+    # --- CHAR_REVEAL_v1: letters arrive one by one, fading and growing in ---
 
-    def test_the_words_arrive_instead_of_the_block_being_stamped(self):
-        # This is the thing the operator heard: words appearing complete at full size, and only then
-        # moving. That is a stamp. The motion belongs on the words at the moment they come into being,
-        # and there a fade from zero and a scale up are both honest -- nothing already on screen is
-        # taken away to make room for them.
-        out = run("the_words_arrive_instead_of_the_block_being_stamped")
-        self.assertEqual(out["rippling"], 1)
-        self.assertEqual(out["first"], ["하나", "둘", "셋"], "one span per word, in order")
-        self.assertEqual(out["indices"], ["0", "1", "2"], "the position drives the stagger")
-        self.assertEqual(out["text"], "하나 둘 셋가나다라마바", "the words are not changed by being split")
+    def test_letters_arrive_one_by_one_and_all_arrive(self):
+        out = run("letters_arrive_one_by_one")
+        self.assertEqual(out["first"], 1, "the first frame shows the first letter, not the burst")
+        self.assertLess(out["mid"], out["total"], "the burst is paced, not stamped")
+        self.assertEqual(out["end"], "안녕하세요 오늘은 날씨가 좋네요")
 
-    def test_the_wave_step_shrinks_so_a_long_block_still_lands(self):
-        # A forty word paragraph must not take a second and a half to arrive, and a hundred word
-        # one must not take four.
-        out = run("the_wave_step_shrinks_so_a_long_block_still_lands")
-        self.assertEqual(out["words"], [3, 40, 100])
-        self.assertEqual(out["steps"], [26, 18, 14],
-                         "26ms capped for a short line, 14ms floor for a long one")
+    def test_a_re_rendered_letter_continues_its_motion(self):
+        # The block being written is re-rendered every frame; a letter's span is re-created with
+        # animation-delay = -age, so its entrance carries on instead of starting again.
+        out = run("a_rendered_letter_carries_its_age")
+        self.assertGreater(out["count"], 0)
+        self.assertLessEqual(out["max"], 0)
+        self.assertGreater(out["min"], -320, "only letters younger than the entrance are spans")
+        self.assertLess(out["min"], -30, "and an older one has moved on, not restarted")
 
-    def test_blocks_that_close_together_cascade(self):
-        # Six entrances on the same frame is the strobe all over again. A coalesced burst is a
-        # normal thing for a burst to be, and it has to read as a cascade.
-        out = run("a_burst_of_blocks_cascades_rather_than_moving_together")
-        self.assertEqual(out["count"], 6)
-        self.assertEqual(out["offsets"], ["0ms", "60ms", "120ms", "180ms", "240ms", "300ms"])
+    def test_a_settled_letter_is_plain_text(self):
+        out = run("an_old_letter_is_plain_text")
+        self.assertEqual(out["settled"], 0, "no span outlives its entrance")
+        self.assertEqual(out["fresh"], ["넷"], "only the new letter moves")
+        self.assertEqual(out["text"], "하나 둘 셋 넷", "and the text is unchanged by the spans")
 
-    def test_splitting_the_words_cannot_change_them(self):
-        out = run("the_wave_does_not_change_the_words")
-        self.assertEqual(out["text"], '**굵게** 그리고 "대사" 그리고 2 * 3끝')
-        self.assertEqual(out["words"], 7)
+    def test_a_word_never_breaks_inside_while_its_letters_move(self):
+        out = run("words_do_not_break_inside")
+        self.assertFalse(out["spaced"], "a no-wrap group holds one word, never the space after it")
+        self.assertTrue(out["groups"])
 
-    def test_reduced_motion_does_not_split_the_words_at_all(self):
-        # The spans exist only to carry the wave; a reader who asked for none should not get
-        # hundreds of them in the DOM for nothing.
-        out = run("reduced_motion_does_not_split_the_words")
-        self.assertEqual((out["rippling"], out["words"]), (0, 0))
-        self.assertEqual(out["text"], "하나 둘 셋가나다라마바", "and the text is all still there")
+    def test_a_burst_is_paced_and_still_catches_up(self):
+        out = run("a_burst_is_paced_and_catches_up")
+        self.assertLess(out["early"], 150, "three hundred letters at once are not stamped")
+        self.assertEqual(out["late"], 300, "and a backlog drains instead of falling behind")
+
+    def test_the_final_render_waits_for_the_last_letter(self):
+        out = run("the_final_render_waits_for_the_last_letter")
+        self.assertEqual(out["immediately"], 0, "the result must not cut the reveal short")
+        self.assertEqual(out["done"], 1)
+        self.assertEqual(out["shownAtDone"], "끝까지 다 보여주고 나서")
+        self.assertGreaterEqual(out["took"], 320, "the last letter settles before the swap")
+        self.assertLess(out["took"], 1500, "and the reader is not kept waiting")
+
+    def test_a_hidden_tab_still_finishes_once(self):
+        self.assertEqual(run("a_hidden_tab_still_finishes")["done"], 1)
+
+    def test_reduced_motion_gets_the_text_at_once(self):
+        out = run("reduced_motion_gets_the_text_at_once")
+        self.assertEqual(out["text"], "움직임 없이 한 번에")
+        self.assertEqual((out["letters"], out["frames"], out["done"]), (0, 0, 1))
+
+    def test_a_rewrite_keeps_what_matched_still(self):
+        out = run("a_rewrite_keeps_what_matched_still")
+        self.assertEqual(out["justAfter"]["letters"], 0, "the kept prefix does not arrive again")
+        self.assertEqual(out["end"], "하나 둘 넷 다섯")
+
+    def test_the_emotion_badge_is_not_a_letter(self):
+        out = run("the_badge_is_not_a_letter")
+        self.assertEqual(out["badge"], "\U0001F60A")
+        self.assertEqual(out["badgeWrapped"], 0)
 
     def test_a_rewritten_draft_restarts_the_body(self):
         out = run("rewrite_restarts_the_body")
@@ -713,7 +732,7 @@ class StreamingText(unittest.TestCase):
         self.assertEqual(out["units"], 0, "the count has to reset with the rest of the streaming state")
         self.assertIsNone(out["open"], "the open element is detached by the final render")
         self.assertEqual(out["shown"], "다 끝났어마지막", "the text is all there, beat or no beat")
-        self.assertEqual(out["beforeEnd"]["moving"], 1, "the closed block was already rippling")
+        self.assertEqual(out["beforeEnd"]["moving"], 1, "one block had closed")
         self.assertEqual(out["timers"], 0, "and no timer is left running after the turn ends")
 
     # --- PLAIN_RENDER_v1: the block being written is already close to its finished shape ---

@@ -105,30 +105,22 @@ function streamBody(node) {
 // frame measured 0.4ms at 164 characters and 1.8ms at 2440, which was affordable but was solving a
 // problem the block boundary removes outright.
 //
-// And then it was heard as words being stamped out flat: the block went on screen whole and
-// complete, and only afterwards moved. A motion that runs after the text has arrived is a wobble,
-// not an arrival -- so there is no beat and no timer any more. buildBlock() ripples the words as
-// the block is inserted, and the motion is part of coming into being.
-//
-// Nothing scales at the block level, for the same reason it never should: scale() does not move the
-// layout but it does change the size of the letters, and a bubble whose text keeps growing and
-// shrinking reads as a bubble that cannot hold still. Scaling a word that does not exist yet is
-// fine; scaling a block that the reader is looking at is not.
-//
-// Reduced motion splits no words at all. The spans exist only to carry the wave, and a reader who
-// asked for none should not get hundreds of them in the DOM for nothing.
+// The motion is not here: it belongs to the letters (CHAR_REVEAL_v1, below), which arrive one by
+// one on their own clock. This function only draws a prefix of the answer as blocks.
 function revealReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 // Splits a growing answer into the blocks that are finished and the one still being written.
-function setStreamingContent(node, text) {
+// `badgeSrc`: when given, `text` is already the display text (the letter clock passes a prefix of it)
+// and the raw answer is only for the emotion badge.
+function setStreamingContent(node, text, badgeSrc) {
   if (!node) return;
   // The body must exist before the badge: otherwise the first paint puts the badge on the node
   // instead of inside .md, and the second paint moves it.
   const md = streamBody(node);
-  const shown = prepareStreamText(text);
+  const shown = badgeSrc === undefined ? prepareStreamText(text) : String(text || '');
   const prev = node._streamShown || '';
   // Not an append -- a resync rewrote the draft, or a thought block closed and retracted its text.
   // Start the body over rather than leaving a stale block in front of the new answer.
@@ -146,13 +138,10 @@ function setStreamingContent(node, text) {
     md.appendChild(openEl);
     node._streamOpen = openEl;
   }
-  // A closed block goes on screen at once, in order, exactly where it belongs. Only its motion waits.
+  // A closed block goes on screen at once, in order, exactly where it belongs.
   const from = node._streamUnits || 0;
   for (let i = from; i < cut.blocks.length; i++) {
-    // reveal: the words ripple in as the block is inserted. The offset only de-synchronises blocks
-    // that closed in the same paint -- a coalesced burst -- so they cascade instead of moving
-    // together, and it is under 60ms so nothing is ever sitting still waiting.
-    md.insertBefore(buildBlock(cut.blocks[i], false, !revealReducedMotion(), i - from), openEl);
+    md.insertBefore(buildBlock(cut.blocks[i], false), openEl);
   }
   node._streamUnits = cut.blocks.length;
   // The open block carries the kind being written, so a line that has an action and then speech
@@ -166,7 +155,7 @@ function setStreamingContent(node, text) {
   node.classList.add('streaming');
   // After the body, never before: the first paint writes over .md and would take the badge with it.
   // This is the order postProcessAssistant effectively runs in.
-  paintExpressionBadge(node, text);
+  paintExpressionBadge(node, badgeSrc === undefined ? text : badgeSrc);
   scrollChatToBottom(false);
 }
 
@@ -184,6 +173,185 @@ function endStreamingContent(node) {
   node.classList.remove('streaming');
   const md = node.querySelector && node.querySelector('.md');
   if (md) md.classList.remove('md-stream');
+}
+
+// CHAR_REVEAL_v1 (2026-09-28): letters arrive one by one, fading and growing in, while the answer
+// streams. Three things had kept it from working, and each has its own piece here.
+//
+// 1. The text arrives in bursts the network chooses. A clock (revealTick) lets it out at an even pace
+//    instead: never slower than REVEAL_MIN_CPS, and in proportion to the backlog, so a long burst
+//    speeds up and eases out rather than falling behind.
+// 2. The block being written is re-rendered every frame, which would restart any animation on it.
+//    So every letter remembers when it was born (rv.times, by its position in the rendered text),
+//    and a letter's span is given animation-delay = -age: re-created, it carries on where it was.
+// 3. A block that closes, and the final render, used to move again. Neither does now: a closed block
+//    keeps the letters' clock, and the final render waits until the last letter has settled.
+//
+// Letters are counted in the rendered text, not the markdown source, so ** and the like cost nothing.
+// Reduced motion skips the clock and the spans entirely.
+var REVEAL_MS = 320;            // one letter's entrance; chat-log.css .rv-l uses the same
+var REVEAL_MIN_CPS = 28;        // letters per second while the model is still speaking
+var REVEAL_CATCHUP_MS = 450;    // pace = backlog / this: a burst eases out, shrinking ~2/3 per 450ms
+var REVEAL_FINISH_MS = 300;     // the same after the result, a little faster
+var REVEAL_FORCE_MS = 4000;     // a hidden tab gets no frames; the final render must not wait on it
+
+function revealNow() {
+  return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+}
+
+function revealGraphemes(s) {
+  const t = String(s || '');
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(t), (x) => x.segment);
+  }
+  return Array.from(t);
+}
+
+function revealFrame(fn) {
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(fn);
+  } else {
+    setTimeout(fn, 16);
+  }
+}
+
+// The whole answer so far. Called on every delta, image and sync poll; the clock does the drawing.
+function revealTarget(node, text) {
+  if (!node) return;
+  if (revealReducedMotion()) { setStreamingContent(node, text); return; }
+  let rv = node._rv;
+  if (!rv || rv.dead) rv = node._rv = { src: '', gs: [], shown: 0, times: [], carry: 0, last: 0, born: 0, running: false, finish: null };
+  // The letters are those of the DISPLAY text: the expression tag, the choices and a thought block
+  // never arrive letter by letter. The raw answer is kept for the badge.
+  rv.raw = String(text || '');
+  const src = prepareStreamText(rv.raw);
+  if (src === rv.src) return;
+  if (src.indexOf(rv.src) === 0) {
+    // An append. The last letter may have been cut mid-grapheme, so it is segmented again with the rest.
+    const tail = rv.gs.length ? rv.gs.pop() : '';
+    rv.gs.push.apply(rv.gs, revealGraphemes(tail + src.slice(rv.src.length)));
+  } else {
+    // A rewrite (a resync, a retracted thought). What still matches stays on screen without moving again.
+    const gs = revealGraphemes(src);
+    let k = 0;
+    while (k < rv.shown && k < gs.length && gs[k] === rv.gs[k]) k++;
+    rv.gs = gs;
+    rv.shown = k;
+    rv.times = [];
+    setStreamingContent(node, gs.slice(0, k).join(''), rv.raw);
+    revealLetters(node, rv, -Infinity);
+  }
+  rv.src = src;
+  revealRun(node, rv);
+}
+
+// The result arrived: let the rest out quickly, then hand over to the final render.
+function revealFinish(node, text, done) {
+  if (!node || revealReducedMotion() || !node._rv || node._rv.dead) { done(); return; }
+  revealTarget(node, text);
+  const rv = node._rv;
+  rv.finish = done;
+  setTimeout(function () { revealComplete(node, rv); }, REVEAL_FORCE_MS);
+  revealRun(node, rv);
+}
+
+function revealComplete(node, rv) {
+  if (rv.completed) return;
+  rv.completed = true;
+  rv.dead = true;
+  if (node._rv === rv) node._rv = null;
+  if (rv.finish) rv.finish();
+}
+
+function revealRun(node, rv) {
+  if (rv.running) return;
+  rv.running = true;
+  revealFrame(function () { revealTick(node, rv); });
+}
+
+function revealTick(node, rv) {
+  rv.running = false;
+  if (rv.dead) { if (rv.finish && !rv.completed) revealComplete(node, rv); return; }
+  if (!node.isConnected && node.isConnected !== undefined) { revealComplete(node, rv); return; }
+  const now = revealNow();
+  const dt = rv.last ? Math.min(100, now - rv.last) : 16;
+  rv.last = now;
+  const backlog = rv.gs.length - rv.shown;
+  if (backlog > 0) {
+    const cps = Math.max(REVEAL_MIN_CPS, backlog * 1000 / (rv.finish ? REVEAL_FINISH_MS : REVEAL_CATCHUP_MS));
+    rv.carry += cps * dt / 1000;
+    let step = Math.floor(rv.carry);
+    if (step < 1 && !rv.shown) step = 1;               // the first letter never waits
+    if (step > 0) {
+      rv.carry -= step;
+      rv.shown = Math.min(rv.gs.length, rv.shown + step);
+      setStreamingContent(node, rv.gs.slice(0, rv.shown).join(''), rv.raw);
+      revealLetters(node, rv, now);
+    }
+  }
+  if (rv.shown < rv.gs.length) { revealRun(node, rv); return; }
+  if (now - rv.born < REVEAL_MS) { revealRun(node, rv); return; }   // let the last letters settle
+  revealLetters(node, rv, now);                         // and turn them back into plain text
+  if (rv.finish) revealComplete(node, rv);
+  else rv.last = 0;                                     // idle until the next delta wakes it
+}
+
+// Give every letter younger than REVEAL_MS a span that continues its entrance, and turn a span whose
+// entrance is over back into plain text, so a long answer does not carry a span per letter.
+// `now` = -Infinity marks every letter present as already arrived (a rewrite keeps what it kept).
+function revealLetters(node, rv, now) {
+  const md = node.querySelector && node.querySelector('.md');
+  if (!md) return;
+  let index = 0;
+  const visit = function (el) {
+    for (let i = 0; i < el.childNodes.length; i++) {
+      const c = el.childNodes[i];
+      if (c.nodeType === 1) {
+        const cls = c.className || '';
+        if (/\bexp-badge\b/.test(cls)) continue;       // the emotion badge is not part of the text
+        if (/\brv-l\b/.test(cls)) {                    // a letter already carrying its motion
+          if (now - c._rvBorn >= REVEAL_MS) { el.replaceChild(document.createTextNode(c.textContent), c); }
+          index++;
+          continue;
+        }
+        visit(c);
+        continue;
+      }
+      if (c.nodeType !== 3 || !c.nodeValue) continue;
+      const gs = revealGraphemes(c.nodeValue);
+      const ages = [];
+      let young = false;
+      for (let k = 0; k < gs.length; k++) {
+        if (!gs[k].trim()) { ages.push(null); continue; }
+        if (rv.times[index] === undefined) {
+          rv.times[index] = now;
+          if (now > rv.born) rv.born = now;
+        }
+        const age = now - rv.times[index];
+        ages.push(age);
+        if (age < REVEAL_MS) young = true;
+        index++;
+      }
+      if (!young) continue;
+      const frag = document.createDocumentFragment();
+      let word = null;
+      let parts = 0;
+      gs.forEach(function (g, k) {
+        if (ages[k] === null) { word = null; frag.appendChild(document.createTextNode(g)); parts++; return; }
+        if (!word) { word = document.createElement('span'); word.className = 'rv-w'; frag.appendChild(word); parts++; }
+        if (ages[k] >= REVEAL_MS) { word.appendChild(document.createTextNode(g)); return; }
+        const l = document.createElement('span');
+        l.className = 'rv-l';
+        l.style.animationDelay = (-Math.round(ages[k])) + 'ms';
+        l._rvBorn = now - ages[k];
+        l.textContent = g;
+        word.appendChild(l);
+      });
+      el.replaceChild(frag, c);
+      i += parts - 1;                                   // step over what was just put in its place
+    }
+  };
+  visit(md);
 }
 
 function bindEvents(sid) {
@@ -206,7 +374,7 @@ function bindEvents(sid) {
           assistantNode.dataset.live = '1';
         }
         assistantBuf = (assistantBuf || '') + '\n\n![](' + u + ')\n';
-        setStreamingContent(assistantNode, assistantBuf);   // STREAM_FLOW_v1: still speaking
+        revealTarget(assistantNode, assistantBuf);   // STREAM_FLOW_v1: still speaking (CHAR_REVEAL_v1 clock)
       }
       fetchArtifacts(true);
       return;
@@ -234,7 +402,7 @@ function bindEvents(sid) {
       scheduleStreamPaint(function () {
         // A turn that ended between the delta and this frame must not be painted into.
         if (!paintNode || paintNode.dataset.live !== '1') return;
-        setStreamingContent(paintNode, paintBuf);
+        revealTarget(paintNode, paintBuf);   // CHAR_REVEAL_v1: the letter clock draws it
         updateTurnLive();
       });
       return;
@@ -257,13 +425,20 @@ function bindEvents(sid) {
       } else if (doneBuf && doneBuf.trim()) {
         // Answer won — ignore residual data.error (agy quota after successful stream).
         const node = doneNode || addChat('assistant', '', false);
-        setAssistantContent(node, doneBuf, true, data.usage, data.duration_seconds, data.served_model);
-        endStreamingContent(node);   // STREAM_FLOW_v1: the finished message is still; no motion
+        // Stamped now, so a resync recognises this bubble while its last letters are still arriving.
         if (data.ts) {
           node.dataset.ts = String(data.ts);
           node.dataset.syncRole = 'assistant';
         }
         delete node.dataset.live;
+        const usage = data.usage, secs = data.duration_seconds, served = data.served_model;
+        // CHAR_REVEAL_v1: the final render waits for the last letter, or it would cut the reveal short.
+        revealFinish(node, doneBuf, function () {
+          setAssistantContent(node, doneBuf, true, usage, secs, served);
+          endStreamingContent(node);   // STREAM_FLOW_v1: the finished message is still; no motion
+          // The letters already arrived; the last block must not arrive a second time.
+          if (node.querySelectorAll) node.querySelectorAll('.md-block.arrive').forEach(function (b) { b.classList.remove('arrive'); });
+        });
       } else if (residualErr || data.notice === 'error') {
         if (doneNode) doneNode.remove();
         addNotice((data.notice || 'error'), residualErr || text || '알 수 없는 오류', data.ts);
