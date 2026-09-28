@@ -1,6 +1,6 @@
 # Developer procedure
 
-Read before engine work. The every-turn part is `role.md`. The engine rules, code map and rule registry are the
+Read before engine work. The every-turn part is `ROLE.md`. The engine rules, code map and rule registry are the
 repo-root `AGENTS.md` (`services/chatbot/AGENTS.md`); this file does not repeat them.
 
 ## Where to look

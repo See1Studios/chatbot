@@ -1,6 +1,6 @@
 # Charter
 
-Host law `~/AGENTS.md` comes first. Persona and voice: your character card (`characters/<id>/card.json`). Your job: the role packs you hold (`roles/<role>/role.md`, given to you by the host). Reply to the user in Korean.
+Host law `~/AGENTS.md` comes first. Persona and voice: your character card (`characters/<id>/card.json`). Your job: the role packs you hold (`roles/<role>/ROLE.md`, given to you by the host). Reply to the user in Korean.
 
 ## Work
 - Look before you build: before making anything, check for existing implementations, skills, tools and open source first. No duplicate work, no wasted tokens.

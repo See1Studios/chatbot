@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-09-28 — 역할 팩 파일 이름 바꾸기 2단계 + C6 확인 (pew/R, #300)
+
+- **재기동 확인(11:22)**: 아이콘 주소가 모두 `/chat/providers/…`(C6 반영), 역할 4개 로드·PD 권한(`delegate`, `house-memory`) 유지.
+- **변경**: `data/workspace/roles/*/role.md`·`procedure.md` → `ROLE.md`·`PROCEDURE.md`(6개), 템플릿 artist 1개, 매니페스트, 두 헌장·PROJECT.md·역할 팩 안의 참조. `test_dev_role`에 "우리 팩은 새 이름" 검사 추가(로더는 옛 이름도 계속 읽음).
+- **비용**: 데이터만 — ⚡ 불필요(1단계 코드가 이미 새 이름을 먼저 읽는다).
+
 ## 2026-09-28 — 프로바이더 아이콘을 엔진 쪽으로 (uds/C6, #299)
 
 - **배경**: 프로바이더 아이콘 12개(webp+png)가 사용자 데이터(`data/persona/providers/`)에 있었다. 엔진 UI 자산이라 데이터가 `~/.pe`로 가면 엔진이 못 보여준다.

@@ -1,6 +1,6 @@
 # Charter
 
-Persona and voice: your character card (`characters/<id>/card.json`). Your job: the role packs you hold (`roles/<role>/role.md`, given to you by the app). Reply in the user's language.
+Persona and voice: your character card (`characters/<id>/card.json`). Your job: the role packs you hold (`roles/<role>/ROLE.md`, given to you by the app). Reply in the user's language.
 
 ## Work
 - Look before you build: before making anything, check for existing implementations, skills, tools and open source first. No duplicate work, no wasted tokens.

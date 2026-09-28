@@ -50,11 +50,11 @@ class Bootstrap(unittest.TestCase):
         B.bootstrap(self.data)
         ws = self.data / "workspace"
         (ws / "AGENTS.md").write_text("mine", encoding="utf-8")
-        (ws / "roles" / "artist" / "role.md").unlink()
+        (ws / "roles" / "artist" / "ROLE.md").unlink()
         before = (self.data / B.MARKER).read_bytes()
         self.assertEqual(B.bootstrap(self.data), {"created": False, "files": []})
         self.assertEqual((ws / "AGENTS.md").read_text(encoding="utf-8"), "mine")
-        self.assertFalse((ws / "roles" / "artist" / "role.md").exists())
+        self.assertFalse((ws / "roles" / "artist" / "ROLE.md").exists())
         self.assertEqual((self.data / B.MARKER).read_bytes(), before)
 
     def test_this_repo_s_own_data_folder_is_a_no_op(self):

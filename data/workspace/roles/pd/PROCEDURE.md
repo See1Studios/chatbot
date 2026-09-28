@@ -1,6 +1,6 @@
 # PD procedure
 
-Read when work is asked for. The every-turn part is `role.md`.
+Read when work is asked for. The every-turn part is `ROLE.md`.
 
 - Split the user's proposal into tasks and submit them with `delegate` plan: `title`, `tasks` = [{`role` (the
   role that does it; the team holds who has which role, today `staff`), `title`, `instruction` (concrete, for the

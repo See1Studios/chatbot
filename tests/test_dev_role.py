@@ -25,24 +25,30 @@ class DevRulesStayInTheDevPack(unittest.TestCase):
     def test_the_shared_charter_carries_no_engine_procedure(self):
         charter = (WS / "AGENTS.md").read_text(encoding="utf-8")
         for m in DEV_MARKERS:
-            self.assertNotIn(m, charter, "engine procedure %r belongs in roles/dev/procedure.md" % m)
+            self.assertNotIn(m, charter, "engine procedure %r belongs in roles/dev/PROCEDURE.md" % m)
 
     def test_the_dev_pack_holds_what_left_the_charter(self):
-        role = (WS / "roles" / "dev" / "role.md").read_text(encoding="utf-8")
-        proc = (WS / "roles" / "dev" / "procedure.md").read_text(encoding="utf-8")
-        self.assertIn("roles/dev/procedure.md", role)
+        role = (WS / "roles" / "dev" / "ROLE.md").read_text(encoding="utf-8")
+        proc = (WS / "roles" / "dev" / "PROCEDURE.md").read_text(encoding="utf-8")
+        self.assertIn("roles/dev/PROCEDURE.md", role)
         for m in ("`ticket` tool", "claiming an approved ticket", "SELF-MODIFY.md", "docs/plans/INDEX.md",
                   "--no-verify", "run-tests.sh", "AGENTS.md"):
             self.assertIn(m, proc)
 
     def test_other_roles_every_turn_part_has_no_engine_procedure(self):
-        for pack in sorted((WS / "roles").glob("*/role.md")):
+        for pack in sorted((WS / "roles").glob("*/ROLE.md")):
             if pack.parent.name == "dev":
                 continue
             text = pack.read_text(encoding="utf-8")
             for m in DEV_MARKERS:
                 self.assertNotIn(m, text, "%s: %r" % (pack.relative_to(ROOT), m))
 
+
+    def test_pack_files_use_the_upper_case_names(self):
+        # pew/R: ROLE.md / PROCEDURE.md like SKILL.md; the loader still reads old packs, but ours are renamed
+        for base in (WS / "roles", ROOT / "templates" / "workspace" / "roles"):
+            old = sorted(str(p.relative_to(ROOT)) for p in base.glob("*/*.md") if p.name in ("role.md", "procedure.md"))
+            self.assertEqual(old, [], "rename to ROLE.md / PROCEDURE.md")
 
 class OnlyDevHoldersGetIt(unittest.TestCase):
     def setUp(self):
@@ -66,7 +72,7 @@ class OnlyDevHoldersGetIt(unittest.TestCase):
         other = I.build_instruction_bundle(character=self.other)["text"]
         self.assertIn("# Role: Developer", dev)
         self.assertNotIn("# Role: Developer", other)
-        self.assertNotIn("roles/dev/procedure.md", other)
+        self.assertNotIn("roles/dev/PROCEDURE.md", other)
         for m in DEV_MARKERS:
             self.assertNotIn(m, other)
 
