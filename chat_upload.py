@@ -144,8 +144,8 @@ def parse_block(text: str) -> List[Dict]:
     return out
 
 
-def attached_images(text: str) -> List[Tuple[str, bytes]]:
-    """(mime, bytes) of the images attached to a message that are ours to read: an image type, inside a session's
+def attached_image_paths(text: str) -> List[Tuple[str, Path]]:
+    """(mime, path) of the images attached to a message that are ours to hand on: an image type, inside a session's
     uploads/ folder, at most IMAGE_MAX_BYTES. Anything else in the list is left to the file tools."""
     root = _sessions_dir().resolve()
     out = []
@@ -159,8 +159,13 @@ def attached_images(text: str) -> List[Tuple[str, bytes]]:
             continue
         if p.parent.name != "uploads" or not p.is_file() or p.stat().st_size > IMAGE_MAX_BYTES:
             continue
-        out.append((item["mime"], p.read_bytes()))
+        out.append((item["mime"], p))
     return out
+
+
+def attached_images(text: str) -> List[Tuple[str, bytes]]:
+    """(mime, bytes) of attached_image_paths, for a provider that takes the picture inline."""
+    return [(mime, p.read_bytes()) for mime, p in attached_image_paths(text)]
 
 
 def take_pending(sid: str, text: str) -> str:

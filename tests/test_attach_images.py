@@ -91,5 +91,18 @@ class AdapterSendsThem(Base):
         self.assertFalse(a.supports_images("m"))
 
 
+
+class CodexGetsThemAsFlags(Base):
+    def test_this_turn_s_images_become_image_flags_before_the_stdin_marker(self):
+        from providers.adapter_codex import CodexAdapter
+        img = self.up / "20260928-190000-cat.png"
+        text = self.message(self.item(img, "image/png"), self.item(self.up / "20260928-190000-notes.md", "text/markdown"),
+                            self.item(self.outside, "image/png"))
+        for conv in (None, "thread-1"):                          # the first turn and every resume
+            args = CodexAdapter().build_args("gpt-x", "", conv, [], prompt=text)
+            self.assertEqual([a for a in args if a.startswith("--image")], ["--image=%s" % img.resolve()])
+            self.assertEqual(args[-1], "-", "the prompt still comes on stdin")
+        self.assertFalse([a for a in CodexAdapter().build_args("gpt-x", "", None, [], prompt="안녕") if a.startswith("--image")])
+
 if __name__ == "__main__":
     unittest.main()

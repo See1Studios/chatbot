@@ -172,6 +172,12 @@ class CodexAdapter(AgentAdapter):
             args.extend(["-m", model])
         if effort and effort != "default":
             args.extend(["-c", f'model_reasoning_effort="{effort}"'])
+        # composer-plus-menu plus/E: codex reads a file path as text and cannot see the picture (checked live
+        # 2026-09-28: "CANNOT SEE"), so an image attached to this turn goes as --image, which exec and exec resume
+        # both take. "--image=<path>": the flag takes several values and would swallow the "-" below otherwise.
+        import chat_upload
+        for _mime, path in chat_upload.attached_image_paths(prompt):
+            args.append("--image=%s" % path)
         args.append("-")  # prompt on stdin
         return args
 
