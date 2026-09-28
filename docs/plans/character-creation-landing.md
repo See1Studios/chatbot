@@ -30,6 +30,7 @@ CONCEPT·PRODUCT는 "설정 없이 바로 대화", "설정은 나중에"라고 �
 | Replika 온보딩 | 이름 짓기가 첫 입력, 끝나자마자 첫 대화 | 가입·결제 먼저 |
 | Character.AI 만들기 | 이름·인사말·설명 몇 칸으로 카드 완성 | 공개 게시 흐름 |
 | SillyTavern 카드 | 카드 형식(`chara_card_v2`) 그대로 — 이미 우리 정본 | 필드 전체 노출 |
+| [cha1latte/sillytavern-character-generator](https://github.com/cha1latte/sillytavern-character-generator) (MIT, 2026-09-28 운영자 제보) | "대화로 만들기"의 기본안: 질문 2–3개 → 요약 확인 → Card V2 생성, 매 턴 칸 600–1,000토큰 배분(설명 60–70%·성격 10–15%·상황 15–25%), 상황은 지시형, 예시 대화에 사용자 대사 금지, 열린 첫 인사, JSON 검증 목록. **착수 때 스킬로 가져온다**(출처 표기) | "`extensions` 넣지 말 것" 규칙 — 우리는 거기에 호칭·말투·`item_prefs`를 둔다. 정본 인물(캐논) 재현 절차는 저작권 방침(R13)과 함께 판단 |
 
 ## 4. 흐름 (초안) — 소환 마법사
 

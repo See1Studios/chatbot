@@ -44,6 +44,7 @@
 | 기존 선택지·행동 채널([out-of-band-choices-actions.md](out-of-band-choices-actions.md)) | 답변 밖 채널로 버튼을 보냄 | **재사용** — 제안 카드의 승인/거절 버튼 |
 | 로컬 git 저장소로 버전 관리 | `~/.pe`를 git으로 | **보류** — Windows 사용자에게 git 의존이 생긴다. 스냅숏 파일이 더 가볍다(D1) |
 | SillyTavern 백업·카드 편집 | 카드 단위 백업, 편집 UI | **참고** — 형식은 그대로 쓰고(ST 위임) 에이전트 참여만 더한다 |
+| [Chai / Ultraviolenc의 SillyTavern 도구 모음](https://docs.google.com/document/d/1CfWHATYyDH5HYw_7vFKtax-2fCiE-3hnmAGOtyJWTkM/edit?tab=t.0) (2026-09-28 운영자 제보) | 「Universal … Creator」 프롬프트들: 캐릭터 카드·로어북·테마·빠른 답장·확장·시스템 프롬프트 만들기, 저널(캐릭터 조언), 로어 스포일러 숨기기, 실제 날씨 확장 | **참고(층별 인터뷰 절차의 선행 사례)** — 사용자가 AI와 함께 자기 층을 만드는 모양 그대로. 카드 만들기는 `ladder/G`의 기본안([character-creation-landing.md](character-creation-landing.md) §3), 로어북·테마는 해당 층 착수 때 먼저 본다 |
 
 ## 4. 설계 초안
 
