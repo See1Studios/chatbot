@@ -1,5 +1,22 @@
 # chatbot 개발로그
 
+## 2026-09-28 — openrouter 404: 은퇴한 모델 + 버려지던 원인 (#302·#303)
+
+- **증상**: openrouter가 매 턴 `API 호출 실패: HTTP Error 404: Not Found`. **원인이 두 개 겹쳐 있었고, 하나가 다른 하나를 가렸다.**
+- **A. 업스트림에서 은퇴한 모델**: `z-ai/glm-5.2:free`가 무료 라우팅을 벗어나 유료로 옮겨감(404 "This model is unavailable for free... use this slug instead"). 키는 정상(`/models` 200, 458개). 6개 curated 중 5개는 생존.
+- **B. 원인 폐기**: `adapter_openai.py`의 스트림 열기가 `except` 없는 `urlopen`이라 **응답 본문을 읽지 않았다.** 업스트림이 원인과 해결책을 담아 보냈는데 버려졌다. `upstream_error_text()`가 게이트웨이의 원래 말을 상태코드 옆에 붙인다(평탄화·300바이트 상한). #281 "로그는 진단을 담아야 한다"와 **같은 부류의 버그를 에러 경로에 남겨둔 것**이었다.
+- **A 수정**: 기본값을 `nvidia/nemotron-3-super-120b-a12b:free`로(실제 completion 200 확인). **1차 수정만으로는 부족했다** — `known_models()`는 curated를 앞에 두고 `server.py:487`이 그 0번을 기본값으로 노출하므로, 죽은 모델을 `curated_models`에서도 빼야 실제 기본값이 바뀐다.
+- **테스트**: `tests/test_upstream_error.py`(5) — 본문 보존·비JSON·빈 본문 fallback·읽기 실패·길이 제한. `tests/test_providers_config.py`(5) — 설정 불변식. **업스트림 은퇴는 로컬에서 잡을 수 없다**(`:free` 접미사가 유일한 신호이고 게이트웨이는 id를 안 바꾼다). 변이 확인 결과 이 파일은 그걸 잡지 못한다 — 진짜 탐지는 `/models` 프로브가 필요하며 별건.
+- **기준선**: 113/113. ⚡ 필요(어댑터가 import 시점 설정 로드).
+
+## 2026-09-28 — 스트리밍 텍스트가 흐르도록 (STREAM_FLOW_v1, #296·#301)
+
+- **진단**: delta마다 `renderMarkdown` 전체(마크다운 파싱 + DOMPurify + 버튼 재생성 + 스크롤)를 지금까지 쌓인 문자열에 다시 돌렸다. 캐시가 없다. 프로바이더는 초당 50~200토큰을 보내는데 화면은 60fps → **대부분 페인팅 전에 버려짐.** 900토큰 답에서 무거운 렌더 **900회 → 1회**. (1회 렌더 파싱 4~6ms 실측. DOMPurify·DOM 재구성은 브라우저 없이는 측정 불가라 하한만 주장)
+- **변경**: 애니메이션 프레임당 1회 페인트. 스트리밍 중 본문은 텍스트(새 문자는 스팬 append), 전체 마크다운은 `result`에서 1회. 재작성된 draft(rezync, 닫히는 thought)는 텍스트 교체로 폴백 — append-only에 의존하지 않는다. 표현 배지도 스트리밍 중 갱신. **기존 깜빡이는 커서를 재사용**(새로 만들지 않음 — 그 `::after` 방식은 본문이 매 tick 교체돼서였음). reveal은 **최신 문자만**, `result`를 넘기면 남지 않음.
+- **절차 실패 2건 (자기계정)**: (1) 첫 변경은 **맞았지만 불완전**했다. 라이브 영역에는 **작성자가 여럿**이고, 세션 동기화 폴링과 이미지 이벤트도 같은 본문을 최종 렌더로 덮어써 흐름을 지웠다 → #301. (2) `test_sse_resync_dedupe`가 조각만 잘라 eval 해 새 동료 둘이 없어 깨짐. 사본으로 먼저 검증한 뒤 클레임을 넓혀 고쳤고, 잔재 검사 규칙 때문에 두 커밋으로 났다.
+- **가드**: `test_streaming_text.py`(10) — 스트리밍 경로가 marked/DOMPurify/renderMarkdown/postProcess를 **한 번도** 호출하지 않음 + 라이브 렌더가 최종 경로를 쓸 수 없음(재발 방지).
+- **기준선**: 113/113. 정적 변경 — ⚡ 불필요, 새로고침.
+
 ## 2026-09-28 — 역할 팩 파일 이름 바꾸기 2단계 + C6 확인 (pew/R, #300)
 
 - **재기동 확인(11:22)**: 아이콘 주소가 모두 `/chat/providers/…`(C6 반영), 역할 4개 로드·PD 권한(`delegate`, `house-memory`) 유지.
@@ -213,72 +230,4 @@
 - **Ops**: DiskStation orphan `agy` pid 16420(PPID1·deleted exe·live_pids 외) TERM 후 소멸. chatbot/mcp 유지.
 - **배포**: 호스트 py → `chatbot-ctl.sh repair` / ⚡소생.
 - **마커**: `SILENT_HANG_v1`
-
-## 2026-09-26 (밤) — 사적 선택지 ALL=action · 본문 action-echo 금지 (#246)
-
-- **실장님 Clarification**: (1) 선택지 클릭은 **전부 ACTION** — 칩의 대사는 optional flavor로 액션에 굽힘(`/act` 와이어). 진짜 말은 사용자가 타이핑. (2) 캐릭터 본문은 사용자 행동 재진술 금지 — 반응(액체/신음/몸)만 dense.
-- **A** `static/markdown.js` `classifyChoicePayload`/`pickChoice`: `"대사"`·콤보도 `kind:action` → `sendAction`. 균형 괄호 `stripOuterParens` (안쪽 `(행동)` 보존).
-- **B** `static/app-sse.js` `actionTextOf` · `app.js` `/act` 파싱 · `server.py` action wire · `private_engine.strip_outer_parens`/`tension_step`: 콤보 와이어 `("대사" (행동))` 안전.
-- **C** `RENDER_PROTOCOL` + Grok overlay + `private_tension_{grok,defaults,gemini}.json`(grok **v13**): ALL choices=action · ACTION-ECHO BAN.
-- **D** 캐시 `markdown.js?v=19` · `app.js?v=161` · `app-messages.js?v=6` · `app-sse.js?v=2`.
-- **검증**: `python3 -m unittest tests.test_private_tension tests.test_choice_chips`. py → repair. **새 사적 세션**+하드 리프레시.
-- **티켓**: #246.
-
-
-## 2026-09-26 (밤) — 사적 선택지 speech-optional · silent /act 기본 + POST type=action (#245)
-
-- **진단(라이브)**: `markdown.js?v=17` 분류기는 정상 — `(행동)`→`/act`→wire `(…)`, `"대사"`→say, 콤보→say 유지. 그런데 최근 사적 세션(`20260926-233858` 등) 모델 제안이 **combo 30 / action 0**. 프로토콜 `Combined (preferred)` + 텐션 `권장 콤보`가 매 칩에 대사를 강제 → 클릭이 전부 say로만 나감. 또한 `server.py` `/message`가 클라이언트의 `type: "action"` / `action_text`를 무시하고 `sess.send`에 `event_type`을 안 넘김.
-- **A** `RENDER_PROTOCOL` + `RENDER_PROTOCOL_GROK_OVERLAY`: **Default = action-only** `(행동)` (silent /act). **Speech is OPTIONAL** — 자연스러울 때만 대사/콤보, 강제 대사 금지. `Combined (preferred)` 제거.
-- **B** `private_tension_{grok,defaults,gemini}.json` `choice_forms`: 동일 원칙. grok **v12**.
-- **C** `server.py`: `body.type=="action"` → wire `(action_text)` + `sess.send(..., event_type="action")`.
-- **D** `app-messages.js` `choiceItemToMarker`: action 재조립 시 `(행동)` 유지. `markdown.js?v=18` · `app-messages.js?v=5`.
-- **검증**: `python3 -m unittest tests.test_private_tension tests.test_choice_chips`. py 변경 → repair. **새 사적 세션**에서 ✦ 행동 칩 클릭 시 지문(`/act` wire) 확인. 하드 리프레시(캐시 무시) 필요.
-- **티켓**: #245.
-
-## 2026-09-26 (밤) — 사적 Grok 선택지 USER 대사: 말≠행동재진술 · 상황 주소 (#244)
-
-- **배경**: 행동/상황 선택지는 충분한 데 `"대사"`가 행동을 말로 반복(action-narration)하거나 캐릭터 신음이 따옴표에 섞임. 말은 상대를 향한 상황적 의도·놀림·명령·애원·돌봄이어야 함.
-- **유지 #243**: LIQUID-FIRST·ZERO FILLER·장식 지문 금지·직설은 캐릭터 말투일 때만·`/act` 분류 고정.
-- **원칙(사례 나열 없이)**: **Speech ≠ restating the act** · **Speech = situational address** (intent/tease/command/plea/care). 서술뿐이면 `(행동)`만.
-- **A** `RENDER_PROTOCOL` Choices + `RENDER_PROTOCOL_GROK_OVERLAY`: 위 일반 원칙. 캐릭터 신음·목석 몸명령 금지 유지.
-- **B** `private_tension_grok.json` v11 `choice_forms`·슬롯 가이드: 동일 원칙.
-- **검증**: `python3 -m unittest tests.test_private_tension`. 호스트 py → repair. **새 사적 세션** 재시험.
-
-
-## 2026-09-26 (밤) — 사적 Grok 장식 지문 금지·액체 주력·선택지 /act 고정 (#243)
-
-- **배경**: 창가·청록눈·장식꼬리 반복이 산통을 깸. 선택지 클릭이 대사/say로 새는 버그 잔존. 강제 천박 지양.
-- **작법** `RENDER_PROTOCOL_GROK_OVERLAY` + `private_tension_grok.json` v10: ZERO FILLER(매 음절 각성) · LIQUID-FIRST(침/애액/점성/정액) · 창가·청록눈 금지(행동 관련만) · 꼬리는 핫할 때만 · 직설은 캐릭터 말투에 맞을 때만 · #242 유지(USER 선택지·Gemini 신음·SFX↔행위·dense·grok-4.7 low).
-- **선택지 UI** `static/markdown.js`: 스마트쿼트/전각괄호 정규화, pure `(행동)`→/act, `"대사"`는 say, combo는 말 유지. `pickChoice`가 이미 action인 칩을 재파싱으로 뒤집지 않음. 순수 행동은 따옴표로 감싸지 말 것(오버레이·choice_forms).
-- **검증**: `python3 -m unittest tests.test_private_tension tests.test_choice_chips`. 호스트 py → repair. **새 사적 세션** 재시험.
-
-## 2026-09-26 (밤) — 사적 선택지=코치 행동 + Grok 작법 밀도 (#242)
-- **Gemini 채굴**: 사적 agy/gemini 세션 신음·의태 강세(하아앙/하읏/응으읏, 파르르·찌릿)를 오버레이에 증류. SFX는 행위 짝짓기(**찌걱=삽입만**, 쪽쪽=입). 손애무에 삽입 SFX 금지.
-
-- **배경**: #241 이후 피드백 — 선택지 `"대사"`가 캐릭터 대사/신음처럼 쓰이고, 클릭 시 전부 `/act`로 들어가 사용자 말이 액션 지문에 삼켜짐. 상황 서사 미사여구·약한 의태어(움찔) 남발, 직설/천박 부족.
-- **제품 규약**: 선택지 = **코치/USER 행동(+사용자 대사)**. 캐릭터 반응은 **다음 턴 어시스턴트 본문만**. 권장 형식 `라벨 -> "사용자 대사" (행동)`.
-- **A** `private_engine.RENDER_PROTOCOL` Choices: USER 주체·캐릭터 대사 금지. `RENDER_PROTOCOL_GROK_OVERLAY`: dense not purple(미사여구 컷) · 젖은/천박 의성(찌걱찌걱·찔꺽·찐득) · 직설/천박 권장 · 한국어 only · grok-4.7+low 유지.
-- **B** `private_tension_{defaults,gemini,grok}.json` choice_forms/slots (grok v8). 노노·코코 카드 Voice 동기화.
-- **C** `static/markdown.js`: `classifyChoicePayload` — `(행동)`→silent `/act`, `"대사"`→say, `"대사" (행동)`→사용자 말+행동(비-/act). aria `내 다음 행동`. `markdown.js?v=16`.
-- **검증**: `python3 -m unittest tests.test_private_tension tests.test_choice_chips`. 호스트 py → repair. **새 사적 세션**에서 재시험.
-- **재시험**: 선택지 따옴표가 코치 대사인지 · 클릭 시 말풍선에 사용자 말이 사리는지 · 캐릭터 반응이 다음 턴에만 오는지 · 본문이 미사여구 없이 젖은 의성+직설인지.
-
-## 2026-09-26 (밤) — 사적 Grok 작법 교정 (반응 우선·한국어 only, #241)
-
-- **배경**: #240 이후 실장님 피드백 — 지문 늘린다고 야설 작가가 되지 않음. Gemini 사적 대비 상대 반응이 목석, 영어 누수, 기계적 절정. 길이 말고 작법 수정 요청.
-- **진단(요약)**: 오늘 밤 Grok 사적(코코 등)에서 EN 메타 누수(`Wait, I need to write…`, `Need 3 choices`/`Stage 3`), 대사가 사용자 몸 지휘 명령형(「허리 잡아」「리듬 유지해」). Gemini 사적은 숨결·놀림·주저→항복 반응이 살아 있음. #240 오버레이가 장면 페인팅 길이만 키운 것이 원인 축.
-- **A** `data/private_tension_grok.json` v5: REACTION-first·목석 대사 금지·한국어 only·방/빛/침대는 반응에 복무. Gemini 표보다 짧게 유지.
-- **B** `RENDER_PROTOCOL_GROK_OVERLAY`(#241): 길이 완화 → 반응 우선 + 열 있는 한국어 대사 + EN/메타 금지로 교체. 공용 `RENDER_PROTOCOL`·타 계열 불변. 여전히 grok-4.7+low, 크로스모델 라우팅 없음.
-- **C** 노노·코코 카드 `system_prompt` Voice를 반응 우선/한국어 only로. 코코 `brains.private`=grok-4.7 effort low 추가.
-- **검증**: `python3 -m unittest tests.test_private_tension` 21 OK.
-- **배포**: 호스트 py 변경 → repair/⚡소생. **반드시 새 사적 세션**에서 재시험(기존 세션 meta의 model·effort·프롬프트 캐시 유지).
-
-## 2026-09-26 (밤) — 사적 Grok 보완 (텐션·속도·렌더 오버레이, #240)
-
-- **배경**: 사적 모드 Grok 보완(야설 작가). FULL 스코프. build-fast는 비싸서 제외 → **grok-4.7 + reasoning-effort low**.
-- **A** `data/private_tension_grok.json` v4: 장소·거리 연속, 다감각, 대사+지문 밀도, 기계적 절정 루프 방지. gemini 표보다 짧게 유지.
-- **B** `session_registry.get_private`: brains.private 우선, Grok이면 model=grok-4.7·effort=low. `adapter_grok.build_args`: 빈 effort→low, build-fast→4.7 치환. CLI enum 확인: xhigh|high|medium|low.
-- **C** `private_engine.RENDER_PROTOCOL_GROK_OVERLAY`: 사적+Grok 턴만 메신저 1–2줄 천장 완화(가족 스코프). stale 테스트 `detect_model_family("grok","grok-4")`→`grok`. 노노 카드 Voice 완화 + brains.private.
-- **검증**: `python3 -m unittest tests.test_private_tension`. 호스트 py 변경 → ⚡소생(repair 우선).
-- **배포**: 새 사적 세션에서 provider=grok / model=grok-4.7 / effort=low 확인. 기존 사적 세션은 메타에 박힌 model·effort 유지.
 
