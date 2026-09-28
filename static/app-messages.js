@@ -494,12 +494,24 @@ function adoptUntimedAssistant(h) {
 // same text stamps it instead of drawing a second one. It only stamps -- the bubble is already
 // where the user put it, and re-placing it by ts made it jump away (to the top of the log)
 // whenever no answer bubble was in flight when its ack arrived.
+// The words a bubble says, without the chips and cards drawn on it (a gift chip, attached-file cards).
+function bubbleOwnText(node) {
+  const kids = Array.from(node.childNodes || []);
+  if (!kids.length) return node.textContent || '';
+  return kids.filter(n => n.nodeType === 3).map(n => n.nodeValue).join('');
+}
+
 function adoptBareUserBubble(text, ts) {
   if (!logEl || !ts) return false;
+  // The server's text carries what the page shows as chips: a gift's host note, the attached-files list. Compared
+  // with them, a gift or an attachment was never recognised as this window's own and was drawn a second time.
+  let said = text || '';
+  if (typeof splitGiftNote === 'function') said = splitGiftNote(said).text;
+  if (typeof splitAttachmentBlock === 'function') said = splitAttachmentBlock(said).text;
   const bare = logEl.querySelectorAll('.msg.user:not([data-ts]), .msg.action:not([data-ts])');
   for (let i = 0; i < bare.length; i++) {
-    const content = bare[i].textContent || '';
-    if (content === (text || '') || (text && text.startsWith('(') && text.endsWith(')') && content === '✦ ' + text.slice(1, -1))) {
+    const content = bubbleOwnText(bare[i]);
+    if (content === said || (said.startsWith('(') && said.endsWith(')') && content === '✦ ' + said.slice(1, -1))) {
       bare[i].dataset.ts = String(ts);
       bare[i].dataset.syncRole = bare[i].classList.contains('action') ? 'action' : (bare[i].classList.contains('btw-user') ? 'btw-user' : 'user');
       return true;

@@ -342,8 +342,8 @@ header .avatar:active{
 /* composer-plus-menu plus/B, plus/D (app-attach.js): the small button drawn inside the message box's right edge
    (a sibling pulled in by a negative margin -- wrapping the textarea would break the phone layout's ordering), the
    drop overlay, and the file on a sent bubble. */
-.composer #input.has-inline-btn{padding-right:2.3rem}
-.composer .inline-btn{flex:0 0 auto;align-self:flex-end;position:relative;z-index:2;width:30px;height:30px;min-width:0;margin:0 0 6px -38px;padding:0;border:0;border-radius:8px;background:none;box-shadow:none;color:var(--muted);cursor:pointer;transition:color .15s ease,background .15s ease}
+.composer #input.has-inline-btn{padding-right:2.9rem}
+.composer .inline-btn{flex:0 0 auto;align-self:flex-end;position:relative;z-index:2;width:30px;height:30px;min-width:0;margin:0 0 6px -44px;padding:0;border:0;border-radius:8px;background:none;box-shadow:none;color:var(--muted);cursor:pointer;transition:color .15s ease,background .15s ease}
 .composer .inline-btn:hover{color:var(--accent2);background:rgba(255,255,255,.07);transform:none}
 .line-icon{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
 .inline-btn .undo{display:none}
@@ -355,7 +355,7 @@ header .avatar:active{
 .composer .inline-btn.error{color:#fca5a5;background:rgba(248,113,113,.14);box-shadow:inset 0 0 0 1px rgba(248,113,113,.5)}
 #send .send-icon{width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
 #send:disabled,#send:disabled:hover{opacity:.38;cursor:default;transform:none;box-shadow:none;background:rgba(255,255,255,.04);border-color:var(--border);color:var(--muted)}
-@media (max-width: 640px){.composer .inline-btn{order:4;margin:0 0 3px -36px}}   /* the slim phone composer orders its children (chat-panes.css): stay beside #input */
+@media (max-width: 640px){.composer .inline-btn{order:4;margin:0 0 3px -41px}}   /* the slim phone composer orders its children (chat-panes.css): stay beside #input */
 @media (prefers-reduced-motion:reduce){.inline-btn.uploading .face{animation:none}}
 body.attach-drop .stage::after{
   content:'여기에 놓으면 첨부돼요';/* l10n-ok */position:absolute;inset:.6rem;z-index:5;display:flex;align-items:center;justify-content:center;
@@ -366,9 +366,12 @@ body.attach-drop.attach-drop-no .stage::after{/* l10n-ok */content:'사적 모�
 .attach-card-icon{display:inline-flex;align-self:center;opacity:.85}
 .attach-card-icon .line-icon{width:15px;height:15px}
 .attach-card-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:18rem}
+.attach-card.has-thumb .attach-card-name{max-width:220px}
 .attach-card-size{opacity:.7;font-size:.72rem}
-.attach-card.has-thumb{flex-wrap:wrap;padding:.35rem;gap:.3rem .45rem;max-width:min(240px,100%)}
-.attach-thumb{display:block;flex:1 0 100%;max-width:100%;max-height:200px;object-fit:contain;border-radius:6px;background:rgba(0,0,0,.25)}
+.attach-card.has-thumb{flex-direction:column;align-items:flex-start;padding:.35rem;gap:.3rem;max-width:100%}
+/* A pixel cap, not a percentage: a shrink-to-fit bubble sizes itself by its content's natural width, and a
+   percentage cap on a large picture still let the bubble grow to its full width. The picture keeps its shape. */
+.attach-thumb{display:block;width:auto;height:auto;max-width:220px;max-height:220px;border-radius:6px;background:rgba(0,0,0,.25)}
 
 /* composer-plus-menu plus/G (app-gift.js): the gift picker above the composer, the chip on the giving bubble and
    the toast that says how it landed. */

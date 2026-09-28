@@ -22,6 +22,19 @@ os.environ.setdefault("NAS_MCP_HOST_PLUGIN", "1")
 os.environ.setdefault("CHATBOT_EDITION", "dev")
 import mcp_server as mcp  # noqa: E402  -- the only place tests import the tool server
 
+
+def setUpModule():
+    # The tool server asks the running chat server which sessions are mid-turn (mcp_server._live_scope). A private
+    # talk on this host while tests ran closed the work tools and failed tests that have nothing to do with it.
+    # The scope rules themselves are tested with explicit arguments; here nothing live is asked.
+    global _live_scope
+    _live_scope = mcp._live_scope
+    mcp._live_scope = lambda grant: (False, False)
+
+
+def tearDownModule():
+    mcp._live_scope = _live_scope
+
 CODE = Path(__file__).resolve().parent.parent
 CTL = "chatbot-ctl.sh"
 CTL_ABS = str(mcp.SERVICES / "chatbot-ctl.sh")

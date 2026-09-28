@@ -137,5 +137,30 @@ class PageReadsTheNote(Base):
         self.assertEqual(got[1], {"text": "그냥 말", "gift": None})
 
 
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class TheGiftIsDrawnOnce(Base):
+    def test_the_server_ack_adopts_the_bubble_already_drawn(self):
+        # 2026-09-28: each gift showed twice. The ack's text carries the host note and the bubble carries the gift
+        # chip, so the page never recognised its own bubble and the next sync drew another.
+        r = self.give("new-game")
+        ack = "(🎮 같이 할 게임을(를) 건넨다)\n\n" + G.host_note(r)
+        gift_js = (ROOT / "static" / "app-gift.js").read_text(encoding="utf-8")
+        msg_js = (ROOT / "static" / "app-messages.js").read_text(encoding="utf-8")
+        g = gift_js[gift_js.index("const GIFT_NOTE"):gift_js.index("function renderGiftChip")]
+        m = msg_js[msg_js.index("function bubbleOwnText"):msg_js.index("function inFlightAssistant")]
+        harness = g + "\n" + m + r"""
+const text = (v) => ({ nodeType: 3, nodeValue: v });
+const chip = { nodeType: 1, textContent: '🎮 같이 할 게임' };
+const bubble = { childNodes: [text('✦ 🎮 같이 할 게임을(를) 건넨다'), chip], dataset: {}, classList: { contains: (c) => c === 'action' } };
+Object.defineProperty(bubble, 'textContent', { get() { return this.childNodes.map(n => n.nodeValue || n.textContent).join(''); } });
+const logEl = { querySelectorAll: () => [bubble] };
+const adopted = adoptBareUserBubble(ACK, 123.5);
+console.log(JSON.stringify({ adopted, ts: bubble.dataset.ts, role: bubble.dataset.syncRole }));
+""".replace("ACK", json.dumps(ack, ensure_ascii=False))
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-800:])
+        self.assertEqual(json.loads(out.stdout), {"adopted": True, "ts": "123.5", "role": "action"})
+
 if __name__ == "__main__":
     unittest.main()
