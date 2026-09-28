@@ -6,6 +6,7 @@ import signal
 import subprocess
 
 from pathlib import Path
+import json
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -39,6 +40,78 @@ def split_choices(text: str) -> Tuple[str, List[str]]:
         return text, []
     items = [x.strip()[:CHOICE_LEN] for x in m.group(1).split("|") if x.strip()][:CHOICES_MAX]
     return (text[:m.start()].rstrip(), items) if items else (text, [])
+
+
+# CHOICES_LEAK_RESCUE_v1 (2026-09-28): a model sometimes writes its `choices` tool call into the answer as
+# text instead of calling the tool -- `</tool_call>\n{"name": "choices", "arguments": {...}}\n</tool_call>`
+# (gemini-3.8-flash-high, 2 of 14 private turns). The reader then saw JSON and no buttons. The call is taken
+# out of the text here, for every provider, and becomes the turn's choices in the same "label -> action"
+# form a marker gives. Commands are not rescued: text must not get past the command allowlist.
+_LEAK_OUTER = re.compile(r'"name"\s*:\s*"choices"')
+_LEAK_INNER = re.compile(r'"action"\s*:\s*"choices"')
+_TOOL_TAG_TAIL = re.compile(r"\s*</?tool_call>\s*$")
+_TOOL_TAG_HEAD = re.compile(r"^\s*</?tool_call>")
+
+
+def _leaked_call(text: str):
+    """(start, end, obj) of the last JSON object in `text` that is a choices call, or None."""
+    for pattern in (_LEAK_OUTER, _LEAK_INNER):
+        for m in reversed(list(pattern.finditer(text))):
+            start = text.rfind("{", 0, m.start())
+            if start < 0:
+                continue
+            try:
+                obj, end = json.JSONDecoder().raw_decode(text, start)
+            except ValueError:
+                continue
+            if text.count("```", 0, start) % 2:
+                continue                                # inside a code block: an example, not a leak
+            if isinstance(obj, dict) and end > m.start():
+                return start, end, obj
+    return None
+
+
+def _leaked_items(obj: dict) -> List[str]:
+    args = obj.get("arguments", obj) if obj.get("name") == "choices" else obj
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except ValueError:
+            return []
+    items = args.get("items") if isinstance(args, dict) else None
+    if not isinstance(items, list) or not 2 <= len(items) <= CHOICES_MAX:
+        return []
+    out = []
+    for it in items:
+        if not isinstance(it, dict):
+            return []
+        label = str(it.get("label") or "").strip()[:CHOICE_LEN]
+        kind = str(it.get("kind") or "").strip()
+        payload = str(it.get("payload") or label).strip()
+        if kind == "command" and payload.lstrip("/").lower() in ("act", "action"):
+            kind, payload = "action", label           # the model meant "do this", not a command
+        if not label or kind not in ("say", "action"):
+            return []
+        if kind == "action":
+            if not payload.startswith('"'):
+                payload = "(%s)" % payload.strip("() ")
+            out.append("%s -> %s" % (label, payload))
+        else:
+            out.append(label if payload == label else '%s -> "%s"' % (label, payload.strip('"')))
+    return out
+
+
+def rescue_leaked_choices(text: str) -> Tuple[str, List[str]]:
+    """(text without a leaked choices call, the choices it carried). Unchanged when there is none. A leaked call
+    whose items do not validate is still taken out of the text -- JSON is never an answer -- with no choices."""
+    found = _leaked_call(text or "")
+    if not found:
+        return text, []
+    start, end, obj = found
+    left = _TOOL_TAG_TAIL.sub("", text[:start].rstrip())
+    right = _TOOL_TAG_HEAD.sub("", text[end:].lstrip()).strip()
+    body = left.rstrip() + ("\n\n" + right if right else "")
+    return body.strip(), _leaked_items(obj)
 
 
 class AgentAdapter:
@@ -231,6 +304,8 @@ class AgentAdapter:
         # ts made every successful turn look like "답 + 쿼터 에러 공지". Error-only
         # turns emitted result with empty text so the UI stayed silent.
         body, choices = split_choices((final or "").strip())
+        if not choices:
+            body, choices = rescue_leaked_choices(body)   # CHOICES_LEAK_RESCUE_v1
         err_s = (error or "").strip() if is_err else ""
         if body:
             hist_text = body

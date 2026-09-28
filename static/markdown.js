@@ -661,8 +661,16 @@ function paintExpressionBadge(node, rawText) {
 // STREAM_FLOW_v1: the cheap projection of a still-growing answer -- strip what the model emits as
 // markup and hide the thought block the way the UI hides it mid-sentence, but do no markdown
 // parsing and no sanitising. That work belongs to the final render, once, not to every frame.
+// CHOICES_LEAK_RESCUE_v1: a choices tool call a model wrote into its answer as text is taken out on the
+// server when the turn ends (providers/adapter_base.py::rescue_leaked_choices). While the answer is still
+// arriving it is hidden from where it starts, so the JSON is never typed out on screen.
+const LEAKED_TOOL_CALL = /\s*(?:<\/?tool_call>[\s\S]*|\{\s*"(?:name|action)"\s*:\s*"choices"[\s\S]*)$/;
+function hideLeakedToolCall(src) {
+  return String(src || '').replace(LEAKED_TOOL_CALL, '');
+}
+
 function prepareStreamText(src) {
-  let raw = splitChoices(src || '').text;
+  let raw = hideLeakedToolCall(splitChoices(src || '').text);
   const parsedExp = parseExpression(raw);
   if (parsedExp.expression) raw = parsedExp.text;
   const parsedTh = parseThought(raw, true);
