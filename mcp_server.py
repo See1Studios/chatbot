@@ -59,6 +59,11 @@ try:
     import delegation
 except Exception:
     delegation = None
+# WEB_TOOL_v1: read a page / search, for brains that bring no web of their own (the HTTP route)
+try:
+    import web_tool
+except Exception:
+    web_tool = None
 
 
 # Generic/core roots -- always allowlisted regardless of deployment.
@@ -406,6 +411,8 @@ def tool_defs() -> List[dict]:
         defs += list(mcp_core.TOOL_DEFS)
     if delegation is not None:
         defs += list(delegation.TOOL_DEFS)
+    if web_tool is not None:
+        defs += list(web_tool.TOOL_DEFS)
     if HOST_PLUGIN:
         defs += list(getattr(HOST_PLUGIN, "EXTRA_TOOL_DEFS", []))
     if EDITION != "dev":
@@ -645,6 +652,8 @@ def call_tool(name: str, arguments: dict) -> dict:
         if delegation is not None and name in delegation.NAMES:
             return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope, *_live_scope("delegate"))
 
+        if web_tool is not None and name in web_tool.NAMES:
+            return web_tool.call(args, envelope, private=_live_scope("web")[0])
         if mcp_core is not None and name in mcp_core.NAMES:
             return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, mcp_core.RECENT_LIMIT, _live_actor(), *_live_scope("house-memory"))
 

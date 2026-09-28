@@ -2,6 +2,14 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-29 — HTTP 두뇌에 웹: MCP `web` 도구 (WEB_TOOL_v1, #376)
+
+- **증상**: OpenRouter Space Bunny가 웹을 못 씀. CLI 두뇌는 웹 도구가 내장, HTTP 경로는 우리가 넘긴 MCP 도구(17개)뿐이고 웹이 없었음.
+- **변경**: `web_tool.py` — `web {action: read|search}`. 백엔드는 agent-reach(이 호스트에서 웹을 제일 잘 쓰는 리서치 라우터)가 고른 키 없는 서비스를 CLI 없이 차용: 읽기 Jina Reader(실패하면 직접 가져와 본문 추출), 검색 Exa 공개 MCP(실패하면 DuckDuckGo lite — html 페이지는 이 IP에 캡차). `CHATBOT_WEB_READER`·`CHATBOT_WEB_SEARCH`로 교체·끄기. **공개 인터넷만**: 루프백·사설·링크로컬·tailnet 주소로 풀리는 호스트는 연결 전·리다이렉트마다 거절(사적 세션 기록 등 집 안 서비스 보호, 제3자 리더에도 넘기지 않음). **사적 세션에선 닫힘**(검색어로 사적 대화가 나가지 않게).
+- **확인**: 실측 — Exa 검색 3건, Jina로 SillyTavern 문서 읽기, 127.0.0.1·localhost·100.x·file://·diskstation 거절.
+- **배포**: ⚡(MCP 서버).
+- **테스트**: `tests/test_web_tool.py`(오프라인: 가짜 DNS·응답), `test_mcp_server` 도구 목록에 `web`.
+
 ## 2026-09-29 — 그림 관리 모달 v0: 갤러리에서 골라 칸에 (ART_MANAGER_v1, am/B·am/C #375)
 
 - **계기**: 코코가 위임으로 그린 그림(`characters/<노노>/gallery/nono-desk-01.png`, #371)을 볼 곳이 없었음. 그림을 직접 할당할 방법도 없음.
