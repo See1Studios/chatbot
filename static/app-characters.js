@@ -179,6 +179,8 @@ function updateBrandAvatar(providerId) {
   if (brandAvatarEl) {
     brandAvatarEl.onerror = () => { brandAvatarEl.onerror = null; brandAvatarEl.src = ch ? initialAvatar(who) : portraitUrl(p); };
     brandAvatarEl.src = characterPortrait(ch, p);
+    // BUBBLE_AVATAR_v1: the same picture opens each run of the character's bubbles (chat-log.css)
+    document.documentElement.style.setProperty('--char-avatar', 'url("' + brandAvatarEl.src.replace(/"/g, '%22') + '")');
     brandAvatarEl.alt = who;
     brandAvatarEl.title = `${who} · 캐릭터 선택 (클릭)`;
   }

@@ -729,20 +729,21 @@ function syncChoiceChips() {
   });
 }
 
+// The emoji alone of an expression label (EXPRESSION_EMOJIS holds "emoji word").
+function expressionEmoji(expression) {
+  const label = EXPRESSION_EMOJIS[expression];
+  return label ? label.split(' ')[0] : '\u{1F3AD}';
+}
+
 function paintExpressionBadge(node, rawText) {
-  // STREAM_FLOW_v1: the emotion badge is the one piece of post-processing cheap enough to keep
-  // while the answer is still streaming, so the character keeps showing how it feels while it
-  // speaks instead of only after the sentence lands.
+  // STREAM_FLOW_v1: the expression is the one piece of post-processing cheap enough to keep while the answer is
+  // still streaming, so the character keeps showing how it feels while it speaks.
+  // BUBBLE_AVATAR_v1: no chip in the text any more -- the bubble carries the expression and the character's
+  // picture above its run shows it (chat-log.css). Attributes on the bubble outlive the text's re-renders.
   const parsedExp = parseExpression(rawText);
   if (!parsedExp.expression) return;
-  const md = node.querySelector('.md') || node;
-  let badge = node.querySelector('.exp-badge');
-  if (!badge) {
-    badge = document.createElement('span');
-    badge.className = 'badge exp-badge';
-    md.insertBefore(badge, md.firstChild);
-  }
-  badge.textContent = EXPRESSION_EMOJIS[parsedExp.expression] || ('\u{1F3AD} ' + parsedExp.expression);
+  node.dataset.expression = parsedExp.expression;
+  node.dataset.exp = expressionEmoji(parsedExp.expression);
 }
 
 // STREAM_FLOW_v1: the cheap projection of a still-growing answer -- strip what the model emits as
