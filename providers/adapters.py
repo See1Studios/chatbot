@@ -117,10 +117,10 @@ _media.register_media_source(GrokMediaSource())
 
 # Display facts per provider for the catalog (/api/providers). A provider is a vendor, not the persona.
 PROVIDER_META: Dict[str, Dict[str, str]] = {
-    "agy": {"name": "Antigravity", "role": "Google Antigravity", "theme": "spark", "icon": "/chat/persona/providers/agy.webp?v=9"},
-    "claude": {"name": "Claude", "role": "Anthropic AI", "theme": "amber", "icon": "/chat/persona/providers/claude.webp?v=10"},
-    "grok": {"name": "Grok", "role": "xAI Explorer", "theme": "mono", "icon": "/chat/persona/providers/grok.webp?v=6"},
-    "codex": {"name": "Codex", "role": "OpenAI Engine", "theme": "emerald", "icon": "/chat/persona/providers/codex.webp?v=10"},
+    "agy": {"name": "Antigravity", "role": "Google Antigravity", "theme": "spark", "icon": "/chat/providers/agy.webp?v=9"},
+    "claude": {"name": "Claude", "role": "Anthropic AI", "theme": "amber", "icon": "/chat/providers/claude.webp?v=10"},
+    "grok": {"name": "Grok", "role": "xAI Explorer", "theme": "mono", "icon": "/chat/providers/grok.webp?v=6"},
+    "codex": {"name": "Codex", "role": "OpenAI Engine", "theme": "emerald", "icon": "/chat/providers/codex.webp?v=10"},
 }
 
 

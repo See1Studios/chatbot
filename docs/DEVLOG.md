@@ -1,5 +1,13 @@
 # chatbot 개발로그
 
+## 2026-09-28 — 프로바이더 아이콘을 엔진 쪽으로 (uds/C6, #299)
+
+- **배경**: 프로바이더 아이콘 12개(webp+png)가 사용자 데이터(`data/persona/providers/`)에 있었다. 엔진 UI 자산이라 데이터가 `~/.pe`로 가면 엔진이 못 보여준다.
+- **변경**: `static/providers/`로 이동(`git mv`), 주소는 `/chat/providers/<id>.webp`. `providers/adapters.py` 기본 메타, `server.py` 기본 아이콘(줄 수 그대로, 1499/1500), `static/app-characters.js`·`index.html`, 이 설치의 `data/providers.json` 두 줄.
+- **끊김 없음**: 정적 경로는 돌고 있는 서버도 바로 서빙(200 확인). 옛 주소는 이 NAS에서 웹 루트의 사본으로 계속 열린다.
+- **남김**: `data/persona/providers/bg/`(무대 배경)는 다른 에이전트의 미추적 작업이라 건드리지 않았다. 추적할 때 같은 자리(`static/providers/bg/`)로 오는 게 맞다.
+- **비용**: 파이썬 모듈(`adapters.py`·`server.py`) — ⚡ 필요. 브라우저는 새로고침.
+
 ## 2026-09-28 — 역할 팩 파일 이름 ROLE.md·PROCEDURE.md, 1단계 코드 (pew/R, #298)
 
 - **배경**: 이름 규칙(상시 문서는 대문자, `SKILL.md`처럼)에 역할 팩만 `role.md`·`procedure.md`로 남아 있었다.

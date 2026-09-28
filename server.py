@@ -488,7 +488,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     "name": meta.get("name", pid),
                     "role": meta.get("role", "AI Provider"),
                     "theme": meta.get("theme", "lime"),
-                    "icon": meta.get("icon", f"/chat/persona/providers/{pid}.webp"),
+                    "icon": meta.get("icon", f"/chat/providers/{pid}.webp"),
                 })
             code, body = _json_bytes({"providers": providers, "default": DEFAULT_PROVIDER})
             return self._send(code, body, "application/json; charset=utf-8")

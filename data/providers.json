@@ -21,7 +21,7 @@
         "name": "OmniRoute",
         "role": "Universal Router",
         "theme": "cyan",
-        "icon": "/chat/persona/providers/omniroute.webp?v=10"
+        "icon": "/chat/providers/omniroute.webp?v=10"
       }
     },
     "openrouter": {
@@ -42,7 +42,7 @@
         "name": "OpenRouter",
         "role": "Global Model Gateway",
         "theme": "lime",
-        "icon": "/chat/persona/providers/openrouter.webp?v=13"
+        "icon": "/chat/providers/openrouter.webp?v=13"
       },
       "default_params": {
         "max_tokens": 2048,

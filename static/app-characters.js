@@ -134,7 +134,7 @@ function themeForProvider(p) {
 
 const PORTRAIT_CACHE = 'v=12';
 function portraitUrl(p) {
-  const raw = (p && (p.icon || `/chat/persona/providers/${p.id}.webp`)) || '/chat/persona/face-icon.webp';
+  const raw = (p && (p.icon || `/chat/providers/${p.id}.webp`)) || '/chat/persona/face-icon.webp';
   return String(raw).split('?')[0] + '?' + PORTRAIT_CACHE;
 }
 
