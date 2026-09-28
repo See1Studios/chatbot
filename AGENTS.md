@@ -94,7 +94,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
 
 ## Work procedure
 
-1. Start only from the operator's words or an approved ticket. External CLI: `python3 ~/bin/ticket-quick start --title "[<plan id>] …" --paths a,b`. Keep the claim token (it cannot be recovered).
+1. Start only from the operator's words or an approved ticket. External CLI: `python3 tools/ticket_quick.py start --title "[<plan id>] …" --paths a,b` (`~/bin/ticket-quick` points here; add `--actor <you>` when detection prints `unknown-cli`). The claim token cannot be recovered from the ticket store; it is kept in a private token file (`TOKEN_FILE=`), so `done`/`fail`/`renew` work without `--token`.
 2. Change only the claimed paths.
 3. `./run-tests.sh` (all) or `./run-tests.sh test_x …`; green before commit. The commit hooks (`.githooks/`, install once per clone: `git config core.hooksPath .githooks`) rerun the guard tests and check the message.
 4. Commit only your paths. Author = your agent (e.g. `git -c user.name="Claude Code" …`); Conventional Commits; trailers:
@@ -102,7 +102,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
    Plan: <plan>/<item>
    Ticket: #<n>
    ```
-5. Release the ticket (`ticket-quick done`), note the commit. Host module changed → tell the operator ⚡ is needed; restart only when the operator is idle or agrees.
+5. Release the ticket (`ticket-quick done --id <n>`), note the commit. Host module changed → tell the operator ⚡ is needed; restart only when the operator is idle or agrees.
 6. Notable work → one block at the top of `docs/DEVLOG.md`.
 
 Push/deploy: `~/AGENTS.md`. Remote `See1Studios/chatbot` (private). No `.bak-*` files.

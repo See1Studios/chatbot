@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-09-28 — ticket-quick을 저장소로 (pew/K, #293)
+
+- **배경**: `~/bin/ticket-quick`은 저장소 밖에 있어 경로가 `/volume1/...`로 고정되고, 테스트도 이력도 없었다(P10). 오늘 클레임 토큰을 출력 필터로 두 번 잃어 운영자가 터미널에서 `drop-lease`를 해야 했다.
+- **변경**: `tools/ticket_quick.py` — 같은 명령줄(start·claim·done·fail·renew·await-merge·merge-go), 데이터 폴더는 `host_config.DATA`. 토큰은 사용자별 `~/.local/state/chatbot-claims/<설치태그>-<id>.token`(0600, 폴더 0700)에도 남고, `--token`을 빼면 그 파일을 읽는다. done/fail/await-merge가 지운다. 데이터 폴더 밖에 두는 이유: 생성된 에이전트는 저장소·데이터만 보므로 남의 토큰을 못 줍는다. opencode 실행 파일도 행위자로 인식. `~/bin/ticket-quick`은 이 파일로 넘기는 포인터만 남김. `tools/worktree_runner.py`도 저장소 사본을 부른다.
+- **테스트**: `tests/test_ticket_quick.py` 6개 — `CHATBOT_DATA` 폴더에 쓰는지, 토큰 파일 권한, 토큰 없이 done, 파일 없을 때 안내.
+- **기준선**: 전체 스위트는 커밋 전에 따로 돌림(아래 커밋 참조). 호스트 모듈 변경 없음 — ⚡ 불필요.
+
 ## 2026-09-28 — 정적 자산 재검사 + 압축 (STATIC_DELIVERY_v1, #287)
 
 - **배경**: 운영자 요청 — 프런트 로딩/렌더링이 느린 느낌. 추측으로 손대지 않고 층별로 잰다. 데스크톱 브라우저가 이 세션에 연결돼 있지 않아 트레이스를 못 써, 전송 계층을 curl/HTTP로 잰다.

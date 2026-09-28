@@ -235,7 +235,7 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 | `pew/H` | ADR 도입 + `0001-user-data-default-pe.md`(`~/.pe` 결정 소급) | `docs/decisions/` | MADR 축약 형식, 루트 AGENTS.md 정본 지도에서 링크 | 0 · — | S | D1 | 대기 |
 | `pew/I` | `test_plan_items`(항목 표·티켓 대조) | `tests/test_plan_items.py` | 파일럿 두 문서에서 통과, 틀린 `#N`은 실패 | 3 · — | M | pew/J | 대기 |
 | `pew/J` | **파일럿**: release-pipeline·user-data-separation을 §6 표준으로 개편(P1–P3 해소, `rp/*`·`uds/*` 재정의, `test_data_paths`는 `uds/B`에 포함) | 두 계획 문서 | 항목마다 §7 DoR 충족, 문서 간 모순 0건 | 0 · — | M | pew/G | 대기 |
-| `pew/K` | `~/bin/ticket-quick` → `tools/ticket_quick.py` + 테스트, `~/bin`에는 포인터만 | `tools/ticket_quick.py`, `tests/`, `~/bin/ticket-quick` | 기존 명령줄 사용법 그대로 동작, 경로는 `host_config`에서 | 3 · — | S | uds/B | 대기 |
+| `pew/K` | `~/bin/ticket-quick` → `tools/ticket_quick.py` + 테스트, `~/bin`에는 포인터만 | `tools/ticket_quick.py`, `tests/`, `~/bin/ticket-quick` | 기존 명령줄 사용법 그대로 동작, 경로는 `host_config`에서 | 3 · — | S | uds/B | ✅ #293 |
 | `pew/L` | 역할별 개발 안내(2026-09-27 운영자): 챗봇은 여러 캐릭터가 역할을 나눠 맡으므로, 개발 규칙 포인터(루트 `AGENTS.md`, `--no-verify` 금지, "아키텍처 책임자" 역할)는 **개발에 관여하는 역할 팩에만**, 개발 작업일 때만 싣는다. 공용 헌장(`data/workspace/AGENTS.md`)에는 넣지 않고, 지금 공용 헌장에 있는 개발 절(Self-modification)도 역할 팩으로 옮길 수 있는지 검토 | `data/workspace/roles/<개발 역할>/`, `data/workspace/AGENTS.md` | 개발 역할이 아닌 캐릭터의 주입 묶음에 개발 규칙이 없음(테스트), `test_bundle_budget` 녹색 | 3 · — | M | pew/C | 대기 |
 | `pew/M` | CHANGELOG 자동화(`rp/A`와 합침) | release 쪽 | `git-cliff`로 `Unreleased` 생성 | 1 · — | S | D5 | 대기 |
 

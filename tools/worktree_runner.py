@@ -59,7 +59,7 @@ from typing import Dict, List, Optional
 CODE_DIR = Path(__file__).resolve().parents[1]      # where the host modules this tool imports live
 CHATBOT_REPO = CODE_DIR                              # the repository it works on
 WORKTREE_BASE = Path.home() / ".worktrees" / "chatbot"
-TICKET_QUICK = [sys.executable, str(Path.home() / "bin" / "ticket-quick")]
+TICKET_QUICK = [sys.executable, str(CODE_DIR / "tools" / "ticket_quick.py")]   # pew/K: the repo copy
 # smoke plus the repo-wide guards (design doc §7-9, NAME_NEUTRAL_v1); a few seconds each
 def guard_gate(repo: Path) -> Optional[str]:
     """`./run-tests.sh` over the FAST guard list in run-tests.sh (its SSOT), each module named as a path so that
