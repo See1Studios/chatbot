@@ -139,12 +139,15 @@ Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)
 | Codex | **ChatGPT Free·Go 포함 모든 플랜에 Codex 포함**, 한도는 플랜별 | [Help Center](https://help.openai.com/en/articles/11369540/), [Codex Pricing](https://chatgpt.com/codex/pricing/) |
 | OpenAI | 사용 정책은 미성년 성적화 전면 금지. 성인 인증 사용자에게 ChatGPT 성인 콘텐츠 허용 방침 보도(2025-10) — **ChatGPT 제품 얘기이며 Codex·API에 적용되는지는 미확인** | [Usage policies](https://openai.com/policies/usage-policies/), Reuters 2025-10-14 |
 | 제타 | 2024-04 오픈 베타, 2024-11 흑자 전환, 2025 2분기 매출 약 52억 원·영업이익률 17%. **한국 서버는 15세 이용가 기준**(일본은 같은 15세라도 수위 높음). 광고 기반 무료 + 자체 소형 모델. MAU 약 142만, 1인 월 약 40시간 | [AI타임스 2025-07-14](https://www.aitimes.com/news/articleView.html?idxno=200613), [벤처스퀘어](https://www.venturesquare.net/1097430/) |
+| MiniTavern | ST 카드 호환 **모바일** 앱(iOS·Android), 20여 개 언어, **유료 회원에게 전용 모델**(최신 상용 모델) 제공, 카드 매니저 크롬 확장 | [mini-tavern.com](https://mini-tavern.com/) |
+| Marinara Engine | 오픈소스 AI 롤플레이 프론트엔드(AGPL-3.0, ★677, 활발히 개발 중). 테마·확장 생태계가 붙기 시작 — **PE와 같은 자리의 무료 경쟁자** | [Pasta-Devs/Marinara-Engine](https://github.com/Pasta-Devs/Marinara-Engine) |
 
 ### 7.2 포지셔닝
 
 - **넓이는 창작마당, 깊이는 엔진.** 제타는 콘텐츠를 서비스 안에 쌓고, 우리는 창작마당(Wallpaper Engine과 같은 구조)에 쌓는다. 한 사람의 개인화는 각자 PC에 쌓인다(기조 그대로).
 - **모델은 "내 구독으로 로그인"이 기본.** Google 계정(Antigravity)·ChatGPT 계정(Codex) 무료 플랜으로 키 없이 시작, API 키는 고급. 제타의 "무료·설정 없음"에 대응하는 우리 답이고, 서버 비용이 없다. R7(무료층)의 답이기도 하다.
 - **수위는 제타 선례를 따른다.** 제타는 15세 이용가로 한국 1위다. Steam 규정(실시간 AI 성인 성적 콘텐츠 불가)과 두 구독 제공자의 정책이 같은 방향을 가리킨다.
+- **ST 카드는 업계 표준 규격이다.** MiniTavern·Marinara 모두 ST 카드 호환으로 물량을 얻는다. 우리도 가져오기가 입구(R12). 차별은 호환이 아니라 "키 없는 무료 구독 접근"(MiniTavern은 모델을 회원제로 판다)과 창작마당·데스크톱 무대다.
 
 ### 7.3 결정 (운영자 확인 필요)
 

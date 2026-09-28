@@ -31,6 +31,8 @@ CONCEPT·PRODUCT는 "설정 없이 바로 대화", "설정은 나중에"라고 �
 | Character.AI 만들기 | 이름·인사말·설명 몇 칸으로 카드 완성 | 공개 게시 흐름 |
 | SillyTavern 카드 | 카드 형식(`chara_card_v2`) 그대로 — 이미 우리 정본 | 필드 전체 노출 |
 | [cha1latte/sillytavern-character-generator](https://github.com/cha1latte/sillytavern-character-generator) (MIT, 2026-09-28 운영자 제보) | "대화로 만들기"의 기본안: 질문 2–3개 → 요약 확인 → Card V2 생성, 매 턴 칸 600–1,000토큰 배분(설명 60–70%·성격 10–15%·상황 15–25%), 상황은 지시형, 예시 대화에 사용자 대사 금지, 열린 첫 인사, JSON 검증 목록. **착수 때 스킬로 가져온다**(출처 표기) | "`extensions` 넣지 말 것" 규칙 — 우리는 거기에 호칭·말투·`item_prefs`를 둔다. 정본 인물(캐논) 재현 절차는 저작권 방침(R13)과 함께 판단 |
+| [bmen25124/SillyTavern-Character-Creator](https://github.com/bmen25124/SillyTavern-Character-Creator) (MIT, ★180, 2026-09-28 운영자 제보) | **사용자 자신의 데이터를 재료로 넣는다**(기존 캐릭터·로어북 → 우리는 사용자 프로필·기억·기존 친구). 필드마다 다시 생성·대화로 고치기 → 단계별 "다시 추천" 버튼 | 설정 화면 가득한 연결 프로필·출력 형식 옵션(모델은 두뇌 연결 한 번으로 끝) |
+| [shadowtheimpure/SillyTavern-Character-Card-Generator](https://github.com/shadowtheimpure/SillyTavern-Character-Card-Generator) (라이선스 없음 → 아이디어만, 2026-09-28 운영자 제보) | **카드와 얼굴을 한 흐름에서**: 텍스트 생성 뒤 초상화 생성(ComfyUI·Grok·OpenAI 이미지) → D9 | 3단 설정 패널, 세계관 프리셋 목록 나열 |
 
 ## 4. 흐름 (초안) — 소환 마법사
 
@@ -72,6 +74,7 @@ flowchart LR
 | D6 | 시각 디자인 | 흐름·데이터는 지금, 화면 모양·소환 연출은 align/K(보류)에서. v0는 현재 스타일 + 간단한 전환 | 대기 |
 | D7 | 은유와 단계 | "만들기"가 아니라 **소환**. 단계 0–7(§4), 모든 단계에 추천값과 "바로 소환" | 대기 |
 | D8 | 이름 단계 위치 | 마지막 확정 입력(모습·성격을 본 뒤 짓는 이름이 애착이 크다). 추천 이름은 앞 단계 선택에 맞춰 제안 | 대기 |
+| D9 | 초상화 생성 단계 | v0는 넣지 않는다(D3: 프리셋 + 플레이스홀더). 이미지 프로바이더가 붙으면 7. 소환 직전에 "얼굴 그리기"를 선택 단계로 — 없으면 플레이스홀더 그대로 | 대기 |
 
 ## 6. 항목
 
