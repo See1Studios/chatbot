@@ -72,14 +72,13 @@ class Upload(unittest.TestCase):
         self.assertEqual(up("empty.txt", b"")[0], 400)
         self.assertFalse((self.tmp / SID / "uploads").exists() and any((self.tmp / SID / "uploads").iterdir()))
 
-    def test_at_most_ten_wait_for_one_message(self):
-        for i in range(U.MAX_PENDING):
-            self.assertEqual(up("f%d.txt" % i)[0], 200)
+    def test_one_file_waits_for_one_message(self):
+        self.assertEqual(U.MAX_PENDING, 1, "the page replaces an attached file; the server holds one")
+        self.assertEqual(up("f.txt")[0], 200)
         self.assertEqual(up("one-more.txt")[0], 400)
 
     def test_the_x_takes_one_back_and_deletes_it(self):
         f = up("a.txt")[1]["file"]
-        up("b.txt")
         body = json.dumps({"name": f["name"]}).encode()
         code, res = U.handle("/api/sessions/%s/upload/remove" % SID, {"Content-Length": str(len(body))}, io.BytesIO(body))
         self.assertEqual((code, res["removed"]), (200, True))

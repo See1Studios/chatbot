@@ -1,23 +1,48 @@
 // app-turn.js -- split out of app.js (APP_SPLIT_v1, docs/plans/monolith-split.md Phase 5). Declarations only: it
 // loads before app.js, which runs everything that happens at load (listeners, timers, boot). Top-level code
 // here may use the page's DOM, never a binding from a later file.
+// SEND_VALIDATE_v1: the send button is live only when there is something to send -- text, and no attached file
+// still uploading (app-attach.js) -- so a dimmed button already says "not yet". The plain send is an Enter glyph;
+// the two busy-time actions keep their words, because they do something other than send.
+const SEND_ICON = '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+const SEND_TEXT = { send: '보내기', sendKey: '보내기 (Enter)', btw: '샛길 질문', steer: '끼워 넣기' };   // l10n-ok
+
+function composerSendable(val) {
+  if (!val) return false;
+  if (typeof attachBusy === 'function' && attachBusy()) return false;
+  return true;
+}
+
+function setSendFace(label) {
+  if (label) {
+    sendBtn.textContent = label;
+    sendBtn.dataset.face = 'text';
+  } else if (sendBtn.dataset.face !== 'icon') {
+    sendBtn.innerHTML = SEND_ICON;
+    sendBtn.dataset.face = 'icon';
+  }
+  sendBtn.setAttribute('aria-label', label || SEND_TEXT.send);
+  sendBtn.title = label || SEND_TEXT.sendKey;
+}
+
 function updateSendButton() {
+  const val = inputEl.value.trim();
+  sendBtn.disabled = !composerSendable(val);
   if (!isBusy) {
-    sendBtn.textContent = '보내기';
+    setSendFace('');
     sendBtn.classList.remove('btw-btn', 'queue-btn');
     return;
   }
-  const val = inputEl.value.trim();
   if (!val) {
-    sendBtn.textContent = '보내기';
+    setSendFace('');
     sendBtn.classList.remove('btw-btn');
     sendBtn.classList.add('queue-btn');
   } else if (isInquiry(val)) {
-    sendBtn.textContent = '샛길 질문';
+    setSendFace(SEND_TEXT.btw);
     sendBtn.classList.remove('queue-btn');
     sendBtn.classList.add('btw-btn');
   } else {
-    sendBtn.textContent = '끼워 넣기';
+    setSendFace(SEND_TEXT.steer);
     sendBtn.classList.remove('btw-btn', 'queue-btn');
   }
 }

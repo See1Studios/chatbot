@@ -22,7 +22,7 @@ from urllib.parse import unquote
 import host_config
 
 MAX_BYTES = 20 * 1024 * 1024        # D3: one file
-MAX_PENDING = 10                    # D3: one message
+MAX_PENDING = 1                     # one file per message (operator, 2026-09-28; was D3's 10)
 PREFIX = "/api/sessions/"
 _SID = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
 # The same names the file preview refuses (preview_guard._SECRET_NAME_RE): what would be refused on the way out
