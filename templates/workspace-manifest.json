@@ -1,0 +1,36 @@
+{
+  "notes": "Shipped workspace template (user-data-separation uds/C5). templates/workspace/ is what a new install copies into an empty data folder (uds/D); data/workspace/ is this development install's live copy. Every tracked data/workspace file outside the per-user folders is listed once: 'same' = the template copy must stay byte-equal (edit both, or move the path to 'variant' with a reason); 'variant' = the template has its own version on purpose; 'not_shipped' = no template copy, with the reason. tests/test_workspace_template.py enforces it.",
+  "per_user": ["characters/", "skill-observations/", "memory/"],
+  "same": [
+    ".gitignore",
+    ".mcp.json",
+    ".gemini/config/mcp_config.json",
+    "roles/artist/role.md",
+    "tools/memory.py",
+    "tools/recall_memory.py",
+    ".agents/skills/fact-check/SKILL.md",
+    ".agents/skills/anime-layer-animator/SKILL.md",
+    ".agents/skills/anime-layer-animator/scripts/inspect_layers.py",
+    ".agents/skills/anime-layer-animator/scripts/run_see_through.py"
+  ],
+  "variant": {
+    "AGENTS.md": "the shipped charter: no host law, no host paths, no engine work, reply in the user's language",
+    "team.json": "empty roster until the premade pack is chosen (uds C3)"
+  },
+  "not_shipped": {
+    "PROJECT.md": "engine code map for the dev role (pew/L)",
+    "SELF-MODIFY.md": "engine self-modification boundary (dev build only)",
+    "CROSS-CUTTING-PRINCIPLES.md": "engine design rationale, never injected",
+    "roles/dev/role.md": "engine work role (dev build only, pew/L)",
+    "roles/dev/procedure.md": "engine work role (dev build only, pew/L)",
+    "roles/pd/role.md": "delegation role; delegate is not in the shipped build (edition-boundary)",
+    "roles/pd/procedure.md": "delegation role; delegate is not in the shipped build (edition-boundary)",
+    "roles/staff/role.md": "delegated worker role; delegate is not in the shipped build (edition-boundary)",
+    "tools/token_audit.py": "engine token accounting (dev)",
+    "tools/lunar_calendar.py": "personal utility (Korean lunar holidays, needs lunardate)",
+    ".agents/skills/nas-sphere/SKILL.md": "host plugin skill (NAS install only, align/F)",
+    ".agents/skills/character-art/SKILL.md": "runs engine-repo tools and host paths; waits for edition E (user-facing tool route)",
+    ".agents/skills/character-pipeline/SKILL.md": "runs engine-repo tools and host paths; waits for edition E (user-facing tool route)",
+    ".agents/skills/image-brief/SKILL.md": "points at character-art and studio identity; ships with it"
+  }
+}

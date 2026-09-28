@@ -39,6 +39,7 @@ project's goals (`docs/CONCEPT.md` direction, active plans in `docs/plans/INDEX.
 | PE chat agent behaviour | `data/workspace/AGENTS.md` (+ role packs `data/workspace/roles/<role>/`; engine-work rules only in `roles/dev/`) |
 | Architecture: layers, adapters, plugin layer, ST split | `docs/ARCHITECTURE.md` |
 | Data paths, ports, env | `host_config.py` |
+| Shipped workspace defaults (charter, roles, tools, skills a new install starts with) | `templates/workspace/` + `templates/workspace-manifest.json` (what ships, what stays dev-only) |
 | Per-install settings (edition, host plugin on/off, web root, ports) | `$CHATBOT_DATA/host.env`, read by `chatbot-ctl.sh` (options: `templates/host.env.example`) |
 | Plan status | `docs/plans/INDEX.md` |
 | Plan item progress | tickets (`tickets.py`, `python3 tickets.py list`) |
@@ -138,6 +139,7 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Every registry row names an audience and a real enforcer | all | `test_rule_registry` |
 | No new hardcoded Korean in engine/page code (i18n catalogs instead); mark intended lines `l10n-ok` | all | `test_ratchets` (`ratchet_baseline.json`) |
 | No new host/persona identity (DiskStation, `/volume1`, Sphere, 실장님, 냥) in engine code outside the host plugin | all | `test_ratchets` |
+| A tracked `data/workspace` file is classified in `templates/workspace-manifest.json`; `same` pairs stay byte-equal; the template names no host and no engine work | all | `test_workspace_template` |
 | Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |
 | Agent-facing text in English; human docs Korean | all | manual |
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |

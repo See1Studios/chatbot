@@ -81,7 +81,7 @@
 | C2 | 개발판 기록(티켓·관찰, 274개) | 개발 저장소에 그대로 둔다(개발판은 `CHATBOT_DATA=$CODE/data`). 배포 패키지에서는 제외(edition/F) | 결정 2026-09-28 (운영자: 추천대로) |
 | C3 | 기본 캐릭터 | 프리메이드 팩 후보를 운영자가 고른다. 고른 캐릭터에서 사적 규칙·기억 등 개인 부분을 걷어 템플릿으로. 가져온 저작권 캐릭터(예: 게임 캐릭터 카드)는 팩에서 제외 | 보류 — 운영자가 프리메이드 팩 후보를 고른 뒤 |
 | C4 | 개인 정보·런타임 파일(45개) | **지금 추적 해제**(`git rm --cached` + `.gitignore`, 파일은 로컬에 남음). 과거 이력에 남은 부분의 정리(히스토리 재작성)는 운영자가 따로 결정(release-pipeline What NOT) | 결정·실행 2026-09-28 (#290: 44개 추적 해제, 파일은 로컬에 남음; 과거 이력 정리는 별도 결정) |
-| C5 | 템플릿으로 갈 파일(약 60개)의 이동 방식 | `templates/workspace/`로 **복사**해 정본으로 두고, 개발 설치의 `data/` 쪽은 그대로(부트스트랩이 빈 `~/.pe`에만 복사, uds/D) | 결정 2026-09-28 (운영자: 추천대로) |
+| C5 | 템플릿으로 갈 파일(약 60개)의 이동 방식 | `templates/workspace/`로 **복사**해 정본으로 두고, 개발 설치의 `data/` 쪽은 그대로(부트스트랩이 빈 `~/.pe`에만 복사, uds/D) | 결정·실행 2026-09-28 (#295: `templates/workspace/` 12개 + `templates/workspace-manifest.json`. 목록의 모든 파일이 `same`(바이트 동일)·`variant`(배포판 전용 판)·`not_shipped`(이유와 함께) 중 하나. 헌장·`team.json`은 배포판 판. pd·staff·dev 역할, PROJECT·SELF-MODIFY는 개발판 전용. character-art·character-pipeline·image-brief는 엔진 도구 경로가 생길 때까지(edition E) 보류. `providers.json` 기본값은 BYOK 온보딩(uds/D)에서. 집행: `test_workspace_template`(FAST)) |
 | C6 | 프로바이더 아이콘 | `static/providers/`로 옮긴다(엔진 UI 자산) | 결정 2026-09-28 (운영자: 추천대로) |
 
 ## 3. 아키텍처 및 경로 추상화 설계

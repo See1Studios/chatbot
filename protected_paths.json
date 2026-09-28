@@ -30,7 +30,8 @@
     ".githooks/",
     "run-tests.sh",
     "ratchet_baseline.json",
-    "engine_data/"
+    "engine_data/",
+    "templates/"
   ],
   "except": [
     {
@@ -240,6 +241,18 @@
     {
       "path": "tests/test_data_paths.py",
       "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_workspace_template.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "templates/workspace/AGENTS.md",
+      "reason": "the shipped charter"
+    },
+    {
+      "path": "templates/workspace-manifest.json",
+      "reason": "what the shipped workspace holds (uds/C5)"
     }
   ]
 }

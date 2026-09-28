@@ -31,6 +31,7 @@ FAST=(
   test_ratchets
   test_edition_boundary
   test_data_paths
+  test_workspace_template
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

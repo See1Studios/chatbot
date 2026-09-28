@@ -1,5 +1,14 @@
 # chatbot 개발로그
 
+## 2026-09-28 — 배포판 작업공간 템플릿 + 어긋남 가드 (uds/C5, #295)
+
+- **배경**: 배포판 새 설치는 빈 `~/.pe`에서 시작하므로, 처음 복사할 기본 작업공간(헌장·역할·도구·스킬)이 필요하다. C5 결정은 "복사해 정본으로 두고 개발 설치의 `data/`는 그대로". 사본이 둘이면 어긋나기 마련이라 집행자를 같이 붙였다.
+- **변경**: `templates/workspace/` 12개. 10개는 개발 설치와 바이트 동일(`.gitignore`, MCP 설정 2개, artist 역할, `memory.py`·`recall_memory.py`, fact-check·anime-layer-animator 스킬). 헌장은 배포판 판(호스트 법·호스트 경로·엔진 작업 없음, 사용자 언어로 답), `team.json`은 빈 명단(C3 대기). `templates/workspace-manifest.json`이 `data/workspace`의 추적 파일 26개를 전부 `same`/`variant`/`not_shipped`(이유 포함)로 분류.
+- **버그 수정**: `data/workspace/tools/recall_memory.py`가 세션 폴더를 `/volume1/...`로 박고 있었고, 도구 출력에 페르소나 말투("…냥")가 섞여 있었다. 데이터 폴더 기준 경로 하나로, 문구는 중립으로.
+- **가드**: `tests/test_workspace_template.py`(FAST, 커밋 때마다) — 분류 안 된 새 파일, `same` 쌍 한쪽만 고친 것, 목록에 없는 템플릿 파일, 템플릿 속 호스트 흔적(`/volume1`, 호스트·페르소나 이름 등)과 엔진 작업 규칙을 잡는다. 변이 2종(사본 한쪽 수정, 미분류 파일 추가)이 실패하는 것 확인. `templates/`는 보호 경로, 배포판 헌장·매니페스트는 거버넌스.
+- **남긴 것**: 스킬 3개(character-art·character-pipeline·image-brief)는 엔진 저장소 도구를 부르거나 스튜디오 이름을 담고 있어 edition E(사용자용 도구 경로) 뒤로. `providers.json` 기본값은 BYOK 온보딩(uds/D). 실제 복사(부트스트랩)는 uds/D.
+- **비용**: 데이터·문서·테스트만 — ⚡ 불필요.
+
 ## 2026-09-28 — 개발 규칙을 공용 헌장에서 dev 역할 팩으로 (pew/L, #294)
 
 - **배경**: 공용 헌장(`data/workspace/AGENTS.md`)은 모든 캐릭터에 매 턴 주입된다. 그런데 티켓·클레임·계획·⚡소생 같은 엔진 개발 절차가 거기 있어서, 그림 담당(artist)도, 배포판의 개인 캐릭터도 쓸 일 없는 개발 규칙을 매번 읽고 있었다.
