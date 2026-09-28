@@ -76,6 +76,7 @@ out.textIdlePhone = api.composerPlaceholder('gemini-3.8-flash-low', { compact: t
 out.textBusyDesktop = api.composerPlaceholder('m', { busySec: 7 });
 out.textBusyPhone = api.composerPlaceholder('m', { busySec: 7, compact: true });
 out.textNoModel = api.composerPlaceholder('', {});
+out.textHint = api.composerPlaceholder('m', { busySec: 7, hint: '이 모델은 이미지를 볼 수 없어요' });
 out.modelFirst = ['gemini-3.8-flash-low'].every(m => [{}, { compact: true }, { busySec: 3 }, { busySec: 3, compact: true }].every(o => api.composerPlaceholder(m, o).startsWith(m)));
 
 // 2. after setup the button already names the model
@@ -144,10 +145,12 @@ class ModelPickerBehaviour(unittest.TestCase):
 
     def test_placeholder_always_leads_with_the_model_in_every_state(self):
         self.assertTrue(self.o["modelFirst"])
-        self.assertEqual(self.o["textIdleDesktop"], "gemini-3.8-flash-low · 메시지를 입력… (/ 명령어·스킬, /btw <질문>)")
-        self.assertEqual(self.o["textIdlePhone"], "gemini-3.8-flash-low · 메시지 입력… (/ 또는 /btw)")
-        self.assertTrue(self.o["textBusyDesktop"].startswith("m · 작업 진행 중 (7초)"))
-        self.assertTrue(self.o["textBusyPhone"].startswith("m · 작업 중 (7초)"))
+        # short (operator, 2026-09-28): no skill or /btw lecture, the model and what to do
+        self.assertEqual(self.o["textIdleDesktop"], "gemini-3.8-flash-low · 메시지 입력…")
+        self.assertEqual(self.o["textIdlePhone"], "gemini-3.8-flash-low · 메시지 입력…")
+        self.assertEqual(self.o["textBusyDesktop"], "m · 작업 중 (7초)…")
+        self.assertEqual(self.o["textBusyPhone"], "m · 작업 중 (7초)…")
+        self.assertEqual(self.o["textHint"], "m · 이 모델은 이미지를 볼 수 없어요")
         self.assertTrue(self.o["textNoModel"].startswith("기본 모델 · "))
 
     def test_the_button_names_the_model_from_the_start(self):

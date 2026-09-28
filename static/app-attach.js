@@ -15,8 +15,41 @@ const ATTACH_TEXT = {
   attach: '파일 첨부', gift: '선물하기', remove: '클릭하여 첨부 취소', uploading: '올리는 중…',   // l10n-ok
   preview: '클릭하여 파일 미리보기', failed: '첨부 실패: ', one: '파일은 하나만 첨부할 수 있어요.',   // l10n-ok
   tooBig: '파일이 너무 큽니다 (최대 20 MB)', privateNo: '사적 모드에서는 파일 대신 선물을 건넬 수 있어요.',   // l10n-ok
+  blind: '이 모델은 이미지를 볼 수 없어요 — 이미지를 보는 모델로 바꿔 주세요',   // l10n-ok
 };
 let attachItem = null;         // {label, state: 'uploading'|'ready'|'error', file: server item, error}
+let attachSees = null;         // can the chosen model look at the attached image (null: not asked yet)
+let attachSightKey = '';       // the provider|model it was asked for
+
+function attachImageReady() {
+  return Boolean(attachItem && attachItem.state === 'ready' && attachItem.file && /^image\//.test(attachItem.file.mime || ''));
+}
+
+// The placeholder's hint (app-turn.js refreshComposerPlaceholder): said where the reader is already looking, not in
+// a toast. Asked again whenever the provider or model changes while an image is attached.
+function composerHint() {
+  if (!attachImageReady()) return '';
+  const key = (typeof providerEl !== 'undefined' && providerEl ? providerEl.value : '') + '|' + (typeof modelEl !== 'undefined' && modelEl ? modelEl.value : '');
+  if (key !== attachSightKey) {
+    attachSightKey = key;
+    attachSees = null;
+    attachCheckSight(key);
+  }
+  return attachSees === false ? ATTACH_TEXT.blind : '';
+}
+
+async function attachCheckSight(key) {
+  const [provider, model] = key.split('|');
+  let sees = true;
+  try {
+    const r = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/sees-images?provider='
+      + encodeURIComponent(provider) + '&model=' + encodeURIComponent(model));
+    sees = r.sees !== false;
+  } catch (_) {}
+  if (key !== attachSightKey) return;                  // the model changed again meanwhile
+  attachSees = sees;
+  if (typeof refreshComposerPlaceholder === 'function') refreshComposerPlaceholder();
+}
 
 // {text, files: [{path, mime, size}]}: the message without its attachment list, and the list.
 function splitAttachmentBlock(text) {
@@ -138,6 +171,7 @@ function redrawInlineButton() {
     btn.setAttribute('aria-label', it.label + ', ' + ATTACH_TEXT.remove);
   }
   if (typeof updateSendButton === 'function') updateSendButton();
+  if (typeof refreshComposerPlaceholder === 'function') refreshComposerPlaceholder();
 }
 
 async function attachRemove() {
@@ -194,6 +228,7 @@ async function attachFiles(list) {
   if (attachItem) await attachRemove();                // one file: a new one replaces the old
   const item = { label: file.name || 'file', state: 'uploading' };
   attachItem = item;
+  attachSightKey = '';
   if (file.size > ATTACH_MAX_BYTES) {
     item.state = 'error';
     item.error = ATTACH_TEXT.tooBig;

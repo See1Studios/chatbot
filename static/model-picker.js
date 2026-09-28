@@ -14,17 +14,14 @@ function modelLabel(value) {
 
 // Pure: what the composer placeholder says. The model comes first, so on a narrow screen the
 // ellipsis that textarea::placeholder already has cuts the hint, never the model.
+// Short on purpose (operator, 2026-09-28): the model, then what to do. A hint -- e.g. the model cannot see the
+// attached image (app-attach.js composerHint) -- takes the place of the instruction, since it is what matters now.
 function composerPlaceholder(model, opts) {
   const o = opts || {};
   const m = modelLabel(model);
-  if (typeof o.busySec === 'number') {
-    return o.compact
-      ? `${m} · 작업 중 (${o.busySec}초)… (? 질문 / 지시는 다음 단계에 반영)`
-      : `${m} · 작업 진행 중 (${o.busySec}초)… 질문(?)은 즉시 샛길 답변(/btw), 작업 지시는 지금 단계가 끝나는 대로 반영`;
-  }
-  return o.compact
-    ? `${m} · 메시지 입력… (/ 또는 /btw)`
-    : `${m} · 메시지를 입력… (/ 명령어·스킬, /btw <질문>)`;
+  if (o.hint) return `${m} · ${o.hint}`;
+  if (typeof o.busySec === 'number') return `${m} · 작업 중 (${o.busySec}초)…`;   // l10n-ok
+  return `${m} · 메시지 입력…`;   // l10n-ok
 }
 
 function modelChoices() {

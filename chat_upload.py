@@ -172,6 +172,32 @@ def attached_images(text: str) -> List[Tuple[str, bytes]]:
     return [(mime, p.read_bytes()) for mime, p in attached_image_paths(text)]
 
 
+def handle_get(path: str, query: Dict[str, List[str]]) -> Optional[Tuple[int, Dict]]:
+    """GET /api/sessions/<sid>/sees-images[?provider=&model=]: whether that model can look at an attached image.
+    An HTTP adapter answers from its live catalog (adapter.supports_images); the CLI agents look at the file
+    themselves (checked 2026-09-28: claude, agy, grok from the path, codex through --image), so they count as yes."""
+    if not (path.startswith(PREFIX) and path.endswith("/sees-images")):
+        return None
+    sid = path[len(PREFIX):-len("/sees-images")]
+    if not _SID.match(sid) or ".." in sid:
+        return 400, {"ok": False, "error": "bad session id"}
+    import session
+    sess = session.REG.peek(sid)
+    if sess is None:
+        return 404, {"ok": False, "error": "no such session"}
+    q = lambda k: (query.get(k) or [""])[0].strip()  # noqa: E731
+    adapter = sess.adapter
+    if q("provider") and q("provider") != getattr(adapter, "id", ""):
+        from providers.adapters import get_adapter
+        adapter = get_adapter(q("provider"))
+    model = q("model") or getattr(sess, "model", "") or ""
+    check = getattr(adapter, "supports_images", None)
+    if not callable(check):
+        return 200, {"ok": True, "sees": True}
+    coerce = getattr(adapter, "coerce_openrouter_model", None)
+    return 200, {"ok": True, "sees": bool(check(coerce(model) if callable(coerce) else model))}
+
+
 def take_pending(sid: str, text: str) -> str:
     """The message text with this session's pending attachments appended; clears them. Unchanged without any."""
     with _lock:

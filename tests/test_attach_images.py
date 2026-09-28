@@ -113,6 +113,24 @@ class AdapterSendsThem(Base):
 
 
 
+class WhoCanSee(unittest.TestCase):
+    def ask(self, adapter, model="m", query=None):
+        sess = types.SimpleNamespace(adapter=adapter, model=model)
+        import session
+        with mock.patch.object(session.REG, "peek", return_value=sess):
+            return U.handle_get("/api/sessions/s1/sees-images", query or {})
+
+    def test_the_catalog_answers_for_http_models_and_cli_agents_look_themselves(self):
+        a = OpenAIDialectAdapter(id="or", base_url="http://x/v1", api_key_env="NONE", default_model="m")
+        a._get_models_meta = lambda: {"vision": {"architecture": {"input_modalities": ["text", "image"]}},
+                                      "text-only": {"architecture": {"input_modalities": ["text"]}}}
+        self.assertEqual(self.ask(a, "vision"), (200, {"ok": True, "sees": True}))
+        self.assertEqual(self.ask(a, "text-only"), (200, {"ok": True, "sees": False}))
+        self.assertEqual(self.ask(a, "text-only", {"model": ["vision"]})[1]["sees"], True, "the page's pick wins")
+        cli = types.SimpleNamespace(id="claude")
+        self.assertEqual(self.ask(cli)[1]["sees"], True)
+        self.assertIsNone(U.handle_get("/api/sessions/s1/gifts", {}))
+
 class CodexGetsThemAsFlags(Base):
     def test_this_turn_s_images_become_image_flags_before_the_stdin_marker(self):
         from providers.adapter_codex import CodexAdapter

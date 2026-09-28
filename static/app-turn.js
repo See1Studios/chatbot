@@ -227,7 +227,8 @@ function refreshComposerPlaceholder(busySec) {
   let sec = null;
   if (typeof busySec === 'number') sec = busySec;
   else if (isBusy && turnStartedAt) sec = Math.max(0, Math.floor((Date.now() - turnStartedAt) / 1000));
-  inputEl.placeholder = composerPlaceholder(modelEl ? modelEl.value : '', { compact: window.innerWidth <= 600, busySec: sec });
+  const hint = typeof composerHint === 'function' ? composerHint() : '';
+  inputEl.placeholder = composerPlaceholder(modelEl ? modelEl.value : '', { compact: window.innerWidth <= 600, busySec: sec, hint });
 }
 
 function setBusy(b) {

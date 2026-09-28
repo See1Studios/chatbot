@@ -543,7 +543,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if path == "/api/characters":
             code, body = _json_bytes({"characters": _character_list()})
             return self._send(code, body, "application/json; charset=utf-8")
-        gift = gifts.handle_get(path)   # plus/F: the gift catalog and this character's affection
+        gift = gifts.handle_get(path) or chat_upload.handle_get(path, parse_qs(parsed.query))   # plus/F, sees-images
         if gift:
             return self._send(*_json_bytes(gift[1], gift[0]), "application/json; charset=utf-8")
         art = character_art.handle(path, parse_qs(parsed.query))   # ART_PLACEHOLDER_v1: avatar, stage, sprites
