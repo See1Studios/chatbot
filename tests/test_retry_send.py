@@ -70,13 +70,13 @@ class RetrySend(unittest.TestCase):
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
     def test_nothing_failed_means_a_plain_empty_box(self):
-        self.assertEqual(self.o["fresh"], {"ph": "M · 메시지 입력…", "disabled": True, "face": "icon"})
+        self.assertEqual(self.o["fresh"], {"ph": "메시지 입력…", "disabled": True, "face": "icon"})
 
     def test_a_failed_message_waits_in_the_placeholder_and_an_empty_send_takes_it(self):
         self.assertEqual(self.o["firstSend"], "안녕 오늘 어땠어")
-        self.assertEqual(self.o["failed"], {"ph": "M · ↻ 다시 보내기: 안녕 오늘 어땠어", "disabled": False, "face": "retry"})
+        self.assertEqual(self.o["failed"], {"ph": "↻ 다시 보내기: 안녕 오늘 어땠어", "disabled": False, "face": "retry"})
         self.assertEqual(self.o["resent"], "안녕 오늘 어땠어")
-        self.assertEqual(self.o["afterResend"]["ph"], "M · 메시지 입력…", "sent again, no longer waiting")
+        self.assertEqual(self.o["afterResend"]["ph"], "메시지 입력…", "sent again, no longer waiting")
 
     def test_typing_something_else_drops_it_for_good(self):
         self.assertEqual(self.o["typed"]["face"], "icon")
@@ -93,7 +93,7 @@ class RetrySend(unittest.TestCase):
     def test_only_messages_are_offered_and_only_a_failed_message_post(self):
         self.assertNotIn("다시 보내기", self.o["command"]["ph"], "/new is a command, not a message")
         self.assertNotIn("다시 보내기", self.o["otherApi"]["ph"])
-        self.assertEqual(self.o["postFailed"]["ph"], "M · ↻ 다시 보내기: /act 머리를 쓰다듬는다")
+        self.assertEqual(self.o["postFailed"]["ph"], "↻ 다시 보내기: /act 머리를 쓰다듬는다")
 
     def test_long_text_is_cut_to_its_first_line(self):
         self.assertEqual(self.o["short"], ["가" * 39 + "…", "첫 줄", "가" * 17 + "…"])

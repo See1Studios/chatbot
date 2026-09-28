@@ -29,7 +29,7 @@
   <!-- CSS_SPLIT_v1: the chat stylesheet in parts, in cascade order -->
   <link rel="stylesheet" href="./chat-base.css?v=1" />
   <link rel="stylesheet" href="./chat-log.css?v=3" />
-  <link rel="stylesheet" href="./chat-composer.css?v=5" />
+  <link rel="stylesheet" href="./chat-composer.css?v=6" />
   <link rel="stylesheet" href="./chat-panes.css?v=3" />
   <link rel="stylesheet" href="./chat-responsive.css?v=2" />
   <link rel="stylesheet" href="./chat-features.css?v=1" />
@@ -305,6 +305,7 @@
       <button id="geoBtn" class="geo-trigger-btn" type="button" title="기기 환경 및 위치 정보 동기화 (클릭하여 토글)" aria-label="기기 환경 및 위치 정보 동기화" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
       <button id="privateBtn" class="geo-trigger-btn private-toggle-btn" type="button" title="사적 대화 켜기 (/private on)" aria-label="사적 대화" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
       <textarea id="input" placeholder="메시지를 입력… (/ 입력 시 명령어·스킬)" aria-label="메시지 입력"></textarea>
+      <span id="modelTag" class="model-tag" aria-hidden="true"></span>
       <button id="send" class="primary" aria-label="보내기" title="보내기 (Enter)" disabled data-face="icon"><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></button>
     </div>
   </div>
@@ -364,7 +365,7 @@
   <script src="./app-retry.js?v=1"></script>
   <script src="./app-recall.js?v=2"></script>
   <script src="./app-act-key.js?v=1"></script>
-  <script src="./app-turn.js?v=4"></script>
+  <script src="./app-turn.js?v=5"></script>
   <script src="./app-activity.js?v=1"></script>
   <script src="./app-evolution.js?v=3"></script>
   <script src="./app-status.js?v=1"></script>
@@ -381,7 +382,7 @@
   <script src="./artifacts.js?v=5"></script>
   <script src="./markdown.js?v=19"></script>
   <script src="./slash.js?v=6"></script>
-  <script src="./model-picker.js?v=4"></script>
+  <script src="./model-picker.js?v=5"></script>
   <script src="./service-log.js?v=1"></script>
 </body>
 </html>

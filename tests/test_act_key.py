@@ -80,8 +80,8 @@ class ActKey(unittest.TestCase):
         self.assertEqual(self.o["work"], [False, ""], "work mode keeps Space")
 
     def test_the_placeholder_tells_private_mode(self):
-        self.assertEqual(self.o["phPrivate"], "M · 메시지 입력… (Space: 행동)")
-        self.assertEqual(self.o["phWork"], "M · 메시지 입력…")
+        self.assertEqual(self.o["phPrivate"], "메시지 입력… (Space: 행동)")
+        self.assertEqual(self.o["phWork"], "메시지 입력…")
 
 
 class Wiring(unittest.TestCase):

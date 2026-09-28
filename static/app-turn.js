@@ -232,8 +232,8 @@ function clearTurnLive(node) {
   if (stopBtn && node.contains(stopBtn)) parkStopBtn();
 }
 
-// The composer placeholder always leads with the model in use (operator: 모델 select를 짧은 버튼으로 줄이는
-// 대신 현재 모델은 placeholder로 명확히). The text itself is composerPlaceholder() in model-picker.js.
+// The composer placeholder says what to do, and the model in use sits in its corner tag (operator: 모델 select를
+// 짧은 버튼으로 줄이는 대신 현재 모델은 입력창에 명확히). Both live in model-picker.js.
 function refreshComposerPlaceholder(busySec) {
   if (!inputEl || typeof composerPlaceholder !== 'function') return;
   let sec = null;
@@ -242,7 +242,8 @@ function refreshComposerPlaceholder(busySec) {
   const hint = typeof composerHint === 'function' ? composerHint() : '';
   const retry = !isBusy && typeof retryHint === 'function' ? retryHint() : '';
   const actKey = typeof actKeyOn === 'function' && actKeyOn();
-  inputEl.placeholder = composerPlaceholder(modelEl ? modelEl.value : '', { compact: window.innerWidth <= 600, busySec: sec, hint, retry, actKey });
+  inputEl.placeholder = composerPlaceholder({ compact: window.innerWidth <= 600, busySec: sec, hint, retry, actKey });
+  if (typeof refreshModelTag === 'function') refreshModelTag();   // MODEL_TAG_v1: the model is in the corner
 }
 
 function setBusy(b) {

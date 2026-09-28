@@ -12,19 +12,17 @@ function modelLabel(value) {
   return String(value || '').trim() || '기본 모델';
 }
 
-// Pure: what the composer placeholder says. The model comes first, so on a narrow screen the
-// ellipsis that textarea::placeholder already has cuts the hint, never the model.
-// Short on purpose (operator, 2026-09-28): the model, then what to do. A hint -- e.g. the model cannot see the
-// attached image (app-attach.js composerHint) -- takes the place of the instruction, since it is what matters now.
-function composerPlaceholder(model, opts) {
+// Pure: what the composer placeholder says -- only what to do; the model sits in the corner tag (MODEL_TAG_v1).
+// Short on purpose (operator, 2026-09-28). A hint -- e.g. the model cannot see the attached image
+// (app-attach.js composerHint) -- takes the place of the instruction, since it is what matters now.
+function composerPlaceholder(opts) {
   const o = opts || {};
-  const m = modelLabel(model);
   // RETRY_LAST_v1: a failed message waits here; Enter on the empty box sends it again (app-retry.js)
-  if (o.retry && typeof o.busySec !== 'number') return `${m} · ↻ 다시 보내기: ${retryShort(o.retry, o.compact ? 18 : 40)}`;   // l10n-ok
-  if (o.hint) return `${m} · ${o.hint}`;
-  if (typeof o.busySec === 'number') return `${m} · 작업 중 (${o.busySec}초)…`;   // l10n-ok
-  if (o.actKey) return `${m} · 메시지 입력… (Space: 행동)`;   // l10n-ok ACT_KEY_v1
-  return `${m} · 메시지 입력…`;   // l10n-ok
+  if (o.retry && typeof o.busySec !== 'number') return `↻ 다시 보내기: ${retryShort(o.retry, o.compact ? 18 : 40)}`;   // l10n-ok
+  if (o.hint) return o.hint;
+  if (typeof o.busySec === 'number') return `작업 중 (${o.busySec}초)…`;   // l10n-ok
+  if (o.actKey) return '메시지 입력… (Space: 행동)';   // l10n-ok ACT_KEY_v1
+  return '메시지 입력…';   // l10n-ok
 }
 
 function modelChoices() {
@@ -168,4 +166,35 @@ function setupModelPicker() {
   syncModelUi();
 }
 
+// MODEL_TAG_v1: the model in use sits small in the composer's right corner while the box is empty (operator,
+// 2026-09-28), left of the inline button; the placeholder keeps clear of it (--model-tag-w, chat-composer.css).
+// A tap opens the model menu. Placed from the input's box, since the phone composer reorders its children.
+function placeModelTag(tag, input, model) {
+  if (!tag || !input) return;
+  tag.textContent = modelLabel(model);
+  const box = input.offsetParent;
+  if (box) {
+    const inset = input.classList.contains('has-inline-btn') ? 44 : 10;
+    tag.style.right = Math.max(0, box.clientWidth - input.offsetLeft - input.offsetWidth + inset) + 'px';
+    tag.style.top = (input.offsetTop + input.offsetHeight / 2) + 'px';
+  }
+  input.style.setProperty('--model-tag-w', (tag.offsetWidth ? tag.offsetWidth + 6 : 0) + 'px');
+}
+
+function refreshModelTag() {
+  const tag = typeof document.getElementById === 'function' ? document.getElementById('modelTag') : null;
+  if (tag && typeof inputEl !== 'undefined') placeModelTag(tag, inputEl, typeof modelEl !== 'undefined' && modelEl ? modelEl.value : '');
+}
+
+function setupModelTag() {
+  const tag = document.getElementById('modelTag');
+  if (!tag) return;
+  tag.addEventListener('pointerdown', (e) => e.preventDefault());   // keep the input's focus, like #modelBtn
+  tag.addEventListener('click', () => { if (modelBtnEl) modelBtnEl.click(); });
+  window.addEventListener('resize', refreshModelTag);
+  if (typeof ResizeObserver === 'function' && typeof inputEl !== 'undefined') new ResizeObserver(refreshModelTag).observe(inputEl);
+  refreshModelTag();
+}
+
 setupModelPicker();
+setupModelTag();

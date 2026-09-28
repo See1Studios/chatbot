@@ -1,4 +1,4 @@
-"""The model is chosen with a short icon button + menu, and the composer placeholder always names
+"""The model is chosen with a short icon button + menu, and the composer's corner tag (MODEL_TAG_v1) names
 the model in use. (실장님: 모바일에서 모델 select가 폭을 차지해서 -- 짧은 버튼, 탭과 같은 아이콘, 현재
 모델은 placeholder로.)
 Runs the REAL code of static/model-picker.js in node against a stub DOM, plus static checks that the
@@ -48,7 +48,8 @@ function node(cls) {
 const fire = (n, type, ev) => (n.handlers[type] || []).forEach(f => f(Object.assign({ preventDefault() {}, stopPropagation() {}, target: n }, ev || {})));
 
 const modelBtnEl = node('model-trigger-btn'), modelMenuEl = node('slash-menu'); modelMenuEl.hidden = true;
-const inputEl = node(); inputEl.placeholder = 'STATIC';
+const inputEl = node(); inputEl.placeholder = 'STATIC'; inputEl.style.setProperty = (k, v) => { inputEl.style[k] = v; };
+const tagEl = node();
 const saved = []; const calls = { hideSlash: 0, position: [], refresh: 0 };
 const modelEl = { options: [{ value: 'flash-low', textContent: 'flash-low' }, { value: 'pro-high', textContent: 'pro-high' }, { value: 'opus', textContent: 'opus' }],
   value: 'flash-low', onchange: null,
@@ -59,25 +60,23 @@ const win = { addEventListener() {} };
 const fireDoc = (type, ev) => (docHandlers[type] || []).forEach(f => f(Object.assign({ preventDefault() {}, stopPropagation() {}, target: document }, ev || {})));
 
 globalThis.__saved = saved; globalThis.__calls = calls;
-const stubs = { modelBtnEl, modelMenuEl, inputEl, modelEl, document, window: win,
+const stubs = { modelBtnEl, modelMenuEl, inputEl, tagEl, modelEl, document, window: win,
   hideSlashMenu: () => { calls.hideSlash++; }, positionSlashMenu: m => { calls.position.push(m === modelMenuEl); m.style.position = 'fixed'; m.style.bottom = '58px'; m.style.zIndex = '200'; } };   // like the real one: inline placement
 const names = Object.keys(stubs);
 // app.js's refreshComposerPlaceholder() and the select's onchange, stood in for right next to the real code
 const api = new Function(...names, code + `
-  function refreshComposerPlaceholder() { __calls.refresh++; inputEl.placeholder = composerPlaceholder(modelEl.value, { compact: false }); }
+  function refreshComposerPlaceholder() { __calls.refresh++; inputEl.placeholder = composerPlaceholder({ compact: false }); placeModelTag(tagEl, inputEl, modelEl.value); }
   modelEl.onchange = () => { __saved.push(modelEl.value); syncModelUi(); };
   setupModelPicker();
   return { composerPlaceholder, renderModelMenu, syncModelUi, modelLabel };`)(...names.map(k => stubs[k]));
 
 const out = {};
 // 1. the text (pure)
-out.textIdleDesktop = api.composerPlaceholder('gemini-3.8-flash-low', {});
-out.textIdlePhone = api.composerPlaceholder('gemini-3.8-flash-low', { compact: true });
-out.textBusyDesktop = api.composerPlaceholder('m', { busySec: 7 });
-out.textBusyPhone = api.composerPlaceholder('m', { busySec: 7, compact: true });
-out.textNoModel = api.composerPlaceholder('', {});
-out.textHint = api.composerPlaceholder('m', { busySec: 7, hint: '이 모델은 이미지를 볼 수 없어요' });
-out.modelFirst = ['gemini-3.8-flash-low'].every(m => [{}, { compact: true }, { busySec: 3 }, { busySec: 3, compact: true }].every(o => api.composerPlaceholder(m, o).startsWith(m)));
+out.textIdleDesktop = api.composerPlaceholder({});
+out.textIdlePhone = api.composerPlaceholder({ compact: true });
+out.textBusyDesktop = api.composerPlaceholder({ busySec: 7 });
+out.textBusyPhone = api.composerPlaceholder({ busySec: 7, compact: true });
+out.textHint = api.composerPlaceholder({ busySec: 7, hint: '이 모델은 이미지를 볼 수 없어요' });
 
 // 2. after setup the button already names the model
 out.titleAtStart = modelBtnEl.title; out.ariaAtStart = modelBtnEl.attrs['aria-label']; out.menuHiddenAtStart = modelMenuEl.hidden;
@@ -90,7 +89,7 @@ out.opened = { hidden: modelMenuEl.hidden, active: modelBtnEl.classList.contains
 // 4. pick another model
 modelMenuEl.children[1].handlers.click[0]();
 out.picked = { value: modelEl.value, saved: globalThis.__saved.slice(), hidden: modelMenuEl.hidden, active: modelBtnEl.classList.contains('active'),
-  placeholder: inputEl.placeholder, title: modelBtnEl.title, inlineStyleCleared: Object.values(modelMenuEl.style).every(v => v === '') };
+  placeholder: inputEl.placeholder, tag: tagEl.textContent, title: modelBtnEl.title, inlineStyleCleared: Object.values(modelMenuEl.style).every(v => v === '') };
 // 5. picking the model already in use changes nothing but closes
 fire(modelBtnEl, 'pointerdown');
 const savedBefore = globalThis.__saved.length;
@@ -143,15 +142,13 @@ class ModelPickerBehaviour(unittest.TestCase):
         assert r.returncode == 0, r.stderr
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
-    def test_placeholder_always_leads_with_the_model_in_every_state(self):
-        self.assertTrue(self.o["modelFirst"])
-        # short (operator, 2026-09-28): no skill or /btw lecture, the model and what to do
-        self.assertEqual(self.o["textIdleDesktop"], "gemini-3.8-flash-low · 메시지 입력…")
-        self.assertEqual(self.o["textIdlePhone"], "gemini-3.8-flash-low · 메시지 입력…")
-        self.assertEqual(self.o["textBusyDesktop"], "m · 작업 중 (7초)…")
-        self.assertEqual(self.o["textBusyPhone"], "m · 작업 중 (7초)…")
-        self.assertEqual(self.o["textHint"], "m · 이 모델은 이미지를 볼 수 없어요")
-        self.assertTrue(self.o["textNoModel"].startswith("기본 모델 · "))
+    def test_placeholder_says_only_what_to_do(self):
+        # short (operator, 2026-09-28): no skill or /btw lecture; the model is in the corner tag (test_model_tag)
+        self.assertEqual(self.o["textIdleDesktop"], "메시지 입력…")
+        self.assertEqual(self.o["textIdlePhone"], "메시지 입력…")
+        self.assertEqual(self.o["textBusyDesktop"], "작업 중 (7초)…")
+        self.assertEqual(self.o["textBusyPhone"], "작업 중 (7초)…")
+        self.assertEqual(self.o["textHint"], "이 모델은 이미지를 볼 수 없어요")
 
     def test_the_button_names_the_model_from_the_start(self):
         self.assertEqual(self.o["titleAtStart"], "모델 선택 (현재: flash-low)")
@@ -177,7 +174,8 @@ class ModelPickerBehaviour(unittest.TestCase):
         self.assertEqual(p["saved"], ["pro-high"])     # the select's change handler ran (app.js persists there)
         self.assertTrue(p["hidden"])
         self.assertFalse(p["active"])
-        self.assertTrue(p["placeholder"].startswith("pro-high · "))
+        self.assertEqual(p["tag"], "pro-high", "the corner tag names the new model")
+        self.assertEqual(p["placeholder"], "메시지 입력…")
         self.assertEqual(p["title"], "모델 선택 (현재: pro-high)")
         self.assertTrue(p["inlineStyleCleared"])
 

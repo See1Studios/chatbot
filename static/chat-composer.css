@@ -398,3 +398,11 @@ body.attach-drop.attach-drop-no .stage::after{/* l10n-ok */content:'사적 모�
 .item-toast{position:fixed;left:50%;bottom:6.5rem;z-index:50;transform:translate(-50%,.6rem);opacity:0;padding:.55rem .9rem;border-radius:999px;background:rgba(20,22,28,.94);border:1px solid rgba(244,114,182,.45);color:var(--fg);font-size:.88rem;pointer-events:none;transition:opacity .25s ease,transform .25s ease}
 .item-toast.show{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){.item-toast,.item-card{transition:none}}
+
+/* MODEL_TAG_v1 (model-picker.js placeModelTag): the model in use, small in the empty box's right corner; the
+   placeholder keeps clear of it. Hidden (not removed, so it can still be measured) once there is text. */
+.composer .model-tag{position:absolute;z-index:2;transform:translateY(-50%);max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem;line-height:1.2;padding:2px 5px;border-radius:6px;color:var(--muted);opacity:.7;cursor:pointer;user-select:none}
+.composer .model-tag:hover{opacity:1;color:var(--accent2);background:rgba(255,255,255,.06)}
+.composer .model-tag:empty,.composer #input:not(:placeholder-shown) ~ .model-tag{visibility:hidden}
+.composer #input:placeholder-shown{padding-right:calc(.75rem + var(--model-tag-w, 0px))}
+.composer #input.has-inline-btn:placeholder-shown{padding-right:calc(2.9rem + var(--model-tag-w, 0px))}
