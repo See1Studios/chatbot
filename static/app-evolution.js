@@ -459,10 +459,37 @@ async function loadTickets() {
 
 // The same buttons, where the operator already is: a strip above the composer while a ticket waits for a decision.
 const TICKET_BAR_MAX = 3;
-function fillTicketCommand(t, action) {
-  inputEl.value = ticketDecisionText(t, action) + (action === 'rework' ? ' ' : '');   // [반려]: type the comment after it
+// TICKET_BUTTONS_v1 (operator, 2026-09-29: send on the press, and no bubble at all): a decision
+// button acts at once, like a choice chip -- no text in the box, no bubble, only the notice. [반려] still waits for
+// the comment to be typed after it.
+// Throwing work away is the one decision a stray tap should not make: it asks first.
+const TICKET_ASK_FIRST = ['decline', 'discard'];
+async function fillTicketCommand(t, action) {
   switchTab('chat');
-  if (inputEl.focus) inputEl.focus();
+  if (action === 'rework') { fillComposer(ticketDecisionText(t, action) + ' '); return; }
+  if (TICKET_ASK_FIRST.includes(action) && typeof confirmModal === 'function'
+      && !(await confirmModal('작업 #' + t.id + '을(를) ' + TICKET_DECISION_WORD[action] + '할까요?'))) return;   // l10n-ok
+  await runTicketDecision({ action, id: t.id }, typeof tapSendOpts === 'function' ? tapSendOpts() : undefined);
+}
+
+// The operator's decision on a ticket, made in the page and never sent to the agent -- except [진행], which then
+// hands the agent its instruction as an ordinary message. Resolves true when it sent that message.
+async function runTicketDecision(cmd, opts) {
+  try {
+    if (cmd.action === 'go') {
+      const go = await goTicket(cmd);
+      if (go.message) addNotice('ok', go.message);
+      loadTickets();
+      inputEl.value = go.prompt;
+      await send(opts);
+      return true;
+    }
+    addNotice('ok', await decideTicket(cmd));
+  } catch (e) {
+    addNotice('error', '작업 결정 실패: ' + obsErrorText(e));   // l10n-ok: moved from app.js send()
+  }
+  loadTickets();
+  return false;
 }
 
 // Who owns it (another agent) or what it waits for (a live lease on its files), as a small badge; null for neither.
@@ -485,31 +512,7 @@ function renderTicketBar(waiting) {
     ticketDecisionsFor(t).forEach(pair => {
       const btn = obsNode('button', 'art-btn' + (pair[0] === 'go' ? ' primary' : ''), pair[1]);
       btn.type = 'button';
-      btn.addEventListener('click', async () => {
-        if (pair[0] === 'go') {
-          try {
-            const go = await goTicket({ action: 'go', id: t.id });
-            if (go && go.message) addNotice('ok', go.message);
-            loadTickets();
-            inputEl.value = (go && go.prompt) || '';
-            if (typeof send === 'function') send();
-          } catch (e) {
-            addNotice('error', '작업 진행 실패: ' + obsErrorText(e));
-          }
-          return;
-        }
-        if (pair[0] === 'rework') {
-          fillTicketCommand(t, pair[0]);
-          return;
-        }
-        try {
-          const msg = await decideTicket({ action: pair[0], id: t.id });
-          addNotice('ok', msg);
-          loadTickets();
-        } catch (e) {
-          addNotice('error', '작업 결정 실패: ' + obsErrorText(e));
-        }
-      });
+      btn.addEventListener('click', () => fillTicketCommand(t, pair[0]));   // TICKET_BUTTONS_v1: the one path
       chip.appendChild(btn);
     });
     ticketBarEl.appendChild(chip);
@@ -702,7 +705,7 @@ function renderWorkCard(r) {
 
   if (r.phase === 'awaiting_go') {
     button('실행', true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
-    button('계획 수정', false, () => { inputEl.value = '#' + r.ticket + ' 계획 수정: '; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
+    button('계획 수정', false, () => { switchTab('chat'); fillComposer('#' + r.ticket + ' 계획 수정: '); });
     button('취소', false, async () => {
       await dismissWorkCard(r);
       addNotice('info', '작업 #' + r.ticket + ' 계획을 취소하고 카드를 닫았어요');
@@ -724,7 +727,7 @@ function renderWorkCard(r) {
   if (r.phase === 'done' && r.tier >= 2) {
     const zap = obsNode('button', 'art-btn art-btn-xs primary', '⚡ 소생');
     zap.type = 'button';
-    zap.addEventListener('click', (e) => { e.stopPropagation(); inputEl.value = '/defib'; switchTab('chat'); if (inputEl.focus) inputEl.focus(); });
+    zap.addEventListener('click', (e) => { e.stopPropagation(); switchTab('chat'); inputEl.value = '/defib'; send(tapSendOpts()); });
     actions.appendChild(zap);
   }
   if (WORK_ENDED.includes(r.phase)) {

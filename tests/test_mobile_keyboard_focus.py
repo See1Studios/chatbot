@@ -84,7 +84,7 @@ class MobileKeyboardFocusTest(unittest.TestCase):
         src = fn_src("app.js", "send")
         self.assertIn("!(opts && opts.keepFocus === false)", src)   # a click Event still refocuses
         self.assertIn("if (keepFocus) inputEl.focus();", src)
-        self.assertIn("return send(opts);", src)
+        self.assertIn("runTicketDecision(ticketCmd, opts)", src)   # [진행] forwards the same opts (TICKET_BUTTONS_v1)
 
 
 if __name__ == "__main__":

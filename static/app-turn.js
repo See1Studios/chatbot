@@ -13,6 +13,15 @@ function retryWaiting() {
   return typeof retryHint === 'function' && Boolean(retryHint());
 }
 
+// FILL_COMPOSER_v1: text a button puts in the box counts like typed text -- the send button wakes and the box
+// grows. Setting inputEl.value alone left the button dimmed (operator, 2026-09-29).
+function fillComposer(text) {
+  inputEl.value = text;
+  if (typeof autoResizeInput === 'function') autoResizeInput();
+  updateSendButton();
+  if (inputEl.focus) inputEl.focus();
+}
+
 function composerSendable(val) {
   if (!val) return !isBusy && retryWaiting();
   if (typeof actBare === 'function' && actBare(val)) return false;   // ACT_KEY_v1: "/act" with nothing after

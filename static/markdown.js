@@ -582,28 +582,8 @@ function pickChoice(choice) {
   if (kind === 'command') {
     const cmdText = payload.startsWith('/') ? payload : ('/' + payload);
     const ticketCmd = typeof parseTicketCommand === 'function' ? parseTicketCommand(cmdText) : null;
-    if (ticketCmd) {
-      if (ticketCmd.action === 'go') {
-        if (typeof goTicket === 'function') {
-          goTicket(ticketCmd).then(go => {
-            if (go && go.message && typeof addNotice === 'function') addNotice('ok', go.message);
-            if (typeof loadTickets === 'function') loadTickets();
-            inputEl.value = (go && go.prompt) || '';
-            sendPickedChoice();
-          }).catch(e => {
-            if (typeof addNotice === 'function') addNotice('error', '작업 진행 실패: ' + (typeof obsErrorText === 'function' ? obsErrorText(e) : e));
-          });
-        }
-        return;
-      }
-      if (typeof decideTicket === 'function') {
-        decideTicket(ticketCmd).then(msg => {
-          if (typeof addNotice === 'function') addNotice('ok', msg);
-          if (typeof loadTickets === 'function') loadTickets();
-        }).catch(e => {
-          if (typeof addNotice === 'function') addNotice('error', '작업 결정 실패: ' + (typeof obsErrorText === 'function' ? obsErrorText(e) : e));
-        });
-      }
+    if (ticketCmd) {   // TICKET_BUTTONS_v1: the one decision path (app-evolution.js), no bubble
+      if (typeof runTicketDecision === 'function') runTicketDecision(ticketCmd, typeof tapSendOpts === 'function' ? tapSendOpts() : undefined);
       return;
     }
     inputEl.value = cmdText;

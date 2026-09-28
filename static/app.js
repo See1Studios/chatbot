@@ -479,21 +479,9 @@ async function send(opts) {
     inputEl.style.height = '';
     updateSendButton();
     const hadUser = currentSessionHasUser;
-    addChat('user', text, false);
-    try {
-      if (ticketCmd.action === 'go') {
-        const go = await goTicket(ticketCmd);
-        if (go.message) addNotice('ok', go.message);
-        loadTickets();
-        inputEl.value = go.prompt;
-        return send(opts);   // an ordinary message to the agent from here on
-      }
-      addNotice('ok', await decideTicket(ticketCmd));
-    } catch (e) {
-      addNotice('error', '작업 결정 실패: ' + obsErrorText(e));
-    }
+    addChat('user', text, false);   // typed by hand, so it stays on screen; a button does not (TICKET_BUTTONS_v1)
+    if (await runTicketDecision(ticketCmd, opts)) return;   // [진행] went on as an ordinary message
     currentSessionHasUser = hadUser;
-    loadTickets();
     return;
   }
   if (text === '/help') {

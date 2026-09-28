@@ -196,14 +196,11 @@ function citeArtifact(item) {
   const snippet = item.kind === 'image'
     ? `![${item.stem || item.name}](${item.url})`
     : `[${item.name}](${item.url})`;
-  if (inputEl.value.trim()) {
-    inputEl.value = inputEl.value.trim() + '\n' + snippet + ' ';
-  } else {
-    inputEl.value = snippet + ' ';
-  }
+  const text = inputEl.value.trim() ? inputEl.value.trim() + '\n' + snippet + ' ' : snippet + ' ';
   closeArtifactModal();
   switchTab('chat');
-  inputEl.focus();
+  if (typeof fillComposer === 'function') fillComposer(text);   // FILL_COMPOSER_v1: the send button wakes
+  else { inputEl.value = text; inputEl.focus(); }
 }
 
 var modalCopyBtn = document.getElementById('modalCopyBtn');

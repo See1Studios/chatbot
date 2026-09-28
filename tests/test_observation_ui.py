@@ -65,10 +65,15 @@ const inputEl = el('textarea');
 const tabs = [];
 const body = code + `
   return { loadObservations, renderObservations, obsErrorText, loadTickets, renderTickets, parseTicketCommand, decideTicket, goTicket };`;
+const sentText = [], asked = [];
 const mod = new Function('document', 'api', 'statusObsBoxEl', 'alertModal', 'addActivity', 'fetchSelfStatus',
-                         'statusTicketBoxEl', 'inputEl', 'switchTab', 'ticketBarEl', 'addNotice', body)(
+                         'statusTicketBoxEl', 'inputEl', 'switchTab', 'ticketBarEl', 'addNotice',
+                         'fillComposer', 'send', 'tapSendOpts', 'confirmModal', body)(
   { createElement: el, getElementById: () => null }, api, box, async m => { alerts.push(m); }, m => activity.push(m), () => { fetched++; },
-  tbox, inputEl, t => tabs.push(t), bar, (kind, m) => notices.push([kind, m]));   // chat notices (#145)
+  tbox, inputEl, t => tabs.push(t), bar, (kind, m) => notices.push([kind, m]),   // chat notices (#145)
+  (t) => { inputEl.value = t; inputEl.focus(); },                                  // FILL_COMPOSER_v1
+  async () => { sentText.push(inputEl.value); inputEl.value = ''; }, () => ({ keepFocus: false }),
+  async (m) => { asked.push(m); return true; });                                  // TICKET_BUTTONS_v1: [폐기] asks
 
 const HOSTILE = '<img src=x onerror=alert(1)>';
 const overview = {
@@ -188,21 +193,26 @@ const tick = () => new Promise(r => setTimeout(r, 0));
               buttons: chips.map(c => find(c, 'art-btn').map(b => b.textContent)) };
   const barBefore = calls.length;
   click(find(chips[0], 'art-btn').filter(b => b.textContent === '승인+진행')[0]);
+  await new Promise(r => setTimeout(r, 20));
   out.barFill = inputEl.value; out.barCalls = calls.length - barBefore; out.barFocused = !!inputEl.focused;
   const trows = find(tbox, 'obs-row');
   out.ticketRows = trows.map(r => find(r, 'obs-id')[0].textContent);
   out.ticketTitle = find(trows[0], 'obs-title')[0].textContent;
   out.ticketButtons = trows.map(r => find(r, 'art-btn').map(b => b.textContent));
   const pressed = (row, label) => find(row, 'art-btn').filter(b => b.textContent === label)[0];
-  const c1 = calls.length, a1 = alerts.length;
-  click(pressed(trows[0], '승인+진행'));
-  out.goText = inputEl.value;
-  click(pressed(trows[0], '승인'));
-  out.approveText = inputEl.value; out.tabAfter = tabs.slice(); out.inputFocused = !!inputEl.focused;
-  click(pressed(trows[0], '폐기'));
+  const c1 = calls.length, a1 = alerts.length, s1 = sentText.length;
+  const settle = () => new Promise(r => setTimeout(r, 20));
+  click(pressed(trows[0], '승인+진행')); await settle();
+  out.goText = inputEl.value; out.goSent = sentText.slice(s1);
+  const c2 = calls.length;
+  click(pressed(trows[0], '승인')); await settle();
+  out.approveText = inputEl.value; out.tabAfter = tabs.slice();
+  click(pressed(trows[0], '폐기')); await settle();
   out.declineText = inputEl.value;
-  click(pressed(trows[2], '재개'));
+  click(pressed(trows[2], '재개')); await settle();
   out.reopenText = inputEl.value;
+  out.decisionPosts = calls.slice(c2).filter(c => c.opts && c.opts.method === 'POST').map(c => c.path);
+  out.asked = asked.slice();
   out.callsAfterButtons = calls.length - c1; out.alertsAfterButtons = alerts.length - a1;
   out.parsed = ['/ticket approve 3', '/ticket decline #12', ' /ticket reopen 7 ', '/ticket approve', '/ticket approve x', '/ticket claim 3',
                 '/ticket approve 3 now', 'ticket approve 3', '/ticket approve 1234567', '/ticket go 5'].map(t => mod.parseTicketCommand(t));
@@ -339,18 +349,21 @@ class ObservationUiTest(unittest.TestCase):
         self.assertFalse(o["bar"]["hidden"])
         self.assertEqual(o["bar"]["titles"], ["#1 <img src=x onerror=alert(1)>", "#2 T2", "#3 T3"])   # text, never markup
         self.assertEqual(o["bar"]["buttons"], [["승인+진행", "실행", "승인", "폐기"], ["진행", "실행", "폐기"], ["재개"]])
-        self.assertEqual((o["barFill"], o["barCalls"], o["barFocused"]), ("", 1, False))   # acts directly: one go call, nothing typed (#145)
+        self.assertEqual((o["barFill"], o["barCalls"] >= 1, o["barFocused"]), ("", True, False))   # acts directly, nothing typed (#145)
         self.assertEqual(o["barMany"]["chips"], 3)
         self.assertEqual(o["barMany"]["more"], ["+2건 더 (개선 탭)"])
         self.assertTrue(o["barEmptyHidden"] and o["barDegradedHidden"])
 
-    def test_the_buttons_only_type_the_command_and_send_nothing(self):
+    def test_the_buttons_decide_at_once_and_only_throwing_away_asks(self):
+        # TICKET_BUTTONS_v1 (operator, 2026-09-29): was "type the command, Enter decides"; now the button decides,
+        # nothing lands in the box, and [폐기] asks first.
         o = self.out
-        self.assertEqual((o["approveText"], o["declineText"], o["reopenText"]),
-                         ("/ticket approve 1", "/ticket decline 1", "/ticket reopen 3"))
+        self.assertEqual((o["approveText"], o["declineText"], o["reopenText"]), ("", "", ""))
         self.assertTrue(o["tabAfter"] and set(o["tabAfter"]) == {"chat"})
-        self.assertTrue(o["inputFocused"])
-        self.assertEqual((o["callsAfterButtons"], o["alertsAfterButtons"]), (0, 0))   # Enter is what decides
+        self.assertEqual(o["decisionPosts"], ["/api/tickets/1/approve", "/api/tickets/1/decline", "/api/tickets/3/reopen"])
+        self.assertEqual(len(o["asked"]), 1)
+        self.assertIn("#1", o["asked"][0])
+        self.assertEqual(o["alertsAfterButtons"], 0)
 
     def test_only_the_exact_operator_command_is_recognised(self):
         p = self.out["parsed"]
@@ -370,7 +383,7 @@ class ObservationUiTest(unittest.TestCase):
             self.assertIn("static/app.js", r["prompt"])
             self.assertIn("release", r["prompt"])
         self.assertIn("진행할 수 없어요", g["refused"])
-        self.assertEqual(self.out["goText"], "/ticket go 1")
+        self.assertEqual(self.out["goText"], "", "the go button acts; it never types /ticket go")
 
     def test_a_decision_is_one_post_and_a_refusal_shows_the_cores_reason(self):
         o = self.out
@@ -403,7 +416,7 @@ class MarkupTest(unittest.TestCase):
         self.assertIn("  loadObservations();\n  loadTickets();\n}", evo[:1200])   # the evolution tab, after its summary
         send = src[src.index("async function send("):]   # send(opts) since #161
         self.assertIn("const ticketCmd = parseTicketCommand(text);", send)
-        self.assertIn("return send(opts);", send[send.index("ticketCmd.action === 'go'"):][:400])
+        self.assertIn("if (await runTicketDecision(ticketCmd, opts)) return;", send)   # TICKET_BUTTONS_v1: one path
         self.assertLess(send.index("parseTicketCommand(text)"), send.index("/api/chat") if "/api/chat" in send else len(send))
         self.assertIn("setInterval(loadTickets, 60000);", src)       # the bar is not only for people who open the status tab
         self.assertIn("const statusTicketBoxEl = document.getElementById('statusTicketBox');", src)
