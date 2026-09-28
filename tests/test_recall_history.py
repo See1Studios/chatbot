@@ -23,6 +23,7 @@ const inputEl = { id: 'input', value: '', selectionStart: 0, selectionEnd: 0 };
 let slashMenuEl = { hidden: true };
 let cleared = 0;
 const clearRetry = () => { cleared += 1; };
+const actBare = (t) => t === '/act';
 eval(fs.readFileSync(process.argv[1], 'utf8'));
 const key = (k, extra) => { let stopped = false;
   (listeners.keydown || []).forEach(f => f(Object.assign({ target: inputEl, key: k, shiftKey: false, preventDefault() { stopped = true; } }, extra || {})));
@@ -30,7 +31,7 @@ const key = (k, extra) => { let stopped = false;
 const send = (t) => { inputEl.value = t; key('Enter'); inputEl.value = ''; };
 const out = {};
 out.emptyHistoryUp = [key('ArrowUp'), inputEl.value];
-send('첫째'); send('둘째'); send('둘째'); send('셋째\n두 줄');
+send('첫째'); send('/act '); send('둘째'); send('둘째'); send('셋째\n두 줄');
 out.stored = JSON.parse(store['pe.sentHistory']);
 const walk = [];
 for (const k of ['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowDown']) { key(k); walk.push(inputEl.value); }
@@ -58,7 +59,7 @@ class RecallHistory(unittest.TestCase):
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
     def test_sent_messages_are_kept_without_repeats(self):
-        self.assertEqual(self.o["stored"], ["첫째", "둘째", "셋째\n두 줄"])
+        self.assertEqual(self.o["stored"], ["첫째", "둘째", "셋째\n두 줄"], "a bare /act is held, not remembered")
         self.assertEqual(self.o["emptyHistoryUp"], [False, ""])
 
     def test_up_walks_back_and_down_returns_to_the_empty_box(self):

@@ -15,6 +15,7 @@ function retryWaiting() {
 
 function composerSendable(val) {
   if (!val) return !isBusy && retryWaiting();
+  if (typeof actBare === 'function' && actBare(val)) return false;   // ACT_KEY_v1: "/act" with nothing after
   if (typeof attachBusy === 'function' && attachBusy()) return false;
   return true;
 }
@@ -240,7 +241,8 @@ function refreshComposerPlaceholder(busySec) {
   else if (isBusy && turnStartedAt) sec = Math.max(0, Math.floor((Date.now() - turnStartedAt) / 1000));
   const hint = typeof composerHint === 'function' ? composerHint() : '';
   const retry = !isBusy && typeof retryHint === 'function' ? retryHint() : '';
-  inputEl.placeholder = composerPlaceholder(modelEl ? modelEl.value : '', { compact: window.innerWidth <= 600, busySec: sec, hint, retry });
+  const actKey = typeof actKeyOn === 'function' && actKeyOn();
+  inputEl.placeholder = composerPlaceholder(modelEl ? modelEl.value : '', { compact: window.innerWidth <= 600, busySec: sec, hint, retry, actKey });
 }
 
 function setBusy(b) {

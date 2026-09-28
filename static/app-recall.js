@@ -25,7 +25,7 @@ function recallSave(items) {
 function recallRemember(text) {
   const t = String(text || '').trim();
   recallIdx = null;
-  if (!t) return;
+  if (!t || (typeof actBare === 'function' && actBare(t))) return;   // a bare "/act" is held, not sent
   const items = recallLoad();
   if (items[items.length - 1] === t) return;
   items.push(t);
