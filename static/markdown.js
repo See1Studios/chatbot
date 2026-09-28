@@ -642,21 +642,39 @@ function syncChoiceChips() {
   });
 }
 
+function paintExpressionBadge(node, rawText) {
+  // STREAM_FLOW_v1: the emotion badge is the one piece of post-processing cheap enough to keep
+  // while the answer is still streaming, so the character keeps showing how it feels while it
+  // speaks instead of only after the sentence lands.
+  const parsedExp = parseExpression(rawText);
+  if (!parsedExp.expression) return;
+  const md = node.querySelector('.md') || node;
+  let badge = node.querySelector('.exp-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'badge exp-badge';
+    md.insertBefore(badge, md.firstChild);
+  }
+  badge.textContent = EXPRESSION_EMOJIS[parsedExp.expression] || ('\u{1F3AD} ' + parsedExp.expression);
+}
+
+// STREAM_FLOW_v1: the cheap projection of a still-growing answer -- strip what the model emits as
+// markup and hide the thought block the way the UI hides it mid-sentence, but do no markdown
+// parsing and no sanitising. That work belongs to the final render, once, not to every frame.
+function prepareStreamText(src) {
+  let raw = splitChoices(src || '').text;
+  const parsedExp = parseExpression(raw);
+  if (parsedExp.expression) raw = parsedExp.text;
+  const parsedTh = parseThought(raw, true);
+  if (parsedTh.thought || parsedTh.cleanText !== raw) raw = parsedTh.cleanText;
+  return raw;
+}
+
 function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, skipFooter, servedModel, choices) {
   if (!node) return;
   const parts = splitChoices(rawText);
   rawText = parts.text;
-  const parsedExp = parseExpression(rawText);
-  if (parsedExp.expression) {
-    const md = node.querySelector('.md') || node;
-    let badge = node.querySelector('.exp-badge');
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'badge exp-badge';
-      md.insertBefore(badge, md.firstChild);
-    }
-    badge.textContent = EXPRESSION_EMOJIS[parsedExp.expression] || ('🎭 ' + parsedExp.expression);
-  }
+  paintExpressionBadge(node, rawText);
   const parsedThought = parseThought(rawText, isFinal === false);
   if (parsedThought.thought) {
     const md = node.querySelector('.md') || node;

@@ -49,6 +49,92 @@ function addUserEntry(text, isQueued, prepend, ts) {
   return addChat('user', text || '', false, isQueued, (text || '').startsWith('/btw'), prepend, null, null, false, ts);
 }
 
+// STREAM_FLOW_v1 (2026-09-28): a provider emits 50-200 tokens/s and the screen paints 60/s, so
+// rendering the answer on every delta parsed the same growing document once per token and rebuilt
+// the bubble every time -- the markdown pipeline, the sanitiser, the buttons, the chips, the scroll.
+// Coalescing to one paint per animation frame is what makes the streaming text affordable to
+// animate at all, and it is the same change that removes the O(n^2).
+var streamPaintQueued = false;
+var streamPaintCancel = null;
+
+function scheduleStreamPaint(paint) {
+  if (streamPaintQueued) return;   // one paint per frame, whatever the token rate
+  streamPaintQueued = true;
+  const run = function () {
+    streamPaintQueued = false;
+    streamPaintCancel = null;
+    paint();
+  };
+  if (typeof window.requestAnimationFrame === 'function') {
+    const h = window.requestAnimationFrame(run);
+    streamPaintCancel = function () { window.cancelAnimationFrame(h); };
+  } else {
+    const t = setTimeout(run, 16);
+    streamPaintCancel = function () { clearTimeout(t); };
+  }
+}
+
+function cancelStreamPaint() {
+  if (streamPaintCancel) streamPaintCancel();
+  streamPaintQueued = false;
+  streamPaintCancel = null;
+}
+
+function streamBody(node) {
+  let md = node.querySelector('.md');
+  if (!md) {
+    md = document.createElement('div');
+    md.className = 'md';
+    node.appendChild(md);
+  }
+  md.classList.add('md-stream');
+  return md;
+}
+
+// The buffer only grows, so the normal case is appending one span. Anything else -- a resync that
+// rewrote the draft, a thought block that just closed and retracted its text -- falls back to a
+// full swap, which is still cheap because it costs no markdown parse.
+function setStreamingContent(node, text) {
+  if (!node) return;
+  // The body must exist before the badge: otherwise the first paint puts the badge on the node
+  // instead of inside .md, and the second paint moves it.
+  const md = streamBody(node);
+  const shown = prepareStreamText(text);
+  const prev = node._streamShown || '';
+  if (shown !== prev) {
+    if (shown.indexOf(prev) === 0) {
+      // Covers the first paint too (prev === ''), so every character that arrives while the
+      // character is speaking gets the same reveal -- no special case for the opening words.
+      const span = document.createElement('span');
+      span.className = 'flow';
+      span.textContent = shown.slice(prev.length);
+      md.appendChild(span);
+    } else {
+      md.textContent = shown;
+    }
+    node._streamShown = shown;
+  }
+  // The blinking caret is the one that was already here: a ::after on the last child
+  // (chat-composer.css). It used to be drawn that way because the body was replaced on every
+  // delta and a real node would have been wiped; now the body is incremental, and reusing it
+  // keeps one caret instead of two and keeps its reduced-motion rule working.
+  node.classList.add('streaming');
+  // After the body, never before: the first paint writes textContent over .md and would take the
+  // badge with it. This is the order postProcessAssistant effectively runs in.
+  paintExpressionBadge(node, text);
+  scrollChatToBottom(false);
+}
+
+// The final render replaces the body wholesale, so this only drops the streaming state: the class,
+// and what we think we have shown. Nothing is left moving.
+function endStreamingContent(node) {
+  if (!node) return;
+  node._streamShown = '';
+  node.classList.remove('streaming');
+  const md = node.querySelector && node.querySelector('.md');
+  if (md) md.classList.remove('md-stream');
+}
+
 function bindEvents(sid) {
   if (window.__chatEsTimer) { clearTimeout(window.__chatEsTimer); window.__chatEsTimer = null; }
   if (es) { try { es.close(); } catch (_) {} es = null; }
@@ -92,13 +178,20 @@ function bindEvents(sid) {
       } else if (text) {
         assistantBuf = text;
       }
-      setAssistantContent(assistantNode, assistantBuf || '작성 중…', false);
-      updateTurnLive();
+      const paintNode = assistantNode;
+      const paintBuf = assistantBuf || '작성 중…';
+      scheduleStreamPaint(function () {
+        // A turn that ended between the delta and this frame must not be painted into.
+        if (!paintNode || paintNode.dataset.live !== '1') return;
+        setStreamingContent(paintNode, paintBuf);
+        updateTurnLive();
+      });
       return;
     }
 
     if (type === 'result') {
       if (typeof loadWork === 'function') loadWork();   // a turn that delegated work shows its card now
+      cancelStreamPaint();   // STREAM_FLOW_v1: a queued frame must not land on a finished message
       // QUOTA_SILENT_FIX_v1: result residual error
       if (text) assistantBuf = textWithChoices(data);   // the server took the choices out of the text
       if (assistantNode) delete assistantNode.dataset.progress;
@@ -114,6 +207,7 @@ function bindEvents(sid) {
         // Answer won — ignore residual data.error (agy quota after successful stream).
         const node = doneNode || addChat('assistant', '', false);
         setAssistantContent(node, doneBuf, true, data.usage, data.duration_seconds, data.served_model);
+        endStreamingContent(node);   // STREAM_FLOW_v1: the finished message is still; no motion
         if (data.ts) {
           node.dataset.ts = String(data.ts);
           node.dataset.syncRole = 'assistant';

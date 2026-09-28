@@ -352,3 +352,15 @@
    per-token .hljs-* colors from the theme actually show through. */
 .msg.assistant .md pre .code-lang{position:absolute;top:6px;left:10px;font-size:.68rem;padding:1px 7px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);border-radius:4px;text-transform:uppercase;letter-spacing:.4px;pointer-events:none}
 .msg.assistant .md pre:has(.code-lang) code{padding-top:1.6rem}
+/* STREAM_FLOW_v1: the live answer is the only thing in the log that moves. While the model is still
+   speaking the body is plain text (no markdown yet), so it needs pre-wrap to keep the newlines; the
+   final render puts the markup back and takes this class off. Only the newest chunk is in motion,
+   and a finished message is still -- the reveal does not survive the result. */
+.msg.assistant .md.md-stream{white-space:pre-wrap}
+.md-stream .flow{animation:stream-flow-in 150ms cubic-bezier(0.16,1,0.3,1) both}
+@keyframes stream-flow-in{from{opacity:.35}to{opacity:1}}
+/* Reduced motion keeps the meaning: the text still arrives, and the caret still says "speaking".
+   The caret's own rule lives in chat-responsive.css; this is the reveal half. */
+@media (prefers-reduced-motion:reduce){
+  .md-stream .flow{animation:none}
+}
