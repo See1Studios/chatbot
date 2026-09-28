@@ -19,6 +19,8 @@ function modelLabel(value) {
 function composerPlaceholder(model, opts) {
   const o = opts || {};
   const m = modelLabel(model);
+  // RETRY_LAST_v1: a failed message waits here; Enter on the empty box sends it again (app-retry.js)
+  if (o.retry && typeof o.busySec !== 'number') return `${m} · ↻ 다시 보내기: ${retryShort(o.retry, o.compact ? 18 : 40)}`;   // l10n-ok
   if (o.hint) return `${m} · ${o.hint}`;
   if (typeof o.busySec === 'number') return `${m} · 작업 중 (${o.busySec}초)…`;   // l10n-ok
   return `${m} · 메시지 입력…`;   // l10n-ok

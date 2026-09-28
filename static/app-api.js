@@ -21,6 +21,10 @@ async function api(path, opts) {
     const ct = r.headers.get('content-type') || '';
     if (ct.includes('application/json')) return r.json();
     return r.text();
+  } catch (e) {
+    // RETRY_LAST_v1: app-retry.js offers a failed message again
+    document.dispatchEvent(new CustomEvent('api-failed', { detail: { path, method: fetchOpts.method || 'GET' } }));
+    throw e;
   } finally {
     clearTimeout(timer);
   }

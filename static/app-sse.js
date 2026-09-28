@@ -488,6 +488,7 @@ function bindEvents(sid) {
         if (doneNode) doneNode.remove();
       } else if (doneBuf && doneBuf.trim()) {
         // Answer won — ignore residual data.error (agy quota after successful stream).
+        if (typeof retryAnswered === 'function') retryAnswered();
         const node = doneNode || addChat('assistant', '', false);
         // Stamped now, so a resync recognises this bubble while its last letters are still arriving.
         if (data.ts) {
@@ -506,6 +507,7 @@ function bindEvents(sid) {
       } else if (residualErr || data.notice === 'error') {
         if (doneNode) doneNode.remove();
         addNotice((data.notice || 'error'), residualErr || text || '알 수 없는 오류', data.ts);
+        if (typeof offerRetry === 'function') offerRetry();   // RETRY_LAST_v1
       } else if (doneNode) {
         doneNode.remove();
       }
@@ -689,6 +691,7 @@ function bindEvents(sid) {
         const errBody = text || '알 수 없는 오류';
         const twinNotice = data.ts ? document.querySelector('.msg.notice-error[data-ts="' + String(data.ts) + '"]') : null;
         if (!twinNotice) addNotice((data.notice || 'error'), errBody, data.ts);
+        if (typeof offerRetry === 'function') offerRetry();   // RETRY_LAST_v1
         if (data.ts) lastSyncedTs = Math.max(lastSyncedTs, data.ts);
         assistantNode = null; assistantBuf = '';
       }

@@ -5,10 +5,16 @@
 // still uploading (app-attach.js) -- so a dimmed button already says "not yet". The plain send is an Enter glyph;
 // the two busy-time actions keep their words, because they do something other than send.
 const SEND_ICON = '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
-const SEND_TEXT = { send: '보내기', sendKey: '보내기 (Enter)', btw: '샛길 질문', steer: '끼워 넣기' };   // l10n-ok
+const SEND_TEXT = { send: '보내기', sendKey: '보내기 (Enter)', btw: '샛길 질문', steer: '끼워 넣기', retry: '다시 보내기 (Enter)' };   // l10n-ok
+// RETRY_LAST_v1: an empty box with a failed message waiting (app-retry.js) sends that message again.
+const RETRY_ICON = '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><polyline points="20 4 20 9 15 9"/></svg>';
+
+function retryWaiting() {
+  return typeof retryHint === 'function' && Boolean(retryHint());
+}
 
 function composerSendable(val) {
-  if (!val) return false;
+  if (!val) return !isBusy && retryWaiting();
   if (typeof attachBusy === 'function' && attachBusy()) return false;
   return true;
 }
@@ -29,7 +35,12 @@ function updateSendButton() {
   const val = inputEl.value.trim();
   sendBtn.disabled = !composerSendable(val);
   if (!isBusy) {
-    setSendFace('');
+    if (!val && retryWaiting()) {
+      sendBtn.innerHTML = RETRY_ICON;
+      sendBtn.dataset.face = 'retry';
+      sendBtn.setAttribute('aria-label', SEND_TEXT.retry);
+      sendBtn.title = SEND_TEXT.retry;
+    } else setSendFace('');
     sendBtn.classList.remove('btw-btn', 'queue-btn');
     return;
   }
@@ -228,7 +239,8 @@ function refreshComposerPlaceholder(busySec) {
   if (typeof busySec === 'number') sec = busySec;
   else if (isBusy && turnStartedAt) sec = Math.max(0, Math.floor((Date.now() - turnStartedAt) / 1000));
   const hint = typeof composerHint === 'function' ? composerHint() : '';
-  inputEl.placeholder = composerPlaceholder(modelEl ? modelEl.value : '', { compact: window.innerWidth <= 600, busySec: sec, hint });
+  const retry = !isBusy && typeof retryHint === 'function' ? retryHint() : '';
+  inputEl.placeholder = composerPlaceholder(modelEl ? modelEl.value : '', { compact: window.innerWidth <= 600, busySec: sec, hint, retry });
 }
 
 function setBusy(b) {
