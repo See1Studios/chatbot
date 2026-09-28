@@ -138,6 +138,7 @@ const statusRefreshBtn = document.getElementById('statusRefreshBtn');
 const isCompactMode = new URLSearchParams(location.search).get('compact') === '1';
 if (isCompactMode) document.documentElement.classList.add('compact-mode');
 const bootProviderIntent = new URLSearchParams(location.search).get('provider');
+const bootCharacterIntent = new URLSearchParams(location.search).get('character');
 function applyCompactMode() {
   if (!isCompactMode) return;
   const hub = document.getElementById('hubLink');
@@ -646,13 +647,21 @@ if (!window.__IDENTITY__) {  // 정적으로 서빙돼 서버가 심어 주지 �
 }
 window.addEventListener('message', (e) => {
   const d = e.data;
-  if (!d || d.type !== 'chatbot-select-provider' || !d.provider) return;
+  if (!d) return;
   try {
     if (new URL(e.origin).hostname !== location.hostname) return;
   } catch (_) {
     return;
   }
-  selectProvider(d.provider);
+  // Same host-only guard for both intents: the hub's persona FAB posts a character, the provider
+  // tray a provider. An id or a name both resolve, because the hub knows a name and the app knows
+  // the id; selectCharacter() re-checks the id itself, so a no-op post is harmless.
+  if (d.type === 'chatbot-select-provider' && d.provider) {
+    selectProvider(d.provider);
+  } else if (d.type === 'chatbot-select-character' && d.character) {
+    const targetChar = characterCatalog.find(c => c.id === d.character || c.name === d.character);
+    if (targetChar) selectCharacter(targetChar);
+  }
 });
 onTrayKey(brandAvatarEl, () => toggleCharacterTray());
 onTrayKey(brandProviderEl, () => toggleProviderTray());
@@ -729,6 +738,16 @@ async function boot() {
     const cur = providerEl ? providerEl.value : '';
     if (bootProviderIntent !== cur) {
       await selectProvider(bootProviderIntent);
+    }
+  }
+  // The hub's persona links pass ?character= the way they pass ?provider=, so a character can be
+  // deep-linked. It is read after loadCharacters() and ensureSession() above, so the catalog is full
+  // and openCharacterId() is this session's character rather than the default's -- without that the
+  // guard below would compare against the wrong one and switch needlessly.
+  if (bootCharacterIntent) {
+    const targetChar = characterCatalog.find(c => c.id === bootCharacterIntent || c.name === bootCharacterIntent);
+    if (targetChar && targetChar.id !== openCharacterId()) {
+      await selectCharacter(targetChar);
     }
   }
 }
