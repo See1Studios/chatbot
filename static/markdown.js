@@ -124,30 +124,117 @@ function attachImageLightbox(container) {
   });
 }
 
+// FILE_LINKS_v1 (2026-09-28): a path in an answer opens the file preview. Agents write paths in backticks
+// (`static/app-sse.js`, `docs/plans/INDEX.md:120`, `tickets.py::claim`) or bare (~/services/x.md), and only
+// explicit markdown links used to work -- and not even those for ~/ or relative hrefs, which the sanitiser
+// drops. Recognition is here; whether a file may be shown is only the server's allow-list (preview_guard.py).
+// Links are added to the sanitised DOM with createElement/textContent, so nothing here reaches innerHTML.
+const FILE_EXTS = 'py|js|mjs|ts|tsx|jsx|md|json|jsonl|css|html|sh|txt|yml|yaml|toml|ini|cfg|conf|csv|log|sql|xml|webp|png|jpe?g|gif|svg|pdf';
+const FILE_REF = new RegExp(
+  '^(?:file://)?((?:~|\\.{1,2})?/?(?:[\\w.@+-]+/)*[\\w.@+-]*\\.(?:' + FILE_EXTS + ')|(?:~/(?:[\\w.@+-]+/)*|/(?:[\\w.@+-]+/)+)[\\w.@+-]+)' +
+  '(?:(?::|#L)(\\d+)(?:-L?(\\d+))?|::[\\w.]+)?$', 'i');
+const NOT_FILES = /^(?:\/(?:api|chat|artifacts)\/|\/\/|[a-z][a-z0-9+.-]*:\/\/(?!\/)|www\.)/i;
+
+// {path, start, end} for a string that is one file reference, else null. A bare name ("app.js") counts only
+// where the caller says so (a code span), because in prose "e.g." or "v1.2" is not a file.
+function parseFileRef(text, allowBareName) {
+  const t = String(text || '').trim();
+  if (!t || t.length > 400 || /\s/.test(t) || NOT_FILES.test(t)) return null;
+  const m = FILE_REF.exec(t);
+  if (!m) return null;
+  const path = m[1];
+  if (!allowBareName && path.indexOf('/') < 0) return null;
+  if (/^\/[^/]+$/.test(path)) return null;               // "/foo" alone is more often a command than a file
+  const start = m[2] ? parseInt(m[2], 10) : 0;
+  const end = m[3] ? parseInt(m[3], 10) : start;
+  return { path: path.replace(/^file:\/\//, ''), start, end };
+}
+
+function fileRefTarget(ref) {
+  return ref.start ? ref.path + '#L' + ref.start + (ref.end !== ref.start ? '-' + ref.end : '') : ref.path;
+}
+
+// Kept for the markdown-link rewrite below: an href is a local file when it parses as one.
 function isLocalOrFilePath(href) {
-  if (!href) return false;
-  if (href.startsWith('file://')) return true;
-  if (href.startsWith('/') && !href.startsWith('//') && !href.startsWith('/api/') && !href.startsWith('/chat/')) {
-    // Check if looks like a local file path
-    return href.startsWith('/volume1/') || href.startsWith('/var/') || href.startsWith('/home/') || href.startsWith('/tmp/');
+  return Boolean(parseFileRef(href, true)) && !/^https?:/i.test(href || '');
+}
+
+function makeFileLink(ref, labelNode) {
+  const a = document.createElement('a');
+  a.className = 'local-file-link';
+  a.setAttribute('href', '#');
+  a.setAttribute('data-path', fileRefTarget(ref));
+  a.appendChild(labelNode);
+  return a;
+}
+
+// Bare paths in prose: only ones with a slash (~/x, /a/b, dir/file.ext), split out of their text node.
+const BARE_PATH = /(^|[\s(（「『"'])((?:file:\/\/)?(?:~\/|\.{0,2}\/)?(?:[\w.@+-]+\/)+[\w.@+-]+(?:(?::|#L)\d+(?:-L?\d+)?|::[\w.]+)?)/g;
+
+// [{at, token, ref}] for the file paths in a run of prose, in order.
+function findBarePaths(text) {
+  const out = [];
+  let m;
+  BARE_PATH.lastIndex = 0;
+  while ((m = BARE_PATH.exec(String(text || '')))) {
+    const token = m[2].replace(/[.,;:!?)）」』"']+$/, '');   // sentence punctuation is not the path's
+    const ref = parseFileRef(token, false);
+    if (ref) out.push({ at: m.index + m[1].length, token, ref });
   }
-  if (href.startsWith('~/')) return true;
-  return false;
+  return out;
+}
+
+function linkifyFilePaths(container) {
+  if (!container || typeof document === 'undefined') return;
+  // 1. A code span that is exactly one path.
+  container.querySelectorAll('code').forEach(code => {
+    if (code.closest && (code.closest('pre') || code.closest('a'))) return;
+    const ref = parseFileRef(code.textContent, true);
+    const parent = code.parentNode;
+    if (!ref || !parent) return;
+    const next = code.nextSibling;
+    parent.removeChild(code);
+    parent.insertBefore(makeFileLink(ref, code), next);   // the link wraps the code span, which keeps its look
+  });
+  // 2. Bare paths in text, outside links, code and pre.
+  const walk = (el) => {
+    Array.from(el.childNodes).forEach(n => {
+      if (n.nodeType === 1) {
+        if (/^(A|CODE|PRE|BUTTON|SCRIPT|STYLE)$/i.test(n.tagName || '')) return;
+        walk(n);
+        return;
+      }
+      if (n.nodeType !== 3 || !n.nodeValue || n.nodeValue.indexOf('/') < 0) return;
+      const text = n.nodeValue;
+      const hits = findBarePaths(text);
+      if (!hits.length) return;
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      hits.forEach(h => {
+        frag.appendChild(document.createTextNode(text.slice(last, h.at)));
+        frag.appendChild(makeFileLink(h.ref, document.createTextNode(h.token)));
+        last = h.at + h.token.length;
+      });
+      frag.appendChild(document.createTextNode(text.slice(last)));
+      n.parentNode.replaceChild(frag, n);
+    });
+  };
+  walk(container);
 }
 
 function attachFileLinkInterceptors(container) {
   if (!container || typeof openFilePreviewModal !== 'function') return;
-  container.querySelectorAll('a:not(.file-link-bound)').forEach(a => {
-    const href = a.getAttribute('href') || '';
-    if (isLocalOrFilePath(href)) {
-      a.classList.add('file-link-bound');
-      a.title = (a.title ? a.title + ' ' : '') + '(클릭하여 파일 미리보기)';
-      a.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openFilePreviewModal(href);
-      });
-    }
+  linkifyFilePaths(container.querySelector ? (container.querySelector('.md') || container) : container);
+  container.querySelectorAll('a.local-file-link:not(.file-link-bound)').forEach(a => {
+    const target = a.getAttribute('data-path') || a.getAttribute('href') || '';
+    if (!target || target === '#') return;
+    a.classList.add('file-link-bound');
+    a.title = (a.title ? a.title + ' ' : '') + '(클릭하여 파일 미리보기)';
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openFilePreviewModal(target);
+    });
   });
 }
 
@@ -756,8 +843,10 @@ function renderMarkdown(src, isFinal) {
         return '<img ' + p1 + 'src="' + absArtifact(u) + '"' + p2 + ' loading="lazy">';
       });
       html = html.replace(/<a\s+([^>]*?)href="([^"]+)"([^>]*?)>/g, (_, p1, href, p2) => {
-        if (isLocalOrFilePath(href)) {
-          return '<a ' + p1 + 'href="' + href + '" class="local-file-link"' + p2 + '>';
+        const ref = /^https?:/i.test(href) ? null : parseFileRef(href, true);
+        if (ref) {
+          // FILE_LINKS_v1: kept in data-path, which the sanitiser leaves alone; href would be dropped for ~/.
+          return '<a ' + p1 + 'href="#" data-path="' + fileRefTarget(ref).replace(/"/g, '&quot;') + '" class="local-file-link"' + p2 + '>';
         }
         return '<a ' + p1 + 'href="' + href + '" target="_blank" rel="noopener"' + p2 + '>';
       });

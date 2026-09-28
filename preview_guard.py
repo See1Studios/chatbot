@@ -57,13 +57,16 @@ def _resolve_safe_preview_file(raw_path: str) -> Tuple[Optional[Path], Optional[
         raw = raw[7:]
     if "#" in raw:
         raw = raw.split("#", 1)[0].strip()
+    raw = raw.split("::", 1)[0]                     # `path::symbol`, the repo's way of citing code
     if raw.startswith("~/"):
         p = home / raw[2:]
     elif raw.startswith("/"):
         p = Path(raw)
     else:
-        p1 = (workspace / raw).resolve()
-        p = p1 if (p1.exists() and p1.is_file()) else (home / raw).resolve()
+        # FILE_LINKS_v1: an answer's relative path is the workspace's, the engine repo's (`docs/plans/INDEX.md`,
+        # `static/app-sse.js`) or the home's, first that exists; the allow-list below still decides.
+        cands = [(base / raw).resolve() for base in (workspace, host_config.ROOT, home)]
+        p = next((c for c in cands if c.is_file()), cands[-1])
     try:
         rp = p.resolve()
     except Exception as e:

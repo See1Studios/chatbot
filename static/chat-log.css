@@ -288,6 +288,11 @@
   backdrop-filter:blur(8px);
   box-shadow:0 4px 16px rgba(0,0,0,0.3), var(--glint);
 }
+/* FILE_LINKS_v1: a path that opens the file preview -- a dotted underline says "this opens something here",
+   not a web page. A code span inside keeps its own look. */
+.msg.assistant .md a.local-file-link{color:var(--accent2);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.msg.assistant .md a.local-file-link:hover{text-decoration-style:solid}
+.msg.assistant .md a.local-file-link code{text-decoration:inherit}
 /* keep-all: Korean breaks between words, like the letters' no-wrap groups do while they arrive
    (CHAR_REVEAL_v1) -- two different rules made the lines reflow as each letter settled, and the
    bubble shook. anywhere: a word longer than the line still breaks. */
