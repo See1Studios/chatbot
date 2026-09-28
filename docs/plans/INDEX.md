@@ -34,8 +34,7 @@
 | [direction-alignment.md](direction-alignment.md) | `active` · 방향 **정렬** — 개인화 하네스로의 전환(전영소녀·조이, 업무 경쟁 안 함): 기조 재작성 → 제품 문서 → 계획 적합성 → 코드(NAS 플러그인·호칭 중립) → 개인화 고리 설계 | 기조·제품 정체성·방향 적합성을 판단하거나 바꿀 때 (**다른 계획보다 먼저**) |
 | [market-direction-review.md](market-direction-review.md) | `active` · 방향 **정렬** — **참고 자료(구현을 멈추지 않음, 근거가 생기면 재검토)**: 시장·포지셔닝·수익선 재진단, 작업 순서 재랭크(60초 데모 우선 · cadence 계획 신설) | 해자·포지셔닝·수익선·순서를 판단하고 R1–R8을 결정할 때 (`direction-alignment.md` 다음) |
 | [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md) | `active` · 방향 **개발판 전용 + 핵심** — §10 PD 모델, §11 전문가, §12 캐릭터(카드·사적 기억·이미지 형식·역할 팩) | 위임·PD·캐릭터·역할을 건드릴 때 |
-| [monolith-split.md](monolith-split.md) | `active` · 방향 **개발 기반** — Phase 5 완료(app.js·session.py 분리), Phase 6 구조 부채 실측(테스트 격리 93/1,190·`server.py` 라우터·`session.py` 여유 0줄·순환 3쌍), 파일 상한 규칙. 격리 부채 구현은 [test-suite-speed.md](test-suite-speed.md) `speed/C` | 파일을 나누거나 새 파일을 만들 때 · 구조 부채(`split/B`–`split/F`)를 다룰 때 |
-| [test-suite-speed.md](test-suite-speed.md) | `active` · 방향 **개발 기반** — 스위트 401s 실측(99/115이 2초 미만, 상위 4개가 58%, `test_tickets`가 가드 게이트 8회 재실행), `speed/A`–`speed/D`. 격리 부채(`split/A`)의 실행 처방 | 테스트가 느릴 때 · 편집→확인 루프의 런타임 · 릴리스 전 전체 실행 비용을 다룰 때 |
+| [monolith-split.md](monolith-split.md) | `active` · 방향 **개발 기반** — Phase 5 완료(app.js·session.py 분리), Phase 6 구조 부채 실측(테스트 격리 93/1,190·`server.py` 라우터·`session.py` 여유 0줄·순환 3쌍), 파일 상한 규칙 | 파일을 나누거나 새 파일을 만들 때 · 구조 부채(`split/A`–`split/F`)를 다룰 때 |
 | [character-resource-pipeline.md](character-resource-pipeline.md) | `active` · 방향 **핵심** — 캐릭터 폴더 SSOT, 정본/파생/인스턴스, `needed_art`, 자기진화 완결성 관찰 | 캐릭터 생성·수정·그림·Hub 페르소나 경로를 건드릴 때 |
 | [user-data-and-editing.md](user-data-and-editing.md) | `active` · 방향 **핵심 + 기반** — 사용자 데이터 분리(배포), ~~직책 이름은 표시값~~(완료 #129), 카드 폼 편집, 옛 프로토타입 삭제 | 배포 준비·팀 탭 편집·직책을 건드릴 때 |
 | [user-data-separation.md](user-data-separation.md) | `active` · 방향 **기반** — 기본 `~/.pe`·`CHATBOT_DATA`/`PE_HOME`·ctl 하드코딩 제거·마이그레이션 (user-data-and-editing §1 상세) | 배포·데이터 경로·`~/.pe`·gitignore를 건드릴 때 |
@@ -54,6 +53,7 @@
 
 | 문서 | 상태 | 종료 사유 |
 |---|---|---|
+| [archive/2026/test-suite-speed.md](archive/2026/test-suite-speed.md) | `abandoned` | 401s·104s는 공식 실행기 밖(`~/tmp`=홈 git 저장소 안)에서 잰 착시 — 실행기로는 약 225s·`test_tickets` 6s. 진짜 원인(릴리스 게이트가 홈 저장소를 통째로 복사)은 `bd91d26`에서 수정. `speed/C`는 `split/A` 중복 |
 | [archive/2026/recursive-self-evolution.md](archive/2026/recursive-self-evolution.md) | `done` | 코어(관찰·티켓·보호) 구현됨 — 코드가 정본 |
 | [archive/2026/instruction-architecture.md](archive/2026/instruction-architecture.md) | `done` | 지침 계층 흡수; 역할 팩(§12.5)이 캐릭터 부분 대체 |
 | [archive/2026/token-accounting.md](archive/2026/token-accounting.md) | `done` | 창 점유 vs 과금 해설 — 필요 시 참고만 |

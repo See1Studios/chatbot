@@ -173,7 +173,7 @@ Phase 0–5는 **크기**를 다뤘다. 이 단계는 그 규칙이 통과하는
 
 | id | 지점 | 측정 | 리팩터 방향 | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|---|
-| `split/A` | **테스트 격리** | 93/1,190 실패. 원인: 대문자 모듈 전역 42개와 되돌리지 않는 캐시 2개 — `characters.py::_CARD_INFO_CACHE`, `workspace_status.py::_SKILLS_CACHE` | DI가 아니라 **리셋 지점** 하나와 캐시 명시적 리셋. 테스트 하네스로 전역 격리 | 단일 프로세스 0 실패. `run-tests.sh`는 그대로 통과. `host_config` 공개면 안 바뀜 | 2 · — | M | — | ✅ 실행 처방은 [test-suite-speed.md](test-suite-speed.md) `speed/C` (이 문서가 측정의 정본) |
+| `split/A` | **테스트 격리** | 93/1,190 실패. 원인: 대문자 모듈 전역 42개와 되돌리지 않는 캐시 2개 — `characters.py::_CARD_INFO_CACHE`, `workspace_status.py::_SKILLS_CACHE` | DI가 아니라 **리셋 지점** 하나와 캐시 명시적 리셋. 테스트 하네스로 전역 격리 | 단일 프로세스 0 실패. `run-tests.sh`는 그대로 통과. `host_config` 공개면 안 바뀜 | 2 · — | M | — | 대기 |
 | `split/B` | **`server.py` 라우터** | 1,478줄 중 719줄이 라우팅. `server.py::_do_GET` 366줄/54분기, `do_POST` 353줄/50분기, 라우트 문자열 35개, 테이블 디스패치 0개. 여유 +22줄 | `(method, path pattern) → handler` 테이블, 도메인별 핸들러 모듈로 | 라우팅이 표 1곳에서 보임. 새 엔드포인트가 상한을 넘지 않음 | 2 · ⚡ | M | — | 대기 |
 | `split/C` | **`session.py` 경계** | 2,298줄 / 상한 2,298 → **여유 0줄**. `session.py::_send_direct` 200줄, `session.py::_tool_summary` 180줄 | `turn_watchdog.py`를 뽑은 같은 방식으로 문 responsibility 경계 | 한 줄도 못 붙이는 상태가 끝남. 상한을 낮추고 테스트로 고정 | 2 · ⚡ | M | — | 대기 |
 | `split/D` | **`characters`·`identity` 순환** | `identity.py` 238줄에 안쪽 `import characters` **11회, 17개 함수**. `characters.py`가 `parse_frontmatter` 하나 때문에 `identity`를 씀 | 카드 원본을 읽는 얇은 공유 계층을 만들고 양쪽이 그걸 읽게 한다. 세 순환이 한 번에 풀려야 한다 | 순환 0. 안쪽 import 0. 계층 방향을 가드로 못 박아야 한다(계측은 `ast`) | 2 · — | M | split/A | 대기 |
@@ -182,7 +182,7 @@ Phase 0–5는 **크기**를 다뤘다. 이 단계는 그 규칙이 통과하는
 
 ### 6.3 순서와 충돌
 
-`split/B` → `split/C` → `split/D`, `split/E`·`split/F`는 독립. `split/A`는 여기서 정의만 남기고 **실행은 [test-suite-speed.md](test-suite-speed.md) `speed/C`가** 담당한다 — 격리 부채의 실측 정본은 이 문서이고, 거기다 실행 순서·기대 효과가 있다. `split/A`가 `split/D`를 막고 있으므로 그 연결은 유지된다.
+`split/A` → `split/B` → `split/C` → `split/D`, `split/E`·`split/F`는 독립. 수령 대비 순서: `split/A`가 압도적이다(8% 테스트가 그 위에 있고 프로덕션 위험이 거의 없다).
 
 **경고 — 이미 손이 가고 있다.** edition 경계(`align/I` 계열, `host_config.EDITION` + `test_edition_boundary`) 작업이 `host_config.py`·`mcp_server.py`·`run-tests.sh`·`protected_paths.json`을 고쳤다. `split/A`는 `host_config`의 경로 전역을 다루므로 **그 작업이 끝나기 전에 착수하지 않는다.** `split/B`는 `server.py`만이라 lesser conflict지만, 라우팅이 `mcp_server`를 호출하므로 순서를 본다.
 
