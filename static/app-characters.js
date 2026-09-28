@@ -159,11 +159,14 @@ function updateStageBackground(providerId) {
     : `/chat/persona/providers/bg/${pid}.webp?${STAGE_BG_CACHE}`;
   const fallback = BASE_PATH + '/placeholders/stage.webp';
   const img = new Image();
+  const ready = () => document.documentElement.classList.add('stage-ready');   // BOOT_CURTAIN_v1 (chat-log.css)
   img.onload = () => {
     document.documentElement.style.setProperty('--stage-bg-image', `url('${candidate}')`);
+    ready();
   };
   img.onerror = () => {
     document.documentElement.style.setProperty('--stage-bg-image', `url('${fallback}')`);
+    ready();
   };
   img.src = candidate;
 }

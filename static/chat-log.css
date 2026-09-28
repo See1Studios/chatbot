@@ -58,6 +58,9 @@
   opacity:.12; filter:saturate(.85) contrast(.95);
   transition: opacity .3s ease;
 }
+/* BOOT_CURTAIN_v1: no stand-in picture first and the real one a moment later -- the stage fades in once its own
+   picture has loaded (app-characters.js updateStageBackground adds .stage-ready). */
+html:not(.stage-ready) .stage::before{opacity:0 !important}
 #log{
   position:relative;
   z-index:1;

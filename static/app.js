@@ -953,6 +953,13 @@ inputEl.addEventListener('keydown', (e) => {
 });
 
 autoResizeInput();
-boot().then(() => updateViewport());
+// BOOT_CURTAIN_v1 (chat-base.css): the page appears once boot has drawn it -- two frames after, so the last layout
+// (history, scroll, the model tag) is painted while still hidden. A boot that hangs does not keep it hidden.
+const BOOT_CURTAIN_MAX_MS = 4000;
+function liftBootCurtain() { document.documentElement.classList.remove('booting'); }
+setTimeout(liftBootCurtain, BOOT_CURTAIN_MAX_MS);
+boot().then(() => updateViewport()).catch(() => {}).finally(() => {
+  requestAnimationFrame(() => requestAnimationFrame(liftBootCurtain));
+});
 
 

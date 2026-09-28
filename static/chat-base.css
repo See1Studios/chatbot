@@ -135,7 +135,14 @@ html, body {
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
 }
+/* BOOT_CURTAIN_v1 (operator, 2026-09-29: the page rattles while it loads): boot() changes the page in steps --
+   the provider's theme colour, the character and avatar, the model, the session's history, private mode hiding
+   buttons, the stage. The page stays hidden (laid out, so everything can be measured) until boot is done, then
+   appears once. app.js lifts it, and lifts it anyway after BOOT_CURTAIN_MAX_MS. */
+html{background:var(--bg)}
+html.booting body{opacity:0}
 body{
+  transition:opacity .3s ease;
   background:var(--bg);
   color:var(--text);
   font-family:var(--font);
