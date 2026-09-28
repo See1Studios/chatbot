@@ -86,6 +86,20 @@ class Upload(unittest.TestCase):
         self.assertFalse(Path(f["path"]).exists())
         self.assertNotIn(f["path"], U.take_pending(SID, "x"))
 
+    def test_the_same_content_reuses_the_file_and_its_x_keeps_it(self):
+        first = up("사진.png", b"PIXELS", "image/png")[1]["file"]
+        self.assertFalse(first["reused"])
+        U.take_pending(SID, "보냄")                                       # the first message went with it
+        again = up("다른이름.png", b"PIXELS", "image/png")[1]["file"]
+        self.assertTrue(again["reused"])
+        self.assertEqual(again["path"], first["path"], "no second copy")
+        self.assertEqual(len(list((self.tmp / SID / "uploads").iterdir())), 1)
+        body = json.dumps({"name": again["name"]}).encode()
+        U.handle("/api/sessions/%s/upload/remove" % SID, {"Content-Length": str(len(body))}, io.BytesIO(body))
+        self.assertTrue(Path(first["path"]).exists(), "an earlier message still points at it")
+        other = up("new.png", b"OTHER", "image/png")[1]["file"]
+        self.assertFalse(other["reused"], "different bytes are a different file")
+
     def test_the_message_route_takes_the_pending_list_before_sending(self):
         src = (ROOT / "server.py").read_text(encoding="utf-8")
         take = src.index("chat_upload.take_pending(sid, text)")

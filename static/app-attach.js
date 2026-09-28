@@ -128,6 +128,18 @@ function renderAttachmentCards(bubble, files) {
     const size = document.createElement('span');
     size.className = 'attach-card-size';
     size.textContent = f.size || '';
+    // An image shows itself on the bubble (operator, 2026-09-28): a thumbnail from the file preview route, which
+    // the server's allow-list guards like every other preview.
+    if (attachIcon(name, f.mime) === 'image') {
+      const img = document.createElement('img');
+      img.className = 'attach-thumb';
+      img.alt = name;
+      img.loading = 'lazy';
+      img.src = (typeof BASE_PATH !== 'undefined' ? BASE_PATH : '') + '/api/file/raw?path=' + encodeURIComponent(f.path);
+      img.addEventListener('error', () => { img.remove(); card.classList.remove('has-thumb'); });
+      card.classList.add('has-thumb');
+      card.appendChild(img);
+    }
     card.appendChild(label);
     card.appendChild(size);
     card.addEventListener('click', (e) => {
@@ -320,7 +332,9 @@ function initInlineButton() {
     new MutationObserver((records) => {
       if (!attachItem || attachItem.state !== 'ready') return;
       records.forEach(r => r.addedNodes.forEach(n => {
-        if (!attachItem || n.nodeType !== 1 || !n.classList || !n.classList.contains('user') || n !== log.lastElementChild) return;
+        // this window's own new bubble: a live one carries no time stamp yet (history and resync bubbles do), and
+        // it need not be the log's last child -- progress and turn chrome are appended right after it
+        if (!attachItem || n.nodeType !== 1 || !n.classList || !n.classList.contains('user') || (n.dataset && n.dataset.ts)) return;
         renderAttachmentCards(n, [{ path: attachItem.file.path, label: attachItem.label, mime: attachItem.file.mime,
                                     size: attachItem.file.size_human }]);
         attachItem = null;                              // the server already sent it with this message

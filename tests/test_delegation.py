@@ -473,6 +473,19 @@ class CardsTest(Base):
 
 
 class ToolTest(Base):
+    def setUp(self):
+        super().setUp()
+        # The tool server asks the running chat server who is mid-turn (mcp_server._live_scope); a real turn by a
+        # character without the PD role on this host (the operator chatting while tests ran) made this fail.
+        import mcp_server
+        self._scope = mcp_server._live_scope
+        mcp_server._live_scope = lambda grant: (False, False)
+
+    def tearDown(self):
+        import mcp_server
+        mcp_server._live_scope = self._scope
+        super().tearDown()
+
     def test_the_tool_server_offers_delegate_and_refuses_operator_actions(self):
         import mcp_server
         self.assertIn("delegate", [t["name"] for t in mcp_server.tool_defs()])

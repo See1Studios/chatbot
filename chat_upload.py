@@ -87,28 +87,51 @@ def handle(path: str, headers, rfile) -> Optional[Tuple[int, Dict]]:
     data = rfile.read(n)
     up = sess_dir / "uploads"
     up.mkdir(parents=True, exist_ok=True)
-    stored = "%s-%s" % (time.strftime("%Y%m%d-%H%M%S"), name)
-    target = up / stored
-    k = 1
-    while target.exists():
-        k += 1
-        target = up / ("%s-%d-%s" % (time.strftime("%Y%m%d-%H%M%S"), k, name))
-    target.write_bytes(data)
-    item = {"name": target.name, "label": name, "path": str(target), "size": len(data),
+    # The same content again in this conversation is the file already there, not another copy (2026-09-28).
+    target = _same_content(up, data)
+    created = target is None
+    if created:
+        stored = "%s-%s" % (time.strftime("%Y%m%d-%H%M%S"), name)
+        target = up / stored
+        k = 1
+        while target.exists():
+            k += 1
+            target = up / ("%s-%d-%s" % (time.strftime("%Y%m%d-%H%M%S"), k, name))
+        target.write_bytes(data)
+    item = {"name": target.name, "label": name, "path": str(target), "size": len(data), "reused": not created,
             "size_human": _human(len(data)), "mime": (headers.get("Content-Type") or "application/octet-stream").split(";")[0]}
     with _lock:
         _pending.setdefault(sid, []).append(item)
     return 200, {"ok": True, "file": item}
 
 
+def _same_content(up: Path, data: bytes) -> Optional[Path]:
+    """A file in this uploads/ folder with exactly these bytes (same size first, then sha256), else None."""
+    import hashlib
+    digest = None
+    for f in sorted(up.iterdir()):
+        try:
+            if not f.is_file() or f.stat().st_size != len(data):
+                continue
+            digest = digest or hashlib.sha256(data).hexdigest()
+            if hashlib.sha256(f.read_bytes()).hexdigest() == digest:
+                return f
+        except OSError:
+            continue
+    return None
+
+
 def remove(sid: str, stored_name: str) -> bool:
-    """Drop one pending attachment and its file. False when it is not pending (already sent, or never there)."""
+    """Drop one pending attachment, and its file unless the upload reused one an earlier message may point at.
+    False when it is not pending (already sent, or never there)."""
     with _lock:
         items = _pending.get(sid, [])
         hit = next((x for x in items if x["name"] == stored_name), None)
         if hit is None:
             return False
         items.remove(hit)
+    if hit.get("reused"):
+        return True
     try:
         Path(hit["path"]).unlink()
     except OSError:
