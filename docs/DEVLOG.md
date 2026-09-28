@@ -2,6 +2,12 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-29 — HTTP 두뇌에 Edit·Glob·Skill, 도구 예산 업무 40 / 사적 8 (PARITY_TOOLS_v1, par/C–F #377)
+
+- **변경**: `mcp_parity.py`(웹 도구처럼 서버 옆 모듈) — `edit_file`(Claude Edit 계약: 정확히 한 번 일치 또는 `replace_all`, 결과는 `write_file`과 같은 규칙으로 검사 — 규칙은 `mcp_server._write_refusal` 하나로 뽑음), `find_files`(허용 루트 안 glob, 비밀 이름·.git 제외, 200개 상한), `skill`(목록: 이름+설명(YAML `>`/`|` 포함), 로드: SKILL.md 본문+참조 파일 목록). `adapter_openai.tool_budget`: 업무 40·사적 8(D3 결정).
+- **테스트**: `tests/test_mcp_parity_tools.py`, `test_tool_budget_wrapup`에 모드별 예산, `test_mcp_server` 도구 목록. `mcp_server.py` 900줄 가드 안(898).
+- **배포**: ⚡.
+
 ## 2026-09-29 — HTTP 두뇌에 웹: MCP `web` 도구 (WEB_TOOL_v1, #376)
 
 - **증상**: OpenRouter Space Bunny가 웹을 못 씀. CLI 두뇌는 웹 도구가 내장, HTTP 경로는 우리가 넘긴 MCP 도구(17개)뿐이고 웹이 없었음.

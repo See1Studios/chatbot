@@ -835,8 +835,9 @@ class ToolSurfaceTest(unittest.TestCase):
         mcp.HOST_PLUGIN = None
         try:
             names = {t["name"] for t in mcp.tool_defs()}
-            adapters = set(mcp.mcp_core.NAMES) | (set(mcp.delegation.NAMES) if mcp.delegation else set()) \
-                | (set(mcp.web_tool.NAMES) if mcp.web_tool else set())   # WEB_TOOL_v1
+            adapters = (set(mcp.mcp_core.NAMES) | (set(mcp.delegation.NAMES) if mcp.delegation else set())
+                        | (set(mcp.web_tool.NAMES) if mcp.web_tool else set())          # WEB_TOOL_v1
+                        | (set(mcp.mcp_parity.NAMES) if mcp.mcp_parity else set()))     # PARITY_TOOLS_v1
             self.assertEqual(names, {"choices", "list_dir", "read_file", "write_file", "run_command", "search_text"} | adapters)
             for tool in ("ping_nas", "list_services", "service_ctl"):
                 r = mcp.call_tool(tool, {})

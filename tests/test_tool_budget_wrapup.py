@@ -53,6 +53,14 @@ class ToolBudgetWrapup(unittest.TestCase):
         self.assertEqual(len(calls), a.MAX_TOOL_HOPS + 1)            # exactly one extra request, never more
         self.assertEqual(events[-1]["event"], "error")
 
+    def test_a_private_turn_has_a_smaller_budget_than_a_work_turn(self):
+        # PARITY_TOOLS_v1 (api-adapter-parity D3): work 40, private 8
+        a = A.OpenAIDialectAdapter(id="t", base_url="http://x/v1", api_key_env="NONE", default_model="m")
+        self.assertEqual((a.MAX_TOOL_HOPS, a.PRIVATE_TOOL_HOPS), (40, 8))
+        self.assertEqual(a.tool_budget(SimpleNamespace(is_private=True)), 8)
+        self.assertEqual(a.tool_budget(SimpleNamespace(is_private=False)), 40)
+        self.assertEqual(a.tool_budget(SimpleNamespace()), 40)
+
     def test_tool_choice_reaches_the_request_body_only_with_tools(self):
         src = Path(A.__file__).read_text(encoding="utf-8")
         self.assertIn('body["tool_choice"] = tool_choice', src)

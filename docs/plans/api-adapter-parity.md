@@ -17,13 +17,13 @@ CLI 두뇌는 자기 도구 + 우리 MCP. HTTP 두뇌는 우리 MCP뿐(`provider
 | 능력 | CLI 두뇌 | HTTP 두뇌 (지금) | 차이 |
 |---|---|---|---|
 | 웹 검색·읽기 | WebSearch·WebFetch | `web` (#376, Exa·Jina, 공개 주소만) | **메움** |
-| 파일 읽기·목록·찾기 | Read·Glob·Grep (작업공간 전체) | `read_file`·`list_dir`·`search_text` (허용 루트) | Glob(패턴으로 파일 찾기) 없음 |
-| 파일 고치기 | Edit (부분 교체) | `write_file` (통째로 쓰기) | **부분 교체 없음** — 큰 파일은 통째로 다시 써야 함 |
+| 파일 읽기·목록·찾기 | Read·Glob·Grep (작업공간 전체) | `read_file`·`list_dir`·`search_text`·`find_files` (허용 루트) | 범위만 다름(허용 루트) |
+| 파일 고치기 | Edit (부분 교체) | `edit_file` (#377, 같은 계약) | **메움** |
 | 셸 | Bash (권한 확인 없이) | `run_command` (읽기 전용 허용 목록) | **큼** — 의도된 차이일 수 있음(D2) |
-| 스킬 | Skill (`.agents/skills` 로드) | 없음 (허용 루트면 read_file로 가능) | 스킬 목록·로드 도구 없음 |
+| 스킬 | Skill (`.agents/skills` 로드) | `skill` list·load (#377) | **메움** |
 | 그림 보기 | 파일 경로로 | 첨부 이미지(IMAGE_LOOKBACK) | 대체로 메움 |
 | 그림 그리기 | 일부 CLI(위임 artist) | 없음 | OpenRouter 이미지 출력 모델로 가능(D4) |
-| 도구 호출 수 | 사실상 제한 없음 | 한 턴 20회 + 마무리 1회 | 긴 작업에서 끊김 |
+| 도구 호출 수 | 사실상 제한 없음 | 업무 40 / 사적 8 + 마무리 1회 (#377) | 줄어듦 |
 | 위임·메모리·티켓·선택지 | 우리 MCP | 우리 MCP | 같음 |
 
 ## 3. 원칙
@@ -39,10 +39,10 @@ CLI 두뇌는 자기 도구 + 우리 MCP. HTTP 두뇌는 우리 MCP뿐(`provider
 |---|---|---|---|---|---|---|---|
 | `par/A` | 이 문서 + INDEX 행 | 이 문서, `docs/plans/INDEX.md` | 커밋 | 0 · — | S | — | ✅ #376 |
 | `par/B` | `web` 도구 | `web_tool.py`, `mcp_server.py`, 테스트 | 읽기·검색, 공개 주소만, 사적 세션 닫힘 | 2 · ⚡ | M | — | ✅ #376 |
-| `par/C` | `edit_file` (부분 교체) | `mcp_server.py`, 테스트 | Claude Edit와 같은 계약: 옛 문자열이 정확히 한 번 있을 때만 바꿈(`replace_all` 선택), 쓰기 허용 루트·보호 경로 규칙 그대로 | 2 · ⚡ | S | — | 대기 |
-| `par/D` | `find_files` (Glob) | `mcp_server.py`, 테스트 | 허용 루트 안 패턴 검색, 비밀 이름 제외, 개수 상한 | 1 · ⚡ | S | — | 대기 |
-| `par/E` | `skill` (목록·로드) | `mcp_server.py` 또는 새 모듈, 테스트 | 스킬 이름·설명 목록, 이름으로 SKILL.md 본문 | 1 · ⚡ | S | — | 대기 |
-| `par/F` | 도구 예산 | `providers/adapter_openai.py`, 테스트 | 업무 모드 상한 상향(예: 40), 사적 모드는 낮게, 마무리 규칙 유지 | 1 · ⚡ | S | D3 | 대기 |
+| `par/C` | `edit_file` (부분 교체) | `mcp_server.py`, 테스트 | Claude Edit와 같은 계약: 옛 문자열이 정확히 한 번 있을 때만 바꿈(`replace_all` 선택), 쓰기 허용 루트·보호 경로 규칙 그대로 | 2 · ⚡ | S | — | ✅ #377 |
+| `par/D` | `find_files` (Glob) | `mcp_server.py`, 테스트 | 허용 루트 안 패턴 검색, 비밀 이름 제외, 개수 상한 | 1 · ⚡ | S | — | ✅ #377 |
+| `par/E` | `skill` (목록·로드) | `mcp_server.py` 또는 새 모듈, 테스트 | 스킬 이름·설명 목록, 이름으로 SKILL.md 본문 | 1 · ⚡ | S | — | ✅ #377 |
+| `par/F` | 도구 예산 | `providers/adapter_openai.py`, 테스트 | 업무 모드 상한 상향(예: 40), 사적 모드는 낮게, 마무리 규칙 유지 | 1 · ⚡ | S | D3 | ✅ #377 |
 | `par/G` | 셸 | D2대로 | D2 | 2–3 · ⚡ | M | D2 | 대기 |
 | `par/H` | 그림 그리기 | 새 도구 | D4 | 2 · ⚡ | M | D4 | 대기 |
 
@@ -54,7 +54,7 @@ CLI 두뇌는 자기 도구 + 우리 MCP. HTTP 두뇌는 우리 MCP뿐(`provider
 |---|---|---|---|
 | D1 | 검색 백엔드 기본값 | Exa 공개 MCP → DuckDuckGo lite(지금). 키 있는 백엔드(Exa·Brave·Tavily)는 설정으로만, 기본값 아님 | 대기 |
 | D2 | HTTP 두뇌의 셸 | 대화 중에는 지금처럼 읽기 전용. 쓰기 가능한 셸은 **위임 워크트리 안의 작업자**에게만(CLI 작업자와 같은 자리) — 무료·스텔스 모델에 호스트 셸을 주지 않는다 | 대기 |
-| D3 | 도구 예산 | 업무 40 / 사적 8, 넘으면 지금의 마무리 요청 | 대기 |
+| D3 | 도구 예산 | 업무 40 / 사적 8, 넘으면 지금의 마무리 요청 | **결정** (2026-09-29 운영자: 진행) |
 | D4 | 그림 그리기 | OpenRouter 이미지 출력 모델을 쓰는 `image` 도구는 그림 관리 모달의 "생성 요청"과 같이 설계(결과는 갤러리로) | 대기 |
 
 ## 6. 하지 않는 것

@@ -17,6 +17,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -64,6 +65,11 @@ try:
     import web_tool
 except Exception:
     web_tool = None
+# PARITY_TOOLS_v1: edit_file, find_files, skill -- CLI brains' Edit, Glob and Skill for HTTP brains
+try:
+    import mcp_parity
+except Exception:
+    mcp_parity = None
 
 
 # Generic/core roots -- always allowlisted regardless of deployment.
@@ -413,12 +419,40 @@ def tool_defs() -> List[dict]:
         defs += list(delegation.TOOL_DEFS)
     if web_tool is not None:
         defs += list(web_tool.TOOL_DEFS)
+    if mcp_parity is not None:
+        defs += list(mcp_parity.TOOL_DEFS)
     if HOST_PLUGIN:
         defs += list(getattr(HOST_PLUGIN, "EXTRA_TOOL_DEFS", []))
     if EDITION != "dev":
         hidden = _dev_only_tools()
         defs = [d for d in defs if d.get("name") not in hidden]
     return defs
+
+
+def _write_refusal(path: Path, content: str) -> Optional[Tuple[str, Any]]:
+    """(reason, data) when a write to `path` is refused, else None -- write_file's and edit_file's one rule set."""
+    if len(content.encode("utf-8")) > 2_000_000:
+        return "content too large", None
+    if not _is_under(path, _allow_roots()):
+        return "write path not allowlisted", None
+    if evolution is None:
+        return "protection registry unavailable; writes are refused", None
+    why = evolution.match_protected(CODE_ROOT, path)
+    if why:
+        return f"write path is protected ({why})", {"path": str(path)}
+    deny = _deny_secret_path(path)
+    if deny:
+        return deny, None
+    if SECRET_CONTENT_RE.search(content):
+        return "refusing to write secret-like content", None
+    return None
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+    tmp.write_text(content, encoding="utf-8")
+    tmp.replace(path)
 
 
 def _run(cmd: List[str], timeout: int = 20, cwd: Optional[str] = None) -> Tuple[int, str, str]:
@@ -609,25 +643,14 @@ def call_tool(name: str, arguments: dict) -> dict:
         if name == "write_file":
             path = _resolve_target_path(args.get("path"))
             content = str(args.get("content") if args.get("content") is not None else "")
-            if len(content.encode("utf-8")) > 2_000_000:
-                return envelope(False, "content too large", None)
-            if not _is_under(path, _allow_roots()):
-                return envelope(False, "write path not allowlisted", None)
-            if evolution is None:
-                return envelope(False, "protection registry unavailable; writes are refused", None)
-            why = evolution.match_protected(CODE_ROOT, path)
-            if why:
-                return envelope(False, f"write path is protected ({why})", {"path": str(path)})
-            deny = _deny_secret_path(path)
-            if deny:
-                return envelope(False, deny, None)
-            if SECRET_CONTENT_RE.search(content):
-                return envelope(False, "refusing to write secret-like content", None)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_name(f".{path.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
-            tmp.write_text(content, encoding="utf-8")
-            tmp.replace(path)
+            refused = _write_refusal(path, content)
+            if refused:
+                return envelope(False, refused[0], refused[1])
+            _atomic_write(path, content)
             return envelope(True, "written", {"path": str(path.resolve()), "bytes": len(content.encode("utf-8"))})
+
+        if mcp_parity is not None and name in mcp_parity.NAMES:
+            return mcp_parity.call(name, args, sys.modules[__name__])
 
         if name == "run_command":
             cmd = str(args.get("cmd") or "").strip()

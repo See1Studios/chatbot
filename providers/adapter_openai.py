@@ -467,7 +467,14 @@ class OpenAIDialectAdapter(AgentAdapter):
     # --- HTTP-transport-only surface (AgentSession's http branch calls this,
     # process-transport adapters never do) ------------------------------------
 
-    MAX_TOOL_HOPS = 20  # safety cap -- expanded from 10 to 20 for complex multi-hop tasks
+    # PARITY_TOOLS_v1 (api-adapter-parity D3): a work turn gets the room a CLI brain has for long jobs; a private turn
+    # is talk, and a handful of tool rounds is plenty.
+    MAX_TOOL_HOPS = 40
+    PRIVATE_TOOL_HOPS = 8
+
+    def tool_budget(self, session) -> int:
+        return self.PRIVATE_TOOL_HOPS if getattr(session, "is_private", False) else self.MAX_TOOL_HOPS
+
     # TOOL_BUDGET_WRAPUP_v1: at the cap the turn used to end with an error and everything the tools returned was
     # lost (2026-09-28: "review the observations" on a stealth model, 20 rounds / ~66 calls, no answer). One more
     # request with tool_choice "none" turns what was read into an answer.
@@ -658,13 +665,14 @@ class OpenAIDialectAdapter(AgentAdapter):
         tools = _mcp_openai_tools()
         hop_usages: List[dict] = []
         served_model = ""
-        for hop in range(1, self.MAX_TOOL_HOPS + 2):
+        budget = self.tool_budget(session)
+        for hop in range(1, budget + 2):
             if seq is not None and getattr(session, "_turn_seq", None) != seq:
                 return
-            wrapup = hop > self.MAX_TOOL_HOPS
+            wrapup = hop > budget
             if wrapup:
                 messages.append({"role": "user", "content": self.TOOL_BUDGET_NOTE})
-                yield {"event": "tool", "text": "tool budget spent (%d rounds): asking for an answer" % self.MAX_TOOL_HOPS,
+                yield {"event": "tool", "text": "tool budget spent (%d rounds): asking for an answer" % budget,
                        "title": "tool budget", "kind": "result", "status": "tool_result"}
             text, tool_calls, raw_usage, finish_reason, hop_model = yield from self._stream_once(
                 session, messages, tools, seq=seq, tool_choice="none" if wrapup else None)
@@ -743,4 +751,4 @@ class OpenAIDialectAdapter(AgentAdapter):
             )
             yield out
             return
-        yield {"event": "error", "text": f"도구 사용이 {self.MAX_TOOL_HOPS}단계를 넘었고 마무리 답변도 받지 못해 종료했습니다."}
+        yield {"event": "error", "text": f"도구 사용이 {budget}단계를 넘었고 마무리 답변도 받지 못해 종료했습니다."}
