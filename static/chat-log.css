@@ -431,7 +431,10 @@
   background:linear-gradient(90deg,transparent,var(--muted),transparent);
   animation-duration:2.8s;
 }
-@keyframes flow-sweep{0%{transform:translateX(-110%)}100%{transform:translateX(280%)}}
+/* FLOW_SWEEP_INSIDE_v1: the rule travels from the block's left edge to its right edge and no further (it used to
+   start 42% before the block and end 44% past it, through the bubble's side); it fades in and out at the ends.
+   Right end = width x (1 + the last translate / 100%): 38% x 2.63 = 100%. */
+@keyframes flow-sweep{0%{transform:translateX(0);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateX(163%);opacity:0}}
 
 @media (prefers-reduced-motion:reduce){
   .msg.assistant .md .rv-l{animation:none}
