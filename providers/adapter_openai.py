@@ -598,6 +598,34 @@ class OpenAIDialectAdapter(AgentAdapter):
                 pass
         return "".join(text_buf), tool_calls, usage, finish_reason, served_model
 
+    def supports_images(self, model: str) -> bool:
+        """The live catalog says this model takes image input. Unknown means no: a text model sent an image errors."""
+        try:
+            arch = (self._get_models_meta().get(model) or {}).get("architecture") or {}
+        except Exception:  # noqa: BLE001
+            return False
+        mods = arch.get("input_modalities") or []
+        return "image" in mods or "image" in str(arch.get("modality") or "").split("->")[0]
+
+    def _with_attached_images(self, messages: List[dict], session) -> List[dict]:
+        """composer-plus-menu plus/E: an image attached to this turn's message goes to an image-capable model as an
+        image part, beside the text that still lists its path. Only the last user message: earlier turns were
+        already seen, and re-sending their pixels every turn would cost every turn."""
+        import base64
+        import chat_upload
+        idx = next((i for i in range(len(messages) - 1, -1, -1) if messages[i].get("role") == "user"), None)
+        if idx is None or not isinstance(messages[idx].get("content"), str):
+            return messages
+        text = messages[idx]["content"]
+        images = chat_upload.attached_images(text)
+        if not images or not self.supports_images(self.coerce_openrouter_model(session.model or self.default_model)):
+            return messages
+        parts: List[dict] = [{"type": "text", "text": text}]
+        for mime, data in images:
+            parts.append({"type": "image_url", "image_url": {"url": "data:%s;base64,%s" % (mime, base64.b64encode(data).decode("ascii"))}})
+        messages[idx] = dict(messages[idx], content=parts)
+        return messages
+
     def stream_turn(self, session: "AgentSession", messages: List[dict], seq: Optional[int] = None) -> Iterator[dict]:
         """Orchestrates one or more _stream_once() hops: a plain-answer hop
         ends the turn (finalizes session.history/current_text, mirrors what
@@ -612,7 +640,7 @@ class OpenAIDialectAdapter(AgentAdapter):
         internally the same way this loop holds it in `messages`). Raises on
         transport failure -- the caller (AgentSession._run_http_turn) turns
         that into an {"event":"error"}."""
-        messages = list(messages)
+        messages = self._with_attached_images(list(messages), session)
         tools = _mcp_openai_tools()
         hop_usages: List[dict] = []
         served_model = ""

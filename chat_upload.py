@@ -122,6 +122,47 @@ def attachment_block(items: List[Dict]) -> str:
     return "[Attached files - read them with your file tools]\n" + "\n".join(lines)
 
 
+_LINE = re.compile(r"^- (.+) \(([^,()]+), ([^()]+)\)$")
+IMAGE_MAX_BYTES = 8 * 1024 * 1024   # plus/E: one image sent inline to a model
+
+
+def parse_block(text: str) -> List[Dict]:
+    """[{path, mime}] of the attachment list at the end of a message (attachment_block's format), else []."""
+    s = text or ""
+    head = "[Attached files - read them with your file tools]"
+    at = s.rfind(head)
+    if at < 0:
+        return []
+    out = []
+    for line in s[at + len(head):].splitlines():
+        if not line.strip():
+            continue
+        m = _LINE.match(line.strip())
+        if not m:
+            return []
+        out.append({"path": m.group(1), "mime": m.group(2)})
+    return out
+
+
+def attached_images(text: str) -> List[Tuple[str, bytes]]:
+    """(mime, bytes) of the images attached to a message that are ours to read: an image type, inside a session's
+    uploads/ folder, at most IMAGE_MAX_BYTES. Anything else in the list is left to the file tools."""
+    root = _sessions_dir().resolve()
+    out = []
+    for item in parse_block(text):
+        if not item["mime"].startswith("image/"):
+            continue
+        try:
+            p = Path(item["path"]).resolve()
+            p.relative_to(root)
+        except (OSError, ValueError):
+            continue
+        if p.parent.name != "uploads" or not p.is_file() or p.stat().st_size > IMAGE_MAX_BYTES:
+            continue
+        out.append((item["mime"], p.read_bytes()))
+    return out
+
+
 def take_pending(sid: str, text: str) -> str:
     """The message text with this session's pending attachments appended; clears them. Unchanged without any."""
     with _lock:
