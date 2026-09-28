@@ -692,3 +692,11 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
   .msg.system .md{flex:1 1 auto;min-width:0}
   .msg.system .md p{margin:0}
 }
+
+/* TAB_CHROME_v1: the character's scene (stage background, standing sprite) and the input bar belong to the chat
+   tab; the other tabs are tools and read better plain. switchTab() sets :root[data-tab]; without it (first paint)
+   the page is the chat. The stop button already moves to the header off the chat tab (placeStopBtn). */
+:root[data-tab]:not([data-tab="chat"]) .stage::before { opacity: 0; }
+:root[data-tab]:not([data-tab="chat"]) .character-sprite,
+:root[data-tab]:not([data-tab="chat"]) .composer,
+:root[data-tab]:not([data-tab="chat"]) #choiceBar { display: none !important; }

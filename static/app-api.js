@@ -92,6 +92,7 @@ function switchTab(tab) {
     tab = 'status';
     currentTab = 'status';
   }
+  document.documentElement.dataset.tab = tab;   // TAB_CHROME_v1 (chat-panes.css): scene and input bar on chat only
   if (tabChat) { tabChat.classList.toggle('on', tab === 'chat'); tabChat.setAttribute('aria-selected', String(tab === 'chat')); }
   if (tabArtifacts) { tabArtifacts.classList.toggle('on', tab === 'artifacts'); tabArtifacts.setAttribute('aria-selected', String(tab === 'artifacts')); }
   if (tabActivity) { tabActivity.classList.toggle('on', tab === 'activity'); tabActivity.setAttribute('aria-selected', String(tab === 'activity')); }

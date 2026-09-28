@@ -190,6 +190,7 @@ async function importSessionContext(sid) {
     const res = await api('/api/sessions/' + encodeURIComponent(sid) + '/summary');
     const summary = (res && res.summary) || '(요약할 내용이 없습니다)';
     const note = '[이전 세션 ' + sid + ' 내용 참고]\n' + summary + '\n\n';
+    switchTab('chat');   // first: the input bar exists only on the chat tab (TAB_CHROME_v1), and a hidden box takes no focus
     if (inputEl) {
       inputEl.value = note + (inputEl.value || '');
       inputEl.focus();
@@ -197,7 +198,6 @@ async function importSessionContext(sid) {
       inputEl.style.height = inputEl.scrollHeight + 'px';
       updateSendButton();
     }
-    switchTab('chat');
   } catch (e) {
     await alertModal('세션 요약 가져오기 실패: ' + (e.message || e));
   } finally {
