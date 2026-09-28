@@ -1,0 +1,38 @@
+{
+ "actor": "chat-agent:openrouter",
+ "approved_at": "2026-09-29 01:35:54",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-29 01:35:36",
+ "evidence": [
+  "event:20260928-235649-3df4f9#98"
+ ],
+ "gate_failures": 0,
+ "id": 371,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-29 01:35:54"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: data/workspace/characters/char_01m376xaa1e0fsdhm3e3kbnybd/gallery/nono-desk-01.png",
+   "ts": "2026-09-29 01:35:54"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-371 at aece59c (agy, review PASS round 1)",
+   "ts": "2026-09-29 01:41:50"
+  }
+ ],
+ "paths": [
+  "data/workspace/characters/char_01m376xaa1e0fsdhm3e3kbnybd/gallery/nono-desk-01.png"
+ ],
+ "status": "awaiting_merge",
+ "target": "data/workspace/characters/char_01m376xaa1e0fsdhm3e3kbnybd/gallery/nono-desk-01.p",
+ "title": "노노 일러스트 1장 (코치 요청분)",
+ "updated": "2026-09-29 01:41:50",
+ "worked_by": "agy"
+}
