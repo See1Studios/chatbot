@@ -105,56 +105,53 @@ function streamBody(node) {
 // frame measured 0.4ms at 164 characters and 1.8ms at 2440, which was affordable but was solving a
 // problem the block boundary removes outright.
 //
-// And then it was still not smooth, because the entrance was RACING the stream: a 300ms fade firing
-// on every block closure overlaps the next closure, and three half-finished fades stacked on each
-// other read as a shimmer. So the appearance is put one beat behind the text. A block that closes
-// waits in a queue and is appended on a tick, which means the text is already still and readable
-// when it moves, exactly one entrance is ever in flight, and the answer assembles at a calm rhythm
-// instead of at whatever speed the provider happens to talk. Because the block is genuinely new when
-// its animation runs, a fade from zero is safe here in a way it never was over visible text.
-
-// How long a finished block waits before it is put on screen. Long enough that the reader sees the
-// text arrive first and the motion second; short enough that it still feels like the same moment.
+// And then the bubble shook, and the text rose and fell -- and both were this code's fault.
+//
+// Delaying the APPEARANCE was the wrong half of the idea. It froze the block being written while a
+// closed one waited, then put that same text on screen a second time as a real block, then took it
+// away again: freeze, duplicate, shrink. Lagging the animation instead costs none of that, because
+// nothing about the text moves. The block is in the right place at the right time, the reader can
+// read it, and a beat later it settles.
+//
+// And nothing scales. scale() does not move layout but it does make the letters change size, and a
+// bubble whose text keeps growing and shrinking reads as a bubble that cannot hold still. The
+// per-kind vocabulary is built from translation and one gentle opacity dip instead, so the type is
+// the same size at every frame of the motion.
+//
+// How long a block sits still before it settles. Long enough that the reader sees the text arrive
+// first and the motion second; short enough to still feel like the same moment.
 var STREAM_REVEAL_BEAT = 200;
-// The floor for catching up. A burst of short blocks must not turn into a slow crawl, so a backlog
-// drains at this rate instead of the beat.
-var STREAM_REVEAL_MIN = 55;
+// The extra room each block in a same-paint burst gets, so a coalesced catch-up cascades instead
+// of landing as one flash.
+var STREAM_REVEAL_STAGGER = 60;
+
+// Marks a block as settling, one beat after it went on screen. The class comes off when the
+// animation ends, so it can never replay and a later render cannot restart a motion the reader has
+// already watched.
+//
+// `step` spreads out blocks that closed in the same paint, which is what a coalesced burst looks
+// like. Without it three entrances fire on the same frame, and three entrances on the same frame
+// is the strobe all over again.
+function scheduleArrive(node, el, kind, step) {
+  if (revealReducedMotion()) { el.setAttribute('data-kind', kind || 'narration'); return; }
+  el.setAttribute('data-kind', kind || 'narration');
+  const delay = STREAM_REVEAL_BEAT + (step || 0) * STREAM_REVEAL_STAGGER;
+  node._arriveTimers = node._arriveTimers || [];
+  const id = setTimeout(function () {
+    node._arriveTimers = (node._arriveTimers || []).filter(function (t) { return t !== id; });
+    markArrive(el, kind);
+  }, delay);
+  node._arriveTimers.push(id);
+}
+
+function clearArriveTimers(node) {
+  (node._arriveTimers || []).forEach(clearTimeout);
+  node._arriveTimers = [];
+}
 
 function revealReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-// One block per tick, in order. The tick is the beat, shortened when there is a backlog so the lag
-// cannot run away on a long answer.
-function pumpReveal(node, md) {
-  const queue = node._streamQueue || [];
-  if (!queue.length) {
-    if (node._streamTimer) { clearTimeout(node._streamTimer); node._streamTimer = null; }
-    return;
-  }
-  if (node._streamTimer) return;
-  const delay = Math.max(STREAM_REVEAL_MIN, Math.round(STREAM_REVEAL_BEAT / queue.length));
-  node._streamTimer = setTimeout(function () {
-    node._streamTimer = null;
-    stepReveal(node, md);
-    pumpReveal(node, md);
-  }, delay);
-}
-
-function stepReveal(node, md) {
-  const queue = node._streamQueue || [];
-  const block = queue.shift();
-  const openEl = node._streamOpen;
-  if (!block || !openEl) return;
-  const box = buildBlock(block, false);
-  markArrive(box, block.kind);
-  md.insertBefore(box, openEl);
-  node._streamShownBlocks = (node._streamShownBlocks || 0) + 1;
-  scrollChatToBottom(false);
-  // The block being written may only show its text once everything before it is on screen, or the
-  // reader sees the tail of the answer sitting above the middle of it.
-  if (!(node._streamQueue || []).length) openEl.innerHTML = node._streamOpenHtml || '';
 }
 
 // Splits a growing answer into the blocks that are finished and the one still being written.
@@ -169,7 +166,7 @@ function setStreamingContent(node, text) {
   // Start the body over rather than leaving a stale block in front of the new answer.
   if (shown.indexOf(prev) !== 0) resetStreamBody(node, md);
   const cut = revealBlocks(shown);
-  // Fewer finished blocks than we have accounted for means the text shrank, same situation.
+  // Fewer finished blocks than are on screen means the text shrank, which is the same situation.
   if (cut.blocks.length < (node._streamUnits || 0)) resetStreamBody(node, md);
   // The block being written is always the last child, so the existing caret -- a ::after on
   // .md > *:last-child (chat-composer.css) -- lands on it and keeps one caret instead of two. It is
@@ -181,33 +178,21 @@ function setStreamingContent(node, text) {
     md.appendChild(openEl);
     node._streamOpen = openEl;
   }
-  // Reduced motion buys nothing here: there is no animation to smooth out, so the beat would be
-  // pure latency for someone who asked for none.
-  if (revealReducedMotion()) {
-    for (let i = node._streamUnits || 0; i < cut.blocks.length; i++) {
-      const box = buildBlock(cut.blocks[i], false);
-      md.insertBefore(box, openEl);
-      node._streamShownBlocks = (node._streamShownBlocks || 0) + 1;
-    }
-    node._streamUnits = cut.blocks.length;
-    node._streamQueue = [];
-  } else {
-    for (let i = node._streamUnits || 0; i < cut.blocks.length; i++) {
-      (node._streamQueue || (node._streamQueue = [])).push(cut.blocks[i]);
-    }
-    node._streamUnits = cut.blocks.length;
-    pumpReveal(node, md);
+  // A closed block goes on screen at once, in order, exactly where it belongs. Only its motion waits.
+  const from = node._streamUnits || 0;
+  for (let i = from; i < cut.blocks.length; i++) {
+    const box = buildBlock(cut.blocks[i], false);
+    md.insertBefore(box, openEl);
+    scheduleArrive(node, box, cut.blocks[i].kind, i - from);
   }
+  node._streamUnits = cut.blocks.length;
   // The open block carries the kind being written, so a line that has an action and then speech
   // flows like speech while the speech is the part arriving.
   openEl.setAttribute('data-kind', unitKind(cut.open));
   // renderPlainText, not renderMarkdown: an incomplete block has no extent yet, and handing marked
   // a half-written list gives it nothing stable to keep. It is escaping plus a few regexes, and it
   // already renders bold, italics, code and an open fence, so what is on screen is close to final.
-  node._streamOpenHtml = cut.open ? renderPlainText(cut.open) : '';
-  // Only once everything before it is on screen. Otherwise the tail of the answer sits above the
-  // middle of it for a beat, which reads as the text arriving out of order.
-  if (!(node._streamQueue || []).length) openEl.innerHTML = node._streamOpenHtml;
+  openEl.innerHTML = cut.open ? renderPlainText(cut.open) : '';
   node._streamShown = shown;
   node.classList.add('streaming');
   // After the body, never before: the first paint writes over .md and would take the badge with it.
@@ -217,39 +202,30 @@ function setStreamingContent(node, text) {
 }
 
 function resetStreamBody(node, md) {
+  clearArriveTimers(node);
   md.textContent = '';
   node._streamUnits = 0;
-  node._streamShownBlocks = 0;
   node._streamOpen = null;      // the old open element is detached with the rest of the body
-  node._streamOpenHtml = '';
-  node._streamQueue = [];
-  if (node._streamTimer) { clearTimeout(node._streamTimer); node._streamTimer = null; }
 }
 
-// The final render replaces the body wholesale, so this drops the streaming state: the class, and
-// what we think we have shown. The unit count and the open element go too -- the next stream on
-// this node must not try to insert in front of an element the final render already removed.
 function endStreamingContent(node) {
   if (!node) return;
-  // Whatever was still waiting goes on screen now, without its entrance. A turn that ends with a
-  // backlog -- or that ends badly, with no `result` to rebuild the body -- must not leave the last
-  // paragraph of the answer permanently invisible. The motion is dropped, not the text.
+  clearArriveTimers(node);
+  // A block that was still waiting out its beat settles now rather than never. The text is on
+  // screen either way -- the appearance was never the thing that waited -- so this is the motion
+  // being caught up, not anything the reader is waiting for.
   const md = node.querySelector && node.querySelector('.md');
-  const queue = node._streamQueue || [];
-  const openEl = node._streamOpen;
-  if (md && openEl) {
-    for (let i = 0; i < queue.length; i++) md.insertBefore(buildBlock(queue[i], false), openEl);
-    openEl.innerHTML = node._streamOpenHtml || '';
+  if (md) {
+    (md.children || []).forEach(function (c) {
+      const cls = c.className || '';
+      if (/\bmd-block\b/.test(cls) && !/\bopen\b/.test(cls)) markArrive(c, c.getAttribute('data-kind'));
+    });
+    md.classList.remove('md-stream');
   }
   node._streamShown = '';
   node._streamUnits = 0;
-  node._streamShownBlocks = 0;
   node._streamOpen = null;
-  node._streamOpenHtml = '';
-  node._streamQueue = [];
-  if (node._streamTimer) { clearTimeout(node._streamTimer); node._streamTimer = null; }
   node.classList.remove('streaming');
-  if (md) md.classList.remove('md-stream');
 }
 
 function bindEvents(sid) {

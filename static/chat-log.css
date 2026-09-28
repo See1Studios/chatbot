@@ -360,37 +360,47 @@
 
 /* REVEAL_BLOCKS_v1 -- the motion vocabulary, one per kind.
 
-   The entrance lands about one beat AFTER a block closes, not the instant it does. Racing the stream
-   is what made it strobe: a 300ms fade firing on every closure overlaps the next one, and three
-   half-finished fades stacked on each other read as a shimmer rather than as motion. Lagged, the
-   text is already still and readable when it moves, and exactly one entrance is ever in flight.
+   The entrance lands one beat AFTER a block is on screen, not the instant it is. Racing the stream
+   is what made it strobe: a 300ms fade firing on every closure overlaps the next one, and half
+   finished fades stacked on each other read as a shimmer rather than as motion.
 
-   Which way it arrives says what kind of thing arrived: an action came from the side, the way a
-   hand moves; a spoken line rose and settled, the way a breath leaves; narration just arrives,
-   because the room is not doing anything. Fade and scale are both safe here precisely because the
-   block is genuinely new when its animation runs -- a fade over text the reader is already looking
-   at is a blink, and that is the rule this whole arrangement is built on. */
-.msg.assistant .md-block.arrive[data-kind="narration"]{animation:arrive-quiet 260ms cubic-bezier(0.16,1,0.3,1) both}
-.msg.assistant .md-block.arrive[data-kind="action"]{animation:arrive-action 280ms cubic-bezier(0.16,1,0.3,1) both}
-.msg.assistant .md-block.arrive[data-kind="dialogue"]{animation:arrive-dialogue 300ms cubic-bezier(0.16,1,0.3,1) both}
-@keyframes arrive-quiet{from{opacity:0}to{opacity:1}}
-@keyframes arrive-action{from{opacity:0;transform:translateX(-7px) scale(.985)}to{opacity:1;transform:none}}
-@keyframes arrive-dialogue{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+   Nothing here scales. scale() leaves the layout alone but it does change the size of the letters,
+   and a bubble whose text keeps growing and shrinking reads as a bubble that cannot hold still --
+   which is the one thing a speech bubble must not do. So the vocabulary is built from translation
+   and a gentle opacity dip: the type is the same size at every frame of the motion.
 
-/* The kind being written, flowing: a body shifts, a voice breathes, a room holds still. This is the
-   continuous sound of something being said, and it is the only infinite animation in the log. The
-   amplitude is deliberately small and it never translates or scales: sub-pixel movement of glyphs
-   rasterises unevenly and reads as shimmer, which is the opposite of smooth. */
-.msg.assistant .md-block.open[data-kind="narration"]{animation:flow-quiet 2.6s ease-in-out infinite}
-.msg.assistant .md-block.open[data-kind="action"]{animation:flow-action 1.5s ease-in-out infinite}
-.msg.assistant .md-block.open[data-kind="dialogue"]{animation:flow-dialogue 1.9s ease-in-out infinite}
-@keyframes flow-quiet{0%,100%{opacity:.95}50%{opacity:1}}
-@keyframes flow-action{0%,100%{opacity:.95}50%{opacity:1}}
-@keyframes flow-dialogue{0%,100%{opacity:.93}50%{opacity:1}}
+   The dip does not reach zero either. The block is already on screen and already readable, so a
+   fade from nothing would be taking text away and handing it back. */
+.msg.assistant .md-block.arrive[data-kind="narration"]{animation:arrive-quiet 300ms cubic-bezier(0.16,1,0.3,1) both}
+.msg.assistant .md-block.arrive[data-kind="action"]{animation:arrive-action 320ms cubic-bezier(0.16,1,0.3,1) both}
+.msg.assistant .md-block.arrive[data-kind="dialogue"]{animation:arrive-dialogue 340ms cubic-bezier(0.16,1,0.3,1) both}
+@keyframes arrive-quiet{from{opacity:.55;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes arrive-action{from{opacity:.55;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes arrive-dialogue{from{opacity:.5;transform:translateY(9px)}to{opacity:1;transform:none}}
+
+/* The kind being written, flowing: a light travels along the line under it. It is on a pseudo
+   element rather than on the text, because a pulse on the letters themselves was read as the bubble
+   shaking. The type is completely still; what moves is a one-pixel rule that says "this one is being
+   said". Each kind travels at its own pace. */
+.msg.assistant .md-block.open{position:relative}
+.msg.assistant .md-block.open::after{
+  content:'';position:absolute;left:0;top:-1px;width:38%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation:flow-sweep 1.9s linear infinite;
+}
+.msg.assistant .md-block.open[data-kind="action"]::after{
+  background:linear-gradient(90deg,transparent,var(--accent2),transparent);
+  animation-duration:1.3s;
+}
+.msg.assistant .md-block.open[data-kind="narration"]::after{
+  background:linear-gradient(90deg,transparent,var(--muted),transparent);
+  animation-duration:2.8s;
+}
+@keyframes flow-sweep{0%{transform:translateX(-110%)}100%{transform:translateX(280%)}}
 
 @media (prefers-reduced-motion:reduce){
   .msg.assistant .md-block.arrive{animation:none}
-  .msg.assistant .md-block.open{animation:none}
+  .msg.assistant .md-block.open::after{animation:none}
 }
 
 /* BLOCK_KINDS_v1: the answer is made of kinds, and each is read a little differently. Narration is
