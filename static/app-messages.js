@@ -744,7 +744,7 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
     const md = document.createElement('div');
     md.className = 'md';
     const bodyText = noticeKind ? stripNoticeChromeEmojis(text) : (text || '');
-    md.innerHTML = renderMarkdown(bodyText, isFinal);
+    renderTypedBody(md, bodyText, isFinal);
     div.appendChild(md);
     postProcessAssistant(div, isFinal, bodyText, usage, durationSeconds, Boolean(noticeKind), servedModel, choices || div._choices);
   } else {
@@ -765,12 +765,51 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
   return div;
 }
 
+// BLOCK_KINDS_v1: render a finished answer as the kinds it is made of. Everything stays inside one
+// .md, so postProcessAssistant, the emotion badge, the thought box and the choice chips keep working
+// exactly as before -- they look for .md, not for a flat blob. If classification surprises us in any
+// way, the whole thing falls back to the single-blob render: a lost treatment is free, a broken
+// conversation is not.
+//
+// Every finished answer gets blocks, including a plain one with no action and no speech. The blocks
+// are what the entrance animation is applied to, so a short reply that happens to be one kind of
+// sentence has to have them too -- an earlier version skipped them for that case and the animation
+// simply could not appear on most replies.
+function renderTypedBody(md, rawText, isFinal) {
+  const body = rawText || '';
+  try {
+    const blocks = classifyBlocks(body);
+    md.textContent = '';
+    blocks.forEach((block, bi) => {
+      const box = document.createElement('div');
+      box.className = 'md-block';
+      box.setAttribute('data-kind', block.kind);
+      box.style.setProperty('--i', String(bi));       // a stagger, capped in the stylesheet
+      const runs = block.kind === 'narration' ? splitInline(block.text) : [{ kind: block.kind, text: block.text }];
+      runs.forEach((run) => {
+        // Markdown in, HTML out: per run, so a list or a code fence inside the block still parses
+        // exactly as it did when the block was one string.
+        const holder = document.createElement(run.kind === 'narration' ? 'div' : 'span');
+        if (run.kind !== 'narration') {
+          holder.className = 'md-' + run.kind;
+          holder.setAttribute('data-kind', run.kind);
+        }
+        holder.innerHTML = renderMarkdown(run.text, isFinal);
+        while (holder.firstChild) box.appendChild(holder.firstChild);
+      });
+      md.appendChild(box);
+    });
+  } catch (e) {
+    md.innerHTML = renderMarkdown(body, isFinal);   // a classifier surprise must not cost a reply
+  }
+}
+
 function setAssistantContent(node, text, isFinal, usage, durationSeconds, servedModel, choices) {
   if (!node) return;
   if (servedModel) node.dataset.servedModel = String(servedModel);
   if (choices) node._choices = choices;
   const md = node.querySelector('.md') || node;
-  md.innerHTML = renderMarkdown(text || '', isFinal);
+  renderTypedBody(md, text || '', isFinal);
   postProcessAssistant(node, isFinal, text, usage, durationSeconds, undefined, servedModel, choices || (node && node._choices));
   syncChoiceChips();
   scrollChatToBottom(false);

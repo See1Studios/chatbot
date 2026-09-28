@@ -364,3 +364,39 @@
 @media (prefers-reduced-motion:reduce){
   .md-stream .flow{animation:none}
 }
+
+/* BLOCK_KINDS_v1: the answer is made of kinds, and each is read a little differently. Narration is
+   the room and stays plain. Speech is the character talking, so it is set apart from the world
+   around it. An action is a gesture, lighter and smaller than a line of dialogue. */
+.msg.assistant .md-block{margin:0 0 .45em}
+.msg.assistant .md-block:last-child{margin-bottom:0}
+.msg.assistant .md-block[data-kind="dialogue"]{padding-left:.7em;border-left:2px solid var(--accent-border)}
+.msg.assistant .md-action{opacity:.72;font-size:.95em;font-style:italic}
+.msg.assistant .md-block[data-kind="action"]{opacity:.8}
+.msg.assistant .md-block[data-kind="dialogue"] > *:first-child,
+.msg.assistant .md-dialogue > *:first-child{margin-top:0}
+.msg.assistant .md-block > *:last-child{margin-bottom:0}
+
+/* Motion belongs to what the final parse ADDS, and to nothing else. Prose was already on screen
+   while it streamed, so fading it in would mean hiding text the reader is looking at and handing it
+   back -- the exact flicker this exists to remove. A code block, a list and a quote are different:
+   those are genuinely new boxes at `result`, arriving at a different height than the text that was
+   there a frame ago, and that is the only transition worth watching. */
+@keyframes block-settle{from{opacity:.45;transform:translateY(5px)}to{opacity:1;transform:none}}
+.msg.assistant .md-block > pre,
+.msg.assistant .md-block > h1, .msg.assistant .md-block > h2, .msg.assistant .md-block > h3,
+.msg.assistant .md-block > h4, .msg.assistant .md-block > h5, .msg.assistant .md-block > h6,
+.msg.assistant .md-block > ul,
+.msg.assistant .md-block > ol,
+.msg.assistant .md-block > blockquote,
+.msg.assistant .md-block > table{animation:block-settle 240ms cubic-bezier(0.16,1,0.3,1) both}
+
+@media (prefers-reduced-motion:reduce){
+  .msg.assistant .md-block > pre,
+  .msg.assistant .md-block > h1, .msg.assistant .md-block > h2, .msg.assistant .md-block > h3,
+  .msg.assistant .md-block > h4, .msg.assistant .md-block > h5, .msg.assistant .md-block > h6,
+  .msg.assistant .md-block > ul,
+  .msg.assistant .md-block > ol,
+  .msg.assistant .md-block > blockquote,
+  .msg.assistant .md-block > table{animation:none}
+}
