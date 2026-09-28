@@ -5,6 +5,7 @@
   GET /api/characters/<id>/sprites?framing=      JSON {"framing", "sprites": {label: "<framing>/<label>.webp"}}
   GET /api/characters/<id>/sprites/<[framing/]label>.webp?provider=   by name, falling back (ART_NAMES_v1)
   GET /api/items/<id>/image                       an item's picture (items.image_file)
+  GET /api/characters/<id>/gallery/<file>         a candidate picture (art_manager.gallery_file)
 
 Pictures never 404 for a known kind: a missing one is the engine placeholder (characters.art_file). Unknown kinds
 or bad paths are not ours (None).
@@ -33,6 +34,10 @@ def handle(path: str, query: Dict[str, List[str]]) -> Optional[Tuple[int, bytes,
     q = lambda k: (query.get(k) or [""])[0]  # noqa: E731
     if kind in ("avatar", "stage") and not rest:
         return _picture(*characters.art_file(cid, kind, provider=q("provider"), label=q("name")))
+    if kind == "gallery" and len(rest) == 1:
+        import art_manager
+        found = art_manager.gallery_file(cid, rest[0])
+        return _picture(found, False) if found else None
     if kind == "sprites" and not rest:
         body = json.dumps(characters.sprite_map(cid, q("framing") or "full"), ensure_ascii=False).encode("utf-8")
         return 200, body, "application/json; charset=utf-8", "no-cache"
@@ -44,6 +49,6 @@ def handle(path: str, query: Dict[str, List[str]]) -> Optional[Tuple[int, bytes,
 
 
 def _picture(path, placeholder: bool) -> Tuple[int, bytes, str, str]:
-    ctype = "image/webp" if path.suffix == ".webp" else "image/png"
+    ctype = {".webp": "image/webp", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}.get(path.suffix.lower(), "image/png")
     # a placeholder is cached briefly so the character's own picture shows soon after it is added
     return 200, path.read_bytes(), ctype, "private, max-age=%d" % (30 if placeholder else 300)

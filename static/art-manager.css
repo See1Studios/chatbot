@@ -1,0 +1,24 @@
+/* art-manager.css -- the art manager modal (app-art.js, character-art-manager.md am/C). v0. */
+.art-mgr{width:880px}
+.art-mgr-tabs{display:flex;flex-wrap:wrap;gap:.35rem;padding:.6rem 1.1rem;border-bottom:1px solid var(--border)}
+.art-mgr-tab{font-size:.82rem;padding:.3rem .75rem;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);cursor:pointer}
+.art-mgr-tab.small{font-size:.74rem;padding:.22rem .6rem}
+.art-mgr-tab.active{color:var(--accent2);border-color:var(--accent-border);background:var(--accent-soft)}
+.art-mgr-body{position:relative;flex:1;overflow:auto;padding:1rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;align-content:start;background:#090b0e;min-height:260px}
+.art-mgr-body.drop{outline:2px dashed var(--accent-border);outline-offset:-8px}
+.art-mgr-body.drop::after{content:attr(data-hint);position:absolute;inset:auto 0 1rem;text-align:center;color:var(--accent2);font-size:.85rem}
+.art-mgr-empty{grid-column:1/-1;color:var(--muted);font-size:.85rem;text-align:center;padding:2rem 0}
+.art-slot{display:flex;flex-direction:column;gap:.35rem;padding:.45rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.03)}
+.art-slot.empty img{opacity:.45}
+.art-slot img{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:6px;background:repeating-conic-gradient(#15181e 0 25%,#1b1f27 0 50%) 0 0/16px 16px;cursor:zoom-in}
+.art-slot-row{display:flex;justify-content:space-between;align-items:center;gap:.3rem;min-width:0}
+.art-slot-name{font-size:.76rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.art-slot-badge{flex:0 0 auto;font-size:.68rem;padding:1px 6px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+.art-slot-badge.own{color:#6ee7b7;border-color:rgba(52,211,153,.4)}
+.art-slot-badge.falls{color:#fdba74;border-color:rgba(255,138,80,.4)}
+.art-slot-acts{display:flex;flex-wrap:wrap;gap:.25rem}
+.art-mgr-foot{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.1rem;border-top:1px solid var(--border)}
+.art-mgr-msg{font-size:.78rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tray-art-btn{font-size:.72rem;padding:.25rem .55rem;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--muted);cursor:pointer;align-self:center}
+.tray-art-btn:hover{color:var(--accent2);border-color:var(--accent-border)}
+@media (max-width:640px){.art-mgr-body{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}}

@@ -2,6 +2,14 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-29 — 그림 관리 모달 v0: 갤러리에서 골라 칸에 (ART_MANAGER_v1, am/B·am/C #375)
+
+- **계기**: 코코가 위임으로 그린 그림(`characters/<노노>/gallery/nono-desk-01.png`, #371)을 볼 곳이 없었음. 그림을 직접 할당할 방법도 없음.
+- **서버** `art_manager.py`: `GET /api/characters/<id>/art`(칸 목록 — 아이콘·배경·표정(bust/full), 각 칸이 자기 그림/대체된 이름/placeholder인지 — + 갤러리 + 형식 문제), `…/gallery/<파일>`, `POST …/art/assign`(갤러리 그림을 칸에: 종류별 캔버스에 맞춰 WebP 상한 이하로, PNG 마스터 보관, 옛 그림은 `_old/`; 표정은 투명 필수), `…/art/upload`(갤러리로), `…/art/remove`(칸의 그림을 갤러리로 되돌림). 삭제 없음. `server.py`는 기존 연결 줄에 붙이기만(+1줄).
+- **화면** `app-art.js`·`art-manager.css`: 탭 갤러리·아이콘·배경·표정, 칸 배지(내 그림 / → 대체 이름 / 기본), 갤러리 카드의 [아이콘으로][배경으로][표정으로…], 올리기·끌어다 놓기, 반영하면 헤더 아바타·무대·스프라이트 다시 읽음. 여는 곳: 캐릭터 트레이 끝 [그림], 갤러리에 그린 작업 카드의 [갤러리].
+- **배포**: ⚡.
+- **테스트**: `tests/test_art_manager.py`(Pillow로 실제 변환), `tests/test_art_manager_page.py`.
+
 ## 2026-09-29 — 작업 결정 버튼은 누르면 바로, 말풍선 없이 (TICKET_BUTTONS_v1·FILL_COMPOSER_v1, #374)
 
 - **증상**: 위임 카드 버튼이 입력창에 `/ticket …`만 채우고 보내기 버튼은 꺼진 채(값만 넣고 `updateSendButton`을 안 부름). 운영자: 바로 전송, 말풍선도 필요 없음.

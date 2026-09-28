@@ -724,6 +724,10 @@ function renderWorkCard(r) {
   if (r.phase === 'stalled' && r.stalled_in === 'merging') {
     button('승인 다시', true, () => fillTicketCommand({ id: r.ticket }, 'merge'));
   }
+  // ART_MANAGER_v1: a finished job that drew into a character's gallery opens it there (app-art.js)
+  const drewFor = typeof artGalleryCharacter === 'function' && !['awaiting_go', 'queued', 'running'].includes(r.phase)
+    ? artGalleryCharacter(r.paths) : '';
+  if (drewFor) button(typeof ART_TEXT !== 'undefined' ? ART_TEXT.gallery : 'gallery', true, () => openArtManager(drewFor, 'gallery'));
   if (r.phase === 'done' && r.tier >= 2) {
     const zap = obsNode('button', 'art-btn art-btn-xs primary', '⚡ 소생');
     zap.type = 'button';

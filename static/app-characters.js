@@ -452,6 +452,15 @@ function renderCharacterTray() {
     });
     characterTrayEl.appendChild(btn);
   });
+  // ART_MANAGER_v1 (app-art.js): the open character's pictures -- gallery, icon, background, expressions
+  if (typeof openArtManager === 'function' && currentCharacter()) {
+    const art = document.createElement('button');
+    art.type = 'button';
+    art.className = 'tray-art-btn';
+    art.textContent = typeof ART_TEXT !== 'undefined' ? ART_TEXT.title : 'art';
+    art.addEventListener('click', (e) => { e.stopPropagation(); toggleCharacterTray(false); openArtManager(openCharacterId()); });
+    characterTrayEl.appendChild(art);
+  }
 }
 
 function toggleCharacterTray(force) {

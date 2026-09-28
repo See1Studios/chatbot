@@ -54,6 +54,7 @@ from session import (
 )
 from providers import accounts
 from providers import account_login
+import art_manager
 import card_upload
 import chat_upload
 import items
@@ -547,7 +548,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if path == "/api/characters":
             code, body = _json_bytes({"characters": _character_list()})
             return self._send(code, body, "application/json; charset=utf-8")
-        gift = items.handle_get(path) or chat_upload.handle_get(path, parse_qs(parsed.query))   # plus/F items, sees-images
+        gift = items.handle_get(path) or chat_upload.handle_get(path, parse_qs(parsed.query)) or art_manager.handle_get(path)
         if gift:
             return self._send(*_json_bytes(gift[1], gift[0]), "application/json; charset=utf-8")
         art = character_art.handle(path, parse_qs(parsed.query))   # ART_PLACEHOLDER_v1: avatar, stage, sprites
@@ -824,7 +825,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             status, payload = card_upload.handle(self.headers, self.rfile, WORKSPACE)
             code, raw = _json_bytes(payload, status)
             return self._send(code, raw, "application/json; charset=utf-8")
-        up = chat_upload.handle(path, self.headers, self.rfile)   # plus/C: attached files (raw body, not JSON)
+        up = chat_upload.handle(path, self.headers, self.rfile) or art_manager.handle_upload(path, self.headers, self.rfile)
         if up:
             code, raw = _json_bytes(up[1], up[0])
             return self._send(code, raw, "application/json; charset=utf-8")
@@ -1110,7 +1111,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 else:
                     code, raw = _json_bytes({"ok": True, "session": pub})
                 return self._send(code, raw, "application/json; charset=utf-8")
-            gift = items.handle_post(path, body)   # plus/F: give or use an item (private mode)
+            gift = items.handle_post(path, body) or art_manager.handle_post(path, body)   # items (plus/F), art (am/B)
             if gift:
                 return self._send(*_json_bytes(gift[1], gift[0]), "application/json; charset=utf-8")
             if path.startswith("/api/sessions/") and path.endswith("/provider"):
