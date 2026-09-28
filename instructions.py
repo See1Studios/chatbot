@@ -134,7 +134,7 @@ NO_ROLE_NOTE = ("[No role] You hold no role in the team: talk and help, but plan
 
 
 def _roles_text(character: str = "") -> str:
-    """The every-turn part of each role pack the character holds (roles/<role>/role.md)."""
+    """The every-turn part of each role pack the character holds (roles/<role>/ROLE.md)."""
     try:
         import characters
         cid = _cid(character)

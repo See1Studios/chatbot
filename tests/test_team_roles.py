@@ -91,6 +91,26 @@ class Roster(unittest.TestCase):
         self.assertIn("You are the PD", pack["text"])
 
 
+    def test_pack_files_take_the_upper_case_name_and_still_read_the_old_one(self):
+        # pew/R: roles/<role>/ROLE.md and PROCEDURE.md, like SKILL.md; a pack written before keeps working
+        d = self.ws / "roles" / "pd"
+        self.assertEqual(C.pack_file("pd", "role", self.ws).name, "role.md")          # only the old name exists
+        self.assertEqual(C.pack_file("pd", "procedure", self.ws).name, "PROCEDURE.md")  # neither: the new name
+        (d / "ROLE.md").write_text(PD.replace("You plan and delegate.", "New name wins."), encoding="utf-8")
+        (d / "role.md").unlink()
+        self.assertIn("New name wins.", C.role_pack("pd", self.ws)["text"])
+        self.assertEqual(C.role_pack("pd", self.ws)["tools"], ["delegate", "house-memory"])
+        import workspace_status as W
+        saved = W.WORKSPACE
+        W.WORKSPACE = self.ws
+        try:
+            ids = [i[0] for i in W._instruction_files() if i[0].startswith("roles/")]
+        finally:
+            W.WORKSPACE = saved
+        self.assertIn("roles/pd/ROLE.md", ids)          # the rules API and the team tab name the file on disk
+        self.assertIn("roles/staff/role.md", ids)
+        self.assertIn("roles/pd/PROCEDURE.md", ids)
+
 class SessionsAndGrants(unittest.TestCase):
     def setUp(self):
         import session as S

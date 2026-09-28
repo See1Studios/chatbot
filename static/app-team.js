@@ -21,10 +21,13 @@ async function loadTeam() {
   shared.appendChild(obsNode('div', 'status-item-head', '역할 팩 · 집 기억'));
   shared.appendChild(obsNode('div', 'status-hint', '역할은 캐릭터가 아니라 역할 팩(지침·스킬·도구 권한)이 정합니다. 누가 어떤 역할을 맡는지는 각 캐릭터의 [역할]에서 바꿉니다.'));
   (team.roles || []).forEach(r => {
-    [['roles/' + r.role + '/role.md', '역할 팩 ' + r.title + (r.tools.length ? ' (권한: ' + r.tools.join(', ') + ')' : '')],
-     ['roles/' + r.role + '/procedure.md', r.title + ' 절차']].forEach(([id, title]) => {
-      if (files[id]) {
-        const sub = renderInstruction(Object.assign({}, files[id], { title }), false);
+    // pew/R: ROLE.md / PROCEDURE.md, or the old lower-case names on a pack written before
+    const pick = name => files['roles/' + r.role + '/' + name.toUpperCase()] || files['roles/' + r.role + '/' + name];
+    [['role.md', '역할 팩 ' + r.title + (r.tools.length ? ' (권한: ' + r.tools.join(', ') + ')' : '')],
+     ['procedure.md', r.title + ' 절차']].forEach(([name, title]) => {
+      const file = pick(name);
+      if (file) {
+        const sub = renderInstruction(Object.assign({}, file, { title }), false);
         sub.classList.add('team-sub');
         shared.appendChild(sub);
       }

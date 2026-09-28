@@ -85,7 +85,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
 
 - Standing documents (one copy, always current, found by name) are UPPERCASE: repo root, `docs/` itself and `data/workspace/` itself — `README.md`, `AGENTS.md`, `docs/CONCEPT.md`, `docs/ARCHITECTURE.md`, `SKILL.md`, …
 - Documents that accumulate are lower-kebab: `docs/plans/*.md` (`INDEX.md` excepted), `docs/devlog/YYYY-MM-DD.md`, observation logs.
-- No snake_case document names. Pack-format files keep their format's name (`SKILL.md`; `role.md` until pew/R).
+- No snake_case document names. Pack files are UPPERCASE like their format's name: `SKILL.md`, `ROLE.md`, `PROCEDURE.md` (`characters.pack_file` still reads a pack's old lower-case names).
 - Renaming a document: update every live link in the same change; leave history (DEVLOG, devlog/, archive/, ticket records) as written.
 
 ## Harness

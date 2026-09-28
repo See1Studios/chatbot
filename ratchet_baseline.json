@@ -67,7 +67,7 @@
   "tool_format.py": 2,
   "tools/worktree_runner.py": 33,
   "turn_watchdog.py": 5,
-  "workspace_status.py": 18,
+  "workspace_status.py": 16,
   "write_guard.py": 1
  }
 }

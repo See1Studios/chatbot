@@ -1,5 +1,14 @@
 # chatbot 개발로그
 
+## 2026-09-28 — 역할 팩 파일 이름 ROLE.md·PROCEDURE.md, 1단계 코드 (pew/R, #298)
+
+- **배경**: 이름 규칙(상시 문서는 대문자, `SKILL.md`처럼)에 역할 팩만 `role.md`·`procedure.md`로 남아 있었다.
+- **왜 두 단계인가**: 돌고 있는 서버는 `role.md`만 읽는다. 파일부터 바꾸면 재기동 전까지 PD가 역할 팩(= `delegate` 권한)을 잃는다. 그래서 1단계는 코드가 **두 이름 모두** 읽게(새 이름 우선) 하고, 2단계(파일 이름 바꾸기)는 ⚡ 뒤에 한다.
+- **변경**: `characters.pack_file(role, kind)` 한 곳이 파일을 고른다(`ROLE.md` → 옛 `role.md`, 둘 다 없으면 새 이름). `role_pack`·`workspace_status`(규칙 API id는 디스크의 실제 이름)·팀 탭(`static/app-team.js`, 두 id 다 찾음)이 그것을 따른다. 사용자가 예전에 만든 팩도 계속 동작한다.
+- **테스트**: `test_team_roles`에 1개 — 옛 이름만 있을 때, 새 이름이 이길 때, 규칙 API id.
+- **래칫**: `workspace_status.py` 한국어 줄 18→16. `ratchet_baseline.json`은 그 한 줄만 낮췄다(`--update`는 옆 에이전트의 미커밋 `app-sse.js`까지 낮춰 버린다).
+- **비용**: 파이썬 모듈 변경 — ⚡ 필요. 팀 탭은 새로고침이면 되고 옛 서버와도 맞는다.
+
 ## 2026-09-28 — 빈 데이터 폴더 첫 실행 부트스트랩 (uds/D, #297)
 
 - **배경**: 배포판 새 설치는 빈 데이터 폴더(`~/.pe` 예정)로 시작한다. C5에서 만든 `templates/workspace/`를 거기에 한 번 깔아주는 단계.

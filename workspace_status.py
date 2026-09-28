@@ -276,10 +276,20 @@ def _instruction_files() -> list:
     roles = WORKSPACE / "roles"                      # TEAM_ROLES_v1: role packs, read by whoever holds the role
     for d in sorted(roles.iterdir()) if roles.is_dir() else []:
         if d.is_dir() and _ROLE_DIR.match(d.name):
-            items.append(("roles/%s/role.md" % d.name, "역할 팩 (%s)" % d.name, d / "role.md", "always"))
-            items.append(("roles/%s/procedure.md" % d.name, "역할 절차 (%s)" % d.name, d / "procedure.md", "on_demand"))
+            for kind, label, load in (("role", "역할 팩 (%s)", "always"), ("procedure", "역할 절차 (%s)", "on_demand")):  # l10n-ok
+                f = _pack_file(d, kind)
+                items.append(("roles/%s/%s" % (d.name, f.name), label % d.name, f, load))
     return items
 
+
+
+def _pack_file(d: Path, kind: str) -> Path:
+    """roles/<role>/ROLE.md or PROCEDURE.md, or the old lower-case name when only that exists (pew/R)."""
+    try:
+        import characters
+        return characters.pack_file(d.name, kind, d.parent.parent)
+    except Exception:  # noqa: BLE001
+        return d / ("%s.md" % kind.upper())
 
 def _characters() -> list:
     try:

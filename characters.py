@@ -346,11 +346,11 @@ def roles(ws=None) -> List[str]:
 
 
 # ------------------------------------------------------------------ team roster and role packs (TEAM_ROLES_v1)
-# Every character is equal; a role is a pack of instructions, skills and tool grants (roles/<role>/role.md), and
+# Every character is equal; a role is a pack of instructions, skills and tool grants (roles/<role>/ROLE.md), and
 # the roster (team.json) says who holds which role and whom the app opens with. Cards stay role-free, so a card can
 # be shared without our team's arrangement in it.
 #   team.json: {"default": "<id>", "members": {"<id>": ["pd"], "<id>": ["staff"]}}
-#   roles/<role>/role.md: front matter `title`, `tools` and `skills` (comma-separated), then the instructions.
+#   roles/<role>/ROLE.md: front matter `title`, `tools` and `skills` (comma-separated), then the instructions.
 
 def team_path(ws=None) -> Path:
     return Path(ws or _default_ws()) / "team.json"
@@ -410,11 +410,22 @@ def roles_of(cid: str, ws=None) -> List[str]:
     return list(load_team(ws)["members"].get(cid) or [])
 
 
+# pew/R: pack files are named like SKILL.md (ROLE.md, PROCEDURE.md); a pack written before keeps working.
+PACK_FILES = {"role": ("ROLE.md", "role.md"), "procedure": ("PROCEDURE.md", "procedure.md")}
+
+
+def pack_file(role: str, kind: str = "role", ws=None) -> Path:
+    """The file of a role pack: the new name, or the old one when only that exists (the new name when neither)."""
+    names = PACK_FILES[kind]
+    d = roles_dir(ws) / role
+    return next((d / n for n in names if (d / n).is_file()), d / names[0])
+
+
 def role_pack(role: str, ws=None) -> Dict:
-    """{role, title, tools, skills, text} of roles/<role>/role.md; empty lists and text when there is none."""
+    """{role, title, tools, skills, text} of roles/<role>/ROLE.md; empty lists and text when there is none."""
     from identity import parse_frontmatter
     try:
-        raw = (roles_dir(ws) / role / "role.md").read_text(encoding="utf-8") if _ROLE_RE.match(role or "") else ""
+        raw = pack_file(role, "role", ws).read_text(encoding="utf-8") if _ROLE_RE.match(role or "") else ""
     except OSError:
         raw = ""
     fm = parse_frontmatter(raw)
