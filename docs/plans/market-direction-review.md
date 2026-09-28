@@ -122,3 +122,46 @@ Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)
 - 무료층에 API 키 붙이기를 허용할지, 아니면 키 불필요 gateway의 비용을 누가 분담하는가.
 - 데스크톱 셸이 Steam 저가 1회 구매의 근거가 될지, 엔진과 셸을 묶어 파는 형태가 맞는지.
 - 60초 데모가 고수위를 보여줘야 할 때(스토어 캡슐과 어떻게 나눌 것인가) — [private-mode.md](private-mode.md)의 경계와 직결.
+
+## 7. 스팀판 제타 (2026-09-28 운영자 제안, 원문 확인)
+
+운영자: "스팀판 ZetaAI가 되보는 건 어떨까" → "스팀 창작마당 활성화로 콘텐츠 물량을 커버하는 거지" → "API 키 없이 Antigravity, Codex 무료 구독으로도 접근이 가능해".
+
+### 7.1 확인된 사실 (2026-09-28 웹 원문)
+
+| 항목 | 사실 | 출처 |
+|---|---|---|
+| Steam 실시간 AI | 실행 중 생성하는 AI 콘텐츠는 불법 콘텐츠를 막는 **가드레일을 콘텐츠 설문에 기술**해야 하고, 플레이어가 오버레이로 신고할 수 있다 | [Steamworks 공지 2024-01-09](https://steamcommunity.com/groups/steamworks/announcements/detail/3862463747997849619), [Content Survey](https://partner.steamgames.com/doc/gettingstarted/contentsurvey) |
+| Steam 성인 | **실시간 AI로 만드는 성인 전용 성적 콘텐츠는 "현재 출시할 수 없다"** (설문 FAQ에 이유: 법적·고객 위험) | 같은 두 문서 |
+| Steam 비용 모델 | 실시간 AI 서비스 비용은 1회 구매 DLC로 무제한 해금하는 방식도 안내됨 | Content Survey FAQ |
+| Google | 생성형 AI 금지 사용 정책: 포르노·성적 만족 목적의 **성적으로 노골적인 콘텐츠 금지**(교육·예술 등 예외) | [Generative AI Prohibited Use Policy](https://policies.google.com/terms/generative-ai/use-policy) |
+| Antigravity | 개인 계정은 Google 약관으로 이용, **AI Pro·Ultra가 아닌 사용자도 쿼터 있음**(주 단위 갱신). 한도는 용량 따라 바뀔 수 있다고 명시 | [Plans](https://antigravity.google/docs/plans/) |
+| Codex | **ChatGPT Free·Go 포함 모든 플랜에 Codex 포함**, 한도는 플랜별 | [Help Center](https://help.openai.com/en/articles/11369540/), [Codex Pricing](https://chatgpt.com/codex/pricing/) |
+| OpenAI | 사용 정책은 미성년 성적화 전면 금지. 성인 인증 사용자에게 ChatGPT 성인 콘텐츠 허용 방침 보도(2025-10) — **ChatGPT 제품 얘기이며 Codex·API에 적용되는지는 미확인** | [Usage policies](https://openai.com/policies/usage-policies/), Reuters 2025-10-14 |
+| 제타 | 2024-04 오픈 베타, 2024-11 흑자 전환, 2025 2분기 매출 약 52억 원·영업이익률 17%. **한국 서버는 15세 이용가 기준**(일본은 같은 15세라도 수위 높음). 광고 기반 무료 + 자체 소형 모델. MAU 약 142만, 1인 월 약 40시간 | [AI타임스 2025-07-14](https://www.aitimes.com/news/articleView.html?idxno=200613), [벤처스퀘어](https://www.venturesquare.net/1097430/) |
+
+### 7.2 포지셔닝
+
+- **넓이는 창작마당, 깊이는 엔진.** 제타는 콘텐츠를 서비스 안에 쌓고, 우리는 창작마당(Wallpaper Engine과 같은 구조)에 쌓는다. 한 사람의 개인화는 각자 PC에 쌓인다(기조 그대로).
+- **모델은 "내 구독으로 로그인"이 기본.** Google 계정(Antigravity)·ChatGPT 계정(Codex) 무료 플랜으로 키 없이 시작, API 키는 고급. 제타의 "무료·설정 없음"에 대응하는 우리 답이고, 서버 비용이 없다. R7(무료층)의 답이기도 하다.
+- **수위는 제타 선례를 따른다.** 제타는 15세 이용가로 한국 1위다. Steam 규정(실시간 AI 성인 성적 콘텐츠 불가)과 두 구독 제공자의 정책이 같은 방향을 가리킨다.
+
+### 7.3 결정 (운영자 확인 필요)
+
+| R | 질문 | 추천 | 상태 |
+|---|---|---|---|
+| R9 | 스토어 한 줄 | "Steam의 제타: 창작마당에서 친구를 고르고, 내 PC에서 깊게 키운다" 류. 기조(CONCEPT) 문장은 바꾸지 않고 스토어 문구로만 | 대기 |
+| R10 | 모델 접근 기본값 | 소환 마법사 "두뇌 연결"은 Google·ChatGPT 계정 로그인이 먼저, API 키는 고급([character-creation-landing.md](character-creation-landing.md) D4 갱신). 두 경로 이상 유지(한쪽 무료 정책 변경 대비) | 대기 |
+| R11 | Steam판 수위 | Steam 빌드는 15세 수준 관계·로맨스까지. 사적 모드의 성인 단계는 Steam 빌드에서 잠금. 성인 확장을 Steam 밖에서 따로 낼지는 별도 결정([private-mode.md](private-mode.md), [release-pipeline.md](release-pipeline.md) §3.1과 함께) | 대기 |
+| R12 | 창작마당 첫 물량 | SillyTavern 카드 가져오기 → 창작마당 올리기를 출시 기능으로. 소환 마법사 결과도 한 번에 올리기 | 대기 |
+| R13 | 저작권·가드레일 | 기본 팩·홍보물에 저작권 캐릭터 금지(신고는 Steam 절차). 콘텐츠 설문에 기술할 가드레일 = `content_guard` + 수위 잠금 + Steam 신고 오버레이 | 대기 |
+
+### 7.4 항목
+
+| id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
+|---|---|---|---|---|---|---|---|
+| `rev/G` | 이 절 | 이 문서, `docs/plans/INDEX.md` | 사실 표에 출처, 결정 표 | 0 · — | S | — | ✅ |
+| `rev/H` | 스토어 문구·포지셔닝을 PRODUCT에 (R9) | `PRODUCT.md` | 스토어 한 줄과 "넓이/깊이" 문단 | 0 · — | S | R9 | 대기 |
+| `rev/I` | 두뇌 연결 로그인 우선 (R10) | [character-creation-landing.md](character-creation-landing.md) | D4가 로그인 우선으로 | 0 · — | S | R10 | 대기 |
+| `rev/J` | Steam 빌드 수위 잠금 설계 (R11) | [edition-boundary.md](edition-boundary.md) 또는 새 계획 | 빌드별 수위 상한이 한 곳에서 정해짐 | 0 · — | M | R11 | 대기 |
+
