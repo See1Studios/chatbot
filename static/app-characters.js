@@ -152,12 +152,12 @@ const STAGE_BG_CACHE = 'v=1';
 function updateStageBackground(providerId) {
   const pid = providerId || defaultProviderId;
   // the open character's own background for this brain (characters/<id>/stage/<provider>.webp, else stage.webp),
-  // else the neutral studio; never another character's picture
+  // else the engine placeholder (ART_PLACEHOLDER_v1: the route never 404s); never another character's picture
   const ch = typeof currentCharacter === 'function' ? currentCharacter() : null;
-  const candidate = ch && ch.stage_v
-    ? BASE_PATH + '/api/characters/' + encodeURIComponent(ch.id) + '/stage?provider=' + encodeURIComponent(pid) + '&v=' + ch.stage_v
-    : (ch ? `/chat/persona/bg-studio.webp?v=1` : `/chat/persona/providers/bg/${pid}.webp?${STAGE_BG_CACHE}`);
-  const fallback = `/chat/persona/bg-studio.webp?v=1`;
+  const candidate = ch
+    ? BASE_PATH + '/api/characters/' + encodeURIComponent(ch.id) + '/stage?provider=' + encodeURIComponent(pid) + '&v=' + (ch.stage_v || 0)
+    : `/chat/persona/providers/bg/${pid}.webp?${STAGE_BG_CACHE}`;
+  const fallback = BASE_PATH + '/placeholders/stage.webp';
   const img = new Image();
   img.onload = () => {
     document.documentElement.style.setProperty('--stage-bg-image', `url('${candidate}')`);
@@ -216,7 +216,7 @@ function initialAvatar(name) {
 }
 function characterPortrait(c, p) {
   if (!c) return portraitUrl(p);
-  if (!c.avatar_v) return initialAvatar(c.name || c.title);
+  // ART_PLACEHOLDER_v1: no picture yet is the engine placeholder from the same route; initials only if it fails
   // the page's base path, like every other API call (api()); without it the hub's /chat/ page got 404s
   return BASE_PATH + '/api/characters/' + encodeURIComponent(c.id) + '/avatar?provider=' + encodeURIComponent((p && p.id) || '')
     + '&v=' + c.avatar_v;

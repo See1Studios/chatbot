@@ -598,6 +598,52 @@ EXPRESSIONS = ("admiration", "amusement", "anger", "annoyance", "approval", "car
                "relief", "remorse", "sadness", "surprise")
 _ART_NAME = re.compile(r"^[a-z0-9_-]{1,32}\.(webp|png)$")
 
+# ART_PLACEHOLDER_v1: every art kind resolves to a file -- the character's own (a per-brain variant first), else
+# the engine's neutral placeholder -- so the page never guesses what exists and never shows a broken image.
+PLACEHOLDER_DIR = Path(__file__).resolve().parent / "static" / "placeholders"
+PLACEHOLDERS = {"avatar": "avatar.webp", "stage": "stage.webp", "sprite:bust": "sprite-bust.webp",
+                "sprite:full": "sprite-full.webp"}
+ART_KINDS = ("avatar", "stage", "sprite")
+_SLUG = re.compile(r"^[a-z0-9_-]{1,32}$")
+
+
+def art_file(cid: str, kind: str, provider: str = "", framing: str = "full", label: str = "neutral",
+             ws=None) -> "tuple":
+    """(path, is_placeholder). avatar/stage: <kind>/<provider>, then <kind>. sprite: <framing>/<label>, then
+    <framing>/neutral, then the other framing; label "default" means neutral. Unknown kind: ValueError."""
+    if kind not in ART_KINDS:
+        raise ValueError("unknown art kind: %s" % kind)
+    framing = framing if framing in FRAMINGS else "full"
+    names = []
+    if kind == "sprite":
+        label = "neutral" if label in ("", "default") else label
+        labels = [x for x in dict.fromkeys([label, "neutral"]) if _SLUG.match(x)]
+        names = ["sprites/%s/%s.%s" % (f, l, e) for f in [framing] + [x for x in FRAMINGS if x != framing]
+                 for l in labels for e in ("webp", "png")]
+    else:
+        if _SLUG.match(provider or ""):
+            names += ["%s/%s.webp" % (kind, provider), "%s/%s.png" % (kind, provider)]
+        names += ["%s.webp" % kind, "%s.png" % kind]
+    if ID_RE.match(cid or ""):
+        base = card_path(cid, ws).parent
+        own = next((base / n for n in names if (base / n).is_file()), None)
+        if own is not None:
+            return own, False
+    return PLACEHOLDER_DIR / PLACEHOLDERS["sprite:" + framing if kind == "sprite" else kind], True
+
+
+def sprite_map(cid: str, framing: str = "full", ws=None) -> Dict:
+    """{"framing", "sprites": {label: "<framing>/<label>.webp"}} for the first framing the character has
+    (the asked one first); empty sprites when it has none (every label then resolves to the placeholder)."""
+    framing = framing if framing in FRAMINGS else "full"
+    if ID_RE.match(cid or ""):
+        root = card_path(cid, ws).parent / "sprites"
+        for f in [framing] + [x for x in FRAMINGS if x != framing]:
+            files = sorted((root / f).glob("*.webp")) if (root / f).is_dir() else []
+            if files:
+                return {"framing": f, "sprites": {x.stem: "%s/%s" % (f, x.name) for x in files}}
+    return {"framing": framing, "sprites": {}}
+
 
 def _image_info(path: Path) -> Optional[tuple]:
     """(width, height, has_alpha), or None without Pillow."""

@@ -62,12 +62,12 @@ goes into `protected_paths.json`.
 | Session life, spawn, lock | `session.py` |
 | Turn watchdogs (QUOTA_FAILFAST, SILENT_HANG) | `turn_watchdog.py` (mixin of `AgentSession`) |
 | Session lookup / weights, `/btw` / standby pool | `session_registry.py` / `session_weights.py` / `standby_pool.py` |
-| HTTP routes | `server.py`; route helpers `card_upload.py` (card import), `emotion.py` (emotion SSE), `preview_guard.py`, `origin_guard.py` |
+| HTTP routes | `server.py`; route helpers `card_upload.py` (card import), `character_art.py` (avatar/stage/sprites, placeholder fallback), `emotion.py` (emotion SSE), `preview_guard.py`, `origin_guard.py` |
 | Artifacts / media | `artifact_manager.py` / `media_handler.py` |
 | Workspace status / tool log format | `workspace_status.py` / `tool_format.py` |
 | MCP server / core tools (memory, observation, ticket) / NAS host plugin | `mcp_server.py` / `mcp_core.py` / `nas_mcp_host.py` (server name `nas` is a provider config key: do not rename) |
 | Instruction bundle | `instructions.py` (+ `session.py::AgentSession._send_direct`) |
-| Characters, cards, lorebook | `characters.py`, `identity.py`; card import `tools/st_import.py`; data `data/workspace/characters/<id>/` |
+| Characters, cards, lorebook | `characters.py` (art resolution `art_file`, placeholders `static/placeholders/`), `identity.py`; card import `tools/st_import.py`; data `data/workspace/characters/<id>/` |
 | Private mode | `private_engine.py` (`RENDER_PROTOCOL`, Grok overlay, tension) + `engine_data/private_tension_{defaults,gemini,grok}.json` |
 | Safety guards | `content_guard.py` + `engine_data/content_guards.json` |
 | Delegation | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py` |

@@ -55,6 +55,7 @@ from session import (
 from providers import accounts
 from providers import account_login
 import card_upload
+import character_art
 import content_guard
 import emotion
 import obslog
@@ -295,27 +296,11 @@ def _character_list() -> list:
             art_v[kind] = int(max(f.stat().st_mtime for f in files)) if files else 0
         out.append({"id": c["id"], "session_character": c["id"], "roles": c["roles"], "role": c["role"],
                     "default": c["id"] == default, "name": name, "title": disp.get("title") or name,
-                    # a version for the picture URLs: new art shows at once; 0 = no picture yet (the page draws
-                    # the initial without asking)
+                    # a version for the picture URLs: new art shows at once; 0 = no picture yet (the route
+                    # serves the engine placeholder, ART_PLACEHOLDER_v1)
                     "avatar_v": art_v["avatar"], "stage_v": art_v["stage"]})
     out.sort(key=lambda x: not x["default"])
     return out
-
-
-def _character_avatar(cid: str, provider: str, kind: str = "avatar"):
-    """characters/<id>/<kind>/<provider>.webp|png, else characters/<id>/<kind>.webp|png, else None. `kind` is
-    avatar (the badge) or stage (the chat background)."""
-    if kind not in ("avatar", "stage"):
-        return None
-    import characters
-    if not characters.ID_RE.match(cid or ""):
-        return None
-    base = characters.card_path(cid).parent
-    names = []
-    if re.fullmatch(r"[a-z0-9_-]{1,32}", provider or ""):
-        names += ["%s/%s.webp" % (kind, provider), "%s/%s.png" % (kind, provider)]
-    names += ["%s.webp" % kind, "%s.png" % kind]
-    return next((base / n for n in names if (base / n).is_file()), None)
 
 
 def _digest_private_later(sess) -> None:
@@ -556,14 +541,9 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if path == "/api/characters":
             code, body = _json_bytes({"characters": _character_list()})
             return self._send(code, body, "application/json; charset=utf-8")
-        if path.startswith("/api/characters/") and (path.endswith("/avatar") or path.endswith("/stage")):
-            kind = path.rsplit("/", 1)[1]
-            img = _character_avatar(path[len("/api/characters/"):-len("/" + kind)],
-                                    parse_qs(parsed.query).get("provider", [""])[0], kind)
-            if img is None:
-                return self._send(404, b"no avatar", "text/plain")
-            ctype = "image/webp" if img.suffix == ".webp" else "image/png"
-            return self._send(200, img.read_bytes(), ctype, cache_control="private, max-age=300")
+        art = character_art.handle(path, parse_qs(parsed.query))   # ART_PLACEHOLDER_v1: avatar, stage, sprites
+        if art:
+            return self._send(art[0], art[1], art[2], cache_control=art[3])
         if path == "/api/sessions/busy":
             # which sessions are running a turn, and in which mode: the MCP server refuses work tools while a
             # private session is busy (SESSION_SPLIT_v1)

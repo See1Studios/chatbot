@@ -70,20 +70,23 @@ class Picker(unittest.TestCase):
                          [self.pd, self.pd, self.lulu, None, None, None])
 
     def test_avatars_follow_the_provider_then_the_character(self):
-        self.assertIsNone(server._character_avatar(self.lulu, "agy"))
+        # ART_PLACEHOLDER_v1: characters.art_file resolves; nothing of the character's own -> the placeholder
+        own = lambda cid, prov, kind="avatar": C.art_file(cid, kind, provider=prov, ws=self.ws)  # noqa: E731
+        self.assertTrue(own(self.lulu, "agy")[1])
         base = C.card_path(self.lulu, self.ws).parent
         (base / "avatar.webp").write_bytes(b"x")
-        self.assertEqual(server._character_avatar(self.lulu, "agy").name, "avatar.webp")
+        self.assertEqual(own(self.lulu, "agy"), (base / "avatar.webp", False))
         (base / "avatar").mkdir()
         (base / "avatar" / "agy.webp").write_bytes(b"y")
-        self.assertEqual(server._character_avatar(self.lulu, "agy"), base / "avatar" / "agy.webp")
-        self.assertEqual(server._character_avatar(self.lulu, "../../x").name, "avatar.webp")
-        self.assertIsNone(server._character_avatar("../" + self.lulu, "agy"))
-        self.assertIsNone(server._character_avatar(self.lulu, "agy", "stage"))          # backgrounds are their own
+        self.assertEqual(own(self.lulu, "agy"), (base / "avatar" / "agy.webp", False))
+        self.assertEqual(own(self.lulu, "../../x")[0].name, "avatar.webp")
+        self.assertTrue(own("../" + self.lulu, "agy")[1])                       # a bad id never leaves the placeholder
+        self.assertTrue(own(self.lulu, "agy", "stage")[1])                      # backgrounds are their own
         (base / "stage").mkdir()
         (base / "stage" / "agy.webp").write_bytes(b"z")
-        self.assertEqual(server._character_avatar(self.lulu, "agy", "stage"), base / "stage" / "agy.webp")
-        self.assertIsNone(server._character_avatar(self.lulu, "agy", "card.json"))
+        self.assertEqual(own(self.lulu, "agy", "stage"), (base / "stage" / "agy.webp", False))
+        with self.assertRaises(ValueError):
+            own(self.lulu, "agy", "card.json")
 
     def test_a_character_s_work_bundle_is_its_own(self):
         text = I.build_instruction_bundle(character=self.lulu)["text"]
