@@ -162,3 +162,7 @@ body.private-session .msg.assistant .md em{font-style:italic;font-size:.88em;opa
 .evo-pager{display:flex;align-items:center;justify-content:center;gap:.6rem;margin-top:.4rem}
 .evo-page{font-size:.76rem;color:var(--muted);font-family:var(--font-mono)}
 .obs-when{margin-left:auto;font-size:.72rem;color:var(--muted);font-family:var(--font-mono);white-space:nowrap}
+
+/* PRIVATE_FIRST_v1 (operator, 2026-09-29): in private mode only /act means anything (Space starts it, app-act-key.js),
+   so the skill menu button and the location toggle leave the composer. */
+body.private-session #slashBtn,body.private-session #geoBtn{display:none !important}

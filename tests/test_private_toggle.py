@@ -50,8 +50,15 @@ class PrivateToggle(unittest.TestCase):
     def test_the_button_is_in_the_composer(self):
         html = HTML.read_text(encoding="utf-8")
         self.assertIn('id="privateBtn"', html)
-        self.assertLess(html.find('id="geoBtn"'), html.find('id="privateBtn"'))
-        self.assertLess(html.find('id="privateBtn"'), html.find('id="input"'))
+        # PRIVATE_FIRST_v1: the mode toggle leads the composer (it is always there), on the phone too
+        self.assertLess(html.find('id="privateBtn"'), html.find('id="slashBtn"'))
+        self.assertLess(html.find('id="privateBtn"'), html.find('id="geoBtn"'))
+        panes = (HTML.parent / "chat-panes.css").read_text(encoding="utf-8")
+        self.assertLess(panes.index("#geoBtn, #privateBtn{"), panes.index("#privateBtn{order:0}"), "the later rule wins")
+
+    def test_private_mode_drops_the_skill_and_location_buttons(self):
+        css = (HTML.parent / "chat-features.css").read_text(encoding="utf-8")
+        self.assertIn("body.private-session #slashBtn,body.private-session #geoBtn{display:none !important}", css)
 
     def test_toggling_goes_private_and_back(self):
         node = shutil.which("node")

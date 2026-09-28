@@ -641,6 +641,7 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
     padding:0 !important;
     flex-shrink:0;
   }
+  #privateBtn{order:0}   /* PRIVATE_FIRST_v1: the mode toggle is always there, so it leads */
   #input{
     order:4;
     flex:1 1 auto;
