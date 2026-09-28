@@ -1,0 +1,17 @@
+{
+  "notes": "Affection (private-mode.md section 3) and how a gift moves it (composer-plus-menu plus/F). The engine judges a gift against the character's gift_prefs; the model never reports its own points (private-mode D8). Levels and titles are section 3.1. Read by gifts.py.",
+  "max": 100,
+  "levels": [
+    {"level": 1, "min": 0, "title": "어색한 동료"},
+    {"level": 2, "min": 20, "title": "친밀한 파트너"},
+    {"level": 3, "min": 50, "title": "특별한 호감"},
+    {"level": 4, "min": 80, "title": "깊은 연인"},
+    {"level": 5, "min": 100, "title": "완전한 유대"}
+  ],
+  "gift": {
+    "deltas": {"loves": 5, "likes": 3, "neutral": 1, "dislikes": -2},
+    "labels": {"loves": "아주 좋아함", "likes": "좋아함", "neutral": "무난함", "dislikes": "별로"},
+    "daily_limit": 3,
+    "repeat_factor": 0.5
+  }
+}

@@ -14,13 +14,13 @@ const ATTACH_TEXT = {
   file: '파일 첨부', gift: '선물하기', soon: '준비 중', open: '건넬 것 고르기',   // l10n-ok
   preview: '클릭하여 파일 미리보기', cancel: ' 첨부 취소', failed: '첨부 실패: ',   // l10n-ok
   tooBig: '파일이 너무 큽니다 (최대 20 MB)', max: (n) => '한 번에 ' + n + '개까지 첨부할 수 있어요.',   // l10n-ok
-  privateNo: '사적 모드에서는 파일 대신 선물을 건넬 수 있어요 (준비 중).',   // l10n-ok
+  privateNo: '사적 모드에서는 파일 대신 + 에서 선물을 건넬 수 있어요.',   // l10n-ok
 };
 let attachItems = [];          // {label, size, state: 'uploading'|'ready'|'error', file: server item, el}
 
 const PLUS_ITEMS = {
   work: [{ id: 'file', icon: '📎', label: ATTACH_TEXT.file, run: () => attachPick() }],
-  private: [{ id: 'gift', icon: '🎁', label: ATTACH_TEXT.gift, soon: ATTACH_TEXT.soon }],
+  private: [{ id: 'gift', icon: '🎁', label: ATTACH_TEXT.gift, run: () => openGiftPicker() }],   // app-gift.js
 };
 
 function plusMode() {

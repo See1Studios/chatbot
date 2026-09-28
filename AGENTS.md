@@ -68,7 +68,7 @@ goes into `protected_paths.json`.
 | MCP server / core tools (memory, observation, ticket) / NAS host plugin | `mcp_server.py` / `mcp_core.py` / `nas_mcp_host.py` (server name `nas` is a provider config key: do not rename) |
 | Instruction bundle | `instructions.py` (+ `session.py::AgentSession._send_direct`) |
 | Characters, cards, lorebook | `characters.py` (art resolution `art_file`, placeholders `static/placeholders/`), `identity.py`; card import `tools/st_import.py`; data `data/workspace/characters/<id>/` |
-| Private mode | `private_engine.py` (`RENDER_PROTOCOL`, Grok overlay, tension) + `engine_data/private_tension_{defaults,gemini,grok}.json` |
+| Private mode | `private_engine.py` (`RENDER_PROTOCOL`, Grok overlay, tension) + `engine_data/private_tension_{defaults,gemini,grok}.json`; gifts and affection `gifts.py` + `engine_data/affection.json` (catalog `<workspace>/gifts.json`, state `characters/<id>/state.json`) |
 | Safety guards | `content_guard.py` + `engine_data/content_guards.json` |
 | Delegation | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py` |
 | Self-evolution core | `evolution.py`, `tickets.py`, `observations.py`, `memory_store.py` (core: stdlib + each other only) |

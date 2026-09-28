@@ -15,7 +15,7 @@
 | 2 | 텐션 4단계 엔진(stage 1–4, 3슬롯, recent_choices, 모델 계열별 표) | **구현됨** | `private_engine.py` `tension_after`·`tension_step`·`tension_context`, `session.py::AgentSession._send_direct`, `data/private_tension_*.json`, `tests/test_private_tension.py` |
 | 2 | 선택지 상투성 검증·필터 | 계획 | 코드 없음 |
 | 2 | 8단계 0–100 점수 엔진 | **초안** | 코드 없음, 승인 대기 |
-| 3 | 영구 호감도 | 계획 | 코드 없음 |
+| 3 | 영구 호감도 | 일부 구현 | 선물로만 증감(`gifts.py`, #336). 대화 기반 증감·시작 텐션 연동(§3.6-2)은 아직 |
 | 4 | HUD·UX | 계획 | 코드 없음(`privateHud` 없음) |
 | 5 | 렌더러 코어 + 모드별 데코레이터 | 계획 | 신규 설계 |
 
@@ -209,9 +209,9 @@ HUD 최소 높이 34px. 드로어는 로그 영역 탭 또는 `✕`로 닫힌다
 | D3 | 슬롯 성격: 원안 "밀당/전진/도발" vs 코드 "유지/전진/깊은 교감". 밀당(튕기기) 슬롯 필요 여부 | §2.2, `data/private_tension_*.json` |
 | D4 | 완화: 원안은 밀당·화제전환·긴 쉼 시 완만한 하강, 코드·8단계 초안 모두 하강 없음 | §2.2 |
 | D5 | 단계 이름이 문서마다 다름(워밍업/의식/고조/클라이맥스 · 도입/고조/밀착/절정 · 도입/교감/친밀/깊은 유대). 코드는 계열별 JSON이 정본. 호감도·HUD는 gemini 이름을 전제 | JSON, §3.1, §4.2 |
-| D6 | 호감도 저장 위치: `state.json` vs `card.json` 확장 | §3.2 |
+| D6 | 호감도 저장 위치: `state.json` vs `card.json` 확장 | §3.2 — **결정 2026-09-28: `characters/<id>/state.json`** (카드는 공유 가능, 관계는 아님. composer-plus-menu 진행 때 추천안) |
 | D7 | 호감도 Lv별 시작 Stage(1–3)는 4단계 전제. 8단계 채택 시 시작 점수로 재매핑 필요 | §3.1 |
-| D8 | 호감도 판정을 모델의 자기 신고 태그 `[affection: ±N]`에 맡길지(검증·상한 없음), 파싱·숨김 위치 | §3.4 |
+| D8 | 호감도 판정을 모델의 자기 신고 태그 `[affection: ±N]`에 맡길지(검증·상한 없음), 파싱·숨김 위치 | §3.4 — **선물은 결정: 엔진 판정표**(`engine_data/affection.json`, composer-plus-menu D5). 대화 기반 증감의 방식은 여전히 열림 |
 | D9 | HUD 바이탈(bpm·홍조·경계심·mindset·zones status)을 누가 계산하는지 없음. 모델 태그인지 엔진 계산인지 | §4.2, §4.4 |
 | D10 | HUD 예시 불일치: 78%는 Lv4 구간(76–100)인데 "Lv.3 밀착"; 바는 ♥Lv.3, 드로어는 호감도 Lv.2; 토스트 `+20`의 단위 불명(호감도 증감은 ±3 규모) | §4 |
 | D11 | 호감도 원안은 "대화 수 누적이 아니다"라면서 `interactions_count`를 둔다 — 용도 미정 | §3.2 |

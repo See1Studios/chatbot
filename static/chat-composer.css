@@ -363,3 +363,20 @@ body.attach-drop.attach-drop-no .stage::after{/* l10n-ok */content:'사적 모�
 .attach-card{display:inline-flex;align-items:baseline;gap:.4rem;max-width:100%;padding:.3rem .55rem;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.18);color:inherit;font-size:.8rem;cursor:zoom-in;text-align:left}
 .attach-card-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:18rem}
 .attach-card-size{opacity:.7;font-size:.72rem}
+
+/* composer-plus-menu plus/G (app-gift.js): the gift picker above the composer, the chip on the giving bubble and
+   the toast that says how it landed. */
+.gift-picker{margin:.3rem .2rem;padding:.55rem;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.gift-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.85rem;color:var(--muted);margin-bottom:.45rem}
+.gift-close{border:0;background:none;color:var(--muted);cursor:pointer;font-size:.9rem}
+.gift-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(5.6rem,1fr));gap:.4rem;max-height:14rem;overflow:auto}
+.gift-item{display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.5rem .3rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--fg);cursor:pointer}
+.gift-item:hover:not(:disabled){border-color:var(--accent2);background:rgba(255,255,255,.08)}
+.gift-item:disabled{opacity:.45;cursor:default}
+.gift-icon{font-size:1.5rem;line-height:1}
+.gift-name{font-size:.74rem;text-align:center;line-height:1.25;word-break:keep-all}
+.gift-none{margin-top:.4rem;font-size:.8rem;color:var(--muted)}
+.gift-chip{display:inline-block;margin-left:.45rem;padding:.1rem .5rem;border-radius:999px;background:rgba(244,114,182,.15);border:1px solid rgba(244,114,182,.35);font-size:.78rem;font-style:normal}
+.gift-toast{position:fixed;left:50%;bottom:6.5rem;z-index:50;transform:translate(-50%,.6rem);opacity:0;padding:.55rem .9rem;border-radius:999px;background:rgba(20,22,28,.94);border:1px solid rgba(244,114,182,.45);color:var(--fg);font-size:.88rem;pointer-events:none;transition:opacity .25s ease,transform .25s ease}
+.gift-toast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.gift-toast{transition:none}}

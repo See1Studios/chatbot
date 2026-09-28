@@ -11,7 +11,8 @@
     ".agents/skills/fact-check/SKILL.md",
     ".agents/skills/anime-layer-animator/SKILL.md",
     ".agents/skills/anime-layer-animator/scripts/inspect_layers.py",
-    ".agents/skills/anime-layer-animator/scripts/run_see_through.py"
+    ".agents/skills/anime-layer-animator/scripts/run_see_through.py",
+    "gifts.json"
   ],
   "variant": {
     "AGENTS.md": "the shipped charter: no host law, no host paths, no engine work, reply in the user's language",

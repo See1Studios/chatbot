@@ -44,9 +44,14 @@ function actionTextOf(text) {
 
 // Draws a user history/ack entry: action lines as .msg.action, the rest as a user bubble.
 function addUserEntry(text, isQueued, prepend, ts) {
-  const act = actionTextOf(text);
-  if (act) return addChat('action', '\u2726 ' + act, false, isQueued, false, prepend, null, null, false, ts);
-  return addChat('user', text || '', false, isQueued, (text || '').startsWith('/btw'), prepend, null, null, false, ts);
+  // plus/G: a gift's host note rides after the action; it is a chip on screen, not part of the words
+  const g = typeof splitGiftNote === 'function' ? splitGiftNote(text) : { text: text, gift: null };
+  const act = actionTextOf(g.text);
+  const node = act
+    ? addChat('action', '\u2726 ' + act, false, isQueued, false, prepend, null, null, false, ts)
+    : addChat('user', g.text || '', false, isQueued, (g.text || '').startsWith('/btw'), prepend, null, null, false, ts);
+  if (g.gift && typeof renderGiftChip === 'function') renderGiftChip(node, g.gift);
+  return node;
 }
 
 // STREAM_FLOW_v1 (2026-09-28): a provider emits 50-200 tokens/s and the screen paints 60/s, so
