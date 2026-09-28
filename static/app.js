@@ -860,6 +860,9 @@ window.addEventListener('keydown', (e) => {
 });
 
 sendBtn.addEventListener('click', send);
+// SEND_KEEPS_KEYBOARD_v1: pressing the button must not take focus from the input -- on a phone that dropped the
+// keyboard, and send() then focused the input again and raised it. Same as #modelBtn; the click still fires.
+sendBtn.addEventListener('pointerdown', (e) => e.preventDefault());
 
 if (stopBtn) {
   stopBtn.addEventListener('click', async () => {
