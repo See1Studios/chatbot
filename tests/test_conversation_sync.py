@@ -41,6 +41,10 @@ class Base(WorkspaceCase):
         s.save_meta = lambda: None
         s.stop = lambda notify=True: self.stops.append(notify)
         s._spawn = lambda prompt="": self.sent.append(prompt)
+        # Images the turn produced are looked up in the real agy store on this host; a picture the live chat made
+        # at 19:47 on 2026-09-28 became these tests' "answer" and hid the errors they check. Nothing leaks in now.
+        s._collect_new_images = lambda since_ts=None: []
+        s._append_images_markdown = lambda text, since_ts=None: text
         return s
 
     def tearDown(self):
