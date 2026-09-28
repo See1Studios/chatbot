@@ -158,7 +158,7 @@ class Page(Base):
     def run_js(self, body):
         src = (ROOT / "static" / "app-item.js").read_text(encoding="utf-8")
         head = src[src.index("const ITEM_NOTE"):src.index("function renderItemChip")]
-        flow = src[src.index("const FLOW_GAP"):src.index("function closeItemPicker")]  # constants, flowStyle, flingTarget
+        flow = src[src.index("const FLOW_GAP"):src.index("function closeItemPicker")]  # constants, flowStyle, wheelEase, flingTarget
         out = subprocess.run(["node", "-e", head + flow + "\n" + body], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-800:])
         return json.loads(out.stdout)
@@ -190,6 +190,14 @@ class Page(Base):
         self.assertTrue(mid["shade"] > r1["shade"] > r2["shade"], "further back is darker")
         self.assertIn("rotateY(0deg)", reduced["transform"], "reduced motion: no turning")
         self.assertIn("rotateY(-35deg)", half["transform"], "the card crossing the gap turns as it comes")
+
+    def test_one_wheel_notch_is_drawn_in_steps_not_one_jump(self):
+        # 2026-09-28: a notch moved the flow straight to its end and the frames between never showed
+        got = self.run_js("let p = 0, frames = []; while (p !== 1 && frames.length < 60) { p = wheelEase(p, 1); frames.push(p); }"
+                          " console.log(JSON.stringify(frames));")
+        self.assertGreater(len(got), 5, "several frames between one item and the next")
+        self.assertTrue(all(b > a for a, b in zip(got, got[1:])), "always forward")
+        self.assertEqual(got[-1], 1, "and it lands exactly on the item")
 
     def test_a_flick_glides_further_than_a_let_go(self):
         got = self.run_js("console.log(JSON.stringify([flingTarget(2.3, 0, 19), flingTarget(2.3, 0.004, 19), "

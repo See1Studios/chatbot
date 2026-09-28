@@ -74,6 +74,12 @@ function flowStyle(d, reduced) {
   };
 }
 
+// One frame of the wheel's glide: a quarter of the way to where the wheel points, and exactly there once close.
+function wheelEase(pos, target) {
+  const next = pos + (target - pos) * 0.25;
+  return Math.abs(target - next) < 0.004 ? target : next;
+}
+
 // Where a released drag comes to rest: where it is plus a glide in proportion to the release speed (items per ms),
 // on a whole item. A quick flick crosses several; a slow let-go stays on the nearest.
 function flingTarget(pos, velocity, n) {
@@ -226,18 +232,37 @@ async function openItemPicker() {
   };
   flow.addEventListener('pointerup', release);
   flow.addEventListener('pointercancel', release);
+  // The wheel sets where the flow is heading; every frame the flow eases part of the way there (wheelEase). A mouse
+  // notch jumps a whole step at once, and drawn straight away it skipped every frame in between (operator,
+  // 2026-09-28). When the wheel stops, the target becomes the nearest item and the flow eases onto it.
+  let wheelTarget = null, wheelFrame = 0;
+  const wheelStep = () => {
+    wheelFrame = 0;
+    if (!itemFlow || wheelTarget === null || !wrap.isConnected) return;
+    itemFlow.pos = wheelEase(itemFlow.pos, wheelTarget);
+    const resting = itemFlow.pos === wheelTarget && wheelTarget === Math.round(wheelTarget) && !wheelTimer;
+    drawItemFlow();
+    if (resting) {
+      wheelTarget = null;
+      wrap.classList.remove('dragging');
+      itemFlow.cur = itemFlow.pos;
+      return;
+    }
+    wheelFrame = requestAnimationFrame(wheelStep);
+  };
   flow.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     const unit = e.deltaMode === 1 ? 40 : (e.deltaMode === 2 ? 400 : 1);   // lines, pages, pixels
-    itemFlow.pos = clampPos(itemFlow.pos + delta * unit / 150);
-    wrap.classList.add('dragging');
-    drawItemFlow();
+    wheelTarget = clampPos((wheelTarget === null ? itemFlow.pos : wheelTarget) + delta * unit / 150);
+    wrap.classList.add('dragging');                    // the frames animate it; CSS easing would lag behind
     clearTimeout(wheelTimer);
-    wheelTimer = setTimeout(() => {                    // the wheel stopped: rest on the nearest item
-      wrap.classList.remove('dragging');
-      moveItemFlow(0, Math.max(0, Math.min(n - 1, Math.round(itemFlow.pos))));
+    wheelTimer = setTimeout(() => {                    // the wheel stopped: head for the nearest item
+      wheelTimer = null;
+      if (wheelTarget !== null) wheelTarget = Math.max(0, Math.min(n - 1, Math.round(wheelTarget)));
+      if (!wheelFrame) wheelFrame = requestAnimationFrame(wheelStep);
     }, 140);
+    if (!wheelFrame) wheelFrame = requestAnimationFrame(wheelStep);
   }, { passive: false });
   wrap.appendChild(flow);
 
