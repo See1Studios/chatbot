@@ -95,7 +95,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
 
 ## Work procedure
 
-1. Start only from the operator's words or an approved ticket. External CLI: `python3 tools/ticket_quick.py start --title "[<plan id>] …" --paths a,b` (`~/bin/ticket-quick` points here; add `--actor <you>` when detection prints `unknown-cli`). The claim token cannot be recovered from the ticket store; it is kept in a private token file (`TOKEN_FILE=`), so `done`/`fail`/`renew` work without `--token`.
+1. Start only from the operator's words or an approved ticket. External CLI: `python3 tools/ticket_quick.py start --title "[<plan id>] …" --paths a,b --actor <you>` (`~/bin/ticket-quick` points here). Always pass `--actor`: without it the actor is guessed from the parent process and every ticket lands as `unknown-cli`, so the ledger cannot say who did the work. The claim token cannot be recovered from the ticket store; it is kept in a private token file (`TOKEN_FILE=`), so `done`/`fail`/`renew` work without `--token`.
 2. Change only the claimed paths.
 3. `./run-tests.sh` (all) or `./run-tests.sh test_x …`; green before commit. The commit hooks (`.githooks/`, install once per clone: `git config core.hooksPath .githooks`) rerun the guard tests and check the message.
 4. Commit only your paths. Author = your agent (e.g. `git -c user.name="Claude Code" …`); Conventional Commits; trailers:
@@ -121,6 +121,7 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Guard tests green before commit (`./run-tests.sh --fast`); full suite before release | all | `.githooks/check_staged.py` (pre-commit); `test_worktree_runner` (runner gates: guards + related tests); `test_tickets` (done refused while guards fail) |
 | Conventional Commits subject; `Plan:` trailer when `docs/plans/` changes | all | `test_githooks` (commit-msg hook) |
 | `Ticket:` trailer, own author name | all | manual |
+| A ticket names the agent doing the work (`--actor`), never left to process detection | all | manual (nothing fails on a missing actor; the natural enforcer is a `test_tickets` ratchet refusing a new `unknown-cli` actor, with a baseline for the 290 existing tickets) |
 | No secrets, `.env`, private memory or style references in commits | all | `test_githooks` (pre-commit hook) |
 | Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns); backstops `test_worktree_runner`, `test_tickets` |
 | Data paths only through `host_config` (`DATA_ENV` order; `tickets.py` mirrors it) | all | `test_data_paths` |
