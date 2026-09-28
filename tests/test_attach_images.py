@@ -76,8 +76,27 @@ class AdapterSendsThem(Base):
         out = self.adapter(True)._with_attached_images(list(msgs), types.SimpleNamespace(model="m"))
         self.assertEqual(out[0]["content"], text, "an earlier turn is not re-sent")
         parts = out[2]["content"]
-        self.assertEqual(parts[0], {"type": "text", "text": text}, "the path list stays for the file tools")
+        self.assertEqual(parts[0]["text"], text + OpenAIDialectAdapter.INLINE_IMAGE_NOTE, "paths stay; the model is told")
         self.assertEqual(parts[1]["image_url"]["url"], "data:image/png;base64," + base64.b64encode(PNG).decode())
+        self.assertEqual(len(parts), 2, "sent once")
+
+    def test_after_switching_model_a_recent_image_still_goes_along(self):
+        # 2026-09-28: attached on a text-only model, then switched to Space Bunny and asked "can you see it?"
+        text = self.message(self.item(self.up / "20260928-190000-cat.png", "image/png"))
+        msgs = [{"role": "user", "content": text}, {"role": "assistant", "content": "못 봐요"},
+                {"role": "user", "content": "이 이미지 보여?"}]
+        out = self.adapter(True)._with_attached_images(list(msgs), types.SimpleNamespace(model="m"))
+        self.assertEqual(out[0]["content"], text)
+        self.assertEqual(out[2]["content"][0]["text"], "이 이미지 보여?" + OpenAIDialectAdapter.INLINE_IMAGE_NOTE)
+        self.assertEqual(out[2]["content"][1]["type"], "image_url")
+
+    def test_an_image_further_back_is_not_re_sent(self):
+        text = self.message(self.item(self.up / "20260928-190000-cat.png", "image/png"))
+        msgs = [{"role": "user", "content": text}]
+        for n in range(OpenAIDialectAdapter.IMAGE_LOOKBACK):
+            msgs += [{"role": "assistant", "content": "a"}, {"role": "user", "content": "말 %d" % n}]
+        out = self.adapter(True)._with_attached_images(list(msgs), types.SimpleNamespace(model="m"))
+        self.assertEqual(out, msgs, "past the lookback the picture is not sent every turn forever")
 
     def test_a_text_model_or_no_image_leaves_the_message_alone(self):
         text = self.message(self.item(self.up / "20260928-190000-cat.png", "image/png"))

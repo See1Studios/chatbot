@@ -607,23 +607,37 @@ class OpenAIDialectAdapter(AgentAdapter):
         mods = arch.get("input_modalities") or []
         return "image" in mods or "image" in str(arch.get("modality") or "").split("->")[0]
 
+    IMAGE_LOOKBACK = 3   # user messages back an attached image still goes along (a model switched mid-talk)
+    INLINE_IMAGE_NOTE = ("\n\n[host] The attached image is included in this message; look at it directly rather "
+                         "than opening the file.")
+
     def _with_attached_images(self, messages: List[dict], session) -> List[dict]:
-        """composer-plus-menu plus/E: an image attached to this turn's message goes to an image-capable model as an
-        image part, beside the text that still lists its path. Only the last user message: earlier turns were
-        already seen, and re-sending their pixels every turn would cost every turn."""
+        """composer-plus-menu plus/E: images attached to the user's message go to an image-capable model as image
+        parts, beside the text that still lists their paths, and the model is told they are there. They go on the
+        turn they were attached; when this turn has none, the most recent attached images within IMAGE_LOOKBACK user
+        messages go with it -- "switch to a model that can see, then ask again" is how people use it (2026-09-28).
+        Only on the last user message, so nothing is sent twice in one request and an old picture is not re-sent
+        forever."""
         import base64
         import chat_upload
-        idx = next((i for i in range(len(messages) - 1, -1, -1) if messages[i].get("role") == "user"), None)
-        if idx is None or not isinstance(messages[idx].get("content"), str):
+        users = [i for i in range(len(messages) - 1, -1, -1) if messages[i].get("role") == "user"]
+        if not users or not isinstance(messages[users[0]].get("content"), str):
             return messages
-        text = messages[idx]["content"]
-        images = chat_upload.attached_images(text)
-        if not images or not self.supports_images(self.coerce_openrouter_model(session.model or self.default_model)):
+        if not self.supports_images(self.coerce_openrouter_model(session.model or self.default_model)):
             return messages
-        parts: List[dict] = [{"type": "text", "text": text}]
+        images: list = []
+        for i in users[:self.IMAGE_LOOKBACK]:
+            content = messages[i].get("content")
+            images = chat_upload.attached_images(content) if isinstance(content, str) else []
+            if images:
+                break
+        if not images:
+            return messages
+        last = users[0]
+        parts: List[dict] = [{"type": "text", "text": messages[last]["content"] + self.INLINE_IMAGE_NOTE}]
         for mime, data in images:
             parts.append({"type": "image_url", "image_url": {"url": "data:%s;base64,%s" % (mime, base64.b64encode(data).decode("ascii"))}})
-        messages[idx] = dict(messages[idx], content=parts)
+        messages[last] = dict(messages[last], content=parts)
         return messages
 
     def stream_turn(self, session: "AgentSession", messages: List[dict], seq: Optional[int] = None) -> Iterator[dict]:
