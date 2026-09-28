@@ -779,10 +779,21 @@ function renderMarkdown(src, isFinal) {
     }
   }
   // Fallback: escape HTML special chars to prevent XSS.
+  return renderPlainText(raw);
+}
+
+// PLAIN_RENDER_v1: escaping plus the inline forms -- bold, italics, inline and fenced code, images,
+// links, line breaks -- with no markdown parse and no sanitiser pass. It is what the whole page
+// falls back to when marked is unavailable, and it is also cheap enough to run on every frame of a
+// stream, so a reply can look like its finished self while it is still arriving instead of showing
+// raw **syntax** and then snapping to rendered markdown. Escaping first is what makes it safe to
+// inject: nothing that was not produced by the rules below survives into the DOM.
+function renderPlainText(raw) {
   function _esc(s) {
     return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  let t = raw.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
+  let t = (raw || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  t = t.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
     const u = absArtifact(url.trim());
     return '<img src="' + _esc(u) + '" alt="' + _esc(alt) + '">';
   });
@@ -790,9 +801,18 @@ function renderMarkdown(src, isFinal) {
     const safeHref = /^(?:javascript)/i.test(href.trim()) ? '#' : href;
     return '<a href="' + _esc(safeHref) + '" target="_blank" rel="noopener">' + _esc(label) + '</a>';
   });
-  t = t.replace(/```([\s\S]*?)```/g, (_, code) => '<pre><code>' + code.replace(/</g,'&lt;') + '</code></pre>');
-  t = t.replace(/`([^`]+)`/g, (_, code) => '<code>' + _esc(code) + '</code>');
-  t = t.replace(/\*\*([^*]+)\*\*/g, (_, txt) => '<strong>' + _esc(txt) + '</strong>');
+  t = t.replace(/```([\s\S]*?)```/g, (_, code) => '<pre><code>' + code + '</code></pre>');
+  // A fence that is still open is the normal case mid-stream: the closing ``` has not arrived yet.
+  // Treating the tail as code is what stops a code block from snapping from raw text into a
+  // full-height box the instant the answer ends.
+  t = t.replace(/```([\s\S]*)$/, (_, code) => '<pre><code>' + code + '</code></pre>');
+  t = t.replace(/`([^`]+)`/g, (_, code) => '<code>' + code + '</code>');
+  t = t.replace(/\*\*([^*]+)\*\*/g, (_, txt) => '<strong>' + txt + '</strong>');
+  // Single-asterisk italics, which is how RENDER_PROTOCOL writes an action, so an action looks like
+  // one from its first frame instead of only after the final parse. The shape is markdown's own
+  // flanking rule in miniature: the opener is not followed by a space and the closer is not
+  // preceded by one, which is what keeps `2 * 3 * 4` literal instead of eating its middle.
+  t = t.replace(/(^|[^*])\*([^*\n]*\S)\*/g, '$1<em>$2</em>');
   t = t.replace(/\n/g, '<br>');
   return t;
 }

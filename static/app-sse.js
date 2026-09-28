@@ -93,7 +93,14 @@ function streamBody(node) {
 
 // The buffer only grows, so the normal case is appending one span. Anything else -- a resync that
 // rewrote the draft, a thought block that just closed and retracted its text -- falls back to a
-// full swap, which is still cheap because it costs no markdown parse.
+// full swap.
+//
+// PLAIN_RENDER_v1: the appended text goes through renderPlainText, not textContent. Showing raw
+// `**bold**` and then replacing it with rendered bold at `result` is a single-frame swap of
+// different content in a different layout, and no transition can hide that -- the only way to make
+// the end of a stream feel like an arrival instead of a glitch is for the text to already look like
+// its finished self. renderPlainText is escaping plus a handful of regexes, so it stays off the
+// O(n^2) path: one paint per frame, and the chunk is the only thing re-read.
 function setStreamingContent(node, text) {
   if (!node) return;
   // The body must exist before the badge: otherwise the first paint puts the badge on the node
@@ -105,12 +112,16 @@ function setStreamingContent(node, text) {
     if (shown.indexOf(prev) === 0) {
       // Covers the first paint too (prev === ''), so every character that arrives while the
       // character is speaking gets the same reveal -- no special case for the opening words.
-      const span = document.createElement('span');
+      const html = renderPlainText(shown.slice(prev.length));
+      // renderPlainText emits exactly one block-level tag, <pre>, and a <pre> inside a <span> is
+      // invalid nesting that a parser is free to resolve by hoisting. The chunk becomes a div the
+      // moment it holds a code block, which is also the only place a line break belongs.
+      const span = document.createElement(html.indexOf('<pre') >= 0 ? 'div' : 'span');
       span.className = 'flow';
-      span.textContent = shown.slice(prev.length);
+      span.innerHTML = html;
       md.appendChild(span);
     } else {
-      md.textContent = shown;
+      md.innerHTML = renderPlainText(shown);
     }
     node._streamShown = shown;
   }

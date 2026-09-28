@@ -18,6 +18,10 @@ from tests.page_source import app_bundle  # noqa: E402
 
 CODE = Path(__file__).resolve().parent.parent
 APP = app_bundle()
+# markdown.js is not part of the app-*.js bundle the stub DOM loads, so the cheap renderer the
+# streaming path now uses is sliced straight out of its real source. Testing a copy of it would test
+# the copy.
+MARKDOWN = CODE / "static" / "markdown.js"
 
 HARNESS = r"""
 const fs = require('fs');
@@ -26,6 +30,14 @@ const a = src.indexOf('var streamPaintQueued');
 const b = src.indexOf('\nfunction bindEvents(sid)');
 if (a < 0 || b < 0) throw new Error('STREAM_FLOW block markers missing');
 const code = src.slice(a, b);
+
+// PLAIN_RENDER_v1, the real one.
+const md = fs.readFileSync(process.argv[3], 'utf8');
+const ra = md.indexOf('function renderPlainText');
+if (ra < 0) throw new Error('renderPlainText missing from markdown.js');
+const rb = md.indexOf('\n}', md.indexOf('return t;', ra)) + 2;
+function absArtifact(p) { return p; }        // markdown.js's helper; no artifacts in this text
+eval(md.slice(ra, rb));
 
 function el(tag) {
   const e = {
@@ -63,9 +75,20 @@ function el(tag) {
   let html = null;
   Object.defineProperty(e, 'innerHTML', {
     get() { return html === null ? e.textContent : html; },
-    set(v) { html = v; e._text = null; e.children = []; },
+    set(v) { html = v; e._text = visibleText(v); e.children = []; },
   });
   return e;
+}
+
+// A browser parses innerHTML into child nodes; the stub cannot, so it reproduces what the reader
+// would see instead: <br> is a line break and the four escaped entities come back as themselves.
+// The streaming path now writes HTML, and an assertion on textContent has to mean the visible text.
+function visibleText(h) {
+  return String(h == null ? '' : h)
+    .replace(/<br\s*\/?>/g, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 }
 
 const document = { createElement: el };
@@ -124,6 +147,8 @@ const text = (n) => {
   md.children.filter(c => !/\bexp-badge\b/.test(c.className)).forEach(c => parts.push(c.textContent));
   return parts.join('');
 };
+const htmlOf = (n) => body(n).children.filter(c => !/\bexp-badge\b/.test(c.className))
+  .map(c => c.innerHTML).join('');
 
 const CASES = {
   coalesces: () => {
@@ -192,6 +217,41 @@ const CASES = {
     const after = frames.length;
     return { queued, after, shown: text(n) };
   },
+  // PLAIN_RENDER_v1: the point of rendering while streaming is that the answer already looks like
+  // its finished self, so the swap at `result` is a refinement instead of a different document
+  // replacing another one in a single frame.
+  bold_while_streaming: () => {
+    const n = newBubble();
+    setStreamingContent(n, '**중요**한 일');
+    return { shown: text(n), html: htmlOf(n) };
+  },
+  action_italic_while_streaming: () => {
+    const n = newBubble();
+    setStreamingContent(n, '*고개를 기울이며*');
+    return { shown: text(n), html: htmlOf(n) };
+  },
+  open_code_fence_while_streaming: () => {
+    const n = newBubble();
+    setStreamingContent(n, '```py\nprint(1)');
+    return { html: htmlOf(n), tag: body(n).children[0].tag };
+  },
+  a_code_block_does_not_nest_a_pre_inside_a_span: () => {
+    const n = newBubble();
+    setStreamingContent(n, '설명.');
+    setStreamingContent(n, '설명.\n\n```py');          // the fence opens
+    setStreamingContent(n, '설명.\n\n```py\nprint(1)');  // and fills
+    return { tag: body(n).children.map(c => c.tag) };
+  },
+  markup_cannot_inject: () => {
+    const n = newBubble();
+    setStreamingContent(n, '<img src=x onerror=alert(1)>');
+    return { shown: text(n), html: htmlOf(n) };
+  },
+  arithmetic_asterisks_stay_literal: () => {
+    const n = newBubble();
+    setStreamingContent(n, '2 * 3 * 4 라고 했다');
+    return { shown: text(n), html: htmlOf(n) };
+  },
 };
 console.log(JSON.stringify(CASES[process.argv[2]]()));
 """
@@ -201,7 +261,8 @@ def run(case):
     node = shutil.which("node")
     if not node:
         raise unittest.SkipTest("node not installed")
-    proc = subprocess.run([node, "-e", HARNESS, str(APP), case], capture_output=True, text=True, timeout=20)
+    proc = subprocess.run([node, "-e", HARNESS, str(APP), case, str(MARKDOWN)],
+                          capture_output=True, text=True, timeout=20)
     if proc.returncode != 0:
         raise AssertionError("node failed for %s: %s" % (case, proc.stderr.strip()[:600]))
     return json.loads(proc.stdout.strip().splitlines()[-1])
@@ -271,6 +332,45 @@ class StreamingText(unittest.TestCase):
         self.assertFalse(out["streaming"], "the finished message is still motion")
         self.assertFalse(out["md_stream"])
         self.assertEqual(out["remembered"], "")
+
+    # --- PLAIN_RENDER_v1: the streaming body is already the finished shape ---
+
+    def test_bold_is_bold_while_it_is_still_streaming(self):
+        out = run("bold_while_streaming")
+        self.assertIn("<strong>중요</strong>", out["html"],
+                      "raw ** arriving mid-stream is exactly the swap the operator felt")
+        self.assertEqual(out["shown"], "중요한 일")
+
+    def test_an_action_is_italic_while_it_is_still_streaming(self):
+        out = run("action_italic_while_streaming")
+        self.assertIn("<em>고개를 기울이며</em>", out["html"],
+                      "RENDER_PROTOCOL writes actions in single asterisks; they must read as actions")
+        self.assertEqual(out["shown"], "고개를 기울이며")
+
+    def test_a_code_fence_is_a_code_block_before_it_is_closed(self):
+        out = run("open_code_fence_while_streaming")
+        self.assertIn("<pre><code>", out["html"],
+                      "a fence with no closing ``` yet is the normal mid-stream state")
+        self.assertEqual(out["tag"], "div", "a <pre> inside a <span> is invalid nesting")
+
+    def test_prose_chunks_stay_inline_and_a_code_chunk_becomes_a_block(self):
+        out = run("a_code_block_does_not_nest_a_pre_inside_a_span")
+        self.assertEqual(out["tag"], ["span", "div", "span"],
+                         "prose must not be forced onto its own line; the chunk that opens the "
+                         "fence is the one that becomes a block, and the rest fills it")
+
+    def test_rendering_while_streaming_cannot_inject_markup(self):
+        out = run("markup_cannot_inject")
+        # The input has no markdown in it, so the renderer must produce no tags at all -- every
+        # angle bracket it emitted would be one it invented. Escaping first is the whole safety
+        # argument for putting HTML on the streaming path.
+        self.assertNotIn("<", out["html"], "escaping has to happen before any tag is written")
+        self.assertEqual(out["shown"], "<img src=x onerror=alert(1)>")
+
+    def test_a_stray_asterisk_pair_is_not_mistaken_for_italics(self):
+        out = run("arithmetic_asterisks_stay_literal")
+        self.assertNotIn("<em>", out["html"], "2 * 3 * 4 is arithmetic, not emphasis")
+        self.assertEqual(out["shown"], "2 * 3 * 4 라고 했다")
 
 
 if __name__ == "__main__":
