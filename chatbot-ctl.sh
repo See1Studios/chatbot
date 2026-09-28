@@ -48,6 +48,10 @@ if [ -n "$_paths" ]; then
 fi
 [ -n "$LOG_DIR" ] || LOG_DIR="$CODE/logs"
 [ -n "$EVENTS_LOG" ] || EVENTS_LOG="$LOG_DIR/events.jsonl"
+# uds/D: a new install's empty data folder gets templates/workspace once (never overwrites; no-op here). Before the
+# mkdir below, which would otherwise leave an empty workspace. A failure warns and does not stop ctl (stop/status
+# must still work).
+(cd "$CODE" && python3 data_bootstrap.py --data "$DATA" --quiet) || echo "warning: data bootstrap failed ($DATA)" >&2
 mkdir -p "$DATA/workspace" "$DATA/sessions" "$DATA/artifacts" "$DATA/persona" "$LOG_DIR"
 LOG_CHAT="$LOG_DIR/chatbot.log"
 LOG_MCP="$LOG_DIR/chatbot-mcp.log"

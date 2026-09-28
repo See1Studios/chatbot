@@ -22,6 +22,8 @@
 
 **uds/B 완료(2026-09-28, #284)**: 경로 결정은 `host_config.py::DATA_ENV` 한 곳(`CHATBOT_DATA` → `PE_HOME` → `PRIVATEENGINE_HOME` → `AGY_CHAT_DATA` → `ROOT/data`). `tickets.py`(코어)는 같은 순서를 되풀이하고 `test_data_paths`가 둘을 같게 묶는다. `mcp_server.py`·`logdigest.py`의 우회 제거, `chatbot-ctl.sh`도 같은 순서. 남은 것: `data/` 안의 엔진 설정표(`content_guards.json`, `private_tension_*.json`)를 저장소 쪽으로 옮기기(분류 감사), `~/bin/ticket-quick`의 고정 경로(pew/K). 이전 기록 — 현재 코드: `host_config.py`는 `CHATBOT_DATA`/`AGY_CHAT_DATA` → 없으면 `ROOT/data`. `chatbot-ctl.sh`의 `DATA="$CODE/data"` 줄이 고정 후 export. **배포 기본 `~/.pe`로의 전환은 아직 미착수** — 본 문서 + [release-pipeline.md](release-pipeline.md) Next 구간.
 
+
+**uds/D 완료(2026-09-28, #297)**: `data_bootstrap.py` — 작업공간이 없거나 비어 있으면 `templates/workspace/`를 통째로 복사(임시 폴더에 만든 뒤 한 번에 이름 바꾸기, 데이터 폴더 0700), 복사한 파일의 sha256을 `$DATA/bootstrap.json`에 남긴다(나중에 엔진 업데이트가 사용자가 안 고친 파일을 알아볼 기준). 작업공간이 이미 있으면 아무것도 안 한다 — 덮어쓰지 않고, 지운 파일을 되살리지 않는다. `chatbot-ctl.sh`가 매 실행 시 `mkdir` 앞에서 부른다(실패해도 경고만). 이 NAS는 변화 없음. 남은 것: 기본 캐릭터(C3), `providers.json`·`secrets.env` 첫 설정(BYOK 온보딩), 기본값 `~/.pe` 전환(uds/F), 템플릿 갱신을 기존 설치에 전하는 업데이트 규칙(`bootstrap.json` 해시 기준, 별건).
 ---
 
 ## 1. 배경 및 목표
