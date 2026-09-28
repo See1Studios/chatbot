@@ -674,6 +674,21 @@ class ShipGateTest(Base):
         r = tickets.release(self.data, t["id"], c["token"], "done", now=T0)
         self.assertEqual(r["ticket"]["status"], "done")
 
+    def test_a_repo_without_the_runner_is_not_copied(self):
+        # a data folder inside another git repo (a home dir that is a repo) must not get a worktree of that repo
+        self.git_init()
+        t, c = self.claimed()
+        real = subprocess.run
+        seen = []
+
+        def spy(cmd, *a, **kw):
+            seen.append(cmd)
+            return real(cmd, *a, **kw)
+        with mock.patch.object(tickets.subprocess, "run", side_effect=spy):
+            r = tickets.release(self.data, t["id"], c["token"], "done", now=T0)
+        self.assertEqual(r["ticket"]["status"], "done")
+        self.assertFalse([cmd for cmd in seen if "worktree" in cmd], seen)
+
     def test_new_claim_is_refused_when_paths_already_have_leftover(self):
         self.git_init()
         (self.data / "host.py").write_text("leftover\n", encoding="utf-8")
