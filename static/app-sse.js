@@ -2,6 +2,10 @@
 // loads before app.js, which runs everything that happens at load (listeners, timers, boot). Top-level code
 // here may use the page's DOM, never a binding from a later file.
 
+// STOP_NOTICE_ONCE_v1: when the server last said a turn was stopped; the stop button (app.js) waits this long for it.
+let lastStopNoticeAt = 0;
+const STOP_NOTICE_WAIT_MS = 1500;
+
 // A user line that is only "(지문)" / "((지문))" is a stage action, not speech: returns the bare
 // action text ('' otherwise). send(), user_ack and history all route through this.
 function stripOuterParens(s) {
@@ -560,6 +564,7 @@ function bindEvents(sid) {
 
     if (type === 'stopped') {
       // NOTICE_UI_v1: host stop is its own notice bubble (no reply footer)
+      lastStopNoticeAt = Date.now();   // STOP_NOTICE_ONCE_v1: the stop button's own notice stands down
       addActivity('작업 중지: ' + (text || ''), 'system');
       const stopMsg = text || '작업이 중단되었습니다.';
       if (assistantNode) {

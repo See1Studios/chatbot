@@ -865,6 +865,7 @@ if (stopBtn) {
   stopBtn.addEventListener('click', async () => {
     if (!sessionId) return;
     stopBtn.disabled = true;
+    const noticeBefore = lastStopNoticeAt;
     try {
       addActivity('작업 중지 요청…');
       await api('/api/sessions/' + encodeURIComponent(sessionId) + '/stop', { method: 'POST' });
@@ -873,8 +874,13 @@ if (stopBtn) {
         assistantNode.remove();
       }
       assistantNode = null; assistantBuf = '';
-      var _stopBubble = addNotice('stop', '작업을 중지했습니다.', null, true);
-      if (_stopBubble) { _stopBubble.dataset.ephemeral = '1'; } // SESSION_DESYNC_GAPFIX_v2
+      // STOP_NOTICE_ONCE_v1: the server's 'stopped' event (app-sse.js) is the notice every window sees; this one
+      // stands in only when that event never came (the stream was down).
+      setTimeout(() => {
+        if (lastStopNoticeAt !== noticeBefore) return;
+        const b = addNotice('stop', '작업을 중지했습니다.', null, true);
+        if (b) b.dataset.ephemeral = '1';   // SESSION_DESYNC_GAPFIX_v2
+      }, STOP_NOTICE_WAIT_MS);
     } catch (e) {
       addActivity('중지 오류: ' + (e.message || e));
     } finally {
