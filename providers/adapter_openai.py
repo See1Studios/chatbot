@@ -468,6 +468,11 @@ class OpenAIDialectAdapter(AgentAdapter):
     # process-transport adapters never do) ------------------------------------
 
     MAX_TOOL_HOPS = 20  # safety cap -- expanded from 10 to 20 for complex multi-hop tasks
+    # TOOL_BUDGET_WRAPUP_v1: at the cap the turn used to end with an error and everything the tools returned was
+    # lost (2026-09-28: "review the observations" on a stealth model, 20 rounds / ~66 calls, no answer). One more
+    # request with tool_choice "none" turns what was read into an answer.
+    TOOL_BUDGET_NOTE = ("[host] The tool budget for this turn is spent; no more tool calls. Answer now from what you "
+                        "have found, and say briefly what you did not get to check.")
     # runaway CLI subprocess), the equivalent failure mode for http transport
     # is an unbounded model<->tool ping-pong that never reaches a plain
     # answer, so this is this adapter's version of orphan-process protection.
@@ -483,7 +488,8 @@ class OpenAIDialectAdapter(AgentAdapter):
     # (_start_http_watchdog/_http_turn_watchdog) enforces this by calling
     # stop() once a turn runs past it.
 
-    def _stream_once(self, session: "AgentSession", messages: List[dict], tools: List[dict], seq: Optional[int] = None) -> Iterator[dict]:
+    def _stream_once(self, session: "AgentSession", messages: List[dict], tools: List[dict], seq: Optional[int] = None,
+                     tool_choice: Optional[str] = None) -> Iterator[dict]:
         """One raw HTTP POST + SSE read. Yields {"event":"delta"} for content
         pieces as they arrive; returns (text, tool_calls, usage, finish_reason,
         served_model) via StopIteration (consume with
@@ -512,6 +518,8 @@ class OpenAIDialectAdapter(AgentAdapter):
                     body[k] = v
         if tools:
             body["tools"] = tools
+            if tool_choice:
+                body["tool_choice"] = tool_choice
         req_headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -608,10 +616,16 @@ class OpenAIDialectAdapter(AgentAdapter):
         tools = _mcp_openai_tools()
         hop_usages: List[dict] = []
         served_model = ""
-        for hop in range(1, self.MAX_TOOL_HOPS + 1):
+        for hop in range(1, self.MAX_TOOL_HOPS + 2):
             if seq is not None and getattr(session, "_turn_seq", None) != seq:
                 return
-            text, tool_calls, raw_usage, finish_reason, hop_model = yield from self._stream_once(session, messages, tools, seq=seq)
+            wrapup = hop > self.MAX_TOOL_HOPS
+            if wrapup:
+                messages.append({"role": "user", "content": self.TOOL_BUDGET_NOTE})
+                yield {"event": "tool", "text": "tool budget spent (%d rounds): asking for an answer" % self.MAX_TOOL_HOPS,
+                       "title": "tool budget", "kind": "result", "status": "tool_result"}
+            text, tool_calls, raw_usage, finish_reason, hop_model = yield from self._stream_once(
+                session, messages, tools, seq=seq, tool_choice="none" if wrapup else None)
             if seq is not None and getattr(session, "_turn_seq", None) != seq:
                 return
             if hop_model:
@@ -620,7 +634,9 @@ class OpenAIDialectAdapter(AgentAdapter):
             if nu:
                 hop_usages.append(nu)
 
-            if finish_reason == "tool_calls" and tool_calls:
+            if wrapup and not (text or "").strip():
+                break   # it still wanted tools or said nothing: the cap stands
+            if finish_reason == "tool_calls" and tool_calls and not wrapup:
                 ordered = [tool_calls[i] for i in sorted(tool_calls)]
                 sent_calls = [
                     {
@@ -685,4 +701,4 @@ class OpenAIDialectAdapter(AgentAdapter):
             )
             yield out
             return
-        yield {"event": "error", "text": f"툴 호출이 {self.MAX_TOOL_HOPS}회를 넘어 강제 종료했습니다."}
+        yield {"event": "error", "text": f"도구 사용이 {self.MAX_TOOL_HOPS}단계를 넘었고 마무리 답변도 받지 못해 종료했습니다."}
