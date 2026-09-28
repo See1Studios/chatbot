@@ -15,6 +15,17 @@
 - **확인**: 실제 요청 `cost: 0`, 재기동 뒤 목록 노출·응답 정상(운영자). `tests/test_openrouter_free_price.py` 5개.
 - **남은 주의**: 스텔스 모델은 대개 대화 기록·학습 조건으로 무료이고 예고 없이 내려간다. 사적 대화에 쓰기 전 조건 확인, 기본 모델로는 두지 않는다.
 
+## 2026-09-28 — 테스트 스위트 실행 시간 계획 (문서만, #307)
+
+- **배경**: 운영자 질문 — 테스트가 너무 오래 걸리는 경향. 추측하지 않고 계측했다.
+- **실측 (115모듈, 프로세스당 1개)**: 전체 **401s**(한적일 때 223s). **99/115가 2초 미만**(합계 73s, 평균 0.73s). **상위 4개가 58%**. 가드만 `--fast`는 19s. 프로세스당 고정 비용 0.2~0.53s.
+- **원인 1 — 게이트 중복 실행**: `tickets.py::_guard_failure`가 티켓 `done`마다 HEAD 임시 worktree에서 `run-tests.sh --fast`를 돌리고, 그 경로를 `test_tickets`가 **8번** 통과시킨다(최악 1개 47.8s). 코드 주석에 이미 `~11 s`라고 적혀 있었다.
+- **원인 2 — 모듈당 프로세스**: 격리 부채(`monolith-split.md` `split/A`, 93/1,190) 때문에 115개 프로세스. 고정 비용만 35~40s.
+- **비결정성**: 같은 커밋을 223/232/401s로 관측. `test_tickets`가 6.6s↔104s로 출렁이는 것이 원인 — 임시 디렉터리가 git root인지에 따라 19s짜리 게이트를 실제로 돌릴지가 갈린다. 즉 **"느려졌다"는 감각이 신뢰되지 않는 상태**였고, ①상태 의존 ②고정비로 층이 갈린다.
+- **추가**: [test-suite-speed.md](plans/test-suite-speed.md) (`active` · 방향 개발 기반) — `speed/A` 게이트 중복 제거(104s→~35s, 1순위)·`speed/B` `run-tests.sh --changed`(`related_gate` 재사용)·`speed/C` 격리 청산·`speed/D` 느린 나머지 3개 프로파일. monolith-split `split/A`는 측정의 정본으로 남기고 실행 처방을 이 문서로 옮겼다(사실 한 곳). 열린 질문 3개.
+- **하지 않음**: 릴리스 전 전체 실행을 낮추지 않는다(루트 AGENTS.md 계약). `test_worktree_runner`·`test_delegation`은 실제 worktree·위임 스폰의 대가라 성격을 재기 전에 손대지 않는다.
+- **기준선**: 가드 18/18. 구현 없음 — 문서만.
+
 ## 2026-09-28 — openrouter 404: 은퇴한 모델 + 버려지던 원인 (#302·#303)
 
 - **증상**: openrouter가 매 턴 `API 호출 실패: HTTP Error 404: Not Found`. **원인이 두 개 겹쳐 있었고, 하나가 다른 하나를 가렸다.**
@@ -135,114 +146,4 @@
 - **설계**: [plugin-architecture.md](plans/plugin-architecture.md) — 콘텐츠/코드 플러그인, `pe-plugin.json`, 내장도 같은 API, `~/.pe/plugins`, 코드는 별도 프로세스·권한, 등급, Workshop은 브랜드 이후. 결정 D1–D6 열림.
 - **배포**: 서버 쪽 미반영 — #263(openrouter 캐시), pew/O(완료 관문, 서버 경로), `server.py` 설명문. 다음 ⚡ 때.
 - **기준선**: `./run-tests.sh` 101/101.
-
-## 2026-09-27 (밤) — 파이프라인 토대: 기준선 93→98 녹색, 루트 AGENTS.md, 가드 테스트 (pew/N·C·D, #255–#264)
-
-- **배경**: [plan-execution-workflow.md](plans/plan-execution-workflow.md) 토대 단계. 운영자 결정: 계획 절차 D1–D8, 현지화 D1–D7, 사적 세션 두뇌 규칙 (a).
-- **pew/N 기준선 녹색화 (#255–#261)**: 낡은 UI 하네스 9개 갱신(#153·#176·#196·#211·#243 이후), 관찰 0088–0090 머리말, 사적 세션은 카드 `brains.private` → 없으면 사용자가 쓰던 두뇌(#240의 work 폴백 제거), `server.py` 1,611→1,478줄(`emotion.py`·`card_upload.py`, 감정 감지 테스트 신설), 헌장·사적 규칙 묶음 예산 안으로(공용 5,504→4,767 B, 사적 6,184→~4,576 B, 테스트 고정 문구 유지), `session.py` 2,477→2,298줄(`turn_watchdog.py`).
-- **#263**: OpenRouter `/models` 실패를 60초 기억 — 연결이 막히면 `/api/providers`가 30초 걸려 `test_identity_wiring` 시간 초과.
-- **pew/C (#262)**: 루트 `AGENTS.md` = 엔진 개발 단일 입구(정본 지도·코드 지도·하네스·작업 절차·규칙 레지스트리, "아키텍처 책임자" 역할). `CLAUDE.md`/`GEMINI.md`는 포인터. `data/workspace/AGENTS.md`는 챗 에이전트 헌장 그대로, `PROJECT.md`는 챗 에이전트 절차만.
-- **pew/D (#264)**: `test_entrypoints`·`test_rule_registry`·`test_plans_index`·`test_doc_refs`(`--fast`), 기존 줄 번호 참조 18곳을 `path::symbol`로. 각 가드는 규칙을 일부러 어겨 실패를 확인.
-- **조사**: agy 오류는 구글 쪽 재시도가 출발점이나, #253 전에는 우리 QUOTA_FAILFAST(8초)가 18/18을 닫음. #253 후 14/17 회복. 관찰 0091, 2026-09-28 재집계.
-- **계획**: [localization.md](plans/localization.md) 신설(1차 ko+en, 2차 ja·zh-Hans, 래칫 가드 먼저).
-- **배포**: N4·server/session 분할·사적 규칙은 23:07 소생으로 반영. #263·pew/C 설명문은 다음 소생 때.
-- **기준선**: `./run-tests.sh` 98/98.
-
-## 2026-09-27 — 테스트 단일 진입점 `run-tests.sh` + DEVLOG 크기 복구 (pew/B, #254)
-
-- **배경**: [plan-execution-workflow.md](plans/plan-execution-workflow.md) 토대 1단계. 테스트를 도는 방법이 README 루프뿐이라 아무도 돌리지 않았고, 가드 테스트가 깨진 채 방치됨(P8·P12).
-- **변경**: `run-tests.sh [--fast | 모듈…]` — 모듈별 한 프로세스, 시간·실패 꼬리 출력, 실패 시 종료 코드 1. `--fast`는 가드 테스트 목록(FAST). README 안내 교체. DEVLOG의 2026-09-23 항목 18개를 `docs/devlog/2026-09-23.md`로 이동(52,710 B → 29,626 B).
-- **기준선(2026-09-27)**: 92개 중 77개 통과 → DEVLOG 복구 후 78개. 남은 14개: ① 구조 가드 초과 `test_bundle_budget`(헌장 묶음 5,504/4,800 B), `test_file_sizes`(`server.py` 1,611/1,500줄) ② 코드 분리 후 따라가지 못한 UI 하네스·소스 문자열 테스트 `test_btw_order`·`test_observation_ui`·`test_work_status`·`test_slash_catalog`·`test_session_marker`·`test_bubble_position`·`test_mobile_keyboard_focus`·`test_sse_resync_dedupe`·`test_choices_channel` ③ 동작 기대 불일치 `test_session_split`·`test_character_picker`(기본 provider)·`test_observations`(87≠90). 별도 티켓으로.
-
-## 2026-09-27 — Private Engine 숨은 로어 (전영소녀 / Joi / 이중 이름)
-
-- **배경**: 로어·몰입 사용자용 숨은 컨셉을 문서에 고정. 프론트 마케팅 아님. 실장님 확인(써둬).
-- **concept**: 「숨은 컨셉 / 몰입 로어 (러프)」 — 이중 이름(제품명=상점/소환 창), 전영소녀·Joi 영감, 비디오 숍 은유, 설정충·몰입 장치 시장 원칙, 러프 골격 5항(매체·창 인식·ST=여권·기억 계약·모드 경계).
-- **brand**: `private-engine-brand.md` §8 — 이중 의미, Gokuraku는 영감(상표 아님), soft marketing.
-- **INDEX**: 변경 없음(브랜드 계획 상태 `active` 유지).
-- **커밋**: `docs: Private Engine hidden lore (Video Girl / Joi / dual name)`
-
-## 2026-09-27 — QUOTA_FAILFAST 턴 활동 재개 시 타이머 취소 및 정상 응답 절단 방지 (#253)
-
-- **배경**: agy가 백엔드(Gemini API 500/503 등) 일시 재시도 시 `step_type: error_message`를 발행하면 챗봇이 8초 failfast 타이머를 가동함. 그러나 agy가 4~5초 후 정상 복구되어 답변(`delta`)을 생성 중임에도 `_touch_turn_activity()`가 failfast 타이머를 취소하지 않아, 정확히 8초 시점에 턴을 강제 에러 종료(`에이전트가 답을 내기 전에 턴이 끝났습니다`)하고 세션을 끊어버리는 치명적 결함 발생.
-- **변경**:
-  - `session.py`:
-    - `_touch_turn_activity()`에서 텍스트 수신(`delta`)이나 도구 진행이 감지되면 대기 중인 `_cancel_error_message_failfast()`를 즉시 호출하여 타이머 해제 및 silent hang 재가동.
-    - `_arm_error_message_failfast()`: 이미 `self.current_text`가 버퍼에 누적되어 활발히 답변 중인 경우 8초 타이머 격발 방지.
-    - `_error_message_failfast()`: 타이머 만료 시점에도 버퍼에 텍스트가 있거나 최근 5초 이내 턴 활동이 있었으면 턴을 강제 종료하지 않고 회귀.
-  - `tests/test_conversation_sync.py`: `test_delta_after_error_message_cancels_failfast_and_rearms_silent_hang` 테스트 추가.
-- **검증**: `python3 -m unittest tests.test_conversation_sync`, `python3 tests/smoke.py`, `chatbot-ctl.sh guard` 통과.
-- **티켓**: #253 (claim -> done)
-
-## 2026-09-27 — 사용자 데이터 경로 `~/.pe` + 릴리스 파이프라인 계획
-
-- **배경**: Private Engine 배포 준비 — 엔진/개인 데이터 분리와 릴리스 로드맵을 계획 문서로 고정. 구현·마이그레이션 착수는 실장님 말 후.
-- **경로 SSOT** ([user-data-separation.md](plans/user-data-separation.md) §0 갱신):
-  - 배포 기본: **`~/.pe`** (`~/.privateengine` 아님)
-  - env: `CHATBOT_DATA` → `PE_HOME` → `PRIVATEENGINE_HOME` → 레거시 `AGY_CHAT_DATA`
-  - 개발: `CHATBOT_DATA=$CODE/data`
-  - **ctl** `DATA="$CODE/data"` 하드코딩 제거 MUST
-  - Windows: `%USERPROFILE%\.pe` (XDG 등은 이후)
-- **신규** [release-pipeline.md](plans/release-pipeline.md) (`active`):
-  - **Now**: repo private/PII, VERSION+CHANGELOG+tag, RELEASE.md, run-tests.sh, repair→smoke, secrets.env.example
-  - **Next 1–2mo**: `~/.pe` 기본, migrate, templates bootstrap, `data/` gitignore, 최소 CI
-  - **Pre-Steam**: thin launcher, installer, signing — Steam은 브랜드·도메인 이후
-  - **NOT**: 공개 푸시·히스토리 scrub 단독, 두꺼운 데스크톱 셸, `~/.privateengine` 기본 고정 등
-- **INDEX**: user-data-separation 행 갱신 + release-pipeline Active 행. **concept** 열린 축 1줄.
-- **교차**: private-engine-brand, user-data-and-editing §1, character-memory-adapter.
-- **실장님 경로 요약**: 배포 `~/.pe` · 개발 `$CODE/data` · ctl 하드코딩 금지 · Steam은 브랜드 후.
-
-## 2026-09-27 — 캐릭터 스코프 관계 기억 어댑터 계획 문서화
-
-- **배경**: 개인화 에이전트 하네스(걸프렌드-퍼스트 아님). 사적 관계는 opt-in 능력. Joi식 공감·연속성. 현행 `MEMORY.md`/`memory.md`/`private-memory.md`는 동반자 깊이에 부족.
-- **추가**: `docs/plans/character-memory-adapter.md` (`active`) — provider/visual 옆 **per-character memory adapter** 층. 개념 슬롯(진행·약속·선호·금기·관계 온도·사적 히스토리). 구현 없음.
-- **열린 질문**: 저장 vs `CHATBOT_DATA`, 암호화·user-data-separation 연동, `turn_context` 주입, vs lorebook, opt-in depth, private-mode 호감도 경계.
-- **INDEX**: Active 행 추가. **concept** `열린 축` 1줄 링크.
-- **교차**: `private-mode.md`, `user-data-separation.md`, delegation §12.
-
-## 2026-09-27 — Private Engine 브랜드·도메인 검토 계획 문서화
-
-- **배경**: 대화(2026-09-27) 공개 스캔 — Private Engine / PrivateEngine / 프라이빗엔진 채택 가능성, 도메인·레지스트리, 상표 리스크. 법률 자문 아님.
-- **추가**: `docs/plans/private-engine-brand.md` (`active`) — 스캔 요약, privateengine.ai 기울기, PrivacyEngine.io·Wallpaper Engine 인접, pe.ai TAKEN, 도메인 홀드→클리어런스 권고.
-- **INDEX**: Active 표에 행 추가.
-- **concept**: `열린 축`에 브랜드·도메인 검토 링크 1줄.
-- **면책**: 공개 스캔 기록만. KR/US/(EU) 변호사 전 스케일 금지 고지 문서에 포함.
-
-## 2026-09-27 — docs/plans 아카이브 절차 + 에이전트 MUST
-
-- **INDEX**: 상태 `active|done|superseded|abandoned`, 아카이브 절차, Active/Archived 표 분리.
-- **이동**: 완료·대체 계획 12개를 `docs/plans/archive/2026/`로 (README 추가).
-- **MUST 경로**: `data/workspace/AGENTS.md` § Plans, `PROJECT.md` 계획 칸 포인터; Grok Bot `sphere-hub-chatbot-protocol`과 동기.
-- **규칙**: 새 계획 전 INDEX 확인·active 행 추가; 종료 주 아카이브; 아카이브 문서 확장/부활 금지.
-
-
-## 2026-09-27 — Gemini 사적 OPTIONAL refusal-mitigation TEST LAYER (#249)
-
-- **목표**: craft(텐션/반응/액체/선택지)와 **분리**된 Gemini/agy 사적 전용 **옵트인** 거부완화 A/B 테스트 레이어. 기본 OFF. 긴 disregard 탈옥 덤프 금지 — 짧은 친밀 RP 연속성 프레이밍(KO+EN).
-- **A** `data/private_refusal_mitigation_gemini.json` — `default_enabled:false`, marker `GEMINI_REFUSAL_MITIGATION_TEST_v1`.
-- **B** `private_engine.py` — `load_refusal_mitigation` / `refusal_mitigation_enabled` / `refusal_mitigation_text`; `turn_context`에만 조건부 append. `private_tension_*.json`·`RENDER_PROTOCOL*` 불변.
-- **C** `session.py` — meta `refusal_mitigation` load/save (기본 false).
-- **ON**: 세션 `meta.json`에 `"refusal_mitigation": true` **또는** env `CHATBOT_PRIVATE_REFUSAL_MITIGATION=1` 후 repair. **OFF**: 키 삭제/false · env unset (일반 craft).
-- **문서**: `docs/providers/private-refusal-mitigation.md`
-- **검증**: `python3 -m unittest tests.test_private_tension`
-- **배포**: 호스트 py → `chatbot-ctl.sh repair` / ⚡소생. **새 사적 세션** 또는 meta 켠 기존 세션에서 A/B.
-- **티켓**: #249
-
-## 2026-09-27 (새벽) — SILENT_HANG 도구활동 재장전 · 오탐 수정 (#248, #247 follow-up)
-
-- **배경**: SILENT_HANG_v1이 assistant **TEXT delta만** 재장전 → 멀티툴/장시간 도구 턴(수 분)은 텍스트가 없어 90초에 오탐 종료. 의도는 Gemini 무응답 스톨 감지이지, 바쁜 도구 작업을 죽이는 것이 아님.
-- **변경** `session.py`: `_touch_turn_activity()` — assistant delta **및** tool start/result/progress(heartbeat)마다 90s 타이머 재장전. `error_message`는 계속 QUOTA_FAILFAST 전용(재장전 안 함). 진짜 침묵(텍스트·도구활동 둘 다 없음)만 발화. `SILENT_HANG_SEC=90` 유지. TURN_END_ORDER·QUOTA_FAILFAST 불변.
-- **검증**: `SilentHangWatchdog` — tool call 재장전 · 장시간 progress heartbeat · error_message 비재장전 + 기존 4건.
-- **배포**: 호스트 py → `chatbot-ctl.sh repair` / ⚡소생.
-- **마커**: `SILENT_HANG_v1` (activity reset)
-- **티켓**: #248
-
-## 2026-09-27 (새벽) — 무응답 silent-hang 워치독 (SILENT_HANG_v1, #247)
-
-- **배경**: busy인데 assistant delta도 `error_message`도 없으면 agy print-timeout(8분)까지 대기. orphan `agy` 잔존·체감 행 유발.
-- **변경** `session.py`: `SILENT_HANG_SEC=90`(승인 구간 60–120초 중 기본, QUOTA_FAILFAST 8초보다 길고 print-timeout 480초보다 짧음). busy 시작 시 타이머 — assistant delta마다 재장전 — `error_message`는 QUOTA_FAILFAST에 양보 — result/error/stopped·stop()에서 취소. 발화 시 한글 무응답 공지 + finalize 후 자식 중지(`TURN_END_ORDER` 유지).
-- **검증**: `tests.test_conversation_sync.SilentHangWatchdog`.
-- **Ops**: DiskStation orphan `agy` pid 16420(PPID1·deleted exe·live_pids 외) TERM 후 소멸. chatbot/mcp 유지.
-- **배포**: 호스트 py → `chatbot-ctl.sh repair` / ⚡소생.
-- **마커**: `SILENT_HANG_v1`
 
