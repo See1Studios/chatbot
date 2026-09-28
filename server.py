@@ -55,6 +55,7 @@ from session import (
 from providers import accounts
 from providers import account_login
 import card_upload
+import chat_upload
 import character_art
 import content_guard
 import emotion
@@ -815,6 +816,10 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             status, payload = card_upload.handle(self.headers, self.rfile, WORKSPACE)
             code, raw = _json_bytes(payload, status)
             return self._send(code, raw, "application/json; charset=utf-8")
+        up = chat_upload.handle(path, self.headers, self.rfile)   # plus/C: attached files (raw body, not JSON)
+        if up:
+            code, raw = _json_bytes(up[1], up[0])
+            return self._send(code, raw, "application/json; charset=utf-8")
         try:
             body = self._read_json()
         except Exception as e:
@@ -1060,6 +1065,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                             text = "(" + bare + ")"
                 else:
                     event_type = ""
+                text = chat_upload.take_pending(sid, text)   # plus/C: files attached since the last message
                 try:
                     rotated = sess.send(text, client_mid, client_context=client_ctx, event_type=event_type)
                 except Exception as e:

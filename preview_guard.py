@@ -23,6 +23,7 @@ _PREVIEW_ALLOWED_ROOTS = [
     (_HOME_R / "wiki"),
     (_HOME_R / ".agents"),
     host_config.WEB_ROOT.resolve(),
+    host_config.DATA.resolve(),   # plus/C: a file the user attached (sessions/<sid>/uploads/), in any install
 ]
 _PREVIEW_HOME_DOC_SUFFIXES = {".md", ".txt"}
 _SECRET_NAME_RE = re.compile(

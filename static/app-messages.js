@@ -747,6 +747,11 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
     renderTypedBody(md, bodyText, isFinal);
     div.appendChild(md);
     postProcessAssistant(div, isFinal, bodyText, usage, durationSeconds, Boolean(noticeKind), servedModel, choices || div._choices);
+  } else if (role === 'user' && typeof splitAttachmentBlock === 'function') {
+    // plus/D: the attachment list the agent reads is cards on screen (app-attach.js)
+    const parts = splitAttachmentBlock(text || '');
+    div.textContent = parts.text;
+    renderAttachmentCards(div, parts.files);
   } else {
     div.textContent = text || '';
   }
