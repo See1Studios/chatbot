@@ -43,6 +43,7 @@
 | [edition-boundary.md](edition-boundary.md) | `active` · 방향 **기반** — 배포판/개발판 경계: 판은 `host_config.EDITION` 한 곳(기본 `shipped`), 배포판 쓰기 범위는 사용자 데이터만, 개발 장치(티켓·위임·쓰기 감시·보호 경로)는 없어도 도는 구조, 패키지 제외 목록, 경계 테스트 | 판·도구 권한·배포 패키지·개발 장치의 결합을 건드릴 때 |
 | [localization.md](localization.md) | `active` · 방향 **기반** — 주요 언어 현지화: 1차 ko+en, 2차 ja·zh-Hans(D1–D7 결정), 래칫 가드·카탈로그·답변 언어 변수화, 말투 분리 | UI·서버 문자열, 날짜 형식, 답변 언어, 번역을 건드릴 때 |
 | [out-of-band-choices-actions.md](out-of-band-choices-actions.md) | `active` · 방향 **핵심** — 선택지·액션을 답변 본문 밖 채널(`choices` 도구·이벤트)로, 버튼 직접 전송(#134) | 선택지·버튼·액션 전달·티켓 바를 건드릴 때 |
+| [character-creation-landing.md](character-creation-landing.md) | `active` · 방향 **핵심** — 새 친구 **소환** 마법사(서브컬처 게임식 캐릭터 생성): 부름→모습→성격→말투→관계→이름→두뇌 연결→소환, 단계마다 추천값·"바로 소환"(장벽 0), 중립 기본 템플릿 캐릭터, 첫 실행 착지점 겸 새 친구 소환. D1–D8 대기 | 첫 실행·온보딩·기본 캐릭터·새 캐릭터(친구) 만들기를 건드릴 때 |
 | [personalization-ladder.md](personalization-ladder.md) | `active` · 방향 **핵심** — 배포판 개인화 사다리: 층별 편집·승인·되돌리기, 공통 뼈대(모든 층의 변경 기록·스냅숏, 엔드유저용 제안 카드), 기억 화면, 에이전트가 돕는 흐름(말투 다듬기·기억 정리·인터뷰·Hermes식 스킬 제안) | 캐릭터·기억·지침·스킬을 사용자나 에이전트가 바꾸는 흐름을 건드릴 때 |
 | [plugin-architecture.md](plugin-architecture.md) | `active` · 방향 **핵심** — 플러그인 플랫폼: 콘텐츠/코드 구분, `pe-plugin.json` 매니페스트, 내장도 같은 API, `~/.pe/plugins` 로딩, 코드는 별도 프로세스·권한, 등급, Workshop은 브랜드 이후 | 플러그인·확장·가져오기/내보내기·창작 도구·Workshop을 건드릴 때 |
 | [private-mode.md](private-mode.md) | `active` · 방향 **핵심** — 사적 모드 SSOT: 액션·선택지·텐션 4단계(구현됨), 8단계 초안·호감도·HUD·렌더 데코레이터(계획), 결정 필요 D1–D12 | 사적 모드·텐션·호감도·HUD·렌더링을 건드릴 때 |
