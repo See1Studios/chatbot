@@ -783,11 +783,59 @@ function markArrive(el, kind) {
   el.addEventListener('animationend', function () { el.classList.remove('arrive'); }, { once: true });
 }
 
+// A word, so a block can arrive as a wave instead of all at once.
+//
+// Every version of this that only animated the BLOCK was heard the same way: the words appeared at
+// full size and opacity, complete, and only then moved. That is a stamp, not an arrival. Putting
+// the motion on the words means it happens as they come into being, which is the only place a
+// fade from zero or a scale up is honest -- nothing already on screen is being taken away.
+//
+// A text node has no sub-structure, so the block's rendered HTML is walked and each word becomes a
+// span. textContent is unchanged, so selecting and copying the answer is unaffected, and inline
+// markup that spans several words (a bold phrase, a link) keeps its own element and only has its
+// words wrapped inside it.
+var RIPPLE_MIN_STEP = 14;      // ms per word, the slowest a wave may crawl
+var RIPPLE_MAX_STEP = 26;      // ms per word, the fastest a wave may jump
+var RIPPLE_SPAN_MS = 700;      // the whole wave of a long block finishes inside this
+
+function rippleWords(box, blockOffset) {
+  let index = 0;
+  const step = function (node) {
+    for (let i = 0; i < node.childNodes.length; i++) {
+      const child = node.childNodes[i];
+      if (child.nodeType === 3) {                       // a text node
+        if (!child.nodeValue || !child.nodeValue.trim()) continue;
+        const frag = document.createDocumentFragment();
+        child.nodeValue.split(/(\s+)/).forEach(function (part) {
+          if (!part) return;
+          if (!part.trim()) { frag.appendChild(document.createTextNode(part)); return; }
+          const w = document.createElement('span');
+          w.className = 'w';
+          w.style.setProperty('--i', String(index++));
+          w.textContent = part;
+          frag.appendChild(w);
+        });
+        node.replaceChild(frag, child);
+        i--;                                            // the fragment is not one of our children
+      } else if (child.nodeType === 1) {
+        step(child);
+      }
+    }
+  };
+  step(box);
+  if (!index) return 0;
+  // A forty word paragraph must not take a second and a half to finish arriving, so the per-word
+  // step shrinks with the length and the whole wave stays inside RIPPLE_SPAN_MS.
+  const per = Math.max(RIPPLE_MIN_STEP, Math.min(RIPPLE_MAX_STEP, Math.round(RIPPLE_SPAN_MS / index)));
+  box.style.setProperty('--wd', per + 'ms');
+  box.style.setProperty('--bd', (blockOffset || 0) * 60 + 'ms');
+  return index;
+}
+
 // One block of an answer, as an element -- and the ONLY way a block becomes an element, because the
 // streaming reveal and the final render have to agree. When they drew the same text two different
-// ways, the moment the stream ended was one more swap, which is the exact thing the reveal exists
-// to remove: a list that was literal dashes while it arrived and a bullet list the moment it did.
-function buildBlock(block, isFinal) {
+// ways, the moment the stream ended was one more swap.
+function buildBlock(block, isFinal, reveal, blockOffset) {
   const box = document.createElement('div');
   box.className = 'md-block';
   box.setAttribute('data-kind', block.kind);
@@ -802,6 +850,13 @@ function buildBlock(block, isFinal) {
     holder.innerHTML = renderMarkdown(run.text, isFinal);
     while (holder.firstChild) box.appendChild(holder.firstChild);
   });
+  if (reveal) {
+    box.classList.add('ripple');
+    const words = rippleWords(box, blockOffset);
+    // Nothing to ripple -- an empty block, or a renderer that produced no text nodes. The block
+    // still has to arrive, so it gets the whole-block settle instead of a wave that never runs.
+    if (!words) markArrive(box, block.kind);
+  }
   return box;
 }
 

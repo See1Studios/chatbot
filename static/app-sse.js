@@ -105,50 +105,18 @@ function streamBody(node) {
 // frame measured 0.4ms at 164 characters and 1.8ms at 2440, which was affordable but was solving a
 // problem the block boundary removes outright.
 //
-// And then the bubble shook, and the text rose and fell -- and both were this code's fault.
+// And then it was heard as words being stamped out flat: the block went on screen whole and
+// complete, and only afterwards moved. A motion that runs after the text has arrived is a wobble,
+// not an arrival -- so there is no beat and no timer any more. buildBlock() ripples the words as
+// the block is inserted, and the motion is part of coming into being.
 //
-// Delaying the APPEARANCE was the wrong half of the idea. It froze the block being written while a
-// closed one waited, then put that same text on screen a second time as a real block, then took it
-// away again: freeze, duplicate, shrink. Lagging the animation instead costs none of that, because
-// nothing about the text moves. The block is in the right place at the right time, the reader can
-// read it, and a beat later it settles.
+// Nothing scales at the block level, for the same reason it never should: scale() does not move the
+// layout but it does change the size of the letters, and a bubble whose text keeps growing and
+// shrinking reads as a bubble that cannot hold still. Scaling a word that does not exist yet is
+// fine; scaling a block that the reader is looking at is not.
 //
-// And nothing scales. scale() does not move layout but it does make the letters change size, and a
-// bubble whose text keeps growing and shrinking reads as a bubble that cannot hold still. The
-// per-kind vocabulary is built from translation and one gentle opacity dip instead, so the type is
-// the same size at every frame of the motion.
-//
-// How long a block sits still before it settles. Long enough that the reader sees the text arrive
-// first and the motion second; short enough to still feel like the same moment.
-var STREAM_REVEAL_BEAT = 200;
-// The extra room each block in a same-paint burst gets, so a coalesced catch-up cascades instead
-// of landing as one flash.
-var STREAM_REVEAL_STAGGER = 60;
-
-// Marks a block as settling, one beat after it went on screen. The class comes off when the
-// animation ends, so it can never replay and a later render cannot restart a motion the reader has
-// already watched.
-//
-// `step` spreads out blocks that closed in the same paint, which is what a coalesced burst looks
-// like. Without it three entrances fire on the same frame, and three entrances on the same frame
-// is the strobe all over again.
-function scheduleArrive(node, el, kind, step) {
-  if (revealReducedMotion()) { el.setAttribute('data-kind', kind || 'narration'); return; }
-  el.setAttribute('data-kind', kind || 'narration');
-  const delay = STREAM_REVEAL_BEAT + (step || 0) * STREAM_REVEAL_STAGGER;
-  node._arriveTimers = node._arriveTimers || [];
-  const id = setTimeout(function () {
-    node._arriveTimers = (node._arriveTimers || []).filter(function (t) { return t !== id; });
-    markArrive(el, kind);
-  }, delay);
-  node._arriveTimers.push(id);
-}
-
-function clearArriveTimers(node) {
-  (node._arriveTimers || []).forEach(clearTimeout);
-  node._arriveTimers = [];
-}
-
+// Reduced motion splits no words at all. The spans exist only to carry the wave, and a reader who
+// asked for none should not get hundreds of them in the DOM for nothing.
 function revealReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -181,9 +149,10 @@ function setStreamingContent(node, text) {
   // A closed block goes on screen at once, in order, exactly where it belongs. Only its motion waits.
   const from = node._streamUnits || 0;
   for (let i = from; i < cut.blocks.length; i++) {
-    const box = buildBlock(cut.blocks[i], false);
-    md.insertBefore(box, openEl);
-    scheduleArrive(node, box, cut.blocks[i].kind, i - from);
+    // reveal: the words ripple in as the block is inserted. The offset only de-synchronises blocks
+    // that closed in the same paint -- a coalesced burst -- so they cascade instead of moving
+    // together, and it is under 60ms so nothing is ever sitting still waiting.
+    md.insertBefore(buildBlock(cut.blocks[i], false, !revealReducedMotion(), i - from), openEl);
   }
   node._streamUnits = cut.blocks.length;
   // The open block carries the kind being written, so a line that has an action and then speech
@@ -202,7 +171,6 @@ function setStreamingContent(node, text) {
 }
 
 function resetStreamBody(node, md) {
-  clearArriveTimers(node);
   md.textContent = '';
   node._streamUnits = 0;
   node._streamOpen = null;      // the old open element is detached with the rest of the body
@@ -210,22 +178,12 @@ function resetStreamBody(node, md) {
 
 function endStreamingContent(node) {
   if (!node) return;
-  clearArriveTimers(node);
-  // A block that was still waiting out its beat settles now rather than never. The text is on
-  // screen either way -- the appearance was never the thing that waited -- so this is the motion
-  // being caught up, not anything the reader is waiting for.
-  const md = node.querySelector && node.querySelector('.md');
-  if (md) {
-    (md.children || []).forEach(function (c) {
-      const cls = c.className || '';
-      if (/\bmd-block\b/.test(cls) && !/\bopen\b/.test(cls)) markArrive(c, c.getAttribute('data-kind'));
-    });
-    md.classList.remove('md-stream');
-  }
   node._streamShown = '';
   node._streamUnits = 0;
   node._streamOpen = null;
   node.classList.remove('streaming');
+  const md = node.querySelector && node.querySelector('.md');
+  if (md) md.classList.remove('md-stream');
 }
 
 function bindEvents(sid) {

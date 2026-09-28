@@ -358,19 +358,27 @@
    message is still: the reveal does not survive the result. */
 .msg.assistant .md.md-stream{white-space:normal}
 
-/* REVEAL_BLOCKS_v1 -- the motion vocabulary, one per kind.
+/* REVEAL_BLOCKS_v1 -- the answer arrives as a wave, not as a stamp.
 
-   The entrance lands one beat AFTER a block is on screen, not the instant it is. Racing the stream
-   is what made it strobe: a 300ms fade firing on every closure overlaps the next one, and half
-   finished fades stacked on each other read as a shimmer rather than as motion.
+   Every earlier version animated the BLOCK, which was heard the same way every time: the words
+   appeared complete, at full size, and only then moved. That is a wobble. The motion belongs on the
+   words, at the moment they come into being -- and there a fade from zero and a scale up are both
+   honest, because nothing already on screen is being taken away to make room for them.
 
-   Nothing here scales. scale() leaves the layout alone but it does change the size of the letters,
-   and a bubble whose text keeps growing and shrinking reads as a bubble that cannot hold still --
-   which is the one thing a speech bubble must not do. So the vocabulary is built from translation
-   and a gentle opacity dip: the type is the same size at every frame of the motion.
+   --wd is the per-word step and --i the word's position, so the wave runs down the line. --bd
+   offsets a block so several that closed on the same frame cascade instead of moving together. */
 
-   The dip does not reach zero either. The block is already on screen and already readable, so a
-   fade from nothing would be taking text away and handing it back. */
+.msg.assistant .md-block.ripple .w{
+  display:inline-block;
+  animation:word-in 240ms cubic-bezier(0.16,1,0.3,1) both;
+  animation-delay:calc(var(--bd,0ms) + var(--i,0) * var(--wd,22ms));
+}
+@keyframes word-in{from{opacity:0;transform:translateY(6px) scale(.9)}to{opacity:1;transform:none}}
+
+/* The whole-block settle, for the one moment a block is not arriving word by word: the final render
+   of the block that was being written. Translation and a gentle opacity dip only -- the block is
+   already on screen and readable, so a fade from nothing would be taking it away to hand it back,
+   and a scale would change the size of the letters the reader is looking at. */
 .msg.assistant .md-block.arrive[data-kind="narration"]{animation:arrive-quiet 300ms cubic-bezier(0.16,1,0.3,1) both}
 .msg.assistant .md-block.arrive[data-kind="action"]{animation:arrive-action 320ms cubic-bezier(0.16,1,0.3,1) both}
 .msg.assistant .md-block.arrive[data-kind="dialogue"]{animation:arrive-dialogue 340ms cubic-bezier(0.16,1,0.3,1) both}
@@ -399,6 +407,7 @@
 @keyframes flow-sweep{0%{transform:translateX(-110%)}100%{transform:translateX(280%)}}
 
 @media (prefers-reduced-motion:reduce){
+  .msg.assistant .md-block.ripple .w{animation:none}
   .msg.assistant .md-block.arrive{animation:none}
   .msg.assistant .md-block.open::after{animation:none}
 }

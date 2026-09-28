@@ -43,9 +43,23 @@ const bb = src.indexOf('// ==== file:', ba);
 if (ba < 0 || bb < 0) throw new Error('BLOCK_KINDS markers missing');
 eval(src.slice(ba, bb));
 
+// A real childNodes list, because rippleWords() walks one. children stays elements-only, the way a
+// browser's does, and a node's textContent is the concatenation of its children.
+function makeNode(type, value, tag) {
+  const n = { nodeType: type, nodeValue: value == null ? null : value, tag: tag || null,
+              childNodes: [], className: '', parentNode: null,
+              style: { setProperty(k, v) { this[k] = v; } } };
+  // childNodes is the single truth. children is the element-only view, exactly as a browser
+  // exposes it, so nothing has to keep two lists in step -- which is where the stub went wrong.
+  Object.defineProperty(n, 'children', { get() { return n.childNodes.filter(c => c.nodeType === 1); } });
+  n.classList = { add() {}, remove() {}, contains() { return false; } };
+  return n;
+}
+
 function el(tag) {
-  const e = {
-    tag, className: '', children: [], attrs: {}, dataset: {}, handlers: {},
+  const e = makeNode(1, null, tag);
+  Object.assign(e, {
+    tag, className: '', attrs: {}, dataset: {}, handlers: {},
     // className and classList are one thing in a browser. The stub used to keep them apart, which
     // hid every assertion about a class the code adds rather than assigns.
     classList: {
@@ -58,11 +72,20 @@ function el(tag) {
     setAttribute(k, v) { this.attrs[k] = v; },
     getAttribute(k) { return this.attrs[k]; },
     addEventListener(t, f) { e.handlers[t] = f; },
-    appendChild(c) { e.children.push(c); return c; },
+    appendChild(c) { return this.insertBefore(c, null); },
     insertBefore(c, ref) {
-      const i = e.children.indexOf(ref);
-      e.children.splice(i < 0 ? e.children.length : i, 0, c);
+      const i = ref ? e.childNodes.indexOf(ref) : -1;
+      e.childNodes.splice(i < 0 ? e.childNodes.length : i, 0, c);
+      if (c.nodeType === 1) c.parentNode = e;
       return c;
+    },
+    replaceChild(frag, old) {
+      // A real fragment is unpacked in place; the stub carries its parts and splices them in.
+      const i = e.childNodes.indexOf(old);
+      if (i < 0) return old;
+      e.childNodes.splice.apply(e.childNodes, [i, 1].concat(frag.parts || [frag]));
+      (frag.parts || []).forEach(x => { if (x.nodeType === 1) x.parentNode = e; });
+      return old;
     },
     all(sel) {
       const cls = sel.replace(/^\./, '');
@@ -72,11 +95,11 @@ function el(tag) {
     },
     querySelector(sel) { return e.all(sel)[0] || null; },
     querySelectorAll(sel) { return e.all(sel); },
-  };
+  });
   e.remove = function () { if (e.parentNode) { e.parentNode.children = e.parentNode.children.filter(x => x !== e); } e.parentNode = null; };
   Object.defineProperty(e, 'textContent', {
-    get() { return (e._text || '') + e.children.map(c => c.textContent || '').join(''); },
-    set(v) { e._text = v; e.children = []; },
+    get() { return (e._text || '') + e.childNodes.map(c => c.nodeType === 3 ? c.nodeValue : c.textContent || '').join(''); },
+    set(v) { e._text = v; e.childNodes = []; },
   });
   let html = null;
   Object.defineProperty(e, 'innerHTML', {
@@ -96,7 +119,13 @@ function visibleText(h) {
     .replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 }
 
-const document = { createElement: el };
+const document = {
+  createElement: el,
+  createTextNode: (v) => makeNode(3, v),
+  // The fragment collects the replacement nodes; the stub cannot hold a real fragment, so it
+  // carries them and the parent's replaceChild unpacks it.
+  createDocumentFragment: () => ({ parts: [], appendChild(n) { this.parts.push(n); return n; } }),
+};
 let frames = [];
 const window = {
   requestAnimationFrame(cb) { frames.push(cb); return frames.length; },
@@ -141,15 +170,57 @@ function markArrive(el, kind) {
   el.classList.add('arrive');
   el.addEventListener('animationend', function () { el.classList.remove('arrive'); }, { once: true });
 }
-function buildBlock(block, isFinal) {
+// app-messages.js's buildBlock, stood in for in one respect only: the stub cannot parse markdown
+// into child nodes, so it puts the block's text in as a single text node and then runs the REAL
+// rippleWords over it. The word splitting, the index and the step are therefore genuinely tested;
+// only the markdown parse is not.
+function markArriveFor(box, kind) { box.classList.add('arrive'); box.setAttribute('data-kind', kind || 'narration'); }
+const RIPPLE_MIN_STEP = 14, RIPPLE_MAX_STEP = 26, RIPPLE_SPAN_MS = 700;
+function rippleWords(box, blockOffset) {
+  let index = 0;
+  const step = function (node) {
+    for (let i = 0; i < node.childNodes.length; i++) {
+      const child = node.childNodes[i];
+      if (child.nodeType === 3) {
+        if (!child.nodeValue || !child.nodeValue.trim()) continue;
+        const frag = document.createDocumentFragment();
+        child.nodeValue.split(/(\s+)/).forEach(function (part) {
+          if (!part) return;
+          if (!part.trim()) { frag.appendChild(document.createTextNode(part)); return; }
+          const w = document.createElement('span');
+          w.className = 'w';
+          w.style.setProperty('--i', String(index++));
+          w.textContent = part;
+          frag.appendChild(w);
+        });
+        node.replaceChild(frag, child);
+        i--;
+      } else if (child.nodeType === 1) {
+        step(child);
+      }
+    }
+  };
+  step(box);
+  if (!index) return 0;
+  const per = Math.max(RIPPLE_MIN_STEP, Math.min(RIPPLE_MAX_STEP, Math.round(RIPPLE_SPAN_MS / index)));
+  box.style.setProperty('--wd', per + 'ms');
+  box.style.setProperty('--bd', (blockOffset || 0) * 60 + 'ms');
+  return index;
+}
+function buildBlock(block, isFinal, reveal, blockOffset) {
   const box = document.createElement('div');
   box.className = 'md-block';
   box.setAttribute('data-kind', block.kind);
   // The real one renders each run; the stub cannot parse the result, but it must still pay the
   // call, because "one renderMarkdown per run" is the cost the test is about.
   blockRuns(block).forEach(run => { renderMarkdown(run.text); });
-  box._text = block.text;
+  box.appendChild(document.createTextNode(block.text));
   box._viaBlockRenderer = true;
+  if (reveal) {
+    box.classList.add('ripple');
+    const words = rippleWords(box, blockOffset);
+    if (!words) markArriveFor(box, block.kind);
+  }
   return box;
 }
 
@@ -195,6 +266,7 @@ const newBubble = () => { const n = el('div'); n.className = 'msg assistant'; n.
 const body = (n) => n.querySelector('.md');
 const blocks = (n) => body(n).children.filter(c => /\bmd-block\b/.test(c.className));
 const landed = (n) => blocks(n).filter(c => /\barrive\b/.test(c.className));
+const rippled = (n) => blocks(n).filter(c => /\bripple\b/.test(c.className));
 const openOf = (n) => blocks(n).filter(c => /\bopen\b/.test(c.className))[0] || null;
 const text = (n) => {
   const b = body(n);
@@ -225,7 +297,7 @@ const CASES = {
     flush();
     advance(6000);
     return { deltas: FULL.length, frames_queued: framesQueued, chars: text(n).length,
-             landed: landed(n).length, blocks: blocks(n).length };
+             landed: rippled(n).length, blocks: blocks(n).length };
   },
   cost_is_per_block_not_per_frame: () => {
     // The invariant that replaced "never render markdown while streaming": two hundred deltas
@@ -239,7 +311,7 @@ const CASES = {
     flush();
     advance(6000);
     return { deltas: FULL.length, renders: renderMarkdownCalls, marked: markedCalls,
-             purify: purifyCalls, postProcess: postProcessCalls, landed: landed(n).length };
+             purify: purifyCalls, postProcess: postProcessCalls, landed: rippled(n).length };
   },
   a_closed_block_uses_the_real_renderer: () => {
     const n = newBubble();
@@ -274,22 +346,73 @@ const CASES = {
     }
     return seen;
   },
-  each_block_animates_exactly_once: () => {
+  the_wave_is_never_applied_twice: () => {
+    // A block is built once and then left alone. If the ripple ran again on a later paint the words
+    // would double, and a paragraph that reads every word twice is worse than no motion at all.
     const n = newBubble();
-    setStreamingContent(n, '*고개를*\n\n둘');
-    advance(2000);
-    const el0 = landed(n)[0];
-    const before = el0.className;
-    const listened = typeof el0.handlers['animationend'];
-    el0.handlers['animationend']();          // the browser fires this; the stub does not
-    return { before, listened, after: el0.className, kind: el0.getAttribute('data-kind') };
+    setStreamingContent(n, '하나 둘\n\n셋 넷');
+    const before = rippled(n).map(b => b.querySelectorAll('w').length);
+    // The tail keeps growing, which is the real case: many paints over a block that is already done.
+    for (let i = 1; i <= 20; i++) setStreamingContent(n, '하나 둘\n\n셋 넷 ' + '가'.repeat(i));
+    const after = rippled(n).map(b => b.querySelectorAll('w').length);
+    return { before, after, text: text(n) };
   },
   a_block_is_a_whole_block_and_not_a_fragment: () => {
     const n = newBubble();
     setStreamingContent(n, FULL);
     advance(6000);
-    const sizes = landed(n).map(c => c.textContent.length);
+    const sizes = rippled(n).map(c => c.textContent.length);
     return { count: sizes.length, min: Math.min(...sizes), max: Math.max(...sizes) };
+  },
+  // --- the wave: the words arrive as the block does, not after it ---
+  the_words_arrive_instead_of_the_block_being_stamped: () => {
+    const n = newBubble();
+    setStreamingContent(n, '하나 둘 셋\n\n가나다라마바');
+    const done = blocks(n).filter(c => /\bripple\b/.test(c.className));
+    const words = (b) => b.childNodes.filter(c => c.nodeType === 1 && c.className === 'w');
+    return { rippling: done.length, first: words(done[0]).map(w => w.nodeValue || w.textContent),
+             indices: words(done[0]).map(w => w.style['--i']), step: done[0].style['--wd'],
+             text: text(n) };
+  },
+  the_wave_step_shrinks_so_a_long_block_still_lands: () => {
+    // A forty word paragraph must not take a second and a half to finish arriving, and a hundred
+    // word one must not take four, so the per-word step shrinks with the length.
+    const words = (n) => Array.from({ length: n }, (_, i) => '말' + i).join(' ');
+    const three = newBubble();  setStreamingContent(three, words(3) + '\n\n끝');
+    const forty = newBubble();  setStreamingContent(forty, words(40) + '\n\n끝');
+    const hundred = newBubble(); setStreamingContent(hundred, words(100) + '\n\n끝');
+    const first = (b) => blocks(b).filter(c => /\bripple\b/.test(c.className))[0];
+    const stepOf = (b) => b.style['--wd'];
+    const ms = (v) => parseInt(v, 10);
+    return { words: [first(three), first(forty), first(hundred)].map(b => b.querySelectorAll('w').length),
+             steps: [first(three), first(forty), first(hundred)].map(b => ms(stepOf(b))) };
+  },
+  a_burst_of_blocks_cascades_rather_than_moving_together: () => {
+    const n = newBubble();
+    setStreamingContent(n, Array.from({ length: 6 }, (_, i) => '문단 ' + i).join('\n\n') + '\n\n끝');
+    const offs = blocks(n).filter(c => /\bripple\b/.test(c.className)).map(c => c.style['--bd']);
+    return { count: offs.length, offsets: offs };
+  },
+  a_block_with_no_text_still_arrives: () => {
+    const n = newBubble();
+    setStreamingContent(n, '-  항목 하나');
+    advance(50);
+    return { blocks: blocks(n).length };
+  },
+  the_wave_does_not_change_the_words: () => {
+    const n = newBubble();
+    setStreamingContent(n, '**굵게** 그리고 "대사" 그리고 2 * 3\n\n끝');
+    advance(50);
+    return { text: text(n), words: n.querySelectorAll('w').length };
+  },
+  reduced_motion_does_not_split_the_words: () => {
+    REDUCE_MOTION = true;
+    const n = newBubble();
+    setStreamingContent(n, '하나 둘 셋\n\n가나다라마바');
+    const out = { rippling: blocks(n).filter(c => /\bripple\b/.test(c.className)).length,
+                  words: n.querySelectorAll('w').length, text: text(n) };
+    REDUCE_MOTION = false;
+    return out;
   },
   // --- the beat: the MOTION lags the text, the text never does ---
   the_motion_lags_the_text: () => {
@@ -370,13 +493,13 @@ const CASES = {
   finished_is_still: () => {
     const n = newBubble();
     setStreamingContent(n, '다 끝났어\n\n마지막');
-    const beforeEnd = { on: blocks(n).length, moving: landed(n).length };
+    const beforeEnd = { on: blocks(n).length, moving: rippled(n).length };
     endStreamingContent(n);
     return { streaming: n.classList.contains('streaming'), md_stream: body(n).classList.contains('md-stream'),
              // A turn that ends with a backlog must not leave the last paragraph invisible: the
              // entrance is dropped, not the text.
              shown: text(n), remembered: n._streamShown, units: n._streamUnits, open: n._streamOpen,
-             beforeEnd, moved: landed(n).length, timers: timers.filter(t => t.fn).length };
+             beforeEnd, moved: rippled(n).length, timers: timers.filter(t => t.fn).length };
   },
   cancel_stops_the_frame: () => {
     const n = newBubble();
@@ -482,12 +605,12 @@ class StreamingText(unittest.TestCase):
         # guessing where a sentence was meant to end is how a stray quote mark gets left on screen.
         self.assertEqual(out, ["narration", "action", "narration", "dialogue"])
 
-    def test_each_block_animates_exactly_once(self):
-        out = run("each_block_animates_exactly_once")
-        self.assertEqual(out["before"], "md-block arrive")
-        self.assertTrue(out["listened"], "the class has to come off, or a later render replays it")
-        self.assertEqual(out["after"], "md-block")
-        self.assertEqual(out["kind"], "action", "the landing is chosen by kind, not one size for all")
+    def test_the_wave_is_never_applied_twice(self):
+        # A block is built once and then left alone. Re-rippling it on a later paint would double
+        # the words, and a paragraph that reads every word twice is worse than no motion at all.
+        out = run("the_wave_is_never_applied_twice")
+        self.assertEqual(out["before"], [2], "one closed block, two words")
+        self.assertEqual(out["after"], [2], "twenty more paints, the same two words")
 
     def test_the_animating_unit_is_a_whole_block(self):
         # The assertion that would have caught the original: the entrance used to run on whatever
@@ -496,42 +619,45 @@ class StreamingText(unittest.TestCase):
         self.assertEqual(out["count"], 19)
         self.assertEqual((out["min"], out["max"]), (10, 10))
 
-    # --- the beat: the MOTION lags the text, the text never does ---
+      # --- the wave: the words arrive as the block does, not after it ---
 
-    def test_the_text_is_there_at_once_and_the_motion_catches_up(self):
-        # Racing the stream is what made it strobe, so the motion waits a beat. What does NOT wait
-        # is the text: delaying the appearance froze the block being written while a closed one sat
-        # in a queue, then put that same text on screen a second time and took it away again. The
-        # bubble grew and shrank as the words rose and fell, and all of it was the delay's fault.
-        out = run("the_motion_lags_the_text")
-        for mark in out:
-            self.assertEqual(mark["on"], 4, "three closed blocks and the open one, from the first paint")
-        self.assertEqual([m["moving"] for m in out], [0, 0, 1, 3],
-                         "nothing moves for a beat, then the motion catches up")
+    def test_the_words_arrive_instead_of_the_block_being_stamped(self):
+        # This is the thing the operator heard: words appearing complete at full size, and only then
+        # moving. That is a stamp. The motion belongs on the words at the moment they come into being,
+        # and there a fade from zero and a scale up are both honest -- nothing already on screen is
+        # taken away to make room for them.
+        out = run("the_words_arrive_instead_of_the_block_being_stamped")
+        self.assertEqual(out["rippling"], 1)
+        self.assertEqual(out["first"], ["하나", "둘", "셋"], "one span per word, in order")
+        self.assertEqual(out["indices"], ["0", "1", "2"], "the position drives the stagger")
+        self.assertEqual(out["text"], "하나 둘 셋가나다라마바", "the words are not changed by being split")
 
-    def test_blocks_that_close_together_settle_one_after_another(self):
-        # Three entrances on the same frame is the strobe all over again, and a coalesced burst is
-        # exactly that. They cascade instead.
-        out = run("a_same_paint_burst_cascades_instead_of_landing_together")
-        self.assertEqual(out["count"], 19)
-        self.assertEqual(out["first"], 200, "the beat")
-        self.assertEqual(out["second"], 260, "then one stagger apart")
-        self.assertLess(out["moved"], out["count"], "not all of them land on the same frame")
+    def test_the_wave_step_shrinks_so_a_long_block_still_lands(self):
+        # A forty word paragraph must not take a second and a half to arrive, and a hundred word
+        # one must not take four.
+        out = run("the_wave_step_shrinks_so_a_long_block_still_lands")
+        self.assertEqual(out["words"], [3, 40, 100])
+        self.assertEqual(out["steps"], [26, 18, 14],
+                         "26ms capped for a short line, 14ms floor for a long one")
 
-    def test_the_text_never_freezes_and_the_order_is_kept(self):
-        out = run("the_order_is_kept_and_the_text_never_freezes")
-        self.assertEqual(out["first"], "아직 쓰는 중")
-        self.assertEqual(out["second"], "아직 쓰는 중이야",
-                         "the open block is the live tail at every paint, never a frozen one")
-        self.assertEqual(out["order"], ["하나", "아직 쓰는 중이야"])
+    def test_blocks_that_close_together_cascade(self):
+        # Six entrances on the same frame is the strobe all over again. A coalesced burst is a
+        # normal thing for a burst to be, and it has to read as a cascade.
+        out = run("a_burst_of_blocks_cascades_rather_than_moving_together")
+        self.assertEqual(out["count"], 6)
+        self.assertEqual(out["offsets"], ["0ms", "60ms", "120ms", "180ms", "240ms", "300ms"])
 
-    def test_reduced_motion_gets_no_beat_at_all(self):
-        # There is no animation to smooth out, so the beat would be pure latency for someone who
-        # asked for none.
-        out = run("reduced_motion_gets_no_beat")
-        self.assertEqual(out["on_screen"], 3, "everything is on screen at once")
-        self.assertEqual(out["timers"], 0, "no settle timer may be left running")
-        self.assertEqual(out["kinds"], ["narration"] * 3, "the kind is still set, so styling holds")
+    def test_splitting_the_words_cannot_change_them(self):
+        out = run("the_wave_does_not_change_the_words")
+        self.assertEqual(out["text"], '**굵게** 그리고 "대사" 그리고 2 * 3끝')
+        self.assertEqual(out["words"], 7)
+
+    def test_reduced_motion_does_not_split_the_words_at_all(self):
+        # The spans exist only to carry the wave; a reader who asked for none should not get
+        # hundreds of them in the DOM for nothing.
+        out = run("reduced_motion_does_not_split_the_words")
+        self.assertEqual((out["rippling"], out["words"]), (0, 0))
+        self.assertEqual(out["text"], "하나 둘 셋가나다라마바", "and the text is all still there")
 
     def test_a_rewritten_draft_restarts_the_body(self):
         out = run("rewrite_restarts_the_body")
@@ -587,9 +713,8 @@ class StreamingText(unittest.TestCase):
         self.assertEqual(out["units"], 0, "the count has to reset with the rest of the streaming state")
         self.assertIsNone(out["open"], "the open element is detached by the final render")
         self.assertEqual(out["shown"], "다 끝났어마지막", "the text is all there, beat or no beat")
-        self.assertEqual(out["beforeEnd"]["moving"], 0, "nothing had settled yet")
-        self.assertEqual(out["moved"], 1, "the closed block settles rather than never")
-        self.assertEqual(out["timers"], 0, "and no timer is left to fire on a detached element")
+        self.assertEqual(out["beforeEnd"]["moving"], 1, "the closed block was already rippling")
+        self.assertEqual(out["timers"], 0, "and no timer is left running after the turn ends")
 
     # --- PLAIN_RENDER_v1: the block being written is already close to its finished shape ---
 
