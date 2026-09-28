@@ -59,6 +59,19 @@ def is_openrouter_free_model(model: str) -> bool:
     return m in OPENROUTER_FREE_ROUTERS
 
 
+def is_zero_priced(meta: Optional[dict]) -> bool:
+    """True only when the catalog entry says every listed price is 0 (a stealth model such as
+    `stealth/space-bunny-alpha` is free without the `:free` suffix). No entry, no pricing, or any
+    unreadable/non-zero price is not free: `openrouter/auto` lists -1."""
+    pricing = (meta or {}).get("pricing")
+    if not isinstance(pricing, dict) or "prompt" not in pricing or "completion" not in pricing:
+        return False
+    try:
+        return all(float(v) == 0 for v in pricing.values() if v not in (None, ""))
+    except (TypeError, ValueError):
+        return False
+
+
 NAS_MCP_URL = "http://127.0.0.1:3012/mcp"
 
 
@@ -237,13 +250,25 @@ class OpenAIDialectAdapter(AgentAdapter):
     def available(self) -> bool:
         return bool(os.environ.get(self.api_key_env))
 
+    def is_free(self, model: str) -> bool:
+        """A free route by id, or one the live catalog prices at 0. Without the catalog (fetch failed) only the id
+        counts, so a paid model is never let through on missing data."""
+        m = (model or "").strip()
+        if is_openrouter_free_model(m):
+            return True
+        try:
+            return bool(m) and is_zero_priced(self._get_models_meta().get(m))
+        except Exception:  # noqa: BLE001
+            return False
+
     def known_models(self) -> List[str]:
         models = list(self._curated_models)
         if self.free_only:
-            models = [m for m in models if is_openrouter_free_model(m)]
+            models = [m for m in models if self.is_free(m)]
             try:
-                for fm in sorted(self._get_models_meta()):
-                    if is_openrouter_free_model(fm) and fm not in models:
+                meta = self._get_models_meta()
+                for fm in sorted(meta):
+                    if (is_openrouter_free_model(fm) or is_zero_priced(meta[fm])) and fm not in models:
                         models.append(fm)
             except Exception:
                 pass
@@ -256,7 +281,7 @@ class OpenAIDialectAdapter(AgentAdapter):
         if not self.free_only:
             return (model or "").strip() or self.default_model
         m = (model or "").strip()
-        if is_openrouter_free_model(m):
+        if self.is_free(m):
             return m
         return self.default_model
 
