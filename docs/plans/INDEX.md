@@ -42,6 +42,7 @@
 | [release-pipeline.md](release-pipeline.md) | `active` · 방향 **기반** — Now/Next/Pre-Steam 배포 로드맵, `~/.pe`, CI·런처·Steam은 브랜드 이후 | 릴리스·버전·CI·인스톨러·Steam 전 배포를 건드릴 때 |
 | [plan-execution-workflow.md](plan-execution-workflow.md) | `active` · 방향 **개발 기반** — 누수 없는 계획→실행(PE 내부 경로 우선): 루트 AGENTS.md 단일 입구·정본 지도, 규칙↔집행자 레지스트리, 훅·가드 테스트, 게이트 G0–G9·DoR/DoD·항목 id·ADR·트레일러, 파일럿=release·user-data | 계획을 새로 쓰거나 항목을 티켓으로 옮길 때, 에이전트 진입·규칙 강제를 건드릴 때 |
 | [edition-boundary.md](edition-boundary.md) | `active` · 방향 **기반** — 배포판/개발판 경계: 판은 `host_config.EDITION` 한 곳(기본 `shipped`), 배포판 쓰기 범위는 사용자 데이터만, 개발 장치(티켓·위임·쓰기 감시·보호 경로)는 없어도 도는 구조, 패키지 제외 목록, 경계 테스트 | 판·도구 권한·배포 패키지·개발 장치의 결합을 건드릴 때 |
+| [api-adapter-parity.md](api-adapter-parity.md) | `active` · 방향 **기반** — CLI 두뇌의 내장 능력을 HTTP 두뇌에 제공자 중립 MCP 도구로: 능력표(웹 ✅ #376, 부분 교체·Glob·스킬·도구 예산·셸·그림 그리기), 권한은 모델이 아니라 자리(대화/워크트리)에. D1–D4 대기 | HTTP 어댑터 도구·MCP 도구 추가·도구 예산·HTTP 두뇌 권한을 건드릴 때 |
 | [localization.md](localization.md) | `active` · 방향 **기반** — 주요 언어 현지화: 1차 ko+en, 2차 ja·zh-Hans(D1–D7 결정), 래칫 가드·카탈로그·답변 언어 변수화, 말투 분리 | UI·서버 문자열, 날짜 형식, 답변 언어, 번역을 건드릴 때 |
 | [out-of-band-choices-actions.md](out-of-band-choices-actions.md) | `active` · 방향 **핵심** — 선택지·액션을 답변 본문 밖 채널(`choices` 도구·이벤트)로, 버튼 직접 전송(#134) | 선택지·버튼·액션 전달·티켓 바를 건드릴 때 |
 | [character-creation-landing.md](character-creation-landing.md) | `active` · 방향 **핵심** — 새 친구 **소환** 마법사(서브컬처 게임식 캐릭터 생성): 부름→모습→성격→말투→관계→이름→두뇌 연결→소환, 단계마다 추천값·"바로 소환"(장벽 0), 중립 기본 템플릿 캐릭터, 첫 실행 착지점 겸 새 친구 소환. D1–D8 대기 | 첫 실행·온보딩·기본 캐릭터·새 캐릭터(친구) 만들기를 건드릴 때 |
