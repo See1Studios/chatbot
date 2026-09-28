@@ -150,13 +150,58 @@ function setStreamingContent(node, text, badgeSrc) {
   // renderPlainText, not renderMarkdown: an incomplete block has no extent yet, and handing marked
   // a half-written list gives it nothing stable to keep. It is escaping plus a few regexes, and it
   // already renders bold, italics, code and an open fence, so what is on screen is close to final.
-  openEl.innerHTML = cut.open ? renderPlainText(cut.open) : '';
+  openEl.innerHTML = cut.open ? renderPlainText(closeOpenMarks(cut.open)) : '';
   node._streamShown = shown;
   node.classList.add('streaming');
   // After the body, never before: the first paint writes over .md and would take the badge with it.
   // This is the order postProcessAssistant effectively runs in.
   paintExpressionBadge(node, badgeSrc === undefined ? text : badgeSrc);
+  placeStreamCaret(md);
   scrollChatToBottom(false);
+}
+
+// STREAM_CARET_v1: the caret is an element put right after the last letter on screen, on every paint.
+// It used to be a ::after on the last block, which collided with the open block's own ::after (the
+// flowing rule, position:absolute) and was drawn at the block's top-left corner -- and an open block
+// that had just emptied put it alone on a new line. Placed after the text, it follows the letters
+// across blocks; placed after a moving letter rather than inside it, it does not scale with it.
+function placeStreamCaret(md) {
+  const old = md.querySelector('.stream-caret');
+  if (old) old.remove();
+  const last = streamLastText(md);
+  if (!last || !last.parentNode) return;
+  let host = last.parentNode, ref = last.nextSibling;
+  if (/\brv-l\b/.test(host.className || '') && host.parentNode) { ref = host.nextSibling; host = host.parentNode; }
+  const caret = document.createElement('span');
+  caret.className = 'stream-caret';
+  caret.setAttribute('aria-hidden', 'true');
+  host.insertBefore(caret, ref || null);
+}
+
+function streamLastText(el) {
+  for (let i = el.childNodes.length - 1; i >= 0; i--) {
+    const c = el.childNodes[i];
+    if (c.nodeType === 3) { if (c.nodeValue && c.nodeValue.trim()) return c; continue; }
+    if (c.nodeType !== 1 || /\b(exp-badge|stream-caret)\b/.test(c.className || '')) continue;
+    const t = streamLastText(c);
+    if (t) return t;
+  }
+  return null;
+}
+
+// An emphasis still open at the end of the text being written is drawn as closed, so its letters are
+// bold or italic from the first one instead of showing ** that vanish when the closer arrives -- a
+// jump the reader sees as the bubble changing size. A single * only counts when it opens a word (the
+// same flanking rule renderPlainText uses), so 2 * 3 stays arithmetic.
+function closeOpenMarks(text) {
+  let t = String(text || '');
+  if ((t.match(/\*\*/g) || []).length % 2) t = t.replace(/(\s*)$/, '**$1');
+  const singles = t.replace(/\*\*/g, '');
+  const lastLine = singles.slice(singles.lastIndexOf('\n') + 1);
+  const opens = (lastLine.match(/(^|[^*])\*(?=\S)/g) || []).length;
+  const closes = (lastLine.match(/\S\*(?!\*)/g) || []).length;
+  if (opens > closes && /\S\s*$/.test(t)) t = t.replace(/(\s*)$/, '*$1');
+  return t;
 }
 
 function resetStreamBody(node, md) {
@@ -167,6 +212,8 @@ function resetStreamBody(node, md) {
 
 function endStreamingContent(node) {
   if (!node) return;
+  const caret = node.querySelector && node.querySelector('.stream-caret');
+  if (caret) caret.remove();
   node._streamShown = '';
   node._streamUnits = 0;
   node._streamOpen = null;
@@ -255,9 +302,19 @@ function revealFinish(node, text, done) {
   revealRun(node, rv);
 }
 
+// The bubble fits its text, so any reflow would shrink and regrow it. While letters arrive it may
+// widen but never narrow; the final render lets go.
+function revealHoldWidth(node, rv) {
+  const w = node.offsetWidth;
+  if (typeof w !== 'number' || w <= (rv.width || 0) || !node.style) return;
+  rv.width = w;
+  node.style.minWidth = 'min(' + w + 'px, 100%)';
+}
+
 function revealComplete(node, rv) {
   if (rv.completed) return;
   rv.completed = true;
+  if (node.style) node.style.minWidth = '';
   rv.dead = true;
   if (node._rv === rv) node._rv = null;
   if (rv.finish) rv.finish();
@@ -287,6 +344,7 @@ function revealTick(node, rv) {
       rv.shown = Math.min(rv.gs.length, rv.shown + step);
       setStreamingContent(node, rv.gs.slice(0, rv.shown).join(''), rv.raw);
       revealLetters(node, rv, now);
+      revealHoldWidth(node, rv);
     }
   }
   if (rv.shown < rv.gs.length) { revealRun(node, rv); return; }
@@ -308,7 +366,7 @@ function revealLetters(node, rv, now) {
       const c = el.childNodes[i];
       if (c.nodeType === 1) {
         const cls = c.className || '';
-        if (/\bexp-badge\b/.test(cls)) continue;       // the emotion badge is not part of the text
+        if (/\b(exp-badge|stream-caret)\b/.test(cls)) continue;   // not part of the text
         if (/\brv-l\b/.test(cls)) {                    // a letter already carrying its motion
           if (now - c._rvBorn >= REVEAL_MS) { el.replaceChild(document.createTextNode(c.textContent), c); }
           index++;
@@ -352,6 +410,7 @@ function revealLetters(node, rv, now) {
     }
   };
   visit(md);
+  placeStreamCaret(md);   // the text nodes it sat beside may just have been re-wrapped
 }
 
 function bindEvents(sid) {

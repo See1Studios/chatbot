@@ -53,6 +53,11 @@ function makeNode(type, value, tag) {
   // childNodes is the single truth. children is the element-only view, exactly as a browser
   // exposes it, so nothing has to keep two lists in step -- which is where the stub went wrong.
   Object.defineProperty(n, 'children', { get() { return n.childNodes.filter(c => c.nodeType === 1); } });
+  // A browser tracks every node's place, text nodes included; the caret is put beside one.
+  Object.defineProperty(n, 'nextSibling', { get() {
+    const p = n.parentNode; if (!p) return null;
+    const i = p.childNodes.indexOf(n); return i < 0 ? null : (p.childNodes[i + 1] || null);
+  } });
   n.classList = { add() {}, remove() {}, contains() { return false; } };
   return n;
 }
@@ -77,7 +82,7 @@ function el(tag) {
     insertBefore(c, ref) {
       const i = ref ? e.childNodes.indexOf(ref) : -1;
       e.childNodes.splice(i < 0 ? e.childNodes.length : i, 0, c);
-      if (c.nodeType === 1) c.parentNode = e;
+      c.parentNode = e;
       return c;
     },
     replaceChild(frag, old) {
@@ -85,7 +90,8 @@ function el(tag) {
       const i = e.childNodes.indexOf(old);
       if (i < 0) return old;
       e.childNodes.splice.apply(e.childNodes, [i, 1].concat(frag.parts || [frag]));
-      (frag.parts || []).forEach(x => { if (x.nodeType === 1) x.parentNode = e; });
+      (frag.parts || [frag]).forEach(x => { x.parentNode = e; });
+      old.parentNode = null;
       return old;
     },
     all(sel) {
@@ -97,17 +103,21 @@ function el(tag) {
     querySelector(sel) { return e.all(sel)[0] || null; },
     querySelectorAll(sel) { return e.all(sel); },
   });
-  e.remove = function () { if (e.parentNode) { e.parentNode.children = e.parentNode.children.filter(x => x !== e); } e.parentNode = null; };
+  e.remove = function () {
+    if (e.parentNode) { const pc = e.parentNode.childNodes; const i = pc.indexOf(e); if (i >= 0) pc.splice(i, 1); }
+    e.parentNode = null;
+  };
   Object.defineProperty(e, 'textContent', {
     get() { return (e._text || '') + e.childNodes.map(c => c.nodeType === 3 ? c.nodeValue : c.textContent || '').join(''); },
-    set(v) { e._text = v; e.childNodes = []; },
+    // As in a browser: the element's children become one text node (none for an empty string).
+    set(v) { e._text = ''; e.childNodes = []; if (v !== '' && v != null) { const t = makeNode(3, String(v)); t.parentNode = e; e.childNodes.push(t); } },
   });
   let html = null;
   Object.defineProperty(e, 'innerHTML', {
     get() { return html === null ? e.textContent : html; },
     // One text node with what the reader would see, so code that walks text nodes (the letter
     // reveal) has something to walk, as it would in a browser.
-    set(v) { html = v; e._text = ''; e.childNodes = [makeNode(3, visibleText(v))]; },
+    set(v) { html = v; e._text = ''; const t = makeNode(3, visibleText(v)); t.parentNode = e; e.childNodes = [t]; },
   });
   return e;
 }
@@ -421,6 +431,37 @@ const CASES = {
     const b = n.querySelector('.exp-badge');
     return { badge: b ? b.textContent : null, badgeWrapped: b ? b.querySelectorAll('rv-l').length : null };
   },
+  open_marks_are_drawn_closed: () => {
+    const ins = ['**중요', '*고개를', '*고개를 ', '2 * 3', '*눈을 깜빡*', '**굵게** 그리고 *행', '가*나', '**끝**', '*첫줄*\n*둘째'];
+    return ins.map(t => closeOpenMarks(t));
+  },
+  // Where the caret is: the text that comes right before it, and how many carets there are.
+  caret_follows_the_last_letter: () => {
+    const before = (n) => {
+      const c = n.querySelector('.stream-caret');
+      if (!c || !c.parentNode) return null;
+      const sib = c.parentNode.childNodes;
+      const i = sib.indexOf(c);
+      let t = '';
+      for (let k = i - 1; k >= 0 && !t.trim(); k--) t = (sib[k].nodeType === 3 ? sib[k].nodeValue : sib[k].textContent) + t;
+      return t;
+    };
+    const count = (n) => n.querySelectorAll('stream-caret').length;
+    const n = newBubble();
+    const out = {};
+    setStreamingContent(n, '하나\n\n둘 셋');
+    out.open = [before(n), count(n)];
+    setStreamingContent(n, '하나\n\n둘 셋\n\n');          // the open block has just emptied
+    out.emptyOpen = [before(n), count(n), n.querySelector('.stream-caret').parentNode === openOf(n)];
+    const r = newBubble();
+    revealTarget(r, '가나다 라마바');
+    play(120);
+    const c = r.querySelector('.stream-caret');
+    out.revealing = [count(r), c ? /rv-l/.test(c.parentNode.className || '') : null];
+    endStreamingContent(n);
+    out.ended = count(n);
+    return out;
+  },
   // --- the beat: the MOTION lags the text, the text never does ---
   the_motion_lags_the_text: () => {
     const n = newBubble();
@@ -677,6 +718,32 @@ class StreamingText(unittest.TestCase):
         out = run("the_badge_is_not_a_letter")
         self.assertEqual(out["badge"], "\U0001F60A")
         self.assertEqual(out["badgeWrapped"], 0)
+
+    def test_an_open_emphasis_is_drawn_closed_while_it_arrives(self):
+        # ** that shows and then vanishes when its closer arrives is a jump the reader sees as the
+        # bubble changing size; arithmetic must stay arithmetic.
+        self.assertEqual(run("open_marks_are_drawn_closed"),
+                         ["**중요**", "*고개를*", "*고개를* ", "2 * 3", "*눈을 깜빡*", "**굵게** 그리고 *행*",
+                          "가*나", "**끝**", "*첫줄*\n*둘째*"])
+
+    def test_moving_and_settled_letters_break_lines_the_same_way(self):
+        # The letters of a word arrive inside a no-wrap group; if settled text may break inside a
+        # Korean word, every settling letter reflows the lines and the bubble shakes.
+        import re
+        css = (CODE / "static" / "chat-log.css").read_text(encoding="utf-8")
+        md = re.search(r"\.msg\.assistant \.md\{([^}]*)\}", css).group(1)
+        self.assertIn("word-break:keep-all", md)
+        self.assertRegex(css, r"\.msg\.assistant \.md \.rv-w\{white-space:nowrap\}")
+
+    def test_the_caret_sits_right_after_the_last_letter(self):
+        out = run("caret_follows_the_last_letter")
+        self.assertTrue(out["open"][0].endswith("셋"), "the caret follows the text being written: %r" % out["open"])
+        self.assertEqual(out["open"][1], 1, "one caret")
+        self.assertTrue(out["emptyOpen"][0].endswith("셋"), "an empty open block does not pull it to a new line")
+        self.assertEqual(out["emptyOpen"][1], 1)
+        self.assertFalse(out["emptyOpen"][2])
+        self.assertEqual(out["revealing"], [1, False], "beside a moving letter, never inside it")
+        self.assertEqual(out["ended"], 0, "a finished message has no caret")
 
     def test_a_rewritten_draft_restarts_the_body(self):
         out = run("rewrite_restarts_the_body")

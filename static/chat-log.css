@@ -288,7 +288,10 @@
   backdrop-filter:blur(8px);
   box-shadow:0 4px 16px rgba(0,0,0,0.3), var(--glint);
 }
-.msg.assistant .md{white-space:normal;line-height:1.6;word-break:break-word}
+/* keep-all: Korean breaks between words, like the letters' no-wrap groups do while they arrive
+   (CHAR_REVEAL_v1) -- two different rules made the lines reflow as each letter settled, and the
+   bubble shook. anywhere: a word longer than the line still breaks. */
+.msg.assistant .md{white-space:normal;line-height:1.6;word-break:keep-all;overflow-wrap:anywhere}
 .msg.assistant .md p{margin:.4rem 0 .6rem}
 .msg.assistant .md p:first-child{margin-top:0}
 .msg.assistant .md p:last-child{margin-bottom:0}

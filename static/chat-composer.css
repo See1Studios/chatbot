@@ -56,11 +56,10 @@
 .msg.system.notice-ok .notice-head{color:#6ee7b7}
 .msg.system.notice-ok .md{color:#a7f3d0}
 .msg.btw-card .btw-head .action-icon-svg{width:14px;height:14px;stroke:currentColor;flex-shrink:0}
-/* Streaming cursor: a CSS pseudo-element on the last rendered block,
-   not a literal DOM node -- md.innerHTML is fully replaced on every
-   delta, so anything inserted via JS would just be wiped and redrawn
-   every tick anyway. */
-.msg.assistant.streaming .md > *:last-child::after{
+/* Streaming cursor (STREAM_CARET_v1): an element app-sse.js places right after the last letter on
+   screen at every paint. As a ::after on the last block it collided with the open block's own ::after
+   and sat at the block's top-left corner. */
+.msg.assistant.streaming .md .stream-caret{
   content:'';display:inline-block;width:.5em;height:1em;margin-left:2px;
   background:var(--accent2);vertical-align:text-bottom;
   animation:chat-cursor-blink 1s steps(1) infinite;
