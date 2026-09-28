@@ -53,8 +53,8 @@ function itemToast(text) {
 // the reader; past it a clear gap, then the others turned about 70 degrees and packed close like records on a
 // shelf, full size but darker. d need not be whole: while a drag or a wheel is under way the flow sits between items,
 // and the card crossing the gap turns as it comes.
-const FLOW_GAP = 72;     // % of a card from the middle to the first card beside it
-const FLOW_STACK = 16;   // % of a card between neighbours in a stack
+const FLOW_GAP = 80;     // % of a card from the middle to the first card beside it
+const FLOW_STACK = 24;   // % of a card between neighbours in a stack
 const FLOW_TURN = 70;    // degrees a side card is turned
 function flowStyle(d, reduced) {
   const a = Math.abs(d);
