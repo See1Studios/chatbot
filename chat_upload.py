@@ -119,9 +119,14 @@ def remove(sid: str, stored_name: str) -> bool:
 def attachment_block(items: List[Dict]) -> str:
     """What the agent reads after the message. Agent-facing, so English; the page shows it as cards."""
     lines = ["- %s (%s, %s)" % (x["path"], x["mime"], x["size_human"]) for x in items]
-    return "[Attached files - read them with your file tools]\n" + "\n".join(lines)
+    return ATTACH_HEAD + "\n" + "\n".join(lines)
 
 
+# What the agent is told with the list. Grok once described an attached image it had not opened (2026-09-28), so an
+# image is to be looked at first. Any header starting "[Attached files" is ours: older messages keep theirs.
+ATTACH_HEAD = ("[Attached files - open them with your file tools. Look at an image with your image viewer before you "
+               "describe it, and name the file you opened]")
+_HEAD = re.compile(r"\[Attached files[^\]\n]*\]")
 _LINE = re.compile(r"^- (.+) \(([^,()]+), ([^()]+)\)$")
 IMAGE_MAX_BYTES = 8 * 1024 * 1024   # plus/E: one image sent inline to a model
 
@@ -129,12 +134,11 @@ IMAGE_MAX_BYTES = 8 * 1024 * 1024   # plus/E: one image sent inline to a model
 def parse_block(text: str) -> List[Dict]:
     """[{path, mime}] of the attachment list at the end of a message (attachment_block's format), else []."""
     s = text or ""
-    head = "[Attached files - read them with your file tools]"
-    at = s.rfind(head)
-    if at < 0:
+    heads = list(_HEAD.finditer(s))
+    if not heads:
         return []
     out = []
-    for line in s[at + len(head):].splitlines():
+    for line in s[heads[-1].end():].splitlines():
         if not line.strip():
             continue
         m = _LINE.match(line.strip())

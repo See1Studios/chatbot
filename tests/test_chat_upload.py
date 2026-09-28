@@ -51,7 +51,8 @@ class Upload(unittest.TestCase):
         self.assertTrue(f["name"].endswith("-보고서.md"))
         self.assertEqual(Path(f["path"]).read_bytes(), b"# report")
         text = U.take_pending(SID, "이거 요약해줘")
-        self.assertTrue(text.startswith("이거 요약해줘\n\n[Attached files"))
+        self.assertTrue(text.startswith("이거 요약해줘\n\n" + U.ATTACH_HEAD))
+        self.assertIn("Look at an image with your image viewer before you describe it", text)
         self.assertIn("- %s (text/plain, 1 KB)" % f["path"], text)
         self.assertEqual(U.take_pending(SID, "다음 말"), "다음 말", "sent once, then gone")
 
@@ -95,11 +96,12 @@ class Upload(unittest.TestCase):
 class PageReadsTheSameList(unittest.TestCase):
     def test_the_page_turns_the_list_into_cards_and_leaves_other_text_alone(self):
         src = (ROOT / "static" / "app-attach.js").read_text(encoding="utf-8")
-        a, b = src.index("const ATTACH_HEAD"), src.index("function renderAttachmentCards")
+        a, b = src.index("const ATTACH_HEAD_RE"), src.index("function renderAttachmentCards")
         items = [{"path": "/d/sessions/s/uploads/20260928-181500-보고서 최종.pdf", "mime": "application/pdf", "size_human": "1.2 MB"},
                  {"path": "/d/sessions/s/uploads/20260928-181500-2-shot.png", "mime": "image/png", "size_human": "88 KB"}]
         texts = ["요약해줘\n\n" + U.attachment_block(items), U.attachment_block(items[:1]),
-                 "그냥 글", "[Attached files - read them with your file tools]\n아무 말"]
+                 "그냥 글", "[Attached files - read them with your file tools]\n아무 말",
+                 "옛 메시지\n\n[Attached files - read them with your file tools]\n- /d/sessions/s/uploads/20260928-181500-old.txt (text/plain, 1 KB)"]
         js = src[a:b] + "\nconsole.log(JSON.stringify(%s.map(t => { const r = splitAttachmentBlock(t); "\
              "return [r.text, r.files.map(f => [attachDisplayName(f.path), f.mime, f.size])]; })));" % json.dumps(texts, ensure_ascii=False)
         out = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=20)
@@ -109,6 +111,7 @@ class PageReadsTheSameList(unittest.TestCase):
         self.assertEqual(got[1], ["", [["보고서 최종.pdf", "application/pdf", "1.2 MB"]]])
         self.assertEqual(got[2], ["그냥 글", []])
         self.assertEqual(got[3][1], [], "a header without our list is not taken apart")
+        self.assertEqual(got[4], ["옛 메시지", [["old.txt", "text/plain", "1 KB"]]], "an older header still reads")
 
 
 if __name__ == "__main__":

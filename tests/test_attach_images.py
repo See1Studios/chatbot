@@ -49,6 +49,8 @@ class WhichImages(Base):
         items = [self.item(self.up / "20260928-190000-cat.png", "image/png"), self.item(self.up / "a b (1).md", "text/markdown")]
         self.assertEqual(U.parse_block(self.message(*items)), [{"path": x["path"], "mime": x["mime"]} for x in items])
         self.assertEqual(U.parse_block("그냥 글"), [])
+        old = "[Attached files - read them with your file tools]\n- /x/uploads/a.png (image/png, 1 KB)"
+        self.assertEqual(U.parse_block(old), [{"path": "/x/uploads/a.png", "mime": "image/png"}], "older messages still read")
 
     def test_only_our_uploaded_images(self):
         text = self.message(self.item(self.up / "20260928-190000-cat.png", "image/png"),

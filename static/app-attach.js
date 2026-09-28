@@ -8,7 +8,8 @@
 // The list inside a message is agent-facing text; on screen it is a card (splitAttachmentBlock).
 
 const ATTACH_MAX_BYTES = 20 * 1024 * 1024;
-const ATTACH_HEAD = '[Attached files - read them with your file tools]';
+// Any header starting "[Attached files" is ours (chat_upload.ATTACH_HEAD; older messages keep an older wording).
+const ATTACH_HEAD_RE = /\[Attached files[^\]\n]*\]/g;
 // On-screen words, one place (localization l10n/C moves them into the catalog).
 const ATTACH_TEXT = {
   attach: '파일 첨부', gift: '선물하기', remove: '클릭하여 첨부 취소', uploading: '올리는 중…',   // l10n-ok
@@ -20,10 +21,12 @@ let attachItem = null;         // {label, state: 'uploading'|'ready'|'error', fi
 // {text, files: [{path, mime, size}]}: the message without its attachment list, and the list.
 function splitAttachmentBlock(text) {
   const s = String(text || '');
-  const at = s.lastIndexOf(ATTACH_HEAD);
-  if (at < 0) return { text: s, files: [] };
+  const heads = Array.from(s.matchAll(ATTACH_HEAD_RE));
+  if (!heads.length) return { text: s, files: [] };
+  const last = heads[heads.length - 1];
+  const at = last.index;
   const files = [];
-  const rest = s.slice(at + ATTACH_HEAD.length).split('\n').filter(l => l.trim());
+  const rest = s.slice(at + last[0].length).split('\n').filter(l => l.trim());
   for (const line of rest) {
     const m = /^- (.+) \(([^,()]+), ([^()]+)\)$/.exec(line.trim());
     if (!m) return { text: s, files: [] };          // not our list after all: show the text as it is
