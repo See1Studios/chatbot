@@ -358,16 +358,36 @@
    message is still: the reveal does not survive the result. */
 .msg.assistant .md.md-stream{white-space:normal}
 
-/* REVEAL_UNIT_v1: the entrance is applied to a finished line, because that is the smallest unit a
-   reader can watch arrive. On a chunk it was one character, and nobody saw anything at any frame
-   rate. The open unit is the line being written right now: it is empty, and the caret that follows
-   it is the only thing that says more is coming. */
-.msg.assistant .flow.arrive{animation:line-arrive 300ms cubic-bezier(0.16,1,0.3,1) both}
-@keyframes line-arrive{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
-/* An open unit past the cap shows its text, so it must not reserve a second line's worth of space. */
-.msg.assistant .flow.open:empty{height:0}
+/* REVEAL_BLOCKS_v1 -- the motion vocabulary, one per kind.
+
+   The entrance is applied to a block that has just closed, and which way it arrives says what kind
+   of thing arrived: an action came from the side, the way a hand moves; a spoken line rose and
+   settled, the way a breath leaves; narration just arrives, because the room is not doing anything.
+
+   The block still being written carries a slow flow of its own kind, so the answer is alive while it
+   is being said. It is deliberately the ONLY infinite animation in the log: one element at a time,
+   and it stops the moment the block closes. The amplitude is under two pixels on purpose -- text that
+   moves enough to notice is text that is hard to read. */
+.msg.assistant .md-block.arrive[data-kind="narration"]{animation:arrive-quiet 300ms cubic-bezier(0.16,1,0.3,1) both}
+.msg.assistant .md-block.arrive[data-kind="action"]{animation:arrive-action 320ms cubic-bezier(0.16,1,0.3,1) both}
+.msg.assistant .md-block.arrive[data-kind="dialogue"]{animation:arrive-dialogue 340ms cubic-bezier(0.16,1,0.3,1) both}
+@keyframes arrive-quiet{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes arrive-action{from{opacity:0;transform:translateX(-9px) translateY(2px)}to{opacity:1;transform:none}}
+@keyframes arrive-dialogue{from{opacity:0;transform:translateY(9px) scale(.985)}to{opacity:1;transform:none}}
+
+/* The kind being written, flowing: a body shifts, a voice breathes, a room holds still. This is the
+   continuous sound of something being said, and it is the only infinite animation in the log. The
+   vocabulary lives here so a kind can be retimed without touching parsing. */
+.msg.assistant .md-block.open[data-kind="narration"]{animation:flow-quiet 2.6s ease-in-out infinite}
+.msg.assistant .md-block.open[data-kind="action"]{animation:flow-action 1.5s ease-in-out infinite}
+.msg.assistant .md-block.open[data-kind="dialogue"]{animation:flow-dialogue 1.9s ease-in-out infinite}
+@keyframes flow-quiet{0%,100%{opacity:.94}50%{opacity:1}}
+@keyframes flow-action{0%,100%{transform:translateX(0)}35%{transform:translateX(1.4px)}70%{transform:translateX(-.8px)}}
+@keyframes flow-dialogue{0%,100%{transform:translateY(0) scale(1)}40%{transform:translateY(-.9px) scale(1.008)}}
+
 @media (prefers-reduced-motion:reduce){
-  .msg.assistant .flow.arrive{animation:none}
+  .msg.assistant .md-block.arrive{animation:none}
+  .msg.assistant .md-block.open{animation:none}
 }
 
 /* BLOCK_KINDS_v1: the answer is made of kinds, and each is read a little differently. Narration is
@@ -388,24 +408,25 @@
    those are genuinely new boxes at `result`, arriving at a different height than the text that was
    there a frame ago, and that is the only transition worth watching.
    :not(.arrive) because the last block is arriving as a whole; settling its children at the same
-   time would run two fades over the same pixels. */
+   time would run two fades over the same pixels. :not(.open) because the block being written is
+   already carrying its own flow. */
 @keyframes block-settle{from{opacity:.45;transform:translateY(5px)}to{opacity:1;transform:none}}
-.msg.assistant .md-block:not(.arrive) > pre,
-.msg.assistant .md-block:not(.arrive) > h1, .msg.assistant .md-block:not(.arrive) > h2,
-.msg.assistant .md-block:not(.arrive) > h3, .msg.assistant .md-block:not(.arrive) > h4,
-.msg.assistant .md-block:not(.arrive) > h5, .msg.assistant .md-block:not(.arrive) > h6,
-.msg.assistant .md-block:not(.arrive) > ul,
-.msg.assistant .md-block:not(.arrive) > ol,
-.msg.assistant .md-block:not(.arrive) > blockquote,
-.msg.assistant .md-block:not(.arrive) > table{animation:block-settle 240ms cubic-bezier(0.16,1,0.3,1) both}
+.msg.assistant .md-block:not(.arrive):not(.open) > pre,
+.msg.assistant .md-block:not(.arrive):not(.open) > h1, .msg.assistant .md-block:not(.arrive):not(.open) > h2,
+.msg.assistant .md-block:not(.arrive):not(.open) > h3, .msg.assistant .md-block:not(.arrive):not(.open) > h4,
+.msg.assistant .md-block:not(.arrive):not(.open) > h5, .msg.assistant .md-block:not(.arrive):not(.open) > h6,
+.msg.assistant .md-block:not(.arrive):not(.open) > ul,
+.msg.assistant .md-block:not(.arrive):not(.open) > ol,
+.msg.assistant .md-block:not(.arrive):not(.open) > blockquote,
+.msg.assistant .md-block:not(.arrive):not(.open) > table{animation:block-settle 240ms cubic-bezier(0.16,1,0.3,1) both}
 
 @media (prefers-reduced-motion:reduce){
-  .msg.assistant .md-block:not(.arrive) > pre,
-  .msg.assistant .md-block:not(.arrive) > h1, .msg.assistant .md-block:not(.arrive) > h2,
-  .msg.assistant .md-block:not(.arrive) > h3, .msg.assistant .md-block:not(.arrive) > h4,
-  .msg.assistant .md-block:not(.arrive) > h5, .msg.assistant .md-block:not(.arrive) > h6,
-  .msg.assistant .md-block:not(.arrive) > ul,
-  .msg.assistant .md-block:not(.arrive) > ol,
-  .msg.assistant .md-block:not(.arrive) > blockquote,
-  .msg.assistant .md-block:not(.arrive) > table{animation:none}
+  .msg.assistant .md-block:not(.arrive):not(.open) > pre,
+  .msg.assistant .md-block:not(.arrive):not(.open) > h1, .msg.assistant .md-block:not(.arrive):not(.open) > h2,
+  .msg.assistant .md-block:not(.arrive):not(.open) > h3, .msg.assistant .md-block:not(.arrive):not(.open) > h4,
+  .msg.assistant .md-block:not(.arrive):not(.open) > h5, .msg.assistant .md-block:not(.arrive):not(.open) > h6,
+  .msg.assistant .md-block:not(.arrive):not(.open) > ul,
+  .msg.assistant .md-block:not(.arrive):not(.open) > ol,
+  .msg.assistant .md-block:not(.arrive):not(.open) > blockquote,
+  .msg.assistant .md-block:not(.arrive):not(.open) > table{animation:none}
 }

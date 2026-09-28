@@ -777,9 +777,32 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
 // simply could not appear on most replies.
 // One entrance per unit, ever. The class comes off when the animation ends, so nothing can replay
 // it and a later render of the same text does not restart a motion the reader has already watched.
-function markArrive(el) {
+function markArrive(el, kind) {
+  el.setAttribute('data-kind', kind || 'narration');
   el.classList.add('arrive');
   el.addEventListener('animationend', function () { el.classList.remove('arrive'); }, { once: true });
+}
+
+// One block of an answer, as an element -- and the ONLY way a block becomes an element, because the
+// streaming reveal and the final render have to agree. When they drew the same text two different
+// ways, the moment the stream ended was one more swap, which is the exact thing the reveal exists
+// to remove: a list that was literal dashes while it arrived and a bullet list the moment it did.
+function buildBlock(block, isFinal) {
+  const box = document.createElement('div');
+  box.className = 'md-block';
+  box.setAttribute('data-kind', block.kind);
+  blockRuns(block).forEach((run) => {
+    // Markdown in, HTML out: per run, so a list or a code fence inside the block still parses
+    // exactly as it did when the block was one string.
+    const holder = document.createElement(run.kind === 'narration' ? 'div' : 'span');
+    if (run.kind !== 'narration') {
+      holder.className = 'md-' + run.kind;
+      holder.setAttribute('data-kind', run.kind);
+    }
+    holder.innerHTML = renderMarkdown(run.text, isFinal);
+    while (holder.firstChild) box.appendChild(holder.firstChild);
+  });
+  return box;
 }
 
 function renderTypedBody(md, rawText, isFinal) {
@@ -788,27 +811,11 @@ function renderTypedBody(md, rawText, isFinal) {
     const blocks = classifyBlocks(body);
     md.textContent = '';
     blocks.forEach((block, bi) => {
-      const box = document.createElement('div');
-      box.className = 'md-block';
-      box.setAttribute('data-kind', block.kind);
-      box.style.setProperty('--i', String(bi));       // a stagger, capped in the stylesheet
-      const runs = blockRuns(block);
-      runs.forEach((run) => {
-        // Markdown in, HTML out: per run, so a list or a code fence inside the block still parses
-        // exactly as it did when the block was one string.
-        const holder = document.createElement(run.kind === 'narration' ? 'div' : 'span');
-        if (run.kind !== 'narration') {
-          holder.className = 'md-' + run.kind;
-          holder.setAttribute('data-kind', run.kind);
-        }
-        holder.innerHTML = renderMarkdown(run.text, isFinal);
-        while (holder.firstChild) box.appendChild(holder.firstChild);
-      });
-      // Only the last block moves. Every earlier one was already on screen, line by line, while the
-      // answer was arriving -- animating it now would take text away from a reader looking at it,
-      // which is the one thing the settle is not allowed to do. The last block is the one that was
-      // still being written when the stream ended, so it is the one that has just landed.
-      if (bi === blocks.length - 1) markArrive(box);
+      const box = buildBlock(block, isFinal);
+      // Only the last block moves. Every earlier one was already on screen, rendered the same way,
+      // while the answer was arriving; animating it now would take text away from a reader looking
+      // at it. The last block is the one that was mid-write when the stream ended.
+      if (bi === blocks.length - 1) markArrive(box, block.kind);
       md.appendChild(box);
     });
   } catch (e) {

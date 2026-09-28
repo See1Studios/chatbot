@@ -91,39 +91,25 @@ function streamBody(node) {
   return md;
 }
 
-// REVEAL_UNIT_v1 (2026-09-28): what the entrance animation is applied to.
+// REVEAL_BLOCKS_v1 (2026-09-28): the answer is the finished thing while it is still arriving.
 //
-// It used to be the arriving chunk, which is one paint's worth of text. Measured on a real reply at
-// a real token rate, the median chunk was ONE character and the best case two, with four to seven
-// 150ms fades overlapping at any moment -- and dropping to 30fps changed none of those numbers. The
-// animation was not failing and the frame rate was not the problem: it was applied to something too
-// small for anyone to see. That is the whole reason "there is no animation" was true.
+// Three complaints, one cause. A stream printed plain text and turned into markdown at the end, so
+// the end was a swap. The entrance was applied to whatever one paint delivered, which measured at
+// a median of ONE character, so there was nothing to see. And the text had no life in it while it
+// was being written.
 //
-// So the unit is a finished line, which a reader can watch arrive, and each one animates exactly
-// once. 'paragraph' is the same code with the coarser split, for a slower, more deliberate answer.
-var STREAM_REVEAL_UNIT = 'line';          // 'line' | 'paragraph'
+// A markdown block has an extent, and once that extent has arrived the block can never change. So
+// a block is rendered the moment it closes -- the real render, marked and sanitised, the same call
+// the final render makes -- and the per-frame work drops to the one block still being written. That
+// is the whole trick: the cost is per block, not per frame. Re-parsing the entire document on every
+// frame measured 0.4ms at 164 characters and 1.8ms at 2440, which was affordable but was solving a
+// problem the block boundary removes outright.
+//
+// The block being written stays visible and stays still. It is not animated -- an entrance on text
+// already on screen is the flicker this exists to remove -- but it carries a per-kind flow, so the
+// answer is alive while it is being said and not only once it has landed.
 
-// A unit still being written is not shown, and that is forced rather than chosen: an entrance
-// animation on text that is already on screen is the flicker this exists to remove, so a unit that
-// has not finished yet is simply not there, and the caret stands in for it. The cap is the safety
-// valve -- a stretch with no line break in it (one very long sentence, a table row) would otherwise
-// leave the reader watching a blinking cursor for seconds.
-var STREAM_REVEAL_MAX = 240;
-
-// Splits a growing answer into the units already finished and the one still being written. A line
-// counts as finished when the newline after it has arrived, and that is the only signal there is.
-function streamUnits(text) {
-  const parts = (STREAM_REVEAL_UNIT === 'paragraph')
-    ? String(text || '').split(/\n[ \t]*\n+/)
-    : String(text || '').split('\n');
-  return { done: parts.slice(0, -1), open: parts[parts.length - 1] || '' };
-}
-
-// PLAIN_RENDER_v1: a unit is rendered through renderPlainText, not textContent. Showing raw
-// `**bold**` and then replacing it with rendered bold at `result` is a single-frame swap of
-// different content in a different layout, and no transition can hide that. renderPlainText is
-// escaping plus a handful of regexes, so it stays off the O(n^2) path: one paint per frame, and
-// only the units that just finished are ever rendered.
+// Splits a growing answer into the blocks that are finished and the one still being written.
 function setStreamingContent(node, text) {
   if (!node) return;
   // The body must exist before the badge: otherwise the first paint puts the badge on the node
@@ -132,35 +118,34 @@ function setStreamingContent(node, text) {
   const shown = prepareStreamText(text);
   const prev = node._streamShown || '';
   // Not an append -- a resync rewrote the draft, or a thought block closed and retracted its text.
-  // Start the body over rather than leaving a stale unit in front of the new answer.
+  // Start the body over rather than leaving a stale block in front of the new answer.
   if (shown.indexOf(prev) !== 0) resetStreamBody(node, md);
-  const units = streamUnits(shown);
-  // Fewer finished units than are on screen means the text shrank, which is the same situation.
-  if (units.done.length < (node._streamUnits || 0)) resetStreamBody(node, md);
-  // The open unit is always the last child, so the existing caret -- a ::after on .md > *:last-child
-  // (chat-composer.css) -- lands on it and keeps one caret instead of two. It is created before the
-  // finished units so those can be inserted in front of it.
+  const cut = revealBlocks(shown);
+  // Fewer finished blocks than are on screen means the text shrank, which is the same situation.
+  if (cut.blocks.length < (node._streamUnits || 0)) resetStreamBody(node, md);
+  // The block being written is always the last child, so the existing caret -- a ::after on
+  // .md > *:last-child (chat-composer.css) -- lands on it and keeps one caret instead of two. It is
+  // created before the finished blocks so those can be inserted in front of it.
   let openEl = node._streamOpen;
   if (!openEl) {
     openEl = document.createElement('div');
-    openEl.className = 'flow open';
+    openEl.className = 'md-block open';
     md.appendChild(openEl);
     node._streamOpen = openEl;
   }
-  for (let i = node._streamUnits || 0; i < units.done.length; i++) {
-    const el = document.createElement('div');
-    el.className = 'flow';
-    // A div, not a span: renderPlainText emits a <pre> for a code fence and a <pre> inside a <span>
-    // is invalid nesting a parser is free to resolve by hoisting. A unit is its own line anyway.
-    el.innerHTML = renderPlainText(units.done[i]);
-    // A blank line holds the paragraph gap while the answer streams, so the element is kept -- but
-    // there is nothing in it to arrive, and a 300ms animation on an empty box is a lie about there
-    // having been motion.
-    if (units.done[i].trim()) markArrive(el);
-    md.insertBefore(el, openEl);
+  for (let i = node._streamUnits || 0; i < cut.blocks.length; i++) {
+    const box = buildBlock(cut.blocks[i], false);
+    markArrive(box, cut.blocks[i].kind);
+    md.insertBefore(box, openEl);
   }
-  node._streamUnits = units.done.length;
-  openEl.innerHTML = units.open.length > STREAM_REVEAL_MAX ? renderPlainText(units.open) : '';
+  node._streamUnits = cut.blocks.length;
+  // The open block carries the kind being written, so a line that has an action and then speech
+  // flows like speech while the speech is the part arriving.
+  openEl.setAttribute('data-kind', unitKind(cut.open));
+  // renderPlainText, not renderMarkdown: an incomplete block has no extent yet, and handing marked
+  // a half-written list gives it nothing stable to keep. It is escaping plus a few regexes, and it
+  // already renders bold, italics, code and an open fence, so what is on screen is close to final.
+  openEl.innerHTML = cut.open ? renderPlainText(cut.open) : '';
   node._streamShown = shown;
   node.classList.add('streaming');
   // After the body, never before: the first paint writes over .md and would take the badge with it.

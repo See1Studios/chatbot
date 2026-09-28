@@ -151,3 +151,74 @@ function blockIsQuiet(block) {
   const t = (block.text || '').trim();
   return !t || /^(?:[-*+]\s|\d+[.)]\s|>\s|\|)/.test(t);
 }
+
+// REVEAL_BLOCKS_v1 (2026-09-28): where a growing answer stops being finished.
+//
+// The complaint this answers is that a stream printed plain text and then turned into markdown at
+// the end, so the end was a swap rather than an arrival. The fix is to render the real thing as it
+// closes, which is only worth doing if "closed" is knowable. It is: a block of markdown has an
+// extent, and once that extent has arrived the block can never change again. So a block is parsed
+// ONCE, when it closes, and the per-frame work drops to the single block still being written.
+//
+// That is what makes this affordable. Re-parsing the whole document every frame measured 0.4ms at
+// 164 characters and 1.8ms at 2440 -- fine, but it was solving a problem that a block boundary
+// removes entirely. One parse per block, not one per frame.
+
+var FENCE_OPEN = /^\s{0,3}(?:```|~~~)/;
+var LIST_ITEM = /^\s*(?:[-*+]\s|\d+[.)]\s)/;
+var TABLE_ROW = /^\s*\|/;
+var HEADING = /^\s{0,3}#{1,6}\s/;
+var LIST_CONTINUATION = /^\s{2,}\S/;
+
+// The index just past the block starting at i, or -1 while that block is still being written.
+function blockEnd(lines, i) {
+  const first = lines[i] || '';
+  if (!first.trim()) return i + 1;                       // a blank line closes on its own
+  if (FENCE_OPEN.test(first)) {                           // code: until the closing fence
+    for (let j = i + 1; j < lines.length; j++) if (FENCE_OPEN.test(lines[j])) return j + 1;
+    return -1;
+  }
+  if (TABLE_ROW.test(first)) {                            // a table: until a line that is not a row
+    let j = i + 1;
+    while (j < lines.length && TABLE_ROW.test(lines[j])) j++;
+    return j < lines.length ? j : -1;                    // still growing at the end
+  }
+  if (LIST_ITEM.test(first)) {                            // a list: until a blank or a non-item line
+    let j = i + 1;
+    while (j < lines.length && lines[j].trim()
+           && (LIST_ITEM.test(lines[j]) || LIST_CONTINUATION.test(lines[j]))) j++;
+    return j < lines.length ? j : -1;
+  }
+  if (HEADING.test(first)) return i + 1;                  // a heading is one line and always is
+  for (let j = i + 1; j < lines.length; j++) {            // a paragraph: until the blank line
+    if (!lines[j].trim()) return j;
+  }
+  return -1;                                              // no blank line yet
+}
+
+// The blocks of a growing answer that are finished, classified exactly as the final render will
+// classify them, plus the one still being written. Both are needed: a block that just closed has to
+// look the same as it will after `result`, or the final render is one more swap.
+function revealBlocks(text) {
+  const lines = String(text || '').split('\n');
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const end = blockEnd(lines, i);
+    if (end < 0) break;
+    classifyBlocks(lines.slice(i, end).join('\n')).forEach((b) => { if (b.text.trim()) out.push(b); });
+    i = end;
+    while (i < lines.length && !lines[i].trim()) i++;      // the gap between blocks is neither's
+  }
+  return { blocks: out, open: lines.slice(i).join('\n') };
+}
+
+// What kind is being written right now. The last thing with ink on it, not the dominant kind: a
+// line that has an action and then speech is being spoken during, and the motion should say so.
+function unitKind(text) {
+  const runs = splitInline(String(text || ''));
+  for (let i = runs.length - 1; i >= 0; i--) {
+    if (runs[i].text.trim()) return runs[i].kind;
+  }
+  return BLOCK_NARRATION;
+}

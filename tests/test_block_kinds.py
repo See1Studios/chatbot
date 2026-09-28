@@ -56,6 +56,20 @@ const CASES = {
   runs_of_a_fence: () => shape(blockRuns(classifyBlocks('```py\nprint("hi")\n```')[0])),
   runs_of_prose: () => shape(blockRuns(classifyBlocks('*눈을 깜빡* "안녕" 끝')[0])),
   multi_paragraph_keeps_order: () => shape(classifyBlocks('하나\n\n둘\n\n셋')),
+  // --- REVEAL_BLOCKS_v1: where a growing answer stops being finished ---
+  reveal_a_paragraph: () => shape(revealBlocks('하나\n\n둘').blocks),
+  reveal_grows: () => [4, 6, 7, 10].map(n => revealBlocks('*눈을*\n\n둘\n셋\n\n넷'.slice(0, n)).blocks.length),
+  reveal_list_waits_for_its_end: () => shape(revealBlocks('- 하나\n- 둘').blocks),
+  reveal_list_closes_at_a_blank: () => shape(revealBlocks('- 하나\n- 둘\n\n끝').blocks),
+  reveal_list_open_tail: () => revealBlocks('- 하나\n- 둘\n\n끝').open,
+  reveal_open_fence_is_not_closed: () => shape(revealBlocks('```py\nprint(1)').blocks),
+  reveal_closed_fence_is: () => shape(revealBlocks('```py\nprint(1)\n```').blocks),
+  reveal_table_waits_for_a_non_row: () => shape(revealBlocks('| a | b |\n|---|---|\n| 1 | 2 |\n끝').blocks),
+  reveal_table_open_tail: () => revealBlocks('| a | b |\n|---|---|\n| 1 | 2 |\n끝').open,
+  reveal_heading_is_one_line: () => shape(revealBlocks('## 제목\n\n본문').blocks),
+  reveal_the_last_block_is_always_open: () => revealBlocks('하나\n\n둘\n\n셋').blocks.length,
+  reveal_open_text: () => revealBlocks('하나\n\n둘째 문장').open,
+  unit_kind_tracks_the_last_thing_written: () => ['*눈을', '*눈을 깜빡*', '"안녕', '"안녕"'].map(unitKind),
   quiet_block: () => {
     const q = [blockIsQuiet({ text: '  ' }), blockIsQuiet({ text: '- 하나' })];
     const n = blockIsQuiet({ text: '본문' });
@@ -171,6 +185,46 @@ class BlockKinds(unittest.TestCase):
         self.assertEqual(run("runs_of_prose"),
                          ['action:"*눈을 깜빡*"', 'dialogue:"\\"안녕\\""', 'narration:" 끝"'],
                          "prose still splits inline")
+
+    def test_a_block_is_finished_only_when_its_extent_has_arrived(self):
+        # The whole reveal rests on this. A block that has closed can never change again, which is
+        # why it can be rendered once instead of re-parsed on every frame.
+        self.assertEqual(run("reveal_a_paragraph"), ['narration:"하나"'],
+                         "a paragraph needs the blank line after it")
+        self.assertEqual(run("reveal_grows"), [0, 1, 1, 2],
+                         "blocks appear one at a time as their extents complete")
+        self.assertEqual(run("reveal_the_last_block_is_always_open"), 2,
+                         "the last block has nothing after it yet, so it is still being written")
+
+    def test_a_list_and_a_table_wait_for_the_line_that_ends_them(self):
+        # Both keep taking rows, so neither is finished while it could still grow -- except a list
+        # at the very end, which is why a trailing list appears with the final render instead.
+        self.assertEqual(run("reveal_list_waits_for_its_end"), [],
+                         "a list could still take another item")
+        self.assertEqual(run("reveal_list_closes_at_a_blank"),
+                         ['narration:"- 하나\\n- 둘"'])
+        self.assertEqual(run("reveal_list_open_tail"), "끝")
+        self.assertEqual(run("reveal_table_waits_for_a_non_row"),
+                         ['narration:"| a | b |\\n|---|---|\\n| 1 | 2 |"'])
+        self.assertEqual(run("reveal_table_open_tail"), "끝")
+
+    def test_a_fence_closes_on_its_own_marks_and_not_on_a_blank_line(self):
+        self.assertEqual(run("reveal_open_fence_is_not_closed"), [],
+                         "a fence with no closing ``` yet could still take more lines")
+        self.assertEqual(run("reveal_closed_fence_is"), ['narration:"```py\\nprint(1)\\n```"'])
+
+    def test_a_heading_is_finished_at_its_own_newline(self):
+        self.assertEqual(run("reveal_heading_is_one_line"), ['narration:"## 제목"'])
+
+    def test_the_block_being_written_is_returned_whole(self):
+        self.assertEqual(run("reveal_open_text"), "둘째 문장")
+
+    def test_the_kind_being_written_is_the_last_thing_with_ink_on_it(self):
+        # A line that has an action and then speech is being SPOKEN during, and the motion should
+        # say so. A quote with no closing mark yet is still narration: a kind is only known once
+        # its extent has arrived.
+        self.assertEqual(run("unit_kind_tracks_the_last_thing_written"),
+                         ["narration", "action", "narration", "dialogue"])
 
     def test_a_continuation_line_is_quiet(self):
         out = run("quiet_block")
