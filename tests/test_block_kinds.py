@@ -52,6 +52,9 @@ const CASES = {
   bold_wrapping_an_action: () => shape(splitInline('**a *b* c**')),
   bold_wrapping_speech: () => shape(splitInline('**안쪽에 "말" 있음**')),
   bold_beside_an_action: () => shape(splitInline('**굵게** 말 *행동*')),
+  fence_flag: () => classifyBlocks('본문\n\n```py\nprint("hi")\n```'),
+  runs_of_a_fence: () => shape(blockRuns(classifyBlocks('```py\nprint("hi")\n```')[0])),
+  runs_of_prose: () => shape(blockRuns(classifyBlocks('*눈을 깜빡* "안녕" 끝')[0])),
   multi_paragraph_keeps_order: () => shape(classifyBlocks('하나\n\n둘\n\n셋')),
   quiet_block: () => {
     const q = [blockIsQuiet({ text: '  ' }), blockIsQuiet({ text: '- 하나' })];
@@ -154,6 +157,20 @@ class BlockKinds(unittest.TestCase):
         self.assertEqual(run("bold_beside_an_action"),
                          ['narration:"**굵게** 말 "', 'action:"*행동*"'],
                          "bold next to an action is still an action")
+
+    def test_a_quote_inside_a_code_block_is_a_string_literal(self):
+        # A fence is carved out of classification, but the renderer splits a prose block inline --
+        # and it used to inline-split the fence too, turning print("hi") into a spoken line. The
+        # fence keeps its own flag so that cannot happen.
+        blocks = run("fence_flag")
+        self.assertEqual([b.get("fenced") for b in blocks], [None, True],
+                         "only the fence is flagged; prose around it is not")
+        self.assertEqual(run("runs_of_a_fence"),
+                         ['narration:"```py\\nprint(\\"hi\\")\\n```"'],
+                         "a fenced block must render as exactly one run")
+        self.assertEqual(run("runs_of_prose"),
+                         ['action:"*눈을 깜빡*"', 'dialogue:"\\"안녕\\""', 'narration:" 끝"'],
+                         "prose still splits inline")
 
     def test_a_continuation_line_is_quiet(self):
         out = run("quiet_block")

@@ -3,6 +3,7 @@
  "approved_at": "2026-09-26 10:25:56",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_reason": "declined",
  "created": "2026-09-26 10:24:35",
  "evidence": [
   "event:20260926-100536-a7ac6f#37"
@@ -44,6 +45,11 @@
    "by": "agent:agy",
    "text": "gate_failed: worktree agy: task 1: review FAIL after 2 round(s)",
    "ts": "2026-09-26 10:36:31"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "declined",
+   "ts": "2026-09-26 10:51:11"
   }
  ],
  "paths": [
@@ -60,9 +66,9 @@
   "static/chat-features.css",
   "static/markdown.js"
  ],
- "status": "approved",
+ "status": "declined",
  "target": "docs/plans/index.md,docs/plans/mode-render-decorators.md,docs/plans/private-affe",
  "title": "모드별 렌더 데코레이터 계획 문서 (업무/사적 이원화)",
- "updated": "2026-09-26 10:36:31",
+ "updated": "2026-09-26 10:51:11",
  "worked_by": "agy"
 }

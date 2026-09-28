@@ -3,6 +3,7 @@
  "approved_at": "2026-09-26 15:59:34",
  "approved_by": "operator (ui)",
  "attempts": 0,
+ "closed_reason": "declined",
  "created": "2026-09-26 15:52:58",
  "evidence": [
   "event:20260926-152434-6aa8e8#43"
@@ -29,6 +30,16 @@
    "by": "host",
    "text": "waiting for the operator to allow more paths: attempt given back",
    "ts": "2026-09-26 16:16:46"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: uncommitted leftover in data/workspace/characters/char_01m376xaa1e0fsdhm3e3kbnybd/avatar.webp, data/workspace/characters/char_01m376xaa1e0fsdhm3e3kbnybd/avatar/agy.webp",
+   "ts": "2026-09-26 16:19:04"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "declined",
+   "ts": "2026-09-26 16:25:39"
   }
  ],
  "paths": [
@@ -36,9 +47,9 @@
   "data/workspace/.agents/skills/character-pipeline/SKILL.md",
   "tools/crop_avatar.py"
  ],
- "status": "approved",
+ "status": "declined",
  "target": "data/workspace/.agents/skills/character-art/skill.md,data/workspace/.agents/skil",
  "title": "노노 아바타 얼굴 클로즈업 크롭 및 캐릭터 파이프라인 반영",
- "updated": "2026-09-26 16:16:46",
+ "updated": "2026-09-26 16:25:39",
  "worked_by": "agy"
 }

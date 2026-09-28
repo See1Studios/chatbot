@@ -122,7 +122,9 @@ function classifyBlocks(text) {
   // paragraphs are the model's own unit, so this cannot cut a list apart or split a fence.
   const out = [];
   fenceSpans(text || '').forEach((part) => {
-    if (part.fenced) { out.push({ kind: BLOCK_NARRATION, text: part.text }); return; }
+    // A fence keeps its own flag. It is already carved out of classification, but the renderer
+    // splits a narration block inline -- and a quote inside code is a string literal, not speech.
+    if (part.fenced) { out.push({ kind: BLOCK_NARRATION, text: part.text, fenced: true }); return; }
     part.text.split(/\n[ \t]*\n+/).forEach((para) => {
       if (!para.trim()) return;
       let kind = BLOCK_NARRATION;
@@ -132,6 +134,15 @@ function classifyBlocks(text) {
     });
   });
   return out.length ? out : [{ kind: BLOCK_NARRATION, text: text || '' }];
+}
+
+function blockRuns(block) {
+  // The runs a block renders as. Only prose is split inline, and a fenced block never is: it was
+  // carved out of classification precisely because a quote in it is a string literal. Rendering is
+  // the only consumer, and it used to inline-split a code block and turn print("hi") into speech.
+  const b = block || {};
+  if (b.kind === BLOCK_NARRATION && !b.fenced) return splitInline(b.text);
+  return [{ kind: b.kind || BLOCK_NARRATION, text: b.text || '' }];
 }
 
 function blockIsQuiet(block) {

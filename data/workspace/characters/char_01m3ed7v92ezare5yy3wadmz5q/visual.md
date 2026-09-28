@@ -38,6 +38,9 @@ Modern anime standard (thin clean lineart, crisp cel shading):
 | Brain | Hair (cut + dye) | Outfit |
 |---|---|---|
 
+## Stage (optional)
+- `stage.webp` (1024x1024): Cozy illustrator atelier and workroom with sunlight, wooden easel, and tablet.
+
 ## Sprites (optional)
 | Framing | Labels made | Notes |
 |---|---|---|

@@ -785,7 +785,7 @@ function renderTypedBody(md, rawText, isFinal) {
       box.className = 'md-block';
       box.setAttribute('data-kind', block.kind);
       box.style.setProperty('--i', String(bi));       // a stagger, capped in the stylesheet
-      const runs = block.kind === 'narration' ? splitInline(block.text) : [{ kind: block.kind, text: block.text }];
+      const runs = blockRuns(block);
       runs.forEach((run) => {
         // Markdown in, HTML out: per run, so a list or a code fence inside the block still parses
         // exactly as it did when the block was one string.
