@@ -1,9 +1,9 @@
 """Character art routes (ART_PLACEHOLDER_v1), kept out of server.py like card_upload.py and emotion.py:
 
   GET /api/characters/<id>/avatar?provider=      the badge
-  GET /api/characters/<id>/stage?provider=       the chat background
+  GET /api/characters/<id>/stage?provider=&name= the chat background (a place; name picks stage.<name>)
   GET /api/characters/<id>/sprites?framing=      JSON {"framing", "sprites": {label: "<framing>/<label>.webp"}}
-  GET /api/characters/<id>/sprites/<[framing/]label>.webp
+  GET /api/characters/<id>/sprites/<[framing/]label>.webp?provider=   by name, falling back (ART_NAMES_v1)
   GET /api/items/<id>/image                       an item's picture (items.image_file)
 
 Pictures never 404 for a known kind: a missing one is the engine placeholder (characters.art_file). Unknown kinds
@@ -32,14 +32,14 @@ def handle(path: str, query: Dict[str, List[str]]) -> Optional[Tuple[int, bytes,
     cid, kind, rest = parts[0], parts[1], parts[2:]
     q = lambda k: (query.get(k) or [""])[0]  # noqa: E731
     if kind in ("avatar", "stage") and not rest:
-        return _picture(*characters.art_file(cid, kind, provider=q("provider")))
+        return _picture(*characters.art_file(cid, kind, provider=q("provider"), label=q("name")))
     if kind == "sprites" and not rest:
         body = json.dumps(characters.sprite_map(cid, q("framing") or "full"), ensure_ascii=False).encode("utf-8")
         return 200, body, "application/json; charset=utf-8", "no-cache"
     if kind == "sprites" and 1 <= len(rest) <= 2 and rest[-1].endswith((".webp", ".png")):
         framing = rest[0] if len(rest) == 2 else (q("framing") or "full")
         label = rest[-1].rsplit(".", 1)[0]
-        return _picture(*characters.art_file(cid, "sprite", framing=framing, label=label))
+        return _picture(*characters.art_file(cid, "sprite", provider=q("provider"), framing=framing, label=label))
     return None
 
 

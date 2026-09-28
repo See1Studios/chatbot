@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import secrets
 import time
@@ -607,28 +608,76 @@ ART_KINDS = ("avatar", "stage", "sprite")
 _SLUG = re.compile(r"^[a-z0-9_-]{1,32}$")
 
 
+# ART_NAMES_v1 (character-resource-pipeline.md section 10): names are the fallback chain -- no table. SillyTavern's
+# rule for several pictures of one expression is a name plus a "." or "-" suffix (joy-1, joy.giggle); read the other
+# way, dropping suffixes from the right walks from the most particular picture to the plain one, then to the kind's
+# base name (neutral / avatar / stage), then to the engine placeholder. A brain's folder (SillyTavern's folder
+# override: an outfit, our wig) is tried before the shared one.
+_ART_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]*(\.[a-z0-9_-]+)*$")
+_art_rng = random.Random()
+
+
+def name_chain(name: str, base: str) -> List[str]:
+    """'joy.giggle-2' -> ['joy.giggle-2', 'joy.giggle', 'joy', base]; unusable names are dropped."""
+    out, n = [], (name or "").strip().lower()
+    while n:
+        if len(n) <= 64 and _ART_NAME.match(n):
+            out.append(n)
+        cut = max(n.rfind("."), n.rfind("-"))
+        n = n[:cut] if cut > 0 else ""
+    return list(dict.fromkeys(out + [base]))
+
+
+def _pick(folder: Path, name: str, variants: bool, rng=None) -> Optional[Path]:
+    """The picture called `name` in `folder`; with variants, one of name / name-* / name.* at random, the way
+    SillyTavern shows one of several pictures of an expression."""
+    if not folder.is_dir():
+        return None
+    own = [folder / ("%s.%s" % (name, e)) for e in ("webp", "png")]
+    found = [p for p in own if p.is_file()][:1]
+    if variants:
+        seen = {p.stem for p in found}
+        for p in sorted(folder.glob(name + "[.-]*.webp")) + sorted(folder.glob(name + "[.-]*.png")):
+            if p.stem not in seen and _ART_NAME.match(p.stem):
+                seen.add(p.stem)
+                found.append(p)
+    return (rng or _art_rng).choice(found) if found else None
+
+
 def art_file(cid: str, kind: str, provider: str = "", framing: str = "full", label: str = "neutral",
-             ws=None) -> "tuple":
-    """(path, is_placeholder). avatar/stage: <kind>/<provider>, then <kind>. sprite: <framing>/<label>, then
-    <framing>/neutral, then the other framing; label "default" means neutral. Unknown kind: ValueError."""
+             ws=None, rng=None) -> "tuple":
+    """(path, is_placeholder), by the ART_NAMES_v1 rule.
+    sprite: for the asked framing, then the other -- the brain's folder, then the shared one -- the label's
+            suffix chain down to neutral ("default" means neutral).
+    avatar: avatar/<brain>, then avatar.  stage: stage.<label> chain, then stage, then the old stage/<brain>.
+    Anything missing ends at the engine placeholder. Unknown kind: ValueError."""
     if kind not in ART_KINDS:
         raise ValueError("unknown art kind: %s" % kind)
     framing = framing if framing in FRAMINGS else "full"
-    names = []
-    if kind == "sprite":
-        label = "neutral" if label in ("", "default") else label
-        labels = [x for x in dict.fromkeys([label, "neutral"]) if _SLUG.match(x)]
-        names = ["sprites/%s/%s.%s" % (f, l, e) for f in [framing] + [x for x in FRAMINGS if x != framing]
-                 for l in labels for e in ("webp", "png")]
-    else:
-        if _SLUG.match(provider or ""):
-            names += ["%s/%s.webp" % (kind, provider), "%s/%s.png" % (kind, provider)]
-        names += ["%s.webp" % kind, "%s.png" % kind]
+    brain = provider if _SLUG.match(provider or "") else ""
     if ID_RE.match(cid or ""):
         base = card_path(cid, ws).parent
-        own = next((base / n for n in names if (base / n).is_file()), None)
-        if own is not None:
-            return own, False
+        if kind == "sprite":
+            label = "neutral" if (label or "") in ("", "default") else label
+            for f in [framing] + [x for x in FRAMINGS if x != framing]:
+                folders = ([base / "sprites" / f / brain] if brain else []) + [base / "sprites" / f]
+                for folder in folders:
+                    for n in name_chain(label, "neutral"):
+                        hit = _pick(folder, n, variants=True, rng=rng)
+                        if hit:
+                            return hit, False
+        elif kind == "avatar":
+            for folder, n in ([(base / "avatar", brain)] if brain else []) + [(base, "avatar")]:
+                hit = _pick(folder, n, variants=False)
+                if hit:
+                    return hit, False
+        else:
+            names = name_chain("stage." + label if label and label not in ("neutral", "default", "main") else "", "stage")
+            tries = [(base, n) for n in names] + ([(base / "stage", brain)] if brain else [])
+            for folder, n in tries:
+                hit = _pick(folder, n, variants=False)
+                if hit:
+                    return hit, False
     return PLACEHOLDER_DIR / PLACEHOLDERS["sprite:" + framing if kind == "sprite" else kind], True
 
 

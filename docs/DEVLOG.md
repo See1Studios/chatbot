@@ -2,6 +2,13 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-29 — 그림은 이름으로 대체 (ART_NAMES_v1, crp/S2 #373)
+
+- **결정**: 운영자가 SD1–SD4·AM1–AM4 모두 추천대로. 모달은 "적당히 붙여서 깎아보자".
+- **변경**: `characters.art_file`이 SillyTavern 이름 규칙(표정 + `.`/`-` 접미사)을 거꾸로 읽어 대체 — `joy.giggle-2`→`joy.giggle`→`joy`→`neutral`→다른 프레이밍→placeholder, 두뇌 폴더(`sprites/bust/grok/`)가 먼저. 한 표정 여러 장(`joy`, `joy-1`)은 무작위 한 장. 무대는 장소: `stage.<이름>`→`stage`→(옛 `stage/<두뇌>` 읽기만)→placeholder. 라우트가 스프라이트에 `provider`, 무대에 `name`을 넘김. 데이터 표 없음.
+- **배포**: ⚡ (서버 모듈).
+- **테스트**: `test_character_art_fallback` 4건 추가.
+
 ## 2026-09-29 — 모바일에서 보내기를 눌러도 키보드가 안 내려감 (SEND_KEEPS_KEYBOARD_v1, #370)
 
 - **증상**: 보내기를 누르면 가상 키보드가 내려갔다가 다시 올라옴 — 버튼이 입력창의 포커스를 가져가 키보드가 내려가고, `send()`가 입력창에 다시 포커스를 줌.

@@ -65,6 +65,44 @@ class Resolve(unittest.TestCase):
         self.assertEqual(C.art_file(self.cid, "sprite", framing="full", label="default", ws=self.ws), (neutral, False))
         self.assertTrue(C.art_file(self.cid, "sprite", label="../../card", ws=self.ws)[0].is_file())
 
+    def test_names_fall_back_by_dropping_suffixes(self):
+        # ART_NAMES_v1: SillyTavern's joy-1 / joy.giggle naming, read as a chain -- no table
+        self.assertEqual(C.name_chain("joy.giggle-2", "neutral"), ["joy.giggle-2", "joy.giggle", "joy", "neutral"])
+        self.assertEqual(C.name_chain("../card", "neutral"), ["neutral"])
+        joy = self.put("sprites/bust/joy.webp")
+        self.assertEqual(C.art_file(self.cid, "sprite", framing="bust", label="joy.giggle", ws=self.ws), (joy, False))
+        giggle = self.put("sprites/bust/joy.giggle.webp")
+        self.assertEqual(C.art_file(self.cid, "sprite", framing="bust", label="joy.giggle", ws=self.ws), (giggle, False))
+        neutral = self.put("sprites/bust/neutral.webp")
+        self.assertEqual(C.art_file(self.cid, "sprite", framing="bust", label="sadness", ws=self.ws), (neutral, False))
+
+    def test_several_pictures_of_one_expression_take_turns(self):
+        import random
+        a, b = self.put("sprites/bust/joy.webp"), self.put("sprites/bust/joy-1.webp")
+        seen = {C.art_file(self.cid, "sprite", framing="bust", label="joy", ws=self.ws, rng=random.Random(i))[0]
+                for i in range(20)}
+        self.assertEqual(seen, {a, b})
+
+    def test_a_brains_folder_comes_first_then_the_shared_one(self):
+        shared = self.put("sprites/bust/joy.webp")
+        wig = self.put("sprites/bust/grok/neutral.webp")
+        self.assertEqual(C.art_file(self.cid, "sprite", provider="grok", framing="bust", label="joy", ws=self.ws),
+                         (wig, False), "the wig's own chain first, so a face never switches outfit mid-talk")
+        self.assertEqual(C.art_file(self.cid, "sprite", provider="agy", framing="bust", label="joy", ws=self.ws),
+                         (shared, False))
+        avatar, grok = self.put("avatar.webp"), self.put("avatar/grok.webp")
+        self.assertEqual(C.art_file(self.cid, "avatar", provider="grok", ws=self.ws), (grok, False))
+        self.assertEqual(C.art_file(self.cid, "avatar", provider="agy", ws=self.ws), (avatar, False))
+
+    def test_a_stage_is_a_place_named_by_suffix(self):
+        old = self.put("stage/grok.webp")
+        self.assertEqual(C.art_file(self.cid, "stage", provider="grok", ws=self.ws), (old, False), "read-only compat")
+        stage = self.put("stage.webp")
+        self.assertEqual(C.art_file(self.cid, "stage", provider="grok", ws=self.ws), (stage, False), "a place is not per brain")
+        night = self.put("stage.night.webp")
+        self.assertEqual(C.art_file(self.cid, "stage", label="night", ws=self.ws), (night, False))
+        self.assertEqual(C.art_file(self.cid, "stage", label="rain", ws=self.ws), (stage, False))
+
     def test_the_sprite_listing_names_what_exists(self):
         self.assertEqual(C.sprite_map(self.cid, "full", self.ws), {"framing": "full", "sprites": {}})
         self.put("sprites/bust/neutral.webp")
