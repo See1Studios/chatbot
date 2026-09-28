@@ -1,5 +1,14 @@
 # chatbot 개발로그
 
+## 2026-09-28 — 개발 규칙을 공용 헌장에서 dev 역할 팩으로 (pew/L, #294)
+
+- **배경**: 공용 헌장(`data/workspace/AGENTS.md`)은 모든 캐릭터에 매 턴 주입된다. 그런데 티켓·클레임·계획·⚡소생 같은 엔진 개발 절차가 거기 있어서, 그림 담당(artist)도, 배포판의 개인 캐릭터도 쓸 일 없는 개발 규칙을 매번 읽고 있었다.
+- **변경**: 새 역할 팩 `roles/dev/` — `role.md`(매 턴, 4줄: 엔진 작업이 네 몫이다, 하기 전에 procedure를 읽어라, 목표에 안 맞으면 이유와 대안) + `procedure.md`(필요할 때: 티켓·클레임·계획·테스트·`--no-verify` 금지, 루트 `AGENTS.md` 포인터). 헌장에서 Self-modification·Plans 절과 PROJECT/CONCEPT 포인터를 뺐다. 안전 규칙 두 줄(라이브 턴에 ctl stop/restart 금지, "엔진·헌장·git은 dev 역할만")은 모두에게 필요해서 헌장 Scope에 남겼다. `team.json`에서 PD·staff 캐릭터에 `dev`를 더했다.
+- **효과**: 매 턴 주입량 — PD·staff 캐릭터 −578 B, artist −961 B. 정적 층 4,189/4,800 B.
+- **테스트**: `tests/test_dev_role.py` — 헌장과 다른 역할의 `role.md`에 개발 표지가 없음, dev 팩이 옮겨간 내용을 가짐, dev 없는 캐릭터의 묶음에 개발 규칙이 안 들어감.
+- **분리**: `role.md` → `ROLE.md` 이름 통일은 코드(로더·팀 탭 UI)와 ⚡가 필요해 `pew/R`로 뺐다.
+- **비용**: 데이터·문서만 — ⚡ 불필요. 다음 턴부터 새 묶음이 들어간다.
+
 ## 2026-09-28 — ticket-quick을 저장소로 (pew/K, #293)
 
 - **배경**: `~/bin/ticket-quick`은 저장소 밖에 있어 경로가 `/volume1/...`로 고정되고, 테스트도 이력도 없었다(P10). 오늘 클레임 토큰을 출력 필터로 두 번 잃어 운영자가 터미널에서 `drop-lease`를 해야 했다.

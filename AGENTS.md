@@ -36,7 +36,7 @@ project's goals (`docs/CONCEPT.md` direction, active plans in `docs/plans/INDEX.
 |---|---|
 | Host operations law | `~/AGENTS.md` |
 | Engine development rules, code map | this file |
-| PE chat agent behaviour | `data/workspace/AGENTS.md` (+ role packs `data/workspace/roles/<role>/`) |
+| PE chat agent behaviour | `data/workspace/AGENTS.md` (+ role packs `data/workspace/roles/<role>/`; engine-work rules only in `roles/dev/`) |
 | Architecture: layers, adapters, plugin layer, ST split | `docs/ARCHITECTURE.md` |
 | Data paths, ports, env | `host_config.py` |
 | Per-install settings (edition, host plugin on/off, web root, ports) | `$CHATBOT_DATA/host.env`, read by `chatbot-ctl.sh` (options: `templates/host.env.example`) |
@@ -84,7 +84,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
 
 - Standing documents (one copy, always current, found by name) are UPPERCASE: repo root, `docs/` itself and `data/workspace/` itself — `README.md`, `AGENTS.md`, `docs/CONCEPT.md`, `docs/ARCHITECTURE.md`, `SKILL.md`, …
 - Documents that accumulate are lower-kebab: `docs/plans/*.md` (`INDEX.md` excepted), `docs/devlog/YYYY-MM-DD.md`, observation logs.
-- No snake_case document names. Pack-format files keep their format's name (`SKILL.md`; `role.md` until pew/L).
+- No snake_case document names. Pack-format files keep their format's name (`SKILL.md`; `role.md` until pew/R).
 - Renaming a document: update every live link in the same change; leave history (DEVLOG, devlog/, archive/, ticket records) as written.
 
 ## Harness
@@ -143,6 +143,7 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |
 | Look for prior art before building (`~/AGENTS.md` §0) | all | manual |
 | Spawn-visible dirs stay minimal (`ADD_DIRS`) | all | manual |
+| Engine-work rules for the chat agent live in the `dev` role pack, never the shared charter or another role's `role.md` | PE chat agent only | `test_dev_role` |
 | Chat UI conventions (`<!--choices-->`, persona voice) | PE chat agent only | `data/workspace/AGENTS.md` |
 
 Add a rule here in the same change that adds its enforcer; a rule without one says `manual` and why.
