@@ -265,6 +265,8 @@ def merge(ticket_id: int) -> Dict:
     tid = int(ticket_id)
     st = runner().read_state(tid)
     raw, phase = st.get("phase"), _phase(st)
+    if raw == "merged-ticket-open":
+        return _close_merged(tid, st)
     if not (raw == "awaiting_merge" or (raw == "merging" and phase == "stalled")):
         raise DelegationError("ticket %d has no delegated change awaiting a merge" % tid)
     if raw == "merging" and tickets._read_lease(DATA, tid):
@@ -278,6 +280,26 @@ def merge(ticket_id: int) -> Dict:
         runner().write_state(tid, phase="awaiting_merge")
         raise DelegationError("could not start the merge: %s" % e)
     return {"ticket": tid, "pid": pid}
+
+
+def _close_merged(tid: int, st: Dict) -> Dict:
+    """MERGED_CLOSE_v1: the change landed but closing the ticket failed (its lease ran out mid-merge, 2026-09-29
+    #371), so the card still offered its approve button and the merge was refused. Approving now finishes the job: when the run's
+    merge commit is on the main branch, the operator's lease closes the ticket through the ordinary done gate."""
+    r = runner()
+    head = st.get("head") or ""
+    if not head or r.git(r.CHATBOT_REPO, "merge-base", "--is-ancestor", head, "HEAD")[0] != 0:
+        raise DelegationError("ticket %d: its merge commit is not on the main branch; nothing to close" % tid)
+    m = tickets.merge_go(DATA, tid, operator=tickets.OPERATOR_UI, actor=worker_role())
+    try:
+        tickets.release(DATA, tid, m["token"], "done", "merged %s earlier; closed on the operator's word" % head[:7],
+                        actor=worker_role())
+    except tickets.TicketError:
+        tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI, ticket_id=tid)   # back to awaiting_merge, as it was
+        raise
+    r.write_state(tid, phase="done", reason="")
+    mark_seen(tid)
+    return {"ticket": tid, "status": "done", "phase": "done", "healed": True}
 
 
 def discard(ticket_id: int) -> Dict:

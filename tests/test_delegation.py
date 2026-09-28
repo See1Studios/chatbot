@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -343,6 +344,31 @@ class OperatorTest(Base):
         delegation.merge(tid)                                      # [승인 다시]
         self.assertEqual(self.spawned[-1][1][:3], ["merge", "--ticket", str(tid)])
         self.assertEqual(tickets.get(self.data, tid)["status"], "in_progress")
+
+    def test_approving_a_landed_run_whose_ticket_stayed_open_closes_the_ticket(self):
+        # MERGED_CLOSE_v1 (#371, 2026-09-29): merged, but the lease ran out before the ticket closed; the card still
+        # offered [승인] and the merge was refused ("no delegated change awaiting a merge")
+        tid = self.awaiting()
+        r = delegation.runner()
+        r.write_state(tid, phase="merged-ticket-open", head="af2f5763d656")
+        spawned = len(self.spawned)
+        with mock.patch.object(r, "git", return_value=(0, "", "")) as git, \
+                mock.patch.object(tickets, "_guard_failure", return_value=""):
+            out = delegation.merge(tid)
+        self.assertEqual(git.call_args[0][1:], ("merge-base", "--is-ancestor", "af2f5763d656", "HEAD"))
+        self.assertEqual((out["status"], out["healed"]), ("done", True))
+        self.assertEqual(tickets.get(self.data, tid)["status"], "done")
+        self.assertEqual(self.state(tid)["phase"], "done")
+        self.assertEqual(len(self.spawned), spawned, "nothing to land again")
+
+    def test_a_landed_run_is_closed_only_when_its_commit_is_on_main(self):
+        tid = self.awaiting()
+        r = delegation.runner()
+        r.write_state(tid, phase="merged-ticket-open", head="deadbeef")
+        with mock.patch.object(r, "git", return_value=(1, "", "")):
+            with self.assertRaises(delegation.DelegationError):
+                delegation.merge(tid)
+        self.assertEqual(tickets.get(self.data, tid)["status"], "awaiting_merge")
 
     def test_merge_needs_a_waiting_change(self):
         tid = self.plan([self.task(TIER2)])["ticket"]

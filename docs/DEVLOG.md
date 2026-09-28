@@ -2,6 +2,13 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-29 — 병합은 됐는데 티켓이 열린 작업의 [승인] (MERGED_CLOSE_v1, #378)
+
+- **증상**: 그림 카드 #371 [승인] → "ticket 371 has no delegated change awaiting a merge". 01:42 병합(fast-forward)은 됐지만 티켓을 닫기 전에 병합 작업권이 만료돼(`author lease expired`) 러너는 `merged-ticket-open`, 티켓은 `awaiting_merge`로 어긋남. 카드는 티켓을 보고 [승인]을 띄우고, 서버는 러너를 보고 거절.
+- **변경**: `delegation.merge`가 `merged-ticket-open`이면 `_close_merged` — 러너가 남긴 병합 커밋이 main의 조상일 때만, 운영자 작업권(`merge_go`)으로 평소의 완료 관문(`release done`)을 거쳐 티켓을 닫음. 실패하면 작업권을 돌려놓아 원래 상태로.
+- **배포**: ⚡.
+- **테스트**: `test_delegation` 2건(닫힘, main에 없으면 거절).
+
 ## 2026-09-29 — HTTP 두뇌에 Edit·Glob·Skill, 도구 예산 업무 40 / 사적 8 (PARITY_TOOLS_v1, par/C–F #377)
 
 - **변경**: `mcp_parity.py`(웹 도구처럼 서버 옆 모듈) — `edit_file`(Claude Edit 계약: 정확히 한 번 일치 또는 `replace_all`, 결과는 `write_file`과 같은 규칙으로 검사 — 규칙은 `mcp_server._write_refusal` 하나로 뽑음), `find_files`(허용 루트 안 glob, 비밀 이름·.git 제외, 200개 상한), `skill`(목록: 이름+설명(YAML `>`/`|` 포함), 로드: SKILL.md 본문+참조 파일 목록). `adapter_openai.tool_budget`: 업무 40·사적 8(D3 결정).
