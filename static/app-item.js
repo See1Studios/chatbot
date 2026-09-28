@@ -49,18 +49,35 @@ function itemToast(text) {
   itemToast._timer = setTimeout(() => t.classList.remove('show'), 3200);
 }
 
-// Where the card d places from the middle sits: the middle one faces the reader, the others turn away and shrink.
+// Where a card d places from the middle sits -- the old Mac Cover Flow (operator, 2026-09-28): the middle one faces
+// the reader; past it a clear gap, then the others turned about 70 degrees and packed close like records on a
+// shelf, full size but darker. d need not be whole: while a drag or a wheel is under way the flow sits between items,
+// and the card crossing the gap turns as it comes.
+const FLOW_GAP = 72;     // % of a card from the middle to the first card beside it
+const FLOW_STACK = 16;   // % of a card between neighbours in a stack
+const FLOW_TURN = 70;    // degrees a side card is turned
 function flowStyle(d, reduced) {
   const a = Math.abs(d);
-  if (a > 3) return { hidden: true };
-  const rot = reduced || d === 0 ? 0 : (d < 0 ? 45 : -45);
-  const scale = d === 0 ? 1 : Math.max(0.6, 0.82 - (a - 1) * 0.1);
+  if (a > 6.5) return { hidden: true };
+  const r = (v, k) => (Math.round(v * k) / k) || 0;      // short numbers, and never "-0"
+  const side = d < 0 ? -1 : 1;
+  const into = Math.min(1, a);                          // 0 in the middle, 1 once in a stack
+  const x = side * (a <= 1 ? a * FLOW_GAP : FLOW_GAP + (a - 1) * FLOW_STACK);
+  const rot = reduced ? 0 : -side * into * FLOW_TURN;
+  const scale = 1 - into * 0.12;
+  const shade = 1 - into * 0.35 - Math.max(0, a - 1) * 0.06;
   return {
     hidden: false,
-    transform: 'translateX(' + (d * 58) + '%) rotateY(' + rot + 'deg) scale(' + scale + ')',
-    z: 100 - a,
-    opacity: d === 0 ? 1 : Math.max(0.3, 0.75 - (a - 1) * 0.2),
+    transform: 'translateX(' + r(x, 100) + '%) rotateY(' + r(rot, 100) + 'deg) scale(' + r(scale, 1000) + ')',
+    z: 100 - Math.round(a * 10),
+    shade: r(Math.max(0.35, shade), 1000),
   };
+}
+
+// Where a released drag comes to rest: where it is plus a glide in proportion to the release speed (items per ms),
+// on a whole item. A quick flick crosses several; a slow let-go stays on the nearest.
+function flingTarget(pos, velocity, n) {
+  return Math.max(0, Math.min(n - 1, Math.round(pos + velocity * 280)));
 }
 
 function closeItemPicker() {
@@ -69,7 +86,7 @@ function closeItemPicker() {
   document.removeEventListener('keydown', itemPickerKeys, true);
 }
 
-let itemFlow = null;   // {items, cur, affection}
+let itemFlow = null;   // {items, cur: the item in hand, pos: where the flow sits (between items while moving), affection}
 
 function itemPickerKeys(e) {
   if (!itemFlow) return;
@@ -81,7 +98,12 @@ function itemPickerKeys(e) {
 function moveItemFlow(step, to) {
   if (!itemFlow || !itemFlow.items.length) return;
   const n = itemFlow.items.length;
+  const from = itemFlow.pos;
   itemFlow.cur = typeof to === 'number' ? to : Math.max(0, Math.min(n - 1, itemFlow.cur + step));
+  itemFlow.pos = itemFlow.cur;
+  // a longer glide takes a little longer, so a fling reads as momentum, not a jump
+  const wrap = document.getElementById('itemPicker');
+  if (wrap) wrap.style.setProperty('--flow-dur', Math.min(0.9, 0.3 + 0.07 * Math.abs(itemFlow.pos - from)) + 's');
   drawItemFlow();
 }
 
@@ -90,15 +112,17 @@ function drawItemFlow() {
   if (!wrap || !itemFlow) return;
   const reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   wrap.querySelectorAll('.item-card').forEach((card) => {
-    const st = flowStyle(Number(card.dataset.i) - itemFlow.cur, reduced);
+    const st = flowStyle(Number(card.dataset.i) - itemFlow.pos, reduced);
     card.hidden = st.hidden;
     if (st.hidden) return;
     card.style.transform = st.transform;
     card.style.zIndex = String(st.z);
-    card.style.opacity = String(st.opacity);
-    card.classList.toggle('current', Number(card.dataset.i) === itemFlow.cur);
+    card.style.filter = 'brightness(' + st.shade + ')';
+    card.classList.toggle('current', Number(card.dataset.i) === Math.round(itemFlow.pos));
   });
-  const it = itemFlow.items[itemFlow.cur];
+  const near = Math.max(0, Math.min(itemFlow.items.length - 1, Math.round(itemFlow.pos)));
+  wrap.querySelectorAll('.item-card.current').forEach(c => { if (Number(c.dataset.i) !== near) c.classList.remove('current'); });
+  const it = itemFlow.items[near];
   wrap.querySelector('.item-name').textContent = it ? it.icon + ' ' + it.name : '';
   wrap.querySelector('.item-use').textContent = it && it.actions.includes('use') ? it.use : '';
   const acts = wrap.querySelector('.item-actions-main');
@@ -127,7 +151,7 @@ async function openItemPicker() {
     return;
   }
   const a = data.affection || {};
-  itemFlow = { items: data.items || [], cur: 0, affection: a };
+  itemFlow = { items: data.items || [], cur: 0, pos: 0, affection: a };
   const wrap = document.createElement('div');
   wrap.id = 'itemPicker';
   wrap.className = 'item-picker';
@@ -167,26 +191,54 @@ async function openItemPicker() {
       glyph.textContent = it.icon;
       card.appendChild(glyph);
     }
-    card.addEventListener('click', () => moveItemFlow(0, i));
+    card.addEventListener('click', () => { if (Date.now() >= suppressClickUntil) moveItemFlow(0, i); });
     flow.appendChild(card);
   });
-  // wheel and swipe move one item at a time
-  let wheelAt = 0;
+  // Drag and wheel move the flow continuously; letting go glides on with the release speed, then rests on an item.
+  const STEP_PX = 80;                                  // this many pixels of drag is one item
+  const n = itemFlow.items.length;
+  const clampPos = (p) => Math.max(-0.4, Math.min(n - 1 + 0.4, p));
+  let drag = null, suppressClickUntil = 0, wheelTimer = null;
+  flow.addEventListener('pointerdown', (e) => {
+    drag = { x: e.clientX, pos: itemFlow.pos, moved: false, samples: [{ t: e.timeStamp, x: e.clientX }] };
+    if (flow.setPointerCapture) { try { flow.setPointerCapture(e.pointerId); } catch (_) {} }
+  });
+  flow.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    if (!drag.moved && Math.abs(dx) > 6) { drag.moved = true; wrap.classList.add('dragging'); }
+    if (!drag.moved) return;
+    itemFlow.pos = clampPos(drag.pos - dx / STEP_PX);
+    drag.samples.push({ t: e.timeStamp, x: e.clientX });
+    drag.samples = drag.samples.filter(p => e.timeStamp - p.t < 100);
+    drawItemFlow();
+  });
+  const release = (e) => {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    wrap.classList.remove('dragging');
+    if (!d.moved) return;
+    suppressClickUntil = Date.now() + 250;             // the click that ends a drag is not a pick
+    const first = d.samples[0], last = d.samples[d.samples.length - 1];
+    const v = last.t > first.t ? -(last.x - first.x) / (last.t - first.t) / STEP_PX : 0;
+    moveItemFlow(0, flingTarget(itemFlow.pos, v, n));
+  };
+  flow.addEventListener('pointerup', release);
+  flow.addEventListener('pointercancel', release);
   flow.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const now = Date.now();
-    if (now - wheelAt < 180) return;
-    wheelAt = now;
-    moveItemFlow((e.deltaY || e.deltaX) > 0 ? 1 : -1);
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    const unit = e.deltaMode === 1 ? 40 : (e.deltaMode === 2 ? 400 : 1);   // lines, pages, pixels
+    itemFlow.pos = clampPos(itemFlow.pos + delta * unit / 150);
+    wrap.classList.add('dragging');
+    drawItemFlow();
+    clearTimeout(wheelTimer);
+    wheelTimer = setTimeout(() => {                    // the wheel stopped: rest on the nearest item
+      wrap.classList.remove('dragging');
+      moveItemFlow(0, Math.max(0, Math.min(n - 1, Math.round(itemFlow.pos))));
+    }, 140);
   }, { passive: false });
-  let downX = null;
-  flow.addEventListener('pointerdown', (e) => { downX = e.clientX; });
-  flow.addEventListener('pointerup', (e) => {
-    if (downX === null) return;
-    const dx = e.clientX - downX;
-    downX = null;
-    if (Math.abs(dx) > 40) moveItemFlow(dx < 0 ? 1 : -1);
-  });
   wrap.appendChild(flow);
 
   const info = document.createElement('div');

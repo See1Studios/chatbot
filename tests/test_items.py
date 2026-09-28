@@ -158,7 +158,7 @@ class Page(Base):
     def run_js(self, body):
         src = (ROOT / "static" / "app-item.js").read_text(encoding="utf-8")
         head = src[src.index("const ITEM_NOTE"):src.index("function renderItemChip")]
-        flow = src[src.index("function flowStyle"):src.index("function closeItemPicker")]
+        flow = src[src.index("const FLOW_GAP"):src.index("function closeItemPicker")]  # constants, flowStyle, flingTarget
         out = subprocess.run(["node", "-e", head + flow + "\n" + body], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-800:])
         return json.loads(out.stdout)
@@ -174,15 +174,27 @@ class Page(Base):
         self.assertEqual(got[2]["item"], {"icon": "🍡", "name": "경단"})
         self.assertEqual(got[3], {"text": "그냥", "item": None})
 
-    def test_the_coverflow_faces_the_middle_and_hides_the_far(self):
-        got = self.run_js("console.log(JSON.stringify([-4,-1,0,1,3].map(d => flowStyle(d, false)).concat([flowStyle(1, true)])));")
-        self.assertTrue(got[0]["hidden"])
-        self.assertIn("rotateY(45deg)", got[1]["transform"])
-        self.assertIn("rotateY(0deg) scale(1)", got[2]["transform"])
-        self.assertIn("rotateY(-45deg)", got[3]["transform"])
-        self.assertGreater(got[2]["z"], got[1]["z"])
-        self.assertLess(got[4]["opacity"], got[3]["opacity"])
-        self.assertIn("rotateY(0deg)", got[5]["transform"], "reduced motion: no turning")
+    def test_the_coverflow_is_the_old_mac_one(self):
+        got = self.run_js("console.log(JSON.stringify([-7,-2,-1,0,1,2,6].map(d => flowStyle(d, false)).concat([flowStyle(1, true), flowStyle(0.5, false)])));")
+        far, l2, l1, mid, r1, r2, r6, reduced, half = got
+        self.assertTrue(far["hidden"])
+        self.assertIn("translateX(0%) rotateY(0deg) scale(1)", mid["transform"], "the middle faces the reader")
+        self.assertIn("rotateY(70deg)", l1["transform"])
+        self.assertIn("rotateY(-70deg)", r1["transform"])
+        self.assertIn("rotateY(-70deg)", r2["transform"], "a stack keeps the same turn")
+        self.assertIn("translateX(72%)", r1["transform"], "a clear gap from the middle")
+        self.assertIn("translateX(88%)", r2["transform"], "then packed close")
+        self.assertFalse(r6["hidden"])
+        self.assertGreater(mid["z"], r1["z"])
+        self.assertGreater(r1["z"], r2["z"])
+        self.assertTrue(mid["shade"] > r1["shade"] > r2["shade"], "further back is darker")
+        self.assertIn("rotateY(0deg)", reduced["transform"], "reduced motion: no turning")
+        self.assertIn("rotateY(-35deg)", half["transform"], "the card crossing the gap turns as it comes")
+
+    def test_a_flick_glides_further_than_a_let_go(self):
+        got = self.run_js("console.log(JSON.stringify([flingTarget(2.3, 0, 19), flingTarget(2.3, 0.004, 19), "
+                          "flingTarget(2.3, 0.03, 19), flingTarget(2.3, -0.05, 19), flingTarget(17.8, 0.05, 19)]));")
+        self.assertEqual(got, [2, 3, 11, 0, 18], "rest, one on, a long glide, clamped at both ends")
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
