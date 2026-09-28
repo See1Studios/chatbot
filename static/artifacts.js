@@ -246,6 +246,8 @@ function buildCodeViewWithLines(text, hl) {
 
   if (window.hljs) {
     try { hljs.highlightElement(code); } catch (_) {}
+  } else if (typeof ensureHighlightLoaded === 'function') {   // HIGHLIGHT_LAZY_v1 (markdown.js)
+    ensureHighlightLoaded().then(h => { try { h.highlightElement(code); } catch (_) {} }).catch(() => {});
   }
 
   // Scroll to highlight target line

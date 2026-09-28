@@ -30,6 +30,22 @@ function ensureMermaidLoaded() {
   return mermaidLoadingPromise;
 }
 
+// HIGHLIGHT_LAZY_v1: highlight.js (125 KB, a sixth of the page's script) arrives only when a code block is on
+// screen -- private talk almost never has one. Same pattern as mermaid above.
+let highlightLoadingPromise = null;
+function ensureHighlightLoaded() {
+  if (window.hljs) return Promise.resolve(window.hljs);
+  if (highlightLoadingPromise) return highlightLoadingPromise;
+  highlightLoadingPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = './vendor/highlight.min.js';
+    script.onload = () => (window.hljs ? resolve(window.hljs) : reject(new Error('hljs missing')));
+    script.onerror = reject;
+    document.head.appendChild(script);
+  }).catch((err) => { highlightLoadingPromise = null; throw err; });   // a later block may try again
+  return highlightLoadingPromise;
+}
+
 async function renderMermaidIn(container) {
   if (!container) return;
   const nodes = container.querySelectorAll('pre.mermaid:not([data-processed="true"])');
@@ -88,8 +104,13 @@ function highlightCodeIn(container) {
   // Gated to isFinal only (like renderMermaidIn) -- re-highlighting on every
   // streaming delta would re-run hljs over the whole block on each tick and
   // can momentarily mis-highlight code that's still mid-fence.
-  if (!container || !window.hljs) return;
+  if (!container) return;
   const blocks = container.querySelectorAll('pre code:not(.hljs)');
+  if (!blocks.length) return;
+  if (!window.hljs) {   // HIGHLIGHT_LAZY_v1
+    ensureHighlightLoaded().then(() => highlightCodeIn(container)).catch(() => {});
+    return;
+  }
   blocks.forEach(block => {
     const pre = block.closest('pre');
     if (!pre || pre.classList.contains('mermaid') || pre.closest('.mermaid-wrap')) return;

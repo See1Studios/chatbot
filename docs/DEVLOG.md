@@ -2,6 +2,12 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-29 — 최적화 2: 코드 강조기는 코드 블록이 있을 때만 (HIGHLIGHT_LAZY_v1, #367)
+
+- **측정**: `highlight.min.js` 125KB(gzip 42KB) — 페이지 스크립트의 1/6, 사적 대화에선 거의 안 씀.
+- **변경**: 페이지에서 `<script>` 제거, `markdown.js::ensureHighlightLoaded`(mermaid와 같은 방식)가 첫 코드 블록 때 한 번 불러옴. 실패하면 다음 블록이 다시 시도. 미리보기 창(`artifacts.js`)도 같은 로더. 테마 CSS는 작아서 그대로.
+- **테스트**: `tests/test_highlight_lazy.py`.
+
 ## 2026-09-29 — 최적화 1: 세션 동기화는 안전망만, JSON API 압축 (SYNC_THROTTLE_v1·API_GZIP_v1, #366)
 
 - **측정**: 화면이 보이는 동안 2.5초마다 세션 전체(20–30KB, 무압축) + 세션 목록(15KB) + active를 받아 화면과 대조 — SSE가 멀쩡해도. 탭 하나 시간당 약 60MB. 서버 응답은 4–8ms라 병목은 전송·대조.
