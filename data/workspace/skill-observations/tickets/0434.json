@@ -3,6 +3,7 @@
  "approved_at": "2026-09-29 23:07:46",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_reason": "declined",
  "created": "2026-09-29 23:00:20",
  "evidence": [
   "event:20260929-215508-8e40d1#54"
@@ -39,15 +40,20 @@
    "by": "host",
    "text": "waiting for the operator to allow more paths: attempt given back",
    "ts": "2026-09-30 01:23:33"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "declined",
+   "ts": "2026-09-30 01:27:33"
   }
  ],
  "paths": [
   "static/index.html",
   "static/manifest.webmanifest"
  ],
- "status": "approved",
+ "status": "declined",
  "target": "static/index.html,static/manifest.webmanifest",
  "title": "feat(ui): 페이지 타이틀 및 PWA 앱 이름을 Private Engine으로 변경",
- "updated": "2026-09-30 01:23:33",
+ "updated": "2026-09-30 01:27:33",
  "worked_by": "agy"
 }
