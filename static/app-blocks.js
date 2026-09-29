@@ -83,10 +83,11 @@ function splitInline(text) {
     if (ch === '*' && src[i + 1] === '*') { bold = 1 - bold; buf += '**'; i += 2; continue; }
     if (bold) { buf += ch; i++; continue; }
     // *action* -- a single-asterisk italic span only. `**bold**` was already taken above.
-    if (ch === '*') {
+    // Left-flanking: no whitespace right after opening '*', and no whitespace right before closing '*'.
+    if (ch === '*' && src[i + 1] && !/\s/.test(src[i + 1])) {
       const end = src.indexOf('*', i + 1);
       const inner = end > i + 1 ? src.slice(i + 1, end) : '';
-      if (end > i + 1 && inner && !inner.includes('\n') && !inner.includes('*') && src[end - 1] !== '*') {
+      if (end > i + 1 && inner && !inner.includes('\n') && !inner.includes('*') && src[end - 1] !== '*' && !/\s/.test(src[end - 1])) {
         flush();
         push(BLOCK_ACTION, src.slice(i, end + 1));
         i = end + 1;

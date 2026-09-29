@@ -45,6 +45,7 @@ const CASES = {
   unterminated_quote_leaves_whole: () => shape(splitInline('\u201C이게 다야')),
   stray_asterisk_is_text: () => shape(splitInline('2 * 3 = 6이라 했다')),
   empty_asterisks_are_text: () => shape(splitInline('**굵게** 라고 했다')),
+  list_bullet_with_bold: () => shape(splitInline('* **질문**')),
   list_stays_whole: () => shape(classifyBlocks('- 하나\n- 둘\n\n"그리고?"')),
   blank_input: () => shape(classifyBlocks('')),
   whitespace_only: () => shape(classifyBlocks('   \n\n  ')),
@@ -143,6 +144,9 @@ class BlockKinds(unittest.TestCase):
     def test_an_asterisk_that_is_arithmetic_or_emphasis_is_text(self):
         self.assertEqual(run("stray_asterisk_is_text"), ['narration:"2 * 3 = 6이라 했다"'])
         self.assertEqual(run("empty_asterisks_are_text"), ['narration:"**굵게** 라고 했다"'])
+
+    def test_list_bullet_with_bold_is_not_split_as_action(self):
+        self.assertEqual(run("list_bullet_with_bold"), ['narration:"* **질문**"'])
 
     def test_a_list_is_not_cut_into_beats(self):
         out = run("list_stays_whole")
