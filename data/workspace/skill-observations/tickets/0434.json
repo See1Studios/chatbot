@@ -1,0 +1,38 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-29 23:07:46",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-29 23:00:20",
+ "evidence": [
+  "event:20260929-215508-8e40d1#54"
+ ],
+ "gate_failures": 0,
+ "id": 434,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-29 23:07:46"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/index.html, static/manifest.webmanifest",
+   "ts": "2026-09-29 23:07:46"
+  },
+  {
+   "by": "agent:agy",
+   "text": "failed: worktree agy: could not commit the agent's leftover changes",
+   "ts": "2026-09-29 23:24:21"
+  }
+ ],
+ "paths": [
+  "static/index.html",
+  "static/manifest.webmanifest"
+ ],
+ "status": "approved",
+ "target": "static/index.html,static/manifest.webmanifest",
+ "title": "feat(ui): 페이지 타이틀 및 PWA 앱 이름을 Private Engine으로 변경",
+ "updated": "2026-09-29 23:24:21",
+ "worked_by": "agy"
+}
