@@ -2,7 +2,7 @@
  "actor": "chat-agent:agy",
  "approved_at": "2026-09-29 15:21:25",
  "approved_by": "operator (ui)",
- "attempts": 1,
+ "attempts": 2,
  "created": "2026-09-29 15:21:19",
  "evidence": [
   "event:20260929-151124-5060c7#10"
@@ -10,6 +10,7 @@
  "gate_failures": 0,
  "id": 406,
  "merge_approved_by": "operator (ui)",
+ "merge_pending": true,
  "notes": [
   {
    "by": "operator (ui)",
@@ -35,6 +36,16 @@
    "by": "agent:agy",
    "text": "failed: worktree agy: fast-forward merge into main refused (it moved or local changes are in the way)",
    "ts": "2026-09-29 15:38:10"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 2/3); paths: static/icon-192.png, static/icon-512-maskable.png, static/icon-512.png, static/index.html, static/manifest.webmanifest, static/sw.js",
+   "ts": "2026-09-29 15:55:49"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-406 at 4a58b38 (agy, review PASS round 1)",
+   "ts": "2026-09-29 16:03:46"
   }
  ],
  "paths": [
@@ -45,9 +56,9 @@
   "static/manifest.webmanifest",
   "static/sw.js"
  ],
- "status": "approved",
+ "status": "awaiting_merge",
  "target": "static/icon-192.png,static/icon-512-maskable.png,static/icon-512.png,static/inde",
  "title": "feat(pwa): PWA 웹 앱 매니페스트 및 서비스 워커 연동 (독립 앱 설치 지원)",
- "updated": "2026-09-29 15:38:10",
+ "updated": "2026-09-29 16:03:46",
  "worked_by": "agy"
 }
