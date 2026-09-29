@@ -467,6 +467,6 @@ html:not(.stage-ready) .stage::before{opacity:0 !important}
 .day-divider{align-self:center;display:flex;align-items:center;gap:.6rem;width:100%;max-width:26rem;margin:.35rem 0;
   font-size:.74rem;color:var(--muted);user-select:none}
 .day-divider::before,.day-divider::after{content:"";flex:1;height:1px;background:var(--border)}
-.session-divider{display:none}
-body.density-advanced .session-divider{display:flex}
+#log > .msg.session-divider{display:none}   /* beats .scrollback-marker{display:flex} in chat-panes.css, read later */
+body.density-advanced #log > .msg.session-divider{display:flex}
 #log > .msg.user.cont{margin-top:-.5rem;border-top-right-radius:4px}

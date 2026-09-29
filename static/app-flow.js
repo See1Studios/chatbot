@@ -7,7 +7,7 @@
 //   advanced density (body.density-advanced, align/K); switching or importing a session is in the sessions tab too.
 // - A run of the user's bubbles sent within FLOW_GROUP_SEC sits close together (.cont), messenger-style.
 // Every render path (live stream, sync, scrollback) changes #log's children, so one observer redraws the marks on
-// the next frame and no path has to remember to call it.
+// the next frame and no path has to remember to call it; a timer redraws at local midnight on an idle page.
 const FLOW_GROUP_SEC = 300;
 
 function flowDayKey(ms) {
@@ -91,6 +91,18 @@ function startChatFlow() {
   });
   observer.observe(log, { childList: true });
   applyFlow(log);
+  // an idle page left open past midnight: "today" becomes "yesterday" without waiting for the next message
+  const atMidnight = () => {
+    setTimeout(() => { applyFlow(log); observer.takeRecords(); atMidnight(); }, msToNextMidnight(Date.now()) + 1000);
+  };
+  atMidnight();
+}
+
+// milliseconds from `nowMs` to the next local midnight
+function msToNextMidnight(nowMs) {
+  const d = new Date(nowMs);
+  d.setHours(24, 0, 0, 0);
+  return d.getTime() - nowMs;
 }
 
 if (typeof document !== 'undefined' && document.addEventListener) {

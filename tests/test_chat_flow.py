@@ -14,7 +14,8 @@ JS = r"""
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[1], 'utf8');
 const cut = src.slice(src.indexOf('const FLOW_GROUP_SEC'), src.indexOf('function flowMessages'));
-const api = new Function(cut + '; return { planFlow, flowDayLabel };')();
+const tail = src.slice(src.indexOf('function msToNextMidnight'));
+const api = new Function(cut + tail + '; return { planFlow, flowDayLabel, msToNextMidnight };')();
 const now = new Date(2026, 8, 29, 15, 0, 0).getTime();          // Tue 2026-09-29 15:00 local
 const s = (y, mo, d, h, mi) => new Date(y, mo, d, h, mi, 0).getTime() / 1000;
 const items = [
@@ -27,7 +28,8 @@ const items = [
   { role: 'other', ts: 0 },                                       // still arriving: counts as now
 ];
 console.log(JSON.stringify({ plan: api.planFlow(items, now, 'ko'),
-                             lastYear: api.flowDayLabel(s(2025, 11, 31, 12, 0) * 1000, now, 'ko') }));
+                             lastYear: api.flowDayLabel(s(2025, 11, 31, 12, 0) * 1000, now, 'ko'),
+                             toMidnight: api.msToNextMidnight(now) }));
 """
 
 
@@ -49,13 +51,20 @@ class ChatFlow(unittest.TestCase):
     def test_only_the_users_close_bubbles_on_one_day_group(self):
         self.assertEqual(self.r["plan"]["cont"], [3])
 
+    def test_an_idle_page_turns_the_day_over_at_midnight(self):
+        self.assertEqual(self.r["toMidnight"], 9 * 3600 * 1000)          # 15:00 -> 24:00
+
     def test_another_year_names_the_year(self):
         self.assertIn("2025", self.r["lastYear"])
 
     def test_session_dividers_wait_for_the_advanced_density(self):
         css = (STATIC / "chat-log.css").read_text(encoding="utf-8")
-        self.assertIn(".session-divider{display:none}", css)
-        self.assertIn("body.density-advanced .session-divider{display:flex}", css)
+        # #419: a plain .session-divider rule lost to .scrollback-marker{display:flex}, which chat-panes.css (read
+        # after chat-log.css) sets with the same weight -- the hiding rule must outweigh one class
+        self.assertIn("#log > .msg.session-divider{display:none}", css)
+        self.assertIn("body.density-advanced #log > .msg.session-divider{display:flex}", css)
+        panes = (STATIC / "chat-panes.css").read_text(encoding="utf-8")
+        self.assertNotIn("#log > .msg.scrollback-marker", panes)   # nothing there as strong as the hiding rule
         js = (STATIC / "app-session.js").read_text(encoding="utf-8")
         self.assertEqual(js.count("'msg scrollback-marker session-divider'"), 2)
 
