@@ -153,6 +153,9 @@ class ClaudeAdapter(AgentAdapter):
                     offset = len(session.current_text or "")
                     session.current_text = (session.current_text or "") + rewritten
                     return [{"event": "delta", "text": rewritten, "offset": offset, "raw_event": "delta"}]
+            if ev.get("type") == "content_block_delta" and delta.get("type") == "thinking_delta":
+                text = delta.get("thinking") or ""        # THINKING_VIEW_v1: shown folded, never stored
+                return [{"event": "thinking", "text": text}] if text else []
             return []
 
         # 3. assistant -- whole message; tool_use calls live here. content[].type=="text"

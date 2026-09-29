@@ -166,3 +166,13 @@ body.private-session .msg.assistant .md em{font-style:italic;font-size:.88em;opa
 /* PRIVATE_FIRST_v1 (operator, 2026-09-29): in private mode only /act means anything (Space starts it, app-act-key.js),
    so the skill menu button and the location toggle leave the composer. */
 body.private-session #slashBtn,body.private-session #geoBtn{display:none !important}
+
+/* THINKING_VIEW_v1 (app-think.js): the brain's reasoning, folded over the answer -- quieter than the answer itself */
+.msg.assistant > details.think{margin:0 0 .35rem;font-size:.78rem;color:var(--muted)}
+.msg.assistant > details.think > summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:.3rem;padding:.1rem .45rem;border:1px solid var(--border);border-radius:999px;user-select:none}
+.msg.assistant > details.think > summary::-webkit-details-marker{display:none}
+.msg.assistant > details.think > summary::before{content:'▸';transition:transform .15s ease}
+.msg.assistant > details.think[open] > summary::before{transform:rotate(90deg)}
+.msg.assistant > details.think[data-live="1"] > summary{border-color:var(--accent-border)}
+.msg.assistant > details.think .think-body{margin-top:.3rem;padding:.35rem .55rem;border-left:2px solid var(--border);max-height:12rem;overflow:auto;white-space:pre-wrap;line-height:1.45}
+@media (prefers-reduced-motion: reduce){.msg.assistant > details.think > summary::before{transition:none}}

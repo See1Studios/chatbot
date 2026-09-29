@@ -458,6 +458,7 @@ function bindEvents(sid) {
         assistantNode.dataset.live = '1';
       }
       if (assistantNode) delete assistantNode.dataset.progress;
+      if (typeof thinkEnd === 'function') thinkEnd(assistantNode);   // THINKING_VIEW_v1: the answer started
       if (type === 'delta') {
         const offset = typeof data.offset === 'number' ? data.offset : null;
         if (offset !== null && offset < (assistantBuf || '').length) {
@@ -485,6 +486,7 @@ function bindEvents(sid) {
       // QUOTA_SILENT_FIX_v1: result residual error
       if (text) assistantBuf = textWithChoices(data);   // the server took the choices out of the text
       if (assistantNode) delete assistantNode.dataset.progress;
+      if (typeof thinkEnd === 'function') thinkEnd(assistantNode);
       const doneNode = assistantNode;
       const doneBuf = assistantBuf;
       const residualErr = (data.error && !(doneBuf || '').trim()) ? String(data.error) : '';
@@ -667,6 +669,17 @@ function bindEvents(sid) {
       return;
     }
 
+    // THINKING_VIEW_v1: the brain's reasoning goes into a folding strip over the answer (app-think.js)
+    if (type === 'thinking') {
+      setBusy(true);
+      if (!assistantNode) {
+        assistantNode = addChat('assistant', '', false);
+        assistantNode.dataset.live = '1';
+      }
+      if (typeof thinkAppend === 'function') thinkAppend(assistantNode, text);
+      return;
+    }
+
     // SILENT_NOTICE_v1: the server says the turn has been quiet a while; it goes on (not an error, no bubble)
     if (type === 'progress') { setProgress(text || ''); return; }
 
@@ -686,6 +699,7 @@ function bindEvents(sid) {
         setProgress(shortToolLine(text) || '처리 중…');
       } else if (type === 'error') {
         // SESSION_DESYNC_GAPFIX_v2 + NOTICE_UI_v1 + QUOTA_ERR_DEDUP_v1
+        if (typeof thinkEnd === 'function') thinkEnd(assistantNode);
         setBusy(false);
         setProgress('');
         if (assistantNode) {

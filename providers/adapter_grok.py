@@ -286,10 +286,11 @@ class GrokAdapter(AgentAdapter):
         if kind == "available_commands":
             return []
 
-        # thought: internal reasoning streamed word-by-word -- never
-        # surfaced, same convention as claude's thinking blocks.
+        # thought: internal reasoning streamed word-by-word -- a `thinking` event, shown folded over the answer and
+        # never stored (THINKING_VIEW_v1, plan ux/L).
         if kind == "thought":
-            return []
+            text = obj.get("data") or ""
+            return [{"event": "thinking", "text": text}] if isinstance(text, str) and text else []
 
         # text: the actual answer. Arrived as a single whole-answer frame in
         # simple test turns and could plausibly stream in multiple frames for

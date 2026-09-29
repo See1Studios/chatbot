@@ -207,6 +207,7 @@
 | `ux/G` | 데스크톱 스파이크 | 별도 폴더(엔진 밖) | **Windows**에서 투명·항상 위·클릭 통과 창의 스프라이트가 `ux/B` 이벤트로 표정을 바꿈(4.4.1 경고), 개발판(NAS 엔진) 연결 확인, 결과를 이 문서에 기록 | 2 · — | S | ux/F, ux/B, UX3 | 대기 |
 | `ux/J` | 라이선스 가드 테스트 | `tests/` | GPL 헤더·`org.telegram.`·`openhuman` 식별자가 코드 파일에 들어오면 실패(문서 제외) | 2 · — | S | — | 대기 |
 | `ux/K` | 모바일 기준선 갭 감사 | 이 문서 §4.2.2 | 실제 폰 2대에서 표의 모든 줄에 있음/부분/없음 + 근거, 빈 칸마다 티켓 초안 | 0 · — | S | UX6 | 대기 |
+| `ux/L` | **사고과정 보기**(THINKING_VIEW_v1, 운영자 2026-09-29 "LMStudio처럼 사고과정을 보여주면"): 생각을 흘려 보내는 두뇌(grok `thought`, claude `thinking_delta`)는 `thinking` 이벤트 → 답변 위 접이식 칸(생각 중엔 펼침·답이 시작되면 접힘·걸린 시간 표시, 사적 모드는 처음부터 접힘). 저장하지 않음. 조용히 생각하는 두뇌(agy)는 말풍선 꼬리의 "N초째"와 90초 알림(SILENT_NOTICE_v1)으로 | `providers/adapter_grok.py`·`adapter_claude.py`, `session.py`, `static/app-think.js`·`app-sse.js`·`chat-features.css` | 생각이 흐르는 동안 칸에 보이고 답 시작 시 접힘, 새로고침하면 사라짐, 생각 이벤트가 무신호 시계를 되돌림 | 2 · ⚡ | S | — | ✅ #388 |
 | `ux/H` | 데스크톱 껍데기 설계(스파이크 결과로) | 새 계획 | 운영자 검토를 거친 설계. 배포판 패키징은 [release-pipeline.md](release-pipeline.md)와 연결 | 0 · — | M | ux/G, ux/D | 대기 |
 
 ## 7. 하지 않는 것

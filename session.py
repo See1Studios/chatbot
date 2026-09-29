@@ -297,8 +297,8 @@ class AgentSession(TurnWatchdog):
             # continues. error_message is owned by QUOTA_FAILFAST — do not re-arm.
             if not is_err_msg:
                 self._touch_turn_activity()
-        elif kind == "delta":
-            # SILENT_HANG_v1: streaming assistant text resets the idle clock
+        elif kind in ("delta", "thinking"):
+            # SILENT_HANG_v1: streaming assistant text -- or the brain's streamed reasoning -- resets the idle clock
             self._touch_turn_activity()
         elif kind in ("result", "error", "stopped"):
             self.last_progress = ""
