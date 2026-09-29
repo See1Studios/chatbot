@@ -1037,14 +1037,12 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 if stripped in ("/private", "/private on", "/work", "/private off") or stripped.startswith("/private on "):
                     if stripped.startswith("/private on") or (stripped == "/private" and not sess.is_private):
                         target = sess if sess.is_private else threshold.enter(sess, REG.get_private(sess.character, like=sess), text)
-                    else:
-                        if sess.is_private:
-                            _digest_private_later(sess)
-                        target = REG.get_active(sess.character) if sess.is_private else sess
+                    else:   # back to work: digest the private talk, leave the return scene (THRESHOLD_v1)
+                        target = threshold.leave(sess, REG.get_active(sess.character), _digest_private_later) if sess.is_private else sess
                     pub = target.to_public()
                     pub["is_private"] = target.is_private
                     code, raw = _json_bytes({"ok": True, "switched": target.sid != sid, "old_session_id": sid,
-                                             "session": pub})
+                                             "session": pub, "scene": threshold.pop_scene(target) if target.sid != sid else ""})
                     return self._send(code, raw, "application/json; charset=utf-8")
 
                 # CONTENT_GUARD_v1: a message the provider would refuse never leaves the host (0 tokens)

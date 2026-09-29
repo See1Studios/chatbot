@@ -118,6 +118,63 @@ class Take(Base):
         self.assertNotIn("[Threshold", private_engine.turn_context(self.priv))
 
 
+class Scene(Base):
+    """SCENE_v1: a room switch sends a scene line as an action, so the character speaks first."""
+
+    def test_going_in_names_the_place_and_that_it_is_during_work(self):
+        self.enter("/private on 비상계단")
+        self.assertEqual(threshold.pop_scene(self.priv), "(업무 도중 잠깐 함께 비상계단에 왔다)")
+        self.assertEqual(threshold.pop_scene(self.priv), "")                   # sent once
+
+    def test_coming_back_says_only_where_they_went(self):
+        self.enter("/private on 비상계단")
+        digested = []
+        self.assertIs(threshold.leave(self.priv, self.work, digested.append), self.work)
+        self.assertEqual(digested, [self.priv])
+        self.assertEqual(threshold.pop_scene(self.work), "(함께 비상계단에서 사무실로 돌아왔다)")
+        self.assertFalse((self.sessions / "p1" / threshold.SCENE_FILE).exists())
+
+    def test_without_a_place_or_recent_work_the_lines_stay_general(self):
+        for h in self.hist:
+            h["ts"] -= threshold.GIST_SEC + 10
+        self.enter()
+        self.assertEqual(threshold.pop_scene(self.priv), "(잠깐 둘만 있을 곳으로 함께 자리를 옮겼다)")
+        threshold.leave(self.priv, self.work)
+        self.assertEqual(threshold.pop_scene(self.work), "(둘만의 시간을 보내고 함께 사무실로 돌아왔다)")
+
+    def test_the_character_setting_turns_it_off(self):
+        state = self.data / "workspace" / "characters" / "c1" / "state.json"
+        state.parent.mkdir(parents=True)
+        state.write_text(json.dumps({"auto_scene": False}), encoding="utf-8")
+        self.enter("/private on 비상계단")
+        threshold.leave(self.priv, self.work)
+        self.assertEqual((threshold.pop_scene(self.priv), threshold.pop_scene(self.work)), ("", ""))
+
+
+class Pending(Base):
+    def test_the_first_turn_waits_for_a_gist_still_being_written(self):
+        _write = threshold._write
+        threshold._write(self.sessions, "p1", {"kind": "pending", "place": "", "ts": 0})
+        t = threading.Timer(0.5, lambda: _write(self.sessions, "p1", {"kind": "gist", "text": "Tired.", "place": ""}))
+        t.start()
+        self.assertIn("Tired.", threshold.take(self.priv, "coach"))
+
+    def test_a_gist_later_than_the_wait_is_dropped(self):
+        saved = threshold.WAIT_SEC
+        threshold.WAIT_SEC = 0.2
+        self.addCleanup(setattr, threshold, "WAIT_SEC", saved)
+        gate = threading.Event()
+
+        def slow(prompt, timeout):
+            gate.wait(5)
+            return {"text": "He looked tired."}
+        threshold.enter(self.work, self.priv, "/private on", self.sessions, slow, lambda: ("coach", "Nono"))
+        self.assertEqual(threshold.take(self.priv, "coach"), "")               # gave up waiting
+        gate.set()
+        _wait()
+        self.assertIsNone(self.note())                                         # and the late gist never lands
+
+
 class MoveOffer(Base):
     def test_two_offers_then_quiet_until_the_user_moves(self):
         busy = [{"id": "w1", "mode": "work", "turn": 0}]
@@ -140,6 +197,10 @@ class MoveOffer(Base):
 class Wiring(unittest.TestCase):
     def test_the_switch_accepts_a_place_and_hands_the_note(self):
         src = (ROOT / "server.py").read_text(encoding="utf-8")
+        self.assertIn("threshold.leave(sess, REG.get_active(sess.character), _digest_private_later)", src)
+        self.assertIn('"scene": threshold.pop_scene(target)', src)
+        page = (ROOT / "static" / "app-session.js").read_text(encoding="utf-8")
+        self.assertIn("if (res.scene && typeof sendAction === 'function') sendAction(res.scene);", page)
         self.assertIn('or stripped.startswith("/private on "):', src)
         self.assertIn("threshold.enter(sess, REG.get_private(sess.character, like=sess), text)", src)
 

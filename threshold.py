@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 FILE = "threshold.json"
+SCENE_FILE = "scene.json"   # where this private visit went, for the way back
+WAIT_SEC = 12               # the first private turn waits this long for a gist still being written
 STRENGTHS = ("off", "mood", "gist")
 DEFAULT = "gist"
 MAX_NOTE = 300
@@ -52,11 +54,19 @@ def clean(text: str) -> str:
     return " ".join(kept[:3])[:MAX_NOTE].strip()
 
 
-def _write(sessions: Path, sid: str, note: dict) -> None:
+def _read(path: Path) -> dict:
+    try:
+        d = json.loads(Path(path).read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _write(sessions: Path, sid: str, note: dict, name: str = FILE) -> None:
     d = Path(sessions) / sid
     if d.is_dir():
         import platform_compat
-        platform_compat.write_text(d / FILE, json.dumps(note, ensure_ascii=False), encoding="utf-8")
+        platform_compat.write_text(d / name, json.dumps(note, ensure_ascii=False), encoding="utf-8")
 
 
 def gist_prompt(rows, user_word: str, name: str, kind: str) -> str:
@@ -81,25 +91,58 @@ def _names(cid: str) -> tuple:
         return "user", "character"
 
 
+def _scene_in(place: str, during_work: bool) -> str:
+    where = ("잠깐 함께 %s에 왔다" % place) if place else "잠깐 둘만 있을 곳으로 함께 자리를 옮겼다"   # l10n-ok
+    return "(" + ("업무 도중 " if during_work else "") + where + ")"   # l10n-ok
+
+
+def _scene_out(place: str) -> str:
+    return ("(함께 %s에서 사무실로 돌아왔다)" % place) if place else "(둘만의 시간을 보내고 함께 사무실로 돌아왔다)"   # l10n-ok
+
+
+def auto_scene(state_path: Path) -> bool:
+    """SCENE_v1: does a room switch send a scene line so the character speaks first? (state.json `auto_scene`)"""
+    try:
+        return json.loads(Path(state_path).read_text(encoding="utf-8")).get("auto_scene", True) is not False
+    except (OSError, ValueError, AttributeError):
+        return True
+
+
+def _state(sessions: Path, cid: str) -> Path:
+    return Path(sessions).parent / "workspace" / "characters" / (cid or "_") / "state.json"
+
+
+def pop_scene(session) -> str:
+    """The scene line a switch left for the page to send as an action ("" when none)."""
+    line = getattr(session, "scene_action", "") or ""
+    session.scene_action = ""
+    return line
+
+
 def enter(work, priv, text: str = "", sessions: Optional[Path] = None, oneshot=None, names=None):
     """Called when `work` switches to its private session `priv`; returns `priv`. Never raises."""
     try:
+        import obslog
         import personal_turn
         sessions = Path(sessions or work.meta_path.parent.parent)
         personal_turn.moved(sessions, work.sid)   # W2b: the move offers start over
-        state = sessions.parent / "workspace" / "characters" / (priv.character or work.character or "_") / "state.json"
+        state = _state(sessions, priv.character or work.character)
         how = strength(state)
         place = place_hint(text)
-        if how == "off":
-            if place:
-                _write(sessions, priv.sid, {"kind": "place", "text": "", "place": place, "ts": time.time()})
-            return priv
         with work.lock:
             history = list(work.history)
         last = personal_turn.running_turn(history)
         age = time.time() - float(last or 0)
+        if auto_scene(state):
+            priv.scene_action = _scene_in(place, age < GIST_SEC)
+        _write(sessions, priv.sid, {"kind": "visit", "place": place, "ts": time.time()}, SCENE_FILE)
+        if how == "off":
+            if place:
+                _write(sessions, priv.sid, {"kind": "place", "text": "", "place": place, "ts": time.time()})
+            return priv
         if age < BRINK_SEC and personal_turn.is_marked(sessions, work.sid, last):
             _write(sessions, priv.sid, {"kind": "brink", "text": "", "place": place, "ts": time.time()})
+            obslog.event("private.threshold", session=priv.sid, kind="brink", chars=0, place=bool(place))
             return priv
         marked = personal_turn.marked(sessions, work.sid)
         rows, skip = [], False
@@ -114,17 +157,19 @@ def enter(work, priv, text: str = "", sessions: Optional[Path] = None, oneshot=N
                 _write(sessions, priv.sid, {"kind": "place", "text": "", "place": place, "ts": time.time()})
             return priv
         user_word, name = names() if names else _names(priv.character or work.character)
+        _write(sessions, priv.sid, {"kind": "pending", "place": place, "ts": time.time()})
 
         def run():
-            import obslog
             try:
                 ask = oneshot
                 if ask is None:
                     from session import _oneshot as ask
                 res = ask(gist_prompt(rows, user_word, name, how), 45) or {}
                 note = clean(res.get("text") or "")
-                if note or place:
-                    _write(sessions, priv.sid, {"kind": how, "text": note, "place": place, "ts": time.time()})
+                if _read(sessions / priv.sid / FILE).get("kind") != "pending":
+                    obslog.event("private.threshold", session=priv.sid, kind=how, chars=len(note), late=True)
+                    return   # the first turn stopped waiting: a late note would land on a later turn
+                _write(sessions, priv.sid, {"kind": how, "text": note, "place": place, "ts": time.time()})
                 obslog.event("private.threshold", session=priv.sid, kind=how, chars=len(note), place=bool(place))
             except Exception as e:  # noqa: BLE001
                 obslog.exception("private.threshold_exception", e, session=priv.sid)
@@ -135,14 +180,42 @@ def enter(work, priv, text: str = "", sessions: Optional[Path] = None, oneshot=N
     return priv
 
 
+def leave(priv, work, digest=None):
+    """Called when the private session `priv` switches back to `work`; returns `work`. Runs `digest(priv)` (the
+    private memory), and leaves the return scene line -- only where they went, never what happened."""
+    try:
+        if digest:
+            digest(priv)
+        sessions = Path(priv.meta_path).parent.parent
+        visit = _read(sessions / priv.sid / SCENE_FILE)
+        try:
+            (sessions / priv.sid / SCENE_FILE).unlink()
+        except OSError:
+            pass
+        if auto_scene(_state(sessions, work.character or priv.character)):
+            work.scene_action = _scene_out(str(visit.get("place") or ""))
+    except Exception as e:  # noqa: BLE001
+        import obslog
+        obslog.exception("private.leave_exception", e, session=getattr(priv, "sid", ""))
+    return work
+
+
 def take(session: Any, user_word: str = "the user") -> str:
     """The note for a private session's turn, once (the file is removed), as context; "" when none waits.
     A "brink" note raises the session's tension stage by one."""
     try:
         path = Path(session.meta_path).parent / FILE
-        note = json.loads(path.read_text(encoding="utf-8"))
+    except (TypeError, AttributeError):
+        return ""
+    note, until = _read(path), time.time() + WAIT_SEC
+    while note.get("kind") == "pending" and time.time() < until:
+        time.sleep(0.3)
+        note = _read(path)
+    try:
         path.unlink()
-    except (OSError, ValueError, AttributeError):
+    except OSError:
+        pass
+    if not note:
         return ""
     kind, text, place = note.get("kind"), str(note.get("text") or ""), str(note.get("place") or "")
     lines = ["[Threshold -- use once, in character; never quote or mention this note]"]

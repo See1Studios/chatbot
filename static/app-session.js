@@ -25,6 +25,9 @@ async function applyModeSwitch(res) {
   archiveBrowse = false;
   await openSession(target.id, 0, null, true);
   addActivity(sessionMode === 'private' ? '사적 대화로 전환: ' + target.id : '업무 대화로 복귀: ' + target.id, 'system');
+  // SCENE_v1 (private-mode.md §8.4-8.5): a room switch is a scene change -- the host's scene line goes as an
+  // action, so the character reacts first instead of waiting for the user
+  if (res.scene && typeof sendAction === 'function') sendAction(res.scene);
 }
 
 function updatePrivateBtn() {
