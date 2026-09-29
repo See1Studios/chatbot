@@ -161,8 +161,36 @@ class PageMark(unittest.TestCase):
         self.assertIn("getActionSvg('lock')", js)
         self.assertIn("lock:", (ROOT / "static" / "app-messages.js").read_text(encoding="utf-8"))
         css = (ROOT / "static" / "chat-log.css").read_text(encoding="utf-8")
-        self.assertIn("#log > .msg.user > .personal-mark{display:none}", css)
+        self.assertIn("#log .personal-mark{display:none}", css)
+        self.assertIn("body.density-advanced #log > .msg.assistant > .msg-footer > .personal-mark{display:inline-flex", css)
         self.assertIn("body.density-advanced #log > .msg.user > .personal-mark{display:inline-flex", css)
+
+    @unittest.skipUnless(__import__("shutil").which("node"), "node not installed")
+    def test_the_lock_goes_on_the_marked_bubble_and_the_replies_footer_until_the_next_user_bubble(self):
+        js = r"""
+const src = require('fs').readFileSync(process.argv[1], 'utf8');
+const cut = src.slice(src.indexOf('const PERSONAL_TEXT'), src.indexOf('// CHAT_DENSITY_v1'));
+const el = (cls, ts, footer) => {
+  const kids = [];
+  const n = { classList: { contains: c => cls.includes(c), toggle() {} }, dataset: ts ? { ts } : {}, kids,
+              appendChild(k) { kids.push(k); }, querySelector: q => q.includes('msg-footer') ? footer : null };
+  return n;
+};
+const box = () => { const kids = []; return { kids, appendChild(k) { kids.push(k); }, querySelector: () => null }; };
+const f1 = box(), f2 = box(), f3 = box();
+const nodes = [el(['msg', 'user'], '10.0'), el(['msg', 'assistant'], '11', f1), el(['msg', 'assistant', 'system'], '', box()),
+               el(['msg', 'assistant'], '12', f2), el(['msg', 'user'], '20.0'), el(['msg', 'assistant'], '21', f3)];
+const env = { sessionId: 's', api: async () => ({ turns: ['10.000'] }), getActionSvg: () => '<svg/>',
+              document: { createElement: () => ({ setAttribute() {} }) } };
+const mark = new Function(...Object.keys(env), cut + '; return markPersonal;')(...Object.values(env));
+mark({ children: nodes }).then(() => console.log(JSON.stringify([nodes[0].kids.length, f1.kids.length, f2.kids.length,
+                                                                  nodes[4].kids.length, f3.kids.length])));
+"""
+        import subprocess
+        out = subprocess.run(["node", "-e", js, str(ROOT / "static" / "app-flow.js")], capture_output=True, text=True,
+                             encoding="utf-8", timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(json.loads(out.stdout), [1, 1, 1, 0, 0])
 
     def test_page_and_host_key_a_turn_the_same_way(self):
         self.assertIn("n.toFixed(3)", (ROOT / "static" / "app-flow.js").read_text(encoding="utf-8"))

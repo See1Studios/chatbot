@@ -556,7 +556,8 @@ body:not(.density-advanced) .msg.assistant .msg-footer{border-top-color:transpar
 }
 
 /* PERSONAL_TURN_v1: the lock on a work-room turn kept out of work memory -- advanced density only */
-#log > .msg.user > .personal-mark{display:none}
+#log .personal-mark{display:none}
 body.density-advanced #log > .msg.user > .personal-mark{display:inline-flex;position:absolute;left:-1.4rem;bottom:.35rem;opacity:.55;color:var(--muted)}
 body.density-advanced #log > .msg.user > .personal-mark .action-icon-svg{width:13px;height:13px}
 body.density-advanced #log > .msg.user.personal{position:relative}
+body.density-advanced #log > .msg.assistant > .msg-footer > .personal-mark{display:inline-flex;align-items:center;opacity:.55;color:var(--muted)}

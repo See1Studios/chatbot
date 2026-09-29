@@ -100,7 +100,7 @@ function startChatFlow() {
 }
 
 // PERSONAL_TURN_v1 (private-mode.md §8.3): a work-room turn the character marked personal gets a small lock on the
-// user's bubble -- shown only in the advanced density (chat-log.css), the simple chat stays the conversation. Marks come
+// user's bubble and in the footer of the character's reply -- shown only in the advanced density (chat-log.css), the simple chat stays the conversation. Marks come
 // from GET /api/sessions/<sid>/personal-turns, keyed by the user message's ts to the millisecond.
 const PERSONAL_TEXT = { title: '사적인 순간: 업무 기억에 남지 않아요' };   // l10n-ok
 let personalTimer = 0;
@@ -122,18 +122,23 @@ async function markPersonal(log) {
   try {
     keys = new Set((await api('/api/sessions/' + encodeURIComponent(sid) + '/personal-turns')).turns || []);
   } catch (_) { return; }   // no marks this time; the next render asks again
-  log.querySelectorAll(':scope > .msg.user').forEach(n => {
-    const on = keys.has(personalKey(n.dataset.ts));
-    n.classList.toggle('personal', on);
-    const mark = n.querySelector(':scope > .personal-mark');
-    if (on && !mark && typeof getActionSvg === 'function') {
+  // the user's marked bubble, and the character's replies to it (in their footer) until the next user bubble
+  let inTurn = false;
+  Array.from(log.children).forEach(n => {
+    if (n.classList.contains('user')) inTurn = keys.has(personalKey(n.dataset.ts));
+    else if (!n.classList.contains('assistant') || n.classList.contains('system')) return;
+    const host = n.classList.contains('user') ? n : n.querySelector(':scope > .msg-footer');
+    if (!host) return;
+    n.classList.toggle('personal', inTurn);
+    const mark = host.querySelector(':scope > .personal-mark');
+    if (inTurn && !mark && typeof getActionSvg === 'function') {
       const el = document.createElement('span');
       el.className = 'personal-mark';
       el.title = PERSONAL_TEXT.title;
       el.setAttribute('aria-label', PERSONAL_TEXT.title);
       el.innerHTML = getActionSvg('lock');
-      n.appendChild(el);
-    } else if (!on && mark) mark.remove();
+      host.appendChild(el);
+    } else if (!inTurn && mark) mark.remove();
   });
 }
 
