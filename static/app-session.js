@@ -507,7 +507,7 @@ async function loadOlderHistory() {
           }
         }
         const divider = document.createElement('div');
-        divider.className = 'msg scrollback-marker';
+        divider.className = 'msg scrollback-marker session-divider';   // CHAT_FLOW_v1: advanced density only
         divider.innerHTML = '── 세션 ' + escapeHtml(scrollbackSid) + ' ──' +
           ' <button class="session-switch-btn" data-switch-sid="' + escapeHtml(scrollbackSid) + '" type="button">이 세션으로 전환</button>' +
           ' <button class="session-import-btn" data-import-sid="' + escapeHtml(scrollbackSid) + '" type="button">' + getActionSvg('pin') + ' 가져오기</button>';
@@ -606,7 +606,7 @@ async function loadNewerHistory() {
       const showThisHop = hist.length && !alreadyRendered;
       if (showThisHop) {
         const divider = document.createElement('div');
-        divider.className = 'msg scrollback-marker';
+        divider.className = 'msg scrollback-marker session-divider';   // CHAT_FLOW_v1: advanced density only
         divider.innerHTML = '── 세션 ' + escapeHtml(scrollforwardSid) + ' (이후 대화) ──' +
           ' <button class="session-switch-btn" data-switch-sid="' + escapeHtml(scrollforwardSid) + '" type="button">이 세션으로 전환</button>' +
           ' <button class="session-import-btn" data-import-sid="' + escapeHtml(scrollforwardSid) + '" type="button">' + getActionSvg('pin') + ' 가져오기</button>';

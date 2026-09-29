@@ -461,3 +461,12 @@ html:not(.stage-ready) .stage::before{opacity:0 !important}
 .msg.assistant .md-block[data-kind="dialogue"] > *:first-child,
 .msg.assistant .md-dialogue > *:first-child{margin-top:0}
 .msg.assistant .md-block > *:last-child{margin-bottom:0}
+
+/* CHAT_FLOW_v1 (app-flow.js): the day, not the session, divides the conversation. A session divider (the brain's
+   memory window) shows in the advanced density only; a run of the user's bubbles sits close together. */
+.day-divider{align-self:center;display:flex;align-items:center;gap:.6rem;width:100%;max-width:26rem;margin:.35rem 0;
+  font-size:.74rem;color:var(--muted);user-select:none}
+.day-divider::before,.day-divider::after{content:"";flex:1;height:1px;background:var(--border)}
+.session-divider{display:none}
+body.density-advanced .session-divider{display:flex}
+#log > .msg.user.cont{margin-top:-.5rem;border-top-right-radius:4px}
