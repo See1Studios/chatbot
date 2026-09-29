@@ -3,6 +3,7 @@
  "approved_at": "2026-09-29 09:35:53",
  "approved_by": "operator (ui)",
  "attempts": 0,
+ "closed_reason": "declined",
  "created": "2026-09-29 09:29:47",
  "evidence": [
   "event:20260929-092709-ae700f#9"
@@ -29,15 +30,20 @@
    "by": "host",
    "text": "waiting for the operator to allow more paths: attempt given back",
    "ts": "2026-09-29 09:48:06"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "declined",
+   "ts": "2026-09-29 11:09:45"
   }
  ],
  "paths": [
   "static/chat-log.css",
   "static/markdown.js"
  ],
- "status": "approved",
+ "status": "declined",
  "target": "static/chat-log.css,static/markdown.js",
  "title": "속마음 토글 버튼을 [ ··· ] 칩으로 변경",
- "updated": "2026-09-29 09:48:06",
+ "updated": "2026-09-29 11:09:45",
  "worked_by": "agy"
 }
