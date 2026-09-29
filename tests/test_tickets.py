@@ -369,6 +369,34 @@ class LeaseScopeTest(Base):
                          ["static/app.js", "x.py", "chatbot/y.py", "z.py"])
 
 
+class ContentWorkTest(unittest.TestCase):
+    """CONTENT_WORK_v1 (plan dlg/E, #392): user data is not code -- no guard run and no commit before done."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        subprocess.check_call(["git", "init", "-q"], cwd=str(self.root))
+        self.data = self.root / "data"
+        (self.data / "sessions" / "s1").mkdir(parents=True)          # the evidence a proposal needs
+        (self.data / "sessions" / "s1" / "events.jsonl").write_text('{"event":"system"}\n{"event":"error"}\n',
+                                                                    encoding="utf-8")
+
+    def test_only_paths_under_the_data_folder_are_content(self):
+        self.assertTrue(tickets.is_content(self.data, ["data/workspace/characters/c/gallery/p.png"]))
+        self.assertFalse(tickets.is_content(self.data, ["data/workspace/x.md", "session.py"]))
+        self.assertFalse(tickets.is_content(self.data, ["data/../session.py"]))
+        self.assertFalse(tickets.is_content(self.data, []))
+        self.assertFalse(tickets.is_content(self.root, ["x.md"]))        # the data folder is the repo: no line
+
+    def test_content_closes_without_guards_or_a_commit(self):
+        (self.data / "pic.png").write_text("new", encoding="utf-8")       # untracked: would block code work
+        t, _ = tickets.propose(self.data, "a picture", "gallery", [EVENT], now=T0)
+        tickets.approve(self.data, t["id"], now=T0, operator=tickets.OPERATOR_CONFIRMED)
+        c = tickets.claim(self.data, t["id"], now=T0, paths=["data/pic.png"])
+        with mock.patch.object(tickets, "_guard_failure", side_effect=AssertionError("no guards for content")):
+            r = tickets.release(self.data, t["id"], c["token"], "done", now=T0)
+        self.assertEqual(r["ticket"]["status"], "done")
+
+
 class WidenTest(Base):
     """TICKET_WIDEN_v1 (#385): the author adds files to its ticket instead of giving it up and opening another."""
 

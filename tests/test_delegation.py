@@ -382,6 +382,13 @@ class OperatorTest(Base):
         self.assertEqual(out["status"], "done")
         self.assertEqual([l for l in tickets.leases(self.data) if l["ticket"] == tid], [])
 
+    def test_a_user_data_plan_runs_as_content_work(self):
+        # CONTENT_WORK_v1 (#392): a gallery picture needs no worktree, gates, review or merge
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        with mock.patch.object(tickets, "is_content", return_value=True):
+            delegation.go(tid)
+        self.assertIn("--content", self.spawned[-1][1])
+
     def test_a_landed_run_is_closed_only_when_its_commit_is_on_main(self):
         tid = self.awaiting()
         r = delegation.runner()

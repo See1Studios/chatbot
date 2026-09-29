@@ -427,6 +427,8 @@ def _launch(tid: int, token: str, args: List[str], back_to_waiting: bool = False
     st = runner().read_state(tid)
     args = args + ["--provider", DELEGATE_PROVIDER, "--title", st["title"], "--paths", ",".join(st["paths"]),
                    "--stop-before-merge", "--json", "--cross-review"]
+    if tickets.is_content(DATA, st["paths"]):      # CONTENT_WORK_v1: user data only -- written in place
+        args += ["--content"]
     if DELEGATE_REVIEWER:
         args += ["--reviewer", DELEGATE_REVIEWER]
     if DELEGATE_MODEL:

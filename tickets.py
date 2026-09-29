@@ -395,6 +395,23 @@ def _guard_failure(data) -> str:
     return failed[-1] if failed else "run-tests.sh --fast exited %d" % r.returncode
 
 
+def is_content(data, paths) -> bool:
+    """CONTENT_WORK_v1 (plan dlg/E): every path is user data -- under the data folder: a picture for the gallery, a
+    note, a character file. Content is not code: no guard tests and no commit stand before its done (#371 was one
+    picture and went through the whole code pipeline). False when the data folder is the repo itself (no line)."""
+    rels = [p for p in (paths or []) if p]
+    d = Path(data).resolve()
+    root = _git_root(data)
+    if not rels or root is None or root == d:
+        return False
+    for p in rels:
+        q = Path(p)
+        full = (q if q.is_absolute() else root / q).resolve()
+        if full != d and d not in full.parents:
+            return False
+    return True
+
+
 def _ship_blockers(data, t: Dict) -> List[str]:
     """Uncommitted paths that block `done`. Empty when there is no git or no paths."""
     rels = _paths_of(t)
@@ -751,7 +768,8 @@ def claim(data, ticket_id, token: Optional[str] = None, now: Optional[float] = N
             _save(data, t)
             raise TicketError("ticket %d used up its %d attempts and is closed as wontfix (needs-human)" % (tid, MAX_ATTEMPTS))
         if norm_paths:
-            leftover = _ship_blockers(data, {"paths": norm_paths})
+            # user data is never committed (CONTENT_WORK_v1): uncommitted files there are not someone's leftover
+            leftover = [] if is_content(data, norm_paths) else _ship_blockers(data, {"paths": norm_paths})
             if leftover:
                 _note(t, _agent_by(actor), "claim refused: uncommitted leftover in %s" % ", ".join(leftover[:5]), t_now)
                 _save(data, t)
@@ -798,7 +816,7 @@ def widen(data, ticket_id, token: Optional[str], paths, now: Optional[float] = N
             block = _conflicts(data, tid, added, t_now)
             if block:
                 raise _blocked(data, t, _agent_by(actor, t), "widen", block, t_now)
-            leftover = _ship_blockers(data, {"paths": added})
+            leftover = [] if is_content(data, added) else _ship_blockers(data, {"paths": added})
             if leftover:
                 raise TicketError("widen refused: uncommitted leftover in %s; commit or revert before adding it"
                                   % ", ".join(leftover[:5]))
@@ -833,7 +851,8 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
     t_now = _now(now)
     if outcome not in ("done", "gate_failed", "failed", "abandoned", "unavailable", "paused"):
         raise TicketError("outcome must be done, gate_failed, failed, abandoned, unavailable or paused")
-    if outcome == "done":
+    content = outcome == "done" and is_content(data, _paths_of(_load(data, ticket_id)))
+    if outcome == "done" and not content:
         guard = _guard_failure(data)   # before the lock: ~11 s must not hold up everyone else's ticket calls
         if guard:
             raise TicketError("cannot mark done: guard tests fail (%s); fix them and release again, "
@@ -842,7 +861,7 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
         t = _load(data, ticket_id)
         if not _holds(_read_lease(data, t["id"]), t["id"], token, t_now):
             raise TicketError("you do not hold the author lease for ticket %d (missing, wrong or expired token)" % t["id"])
-        if outcome == "done":
+        if outcome == "done" and not content:
             leftover = _ship_blockers(data, t)
             if leftover:
                 raise TicketError("cannot mark done: uncommitted changes in %s" % ", ".join(leftover[:8]))

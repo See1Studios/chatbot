@@ -533,6 +533,29 @@ class WorktreeRunner(unittest.TestCase):
         self.brains("staff", [{"provider": "slow", "timeout": 1}, {"provider": "good"}])
         self.assertEqual(self.run_with("exit 9"), 0)
 
+    # ---- CONTENT_WORK_v1 (plan dlg/E, #392): user-data work is written in place
+
+    def test_content_work_is_written_in_place_without_worktree_commit_or_review(self):
+        (self.repo / "data").mkdir()
+        (self.repo / "data" / "pic.txt").write_text("old\n")
+        self.assertEqual(self.run_with("echo new > data/pic.txt", paths="data/pic.txt", review="exit 9",
+                                       extra=("--content",)), 0)
+        self.assertEqual((self.repo / "data" / "pic.txt").read_text(), "new\n")
+        kept = list((self.repo / "data" / "_old").glob("pic.txt.*"))
+        self.assertEqual([k.read_text() for k in kept], ["old\n"])
+        self.assertEqual(self.code_head(), self.init)                 # nothing committed
+        self.assertFalse((wr.WORKTREE_BASE / "ticket-7").exists())
+        st = wr.read_state(7)
+        self.assertEqual((st["phase"], st["content"]), ("done", True))
+        self.assertFalse([ln for ln in st["transcript"] if ln["role"] == "reviewer"])
+
+    def test_content_work_that_touches_other_files_fails(self):
+        (self.repo / "data").mkdir()
+        self.assertEqual(self.run_with("echo x > data/pic.txt; echo y >> a.txt", paths="data/pic.txt",
+                                       extra=("--content",)), 1)
+        self.assertIn("outside its paths: a.txt", wr.read_state(7)["reason"])
+        sh(self.repo, "git", "checkout", "--", "a.txt")
+
     # ---- REVIEW_CROSS_v1 (plan dlg/B): another provider than the writer's confirms the work
 
     def test_cross_chain_puts_another_provider_first(self) -> None:

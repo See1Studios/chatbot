@@ -901,6 +901,97 @@ def plan_tasks(args, st: Dict, paths: List[str]) -> List[Dict]:
     return [{"role": WORKER_ROLE, "title": args.title, "instruction": args.prompt, "paths": paths}]
 
 
+# ------------------------------------------------------------------ content
+
+def dirty_paths(repo: Path) -> set:
+    """Changed or new files git sees in `repo` (the scope check of content work)."""
+    _, out, _ = git(repo, "status", "--porcelain", "-uall")
+    found = set()
+    for ln in out.splitlines():
+        parts = ln.strip().split(None, 1)          # "XY path": the output may come with its first space trimmed
+        if len(parts) == 2:
+            found.add(parts[1].split(" -> ")[-1].strip('"'))
+    return found
+
+
+def keep_old(repo: Path, paths: List[str]) -> List[str]:
+    """Copy each existing file in `paths` to `<its folder>/_old/<name>.<time>` before content work may overwrite it."""
+    kept, stamp = [], time.strftime("%Y%m%d-%H%M%S")
+    for p in paths:
+        f = repo / p
+        if f.is_file():
+            dst = f.parent / "_old" / ("%s.%s" % (f.name, stamp))
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(f), str(dst))
+            kept.append(str(dst.relative_to(repo)))
+    return kept
+
+
+def content_prompt(tid: int, title: str, repo: Path, paths: List[str], instruction: str, character: str,
+                   memory: str = "") -> str:
+    remembered = ["What you remember from earlier work (yours alone):", memory, ""] if memory.strip() else []
+    return "\n".join(remembered + [
+        "You are working on ticket #%d (%s): user content, not code." % (tid, title),
+        "Working directory: %s. Write only these repo-relative paths: %s. Do not touch any other file, do not commit, "
+        "do not run tests, do not restart anything. Files you overwrite were copied to _old/ first." % (repo, ", ".join(paths)),
+        "The operator looks at the result and decides; nobody reviews it before that.",
+        "", instruction, "", character, LINE_RULE])
+
+
+def run_content(args, repo: Path, provider: str, paths: List[str], tid: int, token: str, actor: str,
+                result: Dict) -> int:
+    """CONTENT_WORK_v1 (plan dlg/E): work whose paths are all user data (tickets.is_content) is written in place --
+    no worktree, commit, gates, PD review or merge (#371: one picture went through all of them and its close failed
+    four times). The operator's eyes are the check (a gallery picture waits there until placed). Files it would
+    overwrite are kept in _old/; a change outside the paths fails the run and is reported, not undone."""
+    transcript: List[Dict] = []
+    try:
+        st = read_state(tid)
+        tasks = plan_tasks(args, st, paths)
+        before = dirty_paths(repo)
+        kept = keep_old(repo, paths)
+        write_state(tid, phase="running", content=True, round=0, task=0, tasks_total=len(tasks), started=time.time(),
+                    phase_since=time.time(), title=args.title, provider=provider, reviewer=None, paths=paths,
+                    transcript=transcript, reason="", kept=False, tasks_done=0)
+        for tno, task in enumerate(tasks, 1):
+            writer_p = persona(task["role"])
+            chain = expert_chain(task["role"], [{"provider": provider, "model": args.model, "timeout": 0}])
+            brief = content_prompt(tid, task["title"], repo, task["paths"], task["instruction"],
+                                   character_block(writer_p, persona(), STAFF_RELATION), read_memory(task["role"]))
+            skipped, res, b = [], None, chain[0]
+            for bi, b in enumerate(chain):
+                timeout = b["timeout"] or args.timeout
+                write_state(tid, phase="writing", task=tno, round=1, brain=brain_label(b), phase_since=time.time(),
+                            timeout_sec=timeout)
+                res = run_agent(b["provider"], repo, brief, timeout, model=b["model"])
+                if res["ok"]:
+                    break
+                why = tail(res["stderr"] or res["stdout"], 5)
+                if unavailable(why, res["returncode"]) and bi + 1 < len(chain):
+                    skipped.append(brain_label(b))
+                    continue
+                raise Failure("unavailable" if unavailable(why, res["returncode"]) else "failed",
+                              "agent %s: %s" % (brain_label(b), why[:200]), tail(res["stdout"]))
+            line = {"task": tno, "round": 1, "role": "writer", "name": writer_p["name"], "text": said(res["stdout"]),
+                    "brain": brain_label(b)}
+            if skipped:
+                line["skipped"] = skipped
+            transcript.append(line)
+            write_state(tid, transcript=transcript, tasks_done=tno)
+        outside = sorted(p for p in dirty_paths(repo) - before if not in_scope(p, paths) and "/_old/" not in "/" + p)
+        if outside:
+            raise Failure("failed", "content work changed files outside its paths: %s" % ", ".join(outside[:5]))
+        made = [p for p in paths if (repo / p).exists()]
+        if not made:
+            raise Failure("failed", "content work wrote none of %s" % ", ".join(paths[:5]))
+        close_done(tid, token, actor, "content written in place: %s%s" % (
+            ", ".join(made[:5]), "; kept in _old/: %d" % len(kept) if kept else ""), result)
+    except Failure as f:
+        release_failed(tid, token, f, provider, actor, result)
+    result["transcript"] = transcript
+    return record_and_report(repo, tid, provider, args.title, result, args.json, transcript)
+
+
 def cmd_run(args) -> int:
     repo = CHATBOT_REPO
     provider = args.provider
@@ -965,6 +1056,8 @@ def cmd_run(args) -> int:
     branch, wt_dir = names(tid)
     result.update(ticket=tid, branch=branch, worktree=str(wt_dir))
     log("ticket #%d claimed (paths: %s)" % (tid, ", ".join(paths)))
+    if args.content:
+        return run_content(args, repo, provider, paths, tid, token, actor, result)
 
     created = False
     from_attic = False
@@ -1291,6 +1384,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--timeout", type=int, default=1200, help="Agent timeout per round in seconds (max %d)" % MAX_AGENT_TIMEOUT)
     p.add_argument("--reviewer", choices=sorted(PROVIDERS), help="Provider for the PD's confirmation (default: --provider)")
     p.add_argument("--model", default="", help="Worker model (default: the provider's work model, else its CLI default)")
+    p.add_argument("--content", action="store_true",
+                   help="User-data work (CONTENT_WORK_v1): write in place, no worktree, gates, review or merge")
     p.add_argument("--cross-review", action="store_true",
                    help="When the PD has no brain of another provider than the writer's, confirm with another installed "
                         "provider first (REVIEW_CROSS_v1)")
