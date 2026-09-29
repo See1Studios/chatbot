@@ -43,6 +43,7 @@ const logEl = el('div');
 const plainQuery = logEl.querySelectorAll;
 logEl.querySelectorAll = function (sel) {
   if (sel === '.msg:not(.system)') return this.children.filter(c => /\bmsg\b/.test(c.className) && !/\bsystem\b/.test(c.className));
+  if (sel === '.msg.assistant:not(.system)') return this.children.filter(c => /\bmsg\b/.test(c.className) && /\bassistant\b/.test(c.className) && !/\bsystem\b/.test(c.className));
   return plainQuery.call(this, sel);
 };
 const sent = [];
@@ -256,11 +257,26 @@ const barAfterNonLatestCall = {
   chips: choiceBar.children[0] ? choiceBar.children[0].all('.choice-chip').map(x => x.textContent) : [],
 };
 
+// When user message follows latest assistant message, latest assistant is still recognized as latest assistant
+const mUserAfter = el('div');
+mUserAfter.className = 'msg user';
+mUserAfter.appendChild(el('div'));
+mUserAfter.parent = logEl;
+logEl.children.push(mUserAfter);
+api.renderChoiceChips(mNew, ['New 1 Updated', 'New 2 Updated']);
+
+const barAfterUserAppended = {
+  hidden: choiceBar.hidden,
+  ownerMatches: choiceBar._owner === mNew,
+  chips: choiceBar.children[0] ? choiceBar.children[0].all('.choice-chip').map(x => x.textContent) : [],
+};
+
 out.prependDefense = {
   barBeforePrepend,
   barAfterPrependWithChoices,
   barAfterPrependEmpty,
   barAfterNonLatestCall,
+  barAfterUserAppended,
 };
 
 // Generalized sticky-bottom scroll with shared ResizeObserver (#211)
@@ -603,6 +619,11 @@ console.log(JSON.stringify({smartCombo, rawCombo, smartAct, longAct, longCombo, 
         self.assertFalse(d["barAfterNonLatestCall"]["hidden"])
         self.assertTrue(d["barAfterNonLatestCall"]["ownerMatches"])
         self.assertEqual(d["barAfterNonLatestCall"]["chips"], ["New 1", "New 2"])
+
+        # When user message is newest in logEl, calling renderChoiceChips on latest assistant is not blocked
+        self.assertFalse(d["barAfterUserAppended"]["hidden"])
+        self.assertTrue(d["barAfterUserAppended"]["ownerMatches"])
+        self.assertEqual(d["barAfterUserAppended"]["chips"], ["New 1 Updated", "New 2 Updated"])
 
     def test_post_process_assistant_records_choices_and_app_messages_prepend(self):
         js = r"""

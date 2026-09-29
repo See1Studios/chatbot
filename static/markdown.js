@@ -666,20 +666,19 @@ function renderChoiceChips(node, choices, isPrepend) {
   const isPrependState = Boolean(isPrepend || (node && (node._prepend || (node.dataset && node.dataset.prepend === '1'))));
   let isNotLatestAssistant = false;
   if (typeof logEl !== 'undefined' && logEl && node) {
-    const msgs = typeof logEl.querySelectorAll === 'function' ? logEl.querySelectorAll('.msg:not(.system)') : [];
+    let msgs = [];
+    if (typeof logEl.querySelectorAll === 'function') {
+      try { msgs = logEl.querySelectorAll('.msg.assistant:not(.system)'); } catch (_) {}
+      if (!msgs || !msgs.length) {
+        const all = logEl.querySelectorAll('.msg:not(.system)') || [];
+        msgs = Array.prototype.filter.call(all, m => /\bassistant\b/.test(m.className || '') && !/\bsystem\b/.test(m.className || ''));
+      }
+    }
     if (msgs && msgs.length) {
       const last = msgs[msgs.length - 1];
-      let inLog = false;
-      if (typeof logEl.contains === 'function') {
-        inLog = logEl.contains(node);
-      } else {
-        for (let i = 0; i < msgs.length; i++) {
-          if (msgs[i] === node) { inLog = true; break; }
-        }
-      }
-      if (inLog && node !== last) {
-        isNotLatestAssistant = true;
-      }
+      let inLog = (typeof logEl.contains === 'function') ? logEl.contains(node) : false;
+      if (!inLog) { for (let i = 0; i < msgs.length; i++) { if (msgs[i] === node) { inLog = true; break; } } }
+      if (inLog && node !== last) isNotLatestAssistant = true;
     }
   }
   const skipBar = isPrependState || isNotLatestAssistant;
