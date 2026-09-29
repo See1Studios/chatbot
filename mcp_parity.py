@@ -138,7 +138,7 @@ def _skill(args: dict, srv, env) -> dict:
         if not f.is_file():
             return env(False, "no such skill: %s" % name, None)
         text = f.read_text(encoding="utf-8", errors="replace")
-        refs = sorted(str(p.relative_to(f.parent)) for p in f.parent.rglob("*") if p.is_file() and p != f)[:50]
+        refs = sorted(p.relative_to(f.parent).as_posix() for p in f.parent.rglob("*") if p.is_file() and p != f)[:50]
         return env(True, "ok", {"name": name, "path": str(f), "content": srv._scrub_text(text[:SKILL_CHARS]),
                                 "truncated": len(text) > SKILL_CHARS, "files": refs})
     return env(False, "action must be list or load", None)

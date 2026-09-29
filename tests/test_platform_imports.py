@@ -88,6 +88,23 @@ def text_io_without_encoding(path):
     return ["%s:%d" % (path.relative_to(ROOT).as_posix(), ln) for ln in out]
 
 
+def str_of_relative_to(path):
+    """str(x.relative_to(...)): a \\-path on Windows where the page or an agent expects / -- use .as_posix() (#403)."""
+    out = []
+    for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "str" and n.args
+                and isinstance(n.args[0], ast.Call) and isinstance(n.args[0].func, ast.Attribute)
+                and n.args[0].func.attr == "relative_to"):
+            out.append("%s:%d" % (path.relative_to(ROOT).as_posix(), n.lineno))
+    return out
+
+
+class PathSeparators(unittest.TestCase):
+    def test_relative_paths_are_spelled_with_slashes(self):
+        bad = [x for p in engine_files() for x in str_of_relative_to(p)]
+        self.assertEqual(bad, [], "use .relative_to(...).as_posix()")
+
+
 class TextEncoding(unittest.TestCase):
     def test_engine_text_io_names_its_encoding(self):
         # FIREBAT 2026-09-29 (#401): without UTF-8 mode a Korean Windows reads and writes text as cp949

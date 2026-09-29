@@ -85,7 +85,7 @@ def _slot(cid: str, kind: str, name: str, framing: str = "bust", brain: str = ""
         rel = "sprites/%s/%s.webp" % (framing, name) + ("?provider=" + brain if brain else "")
     base = _base(cid, ws)
     try:
-        shows = str(shown.relative_to(base))
+        shows = shown.relative_to(base).as_posix()
     except ValueError:
         shows = ""
     return {"kind": kind, "name": name or "main", "framing": framing if kind == "emotion" else "", "brain": brain,
@@ -180,7 +180,7 @@ def _retire(path: Path, base: Path) -> None:
     stamp = time.strftime("%Y%m%d-%H%M%S")
     for p in (path, path.with_suffix(".png")):
         if p.is_file():
-            rel = str(p.relative_to(base)).replace("/", "__")
+            rel = p.relative_to(base).as_posix().replace("/", "__")
             dest = base / "_old" / ("%s-%s" % (stamp, rel))
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(p), str(dest))

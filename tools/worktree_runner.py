@@ -923,7 +923,7 @@ def keep_old(repo: Path, paths: List[str]) -> List[str]:
             dst = f.parent / "_old" / ("%s.%s" % (f.name, stamp))
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(str(f), str(dst))
-            kept.append(str(dst.relative_to(repo)))
+            kept.append(dst.relative_to(repo).as_posix())
     return kept
 
 

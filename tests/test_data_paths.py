@@ -57,8 +57,9 @@ class DataPaths(unittest.TestCase):
             hc, tk = json.loads(r.stdout.strip().splitlines()[-1])
             self.assertEqual(hc, tk, "host_config and tickets disagree for %s" % extra)
             if extra:
-                self.assertEqual(hc, extra.get("CHATBOT_DATA") or extra.get("PE_HOME") or extra.get("PRIVATEENGINE_HOME")
-                                 or extra.get("AGY_CHAT_DATA"))
+                want = (extra.get("CHATBOT_DATA") or extra.get("PE_HOME") or extra.get("PRIVATEENGINE_HOME")
+                        or extra.get("AGY_CHAT_DATA"))
+                self.assertEqual(hc, str(Path(want)))   # the OS's own spelling: \\tmp\\pe-a on Windows (#403)
 
     def test_ctl_follows_the_same_order(self):
         ctl = (ROOT / "chatbot-ctl.sh").read_text(encoding="utf-8")

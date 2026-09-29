@@ -318,7 +318,7 @@ def agent_instructions() -> list:
             continue
         why = _protected_why(path)
         try:
-            rel = str(path.relative_to(ROOT))
+            rel = path.relative_to(ROOT).as_posix()
         except ValueError:
             rel = str(path)
         out.append({"id": iid, "title": title, "path": rel, "layer": layer, "kind": "file", "editable": why is None,
@@ -346,7 +346,7 @@ def _backup(fp: Path) -> None:
     if not fp.exists():
         return
     d = WORKSPACE.parent / "backups" / "instructions"
-    stem = str(fp.relative_to(WORKSPACE)).replace("/", "__")
+    stem = fp.relative_to(WORKSPACE).as_posix().replace("/", "__")
     try:
         d.mkdir(parents=True, exist_ok=True)
         (d / ("%s.%s" % (stem, time.strftime("%Y%m%d%H%M%S")))).write_text(

@@ -152,6 +152,11 @@ def _collect_new_images(conversation_id: Optional[str], last_activity: float, si
     return uniq[:8]
 
 
+def _root_rx(root) -> str:
+    """A folder as a pattern that accepts either separator: on Windows an agent writes `C:\\x\\y/z.png` (#403)."""
+    return r"[\\/]".join(re.escape(part) for part in re.split(r"[\\/]", str(root)))
+
+
 def _rewrite_artifact_paths(sid: str, conversation_id: Optional[str], text: str) -> str:
     if not text:
         return text
@@ -164,13 +169,15 @@ def _rewrite_artifact_paths(sid: str, conversation_id: Optional[str], text: str)
 
     def repl_path(m: re.Match) -> str:
         raw = m.group(0)
+        flat = raw.replace("\\", "/")          # compare with / on every OS; the file itself is opened from `raw`
         for prefix, label in [(str(r) + "/", "brain/") for r in text_roots] + [
             (str(workspace / "artifacts") + "/", ""),
             (str(artifacts_cache) + "/", ""),
             (str(workspace) + "/", ""),
         ]:
-            if raw.startswith(prefix):
-                rel = label + raw[len(prefix):] if label.startswith("brain") else raw[len(prefix):]
+            prefix = prefix.replace("\\", "/")
+            if flat.startswith(prefix):
+                rel = label + flat[len(prefix):] if label.startswith("brain") else flat[len(prefix):]
                 try:
                     src = Path(raw)
                     if src.is_file() and label.startswith("brain"):
@@ -186,13 +193,13 @@ def _rewrite_artifact_paths(sid: str, conversation_id: Optional[str], text: str)
 
     for root in text_roots:
         text = re.sub(
-            r"(?:file://)?(" + re.escape(str(root)) + r"/[^\s\)\"']+\.(?:png|jpe?g|gif|webp|svg|mp4|webm))",
+            r"(?:file://)?(" + _root_rx(root) + r"[\\/][^\s\)\"']+\.(?:png|jpe?g|gif|webp|svg|mp4|webm))",
             repl_path,
             text,
             flags=re.I,
         )
     text = re.sub(
-        r"(?:file://)?(" + re.escape(str(data)) + r"/(?:workspace/)?artifacts/[^\s\)\"']+)",
+        r"(?:file://)?(" + _root_rx(data) + r"[\\/](?:workspace[\\/])?artifacts[\\/][^\s\)\"']+)",
         repl_path,
         text,
         flags=re.I,
