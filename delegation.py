@@ -422,7 +422,7 @@ def _launch(tid: int, token: str, args: List[str], back_to_waiting: bool = False
     final confirmation (--stop-before-merge). If it cannot start, the claim is given back."""
     st = runner().read_state(tid)
     args = args + ["--provider", DELEGATE_PROVIDER, "--title", st["title"], "--paths", ",".join(st["paths"]),
-                   "--stop-before-merge", "--json"]
+                   "--stop-before-merge", "--json", "--cross-review"]
     if DELEGATE_REVIEWER:
         args += ["--reviewer", DELEGATE_REVIEWER]
     if DELEGATE_MODEL:

@@ -533,6 +533,43 @@ class WorktreeRunner(unittest.TestCase):
         self.brains("staff", [{"provider": "slow", "timeout": 1}, {"provider": "good"}])
         self.assertEqual(self.run_with("exit 9"), 0)
 
+    # ---- REVIEW_CROSS_v1 (plan dlg/B): another provider than the writer's confirms the work
+
+    def test_cross_chain_puts_another_provider_first(self) -> None:
+        g1, g2, o = {"provider": "g", "model": "1"}, {"provider": "g", "model": "2"}, {"provider": "o", "model": ""}
+        self.assertEqual(wr.cross_chain([g1, o, g2], {"provider": "g"}), [o, g1, g2])
+        self.assertEqual(wr.cross_chain([g1], {"provider": "g"}, ["g", "x"]),
+                         [{"provider": "x", "model": "", "timeout": 0}, g1])
+        self.assertEqual(wr.cross_chain([o], {"provider": "g"}, ["x"]), [o])      # the PD's own other brain wins
+
+    def test_the_pd_brain_of_another_provider_confirms_even_when_listed_second(self) -> None:
+        self.add_provider("judge", "exit 9")
+        self.brains("pd", [{"provider": "fake"}, {"provider": "judge"}])    # the writer's own provider listed first
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review="exit 9"), 0)
+        line = [ln for ln in wr.read_state(7)["transcript"] if ln["role"] == "reviewer"][0]
+        self.assertEqual(line["brain"], "judge/default")
+        self.assertNotIn("same_provider", line)
+
+    def test_cross_review_brings_in_another_installed_provider(self) -> None:
+        self.add_provider("judge", "exit 9")
+        self.brains("pd", [{"provider": "fake"}])
+        saved = wr.review_providers
+        wr.review_providers = lambda: ["fake", "judge"]          # never the real CLIs of this host
+        try:
+            self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review="exit 9",
+                                           extra=("--cross-review",)), 0)
+        finally:
+            wr.review_providers = saved
+        line = [ln for ln in wr.read_state(7)["transcript"] if ln["role"] == "reviewer"][0]
+        self.assertEqual(line["brain"], "judge/default")
+
+    def test_same_provider_confirms_only_as_a_last_resort_and_says_so(self) -> None:
+        self.add_provider("judge", "exit 9", review="echo 'Error: quota exceeded' >&2; exit 1")
+        self.brains("pd", [{"provider": "fake"}, {"provider": "judge"}])
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c"), 0)
+        line = [ln for ln in wr.read_state(7)["transcript"] if ln["role"] == "reviewer"][0]
+        self.assertEqual((line["brain"], line["skipped"], line["same_provider"]), ("fake/default", ["judge/default"], True))
+
     def test_a_real_failure_does_not_fall_through(self) -> None:
         self.add_provider("broken", "echo 'SyntaxError in your code' >&2; exit 1")
         self.add_provider("good", "echo two >> a.txt && git commit -qam c")

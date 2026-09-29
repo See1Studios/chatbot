@@ -677,6 +677,23 @@ def review_with_chain(chain: List[Dict], wt_dir: Path, prompt, renew) -> tuple:
     raise Failure("failed", "no PD brain configured")
 
 
+def cross_chain(chain: List[Dict], writer: Dict, others: List[str] = ()) -> List[Dict]:
+    """REVIEW_CROSS_v1 (plan dlg/B): the work is confirmed by another provider than the one that wrote it -- the same
+    model checking its own diff shares its blind spots (1 FAIL in ~89 reviews, 2026-09-23..29). The PD's own brains of
+    another provider come first; when it has none, `others` (providers, their default review model); the PD's
+    same-provider brains stay last, used only when no other can confirm (the transcript says so)."""
+    wp = writer.get("provider")
+    other = [x for x in chain if x["provider"] != wp]
+    if not other:
+        other = [{"provider": p, "model": "", "timeout": 0} for p in others if p != wp]
+    return other + [x for x in chain if x["provider"] == wp]
+
+
+def review_providers() -> List[str]:
+    """Registered providers whose review CLI is installed here, in registry order (--cross-review)."""
+    return [p for p, spec in PROVIDERS.items() if spec.get("review_argv") and shutil.which(spec["review_argv"][0])]
+
+
 def workspace_dir() -> Path:
     """This instance's workspace (host_config), where characters/ live."""
     try:
@@ -1091,13 +1108,14 @@ def cmd_run(args) -> int:
                 _, diff, _ = git(wt_dir, "diff", task_base + "..HEAD")
                 pd_block = character_block(reviewer_p, writer_p, PD_RELATION)
                 rv, rb, rskipped = review_with_chain(
-                    pd_chain, wt_dir,
+                    cross_chain(pd_chain, b, review_providers() if args.cross_review else []), wt_dir,
                     lambda prov: review_prompt(tid, task["title"], task["instruction"], partner_said, diff, gate_error,
                                                pd_block, diff_limit(prov), partner_report),
                     renew)
                 verdict = "FAIL" if gate_error else rv["verdict"]
                 transcript.append({"task": tno, "round": rnd, "role": "reviewer", "name": reviewer_p["name"],
                                    "brain": brain_label(rb), **({"skipped": rskipped} if rskipped else {}),
+                                   **({"same_provider": True} if rb["provider"] == b["provider"] else {}),
                                    "text": rv["say"], "verdict": verdict, "fix": rv["fix"], "raw": rv["raw"]})
                 log("task %d round %d: review %s" % (tno, rnd, verdict))
                 write_state(tid, transcript=transcript)
@@ -1236,6 +1254,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--timeout", type=int, default=1200, help="Agent timeout per round in seconds (max %d)" % MAX_AGENT_TIMEOUT)
     p.add_argument("--reviewer", choices=sorted(PROVIDERS), help="Provider for the PD's confirmation (default: --provider)")
     p.add_argument("--model", default="", help="Worker model (default: the provider's work model, else its CLI default)")
+    p.add_argument("--cross-review", action="store_true",
+                   help="When the PD has no brain of another provider than the writer's, confirm with another installed "
+                        "provider first (REVIEW_CROSS_v1)")
     p.add_argument("--reviewer-model", default="", help="Model for the PD's confirmation (default: the provider's review model)")
     p.add_argument("--rounds", type=int, default=2, help="Staff/PD rounds before giving up (default 2)")
     p.add_argument("--no-review", action="store_true", help="Merge on the mechanical gates alone")
