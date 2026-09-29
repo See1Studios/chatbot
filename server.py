@@ -210,6 +210,7 @@ from preview_guard import (
     _resolve_safe_preview_file,
 )
 import client_errors  # page errors -> the host log (#424)
+import personal_turn  # PERSONAL_TURN_v1: the busy listing says which turn runs
 from workspace_status import (
     experts_api,
     instructions_api,
@@ -562,9 +563,9 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             import characters
             with REG.lock:
                 live = list(REG.sessions.values())
-            busy = [{"id": x.sid, "mode": x.mode, "character": x.character, "provider": x.provider,
-                     "tools": characters.tools_of(x.character) if x.character else []} for x in live
-                    if x.busy and x._proc_alive()]
+            busy = [{"id": x.sid, "mode": x.mode, "turn": personal_turn.running_turn(x.history), "character": x.character,
+                     "provider": x.provider, "tools": characters.tools_of(x.character) if x.character else []}
+                    for x in live if x.busy and x._proc_alive()]
             code, body = _json_bytes({"sessions": busy})
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/sessions/active":

@@ -59,10 +59,45 @@ def format_ts(ts: Any) -> str:
     return str(ts)
 
 
+def _personal_keys(sessions: Path, sid: str) -> Optional[set]:
+    """PERSONAL_TURN_v1 marks of one session (engine personal_turn.py); None when they exist but cannot be read."""
+    try:
+        root = os.environ.get("CHATBOT_ROOT") or os.environ.get("AGY_CHAT_ROOT") or str(Path(__file__).resolve().parents[3])
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        import personal_turn
+        return personal_turn.marked(sessions, sid)
+    except Exception:
+        return None if (sessions / sid / "personal-turns.jsonl").exists() else set()
+
+
+def _work_only(data: dict, sessions: Path, sid: str) -> Optional[dict]:
+    """What work may recall of a session: nothing of a private one (SESSION_SPLIT_v1), and a work one without its
+    personal turns and their replies (PERSONAL_TURN_v1). None hides the whole session."""
+    if data.get("mode") == "private":
+        return None
+    keys = _personal_keys(sessions, sid)
+    if keys is None:
+        return None   # fail closed: marks we cannot read hide the session
+    if keys:
+        import personal_turn   # marks exist only where it imported
+        kept, hiding = [], False
+        for h in data.get("history") or []:
+            if h.get("role") == "user":
+                hiding = personal_turn.key(h.get("ts")) in keys
+            if not hiding:
+                kept.append(h)
+        data["history"] = kept
+    return data
+
+
 def load_session_meta(file_path: Path) -> Optional[dict]:
     try:
         data = json.loads(file_path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
+            return None
+        data = _work_only(data, file_path.parent.parent, file_path.parent.name)
+        if data is None:
             return None
         data["_file"] = file_path.parent.name  # sessions/<sid>/meta.json -- the sid, not "meta.json"
         data["_mtime"] = file_path.stat().st_mtime

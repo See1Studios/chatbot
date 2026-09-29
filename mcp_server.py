@@ -56,6 +56,7 @@ try:
     import mcp_core
 except Exception:
     mcp_core = None
+import personal_turn  # noqa: E402  -- PERSONAL_TURN_v1: marked work-room turns stay out of work material
 # Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9-12): the `delegate` tool, an adapter like mcp_core.
 try:
     import delegation
@@ -292,18 +293,21 @@ def _find_live_session(sid: Optional[str] = None):
     return None
 
 
-def _live_session_id() -> Optional[str]:
+def _host_get(path: str) -> dict:
+    """One GET to this instance's chat host; {} if it cannot be asked."""
     try:
         import urllib.request
         port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
-        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
+        with urllib.request.urlopen("http://127.0.0.1:%d%s" % (port, path), timeout=1.5) as r:
             d = json.loads(r.read().decode("utf-8") or "{}")
-            sid = str(d.get("id") or "")
-            if sid and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid):
-                return sid
+        return d if isinstance(d, dict) else {}
     except Exception:
-        pass
-    return None
+        return {}
+
+
+def _live_session_id() -> Optional[str]:
+    sid = str(_host_get("/api/sessions/active").get("id") or "")
+    return sid if sid and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid) else None
 
 
 def record_session_choices(items: List[dict], session_id: Optional[str] = None) -> dict:
@@ -416,6 +420,7 @@ def tool_defs() -> List[dict]:
     ]
     if mcp_core is not None:
         defs += list(mcp_core.TOOL_DEFS)
+    defs += personal_turn.TOOL_DEFS
     if delegation is not None:
         defs += list(delegation.TOOL_DEFS)
     if web_tool is not None:
@@ -664,6 +669,9 @@ def call_tool(name: str, arguments: dict) -> dict:
             code, out, err = _run(["bash", "-lc", cmd], timeout=30)
             return envelope(code == 0, "ok" if code == 0 else "nonzero", {"code": code, "stdout": out, "stderr": err})
 
+        if name in personal_turn.NAMES:
+            return envelope(*personal_turn.tool_call(DATA / "sessions", _busy_sessions(), _live_session_id()), None)
+
         if name == "choices":
             action = args.get("action", "choices")
             if action != "choices":
@@ -738,34 +746,26 @@ def call_tool(name: str, arguments: dict) -> dict:
         return envelope(False, f"error: {e}", {"trace": traceback.format_exc()[-1500:]})
 
 
+def _busy_sessions() -> list:   # the sessions running a turn, from the host; [] if it cannot be asked
+    return _host_get("/api/sessions/busy").get("sessions") or []
+
+
 def _live_scope(grant: str) -> tuple:
-    """(private, denied) of the sessions running a turn: a private one closes work tools (SESSION_SPLIT_v1); a work
-    session whose character holds no role granting `grant` is denied it (TEAM_ROLES_v2); (False, False) if unknown."""
-    try:
-        import urllib.request
-        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
-        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/busy" % port, timeout=1.5) as r:
-            busy = json.loads(r.read().decode("utf-8") or "{}").get("sessions") or []
-        return (any(x.get("mode") == "private" for x in busy),
-                any(x.get("mode") != "private" and "tools" in x and grant not in x["tools"] for x in busy))
-    except Exception:
-        return False, False
+    """(private, denied) of the sessions running a turn: a private one closes work tools (SESSION_SPLIT_v1), and so
+    does a work turn marked personal (PERSONAL_TURN_v1); a work session whose character holds no role granting
+    `grant` is denied it (TEAM_ROLES_v2); (False, False) if unknown."""
+    busy = _busy_sessions()
+    closed = any(x.get("mode") == "private" or personal_turn.is_marked(DATA / "sessions", str(x.get("id") or ""), x.get("turn"))
+                 for x in busy)
+    return (closed, any(x.get("mode") != "private" and "tools" in x and grant not in x["tools"] for x in busy))
 
 
 def _live_actor() -> str:
     """Who is calling the core tools (ACTOR_ATTRIBUTION_v1): the chat's live agent, as the role id
     "chat-agent:<provider of the session working right now>", or "chat-agent" when that cannot be told.
     Role ids only -- the persona's name is display, taken from identity by the page (NAME_NEUTRAL_v1)."""
-    try:
-        import urllib.request
-        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
-        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
-            d = json.loads(r.read().decode("utf-8") or "{}")
-        if d.get("busy") and d.get("provider"):
-            return "chat-agent:%s" % str(d["provider"])[:20]
-    except Exception:
-        pass
-    return "chat-agent"
+    d = _host_get("/api/sessions/active")
+    return "chat-agent:%s" % str(d["provider"])[:20] if d.get("busy") and d.get("provider") else "chat-agent"
 
 
 def _obs_tool_call(name: str, arguments: dict) -> dict:

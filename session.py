@@ -9,7 +9,6 @@ import json
 import os
 import queue
 import re
-import shutil
 import subprocess
 import threading
 import time
@@ -30,6 +29,7 @@ import obslog
 import write_guard
 from turn_watchdog import TurnWatchdog
 from loop_guard import LoopGuard, extract_tool_steps
+import personal_turn
 from host_config import (
     ADD_DIRS,
     ARTIFACTS_CACHE,
@@ -603,8 +603,8 @@ class AgentSession(TurnWatchdog):
             if evolution is None or outcome == "steer" or idx is None:
                 return
             key = (idx, self.history[idx].get("ts"))
-            if key == self._observed_turn_key:
-                return
+            if key == self._observed_turn_key or personal_turn.is_marked(self.meta_path.parent.parent, self.sid, key[1]):
+                return   # once per turn; a personal turn is never an observation candidate (PERSONAL_TURN_v1)
             self._observed_turn_key = key
             evolution.on_turn_end(ROOT, self._observation_root(), self.sid, self.provider, outcome, marks, text)
         except Exception:  # noqa: BLE001
