@@ -87,6 +87,7 @@ function startChatFlow() {
       queued = false;
       applyFlow(log);
       observer.takeRecords();   // our own dividers are not a new render
+      schedulePersonalMarks(log);
     });
   });
   observer.observe(log, { childList: true });
@@ -96,6 +97,44 @@ function startChatFlow() {
     setTimeout(() => { applyFlow(log); observer.takeRecords(); atMidnight(); }, msToNextMidnight(Date.now()) + 1000);
   };
   atMidnight();
+}
+
+// PERSONAL_TURN_v1 (private-mode.md §8.3): a work-room turn the character marked personal gets a small lock on the
+// user's bubble -- shown only in the advanced density (chat-log.css), the simple chat stays the conversation. Marks come
+// from GET /api/sessions/<sid>/personal-turns, keyed by the user message's ts to the millisecond.
+const PERSONAL_TEXT = { title: '사적인 순간: 업무 기억에 남지 않아요' };   // l10n-ok
+let personalTimer = 0;
+
+function personalKey(ts) {
+  const n = Number(ts);
+  return Number.isFinite(n) && n > 0 ? n.toFixed(3) : '';
+}
+
+function schedulePersonalMarks(log) {
+  clearTimeout(personalTimer);
+  personalTimer = setTimeout(() => markPersonal(log), 1500);   // one read after a burst of renders
+}
+
+async function markPersonal(log) {
+  const sid = typeof sessionId === 'string' ? sessionId : '';
+  if (!log || !sid) return;
+  let keys;
+  try {
+    keys = new Set((await api('/api/sessions/' + encodeURIComponent(sid) + '/personal-turns')).turns || []);
+  } catch (_) { return; }   // no marks this time; the next render asks again
+  log.querySelectorAll(':scope > .msg.user').forEach(n => {
+    const on = keys.has(personalKey(n.dataset.ts));
+    n.classList.toggle('personal', on);
+    const mark = n.querySelector(':scope > .personal-mark');
+    if (on && !mark && typeof getActionSvg === 'function') {
+      const el = document.createElement('span');
+      el.className = 'personal-mark';
+      el.title = PERSONAL_TEXT.title;
+      el.setAttribute('aria-label', PERSONAL_TEXT.title);
+      el.innerHTML = getActionSvg('lock');
+      n.appendChild(el);
+    } else if (!on && mark) mark.remove();
+  });
 }
 
 // CHAT_DENSITY_v1 (operator 2026-09-29, the first piece of align/K's densities): the "details" switch in the "..."

@@ -509,7 +509,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             return self._send(code, body, "application/json; charset=utf-8")
         routed = (observation_api("GET", path, None) or ticket_api("GET", path, None)
                   or delegation_api("GET", path, None) or instructions_api("GET", path, None)
-                  or experts_api("GET", path, None))
+                  or experts_api("GET", path, None) or personal_turn.api("GET", path, None))
         if routed is not None:
             code, raw = _json_bytes(routed[1], routed[0])
             return self._send(code, raw, "application/json; charset=utf-8")

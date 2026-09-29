@@ -9,10 +9,12 @@ Readers (each closes one path into work material):
 - mcp_server `_live_scope`: memory, observation and ticket tools are closed for the rest of a marked turn.
 - session `_finish_turn`: a marked turn is not handed to evolution.on_turn_end (no observation candidate).
 - workspace tool recall_memory.py: marked turns and their replies are not searchable from work.
+- the page (`api`, GET /api/sessions/<sid>/personal-turns): a small lock on marked bubbles in the advanced density.
 """
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 from typing import Set
@@ -91,3 +93,16 @@ def tool_call(sessions, busy, active_sid) -> tuple:
     if not mark(sessions, str(work[0].get("id") or ""), work[0].get("turn")):
         return False, "this turn cannot be marked"
     return True, "marked personal: this turn stays out of work memory, observations and tickets"
+
+
+_ROUTE = re.compile(r"^/api/sessions/([A-Za-z0-9._-]{1,80})/personal-turns$")
+
+
+def api(method: str, path: str, body, sessions=None):
+    """The page's read of one session's marks: (200, {"turns": [keys]}), or None for another route."""
+    m = _ROUTE.match(path or "")
+    if method != "GET" or not m:
+        return None
+    if sessions is None:
+        from host_config import SESSIONS as sessions
+    return 200, {"turns": sorted(marked(sessions, m.group(1)))}

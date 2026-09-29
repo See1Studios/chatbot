@@ -143,6 +143,32 @@ class Recall(unittest.TestCase):
         self.check(ROOT / "templates" / "workspace" / "tools" / "recall_memory.py")
 
 
+class PageMark(unittest.TestCase):
+    """The page reads a session's marks and shows a line-icon lock on marked bubbles, in the advanced density only."""
+
+    def test_the_route_returns_one_sessions_keys_and_leaves_other_paths(self):
+        d = _tmp_sessions("w1")
+        personal_turn.mark(d, "w1", 1790682406.3824167)
+        self.assertEqual(personal_turn.api("GET", "/api/sessions/w1/personal-turns", None, d),
+                         (200, {"turns": ["1790682406.382"]}))
+        self.assertEqual(personal_turn.api("GET", "/api/sessions/nope/personal-turns", None, d), (200, {"turns": []}))
+        self.assertIsNone(personal_turn.api("GET", "/api/sessions/../x/personal-turns", None, d))
+        self.assertIsNone(personal_turn.api("POST", "/api/sessions/w1/personal-turns", None, d))
+        self.assertIn('or personal_turn.api("GET", path, None))', (ROOT / "server.py").read_text(encoding="utf-8"))
+
+    def test_the_lock_is_a_standard_line_icon_hidden_in_the_simple_density(self):
+        js = (ROOT / "static" / "app-flow.js").read_text(encoding="utf-8")
+        self.assertIn("getActionSvg('lock')", js)
+        self.assertIn("lock:", (ROOT / "static" / "app-messages.js").read_text(encoding="utf-8"))
+        css = (ROOT / "static" / "chat-log.css").read_text(encoding="utf-8")
+        self.assertIn("#log > .msg.user > .personal-mark{display:none}", css)
+        self.assertIn("body.density-advanced #log > .msg.user > .personal-mark{display:inline-flex", css)
+
+    def test_page_and_host_key_a_turn_the_same_way(self):
+        self.assertIn("n.toFixed(3)", (ROOT / "static" / "app-flow.js").read_text(encoding="utf-8"))
+        self.assertEqual(personal_turn.key(1790682406.3824167), "1790682406.382")
+
+
 class Wiring(unittest.TestCase):
     def test_every_charter_tells_the_agent_when_to_mark(self):
         for rel in ("data/workspace/AGENTS.md", "templates/workspace/AGENTS.md"):
