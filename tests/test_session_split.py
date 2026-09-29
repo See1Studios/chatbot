@@ -81,6 +81,28 @@ class SessionSplit(unittest.TestCase):
         self.assertEqual(S.Registry().get_private(other).sid, b.sid)
         self.assertEqual(S.Registry().get_private(other).character, other)
 
+    def test_each_visit_to_the_private_room_is_a_new_session_with_the_last_brain(self):
+        # PRIVATE_VISIT_v1 (operator 2026-09-29): the last scene's place and talk must not leak into the next visit
+        with mock.patch("session_registry._first_brain", return_value={}):
+            first = self.reg.get_private("", fresh=True)
+            first.provider, first.model = "grok", "grok-4.7"
+            first.history.append({"role": "user", "text": "(at the stairwell)", "ts": 1})
+            first.save_meta()
+            second = self.reg.get_private("", fresh=True)
+        self.assertNotEqual(second.sid, first.sid)
+        self.assertTrue(second.is_private and second.history == [])
+        self.assertEqual((second.provider, second.model), ("grok", "grok-4.7"))
+
+    def test_an_unused_private_session_is_reused_not_multiplied(self):
+        with mock.patch("session_registry._first_brain", return_value={}):
+            first = self.reg.get_private("", fresh=True)
+            first.save_meta()
+            self.assertEqual(self.reg.get_private("", fresh=True).sid, first.sid)
+
+    def test_every_way_into_the_private_room_asks_for_a_fresh_session(self):
+        src = (Path(server.__file__)).read_text(encoding="utf-8")
+        self.assertEqual(src.count("REG.get_private("), src.count("fresh=True)"))
+
     def test_the_successor_of_a_private_session_is_private(self):
         self.write("20260921-100000-work01")
         self.write("20260921-110000-priv01", mode="private", successor_session_id="20260921-130000-priv02")

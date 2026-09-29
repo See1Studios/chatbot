@@ -202,7 +202,7 @@ class Wiring(unittest.TestCase):
         page = (ROOT / "static" / "app-session.js").read_text(encoding="utf-8")
         self.assertIn("if (res.scene && typeof sendAction === 'function') sendAction(res.scene);", page)
         self.assertIn('or stripped.startswith("/private on "):', src)
-        self.assertIn("threshold.enter(sess, REG.get_private(sess.character, like=sess), text)", src)
+        self.assertIn("threshold.enter(sess, REG.get_private(sess.character, like=sess, fresh=True), text)", src)
 
     def test_a_move_chip_is_an_allowed_command(self):
         import mcp_server

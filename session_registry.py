@@ -245,15 +245,19 @@ class Registry:
         return self.create(model=brain.get("model") or "", provider=brain.get("provider") or _s().DEFAULT_PROVIDER,
                            character=character)
 
-    def get_private(self, character: str = "", like: Optional["AgentSession"] = None) -> "AgentSession":
+    def get_private(self, character: str = "", like: Optional["AgentSession"] = None,
+                    fresh: bool = False) -> "AgentSession":
         """The character's private session (its successor-chain tip), created on first use with the card's
         `brains.private` first entry if it names one, else `like`'s provider and model (pew/N4).
-        Private Grok (#240): prefer grok-4.7 (not 4.6 / not build-fast) and effort low."""
+        Private Grok (#240): prefer grok-4.7 (not 4.6 / not build-fast) and effort low.
+        `fresh` (PRIVATE_VISIT_v1, operator 2026-09-29): every visit to the private room is a new session, so the
+        last scene's place and talk never leak into the next; what carries over is the private memory digest.
+        The last private session's brain is kept, and a last one that is still empty is reused, not multiplied."""
         character = _character_id(character)
         sess = self._newest(mode="private", character=character)
-        if sess is not None:
+        if sess is not None and (not fresh or not any(h.get("role") in ("user", "assistant") for h in sess.history)):
             return sess
-        like = like or self.get_active(character)
+        like = sess or like or self.get_active(character)
         brain = _first_brain(character, mode="private") or {}
         provider = brain.get("provider") or like.provider
         model = brain.get("model") or like.model

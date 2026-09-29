@@ -1014,7 +1014,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     return self._send(code, raw, "application/json; charset=utf-8")
                 target = REG.get_active(who)
                 if body.get("mode") == "private":
-                    target = REG.get_private(who, like=target)
+                    target = REG.get_private(who, like=target, fresh=True)
                 pub = target.to_public()
                 pub["is_private"] = target.is_private
                 code, raw = _json_bytes({"ok": True, "session": pub})
@@ -1036,7 +1036,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 stripped = " ".join(text.split()).lower()
                 if stripped in ("/private", "/private on", "/work", "/private off") or stripped.startswith("/private on "):
                     if stripped.startswith("/private on") or (stripped == "/private" and not sess.is_private):
-                        target = sess if sess.is_private else threshold.enter(sess, REG.get_private(sess.character, like=sess), text)
+                        target = sess if sess.is_private else threshold.enter(sess, REG.get_private(sess.character, like=sess, fresh=True), text)
                     else:   # back to work: digest the private talk, leave the return scene (THRESHOLD_v1)
                         target = threshold.leave(sess, REG.get_active(sess.character), _digest_private_later) if sess.is_private else sess
                     pub = target.to_public()
