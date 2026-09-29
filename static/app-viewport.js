@@ -136,11 +136,11 @@ let _bottomPullStartY = 0;
 let _bottomPullStartX = 0;
 let _bottomPullActive = false;
 let _bottomPullRefreshing = false;
-const BOTTOM_PULL_THRESHOLD = 60;
+const BOTTOM_PULL_THRESHOLD = 110;
 
 function isLogAtBottom(el) {
   if (!el) return false;
-  return (el.scrollTop + el.clientHeight >= el.scrollHeight - 5);
+  return (el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
 }
 
 function isTouchContext() {
@@ -155,9 +155,9 @@ function isTouchContext() {
 function calcDampedPull(dy) {
   if (dy <= 0) return 0;
   if (dy <= BOTTOM_PULL_THRESHOLD) {
-    return Math.round(dy * 0.7);
+    return Math.round(dy * 0.55);
   }
-  return Math.min(84, Math.round(BOTTOM_PULL_THRESHOLD * 0.7 + (dy - BOTTOM_PULL_THRESHOLD) * 0.25));
+  return Math.min(84, Math.round(BOTTOM_PULL_THRESHOLD * 0.55 + (dy - BOTTOM_PULL_THRESHOLD) * 0.25));
 }
 
 function initBottomPullRefresh(customLog) {
@@ -284,7 +284,7 @@ function initBottomPullRefresh(customLog) {
 
     const rawPull = dy - 6;
     const distance = calcDampedPull(rawPull);
-    const isReady = (rawPull >= BOTTOM_PULL_THRESHOLD) || (distance >= BOTTOM_PULL_THRESHOLD);
+    const isReady = rawPull >= BOTTOM_PULL_THRESHOLD;
 
     const currentLog = (typeof logEl !== 'undefined' && logEl) ? logEl : targetLog;
     if (indicatorEl) {
