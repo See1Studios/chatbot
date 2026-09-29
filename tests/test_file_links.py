@@ -11,6 +11,7 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -69,12 +70,17 @@ class Recognise(unittest.TestCase):
 class ServerResolves(unittest.TestCase):
     def test_a_relative_path_resolves_in_the_engine_repo_and_the_guard_still_holds(self):
         import preview_guard as g
-        for rel in ("docs/plans/INDEX.md", "static/app-sse.js", "tickets.py::claim"):
-            fp, why = g._resolve_safe_preview_file(rel)
-            self.assertIsNotNone(fp, "%s: %s" % (rel, why))
-            self.assertTrue(str(fp).startswith(str(ROOT)), fp)
-        for bad in ("../../../etc/passwd", "data/secrets.env", "~/.ssh/config"):
-            self.assertIsNone(g._resolve_safe_preview_file(bad)[0], bad)
+        import server
+        # The allow-list is the host's (~/services, ...); a delegated run tests a copy under ~/.worktrees, so the copy
+        # joins the list here and the test asks only what it means to: resolution + the guard's refusals (#380).
+        roots = list(server._PREVIEW_ALLOWED_ROOTS) + [ROOT]
+        with mock.patch.object(server, "_PREVIEW_ALLOWED_ROOTS", roots):
+            for rel in ("docs/plans/INDEX.md", "static/app-sse.js", "tickets.py::claim"):
+                fp, why = g._resolve_safe_preview_file(rel)
+                self.assertIsNotNone(fp, "%s: %s" % (rel, why))
+                self.assertTrue(str(fp).startswith(str(ROOT)), fp)
+            for bad in ("../../../etc/passwd", "data/secrets.env", "~/.ssh/config"):
+                self.assertIsNone(g._resolve_safe_preview_file(bad)[0], bad)
 
     def test_no_host_path_is_baked_into_the_recogniser(self):
         src = MD.read_text(encoding="utf-8")
