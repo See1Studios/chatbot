@@ -158,6 +158,43 @@ class PrivateBundle(unittest.TestCase):
         self.assertNotEqual(I.build_instruction_bundle(mode="private")["hash"], I.build_instruction_bundle()["hash"])
         self.assertIn("likes tea", I.build_instruction_bundle(mode="private", character=self.cid)["text"])
 
+    def test_history_to_openai_messages_reflects_session_character_and_mode(self):
+        card_pd = C.load(self.cid, self.ws)
+        card_pd["data"]["extensions"][C.EXT]["work"] = {"instructions": "pd work instructions"}
+        C.save(self.cid, card_pd, self.ws)
+
+        other_cid = C.new_id()
+        other_card = C.new_card("Other", "staff", description="unique other staff description")
+        other_card["data"]["system_prompt"] = "other private rules"
+        C.save(other_cid, other_card, self.ws)
+        C.remember_private(other_cid, ["likes coffee"], ws=self.ws)
+        C.save_team({"default": self.cid, "members": {self.cid: [], other_cid: []}}, self.ws)
+
+        sess_priv = S.AgentSession("s_priv")
+        sess_priv.mode = "private"
+        sess_priv.character = other_cid
+        msgs_priv = sess_priv._history_to_openai_messages()
+        sys_priv = msgs_priv[0]["content"]
+
+        self.assertIn("unique other staff description", sys_priv)
+        self.assertIn("other private rules", sys_priv)
+        self.assertIn("likes coffee", sys_priv)
+        for never in ("persona body", "pd work instructions", "[스킬 색인]", "work fact", "likes tea"):
+            self.assertNotIn(never, sys_priv)
+
+        sess_work = S.AgentSession("s_work")
+        sess_work.mode = "work"
+        sess_work.character = ""
+        msgs_work = sess_work._history_to_openai_messages()
+        sys_work = msgs_work[0]["content"]
+
+        self.assertIn("persona body", sys_work)
+        self.assertIn("pd work instructions", sys_work)
+        self.assertIn("[스킬 색인]", sys_work)
+        self.assertIn("work fact", sys_work)
+        for never in ("unique other staff description", "other private rules", "likes coffee"):
+            self.assertNotIn(never, sys_work)
+
 
 if __name__ == "__main__":
     unittest.main()

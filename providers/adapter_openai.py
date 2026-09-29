@@ -7,7 +7,7 @@ import re
 import time
 
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -134,7 +134,7 @@ def _mcp_openai_tools(force: bool = False) -> List[dict]:
     return tools
 
 
-def _persona_system_prompt() -> Optional[str]:
+def _persona_system_prompt(mode: str = "work", character: str = "", history: Optional[Union[List, str]] = None) -> Optional[str]:
     """The host-assembled instruction bundle (instructions.py: AGENTS.md +
     the character card + skill index + memory snapshot + self-improve status), or
     None when there is nothing to inject. Used by AgentSession._send_direct()
@@ -143,7 +143,7 @@ def _persona_system_prompt() -> Optional[str]:
     per CLI and is not relied on (see ClaudeAdapter's docstring). Rebuilt on
     every call: the inputs are a handful of small files."""
     from instructions import build_instruction_bundle
-    return build_instruction_bundle()["text"] or None
+    return build_instruction_bundle(mode=mode, character=character, history=history)["text"] or None
 
 
 def _mcp_call_tool(name: str, arguments: dict) -> str:

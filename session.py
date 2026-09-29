@@ -1019,7 +1019,7 @@ class AgentSession(TurnWatchdog):
         wire-sent turn consistent with what CLI providers actually receive,
         without persisting the wrapper text into history itself."""
         msgs: List[dict] = []
-        system_text = _persona_system_prompt()
+        system_text = _persona_system_prompt(getattr(self, "mode", "work"), getattr(self, "character", ""), self.history)
         if system_text:
             msgs.append({"role": "system", "content": system_text})
         # Bare HTTP call has no CLI runtime telling the model what it
