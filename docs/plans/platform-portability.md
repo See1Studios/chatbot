@@ -136,3 +136,22 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 - 래칫 **52 → 49줄**(obslog 5 → 2).
 - FIREBAT: `test_platform_compat`(두 프로세스 잠금 경합 포함) 통과. **accounts, memory_store가 새로 통과.** 새로 보인 별개 원인: evolution의 보호 경로 판정(`~/.agents` 아래, Windows 홈 경로), tickets의 운영자 터미널 확인(tty) — 다음 분류 대상.
 - 배운 것: Windows 잠금은 **재진입이 안 되고**(같은 손잡이로 두 번 잡으면 실패), 죽은 프로세스의 잠금이 **조금 늦게** 풀린다.
+
+### 6.5 FIREBAT 2차 전체 (2026-09-29, 오늘 수정 모두 반영 뒤)
+
+- **107/145 통과** (1차 93/143). 새로 통과 16: account_login, accounts, auto_recycle, character_art_fallback, character_picker, file_links, file_preview_guard, host_api_guards, memory_store, platform_compat, platform_imports, provider_neutrality, restart_notice, service_log, session_split, st_import.
+- 새로 실패 2(art_manager, character_art)는 퇴보가 아니라 **가려져 있던 원인이 드러난 것**(전에는 Pillow가 없어 import에서 멈춤): 경로 구분자, 실측에서 뺀 스킬 파일.
+- HTTP 연결 끊김(K): 단독 실행에서는 `test_ticket_api` 결정 테스트가 5/5 통과, 추적을 붙이면 10번 중 1번 실패 — **드물게 흔들림**이 남음. 전체 실행에서는 observation_api·st_import_api·ticket_api가 여전히 실패(원인 줄 없음) → 다음 조사.
+- 남은 38개 원인별:
+
+| 원인 | 수 | 모듈 |
+|---|---|---|
+| A. 실측에서 뺀 추적 데이터(`data/workspace/…`, `providers.json`) + NAS 플러그인 | 15 | bundle_budget, character_art, code_layout, dev_role, entrypoints, identity, identity_wiring, items, memory_cli, nas_mcp_host, providers_config, providers_json, rule_registry, team_roles, workspace_template |
+| D. 경로 구분자(`\` vs `/`) | 4 | art_manager, data_paths, mcp_parity_tools, media_sources |
+| E. 자식 프로세스 출력 인코딩(cp949 바이트를 UTF-8로) | 4 | ctl_paths, lifecycle, log_no_content, tickets |
+| H. 셸(bash 훅, `chatbot-ctl.sh`, `sh -c` 가짜 두뇌) | 3 | githooks, mcp_server, worktree_runner |
+| F. 권한 비트 | 2 | data_bootstrap, ticket_quick |
+| I. 줄바꿈·텍스트 | 2 | characters, private_tension |
+| K·미확인(원인 줄 없음 포함) | 8 | core_standalone, evolution, models_meta_cache, observation_api, obslog, persona_traversal, st_import_api, ticket_api |
+
+- **다음 수(싼 순서)**: A는 실측 방식만 바꾸면 되는 가짜 실패라 먼저 없앤다(추적 파일 포함 + 개인 파일 제외 목록). 그다음 D·E·I는 규칙 하나씩(경로는 `as_posix()`, 자식 출력은 `encoding`/`errors` 지정, 쓰기는 `newline="\n"`)이라 각각 래칫으로 막을 수 있다.
