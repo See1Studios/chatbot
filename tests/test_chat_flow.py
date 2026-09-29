@@ -86,5 +86,19 @@ class Density(unittest.TestCase):
         self.assertNotIn(".tts-btn{display:none}", css)          # copy/read stay reachable
 
 
+class OneDividerStyle(unittest.TestCase):
+    """#421: the chat had four kinds of lines; the time and history markers now share the day divider's look."""
+
+    def test_no_marker_draws_its_line_in_text(self):
+        js = (STATIC / "app-session.js").read_text(encoding="utf-8")
+        self.assertNotIn("'── 대화 시작", js)
+        self.assertNotIn("'── 세션 ' + data.session.id", js)
+        self.assertEqual(js.count("flow-line"), 3)          # two history starts, one new conversation
+
+    def test_the_simple_density_drops_the_footer_rule(self):
+        css = (STATIC / "chat-log.css").read_text(encoding="utf-8")
+        self.assertIn("body:not(.density-advanced) .msg.assistant .msg-footer{border-top-color:transparent", css)
+
+
 if __name__ == "__main__":
     unittest.main()

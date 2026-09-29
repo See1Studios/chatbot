@@ -131,10 +131,14 @@ function enterSession(id, opts) {
   }
 
   if (opts.userEcho) addChat('user', opts.userEcho, false, false, false);
-  if (opts.sessionMarker) {
+  if (opts.sessionMarker) {   // CHAT_FLOW_v1: a new conversation the user started; its id in the advanced density only
     const marker = document.createElement('div');
-    marker.className = 'msg scrollback-marker';
-    marker.textContent = opts.sessionMarker;
+    marker.className = 'msg scrollback-marker flow-line new-talk';
+    marker.textContent = '새 대화';
+    const id = document.createElement('span');
+    id.className = 'flow-id';
+    id.textContent = opts.sessionMarker;
+    marker.appendChild(id);
     logEl.appendChild(marker);
   }
   if (opts.greeting) addChat('assistant', opts.greeting, true);
@@ -481,8 +485,8 @@ async function loadOlderHistory() {
         }
         scrollbackExhausted = true;
         const cap = document.createElement('div');
-        cap.className = 'msg scrollback-marker';
-        cap.textContent = '── 대화 시작 (더 이전 기록 없음) ──';
+        cap.className = 'msg scrollback-marker flow-line';   // CHAT_FLOW_v1: one divider style
+        cap.textContent = '대화의 시작';
         logEl.insertBefore(cap, logEl.firstChild);
         break;
       }
@@ -533,8 +537,8 @@ async function loadOlderHistory() {
       } else {
         scrollbackExhausted = true;
         const cap = document.createElement('div');
-        cap.className = 'msg scrollback-marker';
-        cap.textContent = '── 대화 시작 (더 이전 기록 없음) ──';
+        cap.className = 'msg scrollback-marker flow-line';   // CHAT_FLOW_v1: one divider style
+        cap.textContent = '대화의 시작';
         logEl.insertBefore(cap, logEl.firstChild);
         break;
       }
@@ -825,7 +829,7 @@ async function createSession() {
   archiveBrowse = false;
   enterSession(data.session.id, {
     scrollback: prevSessionId,
-    sessionMarker: '── 세션 ' + data.session.id + ' ──',
+    sessionMarker: data.session.id,
     metaLabel: label,
     busy: false,
     activityAfter: '새 세션 ' + data.session.id,
