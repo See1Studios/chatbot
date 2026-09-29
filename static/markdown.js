@@ -781,13 +781,15 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
       btn = document.createElement('button');
       btn.className = 'thought-toggle';
       btn.type = 'button';
-      btn.textContent = '속마음 보기';
+      btn.textContent = '···';
+      btn.title = '속마음 보기';
       box = document.createElement('div');
       box.className = 'thought-box';
       box.hidden = true;
       btn.addEventListener('click', () => {
         box.hidden = !box.hidden;
-        btn.textContent = box.hidden ? '속마음 보기' : '속마음 숨기기';
+        btn.classList.toggle('active', !box.hidden);
+        btn.title = box.hidden ? '속마음 보기' : '속마음 숨기기';
       });
       md.appendChild(btn);
       md.appendChild(box);
