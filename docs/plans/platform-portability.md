@@ -78,7 +78,7 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | `pp/F` | CI 매트릭스(Windows·macOS·Linux) + 알려진 실패 래칫 | `.github/workflows/` | 세 OS에서 돌고, 알려진 실패 목록이 늘지 않음 | 2 · — | M | PP3 | 대기 |
 | `pp/G` | Python 런처(배포판 시작·중지·상태) | 새 파일, release-pipeline과 합침 | Windows에서 런처로 켜고 대화 1턴 | 2 · — | M | pp/E, PP1 | 대기 |
 | `pp/I` | 스팀덱 실측(실기 또는 SteamOS VM): 데스크톱 모드·게임 모드에서 설치, 두뇌 연결, 화면 1280×800, 게임패드·화상 키보드 | 이 문서 §6 | 실측 기록과 DK1 결정 근거 | 0 · — | S | pp/G | 대기 |
-| `pp/J` | 의존성 선언: Pillow(NAS 10.4.0, 하한은 3.8·3.12 둘 다 되는 버전)를 `requirements.txt`에, 새 가상환경에서 `import` 전수 검사하는 테스트 | `requirements.txt`, 테스트 | 빈 가상환경 + requirements만으로 엔진 모듈 전부 import | 2 · — | S | — | 대기 |
+| `pp/J` ✅ #396 | 의존성 선언: Pillow(NAS 10.4.0, 하한은 3.8·3.12 둘 다 되는 버전)를 `requirements.txt`에, 새 가상환경에서 `import` 전수 검사하는 테스트 | `requirements.txt`, 테스트 | 빈 가상환경 + requirements만으로 엔진 모듈 전부 import | 2 · — | S | — | 대기 |
 | `pp/K` | 바이너리 빌드 시험(PP4): Nuitka로 서버 하나를 Windows(FIREBAT)·Linux에서 빌드해 켜고 대화 1턴, 크기·시작 시간·빠진 리소스 기록. macOS는 CI 러너에서 빌드만 + 서명·공증 절차 조사 | 새 빌드 스크립트, 이 문서 §6 | 두 OS에서 바이너리로 1턴, macOS 빌드 성공, 서명 절차 메모 | 2 · — | M | pp/E, pp/J | 대기 |
 | `pp/H` | FIREBAT 실기 체크리스트(설치 → 대화 → 두뇌 연결) | 이 문서 | 체크리스트 전 항목 통과 기록 | 0 · — | S | pp/G | 대기 |
 
@@ -112,3 +112,17 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 - 재발 방지: `tests/test_platform_imports.py` — 엔진 모듈이 모듈 맨 위에서 POSIX 전용 모듈(`pty`·`termios`·`fcntl`·…)을 try 없이 불러오면 실패.
 - FIREBAT 재확인: **`server.py`가 Windows에서 처음으로 import됨.** C 분류 16개 중 **9개 통과**, 남은 7개(accounts, host_api_guards, identity_wiring, observation_api, service_log, st_import_api, ticket_api)는 import가 아니라 더 안쪽 원인(`/proc`, 그림 변환, 경로 등) — 2차 실측에서 분류.
 - 참고: 운영자가 제안한 termiWin(veeso/termiWin)은 **시리얼 포트(COM)**용 `termios` 이식이고, 보관된 저장소·GPL-3.0이라 우리 용도(CLI 대화형 로그인의 가짜 터미널)와 맞지 않음.
+
+### 6.3 Pillow 선언 뒤 남은 실패 분류 (2026-09-29, #396)
+
+- `requirements.txt`에 `Pillow>=10.4`(3.8과 3.12 둘 다 되는 하한). `tests/test_platform_imports.py`에 선언 검사 추가: 엔진 코드가 쓰는 외부 패키지가 `requirements.txt`에 없으면 실패. 엔진 코드의 외부 패키지는 **Pillow 하나**. PyYAML은 엔진 `.py`에서 import하는 곳이 없음(스킬 스크립트 등 다른 쓰임 확인 전까지 유지).
+- FIREBAT에서 남은 15개 재실행: **4개 통과**(character_art_fallback, service_log, obslog, st_import).
+
+| 원인 | 모듈 | 다음 |
+|---|---|---|
+| **K. 서버 HTTP 테스트가 연결 강제 종료(`WinError 10054`)** — 테스트 서버가 요청 처리 중 안쪽에서 죽는 것으로 보임(서버 쪽 트레이스백 미확인) | host_api_guards, observation_api, st_import_api, ticket_api | 서버 스레드의 예외를 테스트 출력으로 끌어내 원인 확인 |
+| C. `/proc` | accounts (`providers/accounts.py::_scan_procs`) | `platform_compat` 프로세스 목록(`pp/D` 다음 수) |
+| G. 권한·사용 중 파일(`PermissionError 13`) | evolution, memory_store | `platform_compat` 잠금·교체, 권한 비트 규칙(F와 함께) |
+| H. 테스트의 `sh -c` 가짜 두뇌 | worktree_runner | 개발판 전용(위임 러너) — Windows 대상에서 빼거나 가짜 두뇌를 Python으로 |
+| A. 실측에서 뺀 데이터(역할 팩) | identity_wiring | 2차 실측 방식 |
+| 미확인 | core_standalone, models_meta_cache | 트레이스백 전문 확인 |
