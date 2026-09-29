@@ -64,7 +64,7 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | PP2 | 대상 순위 | 3.1 표 | 대기 |
 | DK1 | 스팀덱 빌드 | 네이티브 Linux 빌드 + 두뇌는 API 키·OAuth 경로 우선(게임 모드에서 CLI 로그인이 어려울 수 있음). Proton은 대안. `pp/C`처럼 실기 실측 뒤 확정 | 대기 |
 | PP4 | 배포 형태 (운영자 2026-09-29 "사용자가 건드리면 안 되는 것들은 다 binary로") | **OS별 Nuitka 바이너리**(Python → C 컴파일: 되읽기 어렵고, 시작이 빠르고, Apache 라이선스). 사용자·에이전트가 바꾸는 것은 `~/.pe`(캐릭터·기억·스킬·플러그인)뿐 — edition-boundary를 물리적 경계로. 대안 PyInstaller(쉽지만 풀면 코드가 거의 그대로). 한계: 보안 장치가 아니라 "실수로 망가뜨리지 않게, 쉽게 복제되지 않게"; 화면(HTML·JS·CSS)은 실행 파일 안 리소스로 묶는 정도; 두뇌 CLI는 사용자가 따로 설치. OS별 조건 — Windows: 코드 서명 없으면 SmartScreen 경고. **macOS: Apple Developer ID 서명 + 공증(notarization) 없으면 Gatekeeper가 실행을 막음**, arm64·x86_64 둘 다(universal2 또는 두 빌드). Linux·스팀덱: 한 파일 또는 Flatpak(DK1과 함께). 빌드는 CI 매트릭스(`pp/F`)에서 테스트와 같이 | **결정** (방향, 2026-09-29 운영자) — 도구 확정은 `pp/K` 시험 뒤 |
-| PP5 | 자기 진화 핵심(`core_modules.json`)에 `platform_compat` 포함? | 포함 추천: 잠금 코드가 `evolution.acquire_lock`과 `platform_compat` 두 곳에 생겼다(#397). 포함하면 한 곳으로. 파일이 운영자 소유라 운영자 결정 | 대기 |
+| PP5 | 자기 진화 핵심(`core_modules.json`)에 `platform_compat` 포함? | 포함 추천: 잠금 코드가 `evolution.acquire_lock`과 `platform_compat` 두 곳에 생겼다(#397). 포함하면 한 곳으로. 파일이 운영자 소유라 운영자 결정 | **결정** (2026-09-29 운영자: 추천대로) — #398에서 `core_modules.json`에 추가, `evolution.acquire_lock`이 `platform_compat.lock_file`을 씀, 래칫 49 → 47 |
 | PP3 | CI 위치 | GitHub Actions(비공개 저장소 무료 한도 안에서, Windows 분은 비싸니 push마다가 아니라 main 병합·수동 실행 때) | 대기 |
 
 ## 5. 항목

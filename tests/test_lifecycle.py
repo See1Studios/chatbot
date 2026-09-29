@@ -236,7 +236,8 @@ class WrapperTest(unittest.TestCase):
         self.data = self.tree / "data"
         self.code.mkdir()
         self.data.mkdir()
-        shutil.copy(str(CODE / "evolution.py"), str(self.code / "evolution.py"))
+        for m in json.loads((CODE / "core_modules.json").read_text(encoding="utf-8"))["core"]:   # PP5: siblings too
+            shutil.copy(str(CODE / (m + ".py")), str(self.code / (m + ".py")))
         self.stub = self.tree / "stub.sh"
         self.stub.write_text(
             "#!/bin/bash\nset -euo pipefail\nCODE=%s\nDATA=%s\n%s"
@@ -305,7 +306,9 @@ class RealCtlTest(unittest.TestCase):
         self.home = home
         self.code = home / "services" / "chatbot"
         (self.code / "data").mkdir(parents=True)
-        for name in ("chatbot-ctl.sh", "evolution.py", "protected_paths.json"):
+        # the ctl runs evolution.py on its own, and evolution imports its core siblings (PP5: platform_compat)
+        core = json.loads((CODE / "core_modules.json").read_text(encoding="utf-8"))["core"]
+        for name in ["chatbot-ctl.sh", "protected_paths.json"] + [m + ".py" for m in core]:
             shutil.copy(str(CODE / name), str(self.code / name))
         stubs = home / ".local" / "bin"
         stubs.mkdir(parents=True)
@@ -313,7 +316,9 @@ class RealCtlTest(unittest.TestCase):
             (stubs / name).write_text('#!/bin/sh\necho "%s $*" >> "%s"\nexit 0\n' % (name, home / "stub.log"),
                                      encoding="utf-8")
             (stubs / name).chmod(0o755)
-        self.env = dict(os.environ, HOME_DIR=str(home), AGY_CHAT_PORT="1", NAS_MCP_PORT="1")
+        # CHATBOT_CALLER named here: without it the ctl asks `ps` who called it when no terminal is attached, and
+        # these tests assert that the skip paths run no ps at all -- they passed or failed by how the suite was run
+        self.env = dict(os.environ, HOME_DIR=str(home), AGY_CHAT_PORT="1", NAS_MCP_PORT="1", CHATBOT_CALLER="test")
         self.env.pop("CHATBOT_LOCK_PPID", None)
 
     def ctl(self, *args, **env):

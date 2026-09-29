@@ -21,8 +21,8 @@ Design constraints (§3 0-0):
 - Fail closed for protection: a missing or malformed registry protects
   everything. Fail open for the lifecycle lock: it is a safeguard, never a
   reason the host cannot start.
-- The lock sits behind one function (`acquire_lock`); only that function
-  knows about `fcntl`, so another platform can swap it.
+- The lock sits behind one function (`acquire_lock`), which takes it through
+  platform_compat (flock on POSIX, msvcrt on Windows; a core module too).
 
 Command line (used by chatbot-ctl.sh, which stays thin):
   run-locked LOCK WAIT -- CMD...   run CMD holding LOCK (WAIT 0: skip when busy)
@@ -46,14 +46,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-try:  # POSIX; see acquire_lock
-    import fcntl
-except ImportError:  # pragma: no cover
-    fcntl = None
-try:  # Windows (the core may not import platform_compat: core_modules.json)
-    import msvcrt
-except ImportError:  # pragma: no cover
-    msvcrt = None
+import platform_compat   # a core module too (core_modules.json, PP5): the lock's POSIX and Windows sides
 
 REGISTRY_NAME = "protected_paths.json"
 MANIFEST_NAME = "protected_manifest.json"
@@ -202,22 +195,13 @@ def acquire_lock(path, wait: float = 0.0):
     dies), or None where locking is unavailable. Raises LockBusy on timeout.
     """
     fh = open(str(path), "a")
-    if fcntl is None and msvcrt is None:
-        return fh
     deadline = time.time() + max(wait, 0.0)
-    while True:
-        try:
-            if fcntl is not None:
-                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            else:                                     # Windows: the first byte (pp/D, PLATFORM_COMPAT_v1)
-                fh.seek(0)
-                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
-            return fh
-        except (IOError, OSError):
-            if time.time() >= deadline:
-                fh.close()
-                raise LockBusy(str(path))
-            time.sleep(0.2)
+    while not platform_compat.lock_file(fh, blocking=False):
+        if time.time() >= deadline:
+            fh.close()
+            raise LockBusy(str(path))
+        time.sleep(0.2)
+    return fh
 
 
 def run_locked(lock_path, wait: float, argv: List[str]) -> int:

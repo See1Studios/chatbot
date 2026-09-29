@@ -72,7 +72,7 @@
  "posix": {
   "ctl_proc.py": 5,
   "delegation.py": 1,
-  "evolution.py": 3,
+  "evolution.py": 1,
   "mcp_server.py": 2,
   "obslog.py": 2,
   "providers/account_login.py": 8,
