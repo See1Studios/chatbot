@@ -3,13 +3,15 @@
  "approved_at": "2026-09-29 14:24:45",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-29 14:23:57",
  "evidence": [
   "event:20260929-142245-0dab75#3"
  ],
  "gate_failures": 0,
  "id": 399,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,15 +27,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-399 at 27a07af (agy, review PASS round 1)",
    "ts": "2026-09-29 14:33:35"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-29 14:33:48"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 10f29b2 on the operator's word (agy)",
+   "ts": "2026-09-29 14:35:40"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-29 14:35:40"
   }
  ],
  "paths": [
   "static/app-blocks.js",
   "tests/test_block_kinds.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/app-blocks.js,tests/test_block_kinds.py",
  "title": "fix: app-blocks splitInline 별표 파싱 버그 수정 (리스트 불릿 뒤 볼드 깨짐)",
- "updated": "2026-09-29 14:33:35",
+ "updated": "2026-09-29 14:35:40",
  "worked_by": "agy"
 }
