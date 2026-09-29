@@ -1,6 +1,6 @@
 {
-  "name": "Sphere Chatbot",
-  "short_name": "Chatbot",
+  "name": "Private Engine",
+  "short_name": "Private Engine",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
