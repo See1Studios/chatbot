@@ -52,8 +52,9 @@ class TicketQuickCli(unittest.TestCase):
         self.assertEqual(self.ticket(tid)["status"], "in_progress")
         self.assertTrue(str(tf).startswith(str(self.state)), tf)
         self.assertEqual(tf.read_text().strip(), token)
-        self.assertEqual(stat.S_IMODE(tf.stat().st_mode), 0o600)
-        self.assertEqual(stat.S_IMODE(tf.parent.stat().st_mode), 0o700)
+        if os.name == "posix":   # mode bits are POSIX; on Windows the state folder is the user's profile (#411)
+            self.assertEqual(stat.S_IMODE(tf.stat().st_mode), 0o600)
+            self.assertEqual(stat.S_IMODE(tf.parent.stat().st_mode), 0o700)
 
     def test_done_reads_the_token_file_and_removes_it(self):
         tid, _, tf = self.start()

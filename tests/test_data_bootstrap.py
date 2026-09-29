@@ -31,7 +31,8 @@ class Bootstrap(unittest.TestCase):
         self.assertEqual(sorted(res["files"]), want)
         for rel in want:
             self.assertEqual((self.data / "workspace" / rel).read_bytes(), (B.TEMPLATE / rel).read_bytes(), rel)
-        self.assertEqual(stat.S_IMODE(self.data.stat().st_mode), 0o700)
+        if os.name == "posix":   # mode bits are POSIX; Windows guards the folder with the profile's ACL (#411)
+            self.assertEqual(stat.S_IMODE(self.data.stat().st_mode), 0o700)
         for d in B.SKELETON:
             self.assertTrue((self.data / d).is_dir(), d)
         marker = json.loads((self.data / B.MARKER).read_text(encoding="utf-8"))
@@ -44,7 +45,8 @@ class Bootstrap(unittest.TestCase):
         os.chmod(self.data, 0o755)                        # made by someone else with the default umask
         self.assertTrue(B.bootstrap(self.data)["created"])
         self.assertTrue((self.data / "workspace" / "AGENTS.md").is_file())
-        self.assertEqual(stat.S_IMODE(self.data.stat().st_mode), 0o700)
+        if os.name == "posix":   # mode bits are POSIX; Windows guards the folder with the profile's ACL (#411)
+            self.assertEqual(stat.S_IMODE(self.data.stat().st_mode), 0o700)
 
     def test_an_existing_workspace_is_left_alone_and_deleted_files_stay_deleted(self):
         B.bootstrap(self.data)

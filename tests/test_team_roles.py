@@ -96,8 +96,8 @@ class Roster(unittest.TestCase):
         d = self.ws / "roles" / "pd"
         self.assertEqual(C.pack_file("pd", "role", self.ws).name, "role.md")          # only the old name exists
         self.assertEqual(C.pack_file("pd", "procedure", self.ws).name, "PROCEDURE.md")  # neither: the new name
+        (d / "role.md").unlink()   # first: on a case-insensitive disk (Windows, macOS) role.md IS ROLE.md (#411)
         (d / "ROLE.md").write_text(PD.replace("You plan and delegate.", "New name wins."), encoding="utf-8")
-        (d / "role.md").unlink()
         self.assertIn("New name wins.", C.role_pack("pd", self.ws)["text"])
         self.assertEqual(C.role_pack("pd", self.ws)["tools"], ["delegate", "house-memory"])
         import workspace_status as W

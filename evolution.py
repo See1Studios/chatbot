@@ -227,8 +227,19 @@ def run_locked(lock_path, wait: float, argv: List[str]) -> int:
     env = dict(os.environ)
     env["CHATBOT_LOCK_PPID"] = str(os.getpid())
     proc = subprocess.Popen(argv, env=env)
-    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-        signal.signal(sig, lambda n, _f: proc.send_signal(n))
+    def forward(signum, _frame):
+        try:
+            proc.send_signal(signum)
+        except (OSError, ValueError):   # Windows forwards only some signals to a child: stop it instead
+            proc.terminate()
+
+    for name in ("SIGTERM", "SIGINT", "SIGHUP"):   # SIGHUP does not exist on Windows (#411)
+        sig = getattr(signal, name, None)
+        if sig is not None:
+            try:
+                signal.signal(sig, forward)
+            except (OSError, ValueError):
+                pass
     rc = proc.wait()
     if held is not None:
         held.close()

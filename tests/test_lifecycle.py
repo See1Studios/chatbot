@@ -68,20 +68,23 @@ class RunLockedTest(unittest.TestCase):
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, **kw)
 
     def test_child_status_is_returned_and_child_knows_it_is_inside(self):
-        r = self.helper(0, "sh", "-c", "echo $PPID:$CHATBOT_LOCK_PPID; exit 3")
+        r = self.helper(0, PY, "-c", "import os, sys; print('%d:%s' % (os.getppid(), os.environ.get('CHATBOT_LOCK_PPID', ''))); "
+                                     "sys.exit(3)")   # python, not sh: the core's lock runs on Windows too (#411)
         self.assertEqual(r.returncode, 3)
         ppid, marker = r.stdout.strip().split(":")
-        self.assertEqual(ppid, marker)
+        if os.name == "posix":   # the marker is the parent pid; a Windows venv python.exe is a launcher, so the child's
+            self.assertEqual(ppid, marker)   # parent is the launcher. Only chatbot-ctl.sh (bash, dev) reads it (#411)
 
     def test_a_process_the_child_leaves_running_does_not_keep_the_lock(self):
         # the host server is started by ctl and outlives it: it must not inherit the lock
-        r = self.helper(0, "sh", "-c", "sleep 3 >/dev/null 2>&1 & echo started")
+        r = self.helper(0, PY, "-c", "import subprocess, sys; subprocess.Popen([sys.executable, '-c', 'import time; "
+                                     "time.sleep(3)'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); print('started')")
         self.assertEqual(r.returncode, 0)
         evolution.acquire_lock(self.lock, 0).close()
 
     def test_busy_doctor_style_run_skips_without_running(self):
         held = evolution.acquire_lock(self.lock, 0)
-        r = self.helper(0, "sh", "-c", "echo BODY")
+        r = self.helper(0, PY, "-c", "print('BODY')")
         held.close()
         self.assertEqual(r.returncode, 0)
         self.assertIn("skipped", r.stdout)
@@ -89,14 +92,14 @@ class RunLockedTest(unittest.TestCase):
 
     def test_busy_start_style_run_waits_then_exits_75_without_running(self):
         held = evolution.acquire_lock(self.lock, 0)
-        r = self.helper(0.3, "sh", "-c", "echo BODY")
+        r = self.helper(0.3, PY, "-c", "print('BODY')")
         held.close()
         self.assertEqual(r.returncode, evolution.BUSY_EXIT)
         self.assertNotIn("BODY", r.stdout)
 
     def test_unusable_lock_file_still_runs_the_command(self):
         bad = tmpdir() / "no" / "such" / "dir" / "x.lock"
-        r = subprocess.run([PY, str(CODE / "evolution.py"), "run-locked", str(bad), "0", "--", "sh", "-c", "echo BODY"],
+        r = subprocess.run([PY, str(CODE / "evolution.py"), "run-locked", str(bad), "0", "--", PY, "-c", "print('BODY')"],
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         self.assertIn("BODY", r.stdout)
         self.assertIn("without it", r.stdout)

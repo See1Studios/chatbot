@@ -130,7 +130,7 @@ class OneResolver(unittest.TestCase):
         try:
             import importlib
             cfg = importlib.reload(host_config)
-            self.assertEqual(str(cfg.EVENTS_LOG), "/tmp/pe-elsewhere/events.jsonl")
+            self.assertEqual(str(cfg.EVENTS_LOG), str(Path("/tmp/pe-elsewhere/events.jsonl")))   # OS spelling (#411)
         finally:
             if old is None:
                 os.environ.pop("CHATBOT_OBSLOG_PATH", None)

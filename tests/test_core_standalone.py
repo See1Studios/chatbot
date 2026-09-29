@@ -169,6 +169,9 @@ class Instance:
 
     def run(self):
         env = {"HOME": str(self.home), "LANG": "C.UTF-8", "PATH": "/nonexistent"}  # no ~/.agents, no watchdog, no tools
+        env["USERPROFILE"] = str(self.home)             # Windows' Python finds the home there, not in HOME (#411)
+        if os.environ.get("SYSTEMROOT"):                # and cannot start some modules without it
+            env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
         return subprocess.run([sys.executable, str(self.script), str(self.root), str(self.data), json.dumps(LAYERS)],
                               cwd=str(self.tmp), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               universal_newlines=True, timeout=120)

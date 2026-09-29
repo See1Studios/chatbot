@@ -192,3 +192,11 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 - **결론: FIREBAT의 로컬(루프백) 연결 자체가 리셋된다** — 우리 코드도 Python도 아니고, 이 기계에 깔린 네트워크 필터 드라이버(Tailscale, Sunshine, 가상 디스플레이, 백신 등) 쪽으로 보인다. 어느 것인지는 미확인.
 - **제품 위험**: 같은 종류의 프로그램이 깔린 사용자 PC에서도 브라우저 ↔ PE 서버 연결이 가끔 끊길 수 있다. 브라우저는 GET을 다시 시도하지만 POST는 아니다 → 화면의 POST 호출에 재시도(멱등한 것만)나 오류 안내가 필요할 수 있음. 깨끗한 Windows(CI 러너)에서 재현되는지로 확인한다(`pp/F`).
 - 포트 독점 바인딩(`platform_compat.http_server`)은 이 문제를 풀지는 못했지만 유지: Windows에서 다른 프로그램이 우리 포트에 함께 붙는 것을 막는다(로컬 보안).
+
+### 6.10 남은 Windows 실패 정리 (2026-09-29, #411)
+
+- **엔진 버그 1건**: `evolution.run_locked`(핵심 모듈, 관리 잠금 실행)가 `signal.SIGHUP`을 무조건 등록 — Windows에는 없어 함수가 곧바로 죽었다. 이 OS에 있는 신호만 등록하고, 자식에게 전달할 수 없는 신호는 종료 요청으로 대신.
+- **테스트의 POSIX 가정**: ① 홈 폴더를 `HOME`으로만 옮김 — Windows의 Python은 `USERPROFILE`을 본다(`tests/_platform.home_env`). 환경을 거의 비우는 `core_standalone`은 홈을 못 찾아 보호 판정이 "전부 보호"로 떨어졌었다(엔진 판정은 정상). ② 잠금 실행 테스트가 `sh -c` — Python 명령으로. ③ 권한 비트 검사는 POSIX에서만(Windows는 사용자 프로필 ACL). ④ 경로 문자열 비교는 OS 표기로. ⑤ 대소문자 무시 디스크에서 `ROLE.md` 쓰고 `role.md` 지우면 같은 파일 — 순서를 바꿈. ⑥ 디렉터리 심볼릭 링크는 Windows에서 권한이 필요 — 없으면 건너뜀. ⑦ 부모 PID 표식 검사는 POSIX에서만(Windows 가상환경의 `python.exe`는 중계 프로그램).
+- **POSIX 전용 표시(`posix_only`)**: NAS 호스트 플러그인 상태 검사, 티켓 CLI의 `/dev/tty` 운영자 확인.
+- FIREBAT에서 10개 모듈 재실행 → 모두 통과. **남은 Windows 실패**: 개인 기록을 뺀 실측 탓 2개(bundle_budget, code_layout), 원인 미확인 1개(private_tension), FIREBAT 네트워크 환경의 HTTP 리셋 4개(§6.9).
+- 열린 결정: Windows에서 비밀 파일(토큰·데이터 폴더) 보호를 ACL로 명시할지 — 지금은 사용자 프로필 폴더의 기본 ACL에 기댄다.

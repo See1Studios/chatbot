@@ -22,6 +22,7 @@ os.environ.setdefault("NAS_MCP_HOST_PLUGIN", "1")
 os.environ.setdefault("CHATBOT_EDITION", "dev")
 import mcp_server as mcp  # noqa: E402  -- the only place tests import the tool server
 from tests._platform import dev_only_bash  # noqa: E402
+from tests._platform import home_env  # noqa: E402
 
 
 def setUpModule():
@@ -250,7 +251,7 @@ class WriteFileTest(Base):
         shutil.copy(str(CODE / "protected_paths.json"), str(self.code / "protected_paths.json"))
         mcp.CODE_ROOT = self.code
         mcp.ALLOW_ROOTS = [self.code, self.home / ".agents"]
-        patcher = mock.patch.dict(os.environ, {"HOME": str(self.home)})
+        patcher = mock.patch.dict(os.environ, home_env(self.home))
         patcher.start()
         self.addCleanup(patcher.stop)
 

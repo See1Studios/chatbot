@@ -10,3 +10,12 @@ import unittest
 
 POSIX_BASH = os.name == "posix" and bool(shutil.which("bash"))
 dev_only_bash = unittest.skipUnless(POSIX_BASH, "dev-build bash tooling; no POSIX bash on this OS (platform-portability pp/E)")
+
+POSIX = os.name == "posix"
+posix_only = unittest.skipUnless(POSIX, "POSIX-only by design (the NAS host plugin, /dev/tty, mode bits)")
+
+
+def home_env(path) -> dict:
+    """Environment that moves `~` to `path` on every OS: POSIX reads HOME, Windows' Python reads USERPROFILE (#411:
+    tests that set only HOME kept Windows' real home, and with neither set the home was unknown)."""
+    return {"HOME": str(path), "USERPROFILE": str(path)}

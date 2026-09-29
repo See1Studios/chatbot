@@ -13,6 +13,7 @@ from unittest import mock
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 import evolution  # noqa: E402
+from tests._platform import home_env  # noqa: E402
 
 STDLIB_OK = {  # and platform_compat, the core sibling that holds OS-specific calls (PP5)
              "__future__", "fnmatch", "hashlib", "platform_compat", "json", "os", "pathlib", "re", "signal", "subprocess",
@@ -75,9 +76,12 @@ class MatchingTest(unittest.TestCase):
     def test_home_pattern_follows_home_and_a_symlinked_directory(self):
         home = Path(tempfile.mkdtemp()).resolve()
         real = Path(tempfile.mkdtemp()).resolve()
-        (home / ".agents").symlink_to(real)
+        try:
+            (home / ".agents").symlink_to(real, target_is_directory=True)
+        except OSError:   # Windows allows symlinks only with Developer Mode or admin rights
+            self.skipTest("this account may not create symlinks")
         root = make_root(["~/.agents/"])
-        with mock.patch.dict(os.environ, {"HOME": str(home)}):
+        with mock.patch.dict(os.environ, home_env(home)):
             self.assertTrue(evolution.is_protected(root, home / ".agents" / "skills" / "x" / "SKILL.md"))
             self.assertTrue(evolution.is_protected(root, real / "skills" / "y.md"))
             self.assertFalse(evolution.is_protected(root, home / "other" / "a.md"))

@@ -18,6 +18,7 @@ CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 import tickets  # noqa: E402
 from tests._platform import dev_only_bash  # noqa: E402
+from tests._platform import posix_only  # noqa: E402
 
 T0 = 1_800_000_000.0
 EVENT = "event:s1#2"
@@ -593,6 +594,7 @@ class OperatorOnlyTest(Base):
         self.assertEqual(tickets.get(self.data, a["id"])["notes"][-1]["by"], "operator (tty)")
         self.assertEqual(tickets.get(self.data, b["id"])["notes"][-1]["by"], "operator (api)")
 
+    @posix_only   # the operator's terminal is found through /dev/tty (the dev tickets CLI, #411)
     def test_a_shell_without_a_terminal_cannot_use_the_command_line(self):
         t, _ = self.propose()
         for cmd in ("approve", "decline", "reopen"):
