@@ -29,10 +29,81 @@ const b = src.indexOf('// ==== file:', a);
 if (a < 0 || b < 0) throw new Error('BLOCK_KINDS markers missing');
 eval(src.slice(a, b));
 
+function makeEl(tag) {
+  const el = {
+    tagName: tag.toUpperCase(),
+    className: '',
+    attributes: {},
+    children: [],
+    parentNode: null,
+    setAttribute(k, v) { this.attributes[k] = String(v); },
+    getAttribute(k) { return this.attributes[k] || null; },
+    appendChild(child) {
+      if (child.parentNode && child.parentNode.removeChild) {
+        child.parentNode.removeChild(child);
+      }
+      this.children.push(child);
+      child.parentNode = this;
+      return child;
+    },
+    removeChild(child) {
+      const idx = this.children.indexOf(child);
+      if (idx >= 0) this.children.splice(idx, 1);
+      child.parentNode = null;
+      return child;
+    },
+    get firstChild() { return this.children[0] || null; },
+    _html: '',
+    get innerHTML() { return this._html; },
+    set innerHTML(val) {
+      this._html = val;
+      const m = /^\s*<([a-zA-Z0-9]+)[^>]*>([\s\S]*)<\/\1>\s*$/.exec(val);
+      if (m) {
+        const child = makeEl(m[1]);
+        child.innerHTML = m[2];
+        this.children = [child];
+        child.parentNode = this;
+      } else {
+        this.children = [];
+      }
+    }
+  };
+  return el;
+}
+const document = { createElement: makeEl };
+function renderMarkdown(t) { return '<p>' + t + '</p>'; }
+
+const c = src.indexOf('function buildBlock(');
+const d = src.indexOf('function renderTypedBody(', c);
+if (c >= 0 && d >= 0) eval(src.slice(c, d));
+
+const inspectBlock = (box) => ({
+  kind: box.getAttribute('data-kind'),
+  className: box.className,
+  children: box.children.map(ch => ({
+    tag: ch.tagName.toLowerCase(),
+    kind: ch.getAttribute('data-kind'),
+    className: ch.className,
+    html: ch.innerHTML
+  }))
+});
+
 const N = 'narration', D = 'dialogue', A = 'action';
 const shape = (blocks) => blocks.map(x => x.kind + ':' + JSON.stringify(x.text));
 
 const CASES = {
+  build_block_mixed_line: () => {
+    const block = classifyBlocks('*눈을 내리며* "이제 알겠어요." 그래, 그럴지도.')[0];
+    return inspectBlock(buildBlock(block, true));
+  },
+  build_block_single_paragraph: () => {
+    const block = classifyBlocks('창밖이 조용했다.')[0];
+    return inspectBlock(buildBlock(block, true));
+  },
+  build_block_speech_paragraph: () => {
+    const block = classifyBlocks('"왜 그랬어요?"')[0];
+    return inspectBlock(buildBlock(block, true));
+  },
   paragraph_kinds: () => shape(classifyBlocks('*고개를 기울였다*\n\n"왜 그랬어요?"\n\n창밖이 조용했다.')),
   mixed_one_line: () => shape(splitInline('*눈을 내리며* "이제 알겠어요." 그래, 그럴지도.')),
   action_only_line: () => shape(splitInline('*손끝이 떨렸다*')),
@@ -235,6 +306,36 @@ class BlockKinds(unittest.TestCase):
         self.assertEqual(out, {"q": [True, True], "n": False},
                          "a list item or a quote line must stay attached to the block above")
 
+    def test_build_block_mixed_line_unwraps_p_and_preserves_classes(self):
+        out = run("build_block_mixed_line")
+        self.assertEqual(out["kind"], "narration")
+        self.assertEqual(out["className"], "md-block")
+        self.assertEqual(len(out["children"]), 3)
+        self.assertEqual(out["children"][0], {
+            "tag": "span", "kind": "action", "className": "md-action", "html": "*눈을 내리며*"
+        })
+        self.assertEqual(out["children"][1], {
+            "tag": "span", "kind": "dialogue", "className": "md-dialogue", "html": '"이제 알겠어요."'
+        })
+        self.assertEqual(out["children"][2], {
+            "tag": "span", "kind": None, "className": "", "html": " 그래, 그럴지도."
+        })
+
+    def test_build_block_single_paragraph_preserves_block_tag(self):
+        out = run("build_block_single_paragraph")
+        self.assertEqual(out["kind"], "narration")
+        self.assertEqual(len(out["children"]), 1)
+        self.assertEqual(out["children"][0]["tag"], "p")
+        self.assertEqual(out["children"][0]["html"], "창밖이 조용했다.")
+
+    def test_build_block_speech_paragraph_preserves_dialogue_kind(self):
+        out = run("build_block_speech_paragraph")
+        self.assertEqual(out["kind"], "dialogue")
+        self.assertEqual(len(out["children"]), 1)
+        self.assertEqual(out["children"][0]["tag"], "p")
+        self.assertEqual(out["children"][0]["html"], '"왜 그랬어요?"')
+
 
 if __name__ == "__main__":
     unittest.main()
+

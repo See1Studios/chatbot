@@ -807,17 +807,35 @@ function buildBlock(block, isFinal) {
   const box = document.createElement('div');
   box.className = 'md-block';
   box.setAttribute('data-kind', block.kind);
-  blockRuns(block).forEach((run) => {
-    // Markdown in, HTML out: per run, so a list or a code fence inside the block still parses
-    // exactly as it did when the block was one string.
-    const holder = document.createElement(run.kind === 'narration' ? 'div' : 'span');
-    if (run.kind !== 'narration') {
-      holder.className = 'md-' + run.kind;
-      holder.setAttribute('data-kind', run.kind);
-    }
-    holder.innerHTML = renderMarkdown(run.text, isFinal);
-    while (holder.firstChild) box.appendChild(holder.firstChild);
-  });
+  const runs = blockRuns(block);
+  // When inline pieces (action, dialogue) are mixed in, keep them inline (<span> and p-unwrap)
+  // so the line flow is preserved and holder classes (.md-action, .md-dialogue) stay attached.
+  const isInline = runs.length > 1 || (runs.length === 1 && runs[0].kind !== 'narration' && block.kind === 'narration');
+  if (isInline) {
+    runs.forEach((run) => {
+      const holder = document.createElement('span');
+      if (run.kind !== 'narration') {
+        holder.className = 'md-' + run.kind;
+        holder.setAttribute('data-kind', run.kind);
+      }
+      let html = renderMarkdown(run.text, isFinal);
+      html = (html || '').trim().replace(/^<p\b[^>]*>([\s\S]*?)<\/p>$/i, '$1');
+      if (/^\s/.test(run.text) && !/^\s/.test(html)) html = ' ' + html;
+      if (/\s$/.test(run.text) && !/\s$/.test(html)) html = html + ' ';
+      holder.innerHTML = html;
+      box.appendChild(holder);
+    });
+  } else {
+    runs.forEach((run) => {
+      const holder = document.createElement(run.kind === 'narration' ? 'div' : 'span');
+      if (run.kind !== 'narration') {
+        holder.className = 'md-' + run.kind;
+        holder.setAttribute('data-kind', run.kind);
+      }
+      holder.innerHTML = renderMarkdown(run.text, isFinal);
+      while (holder.firstChild) box.appendChild(holder.firstChild);
+    });
+  }
   // The motion is not the block's any more: letters arrive one by one while the answer streams
   // (CHAR_REVEAL_v1, app-sse.js), so a block is only ever rendered here.
   return box;
