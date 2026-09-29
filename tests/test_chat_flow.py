@@ -69,5 +69,22 @@ class ChatFlow(unittest.TestCase):
         self.assertEqual(js.count("'msg scrollback-marker session-divider'"), 2)
 
 
+class Density(unittest.TestCase):
+    """CHAT_DENSITY_v1 (#420): meters and session dividers wait for the "details" switch."""
+
+    def test_the_switch_is_in_the_menu_and_remembered(self):
+        html = (STATIC / "index.html").read_text(encoding="utf-8")
+        self.assertIn('id="densityBtn"', html)
+        js = (STATIC / "app-flow.js").read_text(encoding="utf-8")
+        self.assertIn("density-advanced", js)
+        self.assertIn("localStorage.setItem(DENSITY_KEY", js)
+
+    def test_the_simple_density_hides_the_meters_not_the_actions(self):
+        css = (STATIC / "chat-log.css").read_text(encoding="utf-8")
+        self.assertIn("body:not(.density-advanced) .msg-footer .token-badge", css)
+        self.assertIn("body:not(.density-advanced) .msg-footer .served-model", css)
+        self.assertNotIn(".tts-btn{display:none}", css)          # copy/read stay reachable
+
+
 if __name__ == "__main__":
     unittest.main()

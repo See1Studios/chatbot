@@ -470,3 +470,16 @@ html:not(.stage-ready) .stage::before{opacity:0 !important}
 #log > .msg.session-divider{display:none}   /* beats .scrollback-marker{display:flex} in chat-panes.css, read later */
 body.density-advanced #log > .msg.session-divider{display:flex}
 #log > .msg.user.cont{margin-top:-.5rem;border-top-right-radius:4px}
+
+/* CHAT_DENSITY_v1 (app-flow.js): the simple density keeps meters off the bubbles. The copy/read buttons stay in
+   place (no jump) but show on hover or focus; a touch screen has no hover, so there they stay faint. The live
+   "N s" clock stays until the character's own presence replaces it (ux/B). */
+body:not(.density-advanced) .msg-footer .token-badge,body:not(.density-advanced) .msg-footer .served-model{display:none}
+@media (hover:hover){
+  body:not(.density-advanced) .msg.assistant .msg-footer .tts-btn{opacity:0;transition:opacity .15s ease}
+  body:not(.density-advanced) .msg.assistant:hover .msg-footer .tts-btn,
+  body:not(.density-advanced) .msg.assistant:focus-within .msg-footer .tts-btn{opacity:1}
+}
+@media (hover:none){body:not(.density-advanced) .msg.assistant .msg-footer .tts-btn{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.msg.assistant .msg-footer .tts-btn{transition:none}}
+.more-menu-item[aria-checked="true"]::after{content:"✓";margin-left:auto;padding-left:.6rem;color:var(--accent)}

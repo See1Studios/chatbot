@@ -98,6 +98,26 @@ function startChatFlow() {
   atMidnight();
 }
 
+// CHAT_DENSITY_v1 (operator 2026-09-29, the first piece of align/K's densities): the "details" switch in the "..."
+// menu. Off, the chat is the conversation: no token or model meters on bubbles, no session dividers, the copy/read
+// buttons only on hover. On (body.density-advanced), everything as before. Remembered in this browser only.
+const DENSITY_KEY = 'pe.density';
+
+function setDensity(advanced) {
+  document.body.classList.toggle('density-advanced', Boolean(advanced));
+  const btn = document.getElementById('densityBtn');
+  if (btn) btn.setAttribute('aria-checked', advanced ? 'true' : 'false');
+  try { localStorage.setItem(DENSITY_KEY, advanced ? 'advanced' : 'simple'); } catch (_) { /* private window */ }
+}
+
+function startDensity() {
+  let saved = '';
+  try { saved = localStorage.getItem(DENSITY_KEY) || ''; } catch (_) { /* private window */ }
+  setDensity(saved === 'advanced');
+  const btn = document.getElementById('densityBtn');
+  if (btn) btn.addEventListener('click', () => setDensity(!document.body.classList.contains('density-advanced')));
+}
+
 // milliseconds from `nowMs` to the next local midnight
 function msToNextMidnight(nowMs) {
   const d = new Date(nowMs);
@@ -106,6 +126,11 @@ function msToNextMidnight(nowMs) {
 }
 
 if (typeof document !== 'undefined' && document.addEventListener) {
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startChatFlow);
-  else startChatFlow();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startChatFlow);
+    document.addEventListener('DOMContentLoaded', startDensity);
+  } else {
+    startChatFlow();
+    startDensity();
+  }
 }
