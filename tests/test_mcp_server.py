@@ -378,8 +378,14 @@ class RealPathsTest(unittest.TestCase):
 
     def test_the_symlink_to_the_ctl_is_refused_too(self):
         link = mcp.SERVICES / "chatbot-ctl.sh"
-        if link.exists():
+        if not link.exists():
+            return
+        if CODE in link.resolve().parents:
             self.refused(link)
+        else:   # a copy of the repo (a delegated worktree): the link leads to the live install, outside this copy's
+            # allow-list -- refused for that, not by this copy's protection registry (#412 stopped as base_broken)
+            r = mcp.call_tool("write_file", {"path": str(link), "content": "x"})
+            self.assertFalse(r["success"], str(link))
 
     def test_global_agents_directory_is_refused(self):
         self.refused(mcp.AGENTS / "skills" / "some-skill" / "SKILL.md")
