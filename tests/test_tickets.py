@@ -682,6 +682,17 @@ class ShipGateTest(Base):
         r = tickets.release(self.data, t["id"], c["token"], "done", now=T0)
         self.assertEqual(r["ticket"]["status"], "done")
 
+    def test_the_guard_run_does_not_inherit_the_live_install_settings(self):
+        # #371/#387: the server's CHATBOT_DATA / CHATBOT_ROOT reached the guard tests, which then failed on the copy
+        self.git_init()
+        runner = self.data / "run-tests.sh"
+        runner.write_text('env | grep -q "^CHATBOT_\\|^PE_HOME=" && { echo "failed: leaked"; exit 1; }; exit 0\n',
+                          encoding="utf-8")
+        subprocess.check_call(["git", "add", "run-tests.sh"], cwd=str(self.data))
+        subprocess.check_call(["git", "commit", "-qm", "runner"], cwd=str(self.data))
+        with mock.patch.dict(os.environ, {"CHATBOT_DATA": "/live/data", "CHATBOT_ROOT": "/live", "PE_HOME": "/x"}):
+            self.assertEqual(tickets._guard_failure(self.data), "")
+
     def test_done_is_refused_while_the_guard_tests_fail(self):
         # pew/O: the repo's run-tests.sh --fast is the backstop for a commit that skipped its hooks
         self.git_init()

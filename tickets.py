@@ -357,7 +357,11 @@ def _guard_failure(data) -> str:
     root = _git_root(data)
     if root is None:
         return ""
-    env = {k: v for k, v in os.environ.items() if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE")}
+    # #371/#387: run from the server, the guards inherited the live install's settings (CHATBOT_DATA, CHATBOT_ROOT,
+    # ...) and judged the throwaway copy against the live folders -- every approve from the page failed, from a shell
+    # it passed. The guards run as in a developer's shell: no instance settings.
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE")
+           and not k.startswith(("CHATBOT_", "PE_", "PRIVATEENGINE_", "AGY_CHAT_"))}
     # Only the engine's own repo is judged. A data folder inside some other git repo (a home folder that is itself a
     # repo: ~/.pe, or a test's temp dir under ~/tmp) used to get a worktree of that whole repo before the missing
     # runner was noticed -- 6 s vs 108 s for test_tickets (test-suite-speed, 2026-09-28).
