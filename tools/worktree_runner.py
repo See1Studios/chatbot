@@ -157,7 +157,8 @@ PROVIDERS: Dict[str, Dict] = {
 class Failure(Exception):
     """The attempt stops here. outcome is the ticket release outcome: gate_failed | failed | unavailable (no brain
     answered at all: quota, limit, timeout, missing CLI -- the ticket gives the attempt back) | paused (the worker
-    asked for files outside its scope, NEED_PATH_v1: the work is kept, the attempt given back).
+    asked for files outside its scope, NEED_PATH_v1: the work is kept, the attempt given back) | base_broken (a gate
+    fails on the task's base too, BASE_CHECK_v1: not the work's fault; kept, the ticket told `unavailable`).
     retryable: another round with the writer could fix it. keep: the work is sound but could not be confirmed
     (no PD brain answered); the branch stays so the next run resumes it."""
 
@@ -525,8 +526,27 @@ def run_gates(wt_dir: Path, gates: List[str]) -> None:
         log("gate: %s" % cmd)
         code, out, err = run_cmd(["sh", "-c", cmd], cwd=wt_dir, timeout=GATE_TIMEOUT, env=clean_env())  # runs the agent's code
         if code != 0:
-            raise Failure("gate_failed", "gate failed: %s (exit %s)" % (cmd, code), tail(out + "\n" + err),
-                          retryable=True)
+            f = Failure("gate_failed", "gate failed: %s (exit %s)" % (cmd, code), tail(out + "\n" + err),
+                        retryable=True)
+            f.gate = cmd
+            raise f
+
+
+def base_fails(repo: Path, base: str, cmd: str, tid: int) -> Optional[str]:
+    """BASE_CHECK_v1 (plan dlg/C): run one failed gate on the task's base, in a throwaway detached worktree. The
+    output tail when it fails there too -- the failure is not the work's, so no writer round is spent on it -- else
+    None (also when the check itself cannot run: then the failure stays the work's)."""
+    d = WORKTREE_BASE / ("base-check-%d" % tid)
+    cleanup = lambda: (git(repo, "worktree", "remove", "--force", str(d)), shutil.rmtree(d, ignore_errors=True),
+                       git(repo, "worktree", "prune"))
+    cleanup()
+    if git(repo, "worktree", "add", "--detach", str(d), base)[0] != 0:
+        return None
+    try:
+        code, out, err = run_cmd(["sh", "-c", cmd], cwd=d, timeout=GATE_TIMEOUT, env=clean_env())
+        return None if code == 0 else tail(out + "\n" + err)
+    finally:
+        cleanup()
 
 
 # ------------------------------------------------------------------- review
@@ -806,13 +826,16 @@ def ff_merge(repo: Path, main_branch: str, branch: str) -> str:
     return head
 
 
+TICKET_OUTCOME = {"base_broken": "unavailable"}   # runner outcomes the ticket store does not know: the attempt is given back
+
+
 def release_failed(tid: int, token: str, f: Failure, provider: str, actor: str, result: Dict) -> None:
     result.update(outcome=f.outcome, reason=f.reason, detail=f.detail)
     print("[!] %s" % f.reason, file=sys.stderr)
     if f.detail:
         print(f.detail, file=sys.stderr)
     try:
-        vals = ticket_call("fail", "--id", str(tid), "--token", token, "--outcome", f.outcome,
+        vals = ticket_call("fail", "--id", str(tid), "--token", token, "--outcome", TICKET_OUTCOME.get(f.outcome, f.outcome),
                            "--note", "worktree %s: %s" % (provider, f.reason), "--actor", actor)
         if vals.get("ADVICE"):
             result["advice"] = vals["ADVICE"]
@@ -963,6 +986,10 @@ def cmd_run(args) -> int:
             created = True
             log("%s in %s (branch %s)" % ("picking up after task %d" % done_tasks if pick_up else "reworking",
                                           wt_dir, branch))
+            if pick_up and st.get("base_broken") and pending[1] in ("", base):
+                # BASE_CHECK_v1: the stop was main's own failure, fixed there since: the kept work goes on from main
+                new = sync_onto_main(repo, wt_dir, main_branch, base)
+                pending, base = (pending[0], new if pending[1] else ""), new
         else:
             if wt_dir.exists() or git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0:
                 raise Failure("failed", "%s or %s is left over from an earlier run; "
@@ -989,7 +1016,8 @@ def cmd_run(args) -> int:
         write_state(tid, phase="running", round=0, task=0, tasks_total=len(tasks), started=time.time(),
                     phase_since=time.time(), title=args.title, provider=provider, reviewer=reviewer,
                     paths=paths, gates=gates, main_branch=main_branch, base=base, branch=branch,
-                    worktree=str(wt_dir), transcript=transcript, reason="", kept=False, tasks_done=done_tasks)
+                    worktree=str(wt_dir), transcript=transcript, reason="", kept=False, tasks_done=done_tasks,
+                    base_broken=False)
 
         def renew() -> None:
             try:
@@ -1026,6 +1054,7 @@ def cmd_run(args) -> int:
             chain = expert_chain(task["role"], [{"provider": provider, "model": args.model, "timeout": 0}])
             bi, last_brain = 0, None
             partner_report = ""
+            base_checked: set = set()           # BASE_CHECK_v1: each failed gate is tried on the base once per task
             for rnd in range(1, args.rounds + 1):
                 if rnd > 1 or tno > 1:
                     renew()
@@ -1095,6 +1124,14 @@ def cmd_run(args) -> int:
                     renew()
                     run_gates(wt_dir, gates)
                 except Failure as f:
+                    gate = getattr(f, "gate", None)
+                    if gate and gate not in base_checked:
+                        base_checked.add(gate)
+                        broken = base_fails(repo, task_base, gate, tid)
+                        if broken is not None:
+                            write_state(tid, base_broken=True)
+                            raise Failure("base_broken", "gate fails without this work too: %s -- fix the base, then "
+                                          "run again; the work is kept" % gate, broken, keep=True)
                     if not (f.retryable and reviewer):
                         raise
                     gate_error = f

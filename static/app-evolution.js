@@ -526,9 +526,9 @@ function renderTicketBar(waiting) {
 const WORK_PHASE_LABEL = {
   starting: '시작 중', running: '준비 중', writing: '작업 중', gates: '테스트 중', review: '리뷰 중', merging: '병합 중',
   awaiting_go: '실행 대기', queued: '잠금 대기', paused: '경로 요청', awaiting_merge: '최종 확인 대기', done: '완료', failed: '실패', gate_failed: '탈락',
-  declined: '폐기됨', stalled: '멈춤', 'merged-ticket-open': '병합됨(티켓 열림)',
+  declined: '폐기됨', stalled: '멈춤', 'merged-ticket-open': '병합됨(티켓 열림)', base_broken: '기반 고장',
 };
-const WORK_ENDED = ['done', 'failed', 'gate_failed', 'declined', 'stalled', 'merged-ticket-open'];
+const WORK_ENDED = ['done', 'failed', 'gate_failed', 'declined', 'stalled', 'merged-ticket-open', 'base_broken'];
 const workBarEl = document.getElementById('workBar');
 let workPollTimer = null;
 let workCardIds = new Set();   // tickets shown as work cards: the ticket bar leaves them out
@@ -717,6 +717,8 @@ function renderWorkCard(r) {
     if (!r.need_paths.some(n => n.operator_only)) button('경로 허용', true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
     button('폐기', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
   }
+  // BASE_CHECK_v1: the work is kept; once the base is fixed, the same plan runs on from it
+  if (r.phase === 'base_broken') button(TICKET_DECISION_WORD.delegate, true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
   if (r.phase === 'queued') {
     button('대기 취소', false, () => fillTicketCommand({ id: r.ticket }, 'unqueue'));
   }

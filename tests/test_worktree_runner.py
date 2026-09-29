@@ -646,6 +646,39 @@ class WorktreeRunner(unittest.TestCase):
         self.assertIn("+B", diff)
         self.assertEqual(wr.read_state(7)["phase"], "awaiting_merge")
 
+    def test_a_gate_broken_on_the_base_stops_without_blaming_the_work(self) -> None:
+        # BASE_CHECK_v1 (#384): main itself fails the smoke gate; no second writer round, the work kept, the attempt
+        # given back; once main is fixed the same plan goes on from the kept work
+        def commit_main(text):
+            (self.repo / "a.txt").write_text(text)
+            sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "main")
+        commit_main("bad\n")
+        count = self.base / "worker-runs"
+        script = 'echo x >> %s; echo B >> b.txt; git commit -qam w' % count
+        one = {"tasks": [{"role": "staff", "title": "t1", "instruction": "edit", "paths": ["b.txt"]}]}
+        run = ("--ticket", "7", "--token", "t", "--plan-from-state", "--stop-before-merge")
+        wr.write_state(7, plan=one)
+        self.assertEqual(self.run_with(script, paths="b.txt", extra=run), 1)
+        st = wr.read_state(7)
+        self.assertEqual((st["phase"], st["kept"], st["base_broken"]), ("base_broken", True, True))
+        self.assertEqual(count.read_text().count("x"), 1)
+        self.assertIn("unavailable", self.last_fail())
+        self.assertFalse([ln for ln in st["transcript"] if ln["role"] == "reviewer"])
+        self.assertFalse((wr.WORKTREE_BASE / "base-check-7").exists())
+        commit_main("one\n")
+        wr.write_state(7, plan=one)
+        self.assertEqual(self.run_with(script, paths="b.txt", extra=run), 0)
+        self.assertEqual(count.read_text().count("x"), 1)            # confirmed, not written again
+        st = wr.read_state(7)
+        self.assertEqual((st["phase"], st["base_broken"]), ("awaiting_merge", False))
+        self.assertEqual((wr.WORKTREE_BASE / "ticket-7" / "a.txt").read_text(), "one\n")
+
+    def test_a_gate_the_work_broke_still_goes_back_to_the_writer(self) -> None:
+        # the base passes the gate, so the failure is the work's: the next round fixes it (no base_broken)
+        script = 'if grep -q bad a.txt; then echo good > a.txt; else echo bad >> a.txt; fi; git commit -qam r'
+        self.assertEqual(self.run_with(script), 0)
+        self.assertFalse(wr.read_state(7).get("base_broken"))
+
     def run_plan_with_review(self, script, review):
         wr.write_state(7, plan=self.PLAN)
         return self.run_with(script, paths="a.txt,b.txt", review=review,
