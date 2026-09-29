@@ -1,0 +1,45 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-29 17:16:33",
+ "approved_by": "operator (ui)",
+ "attempts": 0,
+ "created": "2026-09-29 17:16:02",
+ "evidence": [
+  "event:20260929-171145-0c4e9d#8"
+ ],
+ "gate_failures": 0,
+ "id": 412,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-29 17:16:33"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: providers/adapter_openai.py, session.py, tests/test_session_split.py",
+   "ts": "2026-09-29 17:16:33"
+  },
+  {
+   "by": "agent:agy",
+   "text": "unavailable: worktree agy: gate fails without this work too: ./run-tests.sh test_attach_images test_models_meta_cache test_openrouter_free_price test_providers_config test_tool_budget_wrapup test_upstream_error test_auto_recycle test_character_picker test_choices_tool test_client_device_context test_conversation_sync test_core_standalone test_delegation test_evolution test_grok_image_paths test_http_adapter_stale_turn test_identity_wiring test_instructions test_live_session test_log_no_content t",
+   "ts": "2026-09-29 17:27:20"
+  },
+  {
+   "by": "host",
+   "text": "no brain answered: attempt given back (1/3)",
+   "ts": "2026-09-29 17:27:20"
+  }
+ ],
+ "paths": [
+  "providers/adapter_openai.py",
+  "session.py",
+  "tests/test_session_split.py"
+ ],
+ "status": "approved",
+ "target": "providers/adapter_openai.py,session.py,tests/test_session_split.py",
+ "title": "fix(session): HTTP 프로바이더 턴에서 세션 character·mode·history 주입 누락 수정",
+ "unavailable": 1,
+ "updated": "2026-09-29 17:27:20",
+ "worked_by": "agy"
+}
