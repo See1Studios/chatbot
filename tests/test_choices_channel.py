@@ -33,6 +33,17 @@ class ServerSplits(unittest.TestCase):
         self.assertEqual(split_choices("a <!--choices: x--> b <!--choices: 1 | 2 -> (웃는다)-->"),
                          ("a <!--choices: x--> b", ["1", "2 -> (웃는다)"]))
 
+    def test_a_marker_left_mid_answer_on_its_own_line_is_taken_out(self):
+        # 2026-09-30: marker, then a tool call, then more text in the same turn -- the marker was shown raw
+        text = "계획이다냥.\n\n<!--choices: 반영 | 튜닝 | 다듬기-->\n카드를 올렸다냥!"
+        self.assertEqual(split_choices(text), ("계획이다냥.\n\n카드를 올렸다냥!", ["반영", "튜닝", "다듬기"]))
+        both = "a\n<!--choices: old-->\nb\n<!--choices: new | two-->"
+        self.assertEqual(split_choices(both), ("a\nb", ["new", "two"]))
+
+    def test_a_marker_in_a_code_fence_stays(self):
+        text = "문법:\n```\n<!--choices: A | B-->\n```\n끝"
+        self.assertEqual(split_choices(text), (text, []))
+
     def test_a_quoted_marker_or_none_keeps_the_text(self):
         for text in ("인용 `<!--choices: a-->` 이후 본문", "그냥 답", "<!--choices:   -->"):
             self.assertEqual(split_choices(text), (text, []))

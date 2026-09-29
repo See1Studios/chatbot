@@ -33,13 +33,33 @@ _CHOICES_TAIL = re.compile(r"\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$"
 CHOICES_MAX, CHOICE_LEN = 4, 120
 
 
+# CHOICES_MIDLINE_v1 (2026-09-30): a turn can write its marker, call a tool, then write more -- the marker then
+# sits mid-answer and was shown raw. A marker standing on its own line outside code fences is taken out wherever it
+# is; the last one (a trailing one first) gives the choices. A marker quoted inside a sentence or a fence stays.
+_CHOICES_LINE = re.compile(r"^[ \t]*<!--\s*choices\s*:((?:(?!<!--)[^\n])*?)-->[ \t]*$", re.M)
+_FENCE = re.compile(r"```[\s\S]*?(?:```|$)")
+
+
+def _items(raw: str) -> List[str]:
+    return [x.strip()[:CHOICE_LEN] for x in raw.split("|") if x.strip()][:CHOICES_MAX]
+
+
 def split_choices(text: str) -> Tuple[str, List[str]]:
-    """(text without a trailing choices marker, its items). Items are kept as written (e.g. "label -> action")."""
-    m = _CHOICES_TAIL.search(text or "")
-    if not m:
+    """(text without its choices markers, the items of the last one). Items are kept as written ("label -> action")."""
+    text = text or ""
+    fences = [f.span() for f in _FENCE.finditer(text)]
+    lines = [m for m in _CHOICES_LINE.finditer(text) if not any(a <= m.start() < b for a, b in fences)]
+    tail = _CHOICES_TAIL.search(text)
+    items = _items(tail.group(1)) if tail else []
+    if not items and lines:
+        items = _items(lines[-1].group(1))
+    if not items:
         return text, []
-    items = [x.strip()[:CHOICE_LEN] for x in m.group(1).split("|") if x.strip()][:CHOICES_MAX]
-    return (text[:m.start()].rstrip(), items) if items else (text, [])
+    body = text[:tail.start()] if tail and _items(tail.group(1)) else text
+    for m in reversed([m for m in lines if m.end() <= len(body)]):
+        end = m.end() + 1 if body[m.end():m.end() + 1] == "\n" else m.end()   # the marker's line goes with it
+        body = body[:m.start()] + body[end:]
+    return re.sub(r"\n{3,}", "\n\n", body).strip(), items
 
 
 # CHOICES_LEAK_RESCUE_v1 (2026-09-28): a model sometimes writes its `choices` tool call into the answer as
