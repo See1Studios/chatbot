@@ -659,10 +659,32 @@ function getChoiceBarEl() {
   return null;
 }
 
-function renderChoiceChips(node, choices) {
+function renderChoiceChips(node, choices, isPrepend) {
   const md = node ? (node.querySelector('.md') || node) : null;
   if (md) md.querySelectorAll('.choice-chips').forEach(el => el.remove());
-  const bar = getChoiceBarEl();
+
+  const isPrependState = Boolean(isPrepend || (node && (node._prepend || (node.dataset && node.dataset.prepend === '1'))));
+  let isNotLatestAssistant = false;
+  if (typeof logEl !== 'undefined' && logEl && node) {
+    const msgs = typeof logEl.querySelectorAll === 'function' ? logEl.querySelectorAll('.msg:not(.system)') : [];
+    if (msgs && msgs.length) {
+      const last = msgs[msgs.length - 1];
+      let inLog = false;
+      if (typeof logEl.contains === 'function') {
+        inLog = logEl.contains(node);
+      } else {
+        for (let i = 0; i < msgs.length; i++) {
+          if (msgs[i] === node) { inLog = true; break; }
+        }
+      }
+      if (inLog && node !== last) {
+        isNotLatestAssistant = true;
+      }
+    }
+  }
+  const skipBar = isPrependState || isNotLatestAssistant;
+
+  const bar = skipBar ? null : getChoiceBarEl();
   if (bar) {
     if (bar.classList && typeof bar.classList.remove === 'function') {
       bar.classList.remove('closing');
@@ -672,6 +694,7 @@ function renderChoiceChips(node, choices) {
     bar._owner = null;
   }
   if (!choices || !choices.length) return;
+  if (skipBar) return;
 
   const card = document.createElement('div');
   card.className = 'choice-card';
@@ -813,7 +836,7 @@ function prepareStreamText(src) {
   return raw;
 }
 
-function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, skipFooter, servedModel, choices) {
+function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, skipFooter, servedModel, choices, isPrepend) {
   if (!node) return;
   const parts = splitChoices(rawText);
   rawText = parts.text;
@@ -849,7 +872,11 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     attachFileLinkInterceptors(node);
     const eventChoices = (node && node._choices && node._choices.length) ? node._choices : (choices && choices.length ? choices : null);
     const finalChoices = eventChoices || parts.choices;
-    if (!skipFooter) renderChoiceChips(node, finalChoices);
+    if (node && finalChoices && finalChoices.length) {
+      node._choices = finalChoices;
+    }
+    const prependState = Boolean(isPrepend || (node && node._prepend));
+    if (!skipFooter) renderChoiceChips(node, finalChoices, prependState);
     renderMermaidIn(node);
     highlightCodeIn(node);
     // Client-side system notices (/help, /status, /clear, stop confirmation)

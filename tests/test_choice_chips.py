@@ -19,7 +19,10 @@ if (a < 0 || b < 0) throw new Error('markers missing');
 const code = src.slice(a, b);
 
 function el(tag) {
-  const e = { tag, className: '', textContent: '', children: [], attrs: {}, handlers: {}, parent: null,
+  let _tc = '';
+  const e = { tag, className: '', children: [], attrs: {}, handlers: {}, parent: null,
+    get textContent() { return _tc; },
+    set textContent(v) { _tc = v; if (v === '') this.children = []; },
     scrollHeight: 0, scrollTop: 0, clientHeight: 0,
     setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.handlers[t] = f; },
     appendChild(c) { c.parent = this; this.children.push(c); return c; },
@@ -196,6 +199,69 @@ api.renderChoiceChips(m5, ['Option 1', 'Option 2']);
 const barVisible = !choiceBar.hidden;
 api.renderChoiceChips(m5, []);
 const barHidden = choiceBar.hidden;
+
+// ticket #425: prepend older history keeps choiceBar of newest message
+const mNew = msg('msg assistant');
+mNew._choices = ['New 1', 'New 2'];
+api.renderChoiceChips(mNew, mNew._choices);
+
+const barBeforePrepend = {
+  hidden: choiceBar.hidden,
+  ownerMatches: choiceBar._owner === mNew,
+  chips: choiceBar.children[0] ? choiceBar.children[0].all('.choice-chip').map(x => x.textContent) : [],
+};
+
+// Simulate older message prepended to logEl
+const mOld = el('div');
+mOld.className = 'msg assistant';
+const mdOld = el('div');
+mdOld.className = 'md';
+mOld.appendChild(mdOld);
+mOld._prepend = true;
+mOld.parent = logEl;
+logEl.children.unshift(mOld);
+
+// Calling renderChoiceChips for old message with prepend flag
+api.renderChoiceChips(mOld, ['Old 1', 'Old 2'], true);
+api.syncChoiceChips();
+
+const barAfterPrependWithChoices = {
+  hidden: choiceBar.hidden,
+  ownerMatches: choiceBar._owner === mNew,
+  chips: choiceBar.children[0] ? choiceBar.children[0].all('.choice-chip').map(x => x.textContent) : [],
+};
+
+// Calling renderChoiceChips for old message without choices
+api.renderChoiceChips(mOld, [], true);
+api.syncChoiceChips();
+
+const barAfterPrependEmpty = {
+  hidden: choiceBar.hidden,
+  ownerMatches: choiceBar._owner === mNew,
+  chips: choiceBar.children[0] ? choiceBar.children[0].all('.choice-chip').map(x => x.textContent) : [],
+};
+
+// Calling renderChoiceChips for old message that is in logEl but not latest assistant
+const mOlder = el('div');
+mOlder.className = 'msg assistant';
+mOlder.appendChild(el('div'));
+mOlder.parent = logEl;
+logEl.children.unshift(mOlder);
+api.renderChoiceChips(mOlder, ['Older 1']);
+api.syncChoiceChips();
+
+const barAfterNonLatestCall = {
+  hidden: choiceBar.hidden,
+  ownerMatches: choiceBar._owner === mNew,
+  chips: choiceBar.children[0] ? choiceBar.children[0].all('.choice-chip').map(x => x.textContent) : [],
+};
+
+out.prependDefense = {
+  barBeforePrepend,
+  barAfterPrependWithChoices,
+  barAfterPrependEmpty,
+  barAfterNonLatestCall,
+};
 
 // Generalized sticky-bottom scroll with shared ResizeObserver (#211)
 const path = require('path');
@@ -515,6 +581,103 @@ console.log(JSON.stringify({smartCombo, rawCombo, smartAct, longAct, longCombo, 
 
         # 3. Bubble grows mid keyboard-open transition: does not re-pin
         self.assertEqual(sticky["resizeMidKeyboard"]["scrollTop"], 1500)
+
+    def test_prepend_older_history_preserves_newest_choice_bar(self):
+        d = self.o["prependDefense"]
+        # Before prepend: choice bar is visible with newest message's choices
+        self.assertFalse(d["barBeforePrepend"]["hidden"])
+        self.assertTrue(d["barBeforePrepend"]["ownerMatches"])
+        self.assertEqual(d["barBeforePrepend"]["chips"], ["New 1", "New 2"])
+
+        # After prepending older message with choices: newest choice bar is preserved
+        self.assertFalse(d["barAfterPrependWithChoices"]["hidden"])
+        self.assertTrue(d["barAfterPrependWithChoices"]["ownerMatches"])
+        self.assertEqual(d["barAfterPrependWithChoices"]["chips"], ["New 1", "New 2"])
+
+        # After prepending older message without choices: newest choice bar is preserved
+        self.assertFalse(d["barAfterPrependEmpty"]["hidden"])
+        self.assertTrue(d["barAfterPrependEmpty"]["ownerMatches"])
+        self.assertEqual(d["barAfterPrependEmpty"]["chips"], ["New 1", "New 2"])
+
+        # After calling renderChoiceChips on older (non-latest) message: newest choice bar is preserved
+        self.assertFalse(d["barAfterNonLatestCall"]["hidden"])
+        self.assertTrue(d["barAfterNonLatestCall"]["ownerMatches"])
+        self.assertEqual(d["barAfterNonLatestCall"]["chips"], ["New 1", "New 2"])
+
+    def test_post_process_assistant_records_choices_and_app_messages_prepend(self):
+        js = r"""
+const fs = require('fs');
+const path = require('path');
+global.window = {};
+global.attachMessageFooter = () => {};
+global.attachCodeCopyButtons = () => {};
+global.attachImageLightbox = () => {};
+global.attachFileLinkInterceptors = () => {};
+global.renderMermaidIn = () => {};
+global.highlightCodeIn = () => {};
+
+function el(tag) {
+  let _tc = '';
+  return {
+    tag, className: '', dataset: {}, classList: { add() {}, remove() {}, toggle() {} },
+    children: [], attrs: {}, handlers: {}, parent: null,
+    get textContent() { return _tc; },
+    set textContent(v) { _tc = v; if (v === '') this.children = []; },
+    setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.handlers[t] = f; },
+    appendChild(c) { c.parent = this; this.children.push(c); return c; },
+    querySelectorAll(sel) { return []; }, querySelector(sel) { return null; }
+  };
+}
+const choiceBar = el('div');
+choiceBar._owner = 'existing';
+global.document = {
+  createElement: el,
+  getElementById: (id) => (id === 'choiceBar' ? choiceBar : null),
+};
+const mdSrc = fs.readFileSync(process.argv[1], 'utf8');
+const msgSrc = fs.readFileSync(path.resolve(path.dirname(process.argv[1]), 'app-messages.js'), 'utf8');
+
+const fn = new Function('document', mdSrc + '; return { postProcessAssistant, renderChoiceChips };')(global.document);
+
+const node = el('div');
+// Call postProcessAssistant with choices and isPrepend = true
+fn.postProcessAssistant(node, true, '답변 <!--choices: Choice A | Choice B-->', null, null, false, null, null, true);
+
+// Verify addChat in app-messages.js sets _prepend, extracts _choices, and passes prepend flag
+global.observeMessage = () => {};
+global.normalizeNoticeKind = () => '';
+global.renderTypedBody = () => {};
+global.postProcessAssistant = (div, isFinal, body, usage, dur, isNotice, model, choices, prepend) => {
+  div._postProcessed = { choices, prepend };
+};
+global.logEl = { insertBefore: () => {}, appendChild: () => {}, firstChild: null };
+global.parkSessionBanner = () => {};
+global.syncChoiceChips = () => {};
+global.scrollChatToBottom = () => {};
+global.splitChoices = (t) => ({ text: '대화', choices: ['AddChat 1', 'AddChat 2'] });
+
+const aChat = msgSrc.indexOf('function addChat(');
+const bChat = msgSrc.indexOf('\nfunction markArrive(', aChat);
+eval(msgSrc.slice(aChat, bChat));
+
+const prependedMsg = addChat('assistant', '대화 <!--choices: AddChat 1 | AddChat 2-->', true, false, false, true);
+
+console.log(JSON.stringify({
+  recordedChoices: node._choices,
+  choiceBarOwner: choiceBar._owner,
+  prependedMsgIsPrepend: prependedMsg._prepend,
+  prependedMsgChoices: prependedMsg._choices,
+  prependedMsgPostProcess: prependedMsg._postProcessed,
+}));
+"""
+        r = subprocess.run(["node", "-e", js, str(MD)], capture_output=True, text=True, check=False)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        res = json.loads(r.stdout)
+        self.assertEqual(res["recordedChoices"], ["Choice A", "Choice B"])
+        self.assertEqual(res["choiceBarOwner"], "existing")
+        self.assertTrue(res["prependedMsgIsPrepend"])
+        self.assertEqual(res["prependedMsgChoices"], ["AddChat 1", "AddChat 2"])
+        self.assertTrue(res["prependedMsgPostProcess"]["prepend"])
 
 
 

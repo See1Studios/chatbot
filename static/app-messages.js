@@ -744,7 +744,14 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
     choices = pendingChoices;
     pendingChoices = null;
   }
+  if (prepend) div._prepend = true;
   if (choices) div._choices = choices;
+  if (role === 'assistant' && !div._choices && typeof splitChoices === 'function') {
+    const sc = splitChoices(text || '');
+    if (sc && sc.choices && sc.choices.length) {
+      div._choices = sc.choices;
+    }
+  }
   if (role === 'assistant') {
     if (noticeKind) {
       const meta = NOTICE_KINDS[noticeKind] || NOTICE_KINDS.info;
@@ -758,7 +765,7 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
     const bodyText = noticeKind ? stripNoticeChromeEmojis(text) : (text || '');
     renderTypedBody(md, bodyText, isFinal);
     div.appendChild(md);
-    postProcessAssistant(div, isFinal, bodyText, usage, durationSeconds, Boolean(noticeKind), servedModel, choices || div._choices);
+    postProcessAssistant(div, isFinal, bodyText, usage, durationSeconds, Boolean(noticeKind), servedModel, choices || div._choices, prepend);
   } else if (role === 'user' && typeof splitAttachmentBlock === 'function') {
     // plus/D: the attachment list the agent reads is cards on screen (app-attach.js)
     const parts = splitAttachmentBlock(text || '');
