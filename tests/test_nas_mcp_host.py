@@ -11,7 +11,7 @@ CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 import mcp_server as mcp  # noqa: E402
 import nas_mcp_host as H  # noqa: E402
-from tests._platform import posix_only  # noqa: E402
+from tests._platform import nas_host_only, posix_only  # noqa: E402
 
 HOST_MCP_SRC = CODE.parent / "nas-mcp" / "server.py"
 
@@ -50,6 +50,7 @@ class NamesTest(unittest.TestCase):
 
 
 @posix_only   # the NAS host plugin is Linux by design (#411)
+@nas_host_only
 class HostMcpHealthTest(unittest.TestCase):
     def test_host_mcp_probes_healthz_not_streamable_root(self):
         src = HOST_MCP_SRC.read_text(encoding="utf-8")

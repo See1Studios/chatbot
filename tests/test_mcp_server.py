@@ -21,7 +21,7 @@ os.environ.setdefault("NAS_MCP_HOST_PLUGIN", "1")
 # and these cover the dev build's tools (ticket, run_command, delegate); the shipped build is pinned in test_edition_boundary
 os.environ.setdefault("CHATBOT_EDITION", "dev")
 import mcp_server as mcp  # noqa: E402  -- the only place tests import the tool server
-from tests._platform import dev_only_bash  # noqa: E402
+from tests._platform import dev_only_bash, nas_host_only  # noqa: E402
 from tests._platform import home_env  # noqa: E402
 
 
@@ -189,6 +189,7 @@ class RunCommandTest(Base):
 
 
 @dev_only_bash
+@nas_host_only
 class ServiceCtlTest(Base):
     """service_ctl / list_services / ping_nas are the host plugin's tools; the server itself has none."""
 

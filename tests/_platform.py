@@ -7,12 +7,18 @@ build (edition-boundary), and Windows has no POSIX bash (its bash.exe is a WSL s
 import os
 import shutil
 import unittest
+from pathlib import Path
 
 POSIX_BASH = os.name == "posix" and bool(shutil.which("bash"))
 dev_only_bash = unittest.skipUnless(POSIX_BASH, "dev-build bash tooling; no POSIX bash on this OS (platform-portability pp/E)")
 
 POSIX = os.name == "posix"
 posix_only = unittest.skipUnless(POSIX, "POSIX-only by design (the NAS host plugin, /dev/tty, mode bits)")
+
+# nas_host_only (pp/F, first CI run 2026-09-29): the test drives this NAS's sibling services (~/services/<name>/ and
+# their *-ctl.sh scripts, the host MCP in ../nas-mcp). A checkout anywhere else -- CI, a user's PC -- has none of them.
+NAS_LAYOUT = (Path(__file__).resolve().parent.parent.parent / "nas-mcp" / "server.py").is_file()
+nas_host_only = unittest.skipUnless(NAS_LAYOUT, "needs this NAS's sibling services (../nas-mcp); not in a plain checkout")
 
 
 def home_env(path) -> dict:
