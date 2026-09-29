@@ -33,6 +33,9 @@ async function api(url, opts) {
 }
 async function openSession(id) { opened.push(id); sessionId = id; updatePrivateBtn(); }
 function addActivity() {}
+const myPendingMids = new Set();   // ROOM_SYNC_v1: the switch tags itself
+let midN = 0;
+function _newClientMid() { return 'm' + (++midN); }
 eval(code);
 (async () => {
   updatePrivateBtn();

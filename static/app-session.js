@@ -42,9 +42,11 @@ async function togglePrivateMode() {
   if (!sessionId || !privateBtn || privateBtn.disabled) return;
   privateBtn.disabled = true;
   try {
+    const clientMid = _newClientMid();   // ROOM_SYNC_v1: the room_moved broadcast is ours, not a move to follow
+    myPendingMids.add(clientMid);
     const res = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/message', {
       method: 'POST',
-      body: JSON.stringify({ text: sessionMode === 'private' ? '/private off' : '/private on' })
+      body: JSON.stringify({ text: sessionMode === 'private' ? '/private off' : '/private on', client_mid: clientMid })
     });
     if (res && res.session && res.session.id) await applyModeSwitch(res);
   } catch (e) {

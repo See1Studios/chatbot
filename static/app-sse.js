@@ -534,6 +534,17 @@ function bindEvents(sid) {
       return;
     }
 
+    if (type === 'room_moved') {
+      // ROOM_SYNC_v1 (2026-09-30): another window moved this room (work <-> private). Follow it, so this window
+      // cannot offer the old room's move a second time. The window that moved knows its own client_mid and sends
+      // the scene line itself; a follower sends none.
+      if (data.client_mid && myPendingMids.has(data.client_mid)) { myPendingMids.delete(data.client_mid); return; }
+      if (data.to && data.to !== sessionId && typeof applyModeSwitch === 'function') {
+        applyModeSwitch({ session: { id: data.to, mode: data.mode, character: data.character } });
+      }
+      return;
+    }
+
     if (type === 'session_rotate') {
       const nid = data.new_session_id;
       // This event is broadcast on the OLD session -- including to the

@@ -113,6 +113,14 @@ def _state(sessions: Path, cid: str) -> Path:
     return Path(sessions).parent / "workspace" / "characters" / (cid or "_") / "state.json"
 
 
+def announce(source, target, client_mid: str = "") -> None:
+    """ROOM_SYNC_v1 (2026-09-30): tell every page still on `source` that the room moved to `target`, so a second
+    window follows instead of offering the old room's move again. The page that asked knows its own client_mid."""
+    if target is not None and target.sid != source.sid:
+        source._emit({"event": "room_moved", "to": target.sid, "mode": getattr(target, "mode", "work"),
+                      "character": getattr(target, "character", ""), "client_mid": client_mid})
+
+
 def just_switched(session, stamp: str) -> bool:
     """True when `session` was switched into less than REPEAT_SEC ago (the host keeps sessions in memory)."""
     return time.time() - float(getattr(session, stamp, 0) or 0) < REPEAT_SEC

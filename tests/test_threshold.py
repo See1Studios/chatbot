@@ -176,6 +176,30 @@ class Repeat(Base):
         self.assertEqual(threshold.pop_scene(self.priv), "(업무 도중 잠깐 함께 옥상에 왔다)")
 
 
+class RoomSync(Base):
+    """ROOM_SYNC_v1 (2026-09-30): a second window left on the old room caused the double move; every page on the
+    old room now hears that the room moved and follows it, without a scene line of its own."""
+
+    def test_the_old_room_announces_where_it_went_with_the_asking_windows_mid(self):
+        heard = []
+        self.work._emit = heard.append
+        threshold.announce(self.work, self.priv, "m-1")
+        self.assertEqual(heard, [{"event": "room_moved", "to": "p1", "mode": "private", "character": "c1",
+                                  "client_mid": "m-1"}])
+        threshold.announce(self.work, self.work, "m-2")                      # no move, nothing to hear
+        self.assertEqual(len(heard), 1)
+
+    def test_the_host_announces_every_switch_and_pages_follow_without_a_scene(self):
+        self.assertIn("threshold.announce(sess, target, client_mid)", (ROOT / "server.py").read_text(encoding="utf-8"))
+        sse = (ROOT / "static" / "app-sse.js").read_text(encoding="utf-8")
+        block = sse[sse.index("type === 'room_moved'"):sse.index("type === 'session_rotate'")]
+        self.assertIn("myPendingMids.has(data.client_mid)", block)
+        self.assertIn("applyModeSwitch({ session: { id: data.to", block)
+        self.assertNotIn("scene", block.split("applyModeSwitch(")[1].split(";")[0])   # a follower sends no scene
+        page = (ROOT / "static" / "app-session.js").read_text(encoding="utf-8")
+        self.assertIn("client_mid: clientMid", page)                          # the heart button tags its switch too
+
+
 class Pending(Base):
     def test_the_first_turn_waits_for_a_gist_still_being_written(self):
         _write = threshold._write
