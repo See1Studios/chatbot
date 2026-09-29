@@ -37,6 +37,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import platform_compat
 from host_config import DATA, HOME, CLAUDE_BIN, CODEX_BIN, GROK_BIN
 
 PROVIDERS = ("agy", "claude", "codex", "grok")
@@ -279,6 +280,8 @@ def _tty(pid: int) -> str:
 def _scan_procs() -> Dict[str, List[dict]]:
     """provider -> processes whose argv[0] basename is that provider's CLI."""
     out: Dict[str, List[dict]] = {p: [] for p in PROVIDERS}
+    if not platform_compat.has_proc():   # Windows, macOS: no /proc -- no running-CLI snapshot yet (pp/E), no crash
+        return out
     boot = _boot_time()
     for n in os.listdir("/proc"):
         if not n.isdigit():

@@ -14,7 +14,7 @@ CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 import evolution  # noqa: E402
 
-STDLIB_OK = {"__future__", "fcntl", "fnmatch", "hashlib", "json", "os", "pathlib", "re", "signal", "subprocess",
+STDLIB_OK = {"__future__", "fcntl", "fnmatch", "msvcrt", "hashlib", "json", "os", "pathlib", "re", "signal", "subprocess",
              "sys", "threading", "time", "typing"}
 
 

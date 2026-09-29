@@ -46,10 +46,14 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-try:  # POSIX only; see acquire_lock
+try:  # POSIX; see acquire_lock
     import fcntl
 except ImportError:  # pragma: no cover
     fcntl = None
+try:  # Windows (the core may not import platform_compat: core_modules.json)
+    import msvcrt
+except ImportError:  # pragma: no cover
+    msvcrt = None
 
 REGISTRY_NAME = "protected_paths.json"
 MANIFEST_NAME = "protected_manifest.json"
@@ -198,12 +202,16 @@ def acquire_lock(path, wait: float = 0.0):
     dies), or None where locking is unavailable. Raises LockBusy on timeout.
     """
     fh = open(str(path), "a")
-    if fcntl is None:
+    if fcntl is None and msvcrt is None:
         return fh
     deadline = time.time() + max(wait, 0.0)
     while True:
         try:
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if fcntl is not None:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            else:                                     # Windows: the first byte (pp/D, PLATFORM_COMPAT_v1)
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
             return fh
         except (IOError, OSError):
             if time.time() >= deadline:

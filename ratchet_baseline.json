@@ -74,7 +74,7 @@
   "delegation.py": 1,
   "evolution.py": 3,
   "mcp_server.py": 2,
-  "obslog.py": 5,
+  "obslog.py": 2,
   "providers/account_login.py": 8,
   "providers/accounts.py": 10,
   "providers/adapter_codex.py": 3,

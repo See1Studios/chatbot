@@ -47,10 +47,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-try:
-    import fcntl
-except ImportError:  # pragma: no cover -- non-POSIX
-    fcntl = None
+import platform_compat
 
 ROOT = Path(__file__).resolve().parent
 # LOG_PATH_v1: the default lives in host_config, the one resolver ctl and logdigest also read, so the
@@ -203,9 +200,8 @@ def _write_line(line: str) -> None:
     lockf = None
     try:
         with _lock:
-            if fcntl is not None:
-                lockf = open(str(path) + ".lock", "a")
-                fcntl.flock(lockf.fileno(), fcntl.LOCK_EX)
+            lockf = open(str(path) + ".lock", "a")
+            platform_compat.lock_file(lockf)          # flock on POSIX, msvcrt on Windows (pp/D)
             _rotate_if_needed(path)
             fd = os.open(str(path), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
             try:
@@ -218,7 +214,7 @@ def _write_line(line: str) -> None:
     finally:
         if lockf is not None:
             try:
-                fcntl.flock(lockf.fileno(), fcntl.LOCK_UN)
+                platform_compat.unlock_file(lockf)
                 lockf.close()
             except Exception:
                 pass

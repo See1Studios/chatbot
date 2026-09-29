@@ -37,6 +37,7 @@ class PlatformImports(unittest.TestCase):
 # import name -> distribution name in requirements.txt (pp/J, #396: PIL was used and never declared; FIREBAT's fresh
 # virtualenv could not import it, the NAS had it installed by hand)
 DISTRIBUTION = {"PIL": "Pillow", "yaml": "PyYAML"}
+WINDOWS_STDLIB = {"msvcrt", "winreg", "_winapi", "winsound"}   # standard library there, absent here
 
 
 def engine_files():
@@ -54,7 +55,7 @@ def third_party_imports():
             elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 names = [node.module.split(".")[0]]
             for n in names:
-                if n in local or n in POSIX_ONLY:
+                if n in local or n in POSIX_ONLY or n in WINDOWS_STDLIB:
                     continue
                 try:
                     spec = importlib.util.find_spec(n)
