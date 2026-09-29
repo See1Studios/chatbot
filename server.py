@@ -15,7 +15,6 @@ mimetypes.add_type("image/webp", ".webp")
 import os
 import queue
 import re
-import shutil
 import signal
 import subprocess
 import sys
@@ -211,6 +210,7 @@ from preview_guard import (
 )
 import client_errors  # page errors -> the host log (#424)
 import personal_turn  # PERSONAL_TURN_v1: the busy listing says which turn runs
+import threshold  # THRESHOLD_v1: entering the private room hands one note across
 from workspace_status import (
     experts_api,
     instructions_api,
@@ -1034,9 +1034,9 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 # character's private session, /private off goes back to the work session; a bare /private toggles
                 # and /work is an old alias of off. Nothing is sent to the agent.
                 stripped = " ".join(text.split()).lower()
-                if stripped in ("/private", "/private on", "/work", "/private off"):
-                    if stripped == "/private on" or (stripped == "/private" and not sess.is_private):
-                        target = sess if sess.is_private else REG.get_private(sess.character, like=sess)
+                if stripped in ("/private", "/private on", "/work", "/private off") or stripped.startswith("/private on "):
+                    if stripped.startswith("/private on") or (stripped == "/private" and not sess.is_private):
+                        target = sess if sess.is_private else threshold.enter(sess, REG.get_private(sess.character, like=sess), text)
                     else:
                         if sess.is_private:
                             _digest_private_later(sess)

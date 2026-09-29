@@ -82,6 +82,37 @@ def running_turn(history):
     return None
 
 
+OFFER_WINDOW_SEC = 1800   # declined moves count within this window
+OFFER_MAX = 2             # personal turns in a row that may offer a move; after that, stay quiet
+
+
+def moved(sessions, sid: str) -> None:
+    """Record that the user left this work session for the private room (threshold.py): the move offers reset."""
+    d = Path(sessions) / sid
+    if d.is_dir():
+        with open(d / FILE, "a", encoding="utf-8", newline="\n") as f:
+            f.write(json.dumps({"moved": time.time()}) + "\n")
+
+
+def offers_left(sessions, sid: str, now: float = 0.0) -> bool:
+    """W2b cool-down: may this personal turn offer a move? Not after OFFER_MAX marks with no move in between
+    (the user stayed at work each time), within OFFER_WINDOW_SEC."""
+    now = now or time.time()
+    try:
+        rows = [json.loads(x) for x in (Path(sessions) / sid / FILE).read_text(encoding="utf-8").splitlines() if x.strip()]
+    except (OSError, ValueError):
+        return True
+    since = 0
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        if "moved" in r:
+            since = 0
+        elif now - float(r.get("ts") or 0) < OFFER_WINDOW_SEC:
+            since += 1
+    return since <= OFFER_MAX
+
+
 def tool_call(sessions, busy, active_sid) -> tuple:
     """(ok, message) for the `personal_turn` tool. `busy`: the host's running sessions ({id, mode, turn});
     the running work turn is marked -- the active one when several run."""
@@ -90,9 +121,12 @@ def tool_call(sessions, busy, active_sid) -> tuple:
         work = [x for x in work if x.get("id") == active_sid] or work[:1]
     if not work:
         return False, "no work turn is running"
-    if not mark(sessions, str(work[0].get("id") or ""), work[0].get("turn")):
+    sid = str(work[0].get("id") or "")
+    if not mark(sessions, sid, work[0].get("turn")):
         return False, "this turn cannot be marked"
-    return True, "marked personal: this turn stays out of work memory, observations and tickets"
+    offer = ("Offer the move choice at the end of your reply." if offers_left(sessions, sid)
+             else "Do not offer a move now: the user stayed at work the last times.")
+    return True, "marked personal: this turn stays out of work memory, observations and tickets. " + offer
 
 
 _ROUTE = re.compile(r"^/api/sessions/([A-Za-z0-9._-]{1,80})/personal-turns$")

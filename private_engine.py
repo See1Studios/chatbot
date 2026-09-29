@@ -278,10 +278,21 @@ def render_protocol_text(card: Any = None, family: str = "") -> str:
     return RENDER_PROTOCOL
 
 
+def _threshold_note(session: Any) -> str:
+    """The note handed over from the work room, once (threshold.py); "" when none waits or it cannot be read."""
+    try:
+        import identity
+        import threshold
+        return threshold.take(session, identity.user_title())
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def turn_context(session: Any) -> str:
     """Per-turn system context prepended to the user message for private sessions."""
     if not getattr(session, "is_private", False):
         return ""
+    threshold_note = _threshold_note(session)   # THRESHOLD_v1: first, a "brink" note raises the stage used below
     family = detect_model_family(getattr(session, "provider", ""), getattr(session, "model", ""))
     tension = tension_context(
         getattr(session, "tension_stage", TENSION_MIN),
@@ -292,6 +303,8 @@ def turn_context(session: Any) -> str:
     if family == "grok":
         parts.append(_RENDER_PROTOCOL_REACTION_OVERLAY)
     parts.append(tension)
+    if threshold_note:
+        parts.append(threshold_note)
     # Optional Gemini refusal-mitigation TEST layer (#249) — never default craft.
     if refusal_mitigation_enabled(session, family):
         mit = refusal_mitigation_text(family)
