@@ -141,12 +141,14 @@ Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)
 | 제타 | 2024-04 오픈 베타, 2024-11 흑자 전환, 2025 2분기 매출 약 52억 원·영업이익률 17%. **한국 서버는 15세 이용가 기준**(일본은 같은 15세라도 수위 높음). 광고 기반 무료 + 자체 소형 모델. MAU 약 142만, 1인 월 약 40시간 | [AI타임스 2025-07-14](https://www.aitimes.com/news/articleView.html?idxno=200613), [벤처스퀘어](https://www.venturesquare.net/1097430/) |
 | MiniTavern | ST 카드 호환 **모바일** 앱(iOS·Android), 20여 개 언어, **유료 회원에게 전용 모델**(최신 상용 모델) 제공, 카드 매니저 크롬 확장 | [mini-tavern.com](https://mini-tavern.com/) |
 | Marinara Engine | 오픈소스 AI 롤플레이 프론트엔드(AGPL-3.0, ★677, 활발히 개발 중). 테마·확장 생태계가 붙기 시작 — **PE와 같은 자리의 무료 경쟁자** | [Pasta-Devs/Marinara-Engine](https://github.com/Pasta-Devs/Marinara-Engine) |
+| openhuman (2026-09-29 확인) | 오픈소스 **업무 에이전트 하네스**(Rust + Tauri 데스크톱, GPL-3.0, 2026-02 시작, ★약 4만, early beta). 데스크톱 **마스코트**(떠 있는 창, 기분 상태, 입 모양 맞추기), 기억 트리, "몇 분 만에 당신을 안다". 마스코트의 일은 이메일 초안·회의 참가·워크플로 — **겉모습(데스크톱 캐릭터·기억)이 겹치고 목적(업무)이 다른 사례**. [ux-shell-roadmap.md](ux-shell-roadmap.md) §4.4.1의 데스크톱 UX 기준선이기도 하다 | [tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman), [마스코트 문서](https://github.com/tinyhumansai/openhuman/blob/main/gitbooks/features/mascot/README.md) |
 
 ### 7.2 포지셔닝
 
 - **넓이는 창작마당, 깊이는 엔진.** 제타는 콘텐츠를 서비스 안에 쌓고, 우리는 창작마당(Wallpaper Engine과 같은 구조)에 쌓는다. 한 사람의 개인화는 각자 PC에 쌓인다(기조 그대로).
 - **모델은 "내 구독으로 로그인"이 기본.** Google 계정(Antigravity)·ChatGPT 계정(Codex) 무료 플랜으로 키 없이 시작, API 키는 고급. 제타의 "무료·설정 없음"에 대응하는 우리 답이고, 서버 비용이 없다. R7(무료층)의 답이기도 하다.
 - **수위는 제타 선례를 따른다.** 제타는 15세 이용가로 한국 1위다. Steam 규정(실시간 AI 성인 성적 콘텐츠 불가)과 두 구독 제공자의 정책이 같은 방향을 가리킨다.
+- **겉모습이 겹치는 에이전트 도구 사이에서 묻히지 않는다** (2026-09-29, openhuman 확인 후). 데스크톱 캐릭터·기억·"당신을 아는 AI"는 이미 에이전트 도구가 쓰는 말이다. 비교 대상은 에이전트 도구가 아니라 동반자 앱(제타·Character.AI·SillyTavern·MiniTavern·Desktop Mate)으로 잡는다. 에이전트 도구의 캐릭터는 **업무 에이전트의 얼굴**이고, 우리 캐릭터는 **관계의 상대**다. **문장 시험**: 스토어 문구·데모 자막·소개 문장마다 "openhuman이나 Hermes가 자기 소개로 그대로 써도 말이 되는가?"를 묻고, 말이 되면 탈락시킨다(예: "당신을 기억하는 AI" 탈락, "SillyTavern 카드 속 캐릭터를 데스크톱에 데려와 같이 산다" 통과). 60초 데모(`rev/D`)에 업무 장면을 넣지 않는다.
 - **ST 카드는 업계 표준 규격이다.** MiniTavern·Marinara 모두 ST 카드 호환으로 물량을 얻는다. 우리도 가져오기가 입구(R12). 차별은 호환이 아니라 "키 없는 무료 구독 접근"(MiniTavern은 모델을 회원제로 판다)과 창작마당·데스크톱 무대다.
 
 ### 7.3 결정 (운영자 확인 필요)
