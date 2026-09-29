@@ -14,7 +14,6 @@ Modes (user-confirmed):
 from __future__ import annotations
 
 import os
-import pty
 import re
 import select
 import signal
@@ -510,6 +509,12 @@ def _kill_proc(sess: _Session) -> None:
 
 def _spawn(sess: _Session) -> None:
     argv = _login_argv(sess.provider)
+    try:
+        import pty                   # POSIX only: imported here so the server itself starts on Windows (pp/D)
+    except ImportError:
+        sess.state = "failed"
+        sess.error = "terminal login needs a POSIX pty; not available on this OS yet (platform-portability pp/E)"
+        return
     master, slave = pty.openpty()
     try:
         import fcntl

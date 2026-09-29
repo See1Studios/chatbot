@@ -33,7 +33,7 @@
 | OS | 순위 | 이유 |
 |---|---|---|
 | Windows x64 | 1 | Steam 1차, 데스크톱 캐릭터(`ux/G`) |
-| macOS arm64 | 2 | 개발자·크리에이터 사용자 |
+| macOS (arm64, Intel은 universal2로) | 2 — **반드시 포함** (운영자 2026-09-29 "macos까지 고려해야") | 개발자·크리에이터 사용자. POSIX라 `pty`·`fcntl`·`setsid`는 되지만 `/proc`이 없고(`ctl_proc.py`·`accounts.py`), 기본 셸이 zsh·bash 3.2, 바이너리 배포에 **서명·공증**이 필요(PP4). 테스트 기계가 없으니 CI의 macOS 러너가 주 확인 수단 |
 | Linux x64 | 3 | 지금의 개발 환경, 서버형 설치 |
 | **Steam Deck**(SteamOS, Linux x64) | 후보 (운영자 2026-09-29) | Steam 배포라면 Deck 호환 표시(Verified/Playable)가 노출에 직결. 두 길: ① Windows 빌드를 Proton으로 ② 네이티브 Linux 빌드. 엔진이 Linux에서 이미 돌므로 ②가 자연스럽지만, 두뇌 CLI(agy·claude 등)가 SteamOS 읽기 전용 루트·게임 모드에서 설치·로그인되는지가 관건(DK1) |
 
@@ -63,6 +63,7 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | PP1 | Python 배포 | 인스톨러가 Python을 같이 넣는다(사용자 PC의 Python에 기대지 않음). 하한은 그 번들 버전, 개발 NAS 3.8은 개발판 전용 | 대기 |
 | PP2 | 대상 순위 | 3.1 표 | 대기 |
 | DK1 | 스팀덱 빌드 | 네이티브 Linux 빌드 + 두뇌는 API 키·OAuth 경로 우선(게임 모드에서 CLI 로그인이 어려울 수 있음). Proton은 대안. `pp/C`처럼 실기 실측 뒤 확정 | 대기 |
+| PP4 | 배포 형태 (운영자 2026-09-29 "사용자가 건드리면 안 되는 것들은 다 binary로") | **OS별 Nuitka 바이너리**(Python → C 컴파일: 되읽기 어렵고, 시작이 빠르고, Apache 라이선스). 사용자·에이전트가 바꾸는 것은 `~/.pe`(캐릭터·기억·스킬·플러그인)뿐 — edition-boundary를 물리적 경계로. 대안 PyInstaller(쉽지만 풀면 코드가 거의 그대로). 한계: 보안 장치가 아니라 "실수로 망가뜨리지 않게, 쉽게 복제되지 않게"; 화면(HTML·JS·CSS)은 실행 파일 안 리소스로 묶는 정도; 두뇌 CLI는 사용자가 따로 설치. OS별 조건 — Windows: 코드 서명 없으면 SmartScreen 경고. **macOS: Apple Developer ID 서명 + 공증(notarization) 없으면 Gatekeeper가 실행을 막음**, arm64·x86_64 둘 다(universal2 또는 두 빌드). Linux·스팀덱: 한 파일 또는 Flatpak(DK1과 함께). 빌드는 CI 매트릭스(`pp/F`)에서 테스트와 같이 | **결정** (방향, 2026-09-29 운영자) — 도구 확정은 `pp/K` 시험 뒤 |
 | PP3 | CI 위치 | GitHub Actions(비공개 저장소 무료 한도 안에서, Windows 분은 비싸니 push마다가 아니라 main 병합·수동 실행 때) | 대기 |
 
 ## 5. 항목
@@ -72,12 +73,13 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | `pp/A` | 이 문서 + INDEX 행 | 이 문서, `docs/plans/INDEX.md` | 커밋 | 0 · — | S | — | ✅ #394 |
 | `pp/B` | OS 전용 기능 래칫 | `tests/test_ratchets.py`, 기준선 파일 | 표의 기능이 새로 늘면 실패, 줄면 기준선 낮춤 | 2 · — | S | — | ✅ #394 (13개 파일 52줄) |
 | `pp/C` | FIREBAT 실측 1차(읽기만): Python·git·node·두뇌 CLI 유무와 버전, 저장소 사본에서 테스트 전체를 돌려 실패 목록 | 이 문서 §6 | 실패 목록과 원인 분류 | 0 · — | S | — | ✅ #394 (§6.1: 93/143) |
-| `pp/D` | `platform_compat` 모듈 + 첫 이전(파일 잠금) | 새 모듈, `obslog.py`, `evolution.py` | Windows에서 잠금 테스트 통과, 래칫 기준선 하락 | 3 · ⚡ | M | pp/B, pp/C | 대기 |
+| `pp/D` | `platform_compat` 모듈 + 첫 이전(파일 잠금) — 첫 수로 `pty` import 이전 ✅ #395 | 새 모듈, `obslog.py`, `evolution.py` | Windows에서 잠금 테스트 통과, 래칫 기준선 하락 | 3 · ⚡ | M | pp/B, pp/C | 대기 |
 | `pp/E` | 프로세스 관리 이전(종료·생존·분리 실행) | `session.py`, `server.py`, `delegation.py` 등 | 같음 | 3 · ⚡ | M | pp/D | 대기 |
 | `pp/F` | CI 매트릭스(Windows·macOS·Linux) + 알려진 실패 래칫 | `.github/workflows/` | 세 OS에서 돌고, 알려진 실패 목록이 늘지 않음 | 2 · — | M | PP3 | 대기 |
 | `pp/G` | Python 런처(배포판 시작·중지·상태) | 새 파일, release-pipeline과 합침 | Windows에서 런처로 켜고 대화 1턴 | 2 · — | M | pp/E, PP1 | 대기 |
 | `pp/I` | 스팀덱 실측(실기 또는 SteamOS VM): 데스크톱 모드·게임 모드에서 설치, 두뇌 연결, 화면 1280×800, 게임패드·화상 키보드 | 이 문서 §6 | 실측 기록과 DK1 결정 근거 | 0 · — | S | pp/G | 대기 |
 | `pp/J` | 의존성 선언: Pillow(NAS 10.4.0, 하한은 3.8·3.12 둘 다 되는 버전)를 `requirements.txt`에, 새 가상환경에서 `import` 전수 검사하는 테스트 | `requirements.txt`, 테스트 | 빈 가상환경 + requirements만으로 엔진 모듈 전부 import | 2 · — | S | — | 대기 |
+| `pp/K` | 바이너리 빌드 시험(PP4): Nuitka로 서버 하나를 Windows(FIREBAT)·Linux에서 빌드해 켜고 대화 1턴, 크기·시작 시간·빠진 리소스 기록. macOS는 CI 러너에서 빌드만 + 서명·공증 절차 조사 | 새 빌드 스크립트, 이 문서 §6 | 두 OS에서 바이너리로 1턴, macOS 빌드 성공, 서명 절차 메모 | 2 · — | M | pp/E, pp/J | 대기 |
 | `pp/H` | FIREBAT 실기 체크리스트(설치 → 대화 → 두뇌 연결) | 이 문서 | 체크리스트 전 항목 통과 기록 | 0 · — | S | pp/G | 대기 |
 
 ## 6. 실측 기록
@@ -103,3 +105,10 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 
 - **래칫(`pp/B`)**: POSIX 전용 호출 + `pty`·`termios` 같은 import까지 기준선 **13개 파일 52줄**.
 - **한 줄 결론**: 코드 자체의 OS 의존은 생각보다 적고 몇 군데에 몰려 있다(C가 16/50). 가장 싼 첫 수는 `account_login.py`의 `pty` import를 함수 안으로 옮기는 것, 그다음이 Pillow 선언.
+
+### 6.2 `pty` import 이전 뒤 (2026-09-29, #395)
+
+- `import pty`를 로그인을 띄우는 `_spawn()` 안으로. Windows에서는 그 기능만 명확한 메시지로 실패한다(대화형 로그인의 Windows 대체는 `pp/E`: ConPTY/`pywinpty`(MIT) 또는 CLI의 브라우저 로그인).
+- 재발 방지: `tests/test_platform_imports.py` — 엔진 모듈이 모듈 맨 위에서 POSIX 전용 모듈(`pty`·`termios`·`fcntl`·…)을 try 없이 불러오면 실패.
+- FIREBAT 재확인: **`server.py`가 Windows에서 처음으로 import됨.** C 분류 16개 중 **9개 통과**, 남은 7개(accounts, host_api_guards, identity_wiring, observation_api, service_log, st_import_api, ticket_api)는 import가 아니라 더 안쪽 원인(`/proc`, 그림 변환, 경로 등) — 2차 실측에서 분류.
+- 참고: 운영자가 제안한 termiWin(veeso/termiWin)은 **시리얼 포트(COM)**용 `termios` 이식이고, 보관된 저장소·GPL-3.0이라 우리 용도(CLI 대화형 로그인의 가짜 터미널)와 맞지 않음.
