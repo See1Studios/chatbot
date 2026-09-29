@@ -1,0 +1,43 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-29 15:21:25",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-09-29 15:21:19",
+ "evidence": [
+  "event:20260929-151124-5060c7#10"
+ ],
+ "gate_failures": 0,
+ "id": 406,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-29 15:21:25"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/icon-192.png, static/icon-512-maskable.png, static/icon-512.png, static/index.html, static/manifest.webmanifest, static/sw.js",
+   "ts": "2026-09-29 15:21:25"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-406 at b01d53e (agy, review PASS round 1)",
+   "ts": "2026-09-29 15:35:53"
+  }
+ ],
+ "paths": [
+  "static/icon-192.png",
+  "static/icon-512-maskable.png",
+  "static/icon-512.png",
+  "static/index.html",
+  "static/manifest.webmanifest",
+  "static/sw.js"
+ ],
+ "status": "awaiting_merge",
+ "target": "static/icon-192.png,static/icon-512-maskable.png,static/icon-512.png,static/inde",
+ "title": "feat(pwa): PWA 웹 앱 매니페스트 및 서비스 워커 연동 (독립 앱 설치 지원)",
+ "updated": "2026-09-29 15:35:53",
+ "worked_by": "agy"
+}
