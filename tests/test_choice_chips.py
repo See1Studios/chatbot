@@ -150,6 +150,42 @@ out.actionRender = {
 m4.all('.choice-chip')[0].handlers.click();
 out.actionSent = inputEl.value;
 
+// ticket #410: arrow-less action choices and long label defense
+out.arrowlessChoices = api.splitChoices('어느 쪽?\n<!--choices: ("잠깐만 기다려" (소매를 붙잡는다)) | (조용히 다가간다) | "조금만 더 가까이" | 아주아주 긴 일반 선택지 텍스트는 버튼이 터지지 않도록 말줄임표 처리되어야 합니다-->');
+
+const mCombo = msg('msg assistant');
+api.renderChoiceChips(mCombo, [out.arrowlessChoices.choices[0]]);
+const comboChip = mCombo.querySelector('.choice-chip');
+out.arrowlessComboRender = {
+  text: comboChip ? comboChip.textContent : '',
+  isAction: comboChip ? (comboChip.className || '').includes('choice-action') : false,
+};
+inputEl.value = '';
+if (comboChip) comboChip.handlers.click();
+out.arrowlessComboSent = inputEl.value;
+
+const mActOnly = msg('msg assistant');
+api.renderChoiceChips(mActOnly, [out.arrowlessChoices.choices[1]]);
+const actOnlyChip = mActOnly.querySelector('.choice-chip');
+out.arrowlessActOnlyRender = {
+  text: actOnlyChip ? actOnlyChip.textContent : '',
+  isAction: actOnlyChip ? (actOnlyChip.className || '').includes('choice-action') : false,
+};
+inputEl.value = '';
+if (actOnlyChip) actOnlyChip.handlers.click();
+out.arrowlessActOnlySent = inputEl.value;
+
+const mLongSay = msg('msg assistant');
+api.renderChoiceChips(mLongSay, [out.arrowlessChoices.choices[3]]);
+const longSayChip = mLongSay.querySelector('.choice-chip');
+out.longSayRender = {
+  text: longSayChip ? longSayChip.textContent : '',
+  isAction: longSayChip ? (longSayChip.className || '').includes('choice-action') : false,
+};
+inputEl.value = '';
+if (longSayChip) longSayChip.handlers.click();
+out.longSaySent = inputEl.value;
+
 api.renderChoiceChips(m3, []);
 out.cleared = m3.all('.choice-chips').length;
 
@@ -318,6 +354,81 @@ class ChoiceChips(unittest.TestCase):
         self.assertEqual(chips[0], {"text": "✦ 다가가기", "isAction": True})
         self.assertEqual(chips[1], {"text": "인사하기", "isAction": False})
         self.assertEqual(self.o["actionSent"], "/act 조용히 다가간다")
+
+    def test_arrowless_action_choices_and_long_label_defense(self):
+        c = self.o["arrowlessChoices"]["choices"]
+        # 1. ("대사" (행동)) combo recognized as action chip with concise label
+        self.assertEqual(c[0]["kind"], "action")
+        self.assertTrue(c[0]["isAction"])
+        self.assertEqual(c[0]["label"], "잠깐만 기다려")
+        self.assertEqual(c[0]["payload"], '"잠깐만 기다려" (소매를 붙잡는다)')
+        self.assertEqual(self.o["arrowlessComboRender"], {"text": "✦ 잠깐만 기다려", "isAction": True})
+        self.assertEqual(self.o["arrowlessComboSent"], '/act "잠깐만 기다려" (소매를 붙잡는다)')
+
+        # 2. (행동) action-only recognized as action chip with concise label
+        self.assertEqual(c[1]["kind"], "action")
+        self.assertTrue(c[1]["isAction"])
+        self.assertEqual(c[1]["label"], "조용히 다가간다")
+        self.assertEqual(c[1]["payload"], "(조용히 다가간다)")
+        self.assertEqual(self.o["arrowlessActOnlyRender"], {"text": "✦ 조용히 다가간다", "isAction": True})
+        self.assertEqual(self.o["arrowlessActOnlySent"], "/act 조용히 다가간다")
+
+        # 3. "대사" dialogue-only recognized as action chip
+        self.assertEqual(c[2]["kind"], "action")
+        self.assertTrue(c[2]["isAction"])
+        self.assertEqual(c[2]["label"], "조금만 더 가까이")
+        self.assertEqual(c[2]["payload"], '"조금만 더 가까이"')
+
+        # 4. Long plain text protects button label with ellipsis while preserving full payload
+        self.assertEqual(c[3]["kind"], "say")
+        self.assertFalse(c[3]["isAction"])
+        self.assertTrue(c[3]["label"].endswith("…"))
+        self.assertLessEqual(len(c[3]["label"]), 30)
+        self.assertEqual(c[3]["payload"], "아주아주 긴 일반 선택지 텍스트는 버튼이 터지지 않도록 말줄임표 처리되어야 합니다")
+        self.assertEqual(self.o["longSaySent"], "아주아주 긴 일반 선택지 텍스트는 버튼이 터지지 않도록 말줄임표 처리되어야 합니다")
+        self.assertFalse(self.o["longSayRender"]["isAction"])
+
+    def test_arrowless_variants_and_long_action_label(self):
+        js = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[1], 'utf8');
+const a = src.indexOf('const CHOICES_TAIL'), b = src.indexOf('function postProcessAssistant');
+const code = src.slice(a, b);
+const api = new Function(code + '; return { splitChoices, parseChoiceItem };')();
+const smartCombo = api.parseChoiceItem('“잠깐만” （손을 잡는다）');
+const rawCombo = api.parseChoiceItem('"잠깐만" (손을 잡는다)');
+const smartAct = api.parseChoiceItem('（살며시 손을 잡는다）');
+const longAct = api.parseChoiceItem('(이것은 서른 자가 훨씬 넘는 아주아주아주 긴 지문 액션입니다)');
+const longCombo = api.parseChoiceItem('("이것은 서른 자가 훨씬 넘는 아주아주아주 긴 대사입니다" (다가간다))');
+const shortSay = api.parseChoiceItem('단문 선택지');
+console.log(JSON.stringify({smartCombo, rawCombo, smartAct, longAct, longCombo, shortSay}));
+"""
+        r = subprocess.run(["node", "-e", js, str(MD)], capture_output=True, text=True, check=False)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        res = json.loads(r.stdout)
+        self.assertEqual(res["smartCombo"]["label"], "잠깐만")
+        self.assertEqual(res["smartCombo"]["payload"], '"잠깐만" (손을 잡는다)')
+        self.assertTrue(res["smartCombo"]["isAction"])
+
+        self.assertEqual(res["rawCombo"]["label"], "잠깐만")
+        self.assertEqual(res["rawCombo"]["payload"], '"잠깐만" (손을 잡는다)')
+        self.assertTrue(res["rawCombo"]["isAction"])
+
+        self.assertEqual(res["smartAct"]["label"], "살며시 손을 잡는다")
+        self.assertEqual(res["smartAct"]["payload"], "(살며시 손을 잡는다)")
+        self.assertTrue(res["smartAct"]["isAction"])
+
+        self.assertTrue(res["longAct"]["label"].endswith("…"))
+        self.assertLessEqual(len(res["longAct"]["label"]), 30)
+        self.assertEqual(res["longAct"]["payload"], "(이것은 서른 자가 훨씬 넘는 아주아주아주 긴 지문 액션입니다)")
+        self.assertTrue(res["longAct"]["isAction"])
+
+        self.assertTrue(res["longCombo"]["label"].endswith("…"))
+        self.assertLessEqual(len(res["longCombo"]["label"]), 30)
+        self.assertEqual(res["longCombo"]["payload"], '"이것은 서른 자가 훨씬 넘는 아주아주아주 긴 대사입니다" (다가간다)')
+        self.assertTrue(res["longCombo"]["isAction"])
+
+        self.assertEqual(res["shortSay"], "단문 선택지")
 
     def test_dangling_or_partial_thought_tag_is_hidden(self):
         self.assertNotIn("<thought", self.o["parsedThoughtOpen"]["cleanText"])

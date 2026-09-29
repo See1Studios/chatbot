@@ -474,62 +474,108 @@ function classifyChoicePayload(rawPayload) {
   return { kind: 'action', payload: bare, action: bare, isAction: true };
 }
 
+const CHOICE_LABEL_MAX = 28;
+
+function truncateChoiceLabel(s, max = CHOICE_LABEL_MAX) {
+  const cap = typeof max === 'number' ? max : 28;
+  const str = String(s || '').trim();
+  return str.length <= cap ? str : str.slice(0, cap - 1) + '…';
+}
+
 function parseChoiceItem(item) {
+  const maxLabel = typeof CHOICE_LABEL_MAX !== 'undefined' ? CHOICE_LABEL_MAX : 28;
+  const truncate = (s) => (typeof truncateChoiceLabel === 'function'
+    ? truncateChoiceLabel(s, maxLabel)
+    : (String(s || '').trim().length <= maxLabel ? String(s || '').trim() : String(s || '').trim().slice(0, maxLabel - 1) + '…'));
+  const unwrapParens = typeof stripOuterParens === 'function' ? stripOuterParens : (s) => {
+    let out = String(s || '').trim();
+    while (out.length >= 2 && out[0] === '(' && out[out.length - 1] === ')') {
+      let depth = 0, balanced = true;
+      for (let i = 0; i < out.length; i++) {
+        if (out[i] === '(') depth++;
+        else if (out[i] === ')') { depth--; if ((depth === 0 && i !== out.length - 1) || depth < 0) { balanced = false; break; } }
+      }
+      if (!balanced || depth !== 0) break;
+      out = out.slice(1, -1).trim();
+    }
+    return out;
+  };
+
   if (item && typeof item === 'object') {
-    const label = String(item.label || '').trim();
+    const rawLabel = String(item.label || '').trim();
+    const label = truncate(rawLabel);
     let kind = String(item.kind || (item.isAction ? 'action' : 'say')).trim();
-    let payload = item.payload !== undefined ? String(item.payload).trim() : String(item.action || label || '').trim();
+    let payload = item.payload !== undefined ? String(item.payload).trim() : String(item.action || rawLabel || '').trim();
     // Re-classify string payloads that still carry private-mode forms
     if (kind !== 'command' && /^(?:"[\s\S]*"|[\s\S]*\([\s\S]*\))/.test(payload)) {
       const c = classifyChoicePayload(payload);
       kind = c.kind;
       payload = c.payload;
-      return {
-        label,
-        kind,
-        payload,
-        action: payload,
-        isAction: kind === 'action',
-      };
+      return { label, kind, payload, action: payload, isAction: kind === 'action' };
     }
-    return {
-      label,
-      kind,
-      payload,
-      action: payload,
-      isAction: kind === 'action' || Boolean(item.isAction),
-    };
+    return { label, kind, payload, action: payload, isAction: kind === 'action' || Boolean(item.isAction) };
   }
   const raw = String(item || '').trim();
   if (!raw) return null;
   // Support "Label -> Action" or "Label -> action: Action" or "Label -> command: Command"
   const arrowIdx = raw.indexOf('->');
   if (arrowIdx > 0) {
-    const label = raw.slice(0, arrowIdx).trim();
+    const rawLabel = raw.slice(0, arrowIdx).trim();
+    const label = truncate(rawLabel);
     let action = raw.slice(arrowIdx + 2).trim();
     if (action.toLowerCase().startsWith('action:')) {
-      action = action.slice(7).trim();
-      const act = action.replace(/^\(+|\)+$/g, '').trim();
+      const act = action.slice(7).trim().replace(/^\(+|\)+$/g, '').trim();
       return { label, action: act, payload: act, kind: 'action', isAction: true };
     }
     if (action.toLowerCase().startsWith('command:')) {
-      action = action.slice(8).trim();
-      return { label, action, payload: action, kind: 'command', isAction: false };
+      const cmd = action.slice(8).trim();
+      return { label, action: cmd, payload: cmd, kind: 'command', isAction: false };
     }
     const c = classifyChoicePayload(action);
-    return {
-      label,
-      action: c.payload,
-      payload: c.payload,
-      kind: c.kind,
-      isAction: c.isAction,
-    };
+    return { label, action: c.payload, payload: c.payload, kind: c.kind, isAction: c.isAction };
   }
   // Support "Label: action: Action"
   const colonAction = /^(.*?):\s*action:\s*(.*)$/i.exec(raw);
   if (colonAction) {
-    return { label: colonAction[1].trim(), action: colonAction[2].trim(), payload: colonAction[2].trim(), kind: 'action', isAction: true };
+    const label = truncate(colonAction[1].trim());
+    return { label, action: colonAction[2].trim(), payload: colonAction[2].trim(), kind: 'action', isAction: true };
   }
+
+  // Arrow-less action/dialogue pattern or long plain text
+  const norm = raw
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+    .replace(/\uFF08/g, '(').replace(/\uFF09/g, ')');
+  const clean = (/^\*[\s\S]*\*$/.test(norm) && norm.length >= 2) ? norm.slice(1, -1).trim() : norm;
+  const unwrapped = unwrapParens(clean);
+  const hadParens = unwrapped !== clean;
+
+  // 1. Combo: "dialogue" (action) or ("dialogue" (action))
+  const combo = /^"([^"]*)"\s*\(([\s\S]+)\)\s*$/.exec(unwrapped);
+  if (combo && (combo[1].trim() || unwrapParens(combo[2].trim()))) {
+    const line = combo[1].trim(), act = unwrapParens(combo[2].trim());
+    const rawLabel = line || act, payload = line ? ('"' + line + '" (' + act + ')') : ('(' + act + ')');
+    return { label: truncate(rawLabel), action: payload, payload, kind: 'action', isAction: true };
+  }
+
+  // 2. Dialogue-only: "dialogue" or ("dialogue") or 'dialogue'
+  const sayOnly = /^["']([^"']*)["']\s*$/.exec(unwrapped);
+  if (sayOnly && sayOnly[1].trim()) {
+    const line = sayOnly[1].trim(), payload = '"' + line + '"';
+    return { label: truncate(line), action: payload, payload, kind: 'action', isAction: true };
+  }
+
+  // 3. Action-only: (action)
+  if (hadParens && unwrapped && !/^\d+$|^[a-zA-Z]$/.test(unwrapped)) {
+    const payload = '(' + unwrapped + ')';
+    return { label: truncate(unwrapped), action: payload, payload, kind: 'action', isAction: true };
+  }
+
+  // 4. Long plain text defense (prevent button blowout on mobile)
+  if (raw.length > maxLabel) {
+    return { label: truncate(raw), action: raw, payload: raw, kind: 'say', isAction: false };
+  }
+
   return raw;
 }
 
