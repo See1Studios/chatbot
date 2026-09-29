@@ -10,6 +10,10 @@ library only, so the self-evolution core may use it too.
 - has_proc: whether a Linux-style /proc is there; code that reads it degrades instead of crashing without it.
 - write_text: Path.write_text with \n line endings everywhere. Python 3.8 (the NAS) has no newline= there, and on
   Windows text mode writes \r\n -- a 2048-byte card budget failed at 2088 (#405).
+- http_server: a ThreadingHTTPServer that owns its port. On Windows SO_REUSEADDR (which http.server turns on) lets a
+  second socket bind a port already bound -- another program could listen beside the host, and a test's new server
+  could get a port whose old server was still closing, so requests hit a dead socket (WinError 10054, #409). There
+  it binds with SO_EXCLUSIVEADDRUSE instead; POSIX keeps SO_REUSEADDR (restart after TIME_WAIT).
 - named_file: the first of several names that exists in a folder, spelled as it is on disk. Windows and macOS file
   systems ignore case, so `(d / "ROLE.md").is_file()` is true for role.md there and the caller would show a name
   that is not on disk (FIREBAT 2026-09-29, #405).
@@ -72,6 +76,28 @@ def write_text(path, text: str, encoding: str = "utf-8", errors=None) -> int:
     """Write `text` to `path` with \n line endings on every OS; returns the characters written."""
     with open(str(path), "w", encoding=encoding, errors=errors, newline="\n") as fh:
         return fh.write(text)
+
+
+_HTTP_SERVER = None
+
+
+def http_server(address, handler):
+    """ThreadingHTTPServer(address, handler), bound exclusively on Windows. http.server is imported on first use."""
+    global _HTTP_SERVER
+    if _HTTP_SERVER is None:
+        import socket
+        from http.server import ThreadingHTTPServer
+
+        class ExclusiveHTTPServer(ThreadingHTTPServer):
+            allow_reuse_address = os.name != "nt"
+
+            def server_bind(self):
+                if os.name == "nt" and hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+                super().server_bind()
+
+        _HTTP_SERVER = ExclusiveHTTPServer
+    return _HTTP_SERVER(address, handler)
 
 
 def named_file(folder, names):

@@ -17,6 +17,7 @@ CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 import server  # noqa: E402
 import workspace_status as W  # noqa: E402
+import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
 TODAY = time.strftime("%Y-%m-%d")
 
@@ -34,7 +35,7 @@ class ApiCase(unittest.TestCase):
         self.log.mkdir(parents=True)
         self._ws = W.WORKSPACE
         W.WORKSPACE = self.ws
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        self.httpd = platform_compat.http_server(("127.0.0.1", 0), server.Handler)
         self.httpd.daemon_threads = True
         self.port = self.httpd.server_address[1]
         self.host = "127.0.0.1:%d" % self.port

@@ -184,3 +184,11 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 
 - `tests/_platform.py`의 `dev_only_bash`: POSIX + bash가 있을 때만 돌고, 아니면 "개발판 bash 도구"라는 이유로 건너뜀. Windows의 `bash.exe`는 WSL 껍데기라 `which("bash")`만으로는 안 되고 OS도 본다.
 - 붙인 곳(모두 배포판에 없는 개발판 도구): githooks 전체, lifecycle의 `WrapperTest`·`RealCtlTest`(관리 스크립트 — 잠금 등 나머지는 그대로 돈다), ctl_paths 전체, log_no_content의 관리 스크립트 테스트 2개, tickets의 `run-tests.sh` 가드 게이트 테스트 2개, mcp_server의 `RunCommandTest`·`ServiceCtlTest`(명령 실행 도구), worktree_runner 전체(위임 실행기).
+
+### 6.9 FIREBAT 5차와 HTTP 연결 끊김의 정체 (2026-09-29, #409)
+
+- **5차: 129/146** (4차 121). 남은 17개 중 4개가 HTTP 연결 끊김(`WinError 10054`).
+- 조사 순서: ① 포트 재사용 가설(Windows의 `SO_REUSEADDR`는 두 소켓이 같은 포트를 공유하게 함) → 서버를 독점 바인딩(`SO_EXCLUSIVEADDRUSE`)으로 바꿨으나 **끊김 그대로 — 가설 틀림**. ② 서버는 매번 200을 보내는데 클라이언트가 약 25% 리셋을 받음. ③ 우리 핸들러 대신 최소 핸들러: 즉시 응답이면 120/120 정상, **30ms 지연만 넣어도 40% 리셋**. ④ HTTP 모듈 없이 **순수 소켓**으로도 지연 0에서 10%, 30ms에서 40% 리셋.
+- **결론: FIREBAT의 로컬(루프백) 연결 자체가 리셋된다** — 우리 코드도 Python도 아니고, 이 기계에 깔린 네트워크 필터 드라이버(Tailscale, Sunshine, 가상 디스플레이, 백신 등) 쪽으로 보인다. 어느 것인지는 미확인.
+- **제품 위험**: 같은 종류의 프로그램이 깔린 사용자 PC에서도 브라우저 ↔ PE 서버 연결이 가끔 끊길 수 있다. 브라우저는 GET을 다시 시도하지만 POST는 아니다 → 화면의 POST 호출에 재시도(멱등한 것만)나 오류 안내가 필요할 수 있음. 깨끗한 Windows(CI 러너)에서 재현되는지로 확인한다(`pp/F`).
+- 포트 독점 바인딩(`platform_compat.http_server`)은 이 문제를 풀지는 못했지만 유지: Windows에서 다른 프로그램이 우리 포트에 함께 붙는 것을 막는다(로컬 보안).

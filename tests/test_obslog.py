@@ -16,6 +16,7 @@ from pathlib import Path
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 import obslog  # noqa: E402
+import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
 
 def lines(path):
@@ -213,7 +214,7 @@ class _H(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
 class HTTPTests(Base):
     def setUp(self):
         super().setUp()
-        self.srv = ThreadingHTTPServer(("127.0.0.1", 0), _H)
+        self.srv = platform_compat.http_server(("127.0.0.1", 0), _H)
         self.srv.daemon_threads = True
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
         self.base = "http://127.0.0.1:%d" % self.srv.server_address[1]
@@ -277,7 +278,7 @@ class HTTPTests(Base):
                 except Exception:
                     self.send_response(500)                   # the catch-all answers... into the void
                     self.end_headers()
-        srv = ThreadingHTTPServer(("127.0.0.1", 0), Gone)
+        srv = platform_compat.http_server(("127.0.0.1", 0), Gone)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:
             try:

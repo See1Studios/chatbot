@@ -1469,7 +1469,7 @@ def main() -> None:
     obslog.add_heartbeat(_obs_heartbeat)
     if seeded:
         obslog.event("workspace.seeded", files=seeded)
-    httpd = ThreadingHTTPServer((HOST, PORT), Handler)
+    httpd = platform_compat.http_server((HOST, PORT), Handler)   # exclusive port on Windows (#409)
     httpd.daemon_threads = True
     threading.Thread(target=_standby_maintenance_loop, daemon=True).start()
     threading.Thread(target=accounts.watch_loop, daemon=True).start()

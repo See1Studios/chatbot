@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT))
 import host_config  # noqa: E402
 import server  # noqa: E402
 from tools.st_import import create_st_png_bytes  # noqa: E402
+import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
 
 def make_multipart_body(fields: dict, files: dict, boundary: str = "----TestBoundary12345") -> tuple:
@@ -53,7 +54,7 @@ class StImportApiTest(unittest.TestCase):
         server.WORKSPACE = self.ws
         server.ROOT = self.tmp
 
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        self.httpd = platform_compat.http_server(("127.0.0.1", 0), server.Handler)
         self.httpd.daemon_threads = True
         self.port = self.httpd.server_address[1]
         self.host = f"127.0.0.1:{self.port}"

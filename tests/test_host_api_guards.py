@@ -21,6 +21,7 @@ from pathlib import Path
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 import server  # noqa: E402
+import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
 
 class ServerCase(unittest.TestCase):
@@ -33,7 +34,7 @@ class ServerCase(unittest.TestCase):
         self.ws = self.root / "data" / "workspace"
         self.ws.mkdir(parents=True)
         server.ROOT = self.root
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        self.httpd = platform_compat.http_server(("127.0.0.1", 0), server.Handler)
         self.httpd.daemon_threads = True
         self.port = self.httpd.server_address[1]
         self.host = "127.0.0.1:%d" % self.port

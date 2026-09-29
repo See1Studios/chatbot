@@ -879,7 +879,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
 
 def main() -> None:
     TMP_ROOT.mkdir(parents=True, exist_ok=True)
-    httpd = ThreadingHTTPServer((HOST, PORT), Handler)
+    httpd = platform_compat.http_server((HOST, PORT), Handler)   # exclusive port on Windows (#409)
     obslog.start_process("mcp", host=HOST, port=PORT)
     print(f"chatbot-mcp on http://{HOST}:{PORT}/mcp", flush=True)
 

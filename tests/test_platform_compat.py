@@ -70,6 +70,25 @@ class NamesAndText(unittest.TestCase):
         self.assertEqual(f.read_bytes(), b"a\nb\n")
 
 
+class HttpServer(unittest.TestCase):
+    def test_no_second_socket_can_share_the_port(self):
+        # #409: with SO_REUSEADDR a Windows socket may bind a port another socket already holds
+        import socket
+        from http.server import BaseHTTPRequestHandler
+        srv = pc.http_server(("127.0.0.1", 0), BaseHTTPRequestHandler)
+        try:
+            port = srv.server_address[1]
+            other = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            other.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                with self.assertRaises(OSError):
+                    other.bind(("127.0.0.1", port))
+            finally:
+                other.close()
+        finally:
+            srv.server_close()
+
+
 class ProcScan(unittest.TestCase):
     def test_no_proc_means_an_empty_scan_not_a_crash(self):
         from providers import accounts

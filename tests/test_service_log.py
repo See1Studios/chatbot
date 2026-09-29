@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 import logdigest  # noqa: E402
 import obslog  # noqa: E402
 import server  # noqa: E402
+import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
 SID = "20260923-101010-abcdef"
 
@@ -24,7 +25,7 @@ SID = "20260923-101010-abcdef"
 class ServiceLogApiTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        cls.httpd = platform_compat.http_server(("127.0.0.1", 0), server.Handler)
         cls.port = cls.httpd.server_address[1]
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
 

@@ -17,6 +17,7 @@ sys.path.insert(0, str(CODE))
 import server  # noqa: E402
 import tickets  # noqa: E402
 import workspace_status as W  # noqa: E402
+import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
 EVENT = "event:s1#2"
 
@@ -29,7 +30,7 @@ class ApiCase(unittest.TestCase):
         (self.data / "workspace" / "skill-observations").mkdir(parents=True)
         self._ws = W.WORKSPACE
         W.WORKSPACE = self.data / "workspace"
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        self.httpd = platform_compat.http_server(("127.0.0.1", 0), server.Handler)
         self.httpd.daemon_threads = True
         self.port = self.httpd.server_address[1]
         threading.Thread(target=lambda: self.httpd.serve_forever(poll_interval=0.02), daemon=True).start()

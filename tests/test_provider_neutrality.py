@@ -19,6 +19,7 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from providers import adapters  # noqa: E402
+import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
 # ADAPTER_SPLIT_v1: one module per provider may name it; adapter_base.py is common code and stays neutral
 PROVIDER_MODULES = {"providers/adapters.py", "providers/adapter_agy.py", "providers/adapter_claude.py", "providers/adapter_grok.py", "providers/adapter_codex.py",
@@ -108,7 +109,7 @@ class ConfigTest(unittest.TestCase):
 class HealthTest(unittest.TestCase):
     def test_health_reports_every_provider_none_singled_out(self):
         import server
-        httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        httpd = platform_compat.http_server(("127.0.0.1", 0), server.Handler)
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         try:
             with urlopen("http://127.0.0.1:%d/healthz" % httpd.server_address[1], timeout=10) as r:
