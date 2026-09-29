@@ -3,13 +3,15 @@
  "approved_at": "2026-09-29 11:54:18",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-29 11:54:09",
  "evidence": [
   "event:20260929-114207-37d9f4#7"
  ],
  "gate_failures": 0,
  "id": 389,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -130,14 +132,29 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-389 at 13b09a2 (agy, review PASS round 1)",
    "ts": "2026-09-29 12:16:19"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-29 12:21:01"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 6f5629a on the operator's word (agy)",
+   "ts": "2026-09-29 12:22:52"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-29 12:22:52"
   }
  ],
  "paths": [
   "static/chat-log.css"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/chat-log.css",
  "title": "속마음 토글 칩 컴팩트화 (모바일 28px→21px 및 패딩 슬림화)",
- "updated": "2026-09-29 12:16:19",
+ "updated": "2026-09-29 12:22:52",
  "worked_by": "agy"
 }
