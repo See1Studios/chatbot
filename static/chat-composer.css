@@ -12,6 +12,7 @@
   padding:.35rem .6rem;
   border-radius:10px;
 }
+.msg.system::before, .msg.system::after { display: none !important; content: none !important; }
 .msg.system .notice-head{
   display:flex;align-items:center;gap:.35rem;
   font-size:.72rem;font-weight:600;letter-spacing:.02em;
