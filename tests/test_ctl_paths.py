@@ -8,10 +8,12 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from tests._platform import dev_only_bash  # noqa: E402
 
 CTL = Path(__file__).resolve().parent.parent / "chatbot-ctl.sh"
 
 
+@dev_only_bash
 class CtlPaths(unittest.TestCase):
     def test_the_script_dir_follows_a_symlink(self):
         head = []

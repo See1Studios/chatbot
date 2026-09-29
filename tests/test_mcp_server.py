@@ -21,6 +21,7 @@ os.environ.setdefault("NAS_MCP_HOST_PLUGIN", "1")
 # and these cover the dev build's tools (ticket, run_command, delegate); the shipped build is pinned in test_edition_boundary
 os.environ.setdefault("CHATBOT_EDITION", "dev")
 import mcp_server as mcp  # noqa: E402  -- the only place tests import the tool server
+from tests._platform import dev_only_bash  # noqa: E402
 
 
 def setUpModule():
@@ -78,6 +79,7 @@ class Base(unittest.TestCase):
         self.assertEqual(self.calls, [], "refused command must never reach _run: %r" % cmd)
 
 
+@dev_only_bash
 class RunCommandTest(Base):
     def test_read_only_basics_run(self):
         for cmd in ("ls -la /tmp", "cat /etc/hostname", "head -n 3 x", "tail -n 3 x", "df -h",
@@ -185,6 +187,7 @@ class RunCommandTest(Base):
         self.assertRefused("hermes statusx")
 
 
+@dev_only_bash
 class ServiceCtlTest(Base):
     """service_ctl / list_services / ping_nas are the host plugin's tools; the server itself has none."""
 

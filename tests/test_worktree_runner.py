@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import worktree_runner as wr
+from tests._platform import dev_only_bash  # noqa: E402
 
 # argv: <calls log> <repo> <command> ...; writes the ticket record the way tickets.py would
 FAKE_TICKET = r'''
@@ -49,6 +50,7 @@ def sh(cwd: Path, *cmd: str) -> str:
     return subprocess.check_output(cmd, cwd=str(cwd), text=True).strip()
 
 
+@dev_only_bash
 class WorktreeRunner(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()

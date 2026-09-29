@@ -179,3 +179,8 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 - **대소문자**: `platform_compat.named_file(폴더, 이름들)` — 폴더 항목과 정확히 비교해 디스크에 적힌 그대로의 이름을 돌려준다. 역할 팩 파일(`ROLE.md`/`role.md`) 찾기가 이것을 쓴다.
 - **줄바꿈**: `platform_compat.write_text()` — 모든 OS에서 `\n`으로 쓴다(Python 3.8의 `Path.write_text`에는 `newline=`이 없음). 엔진의 텍스트 쓰기 28곳을 옮기고, 추가 쓰기 `open` 8곳에 `newline="\n"`. `session.py`의 두 곳은 이미 쓰던 `_atomic_write_text`로(줄 수 상한 유지).
 - 재발 방지: `test_platform_imports`에 줄바꿈 검사(개발판 전용 도구 둘은 예외). 핵심 모듈 세 곳의 import 허용 목록에 `platform_compat`(PP5 후속).
+
+### 6.8 개발판 bash 도구 테스트 표시 (2026-09-29, #407)
+
+- `tests/_platform.py`의 `dev_only_bash`: POSIX + bash가 있을 때만 돌고, 아니면 "개발판 bash 도구"라는 이유로 건너뜀. Windows의 `bash.exe`는 WSL 껍데기라 `which("bash")`만으로는 안 되고 OS도 본다.
+- 붙인 곳(모두 배포판에 없는 개발판 도구): githooks 전체, lifecycle의 `WrapperTest`·`RealCtlTest`(관리 스크립트 — 잠금 등 나머지는 그대로 돈다), ctl_paths 전체, log_no_content의 관리 스크립트 테스트 2개, tickets의 `run-tests.sh` 가드 게이트 테스트 2개, mcp_server의 `RunCommandTest`·`ServiceCtlTest`(명령 실행 도구), worktree_runner 전체(위임 실행기).

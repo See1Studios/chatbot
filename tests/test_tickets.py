@@ -17,6 +17,7 @@ from unittest import mock
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 import tickets  # noqa: E402
+from tests._platform import dev_only_bash  # noqa: E402
 
 T0 = 1_800_000_000.0
 EVENT = "event:s1#2"
@@ -711,6 +712,7 @@ class ShipGateTest(Base):
         r = tickets.release(self.data, t["id"], c["token"], "done", now=T0)
         self.assertEqual(r["ticket"]["status"], "done")
 
+    @dev_only_bash
     def test_the_guard_run_does_not_inherit_the_live_install_settings(self):
         # #371/#387: the server's CHATBOT_DATA / CHATBOT_ROOT reached the guard tests, which then failed on the copy
         self.git_init()
@@ -722,6 +724,7 @@ class ShipGateTest(Base):
         with mock.patch.dict(os.environ, {"CHATBOT_DATA": "/live/data", "CHATBOT_ROOT": "/live", "PE_HOME": "/x"}):
             self.assertEqual(tickets._guard_failure(self.data), "")
 
+    @dev_only_bash
     def test_done_is_refused_while_the_guard_tests_fail(self):
         # pew/O: the repo's run-tests.sh --fast is the backstop for a commit that skipped its hooks
         self.git_init()

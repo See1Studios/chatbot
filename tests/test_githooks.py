@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from tests._platform import dev_only_bash  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("check_staged", ROOT / ".githooks" / "check_staged.py")
@@ -17,6 +18,7 @@ check = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(check)
 
 
+@dev_only_bash
 class Hooks(unittest.TestCase):
     def setUp(self):
         # /tmp is mounted noexec on this NAS, and git silently skips a hook it cannot execute

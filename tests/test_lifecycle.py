@@ -20,6 +20,7 @@ from pathlib import Path
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 import evolution  # noqa: E402
+from tests._platform import dev_only_bash  # noqa: E402
 
 PY = sys.executable
 
@@ -226,6 +227,7 @@ CTL_TEXT = (CODE / "chatbot-ctl.sh").read_text(encoding="utf-8")
 WRAPPER = re.search(r"(case \"\$\{1:-status\}\" in\n  start\|doctor.*?\nesac\n)", CTL_TEXT, re.S)
 
 
+@dev_only_bash
 class WrapperTest(unittest.TestCase):
     """The real wrapper text from chatbot-ctl.sh, run around a body that only echoes."""
 
@@ -294,6 +296,7 @@ class WrapperTest(unittest.TestCase):
         self.assertIn("lock=none", self.run_stub("repair").stdout)
 
 
+@dev_only_bash
 class RealCtlTest(unittest.TestCase):
     """The real chatbot-ctl.sh in a throw-away tree, only where it returns before doing anything.
 

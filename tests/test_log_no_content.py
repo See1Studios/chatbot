@@ -28,6 +28,7 @@ import host_config  # noqa: E402
 import logdigest  # noqa: E402
 import obslog  # noqa: E402
 import session  # noqa: E402
+from tests._platform import dev_only_bash  # noqa: E402
 
 # Sentinels that must not survive into the global stream. They are not Korean prose and not secrets:
 # they are canaries, so a false pass cannot come from the redactor.
@@ -137,6 +138,7 @@ class OneResolver(unittest.TestCase):
                 os.environ["CHATBOT_OBSLOG_PATH"] = old
             importlib.reload(host_config)
 
+    @dev_only_bash
     def test_ctl_asks_the_same_resolver(self):
         text = CTL.read_text(encoding="utf-8")
         self.assertIn("import host_config; print(\"%s\\t%s\" % (host_config.LOG_DIR, host_config.EVENTS_LOG))", text,
@@ -145,6 +147,7 @@ class OneResolver(unittest.TestCase):
         # A pipe here would kill the script: set -o pipefail turns the closed pipe into exit 141.
         self.assertNotIn('"$_paths" | head', text, "ctl reads the resolver through a pipe")
 
+    @dev_only_bash
     def test_a_copied_ctl_uses_its_own_tree_log_dir(self):
         """A relocated ctl must not inherit the log directory of the checkout it is run from.
 
