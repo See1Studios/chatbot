@@ -96,7 +96,7 @@
 
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
-| `ux/A` | 이 문서 + INDEX 행 | 이 문서, `docs/plans/INDEX.md` | 커밋 | 0 · — | S | — | 대기 |
+| `ux/A` | 이 문서 + INDEX 행 | 이 문서, `docs/plans/INDEX.md` | 커밋 | 0 · — | S | — | ✅ `ea2ec31` |
 | `ux/B` | 캐릭터 상태 이벤트 채널: 캐릭터 단위 `emotion`·`speaking`·`action`·`presence`, 세션 흐름과 별개로 구독 가능 | `emotion.py`, `server.py`(라우터), `static/app-characters.js`, 테스트 | 채팅 페이지 없이 구독한 클라이언트가 표정 이벤트를 받음. `EventSource` 가로채기 제거 | 2 · ⚡ | M | UX1 | 대기 |
 | `ux/C` | 경계 가드 테스트: 외형 코드 ↔ 채팅 DOM 분리 | `tests/`, `static/visual-*.js` | `visual-*.js`가 채팅 DOM을 참조하거나 전역 `EventSource`를 가로채면 실패 | 2 · — | S | ux/B | 대기 |
 | `ux/I` | 현대 메신저 기준선 갭 감사 | 이 문서 §4.2.1 | 표의 모든 줄에 있음/부분/없음 + 근거(파일·화면), 빈 칸마다 티켓 초안 | 0 · — | S | UX2 | 대기 |
