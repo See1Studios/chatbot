@@ -81,6 +81,7 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | `pp/I` | 스팀덱 실측(실기 또는 SteamOS VM): 데스크톱 모드·게임 모드에서 설치, 두뇌 연결, 화면 1280×800, 게임패드·화상 키보드 | 이 문서 §6 | 실측 기록과 DK1 결정 근거 | 0 · — | S | pp/G | 대기 |
 | `pp/J` ✅ #396 | 의존성 선언: Pillow(NAS 10.4.0, 하한은 3.8·3.12 둘 다 되는 버전)를 `requirements.txt`에, 새 가상환경에서 `import` 전수 검사하는 테스트 | `requirements.txt`, 테스트 | 빈 가상환경 + requirements만으로 엔진 모듈 전부 import | 2 · — | S | — | 대기 |
 | `pp/K` | 바이너리 빌드 시험(PP4): Nuitka로 서버 하나를 Windows(FIREBAT)·Linux에서 빌드해 켜고 대화 1턴, 크기·시작 시간·빠진 리소스 기록. macOS는 CI 러너에서 빌드만 + 서명·공증 절차 조사 | 새 빌드 스크립트, 이 문서 §6 | 두 OS에서 바이너리로 1턴, macOS 빌드 성공, 서명 절차 메모 | 2 · — | M | pp/E, pp/J | 대기 |
+| `pp/L` | 필터링 프로그램(AdGuard 등)과의 공존: 브라우저 ↔ PE를 AdGuard 켠 채 FIREBAT에서 확인, 재현되면 화면 요청 재시도(멱등만)·오류 안내·설치 안내 | `static/`(요청 공통부), 안내 문서 | AdGuard 켠 FIREBAT에서 대화·결정 버튼이 실패 없이 동작하거나 분명한 안내 | 2 · — | S | — | 대기 |
 | `pp/H` | FIREBAT 실기 체크리스트(설치 → 대화 → 두뇌 연결) | 이 문서 | 체크리스트 전 항목 통과 기록 | 0 · — | S | pp/G | 대기 |
 
 ## 6. 실측 기록
@@ -190,8 +191,9 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 - **5차: 129/146** (4차 121). 남은 17개 중 4개가 HTTP 연결 끊김(`WinError 10054`).
 - 조사 순서: ① 포트 재사용 가설(Windows의 `SO_REUSEADDR`는 두 소켓이 같은 포트를 공유하게 함) → 서버를 독점 바인딩(`SO_EXCLUSIVEADDRUSE`)으로 바꿨으나 **끊김 그대로 — 가설 틀림**. ② 서버는 매번 200을 보내는데 클라이언트가 약 25% 리셋을 받음. ③ 우리 핸들러 대신 최소 핸들러: 즉시 응답이면 120/120 정상, **30ms 지연만 넣어도 40% 리셋**. ④ HTTP 모듈 없이 **순수 소켓**으로도 지연 0에서 10%, 30ms에서 40% 리셋.
 - **결론: FIREBAT의 로컬(루프백) 연결 자체가 리셋된다** — 우리 코드도 Python도 아니다. **.NET(`TcpListener`/`TcpClient`)으로도 같은 리셋**(지연 0ms 1/30, 30ms 7/30, 200ms 6/30) → Windows 네트워크 스택 쪽.
-- **유력 원인: AdGuard** (2026-09-29, 읽기 전용 조사). WFP 필터 1132개 중 제3자는 AdGuard뿐 — 전송 계층 스트림 콜아웃(`FWP_ACTION_CALLOUT_TERMINATING`), 연결 가로채기(`ALE_CONNECT_REDIRECT`), 흐름 수립·종료(`ALE_FLOW_ESTABLISHED`, `ALE_ENDPOINT_CLOSURE`) 콜아웃. 연결을 가로채 필터링하는 방식이라 루프백의 종료 과정에 끼어들 수 있다. 그 밖에 Tailscale, Sunshine, Windows Defender(네트워크 보호 꺼짐), Hyper-V 중첩 가상화 필터가 있으나 루프백 WFP 필터는 없음. **확정은 AdGuard를 잠시 멈추고 같은 실험을 다시 돌려서**(운영자 동작 필요).
+- **유력 원인: AdGuard** (2026-09-29, 읽기 전용 조사). WFP 필터 1132개 중 제3자는 AdGuard뿐 — 전송 계층 스트림 콜아웃(`FWP_ACTION_CALLOUT_TERMINATING`), 연결 가로채기(`ALE_CONNECT_REDIRECT`), 흐름 수립·종료(`ALE_FLOW_ESTABLISHED`, `ALE_ENDPOINT_CLOSURE`) 콜아웃. 연결을 가로채 필터링하는 방식이라 루프백의 종료 과정에 끼어들 수 있다. 그 밖에 Tailscale, Sunshine, Windows Defender(네트워크 보호 꺼짐), Hyper-V 중첩 가상화 필터가 있으나 루프백 WFP 필터는 없음. **확정 (2026-09-29, 운영자가 AdGuard를 잠시 끔)**: .NET 루프백 실험이 지연 0·30·200ms 모두 **30/30 정상(리셋 0)**, 서버 HTTP 테스트 8개 중 7개 통과(남은 1개 identity_wiring은 실측에서 뺀 캐릭터 데이터 탓). **원인은 AdGuard의 연결 가로채기 필터.**
 - **제품 위험**: AdGuard 같은 연결 가로채기 필터(광고 차단·보안 프로그램)가 깔린 사용자 PC에서도 브라우저 ↔ PE 서버 연결이 가끔 끊길 수 있다. 브라우저는 GET을 다시 시도하지만 POST는 아니다 → 화면의 POST 호출에 재시도(멱등한 것만)나 오류 안내가 필요할 수 있음. 깨끗한 Windows(CI 러너)에서 재현되는지로 확인한다(`pp/F`).
+- **다음 수 (`pp/L`)**: ① 사용자 PC에서 브라우저 ↔ PE 서버를 AdGuard 켠 채로 확인(FIREBAT, 브라우저가 실제 경로 — 이번 실험은 Python ↔ Python이었다) ② 문제가 재현되면: 화면의 요청이 연결 리셋을 만나면 다시 시도(멱등한 요청만)하거나 분명히 알리고, 안내 문서에 "AdGuard 등 필터링 프로그램에서 PE를 예외로" 한 줄. 인스톨러 단계에서 흔한 필터링 프로그램 감지·안내 검토.
 - 포트 독점 바인딩(`platform_compat.http_server`)은 이 문제를 풀지는 못했지만 유지: Windows에서 다른 프로그램이 우리 포트에 함께 붙는 것을 막는다(로컬 보안).
 
 ### 6.10 남은 Windows 실패 정리 (2026-09-29, #411)
