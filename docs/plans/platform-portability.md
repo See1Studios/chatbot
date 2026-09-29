@@ -155,3 +155,21 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | K·미확인(원인 줄 없음 포함) | 8 | core_standalone, evolution, models_meta_cache, observation_api, obslog, persona_traversal, st_import_api, ticket_api |
 
 - **다음 수(싼 순서)**: A는 실측 방식만 바꾸면 되는 가짜 실패라 먼저 없앤다(추적 파일 포함 + 개인 파일 제외 목록). 그다음 D·E·I는 규칙 하나씩(경로는 `as_posix()`, 자식 출력은 `encoding`/`errors` 지정, 쓰기는 `newline="\n"`)이라 각각 래칫으로 막을 수 있다.
+
+### 6.6 FIREBAT 3·4차 (2026-09-29, #401·#403)
+
+- **실측 방식 변경**: 사본에 엔진이 추적하는 `data/` 파일은 넣고 개인 기록(캐릭터 폴더, 개선 기록, 페르소나 그림)은 뺀다(`git archive HEAD -- . ':!data/workspace/characters' ':!data/workspace/skill-observations' ':!data/persona'`). 실행은 새 도구 `tools/run_modules.py`(bash 없이 모듈별, FAST 목록은 `run-tests.sh`에서 읽음).
+- **3차에서 드러난 것**: UTF-8 모드를 강제하지 않자 **한국어 Windows는 인코딩 없는 파일 읽기·쓰기를 cp949로 한다**는 게 보였다(1·2차는 UTF-8 모드를 켜 둬서 가려짐). 엔진의 13곳에 `encoding="utf-8"`, 새로 생기면 실패하는 검사, 배포판은 UTF-8 모드로(PP4). 테스트는 배포판과 같은 UTF-8 모드로 돈다. 3차는 러너 자체가 cp949 콘솔 출력에서 멈춰 중단 → 고침.
+- **4차: 121/146** (2차 107/145). 그 뒤 경로 수정(#403: `as_posix()` 6곳, 산출물 경로 재작성이 양쪽 구분자 인식)으로 art_manager·data_paths·mcp_parity_tools·media_sources 4개가 더 풀릴 것으로 보임(5차에서 확인).
+- **남은 원인 (4차 기준, 경로 4개 제외 21개)**:
+
+| 원인 | 모듈 | 메모 |
+|---|---|---|
+| **대소문자를 가리지 않는 파일 시스템** (새로 드러남) | team_roles (`ROLE.md` vs `role.md`) | Windows NTFS와 **macOS 기본 APFS도 대소문자 무시** — 역할 팩 파일 이름 규칙을 한 가지로 |
+| 서버 HTTP 연결 끊김(K) | observation_api, obslog, ticket_api | 전체 실행에서 재현, 단독으로는 대개 통과 — 테스트 서버 종료·재시작 사이 경합 의심 |
+| bash·셸 의존(H) — 자식 출력 디코딩 실패 포함 | ctl_paths, lifecycle, log_no_content, tickets, githooks, mcp_server, worktree_runner | `bash`가 WSL 껍데기라 cp949 메시지를 냄. 개발판 전용(관리 스크립트·훅·위임 러너)이면 Windows 대상에서 제외 표시, 엔진 경로면 Python으로 |
+| 권한 비트(F) | data_bootstrap, ticket_quick | Windows 비밀 파일 보호 방식 결정 필요 |
+| 줄바꿈·텍스트(I) | characters, private_tension | `newline="\n"` 규칙 |
+| 개인 기록을 뺀 탓(A) | bundle_budget, code_layout, identity_wiring | 테스트가 개인 기록 폴더를 전제 — 테스트가 스스로 만들도록 |
+| NAS 전용 | nas_mcp_host | 설계상 Linux |
+| 미확인 | core_standalone, evolution | 트레이스백 확인 |
