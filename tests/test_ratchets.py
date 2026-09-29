@@ -4,6 +4,9 @@ lines matching a pattern must not exceed ratchet_baseline.json; when it drops, l
 A line that is Korean or names the host on purpose (a prompt example, a Korean regex) ends with `l10n-ok`.
 
 - l10n: hardcoded Korean (Hangul) in engine and page code -> moves to i18n catalogs (docs/plans/localization.md).
+- posix: OS-only calls in engine code (fcntl, /proc, setsid, process-group signals, shelling out to bash/sh) -> one
+  platform_compat module with a Windows side (docs/plans/platform-portability.md pp/B). The NAS host plugin is Linux by
+  design and is skipped.
 - host_identity: the dev install's host and persona (DiskStation, /volume1, Sphere, 실장님, 냥) in engine code, outside
   the NAS host plugin -> neutral strings or environment plugins (docs/plans/direction-alignment.md D3, D4).
 Run: python3 -m unittest tests.test_ratchets  (from services/chatbot)
@@ -20,6 +23,8 @@ PRAGMA = "l10n-ok"
 RATCHETS = {
     "l10n": (re.compile(r"[가-힣]"), ()),
     "host_identity": (re.compile(r"DiskStation|diskstation|/volume1|Sphere|실장님|냥"), ("nas_mcp_host.py",)),  # l10n-ok
+    "posix": (re.compile(r"\bimport fcntl\b|\bfcntl\.|/proc/|os\.setsid|start_new_session|os\.killpg|\bSIGKILL\b"
+                         r"|\bSIGTERM\b|\[\s*[\"'](?:/bin/)?(?:ba)?sh[\"']|^\s*import (?:pty|termios|tty|pwd|grp|resource)\b"), ("nas_mcp_host.py", "platform_compat.py")),
 }
 
 
@@ -61,6 +66,9 @@ class Ratchets(unittest.TestCase):
 
     def test_host_and_persona_identity_does_not_grow(self):
         self.check("host_identity")
+
+    def test_os_only_calls_do_not_grow(self):
+        self.check("posix")
 
 
 def update():
