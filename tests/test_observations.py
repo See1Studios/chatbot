@@ -354,7 +354,8 @@ class DisciplineTest(unittest.TestCase):
                 imported |= {a.name.split(".")[0] for a in node.names}
             elif isinstance(node, ast.ImportFrom):
                 imported.add((node.module or "").split(".")[0])
-        self.assertLessEqual(imported, {"__future__", "evolution", "json", "os", "pathlib", "re", "time", "typing"})
+        self.assertLessEqual(imported, {"__future__", "evolution", "json", "os", "pathlib", "platform_compat", "re", "time",
+                                         "typing"})   # platform_compat: a core module (PP5)
 
     def test_no_trace_of_the_tool_this_replaces_and_no_tool_server_name(self):
         low = self.SOURCE.lower()

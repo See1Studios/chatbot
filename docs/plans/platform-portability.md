@@ -173,3 +173,9 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | 개인 기록을 뺀 탓(A) | bundle_budget, code_layout, identity_wiring | 테스트가 개인 기록 폴더를 전제 — 테스트가 스스로 만들도록 |
 | NAS 전용 | nas_mcp_host | 설계상 Linux |
 | 미확인 | core_standalone, evolution | 트레이스백 확인 |
+
+### 6.7 대소문자·줄바꿈 규칙 (2026-09-29, #405)
+
+- **대소문자**: `platform_compat.named_file(폴더, 이름들)` — 폴더 항목과 정확히 비교해 디스크에 적힌 그대로의 이름을 돌려준다. 역할 팩 파일(`ROLE.md`/`role.md`) 찾기가 이것을 쓴다.
+- **줄바꿈**: `platform_compat.write_text()` — 모든 OS에서 `\n`으로 쓴다(Python 3.8의 `Path.write_text`에는 `newline=`이 없음). 엔진의 텍스트 쓰기 28곳을 옮기고, 추가 쓰기 `open` 8곳에 `newline="\n"`. `session.py`의 두 곳은 이미 쓰던 `_atomic_write_text`로(줄 수 상한 유지).
+- 재발 방지: `test_platform_imports`에 줄바꿈 검사(개발판 전용 도구 둘은 예외). 핵심 모듈 세 곳의 import 허용 목록에 `platform_compat`(PP5 후속).

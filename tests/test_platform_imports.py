@@ -105,6 +105,34 @@ class PathSeparators(unittest.TestCase):
         self.assertEqual(bad, [], "use .relative_to(...).as_posix()")
 
 
+LF_EXEMPT = {"platform_compat.py", "worktree_runner.py", "run_modules.py"}   # the helper itself; dev-only tools
+
+
+def crlf_writes(path):
+    """Text written so that Windows turns \n into \r\n: Path.write_text (3.8 has no newline=) or open() for
+    writing/appending text without newline=. Use platform_compat.write_text / newline="\n" (#405)."""
+    out = []
+    for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if not isinstance(n, ast.Call):
+            continue
+        f = n.func
+        if isinstance(f, ast.Attribute) and f.attr == "write_text" and not (
+                isinstance(f.value, ast.Name) and f.value.id == "platform_compat"):
+            out.append(n.lineno)
+        elif isinstance(f, ast.Name) and f.id == "open":
+            mode = n.args[1].value if len(n.args) > 1 and isinstance(n.args[1], ast.Constant) else ""
+            mode = next((k.value.value for k in n.keywords if k.arg == "mode" and isinstance(k.value, ast.Constant)), mode)
+            if any(c in str(mode) for c in "wa") and "b" not in str(mode) and "newline" not in {k.arg for k in n.keywords}:
+                out.append(n.lineno)
+    return ["%s:%d" % (path.relative_to(ROOT).as_posix(), ln) for ln in out]
+
+
+class LineEndings(unittest.TestCase):
+    def test_engine_writes_text_with_lf(self):
+        bad = [x for p in engine_files() if p.name not in LF_EXEMPT for x in crlf_writes(p)]
+        self.assertEqual(bad, [], 'use platform_compat.write_text(...) or open(..., newline="\\n")')
+
+
 class TextEncoding(unittest.TestCase):
     def test_engine_text_io_names_its_encoding(self):
         # FIREBAT 2026-09-29 (#401): without UTF-8 mode a Korean Windows reads and writes text as cp949

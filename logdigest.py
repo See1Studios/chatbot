@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parent
 # env override included. Tests still swap logdigest.LOG directly.
 from host_config import EVENTS_LOG as LOG  # noqa: E402
 from host_config import SESSIONS, WORKSPACE  # noqa: E402  -- one data-path resolver (uds/B)
+import platform_compat
 HEARTBEAT_SEC = int(os.environ.get("CHATBOT_OBSLOG_SUMMARY_SEC", "300"))
 
 # Thresholds for findings. Tune here, and keep docs/LOGGING.md "Findings" in step.
@@ -445,7 +446,7 @@ def host_candidates(obs_root: Path = None, since_s: float = HOST_SIGNAL_WINDOW_S
             pass
     try:
         HOST_SIGNAL_STAMP.parent.mkdir(parents=True, exist_ok=True)
-        HOST_SIGNAL_STAMP.write_text(str(int(now)), encoding="utf-8")
+        platform_compat.write_text(HOST_SIGNAL_STAMP, str(int(now)), encoding="utf-8")
     except OSError:
         pass
     if not LOG.exists() or not obs_root.is_dir():

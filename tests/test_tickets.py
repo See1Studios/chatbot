@@ -673,7 +673,8 @@ class ImportDisciplineTest(unittest.TestCase):
             elif isinstance(node, ast.ImportFrom):
                 imported.add((node.module or "").split(".")[0])
         self.assertLessEqual(imported, {"__future__", "contextlib", "evolution", "hashlib", "json", "os", "pathlib",
-                                        "re", "secrets", "shutil", "subprocess", "sys", "tempfile", "time", "typing"})
+                                        "re", "secrets", "shutil", "subprocess", "sys", "tempfile", "time", "typing",
+                                        "platform_compat"})   # a core module (PP5)
         # shutil/tempfile: the release gate judges a throwaway worktree at HEAD (pew/Q)
         self.assertNotIn("nas_mcp", (CODE / "tickets.py").read_text(encoding="utf-8"))
 

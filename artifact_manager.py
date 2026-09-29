@@ -18,6 +18,7 @@ from host_config import (
     SESSIONS,
     WORKSPACE,
 )
+import platform_compat
 
 
 def _safe_session_id(sid: str) -> str:
@@ -36,7 +37,7 @@ def _atomic_write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
-        tmp.write_text(content, encoding="utf-8")
+        platform_compat.write_text(tmp, content, encoding="utf-8")
         tmp.replace(path)
     except Exception:
         if tmp.exists():

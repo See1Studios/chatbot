@@ -33,6 +33,7 @@ import difflib
 import tickets
 from host_config import (AGENT_PATH_PREFIX, DATA, DELEGATE_MODEL, DELEGATE_PROVIDER, DELEGATE_REVIEWER,
                          DELEGATE_REVIEWER_MODEL, ROOT)
+import platform_compat
 
 RUNNER_PATH = ROOT / "tools" / "worktree_runner.py"
 PLAN_ROOT = ROOT             # where a plan's files must exist (DELEGATION_CLARITY_v1); tests point it elsewhere
@@ -595,7 +596,7 @@ def mark_seen(ticket_id: int) -> None:
         seen[str(tid)] = rev
         SEEN_FILE.parent.mkdir(parents=True, exist_ok=True)
         tmp = SEEN_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(seen), encoding="utf-8")
+        platform_compat.write_text(tmp, json.dumps(seen), encoding="utf-8")
         tmp.replace(SEEN_FILE)
 
 

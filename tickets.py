@@ -56,6 +56,7 @@ Command line (operator):
   disown N           take the owner off a ticket so another agent may work on it
 """
 from __future__ import annotations
+import platform_compat
 
 import hashlib
 import json
@@ -175,7 +176,7 @@ def _load(data, ticket_id) -> Dict:
 def _save(data, t: Dict) -> None:
     path = _path(data, t["id"])
     tmp = path.with_name(".%s.%d.tmp" % (path.name, os.getpid()))
-    tmp.write_text(json.dumps(t, indent=1, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+    platform_compat.write_text(tmp, json.dumps(t, indent=1, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
     tmp.replace(path)
 
 
@@ -613,7 +614,7 @@ def _read_leases(data) -> List[Dict]:
 def _write_leases(data, leases: List[Dict]) -> None:
     path = _leases_path(data)
     tmp = path.with_name(".%s.%d.tmp" % (path.name, os.getpid()))
-    tmp.write_text(json.dumps({"leases": leases}, indent=1) + "\n", encoding="utf-8")
+    platform_compat.write_text(tmp, json.dumps({"leases": leases}, indent=1) + "\n", encoding="utf-8")
     tmp.replace(path)
 
 

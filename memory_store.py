@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import evolution
+import platform_compat
 
 MEMORY_NAME = "MEMORY.md"
 LOCK_NAME = ".MEMORY.lock"
@@ -61,7 +62,7 @@ def _ensure(mem_dir) -> None:
     d = Path(mem_dir)
     d.mkdir(parents=True, exist_ok=True)
     if not _file(d).exists():
-        _file(d).write_text(TEMPLATE, encoding="utf-8")
+        platform_compat.write_text(_file(d), TEMPLATE, encoding="utf-8")
 
 
 def read(mem_dir) -> str:

@@ -22,6 +22,8 @@ import re
 import secrets
 import time
 from pathlib import Path
+
+import platform_compat
 from typing import Dict, List, Optional
 
 SPEC = "chara_card_v2"
@@ -204,7 +206,7 @@ def save_lorebook(cid: str, lorebook: Dict, ws=None) -> None:
     path = lorebook_path(cid, ws)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(".lorebook.%d.tmp" % os.getpid())
-    tmp.write_text(json.dumps(lorebook, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    platform_compat.write_text(tmp, json.dumps(lorebook, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(path)
 
 
@@ -305,7 +307,7 @@ def save(cid: str, card: Dict, ws=None) -> None:
     path = card_path(cid, ws)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(".card.%d.tmp" % os.getpid())
-    tmp.write_text(json.dumps(card, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    platform_compat.write_text(tmp, json.dumps(card, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(path)
     _CARD_INFO_CACHE.pop(path, None)
 
@@ -393,7 +395,7 @@ def _raw_listing(ws=None) -> List[Dict]:
 def save_team(team: Dict, ws=None) -> None:
     path = team_path(ws)
     tmp = path.with_name(".team.%d.tmp" % os.getpid())
-    tmp.write_text(json.dumps(team, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    platform_compat.write_text(tmp, json.dumps(team, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(path)
 
 
@@ -419,7 +421,8 @@ def pack_file(role: str, kind: str = "role", ws=None) -> Path:
     """The file of a role pack: the new name, or the old one when only that exists (the new name when neither)."""
     names = PACK_FILES[kind]
     d = roles_dir(ws) / role
-    return next((d / n for n in names if (d / n).is_file()), d / names[0])
+    found = platform_compat.named_file(d, names)       # as spelled on disk, also where case is ignored (#405)
+    return Path(found) if found else d / names[0]
 
 
 def role_pack(role: str, ws=None) -> Dict:
@@ -545,7 +548,7 @@ def remember_private(cid: str, lines: List[str], today: Optional[str] = None, ws
     while kept and len((head + "\n".join(kept) + "\n").encode("utf-8")) > PRIVATE_MEMORY_CAP:
         kept.pop(0)
     tmp = path.with_name(".private-memory.%d.tmp" % os.getpid())
-    tmp.write_text(head + "\n".join(kept) + "\n", encoding="utf-8")
+    platform_compat.write_text(tmp, head + "\n".join(kept) + "\n", encoding="utf-8")
     tmp.replace(path)
     return added
 

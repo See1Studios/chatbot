@@ -200,7 +200,7 @@ def _write_line(line: str) -> None:
     lockf = None
     try:
         with _lock:
-            lockf = open(str(path) + ".lock", "a", encoding="utf-8")
+            lockf = open(str(path) + ".lock", "a", encoding="utf-8", newline="\n")
             platform_compat.lock_file(lockf)          # flock on POSIX, msvcrt on Windows (pp/D)
             _rotate_if_needed(path)
             fd = os.open(str(path), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)

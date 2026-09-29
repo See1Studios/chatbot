@@ -238,7 +238,8 @@ class DisciplineTest(unittest.TestCase):
                 imported |= {a.name.split(".")[0] for a in node.names}
             elif isinstance(node, ast.ImportFrom):
                 imported.add((node.module or "").split(".")[0])
-        self.assertLessEqual(imported, {"__future__", "datetime", "evolution", "os", "pathlib", "re", "tempfile", "typing"})
+        self.assertLessEqual(imported, {"__future__", "datetime", "evolution", "os", "pathlib", "platform_compat", "re",
+                                         "tempfile", "typing"})   # platform_compat: a core module (PP5)
         self.assertNotIn("nas_mcp", self.SOURCE)
 
 

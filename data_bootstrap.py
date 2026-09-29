@@ -22,6 +22,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Dict, List
+import platform_compat
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE = ROOT / "templates" / "workspace"
@@ -72,7 +73,7 @@ def bootstrap(data: Path, template: Path = TEMPLATE, dry_run: bool = False) -> D
     marker = {"version": 1, "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "template": "templates/workspace",
               "files": {rel: _sha(ws / rel) for rel in rels}}
     tmp = data / (".%s.tmp" % MARKER)
-    tmp.write_text(json.dumps(marker, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    platform_compat.write_text(tmp, json.dumps(marker, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(data / MARKER)
     return {"created": True, "files": rels}
 

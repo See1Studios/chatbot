@@ -2030,7 +2030,7 @@ class AgentSession(TurnWatchdog):
             entry = dict(event)
             entry.setdefault("ts", _now())
             path = self.meta_path.parent / "events.jsonl"
-            with open(path, "a", encoding="utf-8") as f:
+            with open(path, "a", encoding="utf-8", newline="\n") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception:
             pass
@@ -2184,7 +2184,7 @@ def _record_live_pids() -> None:
                             pids.append(s.proc.pid)
             except Exception:
                 pass
-        (DATA / "live_pids.json").write_text(json.dumps(pids), encoding="utf-8")
+        _atomic_write_text(DATA / "live_pids.json", json.dumps(pids))
     except Exception:
         pass
 
@@ -2291,7 +2291,7 @@ def _reap_sessions() -> None:
     for sess in died:
         sess._finish_turn("process_died")
     try:
-        (DATA / "live_pids.json").write_text(json.dumps(live_pids), encoding="utf-8")
+        _atomic_write_text(DATA / "live_pids.json", json.dumps(live_pids))
     except Exception:
         pass
 

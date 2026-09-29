@@ -199,7 +199,7 @@ def _load_state() -> dict:
 def _save_state(state: dict) -> None:
     try:
         tmp = STATE_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+        platform_compat.write_text(tmp, json.dumps(state, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, STATE_FILE)
     except Exception:
         pass

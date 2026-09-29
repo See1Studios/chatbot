@@ -85,7 +85,7 @@ def _ensure_candidate_evidence() -> str:
     epoch = round(time.time(), 3)
     entry = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "epoch": epoch, "sid": "quick-ticket-cli",
              "provider": "external", "signal": "manual", "detail": {"user": "quick-ticket CLI invocation"}}
-    with open(candidates_file, "a", encoding="utf-8") as f:
+    with open(candidates_file, "a", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     return "candidate:%s" % epoch
 

@@ -36,6 +36,7 @@ HOME = Path(os.environ.get("HOME") or Path.home())
 SERVICES = HOME / "services"
 from host_config import DATA  # noqa: E402  -- one data-path resolver (uds/B)
 from host_config import ROOT as ENGINE  # noqa: E402  -- this engine's own folder, wherever it is installed
+import platform_compat
 # Same env vars and default as host_config.WEB_ROOT (align/F: no host path baked in).
 WEB_ROOT = Path(os.environ.get("CHATBOT_WEB_ROOT") or os.environ.get("AGY_CHAT_WEB_ROOT")
                 or DATA / "web")
@@ -325,7 +326,7 @@ def record_session_choices(items: List[dict], session_id: Optional[str] = None) 
         evt_path = DATA / "sessions" / sid / "events.jsonl"
         if evt_path.parent.exists():
             try:
-                with open(evt_path, "a", encoding="utf-8") as f:
+                with open(evt_path, "a", encoding="utf-8", newline="\n") as f:
                     f.write(json.dumps(ev, ensure_ascii=False) + "\n")
             except Exception:
                 pass
@@ -451,7 +452,7 @@ def _write_refusal(path: Path, content: str) -> Optional[Tuple[str, Any]]:
 def _atomic_write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
-    tmp.write_text(content, encoding="utf-8")
+    platform_compat.write_text(tmp, content, encoding="utf-8")
     tmp.replace(path)
 
 

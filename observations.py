@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import evolution
+import platform_compat
 
 RESOLVED = ("actioned", "declined", "superseded")
 STATES = ("open", "parked") + RESOLVED
@@ -188,7 +189,7 @@ def _set_fields(text: str, fields: Dict[str, str]) -> str:
 
 def _atomic_write(path: Path, text: str) -> None:
     tmp = path.with_name(".%s.%d.tmp" % (path.name, os.getpid()))
-    tmp.write_text(text, encoding="utf-8")
+    platform_compat.write_text(tmp, text, encoding="utf-8")
     tmp.replace(path)
 
 
@@ -358,6 +359,6 @@ def mark_reviewed(obs_root, summary: str, now: Optional[float] = None) -> str:
     day = _today(now)
     _atomic_write(base / LAST_REVIEW_EPOCH, "%.3f\n" % (time.time() if now is None else now))
     _atomic_write(base / LAST_REVIEW, day + "\n")
-    with open(str(base / REVIEW_HISTORY), "a", encoding="utf-8") as f:
+    with open(str(base / REVIEW_HISTORY), "a", encoding="utf-8", newline="\n") as f:
         f.write("%s %s\n" % (day, summary))
     return day

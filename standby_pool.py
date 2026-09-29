@@ -21,6 +21,7 @@ from host_config import (
     HOME,
     WORKSPACE,
 )
+import platform_compat
 
 
 class _StandbyPool:
@@ -106,7 +107,7 @@ class _StandbyPool:
                 )
                 self._conv_id = conv_id
                 try:
-                    self._marker_path().write_text(str(self._proc.pid), encoding="utf-8")
+                    platform_compat.write_text(self._marker_path(), str(self._proc.pid), encoding="utf-8")
                 except Exception:
                     pass
                 obslog.event("agent.standby_spawn", provider=DEFAULT_PROVIDER, model=DEFAULT_MODEL,

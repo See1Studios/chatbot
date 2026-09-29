@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import host_config
+import platform_compat
 
 ROOT = Path(__file__).resolve().parent
 TABLE_PATH = ROOT / "engine_data" / "affection.json"
@@ -127,7 +128,7 @@ def read_state(cid: str, ws=None) -> Dict:
 def write_state(cid: str, st: Dict, ws=None) -> None:
     p = state_path(cid, ws)
     tmp = p.with_name(".state.%d.tmp" % os.getpid())
-    tmp.write_text(json.dumps(st, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    platform_compat.write_text(tmp, json.dumps(st, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(p)
 
 

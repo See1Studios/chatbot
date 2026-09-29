@@ -16,6 +16,7 @@ from urllib.parse import unquote
 from artifact_manager import _atomic_write_text
 from host_config import HOME, ROOT, WORKSPACE
 from instructions import extract_yaml_desc
+import platform_compat
 
 try:  # the candidate count and last review come from the core; the tab still loads without it
     import observations
@@ -349,8 +350,7 @@ def _backup(fp: Path) -> None:
     stem = fp.relative_to(WORKSPACE).as_posix().replace("/", "__")
     try:
         d.mkdir(parents=True, exist_ok=True)
-        (d / ("%s.%s" % (stem, time.strftime("%Y%m%d%H%M%S")))).write_text(
-            fp.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
+        platform_compat.write_text(d / ("%s.%s" % (stem, time.strftime("%Y%m%d%H%M%S"))), fp.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
         for old in sorted(d.glob(stem + ".*"))[:-BACKUP_KEEP]:
             old.unlink()
     except OSError:

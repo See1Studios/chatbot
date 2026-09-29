@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import platform_compat   # a core module too (core_modules.json, PP5): the lock's POSIX and Windows sides
+import platform_compat
 
 REGISTRY_NAME = "protected_paths.json"
 MANIFEST_NAME = "protected_manifest.json"
@@ -194,7 +195,7 @@ def acquire_lock(path, wait: float = 0.0):
     Returns the open file (the lock lasts until it is closed or the process
     dies), or None where locking is unavailable. Raises LockBusy on timeout.
     """
-    fh = open(str(path), "a", encoding="utf-8")
+    fh = open(str(path), "a", encoding="utf-8", newline="\n")
     deadline = time.time() + max(wait, 0.0)
     while not platform_compat.lock_file(fh, blocking=False):
         if time.time() >= deadline:
@@ -297,7 +298,7 @@ def write_manifest(root) -> int:
     doc = {"version": 1, "generated": time.strftime("%Y-%m-%d %H:%M:%S"), "sha256": hashes}
     dest = root_p / MANIFEST_NAME
     tmp = dest.with_name(".%s.%d.tmp" % (dest.name, os.getpid()))
-    tmp.write_text(json.dumps(doc, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    platform_compat.write_text(tmp, json.dumps(doc, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     tmp.replace(dest)
     return len(hashes)
 
@@ -385,9 +386,9 @@ def record_candidate(obs_root, signal: str, sid: str, provider: str, detail: Opt
             if path.exists() and path.stat().st_size > _CANDIDATES_MAX_BYTES:
                 kept = path.read_text(encoding="utf-8", errors="replace").splitlines()[-_CANDIDATES_KEEP_LINES:]
                 tmp = path.with_name(".%s.%d.tmp" % (path.name, os.getpid()))
-                tmp.write_text("\n".join(kept) + "\n", encoding="utf-8")
+                platform_compat.write_text(tmp, "\n".join(kept) + "\n", encoding="utf-8")
                 tmp.replace(path)
-            with open(str(path), "a", encoding="utf-8") as f:
+            with open(str(path), "a", encoding="utf-8", newline="\n") as f:
                 f.write(line)
         return True
     except Exception:  # noqa: BLE001 -- observing must never disturb a turn

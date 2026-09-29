@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple, Union
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
+import platform_compat  # noqa: E402  (text written with \n on every OS)
 
 PREFIX = "char"
 _B32 = "0123456789abcdefghjkmnpqrstvwxyz"
@@ -311,7 +312,7 @@ def import_st_png_bytes(
 
         # 1. card.json
         card_file = char_dir / "card.json"
-        card_file.write_text(json.dumps(card, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        platform_compat.write_text(card_file, json.dumps(card, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
         # 2. avatar_master.png (original raw PNG preserved)
         master_png = char_dir / "avatar_master.png"
@@ -333,7 +334,7 @@ def import_st_png_bytes(
 
         # 4. visual.md
         visual_file = char_dir / "visual.md"
-        visual_file.write_text(make_visual_md(name, cid), encoding="utf-8")
+        platform_compat.write_text(visual_file, make_visual_md(name, cid), encoding="utf-8")
 
     return {
         "id": cid,

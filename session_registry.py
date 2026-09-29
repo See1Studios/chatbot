@@ -17,6 +17,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import platform_compat
 
 
 def _s():
@@ -358,7 +359,7 @@ def migrate_session_characters() -> int:
             meta["character"] = cid
             st = p.stat()
             tmp = p.with_name(".meta.migrate.tmp")
-            tmp.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+            platform_compat.write_text(tmp, json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
             tmp.replace(p)
             # keep the file's time: the sessions list and scrollback order sessions by it, so a rewrite that
             # stamps them all "now" stitches unrelated sessions together (seen live 2026-09-24)

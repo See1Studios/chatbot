@@ -52,6 +52,24 @@ class FileLock(unittest.TestCase):
                 self.assertTrue(pc.lock_file(fh, blocking=False))
 
 
+class NamesAndText(unittest.TestCase):
+    def test_a_name_is_found_as_spelled_on_disk(self):
+        # #405: on a case-insensitive disk (Windows, macOS) is_file() says yes to ROLE.md when only role.md is there
+        d = Path(tempfile.mkdtemp())
+        (d / "role.md").write_bytes(b"x")
+        self.assertEqual(Path(pc.named_file(d, ("ROLE.md", "role.md"))).name, "role.md")
+        (d / "role.md").unlink()
+        (d / "ROLE.md").write_bytes(b"x")
+        self.assertEqual(Path(pc.named_file(d, ("ROLE.md", "role.md"))).name, "ROLE.md")
+        self.assertIsNone(pc.named_file(d, ("PROCEDURE.md",)))
+        self.assertIsNone(pc.named_file(d / "missing", ("ROLE.md",)))
+
+    def test_text_is_written_with_lf_everywhere(self):
+        f = Path(tempfile.mkdtemp()) / "card.json"
+        pc.write_text(f, "a\nb\n")
+        self.assertEqual(f.read_bytes(), b"a\nb\n")
+
+
 class ProcScan(unittest.TestCase):
     def test_no_proc_means_an_empty_scan_not_a_crash(self):
         from providers import accounts

@@ -18,6 +18,7 @@ from host_config import AGENT_PATH_PREFIX, GROK_BIN, HARD_TOKENS, HOME, SOFT_TOK
 from tool_format import _format_tool_call, _format_tool_result
 from providers.adapter_base import AgentAdapter
 import media_handler as _media
+import platform_compat
 
 
 def _grok_tool_display(obj: dict) -> Tuple[str, dict]:
@@ -227,7 +228,7 @@ class GrokAdapter(AgentAdapter):
         # asynchronously after this call returns.
         prompt_path = WORKSPACE / ".grok" / "prompts" / f".grok_prompt_{uuid.uuid4().hex}.txt"
         prompt_path.parent.mkdir(parents=True, exist_ok=True)
-        prompt_path.write_text(prompt or "", encoding="utf-8")
+        platform_compat.write_text(prompt_path, prompt or "", encoding="utf-8")
         self._last_prompt_path = prompt_path
         args = [
             exe,

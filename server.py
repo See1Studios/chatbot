@@ -57,6 +57,7 @@ from providers import account_login
 import art_manager
 import card_upload
 import chat_upload
+import platform_compat
 import items
 import character_art
 import content_guard
@@ -235,7 +236,7 @@ def _schedule_host_defibrillate() -> None:
         time.sleep(0.7)
         ticket = DATA / "host-force.ticket"
         try:
-            ticket.write_text(f"v1 defibrillate {int(time.time())} api\n", encoding="utf-8")
+            platform_compat.write_text(ticket, f"v1 defibrillate {int(time.time())} api\n", encoding="utf-8")
             ticket.chmod(0o600)
         except Exception:
             pass
