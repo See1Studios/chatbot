@@ -378,6 +378,22 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(sh(self.repo, "git", "log", "--format=%s", "-3").splitlines()[1:],
                          ["change", "main-moved"])
 
+    def test_a_commit_on_main_while_the_gates_run_is_landed_on_again(self) -> None:
+        # LAND_RETRY_v1 (#406): the merge rebased, then another agent committed on main during the gates, and the
+        # fast-forward was refused. The gate below plays that agent once, when armed.
+        arm, done = self.base / "arm", self.base / "done"
+        gate = ('if [ -f %s ] && [ ! -f %s ]; then touch %s; cd %s && echo z > z.txt && git add z.txt && '
+                'git -c user.name=t -c user.email=t@t commit -qm other-agent; fi; true' % (arm, done, done, self.repo))
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam change",
+                                       extra=("--stop-before-merge", "--gate", gate)), 0)
+        (self.repo / "c.txt").write_text("c\n")                  # main moved: the merge rebases and runs the gates
+        sh(self.repo, "git", "add", "c.txt")
+        sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "main-moved")
+        arm.touch()
+        self.assertEqual(wr.main(["merge", "--ticket", "7"]), 0)
+        self.assertEqual(sh(self.repo, "git", "log", "--format=%s", "-4").splitlines()[1:],
+                         ["change", "other-agent", "main-moved"])
+
     def test_merge_that_no_longer_fits_fails_and_cleans_up(self) -> None:
         self.waiting()
         (self.repo / "a.txt").write_text("conflict\n")

@@ -54,7 +54,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 CODE_DIR = Path(__file__).resolve().parents[1]      # where the host modules this tool imports live
 CHATBOT_REPO = CODE_DIR                              # the repository it works on
@@ -813,6 +813,31 @@ def sync_onto_main(repo: Path, wt_dir: Path, main_branch: str, base: str) -> str
     return main_head
 
 
+LAND_TRIES = 3
+
+
+def land(repo: Path, wt_dir: Path, main_branch: str, branch: str, base: str, gates: List[str],
+         on_rebase=None) -> Tuple[str, str]:
+    """Bring the branch onto main, check it there when main moved, and fast-forward main to it; (base, head).
+    LAND_RETRY_v1: other agents commit on main too. #406 was rebased, then a commit landed on main while its gates
+    ran, and the fast-forward was refused -- so when main moved again, rebase and check again (LAND_TRIES times)."""
+    for attempt in range(1, LAND_TRIES + 1):
+        new_base = sync_onto_main(repo, wt_dir, main_branch, base)
+        if new_base != base:
+            base = new_base
+            if on_rebase:
+                on_rebase(base)
+            run_gates(wt_dir, gates)
+        try:
+            return base, ff_merge(repo, main_branch, branch)
+        except Failure:
+            moved = git(repo, "rev-parse", main_branch)[1] != git(wt_dir, "merge-base", "HEAD", main_branch)[1]
+            if not moved or attempt == LAND_TRIES:
+                raise
+            log("%s moved while the gates ran; landing again (%d/%d)" % (main_branch, attempt + 1, LAND_TRIES))
+    raise Failure("failed", "could not land")   # not reached
+
+
 def ff_merge(repo: Path, main_branch: str, branch: str) -> str:
     code, cur, _ = git(repo, "symbolic-ref", "--short", "HEAD")
     if cur != main_branch:
@@ -1264,12 +1289,6 @@ def cmd_run(args) -> int:
                     "Requested fixes:\n%s" % rv["fix"] if rv["fix"] else "") if x)
         result["rounds"] = rnd
         result["changed"] = check_scope(wt_dir, base, paths)
-        if not args.stop_before_merge:   # landing now: bring the branch onto main and check it there once more
-            new_base = sync_onto_main(repo, wt_dir, main_branch, base)
-            if new_base != base:
-                base = new_base
-                write_state(tid, base=base)
-                run_gates(wt_dir, gates)
 
         # 4. land, or wait for the operator
         verdict = " review PASS" if reviewer else ""
@@ -1282,8 +1301,10 @@ def cmd_run(args) -> int:
                 raise Failure("failed", "could not hand the ticket in for merge", str(e))
             result.update(outcome="awaiting_merge", head=head)
             log("ticket #%d awaits the operator's merge: worktree_runner.py merge --ticket %d" % (tid, tid))
-        else:
-            result.update(merged=True, head=ff_merge(repo, main_branch, branch))
+        else:   # landing now: onto main, checked there once more when main moved (LAND_RETRY_v1)
+            base, head = land(repo, wt_dir, main_branch, branch, base, gates,
+                              on_rebase=lambda b: write_state(tid, base=b))
+            result.update(merged=True, head=head)
     except Failure as f:
         release_failed(tid, token, f, provider, actor, result)
         if f.keep and created:
@@ -1335,12 +1356,11 @@ def cmd_merge(args) -> int:
     try:
         if not wt_dir.exists() or git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] != 0:
             raise Failure("failed", "the waiting worktree or branch %s is gone" % branch)
-        base = st["base"]
-        new_base = sync_onto_main(repo, wt_dir, st["main_branch"], base)
-        if new_base != base:  # the reviewed change now sits on a different main: check it again
-            check_tiers(repo, check_scope(wt_dir, new_base, st["paths"]), gate_files(repo, st["gates"]), retryable=False)
-            run_gates(wt_dir, st["gates"])
-        result.update(merged=True, head=ff_merge(repo, st["main_branch"], branch))
+        # the reviewed change now sits on a different main: its scope and tiers are checked again, then its gates
+        _, head = land(repo, wt_dir, st["main_branch"], branch, st["base"], st["gates"],
+                       on_rebase=lambda b: check_tiers(repo, check_scope(wt_dir, b, st["paths"]),
+                                                       gate_files(repo, st["gates"]), retryable=False))
+        result.update(merged=True, head=head)
     except Failure as f:
         release_failed(tid, token, f, provider, actor, result)
     finally:
