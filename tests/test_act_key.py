@@ -1,6 +1,7 @@
 """Space on an empty composer starts an action in private mode (ACT_KEY_v1, static/app-act-key.js): only when empty,
 not while composing Hangul or with modifiers; Backspace on the bare "/act " takes it back; a bare "/act" is neither
-sent nor sendable; the placeholder tells private mode about it. The REAL functions run in node against stubs.
+sent nor sendable; the placeholder tells private mode about it. Mobile IME uses beforeinput (insertText ' ' /
+deleteContentBackward) because keydown is Unidentified/229. The REAL functions run in node against stubs.
 Run: python3 -m unittest tests.test_act_key  (from services/chatbot)
 """
 import json
@@ -35,6 +36,10 @@ const key = (k, extra) => { const r = { prevented: false, stopped: false };
   (listeners.keydown || []).forEach(f => f(Object.assign({ target: inputEl, key: k, shiftKey: false,
     preventDefault() { r.prevented = true; }, stopPropagation() { r.stopped = true; } }, extra || {})));
   return r; };
+const before = (type, data, extra) => { const r = { prevented: false, stopped: false };
+  (listeners.beforeinput || []).forEach(f => f(Object.assign({ target: inputEl, inputType: type, data: data,
+    preventDefault() { r.prevented = true; }, stopPropagation() { r.stopped = true; } }, extra || {})));
+  return r; };
 const out = {};
 out.start = [key(' ').prevented, inputEl.value, inputEl.selectionStart];
 out.bareSendable = (updateSendButton(), !sendBtn.disabled);
@@ -48,6 +53,12 @@ out.ctrl = key(' ', { ctrlKey: true }).prevented;
 refreshComposerPlaceholder(); out.phPrivate = inputEl.placeholder;
 privateOn = false; out.work = [key(' ').prevented, inputEl.value];
 refreshComposerPlaceholder(); out.phWork = inputEl.placeholder;
+privateOn = true; inputEl.value = '';
+out.biStart = [before('insertText', ' ').prevented, inputEl.value, inputEl.selectionStart];
+inputEl.value = '안녕'; out.biMid = before('insertText', ' ').prevented;
+inputEl.value = ''; out.biCompose = before('insertText', ' ', { isComposing: true }).prevented;
+privateOn = false; inputEl.value = ''; out.biWork = [before('insertText', ' ').prevented, inputEl.value];
+privateOn = true; inputEl.value = '/act '; out.biUndo = [before('deleteContentBackward', null).prevented, inputEl.value];
 console.log(JSON.stringify(out));
 """
 
@@ -82,6 +93,17 @@ class ActKey(unittest.TestCase):
     def test_the_placeholder_tells_private_mode(self):
         self.assertEqual(self.o["phPrivate"], "메시지 입력… (Space: 행동)")
         self.assertEqual(self.o["phWork"], "메시지 입력…")
+
+    def test_beforeinput_space_on_an_empty_box_starts_an_action(self):
+        self.assertEqual(self.o["biStart"], [True, "/act ", 5])
+
+    def test_beforeinput_space_is_plain_space_elsewhere(self):
+        self.assertFalse(self.o["biMid"])
+        self.assertFalse(self.o["biCompose"])
+        self.assertEqual(self.o["biWork"], [False, ""], "work mode keeps Space")
+
+    def test_beforeinput_backspace_takes_the_bare_action_back(self):
+        self.assertEqual(self.o["biUndo"], [True, ""])
 
 
 class Wiring(unittest.TestCase):
