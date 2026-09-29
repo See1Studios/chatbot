@@ -65,7 +65,7 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | DK1 | 스팀덱 빌드 | 네이티브 Linux 빌드 + 두뇌는 API 키·OAuth 경로 우선(게임 모드에서 CLI 로그인이 어려울 수 있음). Proton은 대안. `pp/C`처럼 실기 실측 뒤 확정 | 대기 |
 | PP4 | 배포 형태 (운영자 2026-09-29 "사용자가 건드리면 안 되는 것들은 다 binary로") | **OS별 Nuitka 바이너리**(Python → C 컴파일: 되읽기 어렵고, 시작이 빠르고, Apache 라이선스). 사용자·에이전트가 바꾸는 것은 `~/.pe`(캐릭터·기억·스킬·플러그인)뿐 — edition-boundary를 물리적 경계로. 대안 PyInstaller(쉽지만 풀면 코드가 거의 그대로). 한계: 보안 장치가 아니라 "실수로 망가뜨리지 않게, 쉽게 복제되지 않게"; 화면(HTML·JS·CSS)은 실행 파일 안 리소스로 묶는 정도; 두뇌 CLI는 사용자가 따로 설치. OS별 조건 — Windows: 코드 서명 없으면 SmartScreen 경고. **macOS: Apple Developer ID 서명 + 공증(notarization) 없으면 Gatekeeper가 실행을 막음**, arm64·x86_64 둘 다(universal2 또는 두 빌드). Linux·스팀덱: 한 파일 또는 Flatpak(DK1과 함께). **배포판은 Python UTF-8 모드로 실행**(한국어 Windows의 기본 인코딩은 cp949 — #401). 빌드는 CI 매트릭스(`pp/F`)에서 테스트와 같이 | **결정** (방향, 2026-09-29 운영자) — 도구 확정은 `pp/K` 시험 뒤 |
 | PP5 | 자기 진화 핵심(`core_modules.json`)에 `platform_compat` 포함? | 포함 추천: 잠금 코드가 `evolution.acquire_lock`과 `platform_compat` 두 곳에 생겼다(#397). 포함하면 한 곳으로. 파일이 운영자 소유라 운영자 결정 | **결정** (2026-09-29 운영자: 추천대로) — #398에서 `core_modules.json`에 추가, `evolution.acquire_lock`이 `platform_compat.lock_file`을 씀, 래칫 49 → 47 |
-| PP3 | CI 위치 | GitHub Actions(비공개 저장소 무료 한도 안에서, Windows 분은 비싸니 push마다가 아니라 main 병합·수동 실행 때) | 대기 |
+| PP3 | CI 위치 | GitHub Actions. Linux는 main push마다, Windows·macOS(분당 요금 2배·10배)는 **하루 한 번(main이 바뀐 날)과 수동 실행** | **결정** (2026-09-29 운영자: 추천대로) — `.github/workflows/tests.yml` (#416) |
 
 ## 5. 항목
 
@@ -76,7 +76,7 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | `pp/C` | FIREBAT 실측 1차(읽기만): Python·git·node·두뇌 CLI 유무와 버전, 저장소 사본에서 테스트 전체를 돌려 실패 목록 | 이 문서 §6 | 실패 목록과 원인 분류 | 0 · — | S | — | ✅ #394 (§6.1: 93/143) |
 | `pp/D` | `platform_compat` 모듈 + 첫 이전(파일 잠금) — 첫 수로 `pty` import 이전 ✅ #395 | 새 모듈, `obslog.py`, `evolution.py` | Windows에서 잠금 테스트 통과, 래칫 기준선 하락 | 3 · ⚡ | M | pp/B, pp/C | 대기 |
 | `pp/E` | 프로세스 관리 이전(종료·생존·분리 실행) | `session.py`, `server.py`, `delegation.py` 등 | 같음 | 3 · ⚡ | M | pp/D | 대기 |
-| `pp/F` | CI 매트릭스(Windows·macOS·Linux) + 알려진 실패 래칫 | `.github/workflows/` | 세 OS에서 돌고, 알려진 실패 목록이 늘지 않음 | 2 · — | M | PP3 | 대기 |
+| `pp/F` | CI 매트릭스(Windows·macOS·Linux) + 알려진 실패 래칫 | `.github/workflows/` | 세 OS에서 돌고, 알려진 실패 목록이 늘지 않음 | 2 · — | M | PP3 | 워크플로 작성 #416 — **push 대기**: 로컬 main이 GitHub보다 717커밋 앞서고 15커밋 뒤처짐(9/22~23 배달용 패치 파일들, 내용은 이미 로컬에 있음). 알려진 실패 래칫은 첫 실행 결과를 보고 |
 | `pp/G` | Python 런처(배포판 시작·중지·상태) | 새 파일, release-pipeline과 합침 | Windows에서 런처로 켜고 대화 1턴 | 2 · — | M | pp/E, PP1 | 대기 |
 | `pp/I` | 스팀덱 실측(실기 또는 SteamOS VM): 데스크톱 모드·게임 모드에서 설치, 두뇌 연결, 화면 1280×800, 게임패드·화상 키보드 | 이 문서 §6 | 실측 기록과 DK1 결정 근거 | 0 · — | S | pp/G | 대기 |
 | `pp/J` ✅ #396 | 의존성 선언: Pillow(NAS 10.4.0, 하한은 3.8·3.12 둘 다 되는 버전)를 `requirements.txt`에, 새 가상환경에서 `import` 전수 검사하는 테스트 | `requirements.txt`, 테스트 | 빈 가상환경 + requirements만으로 엔진 모듈 전부 import | 2 · — | S | — | 대기 |
