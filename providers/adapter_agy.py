@@ -21,6 +21,10 @@ AGY_PRINT_TIMEOUT_SEC = 8 * 60
 _AGY_MODELS_CACHE = {"ts": 0.0, "models": []}
 
 
+
+# An agy model id that ends in a level already carries its effort; a separate --effort then conflicts (2026-09-30).
+_MODEL_NAMES_EFFORT = re.compile(r"-(?:minimal|low|medium|high|xhigh)$")
+
 class AgyAdapter(AgentAdapter):
     id = "agy"
     keeps_stdin_open = True
@@ -128,7 +132,7 @@ class AgyAdapter(AgentAdapter):
         for d in add_dirs:
             if Path(d).exists():
                 args.extend(["--add-dir", d])
-        if effort:
+        if effort and not _MODEL_NAMES_EFFORT.search(model or ""):   # "gemini-3.8-flash-high" + --effort low: agy refuses
             args.extend(["--effort", effort])
         if conversation_id:
             args.extend(["--conversation", conversation_id])

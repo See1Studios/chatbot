@@ -155,5 +155,23 @@ class AsyncHandoffTest(unittest.TestCase):
         self.assertEqual(self.s.handoff_summary, sent)
 
 
+
+class EffortGoesWithTheBrain(SwapTest):
+    """2026-09-30: grok's private default effort=low stayed after a swap to agy, and agy refused
+    "--model gemini-3.8-flash-high --effort low"."""
+
+    def test_a_provider_swap_clears_the_old_effort(self):
+        self.s.provider, self.s.effort = "grok", "low"
+        self.s.maybe_swap_provider("agy")
+        self.assertEqual((self.s.provider, self.s.effort, self.s.model), ("agy", "", ""))
+
+    def test_agy_sends_no_effort_when_the_model_name_carries_one(self):
+        from providers.adapter_agy import AgyAdapter
+        a = AgyAdapter()
+        a.find_executable = lambda: "agy"
+        self.assertNotIn("--effort", a.build_args("gemini-3.8-flash-high", "low", None, []))
+        self.assertIn("--effort", a.build_args("gemini-plain", "low", None, []))
+
+
 if __name__ == "__main__":
     unittest.main()

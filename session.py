@@ -1778,7 +1778,7 @@ class AgentSession(TurnWatchdog):
             self.provider = provider
             self.adapter = get_adapter(provider)
             self.conversation_id = None
-            self.model = ""
+            self.model = self.effort = ""   # both belong to the old brain (grok effort=low broke agy -high, 09-30)
             self.handoff_summary = summary
             self.handoff_injected = False
             # New provider = new conversation that has never seen the persona
