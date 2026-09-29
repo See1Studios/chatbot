@@ -302,6 +302,34 @@ class SilentHangWatchdog(Base):
         self.assertTrue(getattr(s, "_silent_hang_done", False))
         self.assertTrue(any(e.get("event") == "error" for e in self.events))
 
+    def test_a_quiet_turn_is_announced_first_and_closed_only_later(self):
+        """SILENT_NOTICE_v1 (#386): agy thinks without output; the notice keeps the turn, the hang closes it later."""
+        import time
+        s = self._busy(self.make(), hang_sec=0.6)
+        s.SILENT_NOTICE_SEC = 0.2
+        s._arm_silent_hang()
+        time.sleep(0.35)
+        notes = [e for e in self.events if e.get("event") == "progress"]
+        self.assertEqual(len(notes), 1)
+        self.assertTrue(s.busy, "the notice must not close the turn")
+        self.assertFalse(any(e.get("event") == "error" for e in self.events))
+        time.sleep(0.45)
+        self.assertTrue(getattr(s, "_silent_hang_done", False))
+        self.assertTrue(any(e.get("event") == "error" for e in self.events))
+
+    def test_activity_after_the_notice_starts_both_clocks_again(self):
+        import time
+        s = self._busy(self.make(), hang_sec=0.5)
+        s.SILENT_NOTICE_SEC = 0.15
+        s._arm_silent_hang()
+        time.sleep(0.25)                          # noticed
+        s._touch_turn_activity()                  # the thinking step finished: a line arrived
+        time.sleep(0.35)                          # 0.6s from start, 0.35s since activity
+        self.assertTrue(s.busy)
+        self.assertFalse(getattr(s, "_silent_hang_done", False))
+        self.assertEqual(len([e for e in self.events if e.get("event") == "progress"]), 2)
+        s._cancel_silent_hang()
+
     def test_error_message_path_is_owned_by_quota_failfast_not_silent_hang(self):
         import time
         s = self._busy(self.make(), hang_sec=0.2)

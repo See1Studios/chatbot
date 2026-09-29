@@ -667,6 +667,9 @@ function bindEvents(sid) {
       return;
     }
 
+    // SILENT_NOTICE_v1: the server says the turn has been quiet a while; it goes on (not an error, no bubble)
+    if (type === 'progress') { setProgress(text || ''); return; }
+
     if (type === 'tool' || type === 'system' || type === 'stderr' || type === 'error') {
       const line = (type === 'error' ? '오류: ' : '') + (text || JSON.stringify(data.error || data));
       const kind = data.kind || (type === 'tool' ? (line.startsWith('↳') ? 'result' : 'tool') : (type === 'stderr' ? 'warn' : type));

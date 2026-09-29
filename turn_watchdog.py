@@ -94,16 +94,22 @@ class TurnWatchdog:
     # start/result/progress heartbeats re-arm the timer (a single long tool is OK
     # while progress continues). error_message hands off to QUOTA_FAILFAST;
     # result/error/stopped cancel.
-    SILENT_HANG_SEC = 90
+    # SILENT_NOTICE_v1 (#386): 90s closed 7.4% of gemini-3.8-flash-high turns (2026-09-26..29). agy prints nothing
+    # while a thinking step runs -- only the step's DONE line afterwards -- so a long think looked like a stall. At
+    # SILENT_NOTICE_SEC the page is told the turn is quiet (a `progress` event: it does not re-arm anything); the turn
+    # is closed only at SILENT_HANG_SEC, still well inside AGY_PRINT_TIMEOUT_SEC (480s).
+    SILENT_NOTICE_SEC = 90
+    SILENT_HANG_SEC = 300
 
     def _cancel_silent_hang(self) -> None:
-        timer = getattr(self, "_silent_hang_timer", None)
-        if timer is not None:
-            try:
-                timer.cancel()
-            except Exception:
-                pass
-            self._silent_hang_timer = None
+        for attr in ("_silent_hang_timer", "_silent_notice_timer"):
+            timer = getattr(self, attr, None)
+            if timer is not None:
+                try:
+                    timer.cancel()
+                except Exception:
+                    pass
+                setattr(self, attr, None)
 
     def _arm_silent_hang(self, delay: Optional[float] = None) -> None:
         self._cancel_silent_hang()
@@ -116,6 +122,29 @@ class TurnWatchdog:
         timer.daemon = True
         self._silent_hang_timer = timer
         timer.start()
+        notice = float(self.SILENT_NOTICE_SEC)
+        if 0 < notice < sec:
+            nt = threading.Timer(notice, self._silent_notice_fire)
+            nt.daemon = True
+            self._silent_notice_timer = nt
+            nt.start()
+
+    def _silent_notice_fire(self) -> None:
+        """SILENT_NOTICE_v1: tell the page the turn has been quiet for a while; the turn goes on."""
+        self._silent_notice_timer = None
+        with self.lock:
+            if not self.busy or self._stop_requested or getattr(self, "_silent_hang_done", False):
+                return
+            if getattr(self, "_err_msg_failfast_timer", None) is not None:
+                return
+        quiet = int(self.SILENT_NOTICE_SEC)
+        text = f"{quiet}초째 신호 없음 — 긴 생각일 수 있어요. 기다리거나 중지하세요"
+        self.last_progress = text
+        self._emit({"event": "progress", "text": text, "quiet_sec": quiet})
+        try:
+            obslog.event("turn.silent_notice", lvl="info", sid=self.sid, provider=self.provider, quiet_sec=quiet)
+        except Exception:
+            pass
 
     def _touch_turn_activity(self) -> None:
         """Text delta OR tool/progress proves the turn is alive — reset the idle clock."""
@@ -157,10 +186,7 @@ class TurnWatchdog:
         )
         if last:
             idle = max(idle, _now() - float(last))
-        err = (
-            f"응답이 오랫동안 없어 턴을 닫았습니다(무응답 {int(idle)}초). "
-            "남은 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다."
-        )
+        err = f"응답이 오랫동안 없어 턴을 닫았습니다(무응답 {int(idle)}초). 남은 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다."
         try:
             out = self.adapter.finalize_turn(
                 self, text="", raw_usage=None, is_err=True, error=err
