@@ -136,7 +136,7 @@ let _bottomPullStartY = 0;
 let _bottomPullStartX = 0;
 let _bottomPullActive = false;
 let _bottomPullRefreshing = false;
-const BOTTOM_PULL_THRESHOLD = 110;
+const BOTTOM_PULL_THRESHOLD = 150;
 
 function isLogAtBottom(el) {
   if (!el) return false;
@@ -155,9 +155,9 @@ function isTouchContext() {
 function calcDampedPull(dy) {
   if (dy <= 0) return 0;
   if (dy <= BOTTOM_PULL_THRESHOLD) {
-    return Math.round(dy * 0.55);
+    return Math.round(dy * 0.45);
   }
-  return Math.min(84, Math.round(BOTTOM_PULL_THRESHOLD * 0.55 + (dy - BOTTOM_PULL_THRESHOLD) * 0.25));
+  return Math.min(84, Math.round(BOTTOM_PULL_THRESHOLD * 0.45 + (dy - BOTTOM_PULL_THRESHOLD) * 0.25));
 }
 
 function initBottomPullRefresh(customLog) {
