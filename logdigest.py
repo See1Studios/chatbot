@@ -445,7 +445,7 @@ def host_candidates(obs_root: Path = None, since_s: float = HOST_SIGNAL_WINDOW_S
             pass
     try:
         HOST_SIGNAL_STAMP.parent.mkdir(parents=True, exist_ok=True)
-        HOST_SIGNAL_STAMP.write_text(str(int(now)))
+        HOST_SIGNAL_STAMP.write_text(str(int(now)), encoding="utf-8")
     except OSError:
         pass
     if not LOG.exists() or not obs_root.is_dir():

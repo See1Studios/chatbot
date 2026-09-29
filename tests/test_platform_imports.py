@@ -67,6 +67,34 @@ def third_party_imports():
     return out
 
 
+def text_io_without_encoding(path):
+    """open()/read_text()/write_text() in text mode with no encoding=: on a Korean Windows that is cp949, not UTF-8."""
+    out = []
+    for n in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if not isinstance(n, ast.Call):
+            continue
+        f = n.func
+        name = f.attr if isinstance(f, ast.Attribute) else (f.id if isinstance(f, ast.Name) else "")
+        kws = {k.arg for k in n.keywords}
+        if "encoding" in kws:
+            continue
+        if name in ("read_text", "write_text"):
+            out.append(n.lineno)
+        elif name == "open" and isinstance(f, ast.Name):
+            mode = n.args[1].value if len(n.args) > 1 and isinstance(n.args[1], ast.Constant) else ""
+            mode = next((k.value.value for k in n.keywords if k.arg == "mode" and isinstance(k.value, ast.Constant)), mode)
+            if "b" not in str(mode):
+                out.append(n.lineno)
+    return ["%s:%d" % (path.relative_to(ROOT).as_posix(), ln) for ln in out]
+
+
+class TextEncoding(unittest.TestCase):
+    def test_engine_text_io_names_its_encoding(self):
+        # FIREBAT 2026-09-29 (#401): without UTF-8 mode a Korean Windows reads and writes text as cp949
+        bad = [x for p in engine_files() for x in text_io_without_encoding(p)]
+        self.assertEqual(bad, [], 'pass encoding="utf-8"')
+
+
 class DeclaredDependencies(unittest.TestCase):
     def test_every_third_party_import_is_in_requirements(self):
         declared = {re.split(r"[<>=!~\[; ]", ln.strip(), 1)[0].lower()

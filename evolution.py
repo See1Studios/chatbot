@@ -194,7 +194,7 @@ def acquire_lock(path, wait: float = 0.0):
     Returns the open file (the lock lasts until it is closed or the process
     dies), or None where locking is unavailable. Raises LockBusy on timeout.
     """
-    fh = open(str(path), "a")
+    fh = open(str(path), "a", encoding="utf-8")
     deadline = time.time() + max(wait, 0.0)
     while not platform_compat.lock_file(fh, blocking=False):
         if time.time() >= deadline:

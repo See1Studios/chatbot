@@ -140,11 +140,11 @@ def reap(code_dir: str, table: Optional[List[Proc]] = None, kill=os.kill) -> int
 def _activity(pid: int) -> Tuple[int, int]:
     """(cpu ticks, rchar+wchar); (0, 0) when the process is gone or unreadable."""
     try:
-        with open("/proc/%d/stat" % pid) as f:
+        with open("/proc/%d/stat" % pid, encoding="utf-8") as f:
             fields = f.read().rsplit(")", 1)[1].split()
         ticks = int(fields[11]) + int(fields[12])
         io = 0
-        with open("/proc/%d/io" % pid) as f:
+        with open("/proc/%d/io" % pid, encoding="utf-8") as f:
             for line in f:
                 if line.startswith(("rchar:", "wchar:")):
                     io += int(line.split()[1])

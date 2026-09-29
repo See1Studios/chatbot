@@ -243,7 +243,7 @@ def watch_loop(interval: int = 60) -> None:
 
 def _boot_time() -> float:
     try:
-        for line in Path("/proc/stat").read_text().splitlines():
+        for line in Path("/proc/stat").read_text(encoding="utf-8").splitlines():
             if line.startswith("btime "):
                 return float(line.split()[1])
     except Exception:
@@ -255,7 +255,7 @@ def _stat_fields(pid: int) -> Optional[List[str]]:
     """Fields after `(comm) ` in /proc/<pid>/stat (comm may hold spaces/parens,
     so split on the LAST ')'). Index 0 is field 3 (state)."""
     try:
-        raw = Path(f"/proc/{pid}/stat").read_text()
+        raw = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
         return raw[raw.rindex(")") + 2:].split()
     except Exception:
         return None
@@ -263,7 +263,7 @@ def _stat_fields(pid: int) -> Optional[List[str]]:
 
 def _comm(pid: int) -> str:
     try:
-        return Path(f"/proc/{pid}/comm").read_text().strip()
+        return Path(f"/proc/{pid}/comm").read_text(encoding="utf-8").strip()
     except Exception:
         return ""
 

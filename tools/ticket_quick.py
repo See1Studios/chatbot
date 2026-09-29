@@ -55,7 +55,7 @@ def save_token(tid, token) -> Path:
 
 def load_token(tid) -> str:
     try:
-        return _token_path(tid).read_text().strip()
+        return _token_path(tid).read_text(encoding="utf-8").strip()
     except OSError:
         return ""
 
@@ -129,7 +129,7 @@ def detect_actor(max_hops: int = 16) -> str:
         try:
             with open("/proc/%d/cmdline" % pid, "rb") as f:
                 argv = [a.decode("utf-8", "replace") for a in f.read().split(b"\0") if a]
-            with open("/proc/%d/stat" % pid) as f:
+            with open("/proc/%d/stat" % pid, encoding="utf-8") as f:
                 ppid = int(f.read().rsplit(")", 1)[1].split()[1])
         except (OSError, ValueError, IndexError):
             break

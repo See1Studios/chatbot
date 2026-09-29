@@ -200,7 +200,7 @@ def _write_line(line: str) -> None:
     lockf = None
     try:
         with _lock:
-            lockf = open(str(path) + ".lock", "a")
+            lockf = open(str(path) + ".lock", "a", encoding="utf-8")
             platform_compat.lock_file(lockf)          # flock on POSIX, msvcrt on Windows (pp/D)
             _rotate_if_needed(path)
             fd = os.open(str(path), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
@@ -586,13 +586,13 @@ def _proc_status() -> Dict[str, Any]:
 
 def _git_sha() -> Optional[str]:
     try:
-        head = (ROOT / ".git" / "HEAD").read_text().strip()
+        head = (ROOT / ".git" / "HEAD").read_text(encoding="utf-8").strip()
         if head.startswith("ref:"):
             ref = ROOT / ".git" / head.split(" ", 1)[1]
             if ref.exists():
-                return ref.read_text().strip()[:10]
+                return ref.read_text(encoding="utf-8").strip()[:10]
             packed = ROOT / ".git" / "packed-refs"
-            for line in packed.read_text().splitlines():
+            for line in packed.read_text(encoding="utf-8").splitlines():
                 if line.endswith(head.split(" ", 1)[1]):
                     return line.split()[0][:10]
             return None
