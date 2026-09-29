@@ -111,7 +111,7 @@ class StImportTest(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ctx:
             extract_chara_raw(empty_png)
-        self.assertIn("no 'chara' text chunk", str(ctx.exception).lower())
+        self.assertIn("no 'ccv3' or 'chara' text chunk", str(ctx.exception).lower())
 
     def test_extract_corrupted_json_payload(self):
         # Create a PNG with chara chunk containing invalid base64/JSON
@@ -287,6 +287,63 @@ class StImportTest(unittest.TestCase):
 
         imported = characters.listing(self.ws)
         self.assertEqual(len(imported), 0)
+
+
+
+def _png_with(chunks):
+    """A 1x1 PNG carrying the given (keyword, card dict) tEXt chunks, base64 like SillyTavern writes them."""
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr_data = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+    out = sig + struct.pack(">I", 13) + b"IHDR" + ihdr_data + struct.pack(">I", zlib.crc32(b"IHDR" + ihdr_data))
+    for keyword, card in chunks:
+        text = keyword + b"\x00" + base64.b64encode(json.dumps(card, ensure_ascii=False).encode("utf-8"))
+        out += struct.pack(">I", len(text)) + b"tEXt" + text + struct.pack(">I", zlib.crc32(b"tEXt" + text))
+    raw = zlib.compress(b"\x00\xff\xff\xff")
+    out += struct.pack(">I", len(raw)) + b"IDAT" + raw + struct.pack(">I", zlib.crc32(b"IDAT" + raw))
+    return out + struct.pack(">I", 0) + b"IEND" + struct.pack(">I", zlib.crc32(b"IEND"))
+
+
+class CardV3AndLorebook(unittest.TestCase):
+    """sp/B (docs/plans/setting-pack.md §2): V3 PNGs are read, and a card's lorebook survives the import."""
+
+    BOOK = {"name": "Shrine", "scan_depth": 4, "extensions": {"x": 1},
+            "entries": [{"keys": ["shrine"], "content": "The shrine at dusk.", "enabled": True, "insertion_order": 5}]}
+
+    def v3(self, name="Miko", **extra):
+        data = {"name": name, "description": "d", "character_book": self.BOOK, "nickname": "Yae",
+                "group_only_greetings": ["hi all"], "creation_date": 1700000000}
+        data.update(extra)
+        return {"spec": "chara_card_v3", "spec_version": "3.0", "data": data}
+
+    def test_a_v3_only_png_is_read_and_v3_wins_over_the_v2_backfill(self):
+        from tools.st_import import extract_st_card
+        self.assertEqual(extract_st_card(_png_with([(b"ccv3", self.v3())]))["data"]["name"], "Miko")
+        both = _png_with([(b"chara", {"spec": "chara_card_v2", "data": {"name": "Old"}}), (b"ccv3", self.v3())])
+        self.assertEqual(extract_st_card(both)["data"]["name"], "Miko")
+
+    def test_the_cards_lorebook_lands_where_the_engine_reads_it(self):
+        from tools.st_import import import_st_png_bytes
+        ws = Path(tempfile.mkdtemp())
+        res = import_st_png_bytes(_png_with([(b"ccv3", self.v3())]), ws=ws)
+        saved = json.loads((ws / "characters" / res["id"] / "lorebook.json").read_text(encoding="utf-8"))
+        self.assertEqual(saved, self.BOOK)                                  # as it came: book-level fields kept
+        lb = characters.load_lorebook(res["id"], ws)
+        self.assertEqual(lb["entries"][0]["keys"], ["shrine"])
+
+    def test_v3_fields_a_v2_card_cannot_hold_are_kept_in_extensions(self):
+        from tools.st_import import convert_st_card
+        card = convert_st_card(self.v3())
+        kept = card["data"]["extensions"]["chara_card_v3"]
+        self.assertEqual((kept["nickname"], kept["group_only_greetings"]), ("Yae", ["hi all"]))
+        self.assertEqual(card["data"]["character_book"], self.BOOK)
+
+    def test_a_card_without_a_lorebook_writes_none(self):
+        from tools.st_import import import_st_png_bytes
+        ws = Path(tempfile.mkdtemp())
+        card = self.v3()
+        del card["data"]["character_book"]
+        res = import_st_png_bytes(_png_with([(b"chara", card)]), ws=ws)
+        self.assertFalse((ws / "characters" / res["id"] / "lorebook.json").exists())
 
 
 if __name__ == "__main__":

@@ -74,14 +74,17 @@ def get_characters_dir(ws: Optional[Union[str, Path]] = None) -> Path:
 
 # ------------------------------------------------------------------------ PNG Parsing
 
+CARD_CHUNKS = (b"ccv3", b"chara")   # Character Card V3 first; a V3 PNG may backfill a V2 `chara` chunk too
+
+
 def extract_chara_raw(png_bytes: bytes) -> bytes:
-    """Extract raw 'chara' text chunk bytes from a PNG image using pure Python (struct, zlib)."""
+    """The card text chunk of a PNG (pure Python, struct and zlib): `ccv3` when present, else `chara`."""
     if not png_bytes.startswith(PNG_SIGNATURE):
         raise ValueError("Invalid PNG: missing standard PNG signature")
 
     offset = 8
     total_len = len(png_bytes)
-    chara_bytes = None
+    found = {}
 
     while offset + 8 <= total_len:
         chunk_len = struct.unpack(">I", png_bytes[offset:offset + 4])[0]
@@ -93,46 +96,44 @@ def extract_chara_raw(png_bytes: bytes) -> bytes:
             break
 
         chunk_data = png_bytes[data_start:data_end]
-
-        if chunk_type == b"tEXt":
-            if b"\x00" in chunk_data:
-                keyword, text_val = chunk_data.split(b"\x00", 1)
-                if keyword.lower() == b"chara":
-                    chara_bytes = text_val
-                    break
-        elif chunk_type == b"zTXt":
-            if b"\x00" in chunk_data:
-                keyword, rest = chunk_data.split(b"\x00", 1)
-                if keyword.lower() == b"chara" and len(rest) > 1:
-                    try:
-                        chara_bytes = zlib.decompress(rest[1:])
-                        break
-                    except Exception:
-                        pass
-        elif chunk_type == b"iTXt":
-            if b"\x00" in chunk_data:
-                keyword, rest = chunk_data.split(b"\x00", 1)
-                if keyword.lower() == b"chara" and len(rest) >= 2:
-                    comp_flag = rest[0]
-                    parts = rest[2:].split(b"\x00", 2)
-                    if len(parts) == 3:
-                        text_part = parts[2]
-                        if comp_flag == 1:
-                            try:
-                                text_part = zlib.decompress(text_part)
-                            except Exception:
-                                pass
-                        chara_bytes = text_part
-                        break
+        if chunk_type in (b"tEXt", b"zTXt", b"iTXt") and b"\x00" in chunk_data:
+            keyword, rest = chunk_data.split(b"\x00", 1)
+            keyword = keyword.lower()
+            if keyword in CARD_CHUNKS and keyword not in found:
+                text = _chunk_text(chunk_type, rest)
+                if text is not None:
+                    found[keyword] = text
 
         offset = data_end + 4
         if chunk_type == b"IEND":
             break
 
-    if chara_bytes is None:
-        raise ValueError("No 'chara' text chunk found in PNG")
+    for keyword in CARD_CHUNKS:
+        if keyword in found:
+            return found[keyword]
+    raise ValueError("No 'ccv3' or 'chara' text chunk found in PNG")
 
-    return chara_bytes
+
+def _chunk_text(chunk_type: bytes, rest: bytes) -> Optional[bytes]:
+    """The text of a tEXt / zTXt / iTXt chunk after its keyword; None when it cannot be read."""
+    if chunk_type == b"tEXt":
+        return rest
+    if chunk_type == b"zTXt":
+        try:
+            return zlib.decompress(rest[1:]) if len(rest) > 1 else None
+        except Exception:
+            return None
+    if len(rest) < 2:
+        return None
+    parts = rest[2:].split(b"\x00", 2)
+    if len(parts) != 3:
+        return None
+    if rest[0] == 1:
+        try:
+            return zlib.decompress(parts[2])
+        except Exception:
+            return parts[2]
+    return parts[2]
 
 
 def extract_st_card(png_bytes: bytes) -> dict:
@@ -156,6 +157,10 @@ def extract_st_card(png_bytes: bytes) -> dict:
 
 
 # ------------------------------------------------------------------------ Card Conversion
+
+V3_ONLY_FIELDS = ("nickname", "creator_notes_multilingual", "source", "group_only_greetings", "assets",
+                  "creation_date", "modification_date")
+
 
 def convert_st_card(raw: dict) -> dict:
     """Convert SillyTavern V2/V3 card dict into See1 card.json structure."""
@@ -218,26 +223,32 @@ def convert_st_card(raw: dict) -> dict:
     else:
         extensions = {}
 
-    return {
-        "spec": "chara_card_v2",
-        "spec_version": "2.0",
-        "data": {
-            "name": name,
-            "description": description,
-            "personality": personality,
-            "scenario": scenario,
-            "first_mes": first_mes,
-            "mes_example": mes_example,
-            "creator_notes": creator_notes,
-            "system_prompt": system_prompt,
-            "post_history_instructions": post_history_instructions,
-            "alternate_greetings": alternate_greetings,
-            "tags": tags,
-            "creator": creator,
-            "character_version": character_version,
-            "extensions": extensions,
-        },
+    # Character Card V3 fields a V2 card has no place for: kept under extensions so nothing is lost on the way
+    # through (the V3 spec: keep unknown fields, app data lives in extensions)
+    v3_only = {k: source[k] for k in V3_ONLY_FIELDS if k in source}
+    if v3_only:
+        extensions["chara_card_v3"] = v3_only
+
+    data = {
+        "name": name,
+        "description": description,
+        "personality": personality,
+        "scenario": scenario,
+        "first_mes": first_mes,
+        "mes_example": mes_example,
+        "creator_notes": creator_notes,
+        "system_prompt": system_prompt,
+        "post_history_instructions": post_history_instructions,
+        "alternate_greetings": alternate_greetings,
+        "tags": tags,
+        "creator": creator,
+        "character_version": character_version,
+        "extensions": extensions,
     }
+    book = source.get("character_book")
+    if isinstance(book, dict) and isinstance(book.get("entries"), (list, dict)):
+        data["character_book"] = book   # V2 has the field too; the engine reads it from lorebook.json (import below)
+    return {"spec": "chara_card_v2", "spec_version": "2.0", "data": data}
 
 
 def make_visual_md(name: str, char_id: str) -> str:
@@ -313,6 +324,12 @@ def import_st_png_bytes(
         # 1. card.json
         card_file = char_dir / "card.json"
         platform_compat.write_text(card_file, json.dumps(card, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        # 1b. lorebook.json: the card's own lorebook, as it came (the engine normalises on read), unless one exists
+        book = card["data"].get("character_book")
+        lore_file = char_dir / "lorebook.json"
+        if book and not lore_file.exists():
+            platform_compat.write_text(lore_file, json.dumps(book, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
         # 2. avatar_master.png (original raw PNG preserved)
         master_png = char_dir / "avatar_master.png"

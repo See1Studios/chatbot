@@ -16,8 +16,8 @@
 | 매칭 | 최근 5개 메시지에서 키 부분 문자열(대소문자 무시) 또는 `constant`. 최대 3개, 항목당 500자. 보조 키·정규식·대소문자·책 단위 `scan_depth`·`token_budget`은 안 봄 | `instructions.match_lorebook_entries`, `LOREBOOK_*` |
 | 삽입 | 지침 묶음에서 페르소나 앞(before_char)·뒤(after_char) | `instructions.lorebook_context` |
 | 카드 | V2만 저장(`SPEC = "chara_card_v2"`). V3 JSON은 가져올 때 V2로 바꾼다 | `characters.py`, `tools/st_import.py convert_st_card` |
-| 빈틈 1 | PNG는 `chara` 조각만 읽는다. V3 전용 `ccv3` 조각만 있는 PNG는 못 읽는다 | `tools/st_import.py extract_chara_raw` |
-| 빈틈 2 | 가져오기가 카드 안의 `character_book`을 버린다(이름 붙은 필드만 옮김). 카드에 딸린 로어북이 사라진다 | `tools/st_import.py convert_st_card` |
+| 빈틈 1 (#432에서 해결) | PNG는 `chara` 조각만 읽는다. V3 전용 `ccv3` 조각만 있는 PNG는 못 읽는다 | `tools/st_import.py extract_chara_raw` |
+| 빈틈 2 (#432에서 해결) | 가져오기가 카드 안의 `character_book`을 버린다(이름 붙은 필드만 옮김). 카드에 딸린 로어북이 사라진다 | `tools/st_import.py convert_st_card` |
 
 ## 3. 선행 사례
 ### 3.1 Character Card V3 (`chara_card_v3`, spec_version `3.0`)
@@ -85,14 +85,14 @@
 |---|---|---|
 | S1 | 설정집 그릇: CCv3 로어북 + `extensions.pe_pack` vs PE 전용 형식 | **CCv3 로어북**(§4) |
 | S2 | 붙는 곳: 인스턴스 전체에 활성 설정집 하나(공용 사무실) vs 캐릭터별 | **인스턴스 하나**. 사무실은 모든 캐릭터의 공용 공간(private-mode §8.3). 캐릭터별 로어북은 지금처럼 따로 둔다 |
-| S3 | 가져오기 빈틈 2개(§2)를 먼저 메울지 | **먼저**. 작고, 사용자가 받아 오는 카드의 로어북이 조용히 사라지는 문제다 |
+| S3 | 가져오기 빈틈 2개(§2)를 먼저 메울지 | **결정 2026-09-29: 먼저** → sp/B ✅ |
 | S4 | 로어 매칭을 CCv3 수준(보조 키, 대소문자, 책 단위 scan_depth·token_budget)으로 올릴지 | 설정집 구현(sp/C) 때 함께. 지금 3개·500자 상한은 설정집 예산과 다시 맞춘다 |
 
 ## 6. 항목
 | id | 작업 | 수용 기준 | 의존 | 상태 |
 |---|---|---|---|---|
 | `sp/A` | 이 문서(W3a 조사) | 커밋 | — | ✅ |
-| `sp/B` | 가져오기 빈틈: PNG `ccv3` 조각 읽기, 카드의 `character_book` → `lorebook.json` | V3 전용 PNG가 가져와짐. 로어북 달린 카드를 가져오면 로어북이 남음(테스트) | S3 | 대기 |
+| `sp/B` | 가져오기 빈틈: PNG `ccv3` 조각 읽기, 카드의 `character_book` → `lorebook.json` | V3 전용 PNG가 가져와짐. 로어북 달린 카드를 가져오면 로어북이 남음(테스트) | S3 | ✅ #432 — `ccv3` 우선, 로어북은 받은 그대로 저장(책 단위 필드 보존), V2에 자리 없는 V3 필드는 `extensions.chara_card_v3`에 보존. JSON 카드 업로드(V2만 받음)는 그대로 |
 | `sp/C` | 설정집 형식 검사·가져오기·내보내기(W3a 구현) | 잘못된 설정집은 짧은 오류로 거절. 내보낸 파일에 사적 저장소 키 없음. 모르는 필드가 왕복 후 보존됨 | S1, S2 | 대기 |
 | `sp/D` | 기본 설정집 「사무실」 | 엔진이 제공, 장소 5개 안팎(사무실 안 숨은 곳 + 퇴근 후) | sp/C | 대기 |
 | `sp/E` | 카드 기반 자동 생성 초안(W3c) | 생성 결과가 sp/C 검사를 통과해야 저장. 입력에 사적 저장소 없음 | sp/C | 대기 |
