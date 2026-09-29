@@ -3,13 +3,15 @@
  "approved_at": "2026-09-29 18:42:50",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-29 18:41:43",
  "evidence": [
   "event:20260929-183342-d27dc9#13"
  ],
  "gate_failures": 0,
  "id": 423,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,15 +27,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-423 at 09b45d6 (agy, review PASS round 1)",
    "ts": "2026-09-29 18:55:06"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-29 18:56:57"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 563b6be on the operator's word (agy)",
+   "ts": "2026-09-29 18:58:50"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-29 18:58:50"
   }
  ],
  "paths": [
   "static/app-viewport.js",
   "static/chat-log.css"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/app-viewport.js,static/chat-log.css",
  "title": "feat(ui): 모바일 채팅창 바닥 위로 당겨서 새로고침 (Bottom pull-up refresh)",
- "updated": "2026-09-29 18:55:06",
+ "updated": "2026-09-29 18:58:50",
  "worked_by": "agy"
 }
