@@ -328,7 +328,7 @@ const TICKET_DECISIONS = {
   awaiting_merge: [['merge', '승인'], ['rework', '반려'], ['discard', '폐기']],
   wontfix: [['reopen', '재개']],
 };
-const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '실행', merge: '승인(반영 시작)', rework: '반려', discard: '폐기', disown: '담당 해제', unqueue: '대기 취소', allow: '경로 허용' };
+const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '실행', merge: '승인(반영 시작)', rework: '반려', discard: '폐기', disown: '담당 해제', unqueue: '대기 취소', allow: '경로 허용', close: '티켓 닫기' };
 // Delegation API refusal reasons (English, from the server) -> one short Korean line. [pattern, (match) => line].
 const DELEGATION_REFUSAL_KO = [
   [/uncommitted leftover in ([^;]+)/, (m) => '실행 거절: 커밋 안 된 파일이 남아 있어요 (' + m[1].trim() + ')'],
@@ -717,6 +717,8 @@ function renderWorkCard(r) {
     if (!r.need_paths.some(n => n.operator_only)) button('경로 허용', true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
     button('폐기', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
   }
+  // #387: landed, but the ticket stayed open and holds its files: stays on screen until closed (MERGED_CLOSE_v1)
+  if (r.phase === 'merged-ticket-open') button(TICKET_DECISION_WORD.close, true, () => fillTicketCommand({ id: r.ticket }, 'merge'));
   // BASE_CHECK_v1: the work is kept; once the base is fixed, the same plan runs on from it
   if (r.phase === 'base_broken') button(TICKET_DECISION_WORD.delegate, true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
   if (r.phase === 'queued') {
@@ -773,7 +775,7 @@ async function loadWork() {
   workLastPhase = new Map(runs.map(r => [r.ticket, r.phase]));
   activeWorkRun = runs.find(r => r.active) || null;   // the chat's badge says who is working (DELEGATION_CLARITY_v1)
   if (!isBusy) updateProcBadge('idle');
-  const shown = runs.filter(r => !workDismissed.has(r.ticket) && (r.active || r.phase === 'awaiting_go' || r.phase === 'queued' || r.phase === 'paused' || r.phase === 'awaiting_merge' || (WORK_ENDED.includes(r.phase) && !r.seen)));
+  const shown = runs.filter(r => !workDismissed.has(r.ticket) && (r.active || r.phase === 'awaiting_go' || r.phase === 'queued' || r.phase === 'paused' || r.phase === 'awaiting_merge' || r.phase === 'merged-ticket-open' || (WORK_ENDED.includes(r.phase) && !r.seen)));
   const ids = new Set(shown.map(r => r.ticket));
   const changed = ids.size !== workCardIds.size || [...ids].some(id => !workCardIds.has(id));
   workCardIds = ids;

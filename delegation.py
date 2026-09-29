@@ -290,6 +290,10 @@ def _close_merged(tid: int, st: Dict) -> Dict:
     head = st.get("head") or ""
     if not head or r.git(r.CHATBOT_REPO, "merge-base", "--is-ancestor", head, "HEAD")[0] != 0:
         raise DelegationError("ticket %d: its merge commit is not on the main branch; nothing to close" % tid)
+    if tickets.get(DATA, tid)["status"] == "in_progress" and not _alive(st.get("pid")):
+        # #387: the runner merged and exited, but the done gate refused at that moment (guard tests failed on the shared
+        # working tree), so its lease was left behind and held the files for up to an hour. Free it first.
+        tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI, ticket_id=tid)
     m = tickets.merge_go(DATA, tid, operator=tickets.OPERATOR_UI, actor=worker_role())
     try:
         tickets.release(DATA, tid, m["token"], "done", "merged %s earlier; closed on the operator's word" % head[:7],
@@ -462,6 +466,8 @@ def _spawn(tid: int, args: List[str]) -> int:
 
 def _alive(pid) -> bool:
     try:
+        if int(pid) <= 0:          # os.kill(0, 0) signals our own process group and always succeeds
+            return False
         os.kill(int(pid), 0)
         return True
     except (OSError, ValueError, TypeError):

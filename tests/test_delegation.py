@@ -369,6 +369,19 @@ class OperatorTest(Base):
         self.assertEqual(self.state(tid)["phase"], "done")
         self.assertEqual(len(self.spawned), spawned, "nothing to land again")
 
+    def test_a_landed_run_whose_runner_left_its_lease_behind_still_closes(self):
+        # #387: the done gate refused right after the merge; the dead runner's lease held the files for an hour
+        tid = self.awaiting()
+        tickets.merge_go(self.data, tid, operator=tickets.OPERATOR_UI, actor="agy")      # the runner's lease
+        self.assertEqual(tickets.get(self.data, tid)["status"], "in_progress")
+        r = delegation.runner()
+        r.write_state(tid, phase="merged-ticket-open", head="af2f5763d656", pid=0)
+        with mock.patch.object(r, "git", return_value=(0, "", "")), \
+                mock.patch.object(tickets, "_guard_failure", return_value=""):
+            out = delegation.merge(tid)
+        self.assertEqual(out["status"], "done")
+        self.assertEqual([l for l in tickets.leases(self.data) if l["ticket"] == tid], [])
+
     def test_a_landed_run_is_closed_only_when_its_commit_is_on_main(self):
         tid = self.awaiting()
         r = delegation.runner()
