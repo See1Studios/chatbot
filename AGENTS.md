@@ -96,7 +96,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
 ## Work procedure
 
 1. Start only from the operator's words or an approved ticket. External CLI: `python3 tools/ticket_quick.py start --title "[<plan id>] …" --paths a,b --actor <you>` (`~/bin/ticket-quick` points here). Always pass `--actor`: without it the actor is guessed from the parent process and every ticket lands as `unknown-cli`, so the ledger cannot say who did the work. The claim token cannot be recovered from the ticket store; it is kept in a private token file (`TOKEN_FILE=`), so `done`/`fail`/`renew` work without `--token`.
-2. Change only the claimed paths.
+2. Change only the claimed paths. Need another file: `ticket-quick widen --id <n> --paths <file>` (checked like a claim, no new attempt). Never give the ticket up to open a new one: the old one stays open and only the operator can close it.
 3. `./run-tests.sh` (all) or `./run-tests.sh test_x …`; green before commit. The commit hooks (`.githooks/`, install once per clone: `git config core.hooksPath .githooks`) rerun the guard tests and check the message.
 4. Commit only your paths. Author = your agent (e.g. `git -c user.name="Claude Code" …`); Conventional Commits; trailers:
    ```

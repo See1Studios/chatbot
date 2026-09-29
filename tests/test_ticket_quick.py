@@ -62,6 +62,13 @@ class TicketQuickCli(unittest.TestCase):
         self.assertEqual(self.ticket(tid)["status"], "done")
         self.assertFalse(tf.exists())
 
+    def test_widen_reads_the_token_file_and_adds_the_files(self):
+        tid, _, _ = self.start()
+        r = self.run_tq("widen", "--id", str(tid), "--paths", "b.py", "--actor", "tester")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("ADDED=b.py", r.stdout)
+        self.assertEqual(self.ticket(tid)["paths"], ["a.py", "b.py"])
+
     def test_explicit_token_still_works(self):
         tid, token, tf = self.start()
         r = self.run_tq("fail", "--id", str(tid), "--token", token, "--outcome", "abandoned", "--actor", "tester")
@@ -78,7 +85,7 @@ class TicketQuickCli(unittest.TestCase):
 
     def test_every_command_is_offered(self):
         r = self.run_tq("--help")
-        for cmd in ("start", "claim", "done", "fail", "renew", "await-merge", "merge-go"):
+        for cmd in ("start", "claim", "done", "fail", "renew", "widen", "await-merge", "merge-go"):
             self.assertIn(cmd, r.stdout)
 
 

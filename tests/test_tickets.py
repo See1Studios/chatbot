@@ -369,6 +369,36 @@ class LeaseScopeTest(Base):
                          ["static/app.js", "x.py", "chatbot/y.py", "z.py"])
 
 
+class WidenTest(Base):
+    """TICKET_WIDEN_v1 (#385): the author adds files to its ticket instead of giving it up and opening another."""
+
+    def test_the_author_adds_files_without_a_new_attempt(self):
+        t = self.approved()
+        c = tickets.claim(self.data, t["id"], paths=["a.py"], now=T0)
+        r = tickets.widen(self.data, t["id"], c["token"], ["b.py", "a.py"], now=T0 + 5)
+        self.assertEqual(r["added"], ["b.py"])
+        got = tickets.get(self.data, t["id"])
+        self.assertEqual((got["paths"], got["attempts"], got["status"]), (["a.py", "b.py"], 1, "in_progress"))
+        self.assertIn("paths widened: + b.py", json.dumps(self.raw(t["id"]), ensure_ascii=False))
+        self.assertEqual(tickets.leases(self.data, now=T0 + 6)[0]["paths"], ["a.py", "b.py"])
+
+    def test_only_the_live_author_may_widen(self):
+        t = self.approved()
+        c = tickets.claim(self.data, t["id"], paths=["a.py"], now=T0)
+        for token, now in (("wrong", T0 + 1), (c["token"], T0 + tickets.LEASE_TTL_SEC + 1)):
+            with self.assertRaises(tickets.TicketError):
+                tickets.widen(self.data, t["id"], token, ["b.py"], now=now)
+
+    def test_a_file_another_ticket_holds_is_refused(self):
+        a, b = self.approved(target="a"), self.approved(target="b")
+        tickets.claim(self.data, a["id"], paths=["b.py"], now=T0)
+        c = tickets.claim(self.data, b["id"], paths=["a.py"], now=T0 + 1)
+        with self.assertRaises(tickets.TicketError) as cm:
+            tickets.widen(self.data, b["id"], c["token"], ["b.py"], now=T0 + 2)
+        self.assertIn("author lock is held for ticket %d" % a["id"], str(cm.exception))
+        self.assertEqual(tickets.get(self.data, b["id"])["paths"], ["a.py"])
+
+
 class UnavailableTest(Base):
     """No brain answered (quota, limit, timeout): the attempt is given back, a few times (DELEGATION_HARDENING_v1)."""
 

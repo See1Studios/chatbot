@@ -5,6 +5,7 @@
   python3 tools/ticket_quick.py done --id <N> [--token <T>] [--note "..."]
   python3 tools/ticket_quick.py fail --id <N> [--token <T>] --outcome gate_failed --note "..."
   python3 tools/ticket_quick.py renew --id <N> [--token <T>]
+  python3 tools/ticket_quick.py widen --id <N> --paths c,d [--token <T>]   # add files to the ticket you hold
   python3 tools/ticket_quick.py claim --id <N> [--paths a,b]           # an approved ticket whose files were held
   python3 tools/ticket_quick.py await-merge --id <N> [--token <T>] --note "branch ..."   # Tier 2
   python3 tools/ticket_quick.py merge-go --id <N>                      # relays the operator's word; new token
@@ -266,6 +267,17 @@ def cmd_renew(args):
     print("Ticket #%d lease renewed for %ss." % (args.id, res["expires_in_sec"]))
 
 
+def cmd_widen(args):
+    """Add files to the ticket the caller holds, instead of giving it up and opening another (TICKET_WIDEN_v1)."""
+    try:
+        res = tickets.widen(DATA_DIR, args.id, _token(args), _paths(args.paths), actor=_actor(args))
+    except Exception as e:
+        print("Error widening ticket: %s" % e, file=sys.stderr)
+        sys.exit(1)
+    print("Ticket #%d paths: %s" % (args.id, ", ".join(res["ticket"].get("paths") or [])))
+    print("ADDED=%s" % ",".join(res["added"]))
+
+
 def cmd_await_merge(args):
     try:
         tickets.await_merge(DATA_DIR, args.id, _token(args), text=args.note, actor=_actor(args))
@@ -340,6 +352,12 @@ def build_parser():
     p.add_argument("--token", default="", help=token_help)
     p.add_argument("--actor", default="", help=actor_help)
 
+    p = sub.add_parser("widen", help="Add files to the ticket you hold (not: give it up and open another)")
+    p.add_argument("--id", type=int, required=True, help="Ticket ID")
+    p.add_argument("--paths", required=True, help="Comma-separated repo-relative files to add")
+    p.add_argument("--token", default="", help=token_help)
+    p.add_argument("--actor", default="", help=actor_help)
+
     p = sub.add_parser("await-merge", help="Hand reviewed work in to wait for the operator's merge")
     p.add_argument("--id", type=int, required=True, help="Ticket ID")
     p.add_argument("--token", default="", help=token_help)
@@ -353,6 +371,7 @@ def build_parser():
 
 
 COMMANDS = {"start": cmd_start, "claim": cmd_claim, "done": cmd_done, "fail": cmd_fail, "renew": cmd_renew,
+            "widen": cmd_widen,
             "await-merge": cmd_await_merge, "merge-go": cmd_merge_go}
 
 

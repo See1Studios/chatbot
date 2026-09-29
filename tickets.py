@@ -770,6 +770,41 @@ def claim(data, ticket_id, token: Optional[str] = None, now: Optional[float] = N
                 "expires_in_sec": int(expires - t_now), "new_attempt": True}
 
 
+def widen(data, ticket_id, token: Optional[str], paths, now: Optional[float] = None,
+          actor: Optional[str] = None) -> Dict:
+    """Add files to the ticket the caller holds (TICKET_WIDEN_v1). The alternative -- give the ticket up and open a
+    new one -- leaves the old one approved and open, and only the operator may close it (#382). The added files pass
+    the same checks as a claim (another live lease, uncommitted leftover); the lease is renewed, no attempt counted,
+    and the note says what was added so the operator sees the scope grow."""
+    t_now = _now(now)
+    asked = _norm_paths(paths, data)
+    if not asked:
+        raise TicketError("paths are required")
+    with _locked(data):
+        t = _load(data, ticket_id)
+        tid = t["id"]
+        if not (_holds(_read_lease(data, tid), tid, token, t_now) and t["status"] == "in_progress"):
+            raise TicketError("you do not hold ticket %d (missing, wrong or expired token); only its author widens it"
+                              % tid)
+        have = list(t.get("paths") or [])
+        if not have:
+            raise TicketError("ticket %d already covers every file" % tid)
+        added = [p for p in asked if not any(p == h or p.startswith(h.rstrip("/") + "/") for h in have)]
+        if added:
+            block = _conflicts(data, tid, added, t_now)
+            if block:
+                raise _blocked(data, t, _agent_by(actor, t), "widen", block, t_now)
+            leftover = _ship_blockers(data, {"paths": added})
+            if leftover:
+                raise TicketError("widen refused: uncommitted leftover in %s; commit or revert before adding it"
+                                  % ", ".join(leftover[:5]))
+            t["paths"] = have + added
+            _note(t, _agent_by(actor, t), "paths widened: + " + ", ".join(added), t_now)
+            _save(data, t)
+        expires = _write_lease(data, tid, token, t_now, paths=t["paths"], actor=actor)
+        return {"ticket": public(t), "added": added, "expires_in_sec": int(expires - t_now)}
+
+
 def add_note(data, ticket_id, text: str, token: Optional[str] = None, now: Optional[float] = None,
              actor: Optional[str] = None) -> Dict:
     """Leave a note. Anyone may; the author's note also keeps the lease alive."""
