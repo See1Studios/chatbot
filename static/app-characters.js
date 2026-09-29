@@ -482,7 +482,7 @@ async function selectCharacter(c) {
   try {
     const res = await api('/api/characters/' + encodeURIComponent(c.id) + '/session', {
       method: 'POST',
-      body: JSON.stringify({ mode: sessionMode })
+      body: JSON.stringify({ mode: sessionMode, from: sessionId })   // the room being left, for its private digest
     });
     if (res && res.session && res.session.id) {
       await applyModeSwitch(res);

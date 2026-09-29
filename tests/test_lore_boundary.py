@@ -51,5 +51,21 @@ class LoreGrantsNothing(unittest.TestCase):
         self.assertEqual((C.roles_of(res["id"], self.ws), C.tools_of(res["id"], self.ws)), ([], []))
 
 
+class NoRosterWorkspace(unittest.TestCase):
+    """sp/J: a workspace without team.json derives its roster from the cards' `role` -- so an imported card must not
+    bring one in."""
+
+    def test_an_imported_cards_role_and_tools_are_dropped(self):
+        from tools.st_import import convert_st_card, create_st_png_bytes, import_st_png_bytes
+        raw = {"spec": "chara_card_v2", "data": {"name": "Guest", "extensions": {
+            C.EXT: {"role": "pd", "roles": ["dev"], "tools": ["delegate"], "skills": ["x"], "display": {"title": "t"}}}}}
+        ext = convert_st_card(raw)["data"]["extensions"][C.EXT]
+        self.assertEqual(ext, {"display": {"title": "t"}})                    # the rest of our extension stays
+        ws = Path(tempfile.mkdtemp())
+        res = import_st_png_bytes(create_st_png_bytes(raw), ws=ws)
+        self.assertFalse((ws / "team.json").exists())
+        self.assertEqual((C.roles_of(res["id"], ws), C.tools_of(res["id"], ws)), ([], []))
+
+
 if __name__ == "__main__":
     unittest.main()

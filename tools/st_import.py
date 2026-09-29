@@ -158,6 +158,7 @@ def extract_st_card(png_bytes: bytes) -> dict:
 
 # ------------------------------------------------------------------------ Card Conversion
 
+GRANT_KEYS = ("role", "roles", "tools", "skills")   # what only the roster and role packs may decide
 V3_ONLY_FIELDS = ("nickname", "creator_notes_multilingual", "source", "group_only_greetings", "assets",
                   "creation_date", "modification_date")
 
@@ -222,6 +223,13 @@ def convert_st_card(raw: dict) -> dict:
         extensions = dict(raw_ext)
     else:
         extensions = {}
+
+    # Lore never grants power (setting-pack.md §1.1, sp/J): a downloaded card may carry our extension with a role or
+    # tools in it; the roster (team.json) alone decides those, and a workspace without one derives its roster from
+    # the cards -- so the claim is dropped on the way in.
+    ours = extensions.get("chatbot")
+    if isinstance(ours, dict):
+        extensions["chatbot"] = {k: v for k, v in ours.items() if k not in GRANT_KEYS}
 
     # Character Card V3 fields a V2 card has no place for: kept under extensions so nothing is lost on the way
     # through (the V3 spec: keep unknown fields, app data lives in extensions)

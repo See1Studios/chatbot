@@ -309,33 +309,7 @@ def _character_list() -> list:
     return out
 
 
-def _digest_private_later(sess) -> None:
-    """Put a private session's new talk into the character's private memory, in the background (SESSION_SPLIT_v1).
-    Only the character's private memory is written; the work side never sees it."""
-    def run():
-        import characters
-        from session import _oneshot
-        try:
-            with sess.lock:
-                history = list(sess.history)
-            since = float(getattr(sess, "private_digested_ts", 0) or 0)
-            seg = characters.private_segment(history, since)
-            if not seg:
-                return
-            cid = sess.character or characters.default_character()
-            card = characters.load(cid) if cid else {}
-            name = (card.get("data") or {}).get("name") or identity.self_label()
-            res = _oneshot(characters.private_digest_prompt(seg, identity.user_title(), name), 60) or {}
-            if not res.get("text"):
-                obslog.event("private.digest_failed", session=sess.sid, error=str(res.get("error") or "no text"))
-                return
-            added = characters.remember_private(cid, characters.parse_memory_lines(res["text"])) if cid else 0
-            sess.private_digested_ts = max(float(h.get("ts") or 0) for h in seg)
-            sess.save_meta()
-            obslog.event("private.digested", session=sess.sid, character=cid, added=added)
-        except Exception as e:  # noqa: BLE001
-            obslog.exception("private.digest_exception", e, session=sess.sid)
-    threading.Thread(target=run, name="private-digest", daemon=True).start()
+_digest_private_later = threshold.digest_later   # private talk -> the character's private memory (SESSION_SPLIT_v1)
 
 
 class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
@@ -1012,6 +986,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 if who is None:
                     code, raw = _json_bytes({"ok": False, "error": "unknown character"}, 404)
                     return self._send(code, raw, "application/json; charset=utf-8")
+                threshold.left_private(REG.peek(str(body.get("from") or "")) if body.get("from") else None)
                 target = REG.get_active(who)
                 if body.get("mode") == "private":
                     target = REG.get_private(who, like=target, fresh=True)

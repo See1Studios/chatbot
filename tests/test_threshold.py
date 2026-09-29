@@ -200,6 +200,39 @@ class RoomSync(Base):
         self.assertIn("client_mid: clientMid", page)                          # the heart button tags its switch too
 
 
+class FreshMemory(Base):
+    """Leaving the private room and coming straight back: the first turn waits for the last visit's digest and hears
+    what it added, even without a threshold note (2026-09-30)."""
+
+    def test_the_first_turn_waits_for_a_running_digest_and_hears_it_once(self):
+        done = threading.Event()
+        threshold._DIGESTING["c1"] = done
+
+        def finish():
+            threshold._FRESH["c1"] = ["held hands on the roof"]
+            done.set()
+            threshold._DIGESTING.pop("c1", None)
+        threading.Timer(0.3, finish).start()
+        note = threshold.take(self.priv, "coach")
+        self.assertIn("held hands on the roof", note)
+        self.assertEqual(threshold.take(self.priv, "coach"), "")
+
+    def test_switching_characters_in_private_digests_the_room_left(self):
+        seen = []
+        saved = threshold.digest_later
+        threshold.digest_later = seen.append
+        self.addCleanup(setattr, threshold, "digest_later", saved)
+        threshold.left_private(self.priv)
+        threshold.left_private(self.work)                                     # a work room has nothing to digest
+        threshold.left_private(None)
+        self.assertEqual(seen, [self.priv])
+
+    def test_the_host_and_page_pass_the_room_left(self):
+        self.assertIn('threshold.left_private(REG.peek(str(body.get("from") or ""))', (ROOT / "server.py").read_text(encoding="utf-8"))
+        self.assertIn("from: sessionId", (ROOT / "static" / "app-characters.js").read_text(encoding="utf-8"))
+        self.assertIn("_digest_private_later = threshold.digest_later", (ROOT / "server.py").read_text(encoding="utf-8"))
+
+
 class Pending(Base):
     def test_the_first_turn_waits_for_a_gist_still_being_written(self):
         _write = threshold._write

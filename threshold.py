@@ -126,6 +126,75 @@ def just_switched(session, stamp: str) -> bool:
     return time.time() - float(getattr(session, stamp, 0) or 0) < REPEAT_SEC
 
 
+_DIGESTING = {}   # character id -> Event, set when that character's private digest has finished
+_FRESH = {}       # character id -> the memory lines the last digest added, for the next visit's first turn
+
+
+def digest_later(sess) -> None:
+    """Put a private session's new talk into the character's private memory, in the background (SESSION_SPLIT_v1).
+    Only the character's private memory is written; the work side never sees it. The next visit's first turn waits
+    for a digest still running (take) and hears what it added, so leaving and coming right back loses nothing."""
+    import characters
+    cid = _cid(sess)
+    done = threading.Event()
+    _DIGESTING[cid] = done
+
+    def run():
+        import identity
+        import obslog
+        from session import _oneshot
+        try:
+            with sess.lock:
+                history = list(sess.history)
+            since = float(getattr(sess, "private_digested_ts", 0) or 0)
+            seg = characters.private_segment(history, since)
+            if not seg:
+                return
+            card = characters.load(cid) if cid else {}
+            name = (card.get("data") or {}).get("name") or identity.self_label()
+            res = _oneshot(characters.private_digest_prompt(seg, identity.user_title(), name), 60) or {}
+            if not res.get("text"):
+                obslog.event("private.digest_failed", session=sess.sid, error=str(res.get("error") or "no text"))
+                return
+            lines = characters.parse_memory_lines(res["text"])
+            added = characters.remember_private(cid, lines) if cid else 0
+            if added:
+                _FRESH[cid] = lines
+            sess.private_digested_ts = max(float(h.get("ts") or 0) for h in seg)
+            sess.save_meta()
+            obslog.event("private.digested", session=sess.sid, character=cid, added=added)
+        except Exception as e:  # noqa: BLE001
+            obslog.exception("private.digest_exception", e, session=sess.sid)
+        finally:
+            done.set()
+            if _DIGESTING.get(cid) is done:
+                del _DIGESTING[cid]
+    threading.Thread(target=run, name="private-digest", daemon=True).start()
+
+
+def _cid(session) -> str:
+    """The session's character id ("" in a session means the team's default character)."""
+    try:
+        import characters
+        return getattr(session, "character", "") or characters.default_character()
+    except Exception:  # noqa: BLE001
+        return getattr(session, "character", "") or ""
+
+
+def left_private(sess) -> None:
+    """A private session left some other way than /private off (switching characters in private mode): digest it."""
+    if sess is not None and getattr(sess, "is_private", False):
+        digest_later(sess)
+
+
+def _fresh_memory(cid: str, wait: float) -> list:
+    """What the last private digest of `cid` added, once; waits up to `wait` seconds for one still running."""
+    running = _DIGESTING.get(cid)
+    if running is not None:
+        running.wait(wait)
+    return _FRESH.pop(cid, [])
+
+
 def pop_scene(session) -> str:
     """The scene line a switch left for the page to send as an action ("" when none)."""
     line = getattr(session, "scene_action", "") or ""
@@ -225,7 +294,8 @@ def leave(priv, work, digest=None):
 
 def take(session: Any, user_word: str = "the user") -> str:
     """The note for a private session's turn, once (the file is removed), as context; "" when none waits.
-    A "brink" note raises the session's tension stage by one."""
+    A "brink" note raises the session's tension stage by one. What the last visit's digest just added to the private
+    memory rides along once, even without a note."""
     try:
         path = Path(session.meta_path).parent / FILE
     except (TypeError, AttributeError):
@@ -238,10 +308,11 @@ def take(session: Any, user_word: str = "the user") -> str:
         path.unlink()
     except OSError:
         pass
-    if not note:
-        return ""
     kind, text, place = note.get("kind"), str(note.get("text") or ""), str(note.get("place") or "")
     lines = ["[Threshold -- use once, in character; never quote or mention this note]"]
+    fresh = _fresh_memory(_cid(session), WAIT_SEC)
+    if fresh:
+        lines.append("From your last time together, still fresh: " + " / ".join(fresh))
     if kind == "brink":
         import private_engine
         session.tension_stage = min(private_engine.TENSION_MAX, int(getattr(session, "tension_stage", 1) or 1) + 1)
