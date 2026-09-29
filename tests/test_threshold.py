@@ -151,6 +151,31 @@ class Scene(Base):
         self.assertEqual((threshold.pop_scene(self.priv), threshold.pop_scene(self.work)), ("", ""))
 
 
+class Repeat(Base):
+    """A second switch request within REPEAT_SEC (a re-tap while the switch loads, another tab) is the same move:
+    no second scene line, no second note (2026-09-30: the stairwell scene went twice, 8 s apart)."""
+
+    def test_going_in_twice_sends_one_scene(self):
+        self.enter("/private on 계단실")
+        self.assertEqual(threshold.pop_scene(self.priv), "(업무 도중 잠깐 함께 계단실에 왔다)")
+        self.enter("/private on 계단실")
+        self.assertEqual(threshold.pop_scene(self.priv), "")
+
+    def test_coming_back_twice_sends_one_scene(self):
+        self.enter("/private on 계단실")
+        threshold.leave(self.priv, self.work)
+        self.assertTrue(threshold.pop_scene(self.work))
+        threshold.leave(self.priv, self.work)
+        self.assertEqual(threshold.pop_scene(self.work), "")
+
+    def test_a_later_visit_is_a_new_move(self):
+        self.enter("/private on 계단실")
+        threshold.pop_scene(self.priv)
+        self.priv.visit_started -= threshold.REPEAT_SEC + 1
+        self.enter("/private on 옥상")
+        self.assertEqual(threshold.pop_scene(self.priv), "(업무 도중 잠깐 함께 옥상에 왔다)")
+
+
 class Pending(Base):
     def test_the_first_turn_waits_for_a_gist_still_being_written(self):
         _write = threshold._write

@@ -93,6 +93,13 @@ class SessionSplit(unittest.TestCase):
         self.assertTrue(second.is_private and second.history == [])
         self.assertEqual((second.provider, second.model), ("grok", "grok-4.7"))
 
+    def test_a_repeated_switch_lands_in_the_room_it_just_opened(self):
+        with mock.patch("session_registry._first_brain", return_value={}):
+            first = self.reg.get_private("", fresh=True)
+            first.history.append({"role": "user", "text": "(scene)", "ts": 1})
+            first.visit_started = __import__("time").time()
+            self.assertEqual(self.reg.get_private("", fresh=True).sid, first.sid)
+
     def test_an_unused_private_session_is_reused_not_multiplied(self):
         with mock.patch("session_registry._first_brain", return_value={}):
             first = self.reg.get_private("", fresh=True)

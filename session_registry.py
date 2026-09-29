@@ -18,6 +18,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import platform_compat
+import threshold
 
 
 def _s():
@@ -255,8 +256,9 @@ class Registry:
         The last private session's brain is kept, and a last one that is still empty is reused, not multiplied."""
         character = _character_id(character)
         sess = self._newest(mode="private", character=character)
-        if sess is not None and (not fresh or not any(h.get("role") in ("user", "assistant") for h in sess.history)):
-            return sess
+        if sess is not None and (not fresh or not any(h.get("role") in ("user", "assistant") for h in sess.history)
+                                 or threshold.just_switched(sess, "visit_started")):
+            return sess   # (fresh) a repeat of the switch that just opened it -- a re-tap or another tab -- stays
         like = sess or like or self.get_active(character)
         brain = _first_brain(character, mode="private") or {}
         provider = brain.get("provider") or like.provider

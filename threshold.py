@@ -24,6 +24,7 @@ from typing import Any, Optional
 FILE = "threshold.json"
 SCENE_FILE = "scene.json"   # where this private visit went, for the way back
 WAIT_SEC = 12               # the first private turn waits this long for a gist still being written
+REPEAT_SEC = 30             # a second switch request this soon is the same move (a re-tap, another tab): no new scene
 STRENGTHS = ("off", "mood", "gist")
 DEFAULT = "gist"
 MAX_NOTE = 300
@@ -112,6 +113,11 @@ def _state(sessions: Path, cid: str) -> Path:
     return Path(sessions).parent / "workspace" / "characters" / (cid or "_") / "state.json"
 
 
+def just_switched(session, stamp: str) -> bool:
+    """True when `session` was switched into less than REPEAT_SEC ago (the host keeps sessions in memory)."""
+    return time.time() - float(getattr(session, stamp, 0) or 0) < REPEAT_SEC
+
+
 def pop_scene(session) -> str:
     """The scene line a switch left for the page to send as an action ("" when none)."""
     line = getattr(session, "scene_action", "") or ""
@@ -124,6 +130,10 @@ def enter(work, priv, text: str = "", sessions: Optional[Path] = None, oneshot=N
     try:
         import obslog
         import personal_turn
+        if just_switched(priv, "visit_started"):
+            obslog.event("private.switch_repeat", session=priv.sid, way="in")
+            return priv
+        priv.visit_started = time.time()
         sessions = Path(sessions or work.meta_path.parent.parent)
         personal_turn.moved(sessions, work.sid)   # W2b: the move offers start over
         state = _state(sessions, priv.character or work.character)
@@ -184,6 +194,11 @@ def leave(priv, work, digest=None):
     """Called when the private session `priv` switches back to `work`; returns `work`. Runs `digest(priv)` (the
     private memory), and leaves the return scene line -- only where they went, never what happened."""
     try:
+        if just_switched(work, "return_started"):
+            import obslog
+            obslog.event("private.switch_repeat", session=work.sid, way="out")
+            return work
+        work.return_started = time.time()
         if digest:
             digest(priv)
         sessions = Path(priv.meta_path).parent.parent
