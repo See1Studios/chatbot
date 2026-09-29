@@ -816,6 +816,37 @@ function renderDoneRow(t) {
   return row;
 }
 
+// WORK_NOW_v1 (#417): a ticket someone holds -- an agent outside the chat (Claude Code, a CLI) or a delegated run --
+// showed nowhere: not a decision, not finished. #416 was invisible, and #387's leftover lease held files with no trace.
+const WORK_NOW_TEXT = { head: '진행 중인 작업', lock: '잠금', until: '까지', free: '잠금 없음(만료)' };   // l10n-ok
+
+// The in-progress tickets with who holds them, the files their live lease holds and until when; newest first.
+function inProgressRows(all, leases) {
+  const byTicket = {};
+  (leases || []).forEach(l => { byTicket[l.ticket] = l; });
+  return (all || []).filter(t => t.status === 'in_progress').map(t => {
+    const l = byTicket[t.id];
+    return { id: t.id, title: t.title || '', holder: (l && l.actor) || t.worked_by || t.owner || '',
+             paths: l ? (l.paths || []) : [], until: l ? String(l.until || '').slice(11, 16) : '' };
+  }).sort((a, b) => b.id - a.id);
+}
+
+function renderInProgressRow(w) {
+  const row = obsNode('div', 'obs-row obs-row-compact');
+  const head = obsNode('div', 'obs-head');
+  head.appendChild(obsNode('span', 'obs-id', '#' + w.id));
+  head.appendChild(obsNode('span', 'obs-title', w.title));
+  head.appendChild(obsNode('span', 'obs-badge in_progress', TICKET_STATUS_LABEL.in_progress));
+  const by = actorBadge(w.holder);
+  if (by) head.appendChild(by);
+  row.appendChild(head);
+  const meta = w.until
+    ? WORK_NOW_TEXT.lock + ' ' + (w.paths.length ? w.paths.slice(0, 4).join(', ') : '*') + ' · ' + w.until + ' ' + WORK_NOW_TEXT.until
+    : WORK_NOW_TEXT.free;
+  row.appendChild(obsNode('div', 'obs-meta', meta));
+  return row;
+}
+
 function renderTickets(res) {
   const all = res.tickets || [];
   ticketLeases = res.leases || [];
@@ -826,6 +857,11 @@ function renderTickets(res) {
   if (!rows.length) kids.push(obsNode('div', 'evo-empty', '지금 결정할 작업이 없어요.'));
   else kids.push(obsNode('div', 'obs-meta', '버튼 → 채팅 명령 · Enter 실행'));
   rows.forEach(t => kids.push(renderTicketRow(t)));
+  const now = inProgressRows(all, ticketLeases);
+  if (now.length) {
+    kids.push(obsNode('div', 'evo-sec-head', WORK_NOW_TEXT.head + ' ' + now.length));
+    now.forEach(w => kids.push(renderInProgressRow(w)));
+  }
   const done = recentDoneTickets(all);
   if (done.length) {
     const head = evoToggleHead('최근 ' + DONE_DAYS + '일 처리', done.length, { open: false });

@@ -67,6 +67,32 @@ class TicketButtons(unittest.TestCase):
         md = (STATIC / "markdown.js").read_text(encoding="utf-8")
         self.assertIn("runTicketDecision(ticketCmd", md, "chips share the one decision path")
 
+WORK_NOW = r"""
+const fs = require('fs');
+const evo = fs.readFileSync(process.argv[1], 'utf8');
+const a = evo.indexOf('// WORK_NOW_v1'), b = evo.indexOf('function renderInProgressRow');
+const inProgressRows = new Function(evo.slice(a, b) + '; return inProgressRows;')();
+const all = [{ id: 5, status: 'in_progress', title: 'mine', worked_by: 'claude-code' },
+             { id: 9, status: 'in_progress', title: 'lease ran out', worked_by: 'agy' },
+             { id: 7, status: 'approved', title: 'a decision, not work in progress' }];
+const leases = [{ ticket: 5, paths: ['a.py'], until: '2026-09-29 18:40:00', actor: 'claude-code' }];
+console.log(JSON.stringify(inProgressRows(all, leases)));
+"""
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class WorkInProgress(unittest.TestCase):
+    """WORK_NOW_v1 (#417): held tickets show in the improvement tab with holder, locked files and deadline."""
+
+    def test_held_tickets_are_listed_with_their_lease(self):
+        out = subprocess.run(["node", "-e", WORK_NOW, str(STATIC / "app-evolution.js")], capture_output=True, text=True,
+                             timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        rows = json.loads(out.stdout)
+        self.assertEqual([r["id"] for r in rows], [9, 5])                        # newest first, no decisions
+        self.assertEqual((rows[1]["holder"], rows[1]["paths"], rows[1]["until"]), ("claude-code", ["a.py"], "18:40"))
+        self.assertEqual((rows[0]["holder"], rows[0]["until"]), ("agy", ""))    # no live lease: shown as expired
+
 
 if __name__ == "__main__":
     unittest.main()
