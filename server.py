@@ -209,6 +209,7 @@ from preview_guard import (
     _preview_allowed,
     _resolve_safe_preview_file,
 )
+import client_errors  # page errors -> the host log (#424)
 from workspace_status import (
     experts_api,
     instructions_api,
@@ -863,7 +864,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 _write_mcp_config(cfg)
                 code, raw = _json_bytes({"ok": True, "mcpServers": cfg["mcpServers"]})
                 return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith(("/api/observations", "/api/tickets", "/api/delegations")):
+            if path.startswith(("/api/observations", "/api/tickets", "/api/delegations", client_errors.PATH)):
                 # Closing observations, deciding tickets or letting delegated work start or land is the
                 # operator's: this server's own UI only.
                 if not origin_guard.same_origin(self.headers.get("Origin"), self.headers.get("Host"),
@@ -871,7 +872,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
                     return self._send(code, raw, "application/json; charset=utf-8")
                 routed = (observation_api("POST", path, body) or ticket_api("POST", path, body)
-                          or delegation_api("POST", path, body))
+                          or delegation_api("POST", path, body) or client_errors.api("POST", path, body))
                 if routed is not None:
                     code, raw = _json_bytes(routed[1], routed[0])
                     return self._send(code, raw, "application/json; charset=utf-8")

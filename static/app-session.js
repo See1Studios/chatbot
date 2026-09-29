@@ -875,31 +875,56 @@ async function continueSession() {
   }
 }
 
+// SESSION_OPEN_v1 (#424): opening the latest session swallowed every error and fell through to a brand-new, empty
+// session, so a refresh sometimes showed an empty chat (fourteen empty sessions on 2026-09-29, none from the host,
+// which answered every request). Now only a session that is really gone ("session not found") is skipped, and a
+// new session is made only when there is nothing to open. Any other failure is reported (page.error), tried once
+// more, and then shown with a retry -- the conversation is never hidden behind an empty one.
+const SESSION_OPEN_TEXT = { fail: '대화를 불러오지 못했어요. 새 대화를 만들지 않고 기다리는 중이에요.', retry: '다시 시도' };   // l10n-ok
+
+function sessionGone(e) { return /session not found/.test(String((e && e.message) || e || '')); }
+
+async function openUnlessGone(id) {
+  try { await openSession(id); return true; } catch (e) { if (sessionGone(e)) return false; throw e; }
+}
+
 async function ensureSession() {
   const sp = new URLSearchParams(location.search);
   const urlSid = sp.get('session');
-  if (urlSid) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      try { liveSessionId = await resolveLatestSessionId(); } catch (_) {}
-      await openSession(urlSid);
+      if (urlSid) {
+        try { liveSessionId = await resolveLatestSessionId(); } catch (_) {}
+        if (await openUnlessGone(urlSid)) return;
+      }
+      const latestId = await resolveLatestSessionId();
+      if (latestId) {
+        liveSessionId = latestId;
+        archiveBrowse = false;
+        if (await openUnlessGone(latestId)) return;
+      }
+      if (sessionId) {
+        if (await openUnlessGone(sessionId)) return;
+        sessionId = '';
+        localStorage.removeItem(SESSION_KEY);
+      }
+      await createSession();   // nothing to open: the one case for a new, empty session
       return;
-    } catch (_) {}
-  }
-  try {
-    const latestId = await resolveLatestSessionId();
-    if (latestId) {
-      liveSessionId = latestId;
-      archiveBrowse = false;
-      await openSession(latestId);
-      return;
-    }
-  } catch (_) {}
-  if (sessionId) {
-    try { await openSession(sessionId); return; }
-    catch (_) {
-      sessionId = '';
-      localStorage.removeItem(SESSION_KEY);
+    } catch (e) {
+      if (typeof reportClientError === 'function') reportClientError(e, 'ensureSession attempt ' + attempt);
+      if (attempt === 2) { showSessionOpenFailure(); return; }
+      await new Promise(r => setTimeout(r, 800));
     }
   }
-  await createSession();
+}
+
+function showSessionOpenFailure() {
+  const node = typeof addNotice === 'function' ? addNotice('error', SESSION_OPEN_TEXT.fail) : null;
+  if (!node) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'ghost';
+  btn.textContent = SESSION_OPEN_TEXT.retry;
+  btn.addEventListener('click', () => { node.remove(); ensureSession(); });
+  node.appendChild(btn);
 }

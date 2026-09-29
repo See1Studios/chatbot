@@ -179,3 +179,27 @@ async function defibrillateHost() {
     if (btn) btn.disabled = false;
   }
 }
+
+// CLIENT_ERRORS_v1 (#424): the page's errors go to the host log (page.error), so an empty chat after a refresh
+// leaves a trace. Name, the start of the message, where, the top of the stack -- never a message's text. At most
+// CLIENT_ERROR_MAX a load, fire and forget.
+const CLIENT_ERROR_MAX = 10;
+let clientErrorsSent = 0;
+function reportClientError(err, context) {
+  if (clientErrorsSent >= CLIENT_ERROR_MAX) return;
+  clientErrorsSent++;
+  try {
+    const e = err || {};
+    const body = { name: String(e.name || typeof e), message: String(e.message || e).slice(0, 200),
+                   where: String(e.filename ? e.filename + ':' + e.lineno + ':' + e.colno : '').slice(0, 200),
+                   stack: String(e.stack || '').split('\n').slice(0, 6).join('\n').slice(0, 600),
+                   context: String(context || '').slice(0, 80) };
+    fetch(BASE_PATH + '/api/client-error', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                             body: JSON.stringify(body) }).catch(() => {});
+  } catch (_) { /* reporting must never throw */ }
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('error', (ev) => reportClientError(ev.error || { name: 'Error', message: ev.message,
+    filename: ev.filename, lineno: ev.lineno, colno: ev.colno }, 'window.onerror'));
+  window.addEventListener('unhandledrejection', (ev) => reportClientError(ev.reason, 'unhandledrejection'));
+}
