@@ -350,6 +350,8 @@ def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[s
     ] + (["Read these for reference only; do not change them: %s." % ", ".join(reads)] if reads else []) + [
         "If the task truly needs a file outside them, do not touch it: end your answer with one line per file "
         "`NEED_PATH: <repo-relative path> -- <why>` and stop; the operator can allow it and you will continue.",
+        "A gate or test that fails for a reason your change did not cause is not yours to fix: do not ask for guard, "
+        "gate or test files to get around it; say what fails and why in your final message.",
         "When done, commit your work on this branch (git add <files> && git commit -m '<type>(<scope>): <summary>'); "
         "the subject must be Conventional Commits (feat, fix, docs, test, refactor, chore, ...). The author identity "
         "is already set. The repo's commit hooks run guard tests: fix what they report, never use --no-verify.",

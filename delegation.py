@@ -507,6 +507,23 @@ def _seen() -> Dict[str, int]:
         return {}
 
 
+def _need_paths_view(asked: List[Dict]) -> List[Dict]:
+    """A paused run's requests for the page: a Tier 3 path is marked `operator_only`, so the page offers no
+    allow button that allow() would refuse anyway (#381)."""
+    if not asked:
+        return []
+    r = runner()
+    gated = r.gate_files(ROOT, r.DEFAULT_GATES)
+    out = []
+    for x in asked:
+        try:
+            tier, why = r.tier_of(ROOT, x.get("path", ""), gated)
+        except Exception:
+            tier, why = 0, ""
+        out.append(dict(x, operator_only=True, blocked_why=why) if tier >= 3 else dict(x))
+    return out
+
+
 def runs(limit: int = MAX_RUNS) -> List[Dict]:
     """The work cards: newest first. `stalled` when a run says it is active but its process is gone."""
     d = runner().state_path(0).parent
@@ -548,7 +565,7 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                               for t in (st.get("plan") or {}).get("tasks", [])],
                     "transcript": st.get("transcript", []), "active": phase in ACTIVE_PHASES,
                     "blocked_by": (st.get("blocked_by") or {}) if phase == "queued" else {},
-                    "need_paths": (st.get("need_paths") or []) if phase == "paused" else [],
+                    "need_paths": _need_paths_view(st.get("need_paths") or []) if phase == "paused" else [],
                     "seen": seen.get(str(tid)) == st.get("rev")})
     return out
 

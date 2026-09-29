@@ -278,6 +278,14 @@ class AllowPathsTest(Base):
         with self.assertRaises(delegation.DelegationError):
             delegation.allow(tid)
 
+    def test_the_page_sees_a_tier_3_request_as_operator_only(self):
+        # #381: the card must not offer [경로 허용] for a file allow() will always refuse
+        (delegation.PLAN_ROOT / "data/workspace/notes/y.md").write_text("y")
+        tid = self.paused([{"path": "tickets.py", "why": "guard"}, {"path": "data/workspace/notes/y.md"}])
+        run = next(r for r in delegation.runs() if r["ticket"] == tid)
+        flags = {n["path"]: bool(n.get("operator_only")) for n in run["need_paths"]}
+        self.assertEqual(flags, {"tickets.py": True, "data/workspace/notes/y.md": False})
+
 
 class OperatorTest(Base):
     def test_go_approves_as_the_operator_and_runs_the_plan_to_final_confirmation(self):

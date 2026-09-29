@@ -678,7 +678,8 @@ function renderWorkCard(r) {
 
     if (r.phase === 'paused' && (r.need_paths || []).length) {
       const list = obsNode('ul', 'work-plan need-paths');
-      r.need_paths.forEach(n => list.appendChild(obsNode('li', '', '경로 필요: ' + n.path + (n.why ? ' — ' + n.why : ''))));
+      r.need_paths.forEach(n => list.appendChild(obsNode('li', n.operator_only ? 'operator-only' : '',
+        '경로 필요: ' + n.path + (n.operator_only ? ' [운영자만 수정 가능]' : '') + (n.why ? ' — ' + n.why : ''))));
       details.appendChild(list);
     }
 
@@ -712,7 +713,8 @@ function renderWorkCard(r) {
     });
   }
   if (r.phase === 'paused' && (r.need_paths || []).length) {
-    button('경로 허용', true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
+    // #381: a Tier 3 request can never be allowed, so no allow button -- the operator changes that file or discards
+    if (!r.need_paths.some(n => n.operator_only)) button('경로 허용', true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
     button('폐기', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
   }
   if (r.phase === 'queued') {
