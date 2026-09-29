@@ -53,6 +53,7 @@
 | [private-security.md](private-security.md) | `active` · 방향 **핵심** — 사적 대화 보안(사생활): 위협 모델 T1–T7(옆 사람·네트워크·업무 에이전트·개발 에이전트·모델 제공자·백업·공유), 사적 데이터를 작업공간 밖 한 폴더로, 미리보기 가드, 본문 없는 세션 메타 도구, 빠른 가리기·잠금, 제공자 고지, 잊기. D1–D6 대기 | 사적 세션·사적 기억·호감도 저장, 파일 미리보기, 세션 목록 미리보기, 내보내기를 건드릴 때 |
 | [private-engine-brand.md](private-engine-brand.md) | `active` · 방향 **기반** — Private Engine / 프라이빗엔진 브랜드·도메인 공개 스캔(2026-09-27), privateengine.ai 기울기, 상표≠도메인 | 브랜드명·도메인·상표 클리어런스·외부 배포 명칭을 건드릴 때 |
 | [character-memory-adapter.md](character-memory-adapter.md) | `active` · 방향 **핵심** — 캐릭터 스코프 관계 기억 어댑터(설계·열린 질문), provider/visual 옆 층, Joi식 연속성·opt-in | 관계 기억·사적 continuity·캐릭터 메모리 층을 건드릴 때 |
+| [ux-shell-roadmap.md](ux-shell-roadmap.md) | `active` · 방향 **핵심** — UX 껍데기 순서: 메신저(Telegram·LINE·KakaoTalk 수준 기준선 표로 끝이 있는 완료 기준) → 데스크톱 캐릭터, 엔진은 캐릭터 상태 이벤트로 두 껍데기에 같은 통로, ① 캐릭터 중심 밀도가 다리, 데스크톱 스파이크는 짧게 먼저. UX1–UX4 대기 | 메신저/데스크톱 UX 순서·캐릭터 상태 이벤트·외형 코드와 채팅 DOM 경계를 건드릴 때 |
 
 ## Archived (한 줄 · 펼치지 말 것)
 
