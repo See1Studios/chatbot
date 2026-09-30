@@ -142,6 +142,44 @@ const CASES = {
   reveal_the_last_block_is_always_open: () => revealBlocks('하나\n\n둘\n\n셋').blocks.length,
   reveal_open_text: () => revealBlocks('하나\n\n둘째 문장').open,
   unit_kind_tracks_the_last_thing_written: () => ['*눈을', '*눈을 깜빡*', '"안녕', '"안녕"'].map(unitKind),
+  // --- STAGE_v1 (ux/S5): actions leave the bubble, decided by shape alone ---
+  stage_action_and_speech: () => shape(answerBlocks('*고개를 기울이며 웃는다* "오늘은 어땠어?"')),
+  stage_several: () => shape(answerBlocks('*a* "b" *c* "d"')),
+  stage_whole_action: () => shape(answerBlocks('*창밖을 본다*')),
+  stage_emphasis_stays: () => shape(answerBlocks('이건 *정말* 중요해.')),
+  stage_unquoted_prose_stays: () => shape(answerBlocks('*웃으며* 그래, 그렇게 하자.')),
+  stage_speech_only_stays: () => shape(answerBlocks('"하나" "둘"')),
+  stage_code_stays: () => shape(answerBlocks('```\n*a* "b"\n```')),
+  stage_while_streaming: () => shape(revealBlocks('*웃는다* "안녕"\n\n끝').blocks),
+  stage_layout: () => {
+    const aug = (e) => {
+      e.classList = { contains: c => e.className.split(' ').includes(c),
+        add: c => { if (!e.classList.contains(c)) e.className = (e.className + ' ' + c).trim(); } };
+      Object.defineProperty(e, 'previousElementSibling', { get() { const s = e.parentNode.children; return s[s.indexOf(e) - 1] || null; } });
+      e.insertBefore = (n, ref) => { if (n.parentNode) n.parentNode.removeChild(n); e.children.splice(e.children.indexOf(ref), 0, n); n.parentNode = e; return n; };
+      return e;
+    };
+    const real = document.createElement;
+    document.createElement = (t) => aug(makeEl(t));
+    const blk = (kind, open) => { const b = aug(makeEl('div')); b.className = 'md-block' + (open ? ' open' : ''); b.setAttribute('data-kind', kind); return b; };
+    const msg = aug(makeEl('div')), md = aug(makeEl('div'));
+    msg.appendChild(md);
+    const view = () => md.children.map(c => c.classList.contains('md-say')
+      ? '[' + c.children.map(x => x.getAttribute('data-kind')).join(' ') + ']'
+      : c.getAttribute('data-kind') + (c.classList.contains('open') ? '~' : ''));
+    const open = blk('narration', true);
+    [blk('narration'), blk('dialogue'), open].forEach(b => md.appendChild(b));
+    stageLayout(md);
+    const plain = { view: view(), staged: msg.classList.contains('staged') };
+    md.insertBefore(blk('action'), open); md.insertBefore(blk('dialogue'), open);
+    stageLayout(md); const first = view();
+    stageLayout(md); const again = view();
+    md.insertBefore(blk('narration'), open); stageLayout(md); const joined = view();
+    md.insertBefore(blk('action'), open); md.insertBefore(blk('narration'), open); stageLayout(md); const next = view();
+    document.createElement = real;
+    return { plain, first, again, joined, next, staged: msg.classList.contains('staged'), openStillInBody: open.parentNode === md,
+      narr: md.children.filter(c => c.classList.contains('md-narr')).map(c => c.getAttribute('data-kind')), out: ['narration', 'dialogue', 'action'].filter(blockIsStaged) };
+  },
   quiet_block: () => {
     const q = [blockIsQuiet({ text: '  ' }), blockIsQuiet({ text: '- 하나' })];
     const n = blockIsQuiet({ text: '본문' });
@@ -160,6 +198,41 @@ def run(case):
     if proc.returncode != 0:
         raise AssertionError("node failed for %s: %s" % (case, proc.stderr.strip()[:600]))
     return json.loads(proc.stdout.strip().splitlines()[-1])
+
+
+class Stage(unittest.TestCase):
+    """STAGE_v1 (ux/S5): an action is narration between bubbles, not part of one. Shape decides, in every room."""
+
+    def test_a_paragraph_of_actions_and_quoted_speech_is_taken_apart(self):
+        self.assertEqual(run("stage_action_and_speech"),
+                         ['action:"*고개를 기울이며 웃는다*"', 'dialogue:"\\"오늘은 어땠어?\\""'])
+        self.assertEqual([x.split(":")[0] for x in run("stage_several")], ["action", "dialogue", "action", "dialogue"])
+        self.assertEqual(run("stage_whole_action"), ['action:"*창밖을 본다*"'])
+
+    def test_anything_else_stays_whole(self):
+        # emphasis in a sentence, an action beside unquoted prose (the cut would be a guess), speech alone, code
+        for case in ("stage_emphasis_stays", "stage_unquoted_prose_stays", "stage_speech_only_stays", "stage_code_stays"):
+            out = run(case)
+            self.assertEqual(len(out), 1, case)
+            self.assertTrue(out[0].startswith("narration:"), case)
+
+    def test_a_block_that_closes_while_streaming_is_staged_the_same(self):
+        self.assertEqual([x.split(":")[0] for x in run("stage_while_streaming")], ["action", "dialogue"])
+
+    def test_speech_runs_become_bubbles_around_the_actions(self):
+        o = run("stage_layout")
+        # no action: the answer is one bubble, as before
+        self.assertEqual(o["plain"], {"view": ["narration", "dialogue", "narration~"], "staged": False})
+        # an action arrives: what came before it is one bubble, what follows is the next
+        self.assertEqual(o["first"], ["[narration dialogue]", "action", "[dialogue]", "narration~"])
+        self.assertEqual(o["again"], o["first"])                                   # running it again changes nothing
+        self.assertEqual(o["joined"], ["[narration dialogue]", "action", "[dialogue narration]", "narration~"])
+        self.assertEqual(o["next"], ["[narration dialogue]", "action", "[dialogue narration]", "action", "[narration]", "narration~"])
+        self.assertTrue(o["staged"])
+        self.assertTrue(o["openStillInBody"])     # the block being written stays where the reveal inserts before it
+        # which kinds leave the bubble is one list; layout follows a class, not the kind's name
+        self.assertEqual(o["out"], ["action"])
+        self.assertEqual(o["narr"], ["action", "action"])
 
 
 class BlockKinds(unittest.TestCase):

@@ -116,6 +116,19 @@ html.shell2 body.density-advanced #shellHeart,html.shell2 body.room-open #shellH
 @media (max-width: 640px) and (pointer: fine) { html.shell2 #shellPlus{width:42px;min-width:42px;height:42px;border-radius:12px} }
 @media (max-height: 500px) { html.shell2 #shellPlus{width:32px;min-width:32px;height:32px;border-radius:8px} }
 html.shell2 body.keyboard-open #shellPlus{width:32px;min-width:32px;height:32px;border-radius:8px}
+/* STAGE_v1 (ux/S5): an answer with actions is not one bubble. The message is a plain holder; each run of speech
+   (.md-say, and the block still being written) is a bubble, and an action between them is narration in the middle
+   of the log -- the same look as the user's own action line (.msg.action, chat-log.css). `.md-narr` is any kind
+   drawn outside the bubble (app-blocks.js STAGE_OUT); a kind that should look different adds its own [data-kind] rule. */
+html.shell2 #log > .msg.assistant.staged{background:none;border-color:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;padding:0;width:100%;max-width:100%}
+html.shell2 #log > .msg.assistant.staged .md-say,html.shell2 #log > .msg.assistant.staged .md > .md-block.open:not(:empty){width:fit-content;max-width:92%;margin:0 0 .35rem;padding:.7rem .85rem;border:1px solid var(--border);border-radius:14px 14px 14px 4px;background:var(--bubble-base);backdrop-filter:var(--bubble-blur);-webkit-backdrop-filter:var(--bubble-blur);box-shadow:0 4px 16px rgba(0,0,0,.3),var(--glint)}
+html.shell2 #log > .msg.assistant.staged .md > .md-narr{width:fit-content;max-width:85%;margin:.4rem auto;padding:.3rem .85rem;border:1px dashed var(--border);border-radius:12px;background:var(--bubble-base);text-align:center;font-size:.86rem;font-style:italic;color:var(--muted);opacity:1}
+html.shell2 #log > .msg.assistant.staged .md > .md-narr em{font-size:inherit;opacity:1}
+html.shell2 #log > .msg.assistant.staged .md-say .md-block[data-kind="dialogue"]{padding-left:0;border-left:0}   /* the bubble already says "speech" */
+html.shell2 #log > .msg.assistant.staged .msg-footer{max-width:92%}
+@media (max-width: 640px) {
+  html.shell2 #log > .msg.assistant.staged .md-say,html.shell2 #log > .msg.assistant.staged .md > .md-block.open:not(:empty){max-width:96%;padding:.45rem .6rem}
+}
 /* a pick shows at once: the old talk fades and a thin line runs while the switch happens behind it */
 html.shell2 #log{transition:opacity .15s ease}
 html.shell2.shell-switching #log{opacity:0}

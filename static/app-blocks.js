@@ -137,6 +137,31 @@ function classifyBlocks(text) {
   return out.length ? out : [{ kind: BLOCK_NARRATION, text: text || '' }];
 }
 
+// STAGE_v1 (ux/S5, operator 2026-10-01): an action is not part of a bubble -- it is drawn as narration between
+// bubbles. Which text counts is decided by shape alone, the same in every room: a paragraph that is one action
+// (classifyBlocks already says so), or a paragraph made ONLY of actions and quoted speech, which is taken apart into
+// its actions and its lines. Anything else stays whole: `this *really* matters` is emphasis, and `*smiling* fine.`
+// mixes an action with unquoted prose, where the cut would be a guess.
+// Which kinds are drawn outside the bubble is this one list (operator: keep it extensible). A new kind -- a move,
+// a thought shown in the open -- joins by being classified above and named here; the grouping (app-messages.js
+// stageLayout) and the layout (shell.css .md-narr) follow the list, and only the kind's own look is new CSS.
+const STAGE_OUT = [BLOCK_ACTION];
+function blockIsStaged(kind) { return STAGE_OUT.indexOf(kind) >= 0; }
+function stageBlocks(blocks) {
+  const out = [];
+  (blocks || []).forEach((b) => {
+    if (b.kind !== BLOCK_NARRATION || b.fenced) { out.push(b); return; }
+    const runs = splitInline(b.text);
+    const staged = runs.length > 1 && runs.some(r => blockIsStaged(r.kind)) && runs.every(r => r.kind !== BLOCK_NARRATION);
+    if (!staged) { out.push(b); return; }
+    runs.forEach(r => out.push({ kind: r.kind, text: r.text }));
+  });
+  return out;
+}
+// The blocks an answer is drawn as -- one function for the final render and the streaming reveal, so a block that
+// closes while streaming already looks the way it will at the end.
+function answerBlocks(text) { return stageBlocks(classifyBlocks(text)); }
+
 function blockRuns(block) {
   // The runs a block renders as. Only prose is split inline, and a fenced block never is: it was
   // carved out of classification precisely because a quote in it is a string literal. Rendering is
@@ -207,7 +232,7 @@ function revealBlocks(text) {
   while (i < lines.length) {
     const end = blockEnd(lines, i);
     if (end < 0) break;
-    classifyBlocks(lines.slice(i, end).join('\n')).forEach((b) => { if (b.text.trim()) out.push(b); });
+    answerBlocks(lines.slice(i, end).join('\n')).forEach((b) => { if (b.text.trim()) out.push(b); });
     i = end;
     while (i < lines.length && !lines[i].trim()) i++;      // the gap between blocks is neither's
   }

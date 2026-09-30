@@ -154,6 +154,8 @@ function setStreamingContent(node, text, badgeSrc) {
   for (let i = from; i < cut.blocks.length; i++) {
     md.insertBefore(buildBlock(cut.blocks[i], false), openEl);
   }
+  // STAGE_v1 (app-messages.js): actions between bubbles, as the final render will draw them
+  if (from < cut.blocks.length && typeof stageLayout === 'function') stageLayout(md);
   node._streamUnits = cut.blocks.length;
   // The open block carries the kind being written, so a line that has an action and then speech
   // flows like speech while the speech is the part arriving.
