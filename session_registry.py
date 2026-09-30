@@ -82,6 +82,7 @@ def _meta_summary(p: Path) -> Optional[dict]:
             "model": meta.get("model"),
             "mode": meta.get("mode") if meta.get("mode") in ("private", "room") else "work",   # a room seat is never work
             "character": str(meta.get("character") or ""),
+            "provider": str(meta.get("provider") or ""),
             "probe": _probe_meta(meta) or (p.parent / PROBE_MARKER).exists(),
             "preview": (str(hist[-1].get("text", ""))[:80] if hist else ""),
             "turns": len(hist),
@@ -228,7 +229,8 @@ class Registry:
         return out
 
     def talks(self) -> Dict[str, dict]:
-        """The newest work talk of every character, for the talk list (ux/S1): {character id: {"at", "preview"}}.
+        """The newest work talk of every character, for the talk list (ux/S1): {character id: {"at", "preview",
+        "provider"}} -- the provider is the brain last used with the character, which its picture follows.
         list() stops at 40 sessions, which one busy character fills. Private and room sessions are never read
         here: the list is what someone beside the user sees. A session nobody has spoken in yet is no talk."""
         out: Dict[str, dict] = {}
@@ -237,7 +239,7 @@ class Registry:
                 continue
             cid = _character_id(m["character"])
             if cid not in out or m["mtime"] > out[cid]["at"]:
-                out[cid] = {"at": m["mtime"], "preview": m["preview"]}
+                out[cid] = {"at": m["mtime"], "preview": m["preview"], "provider": m["provider"]}
         return out
 
     def get_active(self, character: str = "") -> "AgentSession":

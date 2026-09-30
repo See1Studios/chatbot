@@ -226,6 +226,20 @@ function characterPortrait(c, p) {
   return BASE_PATH + '/api/characters/' + encodeURIComponent(c.id) + '/avatar?provider=' + encodeURIComponent((p && p.id) || '')
     + '&v=' + c.avatar_v;
 }
+// OWN_LOOK_v1 (operator, 2026-09-30): a character's picture follows ITS OWN provider -- the one picked now for the
+// open character, the brain last used with it for the others (the server's talks, session_registry talks()) -- so
+// switching the open talk's provider never repaints everyone else. Unknown = the character's plain avatar.
+// Whether the look stays bound to the provider at all is undecided; this is the one place that binding is read.
+let characterTalks = {};
+function characterLook(c) {
+  if (!c) return null;
+  if (c.id === openCharacterId() && !(typeof roomOpenId === 'function' && roomOpenId())) {
+    return providerCatalog.find(item => item.id === (providerEl ? providerEl.value : '')) || null;
+  }
+  const own = (characterTalks[c.id] || {}).provider || '';
+  return own ? (providerCatalog.find(item => item.id === own) || { id: own }) : null;
+}
+function characterOwnPortrait(c) { return characterPortrait(c, characterLook(c)); }
 async function loadCharacters() {
   try {
     const res = await api('/api/characters');
@@ -233,6 +247,7 @@ async function loadCharacters() {
   } catch (_) {
     characterCatalog = [];
   }
+  try { characterTalks = (await api('/api/sessions')).talks || characterTalks; } catch (_) { /* keep the last known */ }
   if (typeof loadVisualAdapterForCharacter === 'function') {
     loadVisualAdapterForCharacter();
   }
@@ -428,7 +443,6 @@ function toggleProviderTray(force) {
 function renderCharacterTray() {
   if (!characterTrayEl) return;
   characterTrayEl.innerHTML = '';
-  const p = providerCatalog.find(item => item.id === (providerEl ? providerEl.value : '')) || providerCatalog[0];
   characterCatalog.forEach(c => {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -438,7 +452,7 @@ function renderCharacterTray() {
     btn.title = label + (c.title && c.title !== label ? ' · ' + c.title : '');
     const img = document.createElement('img');
     img.onerror = () => { img.onerror = null; img.src = initialAvatar(label); };
-    img.src = characterPortrait(c, p);
+    img.src = characterOwnPortrait(c);
     img.alt = label;
     const tip = document.createElement('span');
     tip.className = 'provider-tooltip';
@@ -485,14 +499,15 @@ function toggleCharacterTray(force) {
   if (brandAvatarEl) brandAvatarEl.setAttribute('aria-expanded', String(willShow));
 }
 
-// Opens the character's own session in the current mode; its newest session keeps the brain last used with it.
-// `mode` overrides the current one: the talk list (app-shell.js) always opens the work room.
-async function selectCharacter(c, mode) {
+// Opens the character's own WORK session; its newest session keeps the brain last used with it. Never the mode on
+// screen (operator, 2026-09-30): private mode does not carry over to another character -- from a private talk the
+// server would start a fresh private session for whoever was picked. Going private is done on purpose (the heart).
+async function selectCharacter(c) {
   if (!c || c.id === openCharacterId()) return;
   try {
     const res = await api('/api/characters/' + encodeURIComponent(c.id) + '/session', {
       method: 'POST',
-      body: JSON.stringify({ mode: mode || sessionMode, from: sessionId })   // the room being left, for its private digest
+      body: JSON.stringify({ mode: 'work', from: sessionId })   // from: the room being left, for its private digest
     });
     if (res && res.session && res.session.id) {
       await applyModeSwitch(res);

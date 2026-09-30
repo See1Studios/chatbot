@@ -27,8 +27,7 @@ let open = { character: 'a', room: '' };
 const characterCatalog = [{ id: 'a', name: 'Kit', default: true }, { id: 'b', name: 'Kiki' }, { id: 'c', title: 'Ari' }];
 const openCharacterId = () => open.character, roomOpenId = () => open.room;
 const roomEnter = async (id) => { calls.push('roomEnter ' + id); }, roomLeave = async () => { calls.push('roomLeave'); };
-const selectCharacter = async (c, mode) => { calls.push('selectCharacter ' + c.id + ' ' + mode); };
-let sessionMode = 'private';   // the open talk is private: picking someone else must not carry that over
+const selectCharacter = async (c) => { calls.push('selectCharacter ' + c.id); };
 const api = async () => ({ sessions: [] });
 """
 
@@ -150,10 +149,14 @@ class ShellList(unittest.TestCase):
         self.assertEqual(self.o["never"], "")
 
     def test_picking_a_row_makes_the_trays_calls(self):
-        # another character opens in its work room even though the open talk is private
-        self.assertEqual(self.o["calls"], ["selectCharacter b work", "roomEnter room_1", "roomLeave", "selectCharacter b work"])
+        self.assertEqual(self.o["calls"], ["selectCharacter b", "roomEnter room_1", "roomLeave", "selectCharacter b"])
+
+    def test_private_mode_never_carries_over_to_another_character(self):
+        # list and tray both go through selectCharacter, which asks for the work room whatever is on screen
         src = (STATIC / "app-characters.js").read_text(encoding="utf-8")
-        self.assertIn("mode: mode || sessionMode", src)
+        body = src[src.index("async function selectCharacter(c)"):src.index("function onTrayKey")]
+        self.assertIn("mode: 'work'", body)
+        self.assertNotIn("sessionMode", body)
 
     def test_narrow_list_and_chat(self):
         self.assertTrue(self.o["listShown"])
@@ -165,6 +168,46 @@ class ShellList(unittest.TestCase):
 
     def test_off_does_nothing(self):
         self.assertEqual(self.o["off"], [False, None, None])
+
+
+LOOK = r"""
+const src = require('fs').readFileSync(process.argv[1], 'utf8');
+const part = src.slice(src.indexOf('let characterTalks'), src.indexOf('async function loadCharacters'));
+const run = new Function(`
+  let open = 'a', room = '', picked = 'brain-x';
+  const openCharacterId = () => open, roomOpenId = () => room, providerEl = { get value() { return picked; } };
+  const providerCatalog = [{ id: 'brain-x' }, { id: 'brain-y' }];
+  const characterPortrait = (c, p) => c.id + '@' + ((p && p.id) || '');
+` + part + `
+  characterTalks = { a: { provider: 'brain-y' }, b: { provider: 'brain-y' }, c: { provider: 'gone' }, d: { provider: '' } };
+  const all = () => ['a', 'b', 'c', 'd', 'e'].map(id => characterOwnPortrait({ id }));
+  const o = { first: all() };
+  picked = 'brain-y'; o.afterSwitch = all();           // the open talk changes provider: only its own row follows
+  picked = 'brain-x'; room = 'room_1'; o.inRoom = all();   // a room is open: nobody is "the open character"
+  return o;`);
+console.log(JSON.stringify(run()));
+"""
+
+
+@unittest.skipUnless(shutil.which("node"), "node is not installed")
+class OwnLook(unittest.TestCase):
+    """OWN_LOOK_v1: a character's picture follows its own provider, never the open talk's."""
+
+    def test_each_character_keeps_its_own_providers_look(self):
+        p = subprocess.run(["node", "-e", LOOK, str(STATIC / "app-characters.js")], capture_output=True, text=True, timeout=60)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        o = json.loads(p.stdout)
+        # a: the open one, the provider picked now. b: the brain last used with it. c: a provider no longer in the
+        # catalog still names its picture. d, e: unknown -> the plain avatar.
+        self.assertEqual(o["first"], ["a@brain-x", "b@brain-y", "c@gone", "d@", "e@"])
+        self.assertEqual(o["afterSwitch"], ["a@brain-y", "b@brain-y", "c@gone", "d@", "e@"])
+        self.assertEqual(o["inRoom"][0], "a@brain-y")     # from its own talk, not the picker
+
+    def test_tray_and_list_use_it(self):
+        chars = (STATIC / "app-characters.js").read_text(encoding="utf-8")
+        tray = chars[chars.index("function renderCharacterTray()"):chars.index("function toggleCharacterTray")]
+        self.assertIn("characterOwnPortrait(c)", tray)
+        self.assertIn("characterOwnPortrait(c)", (STATIC / "app-shell.js").read_text(encoding="utf-8"))
 
 
 class ShellSwitch(unittest.TestCase):

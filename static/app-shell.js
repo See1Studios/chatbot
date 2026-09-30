@@ -85,7 +85,6 @@ function shellListDraw() {
   const chars = typeof characterCatalog !== 'undefined' ? characterCatalog : [];
   const rooms = typeof roomState !== 'undefined' ? roomState.rooms : [];
   const rows = shellFilter(shellRows(chars, shellState.sessions, rooms, shellOpenNow(), shellState.talks), shellState.filter);
-  const p = (typeof providerCatalog !== 'undefined' && providerCatalog.find(x => x.id === (providerEl ? providerEl.value : ''))) || null;
   const add = document.getElementById('shellNewRoom');
   if (add) add.hidden = !(typeof openRooms === 'function' && chars.length > 1);   // a room needs two members
   box.textContent = '';
@@ -102,7 +101,7 @@ function shellListDraw() {
     img.alt = '';
     img.onerror = () => { img.onerror = null; img.src = initialAvatar(r.name); };
     const c = r.kind === 'character' ? chars.find(x => x.id === r.id) : null;
-    img.src = c ? characterPortrait(c, p) : initialAvatar(r.name);
+    img.src = c ? characterOwnPortrait(c) : initialAvatar(r.name);   // its own provider's look (OWN_LOOK_v1)
     let line = r.preview || SHELL_TEXT.fresh, cls = 'shell-row-preview';
     if (r.private) { line = SHELL_TEXT.private; cls += ' is-private'; }
     else if (r.kind === 'room') {
@@ -125,6 +124,7 @@ async function shellListRefresh() {
     const [s] = await Promise.all([api('/api/sessions'), typeof roomsReload === 'function' ? roomsReload() : null]);
     shellState.sessions = (s && s.sessions) || [];
     shellState.talks = (s && s.talks) || null;
+    if (shellState.talks && typeof characterTalks !== 'undefined') characterTalks = shellState.talks;
   } catch (_) { /* keep what is drawn */ }
   shellState.loading = false;
   shellListDraw();
@@ -135,15 +135,13 @@ function shellListSoon(ms) {
 }
 
 // A row is picked. The open character's row leads back from a room. Another character always opens in its WORK
-// room, whatever room is open now (operator, 2026-09-30): the mode belongs to the open talk, and going private is
-// something the user does on purpose (the heart, the threshold), never a side effect of looking at someone else.
-// The private room being left still gets its digest (selectCharacter sends `from`).
+// room, whatever room is open now (selectCharacter): the mode belongs to the open talk.
 async function shellPick(r) {
   shellShowChat();
   if (r.kind === 'room') { if (roomOpenId() !== r.id) await roomEnter(r.id); return; }
   if (roomOpenId() && r.id === openCharacterId()) { await roomLeave(); return; }
   const c = characterCatalog.find(x => x.id === r.id);
-  if (c) await selectCharacter(c, 'work');
+  if (c) await selectCharacter(c);
 }
 
 // Narrow screens show one pane. The list is an overlay above the chat (the chat stays laid out, so its scroll
@@ -191,6 +189,8 @@ function shellInit() {
     roomEnter = async function () { const ok = await enter.apply(this, arguments); shellListSoon(); return ok; };
     roomClose = function () { close.apply(this, arguments); shellListSoon(); };
   }
+  const brand = updateBrandAvatar;   // the open talk's provider changed: its row's picture follows (OWN_LOOK_v1)
+  updateBrandAvatar = function () { brand.apply(this, arguments); shellListDraw(); };
   const busy = setBusy;
   setBusy = function (b) { const was = isBusy; busy.apply(this, arguments); if (was && !b) shellListSoon(1500); };
   // the heart (or /private) flips body.private-session: the open row's private mark follows at once
