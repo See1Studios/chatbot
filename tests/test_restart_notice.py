@@ -2,12 +2,14 @@
 Run: python3 -m unittest tests.test_restart_notice  (from services/chatbot)
 """
 import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
+os.environ.setdefault("CHATBOT_EVENTS_DIR", tempfile.mkdtemp())   # never the live event mailbox (evt/B)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import server  # noqa: E402
 import session as S  # noqa: E402

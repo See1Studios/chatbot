@@ -418,6 +418,10 @@ def queue_loop(stop: Optional[threading.Event] = None) -> None:
             advance_queue()
         except Exception:  # noqa: BLE001 -- a bad state file must not end the watcher
             pass
+        try:
+            publish_work_changes()                 # evt/B: phase changes into the event mailbox
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # ------------------------------------------------------------------- launching
@@ -597,47 +601,102 @@ _NOTE_PHASES = {"queued": "queued, waiting for its files", "starting": "starting
 _NOTE_KEEP = ("queued", "paused", "awaiting_merge", "unavailable", "base_broken") + ACTIVE_PHASES   # still open
 
 
+def _views(ws) -> List[Dict]:
+    """Each run as the note needs it: ticket, title, phase, task n/m and the character doing the current task."""
+    import characters
+    out = []
+    for r in runs():
+        tasks = r.get("tasks") or []
+        task = tasks[max(0, (r.get("task") or 1) - 1)] if tasks else {}
+        worker = characters.by_role(task["role"], ws) if task.get("role") else None
+        out.append({"ticket": str(r["ticket"]), "title": r.get("title", "")[:80], "phase": r["phase"],
+                    "task": r.get("task"), "tasks_total": r.get("tasks_total") or 0, "worker": worker or ""})
+    return out
+
+
+def _phrase(v: Dict, lead: bool, default_name: str, worker_name: str) -> str:
+    w = "you are" if not lead else ("%s is" % worker_name if worker_name else "the expert is")
+    what = (_NOTE_PHASES.get(v["phase"], v["phase"]) % {"d": default_name, "w": "%(w)s"}).replace("%(w)s is", w)
+    step = " (task %s of %s)" % (v.get("task"), v["tasks_total"]) if (v.get("tasks_total") or 0) > 1 else ""
+    return '#%s "%s"%s: %s' % (v["ticket"], v["title"], step, what)
+
+
+def _wrap(lines: List[str], lead: bool) -> str:
+    if not lines:
+        return ""
+    if lead:
+        return ("[Work you delegated] " + " · ".join(lines) + ". Before telling the user about delegated work, "
+                "check `delegate` status; never guess a run's state.")
+    return ("[Your delegated work] " + " · ".join(lines) + ". This is your own work: speak of it as yours when "
+            "asked; do not start it again here.")
+
+
+def _lines_for(character: str, views: List[Dict], ws) -> Tuple[List[Dict], bool, str]:
+    import characters
+    default = characters.default_character(ws)
+    lead = character == default
+    return ([v for v in views if lead or (v["worker"] and v["worker"] == character)], lead,
+            characters.name(default, ws) or "the lead")
+
+
 def work_note(character: str, told: Dict[str, str]) -> Tuple[str, Dict[str, str]]:
     """(the line to put before the user's message, the new `told` state) for `character`: the runs it works on, or,
-    for the default character, every run. `told` maps ticket -> the phase this session last heard; ended runs are
-    told once, then dropped."""
+    for the default character, every run. `told` maps ticket -> the phase last heard; ended runs are told once, then
+    dropped. With an empty `told` this is the summary a new session gets of the work still open."""
     import characters
     ws = DATA / "workspace"
+    if not character:
+        return "", told
     try:
-        default = characters.default_character(ws)
-        if not character:
-            return "", told
-        lead = character == default
-        names = {"d": characters.name(default, ws) or "the lead"}
-        mine = {}
-        for r in runs():
-            tasks = r.get("tasks") or []
-            task = tasks[max(0, (r.get("task") or 1) - 1)] if tasks else {}
-            worker = characters.by_role(task["role"], ws) if task.get("role") else None
-            if lead or (worker and worker == character):
-                mine[str(r["ticket"])] = (r, characters.name(worker, ws) if worker else "")
+        mine, lead, default_name = _lines_for(character, _views(ws), ws)
     except Exception:  # noqa: BLE001 -- a note is a courtesy; the turn goes on without it
         return "", told
     lines, now = [], {}
-    for tid, (r, worker_name) in mine.items():
-        phase = r["phase"]
+    for v in mine:
+        tid, phase = v["ticket"], v["phase"]
         if phase not in _NOTE_KEEP and tid not in told:
             continue                                # ended before this session heard of it
         if phase in _NOTE_KEEP:
             now[tid] = phase
         if told.get(tid) == phase:
             continue
-        w = "you are" if not lead else ("%s is" % worker_name if worker_name else "the expert is")
-        what = (_NOTE_PHASES.get(phase, phase) % dict(names, w="%(w)s")).replace("%(w)s is", w)
-        step = " (task %s of %s)" % (r.get("task"), r.get("tasks_total")) if (r.get("tasks_total") or 0) > 1 else ""
-        lines.append('#%s "%s"%s: %s' % (tid, r.get("title", "")[:80], step, what))
-    if not lines:
-        return "", now
-    if lead:
-        return ("[Work you delegated] " + " · ".join(lines) + ". Before telling the user about delegated work, "
-                "check `delegate` status; never guess a run's state."), now
-    return ("[Your delegated work] " + " · ".join(lines) + ". This is your own work: speak of it as yours when "
-            "asked; do not start it again here."), now
+        lines.append(_phrase(v, lead, default_name, characters.name(v["worker"], ws) if v["worker"] else ""))
+    return _wrap(lines, lead), now
+
+
+def publish_work_changes() -> int:
+    """Put each run's phase change in the event mailbox (evt/B), addressed to the character doing its current task
+    and the default character. A run first seen already ended is not announced. Returns how many were published."""
+    import characters
+    import events
+    ws = DATA / "workspace"
+    last: Dict[str, str] = {}
+    for e in events.recent("work.phase"):
+        last[e["subject"]] = e["payload"].get("phase", "")
+    default, n = characters.default_character(ws), 0
+    for v in _views(ws):
+        prev = last.get(v["ticket"])
+        if prev == v["phase"] or (prev is None and v["phase"] not in _NOTE_KEEP):
+            continue
+        events.publish("work.phase", [v["worker"], default], subject=v["ticket"], **{k: v[k] for k in (
+            "title", "phase", "task", "tasks_total", "worker")})
+        n += 1
+    return n
+
+
+def work_event_note(evts: List[Dict], character: str) -> str:
+    """The note for `character` from its pending `work.phase` events: the latest phase of each run."""
+    import characters
+    ws = DATA / "workspace"
+    latest: Dict[str, Dict] = {}
+    for e in evts:
+        if e.get("type") == "work.phase":
+            latest[e["subject"]] = dict(e["payload"], ticket=e["subject"])
+    if not latest or not character:
+        return ""
+    mine, lead, default_name = _lines_for(character, list(latest.values()), ws)
+    return _wrap([_phrase(v, lead, default_name, characters.name(v["worker"], ws) if v["worker"] else "")
+                  for v in mine], lead)
 
 
 def display_names() -> Dict[str, str]:

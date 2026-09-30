@@ -5,6 +5,7 @@ was waiting for a merge); nothing in a private session.
 Run: python3 -m unittest tests.test_work_note  (from services/chatbot)
 """
 import shutil
+import os
 import sys
 import tempfile
 import unittest
@@ -12,6 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parent.parent
+os.environ.setdefault("CHATBOT_EVENTS_DIR", tempfile.mkdtemp())   # never the live event mailbox (evt/B)
 sys.path.insert(0, str(ROOT))
 import characters as C  # noqa: E402
 import delegation  # noqa: E402

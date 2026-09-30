@@ -2,6 +2,12 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-30 — 이벤트 우편국 1단계: 작업 안내·재시작 안내를 우편함 위로 (evt/B, #470)
+
+- **계획**: [character-events-and-rooms.md](plans/character-events-and-rooms.md)(E1–E8 추천대로 결정).
+- **변경**: `events.py` — `publish(type, to, channel, subject, **payload)`(수취인은 발행자가 관계로 정한 캐릭터 id 또는 전체, 대화 본문 없음), 세션별 커서(`data/events/cursors.json`, 재시작해도 유지), `pending(sid, character, channel)`, 보관 30일·10MB·사적 7일(E3), 스레드·프로세스 잠금. 발행: 위임 단계 변화는 서버의 10초 감시 루프에서 `delegation.publish_work_changes`(현재 태스크 작업자 + 기본 캐릭터에게, 처음 본 끝난 작업은 안 알림), 재시작은 부팅 때 전체에게. 배달: `server._turn_notices`가 우편함을 읽음 — 세션 첫 읽기는 재시작 안내 + 진행 중 작업 요약(이전과 같은 문구), 그 뒤엔 그 캐릭터에게 온 것만. 사적 세션엔 업무 안내 없음, 사적 이벤트는 참여자의 사적 채널에만(E1). `.gitignore`에 `data/events/`, 테스트는 실제 우편함을 안 건드림(`run-tests.sh`가 `CHATBOT_EVENTS_DIR`를 임시 폴더로).
+- **테스트**: `tests/test_events.py` 6건, `test_restart_notice`·`test_work_note` 그대로 통과.
+
 ## 2026-09-30 — 멈춘 위임 작업자를 10분 만에 끊고 다음 두뇌로 (WORKER_STALL_v1, #468)
 
 - **증상**: #462가 두 번 연속 20분 시간 초과. agy 로그 — 첫 시도는 커밋 뒤 `500 Internal`·`503 No capacity available for model gemini-3.8-flash-high` 재시도, 두 번째는 모델 호출 1번 뒤 **18분 무응답**(모델 목록 조회만). 러너는 20분을 다 기다렸음.

@@ -56,6 +56,7 @@ fi
 # repository and behaved differently.
 RUN_TMP="$(mktemp -d /tmp/chatbot-tests.XXXXXX)" || exit 2
 export TMPDIR="$RUN_TMP"
+export CHATBOT_EVENTS_DIR="$RUN_TMP/events"   # evt/B: tests never write the live event mailbox
 trap 'rm -rf "$RUN_TMP"' EXIT
 
 ms() { echo $(( $(date +%s%N) / 1000000 )); }

@@ -1401,32 +1401,40 @@ def _record_boot(state: Path = None) -> Dict[str, Any]:
         obslog.event("boot.state_write_failed", lvl="warn", error=str(e))
     import session as _session_mod
     _session_mod.boot_notice = _turn_notices
+    try:
+        import events
+        events.publish("host.restart", events.ALL, ts=BOOT_INFO["boot_ts"], head=head, landed=BOOT_INFO["landed"])
+    except Exception as e:  # noqa: BLE001
+        obslog.event("events.publish_failed", lvl="warn", error=str(e))
     return BOOT_INFO
 
 
 def _turn_notices(sess) -> str:
-    """Lines put before the user's message (session.boot_notice hook): the restart notice, and in a work session the
-    character's own delegated work when it changed (delegation.work_note, WORK_NOTE_v1)."""
-    notes = [_boot_notice(sess)]
-    if not getattr(sess, "is_private", False):
-        try:
+    """Lines put before the user's message (session.boot_notice hook), from the event mailbox (evt/B): what was
+    addressed to this session's character on its channel since the session last read. A session's first read gets
+    the latest restart and a summary of the delegated work still open instead of the whole history."""
+    import events
+    sid, character = str(getattr(sess, "sid", "") or ""), getattr(sess, "character", "") or ""
+    channel = "private" if getattr(sess, "is_private", False) else "work"
+    try:
+        first = events.cursor(sid) is None
+        got = [] if first else events.pending(sid, character, channel)
+        restarted = first or any(e["type"] == "host.restart" for e in got)   # the text is this boot's (BOOT_INFO)
+        notes = [_restart_line(BOOT_INFO) if restarted and BOOT_INFO.get("boot_ts") else ""]
+        if channel == "work":
             import delegation
-            note, sess._work_told = delegation.work_note(getattr(sess, "character", ""), getattr(sess, "_work_told", {}))
-            notes.append(note)
-        except Exception:  # noqa: BLE001 -- no delegation in this build: no note
-            pass
+            notes.append(delegation.work_note(character, {})[0] if first else delegation.work_event_note(got, character))
+        events.mark(sid, max([e["id"] for e in got] + [events.last_id() if first else 0]))
+    except Exception as e:  # noqa: BLE001 -- a note is a courtesy; the turn goes on without it
+        obslog.event("events.deliver_failed", lvl="warn", error=str(e))
+        return ""
     return "\n\n".join(n for n in notes if n)
 
 
-def _boot_notice(sess) -> str:
-    """The one-line restart notice for a session's first turn after this boot; "" once it was given (or no boot info)."""
-    ts = BOOT_INFO.get("boot_ts") or 0
-    if not ts or getattr(sess, "_boot_noticed", 0) == ts:
-        return ""
-    sess._boot_noticed = ts
-    landed = " · ".join(BOOT_INFO.get("landed") or []) or "새 커밋 없음"
-    head = (BOOT_INFO.get("head") or "?")[:7]
-    return "[시스템 안내] 호스트가 %s에 재기동됨 (HEAD %s). 반영: %s" % (time.strftime("%H:%M", time.localtime(ts)), head, landed)
+def _restart_line(p: Dict[str, Any]) -> str:
+    landed = " · ".join(p.get("landed") or []) or "새 커밋 없음"
+    return "[시스템 안내] 호스트가 %s에 재기동됨 (HEAD %s). 반영: %s" % (
+        time.strftime("%H:%M", time.localtime(p.get("boot_ts") or 0)), (p.get("head") or "?")[:7], landed)
 
 
 def _obs_heartbeat() -> Dict[str, Any]:
