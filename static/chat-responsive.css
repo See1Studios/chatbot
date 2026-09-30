@@ -9,13 +9,22 @@
     width:42px;
     min-width:42px;
     height:42px;
+    border-radius:12px;
+  }
+  #geoBtn, #privateBtn{
+    width:42px;
+    min-width:42px;
+    height:42px;
+    border-radius:12px;
   }
   #send{
     height:42px;
+    border-radius:12px;
   }
   #input{
     min-height:42px;
     height:42px;
+    border-radius:12px;
   }
 }
 
@@ -66,10 +75,27 @@
   .msg.user, .msg.assistant{
     padding:.35rem .5rem;
   }
+  .composer{
+    gap:.25rem;
+    align-items:flex-end;
+  }
   #slashBtn{
     width:32px;
     min-width:32px;
     height:32px;
+    font-size:.88rem;
+    border-radius:8px;
+    line-height:1;
+  }
+  #geoBtn, #privateBtn{
+    width:32px;
+    min-width:32px;
+    height:32px;
+    border-radius:8px;
+  }
+  #geoBtn .tab-icon-svg, #privateBtn .tab-icon-svg{
+    width:16px;
+    height:16px;
   }
   #input{
     min-height:32px;
@@ -77,11 +103,17 @@
     max-height:64px;
     padding:.3rem .5rem;
     font-size:14px;
+    border-radius:8px;
   }
   #send{
     height:32px;
     padding:0 .5rem;
     font-size:.76rem;
+    border-radius:8px;
+  }
+  #send .send-icon{
+    width:1rem;
+    height:1rem;
   }
 }
 body.keyboard-open .wrap{
@@ -108,10 +140,29 @@ body.keyboard-open .msg{
 body.keyboard-open .msg.user, body.keyboard-open .msg.assistant{
   padding:.35rem .5rem;
 }
+body.keyboard-open .composer{
+  gap:.25rem;
+  align-items:flex-end;
+}
 body.keyboard-open #slashBtn{
   width:32px;
   min-width:32px;
   height:32px;
+  font-size:.88rem;
+  border-radius:8px;
+  line-height:1;
+}
+body.keyboard-open #geoBtn,
+body.keyboard-open #privateBtn{
+  width:32px;
+  min-width:32px;
+  height:32px;
+  border-radius:8px;
+}
+body.keyboard-open #geoBtn .tab-icon-svg,
+body.keyboard-open #privateBtn .tab-icon-svg{
+  width:16px;
+  height:16px;
 }
 body.keyboard-open #input{
   min-height:32px;
@@ -119,11 +170,17 @@ body.keyboard-open #input{
   max-height:64px;
   padding:.3rem .5rem;
   font-size:14px;
+  border-radius:8px;
 }
 body.keyboard-open #send{
   height:32px;
   padding:0 .5rem;
   font-size:.76rem;
+  border-radius:8px;
+}
+body.keyboard-open #send .send-icon{
+  width:1rem;
+  height:1rem;
 }
 /* .wrap is --app-height tall with overflow:hidden; #workBar's 40vh follows the layout viewport, which the
    on-screen keyboard does not shrink, so it could fill the whole short wrap and push #choiceBar and the

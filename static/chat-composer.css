@@ -118,6 +118,7 @@ textarea{
   overflow-y:hidden;
   box-shadow:inset 0 1px 3px rgba(0,0,0,0.3);
   transition:all .15s ease;
+  margin:0;
 }
 textarea:focus{
   outline:none;
@@ -141,11 +142,16 @@ textarea::placeholder{
   justify-content:center;
   border-radius:12px;
   flex-shrink:0;
+  margin:0;
+  box-sizing:border-box;
 }
 .slash-trigger-btn, .model-trigger-btn, .geo-trigger-btn{
   width:42px;
   min-width:42px;
   padding:0 !important;
+  margin:0;
+  line-height:1;
+  box-sizing:border-box;
   background:rgba(255,255,255,.05);
   border:1px solid var(--border);
   color:var(--muted);
