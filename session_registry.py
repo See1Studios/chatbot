@@ -227,6 +227,19 @@ class Registry:
             })
         return out
 
+    def talks(self) -> Dict[str, dict]:
+        """The newest work talk of every character, for the talk list (ux/S1): {character id: {"at", "preview"}}.
+        list() stops at 40 sessions, which one busy character fills. Private and room sessions are never read
+        here: the list is what someone beside the user sees. A session nobody has spoken in yet is no talk."""
+        out: Dict[str, dict] = {}
+        for m in _meta_summaries():
+            if m["probe"] or m["mode"] != "work" or not m["turns"]:
+                continue
+            cid = _character_id(m["character"])
+            if cid not in out or m["mtime"] > out[cid]["at"]:
+                out[cid] = {"at": m["mtime"], "preview": m["preview"]}
+        return out
+
     def get_active(self, character: str = "") -> "AgentSession":
         """Live conversation: the character's newest *work* session id, then the successor-chain tip ("" = the
         team's default character). A character without one gets a new session on its first brain

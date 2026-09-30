@@ -103,7 +103,9 @@ def rooms() -> List[Dict]:
     for p in sorted(_dir().glob("room_*.json")) if _dir().is_dir() else []:
         r = room(p.stem)
         if r:
-            out.append({k: r[k] for k in ("id", "name", "mode", "members", "strategy", "created")})
+            last = (messages(r["id"]) or [None])[-1]   # for the talk list (ux/S1): who spoke last, when, one line
+            out.append(dict({k: r[k] for k in ("id", "name", "mode", "members", "strategy", "created")},
+                            last=last and {"at": last["ts"], "who": last["who"], "text": str(last["text"])[:80]}))
     return sorted(out, key=lambda r: -r["created"])
 
 

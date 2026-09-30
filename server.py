@@ -523,7 +523,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             code, body = _json_bytes({**accounts.snapshot(owned_agent_procs(), providers=wanted), "auto_recycle": dict(_AUTO_RECYCLE)})
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/sessions":
-            code, body = _json_bytes({"sessions": REG.list()})
+            code, body = _json_bytes({"sessions": REG.list(), "talks": REG.talks()})   # talks: the talk list (ux/S1)
             return self._send(code, body, "application/json; charset=utf-8")
         if path == "/api/characters":
             code, body = _json_bytes({"characters": _character_list()})

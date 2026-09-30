@@ -37,21 +37,28 @@ const run = new Function(process.argv[2] + src + `;
 return (async () => {
   const chars = characterCatalog;
   const at = (y, m, d, h) => new Date(y, m, d, h, 5).getTime() / 1000;   // local time, so the day holds in any zone
-  const sessions = [   // newest first, as /api/sessions gives them; '' is the default character
-    { id: 's4', character: 'b', mode: 'private', updated_at: 400, preview: 'secret words' },
-    { id: 's3', character: '', mode: 'work', updated_at: 300, preview: '[expression: joy] *waves* hello  there <!--choices: a | b-->' },
-    { id: 's2', character: 'b', mode: 'work', updated_at: 200, preview: 'older work talk' },
+  const talks = { b: { at: 400, preview: 'kiki at work' }, a: { at: 300, preview: '[expression: joy] *waves* hello  there <!--choices: a | b-->' } };
+  const rooms = [{ id: 'room_1', name: 'Team', members: ['a', 'b'], created: 100, last: { at: 350, who: 'b', text: '*nods* on it' } },
+    { id: 'room_2', name: 'Quiet', members: ['a', 'c'], created: 50, last: null }];
+  const rows = shellRows(chars, [], rooms, { character: 'a', room: '', mode: 'work' }, talks);
+  // a server that does not send talks yet: the newest WORK session among the 40 listed ('' = the default character)
+  const sessions = [
+    { id: 's5', character: 'b', mode: 'private', turns: 4, updated_at: 500, preview: 'secret words' },
+    { id: 's4', character: 'b', mode: 'work', turns: 0, updated_at: 450, preview: '' },
+    { id: 's3', character: '', mode: 'work', turns: 2, updated_at: 300, preview: 'kit old server' },
+    { id: 's2', character: 'b', mode: 'work', turns: 6, updated_at: 200, preview: 'older work talk' },
   ];
-  const rooms = [{ id: 'room_1', name: 'Team', members: ['a', 'b'], created: 350 }];
-  const rows = shellRows(chars, sessions, rooms, { character: 'a', room: '', mode: 'work' });
+  const old = shellRows(chars, sessions, [], { character: 'a', room: '', mode: 'work' }, null);
   const o = {
     order: rows.map(r => r.kind + ':' + r.id),
     kiki: rows.find(r => r.id === 'b'),
     kit: rows.find(r => r.id === 'a'),
     ari: rows.find(r => r.id === 'c'),
     room: rows.find(r => r.id === 'room_1'),
-    inRoom: shellRows(chars, sessions, rooms, { character: 'a', room: 'room_1', mode: 'work' }).filter(r => r.current).map(r => r.id),
-    openPrivate: shellRows(chars, sessions, rooms, { character: 'a', room: '', mode: 'private' }).find(r => r.id === 'a'),
+    quiet: rows.find(r => r.id === 'room_2'),
+    old: old.map(r => [r.id, r.at, r.preview, r.private]),
+    inRoom: shellRows(chars, [], rooms, { character: 'a', room: 'room_1', mode: 'work' }, talks).filter(r => r.current).map(r => r.id),
+    openPrivate: shellRows(chars, [], rooms, { character: 'a', room: '', mode: 'private' }, talks),
     filter: shellFilter(rows, ' ki ').map(r => r.name),
     preview: shellPreview('[expression: shy]\\n**bold** and \`code\`\\n\`\`\`thought\\nhidden\\n\`\`\`\\n<!--choices: x -> (y)-->'),
     cutComment: shellPreview('said <!--choices: never clos'),
@@ -60,7 +67,7 @@ return (async () => {
     older: shellTime(at(2026, 8, 20, 9), at(2026, 8, 30, 18), 'en-US'),
     lastYear: shellTime(at(2025, 8, 20, 9), at(2026, 8, 30, 18), 'en-US'),
     never: shellTime(0, 1),
-    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh'].every(k => SHELL_TEXT[k]),
+    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you'].every(k => SHELL_TEXT[k]),
   };
   // picking rows: the tray's calls
   await shellPick({ kind: 'character', id: 'b' });
@@ -94,23 +101,29 @@ class ShellList(unittest.TestCase):
         cls.o = json.loads(p.stdout)
 
     def test_one_row_per_character_and_room_newest_first(self):
-        # Kiki's newest talk (400), the room (350), Kit (300), then Ari who has no talk yet
-        self.assertEqual(self.o["order"], ["character:b", "room:room_1", "character:a", "character:c"])
+        # Kiki's work talk (400), the room's last message (350), Kit (300), the silent room (created 50), then Ari
+        self.assertEqual(self.o["order"], ["character:b", "room:room_1", "character:a", "room:room_2", "character:c"])
         self.assertEqual(self.o["ari"]["preview"], "")
         self.assertEqual(self.o["ari"]["name"], "Ari")
-
-    def test_the_default_character_owns_sessions_without_a_character(self):
-        self.assertEqual(self.o["kit"]["at"], 300)
+        self.assertEqual(self.o["kiki"]["preview"], "kiki at work")
         self.assertTrue(self.o["kit"]["current"])
 
-    def test_a_private_talk_is_never_previewed(self):
-        kiki = self.o["kiki"]
-        self.assertTrue(kiki["private"])
-        self.assertEqual(kiki["preview"], "")
-        self.assertNotIn("secret", json.dumps(kiki))
-        # the open character in private mode is masked too, whatever its newest listed session says
-        self.assertTrue(self.o["openPrivate"]["private"])
-        self.assertEqual(self.o["openPrivate"]["preview"], "")
+    def test_private_is_said_only_of_the_room_open_now(self):
+        # a character that visited its private room earlier is not "in private": the mode belongs to the open talk
+        self.assertFalse(self.o["kiki"]["private"])
+        rows = {r["id"]: r for r in self.o["openPrivate"]}
+        self.assertTrue(rows["a"]["private"])
+        self.assertEqual(rows["a"]["preview"], "")                 # and the open private room is never previewed
+        self.assertFalse(rows["b"]["private"])
+
+    def test_without_talks_the_newest_work_session_is_used(self):
+        # the private session (500) and the empty one (450) are skipped; private words never reach a row
+        self.assertEqual(self.o["old"], [["a", 300, "kit old server", False], ["b", 200, "older work talk", False], ["c", 0, "", False]])
+
+    def test_a_room_shows_its_last_message(self):
+        room = self.o["room"]
+        self.assertEqual((room["who"], room["preview"], room["at"]), ("b", "nods on it", 350))
+        self.assertEqual((self.o["quiet"]["who"], self.o["quiet"]["preview"], self.o["quiet"]["at"]), ("", "", 50))
 
     def test_the_preview_is_one_clean_line(self):
         self.assertEqual(self.o["kit"]["preview"], "waves hello there")
@@ -120,6 +133,10 @@ class ShellList(unittest.TestCase):
     def test_an_open_room_is_the_only_current_row(self):
         self.assertEqual(self.o["inRoom"], ["room_1"])
         self.assertEqual(self.o["room"]["members"], ["a", "b"])
+
+    def test_the_hub_chip_is_gone_under_the_switch(self):
+        self.assertIn("html.shell2 #hubLink{display:none}", CSS)
+        self.assertNotIn("shell-hub", CSS + (STATIC / "app-shell.js").read_text(encoding="utf-8"))
 
     def test_the_filter_matches_names(self):
         self.assertEqual(self.o["filter"], ["Kiki", "Kit"])

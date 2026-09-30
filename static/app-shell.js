@@ -7,10 +7,10 @@
 
 const SHELL_TEXT = {   // l10n-ok
   title: '대화', search: '이름 검색', empty: '찾는 대화가 없습니다.', private: '사적 대화 중', room: '단체방',   // l10n-ok
-  newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.',   // l10n-ok
+  newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.', you: '나',   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
-let shellState = { sessions: [], filter: '', timer: 0, loading: false };
+let shellState = { sessions: [], talks: null, filter: '', timer: 0, loading: false };
 
 function shellOn() { return document.documentElement.classList.contains('shell2'); }
 function shellNarrow() { return window.innerWidth <= SHELL_NARROW; }
@@ -40,21 +40,25 @@ function shellTime(at, now, locale) {
     ? { month: 'numeric', day: 'numeric' } : { year: 'numeric', month: 'numeric', day: 'numeric' }).format(d);
 }
 
-// The rows, newest talk first. `sessions` is /api/sessions (newest first; "" = the default character), `open` is
-// {character, room, mode}: what the chat shows now. A character whose newest talk is private shows no preview --
-// the list is what someone beside you sees (private-security.md T1).
-function shellRows(characters, sessions, rooms, open) {
+// The rows, newest talk first. A character's row shows its newest WORK talk: `talks` is the server's
+// {character id: {at, preview}} (session_registry talks()); a server without it falls back to the newest work
+// session among `sessions` (/api/sessions, 40 at most). Private talk is never previewed -- the list is what someone
+// beside you sees (private-security.md T1) -- and a row says "private" only when it is the room open right now:
+// the mode belongs to the open talk, not to the character. `open` is {character, room, mode}.
+function shellRows(characters, sessions, rooms, open, talks) {
   open = open || {};
   const def = (characters.find(c => c.default) || {}).id || '';
   const rows = characters.map((c, i) => {
-    const s = sessions.find(x => (x.character || def) === c.id);
+    const s = talks ? null : (sessions || []).find(x => (x.character || def) === c.id && (x.mode || 'work') === 'work' && x.turns !== 0);
+    const t = talks ? talks[c.id] : (s && { at: s.updated_at, preview: s.preview });
     const current = !open.room && open.character === c.id;
-    const priv = current ? open.mode === 'private' : Boolean(s && s.mode === 'private');
-    return { kind: 'character', id: c.id, name: c.name || c.title || c.id, at: s ? s.updated_at : 0, order: i,
-      private: priv, preview: priv || !s ? '' : shellPreview(s.preview), current };
+    const priv = current && open.mode === 'private';
+    return { kind: 'character', id: c.id, name: c.name || c.title || c.id, at: t ? t.at : 0, order: i,
+      private: priv, preview: priv || !t ? '' : shellPreview(t.preview), current };
   });
-  (rooms || []).forEach((r, i) => rows.push({ kind: 'room', id: r.id, name: r.name, at: r.created || 0, order: characters.length + i,
-    private: false, preview: '', members: r.members || [], current: open.room === r.id }));
+  (rooms || []).forEach((r, i) => rows.push({ kind: 'room', id: r.id, name: r.name, at: (r.last && r.last.at) || r.created || 0,
+    order: characters.length + i, private: false, preview: r.last ? shellPreview(r.last.text) : '', who: r.last ? r.last.who : '',
+    members: r.members || [], current: open.room === r.id }));
   return rows.sort((a, b) => (b.at - a.at) || (a.order - b.order));
 }
 
@@ -80,7 +84,7 @@ function shellListDraw() {
   if (!box || !shellOn()) return;
   const chars = typeof characterCatalog !== 'undefined' ? characterCatalog : [];
   const rooms = typeof roomState !== 'undefined' ? roomState.rooms : [];
-  const rows = shellFilter(shellRows(chars, shellState.sessions, rooms, shellOpenNow()), shellState.filter);
+  const rows = shellFilter(shellRows(chars, shellState.sessions, rooms, shellOpenNow(), shellState.talks), shellState.filter);
   const p = (typeof providerCatalog !== 'undefined' && providerCatalog.find(x => x.id === (providerEl ? providerEl.value : ''))) || null;
   const add = document.getElementById('shellNewRoom');
   if (add) add.hidden = !(typeof openRooms === 'function' && chars.length > 1);   // a room needs two members
@@ -101,8 +105,12 @@ function shellListDraw() {
     img.src = c ? characterPortrait(c, p) : initialAvatar(r.name);
     let line = r.preview || SHELL_TEXT.fresh, cls = 'shell-row-preview';
     if (r.private) { line = SHELL_TEXT.private; cls += ' is-private'; }
-    else if (r.kind === 'room') line = SHELL_TEXT.room + ' · ' + roomMembersLabel(r.members, roomCatalogNames(r.members));
-    b.append(img, shellEl('span', 'shell-row-name', r.name), shellEl('span', 'shell-row-time', r.kind === 'room' ? '' : shellTime(r.at)),
+    else if (r.kind === 'room') {
+      const names = roomCatalogNames(r.members);
+      line = r.preview ? (r.who === 'user' ? SHELL_TEXT.you : (names[r.who] || '')) + ': ' + r.preview
+        : SHELL_TEXT.room + ' · ' + roomMembersLabel(r.members, names);
+    }
+    b.append(img, shellEl('span', 'shell-row-name', r.name), shellEl('span', 'shell-row-time', r.kind === 'room' && !r.who ? '' : shellTime(r.at)),
       shellEl('span', cls, line));
     b.addEventListener('click', () => shellPick(r));
     box.appendChild(b);
@@ -116,6 +124,7 @@ async function shellListRefresh() {
   try {
     const [s] = await Promise.all([api('/api/sessions'), typeof roomsReload === 'function' ? roomsReload() : null]);
     shellState.sessions = (s && s.sessions) || [];
+    shellState.talks = (s && s.talks) || null;
   } catch (_) { /* keep what is drawn */ }
   shellState.loading = false;
   shellListDraw();
@@ -170,15 +179,6 @@ function shellInit() {
     back.title = SHELL_TEXT.back;
     back.setAttribute('aria-label', SHELL_TEXT.back);
     back.addEventListener('click', () => shellShowList());
-  }
-  // The dev install's way back to its hub sits in the chat header; on a narrow screen that header shows Back
-  // instead, so the list carries the same link (its target follows the open session: app-api.js rememberSession).
-  const hub = document.getElementById('hubLink'), head = list.querySelector('.shell-list-title');
-  if (hub && head && hub.style.display !== 'none') {
-    const a = shellEl('a', 'shell-hub', hub.textContent.trim());
-    a.href = hub.href;
-    a.addEventListener('click', () => { a.href = hub.href; });
-    head.appendChild(a);
   }
   window.addEventListener('popstate', () => { if (shellNarrow()) shellShowList(); });
   const openOne = enterSession;

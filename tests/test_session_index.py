@@ -33,6 +33,22 @@ class SessionIndex(unittest.TestCase):
         payload.update(extra)
         (d / "meta.json").write_text(json.dumps(payload), encoding="utf-8")
 
+    def test_talks_is_the_newest_work_talk_of_each_character(self):
+        import os
+        self.write("20260101-000000-aaaaaa", character="kit", history=[{"role": "user", "text": "old work"}])
+        self.write("20260102-000000-bbbbbb", character="kit", history=[{"role": "user", "text": "new work"}])
+        self.write("20260103-000000-cccccc", character="kit", mode="private", history=[{"role": "user", "text": "secret"}])
+        self.write("20260104-000000-dddddd", character="kit", history=[])          # opened, nothing said
+        self.write("20260105-000000-eeeeee", character="kit", mode="room", history=[{"role": "user", "text": "seat"}])
+        self.write("20260101-000000-ffffff", character="ari", history=[{"role": "assistant", "text": "x" * 200}])
+        for i, sid in enumerate(sorted(p.name for p in S.SESSIONS.iterdir())):   # mtime follows the id
+            os.utime(S.SESSIONS / sid / "meta.json", (1000 + i, 1000 + i))
+        talks = self.reg.talks()
+        self.assertEqual(sorted(talks), ["ari", "kit"])
+        self.assertEqual(talks["kit"]["preview"], "new work")
+        self.assertEqual(len(talks["ari"]["preview"]), 80)
+        self.assertNotIn("secret", json.dumps(talks))
+
     def test_polls_without_changes_read_no_file(self):
         self.write("20260921-100000-aaaaaa")
         self.write("20260921-110000-bbbbbb")

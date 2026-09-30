@@ -120,6 +120,11 @@ class Rooms(unittest.TestCase):
         rid = body["room"]["id"]
         self.assertEqual(code, 200)
         self.assertEqual(RC.api("GET", "/api/rooms", None)[1]["rooms"][0]["id"], rid)
+        self.assertIsNone(RC.rooms()[0]["last"])                       # nothing said yet
+        RC._append(rid, self.b, "y" * 200, [])
+        last = RC.rooms()[0]["last"]                                   # the talk list's line (ux/S1)
+        self.assertEqual((last["who"], len(last["text"])), (self.b, 80))
+        self.assertGreater(last["at"], 0)
         self.assertEqual(RC.api("GET", "/api/rooms/%s/after/0" % rid, None)[1]["names"][self.b], "Kit")
         self.assertEqual(RC.api("GET", "/api/rooms/room_000000000000", None)[0], 404)
         self.assertEqual(RC.api("POST", "/api/rooms/%s/say" % rid, {"text": ""})[0], 400)
