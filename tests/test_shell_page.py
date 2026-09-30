@@ -45,6 +45,8 @@ const characterCatalog = [{ id: 'a', name: 'Kit', default: true }, { id: 'b', na
 const openCharacterId = () => open.character, roomOpenId = () => open.room;
 const roomEnter = async (id) => { calls.push('roomEnter ' + id); }, roomLeave = async () => { calls.push('roomLeave'); };
 const selectCharacter = async (c) => { calls.push('selectCharacter ' + c.id); };
+let currentTab = 'chat';
+const switchTab = (t) => { currentTab = t; };
 const api = async () => ({ sessions: [] });
 """
 
@@ -85,10 +87,16 @@ return (async () => {
     lastYear: shellTime(at(2025, 8, 20, 9), at(2026, 8, 30, 18), 'en-US'),
     never: shellTime(0, 1),
     presence: [shellPresenceText('work', false), shellPresenceText('work', true), shellPresenceText('private', false)],
+    profile: shellProfileRows({ art: true, provider: 'Brain X', model: 'm-1' }),
+    profileBare: shellProfileRows({ art: false, provider: '', model: '' }).map(r => r.k),
+    settings: shellSettingsRows({ advanced: true, revive: true }),
+    settingsShipped: shellSettingsRows({ advanced: false, revive: false }).map(r => r.k),
+    panes: SHELL_PANES,
     plusWork: shellPlusList({ private: false, attach: 'file', geo: { label: 'geo', on: true }, slash: 'cmd' }),
     plusPrivate: shellPlusList({ private: true, attach: 'item', geo: { label: 'geo', on: false }, slash: 'cmd' }),
     plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
-    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'thinking', 'brain', 'more', 'act'].every(k => SHELL_TEXT[k]),
+    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'thinking', 'brain', 'more', 'act',
+      'profile', 'settings', 'toChat', 'close', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
   shellListDraw();
@@ -256,6 +264,31 @@ class ShellList(unittest.TestCase):
         self.assertTrue(private.startswith("\u2665 "))
         self.assertNotEqual(private.split(" · ")[0], idle.split(" · ")[0])
 
+    def test_the_seven_tabs_have_a_new_home(self):
+        o = self.o
+        # every old tab but the chat itself is reachable: the talk's own things from its card, the app's from settings
+        card = [r["k"] for r in o["profile"]]
+        gear = [r["k"] for r in o["settings"]]
+        self.assertEqual(card, ["artifacts", "sessions", "art", "brain", "model", "activity"])
+        self.assertEqual(gear, ["details", "theme", "status", "team", "evolution", "revive"])
+        self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(o["panes"]))
+        self.assertEqual(sorted(o["panes"]), ["activity", "artifacts", "evolution", "sessions", "status", "team"])
+        # the log and improvement are the advanced density's
+        self.assertEqual([r["k"] for r in o["profile"] + o["settings"] if r.get("adv")], ["activity", "evolution"])
+        self.assertEqual([r.get("detail") for r in o["profile"] if r["k"] in ("brain", "model")], ["Brain X", "m-1"])
+        self.assertTrue(o["settings"][0]["on"])
+        self.assertEqual(o["profileBare"], ["artifacts", "sessions", "brain", "activity"])
+        self.assertEqual(o["settingsShipped"], ["details", "theme", "status", "team", "evolution"])
+
+    def test_the_tab_bar_is_hidden_and_a_pane_leads_back(self):
+        self.assertIn("html.shell2 header .bar{display:none}", CSS)
+        self.assertIn('html.shell2[data-tab]:not([data-tab="chat"]) .shell-pane-bar{display:flex}', CSS)
+        self.assertIn("html.shell2 body:not(.density-advanced) .shell-adv{display:none}", CSS)
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("back.addEventListener('click', () => switchTab('chat'))", src)
+        self.assertIn("if (typeof currentTab !== 'undefined' && currentTab !== 'chat') switchTab('chat');", src)   # a pick returns to the talk
+        self.assertIn("document.documentElement.dataset.tab = tab;", (STATIC / "app-api.js").read_text(encoding="utf-8"))
+
     def test_the_plus_menu_lists_what_the_row_carried(self):
         work = self.o["plusWork"]
         self.assertEqual([x["k"] for x in work], ["act", "attach", "geo", "slash"])
@@ -333,7 +366,7 @@ class ShellSwitch(unittest.TestCase):
         # the stop button can be parked in that row (app-turn.js placeStopBtn): it must stay reachable
         self.assertIn(".meta:not(:has(> .turn-stop-btn)){display:none}", CSS)
         self.assertIn("meta.appendChild(stopBtn)", (STATIC / "app-turn.js").read_text(encoding="utf-8"))
-        self.assertIn("html.shell2 #characterTray .provider-portrait-btn{display:none}", CSS)
+        self.assertIn("html.shell2 #characterTray{display:none !important}", CSS)   # the list picks, the card keeps the rest
 
     def test_the_simple_composer_hides_the_old_row_but_keeps_an_attached_file(self):
         for btn in ("#privateBtn", "#slashBtn", "#geoBtn", "#modelBtn"):

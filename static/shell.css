@@ -3,7 +3,7 @@
 /* wide: the list beside the chat */
 html.shell2 body{display:flex}
 html.shell2 .wrap{flex:1 1 0;min-width:0;max-width:1100px;margin:0 auto}
-html.shell2 #shellList{display:flex;flex-direction:column;flex:0 0 300px;min-width:0;height:100%;height:var(--app-height,100dvh);border-right:1px solid var(--border);background:var(--bg-card);box-shadow:var(--glint)}
+html.shell2 #shellList{position:relative;display:flex;flex-direction:column;flex:0 0 300px;min-width:0;height:100%;height:var(--app-height,100dvh);border-right:1px solid var(--border);background:var(--bg-card);box-shadow:var(--glint)}
 html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in the way of the shell */
 .shell-list-head{display:flex;flex-direction:column;gap:.55rem;padding:.9rem .75rem .5rem;flex-shrink:0}
 .shell-list-title{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
@@ -25,6 +25,32 @@ html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in 
 .shell-list-foot button{flex:1 1 auto;color:var(--accent2);font-weight:600;text-align:left;background:transparent;border-color:transparent}
 .shell-list-foot button:hover{background:rgba(255,255,255,.05)}
 .shell-list-foot button[hidden]{display:none}
+.shell-list-foot .shell-gear{flex:0 0 auto;width:38px;text-align:center;color:var(--muted);font-weight:400;font-size:1.05rem;margin-left:auto}
+/* ux/S2: the tabs go; the profile card slides over the talk, the settings cover the list, a bar leads back from a pane */
+html.shell2 header .bar{display:none}
+html.shell2 header .brand-title{cursor:pointer}
+html.shell2 #characterTray{display:none !important}   /* the card took its place */
+.shell-pane-bar{display:none;align-items:center;gap:.6rem;flex-shrink:0}
+html.shell2[data-tab]:not([data-tab="chat"]) .shell-pane-bar{display:flex}
+.shell-pane-title{font-size:.95rem}
+.shell-profile{position:absolute;top:0;right:0;bottom:0;z-index:6;width:min(330px,100%);display:flex;flex-direction:column;overflow:hidden;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;box-shadow:-16px 0 36px rgba(0,0,0,.45),var(--glint);transform:translateX(106%);visibility:hidden;transition:transform .2s cubic-bezier(.2,0,0,1),visibility 0s .2s}
+.shell-settings{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;background:var(--bg-card);transform:translateX(-102%);visibility:hidden;transition:transform .2s cubic-bezier(.2,0,0,1),visibility 0s .2s}
+.shell-profile.open,.shell-settings.open{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.2,0,0,1)}
+.shell-panel-head{display:flex;align-items:center;gap:.5rem;padding:.55rem .6rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.shell-panel-head button{width:32px;height:32px;padding:0;border-radius:9px;font-size:1.2rem;line-height:1}
+.shell-card{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:1rem .8rem .6rem;text-align:center;flex-shrink:0}
+.shell-card img{width:112px;height:112px;border-radius:50%;object-fit:cover;border:1px solid var(--border);background:#2a2f3a;margin-bottom:.35rem}
+.shell-card-name{font-size:1.15rem;font-weight:700;letter-spacing:-.02em;line-height:1.25}
+.shell-card-sub{font-size:.8rem;color:var(--muted)}
+.shell-rows{display:flex;flex-direction:column;gap:2px;padding:.4rem;overflow-y:auto;min-height:0}
+.shell-rowbtn{display:flex;align-items:center;justify-content:space-between;gap:.6rem;width:100%;padding:.6rem .65rem;border:0;border-radius:10px;background:transparent;text-align:left;font-size:.9rem;color:var(--text)}
+.shell-rowbtn:hover{background:rgba(255,255,255,.05)}
+.shell-rowbtn small{color:var(--muted);font-size:.78rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shell-rowbtn.on .switch-ui{background:var(--accent)}
+.shell-rowbtn.on .switch-ui::after{transform:translateX(16px);background:var(--accent-contrast)}
+.shell-theme{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.45rem .65rem;font-size:.9rem;flex-wrap:wrap}
+.shell-swatches{display:flex;gap:.4rem}
+html.shell2 body:not(.density-advanced) .shell-adv{display:none}
 /* the talk header (ux/S3): name, then place and presence. The provider's name, the session row and its badges are
    the advanced density's; the stop button can land in that row, so it alone stays. */
 html.shell2 #shellPresence{color:var(--muted)}
@@ -33,7 +59,6 @@ html.shell2 body.density-advanced #shellPresence::after{content:" · "}
 html.shell2 body:not(.density-advanced) #brandRole .brand-provider{display:none}
 html.shell2 body:not(.density-advanced) .meta > :not(.turn-stop-btn){display:none !important}
 html.shell2 body:not(.density-advanced) .meta:not(:has(> .turn-stop-btn)){display:none}
-html.shell2 #characterTray .provider-portrait-btn{display:none}   /* the list picks the talk */
 html.shell2 .room-back{display:none}
 /* the composer in the simple density (ux/S4): plus, the box, send. The old row's buttons stay in the page for the
    plus menu to press; an attached file keeps its chip inside the box. The advanced density is the row as it was. */
@@ -71,4 +96,4 @@ html.shell2.shell-switching .stage-shell::after{content:"";position:absolute;lef
   html.shell2 #shellBack[hidden]{display:none}
   html.shell2 #shellBack svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 }
-@media (prefers-reduced-motion: reduce) { html.shell2 #shellList,html.shell2 #log{transition:none} html.shell2.shell-switching .stage-shell::after{animation:none;background-size:100% 100%} }
+@media (prefers-reduced-motion: reduce) { .shell-profile,.shell-settings{transition:none} html.shell2 #shellList,html.shell2 #log{transition:none} html.shell2.shell-switching .stage-shell::after{animation:none;background-size:100% 100%} }

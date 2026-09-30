@@ -10,6 +10,9 @@ const SHELL_TEXT = {   // l10n-ok
   newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.', you: '나',   // l10n-ok
   office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', thinking: '생각에 잠김', brain: '두뇌 바꾸기',   // l10n-ok
   more: '더 보기', act: '행동',   // l10n-ok
+  profile: '프로필', settings: '설정', toChat: '대화로', close: '닫기', details: '자세히 보기', theme: '테마',   // l10n-ok
+  files: '그림 · 파일', history: '대화 기록', art: '그림 관리', model: '모델', log: '활동 로그',   // l10n-ok
+  accounts: '계정 · 상태', team: '캐릭터 관리', improve: '개선', revive: '호스트 소생',   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
@@ -206,6 +209,8 @@ function shellPending(r) {
 // The switch itself. The open character's row leads back from a room. Another character always opens in its WORK
 // room, whatever room is open now (selectCharacter): the mode belongs to the open talk.
 async function shellOpen(r) {
+  shellProfileClose();
+  if (typeof currentTab !== 'undefined' && currentTab !== 'chat') switchTab('chat');   // a pane was open: back to the talk
   if (r.kind === 'room') { if (roomOpenId() !== r.id) await roomEnter(r.id); return; }
   if (roomOpenId() && r.id === openCharacterId()) { await roomLeave(); return; }
   const c = characterCatalog.find(x => x.id === r.id);
@@ -227,20 +232,6 @@ function shellPresence() {
     role.insertBefore(el, role.firstChild);
   }
   shellSet(el, shellPresenceText(typeof sessionMode !== 'undefined' ? sessionMode : 'work', typeof isBusy !== 'undefined' && isBusy));
-}
-
-// The avatar's tray under the shell: the list picks the talk now, so the tray keeps only what belongs to the open
-// character -- its pictures (app-art.js) and its brain (the provider tray). The portraits are hidden by shell.css;
-// the new-room button (it is in the list's foot) goes, and the brain button is added.
-function shellTrayTrim() {
-  const tray = document.getElementById('characterTray');
-  if (!tray) return;
-  tray.querySelectorAll('.tray-art-btn').forEach(n => { if (typeof ROOM_TEXT !== 'undefined' && n.textContent === ROOM_TEXT.title) n.remove(); });
-  if (tray.querySelector('.shell-brain-btn')) return;
-  const b = shellEl('button', 'tray-art-btn shell-brain-btn', SHELL_TEXT.brain);
-  b.type = 'button';
-  b.addEventListener('click', (e) => { e.stopPropagation(); toggleCharacterTray(false); toggleProviderTray(true); });
-  tray.appendChild(b);
 }
 
 // The composer in the simple density (ux/S4, UX12): plus, the box, send. What the row used to carry is reached
@@ -326,6 +317,167 @@ function shellHeartSync() {
   heart.setAttribute('aria-label', priv.getAttribute('aria-label') || priv.title);
 }
 
+// ux/S2 (UX11): the seven tabs go. What belongs to the open talk is reached from its profile card (the name or the
+// picture in the header), what belongs to the whole app from the settings (the gear under the list). The panes are
+// the old ones, opened with switchTab() as the tabs did; a bar above a pane leads back to the talk. `adv` rows show
+// in the advanced density only.
+const SHELL_PANES = { artifacts: 'files', sessions: 'history', activity: 'log', status: 'accounts', team: 'team', evolution: 'improve' };
+function shellProfileRows(ctx) {
+  const rows = [{ k: 'artifacts', label: SHELL_TEXT.files }, { k: 'sessions', label: SHELL_TEXT.history }];
+  if (ctx.art) rows.push({ k: 'art', label: SHELL_TEXT.art });
+  rows.push({ k: 'brain', label: SHELL_TEXT.brain, detail: ctx.provider || '' });
+  if (ctx.model) rows.push({ k: 'model', label: SHELL_TEXT.model, detail: ctx.model });
+  rows.push({ k: 'activity', label: SHELL_TEXT.log, adv: true });
+  return rows;
+}
+function shellSettingsRows(ctx) {
+  const rows = [{ k: 'details', label: SHELL_TEXT.details, on: Boolean(ctx.advanced) }, { k: 'theme', label: SHELL_TEXT.theme },
+    { k: 'status', label: SHELL_TEXT.accounts }, { k: 'team', label: SHELL_TEXT.team }, { k: 'evolution', label: SHELL_TEXT.improve, adv: true }];
+  if (ctx.revive) rows.push({ k: 'revive', label: SHELL_TEXT.revive });   // the dev install's host repair
+  return rows;
+}
+function shellRowButton(row) {
+  const b = shellEl('button', 'shell-rowbtn' + (row.adv ? ' shell-adv' : '') + (row.on ? ' on' : ''));
+  b.type = 'button';
+  b.setAttribute('data-k', row.k);
+  b.appendChild(shellEl('span', '', row.label));
+  if (row.k === 'details') {
+    b.setAttribute('role', 'switch');
+    b.setAttribute('aria-checked', String(Boolean(row.on)));
+    b.appendChild(shellEl('span', 'switch-ui'));
+  } else if (row.detail) b.appendChild(shellEl('small', '', row.detail));
+  return b;
+}
+function shellPanelHead(title, onClose) {
+  const head = shellEl('div', 'shell-panel-head'), x = shellEl('button', 'ghost', '\u2039');
+  x.type = 'button';
+  x.title = SHELL_TEXT.close;
+  x.setAttribute('aria-label', SHELL_TEXT.close);
+  x.addEventListener('click', onClose);
+  head.append(x, shellEl('strong', '', title));
+  return head;
+}
+function shellGoPane(tab) {
+  shellProfileClose();
+  shellSettingsClose();
+  shellShowChat();
+  switchTab(tab);
+}
+
+function shellProfileClose() { const p = document.getElementById('shellProfile'); if (p) p.classList.remove('open'); }
+function shellProfileOpen() {
+  const panel = document.getElementById('shellProfile');
+  const c = typeof currentCharacter === 'function' ? currentCharacter() : null;
+  if (!panel || !c || (typeof roomOpenId === 'function' && roomOpenId())) return;   // a group room has no card yet
+  const prov = providerCatalog.find(x => x.id === (providerEl ? providerEl.value : ''));
+  const rows = shellProfileRows({ art: typeof openArtManager === 'function', provider: prov ? providerCreditLabel(prov) : '',
+    model: typeof modelEl !== 'undefined' && modelEl && modelEl.value && typeof modelLabel === 'function' ? modelLabel(modelEl.value) : '' });
+  panel.textContent = '';
+  const card = shellEl('div', 'shell-card'), img = document.createElement('img'), list = shellEl('div', 'shell-rows');
+  img.alt = '';
+  img.onerror = () => { img.onerror = null; img.src = initialAvatar(c.name || c.title); };
+  img.src = characterOwnPortrait(c);
+  card.append(img, shellEl('div', 'shell-card-name', c.title || c.name || ''),
+    shellEl('div', 'shell-card-sub', shellPresenceText(sessionMode, isBusy)));
+  rows.forEach(row => {
+    const b = shellRowButton(row);
+    b.addEventListener('click', () => {
+      if (SHELL_PANES[row.k]) return shellGoPane(row.k);
+      shellProfileClose();
+      if (row.k === 'art') openArtManager(openCharacterId());
+      // the trays close on any click outside them: open after this click is over
+      else if (row.k === 'brain') setTimeout(() => toggleProviderTray(true), 0);
+      else if (row.k === 'model' && typeof showModelMenu === 'function') setTimeout(() => showModelMenu(false), 0);
+    });
+    list.appendChild(b);
+  });
+  panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose), card, list);
+  panel.classList.add('open');
+}
+
+function shellSettingsClose() { const p = document.getElementById('shellSettings'); if (p) p.classList.remove('open'); }
+function shellSettingsOpen() {
+  const panel = document.getElementById('shellSettings'), defib = document.getElementById('defibBtn');
+  if (!panel) return;
+  const rows = shellSettingsRows({ advanced: document.body.classList.contains('density-advanced'),
+    revive: Boolean(defib && defib.style.display !== 'none') });
+  panel.textContent = '';
+  const list = shellEl('div', 'shell-rows');
+  rows.forEach(row => {
+    if (row.k === 'theme') {
+      const box = shellEl('div', 'shell-theme'), sw = shellEl('div', 'shell-swatches');
+      const now = document.documentElement.getAttribute('data-theme');
+      (typeof THEMES !== 'undefined' ? THEMES : []).forEach(name => {
+        const s = shellEl('button', 'theme-swatch' + (name === now ? ' active' : ''));
+        s.type = 'button';
+        s.title = name;
+        s.setAttribute('aria-label', name);
+        s.setAttribute('data-theme-choice', name);
+        s.addEventListener('click', () => applyTheme(name));
+        sw.appendChild(s);
+      });
+      box.append(shellEl('span', '', row.label), sw);
+      list.appendChild(box);
+      return;
+    }
+    const b = shellRowButton(row);
+    b.addEventListener('click', () => {
+      if (SHELL_PANES[row.k]) return shellGoPane(row.k);
+      if (row.k === 'details') { setDensity(!document.body.classList.contains('density-advanced')); shellSettingsOpen(); }
+      else if (row.k === 'revive') { shellSettingsClose(); defib.click(); }
+    });
+    list.appendChild(b);
+  });
+  panel.append(shellPanelHead(SHELL_TEXT.settings, shellSettingsClose), list);
+  panel.classList.add('open');
+}
+
+// Builds the card, the settings, the gear and the bar above a pane; the header's name and picture open the card.
+function shellPanelsInit() {
+  const list = document.getElementById('shellList'), foot = list && list.querySelector('.shell-list-foot');
+  const stage = document.querySelector('.stage-shell'), wrap = document.getElementById('appWrap');
+  if (!list || !foot || !stage || !wrap || document.getElementById('shellProfile')) return;
+  const profile = shellEl('aside', 'shell-profile'), settings = shellEl('div', 'shell-settings');
+  profile.id = 'shellProfile';
+  profile.setAttribute('aria-label', SHELL_TEXT.profile);
+  settings.id = 'shellSettings';
+  stage.appendChild(profile);
+  list.appendChild(settings);
+  const gear = shellEl('button', 'shell-gear', '\u2699');
+  gear.id = 'shellGear';
+  gear.type = 'button';
+  gear.title = SHELL_TEXT.settings;
+  gear.setAttribute('aria-label', SHELL_TEXT.settings);
+  gear.addEventListener('click', () => shellSettingsOpen());
+  foot.appendChild(gear);
+  const bar = shellEl('div', 'shell-pane-bar'), back = shellEl('button', 'ghost', '\u2039 ' + SHELL_TEXT.toChat);
+  bar.id = 'shellPaneBar';
+  back.type = 'button';
+  back.addEventListener('click', () => switchTab('chat'));
+  bar.append(back, shellEl('strong', 'shell-pane-title'));
+  wrap.insertBefore(bar, stage);
+  const tab = switchTab;
+  switchTab = function (t) {
+    tab.apply(this, arguments);
+    const now = document.documentElement.dataset.tab || t;
+    shellSet(bar.querySelector('.shell-pane-title'), SHELL_TEXT[SHELL_PANES[now]] || '');
+    if (now !== 'chat') shellProfileClose();
+  };
+  // The picture used to open the tray (app.js onTrayKey). Caught on the way down, before that listener: the wrap
+  // also holds the provider tray, so only the picture itself is taken.
+  const pic = document.getElementById('brandAvatar'), picWrap = document.getElementById('brandAvatarWrap');
+  const title = document.querySelector('header .brand-title');
+  const toggle = () => { const p = document.getElementById('shellProfile'); if (p.classList.contains('open')) shellProfileClose(); else shellProfileOpen(); };
+  if (pic && picWrap) {
+    picWrap.addEventListener('click', (e) => { if (e.target === pic) { e.stopPropagation(); toggle(); } }, true);
+    picWrap.addEventListener('keydown', (e) => {
+      if (e.target === pic && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); toggle(); }
+    }, true);
+  }
+  if (title) title.addEventListener('click', (e) => { if (!e.target.closest('button')) toggle(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { shellProfileClose(); shellSettingsClose(); } });
+}
+
 // Narrow screens show one pane. The list is an overlay above the chat (the chat stays laid out, so its scroll
 // position and the keyboard handling are untouched). Entering the chat adds a history step, so the system Back
 // button returns to the list instead of leaving the page.
@@ -366,8 +518,6 @@ function shellInit() {
   window.addEventListener('popstate', () => { if (shellNarrow()) shellShowList(); });
   const openOne = enterSession;
   enterSession = function () { const out = openOne.apply(this, arguments); shellListSoon(); shellPresence(); return out; };
-  const tray = renderCharacterTray;
-  renderCharacterTray = function () { tray.apply(this, arguments); shellTrayTrim(); };
   if (typeof roomEnter === 'function') {
     const enter = roomEnter, close = roomClose;
     roomEnter = async function () { const ok = await enter.apply(this, arguments); shellListSoon(); return ok; };
@@ -392,5 +542,6 @@ function shellInit() {
   shellListSoon(4000);
   shellPresence();
   shellComposerInit();
+  shellPanelsInit();
   if (typeof refreshComposerPlaceholder === 'function') refreshComposerPlaceholder();   // the Space hint (app-act-key.js)
 }
