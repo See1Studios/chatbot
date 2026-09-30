@@ -7,7 +7,13 @@
 const ACT_PREFIX = '/act ';
 
 function actKeyOn() {
-  return Boolean(document.body && document.body.classList.contains('private-session'));
+  const b = document.body;
+  if (!b) return false;
+  if (b.classList.contains('private-session')) return true;
+  // SHELL_v2 (ux/S4, UX12): under the messenger shell an action starts the same way in the work room -- "/act" is
+  // a command there already. Not in a group room: its API takes plain text only.
+  const root = document.documentElement;
+  return Boolean(root && root.classList.contains('shell2') && !b.classList.contains('room-open'));
 }
 
 // True for "/act" with nothing after it: nothing to send yet.

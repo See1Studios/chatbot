@@ -17,9 +17,10 @@ HARNESS = r"""
 const fs = require('fs');
 const [actSrc, turn, picker] = process.argv.slice(1).map(p => fs.readFileSync(p, 'utf8'));
 const listeners = {};
-let privateOn = true;
+let privateOn = true, shellOn = false, roomOn = false;
 const document = { addEventListener(t, f) { (listeners[t] = listeners[t] || []).push(f); },
-                   body: { classList: { contains: (c) => c === 'private-session' && privateOn } } };
+                   documentElement: { classList: { contains: (c) => c === 'shell2' && shellOn } },
+                   body: { classList: { contains: (c) => (c === 'private-session' && privateOn) || (c === 'room-open' && roomOn) } } };
 const window = { innerWidth: 1200 };
 const sendBtn = { disabled: null, dataset: {}, classList: { add() {}, remove() {} }, set innerHTML(v) {}, set textContent(v) {},
                   setAttribute() {}, title: '' };
@@ -59,6 +60,11 @@ inputEl.value = '안녕'; out.biMid = before('insertText', ' ').prevented;
 inputEl.value = ''; out.biCompose = before('insertText', ' ', { isComposing: true }).prevented;
 privateOn = false; inputEl.value = ''; out.biWork = [before('insertText', ' ').prevented, inputEl.value];
 privateOn = true; inputEl.value = '/act '; out.biUndo = [before('deleteContentBackward', null).prevented, inputEl.value];
+// SHELL_v2 (ux/S4): under the messenger shell the work room takes the key too, a group room does not
+privateOn = false; shellOn = true; inputEl.value = '';
+out.shellWork = [key(' ').prevented, inputEl.value];
+refreshComposerPlaceholder(); out.phShellWork = inputEl.placeholder;
+roomOn = true; inputEl.value = ''; out.shellRoom = [key(' ').prevented, inputEl.value];
 console.log(JSON.stringify(out));
 """
 
@@ -89,6 +95,11 @@ class ActKey(unittest.TestCase):
         self.assertFalse(self.o["shift"])
         self.assertFalse(self.o["ctrl"])
         self.assertEqual(self.o["work"], [False, ""], "work mode keeps Space")
+
+    def test_under_the_shell_the_work_room_takes_the_key_too(self):
+        self.assertEqual(self.o["shellWork"], [True, "/act "])
+        self.assertEqual(self.o["phShellWork"], self.o["phPrivate"])
+        self.assertEqual(self.o["shellRoom"], [False, ""], "a group room takes plain text only")
 
     def test_the_placeholder_tells_private_mode(self):
         self.assertEqual(self.o["phPrivate"], "메시지 입력… (Space: 행동)")

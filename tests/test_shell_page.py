@@ -85,7 +85,10 @@ return (async () => {
     lastYear: shellTime(at(2025, 8, 20, 9), at(2026, 8, 30, 18), 'en-US'),
     never: shellTime(0, 1),
     presence: [shellPresenceText('work', false), shellPresenceText('work', true), shellPresenceText('private', false)],
-    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'thinking', 'brain'].every(k => SHELL_TEXT[k]),
+    plusWork: shellPlusList({ private: false, attach: 'file', geo: { label: 'geo', on: true }, slash: 'cmd' }),
+    plusPrivate: shellPlusList({ private: true, attach: 'item', geo: { label: 'geo', on: false }, slash: 'cmd' }),
+    plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
+    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'thinking', 'brain', 'more', 'act'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
   shellListDraw();
@@ -253,6 +256,15 @@ class ShellList(unittest.TestCase):
         self.assertTrue(private.startswith("\u2665 "))
         self.assertNotEqual(private.split(" · ")[0], idle.split(" · ")[0])
 
+    def test_the_plus_menu_lists_what_the_row_carried(self):
+        work = self.o["plusWork"]
+        self.assertEqual([x["k"] for x in work], ["act", "attach", "geo", "slash"])
+        self.assertEqual([x["label"] for x in work][1:], ["file", "geo", "cmd"])     # the buttons' own labels
+        self.assertTrue(work[2]["on"])
+        # private mode has no commands and no location (as the old row), and the box hands over an item, not a file
+        self.assertEqual([[x["k"], x["label"]] for x in self.o["plusPrivate"]][1:], [["attach", "item"]])
+        self.assertEqual(self.o["plusBare"], ["act"])
+
     def test_words_are_in_one_table(self):
         self.assertTrue(self.o["text"])
 
@@ -322,6 +334,15 @@ class ShellSwitch(unittest.TestCase):
         self.assertIn(".meta:not(:has(> .turn-stop-btn)){display:none}", CSS)
         self.assertIn("meta.appendChild(stopBtn)", (STATIC / "app-turn.js").read_text(encoding="utf-8"))
         self.assertIn("html.shell2 #characterTray .provider-portrait-btn{display:none}", CSS)
+
+    def test_the_simple_composer_hides_the_old_row_but_keeps_an_attached_file(self):
+        for btn in ("#privateBtn", "#slashBtn", "#geoBtn", "#modelBtn"):
+            self.assertIn("html.shell2 body:not(.density-advanced) " + btn, CSS)
+        self.assertIn(".composer .inline-btn:not(.attached):not(.uploading):not(.error){display:none}", CSS)
+        self.assertIn("html.shell2 body.density-advanced #shellPlus,html.shell2 body.room-open #shellPlus{display:none}", CSS)
+        self.assertIn("html.shell2 body.density-advanced #shellHeart,html.shell2 body.room-open #shellHeart{display:none}", CSS)
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("if (!priv.disabled) priv.click()", src)      # the heart presses the real switch
 
     def test_wiring(self):
         self.assertIn('id="shellList"', HTML)

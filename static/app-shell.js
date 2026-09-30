@@ -9,6 +9,7 @@ const SHELL_TEXT = {   // l10n-ok
   title: '대화', search: '이름 검색', empty: '찾는 대화가 없습니다.', private: '사적 대화 중', room: '단체방',   // l10n-ok
   newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.', you: '나',   // l10n-ok
   office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', thinking: '생각에 잠김', brain: '두뇌 바꾸기',   // l10n-ok
+  more: '더 보기', act: '행동',   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
@@ -242,6 +243,85 @@ function shellTrayTrim() {
   tray.appendChild(b);
 }
 
+// The composer in the simple density (ux/S4, UX12): plus, the box, send. What the row used to carry is reached
+// through the plus menu -- the buttons themselves stay in the page (hidden by shell.css) and the menu presses them,
+// so their own code, labels and states are the one source. `ctx` is what those buttons say right now.
+function shellPlusList(ctx) {
+  const out = [{ k: 'act', label: SHELL_TEXT.act }];
+  if (ctx.attach) out.push({ k: 'attach', label: ctx.attach });            // a file in the work room, an item in the private one
+  if (!ctx.private && ctx.geo) out.push({ k: 'geo', label: ctx.geo.label, on: Boolean(ctx.geo.on) });
+  if (!ctx.private && ctx.slash) out.push({ k: 'slash', label: ctx.slash });   // private mode has neither (chat-features.css)
+  return out;
+}
+function shellPlusClose() {
+  const menu = document.getElementById('shellPlusMenu'), plus = document.getElementById('shellPlus');
+  if (menu) menu.hidden = true;
+  if (plus) plus.setAttribute('aria-expanded', 'false');
+}
+function shellPlusOpen() {
+  const menu = document.getElementById('shellPlusMenu'), plus = document.getElementById('shellPlus');
+  const composer = menu && menu.parentNode;
+  if (!composer) return;
+  const label = (el) => (el ? (el.getAttribute('aria-label') || el.title || '') : '');
+  const btn = { attach: composer.querySelector('.inline-btn'), geo: document.getElementById('geoBtn'), slash: document.getElementById('slashBtn') };
+  const items = shellPlusList({ private: document.body.classList.contains('private-session'), attach: label(btn.attach),
+    geo: btn.geo ? { label: label(btn.geo), on: btn.geo.getAttribute('aria-pressed') === 'true' } : null, slash: label(btn.slash) });
+  menu.textContent = '';
+  items.forEach(it => {
+    const b = shellEl('button', it.on ? 'shell-plus-on' : '', it.label + (it.on ? ' \u2713' : ''));
+    b.type = 'button';
+    b.setAttribute('role', 'menuitem');
+    b.addEventListener('click', () => {
+      shellPlusClose();
+      if (it.k === 'act') { actSet(inputEl, ACT_PREFIX); inputEl.focus(); return; }
+      // after this click has finished: the pressed button's own menu must not be closed by this click's bubbling
+      setTimeout(() => btn[it.k].click(), 0);
+    });
+    menu.appendChild(b);
+  });
+  menu.hidden = false;
+  if (plus) plus.setAttribute('aria-expanded', 'true');
+}
+function shellComposerInit() {
+  const composer = document.querySelector('.composer'), priv = document.getElementById('privateBtn');
+  const brand = document.querySelector('header .brand');
+  if (composer && !document.getElementById('shellPlus')) {
+    const plus = shellEl('button', 'ghost', '+'), menu = shellEl('div', 'shell-plus-menu');
+    plus.id = 'shellPlus';
+    plus.type = 'button';
+    plus.title = SHELL_TEXT.more;
+    plus.setAttribute('aria-label', SHELL_TEXT.more);
+    plus.setAttribute('aria-haspopup', 'menu');
+    plus.setAttribute('aria-expanded', 'false');
+    menu.id = 'shellPlusMenu';
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
+    plus.addEventListener('click', (e) => { e.stopPropagation(); if (menu.hidden) shellPlusOpen(); else shellPlusClose(); });
+    document.addEventListener('click', shellPlusClose);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') shellPlusClose(); });
+    composer.insertBefore(plus, composer.firstChild);
+    composer.appendChild(menu);
+  }
+  // the private switch moves up beside the name: it is about this talk's room, not about the message being typed
+  if (priv && brand && !document.getElementById('shellHeart')) {
+    const heart = shellEl('button', 'ghost');
+    heart.id = 'shellHeart';
+    heart.type = 'button';
+    const icon = priv.querySelector('svg');
+    if (icon) heart.appendChild(icon.cloneNode(true));
+    heart.addEventListener('click', () => { if (!priv.disabled) priv.click(); });
+    brand.appendChild(heart);
+  }
+  shellHeartSync();
+}
+function shellHeartSync() {
+  const heart = document.getElementById('shellHeart'), priv = document.getElementById('privateBtn');
+  if (!heart || !priv) return;
+  heart.setAttribute('aria-pressed', String(document.body.classList.contains('private-session')));
+  heart.title = priv.title;
+  heart.setAttribute('aria-label', priv.getAttribute('aria-label') || priv.title);
+}
+
 // Narrow screens show one pane. The list is an overlay above the chat (the chat stays laid out, so its scroll
 // position and the keyboard handling are untouched). Entering the chat adds a history step, so the system Back
 // button returns to the list instead of leaving the page.
@@ -298,7 +378,7 @@ function shellInit() {
     let was = document.body.classList.contains('private-session');
     new MutationObserver(() => {
       const now = document.body.classList.contains('private-session');
-      if (now !== was) { was = now; shellListDraw(); shellPresence(); }
+      if (now !== was) { was = now; shellListDraw(); shellPresence(); shellHeartSync(); shellPlusClose(); }
     }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   }
   setInterval(() => { if (!document.hidden) shellListRefresh(); }, 30000);
@@ -307,4 +387,6 @@ function shellInit() {
   // and the open character are not settled and the rows would be drawn twice. The timer is the fallback.
   shellListSoon(4000);
   shellPresence();
+  shellComposerInit();
+  if (typeof refreshComposerPlaceholder === 'function') refreshComposerPlaceholder();   // the Space hint (app-act-key.js)
 }
