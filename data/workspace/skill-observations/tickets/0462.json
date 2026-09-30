@@ -2,13 +2,14 @@
  "actor": "chat-agent:agy",
  "approved_at": "2026-09-30 14:12:03",
  "approved_by": "operator (ui)",
- "attempts": 0,
+ "attempts": 1,
  "created": "2026-09-30 14:11:49",
  "evidence": [
   "event:20260930-130354-f1eb3e#43"
  ],
  "gate_failures": 0,
  "id": 462,
+ "merge_pending": true,
  "notes": [
   {
    "by": "operator (ui)",
@@ -44,16 +45,26 @@
    "by": "host",
    "text": "no brain answered: attempt given back (2/3)",
    "ts": "2026-09-30 14:52:18"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/chat-composer.css, static/chat-responsive.css",
+   "ts": "2026-09-30 16:40:56"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-462 at 2944f66 (agy, review PASS round 1)",
+   "ts": "2026-09-30 16:54:45"
   }
  ],
  "paths": [
   "static/chat-composer.css",
   "static/chat-responsive.css"
  ],
- "status": "approved",
+ "status": "awaiting_merge",
  "target": "static/chat-composer.css,static/chat-responsive.css",
  "title": "하단 위젯의 높이·정렬·간격 및 모바일 일관성 개선",
  "unavailable": 2,
- "updated": "2026-09-30 14:52:18",
+ "updated": "2026-09-30 16:54:45",
  "worked_by": "agy"
 }
