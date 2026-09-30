@@ -2,6 +2,11 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-30 — 이벤트 발행 지점: 사적 대화 입장/퇴장·계정 전환 (evt/C, #471)
+
+- **변경**: `threshold.enter`/`leave`(실제로 들어가고 나갈 때만, 같은 전환 반복은 걸러짐)에서 `session.private.start`/`.end` — 그 캐릭터의 **사적 채널에만, 시각만**(E1, private-security T3). `accounts.observe`가 계정 변경을 처음 볼 때 `account.switch` — 제공자 이름만, 계정(메일)은 싣지 않음. 위임 단계(`work.phase`)는 #470. 배달 문구는 아직 없음(사적 이벤트는 단체 놀이방·화면 기척(`evt/F`)에서 씀).
+- **테스트**: `test_events` 2건.
+
 ## 2026-09-30 — 이벤트 우편국 1단계: 작업 안내·재시작 안내를 우편함 위로 (evt/B, #470)
 
 - **계획**: [character-events-and-rooms.md](plans/character-events-and-rooms.md)(E1–E8 추천대로 결정).

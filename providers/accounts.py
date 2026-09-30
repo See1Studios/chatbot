@@ -217,6 +217,15 @@ def _save_state(state: dict) -> None:
         pass
 
 
+def _publish_switch(provider: str) -> None:
+    """An account switch, for the event mailbox (evt/C): which provider, never which account."""
+    try:
+        import events
+        events.publish("account.switch", events.ALL, subject=provider)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def observe(provider: str, account: dict, now: Optional[float] = None) -> Optional[list]:
     """Record the account seen for `provider`; return the last known change
     window [last_seen_with_old_account, first_seen_with_new_account] or None.
@@ -231,6 +240,7 @@ def observe(provider: str, account: dict, now: Optional[float] = None) -> Option
         if email and cur.get("email") and cur["email"] != email:
             cur["change_window"] = [cur.get("seen_at", now), now]
             cur["changed_from"] = cur["email"]
+            _publish_switch(provider)
         if email:
             cur["email"] = email
             cur["seen_at"] = now

@@ -1,5 +1,6 @@
 """The event mailbox (events.py, plan evt/B): events addressed to characters, read per session from a cursor that
-survives restarts; work phase changes published once each; the turn hook delivers them as the old notes did.
+survives restarts; work phase changes published once each; the turn hook delivers them as the old notes did;
+private visits and account switches published with no text (evt/C).
 Run: python3 -m unittest tests.test_events  (from services/chatbot)
 """
 import json
@@ -62,6 +63,42 @@ class Mailbox(unittest.TestCase):
             for _ in range(10):
                 E.publish("big", ["kit"], note="x" * 50)
         self.assertLessEqual((self.dir / "ev" / "events.jsonl").stat().st_size, 600)
+
+
+class PublishPoints(unittest.TestCase):
+    """evt/C: a private visit starting and ending, and an account switch, each published once, with no text."""
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+        self.env = mock.patch.dict(os.environ, {"CHATBOT_EVENTS_DIR": str(self.dir / "ev")})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def test_a_private_visit_reaches_only_that_character_s_private_channel(self):
+        import threshold
+        priv, work = SimpleNamespace(sid="p1", character="kit"), SimpleNamespace(sid="w1", character="kit")
+        threshold._publish("session.private.start", priv, work)
+        e = E.latest("session.private.start")
+        self.assertEqual((e["to"], e["channel"], e["subject"], e["payload"]), (["kit"], "private", "p1", {}))
+        self.assertEqual(E.pending("w-ari", "ari", "private"), [])
+        self.assertEqual(E.pending("w-kit", "kit", "work"), [], "never on the work side (private-security T3)")
+        src = (ROOT / "threshold.py").read_text(encoding="utf-8")
+        self.assertIn('_publish("session.private.start", priv, work)', src)
+        self.assertIn('_publish("session.private.end", priv, work)', src)
+
+    def test_an_account_switch_names_the_provider_never_the_account(self):
+        from providers import accounts
+        with mock.patch.object(accounts, "STATE_FILE", self.dir / "state.json"):
+            accounts.observe("agy", {"ok": True, "email": "old@x"})
+            accounts.observe("agy", {"ok": True, "email": "old@x"})
+            self.assertIsNone(E.latest("account.switch"), "the same account is no switch")
+            accounts.observe("agy", {"ok": True, "email": "new@x"})
+        e = E.latest("account.switch")
+        self.assertEqual((e["subject"], e["to"]), ("agy", [E.ALL]))
+        self.assertNotIn("@", json.dumps(e))
 
 
 class WorkEvents(unittest.TestCase):

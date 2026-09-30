@@ -202,6 +202,16 @@ def pop_scene(session) -> str:
     return line
 
 
+def _publish(kind: str, priv, work) -> None:
+    """A private visit starting or ending, for the event mailbox (evt/C): only the time, only to who was there --
+    the private channel of the character (plan E1). Never raises."""
+    try:
+        import events
+        events.publish(kind, [priv.character or work.character], channel="private", subject=priv.sid)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def enter(work, priv, text: str = "", sessions: Optional[Path] = None, oneshot=None, names=None):
     """Called when `work` switches to its private session `priv`; returns `priv`. Never raises."""
     try:
@@ -211,6 +221,7 @@ def enter(work, priv, text: str = "", sessions: Optional[Path] = None, oneshot=N
             obslog.event("private.switch_repeat", session=priv.sid, way="in")
             return priv
         priv.visit_started = time.time()
+        _publish("session.private.start", priv, work)
         sessions = Path(sessions or work.meta_path.parent.parent)
         personal_turn.moved(sessions, work.sid)   # W2b: the move offers start over
         state = _state(sessions, priv.character or work.character)
@@ -276,6 +287,7 @@ def leave(priv, work, digest=None):
             obslog.event("private.switch_repeat", session=work.sid, way="out")
             return work
         work.return_started = time.time()
+        _publish("session.private.end", priv, work)
         if digest:
             digest(priv)
         sessions = Path(priv.meta_path).parent.parent
