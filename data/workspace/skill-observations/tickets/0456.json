@@ -1,0 +1,47 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-09-30 11:40:43",
+ "approved_by": "operator (ui)",
+ "attempts": 0,
+ "created": "2026-09-30 11:40:26",
+ "evidence": [
+  "event:20260930-104011-4ba222#36"
+ ],
+ "gate_failures": 0,
+ "id": 456,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-09-30 11:40:43"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: characters.py, delegation.py, identity.py, tests/test_team_roles.py, workspace_status.py",
+   "ts": "2026-09-30 11:40:43"
+  },
+  {
+   "by": "agent:agy",
+   "text": "unavailable: worktree agy: agent agy/gemini-3.8-flash-high timed out after 1200s",
+   "ts": "2026-09-30 12:00:46"
+  },
+  {
+   "by": "host",
+   "text": "no brain answered: attempt given back (1/3)",
+   "ts": "2026-09-30 12:00:46"
+  }
+ ],
+ "paths": [
+  "characters.py",
+  "delegation.py",
+  "identity.py",
+  "tests/test_team_roles.py",
+  "workspace_status.py"
+ ],
+ "status": "approved",
+ "target": "characters.py,delegation.py,identity.py,tests/test_team_roles.py,workspace_statu",
+ "title": "[engine/A] 엔진 코드의 역할명 하드코딩 제거 및 중립화",
+ "unavailable": 1,
+ "updated": "2026-09-30 12:00:46",
+ "worked_by": "agy"
+}
