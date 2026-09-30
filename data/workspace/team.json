@@ -2,15 +2,15 @@
   "default": "char_01m376xaa1e0fsdhm3e3kbnybd",
   "members": {
     "char_01m376xaa1e0fsdhm3e3kbnybd": [
-      "dev",
-      "pd"
+      "lead",
+      "dev"
     ],
     "char_01m3768dpsfywrz2ty226x0p2z": [
       "dev",
-      "staff"
+      "plan"
     ],
     "char_01m3ed7v92ezare5yy3wadmz5q": [
-      "artist"
+      "art"
     ]
   }
 }

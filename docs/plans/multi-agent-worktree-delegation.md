@@ -324,7 +324,7 @@ data/workspace/pd-brain.json               PD 확인의 두뇌 목록
 
 ### 12.5 역할 팩과 팀 편성 (2026-09-24, TEAM_ROLES_v1/v2 · #104–#105)
 사용자 결정: **모든 캐릭터는 동등하다. PD는 캐릭터가 아니라 PD 지침과 PD 스킬셋으로 정해진다.**
-- 카드에는 역할이 없다. 역할 = `data/workspace/roles/<role>/role.md`(앞머리 `title`·`tools`·`skills`, 본문은 매 턴) + 선택 `procedure.md`(필요할 때 읽음). 지금 `pd`(tools: `delegate`, `house-memory`)와 `staff`(도구 없음).
+- 카드에는 역할이 없다. 역할 = `data/workspace/roles/<role>/role.md`(앞머리 `title`·`tools`·`skills`, 본문은 매 턴) + 선택 `procedure.md`(필요할 때 읽음). 지금(2026-09-30 이름 정리, #463) `lead` 총괄(tools: `delegate`, `house-memory`) · `plan` 기획 · `dev` 개발 · `art` 아트 — 옛 `pd`·`staff`·`artist`. 팩 본문은 서로를 이름 대신 매크로(`{{default}}`·`{{user}}`·`{{role:<id>}}`)로 부른다.
 - **엔진은 역할 이름을 모른다**(2026-09-30 운영자: "사용자 데이터고 엔진 코드는 이런 걸 몰라야 해", engine/A #460). 엔진이 아는 자리는 하나, **기본 캐릭터**(`team.json`의 `default`, 없으면 가장 오래된 카드) — 매 턴 읽히는 카드, 위임을 받는 쪽이 아니라 하는 쪽, 작업을 확인하는 쪽. 위임 가능한 역할 = 기본 캐릭터가 아닌 캐릭터들이 가진 역할(`characters.expert_roles`). 새 설치의 기본 캐릭터는 역할 없이 시작. 가드: `test_team_roles.test_engine_code_names_no_role`.
 - 편성 = `data/workspace/team.json` `{"default": id, "members": {id: [roles]}}`. 팀 탭 `[역할]`로 바꾼다. PD = pd를 가진 캐릭터, 기본 캐릭터 = `default`.
 - 도구 권한은 역할 팩이 준다: MCP 서버가 응답 중인 세션의 캐릭터 도구(`/api/sessions/busy`의 `tools`)로 `delegate`·집 기억 쓰기를 열고 닫는다.

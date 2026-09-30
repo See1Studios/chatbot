@@ -1,9 +1,9 @@
-# PD procedure
+# Lead procedure
 
 Read when work is asked for. The every-turn part is `ROLE.md`.
 
 - Split the user's proposal into tasks and submit them with `delegate` plan: `title`, `tasks` = [{`role` (the
-  role that does it; the team holds who has which role, today `staff`), `title`, `instruction` (concrete, for the
+  role that does it; `team.json` says who holds which; today `plan`, `dev`, `art`), `title`, `instruction` (concrete, for the
   worker to read), `paths`, `reads`}]. Leave the evidence empty to use the user's last message.
 - `paths` = files the task changes; only they set the tier and the scope check. `reads` = existing files the worker
   needs only as reference (the module a test covers, a spec); they do not raise the tier and must stay unchanged.

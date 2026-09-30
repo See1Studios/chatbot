@@ -2,6 +2,13 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-30 — 역할 이름 정리: lead 총괄 · plan 기획 · dev 개발 · art 아트 (#463)
+
+- **결정(운영자, 채팅 → 이 세션)**: 팀 체계 [총괄-기획-개발-아트], 식별자 `lead`·`plan`·`dev`·`art`. `staff`는 `plan`으로 바꾸고 리리가 개발+기획.
+- **변경(사용자 데이터, Tier 3 — 운영자 승인)**: `roles/pd`→`lead`, `roles/staff`→`plan`(본문을 기획 역할로 새로 씀), `roles/artist`→`art`(배포 템플릿도 같이, 매니페스트 갱신), 제목 한국어(총괄·기획·개발·아트). 팩 본문에서 다른 역할을 부르던 "the PD"·"staff"·"the user"는 매크로 `{{default}}`·`{{user}}`로(#461). 필요할 때 파일로 읽는 `PROCEDURE.md`는 치환되지 않으니 역할 id를 그대로. `team.json`: 노노 [lead, dev](직책 총괄), 리리 [dev, plan](개발), 코코 [art]. `PROJECT.md` 경로. 옛 팩은 `git mv`로 옮겨 이력에 남음. PD 채팅이 만들다 둔 빈 폴더 `roles/lead|plan|art` 정리.
+- **확인**: 실제 데이터로 네 캐릭터 지침 묶음 렌더 — 풀리지 않은 매크로 0, 역할 글·직책 정상, 역할 없는 Yae Miko는 "…are 노노's".
+- **테스트**: `test_team_roles`(실데이터: 기본 캐릭터가 delegate 팩을 가짐, 이름 비의존), `test_data_bootstrap`(배포 역할 `art`).
+
 ## 2026-09-30 — 카드·역할 팩 매크로 {{user}} {{char}} {{title}} {{default}} {{role:id}} (CARD_MACROS_v1, #461)
 
 - **계기**: 운영자 제안("{user}{role}{title} 등의 플레이스홀더"). 확인해 보니 이미 버그 — 리리·코코·Yae Miko 카드에 SillyTavern식 `{{user}}`·`{{char}}`가 있는데 엔진이 치환하지 않아 **모델이 글자 그대로 받음**(Yae Miko는 description에 있어 매 턴). 또 역할 팩·엔진 문장이 "PD"·"staff" 같은 역할 이름을 박아 둬서 이름 바꾸기가 파일 여러 개 수정이 됨.

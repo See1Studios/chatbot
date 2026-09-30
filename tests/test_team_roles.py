@@ -110,9 +110,10 @@ class Roster(unittest.TestCase):
         charter = (ROOT / "data" / "workspace" / "AGENTS.md").read_text(encoding="utf-8")
         self.assertNotIn("You are the PD", charter)
         self.assertNotIn("role `pd`", charter)
-        pack = C.role_pack("pd", ROOT / "data" / "workspace")
-        self.assertIn("delegate", pack["tools"])
-        self.assertIn("You are the PD", pack["text"])
+        live = ROOT / "data" / "workspace"             # the live team: the default holds the pack that grants delegate
+        default = C.default_character(live)
+        packs = [C.role_pack(r, live) for r in C.roles_of(default, live)]
+        self.assertTrue(any("delegate" in p["tools"] for p in packs), [p["role"] for p in packs])
 
 
     def test_pack_files_take_the_upper_case_name_and_still_read_the_old_one(self):
