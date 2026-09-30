@@ -8,6 +8,7 @@
 const SHELL_TEXT = {   // l10n-ok
   title: '대화', search: '이름 검색', empty: '찾는 대화가 없습니다.', private: '사적 대화 중', room: '단체방',   // l10n-ok
   newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.', you: '나',   // l10n-ok
+  office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', thinking: '생각에 잠김', brain: '두뇌 바꾸기',   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
@@ -210,6 +211,37 @@ async function shellOpen(r) {
   if (c) await selectCharacter(c);
 }
 
+// The header's second line (ux/S3, UX15): where the talk is and what the character is doing, in place of the
+// provider's name. The private room's own place name is not known to the page yet (private-mode.md W3).
+function shellPresenceText(mode, busy) {
+  return (mode === 'private' ? '\u2665 ' + SHELL_TEXT.privateRoom : SHELL_TEXT.office) + ' · ' + (busy ? SHELL_TEXT.thinking : SHELL_TEXT.near);
+}
+function shellPresence() {
+  const role = document.getElementById('brandRole');
+  if (!role || !shellOn()) return;
+  let el = document.getElementById('shellPresence');
+  if (!el) {
+    el = shellEl('span', 'shell-presence');
+    el.id = 'shellPresence';
+    role.insertBefore(el, role.firstChild);
+  }
+  shellSet(el, shellPresenceText(typeof sessionMode !== 'undefined' ? sessionMode : 'work', typeof isBusy !== 'undefined' && isBusy));
+}
+
+// The avatar's tray under the shell: the list picks the talk now, so the tray keeps only what belongs to the open
+// character -- its pictures (app-art.js) and its brain (the provider tray). The portraits are hidden by shell.css;
+// the new-room button (it is in the list's foot) goes, and the brain button is added.
+function shellTrayTrim() {
+  const tray = document.getElementById('characterTray');
+  if (!tray) return;
+  tray.querySelectorAll('.tray-art-btn').forEach(n => { if (typeof ROOM_TEXT !== 'undefined' && n.textContent === ROOM_TEXT.title) n.remove(); });
+  if (tray.querySelector('.shell-brain-btn')) return;
+  const b = shellEl('button', 'tray-art-btn shell-brain-btn', SHELL_TEXT.brain);
+  b.type = 'button';
+  b.addEventListener('click', (e) => { e.stopPropagation(); toggleCharacterTray(false); toggleProviderTray(true); });
+  tray.appendChild(b);
+}
+
 // Narrow screens show one pane. The list is an overlay above the chat (the chat stays laid out, so its scroll
 // position and the keyboard handling are untouched). Entering the chat adds a history step, so the system Back
 // button returns to the list instead of leaving the page.
@@ -249,7 +281,9 @@ function shellInit() {
   }
   window.addEventListener('popstate', () => { if (shellNarrow()) shellShowList(); });
   const openOne = enterSession;
-  enterSession = function () { const out = openOne.apply(this, arguments); shellListSoon(); return out; };
+  enterSession = function () { const out = openOne.apply(this, arguments); shellListSoon(); shellPresence(); return out; };
+  const tray = renderCharacterTray;
+  renderCharacterTray = function () { tray.apply(this, arguments); shellTrayTrim(); };
   if (typeof roomEnter === 'function') {
     const enter = roomEnter, close = roomClose;
     roomEnter = async function () { const ok = await enter.apply(this, arguments); shellListSoon(); return ok; };
@@ -258,13 +292,13 @@ function shellInit() {
   const brand = updateBrandAvatar;   // the open talk's provider changed: its row's picture follows (OWN_LOOK_v1)
   updateBrandAvatar = function () { brand.apply(this, arguments); shellListDraw(); };
   const busy = setBusy;
-  setBusy = function (b) { const was = isBusy; busy.apply(this, arguments); if (was && !b) shellListSoon(1500); };
+  setBusy = function (b) { const was = isBusy; busy.apply(this, arguments); shellPresence(); if (was && !b) shellListSoon(1500); };
   // the heart (or /private) flips body.private-session: the open row's private mark follows at once
   if (typeof MutationObserver === 'function' && document.body) {
     let was = document.body.classList.contains('private-session');
     new MutationObserver(() => {
       const now = document.body.classList.contains('private-session');
-      if (now !== was) { was = now; shellListDraw(); }
+      if (now !== was) { was = now; shellListDraw(); shellPresence(); }
     }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   }
   setInterval(() => { if (!document.hidden) shellListRefresh(); }, 30000);
@@ -272,4 +306,5 @@ function shellInit() {
   // The first load waits for boot to open its talk (the wrap above asks for it then): before that the provider
   // and the open character are not settled and the rows would be drawn twice. The timer is the fallback.
   shellListSoon(4000);
+  shellPresence();
 }

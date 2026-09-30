@@ -25,6 +25,16 @@ html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in 
 .shell-list-foot button{flex:1 1 auto;color:var(--accent2);font-weight:600;text-align:left;background:transparent;border-color:transparent}
 .shell-list-foot button:hover{background:rgba(255,255,255,.05)}
 .shell-list-foot button[hidden]{display:none}
+/* the talk header (ux/S3): name, then place and presence. The provider's name, the session row and its badges are
+   the advanced density's; the stop button can land in that row, so it alone stays. */
+html.shell2 #shellPresence{color:var(--muted)}
+html.shell2 body.private-session #shellPresence{color:var(--accent2)}
+html.shell2 body.density-advanced #shellPresence::after{content:" · "}
+html.shell2 body:not(.density-advanced) #brandRole .brand-provider{display:none}
+html.shell2 body:not(.density-advanced) .meta > :not(.turn-stop-btn){display:none !important}
+html.shell2 body:not(.density-advanced) .meta:not(:has(> .turn-stop-btn)){display:none}
+html.shell2 #characterTray .provider-portrait-btn{display:none}   /* the list picks the talk */
+html.shell2 .room-back{display:none}
 /* a pick shows at once: the old talk fades and a thin line runs while the switch happens behind it */
 html.shell2 #log{transition:opacity .15s ease}
 html.shell2.shell-switching #log{opacity:0}

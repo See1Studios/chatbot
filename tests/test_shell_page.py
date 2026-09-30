@@ -84,7 +84,8 @@ return (async () => {
     older: shellTime(at(2026, 8, 20, 9), at(2026, 8, 30, 18), 'en-US'),
     lastYear: shellTime(at(2025, 8, 20, 9), at(2026, 8, 30, 18), 'en-US'),
     never: shellTime(0, 1),
-    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you'].every(k => SHELL_TEXT[k]),
+    presence: [shellPresenceText('work', false), shellPresenceText('work', true), shellPresenceText('private', false)],
+    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'thinking', 'brain'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
   shellListDraw();
@@ -244,6 +245,14 @@ class ShellList(unittest.TestCase):
         self.assertTrue(self.o["chatShown"])
         self.assertEqual(self.o["pushed"], 1)
 
+    def test_the_header_says_place_and_presence(self):
+        idle, busy, private = self.o["presence"]
+        self.assertRegex(idle, r"^\S+ · .+")
+        self.assertNotEqual(idle, busy)                       # a turn in progress changes what the character is doing
+        self.assertEqual(idle.split(" · ")[0], busy.split(" · ")[0])
+        self.assertTrue(private.startswith("\u2665 "))
+        self.assertNotEqual(private.split(" · ")[0], idle.split(" · ")[0])
+
     def test_words_are_in_one_table(self):
         self.assertTrue(self.o["text"])
 
@@ -305,6 +314,14 @@ class ShellSwitch(unittest.TestCase):
                     continue
                 self.assertTrue(sel.startswith("html.shell2") or sel.startswith(".shell-") or sel.startswith("#shellSearch"),
                                 "shell.css styles the old page without the switch: %r" % sel)
+
+    def test_the_header_rows_of_the_old_page_are_the_advanced_densitys(self):
+        for sel in ("#brandRole .brand-provider", ".meta > :not(.turn-stop-btn)"):
+            self.assertIn("html.shell2 body:not(.density-advanced) " + sel + "{display:none", CSS)
+        # the stop button can be parked in that row (app-turn.js placeStopBtn): it must stay reachable
+        self.assertIn(".meta:not(:has(> .turn-stop-btn)){display:none}", CSS)
+        self.assertIn("meta.appendChild(stopBtn)", (STATIC / "app-turn.js").read_text(encoding="utf-8"))
+        self.assertIn("html.shell2 #characterTray .provider-portrait-btn{display:none}", CSS)
 
     def test_wiring(self):
         self.assertIn('id="shellList"', HTML)
