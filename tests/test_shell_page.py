@@ -506,6 +506,12 @@ class ShellSwitch(unittest.TestCase):
         src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
         self.assertIn("""document.querySelector('meta[name="application-name"]')""", src)
 
+    def test_no_writing_placeholder_under_the_shell(self):
+        # the waiting answer is the typing dots, in every room -- the old page keeps its word
+        sse = (STATIC / "app-sse.js").read_text(encoding="utf-8")
+        self.assertIn("const paintBuf = assistantBuf || (typeof shellOn === 'function' && shellOn() ? '' : ", sse)
+        self.assertEqual(sse.count("'작성 중…'"), 1)
+
     def test_wiring(self):
         self.assertIn('id="shellList"', HTML)
         self.assertIn('id="shellRooms"', HTML)

@@ -477,7 +477,9 @@ function bindEvents(sid) {
         assistantBuf = text;
       }
       const paintNode = assistantNode;
-      const paintBuf = assistantBuf || '작성 중…';
+      // An empty answer so far (a work turn sends its first deltas before any text): the old page says so in words;
+      // the messenger shell draws nothing, and the typing dots beside the face stay (app-stage.js stageTyping).
+      const paintBuf = assistantBuf || (typeof shellOn === 'function' && shellOn() ? '' : '작성 중…');
       scheduleStreamPaint(function () {
         // A turn that ended between the delta and this frame must not be painted into.
         if (!paintNode || paintNode.dataset.live !== '1') return;
