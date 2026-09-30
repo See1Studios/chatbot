@@ -95,14 +95,14 @@ return (async () => {
     brains: shellBrainOptions([{ id: 'x', name: 'X' }, { id: 'y', name: 'Y' }], 'y', (id) => (id === 'x' ? 'no login' : ''), (p) => p.name + '!'),
     models: shellModelOptions([{ value: 'm1', label: 'One' }, { value: 'm2' }], 'm2'),
     noModels: shellModelOptions(null, ''),
-    settings: shellSettingsRows({ advanced: true, revive: true }),
+    settings: shellSettingsRows({ advanced: true, dev: false, revive: true }),
     settingsShipped: shellSettingsRows({ advanced: false, revive: false }).map(r => r.k),
     panes: SHELL_PANES,
     plusWork: shellPlusList({ private: false, attach: 'file', geo: { label: 'geo', on: true }, slash: 'cmd' }),
     plusPrivate: shellPlusList({ private: true, attach: 'item', geo: { label: 'geo', on: false }, slash: 'cmd' }),
     plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
     text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'thinking', 'brain', 'more', 'act',
-      'profile', 'settings', 'back2', 'close', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'manage', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
+      'profile', 'settings', 'back2', 'close', 'dev', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'manage', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
   shellListDraw();
@@ -302,7 +302,7 @@ class ShellList(unittest.TestCase):
         card = [r["k"] for r in o["profile"]]
         gear = [r["k"] for r in o["settings"]]
         self.assertEqual(card, ["art", "sessions", "artifacts", "manage"])      # the character's own things
-        self.assertEqual(gear, ["details", "theme", "status", "team", "activity", "evolution", "revive"])
+        self.assertEqual(gear, ["details", "theme", "status", "team", "dev", "activity", "evolution", "revive"])
         self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(o["panes"]))
         # the team pane is in two: one character's card from its profile, the shared part from the settings
         self.assertEqual(o["teamShows"], [True, False, False, False, True])
@@ -311,8 +311,14 @@ class ShellList(unittest.TestCase):
         self.assertIn("shellGoTeam('', 'settings')", src)
         self.assertIn("card.setAttribute('data-character-id', ex.id || '')", (STATIC / "app-team.js").read_text(encoding="utf-8"))
         self.assertEqual(sorted(o["panes"]), ["activity", "artifacts", "evolution", "sessions", "status", "team"])
-        # the log and improvement are the advanced density's
-        self.assertEqual([r["k"] for r in o["profile"] + o["settings"] if r.get("adv")], ["activity", "evolution"])
+        # the log and improvement are developer mode's -- a switch of its own, apart from "details"
+        self.assertEqual([r["k"] for r in o["profile"] + o["settings"] if r.get("dev")], ["activity", "evolution"])
+        self.assertFalse([r for r in o["profile"] + o["settings"] if r.get("adv")])
+        switches = {r["k"]: r["on"] for r in o["settings"] if "on" in r}
+        self.assertEqual(switches, {"details": True, "dev": False})
+        self.assertIn("html.shell2 body:not(.dev-mode) .shell-dev{display:none}", CSS)
+        self.assertIn("const SHELL_DEV_KEY = 'pe.devMode';", src)
+        self.assertIn("document.body.classList.toggle('dev-mode', dev === '1');", src)      # off unless this browser turned it on
         self.assertTrue(o["settings"][0]["on"])
         self.assertEqual(o["profileBare"], ["sessions", "artifacts"])
 
@@ -328,12 +334,11 @@ class ShellList(unittest.TestCase):
         self.assertIn("pickModel(o.value)", card)
         self.assertNotIn("toggleProviderTray", card)               # ... without leaving the card for them
         self.assertNotIn("showModelMenu", card)
-        self.assertEqual(o["settingsShipped"], ["details", "theme", "status", "team", "activity", "evolution"])
+        self.assertEqual(o["settingsShipped"], ["details", "theme", "status", "team", "dev", "activity", "evolution"])
 
     def test_the_tab_bar_is_hidden_and_a_pane_leads_back(self):
         self.assertIn("html.shell2 header .bar{display:none}", CSS)
         self.assertIn('html.shell2[data-tab]:not([data-tab="chat"]) .shell-pane-bar{display:flex}', CSS)
-        self.assertIn("html.shell2 body:not(.density-advanced) .shell-adv{display:none}", CSS)
         src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
         self.assertIn("back.addEventListener('click', () => shellPaneBack())", src)
         self.assertIn("if (typeof currentTab !== 'undefined' && currentTab !== 'chat') switchTab('chat');", src)   # a pick returns to the talk

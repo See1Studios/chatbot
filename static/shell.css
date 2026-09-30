@@ -84,7 +84,7 @@ html.shell2 #teamList > [hidden]{display:none !important}
 .shell-model.current{background:var(--accent-soft);color:var(--accent2)}
 .shell-theme{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.45rem .65rem;font-size:.9rem;flex-wrap:wrap}
 .shell-swatches{display:flex;gap:.4rem}
-html.shell2 body:not(.density-advanced) .shell-adv{display:none}
+html.shell2 body:not(.dev-mode) .shell-dev{display:none}   /* developer mode's rows: the activity log, improvement */
 /* the talk header (ux/S3): name, then place and presence. The provider's name, the session row and its badges are
    the advanced density's; the stop button can land in that row, so it alone stays. */
 html.shell2 #shellPresence{color:var(--muted)}

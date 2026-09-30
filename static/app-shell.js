@@ -11,6 +11,7 @@ const SHELL_TEXT = {   // l10n-ok
   office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', thinking: '생각에 잠김', brain: '두뇌',   // l10n-ok
   more: '더 보기', act: '행동',   // l10n-ok
   profile: '프로필', settings: '설정', back2: '뒤로', close: '닫기', details: '자세히 보기', theme: '테마',   // l10n-ok
+  dev: '개발자 모드',   // l10n-ok
   files: '주고받은 파일', history: '대화 기록', art: '그림', model: '모델', log: '활동 로그',   // l10n-ok
   accounts: '계정 · 상태', team: '역할 · 공통 설정', manage: '카드 · 역할 · 두뇌 구성', improve: '개선', revive: '호스트 소생',   // l10n-ok
 };
@@ -328,7 +329,16 @@ function shellHeartSync() {
 // is a screen of its own. A pane (the old tabs' content, opened with switchTab()) takes the middle in place of the
 // talk -- list and detail: the card or the settings stay open beside it, and closing the pane brings the talk
 // back. On a phone the same things are screens one after another, and Back returns to the one before. The talk's
-// header and input bar belong to the talk only. `adv` rows show in the advanced density only.
+// header and input bar belong to the talk only.
+// Two switches, two questions (operator, 2026-10-01): "details" is how much of a talk's workings the chat shows
+// (tokens, models, session marks); "developer mode" is whether the tools for working on the engine are offered
+// at all -- the activity log and improvement (`dev` rows). Remembered in this browser, off by default.
+const SHELL_DEV_KEY = 'pe.devMode';
+function shellDevOn() { return Boolean(document.body && document.body.classList.contains('dev-mode')); }
+function shellSetDev(on) {
+  document.body.classList.toggle('dev-mode', Boolean(on));
+  try { localStorage.setItem(SHELL_DEV_KEY, on ? '1' : '0'); } catch (_) { /* private window */ }
+}
 const SHELL_PANES = { artifacts: 'files', sessions: 'history', activity: 'log', status: 'accounts', team: 'team', evolution: 'improve' };
 function shellProfileRows(ctx) {
   // "pictures" is one place: the character's art screen shows them, takes uploads and asks for new ones (app-art.js)
@@ -352,16 +362,17 @@ function shellModelOptions(choices, current) {
 function shellSettingsRows(ctx) {
   const rows = [{ k: 'details', label: SHELL_TEXT.details, on: Boolean(ctx.advanced) }, { k: 'theme', label: SHELL_TEXT.theme },
     { k: 'status', label: SHELL_TEXT.accounts }, { k: 'team', label: SHELL_TEXT.team },
-    { k: 'activity', label: SHELL_TEXT.log, adv: true }, { k: 'evolution', label: SHELL_TEXT.improve, adv: true }];
+    { k: 'dev', label: SHELL_TEXT.dev, on: Boolean(ctx.dev) },
+    { k: 'activity', label: SHELL_TEXT.log, dev: true }, { k: 'evolution', label: SHELL_TEXT.improve, dev: true }];
   if (ctx.revive) rows.push({ k: 'revive', label: SHELL_TEXT.revive });   // the dev install's host repair
   return rows;
 }
 function shellRowButton(row) {
-  const b = shellEl('button', 'shell-rowbtn' + (row.adv ? ' shell-adv' : '') + (row.on ? ' on' : ''));
+  const b = shellEl('button', 'shell-rowbtn' + (row.dev ? ' shell-dev' : '') + (row.on ? ' on' : ''));
   b.type = 'button';
   b.setAttribute('data-k', row.k);
   b.appendChild(shellEl('span', '', row.label));
-  if (row.k === 'details') {
+  if (row.k === 'details' || row.k === 'dev') {
     b.setAttribute('role', 'switch');
     b.setAttribute('aria-checked', String(Boolean(row.on)));
     b.appendChild(shellEl('span', 'switch-ui'));
@@ -527,7 +538,7 @@ function shellSettingsClose() { const p = document.getElementById('shellSettings
 function shellSettingsOpen() {
   const panel = document.getElementById('shellSettings'), defib = document.getElementById('defibBtn');
   if (!panel) return;
-  const rows = shellSettingsRows({ advanced: document.body.classList.contains('density-advanced'),
+  const rows = shellSettingsRows({ advanced: document.body.classList.contains('density-advanced'), dev: shellDevOn(),
     revive: Boolean(defib && defib.style.display !== 'none') });
   panel.textContent = '';
   const list = shellEl('div', 'shell-rows');
@@ -553,6 +564,12 @@ function shellSettingsOpen() {
       if (row.k === 'team') return shellGoTeam('', 'settings');
       if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'settings');
       if (row.k === 'details') { setDensity(!document.body.classList.contains('density-advanced')); shellSettingsOpen(); }
+      else if (row.k === 'dev') {
+        shellSetDev(!shellDevOn());
+        // turned off while one of its panes is shown: back to the talk
+        if (!shellDevOn() && (currentTab === 'activity' || currentTab === 'evolution')) { shellState.paneFrom = ''; switchTab('chat'); }
+        shellSettingsOpen();
+      }
       else if (row.k === 'revive') { shellSettingsClose(); defib.click(); }
     });
     list.appendChild(b);
@@ -697,5 +714,8 @@ function shellInit() {
   shellPresence();
   shellComposerInit();
   shellPanelsInit();
+  let dev = '';
+  try { dev = localStorage.getItem(SHELL_DEV_KEY) || ''; } catch (_) { /* private window */ }
+  document.body.classList.toggle('dev-mode', dev === '1');
   if (typeof refreshComposerPlaceholder === 'function') refreshComposerPlaceholder();   // the Space hint (app-act-key.js)
 }
