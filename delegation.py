@@ -579,39 +579,47 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
     return out
 
 
-# ------------------------------------------------------------------ the worker knows its own work (WORK_NOTE_v1)
-# A character the operator talks to directly did not know it was doing delegated work: the instruction bundle reaches
-# a CLI brain on the first turn only. One line goes in front of the user's message when the character's work changed
-# since that session was last told (a new session hears all of it once); nothing when nothing changed.
+# ------------------------------------------------------------------ the team knows its own work (WORK_NOTE_v1)
+# A character the operator talks to did not know the state of delegated work: the instruction bundle reaches a CLI
+# brain on the first turn only. One line goes in front of the user's message when that work changed since the
+# session was last told (a new session hears what is still open once); nothing when nothing changed. The worker
+# hears the work it is doing; the default character, which delegates and confirms, hears every run -- it once told
+# the user a run was waiting for a merge when it had timed out.
 
-_NOTE_PHASES = {"queued": "queued, waiting for its files", "starting": "starting", "running": "you are working on it",
-                "writing": "you are working on it", "gates": "your change is being tested",
-                "review": "%s is checking your change", "merging": "being landed",
-                "awaiting_merge": "done; waiting for the user's approval", "paused": "paused: you asked for more files",
+_NOTE_PHASES = {"queued": "queued, waiting for its files", "starting": "starting", "running": "%(w)s is working on it",
+                "writing": "%(w)s is working on it", "gates": "the change is being tested",
+                "review": "%(d)s is checking the change", "merging": "being landed",
+                "awaiting_merge": "done; waiting for the user's approval", "paused": "paused: more files were asked for",
+                "unavailable": "stopped: no brain answered in time; the work is kept and the attempt given back",
+                "base_broken": "stopped: a test fails on the base too; the work is kept",
                 "done": "landed", "gate_failed": "sent back: it did not pass", "failed": "failed",
                 "stalled": "stalled (its process is gone)", "declined": "dropped by the user"}
-_NOTE_KEEP = ("queued", "paused", "awaiting_merge") + ACTIVE_PHASES   # still the character's business
+_NOTE_KEEP = ("queued", "paused", "awaiting_merge", "unavailable", "base_broken") + ACTIVE_PHASES   # still open
 
 
 def work_note(character: str, told: Dict[str, str]) -> Tuple[str, Dict[str, str]]:
-    """(the line to put before the user's message, the new `told` state) for `character`'s delegated runs. `told`
-    maps ticket -> the phase this session last heard; ended runs are told once, then dropped."""
+    """(the line to put before the user's message, the new `told` state) for `character`: the runs it works on, or,
+    for the default character, every run. `told` maps ticket -> the phase this session last heard; ended runs are
+    told once, then dropped."""
     import characters
     ws = DATA / "workspace"
     try:
         default = characters.default_character(ws)
-        if not character or character == default:
+        if not character:
             return "", told
-        mine, default_name = {}, characters.name(default, ws) or "the lead"
+        lead = character == default
+        names = {"d": characters.name(default, ws) or "the lead"}
+        mine = {}
         for r in runs():
             tasks = r.get("tasks") or []
             task = tasks[max(0, (r.get("task") or 1) - 1)] if tasks else {}
-            if task.get("role") and characters.by_role(task["role"], ws) == character:
-                mine[str(r["ticket"])] = r
+            worker = characters.by_role(task["role"], ws) if task.get("role") else None
+            if lead or (worker and worker == character):
+                mine[str(r["ticket"])] = (r, characters.name(worker, ws) if worker else "")
     except Exception:  # noqa: BLE001 -- a note is a courtesy; the turn goes on without it
         return "", told
     lines, now = [], {}
-    for tid, r in mine.items():
+    for tid, (r, worker_name) in mine.items():
         phase = r["phase"]
         if phase not in _NOTE_KEEP and tid not in told:
             continue                                # ended before this session heard of it
@@ -619,11 +627,15 @@ def work_note(character: str, told: Dict[str, str]) -> Tuple[str, Dict[str, str]
             now[tid] = phase
         if told.get(tid) == phase:
             continue
-        what = _NOTE_PHASES.get(phase, phase).replace("%s", default_name)
+        w = "you are" if not lead else ("%s is" % worker_name if worker_name else "the expert is")
+        what = (_NOTE_PHASES.get(phase, phase) % dict(names, w="%(w)s")).replace("%(w)s is", w)
         step = " (task %s of %s)" % (r.get("task"), r.get("tasks_total")) if (r.get("tasks_total") or 0) > 1 else ""
         lines.append('#%s "%s"%s: %s' % (tid, r.get("title", "")[:80], step, what))
     if not lines:
         return "", now
+    if lead:
+        return ("[Work you delegated] " + " · ".join(lines) + ". Before telling the user about delegated work, "
+                "check `delegate` status; never guess a run's state."), now
     return ("[Your delegated work] " + " · ".join(lines) + ". This is your own work: speak of it as yours when "
             "asked; do not start it again here."), now
 

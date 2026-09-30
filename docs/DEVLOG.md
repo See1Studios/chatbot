@@ -2,6 +2,12 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-30 — 위임한 쪽(기본 캐릭터)도 작업 상태를 안다 (WORK_NOTE_v1 확장, #466)
+
+- **증상**: 노노가 시간 초과로 멈춘 #462를 "리리가 끝내고 `--stop-before-merge`로 병합 승인 대기 중, 가드 테스트 18종 통과"라고 설명하고 "바로 병합할까?"를 물음 — 모두 사실 아님(Tier 0이라 대기 없음, 게이트·확인 단계 도달 못 함). `delegate status`를 안 보고 짐작.
+- **변경**: `work_note` — 기본 캐릭터는 모든 위임 작업의 단계 변화를 `[Work you delegated] … Before telling the user about delegated work, check delegate status; never guess a run's state.`로. 작업자는 그대로 `[Your delegated work]`. 단계 문구에 `unavailable`(응답 없음: 작업 보관·시도 반환)·`base_broken` 추가.
+- **테스트**: `test_work_note` 6건.
+
 ## 2026-09-30 — 위임받은 캐릭터가 자기 작업을 안다 (WORK_NOTE_v1, #465)
 
 - **증상(운영자)**: 리리에게 위임한 뒤 리리에게 "일은 잘되가냐?"라고 물으면 처음엔 자기가 작업 중인 걸 모르고, 다시 말해 줘야 앎.

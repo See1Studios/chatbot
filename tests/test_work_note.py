@@ -1,6 +1,7 @@
 """WORK_NOTE_v1 (delegation.work_note, server._turn_notices): a character the user talks to directly hears, in one
 line before the user's message, the delegated work it is doing -- all of it on a session's first turn, then only when
-a run's phase changes; nothing for the default character (it has `delegate` status), nothing in a private session.
+a run's phase changes. The default character, which delegates, hears every run (it once guessed a timed-out run
+was waiting for a merge); nothing in a private session.
 Run: python3 -m unittest tests.test_work_note  (from services/chatbot)
 """
 import shutil
@@ -47,7 +48,7 @@ class WorkNote(unittest.TestCase):
         self.assertEqual(delegation.work_note(self.kit, told)[0], "", "nothing changed: nothing said")
         self.run_(7, "review")
         note, told = delegation.work_note(self.kit, told)
-        self.assertIn("Boss is checking your change", note)
+        self.assertIn("Boss is checking the change", note)
         self.run_(7, "done")
         note, told = delegation.work_note(self.kit, told)
         self.assertIn("landed", note)
@@ -62,11 +63,19 @@ class WorkNote(unittest.TestCase):
         self.run_(9, "writing", role="art")
         self.assertEqual(delegation.work_note(self.kit, {})[0], "")
         self.assertIn("#9", delegation.work_note(self.art, {})[0])
-        self.assertEqual(delegation.work_note(self.lead, {})[0], "", "the default delegates; it has the status tool")
+        lead = delegation.work_note(self.lead, {})[0]
+        self.assertIn('[Work you delegated] #9 "fix the widget": Ari is working on it', lead)
+        self.assertIn("check `delegate` status", lead)
+
+    def test_a_timed_out_run_is_told_as_stopped_and_kept(self):
+        self.run_(12, "unavailable")
+        note = delegation.work_note(self.lead, {})[0]
+        self.assertIn("stopped: no brain answered in time; the work is kept", note)
+        self.assertNotIn("waiting for the user's approval", note)
 
     def test_a_multi_task_plan_says_which_task(self):
         self.run_(10, "gates", task=2, total=3)
-        self.assertIn("(task 2 of 3): your change is being tested", delegation.work_note(self.kit, {})[0])
+        self.assertIn("(task 2 of 3): the change is being tested", delegation.work_note(self.kit, {})[0])
 
     def test_the_server_hook_adds_it_in_work_sessions_only(self):
         import server
