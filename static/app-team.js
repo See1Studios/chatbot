@@ -3,6 +3,11 @@
 // here may use the page's DOM, never a binding from a later file.
 const teamListEl = document.getElementById('teamList');
 const TEAM_TEXT = { spare: '예비 두뇌 없음 — [두뇌]에서 추가하면 1번이 응답하지 않을 때 넘어갑니다' };   // l10n-ok
+const AUTO_TEXT = {   // evt/D auto reactions -- l10n-ok
+  head: '자동 반응 — 캐릭터가 먼저 말 걸기', hint: '켠 일이 생기면 관계있는 캐릭터가 업무 대화에서 먼저 한두 줄 말합니다. 두뇌 호출이라 구독 한도를 씁니다.',   // l10n-ok
+  'work.phase': '맡긴 작업이 끝나거나 실패했을 때', 'host.restart': '호스트가 재시작했을 때',   // l10n-ok
+  perHour: '캐릭터당 시간당 최대', quiet: '방해 금지(시)', save: '저장', saved: '자동 반응 설정 저장됨', failed: '저장 실패: ',   // l10n-ok
+};
 
 async function loadTeam() {
   if (!teamListEl) return;
@@ -17,6 +22,7 @@ async function loadTeam() {
   (instr.items || []).forEach(x => { files[x.id] = x; });
   teamListEl.textContent = '';
   (team.experts || []).forEach(ex => teamListEl.appendChild(renderTeamCard(ex, team, files)));
+  if (team.auto_react && team.auto_react.choices) teamListEl.appendChild(renderAutoReact(team.auto_react));
   // TEAM_ROLES_v2: what a role is (its pack) and what everyone reads (the house memory), after the characters
   const shared = obsNode('div', 'status-item team-card');
   shared.appendChild(obsNode('div', 'status-item-head', '역할 팩 · 집 기억'));
@@ -98,6 +104,46 @@ function editRoles(ex, team, box, actions) {
 
 function brainText(b) {
   return b.provider + ' / ' + (b.model || '기본 모델') + (b.timeout ? ' · ' + b.timeout + '초 제한' : '');
+}
+
+// The auto-reaction settings (evt/D): which events make a character speak first, and the limits. Off by default.
+function autoReactBody(cfg, picked, perHour, quietFrom, quietTo) {
+  return { auto: (cfg.choices || []).filter(t => picked[t]), per_hour: Number(perHour) || 0,
+           quiet: [Number(quietFrom) || 0, Number(quietTo) || 0] };
+}
+
+function renderAutoReact(cfg) {
+  const card = obsNode('div', 'status-item team-card');
+  card.appendChild(obsNode('div', 'status-item-head', AUTO_TEXT.head));
+  card.appendChild(obsNode('div', 'status-hint', AUTO_TEXT.hint));
+  const picked = {};
+  (cfg.choices || []).forEach(t => {
+    picked[t] = (cfg.auto || []).includes(t);
+    const row = obsNode('label', 'team-brain');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = picked[t];
+    box.addEventListener('change', () => { picked[t] = box.checked; });
+    row.append(box, obsNode('span', '', AUTO_TEXT[t] || t));
+    card.appendChild(row);
+  });
+  const num = (value, min, max) => { const n = document.createElement('input'); n.type = 'number'; n.min = String(min); n.max = String(max); n.value = String(value); n.className = 'team-timeout'; return n; };
+  const perHour = num(cfg.per_hour, 0, 20), from = num((cfg.quiet || [0, 8])[0], 0, 24), to = num((cfg.quiet || [0, 8])[1], 0, 24);
+  const limits = obsNode('div', 'team-brain');
+  limits.append(obsNode('span', '', AUTO_TEXT.perHour), perHour, obsNode('span', '', AUTO_TEXT.quiet), from, obsNode('span', '', '–'), to);
+  card.appendChild(limits);
+  const save = obsNode('button', 'art-btn art-btn-xs primary', AUTO_TEXT.save);
+  save.type = 'button';
+  save.addEventListener('click', async () => {
+    try {
+      await api('/api/experts/auto-react', { method: 'PUT', body: JSON.stringify(autoReactBody(cfg, picked, perHour.value, from.value, to.value)) });
+      addActivity(AUTO_TEXT.saved);
+    } catch (e) {
+      await alertModal(AUTO_TEXT.failed + (e.message || e));
+    }
+  });
+  card.appendChild(save);
+  return card;
 }
 
 function renderTeamCard(ex, team, files) {

@@ -1410,9 +1410,8 @@ def _record_boot(state: Path = None) -> Dict[str, Any]:
 
 
 def _turn_notices(sess) -> str:
-    """Lines put before the user's message (session.boot_notice hook), from the event mailbox (evt/B): what was
-    addressed to this session's character on its channel since the session last read. A session's first read gets
-    the latest restart and a summary of the delegated work still open instead of the whole history."""
+    """Lines before the user's message (session.boot_notice hook) from the event mailbox (evt/B): what came for this
+    session's character since it last read; a first read gets the restart and the open work, not the history."""
     import events
     sid, character = str(getattr(sess, "sid", "") or ""), getattr(sess, "character", "") or ""
     channel = "private" if getattr(sess, "is_private", False) else "work"
@@ -1479,6 +1478,7 @@ def main() -> None:
     threading.Thread(target=_host_signal_loop, name="host-signals", daemon=True).start()
     import delegation
     threading.Thread(target=delegation.queue_loop, name="delegation-queue", daemon=True).start()   # LEASE_SCOPE_v1
+    threading.Thread(target=__import__("event_react").loop, args=(REG,), name="event-react", daemon=True).start()   # evt/D
     print(f"chatbot on http://{HOST}:{PORT} (VibeCat-class NAS)", flush=True)
 
     def _stop(signum=None, *_a):

@@ -513,7 +513,16 @@ def experts_overview() -> dict:
                 roles.append({"role": d.name, "title": pack["title"], "tools": pack["tools"], "skills": pack["skills"]})
     team_file = WORKSPACE / "team.json"
     return {"ok": True, "experts": out, "roles": roles, "team_editable": bool(chars) and _protected_why(team_file) is None,
-            "providers": providers, "models": models}
+            "providers": providers, "models": models, "auto_react": _auto_react()}
+
+
+def _auto_react() -> dict:
+    """The auto-reaction settings and what can be turned on (evt/D), for the team tab."""
+    try:
+        import event_react
+        return dict(event_react.load_config(WORKSPACE), choices=list(event_react.CHOICES))
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 def _clean_chain(raw) -> Tuple[Optional[list], str]:
@@ -577,6 +586,9 @@ def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[
         return 200, experts_overview()
     if method == "PUT" and rest == "team":
         return _put_team(body or {})
+    if method == "PUT" and rest == "auto-react":             # evt/D: which events a character speaks first about
+        import event_react
+        return 200, {"ok": True, "auto_react": event_react.save_config(body or {}, WORKSPACE)}
     m = re.fullmatch(r"(char_[0-9a-z]{26})/brain", rest)
     if method != "PUT" or not m:
         return 404, {"ok": False, "error": "not found"}
