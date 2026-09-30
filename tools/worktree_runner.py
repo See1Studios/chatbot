@@ -623,6 +623,36 @@ def review_prompt(tid: int, title: str, instruction: str, partner_said: str, dif
     return "\n".join(parts)
 
 
+# DOC_LANE_v1 (2026-09-30): a task that only changes docs (Tier 0 `.md` files) and waits for the operator is reviewed
+# once, against a doc checklist, and the verdict is advice shown on the card -- a FAIL no longer ends the attempt
+# (#443 failed a nearly finished plan on its review limit; #452 on a reviewer that crashed). Gates still apply.
+DOC_DELETE_WARN = 20   # deleted lines past this get a warning in the review and on the card (#443 deleted a design)
+
+DOC_CHECKLIST = ("This is a documentation change. Check only these, from the diff:\n"
+                 "1. Nothing was deleted or rewritten that the task did not ask for (existing designs, tables, "
+                 "decisions).\n"
+                 "2. Links, anchors and section numbers still point where they should.\n"
+                 "3. Nothing contradicts the product concept (docs/CONCEPT.md) or a decision recorded elsewhere.\n"
+                 "4. Nothing is described as built or implemented unless the task says it is; plans say plan.\n"
+                 "Style and wording are not failures. The operator makes the final call; your verdict is advice.")
+
+
+def is_doc_task(paths: List[str], tier: int) -> bool:
+    return tier == 0 and bool(paths) and all(str(p).endswith(".md") for p in paths)
+
+
+def deleted_lines(diff: str) -> int:
+    return sum(1 for ln in (diff or "").splitlines() if ln.startswith("-") and not ln.startswith("---"))
+
+
+def doc_review_prompt(base: str, diff: str) -> str:
+    """`base` (the ordinary review prompt) with the doc checklist, and a warning when much was deleted."""
+    n = deleted_lines(diff)
+    warn = ("\nWARNING: this change deletes %d lines. Check first that each deletion was asked for." % n
+            if n > DOC_DELETE_WARN else "")
+    return base.replace("As the producer, confirm the work:", DOC_CHECKLIST + warn + "\nAs the producer, confirm the work:", 1)
+
+
 def with_flags(argv: List[str], flags: List[str]) -> List[str]:
     """`argv` plus `flags`, placed before a trailing `-p` (whose value is the prompt appended last)."""
     argv = list(argv)
@@ -1056,6 +1086,8 @@ def cmd_run(args) -> int:
         log("Tier 2 paths: the change will wait for the operator's merge (--stop-before-merge)")
         args.stop_before_merge = True
     result["tier"] = tier
+    doc_lane = args.stop_before_merge and is_doc_task(paths, tier)   # DOC_LANE_v1
+    doc_advice = ""
     # the reviewer is whoever holds the pd role in the team roster (TEAM_ROLES_v1), else the default character
     try:
         has_pd = bool(host_module("characters").by_role("pd", workspace_dir()))
@@ -1264,16 +1296,25 @@ def cmd_run(args) -> int:
                 pd_block = character_block(reviewer_p, writer_p, PD_RELATION)
                 rv, rb, rskipped = review_with_chain(
                     cross_chain(pd_chain, b, review_providers() if args.cross_review else []), wt_dir,
-                    lambda prov: review_prompt(tid, task["title"], task["instruction"], partner_said, diff, gate_error,
-                                               pd_block, diff_limit(prov), partner_report),
+                    lambda prov: (doc_review_prompt if doc_lane else (lambda b, d: b))(
+                        review_prompt(tid, task["title"], task["instruction"], partner_said, diff, gate_error,
+                                      pd_block, diff_limit(prov), partner_report), diff),
                     renew)
                 verdict = "FAIL" if gate_error else rv["verdict"]
+                advisory = doc_lane and gate_error is None
                 transcript.append({"task": tno, "round": rnd, "role": "reviewer", "name": reviewer_p["name"],
+                                   **({"advisory": True, "deleted": deleted_lines(diff)} if advisory else {}),
                                    "brain": brain_label(rb), **({"skipped": rskipped} if rskipped else {}),
                                    **({"same_provider": True} if rb["provider"] == b["provider"] else {}),
                                    "text": rv["say"], "verdict": verdict, "fix": rv["fix"], "raw": rv["raw"]})
                 log("task %d round %d: review %s" % (tno, rnd, verdict))
                 write_state(tid, transcript=transcript)
+                if advisory and verdict != "PASS":
+                    # DOC_LANE_v1: the review is advice; the operator decides with it on the card
+                    doc_advice = "doc review %s (advice: %s)" % (verdict, (rv["fix"] or rv["say"])[:300])
+                    log("task %d: %s" % (tno, doc_advice))
+                    write_state(tid, tasks_done=tno, need_base="", doc_advice=doc_advice)
+                    break
                 if verdict == "PASS":
                     if remember(task["role"], lessons):
                         log("task %d: lesson(s) kept in %s's memory" % (tno, task["role"]))
@@ -1291,7 +1332,7 @@ def cmd_run(args) -> int:
         result["changed"] = check_scope(wt_dir, base, paths)
 
         # 4. land, or wait for the operator
-        verdict = " review PASS" if reviewer else ""
+        verdict = (" " + doc_advice if doc_advice else " review PASS") if reviewer else ""
         if args.stop_before_merge:
             head = git(wt_dir, "rev-parse", "HEAD")[1]
             try:

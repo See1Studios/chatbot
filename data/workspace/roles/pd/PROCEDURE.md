@@ -11,6 +11,10 @@ Read when work is asked for. The every-turn part is `ROLE.md`.
 - Flow: plan card → the user presses `[실행]` → each task is done by its worker in an isolated worktree → gates →
   you confirm it (at most two rounds) → the user presses `[승인]` to land it, `[반려]` to send it back with a
   comment, or `[폐기]` to drop it. Running, landing and dropping are the user's.
+- Doc-only work (DOC_LANE_v1): a task whose `paths` are all Tier 0 `.md` files is reviewed once, against a doc
+  checklist (no unrequested deletions, links and section numbers intact, no clash with the concept, no "built" claims
+  for plans). Your verdict there is advice shown on the card; the user decides with it. Keep doc tasks doc-only so
+  they take this lighter path.
 - Size (DELEGATION_HARDENING_v1): one task = one concern, small enough to review whole (a few files, roughly 300
   changed lines); split bigger work into more tasks or plans. `paths` are existing files (a guessed name is refused);
   new files go in `creates`; include the tests the change needs. Tell the worker: no unrelated edits (comments,

@@ -389,3 +389,12 @@ data/workspace/pd-brain.json               PD 확인의 두뇌 목록
 | `dlg/E` | **콘텐츠 위임**(CONTENT_WORK_v1, 운영자 2026-09-29 "가드·테스트·커밋이 필요한 위임과 아닌 위임으로 구분"): 계획의 경로가 모두 사용자 데이터(`host_config.DATA` 아래)면 격리 공간·커밋·게이트·검토·반영 없이 제자리에 쓴다. 덮어쓸 파일은 `_old/`에 보관, 범위 밖 변경은 실패로 보고. 티켓은 가볍게: 잠금은 유지(동시 쓰기 방지), 닫을 때 가드·미커밋 검사 없음. 계기: #371(그림 한 장)이 코드 공정을 다 거치고 닫기가 네 번 실패 | `tickets.py`(`is_content`), `tools/worktree_runner.py`(`--content`), `delegation.py` | 사용자 데이터만 건드리는 계획은 `--content`로 실행, 커밋·검토 없이 done | 3 · ⚡ | M | — | ✅ #392 |
 | `dlg/F` | **병합 재시도**(LAND_RETRY_v1): 반영 직전 게이트가 도는 사이 main이 또 움직이면(다른 에이전트의 커밋) fast-forward 거절로 실패하던 것을, 다시 올리고 다시 검사해 최대 3번 시도. 계기: #406(PWA)이 15:36:00 main 커밋과 겹쳐 실패 | `tools/worktree_runner.py`(`land()` — 바로 병합·승인 뒤 병합 두 경로 공통) | main이 게이트 중 움직여도 병합, 테스트가 재시도 경로를 지남 | 3 · — | S | — | ✅ #408 |
 | `dlg/D` | 지표 스크립트: 위임 반영분의 7일 내 재수정 비율 | `tools/`(새 파일) | 주 1회 실행으로 숫자 하나 | 0 · — | S | — | 대기 |
+
+## 15. 문서 차선 (DOC_LANE_v1, 운영자 2026-09-30)
+
+단순 문서 작업이 코드와 같은 검토 규칙(최대 2회, 불합격이면 실패)을 타서 느리고 잘 멈췄다(#443 검토 한도, #452 검토자 오류). 바꾸는 파일이 모두 Tier 0 `.md`이고 운영자 승인 대기(`--stop-before-merge`)가 있는 작업은:
+- 검토 **1회**, **문서 점검표**로만: ① 시키지 않은 삭제·재작성 ② 링크·앵커·절 번호 ③ CONCEPT·다른 결정과의 충돌 ④ 계획을 「구현됨」으로 쓰기. 문체는 불합격 사유가 아니다.
+- 판정은 **참고용**: 불합격이어도 시도가 실패하지 않고 승인 대기로 간다. 의견은 카드(`doc_advice`, 검토자 기록의 `advisory`)에 보이고 운영자가 판단한다.
+- **삭제 경고**: 지운 줄이 20줄을 넘으면 검토 지침과 기록에 경고(`deleted`). 모델 없이 계산한다.
+- 게이트(테스트·범위 검사)는 그대로다. 게이트 실패는 지금처럼 작성자에게 돌려보낸다.
+- 구현: `tools/worktree_runner.py` `is_doc_task`, `doc_review_prompt`, `deleted_lines`; PD 절차(`roles/pd/PROCEDURE.md`). 테스트: `tests/test_worktree_runner.py` `test_a_doc_task_waits_for_the_operator_with_the_review_as_advice` 외 2개.

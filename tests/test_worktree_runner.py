@@ -265,6 +265,38 @@ class WorktreeRunner(unittest.TestCase):
         self.assertIn("gate_failed", self.last_fail())
         self.assert_clean_up()
 
+    def test_a_doc_task_waits_for_the_operator_with_the_review_as_advice(self) -> None:
+        # DOC_LANE_v1: #443 failed a nearly finished plan on its review limit
+        (self.repo / "plan.md").write_text("# plan\n")
+        sh(self.repo, "git", "add", "plan.md")
+        sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "plan")
+        seen = self.base / "review-prompt.txt"
+        fail = "printf '%%s' \"$0\" > %s; printf 'VERDICT: FAIL\\nSAY: no\\nFIX: 1. keep the table'" % seen
+        rc = self.run_with("echo more >> plan.md && git commit -qam doc", paths="plan.md", review=fail,
+                           extra=("--stop-before-merge",))
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.ticket_cmds()[-1], "await-merge")                 # the operator decides
+        st = wr.read_state(7)
+        self.assertIn("doc review FAIL", st["doc_advice"])
+        self.assertIn("keep the table", st["doc_advice"])
+        self.assertIn("This is a documentation change", seen.read_text())
+
+    def test_a_code_task_still_fails_on_its_review(self) -> None:
+        fail = "printf 'VERDICT: FAIL\\nSAY: no\\nFIX: redo'"
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review=fail,
+                                       extra=("--stop-before-merge",)), 1)
+        self.assertIn("gate_failed", self.last_fail())
+
+    def test_doc_lane_parts(self) -> None:
+        self.assertTrue(wr.is_doc_task(["docs/a.md", "b.md"], 0))
+        self.assertFalse(wr.is_doc_task(["docs/a.md", "x.py"], 0))
+        self.assertFalse(wr.is_doc_task(["AGENTS.md"], 3))
+        diff = "--- a/p.md\n+++ b/p.md\n" + "-old\n" * 25 + "+new\n"
+        self.assertEqual(wr.deleted_lines(diff), 25)
+        base = "intro\nAs the producer, confirm the work: ..."
+        self.assertIn("deletes 25 lines", wr.doc_review_prompt(base, diff))
+        self.assertNotIn("WARNING", wr.doc_review_prompt(base, "-a\n+b\n"))
+
     def test_unreadable_review_fails_closed(self) -> None:
         self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review="echo looks good",
                                        extra=("--rounds", "1")), 1)
