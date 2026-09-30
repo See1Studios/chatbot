@@ -198,6 +198,19 @@ class ForgetTest(Base):
 
 
 class LockingTest(Base):
+    def test_the_first_file_appears_whole_to_concurrent_readers(self):
+        # the race behind a flaky test_concurrent_writers_lose_nothing: one thread creating MEMORY.md (outside the
+        # write lock) while another read it half written and found no sections
+        for _ in range(20):
+            if self.file.exists():
+                self.file.unlink()
+            seen = []
+            threads = [threading.Thread(target=lambda: seen.append(ms.read(self.dir))) for _ in range(8)]
+            [t.start() for t in threads]
+            [t.join() for t in threads]
+            self.assertTrue(all(ms.sections(b) for b in seen), [b[:40] for b in seen if not ms.sections(b)])
+        self.assertEqual([p.name for p in Path(self.dir).glob(".MEMORY.*.tmp")], [], "no temp file left behind")
+
     def test_concurrent_writers_lose_nothing(self):
         errors = []
 

@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import evolution
-import platform_compat
 
 MEMORY_NAME = "MEMORY.md"
 LOCK_NAME = ".MEMORY.lock"
@@ -59,10 +58,28 @@ def _file(mem_dir) -> Path:
 
 
 def _ensure(mem_dir) -> None:
+    """Create MEMORY.md from the template if it is missing. It runs outside the write lock (readers call it too), so
+    the file appears whole or not at all: written aside, then linked into place only if still absent -- a reader never
+    sees it half written, and a racing creator never truncates one another writer already filled."""
     d = Path(mem_dir)
     d.mkdir(parents=True, exist_ok=True)
-    if not _file(d).exists():
-        platform_compat.write_text(_file(d), TEMPLATE, encoding="utf-8")
+    target = _file(d)
+    if target.exists():
+        return
+    fd, tmp = tempfile.mkstemp(dir=str(d), prefix=".MEMORY.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            f.write(TEMPLATE)
+        try:
+            os.link(tmp, str(target))
+        except FileExistsError:
+            pass                                        # another creator won; its file is whole
+        except OSError:                                 # no hard links here (some file systems)
+            if not target.exists():
+                os.replace(tmp, str(target))
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
 
 
 def read(mem_dir) -> str:
