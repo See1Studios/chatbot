@@ -27,7 +27,8 @@ let open = { character: 'a', room: '' };
 const characterCatalog = [{ id: 'a', name: 'Kit', default: true }, { id: 'b', name: 'Kiki' }, { id: 'c', title: 'Ari' }];
 const openCharacterId = () => open.character, roomOpenId = () => open.room;
 const roomEnter = async (id) => { calls.push('roomEnter ' + id); }, roomLeave = async () => { calls.push('roomLeave'); };
-const selectCharacter = async (c) => { calls.push('selectCharacter ' + c.id); };
+const selectCharacter = async (c, mode) => { calls.push('selectCharacter ' + c.id + ' ' + mode); };
+let sessionMode = 'private';   // the open talk is private: picking someone else must not carry that over
 const api = async () => ({ sessions: [] });
 """
 
@@ -149,7 +150,10 @@ class ShellList(unittest.TestCase):
         self.assertEqual(self.o["never"], "")
 
     def test_picking_a_row_makes_the_trays_calls(self):
-        self.assertEqual(self.o["calls"], ["selectCharacter b", "roomEnter room_1", "roomLeave", "selectCharacter b"])
+        # another character opens in its work room even though the open talk is private
+        self.assertEqual(self.o["calls"], ["selectCharacter b work", "roomEnter room_1", "roomLeave", "selectCharacter b work"])
+        src = (STATIC / "app-characters.js").read_text(encoding="utf-8")
+        self.assertIn("mode: mode || sessionMode", src)
 
     def test_narrow_list_and_chat(self):
         self.assertTrue(self.o["listShown"])

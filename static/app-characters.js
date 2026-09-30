@@ -485,13 +485,14 @@ function toggleCharacterTray(force) {
   if (brandAvatarEl) brandAvatarEl.setAttribute('aria-expanded', String(willShow));
 }
 
-// Opens the character's own session in the current mode; its newest session keeps the brain last used with it
-async function selectCharacter(c) {
+// Opens the character's own session in the current mode; its newest session keeps the brain last used with it.
+// `mode` overrides the current one: the talk list (app-shell.js) always opens the work room.
+async function selectCharacter(c, mode) {
   if (!c || c.id === openCharacterId()) return;
   try {
     const res = await api('/api/characters/' + encodeURIComponent(c.id) + '/session', {
       method: 'POST',
-      body: JSON.stringify({ mode: sessionMode, from: sessionId })   // the room being left, for its private digest
+      body: JSON.stringify({ mode: mode || sessionMode, from: sessionId })   // the room being left, for its private digest
     });
     if (res && res.session && res.session.id) {
       await applyModeSwitch(res);

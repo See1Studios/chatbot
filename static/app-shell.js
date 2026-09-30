@@ -134,13 +134,16 @@ function shellListSoon(ms) {
   shellState.timer = setTimeout(shellListRefresh, ms || 300);
 }
 
-// A row is picked: the same calls the character tray makes. The open character's row leads back from a room.
+// A row is picked. The open character's row leads back from a room. Another character always opens in its WORK
+// room, whatever room is open now (operator, 2026-09-30): the mode belongs to the open talk, and going private is
+// something the user does on purpose (the heart, the threshold), never a side effect of looking at someone else.
+// The private room being left still gets its digest (selectCharacter sends `from`).
 async function shellPick(r) {
   shellShowChat();
   if (r.kind === 'room') { if (roomOpenId() !== r.id) await roomEnter(r.id); return; }
   if (roomOpenId() && r.id === openCharacterId()) { await roomLeave(); return; }
   const c = characterCatalog.find(x => x.id === r.id);
-  if (c) await selectCharacter(c);
+  if (c) await selectCharacter(c, 'work');
 }
 
 // Narrow screens show one pane. The list is an overlay above the chat (the chat stays laid out, so its scroll
@@ -190,6 +193,14 @@ function shellInit() {
   }
   const busy = setBusy;
   setBusy = function (b) { const was = isBusy; busy.apply(this, arguments); if (was && !b) shellListSoon(1500); };
+  // the heart (or /private) flips body.private-session: the open row's private mark follows at once
+  if (typeof MutationObserver === 'function' && document.body) {
+    let was = document.body.classList.contains('private-session');
+    new MutationObserver(() => {
+      const now = document.body.classList.contains('private-session');
+      if (now !== was) { was = now; shellListDraw(); }
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
   setInterval(() => { if (!document.hidden) shellListRefresh(); }, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) shellListRefresh(); });
   shellListRefresh();
