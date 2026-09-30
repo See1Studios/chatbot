@@ -771,6 +771,7 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
     // plus/D: the attachment list the agent reads is cards on screen (app-attach.js)
     const parts = splitAttachmentBlock(text || '');
     div.textContent = parts.text;
+    if (typeof msgQuoteDraw === 'function') msgQuoteDraw(div);   // ux/S7: a reply's quote line (app-msgmenu.js)
     renderAttachmentCards(div, parts.files);
   } else {
     div.textContent = text || '';

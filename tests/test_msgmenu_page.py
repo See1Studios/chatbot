@@ -26,6 +26,11 @@ const o = {
   actsWork: msgMenuItems({ kind: 'theirs', busy: false, room: false, mode: 'work' })[0].acts,
   actsPrivate: msgMenuItems({ kind: 'theirs', busy: false, room: false, mode: 'private' })[0].acts,
   resend: [msgResendText('mine', 'hi'), msgResendText('act', 'nods')],
+  line: msgQuoteLine('Kit', 'see you'),
+  parsed: msgQuoteParse(msgQuoteLine('Kit', 'see you') + 'me too\\nbye'),
+  parsedNoName: msgQuoteParse(msgQuoteLine('', 'just a line') + 'x'),
+  notQuote: [msgQuoteParse('> just a quote'), msgQuoteParse('hello')],
+  snippet: [msgSnippet('  a\\n b  '), msgSnippet('x'.repeat(100)).length, msgSnippet('x'.repeat(100)).slice(-1)],
   failed: [
     msgFailedIndex(['a', 'b', 'a'], 'a'),
     msgFailedIndex(['a', 'nods'], '/act nods'),
@@ -50,9 +55,9 @@ class MsgMenu(unittest.TestCase):
         self.assertEqual(self.o["kind"], ["theirs", "theirs", "mine", "act", "", ""])
 
     def test_rows(self):
-        self.assertEqual(self.o["idle"], [["acts", "copy"], ["copy", "resend"], ["copy", "resend"]])
-        self.assertEqual(self.o["busy"], [["copy"], ["copy"], ["copy"]])          # a turn is running: copy only
-        self.assertEqual(self.o["room"], [["copy"], ["copy", "resend"], ["copy"]])  # a room takes plain text only
+        self.assertEqual(self.o["idle"], [["acts", "reply", "copy"], ["reply", "copy", "resend"], ["reply", "copy", "resend"]])
+        self.assertEqual(self.o["busy"], [["reply", "copy"], ["reply", "copy"], ["reply", "copy"]])   # a turn is running
+        self.assertEqual(self.o["room"], [["reply", "copy"], ["reply", "copy", "resend"], ["reply", "copy"]])  # plain text only
 
     def test_the_acts_differ_by_room(self):
         self.assertEqual(len(self.o["actsWork"]), 4)
@@ -64,6 +69,20 @@ class MsgMenu(unittest.TestCase):
 
     def test_the_failed_mark_goes_on_the_newest_matching_bubble(self):
         self.assertEqual(self.o["failed"], [2, 1, -1, -1])
+
+    def test_a_reply_travels_as_a_quote_line_in_the_text(self):
+        # every brain reads it as what it is, the server needs nothing, the record keeps it as sent
+        self.assertEqual(self.o["line"], "> Kit: see you\n\n")
+        self.assertEqual(self.o["parsed"], {"name": "Kit", "snippet": "see you", "rest": "me too\nbye"})
+        self.assertEqual(self.o["parsedNoName"], {"name": "", "snippet": "just a line", "rest": "x"})
+        self.assertEqual(self.o["notQuote"], [None, None])   # a quote needs the blank line after it
+        self.assertEqual(self.o["snippet"], ["a b", 80, "\u2026"])
+
+    def test_the_reply_hooks(self):
+        self.assertIn("if (typeof msgQuoteDraw === 'function') msgQuoteDraw(div);", (STATIC / "app-messages.js").read_text(encoding="utf-8"))
+        # a command or an action goes as it is: "/act" must stay first to be an action
+        self.assertIn("if (!t.trim().startsWith('/')) inputEl.value = msgQuoteLine(msgReply.name, msgReply.snippet) + t;", SRC)
+        self.assertIn("msgReplyClear()", (STATIC / "app-shell.js").read_text(encoding="utf-8"))
 
     def test_no_delete_yet(self):
         # deleting is its own decision (what it erases: the record, the brain's memory) -- not offered for now

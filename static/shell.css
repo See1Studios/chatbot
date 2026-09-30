@@ -175,6 +175,15 @@ html.shell2 #log .msg-pressed{outline:2px solid var(--accent-border);outline-off
 html.shell2 #log > .msg.failed{border-color:rgba(248,113,113,.6)}
 html.shell2 .msg-failnote{align-self:flex-end;font-size:.76rem;color:#fca5a5;margin:-.2rem .2rem .3rem}
 html.shell2 .msg-failnote button{padding:0;border:0;background:none;color:inherit;font:inherit;text-decoration:underline;cursor:pointer}
+/* ux/S7: reply -- the bar over the composer, the quote on the user's bubble, the quoted line found again */
+.shell-reply{display:flex;align-items:center;gap:.5rem;flex-shrink:0;margin:0 0 .3rem;padding:.35rem .5rem .35rem .7rem;border-left:2px solid var(--accent);border-radius:0 10px 10px 0;background:var(--bg-subtle);font-size:.82rem;color:var(--muted)}
+.shell-reply[hidden]{display:none}
+.shell-reply-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shell-reply button{flex:0 0 auto;width:26px;height:26px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--muted)}
+html.shell2 #log .msg-quote{display:block;width:100%;max-width:100%;margin:0 0 .35rem;padding:.1rem 0 .1rem .55rem;border:0;border-left:2px solid var(--accent2);border-radius:0;background:none;text-align:left;font-size:.8rem;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+html.shell2 #log .msg-quote b{display:block;color:var(--accent2);font-weight:600}
+html.shell2 #log .msg-flash{animation:shell-flash 1.3s ease}
+@keyframes shell-flash{0%,40%{box-shadow:0 0 0 3px var(--accent-glow)}100%{box-shadow:none}}
 .shell-toast{position:fixed;left:50%;bottom:calc(5.5rem + env(safe-area-inset-bottom));z-index:120;transform:translate(-50%,.5rem);opacity:0;padding:.45rem .9rem;border-radius:999px;background:rgba(20,22,28,.94);border:1px solid var(--border-hover);font-size:.85rem;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
 .shell-toast.show{opacity:1;transform:translate(-50%,0)}
 /* a finger held on a bubble opens the menu, not the phone's own callout and text selection */

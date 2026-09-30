@@ -213,6 +213,7 @@ function shellPending(r) {
 // room, whatever room is open now (selectCharacter): the mode belongs to the open talk.
 async function shellOpen(r) {
   shellState.paneFrom = '';
+  if (typeof msgReplyClear === 'function') msgReplyClear();   // a reply belongs to the talk it quotes
   const col = document.getElementById('shellProfile');
   if (col && col.classList.contains('behind')) shellProfileClose();   // its pane is being left for another talk
   if (typeof currentTab !== 'undefined' && currentTab !== 'chat') switchTab('chat');   // a pane was open: back to the talk

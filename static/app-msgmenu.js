@@ -4,9 +4,15 @@
 // selection inside the bubble keeps the browser's own menu, so a part of a message can still be copied.
 // A message whose turn failed is marked on its bubble with a way to send it again (RETRY_LAST_v1, app-retry.js).
 // Deleting a message is not here yet: what it would erase (the record, the brain's memory) is its own decision.
+//
+// Reply (ux/S7): "reply" on any bubble puts a bar over the composer; the message then goes with a quote line in
+// front of its text -- `> NAME: SNIPPET`, a blank line, the message -- which every brain reads as what it is,
+// needs nothing from the server, and is kept in the record as it was sent. The user's bubble draws that line as
+// a quote above the message (msgQuoteDraw), and pressing it scrolls to the line it quotes.
 
 const MSG_TEXT = {   // l10n-ok
   copy: '복사', copied: '복사했어요', resend: '다시 보내기', failed: '보내지 못했어요', menu: '메시지',   // l10n-ok
+  reply: '답장', me: '나', cancelReply: '답장 취소',   // l10n-ok
   // an act is sent as an action (/act): the row is what one does in reply, and it differs by room   // l10n-ok
   acts: { work: ['웃는다', '끄덕인다', '엄지를 든다', '어깨를 토닥인다'], private: ['웃는다', '머리를 쓰다듬는다', '손을 잡는다', '빤히 본다'] },   // l10n-ok
 };
@@ -26,6 +32,7 @@ function msgKind(el) {
 function msgMenuItems(ctx) {
   const rows = [];
   if (ctx.kind === 'theirs' && !ctx.busy && !ctx.room) rows.push({ k: 'acts', acts: MSG_TEXT.acts[ctx.mode === 'private' ? 'private' : 'work'] });
+  rows.push({ k: 'reply', label: MSG_TEXT.reply });
   rows.push({ k: 'copy', label: MSG_TEXT.copy });
   // an action goes again as an action; a group room takes plain text only
   if ((ctx.kind === 'mine' || (ctx.kind === 'act' && !ctx.room)) && !ctx.busy) rows.push({ k: 'resend', label: MSG_TEXT.resend });
@@ -35,11 +42,109 @@ function msgMenuItems(ctx) {
 // The words of a bubble as the user reads them: not the files under a line, the marks beside it, a footer.
 function msgText(el) {
   const copy = el.cloneNode(true);
-  copy.querySelectorAll('.attach-cards,.personal-mark,.msg-footer,.md-face,.md-typing,.thought-box,.thought-toggle,.msg-failnote,.stream-caret')
+  copy.querySelectorAll('.attach-cards,.personal-mark,.msg-footer,.md-face,.md-typing,.thought-box,.thought-toggle,.msg-failnote,.stream-caret,.msg-quote')
     .forEach(n => n.remove());
   let t = String(copy.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
   if (msgKind(el) === 'act') t = t.replace(/^✦\s*/, '');
   return t;
+}
+
+// ---- reply
+const MSG_SNIPPET_MAX = 80;
+let msgReply = null;   // { name, snippet } while the reply bar is up
+
+// One line of a bubble, short enough to quote.
+function msgSnippet(text) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  return t.length > MSG_SNIPPET_MAX ? t.slice(0, MSG_SNIPPET_MAX - 1) + '\u2026' : t;
+}
+// The quote line a reply is sent with, and back: { name, snippet, rest } or null.
+function msgQuoteLine(name, snippet) { return '> ' + (name ? name + ': ' : '') + snippet + '\n\n'; }
+function msgQuoteParse(text) {
+  const m = /^> ([^\n]{1,240})\n\n([\s\S]*)$/.exec(String(text || ''));
+  if (!m) return null;
+  const cut = m[1].indexOf(': ');
+  return cut > 0 && cut <= 40
+    ? { name: m[1].slice(0, cut), snippet: m[1].slice(cut + 2), rest: m[2] }
+    : { name: '', snippet: m[1], rest: m[2] };
+}
+// Who said a bubble, by the name the chat shows.
+function msgSpeaker(el, kind) {
+  if (kind !== 'theirs') return (typeof IDENTITY !== 'undefined' && IDENTITY.user_title) || MSG_TEXT.me;
+  const msg = el.closest ? el.closest('.msg') : null;
+  const who = msg && msg.querySelector('.room-who');
+  if (who && who.textContent.trim()) return who.textContent.trim();
+  return typeof sessionCharacterName === 'function' ? sessionCharacterName() : '';
+}
+
+function msgReplyClear() {
+  msgReply = null;
+  const bar = document.getElementById('shellReply');
+  if (bar) bar.hidden = true;
+}
+function msgReplyStart(el, kind, text) {
+  msgReply = { name: msgSpeaker(el, kind), snippet: msgSnippet(text) };
+  let bar = document.getElementById('shellReply');
+  const composer = document.querySelector('.composer');
+  if (!bar && composer) {
+    bar = document.createElement('div');
+    bar.id = 'shellReply';
+    bar.className = 'shell-reply';
+    const label = document.createElement('span');
+    label.className = 'shell-reply-text';
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.textContent = '\u2715';
+    x.title = MSG_TEXT.cancelReply;
+    x.setAttribute('aria-label', MSG_TEXT.cancelReply);
+    x.addEventListener('click', msgReplyClear);
+    bar.append(label, x);
+    composer.parentNode.insertBefore(bar, composer);
+  }
+  if (!bar) return;
+  bar.querySelector('.shell-reply-text').textContent = '\u21A9 ' + (msgReply.name ? msgReply.name + ': ' : '') + msgReply.snippet;
+  bar.hidden = false;
+  if (inputEl) inputEl.focus();
+}
+// Just before a send reads the box: a plain message takes the quote line; a command or an action goes as it is.
+function msgReplyApply() {
+  if (!msgReply || !inputEl) return;
+  const t = inputEl.value;
+  if (!t.trim()) return;
+  if (!t.trim().startsWith('/')) inputEl.value = msgQuoteLine(msgReply.name, msgReply.snippet) + t;
+  msgReplyClear();
+}
+// The user's bubble with a quote line: the quote drawn above the message, pressing it finds the line it quotes.
+function msgQuoteDraw(div) {
+  const root = document.documentElement;
+  if (!div || (root && root.classList && !root.classList.contains('shell2'))) return;
+  const first = div.firstChild;
+  if (!first || first.nodeType !== 3) return;
+  const q = msgQuoteParse(first.nodeValue);
+  if (!q) return;
+  first.nodeValue = q.rest;
+  const quote = document.createElement('button');
+  quote.type = 'button';
+  quote.className = 'msg-quote';
+  if (q.name) { const b = document.createElement('b'); b.textContent = q.name; quote.appendChild(b); }
+  quote.appendChild(document.createTextNode(q.snippet));
+  quote.addEventListener('click', () => msgQuoteFind(div, q.snippet));
+  div.insertBefore(quote, first);
+}
+function msgQuoteFind(from, snippet) {
+  const log = typeof logEl !== 'undefined' ? logEl : document.getElementById('log');
+  if (!log) return;
+  const want = String(snippet || '').replace(/\u2026$/, '');
+  const all = Array.prototype.slice.call(log.querySelectorAll('.md-say, .md-narr, .msg.user, .msg.action'));
+  const before = all.slice(0, Math.max(0, all.indexOf(from)));
+  for (let i = before.length - 1; i >= 0; i--) {
+    if (msgSnippet(msgText(before[i])).replace(/\u2026$/, '').startsWith(want)) {
+      before[i].scrollIntoView({ block: 'center' });
+      before[i].classList.add('msg-flash');
+      setTimeout(() => before[i].classList.remove('msg-flash'), 1300);
+      return;
+    }
+  }
 }
 
 // What goes to the composer to send a bubble again.
@@ -121,6 +226,7 @@ function msgMenuOpen(el, x, y) {
     b.addEventListener('click', async () => {
       msgMenuClose();
       if (it.k === 'copy') { if (await copyText(text)) msgToast(MSG_TEXT.copied); return; }
+      if (it.k === 'reply') { msgReplyStart(el, kind, text); return; }
       if (it.k === 'resend' && inputEl) {
         inputEl.value = msgResendText(kind, text);
         if (typeof autoResizeInput === 'function') autoResizeInput();
@@ -208,6 +314,16 @@ function msgMenuInit() {
     const clear = clearRetry;
     clearRetry = function () { clear.apply(this, arguments); msgMarkFailed(); };
   }
+  // a reply takes its quote line just before the send reads the box (after app-retry.js has filled an empty box)
+  document.addEventListener('click', (e) => {
+    const b = e.target && e.target.closest ? e.target.closest('#send') : null;
+    if (b && !b.disabled) msgReplyApply();
+  }, true);
+  document.addEventListener('keydown', (e) => {
+    if (!e.target || e.target.id !== 'input' || e.isComposing || e.keyCode === 229) return;
+    if (e.key === 'Enter' && !e.shiftKey) msgReplyApply();
+    else if (e.key === 'Escape' && msgReply) msgReplyClear();
+  }, true);
   // a send takes the offer inside app-retry.js without clearRetry(): look again once it has gone out
   document.addEventListener('click', (e) => { if (e.target && e.target.closest && e.target.closest('#send')) setTimeout(msgMarkFailed, 0); });
   document.addEventListener('keydown', (e) => { if (e.target && e.target.id === 'input' && e.key === 'Enter') setTimeout(msgMarkFailed, 0); });
