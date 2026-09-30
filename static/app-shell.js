@@ -193,6 +193,8 @@ async function shellPick(r) {
     shellState.pending = '';
     document.documentElement.classList.remove('shell-switching');
     shellListDraw();
+    // the card stays open across a switch and becomes the new talk's (a group room has none)
+    if (shellProfileIsOpen()) { if (typeof roomOpenId === 'function' && roomOpenId()) shellProfileClose(); else shellProfileOpen(); }
   }
 }
 function shellPending(r) {
@@ -209,7 +211,6 @@ function shellPending(r) {
 // The switch itself. The open character's row leads back from a room. Another character always opens in its WORK
 // room, whatever room is open now (selectCharacter): the mode belongs to the open talk.
 async function shellOpen(r) {
-  shellProfileClose();
   shellState.paneFrom = '';
   if (typeof currentTab !== 'undefined' && currentTab !== 'chat') switchTab('chat');   // a pane was open: back to the talk
   if (r.kind === 'room') { if (roomOpenId() !== r.id) await roomEnter(r.id); return; }
@@ -320,9 +321,12 @@ function shellHeartSync() {
 
 // ux/S2 (UX11): the seven tabs go. What belongs to the open talk's character is reached from its profile card (the
 // name or the picture in the header), what belongs to the whole app from the settings (the gear under the list).
-// The card and every pane are SCREENS of the talk column: they take all of it -- the talk's header and input bar
-// belong to the talk only (operator, 2026-09-30) -- and carry their own bar with the way back. The panes are the
-// old ones, opened with switchTab() as the tabs did. `adv` rows show in the advanced density only.
+// Layout (operator, 2026-09-30; the baseline is Telegram's web and mobile apps): on a wide screen the card is a
+// full-height column on the right, like the list on the left, and opening it moves the talk aside; on a phone it
+// is a screen of its own. A pane (the old tabs' content, opened with switchTab()) takes the middle in place of the
+// talk -- list and detail: the card or the settings stay open beside it, and closing the pane brings the talk
+// back. On a phone the same things are screens one after another, and Back returns to the one before. The talk's
+// header and input bar belong to the talk only. `adv` rows show in the advanced density only.
 const SHELL_PANES = { artifacts: 'files', sessions: 'history', activity: 'log', status: 'accounts', team: 'team', evolution: 'improve' };
 function shellProfileRows(ctx) {
   // "pictures" is one place: the character's art screen shows them, takes uploads and asks for new ones (app-art.js)
@@ -361,8 +365,8 @@ function shellRowButton(row) {
   } else if (row.detail) b.appendChild(shellEl('small', '', row.detail));
   return b;
 }
-function shellPanelHead(title, onClose) {
-  const head = shellEl('div', 'shell-panel-head'), x = shellEl('button', 'ghost', '\u2039');
+function shellPanelHead(title, onClose, glyph) {
+  const head = shellEl('div', 'shell-panel-head'), x = shellEl('button', 'ghost', glyph || '\u2039');
   x.type = 'button';
   x.title = SHELL_TEXT.close;
   x.setAttribute('aria-label', SHELL_TEXT.close);
@@ -374,7 +378,7 @@ function shellPanelHead(title, onClose) {
 // settings (which stay open beside it on a wide screen; on a narrow one Back shows the list they cover).
 function shellGoPane(tab, from) {
   shellState.paneFrom = from || '';
-  shellProfileClose();
+  if (shellNarrow()) shellProfileClose();      // a phone shows one screen at a time; wide, the card stays beside the pane
   shellShowChat();
   // the history is this character's own: the old tab's character strip is hidden under the shell (shell.css)
   if (tab === 'sessions' && typeof setSessionCharFilter === 'function') setSessionCharFilter(openCharacterId());
@@ -384,13 +388,19 @@ function shellPaneBack() {
   const from = shellState.paneFrom;
   shellState.paneFrom = '';
   switchTab('chat');
+  if (!shellNarrow()) return;                  // wide: the card or the settings never left
   if (from === 'profile') shellProfileOpen();
-  else if (from === 'settings' && shellNarrow()) shellShowList();
+  else if (from === 'settings') shellShowList();
 }
 
-function shellProfileClose() { const p = document.getElementById('shellProfile'); if (p) p.classList.remove('open'); }
+function shellProfileIsOpen() { const p = document.getElementById('shellProfile'); return Boolean(p && p.classList.contains('open')); }
+function shellProfileClose() {
+  const p = document.getElementById('shellProfile');
+  if (p) p.classList.remove('open');
+  if (document.body) document.body.classList.remove('shell-profile-open');
+}
 function shellProfileOpen() {
-  const panel = document.getElementById('shellProfile');
+  const column = document.getElementById('shellProfile'), panel = column && column.firstChild;   // the fixed-width inside
   const c = typeof currentCharacter === 'function' ? currentCharacter() : null;
   if (!panel || !c || (typeof roomOpenId === 'function' && roomOpenId())) return;   // a group room has no card yet
   const rows = shellProfileRows({ art: typeof openArtManager === 'function' });
@@ -409,8 +419,16 @@ function shellProfileOpen() {
     });
     list.appendChild(b);
   });
-  panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose), card, list, shellBrainSection(c), shellModelSection());
-  panel.classList.add('open');
+  panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose, shellNarrow() ? '\u2039' : '\u2715'), card, list,
+    shellBrainSection(c), shellModelSection());
+  shellMarkPane();
+  column.classList.add('open');
+  document.body.classList.add('shell-profile-open');
+}
+// The row of the pane shown in the middle is marked in the card and in the settings.
+function shellMarkPane() {
+  const now = document.documentElement.dataset.tab || 'chat';
+  document.querySelectorAll('.shell-rowbtn[data-k]').forEach(b => b.classList.toggle('current', b.getAttribute('data-k') === now));
 }
 function shellSection(title) {
   const box = shellEl('div', 'shell-section');
@@ -486,6 +504,7 @@ function shellSettingsOpen() {
     list.appendChild(b);
   });
   panel.append(shellPanelHead(SHELL_TEXT.settings, shellSettingsClose), list);
+  shellMarkPane();
   panel.classList.add('open');
 }
 
@@ -498,7 +517,8 @@ function shellPanelsInit() {
   profile.id = 'shellProfile';
   profile.setAttribute('aria-label', SHELL_TEXT.profile);
   settings.id = 'shellSettings';
-  wrap.appendChild(profile);
+  profile.appendChild(shellEl('div', 'shell-profile-in'));
+  document.body.appendChild(profile);          // the last column of the page (shell.css), beside the talk
   list.appendChild(settings);
   const gear = shellEl('button', 'shell-gear', '\u2699');
   gear.id = 'shellGear';
@@ -520,13 +540,15 @@ function shellPanelsInit() {
     tab.apply(this, arguments);
     const now = document.documentElement.dataset.tab || t;
     shellSet(bar.querySelector('.shell-pane-title'), SHELL_TEXT[SHELL_PANES[now]] || '');
-    if (now !== 'chat') shellProfileClose();
+    shellSet(back, shellNarrow() ? '\u2039' : '\u2715');      // a phone goes back, a wide screen closes the pane
+    if (now !== 'chat' && shellNarrow()) shellProfileClose();
+    shellMarkPane();
   };
   // The picture used to open the tray (app.js onTrayKey). Caught on the way down, before that listener: the wrap
   // also holds the provider tray, so only the picture itself is taken.
   const pic = document.getElementById('brandAvatar'), picWrap = document.getElementById('brandAvatarWrap');
   const title = document.querySelector('header .brand-title');
-  const toggle = () => { const p = document.getElementById('shellProfile'); if (p.classList.contains('open')) shellProfileClose(); else shellProfileOpen(); };
+  const toggle = () => { if (shellProfileIsOpen()) shellProfileClose(); else shellProfileOpen(); };
   if (pic && picWrap) {
     picWrap.addEventListener('click', (e) => { if (e.target === pic) { e.stopPropagation(); toggle(); } }, true);
     picWrap.addEventListener('keydown', (e) => {

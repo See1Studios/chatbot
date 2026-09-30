@@ -166,6 +166,16 @@ return (async () => {
     shellGoPane('activity', 'settings'); o.paneBack.push([currentTab, shellState.paneFrom]);
     shellPaneBack(); o.paneBack.push([currentTab, opened.pop() || '']);           // narrow: the list the settings cover
     shellGoPane('status'); shellPaneBack(); o.paneBack.push([currentTab, opened.pop() || '']);
+    const realClose = shellProfileClose;
+    let closed = 0;
+    shellProfileClose = () => { closed++; };
+    window.innerWidth = 1400;
+    shellGoPane('sessions', 'profile');
+    o.paneWide = { closedForPane: closed, tab: currentTab };
+    shellPaneBack();
+    o.paneWide.afterClose = [currentTab, opened.pop() || ''];
+    window.innerWidth = 400;
+    shellProfileClose = realClose;
     shellProfileOpen = realOpen; shellShowList = realList;
     open = { character: 'a', room: 'room_1' };
   }
@@ -327,16 +337,25 @@ class ShellList(unittest.TestCase):
         pane = 'html.shell2[data-tab]:not([data-tab="chat"]) '
         self.assertIn(pane + "header," + pane + ".meta," + pane + "#sessionBanner{display:none !important}", CSS)
         self.assertIn(':root[data-tab]:not([data-tab="chat"]) .composer', (STATIC / "chat-panes.css").read_text(encoding="utf-8"))
-        self.assertIn(".shell-profile{position:absolute;inset:0;", CSS)             # the whole column, not a side strip
-        self.assertIn("html.shell2 .wrap{position:relative;", CSS)
         src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
-        self.assertIn("wrap.appendChild(profile);", src)
+        # the card: a full-height column beside the talk that opens by moving it (wide), over its edge (medium),
+        # a screen of its own (phone)
+        self.assertIn("document.body.appendChild(profile);", src)
+        self.assertIn(".shell-profile{flex:0 0 0;", CSS)
+        self.assertIn(".shell-profile.open{flex-basis:340px;", CSS)
+        self.assertIn("transition:flex-basis .22s", CSS)
+        self.assertRegex(CSS, r"@media \(max-width: 1279px\) \{\s*\.shell-profile\{position:fixed;")
+        self.assertIn("  .shell-profile{width:100%;z-index:95;", CSS)
+        self.assertIn(".shell-profile-in > *{flex-shrink:0}", CSS)                  # a long model list scrolls, never squeezes
         # the history is the open character's own; pictures open as a screen above the card
         self.assertIn("setSessionCharFilter(openCharacterId())", src)
         self.assertIn("html.shell2 #sessionCharTabs,html.shell2 #roomsStrip{display:none !important}", CSS)
         self.assertIn("html.shell2 #artManager{left:300px;padding:0;", CSS)
         o = self.o
+        # a phone: one screen after another, Back returns to the one before
         self.assertEqual(o["paneBack"], [["sessions", "b", "profile"], ["chat", "profile"], ["activity", "settings"], ["chat", "list"], ["chat", ""]])
+        # a wide screen: list and detail -- the card is not closed for a pane, and closing the pane reopens nothing
+        self.assertEqual(o["paneWide"], {"closedForPane": 0, "tab": "sessions", "afterClose": ["chat", ""]})
 
     def test_the_plus_menu_lists_what_the_row_carried(self):
         work = self.o["plusWork"]
