@@ -56,6 +56,7 @@
 | [character-memory-adapter.md](character-memory-adapter.md) | `active` · 방향 **핵심** — 캐릭터 스코프 관계 기억 어댑터(설계·열린 질문), provider/visual 옆 층, Joi식 연속성·opt-in | 관계 기억·사적 continuity·캐릭터 메모리 층을 건드릴 때 |
 | [platform-portability.md](platform-portability.md) | `active` · 방향 **기반** — NAS 밖 OS 호환성: OS 전용 기능 재고(fcntl·/proc·setsid·신호·bash), 래칫, `platform_compat` 한 곳, CI 매트릭스(Windows 1순위·macOS·Linux), FIREBAT 실기, Python 런처. PP1–PP3 대기 | OS 전용 기능·프로세스 관리·파일 잠금·CI·런처·다른 OS 설치를 건드릴 때 |
 | [ux-shell-roadmap.md](ux-shell-roadmap.md) | `active` · 방향 **핵심** — UX 껍데기 순서: 메신저(Telegram·LINE·KakaoTalk 수준 기준선 표, 모바일은 Telegram Android) → 데스크톱 캐릭터, 스팀덱 후보(게임패드·캐릭터 중심, Decky QAM 플러그인)(기준선 openhuman 마스코트, GPL이라 동작만 참고), 엔진은 캐릭터 상태 이벤트로 두 껍데기에 같은 통로, ① 캐릭터 중심 밀도가 다리, 데스크톱 스파이크는 짧게 먼저. UX1–UX4 대기 | 메신저/데스크톱 UX 순서·캐릭터 상태 이벤트·외형 코드와 채팅 DOM 경계를 건드릴 때 |
+| [character-events-and-rooms.md](character-events-and-rooms.md) | `active` · 방향 **핵심** — 중앙 이벤트 우편(작업·시스템·사적 시작/끝·예약 이벤트를 모아 관계로 정한 수취인에게, 역할 이름 없이), 배달 두 가지(다음 턴 한 줄 / 캐릭터가 먼저 말 걸기, 안전장치), 단체방(`@` 멘션·SillyTavern식 발언자 선택·턴 한도, 업무방/단체 놀이방 — 사적 이벤트는 그 자리 멤버에게만), 간이 크론(예약 → 이벤트). E1–E8 결정(추천대로) | 이벤트 배달·자동 반응·단체방·멘션·예약·`work_note`/재시작 안내를 건드릴 때 |
 
 ## Archived (한 줄 · 펼치지 말 것)
 
