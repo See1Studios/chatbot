@@ -59,6 +59,11 @@ class Wiring(unittest.TestCase):
         self.assertLess(page.index("./app-rooms.js"), page.index("./app.js?"))
         self.assertIn("openRooms();", (STATIC / "app-characters.js").read_text(encoding="utf-8"))
 
+    def test_sending_waits_while_the_room_answers(self):
+        src = (STATIC / "app-rooms.js").read_text(encoding="utf-8")
+        self.assertIn("send.disabled = roomState.busy;", src)
+        self.assertIn("if (!text || roomState.busy) return;", src)
+
 
 if __name__ == "__main__":
     unittest.main()

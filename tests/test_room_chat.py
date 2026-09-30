@@ -106,6 +106,7 @@ class Rooms(unittest.TestCase):
         self.assertIn("@Kit two", second)
         self.assertNotIn("@Kit one", second, "already heard")
         self.assertIn("Do not use tools", second)
+        self.assertIn("only when you truly need their answer", second, "characters do not hand the word every turn")
 
     def test_a_busy_room_refuses_a_second_message(self):
         r = RC.create("desk", [self.a, self.b], strategy="manual")

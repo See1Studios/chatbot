@@ -188,9 +188,10 @@ def _prompt(r: Dict, cid: str, names: Dict[str, str], user_title: str) -> str:
              for m in messages(r["id"], since)[-30:]]
     others = ", ".join("@" + names[m] for m in r["members"] if m != cid)
     return ("[Group room \"%s\" -- members: %s and %s] What was said since you last spoke:\n%s\n\n"
-            "It is your turn. Answer as yourself in one to three sentences, to the room. You may @mention a member "
-            "to hand them the word. Do not use tools or start work here; if work is needed, say so and suggest "
-            "taking it to your own chat." % (r["name"], user_title, others, "\n".join(lines)))
+            "It is your turn. Answer as yourself in one to three sentences, mostly to %s. @mention another member "
+            "only when you truly need their answer now -- not to be polite and not every time; most turns mention "
+            "no one. Do not use tools or start work here; if work is needed, say so and suggest taking it to your "
+            "own chat." % (r["name"], user_title, others, "\n".join(lines), user_title))
 
 
 def _answer(sess, text: str, timeout: float = REPLY_TIMEOUT) -> Tuple[object, str]:

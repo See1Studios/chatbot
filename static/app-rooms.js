@@ -90,6 +90,8 @@ async function roomPoll(render) {
 function roomBusyMark() {
   const mark = document.getElementById('roomBusy');
   if (mark) mark.hidden = !roomState.busy;
+  const send = document.getElementById('roomSend');
+  if (send) send.disabled = roomState.busy;
 }
 
 function renderRooms() {
@@ -228,9 +230,11 @@ function roomChat(draft) {
   input.addEventListener('input', showMenu);
   const send = roomEl('button', 'art-btn primary', ROOM_TEXT.send);
   send.type = 'button';
+  send.id = 'roomSend';
+  send.disabled = roomState.busy;   // the room answers one message at a time
   const go = async () => {
     const text = input.value.trim();
-    if (!text) return;
+    if (!text || roomState.busy) return;
     send.disabled = true;
     try {
       await api('/api/rooms/' + encodeURIComponent(roomState.id) + '/say', { method: 'POST', body: JSON.stringify({ text }) });
@@ -240,7 +244,7 @@ function roomChat(draft) {
     } catch (e) {
       await alertModal(ROOM_TEXT.failed + (e.message || e));
     } finally {
-      send.disabled = false;
+      send.disabled = roomState.busy;
     }
   };
   send.addEventListener('click', go);
