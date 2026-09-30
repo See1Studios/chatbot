@@ -98,8 +98,9 @@ class RecycleSafetyTest(unittest.TestCase):
 class AutoRecycleOnceTest(unittest.TestCase):
     def setUp(self):
         self.orig = (server.accounts.snapshot, server.owned_agent_procs, server.recycle_agents,
-                     dict(server._AUTO_RECYCLE))
-        self.recycled_with = []
+                     dict(server._AUTO_RECYCLE), server.accounts.stop_workers)
+        self.recycled_with, self.stopped_with = [], []
+        server.accounts.stop_workers = lambda pids: self.stopped_with.append(set(pids)) or sorted(pids)
         server.owned_agent_procs = lambda: {}
         server.recycle_agents = lambda pids: self.recycled_with.append(set(pids)) or \
             {"recycled": sorted(pids), "skipped_busy": []}
@@ -108,6 +109,7 @@ class AutoRecycleOnceTest(unittest.TestCase):
     def tearDown(self):
         server.accounts.snapshot, server.owned_agent_procs, server.recycle_agents = self.orig[:3]
         server._AUTO_RECYCLE.clear(); server._AUTO_RECYCLE.update(self.orig[3])
+        server.accounts.stop_workers = self.orig[4]
 
     def _snap(self, *procs):
         server.accounts.snapshot = lambda owned, providers=None: {"providers": {"agy": {"processes": list(procs)}}}
@@ -126,6 +128,15 @@ class AutoRecycleOnceTest(unittest.TestCase):
         self.assertEqual(self.recycled_with, [{1, 2}])
         self.assertEqual((server._AUTO_RECYCLE["last_count"], server._AUTO_RECYCLE["total"]), (2, 2))
         self.assertIsNotNone(server._AUTO_RECYCLE["last_at"])
+
+    def test_a_worker_on_the_old_login_is_stopped_not_recycled(self):
+        # ACCOUNT_SWITCH_v1: its runner runs the step again under the new login
+        self._snap({"pid": 4, "stale": True, "owner": "worker"},
+                   {"pid": 5, "stale": False, "owner": "worker"},
+                   {"pid": 6, "stale": True, "owner": "external"})
+        self.assertEqual(server._auto_recycle_once(), 1)
+        self.assertEqual(self.stopped_with, [{4}])
+        self.assertEqual(self.recycled_with, [set()])
 
 
 if __name__ == "__main__":

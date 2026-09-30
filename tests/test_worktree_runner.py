@@ -803,5 +803,34 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(wr.remember("ghost", ["x"]), 0)                             # no such expert
 
 
+class AccountSwitch(unittest.TestCase):
+    """ACCOUNT_SWITCH_v1: a worker the server stopped because it still held the old login runs again under the new
+    one; an ordinary failure, or one with no login change, is not run again."""
+
+    def run_with(self, codes, logins):
+        calls, it = [], iter(logins)
+        orig = (wr.run_cmd, wr.login_of, wr.log)
+        wr.run_cmd = lambda cmd, **kw: (calls.append(cmd) or (codes[len(calls) - 1], "out", "err"))
+        wr.login_of = lambda provider: next(it)
+        wr.log = lambda msg: None
+        try:
+            return wr.run_as_login("agy", ["agy", "-p", "x"]), len(calls)
+        finally:
+            wr.run_cmd, wr.login_of, wr.log = orig
+
+    def test_stopped_by_a_switch_runs_again(self):
+        self.assertEqual(self.run_with([-15, 0], ["old", "new", "new"]), ((0, "out", "err"), 2))
+
+    def test_a_failure_without_a_switch_is_not_run_again(self):
+        self.assertEqual(self.run_with([1], ["a", "a"])[1], 1)
+
+    def test_unknown_login_is_not_a_switch(self):
+        self.assertEqual(self.run_with([1], [None, None])[1], 1)
+        self.assertEqual(self.run_with([1], ["a", None])[1], 1)
+
+    def test_reruns_are_capped(self):
+        logins = ["a", "b", "b", "c", "c", "d"]
+        self.assertEqual(self.run_with([-15, -15, -15], logins)[1], 1 + wr.SWITCH_RERUNS)
+
 if __name__ == "__main__":
     unittest.main()

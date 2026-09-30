@@ -205,6 +205,45 @@ class HelpersTest(Base):
                  6: {"owner": "session", "sid": "f"}}
         self.assertEqual(accounts.stale_owned(accounts.snapshot(owned)), {1, 2})
 
+    def test_a_delegated_worker_on_the_old_login_is_a_worker_to_stop(self):
+        # ACCOUNT_SWITCH_v1: the runner's child is the chatbot's own work, not an "external" process
+        self.add_proc("agy", 7, 500, ppid=70, log_email=OLD)   # worker, old login  -> stop
+        self.add_proc("agy", 8, 520, ppid=80, log_email=NEW)   # worker, new login  -> keep
+        self.add_proc("agy", 9, 540, ppid=90, log_email=OLD)   # external           -> never
+        orig = accounts._is_runner
+        accounts._is_runner = lambda pid: pid in (70, 80)
+        try:
+            snap = accounts.snapshot()
+        finally:
+            accounts._is_runner = orig
+        by_pid = {p["pid"]: p for p in snap["providers"]["agy"]["processes"]}
+        self.assertEqual((by_pid[7]["owner"], by_pid[9]["owner"]), ("worker", "external"))
+        self.assertNotIn("kill_cmd", by_pid[7], "the server stops it; no hand-copied kill")
+        self.assertEqual(accounts.stale_workers(snap), {7})
+        self.assertEqual(accounts.stale_owned(snap), set(), "a worker is not a session to recycle")
+
+    def test_stop_workers_rechecks_the_parent_before_signalling(self):
+        sent = []
+        orig = (accounts._stat_fields, accounts._is_runner, accounts.platform_compat.terminate)
+        accounts._stat_fields = lambda pid: ["S", str(pid * 10)]
+        accounts._is_runner = lambda pid: pid == 70
+        accounts.platform_compat.terminate = lambda pid: sent.append(pid) or True
+        try:
+            self.assertEqual(accounts.stop_workers({7, 8}), [7])
+        finally:
+            accounts._stat_fields, accounts._is_runner, accounts.platform_compat.terminate = orig
+        self.assertEqual(sent, [7], "a reused pid whose parent is no longer the runner is left alone")
+
+    def test_login_fingerprint_follows_the_refresh_token_not_the_file(self):
+        accounts.AGY_TOKEN.write_text(json.dumps({"id_token": _jwt(NEW), "refresh_token": "r1"}))
+        a = accounts.login_fingerprint("agy")
+        accounts.AGY_TOKEN.write_text(json.dumps({"id_token": _jwt(NEW) + "x", "refresh_token": "r1"}))
+        self.assertEqual(accounts.login_fingerprint("agy"), a, "an access-token refresh is not a new login")
+        accounts.AGY_TOKEN.write_text(json.dumps({"id_token": _jwt(NEW), "refresh_token": "r2"}))
+        self.assertNotEqual(accounts.login_fingerprint("agy"), a)
+        self.assertNotIn("r2", a)
+        self.assertIsNone(accounts.login_fingerprint("claude"))
+
     def test_snapshot_can_be_limited_to_agy_without_touching_claude(self):
         calls = []
         accounts._ACCOUNT_FN["claude"] = lambda: calls.append(1) or {"ok": True, "email": NEW}

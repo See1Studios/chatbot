@@ -497,13 +497,37 @@ def diff_limit(provider: str) -> int:
     return DIFF_LIMIT_STDIN if "stdin_prompt" in PROVIDERS.get(provider, {}) else DIFF_LIMIT
 
 
+SWITCH_RERUNS = 2   # ACCOUNT_SWITCH_v1: runs of one step that may restart because the login changed under them
+
+
+def login_of(provider: str) -> Optional[str]:
+    """The login of a provider whose processes keep the one they started with (accounts.RECYCLE_ON_LOGIN), else None."""
+    try:
+        accounts = host_module("providers.accounts").accounts
+        return accounts.current_email(provider) if provider in accounts.RECYCLE_ON_LOGIN else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def run_as_login(provider: str, cmd: List[str], **kw) -> tuple:
+    """run_cmd, again when it failed because the login changed while it ran (the server stops a worker holding the old
+    one, ACCOUNT_SWITCH_v1): not the work's fault, so the step runs again under the new login, costing no attempt."""
+    for _ in range(1 + SWITCH_RERUNS):
+        before = login_of(provider)
+        code, out, err = run_cmd(cmd, **kw)
+        if code == 0 or not before or login_of(provider) in (None, before):
+            break
+        log("%s login changed while it ran; running the same step again under the new login" % provider)
+    return code, out, err
+
+
 def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False, model: str = "") -> Dict:
     argv = work_command(provider, wt_dir, model, resume)
     if not shutil.which(argv[0]):
         return {"ok": False, "returncode": None, "elapsed_sec": 0, "stdout": "", "stderr": "%s CLI not installed" % argv[0]}
     t0 = time.time()
     extra, stdin = prompt_args(provider, prompt)
-    code, out, err = run_cmd(argv + extra, cwd=wt_dir, timeout=timeout, env=agent_env(provider), stdin=stdin)
+    code, out, err = run_as_login(provider, argv + extra, cwd=wt_dir, timeout=timeout, env=agent_env(provider), stdin=stdin)
     return {"ok": code == 0, "returncode": code, "elapsed_sec": round(time.time() - t0, 1), "stdout": out, "stderr": err}
 
 
@@ -689,7 +713,8 @@ def run_review(provider: str, model: str, wt_dir: Path, prompt: str, timeout: in
     shutil.rmtree(empty, ignore_errors=True)
     empty.mkdir(parents=True, exist_ok=True)
     extra, stdin = prompt_args(provider, prompt)
-    code, out, err = run_cmd(argv + extra, cwd=empty, timeout=timeout or REVIEW_TIMEOUT, env=clean_env(), stdin=stdin)
+    code, out, err = run_as_login(provider, argv + extra, cwd=empty, timeout=timeout or REVIEW_TIMEOUT, env=clean_env(),
+                                  stdin=stdin)
     if code == -1 and err.startswith("timed out"):
         raise Failure("failed", "reviewer %s %s" % (provider, err), tail(out))
     if code != 0:

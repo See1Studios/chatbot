@@ -203,6 +203,7 @@ class _Session:
     last_submitted_code: Optional[str] = None
     _last_ok_check_len: int = -1
     _agy_oauth_selected: bool = False
+    baseline: Optional[dict] = None     # the login before this attempt: {"ok", "email", "fp"} (LOGIN_BASELINE_v1)
     _reader_stop: threading.Event = field(default_factory=threading.Event)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -382,14 +383,41 @@ def _reader_loop(sess: _Session) -> None:
         pass
 
 
-def _account_ok(provider: str, sess: Optional["_Session"] = None) -> bool:
+def _account_fn(provider: str):
+    return {
+        "agy": accounts.agy_account,
+        "claude": accounts.claude_account,
+        "codex": accounts.codex_account,
+        "grok": accounts.grok_account,
+    }.get(provider)
+
+
+def _login_state(provider: str) -> dict:
     try:
-        fn = {
-            "agy": accounts.agy_account,
-            "claude": accounts.claude_account,
-            "codex": accounts.codex_account,
-            "grok": accounts.grok_account,
-        }.get(provider)
+        info = _account_fn(provider)() if _account_fn(provider) else {}
+    except Exception:
+        info = {}
+    return {"ok": bool(info.get("ok")), "email": info.get("email"), "fp": accounts.login_fingerprint(provider)}
+
+
+def _changed(base: Optional[dict], now: dict) -> Optional[bool]:
+    """Did a new login land since `base`? True / False, or None when the provider leaves no way to tell a
+    same-account re-login from nothing (then only the login CLI exiting says it is done)."""
+    if not now.get("ok"):
+        return False
+    if not base or not base.get("ok") or base.get("email") != now.get("email"):
+        return True
+    if base.get("fp") and now.get("fp"):
+        return base["fp"] != now["fp"]
+    return None
+
+
+def _account_ok(provider: str, sess: Optional["_Session"] = None, exited: bool = False) -> bool:
+    """The attempt succeeded: a NEW login is in place. The login that was already there when the attempt started
+    does not count (a switch without logging out first would otherwise "succeed" at once and kill the login).
+    When the CLI has exited, a same-account re-login the provider cannot tell apart counts too."""
+    try:
+        fn = _account_fn(provider)
         if not fn:
             return False
         if provider == "claude":
@@ -406,7 +434,13 @@ def _account_ok(provider: str, sess: Optional["_Session"] = None) -> bool:
                     accounts._invalidate_claude_cache()
                     sess._last_ok_check_len = cur_len
         info = fn()
-        return bool(info.get("ok") and (info.get("email") or info.get("ok")))
+        if not info.get("ok"):
+            return False
+        if sess is None:
+            return True
+        changed = _changed(sess.baseline, {"ok": True, "email": info.get("email"),
+                                           "fp": accounts.login_fingerprint(provider)})
+        return changed is True or (exited and changed is None)
     except Exception:
         return False
 
@@ -440,7 +474,7 @@ def _watcher_loop(sess: _Session) -> None:
             if rc is not None:
                 # Process ended — check account once more
                 time.sleep(0.4)
-                if _account_ok(sess.provider, sess):
+                if _account_ok(sess.provider, sess, exited=True):
                     with sess._lock:
                         sess.state = "succeeded"
                         sess.message_ko = "로그인됐어요. 계정 정보를 새로고침합니다."
@@ -470,6 +504,11 @@ def _on_success(provider: str) -> None:
             accounts._invalidate_claude_cache()
     except Exception:
         pass
+
+
+def _reap_after_success(sess: _Session) -> None:
+    time.sleep(0.5)   # let the CLI finish writing its token file
+    _kill_proc(sess)
 
 
 def _close_fd(sess: _Session) -> None:
@@ -613,6 +652,7 @@ def start(provider: str) -> dict:
         mode=mode,
         message_ko=_MESSAGE_KO.get(provider, "안내에 따라 로그인을 완료하세요."),
         expires_at=time.time() + LOGIN_TIMEOUT_SEC,
+        baseline=_login_state(provider),
     )
     with _lock:
         _sessions[provider] = sess
@@ -669,6 +709,10 @@ def complete(provider: str, code: str, login_id: Optional[str] = None) -> dict:
                     sess.state = "succeeded"
                     sess.message_ko = "로그인됐어요."
             _on_success(provider)
+            # The watcher stops at once when the state leaves "pending", so the CLI is ours to end: an
+            # interactive login (agy's TUI) never exits by itself and would keep the token in memory.
+            threading.Thread(target=_reap_after_success, args=(sess,), daemon=True,
+                             name=f"login-reap-{provider}").start()
             return {**sess.public(), "ok": True}
         if proc.poll() is not None:
             break

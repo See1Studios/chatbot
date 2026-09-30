@@ -22,7 +22,7 @@ async function fetchSelfStatus() {
 // 상태 탭은 "지금 쓰는 프로바이더" 한 곳만 보여 준다: 계정 → 사용량 → 프로세스.
 // 서버가 토큰 파일의 이메일과 각 agy 프로세스가 인증한 계정을 대조해 stale 여부를
 // 계산해 준다 -- 여기서는 그리기만 한다.
-const ACCT_OWNER_LABEL = { session: '세션', standby: '대기(standby)', 'chatbot-other': '챗봇 임시', external: '외부' };
+const ACCT_OWNER_LABEL = { session: '세션', standby: '대기(standby)', worker: '위임 작업자', 'chatbot-other': '챗봇 임시', external: '외부' };
 
 // 상태 탭이 보여 주는 제공자. 기본은 지금 대화 중인 제공자를 따라가고, 칩으로 다른 제공자를
 // "보기만" 할 수 있다 -- selectProvider()를 부르지 않으므로 서버 세션(제공자·conversation_id)은 그대로다.

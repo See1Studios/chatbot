@@ -155,8 +155,9 @@ def _get_usage(provider: str = DEFAULT_PROVIDER, force: bool = False) -> dict:
 # login. Idle ones are stopped so the next message respawns them (same
 # --conversation, so context is kept) under the new login -- the same
 # transition the 15-minute idle reaper already performs. Busy sessions are never
-# touched; external processes are never touched. CHATBOT_AUTO_RECYCLE=0 turns
-# it off (the status-tab button still works).
+# touched; external processes are never touched. A delegated worker still on the
+# old login is stopped and its runner runs the step again (ACCOUNT_SWITCH_v1).
+# CHATBOT_AUTO_RECYCLE=0 turns it off (the status-tab button still works).
 AUTO_RECYCLE_ENABLED = os.environ.get("CHATBOT_AUTO_RECYCLE", "1") != "0"
 AUTO_RECYCLE_EVERY_SEC = 30
 _AUTO_RECYCLE = {"enabled": AUTO_RECYCLE_ENABLED, "last_at": None, "last_count": 0, "total": 0}
@@ -179,15 +180,16 @@ def _recycle_after_login(provider: str, result: dict) -> dict:
 
 def _auto_recycle_once() -> int:
     snap = accounts.snapshot(owned_agent_procs(), providers=accounts.RECYCLE_ON_LOGIN)
-    stale = accounts.stale_owned(snap)
-    if not stale:
+    stale, workers = accounts.stale_owned(snap), accounts.stale_workers(snap)
+    if not (stale or workers):
         return 0
-    result = recycle_agents(stale)
-    n = len(result["recycled"])
+    result = {**recycle_agents(stale), "workers_stopped": accounts.stop_workers(workers)}   # ACCOUNT_SWITCH_v1
+    n = len(result["recycled"]) + len(result["workers_stopped"])
     if n:
         _AUTO_RECYCLE.update(last_at=time.time(), last_count=n, total=_AUTO_RECYCLE["total"] + n)
         obslog.event("agent.recycle", lvl="warn", msg="agy login changed; restarted idle owned processes",
-                     recycled=result["recycled"], skipped_busy=result["skipped_busy"])
+                     recycled=result["recycled"], skipped_busy=result["skipped_busy"],
+                     workers_stopped=result["workers_stopped"])
     return n
 
 
@@ -871,8 +873,9 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 # Stale set is recomputed server-side and limited to processes
                 # this server owns -- the client cannot name pids, and external
                 # processes (e.g. an SSH agy session) are never touched.
-                stale = accounts.stale_owned(accounts.snapshot(owned_agent_procs(), providers=accounts.RECYCLE_ON_LOGIN))
-                code, raw = _json_bytes({"ok": True, **recycle_agents(stale)})
+                snap = accounts.snapshot(owned_agent_procs(), providers=accounts.RECYCLE_ON_LOGIN)
+                code, raw = _json_bytes({"ok": True, **recycle_agents(accounts.stale_owned(snap)),
+                                         "workers_stopped": accounts.stop_workers(accounts.stale_workers(snap))})
                 return self._send(code, raw, "application/json; charset=utf-8")
 
             if path == "/api/accounts/login/start":

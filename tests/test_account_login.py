@@ -33,6 +33,47 @@ class AccountLoginTest(unittest.TestCase):
     def tearDown(self):
         account_login.idle_all()
 
+    def test_only_a_new_login_counts_as_success(self):
+        # LOGIN_BASELINE_v1: switching accounts without logging out first used to "succeed" on the old login at once
+        ch = account_login._changed
+        A = {"ok": True, "email": "a@x", "fp": "1"}
+        self.assertTrue(ch({"ok": False}, A), "logged out before: any login is new")
+        self.assertTrue(ch(A, {"ok": True, "email": "b@x", "fp": "1"}))
+        self.assertFalse(ch(A, dict(A)), "the login that was already there")
+        self.assertTrue(ch(A, {"ok": True, "email": "a@x", "fp": "2"}), "same account, logged in again")
+        self.assertIsNone(ch({"ok": True, "email": "a@x", "fp": None}, {"ok": True, "email": "a@x", "fp": None}))
+        self.assertFalse(ch(A, {"ok": False}))
+
+    def test_an_unknown_same_account_login_counts_only_once_the_cli_exits(self):
+        sess = account_login._Session(login_id="x", provider="grok", mode="device_code", message_ko="",
+                                      baseline={"ok": True, "email": "a@x", "fp": None})
+        with mock.patch.object(accounts, "grok_account", return_value={"ok": True, "email": "a@x"}):
+            self.assertFalse(account_login._account_ok("grok", sess))
+            self.assertTrue(account_login._account_ok("grok", sess, exited=True))
+
+    def test_a_code_that_logs_in_also_ends_the_login_cli(self):
+        # the agy TUI never exits by itself; after complete() succeeded nobody ended it (pid left on a pty)
+        proc = mock.Mock()
+        proc.poll.return_value = None
+        sess = account_login._Session(login_id="x", provider="agy", mode="oauth_paste", message_ko="",
+                                      expires_at=time.time() + 30, proc=proc, master_fd=None)
+        r, w = os.pipe()
+        sess.master_fd = w
+        account_login._sessions["agy"] = sess
+        ended = []
+        with mock.patch.object(account_login, "_account_ok", return_value=True), \
+                mock.patch.object(account_login, "_kill_proc", side_effect=lambda s: ended.append(s)):
+            out = account_login.complete("agy", "4/0Acode")
+            self.assertEqual(out.get("state"), "succeeded")
+            for _ in range(30):
+                if ended:
+                    break
+                time.sleep(0.1)
+        os.close(r)
+        os.close(w)
+        self.assertEqual(ended, [sess])
+        account_login._sessions.pop("agy", None)
+
     def test_start_unknown_provider(self):
         r = account_login.start("nope")
         self.assertFalse(r.get("ok"))

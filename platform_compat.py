@@ -115,3 +115,22 @@ def named_file(folder, names):
 def has_proc() -> bool:
     """A Linux-style /proc (absent on Windows and macOS)."""
     return os.path.isdir("/proc/self")
+
+
+def proc_cmdline(pid: int) -> list:
+    """A process's argv as strings; [] when it cannot be read (gone, not ours, or no /proc)."""
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            return [a.decode("utf-8", "replace") for a in f.read().split(b"\0") if a]
+    except OSError:
+        return []
+
+
+def terminate(pid: int) -> bool:
+    """Ask one process (not its group) to stop. False when it is gone or not ours."""
+    import signal
+    try:
+        os.kill(pid, signal.SIGTERM)
+        return True
+    except OSError:
+        return False

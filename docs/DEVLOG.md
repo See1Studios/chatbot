@@ -2,6 +2,14 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-30 — agy 계정 전환 뒤 옛 계정 작업자·로그인 프로세스가 남음 (ACCOUNT_SWITCH_v1·LOGIN_BASELINE_v1, #459)
+
+- **증상**: 13:06 agy 계정 전환 뒤 `/api/accounts`에 두 프로세스가 남음 — #456 위임 작업자(`agy -p`, 옛 계정, `stale`인데 `external`)와 상태 탭 로그인 TUI(pts/2, 새 계정, 로그인 완료 후에도 살아 있음). 앞의 것은 9/19 사고(옛 refresh token이 토큰 파일을 되돌려 씀)와 같은 위험.
+- **원인**: ① 자동 재시작(`stale_owned`)은 서버가 직접 띄운 세션·standby만 봄 — 러너의 자식은 `external`. ② `account_login.complete()`가 성공을 표시하고 끝, 감시 스레드는 상태가 pending이 아니면 바로 빠져나가 아무도 CLI를 끝내지 않음. ③ 로그인 성공 판정이 "로그인돼 있음"이라 로그아웃 없이 전환하면 옛 로그인으로 즉시 성공.
+- **변경(운영자 결정: 멈추고 새 계정으로 재실행)**: `accounts` — 부모가 `worktree_runner.py`면 `worker`, `stale_workers`·`stop_workers`(부모 재확인 후 SIGTERM). 서버 자동 재시작 루프와 [재시작] 버튼이 옛 계정 작업자도 멈춤. `worktree_runner.run_as_login` — 에이전트·리뷰어 실행 후 실패했고 그 사이 로그인이 바뀌었으면 같은 단계를 다시(최대 2번, 시도 안 씀; 로그인을 들고 있는 제공자만 = `accounts.RECYCLE_ON_LOGIN`). `account_login` — 시작 시점 로그인(이메일 + `login_fingerprint` = refresh token 해시, 시간당 갱신과 구별)을 기준으로 "새 로그인"만 성공, 모르면 CLI가 끝날 때만; `complete()` 성공 뒤 CLI 종료. 상태 탭 라벨 "위임 작업자". 제공자 문서 A48·A49.
+- **남은 것**: 지금 돌고 있는 #456 러너는 옛 코드를 읽은 채라 재실행 기능이 없음 — 멈추면 그 시도는 실패로 기록됨.
+- **테스트**: `test_accounts` 3건, `test_auto_recycle` 1건, `test_account_login` 3건, `test_worktree_runner.AccountSwitch` 4건.
+
 ## 2026-09-30 — 그림 관리: 빠진 그림을 PD에게 부탁 (ART_ASK_v1, am/E #458)
 
 - **결정(운영자)**: [생성 요청]은 티켓을 직접 만들지 않고 입력창에 부탁 문장을 채움 — PD가 받아 티켓·위임(PD 모델, 티켓 증거는 대화 기록). 계획 §4.3에 기록.

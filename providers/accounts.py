@@ -102,6 +102,18 @@ def agy_account() -> dict:
     }
 
 
+def login_fingerprint(provider: str) -> Optional[str]:
+    """A short hash of the stored refresh token: it changes on a new login, not on a routine access-token refresh
+    (which rewrites the file hourly). Lets a login flow tell "logged in again, same email" from "nothing happened".
+    None when the provider stores no readable one. The token itself never leaves this module."""
+    import hashlib
+    if provider != "agy":
+        return None
+    d, _mtime, err = _read_json(AGY_TOKEN)
+    tok = (d or {}).get("refresh_token") if not err else None
+    return hashlib.sha256(tok.encode("utf-8")).hexdigest()[:16] if tok else None
+
+
 def codex_account() -> dict:
     d, mtime, err = _read_json(CODEX_AUTH)
     if err:
@@ -268,6 +280,13 @@ def _comm(pid: int) -> str:
         return ""
 
 
+RUNNER_MARK = "worktree_runner.py"   # a delegated worker's parent (tools/worktree_runner.py)
+
+
+def _is_runner(pid: int) -> bool:
+    return any(a.endswith(RUNNER_MARK) for a in platform_compat.proc_cmdline(pid))
+
+
 def _tty(pid: int) -> str:
     try:
         t = os.readlink(f"/proc/{pid}/fd/0")
@@ -404,6 +423,8 @@ def snapshot(owned: Optional[Dict[int, dict]] = None, providers: tuple = PROVIDE
                 owner = info.get("owner", "session")
             elif p["ppid"] == me:
                 owner = "chatbot-other"  # e.g. `agy --print /usage`, doctor probe
+            elif _is_runner(p["ppid"]):
+                owner = "worker"         # a delegated worker or reviewer (worktree_runner); ACCOUNT_SWITCH_v1
             else:
                 owner = "external"
             account = p.get("account")
@@ -458,6 +479,24 @@ def stale_owned(snap: dict) -> set:
     agy = (snap.get("providers") or {}).get("agy") or {}
     return {p["pid"] for p in agy.get("processes", [])
             if p.get("stale") and p.get("owner") in ("session", "standby")}
+
+
+def stale_workers(snap: dict) -> set:
+    """pids of delegated workers (owner "worker") PROVEN to hold an account other than the current one. The runner
+    that started one sees the login change when it exits and runs the same step again (worktree_runner
+    run_as_login), so stopping it costs no attempt (ACCOUNT_SWITCH_v1, operator 2026-09-30)."""
+    agy = (snap.get("providers") or {}).get("agy") or {}
+    return {p["pid"] for p in agy.get("processes", []) if p.get("stale") and p.get("owner") == "worker"}
+
+
+def stop_workers(pids: set) -> list:
+    """Stop each pid that is still a delegated worker (re-checked: a pid can be reused). Returns those stopped."""
+    stopped = []
+    for pid in sorted(pids):
+        f = _stat_fields(pid)
+        if f and _is_runner(int(f[1])) and platform_compat.terminate(pid):
+            stopped.append(pid)
+    return stopped
 
 
 # -------------------------------------------------------------------- logout
