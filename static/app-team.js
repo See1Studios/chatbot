@@ -2,6 +2,7 @@
 // loads before app.js, which runs everything that happens at load (listeners, timers, boot). Top-level code
 // here may use the page's DOM, never a binding from a later file.
 const teamListEl = document.getElementById('teamList');
+const TEAM_TEXT = { spare: '예비 두뇌 없음 — [두뇌]에서 추가하면 1번이 응답하지 않을 때 넘어갑니다' };   // l10n-ok
 
 async function loadTeam() {
   if (!teamListEl) return;
@@ -128,6 +129,8 @@ function renderTeamCard(ex, team, files) {
     row.appendChild(obsNode('span', '', brainText(b)));
     brains.appendChild(row);
   });
+  const spare = teamSpareSlot(chain.length);
+  if (spare) brains.appendChild(spare);
   card.appendChild(brains);
   if (ex.editable) {
     const edit = obsNode('button', 'art-btn art-btn-xs', '두뇌');
@@ -150,6 +153,16 @@ function renderTeamCard(ex, team, files) {
     }
   });
   return card;
+}
+
+// A lone brain has no fallback: show the empty next slot, so the operator sees one can be added (the brains editor).
+// The runner moves to the next brain when one does not answer (quota, capacity, a stalled stream).
+function teamSpareSlot(n) {
+  if (n !== 1) return null;
+  const row = obsNode('div', 'team-brain team-brain-spare');
+  row.appendChild(obsNode('span', 'team-n', '2'));
+  row.appendChild(obsNode('span', '', TEAM_TEXT.spare));
+  return row;
 }
 
 function editBrains(ex, team, brains, actions) {

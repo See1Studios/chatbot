@@ -176,6 +176,7 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
 .team-card .team-brains{display:flex;flex-direction:column;gap:.2rem;font-size:.8rem}
 .team-brain{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}
 .team-brain .team-n{color:var(--muted);font-family:var(--font-mono);font-size:.72rem;width:1.2rem}
+.team-brain-spare{color:var(--muted);font-size:.78rem;opacity:.7;border:1px dashed var(--border);border-radius:6px;padding:.15rem .35rem}
 .team-brain select,.team-brain input{background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.2rem .35rem;font-size:.78rem}
 .team-brain input.team-model{flex:1 1 9rem;min-width:7rem}
 .team-brain input.team-timeout{width:4.2rem}
