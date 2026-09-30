@@ -62,7 +62,10 @@ if (geoBtn) {
   });
 }
 if (scrollToBottomBtn) {
-  scrollToBottomBtn.addEventListener('click', () => { goToLatestConversation(); });
+  scrollToBottomBtn.addEventListener('click', () => {
+    if (typeof roomOpenId === 'function' && roomOpenId()) pinChatToBottom();   // a room has no newer session to jump to
+    else goToLatestConversation();
+  });
 }
 if (window.speechSynthesis) {
   ttsKoreanVoice = pickKoreanVoice();
@@ -423,6 +426,8 @@ async function send(opts) {
   const keepFocus = !(opts && opts.keepFocus === false);
   const text = inputEl.value.trim();
   if (!text) return;
+  // evt/E-3 (app-rooms.js): with a room open the input is the room's -- its API only, no 1:1 turn and no commands
+  if (typeof roomOpenId === 'function' && roomOpenId()) return roomSend(text, keepFocus);
 
   if (text === '/clear') {
     inputEl.value = '';
@@ -720,6 +725,12 @@ async function boot() {
     };
   } catch (_) {}
   await ensureSession();
+  // evt/E-3: a room is a talk partner like a character -- listed with them, and the one open before a reload comes
+  // back (a deep link to a provider or a character wins).
+  if (typeof roomsRefresh === 'function') {
+    await roomsRefresh();
+    if (!bootProviderIntent && !bootCharacterIntent) await roomRestore();
+  }
   // Hub FAB passes ?provider= because openSession() otherwise overwrites
   // the tray pick with the already-active session's provider.
   if (bootProviderIntent) {
@@ -783,6 +794,16 @@ window.addEventListener('keydown', (e) => {
 });
 
 if (sessionsRefreshBtn) sessionsRefreshBtn.addEventListener('click', () => fetchSessionsList());
+// evt/E-3 (app-rooms.js): rooms are picked where characters and sessions are. The tray and a session are drawn by
+// their own files, so the room half joins here: its buttons after every draw of the tray, its end before every 1:1
+// session that opens (whoever opens it: tray, sessions tab, /new, a rotation).
+if (typeof roomOpenId === 'function') {
+  const drawCharacterTray = renderCharacterTray;
+  renderCharacterTray = function () { drawCharacterTray(); roomsTrayFill(); };
+  const enterOneToOne = enterSession;
+  enterSession = function (id, opts) { roomClose(); return enterOneToOne(id, opts); };
+  [brandAvatarEl, tabSessions, sessionsRefreshBtn].forEach(b => { if (b) b.addEventListener('click', () => roomsRefresh()); });
+}
 if (statusRefreshBtn) statusRefreshBtn.addEventListener('click', () => { fetchSelfStatus(); fetchAccounts(); });
 // Waiting tickets are shown above the composer, so they are looked up at start and now and then, not only on the status tab.
 loadTickets();
@@ -924,6 +945,7 @@ window.addEventListener('scroll', () => {
 inputEl.addEventListener('input', () => {
   updateSendButton();
   autoResizeInput();
+  if (typeof roomComposerInput === 'function') roomComposerInput();   // evt/E-3: @mention chips, the waiting send button
 });
 inputEl.addEventListener('focus', () => {
   if (typeof markKeyboardTransition === 'function') {
@@ -939,7 +961,8 @@ inputEl.addEventListener('blur', () => {
 });
 inputEl.addEventListener('keydown', (e) => {
   if (e.isComposing || e.keyCode === 229) return;
-  if (handleSlashKeydown(e)) return;
+  const inRoom = typeof roomOpenId === 'function' && roomOpenId();   // a room takes no commands: Enter sends
+  if (!inRoom && handleSlashKeydown(e)) return;
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
 });
 
