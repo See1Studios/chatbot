@@ -29,6 +29,14 @@
         var t = localStorage.getItem('chatbot.themeColor') || 'lime';
         document.documentElement.setAttribute('data-theme', t);
       } catch(e){}
+      // SHELL_v2 (ux/S1): the messenger shell is behind a switch kept by this browser -- ?shell=2 on, ?shell=1 off.
+      // Never in the hub's compact frame.
+      try {
+        var q = new URLSearchParams(location.search);
+        var s = q.get('shell');
+        if (s === '2' || s === '1') localStorage.setItem('chatbot.shell', s);
+        if (localStorage.getItem('chatbot.shell') === '2' && q.get('compact') !== '1') document.documentElement.classList.add('shell2');
+      } catch(e){}
     })();
   </script>
   <!-- CSS_SPLIT_v1: the chat stylesheet in parts, in cascade order -->
@@ -40,11 +48,22 @@
   <link rel="stylesheet" href="./chat-features.css?v=3" />
   <link rel="stylesheet" href="./art-manager.css?v=1" />
   <link rel="stylesheet" href="./rooms.css?v=1" />
+  <link rel="stylesheet" href="./shell.css?v=1" />
 </head>
 <body>
+  <!-- SHELL_v2 (app-shell.js): the talk list. Shown only under html.shell2; its words are set by the script. -->
+  <aside id="shellList" class="shell-list">
+    <div class="shell-list-head">
+      <div class="shell-list-title"><strong id="shellListTitle"></strong></div>
+      <input type="search" id="shellSearch" autocomplete="off" />
+    </div>
+    <div id="shellRooms" class="shell-rooms" role="list"></div>
+    <div class="shell-list-foot"><button id="shellNewRoom" type="button" hidden></button></div>
+  </aside>
   <div class="wrap" id="appWrap">
     <header>
       <div class="brand">
+        <button id="shellBack" class="ghost" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
         <a id="hubLink" href="/" title="Hub로 이동" aria-label="Hub로 이동"><span class="hub-arrow" aria-hidden="true">←</span><span class="hub-text"> Hub</span></a>
         <div class="brand-avatar-wrap" id="brandAvatarWrap">
           <img class="avatar" id="brandAvatar" src="/chat/providers/agy.webp?v=9" alt="AI 제공자 선택" role="button" tabindex="0" aria-label="캐릭터 선택" aria-haspopup="menu" aria-expanded="false" title="캐릭터 선택 (클릭)" onerror="this.onerror=null;this.src='/chat/providers/agy.png';">
@@ -387,7 +406,8 @@
   <script src="./app-rooms.js?v=2"></script>
   <script src="./app-attach.js?v=9"></script>
   <script src="./app-flow.js?v=5"></script>
-  <script src="./app.js?v=165"></script>
+  <script src="./app-shell.js?v=1"></script>
+  <script src="./app.js?v=166"></script>
   <script src="./theme.js?v=3"></script>
   <script src="./artifacts.js?v=7"></script>
   <script src="./markdown.js?v=22"></script>
