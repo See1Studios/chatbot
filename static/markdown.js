@@ -884,6 +884,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     // "시스템 메시지는 복사 스피커 등 추가 칩을 없애고 간결하게").
     if (!skipFooter) attachMessageFooter(node, rawText, usage, durationSeconds, servedModel);
   }
+  if (typeof stageSync === 'function') stageSync(node.querySelector('.md'));   // STAGE_v1 (app-stage.js): face, thought
 }
 
 function dedupeMarkdownImages(md) {

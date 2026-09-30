@@ -127,6 +127,23 @@ html.shell2 #log > .msg.assistant.staged .md > .md-narr em{font-size:inherit;opa
 html.shell2 #log > .msg.assistant.staged .md-say .md-block[data-kind="dialogue"]{padding-left:0;border-left:0}   /* the bubble already says "speech" */
 html.shell2 #log > .msg.assistant.staged .msg-footer{max-width:92%}
 html.shell2 #log > .msg.assistant.staged .md-say:empty{display:none}
+/* the order is action, face, thought, speech (app-stage.js): the face is a real element here, in place of the corner picture */
+html.shell2 #log > .msg.assistant.staged{margin-top:0}
+html.shell2 #log > .msg.assistant.staged::before,html.shell2 #log > .msg.assistant.staged::after{display:none}
+html.shell2 #log > .msg.assistant.staged .md > .md-face{display:block;position:relative;width:32px;height:32px;min-width:0;margin:.45rem 0 .3rem;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--char-avatar,none) center/cover no-repeat,#2a2f3a;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:default;transform:none}
+html.shell2 #log > .msg.assistant.staged .md > .md-face.has-thought{cursor:pointer;box-shadow:0 0 0 2px var(--accent-soft),0 2px 6px rgba(0,0,0,.35)}
+html.shell2 #log > .msg.assistant.staged .md > .md-face.has-thought:hover,html.shell2 #log > .msg.assistant.staged .md > .md-face.open{box-shadow:0 0 0 2px var(--accent-border),0 2px 6px rgba(0,0,0,.35)}
+html.shell2 #log > .msg.assistant.staged .md > .md-face[data-exp]::after{content:attr(data-exp);position:absolute;left:22px;top:20px;font-size:.78rem;line-height:1;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+html.shell2 #log > .msg.assistant.staged .md > .thought-toggle{display:none}   /* the face is the toggle */
+html.shell2 #log > .msg.assistant.staged.room-lead{margin-top:1.5rem}           /* a group room: the member's name stays above */
+html.shell2 #log > .msg.assistant.staged.room-lead > .room-who{left:0;top:-1.3rem}
+/* the thought opens BESIDE the face, as a thought bubble (operator): pulled up level with it, two small dots leading
+   back to the face. The face is 32px with .3rem under it, which is what the negative margin takes back. */
+html.shell2 #log > .msg.assistant.staged .md > .thought-box{position:relative;width:fit-content;max-width:calc(92% - 46px);min-height:32px;margin:calc(-32px - .3rem) 0 .4rem 46px;padding:.4rem .75rem;border:1px solid var(--border);border-radius:16px;background:var(--bubble-base);backdrop-filter:var(--bubble-blur);-webkit-backdrop-filter:var(--bubble-blur);display:flex;align-items:center}
+html.shell2 #log > .msg.assistant.staged .md > .thought-box[hidden]{display:none}
+html.shell2 #log > .msg.assistant.staged .md > .thought-box::before,html.shell2 #log > .msg.assistant.staged .md > .thought-box::after{content:"";position:absolute;border-radius:50%;border:1px solid var(--border);background:var(--bubble-base)}
+html.shell2 #log > .msg.assistant.staged .md > .thought-box::before{left:-9px;top:13px;width:6px;height:6px}
+html.shell2 #log > .msg.assistant.staged .md > .thought-box::after{left:-14px;top:20px;width:3px;height:3px}
 @media (max-width: 640px) {
   html.shell2 #log > .msg.assistant.staged .md-say,html.shell2 #log > .msg.assistant.staged .md > .md-block.open:not(:empty){max-width:96%;padding:.45rem .6rem}
 }

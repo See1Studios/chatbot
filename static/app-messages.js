@@ -849,33 +849,6 @@ function buildBlock(block, isFinal) {
   return box;
 }
 
-// STAGE_v1 (ux/S5): in an answer that has blocks drawn outside the bubble (blockIsStaged, app-blocks.js: actions
-// today), the bubble is no longer the message but each run of what is not one -- `.md-say` wraps such a run, the
-// staged blocks stay between as narration (`.md-narr`), and the message gets `.staged` (the look is shell.css).
-// Runs on a body being built too (the streaming reveal), so it only ever wraps blocks that are not wrapped yet and
-// never moves the block still being written (`.open`: the reveal inserts finished blocks in front of it, as a child
-// of the body). An answer without staged blocks is left as it was.
-function stageLayout(md) {
-  if (!md || !md.children) return;
-  const kids = Array.prototype.slice.call(md.children);
-  const isBlock = (el) => el.classList.contains('md-block') && !el.classList.contains('open');
-  const out = (el) => isBlock(el) && blockIsStaged(el.getAttribute('data-kind'));
-  if (!kids.some(out)) return;
-  const msg = md.parentNode;
-  if (msg && msg.classList) msg.classList.add('staged');
-  kids.forEach((el) => {
-    if (!isBlock(el)) return;
-    if (out(el)) { el.classList.add('md-narr'); return; }
-    let say = el.previousElementSibling;
-    if (!say || !say.classList.contains('md-say')) {
-      say = document.createElement('div');
-      say.className = 'md-say';
-      md.insertBefore(say, el);
-    }
-    say.appendChild(el);
-  });
-}
-
 // The answer as it is shown: without the marks other parts of the page read and draw elsewhere -- the choices
 // line, the leading [expression: x] tag, a thought block (markdown.js). The streaming reveal classifies this text
 // (prepareStreamText); the final render classified the raw answer, where `[expression: joy] *nods* "hi"` opens with a

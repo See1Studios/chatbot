@@ -76,6 +76,10 @@ function renderMarkdown(t) { return '<p>' + t + '</p>'; }
 const c = src.indexOf('function buildBlock(');
 const d = src.indexOf('function renderTypedBody(', c);
 if (c >= 0 && d >= 0) eval(src.slice(c, d));
+// app-stage.js: how an answer with actions or a thought is laid out (its functions are declared, so eval keeps them)
+const s1 = src.indexOf('function stageOn()');
+const s2 = src.indexOf('// ==== file:', s1);
+if (s1 >= 0) eval(src.slice(s1, s2 < 0 ? undefined : s2));
 
 const inspectBlock = (box) => ({
   kind: box.getAttribute('data-kind'),
@@ -154,7 +158,9 @@ const CASES = {
   stage_layout: () => {
     const aug = (e) => {
       e.classList = { contains: c => e.className.split(' ').includes(c),
-        add: c => { if (!e.classList.contains(c)) e.className = (e.className + ' ' + c).trim(); } };
+        add: c => { if (!e.classList.contains(c)) e.className = (e.className + ' ' + c).trim(); },
+        remove: c => { e.className = e.className.split(' ').filter(x => x !== c).join(' '); } };
+      e.addEventListener = (t, f) => { e['on_' + t] = f; };
       Object.defineProperty(e, 'previousElementSibling', { get() { const s = e.parentNode.children; return s[s.indexOf(e) - 1] || null; } });
       e.insertBefore = (n, ref) => { if (n.parentNode) n.parentNode.removeChild(n); e.children.splice(e.children.indexOf(ref), 0, n); n.parentNode = e; return n; };
       return e;
@@ -164,7 +170,7 @@ const CASES = {
     const blk = (kind, open) => { const b = aug(makeEl('div')); b.className = 'md-block' + (open ? ' open' : ''); b.setAttribute('data-kind', kind); return b; };
     const msg = aug(makeEl('div')), md = aug(makeEl('div'));
     msg.appendChild(md);
-    const view = () => md.children.map(c => c.classList.contains('md-say')
+    const view = () => md.children.filter(c => !c.classList.contains('md-face')).map(c => c.classList.contains('md-say')
       ? '[' + c.children.map(x => x.getAttribute('data-kind')).join(' ') + ']'
       : c.getAttribute('data-kind') + (c.classList.contains('open') ? '~' : ''));
     const open = blk('narration', true);
@@ -179,6 +185,57 @@ const CASES = {
     document.createElement = real;
     return { plain, first, again, joined, next, staged: msg.classList.contains('staged'), openStillInBody: open.parentNode === md,
       narr: md.children.filter(c => c.classList.contains('md-narr')).map(c => c.getAttribute('data-kind')), out: ['narration', 'dialogue', 'action'].filter(blockIsStaged) };
+  },
+  stage_order: () => {
+    // action, face, thought, speech -- and the face unfolds the thought
+    const aug = (e) => {
+      e.classList = { contains: c => e.className.split(' ').includes(c),
+        add: c => { if (!e.classList.contains(c)) e.className = (e.className + ' ' + c).trim(); },
+        remove: c => { e.className = e.className.split(' ').filter(x => x !== c).join(' '); } };
+      Object.defineProperty(e, 'previousElementSibling', { get() { const s = e.parentNode.children; return s[s.indexOf(e) - 1] || null; } });
+      e.insertBefore = (n, ref) => { if (n.parentNode) n.parentNode.removeChild(n); e.children.splice(e.children.indexOf(ref), 0, n); n.parentNode = e; return n; };
+      e.addEventListener = (t, f) => { e['on_' + t] = f; };
+      return e;
+    };
+    const real = document.createElement;
+    document.createElement = (t) => aug(makeEl(t));
+    const blk = (kind, open) => { const b = aug(makeEl('div')); b.className = 'md-block' + (open ? ' open' : ''); b.setAttribute('data-kind', kind); return b; };
+    const names = (md) => md.children.map(c => ['md-narr', 'md-face', 'thought-box', 'thought-toggle', 'md-say', 'open'].find(n => c.classList.contains(n)) || '?');
+    const make = (kinds) => { const msg = aug(makeEl('div')), md = aug(makeEl('div')); msg.appendChild(md); kinds.forEach(k => md.appendChild(blk(k))); return { msg, md }; };
+    const thought = (md) => { const t = aug(makeEl('button')); t.className = 'thought-toggle'; t.title = 'see'; const b = aug(makeEl('div')); b.className = 'thought-box'; b.hidden = true; md.appendChild(t); md.appendChild(b); return b; };
+    // 1. an action and a line, then markdown.js adds the expression and the thought
+    const a = make(['action', 'dialogue']);
+    stageLayout(a.md);
+    const before = names(a.md);
+    a.msg.setAttribute('data-exp', 'E');
+    const box = thought(a.md);
+    stageSync(a.md);
+    const face = a.md.children.find(c => c.classList.contains('md-face'));
+    const closed = box.hidden;
+    face.on_click();
+    const opened = [box.hidden, face.classList.contains('open')];
+    face.on_click();
+    // 2. only speech and a thought: laid out too, the face first
+    const b = make(['narration']);
+    stageLayout(b.md);
+    const speechOnly = [names(b.md), b.msg.classList.contains('staged')];
+    thought(b.md);
+    stageSync(b.md);
+    // 3. only speech, no thought: the old single bubble
+    const c = make(['narration', 'dialogue']);
+    stageLayout(c.md); stageSync(c.md);
+    // 4. streaming: an action is being written, nothing said yet -> no face; then the speech starts
+    const d = make([]);
+    const open = blk('action', true); d.md.appendChild(open);
+    d.msg.classList.add('staged');
+    stageLayout(d.md);
+    const writingAction = names(d.md);
+    d.md.insertBefore(blk('action'), open); open.setAttribute('data-kind', 'dialogue');
+    stageLayout(d.md);
+    document.createElement = real;
+    return { before, after: names(a.md), exp: face.getAttribute('data-exp'), hasThought: face.classList.contains('has-thought'),
+      label: face.title, closed, opened, closedAgain: box.hidden, speechOnly, withThought: [names(b.md), b.msg.classList.contains('staged')],
+      plain: [names(c.md), c.msg.classList.contains('staged')], writingAction, thenSpeech: names(d.md) };
   },
   quiet_block: () => {
     const q = [blockIsQuiet({ text: '  ' }), blockIsQuiet({ text: '- 하나' })];
@@ -276,6 +333,24 @@ class Stage(unittest.TestCase):
         # which kinds leave the bubble is one list; layout follows a class, not the kind's name
         self.assertEqual(o["out"], ["action"])
         self.assertEqual(o["narr"], ["action", "action"])
+
+    def test_the_order_is_action_face_thought_speech(self):
+        o = run("stage_order")
+        self.assertEqual(o["before"], ["md-narr", "md-face", "md-say"])
+        # markdown.js adds the toggle and the box at the end; the box moves under the face, the face takes the mark
+        self.assertEqual(o["after"], ["md-narr", "md-face", "thought-box", "md-say", "thought-toggle"])
+        self.assertEqual((o["exp"], o["hasThought"], o["label"]), ("E", True, "see"))
+        # the face is the toggle
+        self.assertTrue(o["closed"])
+        self.assertEqual(o["opened"], [False, True])
+        self.assertTrue(o["closedAgain"])
+        # only speech: the one bubble it was -- until it has a thought, which needs the face
+        self.assertEqual(o["speechOnly"], [["?"], False])
+        self.assertEqual(o["withThought"], [["md-face", "thought-box", "md-say", "thought-toggle"], True])
+        self.assertEqual(o["plain"], [["?", "?"], False])
+        # while an action is still being written there is no face yet; it comes with the first speech
+        self.assertEqual(o["writingAction"], ["open"])
+        self.assertEqual(o["thenSpeech"], ["md-narr", "md-face", "open"])
 
 
 class BlockKinds(unittest.TestCase):
