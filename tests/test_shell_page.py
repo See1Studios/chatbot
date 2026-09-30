@@ -101,7 +101,7 @@ return (async () => {
     plusWork: shellPlusList({ private: false, attach: 'file', geo: { label: 'geo', on: true }, slash: 'cmd' }),
     plusPrivate: shellPlusList({ private: true, attach: 'item', geo: { label: 'geo', on: false }, slash: 'cmd' }),
     plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
-    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'thinking', 'brain', 'more', 'act',
+    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'brain', 'more', 'act',
       'profile', 'settings', 'back2', 'close', 'dev', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'manage', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
@@ -291,7 +291,9 @@ class ShellList(unittest.TestCase):
     def test_the_header_says_place_and_presence(self):
         idle, busy, private = self.o["presence"]
         self.assertRegex(idle, r"^\S+ · .+")
-        self.assertNotEqual(idle, busy)                       # a turn in progress changes what the character is doing
+        self.assertNotEqual(idle, busy)                       # while it answers: the place alone, typing dots after it (CSS)
+        self.assertNotIn(" · ", busy)
+        self.assertIn('#shellPresence.busy::after', CSS)
         self.assertEqual(idle.split(" · ")[0], busy.split(" · ")[0])
         self.assertTrue(private.startswith("\u2665 "))
         self.assertNotEqual(private.split(" · ")[0], idle.split(" · ")[0])
@@ -467,7 +469,7 @@ class ShellSwitch(unittest.TestCase):
         for rule in re.findall(r"([^{}]+)\{", re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)):
             for sel in rule.split(","):
                 sel = sel.strip()
-                if sel.startswith("@") or not sel or sel in ("#shellList", "#shellBack", "0%", "100%"):
+                if sel.startswith("@") or not sel or sel in ("#shellList", "#shellBack") or re.fullmatch(r"\d+%", sel):
                     continue
                 self.assertTrue(sel.startswith("html.shell2") or sel.startswith(".shell-") or sel.startswith("#shellSearch"),
                                 "shell.css styles the old page without the switch: %r" % sel)

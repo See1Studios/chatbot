@@ -137,8 +137,11 @@ function setStreamingContent(node, text, badgeSrc) {
   // Start the body over rather than leaving a stale block in front of the new answer.
   if (shown.indexOf(prev) !== 0) resetStreamBody(node, md);
   const cut = revealBlocks(shown);
-  // Fewer finished blocks than are on screen means the text shrank, which is the same situation.
-  if (cut.blocks.length < (node._streamUnits || 0)) resetStreamBody(node, md);
+  // The finished blocks on screen must still be the first ones of this cut. Fewer means the text shrank; a
+  // different one means a paragraph handed over early (OPEN_PREFIX_v1) closed as something else. Same situation.
+  const sig = cut.blocks.map(function (b) { return b.kind + '\u0001' + b.text; });
+  const had = node._streamSig || [];
+  if (sig.length < had.length || had.some(function (s, i) { return s !== sig[i]; })) resetStreamBody(node, md);
   // The block being written is always the last child, so the existing caret -- a ::after on
   // .md > *:last-child (chat-composer.css) -- lands on it and keeps one caret instead of two. It is
   // created before the finished blocks so those can be inserted in front of it.
@@ -154,16 +157,17 @@ function setStreamingContent(node, text, badgeSrc) {
   for (let i = from; i < cut.blocks.length; i++) {
     md.insertBefore(buildBlock(cut.blocks[i], false), openEl);
   }
-  // STAGE_v1 (app-messages.js): actions between bubbles, as the final render will draw them
-  if (from < cut.blocks.length && typeof stageLayout === 'function') stageLayout(md);
   node._streamUnits = cut.blocks.length;
+  node._streamSig = sig;
   // The open block carries the kind being written, so a line that has an action and then speech
   // flows like speech while the speech is the part arriving.
-  openEl.setAttribute('data-kind', unitKind(cut.open));
+  openEl.setAttribute('data-kind', typeof openKind === 'function' ? openKind(cut.open) : unitKind(cut.open));
   // renderPlainText, not renderMarkdown: an incomplete block has no extent yet, and handing marked
   // a half-written list gives it nothing stable to keep. It is escaping plus a few regexes, and it
   // already renders bold, italics, code and an open fence, so what is on screen is close to final.
   openEl.innerHTML = cut.open ? renderPlainText(closeOpenMarks(cut.open)) : '';
+  // STAGE_v1 (app-stage.js): every frame is laid out the way the finished answer will be -- face, narration, bubbles
+  if (typeof stageLayout === 'function') stageLayout(md);
   node._streamShown = shown;
   node.classList.add('streaming');
   // After the body, never before: the first paint writes over .md and would take the badge with it.
@@ -220,6 +224,7 @@ function closeOpenMarks(text) {
 function resetStreamBody(node, md) {
   md.textContent = '';
   node._streamUnits = 0;
+  node._streamSig = [];
   node._streamOpen = null;      // the old open element is detached with the rest of the body
 }
 

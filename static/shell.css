@@ -122,11 +122,23 @@ html.shell2 body.keyboard-open #shellPlus{width:32px;min-width:32px;height:32px;
    drawn outside the bubble (app-blocks.js STAGE_OUT); a kind that should look different adds its own [data-kind] rule. */
 html.shell2 #log > .msg.assistant.staged{background:none;border-color:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;padding:0;width:100%;max-width:100%}
 html.shell2 #log > .msg.assistant.staged .md-say,html.shell2 #log > .msg.assistant.staged .md > .md-block.open:not(:empty){width:fit-content;max-width:92%;margin:0 0 .35rem;padding:.7rem .85rem;border:1px solid var(--border);border-radius:14px 14px 14px 4px;background:var(--bubble-base);backdrop-filter:var(--bubble-blur);-webkit-backdrop-filter:var(--bubble-blur);box-shadow:0 4px 16px rgba(0,0,0,.3),var(--glint)}
-html.shell2 #log > .msg.assistant.staged .md > .md-narr{width:fit-content;max-width:85%;margin:.4rem auto;padding:.3rem .85rem;border:1px dashed var(--border);border-radius:12px;background:var(--bubble-base);text-align:center;font-size:.86rem;font-style:italic;color:var(--muted);opacity:1}
+html.shell2 #log > .msg.assistant.staged .md > .md-narr,html.shell2 #log > .msg.assistant.staged .md > .md-block.open[data-kind="action"]:not(:empty){width:fit-content;max-width:85%;margin:.4rem auto;padding:.3rem .85rem;border:1px dashed var(--border);border-radius:12px;background:var(--bubble-base);text-align:center;font-size:.86rem;font-style:italic;color:var(--muted);opacity:1}
 html.shell2 #log > .msg.assistant.staged .md > .md-narr em{font-size:inherit;opacity:1}
 html.shell2 #log > .msg.assistant.staged .md-say .md-block[data-kind="dialogue"]{padding-left:0;border-left:0}   /* the bubble already says "speech" */
-html.shell2 #log > .msg.assistant.staged .msg-footer{max-width:92%}
+html.shell2 #log > .msg.assistant.staged .msg-footer{max-width:92%;margin-top:.1rem;padding-top:0;border-top:0}
 html.shell2 #log > .msg.assistant.staged .md-say:empty{display:none}
+/* waiting is typing (app-stage.js stageTyping): dots beside the face in the simple density; the advanced density keeps
+   its words (the "N s" footer, the reasoning strip), which the simple one does not show */
+html.shell2 .md-typing{display:none}
+html.shell2 body:not(.density-advanced) #log > .msg.assistant.staged[data-live="1"] .md > .md-typing{display:inline-flex;align-items:center;gap:4px;margin:0 0 .35rem;padding:.7rem .85rem;border:1px solid var(--border);border-radius:14px 14px 14px 4px;background:var(--bubble-base);backdrop-filter:var(--bubble-blur);-webkit-backdrop-filter:var(--bubble-blur)}
+html.shell2 .md-typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:shell-typing 1.2s infinite ease-in-out}
+html.shell2 .md-typing i:nth-child(2){animation-delay:.15s}
+html.shell2 .md-typing i:nth-child(3){animation-delay:.3s}
+@keyframes shell-typing{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-3px);opacity:1}}
+html.shell2 body:not(.density-advanced) #log > .msg.assistant .msg-footer .turn-live{display:none}
+html.shell2 body:not(.density-advanced) #log > .msg.assistant > details.think{display:none}
+html.shell2 #shellPresence.busy::after{content:" \00B7\00B7\00B7";letter-spacing:.1em;animation:shell-typing-text 1.2s infinite ease-in-out}
+@keyframes shell-typing-text{0%,100%{opacity:.35}50%{opacity:1}}
 /* the order is action, face, thought, speech (app-stage.js): the face is a real element here, in place of the corner picture */
 html.shell2 #log > .msg.assistant.staged{margin-top:0}
 html.shell2 #log > .msg.assistant.staged::before,html.shell2 #log > .msg.assistant.staged::after{display:none}
@@ -165,4 +177,4 @@ html.shell2.shell-switching .stage-shell::after{content:"";position:absolute;lef
   .shell-profile.open.behind{transform:translateX(-102%);visibility:hidden;transition:transform .22s cubic-bezier(.2,0,0,1),visibility 0s .22s}
   html.shell2 #shellBack svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 }
-@media (prefers-reduced-motion: reduce) { .shell-profile,.shell-settings{transition:none} html.shell2 #shellList,html.shell2 #log{transition:none} html.shell2.shell-switching .stage-shell::after{animation:none;background-size:100% 100%} }
+@media (prefers-reduced-motion: reduce) { html.shell2 .md-typing i,html.shell2 #shellPresence.busy::after{animation:none;opacity:.7} .shell-profile,.shell-settings{transition:none} html.shell2 #shellList,html.shell2 #log{transition:none} html.shell2.shell-switching .stage-shell::after{animation:none;background-size:100% 100%} }

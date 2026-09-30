@@ -651,7 +651,9 @@ class StreamingText(unittest.TestCase):
         # become speech flows as speech, because the speech is the part still arriving. A quote with
         # no closing mark yet is narration -- a kind is only known once its extent has arrived, and
         # guessing where a sentence was meant to end is how a stray quote mark gets left on screen.
-        self.assertEqual(out, ["narration", "action", "narration", "dialogue"])
+        # An action not closed yet IS an action (OPEN_PREFIX_v1, openKind): drawn as narration from its first
+        # letter, it does not start inside a bubble and jump out when its closing mark arrives.
+        self.assertEqual(out, ["action", "action", "narration", "dialogue"])
 
     def test_the_animating_unit_is_a_whole_block(self):
         # The assertion that would have caught the original: the entrance used to run on whatever

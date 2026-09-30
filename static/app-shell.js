@@ -8,7 +8,7 @@
 const SHELL_TEXT = {   // l10n-ok
   title: '대화', search: '이름 검색', empty: '찾는 대화가 없습니다.', private: '사적 대화 중', room: '단체방',   // l10n-ok
   newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.', you: '나',   // l10n-ok
-  office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', thinking: '생각에 잠김', brain: '두뇌',   // l10n-ok
+  office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', brain: '두뇌',   // l10n-ok
   more: '더 보기', act: '행동',   // l10n-ok
   profile: '프로필', settings: '설정', back2: '뒤로', close: '닫기', details: '자세히 보기', theme: '테마',   // l10n-ok
   dev: '개발자 모드',   // l10n-ok
@@ -224,8 +224,11 @@ async function shellOpen(r) {
 
 // The header's second line (ux/S3, UX15): where the talk is and what the character is doing, in place of the
 // provider's name. The private room's own place name is not known to the page yet (private-mode.md W3).
+// While the character answers, the place stands alone and typing dots follow it (shell.css #shellPresence.busy):
+// waiting is typing, and needs no words (operator, 2026-10-01).
 function shellPresenceText(mode, busy) {
-  return (mode === 'private' ? '\u2665 ' + SHELL_TEXT.privateRoom : SHELL_TEXT.office) + ' · ' + (busy ? SHELL_TEXT.thinking : SHELL_TEXT.near);
+  const place = mode === 'private' ? '\u2665 ' + SHELL_TEXT.privateRoom : SHELL_TEXT.office;
+  return busy ? place : place + ' · ' + SHELL_TEXT.near;
 }
 function shellPresence() {
   const role = document.getElementById('brandRole');
@@ -236,7 +239,9 @@ function shellPresence() {
     el.id = 'shellPresence';
     role.insertBefore(el, role.firstChild);
   }
-  shellSet(el, shellPresenceText(typeof sessionMode !== 'undefined' ? sessionMode : 'work', typeof isBusy !== 'undefined' && isBusy));
+  const busy = typeof isBusy !== 'undefined' && isBusy;
+  shellSet(el, shellPresenceText(typeof sessionMode !== 'undefined' ? sessionMode : 'work', busy));
+  el.classList.toggle('busy', busy);
 }
 
 // The composer in the simple density (ux/S4, UX12): plus, the box, send. What the row used to carry is reached

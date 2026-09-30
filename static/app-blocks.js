@@ -236,7 +236,62 @@ function revealBlocks(text) {
     i = end;
     while (i < lines.length && !lines[i].trim()) i++;      // the gap between blocks is neither's
   }
-  return { blocks: out, open: lines.slice(i).join('\n') };
+  const pre = openPrefix(lines.slice(i).join('\n'));
+  pre.blocks.forEach((b) => out.push(b));
+  return { blocks: out, open: pre.open };
+}
+
+// OPEN_PREFIX_v1 (ux/S5, operator 2026-10-01: a streaming answer must not look unfinished until it ends). The
+// paragraph still being written is one open block until its blank line, so '*nods* "hi, I' was drawn as one bubble
+// and only fell apart into narration and speech when it closed. Its finished leading pieces are handed over as
+// closed blocks while it is written: each complete action or quoted line that is FOLLOWED by another action or an
+// opening quote -- the staged shape going on. An emphasis that opens a sentence ('*key* point is') is followed by
+// prose and left alone. Nothing is handed over until an action is among them, as stageBlocks needs one.
+// If the paragraph ends up not staged after all (prose follows later), the closed blocks differ from what was
+// shown and the reveal starts the body over (app-sse.js compares them).
+function openRunAt(src, i) {
+  const ch = src[i];
+  if (ch === '*') {
+    if (src[i + 1] === '*' || !src[i + 1] || /\s/.test(src[i + 1])) return null;
+    const end = src.indexOf('*', i + 1);
+    if (end <= i + 1 || src[end + 1] === '*') return null;
+    const inner = src.slice(i + 1, end);
+    return inner.includes('\n') || /\s/.test(src[end - 1]) ? null : { kind: BLOCK_ACTION, end: end + 1 };
+  }
+  if (QUOTE_OPENERS.indexOf(ch) >= 0) {
+    const end = src.indexOf(QUOTE_PAIRS[ch], i + 1);
+    if (end <= i + 1) return null;
+    const inner = src.slice(i + 1, end);
+    return inner.includes('\n') || countQuoteChars(inner, ch) ? null : { kind: BLOCK_DIALOGUE, end: end + 1 };
+  }
+  return null;
+}
+function openPrefix(text) {
+  const src = String(text || '');
+  const blocks = [];
+  let pos = 0;
+  if (FENCE_OPEN.test(src) || LIST_ITEM.test(src) || TABLE_ROW.test(src) || HEADING.test(src)) return { blocks: blocks, open: src };
+  while (pos < src.length) {
+    let i = pos;
+    while (i < src.length && /\s/.test(src[i])) i++;
+    const run = i < src.length ? openRunAt(src, i) : null;
+    if (!run) break;
+    let j = run.end;
+    while (j < src.length && /\s/.test(src[j])) j++;
+    const next = src[j];
+    if (next === undefined || !((next === '*' && src[j + 1] !== '*') || QUOTE_OPENERS.indexOf(next) >= 0)) break;
+    blocks.push({ kind: run.kind, text: src.slice(i, run.end) });
+    pos = run.end;
+  }
+  if (!blocks.some((b) => blockIsStaged(b.kind))) return { blocks: [], open: src };
+  return { blocks: blocks, open: src.slice(pos).replace(/^\s+/, '') };
+}
+// The kind of the block being written. An action not closed yet ('*looks up and') is already an action: drawn as
+// one from its first letter, it does not start as speech and jump out of the bubble when its closing mark arrives.
+function openKind(text) {
+  const t = String(text || '').replace(/^\s+/, '');
+  if (/^\*(?!\*)\S[^*\n]*$/.test(t)) return BLOCK_ACTION;
+  return unitKind(text);
 }
 
 // What kind is being written right now. The last thing with ink on it, not the dominant kind: a

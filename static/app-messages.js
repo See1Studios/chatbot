@@ -764,8 +764,8 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
     const md = document.createElement('div');
     md.className = 'md';
     const bodyText = noticeKind ? stripNoticeChromeEmojis(text) : (text || '');
+    div.appendChild(md);      // before the body is drawn: its layout asks what kind of message it is in (app-stage.js)
     renderTypedBody(md, bodyText, isFinal);
-    div.appendChild(md);
     postProcessAssistant(div, isFinal, bodyText, usage, durationSeconds, Boolean(noticeKind), servedModel, choices || div._choices, prepend);
   } else if (role === 'user' && typeof splitAttachmentBlock === 'function') {
     // plus/D: the attachment list the agent reads is cards on screen (app-attach.js)

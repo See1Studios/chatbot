@@ -167,7 +167,9 @@ const CASES = {
     };
     const real = document.createElement;
     document.createElement = (t) => aug(makeEl(t));
-    const blk = (kind, open) => { const b = aug(makeEl('div')); b.className = 'md-block' + (open ? ' open' : ''); b.setAttribute('data-kind', kind); return b; };
+    const blk = (kind, open) => { const b = aug(makeEl('div')); b.className = 'md-block' + (open ? ' open' : ''); b.setAttribute('data-kind', kind);
+      if (!open) b.appendChild(aug(makeEl('span')));   // a finished block has something in it
+      return b; };
     const msg = aug(makeEl('div')), md = aug(makeEl('div'));
     msg.appendChild(md);
     const view = () => md.children.filter(c => !c.classList.contains('md-face')).map(c => c.classList.contains('md-say')
@@ -186,6 +188,19 @@ const CASES = {
     return { plain, first, again, joined, next, staged: msg.classList.contains('staged'), openStillInBody: open.parentNode === md,
       narr: md.children.filter(c => c.classList.contains('md-narr')).map(c => c.getAttribute('data-kind')), out: ['narration', 'dialogue', 'action'].filter(blockIsStaged) };
   },
+  open_prefix: () => {
+    const cut = (t) => { const r = revealBlocks(t); return { blocks: shape(r.blocks), open: r.open }; };
+    return {
+      actionThenQuote: cut('*고개를 든다* "안녕, 오'),
+      actionAlone: cut('*고개를 든'),
+      actionDone: cut('*고개를 든다*'),
+      emphasisThenProse: cut('*중요한* 점은 이'),
+      quotesOnly: cut('"하나" "둘'),
+      several: cut('*a* "b" *c* "d'),
+      list: cut('* 항목 *b* "c'),
+      kinds: ['*고개를', '**굵', '* 항목', '"안녕', '*다 쓴*'].map(openKind),
+    };
+  },
   stage_order: () => {
     // action, face, thought, speech -- and the face unfolds the thought
     const aug = (e) => {
@@ -199,8 +214,10 @@ const CASES = {
     };
     const real = document.createElement;
     document.createElement = (t) => aug(makeEl(t));
-    const blk = (kind, open) => { const b = aug(makeEl('div')); b.className = 'md-block' + (open ? ' open' : ''); b.setAttribute('data-kind', kind); return b; };
-    const names = (md) => md.children.map(c => ['md-narr', 'md-face', 'thought-box', 'thought-toggle', 'md-say', 'open'].find(n => c.classList.contains(n)) || '?');
+    const blk = (kind, open) => { const b = aug(makeEl('div')); b.className = 'md-block' + (open ? ' open' : ''); b.setAttribute('data-kind', kind);
+      if (!open) b.appendChild(aug(makeEl('span')));   // a finished block has something in it
+      return b; };
+    const names = (md) => md.children.map(c => ['md-narr', 'md-face', 'md-typing', 'thought-box', 'thought-toggle', 'md-say', 'open'].find(n => c.classList.contains(n)) || '?');
     const make = (kinds) => { const msg = aug(makeEl('div')), md = aug(makeEl('div')); msg.appendChild(md); kinds.forEach(k => md.appendChild(blk(k))); return { msg, md }; };
     const thought = (md) => { const t = aug(makeEl('button')); t.className = 'thought-toggle'; t.title = 'see'; const b = aug(makeEl('div')); b.className = 'thought-box'; b.hidden = true; md.appendChild(t); md.appendChild(b); return b; };
     // 1. an action and a line, then markdown.js adds the expression and the thought
@@ -225,8 +242,15 @@ const CASES = {
     const c = make(['narration', 'dialogue']);
     stageLayout(c.md); stageSync(c.md);
     // 4. streaming: an action is being written, nothing said yet -> no face; then the speech starts
+    const n = make(['narration']);
+    n.msg.className = 'msg assistant system';
+    stageLayout(n.md); stageSync(n.md);
+    const notice = [names(n.md), n.msg.classList.contains('staged')];
     const d = make([]);
-    const open = blk('action', true); d.md.appendChild(open);
+    const waiting = make([]);
+    stageLayout(waiting.md);
+    const waitingNames = names(waiting.md);
+    const open = blk('action', true); open.appendChild(aug(makeEl('span'))); d.md.appendChild(open);
     d.msg.classList.add('staged');
     stageLayout(d.md);
     const writingAction = names(d.md);
@@ -235,7 +259,7 @@ const CASES = {
     document.createElement = real;
     return { before, after: names(a.md), exp: face.getAttribute('data-exp'), hasThought: face.classList.contains('has-thought'),
       label: face.title, closed, opened, closedAgain: box.hidden, speechOnly, withThought: [names(b.md), b.msg.classList.contains('staged')],
-      plain: [names(c.md), c.msg.classList.contains('staged')], writingAction, thenSpeech: names(d.md) };
+      plain: [names(c.md), c.msg.classList.contains('staged')], writingAction, thenSpeech: names(d.md), notice, waiting: waitingNames };
   },
   quiet_block: () => {
     const q = [blockIsQuiet({ text: '  ' }), blockIsQuiet({ text: '- 하나' })];
@@ -321,8 +345,8 @@ class Stage(unittest.TestCase):
 
     def test_speech_runs_become_bubbles_around_the_actions(self):
         o = run("stage_layout")
-        # no action: the answer is one bubble, as before
-        self.assertEqual(o["plain"], {"view": ["narration", "dialogue", "narration~"], "staged": False})
+        # no action: one bubble -- laid out all the same (face + bubble), so nothing is rearranged later
+        self.assertEqual(o["plain"], {"view": ["[narration dialogue]", "narration~"], "staged": True})
         # an action arrives: what came before it is one bubble, what follows is the next
         self.assertEqual(o["first"], ["[narration dialogue]", "action", "[dialogue]", "narration~"])
         self.assertEqual(o["again"], o["first"])                                   # running it again changes nothing
@@ -344,13 +368,36 @@ class Stage(unittest.TestCase):
         self.assertTrue(o["closed"])
         self.assertEqual(o["opened"], [False, True])
         self.assertTrue(o["closedAgain"])
-        # only speech: the one bubble it was -- until it has a thought, which needs the face
-        self.assertEqual(o["speechOnly"], [["?"], False])
+        # only speech: the face and one bubble, and a thought opens next to the face
+        self.assertEqual(o["speechOnly"], [["md-face", "md-say"], True])
         self.assertEqual(o["withThought"], [["md-face", "thought-box", "md-say", "thought-toggle"], True])
-        self.assertEqual(o["plain"], [["?", "?"], False])
-        # while an action is still being written there is no face yet; it comes with the first speech
-        self.assertEqual(o["writingAction"], ["open"])
+        self.assertEqual(o["plain"], [["md-face", "md-say"], True])
+        # while an action is being written the face waits below it; the first speech comes after the face
+        self.assertEqual(o["writingAction"], ["open", "md-face"])
         self.assertEqual(o["thenSpeech"], ["md-narr", "md-face", "open"])
+        # nothing on screen yet: the face and the typing dots beside it
+        self.assertEqual(o["waiting"], ["md-face", "md-typing"])
+        # a system notice is not a character speaking: untouched
+        self.assertEqual(o["notice"], [["?"], False])
+
+
+class OpenPrefix(unittest.TestCase):
+    """OPEN_PREFIX_v1: the paragraph still being written hands over its finished actions and lines early, so a
+    streaming answer is already laid out as it will be; an emphasis that opens a sentence is left alone."""
+
+    def test_the_finished_pieces_of_the_open_paragraph(self):
+        o = run("open_prefix")
+        self.assertEqual(o["actionThenQuote"], {"blocks": ['action:"*고개를 든다*"'], "open": '"안녕, 오'})
+        self.assertEqual(o["actionAlone"]["blocks"], [])
+        self.assertEqual(o["actionDone"]["blocks"], [])           # nothing follows yet: wait and see
+        self.assertEqual(o["emphasisThenProse"]["blocks"], [])    # followed by prose: emphasis, not an action
+        self.assertEqual(o["quotesOnly"]["blocks"], [])           # no action among them: nothing to stage
+        self.assertEqual([b.split(":")[0] for b in o["several"]["blocks"]], ["action", "dialogue", "action"])
+        self.assertEqual(o["several"]["open"], '"d')
+        self.assertEqual(o["list"]["blocks"], [])                  # a list item is not an action
+
+    def test_an_unclosed_action_is_already_an_action(self):
+        self.assertEqual(run("open_prefix")["kinds"], ["action", "narration", "narration", "narration", "action"])
 
 
 class BlockKinds(unittest.TestCase):
