@@ -47,6 +47,8 @@ const roomEnter = async (id) => { calls.push('roomEnter ' + id); }, roomLeave = 
 const selectCharacter = async (c) => { calls.push('selectCharacter ' + c.id); };
 let currentTab = 'chat';
 const switchTab = (t) => { currentTab = t; };
+let sessionFilter = '';
+const setSessionCharFilter = (id) => { sessionFilter = id; };
 const api = async () => ({ sessions: [] });
 """
 
@@ -87,8 +89,11 @@ return (async () => {
     lastYear: shellTime(at(2025, 8, 20, 9), at(2026, 8, 30, 18), 'en-US'),
     never: shellTime(0, 1),
     presence: [shellPresenceText('work', false), shellPresenceText('work', true), shellPresenceText('private', false)],
-    profile: shellProfileRows({ art: true, provider: 'Brain X', model: 'm-1' }),
-    profileBare: shellProfileRows({ art: false, provider: '', model: '' }).map(r => r.k),
+    profile: shellProfileRows({ art: true }),
+    profileBare: shellProfileRows({ art: false }).map(r => r.k),
+    brains: shellBrainOptions([{ id: 'x', name: 'X' }, { id: 'y', name: 'Y' }], 'y', (id) => (id === 'x' ? 'no login' : ''), (p) => p.name + '!'),
+    models: shellModelOptions([{ value: 'm1', label: 'One' }, { value: 'm2' }], 'm2'),
+    noModels: shellModelOptions(null, ''),
     settings: shellSettingsRows({ advanced: true, revive: true }),
     settingsShipped: shellSettingsRows({ advanced: false, revive: false }).map(r => r.k),
     panes: SHELL_PANES,
@@ -96,7 +101,7 @@ return (async () => {
     plusPrivate: shellPlusList({ private: true, attach: 'item', geo: { label: 'geo', on: false }, slash: 'cmd' }),
     plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
     text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'thinking', 'brain', 'more', 'act',
-      'profile', 'settings', 'toChat', 'close', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
+      'profile', 'settings', 'back2', 'close', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
   shellListDraw();
@@ -148,6 +153,22 @@ return (async () => {
   o.samePick = cls.has('shell-switching');
   await new Promise(r => setImmediate(r));
   calls.length = 0; calls.push(...o.calls);
+  // a pane is a screen: Back leads to where it was opened from
+  {
+    const opened = [];
+    const realOpen = shellProfileOpen, realList = shellShowList;
+    shellProfileOpen = () => opened.push('profile');
+    shellShowList = () => opened.push('list');
+    open = { character: 'b', room: '' };
+    o.paneBack = [];
+    shellGoPane('sessions', 'profile'); o.paneBack.push([currentTab, sessionFilter, shellState.paneFrom]);
+    shellPaneBack(); o.paneBack.push([currentTab, opened.pop() || '']);
+    shellGoPane('activity', 'settings'); o.paneBack.push([currentTab, shellState.paneFrom]);
+    shellPaneBack(); o.paneBack.push([currentTab, opened.pop() || '']);           // narrow: the list the settings cover
+    shellGoPane('status'); shellPaneBack(); o.paneBack.push([currentTab, opened.pop() || '']);
+    shellProfileOpen = realOpen; shellShowList = realList;
+    open = { character: 'a', room: 'room_1' };
+  }
   // narrow: the list covers the chat; entering the chat from it adds one history step
   shellShowList();
   o.listShown = cls.has('shell-list');
@@ -269,25 +290,53 @@ class ShellList(unittest.TestCase):
         # every old tab but the chat itself is reachable: the talk's own things from its card, the app's from settings
         card = [r["k"] for r in o["profile"]]
         gear = [r["k"] for r in o["settings"]]
-        self.assertEqual(card, ["artifacts", "sessions", "art", "brain", "model", "activity"])
-        self.assertEqual(gear, ["details", "theme", "status", "team", "evolution", "revive"])
+        self.assertEqual(card, ["art", "sessions", "artifacts"])      # the character's own things
+        self.assertEqual(gear, ["details", "theme", "status", "team", "activity", "evolution", "revive"])
         self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(o["panes"]))
         self.assertEqual(sorted(o["panes"]), ["activity", "artifacts", "evolution", "sessions", "status", "team"])
         # the log and improvement are the advanced density's
         self.assertEqual([r["k"] for r in o["profile"] + o["settings"] if r.get("adv")], ["activity", "evolution"])
-        self.assertEqual([r.get("detail") for r in o["profile"] if r["k"] in ("brain", "model")], ["Brain X", "m-1"])
         self.assertTrue(o["settings"][0]["on"])
-        self.assertEqual(o["profileBare"], ["artifacts", "sessions", "brain", "activity"])
-        self.assertEqual(o["settingsShipped"], ["details", "theme", "status", "team", "evolution"])
+        self.assertEqual(o["profileBare"], ["sessions", "artifacts"])
+
+    def test_the_card_manages_the_brain_and_the_model_itself(self):
+        o = self.o
+        self.assertEqual(o["brains"], [{"id": "x", "label": "X!", "current": False, "blocked": True, "why": "no login"},
+                                       {"id": "y", "label": "Y!", "current": True, "blocked": False, "why": ""}])
+        self.assertEqual(o["models"], [{"value": "m1", "label": "One", "current": False}, {"value": "m2", "label": "m2", "current": True}])
+        self.assertEqual(o["noModels"], [])
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        card = src[src.index("function shellProfileOpen()"):src.index("function shellSettingsClose()")]
+        self.assertIn("await selectProvider(o.id)", card)          # the calls the old pickers make
+        self.assertIn("pickModel(o.value)", card)
+        self.assertNotIn("toggleProviderTray", card)               # ... without leaving the card for them
+        self.assertNotIn("showModelMenu", card)
+        self.assertEqual(o["settingsShipped"], ["details", "theme", "status", "team", "activity", "evolution"])
 
     def test_the_tab_bar_is_hidden_and_a_pane_leads_back(self):
         self.assertIn("html.shell2 header .bar{display:none}", CSS)
         self.assertIn('html.shell2[data-tab]:not([data-tab="chat"]) .shell-pane-bar{display:flex}', CSS)
         self.assertIn("html.shell2 body:not(.density-advanced) .shell-adv{display:none}", CSS)
         src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
-        self.assertIn("back.addEventListener('click', () => switchTab('chat'))", src)
+        self.assertIn("back.addEventListener('click', () => shellPaneBack())", src)
         self.assertIn("if (typeof currentTab !== 'undefined' && currentTab !== 'chat') switchTab('chat');", src)   # a pick returns to the talk
         self.assertIn("document.documentElement.dataset.tab = tab;", (STATIC / "app-api.js").read_text(encoding="utf-8"))
+
+    def test_the_card_and_the_panes_are_screens_of_the_talk_column(self):
+        # the talk's header, session row and input bar belong to the talk only (operator, 2026-09-30)
+        pane = 'html.shell2[data-tab]:not([data-tab="chat"]) '
+        self.assertIn(pane + "header," + pane + ".meta," + pane + "#sessionBanner{display:none !important}", CSS)
+        self.assertIn(':root[data-tab]:not([data-tab="chat"]) .composer', (STATIC / "chat-panes.css").read_text(encoding="utf-8"))
+        self.assertIn(".shell-profile{position:absolute;inset:0;", CSS)             # the whole column, not a side strip
+        self.assertIn("html.shell2 .wrap{position:relative;", CSS)
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("wrap.appendChild(profile);", src)
+        # the history is the open character's own; pictures open as a screen above the card
+        self.assertIn("setSessionCharFilter(openCharacterId())", src)
+        self.assertIn("html.shell2 #sessionCharTabs,html.shell2 #roomsStrip{display:none !important}", CSS)
+        self.assertIn("html.shell2 #artManager{left:300px;padding:0;", CSS)
+        o = self.o
+        self.assertEqual(o["paneBack"], [["sessions", "b", "profile"], ["chat", "profile"], ["activity", "settings"], ["chat", "list"], ["chat", ""]])
 
     def test_the_plus_menu_lists_what_the_row_carried(self):
         work = self.o["plusWork"]

@@ -2,7 +2,7 @@
 #shellList,#shellBack{display:none}
 /* wide: the list beside the chat */
 html.shell2 body{display:flex}
-html.shell2 .wrap{flex:1 1 0;min-width:0;max-width:1100px;margin:0 auto}
+html.shell2 .wrap{position:relative;flex:1 1 0;min-width:0;max-width:1100px;margin:0 auto}
 html.shell2 #shellList{position:relative;display:flex;flex-direction:column;flex:0 0 300px;min-width:0;height:100%;height:var(--app-height,100dvh);border-right:1px solid var(--border);background:var(--bg-card);box-shadow:var(--glint)}
 html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in the way of the shell */
 .shell-list-head{display:flex;flex-direction:column;gap:.55rem;padding:.9rem .75rem .5rem;flex-shrink:0}
@@ -30,10 +30,18 @@ html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in 
 html.shell2 header .bar{display:none}
 html.shell2 header .brand-title{cursor:pointer}
 html.shell2 #characterTray{display:none !important}   /* the card took its place */
-.shell-pane-bar{display:none;align-items:center;gap:.6rem;flex-shrink:0}
+/* a pane and the card are screens of the talk column: the talk's header, session row and input bar are the talk's only */
+.shell-pane-bar{display:none;align-items:center;gap:.5rem;flex-shrink:0;min-height:40px}
+.shell-pane-bar button{width:34px;height:34px;padding:0;border-radius:10px;font-size:1.2rem;line-height:1}
 html.shell2[data-tab]:not([data-tab="chat"]) .shell-pane-bar{display:flex}
-.shell-pane-title{font-size:.95rem}
-.shell-profile{position:absolute;top:0;right:0;bottom:0;z-index:6;width:min(330px,100%);display:flex;flex-direction:column;overflow:hidden;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;box-shadow:-16px 0 36px rgba(0,0,0,.45),var(--glint);transform:translateX(106%);visibility:hidden;transition:transform .2s cubic-bezier(.2,0,0,1),visibility 0s .2s}
+html.shell2[data-tab]:not([data-tab="chat"]) header,html.shell2[data-tab]:not([data-tab="chat"]) .meta,html.shell2[data-tab]:not([data-tab="chat"]) #sessionBanner{display:none !important}
+.shell-pane-title{font-size:1.05rem;letter-spacing:-.01em}
+html.shell2 #sessionCharTabs,html.shell2 #roomsStrip{display:none !important}   /* the history is the open character's own */
+.shell-profile{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;overflow-y:auto;background:var(--bg);transform:translateX(102%);visibility:hidden;transition:transform .2s cubic-bezier(.2,0,0,1),visibility 0s .2s}
+.shell-profile > *{width:100%;max-width:560px}
+/* the picture manager is a screen too, above the card; the list stays beside it on a wide window */
+html.shell2 #artManager{left:300px;padding:0;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none;align-items:stretch;justify-content:stretch}
+html.shell2 #artManager .art-mgr{width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;border:0;border-radius:0;box-shadow:none}
 .shell-settings{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;background:var(--bg-card);transform:translateX(-102%);visibility:hidden;transition:transform .2s cubic-bezier(.2,0,0,1),visibility 0s .2s}
 .shell-profile.open,.shell-settings.open{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.2,0,0,1)}
 .shell-panel-head{display:flex;align-items:center;gap:.5rem;padding:.55rem .6rem;border-bottom:1px solid var(--border);flex-shrink:0}
@@ -48,6 +56,17 @@ html.shell2[data-tab]:not([data-tab="chat"]) .shell-pane-bar{display:flex}
 .shell-rowbtn small{color:var(--muted);font-size:.78rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shell-rowbtn.on .switch-ui{background:var(--accent)}
 .shell-rowbtn.on .switch-ui::after{transform:translateX(16px);background:var(--accent-contrast)}
+.shell-section{padding:.1rem .65rem .7rem}
+.shell-section[hidden]{display:none}
+.shell-section-title{font-size:.74rem;font-weight:600;letter-spacing:.04em;color:var(--muted);padding:.7rem 0 .4rem;border-top:1px solid var(--border)}
+.shell-brains{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:.5rem}
+.shell-brain{display:flex;flex-direction:column;align-items:center;gap:.35rem;min-width:0;padding:.55rem .3rem;border:1px solid var(--border);border-radius:12px;background:transparent;font-size:.78rem;line-height:1.2;color:var(--text);text-align:center}
+.shell-brain img{width:56px;height:56px;border-radius:50%;object-fit:cover;background:#2a2f3a}
+.shell-brain span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shell-brain.current{border-color:var(--accent-border);background:var(--accent-soft);color:var(--accent2)}
+.shell-brain.blocked{opacity:.5}
+.shell-models{display:flex;flex-direction:column;gap:2px}
+.shell-model.current{background:var(--accent-soft);color:var(--accent2)}
 .shell-theme{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.45rem .65rem;font-size:.9rem;flex-wrap:wrap}
 .shell-swatches{display:flex;gap:.4rem}
 html.shell2 body:not(.density-advanced) .shell-adv{display:none}
@@ -94,6 +113,7 @@ html.shell2.shell-switching .stage-shell::after{content:"";position:absolute;lef
   html.shell2.shell-list #shellList{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.2,0,0,1)}
   html.shell2 #shellBack{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:34px;height:34px;padding:0;border-radius:10px}
   html.shell2 #shellBack[hidden]{display:none}
+  html.shell2 #artManager{left:0}
   html.shell2 #shellBack svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 }
 @media (prefers-reduced-motion: reduce) { .shell-profile,.shell-settings{transition:none} html.shell2 #shellList,html.shell2 #log{transition:none} html.shell2.shell-switching .stage-shell::after{animation:none;background-size:100% 100%} }
