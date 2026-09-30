@@ -213,7 +213,8 @@ class Registry:
     def list(self) -> List[dict]:
         # updated_at is meta.json's mtime as epoch seconds, like AgentSession.to_public()'s (the client
         # compares the two)
-        items = sorted((m for m in _meta_summaries() if not m["probe"]), key=lambda m: m["mtime"], reverse=True)[:40]
+        items = sorted((m for m in _meta_summaries() if not m["probe"] and m["mode"] != "room"),   # seats: the room view
+                       key=lambda m: m["mtime"], reverse=True)[:40]
         names: Dict[str, str] = {}
         out = []
         for m in items:

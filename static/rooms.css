@@ -1,0 +1,23 @@
+/* rooms.css -- group rooms (app-rooms.js, character-events-and-rooms.md evt/E-2). */
+.rooms{width:960px;max-width:100%;height:min(80vh,760px)}
+.rooms-body{flex:1;display:flex;min-height:0}
+.rooms-list{flex:0 0 190px;display:flex;flex-direction:column;gap:.35rem;padding:.8rem;border-right:1px solid var(--border);overflow:auto}
+.rooms-item{text-align:left;padding:.45rem .6rem;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer;font-size:.84rem}
+.rooms-item.active{border-color:var(--accent-border);background:var(--accent-soft);color:var(--accent2)}
+.rooms-main{flex:1;display:flex;flex-direction:column;min-width:0;padding:.8rem;gap:.5rem}
+.rooms-form{overflow:auto}
+.rooms-form input.room-name,.rooms-form select{background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.35rem .5rem}
+.rooms-member{display:flex;gap:.45rem;align-items:center;font-size:.85rem}
+.rooms-acts{display:flex;gap:.5rem;margin-top:.4rem}
+.room-log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:.55rem;padding-right:.25rem}
+.room-msg{display:flex;gap:.5rem;align-items:flex-start}
+.room-msg.mine{justify-content:flex-end}
+.room-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;flex:0 0 auto}
+.room-bubble{max-width:78%;padding:.45rem .65rem;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--border)}
+.room-msg.mine .room-bubble{background:var(--accent-soft);border-color:var(--accent-border)}
+.room-who{font-size:.72rem;color:var(--muted);margin-bottom:.15rem}
+.room-text{font-size:.9rem;white-space:pre-wrap;word-break:break-word}
+.room-mentions{display:flex;flex-wrap:wrap;gap:.3rem}
+.room-compose{display:flex;gap:.5rem;align-items:flex-end}
+.room-input{flex:1;resize:vertical;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:.45rem .6rem;font:inherit}
+@media (max-width:640px){.rooms{height:92vh}.rooms-body{flex-direction:column}.rooms-list{flex:0 0 auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--border)}.rooms-item{white-space:nowrap}.room-bubble{max-width:88%}}

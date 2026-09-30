@@ -142,6 +142,8 @@ class RoomSeats(unittest.TestCase):
             self.assertEqual(S.AgentSession(seat.sid).mode, "room", "reloaded from its meta")
             self.assertEqual(reg.get_active("").sid, work.sid, "the newest session is a room seat, still not active")
             self.assertTrue((tmp / "sessions" / seat.sid).is_dir())
+            self.assertNotIn(seat.sid, [x["id"] for x in reg.list()], "the sessions tab does not list room seats")
+            self.assertIn(work.sid, [x["id"] for x in reg.list()])
         finally:
             S.SESSIONS = saved
             shutil.rmtree(tmp, ignore_errors=True)

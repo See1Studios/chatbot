@@ -461,6 +461,15 @@ function renderCharacterTray() {
     art.addEventListener('click', (e) => { e.stopPropagation(); toggleCharacterTray(false); openArtManager(openCharacterId()); });
     characterTrayEl.appendChild(art);
   }
+  // evt/E-2 (app-rooms.js): group rooms with several characters
+  if (typeof openRooms === 'function' && characterCatalog.length > 1) {
+    const rooms = document.createElement('button');
+    rooms.type = 'button';
+    rooms.className = 'tray-art-btn';
+    rooms.textContent = typeof ROOM_TEXT !== 'undefined' ? ROOM_TEXT.title : 'rooms';
+    rooms.addEventListener('click', (e) => { e.stopPropagation(); toggleCharacterTray(false); openRooms(); });
+    characterTrayEl.appendChild(rooms);
+  }
 }
 
 function toggleCharacterTray(force) {
