@@ -25,6 +25,11 @@ html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in 
 .shell-list-foot button{flex:1 1 auto;color:var(--accent2);font-weight:600;text-align:left;background:transparent;border-color:transparent}
 .shell-list-foot button:hover{background:rgba(255,255,255,.05)}
 .shell-list-foot button[hidden]{display:none}
+/* a pick shows at once: the old talk fades and a thin line runs while the switch happens behind it */
+html.shell2 #log{transition:opacity .15s ease}
+html.shell2.shell-switching #log{opacity:0}
+html.shell2.shell-switching .stage-shell::after{content:"";position:absolute;left:12px;right:12px;top:0;height:2px;border-radius:2px;z-index:3;pointer-events:none;background:linear-gradient(90deg,transparent,var(--accent),transparent) 0 0/40% 100% no-repeat;animation:shell-run 1s linear infinite}
+@keyframes shell-run{0%{background-position:-70% 0}100%{background-position:170% 0}}
 /* narrow: one pane. The list covers the chat (which stays laid out underneath) and slides away. */
 @media (max-width: 940px) {
   html.shell2 body{display:block}
@@ -34,4 +39,4 @@ html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in 
   html.shell2 #shellBack[hidden]{display:none}
   html.shell2 #shellBack svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 }
-@media (prefers-reduced-motion: reduce) { html.shell2 #shellList{transition:none} }
+@media (prefers-reduced-motion: reduce) { html.shell2 #shellList,html.shell2 #log{transition:none} html.shell2.shell-switching .stage-shell::after{animation:none;background-size:100% 100%} }

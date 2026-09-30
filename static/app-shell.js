@@ -11,7 +11,8 @@ const SHELL_TEXT = {   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
-let shellState = { sessions: [], talks: null, filter: '', timer: 0, loading: false, ready: false, nodes: new Map() };
+let shellState = { sessions: [], talks: null, filter: '', timer: 0, loading: false, ready: false, nodes: new Map(),
+  pending: '', want: null, switching: false };   // pending: the row just picked, shown as open before it is
 
 function shellOn() { return document.documentElement.classList.contains('shell2'); }
 function shellNarrow() { return window.innerWidth <= SHELL_NARROW; }
@@ -86,6 +87,7 @@ function shellListDraw() {
   const chars = typeof characterCatalog !== 'undefined' ? characterCatalog : [];
   const rooms = typeof roomState !== 'undefined' ? roomState.rooms : [];
   const rows = shellFilter(shellRows(chars, shellState.sessions, rooms, shellOpenNow(), shellState.talks), shellState.filter);
+  if (shellState.pending) rows.forEach(r => { r.current = (r.kind + ':' + r.id) === shellState.pending; if (!r.current) r.private = false; });
   const add = document.getElementById('shellNewRoom');
   if (add) add.hidden = !(typeof openRooms === 'function' && chars.length > 1);   // a room needs two members
   // Rows are kept and updated in place (keyed by kind and id): a redraw that changes nothing touches nothing, and a
@@ -165,10 +167,43 @@ function shellListSoon(ms) {
   shellState.timer = setTimeout(shellListRefresh, ms || 300);
 }
 
-// A row is picked. The open character's row leads back from a room. Another character always opens in its WORK
-// room, whatever room is open now (selectCharacter): the mode belongs to the open talk.
+// A row is picked. The pick shows at once -- the row is marked, the header takes the name and picture, the old talk
+// fades out under a thin running line -- and the switch itself (the server call, the history, the pictures) runs
+// behind it (operator, 2026-09-30: selecting must feel light; what is being processed is shown apart from it).
+// Picks made while a switch runs are not queued one by one: when it ends, only the newest is opened.
 async function shellPick(r) {
   shellShowChat();
+  shellState.want = r;
+  shellPending(r);
+  if (shellState.switching) return;
+  shellState.switching = true;
+  try {
+    while (shellState.want) {
+      const next = shellState.want;
+      shellState.want = null;
+      try { await shellOpen(next); } catch (_) { /* the talk that was open stays */ }
+    }
+  } finally {
+    shellState.switching = false;
+    shellState.pending = '';
+    document.documentElement.classList.remove('shell-switching');
+    shellListDraw();
+  }
+}
+function shellPending(r) {
+  shellState.pending = r.kind + ':' + r.id;
+  const open = shellOpenNow();
+  const same = r.kind === 'room' ? open.room === r.id : (!open.room && open.character === r.id);
+  if (!same) document.documentElement.classList.add('shell-switching');
+  const c = r.kind === 'character' && typeof characterCatalog !== 'undefined' ? characterCatalog.find(x => x.id === r.id) : null;
+  const name = document.getElementById('brandName'), pic = document.getElementById('brandAvatar');
+  if (c && !same && name) name.textContent = c.title || c.name || '';
+  if (c && !same && pic) pic.src = characterOwnPortrait(c);
+  shellListDraw();
+}
+// The switch itself. The open character's row leads back from a room. Another character always opens in its WORK
+// room, whatever room is open now (selectCharacter): the mode belongs to the open talk.
+async function shellOpen(r) {
   if (r.kind === 'room') { if (roomOpenId() !== r.id) await roomEnter(r.id); return; }
   if (roomOpenId() && r.id === openCharacterId()) { await roomLeave(); return; }
   const c = characterCatalog.find(x => x.id === r.id);

@@ -119,7 +119,23 @@ return (async () => {
   await shellPick({ kind: 'room', id: 'room_1' });        // the open room: nothing to do
   await shellPick({ kind: 'character', id: 'a' });         // the character under the room: back to its 1:1 talk
   await shellPick({ kind: 'character', id: 'b' });
-  o.calls = calls;
+  o.calls = calls.slice();
+  // a pick shows at once, the switch runs behind it, and of the picks made meanwhile only the newest is opened
+  open = { character: 'a', room: '' };
+  calls.length = 0;
+  const running = shellPick({ kind: 'character', id: 'b' });
+  o.atOnce = { switching: cls.has('shell-switching'), pending: shellState.pending,
+    current: box.children.filter(n => n.attrs['aria-current']).map(n => n.attrs['data-id']) };
+  shellPick({ kind: 'character', id: 'c' });
+  shellPick({ kind: 'room', id: 'room_9' });
+  o.pendingNewest = shellState.pending;
+  await running;
+  o.rapid = calls.slice();
+  o.settled = { switching: cls.has('shell-switching'), pending: shellState.pending };
+  shellPick({ kind: 'character', id: 'a' });                // the open talk again: nothing fades
+  o.samePick = cls.has('shell-switching');
+  await new Promise(r => setImmediate(r));
+  calls.length = 0; calls.push(...o.calls);
   // narrow: the list covers the chat; entering the chat from it adds one history step
   shellShowList();
   o.listShown = cls.has('shell-list');
@@ -208,6 +224,14 @@ class ShellList(unittest.TestCase):
     def test_picking_a_row_makes_the_trays_calls(self):
         self.assertEqual(self.o["calls"], ["selectCharacter b", "roomEnter room_1", "roomLeave", "selectCharacter b"])
 
+    def test_a_pick_shows_at_once_and_the_newest_pick_wins(self):
+        o = self.o
+        self.assertEqual(o["atOnce"], {"switching": True, "pending": "character:b", "current": ["b"]})
+        self.assertEqual(o["pendingNewest"], "room:room_9")
+        self.assertEqual(o["rapid"], ["selectCharacter b", "roomEnter room_9"])     # c was picked over, never opened
+        self.assertEqual(o["settled"], {"switching": False, "pending": ""})
+        self.assertFalse(o["samePick"])
+
     def test_private_mode_never_carries_over_to_another_character(self):
         # list and tray both go through selectCharacter, which asks for the work room whatever is on screen
         src = (STATIC / "app-characters.js").read_text(encoding="utf-8")
@@ -277,7 +301,7 @@ class ShellSwitch(unittest.TestCase):
         for rule in re.findall(r"([^{}]+)\{", re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)):
             for sel in rule.split(","):
                 sel = sel.strip()
-                if sel.startswith("@") or not sel or sel == "#shellList" or sel == "#shellBack":
+                if sel.startswith("@") or not sel or sel in ("#shellList", "#shellBack", "0%", "100%"):
                     continue
                 self.assertTrue(sel.startswith("html.shell2") or sel.startswith(".shell-") or sel.startswith("#shellSearch"),
                                 "shell.css styles the old page without the switch: %r" % sel)
