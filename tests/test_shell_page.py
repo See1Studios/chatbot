@@ -19,7 +19,24 @@ PAGE = r"""
 const setTimeout = () => 0, clearTimeout = () => {}, setInterval = () => 0;
 const cls = new Set(['shell2']);
 const classList = { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) };
-const document = { documentElement: { classList }, getElementById: () => null, addEventListener() {}, hidden: false };
+// a small DOM for the list: enough to see which rows exist, in what order, and how often a picture is loaded
+const srcSets = [];
+const mkEl = (tag) => {
+  const e = { tag, children: [], parent: null, attrs: {}, className: '', textContent: '', _src: '',
+    append(...c) { c.forEach(x => this.insertBefore(x, null)); }, appendChild(c) { return this.insertBefore(c, null); },
+    insertBefore(c, ref) { if (c.parent) c.remove(); const i = ref ? this.children.indexOf(ref) : this.children.length; this.children.splice(i, 0, c); c.parent = this; return c; },
+    remove() { if (this.parent) { this.parent.children.splice(this.parent.children.indexOf(this), 1); this.parent = null; } },
+    querySelector(sel) { return this.children.find(c => ('.' + c.className) === sel) || null; },
+    setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; }, addEventListener() {} };
+  Object.defineProperty(e, 'src', { get() { return e._src; }, set(v) { e._src = v; srcSets.push(v); } });
+  return e;
+};
+const box = mkEl('div');
+const document = { documentElement: { classList }, getElementById: (id) => (id === 'shellRooms' ? box : null), createElement: mkEl,
+  addEventListener() {}, hidden: false };
+const roomState = { rooms: [] }, look = {};
+const characterOwnPortrait = (c) => c.id + '@' + (look[c.id] || ''), initialAvatar = (name) => 'initial:' + name;
+const roomCatalogNames = () => ({ a: 'Kit', b: 'Kiki' }), roomMembersLabel = (m) => m.join(',');
 const pushed = [];
 const window = { innerWidth: 400, addEventListener() {} }, history = { pushState: (s) => pushed.push(s) };
 const calls = [];
@@ -69,6 +86,32 @@ return (async () => {
     never: shellTime(0, 1),
     text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you'].every(k => SHELL_TEXT[k]),
   };
+  // drawing: nothing before the first load; then rows are kept and updated in place
+  shellListDraw();
+  o.beforeReady = box.children.length;
+  shellState.ready = true; shellState.talks = talks; roomState.rooms = rooms;
+  shellListDraw();
+  const first = box.children.slice(), n1 = srcSets.length;
+  o.drawn = first.map(n => n.attrs['data-kind'] + ':' + n.attrs['data-id'] + (n.attrs['aria-current'] ? '*' : ''));
+  o.firstLoads = n1;
+  o.roomLine = first[1].children[3].textContent;
+  shellListDraw();
+  o.redrawLoads = srcSets.length - n1;
+  look.b = 'y';
+  shellListDraw();
+  o.lookLoads = srcSets.slice(n1);
+  shellState.talks = Object.assign({}, talks, { a: { at: 999, preview: 'now' } });
+  shellListDraw();
+  o.moved = box.children.map(n => n.attrs['data-id']);
+  o.sameNodes = box.children.length === first.length && box.children.every(n => first.includes(n));
+  o.movedLoads = srcSets.length - n1 - 1;
+  roomState.rooms = [];
+  shellListDraw();
+  o.afterRoomsGone = box.children.map(n => n.attrs['data-id']);
+  shellState.filter = 'zzz';
+  shellListDraw();
+  o.emptyShown = [box.children.length, box.children[0].className];
+  shellState.filter = '';
   // picking rows: the tray's calls
   await shellPick({ kind: 'character', id: 'b' });
   await shellPick({ kind: 'room', id: 'room_1' });
@@ -147,6 +190,20 @@ class ShellList(unittest.TestCase):
         self.assertEqual(self.o["older"], "9/20")
         self.assertIn("2025", self.o["lastYear"])
         self.assertEqual(self.o["never"], "")
+
+    def test_rows_are_drawn_once_the_first_load_is_in_and_then_kept(self):
+        o = self.o
+        self.assertEqual(o["beforeReady"], 0)
+        self.assertEqual(o["drawn"], ["character:b", "room:room_1", "character:a*", "room:room_2", "character:c"])
+        self.assertEqual(o["roomLine"], "Kiki: nods on it")
+        self.assertEqual(o["firstLoads"], 5)                  # one picture per row
+        self.assertEqual(o["redrawLoads"], 0)                 # the same list again loads nothing
+        self.assertEqual(o["lookLoads"], ["b@y"])             # a changed look reloads that row only
+        self.assertEqual(o["moved"], ["a", "b", "room_1", "room_2", "c"])   # a newer talk moves its row up
+        self.assertTrue(o["sameNodes"])                       # ... the same elements, not new ones
+        self.assertEqual(o["movedLoads"], 0)
+        self.assertEqual(o["afterRoomsGone"], ["a", "b", "c"])
+        self.assertEqual(o["emptyShown"], [1, "shell-empty"])
 
     def test_picking_a_row_makes_the_trays_calls(self):
         self.assertEqual(self.o["calls"], ["selectCharacter b", "roomEnter room_1", "roomLeave", "selectCharacter b"])

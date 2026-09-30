@@ -10,7 +10,8 @@ const SHELL_TEXT = {   // l10n-ok
   newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.', you: '나',   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
-let shellState = { sessions: [], talks: null, filter: '', timer: 0, loading: false };
+// ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
+let shellState = { sessions: [], talks: null, filter: '', timer: 0, loading: false, ready: false, nodes: new Map() };
 
 function shellOn() { return document.documentElement.classList.contains('shell2'); }
 function shellNarrow() { return window.innerWidth <= SHELL_NARROW; }
@@ -81,40 +82,69 @@ function shellOpenNow() {
 
 function shellListDraw() {
   const box = document.getElementById('shellRooms');
-  if (!box || !shellOn()) return;
+  if (!box || !shellOn() || !shellState.ready) return;
   const chars = typeof characterCatalog !== 'undefined' ? characterCatalog : [];
   const rooms = typeof roomState !== 'undefined' ? roomState.rooms : [];
   const rows = shellFilter(shellRows(chars, shellState.sessions, rooms, shellOpenNow(), shellState.talks), shellState.filter);
   const add = document.getElementById('shellNewRoom');
   if (add) add.hidden = !(typeof openRooms === 'function' && chars.length > 1);   // a room needs two members
-  box.textContent = '';
-  if (!rows.length) { box.appendChild(shellEl('div', 'shell-empty', SHELL_TEXT.empty)); return; }
-  rows.forEach(r => {
-    const b = shellEl('button', 'shell-row' + (r.current ? ' current' : '') + (r.kind === 'room' ? ' is-room' : ''));
-    b.type = 'button';
-    b.setAttribute('role', 'listitem');
-    b.setAttribute('data-kind', r.kind);
-    b.setAttribute('data-id', r.id);
-    if (r.current) b.setAttribute('aria-current', 'true');
-    const img = document.createElement('img');
-    img.className = 'shell-row-avatar';
-    img.alt = '';
-    img.onerror = () => { img.onerror = null; img.src = initialAvatar(r.name); };
+  // Rows are kept and updated in place (keyed by kind and id): a redraw that changes nothing touches nothing, and a
+  // picture is loaded again only when its address changed -- redrawing everything made the pictures flicker.
+  const nodes = shellState.nodes, seen = new Set();
+  let empty = box.querySelector('.shell-empty');
+  if (!rows.length) {
+    nodes.forEach(n => n.b.remove());
+    nodes.clear();
+    if (!empty) box.appendChild(shellEl('div', 'shell-empty', SHELL_TEXT.empty));
+    return;
+  }
+  if (empty) empty.remove();
+  rows.forEach((r, i) => {
+    const key = r.kind + ':' + r.id;
+    seen.add(key);
+    let n = nodes.get(key);
+    if (!n) {
+      n = { b: shellEl('button', 'shell-row'), img: document.createElement('img'), name: shellEl('span', 'shell-row-name'),
+        time: shellEl('span', 'shell-row-time'), line: shellEl('span', 'shell-row-preview'), src: '', row: r };
+      n.b.type = 'button';
+      n.b.setAttribute('role', 'listitem');
+      n.b.setAttribute('data-kind', r.kind);
+      n.b.setAttribute('data-id', r.id);
+      n.img.className = 'shell-row-avatar';
+      n.img.alt = '';
+      n.b.append(n.img, n.name, n.time, n.line);
+      const node = n;
+      n.b.addEventListener('click', () => shellPick(node.row));
+      nodes.set(key, n);
+    }
+    n.row = r;
     const c = r.kind === 'character' ? chars.find(x => x.id === r.id) : null;
-    img.src = c ? characterOwnPortrait(c) : initialAvatar(r.name);   // its own provider's look (OWN_LOOK_v1)
-    let line = r.preview || SHELL_TEXT.fresh, cls = 'shell-row-preview';
-    if (r.private) { line = SHELL_TEXT.private; cls += ' is-private'; }
+    const src = c ? characterOwnPortrait(c) : initialAvatar(r.name);   // its own provider's look (OWN_LOOK_v1)
+    if (src !== n.src) {
+      const img = n.img, name = r.name;
+      n.src = src;
+      img.onerror = () => { img.onerror = null; img.src = initialAvatar(name); };
+      img.src = src;
+    }
+    let line = r.preview || SHELL_TEXT.fresh;
+    if (r.private) line = SHELL_TEXT.private;
     else if (r.kind === 'room') {
       const names = roomCatalogNames(r.members);
       line = r.preview ? (r.who === 'user' ? SHELL_TEXT.you : (names[r.who] || '')) + ': ' + r.preview
         : SHELL_TEXT.room + ' · ' + roomMembersLabel(r.members, names);
     }
-    b.append(img, shellEl('span', 'shell-row-name', r.name), shellEl('span', 'shell-row-time', r.kind === 'room' && !r.who ? '' : shellTime(r.at)),
-      shellEl('span', cls, line));
-    b.addEventListener('click', () => shellPick(r));
-    box.appendChild(b);
+    shellSet(n.name, r.name);
+    shellSet(n.time, r.kind === 'room' && !r.who ? '' : shellTime(r.at));
+    shellSet(n.line, line);
+    shellSetClass(n.line, 'shell-row-preview' + (r.private ? ' is-private' : ''));
+    shellSetClass(n.b, 'shell-row' + (r.current ? ' current' : '') + (r.kind === 'room' ? ' is-room' : ''));
+    if (r.current) n.b.setAttribute('aria-current', 'true'); else n.b.removeAttribute('aria-current');
+    if (box.children[i] !== n.b) box.insertBefore(n.b, box.children[i] || null);
   });
+  nodes.forEach((n, key) => { if (!seen.has(key)) { n.b.remove(); nodes.delete(key); } });
 }
+function shellSet(el, text) { if (el.textContent !== text) el.textContent = text; }
+function shellSetClass(el, cls) { if (el.className !== cls) el.className = cls; }
 
 // The list again from the server. Quiet on failure: the rows already drawn stay.
 async function shellListRefresh() {
@@ -127,6 +157,7 @@ async function shellListRefresh() {
     if (shellState.talks && typeof characterTalks !== 'undefined') characterTalks = shellState.talks;
   } catch (_) { /* keep what is drawn */ }
   shellState.loading = false;
+  shellState.ready = true;
   shellListDraw();
 }
 function shellListSoon(ms) {
@@ -203,5 +234,7 @@ function shellInit() {
   }
   setInterval(() => { if (!document.hidden) shellListRefresh(); }, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) shellListRefresh(); });
-  shellListRefresh();
+  // The first load waits for boot to open its talk (the wrap above asks for it then): before that the provider
+  // and the open character are not settled and the rows would be drawn twice. The timer is the fallback.
+  shellListSoon(4000);
 }
