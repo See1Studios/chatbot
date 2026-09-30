@@ -159,6 +159,27 @@ html.shell2 #log > .msg.assistant.staged .md > .thought-box::after{left:-14px;to
 @media (max-width: 640px) {
   html.shell2 #log > .msg.assistant.staged .md-say,html.shell2 #log > .msg.assistant.staged .md > .md-block.open:not(:empty){max-width:96%;padding:.45rem .6rem}
 }
+/* ux/S6: the message menu (app-msgmenu.js) -- by the pointer, or a sheet from the bottom on a phone */
+.shell-msg-scrim{position:fixed;inset:0;z-index:105;background:transparent}
+.shell-msg-scrim.dim{background:rgba(0,0,0,.45)}
+.shell-msg-scrim[hidden],.shell-msg-menu[hidden]{display:none}
+.shell-msg-menu{position:fixed;z-index:106;display:flex;flex-direction:column;gap:2px;min-width:200px;max-width:min(320px,calc(100vw - 16px));padding:.35rem;background:rgba(18,21,28,.95);border:1px solid var(--border-hover);border-radius:14px;box-shadow:0 16px 36px rgba(0,0,0,.6),var(--glint);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.shell-msg-menu.sheet{left:0;right:0;bottom:0;top:auto;max-width:none;border-radius:18px 18px 0 0;padding:.6rem .6rem calc(.8rem + env(safe-area-inset-bottom));animation:shell-sheet-up .2s cubic-bezier(.2,0,0,1)}
+@keyframes shell-sheet-up{from{transform:translateY(100%)}}
+.shell-msg-acts{display:flex;flex-wrap:wrap;gap:.35rem;padding:.25rem .25rem .5rem;margin-bottom:.2rem;border-bottom:1px solid var(--border)}
+.shell-msg-acts button{padding:.3rem .65rem;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.05);font-size:.85rem;font-style:italic;color:var(--text)}
+.shell-msg-acts button:hover{border-color:var(--accent-border);color:var(--accent2)}
+.shell-msg-item{width:100%;padding:.6rem .7rem;border:0;border-radius:9px;background:transparent;text-align:left;font-size:.92rem;color:var(--text)}
+.shell-msg-item:hover{background:rgba(255,255,255,.07)}
+html.shell2 #log .msg-pressed{outline:2px solid var(--accent-border);outline-offset:2px}
+html.shell2 #log > .msg.failed{border-color:rgba(248,113,113,.6)}
+html.shell2 .msg-failnote{align-self:flex-end;font-size:.76rem;color:#fca5a5;margin:-.2rem .2rem .3rem}
+html.shell2 .msg-failnote button{padding:0;border:0;background:none;color:inherit;font:inherit;text-decoration:underline;cursor:pointer}
+.shell-toast{position:fixed;left:50%;bottom:calc(5.5rem + env(safe-area-inset-bottom));z-index:120;transform:translate(-50%,.5rem);opacity:0;padding:.45rem .9rem;border-radius:999px;background:rgba(20,22,28,.94);border:1px solid var(--border-hover);font-size:.85rem;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+.shell-toast.show{opacity:1;transform:translate(-50%,0)}
+/* a finger held on a bubble opens the menu, not the phone's own callout and text selection */
+@media (hover: none) { html.shell2 #log .msg.user,html.shell2 #log .msg.action,html.shell2 #log .md-say,html.shell2 #log .md-narr{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none} }
+@media (prefers-reduced-motion: reduce) { .shell-msg-menu.sheet{animation:none} .shell-toast{transition:none} }
 /* a pick shows at once: the old talk fades and a thin line runs while the switch happens behind it */
 html.shell2 #log{transition:opacity .15s ease}
 html.shell2.shell-switching #log{opacity:0}

@@ -719,6 +719,7 @@ function shellInit() {
   shellPresence();
   shellComposerInit();
   shellPanelsInit();
+  if (typeof msgMenuInit === 'function') msgMenuInit();   // ux/S6: the message menu (app-msgmenu.js)
   let dev = '';
   try { dev = localStorage.getItem(SHELL_DEV_KEY) || ''; } catch (_) { /* private window */ }
   document.body.classList.toggle('dev-mode', dev === '1');

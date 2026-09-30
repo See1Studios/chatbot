@@ -469,7 +469,7 @@ class ShellSwitch(unittest.TestCase):
         for rule in re.findall(r"([^{}]+)\{", re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)):
             for sel in rule.split(","):
                 sel = sel.strip()
-                if sel.startswith("@") or not sel or sel in ("#shellList", "#shellBack") or re.fullmatch(r"\d+%", sel):
+                if sel.startswith("@") or not sel or sel in ("#shellList", "#shellBack", "from", "to") or re.fullmatch(r"\d+%", sel):
                     continue
                 self.assertTrue(sel.startswith("html.shell2") or sel.startswith(".shell-") or sel.startswith("#shellSearch"),
                                 "shell.css styles the old page without the switch: %r" % sel)
