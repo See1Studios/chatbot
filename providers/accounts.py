@@ -371,6 +371,14 @@ def _read_log(path: Path) -> tuple:
     return pid, email
 
 
+def agy_log_for(pid: int, started: float) -> Optional[Path]:
+    """The agy log of process `pid` (its first lines name the pid), among logs begun since `started`."""
+    for _ts, path in sorted(_log_index(started - 5)):
+        if _read_log(path)[0] == pid:
+            return path
+    return None
+
+
 def _agy_process_accounts(procs: List[dict], now: float) -> None:
     logs = _log_index(min((p["started_at"] for p in procs), default=now) - 5)
     for p in procs:

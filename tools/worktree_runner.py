@@ -497,12 +497,13 @@ def diff_limit(provider: str) -> int:
 
 
 def run_as_login(provider: str, cmd: List[str], **kw) -> tuple:
-    """run_cmd, again when the login changed under it (accounts.rerun_on_switch, ACCOUNT_SWITCH_v1)."""
+    """run_cmd under a stall watch (delegation_watch, WORKER_STALL_v1), again when the login changed under it
+    (accounts.rerun_on_switch, ACCOUNT_SWITCH_v1)."""
     try:
-        accounts = host_module("providers.accounts").accounts
+        watch, accounts = host_module("delegation_watch"), host_module("providers.accounts").accounts
     except Exception:  # noqa: BLE001
         return run_cmd(cmd, **kw)
-    return accounts.rerun_on_switch(provider, lambda: run_cmd(cmd, **kw), log)
+    return accounts.rerun_on_switch(provider, lambda: watch.run(cmd, activity=watch.activity_of(provider), **kw), log)
 
 
 def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False, model: str = "") -> Dict:

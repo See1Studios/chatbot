@@ -70,7 +70,7 @@ goes into `protected_paths.json`.
 | Characters, cards, lorebook | `characters.py` (art resolution `art_file`, placeholders `static/placeholders/`), `identity.py`; card import `tools/st_import.py`; data `data/workspace/characters/<id>/` |
 | Private mode | `private_engine.py` (`RENDER_PROTOCOL`, Grok overlay, tension) + `engine_data/private_tension_{defaults,gemini,grok}.json`; items (given or used) and affection `items.py` + `engine_data/affection.json` (catalog `<workspace>/items.json`, pictures `<workspace>/items/<id>.webp` else `static/placeholders/item.webp`, state `characters/<id>/state.json`) |
 | Safety guards | `content_guard.py` + `engine_data/content_guards.json` |
-| Delegation | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py` |
+| Delegation | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py`; a stalled worker is cut early `delegation_watch.py` (activity probe: `AgentAdapter.last_activity`) |
 | Self-evolution core | `evolution.py`, `tickets.py`, `observations.py`, `memory_store.py` (core: stdlib + each other only) |
 | Loop / write guards | `loop_guard.py`, `write_guard.py` |
 | Logs | `obslog.py` (writes `logs/events.jsonl`), `logdigest.py` (reads it) |

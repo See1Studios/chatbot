@@ -264,6 +264,12 @@ class AgentAdapter:
         None = cannot tell; the session then keeps the id as is."""
         return None
 
+    def last_activity(self, pid: int, started: float) -> Optional[float]:
+        """When the one-shot worker process `pid` (started at `started`) last showed it was working -- e.g. a model
+        call in the CLI's own log. None = this provider gives no such signal; its runs are then held only to their
+        overall timeout, never judged stalled (delegation_watch, WORKER_STALL_v1)."""
+        return None
+
     def available(self) -> bool:
         """Whether this provider's CLI is actually installed on this host --
         the frontend uses this to grey out a provider option instead of

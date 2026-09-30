@@ -31,6 +31,28 @@ class AgyAdapter(AgentAdapter):
     supports_steer = True
     ONESHOT_MODEL = "gemini-3.8-flash-low"
 
+    def last_activity(self, pid: int, started: float) -> Optional[float]:
+        """The last model call (`streamGenerateContent`) in the agy log of process `pid`; `started` while it has
+        made none; None when no log names that pid yet. 83 worker runs to 2026-09-30 never went more than 303 s
+        between calls; a stalled stream went 18 min (#462)."""
+        from providers import accounts
+        path = accounts.agy_log_for(pid, started)
+        if path is None:
+            return None
+        try:
+            with open(str(path), "rb") as f:
+                f.seek(0, os.SEEK_END)
+                f.seek(max(0, f.tell() - 65536))
+                tail = f.read().decode("utf-8", "replace")
+        except OSError:
+            return None
+        hits = re.findall(r"^[IWE](\d{2})(\d{2}) (\d{2}):(\d{2}):(\d{2})\S* +\d+ \S+\] URL: \S+streamGenerateContent", tail, re.M)
+        if not hits:
+            return started
+        mo, day, h, mi, sec = (int(x) for x in hits[-1])
+        year = time.localtime(started).tm_year
+        return time.mktime((year, mo, day, h, mi, sec, 0, 0, -1))
+
     def has_conversation(self, conversation_id: Optional[str]) -> Optional[bool]:
         """agy resumes `--conversation <id>` only if its store has it; otherwise it silently starts
         an empty one."""
