@@ -138,6 +138,11 @@ class Logged(unittest.TestCase):
         self.assertNotIn("secret plan words", text)
         self.assertNotIn("p-sid-1", text)
 
+    def test_the_boot_restart_event_is_published_after_the_log_is_configured(self):
+        src = (ROOT / "server.py").read_text(encoding="utf-8")
+        self.assertLess(src.index('obslog.start_process("chat"'), src.index("    _record_boot()"),
+                        "else the host.restart event misses its log line")
+
 
 class WorkEvents(unittest.TestCase):
     def setUp(self):

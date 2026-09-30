@@ -1458,7 +1458,6 @@ def main() -> None:
     elif not avail.get(DEFAULT_PROVIDER):
         obslog.event("providers.default_unavailable", lvl="warn", default=DEFAULT_PROVIDER, providers=avail)
     seeded = identity.seed_workspace_files()
-    _record_boot()
     try:
         import session as _session_mod
         moved = _session_mod.migrate_session_characters()
@@ -1467,6 +1466,7 @@ def main() -> None:
     except Exception as e:  # noqa: BLE001
         print("sessions: character migration failed: %s" % e, flush=True)
     obslog.start_process("chat", host=HOST, port=PORT, default_model=DEFAULT_MODEL, default_provider=DEFAULT_PROVIDER)
+    _record_boot()   # after the log is configured: its host.restart event is mirrored there (evt/B)
     obslog.add_heartbeat(_obs_heartbeat)
     if seeded:
         obslog.event("workspace.seeded", files=seeded)
