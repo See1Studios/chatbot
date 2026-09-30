@@ -54,6 +54,7 @@ from session import (
 from providers import accounts
 from providers import account_login
 import art_manager
+import room_chat
 import card_upload
 import chat_upload
 import platform_compat
@@ -485,7 +486,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             return self._send(code, body, "application/json; charset=utf-8")
         routed = (observation_api("GET", path, None) or ticket_api("GET", path, None)
                   or delegation_api("GET", path, None) or instructions_api("GET", path, None)
-                  or experts_api("GET", path, None) or personal_turn.api("GET", path, None))
+                  or experts_api("GET", path, None) or personal_turn.api("GET", path, None) or room_chat.api("GET", path, None))
         if routed is not None:
             code, raw = _json_bytes(routed[1], routed[0])
             return self._send(code, raw, "application/json; charset=utf-8")
@@ -841,7 +842,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 _write_mcp_config(cfg)
                 code, raw = _json_bytes({"ok": True, "mcpServers": cfg["mcpServers"]})
                 return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith(("/api/observations", "/api/tickets", "/api/delegations", client_errors.PATH)):
+            if path.startswith(("/api/observations", "/api/tickets", "/api/delegations", "/api/rooms", client_errors.PATH)):
                 # Closing observations, deciding tickets or letting delegated work start or land is the
                 # operator's: this server's own UI only.
                 if not origin_guard.same_origin(self.headers.get("Origin"), self.headers.get("Host"),
@@ -849,7 +850,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                     code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
                     return self._send(code, raw, "application/json; charset=utf-8")
                 routed = (observation_api("POST", path, body) or ticket_api("POST", path, body)
-                          or delegation_api("POST", path, body) or client_errors.api("POST", path, body))
+                          or delegation_api("POST", path, body) or room_chat.api("POST", path, body) or client_errors.api("POST", path, body))
                 if routed is not None:
                     code, raw = _json_bytes(routed[1], routed[0])
                     return self._send(code, raw, "application/json; charset=utf-8")

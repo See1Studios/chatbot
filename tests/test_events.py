@@ -101,6 +101,44 @@ class PublishPoints(unittest.TestCase):
         self.assertNotIn("@", json.dumps(e))
 
 
+class Logged(unittest.TestCase):
+    """The mailbox and the engine log are one record seen twice: every publish, delivery and prune is in the log,
+    as metadata -- never a payload's words, and a private event not even its subject."""
+
+    def setUp(self):
+        import obslog
+        self.dir = Path(tempfile.mkdtemp())
+        self.env = mock.patch.dict(os.environ, {"CHATBOT_EVENTS_DIR": str(self.dir / "ev")})
+        self.env.start()
+        self.saved = dict(obslog._state)
+        obslog.configure("test", self.dir / "log.jsonl")
+
+    def tearDown(self):
+        import obslog
+        obslog._state.clear()
+        obslog._state.update(self.saved)
+        self.env.stop()
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def lines(self):
+        return [json.loads(l) for l in (self.dir / "log.jsonl").read_text(encoding="utf-8").splitlines()]
+
+    def test_publish_and_delivery_are_logged_without_words(self):
+        E.publish("work.phase", ["kit"], subject="7", title="secret plan words", phase="done")
+        E.publish("session.private.start", ["kit"], channel="private", subject="p-sid-1")
+        E.pending("s1", "kit")
+        log = self.lines()
+        pub = [l for l in log if l["evt"] == "events.publish"]
+        self.assertEqual([(l["type"], l["to"]) for l in pub], [("work.phase", 1), ("session.private.start", 1)])
+        self.assertEqual(pub[0]["subject"], "7")
+        self.assertNotIn("subject", pub[1], "a private event keeps its subject out of the log")
+        deliver = [l for l in log if l["evt"] == "events.deliver"]
+        self.assertEqual((deliver[0]["sid"], deliver[0]["n"], deliver[0]["types"]), ("s1", 1, ["work.phase"]))
+        text = (self.dir / "log.jsonl").read_text(encoding="utf-8")
+        self.assertNotIn("secret plan words", text)
+        self.assertNotIn("p-sid-1", text)
+
+
 class WorkEvents(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp()).resolve()

@@ -89,7 +89,7 @@ class ClientErrors(unittest.TestCase):
 
     def test_the_route_is_same_origin_like_the_operators_other_calls(self):
         src = (ROOT / "server.py").read_text(encoding="utf-8")
-        self.assertIn('"/api/delegations", client_errors.PATH)):', src)
+        self.assertIn('"/api/delegations", "/api/rooms", client_errors.PATH)):', src)
         self.assertIn('or client_errors.api("POST", path, body)', src)
 
 

@@ -54,6 +54,24 @@ persona-flavoured and belong to the tone work — `align/G`·`l10n/D`):
   voice in the engine strings.
 - `mcp.call` logs `msg` on refusal or failure, and a tool can answer in prose.
 
+## Events, reactions and rooms (evt/B–E)
+
+The event mailbox (`data/events/`, `events.py`) and this log are one record seen twice: every write to the
+mailbox is mirrored here, so "what the app was told" and "what the log says" cannot drift apart. The mailbox is
+the app's working data (delivery, cursors); this log is for reading what happened. Metadata only, like the rest:
+
+| evt | fields |
+|---|---|
+| `events.publish` | `type`, `channel`, `id`, `to` (count or `*`), `subject` (left out for a private event) |
+| `events.deliver` | `sid`, `character`, `channel`, `n`, `types` — what a session was told before a turn |
+| `events.prune` | `removed`, `kept` — the retention rule (30 days, 10 MB, private 7 days) |
+| `react.turn` / `react.failed` | `sid` — a character speaking first, or why it could not |
+| `react.defer` / `react.skip` | `reason` (`quiet_hours`, `conversation_running`, `per_hour`, `no_work_session`), deduplicated |
+| `room.create` / `room.say` | `room`, `members`, `strategy` / `n`, `chars`, `mentions` |
+| `room.turn` / `room.chain` / `room.done` / `room.failed` | `room`, `character`, `sid`, `secs`, `chars`, `ok` / `from`, `to` / `replies`, `chain` |
+
+`tests/test_events.py` (`Logged`) proves a payload's words and a private event's subject never reach this log.
+
 ## Investigating (agent runbook)
 
 1. `chatbot-ctl.sh logs --since 24h --json` and read `findings` (sorted error → warn). Each finding

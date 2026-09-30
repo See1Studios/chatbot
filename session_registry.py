@@ -80,7 +80,7 @@ def _meta_summary(p: Path) -> Optional[dict]:
         hit = (key, {
             "id": str(meta.get("id") or p.parent.name or ""),
             "model": meta.get("model"),
-            "mode": "private" if meta.get("mode") == "private" else "work",
+            "mode": meta.get("mode") if meta.get("mode") in ("private", "room") else "work",   # a room seat is never work
             "character": str(meta.get("character") or ""),
             "probe": _probe_meta(meta) or (p.parent / PROBE_MARKER).exists(),
             "preview": (str(hist[-1].get("text", ""))[:80] if hist else ""),
@@ -138,7 +138,7 @@ class Registry:
             sess.meta_path.parent.mkdir(parents=True, exist_ok=True)
             (sess.meta_path.parent / PROBE_MARKER).touch()
         sess.character = _character_id(character)
-        sess.mode = "private" if mode == "private" else "work"
+        sess.mode = mode if mode in ("private", "room") else "work"   # room: a member's seat in a group room (evt/E)
         sess.predecessor_session_id = predecessor_sid
         sess.handoff_summary = handoff_summary
         sess.handoff_injected = False

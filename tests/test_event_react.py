@@ -104,6 +104,12 @@ class Reactions(unittest.TestCase):
         self.kit.busy = False
         self.assertEqual(len(self.once(now=NOON + 86400)), 1, "then it goes")
 
+    def test_an_event_for_everyone_is_answered_by_the_default_character_alone(self):
+        e = E.publish("host.restart", E.ALL, ts=NOON, landed=[])
+        cfg = R.clean({"auto": ["host.restart"]})
+        self.assertFalse(R._wanted(e, cfg, "kit", "boss"), "not the default: stays quiet")
+        self.assertTrue(R._wanted(e, cfg, "boss", "boss"))
+
     def test_settings_are_cleaned_and_saved_in_the_workspace(self):
         cfg = R.save_config({"auto": ["work.phase", "rm -rf"], "per_hour": 99, "quiet": [25, 1]}, self.dir)
         self.assertEqual(cfg, {"auto": ["work.phase"], "per_hour": 20, "quiet": [0, 8]})

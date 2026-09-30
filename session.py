@@ -234,7 +234,7 @@ class AgentSession(TurnWatchdog):
                 self.persona_injected = bool(meta.get("persona_injected", False))
                 self.persona_bundle_hash = str(meta.get("persona_bundle_hash") or "")
                 self.character = str(meta.get("character") or "")
-                self.mode = "private" if meta.get("mode") == "private" else "work"
+                self.mode = meta.get("mode") if meta.get("mode") in ("private", "room") else "work"   # room: evt/E
                 self.private_digested_ts = float(meta.get("private_digested_ts") or 0)
                 self.tension_stage, self.recent_choices = tension_meta(meta)
                 self.refusal_mitigation = bool(meta.get("refusal_mitigation", False))  # #249 opt-in

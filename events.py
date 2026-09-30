@@ -24,6 +24,16 @@ from typing import Dict, Iterable, List, Optional
 import platform_compat
 
 ALL = "*"
+
+
+def _log(evt: str, **fields) -> None:
+    """The engine log's copy (OBSLOG_v1): the mailbox and the log are one record seen twice. Metadata only -- a
+    private event keeps even its subject out."""
+    try:
+        import obslog
+        obslog.event(evt, **fields)
+    except Exception:  # noqa: BLE001
+        pass
 CHANNELS = ("work", "private")
 KEEP_SEC = 30 * 86400
 KEEP_PRIVATE_SEC = 7 * 86400
@@ -36,7 +46,7 @@ def _dir() -> Path:
     return Path(os.environ.get("CHATBOT_EVENTS_DIR") or (DATA / "events"))
 
 
-def _log() -> Path:
+def _record() -> Path:
     return _dir() / "events.jsonl"
 
 
@@ -62,7 +72,7 @@ class _Locked:
 
 def _read_all() -> List[Dict]:
     try:
-        lines = _log().read_text(encoding="utf-8").splitlines()
+        lines = _record().read_text(encoding="utf-8").splitlines()
     except OSError:
         return []
     out = []
@@ -97,12 +107,16 @@ def publish(type: str, to: Iterable[str], channel: str = "work", subject: str = 
             kept = kept[len(kept) // 10 or 1:]
             text = "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in kept)
         if len(kept) == len(events):
-            with open(str(_log()), "a", encoding="utf-8", newline="\n") as f:
+            with open(str(_record()), "a", encoding="utf-8", newline="\n") as f:
                 f.write(json.dumps(event, ensure_ascii=False) + "\n")
         else:
-            tmp = _log().with_suffix(".tmp")
+            tmp = _record().with_suffix(".tmp")
             platform_compat.write_text(tmp, text, encoding="utf-8")
-            tmp.replace(_log())
+            tmp.replace(_record())
+            _log("events.prune", removed=len(events) - len(kept), kept=len(kept))
+    private = channel == "private"
+    _log("events.publish", type=type, channel=channel, id=event["id"], to=len(rcpt) if rcpt != [ALL] else "*",
+         **({} if private else {"subject": event["subject"]}))
     return event
 
 
@@ -131,8 +145,12 @@ def mark(sid: str, event_id: int) -> None:
 def pending(sid: str, character: str, channel: str = "work") -> List[Dict]:
     """The events for `character` on `channel` after session `sid`'s cursor (all of them if it has none)."""
     after = cursor(sid) or 0
-    return [e for e in _read_all() if e["id"] > after and e.get("channel") == channel
-            and (ALL in e.get("to", []) or character in e.get("to", []))]
+    got = [e for e in _read_all() if e["id"] > after and e.get("channel") == channel
+           and (ALL in e.get("to", []) or character in e.get("to", []))]
+    if got:
+        _log("events.deliver", sid=str(sid), character=character, channel=channel, n=len(got),
+             types=sorted({e["type"] for e in got}))
+    return got
 
 
 def latest(type: str) -> Optional[Dict]:

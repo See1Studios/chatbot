@@ -35,6 +35,8 @@ data/workspace/memory/.MEMORY.*.tmp
 data/sessions/
 # the event mailbox (events.py, evt/B): runtime record and per-session cursors
 data/events/
+# group rooms (room_chat.py, evt/E): room settings and their talk, user data
+data/rooms/
 data/session-quarantine/
 # personal long-term memory and per-character memory: user data, never in git (uds/C4)
 data/workspace/memory/MEMORY.md

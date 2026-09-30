@@ -69,10 +69,26 @@ def _quiet(cfg: Dict, now: float) -> bool:
     return start != end and ((start <= h < end) if start < end else (h >= start or h < end))
 
 
-def _wanted(e: Dict, cfg: Dict) -> bool:
+def _wanted(e: Dict, cfg: Dict, character: str = "", default: str = "") -> bool:
     if e["type"] not in cfg["auto"]:
         return False
+    if events.ALL in e.get("to", []) and character != default:
+        return False                            # an event for everyone (a restart): one voice, the default's
     return e["type"] != "work.phase" or e["payload"].get("phase") in ENDING
+
+
+def _speak(sess, text: str) -> None:
+    """The reaction turn; a failure is logged, never silent."""
+    try:
+        import obslog
+        obslog.event("react.turn", sid=sess.sid)
+    except Exception:  # noqa: BLE001
+        obslog = None
+    try:
+        sess._send_direct(text, notice=True)
+    except Exception as e:  # noqa: BLE001
+        if obslog:
+            obslog.exception("react.failed", e, sid=sess.sid)
 
 
 def _note(evts: List[Dict], character: str) -> str:
@@ -106,10 +122,13 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
     with reg.lock:
         sessions = list(reg.sessions.values())
     if any(getattr(s, "busy", False) for s in sessions) or _quiet(cfg, now):
+        why = "quiet_hours" if _quiet(cfg, now) else "conversation_running"
+        events._log("react.defer", reason=why, dedup="react.defer:" + why)
         return []
+    import characters
     if characters_list is None:
-        import characters
         characters_list = [c["id"] for c in characters.listing(_ws())]
+    default = characters.default_character(_ws())
     sent = []
     for cid in characters_list:
         key = "react:" + cid
@@ -119,21 +138,23 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
         got = events.pending(key, cid, "work")
         if not got:
             continue
-        wanted = [e for e in got if _wanted(e, cfg)]
+        wanted = [e for e in got if _wanted(e, cfg, cid, default)]
         if not wanted or _recent_reactions(cid, now) >= cfg["per_hour"]:
             if not wanted:
                 events.mark(key, got[-1]["id"])
+            else:
+                events._log("react.defer", reason="per_hour", character=cid, dedup="react.defer:rate:" + cid)
             continue
         sess = reg._newest(mode="work", character=cid)
         note = _note(wanted, cid)
         if sess is None or not note:
+            events._log("react.skip", reason="no_work_session" if sess is None else "nothing_to_say", character=cid)
             events.mark(key, got[-1]["id"])
             continue
         events.mark(key, got[-1]["id"])
         events.mark(sess.sid, max(e["id"] for e in wanted))   # told now: not again before the next turn
         events.publish("react.sent", [cid], subject=cid, at=now, events=[e["id"] for e in wanted])
-        threading.Thread(target=sess._send_direct, args=(PROMPT.format(note=note),), kwargs={"notice": True},
-                         name="event-react", daemon=True).start()
+        threading.Thread(target=_speak, args=(sess, PROMPT.format(note=note)), name="event-react", daemon=True).start()
         sent.append({"character": cid, "sid": sess.sid, "events": [e["id"] for e in wanted]})
     return sent
 
