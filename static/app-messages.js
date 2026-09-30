@@ -876,8 +876,21 @@ function stageLayout(md) {
   });
 }
 
+// The answer as it is shown: without the marks other parts of the page read and draw elsewhere -- the choices
+// line, the leading [expression: x] tag, a thought block (markdown.js). The streaming reveal classifies this text
+// (prepareStreamText); the final render classified the raw answer, where `[expression: joy] *nods* "hi"` opens with a
+// stray piece of prose -- so nothing was staged once the stream ended, nor in history (#497).
+function answerShownText(rawText, isFinal) {
+  let t = String(rawText || '');
+  if (typeof splitChoices === 'function') t = splitChoices(t).text;
+  if (typeof hideLeakedToolCall === 'function') t = hideLeakedToolCall(t);
+  if (typeof parseExpression === 'function') { const e = parseExpression(t); if (e.expression) t = e.text; }
+  if (typeof parseThought === 'function') { const th = parseThought(t, isFinal === false); if (th.thought || th.cleanText !== t) t = th.cleanText; }
+  return t;
+}
+
 function renderTypedBody(md, rawText, isFinal) {
-  const body = rawText || '';
+  const body = answerShownText(rawText, isFinal);
   try {
     const blocks = answerBlocks(body);
     md.textContent = '';

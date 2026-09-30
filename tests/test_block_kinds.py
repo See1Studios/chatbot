@@ -200,6 +200,49 @@ def run(case):
     return json.loads(proc.stdout.strip().splitlines()[-1])
 
 
+SHOWN = r"""
+// the REAL parsers (markdown.js), the classifier (app-blocks.js) and answerShownText (app-messages.js)
+const fs = require('fs');
+const [md, blocks, messages] = process.argv.slice(1, 4).map(p => fs.readFileSync(p, 'utf8'));
+const window = {}, localStorage = { getItem: () => null, setItem() {} };
+const document = { getElementById: () => null, addEventListener() {}, querySelector: () => null, querySelectorAll: () => [],
+  createElement: () => ({ style: {}, classList: { add() {}, remove() {} }, setAttribute() {}, appendChild() {} }) };
+const a = messages.indexOf('function answerShownText('), b = messages.indexOf('function renderTypedBody(');
+const raw = ['[expression: joy]', '*고개를 든다* "안녕"', '', '```thought', '비밀', '```',
+  '<!--choices: 손 -> (손을 잡는다) | 말 -> "뭐해" (다가간다)-->'].join('\n');
+eval(md + blocks + messages.slice(a, b) + `;
+const kinds = (t) => answerBlocks(t).map(x => x.kind);
+console.log(JSON.stringify({
+  shown: answerShownText(raw, true),
+  staged: kinds(answerShownText(raw, true)),
+  rawKinds: kinds(raw),
+  plain: answerShownText('그냥 말이에요.', true),
+  streamSame: answerShownText(raw, false) === prepareStreamText(raw),
+}));`);
+"""
+
+
+class ShownText(unittest.TestCase):
+    """#497: the final render must classify what is shown, not the raw answer with its marks."""
+
+    def test_the_marks_are_gone_before_the_answer_is_classified(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not installed")
+        static = CODE / "static"
+        p = subprocess.run([node, "-e", SHOWN, str(static / "markdown.js"), str(static / "app-blocks.js"),
+                            str(static / "app-messages.js")], capture_output=True, text=True, timeout=30)
+        self.assertEqual(p.returncode, 0, p.stderr[-800:])
+        o = json.loads(p.stdout.strip().splitlines()[-1])
+        self.assertEqual(o["shown"].strip(), '*고개를 든다* "안녕"')
+        self.assertEqual(o["staged"], ["action", "dialogue"])
+        self.assertNotIn("action", o["rawKinds"])            # the bug: the raw answer never staged
+        self.assertEqual(o["plain"], "그냥 말이에요.")
+        self.assertTrue(o["streamSame"])                     # the reveal and the final render read the same text
+        src = (static / "app-messages.js").read_text(encoding="utf-8")
+        self.assertIn("const body = answerShownText(rawText, isFinal);", src)
+
+
 class Stage(unittest.TestCase):
     """STAGE_v1 (ux/S5): an action is narration between bubbles, not part of one. Shape decides, in every room."""
 

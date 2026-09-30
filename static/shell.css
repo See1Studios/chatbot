@@ -126,6 +126,7 @@ html.shell2 #log > .msg.assistant.staged .md > .md-narr{width:fit-content;max-wi
 html.shell2 #log > .msg.assistant.staged .md > .md-narr em{font-size:inherit;opacity:1}
 html.shell2 #log > .msg.assistant.staged .md-say .md-block[data-kind="dialogue"]{padding-left:0;border-left:0}   /* the bubble already says "speech" */
 html.shell2 #log > .msg.assistant.staged .msg-footer{max-width:92%}
+html.shell2 #log > .msg.assistant.staged .md-say:empty{display:none}
 @media (max-width: 640px) {
   html.shell2 #log > .msg.assistant.staged .md-say,html.shell2 #log > .msg.assistant.staged .md > .md-block.open:not(:empty){max-width:96%;padding:.45rem .6rem}
 }
