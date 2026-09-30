@@ -212,6 +212,8 @@ function shellPending(r) {
 // room, whatever room is open now (selectCharacter): the mode belongs to the open talk.
 async function shellOpen(r) {
   shellState.paneFrom = '';
+  const col = document.getElementById('shellProfile');
+  if (col && col.classList.contains('behind')) shellProfileClose();   // its pane is being left for another talk
   if (typeof currentTab !== 'undefined' && currentTab !== 'chat') switchTab('chat');   // a pane was open: back to the talk
   if (r.kind === 'room') { if (roomOpenId() !== r.id) await roomEnter(r.id); return; }
   if (roomOpenId() && r.id === openCharacterId()) { await roomLeave(); return; }
@@ -378,11 +380,35 @@ function shellPanelHead(title, onClose, glyph) {
 // settings (which stay open beside it on a wide screen; on a narrow one Back shows the list they cover).
 function shellGoPane(tab, from) {
   shellState.paneFrom = from || '';
-  if (shellNarrow()) shellProfileClose();      // a phone shows one screen at a time; wide, the card stays beside the pane
+  // A phone shows one screen at a time (wide, the card stays beside the pane). Going forward from the card, the
+  // card steps aside to the LEFT and waits there, so Back brings it in from the left -- the way the arrow points.
+  if (shellNarrow()) {
+    const col = document.getElementById('shellProfile');
+    if (from === 'profile' && col && col.classList.contains('open')) col.classList.add('behind');
+    else shellProfileClose();
+  }
   shellShowChat();
   // the history is this character's own: the old tab's character strip is hidden under the shell (shell.css)
   if (tab === 'sessions' && typeof setSessionCharFilter === 'function') setSessionCharFilter(openCharacterId());
   switchTab(tab);
+}
+// The pictures are a pane like the others (operator: it was built differently and came up like a modal). 'art' is
+// no old tab, so switchTab('art') leaves the middle empty; the art manager (app-art.js) draws into an #artManager
+// it finds, so one is put in the stage first -- without the modal's classes -- and it fills that instead of making
+// its own overlay. The pane's bar is its header. Leaving the pane removes it (the switchTab wrap below).
+async function shellGoArt(cid) {
+  shellGoPane('art', 'profile');
+  const stage = document.querySelector('.stage');
+  if (stage && !document.getElementById('artManager')) {
+    const host = shellEl('div', 'art-mgr-overlay shell-art');
+    host.id = 'artManager';
+    stage.appendChild(host);
+  }
+  await openArtManager(cid);
+}
+function shellArtGone() {
+  const m = document.getElementById('artManager');
+  if (m && m.classList.contains('shell-art')) m.remove();
 }
 function shellPaneBack() {
   const from = shellState.paneFrom;
@@ -393,10 +419,14 @@ function shellPaneBack() {
   else if (from === 'settings') shellShowList();
 }
 
-function shellProfileIsOpen() { const p = document.getElementById('shellProfile'); return Boolean(p && p.classList.contains('open')); }
+// open = on screen; "behind" = stepped aside to the left while a pane it opened is shown (phone only)
+function shellProfileIsOpen() {
+  const p = document.getElementById('shellProfile');
+  return Boolean(p && p.classList.contains('open') && !p.classList.contains('behind'));
+}
 function shellProfileClose() {
   const p = document.getElementById('shellProfile');
-  if (p) p.classList.remove('open');
+  if (p) p.classList.remove('open', 'behind');
   if (document.body) document.body.classList.remove('shell-profile-open');
 }
 function shellProfileOpen() {
@@ -415,13 +445,14 @@ function shellProfileOpen() {
     const b = shellRowButton(row);
     b.addEventListener('click', () => {
       if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'profile');
-      if (row.k === 'art') openArtManager(c.id);      // a screen above the card (shell.css): closing it shows the card again
+      if (row.k === 'art') shellGoArt(c.id);
     });
     list.appendChild(b);
   });
   panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose, shellNarrow() ? '\u2039' : '\u2715'), card, list,
     shellBrainSection(c), shellModelSection());
   shellMarkPane();
+  column.classList.remove('behind');
   column.classList.add('open');
   document.body.classList.add('shell-profile-open');
 }
@@ -539,11 +570,23 @@ function shellPanelsInit() {
   switchTab = function (t) {
     tab.apply(this, arguments);
     const now = document.documentElement.dataset.tab || t;
-    shellSet(bar.querySelector('.shell-pane-title'), SHELL_TEXT[SHELL_PANES[now]] || '');
+    shellSet(bar.querySelector('.shell-pane-title'), SHELL_TEXT[SHELL_PANES[now]] || (now === 'art' ? SHELL_TEXT.art : ''));
+    if (now !== 'art') shellArtGone();
     shellSet(back, shellNarrow() ? '\u2039' : '\u2715');      // a phone goes back, a wide screen closes the pane
-    if (now !== 'chat' && shellNarrow()) shellProfileClose();
+    if (now !== 'chat' && shellNarrow() && shellProfileIsOpen()) shellProfileClose();   // not the one waiting behind
     shellMarkPane();
   };
+  // The art manager closes itself when it hands a request to the talk (its "ask" button): the pane goes with it.
+  if (typeof closeArtManager === 'function') {
+    const closeArt = closeArtManager;
+    closeArtManager = function () {
+      closeArt.apply(this, arguments);
+      if (currentTab !== 'art') return;
+      shellState.paneFrom = '';
+      shellProfileClose();
+      switchTab('chat');
+    };
+  }
   // The picture used to open the tray (app.js onTrayKey). Caught on the way down, before that listener: the wrap
   // also holds the provider tray, so only the picture itself is taken.
   const pic = document.getElementById('brandAvatar'), picWrap = document.getElementById('brandAvatarWrap');

@@ -350,12 +350,37 @@ class ShellList(unittest.TestCase):
         # the history is the open character's own; pictures open as a screen above the card
         self.assertIn("setSessionCharFilter(openCharacterId())", src)
         self.assertIn("html.shell2 #sessionCharTabs,html.shell2 #roomsStrip{display:none !important}", CSS)
-        self.assertIn("html.shell2 #artManager{left:300px;padding:0;", CSS)
+        self.assertNotIn("#artManager{left:", CSS)                                  # not a restyled modal any more
         o = self.o
         # a phone: one screen after another, Back returns to the one before
         self.assertEqual(o["paneBack"], [["sessions", "b", "profile"], ["chat", "profile"], ["activity", "settings"], ["chat", "list"], ["chat", ""]])
         # a wide screen: list and detail -- the card is not closed for a pane, and closing the pane reopens nothing
         self.assertEqual(o["paneWide"], {"closedForPane": 0, "tab": "sessions", "afterClose": ["chat", ""]})
+
+    def test_the_pictures_are_a_pane_like_the_others(self):
+        # the art manager draws into an #artManager it finds: the shell puts one in the stage, without the modal class
+        art = (STATIC / "app-art.js").read_text(encoding="utf-8")
+        self.assertIn("let m = document.getElementById('artManager');", art)
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        go = src[src.index("async function shellGoArt"):src.index("function shellArtGone")]
+        self.assertIn("shellGoPane('art', 'profile');", go)
+        self.assertIn("shellEl('div', 'art-mgr-overlay shell-art')", go)
+        self.assertNotIn("modal-overlay", go)
+        self.assertLess(go.index("stage.appendChild(host)"), go.index("await openArtManager(cid)"))
+        self.assertIn("if (now !== 'art') shellArtGone();", src)                   # leaving the pane removes it
+        self.assertIn(".shell-art .modal-head{display:none}", CSS)                  # the pane bar is its header
+        self.assertIn("now === 'art' ? SHELL_TEXT.art", src)
+
+    def test_phone_transitions_follow_the_arrows(self):
+        # forward enters from the right; a screen left behind waits on the left and returns from there
+        self.assertIn("background:var(--bg-card);transform:translateX(102%);", CSS)             # settings
+        self.assertIn("  .shell-profile.open.behind{transform:translateX(-102%);", CSS)         # the card behind a pane
+        self.assertIn("html.shell2 #shellList{position:relative;overflow:hidden;", CSS)          # settings slide inside the list
+        self.assertRegex(CSS, r"html\.shell2 #shellList\{position:fixed;inset:0;z-index:90;[^}]*transform:translateX\(-100%\)")
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("col.classList.add('behind')", src)
+        self.assertIn("column.classList.remove('behind');", src)
+        self.assertIn("p.classList.remove('open', 'behind')", src)
 
     def test_the_plus_menu_lists_what_the_row_carried(self):
         work = self.o["plusWork"]

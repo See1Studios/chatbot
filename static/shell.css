@@ -3,7 +3,7 @@
 /* wide: the list beside the chat */
 html.shell2 body{display:flex}
 html.shell2 .wrap{position:relative;flex:1 1 0;min-width:0;max-width:1100px;margin:0 auto}
-html.shell2 #shellList{position:relative;display:flex;flex-direction:column;flex:0 0 300px;min-width:0;height:100%;height:var(--app-height,100dvh);border-right:1px solid var(--border);background:var(--bg-card);box-shadow:var(--glint)}
+html.shell2 #shellList{position:relative;overflow:hidden;display:flex;flex-direction:column;flex:0 0 300px;min-width:0;height:100%;height:var(--app-height,100dvh);border-right:1px solid var(--border);background:var(--bg-card);box-shadow:var(--glint)}
 html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in the way of the shell */
 .shell-list-head{display:flex;flex-direction:column;gap:.55rem;padding:.9rem .75rem .5rem;flex-shrink:0}
 .shell-list-title{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
@@ -44,12 +44,13 @@ html.shell2 #sessionCharTabs,html.shell2 #roomsStrip{display:none !important}   
 .shell-profile-in{width:340px;height:100%;display:flex;flex-direction:column;overflow-y:auto;border-left:1px solid var(--border);box-shadow:var(--glint)}
 .shell-profile-in > *{flex-shrink:0}   /* a long model list scrolls the column; it must not squeeze the rows above it */
 .shell-rowbtn.current{background:var(--accent-soft);color:var(--accent2)}
-/* the picture manager is a screen too, above the card; the list stays beside it on a wide window */
-html.shell2 #artManager{left:300px;padding:0;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none;align-items:stretch;justify-content:stretch}
-html.shell2 #artManager .art-mgr{width:100% !important;max-width:none !important;height:100% !important;max-height:none !important;border:0;border-radius:0;box-shadow:none}
-.shell-settings{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;background:var(--bg-card);transform:translateX(-102%);visibility:hidden;transition:transform .2s cubic-bezier(.2,0,0,1),visibility 0s .2s}
+/* the pictures as a pane: the art manager draws into the stage, without its modal frame; the pane bar is its header */
+.shell-art{position:relative;z-index:1;display:flex;flex:1 1 auto;min-height:0}
+.shell-art .art-mgr{width:100%;max-width:none;max-height:none;height:100%;border:0;border-radius:0;box-shadow:none;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
+.shell-art .modal-head{display:none}
+/* forward comes in from the right and its back arrow sends it out to the right */
+.shell-settings{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;background:var(--bg-card);transform:translateX(102%);visibility:hidden;transition:transform .2s cubic-bezier(.2,0,0,1),visibility 0s .2s}
 .shell-settings.open{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.2,0,0,1)}
-@media (min-width: 1280px) { html.shell2 body.shell-profile-open #artManager{right:340px} }
 /* not wide enough for three columns: the card slides over the right edge of the talk instead of moving it */
 @media (max-width: 1279px) {
   .shell-profile{position:fixed;top:0;right:0;bottom:0;z-index:80;flex:none;width:340px;max-width:100%;transform:translateX(102%);box-shadow:-16px 0 36px rgba(0,0,0,.45)}
@@ -124,9 +125,10 @@ html.shell2.shell-switching .stage-shell::after{content:"";position:absolute;lef
   html.shell2.shell-list #shellList{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.2,0,0,1)}
   html.shell2 #shellBack{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:34px;height:34px;padding:0;border-radius:10px}
   html.shell2 #shellBack[hidden]{display:none}
-  html.shell2 #artManager{left:0}
   .shell-profile{width:100%;z-index:95;box-shadow:none;padding-top:env(safe-area-inset-top)}   /* a phone: a screen of its own */
   .shell-profile-in{width:100%;border-left:0}
+  /* the card waiting behind a pane it opened: out to the left, so Back brings it in from the left */
+  .shell-profile.open.behind{transform:translateX(-102%);visibility:hidden;transition:transform .22s cubic-bezier(.2,0,0,1),visibility 0s .22s}
   html.shell2 #shellBack svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 }
 @media (prefers-reduced-motion: reduce) { .shell-profile,.shell-settings{transition:none} html.shell2 #shellList,html.shell2 #log{transition:none} html.shell2.shell-switching .stage-shell::after{animation:none;background-size:100% 100%} }
