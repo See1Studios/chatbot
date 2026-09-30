@@ -97,6 +97,21 @@ class Rooms(unittest.TestCase):
         self.assertEqual([w for w, _ in said], ["user", self.b, self.c, self.b][:1 + RC.MAX_REPLIES])
         self.assertLessEqual(len(said) - 1, RC.MAX_REPLIES)
 
+    def test_the_member_answering_is_known_while_it_answers(self):
+        # the page shows that member typing (static/app-rooms.js roomTyping)
+        r = RC.create("desk", [self.a, self.b], strategy="manual")
+        seen = []
+
+        class Seat(FakeSeat):
+            def send(seat, text):
+                seen.append(RC._speaking.get(r["id"]))
+                return FakeSeat.send(seat, text)
+
+        self.seats = {self.b: Seat("s-b", ["ok"])}
+        self.talk(r["id"], "@Kit hi")
+        self.assertEqual(seen, [self.b])
+        self.assertEqual(RC.api("GET", "/api/rooms/%s/after/0" % r["id"], None)[1]["speaking"], "")   # done
+
     def test_each_member_hears_only_what_was_said_since_it_last_spoke(self):
         r = RC.create("desk", [self.a, self.b], strategy="manual")
         self.seats = {self.b: FakeSeat("s-b", ["first", "second"])}
@@ -126,6 +141,7 @@ class Rooms(unittest.TestCase):
         self.assertEqual((last["who"], len(last["text"])), (self.b, 80))
         self.assertGreater(last["at"], 0)
         self.assertEqual(RC.api("GET", "/api/rooms/%s/after/0" % rid, None)[1]["names"][self.b], "Kit")
+        self.assertEqual(RC.api("GET", "/api/rooms/%s/after/0" % rid, None)[1]["speaking"], "")   # nobody is answering
         self.assertEqual(RC.api("GET", "/api/rooms/room_000000000000", None)[0], 404)
         self.assertEqual(RC.api("POST", "/api/rooms/%s/say" % rid, {"text": ""})[0], 400)
         self.assertIsNone(RC.api("GET", "/api/sessions", None))

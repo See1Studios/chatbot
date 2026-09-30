@@ -96,6 +96,47 @@ run().then(o => console.log(JSON.stringify(o)));
 """
 
 
+TYPING = r"""
+const src = require('fs').readFileSync(process.argv[1], 'utf8');
+const run = new Function(process.argv[2] + 'const shellOn = () => true;' + src + `;
+  roomState.names = { a: 'Kit' };
+  roomTyping('a');
+  const first = roomState.typing;
+  const o = { made: drawn.length, live: first.dataset.live, who: first.dataset.roomWho, name: first.children[0].textContent };
+  first.isConnected = true;
+  roomTyping('a');
+  o.kept = roomState.typing === first && drawn.length === 1;
+  roomTyping('b');
+  o.switched = roomState.typing !== first && roomState.typing.dataset.roomWho === 'b';
+  roomTyping('');
+  o.gone = roomState.typing === null;
+  inputEl.value = 'hi'; inputEl.selectionStart = 2;
+  roomMentionInsert('a');
+  o.mention = inputEl.value;
+  return o;`);
+console.log(JSON.stringify(run()));
+"""
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class RoomTyping(unittest.TestCase):
+    """Under the messenger shell the member answering shows with its face and typing dots; a face mentions it."""
+
+    def test_the_answering_member_types_and_a_face_mentions(self):
+        r = subprocess.run(["node", "-e", TYPING, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        o = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertEqual((o["made"], o["live"], o["who"], o["name"]), (1, "1", "a", "Kit"))
+        self.assertTrue(o["kept"])          # the same member still answering: the same node, not another
+        self.assertTrue(o["switched"])      # the next member: its own node
+        self.assertTrue(o["gone"])          # nobody answering: gone
+        self.assertEqual(o["mention"], "hi @Kit ")
+
+    def test_the_face_calls_the_member_in_a_room(self):
+        stage = (STATIC / "app-stage.js").read_text(encoding="utf-8")
+        self.assertIn("if (who && typeof roomMentionInsert === 'function') { roomMentionInsert(who); return; }", stage)
+
+
 @unittest.skipUnless(shutil.which("node"), "node not installed")
 class RoomsPage(unittest.TestCase):
     @classmethod

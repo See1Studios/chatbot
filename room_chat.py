@@ -46,6 +46,7 @@ _RID = re.compile(r"^room_[0-9a-f]{12}$")
 _MENTION = re.compile(r"@([^\s@,.!?:;()\[\]{}\"']{1,40})")
 _lock = threading.Lock()
 _busy: Dict[str, bool] = {}
+_speaking: Dict[str, str] = {}   # room id -> the member answering right now (the page shows it typing)
 
 
 def _dir() -> Path:
@@ -223,6 +224,7 @@ def _run(rid: str, msg: Dict) -> None:
         queue, replies, chain, last = pick(r, msg["mentions"]), 0, 0, ""
         while queue and replies < MAX_REPLIES:
             cid = queue.pop(0)
+            _speaking[rid] = cid
             sess = _seat(r, cid)
             t0 = time.time()
             sess, answer = _answer(sess, _prompt(r, cid, names, user_title))
@@ -254,6 +256,7 @@ def _run(rid: str, msg: Dict) -> None:
             pass
     finally:
         _busy.pop(rid, None)
+        _speaking.pop(rid, None)
 
 
 def say(rid: str, text: str) -> Dict:
@@ -300,7 +303,8 @@ def api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, Dic
         if method == "GET" and (len(rest) == 1 or (len(rest) == 3 and rest[1] == "after" and rest[2].isdigit())):
             after = int(rest[2]) if len(rest) == 3 else 0
             return 200, {"ok": True, "room": {k: r[k] for k in ("id", "name", "mode", "members", "strategy")},
-                         "names": _names(r["members"]), "messages": messages(rid, after), "busy": bool(_busy.get(rid))}
+                         "names": _names(r["members"]), "messages": messages(rid, after), "busy": bool(_busy.get(rid)),
+                         "speaking": _speaking.get(rid, "")}
         if method == "POST" and len(rest) == 2 and rest[1] == "say":
             return 200, {"ok": True, "message": say(rid, str((body or {}).get("text") or ""))}
     except ValueError as e:

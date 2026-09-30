@@ -12,7 +12,7 @@ const ROOM_TEXT = {   // l10n-ok
 const ROOM_STRATEGIES = ['natural', 'list', 'manual'];
 const ROOM_KEY = 'chatbot.roomId';   // the open room, so a reload comes back to it
 // on: the main view is this room. last: the newest message drawn. back: the 1:1 session to return to.
-let roomState = { rooms: [], on: false, id: '', room: null, names: {}, last: 0, busy: false, timer: 0, back: '', userTitle: '' };
+let roomState = { rooms: [], on: false, id: '', room: null, names: {}, last: 0, busy: false, timer: 0, back: '', userTitle: '', typing: null };
 
 function roomEl(tag, cls, text) {
   const n = document.createElement(tag);
@@ -107,7 +107,7 @@ async function roomEnter(id, quiet) {
   detachSessionBanner();
   logEl.innerHTML = '';
   if (typeof setSessionTokensFromHistory === 'function') setSessionTokensFromHistory([]);
-  Object.assign(roomState, { on: true, id, last: 0, userTitle: (typeof IDENTITY !== 'undefined' && IDENTITY.user_title) || '' });
+  Object.assign(roomState, { on: true, id, last: 0, typing: null, userTitle: (typeof IDENTITY !== 'undefined' && IDENTITY.user_title) || '' });
   try { localStorage.setItem(ROOM_KEY, id); } catch (_) {}
   document.body.classList.add('room-open');
   document.body.classList.remove('private-session');
@@ -177,11 +177,44 @@ function roomTake(r) {
   roomState.names = r.names || {};
   roomState.busy = !!r.busy;
   const fresh = (r.messages || []).filter(m => m.n > roomState.last);
+  if (fresh.length) roomTyping('');          // a message came: the typing one goes, and comes back under it if needed
   fresh.forEach(roomDraw);
   if (fresh.length) {
     roomState.last = fresh[fresh.length - 1].n;
     roomMarkRuns();
   }
+  roomTyping(roomState.busy ? (r.speaking || '') : '');
+  roomBusyMark();
+}
+
+// The messenger shell shows who is answering the way a 1:1 talk does: that member's face with typing dots, at the
+// bottom of the room (app-stage.js draws the dots for a live answer), instead of a line saying the room answers.
+function roomTyping(id) {
+  const shell = typeof shellOn === 'function' && shellOn();
+  const cur = roomState.typing;
+  if (cur && (!id || !shell || cur.dataset.roomWho !== id || !cur.isConnected)) { cur.remove(); roomState.typing = null; }
+  if (!id || !shell || roomState.typing) return;
+  const node = addChat('assistant', '', false);
+  node.dataset.live = '1';
+  node.dataset.roomWho = id;
+  node.style.setProperty('--char-avatar', 'url("' + (typeof BASE_PATH !== 'undefined' ? BASE_PATH : '')
+    + '/api/characters/' + encodeURIComponent(id) + '/avatar")');
+  node.insertBefore(roomEl('div', 'room-who', roomState.names[id] || id), node.firstChild);
+  roomState.typing = node;
+}
+
+// A member's face pressed (app-stage.js): its @mention goes into the box, where the caret is.
+function roomMentionInsert(id) {
+  const name = roomState.names[id];
+  if (!name || !inputEl) return;
+  const v = inputEl.value, at = typeof inputEl.selectionStart === 'number' ? inputEl.selectionStart : v.length;
+  const before = v.slice(0, at), after = v.slice(at);
+  const lead = before && !/\s$/.test(before) ? ' ' : '';
+  inputEl.value = before + lead + '@' + name + ' ' + after.replace(/^\s+/, '');
+  const caret = (before + lead + '@' + name + ' ').length;
+  try { inputEl.setSelectionRange(caret, caret); } catch (_) { /* not focusable here */ }
+  inputEl.focus();
+  if (typeof updateSendButton === 'function') updateSendButton();
   roomBusyMark();
 }
 
@@ -212,7 +245,9 @@ function roomMarkRuns() {
 // says so. Also after every keystroke, because the main send button follows the text.
 function roomBusyMark() {
   if (!roomOpenId()) return;
-  if (progressEl && progressEl.hidden === roomState.busy) setProgress(roomState.busy ? ROOM_TEXT.answering : '', true);
+  // the messenger shell shows the answering member typing (roomTyping); the old page says it in the progress line
+  const say = roomState.busy && !(typeof shellOn === 'function' && shellOn());
+  if (progressEl && progressEl.hidden === say) setProgress(say ? ROOM_TEXT.answering : '', true);
   sendBtn.disabled = roomState.busy || !inputEl.value.trim();
   inputEl.placeholder = ROOM_TEXT.placeholder;
 }

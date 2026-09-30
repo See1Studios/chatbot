@@ -84,6 +84,9 @@ function stageFace(md) {
   face.className = 'md-face';
   face.type = 'button';
   face.addEventListener('click', () => {
+    // in a group room the face calls the member: its @mention goes into the box (app-rooms.js)
+    const who = md.parentNode && md.parentNode.dataset ? md.parentNode.dataset.roomWho : '';
+    if (who && typeof roomMentionInsert === 'function') { roomMentionInsert(who); return; }
     const box = stageKids(md).find(el => stageHas(el, 'thought-box'));
     if (!box) return;
     box.hidden = !box.hidden;
