@@ -274,8 +274,12 @@ function shellPlusOpen() {
     b.addEventListener('click', () => {
       shellPlusClose();
       if (it.k === 'act') { actSet(inputEl, ACT_PREFIX); inputEl.focus(); return; }
-      // after this click has finished: the pressed button's own menu must not be closed by this click's bubbling
-      setTimeout(() => btn[it.k].click(), 0);
+      // after this click has finished: the pressed button's own menu must not be closed by this click's bubbling.
+      // The command button opens on pointerdown (slash.js), which click() does not fire: call what it calls.
+      setTimeout(() => {
+        if (it.k === 'slash' && typeof toggleSlashMenu === 'function') toggleSlashMenu();
+        else btn[it.k].click();
+      }, 0);
     });
     menu.appendChild(b);
   });

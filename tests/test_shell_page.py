@@ -344,6 +344,16 @@ class ShellSwitch(unittest.TestCase):
         src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
         self.assertIn("if (!priv.disabled) priv.click()", src)      # the heart presses the real switch
 
+    def test_the_plus_menu_opens_commands_the_way_the_button_does(self):
+        # the command button listens to pointerdown, which a scripted click() never fires (#487: nothing opened)
+        slash = (STATIC / "slash.js").read_text(encoding="utf-8")
+        self.assertIn("slashBtnEl.addEventListener('pointerdown'", slash)
+        self.assertNotIn("slashBtnEl.addEventListener('click'", slash)
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("if (it.k === 'slash' && typeof toggleSlashMenu === 'function') toggleSlashMenu();", src)
+        # the other two buttons act on click
+        self.assertIn("geoBtn.addEventListener('click'", (STATIC / "app.js").read_text(encoding="utf-8"))
+
     def test_wiring(self):
         self.assertIn('id="shellList"', HTML)
         self.assertIn('id="shellRooms"', HTML)
