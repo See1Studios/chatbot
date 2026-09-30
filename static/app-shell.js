@@ -12,12 +12,12 @@ const SHELL_TEXT = {   // l10n-ok
   more: '더 보기', act: '행동',   // l10n-ok
   profile: '프로필', settings: '설정', back2: '뒤로', close: '닫기', details: '자세히 보기', theme: '테마',   // l10n-ok
   files: '주고받은 파일', history: '대화 기록', art: '그림', model: '모델', log: '활동 로그',   // l10n-ok
-  accounts: '계정 · 상태', team: '캐릭터 관리', improve: '개선', revive: '호스트 소생',   // l10n-ok
+  accounts: '계정 · 상태', team: '역할 · 공통 설정', manage: '카드 · 역할 · 두뇌 구성', improve: '개선', revive: '호스트 소생',   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
 let shellState = { sessions: [], talks: null, filter: '', timer: 0, loading: false, ready: false, nodes: new Map(),
-  pending: '', want: null, switching: false, paneFrom: '' };   // pending: the row just picked, shown as open before it is
+  pending: '', want: null, switching: false, paneFrom: '', teamOnly: '' };   // pending: the row just picked, shown as open before it is
 
 function shellOn() { return document.documentElement.classList.contains('shell2'); }
 function shellNarrow() { return window.innerWidth <= SHELL_NARROW; }
@@ -334,6 +334,7 @@ function shellProfileRows(ctx) {
   // "pictures" is one place: the character's art screen shows them, takes uploads and asks for new ones (app-art.js)
   const rows = ctx.art ? [{ k: 'art', label: SHELL_TEXT.art }] : [];
   rows.push({ k: 'sessions', label: SHELL_TEXT.history }, { k: 'artifacts', label: SHELL_TEXT.files });
+  if (ctx.manage) rows.push({ k: 'manage', label: SHELL_TEXT.manage });   // this character's part of the old team pane
   return rows;
 }
 // The brain and the model are managed in the card itself (operator, 2026-09-30), not by sending the user back to
@@ -406,6 +407,25 @@ async function shellGoArt(cid) {
   }
   await openArtManager(cid);
 }
+// The old team pane, in two (operator, 2026-10-01): what is one character's -- its card, roles and brains -- opens
+// from that character's profile; what is shared -- role packs, the house memory, reactions, importing a card --
+// stays in the settings. One pane, filtered: `only` is the character whose card alone is shown, or '' for the
+// shared part. A block of the pane carries the character's id (app-team.js) or none.
+function shellTeamShows(blockCharacter, only) {
+  return only ? blockCharacter === only : !blockCharacter;
+}
+function shellTeamFilter() {
+  const pane = document.getElementById('teamPane'), list = document.getElementById('teamList');
+  if (!pane || !list || !shellOn()) return;
+  const only = shellState.teamOnly;
+  if (only) pane.setAttribute('data-shell-only', only); else pane.removeAttribute('data-shell-only');
+  Array.prototype.forEach.call(list.children, n => { n.hidden = !shellTeamShows(n.getAttribute('data-character-id') || '', only); });
+}
+function shellGoTeam(cid, from) {
+  shellState.teamOnly = cid || '';
+  shellTeamFilter();                 // what is drawn already, at once; loadTeam() redraws and the wrap filters again
+  shellGoPane('team', from);
+}
 function shellArtGone() {
   const m = document.getElementById('artManager');
   if (m && m.classList.contains('shell-art')) m.remove();
@@ -433,7 +453,7 @@ function shellProfileOpen() {
   const column = document.getElementById('shellProfile'), panel = column && column.firstChild;   // the fixed-width inside
   const c = typeof currentCharacter === 'function' ? currentCharacter() : null;
   if (!panel || !c || (typeof roomOpenId === 'function' && roomOpenId())) return;   // a group room has no card yet
-  const rows = shellProfileRows({ art: typeof openArtManager === 'function' });
+  const rows = shellProfileRows({ art: typeof openArtManager === 'function', manage: typeof loadTeam === 'function' });
   panel.textContent = '';
   const card = shellEl('div', 'shell-card'), img = document.createElement('img'), list = shellEl('div', 'shell-rows');
   img.alt = '';
@@ -446,6 +466,7 @@ function shellProfileOpen() {
     b.addEventListener('click', () => {
       if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'profile');
       if (row.k === 'art') shellGoArt(c.id);
+      else if (row.k === 'manage') shellGoTeam(c.id, 'profile');
     });
     list.appendChild(b);
   });
@@ -458,7 +479,8 @@ function shellProfileOpen() {
 }
 // The row of the pane shown in the middle is marked in the card and in the settings.
 function shellMarkPane() {
-  const now = document.documentElement.dataset.tab || 'chat';
+  let now = document.documentElement.dataset.tab || 'chat';
+  if (now === 'team') now = shellState.teamOnly ? 'manage' : 'team';      // one pane, two rows
   document.querySelectorAll('.shell-rowbtn[data-k]').forEach(b => b.classList.toggle('current', b.getAttribute('data-k') === now));
 }
 function shellSection(title) {
@@ -528,6 +550,7 @@ function shellSettingsOpen() {
     }
     const b = shellRowButton(row);
     b.addEventListener('click', () => {
+      if (row.k === 'team') return shellGoTeam('', 'settings');
       if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'settings');
       if (row.k === 'details') { setDensity(!document.body.classList.contains('density-advanced')); shellSettingsOpen(); }
       else if (row.k === 'revive') { shellSettingsClose(); defib.click(); }
@@ -570,12 +593,17 @@ function shellPanelsInit() {
   switchTab = function (t) {
     tab.apply(this, arguments);
     const now = document.documentElement.dataset.tab || t;
-    shellSet(bar.querySelector('.shell-pane-title'), SHELL_TEXT[SHELL_PANES[now]] || (now === 'art' ? SHELL_TEXT.art : ''));
+    const title = now === 'art' ? SHELL_TEXT.art : now === 'team' && shellState.teamOnly ? SHELL_TEXT.manage : SHELL_TEXT[SHELL_PANES[now]];
+    shellSet(bar.querySelector('.shell-pane-title'), title || '');
     if (now !== 'art') shellArtGone();
     shellSet(back, shellNarrow() ? '\u2039' : '\u2715');      // a phone goes back, a wide screen closes the pane
     if (now !== 'chat' && shellNarrow() && shellProfileIsOpen()) shellProfileClose();   // not the one waiting behind
     shellMarkPane();
   };
+  if (typeof loadTeam === 'function') {
+    const team = loadTeam;
+    loadTeam = async function () { const out = await team.apply(this, arguments); shellTeamFilter(); return out; };
+  }
   // The art manager closes itself when it hands a request to the talk (its "ask" button): the pane goes with it.
   if (typeof closeArtManager === 'function') {
     const closeArt = closeArtManager;
@@ -623,7 +651,9 @@ function shellInit() {
   const search = document.getElementById('shellSearch'), add = document.getElementById('shellNewRoom');
   if (!list) return;
   list.setAttribute('aria-label', SHELL_TEXT.list);
-  document.getElementById('shellListTitle').textContent = SHELL_TEXT.title;
+  // the list is headed by the app's own name (index.html's application-name); a mark goes beside it once there is one
+  const app = document.querySelector('meta[name="application-name"]');
+  document.getElementById('shellListTitle').textContent = (app && app.getAttribute('content')) || SHELL_TEXT.title;
   if (search) {
     search.placeholder = SHELL_TEXT.search;
     search.setAttribute('aria-label', SHELL_TEXT.search);

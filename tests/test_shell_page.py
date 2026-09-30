@@ -89,7 +89,8 @@ return (async () => {
     lastYear: shellTime(at(2025, 8, 20, 9), at(2026, 8, 30, 18), 'en-US'),
     never: shellTime(0, 1),
     presence: [shellPresenceText('work', false), shellPresenceText('work', true), shellPresenceText('private', false)],
-    profile: shellProfileRows({ art: true }),
+    profile: shellProfileRows({ art: true, manage: true }),
+    teamShows: [shellTeamShows('kit', 'kit'), shellTeamShows('ari', 'kit'), shellTeamShows('', 'kit'), shellTeamShows('kit', ''), shellTeamShows('', '')],
     profileBare: shellProfileRows({ art: false }).map(r => r.k),
     brains: shellBrainOptions([{ id: 'x', name: 'X' }, { id: 'y', name: 'Y' }], 'y', (id) => (id === 'x' ? 'no login' : ''), (p) => p.name + '!'),
     models: shellModelOptions([{ value: 'm1', label: 'One' }, { value: 'm2' }], 'm2'),
@@ -101,7 +102,7 @@ return (async () => {
     plusPrivate: shellPlusList({ private: true, attach: 'item', geo: { label: 'geo', on: false }, slash: 'cmd' }),
     plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
     text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'thinking', 'brain', 'more', 'act',
-      'profile', 'settings', 'back2', 'close', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
+      'profile', 'settings', 'back2', 'close', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'manage', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
   shellListDraw();
@@ -300,9 +301,15 @@ class ShellList(unittest.TestCase):
         # every old tab but the chat itself is reachable: the talk's own things from its card, the app's from settings
         card = [r["k"] for r in o["profile"]]
         gear = [r["k"] for r in o["settings"]]
-        self.assertEqual(card, ["art", "sessions", "artifacts"])      # the character's own things
+        self.assertEqual(card, ["art", "sessions", "artifacts", "manage"])      # the character's own things
         self.assertEqual(gear, ["details", "theme", "status", "team", "activity", "evolution", "revive"])
         self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(o["panes"]))
+        # the team pane is in two: one character's card from its profile, the shared part from the settings
+        self.assertEqual(o["teamShows"], [True, False, False, False, True])
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("shellGoTeam(c.id, 'profile')", src)
+        self.assertIn("shellGoTeam('', 'settings')", src)
+        self.assertIn("card.setAttribute('data-character-id', ex.id || '')", (STATIC / "app-team.js").read_text(encoding="utf-8"))
         self.assertEqual(sorted(o["panes"]), ["activity", "artifacts", "evolution", "sessions", "status", "team"])
         # the log and improvement are the advanced density's
         self.assertEqual([r["k"] for r in o["profile"] + o["settings"] if r.get("adv")], ["activity", "evolution"])
@@ -486,6 +493,11 @@ class ShellSwitch(unittest.TestCase):
         self.assertIn("if (it.k === 'slash' && typeof toggleSlashMenu === 'function') toggleSlashMenu();", src)
         # the other two buttons act on click
         self.assertIn("geoBtn.addEventListener('click'", (STATIC / "app.js").read_text(encoding="utf-8"))
+
+    def test_the_list_is_headed_by_the_apps_name(self):
+        self.assertRegex(HTML, r'<meta name="application-name" content="[^"]+" />')
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("""document.querySelector('meta[name="application-name"]')""", src)
 
     def test_wiring(self):
         self.assertIn('id="shellList"', HTML)

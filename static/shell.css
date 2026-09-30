@@ -48,6 +48,9 @@ html.shell2 #sessionCharTabs,html.shell2 #roomsStrip{display:none !important}   
 .shell-art{position:relative;z-index:1;display:flex;flex:1 1 auto;min-height:0}
 .shell-art .art-mgr{width:100%;max-width:none;max-height:none;height:100%;border:0;border-radius:0;box-shadow:none;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
 .shell-art .modal-head{display:none}
+/* one character's part of the team pane (from its profile): the pane's own heading, import button and hint are the shared view's */
+html.shell2 #teamPane[data-shell-only] .status-head-row,html.shell2 #teamPane[data-shell-only] section > .status-hint{display:none}
+html.shell2 #teamList > [hidden]{display:none !important}
 /* forward comes in from the right and its back arrow sends it out to the right */
 .shell-settings{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;background:var(--bg-card);transform:translateX(102%);visibility:hidden;transition:transform .2s cubic-bezier(.2,0,0,1),visibility 0s .2s}
 .shell-settings.open{transform:none;visibility:visible;transition:transform .2s cubic-bezier(.2,0,0,1)}

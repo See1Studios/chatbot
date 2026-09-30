@@ -148,6 +148,7 @@ function renderAutoReact(cfg) {
 
 function renderTeamCard(ex, team, files) {
   const card = obsNode('div', 'status-item team-card');
+  card.setAttribute('data-character-id', ex.id || '');   // the shell shows one character's card from its profile (app-shell.js)
   const head = obsNode('div', 'status-item-head');
   head.appendChild(obsNode('span', 'status-item-name', ex.name + (ex.title ? ' · ' + ex.title : '')));
   const chips = obsNode('span', 'team-role-chips');
