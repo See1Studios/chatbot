@@ -222,9 +222,9 @@ def script_json(ident: Optional[Dict[str, str]] = None) -> str:
 
 
 def seed_workspace_files(templates_dir: Optional[Path] = None, workspace: Optional[Path] = None) -> list:
-    """New install: the neutral card template becomes the first character, the team's default, holding the pd role
-    when its pack exists (CARD_ONLY_v1). A workspace that already has a character is never touched. Returns what was
-    made."""
+    """New install: the neutral card template becomes the first character, the team's default, holding no role --
+    roles are the user's data, given when a premade pack is chosen (CARD_ONLY_v1, workspace manifest). A workspace
+    that already has a character is never touched. Returns what was made."""
     import characters
     src = (templates_dir or (ROOT / "templates")) / "character.json"
     dst_dir = workspace or WORKSPACE
@@ -233,6 +233,5 @@ def seed_workspace_files(templates_dir: Optional[Path] = None, workspace: Option
     card = json.loads(src.read_text(encoding="utf-8"))
     cid = characters.new_id()
     characters.save(cid, card, dst_dir)
-    roles = ["pd"] if characters.role_pack("pd", dst_dir).get("text") else []
-    characters.save_team({"default": cid, "members": {cid: roles}}, dst_dir)
+    characters.save_team({"default": cid, "members": {cid: []}}, dst_dir)
     return ["card"]

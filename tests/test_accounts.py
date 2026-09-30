@@ -244,6 +244,28 @@ class HelpersTest(Base):
         self.assertNotIn("r2", a)
         self.assertIsNone(accounts.login_fingerprint("claude"))
 
+    def rerun(self, codes, logins, provider="agy"):
+        calls, it = [], iter(logins)
+        orig = accounts.current_email
+        accounts.current_email = lambda p: next(it)
+        try:
+            res = accounts.rerun_on_switch(provider, lambda: (calls.append(1) or (codes[len(calls) - 1], "o")))
+        finally:
+            accounts.current_email = orig
+        return res, len(calls)
+
+    def test_a_run_stopped_by_an_account_switch_runs_again(self):
+        self.assertEqual(self.rerun([-15, 0], ["old", "new", "new"]), ((0, "o"), 2))
+
+    def test_no_rerun_without_a_switch_or_when_the_login_is_unknown(self):
+        self.assertEqual(self.rerun([1], ["a", "a"])[1], 1)
+        self.assertEqual(self.rerun([1], [None, None])[1], 1)
+        self.assertEqual(self.rerun([1], ["a", None])[1], 1)
+        self.assertEqual(self.rerun([1], [], provider="claude")[1], 1, "a provider that does not keep its login")
+
+    def test_reruns_are_capped(self):
+        self.assertEqual(self.rerun([-15] * 3, ["a", "b", "b", "c", "c", "d"])[1], 1 + accounts.SWITCH_RERUNS)
+
     def test_snapshot_can_be_limited_to_agy_without_touching_claude(self):
         calls = []
         accounts._ACCOUNT_FN["claude"] = lambda: calls.append(1) or {"ok": True, "email": NEW}

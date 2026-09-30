@@ -166,9 +166,9 @@ class SeedTest(Base):
         self.assertEqual(identity.seed_workspace_files(workspace=self.ws), ["card"])
         cid = characters.default_character(self.ws)
         self.assertTrue(cid)
-        self.assertEqual(characters.roles_of(cid, self.ws), ["pd"])
+        # roles are the user's data: a pack that happens to be called "pd" is not handed out by the engine
+        self.assertEqual(characters.roles_of(cid, self.ws), [])
         self.assertEqual((identity.get_identity()["persona"], identity.get_identity()["user_title"]), ("", "사용자"))
-        self.assertEqual(identity.get_identity()["title"], "PD")          # no title on the card: the role pack's
         card = characters.load(cid, self.ws)
         card["data"]["name"] = "MY OWN"
         characters.save(cid, card, self.ws)

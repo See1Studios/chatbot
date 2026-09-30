@@ -348,11 +348,19 @@ def roles(ws=None) -> List[str]:
     return sorted({r for c in listing(ws) for r in c["roles"]})
 
 
+def expert_roles(ws=None) -> List[str]:
+    """The roles work can be delegated to: those held by any character but the default one (the delegator)."""
+    default = default_character(ws)
+    return sorted({r for c in listing(ws) if c["id"] != default for r in c["roles"]})
+
+
 # ------------------------------------------------------------------ team roster and role packs (TEAM_ROLES_v1)
 # Every character is equal; a role is a pack of instructions, skills and tool grants (roles/<role>/ROLE.md), and
 # the roster (team.json) says who holds which role and whom the app opens with. Cards stay role-free, so a card can
 # be shared without our team's arrangement in it.
-#   team.json: {"default": "<id>", "members": {"<id>": ["pd"], "<id>": ["staff"]}}
+#   team.json: {"default": "<id>", "members": {"<id>": ["<role>", ...], ...}}
+# Role ids are the user's data: the engine knows no role by name. What it needs is one position, the default
+# character (the chatbot itself: it plans, confirms and is read every turn); experts are the roles the others hold.
 #   roles/<role>/ROLE.md: front matter `title`, `tools` and `skills` (comma-separated), then the instructions.
 
 def team_path(ws=None) -> Path:
@@ -364,7 +372,7 @@ def roles_dir(ws=None) -> Path:
 
 
 def load_team(ws=None, cards: Optional[List[Dict]] = None) -> Dict:
-    """The roster; without team.json, one derived from the cards' old `role` field (the first pd is the default)."""
+    """The roster; without team.json, one derived from the cards' old `role` field, the oldest card the default."""
     try:
         team = json.loads(team_path(ws).read_text(encoding="utf-8"))
         if isinstance(team, dict) and isinstance(team.get("members"), dict):
@@ -376,8 +384,7 @@ def load_team(ws=None, cards: Optional[List[Dict]] = None) -> Dict:
     if cards is None:
         cards = [{"id": c["id"], "card": c["card"]} for c in _raw_listing(ws)]
     members = {c["id"]: [ext(c["card"]).get("role")] for c in cards if _ROLE_RE.match(str(ext(c["card"]).get("role") or ""))}
-    default = next((cid for cid, rs in members.items() if "pd" in rs), "")   # no roster: only a pd card was "the chatbot"
-    return {"default": default, "members": members}
+    return {"default": cards[0]["id"] if cards else "", "members": members}
 
 
 def _raw_listing(ws=None) -> List[Dict]:

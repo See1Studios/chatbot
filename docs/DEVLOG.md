@@ -2,6 +2,14 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-30 — 엔진 역할명 중립화: 기본 캐릭터 한 자리만 (engine/A, #460 — #456 인계)
+
+- **경위**: 채팅에서 운영자 결정("이건 어디까지나 사용자 데이터고 엔진 코드는 이런 걸 몰라야해") → PD가 #456 위임. 시간 초과 → 경로 요청 → 리뷰 FAIL 2라운드(시도 1 소진) → 또 경로 요청으로 멈춤. 원인: "역할 이름 없이 누가 기본인가"가 정해지지 않아 작업자가 `"pd"`를 `"staff"`로 바꾸는 식으로 추측했고 리뷰가 매번 반려. 러너(`worktree_runner.py`)의 `"pd"`·`"staff"`는 티켓 범위 밖이라 손도 못 댐.
+- **결정(아키텍처)**: 엔진이 아는 건 **기본 캐릭터**(`team.json` `default`) 한 자리. 없으면 가장 오래된 카드(옛 "pd 카드만 기본" 규칙 삭제).
+- **변경**: `characters.expert_roles`(기본 캐릭터가 아닌 캐릭터들의 역할) → `delegation.experts()`. `workspace_status` 매 턴 카드 = 기본 캐릭터. `identity.seed_workspace_files` 새 설치 기본 캐릭터는 역할 `[]`(미리 만든 팩이 채움, 매니페스트 C3). 러너: 확인자 = 기본 캐릭터 페르소나·두뇌(`roster("default_character")`), 역할 없는 작업 = 첫 전문 역할(`WORKER_ROLE="staff"` 삭제; 앱은 항상 계획의 역할을 넘기므로 수동 CLI 실행에만 해당). 러너 1,500줄 상한 때문에 #459의 재실행 로직을 `accounts.rerun_on_switch`로 옮김.
+- **현재 팀 동작 변화 없음**: 기본 노노[dev, pd] → 전문 역할 staff·dev·artist(전과 같음), 확인자 노노(전과 같음).
+- **테스트**: `test_team_roles` 3건(자리≠이름, 명단 없을 때 가장 오래된 카드, **엔진 코드에 역할 이름 금지 가드**), 픽스처가 기본 캐릭터를 `team.json`으로 명시(`test_delegation`·`test_instructions_api`·`test_worktree_runner`·`test_identity`), `test_accounts` 재실행 3건.
+
 ## 2026-09-30 — agy 계정 전환 뒤 옛 계정 작업자·로그인 프로세스가 남음 (ACCOUNT_SWITCH_v1·LOGIN_BASELINE_v1, #459)
 
 - **증상**: 13:06 agy 계정 전환 뒤 `/api/accounts`에 두 프로세스가 남음 — #456 위임 작업자(`agy -p`, 옛 계정, `stale`인데 `external`)와 상태 탭 로그인 TUI(pts/2, 새 계정, 로그인 완료 후에도 살아 있음). 앞의 것은 9/19 사고(옛 refresh token이 토큰 파일을 되돌려 씀)와 같은 위험.

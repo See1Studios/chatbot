@@ -36,6 +36,7 @@ class Picker(unittest.TestCase):
                                      work={"instructions": "lulu works carefully"},
                                      brains={"work": [{"provider": "agy", "model": "gemini-3.8-flash-low"}]}), self.ws)
         C.memory_path(self.lulu, self.ws).write_text("# Memory\n- [2026-09-24] lulu fact\n", encoding="utf-8")
+        C.save_team({"default": self.pd, "members": {self.pd: ["pd"], self.lulu: ["staff"]}}, self.ws)   # who is default
         self.saved = (S.SESSIONS, S.WORKSPACE, I.WORKSPACE, I.MEMORY_FILE, host_config.WORKSPACE)
         S.SESSIONS = self.tmp / "sessions"
         S.SESSIONS.mkdir()

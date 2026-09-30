@@ -262,9 +262,10 @@ _LAYER_ORDER = {"always": 0, "on_demand": 1, "private": 2}   # private: read onl
 
 def _instruction_files() -> list:
     items = [(i, t, WORKSPACE / rel, layer) for i, t, rel, layer in INSTRUCTION_FILES]
+    default = _default_character()
     for c in _characters():
         label = c["name"] or c["id"]
-        pd = c["role"] == "pd"                       # the chatbot's own card is read every turn
+        pd = c["id"] == default                      # the chatbot's own (default) card is read every turn
         items.append(("characters/%s/card.json" % c["id"], ("페르소나 카드 (%s)" if pd else "캐릭터 카드 (%s)") % label,
                       WORKSPACE / "characters" / c["id"] / "card.json", "always" if pd else "on_demand"))
         if not pd:                                   # the chatbot's memory is still memory/MEMORY.md
@@ -291,6 +292,14 @@ def _pack_file(d: Path, kind: str) -> Path:
         return characters.pack_file(d.name, kind, d.parent.parent)
     except Exception:  # noqa: BLE001
         return d / ("%s.md" % kind.upper())
+
+def _default_character() -> str:
+    try:
+        import characters
+        return characters.default_character(WORKSPACE)
+    except Exception:  # noqa: BLE001
+        return ""
+
 
 def _characters() -> list:
     try:

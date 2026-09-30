@@ -3,6 +3,7 @@ tool grants) and the roster (team.json) says who holds it and whom the app opens
 Run: python3 -m unittest tests.test_team_roles  (from services/chatbot)
 """
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -30,7 +31,7 @@ class Roster(unittest.TestCase):
             (self.ws / ".agents" / "skills" / skill).mkdir(parents=True)
             (self.ws / ".agents" / "skills" / skill / "SKILL.md").write_text(
                 "---\nname: %s\ndescription: %s skill\n---\n" % (skill, skill), encoding="utf-8")
-        self.a, self.b, self.c = C.new_id(), C.new_id(), C.new_id()
+        self.a, self.b, self.c = sorted(C.new_id() for _ in range(3))   # a is the oldest: the default without a roster
         C.save(self.a, C.new_card("A", "pd", description="a body"), self.ws)       # old cards with a role
         C.save(self.b, C.new_card("B", "staff", description="b body"), self.ws)
         C.save(self.c, C.new_card("Cc", description="c body"), self.ws)
@@ -66,6 +67,28 @@ class Roster(unittest.TestCase):
     def test_a_missing_default_falls_back_to_the_oldest(self):
         C.save_team({"default": C.new_id(), "members": {}}, self.ws)
         self.assertEqual(C.default_character(self.ws), min(self.a, self.b, self.c))   # TypeIDs sort by time
+
+    def test_the_default_is_a_position_not_a_role_name(self):
+        # engine/A (#456, operator 2026-09-30: "roles are user data; the engine must not know them")
+        C.save_team({"default": self.c, "members": {self.a: ["pd"], self.b: ["staff"], self.c: ["lead", "dev"]}},
+                    self.ws)
+        self.assertEqual(C.default_character(self.ws), self.c)
+        self.assertEqual(C.expert_roles(self.ws), ["pd", "staff"], "a card holding a role called pd is just an expert")
+        C.save_team({"default": self.a, "members": {self.a: ["staff"], self.b: ["staff"]}}, self.ws)
+        self.assertEqual(C.expert_roles(self.ws), ["staff"], "a role the default also holds stays delegable to others")
+
+    def test_without_a_roster_the_oldest_card_is_the_default_whatever_its_role(self):
+        self.assertEqual(C.load_team(self.ws)["default"], self.a)
+        C.save(self.a, C.new_card("A", "staff", description="a body"), self.ws)
+        self.assertEqual(C.load_team(self.ws)["default"], self.a)
+
+    def test_engine_code_names_no_role(self):
+        # the enforcer of the rule above: a role id quoted in engine code is the old hardcoding coming back
+        pattern = re.compile(r"""["'](pd|staff|artist|lead)["']""")
+        files = sorted(list(ROOT.glob("*.py")) + list((ROOT / "tools").glob("*.py")) + list((ROOT / "providers").glob("*.py")))
+        hits = ["%s:%d" % (f.name, n) for f in files
+                for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1) if pattern.search(line)]
+        self.assertEqual(hits, [], "engine code must not name a role (roles live in team.json and roles/)")
 
     def test_every_character_gets_the_same_bundle_shape(self):
         C.migrate_team(self.ws)

@@ -246,6 +246,7 @@ class WorktreeRunner(unittest.TestCase):
     def test_review_fail_sends_it_back_and_the_next_round_passes(self) -> None:
         # the writer logs each prompt it gets ($0) and adds a line per round
         script = 'printf "%s" "$0" > ../prompt-$(ls .. | wc -l); echo more >> a.txt; git commit -qam r; echo; echo ---; echo done'
+        self.character("staff")             # an expert besides the default character: the task goes to it
         self.assertEqual(self.run_with(script, review=FAIL_ONCE.replace("../../n", str(self.base / "n"))), 0)
         self.assertEqual((self.repo / "a.txt").read_text(), "one\nmore\nmore\n")
         prompts = sorted(p for p in wr.WORKTREE_BASE.iterdir() if p.name.startswith("prompt-"))
@@ -554,12 +555,20 @@ class WorktreeRunner(unittest.TestCase):
     # ---- brains: each expert's ordered list, falling through on quota, limit, missing CLI or timeout
 
     def character(self, role="staff", chain=None):
-        """A character playing `role` in this test's workspace; returns its folder."""
+        """A character playing `role` in this test's workspace; returns its folder. The team always has a default
+        character (the reviewer); in these tests the role id "pd" names it -- test data, the engine knows no role."""
         sys.path.insert(0, str(ROOT))
         import characters
-        cid = characters.by_role(role, self.ws) or characters.new_id()
-        card = characters.new_card("S", role, brains={"work": chain} if chain else {})
+        team = characters.load_team(self.ws) if characters.team_path(self.ws).is_file() else {"default": "", "members": {}}
+        if not team["default"]:
+            team["default"] = characters.new_id()
+            characters.save(team["default"], characters.new_card("P", ""), self.ws)
+            team["members"][team["default"]] = []
+        cid = team["default"] if role == "pd" else (characters.by_role(role, self.ws) or characters.new_id())
+        card = characters.new_card("S" if role != "pd" else "P", "", brains={"work": chain} if chain else {})
         characters.save(cid, card, self.ws)
+        team["members"][cid] = sorted(set(team["members"].get(cid, [])) | {role})
+        characters.save_team(team, self.ws)
         return self.ws / "characters" / cid
 
     def brains(self, role, chain):
@@ -804,33 +813,11 @@ class WorktreeRunner(unittest.TestCase):
 
 
 class AccountSwitch(unittest.TestCase):
-    """ACCOUNT_SWITCH_v1: a worker the server stopped because it still held the old login runs again under the new
-    one; an ordinary failure, or one with no login change, is not run again."""
-
-    def run_with(self, codes, logins):
-        calls, it = [], iter(logins)
-        orig = (wr.run_cmd, wr.login_of, wr.log)
-        wr.run_cmd = lambda cmd, **kw: (calls.append(cmd) or (codes[len(calls) - 1], "out", "err"))
-        wr.login_of = lambda provider: next(it)
-        wr.log = lambda msg: None
-        try:
-            return wr.run_as_login("agy", ["agy", "-p", "x"]), len(calls)
-        finally:
-            wr.run_cmd, wr.login_of, wr.log = orig
-
-    def test_stopped_by_a_switch_runs_again(self):
-        self.assertEqual(self.run_with([-15, 0], ["old", "new", "new"]), ((0, "out", "err"), 2))
-
-    def test_a_failure_without_a_switch_is_not_run_again(self):
-        self.assertEqual(self.run_with([1], ["a", "a"])[1], 1)
-
-    def test_unknown_login_is_not_a_switch(self):
-        self.assertEqual(self.run_with([1], [None, None])[1], 1)
-        self.assertEqual(self.run_with([1], ["a", None])[1], 1)
-
-    def test_reruns_are_capped(self):
-        logins = ["a", "b", "b", "c", "c", "d"]
-        self.assertEqual(self.run_with([-15, -15, -15], logins)[1], 1 + wr.SWITCH_RERUNS)
+    def test_agent_runs_go_through_the_account_switch_rerun(self):
+        # ACCOUNT_SWITCH_v1: the logic lives in accounts.rerun_on_switch (test_accounts); the runner must use it
+        src = Path(wr.__file__).read_text(encoding="utf-8")
+        self.assertEqual(src.count("code, out, err = run_as_login("), 2, "the worker run and the review run")
+        self.assertIn("accounts.rerun_on_switch(provider", src)
 
 if __name__ == "__main__":
     unittest.main()

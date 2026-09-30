@@ -126,6 +126,7 @@ class NewSessionKeepsKind(unittest.TestCase):
         self.pd, self.lulu = C.new_id(), C.new_id()
         C.save(self.pd, C.new_card("P", "pd"), self.ws)
         C.save(self.lulu, C.new_card("L", "staff"), self.ws)
+        C.save_team({"default": self.pd, "members": {self.pd: ["pd"], self.lulu: ["staff"]}}, self.ws)   # who is default
         self.saved = (S.SESSIONS, S.WORKSPACE, I.WORKSPACE, host_config.WORKSPACE)
         S.SESSIONS = self.tmp / "sessions"
         S.SESSIONS.mkdir()

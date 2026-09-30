@@ -30,8 +30,11 @@ class Base(unittest.TestCase):
         obs.mkdir(parents=True)
         (obs / "candidates.jsonl").write_text(json.dumps({"epoch": 1789908287.39}) + "\n", encoding="utf-8")
         import characters
-        characters.save(characters.new_id(), characters.new_card("S", "staff"), self.data / "workspace")
-        characters.save(characters.new_id(), characters.new_card("P", "pd"), self.data / "workspace")   # the PD is not an expert
+        s_id, p_id, ws = characters.new_id(), characters.new_id(), self.data / "workspace"
+        characters.save(s_id, characters.new_card("S"), ws)
+        characters.save(p_id, characters.new_card("P"), ws)
+        # the default character delegates and is not an expert, whatever its roles are called (the engine knows none)
+        characters.save_team({"default": p_id, "members": {s_id: ["staff"], p_id: ["pd"]}}, ws)
         r = delegation.runner()
         self.saved = (delegation.DATA, delegation.SEEN_FILE, delegation._spawn, r.WORKTREE_BASE,
                       r.cleanup_worktree, r.commit_ticket_record, delegation.PLAN_ROOT)

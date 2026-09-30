@@ -499,6 +499,26 @@ def stop_workers(pids: set) -> list:
     return stopped
 
 
+SWITCH_RERUNS = 2
+
+
+def rerun_on_switch(provider: str, run, log=None, reruns: int = SWITCH_RERUNS):
+    """`run()` -> (returncode, ...), run again when it failed and the provider's login changed meanwhile: the server
+    stops a delegated worker still holding the old login (stop_workers), which is not the work's fault, so the step
+    runs again under the new one instead of costing the ticket an attempt (ACCOUNT_SWITCH_v1). Only for providers
+    whose processes keep the login they started with (RECYCLE_ON_LOGIN)."""
+    if provider not in RECYCLE_ON_LOGIN:
+        return run()
+    for _ in range(1 + reruns):
+        before = current_email(provider)
+        res = run()
+        if res[0] == 0 or not before or current_email(provider) in (None, before):
+            break
+        if log:
+            log("%s login changed while it ran; running the same step again under the new login" % provider)
+    return res
+
+
 # -------------------------------------------------------------------- logout
 
 def owned_pids(snap: dict, provider: str) -> set:

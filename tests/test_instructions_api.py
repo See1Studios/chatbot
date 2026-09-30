@@ -22,8 +22,10 @@ class InstructionsApiTest(unittest.TestCase):
                            ("SELF-MODIFY.md", "boundary")):
             (self.ws / name).write_text(text, encoding="utf-8")
         import characters
-        self.cid = characters.new_id()
-        characters.save(self.cid, characters.new_card("S", "staff"), self.ws)
+        self.cid, self.default = characters.new_id(), characters.new_id()
+        characters.save(self.cid, characters.new_card("S"), self.ws)          # an expert: its card is read on demand
+        characters.save(self.default, characters.new_card("P"), self.ws)      # the chatbot itself: read every turn
+        characters.save_team({"default": self.default, "members": {self.cid: ["staff"], self.default: []}}, self.ws)
         (self.ws / "memory" / "MEMORY.md").write_text("# Memory\n- a fact\n", encoding="utf-8")
         (self.root / "protected_paths.json").write_text(json.dumps(
             {"protect": ["data/workspace/AGENTS.md", "data/workspace/SELF-MODIFY.md"]}), encoding="utf-8")
@@ -46,7 +48,8 @@ class InstructionsApiTest(unittest.TestCase):
         self.assertEqual({k: (v["layer"], v["editable"]) for k, v in items.items() if v["kind"] == "file"}, {
             "AGENTS.md": ("always", False), "MEMORY.md": ("always", True),
             "PROJECT.md": ("on_demand", True), "SELF-MODIFY.md": ("on_demand", False),
-            "characters/%s/card.json" % self.cid: ("on_demand", True)})
+            "characters/%s/card.json" % self.cid: ("on_demand", True),
+            "characters/%s/card.json" % self.default: ("always", True)})
         self.assertIn("data/workspace/AGENTS.md", items["AGENTS.md"]["reason"])
         self.assertEqual(items["PROJECT.md"]["content"], "procedure")      # whole, not a preview
         for gen in ("skills-index", "status-badge"):

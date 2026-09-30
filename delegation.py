@@ -98,9 +98,9 @@ _ROLE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 
 
 def experts() -> List[str]:
-    """The roles experts can be asked by: every character's role except the PD's (characters.py)."""
+    """The roles experts can be asked by: those the characters other than the default one hold (characters.py)."""
     import characters
-    return [r for r in characters.roles(DATA / "workspace") if r != "pd"]
+    return characters.expert_roles(DATA / "workspace")
 
 
 def _tasks(raw) -> List[Dict]:

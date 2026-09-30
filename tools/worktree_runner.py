@@ -126,7 +126,6 @@ TAIL_LINES = 30
 # from stdin (`stdin_prompt`) have no such cap, so they get the whole diff up to DIFF_LIMIT_STDIN (DELEGATION_HARDENING_v1).
 DIFF_LIMIT = 36000
 DIFF_LIMIT_STDIN = 200000
-WORKER_ROLE = "staff"          # the default expert's role (characters.py); the chatbot's own persona (the PD) confirms
 TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
 
 # Provider registry: how to run each CLI headless as the worker (`argv`), as the worker again in the same
@@ -497,28 +496,13 @@ def diff_limit(provider: str) -> int:
     return DIFF_LIMIT_STDIN if "stdin_prompt" in PROVIDERS.get(provider, {}) else DIFF_LIMIT
 
 
-SWITCH_RERUNS = 2   # ACCOUNT_SWITCH_v1: runs of one step that may restart because the login changed under them
-
-
-def login_of(provider: str) -> Optional[str]:
-    """The login of a provider whose processes keep the one they started with (accounts.RECYCLE_ON_LOGIN), else None."""
+def run_as_login(provider: str, cmd: List[str], **kw) -> tuple:
+    """run_cmd, again when the login changed under it (accounts.rerun_on_switch, ACCOUNT_SWITCH_v1)."""
     try:
         accounts = host_module("providers.accounts").accounts
-        return accounts.current_email(provider) if provider in accounts.RECYCLE_ON_LOGIN else None
     except Exception:  # noqa: BLE001
-        return None
-
-
-def run_as_login(provider: str, cmd: List[str], **kw) -> tuple:
-    """run_cmd, again when it failed because the login changed while it ran (the server stops a worker holding the old
-    one, ACCOUNT_SWITCH_v1): not the work's fault, so the step runs again under the new login, costing no attempt."""
-    for _ in range(1 + SWITCH_RERUNS):
-        before = login_of(provider)
-        code, out, err = run_cmd(cmd, **kw)
-        if code == 0 or not before or login_of(provider) in (None, before):
-            break
-        log("%s login changed while it ran; running the same step again under the new login" % provider)
-    return code, out, err
+        return run_cmd(cmd, **kw)
+    return accounts.rerun_on_switch(provider, lambda: run_cmd(cmd, **kw), log)
 
 
 def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False, model: str = "") -> Dict:
@@ -958,12 +942,24 @@ def record_and_report(repo: Path, tid: int, provider: str, title: str, result: D
 MAX_TASKS = 8
 
 
+def roster(fn: str, fallback):
+    """characters.<fn>(workspace): the team as data -- the engine knows no role by name. `fallback` if unreadable."""
+    try:
+        return getattr(host_module("characters"), fn)(workspace_dir())
+    except Exception:  # noqa: BLE001
+        return fallback
+
+
+def worker_role() -> str:   # a task without a role goes to the first expert role; "" when there is none
+    return (roster("expert_roles", []) or [""])[0]
+
+
 def plan_tasks(args, st: Dict, paths: List[str]) -> List[Dict]:
     """The tasks of this run: the plan kept in the run's state (--plan-from-state), a rework of the waiting
     branch (--resume: the operator's comment as one task), or the single task given on the command line."""
     if args.resume:
         roles = [t.get("role") for t in (st.get("plan") or {}).get("tasks", []) if t.get("role")]
-        return [{"role": roles[-1] if roles else WORKER_ROLE, "title": "rework: " + args.title, "paths": paths,
+        return [{"role": roles[-1] if roles else worker_role(), "title": "rework: " + args.title, "paths": paths,
                  "instruction": "The operator sent the finished work back. Their comment:\n" + args.prompt}]
     if args.plan_from_state:
         tasks = (st.get("plan") or {}).get("tasks") or []
@@ -974,11 +970,11 @@ def plan_tasks(args, st: Dict, paths: List[str]) -> List[Dict]:
             tp = [x for x in (t.get("paths") or []) if x]
             if not tp or not all(any(in_scope(x, [p]) for p in paths) for x in tp):
                 raise Failure("failed", "task %r names paths outside the plan's" % t.get("title", "")[:40])
-            out.append({"role": t.get("role") or WORKER_ROLE, "title": t.get("title") or args.title,
+            out.append({"role": t.get("role") or worker_role(), "title": t.get("title") or args.title,
                         "instruction": t.get("instruction") or "", "paths": tp,
                         "reads": [x for x in (t.get("reads") or []) if x and x not in tp]})
         return out
-    return [{"role": WORKER_ROLE, "title": args.title, "instruction": args.prompt, "paths": paths}]
+    return [{"role": worker_role(), "title": args.title, "instruction": args.prompt, "paths": paths}]
 
 
 # ------------------------------------------------------------------ content
@@ -1113,12 +1109,7 @@ def cmd_run(args) -> int:
     result["tier"] = tier
     doc_lane = args.stop_before_merge and is_doc_task(paths, tier)   # DOC_LANE_v1
     doc_advice = ""
-    # the reviewer is whoever holds the pd role in the team roster (TEAM_ROLES_v1), else the default character
-    try:
-        has_pd = bool(host_module("characters").by_role("pd", workspace_dir()))
-    except Exception:  # noqa: BLE001
-        has_pd = False
-    reviewer_p = persona("pd") if has_pd else persona()
+    reviewer_p = persona()   # the reviewer is the default character, whatever roles it holds (TEAM_ROLES_v1)
     actor = PROVIDERS[provider]["actor"]
 
     # 1. ticket: one the caller already claimed (--ticket/--token), or a new one on the operator's instruction
@@ -1200,7 +1191,7 @@ def cmd_run(args) -> int:
             except RuntimeError as e:
                 raise Failure("failed", "author lease lost during the run", str(e))
 
-        pd_chain = expert_chain("pd", [{"provider": reviewer, "model": args.reviewer_model, "timeout": 0}]
+        pd_chain = expert_chain(roster("default_character", ""), [{"provider": reviewer, "model": args.reviewer_model, "timeout": 0}]
                                 ) if reviewer else []
 
         # 3. tasks in order; each: the expert works -> gates -> the PD confirms (up to --rounds)
