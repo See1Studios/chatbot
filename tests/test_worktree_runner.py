@@ -251,7 +251,7 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual((self.repo / "a.txt").read_text(), "one\nmore\nmore\n")
         prompts = sorted(p for p in wr.WORKTREE_BASE.iterdir() if p.name.startswith("prompt-"))
         self.assertIn("1. add three", prompts[-1].read_text())
-        self.assertIn("your producer (PD)", prompts[0].read_text())      # the staff character works for the PD
+        self.assertIn("delegated this work to you", prompts[0].read_text())   # the expert works for the default character
         self.assertIn("sloppy", prompts[-1].read_text())
         saved = sorted((wr.WORKTREE_BASE / "transcripts").glob("*.json"))
         lines = json.loads(saved[-1].read_text())

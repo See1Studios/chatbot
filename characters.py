@@ -515,6 +515,47 @@ def private_text(card: Dict) -> str:
     return ((card.get("data") or {}).get("system_prompt") or "").strip()
 
 
+# ------------------------------------------------------------------ macros (CARD_MACROS_v1)
+# Text in cards, lorebooks and role packs names people by macro, resolved from the data when a prompt is rendered
+# (the files keep the macro): {{user}} how this character addresses the user and {{char}} its name (SillyTavern and
+# the card spec, so imported cards work), {{title}} its job title, {{default}} the default character's name (the one
+# who delegates and confirms) and {{role:<id>}} that role pack's title. The engine resolves references in the data;
+# it names no role itself. A macro it cannot resolve is left as written.
+
+_MACRO_RE = re.compile(r"\{\{\s*(user|char|title|default|role:[a-z][a-z0-9-]{0,31})\s*\}\}", re.I)
+
+
+def render_macros(text: str, cid: str = "", ws=None) -> str:
+    """`text` with its macros resolved for character `cid` (see above)."""
+    if not text or "{{" not in text:
+        return text
+    cache: Dict[str, str] = {}
+
+    def value(m) -> str:
+        key = m.group(1).lower()
+        if key not in cache:
+            cache[key] = _macro_value(key, cid, ws)
+        return cache[key] or m.group(0)
+    return _MACRO_RE.sub(value, text)
+
+
+def _macro_value(key: str, cid: str, ws=None) -> str:
+    try:
+        card = load(cid, ws) if cid and ID_RE.match(cid) else {}
+    except (OSError, ValueError):
+        card = {}
+    if key == "char":
+        return name(card) if card else ""
+    if key == "user":
+        return (user_title(card) if card else "") or user_title(default_card(ws))
+    if key == "title":
+        return title(card, cid, ws) if card else ""
+    if key == "default":
+        return name(default_character(ws), ws)
+    pack = role_pack(key[len("role:"):], ws)
+    return pack["title"] if pack["text"] else ""
+
+
 # ------------------------------------------------------------------ private memory (§12, PRIVATE_MEMORY_v1)
 # Private talk is remembered, but completely apart from work: `private-memory.md` in the character's folder is read
 # only by the character's private session and written when the user leaves it (SESSION_SPLIT_v1); work memory never

@@ -129,7 +129,7 @@ def _persona_text(character: str = "") -> str:
     return ""
 
 
-NO_ROLE_NOTE = ("[No role] You hold no role in the team: talk and help, but plans and delegation are the PD's, and "
+NO_ROLE_NOTE = ("[No role] You hold no role in the team: talk and help, but plans and delegation are {{default}}'s, and "
                 "the house memory is read-only for you.")
 
 
@@ -296,7 +296,8 @@ def lorebook_context(
 def _rules_text(character: str = "", history: Optional[Union[List, str]] = None) -> str:
     lore = lorebook_context(character, history)
     parts = [t for t in (_read(WORKSPACE / "AGENTS.md"), lore["before_char"], _persona_text(character), lore["after_char"], _roles_text(character)) if t]
-    return "\n\n---\n\n".join(parts)
+    import characters
+    return characters.render_macros("\n\n---\n\n".join(parts), _cid(character), WORKSPACE)   # CARD_MACROS_v1
 
 
 def _skills_text(character: str = "") -> str:
@@ -389,6 +390,7 @@ def _private_bundle(character: str, history: Optional[Union[List, str]] = None) 
                                             PRIVATE_SESSION_NOTE + ("\n\n" + rules if rules else ""),
                                             private_engine.render_protocol_text(card)) if t)
     cid = _cid(character)
+    static = characters.render_macros(static, cid, WORKSPACE)   # CARD_MACROS_v1
     memory = characters.read_private_memory(cid, WORKSPACE) if cid else ""
     text = static + ("\n\n[Private memory]\n" + memory if "- " in memory else "")
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}

@@ -102,8 +102,9 @@ class Roster(unittest.TestCase):
         self.assertNotIn("You plan and delegate.", staff)
         self.assertNotIn("- planning", staff)
         self.assertIn("- drawing", staff)
-        self.assertIn(I.NO_ROLE_NOTE, I.build_instruction_bundle(character=self.c)["text"])
-        self.assertNotIn(I.NO_ROLE_NOTE, staff)
+        no_role = I.NO_ROLE_NOTE.split("]")[0]   # "[No role" -- the rest names the default character (CARD_MACROS_v1)
+        self.assertIn(no_role, I.build_instruction_bundle(character=self.c)["text"])
+        self.assertNotIn(no_role, staff)
 
     def test_the_live_charter_no_longer_makes_everyone_the_pd(self):
         charter = (ROOT / "data" / "workspace" / "AGENTS.md").read_text(encoding="utf-8")

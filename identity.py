@@ -172,12 +172,14 @@ def persona_body(role: str = "") -> str:
         if not card:
             return ""
         import characters
-        return characters.work_text(card, characters.resolve(role, WORKSPACE) or "", WORKSPACE)[:_BODY_LIMIT]
+        cid = characters.resolve(role, WORKSPACE) or ""
+        return characters.render_macros(characters.work_text(card, cid, WORKSPACE), cid, WORKSPACE)[:_BODY_LIMIT]
     card = _pd()
     if not card:
         return ""
     import characters
-    return _FRONT.sub("", characters.persona_text(card), count=1).strip()[:_BODY_LIMIT]
+    body = _FRONT.sub("", characters.persona_text(card), count=1).strip()
+    return characters.render_macros(body, characters.default_character(WORKSPACE), WORKSPACE)[:_BODY_LIMIT]
 
 
 def private_rules() -> str:

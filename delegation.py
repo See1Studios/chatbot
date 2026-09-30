@@ -652,11 +652,11 @@ def latest_request_ref() -> Optional[str]:
 NAMES = ("delegate",)
 _DELEGATE_TOOL = {
     "name": "delegate",
-    "description": ("You are the producer (PD): you do not change files yourself. For work the operator proposes, "
+    "description": ("You delegate: you do not change files yourself. For work the operator proposes, "
                     "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[existing repo-"
                     "relative files it changes][, creates=[new files]][, reads=[existing files to read only; they do not raise the tier]]}][, ticket to replace a plan still waiting, or one that gate_failed/failed with attempts left][, evidence; defaults to the operator's "
                     "latest message]): the plan appears as a card and runs only when the operator presses [실행]; each "
-                    "task is worked by its expert (role = a character's role, e.g. staff; see data/workspace/characters/) in an "
+                    "task is worked by its expert (role = a role another character holds; the team is data/workspace/team.json) in an "
                     "isolated worktree, then you confirm it; the finished plan lands only when the operator presses "
                     "[승인] (or sends it back with [반려]). Tier 3 paths (guards, gates, approval rules, the charter) "
                     "are refused. start (title, paths, instruction[, creates]): a one-task plan. A path that does not exist is refused with the nearest real files: look before you name one. status: the work cards. "
@@ -691,8 +691,8 @@ def tool_call(name: str, args: dict, actor: str, secret_re, envelope, private: b
     if private:
         return envelope(False, "private session: no work is delegated from here", None)
     if staff:
-        return envelope(False, "only a character whose role grants delegate (the PD) plans and delegates; ask the "
-                               "user to take this to the PD", None)
+        return envelope(False, "only a character whose role grants delegate plans and delegates; ask the user to "
+                               "take this to that character", None)
     action = str(args.get("action") or "")
     if secret_re.search("\n".join(str(args.get(k) or "") for k in ("title", "instruction", "tasks"))):
         return envelope(False, "refusing to record secret-like content", None)

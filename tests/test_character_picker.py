@@ -94,7 +94,7 @@ class Picker(unittest.TestCase):
         for want in ("charter", "lulu persona", "lulu works carefully", "lulu fact", "pd fact"):
             self.assertIn(want, text)
         self.assertNotIn("pd persona", text)            # the house memory ("pd fact") is everyone's
-        self.assertNotIn(I.NO_ROLE_NOTE, text)            # 루루 holds staff
+        self.assertNotIn("[No role]", text)               # 루루 holds staff
         pd = I.build_instruction_bundle()["text"]
         self.assertIn("pd fact", pd)
         self.assertNotIn("lulu fact", pd)

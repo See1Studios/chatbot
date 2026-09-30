@@ -317,8 +317,8 @@ def drop_attic(repo: Path, ticket_id: int) -> None:
     git(repo, "update-ref", "-d", attic_ref(ticket_id))
 
 
-STAFF_RELATION = "You are a staff member; %s is your producer (PD), who confirms your work before it ships."
-PD_RELATION = "You are the producer (PD); %s is your staff member, who did this work. You confirm it or send it back."
+STAFF_RELATION = "You are one of the experts; %s delegated this work to you and confirms it before it ships."
+PD_RELATION = "You delegated this work; %s is the expert who did it. You confirm it or send it back."
 
 LINE_RULE = ("At the very end of your final message, write a line containing only `---`, then one or two short "
              "sentences in character, spoken to your partner, about what you did.")
