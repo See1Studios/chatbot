@@ -3,13 +3,15 @@
  "approved_at": "2026-09-30 11:24:58",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-09-30 11:24:31",
  "evidence": [
   "event:20260930-104011-4ba222#12"
  ],
  "gate_failures": 0,
  "id": 455,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,14 +27,29 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-455 at 0c2483c (agy, doc review FAIL (advice: 1. `docs/plans/character-creation-landing.md` 씬 ① 지문 \"눈앞에 서 있던 소녀\": 중립 표현(\"소환자\", \"그 사람\")으로 바꿔 주세요. §0에 비주얼이 비어 있다고 적혀 있고 `ccl/G`, `ccl/H`가 대기 상태라, 성별이나 나이를 정하면 결정을 앞질러 가게 됩니다. 어린아이를 연상시키면 안 된다는 `ccl/G`의 금지선과도 부딪힙니다. 펜던트, 크리스탈 패널, 차원 나침반 같은 외형 소품도 \"예시(외형 확정 전 가안)\"로 표시하거나 뺴 주세요.\n2. 같은 문서 \"온보딩 데이터 및 구현) round 1)",
    "ts": "2026-09-30 11:29:53"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-09-30 11:30:01"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged a233462 on the operator's word (agy)",
+   "ts": "2026-09-30 11:30:34"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-09-30 11:30:34"
   }
  ],
  "paths": [
   "docs/plans/character-creation-landing.md"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "docs/plans/character-creation-landing.md",
  "title": "[ccl/I] 온보딩 콘티: 계정 인증을 자의적 소환 응답으로 연결하는 첫 장면 갱신",
- "updated": "2026-09-30 11:29:53",
+ "updated": "2026-09-30 11:30:34",
  "worked_by": "agy"
 }
