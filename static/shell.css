@@ -1,4 +1,4 @@
-/* shell.css -- the messenger shell, first slice (app-shell.js, docs/plans/ux-shell-roadmap.md 4.2.3, ux/S1). Everything is under html.shell2 (the switch, ?shell=2): without it the list and its Back button do not exist and the page is as before. Loads after the chat-*.css parts. */
+/* shell.css -- the messenger shell (app-shell.js, docs/plans/ux-shell-roadmap.md 4.2.3). Everything is under html.shell2, which index.html sets by default; without it (?shell=1, the hub's compact frame) the list and its Back button do not exist and the page is the old one. Loads after the chat-*.css parts. */
 #shellList,#shellBack{display:none}
 /* wide: the list beside the chat */
 html.shell2 body{display:flex}

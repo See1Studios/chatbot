@@ -1,6 +1,6 @@
-// app-shell.js -- the messenger shell, first slice (docs/plans/ux-shell-roadmap.md 4.2.3, ux/S1). Declarations only:
-// app.js calls shellInit() once the page is up. Behind a switch: `?shell=2` turns it on for this browser, `?shell=1`
-// off (index.html sets html.shell2 before first paint), so the page everyone else uses does not change.
+// app-shell.js -- the messenger shell (docs/plans/ux-shell-roadmap.md 4.2.3, ux/S1-S4). Declarations only: app.js
+// calls shellInit() once the page is up. It is the default; `?shell=1` brings the old page back for this browser,
+// `?shell=2` returns (index.html sets html.shell2 before first paint), and the hub's compact frame keeps the old page.
 // What it adds: a list of talks beside the chat -- one row per character, one per group room -- built from what the
 // server already lists (/api/characters, /api/sessions, /api/rooms). Picking a row is the same call the character
 // tray makes. On a narrow screen the list covers the chat and a row (or Back) slides between them.

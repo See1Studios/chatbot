@@ -439,10 +439,17 @@ class OwnLook(unittest.TestCase):
 
 
 class ShellSwitch(unittest.TestCase):
-    def test_the_page_is_unchanged_without_the_switch(self):
+    def test_the_shell_is_the_default_and_the_old_page_is_one_switch_away(self):
+        # on unless this browser asked for the old page (?shell=1) or it is the hub's compact frame; a browser
+        # whose storage cannot be read still gets the default
         self.assertNotRegex(HTML, r'<html[^>]*class="[^"]*shell2')
-        self.assertIn("localStorage.getItem('chatbot.shell') === '2'", HTML)
-        self.assertIn("q.get('compact') !== '1'", HTML)
+        head = HTML[HTML.index("// SHELL_v2"):HTML.index("</script>", HTML.index("// SHELL_v2"))]
+        self.assertIn("old = localStorage.getItem('chatbot.shell') === '1';", head)
+        self.assertIn("compact = q.get('compact') === '1';", head)
+        self.assertIn("if (!old && !compact) document.documentElement.classList.add('shell2');", head)
+        self.assertLess(head.index("} catch(e){}"), head.index("if (!old && !compact)"))
+
+    def test_the_old_page_is_untouched_by_the_shells_rules(self):
         self.assertTrue(CSS.split("*/", 1)[1].lstrip().startswith("#shellList,#shellBack{display:none}"))
         # every rule that touches the existing page is under the switch
         for rule in re.findall(r"([^{}]+)\{", re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)):

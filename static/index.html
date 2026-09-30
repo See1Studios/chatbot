@@ -29,14 +29,19 @@
         var t = localStorage.getItem('chatbot.themeColor') || 'lime';
         document.documentElement.setAttribute('data-theme', t);
       } catch(e){}
-      // SHELL_v2 (ux/S1): the messenger shell is behind a switch kept by this browser -- ?shell=2 on, ?shell=1 off.
-      // Never in the hub's compact frame.
+      // SHELL_v2 (ux/S1): the messenger shell is the default (operator, 2026-10-01). ?shell=1 brings the old page
+      // back for this browser, ?shell=2 returns to the shell. Never in the hub's compact frame. If storage cannot be
+      // read (a private window), the default still applies.
+      var compact = false, old = false;
       try {
         var q = new URLSearchParams(location.search);
         var s = q.get('shell');
+        compact = q.get('compact') === '1';
+        old = s === '1';
         if (s === '2' || s === '1') localStorage.setItem('chatbot.shell', s);
-        if (localStorage.getItem('chatbot.shell') === '2' && q.get('compact') !== '1') document.documentElement.classList.add('shell2');
+        old = localStorage.getItem('chatbot.shell') === '1';
       } catch(e){}
+      if (!old && !compact) document.documentElement.classList.add('shell2');
     })();
   </script>
   <!-- CSS_SPLIT_v1: the chat stylesheet in parts, in cascade order -->
