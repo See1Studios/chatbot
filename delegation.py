@@ -579,6 +579,55 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
     return out
 
 
+# ------------------------------------------------------------------ the worker knows its own work (WORK_NOTE_v1)
+# A character the operator talks to directly did not know it was doing delegated work: the instruction bundle reaches
+# a CLI brain on the first turn only. One line goes in front of the user's message when the character's work changed
+# since that session was last told (a new session hears all of it once); nothing when nothing changed.
+
+_NOTE_PHASES = {"queued": "queued, waiting for its files", "starting": "starting", "running": "you are working on it",
+                "writing": "you are working on it", "gates": "your change is being tested",
+                "review": "%s is checking your change", "merging": "being landed",
+                "awaiting_merge": "done; waiting for the user's approval", "paused": "paused: you asked for more files",
+                "done": "landed", "gate_failed": "sent back: it did not pass", "failed": "failed",
+                "stalled": "stalled (its process is gone)", "declined": "dropped by the user"}
+_NOTE_KEEP = ("queued", "paused", "awaiting_merge") + ACTIVE_PHASES   # still the character's business
+
+
+def work_note(character: str, told: Dict[str, str]) -> Tuple[str, Dict[str, str]]:
+    """(the line to put before the user's message, the new `told` state) for `character`'s delegated runs. `told`
+    maps ticket -> the phase this session last heard; ended runs are told once, then dropped."""
+    import characters
+    ws = DATA / "workspace"
+    try:
+        default = characters.default_character(ws)
+        if not character or character == default:
+            return "", told
+        mine, default_name = {}, characters.name(default, ws) or "the lead"
+        for r in runs():
+            tasks = r.get("tasks") or []
+            task = tasks[max(0, (r.get("task") or 1) - 1)] if tasks else {}
+            if task.get("role") and characters.by_role(task["role"], ws) == character:
+                mine[str(r["ticket"])] = r
+    except Exception:  # noqa: BLE001 -- a note is a courtesy; the turn goes on without it
+        return "", told
+    lines, now = [], {}
+    for tid, r in mine.items():
+        phase = r["phase"]
+        if phase not in _NOTE_KEEP and tid not in told:
+            continue                                # ended before this session heard of it
+        if phase in _NOTE_KEEP:
+            now[tid] = phase
+        if told.get(tid) == phase:
+            continue
+        what = _NOTE_PHASES.get(phase, phase).replace("%s", default_name)
+        step = " (task %s of %s)" % (r.get("task"), r.get("tasks_total")) if (r.get("tasks_total") or 0) > 1 else ""
+        lines.append('#%s "%s"%s: %s' % (tid, r.get("title", "")[:80], step, what))
+    if not lines:
+        return "", now
+    return ("[Your delegated work] " + " · ".join(lines) + ". This is your own work: speak of it as yours when "
+            "asked; do not start it again here."), now
+
+
 def display_names() -> Dict[str, str]:
     """Role id -> the character's display name, for the page (the PD is ''). Display only (NAME_NEUTRAL_v1)."""
     try:

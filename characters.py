@@ -333,8 +333,11 @@ def listing(ws=None) -> List[Dict]:
 
 
 def by_role(role: str, ws=None) -> Optional[str]:
-    """The first (oldest) character holding this role in the team roster, or None."""
-    return next((c["id"] for c in listing(ws) if role in c["roles"]), None)
+    """The character who plays this role: the oldest holder other than the default character (work of a role is
+    delegated to it), else the default if only it holds the role, else None."""
+    holders = [c["id"] for c in listing(ws) if role in c["roles"]]
+    default = default_character(ws) if len(holders) > 1 else ""
+    return next((h for h in holders if h != default), holders[0] if holders else None)
 
 
 def resolve(ref: str, ws=None) -> Optional[str]:

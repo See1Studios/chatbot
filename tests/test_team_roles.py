@@ -77,6 +77,12 @@ class Roster(unittest.TestCase):
         C.save_team({"default": self.a, "members": {self.a: ["staff"], self.b: ["staff"]}}, self.ws)
         self.assertEqual(C.expert_roles(self.ws), ["staff"], "a role the default also holds stays delegable to others")
 
+    def test_a_role_is_played_by_a_holder_other_than_the_default(self):
+        C.save_team({"default": self.a, "members": {self.a: ["dev", "lead"], self.c: ["dev"]}}, self.ws)
+        self.assertEqual(C.by_role("dev", self.ws), self.c, "the default also holds dev; the work goes to the other")
+        self.assertEqual(C.by_role("lead", self.ws), self.a, "only the default holds it")
+        self.assertIsNone(C.by_role("art", self.ws))
+
     def test_without_a_roster_the_oldest_card_is_the_default_whatever_its_role(self):
         self.assertEqual(C.load_team(self.ws)["default"], self.a)
         C.save(self.a, C.new_card("A", "staff", description="a body"), self.ws)

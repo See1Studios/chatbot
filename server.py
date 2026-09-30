@@ -1400,8 +1400,22 @@ def _record_boot(state: Path = None) -> Dict[str, Any]:
     except Exception as e:  # noqa: BLE001
         obslog.event("boot.state_write_failed", lvl="warn", error=str(e))
     import session as _session_mod
-    _session_mod.boot_notice = _boot_notice
+    _session_mod.boot_notice = _turn_notices
     return BOOT_INFO
+
+
+def _turn_notices(sess) -> str:
+    """Lines put before the user's message (session.boot_notice hook): the restart notice, and in a work session the
+    character's own delegated work when it changed (delegation.work_note, WORK_NOTE_v1)."""
+    notes = [_boot_notice(sess)]
+    if not getattr(sess, "is_private", False):
+        try:
+            import delegation
+            note, sess._work_told = delegation.work_note(getattr(sess, "character", ""), getattr(sess, "_work_told", {}))
+            notes.append(note)
+        except Exception:  # noqa: BLE001 -- no delegation in this build: no note
+            pass
+    return "\n\n".join(n for n in notes if n)
 
 
 def _boot_notice(sess) -> str:
