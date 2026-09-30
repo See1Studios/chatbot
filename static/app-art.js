@@ -14,6 +14,10 @@ const ART_TEXT = {
   done: '반영했어요', failed: '실패: ', noCharacter: '캐릭터를 먼저 고르세요', drop: '여기에 놓으면 갤러리로 올라가요',   // l10n-ok
   bust: '상반신', full: '전신',   // l10n-ok
   pack: 'ZIP 팩 가져오기', packPlaced: '표정 %n개 반영', packSkipped: '건너뜀 %n개: ',   // l10n-ok
+  ask: '빠진 그림 부탁하기', askNone: '이 탭엔 빠진 그림이 없어요',   // l10n-ok
+  askText: '%who의 %what 그림을 그려 줘: %names. character-art 스킬로, 사양은 character-resource-pipeline §10(%spec). 결과는 %cid 갤러리에 올려 줘.',   // l10n-ok
+  specIcon: '아이콘 512 정사각, 얼굴 중심', specBackground: '배경은 장소만, 인물 금지',   // l10n-ok
+  specEmotion: '투명 배경, %f, 표정끼리 같은 캔버스·같은 기준점',   // l10n-ok
 };
 const ART_TABS = ['gallery', 'icon', 'background', 'emotion'];
 let artState = { cid: '', name: '', data: null, tab: 'gallery', framing: 'bust', msg: '' };
@@ -105,8 +109,7 @@ function renderArtManager() {
     if (!items.length) body.appendChild(artEl('div', 'art-mgr-empty', ART_TEXT.empty));
     items.forEach(g => body.appendChild(artGalleryCard(g)));
   } else {
-    const slots = artState.tab === 'emotion' ? ((d.emotion || {})[artState.framing] || []) : (d[artState.tab] || []);
-    slots.forEach(s => body.appendChild(artSlotCard(s)));
+    artCurrentSlots().forEach(s => body.appendChild(artSlotCard(s)));
   }
   artDropZone(body);
   card.appendChild(body);
@@ -135,10 +138,39 @@ function renderArtManager() {
     foot.appendChild(pk);
     foot.appendChild(zin);
   }
+  // am/E: ask the PD for what is missing, as the operator's own message (the PD opens the ticket and delegates).
+  // Work sessions only: a private session has no delegation.
+  if (artState.tab !== 'gallery' && (typeof sessionMode === 'undefined' || sessionMode !== 'private')) {
+    const ask = artEl('button', 'art-btn', ART_TEXT.ask);
+    ask.type = 'button';
+    ask.addEventListener('click', () => {
+      const text = artRequestText(artState.name || artState.cid, artState.cid, artState.tab, artState.framing, artCurrentSlots());
+      if (!text) { artState.msg = ART_TEXT.askNone; renderArtManager(); return; }
+      closeArtManager();
+      if (typeof fillComposer === 'function') fillComposer(text);
+    });
+    foot.appendChild(ask);
+  }
   const note = artEl('span', 'art-mgr-msg', artState.msg || (d.problems || []).join(' · '));
   foot.appendChild(note);
   card.appendChild(foot);
   m.appendChild(card);
+}
+
+function artCurrentSlots() {
+  const d = artState.data || {};
+  return artState.tab === 'emotion' ? ((d.emotion || {})[artState.framing] || []) : (d[artState.tab] || []);
+}
+
+// The request for a tab's missing pictures ('' when none is missing). A slot is missing when it has no picture of
+// its own; one that only falls back to another name counts as missing too.
+function artRequestText(who, cid, tab, framing, slots) {
+  const missing = (slots || []).filter(s => !s.own).map(s => s.brain || (s.name === 'main' ? ART_TEXT.placeholder : s.name));
+  if (!missing.length || !ART_TEXT[tab]) return '';
+  const spec = tab === 'icon' ? ART_TEXT.specIcon : tab === 'background' ? ART_TEXT.specBackground
+    : ART_TEXT.specEmotion.replace('%f', ART_TEXT[framing] || framing);
+  return ART_TEXT.askText.replace('%who', who).replace('%what', ART_TEXT[tab]).replace('%names', missing.join(', '))
+    .replace('%spec', spec).replace('%cid', cid);
 }
 
 function artPicture(url) {

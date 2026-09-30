@@ -1,7 +1,7 @@
 """The art manager modal, the page half (static/app-art.js, character-art-manager.md am/C v0): a slot says whether it
 shows its own picture, what it falls back to, or the placeholder; a finished job that drew into a character's
 gallery is recognised from its paths; the tray and the work card open the modal; a sprite pack's result
-says what landed and what was skipped (am/D). The REAL functions run in node.
+says what landed and what was skipped (am/D); the request for missing pictures names them and the spec (am/E). The REAL functions run in node.
 Run: python3 -m unittest tests.test_art_manager_page  (from services/chatbot)
 """
 import json
@@ -14,8 +14,8 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 
 HARNESS = r"""
 const src = require('fs').readFileSync(process.argv[1], 'utf8');
-const { artSlotBadge, artShownName, artGalleryCharacter, artPackSummary, ART_TEXT } =
-  new Function(src + '; return { artSlotBadge, artShownName, artGalleryCharacter, artPackSummary, ART_TEXT };')();
+const { artSlotBadge, artShownName, artGalleryCharacter, artPackSummary, artRequestText, ART_TEXT } =
+  new Function(src + '; return { artSlotBadge, artShownName, artGalleryCharacter, artPackSummary, artRequestText, ART_TEXT };')();
 console.log(JSON.stringify({
   own: artSlotBadge({ own: true }), ph: artSlotBadge({ own: false, placeholder: true }),
   falls: artSlotBadge({ own: false, placeholder: false, shows: 'sprites/bust/joy.giggle.webp' }),
@@ -24,6 +24,9 @@ console.log(JSON.stringify({
   none: artGalleryCharacter(['data/workspace/characters/char_01ab/card.json']),
   pack: artPackSummary({ placed: ['joy', 'smug'], skipped: [{ file: 'readme.txt', why: 'not a picture' }] }),
   packAll: artPackSummary({ placed: ['joy'], skipped: [] }),
+  askEmo: artRequestText('노노', 'char_x', 'emotion', 'bust', [{ name: 'neutral', own: true }, { name: 'joy', own: false }, { name: 'fear', own: false, placeholder: true }]),
+  askBg: artRequestText('노노', 'char_x', 'background', 'bust', [{ name: 'main', own: false }]),
+  askNone: artRequestText('노노', 'char_x', 'icon', 'bust', [{ name: 'main', own: true }]),
   tabs: [ART_TEXT.gallery, ART_TEXT.icon, ART_TEXT.background, ART_TEXT.emotion].every(Boolean),
 }));
 """
@@ -52,6 +55,17 @@ class ArtManagerPage(unittest.TestCase):
         self.assertEqual(self.o["pack"], "표정 2개 반영 · 건너뜀 1개: readme.txt (not a picture)")
         self.assertEqual(self.o["packAll"], "표정 1개 반영")
 
+    def test_the_request_names_what_is_missing_and_the_spec(self):
+        emo = self.o["askEmo"]
+        self.assertIn("joy, fear", emo)
+        self.assertNotIn("neutral", emo.split(":")[1].split(".")[0], "a slot with its own picture is not asked for")
+        self.assertIn("character-art", emo)
+        self.assertIn("상반신", emo)
+        self.assertIn("char_x", emo)
+        self.assertIn("인물 금지", self.o["askBg"])
+        self.assertEqual(self.o["askNone"], "", "nothing missing, nothing to ask")
+        self.assertIn(": 기본.", self.o["askBg"], "the main slot is asked for by its shown name")
+
 
 class Wiring(unittest.TestCase):
     def test_the_page_loads_it_and_two_places_open_it(self):
@@ -61,6 +75,11 @@ class Wiring(unittest.TestCase):
         self.assertLess(page.index("./app-art.js"), page.index("./app.js?"))
         self.assertIn("openArtManager(openCharacterId())", (STATIC / "app-characters.js").read_text(encoding="utf-8"))
         self.assertIn("openArtManager(drewFor, 'gallery')", (STATIC / "app-evolution.js").read_text(encoding="utf-8"))
+
+    def test_the_request_button_is_for_work_sessions_only(self):
+        src = (STATIC / "app-art.js").read_text(encoding="utf-8")
+        self.assertIn("sessionMode !== 'private'", src)
+        self.assertIn("fillComposer(text)", src)
 
 
 if __name__ == "__main__":
