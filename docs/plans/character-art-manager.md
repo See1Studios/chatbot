@@ -68,7 +68,7 @@
 | `am/A` | 이 문서 + INDEX 행 | 이 문서, `docs/plans/INDEX.md` | 커밋 | 0 · — | S | — | ✅ #372 |
 | `am/B` | 쓰기 라우트 + 변환·검증 | `art_manager.py`, `character_art.py`, 테스트 | 슬러그·형식 판별·용량·투명 규칙, WebP 변환, 이름 규칙대로 저장, 치우기는 갤러리로, 옛 그림은 `_old/` | 2 · ⚡ | M | `crp/S2` | ✅ #375 |
 | `am/C` | 모달 v0 (보기·올리기·지우기) | `static/app-art.js`, `static/art-manager.css`, 테스트 | 갤러리+세 탭, 칸 세 상태(있음/대체됨/placeholder), 끌어다 놓기, 트레이·작업 카드에서 열기 | 2 · — | M | am/B | ✅ #375 v0 (깎는 중) |
-| `am/D` | ZIP 스프라이트 팩 | `character_art.py`, `static/` | 평평한 이름의 PNG들이 표정 칸으로, 모르는 이름은 사용자 정의 표정으로 | 2 · ⚡ | S | am/B, AM4 | 대기 |
+| `am/D` | ZIP 스프라이트 팩 | `art_manager.py`, `static/app-art.js` | 평평한 이름의 PNG들이 표정 칸으로, 모르는 이름은 사용자 정의 표정으로 | 2 · ⚡ | S | am/B, AM4 | ✅ #457 |
 | `am/E` | 생성 요청 = 작업 티켓 | `static/`, 티켓 경로 | 빠진 이름 목록과 §10 사양이 담긴 티켓 | 2 · ⚡ | S | AM3 | 대기 |
 
 ## 7. 하지 않는 것

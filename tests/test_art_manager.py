@@ -1,6 +1,7 @@
 """The art manager's server half (art_manager.py, character-art-manager.md am/B): a character's slots by CCv3 kind
 with what each shows, its gallery of candidates, putting a gallery picture in a slot (fitted, WebP under the cap,
-PNG master beside it, the old one to _old/), taking one out (back to the gallery), and uploads into the gallery.
+PNG master beside it, the old one to _old/), taking one out (back to the gallery), uploads into the gallery, and a
+SillyTavern sprite pack (a ZIP of flat-named pictures) straight into the expression slots (am/D).
 Nothing is deleted. Runs against a scratch workspace; needs Pillow.
 Run: python3 -m unittest tests.test_art_manager  (from services/chatbot)
 """
@@ -10,6 +11,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -23,6 +25,14 @@ try:
     from PIL import Image
 except ImportError:  # pragma: no cover
     Image = None
+
+
+def zipped(files):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for name, data in files.items():
+            z.writestr(name, data)
+    return buf.getvalue()
 
 
 def png(size, alpha=False, color=(200, 120, 90)):
@@ -129,6 +139,48 @@ class ArtManager(unittest.TestCase):
             self.assertIsNone(A.handle_get(p), p)
             self.assertIsNone(A.handle_post(p, {}), p)
 
+
+    def test_a_sprite_pack_fills_expression_slots_by_file_name(self):
+        cut = png((400, 700), alpha=True)
+        data = zipped({"pack/Joy.png": cut, "pack/joy-1.png": cut, "pack/smug.png": cut, "neutral.webp": cut,
+                       "flat.png": png((400, 700)), "bad name!.png": cut, "readme.txt": b"hi",
+                       "__MACOSX/pack/._joy.png": b"x", "pack/joy.webp": cut})
+        r = A.pack(self.cid, data, "full", ws=self.ws)
+        self.assertEqual(sorted(r["placed"]), ["joy", "joy-1", "neutral", "smug"])
+        why = {s["file"]: s["why"] for s in r["skipped"]}
+        self.assertIn("transparent", why["flat.png"])
+        self.assertEqual(set(why), {"flat.png", "bad name!.png", "readme.txt", "pack/joy.webp"}, why)
+        folder = self.base / "sprites" / "full"
+        self.assertEqual(sorted(p.name for p in folder.glob("*.webp")), ["joy-1.webp", "joy.webp", "neutral.webp", "smug.webp"])
+        with Image.open(folder / "smug.webp") as im:
+            self.assertEqual(im.size, C.FRAMINGS["full"][0])
+        slots = {s["name"]: s for s in A.listing(self.cid, self.ws)["emotion"]["full"]}
+        self.assertTrue(slots["smug"]["own"], "an unknown name becomes the character's own expression")
+        again = A.pack(self.cid, zipped({"joy.png": cut}), "full", ws=self.ws)
+        self.assertEqual(again["placed"], ["joy"])
+        self.assertTrue(any(p.name.endswith("sprites__full__joy.webp") for p in (self.base / "_old").iterdir()),
+                        "a pack replacing a picture keeps the old one")
+
+    def test_a_pack_that_is_not_one_is_refused(self):
+        for bad in (b"", b"not a zip", zipped({"a.txt": b"x"}), zipped({})):
+            with self.assertRaises(A.ArtError, msg=bad[:20]):
+                r = A.pack(self.cid, bad, "bust", ws=self.ws)
+                if not r["placed"]:
+                    raise A.ArtError("nothing placed")
+        with self.assertRaises(A.ArtError):
+            A.pack(self.cid, zipped({"joy.png": png((10, 10), alpha=True)}), "side", ws=self.ws)
+        with mock.patch.object(A, "MAX_PACK_FILES", 2), self.assertRaises(A.ArtError):
+            A.pack(self.cid, zipped({"%d.png" % i: b"x" for i in range(3)}), "bust", ws=self.ws)
+
+    def test_the_pack_route_reads_the_framing_header(self):
+        data = zipped({"joy.png": png((300, 500), alpha=True)})
+        code, body = A.handle_upload("/api/characters/%s/art/pack" % self.cid,
+                                     {"Content-Length": str(len(data)), "X-Framing": "full"}, io.BytesIO(data))
+        self.assertEqual((code, body["ok"], body["framing"], body["placed"]), (200, True, "full", ["joy"]))
+        code, body = A.handle_upload("/api/characters/%s/art/pack" % self.cid,
+                                     {"Content-Length": "3"}, io.BytesIO(b"abc"))
+        self.assertEqual(code, 400)
+        self.assertIsNone(A.handle_upload("/api/characters/%s/art/packs" % self.cid, {}, io.BytesIO(b"")))
 
 if __name__ == "__main__":
     unittest.main()

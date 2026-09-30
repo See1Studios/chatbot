@@ -13,6 +13,7 @@ const ART_TEXT = {
   askEmotion: '표정 이름 (neutral, joy, sadness … 또는 joy.giggle 같은 세부 이름)', askRemove: '이 칸의 그림을 갤러리로 돌려놓을까요?',   // l10n-ok
   done: '반영했어요', failed: '실패: ', noCharacter: '캐릭터를 먼저 고르세요', drop: '여기에 놓으면 갤러리로 올라가요',   // l10n-ok
   bust: '상반신', full: '전신',   // l10n-ok
+  pack: 'ZIP 팩 가져오기', packPlaced: '표정 %n개 반영', packSkipped: '건너뜀 %n개: ',   // l10n-ok
 };
 const ART_TABS = ['gallery', 'icon', 'background', 'emotion'];
 let artState = { cid: '', name: '', data: null, tab: 'gallery', framing: 'bust', msg: '' };
@@ -122,6 +123,18 @@ function renderArtManager() {
   up.addEventListener('click', () => input.click());
   foot.appendChild(up);
   foot.appendChild(input);
+  if (artState.tab === 'emotion') {   // a SillyTavern sprite pack into this framing's slots (am/D)
+    const pk = artEl('button', 'art-btn', ART_TEXT.pack + ' · ' + ART_TEXT[artState.framing]);
+    pk.type = 'button';
+    const zin = artEl('input');
+    zin.type = 'file';
+    zin.accept = '.zip,application/zip';
+    zin.hidden = true;
+    zin.addEventListener('change', () => { if (zin.files && zin.files[0]) artPack(zin.files[0]); });
+    pk.addEventListener('click', () => zin.click());
+    foot.appendChild(pk);
+    foot.appendChild(zin);
+  }
   const note = artEl('span', 'art-mgr-msg', artState.msg || (d.problems || []).join(' · '));
   foot.appendChild(note);
   card.appendChild(foot);
@@ -210,6 +223,28 @@ async function artUpload(files) {
   await artReload(artState.msg);
 }
 
+async function artPack(file) {
+  let msg;
+  try {
+    const r = await fetch(BASE_PATH + '/api/characters/' + encodeURIComponent(artState.cid) + '/art/pack', {
+      method: 'POST', headers: { 'X-Framing': artState.framing, 'Content-Type': 'application/zip' }, body: file });
+    if (!r.ok) throw new Error(await r.text());
+    msg = artPackSummary(await r.json());
+    artRefreshPage();
+  } catch (e) {
+    msg = ART_TEXT.failed + artError(e);
+  }
+  await artReload(msg);
+}
+
+// One line: how many expressions landed, then each skipped file with the reason the server gave.
+function artPackSummary(r) {
+  const parts = [ART_TEXT.packPlaced.replace('%n', (r.placed || []).length)];
+  const sk = r.skipped || [];
+  if (sk.length) parts.push(ART_TEXT.packSkipped.replace('%n', sk.length) + sk.map(x => x.file + ' (' + x.why + ')').join(', '));
+  return parts.join(' · ');
+}
+
 function artDropZone(el) {
   el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drop'); el.dataset.hint = ART_TEXT.drop; });
   el.addEventListener('dragleave', () => el.classList.remove('drop'));
@@ -217,7 +252,10 @@ function artDropZone(el) {
     e.preventDefault();
     e.stopPropagation();   // not the chat's own attach drop (app-attach.js)
     el.classList.remove('drop');
-    const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []).filter(f => /^image\//.test(f.type));
+    const all = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+    const zip = all.find(f => /\.zip$/i.test(f.name));
+    if (zip && artState.tab === 'emotion') return artPack(zip);
+    const files = all.filter(f => /^image\//.test(f.type));
     if (files.length) artUpload(files);
   });
 }

@@ -1,6 +1,7 @@
 """The art manager modal, the page half (static/app-art.js, character-art-manager.md am/C v0): a slot says whether it
 shows its own picture, what it falls back to, or the placeholder; a finished job that drew into a character's
-gallery is recognised from its paths; the tray and the work card open the modal. The REAL functions run in node.
+gallery is recognised from its paths; the tray and the work card open the modal; a sprite pack's result
+says what landed and what was skipped (am/D). The REAL functions run in node.
 Run: python3 -m unittest tests.test_art_manager_page  (from services/chatbot)
 """
 import json
@@ -13,14 +14,16 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 
 HARNESS = r"""
 const src = require('fs').readFileSync(process.argv[1], 'utf8');
-const { artSlotBadge, artShownName, artGalleryCharacter, ART_TEXT } =
-  new Function(src + '; return { artSlotBadge, artShownName, artGalleryCharacter, ART_TEXT };')();
+const { artSlotBadge, artShownName, artGalleryCharacter, artPackSummary, ART_TEXT } =
+  new Function(src + '; return { artSlotBadge, artShownName, artGalleryCharacter, artPackSummary, ART_TEXT };')();
 console.log(JSON.stringify({
   own: artSlotBadge({ own: true }), ph: artSlotBadge({ own: false, placeholder: true }),
   falls: artSlotBadge({ own: false, placeholder: false, shows: 'sprites/bust/joy.giggle.webp' }),
   name: artShownName('sprites/bust/grok/neutral.png'),
   drew: artGalleryCharacter(['docs/x.md', 'data/workspace/characters/char_01m376xaa1e0fsdhm3e3kbnybd/gallery/nono-desk-01.png']),
   none: artGalleryCharacter(['data/workspace/characters/char_01ab/card.json']),
+  pack: artPackSummary({ placed: ['joy', 'smug'], skipped: [{ file: 'readme.txt', why: 'not a picture' }] }),
+  packAll: artPackSummary({ placed: ['joy'], skipped: [] }),
   tabs: [ART_TEXT.gallery, ART_TEXT.icon, ART_TEXT.background, ART_TEXT.emotion].every(Boolean),
 }));
 """
@@ -44,6 +47,10 @@ class ArtManagerPage(unittest.TestCase):
         self.assertEqual(self.o["drew"], "char_01m376xaa1e0fsdhm3e3kbnybd")
         self.assertEqual(self.o["none"], "")
         self.assertTrue(self.o["tabs"])
+
+    def test_a_pack_result_says_what_landed_and_what_was_skipped_why(self):
+        self.assertEqual(self.o["pack"], "표정 2개 반영 · 건너뜀 1개: readme.txt (not a picture)")
+        self.assertEqual(self.o["packAll"], "표정 1개 반영")
 
 
 class Wiring(unittest.TestCase):

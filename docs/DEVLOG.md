@@ -2,6 +2,13 @@
 
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 
+## 2026-09-30 — 그림 관리: SillyTavern 스프라이트 ZIP 팩 가져오기 (ART_PACK_v1, am/D #457)
+
+- **변경**: `art_manager.pack` + `POST /api/characters/<id>/art/pack`(본문 = ZIP, `X-Framing` = bust/full). 파일 이름이 곧 표정 — `Joy.png`→`joy`, `joy-1.png`는 joy 두 번째 장, 모르는 이름(`smug`)은 그 캐릭터만의 표정. ZIP 안 폴더·`__MACOSX`·점 파일은 무시. 칸에 넣는 규칙은 갤러리 [표정으로]와 같은 `_place` 한 곳(캔버스 맞춤·WebP 상한·PNG 마스터·옛 그림 `_old/`). 팩을 고른 것이 승인이라 갤러리를 거치지 않음. 넣을 수 없는 파일(투명 아님·이름 불가·같은 이름 두 번·그림 아님)은 이유와 함께 건너뛰고 나머지는 반영. 상한: ZIP 100MB, 파일 200개, 풀었을 때 300MB. `server.py` 변경 없음(업로드 연결 줄이 이미 `art_manager.handle_upload`).
+- **화면**: 표정 탭 아래 [ZIP 팩 가져오기 · 상반신/전신](지금 고른 프레이밍), 표정 탭에 ZIP을 끌어다 놓아도 됨. 결과 한 줄 "표정 N개 반영 · 건너뜀 M개: 파일 (이유)".
+- **배포**: ⚡.
+- **테스트**: `test_art_manager` 3건(이름·건너뜀·교체 보관, 잘못된 팩, 라우트), `test_art_manager_page` 결과 문장.
+
 ## 2026-09-29 — 병합은 됐는데 티켓이 열린 작업의 [승인] (MERGED_CLOSE_v1, #378)
 
 - **증상**: 그림 카드 #371 [승인] → "ticket 371 has no delegated change awaiting a merge". 01:42 병합(fast-forward)은 됐지만 티켓을 닫기 전에 병합 작업권이 만료돼(`author lease expired`) 러너는 `merged-ticket-open`, 티켓은 `awaiting_merge`로 어긋남. 카드는 티켓을 보고 [승인]을 띄우고, 서버는 러너를 보고 거절.
