@@ -736,42 +736,27 @@ function viewingPastSession() {
 }
 
 async function resolveLatestSessionId() {
-  const ids = [];
+  const ids = [liveSessionId, sessionNavNextSid];
   try {
-    const list = await api('/api/sessions');
-    for (const s of (list.sessions || [])) {
-      if (s && isLiveSid(s.id) && sameSessionMode(s)) ids.push(s.id);
-    }
+    for (const s of ((await api('/api/sessions')).sessions || [])) if (s && sameSessionMode(s)) ids.push(s.id);
   } catch (_) {}
   if (sessionMode === 'work' && openCharacterId() === defaultCharacterId()) {
-    try {
-      const act = await api('/api/sessions/active');
-      if (act && isLiveSid(act.id)) ids.push(act.id);
-    } catch (_) {}
+    try { ids.push((await api('/api/sessions/active') || {}).id); } catch (_) {}
   }
-  if (liveSessionId && isLiveSid(liveSessionId)) ids.push(liveSessionId);
-  if (sessionNavNextSid && isLiveSid(sessionNavNextSid)) ids.push(sessionNavNextSid);
-  let best = '';
-  for (const id of ids) {
-    if (!best || id > best) best = id;
-  }
-  if (!best) return sessionId || '';
-  let id = best;
-  const seen = new Set([id]);
+  let id = ids.filter(isLiveSid).sort().pop();
+  if (!id) return sessionId || '';
+  // walk successor links (a handoff the list has not caught up with yet); an empty tip falls back to the last
+  // session with turns so it never reads as "대화를 못 불러와"
+  const seen = new Set();
   let lastWithTurns = '';
-  for (let hops = 0; hops < 40; hops++) {
+  while (!seen.has(id) && seen.size < 40) {
+    seen.add(id);
     let info;
-    try { info = await api('/api/sessions/' + encodeURIComponent(id)); }
-    catch (_) { return lastWithTurns || id; }
+    try { info = await api('/api/sessions/' + encodeURIComponent(id)); } catch (_) { break; }
     const turns = (info && Array.isArray(info.history)) ? info.history.length : 0;
     if (turns > 0) lastWithTurns = id;
     const next = (info && info.successor_session_id) || '';
-    if (!next || seen.has(next) || !isLiveSid(next)) {
-      // EMPTY_TIP_BOOT_FIX_v1: unused empty successor looked like "대화를 못 불러와"
-      if (turns === 0 && lastWithTurns) return lastWithTurns;
-      return id;
-    }
-    seen.add(next);
+    if (!isLiveSid(next) || seen.has(next)) return (turns === 0 && lastWithTurns) || id;
     id = next;
   }
   return lastWithTurns || id;
@@ -792,7 +777,9 @@ function pinChatToBottom() {
 }
 
 async function goToLatestConversation() {
-  const latestId = await resolveLatestSessionId();
+  // the log already holds the live tip (scrolled back inside the latest channel): just pin, no network
+  const tipOnScreen = typeof containsActiveTip === 'function' && containsActiveTip();
+  const latestId = tipOnScreen ? '' : await resolveLatestSessionId();
   if (latestId) liveSessionId = latestId;
   archiveBrowse = false;
   if (latestId && latestId !== sessionId) {

@@ -597,7 +597,7 @@ async function send(opts) {
       setProgress('');
       await applyModeSwitch(msgRes);
     } else if (msgRes && msgRes.rotated && msgRes.session && msgRes.session.id) {
-      const nid = msgRes.session.id;
+      const nid = msgRes.session.id; liveSessionId = nid; archiveBrowse = false;   // the handoff is the new live tip
       addActivity('서버가 긴 세션을 새 채팅으로 인계 전환: ' + nid);
       // Seamless in-flow handoff (operator: "세션 간 경계가 느껴지지 않게") --
       // the message this branch is handling is already visible on screen
