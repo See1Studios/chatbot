@@ -1,6 +1,7 @@
-// app-art.js -- the art manager modal (docs/plans/character-art-manager.md am/C). v0, to be shaped by use (operator,
-// 2026-09-29: build it rough, then carve). Declarations only; opened from the character tray and from a finished work card
-// whose result landed in a character's gallery.
+// app-art.js -- the art manager, a pane of its own (docs/plans/character-art-manager.md am/C). v0, to be shaped by use
+// (operator, 2026-09-29: build it rough, then carve). Declarations only; opened from the character tray and from a finished
+// work card whose result landed in a character's gallery. In the shell it draws into the art pane's #artManager
+// (shell-art, app-shell.js shellGoArt); without one it still makes its own overlay. A picture opens the image viewer.
 //
 // Tabs follow Character Card V3 asset kinds: gallery (candidates, e.g. what a delegated artist drew), icon,
 // background, emotion. A slot shows its own picture, or what it falls back to (ART_NAMES_v1), or the placeholder.
@@ -181,18 +182,23 @@ function artRequestText(who, cid, tab, framing, slots) {
     .replace('%spec', spec).replace('%cid', cid);
 }
 
-function artPicture(url) {
+// A click opens the shared image viewer (markdown.js) with the slot's name; a new window only where it is missing.
+function artPicture(url, name) {
   const img = artEl('img');
   img.loading = 'lazy';
   img.src = artUrl(url);
-  img.alt = '';
-  img.addEventListener('click', () => window.open(img.src, '_blank', 'noopener'));
+  img.alt = name || '';
+  img.addEventListener('click', () => {
+    const src = img.currentSrc || img.src;
+    if (typeof openImageLightbox === 'function' && typeof openArtifactModal === 'function') openImageLightbox(src, name);
+    else window.open(src, '_blank', 'noopener');
+  });
   return img;
 }
 
 function artSlotCard(slot) {
   const c = artEl('div', 'art-slot' + (slot.own ? '' : ' empty'));
-  c.appendChild(artPicture(slot.url));
+  c.appendChild(artPicture(slot.url, slot.brain || slot.name));
   const row = artEl('div', 'art-slot-row');
   row.appendChild(artEl('span', 'art-slot-name', slot.brain ? slot.brain : slot.name));
   const [label, kind] = artSlotBadge(slot);
@@ -212,7 +218,7 @@ function artSlotCard(slot) {
 
 function artGalleryCard(g) {
   const c = artEl('div', 'art-slot');
-  c.appendChild(artPicture(g.url));
+  c.appendChild(artPicture(g.url, g.file));
   c.appendChild(artEl('div', 'art-slot-name', g.file));
   const acts = artEl('div', 'art-slot-acts');
   const put = (label, body) => {
