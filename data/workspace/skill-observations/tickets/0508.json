@@ -3,13 +3,15 @@
  "approved_at": "2026-10-01 11:37:26",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-01 11:31:47",
  "evidence": [
   "event:20261001-112737-e25e73#53"
  ],
  "gate_failures": 0,
  "id": 508,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -190,6 +192,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-508 at 08a5d88 (agy, review PASS round 1)",
    "ts": "2026-10-01 12:05:24"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-01 12:05:57"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 2da579f on the operator's word (agy)",
+   "ts": "2026-10-01 12:10:04"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-01 12:10:04"
   }
  ],
  "paths": [
@@ -206,9 +223,9 @@
   "static/slash.js",
   "tests/test_observation_ui.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/app-api.js,static/app-evolution.js,static/app-shell.js,static/app-sse.js,",
  "title": "[feat/ui] '소생' 명칭을 '엔진 리부트 (Engine Reboot)'로 일원화",
- "updated": "2026-10-01 12:05:24",
+ "updated": "2026-10-01 12:10:04",
  "worked_by": "agy"
 }
