@@ -1,0 +1,39 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-10-01 11:54:35",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-10-01 11:45:38",
+ "evidence": [
+  "event:20261001-114004-c8d92a#40"
+ ],
+ "gate_failures": 0,
+ "id": 509,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-10-01 11:54:35"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: docs/plans/INDEX.md, docs/plans/steam-collab-dlc.md",
+   "ts": "2026-10-01 11:54:35"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-509 at 5a18690 (agy, review PASS round 1)",
+   "ts": "2026-10-01 11:57:30"
+  }
+ ],
+ "paths": [
+  "docs/plans/INDEX.md",
+  "docs/plans/steam-collab-dlc.md"
+ ],
+ "status": "awaiting_merge",
+ "target": "docs/plans/index.md,docs/plans/steam-collab-dlc.md",
+ "title": "[plan] 스팀 콜라보 DLC 및 버튜버·인디 IP 제휴 파이프라인 수립",
+ "updated": "2026-10-01 11:57:30",
+ "worked_by": "agy"
+}
