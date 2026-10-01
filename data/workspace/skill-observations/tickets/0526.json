@@ -1,0 +1,40 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-10-01 19:22:46",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-10-01 19:16:46",
+ "evidence": [
+  "log:rid:fb3e59458b22"
+ ],
+ "gate_failures": 0,
+ "id": 526,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-10-01 19:22:46"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: room_chat.py, static/app-rooms.js, tests/test_room_chat.py",
+   "ts": "2026-10-01 19:22:46"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-526 at 17fa674 (agy, review PASS round 1)",
+   "ts": "2026-10-01 19:29:38"
+  }
+ ],
+ "paths": [
+  "room_chat.py",
+  "static/app-rooms.js",
+  "tests/test_room_chat.py"
+ ],
+ "status": "awaiting_merge",
+ "target": "room_chat.py,static/app-rooms.js,tests/test_room_chat.py",
+ "title": "[fix/room] 단체방 공백 멘션 파싱 버그 수정, 턴 상한 상향 및 티키타카·반응성 개선 (evt/E)",
+ "updated": "2026-10-01 19:29:38",
+ "worked_by": "agy"
+}
