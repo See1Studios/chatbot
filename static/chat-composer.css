@@ -11,7 +11,23 @@
   line-height:1.35;
   padding:.35rem .6rem;
   border-radius:10px;
+  touch-action:pan-y;
+  user-select:none;
+  will-change:transform, opacity;
 }
+.msg.system.swiping{transition:none}
+.msg.system.dismissing{
+  transform:translateX(var(--dismiss-x, 100%));
+  opacity:0;
+  max-height:0;
+  margin-top:0;
+  margin-bottom:0;
+  padding-top:0;
+  padding-bottom:0;
+  transition:all .25s ease-out;
+  overflow:hidden;
+}
+.msg.system.resetting{transition:transform .2s ease-out, opacity .2s ease-out}
 .msg.system::before, .msg.system::after { display: none !important; content: none !important; }
 .msg.system .notice-head{
   display:flex;align-items:center;gap:.35rem;

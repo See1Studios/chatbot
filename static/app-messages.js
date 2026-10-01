@@ -229,7 +229,53 @@ function addNotice(kind, text, ts, ephemeral) {
   const body = stripNoticeChromeEmojis(text);
   const node = addChat('assistant', body, true, false, false, false, null, null, k, ts);
   if (ephemeral && node) node.dataset.ephemeral = '1';
+  attachNoticeSwipe(node);
   return node;
+}
+
+function attachNoticeSwipe(el) {
+  if (!el || el._nsw) return;
+  el._nsw = 1;
+  let x0 = 0, y0 = 0, dx = 0, axis = 0;
+  const end = () => {
+    if (!el.classList.contains('swiping')) return;
+    el.classList.remove('swiping');
+    if (Math.abs(dx) >= Math.max(70, el.offsetWidth * .3)) {
+      el.style.cssText = '';
+      el.style.setProperty('--dismiss-x', (dx < 0 ? '-' : '') + '100%');
+      el.classList.add('dismissing');
+      const gone = () => el.remove();
+      el.addEventListener('transitionend', gone, { once: true });
+      setTimeout(gone, 280);
+    } else {
+      el.classList.add('resetting');
+      el.style.transform = 'translateX(0)';
+      el.style.opacity = '1';
+      el.addEventListener('transitionend', () => { el.classList.remove('resetting'); el.style.cssText = ''; }, { once: true });
+    }
+  };
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button) return;
+    x0 = e.clientX; y0 = e.clientY; dx = 0; axis = 0;
+    el.classList.remove('resetting', 'dismissing');
+    el.classList.add('swiping');
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!el.classList.contains('swiping')) return;
+    const mx = e.clientX - x0, my = e.clientY - y0;
+    if (!axis) {
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      axis = Math.abs(mx) >= Math.abs(my) ? 1 : -1;
+      if (axis < 0) el.classList.remove('swiping');
+    }
+    if (axis > 0) {
+      dx = mx;
+      el.style.transform = 'translateX(' + dx + 'px)';
+      el.style.opacity = String(Math.max(.25, 1 - Math.abs(dx) / Math.max(el.offsetWidth, 1)));
+    }
+  });
+  ['pointerup', 'pointercancel'].forEach((ev) => el.addEventListener(ev, end));
 }
 
 
@@ -734,7 +780,10 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
   // NOTICE_UI_v1: isSystem may be true or a notice kind string
   const noticeKind = normalizeNoticeKind(isSystem);
   div.className = 'msg ' + role + (noticeKind ? ' system notice-' + noticeKind : '');
-  if (noticeKind) div.dataset.notice = noticeKind;
+  if (noticeKind) {
+    div.dataset.notice = noticeKind;
+    attachNoticeSwipe(div);
+  }
   if (isQueued) div.classList.add('queued');
   if (isBtw) div.classList.add('btw-user');
   div.dataset.syncRole = isBtw ? 'btw-user' : (role || '');
