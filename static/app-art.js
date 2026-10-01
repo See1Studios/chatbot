@@ -16,7 +16,7 @@ const ART_TEXT = {
   bust: '상반신', full: '전신',   // l10n-ok
   pack: 'ZIP 팩 가져오기', packPlaced: '표정 %n개 반영', packSkipped: '건너뜀 %n개: ',   // l10n-ok
   packUrl: 'URL로 가져오기', askUrl: 'SillyTavern 표정 ZIP 팩의 다운로드 링크 (http/https)', packLoading: '내려받는 중…',   // l10n-ok
-  ask: '빠진 그림 부탁하기', askNone: '이 탭엔 빠진 그림이 없어요',   // l10n-ok
+  ask: '빠진 그림 부탁하기', askNone: '이 탭엔 빠진 그림이 없어요', warn: '⚠️ 주의 %n건',   // l10n-ok
   askText: '%who의 %what 그림을 그려 줘: %names. character-art 스킬로, 사양은 character-resource-pipeline §10(%spec). 결과는 %cid 갤러리에 올려 줘.',   // l10n-ok
   specIcon: '아이콘 512 정사각, 얼굴 중심', specBackground: '배경은 장소만, 인물 금지',   // l10n-ok
   specEmotion: '투명 배경, %f, 표정끼리 같은 캔버스·같은 기준점',   // l10n-ok
@@ -117,6 +117,8 @@ function renderArtManager() {
   card.appendChild(body);
 
   const foot = artEl('div', 'art-mgr-foot');
+  const acts = artEl('div', 'art-mgr-acts');   // left: actions; right: artFootStatus
+  foot.appendChild(acts);
   const up = artEl('button', 'art-btn primary', ART_TEXT.upload);
   up.type = 'button';
   const input = artEl('input');
@@ -126,8 +128,8 @@ function renderArtManager() {
   input.hidden = true;
   input.addEventListener('change', () => artUpload(Array.from(input.files || [])));
   up.addEventListener('click', () => input.click());
-  foot.appendChild(up);
-  foot.appendChild(input);
+  acts.appendChild(up);
+  acts.appendChild(input);
   if (artState.tab === 'emotion') {   // a SillyTavern sprite pack into this framing's slots (am/D)
     const pk = artEl('button', 'art-btn', ART_TEXT.pack + ' · ' + ART_TEXT[artState.framing]);
     pk.type = 'button';
@@ -137,15 +139,15 @@ function renderArtManager() {
     zin.hidden = true;
     zin.addEventListener('change', () => { if (zin.files && zin.files[0]) artPack(zin.files[0]); });
     pk.addEventListener('click', () => zin.click());
-    foot.appendChild(pk);
-    foot.appendChild(zin);
+    acts.appendChild(pk);
+    acts.appendChild(zin);
     const pu = artEl('button', 'art-btn', ART_TEXT.packUrl);
     pu.type = 'button';
     pu.addEventListener('click', () => {
       const url = (window.prompt(ART_TEXT.askUrl, '') || '').trim();
       if (url) artPackUrl(url);
     });
-    foot.appendChild(pu);
+    acts.appendChild(pu);
   }
   // am/E: ask the PD for what is missing, as the operator's own message (the PD opens the ticket and delegates).
   // Work sessions only: a private session has no delegation.
@@ -158,12 +160,31 @@ function renderArtManager() {
       closeArtManager();
       if (typeof fillComposer === 'function') fillComposer(text);
     });
-    foot.appendChild(ask);
+    acts.appendChild(ask);
   }
-  const note = artEl('span', 'art-mgr-msg', artState.msg || (d.problems || []).join(' · '));
-  foot.appendChild(note);
+  artFootStatus(foot, d.problems || []);
   card.appendChild(foot);
   m.appendChild(card);
+}
+
+// The foot's right side: a message wins; one problem shows as is; several fold into a count that toggles the list.
+function artFootStatus(foot, problems) {
+  if (artState.msg || problems.length < 2) {
+    const note = artEl('span', 'art-mgr-msg', artState.msg || problems[0] || '');
+    note.title = note.textContent;
+    foot.appendChild(note);
+    return;
+  }
+  const warn = artEl('button', 'art-mgr-warn', ART_TEXT.warn.replace('%n', problems.length));
+  warn.type = 'button';
+  warn.title = problems.join('\n');
+  warn.setAttribute('aria-expanded', String(!!artState.warnOpen));
+  warn.addEventListener('click', () => { artState.warnOpen = !artState.warnOpen; renderArtManager(); });
+  foot.appendChild(warn);
+  if (!artState.warnOpen) return;
+  const list = artEl('ul', 'art-mgr-problems');
+  problems.forEach(p => list.appendChild(artEl('li', '', p)));
+  foot.appendChild(list);
 }
 
 function artCurrentSlots() {
