@@ -66,6 +66,7 @@ import obslog
 import evolution
 import identity
 import origin_guard
+import push_manager
 import static_delivery
 
 try:  # worktree delegation (work cards, [맡겨]/[병합·⚡]); the page still loads without it
@@ -419,16 +420,12 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 "boot_ts": BOOT_INFO["boot_ts"],
             })
             return self._send(code, body, "application/json; charset=utf-8")
+        if push_manager.dispatch_push_api(self, "GET", path):
+            return None
         if path == "/api/host/status":
-            chat_ok = False
-            try:
-                # ourselves — if we answer, chat is up
-                chat_ok = True
-            except Exception:
-                chat_ok = False
             code, body = _json_bytes({
                 "ok": True,
-                "chat": chat_ok,
+                "chat": True,  # we answered, so chat is up
                 "boot_ts": BOOT_INFO["boot_ts"],
                 "label_ko": "엔진 리부트",
                 "hint_ko": "연결이 죽었거나 응답이 안 올 때 호스트를 재기동합니다. 몇 초 끊겼다가 다시 붙습니다.",
@@ -788,12 +785,9 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = self._normalize_req_path(parsed.path)
-        # Same-origin gate: every mutating POST must come from a page served by
-        # this server. Requiring Content-Type: application/json (enforced in
-        # _read_json above) already forces a CORS preflight for browser clients;
-        # this check is defence in depth for non-browser callers that forge Origin.
-        # Exceptions: none — the existing per-route checks below are now redundant
-        # but harmless; a request that reaches them has already passed here.
+        # Same-origin gate: every mutating POST must come from a page served by this server. Requiring Content-Type:
+        # application/json (_read_json) already forces a CORS preflight for browser clients; this check is defence in
+        # depth for non-browser callers that forge Origin. Exceptions: none (per-route checks below are redundant).
         if not origin_guard.same_origin(
             self.headers.get("Origin"),
             self.headers.get("Host"),
@@ -805,6 +799,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             status, payload = card_upload.handle(self.headers, self.rfile, WORKSPACE)
             code, raw = _json_bytes(payload, status)
             return self._send(code, raw, "application/json; charset=utf-8")
+        if push_manager.dispatch_push_api(self, "POST", path):
+            return None
         up = chat_upload.handle(path, self.headers, self.rfile) or art_manager.handle_upload(path, self.headers, self.rfile)
         if up:
             code, raw = _json_bytes(up[1], up[0])

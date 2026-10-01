@@ -31,6 +31,9 @@ DATA = Path(next((os.environ[k] for k in DATA_ENV if os.environ.get(k)), str(ROO
 STATIC = ROOT / "static"
 SESSIONS = DATA / "sessions"
 WORKSPACE = DATA / "workspace"
+# Web Push (push_manager.py): the install's VAPID key pair and the browsers subscribed to it
+PUSH_VAPID_FILE = DATA / "push_vapid.json"
+PUSH_SUBSCRIPTIONS_FILE = DATA / "push_subscriptions.json"
 # An external static web root the install publishes into (persona images, the /chat shortcut). An install with no
 # web server leaves it unset and gets a folder in its own data; a host that has one names it in
 # $CHATBOT_DATA/host.env (templates/host.env.example). align/F: no host path is baked in.
