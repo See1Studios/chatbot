@@ -4,6 +4,13 @@
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 
+## 2026-10-02 — 위임 측정 기록: 대상 파일 크기와 끝난 시각 (D1 ③, #543)
+
+- **왜**: 크기 상한(1,500줄·1,000줄, 지금은 80,000B·43,000B)은 측정값이 아니라 판단값이었다(계획 6.7 D1). 다음에 숫자를 고칠 때 "이 크기의 파일을 맡긴 위임이 얼마나 걸려 어떻게 끝났나"를 보고 정하려고.
+- **변경**: 이미 위임마다 남는 실행 상태 파일(`~/.worktrees/chatbot/runs/ticket-N.json`, 지금 252개)에 `target_bytes`(시작 때 대상 파일별 바이트)와 `ended_<결과>`(done·awaiting_merge·gate_failed …, 병합 대기 뒤 완료가 일한 시간을 덮어쓰지 않게 결과별)를 더함. `started`·`provider`·`round`는 원래 있었음. 새 저장소 없음 — 라이브 로그(`logs/events.jsonl`)는 러너 테스트가 실제 로그를 건드리게 돼서 쓰지 않음.
+- **테스트**: `test_worktree_runner` 병합 경로에서 두 값 확인.
+- **재시작 불필요**(러너는 위임마다 새 프로세스).
+
 ## 2026-10-02 — `worktree_runner.py` 80KB 아래: 검토 부분은 `review_checklist.py`로, `cmd_run` 앞부분은 단계로 (split/G, #541)
 
 - **변경**: 검토자에게 주는 프롬프트, diff를 한도에 맞추기, 판정 읽기(`review_prompt`·`doc_review_prompt`·`fit_diff`·`parse_review`·`is_doc_task`·`deleted_lines`·`DOC_CHECKLIST`·`DIFF_LIMIT`)를 `tools/review_checklist.py`로 — 실행은 안 하는 순수 함수라 러너가 다시 가져와 씀(`wr.parse_review` 등 기존 호출 그대로). `cmd_run`에서 인자 검사(`arg_error`), 티켓 얻기(`claim_ticket`), 새 작업 사본(`new_worktree`)을 뺌 — `created` 표시는 전처럼 사본이 생긴 뒤 호출 쪽에서. 82,775B → 77,791B, `cmd_run` 319 → 282줄. 크기 천장에 걸린 파이썬 파일이 이제 없음.

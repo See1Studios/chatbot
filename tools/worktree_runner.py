@@ -719,6 +719,12 @@ def read_state(tid: int) -> Dict:
         return {}
 
 
+def path_bytes(repo: Path, paths: List[str]) -> Dict[str, int]:
+    """Each target file's size as the run starts. With `started` and `ended_<outcome>` in the state file, this is the
+    record monolith-split D1 ③ asked for: set the size caps from how delegations went, not by judgement."""
+    return {p: (repo / p).stat().st_size for p in paths if (repo / p).is_file()}
+
+
 def write_state(tid: int, **fields) -> None:
     """Merge `fields` into the run's state file (atomic replace): what a watcher shows, what `merge` needs."""
     path = state_path(tid)
@@ -835,7 +841,8 @@ def record_and_report(repo: Path, tid: int, provider: str, title: str, result: D
     if record:
         result["ticket_commit"] = record
         log("ticket record committed (%s)" % record)
-    write_state(tid, phase=outcome, reason=result.get("reason", ""), head=result.get("head", ""))
+    write_state(tid, phase=outcome, reason=result.get("reason", ""), head=result.get("head", ""),
+                **{"ended_" + outcome: time.time()})
     if as_json:
         print(json.dumps(result, ensure_ascii=False, indent=1))
     else:
@@ -936,7 +943,7 @@ def run_content(args, repo: Path, provider: str, paths: List[str], tid: int, tok
         kept = keep_old(repo, paths)
         write_state(tid, phase="running", content=True, round=0, task=0, tasks_total=len(tasks), started=time.time(),
                     phase_since=time.time(), title=args.title, provider=provider, reviewer=None, paths=paths,
-                    transcript=transcript, reason="", kept=False, tasks_done=0)
+                    transcript=transcript, reason="", kept=False, tasks_done=0, target_bytes=path_bytes(repo, paths))
         for tno, task in enumerate(tasks, 1):
             writer_p = persona(task["role"])
             chain = expert_chain(task["role"], [{"provider": provider, "model": args.model, "timeout": 0}])
@@ -1108,7 +1115,7 @@ def cmd_run(args) -> int:
                     phase_since=time.time(), title=args.title, provider=provider, reviewer=reviewer,
                     paths=paths, gates=gates, main_branch=main_branch, base=base, branch=branch,
                     worktree=str(wt_dir), transcript=transcript, reason="", kept=False, tasks_done=done_tasks,
-                    base_broken=False)
+                    base_broken=False, target_bytes=path_bytes(repo, paths))
 
         def renew() -> None:
             try:

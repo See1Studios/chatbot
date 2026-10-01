@@ -117,6 +117,10 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(sh(self.repo, "git", "show", "--name-only", "--format=", "HEAD"),
                          "data/workspace/skill-observations/tickets/0007.json")
         self.assertEqual(sh(self.repo, "git", "status", "--porcelain"), "")
+        # monolith-split D1 ③: what the run measured -- the target's size at the start and when it ended
+        st = wr.read_state(7)
+        self.assertEqual(st["target_bytes"], {"a.txt": 4})
+        self.assertLessEqual(st["started"], st["ended_done"])
 
     def test_uncommitted_changes_are_committed_by_the_runner(self) -> None:
         self.assertEqual(self.run_with("echo two >> a.txt"), 0)
