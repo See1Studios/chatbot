@@ -4,6 +4,13 @@
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 
+## 2026-10-01 — CONCEPT.md 제품 기조 보강 (노-가드닝·안식처·독립룸챗·오피스동반자) (#535, 위임 agy)
+
+- **커밋**: `23052d5` docs(concept): add zero-gardening, non-judgmental sanctuary, per-speaker sessions and the office-companion genre
+- **바뀐 파일**: `docs/CONCEPT.md`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+- (러너가 병합 중 main에 들어온 다른 커밋까지 이 작업 것으로 적었고 기록 커밋도 실패해, Claude Code가 손으로 바로잡아 커밋함 — 원인과 고침은 같은 날 "위임 일지 줄의 커밋 범위" 항목)
+
 ## 2026-10-01 — `server.py` 라우터: 경로 표 한 곳, 처리 함수는 영역별로 (split/B, #534)
 
 - **운영자**: 백엔드 리팩토링 1순위 후보, 직접 진행(위임하지 않음 — 77KB 파일은 가벼운 모델이 읽기 어려움).
