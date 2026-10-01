@@ -33,6 +33,15 @@ class ProfileSpecsTest(unittest.TestCase):
             v = CP.PROFILE_SPECS["verbose"][field]["words"]
             self.assertGreater(v, s, field)
 
+    def test_detailed_between_short_and_verbose(self):
+        """detailed word counts sit between short and verbose."""
+        for field in ("description", "personality", "first_message"):
+            s = CP.PROFILE_SPECS["short"][field]["words"]
+            d = CP.PROFILE_SPECS["detailed"][field]["words"]
+            v = CP.PROFILE_SPECS["verbose"][field]["words"]
+            self.assertLess(s, d, field)
+            self.assertLess(d, v, field)
+
 
 # ── build_field_detail_lines ────────────────────────────────────────
 
@@ -51,6 +60,19 @@ class FieldDetailLinesTest(unittest.TestCase):
     def test_unknown_profile_raises(self):
         with self.assertRaises(ValueError):
             CP.build_field_detail_lines("nonexistent")
+
+    def test_fields_filter_includes_only_requested(self):
+        out = CP.build_field_detail_lines("detailed",
+                                          fields=["personality", "description"])
+        self.assertIn("personality", out)
+        self.assertIn("description", out)
+        self.assertNotIn("scenario", out)
+        self.assertNotIn("first_message", out)
+
+    def test_fields_filter_none_returns_all(self):
+        full = CP.build_field_detail_lines("detailed")
+        filtered = CP.build_field_detail_lines("detailed", fields=None)
+        self.assertEqual(full, filtered)
 
 
 # ── build_character_gen_prompt ──────────────────────────────────────
@@ -80,6 +102,17 @@ class CharacterGenPromptTest(unittest.TestCase):
         # verbose description is 400 words
         self.assertIn("400", sys_p)
 
+    def test_overrides_flow_into_system_prompt(self):
+        sys_p, _ = CP.build_character_gen_prompt(
+            "test", overrides={"description": {"words": 777}})
+        self.assertIn("777", sys_p)
+
+    def test_system_has_all_detail_fields(self):
+        sys_p, _ = CP.build_character_gen_prompt("test")
+        for field in ("description", "personality", "first_message",
+                      "scenario", "message_examples"):
+            self.assertIn(field, sys_p, field)
+
 
 # ── build_tagged_prompt ─────────────────────────────────────────────
 
@@ -100,6 +133,11 @@ class TaggedPromptTest(unittest.TestCase):
         out = CP.build_tagged_prompt("test", profile="short")
         self.assertIn("words", out)
 
+    def test_overrides_flow_into_tagged(self):
+        out = CP.build_tagged_prompt(
+            "test", overrides={"description": {"words": 888}})
+        self.assertIn("888", out)
+
 
 # ── build_fill_missing_prompt ───────────────────────────────────────
 
@@ -114,10 +152,22 @@ class FillMissingPromptTest(unittest.TestCase):
         self.assertIsInstance(sys_p, str)
         self.assertIsInstance(usr_p, str)
 
-    def test_system_mentions_missing_only(self):
+    def test_system_contains_only_missing_field_details(self):
         sys_p, _ = CP.build_fill_missing_prompt(
             "test", self.card, self.missing)
-        self.assertIn("missing", sys_p.lower())
+        # requested fields present
+        self.assertIn("personality", sys_p)
+        self.assertIn("first_message", sys_p)
+        # non-requested field absent from detail section
+        self.assertNotIn("- scenario:", sys_p)
+        self.assertNotIn("- description:", sys_p)
+        self.assertNotIn("- creator_notes:", sys_p)
+
+    def test_system_instructs_only_missing(self):
+        sys_p, _ = CP.build_fill_missing_prompt(
+            "test", self.card, self.missing)
+        self.assertIn("ONLY the missing fields", sys_p)
+        self.assertIn("ONLY the keys listed below", sys_p)
 
     def test_user_contains_existing_card(self):
         _, usr_p = CP.build_fill_missing_prompt(
@@ -129,6 +179,12 @@ class FillMissingPromptTest(unittest.TestCase):
             "test", self.card, self.missing)
         self.assertIn("personality", usr_p)
         self.assertIn("first_message", usr_p)
+
+    def test_overrides_flow_into_fill_missing(self):
+        sys_p, _ = CP.build_fill_missing_prompt(
+            "test", self.card, ["personality"],
+            overrides={"personality": {"words": 555}})
+        self.assertIn("555", sys_p)
 
 
 # ── build_regenerate_prompt ─────────────────────────────────────────
@@ -149,6 +205,26 @@ class RegeneratePromptTest(unittest.TestCase):
             "test", self.card, self.targets, regen_nonce="abc123")
         self.assertIn("abc123", sys_p)
 
+    def test_nonce_positional_5th_arg(self):
+        """Spec signature: (idea, card, keys, profile, nonce)."""
+        sys_p, _ = CP.build_regenerate_prompt(
+            "test", self.card, self.targets, "detailed", "pos-nonce-99")
+        self.assertIn("pos-nonce-99", sys_p)
+
+    def test_empty_nonce_still_works(self):
+        sys_p, _ = CP.build_regenerate_prompt(
+            "test", self.card, self.targets, regen_nonce="")
+        # template should render with empty nonce (no crash)
+        self.assertIn("nonce", sys_p.lower())
+
+    def test_system_contains_only_target_field_details(self):
+        sys_p, _ = CP.build_regenerate_prompt(
+            "test", self.card, ["personality"])
+        self.assertIn("- personality:", sys_p)
+        self.assertNotIn("- scenario:", sys_p)
+        self.assertNotIn("- description:", sys_p)
+        self.assertNotIn("- first_message:", sys_p)
+
     def test_user_contains_target_keys(self):
         _, usr_p = CP.build_regenerate_prompt(
             "test", self.card, self.targets)
@@ -158,6 +234,19 @@ class RegeneratePromptTest(unittest.TestCase):
         _, usr_p = CP.build_regenerate_prompt(
             "test", self.card, self.targets)
         self.assertIn("Luna", usr_p)
+
+    def test_overrides_keyword_only(self):
+        """overrides is keyword-only; passing 6 positional args should fail."""
+        with self.assertRaises(TypeError):
+            CP.build_regenerate_prompt(
+                "test", self.card, self.targets, "detailed", "nonce",
+                {"personality": {"words": 999}})
+
+    def test_overrides_flow_into_regen(self):
+        sys_p, _ = CP.build_regenerate_prompt(
+            "test", self.card, ["personality"], regen_nonce="x",
+            overrides={"personality": {"words": 333}})
+        self.assertIn("333", sys_p)
 
 
 # ── build_image_prompt ──────────────────────────────────────────────

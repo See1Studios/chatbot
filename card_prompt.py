@@ -78,11 +78,17 @@ def _resolve_specs(
 def build_field_detail_lines(
     profile: str = "detailed",
     overrides: Optional[Dict[str, Dict[str, int]]] = None,
+    fields: Optional[List[str]] = None,
 ) -> str:
-    """Return a multi-line string describing word/paragraph targets per field."""
+    """Return a multi-line string describing word/paragraph targets per field.
+
+    When *fields* is given, only those fields are included in the output.
+    """
     specs = _resolve_specs(profile, overrides)
     lines: List[str] = []
     for field, vals in specs.items():
+        if fields is not None and field not in fields:
+            continue
         parts: List[str] = []
         if "words" in vals:
             parts.append("~%d words" % vals["words"])
@@ -213,10 +219,11 @@ def build_fill_missing_prompt(
     existing_card: Dict[str, Any],
     missing_keys: List[str],
     profile: str = "detailed",
+    *,
     overrides: Optional[Dict[str, Dict[str, int]]] = None,
 ) -> Tuple[str, str]:
     """Return ``(system_prompt, user_prompt)`` to fill only *missing_keys*."""
-    detail = build_field_detail_lines(profile, overrides)
+    detail = build_field_detail_lines(profile, overrides, fields=missing_keys)
     system = _FILL_SYSTEM.format(field_detail_lines=detail)
     user_parts = [
         "Original idea: %s" % idea,
@@ -248,11 +255,12 @@ def build_regenerate_prompt(
     existing_card: Dict[str, Any],
     target_keys: List[str],
     profile: str = "detailed",
-    overrides: Optional[Dict[str, Dict[str, int]]] = None,
     regen_nonce: str = "",
+    *,
+    overrides: Optional[Dict[str, Dict[str, int]]] = None,
 ) -> Tuple[str, str]:
     """Return ``(system_prompt, user_prompt)`` to regenerate *target_keys*."""
-    detail = build_field_detail_lines(profile, overrides)
+    detail = build_field_detail_lines(profile, overrides, fields=target_keys)
     system = _REGEN_SYSTEM.format(
         regen_nonce=regen_nonce,
         field_detail_lines=detail,
