@@ -20,7 +20,7 @@ class ReviewChecklist(unittest.TestCase):
         self.assertTrue(R.with_code_checklist("no marker").endswith(R.CODE_CHECKLIST))
 
     def test_each_kind_the_review_found_is_asked(self):
-        for ticket in ("#516", "#506", "#522", "#515", "#518", "#505"):
+        for ticket in ("#516", "#506", "#522", "#515", "#518", "#505", "#534"):
             self.assertIn(ticket, R.CODE_CHECKLIST)
         self.assertIn("test", R.CODE_CHECKLIST.splitlines()[-1])
 

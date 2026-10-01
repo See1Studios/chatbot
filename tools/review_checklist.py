@@ -20,7 +20,11 @@ CODE_CHECKLIST = "\n".join([
     "shown, state) that goes with it? (#518: a removed bubble took the thinking strip and the stop button)",
     "6. A 'once only' or dedup key -- does it hold when items interleave or the same item arrives in a different form? "
     "(#505: one key per session sent a tool card twice)",
-    "7. Is the new behaviour itself exercised by a test, not only the old paths around it?",
+    "7. A change that says it only moves or reshapes code (refactor, split) -- is the moved code the same text, and are "
+    "signatures, return values, status codes, match order and error paths unchanged? Does every test that reads or patches "
+    "the old place now follow the new one, rather than pass with nothing left to check? (#534: a count over the old file "
+    "passed as 0 == 0)",
+    "8. Is the new behaviour itself exercised by a test, not only the old paths around it?",
 ])
 
 
