@@ -606,7 +606,6 @@ function workLine(ln) {
 
 function renderWorkCard(r) {
   const card = obsNode('div', 'work-card phase-' + r.phase);
-  card.dataset.ticket = r.ticket;
   const open = workOpen.has(r.ticket);
   
   // 1. 헤더: #ID + 제목 (길어도 잘 보임) + 상태 배지 + 토글 화살표
@@ -790,8 +789,9 @@ async function loadWork() {
   const prevWorkBarScroll = workBarEl.scrollTop;
   workBarEl.textContent = '';
   workBarEl.hidden = !shown.length;
-  shown.forEach(r => workBarEl.appendChild(renderWorkCard(r)));
-  workBarEl.querySelectorAll('.work-card').forEach(card => {
+  shown.forEach(r => {
+    const card = workBarEl.appendChild(renderWorkCard(r));
+    card.dataset.ticket = r.ticket;
     const box = card.querySelector('.work-transcript');
     const saved = box && prevScrolls.get(card.dataset.ticket);
     if (saved) box.scrollTop = saved.atBottom ? box.scrollHeight : saved.scrollTop;
