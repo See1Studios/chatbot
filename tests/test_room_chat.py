@@ -78,6 +78,13 @@ class Rooms(unittest.TestCase):
         names = {self.b: "Kit", self.c: "Ari"}
         self.assertEqual(RC.mentions("@ari then @Kit, @ari again and @nobody", [self.b, self.c], names), [self.c, self.b])
 
+    def test_mentions_take_names_with_spaces_longest_first(self):
+        names = {self.a: "Yae", self.b: "Yae Miko", self.c: "Ari"}
+        members = [self.a, self.b, self.c]
+        self.assertEqual(RC.mentions("hi @yae miko, and @Ari", members, names), [self.b, self.c])
+        self.assertEqual(RC.mentions("@Yae Mikoto? no, @Yae!", members, names), [self.a], "a name ends at a word end")
+        self.assertEqual(RC.mentions("@%s by id" % self.c, members, names), [self.c])
+
     def test_who_answers(self):
         r = {"members": [self.a, self.b, self.c], "strategy": "natural"}
         self.assertEqual(RC.pick(r, [self.c], rng=random.Random(1), talk={self.a: 0, self.b: 0})[0], self.c,
@@ -89,13 +96,23 @@ class Rooms(unittest.TestCase):
         self.assertEqual(RC.pick(dict(r, strategy="list"), [self.c], last=self.a), [self.c, self.b])
 
     def test_answers_are_capped_and_mentions_chain_within_the_limit(self):
+        self.assertEqual((RC.MAX_REPLIES, RC.MAX_CHAIN), (6, 4), "room for back-and-forth (ticket #526)")
         r = RC.create("desk", [self.a, self.b, self.c], strategy="manual")
         self.seats = {self.b: FakeSeat("s-b", ["@Ari your turn", "and done"]),
                       self.c: FakeSeat("s-c", ["@Kit back to you"] * 3)}
         self.talk(r["id"], "@Kit hi")
         said = [(m["who"], m["text"]) for m in RC.messages(r["id"])]
-        self.assertEqual([w for w, _ in said], ["user", self.b, self.c, self.b][:1 + RC.MAX_REPLIES])
-        self.assertLessEqual(len(said) - 1, RC.MAX_REPLIES)
+        self.assertEqual([w for w, _ in said], ["user", self.b, self.c, self.b])
+        r = RC.create("ping", [self.a, self.b, self.c], strategy="manual")
+        self.seats = {self.b: FakeSeat("s-b2", ["@Ari go"] * 9), self.c: FakeSeat("s-c2", ["@Kit go"] * 9)}
+        self.talk(r["id"], "@Kit hi")
+        who = [m["who"] for m in RC.messages(r["id"])][1:]
+        self.assertEqual(who, [self.b, self.c] * 2 + [self.b], "the first answer, then MAX_CHAIN called ones")
+        r = RC.create("all", [self.a, self.b, self.c], strategy="list")
+        loud = "@Boss @Kit @Ari"
+        self.seats = {x: FakeSeat("s-%s" % x, [loud] * 9) for x in (self.a, self.b, self.c)}
+        self.talk(r["id"], "hi")
+        self.assertEqual(len(RC.messages(r["id"])) - 1, RC.MAX_REPLIES, "never more than MAX_REPLIES answers")
 
     def test_the_member_answering_is_known_while_it_answers(self):
         # the page shows that member typing (static/app-rooms.js roomTyping)
@@ -121,7 +138,8 @@ class Rooms(unittest.TestCase):
         self.assertIn("@Kit two", second)
         self.assertNotIn("@Kit one", second, "already heard")
         self.assertIn("Do not use tools", second)
-        self.assertIn("only when you truly need their answer", second, "characters do not hand the word every turn")
+        self.assertIn("keep the back-and-forth going", second, "members react to each other")
+        self.assertIn("@mention them by name", second, "and hand the word on when the talk turns")
 
     def test_a_busy_room_refuses_a_second_message(self):
         r = RC.create("desk", [self.a, self.b], strategy="manual")

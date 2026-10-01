@@ -25,12 +25,14 @@ function roomEl(tag, cls, text) {
 function roomOpenId() { return roomState.on ? roomState.id : ''; }
 
 // The @mention being typed at `caret`: {start, query, options} (member ids whose name starts with the query), or null.
+// The query may hold spaces ("@Yae Mi") while some name still starts with it; past that it is plain text again.
 function roomMentionAt(text, caret, names) {
   const before = String(text || '').slice(0, caret);
-  const m = /(^|\s)@([^\s@]*)$/.exec(before);
+  const m = /(^|\s)@([^@\n]*)$/.exec(before);
   if (!m) return null;
   const query = m[2].toLowerCase();
   const options = Object.keys(names || {}).filter(id => String(names[id]).toLowerCase().startsWith(query));
+  if (/\s/.test(query) && !options.length) return null;
   return { start: before.length - m[2].length - 1, query, options };
 }
 
@@ -118,7 +120,7 @@ async function roomEnter(id, quiet) {
   scrollChatToBottom(true);
   roomsTrayFill();
   roomsSessionsFill();
-  roomState.timer = setTimeout(roomPoll, roomState.busy ? 1500 : 5000);
+  roomState.timer = setTimeout(roomPoll, roomState.busy ? 800 : 5000);
   return true;
 }
 
@@ -168,7 +170,7 @@ async function roomPoll() {
   } catch (e) { /* keep polling: the server may be restarting */ }
   if (roomOpenId() !== id) return;
   clearTimeout(roomState.timer);   // a poll started by a send ran beside this one: one timer only
-  roomState.timer = setTimeout(roomPoll, roomState.busy ? 1500 : 5000);
+  roomState.timer = setTimeout(roomPoll, roomState.busy ? 800 : 5000);
 }
 
 // One answer of /api/rooms/<id>: the room, its member names, whether it is answering, and the messages not drawn yet.

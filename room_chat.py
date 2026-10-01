@@ -37,13 +37,14 @@ def _log(evt: str, **fields) -> None:
 
 STRATEGIES = ("natural", "list", "manual")
 MODES = ("work",)                       # "private" (play rooms) is the next step
-MAX_REPLIES = 3                          # E4: answers per user message
-MAX_CHAIN = 2                            # E4: of those, answers to another character's @mention
+MAX_REPLIES = 6                          # E4: answers per user message
+MAX_CHAIN = 4                            # E4: of those, answers to another character's @mention
 TALKATIVENESS = 0.5                      # SillyTavern's default
 REPLY_TIMEOUT = 240
 MAX_TEXT = 4000
 _RID = re.compile(r"^room_[0-9a-f]{12}$")
 _MENTION = re.compile(r"@([^\s@,.!?:;()\[\]{}\"']{1,40})")
+_WORD = re.compile(r"\w")                 # a name mentioned ends where a word does
 _lock = threading.Lock()
 _busy: Dict[str, bool] = {}
 _speaking: Dict[str, str] = {}   # room id -> the member answering right now (the page shows it typing)
@@ -138,12 +139,16 @@ def _append(rid: str, who: str, text: str, mentions: List[str]) -> Dict:
 
 
 def mentions(text: str, members: List[str], names: Optional[Dict[str, str]] = None) -> List[str]:
-    """Members @mentioned in `text`, in order, by name (or id)."""
+    """Members @mentioned in `text`, in order, by name (or id). Names may hold spaces ("@Yae Miko"): at each "@" the
+    longest member name that follows, as a whole word, wins; otherwise the single word there may be a member id."""
     names = names if names is not None else _names(members)
-    by_name = {v.lower(): k for k, v in names.items()}
-    out = []
-    for m in _MENTION.finditer(text or ""):
-        cid = by_name.get(m.group(1).lower()) or (m.group(1) if m.group(1) in members else None)
+    longest = sorted(((v.lower(), k) for k, v in names.items() if v), key=lambda x: -len(x[0]))
+    text, out = text or "", []
+    low = text.lower()
+    for m in _MENTION.finditer(text):
+        at = m.start(1)
+        cid = next((k for v, k in longest if low.startswith(v, at) and not _WORD.match(low, at + len(v))),
+                   None) or (m.group(1) if m.group(1) in members else None)
         if cid and cid not in out:
             out.append(cid)
     return out
@@ -191,9 +196,10 @@ def _prompt(r: Dict, cid: str, names: Dict[str, str], user_title: str) -> str:
              for m in messages(r["id"], since)[-30:]]
     others = ", ".join("@" + names[m] for m in r["members"] if m != cid)
     return ("[Group room \"%s\" -- members: %s and %s] What was said since you last spoke:\n%s\n\n"
-            "It is your turn. Answer as yourself in one to three sentences, mostly to %s. @mention another member "
-            "only when you truly need their answer now -- not to be polite and not every time; most turns mention "
-            "no one. Do not use tools or start work here; if work is needed, say so and suggest taking it to your "
+            "It is your turn. Answer as yourself in one to three sentences, like a quick messenger chat: react to "
+            "what was just said -- %s's words or another member's -- and keep the back-and-forth going. When the "
+            "talk naturally turns to another member, @mention them by name so they answer next; do not mention "
+            "anyone just out of habit. Do not use tools or start work here; if work is needed, say so and suggest taking it to your "
             "own chat." % (r["name"], user_title, others, "\n".join(lines), user_title))
 
 
