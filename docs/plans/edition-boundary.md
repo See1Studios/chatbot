@@ -40,7 +40,7 @@
 | 제안 카드(ladder) | ✅ | ✅ | 배포판 자기 개발의 표면 |
 | 티켓(`tickets.py`)·`ticket` 도구 | 숨김 | ✅ | 배포판은 제안 카드로 |
 | 위임(`delegation.py`, `tools/worktree_runner.py`, `delegate` 도구, 작업 카드) | ❌ | ✅ | 이미 선택적 로딩 |
-| 보호 경로·매니페스트(`protected_paths.json`, `protected_manifest.json`), 쓰기 감시(`write_guard.py`) | ❌ | ✅ | 배포판은 엔진 파일 자체를 쓸 수 없게(4.2) |
+| 보호 경로·커밋 안 된 보호 파일 검사(`protected_paths.json`, `evolution.py::protected_changes` — git 기준, split/E), 쓰기 감시(`write_guard.py`) | ❌ | ✅ | 배포판은 엔진 파일 자체를 쓸 수 없게(4.2) |
 | MCP 파일 쓰기 범위 | 사용자 데이터만 | 저장소 포함 | 4.2 |
 | `run_command` | 없음 또는 최소 | 허용 목록 | D3 |
 | 개선 탭 UI | 제안 목록으로 대체 | ✅ | ladder/E |

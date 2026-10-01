@@ -148,7 +148,7 @@ class ShippedRegistryTest(unittest.TestCase):
         self.assertTrue(self.prot("a_module_that_does_not_exist_yet.py"))
 
     def test_guard_ticket_and_rules_are_protected(self):
-        for rel in ("chatbot-ctl.sh", "protected_paths.json", "protected_manifest.json", "data/lifecycle.lock",
+        for rel in ("chatbot-ctl.sh", "protected_paths.json", "data/lifecycle.lock",
                     "data/maintenance.flag", "tests/test_evolution.py", "tests/new/x.py",
                     "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md", "docs/SELF-MODIFY.md",
                     "docs/EMERGENCY.md", "data/host-force.ticket", "__pycache__/server.cpython-38.pyc"):

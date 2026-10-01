@@ -451,8 +451,8 @@ cmd_doctor() {
     obs doctor.maintenance info age="$age"
     return 0
   fi
-  # Warn-only check of the protected files against protected_manifest.json.
-  hash_out=$(python3 "$CODE/evolution.py" manifest-check 2>&1 || true)
+  # Warn-only: protected files that differ from git HEAD (edited, deleted, new and uncommitted) -- split/E.
+  hash_out=$(python3 "$CODE/evolution.py" protected-check 2>&1 || true)
   if [ -n "$hash_out" ]; then
     echo "$hash_out"
     # Same warning every run used to fill doctor.log (1669 of 2600 lines): log only on change.

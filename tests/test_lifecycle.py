@@ -1,5 +1,5 @@
 """Host lifecycle safeguards (docs/plans/recursive-self-evolution.md §3 0-6 and decision 4):
-shared lifecycle lock, maintenance flag, protected-file hash manifest, and how chatbot-ctl.sh calls them.
+shared lifecycle lock, maintenance flag, the protected-file check against git HEAD, and how chatbot-ctl.sh calls them.
 
 Safety: no test runs a real start/doctor/repair. The lock wrapper is exercised through a stub script whose
 body only echoes, and the real chatbot-ctl.sh is run in a temp tree only on paths that return before doing
@@ -151,76 +151,79 @@ def make_root(volatile=("data/state.txt",), protect=("*.py", "tests/", "static/"
     return root
 
 
-class ManifestTest(unittest.TestCase):
-    def test_covers_protected_files_only_minus_exceptions_and_volatile(self):
-        root = make_root()
-        self.assertEqual(evolution.protected_files(root), ["data/secret.md", "server.py", "tests/t.py"])
+def git(root, *args):
+    return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(root)] + list(args),
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, check=True).stdout
 
-    def test_no_manifest_yet_is_information_not_a_warning(self):
-        root = make_root()
-        self.assertEqual(evolution.check_manifest(root)[0], "none")
-        self.assertNotIn("WARN", evolution.manifest_report(root))
 
-    def test_unchanged_files_report_ok(self):
-        root = make_root()
-        self.assertEqual(evolution.write_manifest(root), 3)
-        self.assertEqual(evolution.check_manifest(root), ("ok", {"modified": [], "missing": [], "new": []}))
-        self.assertEqual(evolution.manifest_report(root), "manifest OK")
+def committed_root(**kw):
+    root = make_root(**kw)
+    git(root, "init", "-q")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "base")
+    return root
 
-    def test_volatile_and_excepted_changes_are_ignored(self):
-        root = make_root()
-        evolution.write_manifest(root)
+
+class ProtectedChangesTest(unittest.TestCase):
+    """split/E: doctor warns about protected files that differ from git HEAD (no hand-kept hash baseline)."""
+
+    def test_a_clean_tree_reports_ok(self):
+        root = committed_root()
+        self.assertEqual(evolution.protected_changes(root), ("ok", {"modified": [], "missing": [], "new": []}))
+        self.assertEqual(evolution.protected_report(root), "protected files OK (all committed)")
+
+    def test_volatile_excepted_and_unprotected_changes_are_ignored(self):
+        root = committed_root()
         (root / "data" / "state.txt").write_text("different", encoding="utf-8")
         (root / "static" / "app.js").write_text("2", encoding="utf-8")
         (root / "notes.md").write_text("edited", encoding="utf-8")
-        self.assertEqual(evolution.check_manifest(root)[0], "ok")
+        (root / "static" / "new.js").write_text("3", encoding="utf-8")
+        self.assertEqual(evolution.protected_changes(root)[0], "ok")
 
     def test_modified_missing_and_new_files_are_reported(self):
-        root = make_root()
-        evolution.write_manifest(root)
+        root = committed_root()
         (root / "server.py").write_text("print('b')\n", encoding="utf-8")
         (root / "data" / "secret.md").unlink()
         (root / "brand_new.py").write_text("y", encoding="utf-8")
-        status, diffs = evolution.check_manifest(root)
+        (root / "tests" / "staged.py").write_text("z", encoding="utf-8")
+        git(root, "add", "tests/staged.py")
+        status, diffs = evolution.protected_changes(root)
         self.assertEqual(status, "differs")
-        self.assertEqual(diffs, {"modified": ["server.py"], "missing": ["data/secret.md"], "new": ["brand_new.py"]})
-        report = evolution.manifest_report(root)
+        self.assertEqual(diffs, {"modified": ["server.py"], "missing": ["data/secret.md"],
+                                 "new": ["brand_new.py", "tests/staged.py"]})
+        report = evolution.protected_report(root)
         self.assertTrue(report.startswith("WARN "))
         for word in ("server.py", "data/secret.md", "brand_new.py", "warning only"):
             self.assertIn(word, report)
+        git(root, "add", "-A")
+        git(root, "commit", "-qm", "reviewed")
+        self.assertEqual(evolution.protected_changes(root)[0], "ok", "a commit is the approval")
 
-    def test_a_broken_manifest_warns_and_never_raises(self):
+    def test_outside_a_git_tree_is_information_not_a_warning(self):
         root = make_root()
-        for text in ("{not json", "[]", '{"sha256": []}', "{}"):
-            (root / evolution.MANIFEST_NAME).write_text(text, encoding="utf-8")
-            self.assertEqual(evolution.check_manifest(root)[0], "unreadable", text)
-            self.assertTrue(evolution.manifest_report(root).startswith("WARN "))
+        self.assertEqual(evolution.protected_changes(root)[0], "nogit")
+        self.assertNotIn("WARN", evolution.protected_report(root))
 
     def test_a_broken_registry_warns_and_never_raises(self):
-        root = make_root()
-        evolution.write_manifest(root)
+        root = committed_root()
         (root / evolution.REGISTRY_NAME).write_text("{nope", encoding="utf-8")
-        self.assertTrue(evolution.manifest_report(root).startswith("WARN "))
+        self.assertEqual(evolution.protected_changes(root)[0], "unreadable")
+        self.assertTrue(evolution.protected_report(root).startswith("WARN "))
 
     def test_long_lists_are_shortened(self):
-        root = make_root()
-        evolution.write_manifest(root)
+        root = committed_root()
         for i in range(20):
             (root / ("m%02d.py" % i)).write_text("x", encoding="utf-8")
-        self.assertIn("(+12 more)", evolution.manifest_report(root))
+        self.assertIn("(+12 more)", evolution.protected_report(root))
 
-    def test_shipped_registry_hashes_code_and_skips_caches_and_state(self):
-        files = evolution.protected_files(CODE)
-        self.assertIn("server.py", files)
-        self.assertIn("chatbot-ctl.sh", files)
-        self.assertIn("protected_paths.json", files)
-        self.assertFalse([f for f in files if "__pycache__" in f or f.endswith(".pyc")])
-        self.assertFalse([f for f in files if f.startswith("static/")])
-        for state in ("data/host-force.ticket", "data/lifecycle.lock", "data/maintenance.flag", evolution.MANIFEST_NAME):
-            self.assertNotIn(state, files)
+    def test_this_repository_is_checked_without_caches_or_run_time_state(self):
+        status, diffs = evolution.protected_changes(CODE)
+        self.assertIn(status, ("ok", "differs"))
+        listed = [f for v in diffs.values() for f in v]
+        self.assertFalse([f for f in listed if "__pycache__" in f or "/tickets/" in f or f.endswith("events.jsonl")])
 
-    def test_cli_check_never_fails_and_update_writes_the_manifest(self):
-        out = subprocess.run([PY, str(CODE / "evolution.py"), "manifest-check"], stdout=subprocess.PIPE,
+    def test_cli_check_never_fails(self):
+        out = subprocess.run([PY, str(CODE / "evolution.py"), "protected-check"], stdout=subprocess.PIPE,
                              universal_newlines=True)
         self.assertEqual(out.returncode, 0)  # even when files differ
         self.assertTrue(out.stdout.strip())
@@ -382,7 +385,7 @@ class RealCtlTest(unittest.TestCase):
 
     def test_ctl_carries_the_wiring_the_tests_above_rely_on(self):
         self.assertIn('evolution.py" maintenance "$DATA/maintenance.flag"', CTL_TEXT)
-        self.assertIn('evolution.py" manifest-check', CTL_TEXT)
+        self.assertIn('evolution.py" protected-check', CTL_TEXT)
         self.assertNotRegex(CTL_TEXT, r"(?m)^\s*(exec\s+)?flock\b|\bflock\s+-")  # no bash flock command (macOS has none)
 
 

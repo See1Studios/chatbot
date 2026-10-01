@@ -6,8 +6,8 @@ API handlers ask `is_protected()`; they do not keep a list of their own.
 
 It also owns the host-lifecycle safety pieces the control script only calls
 into (docs/plans/recursive-self-evolution.md §3 0-6): one shared lock for
-start/doctor/repair, a maintenance flag, and a content-hash manifest of the
-protected files that `doctor` checks and warns about.
+start/doctor/repair, a maintenance flag, and the check `doctor` warns with: protected files
+that differ from git HEAD (edited, deleted or new and uncommitted).
 
 The observation side (§4.6) lives here too: `on_turn_end` turns a finished turn
 into observation candidates, `add_observation` writes an observation-log entry.
@@ -27,14 +27,12 @@ Design constraints (§3 0-0):
 Command line (used by chatbot-ctl.sh, which stays thin):
   run-locked LOCK WAIT -- CMD...   run CMD holding LOCK (WAIT 0: skip when busy)
   maintenance FLAG                 exit 0 when the flag file exists
-  manifest-check                   warn-only comparison with the manifest
-  manifest-update                  re-baseline the manifest (a human does this)
+  protected-check                  warn-only: protected files that differ from git HEAD
   self-check LOCK                  can the lock helper run at all?
 """
 from __future__ import annotations
 
 import fnmatch
-import hashlib
 import json
 import os
 import re
@@ -50,7 +48,6 @@ import platform_compat   # a core module too (core_modules.json, PP5): the lock'
 import platform_compat
 
 REGISTRY_NAME = "protected_paths.json"
-MANIFEST_NAME = "protected_manifest.json"
 _GLOB_CHARS = "*?["
 BUSY_EXIT = 75  # EX_TEMPFAIL: the lock stayed busy for the whole wait
 SIGNALS_NAME = "observation_signals.json"
@@ -106,7 +103,7 @@ def load_registry(root) -> Tuple[List[str], List[str]]:
 
 def load_volatile(root) -> List[str]:
     """Protected paths whose content changes at run time (tickets, locks, caches):
-    protected from writes but left out of the content manifest."""
+    protected from writes but left out of the uncommitted-change check."""
     return _entries(_load_raw(root), "volatile", False)
 
 
@@ -257,100 +254,65 @@ def maintenance_note(flag_path) -> Optional[str]:
     return "age %ds" % max(int(time.time() - st.st_mtime), 0)
 
 
-# ------------------------------------------------------------- hash manifest
+# ------------------------------------------------------------- protected changes
 
-def _hash_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(str(path), "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+# A reviewed change arrives as a commit (tickets, hooks); an unreviewed one leaves a protected file that differs from
+# git HEAD -- edited, deleted, or new and never committed. That is what doctor warns about. Until split/E (2026-10-02)
+# this compared content hashes with protected_manifest.json, a baseline a human re-took by hand: it went stale the day
+# after it was taken and the warning stayed on for every ordinary commit, hiding any real one.
 
-
-def protected_files(root) -> List[str]:
-    """Root-relative paths of the existing protected files that belong in the
-    manifest: registry patterns under `root`, minus exceptions and volatile
-    paths. Patterns outside `root` (the home directory, absolute) are not hashed."""
+def protected_changes(root) -> Tuple[str, Dict[str, List[str]]]:
+    """Protected files that differ from git HEAD, minus exceptions and volatile paths. Returns (status, diffs): status
+    is "ok", "differs", "nogit" (`root` is not the top of a git work tree -- a parent repository's HEAD is not this
+    service's baseline -- so nothing to compare with) or "unreadable"; diffs holds "modified", "missing" (deleted)
+    and "new" (added or untracked) lists of paths relative to `root`."""
     root_p = Path(root).resolve()
-    protect, exceptions = load_registry(root_p)
-    skip = exceptions + load_volatile(root_p)
-    found = set()
-    for pattern in protect:
-        body = pattern.rstrip("/")
-        if body.startswith("~") or Path(body).is_absolute():
-            continue
-        cands = root_p.glob(body) if any(c in body for c in _GLOB_CHARS) else [root_p / body]
-        for cand in cands:
-            if cand.is_file():
-                files = [cand]
-            elif cand.is_dir() and pattern.endswith("/"):
-                files = [f for f in cand.rglob("*") if f.is_file()]
-            else:
-                files = []
-            for f in files:
-                rel = f.relative_to(root_p)
-                if ".git" in rel.parts:
-                    continue
-                target = f.resolve()
-                if any(_matches(root_p, sp, target) for sp in skip):
-                    continue
-                found.add(rel.as_posix())
-    return sorted(found)
-
-
-def build_manifest(root) -> Dict[str, str]:
-    root_p = Path(root).resolve()
-    return {rel: _hash_file(root_p / rel) for rel in protected_files(root_p)}
-
-
-def write_manifest(root) -> int:
-    root_p = Path(root).resolve()
-    hashes = build_manifest(root_p)
-    doc = {"version": 1, "generated": time.strftime("%Y-%m-%d %H:%M:%S"), "sha256": hashes}
-    dest = root_p / MANIFEST_NAME
-    tmp = dest.with_name(".%s.%d.tmp" % (dest.name, os.getpid()))
-    platform_compat.write_text(tmp, json.dumps(doc, indent=1, sort_keys=True) + "\n", encoding="utf-8")
-    tmp.replace(dest)
-    return len(hashes)
-
-
-def check_manifest(root) -> Tuple[str, Dict[str, List[str]]]:
-    """Compare the protected files with the manifest. Returns (status, diffs):
-    status is "ok", "differs", "none" (no manifest yet) or "unreadable"."""
-    root_p = Path(root).resolve()
-    dest = root_p / MANIFEST_NAME
-    if not dest.exists():
-        return "none", {}
     try:
-        recorded = json.loads(dest.read_text(encoding="utf-8"))["sha256"]
-        if not isinstance(recorded, dict):
-            raise ValueError("sha256 must be an object")
-        current = build_manifest(root_p)
-    except (OSError, ValueError, KeyError, TypeError, RegistryError) as e:
+        top = subprocess.run(["git", "-C", str(root_p), "rev-parse", "--show-toplevel"], capture_output=True,
+                             timeout=30)
+        if top.returncode != 0 or Path(top.stdout.decode("utf-8").strip()).resolve() != root_p:
+            return "nogit", {}
+        st = subprocess.run(["git", "-C", str(root_p), "status", "--porcelain=v1", "-z", "--untracked-files=all",
+                             "--no-renames"], capture_output=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return "nogit", {}
+    if st.returncode != 0:
+        return "unreadable", {"error": [st.stderr.decode("utf-8", "replace").strip() or "git status failed"]}
+    try:
+        protect, exceptions = load_registry(root_p)
+        skip = exceptions + load_volatile(root_p)
+    except (RegistryError, OSError, ValueError) as e:
         return "unreadable", {"error": [str(e)]}
-    diffs = {
-        "modified": sorted(k for k in current if k in recorded and current[k] != recorded[k]),
-        "missing": sorted(k for k in recorded if k not in current),
-        "new": sorted(k for k in current if k not in recorded),
-    }
-    return ("differs" if any(diffs.values()) else "ok"), diffs
+    diffs: Dict[str, List[str]] = {"modified": [], "missing": [], "new": []}
+    for entry in st.stdout.decode("utf-8", "replace").split("\0"):
+        if len(entry) < 4:
+            continue
+        xy, rel = entry[:2], entry[3:]
+        targets = _targets(root_p, rel)
+        if not any(_matches(root_p, p, t) for p in protect for t in targets):
+            continue
+        if any(_matches(root_p, p, t) for p in skip for t in targets):
+            continue
+        kind = "new" if (xy == "??" or "A" in xy) else ("missing" if "D" in xy else "modified")
+        diffs[kind].append(rel)
+    return ("differs" if any(diffs.values()) else "ok"), {k: sorted(v) for k, v in diffs.items()}
 
 
 def _short(items: List[str], limit: int = 8) -> str:
     return ", ".join(items[:limit]) + (" (+%d more)" % (len(items) - limit) if len(items) > limit else "")
 
 
-def manifest_report(root) -> str:
+def protected_report(root) -> str:
     """One line for doctor. Lines starting with WARN are logged; the rest are informational."""
-    status, diffs = check_manifest(root)
-    if status == "none":
-        return "manifest: none yet (a human runs `python3 evolution.py manifest-update` after reviewing the protected files)"
+    status, diffs = protected_changes(root)
+    if status == "nogit":
+        return "protected files: not a git work tree, nothing to compare with"
     if status == "unreadable":
-        return "WARN protected-file manifest unreadable: %s" % diffs["error"][0]
+        return "WARN protected-file check unreadable: %s" % diffs["error"][0]
     if status == "ok":
-        return "manifest OK"
+        return "protected files OK (all committed)"
     parts = ["%s=[%s]" % (k, _short(v)) for k, v in diffs.items() if v]
-    return "WARN protected files differ from the manifest (warning only): " + " ".join(parts)
+    return "WARN protected files differ from git HEAD (warning only): " + " ".join(parts)
 
 
 # ------------------------------------------------------------------ observation
@@ -537,12 +499,9 @@ def main(argv: List[str]) -> int:
                 return 1
             print(note)
             return 0
-        if cmd == "manifest-check":
-            print(manifest_report(root))
+        if cmd == "protected-check":
+            print(protected_report(root))
             return 0  # warning only, never a failure
-        if cmd == "manifest-update":
-            print("manifest updated: %d files" % write_manifest(root))
-            return 0
         if cmd == "self-check" and len(argv) == 2:
             held = acquire_lock(argv[1], 0.0)
             if held is not None:

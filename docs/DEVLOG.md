@@ -4,6 +4,14 @@
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 
+## 2026-10-02 — 보호 파일 검사를 git 기준으로 (split/E, #545)
+
+- **운영자 결정**: 손으로 다시 찍는 지문 대신 git 마지막 커밋과 비교.
+- **왜**: `protected_manifest.json`은 9/24에 한 번 찍은 지문(133개)이었고, 그 뒤 정상 커밋으로 수정 87·새 파일 146개가 쌓여 `doctor` 경고가 늘 켜져 있었음 — 진짜 무단 변경이 와도 구별이 안 됨. 승인된 변경은 이미 커밋(티켓·훅)으로 들어오므로, 무단 변경의 흔적은 "보호 파일인데 커밋 안 된 수정·삭제·새 파일".
+- **변경**: `evolution.py::protected_changes`(git status에서 보호 대상만, `except`·`volatile` 제외) + `protected_report`, 명령 `manifest-check`/`manifest-update` → `protected-check` 하나(`chatbot-ctl.sh` 호출부). `protected_manifest.json` 삭제, `protected_paths.json`에서 그 항목 세 곳 삭제. 로그 이벤트 이름 `manifest.drift`는 로그 요약이 세고 있어 그대로(`docs/LOGGING.md` 뜻만 고침). 서비스 폴더가 저장소 맨 위가 아니면(바깥 저장소의 커밋은 기준이 아님) 또는 git이 없으면 정보만.
+- **테스트**: `test_lifecycle` 지문 테스트 → git 기준 8개(깨끗함, 무시 대상, 수정·삭제·새 파일·스테이지만 한 파일, 커밋하면 OK, git 아님, 깨진 등록부, 긴 목록, 이 저장소, CLI). `test_core_standalone`은 git 없는 환경에서 정보만 내는지.
+- **⚡ 필요**: `evolution.py`(서버가 import).
+
 ## 2026-10-02 — 테스트 격리: 한 프로세스 1,809개 통과 (split/A, #544)
 
 - **실측**: 한 프로세스 실패 116개 중 16개는 빈 임시 데이터 탓(모듈별로 돌려도 실패), 102개가 진짜 격리 문제. 앞 모듈을 반씩 나눠 같이 돌리는 이분 탐색으로 범인을 찾음.

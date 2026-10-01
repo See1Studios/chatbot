@@ -129,10 +129,8 @@ flag = data / "maintenance.flag"
 assert evolution.maintenance_note(flag) is None
 flag.write_text("", encoding="utf-8")
 assert evolution.maintenance_note(flag) is not None
-assert evolution.write_manifest(root) >= 4                                               # the core files themselves
-assert evolution.check_manifest(root)[0] == "ok"
-(root / "evolution.py").write_text((root / "evolution.py").read_text(encoding="utf-8") + "\n# edited\n", encoding="utf-8")
-assert evolution.check_manifest(root)[0] == "differs"
+assert evolution.protected_changes(root)[0] == "nogit"      # no git here: nothing to compare (test_lifecycle covers git)
+assert not evolution.protected_report(root).startswith("WARN")
 step("lifecycle helpers")
 
 # 7. nothing but the core was loaded
