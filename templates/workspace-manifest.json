@@ -27,6 +27,8 @@
     "roles/lead/ROLE.md": "delegation role; delegate is not in the shipped build (edition-boundary)",
     "roles/lead/PROCEDURE.md": "delegation role; delegate is not in the shipped build (edition-boundary)",
     "roles/plan/ROLE.md": "delegated planning role; delegate is not in the shipped build (edition-boundary)",
+    "roles/scout/ROLE.md": "market & trend scouting role (dev build only)",
+    "roles/scout/PROCEDURE.md": "market & trend scouting procedure (dev build only)",
     "tools/token_audit.py": "engine token accounting (dev)",
     "tools/lunar_calendar.py": "personal utility (Korean lunar holidays, needs lunardate)",
     ".agents/skills/nas-sphere/SKILL.md": "host plugin skill (NAS install only, align/F)",
