@@ -176,3 +176,25 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
 .msg.assistant > details.think[data-live="1"] > summary{border-color:var(--accent-border)}
 .msg.assistant > details.think .think-body{margin-top:.3rem;padding:.35rem .55rem;border-left:2px solid var(--border);max-height:12rem;overflow:auto;white-space:pre-wrap;line-height:1.45}
 @media (prefers-reduced-motion: reduce){.msg.assistant > details.think > summary::before{transition:none}}
+
+/* REBOOT_HUD_v1 (app-api.js showRebootOverlay): engine reboot as a dark-glass terminal over the whole page */
+.reboot-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(10,12,15,.88) repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);opacity:0;transition:opacity .3s ease}
+.reboot-overlay.open{opacity:1}
+.reboot-terminal{width:min(34rem,100%);border:1px solid rgba(209,254,23,.25);border-radius:12px;background:rgba(20,23,29,.95);box-shadow:0 0 0 1px rgba(209,254,23,.06),0 0 28px rgba(209,254,23,.14),0 18px 48px rgba(0,0,0,.55);overflow:hidden;transform:translateY(6px) scale(.98);transition:transform .3s ease}
+.reboot-overlay.open .reboot-terminal{transform:none}
+.reboot-head{display:flex;align-items:center;gap:.35rem;padding:.5rem .75rem;border-bottom:1px solid rgba(209,254,23,.12);background:rgba(255,255,255,.02)}
+.reboot-dot{width:.55rem;height:.55rem;border-radius:50%;background:#ff5f57}
+.reboot-dot.y{background:#febc2e}
+.reboot-dot.g{background:#28c840}
+.reboot-title{margin-left:.5rem;font:600 .68rem/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.12em;color:rgba(209,254,23,.7)}
+.reboot-body{padding:.85rem 1rem 1rem;min-height:8rem;font:.8rem/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#d1fe17}
+.reboot-line{white-space:pre-wrap;animation:reboot-line-in .28s ease both}
+.reboot-line.cyan{color:#38bdf8}
+.reboot-line.ok{color:#d1fe17;font-weight:700;text-shadow:0 0 10px rgba(209,254,23,.55)}
+.reboot-line.err{color:#f87171}
+.reboot-cursor{display:inline-block;width:.55em;height:1em;vertical-align:text-bottom;background:#d1fe17;animation:reboot-blink 1s steps(1) infinite}
+.reboot-close{display:block;margin:0 1rem 1rem auto;padding:.35rem .9rem;border:1px solid rgba(209,254,23,.35);border-radius:6px;background:transparent;color:#d1fe17;font:600 .72rem/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.1em;cursor:pointer}
+.reboot-close:hover,.reboot-close:focus-visible{background:rgba(209,254,23,.1)}
+@keyframes reboot-line-in{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+@keyframes reboot-blink{50%{opacity:0}}
+@media (prefers-reduced-motion: reduce){.reboot-overlay,.reboot-terminal{transition:none}.reboot-line,.reboot-cursor{animation:none}}

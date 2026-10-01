@@ -13,7 +13,7 @@ const SHELL_TEXT = {   // l10n-ok
   profile: '프로필', settings: '설정', back2: '뒤로', close: '닫기', details: '자세히 보기', theme: '테마',   // l10n-ok
   dev: '개발자 모드',   // l10n-ok
   files: '주고받은 파일', history: '대화 기록', art: '그림', model: '모델', log: '활동 로그',   // l10n-ok
-  accounts: '계정 · 상태', team: '역할 · 공통 설정', manage: '카드 · 역할 · 두뇌 구성', improve: '개선', revive: '호스트 소생',   // l10n-ok
+  accounts: '계정 · 상태', team: '역할 · 공통 설정', manage: '카드 · 역할 · 두뇌 구성', improve: '개선', revive: '엔진 리부트',   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.

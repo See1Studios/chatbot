@@ -153,29 +153,71 @@ async function waitHostBack(maxMs = 90000) {
   return false;
 }
 
+// REBOOT_HUD_v1 (#508): the engine reboot plays as a dark-glass terminal over the page. log() adds a line,
+// close() fades it out, fail() leaves it up with a close button (the host did not come back).
+function showRebootOverlay() {
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n; };
+  const overlay = el('div', 'reboot-overlay'), term = el('div', 'reboot-terminal'), head = el('div', 'reboot-head');
+  const body = el('div', 'reboot-body'), cursor = el('span', 'reboot-cursor');
+  overlay.setAttribute('role', 'status');
+  overlay.setAttribute('aria-live', 'polite');
+  head.append(el('i', 'reboot-dot r'), el('i', 'reboot-dot y'), el('i', 'reboot-dot g'),
+              el('span', 'reboot-title', 'PRIVATE ENGINE // REBOOT CONSOLE'));
+  body.append(cursor);
+  term.append(head, body);
+  overlay.append(term);
+  document.body.append(overlay);
+  requestAnimationFrame(() => overlay.classList.add('open'));
+  const close = () => { overlay.classList.remove('open'); setTimeout(() => overlay.remove(), 320); };
+  return {
+    log(text, tone) { body.insertBefore(el('div', 'reboot-line' + (tone ? ' ' + tone : ''), text), cursor); },
+    close,
+    fail() {
+      const btn = el('button', 'reboot-close', 'CLOSE');
+      btn.type = 'button';
+      btn.addEventListener('click', close);
+      term.append(btn);
+      btn.focus();
+    },
+  };
+}
+
 async function defibrillateHost() {
-  if (!(await confirmModal('전기충격(심폐소생)을 실행할까요?\n호스트가 재기동되며 몇 초 연결이 끊깁니다.', { confirmLabel: '실행', danger: false }))) return;
-  setProgress('전기충격 · 호스트 소생 중…', true);
+  if (!(await confirmModal('엔진을 리부트(재기동)할까요?\n호스트가 재기동되며 몇 초 연결이 끊깁니다.', { confirmLabel: '리부트', danger: false }))) return;
+  setProgress('엔진 리부트 중…', true);
   const btn = document.getElementById('defibBtn');
   if (btn) btn.disabled = true;
+  const hud = showRebootOverlay();
+  let done = false;
   try {
+    hud.log('[ENGINE] Reboot initiated…');
     try {
       await api('/api/host/defibrillate', { method: 'POST', body: '{}' });
     } catch (_) {
       /* server may die mid-response — expected */
     }
-    addActivity('전기충격 예약 — 호스트 재기동 대기', 'system');
+    addActivity('엔진 리부트 예약 — 호스트 재기동 대기', 'system');
+    hud.log('[DAEMON] Waiting for host socket (:3011)…', 'cyan');
+    hud.log('[SOCKET] Handshake pinging • • •', 'cyan');
     const ok = await waitHostBack(90000);
     if (!ok) {
-      setProgress('소생 시간 초과 · 수동 새로고침 해보세요', true);
-      addActivity('소생 실패/시간초과');
+      hud.log('[ERROR] Timeout — the host did not answer in 90s.', 'err');
+      hud.log('Reload the page by hand once the host is up.');
+      hud.fail();
+      done = true;
+      setProgress('엔진 리부트 시간 초과 · 수동 새로고침 해보세요', true);
+      addActivity('엔진 리부트 실패/시간초과');
       return;
     }
-    setProgress('소생 완료 · 세션 재연결…', true);
+    setProgress('엔진 리부트 완료 · 세션 재연결…', true);
     await ensureSession();
-    setProgress('소생 완료', true);
-    addActivity('심폐소생 완료', 'ok');
+    hud.log('[ONLINE] Core restored · Session linked ✦', 'ok');
+    done = true;
+    setTimeout(hud.close, 600);
+    setProgress('엔진 리부트 완료', true);
+    addActivity('엔진 리부트 완료', 'ok');
   } finally {
+    if (!done) hud.close();
     if (btn) btn.disabled = false;
   }
 }

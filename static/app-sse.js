@@ -806,7 +806,7 @@ function bindEvents(sid) {
 
 // REVIVE_TOAST_v1 (#224): the first SSE open only records the server's boot_ts;
 // a later open that sees a different one means the host restarted, so flash
-// '소생 완료 ✦' in the progress bar. No boot_ts (older server) -> nothing.
+// '엔진 리부트 완료 ✦' in the progress bar. No boot_ts (older server) -> nothing.
 let lastBootTs = null;
 async function checkRevived() {
   let ts;
@@ -815,7 +815,7 @@ async function checkRevived() {
   const revived = lastBootTs !== null && ts !== lastBootTs;
   lastBootTs = ts;
   if (!revived) return;
-  const msg = '소생 완료 ✦';
+  const msg = '엔진 리부트 완료 ✦';
   setProgress(msg, true);
   setTimeout(() => {
     if (progressEl && !progressEl.hidden && progressEl.textContent.trim() === msg) setProgress('');

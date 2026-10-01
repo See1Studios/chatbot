@@ -584,7 +584,7 @@ function workElapsed(sec) {
 // A run that ends while the page is open says so in the chat, so nobody has to watch the card.
 function announceWorkEnding(r) {
   const head = '작업 #' + r.ticket + ' ' + (r.title || '');
-  if (r.phase === 'done') addNotice('ok', head + ' — 반영했어요' + (r.tier >= 2 ? ' · ⚡ 소생하면 적용돼요' : ''));
+  if (r.phase === 'done') addNotice('ok', head + ' — 반영했어요' + (r.tier >= 2 ? ' · ⚡ 엔진 리부트하면 적용돼요' : ''));
   else if (r.phase === 'awaiting_merge') addNotice('ok', head + ' — PD 확인 끝. 카드에서 [승인]하거나 [반려]해 주세요');
   else if (r.phase === 'stalled') addNotice('warn', head + ' — 실행이 멈췄어요 (카드에서 폐기할 수 있어요)');
   else addNotice('warn', head + ' — ' + (WORK_PHASE_LABEL[r.phase] || r.phase) + (r.reason ? ': ' + r.reason : ''));
@@ -735,7 +735,7 @@ function renderWorkCard(r) {
     ? artGalleryCharacter(r.paths) : '';
   if (drewFor) button(typeof ART_TEXT !== 'undefined' ? ART_TEXT.gallery : 'gallery', true, () => openArtManager(drewFor, 'gallery'));
   if (r.phase === 'done' && r.tier >= 2) {
-    const zap = obsNode('button', 'art-btn art-btn-xs primary', '⚡ 소생');
+    const zap = obsNode('button', 'art-btn art-btn-xs primary', '⚡ 리부트');
     zap.type = 'button';
     zap.addEventListener('click', (e) => { e.stopPropagation(); switchTab('chat'); inputEl.value = '/defib'; send(tapSendOpts()); });
     actions.appendChild(zap);
