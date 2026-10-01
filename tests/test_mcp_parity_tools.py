@@ -18,6 +18,10 @@ os.environ.setdefault("NAS_MCP_HOST_PLUGIN", "1")
 os.environ.setdefault("CHATBOT_EDITION", "dev")
 import mcp_parity  # noqa: E402
 import mcp_server as mcp  # noqa: E402
+# Run in one process with other test modules, host_config may already have read the shipped edition before the line
+# above: the tool server is pinned to dev only while this module runs (split/A).
+_DEV = mock.patch.object(__import__("mcp_server"), "EDITION", "dev")
+setUpModule, tearDownModule = _DEV.start, _DEV.stop
 
 
 class ParityTools(unittest.TestCase):

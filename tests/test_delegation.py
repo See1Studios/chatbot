@@ -17,6 +17,10 @@ sys.path.insert(0, str(ROOT))
 os.environ.setdefault("CHATBOT_EDITION", "dev")
 import delegation  # noqa: E402
 import tickets  # noqa: E402
+# Run in one process with other test modules, host_config may already have read the shipped edition before the line
+# above: the tool server is pinned to dev only while this module runs (split/A).
+_DEV = mock.patch.object(__import__("mcp_server"), "EDITION", "dev")
+setUpModule, tearDownModule = _DEV.start, _DEV.stop
 
 CAND = "candidate:1789908287.39"
 TIER0 = ["data/workspace/notes/x.md"]

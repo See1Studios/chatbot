@@ -4,6 +4,15 @@
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 
+## 2026-10-02 — 테스트 격리: 한 프로세스 1,809개 통과 (split/A, #544)
+
+- **실측**: 한 프로세스 실패 116개 중 16개는 빈 임시 데이터 탓(모듈별로 돌려도 실패), 102개가 진짜 격리 문제. 앞 모듈을 반씩 나눠 같이 돌리는 이분 탐색으로 범인을 찾음.
+- **원인 하나가 100개**: `tests/test_account_login.py`가 import 순간 `HOME`·`AGY_CHAT_ROOT`·`AGY_CHAT_DATA`·CLI 경로를 `os.environ`에 넣고 안 되돌림. 한 프로세스에서는 모든 테스트 파일을 먼저 import하고 이 파일이 알파벳으로 맨 앞이라, `host_config`가 가짜 홈·가짜 코드 위치로 굳음 → git이 사용자를 못 찾아 커밋 실패, `delegation`이 러너 파일을 엉뚱한 곳에서 찾음. 고침: 환경은 건드리지 않고 로그인 코드가 읽는 값(인증 파일 경로, CLI 경로, 대기 시간)만 이 모듈이 도는 동안 바꿨다 되돌림.
+- **나머지 둘**: 개발판이 필요한 세 모듈(`test_delegation`·`test_mcp_server`·`test_mcp_parity_tools`)은 `mcp_server.EDITION`을, `test_mcp_server`는 호스트 플러그인(`mcp_server.HOST_PLUGIN`)을 자기 테스트가 도는 동안만 고정 — 다른 모듈이 `mcp_server`를 먼저 import하면 환경 변수가 늦음.
+- **계획의 추정과 달랐던 것**: 대문자 전역 42개·되돌리지 않는 캐시 2개는 범인이 아니었음. 중앙 리셋 지점도 필요 없었음.
+- **확인**: `run-tests.sh`와 같은 조건(실제 데이터 폴더)으로 한 프로세스 1,809개 통과. 실행 전후 세션 수(671)·추적 데이터 파일 같음, 그사이 바뀐 두 파일(`account_state.json`·`live_pids.json`)은 테스트 없이도 서버가 1분 안에 다시 씀을 확인.
+- **도구**: `./run-tests.sh --one-process`(약 5분). 기본은 그대로 모듈별.
+
 ## 2026-10-02 — 구글 계정 1초 즉시 스왑 도구 및 프로필 저장 기능 구현 (#542, 위임 claude)
 
 - **커밋**: `d9ea56d` feat(accounts): saved agy login profiles with an atomic switch CLI; stray reaper matches whole helper args

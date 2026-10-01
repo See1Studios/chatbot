@@ -5,9 +5,11 @@
 #   ./run-tests.sh              every tests/test_*.py, one process per module
 #   ./run-tests.sh --fast       guard tests only (FAST below), for the commit hook
 #   ./run-tests.sh test_x ...   the named modules only
+#   ./run-tests.sh --one-process every module in one interpreter (split/A: a module that leaves a global or the
+#                               environment changed breaks the modules after it -- this finds that)
 #
-# One process per module: some modules leave globals changed, so `unittest discover` in a single
-# process fails (README "Run tests"). Exit status is 0 only when every module passed.
+# One process per module is the default: a failure stays in its own module and the times show per module. Since
+# split/A the whole suite also passes in one process. Exit status is 0 only when every module passed.
 set -uo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" || exit 2
 
@@ -38,6 +40,9 @@ TIMEOUT="${TEST_TIMEOUT:-300}"
 mods=()
 if [ "${1:-}" = "--fast" ]; then
   mods=("${FAST[@]}")
+elif [ "${1:-}" = "--one-process" ]; then
+  ONE=1
+  for f in tests/test_*.py; do mods+=("$(basename "$f" .py)"); done
 elif [ $# -gt 0 ]; then
   for m in "$@"; do mods+=("$(basename "${m%.py}")"); done
 else
@@ -58,6 +63,11 @@ RUN_TMP="$(mktemp -d /tmp/chatbot-tests.XXXXXX)" || exit 2
 export TMPDIR="$RUN_TMP"
 export CHATBOT_EVENTS_DIR="$RUN_TMP/events"   # evt/B: tests never write the live event mailbox
 trap 'rm -rf "$RUN_TMP"' EXIT
+
+if [ "${ONE:-}" = 1 ]; then
+  timeout 900 python3 -m unittest "${mods[@]/#/tests.}"
+  exit $?
+fi
 
 ms() { echo $(( $(date +%s%N) / 1000000 )); }
 failed=()

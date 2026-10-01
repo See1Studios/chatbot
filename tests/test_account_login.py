@@ -9,24 +9,37 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-# Isolate host_config paths before importing project modules
-_TMP = tempfile.mkdtemp(prefix="chatbot-login-test-")
-os.environ["HOME"] = _TMP
-os.environ["AGY_CHAT_ROOT"] = str(Path(_TMP) / "chatbot")
-os.environ["AGY_CHAT_DATA"] = str(Path(_TMP) / "chatbot" / "data")
-os.environ["AGY_BIN"] = "/bin/echo"
-os.environ["AGY_CLAUDE_BIN"] = "/bin/echo"
-os.environ["AGY_GROK_BIN"] = "/bin/echo"
-os.environ["AGY_CODEX_BIN"] = "/bin/echo"
-os.environ["CHATBOT_LOGIN_BOOTSTRAP_SEC"] = "0.2"
-os.environ["CHATBOT_LOGIN_TIMEOUT_SEC"] = "30"
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from providers import account_login  # noqa: E402
 from providers import accounts  # noqa: E402
+
+# Isolation without touching the environment (split/A): this module used to set HOME, the data folder and the CLI paths
+# in os.environ at import, which fixed host_config for every module run after it in the same process (git lost its
+# user, the code root moved). Now only what the login code reads is swapped, and only while this module runs: the
+# credential paths under a temporary home, the login CLIs replaced by /bin/echo, short waits.
+_TMP = Path(tempfile.mkdtemp(prefix="chatbot-login-test-"))
+_AGY = _TMP / ".gemini" / "antigravity-cli"
+_PATCHES = [mock.patch.object(accounts, k, v) for k, v in {
+    "HOME": _TMP, "AGY_DIR": _AGY, "AGY_TOKEN": _AGY / "antigravity-oauth-token", "AGY_LOG_DIR": _AGY / "log",
+    "AGY_PROFILES_DIR": _AGY / "tokens", "CODEX_AUTH": _TMP / ".codex" / "auth.json",
+    "GROK_AUTH": _TMP / ".grok" / "auth.json", "STATE_FILE": _TMP / "chatbot" / "data" / "account_state.json",
+}.items()] + [mock.patch.object(account_login, k, v) for k, v in {
+    "AGY": "/bin/echo", "CLAUDE_BIN": "/bin/echo", "GROK_BIN": "/bin/echo", "CODEX_BIN": "/bin/echo",
+    "BOOTSTRAP_WAIT_SEC": 0.2, "LOGIN_TIMEOUT_SEC": 30,
+}.items()]
+
+
+def setUpModule():
+    for p in _PATCHES:
+        p.start()
+
+
+def tearDownModule():
+    for p in reversed(_PATCHES):
+        p.stop()
 
 
 class AccountLoginTest(unittest.TestCase):

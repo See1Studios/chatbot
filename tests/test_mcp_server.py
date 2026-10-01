@@ -21,6 +21,22 @@ os.environ.setdefault("NAS_MCP_HOST_PLUGIN", "1")
 # and these cover the dev build's tools (ticket, run_command, delegate); the shipped build is pinned in test_edition_boundary
 os.environ.setdefault("CHATBOT_EDITION", "dev")
 import mcp_server as mcp  # noqa: E402  -- the only place tests import the tool server
+# Run in one process with other test modules, host_config may already have read the shipped edition before the line
+# above: the tool server is pinned to dev only while this module runs (split/A).
+_DEV = mock.patch.object(mcp, "EDITION", "dev")
+
+
+def _host_plugin():
+    try:   # as mcp_server loads it: a host without the plugin just lacks those tools
+        import nas_mcp_host
+        return nas_mcp_host
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# Likewise the host plugin: mcp_server attaches it at import when NAS_MCP_HOST_PLUGIN=1, which another module importing
+# it first leaves undone.
+_HOST = mock.patch.object(mcp, "HOST_PLUGIN", mcp.HOST_PLUGIN or _host_plugin())
 from tests._platform import dev_only_bash, nas_host_only  # noqa: E402
 from tests._platform import home_env  # noqa: E402
 
@@ -32,10 +48,14 @@ def setUpModule():
     global _live_scope
     _live_scope = mcp._live_scope
     mcp._live_scope = lambda grant: (False, False)
+    _DEV.start()
+    _HOST.start()
 
 
 def tearDownModule():
     mcp._live_scope = _live_scope
+    _HOST.stop()
+    _DEV.stop()
 
 CODE = Path(__file__).resolve().parent.parent
 CTL = "chatbot-ctl.sh"
