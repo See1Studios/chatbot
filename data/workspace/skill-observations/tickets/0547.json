@@ -2,13 +2,14 @@
  "actor": "chat-agent:agy",
  "approved_at": "2026-10-02 02:12:56",
  "approved_by": "operator (ui)",
- "attempts": 1,
+ "attempts": 2,
  "created": "2026-10-02 02:12:17",
  "evidence": [
   "event:20261002-020024-7c7b56#48"
  ],
  "gate_failures": 1,
  "id": 547,
+ "merge_pending": true,
  "notes": [
   {
    "by": "operator (ui)",
@@ -54,16 +55,26 @@
    "by": "agent:agy",
    "text": "gate_failed: worktree agy: task 1: review FAIL after 2 round(s)",
    "ts": "2026-10-02 03:02:18"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 2/3); paths: card_prompt.py, tests/test_card_prompt.py",
+   "ts": "2026-10-02 03:47:07"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-547 at 6a86688 (agy, review PASS round 2)",
+   "ts": "2026-10-02 04:02:56"
   }
  ],
  "paths": [
   "card_prompt.py",
   "tests/test_card_prompt.py"
  ],
- "status": "approved",
+ "status": "awaiting_merge",
  "target": "card_prompt.py,tests/test_card_prompt.py",
  "title": "[cgs/B] 캐릭터 생성 프롬프트 및 수치 상세도 포팅 모듈 (card_prompt.py)",
  "unavailable": 2,
- "updated": "2026-10-02 03:02:18",
+ "updated": "2026-10-02 04:02:56",
  "worked_by": "agy"
 }
