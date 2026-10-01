@@ -233,6 +233,8 @@ textarea::placeholder{
 .turn-stop-btn{display:none;align-items:center;justify-content:center;width:28px;height:28px;padding:0;font-size:.75rem;border-radius:8px;flex-shrink:0;white-space:nowrap}
 .msg-footer button.turn-stop-btn{margin-left:0}
 .meta .turn-stop-btn{width:24px;height:24px;padding:0;flex-shrink:0}
+.turn-stop-btn .action-icon-svg circle{fill:none;stroke:currentColor;stroke-width:1.8}
+.turn-stop-btn .action-icon-svg rect{fill:currentColor;stroke:none}
 .tts-btn{display:inline-flex;align-items:center;justify-content:center;gap:.25rem;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:.78rem;padding:.24rem .55rem;border-radius:20px;transition:all .15s ease}
 .tts-btn:hover{color:var(--accent2);border-color:var(--accent-border);background:var(--accent-soft)}
 .tts-btn.speaking{color:var(--accent2);background:var(--accent-soft);border-color:var(--accent-border)}

@@ -134,10 +134,10 @@ html.shell2 #log > .msg.assistant.staged[data-live="1"] .md > .md-typing{display
 html.shell2 .md-typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:shell-typing 1.2s infinite ease-in-out}
 html.shell2 .md-typing i:nth-child(2){animation-delay:.15s}
 html.shell2 .md-typing i:nth-child(3){animation-delay:.3s}
-html.shell2 .md-typing:has(> .turn-stop-btn){padding-top:.3rem;padding-bottom:.3rem;padding-right:.3rem}
-html.shell2 .md-typing > .turn-stop-btn{width:28px;height:28px;min-width:28px;padding:0;margin-left:.45rem;border-radius:8px;background:transparent;border-color:transparent;color:var(--muted);transition:background .15s ease,border-color .15s ease,color .15s ease}
-html.shell2 .md-typing > .turn-stop-btn .action-icon-svg{width:12px;height:12px;fill:currentColor;stroke:none}
-html.shell2 .md-typing > .turn-stop-btn:hover,html.shell2 .md-typing > .turn-stop-btn:focus-visible{background:rgba(248,81,73,.12);border-color:rgba(248,81,73,.35);color:#f85149}
+html.shell2 .md-typing:has(> .turn-stop-btn){padding-top:.2rem;padding-bottom:.2rem;padding-right:.3rem;min-height:28px;box-sizing:border-box}
+html.shell2 .md-typing > .turn-stop-btn,html.shell2 .md-typing > #stopBtn{width:18px;height:18px;min-width:18px;min-height:18px;padding:0;margin-left:.4rem;border:1px solid rgba(248,81,73,.28);border-radius:50%;background:rgba(248,81,73,.1);color:#f85149;transition:background .15s ease,border-color .15s ease,color .15s ease}
+html.shell2 .md-typing > .turn-stop-btn .action-icon-svg{width:14px;height:14px}
+html.shell2 .md-typing > .turn-stop-btn:hover,html.shell2 .md-typing > .turn-stop-btn:focus-visible{background:rgba(248,81,73,.18);border-color:rgba(248,81,73,.5);color:#f85149}
 html.shell2 .md-typing > .turn-stop-btn:active{background:rgba(248,81,73,.22)}
 @keyframes shell-typing{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-3px);opacity:1}}
 html.shell2 body:not(.density-advanced) #log > .msg.assistant .msg-footer .turn-live{display:none}

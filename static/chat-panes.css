@@ -597,6 +597,13 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
     padding:0;
     font-size:.78rem;
   }
+  /* The typing-bubble stop chip stays slim (18px) on mobile too. */
+  .md-typing > #stopBtn.turn-stop-btn{
+    width:18px;
+    height:18px;
+    min-height:18px;
+    min-width:18px;
+  }
 
   /* Single-Row 1행 슬림 컴포저 (줄바꿈 없이 수납) */
   .composer{
