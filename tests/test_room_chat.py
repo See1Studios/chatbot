@@ -78,6 +78,11 @@ class Rooms(unittest.TestCase):
         names = {self.b: "Kit", self.c: "Ari"}
         self.assertEqual(RC.mentions("@ari then @Kit, @ari again and @nobody", [self.b, self.c], names), [self.c, self.b])
 
+
+    def test_a_mention_after_a_letter_that_grows_when_lowered(self):
+        # review of #526: "İ".lower() is two code points, so positions from the text did not hold in its lower case
+        names = {self.b: "Kit", self.c: "Ari"}
+        self.assertEqual(RC.mentions("İİİ @Ari 안녕 @kit", [self.b, self.c], names), [self.c, self.b])   # l10n-ok
     def test_mentions_take_names_with_spaces_longest_first(self):
         names = {self.a: "Yae", self.b: "Yae Miko", self.c: "Ari"}
         members = [self.a, self.b, self.c]

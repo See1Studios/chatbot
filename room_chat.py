@@ -142,12 +142,13 @@ def mentions(text: str, members: List[str], names: Optional[Dict[str, str]] = No
     """Members @mentioned in `text`, in order, by name (or id). Names may hold spaces ("@Yae Miko"): at each "@" the
     longest member name that follows, as a whole word, wins; otherwise the single word there may be a member id."""
     names = names if names is not None else _names(members)
-    longest = sorted(((v.lower(), k) for k, v in names.items() if v), key=lambda x: -len(x[0]))
+    # Compared at the positions of the text as written: lower-casing can change a string's length ("İ" becomes two
+    # code points), so positions taken from `text` do not hold in `text.lower()` (review of #526).
+    longest = sorted(((v, k) for k, v in names.items() if v), key=lambda x: -len(x[0]))
     text, out = text or "", []
-    low = text.lower()
     for m in _MENTION.finditer(text):
         at = m.start(1)
-        cid = next((k for v, k in longest if low.startswith(v, at) and not _WORD.match(low, at + len(v))),
+        cid = next((k for v, k in longest if text[at:at + len(v)].lower() == v.lower() and not _WORD.match(text, at + len(v))),
                    None) or (m.group(1) if m.group(1) in members else None)
         if cid and cid not in out:
             out.append(cid)
