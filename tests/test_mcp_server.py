@@ -868,7 +868,8 @@ class ToolSurfaceTest(unittest.TestCase):
             names = {t["name"] for t in mcp.tool_defs()}
             adapters = (set(mcp.mcp_core.NAMES) | (set(mcp.delegation.NAMES) if mcp.delegation else set())
                         | (set(mcp.web_tool.NAMES) if mcp.web_tool else set())          # WEB_TOOL_v1
-                        | (set(mcp.mcp_parity.NAMES) if mcp.mcp_parity else set()))     # PARITY_TOOLS_v1
+                        | (set(mcp.mcp_parity.NAMES) if mcp.mcp_parity else set())      # PARITY_TOOLS_v1
+                        | set(mcp.dialog_tool.NAMES))                                   # inbox/D
             self.assertEqual(names, {"choices", "personal_turn", "list_dir", "read_file", "write_file", "run_command",
                                      "search_text"} | adapters)
             for tool in ("ping_nas", "list_services", "service_ctl"):

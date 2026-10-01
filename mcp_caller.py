@@ -5,7 +5,9 @@ spawned (session.caller_session). The model never says who it is. An HTTP brain 
 process and names its session in HEADER, which the host trusts only on a connection from itself.
 
   serving(handler, tool, fn) -> fn() run with this call's connection known
-  session_id(host_get, server_port) -> the calling session's id, "" when unknown (asked once per call, logged)
+  caller(host_get, server_port) -> {id, character, mode, private} of the calling session, {} when unknown (asked once
+      per call, logged)
+  session_id(host_get, server_port) -> its id, ""
   screen_session(host_get) -> the session on screen: the guess the older tools made before inbox/0
   actor(host_get) -> the role id core tools record as who called (ACTOR_ATTRIBUTION_v1)
 """
@@ -13,6 +15,7 @@ from __future__ import annotations
 
 import re
 import threading
+from typing import Dict
 from urllib.parse import urlencode
 
 import obslog
@@ -29,19 +32,24 @@ def serving(handler, tool: str, fn):
         _CALL.conn = None
 
 
-def session_id(host_get, server_port: int) -> str:
+def caller(host_get, server_port: int) -> Dict:
     """An unknown caller is logged with its process's name (mcp.caller_unknown), so a provider that reaches the tools
     some other way shows up in the log."""
     c = getattr(_CALL, "conn", None)
     if not c:
-        return ""
-    if "sid" not in c:
+        return {}
+    if "who" not in c:
         d = host_get("/api/sessions/caller?" + urlencode({"port": c["port"], "server": server_port, "claim": c["claim"]}))
         sid = str(d.get("id") or "")
-        c["sid"] = sid if re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid) else ""
-        if not c["sid"]:
+        c["who"] = {"id": sid, "character": str(d.get("character") or ""), "mode": str(d.get("mode") or ""),
+                    "private": bool(d.get("private"))} if re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid) else {}
+        if not c["who"]:
             obslog.event("mcp.caller_unknown", lvl="warn", tool=c["tool"], proc=str(d.get("proc") or "")[:40])
-    return c["sid"]
+    return c["who"]
+
+
+def session_id(host_get, server_port: int) -> str:
+    return caller(host_get, server_port).get("id", "")
 
 
 def screen_session(host_get) -> str:

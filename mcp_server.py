@@ -58,6 +58,7 @@ try:
 except Exception:
     mcp_core = None
 import personal_turn  # noqa: E402  -- PERSONAL_TURN_v1: marked work-room turns stay out of work material
+import dialog_tool  # noqa: E402  -- inbox/D: a character's messenger (list, read, send)
 # Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9-12): the `delegate` tool, an adapter like mcp_core.
 try:
     import delegation
@@ -422,7 +423,7 @@ def tool_defs() -> List[dict]:
     ]
     if mcp_core is not None:
         defs += list(mcp_core.TOOL_DEFS)
-    defs += personal_turn.TOOL_DEFS
+    defs += personal_turn.TOOL_DEFS + dialog_tool.TOOL_DEFS
     if delegation is not None:
         defs += list(delegation.TOOL_DEFS)
     if web_tool is not None:
@@ -673,7 +674,6 @@ def call_tool(name: str, arguments: dict) -> dict:
 
         if name in personal_turn.NAMES:
             return envelope(*personal_turn.tool_call(DATA / "sessions", _busy_sessions(), caller_session_id(guess=True)), None)
-
         if name == "choices":
             action = args.get("action", "choices")
             if action != "choices":
@@ -685,7 +685,8 @@ def call_tool(name: str, arguments: dict) -> dict:
 
         if delegation is not None and name in delegation.NAMES:
             return delegation.tool_call(name, args, mcp_caller.actor(_host_get), SECRET_CONTENT_RE, envelope, *_live_scope("delegate"))
-
+        if name in dialog_tool.NAMES:
+            return dialog_tool.call(args, envelope, mcp_caller.caller(_host_get, PORT))
         if web_tool is not None and name in web_tool.NAMES:
             return web_tool.call(args, envelope, private=_live_scope("web")[0])
         if mcp_core is not None and name in mcp_core.NAMES:

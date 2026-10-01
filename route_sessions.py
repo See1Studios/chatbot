@@ -126,7 +126,9 @@ def caller(req: Req):
     except (TypeError, ValueError):
         return req.send(400, b"port and server required", "text/plain")
     sid, proc = session.caller_session(port, server, str(req.q("claim") or ""))
-    return req.json({"id": sid, "proc": proc})
+    sess = REG.peek(sid) if sid else None
+    return req.json({"id": sid, "proc": proc, "character": getattr(sess, "character", "") or "",
+                     "mode": getattr(sess, "mode", "") or "", "private": bool(getattr(sess, "is_private", False))})
 
 def artifacts(req: Req):
     sess = REG.peek(req.arg)
