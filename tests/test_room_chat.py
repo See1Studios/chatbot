@@ -17,6 +17,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("CHATBOT_EVENTS_DIR", tempfile.mkdtemp())   # never the live mailbox
+os.environ.setdefault("CHATBOT_DIALOGS_DIR", tempfile.mkdtemp())  # nor the live dialogs
 import characters as C  # noqa: E402
 import room_chat as RC  # noqa: E402
 
@@ -145,6 +146,16 @@ class Rooms(unittest.TestCase):
         self.assertIn("Do not use tools", second)
         self.assertIn("keep the back-and-forth going", second, "members react to each other")
         self.assertIn("@mention them by name", second, "and hand the word on when the talk turns")
+
+    def test_a_member_who_speaks_has_read_the_room(self):
+        import dialog_log
+        r = RC.create("desk", [self.a, self.b], strategy="manual")
+        self.seats = {self.b: FakeSeat("s-b", ["first"])}
+        self.talk(r["id"], "@Kit one")
+        self.assertEqual(dialog_log.unread(self.b, r["id"]), (0, 0))
+        self.assertEqual(dialog_log.read(self.b, r["id"]), 2)
+        self.assertEqual(dialog_log.seen("s-b", self.b, r["id"]), 2)
+        self.assertEqual(dialog_log.unread(self.a, r["id"]), (2, 0), "the other member has not")
 
     def test_a_busy_room_refuses_a_second_message(self):
         r = RC.create("desk", [self.a, self.b], strategy="manual")

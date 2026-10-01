@@ -14,6 +14,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("CHATBOT_EVENTS_DIR", tempfile.mkdtemp())   # never the live mailbox
+os.environ.setdefault("CHATBOT_DIALOGS_DIR", tempfile.mkdtemp())  # nor the live dialogs
 import characters as C  # noqa: E402
 import dialog_log as D  # noqa: E402
 import room_chat as RC  # noqa: E402
@@ -26,7 +27,8 @@ class Dialogs(unittest.TestCase):
         self.a, self.b, self.c = sorted(C.new_id() for _ in range(3))
         for cid, name in ((self.a, "Boss"), (self.b, "Kit"), (self.c, "Ari")):
             C.save(cid, C.new_card(name), self.ws)
-        self.patches = [mock.patch.object(RC, "_dir", lambda: self.tmp / "rooms"),
+        self.patches = [mock.patch.dict(os.environ, {"CHATBOT_EVENTS_DIR": str(self.tmp / "events")}),
+                        mock.patch.object(RC, "_dir", lambda: self.tmp / "rooms"),
                         mock.patch.object(D, "_dir", lambda: self.tmp / "dialogs"),
                         mock.patch.object(C, "_default_ws", return_value=self.ws)]
         for p in self.patches:
@@ -84,6 +86,65 @@ class Dialogs(unittest.TestCase):
         self.assertEqual(D.members(r["id"]), [self.a, self.b, "user"])
         with self.assertRaises(ValueError):
             D.append(r["id"], self.c, "not in this room")
+
+
+    # ---------------------------------------------------------------------------------------- inbox/B
+    def events(self):
+        import events
+        return [e for e in events._read_all() if e["type"] == "msg.new"]
+
+    def test_each_message_is_announced_to_the_other_characters_without_its_text(self):
+        ab = D.dm_id(self.a, self.b)
+        D.append(ab, self.a, "secret words")
+        r = RC.create("Team", [self.a, self.b, self.c])
+        D.append(r["id"], "user", "hello all", mentions=[self.b])
+        got = self.events()
+        self.assertEqual([(e["to"], e["payload"]) for e in got],
+                         [([self.b], {"conversation": ab, "n": 1, "from": self.a}),
+                          (sorted([self.a, self.b, self.c]), {"conversation": r["id"], "n": 1, "from": "user"})])
+        self.assertNotIn("secret", json.dumps(got))
+
+    def test_unread_counts_others_messages_and_mentions_after_the_read_position(self):
+        r = RC.create("Team", [self.a, self.b])
+        D.append(r["id"], "user", "@Kit look", mentions=[self.b])
+        D.append(r["id"], self.a, "me too")
+        D.append(r["id"], self.b, "on it")
+        self.assertEqual(D.unread(self.b, r["id"]), (2, 1), "its own line is not unread")
+        D.saw(self.b, "s1", r["id"], 2)
+        self.assertEqual(D.unread(self.b, r["id"]), (0, 0))
+
+    def test_a_new_session_starts_from_the_characters_read_and_a_handover_goes_back_to_it(self):
+        ab = D.dm_id(self.a, self.b)
+        for t in ("one", "two", "three"):
+            D.append(ab, self.a, t)
+        D.saw(self.b, "s-room", ab, 1)
+        self.assertEqual(D.seen("s-new", self.b, ab), 1, "a new brain starts where the character read")
+        self.assertEqual(D.unread(self.b, ab, "s-new"), (2, 0))
+        D.saw(self.b, "s-work", ab, 3)
+        D.saw(self.b, "s-work", ab, 2)
+        self.assertEqual(D.seen("s-work", self.b, ab), 3, "never back")
+        D.saw(self.b, "", ab, 3)
+        self.assertEqual(D.seen("s-room", self.b, ab), 1, "the room brain did not see what the work brain saw")
+        D.forget("s-room")
+        self.assertEqual(D.seen("s-room", self.b, ab), 3)
+
+    def test_a_rooms_read_starts_where_the_member_last_spoke(self):
+        r = RC.create("Team", [self.a, self.b])
+        for t in ("x", "y", "z"):
+            D.append(r["id"], "user", t)
+        r = RC.room(r["id"])
+        r["seen"][self.b] = 2
+        RC._write_json(RC._room_path(r["id"]), r)
+        self.assertEqual(D.read(self.b, r["id"]), 2)
+        self.assertEqual(D.unread(self.b, r["id"]), (1, 0))
+
+    def test_dialogs_of_a_character(self):
+        ab, bc = D.dm_id(self.a, self.b), D.dm_id(self.b, self.c)
+        D.append(ab, self.a, "hi")
+        D.append(bc, self.c, "hi")
+        r = RC.create("Team", [self.a, self.c])
+        self.assertEqual(sorted(D.dialogs_of(self.a)), sorted([ab, r["id"]]))
+        self.assertEqual(sorted(D.dialogs_of(self.b)), sorted([ab, bc]))
 
 
 if __name__ == "__main__":

@@ -124,8 +124,23 @@ def _writers(rid: str) -> List[str]:
     return list(r["members"]) + [dialog_log.USER] if r else []
 
 
-# A room is a kind of dialog (unified-message-inbox inbox/A): its record is a dialog's, kept in its own file.
-dialog_log.register(lambda did: bool(_RID.match(did)), _writers, lambda did: _log_path(did))
+def _rooms_of(cid: str) -> List[str]:
+    out = []
+    for p in sorted(_dir().glob("room_*.json")) if _dir().is_dir() else []:
+        r = room(p.stem)
+        if r and cid in r["members"]:
+            out.append(r["id"])
+    return out
+
+
+def _start(cid: str, rid: str) -> int:
+    """A member's read position before any was kept: where it last spoke (the room's own `seen`)."""
+    r = room(rid)
+    return int((r or {}).get("seen", {}).get(cid, 0))
+
+
+# A room is a kind of dialog (unified-message-inbox inbox/A-B): its record is a dialog's, kept in its own file.
+dialog_log.register(lambda did: bool(_RID.match(did)), _writers, lambda did: _log_path(did), _rooms_of, _start)
 
 
 def mentions(text: str, members: List[str], names: Optional[Dict[str, str]] = None) -> List[str]:
@@ -232,12 +247,14 @@ def _run(rid: str, msg: Dict) -> None:
                 r["seats"][cid] = sess.sid
             r["seen"][cid] = messages(rid)[-1]["n"] if messages(rid) else 0
             _write_json(_room_path(rid), r)
+            dialog_log.saw(cid, sess.sid, rid, r["seen"][cid])   # it heard the room up to here (inbox/B)
             if not answer:
                 continue
             said = mentions(answer, r["members"], names)
             m = _append(rid, cid, answer[:MAX_TEXT], said)
             r["seen"][cid] = m["n"]
             _write_json(_room_path(rid), r)
+            dialog_log.saw(cid, sess.sid, rid, m["n"])
             replies, last = replies + 1, cid
             for nxt in said:
                 if nxt != cid and nxt not in queue and chain < MAX_CHAIN:

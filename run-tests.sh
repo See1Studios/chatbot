@@ -63,6 +63,7 @@ fi
 RUN_TMP="$(mktemp -d /tmp/chatbot-tests.XXXXXX)" || exit 2
 export TMPDIR="$RUN_TMP"
 export CHATBOT_EVENTS_DIR="$RUN_TMP/events"   # evt/B: tests never write the live event mailbox
+export CHATBOT_DIALOGS_DIR="$RUN_TMP/dialogs" # inbox/B: nor the live dialogs and read positions
 trap 'rm -rf "$RUN_TMP"' EXIT
 
 if [ "${ONE:-}" = 1 ]; then
