@@ -182,5 +182,43 @@ class ArtManager(unittest.TestCase):
         self.assertEqual(code, 400)
         self.assertIsNone(A.handle_upload("/api/characters/%s/art/packs" % self.cid, {}, io.BytesIO(b"")))
 
+    def test_a_pack_from_a_public_link_fills_the_slots(self):
+        data = zipped({"joy.png": png((300, 500), alpha=True)})
+        public = [(2, 1, 6, "", ("93.184.216.34", 443))]
+        with mock.patch("socket.getaddrinfo", return_value=public), \
+                mock.patch("urllib.request.OpenerDirector.open", return_value=io.BytesIO(data)) as opened:
+            code, body = A.handle_post("/api/characters/%s/art/pack_url" % self.cid,
+                                       {"url": "https://example.com/pack.zip", "framing": "full"})
+        self.assertEqual((code, body["ok"], body["framing"], body["placed"]), (200, True, "full", ["joy"]))
+        req = opened.call_args[0][0]
+        self.assertEqual((req.full_url, opened.call_args[1]["timeout"]), ("https://example.com/pack.zip", 15))
+        self.assertTrue(req.get_header("User-agent"))
+        self.assertTrue((self.base / "sprites" / "full" / "joy.webp").is_file())
+
+    def test_a_pack_link_must_be_public_http(self):
+        route = "/api/characters/%s/art/pack_url" % self.cid
+        lan = [(2, 1, 6, "", ("192.168.0.5", 80))]
+        with mock.patch("socket.getaddrinfo", return_value=lan), \
+                mock.patch("urllib.request.OpenerDirector.open") as opened:
+            for url in ("", "ftp://example.com/a.zip", "file:///etc/passwd", "http://localhost/a.zip",
+                        "http://127.0.0.1:8080/a.zip", "http://0.0.0.0/a.zip", "http://10.1.2.3/a.zip",
+                        "http://172.16.0.1/a.zip", "http://172.31.9.9/a.zip", "http://192.168.1.1/a.zip",
+                        "http://169.254.169.254/latest", "http://[::1]/a.zip", "http://[::ffff:127.0.0.1]/a.zip",
+                        "http://nas.local/a.zip", "http://lan-name.example/a.zip", "http://[bad/a.zip"):
+                code, body = A.handle_post(route, {"url": url})
+                self.assertEqual((code, body["ok"]), (400, False), url)
+            code, _ = A.handle_post(route, {"url": "https://example.com/a.zip", "framing": "side"})
+            self.assertEqual(code, 400)
+            opened.assert_not_called()
+        with self.assertRaises(A.ArtError):   # a redirect into the LAN is refused too
+            A._GuardedRedirect().redirect_request(None, None, 302, "", {}, "http://192.168.0.1/a.zip")
+
+    def test_a_pack_link_stops_reading_past_the_cap(self):
+        public = [(2, 1, 6, "", ("93.184.216.34", 443))]
+        with mock.patch("socket.getaddrinfo", return_value=public), mock.patch.object(A, "MAX_PACK", 10), \
+                mock.patch("urllib.request.OpenerDirector.open", return_value=io.BytesIO(b"x" * 11)):
+            code, body = A.handle_post("/api/characters/%s/art/pack_url" % self.cid, {"url": "https://example.com/a"})
+        self.assertEqual((code, body["error"]), (413, "too large"))
+
 if __name__ == "__main__":
     unittest.main()

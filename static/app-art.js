@@ -14,6 +14,7 @@ const ART_TEXT = {
   done: '반영했어요', failed: '실패: ', noCharacter: '캐릭터를 먼저 고르세요', drop: '여기에 놓으면 갤러리로 올라가요',   // l10n-ok
   bust: '상반신', full: '전신',   // l10n-ok
   pack: 'ZIP 팩 가져오기', packPlaced: '표정 %n개 반영', packSkipped: '건너뜀 %n개: ',   // l10n-ok
+  packUrl: 'URL로 가져오기', askUrl: 'SillyTavern 표정 ZIP 팩의 다운로드 링크 (http/https)', packLoading: '내려받는 중…',   // l10n-ok
   ask: '빠진 그림 부탁하기', askNone: '이 탭엔 빠진 그림이 없어요',   // l10n-ok
   askText: '%who의 %what 그림을 그려 줘: %names. character-art 스킬로, 사양은 character-resource-pipeline §10(%spec). 결과는 %cid 갤러리에 올려 줘.',   // l10n-ok
   specIcon: '아이콘 512 정사각, 얼굴 중심', specBackground: '배경은 장소만, 인물 금지',   // l10n-ok
@@ -137,6 +138,13 @@ function renderArtManager() {
     pk.addEventListener('click', () => zin.click());
     foot.appendChild(pk);
     foot.appendChild(zin);
+    const pu = artEl('button', 'art-btn', ART_TEXT.packUrl);
+    pu.type = 'button';
+    pu.addEventListener('click', () => {
+      const url = (window.prompt(ART_TEXT.askUrl, '') || '').trim();
+      if (url) artPackUrl(url);
+    });
+    foot.appendChild(pu);
   }
   // am/E: ask the PD for what is missing, as the operator's own message (the PD opens the ticket and delegates).
   // Work sessions only: a private session has no delegation.
@@ -260,6 +268,22 @@ async function artPack(file) {
   try {
     const r = await fetch(BASE_PATH + '/api/characters/' + encodeURIComponent(artState.cid) + '/art/pack', {
       method: 'POST', headers: { 'X-Framing': artState.framing, 'Content-Type': 'application/zip' }, body: file });
+    if (!r.ok) throw new Error(await r.text());
+    msg = artPackSummary(await r.json());
+    artRefreshPage();
+  } catch (e) {
+    msg = ART_TEXT.failed + artError(e);
+  }
+  await artReload(msg);
+}
+
+async function artPackUrl(url) {
+  artState.msg = ART_TEXT.packLoading;
+  renderArtManager();
+  let msg;
+  try {
+    const r = await fetch(BASE_PATH + '/api/characters/' + encodeURIComponent(artState.cid) + '/art/pack_url', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, framing: artState.framing }) });
     if (!r.ok) throw new Error(await r.text());
     msg = artPackSummary(await r.json());
     artRefreshPage();

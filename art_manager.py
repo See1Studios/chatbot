@@ -7,6 +7,7 @@ gallery, and the one way a picture gets into a slot.
   POST /api/characters/<id>/art/upload           raw image body, X-File-Name header -> into the gallery
   POST /api/characters/<id>/art/remove           JSON {"kind", "name", "framing", "brain"} -> back to the gallery
   POST /api/characters/<id>/art/pack             raw ZIP body, X-Framing header -> a SillyTavern sprite pack (am/D)
+  POST /api/characters/<id>/art/pack_url         JSON {"url", "framing"} -> the same pack, downloaded from a public link
 
 gallery/ is where candidates wait (character-resource-pipeline.md 2.1: an agent adds candidates there, never over an
 approved picture). Putting one in a slot is the operator's approval: the picture is fitted to the kind's canvas,
@@ -17,13 +18,17 @@ Nothing is deleted.
 from __future__ import annotations
 
 import io
+import ipaddress
 import re
 import shutil
+import socket
 import time
+import urllib.error
+import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 import characters
 
@@ -34,6 +39,8 @@ MAX_UPLOAD = 20 * 1024 * 1024
 MAX_PACK = 100 * 1024 * 1024        # a whole sprite pack: 28 expressions of a few MB each
 MAX_PACK_FILES = 200
 MAX_PACK_UNPACKED = 300 * 1024 * 1024
+PACK_URL_TIMEOUT = 15
+PACK_URL_AGENT = "chatbot-art-manager/1 (+SillyTavern sprite pack import)"
 _GALLERY_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}\.(png|webp|jpe?g)$")
 _IMAGE_EXT = (".png", ".webp", ".jpg", ".jpeg")
 
@@ -289,6 +296,60 @@ def pack(cid: str, data: bytes, framing: str = "bust", ws=None) -> Dict:
     return {"framing": framing, "placed": placed, "skipped": skipped}
 
 
+def _public_url(url: str) -> str:
+    """The URL if it may be fetched: http(s) to a host that resolves only to public addresses (no loopback,
+    private, link-local, reserved or multicast ones, no localhost/.local names). Checked again on every redirect.
+    The connection resolves the name once more, so a host that changes its answer in between is not covered."""
+    try:
+        parts = urlsplit(url)
+        host = (parts.hostname or "").rstrip(".").lower()
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+    except ValueError:
+        raise ArtError("bad URL")
+    if parts.scheme not in ("http", "https") or not host:
+        raise ArtError("only http(s) links")
+    if host == "localhost" or host.endswith((".localhost", ".local", ".internal", ".lan", ".home.arpa")):
+        raise ArtError("not a public host")
+    try:
+        addrs = [ipaddress.ip_address(host)]
+    except ValueError:
+        try:
+            addrs = [ipaddress.ip_address(a[4][0].split("%")[0]) for a in socket.getaddrinfo(host, port)]
+        except (OSError, UnicodeError, ValueError):
+            raise ArtError("host not found")
+    for a in addrs:
+        a = getattr(a, "ipv4_mapped", None) or a
+        if not a.is_global or a.is_multicast:
+            raise ArtError("not a public host")
+    return url
+
+
+class _GuardedRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _public_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def download(url: str) -> bytes:
+    """A pack from a public link, read in chunks and stopped past MAX_PACK."""
+    req = urllib.request.Request(_public_url(url.strip()), headers={"User-Agent": PACK_URL_AGENT})
+    try:
+        with urllib.request.build_opener(_GuardedRedirect).open(req, timeout=PACK_URL_TIMEOUT) as r:
+            buf = io.BytesIO()
+            while True:
+                chunk = r.read(1024 * 1024)
+                if not chunk:
+                    break
+                buf.write(chunk)
+                if buf.tell() > MAX_PACK:
+                    raise ArtError("too large")
+            return buf.getvalue()
+    except urllib.error.HTTPError as e:
+        raise ArtError("download failed: HTTP %s" % e.code)
+    except (urllib.error.URLError, OSError) as e:
+        raise ArtError("download failed: %s" % getattr(e, "reason", e))
+
+
 # ---------------------------------------------------------------------------------------------------- routes
 
 def _cid(path: str, suffix: str) -> Optional[str]:
@@ -305,6 +366,15 @@ def handle_get(path: str) -> Optional[Tuple[int, Dict]]:
 
 def handle_post(path: str, body: Dict) -> Optional[Tuple[int, Dict]]:
     body = body or {}
+    cid = _cid(path, "/art/pack_url")
+    if cid:
+        framing = str(body.get("framing") or "bust")
+        try:
+            if framing not in characters.FRAMINGS:   # before the download, not after it
+                raise ArtError("bad framing: %s" % framing)
+            return 200, dict(pack(cid, download(str(body.get("url") or "")), framing), ok=True)
+        except ArtError as e:
+            return (413 if str(e) == "too large" else 400), {"ok": False, "error": str(e)}
     for suffix, fn in (("/art/assign", "assign"), ("/art/remove", "remove")):
         cid = _cid(path, suffix)
         if not cid:
