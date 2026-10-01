@@ -74,7 +74,8 @@ function keyboardOpenState(narrow, short, focused, touch) {
 // unpinned one keeps its reading position. Every write goes through the isProgrammaticScroll guard, so the
 // log's scroll listener does not take it for a user scroll.
 function holdLogPosition(opening) {
-  if (isLogPinnedToBottom) {
+  if (isLogPinnedToBottom || isLogAtBottom(logEl)) {
+    isLogPinnedToBottom = true;
     _savedScrollTop = null;
     scrollChatToBottom(true);
     return;
@@ -138,9 +139,25 @@ let _bottomPullActive = false;
 let _bottomPullRefreshing = false;
 const BOTTOM_PULL_THRESHOLD = 150;
 
+// The one "is this log scrolled to its true bottom" check (2px slack for subpixel layout). With no argument it
+// measures the chat log; a log with nothing to scroll counts as at the bottom.
 function isLogAtBottom(el) {
+  if (el === undefined) el = (typeof logEl !== 'undefined') ? logEl : null;
   if (!el) return false;
   return (el.scrollTop + el.clientHeight >= el.scrollHeight - 2);
+}
+
+// Does the log on screen hold the channel's active tip -- the live session (liveSessionId, else the newer
+// session nav points at)? Either the open session is the tip, or the last rendered message carries the tip's sid.
+function containsActiveTip() {
+  const tip = (typeof liveSessionId !== 'undefined' && liveSessionId) ||
+    (typeof sessionNavNextSid !== 'undefined' && sessionNavNextSid) || '';
+  if (!tip) return true;
+  if (typeof sessionId !== 'undefined' && sessionId === tip) return true;
+  if (typeof logEl === 'undefined' || !logEl || typeof logEl.querySelectorAll !== 'function') return false;
+  const marked = logEl.querySelectorAll('.msg[data-sid]');
+  const last = marked.length ? marked[marked.length - 1] : null;
+  return Boolean(last && last.dataset && last.dataset.sid === tip);
 }
 
 function isTouchContext() {
@@ -378,6 +395,7 @@ initBottomPullRefresh.isAtBottom = isLogAtBottom;
 
 if (typeof window !== 'undefined') {
   window.initBottomPullRefresh = initBottomPullRefresh;
+  window.containsActiveTip = containsActiveTip;
 }
 
 if (typeof document !== 'undefined') {
