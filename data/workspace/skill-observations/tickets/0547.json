@@ -1,0 +1,69 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-10-02 02:12:56",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-10-02 02:12:17",
+ "evidence": [
+  "event:20261002-020024-7c7b56#48"
+ ],
+ "gate_failures": 1,
+ "id": 547,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-10-02 02:12:56"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: card_prompt.py, tests/test_card_prompt.py",
+   "ts": "2026-10-02 02:13:35"
+  },
+  {
+   "by": "agent:agy",
+   "text": "unavailable: worktree agy: gate fails without this work too: ./run-tests.sh tests/test_docs_budget.py tests/test_code_layout.py tests/test_file_sizes.py tests/test_provider_neutrality.py tests/test_no_trace.py tests/test_tool_format_clean.py tests/test_bundle_budget.py tests/test_static_assets.py tests/test_entrypoints.py tests/test_rule_registry.py tests/test_plans_index.py tests/test_doc_refs.py tests/test_githooks.py tests/test_doc_names.py tests/test_ratchets.py tests/test_edition_boundary.p",
+   "ts": "2026-10-02 02:21:07"
+  },
+  {
+   "by": "host",
+   "text": "no brain answered: attempt given back (1/3)",
+   "ts": "2026-10-02 02:21:07"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: card_prompt.py, tests/test_card_prompt.py",
+   "ts": "2026-10-02 02:23:40"
+  },
+  {
+   "by": "agent:agy",
+   "text": "unavailable: worktree agy: gate fails without this work too: ./run-tests.sh tests/test_docs_budget.py tests/test_code_layout.py tests/test_file_sizes.py tests/test_provider_neutrality.py tests/test_no_trace.py tests/test_tool_format_clean.py tests/test_bundle_budget.py tests/test_static_assets.py tests/test_entrypoints.py tests/test_rule_registry.py tests/test_plans_index.py tests/test_doc_refs.py tests/test_githooks.py tests/test_doc_names.py tests/test_ratchets.py tests/test_edition_boundary.p",
+   "ts": "2026-10-02 02:24:43"
+  },
+  {
+   "by": "host",
+   "text": "no brain answered: attempt given back (2/3)",
+   "ts": "2026-10-02 02:24:43"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: card_prompt.py, tests/test_card_prompt.py",
+   "ts": "2026-10-02 02:56:38"
+  },
+  {
+   "by": "agent:agy",
+   "text": "gate_failed: worktree agy: task 1: review FAIL after 2 round(s)",
+   "ts": "2026-10-02 03:02:18"
+  }
+ ],
+ "paths": [
+  "card_prompt.py",
+  "tests/test_card_prompt.py"
+ ],
+ "status": "approved",
+ "target": "card_prompt.py,tests/test_card_prompt.py",
+ "title": "[cgs/B] 캐릭터 생성 프롬프트 및 수치 상세도 포팅 모듈 (card_prompt.py)",
+ "unavailable": 2,
+ "updated": "2026-10-02 03:02:18",
+ "worked_by": "agy"
+}
