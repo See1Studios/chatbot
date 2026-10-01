@@ -3,13 +3,15 @@
  "approved_at": "2026-10-01 18:35:09",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-01 18:34:19",
  "evidence": [
   "event:20261001-182927-ca0f10#66"
  ],
  "gate_failures": 0,
  "id": 524,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,15 +27,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-524 at 4243dee (agy, review PASS round 1)",
    "ts": "2026-10-01 18:44:15"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-01 18:44:32"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 1c0704a on the operator's word (agy)",
+   "ts": "2026-10-01 18:46:38"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-01 18:46:38"
   }
  ],
  "paths": [
   "static/app-art.js",
   "static/art-manager.css"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/app-art.js,static/art-manager.css",
  "title": "[character-art-manager] 그림도구: 하단 푸터 레이아웃 정돈 및 주의사항(problems) 축약 표시",
- "updated": "2026-10-01 18:44:15",
+ "updated": "2026-10-01 18:46:38",
  "worked_by": "agy"
 }
