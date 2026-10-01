@@ -83,6 +83,19 @@ class DevlogEntry(unittest.TestCase):
         self.assertIn('if result.get("merged"):', report)
         self.assertIn("extra)", report)
 
+    def test_the_range_starts_after_the_rebase_so_main_commits_are_not_the_branchs(self):
+        # #535 (2026-10-01): main moved during the run, the branch was rebased, and the diary listed the other
+        # agents' commits as the worker's -- the merge result kept the base from before the rebase.
+        src = (ROOT / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
+        self.assertEqual(src.count("result.update(merged=True, head=head, base=base)"), 2, "both landing paths")
+        self.assertNotIn("_, head = land(", src)
+        self.assertIn('record_merge(repo, tid, title, provider, result["base"], ', src)
+        rebased_base = self.git("rev-parse", "HEAD~1")          # main as the branch was rebased onto it
+        D.record_merge(self.repo, 12, "t", "agy", rebased_base, self.git("rev-parse", "HEAD"), day="2026-10-01")
+        top = (self.repo / "docs" / "DEVLOG.md").read_text(encoding="utf-8").split("## 2026-09-30")[0]
+        self.assertIn("fix(core): a", top)
+        self.assertNotIn("feat(ui): b", top)
+
 
 if __name__ == "__main__":
     unittest.main()

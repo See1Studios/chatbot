@@ -930,7 +930,7 @@ def record_and_report(repo: Path, tid: int, provider: str, title: str, result: D
     extra: Tuple[str, ...] = ()
     if result.get("merged"):   # the landed change gets its line in the diary (tools/devlog_entry.py)
         import devlog_entry
-        extra = tuple(devlog_entry.record_merge(repo, tid, title, provider, result.get("base") or read_state(tid).get("base"), result.get("head")))
+        extra = tuple(devlog_entry.record_merge(repo, tid, title, provider, result["base"], result.get("head")))
     record = commit_ticket_record(repo, tid, provider, "%s -- %s" % (subject, title[:80]), extra)
     if record:
         result["ticket_commit"] = record
@@ -1369,7 +1369,7 @@ def cmd_run(args) -> int:
         else:   # landing now: onto main, checked there once more when main moved (LAND_RETRY_v1)
             base, head = land(repo, wt_dir, main_branch, branch, base, gates,
                               on_rebase=lambda b: write_state(tid, base=b))
-            result.update(merged=True, head=head)
+            result.update(merged=True, head=head, base=base)
     except Failure as f:
         release_failed(tid, token, f, provider, actor, result)
         if f.keep and created:
@@ -1422,10 +1422,10 @@ def cmd_merge(args) -> int:
         if not wt_dir.exists() or git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] != 0:
             raise Failure("failed", "the waiting worktree or branch %s is gone" % branch)
         # the reviewed change now sits on a different main: its scope and tiers are checked again, then its gates
-        _, head = land(repo, wt_dir, st["main_branch"], branch, st["base"], st["gates"],
+        base, head = land(repo, wt_dir, st["main_branch"], branch, st["base"], st["gates"],
                        on_rebase=lambda b: check_tiers(repo, check_scope(wt_dir, b, st["paths"]),
                                                        gate_files(repo, st["gates"]), retryable=False))
-        result.update(merged=True, head=head)
+        result.update(merged=True, head=head, base=base)
     except Failure as f:
         release_failed(tid, token, f, provider, actor, result)
     finally:
