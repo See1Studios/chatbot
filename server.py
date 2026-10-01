@@ -1317,11 +1317,11 @@ def _service_log(since: str, sid: str = "") -> dict:
         events = logdigest.session_timeline(sid, since_t)
     else:
         events = [e for e in logdigest.read_events(since_t)
-                  if e.get("lvl") in ("warn", "error") or str(e.get("evt", "")).startswith(_SERVICE_LOG_INFO_EVTS)]
-    events = [_trim_event(e) for e in events[-SERVICE_LOG_EVENTS:]][::-1]
+                  if isinstance(e, dict) and (e.get("lvl") in ("warn", "error") or str(e.get("evt", "")).startswith(_SERVICE_LOG_INFO_EVTS))]
+    events = [_trim_event(e) for e in events if isinstance(e, dict)][-SERVICE_LOG_EVENTS:][::-1]
     d = logdigest.digest(since_s)
-    for g in d.get("errors", []):
-        g["sample_trace"] = (g.get("sample_trace") or "")[-1500:] or None
+    d["errors"] = [dict(g, sample_trace=(g.get("sample_trace") or "")[-1500:] or None)
+                   for g in d.get("errors") or [] if isinstance(g, dict)]  # a malformed group must not 500 the tab
     out = {"ok": True, "log_exists": logdigest.LOG.exists(), "since": since, "sid": sid or None,
            "digest": {k: d.get(k) for k in ("status", "window", "findings", "processes", "errors", "turns", "ops", "mcp", "counts")},
            "events": events}

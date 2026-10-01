@@ -77,6 +77,17 @@ class ServiceLogApiTest(unittest.TestCase):
         d = self.get("?since=1h&sid=" + SID)
         self.assertEqual([e["evt"] for e in d["events"]], ["http.error", "turn.start"])
 
+    def test_malformed_digest_errors_and_events_are_skipped(self):
+        real_digest, real_read = logdigest.digest, logdigest.read_events
+        logdigest.digest = lambda s: {"status": "error", "errors": ["boom", None, {"fp": "abc", "sample_trace": "x"}]}
+        logdigest.read_events = lambda t: ["junk", 7] + list(real_read(t))
+        try:
+            d = self.get("?since=1h")
+        finally:
+            logdigest.digest, logdigest.read_events = real_digest, real_read
+        self.assertEqual(d["digest"]["errors"], [{"fp": "abc", "sample_trace": "x"}])
+        self.assertEqual([e["evt"] for e in d["events"]], ["repair.begin", "http.error", "proc.start"])
+
     def test_bad_parameters_are_400(self):
         for q in ("?since=forever", "?since=1h&sid=../../etc"):
             with self.assertRaises(HTTPError) as cm:
