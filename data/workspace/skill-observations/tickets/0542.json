@@ -1,0 +1,45 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-10-01 23:59:25",
+ "approved_by": "operator (ui)",
+ "attempts": 0,
+ "created": "2026-10-01 23:59:15",
+ "evidence": [
+  "event:20261001-231137-f9656f#112"
+ ],
+ "gate_failures": 0,
+ "id": 542,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-10-01 23:59:25"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: providers/accounts.py, tests/test_accounts.py, tools/switch_account.py",
+   "ts": "2026-10-01 23:59:25"
+  },
+  {
+   "by": "agent:agy",
+   "text": "unavailable: worktree agy: no brain could work (claude/opus): You've hit your session limit · resets 12am (Asia/Seoul)",
+   "ts": "2026-10-01 23:59:35"
+  },
+  {
+   "by": "host",
+   "text": "no brain answered: attempt given back (1/3)",
+   "ts": "2026-10-01 23:59:35"
+  }
+ ],
+ "paths": [
+  "providers/accounts.py",
+  "tests/test_accounts.py",
+  "tools/switch_account.py"
+ ],
+ "status": "approved",
+ "target": "providers/accounts.py,tests/test_accounts.py,tools/switch_account.py",
+ "title": "구글 계정 1초 즉시 스왑 도구 및 프로필 저장 기능 구현",
+ "unavailable": 1,
+ "updated": "2026-10-01 23:59:35",
+ "worked_by": "agy"
+}
