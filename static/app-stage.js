@@ -62,20 +62,33 @@ function stageLayout(md) {
 
 // While nothing of the answer is on screen yet, the face has the messenger's typing dots beside it (operator,
 // 2026-10-01: waiting is "typing", not "writing" or "thinking" -- and needs no words). Shown only while the message
-// is live (data-live, app-turn.js) and in the simple density (shell.css); the advanced one keeps its words.
+// is live (data-live, app-turn.js) in either density (shell.css). The stop button docks in it while it waits
+// (app-turn.js placeStopBtn), so only the dots are hidden from a screen reader, and leaving moves the button on.
 function stageTyping(md, face) {
   const kids = stageKids(md);
   const shown = kids.some(el => stageHas(el, 'md-say') || stageHas(el, 'md-narr') || (stageHas(el, 'open') && el.firstChild));
   let dots = kids.find(el => stageHas(el, 'md-typing'));
-  if (shown) { if (dots) md.removeChild(dots); return; }
-  if (!dots) {
+  const replace = typeof placeStopBtn === 'function' ? placeStopBtn : null;
+  if (shown) {
+    if (!dots) return;
+    const held = typeof stopBtn !== 'undefined' && stopBtn && stopBtn.parentNode === dots;
+    md.removeChild(dots);
+    if (held && replace) replace();         // the first words are out: the button goes to the footer
+    return;
+  }
+  const made = !dots;
+  if (made) {
     dots = document.createElement('div');
     dots.className = 'md-typing';
-    dots.setAttribute('aria-hidden', 'true');
-    for (let k = 0; k < 3; k++) dots.appendChild(document.createElement('i'));
+    for (let k = 0; k < 3; k++) {
+      const dot = document.createElement('i');
+      dot.setAttribute('aria-hidden', 'true');
+      dots.appendChild(dot);
+    }
   }
   const after = kids[kids.indexOf(face) + 1];
   if (after !== dots) { if (after) md.insertBefore(dots, after); else md.appendChild(dots); }
+  if (made && replace) replace();
 }
 
 // The face: the character's picture (--char-avatar, as the old corner picture) and the way to its thought.

@@ -127,16 +127,23 @@ html.shell2 #log > .msg.assistant.staged .md > .md-narr em{font-size:inherit;opa
 html.shell2 #log > .msg.assistant.staged .md-say .md-block[data-kind="dialogue"]{padding-left:0;border-left:0}   /* the bubble already says "speech" */
 html.shell2 #log > .msg.assistant.staged .msg-footer{max-width:92%;margin-top:.1rem;padding-top:0;border-top:0}
 html.shell2 #log > .msg.assistant.staged .md-say:empty{display:none}
-/* waiting is typing (app-stage.js stageTyping): dots beside the face in the simple density; the advanced density keeps
-   its words (the "N s" footer, the reasoning strip), which the simple one does not show */
+/* waiting is typing (app-stage.js stageTyping): dots beside the face in both densities, with the stop button docked
+   in them (app-turn.js placeStopBtn); the advanced density adds its words (the "N s" footer, the reasoning strip) */
 html.shell2 .md-typing{display:none}
-html.shell2 body:not(.density-advanced) #log > .msg.assistant.staged[data-live="1"] .md > .md-typing{display:inline-flex;align-items:center;gap:4px;margin:0 0 .35rem;padding:.7rem .85rem;border:1px solid var(--border);border-radius:14px 14px 14px 4px;background:var(--bubble-base);backdrop-filter:var(--bubble-blur);-webkit-backdrop-filter:var(--bubble-blur)}
+html.shell2 #log > .msg.assistant.staged[data-live="1"] .md > .md-typing{display:inline-flex;align-items:center;gap:4px;margin:0 0 .35rem;padding:.7rem .85rem;border:1px solid var(--border);border-radius:14px 14px 14px 4px;background:var(--bubble-base);backdrop-filter:var(--bubble-blur);-webkit-backdrop-filter:var(--bubble-blur)}
 html.shell2 .md-typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:shell-typing 1.2s infinite ease-in-out}
 html.shell2 .md-typing i:nth-child(2){animation-delay:.15s}
 html.shell2 .md-typing i:nth-child(3){animation-delay:.3s}
+html.shell2 .md-typing:has(> .turn-stop-btn){padding-top:.3rem;padding-bottom:.3rem;padding-right:.3rem}
+html.shell2 .md-typing > .turn-stop-btn{width:28px;height:28px;min-width:28px;padding:0;margin-left:.45rem;border-radius:8px;background:transparent;border-color:transparent;color:var(--muted);transition:background .15s ease,border-color .15s ease,color .15s ease}
+html.shell2 .md-typing > .turn-stop-btn .action-icon-svg{width:12px;height:12px;fill:currentColor;stroke:none}
+html.shell2 .md-typing > .turn-stop-btn:hover,html.shell2 .md-typing > .turn-stop-btn:focus-visible{background:rgba(248,81,73,.12);border-color:rgba(248,81,73,.35);color:#f85149}
+html.shell2 .md-typing > .turn-stop-btn:active{background:rgba(248,81,73,.22)}
 @keyframes shell-typing{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-3px);opacity:1}}
 html.shell2 body:not(.density-advanced) #log > .msg.assistant .msg-footer .turn-live{display:none}
 html.shell2 body:not(.density-advanced) #log > .msg.assistant > details.think{display:none}
+html.shell2 body.density-advanced #log > .msg.assistant.staged .msg-footer{flex-wrap:wrap;row-gap:.25rem}
+html.shell2 body.density-advanced #log > .msg.assistant.staged > details.think{max-width:92%}
 html.shell2 #shellPresence.busy::after{content:" \00B7\00B7\00B7";letter-spacing:.1em;animation:shell-typing-text 1.2s infinite ease-in-out}
 @keyframes shell-typing-text{0%,100%{opacity:.35}50%{opacity:1}}
 /* the order is action, face, thought, speech (app-stage.js): the face is a real element here, in place of the corner picture */

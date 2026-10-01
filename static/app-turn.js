@@ -207,8 +207,11 @@ function placeStopBtn() {
   stopBtn.style.display = 'inline-flex';
   const onChat = currentTab === 'chat' && assistantNode && assistantNode.isConnected;
   if (onChat) {
+    // waiting: docked in the typing bubble (app-stage.js stageTyping); once words show, in the footer
     const footer = ensureTurnFooter(assistantNode);
-    if (footer && stopBtn.parentElement !== footer) footer.appendChild(stopBtn);
+    const typing = assistantNode.dataset.live === '1' && assistantNode.querySelector('.md > .md-typing');
+    const dock = typing || footer;
+    if (dock && stopBtn.parentElement !== dock) dock.appendChild(stopBtn);
   } else {
     const meta = document.getElementById('meta');
     if (meta && stopBtn.parentElement !== meta) meta.appendChild(stopBtn);

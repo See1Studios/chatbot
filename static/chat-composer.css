@@ -229,9 +229,10 @@ textarea::placeholder{
 .turn-live{display:inline-flex;align-items:center;gap:.35rem;flex:1 1 auto;min-width:0;max-width:100%;padding:.16rem .5rem;border-radius:6px;background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent2);font-family:var(--font-mono);font-size:.73rem;user-select:none}
 .turn-live .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse-dot 1.2s infinite ease-in-out;flex-shrink:0}
 .turn-live .turn-live-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.turn-stop-btn{display:none;align-items:center;justify-content:center;gap:.25rem;height:26px;padding:0 .65rem;font-size:.75rem;border-radius:8px;flex-shrink:0;white-space:nowrap}
-.msg-footer .turn-stop-btn{margin-left:auto}
-.meta .turn-stop-btn{height:22px;padding:0 .5rem;font-size:.72rem;flex-shrink:0}
+/* icon-only (title/aria-label carry the word); it sits right after .turn-live, not pushed off to the far edge */
+.turn-stop-btn{display:none;align-items:center;justify-content:center;width:28px;height:28px;padding:0;font-size:.75rem;border-radius:8px;flex-shrink:0;white-space:nowrap}
+.msg-footer button.turn-stop-btn{margin-left:0}
+.meta .turn-stop-btn{width:24px;height:24px;padding:0;flex-shrink:0}
 .tts-btn{display:inline-flex;align-items:center;justify-content:center;gap:.25rem;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:.78rem;padding:.24rem .55rem;border-radius:20px;transition:all .15s ease}
 .tts-btn:hover{color:var(--accent2);border-color:var(--accent-border);background:var(--accent-soft)}
 .tts-btn.speaking{color:var(--accent2);background:var(--accent-soft);border-color:var(--accent-border)}

@@ -590,10 +590,11 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
      got clipped by #log's overflow-x:hidden (operator: 모바일에서 중지
      버튼이 잘려 보임). */
   .msg-footer .turn-stop-btn, #stopBtn.turn-stop-btn{
-    height:32px;
-    min-height:32px;
-    min-width:44px;
-    padding:0 .6rem;
+    width:34px;
+    height:34px;
+    min-height:34px;
+    min-width:34px;
+    padding:0;
     font-size:.78rem;
   }
 
