@@ -3,13 +3,15 @@
  "approved_at": "2026-10-01 18:15:09",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-01 18:14:51",
  "evidence": [
   "event:20261001-180606-465a37#33"
  ],
  "gate_failures": 0,
  "id": 523,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,6 +27,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-523 at 2ca8068 (agy, review PASS round 1)",
    "ts": "2026-10-01 18:19:49"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-01 18:22:50"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 2c8a436 on the operator's word (agy)",
+   "ts": "2026-10-01 18:25:21"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-01 18:25:21"
   }
  ],
  "paths": [
@@ -32,9 +49,9 @@
   "docs/plans/character-art-manager.md",
   "static/app-art.js"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "docs/plans/index.md,docs/plans/character-art-manager.md,static/app-art.js",
  "title": "[character-art-manager] 그림도구: 뷰어 모달 연동 및 패널 정본화",
- "updated": "2026-10-01 18:19:49",
+ "updated": "2026-10-01 18:25:21",
  "worked_by": "agy"
 }
