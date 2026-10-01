@@ -430,7 +430,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 "ok": True,
                 "chat": chat_ok,
                 "boot_ts": BOOT_INFO["boot_ts"],
-                "label_ko": "전기충격 · 심폐소생",
+                "label_ko": "엔진 리부트",
                 "hint_ko": "연결이 죽었거나 응답이 안 올 때 호스트를 재기동합니다. 몇 초 끊겼다가 다시 붙습니다.",
             })
             return self._send(code, body, "application/json; charset=utf-8")
@@ -472,7 +472,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 {"name": "/private off", "label": "사적 대화 끄기", "desc": "업무 대화 세션으로 복귀", "template": "/private off"},
                 {"name": "/continue", "label": "이어하기", "desc": "현재 대화 맥락 인계 새 세션", "template": "/continue"},
                 {"name": "/new", "label": "새 세션", "desc": "완전한 새 대화 세션 시작", "template": "/new"},
-                {"name": "/defib", "label": "심폐소생", "desc": "⚡ 호스트 전기충격·소생 (repair)", "template": "/defib"},
+                {"name": "/defib", "label": "엔진 리부트", "desc": "엔진 리부트 (repair/reboot)", "template": "/defib"},
                 {"name": "/status", "label": "상태 확인", "desc": "챗봇 및 NAS 시스템 상태 확인", "template": "/status"},
                 {"name": "/clear", "label": "화면 비우기", "desc": "대화창 화면 로그 초기화", "template": "/clear"},
                 {"name": "/compact", "label": "세션 압축", "desc": "대화 히스토리 수동 압축/요약", "template": "/compact"},
@@ -865,7 +865,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
                 code, raw = _json_bytes({
                     "ok": True,
                     "scheduled": True,
-                    "message_ko": "전기충격(심폐소생) 예약됨. 호스트가 재기동됩니다. 잠시 후 자동으로 다시 연결합니다.",
+                    "message_ko": "엔진 리부트 예약됨. 호스트가 재기동됩니다. 잠시 후 자동으로 다시 연결합니다.",
                 })
                 self._send(code, raw, "application/json; charset=utf-8")
                 _schedule_host_defibrillate()

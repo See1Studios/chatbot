@@ -455,7 +455,7 @@ async function send(opts) {
     continueSession().catch(e => addActivity(String(e.message || e)));
     return;
   }
-  if (text === '/defib' || text === '/repair') {
+  if (text === '/defib' || text === '/reboot' || text === '/repair') {
     inputEl.value = '';
     inputEl.style.height = '';
     updateSendButton();
@@ -504,14 +504,14 @@ async function send(opts) {
       '- `Alt+1` 대화 · `Alt+2` 세션 · `Alt+3` 로그 · `Alt+4` 아티팩트 · `Alt+5` 상태 · `Alt+6` 개선\n\n' +
       '**어디서나 되는 것**\n' +
       '- `/` 키: 바로 컴포저로 이동해서 슬래시 메뉴 열기\n' +
-      '- 헤더의 `⋯` 버튼: 테마 색상 선택, 호스트 소생(repair)\n' +
+      '- 헤더의 `⋯` 버튼: 테마 색상 선택, 엔진 리부트(repair)\n' +
       '- 대화가 한 턴 이상이면 채팅창 아래에 새 대화·이어가기 버튼이 뜬다. 세션이 길어지면 거기서 바로 갈아탈 수 있다\n' +
       '- `세션` 탭에서도 새 세션을 열 수 있다\n\n' +
       '**슬래시 명령어**\n' +
       '- `/btw <질문>` 작업 중 샛길 질문 · `/continue` 맥락 요약 인계 새 세션 · `/new` 완전 새 세션\n' +
       '- `/act <행동>` (별칭 `/me`) 말 대신 행동·상황 지문 전달\n' +
       '- `/private on|off` 사적 대화 전환 · `/review` 관찰 리뷰\n' +
-      '- `/status` 상태 확인 · `/clear` 화면 비우기 · `/compact` 대화 압축 · `/defib` 호스트 소생\n\n' +
+      '- `/status` 상태 확인 · `/clear` 화면 비우기 · `/compact` 대화 압축 · `/defib`·`/reboot` 엔진 리부트\n\n' +
       '**작업 결정** (`/ticket <결정> 번호`, 에이전트에게 안 가고 바로 처리)\n' +
       '- `go` 승인+착수 · `approve` 승인 · `decline` 폐기 · `reopen` 재개\n' +
       '- 위임: `delegate` 실행 · `merge` 승인 · `rework 번호 사유` 반려 · `discard` 폐기 · `allow` 경로 허용\n\n' +

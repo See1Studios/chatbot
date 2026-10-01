@@ -333,7 +333,7 @@ class ObservationUiTest(unittest.TestCase):
         self.assertIn("새 힌트 없음", o["emptyText"])
         self.assertEqual(o["noHintToggle"], 0)
         self.assertEqual(len(o["degraded"]), 1)
-        self.assertIn("소생", o["degraded"][0])
+        self.assertIn("엔진 리부트", o["degraded"][0])
         self.assertIn("not found", o["degraded"][0])
 
 
@@ -395,7 +395,7 @@ class ObservationUiTest(unittest.TestCase):
     def test_no_ticket_waiting_and_an_old_host_are_handled(self):
         o = self.out
         self.assertIn("지금 결정할 작업이 없어요.", o["noTicketText"])
-        self.assertIn("소생", o["ticketDegraded"][0])
+        self.assertIn("엔진 리부트", o["ticketDegraded"][0])
 
 
 class MarkupTest(unittest.TestCase):

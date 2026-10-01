@@ -48,7 +48,7 @@ async function loadObservations() {
   try {
     res = await api('/api/observations');
   } catch (e) {
-    obsSet(statusObsBoxEl, [obsNode('div', 'status-hint', '이슈 API 없음 (소생 필요): ' + obsErrorText(e))]);
+    obsSet(statusObsBoxEl, [obsNode('div', 'status-hint', '이슈 API 없음 (엔진 리부트 필요): ' + obsErrorText(e))]);
     return;
   }
   renderObservations(res);
@@ -450,7 +450,7 @@ async function loadTickets() {
   try {
     res = await api('/api/tickets');
   } catch (e) {
-    if (statusTicketBoxEl) obsSet(statusTicketBoxEl, [obsNode('div', 'status-hint', '작업 API 없음 (소생 필요): ' + obsErrorText(e))]);
+    if (statusTicketBoxEl) obsSet(statusTicketBoxEl, [obsNode('div', 'status-hint', '작업 API 없음 (엔진 리부트 필요): ' + obsErrorText(e))]);
     if (ticketBarEl) { ticketBarEl.textContent = ''; ticketBarEl.hidden = true; }
     return;
   }
