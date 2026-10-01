@@ -1337,6 +1337,30 @@ def owned_agent_procs() -> Dict[int, dict]:
     return out
 
 
+def caller_session(client_port: int, server_port: int, claimed: str = "") -> Tuple[str, str]:
+    """Which session made a tool call (inbox/0): the process holding the client side of the TCP connection
+    client_port -> server_port, walked up its ancestry to an agent process this server spawned. That is an OS fact the
+    model cannot forge (a shell it runs is still that agent's descendant). The host's own process -- an HTTP brain
+    calling tools from here -- names its session in `claimed`. Returns (session id or "", the process's name)."""
+    import platform_compat
+    me = os.getpid()
+    pid = platform_compat.tcp_socket_pid(client_port, server_port, sorted(platform_compat.child_pids({me})))
+    if pid is None:
+        return "", ""
+    argv = platform_compat.proc_cmdline(pid)
+    name = os.path.basename(argv[0]) if argv else ""
+    if pid == me:
+        return (claimed if claimed and REG.peek(claimed) is not None else ""), "host"
+    owned = {p: v["sid"] for p, v in owned_agent_procs().items() if v.get("sid")}
+    hop = pid
+    for _ in range(32):
+        if hop in owned:
+            return owned[hop], name
+        hop = platform_compat.parent_pid(hop)
+        if not hop or hop <= 1 or hop == me:
+            break
+    return "", name
+
 def recycle_agents(pids: set) -> dict:
     """Stop the given chatbot-owned agent processes so they respawn with the
     current login. Idle session children are stopped without notice (the next

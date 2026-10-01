@@ -118,6 +118,16 @@ def active(req: Req):
     return req.json(pub)
 
 
+def caller(req: Req):
+    """GET /api/sessions/caller?port=&server=[&claim=]: the session behind a tool call's connection (inbox/0)."""
+    import session
+    try:
+        port, server = int(req.q("port")), int(req.q("server"))
+    except (TypeError, ValueError):
+        return req.send(400, b"port and server required", "text/plain")
+    sid, proc = session.caller_session(port, server, str(req.q("claim") or ""))
+    return req.json({"id": sid, "proc": proc})
+
 def artifacts(req: Req):
     sess = REG.peek(req.arg)
     if sess is None:

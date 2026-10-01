@@ -83,6 +83,7 @@
 | A47 | 루프 경고 시 스텝 경계에서 멈추고 **같은 대화 ID로 재개하며 방향 전환 알림**을 넣는 자동 개입을 구현(`session.py` `_notice_loop`, A44 재개 경로 재사용). 알림 뒤 3회 더 반복하면 중단. **알림이 루프를 실제로 끊는지는 미측정** — 루프 재현 실패(A46). 다음 사고의 `events.jsonl`(`evidence.action="notice"` 이후 호출 패턴)로 판정 | ⚠ 단위 테스트만 / ❓ 라이브 효과 |
 | A48 | (2026-09-30 실계정 전환) 위임 작업자(`worktree_runner`가 띄운 `agy -p`)는 서버의 자식이 아니라서 `external`로 분류돼 **자동 재시작에서 빠졌고**, 옛 계정으로 계속 돌았다. 지금은 `worker`로 분류하고, 옛 계정이 증명된(로그) 작업자는 자동 재시작 루프가 멈춘다. 러너는 agy가 끝난 뒤 로그인이 바뀐 것을 보면 **같은 단계를 새 계정으로 다시 돌린다**(시도 횟수 안 씀, 최대 2번) | ✅ `test_accounts`·`test_auto_recycle`·`test_worktree_runner` / ❓ 다음 실전환에서 end-to-end 확인 |
 | A49 | (2026-09-30 실계정 전환) 상태 탭 로그인에서 코드를 붙여 넣어 성공하면(`complete`) 상태만 성공으로 바뀌고 **로그인 TUI 프로세스는 계속 살아 있었다**(감시 스레드가 성공을 보면 바로 빠져나감). 지금은 성공 직후 끝낸다. 또 로그인 성공 판정이 "아무 계정이나 로그인돼 있음"이라, 로그아웃 없이 전환하면 **옛 로그인으로 즉시 성공 처리**될 수 있었다 — 지금은 시작 시점의 로그인(이메일 + refresh token 해시)과 달라야 성공 | ✅ `test_account_login` |
+| A50 | 언어 서버는 **agy 프로세스 안에서** 돈다: 로그 첫 줄 `Starting language server process with pid <pid>`의 pid가 `server.py`가 띄운 agy 자식의 pid와 같고, 그 자식 아래 다른 프로세스가 없다. 그래서 도구 서버로 오는 연결은 agy 자신에게서 오고, 접속 프로세스의 족보로 세션을 찾을 수 있다(`session.caller_session`). 재현: `ls -t ~/.gemini/antigravity-cli/log/cli-*.log` 맨 앞 파일의 3번째 줄 pid와 `ps -eo pid,ppid,args`의 agy 행을 대조 | ✅ 2026-10-02 (agy 1.2.7, pid 19068) / 실제 도구 호출의 판정은 `mcp.caller_unknown` 로그로 확인 |
 
 ## 5. 아직 안 해 본 것 (다음 실험 후보, 우선순위 순)
 

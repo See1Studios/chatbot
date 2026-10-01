@@ -81,7 +81,7 @@ _MCP_TOOLS_CACHE: Dict[str, Any] = {"ts": 0.0, "tools": []}
 MCP_TOOLS_CACHE_TTL_SEC = 300
 
 
-def _mcp_rpc(method: str, params: Optional[dict] = None, timeout: int = 20) -> dict:
+def _mcp_rpc(method: str, params: Optional[dict] = None, timeout: int = 20, session_id: str = "") -> dict:
     """One JSON-RPC round-trip to mcp_server.py's real HTTP service. **Not** an
     in-process import -- mcp_server.py runs as its own separate `nohup python3
     mcp_server.py` process (chatbot-ctl.sh), listening on 127.0.0.1:3012/mcp,
@@ -90,12 +90,14 @@ def _mcp_rpc(method: str, params: Optional[dict] = None, timeout: int = 20) -> d
     above). An earlier draft of docs/plans/api-provider-adapters.md assumed
     "same process, direct function call" -- checked live 2026-09-18 (`grep
     "import nas_mcp" server.py` -> nothing, `curl .../healthz` -> a real,
-    separately-running server) and corrected before writing this."""
+    separately-running server) and corrected before writing this.
+    `session_id`: the session making a tool call; the tool server asks the host who called, and the host trusts
+    this header only on a connection from its own process (inbox/0)."""
     body = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}
     req = Request(
         NAS_MCP_URL,
         data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers=dict({"Content-Type": "application/json"}, **({"X-Chatbot-Session": session_id} if session_id else {})),
         method="POST",
     )
     with urlopen(req, timeout=timeout) as resp:
@@ -146,12 +148,12 @@ def _persona_system_prompt(mode: str = "work", character: str = "", history: Opt
     return build_instruction_bundle(mode=mode, character=character, history=history)["text"] or None
 
 
-def _mcp_call_tool(name: str, arguments: dict) -> str:
+def _mcp_call_tool(name: str, arguments: dict, session_id: str = "") -> str:
     """mcp_server.py's `tools/call` -> the text a `role:"tool"` message's
     `content` should carry. The MCP response already wraps the tool's own
     JSON envelope into `content[0].text`; passed straight through so it's
     encoded once, not re-wrapped."""
-    result = _mcp_rpc("tools/call", {"name": name, "arguments": arguments or {}}, timeout=30)
+    result = _mcp_rpc("tools/call", {"name": name, "arguments": arguments or {}}, timeout=30, session_id=session_id)
     for block in result.get("content") or []:
         if isinstance(block, dict) and block.get("type") == "text":
             return block.get("text") or ""
@@ -711,7 +713,7 @@ class OpenAIDialectAdapter(AgentAdapter):
                     if seq is not None and getattr(session, "_turn_seq", None) != seq:
                         return
                     try:
-                        result_text = _mcp_call_tool(tc["name"], args)
+                        result_text = _mcp_call_tool(tc["name"], args, str(getattr(session, "sid", "") or ""))
                     except Exception as e:
                         result_text = json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
                     if seq is not None and getattr(session, "_turn_seq", None) != seq:

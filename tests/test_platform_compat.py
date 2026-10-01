@@ -96,5 +96,41 @@ class ProcScan(unittest.TestCase):
             self.assertEqual(accounts._scan_procs(), {p: [] for p in accounts.PROVIDERS})
 
 
+
+@unittest.skipUnless(pc.has_proc(), "needs a Linux-style /proc")
+class ProcessAncestry(unittest.TestCase):
+    """parent_pid / tcp_socket_pid / child_pids: how a host tells which process called it (inbox/0)."""
+
+    def test_parent_pid_is_the_os_parent(self):
+        import os
+        self.assertEqual(pc.parent_pid(os.getpid()), os.getppid())
+        self.assertIsNone(pc.parent_pid(2 ** 22 + 7))
+
+    def test_the_client_socket_is_found_among_the_given_processes_only(self):
+        import os
+        import socket
+        srv = socket.socket()
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        cli = socket.create_connection(srv.getsockname())
+        try:
+            here, there = cli.getsockname()[1], srv.getsockname()[1]
+            self.assertEqual(pc.tcp_socket_pid(here, there, [os.getpid()]), os.getpid())
+            self.assertIsNone(pc.tcp_socket_pid(here, there, []))
+            self.assertIsNone(pc.tcp_socket_pid(there, here + 1, [os.getpid()]))
+        finally:
+            cli.close()
+            srv.close()
+
+    def test_child_pids_holds_the_descendants(self):
+        import os
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"])
+        try:
+            self.assertIn(child.pid, pc.child_pids({os.getpid()}))
+            self.assertEqual(pc.child_pids({child.pid}), {child.pid})
+        finally:
+            child.kill()
+            child.wait()
+
 if __name__ == "__main__":
     unittest.main()

@@ -473,6 +473,7 @@ GET_ROUTES = [
     (None, _art),
     ("/api/sessions/busy", route_sessions.busy),
     ("/api/sessions/active", route_sessions.active),
+    ("/api/sessions/caller", route_sessions.caller),
     ("/api/sessions/*/events", route_sessions.events),
     ("/api/sessions/*/artifacts", route_sessions.artifacts),
     ("/api/service-log", lambda req: req.json(_service_log(req.q("since", "24h"), req.q("sid", "")))),

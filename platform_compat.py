@@ -17,6 +17,8 @@ library only, so the self-evolution core may use it too.
 - named_file: the first of several names that exists in a folder, spelled as it is on disk. Windows and macOS file
   systems ignore case, so `(d / "ROLE.md").is_file()` is true for role.md there and the caller would show a name
   that is not on disk (FIREBAT 2026-09-29, #405).
+- parent_pid / tcp_socket_pid: walk a process's ancestry, and find which of some processes holds a loopback TCP
+  socket -- how the hosts tell which agent process called them (inbox/0). Without /proc both answer None.
 """
 from __future__ import annotations
 
@@ -134,3 +136,65 @@ def terminate(pid: int) -> bool:
         return True
     except OSError:
         return False
+
+
+def parent_pid(pid: int):
+    """A process's parent pid; None when it cannot be read (gone, not ours, or no /proc)."""
+    try:
+        with open("/proc/%d/stat" % pid, encoding="utf-8", errors="replace") as f:
+            return int(f.read().rsplit(")", 1)[1].split()[1])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def tcp_socket_pid(local_port: int, remote_port: int, pids):
+    """Which of `pids` holds the TCP socket whose local port is `local_port` and remote port `remote_port` (a client
+    connected to one of our servers, seen from the client's side); None when none does or there is no /proc."""
+    want = (":%04X" % int(local_port), ":%04X" % int(remote_port))
+    inodes = set()
+    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
+        try:
+            with open(table, encoding="ascii", errors="replace") as f:
+                rows = f.read().splitlines()[1:]
+        except OSError:
+            continue
+        for row in rows:
+            cols = row.split()
+            if len(cols) > 9 and cols[1].endswith(want[0]) and cols[2].endswith(want[1]):
+                inodes.add("socket:[%s]" % cols[9])
+    if not inodes:
+        return None
+    for pid in pids:
+        try:
+            fds = os.listdir("/proc/%d/fd" % pid)
+        except OSError:
+            continue
+        for fd in fds:
+            try:
+                if os.readlink("/proc/%d/fd/%s" % (pid, fd)) in inodes:
+                    return pid
+            except OSError:
+                continue
+    return None
+
+
+def child_pids(pids) -> set:
+    """`pids` and every process descended from them (one pass over /proc); just `pids` without /proc."""
+    out = set(pids)
+    try:
+        names = [n for n in os.listdir("/proc") if n.isdigit()]
+    except OSError:
+        return out
+    parent = {}
+    for n in names:
+        pp = parent_pid(int(n))
+        if pp is not None:
+            parent[int(n)] = pp
+    grew = True
+    while grew:
+        grew = False
+        for pid, pp in parent.items():
+            if pp in out and pid not in out:
+                out.add(pid)
+                grew = True
+    return out

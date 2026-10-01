@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
+import mcp_caller
 import obslog
 from host_config import EDITION  # edition-boundary: "shipped" hides dev tools and limits writes to user data
 
@@ -305,16 +306,17 @@ def _host_get(path: str) -> dict:
         return {}
 
 
-def _live_session_id() -> Optional[str]:
-    sid = str(_host_get("/api/sessions/active").get("id") or "")
-    return sid if sid and re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid) else None
+def caller_session_id(guess: bool = False) -> str:
+    """The session that made the tool call this thread serves (inbox/0, mcp_caller); "" when unknown, or with `guess`
+    the session on screen (the rule before inbox/0, kept for the older tools)."""
+    return mcp_caller.session_id(_host_get, PORT) or (mcp_caller.screen_session(_host_get) if guess else "")
 
 
 def record_session_choices(items: List[dict], session_id: Optional[str] = None) -> dict:
     """Record validated choices to the session event stream, disk events.jsonl, and history."""
     ts = time.time()
     ev = {"event": "choices", "choices": items, "ts": ts}
-    sid = session_id or _live_session_id()
+    sid = caller_session_id() or session_id or mcp_caller.screen_session(_host_get)
 
     sess = _find_live_session(sid)
     if sess:
@@ -670,7 +672,7 @@ def call_tool(name: str, arguments: dict) -> dict:
             return envelope(code == 0, "ok" if code == 0 else "nonzero", {"code": code, "stdout": out, "stderr": err})
 
         if name in personal_turn.NAMES:
-            return envelope(*personal_turn.tool_call(DATA / "sessions", _busy_sessions(), _live_session_id()), None)
+            return envelope(*personal_turn.tool_call(DATA / "sessions", _busy_sessions(), caller_session_id(guess=True)), None)
 
         if name == "choices":
             action = args.get("action", "choices")
@@ -682,12 +684,12 @@ def call_tool(name: str, arguments: dict) -> dict:
             return record_session_choices(cleaned, args.get("session_id"))
 
         if delegation is not None and name in delegation.NAMES:
-            return delegation.tool_call(name, args, _live_actor(), SECRET_CONTENT_RE, envelope, *_live_scope("delegate"))
+            return delegation.tool_call(name, args, mcp_caller.actor(_host_get), SECRET_CONTENT_RE, envelope, *_live_scope("delegate"))
 
         if web_tool is not None and name in web_tool.NAMES:
             return web_tool.call(args, envelope, private=_live_scope("web")[0])
         if mcp_core is not None and name in mcp_core.NAMES:
-            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, mcp_core.RECENT_LIMIT, _live_actor(), *_live_scope("house-memory"))
+            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, mcp_core.RECENT_LIMIT, mcp_caller.actor(_host_get), *_live_scope("house-memory"))
 
         if name == "search_text":
             path = _resolve_target_path(args.get("path"))
@@ -760,14 +762,6 @@ def _live_scope(grant: str) -> tuple:
     return (closed, any(x.get("mode") != "private" and "tools" in x and grant not in x["tools"] for x in busy))
 
 
-def _live_actor() -> str:
-    """Who is calling the core tools (ACTOR_ATTRIBUTION_v1): the chat's live agent, as the role id
-    "chat-agent:<provider of the session working right now>", or "chat-agent" when that cannot be told.
-    Role ids only -- the persona's name is display, taken from identity by the page (NAME_NEUTRAL_v1)."""
-    d = _host_get("/api/sessions/active")
-    return "chat-agent:%s" % str(d["provider"])[:20] if d.get("busy") and d.get("provider") else "chat-agent"
-
-
 def _obs_tool_call(name: str, arguments: dict) -> dict:
     """call_tool + one mcp.call event (tool, args, duration, outcome). Tool calls are what the
     agent actually did on the host, so each one is written; refusals are warn."""
@@ -793,7 +787,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
     def _cors(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Accept")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Accept, " + mcp_caller.HEADER)
 
     def _send(self, code: int, body: bytes, content_type: str = "application/json; charset=utf-8") -> None:
         self.send_response(code)
@@ -853,7 +847,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
             if method in ("tools/call", "call_tool"):
                 tname = params.get("name") or params.get("tool")
                 arguments = params.get("arguments") or params.get("args") or {}
-                out = _obs_tool_call(str(tname), arguments if isinstance(arguments, dict) else {})
+                out = mcp_caller.serving(self, str(tname), lambda: _obs_tool_call(str(tname), arguments if isinstance(arguments, dict) else {}))
                 # MCP tool result content
                 text = json.dumps(out, ensure_ascii=False)
                 return self._rpc(rid, {"content": [{"type": "text", "text": text}], "isError": not out.get("success", False)})
@@ -863,7 +857,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
 
         # simple REST fallback: {"tool":"...","arguments":{}}
         if isinstance(req, dict) and req.get("tool"):
-            out = _obs_tool_call(str(req["tool"]), req.get("arguments") or {})
+            out = mcp_caller.serving(self, str(req["tool"]), lambda: _obs_tool_call(str(req["tool"]), req.get("arguments") or {}))
             return self._send(200, json.dumps(out, ensure_ascii=False).encode("utf-8"))
 
         self._send(400, b'{"ok":false,"error":"expected JSON-RPC method"}')
