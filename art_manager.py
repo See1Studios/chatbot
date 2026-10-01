@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import io
 import ipaddress
+import os
+import tempfile
 import re
 import shutil
 import socket
@@ -40,6 +42,8 @@ MAX_PACK = 1024 * 1024 * 1024       # a whole sprite pack; large animated/hi-res
 MAX_PACK_FILES = 200
 MAX_PACK_UNPACKED = 2048 * 1024 * 1024
 PACK_URL_TIMEOUT = 60              # per socket op; large packs on slow hosts
+PACK_URL_DEADLINE = 900            # the whole download, however slowly a host keeps sending
+PACK_CHUNK = 64 * 1024
 PACK_URL_AGENT = "chatbot-art-manager/1 (+SillyTavern sprite pack import)"
 _GALLERY_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}\.(png|webp|jpe?g)$")
 _IMAGE_EXT = (".png", ".webp", ".jpg", ".jpeg")
@@ -258,10 +262,19 @@ def pack(cid: str, data: bytes, framing: str = "bust", ws=None) -> Dict:
     the rest still land. Importing the pack is the operator's approval, so it skips the gallery."""
     if framing not in characters.FRAMINGS:
         raise ArtError("bad framing: %s" % framing)
-    if len(data) > MAX_PACK:
+    # `data` is the pack's bytes or an open file: a pack can be a gigabyte, so the routes spool it to a file and
+    # never hold it in memory (review of #522).
+    if isinstance(data, (bytes, bytearray)):
+        size, src = len(data), io.BytesIO(data)
+    else:
+        src = data
+        src.seek(0, 2)
+        size = src.tell()
+        src.seek(0)
+    if size > MAX_PACK:
         raise ArtError("too large")
     try:
-        z = zipfile.ZipFile(io.BytesIO(data))
+        z = zipfile.ZipFile(src)
     except (zipfile.BadZipFile, ValueError):
         raise ArtError("not a ZIP")
     entries = [i for i in z.infolist() if not i.is_dir() and not i.filename.startswith("__MACOSX/")
@@ -330,24 +343,43 @@ class _GuardedRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def download(url: str) -> bytes:
-    """A pack from a public link, read in chunks and stopped past MAX_PACK."""
+def download(url: str, into) -> None:
+    """A pack from a public link, written to the open file `into` as it arrives: stopped past MAX_PACK, and past
+    PACK_URL_DEADLINE in all -- PACK_URL_TIMEOUT is per read, so a host sending a byte a minute would never end.
+    read1 returns what has arrived instead of waiting for a whole chunk, so the deadline is checked as it goes."""
     req = urllib.request.Request(_public_url(url.strip()), headers={"User-Agent": PACK_URL_AGENT})
     try:
         with urllib.request.build_opener(_GuardedRedirect).open(req, timeout=PACK_URL_TIMEOUT) as r:
-            buf = io.BytesIO()
+            read = getattr(r, "read1", None) or r.read
+            t0, n = time.monotonic(), 0
             while True:
-                chunk = r.read(1024 * 1024)
+                chunk = read(PACK_CHUNK)
                 if not chunk:
                     break
-                buf.write(chunk)
-                if buf.tell() > MAX_PACK:
+                n += len(chunk)
+                if n > MAX_PACK:
                     raise ArtError("too large")
-            return buf.getvalue()
+                into.write(chunk)
+                if time.monotonic() - t0 > PACK_URL_DEADLINE:
+                    raise ArtError("download too slow")
     except urllib.error.HTTPError as e:
         raise ArtError("download failed: HTTP %s" % e.code)
     except (urllib.error.URLError, OSError) as e:
         raise ArtError("download failed: %s" % getattr(e, "reason", e))
+
+
+def _spool(cid: str):
+    """(file, name): a temporary file beside the character's own files for a pack on its way in -- not /tmp, which
+    on the NAS is small. The caller removes it."""
+    fd, name = tempfile.mkstemp(prefix=".pack-", suffix=".zip", dir=str(characters.card_path(cid).parent))
+    return os.fdopen(fd, "w+b"), name
+
+
+def _unlink(name: str) -> None:
+    try:
+        os.unlink(name)
+    except OSError:
+        pass
 
 
 # ---------------------------------------------------------------------------------------------------- routes
@@ -372,7 +404,13 @@ def handle_post(path: str, body: Dict) -> Optional[Tuple[int, Dict]]:
         try:
             if framing not in characters.FRAMINGS:   # before the download, not after it
                 raise ArtError("bad framing: %s" % framing)
-            return 200, dict(pack(cid, download(str(body.get("url") or "")), framing), ok=True)
+            f, name = _spool(cid)
+            try:
+                with f:
+                    download(str(body.get("url") or ""), f)
+                    return 200, dict(pack(cid, f, framing), ok=True)
+            finally:
+                _unlink(name)
         except ArtError as e:
             return (413 if str(e) == "too large" else 400), {"ok": False, "error": str(e)}
     for suffix, fn in (("/art/assign", "assign"), ("/art/remove", "remove")):
@@ -403,7 +441,19 @@ def handle_upload(path: str, headers, rfile) -> Optional[Tuple[int, Dict]]:
         return 413, {"ok": False, "error": "too large"}
     try:
         if is_pack:
-            return 200, dict(pack(cid, rfile.read(length), headers.get("X-Framing") or "bust"), ok=True)
+            f, name = _spool(cid)
+            try:
+                with f:
+                    left = length
+                    while left > 0:
+                        chunk = rfile.read(min(PACK_CHUNK * 16, left))
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        left -= len(chunk)
+                    return 200, dict(pack(cid, f, headers.get("X-Framing") or "bust"), ok=True)
+            finally:
+                _unlink(name)
         return 200, {"ok": True, "file": upload(cid, headers.get("X-File-Name") or "", rfile.read(length))}
     except ArtError as e:
         return 400, {"ok": False, "error": str(e)}

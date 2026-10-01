@@ -69,10 +69,20 @@ class VapidKeys(Base):
         self.assertEqual(P.get_vapid_key_pair(), first)
         self.assertEqual(P.get_vapid_public_key(), first[0])
 
-    def test_broken_file_is_replaced(self):
+    def test_a_broken_key_file_is_an_error_not_a_new_key(self):
+        # every browser subscription depends on the key: one that cannot be read this time must not be replaced
+        # silently (review of #515) -- it is left as it is and the route answers with an error
         host_config.PUSH_VAPID_FILE.write_bytes(b"{not json")
-        pub, _ = P.get_vapid_key_pair()
-        self.assertEqual(len(unb64(pub)), 65)
+        with self.assertRaises(RuntimeError):
+            P.get_vapid_key_pair()
+        self.assertEqual(host_config.PUSH_VAPID_FILE.read_bytes(), b"{not json")
+
+    def test_the_key_file_is_private_from_its_first_byte(self):
+        import os
+        import stat
+        P.get_vapid_key_pair()
+        self.assertEqual(stat.S_IMODE(os.stat(str(host_config.PUSH_VAPID_FILE)).st_mode), 0o600)
+        self.assertIn("os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600", (Path(P.__file__)).read_text(encoding="utf-8"))
 
 
 class Subscriptions(Base):

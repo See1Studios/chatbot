@@ -184,20 +184,26 @@ class AgyAdapter(AgentAdapter):
         name = str(info.get("name") or step.get("tool_name") or "").strip()
         params = info.get("parameters") if isinstance(info.get("parameters"), dict) else {}
         done = str(step.get("state") or "") == "DONE"
+        # Once per STEP, not per last key: steps interleave (3 ACTIVE, 4 ACTIVE, 3 DONE), and a DONE without its
+        # parameters names the call differently from its ACTIVE -- either made a second call card (review of #505).
         seen = session.__dict__.setdefault("_tool_info_seen", {})
         events: List[dict] = []
         call = _format_tool_call(name, params) if params else ""
         if not call and done:
             call = name
-        key = (step.get("step_index"), call)
-        if call and seen.get("call") != key:
-            seen["call"] = key
+        sk = step.get("step_index")
+        mark = seen.setdefault(("step", sk) if sk is not None else ("call", call or name), set())
+        if len(seen) > 64:                      # a long turn: forget the oldest steps
+            for old in list(seen)[:len(seen) - 64]:
+                seen.pop(old, None)
+        if call and "call" not in mark:
+            mark.add("call")
             ev = {"event": "tool", "text": call[:600], "title": name[:200], "kind": "call", "status": "calling"}
             if params:
                 ev["detail"] = json.dumps(params, ensure_ascii=False, indent=2)[:4000]
             events.append(ev)
-        if done and seen.get("result") != key:
-            seen["result"] = key
+        if done and "result" not in mark:
+            mark.add("result")
             out = info.get("output")
             out = out if isinstance(out, str) else ("" if out is None else json.dumps(out, ensure_ascii=False))
             summary = _format_tool_result(out or "\n")   # no output: tool_format's own "done" line

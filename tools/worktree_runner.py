@@ -279,16 +279,16 @@ def ticket_call(*args: str) -> Dict[str, str]:
     return vals
 
 
-def commit_ticket_record(repo: Path, tid: int, provider: str, subject: str) -> Optional[str]:
-    """Commit the ticket's own record in the main repository, and only it, so main is left clean
-    without an operator step. Returns the short sha, or None when there is nothing to commit."""
+def commit_ticket_record(repo: Path, tid: int, provider: str, subject: str, extra: Tuple[str, ...] = ()) -> Optional[str]:
+    """Commit the ticket's own record in the main repository -- and `extra`, the diary lines a merge wrote
+    (tools/devlog_entry.py) -- so main is left clean without an operator step. The short sha, or None."""
     rel = "%s/%04d.json" % (TICKETS_REL, tid)
     if not (repo / rel).exists() or not git(repo, "status", "--porcelain", "--", rel)[1]:
         return None
     name, email = PROVIDERS[provider]["author"]
-    git(repo, "add", "--", rel)
+    git(repo, "add", "--", rel, *extra)
     code, _, err = git(repo, "-c", "user.name=" + name, "-c", "user.email=" + email,
-                       "commit", "-m", subject, "--", rel)
+                       "commit", "-m", subject, "--", rel, *extra)
     if code != 0:
         print("[!] ticket record not committed: %s" % tail(err, 5), file=sys.stderr)
         return None
@@ -354,7 +354,8 @@ def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[s
         "gate or test files to get around it; say what fails and why in your final message.",
         "When done, commit your work on this branch (git add <files> && git commit -m '<type>(<scope>): <summary>'); "
         "the subject must be Conventional Commits (feat, fix, docs, test, refactor, chore, ...). The author identity "
-        "is already set. The repo's commit hooks run guard tests: fix what they report, never use --no-verify.",
+        "is already set. The repo's commit hooks run guard tests: fix what they report, never use --no-verify. "
+        "If your change alters a behaviour or a decision written in docs/plans/, name the plan and the decision in your final message.",
         "Afterwards the runner runs: %s; then your producer confirms the diff. Only a branch that passes both is merged."
         % "; ".join(gates),
         "",
@@ -924,7 +925,12 @@ def record_and_report(repo: Path, tid: int, provider: str, title: str, result: D
                       transcript: Optional[List[Dict]] = None) -> int:
     outcome = result.get("outcome") or "open"
     subject = ("chore(tickets): close #%d" if outcome == "done" else "chore(tickets): #%d " + outcome) % tid
-    record = commit_ticket_record(repo, tid, provider, "%s -- %s" % (subject, title[:80]))
+    extra: Tuple[str, ...] = ()
+    if result.get("merged"):   # the landed change gets its line in the diary (tools/devlog_entry.py)
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import devlog_entry
+        extra = tuple(devlog_entry.record_merge(repo, tid, title, provider, result.get("base") or read_state(tid).get("base"), result.get("head")))
+    record = commit_ticket_record(repo, tid, provider, "%s -- %s" % (subject, title[:80]), extra)
     if record:
         result["ticket_commit"] = record
         log("ticket record committed (%s)" % record)

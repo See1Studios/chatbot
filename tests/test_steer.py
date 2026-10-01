@@ -228,5 +228,16 @@ class ReaderIsBoundToItsChild(Base):
         self.assertEqual(handled, ['{"a":1}', '{"b":2}'])
 
 
+class SteerKeepsTheThought(unittest.TestCase):
+    def test_a_steer_before_any_text_keeps_what_was_thought_and_the_stop_button(self):
+        # review of #518: the empty answer was removed even when it held the live thinking strip, and the stop
+        # button docked in its typing dots went with it
+        src = (Path(__file__).resolve().parent.parent / "static" / "app-sse.js").read_text(encoding="utf-8")
+        branch = src[src.index("if (type === 'interrupted')"):src.index("if (type === 'queued')")]
+        self.assertIn("parkStopBtn()", branch)
+        self.assertLess(branch.index("parkStopBtn()"), branch.index("assistantNode.remove()"))
+        self.assertIn("thinkStrip(assistantNode, false)", branch)
+
+
 if __name__ == "__main__":
     unittest.main()

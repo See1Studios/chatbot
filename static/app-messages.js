@@ -256,10 +256,11 @@ function attachNoticeSwipe(el) {
   };
   el.addEventListener('pointerdown', (e) => {
     if (e.button) return;
+    // A press on a control inside the notice (the open-failure notice's retry) is that control's: no swipe.
+    if (e.target && e.target.closest && e.target.closest('button, a, input, select, textarea, summary, [role="button"]')) return;
     x0 = e.clientX; y0 = e.clientY; dx = 0; axis = 0;
     el.classList.remove('resetting', 'dismissing');
     el.classList.add('swiping');
-    try { el.setPointerCapture(e.pointerId); } catch (_) {}
   });
   el.addEventListener('pointermove', (e) => {
     if (!el.classList.contains('swiping')) return;
@@ -268,6 +269,9 @@ function attachNoticeSwipe(el) {
       if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
       axis = Math.abs(mx) >= Math.abs(my) ? 1 : -1;
       if (axis < 0) el.classList.remove('swiping');
+      // Capture only once the move is a swipe: captured from the press, the click went to the notice itself
+      // instead of a button inside it (review of #516).
+      else { try { el.setPointerCapture(e.pointerId); } catch (_) {} }
     }
     if (axis > 0) {
       dx = mx;

@@ -121,7 +121,8 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | The shipped build never touches engine code: no `run_command`/`ticket`/`delegate`, file tools reach user data only; the edition is decided only by `host_config.EDITION` | all | `test_edition_boundary` |
 | Guard tests green before commit (`./run-tests.sh --fast`); full suite before release | all | `.githooks/check_staged.py` (pre-commit); `test_worktree_runner` (runner gates: guards + related tests); `test_tickets` (done refused while guards fail) |
 | Conventional Commits subject; `Plan:` trailer when `docs/plans/` changes | all | `test_githooks` (commit-msg hook) |
-| `Ticket:` trailer, own author name | all | manual |
+| `Ticket:` trailer, own author name | all | `test_githooks` (commit-msg: a feat/fix/refactor/perf commit without `Ticket: #n` is refused; on a `worktree/ticket-n` branch it is written in); author name manual |
+| A merged delegation leaves its line in `docs/DEVLOG.md` | all | `test_devlog_entry` (the runner writes it with the ticket record, `tools/devlog_entry.py`) |
 | A ticket names the agent doing the work (`--actor`), never left to process detection | all | manual (nothing fails on a missing actor; the natural enforcer is a `test_tickets` ratchet refusing a new `unknown-cli` actor, with a baseline for the 290 existing tickets) |
 | No secrets, `.env`, private memory or style references in commits | all | `test_githooks` (pre-commit hook) |
 | Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns); backstops `test_worktree_runner`, `test_tickets` |

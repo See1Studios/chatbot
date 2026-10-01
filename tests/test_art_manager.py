@@ -220,5 +220,27 @@ class ArtManager(unittest.TestCase):
             code, body = A.handle_post("/api/characters/%s/art/pack_url" % self.cid, {"url": "https://example.com/a"})
         self.assertEqual((code, body["error"]), (413, "too large"))
 
+    def test_a_pack_link_has_a_deadline_for_the_whole_download(self):
+        # review of #522: the timeout is per read, so a host sending a little now and then never ended
+        public = [(2, 1, 6, "", ("93.184.216.34", 443))]
+        clock = iter(range(0, 10000, 400))
+        with mock.patch("socket.getaddrinfo", return_value=public), \
+                mock.patch("urllib.request.OpenerDirector.open", return_value=io.BytesIO(b"x" * (A.PACK_CHUNK * 5))), \
+                mock.patch.object(A.time, "monotonic", side_effect=lambda: next(clock)):
+            code, body = A.handle_post("/api/characters/%s/art/pack_url" % self.cid, {"url": "https://example.com/a"})
+        self.assertEqual((code, body["error"]), (400, "download too slow"))
+
+    def test_a_pack_never_sits_whole_in_memory_and_its_spool_is_removed(self):
+        # review of #522: a pack can be a gigabyte -- the routes spool it to a file beside the character's files
+        data = zipped({"joy.png": png((300, 500), alpha=True)})
+        headers = {"Content-Length": str(len(data)), "X-Framing": "bust"}
+        code, body = A.handle_upload("/api/characters/%s/art/pack" % self.cid, headers, io.BytesIO(data))
+        self.assertEqual((code, body["placed"]), (200, ["joy"]))
+        self.assertEqual(list(self.base.glob(".pack-*")), [])
+        src = Path(A.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("getvalue()", src[src.index("def download("):src.index("def _spool(")])
+        self.assertNotIn("pack(cid, rfile.read(length)", src)
+
+
 if __name__ == "__main__":
     unittest.main()

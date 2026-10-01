@@ -46,7 +46,22 @@ class Hooks(unittest.TestCase):
 
     def test_a_conventional_subject_passes_and_others_do_not(self):
         self.assertNotEqual(self.commit("a.txt", "1", "update stuff").returncode, 0)
-        self.assertEqual(self.commit("a.txt", "1", "fix(core): update stuff").returncode, 0)
+        self.assertEqual(self.commit("a.txt", "1", "fix(core): update stuff\n\nTicket: #1").returncode, 0)
+
+    def test_a_code_change_names_its_ticket(self):
+        # review of #505-#525: 27 of 29 delegated commits had no Ticket trailer
+        r = self.commit("a.txt", "1", "feat(ui): something")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("Ticket: #<n>", r.stdout + r.stderr)
+        self.assertEqual(self.commit("a.txt", "2", "feat(ui): something\n\nTicket: #4").returncode, 0)
+        self.assertEqual(self.commit("b.txt", "1", "docs: notes").returncode, 0)          # not a code change
+        self.assertEqual(self.commit("c.txt", "1", "chore(tickets): close #4 -- t").returncode, 0)
+
+    def test_a_worker_on_its_ticket_branch_gets_the_trailer_written(self):
+        self.assertEqual(self.commit("a.txt", "1", "chore: start").returncode, 0)
+        self.git("checkout", "-q", "-b", "worktree/ticket-77")
+        self.assertEqual(self.commit("a.txt", "2", "feat(ui): from a worker").returncode, 0)
+        self.assertIn("Ticket: #77", self.git("log", "-1", "--format=%B").stdout)
 
     def test_plan_changes_need_a_plan_trailer(self):
         self.assertNotEqual(self.commit("docs/plans/x.md", "x", "docs(plans): x").returncode, 0)
@@ -70,10 +85,10 @@ class Hooks(unittest.TestCase):
         self.git("add", "run-tests.sh")
         self.assertEqual(self.git("commit", "-qm", "chore: runner").returncode, 0)
         (self.repo / "guard.txt").write_text("bad\n", encoding="utf-8")                   # someone else's unstaged work
-        self.assertEqual(self.commit("mine.txt", "x\n", "feat: mine").returncode, 0)
+        self.assertEqual(self.commit("mine.txt", "x\n", "feat: mine\n\nTicket: #1").returncode, 0)
         (self.repo / "only.txt").write_text("y\n", encoding="utf-8")
         self.git("add", "only.txt")
-        self.assertEqual(self.git("commit", "-qm", "feat: by path", "--", "only.txt").returncode, 0)   # temp index
+        self.assertEqual(self.git("commit", "-qm", "feat: by path\n\nTicket: #1", "--", "only.txt").returncode, 0)   # temp index
         self.git("add", "guard.txt")                                                        # now I stage the breakage
         self.assertNotEqual(self.git("commit", "-qm", "feat: breaks").returncode, 0)
         self.git("reset", "-q", "guard.txt")

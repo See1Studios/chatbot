@@ -617,7 +617,16 @@ function bindEvents(sid) {
         setAssistantContent(assistantNode, assistantBuf.trim() + (data.reason === 'steer' ? '\n\n*(새 지시 반영을 위해 잠시 멈춤)*' : '\n\n*(새 지시로 전환)*'), true);
         delete assistantNode.dataset.live;
       } else if (assistantNode) {
-        assistantNode.remove();   // no text yet: drop the typing dots and avatar, no ghost bubble
+        // No text yet. The stop button may sit in the typing dots: park it before its holder goes. A bubble that
+        // holds what the brain was thinking keeps it (folded, not live); one with nothing in it goes, no ghost.
+        if (typeof parkStopBtn === 'function') parkStopBtn();
+        const strip = typeof thinkStrip === 'function' ? thinkStrip(assistantNode, false) : null;
+        if (strip) {
+          if (typeof thinkEnd === 'function') thinkEnd(assistantNode);
+          delete assistantNode.dataset.live;
+        } else {
+          assistantNode.remove();
+        }
       }
       assistantNode = null; assistantBuf = '';
       setProgress('새 지시 반영 중…');

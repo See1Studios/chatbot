@@ -16,3 +16,6 @@ repo-root `AGENTS.md` (`services/chatbot/AGENTS.md`); this file does not repeat 
 - Run `./run-tests.sh` before committing; never `--no-verify`.
 - After the claim: static UI (`static/`, persona) takes effect on refresh; Python host modules need the user's **⚡소생**.
 - A procedure failure: leave an observation and open a protocol ticket. Minimal patch; the file's tests are the merge contract.
+- A delegated change that alters a decision written in a plan (the chat page's are `docs/plans/ux-shell-roadmap.md`
+  4.2.3 and its decision table) takes that plan into the ticket's paths and updates it in the same change. A merge
+  writes its own diary line (`tools/devlog_entry.py`); a worker's final message names any plan it touched.

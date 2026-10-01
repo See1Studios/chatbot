@@ -777,9 +777,21 @@ function pinChatToBottom() {
 }
 
 async function goToLatestConversation() {
-  // the log already holds the live tip (scrolled back inside the latest channel): just pin, no network
-  const tipOnScreen = typeof containsActiveTip === 'function' && containsActiveTip();
-  const latestId = tipOnScreen ? '' : await resolveLatestSessionId();
+  // The log already holds the live tip as far as this page knows: pin at once, without waiting for the network --
+  // but still ask the server, because the tip may have moved where this page cannot see it (a rotation in another
+  // tab or device, or no live session known at all); a newer one is then opened (review of #506).
+  if (typeof containsActiveTip === 'function' && containsActiveTip()) {
+    archiveBrowse = false;
+    pinChatToBottom();
+    const here = sessionId;
+    resolveLatestSessionId().then(async (id) => {
+      if (!id || sessionId !== here) return;   // the user moved on meanwhile: leave them where they are
+      liveSessionId = id;
+      if (id !== sessionId) { await openSession(id); pinChatToBottom(); }
+    }).catch(() => { /* offline: the pinned log stays */ });
+    return 'scroll';
+  }
+  const latestId = await resolveLatestSessionId();
   if (latestId) liveSessionId = latestId;
   archiveBrowse = false;
   if (latestId && latestId !== sessionId) {

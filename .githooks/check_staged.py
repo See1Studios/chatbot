@@ -118,6 +118,13 @@ def pre_commit():
     return 0
 
 
+# A change to code names the ticket it belongs to (AGENTS.md rule registry; the review of #505-#525 found 27 of 29
+# delegated commits without one). A delegated worker on its ticket's branch gets the trailer written for it.
+TICKET_TYPES = re.compile(r"^(?:feat|fix|refactor|perf)(?:\([^)]+\))?!?: ")
+TICKET_LINE = re.compile(r"^Ticket: #\d+")
+WORKTREE_BRANCH = re.compile(r"^worktree/ticket-(\d+)$")
+
+
 def commit_msg(path):
     lines = [l for l in Path(path).read_text(encoding="utf-8").splitlines() if not l.startswith("#")]
     subject = next((l for l in lines if l.strip()), "")
@@ -128,6 +135,14 @@ def commit_msg(path):
     if any(f.startswith("docs/plans/") for f in staged()) and not any(re.match(r"^Plan: \S+", l) for l in lines):
         print("[commit-msg] this commit changes docs/plans/: add a trailer line `Plan: <plan>/<item>` (e.g. Plan: pew/A)")
         return 1
+    if TICKET_TYPES.match(subject) and not any(TICKET_LINE.match(l) for l in lines):
+        m = WORKTREE_BRANCH.match(git("symbolic-ref", "--short", "-q", "HEAD").strip())
+        if not m:
+            print("[commit-msg] a feat/fix/refactor/perf commit names its ticket: add a trailer line `Ticket: #<n>` "
+                  "(start one: python3 tools/ticket_quick.py start --title ... --paths ... --actor <you>)")
+            return 1
+        text = Path(path).read_text(encoding="utf-8")
+        Path(path).write_text(text.rstrip("\n") + "\n\nTicket: #%s\n" % m.group(1), encoding="utf-8")
     return 0
 
 

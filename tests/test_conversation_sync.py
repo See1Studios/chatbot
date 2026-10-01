@@ -540,6 +540,20 @@ class AgyToolInfoEvents(Base):
         self.assertEqual(done[0]["text"], "↳ total 8 (외 1줄)")
         self.assertIn("file.txt", done[0]["detail"])
 
+    def test_interleaved_steps_and_a_bare_done_make_one_call_each(self):
+        # review of #505: dedup was one key per session -- 3 ACTIVE, 4 ACTIVE, 3 DONE sent step 3's call twice,
+        # and a DONE without its parameters named the call differently and sent it again
+        s = self.make()
+        kinds = []
+        for state, i in (("ACTIVE", 3), ("ACTIVE", 4), ("DONE", 3), ("DONE", 4)):
+            kinds += [(i, e["kind"]) for e in self.step(s, state, output="ok" if state == "DONE" else None, i=i)]
+        self.assertEqual(kinds, [(3, "call"), (4, "call"), (3, "result"), (4, "result")])
+        s2 = self.make()
+        self.step(s2, "ACTIVE", i=7)
+        bare = {"event": "step_update", "step_update": {"step_index": 7, "state": "DONE", "step_type": "tool",
+                                                        "tool_name": "run_command", "tool_info": {"name": "run_command", "output": "ok"}}}
+        self.assertEqual([e["kind"] for e in AgyAdapter().normalize_line(s2, json.dumps(bare))], ["result"])
+
     def test_a_done_step_seen_alone_carries_both(self):
         s = self.make()
         evs = self.step(s, "DONE", output="ok")

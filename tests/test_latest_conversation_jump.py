@@ -65,7 +65,7 @@ async function api(path) {
 function isUserNearBottom() {
   return (logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight) <= 140;
 }
-const body = btnFn + '\n' + jump + '\n' + fwd + `
+const body = 'let containsActiveTip = null;\n' + btnFn + '\n' + jump + '\n' + fwd + `
   let liveSessionId = '';
   let archiveBrowse = false;
   const opened = [];
@@ -88,7 +88,8 @@ const body = btnFn + '\n' + jump + '\n' + fwd + `
            get currentTab() { return currentTab; },
            set currentTab(v) { currentTab = v; },
            bodyCls, scrollToBottomBtn, logEl, opened, scrolled, apiCalls,
-           setSessions(v) { sessions = v; }, setActive(v) { active = v; } };`;
+           setSessions(v) { sessions = v; }, setActive(v) { active = v; },
+           setTip(f) { containsActiveTip = f; } };`;
 const apiObj = new Function(
   'sessionId', 'sessionNavNextSid', 'currentTab', 'document', 'scrollToBottomBtn', 'logEl',
   'api', 'isUserNearBottom',
@@ -225,6 +226,29 @@ const out = {};
   ] });
   out.skipGarbage = await apiObj.resolveLatestSessionId();
 
+  // 12. review of #506: the log already holds the tip as far as this page knows -> pinned at once, but the server
+  //     is still asked; when the tip moved elsewhere (rotated in another tab), the newer session opens
+  apiObj.opened.length = 0;
+  apiObj.sessionId = '20260921-120000-mid2';
+  apiObj.liveSessionId = '20260921-120000-mid2';
+  apiObj.archiveBrowse = false;
+  apiObj.sessionNavNextSid = '';
+  apiObj.setActive({ id: '20260921-180000-latest9' });
+  apiObj.setSessions({ sessions: [{ id: '20260921-180000-latest9' }, { id: '20260921-120000-mid2' }] });
+  apiObj.setTip(() => true);
+  const r12 = await apiObj.goToLatestConversation();
+  const openedAtOnce = apiObj.opened.slice();
+  await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0));
+  out.tipMovedElsewhere = { result: r12, atOnce: openedAtOnce, later: apiObj.opened.slice() };
+  // ... and a user who moved on meanwhile is left where they are
+  apiObj.opened.length = 0;
+  apiObj.sessionId = '20260921-120000-mid2';
+  const r13 = apiObj.goToLatestConversation();
+  apiObj.sessionId = '20260920-090000-past1';
+  await r13; await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0));
+  out.movedOn = apiObj.opened.slice();
+  apiObj.setTip(null);
+
   console.log(JSON.stringify(out));
 })().catch(e => { console.error(e); process.exit(1); });
 """
@@ -261,6 +285,10 @@ class LatestConversationJump(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         out = json.loads(proc.stdout)
+        # review of #506: a tip on screen pins at once and the server is still asked; a moved tip opens later,
+        # unless the user moved on meanwhile
+        self.assertEqual(out["tipMovedElsewhere"], {"result": "scroll", "atOnce": [], "later": ["20260921-180000-latest9"]})
+        self.assertEqual(out["movedOn"], [])
         self.assertEqual(out["pastJump"]["result"], "jump")
         self.assertEqual(out["pastJump"]["opened"], ["20260921-180000-latest9"])
         self.assertTrue(out["pastJump"]["hidden"])

@@ -29,12 +29,25 @@ def _read(path, default):
 
 
 def _write(path, obj, private=False) -> None:
-    _atomic_write_text(path, json.dumps(obj, ensure_ascii=False, indent=2))
-    if private:
+    text = json.dumps(obj, ensure_ascii=False, indent=2)
+    if not private:
+        _atomic_write_text(path, text)
+        return
+    # A private file is created 0600 and renamed into place: never readable by others, not even for a moment
+    # (review of #515: written under the umask first, chmod after).
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp-%d" % os.getpid())
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(str(tmp), str(path))
+    except BaseException:
         try:
-            os.chmod(str(path), 0o600)
+            os.unlink(str(tmp))
         except OSError:
             pass
+        raise
 
 
 def _new_key_pair() -> dict:
@@ -49,10 +62,16 @@ def _new_key_pair() -> dict:
 def get_vapid_key_pair() -> tuple:
     """(public_key_b64, private_key_b64): urlsafe base64 without padding; generated and saved on first call."""
     with _LOCK:
-        keys = _read(host_config.PUSH_VAPID_FILE, {})
-        if not (isinstance(keys, dict) and keys.get("publicKey") and keys.get("privateKey")):
+        path = host_config.PUSH_VAPID_FILE
+        if not path.exists():
             keys = _new_key_pair()
-            _write(host_config.PUSH_VAPID_FILE, keys, private=True)
+            _write(path, keys, private=True)
+            return keys["publicKey"], keys["privateKey"]
+        # The file is there: a key pair is never replaced because it could not be read this time -- every browser
+        # subscribed to it would silently stop receiving (review of #515). A broken file is an error to look at.
+        keys = _read(path, None)
+        if not (isinstance(keys, dict) and keys.get("publicKey") and keys.get("privateKey")):
+            raise RuntimeError("VAPID key file unreadable, not replaced: %s" % path)
         return keys["publicKey"], keys["privateKey"]
 
 
