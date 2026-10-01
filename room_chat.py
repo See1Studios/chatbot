@@ -24,6 +24,7 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import dialog_log
 import platform_compat
 
 
@@ -45,7 +46,6 @@ MAX_TEXT = 4000
 _RID = re.compile(r"^room_[0-9a-f]{12}$")
 _MENTION = re.compile(r"@([^\s@,.!?:;()\[\]{}\"']{1,40})")
 _WORD = re.compile(r"\w")                 # a name mentioned ends where a word does
-_lock = threading.Lock()
 _busy: Dict[str, bool] = {}
 _speaking: Dict[str, str] = {}   # room id -> the member answering right now (the page shows it typing)
 
@@ -112,30 +112,20 @@ def rooms() -> List[Dict]:
 
 
 def messages(rid: str, after: int = 0) -> List[Dict]:
-    try:
-        lines = _log_path(rid).read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return []
-    out = []
-    for line in lines:
-        try:
-            m = json.loads(line)
-        except ValueError:
-            continue
-        if m["n"] > after:
-            out.append(m)
-    return out
+    return dialog_log.history(rid, after)
 
 
 def _append(rid: str, who: str, text: str, mentions: List[str]) -> Dict:
-    with _lock:
-        prev = messages(rid)
-        msg = {"n": (prev[-1]["n"] + 1) if prev else 1, "ts": time.time(), "who": who, "text": text,
-               "mentions": mentions}
-        _log_path(rid).parent.mkdir(parents=True, exist_ok=True)
-        with open(str(_log_path(rid)), "a", encoding="utf-8", newline="\n") as f:
-            f.write(json.dumps(msg, ensure_ascii=False) + "\n")
-    return msg
+    return dialog_log.append(rid, who, text, mentions)
+
+
+def _writers(rid: str) -> List[str]:
+    r = room(rid)
+    return list(r["members"]) + [dialog_log.USER] if r else []
+
+
+# A room is a kind of dialog (unified-message-inbox inbox/A): its record is a dialog's, kept in its own file.
+dialog_log.register(lambda did: bool(_RID.match(did)), _writers, lambda did: _log_path(did))
 
 
 def mentions(text: str, members: List[str], names: Optional[Dict[str, str]] = None) -> List[str]:
