@@ -1523,7 +1523,17 @@ class AgentSession(TurnWatchdog):
     def _send_direct(self, text: str, client_mid: str = "", client_context: Optional[Dict[str, Any]] = None,
                      notice: bool = False, event_type: str = "") -> None:
         """`notice=True`: `text` is a host note to the agent (a loop notice), not something the user said --
-        it is neither shown as their message nor kept in history, and it does not start a new user turn."""
+        it is neither shown as their message nor kept in history, and it does not start a new user turn.
+        A turn that fails to start (spawn error, dead pipe) never leaves busy stuck; the caller gets the error."""
+        try:
+            self._start_turn(text, client_mid, client_context, notice, event_type)
+        except Exception:
+            with self.lock:
+                self.busy = False
+            self._finish_turn("error")
+            raise
+
+    def _start_turn(self, text: str, client_mid: str, client_context: Optional[Dict[str, Any]], notice: bool, event_type: str) -> None:
         # Multi-Provider plan Phase 2: a one-shot exec provider (grok, and any
         # future codex-style adapter) needs its prompt known BEFORE spawning
         # (baked into argv/a prompt file), so ensure()-then-write-to-stdin
@@ -1654,10 +1664,9 @@ class AgentSession(TurnWatchdog):
             self._emit({"event": "user_ack", "text": text, "ts": ts, "client_mid": client_mid})
 
         if self.adapter.keeps_stdin_open:
-            with self.lock:
-                self.busy = True
             payload = self.adapter.format_stdin(stdin_content)
             with self.lock:
+                self.busy = True
                 self.proc.stdin.write(payload)
                 self.proc.stdin.flush()
         elif self.adapter.transport_kind == "http":
@@ -1672,13 +1681,9 @@ class AgentSession(TurnWatchdog):
                 self.busy = True
                 self._turn_seq += 1
                 turn_seq = self._turn_seq
-            # _spawn() (process transport) resets this at the start of every
-            # turn; http transport never calls _spawn() at all, so without
-            # this reset here a single past stop() would latch
-            # _stop_requested=True forever and _run_http_turn would silently
-            # drop every future turn's events (mirroring the "drain silently
-            # after stop" behavior below, which is only supposed to apply to
-            # THIS turn).
+            # _spawn() resets this per turn; http never calls it, so without this
+            # a single past stop() would latch _stop_requested=True and
+            # _run_http_turn would silently drop every later turn's events.
             self._stop_requested = False
             threading.Thread(target=self._run_http_turn, args=(stdin_content,), daemon=True).start()
             threading.Thread(target=self._http_turn_watchdog, args=(turn_seq,), daemon=True).start()
@@ -1687,14 +1692,8 @@ class AgentSession(TurnWatchdog):
             # --prompt-file), not a stdin write on an already-running
             # process -- _spawn() kills whatever this session's previous
             # (already-exited, since one-shot turns finish and exit on their
-            # own) process was and starts the next one. busy=True MUST be
-            # set only after _spawn() returns, not before -- _spawn() calls
-            # self.stop() internally first (to kill any leftover process),
-            # and stop() unconditionally resets busy=False; setting it True
-            # beforehand just got silently clobbered back to False here,
-            # so the API reported busy:false while grok was still actually
-            # running (caught live 2026-09-17: a real turn came back with
-            # busy:false and no reply yet).
+            # own) process was and starts the next one. busy=True only after
+            # _spawn(): its internal stop() resets busy (live 2026-09-17).
             self._spawn(prompt=stdin_content)
             with self.lock:
                 self.busy = True
@@ -1850,11 +1849,11 @@ class AgentSession(TurnWatchdog):
             self.busy = False
             # If there was partial assistant text generated so far, preserve it in history
             cur = (self.current_text or "").strip()
-            if cur:
+            if cur or reason == "steer":  # a 0-char steer still leaves its mark, not nothing
                 mark = (f"*(🧭 {user_title()}의 새 지시를 반영하려고 여기서 잠시 멈췄습니다)*" if reason == "steer"
                         else "*(🧭 같은 호출이 반복돼 여기서 잠시 멈추고 방향을 바꾸도록 알렸습니다)*" if reason == "loop"
                         else f"*(⚡ {user_title()}의 새 지시로 이전 작업이 중단되었습니다)*")
-                annotated = self._rewrite_artifact_paths(cur) + "\n\n" + mark
+                annotated = (self._rewrite_artifact_paths(cur) + "\n\n" if cur else "") + mark
                 self.history.append({"role": "assistant", "text": annotated, "ts": _now(), "interrupted": True})
             self.current_text = ""
             self.save_meta()

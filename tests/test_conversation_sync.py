@@ -448,6 +448,39 @@ class SilentHangWatchdog(Base):
         self.assertFalse(getattr(s, "_err_msg_failfast_done", False))
 
 
+class SteerAtZeroChars(Base):
+    def test_a_steer_before_any_text_leaves_a_mark_and_clears_the_turn(self):
+        s = self.make(HISTORY)
+        s.busy, s.current_text = True, ""
+        s.interrupt_current_turn(reason="steer")
+        self.assertFalse(s.busy)
+        self.assertEqual(s.current_text, "")
+        last = s.history[-1]
+        self.assertEqual((last["role"], last.get("interrupted")), ("assistant", True))
+        self.assertIn("잠시 멈췄습니다", last["text"])
+        self.assertEqual([e["reason"] for e in self.events if e.get("event") == "interrupted"], ["steer"])
+
+    def test_a_plain_interrupt_before_any_text_adds_nothing(self):
+        s = self.make(HISTORY)
+        s.busy = True
+        s.interrupt_current_turn()
+        self.assertEqual(s.history, HISTORY)
+        self.assertFalse(s.busy)
+
+    def test_a_notice_turn_that_cannot_start_does_not_leave_busy_stuck(self):
+        s = self.make()
+        s.adapter.keeps_stdin_open = True
+        s.ensure = lambda: None
+
+        def dead(_payload):
+            raise BrokenPipeError("pipe closed")
+        s.proc = types.SimpleNamespace(stdin=types.SimpleNamespace(write=dead, flush=lambda: None))
+        with self.assertRaises(BrokenPipeError):
+            s._send_direct("이벤트 알림", notice=True)
+        self.assertFalse(s.busy)
+        self.assertEqual(s.history, [])
+
+
 if __name__ == "__main__":
     unittest.main()
 
