@@ -3,13 +3,15 @@
  "approved_at": "2026-10-01 14:25:21",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-01 14:22:23",
  "evidence": [
   "event:20261001-141657-7a34bf#3"
  ],
  "gate_failures": 0,
  "id": 515,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,6 +27,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-515 at cecae5d (agy, review PASS round 1)",
    "ts": "2026-10-01 14:32:56"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-01 14:33:12"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged a801172 on the operator's word (agy)",
+   "ts": "2026-10-01 14:35:24"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-01 14:35:24"
   }
  ],
  "paths": [
@@ -34,9 +51,9 @@
   "server.py",
   "tests/test_push.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "host_config.py,push_manager.py,requirements.txt,server.py,tests/test_push.py",
  "title": "[feat/push] VAPID 키페어 자동 생성 및 Web Push 구독 관리 REST API (push/A)",
- "updated": "2026-10-01 14:32:56",
+ "updated": "2026-10-01 14:35:24",
  "worked_by": "agy"
 }
