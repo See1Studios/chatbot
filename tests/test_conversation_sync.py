@@ -115,6 +115,7 @@ class RespawnKeepsTheAgentInSync(Base):
         self.assertIn("CHARTER-MARK", wire)                            # rules re-injected
         self.assertIn("클라이언트 전송 시점", wire)                     # visible history re-injected
         self.assertTrue(wire.rstrip().endswith("그래"))
+        self.assertTrue(s._handed_over, "the turn hook hears of the new brain: dialog recap (inbox/C)")
 
     def test_a_brand_new_session_is_not_reseeded(self):
         s = self.make([])

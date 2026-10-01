@@ -140,7 +140,8 @@ def _start(cid: str, rid: str) -> int:
 
 
 # A room is a kind of dialog (unified-message-inbox inbox/A-B): its record is a dialog's, kept in its own file.
-dialog_log.register(lambda did: bool(_RID.match(did)), _writers, lambda did: _log_path(did), _rooms_of, _start)
+dialog_log.register(lambda did: bool(_RID.match(did)), _writers, lambda did: _log_path(did), _rooms_of, _start,
+                    lambda did: (room(did) or {}).get("name") or did)
 
 
 def mentions(text: str, members: List[str], names: Optional[Dict[str, str]] = None) -> List[str]:

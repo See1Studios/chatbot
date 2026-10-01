@@ -655,7 +655,8 @@ def _record_boot(state: Path = None) -> Dict[str, Any]:
 
 def _turn_notices(sess) -> str:
     """Lines before the user's message (session.boot_notice hook) from the event mailbox (evt/B): what came for this
-    session's character since it last read; a first read gets the restart and the open work, not the history."""
+    session's character since it last read; a first read gets the restart and the open work, not the history. A work
+    session also gets its unread dialogs (inbox/C)."""
     import events
     sid, character = str(getattr(sess, "sid", "") or ""), getattr(sess, "character", "") or ""
     channel = "private" if getattr(sess, "is_private", False) else "work"
@@ -671,6 +672,13 @@ def _turn_notices(sess) -> str:
     except Exception as e:  # noqa: BLE001 -- a note is a courtesy; the turn goes on without it
         obslog.event("events.deliver_failed", lvl="warn", error=str(e))
         return ""
+    if channel == "work" and (getattr(sess, "mode", "work") or "work") == "work":   # not room seats, not private
+        try:   # the dialogs this brain has not seen (unified-message-inbox inbox/C): counts, never bodies
+            import dialog_log
+            notes.append(dialog_log.turn_note(character, sid, sess.__dict__.setdefault("_dialog_noted", {}),
+                                              bool(sess.__dict__.pop("_handed_over", False))))
+        except Exception as e:  # noqa: BLE001
+            obslog.event("dialog.note_failed", lvl="warn", error=str(e)[:200])
     return "\n\n".join(n for n in notes if n)
 
 

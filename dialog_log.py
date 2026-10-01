@@ -1,7 +1,8 @@
 """A dialog's record (docs/plans/unified-message-inbox.md inbox/A-B): one file per dialog, a line per message,
 numbered in that dialog -- Telegram's message box. Rooms and dialogs between two characters keep the same shape.
 
-  register(matches, members, path, of, start) -- a module that owns another kind of dialog (room_chat: rooms) adds it
+  register(matches, members, path, of, start, label) -- a module that owns another kind of dialog (room_chat: rooms)
+      adds it
   dm_id(a, b) -> "dm:<a>:<b>", the two character ids sorted, so both ends name it alike
   members(did) -> who may write in it (a room's members and "user"; a dm's two characters); [] when unknown
   history(did, after=0) -> the messages after number `after`
@@ -16,6 +17,7 @@ numbered in that dialog -- Telegram's message box. Rooms and dialogs between two
   saw(cid, sid, did, n) -- both move forward to n (never back); forget(sid) -- a handover: the new brain starts again
       from the character's read
   unread(cid, did, sid="") -> (messages after the position not written by cid, of those the ones mentioning cid)
+  turn_note(cid, sid, noted, handed_over=False) -> the catch-up line before a work turn (inbox/C)
 
 A message is {n, ts, who, text, mentions} and, when it answers one, reply_to (the n it answers). The user's dialog with
 one character is that character's session record, not a file here. Standard library + platform_compat; characters and
@@ -38,10 +40,10 @@ _kinds: List[Dict[str, Callable]] = []
 
 
 def register(matches: Callable[[str], bool], members: Callable[[str], List[str]], path: Callable[[str], Path],
-             of: Callable[[str], List[str]], start: Callable[[str, str], int]) -> None:
+             of: Callable[[str], List[str]], start: Callable[[str, str], int], label: Callable[[str], str]) -> None:
     """`of(cid)`: that kind's dialogs the character is in; `start(cid, did)`: the read position before any was kept
-    (a room: where the member last spoke)."""
-    _kinds.append({"matches": matches, "members": members, "path": path, "of": of, "start": start})
+    (a room: where the member last spoke); `label(did)`: what the dialog is called in a note."""
+    _kinds.append({"matches": matches, "members": members, "path": path, "of": of, "start": start, "label": label})
 
 
 def _kind(did: str) -> Optional[Dict[str, Callable]]:
@@ -242,3 +244,60 @@ def unread(cid: str, did: str, sid: str = "") -> Tuple[int, int]:
     after = seen(sid, cid, did) if sid else read(cid, did)
     new = [m for m in history(did, after) if m.get("who") != cid]
     return len(new), sum(1 for m in new if cid in (m.get("mentions") or []))
+
+
+# ------------------------------------------------------------------------------------------------ the turn's note
+
+RECAP_DIALOGS = 3      # after a handover: the dialogs with the latest messages
+RECAP_MESSAGES = 2     # and the last messages of each
+RECAP_CHARS = 200
+
+
+def _label(did: str, cid: str) -> str:
+    import characters
+    pair = _dm_pair(did)
+    if pair:
+        other = pair[0] if pair[1] == cid else pair[1]
+        return "%s (dm)" % (characters.name(other) or other)
+    k = _kind(did)
+    return "%s (room)" % (k["label"](did) if k else did)
+
+
+def _who(who: str) -> str:
+    import characters
+    return "the user" if who == USER else (characters.name(who) or who)
+
+
+def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = False) -> str:
+    """The catch-up before a work turn (inbox/C): each dialog with messages this session has not seen, as counts --
+    never a body, so other dialogs do not leak into this one. Said again only when something new came since it was
+    last said (`noted`: dialog -> newest number said, kept by the caller per session). After a handover the new brain
+    starts again from the character's read and also gets the latest messages of its busiest dialogs, so a brain that
+    lost its tool results (an HTTP brain, a swapped provider) still knows what was said."""
+    if handed_over:
+        forget(sid)
+        noted.clear()
+    rows, fresh, recent = [], False, []
+    for did in dialogs_of(cid):
+        msgs = history(did)
+        if handed_over and msgs:
+            recent.append((msgs[-1]["ts"], did, msgs[-RECAP_MESSAGES:]))
+        after = seen(sid, cid, did)
+        new = [m for m in msgs if m["n"] > after and m.get("who") != cid]
+        if not new:
+            continue
+        mention = sum(1 for m in new if cid in (m.get("mentions") or []))
+        rows.append("%s %d%s" % (_label(did, cid), len(new), " (%d mention you)" % mention if mention else ""))
+        fresh = fresh or new[-1]["n"] > noted.get(did, 0)
+        noted[did] = new[-1]["n"]
+    out = []
+    if recent:
+        lines = []
+        for _, did, msgs in sorted(recent, reverse=True)[:RECAP_DIALOGS]:
+            lines.append("%s:" % _label(did, cid))
+            lines.extend("  #%d %s: %s" % (m["n"], _who(m["who"]), str(m["text"])[:RECAP_CHARS]) for m in msgs)
+        out.append("[Recent dialogs -- background, carried over from before the handover]\n" + "\n".join(lines))
+    if rows and (fresh or handed_over):
+        out.append("[Unread dialogs] %s. Open one with the dialog tool (action read) when it matters; do not mention "
+                   "this line otherwise." % " · ".join(rows))
+    return "\n\n".join(out)

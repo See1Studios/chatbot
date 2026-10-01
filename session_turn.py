@@ -260,7 +260,7 @@ class SessionTurn:
                     f"[{user_title()}의 현재 메시지 — 지금 답하거나 수행해야 할 것]\n"
                     f"{text}"
                 )
-                self.handoff_injected = True
+                self.handoff_injected = self._handed_over = True   # _handed_over: the turn hook recaps dialogs (inbox/C)
                 self._emit({
                     "event": "system",
                     "text": f"{label} 맥락을 인계받아 대화를 시작했습니다 ✦",
