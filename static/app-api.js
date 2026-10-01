@@ -141,12 +141,13 @@ function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-async function waitHostBack(maxMs = 90000) {
+async function waitHostBack(maxMs = 90000, beforeBootTs = null) {
   const start = Date.now();
   while (Date.now() - start < maxMs) {
     try {
-      await api('/healthz');
-      return true;
+      const h = await api('/healthz');
+      // the old server may still answer before it exits: only a new boot_ts means the restart landed
+      if (beforeBootTs == null || (h && h.boot_ts != null && h.boot_ts !== beforeBootTs)) return true;
     } catch (_) {}
     await new Promise(r => setTimeout(r, 1000));
   }
@@ -191,6 +192,8 @@ async function defibrillateHost() {
   let done = false;
   try {
     hud.log('[ENGINE] Reboot initiated…');
+    let beforeBootTs = null;
+    try { beforeBootTs = (await api('/healthz', { timeoutMs: 5000 })).boot_ts ?? null; } catch (_) {}
     try {
       await api('/api/host/defibrillate', { method: 'POST', body: '{}' });
     } catch (_) {
@@ -199,7 +202,7 @@ async function defibrillateHost() {
     addActivity('엔진 리부트 예약 — 호스트 재기동 대기', 'system');
     hud.log('[DAEMON] Waiting for host socket (:3011)…', 'cyan');
     hud.log('[SOCKET] Handshake pinging • • •', 'cyan');
-    const ok = await waitHostBack(90000);
+    const ok = await waitHostBack(90000, beforeBootTs);
     if (!ok) {
       hud.log('[ERROR] Timeout — the host did not answer in 90s.', 'err');
       hud.log('Reload the page by hand once the host is up.');
@@ -213,7 +216,7 @@ async function defibrillateHost() {
     await ensureSession();
     hud.log('[ONLINE] Core restored · Session linked ✦', 'ok');
     done = true;
-    setTimeout(hud.close, 600);
+    setTimeout(hud.close, 1200);
     setProgress('엔진 리부트 완료', true);
     addActivity('엔진 리부트 완료', 'ok');
   } finally {
