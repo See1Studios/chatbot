@@ -1,0 +1,40 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-10-01 11:23:24",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-10-01 11:22:54",
+ "evidence": [
+  "event:20261001-111932-da7d0b#3"
+ ],
+ "gate_failures": 0,
+ "id": 507,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-10-01 11:23:24"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: host_config.py, push_manager.py, server.py, tests/test_push.py",
+   "ts": "2026-10-01 11:23:24"
+  },
+  {
+   "by": "agent:agy",
+   "text": "failed: worktree agy: could not commit the agent's leftover changes",
+   "ts": "2026-10-01 11:28:25"
+  }
+ ],
+ "paths": [
+  "host_config.py",
+  "push_manager.py",
+  "server.py",
+  "tests/test_push.py"
+ ],
+ "status": "approved",
+ "target": "host_config.py,push_manager.py,server.py,tests/test_push.py",
+ "title": "[feat/push] VAPID 키페어 자동 생성 및 Web Push 구독 관리 REST API (push/A)",
+ "updated": "2026-10-01 11:28:25",
+ "worked_by": "agy"
+}
