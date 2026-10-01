@@ -3,13 +3,15 @@
  "approved_at": "2026-10-01 10:28:22",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-01 10:16:33",
  "evidence": [
   "event:20261001-100839-4bfcc0#9"
  ],
  "gate_failures": 0,
  "id": 505,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,6 +27,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-505 at dac50df (agy, review PASS round 1)",
    "ts": "2026-10-01 11:12:00"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-01 11:12:14"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 168a08c on the operator's word (agy)",
+   "ts": "2026-10-01 11:15:04"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-01 11:15:04"
   }
  ],
  "paths": [
@@ -37,9 +54,9 @@
   "tests/test_service_log.py",
   "turn_watchdog.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "event_react.py,server.py,session.py,tests/test_conversation_sync.py,tests/test_e",
  "title": "[fix/engine] 밤샘 이벤트 누적·리액터 세션 락 방어 및 서비스 로그 500 에러 핫픽스",
- "updated": "2026-10-01 11:12:00",
+ "updated": "2026-10-01 11:15:04",
  "worked_by": "agy"
 }
