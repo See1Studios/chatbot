@@ -33,8 +33,6 @@ FUNC_CEILINGS = {                  # "path::Class.func": lines -- over the cap a
     "providers/adapter_openai.py::OpenAIDialectAdapter._stream_once": 109,
     "providers/adapter_openai.py::OpenAIDialectAdapter.rate_limit_report": 115,
     "providers/adapter_openai.py::OpenAIDialectAdapter.stream_turn": 105,
-    "server.py::Handler._do_GET": 362,
-    "server.py::Handler.do_POST": 361,
     "session.py::AgentSession._start_turn": 186,
     "session.py::AgentSession._tool_summary": 180,
     "session.py::AgentSession.get_artifacts": 101,

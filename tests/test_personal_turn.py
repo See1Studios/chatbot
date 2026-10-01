@@ -154,7 +154,7 @@ class PageMark(unittest.TestCase):
         self.assertEqual(personal_turn.api("GET", "/api/sessions/nope/personal-turns", None, d), (200, {"turns": []}))
         self.assertIsNone(personal_turn.api("GET", "/api/sessions/../x/personal-turns", None, d))
         self.assertIsNone(personal_turn.api("POST", "/api/sessions/w1/personal-turns", None, d))
-        self.assertIn('or personal_turn.api("GET", path, None)', (ROOT / "server.py").read_text(encoding="utf-8"))
+        self.assertIn('(None, _api(personal_turn.api, "GET")),', (ROOT / "server.py").read_text(encoding="utf-8"))
 
     def test_the_lock_is_a_standard_line_icon_hidden_in_the_simple_density(self):
         js = (ROOT / "static" / "app-flow.js").read_text(encoding="utf-8")
@@ -207,7 +207,7 @@ class Wiring(unittest.TestCase):
         self.assertIn("mcp__nas__personal_turn", adapter_claude.ClaudeAdapter.ALLOWED_TOOLS)
 
     def test_the_host_says_which_turn_is_running(self):
-        self.assertIn('"turn": personal_turn.running_turn(x.history)', (ROOT / "server.py").read_text(encoding="utf-8"))
+        self.assertIn('"turn": personal_turn.running_turn(x.history)', (ROOT / "route_sessions.py").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

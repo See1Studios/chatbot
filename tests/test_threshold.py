@@ -190,7 +190,7 @@ class RoomSync(Base):
         self.assertEqual(len(heard), 1)
 
     def test_the_host_announces_every_switch_and_pages_follow_without_a_scene(self):
-        self.assertIn("threshold.announce(sess, target, client_mid)", (ROOT / "server.py").read_text(encoding="utf-8"))
+        self.assertIn("threshold.announce(sess, target, client_mid)", (ROOT / "route_sessions.py").read_text(encoding="utf-8"))
         sse = (ROOT / "static" / "app-sse.js").read_text(encoding="utf-8")
         block = sse[sse.index("type === 'room_moved'"):sse.index("type === 'session_rotate'")]
         self.assertIn("myPendingMids.has(data.client_mid)", block)
@@ -228,9 +228,9 @@ class FreshMemory(Base):
         self.assertEqual(seen, [self.priv])
 
     def test_the_host_and_page_pass_the_room_left(self):
-        self.assertIn('threshold.left_private(REG.peek(str(body.get("from") or ""))', (ROOT / "server.py").read_text(encoding="utf-8"))
+        self.assertIn('threshold.left_private(REG.peek(str(body.get("from") or ""))', (ROOT / "route_sessions.py").read_text(encoding="utf-8"))
         self.assertIn("from: sessionId", (ROOT / "static" / "app-characters.js").read_text(encoding="utf-8"))
-        self.assertIn("_digest_private_later = threshold.digest_later", (ROOT / "server.py").read_text(encoding="utf-8"))
+        self.assertIn("_digest_private_later = threshold.digest_later", (ROOT / "route_sessions.py").read_text(encoding="utf-8"))
 
 
 class Pending(Base):
@@ -278,7 +278,7 @@ class MoveOffer(Base):
 
 class Wiring(unittest.TestCase):
     def test_the_switch_accepts_a_place_and_hands_the_note(self):
-        src = (ROOT / "server.py").read_text(encoding="utf-8")
+        src = (ROOT / "route_sessions.py").read_text(encoding="utf-8")
         self.assertIn("threshold.leave(sess, REG.get_active(sess.character), _digest_private_later)", src)
         self.assertIn('"scene": threshold.pop_scene(target)', src)
         page = (ROOT / "static" / "app-session.js").read_text(encoding="utf-8")

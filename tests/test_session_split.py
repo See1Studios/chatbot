@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import characters as C  # noqa: E402
 import host_config  # noqa: E402
 import instructions as I  # noqa: E402
-import server  # noqa: E402
+import route_sessions  # noqa: E402
 import session as S  # noqa: E402
 
 
@@ -107,7 +107,7 @@ class SessionSplit(unittest.TestCase):
             self.assertEqual(self.reg.get_private("", fresh=True).sid, first.sid)
 
     def test_every_way_into_the_private_room_asks_for_a_fresh_session(self):
-        src = (Path(server.__file__)).read_text(encoding="utf-8")
+        src = (Path(route_sessions.__file__)).read_text(encoding="utf-8")
         self.assertEqual(src.count("REG.get_private("), src.count("fresh=True)"))
 
     def test_the_successor_of_a_private_session_is_private(self):
@@ -138,7 +138,7 @@ class NewSessionKeepsKind(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def new(self, body):
-        mode, character = server._new_session_kind(body)
+        mode, character = route_sessions._new_session_kind(body)
         return self.reg.create(model="m", provider="agy", mode=mode, character=character)
 
     def test_a_private_session_with_a_character_keeps_both(self):
@@ -150,11 +150,11 @@ class NewSessionKeepsKind(unittest.TestCase):
     def test_no_mode_or_character_is_the_default_work_session(self):
         sess = self.new({})
         self.assertEqual((sess.mode, sess.character), ("work", self.pd))
-        self.assertEqual(server._new_session_kind({"mode": "bogus", "character": ""}), ("work", ""))
+        self.assertEqual(route_sessions._new_session_kind({"mode": "bogus", "character": ""}), ("work", ""))
 
     def test_an_unknown_character_is_refused(self):
-        self.assertIsNone(server._new_session_kind({"character": C.new_id()}))
-        self.assertIsNone(server._new_session_kind({"character": "../x"}))
+        self.assertIsNone(route_sessions._new_session_kind({"character": C.new_id()}))
+        self.assertIsNone(route_sessions._new_session_kind({"character": "../x"}))
 
 
 class PrivateBundle(unittest.TestCase):

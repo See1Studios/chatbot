@@ -143,8 +143,9 @@ class Routes(Base):
 class ServerWiring(unittest.TestCase):
     def test_server_routes_get_and_post(self):
         src = (ROOT / "server.py").read_text(encoding="utf-8")
-        self.assertIn('push_manager.dispatch_push_api(self, "GET", path)', src)
-        self.assertIn('push_manager.dispatch_push_api(self, "POST", path)', src)
+        self.assertIn("push_manager.dispatch_push_api(req.h, method, req.path)", src)
+        self.assertIn('(None, _push("GET")),', src)
+        self.assertIn('(None, _push("POST")),', src)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
+import route_files  # noqa: E402  (the persona route reads DATA/WEB_ROOT here, split/B)
 import server  # noqa: E402
 import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
@@ -24,9 +25,9 @@ class PersonaTraversal(unittest.TestCase):
         (persona / "avatar.webp").write_bytes(b"RIFF....WEBP")
         web = self.tmp / "web" / "chat" / "persona"
         web.mkdir(parents=True)
-        self._orig = {k: getattr(server, k) for k in ("DATA", "WEB_ROOT")}
-        server.DATA = self.tmp
-        server.WEB_ROOT = self.tmp / "web"
+        self._orig = {k: getattr(route_files, k) for k in ("DATA", "WEB_ROOT")}
+        route_files.DATA = self.tmp
+        route_files.WEB_ROOT = self.tmp / "web"
         self.httpd = platform_compat.http_server(("127.0.0.1", 0), server.Handler)
         self.httpd.daemon_threads = True
         self.port = self.httpd.server_address[1]
@@ -40,7 +41,7 @@ class PersonaTraversal(unittest.TestCase):
         self.httpd.shutdown()
         self.httpd.server_close()
         for k, v in self._orig.items():
-            setattr(server, k, v)
+            setattr(route_files, k, v)
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def get(self, path):

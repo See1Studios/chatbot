@@ -120,7 +120,7 @@ class FinalizeTurn(unittest.TestCase):
 
 class Wiring(unittest.TestCase):
     def test_server_checks_before_send_and_module_is_neutral(self):
-        src = (ROOT / "server.py").read_text(encoding="utf-8")
+        src = (ROOT / "route_sessions.py").read_text(encoding="utf-8")
         self.assertLess(src.index("content_guard.check_preflight("), src.index("rotated = sess.send(text"))
         names = {getattr(n, "id", getattr(n, "name", getattr(n, "attr", "")))
                  for n in ast.walk(ast.parse((ROOT / "content_guard.py").read_text(encoding="utf-8")))}

@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import server  # noqa: E402
+import route_accounts  # noqa: E402
 import session  # noqa: E402
 
 A, B = "a@example.com", "b@example.com"
@@ -29,34 +29,34 @@ class UsageCacheTest(unittest.TestCase):
     def setUp(self):
         self.email = A
         self.adapter = FakeAdapter()
-        self.orig = (server.get_adapter, server.accounts.current_email)
-        server.get_adapter = lambda p: self.adapter
-        server.accounts.current_email = lambda p: self.email
-        server._USAGE_CACHE.clear()
+        self.orig = (route_accounts.get_adapter, route_accounts.accounts.current_email)
+        route_accounts.get_adapter = lambda p: self.adapter
+        route_accounts.accounts.current_email = lambda p: self.email
+        route_accounts._USAGE_CACHE.clear()
 
     def tearDown(self):
-        server.get_adapter, server.accounts.current_email = self.orig
-        server._USAGE_CACHE.clear()
+        route_accounts.get_adapter, route_accounts.accounts.current_email = self.orig
+        route_accounts._USAGE_CACHE.clear()
 
     def test_same_account_is_served_from_cache(self):
-        server._get_usage("agy"); server._get_usage("agy")
+        route_accounts._get_usage("agy"); route_accounts._get_usage("agy")
         self.assertEqual(self.adapter.calls, 1)
 
     def test_switching_account_drops_the_cached_report(self):
-        first = server._get_usage("agy")
+        first = route_accounts._get_usage("agy")
         self.email = B
-        second = server._get_usage("agy")
+        second = route_accounts._get_usage("agy")
         self.assertEqual(self.adapter.calls, 2)
         self.assertEqual((first["account"], second["account"]), (A, B))
 
     def test_unknown_account_never_invalidates(self):
-        server._get_usage("agy")
+        route_accounts._get_usage("agy")
         self.email = None            # logged out / unreadable / omniroute
-        server._get_usage("agy")
+        route_accounts._get_usage("agy")
         self.assertEqual(self.adapter.calls, 1)
 
     def test_force_still_refetches(self):
-        server._get_usage("agy"); server._get_usage("agy", force=True)
+        route_accounts._get_usage("agy"); route_accounts._get_usage("agy", force=True)
         self.assertEqual(self.adapter.calls, 2)
 
 
@@ -97,44 +97,44 @@ class RecycleSafetyTest(unittest.TestCase):
 
 class AutoRecycleOnceTest(unittest.TestCase):
     def setUp(self):
-        self.orig = (server.accounts.snapshot, server.owned_agent_procs, server.recycle_agents,
-                     dict(server._AUTO_RECYCLE), server.accounts.stop_workers)
+        self.orig = (route_accounts.accounts.snapshot, route_accounts.owned_agent_procs, route_accounts.recycle_agents,
+                     dict(route_accounts._AUTO_RECYCLE), route_accounts.accounts.stop_workers)
         self.recycled_with, self.stopped_with = [], []
-        server.accounts.stop_workers = lambda pids: self.stopped_with.append(set(pids)) or sorted(pids)
-        server.owned_agent_procs = lambda: {}
-        server.recycle_agents = lambda pids: self.recycled_with.append(set(pids)) or \
+        route_accounts.accounts.stop_workers = lambda pids: self.stopped_with.append(set(pids)) or sorted(pids)
+        route_accounts.owned_agent_procs = lambda: {}
+        route_accounts.recycle_agents = lambda pids: self.recycled_with.append(set(pids)) or \
             {"recycled": sorted(pids), "skipped_busy": []}
-        server._AUTO_RECYCLE.update(last_at=None, last_count=0, total=0)
+        route_accounts._AUTO_RECYCLE.update(last_at=None, last_count=0, total=0)
 
     def tearDown(self):
-        server.accounts.snapshot, server.owned_agent_procs, server.recycle_agents = self.orig[:3]
-        server._AUTO_RECYCLE.clear(); server._AUTO_RECYCLE.update(self.orig[3])
-        server.accounts.stop_workers = self.orig[4]
+        route_accounts.accounts.snapshot, route_accounts.owned_agent_procs, route_accounts.recycle_agents = self.orig[:3]
+        route_accounts._AUTO_RECYCLE.clear(); route_accounts._AUTO_RECYCLE.update(self.orig[3])
+        route_accounts.accounts.stop_workers = self.orig[4]
 
     def _snap(self, *procs):
-        server.accounts.snapshot = lambda owned, providers=None: {"providers": {"agy": {"processes": list(procs)}}}
+        route_accounts.accounts.snapshot = lambda owned, providers=None: {"providers": {"agy": {"processes": list(procs)}}}
 
     def test_nothing_stale_does_nothing(self):
         self._snap({"pid": 1, "stale": False, "owner": "session"})
-        self.assertEqual(server._auto_recycle_once(), 0)
+        self.assertEqual(route_accounts._auto_recycle_once(), 0)
         self.assertEqual(self.recycled_with, [])
-        self.assertIsNone(server._AUTO_RECYCLE["last_at"])
+        self.assertIsNone(route_accounts._AUTO_RECYCLE["last_at"])
 
     def test_stale_owned_is_recycled_and_recorded_external_is_not(self):
         self._snap({"pid": 1, "stale": True, "owner": "session"},
                    {"pid": 2, "stale": True, "owner": "standby"},
                    {"pid": 3, "stale": True, "owner": "external"})
-        self.assertEqual(server._auto_recycle_once(), 2)
+        self.assertEqual(route_accounts._auto_recycle_once(), 2)
         self.assertEqual(self.recycled_with, [{1, 2}])
-        self.assertEqual((server._AUTO_RECYCLE["last_count"], server._AUTO_RECYCLE["total"]), (2, 2))
-        self.assertIsNotNone(server._AUTO_RECYCLE["last_at"])
+        self.assertEqual((route_accounts._AUTO_RECYCLE["last_count"], route_accounts._AUTO_RECYCLE["total"]), (2, 2))
+        self.assertIsNotNone(route_accounts._AUTO_RECYCLE["last_at"])
 
     def test_a_worker_on_the_old_login_is_stopped_not_recycled(self):
         # ACCOUNT_SWITCH_v1: its runner runs the step again under the new login
         self._snap({"pid": 4, "stale": True, "owner": "worker"},
                    {"pid": 5, "stale": False, "owner": "worker"},
                    {"pid": 6, "stale": True, "owner": "external"})
-        self.assertEqual(server._auto_recycle_once(), 1)
+        self.assertEqual(route_accounts._auto_recycle_once(), 1)
         self.assertEqual(self.stopped_with, [{4}])
         self.assertEqual(self.recycled_with, [set()])
 

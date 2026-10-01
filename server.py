@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
-"""Chat HTTP host (:3011). Entry: Handler + main.
-
-Siblings (see the code map in AGENTS.md):
-  host_config.py  paths/env
-  adapters.py     AGENT_ADAPTERS
-  session.py      AgentSession / REG  (ctl guard AST-scans this)
-  tool_format.py  tool log lines
+"""Chat HTTP host (:3011). Entry: Handler + main, and the route tables (GET_ROUTES … DELETE_ROUTES): every endpoint
+is one row there, in match order. Handlers live by domain: route_sessions.py, route_accounts.py, route_files.py, the
+host's own below; route_table.py matches (monolith-split split/B). Other siblings: see the code map in AGENTS.md.
 """
 from __future__ import annotations
 
 import json
-import mimetypes
-mimetypes.add_type("image/webp", ".webp")
 import os
-import queue
 import re
 import signal
 import subprocess
@@ -23,9 +16,9 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict
-from urllib.parse import parse_qs, quote, unquote, urlparse
+from urllib.parse import unquote, urlparse
 
-from providers.adapters import AGENT_ADAPTERS, PROVIDER_META, get_adapter
+from providers.adapters import AGENT_ADAPTERS, PROVIDER_META
 from host_config import (
     DATA,
     DEFAULT_MODEL,
@@ -36,21 +29,11 @@ from host_config import (
     MODELS,
     PORT,
     ROOT,
-    STATIC,
     WEB_ROOT,
     WORKSPACE,
     _now,
 )
-from session import (
-    REG,
-    AgentSession,
-    _atomic_write_text,
-    _safe_artifact_rel,
-    _safe_session_id,
-    _standby_maintenance_loop,
-    owned_agent_procs,
-    recycle_agents,
-)
+from session import REG, _atomic_write_text, _standby_maintenance_loop, owned_agent_procs
 from providers import accounts
 from providers import account_login
 import art_manager
@@ -60,14 +43,18 @@ import chat_upload
 import platform_compat
 import items
 import character_art
-import content_guard
-import emotion
 import obslog
 import evolution
 import identity
 import origin_guard
 import push_manager
+import route_accounts
+import route_files
+import route_sessions
+import route_table
 import static_delivery
+from route_accounts import _AUTO_RECYCLE, AUTO_RECYCLE_ENABLED, _auto_recycle_loop
+from route_table import NEXT, Req, json_bytes as _json_bytes
 
 try:  # worktree delegation (work cards, [맡겨]/[병합·⚡]); the page still loads without it
     from delegation import delegation_api
@@ -75,134 +62,8 @@ except Exception:  # noqa: BLE001
     obslog.exception("delegation.unavailable")
     delegation_api = lambda method, path, body: None  # noqa: E731
 
-def _json_bytes(obj: Any, code: int = 200):
-    raw = json.dumps(obj, ensure_ascii=False).encode("utf-8")
-    return code, raw
-
 
 _SKILLS_CACHE = {"ts": 0.0, "data": []}
-_USAGE_CACHE: Dict[str, dict] = {}  # provider id -> {"ts": float, "data": dict}
-USAGE_CACHE_TTL_SEC = 300
-
-
-def _invalidate_usage_cache(provider: Optional[str] = None) -> None:
-    """Drop cached usage so the next Status-tab fetch re-queries the CLI."""
-    if provider is None:
-        _USAGE_CACHE.clear()
-    else:
-        _USAGE_CACHE.pop(provider, None)
-
-
-def _get_usage(provider: str = DEFAULT_PROVIDER, force: bool = False) -> dict:
-    """Generic provider-dispatching + caching wrapper (Multi-Provider plan
-    Phase 0.5) -- the actual one-shot rate-limit call is
-    `<adapter>.rate_limit_report()`, which is None for a provider that has no
-    such thing. Cached per provider since each
-    check is a real subprocess/network round-trip, not free.
-
-    The cache is also tied to the ACCOUNT: quota is per account and accounts get
-    rotated when one runs out, so a report cached for the previous login must not
-    be served after a switch (it used to be, for up to USAGE_CACHE_TTL_SEC).
-    Unknown account (None: logged out, unreadable, or no account concept) never
-    invalidates -- that keeps the old per-provider behaviour.
-
-    USAGE_v1 (2026-09-22): failures are NOT long-cached (auth often settles a
-    moment after CLI login); one short retry covers the race. Success still
-    caches for USAGE_CACHE_TTL_SEC."""
-    if provider not in AGENT_ADAPTERS:
-        raise ValueError(f"unknown provider: {provider!r}")
-    now = time.time()
-    email = accounts.current_email(provider)
-    cached = _USAGE_CACHE.get(provider)
-    switched = bool(email and cached and cached.get("email") and cached["email"] != email)
-    if not force and cached and not switched and (now - cached["ts"] < USAGE_CACHE_TTL_SEC):
-        # Never serve a cached failure for long — Status "첫 조회 실패" after login.
-        if cached["data"].get("ok") or cached["data"].get("supported") is False:
-            return cached["data"]
-        if now - cached["ts"] < 8:
-            return cached["data"]
-    def _once():
-        report = get_adapter(provider).rate_limit_report()
-        ts = time.time()
-        if report is None:
-            data = {
-                "ok": False,
-                "supported": False,
-                "error": "이 프로바이더는 사용량 조회를 지원하지 않습니다",
-                "checked_at": ts,
-            }
-        elif "error" in report:
-            data = {"ok": False, "supported": True, "error": report["error"], "checked_at": ts}
-        else:
-            data = {"ok": True, "supported": True, "rows": report.get("rows", []), "checked_at": ts}
-        data["account"] = email
-        return data
-    data = _once()
-    if (not data.get("ok")) and data.get("supported") is not False:
-        # Auth settle / cold CLI after login — one retry after a brief wait.
-        time.sleep(1.2)
-        data = _once()
-        if data.get("ok"):
-            data["retried"] = True
-    if data.get("ok") or data.get("supported") is False:
-        _USAGE_CACHE[provider] = {"ts": time.time(), "data": data, "email": email}
-    else:
-        # Keep a short negative cache so a hammered Status tab doesn't fork CLIs.
-        _USAGE_CACHE[provider] = {"ts": time.time(), "data": data, "email": email}
-    return data
-
-
-# Auto-recycle (2026-09-19): after the operator logs agy into another account
-# (quota ran out -> rotate), chatbot-owned agy processes still hold the OLD
-# login. Idle ones are stopped so the next message respawns them (same
-# --conversation, so context is kept) under the new login -- the same
-# transition the 15-minute idle reaper already performs. Busy sessions are never
-# touched; external processes are never touched. A delegated worker still on the
-# old login is stopped and its runner runs the step again (ACCOUNT_SWITCH_v1).
-# CHATBOT_AUTO_RECYCLE=0 turns it off (the status-tab button still works).
-AUTO_RECYCLE_ENABLED = os.environ.get("CHATBOT_AUTO_RECYCLE", "1") != "0"
-AUTO_RECYCLE_EVERY_SEC = 30
-_AUTO_RECYCLE = {"enabled": AUTO_RECYCLE_ENABLED, "last_at": None, "last_count": 0, "total": 0}
-
-
-def _recycle_after_login(provider: str, result: dict) -> dict:
-    """After a login change, restart the idle owned processes of a provider that keeps its login in
-    the running process (accounts.RECYCLE_ON_LOGIN). Others: result unchanged."""
-    if provider not in accounts.RECYCLE_ON_LOGIN:
-        return result
-    try:
-        snap = accounts.snapshot(owned_agent_procs(), providers=(provider,))
-        pids = accounts.owned_pids(snap, provider)
-        if pids:
-            result = {**result, "recycle": recycle_agents(pids)}
-    except Exception as e:
-        result = {**result, "recycle_error": f"{type(e).__name__}: {e}"}
-    return result
-
-
-def _auto_recycle_once() -> int:
-    snap = accounts.snapshot(owned_agent_procs(), providers=accounts.RECYCLE_ON_LOGIN)
-    stale, workers = accounts.stale_owned(snap), accounts.stale_workers(snap)
-    if not (stale or workers):
-        return 0
-    result = {**recycle_agents(stale), "workers_stopped": accounts.stop_workers(workers)}   # ACCOUNT_SWITCH_v1
-    n = len(result["recycled"]) + len(result["workers_stopped"])
-    if n:
-        _AUTO_RECYCLE.update(last_at=time.time(), last_count=n, total=_AUTO_RECYCLE["total"] + n)
-        obslog.event("agent.recycle", lvl="warn", msg="agy login changed; restarted idle owned processes",
-                     recycled=result["recycled"], skipped_busy=result["skipped_busy"],
-                     workers_stopped=result["workers_stopped"])
-    return n
-
-
-def _auto_recycle_loop() -> None:
-    while True:
-        time.sleep(AUTO_RECYCLE_EVERY_SEC)
-        try:
-            _auto_recycle_once()
-        except Exception:
-            obslog.exception("agent.recycle_failed")
-
 
 from preview_guard import (
     _HOME_R,
@@ -213,8 +74,7 @@ from preview_guard import (
     _resolve_safe_preview_file,
 )
 import client_errors  # page errors -> the host log (#424)
-import personal_turn  # PERSONAL_TURN_v1: the busy listing says which turn runs
-import threshold  # THRESHOLD_v1: entering the private room hands one note across
+import personal_turn  # PERSONAL_TURN_v1: its GET route
 from workspace_status import (
     experts_api,
     instructions_api,
@@ -268,52 +128,6 @@ def _schedule_host_defibrillate() -> None:
 
 # Successful GETs of these are UI polling: counted in http.summary, never written one by one.
 _OBS_STREAM_SUFFIX = "/events"
-
-
-def _session_character(ref: str):
-    """The character id a session is for: the id itself, "" for the team's default; None when there is no such
-    character. Every character alike (TEAM_ROLES_v2)."""
-    import characters
-    if not ref:
-        return characters.default_character() or None
-    return ref if characters.ID_RE.match(ref) and characters.card_path(ref).is_file() else None
-
-
-def _new_session_kind(body: dict):
-    """(mode, character) for a new session from a POST /api/sessions body, so /new stays in the open session's
-    mode and character; None when the character is unknown."""
-    ref = str(body.get("character") or "")
-    who = _session_character(ref) if ref else ""       # "" = the default, resolved by REG.create
-    if who is None:
-        return None
-    return ("private" if body.get("mode") == "private" else "work"), who
-
-
-def _character_list() -> list:
-    """The characters for the picker: the team's default first, then the rest, oldest first. Roles are shown,
-    never used to tell characters apart (TEAM_ROLES_v2)."""
-    import characters
-    default = characters.default_character()
-    out = []
-    for c in characters.listing():
-        disp = (characters.ext(c["card"]).get("display") or {})
-        name = ((c["card"].get("data") or {}).get("name") or "").strip()
-        base = characters.card_path(c["id"]).parent
-        art_v = {}
-        for kind in ("avatar", "stage"):
-            files = [f for f in [base / (kind + ".webp"), base / (kind + ".png")] + sorted((base / kind).glob("*.*"))
-                     if f.is_file()] if base.is_dir() else []
-            art_v[kind] = int(max(f.stat().st_mtime for f in files)) if files else 0
-        out.append({"id": c["id"], "session_character": c["id"], "roles": c["roles"], "role": c["role"],
-                    "default": c["id"] == default, "name": name, "title": disp.get("title") or name,
-                    # a version for the picture URLs: new art shows at once; 0 = no picture yet (the route
-                    # serves the engine placeholder, ART_PLACEHOLDER_v1)
-                    "avatar_v": art_v["avatar"], "stage_v": art_v["stage"]})
-    out.sort(key=lambda x: not x["default"])
-    return out
-
-
-_digest_private_later = threshold.digest_later   # private talk -> the character's private memory (SESSION_SPLIT_v1)
 
 
 class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
@@ -406,366 +220,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
 
     def _do_GET(self) -> None:
         parsed = urlparse(self.path)
-        path = self._normalize_req_path(parsed.path)
-        if path in ("/healthz", "/health"):
-            avail = _provider_availability()
-            code, body = _json_bytes({
-                "ok": any(avail.values()),
-                "providers": avail,  # PROVIDER_NEUTRAL_v1: every provider, none singled out
-                "default_provider": DEFAULT_PROVIDER,
-                "default_model": DEFAULT_MODEL,
-                "class": "NAS agent (VibeCat-class)",
-                "skip_permissions": True,
-                "mcp_port": MCP_PORT,
-                "boot_ts": BOOT_INFO["boot_ts"],
-            })
-            return self._send(code, body, "application/json; charset=utf-8")
-        if push_manager.dispatch_push_api(self, "GET", path):
-            return None
-        if path == "/api/host/status":
-            code, body = _json_bytes({
-                "ok": True,
-                "chat": True,  # we answered, so chat is up
-                "boot_ts": BOOT_INFO["boot_ts"],
-                "label_ko": "엔진 리부트",
-                "hint_ko": "연결이 죽었거나 응답이 안 올 때 호스트를 재기동합니다. 몇 초 끊겼다가 다시 붙습니다.",
-            })
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/identity":
-            code, body = _json_bytes(identity.get_identity())
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/models":
-            code, body = _json_bytes({"models": MODELS, "default": DEFAULT_MODEL})
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/providers":
-            # Multi-Provider plan, frontend selector: per-provider model
-            # list + install-detected availability, theme keycolor, portrait
-            # A provider is a vendor, not the persona: the persona/title come from the
-            # instruction files (identity.py) and never appear in this catalog.
-            providers = []
-            for pid, adapter in AGENT_ADAPTERS.items():
-                meta = dict(PROVIDER_META.get(pid) or {})
-                extra = getattr(adapter, "meta", None) or {}
-                if isinstance(extra, dict):
-                    meta.update({k: extra[k] for k in ("name", "role", "theme", "icon") if extra.get(k)})
-                providers.append({
-                    "id": pid,
-                    "available": adapter.available(),
-                    "login": pid in account_login.MODE_BY_PROVIDER,  # has a CLI login the page can drive
-                    "models": adapter.known_models(),
-                    "default_model": (adapter.known_models()[0] if adapter.known_models() else ""),
-                    "name": meta.get("name", pid),
-                    "role": meta.get("role", "AI Provider"),
-                    "theme": meta.get("theme", "lime"),
-                    "icon": meta.get("icon", f"/chat/providers/{pid}.webp"),
-                })
-            code, body = _json_bytes({"providers": providers, "default": DEFAULT_PROVIDER})
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path in ("/api/skills", "/api/commands"):
-            skills = _get_available_skills()
-            commands = [
-                {"name": "/btw", "label": "샛길 질문", "desc": "작업 중 즉시 경량 샛길 답변", "template": "/btw "},
-                {"name": "/private on", "label": "사적 대화 켜기", "desc": "♥ 사적 대화 세션으로 전환 (업무와 분리)", "template": "/private on"},
-                {"name": "/private off", "label": "사적 대화 끄기", "desc": "업무 대화 세션으로 복귀", "template": "/private off"},
-                {"name": "/continue", "label": "이어하기", "desc": "현재 대화 맥락 인계 새 세션", "template": "/continue"},
-                {"name": "/new", "label": "새 세션", "desc": "완전한 새 대화 세션 시작", "template": "/new"},
-                {"name": "/defib", "label": "엔진 리부트", "desc": "엔진 리부트 (repair/reboot)", "template": "/defib"},
-                {"name": "/status", "label": "상태 확인", "desc": "챗봇 및 NAS 시스템 상태 확인", "template": "/status"},
-                {"name": "/clear", "label": "화면 비우기", "desc": "대화창 화면 로그 초기화", "template": "/clear"},
-                {"name": "/compact", "label": "세션 압축", "desc": "대화 히스토리 수동 압축/요약", "template": "/compact"},
-                {"name": "/help", "label": "사용법", "desc": "탭·단축키·슬래시 명령어 요약", "template": "/help"},
-            ]
-            popular = _popular_slash_skills()
-            code, body = _json_bytes({"ok": True, "commands": commands, "popular": popular, "skills": skills})
-            return self._send(code, body, "application/json; charset=utf-8", cache_control="public, max-age=300")
-        if path == "/api/self-status":
-            code, body = _json_bytes(_self_status())
-            return self._send(code, body, "application/json; charset=utf-8")
-        routed = (observation_api("GET", path, None) or ticket_api("GET", path, None)
-                  or delegation_api("GET", path, None) or instructions_api("GET", path, None)
-                  or experts_api("GET", path, None) or personal_turn.api("GET", path, None) or room_chat.api("GET", path, None))
-        if routed is not None:
-            code, raw = _json_bytes(routed[1], routed[0])
-            return self._send(code, raw, "application/json; charset=utf-8")
-        if path == "/api/mcp":
-            cfg = _read_mcp_config()
-            code, body = _json_bytes({"ok": True, "mcpServers": cfg.get("mcpServers", {})})
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/usage":
-            force = parse_qs(parsed.query).get("force", ["0"])[0] == "1"
-            provider = parse_qs(parsed.query).get("provider", [DEFAULT_PROVIDER])[0]
-            try:
-                data = _get_usage(provider=provider, force=force)
-                code, body = _json_bytes(data)
-            except ValueError as e:
-                code, body = _json_bytes({"ok": False, "error": str(e)}, 400)
-            return self._send(code, body, "application/json; charset=utf-8")
-
-        if path == "/api/accounts/login/status":
-            # ACCOUNTS_LOGIN_v1
-            provider = (parse_qs(parsed.query).get("provider", [None])[0] or "").strip()
-            login_id = (parse_qs(parsed.query).get("login_id", [None])[0] or "").strip() or None
-            result = account_login.status(provider, login_id=login_id)
-            if (
-                result.get("ok")
-                and result.get("state") == "succeeded"
-                and not result.get("recycle")
-            ):
-                result = _recycle_after_login(provider, result)
-            http = 200 if result.get("ok") else 400
-            code, body = _json_bytes(result, http)
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/accounts":
-            wanted = accounts.parse_providers(parse_qs(parsed.query).get("provider", [None])[0])
-            code, body = _json_bytes({**accounts.snapshot(owned_agent_procs(), providers=wanted), "auto_recycle": dict(_AUTO_RECYCLE)})
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/sessions":
-            code, body = _json_bytes({"sessions": REG.list(), "talks": REG.talks()})   # talks: the talk list (ux/S1)
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/characters":
-            code, body = _json_bytes({"characters": _character_list()})
-            return self._send(code, body, "application/json; charset=utf-8")
-        gift = items.handle_get(path) or chat_upload.handle_get(path, parse_qs(parsed.query)) or art_manager.handle_get(path)
-        if gift:
-            return self._send(*_json_bytes(gift[1], gift[0]), "application/json; charset=utf-8")
-        art = character_art.handle(path, parse_qs(parsed.query))   # ART_PLACEHOLDER_v1: avatar, stage, sprites
-        if art:
-            return self._send(art[0], art[1], art[2], cache_control=art[3])
-        if path == "/api/sessions/busy":
-            # which sessions are running a turn, and in which mode: the MCP server refuses work tools while a
-            # private session is busy (SESSION_SPLIT_v1)
-            import characters
-            with REG.lock:
-                live = list(REG.sessions.values())
-            busy = [{"id": x.sid, "mode": x.mode, "turn": personal_turn.running_turn(x.history), "character": x.character,
-                     "provider": x.provider, "tools": characters.tools_of(x.character) if x.character else []}
-                    for x in live if x.busy and x._proc_alive()]
-            code, body = _json_bytes({"sessions": busy})
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/sessions/active":
-            sess = REG.get_active()
-            pub = sess.to_public()
-            pub["is_private"] = bool(getattr(sess, "is_private", False))
-            code, body = _json_bytes(pub)
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path.startswith("/api/sessions/") and path.endswith("/events"):
-            sid = path[len("/api/sessions/"):-len("/events")]
-            return self._sse(sid)
-        if path.startswith("/api/sessions/") and path.endswith("/artifacts"):
-            sid = path[len("/api/sessions/"):-len("/artifacts")]
-            sess = REG.peek(sid)
-            if sess is None:
-                return self._send(404, b"session not found", "text/plain")
-            all_artifacts = sess.get_artifacts()  # already sorted newest-mtime-first
-            qs = parse_qs(parsed.query)
-            try:
-                limit = max(1, min(200, int(qs.get("limit", ["60"])[0])))
-            except ValueError:
-                limit = 60
-            before_raw = qs.get("before", [""])[0]
-            page = all_artifacts
-            if before_raw:
-                try:
-                    before = float(before_raw)
-                    page = [a for a in all_artifacts if a["mtime"] < before]
-                except ValueError:
-                    pass
-            page = page[:limit]
-            next_before = page[-1]["mtime"] if len(page) == limit and len(page) < len(all_artifacts) else None
-            code, body = _json_bytes({
-                "artifacts": page,
-                "total": len(all_artifacts),
-                "next_before": next_before,
-            })
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/service-log":
-            qs = parse_qs(parsed.query)
-            code, body = _json_bytes(_service_log(qs.get("since", ["24h"])[0], qs.get("sid", [""])[0]))
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path.startswith("/api/sessions/") and path.endswith("/log"):
-            sid = path[len("/api/sessions/"):-len("/log")]
-            sess = REG.peek(sid)
-            if sess is None:
-                return self._send(404, b"session not found", "text/plain")
-            all_events = sess.get_log()  # already sorted newest-ts-first
-            qs = parse_qs(parsed.query)
-            try:
-                limit = max(1, min(200, int(qs.get("limit", ["60"])[0])))
-            except ValueError:
-                limit = 60
-            before_raw = qs.get("before", [""])[0]
-            page = all_events
-            if before_raw:
-                try:
-                    before = float(before_raw)
-                    page = [e for e in all_events if (e.get("ts") or 0) < before]
-                except ValueError:
-                    pass
-            page = page[:limit]
-            next_before = page[-1].get("ts") if len(page) == limit and len(page) < len(all_events) else None
-            code, body = _json_bytes({
-                "events": page,
-                "total": len(all_events),
-                "next_before": next_before,
-            })
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path.startswith("/api/sessions/") and path.endswith("/summary"):
-            # Read-only handover-style summary of an arbitrary (often archived) session,
-            # for the "가져오기" scrollback/session-list action — never touches the
-            # target session's own state, and never injected automatically anywhere.
-            sid = path[len("/api/sessions/"):-len("/summary")]
-            sess = REG.peek(sid)
-            if sess is None:
-                return self._send(404, b"session not found", "text/plain")
-            summary = sess.get_handover_summary()
-            code, body = _json_bytes({"id": sid, "summary": summary})
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/artifacts":
-            sess = AgentSession("global")
-            code, body = _json_bytes({"artifacts": sess.get_artifacts()})
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/file/preview":
-            raw_target = parse_qs(parsed.query).get("path", [""])[0]
-            fp, reason = _resolve_safe_preview_file(raw_target)
-            if not fp:
-                code, body = _json_bytes({"ok": False, "error": reason or "파일을 찾을 수 없거나 접근이 거부되었습니다"}, 404)
-                return self._send(code, body, "application/json; charset=utf-8")
-            ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
-            stat = fp.stat()
-            is_text = False
-            content = None
-            is_image = ctype.startswith("image/")
-            raw_url = "/api/file/raw?path=" + quote(str(fp))
-            if is_image:
-                kind = "image"
-            elif ctype.startswith("text/") or fp.suffix.lower() in (
-                ".md", ".py", ".js", ".json", ".sh", ".css", ".html", ".txt", ".ts", ".jsx", ".tsx",
-                ".yml", ".yaml", ".ini", ".conf", ".cfg", ".sql", ".xml", ".csv", ".log", ".env.example"
-            ):
-                kind = "text"
-                is_text = True
-                try:
-                    # preview up to 500KB text
-                    if stat.st_size <= 500_000:
-                        content = fp.read_text(encoding="utf-8", errors="replace")
-                    else:
-                        content = fp.read_text(encoding="utf-8", errors="replace")[:200_000] + f"\n\n... (파일이 너무 큽니다: {stat.st_size:,} bytes, 앞부분 200KB만 표시)"
-                except Exception as e:
-                    content = f"내용을 읽을 수 없습니다: {e}"
-            else:
-                kind = "binary"
-
-            rel_label = str(fp).replace(str(HOME), "~", 1)
-            code, body = _json_bytes({
-                "ok": True,
-                "name": fp.name,
-                "path": str(fp),
-                "label": rel_label,
-                "size": stat.st_size,
-                "mtime": stat.st_mtime,
-                "mime": ctype,
-                "kind": kind,
-                "is_text": is_text,
-                "content": content,
-                "raw_url": raw_url,
-            })
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path == "/api/file/raw":
-            raw_target = parse_qs(parsed.query).get("path", [""])[0]
-            fp, reason = _resolve_safe_preview_file(raw_target)
-            if not fp:
-                return self._send(404, (reason or "not found").encode("utf-8"), "text/plain; charset=utf-8")
-            ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
-            try:
-                data = fp.read_bytes()
-                return self._send(200, data, ctype, cache_control="private, max-age=60")
-            except Exception as e:
-                return self._send(500, str(e).encode("utf-8"), "text/plain")
-        if path.startswith("/api/sessions/"):
-            sid = path.split("/")[3]
-            sess = REG.peek(sid)
-            if sess is None:
-                code, body = _json_bytes({"ok": False, "error": "session not found"}, 404)
-                return self._send(code, body, "application/json; charset=utf-8")
-            full = parse_qs(parsed.query).get("full", ["0"])[0] == "1"
-            out = sess.to_public()
-            out["is_private"] = bool(getattr(sess, "is_private", False))
-            if full:
-                with sess.lock:
-                    out["history"] = list(sess.history)
-            code, body = _json_bytes(out)
-            return self._send(code, body, "application/json; charset=utf-8")
-        if path.startswith("/artifacts/"):
-            rel = path[len("/artifacts/"):]
-            fp = _safe_artifact_rel(rel)
-            if not fp:
-                return self._send(404, b"not found", "text/plain")
-            data = fp.read_bytes()
-            ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
-            return self._send(200, data, ctype, cache_control="private, max-age=3600")
-        # persona assets — stay inside DATA/persona (or the web-root fallback).
-        # http.server does not collapse `..`; join+resolve without a root
-        # check would read any file the process can open.
-        if path.startswith("/chat/persona/") or path.startswith("/persona/"):
-            rel_p = path[len("/chat/persona/"):] if path.startswith("/chat/persona/") else path[len("/persona/"):]
-            rel_p = unquote(rel_p or "")
-            parts = rel_p.split("/")
-            if (
-                not rel_p
-                or ".." in parts
-                or rel_p.startswith(("/", "\\"))
-                or any(part.startswith(".") for part in parts)
-            ):
-                return self._send(404, b"not found", "text/plain")
-            persona_root = (DATA / "persona").resolve()
-            fp_p = (DATA / "persona" / rel_p).resolve()
-            try:
-                fp_p.relative_to(persona_root)
-            except ValueError:
-                fp_p = None
-            if fp_p is None or not fp_p.exists() or not fp_p.is_file():
-                web_persona = (WEB_ROOT / "chat" / "persona").resolve()
-                fp_p = (WEB_ROOT / "chat" / "persona" / rel_p).resolve()
-                try:
-                    fp_p.relative_to(web_persona)
-                except ValueError:
-                    return self._send(404, b"not found", "text/plain")
-            if fp_p.exists() and fp_p.is_file():
-                data = fp_p.read_bytes()
-                ctype = mimetypes.guess_type(str(fp_p))[0] or "application/octet-stream"
-                return self._send(200, data, ctype, cache_control="public, max-age=60")
-            return self._send(404, b"not found", "text/plain")
-
-        # static
-        rel = "index.html" if path in ("/", "/chat", "/chat/") else path.lstrip("/")
-        if ".." in rel:
-            return self._send(400, b"bad path", "text/plain")
-        fp = STATIC / rel
-        if not fp.exists() or not fp.is_file():
-            return self._send(404, b"not found", "text/plain")
-        data = fp.read_bytes()
-        ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
-        etag = static_delivery.etag_for(fp)
-        gz = static_delivery.negotiate(self.headers.get("Accept-Encoding"), ctype, len(data))
-        if rel.endswith(".html") or rel == "index.html":
-            ctype = "text/html; charset=utf-8"
-            if rel == "index.html":
-                # `<!--IDENTITY-->` -> the identity from this instance's instruction files.
-                # Served statically (marker untouched) it is a harmless comment and app.js
-                # falls back to /api/identity.
-                data = data.replace(
-                    b"<!--IDENTITY-->",
-                    ("<script>window.__IDENTITY__=" + identity.script_json() + ";</script>").encode("utf-8"), 1)
-            return self._send(200, data, ctype, cache_control="no-cache", etag=etag, encoding=gz)
-        elif rel.endswith(".js"):
-            ctype = "application/javascript; charset=utf-8"
-            return self._send(200, data, ctype, cache_control="no-cache", etag=etag, encoding=gz)
-        elif rel.endswith(".css"):
-            ctype = "text/css; charset=utf-8"
-            return self._send(200, data, ctype, cache_control="no-cache", etag=etag, encoding=gz)
-        elif rel.lower().endswith((".png", ".webp", ".jpg", ".jpeg", ".svg", ".ico", ".woff", ".woff2")):
-            return self._send(200, data, ctype, cache_control="public, max-age=86400")
-        return self._send(200, data, ctype)
+        route_table.dispatch(GET_ROUTES, Req(self, self._normalize_req_path(parsed.path), parsed.query))
 
     def _read_json(self) -> dict:
         ct = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
@@ -784,501 +239,292 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        path = self._normalize_req_path(parsed.path)
+        req = Req(self, self._normalize_req_path(parsed.path), parsed.query)
         # Same-origin gate: every mutating POST must come from a page served by this server. Requiring Content-Type:
         # application/json (_read_json) already forces a CORS preflight for browser clients; this check is defence in
-        # depth for non-browser callers that forge Origin. Exceptions: none (per-route checks below are redundant).
+        # depth for non-browser callers that forge Origin. It covers the operator's own calls too (closing
+        # observations, deciding tickets, letting delegated work land, restarting the host).
         if not origin_guard.same_origin(
             self.headers.get("Origin"),
             self.headers.get("Host"),
             self.headers.get("Sec-Fetch-Site"),
         ):
-            code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
-            return self._send(code, raw, "application/json; charset=utf-8")
-        if path == "/api/characters/import":
-            status, payload = card_upload.handle(self.headers, self.rfile, WORKSPACE)
-            code, raw = _json_bytes(payload, status)
-            return self._send(code, raw, "application/json; charset=utf-8")
-        if push_manager.dispatch_push_api(self, "POST", path):
+            return req.json({"ok": False, "error": "same-origin browser request required"}, 403)
+        if route_table.dispatch(POST_STREAM_ROUTES, req):   # they read the request body themselves
             return None
-        up = chat_upload.handle(path, self.headers, self.rfile) or art_manager.handle_upload(path, self.headers, self.rfile)
-        if up:
-            code, raw = _json_bytes(up[1], up[0])
-            return self._send(code, raw, "application/json; charset=utf-8")
         try:
-            body = self._read_json()
+            req.body = self._read_json()
         except Exception as e:
-            status = getattr(e, "status_code", 400)
-            code, raw = _json_bytes({"ok": False, "error": str(e)}, status)
-            return self._send(code, raw, "application/json; charset=utf-8")
+            return req.json({"ok": False, "error": str(e)}, getattr(e, "status_code", 400))
         try:
-            if path.startswith("/api/skills/") and path.endswith("/toggle"):
-                name = unquote(path[len("/api/skills/"):-len("/toggle")])
-                enabled_dir = WS_SKILLS_DIR / name
-                disabled_dir = WS_SKILLS_DIR / ("_" + name)
-                if enabled_dir.is_dir():
-                    enabled_dir.rename(disabled_dir)
-                    new_state = False
-                elif disabled_dir.is_dir():
-                    disabled_dir.rename(enabled_dir)
-                    new_state = True
-                else:
-                    code, raw = _json_bytes({"ok": False, "error": "skill not found"}, 404)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                code, raw = _json_bytes({"ok": True, "name": name, "enabled": new_state})
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path == "/api/mcp":
-                name = str(body.get("name") or "").strip()
-                url = str(body.get("serverUrl") or "").strip()
-                if not name or not url:
-                    code, raw = _json_bytes({"ok": False, "error": "name and serverUrl required"}, 400)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                cfg = _read_mcp_config()
-                cfg.setdefault("mcpServers", {})[name] = {"serverUrl": url, "disabled": False}
-                _write_mcp_config(cfg)
-                code, raw = _json_bytes({"ok": True, "mcpServers": cfg["mcpServers"]})
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith(("/api/observations", "/api/tickets", "/api/delegations", "/api/rooms", client_errors.PATH)):
-                # Closing observations, deciding tickets or letting delegated work start or land is the
-                # operator's: this server's own UI only.
-                if not origin_guard.same_origin(self.headers.get("Origin"), self.headers.get("Host"),
-                                                self.headers.get("Sec-Fetch-Site")):
-                    code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                routed = (observation_api("POST", path, body) or ticket_api("POST", path, body)
-                          or delegation_api("POST", path, body) or room_chat.api("POST", path, body) or client_errors.api("POST", path, body))
-                if routed is not None:
-                    code, raw = _json_bytes(routed[1], routed[0])
-                    return self._send(code, raw, "application/json; charset=utf-8")
-            if path == "/api/host/defibrillate":
-                # Restarts the host: only this server's own UI may ask. This does not stop a
-                # non-browser client that forges Origin (the API has no login).
-                if not origin_guard.same_origin(self.headers.get("Origin"), self.headers.get("Host"),
-                                                self.headers.get("Sec-Fetch-Site")):
-                    code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                # Respond first, then schedule repair (kills/restarts this server).
-                code, raw = _json_bytes({
-                    "ok": True,
-                    "scheduled": True,
-                    "message_ko": "엔진 리부트 예약됨. 호스트가 재기동됩니다. 잠시 후 자동으로 다시 연결합니다.",
-                })
-                self._send(code, raw, "application/json; charset=utf-8")
-                _schedule_host_defibrillate()
-                return
-            if path == "/api/accounts/recycle":
-                # Stale set is recomputed server-side and limited to processes
-                # this server owns -- the client cannot name pids, and external
-                # processes (e.g. an SSH agy session) are never touched.
-                snap = accounts.snapshot(owned_agent_procs(), providers=accounts.RECYCLE_ON_LOGIN)
-                code, raw = _json_bytes({"ok": True, **recycle_agents(accounts.stale_owned(snap)),
-                                         "workers_stopped": accounts.stop_workers(accounts.stale_workers(snap))})
-                return self._send(code, raw, "application/json; charset=utf-8")
-
-            if path == "/api/accounts/login/start":
-                # ACCOUNTS_LOGIN_v1 — start CLI login (one pending per provider).
-                provider = str(body.get("provider") or "").strip()
-                result = account_login.start(provider)
-                http = 200 if result.get("ok") else 400
-                if result.get("error") and "unknown provider" in str(result.get("error")):
-                    http = 400
-                code, raw = _json_bytes(result, http)
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path == "/api/accounts/login/complete":
-                provider = str(body.get("provider") or "").strip()
-                login_id = str(body.get("login_id") or "").strip() or None
-                code_val = str(body.get("code") or "")
-                result = account_login.complete(provider, code_val, login_id=login_id)
-                http = 200 if result.get("ok") else 400
-                if result.get("ok") and result.get("state") == "succeeded":
-                    _invalidate_usage_cache(provider)
-                # On success, a provider whose processes keep their login gets its idle owned ones restarted (A30)
-                if result.get("ok") and result.get("state") == "succeeded":
-                    result = _recycle_after_login(provider, result)
-                code, raw = _json_bytes(result, http)
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path == "/api/accounts/login/cancel":
-                provider = str(body.get("provider") or "").strip()
-                login_id = str(body.get("login_id") or "").strip() or None
-                result = account_login.cancel(provider, login_id=login_id)
-                http = 200 if result.get("ok") else 400
-                try:
-                    stray = accounts.reap_stray_cli_procs(provider)
-                    if stray:
-                        result = {**result, "strays_killed": stray}
-                except Exception as e:
-                    result = {**result, "stray_error": f"{type(e).__name__}: {e}"}
-                code, raw = _json_bytes(result, http)
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path == "/api/accounts/logout":
-                # One provider at a time. Body: {"provider": "agy"|"claude"|"codex"|"grok"}.
-                # Never returns token values. After logout, recycle owned procs of
-                # that provider so in-memory refresh tokens cannot rewrite auth
-                # files (agy A30); busy ones are skipped by recycle_agents and
-                # called out in the response.
-                provider = str(body.get("provider") or "").strip()
-                result = accounts.logout(provider)
-                if not result.get("ok") and result.get("method") is None and "unknown provider" in str(result.get("error") or ""):
-                    code, raw = _json_bytes(result, 400)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                _invalidate_usage_cache(provider)
-                owned = owned_agent_procs()
-                wanted = accounts.parse_providers(provider)
-                snap = accounts.snapshot(owned, providers=wanted)
-                pids = accounts.owned_pids(snap, provider) if provider in accounts.PROVIDERS else set()
-                recycled = recycle_agents(pids) if pids else {"recycled": [], "skipped_busy": []}
-                # CODEX_PROC_v1: also reap login/app-server/usage strays (node wrapper
-                # may leave a native child with ppid=1 after terminate-without-killpg).
-                try:
-                    stray = accounts.reap_stray_cli_procs(provider)
-                    if stray:
-                        recycled = {**recycled, "strays_killed": stray}
-                except Exception as e:
-                    recycled = {**recycled, "stray_error": f"{type(e).__name__}: {e}"}
-                note = None
-                if recycled.get("skipped_busy"):
-                    note = (
-                        "로그아웃은 반영됐지만 작업 중인 소유 프로세스 "
-                        f"{len(recycled['skipped_busy'])}개는 재시작하지 못했어요. "
-                        "턴이 끝난 뒤 프로세스 재시작(또는 다시 로그아웃)을 눌러 주세요."
-                    )
-                elif result.get("ok") and accounts.LOGOUT_NOTES.get(provider):
-                    note = accounts.LOGOUT_NOTES[provider]
-                payload = {
-                    **result,
-                    "providers": snap.get("providers") or {},
-                    "checked_at": snap.get("checked_at"),
-                    "recycle": recycled,
-                }
-                if note:
-                    payload["note"] = note
-                    payload["message_ko"] = note
-                # Prefer logout ok; if logout failed, surface that status.
-                http = 200 if result.get("ok") else 400
-                code, raw = _json_bytes(payload, http)
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path == "/api/sessions":
-                provider = str(body.get("provider") or DEFAULT_PROVIDER)
-                # DEFAULT_MODEL names an agy/Gemini model -- meaningless as a
-                # fallback for any other provider, whose own adapter already
-                # treats an empty model as "let the CLI use its own default"
-                # (verified live for claude: omitting --model just used its
-                # account default, claude-sonnet-5).
-                default_model = DEFAULT_MODEL if provider == DEFAULT_PROVIDER else ""
-                kind = _new_session_kind(body)
-                if kind is None:
-                    code, raw = _json_bytes({"ok": False, "error": "unknown character"}, 404)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                sess = REG.create(
-                    model=str(body.get("model") or default_model),
-                    effort=str(body.get("effort") or ""),
-                    provider=provider,
-                    mode=kind[0],
-                    character=kind[1],
-                    probe=self.headers.get("X-Chatbot-Caller") == "doctor-probe",
-                )
-                code, raw = _json_bytes({"ok": True, "session": sess.to_public()})
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith("/api/characters/") and path.endswith("/session"):
-                # CHARACTER_PICKER_v1: the character's own work (or private) session; its newest one carries the
-                # brain last used with it
-                who = _session_character(path[len("/api/characters/"):-len("/session")])
-                if who is None:
-                    code, raw = _json_bytes({"ok": False, "error": "unknown character"}, 404)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                threshold.left_private(REG.peek(str(body.get("from") or "")) if body.get("from") else None)
-                target = REG.get_active(who)
-                if body.get("mode") == "private":
-                    target = REG.get_private(who, like=target, fresh=True)
-                pub = target.to_public()
-                pub["is_private"] = target.is_private
-                code, raw = _json_bytes({"ok": True, "session": pub})
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith("/api/sessions/") and path.endswith("/message"):
-                sid = path[len("/api/sessions/"):-len("/message")]
-                sess = REG.get(sid)
-                sess.maybe_swap_provider(str(body.get("provider") or ""))
-                sess.maybe_swap_model(str(body.get("model") or ""))
-                text = str(body.get("text") or body.get("message") or "")
-                client_mid = str(body.get("client_mid") or "")
-                client_ctx = body.get("client_context")
-                if not isinstance(client_ctx, dict):
-                    client_ctx = None
-
-                # SESSION_SPLIT_v1 (plan doc §12): private talk has its own session. /private opens the
-                # character's private session, /private off goes back to the work session; a bare /private toggles
-                # and /work is an old alias of off. Nothing is sent to the agent.
-                stripped = " ".join(text.split()).lower()
-                if stripped in ("/private", "/private on", "/work", "/private off") or stripped.startswith("/private on "):
-                    if stripped.startswith("/private on") or (stripped == "/private" and not sess.is_private):
-                        target = sess if sess.is_private else threshold.enter(sess, REG.get_private(sess.character, like=sess, fresh=True), text)
-                    else:   # back to work: digest the private talk, leave the return scene (THRESHOLD_v1)
-                        target = threshold.leave(sess, REG.get_active(sess.character), _digest_private_later) if sess.is_private else sess
-                    threshold.announce(sess, target, client_mid)   # ROOM_SYNC_v1: other windows follow
-                    pub = target.to_public()
-                    pub["is_private"] = target.is_private
-                    code, raw = _json_bytes({"ok": True, "switched": target.sid != sid, "old_session_id": sid,
-                                             "session": pub, "scene": threshold.pop_scene(target) if target.sid != sid else ""})
-                    return self._send(code, raw, "application/json; charset=utf-8")
-
-                # CONTENT_GUARD_v1: a message the provider would refuse never leaves the host (0 tokens)
-                blocked, notice_text = content_guard.check_preflight(sess.provider, text)
-                if blocked:
-                    item, ev = content_guard.notice_item(notice_text)
-                    sess.history.append(item)
-                    sess.save_meta()
-                    sess._emit(ev)
-                    pub = sess.to_public()
-                    pub["is_private"] = sess.is_private
-                    code, raw = _json_bytes({"ok": True, "blocked": True, "notice": item, "session": pub})
-                    return self._send(code, raw, "application/json; charset=utf-8")
-
-                # Structured action from the page (/act → type=action + action_text).
-                # Keep wire text as "(…)" for history/UI; pass event_type so tension_step
-                # and any future action formatting see an explicit action even if parens
-                # are missing or malformed.
-                event_type = str(body.get("type") or "").strip().lower()
-                if event_type == "action":
-                    from private_engine import strip_outer_parens as _strip_outer_parens
-                    action_text = str(body.get("action_text") or "").strip()
-                    if action_text:
-                        bare = _strip_outer_parens(action_text)
-                        if bare:
-                            text = "(" + bare + ")"
-                    elif text.startswith("/act ") or text.startswith("/me ") or text.startswith("/action "):
-                        bare = _strip_outer_parens(text.split(None, 1)[1].strip())
-                        if bare:
-                            text = "(" + bare + ")"
-                else:
-                    event_type = ""
-                text = items.take_pending(sid, chat_upload.take_pending(sid, text))   # plus/C files, plus/F item note
-                try:
-                    rotated = sess.send(text, client_mid, client_context=client_ctx, event_type=event_type)
-                except Exception as e:
-                    # skill-observations 0011 (2026-09-17): this route
-                    # intermittently 500'd on a brand-new session's first
-                    # message with no traceback anywhere to root-cause from
-                    # -- the generic do_POST catch-all only ever returned
-                    # str(e). Log the real traceback (lands in
-                    # logs/chatbot.log) and, like /stop already does via
-                    # to_public()'s debug_stderr_tail, surface the spawned
-                    # agy process's own recent stderr in the error body
-                    # itself so the *next* occurrence is diagnosable without
-                    # a second round-trip to GET the session.
-                    # (OBSLOG_v1: the traceback is recorded as http.error in
-                    # logs/events.jsonl by HTTPLogMixin.send_response.)
-                    err: Dict[str, Any] = {"ok": False, "error": str(e)}
-                    tail = getattr(sess, "_stderr_tail", None)
-                    if tail:
-                        err["debug_stderr_tail"] = tail[-15:]
-                    code, raw = _json_bytes(err, 500)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                
-                target_sess = rotated or sess
-                pub = target_sess.to_public()
-                pub["is_private"] = target_sess.is_private
-                if rotated is not None:
-                    code, raw = _json_bytes({
-                        "ok": True,
-                        "rotated": True,
-                        "old_session_id": sid,
-                        "session": pub,
-                        "handoff_summary": getattr(rotated, "handoff_summary", ""),
-                    })
-                else:
-                    code, raw = _json_bytes({"ok": True, "session": pub})
-                return self._send(code, raw, "application/json; charset=utf-8")
-            gift = items.handle_post(path, body) or art_manager.handle_post(path, body)   # items (plus/F), art (am/B)
-            if gift:
-                return self._send(*_json_bytes(gift[1], gift[0]), "application/json; charset=utf-8")
-            if path.startswith("/api/sessions/") and path.endswith("/provider"):
-                sid = path[len("/api/sessions/"):-len("/provider")]
-                sess = REG.get(sid)
-                new_p = str(body.get("provider") or "").strip()
-                if new_p:
-                    sess.maybe_swap_provider(new_p)
-                new_m = str(body.get("model") or "").strip()
-                if new_m:
-                    sess.maybe_swap_model(new_m)
-                code, raw = _json_bytes({"ok": True, "session": sess.to_public()})
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith("/api/sessions/") and path.endswith("/continue"):
-                sid = path[len("/api/sessions/"):-len("/continue")]
-                sess = REG.get(sid)
-                result = sess.continue_to_successor(str(body.get("model") or ""), bool(body.get("sticky")))
-                code, raw = _json_bytes({
-                    "ok": True,
-                    "session": result["new_sess"].to_public(),
-                    "old_session_id": sid,
-                    "summary": result["summary"],
-                    "reused": result["reused"],
-                })
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith("/api/sessions/") and path.endswith("/stop"):
-                sid = path[len("/api/sessions/"):-len("/stop")]
-                sess = REG.get(sid)
-                sess.stop()
-                code, raw = _json_bytes({"ok": True, "session": sess.to_public()})
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith("/api/sessions/") and path.endswith("/discard"):
-                # Doctor/probe throwaway: stop agy and drop from in-memory registry (meta kept).
-                sid = path[len("/api/sessions/"):-len("/discard")]
-                sess = REG.get(sid)
-                sess.stop(notify=False)
-                with REG.lock:
-                    REG.sessions.pop(sid, None)
-                code, raw = _json_bytes({"ok": True, "discarded": sid})
-                return self._send(code, raw, "application/json; charset=utf-8")
+            if route_table.dispatch(POST_ROUTES, req):
+                return None
         except Exception as e:
-            # Same rationale as the /message route's own try/except above:
-            # this catch-all used to be the only thing standing between an
-            # unhandled exception and a bare {"ok": false, "error": str(e)}
-            # body -- no traceback landed anywhere, so any other POST route
-            # that fails this way is just as undiagnosable as 0011 was.
-            # Print it here too (goes to logs/chatbot.log) rather than
-            # adding a try/except to every branch above.
-            # OBSLOG_v1: HTTPLogMixin records the traceback (http.error) for this
-            # and every other route's catch-all, GET/PUT/DELETE included.
-            code, raw = _json_bytes({"ok": False, "error": str(e)}, 500)
-            return self._send(code, raw, "application/json; charset=utf-8")
-        code, raw = _json_bytes({"ok": False, "error": "not found"}, 404)
-        self._send(code, raw, "application/json; charset=utf-8")
+            # A route that fails answers 500 with the error; OBSLOG_v1: HTTPLogMixin records the traceback
+            # (http.error) for this and every other method's catch-all.
+            return req.json({"ok": False, "error": str(e)}, 500)
+        req.json({"ok": False, "error": "not found"}, 404)
 
     def do_PUT(self) -> None:
         parsed = urlparse(self.path)
-        path = parsed.path
+        req = Req(self, parsed.path, parsed.query)
         try:
-            body = self._read_json()
+            req.body = self._read_json()
         except Exception as e:
-            code, raw = _json_bytes({"ok": False, "error": str(e)}, 400)
-            return self._send(code, raw, "application/json; charset=utf-8")
+            return req.json({"ok": False, "error": str(e)}, 400)
         try:
-            if path.startswith("/api/instructions/") or path.startswith("/api/experts/"):
-                # Editing what the agent reads is the operator's: this server's own page only.
-                if not origin_guard.same_origin(self.headers.get("Origin"), self.headers.get("Host"),
-                                                self.headers.get("Sec-Fetch-Site")):
-                    code, raw = _json_bytes({"ok": False, "error": "same-origin browser request required"}, 403)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                routed = instructions_api("PUT", path, body) or experts_api("PUT", path, body)
-                code, raw = _json_bytes(routed[1], routed[0])
-                return self._send(code, raw, "application/json; charset=utf-8")
+            if route_table.dispatch(PUT_ROUTES, req):
+                return None
         except Exception as e:
-            code, raw = _json_bytes({"ok": False, "error": str(e)}, 500)
-            return self._send(code, raw, "application/json; charset=utf-8")
-        code, raw = _json_bytes({"ok": False, "error": "not found"}, 404)
-        self._send(code, raw, "application/json; charset=utf-8")
+            return req.json({"ok": False, "error": str(e)}, 500)
+        req.json({"ok": False, "error": "not found"}, 404)
 
     def do_DELETE(self) -> None:
         parsed = urlparse(self.path)
-        path = parsed.path
+        req = Req(self, parsed.path, parsed.query)
         try:
-            if path.startswith("/api/mcp/"):
-                name = unquote(path[len("/api/mcp/"):])
-                if name == "nas":
-                    code, raw = _json_bytes({"ok": False, "error": "nas MCP는 코어 — 삭제 불가"}, 400)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                cfg = _read_mcp_config()
-                if name in cfg.get("mcpServers", {}):
-                    del cfg["mcpServers"][name]
-                    _write_mcp_config(cfg)
-                    code, raw = _json_bytes({"ok": True, "mcpServers": cfg["mcpServers"]})
-                else:
-                    code, raw = _json_bytes({"ok": False, "error": "not found"}, 404)
-                return self._send(code, raw, "application/json; charset=utf-8")
-            if path.startswith("/api/sessions/"):
-                sid = path[len("/api/sessions/"):]
-                existing = REG.sessions.get(_safe_session_id(sid))
-                # A stale busy=True (e.g. its agy process got reaped by
-                # reap_orphan_agents mid-turn without ever emitting a
-                # result/error event) must not block deletion forever --
-                # only a genuinely still-running process counts as busy.
-                really_busy = bool(
-                    existing is not None and existing.busy
-                    and existing.proc is not None and existing.proc.poll() is None
-                )
-                if really_busy:
-                    code, raw = _json_bytes({"ok": False, "error": "이 세션은 지금 작업 중이라 삭제할 수 없습니다"}, 409)
-                    return self._send(code, raw, "application/json; charset=utf-8")
-                ok = REG.delete(sid)
-                code, raw = _json_bytes({"ok": ok} if ok else {"ok": False, "error": "not found"}, 200 if ok else 404)
-                return self._send(code, raw, "application/json; charset=utf-8")
+            if route_table.dispatch(DELETE_ROUTES, req):
+                return None
         except Exception as e:
-            code, raw = _json_bytes({"ok": False, "error": str(e)}, 500)
-            return self._send(code, raw, "application/json; charset=utf-8")
-        code, raw = _json_bytes({"ok": False, "error": "not found"}, 404)
-        self._send(code, raw, "application/json; charset=utf-8")
+            return req.json({"ok": False, "error": str(e)}, 500)
+        req.json({"ok": False, "error": "not found"}, 404)
 
-    def _sse(self, sid: str) -> None:
-        if REG.is_probe(sid):  # a health probe's turn never streams to the UI
-            return self._send(404, b"probe session", "text/plain")
-        try:
-            sess = REG.get(sid)
-        except Exception as e:
-            code, raw = _json_bytes({"ok": False, "error": str(e)}, 400)
-            return self._send(code, raw, "application/json; charset=utf-8")
-        self.send_response(200)
-        self._cors()
-        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("Connection", "keep-alive")
-        self.end_headers()
-        try:
-            self.wfile.write(b"event: hello\ndata: {\"ok\":true}\n\n")
-            self.wfile.flush()
-        except Exception:
-            return
-        sub_queue: "queue.Queue[dict]" = queue.Queue(maxsize=1000)
-        with sess.lock:
-            sess.subscribers.append(sub_queue)
-        try:
-            # Recycle idle SSE sockets after 15 min so leaked mobile
-            # connections die. Do NOT cut a busy turn — a tablet sitting
-            # on a long job used to hit this wall, show "연결이 끊겼다",
-            # and leave the other phone with no live stream at all.
-            idle_until = _now() + 900
-            emotions = emotion.Tracker()
-            while True:
-                if not sess.busy and _now() > idle_until:
-                    break
-                try:
-                    ev = sub_queue.get(timeout=15)
-                except queue.Empty:
-                    try:
-                        self.wfile.write(b": ping\n\n")
-                        self.wfile.flush()
-                    except Exception:
-                        break
-                    if sess.busy:
-                        idle_until = _now() + 900
-                    continue
-                if sess.busy:
-                    idle_until = _now() + 900
 
-                try:
-                    label = emotions.feed(ev)
-                except Exception:  # noqa: BLE001
-                    label = None
-                if label:
-                    try:
-                        self.wfile.write(("data: %s\n\n" % json.dumps({"type": "emotion", "label": label},
-                                                                       separators=(",", ":"))).encode("utf-8"))
-                        self.wfile.flush()
-                    except Exception:
-                        break
+# ------------------------------------------------------------------------------------------------ host routes
 
-                safe = {k: v for k, v in ev.items()}
-                if "payload" in safe and isinstance(safe["payload"], dict):
-                    safe["payload"] = {k: safe["payload"].get(k) for k in list(safe["payload"])[:8]}
-                line = "data: " + json.dumps(safe, ensure_ascii=False) + "\n\n"
-                try:
-                    self.wfile.write(line.encode("utf-8"))
-                    self.wfile.flush()
-                except Exception:
-                    break
-        finally:
-            with sess.lock:
-                if sub_queue in sess.subscribers:
-                    sess.subscribers.remove(sub_queue)
+def _healthz(req: Req):
+    avail = _provider_availability()
+    return req.json({
+        "ok": any(avail.values()),
+        "providers": avail,  # PROVIDER_NEUTRAL_v1: every provider, none singled out
+        "default_provider": DEFAULT_PROVIDER,
+        "default_model": DEFAULT_MODEL,
+        "class": "NAS agent (VibeCat-class)",
+        "skip_permissions": True,
+        "mcp_port": MCP_PORT,
+        "boot_ts": BOOT_INFO["boot_ts"],
+    })
+
+
+def _host_status(req: Req):
+    return req.json({
+        "ok": True,
+        "chat": True,  # we answered, so chat is up
+        "boot_ts": BOOT_INFO["boot_ts"],
+        "label_ko": "엔진 리부트",
+        "hint_ko": "연결이 죽었거나 응답이 안 올 때 호스트를 재기동합니다. 몇 초 끊겼다가 다시 붙습니다.",
+    })
+
+
+def _providers(req: Req):
+    # Multi-Provider plan, frontend selector: per-provider model
+    # list + install-detected availability, theme keycolor, portrait
+    # A provider is a vendor, not the persona: the persona/title come from the
+    # instruction files (identity.py) and never appear in this catalog.
+    providers = []
+    for pid, adapter in AGENT_ADAPTERS.items():
+        meta = dict(PROVIDER_META.get(pid) or {})
+        extra = getattr(adapter, "meta", None) or {}
+        if isinstance(extra, dict):
+            meta.update({k: extra[k] for k in ("name", "role", "theme", "icon") if extra.get(k)})
+        providers.append({
+            "id": pid,
+            "available": adapter.available(),
+            "login": pid in account_login.MODE_BY_PROVIDER,  # has a CLI login the page can drive
+            "models": adapter.known_models(),
+            "default_model": (adapter.known_models()[0] if adapter.known_models() else ""),
+            "name": meta.get("name", pid),
+            "role": meta.get("role", "AI Provider"),
+            "theme": meta.get("theme", "lime"),
+            "icon": meta.get("icon", f"/chat/providers/{pid}.webp"),
+        })
+    return req.json({"providers": providers, "default": DEFAULT_PROVIDER})
+
+
+def _commands(req: Req):
+    skills = _get_available_skills()
+    commands = [
+        {"name": "/btw", "label": "샛길 질문", "desc": "작업 중 즉시 경량 샛길 답변", "template": "/btw "},
+        {"name": "/private on", "label": "사적 대화 켜기", "desc": "♥ 사적 대화 세션으로 전환 (업무와 분리)", "template": "/private on"},
+        {"name": "/private off", "label": "사적 대화 끄기", "desc": "업무 대화 세션으로 복귀", "template": "/private off"},
+        {"name": "/continue", "label": "이어하기", "desc": "현재 대화 맥락 인계 새 세션", "template": "/continue"},
+        {"name": "/new", "label": "새 세션", "desc": "완전한 새 대화 세션 시작", "template": "/new"},
+        {"name": "/defib", "label": "엔진 리부트", "desc": "엔진 리부트 (repair/reboot)", "template": "/defib"},
+        {"name": "/status", "label": "상태 확인", "desc": "챗봇 및 NAS 시스템 상태 확인", "template": "/status"},
+        {"name": "/clear", "label": "화면 비우기", "desc": "대화창 화면 로그 초기화", "template": "/clear"},
+        {"name": "/compact", "label": "세션 압축", "desc": "대화 히스토리 수동 압축/요약", "template": "/compact"},
+        {"name": "/help", "label": "사용법", "desc": "탭·단축키·슬래시 명령어 요약", "template": "/help"},
+    ]
+    popular = _popular_slash_skills()
+    return req.json({"ok": True, "commands": commands, "popular": popular, "skills": skills},
+                    cache_control="public, max-age=300")
+
+
+def _mcp_list(req: Req):
+    cfg = _read_mcp_config()
+    return req.json({"ok": True, "mcpServers": cfg.get("mcpServers", {})})
+
+
+def _mcp_add(req: Req):
+    name = str(req.body.get("name") or "").strip()
+    url = str(req.body.get("serverUrl") or "").strip()
+    if not name or not url:
+        return req.json({"ok": False, "error": "name and serverUrl required"}, 400)
+    cfg = _read_mcp_config()
+    cfg.setdefault("mcpServers", {})[name] = {"serverUrl": url, "disabled": False}
+    _write_mcp_config(cfg)
+    return req.json({"ok": True, "mcpServers": cfg["mcpServers"]})
+
+
+def _mcp_delete(req: Req):
+    name = unquote(req.arg)
+    if name == "nas":
+        return req.json({"ok": False, "error": "nas MCP는 코어 — 삭제 불가"}, 400)
+    cfg = _read_mcp_config()
+    if name in cfg.get("mcpServers", {}):
+        del cfg["mcpServers"][name]
+        _write_mcp_config(cfg)
+        return req.json({"ok": True, "mcpServers": cfg["mcpServers"]})
+    return req.json({"ok": False, "error": "not found"}, 404)
+
+
+def _skill_toggle(req: Req):
+    name = unquote(req.arg)
+    enabled_dir = WS_SKILLS_DIR / name
+    disabled_dir = WS_SKILLS_DIR / ("_" + name)
+    if enabled_dir.is_dir():
+        enabled_dir.rename(disabled_dir)
+        new_state = False
+    elif disabled_dir.is_dir():
+        disabled_dir.rename(enabled_dir)
+        new_state = True
+    else:
+        return req.json({"ok": False, "error": "skill not found"}, 404)
+    return req.json({"ok": True, "name": name, "enabled": new_state})
+
+
+def _defibrillate(req: Req):
+    # Restarts the host: only this server's own UI may ask (the POST same-origin gate). This does not stop a
+    # non-browser client that forges Origin (the API has no login). Respond first, then schedule repair
+    # (kills/restarts this server).
+    req.json({
+        "ok": True,
+        "scheduled": True,
+        "message_ko": "엔진 리부트 예약됨. 호스트가 재기동됩니다. 잠시 후 자동으로 다시 연결합니다.",
+    })
+    _schedule_host_defibrillate()
+
+
+def _operator_only(req: Req):
+    # Editing what the agent reads is the operator's: this server's own page only.
+    if not origin_guard.same_origin(req.headers.get("Origin"), req.headers.get("Host"), req.headers.get("Sec-Fetch-Site")):
+        return req.json({"ok": False, "error": "same-origin browser request required"}, 403)
+    routed = instructions_api("PUT", req.path, req.body) or experts_api("PUT", req.path, req.body)
+    return req.json(routed[1], routed[0])
+
+
+def _push(method: str):
+    return lambda req: None if push_manager.dispatch_push_api(req.h, method, req.path) else NEXT
+
+
+def _art(req: Req):
+    art = character_art.handle(req.path, req.qs())   # ART_PLACEHOLDER_v1: avatar, stage, sprites
+    if not art:
+        return NEXT
+    return req.send(art[0], art[1], art[2], cache_control=art[3])
+
+
+def _card_import(req: Req):
+    status, payload = card_upload.handle(req.headers, req.rfile, WORKSPACE)
+    return req.json(payload, status)
+
+
+# ------------------------------------------------------------------------------------------------ route tables
+# One table per method, tried in order; the first route that takes a request answers it (route_table.py).
+# Order matters where patterns overlap: "/api/sessions/*" (one session) comes after its longer cousins.
+
+_api, _gift = route_table.api, route_table.gift
+
+GET_ROUTES = [
+    (("/healthz", "/health"), _healthz),
+    (None, _push("GET")),
+    ("/api/host/status", _host_status),
+    ("/api/identity", lambda req: req.json(identity.get_identity())),
+    ("/api/models", lambda req: req.json({"models": MODELS, "default": DEFAULT_MODEL})),
+    ("/api/providers", _providers),
+    (("/api/skills", "/api/commands"), _commands),
+    ("/api/self-status", lambda req: req.json(_self_status())),
+    (None, _api(observation_api, "GET")),
+    (None, _api(ticket_api, "GET")),
+    (None, _api(delegation_api, "GET")),
+    (None, _api(instructions_api, "GET")),
+    (None, _api(experts_api, "GET")),
+    (None, _api(personal_turn.api, "GET")),
+    (None, _api(room_chat.api, "GET")),
+    ("/api/mcp", _mcp_list),
+    ("/api/usage", route_accounts.usage),
+    ("/api/accounts/login/status", route_accounts.login_status),
+    ("/api/accounts", route_accounts.listing),
+    ("/api/sessions", route_sessions.listing),
+    ("/api/characters", route_sessions.characters_list),
+    (None, _gift(lambda req: items.handle_get(req.path))),
+    (None, _gift(lambda req: chat_upload.handle_get(req.path, req.qs()))),
+    (None, _gift(lambda req: art_manager.handle_get(req.path))),
+    (None, _art),
+    ("/api/sessions/busy", route_sessions.busy),
+    ("/api/sessions/active", route_sessions.active),
+    ("/api/sessions/*/events", route_sessions.events),
+    ("/api/sessions/*/artifacts", route_sessions.artifacts),
+    ("/api/service-log", lambda req: req.json(_service_log(req.q("since", "24h"), req.q("sid", "")))),
+    ("/api/sessions/*/log", route_sessions.log),
+    ("/api/sessions/*/summary", route_sessions.summary),
+    ("/api/artifacts", route_files.artifacts_all),
+    ("/api/file/preview", route_files.preview),
+    ("/api/file/raw", route_files.raw),
+    ("/api/sessions/*", route_sessions.detail),
+    ("/artifacts/*", route_files.artifact),
+    (("/chat/persona/*", "/persona/*"), route_files.persona),
+    (None, route_files.static),
+]
+
+POST_STREAM_ROUTES = [   # before the JSON body is read
+    ("/api/characters/import", _card_import),
+    (None, _push("POST")),
+    (None, _gift(lambda req: chat_upload.handle(req.path, req.headers, req.rfile))),
+    (None, _gift(lambda req: art_manager.handle_upload(req.path, req.headers, req.rfile))),
+]
+
+POST_ROUTES = [
+    ("/api/skills/*/toggle", _skill_toggle),
+    ("/api/mcp", _mcp_add),
+    (("/api/observations*", "/api/tickets*", "/api/delegations*", "/api/rooms*", client_errors.PATH + "*"),
+     route_table.first(_api(observation_api, "POST"), _api(ticket_api, "POST"), _api(delegation_api, "POST"),
+                       _api(room_chat.api, "POST"), _api(client_errors.api, "POST"))),
+    ("/api/host/defibrillate", _defibrillate),
+    ("/api/accounts/recycle", route_accounts.recycle),
+    ("/api/accounts/login/start", route_accounts.login_start),
+    ("/api/accounts/login/complete", route_accounts.login_complete),
+    ("/api/accounts/login/cancel", route_accounts.login_cancel),
+    ("/api/accounts/logout", route_accounts.logout),
+    ("/api/sessions", route_sessions.create),
+    ("/api/characters/*/session", route_sessions.character_session),
+    ("/api/sessions/*/message", route_sessions.message),
+    (None, _gift(lambda req: items.handle_post(req.path, req.body))),   # items (plus/F)
+    (None, _gift(lambda req: art_manager.handle_post(req.path, req.body))),   # art (am/B)
+    ("/api/sessions/*/provider", route_sessions.provider),
+    ("/api/sessions/*/continue", route_sessions.continue_),
+    ("/api/sessions/*/stop", route_sessions.stop),
+    ("/api/sessions/*/discard", route_sessions.discard),
+]
+
+PUT_ROUTES = [   # PUT and DELETE match the path as sent (no mount-prefix stripping), as before split/B
+    (("/api/instructions/*", "/api/experts/*"), _operator_only),
+]
+
+DELETE_ROUTES = [
+    ("/api/mcp/*", _mcp_delete),
+    ("/api/sessions/*", route_sessions.delete),
+]
 
 
 # Service log for the UI (로그 탭 → 서비스): logdigest over logs/events.jsonl (docs/LOGGING.md).

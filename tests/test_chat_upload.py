@@ -101,7 +101,7 @@ class Upload(unittest.TestCase):
         self.assertFalse(other["reused"], "different bytes are a different file")
 
     def test_the_message_route_takes_the_pending_list_before_sending(self):
-        src = (ROOT / "server.py").read_text(encoding="utf-8")
+        src = (ROOT / "route_sessions.py").read_text(encoding="utf-8")
         take = src.index("chat_upload.take_pending(sid, text)")
         self.assertLess(take, src.index("rotated = sess.send(text", take))
 

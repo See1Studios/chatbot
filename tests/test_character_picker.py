@@ -14,6 +14,7 @@ import delegation  # noqa: E402
 import host_config  # noqa: E402
 import instructions as I  # noqa: E402
 import mcp_core  # noqa: E402
+import route_sessions  # noqa: E402
 import server  # noqa: E402
 import session as S  # noqa: E402
 
@@ -64,10 +65,10 @@ class Picker(unittest.TestCase):
         self.assertEqual((priv.character, priv.provider, priv.model), (self.lulu, "codex", "gpt-x"))
 
     def test_the_picker_lists_the_default_first_and_every_character_by_id(self):
-        rows = server._character_list()
+        rows = route_sessions._character_list()
         self.assertEqual([(r["id"], r["session_character"], r["title"], r["default"]) for r in rows],
                          [(self.pd, self.pd, "P", True), (self.lulu, self.lulu, "막내", False)])
-        self.assertEqual([server._session_character(x) for x in (self.pd, "", self.lulu, "pd", C.new_id(), "../x")],
+        self.assertEqual([route_sessions._session_character(x) for x in (self.pd, "", self.lulu, "pd", C.new_id(), "../x")],
                          [self.pd, self.pd, self.lulu, None, None, None])
 
     def test_avatars_follow_the_provider_then_the_character(self):

@@ -4,6 +4,15 @@
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 
+## 2026-10-01 — `server.py` 라우터: 경로 표 한 곳, 처리 함수는 영역별로 (split/B, #534)
+
+- **운영자**: 백엔드 리팩토링 1순위 후보, 직접 진행(위임하지 않음 — 77KB 파일은 가벼운 모델이 읽기 어려움).
+- **변경**: GET 362줄·POST 361줄 if 사슬 → `server.py`의 방식별 표(`GET_ROUTES`·`POST_STREAM_ROUTES`·`POST_ROUTES`·`PUT_ROUTES`·`DELETE_ROUTES`), 한 줄이 한 경로, 위에서부터 맞춤(`route_table.py`). 처리 함수는 `route_sessions.py`(세션·캐릭터·SSE), `route_accounts.py`(사용량 캐시·자동 재시작·로그인), `route_files.py`(미리보기·아티팩트·페르소나·정적 파일), 호스트 것은 `server.py`에. `server.py` 77KB → 32KB.
+- **동작 불변 확인**: 옛 코드(`77e7939`)와 새 코드를 각각 빈 임시 데이터로 띄워 같은 요청 102개 — 상태·주요 헤더·본문이 모두 같음(다른 것은 임시 폴더 이름과 시각뿐). POST 안의 같은 출처 재검사 둘은 맨 앞 관문과 같은 검사라 뺌(응답 같음). PUT·DELETE는 전처럼 `/chat` 접두를 벗기지 않음 — 그대로 둠, 아래 발견.
+- **테스트**: 소스 글자를 확인하던 연결 테스트 9개를 새 위치로(`test_threshold`·`test_push`·`test_session_open` …), `test_persona_traversal`·`test_auto_recycle`은 값을 바꿔치기할 모듈을 새 위치로. 함수 천장에서 `server.py` 둘 삭제, 한국어 래칫 기준선은 옮긴 만큼 나눔(합계 29 그대로).
+- **발견(고치지 않음)**: PUT·DELETE는 `/chat/api/...` 경로를 404로 받는다(GET·POST만 접두를 벗김). 지금 페이지가 그 접두로 부르지 않는다면 문제없음 — 확인 필요.
+- **⚡ 필요**: `server.py` + 새 `route_*.py`.
+
 ## 2026-10-01 — 청소 1차: 죽은 `role.js`와 안 쓰는 별칭 (split/F, #532)
 
 - **운영자**: 레거시·옮긴 뒤 남은 것 청소. 옛 화면(`?shell=1`)은 이번에 걷지 않고 `ux-shell-roadmap.md`에 `ux/S9`로 기록.
