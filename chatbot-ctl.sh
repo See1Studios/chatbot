@@ -169,6 +169,17 @@ is_up() {
 }
 health_chat() { curl -fsS -m 3 "http://127.0.0.1:${PORT_CHAT}/healthz" >/dev/null 2>&1; }
 health_mcp() { curl -fsS -m 3 "http://127.0.0.1:${PORT_MCP}/healthz" >/dev/null 2>&1; }
+# A started server needs a moment to import and bind (~2 s on this host). One check after 1 s logged ctl.start_failed
+# for healthy starts (2026-10-01, twice). Wait until it answers, its process is gone, or START_WAIT_SEC pass.
+wait_health_chat() {
+  local i
+  for ((i = 0; i < ${START_WAIT_SEC:-15}; i++)); do
+    sleep 1
+    health_chat && return 0
+    is_up "$PID_CHAT" || return 1
+  done
+  return 1
+}
 
 stop_one() {
   local pidf="$1" name="$2"
@@ -367,8 +378,7 @@ cmd_start() {
   reap_orphan_agents >/dev/null
   rotate_log "$LOG_CHAT"
   setsid nohup python3 "$CODE/server.py" >>"$LOG_CHAT" 2>&1 < /dev/null & echo $! > "$PID_CHAT"
-  sleep 1
-  if health_chat; then
+  if wait_health_chat; then
     echo "started chat pid=$(cat "$PID_CHAT") mcp pid=$(cat "$PID_MCP")"
     obs ctl.spawn info proc=chat pid="$(cat "$PID_CHAT")"
   else

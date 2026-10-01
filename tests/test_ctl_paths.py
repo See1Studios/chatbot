@@ -32,5 +32,31 @@ class CtlPaths(unittest.TestCase):
         self.assertEqual(Path(out).resolve(), real.parent.resolve())
 
 
+@dev_only_bash
+class StartWaitsForHealth(unittest.TestCase):
+    """A start is judged when the server answers, not by one check after 1 s (a healthy ~2 s boot was logged as
+    ctl.start_failed, 2026-10-01)."""
+
+    def run_wait(self, answers_on, alive=True):
+        src = CTL.read_text(encoding="utf-8")
+        fn = src[src.index("wait_health_chat() {"):]
+        fn = fn[:fn.index("\n}\n") + 3]
+        script = ("n=0; sleep() { :; }; health_chat() { n=$((n+1)); [ $n -ge %d ]; }; is_up() { %s; }\n%s\n"
+                  "START_WAIT_SEC=15; wait_health_chat; echo \"$? $n\"") % (answers_on, "true" if alive else "false", fn)
+        return subprocess.run(["bash", "-c", script], capture_output=True, text=True).stdout.split()
+
+    def test_a_slow_boot_is_waited_for(self):
+        self.assertEqual(self.run_wait(3), ["0", "3"])
+
+    def test_a_dead_process_fails_at_once_and_a_silent_one_in_time(self):
+        self.assertEqual(self.run_wait(99, alive=False), ["1", "1"])
+        self.assertEqual(self.run_wait(99), ["1", "15"])
+
+    def test_start_uses_it(self):
+        src = CTL.read_text(encoding="utf-8")
+        start = src[src.index("cmd_start() {"):]
+        self.assertIn("if wait_health_chat; then", start[:start.index("\n}\n")])
+
+
 if __name__ == "__main__":
     unittest.main()
