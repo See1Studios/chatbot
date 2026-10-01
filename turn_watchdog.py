@@ -98,8 +98,17 @@ class TurnWatchdog:
     # while a thinking step runs -- only the step's DONE line afterwards -- so a long think looked like a stall. At
     # SILENT_NOTICE_SEC the page is told the turn is quiet (a `progress` event: it does not re-arm anything); the turn
     # is closed only at SILENT_HANG_SEC, still well inside AGY_PRINT_TIMEOUT_SEC (480s).
+    # #513: 300s held the page locked for 5 minutes on a real runtime hang; 180s still doubles the notice window.
     SILENT_NOTICE_SEC = 90
-    SILENT_HANG_SEC = 300
+    SILENT_HANG_SEC = 180
+
+    @property
+    def is_silent(self) -> bool:
+        """A busy turn with no activity for SILENT_NOTICE_SEC (since the later of its start and its last activity)."""
+        if not getattr(self, "busy", False):
+            return False
+        last = max(float(getattr(self, "_last_turn_activity_at", 0) or 0), float(getattr(self, "turn_started_at", 0) or 0))
+        return bool(last) and _now() - last >= float(self.SILENT_NOTICE_SEC)
 
     def _cancel_silent_hang(self) -> None:
         for attr in ("_silent_hang_timer", "_silent_notice_timer"):
@@ -172,7 +181,8 @@ class TurnWatchdog:
             seen = float(probe(int(pid), float(getattr(self, "created_at", 0) or 0)) or 0)
         except Exception:
             return False
-        if seen <= float(getattr(self, "_last_turn_activity_at", 0) or 0):
+        # A log line from an earlier turn must not extend this one (#513).
+        if seen <= float(getattr(self, "_last_turn_activity_at", 0) or 0) or seen < float(getattr(self, "turn_started_at", 0) or 0):
             return False
         left = float(self.SILENT_HANG_SEC) - (_now() - seen)
         if left <= 0:

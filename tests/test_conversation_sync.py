@@ -472,6 +472,50 @@ class SilentHangWatchdog(Base):
         time.sleep(0.45)
         self.assertTrue(getattr(s, "_silent_hang_done", False))
 
+    def test_the_hang_closes_at_three_minutes(self):
+        """#513: 5 minutes kept the page locked on a real runtime hang."""
+        self.assertEqual(S.AgentSession.SILENT_HANG_SEC, 180)
+        self.assertLess(S.AgentSession.SILENT_NOTICE_SEC, S.AgentSession.SILENT_HANG_SEC)
+        self.assertLess(S.AgentSession.SILENT_HANG_SEC, AGY_PRINT_TIMEOUT_SEC)
+
+    def test_a_provider_log_line_from_an_earlier_turn_does_not_extend_this_one(self):
+        s = self._busy(self.make(), hang_sec=0.3)
+        s.proc = types.SimpleNamespace(pid=4242)
+        s._last_turn_activity_at = 0.0
+        s.adapter.last_activity = lambda pid, started: s.turn_started_at - 1   # seen before this turn began
+        self.assertFalse(s._provider_shows_activity())
+        s._silent_hang_fire()
+        self.assertTrue(getattr(s, "_silent_hang_done", False))
+
+    def test_is_silent_after_the_notice_window_only_while_busy(self):
+        import time
+        s = self._busy(self.make())
+        s.SILENT_NOTICE_SEC = 90
+        self.assertFalse(s.is_silent, "fresh activity is not silence")
+        s._last_turn_activity_at = s.turn_started_at = time.time() - 91
+        self.assertTrue(s.is_silent)
+        s.busy = False
+        self.assertFalse(s.is_silent, "an idle session is not a silent turn")
+
+    def test_btw_tells_the_side_answer_the_main_turn_is_silent(self):
+        import time
+        s = self._busy(self.make())
+        s._last_turn_activity_at = s.turn_started_at = time.time() - 120
+        s._proc_alive = lambda: True
+        prompts = []
+        orig = S._oneshot
+        S._oneshot = lambda prompt, timeout: prompts.append(prompt) or {"text": "ok"}
+        try:
+            s._run_btw("지금 어디까지 했어?")
+        finally:
+            S._oneshot = orig
+        self.assertIn("90초 이상 무응답(침묵)", prompts[0])
+        self.assertIn("'정상 진행 중'이라고 꾸며내지 마세요", prompts[0])
+
+    def test_btw_prompt_stays_plain_for_a_lively_turn(self):
+        self.assertNotIn("무응답", SW._btw_prompt("q", True, []))
+        self.assertIn("무응답", SW._btw_prompt("q", True, [], True))
+
 
 class AgyToolInfoEvents(Base):
     """The agy adapter turns `step_update.tool_info` into canonical tool events itself (provider neutrality)."""

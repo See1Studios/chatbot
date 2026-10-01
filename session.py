@@ -1187,19 +1187,19 @@ class AgentSession(TurnWatchdog):
         context_snippets = []
         with self.lock:
             is_active = bool(self.busy and self._proc_alive())
+            silent = is_active and bool(getattr(self, "is_silent", False))
             cur_tool = getattr(self, "_last_tool_sig", "") or ""
             recent_hist = [f"{h.get('role')}: {str(h.get('text') or '')[:120]}" for h in self.history[-4:] if h.get("role") in ("user", "assistant")]
         if is_active:
-            if cur_tool:
-                context_snippets.append(f"[현재 백그라운드 진행 중인 메인 작업: {cur_tool}]")
-            else:
-                context_snippets.append("[현재 백그라운드에서 메인 작업 추론/수행 중]")
+            context_snippets.append(f"[현재 백그라운드 진행 중인 메인 작업: {cur_tool}]" if cur_tool else "[현재 백그라운드에서 메인 작업 추론/수행 중]")
+            if silent:
+                context_snippets.append(f"[현재 메인 작업이 {int(self.SILENT_NOTICE_SEC)}초 이상 무응답(침묵) 상태입니다. 지연 또는 정체 중일 수 있습니다.]")
         else:
             context_snippets.append("[현재 백그라운드에서 실행 중인 메인 작업이 없습니다. 이전 작업은 완료되었거나 대기/중단 상태입니다.]")
         if recent_hist:
             context_snippets.append("[최근 대화 맥락:\n" + "\n".join(recent_hist) + "]")
 
-        prompt = _btw_prompt(query, is_active, context_snippets)
+        prompt = _btw_prompt(query, is_active, context_snippets, silent)
         ans = "답변을 가져오지 못했습니다."
         usage = None
         duration_seconds = None

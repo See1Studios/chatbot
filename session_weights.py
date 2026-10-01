@@ -157,7 +157,7 @@ def _is_inquiry(text: str) -> bool:
     return False
 
 
-def _btw_prompt(query: str, is_active: bool, context_snippets: List[str]) -> str:
+def _btw_prompt(query: str, is_active: bool, context_snippets: List[str], is_silent: bool = False) -> str:
     """Prompt for a /btw side question. Who the chatbot is, who the user is and the
     tone all come from the instruction files (identity.py) -- no name lives here."""
     ut = user_title()
@@ -168,8 +168,8 @@ def _btw_prompt(query: str, is_active: bool, context_snippets: List[str]) -> str
         + ("백그라운드 메인 작업 진행 중 들어온 샛길 질문(/btw)입니다.\n" if is_active else "현재 대기 중인 상태에서 들어온 질문입니다.\n")
         + ("\n".join(context_snippets) + "\n" if context_snippets else "")
         + f"{ut} 질문: {query}\n\n"
-        + (f"메인 작업을 방해하지 않는 핵심만 {tone}간결하게 즉답하세요." if is_active
-           else f"현재 상태(작업 대기/완료/중단)를 사실대로 알리고 {ut}의 질문에 {tone}간결하게 답하세요. 백그라운드에서 작업 중이 아니므로 절대 거짓으로 진행 중이라고 꾸며내지 마세요.")
+        + (f"메인 작업을 방해하지 않는 핵심만 {tone}간결하게 즉답하세요." + (" 단, 메인 작업이 한동안 무응답이므로 지연·정체 가능성을 사실대로 밝히고 '정상 진행 중'이라고 꾸며내지 마세요." if is_silent else "") if is_active
+           else f"현재 상태(작업 대기/완료/중단, 지연/정체 여부)를 사실대로 알리고 {ut}의 질문에 {tone}간결하게 답하세요. 백그라운드에서 작업 중이 아니므로 절대 거짓으로 '정상 진행 중'이라고 꾸며내지 마세요.")
     )
 
 
