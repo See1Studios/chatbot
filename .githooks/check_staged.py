@@ -49,7 +49,8 @@ def _clean_git_env():
     """git hands hooks GIT_INDEX_FILE (a temp index for `commit -a` / `commit <paths>`) and may set GIT_DIR: a new
     worktree and the guards must not inherit them, or they would read or write that index."""
     return {k: v for k, v in os.environ.items()
-            if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE", "GIT_PREFIX", "GIT_OBJECT_DIRECTORY")}
+            if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE", "GIT_PREFIX", "GIT_OBJECT_DIRECTORY",
+                         "CHATBOT_ROOT", "AGY_CHAT_ROOT")}
 
 
 def run_guards_on_snapshot(root):
