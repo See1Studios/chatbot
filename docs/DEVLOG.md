@@ -4,6 +4,13 @@
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 
+## 2026-10-01 — `session.py` 2단: 턴 실행을 `session_turn.py`로, 80KB 아래 (split/C, #540)
+
+- **변경**: `send`·`_start_turn`·`_run_btw`·`interrupt_current_turn`·`_rotate_to_fresh_session`·`continue_to_successor`를 믹스인 `SessionTurn`(`session_turn.py`)으로. `session.py` 98,453B → 73,028B — 일반 상한 80,000B 아래라 천장 항목을 지움(split/C 수용 기준 "한 줄도 못 붙이는 상태가 끝남" 충족). `_start_turn` 함수 천장은 새 위치로(185줄).
+- **바꿔치기 보존**: `session.py`가 정의한 이름과 테스트·`server.py`가 바꾸는 이름(`REG`·`boot_notice`(서버가 실행 중에 꽂음)·`build_instruction_bundle`·`_oneshot`·`_record_live_pids`·`evolution` …) 12곳은 `_s().이름`으로 부를 때마다 `session`에서 읽음. 줄 수가 늘지 않게 그 자리에서 바꿈. 처음 스크립트가 `try:` 안에서 정의된 `evolution`을 놓쳤고 이름 검사로 잡음.
+- **확인**: 전체 테스트, `guard_rlock`, 재시작 뒤 `probe_message`(일회용 세션으로 실제 턴 한 번).
+- **⚡ 필요**: `session.py`, `session_turn.py`.
+
 ## 2026-10-01 — `session.py` 1단: 보여주기 메서드를 `session_view.py`로 (split/C, #539)
 
 - **변경**: `AgentSession`의 공개 보기(`to_public`), 도구 줄(`_tool_summary`), 활동 기록(`get_log`), 아티팩트 모음(`get_artifacts`), 인계 요약(`get_handover_summary`)을 믹스인 `SessionView`(`session_view.py`)로 — `turn_watchdog.py`를 뽑은 방식. `session.py` 119,633B → 98,453B(천장도 내림), 함수 천장 둘은 새 위치로. 테스트가 임시 폴더로 바꾸는 `SESSIONS`·`WORKSPACE`·`DATA`는 부를 때마다 `session`에서 읽어 바꿔치기가 그대로 먹음. `get_artifacts`는 그 한 줄만큼 긴 주석을 120자 폭으로 다시 접어 101줄 유지(천장 올리지 않음).

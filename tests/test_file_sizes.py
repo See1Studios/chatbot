@@ -12,7 +12,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MAX_BYTES = 80_000
 CEILINGS = {                       # over the cap already: no growth
-    "session.py": 98_453,
     "tools/worktree_runner.py": 82_775,
 }
 BYTES_SLACK = 2_000                # a ceiling more than this above the file must come down
@@ -33,7 +32,7 @@ FUNC_CEILINGS = {                  # "path::Class.func": lines -- over the cap a
     "providers/adapter_openai.py::OpenAIDialectAdapter._stream_once": 109,
     "providers/adapter_openai.py::OpenAIDialectAdapter.rate_limit_report": 115,
     "providers/adapter_openai.py::OpenAIDialectAdapter.stream_turn": 105,
-    "session.py::AgentSession._start_turn": 186,
+    "session_turn.py::SessionTurn._start_turn": 185,
     "session_view.py::SessionView._tool_summary": 180,
     "session_view.py::SessionView.get_artifacts": 101,
     "tool_format.py::_format_tool_call": 121,
