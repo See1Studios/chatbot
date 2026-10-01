@@ -9,7 +9,7 @@ const SHELL_TEXT = {   // l10n-ok
   title: '대화', search: '이름 검색', empty: '찾는 대화가 없습니다.', private: '사적 대화 중', room: '단체방',   // l10n-ok
   newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.', you: '나',   // l10n-ok
   office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', brain: '두뇌',   // l10n-ok
-  more: '더 보기', act: '행동',   // l10n-ok
+  more: '더 보기', act: '행동', menu: '메뉴', online: '접속 중',   // l10n-ok
   profile: '프로필', settings: '설정', back2: '뒤로', close: '닫기', details: '자세히 보기', theme: '테마',   // l10n-ok
   dev: '개발자 모드',   // l10n-ok
   files: '주고받은 파일', history: '대화 기록', art: '그림', model: '모델', log: '활동 로그',   // l10n-ok
@@ -96,6 +96,7 @@ function shellListDraw() {
   if (shellState.pending) rows.forEach(r => { r.current = (r.kind + ':' + r.id) === shellState.pending; if (!r.current) r.private = false; });
   const add = document.getElementById('shellNewRoom');
   if (add) add.hidden = !(typeof openRooms === 'function' && chars.length > 1);   // a room needs two members
+  shellUserBarDraw();
   // Rows are kept and updated in place (keyed by kind and id): a redraw that changes nothing touches nothing, and a
   // picture is loaded again only when its address changed -- redrawing everything made the pictures flicker.
   const nodes = shellState.nodes, seen = new Set();
@@ -587,7 +588,18 @@ function shellSettingsOpen() {
   panel.classList.add('open');
 }
 
-// Builds the card, the settings, the gear and the bar above a pane; the header's name and picture open the card.
+// The list's foot is the user's own bar: the title they are called by (it can arrive after boot), opening the settings.
+function shellUserBarDraw() {
+  const bar = document.getElementById('shellUserBar');
+  if (!bar) return;
+  const name = (typeof IDENTITY !== 'undefined' && IDENTITY.user_title) || SHELL_TEXT.you;
+  const pic = bar.querySelector('.shell-user-avatar');
+  if (pic && pic.dataset.name !== name && typeof initialAvatar === 'function') { pic.dataset.name = name; pic.src = initialAvatar(name); }
+  shellSet(bar.querySelector('.shell-user-name'), name);
+  shellSet(bar.querySelector('.shell-user-status'), SHELL_TEXT.online);
+}
+
+// Builds the card, the settings and the bar above a pane; the header's name and picture open the card.
 function shellPanelsInit() {
   const list = document.getElementById('shellList'), foot = list && list.querySelector('.shell-list-foot');
   const stage = document.querySelector('.stage-shell'), wrap = document.getElementById('appWrap');   // wrap = the talk column
@@ -599,13 +611,10 @@ function shellPanelsInit() {
   profile.appendChild(shellEl('div', 'shell-profile-in'));
   document.body.appendChild(profile);          // the last column of the page (shell.css), beside the talk
   list.appendChild(settings);
-  const gear = shellEl('button', 'shell-gear', '\u2699');
-  gear.id = 'shellGear';
-  gear.type = 'button';
-  gear.title = SHELL_TEXT.settings;
-  gear.setAttribute('aria-label', SHELL_TEXT.settings);
-  gear.addEventListener('click', () => shellSettingsOpen());
-  foot.appendChild(gear);
+  const menu = document.getElementById('shellMenu'), me = document.getElementById('shellUserBar');
+  [menu, me].forEach(b => { if (b) { b.title = SHELL_TEXT.settings; b.addEventListener('click', () => shellSettingsOpen()); } });
+  if (menu) menu.setAttribute('aria-label', SHELL_TEXT.menu);
+  shellUserBarDraw();
   const bar = shellEl('div', 'shell-pane-bar'), back = shellEl('button', 'ghost', '\u2039');
   bar.id = 'shellPaneBar';
   back.type = 'button';
@@ -685,7 +694,8 @@ function shellInit() {
     search.addEventListener('input', () => { shellState.filter = search.value; shellListDraw(); });
   }
   if (add) {
-    add.textContent = '+ ' + SHELL_TEXT.newRoom;
+    add.title = SHELL_TEXT.newRoom;
+    add.setAttribute('aria-label', SHELL_TEXT.newRoom);
     add.addEventListener('click', () => openRooms());
   }
   if (back) {

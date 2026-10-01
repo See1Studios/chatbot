@@ -53,17 +53,18 @@
   <link rel="stylesheet" href="./chat-features.css?v=3" />
   <link rel="stylesheet" href="./art-manager.css?v=1" />
   <link rel="stylesheet" href="./rooms.css?v=1" />
-  <link rel="stylesheet" href="./shell.css?v=23" />
+  <link rel="stylesheet" href="./shell.css?v=24" />
 </head>
 <body>
   <!-- SHELL_v2 (app-shell.js): the talk list. Shown only under html.shell2; its words are set by the script. -->
   <aside id="shellList" class="shell-list">
     <div class="shell-list-head">
-      <div class="shell-list-title"><strong id="shellListTitle"></strong></div>
+      <div class="shell-list-title"><strong id="shellListTitle"></strong>
+        <span class="shell-head-btns"><button id="shellNewRoom" class="shell-btn-icon" type="button" hidden>&#x270E;</button><button id="shellMenu" class="shell-btn-icon" type="button">&#x2630;</button></span></div>
       <input type="search" id="shellSearch" autocomplete="off" />
     </div>
     <div id="shellRooms" class="shell-rooms" role="list"></div>
-    <div class="shell-list-foot"><button id="shellNewRoom" type="button" hidden></button></div>
+    <div class="shell-list-foot"><button id="shellUserBar" class="shell-user-bar" type="button"><img class="shell-user-avatar" alt="" /><span class="shell-user-name"></span><span class="shell-user-status"></span></button></div>
   </aside>
   <div class="wrap" id="appWrap">
     <header>
@@ -413,7 +414,7 @@
   <script src="./app-rooms.js?v=3"></script>
   <script src="./app-attach.js?v=9"></script>
   <script src="./app-flow.js?v=5"></script>
-  <script src="./app-shell.js?v=19"></script>
+  <script src="./app-shell.js?v=20"></script>
   <script src="./app-msgmenu.js?v=2"></script>
   <script src="./app.js?v=166"></script>
   <script src="./theme.js?v=3"></script>

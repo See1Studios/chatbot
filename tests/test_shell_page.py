@@ -101,7 +101,7 @@ return (async () => {
     plusWork: shellPlusList({ private: false, attach: 'file', geo: { label: 'geo', on: true }, slash: 'cmd' }),
     plusPrivate: shellPlusList({ private: true, attach: 'item', geo: { label: 'geo', on: false }, slash: 'cmd' }),
     plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
-    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'brain', 'more', 'act',
+    text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'brain', 'more', 'act', 'menu', 'online',
       'profile', 'settings', 'back2', 'close', 'dev', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'manage', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
@@ -524,6 +524,21 @@ class ShellSwitch(unittest.TestCase):
         self.assertLess(HTML.index('src="./app-shell.js'), HTML.index('src="./app.js'))
         self.assertLess(HTML.index("rooms.css"), HTML.index("shell.css"))
         self.assertIn("shellInit()", (STATIC / "app.js").read_text(encoding="utf-8"))
+
+    def test_the_head_holds_the_icons_and_the_foot_is_the_users_bar(self):
+        # #525: messenger layout -- a new room and the menu are icons in the head, the foot is the user's own bar
+        title = HTML[HTML.index('<div class="shell-list-title">'):HTML.index('id="shellSearch"')]
+        self.assertIn('id="shellNewRoom" class="shell-btn-icon"', title)
+        self.assertIn('id="shellMenu" class="shell-btn-icon"', title)
+        foot = HTML[HTML.index('<div class="shell-list-foot">'):HTML.index("</aside>")]
+        self.assertIn('id="shellUserBar" class="shell-user-bar"', foot)
+        self.assertNotIn("shellNewRoom", foot)
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("[menu, me].forEach(b => { if (b) { b.title = SHELL_TEXT.settings; b.addEventListener('click', () => shellSettingsOpen()); } });", src)
+        self.assertIn("add.addEventListener('click', () => openRooms());", src)
+        self.assertIn("IDENTITY.user_title", src[src.index("function shellUserBarDraw"):])
+        for sel in (".shell-btn-icon{", ".shell-btn-icon:hover{", ".shell-user-bar{", ".shell-user-bar:hover{"):
+            self.assertIn(sel, CSS)
 
     def test_the_list_words_are_not_in_the_page_source(self):
         aside = HTML[HTML.index('<aside id="shellList"'):HTML.index("</aside>")]

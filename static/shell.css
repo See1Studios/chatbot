@@ -26,11 +26,19 @@ html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in 
 .shell-row-preview{grid-column:2 / 4;font-size:.82rem;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shell-row-preview.is-private{color:var(--accent2)}
 .shell-empty{padding:1rem .6rem;color:var(--muted);font-size:.85rem}
-.shell-list-foot{display:flex;gap:.4rem;padding:.5rem .6rem calc(max(.5rem, env(safe-area-inset-bottom)));border-top:1px solid var(--border);flex-shrink:0}
-.shell-list-foot button{flex:1 1 auto;color:var(--accent2);font-weight:600;text-align:left;background:transparent;border-color:transparent}
-.shell-list-foot button:hover{background:rgba(255,255,255,.05)}
-.shell-list-foot button[hidden]{display:none}
-.shell-list-foot .shell-gear{flex:0 0 auto;width:38px;text-align:center;color:var(--muted);font-weight:400;font-size:1.05rem;margin-left:auto}
+.shell-list-foot{padding:.4rem .5rem calc(max(.4rem, env(safe-area-inset-bottom)));border-top:1px solid var(--border);flex-shrink:0}
+/* the user's own bar (messenger style): their mark, the title they are called by, a presence dot; it opens the settings */
+.shell-user-bar{display:flex;align-items:center;gap:.6rem;width:100%;padding:.4rem .5rem;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--text);text-align:left;cursor:pointer}
+.shell-user-bar:hover{background:rgba(255,255,255,.05);border-color:transparent}
+.shell-user-avatar{flex:0 0 36px;width:36px;height:36px;border-radius:50%;object-fit:cover;background:#2a2f3a;border:1px solid var(--border)}
+.shell-user-name{flex:1 1 auto;min-width:0;font-size:.95rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shell-user-status{flex:0 0 auto;display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;color:var(--muted)}
+.shell-user-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#3fb950;box-shadow:0 0 0 2px var(--bg-card)}
+/* the header's icon buttons: a new room, the menu */
+.shell-head-btns{display:flex;align-items:center;gap:.2rem;flex-shrink:0}
+.shell-btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--muted);font-size:1.1rem;line-height:1;cursor:pointer;transition:background .15s,color .15s}
+.shell-btn-icon:hover{background:rgba(255,255,255,.06);color:var(--text);border-color:transparent}
+.shell-btn-icon[hidden]{display:none}
 /* ux/S2: the tabs go; the profile card slides over the talk, the settings cover the list, a bar leads back from a pane */
 html.shell2 header .bar{display:none}
 html.shell2 header .brand-title{cursor:pointer}
