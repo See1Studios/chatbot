@@ -606,6 +606,7 @@ function workLine(ln) {
 
 function renderWorkCard(r) {
   const card = obsNode('div', 'work-card phase-' + r.phase);
+  card.dataset.ticket = r.ticket;
   const open = workOpen.has(r.ticket);
   
   // 1. 헤더: #ID + 제목 (길어도 잘 보임) + 상태 배지 + 토글 화살표
@@ -780,9 +781,22 @@ async function loadWork() {
   const changed = ids.size !== workCardIds.size || [...ids].some(id => !workCardIds.has(id));
   workCardIds = ids;
   if (changed) loadTickets();
+  // The 3s poll rebuilds the cards; keep each transcript's scroll (or its stick-to-bottom) across the rebuild.
+  const prevScrolls = new Map();
+  workBarEl.querySelectorAll('.work-card').forEach(card => {
+    const box = card.querySelector('.work-transcript');
+    if (box) prevScrolls.set(card.dataset.ticket, { scrollTop: box.scrollTop, atBottom: box.scrollHeight - box.scrollTop - box.clientHeight < 25 });
+  });
+  const prevWorkBarScroll = workBarEl.scrollTop;
   workBarEl.textContent = '';
   workBarEl.hidden = !shown.length;
   shown.forEach(r => workBarEl.appendChild(renderWorkCard(r)));
+  workBarEl.querySelectorAll('.work-card').forEach(card => {
+    const box = card.querySelector('.work-transcript');
+    const saved = box && prevScrolls.get(card.dataset.ticket);
+    if (saved) box.scrollTop = saved.atBottom ? box.scrollHeight : saved.scrollTop;
+  });
+  workBarEl.scrollTop = prevWorkBarScroll;
   const busy = shown.some(r => r.active);
   if (busy && !workPollTimer) workPollTimer = setInterval(loadWork, 3000);
   if (!busy && workPollTimer) { clearInterval(workPollTimer); workPollTimer = null; }
