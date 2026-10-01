@@ -59,7 +59,7 @@ goes into `protected_paths.json`.
 |---|---|
 | Paths, ports, env, token thresholds | `host_config.py` |
 | Providers (CLI/HTTP), accounts | `providers/`: `adapters.py` (registry, `get_adapter`), `adapter_base.py`, `adapter_<agy\|claude\|grok\|codex\|openai>.py`, `accounts.py`, `account_login.py`; config `data/providers.json` |
-| Session life, spawn, lock | `session.py` |
+| Session life, spawn, lock | `session.py`; what a session shows (public view, tool lines, log, artifacts, handover summary) `session_view.py` (mixin of `AgentSession`) |
 | Turn watchdogs (QUOTA_FAILFAST, SILENT_HANG) | `turn_watchdog.py` (mixin of `AgentSession`) |
 | Session lookup / weights, `/btw` / standby pool | `session_registry.py` / `session_weights.py` / `standby_pool.py` |
 | HTTP routes | `server.py` (route tables `GET_ROUTES`…`DELETE_ROUTES`: one row per endpoint, in match order; host routes), handlers by domain `route_sessions.py` / `route_accounts.py` / `route_files.py`, matching `route_table.py`; route helpers `card_upload.py` (card import), `character_art.py` (avatar/stage/sprites, placeholder fallback), `chat_upload.py` (files attached to a message), `emotion.py` (emotion SSE), `preview_guard.py`, `origin_guard.py` |
