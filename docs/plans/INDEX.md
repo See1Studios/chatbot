@@ -60,6 +60,7 @@
 | [steam-collab-dlc.md](steam-collab-dlc.md) | `active` · 방향 **핵심 + 기반** — 스팀 출시 관점의 버튜버·인디 IP 공식 콜라보 DLC 규격, 투트랙(DLC vs 창작마당), 스트리머 모드 및 제휴 파이프라인 | 스팀 콜라보 DLC·버튜버 제휴·스팀 상점 프로모션·패키지 규격을 다룰 때 |
 | [unified-message-inbox.md](unified-message-inbox.md) | `active` · 방향 **핵심** — 새 중앙 시스템 없이 순번 대장·읽은 위치·따라잡기 세 칸. 글은 한 번만 기록하고 대화별 커서로 읽으며, 지금 대화만 최근 창(최대 3), 다른 대화는 안 읽음 한 줄. 보내기는 하나, 답은 reply_to. D1–D5 결정, D6 뱃지 자리 보류 | 세션 간 호출·멘션·대화 글 배달·턴 따라잡기·안 읽음 커서를 건드릴 때 |
 | [character-generation-system.md](character-generation-system.md) | `active` · 방향 **핵심** — ST-CardGen 벤치마크 캐릭터 생성 시스템: 한 줄 아이디어로 card.json + visual.md 자동 직조, In medias res/Anti-puppeting/Hook 프롬프트 구조, 결측치 보완 및 부분 재생성, ST PNG 양방향 호환. D1–D4 권장 | 캐릭터 자동 생성·프롬프트 구조·카드 부분 재생성·ST PNG 내보내기를 다룰 때 |
+| [group-room-header.md](group-room-header.md) | `active` · 방향 **핵심** — 단체방 대화창 상단 헤더 개편: 최근 발화자 카드 스택 아바타 연동, 실시간 기척(작성 중) 동기화, 헤더 클릭 시 단체방 정보 서랍(Room Drawer/Panel) 연동 | 단체방 상단 헤더·단체방 아바타 연출·단체방 서랍 및 설정을 건드릴 때 |
 
 
 ## Archived (한 줄 · 펼치지 말 것)
