@@ -3,13 +3,15 @@
  "approved_at": "2026-10-01 13:33:33",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-01 13:18:09",
  "evidence": [
   "event:20261001-131245-48ba10#54"
  ],
  "gate_failures": 0,
  "id": 513,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,6 +27,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-513 at 2d7972a (agy, review PASS round 1)",
    "ts": "2026-10-01 13:39:22"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-01 13:40:06"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 80dda1d on the operator's word (agy)",
+   "ts": "2026-10-01 13:41:50"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-01 13:41:50"
   }
  ],
  "paths": [
@@ -33,9 +50,9 @@
   "tests/test_conversation_sync.py",
   "turn_watchdog.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "session.py,session_weights.py,tests/test_conversation_sync.py,turn_watchdog.py",
  "title": "[fix/engine] Agy Silent Hang 워치독 단축 및 /btw 침묵 감지·환각 방지",
- "updated": "2026-10-01 13:39:22",
+ "updated": "2026-10-01 13:41:50",
  "worked_by": "agy"
 }
