@@ -261,7 +261,6 @@ class SilentHangWatchdog(Base):
         s._silent_hang_done = False
         s._err_msg_failfast_done = False
         s._err_msg_failfast_timer = None
-        s._last_assistant_delta_at = s.turn_started_at
         s._last_turn_activity_at = s.turn_started_at
         # finalize_turn must exist on the stub adapter
         def finalize_turn(session, text="", raw_usage=None, is_err=False, error=None):
@@ -291,7 +290,7 @@ class SilentHangWatchdog(Base):
         s._arm_silent_hang()
         time.sleep(0.2)
         # A mid-turn assistant delta must reset the idle clock (no hang yet).
-        s._touch_assistant_delta()
+        s._touch_turn_activity()
         time.sleep(0.2)  # 0.4s from start, but only 0.2s since delta
         self.assertTrue(s.busy, "delta must reset the idle clock")
         self.assertFalse(getattr(s, "_silent_hang_done", False))

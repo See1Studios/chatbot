@@ -159,16 +159,10 @@ class TurnWatchdog:
         """Text delta OR tool/progress proves the turn is alive — reset the idle clock."""
         now = _now()
         self._last_turn_activity_at = now
-        # Keep legacy stamp so older callers/tests reading delta-at still see activity.
-        self._last_assistant_delta_at = now
         # Activity proves the agent is actively responding; cancel any pending failfast timer.
         self._cancel_error_message_failfast()
         if self.busy and not getattr(self, "_silent_hang_done", False):
             self._arm_silent_hang()
-
-    def _touch_assistant_delta(self) -> None:
-        """Back-compat alias — assistant deltas are one form of turn activity."""
-        self._touch_turn_activity()
 
     def _provider_shows_activity(self) -> bool:
         """A long think prints nothing on the stream, but the CLI's own log may show model calls. An adapter with a
@@ -214,11 +208,7 @@ class TurnWatchdog:
         if getattr(self, "turn_started_at", 0):
             dur = max(0.0, _now() - float(self.turn_started_at))
         idle = float(self.SILENT_HANG_SEC)
-        last = (
-            getattr(self, "_last_turn_activity_at", 0)
-            or getattr(self, "_last_assistant_delta_at", 0)
-            or 0
-        )
+        last = getattr(self, "_last_turn_activity_at", 0) or 0
         if last:
             idle = max(idle, _now() - float(last))
         err = f"응답이 오랫동안 없어 턴을 닫았습니다(무응답 {int(idle)}초). 남은 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다."

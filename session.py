@@ -1646,7 +1646,7 @@ class AgentSession(TurnWatchdog):
             self._loop_noticed = False
         with self.lock:
             self.current_text = ""
-            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None; self._cancel_silent_hang(); self._silent_hang_done = False; self._last_assistant_delta_at = 0.0; self._last_turn_activity_at = 0.0
+            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None; self._cancel_silent_hang(); self._silent_hang_done = False; self._last_turn_activity_at = 0.0
             self.pending_images = []
             ts = _now()
             if not notice:
@@ -1716,7 +1716,6 @@ class AgentSession(TurnWatchdog):
         # Resets on assistant text OR tool/progress activity; fires only on true silence.
         if self.busy:
             t0 = float(self.turn_started_at or _now())
-            self._last_assistant_delta_at = t0
             self._last_turn_activity_at = t0
             self._arm_silent_hang()
 

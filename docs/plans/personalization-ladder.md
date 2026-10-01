@@ -23,7 +23,7 @@
 
 | 층 | 지금 있는 것 | 되돌리기 | 에이전트 참여 |
 |---|---|---|---|
-| 캐릭터 카드(성격·말투·사적 규칙·두뇌) | 팀 탭 카드 편집기(`static/app-team.js::renderCardEditor`), `static/role.js`, `/api/characters`, ST 가져오기 `/api/characters/import` | 없음 | 없음(사람이 편집) |
+| 캐릭터 카드(성격·말투·사적 규칙·두뇌) | 팀 탭 카드 편집기(`static/app-team.js::renderCardEditor`), `/api/characters`, ST 가져오기 `/api/characters/import` | 없음 | 없음(사람이 편집) |
 | 외형 | `visual.md` + 이미지, `/api/characters/<id>/avatar`·`/stage`, 규격 검사 `tools/check_character_art.py`, 스킬 `character-art`·`character-pipeline` | 없음 | 개발 설치에서 스킬로(운영자 전용 절차) |
 | 로어북 | 캐릭터별 로어북 + 매칭 엔진(`characters.py::load_lorebook`, `instructions.py::lorebook_context`) | 없음 | 없음 |
 | 기억 | 공용 `memory/MEMORY.md`, 캐릭터별 `memory.md`, 사적 `private-memory.md`(사적 턴 자동 요약 `characters.py::private_digest_prompt`), MCP `memory` 도구(`show`·`search`·`add`·`forget`) | 없음 | 에이전트가 `add`·`forget` |
