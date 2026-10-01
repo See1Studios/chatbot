@@ -286,6 +286,119 @@ class HelpersTest(Base):
         self.assertEqual(agy["changed_from"], OLD)
         self.assertAlmostEqual(agy["changed_at"], self.now - 400, delta=1)
 
+class ProfilesTest(Base):
+    """Saved agy logins: save, list (adopting logout backups), and the atomic switch."""
+
+    def setUp(self):
+        super().setUp()
+        self.orig_prof = (accounts.AGY_PROFILES_DIR, accounts.reap_stray_cli_procs)
+        accounts.AGY_PROFILES_DIR = self.tmp / "tokens"
+        accounts.reap_stray_cli_procs = lambda provider: []
+
+    def tearDown(self):
+        accounts.AGY_PROFILES_DIR, accounts.reap_stray_cli_procs = self.orig_prof
+        super().tearDown()
+
+    def login(self, email, refresh="r"):
+        accounts.AGY_TOKEN.write_text(json.dumps({"id_token": _jwt(email), "refresh_token": refresh}))
+
+    def test_save_profile_keeps_the_active_token_under_its_email_privately(self):
+        r = accounts.save_profile()
+        saved = accounts.AGY_PROFILES_DIR / (NEW + ".json")
+        self.assertEqual((r["ok"], r["email"]), (True, NEW))
+        self.assertEqual(saved.read_bytes(), accounts.AGY_TOKEN.read_bytes())
+        self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
+        self.assertEqual([p.name for p in accounts.AGY_PROFILES_DIR.iterdir()], [NEW + ".json"], "no temp file left")
+
+    def test_save_profile_without_a_login_fails_cleanly(self):
+        accounts.AGY_TOKEN.unlink()
+        self.assertFalse(accounts.save_profile()["ok"])
+        accounts.AGY_TOKEN.write_text(json.dumps({"id_token": _jwt("../evil@x")}))
+        self.assertFalse(accounts.save_profile()["ok"], "an email that is not file-safe is never a path")
+
+    def test_list_profiles_numbers_by_email_and_marks_the_active_one(self):
+        self.login(OLD)
+        accounts.save_profile()
+        self.login(NEW)
+        accounts.save_profile()
+        got = accounts.list_profiles()
+        self.assertEqual([(p["index"], p["email"], p["active"]) for p in got], [(1, NEW, True), (2, OLD, False)])
+        self.assertNotIn("refresh", json.dumps(got))
+
+    def test_list_profiles_adopts_logout_backups_and_archives_them(self):
+        bak = accounts.AGY_TOKEN.with_name(accounts.AGY_TOKEN.name + ".bak-100")
+        bak.write_text(json.dumps({"id_token": _jwt(OLD), "refresh_token": "old-r"}))
+        junk = accounts.AGY_TOKEN.with_name(accounts.AGY_TOKEN.name + ".bak-200")
+        junk.write_text("not json")
+        self.assertEqual([p["email"] for p in accounts.list_profiles()], [OLD])
+        self.assertIn("old-r", (accounts.AGY_PROFILES_DIR / (OLD + ".json")).read_text())
+        self.assertFalse(bak.exists())
+        self.assertTrue((accounts.AGY_PROFILES_DIR / "bak" / bak.name).exists(), "archived, never deleted")
+        self.assertTrue(junk.exists(), "an unreadable backup is left where it was")
+
+    def test_an_older_backup_never_overwrites_a_newer_profile(self):
+        self.login(OLD, "newest")
+        accounts.save_profile()
+        bak = accounts.AGY_TOKEN.with_name(accounts.AGY_TOKEN.name + ".bak-1")
+        bak.write_text(json.dumps({"id_token": _jwt(OLD), "refresh_token": "older"}))
+        import os
+        os.utime(bak, (1, 1))
+        accounts.list_profiles()
+        self.assertIn("newest", (accounts.AGY_PROFILES_DIR / (OLD + ".json")).read_text())
+
+    def test_switch_by_index_or_email_swaps_the_token_and_saves_the_old_one(self):
+        self.login(OLD, "old-r")
+        accounts.save_profile()
+        self.login(NEW, "new-r")
+        r = accounts.switch_profile("2")   # 1 = new, 2 = old
+        self.assertEqual((r["ok"], r["email_before"], r["email"]), (True, NEW, OLD))
+        self.assertIn("old-r", accounts.AGY_TOKEN.read_text())
+        self.assertEqual(accounts.AGY_TOKEN.stat().st_mode & 0o777, 0o600)
+        self.assertIn("new-r", (accounts.AGY_PROFILES_DIR / (NEW + ".json")).read_text(), "saved before the swap")
+        self.assertEqual(accounts.switch_profile(NEW.upper())["email"], NEW)
+        self.assertNotIn("-r", json.dumps(r))
+
+    def test_switch_recycles_owned_processes_on_the_old_login_and_observes(self):
+        self.login(OLD)
+        accounts.save_profile()
+        self.login(NEW)
+        accounts.observe("agy", {"ok": True, "email": NEW})
+        self.add_proc("agy", 11, 500, log_email=NEW)   # owned, on the login being left -> recycled
+        self.add_proc("agy", 12, 520, log_email=NEW)   # external                        -> named only
+        self.add_proc("agy", 13, 540, log_email=OLD)   # owned, already on the target    -> kept
+        got, killed = [], []
+        accounts.reap_stray_cli_procs = lambda provider: killed.append(provider) or []
+        r = accounts.switch_profile(OLD, owned={11: {"owner": "session", "sid": "a"}, 13: {"owner": "session"}},
+                                    recycle=lambda pids: got.append(pids) or {"recycled": sorted(pids)})
+        self.assertEqual((got, r["recycle"], r["stale_pids"]), ([{11}], {"recycled": [11]}, [11, 12]))
+        self.assertEqual(killed, ["agy"])
+        self.assertEqual(accounts.snapshot(providers=("agy",))["providers"]["agy"]["changed_from"], NEW)
+
+    def test_switch_outside_the_server_reaps_nothing(self):
+        killed = []
+        accounts.reap_stray_cli_procs = lambda provider: killed.append(provider) or []
+        r = accounts.switch_profile("1")
+        self.assertEqual((r["ok"], killed, r["recycle"]), (True, [], None))
+
+    def test_a_chat_turn_that_mentions_login_is_not_a_helper(self):
+        self.assertFalse(accounts._is_cli_helper(["-p", "fix the login page", "--output-format", "stream-json"]))
+        self.assertFalse(accounts._is_cli_helper(["-p", "check /usage and login "]))
+        self.assertTrue(accounts._is_cli_helper(["login", "--device-auth"]))
+        self.assertTrue(accounts._is_cli_helper(["app-server"]))
+        self.assertTrue(accounts._is_cli_helper(["auth", "login"]))
+        self.assertFalse(accounts._is_cli_helper([]))
+        self.assertTrue(accounts._is_cli_helper(["--print", "/usage"]))
+        self.assertTrue(accounts._is_cli_helper(["-p", "/cost"]))
+
+    def test_unknown_target_or_provider_changes_nothing(self):
+        before = accounts.AGY_TOKEN.read_bytes()
+        r = accounts.switch_profile("9")
+        self.assertEqual((r["ok"], accounts.AGY_TOKEN.read_bytes()), (False, before))
+        self.assertFalse(accounts.switch_profile("nobody@example.com")["ok"])
+        with self.assertRaises(ValueError):
+            accounts.list_profiles("claude")
+
+
 class ParseProvidersTest(unittest.TestCase):
     def test_query_to_provider_set(self):
         self.assertEqual(accounts.parse_providers(None), accounts.PROVIDERS)

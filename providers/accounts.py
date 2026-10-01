@@ -35,7 +35,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import platform_compat
 from host_config import DATA, HOME, CLAUDE_BIN, CODEX_BIN, GROK_BIN
@@ -45,6 +45,7 @@ PROVIDERS = ("agy", "claude", "codex", "grok")
 AGY_DIR = HOME / ".gemini" / "antigravity-cli"
 AGY_TOKEN = AGY_DIR / "antigravity-oauth-token"
 AGY_LOG_DIR = AGY_DIR / "log"
+AGY_PROFILES_DIR = AGY_DIR / "tokens"   # saved logins, one <email>.json each (created on first use)
 CODEX_AUTH = HOME / ".codex" / "auth.json"
 GROK_AUTH = Path(os.environ.get("GROK_HOME") or str(HOME / ".grok")) / "auth.json"
 STATE_FILE = DATA / "account_state.json"
@@ -546,6 +547,14 @@ def owned_pids(snap: dict, provider: str) -> set:
             if p.get("owner") in ("session", "standby")}
 
 
+def _is_cli_helper(args: list) -> bool:
+    """A login/app-server subcommand or a `--print /usage|/cost` probe, judged by whole arguments: a chat turn is
+    `agy -p <prompt>`, and a prompt that merely mentions "login" once got a live session child stopped (#542)."""
+    if args[:1] in (["login"], ["app-server"]) or args[:2] == ["auth", "login"]:
+        return True
+    return any(a in ("--print", "-p") and b in ("/usage", "/cost") for a, b in zip(args, args[1:]))
+
+
 def reap_stray_cli_procs(provider: str, me: Optional[int] = None) -> list:
     """CODEX_PROC_v1: kill leftover CLI helpers that are not chatbot session
     children — typically `codex login` / `codex app-server` (usage) or a native
@@ -583,9 +592,7 @@ def reap_stray_cli_procs(provider: str, me: Optional[int] = None) -> list:
                 continue
             ppid = int(f[1])
             cmd = " ".join(a.decode("utf-8", "replace") for a in argv if a)
-            is_helper = any(tok in cmd for tok in (
-                " login", "login ", "app-server", "--print", "/usage", "/cost",
-            ))
+            is_helper = _is_cli_helper([a.decode("utf-8", "replace") for a in argv[1:] if a])
             # Orphaned native child after wrapper death
             is_orphan = ppid == 1
             if not (is_helper or is_orphan):
@@ -727,3 +734,119 @@ def logout(provider: str) -> dict:
             _invalidate_claude_cache()
     return out
 
+
+
+# ------------------------------------------------------------------ profiles
+# Saved agy logins (one token file per Google account) so the operator can swap accounts without a new OAuth
+# login. Profile files hold live tokens: 0600 in a 0700 directory, and no token value ever leaves this module.
+
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+$")
+_PROFILE_PROVIDERS = ("agy",)
+
+
+def _profiles_dir() -> Path:
+    AGY_PROFILES_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return AGY_PROFILES_DIR
+
+
+def _token_email(path: Path) -> Optional[str]:
+    """The account a token file belongs to (id_token email claim), or None when unreadable or not file-safe."""
+    d, _mtime, err = _read_json(path)
+    email = _jwt_claims((d or {}).get("id_token") or "").get("email") if not err and isinstance(d, dict) else None
+    return email if isinstance(email, str) and _EMAIL_RE.match(email) and not email.startswith(".") else None
+
+
+def _write_private(dest: Path, data: bytes) -> None:
+    """Atomic 0600 write: a temp file beside `dest`, then os.replace -- a reader never sees half a token."""
+    tmp = dest.with_name(f".{dest.name}.tmp-{os.getpid()}")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, dest)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def _adopt_backups() -> None:
+    """Fold logout backups (AGY_TOKEN.bak-<ts>) into profiles: a backup newer than the saved profile of its account
+    becomes that profile; every readable backup is then kept under tokens/bak/ (archived, never deleted)."""
+    for bak in sorted(AGY_TOKEN.parent.glob(AGY_TOKEN.name + ".bak-*")):
+        email = _token_email(bak)
+        if not email:
+            continue
+        dest = _profiles_dir() / f"{email}.json"
+        if not dest.exists() or dest.stat().st_mtime < bak.stat().st_mtime:
+            _write_private(dest, bak.read_bytes())
+        archive = _profiles_dir() / "bak"
+        archive.mkdir(mode=0o700, exist_ok=True)
+        os.replace(bak, archive / bak.name)
+
+
+def _check_provider(provider: str) -> None:
+    if provider not in _PROFILE_PROVIDERS:
+        raise ValueError(f"no saved profiles for provider {provider!r} (want one of {', '.join(_PROFILE_PROVIDERS)})")
+
+
+def list_profiles(provider: str = "agy") -> list:
+    """Saved logins, 1-based `index` in email order (the number the CLI takes), the active one marked."""
+    _check_provider(provider)
+    _adopt_backups()
+    active = current_email(provider)
+    out = []
+    for path in sorted(_profiles_dir().glob("*.json")):
+        email = _token_email(path)
+        if email and path.name == f"{email}.json":
+            out.append({"index": len(out) + 1, "email": email, "active": email == active,
+                        "saved_at": path.stat().st_mtime, "source": _short(path)})
+    return out
+
+
+def save_profile(provider: str = "agy") -> dict:
+    """Copy the active token file to tokens/<email>.json (overwrites that account's older copy)."""
+    _check_provider(provider)
+    email = _token_email(AGY_TOKEN)
+    if not email:
+        return {"ok": False, "provider": provider, "error": "no active login with a readable email to save"}
+    dest = _profiles_dir() / f"{email}.json"
+    _write_private(dest, AGY_TOKEN.read_bytes())
+    return {"ok": True, "provider": provider, "email": email, "source": _short(dest)}
+
+
+def _find_profile(target: str, profiles: list) -> Optional[dict]:
+    t = str(target).strip()
+    for p in profiles:
+        if (t.isdigit() and int(t) == p["index"]) or t.lower() == p["email"].lower():
+            return p
+    return None
+
+
+def switch_profile(target: str, provider: str = "agy", owned: Optional[Dict[int, dict]] = None,
+                   recycle: Optional[Callable[[set], dict]] = None) -> dict:
+    """Make the saved login `target` (email or list index) the active one. The active login is saved first, so its
+    newest token is never lost. Then the switch is observed (snapshot) and, given `recycle` (the server passes
+    session.recycle_agents), stray CLI helpers are reaped and the owned processes now on the old login (stale_owned)
+    are handed to it. A separate process (tools/switch_account.py) cannot tell the server's children from strays,
+    so it does neither: the server's auto-recycle loop restarts them within its period and `stale_pids` names them."""
+    _check_provider(provider)
+    before = current_email(provider)
+    if before:
+        save_profile(provider)
+    found = _find_profile(target, list_profiles(provider))
+    if not found:
+        return {"ok": False, "provider": provider, "email_before": before, "error": f"no saved profile {target!r}"}
+    _write_private(AGY_TOKEN, (_profiles_dir() / f"{found['email']}.json").read_bytes())
+    out = {"ok": True, "provider": provider, "email_before": before, "email": current_email(provider)}
+    if recycle:   # in the server only: elsewhere its own children (and a live login flow) look like strays
+        try:
+            out["strays_killed"] = reap_stray_cli_procs(provider)
+        except Exception as e:  # noqa: BLE001 -- no /proc: the swap still stands
+            out["stray_error"] = f"{type(e).__name__}: {e}"
+    snap = snapshot(owned, providers=(provider,))
+    procs = (snap["providers"].get(provider) or {}).get("processes", [])
+    out["stale_pids"] = sorted(p["pid"] for p in procs if p.get("stale"))
+    out["recycle"] = recycle(stale_owned(snap)) if recycle else None
+    return out
