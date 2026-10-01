@@ -26,6 +26,27 @@ from pathlib import Path
 import platform_compat
 from typing import Dict, List, Optional
 
+_FRONT = re.compile(r"\A\ufeff?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
+
+
+def parse_frontmatter(text: str) -> Dict[str, str]:
+    """`key: value` lines between two `---` fences at the very top of a file.
+    Blank lines and `#` comment lines are skipped, a trailing ` # note` is cut,
+    and one pair of matching quotes around a value is removed. No nesting."""
+    m = _FRONT.match(text or "")
+    if not m:
+        return {}
+    out: Dict[str, str] = {}
+    for line in m.group(1).splitlines():
+        if not line.strip() or line.lstrip().startswith("#") or ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        val = re.sub(r"\s+#.*$", "", val).strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
+            val = val[1:-1]
+        out[key.strip()] = val
+    return out
+
 SPEC = "chara_card_v2"
 SPEC_VERSION = "2.0"
 EXT = "chatbot"
@@ -437,7 +458,6 @@ def pack_file(role: str, kind: str = "role", ws=None) -> Path:
 
 def role_pack(role: str, ws=None) -> Dict:
     """{role, title, tools, skills, text} of roles/<role>/ROLE.md; empty lists and text when there is none."""
-    from identity import parse_frontmatter
     try:
         raw = pack_file(role, "role", ws).read_text(encoding="utf-8") if _ROLE_RE.match(role or "") else ""
     except OSError:
@@ -488,8 +508,7 @@ def work_text(card: Dict, cid: str = "", ws=None) -> str:
 # ------------------------------------------------------------------ rendering a card
 # A card is the only source of a character (CARD_ONLY_v1): identity, voice, private rules (`data.system_prompt`) and
 # brains (`brains.work`). The house memory is memory/MEMORY.md; each character keeps its own memory in its folder.
-
-_FRONT = re.compile(r"\A﻿?---[ \t]*\r?\n.*?\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
+# Front matter is cut with _FRONT (top of this file), the same fence parse_frontmatter reads.
 
 
 def default_card(ws=None) -> Dict:

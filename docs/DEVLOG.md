@@ -4,6 +4,13 @@
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 
+## 2026-10-02 — `characters`↔`identity` 순환 풀기 + import 순환 래칫 (split/D, #546)
+
+- **실측**: `identity`(누구로 보일지, 윗층)가 `characters`(카드, 아랫층)를 함수 안에서 11번 import. 거꾸로 `characters`는 `identity.parse_frontmatter` 하나 때문에 `identity`를 불렀고, 그래서 양쪽 다 import를 함수 안에 숨겨야 했음.
+- **변경**: `parse_frontmatter`와 울타리 정규식 `_FRONT`를 `characters.py`로(아랫층이 갖는다). `characters`에는 같은 이름 `_FRONT` 사본(캡처 그룹만 없음, 지우기에만 씀)이 이미 있어 처음엔 옮긴 것을 덮어썼음 — 하나로 합침(지우기 결과 같음). `identity`는 맨 위에서 `import characters` 한 번, `identity.parse_frontmatter`는 그대로 쓸 수 있음. 계획의 "얇은 공유 계층"은 필요 없었음.
+- **가드**: `tests/test_import_cycles.py`(빠른 가드, 규칙 표 등록) — 서로 import하는 모듈 쌍은 이유를 적은 7쌍만(호스트 플러그인, 테스트가 바꾸는 값을 부를 때 읽는 것들, split/C 믹스인 둘 …). 새 쌍은 실패, 없어진 쌍은 목록에서 지우라고 실패.
+- **⚡ 필요**: `characters.py`, `identity.py`. 이로써 monolith-split Phase 6(A–G) 끝.
+
 ## 2026-10-02 — 보호 파일 검사를 git 기준으로 (split/E, #545)
 
 - **운영자 결정**: 손으로 다시 찍는 지문 대신 git 마지막 커밋과 비교.

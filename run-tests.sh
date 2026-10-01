@@ -34,6 +34,7 @@ FAST=(
   test_edition_boundary
   test_data_paths
   test_workspace_template
+  test_import_cycles
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

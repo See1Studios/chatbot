@@ -33,6 +33,8 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from host_config import ROOT, WORKSPACE
+import characters   # the cards; identity is the view on top of them (split/D: no import back)
+from characters import _FRONT, parse_frontmatter   # the front-matter reader lives with the cards it reads
 
 DEFAULTS = {"title": "Assistant", "persona": "", "user_title": "사용자", "voice": ""}
 _LIMITS = {"title": 60, "persona": 40, "user_title": 20, "voice": 120}
@@ -40,30 +42,10 @@ _LIMITS = {"title": 60, "persona": 40, "user_title": 20, "voice": 120}
 _ROLE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 _BODY_LIMIT = 4000
 
-_FRONT = re.compile(r"\A\ufeff?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
 _CTRL = re.compile(r"[\x00-\x1f\x7f]+")
 
 _lock = threading.Lock()
 _cache: Dict[str, tuple] = {}  # path -> ((mtime_ns, size), front matter dict)
-
-
-def parse_frontmatter(text: str) -> Dict[str, str]:
-    """`key: value` lines between two `---` fences at the very top of a file.
-    Blank lines and `#` comment lines are skipped, a trailing ` # note` is cut,
-    and one pair of matching quotes around a value is removed. No nesting."""
-    m = _FRONT.match(text or "")
-    if not m:
-        return {}
-    out: Dict[str, str] = {}
-    for line in m.group(1).splitlines():
-        if not line.strip() or line.lstrip().startswith("#") or ":" not in line:
-            continue
-        key, _, val = line.partition(":")
-        val = re.sub(r"\s+#.*$", "", val).strip()
-        if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
-            val = val[1:-1]
-        out[key.strip()] = val
-    return out
 
 
 def _clean(value: str, limit: int) -> str:
@@ -91,7 +73,6 @@ def _front(path: Path) -> Dict[str, str]:
 
 def _pd() -> Dict:
     try:
-        import characters
         return characters.default_card(WORKSPACE)
     except (ImportError, OSError, ValueError):
         return {}
@@ -101,19 +82,16 @@ def persona_file(role: str = "") -> Path:
     """The card of the default character, or of another character by role or id; a path under `_missing` when
     there is none."""
     if not role:
-        import characters
         cid = characters.default_character(WORKSPACE)
         return characters.card_path(cid, WORKSPACE) if cid else WORKSPACE / "characters" / "_missing" / "card.json"
     if not (_ROLE_RE.match(role) or role.startswith("char_")):
         raise ValueError("role must be a lowercase id, got %r" % role[:40])
-    import characters
     cid = characters.resolve(role, WORKSPACE)
     return characters.card_path(cid, WORKSPACE) if cid else WORKSPACE / "characters" / "_missing" / "card.json"
 
 
 def _character(role: str) -> Dict:
     try:
-        import characters
         return characters.load(characters.resolve(role, WORKSPACE) or "", WORKSPACE)
     except (OSError, ValueError, ImportError):
         return {}
@@ -121,7 +99,6 @@ def _character(role: str) -> Dict:
 
 def _title(cid: str, card: Dict) -> str:
     """The job title shown for a character: its card's `display.title`, else its first role pack's title."""
-    import characters
     title = (characters.ext(card).get("display") or {}).get("title", "")
     for role in ([] if title or not cid else characters.roles_of(cid, WORKSPACE)):
         pack = characters.role_pack(role, WORKSPACE)
@@ -136,7 +113,6 @@ def _own_values() -> Dict[str, str]:
     card = _pd()
     if not card:
         return {"persona": "", "user_title": "", "voice": "", "title": ""}
-    import characters
     disp = characters.ext(card).get("display") or {}
     return {"persona": (card.get("data") or {}).get("name", ""), "user_title": disp.get("user_title", ""),
             "voice": disp.get("voice", ""), "title": _title(characters.default_character(WORKSPACE), card)}
@@ -151,7 +127,6 @@ def get_identity(role: str = "") -> Dict[str, str]:
     if role:
         persona_file(role)                       # validates the role / id
         card = _character(role)
-        import characters
         disp = characters.ext(card).get("display") or {} if card else {}
         vals = {"persona": (card.get("data") or {}).get("name", "") if card else "", "voice": disp.get("voice", ""),
                 "title": (_title(characters.resolve(role, WORKSPACE) or "", card) if card else "") or base["title"],
@@ -171,13 +146,11 @@ def persona_body(role: str = "") -> str:
         card = _character(role)
         if not card:
             return ""
-        import characters
         cid = characters.resolve(role, WORKSPACE) or ""
         return characters.render_macros(characters.work_text(card, cid, WORKSPACE), cid, WORKSPACE)[:_BODY_LIMIT]
     card = _pd()
     if not card:
         return ""
-    import characters
     body = _FRONT.sub("", characters.persona_text(card), count=1).strip()
     return characters.render_macros(body, characters.default_character(WORKSPACE), WORKSPACE)[:_BODY_LIMIT]
 
@@ -187,7 +160,6 @@ def private_rules() -> str:
     card = _pd()
     if not card:
         return ""
-    import characters
     return characters.private_text(card)
 
 
@@ -227,7 +199,6 @@ def seed_workspace_files(templates_dir: Optional[Path] = None, workspace: Option
     """New install: the neutral card template becomes the first character, the team's default, holding no role --
     roles are the user's data, given when a premade pack is chosen (CARD_ONLY_v1, workspace manifest). A workspace
     that already has a character is never touched. Returns what was made."""
-    import characters
     src = (templates_dir or (ROOT / "templates")) / "character.json"
     dst_dir = workspace or WORKSPACE
     if characters.default_character(dst_dir) or characters.listing(dst_dir) or not src.is_file():

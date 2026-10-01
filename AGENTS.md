@@ -131,6 +131,7 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Page script or stylesheet ≤ 43,000 bytes; listed ceilings only go down | all | `test_page_scripts` |
 | New code folder is protected | all | `test_code_layout` |
 | Core modules import stdlib + each other only | all | `test_core_standalone` |
+| No new pair of modules that import each other (top or inside a function); the known pairs only go away | all | `test_import_cycles` |
 | No provider names in common code | all | `test_provider_neutrality` |
 | Persona names/titles are display values, never ids or keys | all | `test_identity_wiring` |
 | Injected instruction bundles within `bundle_budget.json` | all | `test_bundle_budget` |

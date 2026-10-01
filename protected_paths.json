@@ -241,6 +241,10 @@
       "reason": "a guard test (run-tests.sh FAST)"
     },
     {
+      "path": "tests/test_import_cycles.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
       "path": "templates/workspace/AGENTS.md",
       "reason": "the shipped charter"
     },
