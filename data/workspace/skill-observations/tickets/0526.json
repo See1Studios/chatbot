@@ -3,13 +3,15 @@
  "approved_at": "2026-10-01 19:22:46",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-01 19:16:46",
  "evidence": [
   "log:rid:fb3e59458b22"
  ],
  "gate_failures": 0,
  "id": 526,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,6 +27,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-526 at 17fa674 (agy, review PASS round 1)",
    "ts": "2026-10-01 19:29:38"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-01 19:40:41"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged e077d95 on the operator's word (agy)",
+   "ts": "2026-10-01 19:43:00"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-01 19:43:00"
   }
  ],
  "paths": [
@@ -32,9 +49,9 @@
   "static/app-rooms.js",
   "tests/test_room_chat.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "room_chat.py,static/app-rooms.js,tests/test_room_chat.py",
  "title": "[fix/room] 단체방 공백 멘션 파싱 버그 수정, 턴 상한 상향 및 티키타카·반응성 개선 (evt/E)",
- "updated": "2026-10-01 19:29:38",
+ "updated": "2026-10-01 19:43:00",
  "worked_by": "agy"
 }
