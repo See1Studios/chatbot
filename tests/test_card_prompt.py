@@ -132,6 +132,13 @@ class FieldDetailLinesTest(unittest.TestCase):
         self.assertIn("tags", out)
         self.assertIn("items", out)
 
+    def test_empty_spec_omitted_from_detail_lines(self):
+        out = CP.build_field_detail_lines("short", overrides={"empty_field": {}})
+        self.assertNotIn("empty_field", out)
+
+    def test_unrecognized_keys_spec_skipped(self):
+        self.assertIsNone(CP._format_spec_line("foo", {"bar": 123}))
+
 
 # ── build_character_gen_prompt ──────────────────────────────────────
 
@@ -313,8 +320,8 @@ class RegeneratePromptTest(unittest.TestCase):
     def test_empty_nonce_still_works(self):
         sys_p, _ = CP.build_regenerate_prompt(
             "test", self.card, self.targets, regen_nonce="")
-        # template should render with empty nonce (no crash)
-        self.assertIn("nonce", sys_p.lower())
+        self.assertNotIn("nonce", sys_p.lower())
+        self.assertIn("The output must differ from the current version.", sys_p)
 
     def test_system_contains_only_target_field_details(self):
         sys_p, _ = CP.build_regenerate_prompt(
@@ -388,6 +395,27 @@ class ImagePromptTest(unittest.TestCase):
         self.assertIn("primary prompt here", out)
         # description visual cues should NOT appear when image_prompt is set
         self.assertNotIn("fallback text", out)
+
+    def test_korean_description_omits_visual_cue(self):
+        card = {"name": "루나", "description": "은발을 가진 엘프 치유사이다."}  # l10n-ok
+        out = CP.build_image_prompt(card)
+        self.assertIn("루나", out)  # l10n-ok
+        self.assertNotIn("은발", out)  # l10n-ok
+        self.assertEqual(
+            out,
+            "Portrait of 루나. Anime-style character portrait, "  # l10n-ok
+            "upper body, detailed face, soft lighting.",
+        )
+
+    def test_korean_image_prompt_omitted(self):
+        card = {"name": "Luna", "image_prompt": "은발 엘프 소녀"}  # l10n-ok
+        out = CP.build_image_prompt(card)
+        self.assertNotIn("은발", out)  # l10n-ok
+        self.assertEqual(
+            out,
+            "Portrait of Luna. Anime-style character portrait, "
+            "upper body, detailed face, soft lighting.",
+        )
 
 
 # ── CARD_FIELDS ─────────────────────────────────────────────────────

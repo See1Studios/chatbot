@@ -114,7 +114,7 @@ def _resolve_specs(
 
 # ── field detail lines ──────────────────────────────────────────────
 
-def _format_spec_line(field: str, vals: Dict[str, int]) -> str:
+def _format_spec_line(field: str, vals: Dict[str, int]) -> Optional[str]:
     """Format one field's spec into the ST-CardGen style detail line."""
     parts: List[str] = []
     if "min_words" in vals and "max_words" in vals:
@@ -133,6 +133,8 @@ def _format_spec_line(field: str, vals: Dict[str, int]) -> str:
         mn, mx = vals["min_count"], vals["max_count"]
         parts.append("%d\u2013%d items" % (mn, mx) if mn != mx
                      else "%d item(s)" % mn)
+    if not parts:
+        return None
     suffix = ""
     if "min_paragraphs" in vals and vals.get("max_paragraphs", 0) > 1:
         suffix = ". Use \\n\\n between paragraphs"
@@ -157,7 +159,9 @@ def build_field_detail_lines(
     for field, vals in specs.items():
         if fields is not None and field not in fields:
             continue
-        lines.append(_format_spec_line(field, vals))
+        line = _format_spec_line(field, vals)
+        if line:
+            lines.append(line)
     return "\n".join(lines)
 
 
@@ -325,8 +329,7 @@ def build_fill_missing_prompt(
 _REGEN_SYSTEM = """\
 You are CharacterForge, an expert character designer for interactive fiction.
 Rewrite ONLY the fields listed below with a fresh, different take.
-Use the nonce {regen_nonce} as a creativity seed \
--- the output must differ from the current version.
+{seed_line}
 Output a JSON object containing ONLY the listed keys.
 
 All story fields in Korean. image_prompt and negative_prompt in English.
@@ -345,8 +348,16 @@ def build_regenerate_prompt(
 ) -> Tuple[str, str]:
     """Return ``(system_prompt, user_prompt)`` to regenerate *target_keys*."""
     detail = build_field_detail_lines(profile, overrides, fields=target_keys)
+    if regen_nonce and regen_nonce.strip():
+        seed_line = (
+            "Use the nonce %s as a creativity seed "
+            "-- the output must differ from the current version."
+            % regen_nonce.strip()
+        )
+    else:
+        seed_line = "The output must differ from the current version."
     system = _REGEN_SYSTEM.format(
-        regen_nonce=regen_nonce,
+        seed_line=seed_line,
         field_detail_lines=detail,
     )
     user_parts = [
@@ -362,28 +373,45 @@ def build_regenerate_prompt(
 
 # ── image prompt ───────────────────────────────────────────────────
 
+def _has_hangul(text: str) -> bool:
+    """Return True if text contains Hangul syllables or jamo."""
+    for ch in text:
+        cp = ord(ch)
+        if (0xAC00 <= cp <= 0xD7A3 or
+            0x1100 <= cp <= 0x11FF or
+            0x3130 <= cp <= 0x318F):
+            return True
+    return False
+
+
 def build_image_prompt(card: Dict[str, Any]) -> str:
     """Build an English portrait prompt from a card dict.
 
-    If *card* already contains ``image_prompt``, prefer it; otherwise
-    derive visual cues from ``description``.
+    If *card* already contains ``image_prompt``, prefer it (as long as it
+    contains no Hangul); otherwise derive visual cues from English
+    ``description``. If the description contains Hangul, visual cues are
+    omitted to guarantee an English-only portrait prompt.
     """
     name = (card.get("name") or "").strip() or "character"
     card_ip = (card.get("image_prompt") or "").strip()
     desc = (card.get("description") or "").strip()
 
-    # extract first sentence of description as visual cue
     visual = ""
-    if desc:
+    if card_ip:
+        if not _has_hangul(card_ip):
+            visual = card_ip
+    elif desc and not _has_hangul(desc):
         dot = desc.find(".")
         visual = desc[:dot + 1] if dot > 0 else desc[:120]
 
-    middle = card_ip if card_ip else visual
+    cue = ""
+    if visual:
+        cue = visual if visual.endswith((".", "!", "?")) else (visual + ".")
+
     parts = [
         "Portrait of %s." % name,
-        middle if middle.endswith((".", "!", "?")) else (middle + "." if middle else ""),
+        cue,
         "Anime-style character portrait, upper body, "
         "detailed face, soft lighting.",
     ]
-    return " ".join(p for p in parts if p)
     return " ".join(p for p in parts if p)
