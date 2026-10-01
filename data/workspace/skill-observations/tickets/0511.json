@@ -3,13 +3,15 @@
  "approved_at": "2026-10-01 12:18:51",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-01 12:18:42",
  "evidence": [
   "event:20261001-121544-9753a6#3"
  ],
  "gate_failures": 0,
  "id": 511,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,14 +27,29 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-511 at ca9db78 (agy, review PASS round 1)",
    "ts": "2026-10-01 12:22:20"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-01 12:24:33"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 8da94cb on the operator's word (agy)",
+   "ts": "2026-10-01 12:28:41"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-01 12:28:41"
   }
  ],
  "paths": [
   "static/app-api.js"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/app-api.js",
  "title": "[feat/ui] 엔진 리부트 HUD 부팅 시각(boot_ts) 핸드셰이크 검증 및 시퀀스 여운 개선",
- "updated": "2026-10-01 12:22:20",
+ "updated": "2026-10-01 12:28:41",
  "worked_by": "agy"
 }
