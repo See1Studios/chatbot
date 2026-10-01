@@ -122,7 +122,8 @@ return (async () => {
   shellListDraw();
   o.moved = box.children.map(n => n.attrs['data-id']);
   o.sameNodes = box.children.length === first.length && box.children.every(n => first.includes(n));
-  o.movedLoads = srcSets.length - n1 - 1;
+  o.movedLoads = srcSets.length - n1 - o.lookLoads.length;
+  o.roomFaces = box.children.filter(n => n.attrs['data-kind'] === 'room').map(n => n.children[0].src);
   roomState.rooms = [];
   shellListDraw();
   o.afterRoomsGone = box.children.map(n => n.attrs['data-id']);
@@ -258,10 +259,13 @@ class ShellList(unittest.TestCase):
         self.assertEqual(o["roomLine"], "Kiki: nods on it")
         self.assertEqual(o["firstLoads"], 5)                  # one picture per row
         self.assertEqual(o["redrawLoads"], 0)                 # the same list again loads nothing
-        self.assertEqual(o["lookLoads"], ["b@y"])             # a changed look reloads that row only
+        # a changed look reloads that character's rows only: its own and the room it spoke in last
+        self.assertEqual(o["lookLoads"], ["b@y", "b@y"])
         self.assertEqual(o["moved"], ["a", "b", "room_1", "room_2", "c"])   # a newer talk moves its row up
         self.assertTrue(o["sameNodes"])                       # ... the same elements, not new ones
         self.assertEqual(o["movedLoads"], 0)
+        # a room wears the last speaker's face, or its first member's before anyone has spoken
+        self.assertEqual(o["roomFaces"], ["b@y", "a@"])
         self.assertEqual(o["afterRoomsGone"], ["a", "b", "c"])
         self.assertEqual(o["emptyShown"], [1, "shell-empty"])
 

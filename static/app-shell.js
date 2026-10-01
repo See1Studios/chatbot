@@ -126,7 +126,9 @@ function shellListDraw() {
       nodes.set(key, n);
     }
     n.row = r;
-    const c = r.kind === 'character' ? chars.find(x => x.id === r.id) : null;
+    // a room shows the face of whoever spoke last (its first member before anyone has), on a stack of cards (CSS)
+    const face = r.kind === 'room' ? (r.who && r.who !== 'user' ? r.who : (r.members || [])[0]) : r.id;
+    const c = chars.find(x => x.id === face) || null;
     const src = c ? characterOwnPortrait(c) : initialAvatar(r.name);   // its own provider's look (OWN_LOOK_v1)
     if (src !== n.src) {
       const img = n.img, name = r.name;

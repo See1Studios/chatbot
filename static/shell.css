@@ -15,7 +15,12 @@ html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in 
 .shell-row:hover{background:rgba(255,255,255,.04);border-color:transparent}
 .shell-row.current{background:var(--accent-soft);box-shadow:var(--glint)}
 .shell-row-avatar{grid-row:1 / 3;width:52px;height:52px;border-radius:50%;object-fit:cover;background:#2a2f3a;border:1px solid var(--border)}
-.shell-row.is-room .shell-row-avatar{border-style:dashed}
+.shell-row.is-room{position:relative;isolation:isolate}
+.shell-row.is-room .shell-row-avatar{position:relative;z-index:1;border-radius:14px;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+/* a group room: the last speaker's face is the top card of a small deck, one or two cards fanned out behind it */
+.shell-row.is-room::before,.shell-row.is-room::after{content:"";position:absolute;z-index:0;top:50%;left:calc(.5rem + 3px);width:46px;height:52px;margin-top:-26px;border-radius:12px;border:1px solid var(--border);background:#2a2f3a;pointer-events:none}
+.shell-row.is-room::before{transform:rotate(-11deg) translateX(-3px);opacity:.45}
+.shell-row.is-room::after{transform:rotate(7deg) translateX(4px);opacity:.7}
 .shell-row-name{font-size:1.1rem;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shell-row-time{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .shell-row-preview{grid-column:2 / 4;font-size:.82rem;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
