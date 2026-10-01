@@ -191,7 +191,7 @@ class ArtManager(unittest.TestCase):
                                        {"url": "https://example.com/pack.zip", "framing": "full"})
         self.assertEqual((code, body["ok"], body["framing"], body["placed"]), (200, True, "full", ["joy"]))
         req = opened.call_args[0][0]
-        self.assertEqual((req.full_url, opened.call_args[1]["timeout"]), ("https://example.com/pack.zip", 15))
+        self.assertEqual((req.full_url, opened.call_args[1]["timeout"]), ("https://example.com/pack.zip", A.PACK_URL_TIMEOUT))
         self.assertTrue(req.get_header("User-agent"))
         self.assertTrue((self.base / "sprites" / "full" / "joy.webp").is_file())
 
