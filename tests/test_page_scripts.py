@@ -1,7 +1,7 @@
-"""The page script stays in parts a person or a small model can read (APP_SPLIT_v1, monolith-split Phase 5), and the
-parts load in an order that works: every script index.html names is run, in that order, in one global scope with a
-permissive fake browser, and nothing may fail at load (a part calling into a later one, a name used before it is
-declared). Skipped when node is not installed.
+"""The page script stays in parts a person or a small model can read (APP_SPLIT_v1, monolith-split Phase 5; measured in
+bytes since split/0, as in test_file_sizes), and the parts load in an order that works: every script index.html names
+is run, in that order, in one global scope with a permissive fake browser, and nothing may fail at load (a part calling
+into a later one, a name used before it is declared). Skipped when node is not installed.
 Run: python3 -m unittest tests.test_page_scripts  (from services/chatbot)
 """
 import json
@@ -12,7 +12,9 @@ import unittest
 from pathlib import Path
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
-MAX_LINES = 1000
+MAX_BYTES = 43_000
+CEILINGS = {"app.js": 44_144, "app-evolution.js": 44_974}   # over the cap already: no growth
+BYTES_SLACK = 2_000
 
 HARNESS = r"""
 // Load the page's scripts in order in one global scope with a permissive fake browser; report load-time errors.
@@ -68,10 +70,17 @@ def page_scripts():
 
 
 class PageScripts(unittest.TestCase):
-    def test_every_part_stays_under_the_line_cap(self):
-        for p in sorted(STATIC.glob("app*.js")) + sorted(STATIC.glob("chat-*.css")):
-            n = len(p.read_text(encoding="utf-8").splitlines())
-            self.assertLess(n, MAX_LINES, "%s has %d lines: split it by feature (docs/plans/monolith-split.md)" % (p.name, n))
+    def test_every_part_stays_under_its_cap(self):
+        for p in sorted(STATIC.glob("*.js")) + sorted(STATIC.glob("*.css")):
+            n, limit = p.stat().st_size, CEILINGS.get(p.name, MAX_BYTES)
+            self.assertLessEqual(n, limit, "%s is %d bytes (cap %d): split it by feature (docs/plans/monolith-split.md)"
+                                 % (p.name, n, limit))
+
+    def test_ceilings_are_only_for_parts_really_over_the_cap(self):
+        for name, ceiling in CEILINGS.items():
+            n = (STATIC / name).stat().st_size
+            self.assertGreater(n, MAX_BYTES, "%s is under the cap now: drop its ceiling" % name)
+            self.assertLessEqual(ceiling - n, BYTES_SLACK, "%s shrank to %d bytes: lower its ceiling" % (name, n))
 
     def test_every_part_is_loaded_and_before_app_js(self):
         names = [p.name for p in page_scripts()]

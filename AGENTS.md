@@ -127,8 +127,8 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | No secrets, `.env`, private memory or style references in commits | all | `test_githooks` (pre-commit hook) |
 | Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns); backstops `test_worktree_runner`, `test_tickets` |
 | Data paths only through `host_config` (`DATA_ENV` order; `tickets.py` mirrors it) | all | `test_data_paths` |
-| Python module ≤ 1,500 lines; listed ceilings only go down | all | `test_file_sizes` |
-| Page script < 1,000 lines | all | `test_page_scripts` |
+| Python module ≤ 80,000 bytes; Python function ≤ 80 lines; listed ceilings only go down | all | `test_file_sizes` |
+| Page script or stylesheet ≤ 43,000 bytes; listed ceilings only go down | all | `test_page_scripts` |
 | New code folder is protected | all | `test_code_layout` |
 | Core modules import stdlib + each other only | all | `test_core_standalone` |
 | No provider names in common code | all | `test_provider_neutrality` |
