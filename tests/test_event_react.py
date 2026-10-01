@@ -28,6 +28,10 @@ NIGHT = time.mktime((2026, 9, 30, 3, 0, 0, 0, 0, -1))
 class FakeSession:
     def __init__(self, sid):
         self.sid, self.busy, self.sent, self.done = sid, False, [], threading.Event()
+        self.level = "ok"
+
+    def weight(self):
+        return {"level": self.level}
 
     def _send_direct(self, text, notice=False):
         self.sent.append((text, notice))
@@ -49,6 +53,9 @@ class Reactions(unittest.TestCase):
         self.dir = Path(tempfile.mkdtemp())
         self.env = mock.patch.dict(os.environ, {"CHATBOT_EVENTS_DIR": str(self.dir / "ev")})
         self.env.start()
+        self.clock = NOON                       # the mailbox's clock: events are stamped at test time, not wall time
+        self.time = mock.patch.object(E, "time", SimpleNamespace(time=lambda: self.clock))
+        self.time.start()
         self.kit = FakeSession("s-kit")
         self.reg = FakeReg({"kit": self.kit})
         self.cfg = R.clean({"auto": ["work.phase"], "per_hour": 2, "quiet": [0, 8]})
@@ -58,6 +65,7 @@ class Reactions(unittest.TestCase):
 
     def tearDown(self):
         self.note.stop()
+        self.time.stop()
         self.env.stop()
         shutil.rmtree(self.dir, ignore_errors=True)
 
@@ -93,16 +101,41 @@ class Reactions(unittest.TestCase):
             self.phase(p)
             self.once()
             self.kit.done.clear()
+        self.clock = NOON + 1800
         self.phase("gate_failed")
         self.assertEqual(self.once(), [], "per_hour reached")
         self.assertEqual(self.once(now=NOON + 3601)[0]["character"], "kit", "an hour later it goes")
         self.kit.done.clear()
+        self.clock = NOON + 86400
         self.phase("done")
         self.assertEqual(self.once(now=NIGHT + 86400), [], "quiet hours: waits")
         self.kit.busy = True
         self.assertEqual(self.once(now=NOON + 86400), [], "someone is talking: waits")
         self.kit.busy = False
         self.assertEqual(len(self.once(now=NOON + 86400)), 1, "then it goes")
+
+    def test_an_event_older_than_the_ttl_is_dropped_not_spoken(self):
+        e = self.phase("done")
+        with mock.patch.object(E, "_log") as log:
+            self.assertEqual(self.once(now=NOON + R.TTL_SEC + 1), [], "stale news: not spoken")
+        self.assertIn(mock.call("react.skip", reason="expired", character="kit", n=1), log.call_args_list)
+        self.assertEqual(self.kit.sent, [])
+        self.assertEqual(E.cursor("react:kit"), e["id"], "the cursor moves past it")
+        self.assertEqual(self.once(now=NOON + R.TTL_SEC + 2), [], "and it is not tried again")
+
+    def test_a_heavy_session_is_not_pushed_into(self):
+        for level in R.HEAVY:
+            self.kit.level = level
+            e = self.phase("done")
+            with mock.patch.object(E, "_log") as log:
+                self.assertEqual(self.once(), [], level)
+            self.assertIn(mock.call("react.skip", reason="session_heavy", character="kit", sid="s-kit"),
+                          log.call_args_list)
+            self.assertEqual(E.cursor("react:kit"), e["id"], "the cursor moves past it")
+        self.assertEqual(self.kit.sent, [])
+        self.kit.level = "ok"
+        self.phase("done")
+        self.assertEqual(len(self.once()), 1, "a light session hears it")
 
     def test_an_event_for_everyone_is_answered_by_the_default_character_alone(self):
         e = E.publish("host.restart", E.ALL, ts=NOON, landed=[])

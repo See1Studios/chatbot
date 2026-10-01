@@ -23,6 +23,8 @@ CHOICES = ("work.phase", "host.restart")        # the event types a reaction can
 ENDING = ("done", "failed", "gate_failed", "unavailable", "base_broken", "awaiting_merge")   # work phases worth it
 DEFAULTS = {"auto": [], "per_hour": 3, "quiet": [0, 8]}
 POLL_SEC = 20
+TTL_SEC = 3600                                  # an event older than this is stale news: dropped, not spoken
+HEAVY = ("soft", "hard")                        # session weight levels a reaction must not push into
 PROMPT = ("[Event -- the user did not write this] {note}\nTell the user about it yourself now, in one or two short "
           "lines, in character, as a message you start. Do not use tools and do not start any work.")
 
@@ -107,6 +109,13 @@ def _note(evts: List[Dict], character: str) -> str:
     return " ".join(n for n in notes if n)
 
 
+def _heavy(sess) -> bool:
+    try:
+        return (sess.weight() or {}).get("level") in HEAVY
+    except Exception:  # noqa: BLE001 -- an unknown weight does not block a reaction
+        return False
+
+
 def _recent_reactions(character: str, now: float) -> int:
     return sum(1 for e in events.recent("react.sent")
                if e["subject"] == character and 0 <= now - e["payload"].get("at", e["ts"]) < 3600)
@@ -139,6 +148,10 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
         if not got:
             continue
         wanted = [e for e in got if _wanted(e, cfg, cid, default)]
+        fresh = [e for e in wanted if now - e.get("ts", now) <= TTL_SEC]
+        if len(fresh) < len(wanted):
+            events._log("react.skip", reason="expired", character=cid, n=len(wanted) - len(fresh))
+        wanted = fresh
         if not wanted or _recent_reactions(cid, now) >= cfg["per_hour"]:
             if not wanted:
                 events.mark(key, got[-1]["id"])
@@ -146,6 +159,10 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
                 events._log("react.defer", reason="per_hour", character=cid, dedup="react.defer:rate:" + cid)
             continue
         sess = reg._newest(mode="work", character=cid)
+        if sess is not None and _heavy(sess):
+            events._log("react.skip", reason="session_heavy", character=cid, sid=sess.sid)
+            events.mark(key, got[-1]["id"])
+            continue
         note = _note(wanted, cid)
         if sess is None or not note:
             events._log("react.skip", reason="no_work_session" if sess is None else "nothing_to_say", character=cid)
