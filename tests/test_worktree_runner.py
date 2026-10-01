@@ -319,6 +319,11 @@ class WorktreeRunner(unittest.TestCase):
         for name in ("test_guard", "test_widget"):
             (self.repo / "tests" / (name + ".py")).write_text("", encoding="utf-8")
         (self.repo / "run-tests.sh").write_text("FAST=(\n  test_guard\n  test_missing\n)\n", encoding="utf-8")
+        sh(self.repo, "git", "add", "-A")
+        sh(self.repo, "git", "commit", "-qm", "gates")
+        # #547: what is not committed never reaches a gate -- the worktree is made from HEAD
+        (self.repo / "run-tests.sh").write_text("FAST=(\n  test_guard\n  test_new\n)\n", encoding="utf-8")
+        (self.repo / "tests" / "test_new.py").write_text("import widget\n", encoding="utf-8")
         guard = wr.guard_gate(self.repo)
         self.assertEqual(guard, "./run-tests.sh tests/test_guard.py")
         self.assertIn("tests/test_guard.py", wr.gate_files(self.repo, [guard]))
@@ -338,6 +343,8 @@ class WorktreeRunner(unittest.TestCase):
         (t / "test_from_pkg.py").write_text("from providers import helper_mod\n", encoding="utf-8")
         (t / "test_word_only.py").write_text("# helper_mod is discussed here but not used\n", encoding="utf-8")
         (t / "test_page.py").write_text("from tests.page_source import app_bundle\n", encoding="utf-8")
+        sh(self.repo, "git", "add", "-A")
+        sh(self.repo, "git", "commit", "-qm", "tests")   # gates read the tests as committed (#547)
         self.assertEqual(wr.related_gate(self.repo, ["registry.json"]), "./run-tests.sh test_reads_cfg")
         self.assertEqual(wr.related_gate(self.repo, ["providers/helper_mod.py"]), "./run-tests.sh test_from_pkg test_imports")
         self.assertEqual(wr.related_gate(self.repo, ["static/app-x.js"]), "./run-tests.sh test_page")

@@ -65,16 +65,51 @@ CHATBOT_REPO = CODE_DIR                              # the repository it works o
 WORKTREE_BASE = Path.home() / ".worktrees" / "chatbot"
 TICKET_QUICK = [sys.executable, str(CODE_DIR / "tools" / "ticket_quick.py")]   # pew/K: the repo copy
 # smoke plus the repo-wide guards (design doc §7-9, NAME_NEUTRAL_v1); a few seconds each
-def guard_gate(repo: Path) -> Optional[str]:
-    """`./run-tests.sh` over the FAST guard list in run-tests.sh (its SSOT), each module named as a path so that
-    gate_files() protects every guard file: a worker must not be able to change its own pass condition (pew/F)."""
+def head_files(repo: Path, rels: List[str]) -> Dict[str, str]:
+    """The text of each path as committed at HEAD -- what a worktree made from HEAD holds; a path not in HEAD is left
+    out. The gates are read here, never from the main tree, so nothing uncommitted there reaches a delegation (#547:
+    a guard listed in the main tree's run-tests.sh but not yet committed failed two delegations as MISSING)."""
+    if not rels:
+        return {}
     try:
-        text = (repo / "run-tests.sh").read_text(encoding="utf-8")
-    except OSError:
+        r = subprocess.run(["git", "-C", str(repo), "cat-file", "--batch"], capture_output=True, timeout=60,
+                           input="".join("HEAD:%s\n" % rel for rel in rels).encode("utf-8"))
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    out, data, i = {}, r.stdout, 0
+    for rel in rels:
+        end = data.find(b"\n", i)
+        head = data[i:end].split()
+        i = end + 1
+        if len(head) == 3 and head[1] == b"blob":
+            n = int(head[2])
+            out[rel] = data[i:i + n].decode("utf-8", "replace")
+            i += n + 1
+    return out
+
+
+def head_tests(repo: Path) -> List[str]:
+    """tests/test_*.py committed at HEAD, as module names."""
+    try:
+        r = subprocess.run(["git", "-C", str(repo), "ls-tree", "--name-only", "HEAD", "tests/"], capture_output=True,
+                           timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    names = r.stdout.decode("utf-8", "replace").split()
+    return sorted(Path(n).stem for n in names if re.match(r"^tests/test_\w+\.py$", n))
+
+
+def guard_gate(repo: Path) -> Optional[str]:
+    """`./run-tests.sh` over the FAST guard list in run-tests.sh (its SSOT, as committed), each module named as a path
+    so that gate_files() protects every guard file: a worker must not be able to change its own pass condition
+    (pew/F)."""
+    text = head_files(repo, ["run-tests.sh"]).get("run-tests.sh")
+    if text is None:
         return None
     m = re.search(r"^FAST=\((.*?)^\)", text, re.S | re.M)
     mods = [w for w in (m.group(1).split() if m else []) if re.match(r"^test_\w+$", w)]
-    files = ["tests/%s.py" % w for w in mods if (repo / "tests" / (w + ".py")).is_file()]
+    have = set(head_tests(repo))
+    files = ["tests/%s.py" % w for w in mods if w in have]
     return "./run-tests.sh " + " ".join(files) if files else None
 
 
@@ -96,7 +131,8 @@ def related_gate(repo: Path, paths: List[str]) -> Optional[str]:
     Guards already run in DEFAULT_GATES are left out. Named without a path on purpose: gate_files() must not lock a
     test the task is meant to update."""
     guard = guard_gate(repo) or ""
-    tests = sorted((repo / "tests").glob("test_*.py"))
+    have = head_tests(repo)
+    texts = head_files(repo, ["tests/%s.py" % t for t in have])   # as committed, like the worktree's
     mods = []
 
     def add(name):
@@ -105,18 +141,15 @@ def related_gate(repo: Path, paths: List[str]) -> Optional[str]:
     for p in paths:
         stem = Path(p).stem
         name = stem if p.startswith("tests/test_") and p.endswith(".py") else "test_" + stem
-        if (repo / "tests" / (name + ".py")).is_file():
+        if name in have:
             add(name)
         rx = _mentions(p)
         # page code is read through tests/page_source.py (the whole bundle), so those tests never name the file
         page = re.compile(r"\bpage_source\b") if p.startswith("static/") else None
-        for t in tests:
-            try:
-                text = t.read_text(encoding="utf-8")
-            except OSError:
-                continue
+        for t in have:
+            text = texts.get("tests/%s.py" % t, "")
             if rx.search(text) or (page and page.search(text)):
-                add(t.stem)
+                add(t)
     return "./run-tests.sh " + " ".join(mods) if mods else None
 
 
