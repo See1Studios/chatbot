@@ -447,6 +447,62 @@ class SilentHangWatchdog(Base):
         self.assertTrue(s.busy, "turn must remain active")
         self.assertFalse(getattr(s, "_err_msg_failfast_done", False))
 
+    def test_a_normalized_tool_step_resets_the_idle_clock(self):
+        import time
+        s = self._busy(self.make(), hang_sec=0.35)
+        s._arm_silent_hang()
+        time.sleep(0.2)
+        for ev in AgyToolInfoEvents.step(s, "DONE", output="ok"):
+            S.AgentSession._emit(s, ev)
+        time.sleep(0.2)                           # 0.4s from start, ~0.2s since the tool step
+        self.assertTrue(s.busy, "a tool_info step must reset the idle clock")
+        self.assertFalse(getattr(s, "_silent_hang_done", False))
+        s._cancel_silent_hang()
+
+    def test_a_recent_call_in_the_provider_log_keeps_a_quiet_turn(self):
+        import time
+        s = self._busy(self.make(), hang_sec=0.3)
+        s.proc = types.SimpleNamespace(pid=4242)
+        s.adapter.last_activity = lambda pid, started: time.time()   # the CLI log saw a model call just now
+        s._silent_hang_fire()
+        self.assertTrue(s.busy)
+        self.assertFalse(getattr(s, "_silent_hang_done", False))
+        self.assertIsNotNone(getattr(s, "_silent_hang_timer", None), "re-armed for the rest of the window")
+        s.adapter.last_activity = lambda pid, started: started        # no call since: the next fire closes
+        time.sleep(0.45)
+        self.assertTrue(getattr(s, "_silent_hang_done", False))
+
+
+class AgyToolInfoEvents(Base):
+    """The agy adapter turns `step_update.tool_info` into canonical tool events itself (provider neutrality)."""
+
+    @staticmethod
+    def step(s, state, output=None, i=3):
+        info = {"name": "run_command", "parameters": {"CommandLine": "ls -la", "toolSummary": "list"}}
+        if output is not None:
+            info["output"] = output
+        line = {"event": "step_update", "step_update": {"step_index": i, "state": state, "step_type": "tool",
+                                                        "tool_name": "run_command", "tool_info": info}}
+        return AgyAdapter().normalize_line(s, json.dumps(line))
+
+    def test_the_call_then_the_result_each_once(self):
+        s = self.make()
+        active = self.step(s, "ACTIVE")
+        done = self.step(s, "DONE", output="total 8\nfile.txt")
+        self.assertEqual([(e["event"], e["kind"], e["status"]) for e in active], [("tool", "call", "calling")])
+        self.assertEqual(active[0]["text"], "run_command: ls -la (list)")
+        self.assertEqual(active[0]["title"], "run_command")
+        self.assertEqual([(e["event"], e["kind"], e["status"]) for e in done], [("tool", "result", "done")])
+        self.assertEqual(done[0]["text"], "↳ total 8 (외 1줄)")
+        self.assertIn("file.txt", done[0]["detail"])
+
+    def test_a_done_step_seen_alone_carries_both(self):
+        s = self.make()
+        evs = self.step(s, "DONE", output="ok")
+        self.assertEqual([e["kind"] for e in evs], ["call", "result"])
+        self.assertEqual(evs[1]["text"], "↳ ok")
+        self.assertFalse([e for e in evs if e.get("event") == "provider_event"])
+
 
 class SteerAtZeroChars(Base):
     def test_a_steer_before_any_text_leaves_a_mark_and_clears_the_turn(self):

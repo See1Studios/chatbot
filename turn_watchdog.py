@@ -161,6 +161,26 @@ class TurnWatchdog:
         """Back-compat alias — assistant deltas are one form of turn activity."""
         self._touch_turn_activity()
 
+    def _provider_shows_activity(self) -> bool:
+        """A long think prints nothing on the stream, but the CLI's own log may show model calls. An adapter with a
+        `last_activity` probe that saw one inside the window re-arms the clock for the rest of it instead."""
+        probe = getattr(self.adapter, "last_activity", None)
+        pid = getattr(getattr(self, "proc", None), "pid", None)
+        if not callable(probe) or not pid:
+            return False
+        try:
+            seen = float(probe(int(pid), float(getattr(self, "created_at", 0) or 0)) or 0)
+        except Exception:
+            return False
+        if seen <= float(getattr(self, "_last_turn_activity_at", 0) or 0):
+            return False
+        left = float(self.SILENT_HANG_SEC) - (_now() - seen)
+        if left <= 0:
+            return False
+        self._last_turn_activity_at = seen
+        self._arm_silent_hang(left)
+        return True
+
     def _silent_hang_fire(self) -> None:
         """Close a busy turn with no text and no tool/progress for SILENT_HANG_SEC."""
         self._silent_hang_timer = None
@@ -173,6 +193,11 @@ class TurnWatchdog:
             if getattr(self, "_err_msg_failfast_timer", None) is not None:
                 return
             if getattr(self, "_err_msg_failfast_done", False):
+                return
+        if self._provider_shows_activity():
+            return
+        with self.lock:
+            if not self.busy or getattr(self, "_silent_hang_done", False):
                 return
             self._silent_hang_done = True
         dur = 0.0

@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from host_config import AGENT_PATH_PREFIX, AGY, MODELS, WORKSPACE
 from providers.adapter_base import AgentAdapter, _redact_err
+from tool_format import _format_tool_call, _format_tool_result
 import media_handler as _media
 
 
@@ -172,6 +173,40 @@ class AgyAdapter(AgentAdapter):
     def format_stdin(self, content: str) -> str:
         return json.dumps({"event": "user", "message": {"content": content}}, ensure_ascii=False) + "\n"
 
+    def _tool_info_events(self, session: "AgentSession", obj: dict) -> List[dict]:
+        """A tool step (docs/providers/agy.md A37: `step_update{step_type:"tool", state:ACTIVE→DONE,
+        tool_info:{name, parameters, output}}`) as canonical tool events: the call once its parameters are
+        known, the result once DONE. ACTIVE and DONE repeat the call, so each is sent once per step."""
+        step = obj.get("step_update")
+        info = step.get("tool_info") if isinstance(step, dict) else None
+        if not isinstance(info, dict):
+            return []
+        name = str(info.get("name") or step.get("tool_name") or "").strip()
+        params = info.get("parameters") if isinstance(info.get("parameters"), dict) else {}
+        done = str(step.get("state") or "") == "DONE"
+        seen = session.__dict__.setdefault("_tool_info_seen", {})
+        events: List[dict] = []
+        call = _format_tool_call(name, params) if params else ""
+        if not call and done:
+            call = name
+        key = (step.get("step_index"), call)
+        if call and seen.get("call") != key:
+            seen["call"] = key
+            ev = {"event": "tool", "text": call[:600], "title": name[:200], "kind": "call", "status": "calling"}
+            if params:
+                ev["detail"] = json.dumps(params, ensure_ascii=False, indent=2)[:4000]
+            events.append(ev)
+        if done and seen.get("result") != key:
+            seen["result"] = key
+            out = info.get("output")
+            out = out if isinstance(out, str) else ("" if out is None else json.dumps(out, ensure_ascii=False))
+            summary = _format_tool_result(out or "\n")   # no output: tool_format's own "done" line
+            ev = {"event": "tool", "text": summary[:600], "title": name[:200], "kind": "result", "status": "done"}
+            if len(out.strip()) > len(summary) or "\n" in out.strip():
+                ev["detail"] = out[:4000]
+            events.append(ev)
+        return events
+
     def normalize_line(self, session: "AgentSession", raw_line: str) -> List[dict]:
         """Moved verbatim out of `AgentSession._handle_stdout_line` (Multi-Provider
         plan Phase 0) -- same parsing, same session-mutation order, same
@@ -190,7 +225,10 @@ class AgyAdapter(AgentAdapter):
         session._observe_agent_step(obj)
 
         events: List[dict] = []
-        tool_ev = session._tool_summary(obj)
+        tool_ev = session._tool_summary(obj)   # still run: it stages images and arms the error_message failfast
+        own = self._tool_info_events(session, obj)
+        if own or (isinstance(obj.get("step_update"), dict) and "tool_info" in obj["step_update"]):
+            tool_ev = own   # a tool_info step is parsed here, not by the session's generic guess
         if tool_ev:
             if isinstance(tool_ev, list):
                 events.extend(tool_ev)
