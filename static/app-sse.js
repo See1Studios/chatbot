@@ -616,8 +616,8 @@ function bindEvents(sid) {
         markUntimed(assistantNode, assistantBuf);
         setAssistantContent(assistantNode, assistantBuf.trim() + (data.reason === 'steer' ? '\n\n*(새 지시 반영을 위해 잠시 멈춤)*' : '\n\n*(새 지시로 전환)*'), true);
         delete assistantNode.dataset.live;
-      } else if (assistantNode && assistantNode.dataset.progress === '1') {
-        assistantNode.remove();
+      } else if (assistantNode) {
+        assistantNode.remove();   // no text yet: drop the typing dots and avatar, no ghost bubble
       }
       assistantNode = null; assistantBuf = '';
       setProgress('새 지시 반영 중…');

@@ -1849,7 +1849,7 @@ class AgentSession(TurnWatchdog):
             self.busy = False
             # If there was partial assistant text generated so far, preserve it in history
             cur = (self.current_text or "").strip()
-            if cur or reason == "steer":  # a 0-char steer still leaves its mark, not nothing
+            if cur:  # a 0-char turn (steer included) leaves nothing; the new instruction just follows
                 mark = (f"*(🧭 {user_title()}의 새 지시를 반영하려고 여기서 잠시 멈췄습니다)*" if reason == "steer"
                         else "*(🧭 같은 호출이 반복돼 여기서 잠시 멈추고 방향을 바꾸도록 알렸습니다)*" if reason == "loop"
                         else f"*(⚡ {user_title()}의 새 지시로 이전 작업이 중단되었습니다)*")

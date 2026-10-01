@@ -549,15 +549,14 @@ class AgyToolInfoEvents(Base):
 
 
 class SteerAtZeroChars(Base):
-    def test_a_steer_before_any_text_leaves_a_mark_and_clears_the_turn(self):
+    def test_a_steer_before_any_text_adds_nothing_and_clears_the_turn(self):
         s = self.make(HISTORY)
         s.busy, s.current_text = True, ""
         s.interrupt_current_turn(reason="steer")
         self.assertFalse(s.busy)
         self.assertEqual(s.current_text, "")
-        last = s.history[-1]
-        self.assertEqual((last["role"], last.get("interrupted")), ("assistant", True))
-        self.assertIn("잠시 멈췄습니다", last["text"])
+        self.assertEqual(s.history, HISTORY)
+        self.assertFalse([h for h in s.history if h.get("interrupted")])
         self.assertEqual([e["reason"] for e in self.events if e.get("event") == "interrupted"], ["steer"])
 
     def test_a_plain_interrupt_before_any_text_adds_nothing(self):
