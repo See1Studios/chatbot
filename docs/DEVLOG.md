@@ -4,6 +4,12 @@
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 
+## 2026-10-02 — 구글 계정 1초 즉시 스왑 도구 및 프로필 저장 기능 구현 (#542, 위임 claude)
+
+- **커밋**: `d9ea56d` feat(accounts): saved agy login profiles with an atomic switch CLI; stray reaper matches whole helper args
+- **바뀐 파일**: `providers/accounts.py`, `tests/test_accounts.py`, `tools/switch_account.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-02 — 위임 측정 기록: 대상 파일 크기와 끝난 시각 (D1 ③, #543)
 
 - **왜**: 크기 상한(1,500줄·1,000줄, 지금은 80,000B·43,000B)은 측정값이 아니라 판단값이었다(계획 6.7 D1). 다음에 숫자를 고칠 때 "이 크기의 파일을 맡긴 위임이 얼마나 걸려 어떻게 끝났나"를 보고 정하려고.
