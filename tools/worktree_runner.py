@@ -55,6 +55,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: devlog_entry, review_checklist
+from review_checklist import with_code_checklist  # noqa: E402
 
 CODE_DIR = Path(__file__).resolve().parents[1]      # where the host modules this tool imports live
 CHATBOT_REPO = CODE_DIR                              # the repository it works on
@@ -927,7 +929,6 @@ def record_and_report(repo: Path, tid: int, provider: str, title: str, result: D
     subject = ("chore(tickets): close #%d" if outcome == "done" else "chore(tickets): #%d " + outcome) % tid
     extra: Tuple[str, ...] = ()
     if result.get("merged"):   # the landed change gets its line in the diary (tools/devlog_entry.py)
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
         import devlog_entry
         extra = tuple(devlog_entry.record_merge(repo, tid, title, provider, result.get("base") or read_state(tid).get("base"), result.get("head")))
     record = commit_ticket_record(repo, tid, provider, "%s -- %s" % (subject, title[:80]), extra)
@@ -1319,7 +1320,7 @@ def cmd_run(args) -> int:
                 pd_block = character_block(reviewer_p, writer_p, PD_RELATION)
                 rv, rb, rskipped = review_with_chain(
                     cross_chain(pd_chain, b, review_providers() if args.cross_review else []), wt_dir,
-                    lambda prov: (doc_review_prompt if doc_lane else (lambda b, d: b))(
+                    lambda prov: (doc_review_prompt if doc_lane else (lambda b, d: with_code_checklist(b)))(
                         review_prompt(tid, task["title"], task["instruction"], partner_said, diff, gate_error,
                                       pd_block, diff_limit(prov), partner_report), diff),
                     renew)
