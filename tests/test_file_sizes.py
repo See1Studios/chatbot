@@ -11,9 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_BYTES = 80_000
-CEILINGS = {                       # over the cap already: no growth
-    "tools/worktree_runner.py": 82_775,
-}
+CEILINGS = {}                      # over the cap already: no growth (none left since split/G)
 BYTES_SLACK = 2_000                # a ceiling more than this above the file must come down
 
 FUNC_MAX_LINES = 80
@@ -37,7 +35,7 @@ FUNC_CEILINGS = {                  # "path::Class.func": lines -- over the cap a
     "session_view.py::SessionView.get_artifacts": 101,
     "tool_format.py::_format_tool_call": 121,
     "tools/st_import.py::convert_st_card": 94,
-    "tools/worktree_runner.py::cmd_run": 319,
+    "tools/worktree_runner.py::cmd_run": 282,
 }
 FUNC_SLACK = 10                    # a function ceiling more than this above the function must come down
 

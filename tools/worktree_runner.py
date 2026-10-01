@@ -56,7 +56,9 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: devlog_entry, review_checklist
-from review_checklist import with_code_checklist  # noqa: E402
+from review_checklist import (  # noqa: E402
+    DIFF_LIMIT, deleted_lines, doc_review_prompt, fit_diff, is_doc_task, parse_review, review_prompt, with_code_checklist,
+)
 
 CODE_DIR = Path(__file__).resolve().parents[1]      # where the host modules this tool imports live
 CHATBOT_REPO = CODE_DIR                              # the repository it works on
@@ -126,7 +128,7 @@ GATE_TIMEOUT = 600
 TAIL_LINES = 30
 # A prompt passed as one argv string is capped by Linux at 128 KiB (MAX_ARG_STRLEN); CLIs that read the prompt
 # from stdin (`stdin_prompt`) have no such cap, so they get the whole diff up to DIFF_LIMIT_STDIN (DELEGATION_HARDENING_v1).
-DIFF_LIMIT = 36000
+# DIFF_LIMIT (the argv cap) lives with the review prompt in review_checklist.py.
 DIFF_LIMIT_STDIN = 200000
 TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
 
@@ -563,108 +565,6 @@ def base_fails(repo: Path, base: str, cmd: str, tid: int) -> Optional[str]:
 
 # ------------------------------------------------------------------- review
 
-_VERDICT = re.compile(r"^\s*\**VERDICT\**\s*:\s*\**\s*(PASS|FAIL)\b", re.M | re.I)
-_SECTION = re.compile(r"^\s*\**(SAY|FIX)\**\s*:\s*", re.M | re.I)
-
-
-def parse_review(text: str) -> Dict[str, str]:
-    """VERDICT / SAY / FIX out of the reviewer's reply. No readable verdict counts as FAIL (fail closed)."""
-    m = _VERDICT.search(text or "")
-    out = {"verdict": m.group(1).upper() if m else "FAIL", "say": "", "fix": ""}
-    marks = list(_SECTION.finditer(text or ""))
-    for i, mk in enumerate(marks):
-        end = marks[i + 1].start() if i + 1 < len(marks) else len(text)
-        out[mk.group(1).lower()] = text[mk.end():end].strip()[:3000]
-    if not out["say"] and text:
-        # No SAY label (a small model often drops it): the prose after the verdict line, before any FIX.
-        body = text[m.end():] if m else text
-        fix = _SECTION.search(body)
-        body = body[:fix.start()] if fix and fix.group(1).upper() == "FIX" else body
-        lines = [ln.strip().strip("*").strip() for ln in body.splitlines()]
-        out["say"] = " ".join(ln for ln in lines if ln)[:500]
-    if not m:
-        out["fix"] = out["fix"] or "The review had no readable VERDICT line."
-    out["raw"] = (text or "")[:1500]
-    return out
-
-
-def fit_diff(diff: str, limit: int = DIFF_LIMIT) -> str:
-    """`diff` within `limit` characters without dropping a file: every file keeps its header, and the budget is
-    shared out so small files stay whole and only the largest are cut (each cut says so)."""
-    if len(diff) <= limit:
-        return diff
-    chunks = re.split(r"(?m)^(?=diff --git )", diff)
-    chunks = [c for c in chunks if c]
-    share = {}
-    budget, left = limit, len(chunks)
-    for i in sorted(range(len(chunks)), key=lambda i: len(chunks[i])):
-        share[i] = min(len(chunks[i]), budget // left)
-        budget -= share[i]
-        left -= 1
-    out = []
-    for i, c in enumerate(chunks):
-        if share[i] >= len(c):
-            out.append(c)
-            continue
-        head = c[:share[i]].rsplit("\n", 1)[0] if "\n" in c[:share[i]] else c.split("\n", 1)[0]
-        out.append("%s\n... (%d more lines of this file cut)\n" % (head, c[len(head):].count("\n")))
-    return "".join(out)
-
-
-def review_prompt(tid: int, title: str, instruction: str, partner_said: str, diff: str,
-                  gate_error: Optional[Failure], character: str, limit: int = DIFF_LIMIT,
-                  partner_report: str = "") -> str:
-    parts = [character, "",
-             "Your staff member just worked on ticket #%d (%s). The task was:" % (tid, title), instruction, ""]
-    if partner_report:
-        parts += ["Your staff member's report (their final message):", partner_report, ""]
-    parts += ["Your staff member said: %s" % (partner_said or "(nothing)"), ""]
-    if gate_error:
-        parts += ["The automatic gate FAILED, so the verdict is FAIL: %s" % gate_error.reason,
-                  gate_error.detail[-3000:], ""]
-    else:
-        parts += ["The automatic gates (tests, scope) passed."]
-    parts += ["Diff of the branch:", "```diff", fit_diff(diff, limit) or "(empty)", "```", "",
-              "You have no files here and must not use tools: do not run commands, read files or search the disk. "
-              "Judge from this prompt alone; if a cut part hides what you must see, FAIL and name it.",
-              "As the producer, confirm the work: does the change do the task correctly and safely within its scope? "
-              "Reply in exactly this form:",
-              "VERDICT: PASS or VERDICT: FAIL",
-              "SAY: one to three short sentences in character, spoken to your staff member",
-              "FIX: only when FAIL, concrete numbered fixes (file, function, what)"]
-    return "\n".join(parts)
-
-
-# DOC_LANE_v1 (2026-09-30): a task that only changes docs (Tier 0 `.md` files) and waits for the operator is reviewed
-# once, against a doc checklist, and the verdict is advice shown on the card -- a FAIL no longer ends the attempt
-# (#443 failed a nearly finished plan on its review limit; #452 on a reviewer that crashed). Gates still apply.
-DOC_DELETE_WARN = 20   # deleted lines past this get a warning in the review and on the card (#443 deleted a design)
-
-DOC_CHECKLIST = ("This is a documentation change. Check only these, from the diff:\n"
-                 "1. Nothing was deleted or rewritten that the task did not ask for (existing designs, tables, "
-                 "decisions).\n"
-                 "2. Links, anchors and section numbers still point where they should.\n"
-                 "3. Nothing contradicts the product concept (docs/CONCEPT.md) or a decision recorded elsewhere.\n"
-                 "4. Nothing is described as built or implemented unless the task says it is; plans say plan.\n"
-                 "Style and wording are not failures. The operator makes the final call; your verdict is advice.")
-
-
-def is_doc_task(paths: List[str], tier: int) -> bool:
-    return tier == 0 and bool(paths) and all(str(p).endswith(".md") for p in paths)
-
-
-def deleted_lines(diff: str) -> int:
-    return sum(1 for ln in (diff or "").splitlines() if ln.startswith("-") and not ln.startswith("---"))
-
-
-def doc_review_prompt(base: str, diff: str) -> str:
-    """`base` (the ordinary review prompt) with the doc checklist, and a warning when much was deleted."""
-    n = deleted_lines(diff)
-    warn = ("\nWARNING: this change deletes %d lines. Check first that each deletion was asked for." % n
-            if n > DOC_DELETE_WARN else "")
-    return base.replace("As the producer, confirm the work:", DOC_CHECKLIST + warn + "\nAs the producer, confirm the work:", 1)
-
-
 def with_flags(argv: List[str], flags: List[str]) -> List[str]:
     """`argv` plus `flags`, placed before a trailing `-p` (whose value is the prompt appended last)."""
     argv = list(argv)
@@ -1076,6 +976,60 @@ def run_content(args, repo: Path, provider: str, paths: List[str], tid: int, tok
     return record_and_report(repo, tid, provider, args.title, result, args.json, transcript)
 
 
+def arg_error(args, paths: List[str]) -> str:
+    """Why `run` cannot start with these arguments; "" when it can."""
+    if not paths:
+        return "--paths is required (the scope gate and the ticket's ship gate use it)"
+    if args.timeout > MAX_AGENT_TIMEOUT:
+        return "--timeout above %ds would outlive the %ds author lease" % (MAX_AGENT_TIMEOUT, LEASE_TTL_SEC)
+    if args.rounds < 1:
+        return "--rounds must be at least 1"
+    if (args.resume or args.plan_from_state or args.from_attic) and not args.ticket:
+        return "--resume, --plan-from-state and --from-attic work on a --ticket"
+    if not args.plan_from_state and not args.prompt.strip():
+        return "--prompt is required (unless the tasks come from the ticket's plan)"
+    return ""
+
+
+def claim_ticket(args, paths: List[str], actor: str):
+    """(ticket, token): the caller's claimed ticket, or a new one started now. An int is the exit code of a refusal."""
+    if args.ticket and args.token:
+        return args.ticket, args.token
+    if args.ticket or args.token:
+        print("Error: --ticket and --token go together (a ticket the caller has claimed)", file=sys.stderr)
+        return 2
+    try:
+        vals = ticket_call("start", "--title", args.title, "--paths", ",".join(paths),
+                           "--actor", actor, *sum((["--evidence", e] for e in args.evidence), []))
+        return int(vals["TICKET_ID"]), vals["CLAIM_TOKEN"]
+    except (RuntimeError, KeyError, ValueError) as e:
+        print("Error: ticket start failed: %s" % e, file=sys.stderr)
+        return 1
+
+
+def new_worktree(args, repo: Path, tid: int, branch: str, wt_dir: Path) -> Tuple[str, bool]:
+    """A fresh worktree for the ticket; (base, from_attic). Raises Failure, the worktree not made, when it cannot."""
+    if wt_dir.exists() or git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0:
+        raise Failure("failed", "%s or %s is left over from an earlier run; "
+                      "inspect it, then `worktree_runner.py cleanup --ticket %d`" % (branch, wt_dir, tid))
+    _, base, _ = git(repo, "rev-parse", "HEAD")
+    start = base
+    from_attic = False
+    if args.from_attic:   # go on from the head a failed attempt left; base is where that work forked
+        code, start, _ = git(repo, "rev-parse", "--verify", "--quiet", attic_ref(tid))
+        if code != 0:
+            raise Failure("failed", "no %s to start from" % attic_ref(tid))
+        base = git(repo, "merge-base", base, start)[1]
+        from_attic = True
+    WORKTREE_BASE.mkdir(parents=True, exist_ok=True)
+    code, _, err = git(repo, "worktree", "add", "-b", branch, str(wt_dir), start)
+    if code != 0:
+        raise Failure("failed", "git worktree add failed", err)
+    log("worktree %s on %s (base %s%s)" % (wt_dir, branch, base[:8],
+                                           ", from %s %s" % (attic_ref(tid), start[:8]) if from_attic else ""))
+    return base, from_attic
+
+
 def cmd_run(args) -> int:
     repo = CHATBOT_REPO
     provider = args.provider
@@ -1085,21 +1039,9 @@ def cmd_run(args) -> int:
     result: Dict = {"provider": provider, "reviewer": reviewer, "paths": paths, "merged": False}
     transcript: List[Dict] = []
 
-    if not paths:
-        print("Error: --paths is required (the scope gate and the ticket's ship gate use it)", file=sys.stderr)
-        return 2
-    if args.timeout > MAX_AGENT_TIMEOUT:
-        print("Error: --timeout above %ds would outlive the %ds author lease" % (MAX_AGENT_TIMEOUT, LEASE_TTL_SEC),
-              file=sys.stderr)
-        return 2
-    if args.rounds < 1:
-        print("Error: --rounds must be at least 1", file=sys.stderr)
-        return 2
-    if (args.resume or args.plan_from_state or args.from_attic) and not args.ticket:
-        print("Error: --resume, --plan-from-state and --from-attic work on a --ticket", file=sys.stderr)
-        return 2
-    if not args.plan_from_state and not args.prompt.strip():
-        print("Error: --prompt is required (unless the tasks come from the ticket's plan)", file=sys.stderr)
+    bad = arg_error(args, paths)
+    if bad:
+        print("Error: " + bad, file=sys.stderr)
         return 2
     code, main_branch, _ = git(repo, "symbolic-ref", "--short", "HEAD")
     if code != 0:
@@ -1121,19 +1063,10 @@ def cmd_run(args) -> int:
     actor = PROVIDERS[provider]["actor"]
 
     # 1. ticket: one the caller already claimed (--ticket/--token), or a new one on the operator's instruction
-    if args.ticket and args.token:
-        tid, token = args.ticket, args.token
-    elif args.ticket or args.token:
-        print("Error: --ticket and --token go together (a ticket the caller has claimed)", file=sys.stderr)
-        return 2
-    else:
-        try:
-            vals = ticket_call("start", "--title", args.title, "--paths", ",".join(paths),
-                               "--actor", actor, *sum((["--evidence", e] for e in args.evidence), []))
-            tid, token = int(vals["TICKET_ID"]), vals["CLAIM_TOKEN"]
-        except (RuntimeError, KeyError, ValueError) as e:
-            print("Error: ticket start failed: %s" % e, file=sys.stderr)
-            return 1
+    claimed = claim_ticket(args, paths, actor)
+    if isinstance(claimed, int):
+        return claimed
+    tid, token = claimed
     branch, wt_dir = names(tid)
     result.update(ticket=tid, branch=branch, worktree=str(wt_dir))
     log("ticket #%d claimed (paths: %s)" % (tid, ", ".join(paths)))
@@ -1165,24 +1098,8 @@ def cmd_run(args) -> int:
                 new = sync_onto_main(repo, wt_dir, main_branch, base)
                 pending, base = (pending[0], new if pending[1] else ""), new
         else:
-            if wt_dir.exists() or git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0:
-                raise Failure("failed", "%s or %s is left over from an earlier run; "
-                              "inspect it, then `worktree_runner.py cleanup --ticket %d`" % (branch, wt_dir, tid))
-            _, base, _ = git(repo, "rev-parse", "HEAD")
-            start = base
-            if args.from_attic:   # go on from the head a failed attempt left; base is where that work forked
-                code, start, _ = git(repo, "rev-parse", "--verify", "--quiet", attic_ref(tid))
-                if code != 0:
-                    raise Failure("failed", "no %s to start from" % attic_ref(tid))
-                base = git(repo, "merge-base", base, start)[1]
-                from_attic = True
-            WORKTREE_BASE.mkdir(parents=True, exist_ok=True)
-            code, _, err = git(repo, "worktree", "add", "-b", branch, str(wt_dir), start)
-            if code != 0:
-                raise Failure("failed", "git worktree add failed", err)
+            base, from_attic = new_worktree(args, repo, tid, branch, wt_dir)
             created = True
-            log("worktree %s on %s (base %s%s)" % (wt_dir, branch, base[:8],
-                                                   ", from %s %s" % (attic_ref(tid), start[:8]) if from_attic else ""))
         result["base"] = base
         tasks = plan_tasks(args, st, paths)
         if args.resume or pick_up:

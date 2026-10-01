@@ -4,6 +4,13 @@
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 
+## 2026-10-02 — `worktree_runner.py` 80KB 아래: 검토 부분은 `review_checklist.py`로, `cmd_run` 앞부분은 단계로 (split/G, #541)
+
+- **변경**: 검토자에게 주는 프롬프트, diff를 한도에 맞추기, 판정 읽기(`review_prompt`·`doc_review_prompt`·`fit_diff`·`parse_review`·`is_doc_task`·`deleted_lines`·`DOC_CHECKLIST`·`DIFF_LIMIT`)를 `tools/review_checklist.py`로 — 실행은 안 하는 순수 함수라 러너가 다시 가져와 씀(`wr.parse_review` 등 기존 호출 그대로). `cmd_run`에서 인자 검사(`arg_error`), 티켓 얻기(`claim_ticket`), 새 작업 사본(`new_worktree`)을 뺌 — `created` 표시는 전처럼 사본이 생긴 뒤 호출 쪽에서. 82,775B → 77,791B, `cmd_run` 319 → 282줄. 크기 천장에 걸린 파이썬 파일이 이제 없음.
+- **동작 불변 확인**: 전체 테스트(러너 생명주기를 가짜 에이전트로 도는 `test_worktree_runner` 포함), 잘못된 인자 7가지에 옛/새 러너의 문구·종료 코드가 같음.
+- **재시작 불필요**: 러너는 위임마다 새 프로세스. 서버가 `delegation.runner()`로 들고 있는 옛 모듈은 바뀌지 않은 상태 함수만 씀.
+- **다음**: D1 ③ 위임 측정 기록(티켓마다 대상 파일 크기·걸린 시간·결과) — 이제 러너에 자리가 있음.
+
 ## 2026-10-01 — `session.py` 2단: 턴 실행을 `session_turn.py`로, 80KB 아래 (split/C, #540)
 
 - **변경**: `send`·`_start_turn`·`_run_btw`·`interrupt_current_turn`·`_rotate_to_fresh_session`·`continue_to_successor`를 믹스인 `SessionTurn`(`session_turn.py`)으로. `session.py` 98,453B → 73,028B — 일반 상한 80,000B 아래라 천장 항목을 지움(split/C 수용 기준 "한 줄도 못 붙이는 상태가 끝남" 충족). `_start_turn` 함수 천장은 새 위치로(185줄).

@@ -71,7 +71,7 @@ goes into `protected_paths.json`.
 | Private mode | `private_engine.py` (`RENDER_PROTOCOL`, Grok overlay, tension) + `engine_data/private_tension_{defaults,gemini,grok}.json`; items (given or used) and affection `items.py` + `engine_data/affection.json` (catalog `<workspace>/items.json`, pictures `<workspace>/items/<id>.webp` else `static/placeholders/item.webp`, state `characters/<id>/state.json`) |
 | Safety guards | `content_guard.py` + `engine_data/content_guards.json` |
 | Event mailbox (work/system/private events to characters, rooms, schedules) | `events.py` (publish, per-session cursors); delivery before a turn `server._turn_notices`; work phases `delegation.publish_work_changes`; characters speaking first `event_react.py` (settings `<workspace>/events.json`, team tab); group rooms `room_chat.py` (`/api/rooms`, members speak from hidden `room` sessions) — plan `docs/plans/character-events-and-rooms.md` |
-| Delegation | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py`; a stalled worker is cut early `delegation_watch.py` (activity probe: `AgentAdapter.last_activity`) |
+| Delegation | `delegation.py`, `mcp_server.py` `delegate`, `tools/worktree_runner.py` (review prompt, checklists and verdict reading `tools/review_checklist.py`); a stalled worker is cut early `delegation_watch.py` (activity probe: `AgentAdapter.last_activity`) |
 | Self-evolution core | `evolution.py`, `tickets.py`, `observations.py`, `memory_store.py` (core: stdlib + each other only) |
 | Loop / write guards | `loop_guard.py`, `write_guard.py` |
 | Logs | `obslog.py` (writes `logs/events.jsonl`), `logdigest.py` (reads it) |

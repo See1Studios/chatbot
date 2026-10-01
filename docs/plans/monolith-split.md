@@ -180,7 +180,7 @@ Phase 0–5는 **크기**를 다뤘다. 이 단계는 그 규칙이 통과하는
 | `split/E` | **생성물 커플링** | `protected_manifest.json`이 소스 옆에 커밋되고, 보호 파일을 건드리면 `evolution.py`의 `manifest-update`을 사람이 돌려야 한다. 테스트는 계속 추가 중 | 스텝을 자동화하거나, 커밋 대상에서 빼고 doctor에서 만든다 | 보호 파일 변경 뒤 사람이 손대지 않아도 가드가 통과 | 2 · — | S | — | 대기 |
 | `split/F` | **`static/role.js`** | 308줄. `index.html`이 참조하지 않고 `static/` 안에서도 아무도 부르지 않는데 `ratchet_baseline.json`에 남아 래칫이 세고 있다 | 쓰는 곳을 찾아 연결하거나, 죽은 파일이면 지우고 래칫 기준선에서 뺀다 | `ratchet_baseline.json`에 없는 파일은 어디에서도 로드되지 않음 | 2 · — | S | — | ✅ #532 — 죽은 파일이라 지움. 같이: 쓰는 곳 없던 `_touch_assistant_delta` 별칭과 늘 `_last_turn_activity_at`과 같던 옛 기록값 |
 | `split/0` | **상한 기준** | 줄 수는 읽는 양을 못 잼: `app-shell.js` 740줄 41.6KB ≈ `app.js` 980줄 42.6KB. 상한을 맞추려 한 줄에 우겨 넣은 문장(`session.py`, 335자) | 파일은 바이트, 함수는 줄 수로 잰다(6.7 결정 D1) | 두 테스트가 바이트·함수 래칫을 강제 | 0 · — | S | — | ✅ #530 |
-| `split/G` | **`tools/worktree_runner.py`** | 1,499줄 / 82,775B(상한 80,000 초과, 천장 고정). `tools/worktree_runner.py::cmd_run` 319줄 | `cmd_run`을 단계별로(준비·실행·관문·검토·병합). 그 뒤 위임 측정 기록(D1 ③) | 파일이 80,000B 아래로, `cmd_run` 천장을 낮춤 | 2 · — | M | — | 대기 |
+| `split/G` | **`tools/worktree_runner.py`** | 1,499줄 / 82,775B(상한 80,000 초과, 천장 고정). `tools/worktree_runner.py::cmd_run` 319줄 | `cmd_run`을 단계별로(준비·실행·관문·검토·병합). 그 뒤 위임 측정 기록(D1 ③) | 파일이 80,000B 아래로, `cmd_run` 천장을 낮춤 | 2 · — | M | — | ✅ #541 — 검토 프롬프트·diff 맞추기·판정 읽기(`review_prompt`·`doc_review_prompt`·`fit_diff`·`parse_review`·`DOC_CHECKLIST` …)를 `tools/review_checklist.py`로(러너가 다시 가져와 씀), `cmd_run`에서 인자 검사·티켓 얻기·새 작업 사본 만들기를 단계 함수로. 82,775B → 77,791B, `cmd_run` 319 → 282줄. **이제 크기 천장에 걸린 파이썬 파일 없음**(`CEILINGS` 빔). 남은 것: D1 ③ 위임 측정 기록 |
 
 ### 6.3 순서와 충돌
 
