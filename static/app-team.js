@@ -15,7 +15,7 @@ async function loadTeam() {
   try {
     [team, instr] = await Promise.all([api('/api/experts'), api('/api/instructions')]);
   } catch (e) {
-    teamListEl.textContent = '팀 정보를 불러오지 못했어요 (소생 필요할 수 있음): ' + (e.message || e);
+    teamListEl.textContent = '팀 정보를 불러오지 못했어요 (엔진 리부트 필요할 수 있음): ' + (e.message || e);
     return;
   }
   const files = {};

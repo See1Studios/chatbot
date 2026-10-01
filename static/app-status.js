@@ -665,7 +665,7 @@ async function loadInstructions() {
   try {
     res = await api('/api/instructions');
   } catch (e) {
-    statusInstructionsEl.textContent = '지침을 불러오지 못했어요 (소생 필요할 수 있음): ' + (e.message || e);
+    statusInstructionsEl.textContent = '지침을 불러오지 못했어요 (엔진 리부트 필요할 수 있음): ' + (e.message || e);
     return;
   }
   const items = res.items || [];
