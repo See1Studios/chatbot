@@ -1,7 +1,8 @@
 """card_prompt – character-generation prompt builders and detail specs.
 
-Builds system/user prompt pairs for LLM-based character card generation.
-Korean story fields, English image_prompt.  Pure stdlib, no LLM calls.
+1:1 clean port of ST-CardGen ``domain/character/prompt.ts`` and
+``domain/character/fieldDetail.ts``.  Korean story fields, English
+image_prompt / negative_prompt.  Pure stdlib, no LLM calls.
 
 See docs/plans/character-generation-system.md §1 for the design.
 """
@@ -15,43 +16,81 @@ CARD_FIELDS: List[str] = [
     "name", "description", "personality", "first_message",
     "scenario", "system_prompt", "creator_notes",
     "message_examples", "alternate_greetings",
-    "tags", "image_prompt",
+    "tags", "image_prompt", "negative_prompt",
 ]
 
-# ── profile specs ───────────────────────────────────────────────────
+# ── profile specs (ST-CardGen fieldDetail.ts 1:1 port) ──────────
+
+# Each field maps to quantitative targets:
+#   min_words / max_words  – word count range
+#   min_chars              – minimum character count
+#   min_paragraphs / max_paragraphs – paragraph range
+#   min_count / max_count  – item count range (lists)
+#   min_pairs / max_pairs  – dialogue pair range (mes_example)
 
 PROFILE_SPECS: Dict[str, Dict[str, Dict[str, int]]] = {
     "short": {
-        "description":         {"words": 80,  "paragraphs": 1},
-        "personality":         {"words": 60,  "paragraphs": 1},
-        "first_message":       {"words": 100, "paragraphs": 1},
-        "scenario":            {"words": 60,  "paragraphs": 1},
-        "system_prompt":       {"words": 40,  "paragraphs": 1},
-        "creator_notes":       {"words": 40,  "paragraphs": 1},
-        "message_examples":    {"count": 1,   "words_each": 80},
-        "alternate_greetings": {"count": 1,   "words_each": 60},
+        "description":         {"min_words": 60,  "max_words": 120,
+                                "min_paragraphs": 1, "max_paragraphs": 2},
+        "personality":         {"min_words": 40,  "max_words": 80,
+                                "min_paragraphs": 1, "max_paragraphs": 1},
+        "first_message":       {"min_words": 150, "max_words": 240,
+                                "min_chars": 700,
+                                "min_paragraphs": 2, "max_paragraphs": 3},
+        "scenario":            {"min_words": 40,  "max_words": 80,
+                                "min_paragraphs": 1, "max_paragraphs": 1},
+        "system_prompt":       {"min_words": 30,  "max_words": 60,
+                                "min_paragraphs": 1, "max_paragraphs": 1},
+        "creator_notes":       {"min_words": 30,  "max_words": 60,
+                                "min_paragraphs": 1, "max_paragraphs": 1},
+        "message_examples":    {"min_pairs": 1,   "max_pairs": 2},
+        "alternate_greetings": {"min_count": 1,   "max_count": 1},
+        "tags":                {"min_count": 4,   "max_count": 8},
     },
     "detailed": {
-        "description":         {"words": 200, "paragraphs": 2},
-        "personality":         {"words": 150, "paragraphs": 1},
-        "first_message":       {"words": 300, "paragraphs": 3},
-        "scenario":            {"words": 120, "paragraphs": 1},
-        "system_prompt":       {"words": 80,  "paragraphs": 1},
-        "creator_notes":       {"words": 80,  "paragraphs": 1},
-        "message_examples":    {"count": 2,   "words_each": 150},
-        "alternate_greetings": {"count": 2,   "words_each": 100},
+        "description":         {"min_words": 150, "max_words": 280,
+                                "min_paragraphs": 2, "max_paragraphs": 3},
+        "personality":         {"min_words": 100, "max_words": 180,
+                                "min_paragraphs": 1, "max_paragraphs": 2},
+        "first_message":       {"min_words": 220, "max_words": 360,
+                                "min_chars": 900,
+                                "min_paragraphs": 3, "max_paragraphs": 5},
+        "scenario":            {"min_words": 80,  "max_words": 150,
+                                "min_paragraphs": 1, "max_paragraphs": 2},
+        "system_prompt":       {"min_words": 50,  "max_words": 100,
+                                "min_paragraphs": 1, "max_paragraphs": 1},
+        "creator_notes":       {"min_words": 50,  "max_words": 100,
+                                "min_paragraphs": 1, "max_paragraphs": 1},
+        "message_examples":    {"min_pairs": 2,   "max_pairs": 3},
+        "alternate_greetings": {"min_count": 2,   "max_count": 2},
+        "tags":                {"min_count": 6,   "max_count": 10},
     },
     "verbose": {
-        "description":         {"words": 400, "paragraphs": 3},
-        "personality":         {"words": 250, "paragraphs": 2},
-        "first_message":       {"words": 500, "paragraphs": 5},
-        "scenario":            {"words": 200, "paragraphs": 2},
-        "system_prompt":       {"words": 120, "paragraphs": 1},
-        "creator_notes":       {"words": 120, "paragraphs": 1},
-        "message_examples":    {"count": 3,   "words_each": 200},
-        "alternate_greetings": {"count": 3,   "words_each": 150},
+        "description":         {"min_words": 300, "max_words": 500,
+                                "min_paragraphs": 3, "max_paragraphs": 4},
+        "personality":         {"min_words": 180, "max_words": 300,
+                                "min_paragraphs": 2, "max_paragraphs": 3},
+        "first_message":       {"min_words": 360, "max_words": 560,
+                                "min_chars": 1200,
+                                "min_paragraphs": 4, "max_paragraphs": 6},
+        "scenario":            {"min_words": 150, "max_words": 250,
+                                "min_paragraphs": 1, "max_paragraphs": 2},
+        "system_prompt":       {"min_words": 80,  "max_words": 150,
+                                "min_paragraphs": 1, "max_paragraphs": 1},
+        "creator_notes":       {"min_words": 80,  "max_words": 150,
+                                "min_paragraphs": 1, "max_paragraphs": 1},
+        "message_examples":    {"min_pairs": 3,   "max_pairs": 5},
+        "alternate_greetings": {"min_count": 2,   "max_count": 3},
+        "tags":                {"min_count": 8,   "max_count": 12},
     },
 }
+
+# ── default negative prompt (server-injected preset) ────────────
+
+DEFAULT_NEGATIVE_PROMPT = (
+    "low quality, blurry, deformed, bad anatomy, extra limbs, "
+    "mutated hands, poorly drawn face, watermark, text, signature"
+)
 
 
 def _resolve_specs(
@@ -75,31 +114,63 @@ def _resolve_specs(
 
 # ── field detail lines ──────────────────────────────────────────────
 
+def _format_spec_line(field: str, vals: Dict[str, int]) -> str:
+    """Format one field's spec into the ST-CardGen style detail line."""
+    parts: List[str] = []
+    if "min_words" in vals and "max_words" in vals:
+        parts.append("%d\u2013%d words" % (vals["min_words"],
+                                           vals["max_words"]))
+    if "min_chars" in vals:
+        parts.append("min %d characters" % vals["min_chars"])
+    if "min_paragraphs" in vals and "max_paragraphs" in vals:
+        mn, mx = vals["min_paragraphs"], vals["max_paragraphs"]
+        parts.append("%d\u2013%d paragraphs" % (mn, mx) if mn != mx
+                     else "%d paragraph(s)" % mn)
+    if "min_pairs" in vals and "max_pairs" in vals:
+        parts.append("%d\u2013%d dialogue pairs" % (vals["min_pairs"],
+                                                    vals["max_pairs"]))
+    if "min_count" in vals and "max_count" in vals:
+        mn, mx = vals["min_count"], vals["max_count"]
+        parts.append("%d\u2013%d items" % (mn, mx) if mn != mx
+                     else "%d item(s)" % mn)
+    suffix = ""
+    if "min_paragraphs" in vals and vals.get("max_paragraphs", 0) > 1:
+        suffix = ". Use \\n\\n between paragraphs"
+    return "- %s: %s%s" % (field, ", ".join(parts), suffix)
+
+
 def build_field_detail_lines(
     profile: str = "detailed",
     overrides: Optional[Dict[str, Dict[str, int]]] = None,
     fields: Optional[List[str]] = None,
 ) -> str:
-    """Return a multi-line string describing word/paragraph targets per field.
+    """Return a multi-line string describing quantitative targets per field.
 
-    When *fields* is given, only those fields are included in the output.
+    Output matches ST-CardGen ``fieldDetail.ts`` format::
+
+        - first_message: 220-360 words, min 900 characters, ...
+
+    When *fields* is given, only those fields appear in the output.
     """
     specs = _resolve_specs(profile, overrides)
     lines: List[str] = []
     for field, vals in specs.items():
         if fields is not None and field not in fields:
             continue
-        parts: List[str] = []
-        if "words" in vals:
-            parts.append("~%d words" % vals["words"])
-        if "paragraphs" in vals:
-            parts.append("%d paragraph(s)" % vals["paragraphs"])
-        if "count" in vals:
-            parts.append("%d item(s)" % vals["count"])
-        if "words_each" in vals:
-            parts.append("~%d words each" % vals["words_each"])
-        lines.append("- %s: %s" % (field, ", ".join(parts)))
+        lines.append(_format_spec_line(field, vals))
     return "\n".join(lines)
+
+
+# ── first_message quality rules (In Medias Res & Hook) ──────────
+
+_FIRST_MES_RULES = """\
+- first_message MUST begin In Medias Res: open mid-scene with vivid \
+sensory detail (location, sounds, weather, lighting). \
+NO greetings like "Hello" or "Hi there".
+- Include at least one line of quoted character dialogue.
+- End with a Hook: a question, urgent request, or sudden event that \
+naturally invites the user to respond.
+- Anti-puppeting: NEVER write the user's thoughts, speech, or actions."""
 
 
 # ── JSON prompt ─────────────────────────────────────────────────────
@@ -113,10 +184,8 @@ Output ONLY a single JSON object. No markdown, no commentary.
 </FORMAT>
 
 <RULES>
-- All story fields in Korean. image_prompt in English.
-- first_message: start In Medias Res with a dramatic hook. \
-End with a natural opening for the user.
-- No puppeting: never write the user's actions or dialogue.
+- All story fields in Korean. image_prompt and negative_prompt in English.
+{first_mes_rules}
 {field_detail_lines}
 </RULES>"""
 
@@ -132,7 +201,8 @@ _FORMAT_BLOCK = """\
   "message_examples": ["..."],
   "alternate_greetings": ["..."],
   "tags": ["..."],
-  "image_prompt": "..."
+  "image_prompt": "...",
+  "negative_prompt": "..."
 }"""
 
 
@@ -140,12 +210,23 @@ def build_character_gen_prompt(
     idea: str,
     profile: str = "detailed",
     overrides: Optional[Dict[str, Dict[str, int]]] = None,
+    *,
+    use_default_negative: bool = False,
 ) -> Tuple[str, str]:
-    """Return ``(system_prompt, user_prompt)`` for JSON-mode card generation."""
+    """Return ``(system_prompt, user_prompt)`` for JSON-mode card generation.
+
+    When *use_default_negative* is ``True``, the prompt tells the model to
+    skip writing ``negative_prompt`` (the caller injects the default).
+    """
     detail = build_field_detail_lines(profile, overrides)
+    neg_note = ""
+    if use_default_negative:
+        neg_note = ("\n- Omit negative_prompt; "
+                    "a default will be injected automatically.")
     system = _JSON_SYSTEM.format(
         format_block=_FORMAT_BLOCK,
-        field_detail_lines=detail,
+        first_mes_rules=_FIRST_MES_RULES,
+        field_detail_lines=detail + neg_note,
     )
     user = "Create a character from this idea:\n\n%s" % idea
     return system, user
@@ -156,7 +237,8 @@ def build_character_gen_prompt(
 _TAGGED_TEMPLATE = """\
 <TASK>
 Generate a character card from the idea below.
-Write ALL story fields in Korean. Write image_prompt in English.
+Write ALL story fields in Korean. Write image_prompt and \
+negative_prompt in English.
 </TASK>
 
 <IDEA>
@@ -168,9 +250,7 @@ Write ALL story fields in Korean. Write image_prompt in English.
 </DETAIL>
 
 <RULES>
-- first_message: start In Medias Res with a dramatic hook. \
-End with a natural opening for the user.
-- No puppeting: never write the user's actions or dialogue.
+{first_mes_rules}
 </RULES>
 
 Reply using EXACTLY these markers, one field per marker:
@@ -188,7 +268,8 @@ Reply using EXACTLY these markers, one field per marker:
 #ALTERNATE_GREETINGS#
 - ...
 #TAGS# tag1, tag2, ...
-#IMAGE_PROMPT# ..."""
+#IMAGE_PROMPT# ...
+#NEGATIVE_PROMPT# ..."""
 
 
 def build_tagged_prompt(
@@ -198,7 +279,11 @@ def build_tagged_prompt(
 ) -> str:
     """Return a single prompt string using ``#TAG#`` markers."""
     detail = build_field_detail_lines(profile, overrides)
-    return _TAGGED_TEMPLATE.format(idea=idea, field_detail_lines=detail)
+    return _TAGGED_TEMPLATE.format(
+        idea=idea,
+        field_detail_lines=detail,
+        first_mes_rules=_FIRST_MES_RULES,
+    )
 
 
 # ── fill-missing prompt ────────────────────────────────────────────
@@ -209,7 +294,7 @@ You are filling ONLY the missing fields of an existing character card.
 Output a JSON object containing ONLY the keys listed below.
 Do NOT repeat or modify fields that are already provided.
 
-All story fields in Korean. image_prompt in English.
+All story fields in Korean. image_prompt and negative_prompt in English.
 
 {field_detail_lines}"""
 
@@ -219,7 +304,6 @@ def build_fill_missing_prompt(
     existing_card: Dict[str, Any],
     missing_keys: List[str],
     profile: str = "detailed",
-    *,
     overrides: Optional[Dict[str, Dict[str, int]]] = None,
 ) -> Tuple[str, str]:
     """Return ``(system_prompt, user_prompt)`` to fill only *missing_keys*."""
@@ -245,7 +329,7 @@ Use the nonce {regen_nonce} as a creativity seed \
 -- the output must differ from the current version.
 Output a JSON object containing ONLY the listed keys.
 
-All story fields in Korean. image_prompt in English.
+All story fields in Korean. image_prompt and negative_prompt in English.
 
 {field_detail_lines}"""
 
@@ -284,7 +368,7 @@ def build_image_prompt(card: Dict[str, Any]) -> str:
     If *card* already contains ``image_prompt``, prefer it; otherwise
     derive visual cues from ``description``.
     """
-    name = card.get("name", "character")
+    name = (card.get("name") or "").strip() or "character"
     card_ip = (card.get("image_prompt") or "").strip()
     desc = (card.get("description") or "").strip()
 
@@ -297,7 +381,9 @@ def build_image_prompt(card: Dict[str, Any]) -> str:
     middle = card_ip if card_ip else visual
     parts = [
         "Portrait of %s." % name,
-        middle + "." if middle and not middle.endswith(".") else middle,
-        "Anime-style character portrait, upper body, detailed face, soft lighting.",
+        middle if middle.endswith((".", "!", "?")) else (middle + "." if middle else ""),
+        "Anime-style character portrait, upper body, "
+        "detailed face, soft lighting.",
     ]
+    return " ".join(p for p in parts if p)
     return " ".join(p for p in parts if p)
