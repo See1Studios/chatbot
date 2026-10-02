@@ -2,24 +2,15 @@
  "actor": "chat-agent:agy",
  "approved_at": "2026-10-03 00:41:15",
  "approved_by": "operator (ui)",
- "attempts": 1,
+ "attempts": 2,
  "created": "2026-10-03 00:41:11",
  "evidence": [
   "event:20261003-003358-6fd0a6#73"
  ],
  "gate_failures": 1,
  "id": 581,
+ "merge_pending": true,
  "notes": [
-  {
-   "by": "agent:agy",
-   "text": "claim refused: author lock is held for ticket 578 (static/markdown.js)",
-   "ts": "2026-10-03 01:00:29"
-  },
-  {
-   "by": "agent:agy",
-   "text": "claim refused: author lock is held for ticket 578 (static/markdown.js)",
-   "ts": "2026-10-03 01:00:39"
-  },
   {
    "by": "agent:agy",
    "text": "claim refused: author lock is held for ticket 578 (static/markdown.js)",
@@ -209,6 +200,16 @@
    "by": "agent:agy",
    "text": "gate_failed: worktree agy: task 1: review FAIL after 2 round(s)",
    "ts": "2026-10-03 02:13:10"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 2/3); paths: static/chat-features.css, static/index.html, static/markdown-map.js, static/markdown.js, tests/test_map_block.py",
+   "ts": "2026-10-03 02:16:41"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-581 at 2849ae2 (agy, review PASS round 2)",
+   "ts": "2026-10-03 02:41:48"
   }
  ],
  "paths": [
@@ -218,9 +219,9 @@
   "static/markdown.js",
   "tests/test_map_block.py"
  ],
- "status": "approved",
+ "status": "awaiting_merge",
  "target": "static/chat-features.css,static/markdown.js",
  "title": "[ui/map] Leaflet 기반 인앱 동적 지도 렌더러 지원 (마크다운 map 블록)",
- "updated": "2026-10-03 02:13:10",
+ "updated": "2026-10-03 02:41:48",
  "worked_by": "agy"
 }
