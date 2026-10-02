@@ -184,5 +184,28 @@ class OverHttp(unittest.TestCase):
         self.assertIsNone(headers.get("ETag"))
 
 
+
+class Fingerprint(unittest.TestCase):
+    """ASSET_RELOAD_v1: the page code's fingerprint moves when a js/css/html file changes, not for anything else."""
+
+    def test_it_follows_the_page_code_only(self):
+        import os
+        import tempfile
+        import static_delivery as SD
+        d = Path(tempfile.mkdtemp())
+        try:
+            (d / "app.js").write_text("a", encoding="utf-8")
+            (d / "sub").mkdir()
+            (d / "sub" / "x.css").write_text("b", encoding="utf-8")
+            first = SD.fingerprint(d)
+            self.assertEqual(SD.fingerprint(d), first)
+            (d / "pic.webp").write_bytes(b"img")
+            self.assertEqual(SD.fingerprint(d), first, "a picture is not page code")
+            (d / "sub" / "x.css").write_text("bb", encoding="utf-8")
+            self.assertNotEqual(SD.fingerprint(d), first)
+        finally:
+            import shutil
+            shutil.rmtree(d, ignore_errors=True)
+
 if __name__ == "__main__":
     unittest.main()

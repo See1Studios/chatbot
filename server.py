@@ -303,7 +303,16 @@ def _healthz(req: Req):
         "skip_permissions": True,
         "mcp_port": MCP_PORT,
         "boot_ts": BOOT_INFO["boot_ts"],
+        "static": _static_fingerprint(),   # ASSET_RELOAD_v1: a restart with new page code reloads open pages
     })
+
+
+def _static_fingerprint() -> str:
+    from host_config import STATIC
+    try:
+        return static_delivery.fingerprint(STATIC)
+    except OSError:
+        return ""
 
 
 def _host_status(req: Req):

@@ -79,3 +79,20 @@ def if_none_match(header: Optional[str], etag: str) -> bool:
         if c.lstrip("W/").strip() == want:
             return True
     return False
+
+
+CODE_EXT = (".js", ".css", ".html")
+
+
+def fingerprint(folder: os.PathLike) -> str:
+    """The page code's version (ASSET_RELOAD_v1): a short hash over the names, sizes and mtimes of the js/css/html
+    files. An open page keeps the code it loaded across a host restart; when the restarted host reports a different
+    fingerprint, the page reloads itself (static/app-api.js reloadIfAssetsChanged). Stats only, no reads."""
+    import hashlib
+    root = Path(folder)
+    h = hashlib.sha1()
+    for p in sorted(root.rglob("*")):
+        if p.suffix in CODE_EXT and p.is_file():
+            st = p.stat()
+            h.update(("%s:%d:%d\n" % (p.relative_to(root).as_posix(), st.st_size, int(st.st_mtime))).encode("utf-8"))
+    return h.hexdigest()[:12]

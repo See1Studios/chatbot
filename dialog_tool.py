@@ -33,7 +33,9 @@ TOOL_DEFS = [{
                    "say), or go over to their desk and do something in person (kind action: a stage direction such "
                    "as 'sets a coffee on Kit's desk', which they take as done to them) -- to a dialog_id, or to a "
                    "character by id/role/name with `to`; reply_to answers a message "
-                   "number of that thread. dialog_id is an id exactly as list or the [Office] line gives it.",
+                   "number of that thread. dialog_id is an id exactly as list or the [Office] line gives it. "
+                   "Anything you physically do -- leave or hand over something, tap a shoulder, wave -- is kind "
+                   "action; kind say is only words they read or hear. Never narrate an action as a say.",
     "inputSchema": {
         "type": "object",
         "properties": {

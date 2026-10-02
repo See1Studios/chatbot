@@ -820,12 +820,13 @@ function bindEvents(sid) {
 // '엔진 리부트 완료 ✦' in the progress bar. No boot_ts (older server) -> nothing.
 let lastBootTs = null;
 async function checkRevived() {
-  let ts;
-  try { ts = (await api('/healthz', { timeoutMs: 5000 })).boot_ts; } catch (_) { return; }
+  let ts, fp;
+  try { const h = await api('/healthz', { timeoutMs: 5000 }); ts = h.boot_ts; fp = h.static; } catch (_) { return; }
   if (!ts) return;
   const revived = lastBootTs !== null && ts !== lastBootTs;
   lastBootTs = ts;
-  if (!revived) return;
+  if (!revived) { if (typeof notePageAssets === 'function') notePageAssets(fp); return; }
+  if (typeof reloadIfAssetsChanged === 'function' && reloadIfAssetsChanged(fp)) return;   // ASSET_RELOAD_v1
   const msg = '엔진 리부트 완료 ✦';
   setProgress(msg, true);
   setTimeout(() => {

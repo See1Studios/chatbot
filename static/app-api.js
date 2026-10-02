@@ -183,6 +183,34 @@ function showRebootOverlay() {
   };
 }
 
+// ASSET_RELOAD_v1: an open page keeps the code it loaded across a host restart. /healthz reports the page code's
+// fingerprint (`static`); the first one seen is this page's own, and a restart that brought a different one reloads
+// the page -- under the restart overlay when the button did it -- keeping the unsent draft for the reloaded page.
+let pageAssetsFp = null;
+const RELOAD_DRAFT_KEY = 'chatbot.reloadDraft';
+
+function notePageAssets(fp) {
+  if (fp && pageAssetsFp === null) pageAssetsFp = fp;
+}
+
+function reloadIfAssetsChanged(fp) {
+  if (!fp || pageAssetsFp === null || fp === pageAssetsFp) { notePageAssets(fp); return false; }
+  try {
+    const draft = typeof inputEl !== 'undefined' && inputEl ? inputEl.value : '';
+    if (draft) sessionStorage.setItem(RELOAD_DRAFT_KEY, draft);
+  } catch (_) {}
+  window.location.reload();
+  return true;
+}
+
+function restoreReloadDraft() {
+  try {
+    const draft = sessionStorage.getItem(RELOAD_DRAFT_KEY);
+    sessionStorage.removeItem(RELOAD_DRAFT_KEY);
+    if (draft && typeof inputEl !== 'undefined' && inputEl && !inputEl.value) inputEl.value = draft;
+  } catch (_) {}
+}
+
 async function defibrillateHost() {
   if (!(await confirmModal('엔진을 리부트(재기동)할까요?\n호스트가 재기동되며 몇 초 연결이 끊깁니다.', { confirmLabel: '리부트', danger: false }))) return;
   setProgress('엔진 리부트 중…', true);
@@ -193,7 +221,11 @@ async function defibrillateHost() {
   try {
     hud.log('[ENGINE] Reboot initiated…');
     let beforeBootTs = null;
-    try { beforeBootTs = (await api('/healthz', { timeoutMs: 5000 })).boot_ts ?? null; } catch (_) {}
+    try {
+      const before = await api('/healthz', { timeoutMs: 5000 });
+      beforeBootTs = before.boot_ts ?? null;
+      notePageAssets(before.static);
+    } catch (_) {}
     try {
       await api('/api/host/defibrillate', { method: 'POST', body: '{}' });
     } catch (_) {
@@ -212,6 +244,13 @@ async function defibrillateHost() {
       addActivity('엔진 리부트 실패/시간초과');
       return;
     }
+    try {
+      if (reloadIfAssetsChanged((await api('/healthz', { timeoutMs: 5000 })).static)) {
+        hud.log('[UI] New page code — reloading…', 'cyan');
+        done = true;
+        return;
+      }
+    } catch (_) {}
     setProgress('엔진 리부트 완료 · 세션 재연결…', true);
     await ensureSession();
     hud.log('[ONLINE] Core restored · Session linked ✦', 'ok');
