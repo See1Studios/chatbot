@@ -5,6 +5,12 @@
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 2026-10-01 기록은 하루 예산을 넘어 [devlog/2026-10-01.md](devlog/2026-10-01.md)로 회전했습니다.
 
+## 2026-10-02 — [cgs/D] 캐릭터 카드 생성 및 보완 도구 (tools/card_gen.py) (#574, 위임 agy)
+
+- **커밋**: `35145e3` fix(card_gen): align patch application with Chara V2 schema and handle CLI regen failure, `e073393` feat(card_gen): port ST-CardGen missing field filling and regeneration verification
+- **바뀐 파일**: `tests/test_card_gen.py`, `tools/card_gen.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-02 — [qfr/0] 모델 쿼터 소진·한도 도달 및 제공자 장애 대응 계획 수립 (#566, 위임 agy)
 
 - **커밋**: `9f6f0a8` docs(plans): register quota failure resilience plan (qfr/0)
