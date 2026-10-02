@@ -3,13 +3,15 @@
  "approved_at": "2026-10-03 00:36:56",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-03 00:12:09",
  "evidence": [
   "event:20261002-235942-4563e3#81"
  ],
  "gate_failures": 0,
  "id": 579,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -25,14 +27,29 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-579 at 315b5ea (agy, review PASS round 2)",
    "ts": "2026-10-03 00:50:40"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-03 00:57:16"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 55ad24c on the operator's word (agy)",
+   "ts": "2026-10-03 00:59:40"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-03 00:59:40"
   }
  ],
  "paths": [
   "static/app-device.js"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/app-device.js",
  "title": "[geo/fix] 페이지 로드 시 위치 동기화(geoEnabled) 실패 시 getClientContext 재조회 누락 버그 수정",
- "updated": "2026-10-03 00:50:40",
+ "updated": "2026-10-03 00:59:40",
  "worked_by": "agy"
 }
