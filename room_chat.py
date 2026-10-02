@@ -303,14 +303,81 @@ def say(rid: str, text: str) -> Dict:
     return msg
 
 
+def artifacts_dir(rid: str) -> Path:
+    return _dir() / rid / "artifacts"
+
+
+def artifacts(rid: str) -> List[dict]:
+    r = room(rid)
+    if r is None:
+        raise ValueError("no such room")
+    adir = artifacts_dir(rid)
+    if not adir.exists():
+        return []
+    exts_img = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
+    exts_doc = {".md", ".txt", ".json", ".pdf", ".html", ".csv", ".yaml", ".yml"}
+    exts_code = {".py", ".js", ".ts", ".gd", ".sh", ".sql", ".css"}
+    found = []
+    seen_sizes = set()
+    seen_names = set()
+    from urllib.parse import quote
+    try:
+        for fp in adir.rglob("*"):
+            if not fp.is_file() or fp.name.startswith("."):
+                continue
+            if any(part.startswith(".") for part in fp.parts[:-1]):
+                continue
+            suffix = fp.suffix.lower()
+            if suffix not in exts_img and suffix not in exts_doc and suffix not in exts_code:
+                continue
+            try:
+                sz = fp.stat().st_size
+            except OSError:
+                continue
+            if sz in seen_sizes and sz > 5000:
+                continue
+            if fp.name in seen_names:
+                continue
+            seen_sizes.add(sz)
+            seen_names.add(fp.name)
+
+            kind = "image" if suffix in exts_img else ("document" if suffix in exts_doc else "code")
+            url = f"/api/file/raw?path={quote(str(fp))}"
+
+            if sz >= 1024 * 1024:
+                sz_str = f"{sz / (1024 * 1024):.1f} MB"
+            elif sz >= 1024:
+                sz_str = f"{sz / 1024:.0f} KB"
+            else:
+                sz_str = f"{sz} B"
+
+            mtime = fp.stat().st_mtime
+            found.append({
+                "name": fp.name,
+                "stem": fp.stem,
+                "kind": kind,
+                "ext": suffix.lstrip("."),
+                "size": sz,
+                "size_human": sz_str,
+                "url": url,
+                "mtime": mtime,
+                "date": time.strftime("%Y-%m-%d %H:%M", time.localtime(mtime)),
+            })
+    except Exception:
+        pass
+    found.sort(key=lambda x: x["mtime"], reverse=True)
+    return found
+
+
 # ------------------------------------------------------------------------------------------------ http
 
 def api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, Dict]]:
     """GET /api/rooms · POST /api/rooms {name, members, strategy} · GET /api/rooms/<id>?after=n (via path suffix
-    /after/<n>) · POST /api/rooms/<id>/say {text}. A POST is the operator's page (same-origin checked by the caller)."""
-    if not (path == "/api/rooms" or path.startswith("/api/rooms/")):
+    /after/<n>) · GET /api/rooms/<id>/artifacts · POST /api/rooms/<id>/say {text}. A POST is the operator's page."""
+    clean_path = path.split("?")[0]
+    if not (clean_path == "/api/rooms" or clean_path.startswith("/api/rooms/")):
         return None
-    rest = path[len("/api/rooms"):].strip("/").split("/")
+    rest = clean_path[len("/api/rooms"):].strip("/").split("/")
     try:
         if method == "GET" and rest == [""]:
             return 200, {"ok": True, "rooms": rooms()}
@@ -322,6 +389,9 @@ def api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, Dic
         r = room(rid)
         if r is None:
             return 404, {"ok": False, "error": "no such room"}
+        if method == "GET" and len(rest) == 2 and rest[1] == "artifacts":
+            arts = artifacts(rid)
+            return 200, {"ok": True, "artifacts": arts, "total": len(arts), "next_before": None}
         if method == "GET" and (len(rest) == 1 or (len(rest) == 3 and rest[1] == "after" and rest[2].isdigit())):
             after = int(rest[2]) if len(rest) == 3 else 0
             return 200, {"ok": True, "room": {k: r[k] for k in ("id", "name", "mode", "members", "strategy")},

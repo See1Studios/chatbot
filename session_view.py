@@ -337,44 +337,40 @@ class SessionView:
         return out
 
     def get_artifacts(self) -> List[dict]:
-        SESSIONS, WORKSPACE, DATA, ARTIFACTS_CACHE = (_session().SESSIONS, _session().WORKSPACE, _session().DATA,
-                                                      _session().ARTIFACTS_CACHE)
+        SESSIONS = _session().SESSIONS
         exts_img = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
         exts_doc = {".md", ".txt", ".json", ".pdf", ".html", ".csv", ".yaml", ".yml"}
         exts_code = {".py", ".js", ".ts", ".gd", ".sh", ".sql", ".css"}
 
         provider_dirs = list(self._artifact_dirs())
         roots = list(provider_dirs)
-        ws_artifacts = WORKSPACE / "artifacts"
-        persona_root = DATA / "persona"
-        persona_gallery = persona_root / "gallery"
-        roots.append(ws_artifacts)
-        roots.append(ARTIFACTS_CACHE)  # legacy/shared assets not tied to one session
-        roots.append(persona_gallery)
 
-        # First cut (2026-09-18) only walked self.sid + predecessor_session_id, on the theory that images just needed
-        # to survive a /continue or heavy-session auto-rotate. operator corrected that framing: "아티팩트 탭은 모든
-        # 디바이스 모든 세션 공통인데" -- the tab is meant to be one shared gallery across every session/device, not
-        # scoped to whichever conversation happens to be open. So scan every session's own artifacts/ folder, not just
-        # this session's ancestor chain.
         session_artifact_roots: Dict[Path, str] = {}
-        for meta_path in SESSIONS.glob("*/meta.json"):
-            sid = meta_path.parent.name
-            adir = meta_path.parent / "artifacts"
-            session_artifact_roots[adir] = sid
-            roots.append(adir)
+        # First cut (2026-09-18) only walked self.sid + predecessor_session_id. operator: "아티팩트 탭은 모든
+        # 디바이스 모든 세션 공통인데" -> ticket #575: 1:1 세션 및 단체방별 고유 격리로 분리.
+        my_adir = self.meta_path.parent / "artifacts"
+        session_artifact_roots[my_adir] = self.sid
+        roots.append(my_adir)
+
+        curr_pred = getattr(self, "predecessor_session_id", "") or ""
+        seen_sids = {self.sid}
+        while curr_pred and curr_pred not in seen_sids:
+            seen_sids.add(curr_pred)
+            p_dir = SESSIONS / curr_pred / "artifacts"
+            session_artifact_roots[p_dir] = curr_pred
+            roots.append(p_dir)
+            p_meta = SESSIONS / curr_pred / "meta.json"
+            curr_pred = ""
+            if p_meta.is_file():
+                try:
+                    data = json.loads(p_meta.read_text(encoding="utf-8"))
+                    curr_pred = str(data.get("predecessor_session_id") or "")
+                except Exception:
+                    break
 
         found = []
         seen_sizes = set()
         seen_names = set()
-
-        # Only a provider's raw generation cache (its artifact dirs) needs
-        # _stage_image's copy-out-of-cache treatment. Everything else found
-        # below is already sitting in a stable, directly-servable location --
-        # calling _stage_image on it would copy it AGAIN into this session's
-        # own folder on every single gallery view (caught 2026-09-16: viewing
-        # an empty session's artifact tab silently vacuumed every image out
-        # of sessions/_shared/ into that session's own artifacts/ folder).
         brain_source_roots = set(provider_dirs)
 
         for root in roots:
@@ -406,10 +402,6 @@ class SessionView:
                     elif root in session_artifact_roots:
                         owner_sid = session_artifact_roots[root]
                         url = f"/artifacts/{owner_sid}/{fp.relative_to(root).as_posix()}"
-                    elif root == ARTIFACTS_CACHE or root == ws_artifacts:
-                        url = f"/artifacts/{fp.relative_to(root).as_posix()}"
-                    elif root == persona_gallery:
-                        url = "/persona/" + fp.relative_to(persona_root).as_posix()
                     else:
                         url = f"/artifacts/{fp.name}"
 

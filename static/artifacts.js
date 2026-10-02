@@ -16,11 +16,36 @@ var artifactsTotal = 0;
 var artifactsNextBefore = null;
 var artifactsLoadingMore = false;
 var activeModalArtifact = null;
+var lastArtifactTargetKey = '';
+
+function activeArtifactOwner() {
+  const rid = typeof roomOpenId === 'function' ? roomOpenId() : '';
+  if (rid) return { type: 'room', id: rid, url: '/api/rooms/' + encodeURIComponent(rid) + '/artifacts' };
+  const sid = typeof sessionId !== 'undefined' ? sessionId : '';
+  if (sid) return { type: 'session', id: sid, url: '/api/sessions/' + encodeURIComponent(sid) + '/artifacts' };
+  return null;
+}
+
+function checkArtifactTargetSwitch(target) {
+  const key = target ? (target.type + ':' + target.id) : '';
+  if (key !== lastArtifactTargetKey) {
+    lastArtifactTargetKey = key;
+    currentArtifacts = [];
+    artifactsTotal = 0;
+    artifactsNextBefore = null;
+    updateArtifactBadge();
+    renderArtifacts();
+    return true;
+  }
+  return false;
+}
 
 async function fetchArtifacts(silent) {
-  if (!sessionId) return;
+  const target = activeArtifactOwner();
+  checkArtifactTargetSwitch(target);
+  if (!target) return;
   try {
-    const res = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/artifacts');
+    const res = await api(target.url);
     currentArtifacts = res.artifacts || [];
     artifactsTotal = res.total != null ? res.total : currentArtifacts.length;
     artifactsNextBefore = res.next_before || null;
@@ -35,16 +60,18 @@ async function fetchArtifacts(silent) {
 // scroll-up-to-load-older(loadOlderHistory)와 같은 정책이지만, 대화는
 // predecessor_session_id 체인을 걷는 것이고 이건 그냥 mtime 커서 페이지네이션
 // (operator 2026-09-18: "전체 세션 통틀어 최신순 무한 스크롤" -- 대화 탭 스크롤과는
-// 무관하게 독립 동작으로 확인).
+// 무관하게 독립 동작으로 확인; ticket #575에서 대화방별 완벽 격리 적용).
 async function loadMoreArtifacts() {
-  if (!sessionId || artifactsLoadingMore || !artifactsNextBefore) return;
+  const target = activeArtifactOwner();
+  if (!target || artifactsLoadingMore || !artifactsNextBefore) return;
   artifactsLoadingMore = true;
   const marker = document.createElement('div');
   marker.className = 'art-loading-marker';
   marker.textContent = '이전 아티팩트 불러오는 중…';
   if (artGrid) artGrid.appendChild(marker);
   try {
-    const res = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/artifacts?before=' + encodeURIComponent(artifactsNextBefore));
+    const sep = target.url.includes('?') ? '&' : '?';
+    const res = await api(target.url + sep + 'before=' + encodeURIComponent(artifactsNextBefore));
     currentArtifacts = currentArtifacts.concat(res.artifacts || []);
     artifactsTotal = res.total != null ? res.total : artifactsTotal;
     artifactsNextBefore = res.next_before || null;
