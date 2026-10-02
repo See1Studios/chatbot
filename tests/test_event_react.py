@@ -244,6 +244,20 @@ class CoworkerVisits(unittest.TestCase):
         self.D.append(r["id"], self.a, "standup in five")
         self.assertIsNone(R.react_on_open(self.reg, self.b, now=time.time(), cfg=self.cfg), "a meeting room is not")
 
+    def test_a_soft_session_still_reacts_to_a_visit_a_hard_one_does_not(self):
+        ab = self.D.dm_id(self.a, self.b)
+        self.kit.subscribers = [object()]
+        self.kit.level = "hard"
+        self.D.append(ab, self.a, "waves", kind="action")
+        self.assertEqual(self.once(), [], "hard: the session needs a rotation first")
+        self.assertIsNone(R.react_on_open(self.reg, self.b, now=time.time(), cfg=self.cfg))
+        self.kit.level = "soft"                                # live 2026-10-02: soft kept every visit unanswered
+        self.assertEqual(R.react_on_open(self.reg, self.b, now=time.time(), cfg=self.cfg)["sid"], "s-kit")
+        self.kit.done.wait(5)
+        self.D.append(ab, self.a, "*sets a coffee down*")
+        self.kit.done.clear()
+        self.assertTrue(self.once(), "watched, soft: a visit is answered")
+
     def test_unwatched_or_in_a_meeting_room_no_reaction(self):
         ab = self.D.dm_id(self.a, self.b)
         self.D.append(ab, self.a, "ping")

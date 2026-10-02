@@ -132,11 +132,15 @@ def _office_note(evts: List[Dict], character: str, sid: str):
     return "; ".join(lines), upto
 
 
-def _heavy(sess) -> bool:
+def _heavy(sess, visit: bool = False) -> bool:
+    """Whether a reaction would push the session too far. A coworker's visit the user is watching (D11) is one or two
+    lines, so it waits only at "hard"; every other reaction already waits at "soft" (live 2026-10-02: soft is reached
+    after a while of talk and kept every visit unanswered)."""
     try:
-        return (sess.weight() or {}).get("level") in HEAVY
+        level = (sess.weight() or {}).get("level")
     except Exception:  # noqa: BLE001 -- an unknown weight does not block a reaction
         return False
+    return level == "hard" if visit else level in HEAVY
 
 
 def _recent_reactions(character: str, now: float) -> int:
@@ -182,7 +186,10 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
                 events._log("react.defer", reason="per_hour", character=cid, dedup="react.defer:rate:" + cid)
             continue
         sess = reg._newest(mode="work", character=cid)
-        if sess is not None and _heavy(sess):
+        if sess is not None and _heavy(sess) and not _heavy(sess, visit=True) \
+                and any(e["type"] == "msg.new" for e in wanted):
+            wanted = [e for e in wanted if e["type"] == "msg.new"]   # soft: only a coworker's visit (D11)
+        elif sess is not None and _heavy(sess):
             events._log("react.skip", reason="session_heavy", character=cid, sid=sess.sid)
             events.mark(key, got[-1]["id"])
             continue
@@ -223,7 +230,7 @@ def react_on_open(reg, character: str, now: Optional[float] = None, cfg: Optiona
         events._log("react.defer", reason="conversation_running", dedup="react.defer:conversation_running")
         return None
     sess = reg._newest(mode="work", character=character)
-    if sess is None or _heavy(sess):
+    if sess is None or _heavy(sess, visit=True):
         return None
     import dialog_log
     dms = [{"subject": d} for d in dialog_log.dialogs_of(character) if dialog_log.is_dm(d)]
