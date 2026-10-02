@@ -3,19 +3,16 @@
  "approved_at": "2026-10-02 11:59:19",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-02 11:53:39",
  "evidence": [
   "event:20261002-105519-500855#100"
  ],
  "gate_failures": 0,
  "id": 566,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
-  {
-   "by": "operator (ui)",
-   "text": "approved",
-   "ts": "2026-10-02 11:59:19"
-  },
   {
    "by": "agent:agy",
    "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
@@ -200,15 +197,30 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-566 at c0f1970 (agy, doc review FAIL (advice: 1. `docs/plans/quota-failure-resilience.md` §5 의사결정 표 D4의 상태를 `**합의**`에서 `제안`으로 바꾼다. 사용자가 승인했다는 기록이 diff에도 티켓에도 없고, D1~D3은 이미 `제안`이다.\n2. 같은 문서 맨 위 `> 방향 (align/D, 2026-10-02)` 줄은 방향 정렬이 이미 끝난 것처럼 읽힌다. 실제 정렬 기록이 있으면 그 출처(티켓이나 문서)를 적고, 없으면 \"방향 (제안)\"처럼 제안 표기로 고친다.\n3. §3 현황 점검에 적은 `ERROR_MESSAGE_FAILFAS) round 1)",
    "ts": "2026-10-02 12:14:18"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-02 12:21:42"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 9f6f0a8 on the operator's word (agy)",
+   "ts": "2026-10-02 12:22:39"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-02 12:22:39"
   }
  ],
  "paths": [
   "docs/plans/INDEX.md",
   "docs/plans/quota-failure-resilience.md"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "docs/plans/index.md,docs/plans/quota-failure-resilience.md",
  "title": "[qfr/0] 모델 쿼터 소진·한도 도달 및 제공자 장애 대응 계획 수립",
- "updated": "2026-10-02 12:14:18",
+ "updated": "2026-10-02 12:22:39",
  "worked_by": "agy"
 }

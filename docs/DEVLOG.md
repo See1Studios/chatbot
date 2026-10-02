@@ -5,6 +5,12 @@
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 2026-10-01 기록은 하루 예산을 넘어 [devlog/2026-10-01.md](devlog/2026-10-01.md)로 회전했습니다.
 
+## 2026-10-02 — [qfr/0] 모델 쿼터 소진·한도 도달 및 제공자 장애 대응 계획 수립 (#566, 위임 agy)
+
+- **커밋**: `9f6f0a8` docs(plans): register quota failure resilience plan (qfr/0)
+- **바뀐 파일**: `docs/plans/INDEX.md`, `docs/plans/quota-failure-resilience.md`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-02 — [grh/A] 단체방 헤더 카드 스택 아바타 연출 및 최근 발화자 동기화 (#561, 위임 agy)
 
 - **커밋**: `5d64dd5` fix(rooms): verify updateBrandAvatar signature and direct roomClose avatar restoration, `5d2db56` feat(rooms): avatar card stack and sync for group room header (grh/A)
