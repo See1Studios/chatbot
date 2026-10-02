@@ -31,6 +31,11 @@ PROMPT = ("[Event -- the user did not write this] {note}\nTell the user about it
 OFFICE_PROMPT = ("[Office -- the user did not write this] {note}\nThis just happened at your desk, in front of the "
                  "user, who saw it. React now in one or two short lines, in character. Do not use tools and do not "
                  "start any work.")
+# The user has just come to the desk and sees what a coworker did there earlier (D11; like the scene line on entering
+# or leaving a private talk, private-mode 8.5: the character answers the scene first)
+OFFICE_OPEN_PROMPT = ("[Office -- the user did not write this] {note}\nThis happened at your desk while the user was "
+                      "away; the user has just come over and can see it. React now in one or two short lines, in "
+                      "character. Do not use tools and do not start any work.")
 
 
 def _ws() -> Path:
@@ -203,6 +208,37 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
         threading.Thread(target=_speak, args=(sess, text), name="event-react", daemon=True).start()
         sent.append({"character": cid, "sid": sess.sid, "events": [e["id"] for e in wanted]})
     return sent
+
+
+def react_on_open(reg, character: str, now: Optional[float] = None, cfg: Optional[Dict] = None) -> Optional[Dict]:
+    """The user just opened `character`'s work window (D11): if a coworker's dm there is still unheard by that
+    session, it reacts once now. Same switch (msg.new) and limits as react_once; nothing when nothing is unheard."""
+    now = now or time.time()
+    cfg = cfg or load_config()
+    if "msg.new" not in cfg["auto"] or _quiet(cfg, now):
+        return None
+    with reg.lock:
+        sessions = list(reg.sessions.values())
+    if any(getattr(s, "busy", False) for s in sessions):
+        events._log("react.defer", reason="conversation_running", dedup="react.defer:conversation_running")
+        return None
+    sess = reg._newest(mode="work", character=character)
+    if sess is None or _heavy(sess):
+        return None
+    import dialog_log
+    dms = [{"subject": d} for d in dialog_log.dialogs_of(character) if dialog_log.is_dm(d)]
+    note, upto = _office_note(dms, character, sess.sid)
+    if not note:
+        return None
+    if _recent_reactions(character, now) >= cfg["per_hour"]:
+        events._log("react.defer", reason="per_hour", character=character, dedup="react.defer:rate:" + character)
+        return None
+    events.publish("react.sent", [character], subject=character, at=now, events=[])
+    for did, n in upto.items():
+        dialog_log.saw(character, sess.sid, did, n)
+    threading.Thread(target=_speak, args=(sess, OFFICE_OPEN_PROMPT.format(note=note)), name="office-open",
+                     daemon=True).start()
+    return {"character": character, "sid": sess.sid}
 
 
 def loop(reg, stop: Optional[threading.Event] = None) -> None:

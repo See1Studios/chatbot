@@ -77,14 +77,17 @@ class Page(unittest.TestCase):
         self.assertEqual(o["again"], 3, "opened again: nothing twice")
         self.assertIsNone(o["privateDraw"], "a private talk is undisturbed")
         self.assertIsNone(o["roomDraw"], "a meeting room's screen is its own")
-        self.assertEqual(o["calls"], ["/api/office?character=b", "/api/office?character=b"], "no character: no call")
+        self.assertEqual(o["calls"], ["/api/office?character=b", "/api/office/opened?character=b"] * 2,
+                         "each open draws, then tells the host the window is open; no character: no call")
 
     def test_the_page_loads_it_and_the_stream_and_the_session_use_it(self):
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         self.assertLess(html.index('src="./app-rooms.js'), html.index('src="./app-office.js'))
         self.assertLess(html.index('src="./app-office.js'), html.index('src="./app.js'))
-        self.assertIn("type === 'office'", (STATIC / "app-sse.js").read_text(encoding="utf-8"))
-        self.assertIn("officeLoad()", (STATIC / "app-session.js").read_text(encoding="utf-8"))
+        sse = (STATIC / "app-sse.js").read_text(encoding="utf-8")
+        self.assertIn("type === 'office'", sse)
+        opened = sse[sse.index("es.onopen"):]
+        self.assertIn("officeLoad()", opened[:opened.index("};")], "every stream open, so a host restart redraws them")
 
 
 class FakeReq:
@@ -159,6 +162,17 @@ class Routes(unittest.TestCase):
         self.assertEqual(windows[self.a].got[0]["msg"]["mine"], True, "the sender's window shows its own line")
         self.assertEqual(windows[self.b].got[0]["event"], "office")
         react.assert_called_once()
+        with mock.patch("event_react.react_on_open") as on_open:
+            req = FakeReq(character=self.b)
+            RS.office_opened(req)
+            self.assertEqual(req.out, (200, {"ok": True}))
+            for t in __import__("threading").enumerate():
+                if t.name == "office-open-check":
+                    t.join(5)
+        self.assertEqual(on_open.call_args[0][1], self.b)
+        bad = FakeReq(character="x")
+        RS.office_opened(bad)
+        self.assertEqual(bad.out[0], 400)
         for q in ({"dialog": ab, "n": "9"}, {"dialog": "room_x", "n": "1"}, {"dialog": ab}):
             req = FakeReq(**q)
             RS.office_notify(req)

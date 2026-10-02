@@ -225,6 +225,25 @@ class CoworkerVisits(unittest.TestCase):
         self.assertIn("in front of the user", text)
         self.assertEqual(self.D.unread(self.b, ab, "s-kit"), (0, 0), "heard in front of the user")
 
+    def test_opening_the_window_reacts_once_to_what_is_unheard(self):
+        ab = self.D.dm_id(self.a, self.b)
+        self.D.append(ab, self.a, "leaves the report on Kit's desk", kind="action")
+        self.once()                                            # unwatched: nothing yet
+        off = R.clean({"auto": ["work.phase"], "per_hour": 5, "quiet": [0, 8]})
+        self.assertIsNone(R.react_on_open(self.reg, self.b, now=time.time(), cfg=off), "switched off")
+        self.kit.busy = True
+        self.assertIsNone(R.react_on_open(self.reg, self.b, now=time.time(), cfg=self.cfg), "a conversation runs")
+        self.kit.busy = False
+        got = R.react_on_open(self.reg, self.b, now=time.time(), cfg=self.cfg)
+        self.assertEqual(got, {"character": self.b, "sid": "s-kit"})
+        self.kit.done.wait(5)
+        self.assertIn("Boss (came by your desk): leaves the report on Kit's desk", self.kit.sent[0][0])
+        self.assertIn("the user has just come over", self.kit.sent[0][0])
+        self.assertIsNone(R.react_on_open(self.reg, self.b, now=time.time(), cfg=self.cfg), "heard: not again")
+        r = self.RC.create("Desk", [self.a, self.b])
+        self.D.append(r["id"], self.a, "standup in five")
+        self.assertIsNone(R.react_on_open(self.reg, self.b, now=time.time(), cfg=self.cfg), "a meeting room is not")
+
     def test_unwatched_or_in_a_meeting_room_no_reaction(self):
         ab = self.D.dm_id(self.a, self.b)
         self.D.append(ab, self.a, "ping")

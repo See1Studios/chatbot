@@ -44,7 +44,8 @@ function officeDraw(m) {
   return node;
 }
 
-// The character's dms, drawn into the 1:1 just opened.
+// The character's dms, drawn into the 1:1 just opened -- run on every stream open, so a host restart redraws them --
+// then the host is told the window is open: a coworker's turn not yet heard gets the character's reaction (D11).
 async function officeLoad() {
   if (!officeHere() || !sessionCharacter || (typeof archiveBrowse !== 'undefined' && archiveBrowse)) return;
   const want = sessionCharacter;
@@ -52,4 +53,5 @@ async function officeLoad() {
   try { data = await api('/api/office?character=' + encodeURIComponent(want)); } catch (_) { return; }
   if (want !== sessionCharacter) return;   // switched while it loaded
   ((data && data.messages) || []).forEach(officeDraw);
+  try { await api('/api/office/opened?character=' + encodeURIComponent(want)); } catch (_) {}
 }

@@ -151,6 +151,18 @@ def office(req: Req):
     return req.json({"messages": [_office_view(m, cid) for m in dialog_log.feed(cid)]})
 
 
+def office_opened(req: Req):
+    """GET /api/office/opened?character=: the page opened that character's work window; a coworker's turn it has not
+    heard yet gets its reaction now (event_react.react_on_open, D11)."""
+    import characters
+    import event_react
+    cid = str(req.q("character") or "")
+    if not characters.ID_RE.match(cid):
+        return req.send(400, b"character required", "text/plain")
+    threading.Thread(target=event_react.react_on_open, args=(REG, cid), name="office-open-check", daemon=True).start()
+    return req.json({"ok": True})
+
+
 def office_notify(req: Req):
     """GET /api/office/notify?dialog=&n=: the tool server says a dm was sent. Both coworkers' work windows show it now
     and the one it went to may react (event_react, D11). The record is read here; the query only points at it."""

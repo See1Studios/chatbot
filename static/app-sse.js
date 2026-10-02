@@ -810,6 +810,7 @@ function bindEvents(sid) {
     setProgress('');
     resyncFromServer(sid);
     checkRevived();
+    if (typeof officeLoad === 'function') officeLoad();   // coworkers' turns at this desk, again after a restart (inbox/E)
   };
   startSessionSyncLoop();
 }

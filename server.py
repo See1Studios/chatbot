@@ -475,6 +475,7 @@ GET_ROUTES = [
     ("/api/sessions/active", route_sessions.active),
     ("/api/sessions/caller", route_sessions.caller),
     ("/api/office/notify", route_sessions.office_notify),
+    ("/api/office/opened", route_sessions.office_opened),
     ("/api/office", route_sessions.office),
     ("/api/sessions/*/events", route_sessions.events),
     ("/api/sessions/*/artifacts", route_sessions.artifacts),
