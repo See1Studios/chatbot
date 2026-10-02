@@ -198,3 +198,79 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
 @keyframes reboot-line-in{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
 @keyframes reboot-blink{50%{opacity:0}}
 @media (prefers-reduced-motion: reduce){.reboot-overlay,.reboot-terminal{transition:none}.reboot-line,.reboot-cursor{animation:none}}
+
+/* CHAT_MAP_v1 — In-app dynamic map renderer with Leaflet */
+.chat-map-box {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-card, #1c2128);
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+}
+.chat-map-box .chat-map-canvas {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  background: var(--bg-card, #1c2128);
+}
+.chat-map-box .chat-map-label {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text);
+  background: var(--panel-2, rgba(255, 255, 255, 0.04));
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Leaflet UI adaptation for chat themes */
+.chat-map-box .leaflet-container {
+  font-family: inherit;
+  background: var(--bg-card, #1c2128);
+}
+.chat-map-box .leaflet-popup-content-wrapper,
+.chat-map-box .leaflet-popup-tip {
+  background: var(--bg-card, #1c2128);
+  color: var(--text, #e6edf3);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.chat-map-box .leaflet-popup-content {
+  margin: 0.45rem 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.chat-map-box .leaflet-bar {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.chat-map-box .leaflet-bar a {
+  background: var(--bg-card, #1c2128);
+  color: var(--text, #e6edf3);
+  border-bottom: 1px solid var(--border);
+}
+.chat-map-box .leaflet-bar a:hover {
+  background: var(--panel-hover, #2d333b);
+  color: var(--accent2, #58a6ff);
+}
+/* Responsive & mobile optimization */
+@media (max-width: 600px) {
+  .chat-map-box {
+    height: 200px;
+    margin: 0.35rem 0;
+  }
+  .chat-map-box .chat-map-canvas {
+    min-height: 140px;
+  }
+}
