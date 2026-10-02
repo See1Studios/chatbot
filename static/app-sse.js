@@ -823,6 +823,7 @@ async function checkRevived() {
   let ts, fp;
   try { const h = await api('/healthz', { timeoutMs: 5000 }); ts = h.boot_ts; fp = h.static; } catch (_) { return; }
   if (!ts) return;
+  if (lastBootTs === null && typeof restoreReloadDraft === 'function') restoreReloadDraft();   // the page's first open
   const revived = lastBootTs !== null && ts !== lastBootTs;
   lastBootTs = ts;
   if (!revived) { if (typeof notePageAssets === 'function') notePageAssets(fp); return; }

@@ -973,7 +973,6 @@ autoResizeInput();
 const BOOT_CURTAIN_MAX_MS = 4000;
 function liftBootCurtain() { document.documentElement.classList.remove('booting'); }
 setTimeout(liftBootCurtain, BOOT_CURTAIN_MAX_MS);
-restoreReloadDraft();   // ASSET_RELOAD_v1: the draft kept across a reload for new page code (app-api.js)
 boot().then(() => updateViewport()).catch(() => {}).finally(() => {
   requestAnimationFrame(() => requestAnimationFrame(liftBootCurtain));
 });

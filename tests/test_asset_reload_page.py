@@ -54,8 +54,8 @@ class AssetReload(unittest.TestCase):
     def test_the_restart_paths_check_it(self):
         sse = (STATIC / "app-sse.js").read_text(encoding="utf-8")
         api = (STATIC / "app-api.js").read_text(encoding="utf-8")
-        app = (STATIC / "app.js").read_text(encoding="utf-8")
-        self.assertIn("reloadIfAssetsChanged(fp)", sse[sse.index("async function checkRevived"):])
+        revived = sse[sse.index("async function checkRevived"):]
+        self.assertIn("reloadIfAssetsChanged(fp)", revived)
+        self.assertIn("restoreReloadDraft()", revived, "the reloaded page's first open puts the draft back")
         defib = api[api.index("async function defibrillateHost"):]
         self.assertIn("reloadIfAssetsChanged(", defib)
-        self.assertLess(app.index("restoreReloadDraft();"), app.index("boot().then"))
