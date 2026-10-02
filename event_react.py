@@ -19,7 +19,7 @@ from typing import Dict, List, Optional
 import events
 
 CONFIG_NAME = "events.json"
-CHOICES = ("work.phase", "host.restart")        # the event types a reaction can be turned on for (E2)
+CHOICES = ("work.phase", "host.restart", "msg.new")   # the event types a reaction can be turned on for (E2, inbox D11)
 ENDING = ("done", "failed", "gate_failed", "unavailable", "base_broken", "awaiting_merge")   # work phases worth it
 DEFAULTS = {"auto": [], "per_hour": 3, "quiet": [0, 8]}
 POLL_SEC = 20
@@ -27,6 +27,10 @@ TTL_SEC = 3600                                  # an event older than this is st
 HEAVY = ("soft", "hard")                        # session weight levels a reaction must not push into
 PROMPT = ("[Event -- the user did not write this] {note}\nTell the user about it yourself now, in one or two short "
           "lines, in character, as a message you start. Do not use tools and do not start any work.")
+# A coworker's dm, shown in this character's window as the coworker's own turn (unified-message-inbox D8, D11)
+OFFICE_PROMPT = ("[Office -- the user did not write this] {note}\nThis just happened at your desk, in front of the "
+                 "user, who saw it. React now in one or two short lines, in character. Do not use tools and do not "
+                 "start any work.")
 
 
 def _ws() -> Path:
@@ -76,6 +80,8 @@ def _wanted(e: Dict, cfg: Dict, character: str = "", default: str = "") -> bool:
         return False
     if events.ALL in e.get("to", []) and character != default:
         return False                            # an event for everyone (a restart): one voice, the default's
+    if e["type"] == "msg.new":
+        return str(e.get("subject") or "").startswith("dm:")   # a coworker's dm; a meeting room is not reacted to
     return e["type"] != "work.phase" or e["payload"].get("phase") in ENDING
 
 
@@ -107,6 +113,18 @@ def _note(evts: List[Dict], character: str) -> str:
         notes.append("The host restarted at %s; landed: %s." % (
             time.strftime("%H:%M", time.localtime(p.get("ts") or 0)), " · ".join(p.get("landed") or []) or "nothing new"))
     return " ".join(n for n in notes if n)
+
+
+def _office_note(evts: List[Dict], character: str, sid: str):
+    """What a coworker just said or did, from the dm records past what this session has seen: (note, {dialog: n})."""
+    import dialog_log
+    lines, upto = [], {}
+    for did in sorted({e["subject"] for e in evts}):
+        new = [m for m in dialog_log.history(did, dialog_log.seen(sid, character, did)) if m.get("who") != character]
+        if new:
+            lines.extend(dialog_log.line(m, did) for m in new[-5:])
+            upto[did] = new[-1]["n"]
+    return "; ".join(lines), upto
 
 
 def _heavy(sess) -> bool:
@@ -163,7 +181,13 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
             events._log("react.skip", reason="session_heavy", character=cid, sid=sess.sid)
             events.mark(key, got[-1]["id"])
             continue
-        note = _note(wanted, cid)
+        talk = [e for e in wanted if e["type"] == "msg.new"]
+        if talk and not getattr(sess, "subscribers", None):     # D11: only in front of the user; else the turn line
+            events._log("react.skip", reason="not_watching", character=cid, n=len(talk))
+            wanted, talk = [e for e in wanted if e["type"] != "msg.new"], []
+        office, upto = _office_note(talk, cid, sess.sid) if talk else ("", {})
+        rest = [e for e in wanted if e["type"] != "msg.new"]
+        note = " ".join(x for x in (office, _note(rest, cid) if rest else "") if x)
         if sess is None or not note:
             events._log("react.skip", reason="no_work_session" if sess is None else "nothing_to_say", character=cid)
             events.mark(key, got[-1]["id"])
@@ -171,7 +195,12 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
         events.mark(key, got[-1]["id"])
         events.mark(sess.sid, max(e["id"] for e in wanted))   # told now: not again before the next turn
         events.publish("react.sent", [cid], subject=cid, at=now, events=[e["id"] for e in wanted])
-        threading.Thread(target=_speak, args=(sess, PROMPT.format(note=note)), name="event-react", daemon=True).start()
+        if upto:
+            import dialog_log
+            for did, n in upto.items():
+                dialog_log.saw(cid, sess.sid, did, n)            # heard in front of the user: read
+        text = (OFFICE_PROMPT if office else PROMPT).format(note=note)
+        threading.Thread(target=_speak, args=(sess, text), name="event-react", daemon=True).start()
         sent.append({"character": cid, "sid": sess.sid, "events": [e["id"] for e in wanted]})
     return sent
 

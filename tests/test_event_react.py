@@ -176,5 +176,65 @@ console.log(JSON.stringify(autoReactBody({ choices: ['work.phase', 'host.restart
         self.assertEqual(json.loads(r.stdout.strip()), {"auto": ["work.phase"], "per_hour": 3, "quiet": [0, 8]})
 
 
+
+class CoworkerVisits(unittest.TestCase):
+    """unified-message-inbox D11 (inbox/G): a coworker's dm is reacted to at once, but only while the user watches
+    the window it reached; a meeting room is not; the reaction marks it heard."""
+
+    def setUp(self):
+        import characters as C
+        import dialog_log as D
+        import room_chat as RC
+        self.C, self.D, self.RC = C, D, RC
+        self.dir = Path(tempfile.mkdtemp()).resolve()
+        ws = self.dir / "workspace"
+        self.a, self.b = sorted(C.new_id() for _ in range(2))
+        C.save(self.a, C.new_card("Boss"), ws)
+        C.save(self.b, C.new_card("Kit"), ws)
+        self.patches = [mock.patch.dict(os.environ, {"CHATBOT_EVENTS_DIR": str(self.dir / "ev")}),
+                        mock.patch.object(C, "_default_ws", return_value=ws),
+                        mock.patch.object(D, "_dir", lambda: self.dir / "dialogs"),
+                        mock.patch.object(RC, "_dir", lambda: self.dir / "rooms")]
+        for p in self.patches:
+            p.start()
+        self.kit = FakeSession("s-kit")
+        self.reg = FakeReg({self.b: self.kit})
+        self.cfg = R.clean({"auto": ["msg.new"], "per_hour": 5, "quiet": [0, 8]})
+        self.once()                                            # first sight: sets the cursor
+
+    def tearDown(self):
+        for p in self.patches:
+            p.stop()
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def once(self):
+        out = R.react_once(self.reg, now=time.time(), cfg=self.cfg, characters_list=[self.b])
+        if out:
+            self.kit.done.wait(5)
+        return out
+
+    def test_watched_a_visit_is_reacted_to_and_heard(self):
+        self.kit.subscribers = [object()]
+        ab = self.D.dm_id(self.a, self.b)
+        self.D.append(ab, self.a, "sets a coffee on Kit's desk", kind="action")
+        self.assertTrue(self.once())
+        text, notice = self.kit.sent[0]
+        self.assertTrue(notice)
+        self.assertIn("[Office", text)
+        self.assertIn("Boss (came by your desk): sets a coffee on Kit's desk", text)
+        self.assertIn("in front of the user", text)
+        self.assertEqual(self.D.unread(self.b, ab, "s-kit"), (0, 0), "heard in front of the user")
+
+    def test_unwatched_or_in_a_meeting_room_no_reaction(self):
+        ab = self.D.dm_id(self.a, self.b)
+        self.D.append(ab, self.a, "ping")
+        self.assertEqual(self.once(), [], "nobody watching: the next turn's [Office] line tells it")
+        self.assertEqual(self.D.unread(self.b, ab, "s-kit"), (1, 0))
+        self.kit.subscribers = [object()]
+        r = self.RC.create("Desk", [self.a, self.b])
+        self.D.append(r["id"], self.a, "standup in five")
+        self.assertEqual(self.once(), [], "a meeting room is not reacted to")
+
+
 if __name__ == "__main__":
     unittest.main()

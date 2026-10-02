@@ -6,6 +6,7 @@ const TEAM_TEXT = { spare: '예비 두뇌 없음 — [두뇌]에서 추가하면
 const AUTO_TEXT = {   // evt/D auto reactions -- l10n-ok
   head: '자동 반응 — 캐릭터가 먼저 말 걸기', hint: '켠 일이 생기면 관계있는 캐릭터가 업무 대화에서 먼저 한두 줄 말합니다. 두뇌 호출이라 구독 한도를 씁니다.',   // l10n-ok
   'work.phase': '맡긴 작업이 끝나거나 실패했을 때', 'host.restart': '호스트가 재시작했을 때',   // l10n-ok
+  'msg.new': '동료가 메시지를 보내거나 자리에 들렀을 때 (그 창을 보고 있을 때만)',   // l10n-ok
   perHour: '캐릭터당 시간당 최대', quiet: '방해 금지(시)', save: '저장', saved: '자동 반응 설정 저장됨', failed: '저장 실패: ',   // l10n-ok
 };
 
