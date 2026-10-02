@@ -34,7 +34,7 @@ class BundleBudgetTest(unittest.TestCase):
     def test_a_private_session_fits_the_same_budget_without_work_procedure(self):
         # PRIVATE_BUDGET_v1: charter preamble + safety sections, the card, the host note and the private rules
         text = I.build_instruction_bundle(mode="private")["text"]
-        static = text.split("\n\n[Private memory]")[0]
+        static = text.split("\n\n[Private memory]")[0].split("\n\n[Name changes]")[0]   # both dynamic (NAME_CHANGE_v1)
         self.assertLessEqual(len(static.encode("utf-8")), BUDGET["static_max_bytes"])
         for work in ("## Self-modification", "## Memory", "## Approval first", "## Progress"):
             self.assertNotIn(work, text)
