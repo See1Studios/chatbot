@@ -1,0 +1,38 @@
+{
+ "actor": "chat-agent:agy",
+ "approved_at": "2026-10-02 14:08:54",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-10-02 14:08:50",
+ "evidence": [
+  "event:20261002-123810-60bf41#95"
+ ],
+ "gate_failures": 1,
+ "id": 572,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-10-02 14:08:54"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: card_parse.py, tests/test_card_parse.py",
+   "ts": "2026-10-02 14:08:54"
+  },
+  {
+   "by": "agent:agy",
+   "text": "gate_failed: worktree agy: task 1: review FAIL after 2 round(s)",
+   "ts": "2026-10-02 14:24:45"
+  }
+ ],
+ "paths": [
+  "card_parse.py",
+  "tests/test_card_parse.py"
+ ],
+ "status": "approved",
+ "target": "card_parse.py,tests/test_card_parse.py",
+ "title": "[cgs/C] 이중 파서 및 폴백 모듈 (card_parse.py)",
+ "updated": "2026-10-02 14:24:45",
+ "worked_by": "agy"
+}
