@@ -16,6 +16,7 @@ This first step is work rooms. Private play rooms (their own room memory, E7) co
 from __future__ import annotations
 
 import json
+import logging
 import random
 import re
 import threading
@@ -23,6 +24,8 @@ import time
 import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+_logger = logging.getLogger(__name__)
 
 import dialog_log
 import platform_compat
@@ -363,8 +366,8 @@ def artifacts(rid: str) -> List[dict]:
                 "mtime": mtime,
                 "date": time.strftime("%Y-%m-%d %H:%M", time.localtime(mtime)),
             })
-    except Exception:
-        pass
+    except Exception as e:
+        _logger.warning("failed to collect room artifacts for %s: %s", rid, e)
     found.sort(key=lambda x: x["mtime"], reverse=True)
     return found
 

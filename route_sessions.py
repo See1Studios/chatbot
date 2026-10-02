@@ -194,23 +194,6 @@ def artifacts(req: Req):
     return req.json({"artifacts": p["page"], "total": p["total"], "next_before": p["next_before"]})
 
 
-def room_artifacts(req_or_rid: Any, qs: dict = None) -> Any:
-    """Group room artifacts, callable with a Req or room id string."""
-    import room_chat
-    if isinstance(req_or_rid, str):
-        arts = room_chat.artifacts(req_or_rid)
-        p = _page(arts, qs or {}, lambda a: a["mtime"], lambda a: a["mtime"])
-        return {"artifacts": p["page"], "total": p["total"], "next_before": p["next_before"]}
-    req = req_or_rid
-    rid = getattr(req, "arg", "") or (req.path.split("/")[3] if len(req.path.split("/")) > 3 else "")
-    try:
-        arts = room_chat.artifacts(rid)
-    except ValueError:
-        return req.send(404, b"room not found", "text/plain")
-    p = _page(arts, req.qs(), lambda a: a["mtime"], lambda a: a["mtime"])
-    return req.json({"artifacts": p["page"], "total": p["total"], "next_before": p["next_before"]})
-
-
 def log(req: Req):
     sess = REG.peek(req.arg)
     if sess is None:

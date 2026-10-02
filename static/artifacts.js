@@ -33,6 +33,7 @@ function checkArtifactTargetSwitch(target) {
     currentArtifacts = [];
     artifactsTotal = 0;
     artifactsNextBefore = null;
+    artifactsLoadingMore = false;
     updateArtifactBadge();
     renderArtifacts();
     return true;
@@ -44,14 +45,21 @@ async function fetchArtifacts(silent) {
   const target = activeArtifactOwner();
   checkArtifactTargetSwitch(target);
   if (!target) return;
+  const reqKey = target.type + ':' + target.id;
   try {
     const res = await api(target.url);
+    const curOwner = activeArtifactOwner();
+    const curKey = curOwner ? (curOwner.type + ':' + curOwner.id) : '';
+    if (curKey !== reqKey) return;
     currentArtifacts = res.artifacts || [];
     artifactsTotal = res.total != null ? res.total : currentArtifacts.length;
     artifactsNextBefore = res.next_before || null;
     updateArtifactBadge();
     renderArtifacts();
   } catch (e) {
+    const curOwner = activeArtifactOwner();
+    const curKey = curOwner ? (curOwner.type + ':' + curOwner.id) : '';
+    if (curKey !== reqKey) return;
     if (!silent) addActivity('아티팩트 조회 실패: ' + (e.message || e));
   }
 }
@@ -65,6 +73,7 @@ async function loadMoreArtifacts() {
   const target = activeArtifactOwner();
   if (!target || artifactsLoadingMore || !artifactsNextBefore) return;
   artifactsLoadingMore = true;
+  const reqKey = target.type + ':' + target.id;
   const marker = document.createElement('div');
   marker.className = 'art-loading-marker';
   marker.textContent = '이전 아티팩트 불러오는 중…';
@@ -72,12 +81,19 @@ async function loadMoreArtifacts() {
   try {
     const sep = target.url.includes('?') ? '&' : '?';
     const res = await api(target.url + sep + 'before=' + encodeURIComponent(artifactsNextBefore));
+    const curOwner = activeArtifactOwner();
+    const curKey = curOwner ? (curOwner.type + ':' + curOwner.id) : '';
+    if (curKey !== reqKey) return;
     currentArtifacts = currentArtifacts.concat(res.artifacts || []);
     artifactsTotal = res.total != null ? res.total : artifactsTotal;
     artifactsNextBefore = res.next_before || null;
     renderArtifacts();
   } catch (e) {
-    addActivity('아티팩트 추가 로드 실패: ' + (e.message || e));
+    const curOwner = activeArtifactOwner();
+    const curKey = curOwner ? (curOwner.type + ':' + curOwner.id) : '';
+    if (curKey === reqKey) {
+      addActivity('아티팩트 추가 로드 실패: ' + (e.message || e));
+    }
   } finally {
     marker.remove();
     artifactsLoadingMore = false;
@@ -489,3 +505,26 @@ window.addEventListener('keydown', (e) => {
     closeArtifactModal();
   }
 });
+
+// Hook room lifecycle (roomEnter / roomClose) to trigger artifact drawer refresh and isolation
+if (typeof roomEnter === 'function') {
+  const _origRoomEnter = roomEnter;
+  roomEnter = async function (...args) {
+    const res = await _origRoomEnter.apply(this, args);
+    if (res) {
+      checkArtifactTargetSwitch(activeArtifactOwner());
+      fetchArtifacts(true);
+    }
+    return res;
+  };
+}
+
+if (typeof roomClose === 'function') {
+  const _origRoomClose = roomClose;
+  roomClose = function (...args) {
+    const res = _origRoomClose.apply(this, args);
+    checkArtifactTargetSwitch(activeArtifactOwner());
+    fetchArtifacts(true);
+    return res;
+  };
+}

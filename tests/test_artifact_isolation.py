@@ -2,13 +2,20 @@
 - 1:1 sessions collect only their own artifacts and predecessor_session_id chain artifacts.
 - Global workspace/artifacts and legacy ARTIFACTS_CACHE are no longer leaked into sessions.
 - Group room artifacts are isolated per room (DATA / 'rooms' / rid / 'artifacts').
-- Room artifacts endpoint GET /api/rooms/<rid>/artifacts and route_sessions.room_artifacts support.
+- Room artifacts endpoint GET /api/rooms/<rid>/artifacts via room_chat.api.
+
+Note on artifact generation in group rooms:
+Ticket #575 establishes the room-scoped storage directory (DATA / 'rooms' / rid / 'artifacts'),
+the isolation in the /api/rooms/<rid>/artifacts API, and drawer isolation in static/artifacts.js.
+Actively populating/writing artifacts into this directory (by agent tools, file generation actions,
+or user uploads) is outside the scope of ticket #575 and will be handled by future room tools/delegation runners.
 
 Run: python3 -m unittest tests.test_artifact_isolation (from services/chatbot)
 """
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import sys
@@ -22,7 +29,6 @@ sys.path.insert(0, str(ROOT))
 
 import characters as C
 import room_chat as RC
-import route_sessions as RS
 import session as S
 
 
@@ -207,40 +213,59 @@ class TestArtifactIsolation(unittest.TestCase):
         code, body = res
         self.assertEqual(code, 200)
         self.assertTrue(body["ok"])
+        self.assertEqual(body["total"], 1)
+        self.assertIsNone(body["next_before"])
         names = {a["name"] for a in body["artifacts"]}
         self.assertIn("chart.png", names)
 
-        # Non-existent room
+        # Non-existent room -> 404
         res_404 = RC.api("GET", "/api/rooms/room_999999999999/artifacts", None)
         self.assertIsNotNone(res_404)
         self.assertEqual(res_404[0], 404)
+        self.assertFalse(res_404[1]["ok"])
 
-    def test_route_sessions_room_artifacts(self):
-        r = RC.create("Route Room", [self.c1, self.c2])
+    def test_seen_names_omits_duplicate_filenames_in_subfolders(self):
+        """Current specification test: when two files share the exact same filename in different
+        subfolders of a session or room artifacts directory, seen_names de-duplicates by basename,
+        so the second occurrence is omitted from results."""
+        # 1. In a 1:1 session
+        s = self._create_session("sess_dups")
+        sub1 = self.sessions_dir / "sess_dups" / "artifacts" / "sub_a"
+        sub2 = self.sessions_dir / "sess_dups" / "artifacts" / "sub_b"
+        sub1.mkdir(parents=True, exist_ok=True)
+        sub2.mkdir(parents=True, exist_ok=True)
+        (sub1 / "result.png").write_bytes(b"RESULT_A")
+        (sub2 / "result.png").write_bytes(b"RESULT_B")
+
+        sess_arts = s.get_artifacts()
+        matching = [a for a in sess_arts if a["name"] == "result.png"]
+        # Exactly one is returned; the other duplicate filename in another subfolder is omitted
+        self.assertEqual(len(matching), 1)
+
+        # 2. In a group room
+        r = RC.create("Dup Room", [self.c1, self.c2])
+        r_dir = RC.artifacts_dir(r["id"])
+        r_sub1 = r_dir / "dir_1"
+        r_sub2 = r_dir / "dir_2"
+        r_sub1.mkdir(parents=True, exist_ok=True)
+        r_sub2.mkdir(parents=True, exist_ok=True)
+        (r_sub1 / "report.pdf").write_bytes(b"PDF_A")
+        (r_sub2 / "report.pdf").write_bytes(b"PDF_B")
+
+        room_arts = RC.artifacts(r["id"])
+        r_matching = [a for a in room_arts if a["name"] == "report.pdf"]
+        self.assertEqual(len(r_matching), 1)
+
+    def test_room_artifacts_exception_logging(self):
+        r = RC.create("Log Room", [self.c1, self.c2])
         r_dir = RC.artifacts_dir(r["id"])
         r_dir.mkdir(parents=True, exist_ok=True)
-        (r_dir / "report.pdf").write_bytes(b"%PDF")
 
-        # Direct string call
-        res = RS.room_artifacts(r["id"])
-        self.assertIn("report.pdf", {a["name"] for a in res["artifacts"]})
-
-        # Fake Req call
-        class FakeReq:
-            def __init__(self, path):
-                self.path = path
-                self.arg = path.split("/")[3]
-            def qs(self):
-                return {}
-            def json(self, payload, code=200):
-                return code, payload
-            def send(self, code, body, ct):
-                return code, body
-
-        fake_req = FakeReq(f"/api/rooms/{r['id']}/artifacts")
-        code, payload = RS.room_artifacts(fake_req)
-        self.assertEqual(code, 200)
-        self.assertIn("report.pdf", {a["name"] for a in payload["artifacts"]})
+        with mock.patch.object(Path, "rglob", side_effect=OSError("disk failure")):
+            with self.assertLogs("room_chat", level="WARNING") as cm:
+                arts = RC.artifacts(r["id"])
+                self.assertEqual(arts, [])
+            self.assertTrue(any("failed to collect room artifacts" in msg for msg in cm.output))
 
 
 if __name__ == "__main__":
