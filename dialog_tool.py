@@ -2,8 +2,9 @@
 getHistory and sendMessage as one tool, served by mcp_server.
 
   dialog {"action": "list"}                                     your dialogs: id, name, unread, mentions
-  dialog {"action": "read", "dialog": "<id>", "limit": 20}      the latest messages; you have now read them
-  dialog {"action": "send", "dialog": "<id>" | "to": "<character id, role or name>", "text": "...", "reply_to": n}
+  dialog {"action": "read", "dialog_id": "<id>", "limit": 20}   the latest messages; you have now read them
+  dialog {"action": "send", "dialog_id": "<id>" | "to": "<character id, role or name>", "text": "...", "reply_to": n}
+The argument is `dialog_id`: the name models reach for (live 2026-10-02, #554 -- `dialog` was missed four times).
 
 Who sends is the session that called (mcp_caller, from the connection's process), never an argument, and the tool
 refuses when that is unknown. A private session cannot use it: private talk must not travel into work dialogs, and work
@@ -24,13 +25,14 @@ MAX_TEXT = room_chat.MAX_TEXT
 TOOL_DEFS = [{
     "name": "dialog",
     "description": "Your messenger with the other characters. list: your dialogs and unread counts. read: the latest "
-                   "messages of one dialog (marks them read). send: a message to a dialog id, or to a character by "
-                   "id/role/name (your one-to-one with them); reply_to answers a message number of that dialog.",
+                   "messages of one dialog_id (marks them read). send: a message to a dialog_id, or to a character "
+                   "by id/role/name with `to` (your one-to-one with them); reply_to answers a message number of "
+                   "that dialog. dialog_id is an id exactly as list or the unread line gives it.",
     "inputSchema": {
         "type": "object",
         "properties": {
             "action": {"type": "string", "enum": ["list", "read", "send"]},
-            "dialog": {"type": "string"},
+            "dialog_id": {"type": "string"},
             "to": {"type": "string"},
             "text": {"type": "string"},
             "reply_to": {"type": "integer"},
@@ -68,22 +70,24 @@ def call(args: Dict, envelope: Callable, who: Dict) -> Dict:
         rows = []
         for did in dialog_log.dialogs_of(me):
             n, mention = dialog_log.unread(me, did, sid)
-            rows.append({"dialog": did, "name": dialog_log.label(did, me), "unread": n, "mentions": mention})
+            rows.append({"dialog_id": did, "name": dialog_log.label(did, me), "unread": n, "mentions": mention})
         return envelope(True, "%d dialogs" % len(rows), {"dialogs": rows})
-    did = str(args.get("dialog") or "")
+    did = str(args.get("dialog_id") or "")
     if not did and args.get("to") and action == "send":
         other = _character(str(args["to"]))
         if not other or other == me:
             return envelope(False, "dialog: no other character called %r" % args["to"], None)
         did = dialog_log.dm_id(me, other)
     if me not in dialog_log.members(did):
-        return envelope(False, "dialog: you are not in %r (see action list)" % did, None)
+        why = "give dialog_id" if not did else "no dialog %r of yours" % did
+        return envelope(False, "dialog: %s -- set dialog_id to an id exactly as action list returns it (dm:char_...:char_... or "
+                               "room_...), or send with `to`" % why, None)
     if action == "read":
         limit = max(1, min(int(args.get("limit") or READ_LIMIT), READ_LIMIT))
         msgs = dialog_log.history(did)[-limit:]
         if msgs:
             dialog_log.saw(me, sid, did, msgs[-1]["n"])
-        return envelope(True, "%d messages" % len(msgs), {"dialog": did, "messages": [_view(m) for m in msgs]})
+        return envelope(True, "%d messages" % len(msgs), {"dialog_id": did, "messages": [_view(m) for m in msgs]})
     if action == "send":
         text = str(args.get("text") or "").strip()
         if not text:
@@ -96,5 +100,5 @@ def call(args: Dict, envelope: Callable, who: Dict) -> Dict:
         except ValueError as e:
             return envelope(False, "dialog: %s" % e, None)
         dialog_log.saw(me, sid, did, msg["n"])
-        return envelope(True, "sent", {"dialog": did, "n": msg["n"]})
+        return envelope(True, "sent", {"dialog_id": did, "n": msg["n"]})
     return envelope(False, "dialog: unknown action %r (list, read, send)" % action, None)

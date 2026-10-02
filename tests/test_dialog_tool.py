@@ -57,32 +57,36 @@ class DialogTool(unittest.TestCase):
         out = self.as_(self.a, "s-a", action="send", to="kit", text="can you check the build?")
         self.assertTrue(out["success"], out)
         ab = D.dm_id(self.a, self.b)
-        self.assertEqual(out["data"], {"dialog": ab, "n": 1})
+        self.assertEqual(out["data"], {"dialog_id": ab, "n": 1})
         self.assertEqual(D.history(ab)[0]["who"], self.a, "the sender is the caller, never an argument")
         listed = self.as_(self.b, "s-b", action="list")["data"]["dialogs"]
-        self.assertEqual(listed, [{"dialog": ab, "name": "Boss (dm)", "unread": 1, "mentions": 0}])
-        got = self.as_(self.b, "s-b", action="read", dialog=ab)["data"]["messages"]
+        self.assertEqual(listed, [{"dialog_id": ab, "name": "Boss (dm)", "unread": 1, "mentions": 0}])
+        got = self.as_(self.b, "s-b", action="read", dialog_id=ab)["data"]["messages"]
         self.assertEqual(got, [{"n": 1, "from": "Boss", "text": "can you check the build?"}])
         self.assertEqual(D.unread(self.b, ab, "s-b"), (0, 0), "read means read")
-        out = self.as_(self.b, "s-b", action="send", dialog=ab, text="on it", reply_to="1")
+        out = self.as_(self.b, "s-b", action="send", dialog_id=ab, text="on it", reply_to="1")
         self.assertEqual(D.history(ab)[-1]["reply_to"], 1)
         self.assertEqual(D.unread(self.a, ab, "s-a"), (1, 0))
 
     def test_what_is_refused(self):
         ab = D.dm_id(self.a, self.b)
-        self.as_(self.a, "s-a", action="send", dialog=ab, text="hi")
-        for args in ({"action": "send", "dialog": ab, "text": "x", "reply_to": 9},
-                     {"action": "send", "dialog": ab, "text": "  "},
+        self.as_(self.a, "s-a", action="send", dialog_id=ab, text="hi")
+        for args in ({"action": "send", "dialog_id": ab, "text": "x", "reply_to": 9},
+                     {"action": "send", "dialog_id": ab, "text": "  "},
                      {"action": "send", "to": "Boss", "text": "to myself"},
                      {"action": "send", "to": "Nobody", "text": "x"},
-                     {"action": "memo", "dialog": ab, "text": "x"}):
+                     {"action": "memo", "dialog_id": ab, "text": "x"}):
             self.assertFalse(self.as_(self.a, "s-a", **args)["success"], args)
-        self.assertFalse(self.as_(self.c, "s-c", action="read", dialog=ab)["success"], "not hers")
+        self.assertFalse(self.as_(self.c, "s-c", action="read", dialog_id=ab)["success"], "not hers")
+        for bad in ({"dialog": ab}, {"dialog_id": "dm:Boss:Kit"}, {}):    # the misses seen live (#554)
+            msg = self.as_(self.b, "s-b", action="read", **bad)["message"]
+            self.assertIn("dialog_id", msg)
+            self.assertIn("action list", msg)
         self.assertEqual(len(D.history(ab)), 1)
 
     def test_a_room_message_carries_its_mentions(self):
         r = RC.create("Desk", [self.a, self.b, self.c])
-        self.as_(self.a, "s-a", action="send", dialog=r["id"], text="@Ari and @Kit, standup")
+        self.as_(self.a, "s-a", action="send", dialog_id=r["id"], text="@Ari and @Kit, standup")
         self.assertEqual(D.history(r["id"])[0]["mentions"], [self.c, self.b])
         self.assertEqual(D.unread(self.c, r["id"]), (1, 1))
 

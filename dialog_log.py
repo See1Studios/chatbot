@@ -288,7 +288,7 @@ def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = Fal
         if not new:
             continue
         mention = sum(1 for m in new if cid in (m.get("mentions") or []))
-        rows.append("%s %d%s" % (label(did, cid), len(new), " (%d mention you)" % mention if mention else ""))
+        rows.append("%s %d%s [%s]" % (label(did, cid), len(new), " (%d mention you)" % mention if mention else "", did))
         fresh = fresh or new[-1]["n"] > noted.get(did, 0)
         noted[did] = new[-1]["n"]
     out = []
@@ -299,6 +299,6 @@ def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = Fal
             lines.extend("  #%d %s: %s" % (m["n"], speaker(m["who"]), str(m["text"])[:RECAP_CHARS]) for m in msgs)
         out.append("[Recent dialogs -- background, carried over from before the handover]\n" + "\n".join(lines))
     if rows and (fresh or handed_over):
-        out.append("[Unread dialogs] %s. Open one with the dialog tool (action read) when it matters; do not mention "
-                   "this line otherwise." % " · ".join(rows))
+        out.append("[Unread dialogs] %s. Open one with the dialog tool {action: read, dialog_id: <the id in brackets>} "
+                   "when it matters; do not mention this line otherwise." % " · ".join(rows))
     return "\n\n".join(out)
