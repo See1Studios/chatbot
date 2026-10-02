@@ -5,6 +5,12 @@
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 2026-10-01 기록은 하루 예산을 넘어 [devlog/2026-10-01.md](devlog/2026-10-01.md)로 회전했습니다.
 
+## 2026-10-02 — [grh/A] 단체방 헤더 카드 스택 아바타 연출 및 최근 발화자 동기화 (#561, 위임 agy)
+
+- **커밋**: `5d64dd5` fix(rooms): verify updateBrandAvatar signature and direct roomClose avatar restoration, `5d2db56` feat(rooms): avatar card stack and sync for group room header (grh/A)
+- **바뀐 파일**: `static/app-rooms.js`, `static/rooms.css`, `tests/test_rooms_page.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-02 — [cgs/B] 캐릭터 생성 프롬프트 및 수치 상세도 포팅 모듈 (card_prompt.py) (#547, 위임 agy)
 
 - **커밋**: `0b8fee4` fix(card_prompt): clean up image prompt fallback, nonce handling, and empty specs, `e20abf5` feat(card_prompt): align detail specs with ST-CardGen and expand prompt rules, `e58be20` fix(card_prompt): filter detail lines, keyword-only overrides, tighten tests, `2c39ada` feat(card_prompt): add character generation prompt builders and detail specs
