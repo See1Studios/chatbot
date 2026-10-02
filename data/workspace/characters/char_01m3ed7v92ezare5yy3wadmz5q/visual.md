@@ -1,4 +1,4 @@
-# 코코 visual lock sheet
+# 리리 visual lock sheet
 
 Format and procedure: skill `character-art`. The page uses this folder (`avatar.webp`).
 Voice and manner are in the card, not here.
@@ -9,7 +9,7 @@ Status: operator locked 2026-09-26, session image 4 (`gallery/lock-blonde-fox.jp
 - Cute anime fox kemonomimi woman (human face, fluffy fox ears, fox tail). No snout, no full kemono.
 - Teal/cyan eyes. Adult frame. Hyper-voluptuous bust.
 - Base look: long golden-blonde hair with a middle wave (not tight curls, not stick-straight), peach inner ears, cream/white open-collar blouse. Reference `avatar_master.jpg`.
-- Distinct from 노노 (silver waves, gold star eyes, cat ears, white blouse) and 리리 (dark ash-brown messy hair, violet eyes, bunny ears, oversized hoodie).
+- Distinct from 노노 (silver waves, gold star eyes, cat ears, white blouse) and 코코 (dark ash-brown messy hair, violet eyes, bunny ears, oversized hoodie).
 - Avatar is a full-bleed front close-up: face and fox ears fill the 56px circle. Bust and body belong in sprites.
 
 ## Prompt Specification (SSOT)
@@ -18,7 +18,7 @@ Modern anime standard (thin clean lineart, crisp cel shading):
 ### 1. Style Anchor (화풍 고정)
 - `clean thin line art, crisp cel shading, subtle flat color tones, soft studio key lighting, high-end 2D anime illustration`
 
-### 2. Character Anchor (코코 고유 특징)
+### 2. Character Anchor (리리 고유 특징)
 - `1girl, young adult anime fox-girl, fluffy fox ears on head, fox tail, human face, teal cyan eyes, long golden-blonde hair with soft waves, peach inner ears, cream white open-collar blouse, hyper-voluptuous bust`
 - Palette: Primary #e8b84a (hair), Secondary #f3c4a0 (ears), Accent #2ec4b6 (eyes)
 
@@ -48,6 +48,6 @@ Modern anime standard (thin clean lineart, crisp cel shading):
 ## Rejected
 - Human-only look, no kemonomimi (first master; too close in face/shirt to the house producer portrait)
 - Artist-apron fox (ink-black bob, orange tips, paintbrush pin, cream apron) — operator: too generic, then too scary when pushed to Tamamo/Yae
-- Doubled-name candidates other than 코코 (린, 아오, 세이, 스미)
+- Doubled-name candidates other than 리리 (린, 아오, 세이, 스미)
 
 ## Open

@@ -25,7 +25,11 @@
           "work": [
             {
               "provider": "agy",
-              "model": "gemini-3.8-flash-low"
+              "model": "gemini-3.8-flash-high"
+            },
+            {
+              "provider": "agy",
+              "model": "claude-opus-4-6-thinking"
             }
           ],
           "private": [
@@ -35,7 +39,8 @@
               "effort": "low"
             }
           ]
-        }
+        },
+        "known_name": "노노"
       }
     }
   }

@@ -1,4 +1,4 @@
-# 리리 visual lock sheet
+# 코코 visual lock sheet
 
 Format and procedure: skill `character-art`. The page uses this folder (`avatar.webp`, `avatar/<provider>.webp`).
 Voice and manner are in the card, not here.
@@ -20,7 +20,7 @@ Modern anime standard (thin clean lineart, crisp cel shading, cute otaku hacker 
 ### 1. Style Anchor (화풍 고정)
 - `clean thin line art, crisp cel shading, subtle flat color tones, vibrant modern anime illustration, soft studio key lighting, expressive cute facial features`
 
-### 2. Character Anchor (리리 고유 특징: 토끼 수인 + 힘숨찐 해커 미소녀)
+### 2. Character Anchor (코코 고유 특징: 토끼 수인 + 힘숨찐 해커 미소녀)
 - `1girl, cute petite anime girl, hidden genius hacker aura, innocent yet sharp perceptive look, dark ash-brown messy hair, playful ahoge, deep violet eyes, fluffy bunny ears on head, small subtle bunny tail, cute snaggletooth or pouting lips`
 - Outfit (Base): `oversized baggy cozy tech hoodie, long loose sleeves, cute headset around neck, relaxed otaku gamer style`
 
