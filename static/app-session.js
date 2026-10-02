@@ -189,6 +189,7 @@ function enterSession(id, opts) {
   bindEvents(id);
   fetchArtifacts(true);
   fetchLog();
+  if (typeof officeLoad === 'function') officeLoad();   // coworkers' turns at this desk (inbox/E)
 }
 
 async function openSession(id, _redirDepth, bannerOverride, noRedirect) {

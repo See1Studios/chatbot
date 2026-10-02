@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import queue
+import threading
 from typing import Any, Dict
 
 import chat_upload
@@ -129,6 +130,48 @@ def caller(req: Req):
     sess = REG.peek(sid) if sid else None
     return req.json({"id": sid, "proc": proc, "character": getattr(sess, "character", "") or "",
                      "mode": getattr(sess, "mode", "") or "", "private": bool(getattr(sess, "is_private", False))})
+
+def _office_view(m: Dict, cid: str) -> Dict:
+    """One dm message as `cid`'s window draws it (inbox/E): a coworker's turn, or its own line to them."""
+    import characters
+    import dialog_log
+    to = m["other"] if m["who"] == cid else cid
+    return {"dialog_id": m["dialog_id"], "n": m["n"], "ts": m["ts"], "who": m["who"], "kind": m.get("kind") or "say",
+            "text": m["text"], "mine": m["who"] == cid, "who_name": characters.name(m["who"]) or m["who"],
+            "to_name": characters.name(to) or to, "how": dialog_log.how(m, m["dialog_id"])}
+
+
+def office(req: Req):
+    """GET /api/office?character=: a character's dms with its coworkers, for its work window (inbox/E, D8)."""
+    import characters
+    import dialog_log
+    cid = str(req.q("character") or "")
+    if not characters.ID_RE.match(cid):
+        return req.send(400, b"character required", "text/plain")
+    return req.json({"messages": [_office_view(m, cid) for m in dialog_log.feed(cid)]})
+
+
+def office_notify(req: Req):
+    """GET /api/office/notify?dialog=&n=: the tool server says a dm was sent. Both coworkers' work windows show it now
+    and the one it went to may react (event_react, D11). The record is read here; the query only points at it."""
+    import dialog_log
+    import event_react
+    did = str(req.q("dialog") or "")
+    try:
+        n = int(req.q("n"))
+    except (TypeError, ValueError):
+        return req.send(400, b"dialog and n required", "text/plain")
+    msg = next((m for m in dialog_log.history(did, n - 1) if m["n"] == n), None) if dialog_log.is_dm(did) else None
+    if msg is None:
+        return req.send(404, b"no such message", "text/plain")
+    for cid in dialog_log.members(did):
+        sess = REG._newest(mode="work", character=cid)
+        if sess is not None:
+            other = next(x for x in dialog_log.members(did) if x != cid)
+            sess._emit({"event": "office", "msg": _office_view(dict(msg, dialog_id=did, other=other), cid)})
+    threading.Thread(target=event_react.react_once, args=(REG,), name="office-react", daemon=True).start()
+    return req.json({"ok": True})
+
 
 def artifacts(req: Req):
     sess = REG.peek(req.arg)

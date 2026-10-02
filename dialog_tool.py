@@ -16,6 +16,7 @@ is reply_to. Standard library + dialog_log; room_chat is imported so rooms are k
 from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
+from urllib.parse import urlencode
 
 import dialog_log
 import room_chat  # noqa: F401 -- registers rooms as a kind of dialog
@@ -68,7 +69,9 @@ def _view(m: Dict, did: str) -> Dict:
     return out
 
 
-def call(args: Dict, envelope: Callable, who: Dict) -> Dict:
+def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable] = None) -> Dict:
+    """`host_get`: how the tool server reaches the chat host; after a dm is sent the host is told, so both coworkers'
+    windows show it now and the one it went to may react (inbox/E, G)."""
     me, sid = who.get("character") or "", who.get("id") or ""
     if not me or not sid:
         return envelope(False, "dialog: the calling session is unknown, so nothing can be sent or read as you", None)
@@ -109,5 +112,7 @@ def call(args: Dict, envelope: Callable, who: Dict) -> Dict:
         except ValueError as e:
             return envelope(False, "dialog: %s" % e, None)
         dialog_log.saw(me, sid, did, msg["n"])
+        if host_get and dialog_log.is_dm(did):
+            host_get("/api/office/notify?" + urlencode({"dialog": did, "n": msg["n"]}))   # a nudge; {} when unreachable
         return envelope(True, "sent", {"dialog_id": did, "n": msg["n"]})
     return envelope(False, "dialog: unknown action %r (list, read, send)" % action, None)

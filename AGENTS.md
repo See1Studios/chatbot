@@ -76,7 +76,7 @@ goes into `protected_paths.json`.
 | Loop / write guards | `loop_guard.py`, `write_guard.py` |
 | Logs | `obslog.py` (writes `logs/events.jsonl`), `logdigest.py` (reads it) |
 | Service control | `chatbot-ctl.sh`, `ctl_proc.py`; first-run data folder `data_bootstrap.py` (from `templates/workspace/`) |
-| UI | `static/`: `app.js` (globals, send, boot; only code that runs at load) + parts loaded first `app-{api,device,messages,turn,activity,evolution,status,sessions-tab,team,sse,session,characters,viewport}.js`; `markdown.js` `artifacts.js` `slash.js` `model-picker.js` `theme.js` `index.html`; styles `chat-{base,log,composer,panes,responsive,features}.css` (cascade order) |
+| UI | `static/`: `app.js` (globals, send, boot; only code that runs at load) + parts loaded first `app-{api,device,messages,turn,activity,evolution,status,sessions-tab,team,sse,session,characters,viewport}.js`; a coworker's turn in a work window `app-office.js` (inbox/E); `markdown.js` `artifacts.js` `slash.js` `model-picker.js` `theme.js` `index.html`; styles `chat-{base,log,composer,panes,responsive,features}.css` (cascade order) |
 | Visual system | `DESIGN.md` + `.impeccable/design.json` |
 | Tests | `tests/`; run with `./run-tests.sh` |
 

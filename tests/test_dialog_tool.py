@@ -94,6 +94,15 @@ class DialogTool(unittest.TestCase):
         self.assertIn("kind", T.TOOL_DEFS[0]["inputSchema"]["properties"])
         self.assertIn("office", T.TOOL_DEFS[0]["description"], "coworkers in one office (D9)")
 
+    def test_a_sent_dm_is_told_to_the_host_a_room_message_is_not(self):
+        asked = []
+        who = {"id": "s-a", "character": self.a, "mode": "work", "private": False}
+        T.call({"action": "send", "to": "Kit", "text": "hi"}, envelope, who, asked.append)
+        self.assertEqual(asked, ["/api/office/notify?dialog=%s&n=1" % D.dm_id(self.a, self.b).replace(":", "%3A")])
+        r = RC.create("Desk", [self.a, self.b])
+        T.call({"action": "send", "dialog_id": r["id"], "text": "standup"}, envelope, who, asked.append)
+        self.assertEqual(len(asked), 1, "a meeting room has its own screen")
+
     def test_a_room_message_carries_its_mentions(self):
         r = RC.create("Desk", [self.a, self.b, self.c])
         self.as_(self.a, "s-a", action="send", dialog_id=r["id"], text="@Ari and @Kit, standup")

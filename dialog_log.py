@@ -10,6 +10,7 @@ numbered in that dialog -- Telegram's message box. Rooms and dialogs between two
       a reply to a number the dialog does not hold, and a kind not in KINDS. Each message also goes into the event mailbox as `msg.new`
       {conversation, n, from} for the other characters -- never its text (character-events-and-rooms).
   dialogs_of(cid) -> the dialogs a character is in
+  is_dm(did); feed(cid, limit) -> the messages of a character's dms, oldest first, for its work window (inbox/E)
   Read positions (inbox/B), two of them because one character has several brains (work, room seat, private):
   read(cid, did) -- how far the character has read: Telegram's read_inbox_max_id, for unread counts and badges
   seen(sid, cid, did) -- how far this session's brain has seen; a session that has seen nothing starts from the
@@ -69,6 +70,10 @@ def _dm_pair(did: str) -> List[str]:
     if len(parts) == 3 and parts[0] == "dm" and parts[1] < parts[2] and _char_id(parts[1]) and _char_id(parts[2]):
         return parts[1:]
     return []
+
+
+def is_dm(did: str) -> bool:
+    return bool(_dm_pair(did))
 
 
 def members(did: str) -> List[str]:
@@ -182,6 +187,17 @@ def dialogs_of(cid: str) -> List[str]:
     for k in _kinds:
         out.extend(k["of"](cid))
     return out
+
+
+def feed(cid: str, limit: int = 50) -> List[Dict]:
+    """The latest `limit` messages of `cid`'s dms, oldest first, each with its dialog_id and the coworker (`other`)."""
+    out = []
+    for did in dialogs_of(cid):
+        pair = _dm_pair(did)
+        if pair:
+            other = pair[0] if pair[1] == cid else pair[1]
+            out.extend(dict(m, dialog_id=did, other=other) for m in history(did))
+    return sorted(out, key=lambda m: m["ts"])[-limit:]
 
 
 def _dm_from_file(name: str) -> Optional[str]:

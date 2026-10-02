@@ -686,7 +686,7 @@ def call_tool(name: str, arguments: dict) -> dict:
         if delegation is not None and name in delegation.NAMES:
             return delegation.tool_call(name, args, mcp_caller.actor(_host_get), SECRET_CONTENT_RE, envelope, *_live_scope("delegate"))
         if name in dialog_tool.NAMES:
-            return dialog_tool.call(args, envelope, mcp_caller.caller(_host_get, PORT))
+            return dialog_tool.call(args, envelope, mcp_caller.caller(_host_get, PORT), _host_get)
         if web_tool is not None and name in web_tool.NAMES:
             return web_tool.call(args, envelope, private=_live_scope("web")[0])
         if mcp_core is not None and name in mcp_core.NAMES:
