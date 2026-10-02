@@ -861,7 +861,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 continue
             if h.get("queued"):
                 continue
-            text = h.get("text") or ""
+            text = _as_named_now(h.get("text") or "", h.get("ts"))   # NAME_CHANGE_v1: older talk, today's names
             if i == last_idx and role == "user" and last_user_override is not None:
                 text = last_user_override
             if not text:
@@ -1316,6 +1316,15 @@ def _record_live_pids() -> None:
     except Exception:
         pass
 
+
+
+def _as_named_now(text: str, ts) -> str:
+    """NAME_CHANGE_v1: talk from before a character was renamed, with today's names (character_names.as_of)."""
+    try:
+        import character_names
+        return character_names.as_of(text, ts)
+    except Exception:  # noqa: BLE001 -- a name note must never stop a turn
+        return text
 
 def owned_agent_procs() -> Dict[int, dict]:
     """pid -> {owner, sid, busy} for every live process this server spawned

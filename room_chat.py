@@ -119,6 +119,13 @@ def _append(rid: str, who: str, text: str, mentions: List[str]) -> Dict:
     return dialog_log.append(rid, who, text, mentions)
 
 
+
+def _named_now(m: Dict) -> Dict:
+    """A room message as shown: from before a rename, with today's names (NAME_CHANGE_v1); the record is kept."""
+    import character_names
+    text = character_names.as_of(m.get("text") or "", m.get("ts"))
+    return m if text == m.get("text") else dict(m, text=text)
+
 def _writers(rid: str) -> List[str]:
     r = room(rid)
     return list(r["members"]) + [dialog_log.USER] if r else []
@@ -318,7 +325,7 @@ def api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, Dic
         if method == "GET" and (len(rest) == 1 or (len(rest) == 3 and rest[1] == "after" and rest[2].isdigit())):
             after = int(rest[2]) if len(rest) == 3 else 0
             return 200, {"ok": True, "room": {k: r[k] for k in ("id", "name", "mode", "members", "strategy")},
-                         "names": _names(r["members"]), "messages": messages(rid, after), "busy": bool(_busy.get(rid)),
+                         "names": _names(r["members"]), "messages": [_named_now(m) for m in messages(rid, after)], "busy": bool(_busy.get(rid)),
                          "speaking": _speaking.get(rid, "")}
         if method == "POST" and len(rest) == 2 and rest[1] == "say":
             return 200, {"ok": True, "message": say(rid, str((body or {}).get("text") or ""))}

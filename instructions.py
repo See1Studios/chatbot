@@ -327,6 +327,15 @@ def _own_memory_text(character: str = "") -> str:
     return "[Your own memory]\n" + text if any(_FACT_LINE.match(l) for l in text.splitlines()) else ""
 
 
+def _names_text() -> str:
+    """The name changes, so older notes and memories read right (dynamic: never part of the static budget)."""
+    try:
+        import character_names
+        return character_names.note(WORKSPACE)
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _memory_text() -> str:
     text = _read(MEMORY_FILE)
     if not text or not any(_FACT_LINE.match(l) for l in text.splitlines()):
@@ -393,6 +402,8 @@ def _private_bundle(character: str, history: Optional[Union[List, str]] = None) 
     static = characters.render_macros(static, cid, WORKSPACE)   # CARD_MACROS_v1
     memory = characters.read_private_memory(cid, WORKSPACE) if cid else ""
     text = static + ("\n\n[Private memory]\n" + memory if "- " in memory else "")
+    names = _names_text()
+    text += ("\n\n" + names) if names else ""
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
 
 
@@ -408,6 +419,6 @@ def build_instruction_bundle(mode: str = "work", character: str = "", history: O
     static = "\n\n".join(t for t in (_rules_text(character, history=history), _skills_text(character)) if t)
     if not static:
         return {"text": "", "hash": ""}
-    dynamic = [t for t in (_memory_text(), _own_memory_text(character), _status_text()) if t]
+    dynamic = [t for t in (_memory_text(), _own_memory_text(character), _names_text(), _status_text()) if t]
     text = "\n\n".join([static] + dynamic)
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}

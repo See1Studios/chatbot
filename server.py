@@ -721,6 +721,11 @@ def main() -> None:
     elif not avail.get(DEFAULT_PROVIDER):
         obslog.event("providers.default_unavailable", lvl="warn", default=DEFAULT_PROVIDER, providers=avail)
     seeded = identity.seed_workspace_files()
+    try:   # NAME_CHANGE_v1: a card renamed while the host was down is carried before anything reads it
+        import character_names
+        character_names.reconcile()
+    except Exception as e:  # noqa: BLE001
+        print("names: reconcile failed: %s" % e, flush=True)
     try:
         import session as _session_mod
         moved = _session_mod.migrate_session_characters()

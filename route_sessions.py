@@ -133,11 +133,12 @@ def caller(req: Req):
 
 def _office_view(m: Dict, cid: str) -> Dict:
     """One dm message as `cid`'s window draws it (inbox/E): a coworker's turn, or its own line to them."""
+    import character_names
     import characters
     import dialog_log
     to = m["other"] if m["who"] == cid else cid
     return {"dialog_id": m["dialog_id"], "n": m["n"], "ts": m["ts"], "who": m["who"], "kind": m.get("kind") or "say",
-            "text": m["text"], "mine": m["who"] == cid, "who_name": characters.name(m["who"]) or m["who"],
+            "text": character_names.as_of(m["text"], m["ts"]), "mine": m["who"] == cid, "who_name": characters.name(m["who"]) or m["who"],
             "to_name": characters.name(to) or to, "how": dialog_log.how(m, m["dialog_id"])}
 
 
@@ -223,7 +224,18 @@ def detail(req: Req):
     if full:
         with sess.lock:
             out["history"] = list(sess.history)
+    out["history"] = [_named_now(h) for h in out.get("history") or []]
     return req.json(out)
+
+
+def _named_now(h: Dict) -> Dict:
+    """A history entry as shown: talk from before a rename with today's names (NAME_CHANGE_v1). A copy -- the session's
+    own record keeps what was said."""
+    import character_names
+    if not isinstance(h, dict) or not h.get("text"):
+        return h
+    text = character_names.as_of(h["text"], h.get("ts"))
+    return h if text == h["text"] else dict(h, text=text)
 
 
 def events(req: Req) -> None:

@@ -484,6 +484,12 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
     else:
         _backup(fp)
         _atomic_write_text(fp, content)
+    if fp.name == "card.json":   # NAME_CHANGE_v1: a new name is carried to the other cards, sheets and lorebooks now
+        try:
+            import character_names
+            character_names.reconcile(WORKSPACE)
+        except Exception as e:  # noqa: BLE001 -- the save stands; the next boot tries again
+            logger.warning("name reconcile failed: %s", e)
     msg = f"chore(team): update card {fp.parent.name}" if fp.name == "card.json" else f"chore(team): update {rest}"
     _maybe_git_commit(fp, msg)
     return 200, {"ok": True, "id": rest, "bytes": len(content.encode("utf-8"))}

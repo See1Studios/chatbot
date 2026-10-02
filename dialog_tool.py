@@ -62,8 +62,9 @@ def _character(ref: str) -> Optional[str]:
 
 
 def _view(m: Dict, did: str) -> Dict:
+    import character_names
     out = {"n": m["n"], "from": dialog_log.speaker(m["who"]), "how": dialog_log.how(m, did),
-           "text": str(m["text"])[:READ_CHARS]}
+           "text": character_names.as_of(str(m["text"]), m.get("ts"))[:READ_CHARS]}
     if m.get("reply_to"):
         out["reply_to"] = m["reply_to"]
     if m.get("kind") == "action":
