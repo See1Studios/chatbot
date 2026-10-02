@@ -83,15 +83,27 @@ def _new_character_id() -> str:
 
 # ── Card Data Accessors ────────────────────────────────────────────
 
+def is_chara_v2(card: Any) -> bool:
+    """Return True if card adheres to Chara V2 wrapper structure."""
+    return (
+        isinstance(card, dict)
+        and card.get("spec") == "chara_card_v2"
+        and isinstance(card.get("data"), dict)
+    )
+
+
 def get_card_data(card: Dict[str, Any]) -> Dict[str, Any]:
     """Return the inner data dict if card is a Chara V2 wrapper, else card itself."""
-    if isinstance(card, dict) and card.get("spec") == "chara_card_v2" and isinstance(card.get("data"), dict):
+    if is_chara_v2(card):
         return card["data"]
     return card
 
 
 def get_field_value(data: Dict[str, Any], key: str) -> Any:
-    """Get field value from dict, checking canonical and alias names."""
+    """Get field value from dict, checking canonical, alias names, and extensions.chatbot."""
+    if not isinstance(data, dict):
+        return None
+
     if key in data:
         return data[key]
     alias = ALIAS_MAP.get(key)
@@ -100,6 +112,22 @@ def get_field_value(data: Dict[str, Any], key: str) -> Any:
     reverse_alias = CANONICAL_TO_CHARA_V2.get(key)
     if reverse_alias and reverse_alias in data:
         return data[reverse_alias]
+
+    ext = data.get("extensions")
+    if isinstance(ext, dict):
+        chatbot = ext.get("chatbot")
+        if isinstance(chatbot, dict):
+            if key in chatbot:
+                return chatbot[key]
+            if alias and alias in chatbot:
+                return chatbot[alias]
+            if reverse_alias and reverse_alias in chatbot:
+                return chatbot[reverse_alias]
+
+    inner = data.get("data")
+    if isinstance(inner, dict):
+        return get_field_value(inner, key)
+
     return None
 
 
@@ -330,6 +358,68 @@ def _format_message_examples(val: Any) -> str:
     if isinstance(val, (list, tuple)):
         return "\n\n".join(str(x) for x in val if str(x).strip())
     return ""
+
+
+def apply_patch(card: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply filtered patch dict to card, respecting Chara V2 vs flat card schemas.
+
+    - For Chara V2 cards:
+      * Maps canonical keys (first_message -> first_mes, message_examples -> mes_example).
+      * Formats message_examples to string via _format_message_examples.
+      * Writes image_prompt and negative_prompt to data.extensions.chatbot.
+      * Removes extraneous canonical keys from data top-level.
+    - For flat cards:
+      * Preserves existing key names (or patch keys if not present).
+    """
+    if not isinstance(card, dict) or not isinstance(patch, dict):
+        return card
+
+    if is_chara_v2(card):
+        data = card["data"]
+        ext = data.setdefault("extensions", {})
+        chatbot = ext.setdefault("chatbot", {})
+
+        for k, v in patch.items():
+            if k in ("image_prompt", "negative_prompt"):
+                chatbot[k] = str(v).strip() if isinstance(v, str) else v
+                data.pop(k, None)
+                continue
+
+            v2_key = CANONICAL_TO_CHARA_V2.get(k, k)
+            if v2_key == "mes_example":
+                data["mes_example"] = _format_message_examples(v).strip()
+                data.pop("message_examples", None)
+            elif v2_key == "first_mes":
+                data["first_mes"] = str(v).strip() if isinstance(v, str) else v
+                data.pop("first_message", None)
+            elif v2_key == "tags" and isinstance(v, str):
+                data["tags"] = [t.strip() for t in v.split(",") if t.strip()]
+            elif v2_key == "alternate_greetings" and isinstance(v, str):
+                data["alternate_greetings"] = [v.strip()] if v.strip() else []
+            elif isinstance(v, str):
+                data[v2_key] = v.strip()
+            else:
+                data[v2_key] = v
+        return card
+
+    for k, v in patch.items():
+        target_key = k
+        if k not in card:
+            alias = ALIAS_MAP.get(k)
+            rev = CANONICAL_TO_CHARA_V2.get(k)
+            if alias and alias in card:
+                target_key = alias
+            elif rev and rev in card:
+                target_key = rev
+
+        if target_key in ("mes_example", "message_examples"):
+            card[target_key] = _format_message_examples(v).strip()
+        elif isinstance(v, str):
+            card[target_key] = v.strip()
+        else:
+            card[target_key] = v
+
+    return card
 
 
 def build_chara_v2_card(
@@ -619,8 +709,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             card = _load_card_file(args.card)
             patch = fill_missing_fields(args.idea, card, llm_fn, profile=args.profile)
             if not args.dry_run:
-                target = get_card_data(card)
-                target.update(patch)
+                apply_patch(card, patch)
                 _save_updated_card(args.card, card)
             print(json.dumps(patch, ensure_ascii=False, indent=2))
             return 0
@@ -630,10 +719,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                 parser.error("--regenerate requires --card <path>")
             targets = [k.strip() for k in args.regenerate.split(",") if k.strip()]
             card = _load_card_file(args.card)
-            patch = regenerate_fields(args.idea, card, targets, llm_fn, profile=args.profile)
+            patch = regenerate_fields(
+                args.idea,
+                card,
+                targets,
+                llm_fn,
+                profile=args.profile,
+                raise_on_failure=True,
+            )
             if not args.dry_run:
-                target = get_card_data(card)
-                target.update(patch)
+                apply_patch(card, patch)
                 _save_updated_card(args.card, card)
             print(json.dumps(patch, ensure_ascii=False, indent=2))
             return 0

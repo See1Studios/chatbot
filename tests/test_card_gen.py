@@ -80,6 +80,16 @@ class PickMissingKeysTest(unittest.TestCase):
         self.assertNotIn("description", missing)
         self.assertIn("personality", missing)
 
+    def test_extensions_chatbot_fields_not_missing(self):
+        card = card_gen.build_chara_v2_card({
+            "name": "AnchorChar",
+            "image_prompt": "Portrait of anchor girl",
+            "negative_prompt": "blurry, low quality",
+        })
+        missing = card_gen.pick_missing_keys(card)
+        self.assertNotIn("image_prompt", missing)
+        self.assertNotIn("negative_prompt", missing)
+
     def test_custom_keys_subset(self):
         card = {"name": "Test", "personality": ""}
         missing = card_gen.pick_missing_keys(card, keys=["name", "personality", "scenario"])
@@ -136,6 +146,43 @@ class FilterPatchTest(unittest.TestCase):
             "first_message": "New intro",
             "personality": "More fiery",
         })
+
+class ApplyPatchTest(unittest.TestCase):
+    def test_apply_patch_v2_canonical_mapping_and_no_first_message_key(self):
+        card = card_gen.build_chara_v2_card({"name": "Test", "first_message": ""})
+        card_gen.apply_patch(card, {"first_message": "New scene opening!"})
+        self.assertEqual(card["data"]["first_mes"], "New scene opening!")
+        self.assertNotIn("first_message", card["data"])
+
+    def test_apply_patch_v2_message_examples_formatting(self):
+        card = card_gen.build_chara_v2_card({"name": "Test"})
+        card_gen.apply_patch(
+            card,
+            {"message_examples": ["<START>\n<USER> Hi\n<BOT> Hey", "<START>\n<USER> Bye\n<BOT> Bye"]},
+        )
+        self.assertEqual(
+            card["data"]["mes_example"],
+            "<START>\n<USER> Hi\n<BOT> Hey\n\n<START>\n<USER> Bye\n<BOT> Bye",
+        )
+        self.assertNotIn("message_examples", card["data"])
+
+    def test_apply_patch_v2_image_prompt_in_extensions_chatbot(self):
+        card = card_gen.build_chara_v2_card({"name": "Test"})
+        card_gen.apply_patch(card, {"image_prompt": "1girl, hacker", "negative_prompt": "blurry"})
+        self.assertEqual(card["data"]["extensions"]["chatbot"]["image_prompt"], "1girl, hacker")
+        self.assertEqual(card["data"]["extensions"]["chatbot"]["negative_prompt"], "blurry")
+        self.assertNotIn("image_prompt", card["data"])
+        self.assertNotIn("negative_prompt", card["data"])
+
+    def test_apply_patch_flat_card_preserves_keys(self):
+        flat1 = {"name": "Flat1", "first_mes": "Old greeting"}
+        card_gen.apply_patch(flat1, {"first_message": "New greeting"})
+        self.assertEqual(flat1["first_mes"], "New greeting")
+        self.assertNotIn("first_message", flat1)
+
+        flat2 = {"name": "Flat2", "first_message": "Old greeting"}
+        card_gen.apply_patch(flat2, {"first_message": "New greeting"})
+        self.assertEqual(flat2["first_message"], "New greeting")
 
 
 class EqualNormalizedTest(unittest.TestCase):
@@ -483,6 +530,107 @@ class PackageAndOrchestrationTest(unittest.TestCase):
 
             updated = json.loads(Path(card_path).read_text(encoding="utf-8"))
             self.assertEqual(updated["data"]["personality"], "Brand new personality!")
+        finally:
+            Path(card_path).unlink(missing_ok=True)
+            Path(input_path).unlink(missing_ok=True)
+
+    def test_cli_fill_missing_v2_canonical_and_extensions(self):
+        import io
+        import contextlib
+        card = card_gen.build_chara_v2_card({
+            "name": "TargetCard",
+            "first_message": "",
+            "message_examples": "",
+            "image_prompt": "",
+        })
+        with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False) as fc:
+            json.dump(card, fc)
+            card_path = fc.name
+        with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False) as fi:
+            json.dump({
+                "first_message": "CLI intro scene",
+                "message_examples": ["<USER> Hi\n<BOT> Hey"],
+                "image_prompt": "1girl in cyber suit",
+            }, fi)
+            input_path = fi.name
+
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                ret = card_gen.main([
+                    "--fill-missing",
+                    "--card", card_path,
+                    "--input-file", input_path,
+                ])
+            self.assertEqual(ret, 0)
+            updated = json.loads(Path(card_path).read_text(encoding="utf-8"))
+            data = updated["data"]
+            self.assertEqual(data["first_mes"], "CLI intro scene")
+            self.assertNotIn("first_message", data)
+            self.assertEqual(data["mes_example"], "<USER> Hi\n<BOT> Hey")
+            self.assertNotIn("message_examples", data)
+            self.assertEqual(data["extensions"]["chatbot"]["image_prompt"], "1girl in cyber suit")
+            self.assertNotIn("image_prompt", data)
+        finally:
+            Path(card_path).unlink(missing_ok=True)
+            Path(input_path).unlink(missing_ok=True)
+
+    def test_cli_regenerate_v2_canonical(self):
+        import io
+        import contextlib
+        card = card_gen.build_chara_v2_card({
+            "name": "TargetCard",
+            "first_message": "Old intro scene",
+        })
+        with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False) as fc:
+            json.dump(card, fc)
+            card_path = fc.name
+        with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False) as fi:
+            json.dump({"first_message": "Brand new intro via CLI!"}, fi)
+            input_path = fi.name
+
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                ret = card_gen.main([
+                    "--regenerate", "first_message",
+                    "--card", card_path,
+                    "--input-file", input_path,
+                ])
+            self.assertEqual(ret, 0)
+            updated = json.loads(Path(card_path).read_text(encoding="utf-8"))
+            data = updated["data"]
+            self.assertEqual(data["first_mes"], "Brand new intro via CLI!")
+            self.assertNotIn("first_message", data)
+        finally:
+            Path(card_path).unlink(missing_ok=True)
+            Path(input_path).unlink(missing_ok=True)
+
+    def test_cli_regenerate_failure_exits_nonzero(self):
+        import io
+        import contextlib
+        card = card_gen.build_chara_v2_card({
+            "name": "TargetCard",
+            "personality": "Identical personality",
+        })
+        with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False) as fc:
+            json.dump(card, fc)
+            card_path = fc.name
+        with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False) as fi:
+            json.dump({"personality": "Identical personality"}, fi)
+            input_path = fi.name
+
+        buf = io.StringIO()
+        err_buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err_buf):
+                ret = card_gen.main([
+                    "--regenerate", "personality",
+                    "--card", card_path,
+                    "--input-file", input_path,
+                ])
+            self.assertNotEqual(ret, 0)
+            self.assertIn("Failed to produce substantially different fields", err_buf.getvalue())
         finally:
             Path(card_path).unlink(missing_ok=True)
             Path(input_path).unlink(missing_ok=True)
