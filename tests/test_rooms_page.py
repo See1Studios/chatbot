@@ -26,8 +26,14 @@ const mk = () => {
 };
 const store = {};
 const localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-const document = { body: mk(), createElement: mk, getElementById: () => null };
+const brandAvatar = mk(), brandAvatarWrap = mk();
+brandAvatar.src = 'old-avatar.png';
+const elById = { brandAvatar, brandAvatarWrap };
+const document = { body: mk(), createElement: mk, getElementById: id => elById[id] || null };
 const window = {};
+const characterCatalog = [{ id: 'a', name: 'Kit', avatar_v: 1 }, { id: 'b', name: 'Kiki', avatar_v: 1 }];
+const characterOwnPortrait = c => '/portraits/' + c.id;
+const BASE_PATH = '';
 const SESSION_KEY = 'chatbot.sessionId';
 let sessionId = 's1', streamClosed = false, es = { close() { streamClosed = true; } };
 let assistantNode = null, assistantBuf = '', scrollbackSid = 's1', scrollbackExhausted = false, scrollforwardSid = 's1',
@@ -67,12 +73,15 @@ return (async () => {
   o.entered = await roomEnter('room_1');
   o.open = { id: roomOpenId(), sessionId, streamClosed, stored: localStorage.getItem(ROOM_KEY), marked: document.body.classList.contains('room-open'),
     logCleared: logEl.innerHTML === '', scrollback: [scrollbackSid, scrollbackExhausted, scrollforwardExhausted], past: [archiveBrowse, sessionNavNextSid] };
+  // grh/A: the header avatar shows a card stack with the latest speaker's face
+  o.cardStack = { isRoom: brandAvatarWrap.classList.contains('is-room'), src: brandAvatar.src };
   o.drawn = drawn.map(d => [d.role, d.text, d.ts]);
   o.memberNode = { who: drawn[1].node.dataset.roomWho, avatar: drawn[1].node.style['--char-avatar'], name: drawn[1].node.children[0].textContent };
   // a poll that overlaps what is drawn adds only the new message
   feed = Object.assign({}, feed, { messages: [feed.messages[2], { n: 4, who: 'a', text: 'more', ts: 4 }] });
   await roomPoll();
   o.afterPoll = drawn.map(d => d.text);
+  o.cardStackAfterPoll = brandAvatar.src;   // grh/A: the latest speaker's face after a poll
   // sending: the room API, never the 1:1 session; then the send button waits while the room answers
   inputEl.value = '@Kit ping';
   feed = Object.assign({}, feed, { busy: true, messages: [{ n: 5, who: 'user', text: '@Kit ping', ts: 5 }] });
@@ -90,6 +99,8 @@ return (async () => {
   // back to the 1:1 session that was open
   await roomLeave();
   o.left = { id: roomOpenId(), opened, stored: localStorage.getItem(ROOM_KEY), marked: document.body.classList.contains('room-open') };
+  o.cardStackAfterLeave = brandAvatarWrap.classList.contains('is-room');   // grh/A: should be false
+  o.avatarAfterLeave = brandAvatar.src;   // grh/A: should be restored to 'old-avatar.png'
   return o;
 })();`);
 run().then(o => console.log(JSON.stringify(o)));
@@ -115,6 +126,20 @@ const run = new Function(process.argv[2] + 'const shellOn = () => true;' + src +
   o.mention = inputEl.value;
   return o;`);
 console.log(JSON.stringify(run()));
+"""
+
+
+EMPTY_ROOM = r"""
+const src = require('fs').readFileSync(process.argv[1], 'utf8');
+const run = new Function(process.argv[2] + src + `;
+return (async () => {
+  feed = { room: { id: 'room_empty', name: 'Empty', members: ['a', 'b'] }, names: { a: 'Kit', b: 'Kiki' }, busy: false, messages: [] };
+  await roomEnter('room_empty');
+  const avatar = brandAvatar.src;
+  await roomLeave();
+  return { avatar };
+})();`);
+run().then(o => console.log(JSON.stringify(o)));
 """
 
 
@@ -190,6 +215,24 @@ class RoomsPage(unittest.TestCase):
         left = self.o["left"]
         self.assertEqual((left["id"], left["opened"], left["stored"], left["marked"]), ("", ["s1"], None, False))
 
+    def test_card_stack_avatar_tracks_the_latest_speaker(self):
+        """grh/A: room enter adds .is-room to #brandAvatarWrap, sets the latest speaker's face; leave removes it."""
+        cs = self.o["cardStack"]
+        self.assertTrue(cs["isRoom"], ".is-room class on brandAvatarWrap")
+        # the feed has messages from a and b; b spoke last → its portrait
+        self.assertEqual(cs["src"], "/portraits/b", "latest speaker's portrait after enter")
+        # after a poll where 'a' is the latest speaker
+        self.assertEqual(self.o["cardStackAfterPoll"], "/portraits/a", "updated to the new latest speaker")
+        # after leaving the room, the card stack class is removed and 1:1 avatar restored
+        self.assertFalse(self.o["cardStackAfterLeave"], ".is-room removed after leave")
+        self.assertEqual(self.o["avatarAfterLeave"], "old-avatar.png", "restored 1:1 character avatar after leave")
+
+    def test_empty_room_avatar_falls_back_to_first_member(self):
+        r = subprocess.run(["node", "-e", EMPTY_ROOM, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        o = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertEqual(o["avatar"], "/portraits/a", "fallback to first member's face when no messages")
+
 
 class Wiring(unittest.TestCase):
     def setUp(self):
@@ -227,6 +270,15 @@ class Wiring(unittest.TestCase):
         css = (STATIC / "rooms.css").read_text(encoding="utf-8")
         for widget in ("#modelBtn", "#privateBtn", "#slashBtn", ".composer .inline-btn", "#sessionNav"):
             self.assertIn("body.room-open " + widget, css)
+
+    def test_card_stack_avatar_css_and_js(self):
+        """grh/A: the card-stack CSS targets #brandAvatarWrap.is-room and the JS toggles it."""
+        css = (STATIC / "rooms.css").read_text(encoding="utf-8")
+        self.assertIn("#brandAvatarWrap.is-room", css, "card-stack selector in rooms.css")
+        self.assertIn("::before", css)
+        self.assertIn("::after", css)
+        self.assertIn("roomHeaderAvatar", self.rooms, "avatar function in app-rooms.js")
+        self.assertIn("roomLatestSpeaker", self.rooms)
 
 
 if __name__ == "__main__":

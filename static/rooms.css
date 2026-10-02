@@ -1,4 +1,10 @@
 /* rooms.css -- group rooms (app-rooms.js, character-events-and-rooms.md evt/E-2, evt/E-3). A room talks in the main log with the main bubbles and input; this file adds only what a room changes there, and the new-room form. */
+/* grh/A: the header avatar shows a card stack when the main view is a room, mirroring the shell list's .is-room effect */
+#brandAvatarWrap.is-room{position:relative;isolation:isolate}
+#brandAvatarWrap.is-room .avatar{position:relative;z-index:1;border-radius:14px;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+#brandAvatarWrap.is-room::before,#brandAvatarWrap.is-room::after{content:"";position:absolute;z-index:0;top:50%;left:50%;width:80%;height:90%;border-radius:12px;border:1px solid var(--border);background:#2a2f3a;pointer-events:none;transform-origin:center}
+#brandAvatarWrap.is-room::before{transform:translate(-50%,-50%) rotate(-11deg) translateX(-3px);opacity:.45}
+#brandAvatarWrap.is-room::after{transform:translate(-50%,-50%) rotate(7deg) translateX(4px);opacity:.7}
 /* the header: the room's name, its members and the way back, in place of the character's title and provider */
 body.room-open .brand-title > h1,body.room-open #brandRole{display:none}
 .room-head{display:flex;flex-direction:column;min-width:0}

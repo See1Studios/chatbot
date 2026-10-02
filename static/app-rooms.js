@@ -12,7 +12,7 @@ const ROOM_TEXT = {   // l10n-ok
 const ROOM_STRATEGIES = ['natural', 'list', 'manual'];
 const ROOM_KEY = 'chatbot.roomId';   // the open room, so a reload comes back to it
 // on: the main view is this room. last: the newest message drawn. back: the 1:1 session to return to.
-let roomState = { rooms: [], on: false, id: '', room: null, names: {}, last: 0, busy: false, timer: 0, back: '', userTitle: '', typing: null };
+let roomState = { rooms: [], on: false, id: '', room: null, names: {}, last: 0, busy: false, timer: 0, back: '', userTitle: '', typing: null, backAvatar: '' };
 
 function roomEl(tag, cls, text) {
   const n = document.createElement(tag);
@@ -82,6 +82,47 @@ async function roomsRefresh() {
   roomsSessionsFill();
 }
 
+// The header avatar while a room is open: the face of whoever spoke last on a card stack (grh/A). The face of the
+// first member when nobody has spoken yet, or an initial when the catalog has none. On close, the class goes away and
+// the 1:1 session that opens next repaints the avatar (updateBrandAvatar in app-characters.js).
+function roomHeaderAvatar(speakerId) {
+  const wrap = document.getElementById('brandAvatarWrap');
+  const pic = document.getElementById('brandAvatar');
+  if (!wrap || !pic) return;
+  if (!roomState.on) {
+    wrap.classList.remove('is-room');
+    if (typeof updateBrandAvatar === 'function') {
+      updateBrandAvatar(typeof providerEl !== 'undefined' && providerEl ? providerEl.value : '');
+    } else if (roomState.backAvatar) {
+      pic.src = roomState.backAvatar;
+    }
+    roomState.backAvatar = '';
+    return;
+  }
+  if (!wrap.classList.contains('is-room') && pic.src) {
+    roomState.backAvatar = pic.src;
+  }
+  wrap.classList.add('is-room');
+  const face = speakerId || ((roomState.room || {}).members || [])[0] || '';
+  if (!face) {
+    if (typeof initialAvatar === 'function') pic.src = initialAvatar((roomState.room && roomState.room.name) || '');
+    return;
+  }
+  const chars = typeof characterCatalog !== 'undefined' ? characterCatalog : [];
+  const c = chars.find(x => x.id === face) || null;
+  const src = c && typeof characterOwnPortrait === 'function' ? characterOwnPortrait(c)
+    : (typeof BASE_PATH !== 'undefined' ? BASE_PATH : '') + '/api/characters/' + encodeURIComponent(face) + '/avatar';
+  pic.src = src;
+}
+
+// The latest non-user speaker from the messages already drawn, for the header avatar.
+function roomLatestSpeaker(messages) {
+  for (let i = (messages || []).length - 1; i >= 0; i--) {
+    if (messages[i].who && messages[i].who !== 'user') return messages[i].who;
+  }
+  return '';
+}
+
 // ------------------------------------------------------------------------------------------ the room in the main view
 
 // Opens the room in the main view. `quiet`: a failure (the room is gone) says nothing -- the reload path.
@@ -134,6 +175,7 @@ function roomClose() {
   try { localStorage.removeItem(ROOM_KEY); } catch (_) {}
   document.body.classList.remove('room-open');
   setProgress('', true);
+  roomHeaderAvatar();   // grh/A: remove card-stack class
   roomHead();
   roomMentionMenu();
   if (typeof refreshComposerPlaceholder === 'function') refreshComposerPlaceholder();
@@ -187,6 +229,9 @@ function roomTake(r) {
   }
   roomTyping(roomState.busy ? (r.speaking || '') : '');
   roomBusyMark();
+  // grh/A: the header avatar follows the latest speaker (the speaking member when busy, else the last drawn)
+  const headerFace = (roomState.busy && r.speaking) ? r.speaking : roomLatestSpeaker(r.messages || []);
+  roomHeaderAvatar(headerFace);
 }
 
 // The messenger shell shows who is answering the way a 1:1 talk does: that member's face with typing dots, at the
