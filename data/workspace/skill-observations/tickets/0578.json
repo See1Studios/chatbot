@@ -1,0 +1,60 @@
+{
+ "actor": "chat-agent:lead",
+ "approved_at": "2026-10-02 17:52:51",
+ "approved_by": "operator (ui)",
+ "attempts": 0,
+ "created": "2026-10-02 17:51:11",
+ "evidence": [
+  "event:20261002-165304-a74de0#141"
+ ],
+ "gate_failures": 0,
+ "id": 578,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-10-02 17:52:51"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 577 (static/artifacts.js, static/markdown.js, tests/test_artifact_isolation.py)",
+   "ts": "2026-10-02 17:52:51"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 577 (static/artifacts.js, static/markdown.js, tests/test_artifact_isolation.py)",
+   "ts": "2026-10-02 17:52:53"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 577 (static/artifacts.js, static/markdown.js, tests/test_artifact_isolation.py)",
+   "ts": "2026-10-02 17:53:04"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: static/artifacts.js, static/markdown.js, tests/test_artifact_isolation.py",
+   "ts": "2026-10-02 17:53:14"
+  },
+  {
+   "by": "agent:agy",
+   "text": "unavailable: worktree agy: no brain could work (agy/gemini-3.8-flash-high): root agent idle; waiting up to 30m0s for 2 background task(s)\nerror: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 51m26s. (response may be truncated)\nA",
+   "ts": "2026-10-02 18:08:26"
+  },
+  {
+   "by": "host",
+   "text": "no brain answered: attempt given back (1/3)",
+   "ts": "2026-10-02 18:08:26"
+  }
+ ],
+ "paths": [
+  "static/artifacts.js",
+  "static/markdown.js",
+  "tests/test_artifact_isolation.py"
+ ],
+ "status": "approved",
+ "target": "static/artifacts.js,static/markdown.js,tests/test_artifact_isolation.py",
+ "title": "[art/fix] 아티팩트 인앱 뷰어 지원(document/code) 및 대화창 마크다운 링크 연동",
+ "unavailable": 1,
+ "updated": "2026-10-02 18:08:26",
+ "worked_by": "agy"
+}
