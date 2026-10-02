@@ -264,6 +264,19 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
   background: var(--panel-hover, #2d333b);
   color: var(--accent2, #58a6ff);
 }
+.chat-map-box .leaflet-control-attribution {
+  background: var(--panel-2, rgba(0, 0, 0, 0.5));
+  color: var(--muted, #8b949e);
+  font-size: 0.65rem;
+  padding: 0 4px;
+}
+.chat-map-box .leaflet-control-attribution a {
+  color: var(--accent2, #58a6ff);
+  text-decoration: none;
+}
+.chat-map-box .leaflet-control-attribution a:hover {
+  text-decoration: underline;
+}
 /* Responsive & mobile optimization */
 @media (max-width: 600px) {
   .chat-map-box {

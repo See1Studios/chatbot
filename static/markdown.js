@@ -878,7 +878,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     if (!skipFooter) renderChoiceChips(node, finalChoices, prependState);
     renderMermaidIn(node);
     highlightCodeIn(node);
-    if (typeof renderMapsIn === 'function') renderMapsIn(node);
+    if (window.renderMapsIn) renderMapsIn(node);
     // Client-side system notices (/help, /status, /clear, stop confirmation)
     // reuse the assistant bubble's markdown rendering but aren't real LLM
     // replies -- no token badge / copy / TTS chips belong on them (operator:
@@ -917,8 +917,9 @@ function renderMarkdown(src, isFinal) {
   if (window.marked && typeof marked.parse === 'function') {
     try {
       let html = marked.parse(raw);
-      html = html.replace(/<img\s+([^>]*?)src="([^"]+)"([^>]*?)>/g, (_, p1, u, p2) =>
-        '<img ' + p1 + 'src="' + absArtifact(u) + '"' + p2 + ' loading="lazy">');
+      html = html.replace(/<img\s+([^>]*?)src="([^"]+)"([^>]*?)>/g, (_, p1, u, p2) => {
+        return '<img ' + p1 + 'src="' + absArtifact(u) + '"' + p2 + ' loading="lazy">';
+      });
       html = html.replace(/<a\s+([^>]*?)href="([^"]+)"([^>]*?)>/g, (_, p1, href, p2) => {
         const ref = /^https?:/i.test(href) ? null : parseFileRef(href, true);
         if (ref) {
@@ -931,7 +932,7 @@ function renderMarkdown(src, isFinal) {
         const dec = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
         html = html.replace(/<pre><code class="(?:language-)?mermaid">([\s\S]*?)<\/code><\/pre>/g, (_, c) =>
           '<div class="mermaid-wrap"><pre class="mermaid">' + dec(c) + '</pre></div>');
-        html = html.replace(/<pre><code class="(?:language-)?map">([\s\S]*?)<\/code><\/pre>/g, (m, c) => typeof renderMapBlock === 'function' ? renderMapBlock(c) : m);
+        html = html.replace(/<pre><code class="(?:language-)?map">([\s\S]*?)<\/code><\/pre>/g, (m, c) => window.renderMapBlock ? renderMapBlock(c) : m);
       }
       // Sanitize: block javascript: hrefs and inline event handlers.
       // ADD_ATTR keeps target/loading/rel/class attributes; class names like

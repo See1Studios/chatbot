@@ -15,8 +15,26 @@ function ensureLeafletLoaded() {
     }
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = () => (window.L ? resolve(window.L) : reject(new Error('Leaflet missing')));
-    script.onerror = reject;
+    let timer = null;
+    const cleanup = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    };
+    timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Leaflet load timeout'));
+    }, 10000);
+    script.onload = () => {
+      cleanup();
+      if (typeof window !== 'undefined' && window.L) resolve(window.L);
+      else reject(new Error('Leaflet missing'));
+    };
+    script.onerror = (err) => {
+      cleanup();
+      reject(err || new Error('Leaflet script error'));
+    };
     document.head.appendChild(script);
   }).catch((err) => {
     leafletLoadingPromise = null;
@@ -118,10 +136,15 @@ async function renderMapsIn(container) {
     const marker = el.getAttribute('data-marker') || '';
     const canvas = el.querySelector('.chat-map-canvas') || el;
     try {
-      const map = window.L.map(canvas, { zoomControl: true, attributionControl: false }).setView([lat, lon], zoom);
-      window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      const map = window.L.map(canvas, { zoomControl: true, attributionControl: true }).setView([lat, lon], zoom);
+      window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+      }).addTo(map);
       if (marker) {
-        window.L.marker([lat, lon]).addTo(map).bindPopup(marker).openPopup();
+        const popup = document.createElement('div');
+        popup.textContent = marker;
+        window.L.marker([lat, lon]).addTo(map).bindPopup(popup).openPopup();
       }
       setTimeout(() => {
         try { map.invalidateSize(); } catch (_) {}

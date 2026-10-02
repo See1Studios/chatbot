@@ -182,6 +182,19 @@ console.log(JSON.stringify({{
 const fs = require('fs');
 eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
 
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    return {{
+      tagName: tag.toUpperCase(),
+      nodeType: 1,
+      innerHTML: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }}
+    }};
+  }}
+}};
+
 const calls = [];
 window = {{
   L: {{
@@ -195,14 +208,20 @@ window = {{
     }}),
     tileLayer: (url, opts) => ({{
       addTo: (m) => {{
-        calls.push({{ action: 'tileLayer', url }});
+        calls.push({{ action: 'tileLayer', url, opts }});
         return {{}};
       }}
     }}),
     marker: (coords) => ({{
       addTo: (m) => ({{
-        bindPopup: (text) => ({{
-          openPopup: () => calls.push({{ action: 'marker', coords, text }})
+        bindPopup: (content) => ({{
+          openPopup: () => calls.push({{
+            action: 'marker',
+            coords,
+            isString: typeof content === 'string',
+            isNode: typeof content === 'object' && content !== null && typeof content.textContent === 'string',
+            textContent: content && content.textContent
+          }})
         }})
       }})
     }})
@@ -243,6 +262,163 @@ const container = {{
         self.assertEqual(res["firstProcessed"], "true")
         self.assertGreater(res["firstCallsCount"], 0)
         self.assertEqual(res["firstCallsCount"], res["secondCallsCount"], "Already processed boxes should not be re-rendered")
+        marker_calls = [c for c in res["calls"] if c.get("action") == "marker"]
+        self.assertEqual(len(marker_calls), 1)
+        self.assertTrue(marker_calls[0]["isNode"], "bindPopup must receive a DOM element")
+        self.assertFalse(marker_calls[0]["isString"], "bindPopup must not receive a raw string")
+        self.assertEqual(marker_calls[0]["textContent"], "Spot")
+
+    def test_render_maps_in_popup_xss_protection(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+let popupArg = null;
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    return {{
+      tagName: tag.toUpperCase(),
+      nodeType: 1,
+      innerHTML: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }}
+    }};
+  }}
+}};
+
+window = {{
+  L: {{
+    map: () => ({{ setView: () => ({{ invalidateSize: () => {{}} }}) }}),
+    tileLayer: () => ({{ addTo: () => ({{}}) }}),
+    marker: () => ({{
+      addTo: () => ({{
+        bindPopup: (content) => {{
+          popupArg = {{
+            isString: typeof content === 'string',
+            isObject: typeof content === 'object' && content !== null,
+            tagName: content && content.tagName,
+            textContent: content && content.textContent,
+            innerHTML: content && content.innerHTML
+          }};
+          return {{ openPopup: () => {{}} }};
+        }}
+      }})
+    }})
+  }}
+}};
+
+const box = {{
+  attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0', 'data-marker': '<img src=x onerror=alert(1)>' }},
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute(k, v) {{ this.attrs[k] = String(v); }},
+  querySelector() {{ return {{}}; }}
+}};
+const container = {{ querySelectorAll: () => [box] }};
+
+(async () => {{
+  await renderMapsIn(container);
+  console.log(JSON.stringify(popupArg));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertFalse(res["isString"], "bindPopup must never receive a raw string (DOM XSS risk)")
+        self.assertTrue(res["isObject"], "bindPopup must receive a DOM element node")
+        self.assertEqual(res["tagName"], "DIV")
+        self.assertEqual(res["textContent"], "<img src=x onerror=alert(1)>")
+        self.assertEqual(res["innerHTML"], "", "innerHTML must remain empty")
+
+    def test_render_maps_in_osm_attribution(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+let mapOpts = null;
+let tileOpts = null;
+
+global.document = {{
+  createElement: (tag) => ({{ tagName: tag.toUpperCase(), textContent: '' }})
+}};
+window = {{
+  L: {{
+    map: (canvas, opts) => {{
+      mapOpts = opts;
+      return {{ setView: () => ({{ invalidateSize: () => {{}} }}) }};
+    }},
+    tileLayer: (url, opts) => {{
+      tileOpts = opts;
+      return {{ addTo: () => ({{}}) }};
+    }},
+    marker: () => ({{ addTo: () => ({{ bindPopup: () => ({{ openPopup: () => {{}} }}) }}) }})
+  }}
+}};
+
+const box = {{
+  attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0', 'data-marker': 'Attribution Test' }},
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute() {{}},
+  querySelector() {{ return {{}}; }}
+}};
+const container = {{ querySelectorAll: () => [box] }};
+
+(async () => {{
+  await renderMapsIn(container);
+  console.log(JSON.stringify({{ mapOpts, tileOpts }}));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertTrue(res["mapOpts"].get("attributionControl"), "attributionControl must not be disabled")
+        self.assertIn("attribution", res["tileOpts"], "tileLayer must specify attribution")
+        self.assertIn("OpenStreetMap", res["tileOpts"]["attribution"], "attribution must cite OpenStreetMap")
+
+    def test_ensure_leaflet_loaded_timeout_and_retry(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+let timerCb = null;
+global.setTimeout = (cb, ms) => {{
+  timerCb = cb;
+  return 123;
+}};
+global.clearTimeout = () => {{}};
+
+let scriptCount = 0;
+global.document = {{
+  querySelector: () => null,
+  createElement: (tag) => {{
+    if (tag === 'script') scriptCount++;
+    return {{ tag, rel: '', href: '', src: '', dataset: {{}} }};
+  }},
+  head: {{ appendChild: () => {{}} }}
+}};
+global.window = {{}};
+
+(async () => {{
+  const p1 = ensureLeafletLoaded();
+  const countAfterP1 = scriptCount;
+  if (timerCb) timerCb();
+  let err1 = null;
+  try {{
+    await p1;
+  }} catch (e) {{
+    err1 = e.message;
+  }}
+  const p2 = ensureLeafletLoaded();
+  const countAfterP2 = scriptCount;
+  console.log(JSON.stringify({{ err1, countAfterP1, countAfterP2 }}));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertEqual(res["err1"], "Leaflet load timeout")
+        self.assertEqual(res["countAfterP1"], 1)
+        self.assertEqual(res["countAfterP2"], 2, "Second attempt after timeout must retry script creation")
 
 
 class MapStaticAssets(unittest.TestCase):
