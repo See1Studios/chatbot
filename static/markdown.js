@@ -101,9 +101,6 @@ function attachCodeCopyButtons(container) {
 }
 
 function highlightCodeIn(container) {
-  // Gated to isFinal only (like renderMermaidIn) -- re-highlighting on every
-  // streaming delta would re-run hljs over the whole block on each tick and
-  // can momentarily mis-highlight code that's still mid-fence.
   if (!container) return;
   const blocks = container.querySelectorAll('pre code:not(.hljs)');
   if (!blocks.length) return;
@@ -116,10 +113,6 @@ function highlightCodeIn(container) {
     if (!pre || pre.classList.contains('mermaid') || pre.closest('.mermaid-wrap')) return;
     try {
       hljs.highlightElement(block);
-      // Read the language back off the class hljs itself just set --
-      // covers both an explicit ```lang fence and hljs's own auto-detection,
-      // so the badge is always accurate instead of only showing up for
-      // explicitly-labeled fences.
       const m = block.className.match(/language-([\w+-]+)/);
       if (m && !pre.querySelector('.code-lang')) {
         const tag = document.createElement('span');
@@ -261,13 +254,24 @@ function attachFileLinkInterceptors(container) {
 
 function attachArtifactLinkInterceptors(container) {
   if (!container || typeof openArtifactModal !== 'function') return;
+  const isLocal = (h) => {
+    if (!h || h === '#') return false;
+    if (h.startsWith('/artifacts/') || h.startsWith('artifacts/')) return true;
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.origin) {
+        const u = new URL(h, window.location.origin);
+        return u.origin === window.location.origin && u.pathname.startsWith('/artifacts/');
+      }
+    } catch (_) {}
+    return false;
+  };
   container.querySelectorAll('a[href*="/artifacts/"]:not(.artifact-bound), a.artifact-link:not(.artifact-bound)').forEach(a => {
     const href = a.getAttribute('href') || '';
-    if (!href || href === '#' || !href.includes('/artifacts/')) return;
+    if (!isLocal(href)) return;
     a.classList.add('artifact-bound');
     a.removeAttribute('target');
-    a.title = (a.title ? a.title + ' ' : '') + '(클릭하여 아티팩트 보기)'; // l10n-ok
     a.addEventListener('click', (e) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || (e.button && e.button !== 0)) return;
       e.preventDefault();
       e.stopPropagation();
       const n = (a.textContent || '').trim();
@@ -504,7 +508,19 @@ function parseChoiceItem(item) {
   const truncate = (s) => (typeof truncateChoiceLabel === 'function'
     ? truncateChoiceLabel(s, maxLabel)
     : (String(s || '').trim().length <= maxLabel ? String(s || '').trim() : String(s || '').trim().slice(0, maxLabel - 1) + '…'));
-  const unwrapParens = typeof stripOuterParens === 'function' ? stripOuterParens : (s) => String(s || '').trim();
+  const unwrapParens = typeof stripOuterParens === 'function' ? stripOuterParens : (s) => {
+    let out = String(s || '').trim();
+    while (out.length >= 2 && out[0] === '(' && out[out.length - 1] === ')') {
+      let depth = 0, balanced = true;
+      for (let i = 0; i < out.length; i++) {
+        if (out[i] === '(') depth++;
+        else if (out[i] === ')') { depth--; if ((depth === 0 && i !== out.length - 1) || depth < 0) { balanced = false; break; } }
+      }
+      if (!balanced || depth !== 0) break;
+      out = out.slice(1, -1).trim();
+    }
+    return out;
+  };
 
   if (item && typeof item === 'object') {
     const rawLabel = String(item.label || '').trim();
@@ -654,19 +670,14 @@ function sendPickedChoice() {
 }
 
 function getChoiceBarEl() {
-  if (typeof document !== 'undefined' && document && document.getElementById) {
+  if (typeof document !== 'undefined' && document && typeof document.getElementById === 'function') {
     const el = document.getElementById('choiceBar');
     if (el) return el;
   }
-  return typeof choiceBarEl !== 'undefined' ? choiceBarEl : null;
-}
-
-function resetChoiceBar(bar) {
-  if (!bar) return;
-  if (bar.classList && bar.classList.remove) bar.classList.remove('closing');
-  bar.textContent = '';
-  bar.hidden = true;
-  bar._owner = null;
+  if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
+    return choiceBarEl;
+  }
+  return null;
 }
 
 function renderChoiceChips(node, choices, isPrepend) {
@@ -694,7 +705,14 @@ function renderChoiceChips(node, choices, isPrepend) {
   const skipBar = isPrependState || isNotLatestAssistant;
 
   const bar = skipBar ? null : getChoiceBarEl();
-  if (bar) resetChoiceBar(bar);
+  if (bar) {
+    if (bar.classList && typeof bar.classList.remove === 'function') {
+      bar.classList.remove('closing');
+    }
+    bar.textContent = '';
+    bar.hidden = true;
+    bar._owner = null;
+  }
   if (!choices || !choices.length) return;
   if (skipBar) return;
 
@@ -709,18 +727,34 @@ function renderChoiceChips(node, choices, isPrepend) {
   closeBtn.addEventListener('click', (e) => {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
     if (bar) {
-      if (bar.classList && bar.classList.add) bar.classList.add('closing');
+      if (bar.classList && typeof bar.classList.add === 'function') {
+        bar.classList.add('closing');
+      }
       const hideBar = () => {
-        resetChoiceBar(bar);
+        bar.hidden = true;
         if (typeof updateScrollBottomButton === 'function') updateScrollBottomButton();
+        if (bar.classList && typeof bar.classList.remove === 'function') {
+          bar.classList.remove('closing');
+        }
+        bar.textContent = '';
+        bar._owner = null;
       };
-      if (typeof setTimeout === 'function') setTimeout(hideBar, 180);
-      else hideBar();
+      if (typeof setTimeout === 'function') {
+        setTimeout(hideBar, 180);
+      } else {
+        hideBar();
+      }
     } else if (card) {
-      if (card.classList && card.classList.add) card.classList.add('closing');
-      const rm = () => { if (card.remove) card.remove(); };
-      if (typeof setTimeout === 'function') setTimeout(rm, 180);
-      else rm();
+      if (card.classList && typeof card.classList.add === 'function') {
+        card.classList.add('closing');
+        if (typeof setTimeout === 'function') {
+          setTimeout(() => { if (typeof card.remove === 'function') card.remove(); }, 180);
+        } else {
+          if (typeof card.remove === 'function') card.remove();
+        }
+      } else if (typeof card.remove === 'function') {
+        card.remove();
+      }
     }
   });
   card.appendChild(closeBtn);
@@ -765,8 +799,13 @@ function syncChoiceChips() {
   const isAssistant = last && (last.classList ? last.classList.contains('assistant') : /\bassistant\b/.test(last.className || ''));
   if (!last || !isAssistant || !hasChoicesOnLast) {
     if (bar) {
-      resetChoiceBar(bar);
+      if (bar.classList && typeof bar.classList.remove === 'function') {
+        bar.classList.remove('closing');
+      }
+      bar.textContent = '';
+      bar.hidden = true;
       if (typeof updateScrollBottomButton === 'function') updateScrollBottomButton();
+      bar._owner = null;
     }
   }
   logEl.querySelectorAll('.choice-chips').forEach(row => {
@@ -908,9 +947,7 @@ function renderMarkdown(src, isFinal) {
           // FILE_LINKS_v1: kept in data-path, which the sanitiser leaves alone; href would be dropped for ~/.
           return '<a ' + p1 + 'href="#" data-path="' + fileRefTarget(ref).replace(/"/g, '&quot;') + '" class="local-file-link"' + p2 + '>';
         }
-        if (/^\/?artifacts\//i.test(href)) {
-          return '<a ' + p1 + 'href="' + href + '" class="artifact-link"' + p2 + '>';
-        }
+        if (/^\/?artifacts\//i.test(href)) return '<a ' + p1 + 'href="' + href + '" class="artifact-link"' + p2 + '>';
         return '<a ' + p1 + 'href="' + href + '" target="_blank" rel="noopener"' + p2 + '>';
       });
       if (isFinal) {
@@ -942,12 +979,7 @@ function renderMarkdown(src, isFinal) {
   return renderPlainText(raw);
 }
 
-// PLAIN_RENDER_v1: escaping plus the inline forms -- bold, italics, inline and fenced code, images,
-// links, line breaks -- with no markdown parse and no sanitiser pass. It is what the whole page
-// falls back to when marked is unavailable, and it is also cheap enough to run on every frame of a
-// stream, so a reply can look like its finished self while it is still arriving instead of showing
-// raw **syntax** and then snapping to rendered markdown. Escaping first is what makes it safe to
-// inject: nothing that was not produced by the rules below survives into the DOM.
+// PLAIN_RENDER_v1: escaping plus inline forms without marked.
 function renderPlainText(raw) {
   function _esc(s) {
     return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -963,16 +995,9 @@ function renderPlainText(raw) {
     return '<a href="' + _esc(safeHref) + '"' + (isArt ? ' class="artifact-link"' : ' target="_blank" rel="noopener"') + '>' + _esc(label) + '</a>';
   });
   t = t.replace(/```([\s\S]*?)```/g, (_, code) => '<pre><code>' + code + '</code></pre>');
-  // A fence that is still open is the normal case mid-stream: the closing ``` has not arrived yet.
-  // Treating the tail as code is what stops a code block from snapping from raw text into a
-  // full-height box the instant the answer ends.
   t = t.replace(/```([\s\S]*)$/, (_, code) => '<pre><code>' + code + '</code></pre>');
   t = t.replace(/`([^`]+)`/g, (_, code) => '<code>' + code + '</code>');
   t = t.replace(/\*\*([^*]+)\*\*/g, (_, txt) => '<strong>' + txt + '</strong>');
-  // Single-asterisk italics, which is how RENDER_PROTOCOL writes an action, so an action looks like
-  // one from its first frame instead of only after the final parse. The shape is markdown's own
-  // flanking rule in miniature: the opener is not followed by a space and the closer is not
-  // preceded by one, which is what keeps `2 * 3 * 4` literal instead of eating its middle.
   t = t.replace(/(^|[^*])\*([^*\n]*\S)\*/g, '$1<em>$2</em>');
   t = t.replace(/\n/g, '<br>');
   return t;

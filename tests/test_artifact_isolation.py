@@ -542,6 +542,113 @@ console.log(JSON.stringify({
         self.assertEqual(out["modalOpened"]["url"], "/artifacts/sess_1/test_report.md")
 
     @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_artifact_link_skips_external_and_modifier_clicks(self):
+        """External URLs containing /artifacts/ must not be intercepted.
+        Ctrl/Cmd+click and middle-click must pass through to the browser."""
+        import subprocess
+        js = r"""
+const fs = require('fs');
+const mdSrc = fs.readFileSync(process.argv[1], 'utf8');
+const vm = require('vm');
+
+let modalCalls = 0;
+function makeEl(tag) {
+  const attrs = {}, classes = new Set(), listeners = {}, children = [];
+  return {
+    tagName: tag.toUpperCase(), style: {}, dataset: {}, children,
+    textContent: '',
+    get className() { return Array.from(classes).join(' '); },
+    set className(v) { classes.clear(); (v||'').split(/\s+/).filter(Boolean).forEach(c => classes.add(c)); },
+    classList: { add: c => classes.add(c), remove: c => classes.delete(c), contains: c => classes.has(c) },
+    setAttribute: (k, v) => { attrs[k] = String(v); },
+    getAttribute: k => attrs[k] !== undefined ? attrs[k] : null,
+    removeAttribute: k => { delete attrs[k]; },
+    appendChild: c => { children.push(c); c.parentElement = this; return c; },
+    addEventListener: (evt, fn) => { if (!listeners[evt]) listeners[evt] = []; listeners[evt].push(fn); },
+    dispatchEvent: evt => { (listeners[evt.type] || []).forEach(fn => fn(evt)); },
+    querySelectorAll: function(sel) {
+      const out = [];
+      const walk = el => {
+        for (const c of (el.children || [])) {
+          const h = c.getAttribute('href') || '';
+          if (sel.includes('.artifact-bound') && c.classList.contains('artifact-bound')) {}
+          else if (sel.includes('href*="/artifacts/"') && h.includes('/artifacts/')) out.push(c);
+          else if (sel.includes('.artifact-link') && c.classList.contains('artifact-link')) out.push(c);
+          walk(c);
+        }
+      };
+      walk(this);
+      return out;
+    }
+  };
+}
+
+const ctx = {
+  console, document: { getElementById: () => makeEl('div'), createElement: tag => makeEl(tag), querySelectorAll: () => [] },
+  window: {}, openArtifactModal: () => { modalCalls++; }, setTimeout: () => 0,
+};
+ctx.window = ctx;
+vm.createContext(ctx);
+vm.runInContext(mdSrc, ctx);
+
+// 1. External URL with /artifacts/ must NOT be intercepted
+const c1 = makeEl('div');
+const extLink = makeEl('a');
+extLink.setAttribute('href', 'https://other.site/artifacts/data.csv');
+c1.appendChild(extLink);
+ctx.attachArtifactLinkInterceptors(c1);
+const extBound = extLink.classList.contains('artifact-bound');
+
+// 2. Local /artifacts/ link with Ctrl+click must NOT fire modal
+modalCalls = 0;
+const c2 = makeEl('div');
+const localLink = makeEl('a');
+localLink.setAttribute('href', '/artifacts/sess_1/doc.md');
+localLink.className = 'artifact-link';
+c2.appendChild(localLink);
+ctx.attachArtifactLinkInterceptors(c2);
+let ctrlPrevented = false;
+localLink.dispatchEvent({ type: 'click', ctrlKey: true, metaKey: false, shiftKey: false, button: 0,
+  preventDefault: () => { ctrlPrevented = true; }, stopPropagation: () => {} });
+const ctrlModalCalls = modalCalls;
+
+// 2b. Cmd+click (metaKey: true) must NOT fire modal
+modalCalls = 0;
+let metaPrevented = false;
+localLink.dispatchEvent({ type: 'click', ctrlKey: false, metaKey: true, shiftKey: false, button: 0,
+  preventDefault: () => { metaPrevented = true; }, stopPropagation: () => {} });
+const metaModalCalls = modalCalls;
+
+// 3. Middle-click (button=1) must NOT fire modal
+modalCalls = 0;
+let midPrevented = false;
+localLink.dispatchEvent({ type: 'click', ctrlKey: false, metaKey: false, shiftKey: false, button: 1,
+  preventDefault: () => { midPrevented = true; }, stopPropagation: () => {} });
+const midModalCalls = modalCalls;
+
+// 4. Normal click on local link DOES fire modal
+modalCalls = 0;
+localLink.dispatchEvent({ type: 'click', ctrlKey: false, metaKey: false, shiftKey: false, button: 0,
+  preventDefault: () => {}, stopPropagation: () => {} });
+const normalModalCalls = modalCalls;
+
+console.log(JSON.stringify({
+  extBound, ctrlPrevented, ctrlModalCalls, metaPrevented, metaModalCalls, midPrevented, midModalCalls, normalModalCalls
+}));
+"""
+        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "markdown.js")], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout.strip())
+        self.assertFalse(out["extBound"], "external URL must NOT be bound by interceptor")
+        self.assertFalse(out["ctrlPrevented"], "Ctrl+click must not preventDefault")
+        self.assertEqual(out["ctrlModalCalls"], 0, "Ctrl+click must not open modal")
+        self.assertFalse(out["metaPrevented"], "Cmd+click must not preventDefault")
+        self.assertEqual(out["metaModalCalls"], 0, "Cmd+click must not open modal")
+        self.assertFalse(out["midPrevented"], "middle-click must not preventDefault")
+        self.assertEqual(out["midModalCalls"], 0, "middle-click must not open modal")
+        self.assertEqual(out["normalModalCalls"], 1, "normal click must open modal")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
     def test_open_artifact_modal_supports_document_and_code(self):
         import subprocess
         js = r"""
