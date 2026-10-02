@@ -5,6 +5,12 @@
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 2026-10-01 기록은 하루 예산을 넘어 [devlog/2026-10-01.md](devlog/2026-10-01.md)로 회전했습니다.
 
+## 2026-10-03 — [ui/map] Leaflet 기반 인앱 동적 지도 렌더러 지원 (마크다운 map 블록) (#581, 위임 agy)
+
+- **커밋**: `d4f07f3` test(ui): verify script onerror path and fix mock in Leaflet fallback test, `19218b5` fix(ui): reinforce Leaflet SRI, load failure text fallback, and scrollWheelZoom defense, `fff1b6d` fix(ui): use safe typeof checks for map functions to support headless node test harnesses, `ab2efa3` fix(ui): prevent popup DOM XSS, add load timeout, and enforce OSM attribution, `b1f5785` feat(ui): integrate markdown-map.js and add test_map_block, `6522110` fix(ui): revert unrelated markdown.js edits and keep clean map hooks, `60460a6` feat(ui): Leaflet 기반 인앱 동적 지도 렌더러 지원 (마크다운 map 블록)
+- **바뀐 파일**: `static/chat-features.css`, `static/index.html`, `static/markdown-map.js`, `static/markdown.js`, `tests/test_map_block.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-03 — [geo/fix] 페이지 로드 시 위치 동기화(geoEnabled) 실패 시 getClientContext 재조회 누락 버그 수정 (#579, 위임 agy)
 
 - **커밋**: `55ad24c` chore(geo): drop hook cache from ticket 579 scope, `92dbe33` chore(ticket #579): changes the agent left uncommitted, `4804b74` fix(geo): retry GPS in getClientContext after a failed page-load fetch
