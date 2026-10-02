@@ -80,7 +80,6 @@ def _stage_image(sid: str, src: Path) -> Optional[str]:
         return f"/artifacts/{sid}/brain/{src.name}"
     except Exception:
         return None
-        return None
 
 
 def _stage_rel_media(sid: str, conversation_id: Optional[str], rel: str) -> Optional[str]:
@@ -157,6 +156,35 @@ def _root_rx(root) -> str:
     return r"[\\/]".join(re.escape(part) for part in re.split(r"[\\/]", str(root)))
 
 
+# Images plus the non-media names get_artifacts already lists (md/txt/code).
+_STAGE_EXT_RX = (
+    r"png|jpe?g|gif|webp|svg|mp4|webm|"
+    r"md|txt|json|pdf|html|csv|ya?ml|py|js|ts|gd|sh|css"
+)
+
+
+def _expand_match_path(raw: str) -> str:
+    """Strip file:// and expand ~/ so a brain path can be opened and prefix-matched."""
+    s = (raw or "").strip()
+    if s.lower().startswith("file://"):
+        s = s[7:]
+    s = s.replace("\\", "/")
+    if s.startswith("~/"):
+        s = str(_cfg("HOME")).replace("\\", "/") + s[1:]
+    return s
+
+
+def _text_root_pats(root) -> List[str]:
+    """Absolute folder plus `~/...` when that folder lives under HOME."""
+    pats = [_root_rx(root)]
+    try:
+        rel = Path(root).resolve().relative_to(Path(_cfg("HOME")).resolve())
+        pats.append(_root_rx(Path("~") / rel))
+    except (ValueError, OSError, TypeError):
+        pass
+    return pats
+
+
 def _rewrite_artifact_paths(sid: str, conversation_id: Optional[str], text: str) -> str:
     if not text:
         return text
@@ -164,40 +192,33 @@ def _rewrite_artifact_paths(sid: str, conversation_id: Optional[str], text: str)
     text_roots = _gather("text_roots")
     workspace = _cfg("WORKSPACE")
     artifacts_cache = _cfg("ARTIFACTS_CACHE")
-    sessions = _cfg("SESSIONS")
     data = _cfg("DATA")
+    prefixes = [(str(r).replace("\\", "/") + "/", "brain/") for r in text_roots] + [
+        (str(workspace / "artifacts").replace("\\", "/") + "/", ""),
+        (str(artifacts_cache).replace("\\", "/") + "/", ""),
+        (str(workspace).replace("\\", "/") + "/", ""),
+    ]
 
     def repl_path(m: re.Match) -> str:
-        raw = m.group(0)
-        flat = raw.replace("\\", "/")          # compare with / on every OS; the file itself is opened from `raw`
-        for prefix, label in [(str(r) + "/", "brain/") for r in text_roots] + [
-            (str(workspace / "artifacts") + "/", ""),
-            (str(artifacts_cache) + "/", ""),
-            (str(workspace) + "/", ""),
-        ]:
-            prefix = prefix.replace("\\", "/")
-            if flat.startswith(prefix):
-                rel = label + flat[len(prefix):] if label.startswith("brain") else flat[len(prefix):]
+        raw = _expand_match_path(m.group(1) if m.lastindex else m.group(0))
+        for prefix, label in prefixes:
+            if raw.startswith(prefix):
+                rel = (label + raw[len(prefix):]) if label.startswith("brain") else raw[len(prefix):]
                 try:
                     src = Path(raw)
                     if src.is_file() and label.startswith("brain"):
-                        dest = sessions / sid / "artifacts" / "brain" / src.name
-                        dest.parent.mkdir(parents=True, exist_ok=True)
-                        if not dest.exists() or dest.stat().st_mtime < src.stat().st_mtime:
-                            shutil.copy2(src, dest)
-                        return f"/artifacts/{sid}/brain/{src.name}"
+                        url = _stage_image(sid, src)
+                        if url:
+                            return url
                 except Exception:
                     pass
                 return "/artifacts/" + rel.lstrip("/")
-        return raw
+        return m.group(0)
 
+    ext = r"[\\/][^\s\)\"']+\.(?:" + _STAGE_EXT_RX + r")"
     for root in text_roots:
-        text = re.sub(
-            r"(?:file://)?(" + _root_rx(root) + r"[\\/][^\s\)\"']+\.(?:png|jpe?g|gif|webp|svg|mp4|webm))",
-            repl_path,
-            text,
-            flags=re.I,
-        )
+        for pat in _text_root_pats(root):
+            text = re.sub(r"(?:file://)?(" + pat + ext + r")", repl_path, text, flags=re.I)
     text = re.sub(
         r"(?:file://)?(" + _root_rx(data) + r"[\\/](?:workspace[\\/])?artifacts[\\/][^\s\)\"']+)",
         repl_path,

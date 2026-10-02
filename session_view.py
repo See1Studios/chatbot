@@ -380,7 +380,11 @@ class SessionView:
                 for fp in Path(root).rglob("*"):
                     if not fp.is_file() or fp.name.startswith("."):
                         continue
-                    if any(part.startswith(".") for part in fp.parts[:-1]):
+                    try:
+                        nested = fp.relative_to(root).parts[:-1]
+                    except ValueError:
+                        nested = fp.parts[:-1]
+                    if any(part.startswith(".") for part in nested):
                         continue
                     suffix = fp.suffix.lower()
                     if suffix not in exts_img and suffix not in exts_doc and suffix not in exts_code:
@@ -397,7 +401,7 @@ class SessionView:
                     seen_names.add(fp.name)
 
                     kind = "image" if suffix in exts_img else ("document" if suffix in exts_doc else "code")
-                    if kind == "image" and root in brain_source_roots:
+                    if root in brain_source_roots:
                         url = self._stage_image(fp)
                     elif root in session_artifact_roots:
                         owner_sid = session_artifact_roots[root]

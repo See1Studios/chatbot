@@ -1,8 +1,9 @@
-"""Unit tests for artifact isolation (ticket #575):
+"""Unit tests for artifact isolation (tickets #575, #576):
 - 1:1 sessions collect only their own artifacts and predecessor_session_id chain artifacts.
 - Global workspace/artifacts and legacy ARTIFACTS_CACHE are no longer leaked into sessions.
 - Group room artifacts are isolated per room (DATA / 'rooms' / rid / 'artifacts').
 - Room artifacts endpoint GET /api/rooms/<rid>/artifacts via room_chat.api.
+- Non-media brain paths (md/txt) in an answer are staged into the session and pass preview_guard.
 
 Note on artifact generation in group rooms:
 Ticket #575 establishes the room-scoped storage directory (DATA / 'rooms' / rid / 'artifacts'),
@@ -266,6 +267,84 @@ class TestArtifactIsolation(unittest.TestCase):
                 arts = RC.artifacts(r["id"])
                 self.assertEqual(arts, [])
             self.assertTrue(any("failed to collect room artifacts" in msg for msg in cm.output))
+
+    def _brain_home(self):
+        home = (self.tmp / "home").resolve()
+        brain = home / ".gemini" / "antigravity-cli" / "brain"
+        return home, brain
+
+    def _swap_brain(self, home: Path, brain: Path):
+        saved = (S.HOME, getattr(S, "BRAIN", None))
+        S.HOME = home
+        S.BRAIN = brain
+        return saved
+
+    def _restore_brain(self, saved):
+        home, brain = saved
+        S.HOME = home
+        if brain is None:
+            delattr(S, "BRAIN")
+        else:
+            S.BRAIN = brain
+
+    def test_brain_markdown_link_is_staged_and_previewable(self):
+        import preview_guard as PG
+        import server as SV
+
+        home, brain = self._brain_home()
+        cid = "conv_md"
+        src = brain / cid / "notes.md"
+        src.parent.mkdir(parents=True)
+        src.write_text("# staged notes\n", encoding="utf-8")
+        tilde = "~/" + src.relative_to(home).as_posix()
+        saved = self._swap_brain(home, brain)
+        try:
+            sess = self._create_session("sess_md")
+            sess.conversation_id = cid
+            text = "see [notes](file://%s) and (%s)" % (src, tilde)
+            out = sess._rewrite_artifact_paths(text)
+            want = "/artifacts/sess_md/brain/notes.md"
+            self.assertIn(want, out)
+            self.assertNotIn("file://", out)
+            self.assertNotIn(str(src), out)
+            self.assertNotIn(tilde, out)
+            staged = self.sessions_dir / "sess_md" / "artifacts" / "brain" / "notes.md"
+            self.assertTrue(staged.is_file())
+            self.assertEqual(staged.read_text(encoding="utf-8"), "# staged notes\n")
+
+            arts = sess.get_artifacts()
+            hit = next(a for a in arts if a["name"] == "notes.md")
+            self.assertEqual(hit["kind"], "document")
+            self.assertEqual(hit["url"], want)
+
+            allowed = [self.sessions_dir.resolve(), self.data_dir.resolve()]
+            with mock.patch.object(SV, "_PREVIEW_ALLOWED_ROOTS", allowed):
+                ok, why = PG._resolve_safe_preview_file(str(staged))
+                self.assertIsNotNone(ok, why)
+                self.assertEqual(ok, staged.resolve())
+                self.assertIsNone(PG._resolve_safe_preview_file(str(src))[0])
+        finally:
+            self._restore_brain(saved)
+
+    def test_get_artifacts_stages_brain_documents(self):
+        home, brain = self._brain_home()
+        cid = "conv_txt"
+        src = brain / cid / "log.txt"
+        src.parent.mkdir(parents=True)
+        src.write_text("hello\n", encoding="utf-8")
+        saved = self._swap_brain(home, brain)
+        try:
+            sess = self._create_session("sess_txt")
+            sess.conversation_id = cid
+            arts = sess.get_artifacts()
+            hit = next(a for a in arts if a["name"] == "log.txt")
+            self.assertEqual(hit["kind"], "document")
+            self.assertEqual(hit["url"], "/artifacts/sess_txt/brain/log.txt")
+            staged = self.sessions_dir / "sess_txt" / "artifacts" / "brain" / "log.txt"
+            self.assertTrue(staged.is_file())
+            self.assertEqual(staged.read_text(encoding="utf-8"), "hello\n")
+        finally:
+            self._restore_brain(saved)
 
 
 if __name__ == "__main__":
