@@ -143,6 +143,74 @@ run().then(o => console.log(JSON.stringify(o)));
 """
 
 
+UPDATE_AVATAR_ROOM = r"""
+const src = require('fs').readFileSync(process.argv[1], 'utf8');
+const run = new Function(process.argv[2] + `
+let updateBrandAvatarArg = null;
+const providerEl = { value: 'agy' };
+const updateBrandAvatar = (pid) => {
+  updateBrandAvatarArg = pid;
+  brandAvatar.src = '/portraits/char-' + pid + '.png';
+};
+` + src + `;
+return (async () => {
+  brandAvatar.src = 'old-avatar.png';
+  brandAvatarWrap.classList.remove('is-room');
+  feed = { room: { id: 'room_update', name: 'UpdateRoom', members: ['a', 'b'] }, names: { a: 'Kit', b: 'Kiki' }, busy: false,
+           messages: [{ n: 1, who: 'a', text: 'hi', ts: 1 }] };
+  await roomEnter('room_update');
+  const enteredIsRoom = brandAvatarWrap.classList.contains('is-room');
+  const enteredSrc = brandAvatar.src;
+  await roomLeave();
+  return {
+    enteredIsRoom,
+    enteredSrc,
+    leftIsRoom: brandAvatarWrap.classList.contains('is-room'),
+    leftSrc: brandAvatar.src,
+    updateBrandAvatarArg,
+  };
+})();`);
+run().then(o => console.log(JSON.stringify(o)));
+"""
+
+
+ROOM_CLOSE_DIRECT = r"""
+const src = require('fs').readFileSync(process.argv[1], 'utf8');
+const run = new Function(process.argv[2] + `
+let updateBrandAvatarArg = null;
+const providerEl = { value: 'agy' };
+const updateBrandAvatar = (pid) => {
+  updateBrandAvatarArg = pid;
+  brandAvatar.src = '/portraits/char-' + pid + '.png';
+};
+` + src + `;
+return (async () => {
+  brandAvatar.src = 'old-avatar.png';
+  brandAvatarWrap.classList.remove('is-room');
+  feed = { room: { id: 'room_close_test', name: 'CloseRoom', members: ['a', 'b'] }, names: { a: 'Kit', b: 'Kiki' }, busy: false,
+           messages: [{ n: 1, who: 'b', text: 'hi', ts: 1 }] };
+  await roomEnter('room_close_test');
+  const onBefore = roomState.on;
+  const isRoomBefore = brandAvatarWrap.classList.contains('is-room');
+  const srcBefore = brandAvatar.src;
+  roomClose();
+  const onAfter = roomState.on;
+  const isRoomAfter = brandAvatarWrap.classList.contains('is-room');
+  const srcAfter = brandAvatar.src;
+  return {
+    onBefore,
+    isRoomBefore,
+    srcBefore,
+    onAfter,
+    isRoomAfter,
+    srcAfter,
+    updateBrandAvatarArg,
+  };
+})();`);
+run().then(o => console.log(JSON.stringify(o)));
+"""
+
+
 @unittest.skipUnless(shutil.which("node"), "node not installed")
 class RoomTyping(unittest.TestCase):
     """Under the messenger shell the member answering shows with its face and typing dots; a face mentions it."""
@@ -233,6 +301,29 @@ class RoomsPage(unittest.TestCase):
         o = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertEqual(o["avatar"], "/portraits/a", "fallback to first member's face when no messages")
 
+    def test_room_leave_restores_avatar_via_update_brand_avatar_stub(self):
+        """grh/A: when updateBrandAvatar is present, room leave calls it with providerEl.value and restores."""
+        r = subprocess.run(["node", "-e", UPDATE_AVATAR_ROOM, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        o = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertTrue(o["enteredIsRoom"], "card-stack enabled on enter")
+        self.assertEqual(o["enteredSrc"], "/portraits/a", "speaker face displayed")
+        self.assertFalse(o["leftIsRoom"], "card-stack removed on leave")
+        self.assertEqual(o["updateBrandAvatarArg"], "agy", "updateBrandAvatar called with provider value")
+        self.assertEqual(o["leftSrc"], "/portraits/char-agy.png", "restored avatar from updateBrandAvatar")
+
+    def test_room_close_directly_removes_is_room_and_restores_avatar(self):
+        """grh/A: calling roomClose() directly removes .is-room, clears roomState.on, and restores avatar."""
+        r = subprocess.run(["node", "-e", ROOM_CLOSE_DIRECT, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        o = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertTrue(o["onBefore"], "roomState.on active before close")
+        self.assertTrue(o["isRoomBefore"], ".is-room active before close")
+        self.assertFalse(o["onAfter"], "roomState.on false after close")
+        self.assertFalse(o["isRoomAfter"], ".is-room removed after close")
+        self.assertEqual(o["updateBrandAvatarArg"], "agy", "updateBrandAvatar called on direct roomClose")
+        self.assertEqual(o["srcAfter"], "/portraits/char-agy.png", "avatar restored on direct roomClose")
+
 
 class Wiring(unittest.TestCase):
     def setUp(self):
@@ -275,6 +366,7 @@ class Wiring(unittest.TestCase):
         """grh/A: the card-stack CSS targets #brandAvatarWrap.is-room and the JS toggles it."""
         css = (STATIC / "rooms.css").read_text(encoding="utf-8")
         self.assertIn("#brandAvatarWrap.is-room", css, "card-stack selector in rooms.css")
+        self.assertIn("#brandAvatarWrap.is-room #brandAvatar", css, "direct brand avatar target in rooms.css")
         self.assertIn("::before", css)
         self.assertIn("::after", css)
         self.assertIn("roomHeaderAvatar", self.rooms, "avatar function in app-rooms.js")

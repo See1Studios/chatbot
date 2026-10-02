@@ -91,10 +91,13 @@ function roomHeaderAvatar(speakerId) {
   if (!wrap || !pic) return;
   if (!roomState.on) {
     wrap.classList.remove('is-room');
-    if (typeof updateBrandAvatar === 'function') {
-      updateBrandAvatar(typeof providerEl !== 'undefined' && providerEl ? providerEl.value : '');
-    } else if (roomState.backAvatar) {
+    if (roomState.backAvatar) {
       pic.src = roomState.backAvatar;
+    }
+    if (typeof updateBrandAvatar === 'function') {
+      // app-characters.js::updateBrandAvatar(providerId) paints characterPortrait(currentCharacter(), provider)
+      const pid = typeof providerEl !== 'undefined' && providerEl ? providerEl.value : '';
+      updateBrandAvatar(pid);
     }
     roomState.backAvatar = '';
     return;
@@ -175,7 +178,7 @@ function roomClose() {
   try { localStorage.removeItem(ROOM_KEY); } catch (_) {}
   document.body.classList.remove('room-open');
   setProgress('', true);
-  roomHeaderAvatar();   // grh/A: remove card-stack class
+  roomHeaderAvatar();   // grh/A: remove card-stack class (roomState.on is already false)
   roomHead();
   roomMentionMenu();
   if (typeof refreshComposerPlaceholder === 'function') refreshComposerPlaceholder();
