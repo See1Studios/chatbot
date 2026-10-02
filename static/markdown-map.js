@@ -11,10 +11,14 @@ function ensureLeafletLoaded() {
       link.rel = 'stylesheet';
       link.dataset.leaflet = '1';
       link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+      link.crossOrigin = 'anonymous';
       document.head.appendChild(link);
     }
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+    script.crossOrigin = 'anonymous';
     let timer = null;
     const cleanup = () => {
       if (timer) {
@@ -116,6 +120,54 @@ function renderMapBlock(code) {
   '</div>';
 }
 
+function applyMapFallback(el) {
+  if (!el || el.getAttribute('data-processed') === 'true') return;
+  el.setAttribute('data-processed', 'true');
+  if (el.classList && typeof el.classList.add === 'function') {
+    el.classList.add('chat-map-fallback');
+  } else if (typeof el.className === 'string') {
+    el.className += ' chat-map-fallback';
+  }
+  const lat = el.getAttribute('data-lat') || '';
+  const lon = el.getAttribute('data-lon') || '';
+  const marker = el.getAttribute('data-marker') || '';
+
+  el.textContent = '';
+  if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+    const fallbackDiv = document.createElement('div');
+    fallbackDiv.className = 'chat-map-fallback-body';
+
+    const icon = document.createElement('span');
+    icon.className = 'chat-map-fallback-icon';
+    icon.textContent = '📍 ';
+    fallbackDiv.appendChild(icon);
+
+    if (marker) {
+      const markerEl = document.createElement('strong');
+      markerEl.className = 'chat-map-fallback-marker';
+      markerEl.textContent = marker;
+      fallbackDiv.appendChild(markerEl);
+
+      const coordsEl = document.createElement('span');
+      coordsEl.className = 'chat-map-fallback-coords';
+      coordsEl.textContent = ' (' + lat + ', ' + lon + ')';
+      fallbackDiv.appendChild(coordsEl);
+    } else {
+      const coordsEl = document.createElement('span');
+      coordsEl.className = 'chat-map-fallback-coords';
+      coordsEl.textContent = lat + ', ' + lon;
+      fallbackDiv.appendChild(coordsEl);
+    }
+    if (typeof el.appendChild === 'function') {
+      el.appendChild(fallbackDiv);
+    } else {
+      el.textContent = marker ? (marker + ' (' + lat + ', ' + lon + ')') : (lat + ', ' + lon);
+    }
+  } else {
+    el.textContent = marker ? (marker + ' (' + lat + ', ' + lon + ')') : (lat + ', ' + lon);
+  }
+}
+
 async function renderMapsIn(container) {
   if (!container) return;
   const nodes = Array.from(container.querySelectorAll('.chat-map-box:not([data-processed="true"])'));
@@ -123,20 +175,30 @@ async function renderMapsIn(container) {
   try {
     await ensureLeafletLoaded();
   } catch (_) {
+    nodes.forEach(applyMapFallback);
     return;
   }
-  if (typeof window === 'undefined' || !window.L) return;
+  if (typeof window === 'undefined' || !window.L) {
+    nodes.forEach(applyMapFallback);
+    return;
+  }
   nodes.forEach(el => {
     if (el.getAttribute('data-processed') === 'true') return;
-    el.setAttribute('data-processed', 'true');
     const lat = parseFloat(el.getAttribute('data-lat'));
     const lon = parseFloat(el.getAttribute('data-lon'));
-    if (isNaN(lat) || isNaN(lon)) return;
+    if (isNaN(lat) || isNaN(lon)) {
+      applyMapFallback(el);
+      return;
+    }
     const zoom = parseInt(el.getAttribute('data-zoom'), 10) || 13;
     const marker = el.getAttribute('data-marker') || '';
     const canvas = el.querySelector('.chat-map-canvas') || el;
     try {
-      const map = window.L.map(canvas, { zoomControl: true, attributionControl: true }).setView([lat, lon], zoom);
+      const map = window.L.map(canvas, {
+        zoomControl: true,
+        attributionControl: true,
+        scrollWheelZoom: false
+      }).setView([lat, lon], zoom);
       window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
@@ -149,7 +211,10 @@ async function renderMapsIn(container) {
       setTimeout(() => {
         try { map.invalidateSize(); } catch (_) {}
       }, 250);
-    } catch (_) {}
+      el.setAttribute('data-processed', 'true');
+    } catch (_) {
+      applyMapFallback(el);
+    }
   });
 }
 
@@ -157,6 +222,7 @@ if (typeof window !== 'undefined') {
   window.ensureLeafletLoaded = ensureLeafletLoaded;
   window.parseMapConfig = parseMapConfig;
   window.renderMapBlock = renderMapBlock;
+  window.applyMapFallback = applyMapFallback;
   window.renderMapsIn = renderMapsIn;
 }
 
@@ -165,6 +231,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ensureLeafletLoaded,
     parseMapConfig,
     renderMapBlock,
+    applyMapFallback,
     renderMapsIn,
   };
 }

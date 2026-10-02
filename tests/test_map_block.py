@@ -421,6 +421,155 @@ global.window = {{}};
         self.assertEqual(res["countAfterP2"], 2, "Second attempt after timeout must retry script creation")
 
 
+    def test_ensure_leaflet_loaded_sri_and_attributes(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+const elements = [];
+global.document = {{
+  querySelector: () => null,
+  createElement: (tag) => {{
+    const el = {{ tag, dataset: {{}} }};
+    elements.push(el);
+    return el;
+  }},
+  head: {{ appendChild: () => {{}} }}
+}};
+global.window = {{}};
+global.setTimeout = () => 1;
+
+ensureLeafletLoaded().catch(() => {{}});
+
+const link = elements.find(e => e.tag === 'link');
+const script = elements.find(e => e.tag === 'script');
+
+console.log(JSON.stringify({{
+  linkHref: link && link.href,
+  linkIntegrity: link && link.integrity,
+  linkCrossOrigin: link && link.crossOrigin,
+  scriptSrc: script && script.src,
+  scriptIntegrity: script && script.integrity,
+  scriptCrossOrigin: script && script.crossOrigin
+}}));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertEqual(res["linkIntegrity"], "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=")
+        self.assertEqual(res["linkCrossOrigin"], "anonymous")
+        self.assertEqual(res["scriptIntegrity"], "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=")
+        self.assertEqual(res["scriptCrossOrigin"], "anonymous")
+
+    def test_render_maps_in_scroll_wheel_zoom(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+let mapOpts = null;
+global.document = {{
+  createElement: (tag) => ({{ tagName: tag.toUpperCase(), textContent: '' }})
+}};
+window = {{
+  L: {{
+    map: (canvas, opts) => {{
+      mapOpts = opts;
+      return {{ setView: () => ({{ invalidateSize: () => {{}} }}) }};
+    }},
+    tileLayer: () => ({{ addTo: () => ({{}}) }}),
+    marker: () => ({{ addTo: () => ({{ bindPopup: () => ({{ openPopup: () => {{}} }}) }}) }})
+  }}
+}};
+const box = {{
+  attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0' }},
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute() {{}},
+  querySelector() {{ return {{}}; }}
+}};
+const container = {{ querySelectorAll: () => [box] }};
+(async () => {{
+  await renderMapsIn(container);
+  console.log(JSON.stringify({{ mapOpts }}));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertIsNotNone(res["mapOpts"])
+        self.assertFalse(res["mapOpts"].get("scrollWheelZoom"), "scrollWheelZoom must be false")
+        self.assertTrue(res["mapOpts"].get("zoomControl"), "zoomControl must be enabled")
+
+    def test_render_maps_in_leaflet_load_failure_fallback(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+global.document = {{
+  querySelector: () => null,
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(),
+      className: '',
+      get textContent() {{
+        if (children.length) return children.map(c => c.textContent || '').join('');
+        return _text;
+      }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }}
+    }};
+  }},
+  head: {{
+    appendChild: (el) => {{
+      if (el.tag === 'script' && typeof el.onerror === 'function') {{
+        setTimeout(() => el.onerror(new Error('Network error')), 1);
+      }}
+    }}
+  }}
+}};
+global.window = {{}};
+
+const box1 = {{
+  attrs: {{ 'data-lat': '37.5665', 'data-lon': '126.9780', 'data-marker': 'Seoul <script>xss</script>' }},
+  classes: ['chat-map-box'],
+  children: [],
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute(k, v) {{ this.attrs[k] = String(v); }},
+  classList: {{
+    add(c) {{ if (!box1.classes.includes(c)) box1.classes.push(c); }},
+    contains(c) {{ return box1.classes.includes(c); }}
+  }},
+  appendChild(child) {{ this.children.push(child); }},
+  get textContent() {{
+    return this.children.map(c => c.textContent || '').join('');
+  }},
+  set textContent(v) {{ this.children = []; }}
+}};
+
+const container = {{ querySelectorAll: () => [box1] }};
+
+(async () => {{
+  await renderMapsIn(container);
+  console.log(JSON.stringify({{
+    processed: box1.attrs['data-processed'],
+    isFallback: box1.classList.contains('chat-map-fallback'),
+    textContent: box1.textContent,
+    classes: box1.classes
+  }}));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertEqual(res["processed"], "true")
+        self.assertTrue(res["isFallback"], "Must add chat-map-fallback class")
+        self.assertIn("37.5665", res["textContent"])
+        self.assertIn("126.9780", res["textContent"])
+        self.assertIn("Seoul <script>xss</script>", res["textContent"])
+        self.assertIn("chat-map-fallback", res["classes"])
+
+
 class MapStaticAssets(unittest.TestCase):
     def test_index_html_links_markdown_map_js(self):
         html = INDEX_HTML.read_text(encoding="utf-8")
@@ -432,6 +581,8 @@ class MapStaticAssets(unittest.TestCase):
         self.assertIn('.chat-map-canvas', css)
         self.assertIn('.chat-map-label', css)
         self.assertIn('.leaflet-container', css)
+        self.assertIn('.chat-map-fallback', css)
+        self.assertIn('touch-action: pan-y', css)
 
 
 if __name__ == "__main__":

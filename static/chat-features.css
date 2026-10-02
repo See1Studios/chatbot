@@ -212,6 +212,36 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
   isolation: isolate;
   display: flex;
   flex-direction: column;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.chat-map-box.chat-map-fallback {
+  height: auto;
+  min-height: unset;
+  padding: 0.55rem 0.8rem;
+  background: var(--panel-2, rgba(255, 255, 255, 0.04));
+  border: 1px dashed var(--border);
+}
+.chat-map-box.chat-map-fallback .chat-map-fallback-body {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted, var(--muted, #8b949e));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-map-box.chat-map-fallback .chat-map-fallback-marker {
+  color: var(--text, #e6edf3);
+  font-weight: 600;
+}
+.chat-map-box.chat-map-fallback .chat-map-fallback-coords {
+  color: var(--text-muted, var(--muted, #8b949e));
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
 }
 .chat-map-box .chat-map-canvas {
   flex: 1 1 auto;
@@ -219,6 +249,7 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
   height: 100%;
   min-height: 180px;
   background: var(--bg-card, #1c2128);
+  touch-action: pan-y;
 }
 .chat-map-box .chat-map-label {
   flex: 0 0 auto;
@@ -236,6 +267,7 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
 .chat-map-box .leaflet-container {
   font-family: inherit;
   background: var(--bg-card, #1c2128);
+  touch-action: pan-y;
 }
 .chat-map-box .leaflet-popup-content-wrapper,
 .chat-map-box .leaflet-popup-tip {
@@ -282,6 +314,10 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
   .chat-map-box {
     height: 200px;
     margin: 0.35rem 0;
+  }
+  .chat-map-box.chat-map-fallback {
+    height: auto;
+    padding: 0.45rem 0.65rem;
   }
   .chat-map-box .chat-map-canvas {
     min-height: 140px;
