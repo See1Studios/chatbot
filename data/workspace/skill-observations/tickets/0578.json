@@ -54,6 +54,21 @@
    "by": "agent:agy",
    "text": "gate_failed: worktree agy: task 1: review FAIL after 2 round(s)",
    "ts": "2026-10-02 18:55:22"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 2/3); paths: static/artifacts.js, static/markdown.js, tests/test_artifact_isolation.py",
+   "ts": "2026-10-03 00:38:15"
+  },
+  {
+   "by": "agent:agy",
+   "text": "unavailable: worktree agy: agent agy/gemini-3.8-flash-high timed out after 1200s",
+   "ts": "2026-10-03 01:06:34"
+  },
+  {
+   "by": "host",
+   "text": "no brain answered: attempt given back (2/3)",
+   "ts": "2026-10-03 01:06:34"
   }
  ],
  "paths": [
@@ -64,7 +79,7 @@
  "status": "approved",
  "target": "static/artifacts.js,static/markdown.js,tests/test_artifact_isolation.py",
  "title": "[art/fix] 아티팩트 인앱 뷰어 지원(document/code) 및 대화창 마크다운 링크 연동",
- "unavailable": 1,
- "updated": "2026-10-02 18:55:22",
+ "unavailable": 2,
+ "updated": "2026-10-03 01:06:34",
  "worked_by": "agy"
 }
