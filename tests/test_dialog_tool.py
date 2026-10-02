@@ -60,7 +60,7 @@ class DialogTool(unittest.TestCase):
         self.assertEqual(out["data"], {"dialog_id": ab, "n": 1})
         self.assertEqual(D.history(ab)[0]["who"], self.a, "the sender is the caller, never an argument")
         listed = self.as_(self.b, "s-b", action="list")["data"]["dialogs"]
-        self.assertEqual(listed, [{"dialog_id": ab, "name": "Boss (in person)", "unread": 1, "mentions": 0}])
+        self.assertEqual(listed, [{"dialog_id": ab, "name": "Boss (DM)", "unread": 1, "mentions": 0}])
         got = self.as_(self.b, "s-b", action="read", dialog_id=ab)["data"]["messages"]
         self.assertEqual(got, [{"n": 1, "from": "Boss", "text": "can you check the build?"}])
         self.assertEqual(D.unread(self.b, ab, "s-b"), (0, 0), "read means read")
@@ -92,7 +92,7 @@ class DialogTool(unittest.TestCase):
         self.assertEqual(got, [{"n": 1, "from": "Boss", "text": "sets a coffee on Kit's desk", "kind": "action"}])
         self.assertFalse(self.as_(self.a, "s-a", action="send", to="Kit", text="x", kind="whisper")["success"])
         self.assertIn("kind", T.TOOL_DEFS[0]["inputSchema"]["properties"])
-        self.assertNotIn("messenger", T.TOOL_DEFS[0]["description"], "talk in the lounge, not a phone (D9)")
+        self.assertIn("office", T.TOOL_DEFS[0]["description"], "coworkers in one office (D9)")
 
     def test_a_room_message_carries_its_mentions(self):
         r = RC.create("Desk", [self.a, self.b, self.c])

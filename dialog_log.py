@@ -20,8 +20,8 @@ numbered in that dialog -- Telegram's message box. Rooms and dialogs between two
   turn_note(cid, sid, noted, handed_over=False) -> the catch-up line before a work turn (inbox/C)
 
 A message is {n, ts, who, text, mentions}, with reply_to (the n it answers) when it answers one and kind "action" when
-it is a stage direction -- something done, not said (inbox/F, decision D10). Between characters a dialog is talk face
-to face, off-screen in the lounge (D9), not a phone. The user's dialog with
+it is a stage direction -- something done, not said (inbox/F, decision D10). The characters share one office (D9): a
+dm is a coworker's DM or a visit to the other's desk, a room is a meeting room. The user's dialog with
 one character is that character's session record, not a file here. Standard library + platform_compat; characters and
 events are imported where they are needed. This module knows no other kind by name: kinds register, so it stays the
 layer below them. Writes take a file lock: the tool server writes from its own process.
@@ -267,9 +267,9 @@ def label(did: str, cid: str) -> str:
     pair = _dm_pair(did)
     if pair:
         other = pair[0] if pair[1] == cid else pair[1]
-        return "%s (in person)" % (characters.name(other) or other)
+        return "%s (DM)" % (characters.name(other) or other)
     k = _kind(did)
-    return "%s (room)" % (k["label"](did) if k else did)
+    return "%s (meeting room)" % (k["label"](did) if k else did)
 
 
 def speaker(who: str) -> str:
@@ -311,9 +311,9 @@ def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = Fal
         for _, did, msgs in sorted(recent, reverse=True)[:RECAP_DIALOGS]:
             lines.append("%s:" % label(did, cid))
             lines.extend("  #%d %s" % (m["n"], line(m)) for m in msgs)
-        out.append("[Off-screen talk -- background, carried over from before the handover]\n" + "\n".join(lines))
+        out.append("[Office messages -- background, carried over from before the handover]\n" + "\n".join(lines))
     if rows and (fresh or handed_over):
-        out.append("[Off-screen] Said or done to you in the lounge while you were with the user: %s. Hear it with the "
-                   "dialog tool {action: read, dialog_id: <the id in brackets>} when it matters, and bring it up in "
-                   "character if it is worth it; do not mention this line." % " · ".join(rows))
+        out.append("[Office] Coworkers messaged you (a DM or a mention) or came by your desk: %s. Read it with the "
+                   "dialog tool {action: read, dialog_id: <the id in brackets>} and react when it fits -- you may "
+                   "tell the user, as anyone would at their desk; do not mention this line itself." % " · ".join(rows))
     return "\n\n".join(out)

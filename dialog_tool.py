@@ -1,6 +1,6 @@
-"""The `dialog` tool (docs/plans/unified-message-inbox.md inbox/D, F): what a character says or does to another
-off-screen, face to face in the lounge (D9) -- not a phone. Under it, Telegram's getDialogs, getHistory and sendMessage
-as one tool, served by mcp_server.
+"""The `dialog` tool (docs/plans/unified-message-inbox.md inbox/D, F): a character's messages with its coworkers in the
+one office they share (D9) -- DMs, meeting rooms, and what it does at another's desk. Under it, Telegram's getDialogs,
+getHistory and sendMessage as one tool, served by mcp_server.
 
   dialog {"action": "list"}                                     your dialogs: id, name, unread, mentions
   dialog {"action": "read", "dialog_id": "<id>", "limit": 20}   the latest messages; you have now read them
@@ -26,12 +26,12 @@ READ_CHARS = 2000
 MAX_TEXT = room_chat.MAX_TEXT
 TOOL_DEFS = [{
     "name": "dialog",
-    "description": "Talk with the other characters off-screen, face to face in the lounge (not a phone). list: who "
-                   "you talk with and what you have not heard yet. read: the latest of one dialog_id (now heard). "
-                   "send: say something (kind say) or do something (kind action: a stage direction such as 'hands "
-                   "Kit a coffee', which they take as done to them) to a dialog_id, or to a character by "
-                   "id/role/name with `to`; reply_to answers a message number of that dialog. dialog_id is an id "
-                   "exactly as list or the off-screen line gives it.",
+    "description": "Your office messages with the other characters, your coworkers in the same office: DMs and "
+                   "meeting rooms. list: your threads and what you have not read. read: the latest of one dialog_id "
+                   "(marks it read). send: say something (kind say) or do something at their desk (kind action: a "
+                   "stage direction such as 'sets a coffee on Kit's desk', which they take as done to them) to a "
+                   "dialog_id, or to a character by id/role/name with `to` (your DM); reply_to answers a message "
+                   "number of that thread. dialog_id is an id exactly as list or the [Office] line gives it.",
     "inputSchema": {
         "type": "object",
         "properties": {
