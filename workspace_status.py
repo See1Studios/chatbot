@@ -8,6 +8,7 @@ import json
 import logging
 import re
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Optional, Tuple
@@ -366,8 +367,33 @@ def _backup(fp: Path) -> None:
         pass
 
 
+# GIT_AUTOCOMMIT_v2 (#571): the commit hook runs the guard tests (~40 s), and the old 10 s timeout killed git mid-commit,
+# which left .git/index.lock behind and blocked every later git command (2026-10-02 12:38, a card save). The commit
+# now runs on its own thread -- the save answers at once -- one at a time, and git is given time to finish.
+COMMIT_TIMEOUT_SEC = 600
+_commit_lock = threading.Lock()
+
+
 def _maybe_git_commit(fp: Path, message: str) -> bool:
+    """Commit changes to fp in the background (see GIT_AUTOCOMMIT_v2). True when it was handed to the thread."""
+    threading.Thread(target=_git_commit_now, args=(fp, message), name="git-autocommit", daemon=True).start()
+    return True
+
+
+def wait_commits(timeout: float = 30.0) -> None:
+    """Until the background commits started so far are done (tests, and anything that reads the log right after)."""
+    end = time.monotonic() + timeout
+    for t in [t for t in threading.enumerate() if t.name == "git-autocommit"]:
+        t.join(max(0.0, end - time.monotonic()))
+
+
+def _git_commit_now(fp: Path, message: str) -> bool:
     """Commit changes to fp if inside a git repository, isolating failures safely."""
+    with _commit_lock:
+        return _git_commit_locked(fp, message)
+
+
+def _git_commit_locked(fp: Path, message: str) -> bool:
     try:
         p = Path(fp).resolve()
         if not p.is_file():
@@ -401,7 +427,7 @@ def _maybe_git_commit(fp: Path, message: str) -> bool:
             cwd=p.parent,
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=COMMIT_TIMEOUT_SEC,   # the hook's guard tests take ~40 s; a kill would leave index.lock
         )
         if p_commit.returncode != 0:
             err = (p_commit.stderr or p_commit.stdout).strip()

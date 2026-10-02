@@ -96,12 +96,14 @@ class ExpertsApiTest(unittest.TestCase):
         # 1. Update brain
         code, body = self.put(self.cid, [{"provider": "agy", "model": "gemini-3.8-flash-high"}])
         self.assertEqual((code, body["ok"]), (200, True))
+        W.wait_commits()   # GIT_AUTOCOMMIT_v2: the commit runs on its own thread
         msg = subprocess.check_output(["git", "log", "-1", "--pretty=%B"], cwd=str(self.root), text=True).strip()
         self.assertEqual(msg, "chore(team): update brains for " + self.cid)
 
         # 2. Update team
         code, body = self.put_team({"default": self.cid, "members": {self.cid: []}})
         self.assertEqual((code, body["ok"]), (200, True))
+        W.wait_commits()   # GIT_AUTOCOMMIT_v2: the commit runs on its own thread
         msg = subprocess.check_output(["git", "log", "-1", "--pretty=%B"], cwd=str(self.root), text=True).strip()
         self.assertEqual(msg, "chore(team): update team configuration")
 

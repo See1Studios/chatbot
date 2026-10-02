@@ -118,6 +118,7 @@ class InstructionsApiTest(unittest.TestCase):
 
         code, body = self.put("PROJECT.md", "updated procedure for test")
         self.assertEqual((code, body["ok"]), (200, True))
+        W.wait_commits()   # GIT_AUTOCOMMIT_v2: the commit runs on its own thread
         msg = subprocess.check_output(["git", "log", "-1", "--pretty=%B"], cwd=str(self.root), text=True).strip()
         self.assertEqual(msg, "chore(team): update PROJECT.md")
 
@@ -126,6 +127,7 @@ class InstructionsApiTest(unittest.TestCase):
         card_path = "/api/instructions/characters%2F" + self.cid + "%2Fcard.json"
         code, body = W.instructions_api("PUT", card_path, {"content": json.dumps(card)})
         self.assertEqual((code, body["ok"]), (200, True))
+        W.wait_commits()   # GIT_AUTOCOMMIT_v2: the commit runs on its own thread
         msg = subprocess.check_output(["git", "log", "-1", "--pretty=%B"], cwd=str(self.root), text=True).strip()
         self.assertEqual(msg, "chore(team): update card " + self.cid)
 
