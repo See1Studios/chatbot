@@ -346,6 +346,270 @@ class TestArtifactIsolation(unittest.TestCase):
         finally:
             self._restore_brain(saved)
 
+    def test_non_media_artifacts_classification_and_listing(self):
+        sess = self._create_session("sess_nonmedia")
+        art_dir = self.sessions_dir / "sess_nonmedia" / "artifacts"
+        art_dir.mkdir(parents=True, exist_ok=True)
+
+        (art_dir / "report.md").write_text("# Report", encoding="utf-8")
+        (art_dir / "notes.txt").write_text("plain text notes", encoding="utf-8")
+        (art_dir / "config.json").write_text("{\"k\": \"v\"}", encoding="utf-8")
+        (art_dir / "data.csv").write_text("a,b,c\n1,2,3", encoding="utf-8")
+        (art_dir / "main.py").write_text("print('hello')", encoding="utf-8")
+        (art_dir / "script.sh").write_text("echo hi", encoding="utf-8")
+        (art_dir / "style.css").write_text("body { margin: 0; }", encoding="utf-8")
+        (art_dir / "app.js").write_text("console.log(1);", encoding="utf-8")
+        (art_dir / "photo.png").write_bytes(b"PNG_DATA")
+
+        arts = sess.get_artifacts()
+        kind_map = {a["name"]: a["kind"] for a in arts}
+        ext_map = {a["name"]: a["ext"] for a in arts}
+        url_map = {a["name"]: a["url"] for a in arts}
+
+        # Documents
+        for doc_name in ("report.md", "notes.txt", "config.json", "data.csv"):
+            self.assertEqual(kind_map[doc_name], "document", f"{doc_name} should be document")
+            self.assertTrue(url_map[doc_name].startswith("/artifacts/sess_nonmedia/"))
+
+        # Code
+        for code_name in ("main.py", "script.sh", "style.css", "app.js"):
+            self.assertEqual(kind_map[code_name], "code", f"{code_name} should be code")
+            self.assertTrue(url_map[code_name].startswith("/artifacts/sess_nonmedia/"))
+
+        # Image
+        self.assertEqual(kind_map["photo.png"], "image")
+
+        # Extensions
+        self.assertEqual(ext_map["report.md"], "md")
+        self.assertEqual(ext_map["main.py"], "py")
+        self.assertEqual(ext_map["config.json"], "json")
+        self.assertEqual(ext_map["style.css"], "css")
+
+    def test_room_non_media_artifacts_listing(self):
+        r = RC.create("NonMedia Room", [self.c1, self.c2])
+        r_dir = RC.artifacts_dir(r["id"])
+        r_dir.mkdir(parents=True, exist_ok=True)
+        (r_dir / "summary.md").write_text("# Room Summary", encoding="utf-8")
+        (r_dir / "bot.py").write_text("x = 1", encoding="utf-8")
+        (r_dir / "view.png").write_bytes(b"PNG")
+
+        arts = RC.artifacts(r["id"])
+        kind_map = {a["name"]: a["kind"] for a in arts}
+        self.assertEqual(kind_map["summary.md"], "document")
+        self.assertEqual(kind_map["bot.py"], "code")
+        self.assertEqual(kind_map["view.png"], "image")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_markdown_artifacts_link_rendering_no_target_blank(self):
+        import subprocess
+        js = r"""
+const fs = require('fs');
+const mdSrc = fs.readFileSync(process.argv[1], 'utf8');
+const vm = require('vm');
+const ctx = {
+  console,
+  absArtifact: (u) => u,
+  parseFileRef: () => null,
+  fileRefTarget: (r) => '',
+  splitChoices: (s) => ({ text: s, choices: [] }),
+  parseExpression: (s) => ({ expression: null, text: s }),
+  parseThought: (s) => ({ thought: null, cleanText: s }),
+  dedupeMarkdownImages: (s) => s,
+  marked: { parse: (s) => s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>') },
+  DOMPurify: { sanitize: (s) => s },
+  document: { getElementById: () => null, createElement: () => ({ classList: { add() {} } }) }
+};
+ctx.window = ctx;
+vm.createContext(ctx);
+vm.runInContext(mdSrc, ctx);
+const renderedMd = ctx.renderMarkdown('[리포트](/artifacts/sess_1/report.md) [외부](https://example.com)', true);
+const renderedPlain = ctx.renderPlainText('[코드](/artifacts/sess_1/script.py) [외부](https://example.com)');
+console.log(JSON.stringify({ md: renderedMd, plain: renderedPlain }));
+"""
+        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "markdown.js")], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        res = json.loads(r.stdout.strip())
+        self.assertIn('class="artifact-link"', res["md"])
+        self.assertNotIn('href="/artifacts/sess_1/report.md" target="_blank"', res["md"])
+        self.assertIn('href="https://example.com" target="_blank"', res["md"])
+        self.assertIn('class="artifact-link"', res["plain"])
+        self.assertNotIn('href="/artifacts/sess_1/script.py" target="_blank"', res["plain"])
+        self.assertIn('href="https://example.com" target="_blank"', res["plain"])
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_artifacts_link_click_intercepts_to_open_modal(self):
+        import subprocess
+        js = r"""
+const fs = require('fs');
+const artSrc = fs.readFileSync(process.argv[1], 'utf8');
+const mdSrc = fs.readFileSync(process.argv[2], 'utf8');
+const vm = require('vm');
+
+let modalOpened = null;
+let preventDefaultCalled = false;
+let stopPropagationCalled = false;
+
+function makeEl(tag) {
+  const attrs = {}, classes = new Set(), listeners = {}, children = [];
+  return {
+    tagName: tag.toUpperCase(),
+    style: {},
+    dataset: {},
+    children,
+    textContent: '',
+    get className() { return Array.from(classes).join(' '); },
+    set className(v) { classes.clear(); (v||'').split(/\s+/).filter(Boolean).forEach(c => classes.add(c)); },
+    classList: {
+      add: (c) => classes.add(c),
+      remove: (c) => classes.delete(c),
+      contains: (c) => classes.has(c),
+    },
+    setAttribute: (k, v) => { attrs[k] = String(v); },
+    getAttribute: (k) => attrs[k] !== undefined ? attrs[k] : null,
+    removeAttribute: (k) => { delete attrs[k]; },
+    appendChild: (c) => { children.push(c); c.parentElement = this; return c; },
+    addEventListener: (evt, fn) => { if (!listeners[evt]) listeners[evt] = []; listeners[evt].push(fn); },
+    dispatchEvent: (evt) => { (listeners[evt.type] || []).forEach(fn => fn(evt)); },
+    querySelectorAll: function(sel) {
+      const out = [];
+      const walk = (el) => {
+        for (const c of (el.children || [])) {
+          const h = c.getAttribute('href') || '';
+          if (sel.includes('.artifact-bound') && c.classList.contains('artifact-bound')) {}
+          else if (sel.includes('href*="/artifacts/"') && h.includes('/artifacts/')) out.push(c);
+          else if (sel.includes('.artifact-link') && c.classList.contains('artifact-link')) out.push(c);
+          walk(c);
+        }
+      };
+      walk(this);
+      return out;
+    }
+  };
+}
+
+const doc = {
+  getElementById: (id) => makeEl('div'),
+  createElement: (tag) => makeEl(tag),
+  querySelectorAll: () => []
+};
+
+const ctx = {
+  console,
+  document: doc,
+  window: {},
+  openArtifactModal: (item) => { modalOpened = item; },
+  setTimeout: () => 0,
+};
+ctx.window = ctx;
+vm.createContext(ctx);
+vm.runInContext(mdSrc, ctx);
+
+const container = makeEl('div');
+const link = makeEl('a');
+link.setAttribute('href', '/artifacts/sess_1/test_report.md');
+link.setAttribute('target', '_blank');
+link.className = 'artifact-link';
+link.textContent = 'test_report.md';
+container.appendChild(link);
+
+ctx.attachArtifactLinkInterceptors(container);
+
+const targetAttr = link.getAttribute('target');
+const hasBoundClass = link.classList.contains('artifact-bound');
+
+link.dispatchEvent({
+  type: 'click',
+  preventDefault: () => { preventDefaultCalled = true; },
+  stopPropagation: () => { stopPropagationCalled = true; }
+});
+
+console.log(JSON.stringify({
+  targetAttr,
+  hasBoundClass,
+  preventDefaultCalled,
+  stopPropagationCalled,
+  modalOpened
+}));
+"""
+        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "artifacts.js"), str(ROOT / "static" / "markdown.js")], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout.strip())
+        self.assertIsNone(out["targetAttr"], "target attribute should be removed by interceptor")
+        self.assertTrue(out["hasBoundClass"], "artifact-bound class should be added")
+        self.assertTrue(out["preventDefaultCalled"], "e.preventDefault() must be called")
+        self.assertTrue(out["stopPropagationCalled"], "e.stopPropagation() must be called")
+        self.assertIsNotNone(out["modalOpened"])
+        self.assertEqual(out["modalOpened"]["url"], "/artifacts/sess_1/test_report.md")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_open_artifact_modal_supports_document_and_code(self):
+        import subprocess
+        js = r"""
+const fs = require('fs');
+const artSrc = fs.readFileSync(process.argv[1], 'utf8');
+const vm = require('vm');
+
+function makeEl(tag) {
+  const attrs = {}, classes = new Set(), children = [];
+  return {
+    tagName: tag.toUpperCase(),
+    style: {},
+    children,
+    innerHTML: '',
+    textContent: '',
+    appendChild: (c) => { children.push(c); return c; },
+    classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c) },
+    addEventListener: () => {},
+    setAttribute: (k, v) => { attrs[k] = v; },
+    getAttribute: (k) => attrs[k] || null,
+    removeAttribute: (k) => { delete attrs[k]; },
+  };
+}
+
+const modalBodyEl = makeEl('div');
+const artModalEl = makeEl('div');
+const ctx = {
+  console,
+  document: {
+    getElementById: (id) => {
+      if (id === 'artModal') return artModalEl;
+      if (id === 'modalBody') return modalBodyEl;
+      return makeEl('div');
+    },
+    createElement: (tag) => makeEl(tag),
+    querySelectorAll: () => []
+  },
+  addEventListener: () => {},
+  copyText: async () => true,
+  resolveArtifactUrl: (u) => u,
+  fetch: async (u) => ({ ok: true, text: async () => 'content from fetch' }),
+};
+ctx.window = ctx;
+vm.createContext(ctx);
+vm.runInContext(artSrc, ctx);
+
+async function run() {
+  const results = {};
+  await ctx.openArtifactModal({ name: 'spec.md', kind: 'document', content: '# Markdown Spec' });
+  results.docSupported = !modalBodyEl.innerHTML.includes('미리보기를 지원하지 않는');
+
+  await ctx.openArtifactModal({ name: 'main.py', kind: 'code', content: 'print(42)' });
+  results.codeSupported = !modalBodyEl.innerHTML.includes('미리보기를 지원하지 않는');
+
+  await ctx.openArtifactModal('/artifacts/sess_1/algo.py');
+  results.urlNormalized = !modalBodyEl.innerHTML.includes('미리보기를 지원하지 않는');
+
+  console.log(JSON.stringify(results));
+}
+run();
+"""
+        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "artifacts.js")], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout.strip())
+        self.assertTrue(out["docSupported"], "document artifact must be previewed via text viewer")
+        self.assertTrue(out["codeSupported"], "code artifact must be previewed via code/text viewer")
+        self.assertTrue(out["urlNormalized"], "string URL artifact must be normalized and opened in modal")
+
 
 if __name__ == "__main__":
     unittest.main()

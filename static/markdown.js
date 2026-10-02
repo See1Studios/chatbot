@@ -259,6 +259,23 @@ function attachFileLinkInterceptors(container) {
   });
 }
 
+function attachArtifactLinkInterceptors(container) {
+  if (!container || typeof openArtifactModal !== 'function') return;
+  container.querySelectorAll('a[href*="/artifacts/"]:not(.artifact-bound), a.artifact-link:not(.artifact-bound)').forEach(a => {
+    const href = a.getAttribute('href') || '';
+    if (!href || href === '#' || !href.includes('/artifacts/')) return;
+    a.classList.add('artifact-bound');
+    a.removeAttribute('target');
+    a.title = (a.title ? a.title + ' ' : '') + '(클릭하여 아티팩트 보기)'; // l10n-ok
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const n = (a.textContent || '').trim();
+      openArtifactModal({ url: href, name: n && !n.includes('/') ? n : undefined });
+    });
+  });
+}
+
 // Quick-reply chips. The agent ends a question with one line
 //   <!--choices: 보기A | 보기B | 보기C-->
 // (operator: "의견을 물을 때 마지막에 선택지 버튼"). The marker never shows as text:
@@ -487,19 +504,7 @@ function parseChoiceItem(item) {
   const truncate = (s) => (typeof truncateChoiceLabel === 'function'
     ? truncateChoiceLabel(s, maxLabel)
     : (String(s || '').trim().length <= maxLabel ? String(s || '').trim() : String(s || '').trim().slice(0, maxLabel - 1) + '…'));
-  const unwrapParens = typeof stripOuterParens === 'function' ? stripOuterParens : (s) => {
-    let out = String(s || '').trim();
-    while (out.length >= 2 && out[0] === '(' && out[out.length - 1] === ')') {
-      let depth = 0, balanced = true;
-      for (let i = 0; i < out.length; i++) {
-        if (out[i] === '(') depth++;
-        else if (out[i] === ')') { depth--; if ((depth === 0 && i !== out.length - 1) || depth < 0) { balanced = false; break; } }
-      }
-      if (!balanced || depth !== 0) break;
-      out = out.slice(1, -1).trim();
-    }
-    return out;
-  };
+  const unwrapParens = typeof stripOuterParens === 'function' ? stripOuterParens : (s) => String(s || '').trim();
 
   if (item && typeof item === 'object') {
     const rawLabel = String(item.label || '').trim();
@@ -649,14 +654,19 @@ function sendPickedChoice() {
 }
 
 function getChoiceBarEl() {
-  if (typeof document !== 'undefined' && document && typeof document.getElementById === 'function') {
+  if (typeof document !== 'undefined' && document && document.getElementById) {
     const el = document.getElementById('choiceBar');
     if (el) return el;
   }
-  if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
-    return choiceBarEl;
-  }
-  return null;
+  return typeof choiceBarEl !== 'undefined' ? choiceBarEl : null;
+}
+
+function resetChoiceBar(bar) {
+  if (!bar) return;
+  if (bar.classList && bar.classList.remove) bar.classList.remove('closing');
+  bar.textContent = '';
+  bar.hidden = true;
+  bar._owner = null;
 }
 
 function renderChoiceChips(node, choices, isPrepend) {
@@ -684,14 +694,7 @@ function renderChoiceChips(node, choices, isPrepend) {
   const skipBar = isPrependState || isNotLatestAssistant;
 
   const bar = skipBar ? null : getChoiceBarEl();
-  if (bar) {
-    if (bar.classList && typeof bar.classList.remove === 'function') {
-      bar.classList.remove('closing');
-    }
-    bar.textContent = '';
-    bar.hidden = true;
-    bar._owner = null;
-  }
+  if (bar) resetChoiceBar(bar);
   if (!choices || !choices.length) return;
   if (skipBar) return;
 
@@ -706,34 +709,18 @@ function renderChoiceChips(node, choices, isPrepend) {
   closeBtn.addEventListener('click', (e) => {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
     if (bar) {
-      if (bar.classList && typeof bar.classList.add === 'function') {
-        bar.classList.add('closing');
-      }
+      if (bar.classList && bar.classList.add) bar.classList.add('closing');
       const hideBar = () => {
-        bar.hidden = true;
+        resetChoiceBar(bar);
         if (typeof updateScrollBottomButton === 'function') updateScrollBottomButton();
-        if (bar.classList && typeof bar.classList.remove === 'function') {
-          bar.classList.remove('closing');
-        }
-        bar.textContent = '';
-        bar._owner = null;
       };
-      if (typeof setTimeout === 'function') {
-        setTimeout(hideBar, 180);
-      } else {
-        hideBar();
-      }
+      if (typeof setTimeout === 'function') setTimeout(hideBar, 180);
+      else hideBar();
     } else if (card) {
-      if (card.classList && typeof card.classList.add === 'function') {
-        card.classList.add('closing');
-        if (typeof setTimeout === 'function') {
-          setTimeout(() => { if (typeof card.remove === 'function') card.remove(); }, 180);
-        } else {
-          if (typeof card.remove === 'function') card.remove();
-        }
-      } else if (typeof card.remove === 'function') {
-        card.remove();
-      }
+      if (card.classList && card.classList.add) card.classList.add('closing');
+      const rm = () => { if (card.remove) card.remove(); };
+      if (typeof setTimeout === 'function') setTimeout(rm, 180);
+      else rm();
     }
   });
   card.appendChild(closeBtn);
@@ -778,13 +765,8 @@ function syncChoiceChips() {
   const isAssistant = last && (last.classList ? last.classList.contains('assistant') : /\bassistant\b/.test(last.className || ''));
   if (!last || !isAssistant || !hasChoicesOnLast) {
     if (bar) {
-      if (bar.classList && typeof bar.classList.remove === 'function') {
-        bar.classList.remove('closing');
-      }
-      bar.textContent = '';
-      bar.hidden = true;
+      resetChoiceBar(bar);
       if (typeof updateScrollBottomButton === 'function') updateScrollBottomButton();
-      bar._owner = null;
     }
   }
   logEl.querySelectorAll('.choice-chips').forEach(row => {
@@ -869,6 +851,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     attachCodeCopyButtons(node);
     attachImageLightbox(node);
     attachFileLinkInterceptors(node);
+    if (typeof attachArtifactLinkInterceptors === 'function') attachArtifactLinkInterceptors(node);
     const eventChoices = (node && node._choices && node._choices.length) ? node._choices : (choices && choices.length ? choices : null);
     const finalChoices = eventChoices || parts.choices;
     if (node && finalChoices && finalChoices.length) {
@@ -925,6 +908,9 @@ function renderMarkdown(src, isFinal) {
           // FILE_LINKS_v1: kept in data-path, which the sanitiser leaves alone; href would be dropped for ~/.
           return '<a ' + p1 + 'href="#" data-path="' + fileRefTarget(ref).replace(/"/g, '&quot;') + '" class="local-file-link"' + p2 + '>';
         }
+        if (/^\/?artifacts\//i.test(href)) {
+          return '<a ' + p1 + 'href="' + href + '" class="artifact-link"' + p2 + '>';
+        }
         return '<a ' + p1 + 'href="' + href + '" target="_blank" rel="noopener"' + p2 + '>';
       });
       if (isFinal) {
@@ -973,7 +959,8 @@ function renderPlainText(raw) {
   });
   t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => {
     const safeHref = /^(?:javascript)/i.test(href.trim()) ? '#' : href;
-    return '<a href="' + _esc(safeHref) + '" target="_blank" rel="noopener">' + _esc(label) + '</a>';
+    const isArt = /^\/?artifacts\//i.test(safeHref);
+    return '<a href="' + _esc(safeHref) + '"' + (isArt ? ' class="artifact-link"' : ' target="_blank" rel="noopener"') + '>' + _esc(label) + '</a>';
   });
   t = t.replace(/```([\s\S]*?)```/g, (_, code) => '<pre><code>' + code + '</code></pre>');
   // A fence that is still open is the normal case mid-stream: the closing ``` has not arrived yet.

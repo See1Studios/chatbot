@@ -320,6 +320,24 @@ function renderModalTextContent(isMd) {
 
 async function openArtifactModal(item) {
   if (!item || !artModal) return;
+  if (typeof item === 'string') {
+    const url = item;
+    const name = decodeURIComponent(url.split('?')[0].split('/').pop() || 'artifact');
+    const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+    const isImg = /^(png|jpe?g|gif|webp|svg)$/i.test(ext);
+    const isCode = /^(py|js|ts|gd|sh|sql|css|json|html|jsx|tsx|ya?ml)$/i.test(ext);
+    item = { name, url, kind: isImg ? 'image' : (isCode ? 'code' : 'document'), is_text: !isImg, ext };
+  } else if (item && typeof item === 'object' && !item.kind && item.url) {
+    const name = item.name || decodeURIComponent(item.url.split('?')[0].split('/').pop() || 'artifact');
+    const ext = item.ext || (name.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+    const isImg = /^(png|jpe?g|gif|webp|svg)$/i.test(ext);
+    const isCode = /^(py|js|ts|gd|sh|sql|css|json|html|jsx|tsx|ya?ml)$/i.test(ext);
+    item = { ...item, name, ext, kind: isImg ? 'image' : (isCode ? 'code' : 'document'), is_text: !isImg };
+  }
+  if (item && item.url && typeof currentArtifacts !== 'undefined' && Array.isArray(currentArtifacts)) {
+    const match = currentArtifacts.find(a => a && (a.url === item.url || (typeof resolveArtifactUrl === 'function' && resolveArtifactUrl(a.url) === resolveArtifactUrl(item.url))));
+    if (match) item = { ...match, ...item };
+  }
   activeModalArtifact = item;
   modalCurrentText = '';
   const sizeLabel = item.size_human ? ` (${item.size_human})` : '';
@@ -352,7 +370,7 @@ async function openArtifactModal(item) {
       const img = document.createElement('img');
       bindArtifactImg(img, item);
       modalBody.appendChild(img);
-    } else if (item.is_text || item.kind === 'text') {
+    } else if (item.is_text || item.kind === 'text' || item.kind === 'document' || item.kind === 'code') {
       modalBody.innerHTML = '<div style="color:var(--muted)">불러오는 중…</div>';
       try {
         let text = item.content;
@@ -362,7 +380,7 @@ async function openArtifactModal(item) {
           text = await resp.text();
         }
         modalCurrentText = text || '';
-        const isMd = (item.name || '').endsWith('.md') || (item.path || '').endsWith('.md');
+        const isMd = (item.name || '').endsWith('.md') || (item.path || '').endsWith('.md') || (item.url || '').split('?')[0].endsWith('.md');
 
         if (modalCopyBtn) {
           modalCopyBtn.style.display = 'inline-block';
