@@ -5,6 +5,12 @@
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 2026-10-01 기록은 하루 예산을 넘어 [devlog/2026-10-01.md](devlog/2026-10-01.md)로 회전했습니다.
 
+## 2026-10-02 — [art/iso] 비미디어 아티팩트 사용자 데이터 격리 및 brain 탈피 (#576, 위임 agy)
+
+- **커밋**: `18845f0` feat(artifacts): stage non-media brain files into the session
+- **바뀐 파일**: `media_handler.py`, `session_view.py`, `tests/test_artifact_isolation.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-02 — [art/iso] 대화방별 아티팩트 완벽 격리 (1:1 세션 및 단체방 고유 저장소 분리) (#575, 위임 agy)
 
 - **커밋**: `3d7fafe` fix(artifacts): isolate room switches, log errors, and clean dead routes, `949eae8` feat(artifacts): isolate artifacts per conversation room and group room
