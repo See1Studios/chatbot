@@ -60,9 +60,9 @@ class DialogTool(unittest.TestCase):
         self.assertEqual(out["data"], {"dialog_id": ab, "n": 1})
         self.assertEqual(D.history(ab)[0]["who"], self.a, "the sender is the caller, never an argument")
         listed = self.as_(self.b, "s-b", action="list")["data"]["dialogs"]
-        self.assertEqual(listed, [{"dialog_id": ab, "name": "Boss (DM)", "unread": 1, "mentions": 0}])
+        self.assertEqual(listed, [{"dialog_id": ab, "name": "Boss", "unread": 1, "mentions": 0}])
         got = self.as_(self.b, "s-b", action="read", dialog_id=ab)["data"]["messages"]
-        self.assertEqual(got, [{"n": 1, "from": "Boss", "text": "can you check the build?"}])
+        self.assertEqual(got, [{"n": 1, "from": "Boss", "how": "message", "text": "can you check the build?"}])
         self.assertEqual(D.unread(self.b, ab, "s-b"), (0, 0), "read means read")
         out = self.as_(self.b, "s-b", action="send", dialog_id=ab, text="on it", reply_to="1")
         self.assertEqual(D.history(ab)[-1]["reply_to"], 1)
@@ -89,7 +89,7 @@ class DialogTool(unittest.TestCase):
         self.assertTrue(out["success"], out)
         ab = D.dm_id(self.a, self.b)
         got = self.as_(self.b, "s-b", action="read", dialog_id=ab)["data"]["messages"]
-        self.assertEqual(got, [{"n": 1, "from": "Boss", "text": "sets a coffee on Kit's desk", "kind": "action"}])
+        self.assertEqual(got, [{"n": 1, "from": "Boss", "how": "came by your desk", "text": "sets a coffee on Kit's desk", "kind": "action"}])
         self.assertFalse(self.as_(self.a, "s-a", action="send", to="Kit", text="x", kind="whisper")["success"])
         self.assertIn("kind", T.TOOL_DEFS[0]["inputSchema"]["properties"])
         self.assertIn("office", T.TOOL_DEFS[0]["description"], "coworkers in one office (D9)")

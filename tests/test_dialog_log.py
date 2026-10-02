@@ -81,7 +81,7 @@ class Dialogs(unittest.TestCase):
         self.assertEqual(done["kind"], "action")
         with self.assertRaises(ValueError):
             D.append(ab, self.a, "x", kind="memo")
-        self.assertEqual([D.line(m) for m in D.history(ab)], ["Boss: morning", "Boss does: waves"])
+        self.assertEqual([D.line(m, ab) for m in D.history(ab)], ["Boss (message): morning", "Boss (came by your desk): waves"])
 
     def test_a_room_record_keeps_its_file_and_shape(self):
         r = RC.create("Team", [self.a, self.b])

@@ -267,7 +267,7 @@ def label(did: str, cid: str) -> str:
     pair = _dm_pair(did)
     if pair:
         other = pair[0] if pair[1] == cid else pair[1]
-        return "%s (DM)" % (characters.name(other) or other)
+        return characters.name(other) or other   # one thread holds both their messages and their visits
     k = _kind(did)
     return "%s (meeting room)" % (k["label"](did) if k else did)
 
@@ -277,10 +277,17 @@ def speaker(who: str) -> str:
     return "the user" if who == USER else (characters.name(who) or who)
 
 
-def line(m: Dict) -> str:
-    """One message as a reader takes it: "Kit: words", or "Kit does: <stage direction>" for an action."""
-    text = str(m["text"])[:RECAP_CHARS]
-    return "%s does: %s" % (speaker(m["who"]), text) if m.get("kind") == "action" else "%s: %s" % (speaker(m["who"]), text)
+def how(m: Dict, did: str) -> str:
+    """How it reached the reader (#558: "brought a coffee by DM" read wrong). Between two coworkers words come as a
+    message and an action is done in person, at the reader's desk; in a meeting room both happen in the room."""
+    if _dm_pair(did):
+        return "came by your desk" if m.get("kind") == "action" else "message"
+    return "in the room"
+
+
+def line(m: Dict, did: str) -> str:
+    """One message as a reader takes it: "Kit (message): words", "Kit (came by your desk): sets a coffee down"."""
+    return "%s (%s): %s" % (speaker(m["who"]), how(m, did), str(m["text"])[:RECAP_CHARS])
 
 
 def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = False) -> str:
@@ -302,7 +309,15 @@ def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = Fal
         if not new:
             continue
         mention = sum(1 for m in new if cid in (m.get("mentions") or []))
-        rows.append("%s %d%s [%s]" % (label(did, cid), len(new), " (%d mention you)" % mention if mention else "", did))
+        if _dm_pair(did):
+            visits = sum(1 for m in new if m.get("kind") == "action")
+            parts = [p for p in ("%d message%s" % (len(new) - visits, "" if len(new) - visits == 1 else "s")
+                                 if len(new) - visits else "",
+                                 "came by %d time%s" % (visits, "" if visits == 1 else "s") if visits else "") if p]
+            count = ", ".join(parts)
+        else:
+            count = "%d new%s" % (len(new), ", %d mention you" % mention if mention else "")
+        rows.append("%s: %s [%s]" % (label(did, cid), count, did))
         fresh = fresh or new[-1]["n"] > noted.get(did, 0)
         noted[did] = new[-1]["n"]
     out = []
@@ -310,10 +325,10 @@ def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = Fal
         lines = []
         for _, did, msgs in sorted(recent, reverse=True)[:RECAP_DIALOGS]:
             lines.append("%s:" % label(did, cid))
-            lines.extend("  #%d %s" % (m["n"], line(m)) for m in msgs)
+            lines.extend("  #%d %s" % (m["n"], line(m, did)) for m in msgs)
         out.append("[Office messages -- background, carried over from before the handover]\n" + "\n".join(lines))
     if rows and (fresh or handed_over):
-        out.append("[Office] Coworkers messaged you (a DM or a mention) or came by your desk: %s. Read it with the "
+        out.append("[Office] Coworkers messaged you or came by your desk: %s. Read it with the "
                    "dialog tool {action: read, dialog_id: <the id in brackets>} and react when it fits -- you may "
                    "tell the user, as anyone would at their desk; do not mention this line itself." % " · ".join(rows))
     return "\n\n".join(out)

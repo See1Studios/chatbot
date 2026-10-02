@@ -28,9 +28,10 @@ TOOL_DEFS = [{
     "name": "dialog",
     "description": "Your office messages with the other characters, your coworkers in the same office: DMs and "
                    "meeting rooms. list: your threads and what you have not read. read: the latest of one dialog_id "
-                   "(marks it read). send: say something (kind say) or do something at their desk (kind action: a "
-                   "stage direction such as 'sets a coffee on Kit's desk', which they take as done to them) to a "
-                   "dialog_id, or to a character by id/role/name with `to` (your DM); reply_to answers a message "
+                   "(marks it read; `how` says whether it came as a message or in person). send: message them (kind "
+                   "say), or go over to their desk and do something in person (kind action: a stage direction such "
+                   "as 'sets a coffee on Kit's desk', which they take as done to them) -- to a dialog_id, or to a "
+                   "character by id/role/name with `to`; reply_to answers a message "
                    "number of that thread. dialog_id is an id exactly as list or the [Office] line gives it.",
     "inputSchema": {
         "type": "object",
@@ -57,8 +58,9 @@ def _character(ref: str) -> Optional[str]:
     return next((c["id"] for c in characters.listing() if want and c["name"].strip().lower() == want), None)
 
 
-def _view(m: Dict) -> Dict:
-    out = {"n": m["n"], "from": dialog_log.speaker(m["who"]), "text": str(m["text"])[:READ_CHARS]}
+def _view(m: Dict, did: str) -> Dict:
+    out = {"n": m["n"], "from": dialog_log.speaker(m["who"]), "how": dialog_log.how(m, did),
+           "text": str(m["text"])[:READ_CHARS]}
     if m.get("reply_to"):
         out["reply_to"] = m["reply_to"]
     if m.get("kind") == "action":
@@ -94,7 +96,7 @@ def call(args: Dict, envelope: Callable, who: Dict) -> Dict:
         msgs = dialog_log.history(did)[-limit:]
         if msgs:
             dialog_log.saw(me, sid, did, msgs[-1]["n"])
-        return envelope(True, "%d messages" % len(msgs), {"dialog_id": did, "messages": [_view(m) for m in msgs]})
+        return envelope(True, "%d messages" % len(msgs), {"dialog_id": did, "messages": [_view(m, did) for m in msgs]})
     if action == "send":
         text = str(args.get("text") or "").strip()
         if not text:

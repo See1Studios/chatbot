@@ -48,16 +48,16 @@ class TurnNote(unittest.TestCase):
         D.append(self.room, self.c, "sure")
         noted = {}
         line = D.turn_note(self.b, "s-kit", noted)
-        self.assertIn("Boss (DM) 1", line)
-        self.assertIn("Desk (meeting room) 2 (1 mention you)", line)
+        self.assertIn("Boss: 1 message [", line)
+        self.assertIn("Desk (meeting room): 2 new, 1 mention you", line)
         self.assertIn("dialog tool", line)
         self.assertNotIn("secret", line)
         self.assertNotIn("can you", line)
         self.assertEqual(D.turn_note(self.b, "s-kit", noted), "", "nothing new: not said again")
         D.append(self.ab, self.a, "one more")
         again = D.turn_note(self.b, "s-kit", noted)
-        self.assertIn("Boss (DM) 2", again)
-        self.assertIn("Desk (meeting room) 2", again, "the whole list again, so it is never half a picture")
+        self.assertIn("Boss: 2 messages", again)
+        self.assertIn("Desk (meeting room): 2 new", again, "the whole list again, so it is never half a picture")
         D.saw(self.b, "s-kit", self.ab, 2)
         D.saw(self.b, "s-kit", self.room, 2)
         D.append(self.ab, self.b, "my own line")
@@ -72,8 +72,8 @@ class TurnNote(unittest.TestCase):
         self.assertEqual(D.turn_note(self.b, "s-kit", noted), "")
         line = D.turn_note(self.b, "s-kit", noted, handed_over=True)   # ... then lost it
         self.assertIn("[Office messages", line)
-        self.assertIn("#3 Boss: third", line)
-        self.assertIn("#2 Boss: second", line)
+        self.assertIn("#3 Boss (message): third", line)
+        self.assertIn("#2 Boss (message): second", line)
         self.assertNotIn("first", line, "only the last messages")
         self.assertNotIn("[Office]", line, "the character had read them")
 
@@ -81,8 +81,10 @@ class TurnNote(unittest.TestCase):
         D.append(self.ab, self.a, "hands Kit a coffee", kind="action")
         D.append(self.ab, self.a, "long night?")
         line = D.turn_note(self.b, "s-kit", {}, handed_over=True)
-        self.assertIn("#1 Boss does: hands Kit a coffee", line)
-        self.assertIn("#2 Boss: long night?", line)
+        self.assertIn("#1 Boss (came by your desk): hands Kit a coffee", line)
+        self.assertIn("#2 Boss (message): long night?", line)
+        self.assertIn("Boss: 1 message, came by 1 time", D.turn_note(self.b, "s-other", {}))
+        self.assertNotIn("DM", line, "an action is not sent by DM (#558)")
 
     def test_the_server_hook_adds_the_line_for_work_sessions_only(self):
         import server
@@ -92,7 +94,7 @@ class TurnNote(unittest.TestCase):
         private = SimpleNamespace(sid="s-priv", character=self.b, is_private=True, mode="private")
         note = server._turn_notices(work)
         self.assertIn("[Office]", note)
-        self.assertIn("Boss (DM) 1", note)
+        self.assertIn("Boss: 1 message", note)
         self.assertNotIn("[Office]", server._turn_notices(seat))
         self.assertNotIn("[Office]", server._turn_notices(private))
         work._handed_over = True
