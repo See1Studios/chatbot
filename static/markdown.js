@@ -878,7 +878,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     if (!skipFooter) renderChoiceChips(node, finalChoices, prependState);
     renderMermaidIn(node);
     highlightCodeIn(node);
-    if (window.renderMapsIn) renderMapsIn(node);
+    typeof renderMapsIn === 'function' && renderMapsIn(node);
     // Client-side system notices (/help, /status, /clear, stop confirmation)
     // reuse the assistant bubble's markdown rendering but aren't real LLM
     // replies -- no token badge / copy / TTS chips belong on them (operator:
@@ -929,10 +929,9 @@ function renderMarkdown(src, isFinal) {
         return '<a ' + p1 + 'href="' + href + '" target="_blank" rel="noopener"' + p2 + '>';
       });
       if (isFinal) {
-        const dec = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
         html = html.replace(/<pre><code class="(?:language-)?mermaid">([\s\S]*?)<\/code><\/pre>/g, (_, c) =>
-          '<div class="mermaid-wrap"><pre class="mermaid">' + dec(c) + '</pre></div>');
-        html = html.replace(/<pre><code class="(?:language-)?map">([\s\S]*?)<\/code><\/pre>/g, (m, c) => window.renderMapBlock ? renderMapBlock(c) : m);
+          '<div class="mermaid-wrap"><pre class="mermaid">' + c.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"') + '</pre></div>');
+        html = html.replace(/<pre><code class="(?:language-)?map">([\s\S]*?)<\/code><\/pre>/g, (m, c) => typeof renderMapBlock === 'function' ? renderMapBlock(c) : m);
       }
       // Sanitize: block javascript: hrefs and inline event handlers.
       // ADD_ATTR keeps target/loading/rel/class attributes; class names like
