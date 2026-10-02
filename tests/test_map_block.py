@@ -504,13 +504,16 @@ const container = {{ querySelectorAll: () => [box] }};
 const fs = require('fs');
 eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
 
+let scriptErrorFired = false;
 global.document = {{
   querySelector: () => null,
   createElement: (tag) => {{
     let _text = '';
     const children = [];
     return {{
+      tag: tag.toLowerCase(),
       tagName: tag.toUpperCase(),
+      dataset: {{}},
       className: '',
       get textContent() {{
         if (children.length) return children.map(c => c.textContent || '').join('');
@@ -522,8 +525,11 @@ global.document = {{
   }},
   head: {{
     appendChild: (el) => {{
-      if (el.tag === 'script' && typeof el.onerror === 'function') {{
-        setTimeout(() => el.onerror(new Error('Network error')), 1);
+      if ((el.tag === 'script' || el.tagName === 'SCRIPT') && typeof el.onerror === 'function') {{
+        setTimeout(() => {{
+          scriptErrorFired = true;
+          el.onerror(new Error('Network error'));
+        }}, 1);
       }}
     }}
   }}
@@ -550,8 +556,16 @@ const box1 = {{
 const container = {{ querySelectorAll: () => [box1] }};
 
 (async () => {{
+  let loadError = null;
+  try {{
+    await ensureLeafletLoaded();
+  }} catch (e) {{
+    loadError = e ? e.message : String(e);
+  }}
   await renderMapsIn(container);
   console.log(JSON.stringify({{
+    loadError,
+    scriptErrorFired,
     processed: box1.attrs['data-processed'],
     isFallback: box1.classList.contains('chat-map-fallback'),
     textContent: box1.textContent,
@@ -562,6 +576,9 @@ const container = {{ querySelectorAll: () => [box1] }};
         out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
+        self.assertTrue(res["scriptErrorFired"], "Script onerror must be invoked on load failure")
+        self.assertEqual(res["loadError"], "Network error", "ensureLeafletLoaded must reject with onerror Network error, not a mock TypeError")
+        self.assertNotIn("TypeError", res.get("loadError", ""), "Must not fail due to mock TypeError")
         self.assertEqual(res["processed"], "true")
         self.assertTrue(res["isFallback"], "Must add chat-map-fallback class")
         self.assertIn("37.5665", res["textContent"])
@@ -576,6 +593,8 @@ class MapStaticAssets(unittest.TestCase):
         self.assertIn('<script src="./markdown-map.js', html)
 
     def test_chat_features_css_has_map_styles(self):
+        # touch-action: pan-y is an intentional mobile trade-off to permit vertical page scrolling
+        # while preventing touch gestures on the map canvas from hijacking document scroll.
         css = CSS.read_text(encoding="utf-8")
         self.assertIn('.chat-map-box', css)
         self.assertIn('.chat-map-canvas', css)
