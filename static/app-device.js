@@ -43,10 +43,10 @@ function fetchCoordinates() {
 
 async function getClientContext() {
   if (!geoEnabled) return null;
-  if (!cachedCoords && coordPromise) {
-    // Wait up to 1000ms for active geolocation fetch to finish
+  if (!cachedCoords) {
+    // In-flight fetch, or a retry after the page-load/toggle fetch failed.
     await Promise.race([
-      coordPromise,
+      fetchCoordinates(),
       new Promise(r => setTimeout(r, 1000))
     ]);
   }
