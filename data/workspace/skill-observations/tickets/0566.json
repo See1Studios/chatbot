@@ -1,0 +1,214 @@
+{
+ "actor": "nono",
+ "approved_at": "2026-10-02 11:59:19",
+ "approved_by": "operator (ui)",
+ "attempts": 1,
+ "created": "2026-10-02 11:53:39",
+ "evidence": [
+  "event:20261002-105519-500855#100"
+ ],
+ "gate_failures": 0,
+ "id": 566,
+ "merge_pending": true,
+ "notes": [
+  {
+   "by": "operator (ui)",
+   "text": "approved",
+   "ts": "2026-10-02 11:59:19"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 11:59:19"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 11:59:29"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 11:59:40"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 11:59:50"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:00:00"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:00:11"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:00:21"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:00:32"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:00:43"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:00:54"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:01:04"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:01:15"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:01:25"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:01:36"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:01:46"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:01:57"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:02:07"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:02:18"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:02:28"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:02:39"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:02:49"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:03:00"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:03:10"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:03:21"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:03:47"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:03:57"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:04:07"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:04:18"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:04:28"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:04:39"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:04:49"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:05:00"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:05:10"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:05:20"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claim refused: author lock is held for ticket 567 (docs/plans/INDEX.md)",
+   "ts": "2026-10-02 12:05:31"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 1/3); paths: docs/plans/INDEX.md, docs/plans/quota-failure-resilience.md",
+   "ts": "2026-10-02 12:05:42"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-566 at c0f1970 (agy, doc review FAIL (advice: 1. `docs/plans/quota-failure-resilience.md` §5 의사결정 표 D4의 상태를 `**합의**`에서 `제안`으로 바꾼다. 사용자가 승인했다는 기록이 diff에도 티켓에도 없고, D1~D3은 이미 `제안`이다.\n2. 같은 문서 맨 위 `> 방향 (align/D, 2026-10-02)` 줄은 방향 정렬이 이미 끝난 것처럼 읽힌다. 실제 정렬 기록이 있으면 그 출처(티켓이나 문서)를 적고, 없으면 \"방향 (제안)\"처럼 제안 표기로 고친다.\n3. §3 현황 점검에 적은 `ERROR_MESSAGE_FAILFAS) round 1)",
+   "ts": "2026-10-02 12:14:18"
+  }
+ ],
+ "paths": [
+  "docs/plans/INDEX.md",
+  "docs/plans/quota-failure-resilience.md"
+ ],
+ "status": "awaiting_merge",
+ "target": "docs/plans/index.md,docs/plans/quota-failure-resilience.md",
+ "title": "[qfr/0] 모델 쿼터 소진·한도 도달 및 제공자 장애 대응 계획 수립",
+ "updated": "2026-10-02 12:14:18",
+ "worked_by": "agy"
+}
