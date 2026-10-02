@@ -6,8 +6,8 @@ numbered in that dialog -- Telegram's message box. Rooms and dialogs between two
   dm_id(a, b) -> "dm:<a>:<b>", the two character ids sorted, so both ends name it alike
   members(did) -> who may write in it (a room's members and "user"; a dm's two characters); [] when unknown
   history(did, after=0) -> the messages after number `after`
-  append(did, who, text, mentions=(), reply_to=None) -> the message; refuses a writer who is not a member and a reply
-      to a number the dialog does not hold. Each message also goes into the event mailbox as `msg.new`
+  append(did, who, text, mentions=(), reply_to=None, kind="say") -> the message; refuses a writer who is not a member,
+      a reply to a number the dialog does not hold, and a kind not in KINDS. Each message also goes into the event mailbox as `msg.new`
       {conversation, n, from} for the other characters -- never its text (character-events-and-rooms).
   dialogs_of(cid) -> the dialogs a character is in
   Read positions (inbox/B), two of them because one character has several brains (work, room seat, private):
@@ -19,7 +19,9 @@ numbered in that dialog -- Telegram's message box. Rooms and dialogs between two
   unread(cid, did, sid="") -> (messages after the position not written by cid, of those the ones mentioning cid)
   turn_note(cid, sid, noted, handed_over=False) -> the catch-up line before a work turn (inbox/C)
 
-A message is {n, ts, who, text, mentions} and, when it answers one, reply_to (the n it answers). The user's dialog with
+A message is {n, ts, who, text, mentions}, with reply_to (the n it answers) when it answers one and kind "action" when
+it is a stage direction -- something done, not said (inbox/F, decision D10). Between characters a dialog is talk face
+to face, off-screen in the lounge (D9), not a phone. The user's dialog with
 one character is that character's session record, not a file here. Standard library + platform_compat; characters and
 events are imported where they are needed. This module knows no other kind by name: kinds register, so it stays the
 layer below them. Writes take a file lock: the tool server writes from its own process.
@@ -35,6 +37,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 import platform_compat
 
 USER = "user"
+KINDS = ("say", "action")   # what a message is: words, or a stage direction the other side takes as something done
 _lock = threading.Lock()
 _kinds: List[Dict[str, Callable]] = []
 
@@ -125,7 +128,10 @@ def history(did: str, after: int = 0) -> List[Dict]:
     return out
 
 
-def append(did: str, who: str, text: str, mentions: Iterable[str] = (), reply_to: Optional[int] = None) -> Dict:
+def append(did: str, who: str, text: str, mentions: Iterable[str] = (), reply_to: Optional[int] = None,
+           kind: str = "say") -> Dict:
+    if kind not in KINDS:
+        raise ValueError("kind: one of %s" % ", ".join(KINDS))
     writers = members(did)
     if who not in writers:
         raise ValueError("not a member of this dialog")
@@ -138,6 +144,8 @@ def append(did: str, who: str, text: str, mentions: Iterable[str] = (), reply_to
                "mentions": list(mentions)}
         if reply_to is not None:
             msg["reply_to"] = int(reply_to)
+        if kind != "say":
+            msg["kind"] = kind
         p.parent.mkdir(parents=True, exist_ok=True)
         with open(str(p), "a", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(msg, ensure_ascii=False) + "\n")
@@ -259,7 +267,7 @@ def label(did: str, cid: str) -> str:
     pair = _dm_pair(did)
     if pair:
         other = pair[0] if pair[1] == cid else pair[1]
-        return "%s (dm)" % (characters.name(other) or other)
+        return "%s (in person)" % (characters.name(other) or other)
     k = _kind(did)
     return "%s (room)" % (k["label"](did) if k else did)
 
@@ -267,6 +275,12 @@ def label(did: str, cid: str) -> str:
 def speaker(who: str) -> str:
     import characters
     return "the user" if who == USER else (characters.name(who) or who)
+
+
+def line(m: Dict) -> str:
+    """One message as a reader takes it: "Kit: words", or "Kit does: <stage direction>" for an action."""
+    text = str(m["text"])[:RECAP_CHARS]
+    return "%s does: %s" % (speaker(m["who"]), text) if m.get("kind") == "action" else "%s: %s" % (speaker(m["who"]), text)
 
 
 def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = False) -> str:
@@ -296,9 +310,10 @@ def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = Fal
         lines = []
         for _, did, msgs in sorted(recent, reverse=True)[:RECAP_DIALOGS]:
             lines.append("%s:" % label(did, cid))
-            lines.extend("  #%d %s: %s" % (m["n"], speaker(m["who"]), str(m["text"])[:RECAP_CHARS]) for m in msgs)
-        out.append("[Recent dialogs -- background, carried over from before the handover]\n" + "\n".join(lines))
+            lines.extend("  #%d %s" % (m["n"], line(m)) for m in msgs)
+        out.append("[Off-screen talk -- background, carried over from before the handover]\n" + "\n".join(lines))
     if rows and (fresh or handed_over):
-        out.append("[Unread dialogs] %s. Open one with the dialog tool {action: read, dialog_id: <the id in brackets>} "
-                   "when it matters; do not mention this line otherwise." % " · ".join(rows))
+        out.append("[Off-screen] Said or done to you in the lounge while you were with the user: %s. Hear it with the "
+                   "dialog tool {action: read, dialog_id: <the id in brackets>} when it matters, and bring it up in "
+                   "character if it is worth it; do not mention this line." % " · ".join(rows))
     return "\n\n".join(out)

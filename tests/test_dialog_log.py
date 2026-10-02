@@ -73,6 +73,16 @@ class Dialogs(unittest.TestCase):
             D.append(ab, self.b, "to nothing", reply_to=9)
         self.assertNotIn("reply_to", D.history(ab)[0])
 
+    def test_a_message_is_said_or_done(self):
+        ab = D.dm_id(self.a, self.b)
+        said = D.append(ab, self.a, "morning")
+        done = D.append(ab, self.a, "waves", kind="action")
+        self.assertNotIn("kind", said, "words keep the old shape")
+        self.assertEqual(done["kind"], "action")
+        with self.assertRaises(ValueError):
+            D.append(ab, self.a, "x", kind="memo")
+        self.assertEqual([D.line(m) for m in D.history(ab)], ["Boss: morning", "Boss does: waves"])
+
     def test_a_room_record_keeps_its_file_and_shape(self):
         r = RC.create("Team", [self.a, self.b])
         legacy = {"n": 1, "ts": 1.0, "who": "user", "text": "old line", "mentions": []}

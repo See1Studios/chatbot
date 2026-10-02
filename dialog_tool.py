@@ -1,9 +1,11 @@
-"""The `dialog` tool (docs/plans/unified-message-inbox.md inbox/D): a character's messenger -- Telegram's getDialogs,
-getHistory and sendMessage as one tool, served by mcp_server.
+"""The `dialog` tool (docs/plans/unified-message-inbox.md inbox/D, F): what a character says or does to another
+off-screen, face to face in the lounge (D9) -- not a phone. Under it, Telegram's getDialogs, getHistory and sendMessage
+as one tool, served by mcp_server.
 
   dialog {"action": "list"}                                     your dialogs: id, name, unread, mentions
   dialog {"action": "read", "dialog_id": "<id>", "limit": 20}   the latest messages; you have now read them
-  dialog {"action": "send", "dialog_id": "<id>" | "to": "<character id, role or name>", "text": "...", "reply_to": n}
+  dialog {"action": "send", "dialog_id": "<id>" | "to": "<character id, role or name>", "text": "...",
+          "kind": "say" | "action", "reply_to": n}                  an action is a stage direction: done, not said
 The argument is `dialog_id`: the name models reach for (live 2026-10-02, #554 -- `dialog` was missed four times).
 
 Who sends is the session that called (mcp_caller, from the connection's process), never an argument, and the tool
@@ -24,10 +26,12 @@ READ_CHARS = 2000
 MAX_TEXT = room_chat.MAX_TEXT
 TOOL_DEFS = [{
     "name": "dialog",
-    "description": "Your messenger with the other characters. list: your dialogs and unread counts. read: the latest "
-                   "messages of one dialog_id (marks them read). send: a message to a dialog_id, or to a character "
-                   "by id/role/name with `to` (your one-to-one with them); reply_to answers a message number of "
-                   "that dialog. dialog_id is an id exactly as list or the unread line gives it.",
+    "description": "Talk with the other characters off-screen, face to face in the lounge (not a phone). list: who "
+                   "you talk with and what you have not heard yet. read: the latest of one dialog_id (now heard). "
+                   "send: say something (kind say) or do something (kind action: a stage direction such as 'hands "
+                   "Kit a coffee', which they take as done to them) to a dialog_id, or to a character by "
+                   "id/role/name with `to`; reply_to answers a message number of that dialog. dialog_id is an id "
+                   "exactly as list or the off-screen line gives it.",
     "inputSchema": {
         "type": "object",
         "properties": {
@@ -35,6 +39,7 @@ TOOL_DEFS = [{
             "dialog_id": {"type": "string"},
             "to": {"type": "string"},
             "text": {"type": "string"},
+            "kind": {"type": "string", "enum": ["say", "action"]},
             "reply_to": {"type": "integer"},
             "limit": {"type": "integer"},
         },
@@ -56,6 +61,8 @@ def _view(m: Dict) -> Dict:
     out = {"n": m["n"], "from": dialog_log.speaker(m["who"]), "text": str(m["text"])[:READ_CHARS]}
     if m.get("reply_to"):
         out["reply_to"] = m["reply_to"]
+    if m.get("kind") == "action":
+        out["kind"] = "action"   # a stage direction: they did this
     return out
 
 
@@ -96,7 +103,7 @@ def call(args: Dict, envelope: Callable, who: Dict) -> Dict:
         mentioned = room_chat.mentions(text, [m for m in members if m != dialog_log.USER]) if not did.startswith("dm:") else []
         try:
             reply = int(args["reply_to"]) if args.get("reply_to") not in (None, "") else None
-            msg = dialog_log.append(did, me, text[:MAX_TEXT], mentioned, reply)
+            msg = dialog_log.append(did, me, text[:MAX_TEXT], mentioned, reply, str(args.get("kind") or "say"))
         except ValueError as e:
             return envelope(False, "dialog: %s" % e, None)
         dialog_log.saw(me, sid, did, msg["n"])

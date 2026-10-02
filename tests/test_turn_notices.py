@@ -48,7 +48,7 @@ class TurnNote(unittest.TestCase):
         D.append(self.room, self.c, "sure")
         noted = {}
         line = D.turn_note(self.b, "s-kit", noted)
-        self.assertIn("Boss (dm) 1", line)
+        self.assertIn("Boss (in person) 1", line)
         self.assertIn("Desk (room) 2 (1 mention you)", line)
         self.assertIn("dialog tool", line)
         self.assertNotIn("secret", line)
@@ -56,7 +56,7 @@ class TurnNote(unittest.TestCase):
         self.assertEqual(D.turn_note(self.b, "s-kit", noted), "", "nothing new: not said again")
         D.append(self.ab, self.a, "one more")
         again = D.turn_note(self.b, "s-kit", noted)
-        self.assertIn("Boss (dm) 2", again)
+        self.assertIn("Boss (in person) 2", again)
         self.assertIn("Desk (room) 2", again, "the whole list again, so it is never half a picture")
         D.saw(self.b, "s-kit", self.ab, 2)
         D.saw(self.b, "s-kit", self.room, 2)
@@ -71,11 +71,18 @@ class TurnNote(unittest.TestCase):
         noted = {}
         self.assertEqual(D.turn_note(self.b, "s-kit", noted), "")
         line = D.turn_note(self.b, "s-kit", noted, handed_over=True)   # ... then lost it
-        self.assertIn("[Recent dialogs", line)
+        self.assertIn("[Off-screen talk", line)
         self.assertIn("#3 Boss: third", line)
         self.assertIn("#2 Boss: second", line)
         self.assertNotIn("first", line, "only the last messages")
-        self.assertNotIn("[Unread dialogs]", line, "the character had read them")
+        self.assertNotIn("[Off-screen]", line, "the character had read them")
+
+    def test_a_recap_shows_an_action_as_something_done(self):
+        D.append(self.ab, self.a, "hands Kit a coffee", kind="action")
+        D.append(self.ab, self.a, "long night?")
+        line = D.turn_note(self.b, "s-kit", {}, handed_over=True)
+        self.assertIn("#1 Boss does: hands Kit a coffee", line)
+        self.assertIn("#2 Boss: long night?", line)
 
     def test_the_server_hook_adds_the_line_for_work_sessions_only(self):
         import server
@@ -83,11 +90,13 @@ class TurnNote(unittest.TestCase):
         work = SimpleNamespace(sid="s-work", character=self.b)
         seat = SimpleNamespace(sid="s-seat", character=self.b, mode="room")
         private = SimpleNamespace(sid="s-priv", character=self.b, is_private=True, mode="private")
-        self.assertIn("[Unread dialogs] Boss (dm) 1", server._turn_notices(work))
-        self.assertNotIn("Unread dialogs", server._turn_notices(seat))
-        self.assertNotIn("Unread dialogs", server._turn_notices(private))
+        note = server._turn_notices(work)
+        self.assertIn("[Off-screen]", note)
+        self.assertIn("Boss (in person) 1", note)
+        self.assertNotIn("Off-screen]", server._turn_notices(seat))
+        self.assertNotIn("Off-screen]", server._turn_notices(private))
         work._handed_over = True
-        self.assertIn("[Recent dialogs", server._turn_notices(work))
+        self.assertIn("[Off-screen talk", server._turn_notices(work))
         self.assertFalse(hasattr(work, "_handed_over"), "a handover is recapped once")
 
 

@@ -60,7 +60,7 @@ class DialogTool(unittest.TestCase):
         self.assertEqual(out["data"], {"dialog_id": ab, "n": 1})
         self.assertEqual(D.history(ab)[0]["who"], self.a, "the sender is the caller, never an argument")
         listed = self.as_(self.b, "s-b", action="list")["data"]["dialogs"]
-        self.assertEqual(listed, [{"dialog_id": ab, "name": "Boss (dm)", "unread": 1, "mentions": 0}])
+        self.assertEqual(listed, [{"dialog_id": ab, "name": "Boss (in person)", "unread": 1, "mentions": 0}])
         got = self.as_(self.b, "s-b", action="read", dialog_id=ab)["data"]["messages"]
         self.assertEqual(got, [{"n": 1, "from": "Boss", "text": "can you check the build?"}])
         self.assertEqual(D.unread(self.b, ab, "s-b"), (0, 0), "read means read")
@@ -83,6 +83,16 @@ class DialogTool(unittest.TestCase):
             self.assertIn("dialog_id", msg)
             self.assertIn("action list", msg)
         self.assertEqual(len(D.history(ab)), 1)
+
+    def test_an_action_is_taken_as_something_done(self):
+        out = self.as_(self.a, "s-a", action="send", to="Kit", text="sets a coffee on Kit's desk", kind="action")
+        self.assertTrue(out["success"], out)
+        ab = D.dm_id(self.a, self.b)
+        got = self.as_(self.b, "s-b", action="read", dialog_id=ab)["data"]["messages"]
+        self.assertEqual(got, [{"n": 1, "from": "Boss", "text": "sets a coffee on Kit's desk", "kind": "action"}])
+        self.assertFalse(self.as_(self.a, "s-a", action="send", to="Kit", text="x", kind="whisper")["success"])
+        self.assertIn("kind", T.TOOL_DEFS[0]["inputSchema"]["properties"])
+        self.assertNotIn("messenger", T.TOOL_DEFS[0]["description"], "talk in the lounge, not a phone (D9)")
 
     def test_a_room_message_carries_its_mentions(self):
         r = RC.create("Desk", [self.a, self.b, self.c])
