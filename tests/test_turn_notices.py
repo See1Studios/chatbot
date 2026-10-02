@@ -42,26 +42,34 @@ class TurnNote(unittest.TestCase):
             p.stop()
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def test_counts_and_mentions_never_bodies_and_once_per_change(self):
-        D.append(self.ab, self.a, "the secret plan")
+    def test_a_dm_is_delivered_and_heard_a_room_is_counted_with_its_calls(self):
+        D.append(self.ab, self.a, "the plan for today")
+        D.append(self.ab, self.a, "sets a coffee on Kit's desk", kind="action")
         D.append(self.room, "user", "@Kit can you", mentions=[self.b])
         D.append(self.room, self.c, "sure")
         noted = {}
         line = D.turn_note(self.b, "s-kit", noted)
-        self.assertIn("Boss: 1 message [", line)
+        self.assertIn("Boss (message): the plan for today", line, "addressed to it: given, not fetched (inbox/H)")
+        self.assertIn("Boss (came by your desk): sets a coffee on Kit's desk", line)
         self.assertIn("Desk (meeting room): 2 new, 1 mention you", line)
-        self.assertIn("dialog tool", line)
-        self.assertNotIn("secret", line)
-        self.assertNotIn("can you", line)
+        self.assertIn("the user (in the room): @Kit can you", line, "a room's call is given")
+        self.assertNotIn("sure", line, "the rest of a room is only counted")
+        self.assertEqual(D.unread(self.b, self.ab, "s-kit"), (0, 0), "delivered means heard")
         self.assertEqual(D.turn_note(self.b, "s-kit", noted), "", "nothing new: not said again")
         D.append(self.ab, self.a, "one more")
         again = D.turn_note(self.b, "s-kit", noted)
-        self.assertIn("Boss: 2 messages", again)
-        self.assertIn("Desk (meeting room): 2 new", again, "the whole list again, so it is never half a picture")
-        D.saw(self.b, "s-kit", self.ab, 2)
-        D.saw(self.b, "s-kit", self.room, 2)
+        self.assertIn("Boss (message): one more", again)
+        self.assertNotIn("the plan for today", again, "only what is new")
         D.append(self.ab, self.b, "my own line")
         self.assertEqual(D.turn_note(self.b, "s-kit", noted), "", "its own line is not news")
+
+    def test_a_long_backlog_gives_the_last_ones_and_counts_the_rest(self):
+        for k in range(8):
+            D.append(self.ab, self.a, "note %d" % k)
+        line = D.turn_note(self.b, "s-kit", {})
+        self.assertIn("(3 earlier from Boss not shown [%s])" % self.ab, line)
+        self.assertIn("note 7", line)
+        self.assertNotIn("note 2", line)
 
     def test_a_handover_recaps_and_starts_again_from_the_characters_read(self):
         for t in ("first", "second", "third"):
@@ -83,7 +91,6 @@ class TurnNote(unittest.TestCase):
         line = D.turn_note(self.b, "s-kit", {}, handed_over=True)
         self.assertIn("#1 Boss (came by your desk): hands Kit a coffee", line)
         self.assertIn("#2 Boss (message): long night?", line)
-        self.assertIn("Boss: 1 message, came by 1 time", D.turn_note(self.b, "s-other", {}))
         self.assertNotIn("DM", line, "an action is not sent by DM (#558)")
 
     def test_the_server_hook_adds_the_line_for_work_sessions_only(self):
@@ -94,7 +101,7 @@ class TurnNote(unittest.TestCase):
         private = SimpleNamespace(sid="s-priv", character=self.b, is_private=True, mode="private")
         note = server._turn_notices(work)
         self.assertIn("[Office]", note)
-        self.assertIn("Boss: 1 message", note)
+        self.assertIn("Boss (message): ping", note)
         self.assertNotIn("[Office]", server._turn_notices(seat))
         self.assertNotIn("[Office]", server._turn_notices(private))
         work._handed_over = True

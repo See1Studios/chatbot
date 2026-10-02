@@ -34,8 +34,8 @@ TOOL_DEFS = [{
                    "as 'sets a coffee on Kit's desk', which they take as done to them) -- to a dialog_id, or to a "
                    "character by id/role/name with `to`; reply_to answers a message "
                    "number of that thread. dialog_id is an id exactly as list or the [Office] line gives it. "
-                   "Anything you physically do -- leave or hand over something, tap a shoulder, wave -- is kind "
-                   "action; kind say is only words they read or hear. Never narrate an action as a say.",
+                   "Write what you physically do between *asterisks* -- '*sets a coffee on Kit's desk* morning!' -- "
+                   "and it arrives as an action followed by your words; a text wholly in (parentheses) is an action.",
     "inputSchema": {
         "type": "object",
         "properties": {
@@ -120,15 +120,24 @@ def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable]
         text = str(args.get("text") or "").strip()
         if not text:
             return envelope(False, "dialog: empty text", None)
+        kind = str(args.get("kind") or "say")
+        if kind not in dialog_log.KINDS:
+            return envelope(False, "dialog: kind is say or action", None)
         members: List[str] = dialog_log.members(did)
-        mentioned = room_chat.mentions(text, [m for m in members if m != dialog_log.USER]) if not did.startswith("dm:") else []
+        sent: List[int] = []
         try:
             reply = int(args["reply_to"]) if args.get("reply_to") not in (None, "") else None
-            msg = dialog_log.append(did, me, text[:MAX_TEXT], mentioned, reply, str(args.get("kind") or "say"))
+            for i, (k, part) in enumerate(dialog_log.pieces(text[:MAX_TEXT], kind)):   # inbox/H: split by shape
+                mentioned = room_chat.mentions(part, [m for m in members if m != dialog_log.USER]) \
+                    if not dialog_log.is_dm(did) else []
+                sent.append(dialog_log.append(did, me, part, mentioned, reply if i == 0 else None, k)["n"])
         except ValueError as e:
-            return envelope(False, "dialog: %s" % e, None)
-        dialog_log.saw(me, sid, did, msg["n"])
-        if host_get and dialog_log.is_dm(did):
-            host_get("/api/office/notify?" + urlencode({"dialog": did, "n": msg["n"]}))   # a nudge; {} when unreachable
-        return envelope(True, "sent", {"dialog_id": did, "n": msg["n"]})
+            if not sent:
+                return envelope(False, "dialog: %s" % e, None)
+        if not sent:
+            return envelope(False, "dialog: empty text", None)
+        dialog_log.saw(me, sid, did, sent[-1])
+        for n in sent if host_get and dialog_log.is_dm(did) else []:
+            host_get("/api/office/notify?" + urlencode({"dialog": did, "n": n}))   # a nudge; {} when unreachable
+        return envelope(True, "sent", {"dialog_id": did, "n": sent[-1], "sent": sent})
     return envelope(False, "dialog: unknown action %r (list, read, send)" % action, None)

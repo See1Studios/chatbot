@@ -83,6 +83,15 @@ class Dialogs(unittest.TestCase):
             D.append(ab, self.a, "x", kind="memo")
         self.assertEqual([D.line(m, ab) for m in D.history(ab)], ["Boss (message): morning", "Boss (came by your desk): waves"])
 
+    def test_one_send_splits_by_shape_not_by_choice(self):
+        self.assertEqual(D.pieces("*sets a coffee down* morning!"), [("action", "sets a coffee down"), ("say", "morning!")])
+        self.assertEqual(D.pieces("hi *waves* bye"), [("say", "hi"), ("action", "waves"), ("say", "bye")])
+        self.assertEqual(D.pieces("(leaves the report on the desk)"), [("action", "leaves the report on the desk")])
+        self.assertEqual(D.pieces("\uff08\uc11c\ub958\ub97c \ub450\uace0 \uac04\ub2e4\uff09"), [("action", "\uc11c\ub958\ub97c \ub450\uace0 \uac04\ub2e4")])
+        self.assertEqual(D.pieces("fine (I think) really"), [("say", "fine (I think) really")], "an aside is speech")
+        self.assertEqual(D.pieces("taps the desk", "action"), [("action", "taps the desk")])
+        self.assertEqual(D.pieces("  "), [])
+
     def test_a_room_record_keeps_its_file_and_shape(self):
         r = RC.create("Team", [self.a, self.b])
         legacy = {"n": 1, "ts": 1.0, "who": "user", "text": "old line", "mentions": []}

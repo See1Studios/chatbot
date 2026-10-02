@@ -57,7 +57,7 @@ class DialogTool(unittest.TestCase):
         out = self.as_(self.a, "s-a", action="send", to="kit", text="can you check the build?")
         self.assertTrue(out["success"], out)
         ab = D.dm_id(self.a, self.b)
-        self.assertEqual(out["data"], {"dialog_id": ab, "n": 1})
+        self.assertEqual(out["data"], {"dialog_id": ab, "n": 1, "sent": [1]})
         self.assertEqual(D.history(ab)[0]["who"], self.a, "the sender is the caller, never an argument")
         listed = self.as_(self.b, "s-b", action="list")["data"]["dialogs"]
         self.assertEqual(listed, [{"dialog_id": ab, "name": "Boss", "unread": 1, "mentions": 0}])
@@ -112,6 +112,13 @@ class DialogTool(unittest.TestCase):
         self.assertEqual(len(self.as_(self.b, "s-b", action="read", dialog=ab)["data"]["messages"]), 3)
         self.as_(self.a, "s-a", action="send", to="Kit", target="Ari", text="schema wins")
         self.assertEqual(len(D.history(ab)), 4, "`to` given: `target` is ignored")
+
+    def test_an_action_written_in_the_text_arrives_as_an_action(self):
+        out = self.as_(self.a, "s-a", action="send", to="Kit", text="*sets a coffee on Kit's desk* morning!")
+        self.assertEqual(out["data"]["sent"], [1, 2])
+        got = self.as_(self.b, "s-b", action="read", dialog_id=D.dm_id(self.a, self.b))["data"]["messages"]
+        self.assertEqual([(m["how"], m["text"]) for m in got],
+                         [("came by your desk", "sets a coffee on Kit's desk"), ("message", "morning!")])
 
     def test_a_room_message_carries_its_mentions(self):
         r = RC.create("Desk", [self.a, self.b, self.c])

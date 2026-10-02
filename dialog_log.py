@@ -10,6 +10,7 @@ numbered in that dialog -- Telegram's message box. Rooms and dialogs between two
       a reply to a number the dialog does not hold, and a kind not in KINDS. Each message also goes into the event mailbox as `msg.new`
       {conversation, n, from} for the other characters -- never its text (character-events-and-rooms).
   dialogs_of(cid) -> the dialogs a character is in
+  pieces(text, kind) -> [(kind, text)]: what one send holds, split by its shape -- *...* is an action (inbox/H)
   is_dm(did); feed(cid, limit) -> the messages of a character's dms, oldest first, for its work window (inbox/E)
   Read positions (inbox/B), two of them because one character has several brains (work, room seat, private):
   read(cid, did) -- how far the character has read: Telegram's read_inbox_max_id, for unread counts and badges
@@ -30,6 +31,7 @@ layer below them. Writes take a file lock: the tool server writes from its own p
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from pathlib import Path
@@ -70,6 +72,32 @@ def _dm_pair(did: str) -> List[str]:
     if len(parts) == 3 and parts[0] == "dm" and parts[1] < parts[2] and _char_id(parts[1]) and _char_id(parts[2]):
         return parts[1:]
     return []
+
+
+_STAGE = re.compile(r"\*([^*\n]+)\*")
+_WRAPS = (("(", ")"), ("\uff08", "\uff09"))
+
+
+def pieces(text: str, kind: str = "say") -> List[Tuple[str, str]]:
+    """One send as messages in order, by its shape, not by the model's say-or-act choice (inbox/H; the rules the page
+    already uses: a reply's *...* is a stage direction, a user line that is all "(...)" is an action). Every *...*
+    span is an action; a whole text in (...) is an action; the rest is `kind` -- say unless the sender asked for
+    action. Empty parts are dropped."""
+    text = (text or "").strip()
+    for a, b in _WRAPS:
+        if len(text) > 2 and text.startswith(a) and text.endswith(b) and a not in text[1:-1] and b not in text[1:-1]:
+            return [("action", text[1:-1].strip())] if text[1:-1].strip() else []
+    out, pos = [], 0
+    for m in _STAGE.finditer(text):
+        before = text[pos:m.start()].strip()
+        if before:
+            out.append((kind, before))
+        if m.group(1).strip():
+            out.append(("action", m.group(1).strip()))
+        pos = m.end()
+    if text[pos:].strip():
+        out.append((kind, text[pos:].strip()))
+    return out
 
 
 def is_dm(did: str) -> bool:
@@ -306,34 +334,41 @@ def line(m: Dict, did: str) -> str:
     return "%s (%s): %s" % (speaker(m["who"]), how(m, did), str(m["text"])[:RECAP_CHARS])
 
 
+DELIVER_MESSAGES = 5   # a coworker's dm: the last ones go into the turn as they are; more are only counted
+DELIVER_MENTIONS = 3   # a meeting room: only the messages that call this character
+
+
 def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = False) -> str:
-    """The catch-up before a work turn (inbox/C): each dialog with messages this session has not seen, as counts --
-    never a body, so other dialogs do not leak into this one. Said again only when something new came since it was
-    last said (`noted`: dialog -> newest number said, kept by the caller per session). After a handover the new brain
-    starts again from the character's read and also gets the latest messages of its busiest dialogs, so a brain that
-    lost its tool results (an HTTP brain, a swapped provider) still knows what was said."""
+    """The catch-up before a work turn (inbox/C, H). The engine delivers rather than asks the model to fetch
+    (CONCEPT: what the engine can settle is not left to the model): what a coworker said or did to this character in
+    a dm goes into the turn as it is -- it was addressed to it and is on screen (D8) -- and counts as heard; a meeting
+    room is counted, and only the messages calling this character are given. Never another dialog's talk otherwise.
+    A room line is said again only when something new came (`noted`: dialog -> newest number said, kept by the caller
+    per session). After a handover the new brain starts again from the character's read and also gets the latest
+    messages of its busiest dialogs, so a brain that lost its tool results still knows what was said."""
     if handed_over:
         forget(sid)
         noted.clear()
-    rows, fresh, recent = [], False, []
+    given, rooms, fresh, recent = [], [], False, []
     for did in dialogs_of(cid):
         msgs = history(did)
         if handed_over and msgs:
             recent.append((msgs[-1]["ts"], did, msgs[-RECAP_MESSAGES:]))
-        after = seen(sid, cid, did)
-        new = [m for m in msgs if m["n"] > after and m.get("who") != cid]
+        new = [m for m in msgs if m["n"] > seen(sid, cid, did) and m.get("who") != cid]
         if not new:
             continue
-        mention = sum(1 for m in new if cid in (m.get("mentions") or []))
         if _dm_pair(did):
-            visits = sum(1 for m in new if m.get("kind") == "action")
-            parts = [p for p in ("%d message%s" % (len(new) - visits, "" if len(new) - visits == 1 else "s")
-                                 if len(new) - visits else "",
-                                 "came by %d time%s" % (visits, "" if visits == 1 else "s") if visits else "") if p]
-            count = ", ".join(parts)
-        else:
-            count = "%d new%s" % (len(new), ", %d mention you" % mention if mention else "")
-        rows.append("%s: %s [%s]" % (label(did, cid), count, did))
+            more = len(new) - DELIVER_MESSAGES
+            if more > 0:
+                given.append("  (%d earlier from %s not shown [%s])" % (more, label(did, cid), did))
+            given.extend("  %s" % line(m, did) for m in new[-DELIVER_MESSAGES:])
+            saw(cid, sid, did, new[-1]["n"])          # delivered: heard
+            fresh = True
+            continue
+        calls = [m for m in new if cid in (m.get("mentions") or [])]
+        rooms.append("%s: %d new%s [%s]" % (label(did, cid), len(new), ", %d mention you" % len(calls) if calls else "",
+                                            did))
+        rooms.extend("    %s" % line(m, did) for m in calls[-DELIVER_MENTIONS:])
         fresh = fresh or new[-1]["n"] > noted.get(did, 0)
         noted[did] = new[-1]["n"]
     out = []
@@ -343,8 +378,12 @@ def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = Fal
             lines.append("%s:" % label(did, cid))
             lines.extend("  #%d %s" % (m["n"], line(m, did)) for m in msgs)
         out.append("[Office messages -- background, carried over from before the handover]\n" + "\n".join(lines))
-    if rows and (fresh or handed_over):
-        out.append("[Office] Coworkers messaged you or came by your desk: %s. Read it with the "
-                   "dialog tool {action: read, dialog_id: <the id in brackets>} and react when it fits -- you may "
-                   "tell the user, as anyone would at their desk; do not mention this line itself." % " · ".join(rows))
+    if (given or rooms) and (fresh or handed_over):
+        parts = ["[Office] While you were at your desk:"] + given
+        if rooms:
+            parts += ["Meeting rooms:"] + ["  " + r for r in rooms]
+        parts.append("React when it fits -- you may tell the user, as anyone would at their desk; answer a coworker "
+                     "with the dialog tool. Older talk: dialog {action: read, dialog_id: <id in brackets>}. Do not "
+                     "mention this note itself.")
+        out.append("\n".join(parts))
     return "\n\n".join(out)
