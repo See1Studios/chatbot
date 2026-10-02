@@ -71,6 +71,19 @@ def _view(m: Dict, did: str) -> Dict:
     return out
 
 
+# Argument names models reach for instead of the schema's (live 2026-10-02: `dialog`, `character`, `target`,
+# `message` -- each cost a refused call). The schema's own name wins when both are given.
+ALIASES = {"to": ("target", "recipient", "character"), "text": ("message", "content"), "dialog_id": ("dialog",)}
+
+
+def _canon(args: Dict) -> Dict:
+    out = dict(args or {})
+    for name, others in ALIASES.items():
+        if not out.get(name):
+            out[name] = next((out[o] for o in others if out.get(o)), out.get(name))
+    return out
+
+
 def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable] = None) -> Dict:
     """`host_get`: how the tool server reaches the chat host; after a dm is sent the host is told, so both coworkers'
     windows show it now and the one it went to may react (inbox/E, G)."""
@@ -79,6 +92,7 @@ def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable]
         return envelope(False, "dialog: the calling session is unknown, so nothing can be sent or read as you", None)
     if who.get("private"):
         return envelope(False, "dialog: not in a private session -- private talk stays out of work dialogs", None)
+    args = _canon(args)
     action = str(args.get("action") or "")
     if action == "list":
         rows = []

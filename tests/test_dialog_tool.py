@@ -78,7 +78,7 @@ class DialogTool(unittest.TestCase):
                      {"action": "memo", "dialog_id": ab, "text": "x"}):
             self.assertFalse(self.as_(self.a, "s-a", **args)["success"], args)
         self.assertFalse(self.as_(self.c, "s-c", action="read", dialog_id=ab)["success"], "not hers")
-        for bad in ({"dialog": ab}, {"dialog_id": "dm:Boss:Kit"}, {}):    # the misses seen live (#554)
+        for bad in ({"dialog_id": "dm:Boss:Kit"}, {}):    # the misses seen live (#554)
             msg = self.as_(self.b, "s-b", action="read", **bad)["message"]
             self.assertIn("dialog_id", msg)
             self.assertIn("action list", msg)
@@ -102,6 +102,16 @@ class DialogTool(unittest.TestCase):
         r = RC.create("Desk", [self.a, self.b])
         T.call({"action": "send", "dialog_id": r["id"], "text": "standup"}, envelope, who, asked.append)
         self.assertEqual(len(asked), 1, "a meeting room has its own screen")
+
+    def test_the_names_models_reach_for_are_taken(self):
+        out = self.as_(self.a, "s-a", action="send", target="Kit", message="the build is green")    # live, #565
+        self.assertTrue(out["success"], out)
+        ab = D.dm_id(self.a, self.b)
+        self.assertTrue(self.as_(self.a, "s-a", action="send", character="kit", content="and docs")["success"])
+        self.assertTrue(self.as_(self.a, "s-a", action="send", recipient="Kit", text="ok")["success"])
+        self.assertEqual(len(self.as_(self.b, "s-b", action="read", dialog=ab)["data"]["messages"]), 3)
+        self.as_(self.a, "s-a", action="send", to="Kit", target="Ari", text="schema wins")
+        self.assertEqual(len(D.history(ab)), 4, "`to` given: `target` is ignored")
 
     def test_a_room_message_carries_its_mentions(self):
         r = RC.create("Desk", [self.a, self.b, self.c])
