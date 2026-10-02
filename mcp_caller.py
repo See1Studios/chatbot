@@ -1,4 +1,4 @@
-"""Which session made a tool call (docs/plans/unified-message-inbox.md inbox/0), for the tool server.
+"""Which session made a tool call (docs/plans/archive/2026/unified-message-inbox.md inbox/0), for the tool server.
 
 The host tells it from the connection: the process holding the client socket, walked up to an agent process the host
 spawned (session.caller_session). The model never says who it is. An HTTP brain calls the tools from the host's own

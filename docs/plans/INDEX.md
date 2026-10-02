@@ -58,7 +58,6 @@
 | [ux-shell-roadmap.md](ux-shell-roadmap.md) | `active` · 방향 **핵심** — UX 껍데기 순서: 메신저(Telegram·LINE·KakaoTalk 수준 기준선 표, 모바일은 Telegram Android) → 데스크톱 캐릭터, 스팀덱 후보(게임패드·캐릭터 중심, Decky QAM 플러그인)(기준선 openhuman 마스코트, GPL이라 동작만 참고), 엔진은 캐릭터 상태 이벤트로 두 껍데기에 같은 통로, ① 캐릭터 중심 밀도가 다리, 데스크톱 스파이크는 짧게 먼저. **메신저 뼈대 결정(4.2.3, 2026-09-30)**: 캐릭터 한 줄 목록·두 칸·탭을 프로필 카드와 설정으로·입력 바 최소화·행위는 가운데 지문·스킨 + 캐릭터 두 겹, 항목 `ux/S1`–`ux/S8`. UX1–UX18 결정 | 메신저/데스크톱 UX 순서·캐릭터 상태 이벤트·외형 코드와 채팅 DOM 경계를 건드릴 때 |
 | [character-events-and-rooms.md](character-events-and-rooms.md) | `active` · 방향 **핵심** — 중앙 이벤트 우편(작업·시스템·사적 시작/끝·예약 이벤트를 모아 관계로 정한 수취인에게, 역할 이름 없이), 배달 두 가지(다음 턴 한 줄 / 캐릭터가 먼저 말 걸기, 안전장치), 단체방(`@` 멘션·SillyTavern식 발언자 선택·턴 한도, 업무방/단체 놀이방 — 사적 이벤트는 그 자리 멤버에게만), 간이 크론(예약 → 이벤트). E1–E8 결정(추천대로) · E9 결정(#477) | 이벤트 배달·자동 반응·단체방·멘션·예약·`work_note`/재시작 안내를 건드릴 때 |
 | [steam-collab-dlc.md](steam-collab-dlc.md) | `active` · 방향 **핵심 + 기반** — 스팀 출시 관점의 버튜버·인디 IP 공식 콜라보 DLC 규격, 투트랙(DLC vs 창작마당), 스트리머 모드 및 제휴 파이프라인 | 스팀 콜라보 DLC·버튜버 제휴·스팀 상점 프로모션·패키지 규격을 다룰 때 |
-| [unified-message-inbox.md](unified-message-inbox.md) | `active` · 방향 **핵심** — 밑단은 메신저(대화 기록·`msg.new`·읽은 위치 둘), 겉은 역할극(UX8), 판단은 엔진(CONCEPT). 채팅방은 공간(1:1 = 사무실 속 캐릭터 자리, 단체방 = 회의실, 사적 = 방해받지 않는 곳). 동료의 DM·행동(`*…*`)은 받는 캐릭터의 창에 그 동료의 턴으로 보이고, 턴에는 엔진이 본문을 넣으며, 보고 있거나 창을 열면 바로 반응. inbox/0–H 완료 | 세션 간 호출·멘션·대화 글 배달·턴 따라잡기·안 읽음 커서를 건드릴 때 |
 | [character-generation-system.md](character-generation-system.md) | `active` · 방향 **핵심** — ST-CardGen 벤치마크 캐릭터 생성 시스템: 한 줄 아이디어로 card.json + visual.md 자동 직조, In medias res/Anti-puppeting/Hook 프롬프트 구조, 결측치 보완 및 부분 재생성, ST PNG 양방향 호환. D1–D4 권장 | 캐릭터 자동 생성·프롬프트 구조·카드 부분 재생성·ST PNG 내보내기를 다룰 때 |
 | [group-room-header.md](group-room-header.md) | `active` · 방향 **핵심** — 단체방 대화창 상단 헤더 개편: 최근 발화자 카드 스택 아바타 연동, 실시간 기척(작성 중) 동기화, 헤더 클릭 시 단체방 정보 서랍(Room Drawer/Panel) 연동 | 단체방 상단 헤더·단체방 아바타 연출·단체방 서랍 및 설정을 건드릴 때 |
 | [quota-failure-resilience.md](quota-failure-resilience.md) | `active` · 방향 **기반** — 모델 쿼터 소진·한도 도달 및 제공자 장애 대응 강화: 워치독 에러 정규화, 시스템 경고 카드 즉각 안내, 원클릭 대체 모델 전환 및 사전 쿼터 고갈 경고 | 쿼터 소진·Rate Limit·워치독 에러·대체 모델 추천을 건드릴 때 |
@@ -68,6 +67,7 @@
 
 | 문서 | 상태 | 종료 사유 |
 |---|---|---|
+| [archive/2026/unified-message-inbox.md](archive/2026/unified-message-inbox.md) | `done` | 통합 메시지 inbox/0–H 완료·실사용 확인(2026-10-02). 남은 일은 문서 끝 "종료"의 각 계획으로 |
 | [archive/2026/test-suite-speed.md](archive/2026/test-suite-speed.md) | `abandoned` | 401s·104s는 공식 실행기 밖(`~/tmp`=홈 git 저장소 안)에서 잰 착시 — 실행기로는 약 225s·`test_tickets` 6s. 진짜 원인(릴리스 게이트가 홈 저장소를 통째로 복사)은 `bd91d26`에서 수정. `speed/C`는 `split/A` 중복 |
 | [archive/2026/recursive-self-evolution.md](archive/2026/recursive-self-evolution.md) | `done` | 코어(관찰·티켓·보호) 구현됨 — 코드가 정본 |
 | [archive/2026/instruction-architecture.md](archive/2026/instruction-architecture.md) | `done` | 지침 계층 흡수; 역할 팩(§12.5)이 캐릭터 부분 대체 |

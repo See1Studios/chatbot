@@ -1,4 +1,4 @@
-"""The `dialog` tool (docs/plans/unified-message-inbox.md inbox/D, F): a character's messages with its coworkers in the
+"""The `dialog` tool (docs/plans/archive/2026/unified-message-inbox.md inbox/D, F): a character's messages with its coworkers in the
 one office they share (D9) -- DMs, meeting rooms, and what it does at another's desk. Under it, Telegram's getDialogs,
 getHistory and sendMessage as one tool, served by mcp_server.
 

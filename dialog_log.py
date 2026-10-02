@@ -1,4 +1,4 @@
-"""A dialog's record (docs/plans/unified-message-inbox.md inbox/A-B): one file per dialog, a line per message,
+"""A dialog's record (docs/plans/archive/2026/unified-message-inbox.md inbox/A-B): one file per dialog, a line per message,
 numbered in that dialog -- Telegram's message box. Rooms and dialogs between two characters keep the same shape.
 
   register(matches, members, path, of, start, label) -- a module that owns another kind of dialog (room_chat: rooms)

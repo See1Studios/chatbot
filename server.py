@@ -685,7 +685,7 @@ def _turn_notices(sess) -> str:
         obslog.event("events.deliver_failed", lvl="warn", error=str(e))
         return ""
     if channel == "work" and (getattr(sess, "mode", "work") or "work") == "work":   # not room seats, not private
-        try:   # the dialogs this brain has not seen (unified-message-inbox inbox/C): counts, never bodies
+        try:   # what coworkers said to this brain, delivered (unified-message-inbox inbox/C, H)
             import dialog_log
             notes.append(dialog_log.turn_note(character, sid, sess.__dict__.setdefault("_dialog_noted", {}),
                                               bool(sess.__dict__.pop("_handed_over", False))))
