@@ -2,13 +2,14 @@
  "actor": "chat-agent:agy",
  "approved_at": "2026-10-03 09:21:32",
  "approved_by": "operator (ui)",
- "attempts": 1,
+ "attempts": 2,
  "created": "2026-10-03 09:21:26",
  "evidence": [
   "event:20261003-091748-cddc9f#15"
  ],
  "gate_failures": 0,
  "id": 582,
+ "merge_pending": true,
  "notes": [
   {
    "by": "operator (ui)",
@@ -24,6 +25,16 @@
    "by": "agent:agy",
    "text": "failed: worktree agy: reviewer claude exited with 1",
    "ts": "2026-10-03 09:32:48"
+  },
+  {
+   "by": "agent:agy",
+   "text": "claimed (attempt 2/3); paths: static/chat-features.css, static/markdown-map.js, tests/test_map_block.py",
+   "ts": "2026-10-03 09:45:43"
+  },
+  {
+   "by": "agent:agy",
+   "text": "awaiting merge: branch worktree/ticket-582 at 9d514da (agy, review PASS round 2)",
+   "ts": "2026-10-03 10:15:46"
   }
  ],
  "paths": [
@@ -31,9 +42,9 @@
   "static/markdown-map.js",
   "tests/test_map_block.py"
  ],
- "status": "approved",
+ "status": "awaiting_merge",
  "target": "static/chat-features.css,static/markdown-map.js,tests/test_map_block.py",
  "title": "[ui/map] 모바일 동적 지도 고도화 v2 (다중 마커, 구글맵 길찾기 연동, 팝업 고도화, 모바일 전체화면)",
- "updated": "2026-10-03 09:32:48",
+ "updated": "2026-10-03 10:15:46",
  "worked_by": "agy"
 }
