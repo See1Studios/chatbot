@@ -1,5 +1,5 @@
 """A dialog's record (docs/plans/archive/2026/unified-message-inbox.md inbox/A-B): one file per dialog, a line per message,
-numbered in that dialog -- Telegram's message box. Rooms and dialogs between two characters keep the same shape.
+numbered in that dialog -- Telegram's message box. Rooms and dialogs between two characters keep the same shape. A dm file lives in characters/<sorted-first>/dialogs/; read positions stay in dialogs/positions.json.
 
   register(matches, members, path, of, start, label) -- a module that owns another kind of dialog (room_chat: rooms)
       adds it
@@ -118,12 +118,62 @@ def _dir() -> Path:
     return Path(os.environ.get("CHATBOT_DIALOGS_DIR") or (Path(DATA) / "dialogs"))
 
 
+def _flat_dialogs() -> bool:
+    """Tests and run-tests.sh set CHATBOT_DIALOGS_DIR so dm files stay in one flat directory."""
+    import os
+    return bool(os.environ.get("CHATBOT_DIALOGS_DIR"))
+
+
+def _legacy_dir() -> Path:
+    from host_config import DATA
+    return Path(DATA) / "dialogs"
+
+
+def _dm_name(pair: List[str]) -> str:
+    return "dm_%s_%s.log.jsonl" % tuple(pair)
+
+
+def _character_dm_path(pair: List[str]) -> Path:
+    """One file for both characters, in the folder of the sorted-first id."""
+    import characters
+    return characters.characters_dir() / pair[0] / "dialogs" / _dm_name(pair)
+
+
+def _promote_legacy(pair: List[str]) -> None:
+    """Copy a legacy dm log into the character folder. Call under the dialog lock.
+    The original stays. Skips a flat test dir, a missing character folder, or a bad copy."""
+    if _flat_dialogs():
+        return
+    new = _character_dm_path(pair)
+    legacy = _legacy_dir() / _dm_name(pair)
+    if new.is_file() or not legacy.is_file():
+        return
+    import characters
+    if not (characters.characters_dir() / pair[0]).is_dir():
+        return
+    data = legacy.read_bytes()
+    new.parent.mkdir(parents=True, exist_ok=True)
+    tmp = new.with_name(new.name + ".tmp")
+    tmp.write_bytes(data)
+    tmp.replace(new)
+    if new.read_bytes() != data:
+        new.unlink()
+
+
 def path(did: str) -> Optional[Path]:
-    """The record's file: a registered kind's own (a room's stays where rooms keep it); a dm's under dialogs/ (no ":"
-    in a file name)."""
+    """The record's file: a registered kind's own (a room stays where rooms keep it).
+    A dm lives in characters/<sorted-first>/dialogs/ (one file, both characters). A flat
+    CHATBOT_DIALOGS_DIR keeps the old dialogs/ name. A legacy file is read until copied."""
     pair = _dm_pair(did)
     if pair:
-        return _dir() / ("dm_%s_%s.log.jsonl" % tuple(pair))
+        name = _dm_name(pair)
+        if _flat_dialogs():
+            return _dir() / name
+        new = _character_dm_path(pair)
+        legacy = _legacy_dir() / name
+        if new.is_file() or not legacy.is_file():
+            return new
+        return legacy
     k = _kind(did)
     return k["path"](did) if k else None
 
@@ -170,6 +220,10 @@ def append(did: str, who: str, text: str, mentions: Iterable[str] = (), reply_to
         raise ValueError("not a member of this dialog")
     p = path(did)
     with _Locked():
+        pair = _dm_pair(did)
+        if pair:
+            _promote_legacy(pair)          # legacy dialogs/ -> character folder, under the same lock
+            p = path(did)
         prev = history(did)
         if reply_to is not None and not any(m["n"] == reply_to for m in prev):
             raise ValueError("reply_to: no such message in this dialog")
@@ -202,14 +256,41 @@ def _announce(did: str, msg: Dict, to: List[str]) -> None:
             pass
 
 
+def _dm_record_files() -> List[Path]:
+    """Dm logs: the flat dir when tests ask for it; otherwise each character's dialogs/ plus
+    a legacy dialogs/ file that has not been copied yet."""
+    if _flat_dialogs():
+        try:
+            return sorted(_dir().glob("dm_*.log.jsonl"), key=lambda item: item.name)
+        except OSError:
+            return []
+    found: Dict[str, Path] = {}
+    import characters
+    root = characters.characters_dir()
+    try:
+        kids = list(root.iterdir()) if root.is_dir() else []
+    except OSError:
+        kids = []
+    for cdir in kids:
+        try:
+            for item in (cdir / "dialogs").glob("dm_*.log.jsonl"):
+                found[item.name] = item
+        except OSError:
+            pass
+    legacy = _legacy_dir()
+    try:
+        if legacy.is_dir():
+            for item in legacy.glob("dm_*.log.jsonl"):
+                found.setdefault(item.name, item)
+    except OSError:
+        pass
+    return [found[name] for name in sorted(found)]
+
+
 def dialogs_of(cid: str) -> List[str]:
     out = []
-    try:
-        names = sorted(p.name for p in _dir().glob("dm_*.log.jsonl"))
-    except OSError:
-        names = []
-    for name in names:
-        did = _dm_from_file(name)
+    for item in _dm_record_files():
+        did = _dm_from_file(item.name)
         if did and cid in _dm_pair(did):
             out.append(did)
     for k in _kinds:
@@ -226,6 +307,39 @@ def feed(cid: str, limit: int = 50) -> List[Dict]:
             other = pair[0] if pair[1] == cid else pair[1]
             out.extend(dict(m, dialog_id=did, other=other) for m in history(did))
     return sorted(out, key=lambda m: m["ts"])[-limit:]
+
+
+def migrate_legacy_dms() -> List[Tuple[str, str]]:
+    """Copy each legacy dm log into characters/<sorted-first>/dialogs/. Holds the dialog lock.
+    Status is copied, same, conflict, skip-name, skip-no-character, or mismatch. Never deletes."""
+    if _flat_dialogs():
+        return []
+    legacy = _legacy_dir()
+    if not legacy.is_dir():
+        return []
+    import characters
+    rows: List[Tuple[str, str]] = []
+    with _Locked():
+        for src in sorted(legacy.glob("dm_*.log.jsonl"), key=lambda item: item.name):
+            did = _dm_from_file(src.name)
+            pair = _dm_pair(did) if did else []
+            if not pair:
+                rows.append((src.name, "skip-name"))
+                continue
+            if not (characters.characters_dir() / pair[0]).is_dir():
+                rows.append((src.name, "skip-no-character"))
+                continue
+            new = _character_dm_path(pair)
+            data = src.read_bytes()
+            if new.is_file():
+                rows.append((src.name, "same" if new.read_bytes() == data else "conflict"))
+                continue
+            _promote_legacy(pair)
+            if new.is_file() and new.read_bytes() == data:
+                rows.append((src.name, "copied"))
+            else:
+                rows.append((src.name, "mismatch"))
+    return rows
 
 
 def _dm_from_file(name: str) -> Optional[str]:

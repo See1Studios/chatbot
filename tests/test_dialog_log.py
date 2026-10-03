@@ -166,5 +166,49 @@ class Dialogs(unittest.TestCase):
         self.assertEqual(sorted(D.dialogs_of(self.b)), sorted([ab, bc]))
 
 
+
+    def test_a_dm_file_lives_in_the_first_characters_folder(self):
+        saved = os.environ.pop("CHATBOT_DIALOGS_DIR", None)
+        try:
+            did = D.dm_id(self.b, self.a)
+            name = "dm_%s_%s.log.jsonl" % (self.a, self.b)
+            with mock.patch("host_config.DATA", str(self.tmp / "data")):
+                got = D.path(did)
+                self.assertEqual(got, self.ws / "characters" / self.a / "dialogs" / name)
+                D.append(did, self.a, "hi")
+                self.assertIn("hi", got.read_text(encoding="utf-8"))
+                self.assertEqual(D.dialogs_of(self.b), [did])
+                self.assertFalse((self.tmp / "dialogs" / name).exists())
+        finally:
+            if saved is not None:
+                os.environ["CHATBOT_DIALOGS_DIR"] = saved
+
+    def test_legacy_dm_is_copied_and_the_original_stays(self):
+        saved = os.environ.pop("CHATBOT_DIALOGS_DIR", None)
+        try:
+            did = D.dm_id(self.a, self.b)
+            name = "dm_%s_%s.log.jsonl" % (self.a, self.b)
+            data_root = self.tmp / "data"
+            legacy = data_root / "dialogs"
+            legacy.mkdir(parents=True)
+            body = json.dumps({"n": 1, "ts": 1, "who": self.a, "text": "old", "mentions": []}) + "\n"
+            (legacy / name).write_bytes(body.encode("utf-8"))
+            (legacy / "positions.json").write_bytes(b"{}")
+            with mock.patch("host_config.DATA", str(data_root)):
+                self.assertEqual(D.path(did), legacy / name)
+                self.assertEqual(D.history(did)[0]["text"], "old")
+                self.assertEqual(D.migrate_legacy_dms(), [(name, "copied")])
+                dest = self.ws / "characters" / self.a / "dialogs" / name
+                self.assertEqual(dest.read_bytes(), body.encode("utf-8"))
+                self.assertEqual((legacy / name).read_bytes(), body.encode("utf-8"))
+                self.assertEqual((legacy / "positions.json").read_bytes(), b"{}")
+                self.assertEqual(D.path(did), dest)
+                self.assertEqual(D.dialogs_of(self.b), [did])
+                self.assertEqual(D.migrate_legacy_dms(), [(name, "same")])
+        finally:
+            if saved is not None:
+                os.environ["CHATBOT_DIALOGS_DIR"] = saved
+
+
 if __name__ == "__main__":
     unittest.main()
