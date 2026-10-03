@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-03 — 동료 대화 로그는 ~/.pe/dialogs (crp/D1, #599)
+
+- **규칙**: 개인 쌍 로그는 ~/.pe/dialogs에 있고 거기 머문다. 캐릭터 폴더로 옮기던 경로는 되돌렸다.
+- **데이터**: `dm_char_01m3768dpsfywrz2ty226x0p2z_char_01m376xaa1e0fsdhm3e3kbnybd.log.jsonl` 사본은 원본과 sha256이 같아 지웠다. `positions.json`은 ~/.pe/dialogs에 그대로다.
+- **재시작**: 19:45에 뜬 엔진이 캐릭터 폴더로 쓰므로 19:54에 repair 했다.
+
 ## 2026-10-03 — 소환 마법사 REST와 메뉴 (cgs/F, #597)
 
 - **REST**: `GET /api/summon` 단계 정의, `POST /api/characters/summon` 생성, `POST /api/characters/*/regenerate` 지정 필드만 재생성. 카드는 `card_gen`의 chara_card_v2와 `visual.md`만 쓴다.

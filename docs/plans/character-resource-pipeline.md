@@ -85,9 +85,8 @@ flowchart LR
 | `private-memory.md` | 이미 ignore | 사적 세션만 |
 | `references/` | 이미 ignore | 공부용, 출고 금지 |
 | `gallery/`, `*_candidate_*`, `_old_*` | **ignore로 추가** | 미승인·폐기 |
-| `dialogs/dm_<a>_<b>.log.jsonl` | 인스턴스 | 동료 둘의 대화 한 파일. 정렬상 앞 id의 `dialogs/`에 둔다. 읽음 위치 `dialogs/positions.json`은 색인이라 폴더 밖 |
 
-동료 대화는 캐릭터 폴더에 있다 (`crp/D1`, 2026-10-03). dm 파일은 하나이고 정렬상 앞선 id의 `dialogs/`에 둔다. 옛 `$CHATBOT_DATA/dialogs/dm_*.log.jsonl`은 바이트가 같은지 확인한 뒤 복사하고 원본은 지우지 않는다. 방(`rooms/`), 작업 세션(`sessions/`), 계정과 비밀, `persona/`(앱의 얼굴), 검색 db는 그대로다.
+개인 쌍 로그는 ~/.pe/dialogs에 있고 거기 머문다.
 
 ### 2.4 제품 크롬 (캐릭터 파이프라인 밖)
 
@@ -304,7 +303,7 @@ Hub `index.html`은 `/chat/persona/providers/<id>.webp`를 FAB 아이콘으로 �
 | `crp/S4` | 사양 문서화: 스킬 `character-art`·`characters.py` 주석을 10.2–10.5로, 가져오기·내보내기는 CCv3 `assets` 이름 | 스킬, `characters.py` | "무대에 인물 금지" 문장, 두뇌별 차이는 스프라이트로 | 1 · — | S | — | 대기 |
 | `crp/S5` | 스프라이트 배치 | `static/`(스프라이트 층) | SD3대로, 모바일·데스크톱 | 1 · — | S | SD3 | 대기 |
 | `crp/S6` | 리리·노노 무대 정리 | 캐릭터 폴더(운영자 데이터) | SD4대로 | 운영자 | S | SD4 | 대기 |
-| `crp/D1` | 동료 dm 기록을 캐릭터 폴더로 | `dialog_log.py`, 테스트 | 기본 경로는 `characters/<앞 id>/dialogs/`. 옛 파일은 검증 복사, 원본 유지. 방·세션·positions는 밖 | 1 · ⚡ | S | — | ✅ #599 |
+| `crp/D1` | 동료 dm은 ~/.pe/dialogs에 둔다 | `dialog_log.py`, 테스트 | 개인 쌍 로그는 ~/.pe/dialogs에 있고 거기 머문다 | 1 · ⚡ | S | — | ✅ #599 |
 
 ---
 
