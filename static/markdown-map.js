@@ -189,13 +189,26 @@ function buildPopupContent(lat, lon, label) {
     txt.textContent = label;
     wrap.appendChild(txt);
   }
-  const link = document.createElement('a');
-  link.className = 'chat-map-popup-btn';
-  link.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(lat + ',' + lon);
-  link.target = '_blank';
-  link.rel = 'noopener';
-  link.textContent = 'Google \uC9C0\uB3C4';
-  wrap.appendChild(link);
+  const actions = document.createElement('div');
+  actions.className = 'chat-map-popup-actions';
+
+  const mapLink = document.createElement('a');
+  mapLink.className = 'chat-map-popup-btn';
+  mapLink.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(lat + ',' + lon);
+  mapLink.target = '_blank';
+  mapLink.rel = 'noopener';
+  mapLink.textContent = 'Google \uC9C0\uB3C4';
+  actions.appendChild(mapLink);
+
+  const dirLink = document.createElement('a');
+  dirLink.className = 'chat-map-popup-btn chat-map-popup-btn-dir';
+  dirLink.href = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(lat + ',' + lon);
+  dirLink.target = '_blank';
+  dirLink.rel = 'noopener';
+  dirLink.textContent = '\uAE38\uCC3E\uAE30';
+  actions.appendChild(dirLink);
+
+  wrap.appendChild(actions);
   return wrap;
 }
 
@@ -257,9 +270,8 @@ function readMarkersFromEl(el) {
   } catch (_) { return []; }
 }
 
-/* Toggle fullscreen: enable/disable dragging and touch interactions so the
-   default embedded state lets page scroll pass through (touch-action: pan-y)
-   while fullscreen mode unlocks full map interaction. */
+/* Toggle fullscreen: escape stacking context by portaling to document.body,
+   leaving a placeholder behind, and enable/disable touch/mouse gesture handlers. */
 function toggleMapFullscreen(el, mapObj, fsBtn) {
   const entering = !el.classList.contains('chat-map-fullscreen');
   el.classList.toggle('chat-map-fullscreen');
@@ -270,16 +282,59 @@ function toggleMapFullscreen(el, mapObj, fsBtn) {
     }
     fsBtn.title = entering ? 'Close' : 'Fullscreen';
   }
+
+  // Stacking context portal: move to document.body on enter, restore to placeholder on exit
+  if (typeof document !== 'undefined' && document.body) {
+    if (entering) {
+      if (!el._mapPlaceholder && el.parentNode && typeof document.createElement === 'function' && typeof el.parentNode.insertBefore === 'function') {
+        const ph = document.createElement('div');
+        ph.className = 'chat-map-placeholder';
+        if (typeof ph.setAttribute === 'function') {
+          ph.setAttribute('data-map-placeholder', 'true');
+        }
+        el.parentNode.insertBefore(ph, el);
+        el._mapPlaceholder = ph;
+      }
+      if (typeof document.body.appendChild === 'function' && el.parentNode !== document.body) {
+        document.body.appendChild(el);
+      }
+    } else {
+      if (el._mapPlaceholder) {
+        if (el._mapPlaceholder.parentNode && typeof el._mapPlaceholder.parentNode.insertBefore === 'function') {
+          el._mapPlaceholder.parentNode.insertBefore(el, el._mapPlaceholder);
+          if (typeof el._mapPlaceholder.remove === 'function') {
+            el._mapPlaceholder.remove();
+          } else if (typeof el._mapPlaceholder.parentNode.removeChild === 'function') {
+            el._mapPlaceholder.parentNode.removeChild(el._mapPlaceholder);
+          }
+        } else if (el.parentNode === document.body && typeof el.remove === 'function') {
+          el.remove();
+        }
+        el._mapPlaceholder = null;
+      }
+    }
+  }
+
+  // Event listeners: ESC key, popstate (browser back), detachment observer
   if (typeof document !== 'undefined') {
     if (entering) {
       if (!el._mapEscHandler && typeof document.addEventListener === 'function') {
         el._mapEscHandler = (e) => {
-          if (typeof document !== 'undefined' && document.body && typeof document.body.contains === 'function' && !document.body.contains(el)) {
-            if (typeof document.removeEventListener === 'function') {
-              document.removeEventListener('keydown', el._mapEscHandler);
+          if (typeof document !== 'undefined' && document.body && typeof document.body.contains === 'function') {
+            const detached = !document.body.contains(el) || (el._mapPlaceholder && !document.body.contains(el._mapPlaceholder));
+            if (detached) {
+              if (typeof document.removeEventListener === 'function') {
+                document.removeEventListener('keydown', el._mapEscHandler);
+              }
+              el._mapEscHandler = null;
+              if (el._mapPlaceholder && typeof el._mapPlaceholder.remove === 'function') {
+                el._mapPlaceholder.remove();
+              }
+              if (el.parentNode === document.body && typeof el.remove === 'function') {
+                el.remove();
+              }
+              return;
             }
-            el._mapEscHandler = null;
-            return;
           }
           if (e.key === 'Escape' && el.classList.contains('chat-map-fullscreen')) {
             toggleMapFullscreen(el, mapObj, fsBtn);
@@ -287,26 +342,68 @@ function toggleMapFullscreen(el, mapObj, fsBtn) {
         };
         document.addEventListener('keydown', el._mapEscHandler);
       }
+
+      if (!el._mapPopHandler && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+        el._mapPopHandler = () => {
+          if (el.classList.contains('chat-map-fullscreen')) {
+            toggleMapFullscreen(el, mapObj, fsBtn);
+          }
+        };
+        window.addEventListener('popstate', el._mapPopHandler);
+      }
+
+      if (!el._mapObserver && typeof MutationObserver !== 'undefined' && document.body && el._mapPlaceholder) {
+        el._mapObserver = new MutationObserver(() => {
+          if (el._mapPlaceholder && typeof document.body.contains === 'function' && !document.body.contains(el._mapPlaceholder)) {
+            toggleMapFullscreen(el, mapObj, fsBtn);
+            if (el.parentNode === document.body && typeof el.remove === 'function') {
+              el.remove();
+            }
+          }
+        });
+        try {
+          el._mapObserver.observe(document.body, { childList: true, subtree: true });
+        } catch (_) {}
+      }
     } else {
       if (el._mapEscHandler && typeof document.removeEventListener === 'function') {
         document.removeEventListener('keydown', el._mapEscHandler);
         el._mapEscHandler = null;
       }
+      if (el._mapPopHandler && typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+        window.removeEventListener('popstate', el._mapPopHandler);
+        el._mapPopHandler = null;
+      }
+      if (el._mapObserver) {
+        try { el._mapObserver.disconnect(); } catch (_) {}
+        el._mapObserver = null;
+      }
     }
   }
   try {
     if (entering) {
-      if (mapObj.dragging) mapObj.dragging.enable();
-      if (mapObj.touchZoom) mapObj.touchZoom.enable();
-      if (mapObj.doubleClickZoom) mapObj.doubleClickZoom.enable();
-      if (mapObj.scrollWheelZoom) mapObj.scrollWheelZoom.enable();
+      if (mapObj.dragging && typeof mapObj.dragging.enable === 'function') mapObj.dragging.enable();
+      if (mapObj.touchZoom && typeof mapObj.touchZoom.enable === 'function') mapObj.touchZoom.enable();
+      if (mapObj.doubleClickZoom && typeof mapObj.doubleClickZoom.enable === 'function') mapObj.doubleClickZoom.enable();
+      if (mapObj.scrollWheelZoom && typeof mapObj.scrollWheelZoom.enable === 'function') mapObj.scrollWheelZoom.enable();
+      if (mapObj.boxZoom && typeof mapObj.boxZoom.enable === 'function') mapObj.boxZoom.enable();
+      if (mapObj.keyboard && typeof mapObj.keyboard.enable === 'function') mapObj.keyboard.enable();
+      if (mapObj.tap && typeof mapObj.tap.enable === 'function') mapObj.tap.enable();
     } else {
-      if (mapObj.dragging) mapObj.dragging.disable();
-      if (mapObj.touchZoom) mapObj.touchZoom.disable();
-      if (mapObj.doubleClickZoom) mapObj.doubleClickZoom.disable();
-      if (mapObj.scrollWheelZoom) mapObj.scrollWheelZoom.disable();
+      if (mapObj.dragging && typeof mapObj.dragging.disable === 'function') mapObj.dragging.disable();
+      if (mapObj.touchZoom && typeof mapObj.touchZoom.disable === 'function') mapObj.touchZoom.disable();
+      if (mapObj.doubleClickZoom && typeof mapObj.doubleClickZoom.disable === 'function') mapObj.doubleClickZoom.disable();
+      if (mapObj.scrollWheelZoom && typeof mapObj.scrollWheelZoom.disable === 'function') mapObj.scrollWheelZoom.disable();
+      if (mapObj.boxZoom && typeof mapObj.boxZoom.disable === 'function') mapObj.boxZoom.disable();
+      if (mapObj.keyboard && typeof mapObj.keyboard.disable === 'function') mapObj.keyboard.disable();
+      if (mapObj.tap && typeof mapObj.tap.disable === 'function') mapObj.tap.disable();
     }
-    mapObj.invalidateSize();
+    if (typeof mapObj.invalidateSize === 'function') {
+      mapObj.invalidateSize();
+      setTimeout(() => {
+        try { mapObj.invalidateSize(); } catch (_) {}
+      }, 50);
+    }
   } catch (_) {}
 }
 
@@ -345,8 +442,33 @@ async function renderMapsIn(container) {
         scrollWheelZoom: false,
         dragging: false,
         touchZoom: false,
-        doubleClickZoom: false
+        doubleClickZoom: false,
+        boxZoom: false,
+        tap: false,
+        keyboard: false
       });
+
+      // Touch scroll pass-through guard: prevent embedded map from trapping vertical chat scroll
+      const guardTouchScroll = (e) => {
+        if (!el.classList.contains('chat-map-fullscreen')) {
+          try {
+            e.preventDefault = () => {};
+          } catch (_) {
+            try {
+              Object.defineProperty(e, 'preventDefault', {
+                value: () => {},
+                writable: true,
+                configurable: true
+              });
+            } catch (_) {}
+          }
+        }
+      };
+      if (typeof canvas.addEventListener === 'function') {
+        canvas.addEventListener('touchstart', guardTouchScroll, { capture: true, passive: false });
+        canvas.addEventListener('touchmove', guardTouchScroll, { capture: true, passive: false });
+      }
+
       window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'

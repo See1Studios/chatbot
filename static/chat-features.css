@@ -282,6 +282,12 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
   font-size: 0.8rem;
   line-height: 1.3;
 }
+.chat-map-popup-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .chat-map-popup-btn {
   display: inline-block;
   padding: 0.2rem 0.5rem;
@@ -293,8 +299,12 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
   border-radius: 4px;
   text-decoration: none;
   cursor: pointer;
+  white-space: nowrap;
 }
 .chat-map-popup-btn:hover { background: var(--panel-hover, #2d333b); }
+.chat-map-popup-btn-dir {
+  color: var(--accent, #7ee787);
+}
 /* Fullscreen toggle button */
 .chat-map-fs-btn {
   position: absolute;
@@ -334,6 +344,23 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
 .chat-map-box.chat-map-fullscreen .chat-map-canvas:active { cursor: grabbing; }
 .chat-map-box.chat-map-fullscreen .leaflet-container { touch-action: auto; }
 .chat-map-box.chat-map-fullscreen .leaflet-pane { touch-action: auto; }
+.chat-map-box.chat-map-fullscreen .leaflet-tile-pane {
+  touch-action: auto;
+  pointer-events: auto;
+}
+/* Placeholder to preserve layout space while map is portaled to document.body in fullscreen */
+.chat-map-placeholder {
+  display: block;
+  width: 100%;
+  height: 260px;
+  margin: 0.5rem 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+/* Embedded map touch scroll pass-through: prevent tile pane from trapping vertical scroll */
+.chat-map-box:not(.chat-map-fullscreen) .leaflet-tile-pane {
+  pointer-events: none;
+}
 /* Leaflet UI adaptation for chat themes */
 .chat-map-box .leaflet-container {
   font-family: inherit;
@@ -385,7 +412,8 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
 }
 /* Responsive & mobile optimization */
 @media (max-width: 600px) {
-  .chat-map-box {
+  .chat-map-box,
+  .chat-map-placeholder {
     height: 200px;
     margin: 0.35rem 0;
   }

@@ -239,31 +239,38 @@ global.document = {{
 }};
 
 const popup = buildPopupContent(37.5, 127.0, 'Seoul');
+const actions = popup.children[1];
 console.log(JSON.stringify({{
   className: popup.className,
   childCount: popup.children.length,
   labelText: popup.children[0] && popup.children[0].textContent,
   labelClass: popup.children[0] && popup.children[0].className,
-  linkHref: popup.children[1] && popup.children[1].href,
-  linkTarget: popup.children[1] && popup.children[1].target,
-  linkRel: popup.children[1] && popup.children[1].rel,
-  linkText: popup.children[1] && popup.children[1].textContent,
-  linkClass: popup.children[1] && popup.children[1].className
+  actionsClass: actions && actions.className,
+  actionsChildCount: actions && actions.children.length,
+  mapLinkHref: actions && actions.children[0] && actions.children[0].href,
+  mapLinkText: actions && actions.children[0] && actions.children[0].textContent,
+  mapLinkClass: actions && actions.children[0] && actions.children[0].className,
+  dirLinkHref: actions && actions.children[1] && actions.children[1].href,
+  dirLinkText: actions && actions.children[1] && actions.children[1].textContent,
+  dirLinkClass: actions && actions.children[1] && actions.children[1].className
 }}));
 """
         out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertEqual(res["className"], "chat-map-popup")
-        self.assertEqual(res["childCount"], 2, "label + link")
+        self.assertEqual(res["childCount"], 2, "label + actions wrap")
         self.assertEqual(res["labelText"], "Seoul")
         self.assertEqual(res["labelClass"], "chat-map-popup-label")
-        self.assertIn("google.com/maps/search", res["linkHref"])
-        self.assertIn("37.5", res["linkHref"])
-        self.assertIn("127", res["linkHref"])
-        self.assertEqual(res["linkTarget"], "_blank")
-        self.assertEqual(res["linkRel"], "noopener")
-        self.assertEqual(res["linkClass"], "chat-map-popup-btn")
+        self.assertEqual(res["actionsClass"], "chat-map-popup-actions")
+        self.assertEqual(res["actionsChildCount"], 2, "mapLink + dirLink")
+        self.assertIn("google.com/maps/search", res["mapLinkHref"])
+        self.assertIn("37.5", res["mapLinkHref"])
+        self.assertIn("127", res["mapLinkHref"])
+        self.assertEqual(res["mapLinkClass"], "chat-map-popup-btn")
+        self.assertIn("google.com/maps/dir", res["dirLinkHref"])
+        self.assertIn("destination=37.5%2C127", res["dirLinkHref"])
+        self.assertIn("chat-map-popup-btn-dir", res["dirLinkClass"])
 
     def test_build_popup_content_no_label(self):
         harness = f"""
@@ -283,15 +290,19 @@ global.document = {{
   }}
 }};
 const popup = buildPopupContent(37.5, 127.0, '');
+const actions = popup.children[0];
 console.log(JSON.stringify({{
   childCount: popup.children.length,
-  linkText: popup.children[0] && popup.children[0].textContent
+  actionsChildCount: actions && actions.children.length,
+  mapLinkText: actions && actions.children[0] && actions.children[0].textContent,
+  dirLinkText: actions && actions.children[1] && actions.children[1].textContent
 }}));
 """
         out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
-        self.assertEqual(res["childCount"], 1, "link only, no label")
+        self.assertEqual(res["childCount"], 1, "actions container only, no label")
+        self.assertEqual(res["actionsChildCount"], 2)
 
     def test_popup_xss_label(self):
         harness = f"""
@@ -342,22 +353,29 @@ global.document = {{
   }}
 }};
 const popup = buildPopupContent(-33.8688, 151.2093, 'Sydney');
-const link = popup.children[1];
+const actions = popup.children[1];
+const mapLink = actions.children[0];
+const dirLink = actions.children[1];
 console.log(JSON.stringify({{
-  linkHref: link.href,
-  linkTarget: link.target,
-  linkRel: link.rel,
-  linkText: link.textContent
+  mapLinkHref: mapLink.href,
+  dirLinkHref: dirLink.href,
+  mapLinkTarget: mapLink.target,
+  mapLinkRel: mapLink.rel,
+  mapLinkText: mapLink.textContent,
+  dirLinkText: dirLink.textContent
 }}));
 """
         out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
-        self.assertIn("-33.8688", res["linkHref"])
-        self.assertIn("151.2093", res["linkHref"])
-        self.assertEqual(res["linkTarget"], "_blank")
-        self.assertEqual(res["linkRel"], "noopener")
-        self.assertEqual(res["linkText"], "Google \uC9C0\uB3C4")
+        self.assertIn("-33.8688", res["mapLinkHref"])
+        self.assertIn("151.2093", res["mapLinkHref"])
+        self.assertIn("-33.8688", res["dirLinkHref"])
+        self.assertIn("151.2093", res["dirLinkHref"])
+        self.assertEqual(res["mapLinkTarget"], "_blank")
+        self.assertEqual(res["mapLinkRel"], "noopener")
+        self.assertEqual(res["mapLinkText"], "Google \uC9C0\uB3C4")
+        self.assertEqual(res["dirLinkText"], "\uAE38\uCC3E\uAE30")
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
@@ -497,7 +515,8 @@ window = {{
       addTo: () => ({{
         bindPopup: (content) => ({{
           openPopup: () => {{
-            const link = content && content.children && content.children.find(c => c.className === 'chat-map-popup-btn');
+            const actions = content && content.children && content.children.find(c => c.className === 'chat-map-popup-actions');
+            const link = actions && actions.children && actions.children.find(c => c.className.includes('chat-map-popup-btn'));
             markerCalls.push({{ coords, linkHref: link ? link.href : null }});
           }}
         }})
@@ -1370,6 +1389,394 @@ console.log(JSON.stringify({{ beforeEnter, afterEnter, afterEscPress }}));
         self.assertFalse(res["afterEscPress"]["isFullscreen"])
         self.assertFalse(res["afterEscPress"]["hasListener"])
 
+    def test_fullscreen_portal_movement_and_restore(self):
+        """Fullscreen must portal the box to document.body and restore it to its original placeholder on exit."""
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+const parent = {{
+  children: [],
+  insertBefore(newChild, refChild) {{
+    if (newChild.parentNode && typeof newChild.parentNode.removeChild === 'function') {{
+      newChild.parentNode.removeChild(newChild);
+    }}
+    const idx = this.children.indexOf(refChild);
+    if (idx >= 0) this.children.splice(idx, 0, newChild);
+    else this.children.push(newChild);
+    newChild.parentNode = this;
+  }},
+  removeChild(child) {{
+    const idx = this.children.indexOf(child);
+    if (idx >= 0) this.children.splice(idx, 1);
+    child.parentNode = null;
+  }}
+}};
+const body = {{
+  children: [],
+  appendChild(child) {{
+    if (child.parentNode && typeof child.parentNode.removeChild === 'function') child.parentNode.removeChild(child);
+    this.children.push(child);
+    child.parentNode = this;
+  }},
+  removeChild(child) {{
+    const idx = this.children.indexOf(child);
+    if (idx >= 0) this.children.splice(idx, 1);
+    child.parentNode = null;
+  }},
+  contains(child) {{
+    if (this.children.includes(child)) return true;
+    return parent.children.includes(child);
+  }}
+}};
+global.document = {{
+  body,
+  createElement(tag) {{
+    return {{
+      tag,
+      className: '',
+      setAttribute(k, v) {{ this[k] = v; }},
+      remove() {{ if (this.parentNode) this.parentNode.removeChild(this); }}
+    }};
+  }},
+  addEventListener() {{}},
+  removeEventListener() {{}}
+}};
+
+const el = {{
+  _classes: ['chat-map-box'],
+  parentNode: parent,
+  classList: {{
+    contains(c) {{ return el._classes.includes(c); }},
+    toggle(c) {{
+      const i = el._classes.indexOf(c);
+      if (i >= 0) el._classes.splice(i, 1);
+      else el._classes.push(c);
+    }}
+  }}
+}};
+parent.children.push(el);
+const mapObj = {{ invalidateSize() {{}} }};
+const fsBtn = {{ textContent: '' }};
+
+// Enter fullscreen
+toggleMapFullscreen(el, mapObj, fsBtn);
+const afterEnter = {{
+  elParentIsBody: el.parentNode === body,
+  parentChildCount: parent.children.length,
+  placeholderClass: parent.children[0] && parent.children[0].className,
+  bodyChildCount: body.children.length,
+  hasFullscreenClass: el.classList.contains('chat-map-fullscreen')
+}};
+
+// Exit fullscreen
+toggleMapFullscreen(el, mapObj, fsBtn);
+const afterExit = {{
+  elParentIsParent: el.parentNode === parent,
+  parentChildCount: parent.children.length,
+  bodyChildCount: body.children.length,
+  hasFullscreenClass: el.classList.contains('chat-map-fullscreen')
+}};
+
+console.log(JSON.stringify({{ afterEnter, afterExit }}));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+
+        enter = res["afterEnter"]
+        self.assertTrue(enter["elParentIsBody"], "Box must be portaled to document.body on fullscreen enter")
+        self.assertEqual(enter["parentChildCount"], 1, "Placeholder must remain in original parent")
+        self.assertEqual(enter["placeholderClass"], "chat-map-placeholder")
+        self.assertTrue(enter["hasFullscreenClass"])
+
+        exit_ = res["afterExit"]
+        self.assertTrue(exit_["elParentIsParent"], "Box must return to original parent on exit")
+        self.assertEqual(exit_["parentChildCount"], 1, "Only the box should remain in parent, placeholder removed")
+        self.assertEqual(exit_["bodyChildCount"], 0, "Body must be empty after restore")
+        self.assertFalse(exit_["hasFullscreenClass"])
+
+    def test_fullscreen_portal_restore_on_popstate(self):
+        """Fullscreen must listen for popstate and restore box to placeholder when user navigates back."""
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+let popstateHandler = null;
+global.window = {{
+  addEventListener(ev, fn) {{ if (ev === 'popstate') popstateHandler = fn; }},
+  removeEventListener(ev, fn) {{ if (ev === 'popstate' && popstateHandler === fn) popstateHandler = null; }}
+}};
+
+const parent = {{
+  children: [],
+  insertBefore(newChild, refChild) {{
+    if (newChild.parentNode && typeof newChild.parentNode.removeChild === 'function') {{
+      newChild.parentNode.removeChild(newChild);
+    }}
+    const idx = this.children.indexOf(refChild);
+    if (idx >= 0) this.children.splice(idx, 0, newChild);
+    else this.children.push(newChild);
+    newChild.parentNode = this;
+  }},
+  removeChild(child) {{
+    const idx = this.children.indexOf(child);
+    if (idx >= 0) this.children.splice(idx, 1);
+    child.parentNode = null;
+  }}
+}};
+const body = {{
+  children: [],
+  appendChild(child) {{
+    if (child.parentNode && typeof child.parentNode.removeChild === 'function') child.parentNode.removeChild(child);
+    this.children.push(child);
+    child.parentNode = this;
+  }},
+  removeChild(child) {{
+    const idx = this.children.indexOf(child);
+    if (idx >= 0) this.children.splice(idx, 1);
+    child.parentNode = null;
+  }},
+  contains(child) {{ return this.children.includes(child) || parent.children.includes(child); }}
+}};
+global.document = {{
+  body,
+  createElement(tag) {{
+    return {{
+      tag, className: '', setAttribute() {{}},
+      remove() {{ if (this.parentNode) this.parentNode.removeChild(this); }}
+    }};
+  }},
+  addEventListener() {{}},
+  removeEventListener() {{}}
+}};
+
+const el = {{
+  _classes: ['chat-map-box'],
+  parentNode: parent,
+  classList: {{
+    contains(c) {{ return el._classes.includes(c); }},
+    toggle(c) {{
+      const i = el._classes.indexOf(c);
+      if (i >= 0) el._classes.splice(i, 1);
+      else el._classes.push(c);
+    }}
+  }}
+}};
+parent.children.push(el);
+const mapObj = {{ invalidateSize() {{}} }};
+const fsBtn = {{ textContent: '' }};
+
+toggleMapFullscreen(el, mapObj, fsBtn);
+const hasPopListener = popstateHandler !== null;
+// Trigger browser back button popstate
+if (popstateHandler) popstateHandler();
+
+const afterPop = {{
+  hasPopListener,
+  elParentIsParent: el.parentNode === parent,
+  isFullscreen: el.classList.contains('chat-map-fullscreen'),
+  listenerRemoved: popstateHandler === null
+}};
+console.log(JSON.stringify(afterPop));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertTrue(res["hasPopListener"])
+        self.assertTrue(res["elParentIsParent"], "Box must restore to parent on popstate")
+        self.assertFalse(res["isFullscreen"], "Fullscreen must be deactivated on popstate")
+        self.assertTrue(res["listenerRemoved"], "Popstate listener must be removed on exit")
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class MapBlockTouchScroll(unittest.TestCase):
+    """Mobile touch scroll pass-through and gesture trap defense tests."""
+
+    def test_embedded_map_all_interactions_disabled(self):
+        """Embedded map must disable dragging, touchZoom, doubleClickZoom, scrollWheelZoom, boxZoom, tap, keyboard."""
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+let mapOpts = null;
+global.document = {{
+  createElement: () => ({{ className: '', appendChild() {{}}, addEventListener() {{}} }}),
+  addEventListener() {{}}
+}};
+window = {{
+  L: {{
+    map: (canvas, opts) => {{
+      mapOpts = opts;
+      return {{
+        setView: () => ({{ invalidateSize() {{}} }}),
+        invalidateSize: () => {{}},
+        dragging: {{ enable() {{}}, disable() {{}} }},
+        touchZoom: {{ enable() {{}}, disable() {{}} }},
+        doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+        scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
+      }};
+    }},
+    tileLayer: () => ({{ addTo: () => ({{}}) }}),
+    marker: () => ({{ addTo: () => ({{ bindPopup: () => ({{ openPopup: () => {{}} }}) }}) }})
+  }}
+}};
+const box = {{
+  attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0' }},
+  classes: [],
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute() {{}},
+  querySelector() {{ return {{ addEventListener() {{}} }}; }},
+  classList: {{ toggle() {{}}, add() {{}}, contains() {{ return false; }} }},
+  appendChild() {{}}
+}};
+(async () => {{
+  await renderMapsIn({{ querySelectorAll: () => [box] }});
+  console.log(JSON.stringify(mapOpts));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertFalse(res.get("dragging"))
+        self.assertFalse(res.get("touchZoom"))
+        self.assertFalse(res.get("doubleClickZoom"))
+        self.assertFalse(res.get("scrollWheelZoom"))
+        self.assertFalse(res.get("boxZoom"), "boxZoom must be false in embedded mode")
+        self.assertFalse(res.get("tap"), "tap must be false in embedded mode")
+        self.assertFalse(res.get("keyboard"), "keyboard must be false in embedded mode")
+
+    def test_embedded_touch_event_guard_prevents_hijack(self):
+        """Canvas touchstart and touchmove must guard preventDefault in embedded mode to allow page scroll."""
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+const canvasListeners = {{}};
+const canvas = {{
+  addEventListener(ev, fn, opts) {{
+    if (!canvasListeners[ev]) canvasListeners[ev] = [];
+    canvasListeners[ev].push({{ fn, opts }});
+  }}
+}};
+
+global.document = {{
+  createElement: () => ({{ className: '', appendChild() {{}}, addEventListener() {{}} }}),
+  addEventListener() {{}}
+}};
+window = {{
+  L: {{
+    map: () => ({{
+      setView: () => ({{ invalidateSize() {{}} }}),
+      invalidateSize: () => {{}},
+      dragging: {{ enable() {{}}, disable() {{}} }},
+      touchZoom: {{ enable() {{}}, disable() {{}} }},
+      doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+      scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
+    }}),
+    tileLayer: () => ({{ addTo: () => ({{}}) }}),
+    marker: () => ({{ addTo: () => ({{ bindPopup: () => ({{ openPopup: () => {{}} }}) }}) }})
+  }}
+}};
+const box = {{
+  attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0' }},
+  classes: [],
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute() {{}},
+  querySelector(sel) {{ return sel === '.chat-map-canvas' ? canvas : null; }},
+  classList: {{ toggle() {{}}, add() {{}}, contains(c) {{ return box.classes.includes(c); }} }},
+  appendChild() {{}}
+}};
+
+(async () => {{
+  await renderMapsIn({{ querySelectorAll: () => [box] }});
+
+  const touchstartEntry = canvasListeners['touchstart'] && canvasListeners['touchstart'][0];
+  const touchmoveEntry = canvasListeners['touchmove'] && canvasListeners['touchmove'][0];
+
+  // Test embedded mode: preventDefault should be neutralized to allow vertical scroll
+  let embeddedPrevented = false;
+  const embeddedEv = {{
+    preventDefault() {{ embeddedPrevented = true; }}
+  }};
+  if (touchstartEntry) touchstartEntry.fn(embeddedEv);
+  embeddedEv.preventDefault();
+
+  // Test fullscreen mode: preventDefault should NOT be neutralized
+  box.classes.push('chat-map-fullscreen');
+  let fsPrevented = false;
+  const fsEv = {{
+    preventDefault() {{ fsPrevented = true; }}
+  }};
+  if (touchstartEntry) touchstartEntry.fn(fsEv);
+  fsEv.preventDefault();
+
+  console.log(JSON.stringify({{
+    hasTouchstart: !!touchstartEntry,
+    hasTouchmove: !!touchmoveEntry,
+    isCapture: touchstartEntry && touchstartEntry.opts && touchstartEntry.opts.capture,
+    embeddedPrevented,
+    fsPrevented
+  }}));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertTrue(res["hasTouchstart"])
+        self.assertTrue(res["hasTouchmove"])
+        self.assertTrue(res["isCapture"], "Guard listener must use capture phase")
+        self.assertFalse(res["embeddedPrevented"], "In embedded mode, preventDefault must be neutralized")
+        self.assertTrue(res["fsPrevented"], "In fullscreen mode, preventDefault must remain active")
+
+    def test_fullscreen_toggle_enables_all_handlers(self):
+        """Fullscreen toggle must enable/disable boxZoom, keyboard, and tap along with dragging/touchZoom."""
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+const log = [];
+const mapObj = {{
+  dragging: {{ enable() {{ log.push('drag.on'); }}, disable() {{ log.push('drag.off'); }} }},
+  touchZoom: {{ enable() {{ log.push('tz.on'); }}, disable() {{ log.push('tz.off'); }} }},
+  doubleClickZoom: {{ enable() {{ log.push('dc.on'); }}, disable() {{ log.push('dc.off'); }} }},
+  scrollWheelZoom: {{ enable() {{ log.push('sw.on'); }}, disable() {{ log.push('sw.off'); }} }},
+  boxZoom: {{ enable() {{ log.push('bz.on'); }}, disable() {{ log.push('bz.off'); }} }},
+  keyboard: {{ enable() {{ log.push('kb.on'); }}, disable() {{ log.push('kb.off'); }} }},
+  tap: {{ enable() {{ log.push('tap.on'); }}, disable() {{ log.push('tap.off'); }} }},
+  invalidateSize() {{}}
+}};
+const el = {{
+  _classes: [],
+  classList: {{
+    contains(c) {{ return el._classes.includes(c); }},
+    toggle(c) {{
+      const i = el._classes.indexOf(c);
+      if (i >= 0) el._classes.splice(i, 1);
+      else el._classes.push(c);
+    }}
+  }}
+}};
+const fsBtn = {{ textContent: '' }};
+
+toggleMapFullscreen(el, mapObj, fsBtn);
+const enterLog = [...log];
+log.length = 0;
+toggleMapFullscreen(el, mapObj, fsBtn);
+const exitLog = [...log];
+
+console.log(JSON.stringify({{ enterLog, exitLog }}));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertIn("bz.on", res["enterLog"])
+        self.assertIn("kb.on", res["enterLog"])
+        self.assertIn("tap.on", res["enterLog"])
+        self.assertIn("bz.off", res["exitLog"])
+        self.assertIn("kb.off", res["exitLog"])
+        self.assertIn("tap.off", res["exitLog"])
+
 
 class MapStaticAssets(unittest.TestCase):
     def test_index_html_links_markdown_map_js(self):
@@ -1392,6 +1799,8 @@ class MapStaticAssets(unittest.TestCase):
         self.assertIn('.chat-map-fs-btn', css)
         self.assertIn('.chat-map-label-multi', css)
         self.assertIn('.leaflet-pane', css)
+        self.assertIn('.chat-map-placeholder', css)
+        self.assertIn('.chat-map-box:not(.chat-map-fullscreen) .leaflet-tile-pane', css)
 
     def test_fullscreen_touch_action_auto(self):
         """Fullscreen mode must set touch-action: auto to unlock all gestures."""
@@ -1408,3 +1817,4 @@ class MapStaticAssets(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
