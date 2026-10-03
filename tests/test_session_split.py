@@ -246,5 +246,174 @@ class PrivateBundle(unittest.TestCase):
             self.assertNotIn(never, sys_work)
 
 
+class HandoverExchange(unittest.TestCase):
+    """_with_last_exchange includes recent N turns, get_handover_summary caches only base,
+    and _finish_turn / _start_turn invalidate the cache (#605)."""
+
+    def setUp(self):
+        # a fixture sessions dir: the old fixed id wrote a "test-handover" session into the live chat (2026-10-03)
+        self._sessions = S.SESSIONS
+        S.SESSIONS = Path(tempfile.mkdtemp()) / "sessions"
+        S.SESSIONS.mkdir()
+
+    def tearDown(self):
+        shutil.rmtree(str(S.SESSIONS.parent), ignore_errors=True)
+        S.SESSIONS = self._sessions
+
+    def _session(self, history, sid="20260101-000000-handov"):
+        s = S.AgentSession(sid)
+        s.history = list(history)
+        return s
+
+    def _past(self, sid, history, pred=""):
+        d = S.SESSIONS / sid
+        d.mkdir(parents=True)
+        (d / "meta.json").write_text(json.dumps({"id": sid, "history": history, "predecessor_session_id": pred}),
+                                     encoding="utf-8")
+
+    def test_recent_turns_come_from_the_chain_when_this_session_is_short(self):
+        # sessions here are often 2-8 turns: the last 8 turns span several of them (#613)
+        self._past("20260101-000001-aaaaaa", [{"role": "user", "text": "q0"}, {"role": "assistant", "text": "a0"},
+                                             {"role": "user", "text": "q1"}, {"role": "assistant", "text": "a1"}])
+        self._past("20260101-000002-bbbbbb", [{"role": "user", "text": "q2"}, {"role": "assistant", "text": "a2"},
+                                             {"role": "user", "text": "q3"}, {"role": "assistant", "text": "a3"}],
+                   pred="20260101-000001-aaaaaa")
+        s = self._session([{"role": "user", "text": "q4"}, {"role": "assistant", "text": "a4"}],
+                          sid="20260101-000003-cccccc")
+        s.predecessor_session_id = "20260101-000002-bbbbbb"
+        got = s._with_last_exchange("base")
+        for t in ("q1", "a1", "q2", "a3", "q4", "a4"):
+            self.assertIn(t, got)
+        self.assertNotIn("q0", got)                      # 8 turns: q1..a4
+        self.assertLess(got.index("q1"), got.index("q4"), "oldest first")
+        s.predecessor_session_id = "20260101-000009-gone00"
+        self.assertNotIn("q3", s._with_last_exchange("base"), "a missing predecessor ends the walk")
+
+    def test_multiple_turns_included(self):
+        """Up to 8 recent user/assistant turns appear in the exchange section."""
+        hist = []
+        for i in range(6):
+            hist.append({"role": "user", "text": f"q{i}"})
+            hist.append({"role": "assistant", "text": f"a{i}"})
+        s = self._session(hist)
+        result = s._with_last_exchange("base summary")
+        self.assertIn("[최근 주고받은 대화 원문]", result)
+        self.assertIn("base summary", result)
+        # last 8 turns = q2..q5 user + a2..a5 assistant
+        for i in range(2, 6):
+            self.assertIn(f"q{i}", result)
+            self.assertIn(f"a{i}", result)
+        # turns before the window are excluded
+        self.assertNotIn("q0", result)
+        self.assertNotIn("a0", result)
+
+    def test_char_budget_limits_turns(self):
+        """The char budget stops adding turns once exceeded."""
+        hist = []
+        # 4 exchanges with long text (800 chars each turn => 6400 total > 3000 budget)
+        for i in range(4):
+            hist.append({"role": "user", "text": f"q{i}_" + "x" * 800})
+            hist.append({"role": "assistant", "text": f"a{i}_" + "y" * 800})
+        s = self._session(hist)
+        result = s._with_last_exchange("")
+        # at ~800 chars per line, budget 3000 fits ~3 lines
+        # the first line always gets in (even if > budget), then stops once exceeded
+        lines = [l for l in result.split("\n") if l.strip() and l != "[최근 주고받은 대화 원문]"]
+        self.assertGreaterEqual(len(lines), 1)
+        self.assertLess(len(lines), 8)  # not all 8 turns
+        # newest turns are kept, oldest in the window are dropped
+        self.assertIn("q3_", result)
+        self.assertIn("a3_", result)
+        self.assertNotIn("q0_", result)
+
+    def test_empty_history_returns_base(self):
+        s = self._session([])
+        self.assertEqual(s._with_last_exchange("base"), "base")
+
+    def test_single_user_turn(self):
+        s = self._session([{"role": "user", "text": "hello"}])
+        result = s._with_last_exchange("base")
+        self.assertIn("hello", result)
+        self.assertIn("[최근 주고받은 대화 원문]", result)
+
+    def test_header_changed_from_old(self):
+        """The section header is now [최근 주고받은 대화 원문], not the old single-exchange one."""
+        s = self._session([{"role": "user", "text": "x"}, {"role": "assistant", "text": "y"}])
+        result = s._with_last_exchange("b")
+        self.assertNotIn("마지막으로", result)
+        self.assertIn("최근 주고받은", result)
+
+    def test_base_only_cached(self):
+        """get_handover_summary caches only the compressed base, not the exchange tail."""
+        s = self._session([
+            {"role": "user", "text": "turn1"},
+            {"role": "assistant", "text": "reply1"},
+        ])
+        s.provider = "agy"
+        with mock.patch.object(s, "_dialogue_summary_fallback", return_value="compressed base"):
+            with mock.patch.object(s, "_native_compact", return_value=""):
+                result = s.get_handover_summary(native=True)
+        # cache holds only the base, not the exchange section
+        self.assertEqual(s._cached_summary, "compressed base")
+        # but the returned value includes the exchange
+        self.assertIn("[최근 주고받은 대화 원문]", result)
+        self.assertIn("turn1", result)
+
+    def test_cached_call_appends_fresh_exchange(self):
+        """A cached call re-appends the exchange from current history."""
+        s = self._session([
+            {"role": "user", "text": "old"},
+            {"role": "assistant", "text": "old-reply"},
+        ])
+        s._cached_summary = "cached base"
+        s.provider = "agy"
+        # add a newer turn AFTER the cache was set
+        s.history.append({"role": "user", "text": "new-question"})
+        s.history.append({"role": "assistant", "text": "new-answer"})
+        result = s.get_handover_summary()
+        self.assertIn("new-question", result)
+        self.assertIn("new-answer", result)
+
+    def test_finish_turn_invalidates_cache(self):
+        """_finish_turn clears _cached_summary."""
+        s = self._session([{"role": "user", "text": "x"}])
+        s._cached_summary = "old"
+        s.provider = "agy"
+        s.model = "m"
+        s._obs_turn_logged = None
+        s.turn_started_at = 0
+        with mock.patch("session.evolution", None):
+            s._finish_turn("result")
+        self.assertEqual(s._cached_summary, "")
+
+    def test_start_turn_invalidates_cache(self):
+        """_start_turn clears _cached_summary when a new user message arrives."""
+        s = self._session([])
+        s._cached_summary = "stale"
+        s.provider = "agy"
+        s.model = "m"
+        s.mode = "work"
+        s._loop_hint = ""
+        s.handoff_summary = ""
+        s.persona_injected = True
+        s.persona_bundle_hash = "h"
+        s.adapter = mock.MagicMock()
+        s.adapter.keeps_stdin_open = False
+        s.adapter.transport_kind = "stdio"
+        s.adapter.turn_context.return_value = ""
+        s.proc = None
+        s.lock = __import__("threading").RLock()
+        with mock.patch("session_turn._s") as mock_s:
+            mock_s.return_value = mock.MagicMock()
+            mock_s.return_value.build_instruction_bundle.return_value = {"text": "", "hash": "h"}
+            mock_s.return_value.boot_notice.return_value = ""
+            mock_s.return_value.format_client_context.return_value = ""
+            try:
+                s._start_turn("hello", "", None, False, "chat")
+            except Exception:
+                pass  # adapter spawn may fail in test; cache invalidation happens before
+        self.assertEqual(s._cached_summary, "")
+
+
 if __name__ == "__main__":
     unittest.main()

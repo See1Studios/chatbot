@@ -222,7 +222,7 @@ class SessionView:
         swap, which refines it in the background -- _refine_swap_handoff).
         """
         if use_cache and getattr(self, "_cached_summary", ""):
-            return self._cached_summary
+            return self._with_last_exchange(self._cached_summary)
         if not native:
             return self._host_history_digest(header="(제공자가 바뀌었습니다. 아래는 화면 기록의 최근 대화입니다. 이어서 진행하세요.)")
 
@@ -243,15 +243,10 @@ class SessionView:
         if not base:
             base = self._dialogue_summary_fallback(max_turns)
 
-        # Append the last real exchange verbatim alongside the compacted
-        # summary above -- a summary can lose exact wording/details from
-        # what was *just* discussed right before a handoff; the raw last
-        # turn gives the new session a high-fidelity anchor on top of the
-        # compressed long-range context (operator 제안, 2026-09-17).
-        full = self._with_last_exchange(base)
+        # 압축 요약(base)만 캐싱; 최근 대화 원문은 반환 시점에 동적 결합 (operator 제안, 2026-09-17).
         if use_cache:
-            self._cached_summary = full
-        return full
+            self._cached_summary = base
+        return self._with_last_exchange(base)
 
     def to_public(self) -> dict:
         _redact_line, ADD_DIRS = _session()._redact_line, _session().ADD_DIRS

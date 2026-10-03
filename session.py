@@ -597,6 +597,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         takes no lock, does one small file append, and never raises. A user turn is handed over once,
         so two paths ending the same turn do not record it twice. `outcome == "steer"` (the user adding
         an instruction mid-turn) only clears the marks."""
+        self._cached_summary = ""  # handover cache stale after new content
         self._obs_turn_end(outcome)
         try:
             idx, text = self._last_user_turn()
@@ -1028,22 +1029,49 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                      dur_s=round(time.monotonic() - t0, 1), used=bool(base and not stale),
                      reason="ok" if base and not stale else ("stale" if stale else "compact_failed"))
 
-    def _with_last_exchange(self, base: str) -> str:
+    def _recent_turns(self, max_turns: int, max_hops: int = 10) -> List[dict]:
+        """The last `max_turns` user/assistant turns of this conversation, oldest first: this session's, then back
+        along predecessor_session_id. Sessions here are often 2-8 turns long, so one session alone was not enough
+        (#613). Read-only; a missing or broken predecessor ends the walk."""
         turns = [h for h in self.history if h.get("role") in ("user", "assistant")]
-        if not turns:
+        pred, seen = str(getattr(self, "predecessor_session_id", "") or ""), {self.sid}
+        while len(turns) < max_turns and pred and pred not in seen and len(seen) <= max_hops:
+            seen.add(pred)
+            try:
+                meta = json.loads((SESSIONS / pred / "meta.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                break
+            turns = [h for h in (meta.get("history") or []) if isinstance(h, dict)
+                     and h.get("role") in ("user", "assistant")] + turns
+            pred = str(meta.get("predecessor_session_id") or "")
+        return turns[-max_turns:]
+
+    def _with_last_exchange(self, base: str, *, max_turns: int = 8, max_chars: int = 3000) -> str:
+        """Append recent verbatim exchanges to *base* (the compressed summary).
+
+        Preserves up to *max_turns* recent user/assistant turns (3~4 exchanges), across the session chain, within
+        *max_chars*, so the successor session gets a high-fidelity anchor of recent conversation on top of the
+        compressed long-range context.
+        """
+        recent = self._recent_turns(max_turns)
+        if not recent:
             return base
-        last = turns[-1]
-        prev = turns[-2] if len(turns) >= 2 else None
-        lines = []
-        if prev and prev.get("role") == "user":
-            lines.append(f"{user_title()}: {str(prev.get('text') or '')[:1200]}")
-        if last.get("role") == "assistant":
-            lines.append(f"{display_name()}: {str(last.get('text') or '')[:1200]}")
-        elif last.get("role") == "user" and not prev:
-            lines.append(f"{user_title()}: {str(last.get('text') or '')[:1200]}")
-        if not lines:
+        chosen: List[str] = []
+        total = 0
+        for h in reversed(recent):
+            role = h.get("role")
+            label = user_title() if role == "user" else display_name()
+            text = str(h.get("text") or "")[:1200]
+            line = f"{label}: {text}"
+            if total + len(line) > max_chars and chosen:
+                break
+            chosen.append(line)
+            total += len(line)
+        if not chosen:
             return base
-        return (base or "").rstrip() + "\n\n[마지막으로 주고받은 대화 원문]\n" + "\n".join(lines) + "\n"
+        lines = list(reversed(chosen))
+        prefix = f"{base.rstrip()}\n\n" if (base or "").strip() else ""
+        return f"{prefix}[최근 주고받은 대화 원문]\n" + "\n".join(lines) + "\n"
 
     def _dialogue_summary_fallback(self, max_turns: int = 8) -> str:
         """Lightweight custom-prompt summary of the last N dialogue turns --

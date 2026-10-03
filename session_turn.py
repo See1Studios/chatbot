@@ -194,7 +194,7 @@ class SessionTurn:
             assert self.proc and self.proc.stdin
 
         stdin_content = f"[시스템 안내] {text}" if notice else text
-        rules_prefix = ""  # instruction bundle, prepended AFTER the handoff wrap below
+        self._cached_summary, rules_prefix = "", ""  # a new turn stales the handover cache (#613); bundle goes AFTER the handoff wrap
         with self.lock:
             # Instruction bundle (instructions.py), injected above the adapter
             # layer so every provider gets the same text the same way; native
