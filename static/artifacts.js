@@ -318,8 +318,44 @@ function renderModalTextContent(isMd) {
   }
 }
 
+// Unified helper: extract name/ext/kind from a URL string. Known text/code extensions get
+// is_text: true for fetch preview; binary formats (video, audio, pdf, archive, etc.) get
+// their own kind and is_text: false so the viewer never tries to fetch them as text.
+function inferArtifactFromUrl(url) {
+  let name;
+  try { name = decodeURIComponent((url || '').split('?')[0].split('/').pop() || 'artifact'); }
+  catch (_) { name = (url || '').split('?')[0].split('/').pop() || 'artifact'; }
+  const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+  const el = ext.toLowerCase();
+  if (/^(png|jpe?g|gif|webp|svg|ico|bmp|tiff?)$/i.test(el)) return { name, ext, kind: 'image', is_text: false };
+  if (/^(mp4|webm|mov|avi|mkv|flv|wmv|m4v|3gp)$/i.test(el)) return { name, ext, kind: 'video', is_text: false };
+  if (/^(mp3|wav|ogg|flac|aac|wma|m4a|opus)$/i.test(el)) return { name, ext, kind: 'audio', is_text: false };
+  if (el === 'pdf') return { name, ext, kind: 'pdf', is_text: false };
+  if (/^(zip|tar|gz|bz2|7z|rar|xz|zst|tgz|whl|egg|deb|rpm)$/i.test(el)) return { name, ext, kind: 'other', is_text: false };
+  if (/^(exe|dll|so|dylib|bin|dat|img|iso|dmg|wasm)$/i.test(el)) return { name, ext, kind: 'other', is_text: false };
+  if (/^(py|js|mjs|ts|tsx|jsx|gd|sh|sql|css|html|java|c|cpp|h|hpp|rs|go|rb|php|swift|kt|scala|r|lua|pl|zig)$/i.test(el)) return { name, ext, kind: 'code', is_text: true };
+  if (/^(json|jsonl|ya?ml|toml|ini|cfg|conf|xml|csv|txt|md|rst|log|env|properties|editorconfig|gitignore|dockerignore|makefile)$/i.test(el)) return { name, ext, kind: 'document', is_text: true };
+  // Unknown extension: treat as other (binary-safe) — no text fetch
+  if (el) return { name, ext, kind: 'other', is_text: false };
+  // No extension at all: assume text document
+  return { name, ext: '', kind: 'document', is_text: true };
+}
+
 async function openArtifactModal(item) {
   if (!item || !artModal) return;
+  if (typeof item === 'string') {
+    const url = item;
+    item = { url, ...inferArtifactFromUrl(url) };
+  } else if (item && typeof item === 'object' && !item.kind && item.url) {
+    const inferred = inferArtifactFromUrl(item.url);
+    // Keep caller-supplied name/ext if present; fill gaps from inference
+    item = { ...inferred, ...item, kind: item.kind || inferred.kind, is_text: inferred.is_text };
+    if (!item.ext) item.ext = inferred.ext;
+  }
+  if (item && item.url && typeof currentArtifacts !== 'undefined' && Array.isArray(currentArtifacts)) {
+    const match = currentArtifacts.find(a => a && (a.url === item.url || (typeof resolveArtifactUrl === 'function' && resolveArtifactUrl(a.url) === resolveArtifactUrl(item.url))));
+    if (match) item = { ...item, ...match };
+  }
   activeModalArtifact = item;
   modalCurrentText = '';
   const sizeLabel = item.size_human ? ` (${item.size_human})` : '';
@@ -352,7 +388,7 @@ async function openArtifactModal(item) {
       const img = document.createElement('img');
       bindArtifactImg(img, item);
       modalBody.appendChild(img);
-    } else if (item.is_text || item.kind === 'text') {
+    } else if (item.is_text || item.kind === 'text' || item.kind === 'document' || item.kind === 'code') {
       modalBody.innerHTML = '<div style="color:var(--muted)">불러오는 중…</div>';
       try {
         let text = item.content;
@@ -362,7 +398,7 @@ async function openArtifactModal(item) {
           text = await resp.text();
         }
         modalCurrentText = text || '';
-        const isMd = (item.name || '').endsWith('.md') || (item.path || '').endsWith('.md');
+        const isMd = (item.name || '').endsWith('.md') || (item.path || '').endsWith('.md') || (item.url || '').split('?')[0].endsWith('.md');
 
         if (modalCopyBtn) {
           modalCopyBtn.style.display = 'inline-block';

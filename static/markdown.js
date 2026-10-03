@@ -259,6 +259,34 @@ function attachFileLinkInterceptors(container) {
   });
 }
 
+function attachArtifactLinkInterceptors(container) {
+  if (!container || typeof openArtifactModal !== 'function') return;
+  const isLocal = (h) => {
+    if (!h || h === '#') return false;
+    if (h.startsWith('/artifacts/') || h.startsWith('artifacts/')) return true;
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.origin) {
+        const u = new URL(h, window.location.origin);
+        return u.origin === window.location.origin && u.pathname.startsWith('/artifacts/');
+      }
+    } catch (_) {}
+    return false;
+  };
+  container.querySelectorAll('a[href*="/artifacts/"]:not(.artifact-bound), a.artifact-link:not(.artifact-bound)').forEach(a => {
+    const href = a.getAttribute('href') || '';
+    if (!isLocal(href)) return;
+    a.classList.add('artifact-bound');
+    a.removeAttribute('target');
+    a.addEventListener('click', (e) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || (e.button && e.button !== 0)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const n = (a.textContent || '').trim();
+      openArtifactModal({ url: href, name: n && !n.includes('/') ? n : undefined });
+    });
+  });
+}
+
 // Quick-reply chips. The agent ends a question with one line
 //   <!--choices: 보기A | 보기B | 보기C-->
 // (operator: "의견을 물을 때 마지막에 선택지 버튼"). The marker never shows as text:
@@ -484,22 +512,8 @@ function truncateChoiceLabel(s, max = CHOICE_LABEL_MAX) {
 
 function parseChoiceItem(item) {
   const maxLabel = typeof CHOICE_LABEL_MAX !== 'undefined' ? CHOICE_LABEL_MAX : 28;
-  const truncate = (s) => (typeof truncateChoiceLabel === 'function'
-    ? truncateChoiceLabel(s, maxLabel)
-    : (String(s || '').trim().length <= maxLabel ? String(s || '').trim() : String(s || '').trim().slice(0, maxLabel - 1) + '…'));
-  const unwrapParens = typeof stripOuterParens === 'function' ? stripOuterParens : (s) => {
-    let out = String(s || '').trim();
-    while (out.length >= 2 && out[0] === '(' && out[out.length - 1] === ')') {
-      let depth = 0, balanced = true;
-      for (let i = 0; i < out.length; i++) {
-        if (out[i] === '(') depth++;
-        else if (out[i] === ')') { depth--; if ((depth === 0 && i !== out.length - 1) || depth < 0) { balanced = false; break; } }
-      }
-      if (!balanced || depth !== 0) break;
-      out = out.slice(1, -1).trim();
-    }
-    return out;
-  };
+  const truncate = (s) => truncateChoiceLabel(s, maxLabel);
+  const unwrapParens = stripOuterParens;
 
   if (item && typeof item === 'object') {
     const rawLabel = String(item.label || '').trim();
@@ -869,6 +883,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     attachCodeCopyButtons(node);
     attachImageLightbox(node);
     attachFileLinkInterceptors(node);
+    if (typeof attachArtifactLinkInterceptors === 'function') attachArtifactLinkInterceptors(node);
     const eventChoices = (node && node._choices && node._choices.length) ? node._choices : (choices && choices.length ? choices : null);
     const finalChoices = eventChoices || parts.choices;
     if (node && finalChoices && finalChoices.length) {
@@ -926,6 +941,7 @@ function renderMarkdown(src, isFinal) {
           // FILE_LINKS_v1: kept in data-path, which the sanitiser leaves alone; href would be dropped for ~/.
           return '<a ' + p1 + 'href="#" data-path="' + fileRefTarget(ref).replace(/"/g, '&quot;') + '" class="local-file-link"' + p2 + '>';
         }
+        if (/^\/?artifacts\//i.test(href)) return '<a ' + p1 + 'href="' + href + '" class="artifact-link"' + p2 + '>';
         return '<a ' + p1 + 'href="' + href + '" target="_blank" rel="noopener"' + p2 + '>';
       });
       if (isFinal) {
@@ -973,19 +989,13 @@ function renderPlainText(raw) {
   });
   t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => {
     const safeHref = /^(?:javascript)/i.test(href.trim()) ? '#' : href;
-    return '<a href="' + _esc(safeHref) + '" target="_blank" rel="noopener">' + _esc(label) + '</a>';
+    const isArt = /^\/?artifacts\//i.test(safeHref);
+    return '<a href="' + _esc(safeHref) + '"' + (isArt ? ' class="artifact-link"' : ' target="_blank" rel="noopener"') + '>' + _esc(label) + '</a>';
   });
   t = t.replace(/```([\s\S]*?)```/g, (_, code) => '<pre><code>' + code + '</code></pre>');
-  // A fence that is still open is the normal case mid-stream: the closing ``` has not arrived yet.
-  // Treating the tail as code is what stops a code block from snapping from raw text into a
-  // full-height box the instant the answer ends.
   t = t.replace(/```([\s\S]*)$/, (_, code) => '<pre><code>' + code + '</code></pre>');
   t = t.replace(/`([^`]+)`/g, (_, code) => '<code>' + code + '</code>');
   t = t.replace(/\*\*([^*]+)\*\*/g, (_, txt) => '<strong>' + txt + '</strong>');
-  // Single-asterisk italics, which is how RENDER_PROTOCOL writes an action, so an action looks like
-  // one from its first frame instead of only after the final parse. The shape is markdown's own
-  // flanking rule in miniature: the opener is not followed by a space and the closer is not
-  // preceded by one, which is what keeps `2 * 3 * 4` literal instead of eating its middle.
   t = t.replace(/(^|[^*])\*([^*\n]*\S)\*/g, '$1<em>$2</em>');
   t = t.replace(/\n/g, '<br>');
   return t;
