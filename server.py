@@ -21,6 +21,7 @@ from urllib.parse import unquote, urlparse
 from providers.adapters import AGENT_ADAPTERS, PROVIDER_META
 from host_config import (
     DATA,
+    EDITION,
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
     HOME,
@@ -462,6 +463,13 @@ def _summon_regen(req: Req):
     return req.json(payload, status)
 
 
+def _dev_delete_character(req: Req):
+    # The button is hidden unless browser dev mode is on. The route also needs the dev edition.
+    import characters
+    status, payload = characters.dev_delete(req.arg, req.body, WORKSPACE, EDITION)
+    return req.json(payload, status)
+
+
 # ------------------------------------------------------------------------------------------------ route tables
 # One table per method, tried in order; the first route that takes a request answers it (route_table.py).
 # Order matters where patterns overlap: "/api/sessions/*" (one session) comes after its longer cousins.
@@ -537,6 +545,7 @@ POST_ROUTES = [
     ("/api/sessions", route_sessions.create),
     ("/api/characters/summon", _summon_create),
     ("/api/characters/*/regenerate", _summon_regen),
+    ("/api/characters/*/dev-delete", _dev_delete_character),
     ("/api/characters/*/session", route_sessions.character_session),
     ("/api/sessions/*/message", route_sessions.message),
     (None, _gift(lambda req: items.handle_post(req.path, req.body))),   # items (plus/F)

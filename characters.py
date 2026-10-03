@@ -20,6 +20,7 @@ import os
 import random
 import re
 import secrets
+import shutil
 import time
 from pathlib import Path
 
@@ -921,3 +922,45 @@ def check_art(cid: str, providers=(), ws=None) -> List[str]:
         if f.suffix == ".png" and not f.with_suffix(".webp").is_file():
             problems.append("%s: a .png master needs its .webp beside it (the page serves .webp)" % rel)
     return problems
+
+
+import shutil
+
+
+def dev_delete(cid, body, ws=None, edition=""):
+    """Delete one character folder on a developer install. Dialogs, rooms and sessions stay.
+
+    The roster home character (whom the app opens with) is refused. confirm must be JSON true.
+    """
+    if edition != "dev":
+        return 403, {"ok": False, "error": "developer-edition-only"}
+    if not isinstance(body, dict) or body.get("confirm") is not True:
+        return 400, {"ok": False, "error": "confirm-required"}
+    cid = str(cid or "").strip().strip("/")
+    if not ID_RE.match(cid):
+        return 400, {"ok": False, "error": "not-a-character-id"}
+    root = characters_dir(ws)
+    folder = root / cid
+    if folder.is_symlink() or not folder.is_dir():
+        return 404, {"ok": False, "error": "no-such-character"}
+    try:
+        folder.resolve().relative_to(root.resolve())
+    except ValueError:
+        return 400, {"ok": False, "error": "not-a-character-folder"}
+    if cid == default_character(ws):
+        return 409, {"ok": False, "error": "home-character"}
+    shutil.rmtree(str(folder))
+    _CARD_INFO_CACHE.pop(card_path(cid, ws), None)
+    _forget_member(cid, ws)
+    return 200, {"ok": True, "id": cid}
+
+
+def _forget_member(cid, ws):
+    """Drop cid from team.json. Never changes who the home character is."""
+    if not team_path(ws).is_file():
+        return
+    team = load_team(ws)
+    if team.get("default") == cid or cid not in team["members"]:
+        return
+    team["members"].pop(cid, None)
+    save_team(team, ws)
