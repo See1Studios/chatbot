@@ -35,7 +35,9 @@ class Hooks(unittest.TestCase):
         shutil.rmtree(str(self.repo), ignore_errors=True)
 
     def git(self, *args):
-        return subprocess.run(["git", *args], cwd=str(self.repo), capture_output=True, text=True)
+        # inside a hook git exports the outer commit's author and its `-c` settings; the test repo's own config decides
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_AUTHOR_", "GIT_COMMITTER_", "GIT_CONFIG_"))}
+        return subprocess.run(["git", *args], cwd=str(self.repo), capture_output=True, text=True, env=env)
 
     def commit(self, rel, text, msg):
         p = self.repo / rel
@@ -100,7 +102,7 @@ class Hooks(unittest.TestCase):
         # a hook that lost its exec bit is skipped with only a hint -- the check would vanish silently
         out = subprocess.run(["git", "ls-files", "-s", ".githooks"], cwd=str(ROOT), capture_output=True, text=True).stdout
         modes = {l.split()[-1]: l.split()[0] for l in out.splitlines()}
-        for hook in (".githooks/pre-commit", ".githooks/commit-msg"):
+        for hook in (".githooks/pre-commit", ".githooks/commit-msg", ".githooks/reference-transaction"):
             if modes:   # tracked: the index must say 100755
                 self.assertEqual(modes.get(hook), "100755", hook)
             self.assertTrue(os.access(str(ROOT / hook), os.X_OK), hook)
@@ -109,6 +111,65 @@ class Hooks(unittest.TestCase):
         for s in ("chore(tickets): close #12 -- title", "chore(tickets): #12 gate_failed -- t",
                   "chore(ticket #12): changes the agent left uncommitted"):
             self.assertTrue(check.SUBJECT.match(s), s)
+
+    # --- ENGINE_DECIDES_A5: who commits and who lands is decided by the engine, not typed by the agent ---
+
+    def _with_core(self):
+        for name in ("evolution.py", "platform_compat.py"):
+            shutil.copy(str(ROOT / name), str(self.repo / name))
+
+    def test_a_ticket_record_with_a_persona_actor_is_refused(self):
+        # 2026-10-03: a chat agent wrote closed_by "Coco" around tickets.py; the guards then broke main for everyone
+        self._with_core()
+        rel = "data/workspace/skill-observations/tickets/0583.json"
+        bad = '{"id": 583, "closed_by": "Coco", "notes": [{"by": "agent:Coco", "text": "done"}]}'
+        r = self.commit(rel, bad, "chore(tickets): close #583 -- t")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("closed_by", r.stdout + r.stderr)
+        self.assertIn("agent:Coco", r.stdout + r.stderr)
+        good = '{"id": 583, "closed_by": "agy", "notes": [{"by": "agent:agy", "text": "done"}, {"by": "host", "text": "x"}]}'
+        self.assertEqual(self.commit(rel, good, "chore(tickets): close #583 -- t").returncode, 0)
+
+    def test_a_persona_name_is_never_the_author(self):
+        card = '{"data": {"name": "코코"}}'
+        self.assertEqual(self.commit("data/workspace/characters/char_x/card.json", card, "chore: card").returncode, 0)
+        self.git("config", "user.name", "코코")
+        r = self.commit("a.txt", "1", "chore: x")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("character's name", r.stdout + r.stderr)
+
+    def test_a_live_chat_agent_commits_as_its_brain(self):
+        self.git("config", "user.name", "Coco")
+        def refuse(actor):
+            return check.author_refusal(self.repo, lambda: actor, lambda a: {"agy": "agy"}.get(a, ""))
+        cwd = os.getcwd()
+        os.chdir(str(self.repo))
+        try:
+            self.assertIn("commits as its brain 'agy'", refuse("chat-agent:agy"))
+            self.assertEqual(refuse("chat-agent:?"), "")       # the host itself or a runner it started
+            self.assertEqual(refuse("claude-code"), "")        # an agent outside the chat names itself
+        finally:
+            os.chdir(cwd)
+
+    def test_only_a_live_chat_agent_landing_a_worker_branch_is_refused(self):
+        main = [("0" * 40, "a" * 40, "refs/heads/main")]
+        on_worker = lambda sha: True
+        self.assertIn("landing is the operator's", check.ref_refusal(main, lambda: "chat-agent:agy", on_worker))
+        self.assertEqual(check.ref_refusal(main, lambda: "chat-agent:?", on_worker), "")      # the runner's merge
+        self.assertEqual(check.ref_refusal(main, lambda: "claude-code", on_worker), "")       # an outside agent
+        self.assertEqual(check.ref_refusal(main, lambda: "chat-agent:agy", lambda sha: False), "")   # its own commit
+        other = [("0" * 40, "a" * 40, "refs/heads/worktree/ticket-1")]
+        self.assertEqual(check.ref_refusal(other, lambda: "chat-agent:agy", on_worker), "")
+        gone = [("a" * 40, "0" * 40, "refs/heads/main")]
+        self.assertEqual(check.ref_refusal(gone, lambda: "chat-agent:agy", on_worker), "")
+
+    def test_the_ref_hook_lets_ordinary_main_updates_through(self):
+        self.assertEqual(self.commit("a.txt", "1", "chore: start").returncode, 0)
+        self.git("checkout", "-q", "-b", "worktree/ticket-9")
+        self.assertEqual(self.commit("a.txt", "2", "chore: work").returncode, 0)
+        self.git("checkout", "-q", "-")
+        r = self.git("merge", "-q", "--ff-only", "worktree/ticket-9")   # no repo modules here: caller unknown
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":

@@ -5,9 +5,13 @@
   check_staged.py pre-commit        forbidden files, secrets in added lines, then ./run-tests.sh --fast on the
                                     staged snapshot (a throwaway worktree; others' unstaged work does not count)
   check_staged.py commit-msg FILE   Conventional Commits subject; `Plan:` trailer when docs/plans/ changes
+  check_staged.py reference-transaction prepared   (ref lines on stdin) a live chat session does not land a
+                                    delegated worker's branch on main -- landing is the operator's
 
 Never bypass with --no-verify (root AGENTS.md). Messages name the file and the rule, never a secret's value.
 """
+import importlib
+import json
 import os
 import re
 import shutil
@@ -84,10 +88,118 @@ def run_guards_on_snapshot(root):
         shutil.rmtree(str(tmp), ignore_errors=True)
 
 
+# ENGINE_DECIDES_A5 (docs/plans/engine-decides.md ed/A5): who commits and who lands comes from the process ancestry
+# (tools/ticket_quick.py::detect_actor), never from a name the agent typed. 2026-10-03: a live chat agent landed #583
+# itself with `git merge --ff-only`, committed as "Coco" and rewrote the ticket record by hand.
+MAIN_REF = "refs/heads/main"
+WORKER_REFS = "refs/heads/worktree/"
+TICKET_RECORD = re.compile(r"^data/workspace/skill-observations/tickets/\d+\.json$")
+
+
+def _repo_module(root, name):
+    """A module of this repository (root or tools/), or None -- a throwaway test repo holds only .githooks."""
+    root = Path(root)
+    if not any((d / (name + ".py")).is_file() for d in (root, root / "tools")):
+        return None
+    for d in (str(root / "tools"), str(root)):
+        if d not in sys.path:
+            sys.path.insert(0, d)
+    try:
+        return importlib.import_module(name)
+    except Exception:  # noqa: BLE001 -- a broken module must not make every commit fail here
+        return None
+
+
+def caller(root):
+    """The actor id of whoever runs this git command ("" when it cannot be told)."""
+    tq = _repo_module(root, "ticket_quick")
+    return tq.detect_actor() if tq else ""
+
+
+def live_chat_agent(actor):
+    """A chat session's own agent using its shell -- not the host itself or a runner it started (chat-agent:?)."""
+    return actor.startswith("chat-agent:") and not actor.endswith(":?")
+
+
+def ref_refusal(updates, who, on_worker_branch):
+    """Why a ref transaction must stop, or "". `updates`: (old, new, ref); `who()`: the caller's actor id;
+    `on_worker_branch(sha)`: whether a delegated worker's branch holds that commit."""
+    for _old, new, ref in updates:
+        if ref == MAIN_REF and set(new) != {"0"} and on_worker_branch(new) and live_chat_agent(who()):
+            return ("a live chat session cannot land a worker's branch on main: landing is the operator's ([승인] "
+                    "on the work card runs the runner's merge). Leave the branch and tell the operator it waits.")
+    return ""
+
+
+def reference_transaction(state, lines):
+    if state != "prepared":
+        return 0
+    root = git("rev-parse", "--show-toplevel").strip()
+    updates = [tuple(l.split()[:3]) for l in lines if len(l.split()) >= 3]
+    why = ref_refusal(updates, lambda: caller(root),
+                      lambda sha: bool(git("for-each-ref", "--contains", sha, WORKER_REFS, "--format=%(refname)").strip()))
+    if why:
+        print("[reference-transaction] " + why)
+        return 1
+    return 0
+
+
+def record_refusals(root, files):
+    """Staged ticket records whose stored actors are not role ids (the record was written around tickets.py)."""
+    ev = _repo_module(root, "evolution")
+    out = []
+    for f in files if ev else []:
+        if not TICKET_RECORD.match(f):
+            continue
+        try:
+            t = json.loads(git("show", ":" + f) or "{}")
+        except ValueError:
+            continue
+        bad = [k for k in ("actor", "worked_by", "closed_by") if t.get(k) and not ev.ROLE_ID_RE.match(str(t[k]))]
+        bad += ["note by %r" % n.get("by") for n in t.get("notes") or [] if isinstance(n, dict)
+                and str(n.get("by", "")).startswith("agent:") and not ev.ROLE_ID_RE.match(str(n["by"])[6:])]
+        if bad:
+            out.append("%s: %s must be a role id like agy or chat-agent:agy, not a persona name -- change tickets "
+                       "only through tickets.py or the ticket tool" % (f, ", ".join(bad)))
+    return out
+
+
+def _persona_names(root):
+    names = set()
+    for card in (Path(root) / "data" / "workspace" / "characters").glob("*/card.json"):
+        try:
+            d = json.loads(card.read_text(encoding="utf-8")).get("data") or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        names.add(str(d.get("name") or "").strip())
+    return names - {""}
+
+
+def author_refusal(root, who, author_of):
+    """Why this commit's author is wrong, or "". A persona name is never an author; a live chat session commits
+    as its brain (`author_of(actor)`, the runner's provider table)."""
+    name = git("var", "GIT_AUTHOR_IDENT").rsplit("<", 1)[0].strip()
+    if name in _persona_names(root):
+        return "author %r is a character's name (a display value): commit as your agent, e.g. git -c user.name=agy" % name
+    actor = who()
+    want = author_of(actor.split(":", 1)[1]) if live_chat_agent(actor) else ""
+    if want and name != want:
+        return "author %r: a live chat session commits as its brain %r (drop the -c user.name)" % (name, want)
+    return ""
+
+
+def _runner_author(root, actor):
+    wr = _repo_module(root, "worktree_runner")
+    return next((v["author"][0] for v in getattr(wr, "PROVIDERS", {}).values() if v.get("actor") == actor), "")
+
+
 def pre_commit():
     root = Path(git("rev-parse", "--show-toplevel").strip())
     files = staged()
-    errors = []
+    errors = record_refusals(root, files)
+    who = author_refusal(root, lambda: caller(root), lambda a: _runner_author(root, a))
+    if who:
+        errors.append(who)
     for f in files:
         for rx, what in FORBIDDEN:
             if rx.search(f) and not f.endswith(".example"):
@@ -152,5 +264,7 @@ if __name__ == "__main__":
         sys.exit(pre_commit())
     if sys.argv[1:2] == ["commit-msg"] and len(sys.argv) > 2:
         sys.exit(commit_msg(sys.argv[2]))
+    if sys.argv[1:2] == ["reference-transaction"] and len(sys.argv) > 2:
+        sys.exit(reference_transaction(sys.argv[2], sys.stdin.read().splitlines()))
     print(__doc__)
     sys.exit(2)

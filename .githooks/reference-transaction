@@ -1,0 +1,6 @@
+#!/bin/sh
+# ENGINE_DECIDES_A5: only a transaction that moves main is checked; every other ref update passes at shell speed.
+[ "$1" = prepared ] || exit 0
+input=$(cat)
+case "$input" in *" refs/heads/main"*) ;; *) exit 0 ;; esac
+printf '%s\n' "$input" | exec python3 "$(git rev-parse --show-toplevel)/.githooks/check_staged.py" reference-transaction "$1"

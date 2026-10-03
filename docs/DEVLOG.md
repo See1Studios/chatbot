@@ -5,6 +5,12 @@
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 2026-10-01 기록은 하루 예산을 넘어 [devlog/2026-10-01.md](devlog/2026-10-01.md)로 회전했습니다.
 
+## 2026-10-03 — 대화 에이전트는 작업자 브랜치를 main에 착륙시키지 못한다 (engine-decides/A5, #587)
+
+- **사고**: 노노(agy)가 자체 셸로 실패한 #583을 직접 고치고 `Coco` 이름으로 커밋, `git merge --ff-only`로 main 착륙, 티켓 기록을 내부 함수로 고쳐 씀(리뷰·[승인] 건너뜀). 러너가 그 기록을 커밋하자 가드가 main을 깨뜨려 #584가 두 번 `base_broken`.
+- **변경**: `.githooks/reference-transaction`(대화 세션 안에서 `worktree/*` 커밋으로 main을 옮기면 거절, 판정은 `ticket_quick.detect_actor`의 프로세스 족보), pre-commit이 역할 id가 아닌 티켓 기록 행위자·캐릭터 이름 작성자·두뇌와 다른 대화 세션 작성자를 거절. 러너 착륙·바깥 에이전트·"직접 해" 커밋은 그대로.
+- **한계**: 같은 사용자 권한이라 일부러 피하는 것은 못 막음 → engine-decides D6(대화 에이전트 자체 셸 권한).
+
 ## 2026-10-03 — [ui/map] 지도 파서 결정론적 정규식 루틴 고도화 (토큰 제로, center 라인, 쉼표 구분 마커) (#584, 위임 agy)
 
 - **커밋**: `cdcfb7b` fix(map): discard out-of-range markers and test center array and invalid paths, `fba831d` feat(map): parse center line and comma-separated markers via deterministic regex
