@@ -261,17 +261,7 @@ function attachFileLinkInterceptors(container) {
 
 function attachArtifactLinkInterceptors(container) {
   if (!container || typeof openArtifactModal !== 'function') return;
-  const isLocal = (h) => {
-    if (!h || h === '#') return false;
-    if (h.startsWith('/artifacts/') || h.startsWith('artifacts/')) return true;
-    try {
-      if (typeof window !== 'undefined' && window.location && window.location.origin) {
-        const u = new URL(h, window.location.origin);
-        return u.origin === window.location.origin && u.pathname.startsWith('/artifacts/');
-      }
-    } catch (_) {}
-    return false;
-  };
+  const isLocal = (h) => /^\/?artifacts\//i.test(h) || (typeof location !== 'undefined' && h.startsWith(location.origin + '/artifacts/'));
   container.querySelectorAll('a[href*="/artifacts/"]:not(.artifact-bound), a.artifact-link:not(.artifact-bound)').forEach(a => {
     const href = a.getAttribute('href') || '';
     if (!isLocal(href)) return;

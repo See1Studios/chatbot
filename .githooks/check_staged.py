@@ -54,7 +54,8 @@ def _clean_git_env():
     worktree and the guards must not inherit them, or they would read or write that index."""
     return {k: v for k, v in os.environ.items()
             if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE", "GIT_PREFIX", "GIT_OBJECT_DIRECTORY",
-                         "CHATBOT_ROOT", "AGY_CHAT_ROOT")}
+                         "CHATBOT_ROOT", "AGY_CHAT_ROOT", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE",
+                         "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL", "GIT_COMMITTER_DATE")}
 
 
 def run_guards_on_snapshot(root):
