@@ -68,6 +68,22 @@ class MapBlockParsing(unittest.TestCase):
         self.assertEqual(res["zoom"], 12)
         self.assertEqual(res["marker"], "Tokyo")
 
+    def test_parse_key_value_center_line(self):
+        raw = "center: 37.5665, 126.9780\nzoom: 14\nmarker: City Hall"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertEqual(res["lat"], 37.5665)
+        self.assertEqual(res["lon"], 126.9780)
+        self.assertEqual(res["zoom"], 14)
+        self.assertEqual(res["marker"], "City Hall")
+
+    def test_parse_json_center_key(self):
+        js = 'parseMapConfig(JSON.stringify({center: "37.5665, 126.9780", zoom: 14, marker: "Seoul"}))'
+        res = run_map_js(js)
+        self.assertEqual(res["lat"], 37.5665)
+        self.assertEqual(res["lon"], 126.9780)
+        self.assertEqual(res["zoom"], 14)
+        self.assertEqual(res["marker"], "Seoul")
+
     def test_invalid_coordinates(self):
         invalids = [
             "",
@@ -176,6 +192,54 @@ class MapBlockMultiMarker(unittest.TestCase):
         raw = '{"lat":37.5,"lon":127.0,"markers":[{"lat":37.55,"lon":126.97,"label":"Spot A"},{"lat":37.56,"lon":126.98,"label":"Spot B"}]}'
         html = run_map_js(f"renderMapBlock({json.dumps(raw)})")
         self.assertIn('Spot A \u00B7 Spot B', html)
+
+    def test_parse_kv_marker_comma_separated_coords_and_label(self):
+        raw = "lat: 37.5\nlon: 127.0\nmarker: 37.55, 126.97, Seoul Station"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(len(res["markers"]), 1)
+        self.assertEqual(res["markers"][0]["lat"], 37.55)
+        self.assertEqual(res["markers"][0]["lon"], 126.97)
+        self.assertEqual(res["markers"][0]["label"], "Seoul Station")
+
+    def test_parse_kv_marker_comma_in_label(self):
+        raw = "marker: 37.55, 126.97, Seoul Station, Exit 1, Main Plaza"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["lat"], 37.55)
+        self.assertEqual(res["lon"], 126.97)
+        self.assertEqual(len(res["markers"]), 1)
+        self.assertEqual(res["markers"][0]["label"], "Seoul Station, Exit 1, Main Plaza")
+        self.assertEqual(res["marker"], "Seoul Station, Exit 1, Main Plaza")
+
+    def test_parse_kv_center_with_multi_comma_markers(self):
+        raw = "center: 37.5665, 126.9780\nzoom: 15\nmarker: 37.55, 126.97, Place A\nmarker: 37.56, 126.98, Place B, Building 2"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["lat"], 37.5665)
+        self.assertEqual(res["lon"], 126.9780)
+        self.assertEqual(res["zoom"], 15)
+        self.assertEqual(len(res["markers"]), 2)
+        self.assertEqual(res["markers"][0]["lat"], 37.55)
+        self.assertEqual(res["markers"][0]["label"], "Place A")
+        self.assertEqual(res["markers"][1]["lat"], 37.56)
+        self.assertEqual(res["markers"][1]["label"], "Place B, Building 2")
+
+    def test_parse_kv_unknown_and_future_keys_isolated(self):
+        raw = "center: 37.5665, 126.9780\nbounds: 37.5, 126.9, 37.6, 127.0\nstyle: dark\nmarker: 37.55, 126.97, Seoul Station"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["lat"], 37.5665)
+        self.assertEqual(res["lon"], 126.9780)
+        self.assertEqual(len(res["markers"]), 1)
+        self.assertEqual(res["markers"][0]["label"], "Seoul Station")
+
+    def test_parse_kv_pipe_takes_precedence(self):
+        raw = "marker: 37.55, 126.97 | Label, with, commas"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(len(res["markers"]), 1)
+        self.assertEqual(res["markers"][0]["label"], "Label, with, commas")
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")

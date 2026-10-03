@@ -58,6 +58,18 @@ function parseMapConfig(text) {
       const o = JSON.parse(s);
       lat = parseFloat(o.lat ?? o.latitude);
       lon = parseFloat(o.lon ?? o.lng ?? o.longitude);
+      if ((isNaN(lat) || isNaN(lon)) && o.center != null) {
+        if (typeof o.center === 'string') {
+          const cm = o.center.trim().match(/^([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)$/);
+          if (cm) {
+            lat = parseFloat(cm[1]);
+            lon = parseFloat(cm[2]);
+          }
+        } else if (Array.isArray(o.center) && o.center.length >= 2) {
+          lat = parseFloat(o.center[0]);
+          lon = parseFloat(o.center[1]);
+        }
+      }
       if (o.zoom != null) zoom = parseInt(o.zoom, 10);
       marker = String(o.marker ?? o.text ?? o.label ?? o.title ?? '').trim();
       if (Array.isArray(o.markers)) {
@@ -81,6 +93,13 @@ function parseMapConfig(text) {
       const v = m[2].trim().replace(/^["']|["']$/g, '');
       if (k === 'lat' || k === 'latitude') lat = parseFloat(v);
       else if (k === 'lon' || k === 'lng' || k === 'longitude') lon = parseFloat(v);
+      else if (k === 'center') {
+        const cm = v.match(/^([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)$/);
+        if (cm) {
+          lat = parseFloat(cm[1]);
+          lon = parseFloat(cm[2]);
+        }
+      }
       else if (k === 'zoom') zoom = parseInt(v, 10);
       else if (/^(markers?|text|label|title)$/.test(k)) {
         const pipeIdx = v.indexOf('|');
@@ -98,12 +117,15 @@ function parseMapConfig(text) {
             marker = v;
           }
         } else {
-          const parts = v.split(/\s*,\s*/);
-          if (parts.length === 2 && !isNaN(parseFloat(parts[0])) && !isNaN(parseFloat(parts[1]))) {
-            const mLat = parseFloat(parts[0]);
-            const mLon = parseFloat(parts[1]);
-            if (mLat >= -90 && mLat <= 90 && mLon >= -180 && mLon <= 180) {
-              markers.push({ lat: mLat, lon: mLon, label: '' });
+          const mm = v.match(/^([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)(?:\s*,\s*(.*))?$/);
+          if (mm) {
+            const mLat = parseFloat(mm[1]);
+            const mLon = parseFloat(mm[2]);
+            if (!isNaN(mLat) && !isNaN(mLon) && mLat >= -90 && mLat <= 90 && mLon >= -180 && mLon <= 180) {
+              const lbl = (mm[3] || '').trim().replace(/^["']|["']$/g, '');
+              markers.push({ lat: mLat, lon: mLon, label: lbl });
+            } else {
+              marker = v;
             }
           } else {
             marker = v;
