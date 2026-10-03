@@ -3,13 +3,15 @@
  "approved_at": "2026-10-03 10:52:58",
  "approved_by": "operator (ui)",
  "attempts": 1,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-03 10:48:04",
  "evidence": [
   "event:20261003-103940-c25bd9#49"
  ],
  "gate_failures": 0,
  "id": 584,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -55,16 +57,31 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-584 at 78c772c (agy, review PASS round 2)",
    "ts": "2026-10-03 11:21:41"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-03 11:26:26"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged cdcfb7b on the operator's word (agy)",
+   "ts": "2026-10-03 11:28:59"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-03 11:28:59"
   }
  ],
  "paths": [
   "static/markdown-map.js",
   "tests/test_map_block.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/markdown-map.js,tests/test_map_block.py",
  "title": "[ui/map] 지도 파서 관용성 보강 (center 라인, 쉼표 구분 마커)",
  "unavailable": 2,
- "updated": "2026-10-03 11:21:41",
+ "updated": "2026-10-03 11:28:59",
  "worked_by": "agy"
 }

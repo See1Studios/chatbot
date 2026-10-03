@@ -5,6 +5,12 @@
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 2026-10-01 기록은 하루 예산을 넘어 [devlog/2026-10-01.md](devlog/2026-10-01.md)로 회전했습니다.
 
+## 2026-10-03 — [ui/map] 지도 파서 결정론적 정규식 루틴 고도화 (토큰 제로, center 라인, 쉼표 구분 마커) (#584, 위임 agy)
+
+- **커밋**: `cdcfb7b` fix(map): discard out-of-range markers and test center array and invalid paths, `fba831d` feat(map): parse center line and comma-separated markers via deterministic regex
+- **바뀐 파일**: `static/markdown-map.js`, `tests/test_map_block.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-03 — [ui/map] 모바일 동적 지도 고도화 v2 (다중 마커, 구글맵 길찾기 연동, 팝업 고도화, 모바일 전체화면) (#582, 위임 agy)
 
 - **커밋**: `32718f0` fix(ui): align single-marker coordinates and clean up fullscreen esc listener, `8a006fa` feat(ui): enhance mobile dynamic map v2 with multi-marker, google maps link, and fullscreen, `d5f4065` feat(map): multi-marker, Google Maps popup link, fullscreen toggle
