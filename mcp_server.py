@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
+import mcp_args
 import mcp_caller
 import obslog
 from host_config import EDITION  # edition-boundary: "shipped" hides dev tools and limits writes to user data
@@ -765,15 +766,19 @@ def _live_scope(grant: str) -> tuple:
 
 def _obs_tool_call(name: str, arguments: dict) -> dict:
     """call_tool + one mcp.call event (tool, args, duration, outcome). Tool calls are what the
-    agent actually did on the host, so each one is written; refusals are warn."""
+    agent actually did on the host, so each one is written; refusals are warn. The arguments first take the shape
+    the tool reads (mcp_args, engine-decides ed/A1); the event keeps what the model sent and names what was fixed."""
     t0 = time.monotonic()
-    out = call_tool(name, arguments)
+    schema = next((d for d in tool_defs() if d.get("name") == name), None)
+    fixed, changes = mcp_args.normalize(name, arguments, schema)
+    out = call_tool(name, fixed)
     ok = bool(out.get("success", False)) if isinstance(out, dict) else False
+    extra = {"fixed": changes} if changes else {}
     obslog.event("mcp.call", lvl="info" if ok else "warn", tool=name, ok=ok,
                  dur_ms=round((time.monotonic() - t0) * 1000, 1),
                  args={k: (v if isinstance(v, (int, float, bool)) or v is None else str(v)[:300])
                        for k, v in (arguments or {}).items()},
-                 msg="" if ok else str((out or {}).get("message") or "")[:300])
+                 msg="" if ok else str((out or {}).get("message") or "")[:300], **extra)
     return out
 
 

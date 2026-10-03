@@ -102,6 +102,21 @@ class Base(unittest.TestCase):
 
 @dev_only_bash
 class RunCommandTest(Base):
+    def test_a_wrapped_call_reaches_the_tool_and_the_event_names_the_fix(self):
+        # MCP_ARGS_v1 (engine-decides ed/A1): live 2026-09-23, {"Arguments": "{'cmd': ...}"} was refused as empty
+        events, orig = [], mcp.obslog.event
+        mcp.obslog.event = lambda evt, **f: events.append((evt, f))   # never the live log
+        try:
+            self.calls.clear()
+            r = mcp._obs_tool_call("run_command", {"Arguments": "{'cmd': 'ls -la /tmp'}", "ServerName": "nas",
+                                                   "ToolName": "run_command"})
+        finally:
+            mcp.obslog.event = orig
+        self.assertTrue(r["success"], r["message"])
+        self.assertEqual(self.calls, [["bash", "-lc", "ls -la /tmp"]])
+        self.assertEqual(events[0][1]["fixed"], ["unwrapped Arguments"])
+        self.assertIn("Arguments", events[0][1]["args"])          # the event keeps what the model sent
+
     def test_read_only_basics_run(self):
         for cmd in ("ls -la /tmp", "cat /etc/hostname", "head -n 3 x", "tail -n 3 x", "df -h",
                     "free -m", "ps aux", "du -sh .", "stat x", "pwd", "whoami", "date", "uname -a",
