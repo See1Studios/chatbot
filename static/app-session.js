@@ -458,6 +458,7 @@ async function resolveScrollbackFallback(sid, updatedAt, visited) {
 async function loadOlderHistory() {
   if (scrollbackLoading || scrollbackExhausted || !scrollbackSid) return;
   scrollbackLoading = true;
+  logEl.querySelectorAll('.scrollback-retry').forEach(n => n.remove());
   const marker = document.createElement('div');
   marker.className = 'msg scrollback-marker';
   marker.textContent = '이전 대화 불러오는 중…';
@@ -479,8 +480,17 @@ async function loadOlderHistory() {
       scrollbackVisited.add(scrollbackSid);
       let info;
       try {
-        info = await api('/api/sessions/' + encodeURIComponent(scrollbackSid) + '?full=1');
-      } catch (_) {
+        info = await api('/api/sessions/' + encodeURIComponent(scrollbackSid) + '?full=1', { timeoutMs: 60000 });
+      } catch (e) {
+        if (e && (e.name === 'AbortError' || e.name === 'TypeError')) {
+          // Slow or offline, not deleted: the session is busy (a handoff holds its lock). Routing around it here
+          // jumped to an unrelated older session (2026-10-03). Keep the link and try again on the next scroll.
+          scrollbackVisited.delete(scrollbackSid);
+          marker.textContent = '이전 대화를 아직 불러오지 못했습니다 · 위로 다시 스크롤하면 다시 시도합니다';   // l10n-ok
+          marker.classList.add('flow-line', 'scrollback-retry');
+          scrollbackLoading = false;
+          return;
+        }
         // This session was deleted (operator's new 🗑 삭제 button) -- route
         // around the dead link instead of aborting the whole scrollback.
         const fallback = await resolveScrollbackFallback(scrollbackSid, lastKnownTs, scrollbackVisited);
@@ -853,7 +863,8 @@ async function continueSession() {
     const model = modelEl.value;
     const res = await api('/api/sessions/' + encodeURIComponent(oldId) + '/continue', {
       method: 'POST',
-      body: JSON.stringify({ model })
+      body: JSON.stringify({ model }),
+      timeoutMs: CONTINUE_TIMEOUT_MS,
     });
     if (res && res.ok && res.session) {
       const nid = res.session.id;

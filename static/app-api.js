@@ -30,6 +30,10 @@ async function api(path, opts) {
   }
 }
 
+// The handoff summary is up to two model calls (agy /compact, then the dialogue fallback, 45 s each). Giving up at the
+// default 12 s made the page open an unlinked new session while the server still finished the linked one (2026-10-03).
+const CONTINUE_TIMEOUT_MS = 150000;
+
 async function maybeRedirectHardSession(id, info, depth) {
   depth = depth || 0;
   if (depth > 3) return null;
@@ -57,7 +61,8 @@ async function maybeRedirectHardSession(id, info, depth) {
     try {
       const res = await api('/api/sessions/' + encodeURIComponent(id) + '/continue', {
         method: 'POST',
-        body: JSON.stringify({ model: modelEl.value, sticky: true })
+        body: JSON.stringify({ model: modelEl.value, sticky: true }),
+        timeoutMs: CONTINUE_TIMEOUT_MS,
       });
       if (res && res.ok && res.session && res.session.id) {
         const nid = res.session.id;

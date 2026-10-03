@@ -93,7 +93,7 @@ class OneDividerStyle(unittest.TestCase):
         js = (STATIC / "app-session.js").read_text(encoding="utf-8")
         self.assertNotIn("'── 대화 시작", js)
         self.assertNotIn("'── 세션 ' + data.session.id", js)
-        self.assertEqual(js.count("flow-line"), 3)          # two history starts, one new conversation
+        self.assertEqual(js.count("flow-line"), 4)          # two history starts, one new conversation, one retry note
 
     def test_the_simple_density_drops_the_footer_rule(self):
         css = (STATIC / "chat-log.css").read_text(encoding="utf-8")
