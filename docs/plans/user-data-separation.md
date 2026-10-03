@@ -2,7 +2,7 @@
 
 > 방향 (align/D, 2026-09-28): **기반** — `~/.pe` 분리 — 개인화 레이어가 엔진 업데이트에 덮어써지지 않게 하는 전제
 
-> 상태: **active** (갱신 2026-10-03; 초안 2026-09-25) — 코드 기본값은 `~/.pe`다. 이 NAS는 비추적 `data-pin.env`의 `CHATBOT_DATA`로 기존 `data/`를 유지한다(`host_config.py`와 `chatbot-ctl.sh`가 읽고, `run-tests.sh`는 체크아웃 `data/`를 직접 넘긴다). 이전 도구와 새 `data/` 무시(개발 티켓 기록은 예외)는 들어갔다. 원격 이력에는 개인 데이터가 남아 있고 origin은 푸시하지 않으므로 이 계획은 열린 상태다.
+> 상태: **active** (갱신 2026-10-03; 초안 2026-09-25) — 코드 기본값은 `~/.pe`다. 이 NAS는 비추적 `data-pin.env`의 `CHATBOT_DATA`로 기존 `data/`를 유지한다(`host_config.py`와 `chatbot-ctl.sh`가 읽고, `run-tests.sh`는 체크아웃 `data/`를 직접 넘긴다). 이전 도구와 새 `data/` 무시(개발 티켓 기록은 예외)는 들어갔다. 원격 이력에는 개인 데이터가 남아 있고 origin은 푸시하지 않으므로 이 계획은 열린 상태다. 로컬 인덱스에는 `MEMORY.md`·`secrets.env`·세션이 없다(uds/C4). 인덱스에 남은 `data/`는 개발 티켓(C2)과 작업공간 거울·페르소나·캐릭터 자산(C3 보류, C5는 개발 설치에 유지)이라 추적 해제하지 않았다. 제품 파일은 루트 `VERSION`·`CHANGELOG.md`·`secrets.env.example`(자리표시만)이고, 코드는 `VERSION`을 읽지 않으며 `templates/secrets.env.example` 복사는 아직 아니다.
 > 선행 문서: [user-data-and-editing.md §1](user-data-and-editing.md)
 > 목적: 엔진 코드 저장소와 개인화 데이터(기억, 캐릭터, 세션, 비밀 등)의 물리적·논리적 완전 분리
 > 관련: [release-pipeline.md](release-pipeline.md) · [private-engine-brand.md](private-engine-brand.md) · [character-memory-adapter.md](character-memory-adapter.md) Q1–Q2 (Memory/`CHATBOT_DATA` 분류와 맞출 것) · [CONCEPT.md](../CONCEPT.md)

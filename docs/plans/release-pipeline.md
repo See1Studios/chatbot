@@ -13,13 +13,13 @@
 | 항목 | 메모 |
 |---|---|
 | 저장소 | **private** — PII·개인 기억·세션이 `data/`에 혼재. 공개 금지 |
-| 버전 | `VERSION` + `CHANGELOG` + git tag 관례 (도입·유지) |
-| 릴리스 노트 | `RELEASE.md` (또는 CHANGELOG와 역할 분담 명시) |
+| 버전 | 루트 `VERSION`(`0.0.0-dev`) + `CHANGELOG.md` (2026-10-03 도입). git tag는 아직 없다. 코드는 `VERSION`을 읽지 않는다 |
+| 릴리스 노트 | `RELEASE.md`는 아직 없다. 지금 변경 기록은 `CHANGELOG.md` |
 | 테스트 | `run-tests.sh` — 로컬/호스트 일관 진입점 |
 | 배포 검증 | `chatbot-ctl.sh repair` → smoke (의사 응답·기본 API) |
-| 비밀 템플릿 | `secrets.env.example` (실키 없음, git 추적) |
+| 비밀 템플릿 | 루트 `secrets.env.example` (실키 없음, git 추적, 2026-10-03). 부트스트랩 복사본 `templates/secrets.env.example`은 아직 없다 |
 
-※ Now 표는 **목표 관례**와 **이미 있는 조각**을 함께 적는다. 빠진 파일이 있으면 Next에서 채운다. 코드 착수 전에 본 문서·user-data-separation을 SSOT로 본다.
+※ 2026-10-03: `VERSION`·`CHANGELOG.md`·루트 `secrets.env.example`는 트리에 있다. `RELEASE.md`·git tag·`VERSION`을 읽는 코드는 없다. 원격 이력의 개인 데이터는 그대로라 푸시하지 않는다.
 
 ---
 
