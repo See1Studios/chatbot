@@ -74,12 +74,12 @@ Python 하한은 배포 방식과 함께 정한다(PP1).
 | `pp/A` | 이 문서 + INDEX 행 | 이 문서, `docs/plans/INDEX.md` | 커밋 | 0 · — | S | — | ✅ #394 |
 | `pp/B` | OS 전용 기능 래칫 | `tests/test_ratchets.py`, 기준선 파일 | 표의 기능이 새로 늘면 실패, 줄면 기준선 낮춤 | 2 · — | S | — | ✅ #394 (13개 파일 52줄) |
 | `pp/C` | FIREBAT 실측 1차(읽기만): Python·git·node·두뇌 CLI 유무와 버전, 저장소 사본에서 테스트 전체를 돌려 실패 목록 | 이 문서 §6 | 실패 목록과 원인 분류 | 0 · — | S | — | ✅ #394 (§6.1: 93/143) |
-| `pp/D` | `platform_compat` 모듈 + 첫 이전(파일 잠금) — 첫 수로 `pty` import 이전 ✅ #395 | 새 모듈, `obslog.py`, `evolution.py` | Windows에서 잠금 테스트 통과, 래칫 기준선 하락 | 3 · ⚡ | M | pp/B, pp/C | 대기 |
-| `pp/E` | 프로세스 관리 이전(종료·생존·분리 실행) | `session.py`, `server.py`, `delegation.py` 등 | 같음 | 3 · ⚡ | M | pp/D | 대기 |
+| `pp/D` | `platform_compat` 모듈 + 첫 이전(파일 잠금) — 첫 수로 `pty` import 이전 ✅ #395 | 새 모듈, `obslog.py`, `evolution.py` | Windows에서 잠금 테스트 통과, 래칫 기준선 하락 | 3 · ⚡ | M | pp/B, pp/C | ✅ #395 #397 #398 |
+| `pp/E` | 프로세스 관리 이전(종료·생존·분리 실행) | `session.py`, `server.py`, `delegation.py` 등 | 같음 | 3 · ⚡ | M | pp/D | #403 경로, #405 이름·줄바꿈, #407 bash 표시, #409 배타 바인딩, #411 Windows 테스트. 종료·생존·분리 실행 이전은 대기 |
 | `pp/F` | CI 매트릭스(Windows·macOS·Linux) + 알려진 실패 래칫 | `.github/workflows/` | 세 OS에서 돌고, 알려진 실패 목록이 늘지 않음 | 2 · — | M | PP3 | 워크플로 #416(9/29 push). **첫 실행(9/29, Linux): 146개 중 144개 통과**, 실패 2개는 이 NAS의 옆 서비스(`../nas-mcp`, `*-ctl.sh`)를 전제한 테스트 → `nas_host_only` 표시로 NAS 밖에서는 건너뜀(#444, `tests/_platform.py`). **운영자 2026-09-30: GitHub의 Windows·macOS 실행과 push는 보류, 당분간 Windows 검증은 FIREBAT에서만**. 알려진 실패 래칫은 Windows·macOS 첫 결과가 생긴 뒤 |
 | `pp/G` | Python 런처(배포판 시작·중지·상태) | 새 파일, release-pipeline과 합침 | Windows에서 런처로 켜고 대화 1턴 | 2 · — | M | pp/E, PP1 | 대기 |
 | `pp/I` | 스팀덱 실측(실기 또는 SteamOS VM): 데스크톱 모드·게임 모드에서 설치, 두뇌 연결, 화면 1280×800, 게임패드·화상 키보드 | 이 문서 §6 | 실측 기록과 DK1 결정 근거 | 0 · — | S | pp/G | 대기 |
-| `pp/J` ✅ #396 | 의존성 선언: Pillow(NAS 10.4.0, 하한은 3.8·3.12 둘 다 되는 버전)를 `requirements.txt`에, 새 가상환경에서 `import` 전수 검사하는 테스트 | `requirements.txt`, 테스트 | 빈 가상환경 + requirements만으로 엔진 모듈 전부 import | 2 · — | S | — | 대기 |
+| `pp/J` ✅ #396 | 의존성 선언: Pillow(NAS 10.4.0, 하한은 3.8·3.12 둘 다 되는 버전)를 `requirements.txt`에, 새 가상환경에서 `import` 전수 검사하는 테스트 | `requirements.txt`, 테스트 | 빈 가상환경 + requirements만으로 엔진 모듈 전부 import | 2 · — | S | — | 완료 |
 | `pp/K` | 바이너리 빌드 시험(PP4): Nuitka로 서버 하나를 Windows(FIREBAT)·Linux에서 빌드해 켜고 대화 1턴, 크기·시작 시간·빠진 리소스 기록. macOS는 CI 러너에서 빌드만 + 서명·공증 절차 조사 | 새 빌드 스크립트, 이 문서 §6 | 두 OS에서 바이너리로 1턴, macOS 빌드 성공, 서명 절차 메모 | 2 · — | M | pp/E, pp/J | 대기 |
 | `pp/L` | 필터링 프로그램(AdGuard 등)과의 공존: 브라우저 ↔ PE를 AdGuard 켠 채 FIREBAT에서 확인, 재현되면 화면 요청 재시도(멱등만)·오류 안내·설치 안내 | `static/`(요청 공통부), 안내 문서 | AdGuard 켠 FIREBAT에서 대화·결정 버튼이 실패 없이 동작하거나 분명한 안내 | 2 · — | S | — | 대기 |
 | `pp/H` | FIREBAT 실기 체크리스트(설치 → 대화 → 두뇌 연결) | 이 문서 | 체크리스트 전 항목 통과 기록 | 0 · — | S | pp/G | 대기 |

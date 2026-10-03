@@ -103,7 +103,7 @@
 
 | ID | 항목 | 주요 변경 경로 (`paths`) | 수용 기준 (DoD) | Tier | 크기 | 티켓 |
 |---|---|---|---|---|---|---|
-| `grh/A` | **단체방 헤더 아바타 및 카드 스택 연출** | `static/app-rooms.js`<br>`static/rooms.css`<br>`tests/test_rooms_page.py` | 단체방 진입 시 상단 헤더 아바타에 카드 스택 연출 적용, 최근 발화 캐릭터 얼굴로 갱신, 1:1 복귀 시 캐릭터 아바타 복원 | Tier 2 | S | 대기 |
+| `grh/A` | **단체방 헤더 아바타 및 카드 스택 연출** | `static/app-rooms.js`<br>`static/rooms.css`<br>`tests/test_rooms_page.py` | 단체방 진입 시 상단 헤더 아바타에 카드 스택 연출 적용, 최근 발화 캐릭터 얼굴로 갱신, 1:1 복귀 시 캐릭터 아바타 복원 | Tier 2 | S | 완료 |
 | `grh/B` | **헤더 타이틀 및 기척(Presence) 동기화** | `static/app-rooms.js`<br>`static/rooms.css`<br>`tests/test_rooms_page.py` | 평상시 멤버 수 및 목록 표시, 발화 턴(busy) 중 "○○ 작성 중…" 및 펄스 점 표시, 긴 방 이름 말줄임표 및 툴팁 | Tier 2 | S | 대기 |
 | `grh/C` | **단체방 정보 서랍 (Room Profile / Drawer) 패널** | `static/app-rooms.js`<br>`static/shell.css`<br>`static/rooms.css`<br>`tests/test_rooms_page.py` | 헤더 클릭 시 우측 단체방 정보 패널 오픈, 참여 멤버 목록 및 1:1 이동 버튼, 발언 모드 설정, 멤버 추가, 방 나가기 지원 | Tier 2 | M | 대기 |
 | `grh/D` | **모바일 반응형 최적화 및 헤더 툴바 액션 마감** | `static/rooms.css`<br>`static/shell.css`<br>`tests/test_shell_page.py` | 모바일 폭에서 뒤로가기·헤더 타이틀·우측 메뉴 간격 및 터치 영역 확보, 모바일 서랍 바텀시트 전환, 기존 가드 테스트 통과 | Tier 2 | S | 대기 |
