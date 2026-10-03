@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import evolution  # noqa: E402
 
-CODE_DIRS = ["", "providers"]   # folders of host code; add one here when you make it
+CODE_DIRS = ["", "providers", "tools"]   # folders of host code; add one here when you make it
 
 
 class CodeLayout(unittest.TestCase):
@@ -32,7 +32,7 @@ class CodeLayout(unittest.TestCase):
         fast = re.search(r"^FAST=\((.*?)^\)", (ROOT / "run-tests.sh").read_text(encoding="utf-8"), re.S | re.M)
         paths = ["tests/%s.py" % m for m in fast.group(1).split()]
         paths += ["run-tests.sh", ".githooks/pre-commit", ".githooks/check_staged.py", "AGENTS.md", "CLAUDE.md",
-                  "GEMINI.md"]
+                  "GEMINI.md", "tools/worktree_runner.py", "tools/review_checklist.py"]   # the runner and its verdict
         for rel in paths:
             self.assertEqual(evolution.delegation_tier(ROOT, rel)[0], 3,
                              "%s must be listed under governance in protected_paths.json" % rel)

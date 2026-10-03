@@ -22,6 +22,7 @@ export CHATBOT_DATA="$PWD/data"
 FAST=(
   test_docs_budget
   test_code_layout
+  test_code_map
   test_file_sizes
   test_provider_neutrality
   test_no_trace

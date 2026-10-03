@@ -4,6 +4,7 @@
   "protect": [
     "*.py",
     "providers/",
+    "tools/",
     "__pycache__/",
     "chatbot-ctl.sh",
     "protected_paths.json",
@@ -41,6 +42,7 @@
   "volatile": [
     "__pycache__/",
     "providers/__pycache__/",
+    "tools/__pycache__/",
     "tests/__pycache__/",
     "tests/*/__pycache__/",
     ".githooks/__pycache__/",
@@ -113,6 +115,10 @@
       "reason": "the delegation gatekeeper"
     },
     {
+      "path": "tools/review_checklist.py",
+      "reason": "how the delegation gatekeeper asks for and reads a review verdict (split from worktree_runner)"
+    },
+    {
       "path": "data/workspace/AGENTS.md",
       "reason": "the charter"
     },
@@ -174,6 +180,10 @@
     },
     {
       "path": "tests/test_code_layout.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "tests/test_code_map.py",
       "reason": "a guard test (run-tests.sh FAST)"
     },
     {

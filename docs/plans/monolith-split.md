@@ -215,6 +215,22 @@ Phase 0–5는 **크기**를 다뤘다. 이 단계는 그 규칙이 통과하는
 |---|---|---|---|
 | D1 | 크기 상한을 ① 파일 **바이트**(파이썬 80,000, 화면 스크립트·스타일 43,000 — 당시 1,500줄·1,000줄의 크기)와 ② 파이썬 **함수 80줄**로 잰다. 넘은 것은 지금 값이 천장이고 내려가기만 한다(래칫 유지). ③ 위임 러너가 티켓마다 대상 파일 크기·소요 시간·결과를 남겨 다음 숫자를 데이터로 정한다 — ✅ #543: 실행 상태 파일(`~/.worktrees/chatbot/runs/ticket-N.json`)의 `target_bytes`(시작 때 대상 파일별 바이트)·`started`·`ended_<결과>`(`tools/worktree_runner.py::path_bytes`) | 목적은 "가벼운 모델이 한 번에 읽고 고치나": 읽는 비용은 토큰(≈ 바이트), 고치는 단위는 함수. 근거였던 #113은 대상 파일을 잘못 짚은 실패가 섞인 한 건(원인은 `session.py`). 줄 상한의 부작용: #515가 무관한 줄을 지움, #503이 서버 필드 대신 글 속 인용을 고름 | 운영자, 2026-10-01 (#530) |
 
+### 6.8 `split/H` 구조 감사 (2026-10-04, #617, 운영자 전권)
+
+실측: 지도(AGENTS.md 코드 지도)에 없는 코드 파일이 루트 모듈 11 · `tools/` 7 · `static/` 30여 개였고, `tools/`가 보호 목록 밖이었다(위임 게이트의 판정 읽기 `tools/review_checklist.py`, 서버가 불러 쓰는 `tools/st_import.py`·`tools/card_gen.py`까지 Tier 0). `tools/worktree_runner.py`는 상한까지 31바이트.
+
+| 한 일 | 결과 |
+|---|---|
+| `tools/` 보호, `tools/review_checklist.py` 거버넌스 | `test_code_layout`이 `tools`를 코드 폴더로 보고, 러너·판정 읽기를 통과 조건으로 검사 |
+| 지도 채움 + 집행자 | `test_code_map`(FAST): 루트·`providers/`·`tools/`·`static/`의 추적 파일은 지도에 이름이 있어야 함 |
+| 러너 여유 | 작업자 출력 읽기(`said`·`report`·`learned`)를 `tools/worker_output.py`로, 사용법 docstring 영어화(원칙 0). 79,969 → 약 77,700바이트 |
+
+폴더 재배치(`core/`·`sessions/`·`team/`·`ops/`)는 운영자 결정으로 계속 보류(2026-10-04 재확인). 남은 일:
+
+- `tools/worktree_runner.py::cmd_run` 282줄 — 단계별 함수로 나누기(가장 큰 함수 부채). 테스트가 `wr.workspace_dir`를 바꿔 끼우므로, 전문가 기억(`remember` 등)을 옮길 때는 그 갈고리부터 정리.
+- `session.py` 상한까지 약 1KB — #605(인계 대사)가 끝난 뒤 다음 분리 대상.
+- 티켓 경로 검사(`tickets.py::_ship_blockers`)가 데이터 폴더(`~/.pe`)의 git 저장소 = 홈 저장소를 본다: 맨 이름 경로(`AGENTS.md`)는 엔진이 아니라 `~/AGENTS.md`로 검사되어, 엔진 파일의 미커밋 잔여물은 못 잡고 홈 파일 때문에 엉뚱하게 거절된다. 우회: `services/chatbot/<경로>`로 claim. 고치는 쪽은 `tickets.py`(거버넌스)라 별도 티켓.
+
 ## 검증 방법 (매 Phase 공통)
 
 `py_compile`/`node --check` → `chatbot-ctl.sh guard` → (코어면) 실장님 ⚡소생

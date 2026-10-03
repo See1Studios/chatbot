@@ -1,46 +1,50 @@
 #!/usr/bin/env python3
-"""worktree_runner.py: 티켓 하나를 Git Worktree 격리 환경에서 외부 CLI 에이전트에게 외주 주고,
-검증 게이트와 PD 캐릭터의 확인(Confirm)을 통과한 결과만 메인 브랜치에 fast-forward 병합한다
-(docs/plans/multi-agent-worktree-delegation.md 마일스톤 2, §8 콤비 리뷰).
+"""worktree_runner.py: hand one ticket to an external CLI agent in an isolated git worktree, and fast-forward onto
+main only what passed the gates and the PD character's confirmation
+(docs/plans/multi-agent-worktree-delegation.md milestone 2, §8 paired review).
 
-사용법:
-  python3 tools/worktree_runner.py run --provider claude --title "작업 제목" \\
-      --paths "tickets.py,tests/test_tickets.py" --prompt "지시문..." \\
+Usage:
+  python3 tools/worktree_runner.py run --provider claude --title "title" \\
+      --paths "tickets.py,tests/test_tickets.py" --prompt "brief..." \\
       [--gate "python3 tests/test_tickets.py"] [--evidence log:fp:<fp>] [--timeout 1200] \\
       [--reviewer claude] [--reviewer-model haiku] [--rounds 2] [--no-review] [--stop-before-merge] [--keep] [--json]
 
-  # Tier 2: --stop-before-merge로 멈춘 티켓을 사용자 말로 병합 (merge-go 전달 -> 필요 시 rebase + 게이트 재실행 -> ff 병합)
-  python3 tools/worktree_runner.py merge --ticket 61 [--token <merge_go가 준 토큰>] [--keep] [--json]
+  # Tier 2: land a ticket stopped by --stop-before-merge on the operator's word
+  # (relays merge-go -> rebase and rerun the gates if needed -> ff merge)
+  python3 tools/worktree_runner.py merge --ticket 61 [--token <token from merge_go>] [--keep] [--json]
 
-  # 비정상 종료로 남은 worktree/브랜치 정리
+  # remove a worktree/branch left by an abnormal exit
   python3 tools/worktree_runner.py cleanup --ticket 61
 
-흐름 (run):
-  0. Tier 판정 (protected_paths.json via evolution.delegation_tier): Tier 3(governance, 이번 게이트가 돌리는 파일)은
-     거부, Tier 2(protected)는 --stop-before-merge 강제, 그 외는 게이트·리뷰 통과 시 자동 병합.
-     실제로 바뀐 파일도 매 라운드 같은 기준으로 다시 본다(디렉터리 경로로 Tier 3 파일을 끼워 넣지 못하게).
-  1. ticket-quick start  -> TICKET_ID, CLAIM_TOKEN (승인 + 클레임, 대상 경로가 메인에서 clean해야 함)
+Flow (run):
+  0. Tier (protected_paths.json via evolution.delegation_tier): Tier 3 (governance, files this run's gates execute) is
+     refused, Tier 2 (protected) forces --stop-before-merge, anything else merges itself once gates and review pass.
+     The files actually changed are checked the same way every round (no slipping a Tier 3 file in via a directory).
+  1. ticket-quick start -> TICKET_ID, CLAIM_TOKEN (approve + claim; the target paths must be clean on main)
   2. git worktree add -b worktree/ticket-<ID> ~/.worktrees/chatbot/ticket-<ID> <main HEAD>
-  3. 라운드 (최대 --rounds):
-     a. 전문가(data/workspace/characters/<id>/ 캐릭터, 역할로 찾음)가 헤드리스로 작업·커밋하고 캐릭터 대사 한마디를 남긴다
-        (미커밋 변경은 러너가 대신 커밋, 커밋 author는 제공자 신원)
-     b. 기계 게이트: 커밋 존재 -> 범위(--paths 밖 변경 금지) -> 리스 연장 -> 메인 최신화(rebase)
-        -> 가드 테스트(run-tests.sh FAST) + smoke + 변경 파일 관련 테스트 (DEFAULT_GATES, related_gate) + --gate 명령들
-     c. PD(pd 역할을 가진 캐릭터)가 diff(또는 게이트 실패)를 보고 확인: VERDICT + 대사 + 수정 요청
-     d. 게이트 통과 + PASS면 종료, 아니면 수정 요청을 들고 다음 라운드
-  4. 통과: 메인에서 git merge --ff-only -> ticket-quick done -> worktree/브랜치 정리
-     --stop-before-merge(Tier 2): 병합 대신 ticket-quick await-merge (리스 해제), worktree/브랜치는 남긴다
-     탈락: 병합 없음 -> ticket-quick fail (gate_failed | failed) -> worktree/브랜치 정리 (--keep이면 보존)
-       정리 전 브랜치 헤드는 refs/attic/ticket-<ID>에 남는다; 같은 티켓의 다음 run --from-attic이 거기서 시작한다
-       (첫 작업의 확인 diff는 그 작업 전체를 본다). 병합되면 attic 참조는 지운다.
-     PD 확인 불가(모든 PD 두뇌가 한도·시간 초과): 브랜치를 남기고, 다음 --plan-from-state 실행이 통과한 작업은 건너뛰고
-     멈춘 작업의 게이트·확인부터 이어 간다.
-  5. 티켓 기록(tickets/<ID>.json)만 메인에 커밋한다 (chore(tickets): close #ID | #ID <outcome>)
-  두 캐릭터의 주고받은 대사는 ~/.worktrees/chatbot/transcripts/에 남는다.
-  실행 상태(단계·라운드·대사·병합에 필요한 설정)는 ~/.worktrees/chatbot/runs/ticket-<ID>.json에 원자적으로 쓴다.
+  3. Rounds (at most --rounds):
+     a. The expert (a character in data/workspace/characters/<id>/, found by role) works headless, commits and
+        leaves one in-character line (the runner commits leftovers; the author is the provider's identity)
+     b. Machine gates: a commit exists -> scope (nothing outside --paths) -> lease renewed -> rebase on main
+        -> guard tests (run-tests.sh FAST) + smoke + tests related to the changed files (DEFAULT_GATES,
+        related_gate) + the --gate commands
+     c. The PD (the character holding the pd role) reads the diff (or the gate failure) and confirms:
+        VERDICT + a line + requested fixes
+     d. Gates green and PASS ends it; otherwise the next round carries the requested fixes
+  4. Pass: git merge --ff-only on main -> ticket-quick done -> worktree/branch removed
+     --stop-before-merge (Tier 2): ticket-quick await-merge instead of merging (lease released); worktree/branch stay
+     Fail: no merge -> ticket-quick fail (gate_failed | failed) -> worktree/branch removed (kept with --keep)
+       Before removal the branch head is kept at refs/attic/ticket-<ID>; the same ticket's next run --from-attic
+       starts there (the first task's confirm diff sees all of it). The attic ref is dropped once merged.
+     PD cannot confirm (every PD brain at its limit or timed out): the branch stays, and the next --plan-from-state
+     run skips the tasks that passed and resumes the stopped task's gates and confirmation.
+  5. Only the ticket record (tickets/<ID>.json) is committed on main (chore(tickets): close #ID | #ID <outcome>)
+  The two characters' exchange is kept in ~/.worktrees/chatbot/transcripts/.
+  Run state (step, round, lines, the settings a merge needs) is written atomically to
+  ~/.worktrees/chatbot/runs/ticket-<ID>.json.
 
-라이브 호스트는 재시작하지 않는다. 호스트 모듈이 바뀌었으면 유휴 확인 후 `chatbot-ctl.sh repair`로 배포한다.
-표준 라이브러리만 사용한다.
+The live host is never restarted. When a host module changed, deploy with `chatbot-ctl.sh repair` once idle.
+Standard library only.
 """
 from __future__ import annotations
 
@@ -55,8 +59,9 @@ import sys
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: devlog_entry, review_checklist
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: devlog_entry, review_checklist, worker_output
 import run_usage  # noqa: E402  -- each CLI call's tokens (token-economy T6)
+from worker_output import LEARNED_RULE, LINE_RULE, REPORT_LIMIT, learned, report, said  # noqa: E402,F401
 from review_checklist import (  # noqa: E402
     DIFF_LIMIT, deleted_lines, doc_review_prompt, fit_diff, is_doc_task, parse_review, review_prompt, with_code_checklist,
 )
@@ -353,9 +358,6 @@ def drop_attic(repo: Path, ticket_id: int) -> None:
 STAFF_RELATION = "You are one of the experts; %s delegated this work to you and confirms it before it ships."
 PD_RELATION = "You delegated this work; %s is the expert who did it. You confirm it or send it back."
 
-LINE_RULE = ("At the very end of your final message, write a line containing only `---`, then one or two short "
-             "sentences in character, spoken to your partner, about what you did.")
-
 
 _NEED_PATH = re.compile(r"^\s*NEED_PATH:\s*(\S+)\s*(?:--|—|-|:)?\s*(.*)$", re.M)
 
@@ -403,27 +405,10 @@ def writer_prompt(tid: int, title: str, branch: str, wt_dir: Path, paths: List[s
 
 # ------------------------------------------------------------ expert memory
 # Each expert keeps a short memory (characters/<id>/memory.md, plan doc §11 step 4): it reads it before a task and may
-# end its output with LEARNED lines; the lessons of a task are kept only when the PD confirmed it (PASS).
+# end its output with LEARNED lines (worker_output.learned); the lessons of a task are kept only when the PD confirmed it (PASS).
 
-LEARNED_RULE = ("If you learned something worth remembering for future work here (about this project, the user's "
-                "preferences, or how to work in this repository), put one short line starting with `LEARNED:` just "
-                "before the `---` line. Skip it when there is nothing new.")
-_LEARNED = re.compile(r"^\s*\**LEARNED\**\s*:\s*\**\s*(.+?)\s*$", re.I)
-_SECRETISH = re.compile(r"(api[_-]?key|secret|password|passwd|token|bearer|sk-[A-Za-z0-9]{8,}|-----BEGIN)", re.I)
 MEMORY_CAP = 2048
 MEMORY_HEAD = "# Memory\n"
-
-
-def learned(text: str) -> List[str]:
-    """The LEARNED lessons in an agent's output: short, not secret-looking."""
-    out = []
-    for ln in (text or "").splitlines():
-        m = _LEARNED.match(ln)
-        if m and not _SECRETISH.search(m.group(1)):
-            lesson = re.sub(r"\s+", " ", m.group(1)).strip()[:200]
-            if lesson and lesson not in out:
-                out.append(lesson)
-    return out
 
 
 def character_id(role: str) -> Optional[str]:
@@ -476,30 +461,6 @@ def retry_prompt(feedback: str, full: Optional[str]) -> str:
     parts += ["Your producer sent the branch back. Fix it, commit again, same rules as before.",
               feedback, LINE_RULE, LEARNED_RULE]
     return "\n".join(parts)
-
-
-def said(text: str) -> str:
-    """The in-character line after the last `---` of an agent's output (or its last lines); LEARNED lines left out."""
-    lines = [ln for ln in (text or "").strip().splitlines() if not _LEARNED.match(ln)]
-    for i in range(len(lines) - 1, -1, -1):
-        if lines[i].strip() == "---":
-            return "\n".join(lines[i + 1:]).strip()[:500]
-    return "\n".join(lines[-2:]).strip()[:500]
-
-
-REPORT_LIMIT = 4000
-
-
-def report(text: str, limit: int = REPORT_LIMIT) -> str:
-    """The worker's final message before its last `---` line (the report the PD reviews), its end kept; LEARNED
-    lines left out. said() is only the short in-character line after it."""
-    lines = [ln for ln in (text or "").strip().splitlines() if not _LEARNED.match(ln)]
-    for i in range(len(lines) - 1, -1, -1):
-        if lines[i].strip() == "---":
-            lines = lines[:i]
-            break
-    body = "\n".join(lines).strip()
-    return body if len(body) <= limit else "…" + body[-limit:]
 
 
 # What a delegated agent inherits from this process: the basics a CLI needs, never the host's secrets

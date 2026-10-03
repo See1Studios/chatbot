@@ -199,7 +199,8 @@ class CoworkerVisits(unittest.TestCase):
             p.start()
         self.kit = FakeSession("s-kit")
         self.reg = FakeReg({self.b: self.kit})
-        self.cfg = R.clean({"auto": ["msg.new"], "per_hour": 5, "quiet": [0, 8]})
+        # visits, not quiet hours (Reactions covers those): these turns run on the clock, which must not decide
+        self.cfg = R.clean({"auto": ["msg.new"], "per_hour": 5, "quiet": [0, 0]})
         self.once()                                            # first sight: sets the cursor
 
     def tearDown(self):
