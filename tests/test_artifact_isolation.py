@@ -717,6 +717,164 @@ run();
         self.assertTrue(out["codeSupported"], "code artifact must be previewed via code/text viewer")
         self.assertTrue(out["urlNormalized"], "string URL artifact must be normalized and opened in modal")
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_binary_url_no_text_fetch(self):
+        """Opening a .pdf or .mp4 URL must NOT trigger a text fetch; it should
+        fall through to the unsupported-format message instead."""
+        import subprocess
+        js = r"""
+const fs = require('fs');
+const artSrc = fs.readFileSync(process.argv[1], 'utf8');
+const vm = require('vm');
+
+let fetchCalled = false;
+function makeEl(tag) {
+  const attrs = {}, classes = new Set(), children = [];
+  return {
+    tagName: tag.toUpperCase(), style: {}, children,
+    innerHTML: '', textContent: '',
+    appendChild: (c) => { children.push(c); return c; },
+    classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c) },
+    addEventListener: () => {},
+    setAttribute: (k, v) => { attrs[k] = v; },
+    getAttribute: (k) => attrs[k] || null,
+    removeAttribute: (k) => { delete attrs[k]; },
+  };
+}
+
+const modalBodyEl = makeEl('div');
+const artModalEl = makeEl('div');
+const ctx = {
+  console,
+  document: {
+    getElementById: (id) => {
+      if (id === 'artModal') return artModalEl;
+      if (id === 'modalBody') return modalBodyEl;
+      return makeEl('div');
+    },
+    createElement: (tag) => makeEl(tag),
+    querySelectorAll: () => []
+  },
+  addEventListener: () => {},
+  copyText: async () => true,
+  resolveArtifactUrl: (u) => u,
+  fetch: async (u) => { fetchCalled = true; return { ok: true, text: async () => 'SHOULD NOT BE CALLED' }; },
+};
+ctx.window = ctx;
+vm.createContext(ctx);
+vm.runInContext(artSrc, ctx);
+
+async function run() {
+  const results = {};
+
+  fetchCalled = false;
+  await ctx.openArtifactModal('/artifacts/sess_1/report.pdf');
+  results.pdfFetchCalled = fetchCalled;
+  results.pdfUnsupported = modalBodyEl.innerHTML.includes('미리보기를 지원하지 않는');
+
+  fetchCalled = false;
+  await ctx.openArtifactModal('/artifacts/sess_1/clip.mp4');
+  results.mp4FetchCalled = fetchCalled;
+  results.mp4Unsupported = modalBodyEl.innerHTML.includes('미리보기를 지원하지 않는');
+
+  fetchCalled = false;
+  await ctx.openArtifactModal('/artifacts/sess_1/archive.zip');
+  results.zipFetchCalled = fetchCalled;
+  results.zipUnsupported = modalBodyEl.innerHTML.includes('미리보기를 지원하지 않는');
+
+  // Verify text files still DO trigger fetch
+  fetchCalled = false;
+  await ctx.openArtifactModal('/artifacts/sess_1/notes.txt');
+  results.txtFetchCalled = fetchCalled;
+  results.txtUnsupported = modalBodyEl.innerHTML.includes('미리보기를 지원하지 않는');
+
+  console.log(JSON.stringify(results));
+}
+run();
+"""
+        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "artifacts.js")], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout.strip())
+        self.assertFalse(out["pdfFetchCalled"], ".pdf must NOT trigger text fetch")
+        self.assertTrue(out["pdfUnsupported"], ".pdf should show unsupported format message")
+        self.assertFalse(out["mp4FetchCalled"], ".mp4 must NOT trigger text fetch")
+        self.assertTrue(out["mp4Unsupported"], ".mp4 should show unsupported format message")
+        self.assertFalse(out["zipFetchCalled"], ".zip must NOT trigger text fetch")
+        self.assertTrue(out["zipUnsupported"], ".zip should show unsupported format message")
+        self.assertTrue(out["txtFetchCalled"], ".txt SHOULD trigger text fetch")
+        self.assertFalse(out["txtUnsupported"], ".txt should NOT show unsupported format message")
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_merge_preserves_server_metadata(self):
+        """When currentArtifacts has a match, server-supplied kind and name must
+        win over client-guessed values from the URL click."""
+        import subprocess
+        js = r"""
+const fs = require('fs');
+const artSrc = fs.readFileSync(process.argv[1], 'utf8');
+const vm = require('vm');
+
+function makeEl(tag) {
+  const attrs = {}, classes = new Set(), children = [];
+  return {
+    tagName: tag.toUpperCase(), style: {}, children,
+    innerHTML: '', textContent: '',
+    appendChild: (c) => { children.push(c); return c; },
+    classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c) },
+    addEventListener: () => {},
+    setAttribute: (k, v) => { attrs[k] = v; },
+    getAttribute: (k) => attrs[k] || null,
+    removeAttribute: (k) => { delete attrs[k]; },
+  };
+}
+
+const modalBodyEl = makeEl('div');
+const artModalEl = makeEl('div');
+const ctx = {
+  console,
+  document: {
+    getElementById: (id) => {
+      if (id === 'artModal') return artModalEl;
+      if (id === 'modalBody') return modalBodyEl;
+      return makeEl('div');
+    },
+    createElement: (tag) => makeEl(tag),
+    querySelectorAll: () => []
+  },
+  addEventListener: () => {},
+  copyText: async () => true,
+  resolveArtifactUrl: (u) => u,
+  fetch: async (u) => ({ ok: true, text: async () => '# fetched content' }),
+};
+ctx.window = ctx;
+vm.createContext(ctx);
+vm.runInContext(artSrc, ctx);
+
+// Populate currentArtifacts with server-supplied metadata
+ctx.currentArtifacts = [
+  { url: '/artifacts/sess_1/analysis.md', name: 'Server Analysis Report', kind: 'document', ext: 'md', is_text: true, size_human: '2.1KB' },
+];
+
+async function run() {
+  // Simulate a link click that passes only { url, name: undefined }
+  await ctx.openArtifactModal({ url: '/artifacts/sess_1/analysis.md', name: undefined });
+  const art = ctx.activeModalArtifact;
+  const results = {
+    name: art.name,
+    kind: art.kind,
+    sizeHuman: art.size_human,
+  };
+  console.log(JSON.stringify(results));
+}
+run();
+"""
+        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "artifacts.js")], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout.strip())
+        # Server metadata must survive the merge
+        self.assertEqual(out["name"], "Server Analysis Report", "server name must win over undefined click name")
+        self.assertEqual(out["kind"], "document", "server kind must be preserved")
+        self.assertEqual(out["sizeHuman"], "2.1KB", "server size_human must be preserved")
 
 if __name__ == "__main__":
     unittest.main()

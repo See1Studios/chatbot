@@ -101,6 +101,9 @@ function attachCodeCopyButtons(container) {
 }
 
 function highlightCodeIn(container) {
+  // Gated to isFinal only (like renderMermaidIn) -- re-highlighting on every
+  // streaming delta would re-run hljs over the whole block on each tick and
+  // can momentarily mis-highlight code that's still mid-fence.
   if (!container) return;
   const blocks = container.querySelectorAll('pre code:not(.hljs)');
   if (!blocks.length) return;
@@ -113,6 +116,10 @@ function highlightCodeIn(container) {
     if (!pre || pre.classList.contains('mermaid') || pre.closest('.mermaid-wrap')) return;
     try {
       hljs.highlightElement(block);
+      // Read the language back off the class hljs itself just set --
+      // covers both an explicit ```lang fence and hljs's own auto-detection,
+      // so the badge is always accurate instead of only showing up for
+      // explicitly-labeled fences.
       const m = block.className.match(/language-([\w+-]+)/);
       if (m && !pre.querySelector('.code-lang')) {
         const tag = document.createElement('span');
@@ -505,22 +512,8 @@ function truncateChoiceLabel(s, max = CHOICE_LABEL_MAX) {
 
 function parseChoiceItem(item) {
   const maxLabel = typeof CHOICE_LABEL_MAX !== 'undefined' ? CHOICE_LABEL_MAX : 28;
-  const truncate = (s) => (typeof truncateChoiceLabel === 'function'
-    ? truncateChoiceLabel(s, maxLabel)
-    : (String(s || '').trim().length <= maxLabel ? String(s || '').trim() : String(s || '').trim().slice(0, maxLabel - 1) + '…'));
-  const unwrapParens = typeof stripOuterParens === 'function' ? stripOuterParens : (s) => {
-    let out = String(s || '').trim();
-    while (out.length >= 2 && out[0] === '(' && out[out.length - 1] === ')') {
-      let depth = 0, balanced = true;
-      for (let i = 0; i < out.length; i++) {
-        if (out[i] === '(') depth++;
-        else if (out[i] === ')') { depth--; if ((depth === 0 && i !== out.length - 1) || depth < 0) { balanced = false; break; } }
-      }
-      if (!balanced || depth !== 0) break;
-      out = out.slice(1, -1).trim();
-    }
-    return out;
-  };
+  const truncate = (s) => truncateChoiceLabel(s, maxLabel);
+  const unwrapParens = stripOuterParens;
 
   if (item && typeof item === 'object') {
     const rawLabel = String(item.label || '').trim();
@@ -979,7 +972,12 @@ function renderMarkdown(src, isFinal) {
   return renderPlainText(raw);
 }
 
-// PLAIN_RENDER_v1: escaping plus inline forms without marked.
+// PLAIN_RENDER_v1: escaping plus the inline forms -- bold, italics, inline and fenced code, images,
+// links, line breaks -- with no markdown parse and no sanitiser pass. It is what the whole page
+// falls back to when marked is unavailable, and it is also cheap enough to run on every frame of a
+// stream, so a reply can look like its finished self while it is still arriving instead of showing
+// raw **syntax** and then snapping to rendered markdown. Escaping first is what makes it safe to
+// inject: nothing that was not produced by the rules below survives into the DOM.
 function renderPlainText(raw) {
   function _esc(s) {
     return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

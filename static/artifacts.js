@@ -318,25 +318,43 @@ function renderModalTextContent(isMd) {
   }
 }
 
+// Unified helper: extract name/ext/kind from a URL string. Known text/code extensions get
+// is_text: true for fetch preview; binary formats (video, audio, pdf, archive, etc.) get
+// their own kind and is_text: false so the viewer never tries to fetch them as text.
+function inferArtifactFromUrl(url) {
+  let name;
+  try { name = decodeURIComponent((url || '').split('?')[0].split('/').pop() || 'artifact'); }
+  catch (_) { name = (url || '').split('?')[0].split('/').pop() || 'artifact'; }
+  const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+  const el = ext.toLowerCase();
+  if (/^(png|jpe?g|gif|webp|svg|ico|bmp|tiff?)$/i.test(el)) return { name, ext, kind: 'image', is_text: false };
+  if (/^(mp4|webm|mov|avi|mkv|flv|wmv|m4v|3gp)$/i.test(el)) return { name, ext, kind: 'video', is_text: false };
+  if (/^(mp3|wav|ogg|flac|aac|wma|m4a|opus)$/i.test(el)) return { name, ext, kind: 'audio', is_text: false };
+  if (el === 'pdf') return { name, ext, kind: 'pdf', is_text: false };
+  if (/^(zip|tar|gz|bz2|7z|rar|xz|zst|tgz|whl|egg|deb|rpm)$/i.test(el)) return { name, ext, kind: 'other', is_text: false };
+  if (/^(exe|dll|so|dylib|bin|dat|img|iso|dmg|wasm)$/i.test(el)) return { name, ext, kind: 'other', is_text: false };
+  if (/^(py|js|mjs|ts|tsx|jsx|gd|sh|sql|css|html|java|c|cpp|h|hpp|rs|go|rb|php|swift|kt|scala|r|lua|pl|zig)$/i.test(el)) return { name, ext, kind: 'code', is_text: true };
+  if (/^(json|jsonl|ya?ml|toml|ini|cfg|conf|xml|csv|txt|md|rst|log|env|properties|editorconfig|gitignore|dockerignore|makefile)$/i.test(el)) return { name, ext, kind: 'document', is_text: true };
+  // Unknown extension: treat as other (binary-safe) — no text fetch
+  if (el) return { name, ext, kind: 'other', is_text: false };
+  // No extension at all: assume text document
+  return { name, ext: '', kind: 'document', is_text: true };
+}
+
 async function openArtifactModal(item) {
   if (!item || !artModal) return;
   if (typeof item === 'string') {
     const url = item;
-    const name = decodeURIComponent(url.split('?')[0].split('/').pop() || 'artifact');
-    const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
-    const isImg = /^(png|jpe?g|gif|webp|svg)$/i.test(ext);
-    const isCode = /^(py|js|ts|gd|sh|sql|css|json|html|jsx|tsx|ya?ml)$/i.test(ext);
-    item = { name, url, kind: isImg ? 'image' : (isCode ? 'code' : 'document'), is_text: !isImg, ext };
+    item = { url, ...inferArtifactFromUrl(url) };
   } else if (item && typeof item === 'object' && !item.kind && item.url) {
-    const name = item.name || decodeURIComponent(item.url.split('?')[0].split('/').pop() || 'artifact');
-    const ext = item.ext || (name.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
-    const isImg = /^(png|jpe?g|gif|webp|svg)$/i.test(ext);
-    const isCode = /^(py|js|ts|gd|sh|sql|css|json|html|jsx|tsx|ya?ml)$/i.test(ext);
-    item = { ...item, name, ext, kind: isImg ? 'image' : (isCode ? 'code' : 'document'), is_text: !isImg };
+    const inferred = inferArtifactFromUrl(item.url);
+    // Keep caller-supplied name/ext if present; fill gaps from inference
+    item = { ...inferred, ...item, kind: item.kind || inferred.kind, is_text: inferred.is_text };
+    if (!item.ext) item.ext = inferred.ext;
   }
   if (item && item.url && typeof currentArtifacts !== 'undefined' && Array.isArray(currentArtifacts)) {
     const match = currentArtifacts.find(a => a && (a.url === item.url || (typeof resolveArtifactUrl === 'function' && resolveArtifactUrl(a.url) === resolveArtifactUrl(item.url))));
-    if (match) item = { ...match, ...item };
+    if (match) item = { ...item, ...match };
   }
   activeModalArtifact = item;
   modalCurrentText = '';
