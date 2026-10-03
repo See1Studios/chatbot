@@ -7,7 +7,7 @@
  "evidence": [
   "event:20261003-121544-7f8fc4#4"
  ],
- "gate_failures": 2,
+ "gate_failures": 3,
  "id": 590,
  "merge_approved_by": "operator (ui)",
  "notes": [
@@ -90,6 +90,16 @@
    "by": "agent:agy",
    "text": "failed: worktree agy: the waiting worktree or branch worktree/ticket-590 is gone",
    "ts": "2026-10-03 15:28:46"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-03 15:29:47"
+  },
+  {
+   "by": "agent:agy",
+   "text": "gate_failed: worktree agy: gate failed: ./run-tests.sh test_block_kinds test_btw_order test_bubble_position test_character_picker test_choices_channel test_client_device_context test_composer_height test_latest_conversation_jump test_lease_ui test_model_picker test_notice_swipe test_observation_ui test_private_toggle test_provider_sync test_served_model test_session_character_filter test_sse_resync_dedupe test_status_picker test_streaming_text test_tab_chrome test_work_status test_worktree_runne",
+   "ts": "2026-10-03 15:32:49"
   }
  ],
  "paths": [
@@ -103,6 +113,6 @@
  "target": "static/app-speech.js,static/chat-composer.css,static/chat-responsive.css,static/",
  "title": "[voice/stt] 컴포저 마이크 실시간 음성 입력 (Web Speech API STT)",
  "unavailable": 2,
- "updated": "2026-10-03 15:28:46",
+ "updated": "2026-10-03 15:32:49",
  "worked_by": "agy"
 }
