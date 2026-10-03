@@ -19,29 +19,37 @@ class LinkDevWorkspace(unittest.TestCase):
         self.addCleanup(shutil.rmtree, str(self.tmp), True)
         self.dev = self.tmp / "dev"
         for rel, text in (("AGENTS.md", "charter"), ("roles/dev/ROLE.md", "role"), ("PROJECT.md", "map"),
-                          ("docs/guide.md", "guide")):
+                          ("docs/guide.md", "guide"), ("roles/lead/ROLE.md", "lead"), ("SELF-MODIFY.md", "bounds")):
             (self.dev / rel).parent.mkdir(parents=True, exist_ok=True)
             (self.dev / rel).write_text(text, encoding="utf-8")
         self.data = self.tmp / "pe"
         self.ws = self.data / "workspace"
         (self.ws / "roles" / "dev").mkdir(parents=True)
         (self.ws / "AGENTS.md").write_text("charter", encoding="utf-8")            # an equal copy
-        (self.ws / "roles" / "dev" / "ROLE.md").write_text("edited", encoding="utf-8")  # a copy someone changed
+        (self.ws / "roles" / "dev" / "ROLE.md").write_text("edited", encoding="utf-8")  # the user's own pack
+        (self.ws / "roles" / "lead").mkdir()
+        (self.ws / "roles" / "lead" / "ROLE.md").symlink_to(self.dev / "roles" / "lead" / "ROLE.md")   # linked before
+        (self.ws / "SELF-MODIFY.md").write_text("changed", encoding="utf-8")       # an engine file someone changed
         (self.ws / "PROJECT.md").symlink_to(self.tmp / "elsewhere.md")             # a link to the wrong place
         (self.ws / "team.json").write_text("{}", encoding="utf-8")                 # user data: never touched
 
     def test_the_plan_names_each_case(self):
         self.assertEqual(L.plan(self.data, self.dev), [("link", "AGENTS.md"), ("relink", "PROJECT.md"),
-                                                       ("link", "docs/guide.md"), ("backup", "roles/dev/ROLE.md")])
+                                                       ("backup", "SELF-MODIFY.md"), ("link", "docs/guide.md"),
+                                                       ("ok", "roles/dev/ROLE.md"), ("copy", "roles/lead/ROLE.md")])
 
-    def test_apply_links_everything_and_keeps_a_changed_copy(self):
+    def test_apply_links_engine_files_and_leaves_role_packs_the_users(self):
         backup = L.apply(self.data, L.plan(self.data, self.dev), self.dev, stamp="t")
-        for rel in ("AGENTS.md", "PROJECT.md", "docs/guide.md", "roles/dev/ROLE.md"):
+        for rel in ("AGENTS.md", "PROJECT.md", "docs/guide.md", "SELF-MODIFY.md"):
             p = self.ws / rel
             self.assertTrue(p.is_symlink(), rel)
             self.assertEqual(p.resolve(), (self.dev / rel).resolve(), rel)
-        self.assertEqual((backup / "roles" / "dev" / "ROLE.md").read_text(encoding="utf-8"), "edited")
-        self.assertEqual(sorted(p.name for p in backup.rglob("*") if p.is_file()), ["ROLE.md"])
+        self.assertEqual((backup / "SELF-MODIFY.md").read_text(encoding="utf-8"), "changed")
+        self.assertEqual(sorted(p.name for p in backup.rglob("*") if p.is_file()), ["SELF-MODIFY.md"])
+        dev_pack, lead_pack = self.ws / "roles" / "dev" / "ROLE.md", self.ws / "roles" / "lead" / "ROLE.md"
+        self.assertFalse(dev_pack.is_symlink() or lead_pack.is_symlink(), "role packs are user data, like art")
+        self.assertEqual(dev_pack.read_text(encoding="utf-8"), "edited", "the user's own pack is kept")
+        self.assertEqual(lead_pack.read_text(encoding="utf-8"), "lead", "a linked pack becomes the user's copy")
         self.assertEqual((self.ws / "team.json").read_text(encoding="utf-8"), "{}")
         self.assertEqual({a for a, _ in L.plan(self.data, self.dev)}, {"ok"}, "a second run has nothing to do")
 
