@@ -48,7 +48,8 @@ function planFlow(items, nowMs, lang) {
 }
 
 function flowMessages(log) {
-  return Array.from(log.children).filter(n => n.classList.contains('msg')
+  // a hidden message (a coworker dm waiting for scrollback, app-office.js officeFit) opens no day of its own
+  return Array.from(log.children).filter(n => n.classList.contains('msg') && !n.hidden
     && !n.classList.contains('scrollback-marker') && !n.classList.contains('day-divider'));
 }
 

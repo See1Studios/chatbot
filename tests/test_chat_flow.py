@@ -89,6 +89,19 @@ class Density(unittest.TestCase):
 class OneDividerStyle(unittest.TestCase):
     """#421: the chat had four kinds of lines; the time and history markers now share the day divider's look."""
 
+    def test_a_hidden_message_opens_no_day(self):
+        # 2026-10-04: a coworker dm hidden until scrollback reaches it still left its "어제" divider in place
+        src = (STATIC / "app-flow.js").read_text(encoding="utf-8")
+        body = src[src.index("function flowMessages("):src.index("function applyFlow(")]
+        js = ("const src = require('fs').readFileSync(process.argv[1], 'utf8');"
+              "eval(src.slice(src.indexOf('function flowMessages('), src.indexOf('function applyFlow(')));"
+              "const m = (h) => ({ hidden: h, classList: { contains: c => c === 'msg' } });"
+              "console.log(flowMessages({ children: [m(false), m(true), m(false)] }).length);")
+        out = subprocess.run(["node", "-e", js, str(STATIC / "app-flow.js")], capture_output=True, text=True, timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "2")
+        self.assertIn("!n.hidden", body)
+
     def test_no_marker_draws_its_line_in_text(self):
         js = (STATIC / "app-session.js").read_text(encoding="utf-8")
         self.assertNotIn("'── 대화 시작", js)
