@@ -1,5 +1,13 @@
 # chatbot 개발로그
 
+## 2026-10-03 — 인수인계: 데이터 분리·관계 기억
+
+- **데이터**: 사용자 데이터는 `~/.pe`에 있다. 이 NAS의 pin은 `CHATBOT_DATA=/var/services/homes/me/.pe`이고, 저장소 `data/`는 gitignore 대상이다. `95c1526` tip의 추적 데이터 파일은 0개다. `~/.pe`를 삭제하지 말고 개인 캐릭터 본문을 git에 넣지 않는다.
+- **이력**: 로컬 이력은 재작성되어 force-push됐다. `origin/main`은 확인된 순서가 `8156908 → 95c1526 → e1f7dc0`이므로 오래된 SHA를 전제로 작업하지 않는다.
+- **릴리스**: `VERSION=0.0.0-dev`, `CHANGELOG.md`, `secrets.env.example`, `docs/RELEASE.md`, 로컬 태그 `v0.0.0-dev`가 있다.
+- **관계 기억**: `e1f7dc0`의 어댑터는 사적 턴에 `characters/<id>/relationship.md`의 진행·약속·선호·금기를 짧은 `[Relationship]` 블록으로 넣는다. `character-memory-adapter` 계획은 `active`이며 암호화와 메모리 UI는 아직 없다. Grok overlay는 짧아졌고 `RENDER_PROTOCOL`은 평탄화하지 않았다.
+- **라이브 상태**: `e1f7dc0` 뒤 라이브 프로세스는 재시작하지 않아 옛 프롬프트를 사용한다. 반영하려면 `chatbot-ctl.sh repair`가 필요하다.
+
 2026-09-28 기록은 하루 40KB 예산에 도달해 [devlog/2026-09-28.md](devlog/2026-09-28.md)로 회전했습니다.
 2026-09-29 기록도 같은 이유로 [devlog/2026-09-29.md](devlog/2026-09-29.md)로 회전했습니다.
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
