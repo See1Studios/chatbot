@@ -156,3 +156,40 @@ def normalize(name: str, args: Optional[Dict], schema: Optional[Dict]) -> Tuple[
     args = _shape(args, props, changes)
     args = _action(name, args, actions, changes)
     return args, changes
+
+
+def fill_evidence(name: str, args: Dict, verify, error, latest) -> Tuple[Dict, str]:
+    """ENGINE_DECIDES_A4 (engine-decides ed/A4): a ticket proposal or a plan keeps the evidence that exists; when
+    none does, it carries the operator's latest message in the calling session (`latest()`). Models wrote evidence
+    in the wrong form or named candidates that never were (27 refusals, 2026-09-23..10-03). `verify(ref)` raises
+    `error` for a ref that is not there. (args, a note for the agent -- "" when nothing changed)."""
+    if not ((name == "ticket" and args.get("action") == "propose")
+            or (name == "delegate" and args.get("action") in ("plan", "start"))):
+        return args, ""
+    given = args.get("evidence")
+    refs = [given] if isinstance(given, str) else [r for r in (given or []) if isinstance(r, str)]
+    good, bad = [], []
+    for ref in refs:
+        try:
+            verify(ref)
+            good.append(ref)
+        except error:
+            bad.append(ref[:60])
+    dropped = "; dropped, not found or malformed: %s" % ", ".join(bad) if bad else ""
+    if good:
+        return ({**args, "evidence": good}, "evidence: kept %d%s" % (len(good), dropped)) if bad else (args, "")
+    ref = latest()
+    if not ref:
+        return args, ""
+    return {**args, "evidence": [ref]}, "evidence: the operator's latest message %s%s" % (ref, dropped)
+
+
+def prepare(name: str, args: Optional[Dict], schema: Optional[Dict], core=None, data=None,
+            latest=None) -> Tuple[Dict, List[str], str]:
+    """normalize, then fill_evidence when the ticket core (its verify_evidence over `data`) and the calling
+    session's request (`latest`) are at hand: (arguments, what was changed, a note for the agent)."""
+    fixed, changes = normalize(name, args, schema)
+    if core is None or latest is None:
+        return fixed, changes, ""
+    fixed, note = fill_evidence(name, fixed, lambda ref: core.verify_evidence(data, ref), core.TicketError, latest)
+    return fixed, changes + (["evidence filled"] if note else []), note

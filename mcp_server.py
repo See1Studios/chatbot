@@ -765,20 +765,20 @@ def _live_scope(grant: str) -> tuple:
 
 
 def _obs_tool_call(name: str, arguments: dict) -> dict:
-    """call_tool + one mcp.call event (tool, args, duration, outcome). Tool calls are what the
-    agent actually did on the host, so each one is written; refusals are warn. The arguments first take the shape
-    the tool reads (mcp_args, engine-decides ed/A1); the event keeps what the model sent and names what was fixed."""
+    """call_tool, its arguments first in the tool's shape (mcp_args: ed/A1, A4), + one mcp.call event; refusals warn."""
     t0 = time.monotonic()
-    schema = next((d for d in tool_defs() if d.get("name") == name), None)
-    fixed, changes = mcp_args.normalize(name, arguments, schema)
+    fixed, changes, note = mcp_args.prepare(name, arguments, next((d for d in tool_defs() if d.get("name") == name), None),
+                                            getattr(mcp_core, "tickets", None), DATA,
+                                            delegation and (lambda: delegation.latest_request_ref(caller_session_id(guess=True))))
     out = call_tool(name, fixed)
     ok = bool(out.get("success", False)) if isinstance(out, dict) else False
-    extra = {"fixed": changes} if changes else {}
+    if note and isinstance(out, dict):
+        out["message"] = "%s (%s)" % (out.get("message") or "", note)
     obslog.event("mcp.call", lvl="info" if ok else "warn", tool=name, ok=ok,
                  dur_ms=round((time.monotonic() - t0) * 1000, 1),
                  args={k: (v if isinstance(v, (int, float, bool)) or v is None else str(v)[:300])
                        for k, v in (arguments or {}).items()},
-                 msg="" if ok else str((out or {}).get("message") or "")[:300], **extra)
+                 msg="" if ok else str((out or {}).get("message") or "")[:300], **({"fixed": changes} if changes else {}))
     return out
 
 

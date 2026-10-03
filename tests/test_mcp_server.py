@@ -117,6 +117,38 @@ class RunCommandTest(Base):
         self.assertEqual(events[0][1]["fixed"], ["unwrapped Arguments"])
         self.assertIn("Arguments", events[0][1]["args"])          # the event keeps what the model sent
 
+    def test_evidence_the_tool_cannot_find_becomes_the_operator_s_latest_message(self):
+        # ENGINE_DECIDES_A4: live 2026-09-23..10-03, 27 proposals and plans refused on malformed or invented evidence
+        from unittest import mock
+        core = mcp.mcp_core.tickets
+
+        def verify(data, ref):
+            if ref != "event:s-1#2":
+                raise core.TicketError("evidence not found: %s" % ref)
+        seen = []
+
+        def fill(name, args):   # what _obs_tool_call hands the tool, and the note it appends
+            got = {}
+            with mock.patch.object(mcp, "call_tool", lambda n, a: got.update(a) or {"success": True, "message": "ok"}), \
+                    mock.patch.object(mcp.obslog, "event", lambda *a, **k: None):
+                out = mcp._obs_tool_call(name, args)
+            return got, out["message"][len("ok ("):-1] if out["message"] != "ok" else ""
+        with mock.patch.object(core, "verify_evidence", verify), \
+                mock.patch.object(mcp, "caller_session_id", lambda guess=False: "s-1"), \
+                mock.patch.object(mcp.delegation, "latest_request_ref", lambda sid="": seen.append(sid) or "event:s-1#9"):
+            args, note = fill("ticket", {"action": "propose", "evidence": ["candidate:123"]})
+            self.assertEqual(args["evidence"], ["event:s-1#9"])
+            self.assertIn("candidate:123", note)
+            self.assertEqual(seen, ["s-1"])                       # the calling session, not the one on screen
+            args, note = fill("delegate", {"action": "plan", "evidence": "event:s-1#2"})
+            self.assertEqual((args["evidence"], note), (["event:s-1#2"], ""))   # good evidence is kept
+            args, note = fill("delegate", {"action": "plan", "evidence": ["event:s-1#2", "x"]})
+            self.assertEqual(args["evidence"], ["event:s-1#2"])
+            self.assertIn("dropped", note)
+            args, note = fill("delegate", {"action": "plan"})
+            self.assertEqual(args["evidence"], ["event:s-1#9"])
+            self.assertEqual(fill("ticket", {"action": "list"}), ({"action": "list"}, ""))
+
     def test_read_only_basics_run(self):
         for cmd in ("ls -la /tmp", "cat /etc/hostname", "head -n 3 x", "tail -n 3 x", "df -h",
                     "free -m", "ps aux", "du -sh .", "stat x", "pwd", "whoami", "date", "uname -a",

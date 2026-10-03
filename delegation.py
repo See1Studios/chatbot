@@ -747,14 +747,16 @@ def delegation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tup
 
 # ----------------------------------------------------------------- the `delegate` tool (served by mcp_server)
 
-def latest_request_ref() -> Optional[str]:
-    """`event:<session>#<line>` of the operator's latest message in the live session: the evidence a
-    delegation started on the operator's request carries when the agent gives none. None when unknown."""
+def latest_request_ref(sid: str = "") -> Optional[str]:
+    """`event:<session>#<line>` of the operator's latest message in session `sid` -- the one that made the call
+    (mcp_caller; engine-decides ed/A4) -- or, without one, the session on screen: the evidence a delegation started
+    on the operator's request carries when the agent gives none it can back. None when unknown."""
     try:
-        import urllib.request
-        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
-        with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
-            sid = str(json.loads(r.read().decode("utf-8") or "{}").get("id") or "")
+        if not sid:
+            import urllib.request
+            port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
+            with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
+                sid = str(json.loads(r.read().decode("utf-8") or "{}").get("id") or "")
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid):
             return None
         last = 0

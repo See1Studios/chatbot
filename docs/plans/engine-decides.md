@@ -79,7 +79,7 @@ agy는 가끔 인자를 `{"Arguments": "<파이썬 dict 문자열>", "ToolName":
 - 엔진(#587): 판정은 이름이 아니라 프로세스 족보(`tools/ticket_quick.py::detect_actor`, 있던 장치)로. ① `.githooks/reference-transaction`: PE 대화 세션 안에서 위임 작업자 브랜치(`worktree/*`)에 있는 커밋으로 main을 옮기면 거절. 러너의 정식 착륙(호스트가 띄움), 바깥 에이전트, 대화 에이전트의 "직접 해" 커밋은 그대로. ② pre-commit: 행위자가 역할 id가 아닌 티켓 기록은 거절(러너가 고쳐 쓴 기록을 커밋하려 해도 걸림 → main이 깨지지 않음). ③ pre-commit: 작성자가 캐릭터 이름이면 거절, 대화 세션 안에서는 작성자가 그 두뇌의 이름(러너 표 `tools/worktree_runner.py::PROVIDERS`)이어야 함.
 - 한계: 같은 사용자 권한이라 우회는 막지 못함(`-c core.hooksPath=…`, 체리픽으로 새 커밋 만들기, 내부 함수로 기록 쓰기 자체). 실수와 관성은 막고, 일부러 피하는 것은 못 막는다. 근본은 개발판에서 대화 에이전트의 자체 셸 권한을 줄이는 것 — 방향 결정(D6).
 
-**ed/A4 evidence 채우기 (`ticket`·`delegate`)** — P2 · S
+**ed/A4 evidence 채우기 (`ticket`·`delegate`)** — 끝남(#591, `mcp_args.fill_evidence`). 함께 고침: 기본 근거(`delegation.latest_request_ref`)가 화면의 세션이 아니라 도구를 부른 세션을 봄
 - 지금: `delegate`는 비었을 때만 운영자의 마지막 말로 채움. 형식이 틀리면 거절, `ticket`은 비면 거절.
 - 흔적: 27건(형식·없음·지어낸 `candidate:` id).
 - 엔진: 비었거나 형식이 틀리면 운영자의 마지막 말로 채우고 결과에 한 줄로 알림. 지어낸 후보 id는 실제 후보 목록을 돌려줌.
@@ -161,7 +161,7 @@ agy는 가끔 인자를 `{"Arguments": "<파이썬 dict 문자열>", "ToolName":
 | 1b | ~~**ed/A5** 커밋·착륙 주체~~ | 끝남 #587 | S | 실제로 main을 깨뜨림 |
 | 2 | **ed/B2** 이동 제안 칩 | 형식 오류 0, 쿨다운 보장 | S–M | B1과 독립(지금 도구로도 동작). D3만 정하면 됨 |
 | 3 | **ed/B1** 애정 턴 엔진 판정 + `_live_scope` | 사생활 누수 차단, 두뇌별 민감도 차이 제거 | M | 원칙의 중심. D1 결정 필요. `_live_scope`는 먼저 떼어 고칠 수 있음 |
-| 4 | ed/A4 evidence · ed/B4 위임 모양 · ed/D2 | 실패 약 60건 | S·M·S | 위임 실패의 나머지 |
+| 4 | ~~ed/A4 evidence~~(#591) · ed/B4 위임 모양 · ed/D2 | 실패 약 60건 | S·M·S | 위임 실패의 나머지 |
 | 5 | ed/A2 경로 · ed/A3 명령 모양 · ed/C4 지도 후속 | 실패 약 60건 + 지도 안 뜸 | S·S·S | 단순, 보안 경계 그대로 |
 | 6 | ed/B3 선택지 한 채널 + 사적 대체 | 사적 누락 4.5% → 0 | M | D2·D4 결정 뒤 |
 | 7 | ed/B5 · ed/C1 · ed/C2 | 작음 | S | 측정 뒤 |

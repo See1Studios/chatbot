@@ -581,6 +581,9 @@ class LiveRequestRefTest(unittest.TestCase):
         with mock.patch.object(delegation, "DATA", data), \
                 mock.patch("urllib.request.urlopen", return_value=Resp(b'{"id": "../x"}')):
             self.assertIsNone(delegation.latest_request_ref())
+        with mock.patch.object(delegation, "DATA", data), \
+                mock.patch("urllib.request.urlopen", side_effect=AssertionError("asked the screen")):
+            self.assertEqual(delegation.latest_request_ref("s-1"), "event:s-1#4")   # the caller's own session
 
 
 if __name__ == "__main__":
