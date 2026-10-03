@@ -347,8 +347,8 @@ class ObservationUiTest(unittest.TestCase):
     def test_the_same_buttons_sit_above_the_composer_while_a_ticket_waits(self):
         o = self.out
         self.assertFalse(o["bar"]["hidden"])
-        self.assertEqual(o["bar"]["titles"], ["#1 <img src=x onerror=alert(1)>", "#2 T2", "#3 T3"])   # text, never markup
-        self.assertEqual(o["bar"]["buttons"], [["승인+진행", "실행", "승인", "폐기"], ["진행", "실행", "폐기"], ["재개"]])
+        self.assertEqual(o["bar"]["titles"], ["#1 <img src=x onerror=alert(1)>", "#2 T2"])   # text, never markup; parked stays off the bar
+        self.assertEqual(o["bar"]["buttons"], [["승인+진행", "실행", "승인", "폐기"], ["진행", "실행", "폐기"]])
         self.assertEqual((o["barFill"], o["barCalls"] >= 1, o["barFocused"]), ("", True, False))   # acts directly, nothing typed (#145)
         self.assertEqual(o["barMany"]["chips"], 3)
         self.assertEqual(o["barMany"]["more"], ["+2건 더 (개선 탭)"])
