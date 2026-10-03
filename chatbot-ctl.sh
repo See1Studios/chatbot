@@ -9,9 +9,20 @@ export PATH="$HOME_DIR/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 # looked for ~/services/server.py and failed every run from 2026-09-23 19:07 to 2026-09-24 13:30).
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 CODE="${CODE:-$SCRIPT_DIR}"
-# uds/B: the data dir follows the same order as host_config.DATA_ENV; default unchanged ($CODE/data) until the
-# shipped default moves to ~/.pe (user-data-separation). Exported below so every child agrees.
-DATA="${CHATBOT_DATA:-${PE_HOME:-${PRIVATEENGINE_HOME:-${AGY_CHAT_DATA:-$CODE/data}}}}"
+# uds/F: same order as host_config.DATA_ENV. Unset -> data-pin.env (literal CHATBOT_DATA) -> ~/.pe.
+# Do not hardcode $CODE/data. Exported here so the log resolver and every child agree with host_config.
+# DATA_RESOLVE_START
+if [ -z "${CHATBOT_DATA:-}" ] && [ -z "${PE_HOME:-}" ] && [ -z "${PRIVATEENGINE_HOME:-}" ] && [ -z "${AGY_CHAT_DATA:-}" ]; then
+  if [ -f "$CODE/data-pin.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . "$CODE/data-pin.env"
+    set +a
+  fi
+fi
+DATA="${CHATBOT_DATA:-${PE_HOME:-${PRIVATEENGINE_HOME:-${AGY_CHAT_DATA:-${HOME:-$HOME_DIR}/.pe}}}}"
+# DATA_RESOLVE_END
+export CHATBOT_ROOT="$CODE" CHATBOT_DATA="$DATA"
 # API-Provider plan: API-key-based adapters (e.g. omniroute) read credentials
 # from os.environ, not a config file -- server.py is git-tracked, so the key
 # must never be hardcoded into it. This is the one place that env lives:

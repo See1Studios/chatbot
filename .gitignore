@@ -16,6 +16,8 @@ data/standby.pid
 data/secrets.env
 # align/F: per-install settings (host plugin, web root) -- never committed
 data/host.env
+# Dev checkout pin: literal CHATBOT_DATA so the shipped ~/.pe default does not move this install (uds/F).
+data-pin.env
 # per-host account observation state (accounts.py watch_loop)
 data/account_state.json
 # worktree delegation: which work cards the operator has seen (delegation.py)

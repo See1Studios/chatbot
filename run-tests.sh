@@ -12,6 +12,11 @@
 # split/A the whole suite also passes in one process. Exit status is 0 only when every module passed.
 set -uo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" || exit 2
+# uds/F: shipped default data is ~/.pe. This runner is a dev checkout and must not create or read that
+# directory. Keep the suite on the repo data/ unless the caller already chose a data dir.
+if [ -z "${CHATBOT_DATA:-}" ] && [ -z "${PE_HOME:-}" ] && [ -z "${PRIVATEENGINE_HOME:-}" ] && [ -z "${AGY_CHAT_DATA:-}" ]; then
+  export CHATBOT_DATA="$PWD/data"
+fi
 
 # Guard tests: cheap, no network, no live service. They keep structure rules (docs, layout,
 # neutrality, sizes) from rotting. Add a new guard test here in the same change that creates it.

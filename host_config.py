@@ -22,12 +22,39 @@ ROOT = Path(_env("CHATBOT_ROOT", "AGY_CHAT_ROOT", str(Path(__file__).resolve().p
 # own separate git repos) into chatbot/data/ -- one project, one folder, one
 # repo, instead of code and data living apart and needing separate publish
 # subtrees to back up together.
-# The user-data directory, decided HERE only (user-data-separation §0, uds/B; test_data_paths): the first of these
-# that is set, else the repo's data/ (the shipped default becomes ~/.pe later, in one line). PE_HOME and
-# PRIVATEENGINE_HOME are brand aliases; AGY_CHAT_DATA is the legacy name. tickets.py (a core module, which may not
-# import this one) repeats the same order; the test keeps the two identical.
+# The user-data directory, decided HERE only (user-data-separation §0, uds/B, uds/F; test_data_paths): the first
+# DATA_ENV variable that is set, else a literal CHATBOT_DATA in data-pin.env (dev checkout), else ~/.pe
+# (Windows: %USERPROFILE%\\.pe). PE_HOME and PRIVATEENGINE_HOME are brand aliases; AGY_CHAT_DATA is the legacy
+# name. tickets.py (a core module, which may not import this one) repeats the same order; the test keeps the two
+# identical.
 DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")
-DATA = Path(next((os.environ[k] for k in DATA_ENV if os.environ.get(k)), str(ROOT / "data")))
+
+def _pinned_chatbot_data(root: Path) -> str:
+    """Dev pin file (data-pin.env) used only when no DATA_ENV variable is set. Literal CHATBOT_DATA only;
+    a value with $ is ignored so this reader and chatbot-ctl.sh (which sources the file) cannot disagree."""
+    try:
+        lines = (Path(root) / "data-pin.env").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].strip()
+        key, sep, val = line.partition("=")
+        if not sep or key.strip() != "CHATBOT_DATA":
+            continue
+        val = val.strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "'\"":
+            val = val[1:-1]
+        if val and "$" not in val:
+            return val
+        return ""
+    return ""
+
+DATA = Path(next((os.environ[k] for k in DATA_ENV if os.environ.get(k)),
+                 _pinned_chatbot_data(ROOT) or str(HOME / ".pe")))
 STATIC = ROOT / "static"
 SESSIONS = DATA / "sessions"
 WORKSPACE = DATA / "workspace"

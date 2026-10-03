@@ -991,12 +991,48 @@ def list_tickets(data, status: Optional[str] = None) -> List[Dict]:
 
 # -------------------------------------------------------------- command line
 
+def _code_root() -> Path:
+    """Same root host_config.ROOT uses (CHATBOT_ROOT, else AGY_CHAT_ROOT, else this file's directory)."""
+    for k in ("CHATBOT_ROOT", "AGY_CHAT_ROOT"):
+        if os.environ.get(k):
+            return Path(os.environ[k])
+    return Path(__file__).resolve().parent
+
+
+
+def _pinned_chatbot_data(root: Path) -> str:
+    """Dev pin file (data-pin.env) used only when no DATA_ENV variable is set. Literal CHATBOT_DATA only;
+    a value with $ is ignored so this reader and chatbot-ctl.sh (which sources the file) cannot disagree."""
+    try:
+        lines = (Path(root) / "data-pin.env").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].strip()
+        key, sep, val = line.partition("=")
+        if not sep or key.strip() != "CHATBOT_DATA":
+            continue
+        val = val.strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "'\"":
+            val = val[1:-1]
+        if val and "$" not in val:
+            return val
+        return ""
+    return ""
+
 def _data_dir() -> Path:
     """Same order as host_config.DATA_ENV (a core module may not import host_config; test_data_paths keeps them equal)."""
     for k in ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA"):
         if os.environ.get(k):
             return Path(os.environ[k])
-    return Path(__file__).resolve().parent / "data"
+    pinned = _pinned_chatbot_data(_code_root())
+    if pinned:
+        return Path(pinned)
+    return Path(os.environ.get("HOME") or Path.home()) / ".pe"
 
 
 def _confirm_at_terminal(cmd: str, what: str) -> None:

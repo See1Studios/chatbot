@@ -2,7 +2,7 @@
 
 > 방향 (align/D, 2026-09-28): **기반** — `~/.pe` 분리 — 개인화 레이어가 엔진 업데이트에 덮어써지지 않게 하는 전제
 
-> 상태: **active** (갱신 2026-09-27; 초안 2026-09-25)
+> 상태: **active** (갱신 2026-10-03; 초안 2026-09-25) — 코드 기본값은 `~/.pe`다. 이 NAS는 비추적 `data-pin.env`의 `CHATBOT_DATA`로 기존 `data/`를 유지한다(`host_config.py`와 `chatbot-ctl.sh`가 읽고, `run-tests.sh`는 체크아웃 `data/`를 직접 넘긴다). 마이그레이션 도구·`data/` gitignore 전면·이력 재작성은 아직이라 이 계획은 열린 상태다.
 > 선행 문서: [user-data-and-editing.md §1](user-data-and-editing.md)
 > 목적: 엔진 코드 저장소와 개인화 데이터(기억, 캐릭터, 세션, 비밀 등)의 물리적·논리적 완전 분리
 > 관련: [release-pipeline.md](release-pipeline.md) · [private-engine-brand.md](private-engine-brand.md) · [character-memory-adapter.md](character-memory-adapter.md) Q1–Q2 (Memory/`CHATBOT_DATA` 분류와 맞출 것) · [CONCEPT.md](../CONCEPT.md)
@@ -20,7 +20,7 @@
 | **Windows** | `%USERPROFILE%\.pe` (단기). XDG/`LOCALAPPDATA` 등은 이후 |
 | **브랜드 별칭** | `PE_HOME` / `PRIVATEENGINE_HOME`은 **선택적 별칭** — SSOT 이름은 `CHATBOT_DATA` (코드·문서 통일). `~/.privateengine`은 기본값이 아님 |
 
-**uds/B 완료(2026-09-28, #284)**: 경로 결정은 `host_config.py::DATA_ENV` 한 곳(`CHATBOT_DATA` → `PE_HOME` → `PRIVATEENGINE_HOME` → `AGY_CHAT_DATA` → `ROOT/data`). `tickets.py`(코어)는 같은 순서를 되풀이하고 `test_data_paths`가 둘을 같게 묶는다. `mcp_server.py`·`logdigest.py`의 우회 제거, `chatbot-ctl.sh`도 같은 순서. 남은 것: `data/` 안의 엔진 설정표(`content_guards.json`, `private_tension_*.json`)를 저장소 쪽으로 옮기기(분류 감사), `~/bin/ticket-quick`의 고정 경로(pew/K). 이전 기록 — 현재 코드: `host_config.py`는 `CHATBOT_DATA`/`AGY_CHAT_DATA` → 없으면 `ROOT/data`. `chatbot-ctl.sh`의 `DATA="$CODE/data"` 줄이 고정 후 export. **배포 기본 `~/.pe`로의 전환은 아직 미착수** — 본 문서 + [release-pipeline.md](release-pipeline.md) Next 구간.
+**uds/B 완료(2026-09-28, #284)**: 경로 결정은 `host_config.py::DATA_ENV` 한 곳(`CHATBOT_DATA` → `PE_HOME` → `PRIVATEENGINE_HOME` → `AGY_CHAT_DATA` → `ROOT/data`). `tickets.py`(코어)는 같은 순서를 되풀이하고 `test_data_paths`가 둘을 같게 묶는다. `mcp_server.py`·`logdigest.py`의 우회 제거, `chatbot-ctl.sh`도 같은 순서. 남은 것: `data/` 안의 엔진 설정표(`content_guards.json`, `private_tension_*.json`)를 저장소 쪽으로 옮기기(분류 감사), `~/bin/ticket-quick`의 고정 경로(pew/K). 이전 기록 — 현재 코드: `host_config.py`는 `CHATBOT_DATA`/`AGY_CHAT_DATA` → 없으면 `ROOT/data`. `chatbot-ctl.sh`의 `DATA="$CODE/data"` 줄이 고정 후 export. **배포 기본 `~/.pe` 전환(uds/F, 2026-10-03)**: 환경변수가 없으면 `host_config.py`·`tickets.py`·`chatbot-ctl.sh`가 `~/.pe`를 쓴다. 개발 체크아웃은 git에 넣지 않는 `data-pin.env`(리터럴 `CHATBOT_DATA`)로 덮고, 테스트 실행기는 체크아웃 `data/`를 넘긴다. 라이브 `data/`는 옮기지도 지우지도 않았다. 아직 아님: `tools/migrate_user_data.py`, `data/` 전면 gitignore, 원격 이력 정리.
 
 
 **uds/D 완료(2026-09-28, #297)**: `data_bootstrap.py` — 작업공간이 없거나 비어 있으면 `templates/workspace/`를 통째로 복사(임시 폴더에 만든 뒤 한 번에 이름 바꾸기, 데이터 폴더 0700), 복사한 파일의 sha256을 `$DATA/bootstrap.json`에 남긴다(나중에 엔진 업데이트가 사용자가 안 고친 파일을 알아볼 기준). 작업공간이 이미 있으면 아무것도 안 한다 — 덮어쓰지 않고, 지운 파일을 되살리지 않는다. `chatbot-ctl.sh`가 매 실행 시 `mkdir` 앞에서 부른다(실패해도 경고만). 이 NAS는 변화 없음. 남은 것: 기본 캐릭터(C3), `providers.json`·`secrets.env` 첫 설정(BYOK 온보딩), 기본값 `~/.pe` 전환(uds/F), 템플릿 갱신을 기존 설치에 전하는 업데이트 규칙(`bootstrap.json` 해시 기준, 별건).
@@ -135,9 +135,8 @@ export CHATBOT_ROOT="$CODE" CHATBOT_DATA="$DATA"
 # release-pipeline Next 단계에서 전환. 하드코딩 한 줄에 묶지 말 것.
 CODE="${CODE:-$SCRIPT_DIR}"
 if [ -z "${CHATBOT_DATA:-${PE_HOME:-${PRIVATEENGINE_HOME:-}}}" ]; then
-  # 전환 전(개발): DATA="$CODE/data"
-  # 전환 후(배포 기본): DATA="${HOME}/.pe"
-  DATA="$CODE/data"   # ← Next에서 ~/.pe 로 바꾸고, 개발은 env로 오버라이드
+  # 2026-10-03 적용. 개발 체크아웃은 비추적 data-pin.env 가 CHATBOT_DATA 를 준다.
+  DATA="${HOME}/.pe"
 else
   DATA="${CHATBOT_DATA:-${PE_HOME:-$PRIVATEENGINE_HOME}}"
 fi
