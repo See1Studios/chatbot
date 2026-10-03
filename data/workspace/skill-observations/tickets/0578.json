@@ -2,7 +2,9 @@
  "actor": "chat-agent:lead",
  "approved_at": "2026-10-02 17:52:51",
  "approved_by": "operator (ui)",
- "attempts": 2,
+ "attempts": 3,
+ "closed_by": "chat-agent",
+ "closed_reason": "done",
  "created": "2026-10-02 17:51:11",
  "evidence": [
   "event:20261002-165304-a74de0#141"
@@ -94,6 +96,21 @@
    "by": "host",
    "text": "no brain answered: attempt given back (3/3)",
    "ts": "2026-10-03 13:15:43"
+  },
+  {
+   "by": "agent:chat-agent",
+   "text": "claimed (attempt 3/3); paths: static/artifacts.js, static/markdown.js, tests/test_artifact_isolation.py",
+   "ts": "2026-10-03 13:37:15"
+  },
+  {
+   "by": "agent:chat-agent",
+   "text": "done: merged in-app viewer (document/code) and chat markdown links with byte-budget compacting",
+   "ts": "2026-10-03 13:37:18"
+  },
+  {
+   "by": "agent:chat-agent",
+   "text": "done",
+   "ts": "2026-10-03 13:37:18"
   }
  ],
  "paths": [
@@ -101,10 +118,10 @@
   "static/markdown.js",
   "tests/test_artifact_isolation.py"
  ],
- "status": "approved",
+ "status": "done",
  "target": "static/artifacts.js,static/markdown.js,tests/test_artifact_isolation.py",
  "title": "[art/fix] 아티팩트 인앱 뷰어 지원(document/code) 및 대화창 마크다운 링크 연동",
  "unavailable": 3,
- "updated": "2026-10-03 13:15:43",
- "worked_by": "agy"
+ "updated": "2026-10-03 13:37:18",
+ "worked_by": "chat-agent"
 }
