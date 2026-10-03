@@ -151,6 +151,6 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Look for prior art before building (`~/AGENTS.md` §0) | all | manual |
 | Spawn-visible dirs stay minimal (`ADD_DIRS`) | all | manual |
 | Engine-work rules for the chat agent live in the `dev` role pack, never the shared charter or another role's `role.md` | PE chat agent only | `test_dev_role` |
-| Chat UI conventions (`<!--choices-->`, persona voice) | PE chat agent only | `data/workspace/AGENTS.md` |
+| Chat UI conventions (`<!--choices-->`, persona voice) | PE chat agent only | `templates/workspace/AGENTS.md` |
 
 Add a rule here in the same change that adds its enforcer; a rule without one says `manual` and why.

@@ -65,14 +65,7 @@ data/backups/
 # design tool cache (impeccable)
 static/.impeccable/hook.cache.json
 
-# uds §5: new files under data/ are user data and must not be added.
-# Already-tracked paths stay tracked. Dev ticket history stays addable (uds/C2).
+# uds: nothing under data/ is engine source. A release tree must not ship it.
+# The dev install keeps the files on disk; live data is ~/.pe via data-pin.env.
+# Ticket history is not an exception anymore (operator, 2026-10-03).
 data/**
-!data/workspace/
-!data/workspace/skill-observations/
-!data/workspace/skill-observations/**
-# re-apply runtime ignores after the uds/C2 negation above (later rules win)
-data/workspace/skill-observations/candidates.jsonl
-data/workspace/skill-observations/tickets/.lock
-data/workspace/skill-observations/tickets/author.lease
-data/workspace/skill-observations/tickets/leases.json

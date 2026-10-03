@@ -41,6 +41,8 @@ class CodeLayout(unittest.TestCase):
         import json
         for g in json.loads((ROOT / "protected_paths.json").read_text(encoding="utf-8"))["governance"]:
             path = g["path"]
+            if path.startswith("data/"):
+                continue  # dev-install data, not in the release tree
             if path.startswith("~/") or any(c in path for c in "*?"):
                 continue
             self.assertTrue((ROOT / path).exists(), "governance lists %s, which is gone: fix or drop it" % path)

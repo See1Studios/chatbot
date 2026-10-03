@@ -24,8 +24,13 @@ class EntryPoints(unittest.TestCase):
             self.assertIn("](./AGENTS.md)", "\n".join(lines), "%s must link ./AGENTS.md" % name)
 
     def test_the_chat_charter_does_not_carry_the_engine_code_map(self):
-        text = (ROOT / "data" / "workspace" / "AGENTS.md").read_text(encoding="utf-8")
-        self.assertNotIn("## Code map", text, "the code map lives in root AGENTS.md only")
+        paths = [ROOT / "templates" / "workspace" / "AGENTS.md"]
+        live = ROOT / "data" / "workspace" / "AGENTS.md"
+        if live.is_file():
+            paths.append(live)
+        for path in paths:
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("## Code map", text, "the code map lives in root AGENTS.md only (%s)" % path.name)
 
 
 if __name__ == "__main__":

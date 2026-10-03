@@ -53,6 +53,8 @@ class WorkspaceTemplate(unittest.TestCase):
         for rel in MANIFEST["same"]:
             a, b = LIVE / rel, TEMPLATE / rel
             self.assertTrue(b.is_file(), "template copy missing: templates/workspace/%s" % rel)
+            if not a.is_file():
+                continue  # a release checkout has no live workspace; the template is the SSOT
             self.assertEqual(a.read_bytes(), b.read_bytes(),
                              "data/workspace/%s and its template copy differ: copy the change to "
                              "templates/workspace/%s, or %s" % (rel, rel, FIX))

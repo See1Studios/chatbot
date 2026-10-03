@@ -23,6 +23,13 @@ def static_bytes():
     return len(static.encode("utf-8"))
 
 
+def _charter_text():
+    live = I.WORKSPACE / "AGENTS.md"
+    if live.is_file():
+        return live.read_text(encoding="utf-8")
+    return (CODE / "templates" / "workspace" / "AGENTS.md").read_text(encoding="utf-8")
+
+
 class BundleBudgetTest(unittest.TestCase):
     def test_the_static_layers_fit_the_budget(self):
         size, limit = static_bytes(), BUDGET["static_max_bytes"]
@@ -41,7 +48,7 @@ class BundleBudgetTest(unittest.TestCase):
 
     def test_the_private_charter_sections_still_exist(self):
         # a renamed charter heading would silently drop a safety rule from private sessions
-        charter = (I.WORKSPACE / "AGENTS.md").read_text(encoding="utf-8")
+        charter = _charter_text()
         for name in I.PRIVATE_CHARTER_SECTIONS:
             self.assertIn("\n## %s\n" % name, charter)
 
@@ -63,13 +70,15 @@ class BundleBudgetTest(unittest.TestCase):
         self.assertLessEqual(dynamic, memory_store.MAX_BYTES + 600)  # memory snapshot + the one-line status badge
 
     def test_charter_does_not_point_at_the_shell_memory_fallback(self):
-        text = (I.WORKSPACE / "AGENTS.md").read_text(encoding="utf-8")
+        text = _charter_text()
         self.assertNotIn("tools/memory.py", text)
         self.assertNotIn("셸이 있으면", text)
 
     def test_persona_defers_appearance_to_the_visual_sheet(self):
         import identity
-        text = identity.persona_body()                  # the chatbot's card (PERSONA.md before §12 step 2)
+        text = identity.persona_body()                  # the chatbot's card, when this tree has one
+        if not text.strip():
+            self.skipTest("no persona card in this tree")
         self.assertNotIn("풀 수인", text)
         self.assertIn("visual.md", text)
         self.assertIn("character-art", text)

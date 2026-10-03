@@ -143,7 +143,7 @@ class MigrateUserData(unittest.TestCase):
         self.assertIn("mode: dry-run", r.stdout)
         self.assertFalse((home / ".pe").exists())
 
-    def test_new_user_data_is_ignored_but_ticket_history_is_not(self):
+    def test_user_data_including_ticket_history_is_ignored(self):
         def ignored(rel):
             git = "/usr/local/bin/git" if Path("/usr/local/bin/git").is_file() else "git"
             r = subprocess.run(
@@ -155,7 +155,8 @@ class MigrateUserData(unittest.TestCase):
         self.assertTrue(ignored("data/chat.db"))
         self.assertTrue(ignored("data/workspace/memory/MEMORY.md"))
         self.assertTrue(ignored("data/workspace/characters/char_x/state.json"))
-        self.assertFalse(ignored("data/workspace/skill-observations/tickets/0001.json"))
+        self.assertTrue(ignored("data/workspace/skill-observations/tickets/0001.json"))
+        self.assertTrue(ignored("data/persona/avatar.webp"))
         self.assertTrue(ignored("data/workspace/skill-observations/candidates.jsonl"))
 
 
