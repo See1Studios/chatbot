@@ -3,13 +3,15 @@
  "approved_at": "2026-10-03 09:21:32",
  "approved_by": "operator (ui)",
  "attempts": 2,
+ "closed_by": "agy",
+ "closed_reason": "done",
  "created": "2026-10-03 09:21:26",
  "evidence": [
   "event:20261003-091748-cddc9f#15"
  ],
  "gate_failures": 0,
  "id": 582,
- "merge_pending": true,
+ "merge_approved_by": "operator (ui)",
  "notes": [
   {
    "by": "operator (ui)",
@@ -35,6 +37,21 @@
    "by": "agent:agy",
    "text": "awaiting merge: branch worktree/ticket-582 at 9d514da (agy, review PASS round 2)",
    "ts": "2026-10-03 10:15:46"
+  },
+  {
+   "by": "operator (ui)",
+   "text": "merge approved",
+   "ts": "2026-10-03 10:16:59"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done: merged 32718f0 on the operator's word (agy)",
+   "ts": "2026-10-03 10:19:27"
+  },
+  {
+   "by": "agent:agy",
+   "text": "done",
+   "ts": "2026-10-03 10:19:27"
   }
  ],
  "paths": [
@@ -42,9 +59,9 @@
   "static/markdown-map.js",
   "tests/test_map_block.py"
  ],
- "status": "awaiting_merge",
+ "status": "done",
  "target": "static/chat-features.css,static/markdown-map.js,tests/test_map_block.py",
  "title": "[ui/map] 모바일 동적 지도 고도화 v2 (다중 마커, 구글맵 길찾기 연동, 팝업 고도화, 모바일 전체화면)",
- "updated": "2026-10-03 10:15:46",
+ "updated": "2026-10-03 10:19:27",
  "worked_by": "agy"
 }

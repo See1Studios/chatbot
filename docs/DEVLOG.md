@@ -5,6 +5,12 @@
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 2026-10-01 기록은 하루 예산을 넘어 [devlog/2026-10-01.md](devlog/2026-10-01.md)로 회전했습니다.
 
+## 2026-10-03 — [ui/map] 모바일 동적 지도 고도화 v2 (다중 마커, 구글맵 길찾기 연동, 팝업 고도화, 모바일 전체화면) (#582, 위임 agy)
+
+- **커밋**: `32718f0` fix(ui): align single-marker coordinates and clean up fullscreen esc listener, `8a006fa` feat(ui): enhance mobile dynamic map v2 with multi-marker, google maps link, and fullscreen, `d5f4065` feat(map): multi-marker, Google Maps popup link, fullscreen toggle
+- **바뀐 파일**: `static/chat-features.css`, `static/markdown-map.js`, `tests/test_map_block.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-03 — [ui/map] Leaflet 기반 인앱 동적 지도 렌더러 지원 (마크다운 map 블록) (#581, 위임 agy)
 
 - **커밋**: `d4f07f3` test(ui): verify script onerror path and fix mock in Leaflet fallback test, `19218b5` fix(ui): reinforce Leaflet SRI, load failure text fallback, and scrollWheelZoom defense, `fff1b6d` fix(ui): use safe typeof checks for map functions to support headless node test harnesses, `ab2efa3` fix(ui): prevent popup DOM XSS, add load timeout, and enforce OSM attribution, `b1f5785` feat(ui): integrate markdown-map.js and add test_map_block, `6522110` fix(ui): revert unrelated markdown.js edits and keep clean map hooks, `60460a6` feat(ui): Leaflet 기반 인앱 동적 지도 렌더러 지원 (마크다운 map 블록)
