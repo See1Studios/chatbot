@@ -11,7 +11,7 @@
     height:42px;
     border-radius:12px;
   }
-  #geoBtn, #privateBtn{
+  #geoBtn, #privateBtn, #micBtn{
     width:42px;
     min-width:42px;
     height:42px;
@@ -25,6 +25,22 @@
     min-height:42px;
     height:42px;
     border-radius:12px;
+  }
+}
+
+@media (max-width: 640px) {
+  #micBtn {
+    order: 3;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    padding: 0 !important;
+    flex-shrink: 0;
+  }
+  #micBtn .tab-icon-svg {
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -87,13 +103,13 @@
     border-radius:8px;
     line-height:1;
   }
-  #geoBtn, #privateBtn{
+  #geoBtn, #privateBtn, #micBtn{
     width:32px;
     min-width:32px;
     height:32px;
     border-radius:8px;
   }
-  #geoBtn .tab-icon-svg, #privateBtn .tab-icon-svg{
+  #geoBtn .tab-icon-svg, #privateBtn .tab-icon-svg, #micBtn .tab-icon-svg{
     width:16px;
     height:16px;
   }
@@ -153,14 +169,16 @@ body.keyboard-open #slashBtn{
   line-height:1;
 }
 body.keyboard-open #geoBtn,
-body.keyboard-open #privateBtn{
+body.keyboard-open #privateBtn,
+body.keyboard-open #micBtn{
   width:32px;
   min-width:32px;
   height:32px;
   border-radius:8px;
 }
 body.keyboard-open #geoBtn .tab-icon-svg,
-body.keyboard-open #privateBtn .tab-icon-svg{
+body.keyboard-open #privateBtn .tab-icon-svg,
+body.keyboard-open #micBtn .tab-icon-svg{
   width:16px;
   height:16px;
 }
@@ -206,7 +224,8 @@ body.keyboard-open #choiceBar{
   .proc-badge.running .dot,
   .turn-live .dot,
   .token-badge.token-heavy,
-  .provider-tray {
+  .provider-tray,
+  .mic-trigger-btn.recording {
     animation: none;
   }
   .msg.assistant.streaming .md > *:last-child::after {

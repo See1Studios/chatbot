@@ -337,6 +337,7 @@
       <button id="privateBtn" class="geo-trigger-btn private-toggle-btn" type="button" title="사적 대화 켜기 (/private on)" aria-label="사적 대화" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
       <button id="slashBtn" class="slash-trigger-btn" type="button" title="명령어 및 스킬 (/)" aria-label="명령어 및 스킬 (/)" aria-haspopup="listbox" aria-expanded="false">/</button>
       <button id="geoBtn" class="geo-trigger-btn" type="button" title="기기 환경 및 위치 정보 동기화 (클릭하여 토글)" aria-label="기기 환경 및 위치 정보 동기화" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
+      <button id="micBtn" class="geo-trigger-btn mic-trigger-btn" type="button" title="음성 입력 시작 (클릭하여 켜기)" aria-label="음성 입력" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button> <!-- l10n-ok -->
       <textarea id="input" placeholder="메시지를 입력… (/ 입력 시 명령어·스킬)" aria-label="메시지 입력"></textarea>
       <button id="modelBtn" class="model-trigger-btn model-tag" type="button" title="모델 선택" aria-label="모델 선택" aria-haspopup="listbox" aria-expanded="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg><span class="model-name"></span></button>
       <button id="send" class="primary" aria-label="보내기" title="보내기 (Enter)" disabled data-face="icon"><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></button>
@@ -398,6 +399,7 @@
   <script src="./app-retry.js?v=1"></script>
   <script src="./app-recall.js?v=2"></script>
   <script src="./app-act-key.js?v=2"></script>
+  <script src="./app-speech.js?v=1"></script>
   <script src="./app-turn.js?v=6"></script>
   <script src="./app-activity.js?v=1"></script>
   <script src="./app-evolution.js?v=8"></script>

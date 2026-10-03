@@ -161,7 +161,7 @@ textarea::placeholder{
   margin:0;
   box-sizing:border-box;
 }
-.slash-trigger-btn, .model-trigger-btn, .geo-trigger-btn{
+.slash-trigger-btn, .model-trigger-btn, .geo-trigger-btn, .mic-trigger-btn{
   width:42px;
   min-width:42px;
   padding:0 !important;
@@ -191,10 +191,11 @@ textarea::placeholder{
 #provider{
   display:none !important; /* 제공자 선택은 상단 포트레이트 트레이로 이동하여 채팅 라인 확보 */
 }
-.geo-trigger-btn .tab-icon-svg{width:18px;height:18px}
+.geo-trigger-btn .tab-icon-svg, .mic-trigger-btn .tab-icon-svg{width:18px;height:18px}
 .slash-trigger-btn:hover, .slash-trigger-btn.active,
 .model-trigger-btn:hover, .model-trigger-btn.active,
-.geo-trigger-btn:hover, .geo-trigger-btn.active{
+.geo-trigger-btn:hover, .geo-trigger-btn.active,
+.mic-trigger-btn:hover, .mic-trigger-btn.active{
   background:var(--accent-soft);
   border-color:var(--accent-border);
   color:var(--accent2);
@@ -202,6 +203,27 @@ textarea::placeholder{
 }
 .geo-trigger-btn.active .tab-icon-svg{
   stroke:var(--accent2);
+}
+.mic-trigger-btn.active .tab-icon-svg{
+  stroke:var(--accent2);
+}
+.mic-trigger-btn.unsupported{
+  opacity:.35;
+  cursor:not-allowed;
+}
+.mic-trigger-btn.recording{
+  color:#f87171;
+  border-color:rgba(239,68,68,.6);
+  background:rgba(239,68,68,.16);
+  box-shadow:0 0 12px rgba(239,68,68,.4);
+  animation:mic-pulse 1.2s infinite ease-in-out;
+}
+.mic-trigger-btn.recording .tab-icon-svg{
+  stroke:#f87171;
+}
+@keyframes mic-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.45);transform:scale(1)}
+  50%{box-shadow:0 0 0 5px rgba(239,68,68,0);transform:scale(1.04)}
 }
 /* PRIVATE_TOGGLE_v1: the heart switches to the private session; filled while it is open */
 .private-toggle-btn.active, .private-toggle-btn:hover{
