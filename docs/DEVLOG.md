@@ -1,5 +1,14 @@
 # chatbot 개발로그
 
+## 2026-10-03 — 두뇌 오버라이드를 캐릭터에 기억
+
+- **기본값**: 카드 brains.work / brains.private 는 그대로 기본이다. 노노 사적 기본은 grok-4.7 이다.
+- **기억**: 사용자가 제공자나 모델을 바꾸면 characters/<id>/brain-override.json 에 모드별로 남긴다. 카드 본문은 고치지 않는다. 제공자와 모델이 카드 첫 두뇌와 같으면 기록은 비운다.
+- **다음 방문**: 사적 방을 새로 열 때 기록이 카드보다 우선이다. 기록이 없거나 기본값으로 되돌렸으면 카드를 쓴다.
+- **정보창**: 프로필의 쓰는 두뇌에 업무와 사적 각각 기본인지 직접 골랐는지 보이고, 직접 고른 쪽에는 기본값으로 버튼이 있다.
+- **재시작**: 호스트 모듈이라 chatbot-ctl.sh repair 가 필요하다.
+
+
 ## 2026-10-03 — 인수인계: 데이터 분리·관계 기억
 
 - **데이터**: 사용자 데이터는 `~/.pe`에 있다. 이 NAS의 pin은 `CHATBOT_DATA=/var/services/homes/me/.pe`이고, 저장소 `data/`는 gitignore 대상이다. `95c1526` tip의 추적 데이터 파일은 0개다. `~/.pe`를 삭제하지 말고 개인 캐릭터 본문을 git에 넣지 않는다.
@@ -47,6 +56,12 @@
 - **테스트**: `run-tests.sh`는 호출자가 경로를 주지 않으면 체크아웃 `data/`를 넘긴다. 스위트가 운영자 홈의 `~/.pe`를 만들거나 읽지 않는다.
 - **아직**: 마이그레이션 스크립트, `data/` 전면 gitignore, 이력 재작성. 계획 상태는 active. ⚡ 재시작 필요(`host_config.py`). pin은 재시작 전에 두었다.
 
+
+## 2026-10-03 — [voice/stt] 컴포저 마이크 실시간 음성 입력 (Web Speech API STT) (#590, 위임 agy)
+
+- **커밋**: `9663b09` fix(speech): guard against late results, restart race condition, and cleared input, `709c868` feat(ui): 컴포저 마이크 실시간 음성 입력(STT) 연동 및 테스트, `a0c337d` chore(tickets): #590 gate_failed -- [voice/stt] 컴포저 마이크 실시간 음성 입력 (Web Speech API STT), `62ebb91` chore(tickets): #590 failed -- [voice/stt] 컴포저 마이크 실시간 음성 입력 (Web Speech API STT), `e8a0951` chore(tickets): #590 gate_failed -- [voice/stt] 컴포저 마이크 실시간 음성 입력 (Web Speech API STT), `e262641` chore(tickets): #590 gate_failed -- [voice/stt] 컴포저 마이크 실시간 음성 입력 (Web Speech API STT)
+- **바뀐 파일**: `static/app-speech.js`, `static/chat-composer.css`, `static/chat-responsive.css`, `static/index.html`, `tests/test_speech.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
 
 ## 2026-10-03 — 찾을 수 없는 근거는 운영자의 마지막 말로 (engine-decides/A4, #591)
 
@@ -223,3 +238,4 @@
 - **다음**: D1 ③ 위임 측정 기록(티켓마다 대상 파일 크기·걸린 시간·결과) — 이제 러너에 자리가 있음.
 
 - 2026-10-03: Added the release cut checklist in docs/RELEASE.md; created local annotated tag v0.0.0-dev with no push.
+- **2026-10-03**: Added the release cut checklist in `docs/RELEASE.md`; created local annotated tag `v0.0.0-dev` with no push.

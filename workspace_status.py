@@ -535,6 +535,7 @@ def experts_overview() -> dict:
         out.append({"id": c["id"], "roles": list(c.get("roles") or []), "role": c["role"], "default": c["id"] == default,
                     "name": c["name"], "title": disp.get("title", ""),
                     "chain": characters.brains(c["card"], "work") if characters else [],
+                    "brain_use": _brain_use(c["card"], c["id"]) if characters else {},
                     "path": "data/workspace/characters/%s/card.json" % c["id"], "editable": _protected_why(cp) is None})
     roles = []
     if characters:
@@ -607,6 +608,56 @@ def _put_team(body: dict) -> Tuple[int, dict]:
     return 200, {"ok": True}
 
 
+def _brain_use(card: dict, cid: str) -> dict:
+    """Card defaults and the user's override (null mode = back on the default) for the profile card."""
+    import characters
+    defaults = {}
+    for mode in ("work", "private"):
+        chain = characters.brains(card, mode)
+        defaults[mode] = chain[0] if chain else {}
+    try:
+        override = characters.read_brain_overrides(cid)
+    except Exception:  # noqa: BLE001
+        override = {}
+    return {"defaults": defaults, "override": override}
+
+
+def _revert_mode_session(who: str, mode: str, brain: dict):
+    """Point the newest session of this mode back at the card brain. None when there is no session."""
+    try:
+        import session as S
+    except Exception:  # noqa: BLE001
+        return None
+    sess = S.REG._newest(mode, who)
+    if sess is None:
+        return None
+    provider = str((brain or {}).get("provider") or "")
+    model = str((brain or {}).get("model") or "")
+    if provider and provider != sess.provider:
+        sess.maybe_swap_provider(provider, remember=False)
+    if model and model != sess.model:
+        sess.maybe_swap_model(model, remember=False)
+    return sess
+
+
+def _put_brain_use(who: str, body: dict) -> Tuple[int, dict]:
+    """PUT /api/experts/<id>/brain-use {mode, reset:true}: drop that mode's override."""
+    import characters
+    mode = str((body or {}).get("mode") or "")
+    if mode not in ("work", "private") or not (body or {}).get("reset"):
+        return 400, {"ok": False, "error": "mode is work or private, and reset is required"}
+    target = WORKSPACE / "characters" / who / "card.json"
+    if not _CHAR_ID.match(who) or not target.is_file():
+        return 404, {"ok": False, "error": "no such character"}
+    characters.write_brain_override(who, mode, None, WORKSPACE)
+    card = characters.load(who, WORKSPACE)
+    brain = (characters.brains(card, mode) or [{}])[0]
+    sess = _revert_mode_session(who, mode, brain)
+    return 200, {"ok": True, "id": who, "mode": mode, "override": None,
+                 "provider": brain.get("provider") or "", "model": brain.get("model") or "",
+                 "session": sess.to_public() if sess is not None else None}
+
+
 def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
     """GET /api/experts; PUT /api/experts/<id>/brain {chain} (a character id); PUT /api/experts/team {default, members} arranges the team.
     A PUT is the operator editing from the team tab, so the caller must have checked that it came from this
@@ -621,6 +672,11 @@ def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[
     if method == "PUT" and rest == "auto-react":             # evt/D: which events a character speaks first about
         import event_react
         return 200, {"ok": True, "auto_react": event_react.save_config(body or {}, WORKSPACE)}
+    use = re.fullmatch(r"(char_[0-9a-z]{26})/brain-use", rest)
+    if use:
+        if method != "PUT":
+            return 404, {"ok": False, "error": "not found"}
+        return _put_brain_use(use.group(1), body or {})
     m = re.fullmatch(r"(char_[0-9a-z]{26})/brain", rest)
     if method != "PUT" or not m:
         return 404, {"ok": False, "error": "not found"}

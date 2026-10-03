@@ -353,6 +353,7 @@ async function persistSessionProvider(opts) {
     lastServerProvider = pid;
     lastServerModel = mid;
     if (opts.activity) addActivity(opts.activity);
+    if (typeof shellProfileIsOpen === 'function' && shellProfileIsOpen()) shellProfileOpen();
   } catch (_) {
   } finally {
     localProviderEdit = Math.max(0, localProviderEdit - 1);

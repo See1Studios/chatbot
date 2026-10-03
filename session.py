@@ -1151,15 +1151,38 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         if was_busy:
             self._emit({"event": "stopped", "text": f"{what} 바꿔서 진행 중이던 작업을 중단했습니다."})
 
-    def maybe_swap_model(self, model: str) -> None:
+    def _remember_brain_choice(self) -> None:
+        """Keep a user provider/model pick for this character and mode. The card stays the default."""
+        cid = getattr(self, "character", "") or ""
+        mode = getattr(self, "mode", "") or "work"
+        if mode not in ("work", "private") or not cid:
+            return
+        try:
+            import characters
+            card = characters.load(cid)
+            default = (characters.brains(card, mode) or [{}])[0]
+            same = ((self.provider or "") == (default.get("provider") or "")
+                     and (self.model or "") == (default.get("model") or ""))
+            if same:
+                characters.write_brain_override(cid, mode, None)
+            else:
+                characters.write_brain_override(cid, mode, {
+                    "provider": self.provider, "model": self.model or "", "effort": self.effort or ""})
+        except Exception:  # noqa: BLE001
+            return
+
+    def maybe_swap_model(self, model: str, remember: bool = True) -> None:
         """If `model` names a different model than this session is currently
         running, switch to it and stop the live process so the next send()
         respawns under the new model."""
         if model and model != self.model:
             self.model = model
             self._stop_for_swap("모델을")
+            self.save_meta()
+            if remember:
+                self._remember_brain_choice()
 
-    def maybe_swap_provider(self, provider: str) -> None:
+    def maybe_swap_provider(self, provider: str, remember: bool = True) -> None:
         """If `provider` names a different CLI backend than this session is
         currently running, switch adapters and stop the live process --
         unlike a model swap, this ALSO clears conversation_id, since a
@@ -1203,6 +1226,8 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             self.persona_bundle_hash = ""
             self._stop_for_swap("제공자를")
             self.save_meta()
+            if remember:
+                self._remember_brain_choice()
             if self.history:
                 threading.Thread(target=self._refine_swap_handoff, args=(gen, old_provider, old_cid), daemon=True).start()
 

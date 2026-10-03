@@ -25,8 +25,11 @@ class SessionSplit(unittest.TestCase):
         S.SESSIONS = self.tmp / "sessions"
         S.SESSIONS.mkdir()
         self.reg = S.Registry()
+        self._ov = mock.patch("characters.read_brain_overrides", return_value={})
+        self._ov.start()
 
     def tearDown(self):
+        self._ov.stop()
         S.SESSIONS = self._sessions
         shutil.rmtree(self.tmp, ignore_errors=True)
 
@@ -51,6 +54,19 @@ class SessionSplit(unittest.TestCase):
         with mock.patch("session_registry._first_brain", return_value={"provider": "grok", "model": "grok-4.7"}):
             priv = self.reg.get_private("", like=work)
         self.assertEqual((priv.provider, priv.model), ("grok", "grok-4.7"))
+
+    def test_a_saved_override_beats_the_card_private_brain(self):
+        work = self.reg.get_active()
+        saved = {"private": {"provider": "agy", "model": "gemini-x", "effort": ""}}
+        with mock.patch("session_registry._first_brain", return_value={"provider": "grok", "model": "grok-4.7"}), mock.patch("characters.read_brain_overrides", return_value=saved):
+            priv = self.reg.get_private("", like=work, fresh=True)
+        self.assertEqual((priv.provider, priv.model), ("agy", "gemini-x"))
+
+    def test_a_reset_override_falls_back_to_the_card(self):
+        work = self.reg.get_active()
+        with mock.patch("session_registry._first_brain", return_value={"provider": "grok", "model": "grok-4.7", "effort": "low"}), mock.patch("characters.read_brain_overrides", return_value={"private": None}):
+            priv = self.reg.get_private("", like=work, fresh=True)
+        self.assertEqual((priv.provider, priv.model, priv.effort), ("grok", "grok-4.7", "low"))
 
     def test_a_private_session_is_created_once_and_keeps_its_mode(self):
         work = self.reg.get_active()

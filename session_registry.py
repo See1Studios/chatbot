@@ -258,14 +258,14 @@ class Registry:
             return sess
         if not character:
             return self.create()
-        brain = _first_brain(character)
-        return self.create(model=brain.get("model") or "", provider=brain.get("provider") or _s().DEFAULT_PROVIDER,
-                           character=character)
+        brain = _override_brain(character, "work") or _first_brain(character) or {}
+        return self.create(model=brain.get("model") or "", effort=brain.get("effort") or "",
+                           provider=brain.get("provider") or _s().DEFAULT_PROVIDER, character=character)
 
     def get_private(self, character: str = "", like: Optional["AgentSession"] = None,
                     fresh: bool = False) -> "AgentSession":
-        """The character's private session (its successor-chain tip), created on first use with the card's
-        `brains.private` first entry if it names one, else `like`'s provider and model (pew/N4).
+        """The character's private session (its successor-chain tip). A saved user override wins, else the
+        card's `brains.private` first entry, else `like`'s provider and model (pew/N4).
         Private Grok (#240): prefer grok-4.7 (not 4.6 / not build-fast) and effort low.
         `fresh` (PRIVATE_VISIT_v1, operator 2026-09-29): every visit to the private room is a new session, so the
         last scene's place and talk never leak into the next; what carries over is the private memory digest.
@@ -276,16 +276,7 @@ class Registry:
                                  or threshold.just_switched(sess, "visit_started")):
             return sess   # (fresh) a repeat of the switch that just opened it -- a re-tap or another tab -- stays
         like = sess or like or self.get_active(character)
-        brain = _first_brain(character, mode="private") or {}
-        provider = brain.get("provider") or like.provider
-        model = brain.get("model") or like.model
-        effort = brain.get("effort") or like.effort
-        if (provider or "").lower() == "grok" or "grok" in (model or "").lower():
-            # Cheap+faster private defaults: base grok-4.7 + lowest reasoning effort (not build-fast).
-            if not model or model in ("default", "grok-4.6", "grok-4.7-build-fast"):
-                model = "grok-4.7"
-            if not effort or effort == "default":
-                effort = "low"
+        provider, model, effort = _private_brain(character, like)
         return self.create(model=model, effort=effort, provider=provider, character=character,
                            mode="private")
 
@@ -390,6 +381,44 @@ def migrate_session_characters() -> int:
         except Exception:  # noqa: BLE001
             continue
     return n
+
+
+def _override_brain(character: str, mode: str) -> Dict[str, Any]:
+    """The user's saved provider/model for this mode, or {} when they are on the card default."""
+    try:
+        import characters
+        row = (characters.read_brain_overrides(character) or {}).get(mode)
+    except Exception:  # noqa: BLE001
+        return {}
+    return row if isinstance(row, dict) and row.get("provider") else {}
+
+
+def _fill_family_defaults(provider: str, model: str, effort: str, keep_model: bool):
+    if (provider or "").lower() != "grok" and "grok" not in (model or "").lower():
+        return provider, model, effort
+    if not keep_model and (not model or model in ("default", "grok-4.6", "grok-4.7-build-fast")):
+        model = "grok-4.7"
+    elif keep_model and not model:
+        model = "grok-4.7"
+    if not effort or (not keep_model and effort == "default"):
+        effort = "low"
+    return provider, model, effort
+
+
+def _private_brain(character: str, like):
+    """Override, else the card, else the brain the caller was already on."""
+    chosen = _override_brain(character, "private")
+    card = _first_brain(character, "private") or {}
+    brain = chosen or card
+    if brain.get("provider"):
+        provider = brain.get("provider") or ""
+        model = brain.get("model") or ""
+        effort = brain.get("effort") or ""
+    else:
+        provider = getattr(like, "provider", "") or ""
+        model = getattr(like, "model", "") or ""
+        effort = getattr(like, "effort", "") or ""
+    return _fill_family_defaults(provider, model, effort, keep_model=bool(chosen))
 
 
 def _first_brain(character: str, mode: str = "work") -> Dict[str, Any]:

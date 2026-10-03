@@ -61,6 +61,18 @@ class ExpertsApiTest(unittest.TestCase):
                     {"default": other, "members": {self.C.new_id(): ["pd"]}}, {"default": other, "members": []}):
             self.assertEqual(self.put_team(bad)[0], 400, bad)
 
+    def test_reset_clears_the_override_and_leaves_the_card(self):
+        self.C.write_brain_override(self.cid, "private",
+                                    {"provider": "grok", "model": "grok-4.7", "effort": "low"}, self.ws)
+        code, body = W.experts_api("PUT", "/api/experts/%s/brain-use" % self.cid, {"mode": "private", "reset": True})
+        self.assertEqual(code, 200, body)
+        self.assertIsNone(self.C.read_brain_overrides(self.cid, self.ws).get("private"))
+        self.assertEqual(self.C.brains(self.C.load(self.cid, self.ws), "private"), [])
+        listed = W.experts_api("GET", "/api/experts", None)[1]["experts"][0]["brain_use"]
+        self.assertEqual(listed["defaults"]["work"]["model"], "gemini-3.1-pro-high")
+        self.assertIsNone(listed["override"].get("private"))
+        self.assertEqual(W.experts_api("PUT", "/api/experts/%s/brain-use" % self.cid, {"mode": "nope"})[0], 400)
+
     def test_saving_a_brain_list(self):
         code, body = self.put(self.cid, [{"provider": "agy", "model": "gemini-3.8-flash-high", "timeout": 45},
                                          {"provider": "codex", "model": ""}])

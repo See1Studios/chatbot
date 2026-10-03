@@ -495,6 +495,61 @@ def brains(card: Dict, mode: str = "work") -> List[Dict]:
     return chain if isinstance(chain, list) else []
 
 
+def brain_override_path(cid: str, ws=None) -> Path:
+    """Per-character user choice of brain. User data, next to the card, never the card itself."""
+    return card_path(cid, ws).parent / "brain-override.json"
+
+
+def read_brain_overrides(cid: str, ws=None) -> Dict:
+    """work/private -> a brain dict, or None when that mode was sent back to the card.
+
+    A missing file means nothing was chosen. A null mode means the user pressed reset.
+    """
+    try:
+        raw = json.loads(brain_override_path(cid, ws).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    for mode in ("work", "private"):
+        if mode not in raw:
+            continue
+        row = raw.get(mode)
+        if row is None:
+            out[mode] = None
+        elif isinstance(row, dict) and str(row.get("provider") or "").strip():
+            out[mode] = {"provider": str(row["provider"]).strip(),
+                         "model": str(row.get("model") or "").strip(),
+                         "effort": str(row.get("effort") or "").strip()}
+    return out
+
+
+def write_brain_override(cid: str, mode: str, brain: Optional[Dict], ws=None) -> None:
+    """Remember one mode, or store null when brain is empty so the next visit stays on the card."""
+    if mode not in ("work", "private"):
+        raise ValueError(mode)
+    path = brain_override_path(cid, ws)
+    cur = {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            cur = raw
+    except (OSError, ValueError):
+        cur = {}
+    if brain and str(brain.get("provider") or "").strip():
+        cur[mode] = {"provider": str(brain["provider"]).strip(),
+                     "model": str(brain.get("model") or "").strip(),
+                     "effort": str(brain.get("effort") or "").strip()}
+    else:
+        cur[mode] = None
+    kept = {k: cur[k] for k in ("work", "private") if k in cur}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(".brain-override.%d.tmp" % os.getpid())
+    platform_compat.write_text(tmp, json.dumps(kept, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
 def work_text(card: Dict, cid: str = "", ws=None) -> str:
     """What the character brings to a work brief: who it is, how it works, and the role packs it holds (English;
     examples may be Korean)."""
