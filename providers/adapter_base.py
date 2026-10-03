@@ -4,6 +4,8 @@ from __future__ import annotations
 import shutil
 import signal
 import subprocess
+import threading
+import time
 
 from pathlib import Path
 import json
@@ -133,6 +135,38 @@ def rescue_leaked_choices(text: str) -> Tuple[str, List[str]]:
     body = left.rstrip() + ("\n\n" + right if right else "")
     return body.strip(), _leaked_items(obj)
 
+
+
+MODEL_LIST_TTL_SEC = 300.0
+
+
+def cached_model_list(cache: Dict[str, Any], fetch, ttl: float = MODEL_LIST_TTL_SEC) -> List[str]:
+    """A model list from a slow source (a CLI's `models` command), without making a page request wait for it.
+    Fresh: the cached list. Stale: the cached list now, and one background refresh. Never fetched: fetch once,
+    in the caller (the first request after a restart). `fetch` returns a list, or nothing on failure."""
+    models = cache.get("models") or []
+    if models:
+        if time.time() - float(cache.get("ts", 0.0)) >= ttl and not cache.get("refreshing"):
+            cache["refreshing"] = True
+
+            def refresh():
+                try:
+                    _store_models(cache, fetch)
+                finally:
+                    cache["refreshing"] = False
+            threading.Thread(target=refresh, name="model-list-refresh", daemon=True).start()
+        return list(models)
+    return list(_store_models(cache, fetch))
+
+
+def _store_models(cache: Dict[str, Any], fetch) -> List[str]:
+    try:
+        fresh = fetch() or []
+    except Exception:  # noqa: BLE001
+        fresh = []
+    if fresh:
+        cache["models"], cache["ts"] = list(fresh), time.time()
+    return cache.get("models") or []
 
 class AgentAdapter:
     """Base interface for spawning/talking to a CLI agent backend.

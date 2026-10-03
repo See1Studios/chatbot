@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from host_config import AGENT_PATH_PREFIX, AGY, MODELS, WORKSPACE
-from providers.adapter_base import AgentAdapter, _redact_err
+from providers.adapter_base import AgentAdapter, _redact_err, cached_model_list
 from tool_format import _format_tool_call, _format_tool_result
 import media_handler as _media
 
@@ -110,36 +110,22 @@ class AgyAdapter(AgentAdapter):
             return ""
 
     def known_models(self) -> List[str]:
-        now = time.time()
-        if _AGY_MODELS_CACHE.get("models") and (now - float(_AGY_MODELS_CACHE.get("ts", 0.0)) < 300):
-            return _AGY_MODELS_CACHE["models"]
-        try:
-            res = subprocess.run(
-                [self.find_executable(), "models"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=10,
-            )
-            if res.returncode == 0 or not isinstance(res.returncode, int):
-                models: List[str] = []
-                for line in (res.stdout or "").splitlines():
-                    line = line.strip()
-                    if not line or line.startswith("Fetching"):
-                        continue
-                    cols = line.split("\t")
-                    model_name = cols[0].strip()
-                    if model_name and model_name not in models:
-                        models.append(model_name)
-                if models:
-                    _AGY_MODELS_CACHE["ts"] = time.time()
-                    _AGY_MODELS_CACHE["models"] = models
-                    return models
-        except Exception:  # noqa: BLE001
-            pass
-        if _AGY_MODELS_CACHE.get("models"):
-            return _AGY_MODELS_CACHE["models"]
-        return MODELS
+        return cached_model_list(_AGY_MODELS_CACHE, self._fetch_models) or MODELS
+
+    def _fetch_models(self) -> List[str]:
+        res = subprocess.run([self.find_executable(), "models"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, timeout=10)
+        if res.returncode != 0 and isinstance(res.returncode, int):
+            return []
+        models: List[str] = []
+        for line in (res.stdout or "").splitlines():
+            line = line.strip()
+            if not line or line.startswith("Fetching"):
+                continue
+            model_name = line.split("\t")[0].strip()
+            if model_name and model_name not in models:
+                models.append(model_name)
+        return models
 
     def build_args(self, model: str, effort: str, conversation_id: Optional[str], add_dirs: List[str], prompt: str = "") -> List[str]:
         args = [
