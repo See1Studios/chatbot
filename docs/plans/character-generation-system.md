@@ -121,5 +121,5 @@ flowchart TD
 | `cgs/B` | 프롬프트 및 상세도 포팅 모듈 | `card_prompt.py`, `tests/test_card_prompt.py` | `fieldDetail.ts` + `prompt.ts` 1:1 포팅: In medias res, Hook, Anti-puppeting, 수치 상세도 사양, JSON/Tagged 이중 빌더 단위 테스트 통과 | 1 · — | M | `cgs/A` | 완료 |
 | `cgs/C` | 이중 파서 및 폴백 모듈 | `card_parse.py`, `tests/test_card_parse.py` | `parse.ts` 1:1 포팅: JSON 파서, Tagged 상태머신 파서, 실패 진단기 단위 테스트 통과 | 1 · — | M | `cgs/B` | 완료 |
 | `cgs/D` | 캐릭터 카드 생성 및 보완 도구 | `tools/card_gen.py`, `tests/test_card_gen.py` | `routes/character.ts` 비즈니스 로직 포팅: 아이디어 기반 직조, 결측치 채우기(`--fill-missing`), `regen_nonce` 기반 3회 실질 변경 검증 CLI | 2 · — | M | `cgs/C` | 완료 |
-| `cgs/E` | SillyTavern PNG 카드 내보내기 | `tools/st_export.py`, `tests/test_st_export.py` | `cards/png.ts` 포팅: `card.json` + 마스터 이미지를 ST 표준 PNG tEXt 청크로 패키징하고 `st_import.py`로 역검증 통과 | 2 · — | M | — | 대기 |
+| `cgs/E` | SillyTavern PNG 카드 내보내기 | `tools/st_export.py`, `tests/test_st_export.py` | `cards/png.ts` 포팅: `card.json` + 마스터 이미지를 ST 표준 PNG tEXt 청크로 패키징하고 `st_import.py`로 역검증 통과 | 2 · — | M | — | 완료 |
 | `cgs/F` | 소환 마법사(`ccl/D`) 및 UI 연동 | `server.py`, `route_table.py` | 새 캐릭터 생성/재생성 REST 엔드포인트 제공 및 마법사 연동 준비 | 2 · ⚡ | M | `cgs/D`, `ccl/D` | 대기 |

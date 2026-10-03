@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-03 — SillyTavern PNG 카드 내보내기 (cgs/E, #596)
+
+- **도구**: `tools/st_export.py`. `card.json`과 마스터 PNG를 SillyTavern `chara` tEXt로 IEND 직전에 넣는다. 기존 `chara`/`ccv3`는 tEXt뿐 아니라 zTXt·iTXt도 빼서, `st_import.py`가 방금 쓴 카드를 읽게 한다.
+- **권한**: `extensions.chatbot`의 role/roles/tools/skills는 내보낼 때 버린다. 가져올 때와 같다. 카드 형식은 새로 만들지 않는다.
+- **아직**: 소환 마법사 REST(`cgs/F`)는 하지 않았다. 엔진 재시작 없음.
+
 ## 2026-10-03 — 두뇌 오버라이드를 캐릭터에 기억
 
 - **기본값**: 카드 brains.work / brains.private 는 그대로 기본이다. 노노 사적 기본은 grok-4.7 이다.
