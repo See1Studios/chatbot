@@ -501,7 +501,7 @@ function ticketStateBadge(t) {
 
 function renderTicketBar(waiting) {
   if (!ticketBarEl) return;
-  waiting = waiting.filter(t => t.status !== 'awaiting_merge' && t.status !== 'wontfix' && !workCardIds.has(t.id));   // a work card carries merge; a parked ticket stays on the improve tab
+  waiting = waiting.filter(t => !['awaiting_merge','wontfix'].includes(t.status) && !workCardIds.has(t.id));   // shown apart
   ticketBarEl.textContent = '';
   ticketBarEl.hidden = !waiting.length;
   waiting.slice(0, TICKET_BAR_MAX).forEach(t => {

@@ -8,21 +8,12 @@
 const SHELL_TEXT = {   // l10n-ok
   title: '대화', search: '이름 검색', empty: '찾는 대화가 없습니다.', private: '사적 대화 중', room: '단체방',   // l10n-ok
   newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.', you: '나',   // l10n-ok
-  office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', brain: '두뇌', useBrain: '쓰는 두뇌',   // l10n-ok
+  office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', brain: '두뇌',   // l10n-ok
   more: '더 보기', act: '행동', menu: '메뉴', online: '접속 중',   // l10n-ok
   profile: '프로필', settings: '설정', back2: '뒤로', close: '닫기', details: '자세히 보기', theme: '테마',   // l10n-ok
   dev: '개발자 모드',   // l10n-ok
   files: '주고받은 파일', history: '대화 기록', art: '그림', model: '모델', log: '활동 로그',   // l10n-ok
   accounts: '계정 · 상태', team: '역할 · 공통 설정', manage: '카드 · 역할 · 두뇌 구성', improve: '개선', revive: '엔진 리부트',   // l10n-ok
-  brainNone: '정해진 두뇌 없음',   // l10n-ok
-  brainMissing: '두뇌 기록을 불러오지 못했습니다',   // l10n-ok
-  loading: '불러오는 중',   // l10n-ok
-  modeWork: '업무',   // l10n-ok
-  modePrivate: '사적',   // l10n-ok
-  brainPicked: '직접 고름 · ',   // l10n-ok
-  brainDefault: '기본 · ',   // l10n-ok
-  brainReset: '기본값으로',   // l10n-ok
-  brainResetFail: '기본값으로 되돌리지 못했습니다',   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
@@ -500,7 +491,8 @@ function shellProfileOpen() {
     list.appendChild(b);
   });
   panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose, shellNarrow() ? '\u2039' : '\u2715'), card, list,
-    shellBrainSection(c), shellModelSection(), shellBrainUseSection(c));
+    shellBrainSection(c), shellModelSection());
+  if (typeof shellBrainUseSection === 'function') panel.appendChild(shellBrainUseSection(c));
   if (typeof shellDevDeleteButton === "function") shellDevDeleteButton(panel, c);
   shellMarkPane();
   column.classList.remove('behind');
@@ -537,53 +529,6 @@ function shellBrainSection(c) {
   });
   box.appendChild(grid);
   return box;
-}
-function shellBrainLabel(b) {
-  if (!b || !b.provider) return SHELL_TEXT.brainNone;
-  return b.provider + (b.model ? ' · ' + b.model : '');
-}
-function shellBrainUseSection(c) {
-  const box = shellSection(SHELL_TEXT.useBrain), hold = shellEl('div', 'shell-rows');
-  hold.appendChild(shellEl('div', 'shell-card-sub', SHELL_TEXT.loading));
-  box.appendChild(hold);
-  shellFillBrainUse(c, hold);
-  return box;
-}
-async function shellFillBrainUse(c, hold) {
-  let body = null;
-  try { body = await api('/api/experts'); }
-  catch (e) {
-    hold.textContent = '';
-    hold.appendChild(shellEl('div', 'shell-card-sub', SHELL_TEXT.brainMissing));
-    return;
-  }
-  const ex = ((body && body.experts) || []).find(row => row.id === c.id) || {};
-  const use = ex.brain_use || {}, defaults = use.defaults || {}, override = use.override || {};
-  hold.textContent = '';
-  [['work', SHELL_TEXT.modeWork], ['private', SHELL_TEXT.modePrivate]].forEach(([mode, label]) => {
-    const picked = override[mode] && override[mode].provider ? override[mode] : null;
-    const row = shellEl('div', 'shell-rowbtn');
-    row.appendChild(shellEl('span', '', label + ' · ' + (picked ? SHELL_TEXT.brainPicked : SHELL_TEXT.brainDefault) + shellBrainLabel(picked || defaults[mode])));
-    if (picked) {
-      const b = shellEl('button', 'shell-rowbtn', SHELL_TEXT.brainReset);
-      b.type = 'button';
-      b.addEventListener('click', async () => {
-        b.disabled = true;
-        try {
-          const res = await api('/api/experts/' + encodeURIComponent(c.id) + '/brain-use', {
-            method: 'PUT', body: JSON.stringify({ mode: mode, reset: true })});
-          if (res && res.session && typeof sessionId !== 'undefined' && res.session.id === sessionId
-              && typeof applySessionProvider === 'function') applySessionProvider(res.session);
-          shellProfileOpen();
-        } catch (err) {
-          b.disabled = false;
-          if (typeof addActivity === 'function') addActivity(SHELL_TEXT.brainResetFail);
-        }
-      });
-      row.appendChild(b);
-    }
-    hold.appendChild(row);
-  });
 }
 function shellModelSection() {
   const box = shellSection(SHELL_TEXT.model), list = shellEl('div', 'shell-models');
