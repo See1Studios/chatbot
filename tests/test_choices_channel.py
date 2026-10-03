@@ -193,7 +193,7 @@ global.document = {
   }
 };
 
-const a = src.indexOf('function parseChoiceItem'), b = src.indexOf('function postProcessAssistant');
+const a = src.indexOf('function stripOuterParens'), b = src.indexOf('function postProcessAssistant', a);
 eval(src.slice(a, b));
 
 renderChoiceChips(null, ['선택1', '선택2']);
