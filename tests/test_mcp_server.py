@@ -420,6 +420,17 @@ class WriteFileTest(Base):
         self.assertEqual(list(outside.iterdir()), [])
 
 
+class DataPathTest(unittest.TestCase):
+    def test_a_data_path_names_the_live_data_dir_not_the_repo_copy(self):
+        # uds/F: user data lives outside the engine folder (~/.pe); an old repo data/ copy must never be reached
+        live = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, str(live), True)
+        with mock.patch.object(mcp, "DATA", live):
+            self.assertEqual(mcp._resolve_target_path("data/workspace/AGENTS.md"), live / "workspace" / "AGENTS.md")
+            self.assertEqual(mcp._resolve_target_path("/data/sessions/x"), live / "sessions" / "x")
+            self.assertEqual(mcp._resolve_target_path("data"), live)
+
+
 class RealPathsTest(unittest.TestCase):
     """Phase 0 completion criteria against the REAL paths and REAL allowlist.
     Every filesystem write is made to raise, so a broken guard cannot damage the live tree."""

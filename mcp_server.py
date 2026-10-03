@@ -162,6 +162,8 @@ def _resolve_target_path(raw_path: str) -> Path:
         return (HOME / "AGENTS.md").resolve()
 
     p = Path(raw)
+    if not p.is_absolute() and p.parts[:1] == ("data",):   # agents still say data/...: that is the live data dir (uds/F)
+        return DATA.joinpath(*p.parts[1:]).resolve()
     if not p.is_absolute():
         ws_candidate = (DATA / "workspace" / p).resolve()
         if ws_candidate.exists():
@@ -172,8 +174,6 @@ def _resolve_target_path(raw_path: str) -> Path:
         home_candidate = (HOME / p).resolve()
         if home_candidate.exists():
             return home_candidate
-        if str(p).startswith("data/"):
-            return (ENGINE / p).resolve()
         return ws_candidate
     return p.resolve()
 
