@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ENV_NAMES = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")
 ENV_READ = re.compile(r"environ(?:\.get\(|\[)\s*[\"'](%s)[\"']" % "|".join(ENV_NAMES))
 OWN_DATA_DIR = re.compile(r"""(?:ROOT|_ROOT|CODE_DIR|SERVICES|parent)\s*/\s*["']chatbot["']\s*/\s*["']data["']|(?:ROOT|_ROOT|CODE_DIR|parent)\s*/\s*["']data["']""")
-ENV_READERS = {"host_config.py", "tickets.py"}
+ENV_READERS = {"host_config.py", "tickets.py", "evolution.py"}   # evolution: data/ protection follows the live dir
 ALLOWED_OWN_DATA = {
     "tools/st_import.py": "fallback only when characters/host_config cannot be imported",
     "tools/worktree_runner.py": "fallback only when host_config cannot be imported (dev-build runner)",
@@ -93,6 +93,11 @@ class DataPaths(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
         hc, tk = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertEqual(hc, str(Path(home) / ".pe"), "a $ pin must not be taken literally")
+
+    def test_evolution_reads_the_same_variables_in_the_same_order(self):
+        import evolution
+        import host_config
+        self.assertEqual(evolution._DATA_ENV, host_config.DATA_ENV)
 
     def test_ctl_follows_the_same_order(self):
         ctl = (ROOT / "chatbot-ctl.sh").read_text(encoding="utf-8")

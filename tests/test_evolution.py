@@ -49,6 +49,17 @@ class MatchingTest(unittest.TestCase):
         self.assertEqual(evolution.match_protected(root, root / "tests" / "x"), "tests/")
         self.assertIsNone(evolution.match_protected(root, root / "notes.md"))
 
+    def test_a_data_pattern_also_holds_the_live_data_dir(self):
+        # uds/F: user data lives outside the repo (~/.pe); data/workspace/AGENTS.md there is still the charter
+        root = make_root(["data/workspace/AGENTS.md", "data/workspace/skill-observations/tickets/", "*.py"])
+        live = Path(tempfile.mkdtemp()).resolve()
+        with mock.patch.dict(os.environ, {"CHATBOT_DATA": str(live)}):
+            self.assertTrue(evolution.is_protected(root, live / "workspace" / "AGENTS.md"))
+            self.assertTrue(evolution.is_protected(root, live / "workspace" / "skill-observations" / "tickets" / "0001.json"))
+            self.assertTrue(evolution.is_protected(root, root / "data" / "workspace" / "AGENTS.md"))
+            self.assertFalse(evolution.is_protected(root, live / "workspace" / "PROJECT.md"))
+            self.assertFalse(evolution.is_protected(root, live / "AGENTS.md"))
+
     def test_relative_path_means_relative_to_root(self):
         root = make_root(["*.py"])
         self.assertTrue(evolution.is_protected(root, "server.py"))

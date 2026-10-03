@@ -107,6 +107,19 @@ def load_volatile(root) -> List[str]:
     return _entries(_load_raw(root), "volatile", False)
 
 
+_DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")   # host_config.DATA_ENV's order
+
+
+def _live_data(root: Path) -> Optional[Path]:
+    """The user-data dir this process runs on (uds/F: ~/.pe), when it is not the repo's own data/. chatbot-ctl.sh
+    exports CHATBOT_DATA to the server, the tool server and every child, so the environment is enough here."""
+    val = next((os.environ[k] for k in _DATA_ENV if os.environ.get(k)), "")
+    if not val:
+        return None
+    live = Path(val).expanduser().resolve()
+    return None if live == (root / "data").resolve() else live
+
+
 def _matches(root: Path, pattern: str, target: Path) -> bool:
     subtree = pattern.endswith("/")
     body = pattern.rstrip("/")
@@ -114,6 +127,10 @@ def _matches(root: Path, pattern: str, target: Path) -> bool:
         head, parts = (), Path(body).expanduser().parts
     else:
         head, parts = root.parts, Path(body).parts  # the root itself is a literal, never a pattern
+        if parts[:1] == ("data",):   # a data/ pattern names user data: it also holds where that data now lives
+            live = _live_data(root)
+            if live is not None and _matches(root, str(live.joinpath(*parts[1:])) + ("/" if subtree else ""), target):
+                return True
     lit = next((i for i, p in enumerate(parts) if any(c in p for c in _GLOB_CHARS)), len(parts))
     base = Path(*(head + parts[:lit])).resolve()  # resolve the literal prefix so a symlinked directory still matches
     rest = parts[lit:]
