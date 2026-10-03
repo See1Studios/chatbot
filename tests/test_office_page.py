@@ -90,6 +90,39 @@ class Page(unittest.TestCase):
         self.assertIn("officeLoad()", opened[:opened.index("};")], "every stream open, so a host restart redraws them")
 
 
+FIT = r"""
+const src = require('fs').readFileSync(process.argv[1], 'utf8');
+const nodes = [];
+const msg = (ts, office) => { const n = { dataset: { ts: String(ts) }, hidden: false };
+  if (office) n.dataset.office = office; nodes.push(n); return n; };
+const logEl = { querySelectorAll: sel => nodes.filter(n => sel.includes('data-office') ? n.dataset.office : n.dataset.ts) };
+const placed = []; const placeMsgByTs = (n, ts) => placed.push(ts);
+let scrollbackExhausted = false;
+new Function('logEl', 'placeMsgByTs', 'getExhausted', src.replace(/typeof scrollbackExhausted === 'undefined' \|\| !scrollbackExhausted/,
+  '!getExhausted()') + `;
+  const dm = msg(50, 'dm:a:b#1');            // yesterday's dm
+  msg(100); msg(110);                        // today's turns: all that is loaded
+  officeFit(); const whileAbove = dm.hidden;
+  msg(40);                                   // scrollback reached older than the dm
+  officeFit(); const reached = dm.hidden;
+  console.log(JSON.stringify({ whileAbove, reached, placed }));
+`)(logEl, placeMsgByTs, () => scrollbackExhausted);
+"""
+
+
+class OfficeFitTest(unittest.TestCase):
+    def test_an_older_dm_waits_for_scrollback_to_reach_its_time(self):
+        # 2026-10-04: yesterday's dm was placed above today's loaded turns, then older sessions were prepended over it
+        out = subprocess.run(["node", "-e", FIT, str(STATIC / "app-office.js")], capture_output=True, text=True, timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(json.loads(out.stdout), {"whileAbove": True, "reached": False, "placed": [50]})
+
+    def test_each_scrollback_hop_refits_them(self):
+        src = (STATIC / "app-session.js").read_text(encoding="utf-8")
+        body = src[src.index("async function loadOlderHistory("):]
+        self.assertIn("officeFit()", body[:body.index("\nasync function ") if "\nasync function " in body else len(body)])
+
+
 class FakeReq:
     def __init__(self, **q):
         self.qd, self.out = q, None

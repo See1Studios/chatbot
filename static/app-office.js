@@ -44,6 +44,24 @@ function officeDraw(m) {
   return node;
 }
 
+// A dm older than every 1:1 message on screen waits, hidden, until scrollback reaches its time: placed by time among
+// only what is loaded, it sat above the loaded window and older sessions were then prepended over it, so yesterday's
+// dm showed between two of today's turns (2026-10-04). Run after each draw and each scrollback hop.
+function officeFit() {
+  if (!logEl) return;
+  let oldest = Infinity;
+  logEl.querySelectorAll('.msg[data-ts]').forEach(n => {
+    const t = Number(n.dataset.ts);
+    if (!n.dataset.office && t && t < oldest) oldest = t;
+  });
+  const more = typeof scrollbackExhausted === 'undefined' || !scrollbackExhausted;
+  logEl.querySelectorAll('.msg[data-office]').forEach(n => {
+    const t = Number(n.dataset.ts || 0);
+    n.hidden = more && (oldest === Infinity || t < oldest);
+    if (!n.hidden && typeof placeMsgByTs === 'function') placeMsgByTs(n, t);
+  });
+}
+
 // The character's dms, drawn into the 1:1 just opened -- run on every stream open, so a host restart redraws them --
 // then the host is told the window is open: a coworker's turn not yet heard gets the character's reaction (D11).
 async function officeLoad() {
@@ -53,5 +71,6 @@ async function officeLoad() {
   try { data = await api('/api/office?character=' + encodeURIComponent(want)); } catch (_) { return; }
   if (want !== sessionCharacter) return;   // switched while it loaded
   ((data && data.messages) || []).forEach(officeDraw);
+  officeFit();
   try { await api('/api/office/opened?character=' + encodeURIComponent(want)); } catch (_) {}
 }

@@ -193,7 +193,6 @@ function enterSession(id, opts) {
 
 async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
   const info = await api('/api/sessions/' + encodeURIComponent(id));
-  traceScrollback('open ' + id + ' n=' + ((info && info.history) || []).length + ' char=' + String((info && info.character) || '').slice(-6));
   if (!noRedirect) {
     const bounced = await maybeRedirectHardSession(id, info, _redirDepth || 0);
     if (bounced) return;
@@ -456,12 +455,6 @@ async function resolveScrollbackFallback(sid, updatedAt, visited) {
   }
 }
 
-// TEMP diagnosis (2026-10-04, #609): which session each scrollback hop draws and how it got there, into the host
-// log as page.error name=ScrollbackHop. Ids only, never text. Remove once the stray block above 23:25 is explained.
-function traceScrollback(line) {
-  if (typeof reportClientError === 'function') reportClientError({ name: 'ScrollbackHop', message: line }, 'scrollback');
-}
-
 async function loadOlderHistory() {
   if (scrollbackLoading || scrollbackExhausted || !scrollbackSid) return;
   scrollbackLoading = true;
@@ -501,7 +494,6 @@ async function loadOlderHistory() {
         // This session was deleted (operator's new 🗑 삭제 button) -- route
         // around the dead link instead of aborting the whole scrollback.
         const fallback = await resolveScrollbackFallback(scrollbackSid, lastKnownTs, scrollbackVisited);
-        traceScrollback(scrollbackSid + ' gone next=' + fallback + ' via=gone-fallback');
         if (fallback) {
           scrollbackSid = fallback;
           continue;
@@ -517,10 +509,7 @@ async function loadOlderHistory() {
       const hist = info.history || [];
       let nextSid = info.predecessor_session_id || '';
       if (nextSid && scrollbackVisited.has(nextSid)) nextSid = ''; // cycle guard
-      const via = nextSid ? 'pred' : 'fallback';
       if (!nextSid) nextSid = await resolveScrollbackFallback(scrollbackSid, info.updated_at, scrollbackVisited);
-      traceScrollback(scrollbackSid + ' n=' + hist.length + ' drawn=' + (hist.length && !alreadyRendered ? 1 : 0) +
-                      ' char=' + String(info.character || '').slice(-6) + ' next=' + nextSid + ' via=' + via);
 
       const showThisHop = hist.length && !alreadyRendered;
       if (showThisHop) {
@@ -569,6 +558,7 @@ async function loadOlderHistory() {
         break;
       }
     }
+    if (typeof officeFit === 'function') officeFit();   // a coworker dm whose time this hop reached shows now
     marker.remove();
     logEl.scrollTop = prevScrollTop + (logEl.scrollHeight - prevScrollHeight);
   } catch (_) {
