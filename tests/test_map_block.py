@@ -151,6 +151,28 @@ class MapBlockMultiMarker(unittest.TestCase):
         html = run_map_js(f"renderMapBlock({json.dumps(raw)})")
         self.assertNotIn('chat-map-markers', html)
 
+    def test_parse_kv_plural_markers_key(self):
+        raw = "markers: 37.55, 126.97 | Place A\nmarkers: 37.56, 126.98 | Place B"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(len(res["markers"]), 2)
+        self.assertEqual(res["markers"][0]["label"], "Place A")
+        self.assertEqual(res["markers"][1]["label"], "Place B")
+
+    def test_parse_kv_coords_only_marker(self):
+        raw = "lat: 37.5\nlon: 127.0\nmarker: 37.55, 126.97"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(len(res["markers"]), 1)
+        self.assertEqual(res["markers"][0]["lat"], 37.55)
+        self.assertEqual(res["markers"][0]["lon"], 126.97)
+        self.assertEqual(res["markers"][0]["label"], "")
+
+    def test_render_block_multi_markers_label_summary(self):
+        raw = '{"lat":37.5,"lon":127.0,"markers":[{"lat":37.55,"lon":126.97,"label":"Spot A"},{"lat":37.56,"lon":126.98,"label":"Spot B"}]}'
+        html = run_map_js(f"renderMapBlock({json.dumps(raw)})")
+        self.assertIn('Spot A \u00B7 Spot B', html)
+
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
 class MapBlockRendering(unittest.TestCase):
@@ -298,6 +320,41 @@ console.log(JSON.stringify({{
         self.assertEqual(res["labelText"], "<img src=x onerror=alert(1)>")
         self.assertEqual(res["labelInnerHTML"], "", "innerHTML must be empty")
 
+    def test_popup_google_maps_negative_coords(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(), className: '', href: '', target: '', rel: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      children
+    }};
+  }}
+}};
+const popup = buildPopupContent(-33.8688, 151.2093, 'Sydney');
+const link = popup.children[1];
+console.log(JSON.stringify({{
+  linkHref: link.href,
+  linkTarget: link.target,
+  linkRel: link.rel,
+  linkText: link.textContent
+}}));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertIn("-33.8688", res["linkHref"])
+        self.assertIn("151.2093", res["linkHref"])
+        self.assertEqual(res["linkTarget"], "_blank")
+        self.assertEqual(res["linkRel"], "noopener")
+        self.assertEqual(res["linkText"], "Google \uC9C0\uB3C4")
+
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
 class MapBlockMultiMarkerRendering(unittest.TestCase):
@@ -321,16 +378,22 @@ global.document = {{
       addEventListener() {{}},
       children
     }};
-  }}
+  }},
+  addEventListener() {{}}
 }};
 
 window = {{
   L: {{
     map: (canvas, opts) => {{
+      calls.push({{action: 'mapOpts', opts}});
       const mapObj = {{
         setView: (c, z) => {{ calls.push({{action: 'setView', center: c, zoom: z}}); return mapObj; }},
         fitBounds: (b, o) => {{ calls.push({{action: 'fitBounds', bounds: b, opts: o}}); return mapObj; }},
-        invalidateSize: () => {{}}
+        invalidateSize: () => {{}},
+        dragging: {{ enable() {{}}, disable() {{}} }},
+        touchZoom: {{ enable() {{}}, disable() {{}} }},
+        doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+        scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
       }};
       return mapObj;
     }},
@@ -362,7 +425,7 @@ const box = {{
     if (sel === '.chat-map-canvas') return {{}};
     return null;
   }},
-  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }} }},
+  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }}, contains(c) {{ return box.classes.includes(c); }} }},
   appendChild() {{}}
 }};
 const container = {{ querySelectorAll: () => [box] }};
@@ -395,6 +458,7 @@ const container = {{ querySelectorAll: () => [box] }};
 @unittest.skipUnless(shutil.which("node"), "node not installed")
 class MapMarkdownIntegration(unittest.TestCase):
     def test_markdown_full_render(self):
+        md_text = "Here is the map:\n\n```map\nlat: 37.5665\nlon: 126.9780\nzoom: 14\nmarker: Seoul\n```\n\nEnjoy!"
         harness = f"""
 const fs = require('fs');
 const window = {{}};
@@ -414,7 +478,7 @@ const document = {{ createElement: () => ({{}}), head: {{ appendChild() {{}} }} 
 eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
 eval(fs.readFileSync({json.dumps(str(MD_JS))}, 'utf8'));
 
-const mdInput = "Here is the map:\\n\\n```map\\nlat: 37.5665\\nlon: 126.9780\\nzoom: 14\\nmarker: Seoul\\n```\\n\\nEnjoy!";
+const mdInput = {json.dumps(md_text)};
 const streamHtml = renderMarkdown(mdInput, false);
 const finalHtml = renderMarkdown(mdInput, true);
 
@@ -462,7 +526,8 @@ global.document = {{
       addEventListener() {{}},
       children
     }};
-  }}
+  }},
+  addEventListener() {{}}
 }};
 
 const calls = [];
@@ -475,7 +540,11 @@ window = {{
           invalidateSize: () => calls.push({{ action: 'invalidate' }})
         }};
       }},
-      invalidateSize: () => {{}}
+      invalidateSize: () => {{}},
+      dragging: {{ enable() {{}}, disable() {{}} }},
+      touchZoom: {{ enable() {{}}, disable() {{}} }},
+      doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+      scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
     }}),
     tileLayer: (url, opts) => ({{
       addTo: (m) => {{
@@ -508,7 +577,7 @@ const box = {{
     if (sel === '.chat-map-canvas') return {{}};
     return null;
   }},
-  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }} }},
+  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }}, contains(c) {{ return box.classes.includes(c); }} }},
   appendChild() {{}}
 }};
 const container = {{
@@ -569,12 +638,20 @@ global.document = {{
       addEventListener() {{}},
       children
     }};
-  }}
+  }},
+  addEventListener() {{}}
 }};
 
 window = {{
   L: {{
-    map: () => ({{ setView: () => ({{ invalidateSize: () => {{}} }}), invalidateSize: () => {{}} }}),
+    map: () => ({{
+      setView: () => ({{ invalidateSize: () => {{}} }}),
+      invalidateSize: () => {{}},
+      dragging: {{ enable() {{}}, disable() {{}} }},
+      touchZoom: {{ enable() {{}}, disable() {{}} }},
+      doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+      scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
+    }}),
     tileLayer: () => ({{ addTo: () => ({{}}) }}),
     marker: () => ({{
       addTo: () => ({{
@@ -602,7 +679,7 @@ const box = {{
     if (sel === '.chat-map-canvas') return {{}};
     return null;
   }},
-  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }} }},
+  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }}, contains(c) {{ return box.classes.includes(c); }} }},
   appendChild() {{}}
 }};
 const container = {{ querySelectorAll: () => [box] }};
@@ -640,13 +717,21 @@ global.document = {{
       addEventListener() {{}},
       children
     }};
-  }}
+  }},
+  addEventListener() {{}}
 }};
 window = {{
   L: {{
     map: (canvas, opts) => {{
       mapOpts = opts;
-      return {{ setView: () => ({{ invalidateSize: () => {{}} }}), invalidateSize: () => {{}} }};
+      return {{
+        setView: () => ({{ invalidateSize: () => {{}} }}),
+        invalidateSize: () => {{}},
+        dragging: {{ enable() {{}}, disable() {{}} }},
+        touchZoom: {{ enable() {{}}, disable() {{}} }},
+        doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+        scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
+      }};
     }},
     tileLayer: (url, opts) => {{
       tileOpts = opts;
@@ -666,7 +751,7 @@ const box = {{
     if (sel === '.chat-map-canvas') return {{}};
     return null;
   }},
-  classList: {{ toggle() {{}}, add(c) {{}} }},
+  classList: {{ toggle() {{}}, add(c) {{}}, contains(c) {{ return false; }} }},
   appendChild() {{}}
 }};
 const container = {{ querySelectorAll: () => [box] }};
@@ -787,13 +872,21 @@ global.document = {{
       addEventListener() {{}},
       children
     }};
-  }}
+  }},
+  addEventListener() {{}}
 }};
 window = {{
   L: {{
     map: (canvas, opts) => {{
       mapOpts = opts;
-      return {{ setView: () => ({{ invalidateSize: () => {{}} }}), invalidateSize: () => {{}} }};
+      return {{
+        setView: () => ({{ invalidateSize: () => {{}} }}),
+        invalidateSize: () => {{}},
+        dragging: {{ enable() {{}}, disable() {{}} }},
+        touchZoom: {{ enable() {{}}, disable() {{}} }},
+        doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+        scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
+      }};
     }},
     tileLayer: () => ({{ addTo: () => ({{}}) }}),
     marker: () => ({{ addTo: () => ({{ bindPopup: () => ({{ openPopup: () => {{}} }}) }}) }})
@@ -809,7 +902,7 @@ const box = {{
     if (sel === '.chat-map-canvas') return {{}};
     return null;
   }},
-  classList: {{ toggle() {{}}, add(c) {{}} }},
+  classList: {{ toggle() {{}}, add(c) {{}}, contains(c) {{ return false; }} }},
   appendChild() {{}}
 }};
 const container = {{ querySelectorAll: () => [box] }};
@@ -824,6 +917,71 @@ const container = {{ querySelectorAll: () => [box] }};
         self.assertIsNotNone(res["mapOpts"])
         self.assertFalse(res["mapOpts"].get("scrollWheelZoom"), "scrollWheelZoom must be false")
         self.assertTrue(res["mapOpts"].get("zoomControl"), "zoomControl must be enabled")
+
+    def test_render_maps_in_dragging_disabled_by_default(self):
+        """Default embedded state must disable dragging and touch zoom to prevent scroll trapping."""
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+let mapOpts = null;
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(), className: '', type: '', href: '', target: '', rel: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      addEventListener() {{}},
+      children
+    }};
+  }},
+  addEventListener() {{}}
+}};
+window = {{
+  L: {{
+    map: (canvas, opts) => {{
+      mapOpts = opts;
+      return {{
+        setView: () => ({{ invalidateSize: () => {{}} }}),
+        invalidateSize: () => {{}},
+        dragging: {{ enable() {{}}, disable() {{}} }},
+        touchZoom: {{ enable() {{}}, disable() {{}} }},
+        doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+        scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
+      }};
+    }},
+    tileLayer: () => ({{ addTo: () => ({{}}) }}),
+    marker: () => ({{ addTo: () => ({{ bindPopup: () => ({{ openPopup: () => {{}} }}) }}) }})
+  }}
+}};
+const box = {{
+  attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0' }},
+  classes: [],
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute() {{}},
+  querySelector(sel) {{
+    if (sel === '.chat-map-markers') return null;
+    if (sel === '.chat-map-canvas') return {{}};
+    return null;
+  }},
+  classList: {{ toggle() {{}}, add(c) {{}}, contains(c) {{ return false; }} }},
+  appendChild() {{}}
+}};
+const container = {{ querySelectorAll: () => [box] }};
+(async () => {{
+  await renderMapsIn(container);
+  console.log(JSON.stringify({{ mapOpts }}));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertFalse(res["mapOpts"].get("dragging"), "dragging must be disabled by default")
+        self.assertFalse(res["mapOpts"].get("touchZoom"), "touchZoom must be disabled by default")
+        self.assertFalse(res["mapOpts"].get("doubleClickZoom"), "doubleClickZoom must be disabled by default")
 
     def test_render_maps_in_leaflet_load_failure_fallback(self):
         harness = f"""
@@ -918,6 +1076,170 @@ const container = {{ querySelectorAll: () => [box1] }};
         self.assertIn("chat-map-fallback", res["classes"])
 
 
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class MapBlockFullscreen(unittest.TestCase):
+    """Fullscreen toggle: dragging enable/disable, icon change, ESC key."""
+
+    def test_fullscreen_toggle_enables_dragging(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+const log = [];
+const mapObj = {{
+  dragging: {{
+    enable() {{ log.push('dragging.enable'); }},
+    disable() {{ log.push('dragging.disable'); }}
+  }},
+  touchZoom: {{
+    enable() {{ log.push('touchZoom.enable'); }},
+    disable() {{ log.push('touchZoom.disable'); }}
+  }},
+  doubleClickZoom: {{
+    enable() {{ log.push('dblClick.enable'); }},
+    disable() {{ log.push('dblClick.disable'); }}
+  }},
+  scrollWheelZoom: {{
+    enable() {{ log.push('scroll.enable'); }},
+    disable() {{ log.push('scroll.disable'); }}
+  }},
+  invalidateSize() {{ log.push('invalidate'); }}
+}};
+const el = {{
+  _classes: [],
+  classList: {{
+    contains(c) {{ return el._classes.includes(c); }},
+    toggle(c) {{
+      const i = el._classes.indexOf(c);
+      if (i >= 0) el._classes.splice(i, 1);
+      else el._classes.push(c);
+    }}
+  }}
+}};
+let btnText = '\\u26F6';
+const fsBtn = {{
+  get textContent() {{ return btnText; }},
+  set textContent(v) {{ btnText = v; }}
+}};
+
+// Enter fullscreen
+toggleMapFullscreen(el, mapObj, fsBtn);
+const afterEnter = {{
+  classes: [...el._classes],
+  log: [...log],
+  btnText
+}};
+
+log.length = 0;
+// Exit fullscreen
+toggleMapFullscreen(el, mapObj, fsBtn);
+const afterExit = {{
+  classes: [...el._classes],
+  log: [...log],
+  btnText
+}};
+
+console.log(JSON.stringify({{ afterEnter, afterExit }}));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+
+        enter = res["afterEnter"]
+        self.assertIn("chat-map-fullscreen", enter["classes"])
+        self.assertIn("dragging.enable", enter["log"])
+        self.assertIn("touchZoom.enable", enter["log"])
+        self.assertIn("scroll.enable", enter["log"])
+        self.assertIn("invalidate", enter["log"])
+        self.assertEqual(enter["btnText"], "\u2715", "Button must show close icon in fullscreen")
+
+        exit_ = res["afterExit"]
+        self.assertNotIn("chat-map-fullscreen", exit_["classes"])
+        self.assertIn("dragging.disable", exit_["log"])
+        self.assertIn("touchZoom.disable", exit_["log"])
+        self.assertIn("scroll.disable", exit_["log"])
+        self.assertEqual(exit_["btnText"], "\u26F6", "Button must show expand icon after exit")
+
+    def test_fullscreen_button_created_in_render(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+const appendedChildren = [];
+const keydownListeners = [];
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    const listeners = {{}};
+    return {{
+      tagName: tag.toUpperCase(), className: '', type: '', href: '', target: '', rel: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      addEventListener(ev, fn) {{
+        if (!listeners[ev]) listeners[ev] = [];
+        listeners[ev].push(fn);
+        if (ev === 'keydown') keydownListeners.push(fn);
+      }},
+      children, _listeners: listeners
+    }};
+  }},
+  addEventListener(ev, fn) {{
+    if (ev === 'keydown') keydownListeners.push(fn);
+  }}
+}};
+
+window = {{
+  L: {{
+    map: (canvas, opts) => ({{
+      setView: () => ({{ invalidateSize: () => {{}} }}),
+      invalidateSize: () => {{}},
+      dragging: {{ enable() {{}}, disable() {{}} }},
+      touchZoom: {{ enable() {{}}, disable() {{}} }},
+      doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+      scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
+    }}),
+    tileLayer: () => ({{ addTo: () => ({{}}) }}),
+    marker: () => ({{ addTo: () => ({{ bindPopup: () => ({{ openPopup: () => {{}} }}) }}) }})
+  }}
+}};
+
+const box = {{
+  attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0', 'data-marker': 'Test' }},
+  _children: [],
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute(k, v) {{ this.attrs[k] = String(v); }},
+  querySelector(sel) {{
+    if (sel === '.chat-map-markers') return null;
+    if (sel === '.chat-map-canvas') return {{}};
+    return null;
+  }},
+  classList: {{ toggle() {{}}, add(c) {{}}, contains(c) {{ return false; }} }},
+  appendChild(child) {{ this._children.push(child); appendedChildren.push(child); }}
+}};
+const container = {{ querySelectorAll: () => [box] }};
+
+(async () => {{
+  await renderMapsIn(container);
+  const fsBtns = appendedChildren.filter(c => c.className === 'chat-map-fs-btn');
+  console.log(JSON.stringify({{
+    fsBtnCount: fsBtns.length,
+    fsBtnText: fsBtns.length > 0 ? fsBtns[0].textContent : null,
+    fsBtnType: fsBtns.length > 0 ? fsBtns[0].type : null,
+    hasKeydownListener: keydownListeners.length > 0
+  }}));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertEqual(res["fsBtnCount"], 1, "Exactly one fullscreen button must be created")
+        self.assertEqual(res["fsBtnText"], "\u26F6", "Initial button text must be expand icon")
+        self.assertEqual(res["fsBtnType"], "button")
+        self.assertTrue(res["hasKeydownListener"], "ESC keydown listener must be registered")
+
+
 class MapStaticAssets(unittest.TestCase):
     def test_index_html_links_markdown_map_js(self):
         html = INDEX_HTML.read_text(encoding="utf-8")
@@ -937,6 +1259,20 @@ class MapStaticAssets(unittest.TestCase):
         self.assertIn('.chat-map-fullscreen', css)
         self.assertIn('.chat-map-markers', css)
         self.assertIn('.chat-map-fs-btn', css)
+        self.assertIn('.chat-map-label-multi', css)
+        self.assertIn('.leaflet-pane', css)
+
+    def test_fullscreen_touch_action_auto(self):
+        """Fullscreen mode must set touch-action: auto to unlock all gestures."""
+        css = CSS.read_text(encoding="utf-8")
+        # Find the fullscreen block and verify it contains touch-action: auto
+        self.assertIn('.chat-map-box.chat-map-fullscreen', css)
+        # Check that fullscreen canvas has touch-action: auto
+        self.assertIn('.chat-map-fullscreen .chat-map-canvas', css)
+        self.assertIn('.chat-map-fullscreen .leaflet-container', css)
+        # Count occurrences of touch-action: auto (at least 3: box, canvas, leaflet-container)
+        auto_count = css.count('touch-action: auto')
+        self.assertGreaterEqual(auto_count, 3, "Fullscreen must set touch-action: auto on box, canvas, and leaflet-container")
 
 
 if __name__ == "__main__":

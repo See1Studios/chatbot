@@ -82,7 +82,7 @@ function parseMapConfig(text) {
       if (k === 'lat' || k === 'latitude') lat = parseFloat(v);
       else if (k === 'lon' || k === 'lng' || k === 'longitude') lon = parseFloat(v);
       else if (k === 'zoom') zoom = parseInt(v, 10);
-      else if (/^(marker|text|label|title)$/.test(k)) {
+      else if (/^(markers?|text|label|title)$/.test(k)) {
         const pipeIdx = v.indexOf('|');
         if (pipeIdx !== -1) {
           const coords = v.substring(0, pipeIdx).trim();
@@ -155,9 +155,15 @@ function renderMapBlock(code) {
   if (!cfg) {
     return '<pre><code class="language-map">' + code + '</code></pre>';
   }
-  const m = cfg.marker ? escapeMapHtml(cfg.marker) : '';
-  const markerAttr = m ? ' data-marker="' + m + '"' : '';
-  const labelHtml = m ? '<div class="chat-map-label">' + m + '</div>' : '';
+  let labelText = cfg.marker ? escapeMapHtml(cfg.marker) : '';
+  if (!labelText && cfg.markers && cfg.markers.length > 1) {
+    const labels = cfg.markers.map(mk => mk.label).filter(Boolean);
+    if (labels.length > 0) {
+      labelText = escapeMapHtml(labels.join(' \u00B7 '));
+    }
+  }
+  const markerAttr = cfg.marker ? ' data-marker="' + escapeMapHtml(cfg.marker) + '"' : '';
+  const labelHtml = labelText ? '<div class="chat-map-label">' + labelText + '</div>' : '';
   /* Multi-marker data stored in a hidden span that DOMPurify preserves (text content, no attrs needed). */
   const markersSpan = cfg.markers && cfg.markers.length > 0
     ? '<span class="chat-map-markers">' + escapeMapHtml(JSON.stringify(cfg.markers)) + '</span>'
@@ -240,7 +246,40 @@ function applyMapFallback(el) {
 function readMarkersFromEl(el) {
   const span = el.querySelector && el.querySelector('.chat-map-markers');
   if (!span) return [];
-  try { return JSON.parse(span.textContent || '[]'); } catch (_) { return []; }
+  try {
+    const raw = span.textContent || '';
+    const txt = raw.includes('&quot;') ? decodeMapEntities(raw) : raw;
+    return JSON.parse(txt || '[]');
+  } catch (_) { return []; }
+}
+
+/* Toggle fullscreen: enable/disable dragging and touch interactions so the
+   default embedded state lets page scroll pass through (touch-action: pan-y)
+   while fullscreen mode unlocks full map interaction. */
+function toggleMapFullscreen(el, mapObj, fsBtn) {
+  const entering = !el.classList.contains('chat-map-fullscreen');
+  el.classList.toggle('chat-map-fullscreen');
+  if (fsBtn) {
+    fsBtn.textContent = entering ? '\u2715' : '\u26F6';
+    if (typeof fsBtn.setAttribute === 'function') {
+      fsBtn.setAttribute('aria-label', entering ? 'Close fullscreen map' : 'Open fullscreen map');
+    }
+    fsBtn.title = entering ? 'Close' : 'Fullscreen';
+  }
+  try {
+    if (entering) {
+      if (mapObj.dragging) mapObj.dragging.enable();
+      if (mapObj.touchZoom) mapObj.touchZoom.enable();
+      if (mapObj.doubleClickZoom) mapObj.doubleClickZoom.enable();
+      if (mapObj.scrollWheelZoom) mapObj.scrollWheelZoom.enable();
+    } else {
+      if (mapObj.dragging) mapObj.dragging.disable();
+      if (mapObj.touchZoom) mapObj.touchZoom.disable();
+      if (mapObj.doubleClickZoom) mapObj.doubleClickZoom.disable();
+      if (mapObj.scrollWheelZoom) mapObj.scrollWheelZoom.disable();
+    }
+    mapObj.invalidateSize();
+  } catch (_) {}
 }
 
 async function renderMapsIn(container) {
@@ -270,25 +309,15 @@ async function renderMapsIn(container) {
     const extraMarkers = readMarkersFromEl(el);
     const canvas = el.querySelector('.chat-map-canvas') || el;
 
-    /* Fullscreen toggle button */
-    if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
-      const fsBtn = document.createElement('button');
-      fsBtn.className = 'chat-map-fs-btn';
-      fsBtn.type = 'button';
-      fsBtn.textContent = '\u26F6';
-      fsBtn.addEventListener('click', () => {
-        el.classList.toggle('chat-map-fullscreen');
-        try { mapObj.invalidateSize(); } catch (_) {}
-      });
-      el.appendChild(fsBtn);
-    }
-
     let mapObj;
     try {
       mapObj = window.L.map(canvas, {
         zoomControl: true,
         attributionControl: true,
-        scrollWheelZoom: false
+        scrollWheelZoom: false,
+        dragging: false,
+        touchZoom: false,
+        doubleClickZoom: false
       });
       window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -322,6 +351,31 @@ async function renderMapsIn(container) {
         }
       }
 
+      /* Fullscreen toggle button */
+      if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+        const fsBtn = document.createElement('button');
+        fsBtn.className = 'chat-map-fs-btn';
+        fsBtn.type = 'button';
+        fsBtn.textContent = '\u26F6';
+        fsBtn.title = 'Fullscreen';
+        if (typeof fsBtn.setAttribute === 'function') {
+          fsBtn.setAttribute('aria-label', 'Open fullscreen map');
+        }
+        fsBtn.addEventListener('click', () => {
+          toggleMapFullscreen(el, mapObj, fsBtn);
+        });
+        el.appendChild(fsBtn);
+
+        /* ESC key closes fullscreen */
+        if (typeof document.addEventListener === 'function') {
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && el.classList.contains('chat-map-fullscreen')) {
+              toggleMapFullscreen(el, mapObj, fsBtn);
+            }
+          });
+        }
+      }
+
       setTimeout(() => {
         try { mapObj.invalidateSize(); } catch (_) {}
       }, 250);
@@ -339,6 +393,7 @@ if (typeof window !== 'undefined') {
   window.buildPopupContent = buildPopupContent;
   window.applyMapFallback = applyMapFallback;
   window.renderMapsIn = renderMapsIn;
+  window.toggleMapFullscreen = toggleMapFullscreen;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -349,5 +404,6 @@ if (typeof module !== 'undefined' && module.exports) {
     buildPopupContent,
     applyMapFallback,
     renderMapsIn,
+    toggleMapFullscreen,
   };
 }
