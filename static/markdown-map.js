@@ -124,8 +124,6 @@ function parseMapConfig(text) {
             if (!isNaN(mLat) && !isNaN(mLon) && mLat >= -90 && mLat <= 90 && mLon >= -180 && mLon <= 180) {
               const lbl = (mm[3] || '').trim().replace(/^["']|["']$/g, '');
               markers.push({ lat: mLat, lon: mLon, label: lbl });
-            } else {
-              marker = v;
             }
           } else {
             marker = v;

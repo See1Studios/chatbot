@@ -84,6 +84,30 @@ class MapBlockParsing(unittest.TestCase):
         self.assertEqual(res["zoom"], 14)
         self.assertEqual(res["marker"], "Seoul")
 
+    def test_parse_json_center_array(self):
+        js = 'parseMapConfig(JSON.stringify({center: [37.5665, 126.9780], zoom: 14, marker: "Seoul"}))'
+        res = run_map_js(js)
+        self.assertEqual(res["lat"], 37.5665)
+        self.assertEqual(res["lon"], 126.9780)
+        self.assertEqual(res["zoom"], 14)
+        self.assertEqual(res["marker"], "Seoul")
+
+    def test_parse_kv_invalid_center_preserves_lat_lon(self):
+        raw = "lat: 37.5665\nlon: 126.9780\ncenter: Seoul\nmarker: City Hall"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["lat"], 37.5665)
+        self.assertEqual(res["lon"], 126.9780)
+        self.assertEqual(res["marker"], "City Hall")
+
+    def test_parse_json_invalid_center_preserves_lat_lon(self):
+        js = 'parseMapConfig(JSON.stringify({lat: 37.5665, lon: 126.9780, center: "Seoul", marker: "City Hall"}))'
+        res = run_map_js(js)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["lat"], 37.5665)
+        self.assertEqual(res["lon"], 126.9780)
+        self.assertEqual(res["marker"], "City Hall")
+
     def test_invalid_coordinates(self):
         invalids = [
             "",
@@ -240,6 +264,20 @@ class MapBlockMultiMarker(unittest.TestCase):
         self.assertIsNotNone(res)
         self.assertEqual(len(res["markers"]), 1)
         self.assertEqual(res["markers"][0]["label"], "Label, with, commas")
+
+    def test_parse_kv_out_of_bounds_coords_marker_discarded(self):
+        raw = "lat: 37.5\nlon: 127.0\nmarker: 200, 300"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(len(res["markers"]), 0)
+        self.assertEqual(res["marker"], "")
+
+    def test_parse_kv_out_of_bounds_coords_with_label_discarded(self):
+        raw = "lat: 37.5\nlon: 127.0\nmarker: 200, 300, Invalid Spot"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertEqual(len(res["markers"]), 0)
+        self.assertEqual(res["marker"], "")
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
