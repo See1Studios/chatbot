@@ -1,4 +1,5 @@
-"""LoopGuard: catches the 2026-09-20 Gemini runaway without flagging honest work.
+"""LoopGuard: catches the 2026-09-20 Gemini runaway without flagging honest work, and holds a turn to its budget.
+Rules A-C are tested with the budget (rule D) out of the way; rule D has its own class below.
 Run: python3 -m unittest tests.test_loop_guard  (from services/chatbot)
 """
 import sys
@@ -6,7 +7,13 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from loop_guard import LoopGuard, extract_tool_calls, extract_tool_steps, is_read_only, output_hash, signature  # noqa: E402
+from loop_guard import LoopGuard as _Guard, extract_tool_calls, extract_tool_steps, is_read_only, output_hash, read_size, signature  # noqa: E402,E501
+
+NO_BUDGET = dict(budget_calls=(10 ** 6, 10 ** 6), budget_bytes=(10 ** 12, 10 ** 12))
+
+
+def LoopGuard(**kw):   # rules A-C, with rule D's budget out of the way
+    return _Guard(**{**NO_BUDGET, **kw})
 
 APP = str(Path(__file__).resolve().parent.parent / "static" / "app.js")
 
@@ -204,6 +211,46 @@ class ExtractToolCalls(unittest.TestCase):
     def test_missing_tool_info_falls_back_to_tool_name(self):
         self.assertEqual(extract_tool_calls({"step_update": {"state": "DONE", "step_type": "tool", "tool_name": "manage_task"}}),
                          [("manage_task", {})])
+
+
+
+class TurnBudget(unittest.TestCase):
+    """Rule D (token-economy.md): every read goes back to the model on each later call of the turn."""
+
+    def read(self, g, n, size=1000):
+        return g.observe("view_file", {"AbsolutePath": "/r/f%d.py" % n}, "10 lines, %d bytes" % size)
+
+    def test_many_calls_warn_then_stop(self):
+        g = _Guard()
+        got = [(i, v.level, v.rule) for i in range(1, 46) for v in [self.read(g, i)] if v]
+        self.assertEqual(got, [(20, "warn", "budget"), (40, "stop", "budget")])
+
+    def test_a_few_big_reads_cross_the_byte_line(self):
+        g = _Guard()
+        got = [(i, v.level, v.rule, v.text) for i in range(1, 6) for v in [self.read(g, i, 300_000)] if v]
+        self.assertEqual([x[:3] for x in got], [(2, "warn", "budget"), (4, "stop", "budget")])   # 600 KB, then 1.2 MB
+        self.assertIn("1200KB", got[1][3])
+
+    def test_writes_and_commands_count_as_calls_not_reads(self):
+        g = _Guard()
+        g.observe("run_command", {"CommandLine": "ls"}, "x" * 900_000)
+        self.assertEqual((g.calls, g.read_bytes), (1, 0))
+
+    def test_after_the_notice_the_turn_has_only_the_rest(self):
+        g = _Guard()
+        g.tighten()
+        g.reset()   # the resumed turn
+        got = [(i, v.level) for i in range(1, 25) for v in [self.read(g, i)] if v]
+        self.assertEqual(got, [(20, "stop")], "the 20 calls left above the warning, and no second warning")
+        g.relax()
+        g.reset()
+        got = [(i, v.level) for i in range(1, 25) for v in [self.read(g, i)] if v]
+        self.assertEqual(got, [(20, "warn")])
+
+    def test_read_size_takes_the_stat_line_or_the_text(self):
+        self.assertEqual(read_size("868 lines, 36259 bytes"), 36259)
+        self.assertEqual(read_size("abc"), 3)
+        self.assertEqual(read_size(None), 0)
 
 
 if __name__ == "__main__":

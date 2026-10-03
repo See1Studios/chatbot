@@ -95,6 +95,28 @@ class NoticeInsteadOfWarning(NoticeCase):
         self.assertFalse(s._loop_stopping)                        # the flag is released either way
 
 
+class OverBudget(NoticeCase):
+    """Rule D (token-economy.md, #614): reads of different files, none repeated, still cost the whole turn."""
+
+    def read_new(self, s, n, size):
+        for i in range(n):
+            line = {"event": "step_update", "step_update": {"step_index": i, "state": "DONE", "step_type": "tool",
+                    "tool_name": "view_file", "tool_info": {"name": "view_file",
+                                                            "parameters": {"AbsolutePath": "/src/f%d.py" % i},
+                                                            "output": "900 lines, %d bytes" % size}}}
+            AgyAdapter().normalize_line(s, json.dumps(line))
+
+    def test_the_agent_is_told_to_delegate_or_wrap_up(self):
+        s = self.make()
+        self.read_new(s, 2, 300_000)                               # 600 KB of whole-file reads
+        self.assertTrue(self.delivered.wait(3), "the budget notice was not sent")
+        text, notice = self.sent[0]
+        self.assertTrue(notice)
+        self.assertIn("over its budget (2 tool calls, 600 KB read)", text)   # English for the agent (principle 0)
+        self.assertIn("delegate", text)
+        self.assertNotIn("같은 도구 호출을 반복", text)
+
+
 class TheNoticeIsNotAUserMessage(SyncBase):
     def test_no_bubble_no_history_and_the_guard_gets_stricter_until_the_user_speaks_again(self):
         s = self.make()

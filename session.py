@@ -86,6 +86,10 @@ LOOP_STOP_AFTER_NOTICE = 3   # repeats that still continue after the agent was t
 LOOP_NOTICE = ("같은 도구 호출을 반복하고 있습니다 ({what}). 새 정보가 없으니 여기서 멈추고, 지금까지 알게 된 것을 세 줄로 정리한 뒤 "
                "접근을 바꾸세요 (큰 파일은 StartLine/EndLine으로 나눠 읽거나 grep으로 필요한 부분만 찾기). 이미 끝낸 단계는 처음부터 "
                "다시 하지 말고, 정말 막혔을 때만 {user}께 물어보세요.")
+BUDGET_NOTICE = ("This turn is over its budget ({what}): everything read is sent to the model again on every later "
+                 "call. If this is a large code change, sum up what you found and hand it over with delegate; "
+                 "otherwise stop here and answer with what you have. To read more, find the place with grep and "
+                 "read only that range (StartLine/EndLine).")
 STEER_HINT = ("직전 작업은 이 메시지를 반영하려고 도구 단계 사이에서 잠시 멈췄을 뿐, 취소된 것이 아닙니다. 이 메시지가 취소·변경을 "
               "분명히 요구하지 않는다면 하던 작업을 이어서 하면서 이 메시지의 지시를 반영하세요. 이미 끝낸 단계를 처음부터 다시 하지 마세요.")
 
@@ -533,8 +537,17 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                     return
                 if not self._loop_warned:
                     self._loop_warned = True
-                    self._emit({"event": "system", "text": f"⚠ {v.text}. 계속 반복되면 자동으로 멈춥니다.",
+                    goes_on = "계속되면" if v.rule == "budget" else "계속 반복되면"   # l10n-ok
+                    self._emit({"event": "system", "text": f"⚠ {v.text}. {goes_on} 자동으로 멈춥니다.",
                                 "evidence": write_guard.loop_evidence(v, params, output)})
+            elif v.rule == "budget":
+                self._auto_stop(
+                    event={"event": "stopped", "text": f"이번 턴이 예산을 넘어 자동으로 중단했습니다 — {v.text}",   # l10n-ok
+                           "evidence": write_guard.loop_evidence(v, params, output)},
+                    hint=f"The last turn went over its budget ({self._loop_guard.calls} tool calls, "
+                         f"{self._loop_guard.read_bytes // 1000} KB read) and was stopped. Do not read the same way "
+                         f"again: sum up what you know, hand a large code change over with delegate, or ask how to go on.")
+                return
             else:
                 after = " (방향을 바꾸라고 알린 뒤에도 계속돼서)" if self._loop_noticed else ""
                 self._auto_stop(
@@ -561,9 +574,11 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             self._loop_noticed = True
         self._emit({"event": "system", "text": f"⚠ {v.text}. 방향을 바꾸라고 알리고 이어서 진행합니다.",
                     "evidence": {**evidence, "action": "notice"}})
-        threading.Thread(target=self._notice_loop_worker, args=(v.text,), daemon=True).start()
+        g = self._loop_guard   # the agent reads English numbers; v.text is the operator's line
+        what = "%d tool calls, %d KB read" % (g.calls, g.read_bytes // 1000) if v.rule == "budget" else v.text
+        threading.Thread(target=self._notice_loop_worker, args=(what, v.rule), daemon=True).start()
 
-    def _notice_loop_worker(self, what: str) -> None:
+    def _notice_loop_worker(self, what: str, rule: str = "") -> None:
         try:
             with self.lock:
                 if not self.busy:
@@ -572,7 +587,8 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             self.interrupt_current_turn(reason="loop")
             with self.lock:
                 self.msg_queue[:] = rest
-            self._send_direct(LOOP_NOTICE.format(what=what, user=user_title()), notice=True)
+            note = BUDGET_NOTICE.format(what=what) if rule == "budget" else LOOP_NOTICE.format(what=what, user=user_title())
+            self._send_direct(note, notice=True)
         except Exception as e:  # noqa: BLE001 -- a failed notice must not leave the turn hanging silently
             self._emit({"event": "error", "text": f"방향 전환 알림을 보내지 못했습니다: {e}"})
         finally:

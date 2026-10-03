@@ -230,11 +230,15 @@ class RunawayLoopIsStopped(Base):
         self.assertIn("evidence", warn)
 
     def test_the_guard_is_quiet_for_ordinary_varied_work(self):
+        # no repeat rule fires on varied work; only the turn's budget (rule D, token-economy.md T1) ends it at 40
         s = self.make()
-        for i in range(60):
+        for i in range(39):
             self.feed(s, self.tool_done(i, path=f"/src/file{i}.py"))
         self.assertEqual([e for e in self.events if e.get("event") in ("stopped", "error")], [])
         self.assertEqual(self.stops, [])
+        self.feed(s, self.tool_done(39, path="/src/file39.py"))
+        stopped = [e for e in self.events if e.get("event") == "stopped"]
+        self.assertEqual([e["evidence"]["rule"] for e in stopped], ["budget"])
 
     def test_nothing_is_counted_after_the_user_stopped_the_turn(self):
         s = self.make()

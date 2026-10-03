@@ -29,6 +29,11 @@ a threshold. Three rules (thresholds are per turn, `reset()` between turns):
   C  a long unbroken run of read-only calls on the SAME target file. Real work reads a big
      file in a handful of windows, then acts (edit, run, search) -- which resets this run.
 
+  D  a turn's budget (token-economy.md): too many tool calls, or too many bytes read, in one turn. Each read
+     is sent to the model again on every later call of the turn, so a turn that reads 1 MB over 40 calls costs
+     millions of tokens (measured 2026-10-02..03: p90 41 calls, 562 KB; max 129 calls, 5.4 MB). The warning
+     tells the agent to delegate or wrap up; after it the resumed turn gets only the rest of the budget.
+
 Signatures ignore the model-written prose that rides along in the arguments
 (`toolAction`, `toolSummary`, ...): it changes every call and would hide a real repeat.
 Each (rule, level) fires once until `reset()`.
@@ -50,12 +55,13 @@ TARGET_KEYS = ("AbsolutePath", "TargetFile", "FilePath", "filePath", "File", "fi
                "SearchPath", "DirectoryPath", "Uri", "Url", "url")
 READ_ONLY_PREFIXES = ("view", "read", "list", "find", "grep", "search", "glob", "cat", "get_", "stat")
 STAT_ONLY = re.compile(r"\s*\d+ lines?, \d+ bytes?\s*")
+STAT_BYTES = re.compile(r"(\d+) bytes?")
 
 
 @dataclass(frozen=True)
 class Verdict:
     level: str      # "warn" | "stop"
-    rule: str       # "exact" | "consecutive" | "run"
+    rule: str       # "exact" | "consecutive" | "run" | "budget"
     count: int
     tool: str
     target: str
@@ -112,24 +118,38 @@ def _short(path: str, keep: int = 48) -> str:
     return path if len(path) <= keep else "…" + path[-(keep - 1):]
 
 
+def read_size(output) -> int:
+    """Bytes a read brought into the context: agy's stat line says it ("868 lines, 36259 bytes"), else the text."""
+    if output is None:
+        return 0
+    text = output if isinstance(output, str) else json.dumps(output, ensure_ascii=False, default=str)
+    m = STAT_BYTES.search(text) if is_stat_only(text) else None
+    return int(m.group(1)) if m else len(text.encode("utf-8"))
+
+
 class LoopGuard:
     def __init__(self, exact_warn: int = 6, exact_stop: int = 10, window: int = 40,
                  consec_warn: int = 5, consec_stop: int = 8,
-                 run_warn: int = 24, run_stop: int = 48) -> None:
+                 run_warn: int = 24, run_stop: int = 48,
+                 budget_calls: Tuple[int, int] = (20, 40), budget_bytes: Tuple[int, int] = (500_000, 1_200_000)) -> None:
         self.exact_warn, self.exact_stop, self.window = exact_warn, exact_stop, window
         self.consec_warn, self.consec_stop = consec_warn, consec_stop
         self.run_warn, self.run_stop = run_warn, run_stop
-        self._stop_defaults = (exact_stop, consec_stop)
+        self.budget_calls, self.budget_bytes = budget_calls, budget_bytes
+        self._stop_defaults = (exact_stop, consec_stop, budget_calls, budget_bytes)
         self.reset()
 
     def tighten(self, stop_at: int = 3) -> None:
-        """After the agent was told to change course, a repeat that continues stops sooner. Survives
-        reset() (which the resumed turn calls); relax() puts the normal thresholds back."""
+        """After the agent was told to change course, a repeat that continues stops sooner, and the budget left
+        is what remained above the warning (no second warning). Survives reset() (which the resumed turn calls);
+        relax() puts the normal thresholds back."""
         self.exact_stop = min(self.exact_stop, stop_at)
         self.consec_stop = min(self.consec_stop, stop_at)
+        (cw, cs), (bw, bs) = self._stop_defaults[2], self._stop_defaults[3]
+        self.budget_calls, self.budget_bytes = (cs - cw, cs - cw), (bs - bw, bs - bw)
 
     def relax(self) -> None:
-        self.exact_stop, self.consec_stop = self._stop_defaults
+        self.exact_stop, self.consec_stop, self.budget_calls, self.budget_bytes = self._stop_defaults
 
     def reset(self) -> None:
         self._recent: Deque[Optional[Tuple[Tuple[str, str], Optional[str]]]] = deque(maxlen=self.window)
@@ -141,11 +161,14 @@ class LoopGuard:
         self._run_len = 0
         self._fired: Set[Tuple[str, str]] = set()
         self.calls = 0
+        self.read_bytes = 0
 
     def observe(self, tool: str, params: Optional[dict] = None, output=None) -> Optional[Verdict]:
         """Record one finished tool call; return a Verdict the first time a rule trips.
         `output` is what the tool answered (any shape); it decides whether a repeat made no progress."""
         self.calls += 1
+        if is_read_only(tool):
+            self.read_bytes += read_size(output)
         sig = signature(tool, params)
         out = output_hash(output)
         ro = is_read_only(tool)
@@ -185,16 +208,25 @@ class LoopGuard:
             ("stop", "exact", exact, f"같은 조회를 {exact}번 반복 ({what}{note})" if stop_exact else ""),
             ("stop", "consecutive", self._consec, f"같은 호출을 연달아 {self._consec}번 ({what}{note})" if stop_consec else ""),
             ("stop", "run", self._run_len, f"같은 파일을 {self._run_len}번 연속으로 조회 ({_short(target)})" if self._run_len >= self.run_stop else ""),
+            ("stop", "budget", self.calls, self._budget_text() if self._over(1) else ""),
             ("warn", "exact", exact, f"같은 조회가 {exact}번 반복되고 있어요 ({what}{note})" if exact >= self.exact_warn else ""),
             ("warn", "consecutive", self._consec, f"같은 호출이 연달아 {self._consec}번이에요 ({what}{note})" if self._consec >= self.consec_warn else ""),
             ("warn", "run", self._run_len, f"같은 파일을 {self._run_len}번 연속 조회 중이에요 ({_short(target)})" if self._run_len >= self.run_warn else ""),
+            ("warn", "budget", self.calls, self._budget_text() if self._over(0) else ""),
         ]
         for level, rule, count, text in candidates:
             if not text or (rule, level) in self._fired:
                 continue
-            self._fired.add((rule, level))
+            self._fired.update({(rule, level), (rule, "warn")})   # past a stop, its warning has nothing to add
             return Verdict(level, rule, count, tool, target, text)
         return None
+
+    def _over(self, i: int) -> bool:
+        """Past the budget's warning (i=0) or stop (i=1) line, in calls or in bytes read."""
+        return self.calls >= self.budget_calls[i] or self.read_bytes >= self.budget_bytes[i]
+
+    def _budget_text(self) -> str:
+        return f"이번 턴 도구 {self.calls}회 · 파일 읽기 {self.read_bytes // 1000}KB"   # l10n-ok: same voice as the rules above
 
 
 def extract_tool_steps(obj: dict) -> List[Tuple[str, dict, object]]:
