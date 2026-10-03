@@ -13,6 +13,9 @@ let speechRecognitionInstance = null;
 let speechIsRecording = false;
 let speechBaseText = '';
 let speechLang = 'ko-KR';
+let lastInjectedText = '';
+let speechResultOffset = 0;
+let speechLastResultCount = 0;
 
 function getSpeechRecognitionClass() {
   if (typeof window === 'undefined') return null;
@@ -52,6 +55,23 @@ function updateMicButtonState(recording) {
   btn.title = isRec ? SPEECH_TEXT.stop : SPEECH_TEXT.start;
 }
 
+function handleComposerInput() {
+  const inputEl = document.getElementById('input');
+  if (!inputEl || !speechIsRecording) return;
+  if (inputEl.value === lastInjectedText) return;
+  speechBaseText = inputEl.value;
+  lastInjectedText = inputEl.value;
+  speechResultOffset = speechLastResultCount;
+}
+
+function bindSpeechInputElement() {
+  const inputEl = document.getElementById('input');
+  if (inputEl && !inputEl._speechInputBound) {
+    inputEl._speechInputBound = true;
+    inputEl.addEventListener('input', handleComposerInput);
+  }
+}
+
 function applyRecognizedText(inputEl, baseText, recognizedText) {
   if (!inputEl) return;
   let combined = baseText || '';
@@ -62,6 +82,7 @@ function applyRecognizedText(inputEl, baseText, recognizedText) {
     }
     combined += text;
   }
+  lastInjectedText = combined;
   inputEl.value = combined;
   if (typeof autoResizeInput === 'function') autoResizeInput();
   if (typeof updateSendButton === 'function') updateSendButton();
@@ -71,11 +92,22 @@ function applyRecognizedText(inputEl, baseText, recognizedText) {
 }
 
 function handleSpeechResult(event) {
+  if (!speechRecognitionInstance || !speechIsRecording) return;
   const inputEl = document.getElementById('input');
   if (!inputEl || !event || !event.results) return;
+
+  if (inputEl.value !== lastInjectedText) {
+    speechBaseText = inputEl.value;
+    lastInjectedText = inputEl.value;
+    speechResultOffset = speechLastResultCount;
+  }
+
+  speechLastResultCount = event.results.length;
+
   let finalTranscript = '';
   let interimTranscript = '';
-  for (let i = 0; i < event.results.length; ++i) {
+  const startIdx = Math.min(speechResultOffset, event.results.length);
+  for (let i = startIdx; i < event.results.length; ++i) {
     const res = event.results[i];
     const text = (res[0] && res[0].transcript) ? res[0].transcript : '';
     if (res.isFinal) {
@@ -101,14 +133,19 @@ function handleSpeechResult(event) {
 }
 
 function startSpeechRecognition() {
-  if (speechIsRecording) return;
+  if (speechIsRecording || speechRecognitionInstance) return;
   const SR = getSpeechRecognitionClass();
   if (!SR) {
     updateMicButtonState(false);
     return;
   }
+  bindSpeechInputElement();
   const inputEl = document.getElementById('input');
   speechBaseText = inputEl ? inputEl.value : '';
+  lastInjectedText = speechBaseText;
+  speechResultOffset = 0;
+  speechLastResultCount = 0;
+
   try {
     const rec = new SR();
     rec.continuous = true;
@@ -117,13 +154,18 @@ function startSpeechRecognition() {
     rec.maxAlternatives = 1;
 
     rec.onstart = function() {
+      if (rec !== speechRecognitionInstance) return;
       speechIsRecording = true;
       updateMicButtonState(true);
     };
 
-    rec.onresult = handleSpeechResult;
+    rec.onresult = function(event) {
+      if (rec !== speechRecognitionInstance) return;
+      handleSpeechResult(event);
+    };
 
     rec.onerror = function(event) {
+      if (rec !== speechRecognitionInstance) return;
       const err = event && event.error;
       speechIsRecording = false;
       speechRecognitionInstance = null;
@@ -135,6 +177,7 @@ function startSpeechRecognition() {
     };
 
     rec.onend = function() {
+      if (rec !== speechRecognitionInstance) return;
       speechIsRecording = false;
       speechRecognitionInstance = null;
       updateMicButtonState(false);
@@ -157,11 +200,12 @@ function startSpeechRecognition() {
 function stopSpeechRecognition() {
   if (!speechRecognitionInstance && !speechIsRecording) return;
   speechIsRecording = false;
-  if (speechRecognitionInstance) {
+  const rec = speechRecognitionInstance;
+  speechRecognitionInstance = null;
+  if (rec) {
     try {
-      speechRecognitionInstance.stop();
+      rec.stop();
     } catch (_) {}
-    speechRecognitionInstance = null;
   }
   updateMicButtonState(false);
   const inputEl = document.getElementById('input');
@@ -195,6 +239,7 @@ function initSpeechRecognition() {
       if (speechIsRecording) stopSpeechRecognition();
     });
   }
+  bindSpeechInputElement();
   updateMicButtonState(speechIsRecording);
 }
 
