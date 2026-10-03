@@ -86,11 +86,11 @@ class UnticketedWrite(unittest.TestCase):
         self.write("characters/c/card.json", tool="replace_file_content")
         self.assertEqual(self.warned(), ["session.py", "workspace/characters/c/card.json"])
 
-    def test_the_restart_guard_also_covers_static_ui_and_character_cards(self):
+    def test_the_restart_guard_also_covers_static_ui_and_the_dev_charter(self):
         text = CTL.read_text(encoding="utf-8")
         guard = text[text.index("guard_tickets() {"):text.index("guard_tickets OK (active ticket")]
         self.assertIn('"static/"', guard)
-        self.assertIn('"data/workspace/characters/"', guard)
+        self.assertIn('"templates/dev-workspace/"', guard)   # uds/F: the dev charter and packs; cards are user data
 
 
 if __name__ == "__main__":

@@ -536,7 +536,7 @@ def experts_overview() -> dict:
                     "name": c["name"], "title": disp.get("title", ""),
                     "chain": characters.brains(c["card"], "work") if characters else [],
                     "brain_use": _brain_use(c["card"], c["id"]) if characters else {},
-                    "path": "data/workspace/characters/%s/card.json" % c["id"], "editable": _protected_why(cp) is None})
+                    "path": str(cp), "editable": _protected_why(cp) is None})
     roles = []
     if characters:
         rd = characters.roles_dir(WORKSPACE)
