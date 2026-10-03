@@ -99,6 +99,60 @@ class MapBlockParsing(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
+class MapBlockMultiMarker(unittest.TestCase):
+    """Multi-marker parsing and bounds tests."""
+
+    def test_parse_json_markers_array(self):
+        js = ('parseMapConfig(JSON.stringify({lat: 37.5, lon: 127.0,'
+              ' markers: [{lat: 37.55, lon: 126.97, label: "A"}, {lat: 37.56, lon: 126.98, label: "B"}]}))')
+        res = run_map_js(js)
+        self.assertEqual(len(res["markers"]), 2)
+        self.assertEqual(res["markers"][0]["label"], "A")
+        self.assertEqual(res["markers"][1]["lat"], 37.56)
+
+    def test_parse_json_markers_only_infers_center(self):
+        js = ('parseMapConfig(JSON.stringify({markers: ['
+              '{lat: 37.55, lon: 126.97, label: "A"}, {lat: 37.56, lon: 126.98, label: "B"}]}))')
+        res = run_map_js(js)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["lat"], 37.55, "lat inferred from first marker")
+        self.assertEqual(res["lon"], 126.97, "lon inferred from first marker")
+        self.assertEqual(len(res["markers"]), 2)
+
+    def test_parse_kv_marker_with_coords_and_label(self):
+        raw = "marker: 37.55, 126.97 | Seoul Station\nmarker: 37.56, 126.98 | City Hall"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertIsNotNone(res)
+        self.assertGreaterEqual(len(res["markers"]), 1)
+        labels = [m["label"] for m in res["markers"]]
+        self.assertIn("Seoul Station", labels)
+
+    def test_parse_kv_marker_label_only_backward_compat(self):
+        raw = "lat: 37.5\nlon: 127.0\nmarker: My Place"
+        res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
+        self.assertEqual(res["marker"], "My Place")
+        self.assertEqual(len(res["markers"]), 0)
+
+    def test_parse_json_invalid_markers_filtered(self):
+        js = ('parseMapConfig(JSON.stringify({lat: 37.5, lon: 127.0,'
+              ' markers: [{lat: 999, lon: 0, label: "bad"}, {lat: 37.5, lon: 127.0, label: "ok"}]}))')
+        res = run_map_js(js)
+        self.assertEqual(len(res["markers"]), 1)
+        self.assertEqual(res["markers"][0]["label"], "ok")
+
+    def test_render_block_multi_markers_span(self):
+        raw = '{"lat":37.5,"lon":127.0,"markers":[{"lat":37.55,"lon":126.97,"label":"A"},{"lat":37.56,"lon":126.98,"label":"B"}]}'
+        html = run_map_js(f"renderMapBlock({json.dumps(raw)})")
+        self.assertIn('class="chat-map-markers"', html)
+        self.assertIn("37.55", html)
+
+    def test_render_block_no_markers_no_span(self):
+        raw = "lat: 37.5\nlon: 127.0\nmarker: Solo"
+        html = run_map_js(f"renderMapBlock({json.dumps(raw)})")
+        self.assertNotIn('chat-map-markers', html)
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
 class MapBlockRendering(unittest.TestCase):
     def test_render_map_block_html(self):
         raw = "lat: 37.5665\nlon: 126.9780\nzoom: 14\nmarker: City Hall"
@@ -129,6 +183,213 @@ class MapBlockRendering(unittest.TestCase):
         raw = "just plain text"
         html = run_map_js(f"renderMapBlock({json.dumps(raw)})")
         self.assertEqual(html, '<pre><code class="language-map">just plain text</code></pre>')
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class MapBlockPopup(unittest.TestCase):
+    """Popup DOM creation and Google Maps link tests."""
+
+    def test_build_popup_content_with_label(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(),
+      className: '',
+      href: '',
+      target: '',
+      rel: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      children
+    }};
+  }}
+}};
+
+const popup = buildPopupContent(37.5, 127.0, 'Seoul');
+console.log(JSON.stringify({{
+  className: popup.className,
+  childCount: popup.children.length,
+  labelText: popup.children[0] && popup.children[0].textContent,
+  labelClass: popup.children[0] && popup.children[0].className,
+  linkHref: popup.children[1] && popup.children[1].href,
+  linkTarget: popup.children[1] && popup.children[1].target,
+  linkRel: popup.children[1] && popup.children[1].rel,
+  linkText: popup.children[1] && popup.children[1].textContent,
+  linkClass: popup.children[1] && popup.children[1].className
+}}));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertEqual(res["className"], "chat-map-popup")
+        self.assertEqual(res["childCount"], 2, "label + link")
+        self.assertEqual(res["labelText"], "Seoul")
+        self.assertEqual(res["labelClass"], "chat-map-popup-label")
+        self.assertIn("google.com/maps/search", res["linkHref"])
+        self.assertIn("37.5", res["linkHref"])
+        self.assertIn("127", res["linkHref"])
+        self.assertEqual(res["linkTarget"], "_blank")
+        self.assertEqual(res["linkRel"], "noopener")
+        self.assertEqual(res["linkClass"], "chat-map-popup-btn")
+
+    def test_build_popup_content_no_label(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(), className: '', href: '', target: '', rel: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      children
+    }};
+  }}
+}};
+const popup = buildPopupContent(37.5, 127.0, '');
+console.log(JSON.stringify({{
+  childCount: popup.children.length,
+  linkText: popup.children[0] && popup.children[0].textContent
+}}));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertEqual(res["childCount"], 1, "link only, no label")
+
+    def test_popup_xss_label(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(), className: '', href: '', target: '', rel: '',
+      innerHTML: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      children
+    }};
+  }}
+}};
+const popup = buildPopupContent(37.5, 127.0, '<img src=x onerror=alert(1)>');
+const label = popup.children[0];
+console.log(JSON.stringify({{
+  labelText: label.textContent,
+  labelInnerHTML: label.innerHTML
+}}));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertEqual(res["labelText"], "<img src=x onerror=alert(1)>")
+        self.assertEqual(res["labelInnerHTML"], "", "innerHTML must be empty")
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class MapBlockMultiMarkerRendering(unittest.TestCase):
+    """renderMapsIn with multi-marker: fitBounds, multiple L.marker calls."""
+
+    def test_multi_marker_fit_bounds(self):
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+const calls = [];
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(), className: '', type: '', href: '', target: '', rel: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      addEventListener() {{}},
+      children
+    }};
+  }}
+}};
+
+window = {{
+  L: {{
+    map: (canvas, opts) => {{
+      const mapObj = {{
+        setView: (c, z) => {{ calls.push({{action: 'setView', center: c, zoom: z}}); return mapObj; }},
+        fitBounds: (b, o) => {{ calls.push({{action: 'fitBounds', bounds: b, opts: o}}); return mapObj; }},
+        invalidateSize: () => {{}}
+      }};
+      return mapObj;
+    }},
+    tileLayer: () => ({{ addTo: () => ({{}}) }}),
+    marker: (coords) => ({{
+      addTo: () => ({{
+        bindPopup: (content) => ({{
+          openPopup: () => calls.push({{action: 'marker', coords}})
+        }})
+      }})
+    }}),
+    latLngBounds: (arr) => {{ calls.push({{action: 'latLngBounds', arr}}); return 'bounds-obj'; }}
+  }}
+}};
+
+const markersData = JSON.stringify([
+  {{lat: 37.55, lon: 126.97, label: "A"}},
+  {{lat: 37.56, lon: 126.98, label: "B"}}
+]);
+const box = {{
+  attrs: {{ 'data-lat': '37.55', 'data-lon': '126.97', 'data-zoom': '14' }},
+  classes: [],
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute(k, v) {{ this.attrs[k] = String(v); }},
+  querySelector(sel) {{
+    if (sel === '.chat-map-markers') {{
+      return {{ textContent: markersData }};
+    }}
+    if (sel === '.chat-map-canvas') return {{}};
+    return null;
+  }},
+  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }} }},
+  appendChild() {{}}
+}};
+const container = {{ querySelectorAll: () => [box] }};
+
+(async () => {{
+  await renderMapsIn(container);
+  const hasFitBounds = calls.some(c => c.action === 'fitBounds');
+  const hasSetView = calls.some(c => c.action === 'setView');
+  const markerCalls = calls.filter(c => c.action === 'marker');
+  const boundsCalls = calls.filter(c => c.action === 'latLngBounds');
+  console.log(JSON.stringify({{
+    hasFitBounds,
+    hasSetView,
+    markerCount: markerCalls.length,
+    boundsCoords: boundsCalls.length > 0 ? boundsCalls[0].arr : null,
+    processed: box.attrs['data-processed']
+  }}));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertTrue(res["hasFitBounds"], "Multi-marker must use fitBounds")
+        self.assertFalse(res["hasSetView"], "Multi-marker must not use setView")
+        self.assertEqual(res["processed"], "true")
+        self.assertIsNotNone(res["boundsCoords"])
+        self.assertEqual(len(res["boundsCoords"]), 2, "Two marker coords in bounds")
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
@@ -185,12 +446,21 @@ eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
 global.document = {{
   createElement: (tag) => {{
     let _text = '';
+    const children = [];
     return {{
       tagName: tag.toUpperCase(),
       nodeType: 1,
       innerHTML: '',
+      className: '',
+      type: '',
+      href: '',
+      target: '',
+      rel: '',
       get textContent() {{ return _text; }},
-      set textContent(v) {{ _text = String(v); }}
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      addEventListener() {{}},
+      children
     }};
   }}
 }};
@@ -204,7 +474,8 @@ window = {{
         return {{
           invalidateSize: () => calls.push({{ action: 'invalidate' }})
         }};
-      }}
+      }},
+      invalidateSize: () => {{}}
     }}),
     tileLayer: (url, opts) => ({{
       addTo: (m) => {{
@@ -218,9 +489,8 @@ window = {{
           openPopup: () => calls.push({{
             action: 'marker',
             coords,
-            isString: typeof content === 'string',
-            isNode: typeof content === 'object' && content !== null && typeof content.textContent === 'string',
-            textContent: content && content.textContent
+            isNode: typeof content === 'object' && content !== null && typeof content.tagName === 'string',
+            className: content && content.className
           }})
         }})
       }})
@@ -230,9 +500,16 @@ window = {{
 
 const box = {{
   attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0', 'data-zoom': '14', 'data-marker': 'Spot' }},
+  classes: [],
   getAttribute(k) {{ return this.attrs[k] || null; }},
   setAttribute(k, v) {{ this.attrs[k] = String(v); }},
-  querySelector(sel) {{ return {{}}; }}
+  querySelector(sel) {{
+    if (sel === '.chat-map-markers') return null;
+    if (sel === '.chat-map-canvas') return {{}};
+    return null;
+  }},
+  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }} }},
+  appendChild() {{}}
 }};
 const container = {{
   querySelectorAll(sel) {{
@@ -265,8 +542,7 @@ const container = {{
         marker_calls = [c for c in res["calls"] if c.get("action") == "marker"]
         self.assertEqual(len(marker_calls), 1)
         self.assertTrue(marker_calls[0]["isNode"], "bindPopup must receive a DOM element")
-        self.assertFalse(marker_calls[0]["isString"], "bindPopup must not receive a raw string")
-        self.assertEqual(marker_calls[0]["textContent"], "Spot")
+        self.assertEqual(marker_calls[0]["className"], "chat-map-popup")
 
     def test_render_maps_in_popup_xss_protection(self):
         harness = f"""
@@ -277,19 +553,28 @@ let popupArg = null;
 global.document = {{
   createElement: (tag) => {{
     let _text = '';
+    const children = [];
     return {{
       tagName: tag.toUpperCase(),
       nodeType: 1,
       innerHTML: '',
+      className: '',
+      type: '',
+      href: '',
+      target: '',
+      rel: '',
       get textContent() {{ return _text; }},
-      set textContent(v) {{ _text = String(v); }}
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      addEventListener() {{}},
+      children
     }};
   }}
 }};
 
 window = {{
   L: {{
-    map: () => ({{ setView: () => ({{ invalidateSize: () => {{}} }}) }}),
+    map: () => ({{ setView: () => ({{ invalidateSize: () => {{}} }}), invalidateSize: () => {{}} }}),
     tileLayer: () => ({{ addTo: () => ({{}}) }}),
     marker: () => ({{
       addTo: () => ({{
@@ -298,8 +583,7 @@ window = {{
             isString: typeof content === 'string',
             isObject: typeof content === 'object' && content !== null,
             tagName: content && content.tagName,
-            textContent: content && content.textContent,
-            innerHTML: content && content.innerHTML
+            className: content && content.className
           }};
           return {{ openPopup: () => {{}} }};
         }}
@@ -310,9 +594,16 @@ window = {{
 
 const box = {{
   attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0', 'data-marker': '<img src=x onerror=alert(1)>' }},
+  classes: [],
   getAttribute(k) {{ return this.attrs[k] || null; }},
   setAttribute(k, v) {{ this.attrs[k] = String(v); }},
-  querySelector() {{ return {{}}; }}
+  querySelector(sel) {{
+    if (sel === '.chat-map-markers') return null;
+    if (sel === '.chat-map-canvas') return {{}};
+    return null;
+  }},
+  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }} }},
+  appendChild() {{}}
 }};
 const container = {{ querySelectorAll: () => [box] }};
 
@@ -327,8 +618,7 @@ const container = {{ querySelectorAll: () => [box] }};
         self.assertFalse(res["isString"], "bindPopup must never receive a raw string (DOM XSS risk)")
         self.assertTrue(res["isObject"], "bindPopup must receive a DOM element node")
         self.assertEqual(res["tagName"], "DIV")
-        self.assertEqual(res["textContent"], "<img src=x onerror=alert(1)>")
-        self.assertEqual(res["innerHTML"], "", "innerHTML must remain empty")
+        self.assertEqual(res["className"], "chat-map-popup")
 
     def test_render_maps_in_osm_attribution(self):
         harness = f"""
@@ -339,13 +629,24 @@ let mapOpts = null;
 let tileOpts = null;
 
 global.document = {{
-  createElement: (tag) => ({{ tagName: tag.toUpperCase(), textContent: '' }})
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(), className: '', type: '', href: '', target: '', rel: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      addEventListener() {{}},
+      children
+    }};
+  }}
 }};
 window = {{
   L: {{
     map: (canvas, opts) => {{
       mapOpts = opts;
-      return {{ setView: () => ({{ invalidateSize: () => {{}} }}) }};
+      return {{ setView: () => ({{ invalidateSize: () => {{}} }}), invalidateSize: () => {{}} }};
     }},
     tileLayer: (url, opts) => {{
       tileOpts = opts;
@@ -357,9 +658,16 @@ window = {{
 
 const box = {{
   attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0', 'data-marker': 'Attribution Test' }},
+  classes: [],
   getAttribute(k) {{ return this.attrs[k] || null; }},
   setAttribute() {{}},
-  querySelector() {{ return {{}}; }}
+  querySelector(sel) {{
+    if (sel === '.chat-map-markers') return null;
+    if (sel === '.chat-map-canvas') return {{}};
+    return null;
+  }},
+  classList: {{ toggle() {{}}, add(c) {{}} }},
+  appendChild() {{}}
 }};
 const container = {{ querySelectorAll: () => [box] }};
 
@@ -468,13 +776,24 @@ eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
 
 let mapOpts = null;
 global.document = {{
-  createElement: (tag) => ({{ tagName: tag.toUpperCase(), textContent: '' }})
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(), className: '', type: '', href: '', target: '', rel: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      addEventListener() {{}},
+      children
+    }};
+  }}
 }};
 window = {{
   L: {{
     map: (canvas, opts) => {{
       mapOpts = opts;
-      return {{ setView: () => ({{ invalidateSize: () => {{}} }}) }};
+      return {{ setView: () => ({{ invalidateSize: () => {{}} }}), invalidateSize: () => {{}} }};
     }},
     tileLayer: () => ({{ addTo: () => ({{}}) }}),
     marker: () => ({{ addTo: () => ({{ bindPopup: () => ({{ openPopup: () => {{}} }}) }}) }})
@@ -482,9 +801,16 @@ window = {{
 }};
 const box = {{
   attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0' }},
+  classes: [],
   getAttribute(k) {{ return this.attrs[k] || null; }},
   setAttribute() {{}},
-  querySelector() {{ return {{}}; }}
+  querySelector(sel) {{
+    if (sel === '.chat-map-markers') return null;
+    if (sel === '.chat-map-canvas') return {{}};
+    return null;
+  }},
+  classList: {{ toggle() {{}}, add(c) {{}} }},
+  appendChild() {{}}
 }};
 const container = {{ querySelectorAll: () => [box] }};
 (async () => {{
@@ -515,12 +841,17 @@ global.document = {{
       tagName: tag.toUpperCase(),
       dataset: {{}},
       className: '',
+      type: '',
+      href: '',
+      target: '',
+      rel: '',
       get textContent() {{
         if (children.length) return children.map(c => c.textContent || '').join('');
         return _text;
       }},
       set textContent(v) {{ _text = String(v); }},
-      appendChild(child) {{ children.push(child); }}
+      appendChild(child) {{ children.push(child); }},
+      addEventListener() {{}}
     }};
   }},
   head: {{
@@ -602,6 +933,10 @@ class MapStaticAssets(unittest.TestCase):
         self.assertIn('.leaflet-container', css)
         self.assertIn('.chat-map-fallback', css)
         self.assertIn('touch-action: pan-y', css)
+        self.assertIn('.chat-map-popup-btn', css)
+        self.assertIn('.chat-map-fullscreen', css)
+        self.assertIn('.chat-map-markers', css)
+        self.assertIn('.chat-map-fs-btn', css)
 
 
 if __name__ == "__main__":

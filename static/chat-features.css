@@ -264,6 +264,59 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Hidden carrier for multi-marker JSON data */
+.chat-map-box .chat-map-markers { display: none; }
+/* Popup with Google Maps link button */
+.chat-map-popup-label {
+  margin-bottom: 0.3rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+.chat-map-popup-btn {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--accent2, #58a6ff);
+  background: var(--panel-2, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.chat-map-popup-btn:hover { background: var(--panel-hover, #2d333b); }
+/* Fullscreen toggle button */
+.chat-map-fs-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1000;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-card, #1c2128);
+  color: var(--text, #e6edf3);
+  font-size: 1rem;
+  line-height: 28px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.chat-map-fs-btn:hover { opacity: 1; background: var(--panel-hover, #2d333b); }
+/* Fullscreen mode */
+.chat-map-box.chat-map-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0;
+}
+.chat-map-box.chat-map-fullscreen .chat-map-canvas { min-height: unset; }
 /* Leaflet UI adaptation for chat themes */
 .chat-map-box .leaflet-container {
   font-family: inherit;
