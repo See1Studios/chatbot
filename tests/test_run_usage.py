@@ -29,12 +29,25 @@ CODEX = "\n".join(json.dumps(e) for e in (
     {"type": "turn.completed", "usage": {"input_tokens": 20094, "cached_input_tokens": 8960, "output_tokens": 5}}))
 
 
+def usage(fresh, cached, out, think=0):
+    return {"input_tokens": fresh, "cache_read_tokens": cached, "output_tokens": out, "thinking_tokens": think}
+
+
 class Split(unittest.TestCase):
-    def test_each_cli_gives_the_answer_and_its_tokens(self):
-        self.assertEqual(U.split("agy", AGY), ("ok", {"input": 47260, "cached": 0, "output": 25}))
-        self.assertEqual(U.split("claude", CLAUDE), ("ok", {"input": 23428, "cached": 12413, "output": 40}))
-        self.assertEqual(U.split("grok", GROK), ("ok", {"input": 34799, "cached": 12032, "output": 23}))
-        self.assertEqual(U.split("codex", CODEX), ("ok", {"input": 20094, "cached": 8960, "output": 5}))
+    def test_each_cli_gives_the_answer_and_its_tokens_in_the_chats_definition(self):
+        # input_tokens = the uncached input, cache_read_tokens = the cached part, for every CLI alike
+        self.assertEqual(U.split("agy", AGY), ("ok", usage(47260, 0, 25, 24)))
+        self.assertEqual(U.split("claude", CLAUDE), ("ok", usage(11015, 12413, 40)))
+        self.assertEqual(U.split("grok", GROK), ("ok", usage(22767, 12032, 23)))
+        self.assertEqual(U.split("codex", CODEX), ("ok", usage(11134, 8960, 5)))   # cached is inside codex's input
+
+    def test_the_numbers_are_the_chat_adapters_own(self):
+        sys.path.insert(0, str(ROOT))
+        from providers.adapters import AGENT_ADAPTERS
+        raw = json.loads(CLAUDE)["usage"]
+        want = AGENT_ADAPTERS["claude"].normalize_usage(raw)
+        got = U.split("claude", CLAUDE)[1]
+        self.assertEqual(got, {k: want[k] for k in got})
 
     def test_an_output_of_another_shape_is_passed_through_untouched(self):
         for provider in ("agy", "claude", "grok", "codex"):
@@ -68,8 +81,19 @@ class RunnerRecords(unittest.TestCase):
         self.assertEqual(got, (0, "ok", ""), "the runner sees the answer, as before")
         self.assertIn("--output-format", seen[0])
         line = json.loads((self.base / "runs" / "usage.jsonl").read_text(encoding="utf-8"))
-        self.assertEqual({k: line[k] for k in ("ticket", "role", "provider", "input", "cached", "output")},
-                         {"ticket": 77, "role": "reviewer", "provider": "agy", "input": 47260, "cached": 0, "output": 25})
+        self.assertEqual({k: line[k] for k in ("ticket", "role", "provider", "input_tokens", "cache_read_tokens")},
+                         {"ticket": 77, "role": "reviewer", "provider": "agy", "input_tokens": 47260, "cache_read_tokens": 0})
+
+
+
+class CodexCountsCachedOnce(unittest.TestCase):
+    def test_cached_input_is_inside_codexs_input_tokens(self):
+        # measured 2026-10-04: the same prompt twice gave input_tokens 20141 with cached 2816, then 0
+        sys.path.insert(0, str(ROOT))
+        from providers.adapters import AGENT_ADAPTERS
+        u = AGENT_ADAPTERS["codex"].normalize_usage({"input_tokens": 20141, "cached_input_tokens": 2816,
+                                                     "output_tokens": 5})
+        self.assertEqual((u["input_tokens"], u["cache_read_tokens"], u["total_tokens"]), (17325, 2816, 17330))
 
 
 if __name__ == "__main__":

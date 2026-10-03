@@ -325,17 +325,21 @@ class CodexAdapter(AgentAdapter):
     def normalize_usage(self, raw_usage: Optional[dict]) -> Optional[dict]:
         if not raw_usage:
             return None
-        input_tokens = int(raw_usage.get("input_tokens") or 0)
-        cache_read = int(raw_usage.get("cached_input_tokens") or 0)
+        # codex's input_tokens already holds the cached part (OpenAI usage: cached is a subset): measured 2026-10-04,
+        # the same prompt twice gave input 20141 with cached 2816, then 0. The canonical input_tokens is the uncached
+        # part, as every other adapter reports it, so cached tokens are not counted twice (token-economy.md T6).
+        raw_input = int(raw_usage.get("input_tokens") or 0)
+        cache_read = min(int(raw_usage.get("cached_input_tokens") or 0), raw_input)
         cache_write = int(raw_usage.get("cache_write_input_tokens") or 0)
         output_tokens = int(raw_usage.get("output_tokens") or 0)
         thinking_tokens = int(raw_usage.get("reasoning_output_tokens") or 0)
+        fresh = raw_input - cache_read + cache_write
         return {
-            "input_tokens": input_tokens + cache_write,
+            "input_tokens": fresh,
             "output_tokens": output_tokens,
             "thinking_tokens": thinking_tokens,
             "cache_read_tokens": cache_read,
-            "total_tokens": input_tokens + cache_write + output_tokens,
+            "total_tokens": fresh + output_tokens,
         }
 
     def rate_limit_report(self) -> Optional[dict]:
