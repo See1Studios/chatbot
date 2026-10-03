@@ -61,6 +61,7 @@
 | [character-generation-system.md](character-generation-system.md) | `active` · 방향 **핵심** — ST-CardGen 벤치마크 캐릭터 생성 시스템: 한 줄 아이디어로 card.json + visual.md 자동 직조, In medias res/Anti-puppeting/Hook 프롬프트 구조, 결측치 보완 및 부분 재생성, ST PNG 양방향 호환. D1–D4 권장 | 캐릭터 자동 생성·프롬프트 구조·카드 부분 재생성·ST PNG 내보내기를 다룰 때 |
 | [group-room-header.md](group-room-header.md) | `active` · 방향 **핵심** — 단체방 대화창 상단 헤더 개편: 최근 발화자 카드 스택 아바타 연동, 실시간 기척(작성 중) 동기화, 헤더 클릭 시 단체방 정보 서랍(Room Drawer/Panel) 연동 | 단체방 상단 헤더·단체방 아바타 연출·단체방 서랍 및 설정을 건드릴 때 |
 | [quota-failure-resilience.md](quota-failure-resilience.md) | `active` · 방향 **기반** — 모델 쿼터 소진·한도 도달 및 제공자 장애 대응 강화: 워치독 에러 정규화, 시스템 경고 카드 즉각 안내, 원클릭 대체 모델 전환 및 사전 쿼터 고갈 경고 | 쿼터 소진·Rate Limit·워치독 에러·대체 모델 추천을 건드릴 때 |
+| [engine-decides.md](engine-decides.md) | `active` · 방향 **핵심** — 모델 판단 지점 전수 점검(실측: `mcp.call` 실패 19%, 거의 전부 이름·형식·상태 판단)과 엔진 이전: 인자 정규화 층, 애정 턴 고정 판정기, 이동 제안·선택지 엔진 칩, 위임 모양, D1–D5 결정 대기 | 도구 인자·도구 호출 여부·출력 형식·분류를 모델에 맡기는 코드를 만들거나 바꿀 때 |
 
 
 ## Archived (한 줄 · 펼치지 말 것)
