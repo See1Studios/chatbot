@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-10-03 — 데이터가 ~/.pe로 간 뒤 남은 옛 경로 (uds/F 후속, #601 #602)
+
+- **재시작 안전장치**: `ctl_proc.py`가 에이전트를 `CODE/data/workspace`에서만 찾아, ~/.pe로 옮긴 뒤로는 작업 중인 에이전트를 못 봤다(바쁨 판정 항상 '한가함', 고아 정리 0건). 이제 ctl이 `$DATA`를 넘긴다.
+- **스킬 색인**: 에이전트에게 옛 `~/services/chatbot/data/workspace/.agents/skills`를 가리키던 줄을 실제 작업공간 경로로.
+- **테스트**: `run-tests.sh`가 내보내는 `CHATBOT_DATA`가 `AGY_CHAT_DATA`보다 앞서, 티켓·ctl 테스트가 고정물 대신 저장소 `data/`를 읽었다. 고정물을 `CHATBOT_DATA`로 지정.
+- **재시작**: ctl·`instructions.py`가 바뀌어 `chatbot-ctl.sh repair`가 필요하다.
+
 ## 2026-10-03 — 개발자 모드에서만 캐릭터 폴더 삭제 (#600)
 
 - **버튼**: 캐릭터 프로필 맨 아래 `이 캐릭터 삭제`. `pe.devMode`(`body.dev-mode`)가 켜져 있을 때만 보인다. 확인을 누른 뒤에만 보낸다.

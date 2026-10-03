@@ -184,11 +184,14 @@ class PrivateBundle(unittest.TestCase):
         self.cid = C.new_id()
         C.save(self.cid, card, self.ws)
         C.remember_private(self.cid, ["likes tea"], ws=self.ws)
-        self.saved = (I.WORKSPACE, I.MEMORY_FILE)
-        I.WORKSPACE, I.MEMORY_FILE = self.ws, self.ws / "memory" / "MEMORY.md"
+        skill = self.ws / ".agents" / "skills" / "fixture-skill"   # the index reads this tree, not the runner's data dir
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("---\nname: fixture-skill\ndescription: a fixture\n---\n", encoding="utf-8")
+        self.saved = (I.WORKSPACE, I.MEMORY_FILE, I.WS_SKILLS_DIR)
+        I.WORKSPACE, I.MEMORY_FILE, I.WS_SKILLS_DIR = self.ws, self.ws / "memory" / "MEMORY.md", skill.parent
 
     def tearDown(self):
-        I.WORKSPACE, I.MEMORY_FILE = self.saved
+        I.WORKSPACE, I.MEMORY_FILE, I.WS_SKILLS_DIR = self.saved
         shutil.rmtree(self.ws, ignore_errors=True)
 
     def test_private_gets_private_rules_and_memory_and_no_work(self):
@@ -237,6 +240,7 @@ class PrivateBundle(unittest.TestCase):
         self.assertIn("persona body", sys_work)
         self.assertIn("pd work instructions", sys_work)
         self.assertIn("[스킬 색인]", sys_work)
+        self.assertNotIn("services/chatbot/data/", sys_work)   # uds/F: skills live in the data dir's workspace
         self.assertIn("work fact", sys_work)
         for never in ("unique other staff description", "other private rules", "likes coffee"):
             self.assertNotIn(never, sys_work)

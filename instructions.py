@@ -312,7 +312,8 @@ def _skills_text(character: str = "") -> str:
         pass
     if not idx:
         return ""
-    lines = ["[스킬 색인] 필요할 때 `~/services/chatbot/data/workspace/.agents/skills/<이름>/SKILL.md`를 읽어 절차를 따른다."]
+    # the live workspace (uds/F: ~/.pe), never the repo's data/ -- a stale copy there lacks newer skills
+    lines = ["[스킬 색인] 필요할 때 `%s/.agents/skills/<이름>/SKILL.md`를 읽어 절차를 따른다." % WORKSPACE]
     lines += [f"- {name} — {desc}" if desc else f"- {name}" for name, desc in idx]
     return "\n".join(lines)
 

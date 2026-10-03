@@ -71,6 +71,15 @@ class ReapTest(Base):
             self.assertFalse(os.path.exists(os.path.join(self.code, "data", name)))
         self.assertEqual(self.reap(self.table()), [300, 310])
 
+    def test_agents_in_a_data_dir_outside_the_code_are_ours(self):
+        # uds/F: the live data dir is ~/.pe, not CODE/data. Agents there must count, or busy waits for nothing
+        data = os.path.join(self.code, "elsewhere", ".pe")
+        moved = [dict(r, cwd=os.path.join(data, "workspace")) if r["cwd"] == self.ws else r for r in self.table()]
+        killed = []
+        ctl_proc.reap(self.code, table=moved, kill=lambda pid, sig: killed.append(pid), data_dir=data)
+        self.assertEqual(sorted(killed), [300, 310])
+        self.assertEqual(self.reap(moved), [])   # without the data dir they are invisible
+
 
 class BusyTest(Base):
     def busy(self, table, activity_seq):
@@ -106,8 +115,8 @@ class CtlWiringTest(unittest.TestCase):
         ctl = (ROOT / "chatbot-ctl.sh").read_text(encoding="utf-8")
         for dep in ("live_pids", "standby.pid", "/api/sessions/active", "kill_stale_session_agy"):
             self.assertNotIn(dep, ctl)
-        self.assertIn('ctl_proc.py" reap', ctl)
-        self.assertIn('ctl_proc.py" busy', ctl)
+        self.assertIn('ctl_proc.py" reap "$CODE" "$DATA"', ctl)   # $DATA: agents run in $DATA/workspace (uds/F)
+        self.assertIn('ctl_proc.py" busy "$CODE" "$DATA"', ctl)
 
     def test_ctl_proc_imports_nothing_from_the_service(self):
         import ast

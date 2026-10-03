@@ -164,10 +164,10 @@ require_host_force() {
 
 reap_orphan_agents() {
   # WATCHDOG_OS_FACTS_v1 (recursive-self-evolution.md §7-7): decided from the process table,
-  # /proc cwd and ctl's own pid file only -- see ctl_proc.py. Our agents (cwd = data/workspace)
+  # /proc cwd and ctl's own pid file only -- see ctl_proc.py. Our agents (cwd = $DATA/workspace)
   # that are not descendants of the live chat server are reaped; the server's descendants and
   # anybody else's processes are never touched. Prints the count.
-  python3 "$CODE/ctl_proc.py" reap "$CODE"
+  python3 "$CODE/ctl_proc.py" reap "$CODE" "$DATA"
 }
 
 is_up() {
@@ -412,7 +412,7 @@ wait_for_idle_session() {
   local waited=0 max_wait=60 t0=$SECONDS
   is_up "$PID_CHAT" || return 0
   while [ "$waited" -lt "$max_wait" ]; do
-    python3 "$CODE/ctl_proc.py" busy "$CODE" || return 0
+    python3 "$CODE/ctl_proc.py" busy "$CODE" "$DATA" || return 0
     waited=$((SECONDS - t0))
   done
   obs repair.busy_timeout warn waited_s="$waited"
