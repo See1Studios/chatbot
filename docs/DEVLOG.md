@@ -199,3 +199,4 @@
 - **재시작 불필요**: 러너는 위임마다 새 프로세스. 서버가 `delegation.runner()`로 들고 있는 옛 모듈은 바뀌지 않은 상태 함수만 씀.
 - **다음**: D1 ③ 위임 측정 기록(티켓마다 대상 파일 크기·걸린 시간·결과) — 이제 러너에 자리가 있음.
 
+- 2026-10-03: Added the release cut checklist in docs/RELEASE.md; created local annotated tag v0.0.0-dev with no push.
