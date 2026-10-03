@@ -830,5 +830,21 @@ class AccountSwitch(unittest.TestCase):
         self.assertEqual(src.count("code, out, err = run_as_login("), 2, "the worker run and the review run")
         self.assertIn("accounts.rerun_on_switch(provider", src)
 
+
+class GateEnvTest(unittest.TestCase):
+    def test_a_gate_runs_on_its_trees_own_data_never_the_install(self) -> None:
+        # 2026-10-03: a gate run without a data variable resolved ~/.pe and wrote a test session into the live chat
+        from unittest import mock
+        tree = Path(tempfile.mkdtemp()).resolve()
+        with mock.patch.dict("os.environ", {"CHATBOT_DATA": "/live/.pe", "PE_HOME": "/x", "HOME": "/h"}):
+            env = wr.gate_env(tree)
+        self.assertEqual(env["CHATBOT_DATA"], str(tree / "data"))
+        self.assertNotIn("PE_HOME", env)
+        seen = []
+        with mock.patch.object(wr, "run_cmd", side_effect=lambda cmd, **kw: (seen.append(kw["env"]), (0, "", ""))[1]):
+            wr.run_gates(tree, ["true"])
+        self.assertEqual(seen[0]["CHATBOT_DATA"], str(tree / "data"))
+
+
 if __name__ == "__main__":
     unittest.main()

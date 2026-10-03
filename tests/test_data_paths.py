@@ -108,6 +108,8 @@ class DataPaths(unittest.TestCase):
         self.assertIn('"$CODE/data-pin.env"', body)
         runner = (ROOT / "run-tests.sh").read_text(encoding="utf-8")
         self.assertIn('export CHATBOT_DATA="$PWD/data"', runner)
+        self.assertNotIn('if [ -z "${CHATBOT_DATA', runner, "the suite ignores a caller's data dir: never an install's")
+        self.assertIn("unset PE_HOME PRIVATEENGINE_HOME AGY_CHAT_DATA", runner)
 
         def resolve(code, home, extra=None, pin=None):
             if pin is not None:

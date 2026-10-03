@@ -568,10 +568,15 @@ def commit_leftovers(wt_dir: Path, provider: str, tid: int) -> bool:
     return True
 
 
+def gate_env(tree: Path) -> Dict[str, str]:
+    """The tree's own data/, never ~/.pe (a gate once wrote into the live chat)."""
+    return clean_env(CHATBOT_DATA=str(Path(tree).resolve() / "data"))
+
+
 def run_gates(wt_dir: Path, gates: List[str]) -> None:
     for cmd in gates:
         log("gate: %s" % cmd)
-        code, out, err = run_cmd(["sh", "-c", cmd], cwd=wt_dir, timeout=GATE_TIMEOUT, env=clean_env())  # runs the agent's code
+        code, out, err = run_cmd(["sh", "-c", cmd], cwd=wt_dir, timeout=GATE_TIMEOUT, env=gate_env(wt_dir))
         if code != 0:
             f = Failure("gate_failed", "gate failed: %s (exit %s)" % (cmd, code), tail(out + "\n" + err),
                         retryable=True)
@@ -590,7 +595,7 @@ def base_fails(repo: Path, base: str, cmd: str, tid: int) -> Optional[str]:
     if git(repo, "worktree", "add", "--detach", str(d), base)[0] != 0:
         return None
     try:
-        code, out, err = run_cmd(["sh", "-c", cmd], cwd=d, timeout=GATE_TIMEOUT, env=clean_env())
+        code, out, err = run_cmd(["sh", "-c", cmd], cwd=d, timeout=GATE_TIMEOUT, env=gate_env(d))
         return None if code == 0 else tail(out + "\n" + err)
     finally:
         cleanup()
