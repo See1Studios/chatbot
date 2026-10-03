@@ -113,10 +113,14 @@ function parseMapConfig(text) {
     }
   }
 
-  if (markers.length > 0 && (isNaN(lat) || isNaN(lon))) {
-    lat = markers[0].lat;
-    lon = markers[0].lon;
-    if (!marker && markers.length === 1) marker = markers[0].label;
+  if (markers.length > 0) {
+    if (isNaN(lat) || isNaN(lon)) {
+      lat = markers[0].lat;
+      lon = markers[0].lon;
+    }
+    if (!marker && markers.length === 1 && markers[0].label) {
+      marker = markers[0].label;
+    }
   }
 
   if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
@@ -266,6 +270,30 @@ function toggleMapFullscreen(el, mapObj, fsBtn) {
     }
     fsBtn.title = entering ? 'Close' : 'Fullscreen';
   }
+  if (typeof document !== 'undefined') {
+    if (entering) {
+      if (!el._mapEscHandler && typeof document.addEventListener === 'function') {
+        el._mapEscHandler = (e) => {
+          if (typeof document !== 'undefined' && document.body && typeof document.body.contains === 'function' && !document.body.contains(el)) {
+            if (typeof document.removeEventListener === 'function') {
+              document.removeEventListener('keydown', el._mapEscHandler);
+            }
+            el._mapEscHandler = null;
+            return;
+          }
+          if (e.key === 'Escape' && el.classList.contains('chat-map-fullscreen')) {
+            toggleMapFullscreen(el, mapObj, fsBtn);
+          }
+        };
+        document.addEventListener('keydown', el._mapEscHandler);
+      }
+    } else {
+      if (el._mapEscHandler && typeof document.removeEventListener === 'function') {
+        document.removeEventListener('keydown', el._mapEscHandler);
+        el._mapEscHandler = null;
+      }
+    }
+  }
   try {
     if (entering) {
       if (mapObj.dragging) mapObj.dragging.enable();
@@ -342,11 +370,15 @@ async function renderMapsIn(container) {
           mapObj.setView(allCoords[0], zoom);
         }
       } else {
-        mapObj.setView([lat, lon], zoom);
-        if (markerLabel || extraMarkers.length === 1) {
-          const label = markerLabel || (extraMarkers[0] && extraMarkers[0].label) || '';
-          const popup = buildPopupContent(lat, lon, label);
-          const m = window.L.marker([lat, lon]).addTo(mapObj);
+        const hasExtra = extraMarkers.length === 1 && !isNaN(parseFloat(extraMarkers[0].lat)) && !isNaN(parseFloat(extraMarkers[0].lon));
+        const markerLat = hasExtra ? parseFloat(extraMarkers[0].lat) : lat;
+        const markerLon = hasExtra ? parseFloat(extraMarkers[0].lon) : lon;
+        const targetCenter = hasExtra ? [markerLat, markerLon] : [lat, lon];
+        mapObj.setView(targetCenter, zoom);
+        if (markerLabel || hasExtra) {
+          const label = (hasExtra && extraMarkers[0].label) || markerLabel || '';
+          const popup = buildPopupContent(markerLat, markerLon, label);
+          const m = window.L.marker([markerLat, markerLon]).addTo(mapObj);
           if (popup) m.bindPopup(popup).openPopup();
         }
       }
@@ -365,15 +397,6 @@ async function renderMapsIn(container) {
           toggleMapFullscreen(el, mapObj, fsBtn);
         });
         el.appendChild(fsBtn);
-
-        /* ESC key closes fullscreen */
-        if (typeof document.addEventListener === 'function') {
-          document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && el.classList.contains('chat-map-fullscreen')) {
-              toggleMapFullscreen(el, mapObj, fsBtn);
-            }
-          });
-        }
       }
 
       setTimeout(() => {

@@ -123,9 +123,13 @@ class MapBlockMultiMarker(unittest.TestCase):
         raw = "marker: 37.55, 126.97 | Seoul Station\nmarker: 37.56, 126.98 | City Hall"
         res = run_map_js(f"parseMapConfig({json.dumps(raw)})")
         self.assertIsNotNone(res)
-        self.assertGreaterEqual(len(res["markers"]), 1)
-        labels = [m["label"] for m in res["markers"]]
-        self.assertIn("Seoul Station", labels)
+        self.assertEqual(len(res["markers"]), 2)
+        self.assertEqual(res["markers"][0]["lat"], 37.55)
+        self.assertEqual(res["markers"][0]["lon"], 126.97)
+        self.assertEqual(res["markers"][0]["label"], "Seoul Station")
+        self.assertEqual(res["markers"][1]["lat"], 37.56)
+        self.assertEqual(res["markers"][1]["lon"], 126.98)
+        self.assertEqual(res["markers"][1]["label"], "City Hall")
 
     def test_parse_kv_marker_label_only_backward_compat(self):
         raw = "lat: 37.5\nlon: 127.0\nmarker: My Place"
@@ -453,6 +457,83 @@ const container = {{ querySelectorAll: () => [box] }};
         self.assertEqual(res["processed"], "true")
         self.assertIsNotNone(res["boundsCoords"])
         self.assertEqual(len(res["boundsCoords"]), 2, "Two marker coords in bounds")
+
+    def test_single_marker_distinct_coords_from_center(self):
+        """Single marker with coordinates differing from map center must place marker and popup at marker coords."""
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+const markerCalls = [];
+let setViewCenter = null;
+global.document = {{
+  createElement: (tag) => {{
+    let _text = '';
+    const children = [];
+    return {{
+      tagName: tag.toUpperCase(), className: '', type: '', href: '', target: '', rel: '',
+      get textContent() {{ return _text; }},
+      set textContent(v) {{ _text = String(v); }},
+      appendChild(child) {{ children.push(child); }},
+      addEventListener() {{}},
+      children
+    }};
+  }},
+  addEventListener() {{}}
+}};
+
+window = {{
+  L: {{
+    map: () => ({{
+      setView: (center) => {{ setViewCenter = center; return {{ invalidateSize() {{}} }}; }},
+      invalidateSize: () => {{}},
+      dragging: {{ enable() {{}}, disable() {{}} }},
+      touchZoom: {{ enable() {{}}, disable() {{}} }},
+      doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+      scrollWheelZoom: {{ enable() {{}}, disable() {{}} }}
+    }}),
+    tileLayer: () => ({{ addTo: () => ({{}}) }}),
+    marker: (coords) => ({{
+      addTo: () => ({{
+        bindPopup: (content) => ({{
+          openPopup: () => {{
+            const link = content && content.children && content.children.find(c => c.className === 'chat-map-popup-btn');
+            markerCalls.push({{ coords, linkHref: link ? link.href : null }});
+          }}
+        }})
+      }})
+    }})
+  }}
+}};
+
+const box = {{
+  attrs: {{ 'data-lat': '37.5', 'data-lon': '127.0', 'data-zoom': '14' }},
+  classes: [],
+  getAttribute(k) {{ return this.attrs[k] || null; }},
+  setAttribute(k, v) {{ this.attrs[k] = String(v); }},
+  querySelector(sel) {{
+    if (sel === '.chat-map-markers') return {{ textContent: JSON.stringify([{{ lat: 37.55, lon: 126.97, label: "Point" }}]) }};
+    if (sel === '.chat-map-canvas') return {{}};
+    return null;
+  }},
+  classList: {{ toggle() {{}}, add(c) {{ box.classes.push(c); }}, contains(c) {{ return box.classes.includes(c); }} }},
+  appendChild() {{}}
+}};
+
+(async () => {{
+  await renderMapsIn({{ querySelectorAll: () => [box] }});
+  console.log(JSON.stringify({{ markerCalls, setViewCenter }}));
+}})();
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertEqual(len(res["markerCalls"]), 1)
+        mc = res["markerCalls"][0]
+        self.assertEqual(mc["coords"], [37.55, 126.97])
+        self.assertIn("37.55", mc["linkHref"])
+        self.assertIn("126.97", mc["linkHref"])
+        self.assertNotIn("37.5,", mc["linkHref"])
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
@@ -1236,8 +1317,58 @@ const container = {{ querySelectorAll: () => [box] }};
         res = json.loads(out.stdout)
         self.assertEqual(res["fsBtnCount"], 1, "Exactly one fullscreen button must be created")
         self.assertEqual(res["fsBtnText"], "\u26F6", "Initial button text must be expand icon")
-        self.assertEqual(res["fsBtnType"], "button")
-        self.assertTrue(res["hasKeydownListener"], "ESC keydown listener must be registered")
+        self.assertFalse(res["hasKeydownListener"], "ESC keydown listener must not be registered before fullscreen")
+
+    def test_fullscreen_esc_listener_lifecycle(self):
+        """Fullscreen must register ESC keydown listener only while active and remove it on exit."""
+        harness = f"""
+const fs = require('fs');
+eval(fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8'));
+
+let activeKeydown = null;
+global.document = {{
+  addEventListener: (ev, fn) => {{ if (ev === 'keydown') activeKeydown = fn; }},
+  removeEventListener: (ev, fn) => {{ if (ev === 'keydown' && activeKeydown === fn) activeKeydown = null; }}
+}};
+
+const mapObj = {{
+  dragging: {{ enable() {{}}, disable() {{}} }},
+  touchZoom: {{ enable() {{}}, disable() {{}} }},
+  doubleClickZoom: {{ enable() {{}}, disable() {{}} }},
+  scrollWheelZoom: {{ enable() {{}}, disable() {{}} }},
+  invalidateSize() {{}}
+}};
+const el = {{
+  _classes: [],
+  classList: {{
+    contains(c) {{ return el._classes.includes(c); }},
+    toggle(c) {{
+      const i = el._classes.indexOf(c);
+      if (i >= 0) el._classes.splice(i, 1);
+      else el._classes.push(c);
+    }}
+  }}
+}};
+const fsBtn = {{ textContent: '' }};
+
+const beforeEnter = activeKeydown !== null;
+toggleMapFullscreen(el, mapObj, fsBtn);
+const afterEnter = activeKeydown !== null;
+if (activeKeydown) activeKeydown({{ key: 'Escape' }});
+const afterEscPress = {{
+  isFullscreen: el.classList.contains('chat-map-fullscreen'),
+  hasListener: activeKeydown !== null
+}};
+
+console.log(JSON.stringify({{ beforeEnter, afterEnter, afterEscPress }}));
+"""
+        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        self.assertEqual(out.returncode, 0, out.stderr[-1000:])
+        res = json.loads(out.stdout)
+        self.assertFalse(res["beforeEnter"])
+        self.assertTrue(res["afterEnter"])
+        self.assertFalse(res["afterEscPress"]["isFullscreen"])
+        self.assertFalse(res["afterEscPress"]["hasListener"])
 
 
 class MapStaticAssets(unittest.TestCase):
