@@ -556,7 +556,7 @@ class OperatorToolsTest(Base):
 
     def test_reading_needs_no_terminal(self):
         t, _ = self.propose()
-        with mock.patch.dict(os.environ, {"AGY_CHAT_DATA": str(self.data)}):
+        with mock.patch.dict(os.environ, {"CHATBOT_DATA": str(self.data)}):
             out = io.StringIO()
             with redirect_stdout(out):
                 self.assertEqual(tickets.main(["list"]), 0)
@@ -571,7 +571,7 @@ class OperatorOnlyTest(Base):
     """Approving, declining, reopening and dropping the lease are for a person at a terminal."""
 
     def cli(self, *args, stdin=None):
-        env = dict(os.environ, AGY_CHAT_DATA=str(self.data))
+        env = dict(os.environ, CHATBOT_DATA=str(self.data))
         return subprocess.run([sys.executable, str(CODE / "tickets.py")] + list(args), env=env, stdin=stdin,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30)
 
@@ -604,7 +604,7 @@ class OperatorOnlyTest(Base):
         r = self.cli("drop-lease", stdin=subprocess.DEVNULL)
         self.assertEqual(r.returncode, 1)
         piped = subprocess.run([sys.executable, str(CODE / "tickets.py"), "approve", str(t["id"])],
-                               input="%d\n" % t["id"], env=dict(os.environ, AGY_CHAT_DATA=str(self.data)),
+                               input="%d\n" % t["id"], env=dict(os.environ, CHATBOT_DATA=str(self.data)),
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30)
         self.assertEqual(piped.returncode, 1)  # typing the right number into a pipe is not enough
         self.assertEqual(tickets.get(self.data, t["id"])["status"], "proposed")
@@ -614,7 +614,7 @@ class OperatorOnlyTest(Base):
         master, slave = pty.openpty()
         try:
             proc = subprocess.Popen([sys.executable, str(CODE / "tickets.py")] + list(args), stdin=slave, stdout=slave,
-                                    stderr=slave, env=dict(os.environ, AGY_CHAT_DATA=str(self.data)), close_fds=True)
+                                    stderr=slave, env=dict(os.environ, CHATBOT_DATA=str(self.data)), close_fds=True)
             os.close(slave)
             os.write(master, typed.encode("utf-8"))
             proc.wait(timeout=30)
