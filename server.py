@@ -41,6 +41,7 @@ import art_manager
 import room_chat
 import card_upload
 import summon_api
+import unsummon_api
 import chat_upload
 import platform_compat
 import items
@@ -463,6 +464,15 @@ def _summon_regen(req: Req):
     return req.json(payload, status)
 
 
+def _unsummon_steps(req: Req):
+    return req.json(unsummon_api.public_spec())
+
+
+def _unsummon_go(req: Req):
+    status, payload = unsummon_api.handle_unsummon((req.arg or "").strip("/"), req.body or {})
+    return req.json(payload, status)
+
+
 def _dev_delete_character(req: Req):
     # The button is hidden unless browser dev mode is on. The route also needs the dev edition.
     import characters
@@ -499,6 +509,7 @@ GET_ROUTES = [
     ("/api/sessions", route_sessions.listing),
     ("/api/characters", route_sessions.characters_list),
     ("/api/summon", _summon_steps),
+    ("/api/unsummon", _unsummon_steps),
     (None, _gift(lambda req: items.handle_get(req.path))),
     (None, _gift(lambda req: chat_upload.handle_get(req.path, req.qs()))),
     (None, _gift(lambda req: art_manager.handle_get(req.path))),
@@ -546,6 +557,7 @@ POST_ROUTES = [
     ("/api/characters/summon", _summon_create),
     ("/api/characters/*/regenerate", _summon_regen),
     ("/api/characters/*/dev-delete", _dev_delete_character),
+    ("/api/characters/*/unsummon", _unsummon_go),
     ("/api/characters/*/session", route_sessions.character_session),
     ("/api/sessions/*/message", route_sessions.message),
     (None, _gift(lambda req: items.handle_post(req.path, req.body))),   # items (plus/F)

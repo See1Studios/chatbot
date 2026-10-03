@@ -438,3 +438,6 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
 .summon-example,.summon-summary{margin:0 0 .75rem;white-space:pre-wrap;opacity:.88}
 .summon-actions{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
 .summon-actions .primary{margin-left:auto}
+
+/* unsummon (sp/N): profile footer; overlay reuses .summon-* */
+.shell-unsummon{display:block;width:100%;margin-top:1rem}

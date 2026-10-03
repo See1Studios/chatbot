@@ -493,6 +493,7 @@ function shellProfileOpen() {
   panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose, shellNarrow() ? '\u2039' : '\u2715'), card, list,
     shellBrainSection(c), shellModelSection());
   if (typeof shellBrainUseSection === 'function') panel.appendChild(shellBrainUseSection(c));
+  if (typeof unsummonProfileButton === 'function') unsummonProfileButton(panel, c);
   if (typeof shellDevDeleteButton === "function") shellDevDeleteButton(panel, c);
   shellMarkPane();
   column.classList.remove('behind');
