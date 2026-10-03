@@ -425,3 +425,16 @@ body.private-session #slashBtn,body.private-session #geoBtn{display:none !import
     min-height: 140px;
   }
 }
+/* summon wizard (cgs/F): one overlay, opened from the team pane and the character tray */
+.summon-overlay{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(10,12,15,.72)}
+.summon-card{width:min(28rem,100%);max-height:min(34rem,92vh);overflow:auto;padding:1rem 1.1rem;border-radius:14px;background:var(--bg-elev,#17191e);color:inherit;border:1px solid rgba(255,255,255,.12)}
+.summon-progress{font-size:.8rem;opacity:.7;margin:0 0 .35rem}
+.summon-title{margin:0 0 .35rem;font-size:1.15rem}
+.summon-prompt{margin:0 0 .75rem;line-height:1.45}
+.summon-options{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 .75rem}
+.summon-opt{border:1px solid rgba(255,255,255,.18);background:transparent;color:inherit;border-radius:999px;padding:.35rem .7rem;cursor:pointer}
+.summon-opt.on{border-color:currentColor}
+.summon-text{width:100%;box-sizing:border-box;margin:0 0 .75rem;padding:.5rem .6rem;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:transparent;color:inherit}
+.summon-example,.summon-summary{margin:0 0 .75rem;white-space:pre-wrap;opacity:.88}
+.summon-actions{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+.summon-actions .primary{margin-left:auto}

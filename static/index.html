@@ -50,7 +50,7 @@
   <link rel="stylesheet" href="./chat-composer.css?v=8" />
   <link rel="stylesheet" href="./chat-panes.css?v=5" />
   <link rel="stylesheet" href="./chat-responsive.css?v=3" />
-  <link rel="stylesheet" href="./chat-features.css?v=5" />
+  <link rel="stylesheet" href="./chat-features.css?v=6" />
   <link rel="stylesheet" href="./art-manager.css?v=1" />
   <link rel="stylesheet" href="./rooms.css?v=1" />
   <link rel="stylesheet" href="./shell.css?v=24" />
@@ -294,6 +294,7 @@
           <h2 class="status-head-row">
             <svg class="btn-icon-svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             <span>팀</span>
+            <button id="summonOpenBtn" class="art-filter-btn" type="button">새 친구 소환</button> <!-- l10n-ok -->
             <input type="file" id="stCardFileInput" accept=".png" style="display:none" />
             <button id="stCardImportBtn" class="art-filter-btn" type="button" title="SillyTavern PNG 캐릭터 카드 가져오기">
               <svg class="action-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -409,7 +410,8 @@
   <script src="./app-think.js?v=1"></script>
   <script src="./app-sse.js?v=11"></script>
   <script src="./app-session.js?v=9"></script>
-  <script src="./app-characters.js?v=11"></script>
+  <script src="./app-characters.js?v=12"></script>
+  <script src="./app-summon.js?v=1"></script>
   <script src="./app-viewport.js?v=1"></script>
   <script src="./app-item.js?v=5"></script>
   <script src="./app-art.js?v=3"></script>

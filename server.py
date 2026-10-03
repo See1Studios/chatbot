@@ -39,6 +39,7 @@ from providers import account_login
 import art_manager
 import room_chat
 import card_upload
+import summon_api
 import chat_upload
 import platform_compat
 import items
@@ -447,6 +448,19 @@ def _card_import(req: Req):
     status, payload = card_upload.handle(req.headers, req.rfile, WORKSPACE)
     return req.json(payload, status)
 
+def _summon_steps(req: Req):
+    return req.json(summon_api.public_spec())
+
+
+def _summon_create(req: Req):
+    status, payload = summon_api.handle_summon(req.body or {})
+    return req.json(payload, status)
+
+
+def _summon_regen(req: Req):
+    status, payload = summon_api.handle_regenerate((req.arg or "").strip("/"), req.body or {})
+    return req.json(payload, status)
+
 
 # ------------------------------------------------------------------------------------------------ route tables
 # One table per method, tried in order; the first route that takes a request answers it (route_table.py).
@@ -476,6 +490,7 @@ GET_ROUTES = [
     ("/api/accounts", route_accounts.listing),
     ("/api/sessions", route_sessions.listing),
     ("/api/characters", route_sessions.characters_list),
+    ("/api/summon", _summon_steps),
     (None, _gift(lambda req: items.handle_get(req.path))),
     (None, _gift(lambda req: chat_upload.handle_get(req.path, req.qs()))),
     (None, _gift(lambda req: art_manager.handle_get(req.path))),
@@ -520,6 +535,8 @@ POST_ROUTES = [
     ("/api/accounts/login/cancel", route_accounts.login_cancel),
     ("/api/accounts/logout", route_accounts.logout),
     ("/api/sessions", route_sessions.create),
+    ("/api/characters/summon", _summon_create),
+    ("/api/characters/*/regenerate", _summon_regen),
     ("/api/characters/*/session", route_sessions.character_session),
     ("/api/sessions/*/message", route_sessions.message),
     (None, _gift(lambda req: items.handle_post(req.path, req.body))),   # items (plus/F)

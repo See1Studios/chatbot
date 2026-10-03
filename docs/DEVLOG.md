@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-10-03 — 소환 마법사 REST와 메뉴 (cgs/F, #597)
+
+- **REST**: `GET /api/summon` 단계 정의, `POST /api/characters/summon` 생성, `POST /api/characters/*/regenerate` 지정 필드만 재생성. 카드는 `card_gen`의 chara_card_v2와 `visual.md`만 쓴다.
+- **메뉴**: 팀 탭의 새 친구 소환, 캐릭터 트레이의 같은 버튼. 단계 0-5와 7(부름, 모습, 성격, 말투, 관계, 이름, 소환). 진행, 뒤로, 바로 소환. 고른 값이 모델보다 우선하고, 직조가 실패해도 고른 값으로 카드가 생긴다.
+- **하지 않음**: 첫 실행 온보딩, BYOK, 그림 생성, PNG 내보내기(마스터 이미지가 없음). `ccl/D`는 아직 대기.
+- **재시작**: 호스트 모듈이라 `chatbot-ctl.sh repair`가 필요하고, 화면은 새로고침.
+
 ## 2026-10-03 — SillyTavern PNG 카드 내보내기 (cgs/E, #596)
 
 - **도구**: `tools/st_export.py`. `card.json`과 마스터 PNG를 SillyTavern `chara` tEXt로 IEND 직전에 넣는다. 기존 `chara`/`ccv3`는 tEXt뿐 아니라 zTXt·iTXt도 빼서, `st_import.py`가 방금 쓴 카드를 읽게 한다.

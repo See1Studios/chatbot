@@ -467,6 +467,15 @@ function renderCharacterTray() {
     });
     characterTrayEl.appendChild(btn);
   });
+  if (typeof openSummonWizard === 'function') {
+    const summon = document.createElement('button');
+    summon.type = 'button';
+    summon.className = 'tray-art-btn';
+    const menuBtn = document.getElementById('summonOpenBtn');
+    summon.textContent = (menuBtn && menuBtn.textContent.trim()) || 'Summon';
+    summon.addEventListener('click', (e) => { e.stopPropagation(); toggleCharacterTray(false); openSummonWizard(); });
+    characterTrayEl.appendChild(summon);
+  }
   // ART_MANAGER_v1 (app-art.js): the open character's pictures -- gallery, icon, background, expressions
   if (typeof openArtManager === 'function' && currentCharacter()) {
     const art = document.createElement('button');

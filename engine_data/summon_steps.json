@@ -1,0 +1,157 @@
+{
+  "menu": "새 친구 소환",
+  "summon_now": "바로 소환",
+  "back": "뒤로",
+  "next": "다음",
+  "close": "닫기",
+  "open": "만나러 가기",
+  "waiting": "문을 여는 중",
+  "failed": "소환에 실패했습니다. 다시 시도해 주세요.",
+  "result_title": "도착",
+  "greeting": "눈을 뜬 {name}. {user_title}를 보며 말한다. \"{hook}\"",
+  "steps": [
+    {
+      "id": "call",
+      "title": "부름",
+      "prompt": "어떤 친구를 부를까요? 한 줄이면 충분하고, 비워 두면 추천대로 갑니다.",
+      "kind": "text",
+      "field": "idea",
+      "recommended": ""
+    },
+    {
+      "id": "look",
+      "title": "모습",
+      "prompt": "첫인상만 고릅니다. 그림은 나중에 붙이고, 지금은 플레이스홀더로 만납니다.",
+      "kind": "single",
+      "field": "look",
+      "recommended": "soft",
+      "options": [
+        {
+          "id": "soft",
+          "label": "부드러운 인상",
+          "card": "부드러운 눈매와 단정한 옷차림.",
+          "image": "soft eyes, neat simple clothes, warm light"
+        },
+        {
+          "id": "sharp",
+          "label": "또렷한 인상",
+          "card": "또렷한 이목구비와 단정한 실루엣.",
+          "image": "sharp features, clean silhouette, cool light"
+        },
+        {
+          "id": "calm",
+          "label": "차분한 인상",
+          "card": "낮은 목소리에 어울리는 차분한 얼굴.",
+          "image": "calm face, muted colors, quiet light"
+        },
+        {
+          "id": "bright",
+          "label": "밝은 인상",
+          "card": "잘 웃는 얼굴과 가벼운 옷차림.",
+          "image": "bright smile, light clothes, sunny light"
+        }
+      ]
+    },
+    {
+      "id": "personality",
+      "title": "성격",
+      "prompt": "어울리는 태그를 고릅니다. 여러 개여도 됩니다.",
+      "kind": "multi",
+      "field": "personality",
+      "recommended": [
+        "kind"
+      ],
+      "options": [
+        {
+          "id": "kind",
+          "label": "다정",
+          "card": "다정하고 상대의 속도를 맞춘다."
+        },
+        {
+          "id": "playful",
+          "label": "장난",
+          "card": "장난이 많지만 선을 넘지 않는다."
+        },
+        {
+          "id": "calm",
+          "label": "차분",
+          "card": "차분하고 먼저 서두르지 않는다."
+        },
+        {
+          "id": "tsundere",
+          "label": "츤데레",
+          "card": "겉은 새침하고 속은 살갑다."
+        }
+      ]
+    },
+    {
+      "id": "voice",
+      "title": "말투",
+      "prompt": "대사를 하나 골라 말투를 정합니다.",
+      "kind": "single",
+      "field": "voice",
+      "recommended": "polite",
+      "options": [
+        {
+          "id": "polite",
+          "label": "부드러운 존댓말",
+          "card": "부드러운 존댓말",
+          "example": "{{user}}: 오늘 기분은 어때?\n{{char}}: 좋아요. 같이 있어도 될까요?"
+        },
+        {
+          "id": "casual",
+          "label": "편한 반말",
+          "card": "편한 반말",
+          "example": "{{user}}: 오늘 기분은 어때?\n{{char}}: 좋아. 너는?"
+        }
+      ]
+    },
+    {
+      "id": "bond",
+      "title": "관계",
+      "prompt": "나와의 관계와, 나를 부르는 호칭을 정합니다.",
+      "kind": "single",
+      "field": "bond",
+      "recommended": "friend",
+      "title_label": "호칭",
+      "title_recommended": "코치",
+      "options": [
+        {
+          "id": "friend",
+          "label": "친구",
+          "title": "코치",
+          "scenario": "서로 친구다. 라운지에서 처음 만난다.",
+          "hook": "같이 있어도 될까요?"
+        },
+        {
+          "id": "lover",
+          "label": "연인",
+          "title": "코치",
+          "scenario": "서로 연인이다. 라운지에서 다시 만난다.",
+          "hook": "드디어 만났네요."
+        },
+        {
+          "id": "colleague",
+          "label": "동료",
+          "title": "코치",
+          "scenario": "서로 동료다. 사무실 앞에서 처음 만난다.",
+          "hook": "오늘 할 일부터 볼까요?"
+        }
+      ]
+    },
+    {
+      "id": "name",
+      "title": "이름",
+      "prompt": "이름을 지어 주세요. 추천을 그대로 써도 됩니다.",
+      "kind": "text",
+      "field": "name",
+      "recommended": "하루"
+    },
+    {
+      "id": "summon",
+      "title": "소환",
+      "prompt": "이 친구를 부릅니다. 첫 인사가 오면 만남이 시작됩니다.",
+      "kind": "confirm"
+    }
+  ]
+}
