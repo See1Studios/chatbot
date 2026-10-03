@@ -56,6 +56,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: devlog_entry, review_checklist
+import run_usage  # noqa: E402  -- each CLI call's tokens (token-economy T6)
 from review_checklist import (  # noqa: E402
     DIFF_LIMIT, deleted_lines, doc_review_prompt, fit_diff, is_doc_task, parse_review, review_prompt, with_code_checklist,
 )
@@ -159,19 +160,14 @@ MAX_AGENT_TIMEOUT = 1500
 REVIEW_TIMEOUT = 300
 GATE_TIMEOUT = 600
 TAIL_LINES = 30
-# A prompt passed as one argv string is capped by Linux at 128 KiB (MAX_ARG_STRLEN); CLIs that read the prompt
-# from stdin (`stdin_prompt`) have no such cap, so they get the whole diff up to DIFF_LIMIT_STDIN (DELEGATION_HARDENING_v1).
-# DIFF_LIMIT (the argv cap) lives with the review prompt in review_checklist.py.
+# An argv prompt is capped by Linux at 128 KiB (MAX_ARG_STRLEN; DIFF_LIMIT, review_checklist.py); a CLI reading the
+# prompt from stdin (`stdin_prompt`) gets the diff up to DIFF_LIMIT_STDIN (DELEGATION_HARDENING_v1).
 DIFF_LIMIT_STDIN = 200000
 TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
 
-# Provider registry: how to run each CLI headless as the worker (`argv`), as the worker again in the same
-# conversation (`continue_argv`, only where it resumes by directory), as a tool-less reviewer (`review_argv`,
-# the prompt follows `model_flag <model>` when a model is given), who it is on the ticket (role id) and in git.
-# The prompt is appended last. Where the prompt is the value of `-p` (agy, grok: `-p` takes the next argument),
-# `-p` must be the last element, so every other flag goes before it. `work_model` / `review_model`: the models used
-# when none is given; `workdir_flag`: how to let the CLI write in the worktree (agy writes to its own scratch
-# folder unless the directory is added).
+# Each CLI headless: worker (`argv`), worker resumed by directory (`continue_argv`), tool-less reviewer
+# (`review_argv`), default models, role id and git author. The prompt comes last; where it is `-p`'s value (agy,
+# grok) `-p` stays last. `workdir_flag`: agy writes to its own scratch folder unless the worktree is added.
 PROVIDERS: Dict[str, Dict] = {
     "claude": {"argv": ["claude", "--dangerously-skip-permissions", "-p"], "stdin_prompt": [],
                "continue_argv": ["claude", "-c", "--dangerously-skip-permissions", "-p"],
@@ -536,12 +532,18 @@ def diff_limit(provider: str) -> int:
 
 def run_as_login(provider: str, cmd: List[str], **kw) -> tuple:
     """run_cmd under a stall watch (delegation_watch, WORKER_STALL_v1), again when the login changed under it
-    (accounts.rerun_on_switch, ACCOUNT_SWITCH_v1)."""
+    (accounts.rerun_on_switch, ACCOUNT_SWITCH_v1). The CLI answers in JSON; its tokens go to runs/usage.jsonl."""
+    cmd, t0 = run_usage.machine(provider, cmd), time.time()
     try:
         watch, accounts = host_module("delegation_watch"), host_module("providers.accounts").accounts
     except Exception:  # noqa: BLE001
-        return run_cmd(cmd, **kw)
-    return accounts.rerun_on_switch(provider, lambda: watch.run(cmd, activity=watch.activity_of(provider), **kw), log)
+        watch = None
+    code, out, err = (accounts.rerun_on_switch(provider, lambda: watch.run(cmd, activity=watch.activity_of(provider), **kw), log)
+                      if watch else run_cmd(cmd, **kw))
+    out, used = run_usage.split(provider, out)
+    if used:
+        run_usage.record(WORKTREE_BASE, provider, kw.get("cwd"), used, time.time() - t0)
+    return code, out, err
 
 
 def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False, model: str = "") -> Dict:
@@ -1363,6 +1365,7 @@ def cmd_merge(args) -> int:
     """Land a ticket that `run --stop-before-merge` left awaiting the operator. Running this is the operator's
     word (relayed to the ticket with merge-go) unless --token says it was already given."""
     repo, tid = CHATBOT_REPO, args.ticket
+    run_usage.CONTEXT["ticket"] = tid
     st = read_state(tid)
     # "merging": the page marks the run before it starts this process (the operator's word is already given)
     if not st.get("provider") or st.get("phase") not in ("awaiting_merge", "merging"):
