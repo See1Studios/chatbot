@@ -36,6 +36,7 @@ FORBIDDEN = [
     (re.compile(r"(^|/)secrets\.env$"), "secrets file"),
     (re.compile(r"(^|/)[^/]*\.env$"), "env file (commit a .env.example instead)"),
     (re.compile(r"(^|/)private-memory\.md$"), "private memory"),
+    (re.compile(r"(^|/)relationship\.md$"), "relationship memory"),
     (re.compile(r"^data/workspace/characters/[^/]+/references/"), "style references (other artists' work)"),
 ]
 RECORDS = ("data/workspace/skill-observations/",)   # ticket/observation records: no test run needed

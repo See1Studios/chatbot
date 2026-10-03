@@ -401,7 +401,8 @@ def _private_bundle(character: str, history: Optional[Union[List, str]] = None) 
     cid = _cid(character)
     static = characters.render_macros(static, cid, WORKSPACE)   # CARD_MACROS_v1
     memory = characters.read_private_memory(cid, WORKSPACE) if cid else ""
-    text = static + ("\n\n[Private memory]\n" + memory if "- " in memory else "")
+    import memory_relationship
+    text = static + memory_relationship.injection(cid, WORKSPACE, memory)
     names = _names_text()
     text += ("\n\n" + names) if names else ""
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}

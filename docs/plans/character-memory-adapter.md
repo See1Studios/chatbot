@@ -4,7 +4,7 @@
 
 - **상태:** `active`
 - **작성:** 2026-09-27
-- **범위:** 설계·열린 질문만. **구현·스키마·코드 경로 가정 금지.**
+- **범위:** 최소 조각은 구현됨(§8). 암호화·화면·스위치는 미정. 전 범위 스키마는 확정하지 않는다.
 - **관련:**
   - [`docs/CONCEPT.md`](../CONCEPT.md) — 제품 기조·열린 축
   - [`private-mode.md`](private-mode.md) — 사적 모드·텐션·호감도(계획)
@@ -122,3 +122,21 @@
 
 - INDEX Active 행: 본 문서
 - [`docs/CONCEPT.md`](../CONCEPT.md) `열린 축`에 캐릭터 스코프 관계 기억 어댑터 1줄 링크
+
+## 8. 최소 구현 (2026-10-03)
+
+운영자 요청으로 Q1–Q6의 **가장 작은 읽기**만 코드에 넣었다. 상태 `active` (암호화·화면·스위치는 열림).
+
+| 질문 | 이 조각의 결정 |
+|---|---|
+| Q1 | 캐릭터 폴더 `relationship.md`. 집 `MEMORY.md`와 섞지 않는다. 기존 `private-memory.md`는 요약 로그로 남긴다. |
+| Q2 | 암호화 없음. `private-memory.md`와 같이 사용자 데이터라 git에 넣지 않는다. |
+| Q3 | 사적 지침 묶음의 동적 블록 `[Private memory]` / `[Relationship]`만. `turn_context`에는 넣지 않는다. 슬롯당 표시 상한. |
+| Q4 | 로어북이 아니다. 키워드 세계관과 별도다. |
+| Q5 | 사적 세션만. 업무 세션에는 주입하지 않는다. 새 설정 스위치는 없다 (사적 모드와 같은 opt-in). |
+| Q6 | 호감·텐션 수치는 `private-mode.md`만. 여기에는 문장 슬롯만. |
+
+저장 형식은 기존 기억과 같은 `- ` 줄이고, 제목만 `## Progress` / `## Promises` / `## Preferences` / `## Taboos`.
+대화 원문은 읽지 않는다. 다이제스트가 `progress:` `promise:` `pref:` `taboo:`를 붙이면 `memory_relationship.py::remember_slots`가 파일에 남긴다.
+태그가 없는 줄은 파일에 쓰지 않고, 주입 때만 느슨한 힌트로 칸을 나누거나 `Continuity`에 둔다 (`memory_relationship.py::injection`).
+힌트는 틀릴 수 있어 디스크를 고치지 않는다.

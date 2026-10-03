@@ -158,6 +158,9 @@ def digest_later(sess) -> None:
                 return
             lines = characters.parse_memory_lines(res["text"])
             added = characters.remember_private(cid, lines) if cid else 0
+            if cid and lines:
+                import memory_relationship
+                memory_relationship.remember_slots(cid, lines)
             if added:
                 _FRESH[cid] = lines
             sess.private_digested_ts = max(float(h.get("ts") or 0) for h in seg)

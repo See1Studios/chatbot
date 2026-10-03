@@ -55,7 +55,7 @@ web — 로컬에서 도는 Python 엔진 + 브라우저 UI. 배포는 그 위�
 **있는 것**
 - **멀티 프로바이더(BYOK)**: agy(기본)·claude·grok·codex CLI + `data/providers.json`의 HTTP OpenAI 계열(omniroute·openrouter, OpenRouter는 무료 모델만). 프로바이더마다 프로세스 모델·사용량 체계가 다르다(`providers/adapters.py::AGENT_ADAPTERS`). 사용자의 API 키는 `secrets.env`(배포 전 OS 키체인으로 옮긴다).
 - **캐릭터**: 캐릭터 카드 V2가 정본(`characters/<id>/card.json`: 정체성·말투·사적 규칙·업무 지침·두뇌). 외형 `visual.md` + 이미지. SillyTavern PNG 카드 가져오기(#250), 로어북.
-- **기억**: 공용 기억 `memory/MEMORY.md`, 캐릭터별 기억 `memory.md`, 사적 기억 `private-memory.md`(커밋·배포 제외). 관계 기억 어댑터는 설계 중([character-memory-adapter.md](docs/plans/character-memory-adapter.md)).
+- **기억**: 공용 기억 `memory/MEMORY.md`, 캐릭터별 기억 `memory.md`, 사적 기억 `private-memory.md`(커밋·배포 제외). 관계 기억은 사적 세션의 짧은 슬롯이다([character-memory-adapter.md](docs/plans/character-memory-adapter.md), 최소 구현·계획 active).
 - **외형·연출**: 스프라이트 멀티 프레이밍(Visual Adapter, #251), 표정 태그, 감정 이벤트(`emotion.py`).
 - **사적 모드**: 선택지·행동 입력·텐션 단계, 모델 계열별 보완 레이어(`private_engine.py`, [private-mode.md](docs/plans/private-mode.md)).
 - **연속성**: 토큰 기반 세션 교대, 이어하기(인계 요약), 세션 목록·복원, 무응답·쿼터 오류 감시(`turn_watchdog.py`).

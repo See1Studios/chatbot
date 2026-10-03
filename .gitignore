@@ -56,6 +56,8 @@ logs/
 
 # private talk memory stays on this machine, never in git (SESSION_SPLIT_v1)
 data/workspace/characters/*/private-memory.md
+data/workspace/characters/*/relationship.md
+data/workspace/characters/*/.relationship.*.tmp
 # style references are other artists' work: kept beside the character, never committed or shipped
 data/workspace/characters/*/references/
 data/workspace/characters/*/.private-memory.*.tmp

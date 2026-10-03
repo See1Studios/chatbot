@@ -113,7 +113,7 @@
 - 캐릭터라이징 깊이, 친구/연인/동료의 온도
 - 브랜드·도메인: [private-engine-brand.md](plans/private-engine-brand.md) (가칭 Private Engine, privateengine.ai 기울기 — 법적 클리어런스 전)
 - 사용자 데이터·릴리스: [user-data-separation.md](plans/user-data-separation.md) (`~/.pe`) · [release-pipeline.md](plans/release-pipeline.md) (Now/Next/Pre-Steam)
-- 캐릭터 스코프 관계 기억 어댑터: [character-memory-adapter.md](plans/character-memory-adapter.md) (개인화 하네스·opt-in 동반자 깊이, 설계 중)
+- 캐릭터 스코프 관계 기억 어댑터: [character-memory-adapter.md](plans/character-memory-adapter.md) (개인화 하네스·opt-in 동반자 깊이, 최소 슬롯 주입됨·나머지 active)
 - 현지화: [localization.md](plans/localization.md)
 
 ## 숨은 컨셉 / 몰입 로어 (러프)

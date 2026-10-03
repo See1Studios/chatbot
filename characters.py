@@ -636,7 +636,7 @@ def private_digest_prompt(segment: List[Dict], user_word: str, name: str) -> str
                      for h in segment[-40:])
     return ("Below is a private (non-work) conversation between %s and %s. List at most three short lines worth "
             "remembering for future private conversations with them: preferences, feelings, promises, shared moments. "
-            "Facts only, one per line starting with \"- \", in Korean. No work topics, no secrets. If nothing is worth "
+            "Facts only, one per line starting with \"- \" and a slot tag (progress:, promise:, pref:, or taboo:), in Korean. No work topics, no secrets. If nothing is worth "
             "keeping, answer NONE.\n\n%s" % (user_word, name, talk))
 
 
