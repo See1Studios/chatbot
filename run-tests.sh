@@ -38,6 +38,7 @@ FAST=(
   test_ratchets
   test_edition_boundary
   test_data_paths
+  test_migrate_user_data
   test_workspace_template
   test_import_cycles
 )

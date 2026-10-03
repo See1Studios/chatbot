@@ -237,6 +237,10 @@
       "reason": "a guard test (run-tests.sh FAST)"
     },
     {
+      "path": "tests/test_migrate_user_data.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
       "path": "tests/test_workspace_template.py",
       "reason": "a guard test (run-tests.sh FAST)"
     },

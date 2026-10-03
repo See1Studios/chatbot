@@ -5,6 +5,12 @@
 2026-09-30 기록도 [devlog/2026-09-30.md](devlog/2026-09-30.md)로 회전했습니다.
 2026-10-01 기록은 하루 예산을 넘어 [devlog/2026-10-01.md](devlog/2026-10-01.md)로 회전했습니다.
 
+## 2026-10-03 — 사용자 데이터 이전 도구, 새 data/ 는 커밋하지 않음 (user-data-separation)
+
+- **도구**: `tools/migrate_user_data.py`. 기본은 미리보기라 목적지를 만들지 않는다. `--apply`만 복사하고 원본은 그대로 둔다. 목적지에 파일이 있으면 `--force` 없이 거절하고, 내용이 다른 파일은 덮어쓰지 않는다. `--remove-source`는 바이트가 같은 파일만 지우며, 비밀이든 뭐든 하나라도 다르면 아무것도 지우지 않는다.
+- **git**: 새로 생기는 `data/` 파일은 무시한다. 개발 티켓 기록(`skill-observations/`)만 예외로 계속 넣을 수 있다. 이미 추적 중인 작업공간 거울·페르소나 자산은 인덱스에 남겨 두었다.
+- **아직**: 원격 이력에는 개인 데이터가 남아 있다. origin은 푸시하지 않았다. 계획은 active.
+
 ## 2026-10-03 — 사용자 데이터 기본 경로를 ~/.pe 로 (uds/F, #592)
 
 - **변경**: 환경변수가 없으면 `host_config.py`·`tickets.py`·`chatbot-ctl.sh`가 `~/.pe`를 쓴다. 우선순위는 `CHATBOT_DATA` → `PE_HOME` → `PRIVATEENGINE_HOME` → `AGY_CHAT_DATA` → (개발 pin) → `~/.pe`.
