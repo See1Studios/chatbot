@@ -9,12 +9,15 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from providers import adapter_openai  # noqa: E402
-from providers.adapters import AGENT_ADAPTERS  # noqa: E402
+from providers.adapters import load_openai_dialect_adapters  # noqa: E402
+
+# uds/F: an install's providers.json is user data in ~/.pe; the adapters come from the shipped example
+EXAMPLE = Path(__file__).resolve().parent.parent / "templates" / "providers.example.json"
 
 
 class ModelsMetaCache(unittest.TestCase):
     def setUp(self):
-        self.a = next(a for a in AGENT_ADAPTERS.values() if hasattr(a, "_get_models_meta"))
+        self.a = next(a for a in load_openai_dialect_adapters(EXAMPLE).values() if hasattr(a, "_get_models_meta"))
         self.saved = dict(self.a._models_meta_cache)
         self.a._models_meta_cache.clear()
         self.a._models_meta_cache.update({"ts": 0.0, "data": {}})

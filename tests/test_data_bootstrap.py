@@ -59,9 +59,6 @@ class Bootstrap(unittest.TestCase):
         self.assertFalse((ws / "roles" / "art" / "ROLE.md").exists())
         self.assertEqual((self.data / B.MARKER).read_bytes(), before)
 
-    def test_this_repo_s_own_data_folder_is_a_no_op(self):
-        self.assertFalse(B.bootstrap(ROOT / "data", dry_run=True).get("files"))
-
     def test_dry_run_writes_nothing(self):
         res = B.bootstrap(self.data, dry_run=True)
         self.assertTrue(res["files"])

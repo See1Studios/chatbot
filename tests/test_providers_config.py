@@ -1,4 +1,5 @@
-"""data/providers.json holds together (PROVIDERS_CONFIG_v1, 2026-09-28).
+"""templates/providers.example.json holds together (PROVIDERS_CONFIG_v1, 2026-09-28; uds/F: an install's own
+providers.json is user data in ~/.pe, so the shipped example is what is checked here).
 
 A free-routed provider's advertised model list is `curated_models` plus whatever free models the
 gateway currently offers, and the UI's default is the *first* of that list (server.py's
@@ -25,7 +26,7 @@ CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 from providers.adapter_openai import is_openrouter_free_model  # noqa: E402
 
-CONFIG = json.loads((CODE / "data" / "providers.json").read_text(encoding="utf-8"))
+CONFIG = json.loads((CODE / "templates" / "providers.example.json").read_text(encoding="utf-8"))
 DIALECTS = CONFIG["providers"]
 
 

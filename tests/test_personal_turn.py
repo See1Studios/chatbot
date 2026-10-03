@@ -137,7 +137,7 @@ class Recall(unittest.TestCase):
         self.assertIsNone(rm.inspect_session("p1"))
 
     def test_the_live_tool(self):
-        self.check(ROOT / "data" / "workspace" / "tools" / "recall_memory.py")
+        self.check(ROOT / "templates" / "workspace" / "tools" / "recall_memory.py")
 
     def test_the_template_tool(self):
         self.check(ROOT / "templates" / "workspace" / "tools" / "recall_memory.py")
@@ -199,7 +199,7 @@ mark({ children: nodes }).then(() => console.log(JSON.stringify([nodes[0].kids.l
 
 class Wiring(unittest.TestCase):
     def test_every_charter_tells_the_agent_when_to_mark(self):
-        for rel in ("data/workspace/AGENTS.md", "templates/workspace/AGENTS.md"):
+        for rel in ("templates/dev-workspace/AGENTS.md", "templates/workspace/AGENTS.md"):
             self.assertIn("call `personal_turn`", (ROOT / rel).read_text(encoding="utf-8"), rel)
 
     def test_a_cli_brain_with_a_tool_allowlist_may_call_it(self):

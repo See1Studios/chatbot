@@ -112,13 +112,12 @@ class Roster(unittest.TestCase):
         self.assertIn(no_role, I.build_instruction_bundle(character=self.c)["text"])
         self.assertNotIn(no_role, staff)
 
-    def test_the_live_charter_no_longer_makes_everyone_the_pd(self):
-        charter = (ROOT / "data" / "workspace" / "AGENTS.md").read_text(encoding="utf-8")
+    def test_the_dev_charter_no_longer_makes_everyone_the_pd(self):
+        dev = ROOT / "templates" / "dev-workspace"   # uds/F: the dev build's tracked charter and packs; teams are user data
+        charter = (dev / "AGENTS.md").read_text(encoding="utf-8")
         self.assertNotIn("You are the PD", charter)
         self.assertNotIn("role `pd`", charter)
-        live = ROOT / "data" / "workspace"             # the live team: the default holds the pack that grants delegate
-        default = C.default_character(live)
-        packs = [C.role_pack(r, live) for r in C.roles_of(default, live)]
+        packs = [C.role_pack(d.name, dev) for d in sorted((dev / "roles").iterdir())]   # delegation is a pack grant
         self.assertTrue(any("delegate" in p["tools"] for p in packs), [p["role"] for p in packs])
 
 

@@ -28,7 +28,7 @@ NOON = time.mktime((2026, 9, 28, 12, 0, 0, 0, 0, -1))
 class Base(unittest.TestCase):
     def setUp(self):
         self.ws = Path(tempfile.mkdtemp()).resolve()
-        shutil.copy(ROOT / "data" / "workspace" / "items.json", self.ws / "items.json")
+        shutil.copy(ROOT / "templates" / "workspace" / "items.json", self.ws / "items.json")
         self.cid = C.new_id()
         C.save(self.cid, C.new_card("여우", description="d", item_prefs={"loves": ["flower"], "likes": ["sweet"],
                                                                          "dislikes": ["game", "grooming"]}), self.ws)
@@ -63,8 +63,8 @@ class Catalog(Base):
         self.assertEqual((code, ctype), (200, "image/webp"))
 
     def test_the_default_list_is_the_template_s(self):
-        self.assertEqual((ROOT / "data" / "workspace" / "items.json").read_bytes(),
-                         (ROOT / "templates" / "workspace" / "items.json").read_bytes())
+        # uds/F: an install's items.json is user data; the shipped list is the template the fixture copies
+        self.assertEqual((self.ws / "items.json").read_bytes(), (ROOT / "templates" / "workspace" / "items.json").read_bytes())
 
 
 class Judge(Base):

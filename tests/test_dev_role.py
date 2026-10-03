@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 import characters as C  # noqa: E402
 import instructions as I  # noqa: E402
 
-WS = ROOT / "data" / "workspace"
+WS = ROOT / "templates" / "dev-workspace"   # the dev build's charter and role packs (tracked; uds/F)
 # Text that only engine work needs; any of it in the charter or a non-dev role's every-turn part is a leak.
 DEV_MARKERS = ("## Self-modification", "`ticket` tool", "claiming an approved ticket", "SELF-MODIFY.md",
                "docs/plans/", "--no-verify", "run-tests.sh", "PROJECT.md", "⚡소생")

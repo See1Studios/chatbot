@@ -1,4 +1,4 @@
-"""data/workspace/tools/memory.py: the long-term memory command line the CLI providers use.
+"""templates/workspace/tools/memory.py (an install's copy is the same file, uds/C5): the long-term memory command line the CLI providers use.
 
 It is a thin shell over the core `memory_store.py`; these tests pin what a provider sees (output, exit codes).
 The script derives its directory from its own location, so each test copies it into a temp tree
@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
-SCRIPT = Path(os.environ.get("MEMORY_CLI_SCRIPT") or CODE / "data" / "workspace" / "tools" / "memory.py")
+SCRIPT = Path(os.environ.get("MEMORY_CLI_SCRIPT") or CODE / "templates" / "workspace" / "tools" / "memory.py")
 TODAY = datetime.date.today().isoformat()
 TEMPLATE_SECTIONS = ["## 사용자", "## 운영 결정", "## 진행 중"]
 
@@ -191,7 +191,7 @@ class ThinShellTest(Base):
         self.assertFalse(self.file.exists())
 
     def test_the_core_is_found_from_the_workspace_location_when_the_host_did_not_say(self):
-        real = CODE / "data" / "workspace" / "tools" / "memory.py"
+        real = CODE / "templates" / "workspace" / "tools" / "memory.py"
         src = real.read_text(encoding="utf-8")
         self.assertIn('os.environ.get("CHATBOT_ROOT") or os.environ.get("AGY_CHAT_ROOT") or str(WORKSPACE.parent.parent)', src)
 

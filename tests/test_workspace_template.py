@@ -1,12 +1,13 @@
-"""The shipped workspace template does not drift from the live workspace and carries nothing of this host
-(user-data-separation uds/C5). templates/workspace-manifest.json lists every tracked data/workspace file outside the
-per-user folders exactly once: 'same' (template copy byte-equal), 'variant' (own version, with a reason) or
-'not_shipped' (with a reason). A new workspace file, an edit to one side of a 'same' pair, or a template file nobody
-listed fails here.
+"""The workspace templates stay classified and carry nothing of this host (user-data-separation uds/C5, uds/F).
+templates/workspace/ is what a new install copies; templates/dev-workspace/ holds the dev build's own files (its
+charter, engine role packs, engine skills and tools), tracked here because an install's workspace is user data outside
+the repo. templates/workspace-manifest.json lists every such file exactly once: 'same' (shipped as is), 'variant'
+(the shipped copy differs on purpose; the dev copy lives in dev-workspace) or 'not_shipped' (dev-workspace only, with a
+reason); 'per_install' files (this user's or this host's) are in neither. An unlisted file on either side, or a
+listed one missing, fails here.
 Run: python3 -m unittest tests.test_workspace_template  (from services/chatbot)
 """
 import json
-import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -16,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 import instructions as I  # noqa: E402
 
 TEMPLATE = ROOT / "templates" / "workspace"
-LIVE = ROOT / "data" / "workspace"
+DEV = ROOT / "templates" / "dev-workspace"
 MANIFEST = json.loads((ROOT / "templates" / "workspace-manifest.json").read_text(encoding="utf-8"))
 HOST_MARKERS = ("DiskStation", "/volume1", "/var/services", "Sphere", "실장님", "냥", "services/chatbot",  # l10n-ok
                 "FIREBAT", "~/AGENTS.md", "~/services", "NyangPD")
@@ -25,39 +26,43 @@ DEV_MARKERS = ("`ticket` tool", "claiming an approved ticket", "SELF-MODIFY.md",
 FIX = "edit templates/workspace-manifest.json (move the path to 'variant' or 'not_shipped' with a reason)"
 
 
-def tracked_live():
-    r = subprocess.run(["git", "ls-files", "-z", "--", "data/workspace"], cwd=str(ROOT), capture_output=True, timeout=60)
-    names = [n[len("data/workspace/"):] for n in r.stdout.decode("utf-8", "replace").split("\0") if n]
-    return {n for n in names if not n.startswith(tuple(MANIFEST["per_user"]))}
+def _files(base):
+    return {p.relative_to(base).as_posix() for p in base.rglob("*") if p.is_file() and "__pycache__" not in p.parts}
 
 
 def template_files():
-    return {p.relative_to(TEMPLATE).as_posix() for p in TEMPLATE.rglob("*") if p.is_file() and "__pycache__" not in p.parts}
+    return _files(TEMPLATE)
+
+
+def dev_files():
+    return _files(DEV)
 
 
 class WorkspaceTemplate(unittest.TestCase):
     def test_each_path_is_classified_once(self):
-        groups = [set(MANIFEST["same"]), set(MANIFEST["variant"]), set(MANIFEST["not_shipped"])]
+        groups = [set(MANIFEST["same"]), set(MANIFEST["variant"]), set(MANIFEST["not_shipped"]),
+                  set(MANIFEST["per_install"])]
         seen = set()
         for g in groups:
             self.assertFalse(seen & g, "listed twice: %s" % sorted(seen & g))
             seen |= g
-        live = tracked_live()
-        if not live:
-            self.skipTest("no git checkout of data/workspace")
-        self.assertEqual(sorted(live - seen), [], "unclassified workspace files; " + FIX)
-        self.assertEqual(sorted((set(MANIFEST["not_shipped"]) | set(MANIFEST["same"])) - live), [],
-                         "manifest names files the workspace no longer tracks")
+        dev = dev_files()
+        self.assertEqual(sorted(dev - set(MANIFEST["not_shipped"]) - set(MANIFEST["variant"])), [],
+                         "unclassified templates/dev-workspace files; " + FIX)
+        self.assertEqual(sorted(set(MANIFEST["not_shipped"]) - dev), [],
+                         "not_shipped files missing from templates/dev-workspace/")
 
-    def test_same_files_stay_byte_equal(self):
+    def test_a_users_or_hosts_own_file_is_in_neither_template(self):
+        # SSOT user-data-separation §0.1: personal or host-specific files live in ~/.pe only
+        for rel, why in MANIFEST["per_install"].items():
+            self.assertTrue(str(why).strip(), "%s needs a reason" % rel)
+            self.assertFalse((TEMPLATE / rel).exists(), "templates/workspace/%s is per_install" % rel)
+            self.assertFalse((DEV / rel).exists(), "templates/dev-workspace/%s is per_install" % rel)
+
+    def test_same_files_have_one_copy(self):
         for rel in MANIFEST["same"]:
-            a, b = LIVE / rel, TEMPLATE / rel
-            self.assertTrue(b.is_file(), "template copy missing: templates/workspace/%s" % rel)
-            if not a.is_file():
-                continue  # a release checkout has no live workspace; the template is the SSOT
-            self.assertEqual(a.read_bytes(), b.read_bytes(),
-                             "data/workspace/%s and its template copy differ: copy the change to "
-                             "templates/workspace/%s, or %s" % (rel, rel, FIX))
+            self.assertTrue((TEMPLATE / rel).is_file(), "template copy missing: templates/workspace/%s" % rel)
+            self.assertFalse((DEV / rel).exists(), "templates/dev-workspace/%s duplicates a shipped file" % rel)
 
     def test_the_template_holds_only_listed_files(self):
         listed = set(MANIFEST["same"]) | set(MANIFEST["variant"])

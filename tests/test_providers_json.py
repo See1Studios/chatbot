@@ -10,26 +10,27 @@ from pathlib import Path
 
 from providers.adapters import (
     AGENT_ADAPTERS,
-    PROVIDERS_JSON,
-    get_adapter,
     is_openrouter_free_model,
     load_openai_dialect_adapters,
 )
 
+# uds/F: an install's providers.json is user data in ~/.pe; the shipped example is the file the loader is checked on
+EXAMPLE = Path(__file__).resolve().parent.parent / "templates" / "providers.example.json"
+
 
 class ProvidersJson(unittest.TestCase):
-    def test_live_file_registers_omniroute_and_openrouter(self) -> None:
-        raw = json.loads(PROVIDERS_JSON.read_text(encoding="utf-8"))
-        specs = raw["providers"]
+    def test_the_example_registers_omniroute_and_openrouter(self) -> None:
+        specs = json.loads(EXAMPLE.read_text(encoding="utf-8"))["providers"]
+        got = load_openai_dialect_adapters(EXAMPLE)
         self.assertEqual(specs["openrouter"]["free_only"], True)
-        self.assertEqual(get_adapter("omniroute").base_url, specs["omniroute"]["base_url"].rstrip("/"))
-        self.assertEqual(get_adapter("openrouter").base_url, specs["openrouter"]["base_url"].rstrip("/"))
-        self.assertEqual(get_adapter("openrouter").default_model, specs["openrouter"]["default_model"])
-        self.assertEqual(get_adapter("openrouter").api_key_env, specs["openrouter"]["api_key_env"])
-        self.assertTrue(get_adapter("openrouter").free_only)
-        self.assertFalse(get_adapter("omniroute").free_only)
-        self.assertEqual(get_adapter("openrouter").meta["name"], "OpenRouter")
-        self.assertEqual(get_adapter("omniroute").meta["theme"], "cyan")
+        self.assertEqual(got["omniroute"].base_url, specs["omniroute"]["base_url"].rstrip("/"))
+        self.assertEqual(got["openrouter"].base_url, specs["openrouter"]["base_url"].rstrip("/"))
+        self.assertEqual(got["openrouter"].default_model, specs["openrouter"]["default_model"])
+        self.assertEqual(got["openrouter"].api_key_env, specs["openrouter"]["api_key_env"])
+        self.assertTrue(got["openrouter"].free_only)
+        self.assertFalse(got["omniroute"].free_only)
+        self.assertEqual(got["openrouter"].meta["name"], "OpenRouter")
+        self.assertEqual(got["omniroute"].meta["theme"], "cyan")
 
     def test_missing_file_is_empty(self) -> None:
         self.assertEqual(load_openai_dialect_adapters(Path("/no/such/providers.json")), {})

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import session as S  # noqa: E402
@@ -248,7 +249,15 @@ class TensionLadder(unittest.TestCase):
 
     def test_private_instruction_bundle_includes_render_protocol(self):
         import instructions
-        bundle = instructions.build_instruction_bundle(mode="private")
+        ws = Path(tempfile.mkdtemp())   # uds/F: the dev charter from the repo, never an install's workspace
+        self.addCleanup(shutil.rmtree, str(ws), True)
+        shutil.copy(str(Path(__file__).resolve().parent.parent / "templates" / "dev-workspace" / "AGENTS.md"), str(ws / "AGENTS.md"))
+        import characters
+        cid = characters.new_id()   # a fixture default character: an install's cards are user data
+        characters.save(cid, characters.new_card("P"), ws)
+        characters.save_team({"default": cid, "members": {cid: []}}, ws)
+        with mock.patch.object(instructions, "WORKSPACE", ws):
+            bundle = instructions.build_instruction_bundle(mode="private")
         self.assertIn(PE.RENDER_PROTOCOL, bundle["text"])
 
 

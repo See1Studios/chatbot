@@ -3,6 +3,7 @@ Run: python3 -m unittest tests.test_identity_wiring  (from services/chatbot)
 """
 import ast
 import json
+import shutil
 import sys
 import tempfile
 import threading
@@ -68,10 +69,12 @@ class PromptsTest(Base):
         self.assertIn("테크디렉터입니다.", text)      # no persona: named by its title
         self.assertNotIn("말투", text)
 
-    def test_this_deployment_reads_from_its_real_instruction_files(self):
-        # Structure, not values: the title/persona/user_title are the operator's data and
-        # change (that is the point), so assert they are read and used, never what they are.
-        self.use(ROOT / "data" / "workspace")
+    def test_the_dev_charter_with_a_card_yields_a_full_identity(self):
+        # Structure, not values. uds/F: an install's cards are user data outside the repo, so the dev build's real
+        # charter is paired with a fixture card here; the values are the fixture's, what is asserted is that they flow.
+        ws = _workspace("아트디렉터", "루나", "대표님")
+        shutil.copy(ROOT / "templates" / "dev-workspace" / "AGENTS.md", ws / "AGENTS.md")
+        self.use(ws)
         i = identity.get_identity()
         self.assertNotEqual(i["title"], identity.DEFAULTS["title"], "no job title: neither the card nor its role pack names one")
         self.assertTrue(i["persona"], "the default character's card has no name")
@@ -215,9 +218,10 @@ class NameNeutralityGuard(unittest.TestCase):
 
     def test_python_everywhere(self):
         files = sorted(ROOT.glob("*.py")) + sorted((ROOT / "providers").glob("*.py"))
-        files += sorted((ROOT / "data" / "workspace" / "tools").glob("*.py"))
-        files += sorted(p for p in (ROOT / "data" / "workspace" / ".agents" / "skills").rglob("*.py")
-                        if "sessions" not in p.parts and "__pycache__" not in p.parts)
+        for ws in (ROOT / "templates" / "workspace", ROOT / "templates" / "dev-workspace"):   # the agents' tools (uds/F)
+            files += sorted((ws / "tools").glob("*.py"))
+            files += sorted(p for p in (ws / ".agents" / "skills").rglob("*.py")
+                            if "sessions" not in p.parts and "__pycache__" not in p.parts)
         offenders = [o for f in files for o in self.py_offenders(f)]
         self.assertEqual(offenders, [], "persona name/title used in code")
 
@@ -242,7 +246,7 @@ class NameNeutralityGuard(unittest.TestCase):
         self.assertNotIn("window.__IDENTITY__=", html)
 
     def test_rule_documents(self):
-        docs = [ROOT / "data" / "workspace" / n for n in ("AGENTS.md", "SELF-MODIFY.md", "PROJECT.md")]
+        docs = [ROOT / "templates" / "dev-workspace" / n for n in ("AGENTS.md", "SELF-MODIFY.md", "PROJECT.md")]
         docs += [ROOT / "docs" / "plans" / "recursive-self-evolution.md", ROOT / "docs" / "LOGGING.md"]
         offenders = []
         for d in docs:

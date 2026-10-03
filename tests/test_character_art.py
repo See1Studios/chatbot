@@ -83,7 +83,7 @@ class ArtFormat(unittest.TestCase):
         self.assertEqual(self.check(), [])
 
     def test_the_skill_and_the_code_agree(self):
-        skill = (ROOT / "data/workspace/.agents/skills/character-art/SKILL.md").read_text(encoding="utf-8")
+        skill = (ROOT / "templates/dev-workspace/.agents/skills/character-art/SKILL.md").read_text(encoding="utf-8")
         for framing, ((w, h), _, _) in C.FRAMINGS.items():
             self.assertIn("sprites/%s/<label>.webp` | %dx%d" % (framing, w, h), skill)
         self.assertIn("512x512", skill)
