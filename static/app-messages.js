@@ -153,6 +153,7 @@ function formatUsageTooltip(usage, duration) {
   let parts = [`총 ${total} 토큰 (입력 ${inp} · 출력 ${out}`];
   if (think) parts.push(`생각 ${think}`);
   if (cache) parts.push(`캐시 ${cache}`);
+  if (usage.context_tokens) parts.push(`맥락 ${Number(usage.context_tokens).toLocaleString()}`);   // l10n-ok
   let s = parts.join(' · ') + ')';
   if (duration != null && duration > 0) {
     s += ` · ${Number(duration).toFixed(1)}초`;
@@ -283,6 +284,10 @@ function attachNoticeSwipe(el) {
 }
 
 
+// CONTEXT_METRIC_v1: the window is the last model call's prompt (context_tokens); a turn's input_tokens adds up every
+// call of the turn. Older records have only input_tokens.
+function windowOf(u) { return Number((u && (u.context_tokens || u.input_tokens)) || 0); }
+
 let sessionTokens = { total_tokens: 0, input_tokens: 0, output_tokens: 0, thinking_tokens: 0, turns: 0 };
 
 function renderSessionTokensBadge() {
@@ -298,7 +303,7 @@ function renderSessionTokensBadge() {
   badge.innerHTML = getActionSvg('zap') + ' <span>창 ' + formatTokenCount(occ) + (billed ? '<span class="token-billed"> · 과금 ' + formatTokenCount(billed) + '</span>' : '') + '</span>';
   const out = Number(sessionTokens.output_tokens || 0).toLocaleString();
   const turns = sessionTokens.turns ? ` · ${sessionTokens.turns}회 턴` : '';
-  const detail = `창 점유 ${occ.toLocaleString()} (마지막 턴 입력) · 세션 과금 ${billed.toLocaleString()} (턴 total 합, 출력 ${out}${sessionTokens.thinking_tokens ? ' · 생각 ' + Number(sessionTokens.thinking_tokens).toLocaleString() : ''})${turns}. 캐시는 입력에서 빼지 않음.`;
+  const detail = `창 점유 ${occ.toLocaleString()} (마지막 모델 호출의 맥락) · 세션 과금 ${billed.toLocaleString()} (턴 total 합, 출력 ${out}${sessionTokens.thinking_tokens ? ' · 생각 ' + Number(sessionTokens.thinking_tokens).toLocaleString() : ''})${turns}. 캐시는 입력에서 빼지 않음.`;
   badge.title = detail;
   badge.setAttribute('aria-label', detail);
 }
@@ -307,7 +312,7 @@ function updateSessionTokens(usage) {
   if (!usage) return;
   const tot = Number(usage.total_tokens || 0) || (Number(usage.input_tokens || 0) + Number(usage.output_tokens || 0));
   sessionTokens.total_tokens += tot;
-  if (Number(usage.input_tokens || 0)) sessionTokens.input_tokens = Number(usage.input_tokens);
+  if (windowOf(usage)) sessionTokens.input_tokens = windowOf(usage);
   sessionTokens.output_tokens += Number(usage.output_tokens || 0);
   sessionTokens.thinking_tokens += Number(usage.thinking_tokens || 0);
   sessionTokens.turns += 1;
@@ -321,7 +326,7 @@ function setSessionTokensFromHistory(history) {
     if (!u) return;
     const tot = Number(u.total_tokens || 0) || (Number(u.input_tokens || 0) + Number(u.output_tokens || 0));
     sessionTokens.total_tokens += tot;
-    if (Number(u.input_tokens || 0)) sessionTokens.input_tokens = Number(u.input_tokens);
+    if (windowOf(u)) sessionTokens.input_tokens = windowOf(u);
     sessionTokens.output_tokens += Number(u.output_tokens || 0);
     sessionTokens.thinking_tokens += Number(u.thinking_tokens || 0);
     sessionTokens.turns += 1;
