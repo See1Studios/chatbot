@@ -8,6 +8,7 @@
 - **쉬는 두뇌 기억** (BRAIN_LIMITS_v1, `tools/brain_limits.py`): 한도에 걸린 두뇌는 오류의 "Resets in …" 시각까지, 타임아웃 난 두뇌는 30분 동안 건너뛴다. 모두 쉬는 중이면 실행하지 않고 바로 `unavailable`로 끝낸다(#628: 1200초 타임아웃 3번).
 - **정리**: 노노가 티켓 없이 넣은 lead `PROCEDURE.md` 한 줄은 되돌렸다(D-6, 역할 권한 집행 dir/A로 대체).
 - **재시작**: 필요 없음(러너는 위임마다 새로 읽힌다).
+
 ## 2026-10-04 — [ui/stream] 줄 단위 스트리밍(Line Reveal) 마크다운 컨테이너 렌더링 순회 및 페이드인 실동작 보강 (#630, 위임 agy)
 
 - **커밋**: `d22b378` feat(stream): traverse nested markdown containers for line reveal and enhance fade-in
