@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOL = ROOT / "tools" / "ticket_quick.py"
@@ -97,6 +98,19 @@ class ActorNames(unittest.TestCase):
         self.assertIn(tq._ACTOR_EXECS.get("opencode"), ("opencode",))
         self.assertEqual(tq._exec_names(["bash", "-c", "claude do things"]), ["bash", "claude do things"])
         self.assertNotIn("claude do things", tq._ACTOR_EXECS)
+
+    def test_an_unnamed_actor_records_nothing(self):
+        # ACTOR_REQUIRED_v1: no --actor and an ancestry that names no agent -> refused before any write
+        import ticket_quick as tq
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(tq, "DATA_DIR", Path(d)), \
+                mock.patch.object(tq, "detect_actor", return_value="unknown-cli"):
+            with self.assertRaises(SystemExit) as cm:
+                tq.main(["start", "--title", "[test] nobody", "--paths", "a.py"])
+            self.assertEqual(cm.exception.code, 2)
+            self.assertEqual(list(Path(d).rglob("*")), [])                        # no ticket, no candidate row
+        with mock.patch.object(tq, "detect_actor", return_value="unknown-cli"):
+            self.assertEqual(tq.named_actor(SimpleNamespace(actor="codex")), "codex")
 
 
 if __name__ == "__main__":

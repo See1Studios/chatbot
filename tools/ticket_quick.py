@@ -149,6 +149,17 @@ def _actor(args) -> str:
     return (getattr(args, "actor", "") or "").strip() or detect_actor()
 
 
+# ACTOR_REQUIRED_v1: a record that says `unknown-cli` cannot tell who did the work. When neither --actor nor the
+# process ancestry names the agent, nothing is written; main() resolves the actor once, before any command runs.
+def named_actor(args) -> str:
+    actor = _actor(args)
+    if actor == "unknown-cli":
+        print("Error: who does this work? Pass --actor <your role id> (claude-code, codex, grok, opencode ...); "
+              "the parent processes do not say. Nothing was recorded.", file=sys.stderr)
+        sys.exit(2)
+    return actor
+
+
 # --- commands ---------------------------------------------------------------------------------------------
 
 def _paths(text):
@@ -382,6 +393,7 @@ def main(argv=None):
         parser.print_help()
         sys.exit(1)
     _refuse_live_chat_agent(args.command)
+    args.actor = named_actor(args)
     COMMANDS[args.command](args)
 
 

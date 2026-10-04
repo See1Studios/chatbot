@@ -97,7 +97,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
 
 ## Work procedure
 
-1. Start only from the operator's words or an approved ticket. External CLI: `python3 tools/ticket_quick.py start --title "[<plan id>] …" --paths a,b --actor <you>` (`~/bin/ticket-quick` points here). Always pass `--actor`: without it the actor is guessed from the parent process and every ticket lands as `unknown-cli`, so the ledger cannot say who did the work. The claim token cannot be recovered from the ticket store; it is kept in a private token file (`TOKEN_FILE=`), so `done`/`fail`/`renew` work without `--token`.
+1. Start only from the operator's words or an approved ticket. External CLI: `python3 tools/ticket_quick.py start --title "[<plan id>] …" --paths a,b --actor <you>` (`~/bin/ticket-quick` points here). Always pass `--actor` (your role id, never a character's name): without it the actor is guessed from the parent processes, and when they name no agent the command records nothing. The claim token cannot be recovered from the ticket store; it is kept in a private token file (`TOKEN_FILE=`), so `done`/`fail`/`renew` work without `--token`.
 2. Change only the claimed paths. Need another file: `ticket-quick widen --id <n> --paths <file>` (checked like a claim, no new attempt). Never give the ticket up to open a new one: the old one stays open and only the operator can close it.
 3. `./run-tests.sh` (all) or `./run-tests.sh test_x …`; green before commit. The commit hooks (`.githooks/`, install once per clone: `git config core.hooksPath .githooks`) rerun the guard tests and check the message.
 4. Commit only your paths. Author = your agent (e.g. `git -c user.name="Claude Code" …`); Conventional Commits; trailers:
@@ -123,9 +123,9 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Guard tests green before commit (`./run-tests.sh --fast`); full suite before release | all | `.githooks/check_staged.py` (pre-commit); `test_worktree_runner` (runner gates: guards + related tests); `test_tickets` (done refused while guards fail) |
 | Conventional Commits subject; `Plan:` trailer when `docs/plans/` changes | all | `test_githooks` (commit-msg hook) |
 | `Ticket:` trailer, own author name | all | `test_githooks` (commit-msg: a feat/fix/refactor/perf commit without `Ticket: #n` is refused; on a `worktree/ticket-n` branch it is written in); author name: `test_githooks` (pre-commit: never a character's name; a live chat session commits as its brain) |
-| A live chat session never lands a worker's branch on main, and ticket records keep role-id actors (landing is the operator's; records change only through `tickets.py`) | all | `test_githooks` (`.githooks/reference-transaction`; pre-commit refuses a staged ticket record with a persona actor) |
+| A live chat session never lands a worker's branch on main (landing is the operator's) | all | `test_githooks` (`.githooks/reference-transaction`) |
 | A merged delegation leaves its line in `docs/DEVLOG.md` | all | `test_devlog_entry` (the runner writes it with the ticket record, `tools/devlog_entry.py`) |
-| A ticket names the agent doing the work (`--actor`), never left to process detection | all | manual (nothing fails on a missing actor; the natural enforcer is a `test_tickets` ratchet refusing a new `unknown-cli` actor, with a baseline for the 290 existing tickets) |
+| A ticket names the agent doing the work (`--actor`), never `unknown-cli`; who-fields hold role ids, not persona names | all | `test_ticket_quick` (ticket-quick records nothing when neither `--actor` nor the parent processes name the agent); `test_tickets` (`tickets.py` refuses a non-role-id actor at write time). A romanized nickname (`nono`) passes the role-id shape: manual |
 | No secrets, `.env`, private memory or style references in commits | all | `test_githooks` (pre-commit hook) |
 | Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns); backstops `test_worktree_runner`, `test_tickets` |
 | Data paths only through `host_config` (`DATA_ENV` order; `tickets.py` mirrors it) | all | `test_data_paths` |
