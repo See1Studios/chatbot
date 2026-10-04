@@ -94,8 +94,18 @@ def live_scope(busy: list, grant: str, sessions_dir: Path) -> tuple:
 
 
 def check_step(session, tool: str, params: Optional[dict], root: Path) -> bool:
-    """Stop the turn when a hands-off character's own tool step touched engine code. True when it stopped."""
-    if not getattr(getattr(session, "adapter", None), "own_tool_steps", True):
+    """Stop the turn when a hands-off character's own tool step touched engine code, or started a subagent: a helper
+    with every tool in the main tree is the code work by another name (live 2026-10-05: the lead was told to delegate
+    and started a full-tool subagent instead, twice). True when it stopped."""
+    adapter = getattr(session, "adapter", None)
+    if tool in (getattr(adapter, "subagent_tools", ()) or ()) and hands_off(getattr(session, "character", "") or ""):
+        session._auto_stop(
+            event={"event": "stopped", "text": "⚠ 총괄 역할은 서브에이전트를 쓰지 않습니다 — 턴을 멈췄습니다. 맡은 디렉터에게 넘기기로 보내야 합니다.",  # l10n-ok
+                   "evidence": {"rule": "role_repo_none", "tool": tool, "path": ""}},
+            hint="The last turn was stopped: your role does not start subagents. Hand the work to the director who owns "
+                 "it: dialog {\"action\": \"handoff\", \"to\": \"<role>\", \"text\": \"<task>\", \"done_when\": \"...\"}.")
+        return True
+    if not getattr(adapter, "own_tool_steps", True):
         return False
     p = params or {}
     rel = code_path(target_of(p) or str(p.get("file_path") or p.get("notebook_path") or ""), root)

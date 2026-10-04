@@ -197,6 +197,12 @@ class ExtractToolCalls(unittest.TestCase):
         active = {"event": "step_update", "step_update": {**self.STEP["step_update"], "state": "ACTIVE"}}
         self.assertEqual(extract_tool_calls(active), [])
 
+    def test_a_finished_subagent_call_is_a_tool_call(self):
+        # agy 1.2.16 sends the DONE of invoke_subagent as step_type "subagent" (director-handoff, 2026-10-05)
+        done = {"step_update": {"state": "DONE", "step_type": "subagent", "tool_name": "invoke_subagent",
+                                "tool_info": {"name": "invoke_subagent", "parameters": {"Subagents": []}}}}
+        self.assertEqual([n for n, _, _ in extract_tool_steps(done)], ["invoke_subagent"])
+
     def test_other_step_types_and_plain_events_are_not_tool_calls(self):
         for step_type in ("agent_response", "user_input", "unknown", "checkpoint"):
             self.assertEqual(extract_tool_calls({"step_update": {"state": "DONE", "step_type": step_type}}), [])

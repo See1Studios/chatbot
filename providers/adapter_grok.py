@@ -193,6 +193,7 @@ class GrokAdapter(AgentAdapter):
     own_tool_steps = False   # a subagent's read_file streams as the parent's own call (director-handoff dir/C)
     subagents = True
     subagent_hint = " (spawn_subagent, then get its output)"
+    subagent_tools = ("spawn_subagent",)
 
     def find_executable(self) -> str:
         return GROK_BIN

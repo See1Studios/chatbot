@@ -78,6 +78,23 @@ class RoleGuard(unittest.TestCase):
         self.assertFalse(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "docs" / "DEVLOG.md")}, ROOT))
         self.assertFalse(R.check_step(FakeSession("coco"), "view_file", {"AbsolutePath": str(ROOT / "a.py")}, ROOT))
 
+    def test_a_hands_off_role_cannot_start_a_subagent(self):
+        # live 2026-10-05: told to delegate, the lead started full-tool subagents in the main tree instead, twice
+        s = FakeSession("nono")
+        s.adapter.subagent_tools = ("invoke_subagent",)
+        self.assertTrue(R.check_step(s, "invoke_subagent", {"Subagents": [{"TypeName": "self"}]}, ROOT))
+        self.assertIn("handoff", s.stops[0][1])
+        coco = FakeSession("coco")
+        coco.adapter.subagent_tools = ("invoke_subagent",)
+        self.assertFalse(R.check_step(coco, "invoke_subagent", {}, ROOT))          # a hands-on director may
+
+    def test_role_packs_tell_each_director_how_work_moves(self):
+        tpl = ROOT / "templates" / "dev-workspace"
+        self.assertIn("handoff", C.role_pack("lead", tpl)["text"])
+        for role in ("dev", "plan", "scout"):
+            self.assertIn("handoff", C.role_pack(role, tpl)["text"], role)
+        self.assertIn("delegate", C.role_pack("dev", tpl)["tools"])                # a dev director can plan code work
+
     def test_steps_that_may_be_a_subagents_are_not_judged(self):
         # grok streams a subagent's read_file as the parent's own (dir/C): the lead may have a subagent read code
         s = FakeSession("nono", own=False)

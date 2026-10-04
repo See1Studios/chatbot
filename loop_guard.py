@@ -241,7 +241,8 @@ def extract_tool_steps(obj: dict) -> List[Tuple[str, dict, object]]:
     out: List[Tuple[str, dict, object]] = []
     step = obj.get("step_update")
     if isinstance(step, dict):
-        if str(step.get("step_type") or "") == "tool" and str(step.get("state") or "") == "DONE":
+        # a finished subagent call comes back as step_type "subagent" (agy 1.2.16, measured 2026-10-05)
+        if str(step.get("step_type") or "") in ("tool", "subagent") and str(step.get("state") or "") == "DONE":
             info = step.get("tool_info") if isinstance(step.get("tool_info"), dict) else {}
             name = str(info.get("name") or step.get("tool_name") or "").strip()
             params = info.get("parameters") if isinstance(info.get("parameters"), dict) else {}

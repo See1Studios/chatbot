@@ -192,6 +192,7 @@ class AgentAdapter:
     own_tool_steps = True    # the tool steps this provider streams are the agent's own, never a subagent's (role_guard)
     subagents = False        # the CLI starts subagents of its own (HANDOFF_v1: a director's helpers; measured, dir/C)
     subagent_hint = ""       # how, in a few words, for the handoff prompt
+    subagent_tools: tuple = ()   # the tool names that start one (role_guard: a hands-off role may not)
     close_stdin_after_prompt = False  # True = codex/grok-style: close stdin right after writing the prompt
     transport_kind = "process"  # "http" = no subprocess at all (API-Provider plan,
     # docs/plans/api-provider-adapters.md) -- AgentSession branches on this before
