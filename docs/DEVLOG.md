@@ -1,5 +1,23 @@
 # chatbot 개발로그
 
+## 2026-10-04 — [ui/stream] 줄 단위 스트리밍(Line Reveal) 마크다운 컨테이너 렌더링 순회 및 페이드인 실동작 보강 (#630, 위임 agy)
+
+- **커밋**: `d22b378` feat(stream): traverse nested markdown containers for line reveal and enhance fade-in
+- **바뀐 파일**: `static/app-sse.js`, `static/chat-log.css`, `tests/test_stream_style.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
+## 2026-10-04 — [ui/stream] 줄 단위 스트리밍(Line Reveal) 페이드인 부드러운 전환 연출 추가 (#629, 위임 agy)
+
+- **커밋**: `79de6b0` fix(ui): restore app-sse comments and refine line reveal test harness, `996c540` feat(ui): add smooth fade-in transition for line reveal streaming
+- **바뀐 파일**: `static/app-sse.js`, `static/chat-log.css`, `tests/test_stream_style.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
+## 2026-10-04 — [stream/reveal] 스트리밍 애니메이션 줄 단위(Line Reveal) 옵션 추가 (#627, 위임 agy)
+
+- **커밋**: `7058fa6` fix(ui): restore app-sse comments and strictly validate stream style, `94bf2f3` feat(ui): add line reveal streaming mode and settings toggle
+- **바뀐 파일**: `static/app-shell.js`, `static/app-sse.js`, `static/chat-log.css`, `tests/test_stream_style.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-04 — 위임 병합의 DEVLOG 줄이 커밋되지 않던 문제 (#626)
 
 - **원인**: 러너는 병합 뒤 "티켓 기록 + DEVLOG 줄"을 함께 커밋하는데, 기록이 `~/.pe`로 나간 뒤로는 "저장소에 기록이 없으면 아무것도 안 함"에 걸려 DEVLOG 줄만 main에 미커밋으로 남았다(#620에서 발견, `7ce0803`로 수습).
