@@ -15,7 +15,12 @@ The user asks how things stand, or a handoff/delegation result comes back and th
 
 ## Rules
 - Every claim names its source id: handoff `#n`, ticket `#n`, a test name, a count. No "all green" without the list.
-- Before asking the user to decide something, check it is still open (a file may already be deleted, a ticket closed).
+- Before you put anything under "코치님 결정", check it is still open -- the dms and your memory may be older than
+  what happened since (live 2026-10-05: a report asked to approve deleting a file deleted an hour before):
+  - a file: `git status --short <path>` and `ls <path>` -- gone means it is done, not a decision;
+  - a ticket: `ticket` `get` -- closed, merged or declined means done;
+  - a handoff: the latest `#n` result in the dm -- a later result replaces an earlier one.
+  Drop what is no longer open, or move it to 끝난 것.
 - Unknown is a valid answer: "확인 못 함: …" beats a guess.
 - Do not open code to verify a result; if a result looks wrong, hand a check to the owning director (`handoff-brief`).
 
