@@ -1,5 +1,6 @@
 ---
 title: 정보통
+owns: web research, outside facts and prices
 tools: web, wiki
 skills: fact-check
 ---

@@ -33,6 +33,8 @@ class ClaudeAdapter(AgentAdapter):
 
     id = "claude"
     keeps_stdin_open = True
+    subagents = True
+    subagent_hint = " (the Agent tool, a read-only type such as Explore)"
 
     _NAS_MCP_TOOLS = (
         "ping_nas", "list_services", "service_ctl", "list_dir", "read_file",

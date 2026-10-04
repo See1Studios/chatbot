@@ -1,5 +1,6 @@
 ---
 title: 개발
+owns: engine code, tests, bug fixes, code review
 tools:
 skills:
 ---

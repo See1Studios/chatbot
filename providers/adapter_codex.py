@@ -125,6 +125,8 @@ class CodexAdapter(AgentAdapter):
 
     id = "codex"
     keeps_stdin_open = False
+    subagents = True
+    subagent_hint = " (spawn_agent, then wait)"
     close_stdin_after_prompt = True
 
     def find_executable(self) -> str:

@@ -256,3 +256,8 @@ def loop(reg, stop: Optional[threading.Event] = None) -> None:
             react_once(reg)
         except Exception:  # noqa: BLE001 -- a bad event must not end the reactor
             pass
+        try:   # HANDOFF_v1: work handed between directors starts and reports on its own, whatever `auto` says
+            import dialog_handoff
+            dialog_handoff.run_once(reg)
+        except Exception:  # noqa: BLE001
+            pass

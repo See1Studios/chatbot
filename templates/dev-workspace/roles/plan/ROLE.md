@@ -1,5 +1,6 @@
 ---
 title: 기획
+owns: plans, specs, design docs
 tools:
 skills:
 ---

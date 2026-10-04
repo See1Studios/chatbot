@@ -29,6 +29,8 @@ _MODEL_NAMES_EFFORT = re.compile(r"-(?:minimal|low|medium|high|xhigh)$")
 class AgyAdapter(AgentAdapter):
     id = "agy"
     keeps_stdin_open = True
+    subagents = True
+    subagent_hint = " (invoke_subagent; Model \"flash\" is enough to read and check)"
     supports_steer = True
     ONESHOT_MODEL = "gemini-3.8-flash-low"
 

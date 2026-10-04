@@ -1,5 +1,6 @@
 ---
 title: 총괄
+owns: priorities, coordination, progress reports to the operator
 tools: delegate, house-memory
 repo: none
 skills:

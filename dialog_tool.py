@@ -6,6 +6,9 @@ getHistory and sendMessage as one tool, served by mcp_server.
   dialog {"action": "read", "dialog_id": "<id>", "limit": 20}   the latest messages; you have now read them
   dialog {"action": "send", "dialog_id": "<id>" | "to": "<character id, role or name>", "text": "...",
           "kind": "say" | "action", "reply_to": n}                  an action is a stage direction: done, not said
+  dialog {"action": "handoff", "to": "<role or character>", "text": "<task>", "done_when": "..."}
+                                                                work that is not your role's, to the director who owns
+                                                                it (HANDOFF_v1, dialog_handoff); the result comes back
 The argument is `dialog_id`: the name models reach for (live 2026-10-02, #554 -- `dialog` was missed four times).
 
 Who sends is the session that called (mcp_caller, from the connection's process), never an argument, and the tool
@@ -35,17 +38,21 @@ TOOL_DEFS = [{
                    "character by id/role/name with `to`; reply_to answers a message "
                    "number of that thread. dialog_id is an id exactly as list or the [Office] line gives it. "
                    "Write what you physically do between *asterisks* -- '*sets a coffee on Kit's desk* morning!' -- "
-                   "and it arrives as an action followed by your words; a text wholly in (parentheses) is an action.",
+                   "and it arrives as an action followed by your words; a text wholly in (parentheses) is an action. "
+                   "handoff: work that is not your role's goes to the director who owns it -- `to` a role (or a "
+                   "coworker), `text` the task with what you know, `done_when` how they will know it is finished; "
+                   "they work it at their own desk and the result comes back to you as a message.",
     "inputSchema": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["list", "read", "send"]},
+            "action": {"type": "string", "enum": ["list", "read", "send", "handoff"]},
             "dialog_id": {"type": "string"},
             "to": {"type": "string"},
             "text": {"type": "string"},
             "kind": {"type": "string", "enum": ["say", "action"]},
             "reply_to": {"type": "integer"},
             "limit": {"type": "integer"},
+            "done_when": {"type": "string"},
         },
         "required": ["action"],
     },
@@ -101,6 +108,8 @@ def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable]
             n, mention = dialog_log.unread(me, did, sid)
             rows.append({"dialog_id": did, "name": dialog_log.label(did, me), "unread": n, "mentions": mention})
         return envelope(True, "%d dialogs" % len(rows), {"dialogs": rows})
+    if action == "handoff":
+        return _handoff(args, envelope, me, sid)
     did = str(args.get("dialog_id") or "")
     if not did and args.get("to") and action == "send":
         other = _character(str(args["to"]))
@@ -141,4 +150,32 @@ def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable]
         for n in sent if host_get and dialog_log.is_dm(did) else []:
             host_get("/api/office/notify?" + urlencode({"dialog": did, "n": n}))   # a nudge; {} when unreachable
         return envelope(True, "sent", {"dialog_id": did, "n": sent[-1], "sent": sent})
-    return envelope(False, "dialog: unknown action %r (list, read, send)" % action, None)
+    return envelope(False, "dialog: unknown action %r (list, read, send, handoff)" % action, None)
+
+
+def _owners() -> str:
+    """The team's roles and what each owns (D-5), for a handoff that named no one."""
+    import characters
+    roles = sorted({r for c in characters.listing() for r in c.get("roles") or []})
+    return "; ".join("%s (%s)" % (r, characters.role_pack(r).get("owns") or "-") for r in roles) or "no roles yet"
+
+
+def _handoff(args: Dict, envelope: Callable, me: str, sid: str) -> Dict:
+    """HANDOFF_v1: record the handoff (dialog_handoff), leave the task in the two directors' dm, answer at once."""
+    import characters
+    import dialog_handoff
+    ref = str(args.get("to") or "").strip()
+    to = _character(ref) if ref else None
+    if not to:
+        return envelope(False, "dialog: handoff needs `to`, the role or coworker who owns the work: %s" % _owners(), None)
+    role = ref if ref in characters.roles_of(to) else next(iter(characters.roles_of(to)), "")
+    try:
+        h = dialog_handoff.create(me, sid, to, role, args.get("text"), args.get("done_when"))
+    except dialog_handoff.HandoffError as e:
+        return envelope(False, "dialog: %s" % e, None)
+    try:
+        dialog_log.append(dialog_log.dm_id(me, to), me, h["task"] + ("\n-> " + h["done_when"] if h["done_when"] else ""))
+    except (ValueError, OSError):
+        pass
+    return envelope(True, "handed off as #%d to the %s director; they start when their desk is free, and the result "
+                          "comes back to you as a message" % (h["id"], role or "other"), {"handoff": h["id"], "to_role": role})
