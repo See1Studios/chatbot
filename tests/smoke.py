@@ -5,13 +5,23 @@
 """
 from __future__ import annotations
 
+import atexit
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+# The HTTP providers come from a data folder's providers.json, which is install data and never in a checkout. A gate
+# runs on its worktree's empty data/ (c54e312), so smoke brings its own: the shipped example (#621).
+_DATA = Path(tempfile.mkdtemp(prefix="smoke-data-"))
+shutil.copy(str(ROOT / "templates" / "providers.example.json"), str(_DATA / "providers.json"))
+os.environ["CHATBOT_DATA"] = str(_DATA)
+atexit.register(shutil.rmtree, str(_DATA), True)
 
 from providers.adapters import AGENT_ADAPTERS, DEFAULT_PROVIDER, get_adapter, is_openrouter_free_model
 from session import _billed_tokens, _current_context_tokens, _turn_billed
