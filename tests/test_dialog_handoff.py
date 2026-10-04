@@ -133,6 +133,9 @@ class Handoff(unittest.TestCase):
         self.assertIn("subagents (spawn one)", prompt)
         self.assertIn("`delegate` plan", prompt)
         self.assertEqual(H.run_once(self.office), [])                           # still working
+        dev.busy, dev._loop_stopping = False, True                              # between a notice's stop and resume
+        self.assertEqual(H.run_once(self.office), [])
+        dev._loop_stopping = False
         dev.history.append({"role": "assistant", "text": "fixed; one test left for you", "ts": 1001.0})
         dev.busy = False
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "done"}])

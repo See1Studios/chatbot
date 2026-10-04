@@ -29,8 +29,8 @@ _LOCK = threading.Lock()
 
 PROMPT = ("[Handoff #{id} from {sender} -- the user did not write this] {task}\n"
           "Done when: {done_when}\n"
-          "This is your role's work: do it now, in your role. Use your subagents{hint} for reading, searching and "
-          "checking; they must not change files. Read narrowly: search first, then only the lines you need -- the "
+          "This is your role's work: direct it now. Your subagents{hint} do the reading, searching and checking -- "
+          "do not open code files yourself here (the engine redirects that); they must not change files. Read narrowly: search first, then only the lines you need -- the "
           "turn stops past its budget. A code change goes into a `delegate` plan, which waits for the "
           "operator's go; do not edit repo files yourself. If this is not your role's work, say so in one line and "
           "stop. End with a short result for {sender}: what you did, what is left, what the operator must decide.")
@@ -141,8 +141,8 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
     hs = sorted(all_handoffs().values(), key=lambda h: h["id"])
     for h in [x for x in hs if x.get("state") == "running"]:
         sess = reg.peek(h.get("sid", "")) if hasattr(reg, "peek") else None
-        if sess is not None and getattr(sess, "busy", False):
-            continue
+        if sess is not None and (getattr(sess, "busy", False) or getattr(sess, "_loop_stopping", False)):
+            continue   # still working, or between a notice's stop and its resume
         answer = _last_answer(sess, float(h.get("started", 0))) if sess is not None else ""
         state = "done" if answer else "failed"
         why = str(getattr(sess, "_loop_hint", "") or "")[:300]   # a stopped turn leaves its reason for the next one

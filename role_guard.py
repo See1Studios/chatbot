@@ -12,10 +12,14 @@ Two places enforce it:
   tool-step hook), when the adapter says the steps it streams are the agent's own (`own_tool_steps`): grok streams a
   subagent's steps as the parent's (dir/C), and a subagent may read code for the lead.
 Commands are not judged (a command's target cannot be read); what they change is caught by TREE_WATCH_v1.
+HANDOFF_DIRECTS_v1: in a handoff turn every director directs -- its subagents read and check (operator 2026-10-05:
+"not the dev director by hand, its subagents"; twice the dev director read 20 files itself and ran out of budget).
+Opening code itself is redirected once (interrupted and resumed with a note, as a loop notice is), then stopped.
 The tool server's other per-caller rules live here too (`live_scope`: private turns, TEAM_ROLES_v2 grants).
 """
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
@@ -109,11 +113,64 @@ def check_step(session, tool: str, params: Optional[dict], root: Path) -> bool:
         return False
     p = params or {}
     rel = code_path(target_of(p) or str(p.get("file_path") or p.get("notebook_path") or ""), root)
-    if not rel or not hands_off(getattr(session, "character", "") or ""):
+    if not rel:
         return False
+    if not hands_off(getattr(session, "character", "") or ""):
+        return _in_handoff(session) and _redirect(session, tool, rel)
     session._auto_stop(
         event={"event": "stopped", "text": f"⚠ 이 캐릭터의 역할은 코드를 직접 다루지 않습니다: {rel} — 턴을 멈췄습니다.",  # l10n-ok
                "evidence": {"rule": "role_repo_none", "tool": tool, "path": rel}},
         hint=f"The last turn was stopped: it opened {rel}, engine code, and your role does not read or change code. "
              f"Do not open code files. State the symptom and the expected result and hand it to the dev role (delegate).")
     return True
+
+
+REDIRECT_NOTE = ("Handoff work is directed, not done by hand: you opened {rel} yourself. Start a subagent{hint} to read "
+                 "and check what you need and wait for its answer; you plan, decide and report. Do not open code files "
+                 "yourself in this work.")
+
+
+def _in_handoff(session) -> bool:
+    try:
+        import dialog_handoff
+        return dialog_handoff.running_in(getattr(session, "sid", "")) is not None
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _redirect(session, tool: str, rel: str) -> bool:
+    """Once per turn: interrupt at this step and resume the same conversation with the note (agy, like a loop
+    notice); past that, or where a turn cannot be resumed, stop it."""
+    adapter = getattr(session, "adapter", None)
+    hint = getattr(adapter, "subagent_hint", "") if getattr(adapter, "subagents", False) else ""
+    note = REDIRECT_NOTE.format(rel=rel, hint=hint)
+    ev = {"rule": "handoff_by_hand", "tool": tool, "path": rel}
+    can = getattr(session, "_can_notice_loop", None)
+    if callable(can) and can():
+        with session.lock:
+            if session._loop_stopping:
+                return True
+            session._loop_stopping = session._loop_noticed = True
+        session._emit({"event": "system", "text": "⚠ 넘겨받은 일은 서브에이전트에게 시켜야 합니다: %s — 알리고 이어서 진행합니다." % rel,  # l10n-ok
+                       "evidence": {**ev, "action": "notice"}})
+        threading.Thread(target=_redirect_worker, args=(session, note), name="handoff-redirect", daemon=True).start()
+        return True
+    session._auto_stop(event={"event": "stopped", "text": "⚠ 넘겨받은 일을 직접 처리해 턴을 멈췄습니다: %s" % rel,  # l10n-ok
+                              "evidence": ev}, hint=note)
+    return True
+
+
+def _redirect_worker(session, note: str) -> None:
+    try:
+        with session.lock:
+            if not session.busy:
+                return
+            rest = list(session.msg_queue)
+        session.interrupt_current_turn(reason="loop")
+        with session.lock:
+            session.msg_queue[:] = rest
+        session._send_direct(note, notice=True, event_type="handoff")
+    except Exception:  # noqa: BLE001 -- a failed redirect must not leave the turn hanging; the reactor sees it end
+        pass
+    finally:
+        session._loop_stopping = False

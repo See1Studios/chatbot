@@ -96,6 +96,36 @@ class RoleGuard(unittest.TestCase):
             self.assertIn("handoff", C.role_pack(role, tpl)["text"], role)
         self.assertIn("delegate", C.role_pack("dev", tpl)["tools"])                # a dev director can plan code work
 
+    def test_in_a_handoff_turn_a_director_is_redirected_once_then_stopped(self):
+        import threading
+        import dialog_handoff
+        s = FakeSession("coco")
+        s.sid, s.lock, s.busy, s.msg_queue, s.sent, s.emitted = "s-dev", threading.RLock(), True, [], [], []
+        s._loop_stopping = s._loop_noticed = False
+        s.adapter.subagents, s.adapter.subagent_hint = True, " (spawn one)"
+        s._can_notice_loop = lambda: not s._loop_noticed
+        s._emit = s.emitted.append
+        s.interrupt_current_turn = lambda reason="": None
+        s._send_direct = lambda text, notice=False, event_type="": s.sent.append((text, notice, event_type))
+        saved = dialog_handoff.running_in
+        dialog_handoff.running_in = lambda sid: {"id": 3} if sid == "s-dev" else None
+        try:
+            self.assertFalse(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "docs" / "x.md")}, ROOT))
+            self.assertTrue(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "delegation.py")}, ROOT))
+            for t in threading.enumerate():
+                if t.name == "handoff-redirect":
+                    t.join(2)
+            note, notice, kind = s.sent[0]
+            self.assertIn("Start a subagent (spawn one)", note)
+            self.assertEqual((notice, kind), (True, "handoff"))                 # resumed, with the whole budget
+            self.assertEqual(s.emitted[0]["evidence"]["action"], "notice")
+            self.assertTrue(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "tickets.py")}, ROOT))
+            self.assertEqual(s.stops[0][0]["evidence"]["rule"], "handoff_by_hand")   # second time: stopped
+            s.sid = "s-other"                                                    # not a handoff turn: left alone
+            self.assertFalse(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "tickets.py")}, ROOT))
+        finally:
+            dialog_handoff.running_in = saved
+
     def test_steps_that_may_be_a_subagents_are_not_judged(self):
         # grok streams a subagent's read_file as the parent's own (dir/C): the lead may have a subagent read code
         s = FakeSession("nono", own=False)
