@@ -58,6 +58,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: devlog_entry, review_checklist, worker_output
 import run_usage  # noqa: E402  -- each CLI call's tokens (token-economy T6)
@@ -1038,288 +1039,331 @@ def new_worktree(args, repo: Path, tid: int, branch: str, wt_dir: Path) -> Tuple
     return base, from_attic
 
 
-def cmd_run(args) -> int:
+def run_setup(args):
+    """Check the request and claim its ticket: the run's shared state (`r`), or an exit code."""
     repo = CHATBOT_REPO
-    provider = args.provider
-    reviewer = None if args.no_review else (args.reviewer or provider)
     paths = [p.strip() for p in args.paths.split(",") if p.strip()]
-    gates = DEFAULT_GATES + [g for g in (related_gate(repo, paths),) if g] + list(args.gate or [])
-    result: Dict = {"provider": provider, "reviewer": reviewer, "paths": paths, "merged": False}
-    transcript: List[Dict] = []
-
+    r = SimpleNamespace(args=args, repo=repo, provider=args.provider, paths=paths, transcript=[], rnd=0,
+                        reviewer=None if args.no_review else (args.reviewer or args.provider), doc_advice="",
+                        created=False, from_attic=False)
+    r.gates = DEFAULT_GATES + [g for g in (related_gate(repo, paths),) if g] + list(args.gate or [])
+    r.result = {"provider": r.provider, "reviewer": r.reviewer, "paths": paths, "merged": False}
     bad = arg_error(args, paths)
     if bad:
         print("Error: " + bad, file=sys.stderr)
         return 2
-    code, main_branch, _ = git(repo, "symbolic-ref", "--short", "HEAD")
+    code, r.main_branch, _ = git(repo, "symbolic-ref", "--short", "HEAD")
     if code != 0:
         print("Error: main repository is on a detached HEAD", file=sys.stderr)
         return 2
-    gated = gate_files(repo, gates)
+    r.gated = gate_files(repo, r.gates)
     try:
-        tier = check_tiers(repo, paths, gated, retryable=False)
+        tier = check_tiers(repo, paths, r.gated, retryable=False)
     except Failure as f:
         print("Error: %s" % f.reason, file=sys.stderr)
         return 2
     if tier >= 2 and not args.stop_before_merge:
         log("Tier 2 paths: the change will wait for the operator's merge (--stop-before-merge)")
         args.stop_before_merge = True
-    result["tier"] = tier
-    doc_lane = args.stop_before_merge and is_doc_task(paths, tier)   # DOC_LANE_v1
-    doc_advice = ""
-    reviewer_p = persona()   # the reviewer is the default character, whatever roles it holds (TEAM_ROLES_v1)
-    actor = PROVIDERS[provider]["actor"]
-
+    r.result["tier"] = tier
+    r.doc_lane = args.stop_before_merge and is_doc_task(paths, tier)   # DOC_LANE_v1
+    r.reviewer_p = persona()   # the reviewer is the default character, whatever roles it holds (TEAM_ROLES_v1)
+    r.actor = PROVIDERS[r.provider]["actor"]
     # 1. ticket: one the caller already claimed (--ticket/--token), or a new one on the operator's instruction
-    claimed = claim_ticket(args, paths, actor)
+    claimed = claim_ticket(args, paths, r.actor)
     if isinstance(claimed, int):
         return claimed
-    tid, token = claimed
-    branch, wt_dir = names(tid)
-    result.update(ticket=tid, branch=branch, worktree=str(wt_dir))
-    log("ticket #%d claimed (paths: %s)" % (tid, ", ".join(paths)))
-    if args.content:
-        return run_content(args, repo, provider, paths, tid, token, actor, result)
+    r.tid, r.token = claimed
+    r.branch, r.wt_dir = names(r.tid)
+    r.result.update(ticket=r.tid, branch=r.branch, worktree=str(r.wt_dir))
+    log("ticket #%d claimed (paths: %s)" % (r.tid, ", ".join(paths)))
+    return r
 
-    created = False
-    from_attic = False
-    rnd = 0
+
+def run_open(r) -> List[Dict]:
+    """2. The worktree: a new one, or (--resume, a rework, a plan picked up) the one this ticket's last run kept.
+    Sets the run's base and where its plan starts; returns the plan's tasks."""
+    args, repo, wt_dir = r.args, r.repo, r.wt_dir
+    st = read_state(r.tid)
+    # a plan whose confirmation found no PD brain last time: go on from the kept branch
+    pick_up = (args.plan_from_state and st.get("kept") and st.get("base") and wt_dir.exists()
+               and git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + r.branch)[0] == 0)
+    r.done_tasks = int(st.get("tasks_done") or 0) if pick_up else 0
+    r.pending = (int(st.get("pending_task") or 0), st.get("pending_base") or "") if pick_up else (0, "")
+    # the task that paused for more paths: worked again, but reviewed from its own base so pre-pause commits count
+    r.paused = (int(st.get("need_task") or 0), st.get("need_base") or "") if pick_up else (0, "")
+    if args.resume or pick_up:
+        if not wt_dir.exists() or not st.get("base"):
+            raise Failure("failed", "nothing to rework: the waiting worktree of ticket %d is gone" % r.tid)
+        r.base = st["base"]
+        r.created = True
+        log("%s in %s (branch %s)" % ("picking up after task %d" % r.done_tasks if pick_up else "reworking",
+                                      wt_dir, r.branch))
+        if pick_up and st.get("base_broken") and r.pending[1] in ("", r.base):
+            # BASE_CHECK_v1: the stop was main's own failure, fixed there since: the kept work goes on from main
+            new = sync_onto_main(repo, wt_dir, r.main_branch, r.base)
+            r.pending, r.base = (r.pending[0], new if r.pending[1] else ""), new
+    else:
+        r.base, r.from_attic = new_worktree(args, repo, r.tid, r.branch, wt_dir)
+        r.created = True
+    r.result["base"] = r.base
+    tasks = plan_tasks(args, st, r.paths)
+    if args.resume or pick_up:
+        r.transcript = list(st.get("transcript") or [])
+    write_state(r.tid, phase="running", round=0, task=0, tasks_total=len(tasks), started=time.time(),
+                phase_since=time.time(), title=args.title, provider=r.provider, reviewer=r.reviewer,
+                paths=r.paths, gates=r.gates, main_branch=r.main_branch, base=r.base, branch=r.branch,
+                worktree=str(wt_dir), transcript=r.transcript, reason="", kept=False, tasks_done=r.done_tasks,
+                base_broken=False, target_bytes=path_bytes(repo, r.paths))
+    r.pd_chain = expert_chain(roster("default_character", ""), [{"provider": r.reviewer, "model": args.reviewer_model,
+                                                                 "timeout": 0}]) if r.reviewer else []
+    return tasks
+
+
+def renew(r) -> None:
     try:
-        # 2. worktree: a new one, or (--resume, a rework) the one still waiting from this ticket's last run
-        st = read_state(tid)
-        # a plan whose confirmation found no PD brain last time: go on from the kept branch
-        pick_up = (args.plan_from_state and st.get("kept") and st.get("base") and wt_dir.exists()
-                   and git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)[0] == 0)
-        done_tasks = int(st.get("tasks_done") or 0) if pick_up else 0
-        pending = (int(st.get("pending_task") or 0), st.get("pending_base") or "") if pick_up else (0, "")
-        # the task that paused for more paths: worked again, but reviewed from its own base so pre-pause commits count
-        paused = (int(st.get("need_task") or 0), st.get("need_base") or "") if pick_up else (0, "")
-        if args.resume or pick_up:
-            if not wt_dir.exists() or not st.get("base"):
-                raise Failure("failed", "nothing to rework: the waiting worktree of ticket %d is gone" % tid)
-            base = st["base"]
-            created = True
-            log("%s in %s (branch %s)" % ("picking up after task %d" % done_tasks if pick_up else "reworking",
-                                          wt_dir, branch))
-            if pick_up and st.get("base_broken") and pending[1] in ("", base):
-                # BASE_CHECK_v1: the stop was main's own failure, fixed there since: the kept work goes on from main
-                new = sync_onto_main(repo, wt_dir, main_branch, base)
-                pending, base = (pending[0], new if pending[1] else ""), new
-        else:
-            base, from_attic = new_worktree(args, repo, tid, branch, wt_dir)
-            created = True
-        result["base"] = base
-        tasks = plan_tasks(args, st, paths)
-        if args.resume or pick_up:
-            transcript = list(st.get("transcript") or [])
-        write_state(tid, phase="running", round=0, task=0, tasks_total=len(tasks), started=time.time(),
-                    phase_since=time.time(), title=args.title, provider=provider, reviewer=reviewer,
-                    paths=paths, gates=gates, main_branch=main_branch, base=base, branch=branch,
-                    worktree=str(wt_dir), transcript=transcript, reason="", kept=False, tasks_done=done_tasks,
-                    base_broken=False, target_bytes=path_bytes(repo, paths))
+        ticket_call("renew", "--id", str(r.tid), "--token", r.token, "--actor", r.actor)
+    except RuntimeError as e:
+        raise Failure("failed", "author lease lost during the run", str(e))
 
-        def renew() -> None:
-            try:
-                ticket_call("renew", "--id", str(tid), "--token", token, "--actor", actor)
-            except RuntimeError as e:
-                raise Failure("failed", "author lease lost during the run", str(e))
 
-        pd_chain = expert_chain(roster("default_character", ""), [{"provider": reviewer, "model": args.reviewer_model, "timeout": 0}]
-                                ) if reviewer else []
+def run_task(r, tno: int, n_tasks: int, task: Dict) -> None:
+    """3. One task of the plan: the expert works -> gates -> the PD confirms, up to --rounds."""
+    args = r.args
+    k = SimpleNamespace(tno=tno, task=task, writer_p=persona(task["role"]), lessons=[], feedback="", bi=0,
+                        last_brain=None, partner_report="", base_checked=set())   # BASE_CHECK_v1: once per gate
+    # the task whose work waited for a confirmation: straight to its gates and review, on its own base
+    k.confirm_only = tno == r.pending[0] and bool(r.pending[1])
+    if k.confirm_only:
+        k.base = r.pending[1]
+    elif tno == r.paused[0] and r.paused[1]:
+        k.base = r.paused[1]
+    elif tno == 1 and r.from_attic:   # the carried-over work is reviewed with this task
+        k.base = r.base
+    else:
+        k.base = git(r.wt_dir, "rev-parse", "HEAD")[1]
+    write_state(r.tid, pending_task=tno, pending_base=k.base)
+    head_line = ("This is task %d of %d in the plan \"%s\". Do only this task.\n" % (tno, n_tasks, args.title)
+                 if n_tasks > 1 else "")
+    k.brief = writer_prompt(r.tid, task["title"], r.branch, r.wt_dir, task["paths"], r.gates,
+                            head_line + task["instruction"], character_block(k.writer_p, r.reviewer_p, STAFF_RELATION),
+                            read_memory(task["role"]), task.get("reads"))
+    k.chain = expert_chain(task["role"], [{"provider": r.provider, "model": args.model, "timeout": 0}])
+    k.n_tasks = n_tasks
+    for rnd in range(1, args.rounds + 1):
+        r.rnd = rnd
+        if rnd > 1 or tno > 1:
+            renew(r)
+        first_confirm = k.confirm_only and rnd == 1
+        res, b = (None, k.chain[k.bi]) if first_confirm else task_work(r, k, rnd)
+        if not first_confirm:
+            task_record(r, k, rnd, res, b)
+        asked = [] if first_confirm else need_paths(res["stdout"], task["paths"])
+        if asked:   # the worker needs files outside its scope: keep the work, wait for the operator
+            commit_leftovers(r.wt_dir, b["provider"], r.tid)
+            write_state(r.tid, phase="needs_path", need_paths=asked, need_task=tno, need_base=k.base,
+                        tasks_done=tno - 1, pending_task=0, pending_base="", transcript=r.transcript,
+                        phase_since=time.time())
+            raise Failure("paused", "task %d needs %s" % (tno, ", ".join(x["path"] for x in asked)), keep=True)
+        gate_error = task_gates(r, k, rnd, b)
+        if not r.reviewer:
+            if gate_error is None and remember(task["role"], k.lessons):
+                log("task %d: %d lesson(s) kept in %s's memory" % (tno, len(k.lessons), task["role"]))
+            return
+        if task_review(r, k, rnd, b, gate_error):
+            return
 
-        # 3. tasks in order; each: the expert works -> gates -> the PD confirms (up to --rounds)
-        for tno, task in enumerate(tasks, 1):
-            if tno <= done_tasks:
-                continue
-            writer_p = persona(task["role"])
-            # the task whose work waited for a confirmation: straight to its gates and review, on its own base
-            confirm_only = tno == pending[0] and bool(pending[1])
-            if confirm_only:
-                task_base = pending[1]
-            elif tno == paused[0] and paused[1]:
-                task_base = paused[1]
-            elif tno == 1 and from_attic:   # the carried-over work is reviewed with this task
-                task_base = base
-            else:
-                task_base = git(wt_dir, "rev-parse", "HEAD")[1]
-            write_state(tid, pending_task=tno, pending_base=task_base)
-            head_line = ("This is task %d of %d in the plan \"%s\". Do only this task.\n" % (tno, len(tasks), args.title)
-                         if len(tasks) > 1 else "")
-            brief = writer_prompt(tid, task["title"], branch, wt_dir, task["paths"], gates, head_line + task["instruction"],
-                                  character_block(writer_p, reviewer_p, STAFF_RELATION), read_memory(task["role"]),
-                                  task.get("reads"))
-            lessons: List[str] = []
-            feedback = ""
-            chain = expert_chain(task["role"], [{"provider": provider, "model": args.model, "timeout": 0}])
-            bi, last_brain = 0, None
-            partner_report = ""
-            base_checked: set = set()           # BASE_CHECK_v1: each failed gate is tried on the base once per task
-            for rnd in range(1, args.rounds + 1):
-                if rnd > 1 or tno > 1:
-                    renew()
-                skipped = []
-                b = chain[bi]
-                while not (confirm_only and rnd == 1):
-                    b = chain[bi]
-                    resume = rnd > 1 and b == last_brain and bool(PROVIDERS[b["provider"]].get("continue_argv"))
-                    prompt = brief if rnd == 1 else retry_prompt(feedback, None if resume else brief)
-                    timeout = b["timeout"] or args.timeout
-                    write_state(tid, phase="writing", task=tno, round=rnd, brain=brain_label(b), phase_since=time.time(),
-                                timeout_sec=timeout)
-                    log("task %d/%d round %d: running %s (timeout %ds)..." % (tno, len(tasks), rnd, brain_label(b), timeout))
-                    res = run_agent(b["provider"], wt_dir, prompt, timeout, resume=resume, model=b["model"])
-                    result["agent"] = {k: res[k] for k in ("ok", "returncode", "elapsed_sec")}
-                    log("%s finished in %ss (exit %s)" % (brain_label(b), res["elapsed_sec"], res["returncode"]))
-                    if res["ok"]:
-                        break
-                    why = tail(res["stderr"] or res["stdout"], 5)
-                    if unavailable(why, res["returncode"]) and bi + 1 < len(chain):
-                        skipped.append(brain_label(b))
-                        log("%s unavailable; next brain %s" % (brain_label(b), brain_label(chain[bi + 1])))
-                        bi += 1
-                        renew()
-                        continue
-                    if res["returncode"] == -1 and str(res["stderr"]).startswith("timed out"):
-                        raise Failure("unavailable", "agent %s timed out after %ds" % (brain_label(b), timeout),
-                                      tail(res["stdout"]))
-                    if unavailable(why, res["returncode"]):      # the last brain could not work either: not a try
-                        raise Failure("unavailable", "no brain could work (%s): %s" % (brain_label(b), why[:200]))
-                    raise Failure("failed", "agent %s exited with %s" % (brain_label(b), res["returncode"]),
-                                  tail(res["stderr"] or res["stdout"]))
-                if not (confirm_only and rnd == 1):
-                    last_brain = b
-                    partner_report = report(res["stdout"])
-                    line = {"task": tno, "round": rnd, "role": "writer", "name": writer_p["name"],
-                            "text": said(res["stdout"]), "brain": brain_label(b)}
-                    round_lessons = learned(res["stdout"])
-                    if round_lessons:
-                        line["learned"] = round_lessons
-                        lessons += [x for x in round_lessons if x not in lessons]
-                    if skipped:
-                        line["skipped"] = skipped
-                    transcript.append(line)
-                partner_said = next((ln["text"] for ln in reversed(transcript)
-                                     if ln.get("task") == tno and ln.get("role") == "writer"), "")
-                asked = [] if confirm_only and rnd == 1 else need_paths(res["stdout"], task["paths"])
-                if asked:   # the worker needs files outside its scope: keep the work, wait for the operator
-                    commit_leftovers(wt_dir, b["provider"], tid)
-                    write_state(tid, phase="needs_path", need_paths=asked, need_task=tno, need_base=task_base,
-                                tasks_done=tno - 1, pending_task=0, pending_base="", transcript=transcript,
-                                phase_since=time.time())
-                    raise Failure("paused", "task %d needs %s" % (tno, ", ".join(x["path"] for x in asked)), keep=True)
 
-                write_state(tid, phase="gates", transcript=transcript, phase_since=time.time())
-                if commit_leftovers(wt_dir, b["provider"], tid):
-                    log("committed changes the agent left uncommitted")
-                gate_error = None
-                try:
-                    if not git(wt_dir, "rev-list", task_base + "..HEAD")[1]:
-                        raise Failure("failed", "task %d made no change" % tno)
-                    changed = check_scope(wt_dir, task_base, task["paths"])
-                    if check_tiers(repo, changed, gated, retryable=True) >= 2 and not args.stop_before_merge:
-                        log("the change touches Tier 2 paths: it will wait for the operator's merge")
-                        args.stop_before_merge = True
-                        result["tier"] = 2
-                    renew()
-                    run_gates(wt_dir, gates)
-                except Failure as f:
-                    gate = getattr(f, "gate", None)
-                    if gate and gate not in base_checked:
-                        base_checked.add(gate)
-                        broken = base_fails(repo, task_base, gate, tid)
-                        if broken is not None:
-                            write_state(tid, base_broken=True)
-                            raise Failure("base_broken", "gate fails without this work too: %s -- fix the base, then "
-                                          "run again; the work is kept" % gate, broken, keep=True)
-                    if not (f.retryable and reviewer):
-                        raise
-                    gate_error = f
-                    log("task %d round %d: %s" % (tno, rnd, f.reason))
+def task_work(r, k, rnd: int):
+    """The expert's turn: its brain chain in order until one works. Returns (its output, the brain)."""
+    skipped = []
+    while True:
+        b = k.chain[k.bi]
+        resume = rnd > 1 and b == k.last_brain and bool(PROVIDERS[b["provider"]].get("continue_argv"))
+        prompt = k.brief if rnd == 1 else retry_prompt(k.feedback, None if resume else k.brief)
+        timeout = b["timeout"] or r.args.timeout
+        write_state(r.tid, phase="writing", task=k.tno, round=rnd, brain=brain_label(b), phase_since=time.time(),
+                    timeout_sec=timeout)
+        log("task %d/%d round %d: running %s (timeout %ds)..." % (k.tno, k.n_tasks, rnd, brain_label(b), timeout))
+        res = run_agent(b["provider"], r.wt_dir, prompt, timeout, resume=resume, model=b["model"])
+        r.result["agent"] = {x: res[x] for x in ("ok", "returncode", "elapsed_sec")}
+        log("%s finished in %ss (exit %s)" % (brain_label(b), res["elapsed_sec"], res["returncode"]))
+        if res["ok"]:
+            res["skipped"] = skipped
+            return res, b
+        why = tail(res["stderr"] or res["stdout"], 5)
+        if unavailable(why, res["returncode"]) and k.bi + 1 < len(k.chain):
+            skipped.append(brain_label(b))
+            log("%s unavailable; next brain %s" % (brain_label(b), brain_label(k.chain[k.bi + 1])))
+            k.bi += 1
+            renew(r)
+            continue
+        if res["returncode"] == -1 and str(res["stderr"]).startswith("timed out"):
+            raise Failure("unavailable", "agent %s timed out after %ds" % (brain_label(b), timeout),
+                          tail(res["stdout"]))
+        if unavailable(why, res["returncode"]):      # the last brain could not work either: not a try
+            raise Failure("unavailable", "no brain could work (%s): %s" % (brain_label(b), why[:200]))
+        raise Failure("failed", "agent %s exited with %s" % (brain_label(b), res["returncode"]),
+                      tail(res["stderr"] or res["stdout"]))
 
-                if not reviewer:
-                    if gate_error is None and remember(task["role"], lessons):
-                        log("task %d: %d lesson(s) kept in %s's memory" % (tno, len(lessons), task["role"]))
-                    break
-                write_state(tid, phase="review", phase_since=time.time())
-                _, diff, _ = git(wt_dir, "diff", task_base + "..HEAD")
-                pd_block = character_block(reviewer_p, writer_p, PD_RELATION)
-                rv, rb, rskipped = review_with_chain(
-                    cross_chain(pd_chain, b, review_providers() if args.cross_review else []), wt_dir,
-                    lambda prov: (doc_review_prompt if doc_lane else (lambda b, d: with_code_checklist(b)))(
-                        review_prompt(tid, task["title"], task["instruction"], partner_said, diff, gate_error,
-                                      pd_block, diff_limit(prov), partner_report), diff),
-                    renew)
-                verdict = "FAIL" if gate_error else rv["verdict"]
-                advisory = doc_lane and gate_error is None
-                transcript.append({"task": tno, "round": rnd, "role": "reviewer", "name": reviewer_p["name"],
-                                   **({"advisory": True, "deleted": deleted_lines(diff)} if advisory else {}),
-                                   "brain": brain_label(rb), **({"skipped": rskipped} if rskipped else {}),
-                                   **({"same_provider": True} if rb["provider"] == b["provider"] else {}),
-                                   "text": rv["say"], "verdict": verdict, "fix": rv["fix"], "raw": rv["raw"]})
-                log("task %d round %d: review %s" % (tno, rnd, verdict))
-                write_state(tid, transcript=transcript)
-                if advisory and verdict != "PASS":
-                    # DOC_LANE_v1: the review is advice; the operator decides with it on the card
-                    doc_advice = "doc review %s (advice: %s)" % (verdict, (rv["fix"] or rv["say"])[:300])
-                    log("task %d: %s" % (tno, doc_advice))
-                    write_state(tid, tasks_done=tno, need_base="", doc_advice=doc_advice)
-                    break
-                if verdict == "PASS":
-                    if remember(task["role"], lessons):
-                        log("task %d: lesson(s) kept in %s's memory" % (tno, task["role"]))
-                    write_state(tid, tasks_done=tno, need_base="")
-                    break
-                if rnd == args.rounds:
-                    if gate_error:
-                        raise gate_error
-                    raise Failure("gate_failed", "task %d: review FAIL after %d round(s)" % (tno, rnd), rv["fix"])
-                feedback = "\n".join(x for x in (
-                    "Gate failure: %s\n%s" % (gate_error.reason, gate_error.detail[-2000:]) if gate_error else "",
-                    "Your producer says: %s" % rv["say"] if rv["say"] else "",
-                    "Requested fixes:\n%s" % rv["fix"] if rv["fix"] else "") if x)
-        result["rounds"] = rnd
-        result["changed"] = check_scope(wt_dir, base, paths)
 
-        # 4. land, or wait for the operator
-        verdict = (" " + doc_advice if doc_advice else " review PASS") if reviewer else ""
-        if args.stop_before_merge:
-            head = git(wt_dir, "rev-parse", "HEAD")[1]
-            try:
-                ticket_call("await-merge", "--id", str(tid), "--token", token, "--actor", actor, "--note",
-                            "branch %s at %s (%s,%s round %d)" % (branch, head[:7], provider, verdict, rnd))
-            except RuntimeError as e:
-                raise Failure("failed", "could not hand the ticket in for merge", str(e))
-            result.update(outcome="awaiting_merge", head=head)
-            log("ticket #%d awaits the operator's merge: worktree_runner.py merge --ticket %d" % (tid, tid))
-        else:   # landing now: onto main, checked there once more when main moved (LAND_RETRY_v1)
-            base, head = land(repo, wt_dir, main_branch, branch, base, gates,
-                              on_rebase=lambda b: write_state(tid, base=b))
-            result.update(merged=True, head=head, base=base)
+def task_record(r, k, rnd: int, res: Dict, b: Dict) -> None:
+    """The expert's report, its line to the PD and its lessons, kept for the review and the transcript."""
+    k.last_brain = b
+    k.partner_report = report(res["stdout"])
+    line = {"task": k.tno, "round": rnd, "role": "writer", "name": k.writer_p["name"],
+            "text": said(res["stdout"]), "brain": brain_label(b)}
+    round_lessons = learned(res["stdout"])
+    if round_lessons:
+        line["learned"] = round_lessons
+        k.lessons += [x for x in round_lessons if x not in k.lessons]
+    if res.get("skipped"):
+        line["skipped"] = res["skipped"]
+    r.transcript.append(line)
+
+
+def task_gates(r, k, rnd: int, b: Dict) -> Optional[Failure]:
+    """The machine gates on the task's commits. A retryable failure is returned for the PD to send back; a gate that
+    fails on the base too stops the run (BASE_CHECK_v1); anything else is raised."""
+    write_state(r.tid, phase="gates", transcript=r.transcript, phase_since=time.time())
+    if commit_leftovers(r.wt_dir, b["provider"], r.tid):
+        log("committed changes the agent left uncommitted")
+    try:
+        if not git(r.wt_dir, "rev-list", k.base + "..HEAD")[1]:
+            raise Failure("failed", "task %d made no change" % k.tno)
+        changed = check_scope(r.wt_dir, k.base, k.task["paths"])
+        if check_tiers(r.repo, changed, r.gated, retryable=True) >= 2 and not r.args.stop_before_merge:
+            log("the change touches Tier 2 paths: it will wait for the operator's merge")
+            r.args.stop_before_merge = True
+            r.result["tier"] = 2
+        renew(r)
+        run_gates(r.wt_dir, r.gates)
     except Failure as f:
-        release_failed(tid, token, f, provider, actor, result)
-        if f.keep and created:
-            result["kept"] = True
-            write_state(tid, kept=True)
-    finally:
-        keep = created and not result["merged"] and (args.keep or result.get("kept")
-                                                     or result.get("outcome") == "awaiting_merge")
-        if created and not keep:
-            cleanup_worktree(repo, branch, wt_dir, attic="" if result["merged"] else attic_ref(tid))
-            log("worktree and branch removed" if result["merged"] else "worktree removed; branch head kept at %s"
-                % attic_ref(tid))
-        if result["merged"]:
-            drop_attic(repo, tid)
-        elif keep:
-            log("kept %s (branch %s)" % (wt_dir, branch))
+        gate = getattr(f, "gate", None)
+        if gate and gate not in k.base_checked:
+            k.base_checked.add(gate)
+            broken = base_fails(r.repo, k.base, gate, r.tid)
+            if broken is not None:
+                write_state(r.tid, base_broken=True)
+                raise Failure("base_broken", "gate fails without this work too: %s -- fix the base, then "
+                              "run again; the work is kept" % gate, broken, keep=True)
+        if not (f.retryable and r.reviewer):
+            raise
+        log("task %d round %d: %s" % (k.tno, rnd, f.reason))
+        return f
+    return None
 
+
+def task_review(r, k, rnd: int, b: Dict, gate_error: Optional[Failure]) -> bool:
+    """The PD confirms the task's diff (or reads its gate failure). True when the task is through; otherwise the
+    requested fixes wait in `k.feedback` for the next round, or the last round raises."""
+    tno, task, doc_lane = k.tno, k.task, r.doc_lane
+    write_state(r.tid, phase="review", phase_since=time.time())
+    _, diff, _ = git(r.wt_dir, "diff", k.base + "..HEAD")
+    pd_block = character_block(r.reviewer_p, k.writer_p, PD_RELATION)
+    partner_said = next((ln["text"] for ln in reversed(r.transcript)
+                         if ln.get("task") == tno and ln.get("role") == "writer"), "")
+    rv, rb, rskipped = review_with_chain(
+        cross_chain(r.pd_chain, b, review_providers() if r.args.cross_review else []), r.wt_dir,
+        lambda prov: (doc_review_prompt if doc_lane else (lambda b, d: with_code_checklist(b)))(
+            review_prompt(r.tid, task["title"], task["instruction"], partner_said, diff, gate_error,
+                          pd_block, diff_limit(prov), k.partner_report), diff),
+        lambda: renew(r))
+    verdict = "FAIL" if gate_error else rv["verdict"]
+    advisory = doc_lane and gate_error is None
+    r.transcript.append({"task": tno, "round": rnd, "role": "reviewer", "name": r.reviewer_p["name"],
+                         **({"advisory": True, "deleted": deleted_lines(diff)} if advisory else {}),
+                         "brain": brain_label(rb), **({"skipped": rskipped} if rskipped else {}),
+                         **({"same_provider": True} if rb["provider"] == b["provider"] else {}),
+                         "text": rv["say"], "verdict": verdict, "fix": rv["fix"], "raw": rv["raw"]})
+    log("task %d round %d: review %s" % (tno, rnd, verdict))
+    write_state(r.tid, transcript=r.transcript)
+    if advisory and verdict != "PASS":
+        # DOC_LANE_v1: the review is advice; the operator decides with it on the card
+        r.doc_advice = "doc review %s (advice: %s)" % (verdict, (rv["fix"] or rv["say"])[:300])
+        log("task %d: %s" % (tno, r.doc_advice))
+        write_state(r.tid, tasks_done=tno, need_base="", doc_advice=r.doc_advice)
+        return True
+    if verdict == "PASS":
+        if remember(task["role"], k.lessons):
+            log("task %d: lesson(s) kept in %s's memory" % (tno, task["role"]))
+        write_state(r.tid, tasks_done=tno, need_base="")
+        return True
+    if rnd == r.args.rounds:
+        if gate_error:
+            raise gate_error
+        raise Failure("gate_failed", "task %d: review FAIL after %d round(s)" % (tno, rnd), rv["fix"])
+    k.feedback = "\n".join(x for x in (
+        "Gate failure: %s\n%s" % (gate_error.reason, gate_error.detail[-2000:]) if gate_error else "",
+        "Your producer says: %s" % rv["say"] if rv["say"] else "",
+        "Requested fixes:\n%s" % rv["fix"] if rv["fix"] else "") if x)
+    return False
+
+
+def run_land(r) -> None:
+    """4. Land on main, or (--stop-before-merge) hand the ticket in to wait for the operator."""
+    if r.args.stop_before_merge:
+        head = git(r.wt_dir, "rev-parse", "HEAD")[1]
+        try:
+            ticket_call("await-merge", "--id", str(r.tid), "--token", r.token, "--actor", r.actor, "--note",
+                        "branch %s at %s (%s,%s round %d)" % (r.branch, head[:7], r.provider, r.verdict, r.rnd))
+        except RuntimeError as e:
+            raise Failure("failed", "could not hand the ticket in for merge", str(e))
+        r.result.update(outcome="awaiting_merge", head=head)
+        log("ticket #%d awaits the operator's merge: worktree_runner.py merge --ticket %d" % (r.tid, r.tid))
+    else:   # landing now: onto main, checked there once more when main moved (LAND_RETRY_v1)
+        base, head = land(r.repo, r.wt_dir, r.main_branch, r.branch, r.base, r.gates,
+                          on_rebase=lambda b: write_state(r.tid, base=b))
+        r.result.update(merged=True, head=head, base=base)
+
+
+def run_cleanup(r) -> None:
+    """The worktree goes unless the work waits (kept, --keep, awaiting the operator); a dropped branch's head stays
+    in the attic for the next --from-attic run."""
+    result = r.result
+    keep = r.created and not result["merged"] and (r.args.keep or result.get("kept")
+                                                   or result.get("outcome") == "awaiting_merge")
+    if r.created and not keep:
+        cleanup_worktree(r.repo, r.branch, r.wt_dir, attic="" if result["merged"] else attic_ref(r.tid))
+        log("worktree and branch removed" if result["merged"] else "worktree removed; branch head kept at %s"
+            % attic_ref(r.tid))
     if result["merged"]:
-        close_done(tid, token, actor, "merged %s via worktree (%s,%s round %d)"
-                   % (result["head"][:7], provider, verdict, result["rounds"]), result)
+        drop_attic(r.repo, r.tid)
+    elif keep:
+        log("kept %s (branch %s)" % (r.wt_dir, r.branch))
 
-    saved = save_transcript(tid, args.title, transcript)
-    result["transcript"] = transcript
+
+def cmd_run(args) -> int:
+    r = run_setup(args)
+    if isinstance(r, int):
+        return r
+    result = r.result
+    if args.content:
+        return run_content(args, r.repo, r.provider, r.paths, r.tid, r.token, r.actor, result)
+    r.verdict = ""
+    try:
+        tasks = run_open(r)
+        for tno, task in enumerate(tasks, 1):
+            if tno > r.done_tasks:
+                run_task(r, tno, len(tasks), task)
+        result["rounds"] = r.rnd
+        result["changed"] = check_scope(r.wt_dir, r.base, r.paths)
+        r.verdict = (" " + r.doc_advice if r.doc_advice else " review PASS") if r.reviewer else ""
+        run_land(r)
+    except Failure as f:
+        release_failed(r.tid, r.token, f, r.provider, r.actor, result)
+        if f.keep and r.created:
+            result["kept"] = True
+            write_state(r.tid, kept=True)
+    finally:
+        run_cleanup(r)
+    if result["merged"]:
+        close_done(r.tid, r.token, r.actor, "merged %s via worktree (%s,%s round %d)"
+                   % (result["head"][:7], r.provider, r.verdict, result["rounds"]), result)
+    saved = save_transcript(r.tid, args.title, r.transcript)
+    result["transcript"] = r.transcript
     result["transcript_file"] = str(saved) if saved else None
-    return record_and_report(repo, tid, provider, args.title, result, args.json, transcript)
+    return record_and_report(r.repo, r.tid, r.provider, args.title, result, args.json, r.transcript)
 
 
 def cmd_merge(args) -> int:

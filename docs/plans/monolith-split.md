@@ -227,7 +227,7 @@ Phase 0–5는 **크기**를 다뤘다. 이 단계는 그 규칙이 통과하는
 
 폴더 재배치(`core/`·`sessions/`·`team/`·`ops/`)는 운영자 결정으로 계속 보류(2026-10-04 재확인). 남은 일:
 
-- `tools/worktree_runner.py::cmd_run` 282줄 — 단계별 함수로 나누기(가장 큰 함수 부채). 테스트가 `wr.workspace_dir`를 바꿔 끼우므로, 전문가 기억(`remember` 등)을 옮길 때는 그 갈고리부터 정리.
+- ✅ #619 `tools/worktree_runner.py::cmd_run` 282줄 → 단계 함수(`run_setup`·`run_open`·`run_task`(`task_work`·`task_record`·`task_gates`·`task_review`)·`run_land`·`run_cleanup`)로, 공유 상태는 실행 문맥 하나(`SimpleNamespace`). 가장 긴 함수 약 60줄, 천장 목록에서 빠짐. 전문가 기억(`remember` 등)은 테스트가 `wr.workspace_dir`를 바꿔 끼우므로 그대로 둠.
 - `session.py` 상한까지 약 1KB — #605(인계 대사)가 끝난 뒤 다음 분리 대상.
 - ✅ #618 티켓 경로 검사가 데이터 폴더(`~/.pe`)를 감싼 홈 저장소를 보던 문제: 맨 이름 경로(`AGENTS.md`)가 `~/AGENTS.md`로 검사됐고, 그 저장소엔 `run-tests.sh`가 없어 **`done` 전 가드 검사가 데이터 이전(uds) 뒤로 늘 건너뛰어졌다**. 이제 설치의 데이터 폴더는 엔진 저장소로 판정(`tickets.py::_repo_root`); 다른 폴더(테스트 고정물)는 예전처럼 자기 git 루트.
 
