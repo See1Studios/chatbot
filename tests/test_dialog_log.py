@@ -91,6 +91,11 @@ class Dialogs(unittest.TestCase):
         self.assertEqual(D.pieces("fine (I think) really"), [("say", "fine (I think) really")], "an aside is speech")
         self.assertEqual(D.pieces("taps the desk", "action"), [("action", "taps the desk")])
         self.assertEqual(D.pieces("  "), [])
+        report = "2. **delete it?**\n- **yes**: nothing uses it"
+        self.assertEqual(D.pieces(report), [("say", report)], "bold is speech")
+        self.assertEqual(D.pieces("* one\n* two"), [("say", "* one\n* two")], "list bullets are speech")
+        self.assertEqual(D.pieces("ok *nods* and **this** too"),
+                         [("say", "ok"), ("action", "nods"), ("say", "and **this** too")])
 
     def test_a_room_record_keeps_its_file_and_shape(self):
         r = RC.create("Team", [self.a, self.b])

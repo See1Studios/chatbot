@@ -74,7 +74,9 @@ def _dm_pair(did: str) -> List[str]:
     return []
 
 
-_STAGE = re.compile(r"\*([^*\n]+)\*")
+# A stage direction is *one* asterisk on each side, hugging its words: **bold** and a "* " list bullet are speech
+# (live 2026-10-05: a report's **삭제 가능** arrived as an action).  l10n-ok
+_STAGE = re.compile(r"(?<!\*)\*(?=[^\s*])([^*\n]+?)(?<=[^\s*])\*(?!\*)")
 _WRAPS = (("(", ")"), ("\uff08", "\uff09"))
 
 
