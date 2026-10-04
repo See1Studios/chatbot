@@ -55,6 +55,7 @@ function makeNode(type, value, tag) {
   const n = { nodeType: type, nodeValue: value == null ? null : value, tag: tag || null,
               childNodes: [], className: '', parentNode: null,
               style: { setProperty(k, v) { this[k] = v; } } };
+  Object.defineProperty(n, 'firstChild', { get() { return n.childNodes[0] || null; } });
   Object.defineProperty(n, 'children', { get() { return n.childNodes.filter(c => c.nodeType === 1); } });
   Object.defineProperty(n, 'nextSibling', { get() {
     const p = n.parentNode; if (!p) return null;
@@ -331,6 +332,19 @@ class TestStreamStyle(unittest.TestCase):
         self.assertIn("@keyframes line-in", css, "chat-log.css must define line-in keyframes")
         compact = re.sub(r"\s+", "", css)
         self.assertIn(".rv-line{animation:none}", compact, "rv-line animation must be disabled under reduced-motion")
+
+    def test_line_reveal_fade_in_transition_style(self):
+        css = (CODE / "static" / "chat-log.css").read_text(encoding="utf-8")
+        compact = re.sub(r"\s+", "", css)
+        self.assertIn("will-change:opacity,transform", compact,
+                      "rv-line must configure will-change for smooth hardware-accelerated fade-in")
+        self.assertIn("@keyframesline-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}",
+                      compact, "line-in keyframes must define smooth opacity fade-in and subtle translateY motion")
+
+    def test_line_reveal_new_line_node_classes(self):
+        out = run_node("line_reveal_streaming")
+        self.assertGreater(out["firstLines"], 0, "line mode must attach .rv-line class to newly added line nodes")
+        self.assertEqual(out["settledLines"], 0, "completed lines must have .rv-line unwrapped and settled")
 
 
 if __name__ == "__main__":
