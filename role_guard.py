@@ -32,7 +32,7 @@ OPEN_SUFFIXES = (".md",)
 
 def code_path(path: str, root: Path) -> str:
     """`path` repo-relative when it is engine code inside `root` (not a doc), else ""."""
-    if not path:
+    if not path or "://" in path:   # a URL is not a file (live 2026-10-05: read_url was stopped)
         return ""
     p = Path(path)
     if not p.is_absolute():

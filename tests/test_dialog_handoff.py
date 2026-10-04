@@ -44,8 +44,9 @@ class Desk:
         self.sid, self.busy, self.history, self.sent = sid, False, [], []
         self.adapter = type("A", (), {"subagents": subagents, "subagent_hint": " (spawn one)"})()
 
-    def _send_direct(self, text, notice=False):
+    def _send_direct(self, text, notice=False, event_type=""):
         self.sent.append((text, notice))
+        self.event_type = event_type
         self.busy = True
 
 
@@ -115,6 +116,8 @@ class Handoff(unittest.TestCase):
         self.assertEqual(H.run_once(self.office, now=1000.0), [{"id": 1, "state": "running"}])
         prompt, notice = dev.sent[0]
         self.assertTrue(notice)                                                # a host turn, not the user's words
+        self.assertEqual(dev.event_type, "handoff")                            # with a whole turn's budget
+        self.assertIn("Read narrowly", prompt)
         self.assertIn("[Handoff #1 from Lead", prompt)
         self.assertIn("fix the jitter", prompt)
         self.assertIn("subagents (spawn one)", prompt)
@@ -129,11 +132,17 @@ class Handoff(unittest.TestCase):
         self.assertIn("Do not use tools", report)
         self.assertEqual(H.all_handoffs()[1]["state"], "done")
 
-    def test_a_turn_that_ends_without_an_answer_fails_back(self):
+    def test_a_turn_that_ends_without_an_answer_fails_back_with_its_reason(self):
         self.hand(self.lead, "s-lead", to="dev", text="x")
         H.run_once(self.office, now=1000.0)
-        self.office.desks[self.dev].busy = False
+        dev = self.office.desks[self.dev]
+        dev.busy, dev._loop_hint = False, "The last turn went over its budget (20 tool calls)"   # live 2026-10-05
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "failed"}])
+        self.assertIn("went over its budget", D.history(D.dm_id(self.dev, self.lead))[-1]["text"])
+
+    def test_a_handoff_turn_is_not_cut_to_the_notice_budget(self):
+        src = (ROOT / "session_turn.py").read_text(encoding="utf-8")
+        self.assertIn('if notice and event_type != "handoff":', src)
 
     def test_one_open_handoff_per_director_and_at_most_two_hops(self):
         self.assertTrue(self.hand(self.lead, "s-lead", to="dev", text="a")["success"])

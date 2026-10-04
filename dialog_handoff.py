@@ -30,7 +30,8 @@ _LOCK = threading.Lock()
 PROMPT = ("[Handoff #{id} from {sender} -- the user did not write this] {task}\n"
           "Done when: {done_when}\n"
           "This is your role's work: do it now, in your role. Use your subagents{hint} for reading, searching and "
-          "checking; they must not change files. A code change goes into a `delegate` plan, which waits for the "
+          "checking; they must not change files. Read narrowly: search first, then only the lines you need -- the "
+          "turn stops past its budget. A code change goes into a `delegate` plan, which waits for the "
           "operator's go; do not edit repo files yourself. If this is not your role's work, say so in one line and "
           "stop. End with a short result for {sender}: what you did, what is left, what the operator must decide.")
 REPORT = ("{receiver} finished handoff #{id} ({outcome}). Their result is in your dm with them: {result}\n"
@@ -127,7 +128,7 @@ def _last_answer(sess, since: float) -> str:
 
 def _speak(sess, text: str) -> None:
     try:
-        sess._send_direct(text, notice=True)
+        sess._send_direct(text, notice=True, event_type="handoff")
     except Exception:  # noqa: BLE001 -- a turn that cannot start leaves the handoff to time out as failed
         pass
 
@@ -144,7 +145,8 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
             continue
         answer = _last_answer(sess, float(h.get("started", 0))) if sess is not None else ""
         state = "done" if answer else "failed"
-        _report(reg, h, state, answer or "(the turn ended without an answer)")
+        why = str(getattr(sess, "_loop_hint", "") or "")[:300]   # a stopped turn leaves its reason for the next one
+        _report(reg, h, state, answer or "(the turn ended without an answer%s)" % (": " + why if why else ""))
         mark(h["id"], state, result=answer[:RESULT_MAX])
         changed.append({"id": h["id"], "state": state})
     for h in [x for x in hs if x.get("state") == "sent"]:

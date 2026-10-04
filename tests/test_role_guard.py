@@ -53,6 +53,7 @@ class RoleGuard(unittest.TestCase):
         self.assertEqual(R.code_path(str(ROOT / "AGENTS.md"), ROOT), "")
         self.assertEqual(R.code_path(str(ROOT), ROOT), "")                    # listing the repo root is fine
         self.assertEqual(R.code_path("/tmp/elsewhere.py", ROOT), "")
+        self.assertEqual(R.code_path("https://github.com/a/b", ROOT), "")      # a URL (live 2026-10-05: read_url)
 
     def test_only_a_character_whose_every_role_is_hands_off_is_kept_off_code(self):
         self.assertTrue(R.hands_off("nono"))
