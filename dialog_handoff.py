@@ -26,6 +26,7 @@ MAX_HOPS = 2
 OPEN = ("sent", "running")
 RESULT_MAX = 1500
 _LOCK = threading.Lock()
+_UNANSWERED: Dict[int, float] = {}   # handoff id -> when its ended turn first showed no answer (looked at again once)
 
 PROMPT = ("[Handoff #{id} from {sender} -- the user did not write this] {task}\n"
           "Done when: {done_when}\n"
@@ -147,6 +148,10 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
         why = str(getattr(sess, "_loop_hint", "") or "")[:300]   # a stopped turn leaves its reason for the next one
         if answer and getattr(sess, "_turn_timed_out", False):   # what it said before the wait, not a result
             answer, why = "", "it ran out of time waiting (for a subagent or a long command); what it said: " + answer[:200]
+        elif not answer and not why and h["id"] not in _UNANSWERED:
+            _UNANSWERED[h["id"]] = now   # the answer may still be on its way into the record (live #6, 2026-10-05)
+            continue
+        _UNANSWERED.pop(h["id"], None)
         state = "done" if answer else "failed"
         _report(reg, h, state, answer or "(the turn ended without an answer%s)" % (": " + why if why else ""))
         mark(h["id"], state, result=answer[:RESULT_MAX])

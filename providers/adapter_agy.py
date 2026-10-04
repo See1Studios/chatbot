@@ -216,19 +216,22 @@ class AgyAdapter(AgentAdapter):
     @staticmethod
     def _turn_usage(session: "AgentSession", res_obj: dict) -> Optional[dict]:
         """This turn's usage, with the last call's prompt as `context_tokens` (CONTEXT_METRIC_v1).
-        TURN_USAGE_v1: a long-lived agy process reports its running total since it started, not the turn's (measured
-        2026-10-05: 42,941 then 57,662 = 42,941 + the one call of a "ping" turn), so the turn's share is the total
-        minus the last one this same process reported. A turn that ran to the print timeout is marked
+        TURN_USAGE_v1: agy reports the conversation's running total, not the turn's (measured 2026-10-05: 42,941 then
+        57,662 = 42,941 + the one call of a "ping" turn; and 2.1M input on the first turn of a fresh process resuming a
+        long conversation), so the turn's share is the total minus the one recorded with the conversation's previous
+        turn (`running_total` in its usage, kept in the history so a restart does not lose it). A turn that ran to the print timeout is marked
         (`_turn_timed_out`): its text is whatever was said before the wait, not an answer."""
         session._turn_timed_out = float(res_obj.get("duration_seconds") or 0) >= 0.9 * AGY_PRINT_TIMEOUT_SEC
         raw = res_obj.get("usage") if isinstance(res_obj.get("usage"), dict) else None
         if raw is not None:
-            pid = getattr(getattr(session, "proc", None), "pid", 0)
-            base = session.__dict__.get("_usage_total") if session.__dict__.get("_usage_pid") == pid else None
-            session._usage_total, session._usage_pid = dict(raw), pid
+            conv = str(getattr(session, "conversation_id", "") or "")
+            base = next((u["running_total"] for u in (h.get("usage") for h in reversed(getattr(session, "history", []) or []))
+                         if isinstance(u, dict) and isinstance(u.get("running_total"), dict)
+                         and u["running_total"].get("conversation") == conv), None)
+            total = {k: v for k, v in raw.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
             if base:
-                raw = {k: max(0, v - int(base.get(k) or 0)) if isinstance(v, (int, float)) and not isinstance(v, bool)
-                       else v for k, v in raw.items()}
+                raw = {k: max(0, v - int(base.get(k) or 0)) if k in total else v for k, v in raw.items()}
+            raw = {**raw, "running_total": {**total, "conversation": conv}}
             if getattr(session, "_call_context", 0):
                 raw = {**raw, "context_tokens": session._call_context}
         session._call_context = 0

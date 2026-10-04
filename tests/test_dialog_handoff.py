@@ -87,6 +87,7 @@ class Handoff(unittest.TestCase):
         for p in self.patches:
             p.start()
         self.office = Office({self.lead: Desk("s-lead"), self.dev: Desk("s-dev"), self.art: Desk("s-art")})
+        H._UNANSWERED.clear()
 
     def tearDown(self):
         for p in self.patches:
@@ -155,6 +156,16 @@ class Handoff(unittest.TestCase):
         dev.busy, dev._loop_hint = False, "The last turn went over its budget (20 tool calls)"   # live 2026-10-05
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "failed"}])
         self.assertIn("went over its budget", D.history(D.dm_id(self.dev, self.lead))[-1]["text"])
+
+    def test_an_answer_still_on_its_way_gets_a_second_look(self):
+        # live #6 (2026-10-05): the turn had ended, its answer was not in the record yet, and it was failed
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        H.run_once(self.office, now=1000.0)
+        dev = self.office.desks[self.dev]
+        dev.busy = False
+        self.assertEqual(H.run_once(self.office), [])                           # no answer yet: look again
+        dev.history.append({"role": "assistant", "text": "done it", "ts": 1001.0})
+        self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "done"}])
 
     def test_a_turn_that_ran_out_of_time_is_not_done(self):
         # handoff #5 (2026-10-05): "I gave it to a subagent, I will report" and then the 8-minute timeout
