@@ -262,7 +262,7 @@ var REVEAL_FORCE_MS = 4000;     // a hidden tab gets no frames; the final render
 var STREAM_STYLE_KEY = 'pe.streamStyle', REVEAL_LINE_MS = 240, REVEAL_MIN_LPS = 10, REVEAL_LINE_CATCHUP_MS = 320, REVEAL_LINE_FINISH_MS = 180;
 
 function getStreamStyle() {
-  try { return (typeof localStorage !== 'undefined' && localStorage.getItem(STREAM_STYLE_KEY)) || 'char'; } catch (_) { return 'char'; }
+  try { return (typeof localStorage !== 'undefined' && localStorage.getItem(STREAM_STYLE_KEY) === 'line') ? 'line' : 'char'; } catch (_) { return 'char'; }
 }
 function setStreamStyle(s) {
   try { if (typeof localStorage !== 'undefined') localStorage.setItem(STREAM_STYLE_KEY, s === 'line' ? 'line' : 'char'); } catch (_) {}
@@ -296,25 +296,34 @@ function revealTarget(node, text) {
   let rv = node._rv;
   if (!rv || rv.dead) rv = node._rv = { src: '', gs: [], shown: 0, times: [], carry: 0, last: 0, born: 0, running: false, finish: null, style, lines: [], linesShown: 0, lineTimes: [], lastLineText: '' };
   rv.style = style;
+  // The letters are those of the DISPLAY text: the expression tag, the choices and a thought block
+  // never arrive letter by letter. The raw answer is kept for the badge.
   rv.raw = String(text || '');
   const src = prepareStreamText(rv.raw);
   if (src === rv.src) return;
   if (style === 'line') {
     const lines = src.split('\n');
     if (src.indexOf(rv.src) !== 0) {
-      let k = 0; while (k < rv.linesShown && k < lines.length && lines[k] === (rv.lines && rv.lines[k])) k++;
-      rv.linesShown = k; rv.lineTimes = [];
+      let k = 0;
+      while (k < rv.linesShown && k < lines.length && lines[k] === (rv.lines && rv.lines[k])) k++;
+      rv.linesShown = k;
+      rv.lineTimes = [];
       setStreamingContent(node, lines.slice(0, k).join('\n'), rv.raw);
       revealLines(node, rv, -Infinity);
     }
     rv.lines = lines;
   } else if (src.indexOf(rv.src) === 0) {
+    // An append. The last letter may have been cut mid-grapheme, so it is segmented again with the rest.
     const tail = rv.gs.length ? rv.gs.pop() : '';
     rv.gs.push.apply(rv.gs, revealGraphemes(tail + src.slice(rv.src.length)));
   } else {
+    // A rewrite (a resync, a retracted thought). What still matches stays on screen without moving again.
     const gs = revealGraphemes(src);
-    let k = 0; while (k < rv.shown && k < gs.length && gs[k] === rv.gs[k]) k++;
-    rv.gs = gs; rv.shown = k; rv.times = [];
+    let k = 0;
+    while (k < rv.shown && k < gs.length && gs[k] === rv.gs[k]) k++;
+    rv.gs = gs;
+    rv.shown = k;
+    rv.times = [];
     setStreamingContent(node, gs.slice(0, k).join(''), rv.raw);
     revealLetters(node, rv, -Infinity);
   }
@@ -360,34 +369,54 @@ function revealTick(node, rv) {
   rv.running = false;
   if (rv.dead) { if (rv.finish && !rv.completed) revealComplete(node, rv); return; }
   if (!node.isConnected && node.isConnected !== undefined) { revealComplete(node, rv); return; }
-  const now = revealNow(), dt = rv.last ? Math.min(100, now - rv.last) : 16;
+  const now = revealNow();
+  const dt = rv.last ? Math.min(100, now - rv.last) : 16;
   rv.last = now;
-  const isLine = (rv.style === 'line'), units = isLine ? (rv.lines || []) : rv.gs;
-  let shown = isLine ? (rv.linesShown || 0) : rv.shown;
-  const minRate = isLine ? REVEAL_MIN_LPS : REVEAL_MIN_CPS;
-  const finishMs = isLine ? REVEAL_LINE_FINISH_MS : REVEAL_FINISH_MS;
-  const catchupMs = isLine ? REVEAL_LINE_CATCHUP_MS : REVEAL_CATCHUP_MS;
-  const durMs = isLine ? REVEAL_LINE_MS : REVEAL_MS;
-  const lastT = isLine && units.length ? units[units.length - 1] : '';
-  const grew = isLine && (shown >= units.length && rv.lastLineText !== lastT);
-  const backlog = units.length - shown;
-  if (backlog > 0 || grew) {
-    const rate = Math.max(minRate, backlog * 1000 / (rv.finish ? finishMs : catchupMs));
-    rv.carry += rate * dt / 1000;
+  if (rv.style === 'line') {
+    const lines = rv.lines || [];
+    const lastT = lines.length ? lines[lines.length - 1] : '';
+    const grew = (rv.linesShown >= lines.length && rv.lastLineText !== lastT);
+    const backlog = lines.length - rv.linesShown;
+    if (backlog > 0 || grew) {
+      const lps = Math.max(REVEAL_MIN_LPS, backlog * 1000 / (rv.finish ? REVEAL_LINE_FINISH_MS : REVEAL_LINE_CATCHUP_MS));
+      rv.carry += lps * dt / 1000;
+      let step = Math.floor(rv.carry);
+      if (step < 1 && !rv.linesShown) step = 1;
+      if (step > 0 || grew) {
+        if (step > 0) rv.carry -= step;
+        rv.linesShown = Math.min(lines.length, rv.linesShown + Math.max(0, step));
+        rv.lastLineText = lastT;
+        setStreamingContent(node, lines.slice(0, rv.linesShown).join('\n'), rv.raw);
+        revealLines(node, rv, now);
+        revealHoldWidth(node, rv);
+      }
+    }
+    if (rv.linesShown < lines.length) { revealRun(node, rv); return; }
+    if (now - rv.born < REVEAL_LINE_MS) { revealRun(node, rv); return; }
+    revealLines(node, rv, now);
+    if (rv.finish) revealComplete(node, rv);
+    else rv.last = 0;
+    return;
+  }
+  const backlog = rv.gs.length - rv.shown;
+  if (backlog > 0) {
+    const cps = Math.max(REVEAL_MIN_CPS, backlog * 1000 / (rv.finish ? REVEAL_FINISH_MS : REVEAL_CATCHUP_MS));
+    rv.carry += cps * dt / 1000;
     let step = Math.floor(rv.carry);
-    if (step < 1 && !shown) step = 1;
-    if (step > 0 || grew) {
-      if (step > 0) rv.carry -= step;
-      shown = Math.min(units.length, shown + Math.max(0, step));
-      if (isLine) { rv.linesShown = shown; rv.lastLineText = lastT; } else rv.shown = shown;
-      setStreamingContent(node, isLine ? units.slice(0, shown).join('\n') : units.slice(0, shown).join(''), rv.raw);
-      if (isLine) revealLines(node, rv, now); else revealLetters(node, rv, now);
+    if (step < 1 && !rv.shown) step = 1;               // the first letter never waits
+    if (step > 0) {
+      rv.carry -= step;
+      rv.shown = Math.min(rv.gs.length, rv.shown + step);
+      setStreamingContent(node, rv.gs.slice(0, rv.shown).join(''), rv.raw);
+      revealLetters(node, rv, now);
       revealHoldWidth(node, rv);
     }
   }
-  if (shown < units.length || (now - rv.born < durMs)) { revealRun(node, rv); return; }
-  if (isLine) revealLines(node, rv, now); else revealLetters(node, rv, now);
-  if (rv.finish) revealComplete(node, rv); else rv.last = 0;
+  if (rv.shown < rv.gs.length) { revealRun(node, rv); return; }
+  if (now - rv.born < REVEAL_MS) { revealRun(node, rv); return; }   // let the last letters settle
+  revealLetters(node, rv, now);                         // and turn them back into plain text
+  if (rv.finish) revealComplete(node, rv);
+  else rv.last = 0;                                     // idle until the next delta wakes it
 }
 
 function revealLines(node, rv, now) {
@@ -887,6 +916,32 @@ async function checkRevived() {
   }, 3000);
 }
 
-// enterSession (app-session.js): 완전 새 세션 생성 및 전환 처리
-// 세션 라벨 표시 및 상태 동기화 관리
-
+// Shared "we're now looking at session `id`" transition. openSession,
+// createSession, continueSession, the SSE session_rotate handler, and
+// send()'s mid-turn hard-rotate branch all used to repeat this same
+// clear-log/reset-scrollback/greet/setMeta/bindEvents/fetchArtifacts
+// sequence by hand (2026-09-17 refactor pass) -- each call site now only
+// supplies what's actually different about it via opts:
+//   scrollback: 'self' to anchor scrollback at `id` itself (openSession,
+//     continueSession, session_rotate), a specific other session id --
+//     including '' -- to anchor at instead (createSession's "완전 새 세션"
+//     points at whatever was open right before it), or omitted entirely to
+//     leave scrollback/lastSyncedTs untouched (send()'s rotate branch never
+//     reset these even before this consolidation -- preserved as-is rather
+//     than changed as a drive-by fix; see DEVLOG).
+//   history: existing messages to render (openSession only).
+//   userEcho / greeting: chat bubbles to add after clearing (the message
+//     just sent, and/or a assistant greeting/handoff note).
+//   activityAfter: an activity-log line to add after clearing.
+//   metaLabel: the part of the meta line after "세션 <id> · ".
+//   weight: pass through to the heavy-session banner check; omitted means
+//     always hide it (matches every non-openSession call site).
+//   busy: explicit busy state; omitted means don't touch it at all (only
+//     continueSession relies on this, since its own try/finally already
+//     manages busy across the whole operation, success or failure).
+//   preserveLog: true to skip clearing #log/#activity entirely -- used by
+//     send()'s in-flow hard-rotate so a message sent mid-conversation
+//     doesn't flash-clear the screen it's already visible on (the message
+//     was already rendered optimistically by send() before this ever runs).
+//     Only makes sense combined with no history/userEcho/greeting, since
+//     nothing gets wiped for them to render into a "fresh" view.

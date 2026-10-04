@@ -220,7 +220,9 @@ const CASES = {
     const inStore = localStorage.getItem('pe.streamStyle');
     setStreamStyle('char');
     const afterChar = getStreamStyle();
-    return { initial, afterLine, inStore, afterChar };
+    localStorage.setItem('pe.streamStyle', 'invalid_style');
+    const afterGarbage = getStreamStyle();
+    return { initial, afterLine, inStore, afterChar, afterGarbage };
   },
   shell_settings_options: () => {
     const rowsChar = shellSettingsRows({ streamStyle: 'char' });
@@ -294,6 +296,7 @@ class TestStreamStyle(unittest.TestCase):
         self.assertEqual(out["afterLine"], "line", "style must toggle to line")
         self.assertEqual(out["inStore"], "line", "style must persist in localStorage")
         self.assertEqual(out["afterChar"], "char", "style must toggle back to char")
+        self.assertEqual(out["afterGarbage"], "char", "invalid or stale value must fall back to char")
 
     def test_shell_settings_shows_stream_style_option(self):
         out = run_node("shell_settings_options")
