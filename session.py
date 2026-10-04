@@ -1142,20 +1142,12 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         last_a = str(asst_turns[-1] if asst_turns else "")[:120]
         return f"- 최근 {user_title()} 지시: {last_u}\n- 최근 답변 요약: {last_a}"
 
-    def _precompute_summary(self) -> None:
-        if getattr(self, "_summary_generating", False) or getattr(self, "_cached_summary", ""):
-            return
-        self._summary_generating = True
-        try:
-            self.get_handover_summary()
-        finally:
-            self._summary_generating = False
-
     def _emit_heavy_if_needed(self, force: bool = False) -> dict:
         w = self.weight()
         level = w.get("level") or "ok"
-        if level in ("soft", "hard") and not getattr(self, "_cached_summary", ""):
-            threading.Thread(target=self._precompute_summary, daemon=True).start()
+        # NO_PRECOMPUTE_v1 (token-economy T10): no handover summary ahead of time. Every turn stales it (#613), so a
+        # heavy session ran a full-context /compact after each turn (~150k tokens each, 2026-10-05) for a rotation
+        # that mostly never came; the rotation makes its summary when it happens.
         if level == "ok":
             return w
         if force or self._heavy_warned_level != level:

@@ -417,3 +417,10 @@ class HandoverExchange(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoPrecompute(unittest.TestCase):
+    def test_a_heavy_session_does_not_summarize_ahead_of_a_rotation(self):
+        # NO_PRECOMPUTE_v1: a full-context /compact after every turn of a heavy session (2026-10-05)
+        src = (Path(__file__).resolve().parent.parent / "session.py").read_text(encoding="utf-8")
+        self.assertNotIn("_precompute_summary", src)
