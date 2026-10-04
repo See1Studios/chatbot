@@ -205,6 +205,38 @@ class TestClientDeviceContext(Base):
         result2 = S.format_client_context(ctx2)
         self.assertNotIn("백그라운드", result2)
 
+    def test_format_battery_invalid_and_clamping(self):
+        # nan, inf, -inf, True, False, string should not crash and should be omitted
+        for bad in (float("nan"), float("inf"), float("-inf"), True, False, "80", None, [], {}):
+            res = S.format_client_context({"battery": bad})
+            self.assertNotIn("배터리", res)
+        # Clamping between 0 and 100
+        self.assertIn("배터리100%", S.format_client_context({"battery": 150}))
+        self.assertIn("배터리0%", S.format_client_context({"battery": -25}))
+        self.assertIn("배터리50%", S.format_client_context({"battery": 50.4}))
+
+    def test_format_accuracy_invalid(self):
+        # nan, inf, -inf, True, False, string, <= 0 should omit ± tag without exception
+        base = {"lat": 37.5665, "lon": 126.9780}
+        for bad in (float("nan"), float("inf"), float("-inf"), True, False, "25", 0, -10, None):
+            res = S.format_client_context({**base, "accuracy": bad})
+            self.assertNotIn("±", res)
+            self.assertIn("위치 37.5665, 126.9780", res)
+
+    def test_format_resumed_invalid(self):
+        # nan, inf, -inf, string, <= 0 should omit return tag without exception
+        for bad in (float("nan"), float("inf"), float("-inf"), "invalid", None, 0, -5):
+            res = S.format_client_context({"resumed": bad})
+            self.assertNotIn("복귀", res)
+
+    def test_format_coords_invalid(self):
+        # non-finite, bool, string in lat/lon should safely omit location
+        for bad in (float("nan"), float("inf"), True, False, "37.5665"):
+            res1 = S.format_client_context({"lat": bad, "lon": 126.9780})
+            self.assertNotIn("위치", res1)
+            res2 = S.format_client_context({"lat": 37.5665, "lon": bad})
+            self.assertNotIn("위치", res2)
+
 
 if __name__ == "__main__":
     unittest.main()

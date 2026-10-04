@@ -6,6 +6,7 @@ AST-scans this file for AgentSession.lock = threading.RLock().
 from __future__ import annotations
 
 import json
+import math
 import os
 import queue
 import re
@@ -74,7 +75,9 @@ from media_handler import (
     _stage_image,
 )
 
-# A message sent while a turn is running is applied at the next tool boundary (steer).
+# A message sent while an agy turn is running is accepted at once and applied at the next
+# tool-step boundary (steer). agy itself cannot take a message mid-turn: measured 2026-09-20,
+# a second stdin line only QUEUES and runs after the current turn ends (agy.md A41).
 # Session event kinds copied into logs/events.jsonl (OBSLOG_v1, see _obs_forward).
 _OBS_FORWARD = {"error", "stopped", "interrupted", "session_rotate", "session_heavy", "steer_queued", "system"}
 
@@ -134,45 +137,39 @@ def _standby_maintenance_loop() -> None:
 def format_client_context(ctx: Optional[Dict[str, Any]]) -> str:
     if not isinstance(ctx, dict) or not ctx:
         return ""
-    parts = []
-    lat, lon = ctx.get("lat"), ctx.get("lon")
-    if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-        acc = ctx.get("accuracy")
-        loc = f"위치 {lat:.4f}, {lon:.4f}"
-        if isinstance(acc, (int, float)) and acc > 0:
-            loc += f" ±{int(acc)}m"
-        parts.append(loc)
+    _num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    p = []
+    lat, lon, acc = ctx.get("lat"), ctx.get("lon"), ctx.get("accuracy")
+    if _num(lat) and _num(lon):
+        p.append(f"위치 {lat:.4f}, {lon:.4f}" + (f" ±{int(acc)}m" if _num(acc) and acc > 0 else ""))
     tz = ctx.get("timezone")
     if isinstance(tz, str) and tz.strip():
-        parts.append(tz.strip()[:40])
+        p.append(tz.strip()[:40])
     if ctx.get("is_mobile") is True:
-        parts.append("모바일")
+        p.append("모바일")
     elif ctx.get("is_mobile") is False:
-        parts.append("데스크톱")
-    dev = ctx.get("device")
-    if isinstance(dev, str) and dev.strip() and dev.strip() not in ("모바일", "데스크톱"):
-        parts.append(dev.strip()[:30])
+        p.append("데스크톱")
+    if isinstance(dev := ctx.get("device"), str) and (d := dev.strip()) and d not in ("모바일", "데스크톱"):
+        p.append(d[:30])
     batt = ctx.get("battery")
-    if isinstance(batt, (int, float)):
-        parts.append(f"배터리{int(batt)}%" + ("충전중" if ctx.get("charging") is True else ""))  # l10n-ok
-    net = ctx.get("net_type")
-    if isinstance(net, str) and net.strip():
-        parts.append(f"네트워크:{net.strip()[:20]}")  # l10n-ok
+    if _num(batt):
+        p.append(f"배터리{max(0, min(100, int(batt)))}%" + ("충전중" if ctx.get("charging") is True else ""))  # l10n-ok
+    if isinstance(net := ctx.get("net_type"), str) and (n := net.strip()):
+        p.append(f"네트워크:{n[:20]}")  # l10n-ok
     elif ctx.get("online") is True:
-        parts.append("온라인")  # l10n-ok
+        p.append("온라인")  # l10n-ok
     elif ctx.get("online") is False:
-        parts.append("오프라인")  # l10n-ok
+        p.append("오프라인")  # l10n-ok
     resumed = ctx.get("resumed")
     if resumed is True:
-        parts.append("복귀")  # l10n-ok
-    elif isinstance(resumed, (int, float)) and not isinstance(resumed, bool) and 0 < resumed < 100_000_000:
-        parts.append(f"복귀({int(resumed)}s 만에)")  # l10n-ok
-    vis = ctx.get("visibility")
-    if isinstance(vis, str) and vis.strip() and vis.strip() != "visible":
-        parts.append("백그라운드")  # l10n-ok
+        p.append("복귀")  # l10n-ok
+    elif _num(resumed) and 0 < resumed < 100_000_000:
+        p.append(f"복귀({int(resumed)}s 만에)")  # l10n-ok
+    if isinstance(vis := ctx.get("visibility"), str) and (v := vis.strip()) and v != "visible":
+        p.append("백그라운드")  # l10n-ok
     elif ctx.get("focused") is False:
-        parts.append("비활성탭")  # l10n-ok
-    return "[클라이언트 환경: " + ", ".join(parts) + "]" if parts else ""
+        p.append("비활성탭")  # l10n-ok
+    return "[클라이언트 환경: " + ", ".join(p) + "]" if p else ""
 
 
 class AgentSession(SessionTurn, SessionView, TurnWatchdog):
