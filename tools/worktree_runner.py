@@ -319,15 +319,21 @@ def ticket_call(*args: str) -> Dict[str, str]:
 
 
 def commit_ticket_record(repo: Path, tid: int, provider: str, subject: str, extra: Tuple[str, ...] = ()) -> Optional[str]:
-    """Commit the ticket's own record in the main repository -- and `extra`, the diary lines a merge wrote
-    (tools/devlog_entry.py) -- so main is left clean without an operator step. The short sha, or None."""
+    """Commit the diary lines a merge wrote (`extra`, tools/devlog_entry.py) and the ticket's own record when it
+    lives in the repository, so main is left clean without an operator step. Since the data moved out (~/.pe) the
+    record is not here, and the diary line was left uncommitted on main (#620): it goes alone, as docs(devlog).
+    The short sha, or None."""
     rel = "%s/%04d.json" % (TICKETS_REL, tid)
-    if not (repo / rel).exists() or not git(repo, "status", "--porcelain", "--", rel)[1]:
+    paths = [p for p in ((rel,) if (repo / rel).exists() else ()) + tuple(extra)
+             if git(repo, "status", "--porcelain", "--", p)[1]]
+    if not paths:
         return None
+    if rel not in paths:
+        subject = subject.replace("chore(tickets):", "docs(devlog):", 1)
     name, email = PROVIDERS[provider]["author"]
-    git(repo, "add", "--", rel, *extra)
+    git(repo, "add", "--", *paths)
     code, _, err = git(repo, "-c", "user.name=" + name, "-c", "user.email=" + email,
-                       "commit", "-m", subject, "--", rel, *extra)
+                       "commit", "-m", subject, "--", *paths)
     if code != 0:
         print("[!] ticket record not committed: %s" % tail(err, 5), file=sys.stderr)
         return None

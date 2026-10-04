@@ -83,6 +83,16 @@ class DevlogEntry(unittest.TestCase):
         self.assertIn('if result.get("merged"):', report)
         self.assertIn("extra)", report)
 
+    def test_the_diary_line_is_committed_without_a_ticket_record_in_the_repo(self):
+        # #626: the records live in ~/.pe; the runner used to commit nothing, and #620's line stayed on main uncommitted
+        import worktree_runner as wr
+        wrote = D.record_merge(self.repo, 30, "t", "claude", self.base, self.head, day="2026-10-01")
+        with mock.patch.dict(wr.PROVIDERS, {"claude": dict(wr.PROVIDERS["claude"], author=("w", "w@w"))}):
+            sha = wr.commit_ticket_record(self.repo, 30, "claude", "chore(tickets): close #30 -- t", tuple(wrote))
+        self.assertTrue(sha)
+        self.assertEqual(self.git("status", "--porcelain"), "")
+        self.assertEqual(self.git("log", "-1", "--format=%s|%an"), "docs(devlog): close #30 -- t|w")
+
     def test_the_range_starts_after_the_rebase_so_main_commits_are_not_the_branchs(self):
         # #535 (2026-10-01): main moved during the run, the branch was rebased, and the diary listed the other
         # agents' commits as the worker's -- the merge result kept the base from before the rebase.
