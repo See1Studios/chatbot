@@ -190,6 +190,7 @@ class GrokAdapter(AgentAdapter):
 
     id = "grok"
     keeps_stdin_open = False
+    own_tool_steps = False   # a subagent's read_file streams as the parent's own call (director-handoff dir/C)
 
     def find_executable(self) -> str:
         return GROK_BIN

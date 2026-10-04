@@ -1,4 +1,6 @@
-"""NO_TICKET_WRITE_v1: a live agent's write to a repo file that no live ticket lease covers is reported at once.
+"""NO_TICKET_WRITE_v1: a live agent's write to a repo file that no live ticket lease covers stops the turn at once.
+TREE_WATCH_v1 (director-handoff dir/B): a change no tool step showed (a subagent's) is caught by comparing the git
+working tree at the turn's start and end, and stays on hold until the file is clean or leased.
 Run: python3 -m unittest tests.test_unticketed_write  (from services/chatbot)
 """
 import json
@@ -13,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import session as S  # noqa: E402
 import tickets  # noqa: E402
+import write_guard as W  # noqa: E402
 
 CTL = Path(__file__).resolve().parent.parent / "chatbot-ctl.sh"
 
@@ -35,6 +38,9 @@ class UnticketedWrite(unittest.TestCase):
         self.events = []
         self.s._emit = self.events.append
         self.s.save_meta = lambda: None
+        W.TREE_HOLD.clear()
+        # a write stops the turn; the shape tests below write several files in one test, so record the stop only
+        self.s._auto_stop = lambda event, hint: (self.events.append(event), setattr(self.s, "_loop_hint", hint))
 
     def tearDown(self):
         S.SESSIONS, S.ROOT = self._saved
@@ -85,6 +91,71 @@ class UnticketedWrite(unittest.TestCase):
         self.write(self.tmp / "session.py", tool="Edit", key="file_path")
         self.write("characters/c/card.json", tool="replace_file_content")
         self.assertEqual(self.warned(), ["session.py", "workspace/characters/c/card.json"])
+
+    def test_a_visible_write_stops_the_turn_and_tells_the_agent_why(self):
+        del self.s._auto_stop                                           # the real stop, this time
+        self.s.stop = lambda notify=True: None
+        self.write(self.tmp / "static" / "app.js")
+        stopped = [e for e in self.events if e.get("event") == "stopped"]
+        self.assertEqual(len(stopped), 1)
+        self.assertIn("static/app.js", self.s._loop_hint)
+
+    # ---- TREE_WATCH_v1 ----
+    def git(self, *a):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=str(self.tmp), check=True,
+                       capture_output=True)
+
+    def committed(self):
+        (self.tmp / "a.py").write_text("one\n")
+        (self.tmp / "old.md").write_text("x\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "init")
+
+    def held(self):
+        return [p for e in self.events if (e.get("evidence") or {}).get("rule") == "unticketed_tree_change"
+                for p in e["evidence"]["paths"]]
+
+    def test_a_change_no_tool_step_showed_is_caught_at_the_turn_end_and_held(self):
+        self.committed()
+        (self.tmp / "dirty.txt").write_text("left by someone before the turn\n")
+        self.assertEqual(W.turn_start(self.s, self.tmp), "")
+        (self.tmp / "a.py").write_text("two\n")                       # a subagent's edit: no tool step
+        (self.tmp / "new.js").write_text("x\n")
+        self.assertEqual(W.turn_end(self.s, self.tmp), ["a.py", "new.js"])
+        self.assertEqual(self.held(), ["a.py", "new.js"])               # not the file dirty before the turn
+        line = W.turn_start(self.s, self.tmp)
+        self.assertIn("a.py, new.js", line)
+        self.assertEqual(W.turn_end(self.s, self.tmp), [])              # told once, not again each turn
+
+    def test_a_hold_ends_when_the_file_is_clean_or_leased(self):
+        self.committed()
+        W.turn_start(self.s, self.tmp)
+        (self.tmp / "a.py").write_text("two\n")
+        (self.tmp / "new.js").write_text("x\n")
+        W.turn_end(self.s, self.tmp)
+        self.git("checkout", "--", "a.py")
+        self.lease(["new.js"])
+        self.assertEqual(W.turn_start(self.s, self.tmp), "")
+        self.assertEqual(W.TREE_HOLD, {})
+
+    def test_leased_ignored_renamed_and_steered_changes(self):
+        self.committed()
+        self.lease(["a.py"])
+        W.turn_start(self.s, self.tmp)
+        (self.tmp / "a.py").write_text("two\n")                       # leased
+        (self.tmp / "sessions" / "t" / "x.json").write_text("{}")      # ignored
+        self.git("mv", "old.md", "renamed.md")
+        self.assertEqual(W.turn_end(self.s, self.tmp, "steer"), [])     # the turn goes on: compared at its real end
+        self.assertEqual(W.turn_end(self.s, self.tmp), ["renamed.md"])
+
+    def test_the_turn_hooks_run_in_a_real_turn_end(self):
+        self.committed()
+        W.turn_start(self.s, self.tmp)
+        (self.tmp / "a.py").write_text("two\n")
+        self.s._finish_turn("result")
+        self.assertEqual(self.held(), ["a.py"])
+        src = (Path(S.__file__).parent / "session_turn.py").read_text(encoding="utf-8")
+        self.assertIn("write_guard.turn_start(self, _s().ROOT)", src)
 
     def test_the_restart_guard_also_covers_static_ui_and_the_dev_charter(self):
         text = CTL.read_text(encoding="utf-8")

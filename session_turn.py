@@ -183,6 +183,17 @@ class SessionTurn:
         self._send_direct(text, client_mid, **kw)
         return None
 
+    def _guard_lines(self, stdin_content: str) -> str:
+        """What the guards tell the agent before its message: a tree-watch hold (TREE_WATCH_v1, director-handoff
+        dir/B; called every turn, it also remembers the tree) and why the previous turn was stopped."""
+        hold = _s().write_guard.turn_start(self, _s().ROOT)
+        if hold and not self.is_private:
+            stdin_content = f"[시스템 안내] {hold}\n\n{stdin_content}"  # l10n-ok
+        if self._loop_hint:  # the previous turn was stopped automatically; tell the agent once
+            stdin_content = f"[시스템 안내] {self._loop_hint}\n\n{stdin_content}"
+            self._loop_hint = ""
+        return stdin_content
+
     def _start_turn(self, text: str, client_mid: str, client_context: Optional[Dict[str, Any]], notice: bool, event_type: str) -> None:
         # Multi-Provider plan Phase 2: a one-shot exec provider (grok, and any
         # future codex-style adapter) needs its prompt known BEFORE spawning
@@ -276,9 +287,7 @@ class SessionTurn:
             self.tension_stage, self.recent_choices = tension_step(self.tension_stage, self.recent_choices, self.history, text, event_type)
             stdin_content = f"{self.adapter.turn_context(self)}\n\n{stdin_content}"
 
-        if self._loop_hint:  # the previous turn was stopped automatically; tell the agent once
-            stdin_content = f"[시스템 안내] {self._loop_hint}\n\n{stdin_content}"
-            self._loop_hint = ""
+        stdin_content = self._guard_lines(stdin_content)
 
         # Order on the wire: rules -> handoff context -> the current message.
         # (The handoff block above rebuilds stdin_content from `text`, so the

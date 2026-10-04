@@ -58,6 +58,7 @@ try:
     import mcp_core
 except Exception:
     mcp_core = None
+import role_guard  # noqa: E402  -- which live caller may run a tool: roles, private turns (ROLE_TOOLS_v1, TEAM_ROLES_v2)
 import personal_turn  # noqa: E402  -- PERSONAL_TURN_v1: marked work-room turns stay out of work material
 import dialog_tool  # noqa: E402  -- inbox/D: a character's messenger (list, read, send)
 # Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9-12): the `delegate` tool, an adapter like mcp_core.
@@ -599,10 +600,15 @@ def _command_refusal(cmd: str) -> Optional[str]:
     return "command prefix not allowlisted"
 
 
+def _call_refusal(name: str, args: dict) -> str:   # the edition boundary, then ROLE_TOOLS_v1
+    return role_guard.tool_refusal(name, args, EDITION != "dev" and name in _dev_only_tools(),
+                                   lambda: mcp_caller.caller(_host_get, PORT), _resolve_target_path, ENGINE)
+
+
 def call_tool(name: str, arguments: dict) -> dict:
     args = arguments or {}
-    if EDITION != "dev" and name in _dev_only_tools():
-        return envelope(False, "%s is not available in this edition (shipped build)" % name)
+    if deny := _call_refusal(name, args):
+        return envelope(False, deny, None)
     try:
         if name == "list_dir":
             path = _resolve_target_path(args.get("path"))
@@ -755,13 +761,7 @@ def _busy_sessions() -> list:   # the sessions running a turn, from the host; []
 
 
 def _live_scope(grant: str) -> tuple:
-    """(private, denied) of the sessions running a turn: a private one closes work tools (SESSION_SPLIT_v1), and so
-    does a work turn marked personal (PERSONAL_TURN_v1); a work session whose character holds no role granting
-    `grant` is denied it (TEAM_ROLES_v2); (False, False) if unknown."""
-    busy = _busy_sessions()
-    closed = any(x.get("mode") == "private" or personal_turn.is_marked(DATA / "sessions", str(x.get("id") or ""), x.get("turn"))
-                 for x in busy)
-    return (closed, any(x.get("mode") != "private" and "tools" in x and grant not in x["tools"] for x in busy))
+    return role_guard.live_scope(_busy_sessions(), grant, DATA / "sessions")
 
 
 def _obs_tool_call(name: str, arguments: dict) -> dict:

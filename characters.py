@@ -466,7 +466,8 @@ def role_pack(role: str, ws=None) -> Dict:
     fm = parse_frontmatter(raw)
     split = lambda v: [x.strip() for x in (v or "").split(",") if x.strip()]  # noqa: E731
     return {"role": role, "title": fm.get("title") or role, "tools": split(fm.get("tools")),
-            "skills": split(fm.get("skills")), "text": _FRONT.sub("", raw, count=1).strip()}
+            "skills": split(fm.get("skills")), "repo": str(fm.get("repo") or "").strip().lower(),   # ROLE_TOOLS_v1
+            "text": _FRONT.sub("", raw, count=1).strip()}
 
 
 def tools_of(cid: str, ws=None) -> List[str]:

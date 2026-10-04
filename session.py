@@ -630,6 +630,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         an instruction mid-turn) only clears the marks."""
         self._cached_summary = ""  # handover cache stale after new content
         self._obs_turn_end(outcome)
+        write_guard.turn_end(self, ROOT, outcome)   # TREE_WATCH_v1
         try:
             idx, text = self._last_user_turn()
             marks = [k for i, k in self._turn_marks if i == idx]

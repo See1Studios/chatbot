@@ -189,6 +189,7 @@ class AgentAdapter:
 
     id = "base"
     keeps_stdin_open = True  # False = one-shot exec per prompt (codex/grok-style), not agy/claude-style persistent stdin
+    own_tool_steps = True    # the tool steps this provider streams are the agent's own, never a subagent's (role_guard)
     close_stdin_after_prompt = False  # True = codex/grok-style: close stdin right after writing the prompt
     transport_kind = "process"  # "http" = no subprocess at all (API-Provider plan,
     # docs/plans/api-provider-adapters.md) -- AgentSession branches on this before
