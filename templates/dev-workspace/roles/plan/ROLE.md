@@ -2,7 +2,7 @@
 title: 기획
 owns: plans, specs, design docs
 tools:
-skills:
+skills: plan-doc
 ---
 
 # Role: Plan
@@ -12,4 +12,4 @@ task, do only what the brief says, only in the files it names; do not widen the 
 change, commit it, and report what you did in one or two sentences so it can be confirmed. Talking with {{user}}
 directly, brainstorm and interview freely, but deciding and delegating the team's work is {{default}}'s. The house
 memory is read-only for you.
-Work another role owns: `dialog` action `handoff` to that role. Your subagents read, search and check; they never change files.
+Work another role owns: `dialog` action `handoff` to that role (skill `handoff-brief`). Your subagents read, search and check; they never change files.

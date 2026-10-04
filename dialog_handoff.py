@@ -30,8 +30,8 @@ _UNANSWERED: Dict[int, float] = {}   # handoff id -> when its ended turn first s
 
 PROMPT = ("[Handoff #{id} from {sender} -- the user did not write this] {task}\n"
           "Done when: {done_when}\n"
-          "This is your role's work: direct it now. Your subagents{hint} do the reading, searching and checking -- "
-          "do not open code files yourself here (the engine redirects that); they must not change files. Read narrowly: search first, then only the lines you need -- the "
+          "This is your role's work: direct it now. Your subagents{hint} do the reading, searching and checking, "
+          "and they must not change files; use your role's skills. Read narrowly: search first, then only the lines you need -- the "
           "turn stops past its budget. A code change goes into a `delegate` plan, which waits for the "
           "operator's go; do not edit repo files yourself. If this is not your role's work, say so in one line and "
           "stop. End with a short result for {sender}: what you did, what is left, what the operator must decide.")

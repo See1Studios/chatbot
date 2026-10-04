@@ -24,10 +24,7 @@ try:  # observing is best effort: a missing core module must never stop the host
     import tickets
 except Exception:  # noqa: BLE001
     evolution = tickets = None
-try:
-    import role_guard
-except Exception:  # noqa: BLE001
-    role_guard = None
+
 
 WRITE_TOOL_WORDS = ("write", "edit", "replace", "patch", "create_file", "delete", "rename", "move")
 
@@ -79,13 +76,7 @@ def unleased_repo_file(path: str, root: Path, data: Path) -> str:
 
 
 def check(session, tool: str, params: Optional[dict], root: Path) -> None:
-    """Stop the turn when a write lands on a repo file without a lease (once per file per session), or when a
-    hands-off role touched engine code at all (role_guard, ROLE_TOOLS_v1)."""
-    try:
-        if role_guard is not None and role_guard.check_step(session, tool, params, root):
-            return
-    except Exception:  # noqa: BLE001 -- observing must never disturb a turn
-        pass
+    """Stop the turn when a write lands on a repo file without a lease (once per file per session)."""
     path = written_path(tool, params)
     if not path:
         return

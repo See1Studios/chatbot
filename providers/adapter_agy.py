@@ -31,7 +31,6 @@ class AgyAdapter(AgentAdapter):
     keeps_stdin_open = True
     subagents = True
     subagent_hint = " (invoke_subagent; Model \"flash\" is enough to read and check)"
-    subagent_tools = ("invoke_subagent",)
     supports_steer = True
     ONESHOT_MODEL = "gemini-3.8-flash-low"
 

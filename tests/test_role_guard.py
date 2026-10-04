@@ -1,8 +1,8 @@
-"""ROLE_TOOLS_v1 (docs/plans/director-handoff.md dir/A): a character whose every role says `repo: none` (the lead)
-does not read or change engine code. Engine path tools refuse it; its own provider tool steps stop the turn.
+"""Roles make a director better, not fenced (operator 2026-10-05). ROLE_TOOLS_v1's stops are off: a role's own tool
+steps on code are not stopped, and what stays is the edition boundary and the tool server's per-caller scope. Every
+skill a role pack names exists, so a role's `skills:` line equips it.
 Run: python3 -m unittest tests.test_role_guard  (from services/chatbot)
 """
-import shutil
 import sys
 import tempfile
 import unittest
@@ -12,168 +12,45 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import characters as C  # noqa: E402
-import mcp_server as M  # noqa: E402
 import role_guard as R  # noqa: E402
 import write_guard as W  # noqa: E402
 
-ROLES = {"lead": "none", "dev": "", "plan": ""}
-HOLDERS = {"nono": ["lead"], "coco": ["dev", "plan"], "both": ["lead", "dev"], "loose": []}
+TEMPLATES = (ROOT / "templates" / "dev-workspace", ROOT / "templates" / "workspace")
 
 
-class FakeCharacters:
-    @staticmethod
-    def roles_of(cid, ws=None):
-        return HOLDERS.get(cid, [])
-
-    @staticmethod
-    def role_pack(role, ws=None):
-        return {"role": role, "repo": ROLES.get(role, "")}
-
-
-class FakeSession:
-    def __init__(self, character, own=True):
-        self.character, self.adapter, self.stops = character, SimpleNamespace(own_tool_steps=own), []
-
-    def _auto_stop(self, event, hint):
-        self.stops.append((event, hint))
-
-
-class RoleGuard(unittest.TestCase):
-    def setUp(self):
-        self.saved = R.characters
-        R.characters = FakeCharacters
-
-    def tearDown(self):
-        R.characters = self.saved
-
-    def test_code_is_everything_in_the_repo_but_docs(self):
-        self.assertEqual(R.code_path(str(ROOT / "session.py"), ROOT), "session.py")
-        self.assertEqual(R.code_path("static/app.js", ROOT), "static/app.js")
-        self.assertEqual(R.code_path(str(ROOT / "docs" / "plans" / "x.md"), ROOT), "")
-        self.assertEqual(R.code_path(str(ROOT / "AGENTS.md"), ROOT), "")
-        self.assertEqual(R.code_path(str(ROOT), ROOT), "")                    # listing the repo root is fine
-        self.assertEqual(R.code_path("/tmp/elsewhere.py", ROOT), "")
-        self.assertEqual(R.code_path("https://github.com/a/b", ROOT), "")      # a URL (live 2026-10-05: read_url)
-
-    def test_only_a_character_whose_every_role_is_hands_off_is_kept_off_code(self):
-        self.assertTrue(R.hands_off("nono"))
-        self.assertFalse(R.hands_off("coco"))
-        self.assertFalse(R.hands_off("both"))                                 # holding dev too: hands on
-        self.assertFalse(R.hands_off("loose"))                                # no roles (shipped build): nothing
-        self.assertFalse(R.hands_off(""))
-
-    def test_an_engine_path_tool_is_refused_with_one_line(self):
-        line = R.refusal("nono", str(ROOT / "session.py"), ROOT)
-        self.assertIn("session.py is engine code", line)
-        self.assertIn("delegate", line)
-        self.assertEqual(R.refusal("nono", str(ROOT / "docs" / "CONCEPT.md"), ROOT), "")
-        self.assertEqual(R.refusal("coco", str(ROOT / "session.py"), ROOT), "")
-
-    def test_a_provider_tool_step_on_code_stops_the_turn(self):
-        s = FakeSession("nono")
-        self.assertTrue(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "tools" / "worktree_runner.py")}, ROOT))
-        event, hint = s.stops[0]
-        self.assertEqual(event["evidence"], {"rule": "role_repo_none", "tool": "view_file",
-                                             "path": "tools/worktree_runner.py"})
-        self.assertIn("hand it to the dev role", hint)
-        self.assertFalse(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "docs" / "DEVLOG.md")}, ROOT))
-        self.assertFalse(R.check_step(FakeSession("coco"), "view_file", {"AbsolutePath": str(ROOT / "a.py")}, ROOT))
-
-    def test_a_hands_off_role_cannot_start_a_subagent(self):
-        # live 2026-10-05: told to delegate, the lead started full-tool subagents in the main tree instead, twice
-        s = FakeSession("nono")
-        s.adapter.subagent_tools = ("invoke_subagent",)
-        self.assertTrue(R.check_step(s, "invoke_subagent", {"Subagents": [{"TypeName": "self"}]}, ROOT))
-        self.assertIn("handoff", s.stops[0][1])
-        coco = FakeSession("coco")
-        coco.adapter.subagent_tools = ("invoke_subagent",)
-        self.assertFalse(R.check_step(coco, "invoke_subagent", {}, ROOT))          # a hands-on director may
-
-    def test_role_packs_tell_each_director_how_work_moves(self):
-        tpl = ROOT / "templates" / "dev-workspace"
-        self.assertIn("handoff", C.role_pack("lead", tpl)["text"])
-        for role in ("dev", "plan", "scout"):
-            self.assertIn("handoff", C.role_pack(role, tpl)["text"], role)
-        self.assertIn("delegate", C.role_pack("dev", tpl)["tools"])                # a dev director can plan code work
-
-    def test_in_a_handoff_turn_a_director_is_redirected_once_then_stopped(self):
-        import threading
-        import dialog_handoff
-        s = FakeSession("coco")
-        s.sid, s.lock, s.busy, s.msg_queue, s.sent, s.emitted = "s-dev", threading.RLock(), True, [], [], []
-        s._loop_stopping = s._loop_noticed = False
-        s.adapter.subagents, s.adapter.subagent_hint = True, " (spawn one)"
-        s._can_notice_loop = lambda: not s._loop_noticed
-        s._emit = s.emitted.append
-        s.interrupt_current_turn = lambda reason="": None
-        s._send_direct = lambda text, notice=False, event_type="": s.sent.append((text, notice, event_type))
-        saved = dialog_handoff.running_in
-        dialog_handoff.running_in = lambda sid: {"id": 3} if sid == "s-dev" else None
-        try:
-            self.assertFalse(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "docs" / "x.md")}, ROOT))
-            self.assertTrue(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "delegation.py")}, ROOT))
-            for t in threading.enumerate():
-                if t.name == "handoff-redirect":
-                    t.join(2)
-            note, notice, kind = s.sent[0]
-            self.assertIn("Start a subagent (spawn one)", note)
-            self.assertEqual((notice, kind), (True, "handoff"))                 # resumed, with the whole budget
-            self.assertEqual(s.emitted[0]["evidence"]["action"], "notice")
-            self.assertTrue(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "tickets.py")}, ROOT))
-            self.assertEqual(s.stops[0][0]["evidence"]["rule"], "handoff_by_hand")   # second time: stopped
-            s.sid = "s-other"                                                    # not a handoff turn: left alone
-            self.assertFalse(R.check_step(s, "view_file", {"AbsolutePath": str(ROOT / "tickets.py")}, ROOT))
-        finally:
-            dialog_handoff.running_in = saved
-
-    def test_steps_that_may_be_a_subagents_are_not_judged(self):
-        # grok streams a subagent's read_file as the parent's own (dir/C): the lead may have a subagent read code
-        s = FakeSession("nono", own=False)
-        self.assertFalse(R.check_step(s, "read_file", {"target_file": str(ROOT / "session.py")}, ROOT))
-        self.assertEqual(s.stops, [])
-
-    def test_the_session_hook_runs_the_role_check_first(self):
-        s = FakeSession("nono")
+class Roles(unittest.TestCase):
+    def test_a_role_is_not_stopped_for_reading_code(self):
+        stops = []
+        s = SimpleNamespace(character="any", adapter=SimpleNamespace(), _auto_stop=lambda event, hint: stops.append(event))
         W.check(s, "view_file", {"AbsolutePath": str(ROOT / "session.py")}, ROOT)
-        self.assertEqual(len(s.stops), 1)
+        self.assertEqual(stops, [])
+        self.assertFalse(hasattr(R, "check_step"))
 
-    def test_mcp_path_tools_refuse_a_hands_off_caller(self):
-        # the tool server is its own process: it learns the caller from the chat host (mcp_caller.caller)
-        saved = M.mcp_caller.caller
-        M.mcp_caller.caller = lambda host_get, port: {"id": "s1", "character": "nono"}
-        try:
-            out = M.call_tool("read_file", {"path": str(ROOT / "session.py")})
-            self.assertFalse(out["success"])
-            self.assertIn("engine code", str(out))
-            self.assertNotIn("engine code", M._call_refusal("run_command", {"command": "cat session.py"}))   # not judged
-            M.mcp_caller.caller = lambda host_get, port: {}                         # unknown caller: not refused here
-            self.assertEqual(M._call_refusal("read_file", {"path": str(ROOT / "session.py")}), "")
-        finally:
-            M.mcp_caller.caller = saved
+    def test_the_edition_boundary_and_the_per_caller_scope_stay(self):
+        self.assertIn("shipped build", R.tool_refusal("run_command", {}, True))
+        self.assertEqual(R.tool_refusal("read_file", {"path": "session.py"}, False, None, None, None), "")
+        busy = [{"id": "s1", "mode": "work", "turn": None, "tools": ["delegate"]}]
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(R.live_scope(busy, "delegate", Path(d)), (False, False))
+            self.assertEqual(R.live_scope(busy, "web", Path(d)), (False, True))   # TEAM_ROLES_v2: no grant
 
-    def test_the_edition_boundary_still_comes_first(self):
-        self.assertIn("shipped build", R.tool_refusal("run_command", {}, True, dict, Path, ROOT))
+    def test_every_skill_a_role_names_exists(self):
+        for root in (ROOT / "templates" / "dev-workspace",):
+            for role_md in sorted((root / "roles").glob("*/ROLE.md")):
+                for skill in C.role_pack(role_md.parent.name, root)["skills"]:
+                    found = [t for t in TEMPLATES if (t / ".agents" / "skills" / skill / "SKILL.md").is_file()]
+                    self.assertTrue(found, "%s names skill %r, which no template has" % (role_md.parent.name, skill))
 
-    def test_adapters_say_whether_their_tool_steps_are_their_own(self):
-        from providers.adapter_base import AgentAdapter
-        from providers.adapter_grok import GrokAdapter
-        self.assertTrue(AgentAdapter.own_tool_steps)
-        self.assertFalse(GrokAdapter.own_tool_steps)
-
-
-class RolePackField(unittest.TestCase):
-    def test_role_packs_read_the_repo_field_and_the_lead_template_sets_it(self):
-        ws = Path(tempfile.mkdtemp())
-        try:
-            (ws / "roles" / "lead").mkdir(parents=True)
-            (ws / "roles" / "lead" / "ROLE.md").write_text("---\ntitle: L\nrepo: None\n---\n\nbody\n", encoding="utf-8")
-            self.assertEqual(C.role_pack("lead", ws)["repo"], "none")
-            self.assertEqual(C.role_pack("missing", ws)["repo"], "")
-        finally:
-            shutil.rmtree(ws, ignore_errors=True)
+    def test_the_directors_are_equipped(self):
         tpl = ROOT / "templates" / "dev-workspace"
-        self.assertEqual(C.role_pack("lead", tpl)["repo"], "none")
-        self.assertEqual(C.role_pack("dev", tpl)["repo"], "")
+        self.assertEqual(C.role_pack("lead", tpl)["skills"], ["progress-report", "handoff-brief"])
+        self.assertEqual(C.role_pack("dev", tpl)["skills"], ["subagent-investigate"])
+        self.assertEqual(C.role_pack("plan", tpl)["skills"], ["plan-doc"])
+        lead = (tpl / "roles" / "lead" / "ROLE.md").read_text(encoding="utf-8")
+        self.assertNotIn("repo: none", lead)
+        self.assertNotIn("engine stops", lead)
+        for role in ("dev", "plan", "scout"):
+            self.assertIn("handoff-brief", C.role_pack(role, tpl)["text"], role)
 
 
 if __name__ == "__main__":
