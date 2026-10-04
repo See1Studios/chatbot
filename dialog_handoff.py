@@ -163,12 +163,23 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
     return changed
 
 
+def _show(reg, did: str, msg: Dict) -> None:
+    """Draw a dm in both directors' work windows now, as the office route does for a sent one (inbox/E)."""
+    import dialog_log
+    import route_sessions
+    for cid in dialog_log.members(did):
+        sess = reg._newest(mode="work", character=cid) if hasattr(reg, "_newest") else None
+        if sess is not None:
+            other = next(x for x in dialog_log.members(did) if x != cid)
+            sess._emit({"event": "office", "msg": route_sessions._office_view(dict(msg, dialog_id=did, other=other), cid)})
+
+
 def _report(reg, h: Dict, state: str, answer: str) -> None:
     """The receiver's answer as its dm to the sender; the sender, if free, tells the user."""
     try:
         import dialog_log
         did = dialog_log.dm_id(h["to"], h["from"])
-        dialog_log.append(did, h["to"], answer[:RESULT_MAX])
+        _show(reg, did, dialog_log.append(did, h["to"], "#%d %s" % (h["id"], answer[:RESULT_MAX]), announce=False))
     except Exception:  # noqa: BLE001
         pass
     try:

@@ -109,7 +109,7 @@ def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable]
             rows.append({"dialog_id": did, "name": dialog_log.label(did, me), "unread": n, "mentions": mention})
         return envelope(True, "%d dialogs" % len(rows), {"dialogs": rows})
     if action == "handoff":
-        return _handoff(args, envelope, me, sid)
+        return _handoff(args, envelope, me, sid, host_get)
     did = str(args.get("dialog_id") or "")
     if not did and args.get("to") and action == "send":
         other = _character(str(args["to"]))
@@ -160,8 +160,9 @@ def _owners() -> str:
     return "; ".join("%s (%s)" % (r, characters.role_pack(r).get("owns") or "-") for r in roles) or "no roles yet"
 
 
-def _handoff(args: Dict, envelope: Callable, me: str, sid: str) -> Dict:
-    """HANDOFF_v1: record the handoff (dialog_handoff), leave the task in the two directors' dm, answer at once."""
+def _handoff(args: Dict, envelope: Callable, me: str, sid: str, host_get: Optional[Callable] = None) -> Dict:
+    """HANDOFF_v1: record the handoff (dialog_handoff), leave the task in the two directors' dm -- shown in both work
+    windows now, without a reaction of its own (the handoff turn is the answer) -- and answer at once."""
     import characters
     import dialog_handoff
     ref = str(args.get("to") or "").strip()
@@ -174,7 +175,11 @@ def _handoff(args: Dict, envelope: Callable, me: str, sid: str) -> Dict:
     except dialog_handoff.HandoffError as e:
         return envelope(False, "dialog: %s" % e, None)
     try:
-        dialog_log.append(dialog_log.dm_id(me, to), me, h["task"] + ("\n-> " + h["done_when"] if h["done_when"] else ""))
+        did = dialog_log.dm_id(me, to)
+        m = dialog_log.append(did, me, "#%d %s%s" % (h["id"], h["task"], "\n-> " + h["done_when"] if h["done_when"] else ""),
+                              announce=False)
+        if host_get:
+            host_get("/api/office/notify?" + urlencode({"dialog": did, "n": m["n"]}))   # both windows draw it
     except (ValueError, OSError):
         pass
     return envelope(True, "handed off as #%d to the %s director; they start when their desk is free, and the result "

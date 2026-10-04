@@ -41,8 +41,11 @@ class Now:
 
 class Desk:
     def __init__(self, sid, subagents=True):
-        self.sid, self.busy, self.history, self.sent = sid, False, [], []
+        self.sid, self.busy, self.history, self.sent, self.drawn = sid, False, [], [], []
         self.adapter = type("A", (), {"subagents": subagents, "subagent_hint": " (spawn one)"})()
+
+    def _emit(self, ev):
+        self.drawn.append(ev)
 
     def _send_direct(self, text, notice=False, event_type=""):
         self.sent.append((text, notice))
@@ -56,6 +59,9 @@ class Office:
 
     def get_active(self, cid):
         return self.desks.get(cid)
+
+    def _newest(self, mode, character):
+        return self.desks.get(character)
 
     def peek(self, sid):
         return next((d for d in self.desks.values() if d.sid == sid), None)
@@ -92,7 +98,11 @@ class Handoff(unittest.TestCase):
                                                                "private": False})
 
     def test_a_handoff_by_role_is_recorded_and_left_in_the_two_directors_dm(self):
-        out = self.hand(self.lead, "s-lead", to="dev", text="the stream jitters on mobile", done_when="no jump on reload")
+        asked = []
+        out = T.call({"action": "handoff", "to": "dev", "text": "the stream jitters on mobile",
+                      "done_when": "no jump on reload"}, envelope,
+                     {"id": "s-lead", "character": self.lead, "mode": "work", "private": False}, asked.append)
+        self.assertTrue(asked and asked[0].startswith("/api/office/notify?"))  # both windows draw the task now
         self.assertTrue(out["success"], out)
         self.assertEqual(out["data"], {"handoff": 1, "to_role": "dev"})
         h = H.all_handoffs()[1]
@@ -126,7 +136,10 @@ class Handoff(unittest.TestCase):
         dev.history.append({"role": "assistant", "text": "fixed; one test left for you", "ts": 1001.0})
         dev.busy = False
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "done"}])
-        self.assertEqual(D.history(D.dm_id(self.dev, self.lead))[-1]["text"], "fixed; one test left for you")
+        self.assertEqual(D.history(D.dm_id(self.dev, self.lead))[-1]["text"], "#1 fixed; one test left for you")
+        for desk in (dev, lead):                                                # both windows draw the answer now
+            office = [e for e in desk.drawn if e.get("event") == "office"]
+            self.assertIn("fixed; one test left", office[-1]["msg"]["text"])
         report, _ = lead.sent[0]
         self.assertIn("Dev finished handoff #1 (done)", report)
         self.assertIn("Do not use tools", report)
