@@ -590,20 +590,6 @@ function announceWorkEnding(r) {
   else addNotice('warn', head + ' — ' + (WORK_PHASE_LABEL[r.phase] || r.phase) + (r.reason ? ': ' + r.reason : ''));
 }
 
-function workLine(ln) {
-  const row = obsNode('div', 'work-line' + (ln.role === 'reviewer' ? ' reviewer' : ''));
-  const header = obsNode('div', 'work-line-header');
-  header.appendChild(obsNode('span', 'work-who', (ln.name || ln.role || '') + (ln.verdict ? ' · ' + ln.verdict : '')));
-  if (ln.brain) {
-    const brainSpan = obsNode('span', 'work-brain', ln.brain.split('/').pop() + (ln.skipped && ln.skipped.length ? ' ↩' : ''));
-    brainSpan.title = ln.brain + (ln.skipped && ln.skipped.length ? ' (대체: ' + ln.skipped.join(' → ') + ' 불가)' : '');
-    header.appendChild(brainSpan);
-  }
-  row.appendChild(header);
-  row.appendChild(obsNode('div', 'work-said', ln.text || '…'));
-  return row;
-}
-
 function renderWorkCard(r) {
   const card = obsNode('div', 'work-card phase-' + r.phase);
   const open = workOpen.has(r.ticket);
@@ -683,13 +669,10 @@ function renderWorkCard(r) {
       details.appendChild(list);
     }
 
-    // 대화 내역 전체
-    const lines = r.transcript || [];
-    if (lines.length) {
-      const logBox = obsNode('div', 'work-transcript');
-      lines.forEach(ln => logBox.appendChild(workLine(ln)));
-      details.appendChild(logBox);
-    }
+    // WORK_TALK_v1: the talk is in the two characters' dm; the card keeps the PD's verdict
+    const rv = r.review || {};
+    if (rv.verdict) details.appendChild(obsNode('div', 'work-verdict' + (rv.verdict === 'PASS' ? ' pass' : ''),
+      '판정 ' + rv.verdict + (rv.advisory ? ' (조언)' : '') + (rv.fix && rv.verdict !== 'PASS' ? ' — ' + rv.fix : '')));
 
     if (r.reason && WORK_ENDED.includes(r.phase)) details.appendChild(obsNode('div', 'obs-meta', r.reason));
     card.appendChild(details);
@@ -704,6 +687,7 @@ function renderWorkCard(r) {
     actions.appendChild(btn);
   };
 
+  if (r.talk_with) button('대화 보기', false, () => { switchTab('chat'); selectCharacter({ id: r.talk_with }); });
   if (r.phase === 'awaiting_go') {
     button('실행', true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
     button('계획 수정', false, () => { switchTab('chat'); fillComposer('#' + r.ticket + ' 계획 수정: '); });
@@ -780,21 +764,12 @@ async function loadWork() {
   const changed = ids.size !== workCardIds.size || [...ids].some(id => !workCardIds.has(id));
   workCardIds = ids;
   if (changed) loadTickets();
-  // The 3s poll rebuilds the cards; keep each transcript's scroll (or its stick-to-bottom) across the rebuild.
-  const prevScrolls = new Map();
-  workBarEl.querySelectorAll('.work-card').forEach(card => {
-    const box = card.querySelector('.work-transcript');
-    if (box) prevScrolls.set(card.dataset.ticket, { scrollTop: box.scrollTop, atBottom: box.scrollHeight - box.scrollTop - box.clientHeight < 25 });
-  });
   const prevWorkBarScroll = workBarEl.scrollTop;
   workBarEl.textContent = '';
   workBarEl.hidden = !shown.length;
   shown.forEach(r => {
     const card = workBarEl.appendChild(renderWorkCard(r));
     card.dataset.ticket = r.ticket;
-    const box = card.querySelector('.work-transcript');
-    const saved = box && prevScrolls.get(card.dataset.ticket);
-    if (saved) box.scrollTop = saved.atBottom ? box.scrollHeight : saved.scrollTop;
   });
   workBarEl.scrollTop = prevWorkBarScroll;
   const busy = shown.some(r => r.active);

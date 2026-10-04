@@ -162,7 +162,9 @@ def history(did: str, after: int = 0) -> List[Dict]:
 
 
 def append(did: str, who: str, text: str, mentions: Iterable[str] = (), reply_to: Optional[int] = None,
-           kind: str = "say") -> Dict:
+           kind: str = "say", announce: bool = True) -> Dict:
+    """Write one message. `announce=False` (the work talk, WORK_TALK_v1) records it without the `msg.new` update, so
+    no coworker reacts to it on its own; it is read like any other message."""
     if kind not in KINDS:
         raise ValueError("kind: one of %s" % ", ".join(KINDS))
     writers = members(did)
@@ -182,7 +184,8 @@ def append(did: str, who: str, text: str, mentions: Iterable[str] = (), reply_to
         p.parent.mkdir(parents=True, exist_ok=True)
         with open(str(p), "a", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(msg, ensure_ascii=False) + "\n")
-    _announce(did, msg, [m for m in writers if m not in (who, USER)])
+    if announce:
+        _announce(did, msg, [m for m in writers if m not in (who, USER)])
     return msg
 
 

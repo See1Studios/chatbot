@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-10-04 — 작업 만담은 동료 DM으로, 카드는 결재판으로 (WORK_TALK_v1, #623)
+
+- **운영자 결정**: 9/23의 "만담은 카드 안에 접힘"을 바꿈. 위임 중 전문가의 한마디와 PD의 리뷰 한마디가 둘의 DM(`dm:<a>:<b>`)에 쌓인다. 사무실 화면에서는 동료끼리 주고받는 말로 보이고, 두 캐릭터가 기억한다.
+- **카드**: 대사 목록을 뺐다. 단계, 최신 판정(PASS/FAIL과 수정 요청), 버튼, 그리고 `대화 보기`(작업한 캐릭터의 창을 연다).
+- **안전**: 작업 대사는 `msg.new`를 내지 않는다(`dialog_log.append(announce=False)`). 자동 반응을 켜 둬도 대사마다 상대가 턴을 돌려 연쇄되지 않는다. 처음 본 실행이 이미 끝난 것이면 옛 대사를 되살리지 않는다.
+- **위치**: 서버의 위임 감시 루프가 진행 파일을 읽어 옮긴다(`delegation.py::mirror_work_talk`, 커서 `<data>/work_talk.json`). 러너(운영자 전용 파일)는 그대로.
+- **재시작**: `delegation.py`·`dialog_log.py`가 바뀌어 `chatbot-ctl.sh repair`가 필요하고, 화면은 새로고침.
 ## 2026-10-04 — [client/device] 모바일 클라이언트 기기 환경 수집 확장 (배터리·네트워크·복귀감지·정밀도) (#620, 위임 agy)
 
 - **커밋**: `c216f23` fix(client): harden client context formatting against non-finite values and bools, `4e5a789` feat(device): add background return detection and harden accuracy parsing, `3a6582c` feat(device): extend client context with battery, network, visibility, accuracy

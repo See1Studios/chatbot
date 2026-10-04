@@ -31,7 +31,7 @@ function el() {
 var document = { getElementById: id => (els[id] = els[id] || el()), createElement: () => el() };
 var turnStartedAt = 0, isBusy = false, inputEl = {}, workOpen = new Set();
 function obsNode(tag, cls, text) { const n = el(); n.className = cls || ''; if (text != null) n.textContent = String(text); return n; }
-eval(slice('const WORK_PHASE_LABEL', 'function workLine').replace(/\b(const|let) /g, 'var '));
+eval(slice('const WORK_PHASE_LABEL', 'function renderWorkCard').replace(/\b(const|let) /g, 'var '));
 eval(slice('function updateProcBadge', 'function startTurnTimer'));
 eval(slice('function renderWorkCard', 'async function loadWork'));
 const now = Date.now() / 1000;

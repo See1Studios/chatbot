@@ -422,6 +422,10 @@ def queue_loop(stop: Optional[threading.Event] = None) -> None:
             publish_work_changes()                 # evt/B: phase changes into the event mailbox
         except Exception:  # noqa: BLE001
             pass
+        try:
+            mirror_work_talk()                     # WORK_TALK_v1: the run's talk into the two characters' dm
+        except Exception:  # noqa: BLE001
+            pass
 
 
 # ------------------------------------------------------------------- launching
@@ -537,6 +541,13 @@ def _need_paths_view(asked: List[Dict]) -> List[Dict]:
     return out
 
 
+def _last_review(st: Dict) -> Dict:
+    """The PD's latest verdict for the card (WORK_TALK_v1: the talk itself is in the dm)."""
+    rv = next((ln for ln in reversed(st.get("transcript") or []) if isinstance(ln, dict) and ln.get("role") == "reviewer"),
+              None)
+    return {k: rv.get(k) for k in ("verdict", "fix", "advisory")} if rv else {}
+
+
 def runs(limit: int = MAX_RUNS) -> List[Dict]:
     """The work cards: newest first. `stalled` when a run says it is active but its process is gone."""
     d = runner().state_path(0).parent
@@ -576,7 +587,9 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                     "stalled_in": st.get("phase", "") if phase == "stalled" else "",
                     "tasks": [{k: t.get(k) for k in ("role", "title", "paths")}
                               for t in (st.get("plan") or {}).get("tasks", [])],
-                    "transcript": st.get("transcript", []), "active": phase in ACTIVE_PHASES,
+                    "review": _last_review(st), "talk_with": _talk_worker(st, int(st.get("task") or 1),
+                                                                           DATA / "workspace"),
+                    "active": phase in ACTIVE_PHASES,
                     "blocked_by": (st.get("blocked_by") or {}) if phase == "queued" else {},
                     "need_paths": _need_paths_view(st.get("need_paths") or []) if phase == "paused" else [],
                     "seen": seen.get(str(tid)) == st.get("rev")})
@@ -681,6 +694,60 @@ def publish_work_changes() -> int:
         events.publish("work.phase", [v["worker"], default], subject=v["ticket"], **{k: v[k] for k in (
             "title", "phase", "task", "tasks_total", "worker")})
         n += 1
+    return n
+
+
+# ------------------------------------------------------------------ the work talk in the dms (WORK_TALK_v1)
+# The expert's line and the PD's answer (the runner's transcript) go into the two characters' dm: the office shows
+# them as coworkers talking, and both remember them. The card keeps the state, the verdict and the buttons (operator,
+# 2026-10-04). No `msg.new` goes out, or a coworker's reaction would answer every line of a run. A run already over
+# when first seen is not replayed; lines whose two sides are one character are left out.
+
+def _talk_path() -> Path:
+    return DATA / "work_talk.json"
+
+
+def _talk_worker(st: Dict, task_no: int, ws) -> str:
+    """The character who did task `task_no` of a run: its role's holder, as the runner picked it."""
+    import characters
+    tasks = (st.get("plan") or {}).get("tasks") or []
+    role = (tasks[task_no - 1].get("role") if 0 < task_no <= len(tasks) else "") or \
+        (characters.expert_roles(ws) or [""])[0]
+    return (characters.by_role(role, ws) or "") if role else ""
+
+
+def mirror_work_talk() -> int:
+    """Copy each run's new transcript lines into its dm. Returns how many messages were written."""
+    import characters
+    import dialog_log
+    ws = DATA / "workspace"
+    d = runner().state_path(0).parent
+    try:
+        done = json.loads(_talk_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        done = {}
+    pd, n, changed = characters.default_character(ws), 0, False
+    for f in sorted(d.glob("ticket-*.json")) if d.is_dir() and pd else []:
+        try:
+            st = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        key, lines = str(st.get("ticket")), st.get("transcript") or []
+        if key not in done:   # first sight: a finished run is history, an active one is told from its start
+            done[key], changed = (0 if _phase(st) in ACTIVE_PHASES else len(lines)), True
+        for ln in lines[done[key]:]:
+            ln = ln if isinstance(ln, dict) else {}
+            worker = _talk_worker(st, int(ln.get("task") or 1), ws) if ln else ""
+            who, to = (worker, pd) if ln.get("role") == "writer" else (pd, worker)
+            text = str(ln.get("text") or "").strip()
+            if who and to and who != to and text:
+                dialog_log.append(dialog_log.dm_id(who, to), who, text[:1000], announce=False)
+                n += 1
+            done[key], changed = done[key] + 1, True
+    if changed:
+        tmp = _talk_path().with_suffix(".tmp")
+        platform_compat.write_text(tmp, json.dumps(done), encoding="utf-8")
+        tmp.replace(_talk_path())
     return n
 
 
