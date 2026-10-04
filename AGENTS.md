@@ -118,7 +118,8 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Rule | Audience | Enforcer |
 |---|---|---|
 | Work starts from the operator's words or an approved, claimed ticket; claim names the paths | all | `test_tickets` (release refuses dirty paths); `test_unticketed_write` (PE sessions: a visible unticketed write stops the turn, any other change to the tree is held) |
-| A live chat agent and its subagents run the guards or named test modules, never the whole suite | PE chat agent only | `test_live_agent_suite` (`run-tests.sh` refuses when `CHATBOT_LIVE_AGENT` is set) |
+| A live chat agent and its subagents run the guards or named test modules, never the whole suite | PE chat agent only | `test_live_agent_suite` (`run-tests.sh` refuses when `CHATBOT_LIVE_AGENT` is set; unittest/pytest around the script is refused too) |
+| A test run never gets an install's data: outside `run-tests.sh` a unittest/pytest process is pointed at the repo's `data/` | all | `test_live_agent_suite` (`host_config.test_run_outside_runner`, `tickets.py::_data_dir`) |
 | A handoff chain from one request is at most two hops; a director has one open handoff at a time | PE chat agent only | `test_dialog_handoff` |
 | A character whose every role says `repo: none` (the lead) does not read or change engine code | PE chat agent only | `test_role_guard` (engine path tools refuse; its own provider tool steps stop the turn; commands are caught by the tree watch) |
 | A delegated worker cannot change its own pass condition (guard tests, `run-tests.sh`) | all | `test_worktree_runner` |

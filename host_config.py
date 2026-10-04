@@ -5,6 +5,7 @@ Imported by server.py and providers/. Side effect: ensures data dirs exist.
 from __future__ import annotations
 
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -28,6 +29,24 @@ ROOT = Path(_env("CHATBOT_ROOT", "AGY_CHAT_ROOT", str(Path(__file__).resolve().p
 # name. tickets.py (a core module, which may not import this one) repeats the same order; the test keeps the two
 # identical.
 DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")
+
+
+def test_run_outside_runner() -> bool:
+    """LIVE_DATA_GUARD_v1: a unittest or pytest process that run-tests.sh did not start (CHATBOT_TEST_RUNNER). Such a
+    run inherits an install's data (a chat agent's CHATBOT_DATA=~/.pe); live 2026-10-05 a subagent ran
+    `python3 -m unittest discover tests` against it. tickets.py repeats this check (it may not import this module)."""
+    a0 = (sys.argv[0] if sys.argv else "") or ""
+    return os.environ.get("CHATBOT_TEST_RUNNER") != "1" and (
+        "-m unittest" in a0 or os.path.basename(a0).startswith(("pytest", "py.test")))
+
+
+if test_run_outside_runner():
+    if os.environ.get("CHATBOT_LIVE_AGENT"):   # LIVE_AGENT_SUITE_v1: the one way for a chat agent is the script
+        raise SystemExit("tests: a live chat agent runs tests only as ./run-tests.sh test_x (named modules), "
+                         "never unittest/pytest directly")
+    for _k in DATA_ENV:
+        os.environ.pop(_k, None)
+    os.environ["CHATBOT_DATA"] = str(Path(__file__).resolve().parent / "data")   # never an install's data
 
 def _pinned_chatbot_data(root: Path) -> str:
     """Dev pin file (data-pin.env) used only when no DATA_ENV variable is set. Literal CHATBOT_DATA only;

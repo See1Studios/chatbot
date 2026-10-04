@@ -35,5 +35,40 @@ class LiveAgentSuite(unittest.TestCase):
         self.assertIn('env["CHATBOT_LIVE_AGENT"] = "1"', src)
 
 
+    def test_a_chat_agent_cannot_run_unittest_around_the_script(self):
+        # live 2026-10-05: a subagent ran `python3 -m unittest discover tests`, held handoff #7 open, against ~/.pe
+        env = dict(os.environ, CHATBOT_LIVE_AGENT="1", CHATBOT_DATA="/nonexistent/live")
+        env.pop("CHATBOT_TEST_RUNNER", None)
+        r = subprocess.run(["python3", "-m", "unittest", "tests.test_data_paths"], cwd=str(ROOT), env=env,
+                           capture_output=True, text=True, timeout=120)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("only as ./run-tests.sh", r.stderr + r.stdout)
+
+    def test_a_test_run_outside_the_script_never_gets_an_installs_data(self):
+        import sys
+        sys.path.insert(0, str(ROOT))
+        import host_config
+        import tickets
+        saved_argv, saved_env = sys.argv, dict(os.environ)
+        try:
+            sys.argv = ["python3 -m unittest", "tests.test_x"]
+            os.environ.pop("CHATBOT_TEST_RUNNER", None)
+            os.environ["CHATBOT_DATA"] = "/somewhere/live/.pe"
+            self.assertTrue(host_config.test_run_outside_runner())
+            self.assertEqual(tickets._data_dir(), ROOT / "data")
+            os.environ["CHATBOT_TEST_RUNNER"] = "1"                              # the script's own run
+            self.assertFalse(host_config.test_run_outside_runner())
+            self.assertEqual(str(tickets._data_dir()), "/somewhere/live/.pe")
+            sys.argv = ["server.py"]                                             # the host itself: untouched
+            os.environ.pop("CHATBOT_TEST_RUNNER", None)
+            self.assertFalse(host_config.test_run_outside_runner())
+        finally:
+            sys.argv = saved_argv
+            os.environ.clear()
+            os.environ.update(saved_env)
+
+    def test_the_script_marks_its_own_runs(self):
+        self.assertIn("export CHATBOT_TEST_RUNNER=1", (ROOT / "run-tests.sh").read_text(encoding="utf-8"))
+
 if __name__ == "__main__":
     unittest.main()

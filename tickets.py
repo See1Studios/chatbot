@@ -1039,7 +1039,13 @@ def _pinned_chatbot_data(root: Path) -> str:
     return ""
 
 def _data_dir() -> Path:
-    """Same order as host_config.DATA_ENV (a core module may not import host_config; test_data_paths keeps them equal)."""
+    """Same order as host_config.DATA_ENV (a core module may not import host_config; test_data_paths keeps them equal).
+    LIVE_DATA_GUARD_v1, as host_config.test_run_outside_runner: a test process run-tests.sh did not start never
+    gets an install's data."""
+    a0 = (sys.argv[0] if sys.argv else "") or ""
+    if os.environ.get("CHATBOT_TEST_RUNNER") != "1" and (
+            "-m unittest" in a0 or os.path.basename(a0).startswith(("pytest", "py.test"))):
+        return _code_root() / "data"
     for k in ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA"):
         if os.environ.get(k):
             return Path(os.environ[k])
