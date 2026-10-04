@@ -159,11 +159,51 @@ class TestClientDeviceContext(Base):
         self.assertIn('.geo-trigger-btn', chat_css)
 
     def test_ui_assets_contain_sensor_apis(self):
+        device_js = (CODE / "static" / "app-device.js").read_text(encoding="utf-8")
+        self.assertIn('visibilitychange', device_js)
+        self.assertIn('focus', device_js)
+        self.assertIn('Number.isFinite', device_js)
+
         from tests.page_source import app_source
         app_js = app_source()
         self.assertIn('getBattery', app_js)
         self.assertIn('navigator.connection', app_js)
         self.assertIn('visibilityState', app_js)
+        self.assertIn('visibilitychange', app_js)
+        self.assertIn('Number.isFinite', app_js)
+
+    def test_format_resumed_seconds(self):
+        ctx = {"resumed": 30}
+        result = S.format_client_context(ctx)
+        self.assertIn("복귀(30s 만에)", result)
+
+    def test_format_resumed_true(self):
+        ctx = {"resumed": True}
+        result = S.format_client_context(ctx)
+        self.assertIn("복귀", result)
+        self.assertNotIn("s 만에", result)
+
+    def test_format_resumed_absent(self):
+        ctx = {"is_mobile": True}
+        result = S.format_client_context(ctx)
+        self.assertNotIn("복귀", result)
+
+    def test_format_resumed_bad_type(self):
+        ctx = {"resumed": "not a number"}
+        result = S.format_client_context(ctx)
+        self.assertNotIn("복귀", result)
+        self.assertTrue(result == "" or result.startswith("["))
+
+    def test_format_visibility_unexpected_type(self):
+        ctx = {"visibility": 42}
+        result = S.format_client_context(ctx)
+        self.assertNotIn("백그라운드", result)
+        # should not crash, just skip
+        self.assertTrue(result == "" or result.startswith("["))
+
+        ctx2 = {"visibility": None}
+        result2 = S.format_client_context(ctx2)
+        self.assertNotIn("백그라운드", result2)
 
 
 if __name__ == "__main__":

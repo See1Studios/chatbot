@@ -74,9 +74,7 @@ from media_handler import (
     _stage_image,
 )
 
-# A message sent while an agy turn is running is accepted at once and applied at the next
-# tool-step boundary (steer). agy itself cannot take a message mid-turn: measured 2026-09-20,
-# a second stdin line only QUEUES and runs after the current turn ends (agy.md A41).
+# A message sent while a turn is running is applied at the next tool boundary (steer).
 # Session event kinds copied into logs/events.jsonl (OBSLOG_v1, see _obs_forward).
 _OBS_FORWARD = {"error", "stopped", "interrupted", "session_rotate", "session_heavy", "steer_queued", "system"}
 
@@ -137,8 +135,7 @@ def format_client_context(ctx: Optional[Dict[str, Any]]) -> str:
     if not isinstance(ctx, dict) or not ctx:
         return ""
     parts = []
-    lat = ctx.get("lat")
-    lon = ctx.get("lon")
+    lat, lon = ctx.get("lat"), ctx.get("lon")
     if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
         acc = ctx.get("accuracy")
         loc = f"위치 {lat:.4f}, {lon:.4f}"
@@ -148,41 +145,34 @@ def format_client_context(ctx: Optional[Dict[str, Any]]) -> str:
     tz = ctx.get("timezone")
     if isinstance(tz, str) and tz.strip():
         parts.append(tz.strip()[:40])
-    is_mobile = ctx.get("is_mobile")
-    if is_mobile is True:
+    if ctx.get("is_mobile") is True:
         parts.append("모바일")
-    elif is_mobile is False:
+    elif ctx.get("is_mobile") is False:
         parts.append("데스크톱")
     dev = ctx.get("device")
     if isinstance(dev, str) and dev.strip() and dev.strip() not in ("모바일", "데스크톱"):
         parts.append(dev.strip()[:30])
-    # Battery
     batt = ctx.get("battery")
     if isinstance(batt, (int, float)):
-        charging = ctx.get("charging")
-        b = f"배터리{int(batt)}%"  # l10n-ok
-        if charging is True:
-            b += "충전중"  # l10n-ok
-        parts.append(b)
-    # Network
+        parts.append(f"배터리{int(batt)}%" + ("충전중" if ctx.get("charging") is True else ""))  # l10n-ok
     net = ctx.get("net_type")
     if isinstance(net, str) and net.strip():
         parts.append(f"네트워크:{net.strip()[:20]}")  # l10n-ok
-    else:
-        online = ctx.get("online")
-        if online is True:
-            parts.append("온라인")  # l10n-ok
-        elif online is False:
-            parts.append("오프라인")  # l10n-ok
-    # Visibility / focus
+    elif ctx.get("online") is True:
+        parts.append("온라인")  # l10n-ok
+    elif ctx.get("online") is False:
+        parts.append("오프라인")  # l10n-ok
+    resumed = ctx.get("resumed")
+    if resumed is True:
+        parts.append("복귀")  # l10n-ok
+    elif isinstance(resumed, (int, float)) and not isinstance(resumed, bool) and 0 < resumed < 100_000_000:
+        parts.append(f"복귀({int(resumed)}s 만에)")  # l10n-ok
     vis = ctx.get("visibility")
     if isinstance(vis, str) and vis.strip() and vis.strip() != "visible":
         parts.append("백그라운드")  # l10n-ok
     elif ctx.get("focused") is False:
         parts.append("비활성탭")  # l10n-ok
-    if not parts:
-        return ""
-    return "[클라이언트 환경: " + ", ".join(parts) + "]"
+    return "[클라이언트 환경: " + ", ".join(parts) + "]" if parts else ""
 
 
 class AgentSession(SessionTurn, SessionView, TurnWatchdog):

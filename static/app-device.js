@@ -7,6 +7,30 @@ let geoEnabled = localStorage.getItem(GEO_ENABLED_KEY) === 'true';
 let cachedCoords = null;
 let coordPromise = null;
 
+// ---- Background return detection ----
+let _lastHiddenAt = 0;
+let _returnedFromBackground = false;
+let _returnedAfterSec = 0;
+try {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      _lastHiddenAt = Date.now();
+      _returnedFromBackground = false;
+    } else if (document.visibilityState === 'visible' && _lastHiddenAt) {
+      _returnedAfterSec = Math.round((Date.now() - _lastHiddenAt) / 1000);
+      _returnedFromBackground = true;
+      _lastHiddenAt = 0;
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (_lastHiddenAt && !_returnedFromBackground) {
+      _returnedAfterSec = Math.round((Date.now() - _lastHiddenAt) / 1000);
+      _returnedFromBackground = true;
+      _lastHiddenAt = 0;
+    }
+  });
+} catch(e) {}
+
 function updateGeoButtonState() {
   if (!geoBtn) return;
   geoBtn.classList.toggle('active', geoEnabled);
@@ -25,8 +49,8 @@ function fetchCoordinates() {
         cachedCoords = {
           lat: Number(pos.coords.latitude.toFixed(4)),
           lon: Number(pos.coords.longitude.toFixed(4)),
-          accuracy: Math.round(pos.coords.accuracy),
         };
+        if (Number.isFinite(pos.coords.accuracy)) cachedCoords.accuracy = Math.round(pos.coords.accuracy);
         coordPromise = null;
         resolve(cachedCoords);
       },
@@ -64,7 +88,7 @@ async function getClientContext() {
   if (cachedCoords) {
     ctx.lat = cachedCoords.lat;
     ctx.lon = cachedCoords.lon;
-    if (cachedCoords.accuracy != null) ctx.accuracy = cachedCoords.accuracy;
+    if (Number.isFinite(cachedCoords.accuracy)) ctx.accuracy = cachedCoords.accuracy;
   }
   // Battery (navigator.getBattery is async; skip if unsupported)
   try {
@@ -83,7 +107,15 @@ async function getClientContext() {
       ctx.online = navigator.onLine;
     }
   } catch(e) {}
-  // Visibility / focus
+  // Background return detection
+  try {
+    if (_returnedFromBackground) {
+      ctx.resumed = _returnedAfterSec > 0 ? _returnedAfterSec : true;
+      _returnedFromBackground = false;
+      _returnedAfterSec = 0;
+    }
+  } catch(e) {}
+  // Visibility / focus (fallback when no return event fired)
   try {
     if (document.visibilityState && document.visibilityState !== 'visible') {
       ctx.visibility = document.visibilityState;
