@@ -220,8 +220,11 @@ class AgyAdapter(AgentAdapter):
         57,662 = 42,941 + the one call of a "ping" turn; and 2.1M input on the first turn of a fresh process resuming a
         long conversation), so the turn's share is the total minus the one recorded with the conversation's previous
         turn (`running_total` in its usage, kept in the history so a restart does not lose it). A turn that ran to the print timeout is marked
-        (`_turn_timed_out`): its text is whatever was said before the wait, not an answer."""
-        session._turn_timed_out = float(res_obj.get("duration_seconds") or 0) >= 0.9 * AGY_PRINT_TIMEOUT_SEC
+        (`_turn_timed_out`): its text is whatever was said before the wait, not an answer. Timed by the engine's
+        clock: agy's own duration_seconds is the conversation's running total as well (54.4 s, then 147.6 s for a
+        turn that took a moment), which failed handoff #8 after #7 had run long."""
+        started = float(getattr(session, "turn_started_at", 0) or 0)
+        session._turn_timed_out = bool(started) and time.time() - started >= 0.9 * AGY_PRINT_TIMEOUT_SEC
         raw = res_obj.get("usage") if isinstance(res_obj.get("usage"), dict) else None
         if raw is not None:
             conv = str(getattr(session, "conversation_id", "") or "")
@@ -321,7 +324,7 @@ class AgyAdapter(AgentAdapter):
             final = out_ev.get("text") or ""
             duration_seconds = out_ev.get("duration_seconds")
             status = str(res_obj.get("status") or "")
-            dur = float(res_obj.get("duration_seconds") or duration_seconds or 0)
+            dur = float(duration_seconds or 0)   # the engine's own timing; agy's is the conversation's running total
             # TURN_END_ORDER_v1: append the terminal event FIRST, then ask
             # session to stop the child AFTER _handle_events flushes it.
             # Never call _end_unfinished_turn here — it _emit/_auto_stop

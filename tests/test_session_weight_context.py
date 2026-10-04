@@ -51,8 +51,12 @@ class ContextMetric(unittest.TestCase):
         self.assertEqual(third["input_tokens"], 2338)
         sess.conversation_id = "c2"                                             # a new conversation starts at zero
         self.assertEqual(AgyAdapter._turn_usage(sess, {"usage": {"input_tokens": 9000}})["input_tokens"], 9000)
-        self.assertFalse(sess._turn_timed_out)
-        AgyAdapter._turn_usage(sess, {"usage": {"input_tokens": 9100}, "duration_seconds": 488.8})
+        import time
+        sess.turn_started_at = time.time() - 46
+        AgyAdapter._turn_usage(sess, {"usage": {"input_tokens": 9100}, "duration_seconds": 535.0})
+        self.assertFalse(sess._turn_timed_out)          # agy's 535 s is the running total; this turn took 46 s (#8)
+        sess.turn_started_at = time.time() - 489
+        AgyAdapter._turn_usage(sess, {"usage": {"input_tokens": 9200}})
         self.assertTrue(sess._turn_timed_out)                                   # ran to the 8-minute print timeout
 
 if __name__ == "__main__":
