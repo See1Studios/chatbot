@@ -158,6 +158,8 @@ class UnfinishedTurns(Base):
     def test_the_print_timeout_empty_result_is_surfaced_and_the_child_is_stopped(self):
         s = self.make()
         s._auto_stop_worker = lambda: self.stops.append("worker")
+        import time
+        s.turn_started_at = time.time() - AGY_PRINT_TIMEOUT_SEC - 1         # the engine's clock decides (#647)
         self.result(s, duration_seconds=AGY_PRINT_TIMEOUT_SEC + 1)      # what 00:48:30 looked like
         errors = [e for e in self.events if e.get("event") == "error"]
         self.assertEqual(len(errors), 1)
@@ -170,7 +172,7 @@ class UnfinishedTurns(Base):
 
     def test_a_normal_short_empty_success_is_left_alone(self):
         s = self.make()
-        self.result(s, duration_seconds=3)
+        self.result(s, duration_seconds=600)       # agy's running total of a long conversation: not this turn's time
         self.assertEqual([e for e in self.events if e.get("event") == "error"], [])
         self.assertEqual(self.stops, [])
 
