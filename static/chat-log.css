@@ -413,10 +413,11 @@ html:not(.stage-ready) .stage::before{opacity:0 !important}
 /* LINE_REVEAL_v1 -- lines arrive one by one fading in while streaming */
 .msg.assistant .md .rv-line{
   display:inline-block;
+  vertical-align:text-bottom;
   will-change:opacity,transform;
-  animation:line-in 280ms cubic-bezier(0.2,0.8,0.2,1) both;
+  animation:line-in 280ms cubic-bezier(0.16,1,0.3,1) both;
 }
-@keyframes line-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes line-in{0%{opacity:0;transform:translateY(4px)}60%{opacity:1}100%{opacity:1;transform:none}}
 
 /* The whole-block settle, for the one moment a block is not arriving word by word: the final render
    of the block that was being written. Translation and a gentle opacity dip only -- the block is

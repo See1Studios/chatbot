@@ -100,11 +100,15 @@ function el(tag) {
       return old;
     },
     all(sel) {
-      const cls = sel.replace(/^\./, '');
+      const isClass = sel.startsWith('.');
+      const target = isClass ? sel.slice(1) : sel.toLowerCase();
       const out = [];
       (function walk(n) {
         for (const c of n.children) {
-          if ((c.className || '').split(' ').includes(cls)) out.push(c);
+          const match = isClass
+            ? (c.className || '').split(' ').includes(target)
+            : String(c.tagName || c.tag || '').toLowerCase() === target;
+          if (match) out.push(c);
           walk(c);
         }
       })(e);
@@ -130,21 +134,9 @@ function el(tag) {
     get() { return html === null ? e.textContent : html; },
     set(v) {
       html = v; e._text = '';
-      if (!v) { e.childNodes = []; return; }
-      const parts = String(v).split(/<br\s*\/?>/gi);
       e.childNodes = [];
-      parts.forEach((p, idx) => {
-        if (idx > 0) {
-          const br = el('br');
-          br.parentNode = e;
-          e.childNodes.push(br);
-        }
-        if (p) {
-          const t = makeNode(3, visibleText(p));
-          t.parentNode = e;
-          e.childNodes.push(t);
-        }
-      });
+      if (!v) return;
+      parseHtmlInto(e, String(v));
     },
   });
   return e;
@@ -156,6 +148,41 @@ function visibleText(h) {
     .replace(/<[^>]*>/g, '')
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+}
+
+function parseHtmlInto(parent, str) {
+  const tagRegex = /<(\/?[a-zA-Z0-9-]+)([^>]*)>|([^<]+)/g;
+  let m;
+  const stack = [parent];
+  while ((m = tagRegex.exec(str)) !== null) {
+    if (m[3]) {
+      const txt = visibleText(m[3]);
+      if (txt) {
+        const tn = makeNode(3, txt);
+        tn.parentNode = stack[stack.length - 1];
+        stack[stack.length - 1].childNodes.push(tn);
+      }
+    } else if (m[1]) {
+      const tag = m[1].toLowerCase();
+      if (tag === 'br') {
+        const br = el('br');
+        br.parentNode = stack[stack.length - 1];
+        stack[stack.length - 1].childNodes.push(br);
+      } else if (tag.startsWith('/')) {
+        if (stack.length > 1) stack.pop();
+      } else {
+        const node = el(tag);
+        const attrs = m[2] || '';
+        const clsMatch = attrs.match(/class=["']([^"']+)["']/i);
+        if (clsMatch) node.className = clsMatch[1];
+        node.parentNode = stack[stack.length - 1];
+        stack[stack.length - 1].childNodes.push(node);
+        if (!/^(img|input|hr|meta|link)$/i.test(tag)) {
+          stack.push(node);
+        }
+      }
+    }
+  }
 }
 
 const document = {
@@ -195,8 +222,11 @@ function markArrive(el, kind) {
 function buildBlock(block, isFinal) {
   const box = document.createElement('div');
   box.className = 'md-block';
-  box.setAttribute('data-kind', block.kind);
-  box.appendChild(document.createTextNode(block.text));
+  box.setAttribute('data-kind', block.kind || 'narration');
+  const holder = document.createElement(block.kind === 'dialogue' ? 'span' : 'div');
+  holder.className = 'md-' + (block.kind || 'narration');
+  holder.innerHTML = block.text;
+  box.appendChild(holder);
   return box;
 }
 function parseExpression(text) { return { expression: '', text: text || '' }; }
@@ -319,6 +349,48 @@ const CASES = {
       finalSettled,
     };
   },
+  line_reveal_nested_containers: () => {
+    setStreamStyle('line');
+    const n = newBubble();
+    const md = el('div');
+    md.className = 'md';
+    n.appendChild(md);
+    const block = el('div');
+    block.className = 'md-block';
+    block.setAttribute('data-kind', 'narration');
+    block.innerHTML = '<div class="md-narration"><span>첫 번째 중첩 줄</span><br><span>두 번째 중첩 줄</span></div>';
+    md.appendChild(block);
+    const rv = {
+      src: '', gs: [], shown: 0, times: [], carry: 0, last: 0, born: clock, running: false, finish: null,
+      style: 'line', lines: ['첫 번째 중첩 줄', '두 번째 중첩 줄'], linesShown: 2, lineTimes: [], lastLineText: ''
+    };
+    n._rv = rv;
+    revealLines(n, rv, clock);
+    const rvLines = n.querySelectorAll('.rv-line');
+    const lineCount = rvLines.length;
+    const lineTexts = rvLines.map(l => l.textContent);
+    play(500);
+    revealLines(n, rv, clock);
+    const settledCount = (n.querySelectorAll('.rv-line') || []).length;
+    const finalContent = text(n);
+    setStreamStyle('char');
+    return { lineCount, lineTexts, settledCount, finalContent };
+  },
+  line_reveal_multiblock_markdown: () => {
+    setStreamStyle('line');
+    const n = newBubble();
+    const full = '완료 블록 첫 줄\n완료 블록 둘째 줄\n새로운 진행 줄';
+    revealTarget(n, full);
+    play(20);
+    const rvLines = n.querySelectorAll('.rv-line');
+    const activeCount = rvLines.length;
+    const activeTexts = rvLines.map(l => l.textContent);
+    play(3000);
+    const finalSettled = (n.querySelectorAll('.rv-line') || []).length;
+    const allText = text(n);
+    setStreamStyle('char');
+    return { activeCount, activeTexts, finalSettled, allText };
+  },
 };
 
 console.log(JSON.stringify(CASES[process.argv[2]]()));
@@ -384,8 +456,10 @@ class TestStreamStyle(unittest.TestCase):
         compact = re.sub(r"\s+", "", css)
         self.assertIn("will-change:opacity,transform", compact,
                       "rv-line must configure will-change for smooth hardware-accelerated fade-in")
-        self.assertIn("@keyframesline-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}",
-                      compact, "line-in keyframes must define smooth opacity fade-in and subtle translateY motion")
+        self.assertIn("@keyframesline-in{0%{opacity:0;transform:translateY(4px)}60%{opacity:1}100%{opacity:1;transform:none}}",
+                      compact, "line-in keyframes must define smooth opacity fade-in with intermediate 60% settle and subtle translateY motion")
+        self.assertIn("cubic-bezier(0.16,1,0.3,1)", compact,
+                      "line-in must use fluid ease-out cubic-bezier timing")
 
     def test_line_reveal_new_line_node_classes(self):
         out = run_node("line_reveal_fade_in_classes")
@@ -396,6 +470,22 @@ class TestStreamStyle(unittest.TestCase):
         self.assertTrue(out["secondLineAttached"], "second incoming line must attach .rv-line span while first is settled")
         self.assertEqual(out["secondLineText"], "새로운 두 번째 줄", "second line span must contain new second line text")
         self.assertEqual(out["finalSettled"], 0, "all completed line reveals must settle and unwrap .rv-line spans")
+
+    def test_line_reveal_nested_containers_traversal(self):
+        out = run_node("line_reveal_nested_containers")
+        self.assertEqual(out["lineCount"], 2, "revealLines must traverse nested containers and attach .rv-line to each line")
+        self.assertEqual(out["lineTexts"], ["첫 번째 중첩 줄", "두 번째 중첩 줄"], "each rv-line span must wrap correct line text")
+        self.assertEqual(out["settledCount"], 0, "completed line reveals must settle and unwrap .rv-line spans")
+        self.assertIn("첫 번째 중첩 줄", out["finalContent"])
+        self.assertIn("두 번째 중첩 줄", out["finalContent"])
+
+    def test_line_reveal_multiblock_markdown_containers(self):
+        out = run_node("line_reveal_multiblock_markdown")
+        self.assertGreater(out["activeCount"], 0, "line reveal must attach .rv-line spans in nested markdown structures")
+        self.assertEqual(out["finalSettled"], 0, "all line reveals must settle cleanly")
+        self.assertIn("완료 블록 첫 줄", out["allText"])
+        self.assertIn("완료 블록 둘째 줄", out["allText"])
+        self.assertIn("새로운 진행 줄", out["allText"])
 
 
 if __name__ == "__main__":
