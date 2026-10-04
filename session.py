@@ -140,7 +140,11 @@ def format_client_context(ctx: Optional[Dict[str, Any]]) -> str:
     lat = ctx.get("lat")
     lon = ctx.get("lon")
     if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-        parts.append(f"위치 {lat:.4f}, {lon:.4f}")
+        acc = ctx.get("accuracy")
+        loc = f"위치 {lat:.4f}, {lon:.4f}"
+        if isinstance(acc, (int, float)) and acc > 0:
+            loc += f" ±{int(acc)}m"
+        parts.append(loc)
     tz = ctx.get("timezone")
     if isinstance(tz, str) and tz.strip():
         parts.append(tz.strip()[:40])
@@ -152,6 +156,30 @@ def format_client_context(ctx: Optional[Dict[str, Any]]) -> str:
     dev = ctx.get("device")
     if isinstance(dev, str) and dev.strip() and dev.strip() not in ("모바일", "데스크톱"):
         parts.append(dev.strip()[:30])
+    # Battery
+    batt = ctx.get("battery")
+    if isinstance(batt, (int, float)):
+        charging = ctx.get("charging")
+        b = f"배터리{int(batt)}%"  # l10n-ok
+        if charging is True:
+            b += "충전중"  # l10n-ok
+        parts.append(b)
+    # Network
+    net = ctx.get("net_type")
+    if isinstance(net, str) and net.strip():
+        parts.append(f"네트워크:{net.strip()[:20]}")  # l10n-ok
+    else:
+        online = ctx.get("online")
+        if online is True:
+            parts.append("온라인")  # l10n-ok
+        elif online is False:
+            parts.append("오프라인")  # l10n-ok
+    # Visibility / focus
+    vis = ctx.get("visibility")
+    if isinstance(vis, str) and vis.strip() and vis.strip() != "visible":
+        parts.append("백그라운드")  # l10n-ok
+    elif ctx.get("focused") is False:
+        parts.append("비활성탭")  # l10n-ok
     if not parts:
         return ""
     return "[클라이언트 환경: " + ", ".join(parts) + "]"

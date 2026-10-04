@@ -55,6 +55,86 @@ class TestClientDeviceContext(Base):
             "[클라이언트 환경: America/New_York, 데스크톱]"
         )
 
+    def test_format_battery(self):
+        ctx = {"battery": 45, "charging": True}
+        result = S.format_client_context(ctx)
+        self.assertIn("배터리45%충전중", result)
+
+        ctx2 = {"battery": 80, "charging": False}
+        result2 = S.format_client_context(ctx2)
+        self.assertIn("배터리80%", result2)
+        self.assertNotIn("충전중", result2)
+
+        # Battery without charging key
+        ctx3 = {"battery": 20}
+        result3 = S.format_client_context(ctx3)
+        self.assertIn("배터리20%", result3)
+        self.assertNotIn("충전중", result3)
+
+    def test_format_network_type(self):
+        ctx = {"net_type": "wifi"}
+        result = S.format_client_context(ctx)
+        self.assertIn("네트워크:wifi", result)
+
+        ctx2 = {"net_type": "cellular"}
+        result2 = S.format_client_context(ctx2)
+        self.assertIn("네트워크:cellular", result2)
+
+    def test_format_online_fallback(self):
+        # When net_type is absent, fall back to online boolean
+        ctx = {"online": True}
+        result = S.format_client_context(ctx)
+        self.assertIn("온라인", result)
+
+        ctx2 = {"online": False}
+        result2 = S.format_client_context(ctx2)
+        self.assertIn("오프라인", result2)
+
+    def test_format_accuracy(self):
+        ctx = {"lat": 37.5665, "lon": 126.9780, "accuracy": 25}
+        result = S.format_client_context(ctx)
+        self.assertIn("±25m", result)
+
+        # Zero accuracy is omitted
+        ctx2 = {"lat": 37.5665, "lon": 126.9780, "accuracy": 0}
+        result2 = S.format_client_context(ctx2)
+        self.assertNotIn("±", result2)
+
+        # No accuracy key — no crash, no ±
+        ctx3 = {"lat": 37.5665, "lon": 126.9780}
+        result3 = S.format_client_context(ctx3)
+        self.assertNotIn("±", result3)
+
+    def test_format_visibility(self):
+        ctx = {"visibility": "hidden"}
+        result = S.format_client_context(ctx)
+        self.assertIn("백그라운드", result)
+
+        ctx2 = {"focused": False}
+        result2 = S.format_client_context(ctx2)
+        self.assertIn("비활성탭", result2)
+
+        # visible + focused — neither tag appears
+        ctx3 = {"visibility": "visible", "focused": True, "is_mobile": True}
+        result3 = S.format_client_context(ctx3)
+        self.assertNotIn("백그라운드", result3)
+        self.assertNotIn("비활성탭", result3)
+
+    def test_format_combined_sensors(self):
+        ctx = {
+            "lat": 37.5665, "lon": 126.9780, "accuracy": 50,
+            "timezone": "Asia/Seoul", "is_mobile": True,
+            "battery": 72, "charging": False,
+            "net_type": "wifi",
+            "focused": False,
+        }
+        result = S.format_client_context(ctx)
+        self.assertEqual(
+            result,
+            "[클라이언트 환경: 위치 37.5665, 126.9780 ±50m, Asia/Seoul, "
+            "모바일, 배터리72%, 네트워크:wifi, 비활성탭]"
+        )
+
     def test_send_injects_client_context(self):
         s = self.make()
         s.adapter = get_adapter("grok")
@@ -77,6 +157,13 @@ class TestClientDeviceContext(Base):
         from tests.page_source import css_source
         chat_css = css_source()
         self.assertIn('.geo-trigger-btn', chat_css)
+
+    def test_ui_assets_contain_sensor_apis(self):
+        from tests.page_source import app_source
+        app_js = app_source()
+        self.assertIn('getBattery', app_js)
+        self.assertIn('navigator.connection', app_js)
+        self.assertIn('visibilityState', app_js)
 
 
 if __name__ == "__main__":

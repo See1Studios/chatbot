@@ -25,6 +25,7 @@ function fetchCoordinates() {
         cachedCoords = {
           lat: Number(pos.coords.latitude.toFixed(4)),
           lon: Number(pos.coords.longitude.toFixed(4)),
+          accuracy: Math.round(pos.coords.accuracy),
         };
         coordPromise = null;
         resolve(cachedCoords);
@@ -63,6 +64,31 @@ async function getClientContext() {
   if (cachedCoords) {
     ctx.lat = cachedCoords.lat;
     ctx.lon = cachedCoords.lon;
+    if (cachedCoords.accuracy != null) ctx.accuracy = cachedCoords.accuracy;
   }
+  // Battery (navigator.getBattery is async; skip if unsupported)
+  try {
+    if (navigator.getBattery) {
+      const batt = await navigator.getBattery();
+      ctx.battery = Math.round(batt.level * 100);
+      ctx.charging = batt.charging;
+    }
+  } catch(e) {}
+  // Network info
+  try {
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn && conn.type) {
+      ctx.net_type = conn.type;
+    } else {
+      ctx.online = navigator.onLine;
+    }
+  } catch(e) {}
+  // Visibility / focus
+  try {
+    if (document.visibilityState && document.visibilityState !== 'visible') {
+      ctx.visibility = document.visibilityState;
+    }
+    if (!document.hasFocus()) ctx.focused = false;
+  } catch(e) {}
   return ctx;
 }
