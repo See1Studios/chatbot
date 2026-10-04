@@ -128,7 +128,24 @@ function el(tag) {
   let html = null;
   Object.defineProperty(e, 'innerHTML', {
     get() { return html === null ? e.textContent : html; },
-    set(v) { html = v; e._text = ''; const t = makeNode(3, visibleText(v)); t.parentNode = e; e.childNodes = [t]; },
+    set(v) {
+      html = v; e._text = '';
+      if (!v) { e.childNodes = []; return; }
+      const parts = String(v).split(/<br\s*\/?>/gi);
+      e.childNodes = [];
+      parts.forEach((p, idx) => {
+        if (idx > 0) {
+          const br = el('br');
+          br.parentNode = e;
+          e.childNodes.push(br);
+        }
+        if (p) {
+          const t = makeNode(3, visibleText(p));
+          t.parentNode = e;
+          e.childNodes.push(t);
+        }
+      });
+    },
   });
   return e;
 }
@@ -273,6 +290,35 @@ const CASES = {
     setStreamStyle('char');
     return out;
   },
+  line_reveal_fade_in_classes: () => {
+    setStreamStyle('line');
+    const n = newBubble();
+    revealTarget(n, '새로운 첫 번째 줄');
+    play(16);
+    const firstLines = n.querySelectorAll('.rv-line');
+    const firstLineAttached = firstLines.length > 0;
+    const firstLineText = firstLineAttached ? firstLines[0].textContent : '';
+    const hasDelay = firstLineAttached && typeof firstLines[0].style.animationDelay === 'string';
+    play(500);
+    const midSettled = (n.querySelectorAll('.rv-line') || []).length;
+    revealTarget(n, '새로운 첫 번째 줄\n새로운 두 번째 줄');
+    play(200);
+    const secondLines = n.querySelectorAll('.rv-line');
+    const secondLineAttached = secondLines.length > 0;
+    const secondLineText = secondLineAttached ? secondLines[0].textContent : '';
+    play(500);
+    const finalSettled = (n.querySelectorAll('.rv-line') || []).length;
+    setStreamStyle('char');
+    return {
+      firstLineAttached,
+      firstLineText,
+      hasDelay,
+      midSettled,
+      secondLineAttached,
+      secondLineText,
+      finalSettled,
+    };
+  },
 };
 
 console.log(JSON.stringify(CASES[process.argv[2]]()));
@@ -342,9 +388,14 @@ class TestStreamStyle(unittest.TestCase):
                       compact, "line-in keyframes must define smooth opacity fade-in and subtle translateY motion")
 
     def test_line_reveal_new_line_node_classes(self):
-        out = run_node("line_reveal_streaming")
-        self.assertGreater(out["firstLines"], 0, "line mode must attach .rv-line class to newly added line nodes")
-        self.assertEqual(out["settledLines"], 0, "completed lines must have .rv-line unwrapped and settled")
+        out = run_node("line_reveal_fade_in_classes")
+        self.assertTrue(out["firstLineAttached"], "line mode must attach .rv-line class to newly added line node")
+        self.assertEqual(out["firstLineText"], "새로운 첫 번째 줄", "first line span must contain new line text")
+        self.assertTrue(out["hasDelay"], "rv-line element must configure animationDelay for smooth entrance")
+        self.assertEqual(out["midSettled"], 0, "first line .rv-line span must unwrap after line reveal duration")
+        self.assertTrue(out["secondLineAttached"], "second incoming line must attach .rv-line span while first is settled")
+        self.assertEqual(out["secondLineText"], "새로운 두 번째 줄", "second line span must contain new second line text")
+        self.assertEqual(out["finalSettled"], 0, "all completed line reveals must settle and unwrap .rv-line spans")
 
 
 if __name__ == "__main__":

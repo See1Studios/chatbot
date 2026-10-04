@@ -102,7 +102,22 @@ function streamBody(node) {
   return md;
 }
 
-// REVEAL_BLOCKS_v1 (2026-09-28): blocks are rendered as they close so per-frame work stays on the active block.
+// REVEAL_BLOCKS_v1 (2026-09-28): the answer is the finished thing while it is still arriving.
+//
+// Three complaints, one cause. A stream printed plain text and turned into markdown at the end, so
+// the end was a swap. The entrance was applied to whatever one paint delivered, which measured at
+// a median of ONE character, so there was nothing to see. And the text had no life in it while it
+// was being written.
+//
+// A markdown block has an extent, and once that extent has arrived the block can never change. So
+// a block is rendered the moment it closes -- the real render, marked and sanitised, the same call
+// the final render makes -- and the per-frame work drops to the one block still being written. That
+// is the whole trick: the cost is per block, not per frame. Re-parsing the entire document on every
+// frame measured 0.4ms at 164 characters and 1.8ms at 2440, which was affordable but was solving a
+// problem the block boundary removes outright.
+//
+// The motion is not here: it belongs to the letters (CHAR_REVEAL_v1, below), which arrive one by
+// one on their own clock. This function only draws a prefix of the answer as blocks.
 function revealReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -225,7 +240,20 @@ function endStreamingContent(node) {
   if (md) md.classList.remove('md-stream');
 }
 
-// CHAR_REVEAL_v1 / LINE_REVEAL_v1: text arrives on a clock easing bursts out; chat-log.css matches durations.
+// CHAR_REVEAL_v1 (2026-09-28): letters arrive one by one, fading and growing in, while the answer
+// streams. Three things had kept it from working, and each has its own piece here.
+//
+// 1. The text arrives in bursts the network chooses. A clock (revealTick) lets it out at an even pace
+//    instead: never slower than REVEAL_MIN_CPS, and in proportion to the backlog, so a long burst
+//    speeds up and eases out rather than falling behind.
+// 2. The block being written is re-rendered every frame, which would restart any animation on it.
+//    So every letter remembers when it was born (rv.times, by its position in the rendered text),
+//    and a letter's span is given animation-delay = -age: re-created, it carries on where it was.
+// 3. A block that closes, and the final render, used to move again. Neither does now: a closed block
+//    keeps the letters' clock, and the final render waits until the last letter has settled.
+//
+// Letters are counted in the rendered text, not the markdown source, so ** and the like cost nothing.
+// Reduced motion skips the clock and the spans entirely.
 var REVEAL_MS = 320;            // one letter's entrance; chat-log.css .rv-l uses the same
 var REVEAL_MIN_CPS = 28;        // letters per second while the model is still speaking
 var REVEAL_CATCHUP_MS = 450;    // pace = backlog / this: a burst eases out, shrinking ~2/3 per 450ms
@@ -341,36 +369,54 @@ function revealTick(node, rv) {
   rv.running = false;
   if (rv.dead) { if (rv.finish && !rv.completed) revealComplete(node, rv); return; }
   if (!node.isConnected && node.isConnected !== undefined) { revealComplete(node, rv); return; }
-  const now = revealNow(), dt = rv.last ? Math.min(100, now - rv.last) : 16;
+  const now = revealNow();
+  const dt = rv.last ? Math.min(100, now - rv.last) : 16;
   rv.last = now;
-  const isLine = (rv.style === 'line');
-  const units = isLine ? (rv.lines || []) : rv.gs;
-  let shown = isLine ? (rv.linesShown || 0) : rv.shown;
-  const minRate = isLine ? REVEAL_MIN_LPS : REVEAL_MIN_CPS;
-  const finishMs = isLine ? REVEAL_LINE_FINISH_MS : REVEAL_FINISH_MS;
-  const catchupMs = isLine ? REVEAL_LINE_CATCHUP_MS : REVEAL_CATCHUP_MS;
-  const durMs = isLine ? REVEAL_LINE_MS : REVEAL_MS;
-  const lastT = isLine && units.length ? units[units.length - 1] : '';
-  const grew = isLine && (shown >= units.length && rv.lastLineText !== lastT);
-  const backlog = units.length - shown;
-  if (backlog > 0 || grew) {
-    const rate = Math.max(minRate, backlog * 1000 / (rv.finish ? finishMs : catchupMs));
-    rv.carry += rate * dt / 1000;
+  if (rv.style === 'line') {
+    const lines = rv.lines || [];
+    const lastT = lines.length ? lines[lines.length - 1] : '';
+    const grew = (rv.linesShown >= lines.length && rv.lastLineText !== lastT);
+    const backlog = lines.length - rv.linesShown;
+    if (backlog > 0 || grew) {
+      const lps = Math.max(REVEAL_MIN_LPS, backlog * 1000 / (rv.finish ? REVEAL_LINE_FINISH_MS : REVEAL_LINE_CATCHUP_MS));
+      rv.carry += lps * dt / 1000;
+      let step = Math.floor(rv.carry);
+      if (step < 1 && !rv.linesShown) step = 1;
+      if (step > 0 || grew) {
+        if (step > 0) rv.carry -= step;
+        rv.linesShown = Math.min(lines.length, rv.linesShown + Math.max(0, step));
+        rv.lastLineText = lastT;
+        setStreamingContent(node, lines.slice(0, rv.linesShown).join('\n'), rv.raw);
+        revealLines(node, rv, now);
+        revealHoldWidth(node, rv);
+      }
+    }
+    if (rv.linesShown < lines.length) { revealRun(node, rv); return; }
+    if (now - rv.born < REVEAL_LINE_MS) { revealRun(node, rv); return; }
+    revealLines(node, rv, now);
+    if (rv.finish) revealComplete(node, rv);
+    else rv.last = 0;
+    return;
+  }
+  const backlog = rv.gs.length - rv.shown;
+  if (backlog > 0) {
+    const cps = Math.max(REVEAL_MIN_CPS, backlog * 1000 / (rv.finish ? REVEAL_FINISH_MS : REVEAL_CATCHUP_MS));
+    rv.carry += cps * dt / 1000;
     let step = Math.floor(rv.carry);
-    if (step < 1 && !shown) step = 1;
-    if (step > 0 || grew) {
-      if (step > 0) rv.carry -= step;
-      shown = Math.min(units.length, shown + Math.max(0, step));
-      if (isLine) { rv.linesShown = shown; rv.lastLineText = lastT; } else rv.shown = shown;
-      const content = isLine ? units.slice(0, shown).join('\n') : units.slice(0, shown).join('');
-      setStreamingContent(node, content, rv.raw);
-      if (isLine) revealLines(node, rv, now); else revealLetters(node, rv, now);
+    if (step < 1 && !rv.shown) step = 1;               // the first letter never waits
+    if (step > 0) {
+      rv.carry -= step;
+      rv.shown = Math.min(rv.gs.length, rv.shown + step);
+      setStreamingContent(node, rv.gs.slice(0, rv.shown).join(''), rv.raw);
+      revealLetters(node, rv, now);
       revealHoldWidth(node, rv);
     }
   }
-  if (shown < units.length || (now - rv.born < durMs)) { revealRun(node, rv); return; }
-  if (isLine) revealLines(node, rv, now); else revealLetters(node, rv, now);
-  if (rv.finish) revealComplete(node, rv); else rv.last = 0;
+  if (rv.shown < rv.gs.length) { revealRun(node, rv); return; }
+  if (now - rv.born < REVEAL_MS) { revealRun(node, rv); return; }   // let the last letters settle
+  revealLetters(node, rv, now);                         // and turn them back into plain text
+  if (rv.finish) revealComplete(node, rv);
+  else rv.last = 0;                                     // idle until the next delta wakes it
 }
 
 function revealLines(node, rv, now) {
@@ -378,10 +424,7 @@ function revealLines(node, rv, now) {
   if (!md) return;
   const old = md.querySelectorAll('.rv-line');
   for (let i = 0; i < old.length; i++) {
-    while (old[i].firstChild || (old[i].childNodes && old[i].childNodes[0])) {
-      const c = old[i].firstChild || old[i].childNodes[0];
-      old[i].parentNode.insertBefore(c, old[i]);
-    }
+    while (old[i].firstChild) old[i].parentNode.insertBefore(old[i].firstChild, old[i]);
     old[i].remove();
   }
   if (now === -Infinity) return;
