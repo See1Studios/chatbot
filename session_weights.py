@@ -60,7 +60,9 @@ def _turn_billed(u: dict) -> int:
 
 
 def _current_context_tokens(history: List[dict]) -> int:
-    """Occupancy of the last request: that turn's `input_tokens` (prompt size).
+    """Occupancy of the last request: the last model call's prompt when the adapter recorded it (`context_tokens`,
+    CONTEXT_METRIC_v1 -- agy's turn usage sums every call of the turn: a 60k context with eight tool steps read as
+    480k), else that turn's `input_tokens` (prompt size).
 
     Not a sum across turns, and not `total_tokens` (that includes output).
     Not `input - cache_read` — cache_read is not a subset of this turn's input
@@ -69,6 +71,8 @@ def _current_context_tokens(history: List[dict]) -> int:
         u = h.get("usage")
         if not isinstance(u, dict):
             continue
+        if int(u.get("context_tokens") or 0):
+            return int(u["context_tokens"])
         inp = int(u.get("input_tokens") or 0)
         if inp:
             return inp

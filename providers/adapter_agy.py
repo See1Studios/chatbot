@@ -202,6 +202,26 @@ class AgyAdapter(AgentAdapter):
             events.append(ev)
         return events
 
+    @staticmethod
+    def _note_call(session: "AgentSession", obj: dict) -> None:
+        """The conversation id, and CONTEXT_METRIC_v1: one model call's prompt (new + cached). The result's usage
+        sums every call of the turn, which read as a 240-500k "context" for a 50-90k one and rotated sessions for
+        nothing (10/04)."""
+        session._maybe_capture_conversation_id(obj)
+        step = obj.get("step_update")
+        if isinstance(step, dict) and isinstance(step.get("usage"), dict):
+            u = step["usage"]
+            session._call_context = int(u.get("input_tokens") or 0) + int(u.get("cache_read_tokens") or 0)
+
+    @staticmethod
+    def _turn_usage(session: "AgentSession", res_obj: dict) -> Optional[dict]:
+        """The result's usage, with the last call's prompt as `context_tokens` (CONTEXT_METRIC_v1)."""
+        raw = res_obj.get("usage") if isinstance(res_obj.get("usage"), dict) else None
+        if raw is not None and getattr(session, "_call_context", 0):
+            raw = {**raw, "context_tokens": session._call_context}
+        session._call_context = 0
+        return raw
+
     def normalize_line(self, session: "AgentSession", raw_line: str) -> List[dict]:
         """Moved verbatim out of `AgentSession._handle_stdout_line` (Multi-Provider
         plan Phase 0) -- same parsing, same session-mutation order, same
@@ -216,7 +236,7 @@ class AgyAdapter(AgentAdapter):
         if not isinstance(obj, dict):
             return []
 
-        session._maybe_capture_conversation_id(obj)
+        self._note_call(session, obj)
         session._observe_agent_step(obj)
 
         events: List[dict] = []
@@ -272,7 +292,7 @@ class AgyAdapter(AgentAdapter):
 
         if ev == "result":
             res_obj = obj.get("result") if isinstance(obj.get("result"), dict) else {}
-            raw_usage = res_obj.get("usage") if isinstance(res_obj.get("usage"), dict) else None
+            raw_usage = self._turn_usage(session, res_obj)
             res_err = str(res_obj.get("error") or obj.get("error") or "")
             # the operator pressed stop: the CLI's "interrupted" is the stop itself, not a failure to report
             is_err = bool(res_err) and not session._stop_requested
