@@ -409,6 +409,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 self.save_meta()
             args = self.adapter.build_args(self.model, self.effort, self.conversation_id, ADD_DIRS, prompt=prompt)
             env = self.adapter.build_env(HOME)
+            env["CHATBOT_LIVE_AGENT"] = "1"
             self.proc = subprocess.Popen(
                 args,
                 cwd=str(WORKSPACE),

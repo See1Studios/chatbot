@@ -144,8 +144,10 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
         if sess is not None and (getattr(sess, "busy", False) or getattr(sess, "_loop_stopping", False)):
             continue   # still working, or between a notice's stop and its resume
         answer = _last_answer(sess, float(h.get("started", 0))) if sess is not None else ""
-        state = "done" if answer else "failed"
         why = str(getattr(sess, "_loop_hint", "") or "")[:300]   # a stopped turn leaves its reason for the next one
+        if answer and getattr(sess, "_turn_timed_out", False):   # what it said before the wait, not a result
+            answer, why = "", "it ran out of time waiting (for a subagent or a long command); what it said: " + answer[:200]
+        state = "done" if answer else "failed"
         _report(reg, h, state, answer or "(the turn ended without an answer%s)" % (": " + why if why else ""))
         mark(h["id"], state, result=answer[:RESULT_MAX])
         changed.append({"id": h["id"], "state": state})

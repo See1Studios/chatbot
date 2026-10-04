@@ -36,5 +36,19 @@ class ContextMetric(unittest.TestCase):
         src = (ROOT / "providers" / "adapter_agy.py").read_text(encoding="utf-8")
         self.assertIn('"context_tokens": session._call_context', src)            # carried into the turn usage
 
+    def test_agy_turn_usage_is_the_turns_share_of_the_process_total(self):
+        # TURN_USAGE_v1, measured 2026-10-05: one process reported 42,941 then 57,662 for a one-call "ping" turn
+        sess = SimpleNamespace(_call_context=0, proc=SimpleNamespace(pid=11))
+        first = AgyAdapter._turn_usage(sess, {"usage": {"input_tokens": 42941, "output_tokens": 307}})
+        self.assertEqual(first["input_tokens"], 42941)
+        second = AgyAdapter._turn_usage(sess, {"usage": {"input_tokens": 57662, "output_tokens": 308}})
+        self.assertEqual((second["input_tokens"], second["output_tokens"]), (14721, 1))
+        sess.proc = SimpleNamespace(pid=12)                                     # a new process starts its own total
+        self.assertEqual(AgyAdapter._turn_usage(sess, {"usage": {"input_tokens": 9000}})["input_tokens"], 9000)
+        self.assertFalse(sess._turn_timed_out)
+        AgyAdapter._turn_usage(sess, {"usage": {"input_tokens": 9100}, "duration_seconds": 488.8})
+        self.assertTrue(sess._turn_timed_out)                                   # ran to the 8-minute print timeout
+
+
 if __name__ == "__main__":
     unittest.main()

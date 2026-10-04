@@ -156,6 +156,16 @@ class Handoff(unittest.TestCase):
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "failed"}])
         self.assertIn("went over its budget", D.history(D.dm_id(self.dev, self.lead))[-1]["text"])
 
+    def test_a_turn_that_ran_out_of_time_is_not_done(self):
+        # handoff #5 (2026-10-05): "I gave it to a subagent, I will report" and then the 8-minute timeout
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        H.run_once(self.office, now=1000.0)
+        dev = self.office.desks[self.dev]
+        dev.history.append({"role": "assistant", "text": "handed to a subagent, will report", "ts": 1489.0})
+        dev.busy, dev._turn_timed_out = False, True
+        self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "failed"}])
+        self.assertIn("ran out of time", D.history(D.dm_id(self.dev, self.lead))[-1]["text"])
+
     def test_a_handoff_turn_is_not_cut_to_the_notice_budget(self):
         src = (ROOT / "session_turn.py").read_text(encoding="utf-8")
         self.assertIn('if notice and event_type != "handoff":', src)

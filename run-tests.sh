@@ -16,6 +16,14 @@ cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" || exit 2
 # data/, whatever the caller exported (a chat agent inherits CHATBOT_DATA=~/.pe from ctl).
 unset PE_HOME PRIVATEENGINE_HOME AGY_CHAT_DATA
 export CHATBOT_DATA="$PWD/data"
+# LIVE_AGENT_SUITE_v1: a live chat agent and its subagents (CHATBOT_LIVE_AGENT, set by session._spawn) run the guards
+# or named modules, never the whole suite: it takes minutes, agy backgrounds it and waits, and the turn above it runs
+# out of time (2026-10-05, handoff #5). The delegation runner's gates and the operator run the whole suite.
+if [ -n "${CHATBOT_LIVE_AGENT:-}" ] && { [ $# -eq 0 ] || [ "${1:-}" = "--one-process" ]; }; then
+  echo "run-tests.sh: a chat agent does not run the whole suite (minutes; the delegate gates run it)." >&2
+  echo "Name the modules: ./run-tests.sh test_x test_y   (or --fast for the guards)" >&2
+  exit 2
+fi
 
 # Guard tests: cheap, no network, no live service. They keep structure rules (docs, layout,
 # neutrality, sizes) from rotting. Add a new guard test here in the same change that creates it.
