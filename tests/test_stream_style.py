@@ -1,0 +1,334 @@
+"""Tests for streaming text style settings and line reveal mode (ticket #627).
+
+Validates:
+- Stream style toggle ('char' | 'line') and persistence in localStorage
+- Settings panel UI integration in shellSettingsRows
+- Line reveal streaming animation, pacing, and finish behaviour
+- CSS classes and keyframes for line reveal in chat-log.css
+"""
+import json
+import re
+import shutil
+import subprocess
+import unittest
+from pathlib import Path
+from tests.page_source import app_bundle
+
+CODE = Path(__file__).resolve().parent.parent
+APP = app_bundle()
+MARKDOWN = CODE / "static" / "markdown.js"
+
+HARNESS = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[1], 'utf8');
+
+// LocalStorage mock
+const store = {};
+const localStorage = {
+  getItem: (k) => (store[k] !== undefined ? store[k] : null),
+  setItem: (k, v) => { store[k] = String(v); },
+  removeItem: (k) => { delete store[k]; },
+  clear: () => { for (const k in store) delete store[k]; }
+};
+global.localStorage = localStorage;
+
+// Block markers for app-sse.js
+const a = src.indexOf('var streamPaintQueued');
+const b = src.indexOf('\nfunction bindEvents(sid)');
+if (a < 0 || b < 0) throw new Error('STREAM_FLOW block markers missing');
+const code = src.slice(a, b);
+
+// Block classifier from app-blocks.js
+const ba = src.indexOf('const BLOCK_NARRATION');
+const bb = src.indexOf('// ==== file:', ba);
+if (ba < 0 || bb < 0) throw new Error('BLOCK_KINDS markers missing');
+eval(src.slice(ba, bb));
+
+// Extract SHELL_TEXT and shellSettingsRows from app-shell.js
+const sa = src.indexOf('const SHELL_TEXT =');
+const sb = src.indexOf('function shellRowButton', sa);
+if (sa >= 0 && sb >= 0) {
+  eval(src.slice(sa, sb));
+}
+
+function makeNode(type, value, tag) {
+  const n = { nodeType: type, nodeValue: value == null ? null : value, tag: tag || null,
+              childNodes: [], className: '', parentNode: null,
+              style: { setProperty(k, v) { this[k] = v; } } };
+  Object.defineProperty(n, 'children', { get() { return n.childNodes.filter(c => c.nodeType === 1); } });
+  Object.defineProperty(n, 'nextSibling', { get() {
+    const p = n.parentNode; if (!p) return null;
+    const i = p.childNodes.indexOf(n); return i < 0 ? null : (p.childNodes[i + 1] || null);
+  } });
+  n.classList = { add() {}, remove() {}, contains() { return false; } };
+  return n;
+}
+
+function el(tag) {
+  const e = makeNode(1, null, tag);
+  Object.assign(e, {
+    tag, className: '', attrs: {}, dataset: {}, handlers: {},
+    classList: {
+      _set() { return new Set((e.className || '').split(' ').filter(Boolean)); },
+      _put(s) { e.className = [...s].join(' '); },
+      add(...c) { const s = this._set(); c.forEach(x => s.add(x)); this._put(s); },
+      remove(...c) { const s = this._set(); c.forEach(x => s.delete(x)); this._put(s); },
+      contains(c) { return this._set().has(c); },
+    },
+    setAttribute(k, v) { this.attrs[k] = v; },
+    getAttribute(k) { return this.attrs[k]; },
+    addEventListener(t, f) { e.handlers[t] = f; },
+    appendChild(c) { return this.insertBefore(c, null); },
+    insertBefore(c, ref) {
+      if (c.parentNode) {
+        const pc = c.parentNode.childNodes;
+        const ci = pc.indexOf(c);
+        if (ci >= 0) pc.splice(ci, 1);
+      }
+      const i = ref ? e.childNodes.indexOf(ref) : -1;
+      e.childNodes.splice(i < 0 ? e.childNodes.length : i, 0, c);
+      c.parentNode = e;
+      return c;
+    },
+    replaceChild(frag, old) {
+      const i = e.childNodes.indexOf(old);
+      if (i < 0) return old;
+      e.childNodes.splice.apply(e.childNodes, [i, 1].concat(frag.parts || [frag]));
+      (frag.parts || [frag]).forEach(x => { x.parentNode = e; });
+      old.parentNode = null;
+      return old;
+    },
+    all(sel) {
+      const cls = sel.replace(/^\./, '');
+      const out = [];
+      (function walk(n) {
+        for (const c of n.children) {
+          if ((c.className || '').split(' ').includes(cls)) out.push(c);
+          walk(c);
+        }
+      })(e);
+      return out;
+    },
+    querySelector(sel) { return e.all(sel)[0] || null; },
+    querySelectorAll(sel) { return e.all(sel); },
+  });
+  e.remove = function () {
+    if (e.parentNode) {
+      const pc = e.parentNode.childNodes;
+      const i = pc.indexOf(e);
+      if (i >= 0) pc.splice(i, 1);
+    }
+    e.parentNode = null;
+  };
+  Object.defineProperty(e, 'textContent', {
+    get() { return (e._text || '') + e.childNodes.map(c => c.nodeType === 3 ? c.nodeValue : c.textContent || '').join(''); },
+    set(v) { e._text = ''; e.childNodes = []; if (v !== '' && v != null) { const t = makeNode(3, String(v)); t.parentNode = e; e.childNodes.push(t); } },
+  });
+  let html = null;
+  Object.defineProperty(e, 'innerHTML', {
+    get() { return html === null ? e.textContent : html; },
+    set(v) { html = v; e._text = ''; const t = makeNode(3, visibleText(v)); t.parentNode = e; e.childNodes = [t]; },
+  });
+  return e;
+}
+
+function visibleText(h) {
+  return String(h == null ? '' : h)
+    .replace(/<br\s*\/?>/g, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+}
+
+const document = {
+  createElement: el,
+  createTextNode: (v) => makeNode(3, v),
+  createDocumentFragment: () => ({ parts: [], appendChild(n) { this.parts.push(n); return n; } }),
+};
+let frames = [];
+const window = {
+  requestAnimationFrame(cb) { frames.push(cb); return frames.length; },
+  cancelAnimationFrame() {},
+  matchMedia: (q) => ({ matches: /reduce/.test(q) ? REDUCE_MOTION : false }),
+};
+let REDUCE_MOTION = false;
+let timers = [];
+let clock = 0;
+global.setTimeout = (fn, ms) => { timers.push({ at: clock + (ms || 0), fn }); return timers.length; };
+global.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].fn = null; };
+
+const advance = (ms) => {
+  const until = clock + ms;
+  let fired = 0;
+  for (;;) {
+    const due = timers.filter(t => t.fn && t.at <= until).sort((x, y) => x.at - y.at)[0];
+    if (!due) break;
+    const run = due.fn; due.fn = null;
+    run(); fired++; clock = due.at;
+  }
+  clock = until;
+  return fired;
+};
+
+function scrollChatToBottom() {}
+function markArrive(el, kind) {
+  el.setAttribute('data-kind', kind || 'narration');
+}
+function buildBlock(block, isFinal) {
+  const box = document.createElement('div');
+  box.className = 'md-block';
+  box.setAttribute('data-kind', block.kind);
+  box.appendChild(document.createTextNode(block.text));
+  return box;
+}
+function parseExpression(text) { return { expression: '', text: text || '' }; }
+function parseThought(text, streaming) { return { thought: '', cleanText: text || '' }; }
+function splitChoices(src) { return { text: src, choices: [] }; }
+function paintExpressionBadge() {}
+function prepareStreamText(src) { return src || ''; }
+
+// Load renderPlainText from markdown.js
+const md = fs.readFileSync(process.argv[3], 'utf8');
+const ra = md.indexOf('function renderPlainText');
+if (ra < 0) throw new Error('renderPlainText missing from markdown.js');
+const rb = md.indexOf('\n}', md.indexOf('return t;', ra)) + 2;
+function absArtifact(p) { return p; }
+eval(md.slice(ra, rb));
+
+eval(code);
+revealNow = () => clock;
+
+const flush = () => { const q = frames; frames = []; q.forEach(f => f()); return q.length; };
+const play = (ms) => { const until = clock + ms; while (clock < until) { clock += 16; flush(); } };
+const newBubble = () => { const n = el('div'); n.className = 'msg assistant'; n.dataset.live = '1'; return n; };
+const body = (n) => n.querySelector('.md');
+const text = (n) => {
+  const b = body(n);
+  if (!b) return '';
+  const parts = [];
+  if (b._text) parts.push(b._text);
+  b.children.forEach(c => parts.push(c.textContent));
+  return parts.join('');
+};
+
+const CASES = {
+  default_and_toggle_style: () => {
+    localStorage.clear();
+    const initial = getStreamStyle();
+    setStreamStyle('line');
+    const afterLine = getStreamStyle();
+    const inStore = localStorage.getItem('pe.streamStyle');
+    setStreamStyle('char');
+    const afterChar = getStreamStyle();
+    return { initial, afterLine, inStore, afterChar };
+  },
+  shell_settings_options: () => {
+    const rowsChar = shellSettingsRows({ streamStyle: 'char' });
+    const rowChar = rowsChar.find(r => r.k === 'streamStyle') || null;
+    const rowsLine = shellSettingsRows({ streamStyle: 'line' });
+    const rowLine = rowsLine.find(r => r.k === 'streamStyle') || null;
+    return {
+      charLabel: rowChar ? rowChar.label : null,
+      charDetail: rowChar ? rowChar.detail : null,
+      lineDetail: rowLine ? rowLine.detail : null,
+    };
+  },
+  line_reveal_streaming: () => {
+    setStreamStyle('line');
+    const n = newBubble();
+    const full = '첫 번째 줄입니다\n두 번째 줄입니다\n세 번째 줄입니다';
+    revealTarget(n, full);
+    play(16);
+    const firstContent = text(n);
+    const firstLength = firstContent.length;
+    const firstLines = (n.querySelectorAll('.rv-line') || []).length;
+    play(3000);
+    const endText = text(n);
+    const settledLines = (n.querySelectorAll('.rv-line') || []).length;
+    setStreamStyle('char');
+    return { firstContent, firstLength, firstLines, endText, settledLines, expectedFirst: '첫 번째 줄입니다'.length };
+  },
+  line_reveal_finish: () => {
+    setStreamStyle('line');
+    const n = newBubble();
+    const full = '하나\n둘\n셋';
+    revealTarget(n, '하나\n');
+    let done = 0;
+    revealFinish(n, full, () => { done++; });
+    const immediate = done;
+    play(3000);
+    setStreamStyle('char');
+    return { immediate, done, shown: text(n) };
+  },
+  line_reveal_reduced_motion: () => {
+    setStreamStyle('line');
+    REDUCE_MOTION = true;
+    const n = newBubble();
+    revealTarget(n, '한 번에 모두 출력\n두 번째 줄');
+    const out = { text: text(n), lines: (n.querySelectorAll('.rv-line') || []).length };
+    REDUCE_MOTION = false;
+    setStreamStyle('char');
+    return out;
+  },
+};
+
+console.log(JSON.stringify(CASES[process.argv[2]]()));
+"""
+
+
+def run_node(case):
+    node = shutil.which("node")
+    if not node:
+        raise unittest.SkipTest("node not installed")
+    proc = subprocess.run([node, "-e", HARNESS, str(APP), case, str(MARKDOWN)],
+                          capture_output=True, text=True, timeout=20)
+    if proc.returncode != 0:
+        raise AssertionError("node failed for %s: %s" % (case, proc.stderr.strip()[:600]))
+    return json.loads(proc.stdout.strip().splitlines()[-1])
+
+
+class TestStreamStyle(unittest.TestCase):
+    def test_stream_style_default_and_toggle(self):
+        out = run_node("default_and_toggle_style")
+        self.assertEqual(out["initial"], "char", "default style must be char")
+        self.assertEqual(out["afterLine"], "line", "style must toggle to line")
+        self.assertEqual(out["inStore"], "line", "style must persist in localStorage")
+        self.assertEqual(out["afterChar"], "char", "style must toggle back to char")
+
+    def test_shell_settings_shows_stream_style_option(self):
+        out = run_node("shell_settings_options")
+        self.assertIsNotNone(out["charLabel"], "streamStyle option must exist in settings rows")
+        self.assertEqual(out["charDetail"], "글자 단위", "char mode detail label")
+        self.assertEqual(out["lineDetail"], "줄 단위", "line mode detail label")
+
+    def test_line_reveal_streaming(self):
+        out = run_node("line_reveal_streaming")
+        self.assertEqual(out["firstLength"], out["expectedFirst"],
+                         "first frame in line mode must reveal the whole first line, not just 1 character")
+        self.assertGreater(out["firstLines"], 0, "line reveal must create .rv-line elements")
+        self.assertEqual(out["settledLines"], 0, "completed line reveals must settle and unwrap spans")
+        self.assertIn("첫 번째 줄입니다", out["endText"])
+        self.assertIn("세 번째 줄입니다", out["endText"])
+
+    def test_line_reveal_finish_callbacks(self):
+        out = run_node("line_reveal_finish")
+        self.assertEqual(out["immediate"], 0, "revealFinish should not complete immediately")
+        self.assertEqual(out["done"], 1, "revealFinish must invoke done callback after completion")
+        self.assertIn("하나", out["shown"])
+        self.assertIn("셋", out["shown"])
+
+    def test_line_reveal_reduced_motion(self):
+        out = run_node("line_reveal_reduced_motion")
+        self.assertIn("한 번에 모두 출력", out["text"])
+        self.assertEqual(out["lines"], 0, "reduced motion must not animate or create .rv-line elements")
+
+    def test_chat_log_css_contains_line_reveal_rules(self):
+        css = (CODE / "static" / "chat-log.css").read_text(encoding="utf-8")
+        self.assertIn(".rv-line", css, "chat-log.css must define .rv-line")
+        self.assertIn("@keyframes line-in", css, "chat-log.css must define line-in keyframes")
+        compact = re.sub(r"\s+", "", css)
+        self.assertIn(".rv-line{animation:none}", compact, "rv-line animation must be disabled under reduced-motion")
+
+
+if __name__ == "__main__":
+    unittest.main()

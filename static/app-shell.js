@@ -14,6 +14,7 @@ const SHELL_TEXT = {   // l10n-ok
   dev: '개발자 모드',   // l10n-ok
   files: '주고받은 파일', history: '대화 기록', art: '그림', model: '모델', log: '활동 로그',   // l10n-ok
   accounts: '계정 · 상태', team: '역할 · 공통 설정', manage: '카드 · 역할 · 두뇌 구성', improve: '개선', revive: '엔진 리부트',   // l10n-ok
+  streamStyle: '스트리밍 연출', streamChar: '글자 단위', streamLine: '줄 단위',   // l10n-ok
 };
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
@@ -369,10 +370,14 @@ function shellModelOptions(choices, current) {
   return (choices || []).map(m => ({ value: m.value, label: m.label || m.value, current: m.value === current }));
 }
 function shellSettingsRows(ctx) {
-  const rows = [{ k: 'details', label: SHELL_TEXT.details, on: Boolean(ctx.advanced) }, { k: 'theme', label: SHELL_TEXT.theme },
+  const hasStream = Boolean((ctx && ctx.streamStyle) || typeof getStreamStyle === 'function');
+  const st = (ctx && typeof ctx.streamStyle === 'string') ? ctx.streamStyle : (typeof getStreamStyle === 'function' ? getStreamStyle() : 'char');
+  const rows = [{ k: 'details', label: SHELL_TEXT.details, on: Boolean(ctx.advanced) }];
+  if (hasStream) rows.push({ k: 'streamStyle', label: SHELL_TEXT.streamStyle, detail: st === 'line' ? SHELL_TEXT.streamLine : SHELL_TEXT.streamChar });
+  rows.push({ k: 'theme', label: SHELL_TEXT.theme },
     { k: 'status', label: SHELL_TEXT.accounts }, { k: 'team', label: SHELL_TEXT.team },
     { k: 'dev', label: SHELL_TEXT.dev, on: Boolean(ctx.dev) },
-    { k: 'activity', label: SHELL_TEXT.log, dev: true }, { k: 'evolution', label: SHELL_TEXT.improve, dev: true }];
+    { k: 'activity', label: SHELL_TEXT.log, dev: true }, { k: 'evolution', label: SHELL_TEXT.improve, dev: true });
   if (ctx.revive) rows.push({ k: 'revive', label: SHELL_TEXT.revive });   // the dev install's host repair
   return rows;
 }
@@ -575,6 +580,11 @@ function shellSettingsOpen() {
       if (row.k === 'team') return shellGoTeam('', 'settings');
       if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'settings');
       if (row.k === 'details') { setDensity(!document.body.classList.contains('density-advanced')); shellSettingsOpen(); }
+      else if (row.k === 'streamStyle') {
+        const cur = typeof getStreamStyle === 'function' ? getStreamStyle() : 'char';
+        if (typeof setStreamStyle === 'function') setStreamStyle(cur === 'line' ? 'char' : 'line');
+        shellSettingsOpen();
+      }
       else if (row.k === 'dev') {
         shellSetDev(!shellDevOn());
         // turned off while one of its panes is shown: back to the talk

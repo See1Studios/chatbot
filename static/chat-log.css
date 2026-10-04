@@ -410,6 +410,13 @@ html:not(.stage-ready) .stage::before{opacity:0 !important}
 }
 @keyframes letter-in{from{opacity:0;transform:scale(.55) translateY(.12em)}to{opacity:1;transform:none}}
 
+/* LINE_REVEAL_v1 -- lines arrive one by one fading in while streaming */
+.msg.assistant .md .rv-line{
+  display:inline-block;
+  animation:line-in 240ms cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes line-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
 /* The whole-block settle, for the one moment a block is not arriving word by word: the final render
    of the block that was being written. Translation and a gentle opacity dip only -- the block is
    already on screen and readable, so a fade from nothing would be taking it away to hand it back,
@@ -446,6 +453,7 @@ html:not(.stage-ready) .stage::before{opacity:0 !important}
 
 @media (prefers-reduced-motion:reduce){
   .msg.assistant .md .rv-l{animation:none}
+  .msg.assistant .md .rv-line{animation:none}
   .msg.assistant .md-block.arrive{animation:none}
   .msg.assistant .md-block.open::after{animation:none}
 }
