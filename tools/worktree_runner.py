@@ -63,8 +63,10 @@ from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: devlog_entry, review_checklist, worker_output
 import run_usage  # noqa: E402  -- each CLI call's tokens (token-economy T6)
 from worker_output import LEARNED_RULE, LINE_RULE, REPORT_LIMIT, learned, report, said  # noqa: E402,F401
+from brain_limits import brain_label, mark, unavailable, usable  # noqa: E402
 from review_checklist import (  # noqa: E402
-    DIFF_LIMIT, deleted_lines, doc_review_prompt, fit_diff, is_doc_task, parse_review, review_prompt, with_code_checklist,
+    DIFF_LIMIT, DISPLAY_NOTE, deleted_lines, doc_review_prompt, fit_diff, is_display_task, is_doc_task, once_note,
+    parse_review, review_prompt, with_code_checklist,
 )
 
 CODE_DIR = Path(__file__).resolve().parents[1]      # where the host modules this tool imports live
@@ -623,8 +625,15 @@ def run_review(provider: str, model: str, wt_dir: Path, prompt: str, timeout: in
 # included. A brain that is out of quota, rate-limited, missing or silent past its timeout hands the turn to
 # the next one (docs/plans/multi-agent-worktree-delegation.md §11). The operator sets the lists; the PD cannot.
 
-UNAVAILABLE_RE = re.compile(r"quota|rate.?limit|usage limit|session limit|limit reached|resets? (at|in)|\b429\b|"
-                            r"exhausted|capacity|overloaded|too many requests|timed out|not installed", re.I)
+LIMITS = "brain_limits.json"   # BRAIN_LIMITS_v1 (tools/brain_limits.py): resting brains
+
+
+def fresh(chain: List[Dict], strict: bool = True) -> List[Dict]:
+    """The brains not resting; when all are, fail at once (strict) instead of spending a try, else keep `chain`."""
+    ok, resting = usable(WORKTREE_BASE / LIMITS, chain)
+    if ok or not strict:
+        return ok or chain
+    raise Failure("unavailable", "every brain is resting: %s" % ", ".join(resting))
 
 
 def review_with_chain(chain: List[Dict], wt_dir: Path, prompt, renew) -> tuple:
@@ -639,6 +648,7 @@ def review_with_chain(chain: List[Dict], wt_dir: Path, prompt, renew) -> tuple:
         except Failure as f:
             if not unavailable(f.reason + "\n" + f.detail, 0):
                 raise
+            mark(WORKTREE_BASE / LIMITS, b, f.reason + "\n" + f.detail)
             if i + 1 == len(chain):
                 raise Failure("unavailable", "no PD brain could confirm the work (%s); it is kept for the next run"
                               % f.reason, f.detail, keep=True)
@@ -686,15 +696,6 @@ def expert_chain(role: str, default: List[Dict]) -> List[Dict]:
     chain = [{"provider": b["provider"], "model": str(b.get("model") or ""), "timeout": int(b.get("timeout") or 0)}
              for b in raw if isinstance(b, dict) and b.get("provider") in PROVIDERS]
     return chain or default
-
-
-def brain_label(b: Dict) -> str:
-    return "%s/%s" % (b["provider"], b["model"] or "default")
-
-
-def unavailable(text: str, returncode) -> bool:
-    """A brain that could not work (quota, limit, missing CLI, timeout), as opposed to one that tried and failed."""
-    return returncode in (None, -1) or bool(UNAVAILABLE_RE.search(text or ""))
 
 
 # --------------------------------------------------------------- transcript
@@ -954,7 +955,7 @@ def run_content(args, repo: Path, provider: str, paths: List[str], tid: int, tok
                     transcript=transcript, reason="", kept=False, tasks_done=0, target_bytes=path_bytes(repo, paths))
         for tno, task in enumerate(tasks, 1):
             writer_p = persona(task["role"])
-            chain = expert_chain(task["role"], [{"provider": provider, "model": args.model, "timeout": 0}])
+            chain = fresh(expert_chain(task["role"], [{"provider": provider, "model": args.model, "timeout": 0}]))
             brief = content_prompt(tid, task["title"], repo, task["paths"], task["instruction"],
                                    character_block(writer_p, persona(), STAFF_RELATION), read_memory(task["role"]))
             skipped, res, b = [], None, chain[0]
@@ -966,6 +967,8 @@ def run_content(args, repo: Path, provider: str, paths: List[str], tid: int, tok
                 if res["ok"]:
                     break
                 why = tail(res["stderr"] or res["stdout"], 5)
+                if unavailable(why, res["returncode"]):
+                    mark(WORKTREE_BASE / LIMITS, b, why)
                 if unavailable(why, res["returncode"]) and bi + 1 < len(chain):
                     skipped.append(brain_label(b))
                     continue
@@ -1073,6 +1076,7 @@ def run_setup(args):
         args.stop_before_merge = True
     r.result["tier"] = tier
     r.doc_lane = args.stop_before_merge and is_doc_task(paths, tier)   # DOC_LANE_v1
+    r.display_lane = args.stop_before_merge and is_display_task(paths, tier)   # DISPLAY_LANE_v1
     r.reviewer_p = persona()   # the reviewer is the default character, whatever roles it holds (TEAM_ROLES_v1)
     r.actor = PROVIDERS[r.provider]["actor"]
     # 1. ticket: one the caller already claimed (--ticket/--token), or a new one on the operator's instruction
@@ -1121,8 +1125,8 @@ def run_open(r) -> List[Dict]:
                 paths=r.paths, gates=r.gates, main_branch=r.main_branch, base=r.base, branch=r.branch,
                 worktree=str(wt_dir), transcript=r.transcript, reason="", kept=False, tasks_done=r.done_tasks,
                 base_broken=False, target_bytes=path_bytes(repo, r.paths))
-    r.pd_chain = expert_chain(roster("default_character", ""), [{"provider": r.reviewer, "model": args.reviewer_model,
-                                                                 "timeout": 0}]) if r.reviewer else []
+    r.pd_chain = fresh(expert_chain(roster("default_character", ""), [{"provider": r.reviewer, "timeout": 0,
+                                                                       "model": args.reviewer_model}]), False) if r.reviewer else []
     return tasks
 
 
@@ -1137,7 +1141,7 @@ def run_task(r, tno: int, n_tasks: int, task: Dict) -> None:
     """3. One task of the plan: the expert works -> gates -> the PD confirms, up to --rounds."""
     args = r.args
     k = SimpleNamespace(tno=tno, task=task, writer_p=persona(task["role"]), lessons=[], feedback="", bi=0,
-                        last_brain=None, partner_report="", base_checked=set())   # BASE_CHECK_v1: once per gate
+                        last_brain=None, partner_report="", base_checked=set(), reviewed="")   # BASE_CHECK_v1: once per gate
     # the task whose work waited for a confirmation: straight to its gates and review, on its own base
     k.confirm_only = tno == r.pending[0] and bool(r.pending[1])
     if k.confirm_only:
@@ -1154,7 +1158,8 @@ def run_task(r, tno: int, n_tasks: int, task: Dict) -> None:
     k.brief = writer_prompt(r.tid, task["title"], r.branch, r.wt_dir, task["paths"], r.gates,
                             head_line + task["instruction"], character_block(k.writer_p, r.reviewer_p, STAFF_RELATION),
                             read_memory(task["role"]), task.get("reads"))
-    k.chain = expert_chain(task["role"], [{"provider": r.provider, "model": args.model, "timeout": 0}])
+    k.chain = fresh(expert_chain(task["role"], [{"provider": r.provider, "model": args.model, "timeout": 0}]),
+                    not k.confirm_only)
     k.n_tasks = n_tasks
     for rnd in range(1, args.rounds + 1):
         r.rnd = rnd
@@ -1172,10 +1177,20 @@ def run_task(r, tno: int, n_tasks: int, task: Dict) -> None:
                         phase_since=time.time())
             raise Failure("paused", "task %d needs %s" % (tno, ", ".join(x["path"] for x in asked)), keep=True)
         gate_error = task_gates(r, k, rnd, b)
-        if not r.reviewer:
-            if gate_error is None and remember(task["role"], k.lessons):
+        no_review = not r.reviewer or r.display_lane or k.reviewed   # DISPLAY_LANE_v1, REVIEW_ONCE_v1
+        if no_review and gate_error is None:
+            if r.reviewer:
+                r.doc_advice = DISPLAY_NOTE if r.display_lane else once_note(k.reviewed)
+                r.args.stop_before_merge = True
+                write_state(r.tid, tasks_done=tno, need_base="", doc_advice=r.doc_advice)
+            if remember(task["role"], k.lessons):
                 log("task %d: %d lesson(s) kept in %s's memory" % (tno, len(k.lessons), task["role"]))
             return
+        if no_review:
+            if rnd == args.rounds:
+                raise gate_error
+            k.feedback = "Gate failure: %s\n%s" % (gate_error.reason, gate_error.detail[-2000:])
+            continue
         if task_review(r, k, rnd, b, gate_error):
             return
 
@@ -1198,6 +1213,8 @@ def task_work(r, k, rnd: int):
             res["skipped"] = skipped
             return res, b
         why = tail(res["stderr"] or res["stdout"], 5)
+        if unavailable(why, res["returncode"]):
+            mark(WORKTREE_BASE / LIMITS, b, why)
         if unavailable(why, res["returncode"]) and k.bi + 1 < len(k.chain):
             skipped.append(brain_label(b))
             log("%s unavailable; next brain %s" % (brain_label(b), brain_label(k.chain[k.bi + 1])))
@@ -1299,6 +1316,8 @@ def task_review(r, k, rnd: int, b: Dict, gate_error: Optional[Failure]) -> bool:
         if gate_error:
             raise gate_error
         raise Failure("gate_failed", "task %d: review FAIL after %d round(s)" % (tno, rnd), rv["fix"])
+    if not gate_error:
+        k.reviewed = rv["fix"] or rv["say"] or "FAIL"   # REVIEW_ONCE_v1
     k.feedback = "\n".join(x for x in (
         "Gate failure: %s\n%s" % (gate_error.reason, gate_error.detail[-2000:]) if gate_error else "",
         "Your producer says: %s" % rv["say"] if rv["say"] else "",

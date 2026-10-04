@@ -198,7 +198,8 @@ class WorktreeRunner(unittest.TestCase):
 
     def test_a_failed_attempt_keeps_its_head_in_the_attic(self) -> None:
         fail = "printf 'VERDICT: FAIL\\nSAY: no\\nFIX: 1. more'"
-        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam part", review=fail), 1)
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam part", review=fail,
+                                       extra=("--rounds", "1")), 1)
         self.assertIn("gate_failed", self.last_fail())
         self.assert_clean_up()
         self.assertEqual(sh(self.repo, "git", "log", "-1", "--format=%s", wr.attic_ref(7)), "part")
@@ -252,23 +253,24 @@ class WorktreeRunner(unittest.TestCase):
         script = 'printf "%s" "$0" > ../prompt-$(ls .. | wc -l); echo more >> a.txt; git commit -qam r; echo; echo ---; echo done'
         self.character("staff")             # an expert besides the default character: the task goes to it
         self.assertEqual(self.run_with(script, review=FAIL_ONCE.replace("../../n", str(self.base / "n"))), 0)
-        self.assertEqual((self.repo / "a.txt").read_text(), "one\nmore\nmore\n")
+        self.assertEqual((wr.WORKTREE_BASE / "ticket-7" / "a.txt").read_text(), "one\nmore\nmore\n")
         prompts = sorted(p for p in wr.WORKTREE_BASE.iterdir() if p.name.startswith("prompt-"))
         self.assertIn("1. add three", prompts[-1].read_text())
         self.assertIn("delegated this work to you", prompts[0].read_text())   # the expert works for the default character
         self.assertIn("sloppy", prompts[-1].read_text())
         saved = sorted((wr.WORKTREE_BASE / "transcripts").glob("*.json"))
         lines = json.loads(saved[-1].read_text())
-        self.assertEqual([(l["name"], l.get("verdict")) for l in lines],
-                         [("S", None), ("P", "FAIL"), ("S", None), ("P", "PASS")])
+        # REVIEW_ONCE_v1: the fixed round is not reviewed again; it waits for the operator with the fixes as advice
+        self.assertEqual([(l["name"], l.get("verdict")) for l in lines], [("S", None), ("P", "FAIL"), ("S", None)])
         self.assertEqual(lines[0]["text"], "done")
+        self.assertEqual(self.ticket_cmds()[-1], "await-merge")
 
-    def test_review_fail_every_round_blocks_the_merge(self) -> None:
+    def test_a_review_fail_never_lands_on_its_own(self) -> None:
+        # REVIEW_ONCE_v1: even a Tier 0 run without --stop-before-merge waits for the operator after a FAIL
         fail = "printf 'VERDICT: FAIL\\nSAY: no\\nFIX: redo'"
-        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review=fail), 1)
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review=fail), 0)
         self.assertEqual(self.code_head(), self.init)
-        self.assertIn("gate_failed", self.last_fail())
-        self.assert_clean_up()
+        self.assertEqual(self.ticket_cmds()[-1], "await-merge")
 
     def test_a_doc_task_waits_for_the_operator_with_the_review_as_advice(self) -> None:
         # DOC_LANE_v1: #443 failed a nearly finished plan on its review limit
@@ -286,11 +288,42 @@ class WorktreeRunner(unittest.TestCase):
         self.assertIn("keep the table", st["doc_advice"])
         self.assertIn("This is a documentation change", seen.read_text())
 
-    def test_a_code_task_still_fails_on_its_review(self) -> None:
+    def test_a_code_task_is_reviewed_once_and_its_fixes_go_to_the_operator(self) -> None:
+        # REVIEW_ONCE_v1 (director-handoff D-8): #631 lost finished work on a second review FAIL
+        calls = self.base / "reviews"
+        fail = "printf x >> %s; printf 'VERDICT: FAIL\\nSAY: no\\nFIX: redo'" % calls
+        self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review=fail,
+                                       extra=("--stop-before-merge",)), 0)
+        self.assertEqual(self.ticket_cmds()[-1], "await-merge")                 # the operator decides
+        self.assertEqual(calls.read_text(), "x")                                 # one review call, not two
+        self.assertIn("reviewed once", wr.read_state(7)["doc_advice"])
+        self.assertIn("redo", wr.read_state(7)["doc_advice"])
+
+    def test_a_code_task_with_no_fix_round_left_still_fails_on_its_review(self) -> None:
         fail = "printf 'VERDICT: FAIL\\nSAY: no\\nFIX: redo'"
         self.assertEqual(self.run_with("echo two >> a.txt && git commit -qam c", review=fail,
-                                       extra=("--stop-before-merge",)), 1)
+                                       extra=("--stop-before-merge", "--rounds", "1")), 1)
         self.assertIn("gate_failed", self.last_fail())
+
+    def test_a_page_only_task_skips_the_review_and_waits_for_the_operator(self) -> None:
+        # DISPLAY_LANE_v1 (director-handoff D-8): how a screen feels is the operator's call (#627-#631)
+        (self.repo / "static").mkdir()
+        (self.repo / "static" / "x.css").write_text("a{}\n")
+        sh(self.repo, "git", "add", "static")
+        sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "css")
+        called = self.base / "reviewed"
+        rc = self.run_with("echo 'b{}' >> static/x.css && git commit -qam css", paths="static/x.css",
+                           review="touch %s; printf 'VERDICT: PASS'" % called, extra=("--stop-before-merge",))
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.ticket_cmds()[-1], "await-merge")
+        self.assertFalse(called.exists())
+        self.assertEqual(wr.read_state(7)["doc_advice"], wr.DISPLAY_NOTE)
+
+    def test_display_lane_parts(self) -> None:
+        self.assertTrue(wr.is_display_task(["static/a.js", "tests/test_a.py"], 0))
+        self.assertFalse(wr.is_display_task(["static/a.js", "server.py"], 2))
+        self.assertFalse(wr.is_display_task(["tests/test_a.py"], 0))
+        self.assertFalse(wr.is_display_task(["static/a.css"], 3))
 
     def test_doc_lane_parts(self) -> None:
         self.assertTrue(wr.is_doc_task(["docs/a.md", "b.md"], 0))
@@ -596,6 +629,17 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(self.run_with("exit 9"), 0)        # --provider is only the default when no list exists
         line = wr.read_state(7)["transcript"][0]
         self.assertEqual((line["brain"], line["skipped"]), ("good/m2", ["broke/default"]))
+
+    def test_a_brain_out_of_quota_rests_and_the_next_run_does_not_try_it(self) -> None:
+        # BRAIN_LIMITS_v1 (director-handoff dir/J): #628 spent three 1200 s timeouts on one brain
+        calls = self.base / "broke-calls"
+        self.add_provider("broke", "printf x >> %s; echo 'quota reached. Resets in 5h' >&2; exit 1" % calls)
+        self.brains("staff", [{"provider": "broke"}])
+        self.assertEqual(self.run_with("exit 9"), 1)
+        self.assertIn("unavailable", self.last_fail())
+        self.assertEqual(self.run_with("exit 9", extra=("--ticket", "7", "--token", "tok")), 1)
+        self.assertEqual(calls.read_text(), "x")                               # not run a second time
+        self.assertIn("every brain is resting", str(self.last_fail()))
 
     def test_a_brain_that_hangs_times_out_to_the_next(self) -> None:
         self.add_provider("slow", "sleep 5")

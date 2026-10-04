@@ -135,6 +135,23 @@ def is_doc_task(paths: List[str], tier: int) -> bool:
     return tier == 0 and bool(paths) and all(str(p).endswith(".md") for p in paths)
 
 
+# DISPLAY_LANE_v1 (director-handoff dir/I, D-8): a task that changes only the page (`static/`, with its tests) is
+# judged by the operator's eyes, not a diff review -- #627-#631 spent review rounds on how a screen feels. Its gates
+# still run, and a gate failure still gets a fix round; it always waits for the operator's merge.
+# REVIEW_ONCE_v1 (D-8): other work is reviewed once. After a FAIL the writer fixes it and the gates run again; the
+# fixes asked for go to the operator as advice instead of a second review that could throw the work away (#631).
+DISPLAY_NOTE = "screen check: page-only change, not diff-reviewed"
+
+
+def is_display_task(paths: List[str], tier: int) -> bool:
+    ps = [str(p) for p in paths]
+    return tier < 3 and any(p.startswith("static/") for p in ps) and all(p.startswith(("static/", "tests/")) for p in ps)
+
+
+def once_note(fix: str) -> str:
+    return "reviewed once, fixes not re-reviewed: %s" % (fix or "FAIL")[:300]
+
+
 def deleted_lines(diff: str) -> int:
     return sum(1 for ln in (diff or "").splitlines() if ln.startswith("-") and not ln.startswith("---"))
 

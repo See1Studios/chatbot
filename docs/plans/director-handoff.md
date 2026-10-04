@@ -128,10 +128,10 @@
 | dir/E | 넘기기 도구와 기록: `handoff`(받는 역할, 할 일, 완료 조건). 엔진이 `team.json`에서 받는 캐릭터를 고르고(이름이 아니라 역할), 기록을 남기고, D-4 한도를 센다 | 새 모듈(코드 지도 행 포함), `mcp_server.py`, 테스트 | 테스트: 역할로 대상 결정, 3번째 넘기기 거절, 같은 디렉터 동시 2건 거절, 기록에 넘긴 쪽·받은 쪽 역할 id만(이름 없음) | 2 ⚡ | M | dir/A, D-4, D-5 | 대기 |
 | dir/F | 받은 디렉터 착수: 넘기기는 자동 반응의 "도구 금지"를 쓰지 않고, 받은 디렉터의 업무 세션에서 일하는 턴으로 시작한다. 다른 캐릭터와의 대화가 돌고 있어도 세션이 다르면 시작한다 | `event_react.py`, 테스트 | 테스트: 넘기기 이벤트가 받은 세션에서 도구 허용 턴을 연다. 같은 세션이 바쁘면 기다린다. 무거운 세션이면 먼저 넘긴다(기존 규칙) | 2 ⚡ | M | dir/E, D-3 | 대기 |
 | dir/G | 결과 보고: 받은 디렉터의 턴이 끝나면 결과 요약이 넘긴 디렉터에게 돌아가고, 넘긴 디렉터가 운영자에게 한두 줄로 알린다. 코드 수정이 필요하면 받은 디렉터가 `delegate` 계획을 올리고 [실행]을 기다린다 | `event_react.py`, `dialog_log.py`, 테스트 | 테스트: 완료·실패·한도 초과 세 경우 모두 넘긴 쪽에 한 줄이 도착한다 | 2 ⚡ | S | dir/F | 대기 |
-| dir/H | 정리: 노노의 미커밋 변경 처리(D-6) | `templates/dev-workspace/roles/lead/PROCEDURE.md` | D-6 결정대로 되돌리거나 커밋 | 0 | S | D-6 | 결정 필요(D-6) |
-| dir/I | 리뷰 줄이기(D-8): 표시 전용 paths는 diff 리뷰를 건너뛰고 `awaiting_merge`에 "화면 확인 필요"를 붙인다. 리뷰 라운드 2 → 1 | `tools/worktree_runner.py`, `tools/review_checklist.py`, 테스트 | 테스트: `static/*.css`만 바꾼 계획은 리뷰어 호출 0회로 운영자 확인 대기. 엔진 `.py`가 섞이면 교차 리뷰 1라운드 | 3(가드 파일: 운영자) | S | D-8 | 결정 필요(D-8) |
-| dir/J | 두뇌 없음 빨리 알리기(D-9): 착수 전 쿼터 상태 확인, 없으면 시도를 쓰지 않고 한 줄 보고. [quota-failure-resilience.md](quota-failure-resilience.md)의 쿼터 상태를 그대로 쓴다(새로 만들지 않음) | `delegation.py`, `tools/worktree_runner.py`, 테스트 | 테스트: 한도에 걸린 두뇌만 있는 계획은 시도 수가 줄지 않고 바로 `unavailable` 한 줄 | 3(가드 파일: 운영자) | S | D-9 | 결정 필요(D-9) |
-| dir/K | 같은 기능 연속 티켓 막기(D-10) | `delegation.py`, 테스트 | 테스트: 표시 paths 머지 후 운영자 확인 표시 전에는 같은 paths 계획이 짧은 안내와 함께 거절 | 2 ⚡ | S | D-10 | 결정 필요(D-10) |
+| dir/H | 정리: 노노의 미커밋 변경 처리(D-6) | `templates/dev-workspace/roles/lead/PROCEDURE.md` | D-6 결정대로 되돌리거나 커밋 | 0 | S | D-6 | ✅ 2026-10-05 템플릿 줄 되돌림(미커밋 변경이라 커밋 없음). 라이브 `~/.pe` 사본의 줄은 dir/A 착지 때 지운다 |
+| dir/I | 리뷰 줄이기(D-8): 표시 전용 paths는 diff 리뷰를 건너뛰고 `awaiting_merge`에 "화면 확인 필요"를 붙인다. 리뷰 라운드 2 → 1 | `tools/worktree_runner.py`, `tools/review_checklist.py`, 테스트 | 테스트: `static/*.css`만 바꾼 계획은 리뷰어 호출 0회로 운영자 확인 대기. 엔진 `.py`가 섞이면 교차 리뷰 1라운드 | 3(가드 파일: 운영자) | S | D-8 | #632 |
+| dir/J | 두뇌 없음 빨리 알리기(D-9): 착수 전 쿼터 상태 확인, 없으면 시도를 쓰지 않고 한 줄 보고. [quota-failure-resilience.md](quota-failure-resilience.md)의 쿼터 상태를 그대로 쓴다(새로 만들지 않음) | `delegation.py`, `tools/worktree_runner.py`, 테스트 | 테스트: 한도에 걸린 두뇌만 있는 계획은 시도 수가 줄지 않고 바로 `unavailable` 한 줄 | 3(가드 파일: 운영자) | S | D-9 | #633 |
+| dir/K | 같은 기능 연속 티켓 막기(D-10) | `delegation.py`, 테스트 | 테스트: 표시 paths 머지 후 운영자 확인 표시 전에는 같은 paths 계획이 짧은 안내와 함께 거절 | 2 ⚡ | S | D-10 | 보류(재검토: 모든 계획은 이미 운영자 [실행]을 거치고, 머지 전 화면 미리보기가 없어 엔진이 "화면 확인"을 알 길이 없다. 운영자 결정 대기) |
 
 ## 6. 의존 · 순서 · 리스크
 
