@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-04 — [client/device] 모바일 클라이언트 기기 환경 수집 확장 (배터리·네트워크·복귀감지·정밀도) (#620, 위임 agy)
+
+- **커밋**: `c216f23` fix(client): harden client context formatting against non-finite values and bools, `4e5a789` feat(device): add background return detection and harden accuracy parsing, `3a6582c` feat(device): extend client context with battery, network, visibility, accuracy
+- **바뀐 파일**: `session.py`, `static/app-device.js`, `tests/test_client_device_context.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-04 — 누가 했는지 모르는 티켓을 막음 (ACTOR_REQUIRED_v1, #622)
 
 - **장치**: `ticket-quick`은 `--actor`도 없고 부모 프로세스로도 에이전트를 모를 때(`unknown-cli`) 아무것도 쓰지 않고 거절한다. 규칙표의 "manual" 한 줄이 강제 장치를 얻었다.
