@@ -83,7 +83,7 @@ GATE_FAILURES_ADVICE = 2
 LEASE_TTL_SEC = 1800
 MAX_PROPOSED = 10          # unreviewed proposals; more is a runaway, not a review
 MAX_EVIDENCE = 20
-GUARD_TIMEOUT_SEC = 300    # run-tests.sh --fast before `done` (pew/O); about 11 s on this NAS
+GUARD_TIMEOUT_SEC = 300    # run-tests.sh --fast before `done` (pew/O); about 50 s on this NAS
 MAX_NOTES = 40
 MAX_PATHS = 20
 OPEN_STATES = ("proposed", "approved", "in_progress", "awaiting_merge")
@@ -295,7 +295,7 @@ def _norm_paths(paths, data=None) -> List[str]:
         paths = [paths]
     if not isinstance(paths, list):
         raise TicketError("paths must be a list of repo-relative files")
-    root = _git_root(data) if data is not None else None
+    root = _repo_root(data) if data is not None else None
     tails = ["/".join(root.parts[-k:]) + "/" for k in range(len(root.parts) - 1, 0, -1)] if root else []
     out = []
     for raw in paths[:MAX_PATHS]:
@@ -318,6 +318,20 @@ def _git_root(data) -> Optional[Path]:
             break
         p = p.parent
     return None
+
+
+def _repo_root(data) -> Optional[Path]:
+    """The engine repository a ticket's paths and guards are judged in. For the install's own data folder that is the
+    engine checkout this module runs from: since the data moved out (~/.pe, uds) the data folder's git root is
+    whatever encloses it -- a home folder that is a repo -- so `AGENTS.md` was checked as ~/AGENTS.md and the guard
+    run found no runner and passed every `done` (split/H, #618). Any other folder (a test's fixture repo, a data
+    folder inside the engine) is judged by its own git root, as before."""
+    d = Path(data).resolve()
+    if d == _data_dir().resolve():
+        code = _git_root(_code_root())
+        if code is not None:
+            return code
+    return _git_root(d)
 
 
 def _porcelain(root: Path, rels: List[str]) -> List[str]:
@@ -353,9 +367,9 @@ def _paths_of(t: Dict) -> List[str]:
 
 def _guard_failure(data) -> str:
     """Why the repo's guard tests fail, or "" (pew/O: the backstop for a commit that skipped its hooks). Runs
-    `run-tests.sh --fast` on the committed state (HEAD) of the git root that holds `data`; nothing to check without a
+    `run-tests.sh --fast` on the committed state (HEAD) of the engine repo (`_repo_root`); nothing to check without a
     git root or that script."""
-    root = _git_root(data)
+    root = _repo_root(data)
     if root is None:
         return ""
     # #371/#387: run from the server, the guards inherited the live install's settings (CHATBOT_DATA, CHATBOT_ROOT,
@@ -416,7 +430,7 @@ def is_content(data, paths) -> bool:
 def _ship_blockers(data, t: Dict) -> List[str]:
     """Uncommitted paths that block `done`. Empty when there is no git or no paths."""
     rels = _paths_of(t)
-    root = _git_root(data)
+    root = _repo_root(data)
     if not rels or root is None:
         return []
     return _porcelain(root, rels)
@@ -854,7 +868,7 @@ def release(data, ticket_id, token: Optional[str], outcome: str, text: str = "",
         raise TicketError("outcome must be done, gate_failed, failed, abandoned, unavailable or paused")
     content = outcome == "done" and is_content(data, _paths_of(_load(data, ticket_id)))
     if outcome == "done" and not content:
-        guard = _guard_failure(data)   # before the lock: ~11 s must not hold up everyone else's ticket calls
+        guard = _guard_failure(data)   # before the lock: ~50 s must not hold up everyone else's ticket calls
         if guard:
             raise TicketError("cannot mark done: guard tests fail (%s); fix them and release again, "
                               "the lease is still yours" % guard)

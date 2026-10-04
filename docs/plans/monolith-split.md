@@ -229,7 +229,7 @@ Phase 0–5는 **크기**를 다뤘다. 이 단계는 그 규칙이 통과하는
 
 - `tools/worktree_runner.py::cmd_run` 282줄 — 단계별 함수로 나누기(가장 큰 함수 부채). 테스트가 `wr.workspace_dir`를 바꿔 끼우므로, 전문가 기억(`remember` 등)을 옮길 때는 그 갈고리부터 정리.
 - `session.py` 상한까지 약 1KB — #605(인계 대사)가 끝난 뒤 다음 분리 대상.
-- 티켓 경로 검사(`tickets.py::_ship_blockers`)가 데이터 폴더(`~/.pe`)의 git 저장소 = 홈 저장소를 본다: 맨 이름 경로(`AGENTS.md`)는 엔진이 아니라 `~/AGENTS.md`로 검사되어, 엔진 파일의 미커밋 잔여물은 못 잡고 홈 파일 때문에 엉뚱하게 거절된다. 우회: `services/chatbot/<경로>`로 claim. 고치는 쪽은 `tickets.py`(거버넌스)라 별도 티켓.
+- ✅ #618 티켓 경로 검사가 데이터 폴더(`~/.pe`)를 감싼 홈 저장소를 보던 문제: 맨 이름 경로(`AGENTS.md`)가 `~/AGENTS.md`로 검사됐고, 그 저장소엔 `run-tests.sh`가 없어 **`done` 전 가드 검사가 데이터 이전(uds) 뒤로 늘 건너뛰어졌다**. 이제 설치의 데이터 폴더는 엔진 저장소로 판정(`tickets.py::_repo_root`); 다른 폴더(테스트 고정물)는 예전처럼 자기 git 루트.
 
 ## 검증 방법 (매 Phase 공통)
 

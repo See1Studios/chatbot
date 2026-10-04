@@ -774,6 +774,62 @@ class ShipGateTest(Base):
         self.assertEqual(tickets.get(self.data, t["id"])["status"], "approved")
 
 
+class EngineRepoTest(Base):
+    """split/H (#618): the install's data folder lives outside the engine (~/.pe) inside an enclosing repo (a home
+    folder that is a repo). Paths and guards are judged in the engine checkout, never the enclosing repo."""
+
+    def setUp(self):
+        super().setUp()
+        self.outer = Path(tempfile.mkdtemp()).resolve()          # the enclosing "home" repo
+        self.engine = self.outer / "engine"
+        for repo in (self.outer, self.engine):
+            repo.mkdir(exist_ok=True)
+            subprocess.check_call(["git", "init", "-q"], cwd=str(repo))
+            subprocess.check_call(["git", "config", "user.email", "t@t"], cwd=str(repo))
+            subprocess.check_call(["git", "config", "user.name", "t"], cwd=str(repo))
+            (repo / "host.py").write_text("ok\n", encoding="utf-8")
+        (self.engine / "run-tests.sh").write_text("exit 0\n", encoding="utf-8")
+        self.commit(self.engine, "init")
+        (self.outer / "host.py").write_text("someone else's work\n", encoding="utf-8")   # untracked in the outer repo
+        home = self.outer / ".pe"
+        self.data.rename(home)
+        self.data = home
+        env = mock.patch.dict(os.environ, {"CHATBOT_DATA": str(self.data), "CHATBOT_ROOT": str(self.engine)})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def commit(self, repo, msg):
+        subprocess.check_call(["git", "add", "-A"], cwd=str(repo))
+        subprocess.check_call(["git", "commit", "-qm", msg], cwd=str(repo))
+
+    def test_the_install_data_is_judged_in_the_engine_repo(self):
+        self.assertEqual(tickets._repo_root(self.data), self.engine)
+        other = self.outer / "elsewhere"
+        other.mkdir()
+        self.assertEqual(tickets._repo_root(other), self.outer)              # not the install's data: its own root
+
+    def test_leftover_is_looked_for_in_the_engine(self):
+        t = self.approved()
+        c = tickets.claim(self.data, t["id"], now=T0, paths=["host.py"])    # the outer repo's dirt is not ours
+        (self.engine / "host.py").write_text("dirty\n", encoding="utf-8")
+        with self.assertRaises(tickets.TicketError) as cm:
+            tickets.release(self.data, t["id"], c["token"], "done", now=T0)
+        self.assertIn("uncommitted", str(cm.exception))
+
+    def test_a_path_written_from_a_parent_folder_is_cut_to_the_engine(self):
+        self.assertEqual(tickets._norm_paths(["engine/host.py"], self.data), ["host.py"])
+
+    @dev_only_bash
+    def test_done_runs_the_engine_guards(self):
+        (self.engine / "run-tests.sh").write_text('echo "failed: test_x"; exit 1\n', encoding="utf-8")
+        self.commit(self.engine, "a failing guard")
+        t = self.approved()
+        c = tickets.claim(self.data, t["id"], now=T0)
+        with self.assertRaises(tickets.TicketError) as cm:
+            tickets.release(self.data, t["id"], c["token"], "done", now=T0)
+        self.assertIn("guard tests fail (failed: test_x)", str(cm.exception))
+
+
 class AwaitingMergeTest(Base):
     """AWAITING_MERGE_v1: reviewed work waits for the operator without holding the lease or the budget."""
 
