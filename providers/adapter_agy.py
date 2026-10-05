@@ -26,6 +26,33 @@ _AGY_MODELS_CACHE = {"ts": 0.0, "models": []}
 # An agy model id that ends in a level already carries its effort; a separate --effort then conflicts (2026-09-30).
 _MODEL_NAMES_EFFORT = re.compile(r"-(?:minimal|low|medium|high|xhigh)$")
 
+
+_SUBAGENT_ID = re.compile(r'conversationId\\?"?\s*:\s*\\?"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})')
+
+
+def _brain_activity(conversation_id: str) -> Optional[float]:
+    """The newest mtime of a conversation's transcript and of the transcripts of the subagents it started (their ids
+    are in the parent's "Created the following subagents" steps)."""
+    from providers import accounts
+    brain = Path(accounts.AGY_LOG_DIR).parent / "brain"
+    def transcript(cid: str) -> Path:
+        return brain / cid / ".system_generated" / "logs" / "transcript.jsonl"
+    parent = transcript(conversation_id)
+    try:
+        newest = parent.stat().st_mtime
+        with open(str(parent), "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 262144))
+            tail = f.read().decode("utf-8", "replace")
+    except OSError:
+        return None
+    for cid in set(_SUBAGENT_ID.findall(tail)) - {conversation_id}:
+        try:
+            newest = max(newest, transcript(cid).stat().st_mtime)
+        except OSError:
+            continue
+    return newest
+
 class AgyAdapter(AgentAdapter):
     id = "agy"
     keeps_stdin_open = True
@@ -34,10 +61,18 @@ class AgyAdapter(AgentAdapter):
     supports_steer = True
     ONESHOT_MODEL = "gemini-3.8-flash-low"
 
-    def last_activity(self, pid: int, started: float) -> Optional[float]:
-        """The last model call (`streamGenerateContent`) in the agy log of process `pid`; `started` while it has
-        made none; None when no log names that pid yet. 83 worker runs to 2026-09-30 never went more than 303 s
-        between calls; a stalled stream went 18 min (#462)."""
+    def last_activity(self, pid: int, started: float, conversation_id: str = "") -> Optional[float]:
+        """When the agent last did something. With `conversation_id` (a live session): the newest write to that
+        conversation's transcript or to the transcript of a subagent it started (SUBAGENT_ACTIVITY_v1: a parent
+        prints nothing while its subagents work, and the turn was closed as silent -- 2026-10-05, 4 hangs and 8
+        notices on one session in 40 minutes). Otherwise the last model call (`streamGenerateContent`) in the agy log of
+        process `pid`; `started` while it has made none; None when no log names that pid yet. agy 1.2.16 no longer logs
+        model calls, so for a worker this now falls back to `started`. 83 worker runs to 2026-09-30 never went more
+        than 303 s between calls; a stalled stream went 18 min (#462)."""
+        if conversation_id:
+            seen = _brain_activity(conversation_id)
+            if seen:
+                return seen
         from providers import accounts
         path = accounts.agy_log_for(pid, started)
         if path is None:

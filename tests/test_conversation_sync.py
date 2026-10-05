@@ -469,12 +469,12 @@ class SilentHangWatchdog(Base):
         import time
         s = self._busy(self.make(), hang_sec=0.3)
         s.proc = types.SimpleNamespace(pid=4242)
-        s.adapter.last_activity = lambda pid, started: time.time()   # the CLI log saw a model call just now
+        s.adapter.last_activity = lambda pid, started, **_: time.time()   # the CLI log saw a model call just now
         s._silent_hang_fire()
         self.assertTrue(s.busy)
         self.assertFalse(getattr(s, "_silent_hang_done", False))
         self.assertIsNotNone(getattr(s, "_silent_hang_timer", None), "re-armed for the rest of the window")
-        s.adapter.last_activity = lambda pid, started: started        # no call since: the next fire closes
+        s.adapter.last_activity = lambda pid, started, **_: started        # no call since: the next fire closes
         time.sleep(0.45)
         self.assertTrue(getattr(s, "_silent_hang_done", False))
 
@@ -488,7 +488,7 @@ class SilentHangWatchdog(Base):
         s = self._busy(self.make(), hang_sec=0.3)
         s.proc = types.SimpleNamespace(pid=4242)
         s._last_turn_activity_at = 0.0
-        s.adapter.last_activity = lambda pid, started: s.turn_started_at - 1   # seen before this turn began
+        s.adapter.last_activity = lambda pid, started, **_: s.turn_started_at - 1   # seen before this turn began
         self.assertFalse(s._provider_shows_activity())
         s._silent_hang_fire()
         self.assertTrue(getattr(s, "_silent_hang_done", False))

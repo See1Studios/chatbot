@@ -146,6 +146,8 @@ class TurnWatchdog:
                 return
             if getattr(self, "_err_msg_failfast_timer", None) is not None:
                 return
+        if self._provider_shows_activity():   # SUBAGENT_ACTIVITY_v1: subagents at work, not a quiet turn
+            return
         quiet = int(self.SILENT_NOTICE_SEC)
         text = f"{quiet}초째 신호 없음 — 긴 생각일 수 있어요. 기다리거나 중지하세요"
         self.last_progress = text
@@ -172,7 +174,8 @@ class TurnWatchdog:
         if not callable(probe) or not pid:
             return False
         try:
-            seen = float(probe(int(pid), float(getattr(self, "created_at", 0) or 0)) or 0)
+            seen = float(probe(int(pid), float(getattr(self, "created_at", 0) or 0),
+                               conversation_id=str(getattr(self, "conversation_id", "") or "")) or 0)
         except Exception:
             return False
         # A log line from an earlier turn must not extend this one (#513).
