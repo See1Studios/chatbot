@@ -997,8 +997,10 @@ def get(data, ticket_id) -> Dict:
 
 
 def list_tickets(data, status: Optional[str] = None) -> List[Dict]:
-    """Ticket summaries, newest last."""
-    rows = [t for t in _all(data) if status in (None, "", t.get("status"))]
+    """Ticket summaries, newest last. `status` "open" is every state not closed (OPEN_STATES): the word a model asks
+    with (live 2026-10-05: "open" matched nothing and read as "no open tickets")."""
+    want = OPEN_STATES if status == "open" else (status,)
+    rows = [t for t in _all(data) if status in (None, "") or t.get("status") in want]
     return [{k: t.get(k) for k in ("id", "title", "target", "status", "attempts", "gate_failures", "updated")}
             for t in rows]
 

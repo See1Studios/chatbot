@@ -98,6 +98,20 @@ STAFF_MEMORY_CLOSED = ("the house memory is written only by a character whose ro
                        "your own memory is kept by the host.")
 
 
+LIST_RECENT = 20
+
+
+def _ticket_list(data, status: str) -> dict:
+    """`ticket list`: a status filters ("open" = not closed); none gives the open ones and the latest LIST_RECENT, not
+    the whole store (live 2026-10-05: 652 tickets, 180 KB, read back from a spill file)."""
+    if status:
+        return envelope(True, "ok", {"tickets": tickets.list_tickets(data, status)})
+    rows = tickets.list_tickets(data)
+    shown = [r for r in rows if r.get("status") in tickets.OPEN_STATES]
+    shown += [r for r in rows[-LIST_RECENT:] if r not in shown]
+    return envelope(True, "%d tickets: the open ones and the latest %d (status=open|proposed|done|... for others)"
+                    % (len(rows), LIST_RECENT), {"tickets": shown})
+
 def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "chat-agent",
          private: bool = False, staff: bool = False) -> dict:
     """Run one of the tools in NAMES. `data` is the instance data directory, `secret_re` the host's pattern for
@@ -180,7 +194,7 @@ def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMI
                     return envelope(True, "merged into an open ticket" if merged else "proposed; waiting for the operator's approval",
                                     {"ticket": t, "merged": merged})
                 if action == "list":
-                    return envelope(True, "ok", {"tickets": tickets.list_tickets(data, str(args.get("status") or "") or None)})
+                    return _ticket_list(data, str(args.get("status") or ""))
                 if action == "get":
                     return envelope(True, "ok", {"ticket": tickets.get(data, args.get("id"))})
                 if action == "claim":

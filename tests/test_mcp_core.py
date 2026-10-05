@@ -117,6 +117,34 @@ class AdapterModuleTest(unittest.TestCase):
 
 
 
+class TicketListTest(unittest.TestCase):
+    """live 2026-10-05: an unfiltered list was all 652 tickets (180 KB), and status "open" matched nothing."""
+    def setUp(self):
+        self.data = Path(tempfile.mkdtemp())
+        d = self.data / "workspace" / "skill-observations" / "tickets"
+        d.mkdir(parents=True)
+        for i in range(1, 31):
+            status = {1: "proposed", 2: "in_progress"}.get(i, "done")
+            (d / ("%04d.json" % i)).write_text(json.dumps({"id": i, "title": "t%d" % i, "target": "x", "status": status,
+                                                           "attempts": 0, "gate_failures": 0, "updated": ""}))
+
+    def list(self, **args):
+        r = mcp_core.call("ticket", {"action": "list", **args}, self.data, SECRET)
+        self.assertTrue(r["success"], r)
+        return r
+
+    def test_open_is_every_state_not_closed(self):
+        self.assertEqual([t["id"] for t in self.list(status="open")["data"]["tickets"]], [1, 2])
+        self.assertEqual(len(self.list(status="done")["data"]["tickets"]), 28)
+
+    def test_an_unfiltered_list_is_the_open_ones_and_the_latest(self):
+        r = self.list()
+        ids = [t["id"] for t in r["data"]["tickets"]]
+        self.assertEqual(ids[:2], [1, 2])
+        self.assertEqual(ids[2:], list(range(11, 31)))                  # the latest 20, no repeats
+        self.assertIn("30 tickets", r["message"])
+
+
 class PrivateSessionTest(unittest.TestCase):
     def test_a_private_session_cannot_touch_work_memory_observations_or_tickets(self):
         import mcp_core

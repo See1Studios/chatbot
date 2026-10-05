@@ -10,7 +10,8 @@ The user asks how things stand, or a handoff/delegation result comes back and th
 
 ## Sources, in this order
 1. `dialog` `list`, then `read` the dms with the directors involved: each handoff's task (`#n …`) and its result (`#n …`).
-2. `ticket` `list` for open cards (proposed / approved / awaiting merge) and what each waits for.
+2. `ticket` `list` with `"status": "open"` for the cards not closed (proposed / approved / in progress / awaiting
+   merge) and what each waits for.
 3. Your own memory only for what the records do not hold -- and say so.
 
 ## Rules
