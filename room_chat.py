@@ -410,8 +410,15 @@ def api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, Dic
             return 200, {"ok": True, "artifacts": arts, "total": len(arts), "next_before": None}
         if method == "GET" and (len(rest) == 1 or (len(rest) == 3 and rest[1] == "after" and rest[2].isdigit())):
             after = int(rest[2]) if len(rest) == 3 else 0
+            msgs = [_named_now(m) for m in messages(rid, after)]
+            names = _names(r["members"])
+            import dialog_log
+            for m in msgs:
+                who = m.get("who")
+                if who and who != dialog_log.USER and who not in names:
+                    names[who] = dialog_log.speaker(who)
             return 200, {"ok": True, "room": {k: r[k] for k in ("id", "name", "mode", "members", "strategy")},
-                         "names": _names(r["members"]), "messages": [_named_now(m) for m in messages(rid, after)], "busy": bool(_busy.get(rid)),
+                         "names": names, "messages": msgs, "busy": bool(_busy.get(rid)),
                          "speaking": _speaking.get(rid, "")}
         if method == "POST" and len(rest) == 2 and rest[1] == "say":
             return 200, {"ok": True, "message": say(rid, str((body or {}).get("text") or ""))}

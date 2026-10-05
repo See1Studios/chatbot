@@ -208,6 +208,26 @@ class Rooms(unittest.TestCase):
         self.assertNotIn(self.c, disk_data.get("seats", {}))
         self.assertNotIn(self.c, disk_data.get("seen", {}))
 
+    def test_deleted_character_speaker_and_room_names(self):
+        import dialog_log
+        r = RC.create("desk", [self.a, self.b, self.c], strategy="manual")
+        rid = r["id"]
+        # Append a message from c (e.g. before c was deleted)
+        RC._append(rid, self.c, "legacy talk", [])
+        # Delete c's card
+        card_file = C.card_path(self.c)
+        if card_file.is_file():
+            card_file.unlink()
+
+        # dialog_log.speaker should return (알 수 없음)
+        self.assertEqual(dialog_log.speaker(self.c), "(알 수 없음)")
+
+        # GET /api/rooms/<rid> should include c in names as (알 수 없음)
+        code, body = RC.api("GET", f"/api/rooms/{rid}", None)
+        self.assertEqual(code, 200)
+        self.assertEqual(body["names"].get(self.c), "(알 수 없음)")
+        self.assertEqual(body["names"].get(self.a), "Boss")
+
 
 class RoomSeats(unittest.TestCase):
     """A member's room session is its own: mode "room" survives a reload and is never the character's active chat."""

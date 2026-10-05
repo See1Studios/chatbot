@@ -323,7 +323,14 @@ def label(did: str, cid: str) -> str:
 
 def speaker(who: str) -> str:
     import characters
-    return "the user" if who == USER else (characters.name(who) or who)
+    if who == USER:
+        return "the user"
+    nm = characters.name(who)
+    if nm:
+        return nm
+    if characters.ID_RE.match(who or ""):
+        return "(알 수 없음)"  # l10n-ok
+    return who
 
 
 def how(m: Dict, did: str) -> str:
