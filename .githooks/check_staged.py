@@ -181,29 +181,25 @@ def _persona_names(root):
     return names - {""}
 
 
-def author_refusal(root, who, author_of):
-    """Why this commit's author is wrong, or "". A persona name is never an author; a live chat session commits
-    as its brain (`author_of(actor)`, the runner's provider table)."""
+APP_AUTHOR = "PE"   # the app; which brain wrote a commit is its Co-Authored-By trailer
+
+
+def author_refusal(root, who):
+    """Why this commit's author is wrong, or "". A persona name is never an author; a live chat session commits as
+    the app, whatever brain it runs on. An agent outside the chat names itself."""
     name = git("var", "GIT_AUTHOR_IDENT").rsplit("<", 1)[0].strip()
     if name in _persona_names(root):
-        return "author %r is a character's name (a display value): commit as your agent, e.g. git -c user.name=agy" % name
-    actor = who()
-    want = author_of(actor.split(":", 1)[1]) if live_chat_agent(actor) else ""
-    if want and name != want:
-        return "author %r: a live chat session commits as its brain %r (drop the -c user.name)" % (name, want)
+        return "author %r is a character's name (a display value): commit as the app, e.g. git -c user.name=%s" % (name, APP_AUTHOR)
+    if live_chat_agent(who()) and name != APP_AUTHOR:
+        return "author %r: a live chat session commits as the app %r (the brain goes in Co-Authored-By)" % (name, APP_AUTHOR)
     return ""
-
-
-def _runner_author(root, actor):
-    wr = _repo_module(root, "worktree_runner")
-    return next((v["author"][0] for v in getattr(wr, "PROVIDERS", {}).values() if v.get("actor") == actor), "")
 
 
 def pre_commit():
     root = Path(git("rev-parse", "--show-toplevel").strip())
     files = staged()
     errors = record_refusals(root, files)
-    who = author_refusal(root, lambda: caller(root), lambda a: _runner_author(root, a))
+    who = author_refusal(root, lambda: caller(root))
     if who:
         errors.append(who)
     for f in files:

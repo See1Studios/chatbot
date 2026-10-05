@@ -152,14 +152,19 @@ class Hooks(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("character's name", r.stdout + r.stderr)
 
-    def test_a_live_chat_agent_commits_as_its_brain(self):
+    def test_a_live_chat_agent_commits_as_the_app(self):
         self.git("config", "user.name", "Coco")
         def refuse(actor):
-            return check.author_refusal(self.repo, lambda: actor, lambda a: {"agy": "agy"}.get(a, ""))
+            return check.author_refusal(self.repo, lambda: actor)
         cwd = os.getcwd()
         os.chdir(str(self.repo))
         try:
-            self.assertIn("commits as its brain 'agy'", refuse("chat-agent:agy"))
+            self.assertIn("commits as the app 'PE'", refuse("chat-agent:agy"))     # whatever its brain
+            self.assertIn("commits as the app 'PE'", refuse("chat-agent:claude"))
+            self.git("config", "user.name", "PE")
+            self.assertEqual(refuse("chat-agent:agy"), "")
+            self.assertEqual(refuse("chat-agent:claude"), "")
+            self.git("config", "user.name", "Coco")
             self.assertEqual(refuse("chat-agent:?"), "")       # the host itself or a runner it started
             self.assertEqual(refuse("claude-code"), "")        # an agent outside the chat names itself
         finally:
