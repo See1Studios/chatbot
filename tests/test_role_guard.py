@@ -9,9 +9,13 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from unittest import mock
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import characters as C  # noqa: E402
+import mcp_server  # noqa: E402
+import personal_turn  # noqa: E402
 import role_guard as R  # noqa: E402
 import write_guard as W  # noqa: E402
 
@@ -51,6 +55,67 @@ class Roles(unittest.TestCase):
         self.assertNotIn("engine stops", lead)
         for role in ("dev", "plan", "scout"):
             self.assertIn("handoff-brief", C.role_pack(role, tpl)["text"], role)
+
+    def test_caller_session_isolation_from_concurrent_private_session(self):
+        busy = [
+            {"id": "p1", "mode": "private", "turn": None, "tools": []},
+            {"id": "w1", "mode": "work", "turn": None, "tools": ["delegate"]},
+        ]
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)
+            # Caller is the work session: not closed despite concurrent private session
+            self.assertEqual(R.live_scope(busy, "delegate", p, {"id": "w1", "mode": "work"}), (False, False))
+            self.assertEqual(R.live_scope(busy, "web", p, {"id": "w1", "mode": "work"}), (False, True))
+            # Caller is the private session: closed
+            self.assertEqual(R.live_scope(busy, "delegate", p, {"id": "p1", "mode": "private"}), (True, False))
+
+    def test_caller_session_isolation_from_personal_turn(self):
+        busy = [
+            {"id": "w1", "mode": "work", "turn": 1000.0, "tools": ["delegate"]},
+            {"id": "w2", "mode": "work", "turn": 2000.0, "tools": ["delegate"]},
+        ]
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)
+            (p / "w1").mkdir()
+            (p / "w2").mkdir()
+            self.assertTrue(personal_turn.mark(p, "w1", 1000.0))
+            # w2 is not affected by w1's marked personal turn
+            self.assertEqual(R.live_scope(busy, "delegate", p, {"id": "w2", "mode": "work"}), (False, False))
+            # w1 is closed for work tools during its marked turn
+            self.assertEqual(R.live_scope(busy, "delegate", p, {"id": "w1", "mode": "work"}), (True, False))
+
+    def test_fail_open_mitigation_on_busy_lookup_failure(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)
+            # When host busy lookup returns empty (failure), private caller is still closed
+            self.assertEqual(R.live_scope([], "delegate", p, {"id": "p1", "mode": "private"}), (True, False))
+            self.assertEqual(R.live_scope([], "delegate", p, {"id": "p1", "private": True}), (True, False))
+            # Work caller with tools provided is evaluated safely
+            caller = {"id": "w1", "mode": "work", "tools": ["delegate"]}
+            self.assertEqual(R.live_scope([], "delegate", p, caller), (False, False))
+            self.assertEqual(R.live_scope([], "web", p, caller), (False, True))
+
+    def test_fallback_when_caller_unidentified(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)
+            busy_priv = [{"id": "p1", "mode": "private", "turn": None, "tools": []}]
+            self.assertEqual(R.live_scope(busy_priv, "delegate", p, {}), (True, False))
+            self.assertEqual(R.live_scope(busy_priv, "delegate", p, None), (True, False))
+            busy_work = [{"id": "w1", "mode": "work", "turn": None, "tools": ["delegate"]}]
+            self.assertEqual(R.live_scope(busy_work, "delegate", p, {}), (False, False))
+            self.assertEqual(R.live_scope(busy_work, "web", p, {}), (False, True))
+
+    def test_mcp_server_live_scope_passes_caller(self):
+        busy = [
+            {"id": "p1", "mode": "private", "turn": None, "tools": []},
+            {"id": "w1", "mode": "work", "turn": None, "tools": ["delegate"]},
+        ]
+        with mock.patch.object(mcp_server, "_busy_sessions", return_value=busy):
+            with mock.patch("mcp_caller.caller", return_value={"id": "w1", "mode": "work"}):
+                self.assertEqual(mcp_server._live_scope("delegate"), (False, False))
+                self.assertEqual(mcp_server._live_scope("web"), (False, True))
+            with mock.patch("mcp_caller.caller", return_value={"id": "p1", "mode": "private"}):
+                self.assertEqual(mcp_server._live_scope("delegate"), (True, False))
 
 
 if __name__ == "__main__":

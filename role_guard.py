@@ -10,7 +10,7 @@ them, mistook a URL for code, and the lead grepped by command anyway. Roles carr
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 
 def tool_refusal(name: str, args: Dict, edition_blocked: bool, *_unused) -> str:
@@ -18,11 +18,53 @@ def tool_refusal(name: str, args: Dict, edition_blocked: bool, *_unused) -> str:
     return "%s is not available in this edition (shipped build)" % name if edition_blocked else ""
 
 
-def live_scope(busy: list, grant: str, sessions_dir: Path) -> tuple:
+def live_scope(busy: list, grant: str, sessions_dir: Path, caller: Optional[Dict] = None) -> tuple:
     """(private, denied) of the sessions running a turn: a private one closes work tools (SESSION_SPLIT_v1), and so
     does a work turn marked personal (PERSONAL_TURN_v1); a work session whose character holds no role granting
-    `grant` is denied it (TEAM_ROLES_v2); (False, False) if unknown."""
+    `grant` is denied it (TEAM_ROLES_v2); (False, False) if unknown.
+    When `caller` is provided, evaluate only for that caller session to isolate across sessions."""
     import personal_turn
+
+    sid = str(caller.get("id") or "").strip() if isinstance(caller, dict) else str(caller or "").strip()
+    if sid:
+        target = next((x for x in (busy or []) if str(x.get("id") or "") == sid), None)
+        mode = (target.get("mode") if target else None) or (caller.get("mode") if isinstance(caller, dict) else None)
+        priv = bool((target.get("private") if target else False) or (caller.get("private") if isinstance(caller, dict) else False))
+        if not mode and not priv and sessions_dir:
+            try:
+                import json
+                meta_p = Path(sessions_dir) / sid / "meta.json"
+                if meta_p.is_file():
+                    meta = json.loads(meta_p.read_text(encoding="utf-8"))
+                    mode = meta.get("mode")
+            except Exception:
+                pass
+        closed = (mode == "private") or priv
+        if not closed and sessions_dir:
+            turn = (target.get("turn") if target else None) or (caller.get("turn") if isinstance(caller, dict) else None)
+            closed = personal_turn.is_marked(sessions_dir, sid, turn)
+
+        if closed:
+            return (True, False)
+
+        tools = None
+        if target and "tools" in target:
+            tools = target["tools"]
+        elif isinstance(caller, dict) and "tools" in caller:
+            tools = caller["tools"]
+        elif (target and target.get("character")) or (isinstance(caller, dict) and caller.get("character")):
+            cid = (target.get("character") if target else None) or (caller.get("character") if isinstance(caller, dict) else None)
+            try:
+                import characters
+                tools = characters.tools_of(cid) if characters else None
+            except Exception:
+                tools = None
+        denied = bool(tools is not None and grant not in tools)
+        return (False, denied)
+
+    if isinstance(caller, dict) and (caller.get("mode") == "private" or bool(caller.get("private"))):
+        return (True, False)
+
     closed = any(x.get("mode") == "private" or personal_turn.is_marked(sessions_dir, str(x.get("id") or ""), x.get("turn"))
-                 for x in busy)
-    return (closed, any(x.get("mode") != "private" and "tools" in x and grant not in x["tools"] for x in busy))
+                 for x in (busy or []))
+    return (closed, any(x.get("mode") != "private" and "tools" in x and grant not in x["tools"] for x in (busy or [])))

@@ -140,8 +140,6 @@ CURL_FLAGS = ("-s", "-S", "-f", "-i", "-I")
 CURL_NUMERIC_FLAGS = ("-m", "--max-time", "--connect-timeout")
 
 
-
-
 def envelope(success: bool, message: str, data: Any = None) -> dict:
     return {"success": success, "message": message, "data": data}
 
@@ -760,8 +758,9 @@ def _busy_sessions() -> list:   # the sessions running a turn, from the host; []
     return _host_get("/api/sessions/busy").get("sessions") or []
 
 
-def _live_scope(grant: str) -> tuple:
-    return role_guard.live_scope(_busy_sessions(), grant, DATA / "sessions")
+def _live_scope(grant: str, caller: Optional[Dict] = None) -> tuple:
+    return role_guard.live_scope(_busy_sessions(), grant, DATA / "sessions",
+                                 mcp_caller.caller(_host_get, PORT) if caller is None else caller)
 
 
 def _obs_tool_call(name: str, arguments: dict) -> dict:
