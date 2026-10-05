@@ -517,6 +517,44 @@ async function roomProfileOpen() {
   img.onerror = () => { img.onerror = null; if (typeof initialAvatar === 'function') img.src = initialAvatar(r.name || ''); };
 
   const nameEl = roomEl('div', 'shell-card-name', r.name || ROOM_TEXT.title);
+  const pencil = roomEl('button', 'art-btn ghost', '✎');
+  pencil.type = 'button';
+  pencil.title = pencil.ariaLabel = ROOM_TEXT.rename;
+  pencil.style.cssText = 'padding:0 6px;margin-left:6px;font-size:13px';
+  nameEl.appendChild(pencil);
+  pencil.addEventListener('click', () => {
+    const input = roomEl('input', 'shell-card-name');
+    input.value = r.name || '';
+    input.maxLength = 60;
+    input.ariaLabel = ROOM_TEXT.rename;
+    nameEl.replaceChildren(input);
+    input.focus();
+    input.select();
+    let done = false;   // Enter then blur must save once; Escape then blur must not save
+    const finish = async (save) => {
+      if (done) return;
+      done = true;
+      const next = input.value.trim();
+      if (save && next && next !== r.name) {
+        try {
+          const res = await api('/api/rooms/' + encodeURIComponent(r.id), { method: 'PATCH', body: JSON.stringify({ name: next }) });
+          if (res.ok && res.room) {
+            roomState.room = res.room;
+            if (typeof roomsTrayFill === 'function') roomsTrayFill();
+            if (typeof roomHead === 'function') roomHead();
+          }
+        } catch (err) {
+          if (typeof alertModal === 'function') await alertModal(ROOM_TEXT.failed + (err.message || err));
+        }
+      }
+      roomProfileOpen();
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') finish(true);
+      else if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
+  });
   const subEl = roomEl('div', 'shell-card-sub', (r.members || []).length + ROOM_TEXT.count + ' · ' + (ROOM_TEXT[r.strategy] || r.strategy));
   card.append(img, nameEl, subEl);
 
