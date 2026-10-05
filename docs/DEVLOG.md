@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-05 — fix(session): prevent message queue drop during steer and loop interrupt (#671, 위임 agy)
+
+- **커밋**: `b1873b0` fix(session): recover message queue on interrupt failure and deduplicate busy check, `072d36b` fix(session): prevent message queue drop during steer and loop interrupt
+- **바뀐 파일**: `session.py`, `session_turn.py`, `tests/test_steer.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-05 — fix(mcp): enforce read roots containment on run_command path arguments (#669, 위임 agy)
 
 - **커밋**: `ae1db61` fix(mcp): split value flags per command and close read roots bypasses, `91c47a9` fix(mcp): enforce read roots containment on run_command path arguments
