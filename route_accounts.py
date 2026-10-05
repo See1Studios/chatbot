@@ -68,6 +68,11 @@ def _get_usage(provider: str = DEFAULT_PROVIDER, force: bool = False) -> dict:
             data = {"ok": False, "supported": True, "error": report["error"], "checked_at": ts}
         else:
             data = {"ok": True, "supported": True, "rows": report.get("rows", []), "checked_at": ts}
+            if provider == "agy":   # per-account snapshot for the saved-profiles list (PROFILE_USAGE_v1)
+                try:
+                    accounts.save_usage_snapshot(email, data["rows"], ts)
+                except OSError:
+                    pass
         data["account"] = email
         return data
     data = _once()
@@ -261,3 +266,21 @@ def logout(req: Req):
         payload["message_ko"] = note
     # Prefer logout ok; if logout failed, surface that status.
     return req.json(payload, 200 if result.get("ok") else 400)
+
+
+def profiles(req: Req):
+    # PROFILE_USAGE_v1: saved agy logins + the last usage report seen for each (never token values).
+    snaps = accounts.usage_snapshots()
+    return req.json({"ok": True, "provider": "agy",
+                     "profiles": [{**p, "usage": snaps.get(p["email"])} for p in accounts.list_profiles("agy")]})
+
+
+def switch(req: Req):
+    # PROFILE_SWITCH_v1: one-click switch to a saved login (email or list number), then the same restart of the
+    # idle owned processes as a fresh login. Busy sessions are left to the auto-recycle loop.
+    target = str(req.body.get("target") or "").strip()
+    if not target:
+        return req.json({"ok": False, "error": "target (email or number) is required"}, 400)
+    result = accounts.switch_profile(target, "agy", owned=owned_agent_procs(), recycle=recycle_agents)
+    _invalidate_usage_cache("agy")
+    return req.json(result, 200 if result.get("ok") else 400)

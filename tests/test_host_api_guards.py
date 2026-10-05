@@ -140,6 +140,36 @@ class PatchTest(ServerCase):
         self.assertIn("PATCH", resp.getheader("Access-Control-Allow-Methods") or "")
 
 
+class AccountProfilesTest(ServerCase):
+    """One-click agy login switch (PROFILE_SWITCH_v1): the list is readable, the switch is a same-origin POST."""
+
+    def test_the_profile_list_carries_each_accounts_last_usage(self):
+        import route_accounts
+        prof = [{"index": 1, "email": "a@x.io", "active": True, "saved_at": 1.0, "source": "s"}]
+        with mock.patch.object(route_accounts.accounts, "list_profiles", lambda p="agy": prof), \
+                mock.patch.object(route_accounts.accounts, "usage_snapshots",
+                                  lambda: {"a@x.io": {"rows": [], "checked_at": 5.0}}):
+            resp, raw = self.req("GET", "/api/accounts/profiles")
+        self.assertEqual(resp.status, 200, raw)
+        self.assertEqual(json.loads(raw)["profiles"][0]["usage"]["checked_at"], 5.0)
+
+    def test_switch_runs_for_the_own_page_only(self):
+        import route_accounts
+        calls = []
+        def fake(target, provider="agy", owned=None, recycle=None):
+            calls.append(target)
+            return {"ok": True, "email": target}
+        with mock.patch.object(route_accounts.accounts, "switch_profile", fake), \
+                mock.patch.object(route_accounts, "owned_agent_procs", lambda: {}):
+            resp, raw = self.req("POST", "/api/accounts/switch", {"target": "b@x.io"}, {"Origin": "http://" + self.host})
+            self.assertEqual((resp.status, json.loads(raw)["email"]), (200, "b@x.io"))
+            resp, _ = self.req("POST", "/api/accounts/switch", {"target": "c@x.io"}, {"Origin": "http://evil.example"})
+            self.assertEqual(resp.status, 403)
+            resp, _ = self.req("POST", "/api/accounts/switch", {}, {"Origin": "http://" + self.host})
+            self.assertEqual(resp.status, 400)
+        self.assertEqual(calls, ["b@x.io"])
+
+
 class CorsTest(ServerCase):
     def acao(self, method="GET", origin=None, path="/healthz"):
         headers = {"Origin": origin} if origin else {}

@@ -316,6 +316,17 @@ class ProfilesTest(Base):
         accounts.AGY_TOKEN.write_text(json.dumps({"id_token": _jwt("../evil@x")}))
         self.assertFalse(accounts.save_profile()["ok"], "an email that is not file-safe is never a path")
 
+    def test_usage_snapshot_is_kept_per_account_and_never_listed_as_a_profile(self):
+        rows = [{"group": "Gemini", "remaining_pct": "80%"}]
+        accounts.save_usage_snapshot(OLD, rows, 100.0)
+        accounts.save_usage_snapshot(NEW, [], 200.0)   # nothing to remember
+        accounts.save_usage_snapshot(None, rows, 300.0)
+        self.assertEqual(accounts.usage_snapshots(), {OLD: {"rows": rows, "checked_at": 100.0}})
+        self.login(OLD)
+        accounts.save_profile()
+        self.assertEqual([p["email"] for p in accounts.list_profiles()], [OLD])
+        self.assertEqual(accounts.AGY_PROFILES_DIR.joinpath("usage.snapshots").stat().st_mode & 0o777, 0o600)
+
     def test_list_profiles_numbers_by_email_and_marks_the_active_one(self):
         self.login(OLD)
         accounts.save_profile()

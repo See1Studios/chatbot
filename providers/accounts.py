@@ -786,6 +786,25 @@ def _adopt_backups() -> None:
         os.replace(bak, archive / bak.name)
 
 
+def _usage_file() -> Path:
+    return _profiles_dir() / "usage.snapshots"   # not *.json: list_profiles only reads <email>.json
+
+
+def usage_snapshots() -> Dict[str, dict]:
+    """Last usage report seen per account: {email: {"rows": [...], "checked_at": ts}}. Quota is per account and only
+    the active login can be queried, so a saved profile shows what it looked like when it was last the active one."""
+    d, _mtime, err = _read_json(_usage_file())
+    return d if not err and isinstance(d, dict) else {}
+
+
+def save_usage_snapshot(email: Optional[str], rows: list, checked_at: float) -> None:
+    if not email or not rows:
+        return
+    snaps = usage_snapshots()
+    snaps[email] = {"rows": rows, "checked_at": checked_at}
+    _write_private(_usage_file(), json.dumps(snaps).encode())
+
+
 def _check_provider(provider: str) -> None:
     if provider not in _PROFILE_PROVIDERS:
         raise ValueError(f"no saved profiles for provider {provider!r} (want one of {', '.join(_PROFILE_PROVIDERS)})")
