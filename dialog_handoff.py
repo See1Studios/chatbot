@@ -178,7 +178,7 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
         _UNANSWERED.pop(h["id"], None)
         state = "done" if answer else "failed"
         _report(reg, h, state, answer or "(the turn ended without an answer%s)" % (": " + why if why else ""))
-        mark(h["id"], state, result=answer[:RESULT_MAX])
+        mark(h["id"], state, result=answer[:RESULT_MAX], **({"reason": why} if state == "failed" and why else {}))
         changed.append({"id": h["id"], "state": state})
     for h in [x for x in hs if x.get("state") == "sent"]:
         sess = reg.get_active(h["to"])

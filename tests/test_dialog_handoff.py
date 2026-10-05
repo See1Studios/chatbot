@@ -156,6 +156,7 @@ class Handoff(unittest.TestCase):
         dev.busy, dev._loop_hint = False, "The last turn went over its budget (20 tool calls)"   # live 2026-10-05
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "failed"}])
         self.assertIn("went over its budget", D.history(D.dm_id(self.dev, self.lead))[-1]["text"])
+        self.assertIn("went over its budget", H.ledger(self.lead)[0]["outcome"])   # the ledger keeps it too
 
     def test_an_answer_still_on_its_way_gets_a_second_look(self):
         # live #6 (2026-10-05): the turn had ended, its answer was not in the record yet, and it was failed
