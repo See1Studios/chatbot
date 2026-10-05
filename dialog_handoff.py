@@ -27,6 +27,8 @@ OPEN = ("sent", "running", "waiting", "resume")   # waiting: on work it handed o
 CLOSED = ("done", "failed", "cancelled")
 RESULT_MAX = 1500
 _LOCK = threading.Lock()
+_BOOT = time.time()   # this host process's start: a turn started before it was cut by a restart
+RESTART_RETRIES = 1
 _UNANSWERED: Dict[int, float] = {}   # handoff id -> when its ended turn first showed no answer (looked at again once)
 
 PROMPT = ("[Handoff #{id} from {sender} -- the user did not write this] {task}\n"
@@ -195,6 +197,13 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
             continue   # still working, or between a notice's stop and its resume
         answer = _last_answer(sess, float(h.get("started", 0))) if sess is not None else ""
         why = str(getattr(sess, "_loop_hint", "") or "")[:300]   # a stopped turn leaves its reason for the next one
+        if not answer and float(h.get("started", 0) or 0) < _BOOT:   # HANDOFF_RESTART_v1: the host restarted mid-turn
+            if int(h.get("retries", 0) or 0) < RESTART_RETRIES:   # its agent was stopped with it: send it again, once
+                mark(h["id"], "sent", retries=int(h.get("retries", 0) or 0) + 1,
+                     note="the host restarted during its turn; sent again")
+                changed.append({"id": h["id"], "state": "sent"})
+                continue
+            why = why or "the host restarted during its turn, again after it was sent a second time"
         if answer and getattr(sess, "_turn_timed_out", False):   # what it said before the wait, not a result
             answer, why = "", "it ran out of time waiting (for a subagent or a long command); what it said: " + answer[:200]
         elif not answer and not why and h["id"] not in _UNANSWERED:
@@ -202,6 +211,7 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
             continue
         _UNANSWERED.pop(h["id"], None)
         state = "done" if answer else "failed"
+        why = why or ("" if answer else "the turn ended without an answer")
         if state == "done" and _chained(h, now):   # HANDOFF_CHAIN_v1: it handed work on; it is not done yet
             continue
         parent = all_handoffs().get(h.get("parent")) if h.get("parent") else None

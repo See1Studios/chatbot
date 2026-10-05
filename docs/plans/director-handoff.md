@@ -141,6 +141,7 @@
 | dir/I | 리뷰 줄이기(D-8): 표시 전용 paths는 diff 리뷰를 건너뛰고 `awaiting_merge`에 "화면 확인 필요"를 붙인다. 리뷰 라운드 2 → 1 | `tools/worktree_runner.py`, `tools/review_checklist.py`, 테스트 | 테스트: `static/*.css`만 바꾼 계획은 리뷰어 호출 0회로 운영자 확인 대기. 엔진 `.py`가 섞이면 교차 리뷰 1라운드 | 3(가드 파일: 운영자) | S | D-8 | #632 |
 | dir/J | 두뇌 없음 빨리 알리기(D-9): 착수 전 쿼터 상태 확인, 없으면 시도를 쓰지 않고 한 줄 보고. [quota-failure-resilience.md](quota-failure-resilience.md)의 쿼터 상태를 그대로 쓴다(새로 만들지 않음) | `delegation.py`, `tools/worktree_runner.py`, 테스트 | 테스트: 한도에 걸린 두뇌만 있는 계획은 시도 수가 줄지 않고 바로 `unavailable` 한 줄 | 3(가드 파일: 운영자) | S | D-9 | #633 |
 | dir/K | 같은 기능 연속 티켓 막기(D-10) | `delegation.py`, 테스트 | 테스트: 표시 paths 머지 후 운영자 확인 표시 전에는 같은 paths 계획이 짧은 안내와 함께 거절 | 2 ⚡ | S | D-10 | 폐기(2026-10-05 운영자: 모든 계획은 이미 [실행]을 거치고, 머지 전 화면 미리보기가 없어 엔진이 "화면 확인"을 알 수 없다) |
+| dir/drill | 시나리오 드릴: 격리된 샌드박스 호스트(자체 데이터·포트 3021/3022·자체 HOME)에서 정해진 넘기기 시나리오(refuse, subagents, chain, busy, restart)를 돌리고 장부·시간·토큰·무응답·라이브 격리를 자동 확인 | `tools/handoff_drill.py`, `dialog_handoff.py`, 테스트 | `python3 tools/handoff_drill.py` 전부 통과, 라이브 도구 서버 미접촉 | 2 ⚡ | M | E·F·G | ✅ 2026-10-05 #667 |
 
 ## 6. 의존 · 순서 · 리스크
 

@@ -1,5 +1,15 @@
 # chatbot 개발로그
 
+## 2026-10-05 — 넘기기 시나리오 드릴, 재시작에 끊긴 넘기기 다시 보내기 (HANDOFF_DRILL_v1, HANDOFF_RESTART_v1, #667)
+
+- **운영자**: "테스트가 너무 일차원적인 거 아닌가?" → "그래 시나리오 드릴 진행해"
+- **드릴**: `python3 tools/handoff_drill.py` — 운영자 대화와 분리된 샌드박스 호스트(설정만 복사한 `~/.pe-drill`, 포트 3021/3022, 이 체크아웃의 코드)에서 5개 시나리오를 실제 모델로 돌리고, 장부 상태·걸린 시간·토큰(새 입력/캐시/출력)·무응답 경고·라이브 격리를 자동 판정한다.
+- **드릴이 찾은 것 1 — 격리**: agy는 도구 서버 주소를 작업 폴더뿐 아니라 `~/.gemini/config`에서도 읽어서, 첫 드릴의 에이전트가 라이브 도구 서버(:3012)를 불렀다(호출자를 몰라 거절됨). 샌드박스는 자체 HOME을 쓰고, 매 실행 끝에 라이브 로그에 낯선 호출자가 없는지 확인한다.
+- **드릴이 찾은 것 2 — 재시작**: 넘기기 도중 호스트를 재시작하면 에이전트가 같이 멈추고 넘기기는 이유 없이 실패로 끝났다(배포할 때마다 진행 중 일이 사라짐). 이제 한 번 다시 보내고, 또 끊기면 이유를 남긴다. 모든 실패는 이유를 가진다.
+- **드릴이 찾은 것 3 — 이어 넘기기**: 격리 문제 때문에 코코가 넘기기에 실패하고 직접 해버렸다. 격리를 고친 뒤 sent→running→waiting→resume→running→done으로 정상.
+- **결과**: refuse·subagents·chain·busy·restart·isolation 모두 통과(무응답 경고 0).
+- **재시작**: 필요(`dialog_handoff.py`).
+
 ## 2026-10-05 — fix(session): prevent message queue drop during steer and loop interrupt (#671, 위임 agy)
 
 - **커밋**: `b1873b0` fix(session): recover message queue on interrupt failure and deduplicate busy check, `072d36b` fix(session): prevent message queue drop during steer and loop interrupt

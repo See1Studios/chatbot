@@ -83,7 +83,8 @@ class Handoff(unittest.TestCase):
                         mock.patch.object(RC, "_dir", lambda: self.tmp / "rooms"),
                         mock.patch.object(D, "_dir", lambda: self.tmp / "dialogs"),
                         mock.patch.object(C, "_default_ws", return_value=self.ws),
-                        mock.patch.object(H.threading, "Thread", Now)]
+                        mock.patch.object(H.threading, "Thread", Now),
+                        mock.patch.object(H, "_BOOT", 0.0)]   # the fake clock's turns all began after this host started
         for p in self.patches:
             p.start()
         self.office = Office({self.lead: Desk("s-lead"), self.dev: Desk("s-dev"), self.art: Desk("s-art")})
@@ -185,6 +186,29 @@ class Handoff(unittest.TestCase):
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "failed"}])
         self.assertIn("went over its budget", D.history(D.dm_id(self.dev, self.lead))[-1]["text"])
         self.assertIn("went over its budget", H.ledger(self.lead)[0]["outcome"])   # the ledger keeps it too
+
+    def test_a_turn_cut_by_a_restart_is_sent_again_once_then_fails_saying_so(self):
+        # HANDOFF_RESTART_v1 (drill 2026-10-05): the restart stopped the agent; the handoff failed with no reason
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        H.run_once(self.office, now=1000.0)
+        dev = self.office.desks[self.dev]
+        dev.busy = False
+        with mock.patch.object(H, "_BOOT", 1500.0):                            # the host came back after it began
+            self.assertEqual(H.run_once(self.office, now=1600.0), [{"id": 1, "state": "sent"}, {"id": 1, "state": "running"}])
+            self.assertEqual(len(dev.sent), 2)                                 # the task again, not a resume
+            self.assertIn("[Handoff #1 from Lead", dev.sent[1][0])
+        dev.busy = False
+        with mock.patch.object(H, "_BOOT", 1700.0):                            # and again
+            self.assertEqual(H.run_once(self.office, now=1800.0), [{"id": 1, "state": "failed"}])
+        self.assertIn("the host restarted", H.all_handoffs()[1]["reason"])
+
+    def test_every_failure_says_why(self):
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        H.run_once(self.office, now=1000.0)
+        self.office.desks[self.dev].busy = False
+        H.run_once(self.office)
+        self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "failed"}])
+        self.assertEqual(H.all_handoffs()[1]["reason"], "the turn ended without an answer")
 
     def test_an_answer_still_on_its_way_gets_a_second_look(self):
         # live #6 (2026-10-05): the turn had ended, its answer was not in the record yet, and it was failed
