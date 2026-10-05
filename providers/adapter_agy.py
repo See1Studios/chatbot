@@ -17,7 +17,7 @@ import media_handler as _media
 
 
 # agy ends a turn with an EMPTY result when this elapses -- and the agent may keep working unseen.
-AGY_PRINT_TIMEOUT_SEC = 8 * 60
+AGY_PRINT_TIMEOUT_SEC = int(os.environ.get("CHATBOT_AGY_TURN_TIMEOUT_SEC") or 8 * 60)   # a host may set it (the drill's sandbox)
 
 _AGY_MODELS_CACHE = {"ts": 0.0, "models": []}
 
@@ -199,7 +199,7 @@ class AgyAdapter(AgentAdapter):
             self.find_executable(),
             "--input-format", "stream-json",
             "--output-format", "stream-json",
-            "--print-timeout", f"{AGY_PRINT_TIMEOUT_SEC // 60}m",
+            "--print-timeout", f"{AGY_PRINT_TIMEOUT_SEC}s",
             "--dangerously-skip-permissions",
             "--mode", "accept-edits",
             "--model", model,

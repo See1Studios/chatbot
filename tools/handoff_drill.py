@@ -100,8 +100,9 @@ def build() -> None:
                    check=False)
 
 
-def start() -> None:
-    env = _env()
+def start(limits: Optional[Dict[str, str]] = None) -> None:
+    """Start the sandbox host; `limits` are extra settings for this start only (a short turn limit or budget)."""
+    env = dict(_env(), **(limits or {}))
     (DRILL / "logs").mkdir(parents=True, exist_ok=True)
     for name, script in (("mcp", "mcp_server.py"), ("chat", "server.py")):
         with open(DRILL / "logs" / ("%s.out" % name), "ab") as log:   # binary: the child writes its own bytes
@@ -406,9 +407,61 @@ def sc_cancel(run: Run, t: Cast, lead: str) -> None:
     _silence(run, run.t0)
 
 
+def _with_limits(limits: Dict[str, str], t: Cast) -> str:
+    """Restart the sandbox host with `limits`; the lead's new session there."""
+    stop()
+    start(limits)
+    return session_for(t.sender)
+
+
+def _restore() -> None:
+    stop()
+    start()
+
+
+def sc_timeout(run: Run, t: Cast, lead: str) -> None:
+    """A handoff whose turn runs out of time (a 60 s limit here) closes as failed saying so -- not done with what it said
+    before the wait (the 8-minute limit, handoff #5 2026-10-05)."""
+    try:
+        lead = _with_limits({"CHATBOT_AGY_TURN_TIMEOUT_SEC": "60"}, t)
+        session_for(t.worker)
+        done = _handoff(run, lead, t.sender, t.worker, t.role(t.worker),
+                        "Research only. Use two subagents: one reads services/chatbot/session.py whole, the other "
+                        "services/chatbot/session_turn.py whole; each lists every method with one line. Merge both lists.",
+                        "both full lists")
+        run.facts["reason"] = str(done.get("reason") or "")[:90]
+        run.check(done.get("state") == "failed", "it is not done")
+        run.check("out of time" in str(done.get("reason") or ""), "the reason says it ran out of time")
+        run.check(float(run.facts.get("sec", 999)) < 200, "it closed soon after the limit")
+        _silence(run, run.t0)
+    finally:
+        _restore()
+
+
+def sc_budget(run: Run, t: Cast, lead: str) -> None:
+    """A handoff turn past its tool-call budget (warn 3, stop 6 here) is stopped and closes, saying why if it failed."""
+    try:
+        lead = _with_limits({"CHATBOT_TURN_BUDGET_CALLS": "3,6"}, t)
+        session_for(t.worker)
+        done = _handoff(run, lead, t.sender, t.worker, t.role(t.worker),
+                        "Research only, no subagents: open these ten files one by one, each with its own tool call, and "
+                        "give each one's first line: services/chatbot/session.py, session_turn.py, turn_watchdog.py, "
+                        "dialog_handoff.py, dialog_tool.py, event_react.py, loop_guard.py, write_guard.py, "
+                        "role_guard.py, mcp_server.py.", "ten first lines")
+        ev = [e for e in events(run.t0) if "loop" in str(e.get("evt")) or "budget" in json.dumps(e)]
+        run.facts["guard_events"] = sorted({str(e.get("evt")) for e in ev})
+        run.facts["reason"] = str(done.get("reason") or "")[:90]
+        run.check(done.get("state") in ("done", "failed"), "it closed")
+        run.check(bool(ev), "the budget stopped the turn")
+        run.check(done.get("state") == "done" or "budget" in str(done.get("reason") or ""), "a failure says it was the budget")
+        _silence(run, run.t0)
+    finally:
+        _restore()
+
+
 SCENARIOS: Dict[str, Callable] = {"refuse": sc_refuse, "subagents": sc_subagents, "chain": sc_chain,
                                   "busy": sc_busy, "restart": sc_restart,
-                                  "cancel": sc_cancel}
+                                  "cancel": sc_cancel, "timeout": sc_timeout, "budget": sc_budget}
 
 
 def main(argv: Optional[List[str]] = None) -> int:

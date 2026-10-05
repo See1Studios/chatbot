@@ -41,6 +41,7 @@ Each (rule, level) fires once until `reset()`.
 from __future__ import annotations
 
 import hashlib
+import os
 import json
 import re
 from collections import deque
@@ -127,16 +128,26 @@ def read_size(output) -> int:
     return int(m.group(1)) if m else len(text.encode("utf-8"))
 
 
+def _budget_calls() -> Tuple[int, int]:
+    """The turn budget in tool calls (warn, stop): 20, 40, or CHATBOT_TURN_BUDGET_CALLS="warn,stop" for a host that
+    tries the limits (the drill's sandbox, HANDOFF_DRILL_v1)."""
+    try:
+        warn, stop = (int(x) for x in os.environ["CHATBOT_TURN_BUDGET_CALLS"].split(","))
+        return (warn, stop) if 0 < warn < stop else (20, 40)
+    except (KeyError, ValueError):
+        return (20, 40)
+
+
 class LoopGuard:
     def __init__(self, exact_warn: int = 6, exact_stop: int = 10, window: int = 40,
                  consec_warn: int = 5, consec_stop: int = 8,
                  run_warn: int = 24, run_stop: int = 48,
-                 budget_calls: Tuple[int, int] = (20, 40), budget_bytes: Tuple[int, int] = (500_000, 1_200_000)) -> None:
+                 budget_calls: Optional[Tuple[int, int]] = None, budget_bytes: Tuple[int, int] = (500_000, 1_200_000)) -> None:
         self.exact_warn, self.exact_stop, self.window = exact_warn, exact_stop, window
         self.consec_warn, self.consec_stop = consec_warn, consec_stop
         self.run_warn, self.run_stop = run_warn, run_stop
-        self.budget_calls, self.budget_bytes = budget_calls, budget_bytes
-        self._stop_defaults = (exact_stop, consec_stop, budget_calls, budget_bytes)
+        self.budget_calls, self.budget_bytes = budget_calls or _budget_calls(), budget_bytes
+        self._stop_defaults = (exact_stop, consec_stop, self.budget_calls, budget_bytes)
         self.reset()
 
     def tighten(self, stop_at: int = 3) -> None:

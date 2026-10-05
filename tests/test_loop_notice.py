@@ -159,5 +159,17 @@ class StrictAfterTheNotice(unittest.TestCase):
         self.assertEqual((g.exact_stop, g.consec_stop), (2, 2))
 
 
+class BudgetSetting(unittest.TestCase):
+    def test_a_host_may_set_the_turn_budget(self):
+        # HANDOFF_DRILL_v1: the drill's sandbox runs short budgets
+        from unittest import mock
+        with mock.patch.dict("os.environ", {"CHATBOT_TURN_BUDGET_CALLS": "3,6"}):
+            self.assertEqual(LoopGuard().budget_calls, (3, 6))
+        for bad in ("6,3", "x", "0,4"):
+            with mock.patch.dict("os.environ", {"CHATBOT_TURN_BUDGET_CALLS": bad}):
+                self.assertEqual(LoopGuard().budget_calls, (20, 40), bad)
+        self.assertEqual(LoopGuard().budget_calls, (20, 40))
+
+
 if __name__ == "__main__":
     unittest.main()
