@@ -195,11 +195,15 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
     return changed
 
 
-def _show(reg, did: str, msg: Dict) -> None:
-    """Draw a dm in both directors' work windows now, as the office route does for a sent one (inbox/E)."""
+def _show(reg, did: str, msg: Dict, only: str = "") -> None:
+    """Draw a dm in the directors' work windows now, as the office route does for a sent one (inbox/E); `only` limits
+    it to one of them (a result: the receiver's window already shows it as its own turn -- drawn there again it came
+    out a second time as a "-> sender: ..." stage line, live 2026-10-05)."""
     import dialog_log
     import route_sessions
     for cid in dialog_log.members(did):
+        if only and cid != only:
+            continue
         sess = reg._newest(mode="work", character=cid) if hasattr(reg, "_newest") else None
         if sess is not None:
             other = next(x for x in dialog_log.members(did) if x != cid)
@@ -211,7 +215,8 @@ def _report(reg, h: Dict, state: str, answer: str) -> None:
     try:
         import dialog_log
         did = dialog_log.dm_id(h["to"], h["from"])
-        _show(reg, did, dialog_log.append(did, h["to"], "#%d %s" % (h["id"], answer[:RESULT_MAX]), announce=False))
+        _show(reg, did, dialog_log.append(did, h["to"], "#%d %s" % (h["id"], answer[:RESULT_MAX]), announce=False),
+              only=h["from"])
     except Exception:  # noqa: BLE001
         pass
     try:

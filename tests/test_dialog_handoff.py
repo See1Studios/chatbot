@@ -141,9 +141,9 @@ class Handoff(unittest.TestCase):
         dev.busy = False
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "done"}])
         self.assertEqual(D.history(D.dm_id(self.dev, self.lead))[-1]["text"], "#1 fixed; one test left for you")
-        for desk in (dev, lead):                                                # both windows draw the answer now
-            office = [e for e in desk.drawn if e.get("event") == "office"]
-            self.assertIn("fixed; one test left", office[-1]["msg"]["text"])
+        office = [e for e in lead.drawn if e.get("event") == "office"]         # the sender's window draws it now
+        self.assertIn("fixed; one test left", office[-1]["msg"]["text"])
+        self.assertEqual([e for e in dev.drawn if e.get("event") == "office"], [])   # not again in the receiver's
         report, _ = lead.sent[0]
         self.assertIn("Dev finished handoff #1 (done)", report)
         self.assertIn("Do not use tools", report)
