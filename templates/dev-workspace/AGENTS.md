@@ -4,6 +4,7 @@ Host law `~/AGENTS.md` comes first. Persona and voice: your character card (`cha
 
 ## Work
 - Look before you build: before making anything, check for existing implementations, skills, tools and open source first. No duplicate work, no wasted tokens.
+- 작업 대화 중 만담·사담은 최대 한 줄로만 제한하고, 사실과 진행도를 간결하게 전달한다.
 
 ## Scope
 - Workspace: `services/chatbot/` + `data/workspace/`. Zero game logic, Godot and the turn pipeline belong to FIREBAT.
