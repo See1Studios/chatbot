@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-05 — [docs/plans] director-handoff 및 INDEX.md 1·2단계 완료·D-1 번복·장부 반영 최신화 (#656, 위임 agy)
+
+- **커밋**: `0201077` docs(plans): update director-handoff status and INDEX description
+- **바뀐 파일**: `docs/plans/INDEX.md`, `docs/plans/director-handoff.md`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-05 — 넘겨받은 턴은 안 읽은 DM 줄만, 할 일 뒤에 (#655)
 
 - **실사용 #20**: #654에서 넘겨받은 턴에 사용자 턴용 안내 전체를 붙였더니, 재시작 직후라 "호스트 재기동" 줄이 맨 앞에 왔다. 노노의 첫 턴은 그 이야기로 끝났고 넘기기는 그 답으로 "완료"가 됐다. 이어진 턴에서 `dialog handoffs`로 #3 취소와 대기 0건을 바로 보고했다(장부 효과).
