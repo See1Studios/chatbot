@@ -595,18 +595,23 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         threading.Thread(target=self._notice_loop_worker, args=(what, v.rule), daemon=True).start()
 
     def _notice_loop_worker(self, what: str, rule: str = "") -> None:
+        rest = None
         try:
             with self.lock:
                 if not self.busy:
-                    return
+                    return  # the turn ended meanwhile
                 rest = list(self.msg_queue)
                 self.msg_queue.clear()
             self.interrupt_current_turn(reason="loop", clear_queue=False)
             with self.lock:
                 self.msg_queue[:] = rest + list(self.msg_queue)
+                rest = None
             note = BUDGET_NOTICE.format(what=what) if rule == "budget" else LOOP_NOTICE.format(what=what, user=user_title())
             self._send_direct(note, notice=True)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001 -- a failed notice must not leave the turn hanging silently
+            if rest is not None:
+                with self.lock:
+                    self.msg_queue[:] = rest + list(self.msg_queue)
             self._emit({"event": "error", "text": f"방향 전환 알림을 보내지 못했습니다: {e}"})
         finally:
             self._loop_stopping = False
@@ -1003,23 +1008,6 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 return  # a newer turn's message; its own timer will come
             self._steering = True
         threading.Thread(target=self._steer_worker, daemon=True).start()
-
-    def _steer_worker(self) -> None:
-        try:
-            with self.lock:
-                if not self.msg_queue or not self.busy:
-                    return
-                text, mid = self.msg_queue.pop(0)
-                rest = list(self.msg_queue)
-                self.msg_queue.clear()
-            self.interrupt_current_turn(reason="steer", clear_queue=False)
-            with self.lock:
-                self.msg_queue[:] = rest + list(self.msg_queue)
-                self._steer_since = _now() if self.msg_queue else 0.0
-            self._loop_hint = STEER_HINT
-            self._send_direct(text, mid)
-        finally:
-            self._steering = False
 
     def _proc_alive(self) -> bool:
         """"Is the turn actually still running" -- for process-transport

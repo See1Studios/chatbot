@@ -52,7 +52,7 @@ class Base(WorkspaceCase):
             self.interrupts.append(reason)
             s.busy = False
             if clear_queue:
-                s.msg_queue.clear()
+                s.msg_queue.clear()                                      # the real one clears the queue too
         s.interrupt_current_turn = interrupt
 
         def send_direct(text, mid="", **kw):
@@ -282,6 +282,47 @@ class QueuePreservationDuringInterrupt(ApplyAtTheNextBoundary):
         self.assertEqual(s.msg_queue, [("보존할 지시", "m1")])
         S.AgentSession.interrupt_current_turn(s, reason="interrupted", clear_queue=True)
         self.assertEqual(s.msg_queue, [])
+
+    def test_steer_worker_exception_preserves_queue(self):
+        s = self.make()
+        s.send("첫째 지시", "a")
+        s.send("둘째 지시", "b")
+
+        def broken_interrupt(reason="interrupted", clear_queue=True):
+            s.send("중단 중 유입 지시", "c")
+            raise RuntimeError("interrupt error")
+
+        s.interrupt_current_turn = broken_interrupt
+        with self.assertRaises(RuntimeError):
+            s._steer_worker()
+        self.assertEqual(s.msg_queue, [("첫째 지시", "a"), ("둘째 지시", "b"), ("중단 중 유입 지시", "c")])
+        self.assertFalse(s._steering)
+
+    def test_notice_loop_worker_exception_preserves_queue(self):
+        s = self.make()
+        s.msg_queue = [("대기 지시", "b")]
+
+        def broken_interrupt(reason="interrupted", clear_queue=True):
+            s.send("루프 중단 중 유입 지시", "c")
+            raise RuntimeError("interrupt error")
+
+        s.interrupt_current_turn = broken_interrupt
+        s._loop_stopping = True
+        s._notice_loop_worker(what="loop_call", rule="loop")
+        self.assertEqual(s.msg_queue, [("대기 지시", "b"), ("루프 중단 중 유입 지시", "c")])
+        self.assertFalse(s._loop_stopping)
+        self.assertIn("error", self.kinds())
+
+    def test_no_second_steer_worker_while_steering(self):
+        s = self.make()
+        s._steering = True
+        worker_calls = []
+        s._steer_worker = lambda: worker_calls.append(1)
+        s.send("스티어 도중 유입", "m2")
+        self.assertEqual(s.msg_queue, [("스티어 도중 유입", "m2")])
+        s._steer_at_boundary(forced=False)
+        s._steer_at_boundary(forced=True)
+        self.assertEqual(worker_calls, [])
 
 
 if __name__ == "__main__":

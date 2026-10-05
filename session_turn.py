@@ -132,6 +132,9 @@ class SessionTurn:
             new_sess._send_direct(text, client_mid)
         return new_sess
 
+    def _is_busy(self) -> bool:
+        return bool(self.busy or getattr(self, "_steering", False) or getattr(self, "_loop_stopping", False))
+
     def send(self, text: str, client_mid: str = "", client_context: Optional[Dict[str, Any]] = None, event_type: str = ""):
         """Return None (same session) or AgentSession if hard-rotated to a fresh session."""
         text = (text or "").strip()
@@ -147,26 +150,23 @@ class SessionTurn:
         # Skip rotate for doctor probes and queued follow-ups while busy.
         w = self._emit_heavy_if_needed()
         is_probe = text.strip().startswith("[doctor-probe]")
-        is_busy = self.busy or getattr(self, "_steering", False) or getattr(self, "_loop_stopping", False)
-        if (w.get("level") == "hard") and (not is_probe) and (not is_busy):
+        if (w.get("level") == "hard") and (not is_probe) and (not self._is_busy()):
             return self._rotate_to_fresh_session(text, reason="heavy", client_mid=client_mid, client_context=client_context)
 
         # Inactivity auto-rotate: if session had prior conversation and was inactive > INACTIVITY_ROTATE_SEC
         user_or_asst_turns = [h for h in self.history if h.get("role") in ("user", "assistant")]
         time_since_active = _now() - getattr(self, "last_activity", _now())
-        if len(user_or_asst_turns) >= 2 and (time_since_active >= INACTIVITY_ROTATE_SEC) and (not is_probe) and (not is_busy):
+        if len(user_or_asst_turns) >= 2 and (time_since_active >= INACTIVITY_ROTATE_SEC) and (not is_probe) and (not self._is_busy()):
             return self._rotate_to_fresh_session(text, reason="inactivity", client_mid=client_mid, client_context=client_context)
 
         with self.lock:
-            is_proc_alive = self._proc_alive()
-            if self.busy and not is_proc_alive:
+            if self.busy and not self._proc_alive():
                 self.busy = False
-            is_busy = self.busy or getattr(self, "_steering", False) or getattr(self, "_loop_stopping", False)
-            if is_busy:
+            if self._is_busy():
                 if _is_inquiry(text):
                     threading.Thread(target=self._run_btw, args=(text,), daemon=True).start()
                     return None
-                if self._can_steer_at_boundary() or getattr(self, "_loop_stopping", False) or getattr(self, "_steering", False):
+                if self._can_steer_at_boundary():
                     # agy cannot take a message mid-turn (it only queues it until the turn ends),
                     # and cutting the turn loses the work in flight. So: accept now, let the
                     # current tool step finish, then stop cleanly and resume the SAME
@@ -184,6 +184,34 @@ class SessionTurn:
             kw["client_context"] = client_context
         self._send_direct(text, client_mid, **kw)
         return None
+
+    def _steer_worker(self) -> None:
+        popped = None
+        rest = None
+        try:
+            with self.lock:
+                if not self.msg_queue or not self.busy:
+                    return  # the turn ended meanwhile: the normal end-of-turn dispatch delivers it
+                popped = self.msg_queue.pop(0)
+                rest = list(self.msg_queue)
+                self.msg_queue.clear()
+            self.interrupt_current_turn(reason="steer", clear_queue=False)
+            with self.lock:
+                self.msg_queue[:] = rest + list(self.msg_queue)  # later messages wait for the next boundary
+                self._steer_since = _now() if self.msg_queue else 0.0
+                rest = None
+            self._loop_hint = _s().STEER_HINT
+            text, mid = popped
+            self._send_direct(text, mid)  # respawns with --conversation <real id>: memory intact
+            popped = None
+        except Exception:
+            if popped is not None or rest is not None:
+                with self.lock:
+                    to_restore = ([popped] if popped else []) + (rest or [])
+                    self.msg_queue[:] = to_restore + list(self.msg_queue)
+            raise
+        finally:
+            self._steering = False
 
     def _guard_lines(self, stdin_content: str) -> str:
         """What the guards tell the agent before its message: a tree-watch hold (TREE_WATCH_v1, director-handoff
