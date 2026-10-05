@@ -46,6 +46,20 @@ class Hooks(unittest.TestCase):
         self.git("add", rel)
         return self.git("commit", "-qm", msg)
 
+    def test_the_guards_never_inherit_a_commits_dash_c_config(self):
+        # `git -c user.name=agy commit -- <path>` (the runner's diary line) handed GIT_CONFIG_PARAMETERS to the guard
+        # tests; their own git then wrote as agy and test_githooks failed: the line stayed staged after every merge
+        saved = dict(os.environ)
+        try:
+            os.environ.update({"GIT_CONFIG_PARAMETERS": "'user.name=agy'", "GIT_CONFIG_COUNT": "1",
+                               "GIT_CONFIG_KEY_0": "user.name", "GIT_CONFIG_VALUE_0": "agy", "GIT_INDEX_FILE": "x"})
+            env = check._clean_git_env()
+            self.assertFalse([k for k in env if k.startswith("GIT_CONFIG_") or k == "GIT_INDEX_FILE"])
+            self.assertIn("PATH", env)
+        finally:
+            os.environ.clear()
+            os.environ.update(saved)
+
     def test_a_conventional_subject_passes_and_others_do_not(self):
         self.assertNotEqual(self.commit("a.txt", "1", "update stuff").returncode, 0)
         self.assertEqual(self.commit("a.txt", "1", "fix(core): update stuff\n\nTicket: #1").returncode, 0)

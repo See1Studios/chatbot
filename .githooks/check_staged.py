@@ -52,11 +52,15 @@ def staged():
 
 def _clean_git_env():
     """git hands hooks GIT_INDEX_FILE (a temp index for `commit -a` / `commit <paths>`) and may set GIT_DIR: a new
-    worktree and the guards must not inherit them, or they would read or write that index."""
+    worktree and the guards must not inherit them, or they would read or write that index. `git -c k=v commit` passes
+    its settings on as GIT_CONFIG_PARAMETERS (and GIT_CONFIG_COUNT/KEY_n/VALUE_n): the delegation runner commits its
+    diary line with `-c user.name=agy`, the guard tests' own git then wrote as agy, test_githooks failed and the
+    line was left staged after every merge (#620, #626, #656, #662 -- 2026-10-05)."""
     return {k: v for k, v in os.environ.items()
             if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE", "GIT_PREFIX", "GIT_OBJECT_DIRECTORY",
                          "CHATBOT_ROOT", "AGY_CHAT_ROOT", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE",
-                         "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL", "GIT_COMMITTER_DATE")}
+                         "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL", "GIT_COMMITTER_DATE")
+            and not k.startswith("GIT_CONFIG_")}
 
 
 def run_guards_on_snapshot(root):

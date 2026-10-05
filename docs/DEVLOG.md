@@ -1,5 +1,10 @@
 # chatbot 개발로그
 
+## 2026-10-05 — 머지 뒤 DEVLOG 줄이 늘 커밋되지 않던 진짜 원인 (#664)
+
+- **증상**: 위임 머지 때 러너가 쓰는 DEVLOG 줄이 스테이징만 되고 남았다(#620, #627–#630, #656, #662). #626의 고침 뒤에도 계속됐다.
+- **원인**: 러너는 `git -c user.name=agy commit -- docs/DEVLOG.md`로 커밋한다. `-c` 설정은 `GIT_CONFIG_PARAMETERS`로 커밋 훅에 넘어가는데, 훅의 환경 정리 목록에 이 변수가 없었다. 가드 테스트의 git까지 "작성자 agy"가 되어 `test_githooks`("라이브 채팅 에이전트는 두뇌 이름으로 커밋")가 실패했고 커밋이 거부됐다. 같은 커밋을 손으로 재현해 확인했다.
+- **고침**: 훅이 가드 테스트에 넘기는 환경에서 `GIT_CONFIG_*`를 뺀다(`.githooks/check_staged.py::_clean_git_env`).
 ## 2026-10-05 — fix(team): prevent duplicate rendering of handoff task in sender window (#662, 위임 agy)
 
 - **커밋**: `38b4c97` fix(team): remove unused exclude parameter from office_notify, `122d02e` fix(team): prevent duplicate rendering of handoff task in sender window
