@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-05 — fix(team): prevent duplicate rendering of handoff task in sender window (#662, 위임 agy)
+
+- **커밋**: `38b4c97` fix(team): remove unused exclude parameter from office_notify, `122d02e` fix(team): prevent duplicate rendering of handoff task in sender window
+- **바뀐 파일**: `dialog_tool.py`, `route_sessions.py`, `tests/test_dialog_handoff.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-05 — 서브에이전트는 좁게 시키고, 답을 얻으면 멈춘다 (#663)
 
 - **실사용 #31 (리리)**: 리리는 63초에 답과 DM 보고까지 마쳤지만 턴은 255초에 끝났다. agy는 서브에이전트가 끝날 때까지 부모 턴을 닫지 않는데, 넓은 질문만 받은 서브에이전트가 홈 디렉터리 전체를 `find`·`grep`하며 60번 가까이 도구를 썼다.
