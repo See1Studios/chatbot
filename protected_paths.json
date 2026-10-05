@@ -195,6 +195,10 @@
       "reason": "a guard test (run-tests.sh FAST)"
     },
     {
+      "path": "tests/test_page_scripts.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
       "path": "tests/test_tool_format_clean.py",
       "reason": "a guard test (run-tests.sh FAST)"
     },
