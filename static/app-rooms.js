@@ -9,7 +9,7 @@ const ROOM_TEXT = {   // l10n-ok
   placeholder: '메시지… @로 멤버를 부를 수 있어요', answering: '단체방이 답하는 중…', you: '나', failed: '실패: ',   // l10n-ok
   back: '← 1:1 대화로', count: '명', current: ' (현재)',   // l10n-ok
   profile: '단체방 정보', invite: '멤버 초대', kick: '내보내기', minMembers: '단체방 멤버는 최소 2명 이상이어야 해요.',   // l10n-ok
-  changeStrategy: '발언 전략 변경', rename: '방 이름 변경',   // l10n-ok
+  changeStrategy: '발언 전략 변경', rename: '방 이름 변경', save: '저장',   // l10n-ok
 };
 const ROOM_STRATEGIES = ['natural', 'list', 'manual'];
 const ROOM_KEY = 'chatbot.roomId';   // the open room, so a reload comes back to it
@@ -527,10 +527,18 @@ async function roomProfileOpen() {
     input.value = r.name || '';
     input.maxLength = 60;
     input.ariaLabel = ROOM_TEXT.rename;
-    nameEl.replaceChildren(input);
+    input.style.cssText = 'width:100%;box-sizing:border-box;text-align:center;font-size:1rem';
+    const row = roomEl('div');
+    row.style.cssText = 'display:flex;gap:.5rem;justify-content:center;margin-top:.35rem';
+    const ok = roomEl('button', 'art-btn', ROOM_TEXT.save);
+    const no = roomEl('button', 'art-btn ghost', ROOM_TEXT.cancel);
+    ok.type = no.type = 'button';
+    row.append(ok, no);
+    nameEl.style.width = '100%';
+    nameEl.replaceChildren(input, row);
     input.focus();
     input.select();
-    let done = false;   // Enter then blur must save once; Escape then blur must not save
+    let done = false;   // a double tap saves once
     const finish = async (save) => {
       if (done) return;
       done = true;
@@ -553,7 +561,8 @@ async function roomProfileOpen() {
       if (e.key === 'Enter') finish(true);
       else if (e.key === 'Escape') finish(false);
     });
-    input.addEventListener('blur', () => finish(true));
+    ok.addEventListener('click', () => finish(true));
+    no.addEventListener('click', () => finish(false));
   });
   const subEl = roomEl('div', 'shell-card-sub', (r.members || []).length + ROOM_TEXT.count + ' · ' + (ROOM_TEXT[r.strategy] || r.strategy));
   card.append(img, nameEl, subEl);
