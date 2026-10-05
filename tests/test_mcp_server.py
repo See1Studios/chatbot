@@ -108,12 +108,13 @@ class RunCommandTest(Base):
         mcp.obslog.event = lambda evt, **f: events.append((evt, f))   # never the live log
         try:
             self.calls.clear()
-            r = mcp._obs_tool_call("run_command", {"Arguments": "{'cmd': 'ls -la /tmp'}", "ServerName": "nas",
+            cmd = f"ls -la {self.tmp}"
+            r = mcp._obs_tool_call("run_command", {"Arguments": f"{{'cmd': '{cmd}'}}", "ServerName": "nas",
                                                    "ToolName": "run_command"})
         finally:
             mcp.obslog.event = orig
         self.assertTrue(r["success"], r["message"])
-        self.assertEqual(self.calls, [["bash", "-lc", "ls -la /tmp"]])
+        self.assertEqual(self.calls, [["bash", "-lc", cmd]])
         self.assertEqual(events[0][1]["fixed"], ["unwrapped Arguments"])
         self.assertIn("Arguments", events[0][1]["args"])          # the event keeps what the model sent
 
@@ -150,9 +151,29 @@ class RunCommandTest(Base):
             self.assertEqual(fill("ticket", {"action": "list"}), ({"action": "list"}, ""))
 
     def test_read_only_basics_run(self):
-        for cmd in ("ls -la /tmp", "cat /etc/hostname", "head -n 3 x", "tail -n 3 x", "df -h",
-                    "free -m", "ps aux", "du -sh .", "stat x", "pwd", "whoami", "date", "uname -a",
-                    "ls /nope 2>/dev/null", "ls /nope 2> /dev/null"):
+        x = str(self.tmp / "x")
+        d = str(self.tmp)
+        (self.tmp / "x").write_text("line1\nline2\nline3\n", encoding="utf-8")
+        for cmd in (f"ls -la {d}", f"cat {x}", f"head -n 3 {x}", f"tail -n 3 {x}", "df -h",
+                    "free -m", "ps aux", f"du -sh {d}", f"stat {x}", "pwd", "whoami", "date", "uname -a",
+                    f"ls {d}/nope 2>/dev/null", f"ls {d}/nope 2> /dev/null"):
+            self.assertRan(cmd)
+
+    def test_run_command_outside_read_roots_is_refused(self):
+        for cmd in ("cat /etc/hosts", "cat /etc/hostname", "head -n 5 /etc/passwd",
+                    "tail -n 10 /etc/shadow", "ls /etc", "ls -la /tmp", "stat /etc/hosts",
+                    "du -sh /var", "cat ../../../etc/hosts", "ls /nope 2>/dev/null",
+                    "head -c 20 /etc/hosts", "du -d 1 /var", "cat -- /etc/hosts"):
+            r = self.run_cmd(cmd)
+            self.assertFalse(r["success"], "expected %r to be refused" % cmd)
+            self.assertEqual(r["message"], "command rejected (path outside read roots)")
+            self.assertEqual(self.calls, [])
+
+        (self.tmp / "allowed.txt").write_text("hello world\n", encoding="utf-8")
+        for cmd in (f"cat {self.tmp}/allowed.txt", f"head -n 1 {self.tmp}/allowed.txt",
+                    f"tail -n 1 {self.tmp}/allowed.txt", f"ls {self.tmp}",
+                    f"stat {self.tmp}/allowed.txt", f"du -sh {self.tmp}",
+                    f"cat -- {self.tmp}/allowed.txt"):
             self.assertRan(cmd)
 
     def test_ctl_status_doctor_probe_guard_run(self):

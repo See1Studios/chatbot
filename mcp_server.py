@@ -82,22 +82,10 @@ except Exception:
 # Sphere/Hermes/wiki-specific extra roots live in the optional nas_mcp_host
 # plugin (see docs/plans/chatbot-host-portability.md Phase 1) and get merged
 # in by _allow_roots()/_read_roots() below once HOST_PLUGIN is resolved.
-ALLOW_ROOTS = [
-    DATA.resolve(),
-    AGENTS.resolve(),
-    (WEB_ROOT / "chat").resolve(),
-    TMP_ROOT.resolve(),
-    (DATA / "workspace").resolve(),
-    ENGINE.resolve(),  # engine py/static (dev build only, edition-boundary); not in agy ADD_DIRS (token tax)
-]
-
-# Also allowlist these for read/list (broader read roots)
-READ_ROOTS = ALLOW_ROOTS + [
-    SERVICES.resolve(),
-    (HOME / ".local" / "bin").resolve(),
-    (HOME / "bin").resolve(),
-    (HOME / "AGENTS.md").resolve(),
-]
+ALLOW_ROOTS = [DATA.resolve(), AGENTS.resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve(),
+               (DATA / "workspace").resolve(), ENGINE.resolve()]
+READ_ROOTS = ALLOW_ROOTS + [SERVICES.resolve(), (HOME / ".local" / "bin").resolve(),
+                            (HOME / "bin").resolve(), (HOME / "AGENTS.md").resolve()]
 
 SECRET_NAME_RE = re.compile(
     r"(?i)(^\.env($|\.)|oauth|token|secret|credential|passwd|password|api[_-]?key|auth\.json|antigravity-oauth)"
@@ -107,21 +95,9 @@ SECRET_CONTENT_RE = re.compile(
 )
 
 # Commands allowed by their first token (exact match, never a string prefix).
-CMD_PREFIXES = (
-    "ls",
-    "cat",
-    "head",
-    "tail",
-    "df",
-    "free",
-    "ps",
-    "du",
-    "stat",
-    "pwd",
-    "whoami",
-    "date",
-    "uname",
-)
+CMD_PREFIXES = ("ls", "cat", "head", "tail", "df", "free", "ps", "du", "stat", "pwd", "whoami", "date", "uname")
+CMD_PATH_TARGETS = ("cat", "head", "tail", "ls", "stat", "du")
+CMD_VAL_FLAGS = {"-n", "-c", "-d", "-w", "-C", "-s", "-B", "-X", "-I", "-T", "--lines", "--bytes", "--max-depth", "--width", "--block-size", "--format", "--printf"}
 # chatbot-ctl.sh is a lifecycle script: only these read/diagnose subcommands, and
 # no arguments except probe's timeout. `doctor --auto-repair` reaches repair, so
 # doctor takes none. repair/start/stop/restart/defibrillate are for people.
@@ -138,8 +114,6 @@ CURL_LEAD_FLAGS = ("-fsS", "-sS")
 CURL_URL_RE = re.compile(r"^http://(127\.0\.0\.1|localhost):\d{1,5}(/\S*)?$")
 CURL_FLAGS = ("-s", "-S", "-f", "-i", "-I")
 CURL_NUMERIC_FLAGS = ("-m", "--max-time", "--connect-timeout")
-
-
 
 
 def envelope(success: bool, message: str, data: Any = None) -> dict:
@@ -576,6 +550,22 @@ def _curl_refusal(args: List[str]) -> Optional[str]:
     return None
 
 
+def _cmd_path_tokens(tokens: List[str]) -> List[str]:
+    paths, i = [], 1
+    while i < len(tokens):
+        t = tokens[i]
+        if t == "--":
+            paths.extend(tokens[i + 1:])
+            break
+        if t.startswith("-"):
+            if t in CMD_VAL_FLAGS and i + 1 < len(tokens):
+                i += 1
+        elif t not in ("2>/dev/null", "2>", "/dev/null"):
+            paths.append(t)
+        i += 1
+    return paths
+
+
 def _command_refusal(cmd: str) -> Optional[str]:
     """Why run_command must refuse `cmd`, or None. Matching is per token, never per string prefix."""
     if not cmd or "\n" in cmd or any(c in cmd for c in ";|&`") or "$(" in cmd:
@@ -593,11 +583,19 @@ def _command_refusal(cmd: str) -> Optional[str]:
         return _ctl_refusal(tokens[1:])
     if tokens[0] == "curl":
         return _curl_refusal(tokens[1:])
+    matched = False
     for prefix in _cmd_prefixes():
         head = shlex.split(prefix)
         if tokens[:len(head)] == head:
-            return None
-    return "command prefix not allowlisted"
+            matched = True
+            break
+    if not matched:
+        return "command prefix not allowlisted"
+    if tokens[0] in CMD_PATH_TARGETS:
+        for tok in _cmd_path_tokens(tokens):
+            if not _is_under(_resolve_target_path(tok), _read_roots()):
+                return "command rejected (path outside read roots)"
+    return None
 
 
 def _call_refusal(name: str, args: dict) -> str:   # the edition boundary, then ROLE_TOOLS_v1
