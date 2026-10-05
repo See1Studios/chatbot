@@ -545,5 +545,73 @@ class ShellSwitch(unittest.TestCase):
         self.assertNotRegex(aside, r"[가-힣]")
 
 
+QUOTA_JS = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
+const mk = () => ({ hidden: false, children: [], connected: true, get isConnected() { return this.connected; },
+  appendChild(c) { this.children.push(c); return c; }, set textContent(v) { this.children = []; }, get textContent() { return ''; } });
+const out = [];
+async function run(label, opts) {
+  const calls = [];
+  const stubs = { shellEl: () => mk(), chatProvider: () => opts.provider === undefined ? 'agy' : opts.provider,
+    modelEl: opts.noModel ? undefined : { value: 'gemini-3.8-flash-low' },
+    api: async (url, o) => { calls.push([url, o]); if (opts.fail) throw new Error('boom'); return { ok: true }; },
+    quotaNow: opts.noQuotaNow ? undefined : (res, p, m) => (opts.empty ? null : { p, m }) };
+  const names = Object.keys(stubs);
+  const f = new Function(...names, src + '\nreturn { shellQuotaSection };')(...names.map(k => stubs[k]));
+  const box = f.shellQuotaSection();
+  const startHidden = box.hidden;
+  if (opts.closed) box.connected = false;
+  await new Promise(r => setTimeout(r, 5));
+  out.push({ label, startHidden, hidden: box.hidden, shown: box.children.map(c => [c.p, c.m]), calls });
+}
+(async () => {
+  await run('ok', {});
+  await run('closed', { closed: true });
+  await run('failed', { fail: true });
+  await run('empty', { empty: true });
+  await run('noProvider', { provider: '' });
+  await run('noQuotaNow', { noQuotaNow: true });
+  await run('noModel', { noModel: true });
+  console.log(JSON.stringify(out));
+})();
+"""
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class ProfileQuota(unittest.TestCase):
+    """The quota line pinned under the name card of a character profile (QUOTA_VIEW_v1, static/app-shell-quota.js)."""
+
+    @classmethod
+    def setUpClass(cls):
+        r = subprocess.run(["node", "-e", QUOTA_JS, str(STATIC / "app-shell-quota.js")], capture_output=True, text=True, timeout=30)
+        assert r.returncode == 0, r.stderr
+        cls.o = {x["label"]: x for x in json.loads(r.stdout.strip().splitlines()[-1])}
+
+    def test_it_asks_for_the_model_in_use_and_shows_the_adapters_view_once_it_arrives(self):
+        o = self.o["ok"]
+        self.assertTrue(o["startHidden"], "no empty frame while the report loads")
+        self.assertEqual(o["calls"][0][0], "/api/usage?provider=agy&model=gemini-3.8-flash-low")
+        self.assertGreaterEqual(o["calls"][0][1]["timeoutMs"], 45000, "a cold CLI report takes tens of seconds")
+        self.assertEqual((o["hidden"], o["shown"]), (False, [["agy", "gemini-3.8-flash-low"]]))
+
+    def test_it_adds_nothing_when_there_is_nothing_to_show(self):
+        for case in ("closed", "failed", "empty", "noQuotaNow"):
+            self.assertTrue(self.o[case]["hidden"], case)
+            self.assertEqual(self.o[case]["shown"], [], case)
+        self.assertEqual(self.o["noProvider"]["calls"], [], "no provider, no request")
+
+    def test_without_a_model_picker_it_still_asks_for_the_provider(self):
+        self.assertEqual(self.o["noModel"]["calls"][0][0], "/api/usage?provider=agy")
+
+    def test_it_sits_under_the_name_card_above_the_rows_and_is_loaded_after_what_it_uses(self):
+        shell = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("panel.insertBefore(shellQuotaSection(), list)", shell)
+        for earlier in ("app-status.js", "app-shell.js"):
+            self.assertLess(HTML.index('src="./' + earlier), HTML.index('src="./app-shell-quota.js'))
+        self.assertRegex((STATIC / "app-status.js").read_text(encoding="utf-8"), r"function quotaNow\(res, provider, model\)")
+        self.assertIn(".shell-quota[hidden]{display:none}", CSS)
+
+
 if __name__ == "__main__":
     unittest.main()

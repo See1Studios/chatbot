@@ -638,15 +638,16 @@ function statusModel() {
 }
 
 // The adapter's own reading of the quota of the model in use (res.view), as pills; a figure that is no percentage is text only.
-function quotaNow(res) {
+function quotaNow(res, provider, model) {
   const v = res && res.view;
   if (!v || !(v.windows || []).length) return null;
-  const model = statusModel();
+  provider = provider || currentStatusProvider();
+  if (model === undefined) model = statusModel();
   const el = document.createElement('div');
   el.className = 'quota-now';
   const head = document.createElement('div');
   head.className = 'quota-now-head';
-  head.textContent = currentStatusProvider() + (model ? ' \u00b7 ' + model : '') + (v.scope ? ' \u00b7 ' + v.scope : '');
+  head.textContent = provider + (model ? ' \u00b7 ' + model : '') + (v.scope ? ' \u00b7 ' + v.scope : '');
   const pills = document.createElement('div');
   pills.className = 'quota-pills';
   v.windows.forEach(w => {

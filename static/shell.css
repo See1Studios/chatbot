@@ -78,6 +78,8 @@ html.shell2 #teamList > [hidden]{display:none !important}
 .shell-card img{width:112px;height:112px;border-radius:50%;object-fit:cover;border:1px solid var(--border);background:#2a2f3a;margin-bottom:.35rem}
 .shell-card-name{font-size:1.15rem;font-weight:700;letter-spacing:-.02em;line-height:1.25}
 .shell-card-sub{font-size:.8rem;color:var(--muted)}
+.shell-quota{padding:0 .8rem .6rem;flex-shrink:0}
+.shell-quota[hidden]{display:none}
 .shell-rows{display:flex;flex-direction:column;gap:2px;padding:.4rem;overflow-y:auto;min-height:0}
 .shell-rowbtn{display:flex;align-items:center;justify-content:space-between;gap:.6rem;width:100%;padding:.6rem .65rem;border:0;border-radius:10px;background:transparent;text-align:left;font-size:.9rem;color:var(--text)}
 .shell-rowbtn:hover{background:rgba(255,255,255,.05)}
