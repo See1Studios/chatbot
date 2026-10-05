@@ -146,6 +146,23 @@ def mark(hid: int, state: str, **fields) -> None:
     _append({"id": hid, "state": state, "state_at": time.time(), **fields})
 
 
+def cancel(hid: int, by: str, reason: str = "") -> Dict:
+    """HANDOFF_CANCEL_v1: ask for an open handoff to be cancelled, by its sender or receiver (a character id) or the
+    operator ("operator"). The row carries no state -- the host may be moving it on right now -- and the chat host
+    acts on it in its next pass (`run_once`): it stops a running turn, then closes it and its open children."""
+    h = all_handoffs().get(int(hid))
+    if not h:
+        raise HandoffError("handoff: there is no #%s; `handoffs` lists yours" % hid)
+    if h.get("state") in CLOSED:
+        raise HandoffError("handoff: #%d is already %s" % (h["id"], h["state"]))
+    if by != "operator" and by not in (h.get("from"), h.get("to")):
+        raise HandoffError("handoff: only the director who sent #%d or the one working it can cancel it" % h["id"])
+    why = str(reason or "").strip()[:300] or ("the operator cancelled it" if by == "operator"
+                                               else "cancelled by the %s director" % _title(by))
+    _append({"id": h["id"], "cancel": by, "cancel_reason": why, "cancel_at": time.time()})
+    return dict(h, cancel=by, cancel_reason=why)
+
+
 # ---- the chat host's side (event_react.loop) --------------------------------------------------------------------
 
 def _title(cid: str, role: str = "") -> str:
@@ -185,11 +202,23 @@ def _speak(sess, text: str, event_type: str = "handoff") -> None:
         sess._host_turn_at = 0   # sent: from here the session's own busy flag keeps the next host turn out
 
 
+_PASS = threading.Lock()
+
+
 def run_once(reg, now: Optional[float] = None) -> List[Dict]:
-    """One pass: finish handoffs whose turn ended (result back to the sender), then start the waiting ones whose
-    receiver is free. Returns what changed ({id, state})."""
+    """One pass: close the cancelled ones, finish handoffs whose turn ended (result back to the sender), then start the
+    waiting ones whose receiver is free. Returns what changed ({id, state}). One pass at a time: the reactor's and an
+    operator's cancel (route_sessions.handoff_cancel) never act on one handoff twice."""
+    with _PASS:
+        return _pass(reg, now)
+
+
+def _pass(reg, now: Optional[float] = None) -> List[Dict]:
     now = now or time.time()
     changed = []
+    for h in sorted(all_handoffs().values(), key=lambda h: h["id"]):
+        if h.get("cancel") and h.get("state") in OPEN:
+            changed += _close_cancelled(reg, h)
     hs = sorted(all_handoffs().values(), key=lambda h: h["id"])
     for h in [x for x in hs if x.get("state") == "running"]:
         sess = reg.peek(h.get("sid", "")) if hasattr(reg, "peek") else None
@@ -261,6 +290,31 @@ def _show(reg, did: str, msg: Dict, only: str = "") -> None:
         if sess is not None:
             other = next(x for x in dialog_log.members(did) if x != cid)
             sess._emit({"event": "office", "msg": route_sessions._office_view(dict(msg, dialog_id=did, other=other), cid)})
+
+
+def _close_cancelled(reg, h: Dict, why: str = "") -> List[Dict]:
+    """HANDOFF_CANCEL_v1: stop the turn working `h`, close it as cancelled, then its open children (their work was for
+    it); the one who asked for it reads why in the dm. A parent left waiting on it goes on with what came back."""
+    if h.get("state") not in OPEN:
+        return []
+    why = why or str(h.get("cancel_reason") or "cancelled")
+    if h.get("state") == "running":
+        sess = reg.peek(h.get("sid", "")) if hasattr(reg, "peek") else None
+        if sess is not None and getattr(sess, "busy", False):
+            try:
+                sess.stop()
+            except Exception:  # noqa: BLE001 -- closed in the ledger all the same
+                pass
+    mark(h["id"], "cancelled", reason=why)
+    _report(reg, h, "cancelled", "(cancelled: %s)" % why, tell=False)
+    out = [{"id": h["id"], "state": "cancelled"}]
+    for c in _children(h["id"]):
+        out += _close_cancelled(reg, all_handoffs().get(c["id"], c), "its parent #%d was cancelled" % h["id"])
+    parent = all_handoffs().get(h.get("parent")) if h.get("parent") else None
+    if parent is not None and parent.get("state") == "waiting" and not [
+            c for c in _children(parent["id"]) if c.get("state") in OPEN]:
+        mark(parent["id"], "resume")
+    return out
 
 
 def _children(hid: int) -> List[Dict]:

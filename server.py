@@ -545,6 +545,17 @@ GET_ROUTES = [
     (None, route_files.static),
 ]
 
+def _handoff_cancel(req):
+    """POST /api/handoffs/<id>/cancel {reason}: the operator calls a handoff off (HANDOFF_CANCEL_v1), acted on now: its
+    turn stops and it closes with its open children. Here, not in route_sessions: dialog_handoff imports that one."""
+    import dialog_handoff
+    try:
+        h = dialog_handoff.cancel(int(req.arg), "operator", str((req.body or {}).get("reason") or ""))
+    except (dialog_handoff.HandoffError, ValueError) as e:
+        return req.json({"ok": False, "error": str(e)}, 400)
+    return req.json({"ok": True, "handoff": h["id"], "was": h.get("state"), "changed": dialog_handoff.run_once(REG)})
+
+
 POST_STREAM_ROUTES = [   # before the JSON body is read
     ("/api/characters/import", _card_import),
     (None, _push("POST")),
@@ -577,6 +588,7 @@ POST_ROUTES = [
     ("/api/sessions/*/continue", route_sessions.continue_),
     ("/api/sessions/*/stop", route_sessions.stop),
     ("/api/sessions/*/discard", route_sessions.discard),
+    ("/api/handoffs/*/cancel", _handoff_cancel),
 ]
 
 PUT_ROUTES = [   # PUT and DELETE match the path as sent (no mount-prefix stripping), as before split/B

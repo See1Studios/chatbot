@@ -42,11 +42,13 @@ TOOL_DEFS = [{
                    "handoff: work that is not your role's goes to the director who owns it -- `to` a role (or a "
                    "coworker), `text` the task with what you know, `done_when` how they will know it is finished; "
                    "they work it at their own desk and the result comes back to you as a message. handoffs: the ones "
-                   "you sent or received, newest first, with their state now (sent, running, waiting -- on work it handed on, done, failed, cancelled).",
+                   "you sent or received, newest first, with their state now (sent, running, waiting -- on work it handed on, done, failed, cancelled). "
+                   "cancel: stop handoff number `handoff` that you sent or are working (`text` says why) -- when the user "
+                   "calls it off or it is no longer needed; its turn stops and the work it handed on is cancelled too.",
     "inputSchema": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["list", "read", "send", "handoff", "handoffs"]},
+            "action": {"type": "string", "enum": ["list", "read", "send", "handoff", "handoffs", "cancel"]},
             "dialog_id": {"type": "string"},
             "to": {"type": "string"},
             "text": {"type": "string"},
@@ -54,6 +56,7 @@ TOOL_DEFS = [{
             "reply_to": {"type": "integer"},
             "limit": {"type": "integer"},
             "done_when": {"type": "string"},
+            "handoff": {"type": "integer"},
         },
         "required": ["action"],
     },
@@ -82,7 +85,8 @@ def _view(m: Dict, did: str) -> Dict:
 
 # Argument names models reach for instead of the schema's (live 2026-10-02: `dialog`, `character`, `target`,
 # `message` -- each cost a refused call). The schema's own name wins when both are given.
-ALIASES = {"to": ("target", "recipient", "character"), "text": ("message", "content"), "dialog_id": ("dialog",)}
+ALIASES = {"to": ("target", "recipient", "character", "role"), "text": ("message", "content", "brief", "task", "reason"),
+           "dialog_id": ("dialog",), "handoff": ("id", "handoff_id")}   # names models were seen using (drill 2026-10-05: brief)
 
 
 def _canon(args: Dict) -> Dict:
@@ -111,6 +115,14 @@ def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable]
         return envelope(True, "%d dialogs" % len(rows), {"dialogs": rows})
     if action == "handoff":
         return _handoff(args, envelope, me, sid, host_get)
+    if action == "cancel":   # HANDOFF_CANCEL_v1
+        import dialog_handoff
+        try:
+            h = dialog_handoff.cancel(int(str(args.get("handoff") or 0).lstrip("#")), me, args.get("text") or "")
+        except (dialog_handoff.HandoffError, TypeError, ValueError) as e:
+            return envelope(False, "dialog: %s" % e, None)
+        return envelope(True, "#%d will be cancelled within seconds: its turn stops, and what it handed on is cancelled "
+                              "too" % h["id"], {"handoff": h["id"], "was": h.get("state")})
     if action == "handoffs":   # the ledger: what was handed, to whom, and how it stands now
         import dialog_handoff
         rows = dialog_handoff.ledger(me, max(1, min(int(args.get("limit") or 10), 30)))
@@ -155,7 +167,7 @@ def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable]
         for n in sent if host_get and dialog_log.is_dm(did) else []:
             host_get("/api/office/notify?" + urlencode({"dialog": did, "n": n}))   # a nudge; {} when unreachable
         return envelope(True, "sent", {"dialog_id": did, "n": sent[-1], "sent": sent})
-    return envelope(False, "dialog: unknown action %r (list, read, send, handoff, handoffs)" % action, None)
+    return envelope(False, "dialog: unknown action %r (list, read, send, handoff, handoffs, cancel)" % action, None)
 
 
 def _owners() -> str:

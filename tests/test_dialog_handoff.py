@@ -47,6 +47,9 @@ class Desk:
     def _emit(self, ev):
         self.drawn.append(ev)
 
+    def stop(self, notify=True):
+        self.stopped, self.busy = True, False
+
     def _send_direct(self, text, notice=False, event_type=""):
         self.sent.append((text, notice))
         self.event_type = event_type
@@ -209,6 +212,87 @@ class Handoff(unittest.TestCase):
         H.run_once(self.office)
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "failed"}])
         self.assertEqual(H.all_handoffs()[1]["reason"], "the turn ended without an answer")
+
+    def test_a_waiting_handoff_cancelled_never_starts(self):
+        # HANDOFF_CANCEL_v1
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        dev = self.office.desks[self.dev]
+        dev.busy = True                                                         # talking with the operator
+        H.cancel(1, self.lead, "the user called it off")
+        self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "cancelled"}])
+        self.assertFalse(getattr(dev, "stopped", False), "the operator's own turn is not stopped")
+        dev.busy = False
+        self.assertEqual(H.run_once(self.office, now=1000.0), [])
+        self.assertEqual(dev.sent, [])
+        self.assertEqual(H.all_handoffs()[1]["reason"], "the user called it off")
+        self.assertIn("#1 (cancelled: the user called it off)", D.history(D.dm_id(self.dev, self.lead))[-1]["text"])
+
+    def test_a_running_handoff_cancelled_stops_its_turn_and_its_end_is_not_a_result(self):
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        H.run_once(self.office, now=1000.0)
+        dev, lead = self.office.desks[self.dev], self.office.desks[self.lead]
+        H.cancel(1, "operator")
+        self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "cancelled"}])
+        self.assertTrue(dev.stopped)
+        self.assertEqual(H.all_handoffs()[1]["reason"], "the operator cancelled it")
+        dev.history.append({"role": "assistant", "text": "half of it", "ts": 1001.0})
+        self.assertEqual(H.run_once(self.office), [])
+        self.assertEqual(H.all_handoffs()[1]["state"], "cancelled")
+        self.assertEqual(lead.sent, [], "no tell-the-user turn: whoever cancelled it knows")
+
+    def test_cancelling_a_handoff_cancels_the_work_it_handed_on(self):
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        H.run_once(self.office, now=1000.0)
+        self.hand(self.dev, "s-dev", to=self.art, text="draw")                  # dev hands part on while running #1
+        art = self.office.desks[self.art]
+        H.run_once(self.office, now=2000.0)
+        self.assertEqual(H.all_handoffs()[2]["state"], "running")
+        H.cancel(1, self.lead)
+        self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "cancelled"}, {"id": 2, "state": "cancelled"}])
+        self.assertTrue(art.stopped)
+        self.assertEqual(H.all_handoffs()[2]["reason"], "its parent #1 was cancelled")
+
+    def test_a_cancelled_child_lets_its_waiting_parent_go_on(self):
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        H.run_once(self.office, now=1000.0)
+        self.hand(self.dev, "s-dev", to=self.art, text="draw")
+        dev = self.office.desks[self.dev]
+        dev.history.append({"role": "assistant", "text": "handed the drawing on", "ts": 1001.0})
+        dev.busy = False
+        H.run_once(self.office, now=2000.0)
+        self.assertEqual(H.all_handoffs()[1]["state"], "waiting")
+        H.cancel(2, self.dev, "not needed after all")
+        H.run_once(self.office, now=3000.0)
+        self.assertEqual(H.all_handoffs()[2]["state"], "cancelled")
+        self.assertIn(H.all_handoffs()[1]["state"], ("resume", "running"))
+
+    def test_only_its_two_directors_or_the_operator_cancel_an_open_handoff(self):
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        with self.assertRaises(H.HandoffError):
+            H.cancel(1, self.art)
+        with self.assertRaises(H.HandoffError):
+            H.cancel(9, self.lead)
+        H.cancel(1, self.dev)
+        H.run_once(self.office)
+        with self.assertRaises(H.HandoffError):
+            H.cancel(1, "operator")                                             # already closed
+
+    def test_the_tool_cancels_by_number_whatever_the_model_calls_it(self):
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        out = T.call({"action": "cancel", "id": "#1", "reason": "user said stop"}, envelope,
+                     {"id": "s-lead", "character": self.lead, "mode": "work", "private": False})
+        self.assertTrue(out["success"], out["message"])
+        self.assertEqual(H.all_handoffs()[1]["cancel_reason"], "user said stop")
+        out = T.call({"action": "cancel", "handoff": 1}, envelope,
+                     {"id": "s-art", "character": self.art, "mode": "work", "private": False})
+        self.assertFalse(out["success"])
+
+    def test_a_handoff_named_with_the_words_models_use_still_goes(self):
+        # drill 2026-10-05: {"action": "handoff", "role": "art", "brief": "..."} -- no `to`, no `text`
+        out = T.call({"action": "handoff", "role": "dev", "brief": "fix it"}, envelope,
+                     {"id": "s-lead", "character": self.lead, "mode": "work", "private": False})
+        self.assertTrue(out["success"], out["message"])
+        self.assertEqual(H.all_handoffs()[1]["task"], "fix it")
 
     def test_an_answer_still_on_its_way_gets_a_second_look(self):
         # live #6 (2026-10-05): the turn had ended, its answer was not in the record yet, and it was failed

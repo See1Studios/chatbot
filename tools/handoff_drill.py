@@ -245,7 +245,8 @@ def ledger_states(hid: int) -> List[str]:
     for line in Path(os.environ["CHATBOT_HANDOFFS_FILE"]).read_text(encoding="utf-8").splitlines():
         r = json.loads(line)
         if r.get("id") == hid:
-            out.append(r.get("state"))
+            if r.get("state"):   # a cancel request carries no state
+                out.append(r.get("state"))
     return out
 
 
@@ -370,8 +371,44 @@ def sc_restart(run: Run, t: Cast, lead: str) -> None:
               "a done one carries the list, not a promise")
 
 
+def sc_cancel(run: Run, t: Cast, lead: str) -> None:
+    """The operator cancels a running handoff (its turn stops, it never comes back done) and a waiting one (it never
+    starts, and the receiver's own turn goes on) (HANDOFF_CANCEL_v1)."""
+    dev_sid = session_for(t.worker)
+    h = H.create(t.sender, lead, t.worker, t.role(t.worker),
+                 "Research only. Use two subagents to read services/chatbot/session.py and session_turn.py whole and "
+                 "list every method with one line each.", "the full list")
+    end = time.time() + 120
+    while time.time() < end and H.all_handoffs()[h["id"]].get("state") != "running":
+        time.sleep(2)
+    time.sleep(20)
+    t0 = time.time()
+    api("POST", "/api/handoffs/%d/cancel" % h["id"], {"reason": "drill: called off"})
+    done = wait_closed(h["id"], 30)
+    wait_idle(dev_sid, 30)
+    run.facts["running_id"] = h["id"]
+    run.facts["stop_sec"] = round(time.time() - t0, 1)
+    run.check(done.get("state") == "cancelled" and done.get("reason") == "drill: called off",
+              "a running one closes as cancelled, with the reason given")
+    run.check(not session(dev_sid).get("busy"), "its turn stopped")
+    time.sleep(40)
+    run.check(ledger_states(h["id"])[-1] == "cancelled", "it does not come back done afterwards")
+    api("POST", "/api/sessions/%s/message" % dev_sid, {"text": "In one line: what is 19 * 21? No tools."})
+    time.sleep(1)
+    w = H.create(t.sender, lead, t.worker, t.role(t.worker), "Research only: name one file in services/chatbot.")
+    api("POST", "/api/handoffs/%d/cancel" % w["id"], {"reason": "drill: not needed"})
+    wait_idle(dev_sid, 120)
+    run.facts["waiting_id"] = w["id"]
+    run.check("running" not in ledger_states(w["id"]) and H.all_handoffs()[w["id"]].get("state") == "cancelled",
+              "a waiting one never starts")
+    hist = [x for x in session(dev_sid).get("history") or [] if x.get("role") == "assistant"]
+    run.check(bool(hist) and "399" in str(hist[-1].get("text") or ""), "the receiver's own turn went on")
+    _silence(run, run.t0)
+
+
 SCENARIOS: Dict[str, Callable] = {"refuse": sc_refuse, "subagents": sc_subagents, "chain": sc_chain,
-                                  "busy": sc_busy, "restart": sc_restart}
+                                  "busy": sc_busy, "restart": sc_restart,
+                                  "cancel": sc_cancel}
 
 
 def main(argv: Optional[List[str]] = None) -> int:

@@ -21,3 +21,8 @@ handoff. The receiver starts at its own desk; the result comes back to you as a 
 
 ## After
 Tell the user in one line who has it (`#n`, role). When the result dm arrives, report with `progress-report`.
+
+## Calling it off
+When the user calls the work off, or it is no longer needed: `dialog` `{"action": "cancel", "handoff": <n>, "text":
+"<why>"}`. Its turn stops and the work it handed on is cancelled too; check `handoffs` instead of assuming, then tell
+the user in one line.
