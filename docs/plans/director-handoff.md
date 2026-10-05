@@ -1,7 +1,7 @@
 # 디렉터 분업: 넘기기와 서브에이전트, 그 전에 가드레일 (director-handoff)
 
 > 방향 (2026-10-04 운영자: "제대로 돌아가는 분업화가 필요해"): **핵심 + 개발 기반** — 캐릭터마다 맡은 분야가 있고 서로 일을 넘기는 팀은 개인화 레이어의 얼굴이다. 코드 작업 쪽 집행은 누가 개발하든 필요하다.
-> 상태: **active** (2026-10-04 초안, 2026-10-05 D-1–D-12 추천대로 결정, 0단계 착수)
+> 상태: **active** (2026-10-04 초안, 2026-10-05 D-1–D-12 결정, 0단계 완료 #632·#633, 1·2단계 완료 #634~#636, D-1 번복: 역할 단속 끄고 스킬로 #651, 넘기기 장부 #654)
 > 관련: [token-economy.md](token-economy.md)(턴 예산, 노노는 lead만) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(워크트리 위임·티켓·티어) · [character-events-and-rooms.md](character-events-and-rooms.md)(이벤트 우편·자동 반응·dialog) · [engine-decides.md](engine-decides.md)(엔진이 정한다)
 
 ---
