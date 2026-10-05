@@ -27,7 +27,7 @@ global.Event = global.Event || class { constructor(t) { this.type = t; } };
 let focused = null;
 function node(cls) {
   const n = { className: cls || '', children: [], parent: null, attrs: {}, handlers: {}, style: {}, hidden: false,
-    textContent: '', title: '', tabIndex: -1,
+    textContent: '', value: '', title: '', tabIndex: -1,
     classList: {
       contains: c => n.className.split(/\s+/).includes(c),
       add: c => { if (!n.classList.contains(c)) n.className = (n.className + ' ' + c).trim(); },
@@ -38,6 +38,7 @@ function node(cls) {
     appendChild(c) { c.parent = n; n.children.push(c); return c; },
     get nextSibling() { const s = n.parent ? n.parent.children : []; return s[s.indexOf(n) + 1] || null; },
     get previousSibling() { const s = n.parent ? n.parent.children : []; return s[s.indexOf(n) - 1] || null; },
+    get firstChild() { return n.children[0] || null; },
     contains(o) { for (let x = o; x; x = x.parent) if (x === n) return true; return false; },
     querySelector(sel) { const c = sel.replace('.', ''); return n.children.find(x => x.classList.contains(c)) || null; },
     focus() { focused = n; },
@@ -68,7 +69,7 @@ const api = new Function(...names, code + `
   function refreshComposerPlaceholder() { __calls.refresh++; inputEl.placeholder = composerPlaceholder({ compact: false }); placeModelTag(tagEl, inputEl, modelEl.value); }
   modelEl.onchange = () => { __saved.push(modelEl.value); syncModelUi(); };
   setupModelPicker();
-  return { composerPlaceholder, renderModelMenu, syncModelUi, modelLabel };`)(...names.map(k => stubs[k]));
+  return { composerPlaceholder, renderModelMenu, syncModelUi, modelLabel, modelVendor, modelShort, shortenMiddle, modelMatches, rememberModel };`)(...names.map(k => stubs[k]));
 
 const out = {};
 // 1. the text (pure)
@@ -126,6 +127,37 @@ out.typingCloses = modelMenuEl.hidden;
 modelEl.options = []; modelEl.value = ''; inputEl.placeholder = 'STATIC'; const r0 = calls.refresh;
 api.syncModelUi();
 out.emptyListLeavesPlaceholder = { placeholder: inputEl.placeholder, refreshed: calls.refresh - r0 };
+// 12. MODEL_MENU_v2: a long list gets a search box, the recent models on top and folding vendor groups
+out.pure = { vendorSlash: api.modelVendor('openrouter/qwen/x:free'), vendorDash: api.modelVendor('gemini-3.1-pro-high'), vendorNone: api.modelVendor('plain'),
+  short: api.modelShort('acme/model-0:free'), shortPlain: api.modelShort('gemini-3.1-pro-high'),
+  cut: api.shortenMiddle('x'.repeat(40) + '-thinking', 30), keep: api.shortenMiddle('flash-low', 30),
+  matchAll: api.modelMatches({ value: 'acme/model-3', label: 'acme/model-3' }, 'ACME 3'), matchNone: api.modelMatches({ value: 'acme/model-3', label: 'acme/model-3' }, 'zeta') };
+globalThis.localStorage = { v: '[]', getItem() { return this.v; }, setItem(k, v) { this.v = v; } };
+const longId = 'zeta/very-long-model-name-with-a-long-variant-suffix-3-thinking';
+const big = [];
+for (let i = 0; i < 8; i++) big.push({ value: 'acme/model-' + i + ':free', label: 'acme/model-' + i + ':free' });
+for (let i = 0; i < 8; i++) big.push({ value: longId.replace('-3-', '-' + i + '-'), label: longId.replace('-3-', '-' + i + '-') });
+api.rememberModel('acme/model-2:free'); api.rememberModel('gone/not-in-the-list'); api.rememberModel('acme/model-5:free');
+const menu2 = node('slash-menu');
+api.renderModelMenu(menu2, big, longId, () => {});
+const secs = menu2.children.slice(1, -1), searchEl = menu2.children[0], emptyEl = menu2.children[menu2.children.length - 1];
+const bodyOf = s => s.children[s.children.length - 1];
+out.big = { search: searchEl.className, titles: secs.map(s => s.children[0].children.length ? s.children[0].children[0].textContent : s.children[0].textContent),
+  recentNames: bodyOf(secs[0]).children.map(i => i.title),
+  acme: { open: !bodyOf(secs[1]).hidden, count: secs[1].children[0].children[1].textContent },
+  zetaOpen: !bodyOf(secs[2]).hidden, zetaName: bodyOf(secs[2]).children[3].children[0].textContent, zetaTitle: bodyOf(secs[2]).children[3].title };
+fire(secs[1].children[0], 'click');
+out.big.acmeAfterClick = { open: !bodyOf(secs[1]).hidden, title: secs[1].children[0].children[0].textContent, expanded: secs[1].children[0].attrs['aria-expanded'] };
+searchEl.value = 'model-3'; fire(searchEl, 'input');
+out.big.search3 = { recentHidden: secs[0].hidden, acmeHidden: secs[1].hidden, zetaHidden: secs[2].hidden, empty: emptyEl.hidden,
+  visibleAcme: bodyOf(secs[1]).children.filter(i => !i.hidden).map(i => i.title) };
+searchEl.value = 'nomatch'; fire(searchEl, 'input'); out.big.noMatch = { empty: emptyEl.hidden, all: secs.every(s => s.hidden) };
+searchEl.value = ''; fire(searchEl, 'input'); out.big.cleared = { recent: secs[0].hidden, acme: bodyOf(secs[1]).hidden, zeta: bodyOf(secs[2]).hidden, empty: emptyEl.hidden };
+focused = null; fire(searchEl, 'keydown', { key: 'ArrowDown' }); out.big.arrowFromSearch = focused === bodyOf(secs[0]).children[0];
+fire(bodyOf(secs[0]).children[0], 'keydown', { key: 'ArrowUp' }); out.big.arrowUpToSearch = focused === searchEl;
+// 13. a short list stays flat: no search box, no groups
+const menu3 = node('slash-menu'); api.renderModelMenu(menu3, big.slice(0, 12), '', () => {});
+out.flat = { n: menu3.children.length, search: menu3.children.some(c => c.className === 'model-search') };
 console.log(JSON.stringify(out));
 """
 
@@ -198,6 +230,44 @@ class ModelPickerBehaviour(unittest.TestCase):
 
     def test_before_the_model_list_exists_the_static_placeholder_is_kept(self):
         self.assertEqual(self.o["emptyListLeavesPlaceholder"], {"placeholder": "STATIC", "refreshed": 0})
+
+    def test_names_are_split_into_vendor_model_and_free_and_cut_in_the_middle(self):
+        p = self.o["pure"]
+        self.assertEqual((p["vendorSlash"], p["vendorDash"], p["vendorNone"]), ("openrouter", "gemini", "other"))
+        self.assertEqual((p["short"], p["shortPlain"]), ("model-0", "gemini-3.1-pro-high"))
+        self.assertEqual(len(p["cut"]), 30)
+        self.assertIn("\u2026", p["cut"])
+        self.assertTrue(p["cut"].endswith("-thinking"), "the tail tells the variants apart")
+        self.assertEqual(p["keep"], "flash-low")
+        self.assertTrue(p["matchAll"])
+        self.assertFalse(p["matchNone"])
+
+    def test_a_long_list_has_search_recent_models_and_folding_vendor_groups(self):
+        b = self.o["big"]
+        self.assertEqual(b["search"], "model-search")
+        self.assertEqual(b["titles"], ["최근", "\u25b8 acme", "\u25be zeta"], "only the group holding the current model starts open")
+        self.assertEqual(b["recentNames"], ["acme/model-5:free", "acme/model-2:free"], "newest first; ids no longer listed are dropped")
+        self.assertEqual((b["acme"]["open"], b["acme"]["count"]), (False, "8"))
+        self.assertTrue(b["zetaOpen"])
+        self.assertLessEqual(len(b["zetaName"]), 30)
+        self.assertTrue(b["zetaName"].endswith("-thinking"))
+        self.assertTrue(b["zetaTitle"].endswith("-3-thinking") and b["zetaTitle"].startswith("zeta/"), "the full id stays in the title")
+        self.assertEqual(b["acmeAfterClick"], {"open": True, "title": "\u25be acme", "expanded": "true"})
+
+    def test_searching_looks_through_every_group_and_leaves_the_recent_shortcut_out(self):
+        b = self.o["big"]
+        self.assertEqual(b["search3"], {"recentHidden": True, "acmeHidden": False, "zetaHidden": True, "empty": True,
+                                        "visibleAcme": ["acme/model-3:free"]})
+        self.assertEqual(b["noMatch"], {"empty": False, "all": True})
+        self.assertEqual(b["cleared"], {"recent": False, "acme": False, "zeta": False, "empty": True},
+                         "clearing the query restores the groups as the user left them (acme was opened by hand)")
+
+    def test_arrow_keys_run_from_the_search_box_through_the_visible_rows(self):
+        self.assertTrue(self.o["big"]["arrowFromSearch"])
+        self.assertTrue(self.o["big"]["arrowUpToSearch"])
+
+    def test_a_short_list_stays_flat(self):
+        self.assertEqual(self.o["flat"], {"n": 12, "search": False})
 
 
 class ModelPickerMarkupAndCss(unittest.TestCase):

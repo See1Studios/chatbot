@@ -116,6 +116,13 @@
 .slash-desc{font-size:.76rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;text-align:right;margin-left:auto}
 .slash-item.selected .slash-desc{color:#d8dde4}
 .slash-empty{padding:.75rem;text-align:center;color:var(--muted);font-size:.82rem}
+/* MODEL_MENU_v2: search + folding vendor groups for a long model list */
+.model-menu [hidden]{display:none !important}
+.model-menu .slash-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.model-search{margin:.2rem .6rem .4rem;padding:.45rem .6rem;min-height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:.88rem}
+.model-group-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.5rem .75rem;min-height:36px;cursor:pointer;user-select:none;font-size:.78rem;font-weight:700;color:var(--accent2);border-top:1px solid var(--border-subtle)}
+.model-group-head:hover,.model-group-head:focus{background:var(--accent-soft)}
+.model-group-count{font-weight:400;font-size:.72rem;color:var(--muted)}
 textarea{
   flex:1;
   min-height:42px;
