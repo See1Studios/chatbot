@@ -133,6 +133,8 @@ class Handoff(unittest.TestCase):
         self.assertIn("fix the jitter", prompt)
         self.assertIn("subagents (spawn one)", prompt)
         self.assertIn("`delegate` plan", prompt)
+        self.assertIn("never the whole home folder", prompt)                    # live #31: a home-wide find
+        self.assertIn("stop any subagent still running", prompt)
         self.assertEqual(H.run_once(self.office), [])                           # still working
         dev.busy, dev._loop_stopping = False, True                              # between a notice's stop and resume
         self.assertEqual(H.run_once(self.office), [])
