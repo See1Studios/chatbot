@@ -82,22 +82,20 @@ except Exception:
 # Sphere/Hermes/wiki-specific extra roots live in the optional nas_mcp_host
 # plugin (see docs/plans/chatbot-host-portability.md Phase 1) and get merged
 # in by _allow_roots()/_read_roots() below once HOST_PLUGIN is resolved.
-ALLOW_ROOTS = [DATA.resolve(), AGENTS.resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve(),
-               (DATA / "workspace").resolve(), ENGINE.resolve()]
-READ_ROOTS = ALLOW_ROOTS + [SERVICES.resolve(), (HOME / ".local" / "bin").resolve(),
-                            (HOME / "bin").resolve(), (HOME / "AGENTS.md").resolve()]
+ALLOW_ROOTS = [DATA.resolve(), AGENTS.resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve(), (DATA / "workspace").resolve(), ENGINE.resolve()]
+READ_ROOTS = ALLOW_ROOTS + [SERVICES.resolve(), (HOME / ".local" / "bin").resolve(), (HOME / "bin").resolve(), (HOME / "AGENTS.md").resolve()]
 
-SECRET_NAME_RE = re.compile(
-    r"(?i)(^\.env($|\.)|oauth|token|secret|credential|passwd|password|api[_-]?key|auth\.json|antigravity-oauth)"
-)
-SECRET_CONTENT_RE = re.compile(
-    r"(?i)(bearer\s+[a-z0-9\-._~+/]+=*|api[_-]?key\s*[:=]|refresh[_-]?token|client_secret|BEGIN (RSA |OPENSSH )?PRIVATE KEY)"
-)
+SECRET_NAME_RE = re.compile(r"(?i)(^\.env($|\.)|oauth|token|secret|credential|passwd|password|api[_-]?key|auth\.json|antigravity-oauth)")
+SECRET_CONTENT_RE = re.compile(r"(?i)(bearer\s+[a-z0-9\-._~+/]+=*|api[_-]?key\s*[:=]|refresh[_-]?token|client_secret|BEGIN (RSA |OPENSSH )?PRIVATE KEY)")
 
-# Commands allowed by their first token (exact match, never a string prefix).
+
 CMD_PREFIXES = ("ls", "cat", "head", "tail", "df", "free", "ps", "du", "stat", "pwd", "whoami", "date", "uname")
 CMD_PATH_TARGETS = ("cat", "head", "tail", "ls", "stat", "du")
-CMD_VAL_FLAGS = {"-n", "-c", "-d", "-w", "-C", "-s", "-B", "-X", "-I", "-T", "--lines", "--bytes", "--max-depth", "--width", "--block-size", "--format", "--printf"}
+CMD_VAL_MAP = {"head": {"-n", "-c", "--lines", "--bytes"}, "tail": {"-n", "-c", "--lines", "--bytes"},
+               "du": {"-d", "-B", "-X", "--max-depth", "--block-size", "--exclude-from", "--exclude", "--threshold"},
+               "ls": {"-w", "-I", "-T", "--width", "--ignore", "--tabsize", "--block-size", "--format", "--time-style"},
+               "stat": {"-c", "--format", "--printf"}}
+
 # chatbot-ctl.sh is a lifecycle script: only these read/diagnose subcommands, and
 # no arguments except probe's timeout. `doctor --auto-repair` reaches repair, so
 # doctor takes none. repair/start/stop/restart/defibrillate are for people.
@@ -196,13 +194,9 @@ def _scrub_text(text: str) -> str:
 
 
 # Choices MCP tool validation & session recording (OUT_OF_BAND_CHOICES_v1 1b)
-CHOICE_MIN_ITEMS = 2
-CHOICE_MAX_ITEMS = 4
-CHOICE_LABEL_MAX = 120
-CHOICE_PAYLOAD_MAX = 500
-ALLOWED_TICKET_ACTIONS = (
-    "go", "approve", "decline", "reopen", "delegate", "merge", "discard", "disown", "unqueue", "allow",
-)
+CHOICE_MIN_ITEMS, CHOICE_MAX_ITEMS, CHOICE_LABEL_MAX, CHOICE_PAYLOAD_MAX = 2, 4, 120, 500
+
+ALLOWED_TICKET_ACTIONS = ("go", "approve", "decline", "reopen", "delegate", "merge", "discard", "disown", "unqueue", "allow")
 
 
 def _is_allowed_choice_command(cmd: str) -> bool:
@@ -551,16 +545,22 @@ def _curl_refusal(args: List[str]) -> Optional[str]:
 
 
 def _cmd_path_tokens(tokens: List[str]) -> List[str]:
+    val_flags = CMD_VAL_MAP.get(tokens[0], set())
     paths, i = [], 1
     while i < len(tokens):
         t = tokens[i]
         if t == "--":
             paths.extend(tokens[i + 1:])
             break
+        if t == "2>/dev/null" or (t == "2>" and i + 1 < len(tokens) and tokens[i + 1] == "/dev/null"):
+            i += 1 if t == "2>/dev/null" else 2
+            continue
         if t.startswith("-"):
-            if t in CMD_VAL_FLAGS and i + 1 < len(tokens):
+            if t in val_flags and i + 1 < len(tokens):
                 i += 1
-        elif t not in ("2>/dev/null", "2>", "/dev/null"):
+                if tokens[i].startswith(("/", "~", "..")):
+                    paths.append(tokens[i])
+        else:
             paths.append(t)
         i += 1
     return paths

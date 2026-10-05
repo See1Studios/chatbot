@@ -163,7 +163,10 @@ class RunCommandTest(Base):
         for cmd in ("cat /etc/hosts", "cat /etc/hostname", "head -n 5 /etc/passwd",
                     "tail -n 10 /etc/shadow", "ls /etc", "ls -la /tmp", "stat /etc/hosts",
                     "du -sh /var", "cat ../../../etc/hosts", "ls /nope 2>/dev/null",
-                    "head -c 20 /etc/hosts", "du -d 1 /var", "cat -- /etc/hosts"):
+                    "head -c 20 /etc/hosts", "du -d 1 /var", "cat -- /etc/hosts",
+                    "cat -n /etc/hosts", "ls -d /etc", "ls -s /etc", "du -s /etc", "cat -s /etc/hosts",
+                    "head -n 3 /etc/hosts", "stat -c %a /etc/hosts", "head --lines=5 /etc/hosts",
+                    "cat /dev/null", "cat -T /etc/hosts", "ls -C /etc", "du -c /etc"):
             r = self.run_cmd(cmd)
             self.assertFalse(r["success"], "expected %r to be refused" % cmd)
             self.assertEqual(r["message"], "command rejected (path outside read roots)")
@@ -171,7 +174,10 @@ class RunCommandTest(Base):
 
         (self.tmp / "allowed.txt").write_text("hello world\n", encoding="utf-8")
         for cmd in (f"cat {self.tmp}/allowed.txt", f"head -n 1 {self.tmp}/allowed.txt",
+                    f"head -n 3 {self.tmp}/allowed.txt", f"stat -c %a {self.tmp}/allowed.txt",
                     f"tail -n 1 {self.tmp}/allowed.txt", f"ls {self.tmp}",
+                    f"ls -d {self.tmp}", f"ls -s {self.tmp}", f"du -s {self.tmp}",
+                    f"cat -n {self.tmp}/allowed.txt", f"cat -s {self.tmp}/allowed.txt",
                     f"stat {self.tmp}/allowed.txt", f"du -sh {self.tmp}",
                     f"cat -- {self.tmp}/allowed.txt"):
             self.assertRan(cmd)
