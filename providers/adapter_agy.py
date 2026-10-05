@@ -30,27 +30,52 @@ _MODEL_NAMES_EFFORT = re.compile(r"-(?:minimal|low|medium|high|xhigh)$")
 _SUBAGENT_ID = re.compile(r'conversationId\\?"?\s*:\s*\\?"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})')
 
 
-def _brain_activity(conversation_id: str) -> Optional[float]:
-    """The newest mtime of a conversation's transcript and of the transcripts of the subagents it started (their ids
-    are in the parent's "Created the following subagents" steps)."""
-    from providers import accounts
-    brain = Path(accounts.AGY_LOG_DIR).parent / "brain"
-    def transcript(cid: str) -> Path:
-        return brain / cid / ".system_generated" / "logs" / "transcript.jsonl"
-    parent = transcript(conversation_id)
+_LOG_CONVERSATION = re.compile(r"\] (?:Created|Streaming) conversation ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
+
+
+def _log_conversation(path) -> str:
+    """The conversation an agy process works on, as its own log names it ("Created conversation <id>", or
+    "Streaming conversation <id>" for a resumed one); "" until it has one. The id comes early, so the head is read."""
     try:
-        newest = parent.stat().st_mtime
-        with open(str(parent), "rb") as f:
+        with open(str(path), "rb") as f:
+            head = f.read(1 << 20).decode("utf-8", "replace")
+    except OSError:
+        return ""
+    found = _LOG_CONVERSATION.findall(head)
+    return found[-1] if found else ""
+
+
+def _brain_activity(conversation_id: str) -> Optional[float]:
+    """The newest write to a conversation's records -- its store (`conversations/<id>.db`, written every step) and its
+    transcript, which agy does not keep for every conversation -- and to those of the subagents it started (their ids
+    are in the parent transcript's "Created the following subagents" steps). None when it has no records."""
+    from providers import accounts
+    root = Path(accounts.AGY_LOG_DIR).parent
+
+    def transcript(cid: str) -> Path:
+        return root / "brain" / cid / ".system_generated" / "logs" / "transcript.jsonl"
+
+    def newest_of(cid: str) -> Optional[float]:
+        times = []
+        for p in (root / "conversations" / (cid + ".db"), root / "conversations" / (cid + ".db-wal"), transcript(cid)):
+            try:
+                times.append(p.stat().st_mtime)
+            except OSError:
+                continue
+        return max(times) if times else None
+
+    newest = newest_of(conversation_id)
+    if newest is None:
+        return None
+    try:
+        with open(str(transcript(conversation_id)), "rb") as f:
             f.seek(0, os.SEEK_END)
             f.seek(max(0, f.tell() - 262144))
             tail = f.read().decode("utf-8", "replace")
     except OSError:
-        return None
+        return newest
     for cid in set(_SUBAGENT_ID.findall(tail)) - {conversation_id}:
-        try:
-            newest = max(newest, transcript(cid).stat().st_mtime)
-        except OSError:
-            continue
+        newest = max(newest, newest_of(cid) or 0)
     return newest
 
 class AgyAdapter(AgentAdapter):
@@ -66,8 +91,9 @@ class AgyAdapter(AgentAdapter):
         conversation's transcript or to the transcript of a subagent it started (SUBAGENT_ACTIVITY_v1: a parent
         prints nothing while its subagents work, and the turn was closed as silent -- 2026-10-05, 4 hangs and 8
         notices on one session in 40 minutes). Otherwise the last model call (`streamGenerateContent`) in the agy log of
-        process `pid`; `started` while it has made none; None when no log names that pid yet. agy 1.2.16 no longer logs
-        model calls, so for a worker this now falls back to `started`. 83 worker runs to 2026-09-30 never went more
+        process `pid` -- its conversation's transcripts when the log names one (WORKER_ACTIVITY_v1: agy 1.2.16 no longer
+        logs model calls), else its `streamGenerateContent` lines; `started` while it has done nothing; None when no log
+        names that pid yet. 83 worker runs to 2026-09-30 never went more
         than 303 s between calls; a stalled stream went 18 min (#462)."""
         if conversation_id:
             seen = _brain_activity(conversation_id)
@@ -77,6 +103,10 @@ class AgyAdapter(AgentAdapter):
         path = accounts.agy_log_for(pid, started)
         if path is None:
             return None
+        cid = _log_conversation(path)   # WORKER_ACTIVITY_v1: a delegated worker has no session, but its log names its
+        if cid:                         # conversation (#692: the probe said "nothing since start", a long worker was cut)
+            seen = _brain_activity(cid)
+            return max(seen, started) if seen else started
         try:
             with open(str(path), "rb") as f:
                 f.seek(0, os.SEEK_END)

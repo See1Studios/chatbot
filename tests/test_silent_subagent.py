@@ -11,6 +11,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -45,12 +46,47 @@ class SubagentActivity(unittest.TestCase):
         child = self.transcript(CHILD, "{}", 5)
         self.assertAlmostEqual(A.AgyAdapter().last_activity(1, 0, conversation_id=PARENT), child, delta=1)
 
+    def test_a_conversation_with_no_transcript_is_read_from_its_store(self):
+        # agy keeps no transcript for some conversations (a worker's, 2026-10-06); its store is written every step
+        db = self.tmp / "conversations" / (PARENT + ".db")
+        db.parent.mkdir()
+        db.write_bytes(b"x")
+        t = time.time() - 7
+        os.utime(db, (t, t))
+        self.assertAlmostEqual(A.AgyAdapter().last_activity(1, 0, conversation_id=PARENT), t, delta=1)
+
     def test_without_subagents_it_is_the_conversation_itself(self):
         parent = self.transcript(PARENT, "{}", 30)
         self.assertAlmostEqual(A.AgyAdapter().last_activity(1, 0, conversation_id=PARENT), parent, delta=1)
 
     def test_an_unknown_conversation_falls_back_to_the_process_log(self):
         self.assertIsNone(A.AgyAdapter().last_activity(424242, time.time(), conversation_id="nope"))
+
+    def worker_log(self, text):
+        p = self.tmp / "log" / "cli-worker.log"
+        p.write_text(text, encoding="utf-8")
+        return p
+
+    def test_a_workers_activity_is_the_conversation_its_log_names(self):
+        # WORKER_ACTIVITY_v1 (#692): agy 1.2.16 logs no model calls; the probe said "nothing since start" and the stall
+        # watch would cut any worker past STALL_SEC
+        log = self.worker_log("I1006 00:27:40.254749 1 server.go:1263] Created conversation %s\n" % PARENT)
+        self.transcript(PARENT, '"conversationId": "%s"' % CHILD, 300)
+        child = self.transcript(CHILD, "{}", 4)
+        with mock.patch.object(accounts, "agy_log_for", return_value=log):
+            self.assertAlmostEqual(A.AgyAdapter().last_activity(1, time.time() - 900), child, delta=1)
+
+    def test_a_worker_with_no_conversation_yet_is_at_its_start(self):
+        log = self.worker_log("I1006 00:27:32 1 printmode.go:202] Print mode: starting\n")
+        started = time.time() - 30
+        with mock.patch.object(accounts, "agy_log_for", return_value=log):
+            self.assertEqual(A.AgyAdapter().last_activity(1, started), started)
+
+    def test_the_stall_watch_lets_a_working_worker_run_past_the_stall_window(self):
+        import delegation_watch as W
+        code, _out, err = W.run([sys.executable, "-c", "import time; time.sleep(1.2)"], timeout=10,
+                                activity=lambda pid, started: time.time(), stall_sec=0.5, poll_sec=0.2)
+        self.assertEqual((code, err), (0, ""))
 
     def test_the_watchdog_asks_with_the_conversation_and_before_its_notice(self):
         src = (ROOT / "turn_watchdog.py").read_text(encoding="utf-8")
