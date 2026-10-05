@@ -23,11 +23,13 @@ from host_config import (
     EDITION,
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
+    HOME,
     HOST,
     MCP_PORT,
     MODELS,
     PORT,
     ROOT,
+    WEB_ROOT,
     WORKSPACE,
 )
 from session import REG, _atomic_write_text, _standby_maintenance_loop, owned_agent_procs
@@ -62,6 +64,7 @@ except Exception:  # noqa: BLE001
 
 import client_errors  # page errors -> the host log (#424)
 import personal_turn  # PERSONAL_TURN_v1: its GET route
+from preview_guard import _HOME_R, _PREVIEW_ALLOWED_ROOTS, _resolve_safe_preview_file
 from workspace_status import (
     experts_api,
     instructions_api,

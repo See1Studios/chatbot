@@ -399,12 +399,7 @@ def artifacts(rid: str) -> List[dict]:
             kind = "image" if suffix in exts_img else ("document" if suffix in exts_doc else "code")
             url = f"/api/file/raw?path={quote(str(fp))}"
 
-            if sz >= 1024 * 1024:
-                sz_str = f"{sz / (1024 * 1024):.1f} MB"
-            elif sz >= 1024:
-                sz_str = f"{sz / 1024:.0f} KB"
-            else:
-                sz_str = f"{sz} B"
+            sz_str = f"{sz / 1048576:.1f} MB" if sz >= 1048576 else (f"{sz / 1024:.0f} KB" if sz >= 1024 else f"{sz} B")
 
             mtime = fp.stat().st_mtime
             found.append({

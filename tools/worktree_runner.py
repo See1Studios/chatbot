@@ -62,10 +62,10 @@ from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: devlog_entry, review_checklist, worker_output
 import run_usage  # noqa: E402  -- each CLI call's tokens (token-economy T6)
-from worker_output import LEARNED_RULE, LINE_RULE, REPORT_LIMIT, learned, report, said  # noqa: E402,F401
+from worker_output import LEARNED_RULE, LINE_RULE, learned, report, said  # noqa: E402
 from brain_limits import brain_label, mark, unavailable, usable  # noqa: E402
 from review_checklist import (  # noqa: E402
-    DIFF_LIMIT, DISPLAY_NOTE, deleted_lines, doc_review_prompt, fit_diff, is_display_task, is_doc_task, once_note,
+    DIFF_LIMIT, DISPLAY_NOTE, deleted_lines, doc_review_prompt, is_display_task, is_doc_task, once_note,
     parse_review, review_prompt, with_code_checklist,
 )
 
