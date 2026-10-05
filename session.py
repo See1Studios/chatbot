@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import math
 import os
-import queue
 import re
 import subprocess
 import threading
@@ -18,8 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 from providers.adapters import _persona_system_prompt, get_adapter
-from private_engine import tension_meta, tension_step
-from instructions import build_instruction_bundle
+from private_engine import tension_meta
 from identity import display_name, user_title
 
 try:  # turn observation is best effort: a missing core module must never stop the host
@@ -35,20 +33,17 @@ from loop_guard import LoopGuard, extract_tool_steps
 import personal_turn
 from host_config import (
     ADD_DIRS,
-    ARTIFACTS_CACHE,
     DATA,
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
     ONESHOT_PROVIDER,
     HOME,
-    INACTIVITY_ROTATE_SEC,
     PERSISTED_LOG_KINDS,
     ROOT,
     SESSIONS,
     WORKSPACE,
     _now,
 )
-from tool_format import _format_tool_call, _format_tool_result
 from artifact_manager import (
     _atomic_write_text,
     _safe_artifact_rel,
@@ -56,16 +51,10 @@ from artifact_manager import (
 )
 from standby_pool import (
     STANDBY_POOL,
-    _StandbyPool,
 )
 from session_weights import (
-    _billed_tokens,
-    _btw_prompt,
-    _current_context_tokens,
     _handoff_prompt,
-    _is_inquiry,
     _session_weight,
-    _turn_billed,
 )
 from media_handler import (
     _append_images_markdown,

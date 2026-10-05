@@ -10,10 +10,9 @@ import os
 import re
 import signal
 import subprocess
-import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Dict
 from urllib.parse import unquote, urlparse
@@ -24,15 +23,12 @@ from host_config import (
     EDITION,
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
-    HOME,
     HOST,
     MCP_PORT,
     MODELS,
     PORT,
     ROOT,
-    WEB_ROOT,
     WORKSPACE,
-    _now,
 )
 from session import REG, _atomic_write_text, _standby_maintenance_loop, owned_agent_procs
 from providers import accounts
@@ -46,7 +42,6 @@ import platform_compat
 import items
 import character_art
 import obslog
-import evolution
 import identity
 import origin_guard
 import push_manager
@@ -65,16 +60,6 @@ except Exception:  # noqa: BLE001
     delegation_api = lambda method, path, body: None  # noqa: E731
 
 
-_SKILLS_CACHE = {"ts": 0.0, "data": []}
-
-from preview_guard import (
-    _HOME_R,
-    _PREVIEW_ALLOWED_ROOTS,
-    _PREVIEW_HOME_DOC_SUFFIXES,
-    _SECRET_NAME_RE,
-    _preview_allowed,
-    _resolve_safe_preview_file,
-)
 import client_errors  # page errors -> the host log (#424)
 import personal_turn  # PERSONAL_TURN_v1: its GET route
 from workspace_status import (
@@ -84,16 +69,10 @@ from workspace_status import (
     ticket_api,
     WS_SKILLS_DIR,
     _SKILLS_CACHE,
-    _extract_yaml_desc,
     _get_available_skills,
-    _get_workspace_skills,
     _popular_slash_skills,
-    _hooks_config_path,
-    _mcp_config_path,
-    _read_hooks_config,
     _read_mcp_config,
     _self_status,
-    _skill_desc,
     _write_mcp_config,
 )
 

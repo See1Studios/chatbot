@@ -13,7 +13,6 @@ ROOT = Path(__file__).resolve().parent.parent
 KNOWN = {
     ("mcp_server", "nas_mcp_host"): "the host plugin takes envelope helpers back from the tool server, which loads it last",
     ("media_handler", "session"): "media paths are read from session at call time, so tests that move them reach here",
-    ("preview_guard", "server"): "preview roots are read from server at call time, so tests that move them reach here",
     ("private_engine", "threshold"): "the private room's note and its tension stage, each read when a turn needs it",
     ("providers.account_login", "providers.accounts"): "a pending login's pid is spared when strays are reaped",
     ("session", "session_turn"): "mixin of AgentSession; reads session's names at call time (split/C)",

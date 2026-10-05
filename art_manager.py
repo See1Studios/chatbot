@@ -18,19 +18,17 @@ Nothing is deleted.
 from __future__ import annotations
 
 import io
-import ipaddress
 import os
 import tempfile
 import re
 import shutil
-import socket
 import time
 import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote
 
 import characters
 
@@ -310,31 +308,12 @@ def pack(cid: str, data: bytes, framing: str = "bust", ws=None) -> Dict:
 
 
 def _public_url(url: str) -> str:
-    """The URL if it may be fetched: http(s) to a host that resolves only to public addresses (no loopback,
-    private, link-local, reserved or multicast ones, no localhost/.local names). Checked again on every redirect.
-    The connection resolves the name once more, so a host that changes its answer in between is not covered."""
+    """The URL if it may be fetched: http(s) to a host that resolves only to public addresses."""
+    from web_tool import check_public
     try:
-        parts = urlsplit(url)
-        host = (parts.hostname or "").rstrip(".").lower()
-        port = parts.port or (443 if parts.scheme == "https" else 80)
-    except ValueError:
-        raise ArtError("bad URL")
-    if parts.scheme not in ("http", "https") or not host:
-        raise ArtError("only http(s) links")
-    if host == "localhost" or host.endswith((".localhost", ".local", ".internal", ".lan", ".home.arpa")):
-        raise ArtError("not a public host")
-    try:
-        addrs = [ipaddress.ip_address(host)]
-    except ValueError:
-        try:
-            addrs = [ipaddress.ip_address(a[4][0].split("%")[0]) for a in socket.getaddrinfo(host, port)]
-        except (OSError, UnicodeError, ValueError):
-            raise ArtError("host not found")
-    for a in addrs:
-        a = getattr(a, "ipv4_mapped", None) or a
-        if not a.is_global or a.is_multicast:
-            raise ArtError("not a public host")
-    return url
+        return check_public(url)
+    except Exception as e:
+        raise ArtError(str(e))
 
 
 class _GuardedRedirect(urllib.request.HTTPRedirectHandler):
