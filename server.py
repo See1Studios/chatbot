@@ -150,7 +150,7 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         if origin_guard.cors_allowed(origin, self.headers.get("Host")):
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def _send(self, code: int, body: bytes, content_type: str, cache_control: str = "no-store",
@@ -264,6 +264,27 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         except Exception as e:
             # A route that fails answers 500 with the error; OBSLOG_v1: HTTPLogMixin records the traceback
             # (http.error) for this and every other method's catch-all.
+            return req.json({"ok": False, "error": str(e)}, 500)
+        req.json({"ok": False, "error": "not found"}, 404)
+
+    def do_PATCH(self) -> None:
+        parsed = urlparse(self.path)
+        req = Req(self, self._normalize_req_path(parsed.path), parsed.query)
+        # A mutating request: the same same-origin gate as do_POST, before the body is read.
+        if not origin_guard.same_origin(
+            self.headers.get("Origin"),
+            self.headers.get("Host"),
+            self.headers.get("Sec-Fetch-Site"),
+        ):
+            return req.json({"ok": False, "error": "same-origin browser request required"}, 403)
+        try:
+            req.body = self._read_json()
+        except Exception as e:
+            return req.json({"ok": False, "error": str(e)}, getattr(e, "status_code", 400))
+        try:
+            if route_table.dispatch(PATCH_ROUTES, req):
+                return None
+        except Exception as e:
             return req.json({"ok": False, "error": str(e)}, 500)
         req.json({"ok": False, "error": "not found"}, 404)
 
@@ -558,6 +579,10 @@ POST_ROUTES = [
 
 PUT_ROUTES = [   # PUT and DELETE match the path as sent (no mount-prefix stripping), as before split/B
     (("/api/instructions/*", "/api/experts/*"), _operator_only),
+]
+
+PATCH_ROUTES = [   # only what the page needs; the path is matched like POST's (mount prefix stripped)
+    ("/api/rooms*", _api(room_chat.api, "PATCH")),
 ]
 
 DELETE_ROUTES = [

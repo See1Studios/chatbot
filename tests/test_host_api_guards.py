@@ -15,6 +15,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -100,6 +101,43 @@ class DefibrillateTest(ServerCase):
         self.assertEqual(resp.status, 403)
         time.sleep(0.3)  # long enough for a wrongly accepted request to have scheduled
         self.assertEqual(self.scheduled, [])
+
+
+class PatchTest(ServerCase):
+    """PATCH is answered for the group-room panel (501 before), through the same same-origin gate as POST."""
+
+    def patch(self, path, body, headers=None):
+        return self.req("PATCH", path, body, headers)
+
+    def test_a_room_is_renamed_from_the_own_page(self):
+        import room_chat
+        seen = []
+        def update(rid, **kw):
+            seen.append((rid, kw["name"]))
+            return {"id": rid, "name": kw["name"]}
+        with mock.patch.object(room_chat, "room", lambda rid: {"id": rid} if rid == "room_x" else None), \
+                mock.patch.object(room_chat, "update", update):
+            resp, raw = self.patch("/api/rooms/room_x", {"name": "desk"}, {"Origin": "http://" + self.host})
+        self.assertEqual(resp.status, 200, raw)
+        self.assertEqual(json.loads(raw)["room"]["name"], "desk")
+        self.assertEqual(seen, [("room_x", "desk")])
+
+    def test_other_origins_are_refused_before_anything_runs(self):
+        for headers in ({}, {"Origin": "http://evil.example"}, {"Sec-Fetch-Site": "cross-site"}):
+            resp, raw = self.patch("/api/rooms/room_x", {"name": "desk"}, headers)
+            self.assertEqual(resp.status, 403, headers)
+            self.assertIn("same-origin", json.loads(raw)["error"])
+
+    def test_an_unknown_room_is_404_and_another_api_is_not_patchable(self):
+        own = {"Origin": "http://" + self.host}
+        resp, _ = self.patch("/api/rooms/room_nope", {"name": "x"}, own)
+        self.assertEqual(resp.status, 404)
+        resp, _ = self.patch("/api/sessions/s1", {"name": "x"}, own)
+        self.assertEqual(resp.status, 404)
+
+    def test_the_cors_preflight_lists_patch(self):
+        resp, _ = self.req("OPTIONS", "/api/rooms/room_x", headers={"Origin": "http://" + self.host})
+        self.assertIn("PATCH", resp.getheader("Access-Control-Allow-Methods") or "")
 
 
 class CorsTest(ServerCase):
