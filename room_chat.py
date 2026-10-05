@@ -98,9 +98,22 @@ def room(rid: str) -> Optional[Dict]:
     if not _RID.match(rid or ""):
         return None
     try:
-        return json.loads(_room_path(rid).read_text(encoding="utf-8"))
+        data = json.loads(_room_path(rid).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+    import characters
+    members = data.get("members") or []
+    alive = [m for m in members if characters.ID_RE.match(m or "") and characters.card_path(m).is_file()]
+    if alive != members:
+        data["members"] = alive
+        for m in [cid for cid in members if cid not in alive]:
+            data.get("seats", {}).pop(m, None)
+            data.get("seen", {}).pop(m, None)
+        try:
+            _write_json(_room_path(rid), data)
+        except OSError:
+            pass
+    return data
 
 
 def rooms() -> List[Dict]:

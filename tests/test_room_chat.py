@@ -4,6 +4,7 @@ characters calling each other, each member hearing only what was said since it l
 "room" session that never becomes its one-to-one chat.
 Run: python3 -m unittest tests.test_room_chat  (from services/chatbot)
 """
+import json
 import os
 import random
 import shutil
@@ -179,6 +180,33 @@ class Rooms(unittest.TestCase):
         self.assertEqual(RC.api("GET", "/api/rooms/room_000000000000", None)[0], 404)
         self.assertEqual(RC.api("POST", "/api/rooms/%s/say" % rid, {"text": ""})[0], 400)
         self.assertIsNone(RC.api("GET", "/api/sessions", None))
+
+    def test_deleted_characters_are_filtered_on_room_load(self):
+        r = RC.create("desk", [self.a, self.b, self.c], strategy="manual")
+        rid = r["id"]
+        # Seed dummy seat and seen for c
+        r_data = json.loads(RC._room_path(rid).read_text(encoding="utf-8"))
+        r_data["seats"][self.c] = "sess_dummy"
+        r_data["seen"][self.c] = 5
+        RC._write_json(RC._room_path(rid), r_data)
+
+        # Remove character card for c
+        card_file = C.card_path(self.c)
+        if card_file.is_file():
+            card_file.unlink()
+
+        # Loading room should filter c and heal the file
+        loaded = RC.room(rid)
+        self.assertNotIn(self.c, loaded["members"])
+        self.assertEqual(loaded["members"], [self.a, self.b])
+        self.assertNotIn(self.c, loaded.get("seats", {}))
+        self.assertNotIn(self.c, loaded.get("seen", {}))
+
+        # Check persisted file on disk is healed
+        disk_data = json.loads(RC._room_path(rid).read_text(encoding="utf-8"))
+        self.assertNotIn(self.c, disk_data["members"])
+        self.assertNotIn(self.c, disk_data.get("seats", {}))
+        self.assertNotIn(self.c, disk_data.get("seen", {}))
 
 
 class RoomSeats(unittest.TestCase):
