@@ -63,8 +63,8 @@ def _clean_git_env():
             and not k.startswith("GIT_CONFIG_")}
 
 
-def run_guards_on_snapshot(root):
-    """Run ./run-tests.sh --fast on what is being committed, not on the shared working tree (pew/Q): agents that share
+def run_guards_on_snapshot(root, related=()):
+    """Run ./run-tests.sh --fast, then the `related` test modules if any, on what is being committed, not on the shared working tree (pew/Q): agents that share
     one tree must not block each other's commits with their own unstaged work. The snapshot is a throwaway worktree at
     HEAD with the staged diff applied. Returns None when there is no runner. Falls back to the working tree only when
     there is no HEAD yet (a repository's first commit) or the diff will not apply."""
@@ -87,7 +87,12 @@ def run_guards_on_snapshot(root):
         runner = where / "run-tests.sh"
         if not runner.is_file():
             return None
-        return subprocess.run(["bash", str(runner), "--fast"], cwd=str(where), env=env, capture_output=True, text=True)
+        r = subprocess.run(["bash", str(runner), "--fast"], cwd=str(where), env=env, capture_output=True, text=True)
+        if r.returncode == 0 and related:
+            print("[pre-commit] a chat agent's commit: also the %d test modules related to its files" % len(related))
+            r = subprocess.run(["bash", str(runner)] + list(related), cwd=str(where), env=env, capture_output=True,
+                               text=True)
+        return r
     finally:
         if added.returncode == 0:
             subprocess.run(["git", "worktree", "remove", "--force", str(tree)], cwd=str(root), env=env, capture_output=True)
@@ -125,6 +130,18 @@ def caller(root):
 def live_chat_agent(actor):
     """A chat session's own agent using its shell -- not the host itself or a runner it started (chat-agent:?)."""
     return actor.startswith("chat-agent:") and not actor.endswith(":?")
+
+
+def related_for(root, files, who):
+    """AGENT_COMMIT_RELATED_v1: the test modules a live chat agent's commit must also pass -- the ones the delegation
+    runner runs for the same files (worktree_runner.related_gate). A chat agent may not run the whole suite (it takes
+    minutes; LIVE_AGENT_SUITE_v1), and #689-#691 (2026-10-06) went in past the FAST guards only, removing an import
+    every turn needed. Anyone else commits on the FAST guards, as before."""
+    if not files or not live_chat_agent(who()):
+        return []
+    wr = _repo_module(root, "worktree_runner")
+    gate = wr.related_gate(Path(root), list(files)) if wr else None
+    return gate.split()[1:] if gate else []
 
 
 def ref_refusal(updates, who, on_worker_branch):
@@ -223,12 +240,12 @@ def pre_commit():
         return 1
     if files and all(f.startswith(RECORDS) for f in files):
         return 0
-    r = run_guards_on_snapshot(root)
+    r = run_guards_on_snapshot(root, related_for(root, files, lambda: caller(root)))
     if r is None:
         return 0
     if r.returncode != 0:
         tail = "\n".join(r.stdout.strip().splitlines()[-25:])
-        print("[pre-commit] guard tests failed; fix them before committing (never --no-verify):\n" + tail)
+        print("[pre-commit] tests failed; fix them before committing (never --no-verify):\n" + tail)
         return 1
     return 0
 

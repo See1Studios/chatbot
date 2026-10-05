@@ -170,6 +170,16 @@ class Hooks(unittest.TestCase):
         finally:
             os.chdir(cwd)
 
+    def test_a_live_chat_agents_commit_also_runs_the_tests_related_to_its_files(self):
+        # AGENT_COMMIT_RELATED_v1: #689-#691 (2026-10-06) were committed from chat past the FAST guards only
+        mods = check.related_for(ROOT, ["dialog_handoff.py"], lambda: "chat-agent:agy")
+        self.assertIn("test_dialog_handoff", mods)
+        self.assertTrue(all(m.startswith("test_") for m in mods), mods)
+        self.assertEqual(check.related_for(ROOT, ["dialog_handoff.py"], lambda: "chat-agent:?"), [])   # the host
+        self.assertEqual(check.related_for(ROOT, ["dialog_handoff.py"], lambda: "claude-code"), [])
+        self.assertEqual(check.related_for(ROOT, [], lambda: "chat-agent:agy"), [])
+        self.assertEqual(check.related_for(self.repo, ["x.py"], lambda: "chat-agent:agy"), [])          # no runner here
+
     def test_only_a_live_chat_agent_landing_a_worker_branch_is_refused(self):
         main = [("0" * 40, "a" * 40, "refs/heads/main")]
         on_worker = lambda sha: True
