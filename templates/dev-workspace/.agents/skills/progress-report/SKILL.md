@@ -25,6 +25,9 @@ The user asks how things stand, or a handoff/delegation result comes back and th
   - a handoff: the latest `#n` result in the dm -- a later result replaces an earlier one.
   Drop what is no longer open, or move it to 끝난 것.
 - Unknown is a valid answer: "확인 못 함: …" beats a guess.
+- A reason, cause or outcome the records do not state is written as "사유 기록 없음" -- never filled in from what
+  seems likely (live 2026-10-05: two failed handoffs with no recorded reason were reported as "timeouts"; one was a
+  tool budget, one an engine bug). Quote the record's own words when it has them.
 - Do not open code to verify a result; if a result looks wrong, hand a check to the owning director (`handoff-brief`).
 
 ## Output (Korean, 2–4 lines)
