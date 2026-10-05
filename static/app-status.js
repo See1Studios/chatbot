@@ -462,15 +462,15 @@ async function loadProfiles(provider) {
     wrap.innerHTML = '<div class="status-item-meta">저장된 계정 · 눌러서 전환</div>'; // l10n-ok
     res.profiles.forEach(p => {
       const row = document.createElement('div');
-      row.className = 'status-item-actions';
+      row.className = 'acct-prof';
       const rows = (p.usage && p.usage.rows) || [];
-      const usage = rows.map(r => escapeHtml(r.group) + ' ' + escapeHtml(r.remaining_pct)).join(' · ');
-      const seen = p.usage ? ' (' + escapeHtml(fmtAge(Date.now() / 1000 - p.usage.checked_at)) + ' 전 확인)' : ''; // l10n-ok
-      row.innerHTML = '<span class="acct-current">' + escapeHtml(p.email) + (p.active ? ' <span class="acct-badge ok">사용 중</span>' : '') + '</span>' + // l10n-ok
-        '<div class="status-item-preview">' + (usage ? usage + seen : '사용량 기록 없음') + '</div>'; // l10n-ok
+      const usage = rows.slice(0, 3).map(r => escapeHtml(r.group) + ' ' + escapeHtml(r.remaining_pct)).join(' · ') + (rows.length > 3 ? ' +' + (rows.length - 3) : '');
+      const seen = p.usage ? escapeHtml(fmtAge(Date.now() / 1000 - p.usage.checked_at)) + ' 전' : ''; // l10n-ok
+      row.innerHTML = '<div class="acct-prof-main"><div class="acct-prof-email">' + escapeHtml(p.email) + (p.active ? ' <span class="acct-badge ok">사용 중</span>' : '') + '</div>' + // l10n-ok
+        '<div class="acct-prof-usage">' + (usage ? usage + '<span class="acct-prof-seen"> · ' + seen + '</span>' : '사용량 기록 없음') + '</div></div>'; // l10n-ok
       if (!p.active) {
         const btn = document.createElement('button');
-        btn.type = 'button'; btn.className = 'art-btn';
+        btn.type = 'button'; btn.className = 'art-btn acct-prof-btn';
         btn.textContent = '전환'; // l10n-ok
         btn.addEventListener('click', () => switchProfile(provider, p.email, btn));
         row.appendChild(btn);
