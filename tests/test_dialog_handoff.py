@@ -213,6 +213,29 @@ class Handoff(unittest.TestCase):
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "failed"}])
         self.assertEqual(H.all_handoffs()[1]["reason"], "the turn ended without an answer")
 
+    def test_an_answer_after_the_budget_is_partial_and_the_lead_says_what_is_left(self):
+        # HANDOFF_PARTIAL_v1 (drill 2026-10-06): one of ten files read, then "done"
+        self.hand(self.lead, "s-lead", to="dev", text="read ten files")
+        H.run_once(self.office, now=1000.0)
+        dev, lead = self.office.desks[self.dev], self.office.desks[self.lead]
+        dev._budget_hit_at = 1005.0                                             # the budget notice, in this turn
+        dev.history.append({"role": "assistant", "text": "read one; nine left", "ts": 1010.0})
+        dev.busy = False
+        self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "partial"}])
+        self.assertIn("tool-call budget", H.all_handoffs()[1]["reason"])
+        self.assertIn("(partial)", lead.sent[0][0])
+        self.assertIn("what is left", lead.sent[0][0])
+        self.assertEqual(H.ledger(self.lead)[0]["state"], "partial")
+
+    def test_a_budget_hit_in_an_earlier_turn_does_not_make_this_one_partial(self):
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        dev = self.office.desks[self.dev]
+        dev._budget_hit_at = 900.0
+        H.run_once(self.office, now=1000.0)
+        dev.history.append({"role": "assistant", "text": "all done", "ts": 1010.0})
+        dev.busy = False
+        self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "done"}])
+
     def test_a_waiting_handoff_cancelled_never_starts(self):
         # HANDOFF_CANCEL_v1
         self.hand(self.lead, "s-lead", to="dev", text="x")

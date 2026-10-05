@@ -10,7 +10,8 @@ The user asks how things stand, or a handoff/delegation result comes back and th
 
 ## Sources, in this order -- the records win over what you remember from earlier in the conversation
 1. `dialog` `{"action": "handoffs"}`: every handoff you sent or received with its state now (sent, running, done,
-   failed, cancelled). Report a handoff by this state, never by an earlier report.
+   partial, failed, cancelled). Report a handoff by this state, never by an earlier report; partial means its turn
+   hit the tool-call budget: say what was done and what is left, never "done".
    Then `read` the dms with the directors involved for the detail of a result (`#n …`).
 2. `ticket` `list` with `"status": "open"` for the cards not closed (proposed / approved / in progress / awaiting
    merge) and what each waits for.

@@ -439,7 +439,8 @@ def sc_timeout(run: Run, t: Cast, lead: str) -> None:
 
 
 def sc_budget(run: Run, t: Cast, lead: str) -> None:
-    """A handoff turn past its tool-call budget (warn 3, stop 6 here) is stopped and closes, saying why if it failed."""
+    """A handoff turn past its tool-call budget (warn 3, stop 6 here) is stopped and closes as partial or failed with
+    the budget as its reason, never as done (HANDOFF_PARTIAL_v1)."""
     try:
         lead = _with_limits({"CHATBOT_TURN_BUDGET_CALLS": "3,6"}, t)
         session_for(t.worker)
@@ -451,10 +452,16 @@ def sc_budget(run: Run, t: Cast, lead: str) -> None:
         ev = [e for e in events(run.t0) if "loop" in str(e.get("evt")) or "budget" in json.dumps(e)]
         run.facts["guard_events"] = sorted({str(e.get("evt")) for e in ev})
         run.facts["reason"] = str(done.get("reason") or "")[:90]
-        run.check(done.get("state") in ("done", "failed"), "it closed")
         run.check(bool(ev), "the budget stopped the turn")
-        run.check(done.get("state") == "done" or "budget" in str(done.get("reason") or ""), "a failure says it was the budget")
+        run.check(done.get("state") in ("partial", "failed"), "it closes as partial or failed, never done")
+        run.check("budget" in str(done.get("reason") or ""), "the reason says it was the budget")
         _silence(run, run.t0)
+        time.sleep(25)   # the reactor's next pass starts the lead's report turn
+        wait_idle(lead, 180)
+        said = [x for x in session(lead).get("history") or [] if x.get("role") == "assistant"
+                and float(x.get("ts") or 0) >= run.t0]
+        run.facts["lead_says"] = str(said[-1].get("text") if said else "")[:160].replace("\n", " ")
+        run.check(bool(said), "the lead told the user")
     finally:
         _restore()
 

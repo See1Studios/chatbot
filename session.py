@@ -537,6 +537,8 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             v = self._loop_guard.observe(name, params, output)
             if v is None:
                 continue
+            if v.rule == "budget":
+                self._budget_hit_at = time.time()   # HANDOFF_PARTIAL_v1: a handoff ending in it is partial
             if v.level == "warn":
                 if self._can_notice_loop():
                     self._notice_loop(v, write_guard.loop_evidence(v, params, output))

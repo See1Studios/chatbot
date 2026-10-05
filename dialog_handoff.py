@@ -24,7 +24,7 @@ from typing import Dict, List, Optional
 
 MAX_HOPS = 2
 OPEN = ("sent", "running", "waiting", "resume")   # waiting: on work it handed on; resume: that work came back
-CLOSED = ("done", "failed", "cancelled")
+CLOSED = ("done", "partial", "failed", "cancelled")   # partial: it answered after its turn hit the tool-call budget
 RESULT_MAX = 1500
 _LOCK = threading.Lock()
 _BOOT = time.time()   # this host process's start: a turn started before it was cut by a restart
@@ -46,7 +46,8 @@ RESUME = ("[Handoff #{id} from {sender}, continued -- the user did not write thi
           "back:\n{children}\nNow finish #{id}: {task}\nDone when: {done_when}\nEnd with the result for {sender}: what you "
           "did, what is left, what the operator must decide.")
 REPORT = ("{receiver} finished handoff #{id} ({outcome}). Their result is in your dm with them: {result}\n"
-          "Tell the user in one or two short lines, in character. Do not use tools and do not start any work.")
+          "Tell the user in one or two short lines, in character -- if it is partial or failed, say so and what is "
+          "left. Do not use tools and do not start any work.")
 
 
 class HandoffError(ValueError):
@@ -241,19 +242,21 @@ def _pass(reg, now: Optional[float] = None) -> List[Dict]:
         _UNANSWERED.pop(h["id"], None)
         state = "done" if answer else "failed"
         why = why or ("" if answer else "the turn ended without an answer")
-        if state == "done" and _chained(h, now):   # HANDOFF_CHAIN_v1: it handed work on; it is not done yet
+        if answer and float(getattr(sess, "_budget_hit_at", 0) or 0) >= float(h.get("started", 0) or 0):
+            state, why = "partial", "its turn hit the tool-call budget and wrapped up; what is left is in the result"
+        if state in ("done", "partial") and _chained(h, now):   # HANDOFF_CHAIN_v1: it handed work on; it is not done yet
             continue
         parent = all_handoffs().get(h.get("parent")) if h.get("parent") else None
         if parent is not None and parent.get("state") == "waiting":   # the one who asked finishes its own work next
             _report(reg, h, state, answer or "(the turn ended without an answer%s)" % (": " + why if why else ""),
                     tell=False)
-            mark(h["id"], state, result=answer[:RESULT_MAX], **({"reason": why} if state == "failed" and why else {}))
+            mark(h["id"], state, result=answer[:RESULT_MAX], **({"reason": why} if state in ("failed", "partial") and why else {}))
             if not [c for c in _children(parent["id"]) if c.get("state") in OPEN]:
                 mark(parent["id"], "resume")
             changed.append({"id": h["id"], "state": state})
             continue
         _report(reg, h, state, answer or "(the turn ended without an answer%s)" % (": " + why if why else ""))
-        mark(h["id"], state, result=answer[:RESULT_MAX], **({"reason": why} if state == "failed" and why else {}))
+        mark(h["id"], state, result=answer[:RESULT_MAX], **({"reason": why} if state in ("failed", "partial") and why else {}))
         changed.append({"id": h["id"], "state": state})
     hs = sorted(all_handoffs().values(), key=lambda h: h["id"])
     for h in [x for x in hs if x.get("state") in ("sent", "resume")]:
