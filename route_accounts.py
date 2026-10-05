@@ -149,6 +149,8 @@ def usage(req: Req):
     provider = req.q("provider", DEFAULT_PROVIDER)
     try:
         data = _get_usage(provider=provider, force=force)
+        if data.get("ok"):   # QUOTA_VIEW_v1: the adapter's own reading of "this model's quota" (rows stay as they are)
+            data = {**data, "view": get_adapter(provider).quota_view(req.q("model", ""), data.get("rows") or [])}
         code, body = json_bytes(data)
     except ValueError as e:
         code, body = json_bytes({"ok": False, "error": str(e)}, 400)
@@ -270,9 +272,10 @@ def logout(req: Req):
 
 def profiles(req: Req):
     # PROFILE_USAGE_v1: saved agy logins + the last usage report seen for each (never token values).
-    snaps = accounts.usage_snapshots()
+    snaps, adapter, model = accounts.usage_snapshots(), get_adapter("agy"), req.q("model", "")
+    usage = lambda sn: sn and {**sn, "view": adapter.quota_view(model, sn.get("rows") or [])}
     return req.json({"ok": True, "provider": "agy",
-                     "profiles": [{**p, "usage": snaps.get(p["email"])} for p in accounts.list_profiles("agy")]})
+                     "profiles": [{**p, "usage": usage(snaps.get(p["email"]))} for p in accounts.list_profiles("agy")]})
 
 
 def switch(req: Req):

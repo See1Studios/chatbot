@@ -455,7 +455,7 @@ async function logoutAccount(provider, email, btn) {
 // PROFILE_SWITCH_v1: 저장된 agy 로그인 목록 + 원클릭 전환. 사용량은 계정이 마지막으로 활성이던 때의 스냅샷(PROFILE_USAGE_v1). // l10n-ok
 async function loadProfiles(provider) {
   try {
-    const res = await api('/api/accounts/profiles');
+    const res = await api('/api/accounts/profiles?model=' + encodeURIComponent(statusModel()));
     if (currentStatusProvider() !== provider || !res.ok || !(res.profiles || []).length) return;
     const wrap = document.createElement('div');
     wrap.className = 'status-item';
@@ -464,7 +464,8 @@ async function loadProfiles(provider) {
       const row = document.createElement('div');
       row.className = 'acct-prof';
       const rows = (p.usage && p.usage.rows) || [];
-      const usage = rows.slice(0, 3).map(r => escapeHtml(r.group) + ' ' + escapeHtml(r.remaining_pct)).join(' · ') + (rows.length > 3 ? ' +' + (rows.length - 3) : '');
+      const view = p.usage && p.usage.view;
+      const usage = view ? escapeHtml(view.headline) : rows.slice(0, 3).map(r => escapeHtml(r.group) + ' ' + escapeHtml(r.remaining_pct)).join(' · ') + (rows.length > 3 ? ' +' + (rows.length - 3) : '');
       const seen = p.usage ? escapeHtml(fmtAge(Date.now() / 1000 - p.usage.checked_at)) + ' 전' : ''; // l10n-ok
       row.innerHTML = '<div class="acct-prof-main"><div class="acct-prof-email">' + escapeHtml(p.email) + (p.active ? ' <span class="acct-badge ok">사용 중</span>' : '') + '</div>' + // l10n-ok
         '<div class="acct-prof-usage">' + (usage ? usage + '<span class="acct-prof-seen"> · ' + seen + '</span>' : '사용량 기록 없음') + '</div></div>'; // l10n-ok
@@ -631,6 +632,35 @@ function renderProcs(pv) {
   procs.forEach(p => statusProcListEl.appendChild(acctProcRow(p, hasEvidence)));
 }
 
+// QUOTA_VIEW_v1: the model in use belongs to the chat provider; another provider viewed here has none
+function statusModel() {
+  return (typeof modelEl !== 'undefined' && modelEl && currentStatusProvider() === chatProvider()) ? modelEl.value : '';
+}
+
+// The adapter's own reading of the quota of the model in use (res.view), as pills; a figure that is no percentage is text only.
+function quotaNow(res) {
+  const v = res && res.view;
+  if (!v || !(v.windows || []).length) return null;
+  const model = statusModel();
+  const el = document.createElement('div');
+  el.className = 'quota-now';
+  const head = document.createElement('div');
+  head.className = 'quota-now-head';
+  head.textContent = currentStatusProvider() + (model ? ' \u00b7 ' + model : '') + (v.scope ? ' \u00b7 ' + v.scope : '');
+  const pills = document.createElement('div');
+  pills.className = 'quota-pills';
+  v.windows.forEach(w => {
+    const pill = document.createElement('span');
+    pill.className = 'quota-pill' + (typeof w.pct === 'number' && w.pct <= 20 ? ' low' : '');
+    pill.textContent = (w.label ? w.label + ' ' : '') + w.text;
+    if (w.reset_at) pill.title = w.reset_at;
+    pills.appendChild(pill);
+  });
+  el.appendChild(head);
+  el.appendChild(pills);
+  return el;
+}
+
 async function fetchUsage(force, retryCount) {
   // USAGE_v1: after CLI login the first /cost|app-server call often races auth
   // settle; client default api() timeout (12s) was also shorter than the CLI
@@ -644,6 +674,7 @@ async function fetchUsage(force, retryCount) {
   try {
     const params = new URLSearchParams({provider});
     if (force || retryCount > 0) params.set('force', '1');
+    if (statusModel()) params.set('model', statusModel());
     const res = await api('/api/usage?' + params.toString(), { timeoutMs: 55000 });
     if (currentStatusProvider() !== provider) return;
     if ((!res || !res.ok) && res && res.supported !== false && retryCount < 1) {
@@ -674,6 +705,8 @@ function renderStatusUsage(res) {
     return;
   }
   statusUsageEl.innerHTML = '';
+  const now = quotaNow(res);
+  if (now) statusUsageEl.appendChild(now);
   (res.rows || []).forEach(row => {
     const pct = parseInt(row.remaining_pct, 10);
     const pctSafe = isNaN(pct) ? 0 : Math.max(0, Math.min(100, pct));

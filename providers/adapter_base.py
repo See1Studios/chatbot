@@ -168,6 +168,20 @@ def _store_models(cache: Dict[str, Any], fetch) -> List[str]:
         cache["models"], cache["ts"] = list(fresh), time.time()
     return cache.get("models") or []
 
+def parse_pct(text) -> Optional[int]:
+    """'32%' / '45% (9/20)' -> 32 / 45; anything that does not start with a percentage -> None."""
+    m = re.match(r"\s*(\d{1,3})\s*%", str(text or ""))
+    return min(100, int(m.group(1))) if m else None
+
+
+def quota_view_of(rows: list, scope: str, label=None) -> dict:
+    """QUOTA_VIEW_v1 from report rows; `label(row)` names a window (default: group + limit type)."""
+    windows = [{"label": (label(r) if label else f"{r.get('group', '')} {r.get('limit_type', '')}".strip()),
+                "pct": parse_pct(r.get("remaining_pct")), "text": str(r.get("remaining_pct") or ""),
+                "reset_at": str(r.get("reset_at") or "")} for r in rows or []]
+    return {"scope": scope, "headline": " \u00b7 ".join(f"{w['label']} {w['text']}".strip() for w in windows), "windows": windows}
+
+
 class AgentAdapter:
     """Base interface for spawning/talking to a CLI agent backend.
 
@@ -261,6 +275,14 @@ class AgentAdapter:
         error. Claude uses `--print /cost`; Grok uses the same billing proxy
         the TUI `/usage` modal hits; Codex uses its app-server protocol."""
         return None
+
+    def quota_view(self, model: str, rows: list) -> dict:
+        """QUOTA_VIEW_v1: the one shape every provider's quota is shown in, built by the adapter from its own
+        `rate_limit_report()` rows so each CLI keeps its own idea of what "this model's quota" is:
+        {scope, headline, windows: [{label, pct (0-100 or None), text, reset_at}]}. `pct` is None when the figure is
+        not a percentage (a request count, credits): the UI then shows `text` only. Default: every row, unchanged."""
+        return quota_view_of(rows, "")
+
 
     def mints_own_conversation_id(self) -> bool:
         """False (default, agy's behavior): we generate a uuid4 before the

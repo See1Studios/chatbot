@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from host_config import AGENT_PATH_PREFIX, AGY, MODELS, WORKSPACE
-from providers.adapter_base import AgentAdapter, _redact_err, cached_model_list
+from providers.adapter_base import AgentAdapter, _redact_err, cached_model_list, quota_view_of
 from tool_format import _format_tool_call, _format_tool_result
 import media_handler as _media
 
@@ -427,6 +427,19 @@ class AgyAdapter(AgentAdapter):
             return {"rows": rows}
         except Exception as e:
             return {"error": str(e)}
+
+    def quota_view(self, model: str, rows: list) -> dict:
+        """QUOTA_VIEW_v1: agy's limits are per model GROUP ("Gemini Models", "Claude and GPT models"), each with a
+        five-hour and a weekly window. The group is the one whose name holds the model's family word (the part of
+        the id before the first '-': gemini, claude, gpt); no match -> every group."""
+        family = re.split(r"[-/]", str(model or ""), maxsplit=1)[0].lower()
+        mine = [r for r in rows or [] if family and family in str(r.get("group", "")).lower()]
+        short = lambda r: ("5h" if "five" in r.get("limit_type", "").lower() else "week" if "week" in r.get("limit_type", "").lower()
+                           else r.get("limit_type", ""))
+        if not mine:
+            return quota_view_of(rows, "", lambda r: f"{r.get('group', '')} {short(r)}".strip())
+        mine.sort(key=lambda r: "five" not in r.get("limit_type", "").lower())   # the short window first
+        return quota_view_of(mine, str(mine[0].get("group", "")), short)
 
 
 class AgyMediaSource(_media.MediaSource):

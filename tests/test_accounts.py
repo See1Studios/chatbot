@@ -327,6 +327,60 @@ class ProfilesTest(Base):
         self.assertEqual([p["email"] for p in accounts.list_profiles()], [OLD])
         self.assertEqual(accounts.AGY_PROFILES_DIR.joinpath("usage.snapshots").stat().st_mode & 0o777, 0o600)
 
+    ROWS = [
+        {"group": "Gemini Models", "limit_type": "Weekly Limit Remaining", "remaining_pct": "32%", "reset_at": "w1"},
+        {"group": "Gemini Models", "limit_type": "Five Hour Limit Remaining", "remaining_pct": "100%", "reset_at": "h1"},
+        {"group": "Claude and GPT models", "limit_type": "Weekly Limit Remaining", "remaining_pct": "85%", "reset_at": "w2"},
+    ]
+
+    def test_agy_quota_view_picks_the_group_of_the_model_short_window_first(self):
+        from providers.adapter_agy import AgyAdapter
+        a = AgyAdapter.__new__(AgyAdapter)
+        v = a.quota_view("gemini-3.8-flash-low", self.ROWS)
+        self.assertEqual((v["scope"], v["headline"]), ("Gemini Models", "5h 100% \u00b7 week 32%"))
+        self.assertEqual([(w["label"], w["pct"], w["reset_at"]) for w in v["windows"]], [("5h", 100, "h1"), ("week", 32, "w1")])
+        for model in ("claude-opus-4-6-thinking", "gpt-5"):
+            self.assertEqual(a.quota_view(model, self.ROWS)["headline"], "week 85%")
+
+    def test_a_model_no_group_claims_gets_every_group_and_an_empty_report_an_empty_view(self):
+        from providers.adapter_agy import AgyAdapter
+        a = AgyAdapter.__new__(AgyAdapter)
+        for model in ("mystery-1", ""):
+            v = a.quota_view(model, self.ROWS)
+            self.assertEqual((v["scope"], len(v["windows"])), ("", 3))
+            self.assertIn("Claude and GPT models week 85%", v["headline"])
+        self.assertEqual(a.quota_view("gemini-x", []), {"scope": "", "headline": "", "windows": []})
+
+    def test_usage_and_profiles_routes_carry_the_view_for_the_model_asked_about(self):
+        import route_accounts
+        from unittest import mock
+        from route_table import Req
+        sent = []
+        class H:   # the two handler hooks Req.json() uses
+            def _send(self, code, raw, ctype, **kw):
+                sent.append((code, json.loads(raw)))
+        rows = self.ROWS[1:2]
+        data = {"ok": True, "supported": True, "rows": rows, "checked_at": 1.0}
+        self.login(NEW)
+        accounts.save_profile()
+        with mock.patch.object(route_accounts, "_get_usage", lambda provider="agy", force=False: data):
+            route_accounts.usage(Req(H(), "/api/usage", "provider=agy&model=gemini-3.8-flash-low"))
+        code, u = sent.pop()
+        self.assertEqual((code, u["view"]["headline"], u["rows"]), (200, "5h 100%", rows), "rows stay as they were")
+        accounts.save_usage_snapshot(NEW, rows, 2.0)
+        route_accounts.profiles(Req(H(), "/api/accounts/profiles", "model=claude-sonnet-4-6"))
+        view = sent.pop()[1]["profiles"][0]["usage"]["view"]
+        self.assertEqual((view["scope"], view["headline"]), ("", "Gemini Models 5h 100%"), "no group claims it: all rows")
+
+    def test_the_default_view_keeps_every_row_and_marks_non_percentages_as_text_only(self):
+        from providers.adapter_base import AgentAdapter, parse_pct
+        rows = [{"group": "Claude (7d)", "limit_type": "3 sessions", "remaining_pct": "42 reqs", "reset_at": "r"},
+                {"group": "Free", "limit_type": "daily", "remaining_pct": "45% (9/20)", "reset_at": "u"}]
+        v = AgentAdapter.quota_view(object(), "any-model", rows)
+        self.assertEqual([(w["pct"], w["text"]) for w in v["windows"]], [(None, "42 reqs"), (45, "45% (9/20)")])
+        self.assertEqual(v["windows"][0]["label"], "Claude (7d) 3 sessions")
+        self.assertEqual([parse_pct(x) for x in ("32%", " 7 %", "150%", "n/a", None)], [32, 7, 100, None, None])
+
     def test_list_profiles_numbers_by_email_and_marks_the_active_one(self):
         self.login(OLD)
         accounts.save_profile()
