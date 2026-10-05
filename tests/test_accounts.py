@@ -372,6 +372,49 @@ class ProfilesTest(Base):
         view = sent.pop()[1]["profiles"][0]["usage"]["view"]
         self.assertEqual((view["scope"], view["headline"]), ("", "Gemini Models 5h 100%"), "no group claims it: all rows")
 
+    def _view(self, cls_path, model, rows, **attrs):
+        import importlib
+        mod, cls = cls_path.rsplit(".", 1)
+        a = getattr(importlib.import_module(mod), cls).__new__(getattr(importlib.import_module(mod), cls))
+        for k, v in attrs.items():
+            setattr(a, k, v)
+        return a.quota_view(model, rows)
+
+    def test_one_window_providers_name_the_window_by_its_limit_type(self):
+        rows = [{"group": "codex", "limit_type": "30d", "remaining_pct": "95%", "reset_at": "r"}]
+        for cls in ("providers.adapter_codex.CodexAdapter", "providers.adapter_grok.GrokAdapter"):
+            v = self._view(cls, "any", rows)
+            self.assertEqual((v["scope"], v["headline"], v["windows"][0]["pct"]), ("codex", "30d 95%", 95))
+
+    def test_claude_keeps_the_limits_and_leaves_the_request_counts_to_the_plain_rows(self):
+        rows = [{"group": "Current session", "limit_type": "use", "remaining_pct": "98%", "reset_at": "a"},
+                {"group": "Current week (all models)", "limit_type": "use", "remaining_pct": "68%", "reset_at": "b"},
+                {"group": "Claude (24h)", "limit_type": "15 sessions", "remaining_pct": "896 reqs", "reset_at": "c"}]
+        v = self._view("providers.adapter_claude.ClaudeAdapter", "claude-sonnet-4-6", rows)
+        self.assertEqual(v["headline"], "Current session 98% \u00b7 Current week (all models) 68%")
+
+    def test_openrouter_shows_the_free_quota_for_a_free_model_and_the_credit_for_the_others(self):
+        rows = [{"group": "Credit", "limit_type": "c", "remaining_pct": "$9.81 / $20.00", "reset_at": "x"},
+                {"group": "Free quota", "limit_type": "d", "remaining_pct": "100% (1000/1000)", "reset_at": "y"},
+                {"group": "Free status", "limit_type": "s", "remaining_pct": "17 ok", "reset_at": "z"}]
+        cls = "providers.adapter_openai.OpenAIDialectAdapter"
+        free = self._view(cls, "qwen/qwen3.8-27b:free", rows, id="openrouter")
+        paid = self._view(cls, "anthropic/claude-x", rows, id="openrouter")
+        self.assertEqual((free["headline"], free["windows"][0]["pct"]), ("Free quota 100% (1000/1000)", 100))
+        self.assertEqual((paid["headline"], paid["windows"][0]["pct"]), ("Credit $9.81 / $20.00", None), "dollars are text, not a percentage")
+        self.assertEqual(self._view(cls, "openrouter/free", rows, id="openrouter")["headline"], free["headline"])
+        self.assertEqual(self._view(cls, "m", [rows[2]], id="openrouter")["headline"], "Free status 17 ok", "nothing to pick: all rows")
+
+    def test_omniroute_picks_every_account_of_the_connection_the_model_names(self):
+        rows = [{"group": "codex (a@x)", "limit_type": "l", "remaining_pct": "ok (100%)", "reset_at": "-"},
+                {"group": "nvidia (main)", "limit_type": "l", "remaining_pct": "ok (100%)", "reset_at": "-"},
+                {"group": "codex (b@x)", "limit_type": "l", "remaining_pct": "warn (0%)", "reset_at": "-"}]
+        cls = "providers.adapter_openai.OpenAIDialectAdapter"
+        v = self._view(cls, "codex/gpt-5", rows, id="omniroute")
+        self.assertEqual((v["scope"], [w["pct"] for w in v["windows"]]), ("codex", [100, 0]))
+        v = self._view(cls, "antigravity/claude-sonnet-4-6", rows, id="omniroute")
+        self.assertEqual((v["scope"], len(v["windows"])), ("", 3), "no connection of that name: all of them")
+
     def test_the_default_view_keeps_every_row_and_marks_non_percentages_as_text_only(self):
         from providers.adapter_base import AgentAdapter, parse_pct
         rows = [{"group": "Claude (7d)", "limit_type": "3 sessions", "remaining_pct": "42 reqs", "reset_at": "r"},
@@ -379,7 +422,7 @@ class ProfilesTest(Base):
         v = AgentAdapter.quota_view(object(), "any-model", rows)
         self.assertEqual([(w["pct"], w["text"]) for w in v["windows"]], [(None, "42 reqs"), (45, "45% (9/20)")])
         self.assertEqual(v["windows"][0]["label"], "Claude (7d) 3 sessions")
-        self.assertEqual([parse_pct(x) for x in ("32%", " 7 %", "150%", "n/a", None)], [32, 7, 100, None, None])
+        self.assertEqual([parse_pct(x) for x in ("32%", " 7 %", "150%", "n/a", None, "ok (100%)", "warn (0%)")], [32, 7, 100, None, None, 100, 0])
 
     def test_list_profiles_numbers_by_email_and_marks_the_active_one(self):
         self.login(OLD)

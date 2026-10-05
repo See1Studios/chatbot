@@ -12,7 +12,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from tool_format import _format_tool_call, _format_tool_result
-from providers.adapter_base import AgentAdapter, openai_chunk_model
+from providers.adapter_base import AgentAdapter, openai_chunk_model, quota_view_of
 
 
 OPENROUTER_FREE_ROUTERS = frozenset({"openrouter/free"})
@@ -349,6 +349,23 @@ class OpenAIDialectAdapter(AgentAdapter):
             "cache_read_tokens": int(prompt_details.get("cached_tokens") or 0),
             "total_tokens": int(total) if total is not None else (prompt + completion),
         }
+
+    def quota_view(self, model: str, rows: list) -> dict:
+        """QUOTA_VIEW_v1. OpenRouter: a free model draws on the free daily quota (a row with "(used/limit"), any other
+        model on the credit balance (a "$" row); the model-status row is neither. OmniRoute: the connections whose
+        name starts with the model id's first segment ("codex/x" -> "codex (a@b)", every account of it); none
+        matches -> every connection. Rows are named by their group; a figure that is no percentage stays text."""
+        m = str(model or "")
+        name = lambda r: str(r.get("group", ""))
+        if self.id == "openrouter":
+            text = lambda r: str(r.get("remaining_pct", ""))
+            credit = [r for r in rows or [] if text(r).startswith("$")]
+            free = [r for r in rows or [] if re.search(r"\(\d+/\d+", text(r))]
+            mine = (free if ":free" in m or m.endswith("/free") else credit) or credit + free
+            return quota_view_of(mine or rows, "", name)
+        prefix = m.split("/", 1)[0].lower() if "/" in m else ""
+        mine = [r for r in rows or [] if prefix and name(r).lower().split(" (", 1)[0] == prefix]
+        return quota_view_of(mine or rows, prefix if mine else "", name)
 
     def rate_limit_report(self) -> Optional[dict]:
         """Query provider endpoint (OmniRoute connections or OpenRouter credits/key) to surface quota/status."""

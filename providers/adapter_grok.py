@@ -16,7 +16,7 @@ from urllib.request import Request, urlopen
 
 from host_config import AGENT_PATH_PREFIX, GROK_BIN, HARD_TOKENS, HOME, SOFT_TOKENS, WORKSPACE
 from tool_format import _format_tool_call, _format_tool_result
-from providers.adapter_base import AgentAdapter, cached_model_list
+from providers.adapter_base import AgentAdapter, cached_model_list, quota_view_of
 import media_handler as _media
 import platform_compat
 
@@ -378,6 +378,10 @@ class GrokAdapter(AgentAdapter):
             "cache_read_tokens": cache_read,
             "total_tokens": input_tokens + cache_creation + output_tokens,
         }
+
+    def quota_view(self, model: str, rows: list) -> dict:
+        """QUOTA_VIEW_v1: one account-wide window; the row's own limit type names it (the group is the provider)."""
+        return quota_view_of(rows, str(rows[0].get("group", "")) if rows else "", lambda r: str(r.get("limit_type", "")))
 
     def rate_limit_report(self) -> Optional[dict]:
         """Account-wide Grok Build credit remaining (TUI `/usage` / `/cost`).

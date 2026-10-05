@@ -169,8 +169,8 @@ def _store_models(cache: Dict[str, Any], fetch) -> List[str]:
     return cache.get("models") or []
 
 def parse_pct(text) -> Optional[int]:
-    """'32%' / '45% (9/20)' -> 32 / 45; anything that does not start with a percentage -> None."""
-    m = re.match(r"\s*(\d{1,3})\s*%", str(text or ""))
+    """'32%' / '45% (9/20)' / 'ok (100%)' -> 32 / 45 / 100: a leading percentage, else one in parentheses; else None."""
+    m = re.match(r"\s*(\d{1,3})\s*%", str(text or "")) or re.search(r"\((\d{1,3})\s*%\)", str(text or ""))
     return min(100, int(m.group(1))) if m else None
 
 

@@ -13,7 +13,7 @@ from typing import List, Optional, Tuple
 
 from host_config import AGENT_PATH_PREFIX, CODEX_BIN, HARD_TOKENS, SOFT_TOKENS, _now
 from tool_format import _format_tool_call, _format_tool_result
-from providers.adapter_base import AgentAdapter
+from providers.adapter_base import AgentAdapter, quota_view_of
 
 
 def _codex_rate_limit_to_rows(payload: dict) -> List[dict]:
@@ -343,6 +343,10 @@ class CodexAdapter(AgentAdapter):
             "cache_read_tokens": cache_read,
             "total_tokens": fresh + output_tokens,
         }
+
+    def quota_view(self, model: str, rows: list) -> dict:
+        """QUOTA_VIEW_v1: one account-wide window; the row's own limit type names it (the group is the provider)."""
+        return quota_view_of(rows, str(rows[0].get("group", "")) if rows else "", lambda r: str(r.get("limit_type", "")))
 
     def rate_limit_report(self) -> Optional[dict]:
         """Account-wide Codex quota via read-only app-server JSON-RPC."""

@@ -12,7 +12,7 @@ from typing import List, Optional, Tuple
 from artifact_manager import _atomic_write_text
 from host_config import AGENT_PATH_PREFIX, CLAUDE_BIN, HARD_TOKENS, SOFT_TOKENS, WORKSPACE, _now
 from tool_format import _format_tool_call, _format_tool_result
-from providers.adapter_base import AgentAdapter, _redact_err
+from providers.adapter_base import AgentAdapter, _redact_err, parse_pct, quota_view_of
 
 
 class ClaudeAdapter(AgentAdapter):
@@ -280,6 +280,12 @@ class ClaudeAdapter(AgentAdapter):
             "cache_read_tokens": cache_read,
             "total_tokens": input_tokens + cache_creation + output_tokens,
         }
+
+    def quota_view(self, model: str, rows: list) -> dict:
+        """QUOTA_VIEW_v1: the limits are account-wide, not per model: the rows that carry a percentage, named by their
+        group. Request/session counts are statistics, not a limit; they stay in the plain rows only."""
+        limits = [r for r in rows or [] if parse_pct(r.get("remaining_pct")) is not None]
+        return quota_view_of(limits, "", lambda r: str(r.get("group", "")))
 
     def rate_limit_report(self) -> Optional[dict]:
         """`claude --print "/cost"` runs the interactive /cost slash command
