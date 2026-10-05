@@ -607,9 +607,9 @@ class ProfileQuota(unittest.TestCase):
     def test_it_sits_under_the_name_card_above_the_rows_and_is_loaded_after_what_it_uses(self):
         shell = (STATIC / "app-shell.js").read_text(encoding="utf-8")
         self.assertIn("panel.insertBefore(shellQuotaSection(), list)", shell)
-        for earlier in ("app-status.js", "app-shell.js"):
+        for earlier in ("app-status.js", "app-status-usage.js", "app-shell.js"):
             self.assertLess(HTML.index('src="./' + earlier), HTML.index('src="./app-shell-quota.js'))
-        self.assertRegex((STATIC / "app-status.js").read_text(encoding="utf-8"), r"function quotaNow\(res, provider, model\)")
+        self.assertRegex((STATIC / "app-status-usage.js").read_text(encoding="utf-8"), r"function quotaNow\(res, provider, model\)")
         self.assertIn(".shell-quota[hidden]{display:none}", CSS)
 
 

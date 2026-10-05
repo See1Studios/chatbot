@@ -501,7 +501,7 @@ function shellProfileOpen() {
   });
   panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose, shellNarrow() ? '\u2039' : '\u2715'), card, list,
     shellBrainSection(c), shellModelSection());
-  if (typeof shellQuotaSection === 'function') panel.insertBefore(shellQuotaSection(), list);   // under the name card, above the rows
+  if (typeof shellQuotaSection === 'function') panel.insertBefore(shellQuotaSection(), list);
   if (typeof shellBrainUseSection === 'function') panel.appendChild(shellBrainUseSection(c));
   if (typeof shellDevDeleteButton === "function") shellDevDeleteButton(panel, c);
   shellMarkPane();

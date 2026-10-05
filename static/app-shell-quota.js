@@ -1,5 +1,5 @@
 // Profile: the quota of the model in use, pinned under the name card (QUOTA_VIEW_v1). The adapter shapes the view
-// (/api/usage?model=); this only fetches and shows it, with quotaNow() from app-status.js. Split from app-shell.js
+// (/api/usage?model=); this only fetches and shows it, with quotaNow() from app-status-usage.js. Split from app-shell.js
 // (size cap); shellProfileOpen adds it when this file is loaded. Stays hidden until there is something to show:
 // a provider with no usage report, a failed call, or a panel closed meanwhile adds nothing.
 function shellQuotaSection() {
