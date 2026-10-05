@@ -598,14 +598,15 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         try:
             with self.lock:
                 if not self.busy:
-                    return  # the turn ended meanwhile
+                    return
                 rest = list(self.msg_queue)
-            self.interrupt_current_turn(reason="loop")
+                self.msg_queue.clear()
+            self.interrupt_current_turn(reason="loop", clear_queue=False)
             with self.lock:
-                self.msg_queue[:] = rest
+                self.msg_queue[:] = rest + list(self.msg_queue)
             note = BUDGET_NOTICE.format(what=what) if rule == "budget" else LOOP_NOTICE.format(what=what, user=user_title())
             self._send_direct(note, notice=True)
-        except Exception as e:  # noqa: BLE001 -- a failed notice must not leave the turn hanging silently
+        except Exception as e:  # noqa: BLE001
             self._emit({"event": "error", "text": f"방향 전환 알림을 보내지 못했습니다: {e}"})
         finally:
             self._loop_stopping = False
@@ -1007,15 +1008,16 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         try:
             with self.lock:
                 if not self.msg_queue or not self.busy:
-                    return  # the turn ended meanwhile: the normal end-of-turn dispatch delivers it
+                    return
                 text, mid = self.msg_queue.pop(0)
                 rest = list(self.msg_queue)
-            self.interrupt_current_turn(reason="steer")   # stops the child; it also clears the queue
+                self.msg_queue.clear()
+            self.interrupt_current_turn(reason="steer", clear_queue=False)
             with self.lock:
-                self.msg_queue[:] = rest                    # later messages wait for the next boundary
-                self._steer_since = _now() if rest else 0.0
+                self.msg_queue[:] = rest + list(self.msg_queue)
+                self._steer_since = _now() if self.msg_queue else 0.0
             self._loop_hint = STEER_HINT
-            self._send_direct(text, mid)                   # respawns with --conversation <real id>: memory intact
+            self._send_direct(text, mid)
         finally:
             self._steering = False
 

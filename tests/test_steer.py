@@ -48,13 +48,14 @@ class Base(WorkspaceCase):
         s._emit_heavy_if_needed = lambda: {}
         self.delivered = threading.Event()
 
-        def interrupt(reason="interrupted"):
+        def interrupt(reason="interrupted", clear_queue=True):
             self.interrupts.append(reason)
             s.busy = False
-            s.msg_queue.clear()                                          # the real one clears the queue too
+            if clear_queue:
+                s.msg_queue.clear()
         s.interrupt_current_turn = interrupt
 
-        def send_direct(text, mid=""):
+        def send_direct(text, mid="", **kw):
             self.sent.append((text, mid, s._loop_hint))
             self.delivered.set()
         s._send_direct = send_direct
@@ -237,6 +238,50 @@ class SteerKeepsTheThought(unittest.TestCase):
         self.assertIn("parkStopBtn()", branch)
         self.assertLess(branch.index("parkStopBtn()"), branch.index("assistantNode.remove()"))
         self.assertIn("thinkStrip(assistantNode, false)", branch)
+
+
+class QueuePreservationDuringInterrupt(ApplyAtTheNextBoundary):
+    def test_message_incoming_during_steer_interrupt_is_preserved(self):
+        s = self.make()
+        s.send("첫째 지시", "a")
+        s.send("둘째 지시", "b")
+
+        orig_interrupt = s.interrupt_current_turn
+
+        def interrupt_hook(reason="interrupted", clear_queue=True):
+            orig_interrupt(reason=reason, clear_queue=clear_queue)
+            s.send("중단 중 유입 지시", "c")
+
+        s.interrupt_current_turn = interrupt_hook
+        self.tool_done(s)
+        self.wait(self.delivered)
+        self.assertEqual([t for t, _, _ in self.sent], ["첫째 지시"])
+        self.assertEqual(s.msg_queue, [("둘째 지시", "b"), ("중단 중 유입 지시", "c")])
+
+    def test_message_incoming_during_loop_notice_interrupt_is_preserved(self):
+        s = self.make()
+        s.msg_queue = [("대기 지시", "b")]
+        orig_interrupt = s.interrupt_current_turn
+
+        def interrupt_hook(reason="interrupted", clear_queue=True):
+            orig_interrupt(reason=reason, clear_queue=clear_queue)
+            s.send("루프 중단 중 유입 지시", "c")
+
+        s.interrupt_current_turn = interrupt_hook
+        s._loop_stopping = True
+        s._notice_loop_worker(what="loop_call", rule="loop")
+        self.assertEqual(s.msg_queue, [("대기 지시", "b"), ("루프 중단 중 유입 지시", "c")])
+        self.assertEqual(self.interrupts, ["loop"])
+        self.assertEqual(len(self.sent), 1)
+
+    def test_interrupt_current_turn_clear_queue_flag(self):
+        s = self.make()
+        s.proc = None
+        s.msg_queue = [("보존할 지시", "m1")]
+        S.AgentSession.interrupt_current_turn(s, reason="steer", clear_queue=False)
+        self.assertEqual(s.msg_queue, [("보존할 지시", "m1")])
+        S.AgentSession.interrupt_current_turn(s, reason="interrupted", clear_queue=True)
+        self.assertEqual(s.msg_queue, [])
 
 
 if __name__ == "__main__":

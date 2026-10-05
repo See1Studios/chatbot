@@ -147,24 +147,26 @@ class SessionTurn:
         # Skip rotate for doctor probes and queued follow-ups while busy.
         w = self._emit_heavy_if_needed()
         is_probe = text.strip().startswith("[doctor-probe]")
-        if (w.get("level") == "hard") and (not is_probe) and (not self.busy):
+        is_busy = self.busy or getattr(self, "_steering", False) or getattr(self, "_loop_stopping", False)
+        if (w.get("level") == "hard") and (not is_probe) and (not is_busy):
             return self._rotate_to_fresh_session(text, reason="heavy", client_mid=client_mid, client_context=client_context)
 
         # Inactivity auto-rotate: if session had prior conversation and was inactive > INACTIVITY_ROTATE_SEC
         user_or_asst_turns = [h for h in self.history if h.get("role") in ("user", "assistant")]
         time_since_active = _now() - getattr(self, "last_activity", _now())
-        if len(user_or_asst_turns) >= 2 and (time_since_active >= INACTIVITY_ROTATE_SEC) and (not is_probe) and (not self.busy):
+        if len(user_or_asst_turns) >= 2 and (time_since_active >= INACTIVITY_ROTATE_SEC) and (not is_probe) and (not is_busy):
             return self._rotate_to_fresh_session(text, reason="inactivity", client_mid=client_mid, client_context=client_context)
 
         with self.lock:
             is_proc_alive = self._proc_alive()
             if self.busy and not is_proc_alive:
                 self.busy = False
-            if self.busy:
+            is_busy = self.busy or getattr(self, "_steering", False) or getattr(self, "_loop_stopping", False)
+            if is_busy:
                 if _is_inquiry(text):
                     threading.Thread(target=self._run_btw, args=(text,), daemon=True).start()
                     return None
-                if self._can_steer_at_boundary():
+                if self._can_steer_at_boundary() or getattr(self, "_loop_stopping", False) or getattr(self, "_steering", False):
                     # agy cannot take a message mid-turn (it only queues it until the turn ends),
                     # and cutting the turn loses the work in flight. So: accept now, let the
                     # current tool step finish, then stop cleanly and resume the SAME
@@ -427,13 +429,13 @@ class SessionTurn:
                     pass
         return {"new_sess": new_sess, "summary": summary, "reused": reused}
 
-    def interrupt_current_turn(self, reason: str = "interrupted") -> None:
+    def interrupt_current_turn(self, reason: str = "interrupted", clear_queue: bool = True) -> None:
         """Interrupt an in-flight turn (process or HTTP stream) safely, preserving partial text in history."""
         self._stop_requested = True
         proc = self.proc
         http_resp = self._http_resp
         with self.lock:
-            if hasattr(self, "msg_queue"):
+            if clear_queue and hasattr(self, "msg_queue"):
                 self.msg_queue.clear()
             self.busy = False
             # If there was partial assistant text generated so far, preserve it in history
