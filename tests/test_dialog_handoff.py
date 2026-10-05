@@ -209,9 +209,16 @@ class Handoff(unittest.TestCase):
         dev_rows = H.ledger(self.dev)
         self.assertEqual([r["direction"] for r in dev_rows], ["received", "received"])
 
-    def test_a_handoff_turn_gets_the_unread_dm_lines(self):
+    def test_a_handoff_turn_gets_the_unread_dm_lines_after_the_task_not_the_restart_line(self):
+        # live #20 (2026-10-05): the whole before-turn note put the restart line first and the turn answered that
+        D.append(D.dm_id(self.lead, self.dev), self.lead, "the build broke again", announce=False)
+        self.hand(self.lead, "s-lead", to="dev", text="look at the build")
+        H.run_once(self.office, now=1000.0)
+        prompt = self.office.desks[self.dev].sent[0][0]
+        self.assertLess(prompt.index("look at the build"), prompt.index("Also new in your dialogs"))
+        self.assertIn("the build broke again", prompt)
         src = (ROOT / "session_turn.py").read_text(encoding="utf-8")
-        self.assertIn('told = not notice or event_type == "handoff"', src)
+        self.assertIn('"" if notice else _s().boot_notice(self)', src)          # host turns skip the restart line
 
     def test_the_reactor_runs_handoffs_whatever_auto_says(self):
         src = Path(event_react.__file__).read_text(encoding="utf-8")

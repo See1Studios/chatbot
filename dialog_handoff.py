@@ -133,6 +133,17 @@ def _title(cid: str, role: str = "") -> str:
         return role or "a coworker"
 
 
+def _unread(sess, cid: str) -> str:
+    """The receiver's unread dm lines, after the task -- not the whole before-turn note: the restart line went first
+    and live #20's turn answered that instead of the task (2026-10-05)."""
+    try:
+        import dialog_log
+        note = dialog_log.turn_note(cid, sess.sid, sess.__dict__.setdefault("_dialog_noted", {}))
+    except Exception:  # noqa: BLE001 -- a note is a courtesy
+        return ""
+    return "\n\nAlso new in your dialogs since you last looked:\n" + note if note else ""
+
+
 def _last_answer(sess, since: float) -> str:
     for h in reversed(getattr(sess, "history", []) or []):
         if h.get("role") == "assistant" and float(h.get("ts") or 0) >= since:
@@ -177,6 +188,7 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
             if getattr(getattr(sess, "adapter", None), "subagents", False) else ""
         text = PROMPT.format(id=h["id"], sender=_title(h["from"]), task=h["task"],
                              done_when=h.get("done_when") or "(not given: decide it and say it)", hint=hint)
+        text += _unread(sess, h["to"])
         mark(h["id"], "running", sid=sess.sid, started=now)
         threading.Thread(target=_speak, args=(sess, text), name="handoff", daemon=True).start()
         changed.append({"id": h["id"], "state": "running"})
