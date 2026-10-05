@@ -116,6 +116,45 @@ def room(rid: str) -> Optional[Dict]:
     return data
 
 
+def update(rid: str, name: Optional[str] = None, strategy: Optional[str] = None,
+           members: Optional[List[str]] = None, add_member: Optional[str] = None,
+           remove_member: Optional[str] = None) -> Dict:
+    """Update room details or members. Enforces minimum 2 valid characters."""
+    r = room(rid)
+    if not r:
+        raise ValueError("no such room")
+    import characters
+    cur_members = list(r.get("members") or [])
+    if members is not None:
+        cur_members = list(members)
+    if add_member and add_member not in cur_members:
+        cur_members.append(add_member)
+    if remove_member and remove_member in cur_members:
+        cur_members.remove(remove_member)
+    valid_members = [m for m in dict.fromkeys(cur_members) if characters.ID_RE.match(m or "") and characters.card_path(m).is_file()]
+    if len(valid_members) < 2:
+        raise ValueError("a room needs at least two characters")
+    if strategy is not None:
+        if strategy not in STRATEGIES:
+            raise ValueError("unknown strategy")
+        r["strategy"] = strategy
+    if name is not None:
+        clean_name = name.strip()[:60]
+        if clean_name:
+            r["name"] = clean_name
+    r["members"] = valid_members
+    # Clean up seats and seen for removed members
+    for m in list(r.get("seats", {})):
+        if m not in valid_members:
+            r["seats"].pop(m, None)
+    for m in list(r.get("seen", {})):
+        if m not in valid_members:
+            r["seen"].pop(m, None)
+    _write_json(_room_path(rid), r)
+    _log("room.update", room=rid, members=len(valid_members), strategy=r["strategy"])
+    return r
+
+
 def rooms() -> List[Dict]:
     out = []
     for p in sorted(_dir().glob("room_*.json")) if _dir().is_dir() else []:
@@ -420,6 +459,15 @@ def api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, Dic
             return 200, {"ok": True, "room": {k: r[k] for k in ("id", "name", "mode", "members", "strategy")},
                          "names": names, "messages": msgs, "busy": bool(_busy.get(rid)),
                          "speaking": _speaking.get(rid, "")}
+        if method in ("PATCH", "POST") and len(rest) == 1:
+            b = body or {}
+            updated = update(rid, name=b.get("name"), strategy=b.get("strategy"), members=b.get("members"),
+                             add_member=b.get("add_member"), remove_member=b.get("remove_member"))
+            return 200, {"ok": True, "room": updated}
+        if method == "POST" and len(rest) == 2 and rest[1] == "members":
+            b = body or {}
+            updated = update(rid, add_member=b.get("add"), remove_member=b.get("remove"))
+            return 200, {"ok": True, "room": updated}
         if method == "POST" and len(rest) == 2 and rest[1] == "say":
             return 200, {"ok": True, "message": say(rid, str((body or {}).get("text") or ""))}
     except ValueError as e:

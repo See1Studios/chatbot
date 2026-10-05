@@ -8,6 +8,8 @@ const ROOM_TEXT = {   // l10n-ok
   natural: '자연스럽게 (부른 사람 먼저, 그다음 수다 성향)', list: '순서대로', manual: '부른(@) 사람만',   // l10n-ok
   placeholder: '메시지… @로 멤버를 부를 수 있어요', answering: '단체방이 답하는 중…', you: '나', failed: '실패: ',   // l10n-ok
   back: '← 1:1 대화로', count: '명', current: ' (현재)',   // l10n-ok
+  profile: '단체방 정보', invite: '멤버 초대', kick: '내보내기', minMembers: '단체방 멤버는 최소 2명 이상이어야 해요.',   // l10n-ok
+  changeStrategy: '발언 전략 변경', rename: '방 이름 변경',   // l10n-ok
 };
 const ROOM_STRATEGIES = ['natural', 'list', 'manual'];
 const ROOM_KEY = 'chatbot.roomId';   // the open room, so a reload comes back to it
@@ -493,3 +495,150 @@ function roomCreateForm() {
   form.appendChild(acts);
   return form;
 }
+
+// Opens the side profile panel for the current group room in the shell.
+async function roomProfileOpen() {
+  const column = document.getElementById('shellProfile');
+  const panel = column && column.firstChild;
+  if (!column || !panel || !roomState.on || !roomState.room) return;
+  const r = roomState.room;
+  panel.textContent = '';
+
+  const head = typeof shellPanelHead === 'function'
+    ? shellPanelHead(ROOM_TEXT.profile, typeof shellProfileClose === 'function' ? shellProfileClose : () => {}, typeof shellNarrow === 'function' && shellNarrow() ? '\u2039' : '\u2715')
+    : roomEl('div', 'shell-panel-head', ROOM_TEXT.profile);
+
+  // Group room info card
+  const card = roomEl('div', 'shell-card');
+  const img = document.createElement('img');
+  img.alt = '';
+  const firstMem = (r.members || [])[0] || '';
+  img.src = (typeof BASE_PATH !== 'undefined' ? BASE_PATH : '') + '/api/characters/' + encodeURIComponent(firstMem) + '/avatar';
+  img.onerror = () => { img.onerror = null; if (typeof initialAvatar === 'function') img.src = initialAvatar(r.name || ''); };
+
+  const nameEl = roomEl('div', 'shell-card-name', r.name || ROOM_TEXT.title);
+  const subEl = roomEl('div', 'shell-card-sub', (r.members || []).length + ROOM_TEXT.count + ' · ' + (ROOM_TEXT[r.strategy] || r.strategy));
+  card.append(img, nameEl, subEl);
+
+  // Strategy picker section
+  const stratBox = typeof shellSection === 'function' ? shellSection(ROOM_TEXT.strategy) : roomEl('div', 'shell-section');
+  if (typeof shellSection !== 'function') stratBox.appendChild(roomEl('div', 'shell-section-title', ROOM_TEXT.strategy));
+  const stratList = roomEl('div', 'shell-models');
+  ROOM_STRATEGIES.forEach(s => {
+    const isCur = r.strategy === s;
+    const btn = roomEl('button', 'shell-rowbtn shell-model' + (isCur ? ' current' : ''), ROOM_TEXT[s] || s);
+    btn.type = 'button';
+    if (isCur) btn.setAttribute('aria-current', 'true');
+    btn.addEventListener('click', async () => {
+      if (isCur) return;
+      try {
+        const res = await api('/api/rooms/' + encodeURIComponent(r.id), {
+          method: 'PATCH',
+          body: JSON.stringify({ strategy: s })
+        });
+        if (res.ok && res.room) {
+          roomState.room = res.room;
+          roomProfileOpen();
+        }
+      } catch (err) {
+        if (typeof alertModal === 'function') await alertModal(ROOM_TEXT.failed + (err.message || err));
+      }
+    });
+    stratList.appendChild(btn);
+  });
+  stratBox.appendChild(stratList);
+
+  // Current members list with kick button
+  const memBox = typeof shellSection === 'function' ? shellSection(ROOM_TEXT.members) : roomEl('div', 'shell-section');
+  if (typeof shellSection !== 'function') memBox.appendChild(roomEl('div', 'shell-section-title', ROOM_TEXT.members));
+  const memList = roomEl('div', 'shell-rows');
+  const catalog = typeof characterCatalog !== 'undefined' ? characterCatalog : [];
+  (r.members || []).forEach(cid => {
+    const c = catalog.find(x => x.id === cid) || { id: cid, name: (roomState.names || {})[cid] || cid };
+    const row = roomEl('div', 'shell-rowbtn');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.justifyContent = 'space-between';
+
+    const info = roomEl('div');
+    info.style.display = 'flex';
+    info.style.alignItems = 'center';
+    info.style.gap = '8px';
+    const aPic = document.createElement('img');
+    aPic.alt = '';
+    aPic.style.width = '24px';
+    aPic.style.height = '24px';
+    aPic.style.borderRadius = '50%';
+    aPic.src = (typeof BASE_PATH !== 'undefined' ? BASE_PATH : '') + '/api/characters/' + encodeURIComponent(cid) + '/avatar';
+    aPic.onerror = () => { aPic.onerror = null; if (typeof initialAvatar === 'function') aPic.src = initialAvatar(c.name || cid); };
+    info.append(aPic, roomEl('span', '', c.name || cid));
+
+    const kickBtn = roomEl('button', 'art-btn ghost', ROOM_TEXT.kick);
+    kickBtn.type = 'button';
+    kickBtn.style.padding = '2px 8px';
+    kickBtn.style.fontSize = '12px';
+    kickBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if ((r.members || []).length <= 2) {
+        if (typeof alertModal === 'function') await alertModal(ROOM_TEXT.minMembers);
+        return;
+      }
+      try {
+        const res = await api('/api/rooms/' + encodeURIComponent(r.id) + '/members', {
+          method: 'POST',
+          body: JSON.stringify({ remove: cid })
+        });
+        if (res.ok && res.room) {
+          roomState.room = res.room;
+          roomProfileOpen();
+          if (typeof roomsTrayFill === 'function') roomsTrayFill();
+          if (typeof roomHead === 'function') roomHead();
+        }
+      } catch (err) {
+        if (typeof alertModal === 'function') await alertModal(ROOM_TEXT.failed + (err.message || err));
+      }
+    });
+
+    row.append(info, kickBtn);
+    memList.appendChild(row);
+  });
+  memBox.appendChild(memList);
+
+  // Invite characters section (characters not yet in this room)
+  const nonMembers = catalog.filter(c => !(r.members || []).includes(c.id));
+  const invBox = typeof shellSection === 'function' ? shellSection(ROOM_TEXT.invite) : roomEl('div', 'shell-section');
+  if (typeof shellSection !== 'function') invBox.appendChild(roomEl('div', 'shell-section-title', ROOM_TEXT.invite));
+  const invList = roomEl('div', 'shell-brains');
+  nonMembers.forEach(c => {
+    const b = roomEl('button', 'shell-brain');
+    b.type = 'button';
+    const pic = document.createElement('img');
+    pic.alt = '';
+    pic.src = (typeof BASE_PATH !== 'undefined' ? BASE_PATH : '') + '/api/characters/' + encodeURIComponent(c.id) + '/avatar';
+    pic.onerror = () => { pic.onerror = null; if (typeof initialAvatar === 'function') pic.src = initialAvatar(c.name || c.id); };
+    b.append(pic, roomEl('span', '', c.name || c.id));
+    b.addEventListener('click', async () => {
+      try {
+        const res = await api('/api/rooms/' + encodeURIComponent(r.id) + '/members', {
+          method: 'POST',
+          body: JSON.stringify({ add: c.id })
+        });
+        if (res.ok && res.room) {
+          roomState.room = res.room;
+          roomProfileOpen();
+          if (typeof roomsTrayFill === 'function') roomsTrayFill();
+          if (typeof roomHead === 'function') roomHead();
+        }
+      } catch (err) {
+        if (typeof alertModal === 'function') await alertModal(ROOM_TEXT.failed + (err.message || err));
+      }
+    });
+    invList.appendChild(b);
+  });
+  invBox.appendChild(invList);
+
+  panel.append(head, card, stratBox, memBox, invBox);
+  column.classList.add('open');
+  if (document.body) document.body.classList.add('shell-profile-open');
+}
+

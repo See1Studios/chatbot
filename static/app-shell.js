@@ -476,8 +476,12 @@ function shellProfileClose() {
 }
 function shellProfileOpen() {
   const column = document.getElementById('shellProfile'), panel = column && column.firstChild;   // the fixed-width inside
+  if (typeof roomOpenId === 'function' && roomOpenId()) {
+    if (typeof roomProfileOpen === 'function') roomProfileOpen();
+    return;
+  }
   const c = typeof currentCharacter === 'function' ? currentCharacter() : null;
-  if (!panel || !c || (typeof roomOpenId === 'function' && roomOpenId())) return;   // a group room has no card yet
+  if (!panel || !c) return;
   const rows = shellProfileRows({ art: typeof openArtManager === 'function', manage: typeof loadTeam === 'function' });
   panel.textContent = '';
   const card = shellEl('div', 'shell-card'), img = document.createElement('img'), list = shellEl('div', 'shell-rows');

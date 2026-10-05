@@ -228,6 +228,31 @@ class Rooms(unittest.TestCase):
         self.assertEqual(body["names"].get(self.c), "(알 수 없음)")
         self.assertEqual(body["names"].get(self.a), "Boss")
 
+    def test_room_update_and_members_management(self):
+        r = RC.create("desk", [self.a, self.b], strategy="manual")
+        rid = r["id"]
+
+        # Strategy and name update via PATCH
+        code, body = RC.api("PATCH", f"/api/rooms/{rid}", {"strategy": "natural", "name": "new desk"})
+        self.assertEqual(code, 200)
+        self.assertEqual(body["room"]["strategy"], "natural")
+        self.assertEqual(body["room"]["name"], "new desk")
+
+        # Invite c via POST /members
+        code, body = RC.api("POST", f"/api/rooms/{rid}/members", {"add": self.c})
+        self.assertEqual(code, 200)
+        self.assertEqual(body["room"]["members"], [self.a, self.b, self.c])
+
+        # Kick b via POST /members
+        code, body = RC.api("POST", f"/api/rooms/{rid}/members", {"remove": self.b})
+        self.assertEqual(code, 200)
+        self.assertEqual(body["room"]["members"], [self.a, self.c])
+
+        # Cannot reduce below 2 members
+        code, body = RC.api("POST", f"/api/rooms/{rid}/members", {"remove": self.c})
+        self.assertEqual(code, 400)
+        self.assertIn("at least two characters", body["error"])
+
 
 class RoomSeats(unittest.TestCase):
     """A member's room session is its own: mode "room" survives a reload and is never the character's active chat."""
