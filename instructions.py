@@ -99,24 +99,6 @@ def _cid(character: str = "") -> str:
         return character or ""
 
 
-def character_identity(character: str = "") -> Dict[str, str]:
-    """The identity fields {name, persona, title, user_title, voice} for the specified character,
-    or the default character if empty."""
-    card = _card(character)
-    if not card:
-        return {"name": "", "persona": "", "title": "", "user_title": "", "voice": ""}
-    import characters
-    cid = _cid(character)
-    char_name = characters.name(card)
-    char_title = characters.title(card, cid, WORKSPACE)
-    return {
-        "name": char_name or char_title,
-        "persona": char_name,
-        "title": char_title,
-        "user_title": characters.user_title(card, WORKSPACE),
-        "voice": str((characters.ext(card).get("display") or {}).get("voice") or "").strip(),
-    }
-
 
 def _persona_text(character: str = "") -> str:
     """The character's card as the bundle shows it (characters.persona_text) + its own work instructions; "" when

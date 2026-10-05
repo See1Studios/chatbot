@@ -211,11 +211,6 @@ function normalizeNoticeKind(isSystem) {
   return '';
 }
 
-function inferNoticeKindFromText(text) {
-  // NOTICE_FLAG_ONLY_v1: intentionally unused — classification is flag-only (h.notice / h.system)
-  return '';
-}
-
 function stripNoticeChromeEmojis(text) {
   return String(text || '')
     .replace(/^[\p{Extended_Pictographic}\uFE0F\u200D]+/u, '')
@@ -480,10 +475,6 @@ function attachMessageFooter(node, rawText, usage, durationSeconds, servedModel)
     btn.onclick = () => speakText(rawText, btn);
     footer.appendChild(btn);
   }
-}
-
-function attachTtsButton(node, rawText, usage, durationSeconds, servedModel) {
-  attachMessageFooter(node, rawText, usage, durationSeconds, servedModel);
 }
 
 function absArtifact(u) {

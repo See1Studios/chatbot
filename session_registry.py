@@ -352,10 +352,6 @@ def session_character(sid_or_meta: Any) -> str:
     return _character_id(cid)
 
 
-def session_character_name(sid_or_meta: Any) -> str:
-    """Dynamically look up the character name for a session object, meta dict, or session ID."""
-    return character_name(session_character(sid_or_meta))
-
 
 def migrate_session_characters() -> int:
     """Sessions from before TEAM_ROLES_v2 stored "" for the chatbot itself; they become the default character's.

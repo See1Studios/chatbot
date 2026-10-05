@@ -175,11 +175,6 @@ function fileRefTarget(ref) {
   return ref.start ? ref.path + '#L' + ref.start + (ref.end !== ref.start ? '-' + ref.end : '') : ref.path;
 }
 
-// Kept for the markdown-link rewrite below: an href is a local file when it parses as one.
-function isLocalOrFilePath(href) {
-  return Boolean(parseFileRef(href, true)) && !/^https?:/i.test(href || '');
-}
-
 function makeFileLink(ref, labelNode) {
   const a = document.createElement('a');
   a.className = 'local-file-link';
