@@ -165,8 +165,8 @@ def office_opened(req: Req):
 
 
 def office_notify(req: Req):
-    """GET /api/office/notify?dialog=&n=&only=&exclude=: the tool server says a dm was sent. Both coworkers' work
-    windows show it now (or one, if `only` or `exclude` limits it: a handoff task already shows as the sender's own
+    """GET /api/office/notify?dialog=&n=&only=: the tool server says a dm was sent. Both coworkers' work
+    windows show it now (or one, if `only` limits it: a handoff task already shows as the sender's own
     turn, live 2026-10-05) and the one it went to may react (event_react, D11). The record is read here; the query
     only points at it."""
     import dialog_log
@@ -180,11 +180,8 @@ def office_notify(req: Req):
     if msg is None:
         return req.send(404, b"no such message", "text/plain")
     only = str(req.q("only") or "")
-    exclude = str(req.q("exclude") or "")
     for cid in dialog_log.members(did):
         if only and cid != only:
-            continue
-        if exclude and cid == exclude:
             continue
         sess = REG._newest(mode="work", character=cid)
         if sess is not None:
