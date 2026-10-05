@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-05 — fix(mcp): enforce read roots containment on run_command path arguments (#669, 위임 agy)
+
+- **커밋**: `ae1db61` fix(mcp): split value flags per command and close read roots bypasses, `91c47a9` fix(mcp): enforce read roots containment on run_command path arguments
+- **바뀐 파일**: `mcp_server.py`, `tests/test_mcp_server.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-05 — fix(mcp): isolate live_scope permission check to caller session (#668, 위임 agy)
 
 - **커밋**: `8b590ed` fix(mcp): harden caller isolation in live_scope with fail-closed and fallback tests, `2e769e3` fix(mcp): isolate live_scope permission check to caller session
