@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-05 — fix(mcp): isolate live_scope permission check to caller session (#668, 위임 agy)
+
+- **커밋**: `8b590ed` fix(mcp): harden caller isolation in live_scope with fail-closed and fallback tests, `2e769e3` fix(mcp): isolate live_scope permission check to caller session
+- **바뀐 파일**: `mcp_server.py`, `role_guard.py`, `tests/test_role_guard.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-05 — 전체 테스트를 병렬로: 452초 → 171초 (PAR_SUITE_v1, #666)
 
 - **운영자**: "테스트가 너무 일차원적인 거 아닌가? 테스트 최적화 가능?"
