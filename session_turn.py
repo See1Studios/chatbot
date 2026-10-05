@@ -281,7 +281,8 @@ class SessionTurn:
             ctx_line = _s().format_client_context(client_context)
             if ctx_line:
                 stdin_content = f"{ctx_line}\n\n{stdin_content}"
-        stdin_content = "\n\n".join(filter(None, ["" if notice else _s().boot_notice(self), stdin_content]))
+        told = not notice or event_type == "handoff"   # a handoff turn is work too: it gets the unread-dm lines
+        stdin_content = "\n\n".join(filter(None, [_s().boot_notice(self) if told else "", stdin_content]))
 
         if not notice and self.is_private:  # PRIVATE_TENSION_v1: move the stage, then tell the agent where it stands
             self.tension_stage, self.recent_choices = tension_step(self.tension_stage, self.recent_choices, self.history, text, event_type)

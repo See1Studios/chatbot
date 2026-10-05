@@ -193,6 +193,26 @@ class Handoff(unittest.TestCase):
         third = self.hand(self.art, "s-art", to=self.lead, text="decide")
         self.assertIn("already handed on 2 times", third["message"])
 
+    def test_a_director_reads_the_ledger_with_the_state_now(self):
+        # live 2026-10-05: the lead kept reporting a cancelled handoff (#3) as waiting, from memory
+        self.hand(self.lead, "s-lead", to="dev", text="build the tool")
+        H.run_once(self.office, now=1000.0)
+        self.office.desks[self.dev].busy, self.office.desks[self.dev]._loop_hint = False, "over budget"
+        H.run_once(self.office)                                                 # failed
+        H.mark(1, "cancelled", reason="operator: not needed")
+        self.hand(self.lead, "s-lead", to="dev", text="count the plans")
+        out = T.call({"action": "handoffs"}, envelope, {"id": "s-lead", "character": self.lead, "mode": "work",
+                                                        "private": False})
+        rows = out["data"]["handoffs"]
+        self.assertEqual([(r["id"], r["state"], r["direction"]) for r in rows], [(2, "sent", "sent"), (1, "cancelled", "sent")])
+        self.assertIn("not needed", rows[1]["outcome"])
+        dev_rows = H.ledger(self.dev)
+        self.assertEqual([r["direction"] for r in dev_rows], ["received", "received"])
+
+    def test_a_handoff_turn_gets_the_unread_dm_lines(self):
+        src = (ROOT / "session_turn.py").read_text(encoding="utf-8")
+        self.assertIn('told = not notice or event_type == "handoff"', src)
+
     def test_the_reactor_runs_handoffs_whatever_auto_says(self):
         src = Path(event_react.__file__).read_text(encoding="utf-8")
         self.assertIn("dialog_handoff.run_once(reg)", src)

@@ -104,6 +104,19 @@ def create(sender: str, sender_sid: str, to: str, role: str, task: str, done_whe
     return row
 
 
+def ledger(cid: str, limit: int = 10) -> List[Dict]:
+    """The handoffs `cid` sent or received, newest first: what a director reads instead of remembering (a later state
+    replaces an earlier one; live 2026-10-05 the lead kept reporting a cancelled handoff from memory)."""
+    rows = [h for h in all_handoffs().values() if cid in (h.get("from"), h.get("to"))]
+    out = []
+    for h in sorted(rows, key=lambda x: x["id"], reverse=True)[:limit]:
+        line = str(h.get("result") or h.get("reason") or "").strip().splitlines()
+        out.append({"id": h["id"], "state": h.get("state"), "direction": "sent" if h.get("from") == cid else "received",
+                    "role": h.get("role", ""), "task": str(h.get("task", ""))[:160],
+                    "outcome": (line[0] if line else "")[:200]})
+    return out
+
+
 def mark(hid: int, state: str, **fields) -> None:
     _append({"id": hid, "state": state, "state_at": time.time(), **fields})
 

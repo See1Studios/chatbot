@@ -41,11 +41,12 @@ TOOL_DEFS = [{
                    "and it arrives as an action followed by your words; a text wholly in (parentheses) is an action. "
                    "handoff: work that is not your role's goes to the director who owns it -- `to` a role (or a "
                    "coworker), `text` the task with what you know, `done_when` how they will know it is finished; "
-                   "they work it at their own desk and the result comes back to you as a message.",
+                   "they work it at their own desk and the result comes back to you as a message. handoffs: the ones "
+                   "you sent or received, newest first, with their state now (sent, running, done, failed, cancelled).",
     "inputSchema": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "enum": ["list", "read", "send", "handoff"]},
+            "action": {"type": "string", "enum": ["list", "read", "send", "handoff", "handoffs"]},
             "dialog_id": {"type": "string"},
             "to": {"type": "string"},
             "text": {"type": "string"},
@@ -110,6 +111,10 @@ def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable]
         return envelope(True, "%d dialogs" % len(rows), {"dialogs": rows})
     if action == "handoff":
         return _handoff(args, envelope, me, sid, host_get)
+    if action == "handoffs":   # the ledger: what was handed, to whom, and how it stands now
+        import dialog_handoff
+        rows = dialog_handoff.ledger(me, max(1, min(int(args.get("limit") or 10), 30)))
+        return envelope(True, "%d handoffs, newest first" % len(rows), {"handoffs": rows})
     did = str(args.get("dialog_id") or "")
     if not did and args.get("to") and action == "send":
         other = _character(str(args["to"]))
@@ -150,7 +155,7 @@ def call(args: Dict, envelope: Callable, who: Dict, host_get: Optional[Callable]
         for n in sent if host_get and dialog_log.is_dm(did) else []:
             host_get("/api/office/notify?" + urlencode({"dialog": did, "n": n}))   # a nudge; {} when unreachable
         return envelope(True, "sent", {"dialog_id": did, "n": sent[-1], "sent": sent})
-    return envelope(False, "dialog: unknown action %r (list, read, send, handoff)" % action, None)
+    return envelope(False, "dialog: unknown action %r (list, read, send, handoff, handoffs)" % action, None)
 
 
 def _owners() -> str:
