@@ -103,7 +103,8 @@ class Handoff(unittest.TestCase):
         out = T.call({"action": "handoff", "to": "dev", "text": "the stream jitters on mobile",
                       "done_when": "no jump on reload"}, envelope,
                      {"id": "s-lead", "character": self.lead, "mode": "work", "private": False}, asked.append)
-        self.assertTrue(asked and asked[0].startswith("/api/office/notify?"))  # both windows draw the task now
+        self.assertTrue(asked and asked[0].startswith("/api/office/notify?"))  # receiver draws it now
+        self.assertIn("only=" + self.dev, asked[0])
         self.assertTrue(out["success"], out)
         self.assertEqual(out["data"], {"handoff": 1, "to_role": "dev"})
         h = H.all_handoffs()[1]
@@ -111,6 +112,31 @@ class Handoff(unittest.TestCase):
         msgs = D.history(D.dm_id(self.lead, self.dev))
         self.assertEqual(msgs[-1]["who"], self.lead)
         self.assertIn("no jump on reload", msgs[-1]["text"])
+
+    def test_a_handoff_task_is_drawn_only_in_the_receiver_window(self):
+        from urllib.parse import parse_qs, urlparse
+        import route_sessions as RS
+        asked = []
+        out = T.call({"action": "handoff", "to": "dev", "text": "fix mobile jitter",
+                      "done_when": "smooth"}, envelope,
+                     {"id": "s-lead", "character": self.lead, "mode": "work", "private": False}, asked.append)
+        self.assertTrue(out["success"])
+        self.assertEqual(len(asked), 1)
+        url = asked[0]
+        self.assertIn("only=" + self.dev, url)
+        qs = parse_qs(urlparse(url).query)
+        req = type("Req", (), {"q": lambda self, k, d="": qs.get(k, [d])[0],
+                               "send": lambda *a: None, "json": lambda *a: None})()
+        lead_desk, dev_desk = self.office.desks[self.lead], self.office.desks[self.dev]
+        with mock.patch.object(RS.REG, "_newest", side_effect=lambda mode, character: self.office.desks.get(character)), \
+                mock.patch("event_react.react_once"):
+            RS.office_notify(req)
+        # Sender already shows the turn as its own assistant bubble; office event goes to receiver only
+        lead_office = [e for e in lead_desk.drawn if e.get("event") == "office"]
+        dev_office = [e for e in dev_desk.drawn if e.get("event") == "office"]
+        self.assertEqual(lead_office, [], "sender window does not get duplicate office task line")
+        self.assertEqual(len(dev_office), 1, "receiver window gets the office task line")
+        self.assertIn("fix mobile jitter", dev_office[0]["msg"]["text"])
 
     def test_no_one_named_lists_who_owns_what(self):
         out = self.hand(self.lead, "s-lead", to="", text="x")

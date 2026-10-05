@@ -166,8 +166,9 @@ def _owners() -> str:
 
 
 def _handoff(args: Dict, envelope: Callable, me: str, sid: str, host_get: Optional[Callable] = None) -> Dict:
-    """HANDOFF_v1: record the handoff (dialog_handoff), leave the task in the two directors' dm -- shown in both work
-    windows now, without a reaction of its own (the handoff turn is the answer) -- and answer at once."""
+    """HANDOFF_v1: record the handoff (dialog_handoff), leave the task in the two directors' dm -- shown in the receiver's
+    work window now (the sender already shows its own turn, live 2026-10-05), without a reaction of its own (the handoff
+    turn is the answer) -- and answer at once."""
     import characters
     import dialog_handoff
     ref = str(args.get("to") or "").strip()
@@ -184,7 +185,7 @@ def _handoff(args: Dict, envelope: Callable, me: str, sid: str, host_get: Option
         m = dialog_log.append(did, me, "#%d %s%s" % (h["id"], h["task"], "\n-> " + h["done_when"] if h["done_when"] else ""),
                               announce=False)
         if host_get:
-            host_get("/api/office/notify?" + urlencode({"dialog": did, "n": m["n"]}))   # both windows draw it
+            host_get("/api/office/notify?" + urlencode({"dialog": did, "n": m["n"], "only": to}))   # receiver's window draws it
     except (ValueError, OSError):
         pass
     return envelope(True, "handed off as #%d to the %s director; they start when their desk is free, and the result "
