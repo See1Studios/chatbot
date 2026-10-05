@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import dialog_handoff
 import events
 
 CONFIG_NAME = "events.json"
@@ -102,6 +103,8 @@ def _speak(sess, text: str) -> None:
     except Exception as e:  # noqa: BLE001
         if obslog:
             obslog.exception("react.failed", e, sid=sess.sid)
+    finally:
+        sess._host_turn_at = 0   # HOST_TURN_ONE_v1: sent; the session's busy flag takes over
 
 
 def _note(evts: List[Dict], character: str) -> str:
@@ -204,6 +207,9 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
             events._log("react.skip", reason="no_work_session" if sess is None else "nothing_to_say", character=cid)
             events.mark(key, got[-1]["id"])
             continue
+        if not dialog_handoff.claim(sess, now):   # a host turn just started there: these events wait for the next pass
+            events._log("react.defer", reason="host_turn", character=cid, dedup="react.defer:host:" + cid)
+            continue
         events.mark(key, got[-1]["id"])
         events.mark(sess.sid, max(e["id"] for e in wanted))   # told now: not again before the next turn
         events.publish("react.sent", [cid], subject=cid, at=now, events=[e["id"] for e in wanted])
@@ -230,7 +236,7 @@ def react_on_open(reg, character: str, now: Optional[float] = None, cfg: Optiona
         events._log("react.defer", reason="conversation_running", dedup="react.defer:conversation_running")
         return None
     sess = reg._newest(mode="work", character=character)
-    if sess is None or _heavy(sess, visit=True):
+    if sess is None or _heavy(sess, visit=True) or not dialog_handoff.claim(sess, now):
         return None
     import dialog_log
     dms = [{"subject": d} for d in dialog_log.dialogs_of(character) if dialog_log.is_dm(d)]
@@ -257,7 +263,6 @@ def loop(reg, stop: Optional[threading.Event] = None) -> None:
         except Exception:  # noqa: BLE001 -- a bad event must not end the reactor
             pass
         try:   # HANDOFF_v1: work handed between directors starts and reports on its own, whatever `auto` says
-            import dialog_handoff
             dialog_handoff.run_once(reg)
         except Exception:  # noqa: BLE001
             pass

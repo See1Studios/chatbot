@@ -117,6 +117,21 @@ def ledger(cid: str, limit: int = 10) -> List[Dict]:
     return out
 
 
+HOST_TURN_GAP = 30   # seconds a session just given a host turn is left alone (a reaction or a handoff, not both)
+
+
+def claim(sess, now: Optional[float] = None) -> bool:
+    """HOST_TURN_ONE_v1: take `sess` for one host turn now, or False when one was started there within HOST_TURN_GAP.
+    A reaction and a handoff started in the same pass both reached the lead's new session (live #24, 2026-10-05):
+    `busy` is set only once the turn's thread runs, the second message queued, and the handoff took the reaction's
+    answer for its own. The claim covers that gap only: the sender clears it once the turn is sent (then `busy`)."""
+    now = now or time.time()
+    if getattr(sess, "busy", False) or abs(now - float(getattr(sess, "_host_turn_at", 0) or 0)) < HOST_TURN_GAP:
+        return False
+    sess._host_turn_at = now
+    return True
+
+
 def mark(hid: int, state: str, **fields) -> None:
     _append({"id": hid, "state": state, "state_at": time.time(), **fields})
 
@@ -151,11 +166,13 @@ def _last_answer(sess, since: float) -> str:
     return ""
 
 
-def _speak(sess, text: str) -> None:
+def _speak(sess, text: str, event_type: str = "handoff") -> None:
     try:
-        sess._send_direct(text, notice=True, event_type="handoff")
+        sess._send_direct(text, notice=True, event_type=event_type)
     except Exception:  # noqa: BLE001 -- a turn that cannot start leaves the handoff to time out as failed
         pass
+    finally:
+        sess._host_turn_at = 0   # sent: from here the session's own busy flag keeps the next host turn out
 
 
 def run_once(reg, now: Optional[float] = None) -> List[Dict]:
@@ -182,7 +199,7 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
         changed.append({"id": h["id"], "state": state})
     for h in [x for x in hs if x.get("state") == "sent"]:
         sess = reg.get_active(h["to"])
-        if sess is None or getattr(sess, "busy", False):
+        if sess is None or not claim(sess, now):   # HOST_TURN_ONE_v1: one host turn at a time
             continue
         hint = getattr(getattr(sess, "adapter", None), "subagent_hint", "") \
             if getattr(getattr(sess, "adapter", None), "subagents", False) else ""
@@ -221,9 +238,9 @@ def _report(reg, h: Dict, state: str, answer: str) -> None:
         pass
     try:
         back = reg.get_active(h["from"])
-        if back is not None and not getattr(back, "busy", False):
+        if back is not None and claim(back):
             text = REPORT.format(receiver=_title(h["to"], h.get("role", "")), id=h["id"], outcome=state,
                                  result=answer[:300])
-            threading.Thread(target=_speak, args=(back, text), name="handoff-report", daemon=True).start()
+            threading.Thread(target=_speak, args=(back, text, ""), name="handoff-report", daemon=True).start()
     except Exception:  # noqa: BLE001
         pass

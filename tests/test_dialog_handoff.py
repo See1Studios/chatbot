@@ -221,6 +221,19 @@ class Handoff(unittest.TestCase):
         src = (ROOT / "session_turn.py").read_text(encoding="utf-8")
         self.assertIn('"" if notice else _s().boot_notice(self)', src)          # host turns skip the restart line
 
+    def test_one_host_turn_at_a_time_per_session(self):
+        # HOST_TURN_ONE_v1, live #24: a restart reaction and a handoff reached the same new session in one pass
+        desk = self.office.desks[self.lead]
+        self.assertTrue(H.claim(desk))
+        self.assertFalse(H.claim(desk))                                          # the second waits
+        desk._host_turn_at -= H.HOST_TURN_GAP + 1
+        self.assertTrue(H.claim(desk))
+        self.hand(self.dev, "s-dev", to="lead", text="report")
+        self.office.desks[self.lead]._host_turn_at = __import__("time").time()   # a reaction just started there
+        self.assertEqual(H.run_once(self.office), [])                            # the handoff waits its turn
+        src = Path(event_react.__file__).read_text(encoding="utf-8")
+        self.assertIn("dialog_handoff.claim(sess, now)", src)
+
     def test_the_reactor_runs_handoffs_whatever_auto_says(self):
         src = Path(event_react.__file__).read_text(encoding="utf-8")
         self.assertIn("dialog_handoff.run_once(reg)", src)
