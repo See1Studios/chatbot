@@ -234,6 +234,35 @@ class Handoff(unittest.TestCase):
         src = Path(event_react.__file__).read_text(encoding="utf-8")
         self.assertIn("dialog_handoff.claim(sess, now)", src)
 
+    def test_a_handoff_handed_on_waits_then_its_director_finishes_it(self):
+        # HANDOFF_CHAIN_v1, live #27/#28: #27 closed on "I handed it to art"; art's result reached only a tell-the-user
+        dev, lead, art = self.office.desks[self.dev], self.office.desks[self.lead], self.office.desks[self.art]
+        self.hand(self.lead, "s-lead", to="dev", text="plan the style guide")
+        H.run_once(self.office, now=1000.0)                                      # dev works #1
+        self.hand(self.dev, "s-dev", to=self.art, text="list the styles")       # ... and hands part of it on (#2)
+        dev.history.append({"role": "assistant", "text": "handed to art as #2", "ts": 1001.0})
+        dev.busy = False
+        H.run_once(self.office, now=1002.0)
+        self.assertEqual(H.all_handoffs()[1]["state"], "waiting")               # not done on "I handed it on"
+        self.assertEqual(lead.sent, [])                                          # and nothing told upward yet
+        self.assertEqual(H.all_handoffs()[2]["state"], "running")               # art got #2 in the same pass
+        art.history.append({"role": "assistant", "text": "studio_anime, subculture_punk", "ts": 1003.0})
+        art.busy = False
+        H.run_once(self.office, now=1004.0)
+        self.assertEqual(H.all_handoffs()[2]["state"], "done")
+        self.assertEqual(len(dev.sent), 2)                                       # one more turn for dev, and it is ...
+        self.assertEqual(H.all_handoffs()[1]["state"], "running")               # ... #1 resumed at dev's desk
+        resume = dev.sent[-1][0]
+        self.assertNotIn("Do not use tools", resume)                             # a work turn, not a tell-the-user
+        self.assertIn("#1 from Lead, continued", resume)
+        self.assertIn("#2 (done): studio_anime, subculture_punk", resume)
+        dev.history.append({"role": "assistant", "text": "decide: default style, chibi or not", "ts": 1006.0})
+        dev.busy = False
+        H.run_once(self.office, now=1007.0)
+        self.assertEqual(H.all_handoffs()[1]["state"], "done")
+        self.assertIn("decide: default style", H.all_handoffs()[1]["result"])
+        self.assertIn("Dev finished handoff #1", lead.sent[-1][0])               # now the lead hears it
+
     def test_the_reactor_runs_handoffs_whatever_auto_says(self):
         src = Path(event_react.__file__).read_text(encoding="utf-8")
         self.assertIn("dialog_handoff.run_once(reg)", src)

@@ -23,7 +23,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 MAX_HOPS = 2
-OPEN = ("sent", "running")
+OPEN = ("sent", "running", "waiting", "resume")   # waiting: on work it handed on; resume: that work came back
+CLOSED = ("done", "failed", "cancelled")
 RESULT_MAX = 1500
 _LOCK = threading.Lock()
 _UNANSWERED: Dict[int, float] = {}   # handoff id -> when its ended turn first showed no answer (looked at again once)
@@ -31,10 +32,14 @@ _UNANSWERED: Dict[int, float] = {}   # handoff id -> when its ended turn first s
 PROMPT = ("[Handoff #{id} from {sender} -- the user did not write this] {task}\n"
           "Done when: {done_when}\n"
           "This is your role's work: direct it now. Your subagents{hint} do the reading, searching and checking, "
-          "and they must not change files; use your role's skills. Read narrowly: search first, then only the lines you need -- the "
+          "and they must not change files; use your role's skills. If part of it belongs to another role, hand that part "
+          "on and end your turn: this handoff waits, and you finish it when that result comes back. Read narrowly: search first, then only the lines you need -- the "
           "turn stops past its budget. A code change goes into a `delegate` plan, which waits for the "
           "operator's go; do not edit repo files yourself. If this is not your role's work, say so in one line and "
           "stop. End with a short result for {sender}: what you did, what is left, what the operator must decide.")
+RESUME = ("[Handoff #{id} from {sender}, continued -- the user did not write this] The work you handed on for it came "
+          "back:\n{children}\nNow finish #{id}: {task}\nDone when: {done_when}\nEnd with the result for {sender}: what you "
+          "did, what is left, what the operator must decide.")
 REPORT = ("{receiver} finished handoff #{id} ({outcome}). Their result is in your dm with them: {result}\n"
           "Tell the user in one or two short lines, in character. Do not use tools and do not start any work.")
 
@@ -194,19 +199,37 @@ def run_once(reg, now: Optional[float] = None) -> List[Dict]:
             continue
         _UNANSWERED.pop(h["id"], None)
         state = "done" if answer else "failed"
+        if state == "done" and _chained(h, now):   # HANDOFF_CHAIN_v1: it handed work on; it is not done yet
+            continue
+        parent = all_handoffs().get(h.get("parent")) if h.get("parent") else None
+        if parent is not None and parent.get("state") == "waiting":   # the one who asked finishes its own work next
+            _report(reg, h, state, answer or "(the turn ended without an answer%s)" % (": " + why if why else ""),
+                    tell=False)
+            mark(h["id"], state, result=answer[:RESULT_MAX], **({"reason": why} if state == "failed" and why else {}))
+            if not [c for c in _children(parent["id"]) if c.get("state") in OPEN]:
+                mark(parent["id"], "resume")
+            changed.append({"id": h["id"], "state": state})
+            continue
         _report(reg, h, state, answer or "(the turn ended without an answer%s)" % (": " + why if why else ""))
         mark(h["id"], state, result=answer[:RESULT_MAX], **({"reason": why} if state == "failed" and why else {}))
         changed.append({"id": h["id"], "state": state})
-    for h in [x for x in hs if x.get("state") == "sent"]:
+    hs = sorted(all_handoffs().values(), key=lambda h: h["id"])
+    for h in [x for x in hs if x.get("state") in ("sent", "resume")]:
         sess = reg.get_active(h["to"])
         if sess is None or not claim(sess, now):   # HOST_TURN_ONE_v1: one host turn at a time
             continue
         hint = getattr(getattr(sess, "adapter", None), "subagent_hint", "") \
             if getattr(getattr(sess, "adapter", None), "subagents", False) else ""
-        text = PROMPT.format(id=h["id"], sender=_title(h["from"]), task=h["task"],
-                             done_when=h.get("done_when") or "(not given: decide it and say it)", hint=hint)
+        done_when = h.get("done_when") or "(not given: decide it and say it)"
+        if h.get("state") == "resume":
+            kids = "\n".join("#%d (%s): %s" % (c["id"], c.get("state"), str(c.get("result") or c.get("reason") or "")[:600])
+                             for c in _children(h["id"]))
+            text = RESUME.format(id=h["id"], sender=_title(h["from"]), children=kids, task=h["task"], done_when=done_when)
+        else:
+            text = PROMPT.format(id=h["id"], sender=_title(h["from"]), task=h["task"], done_when=done_when, hint=hint)
         text += _unread(sess, h["to"])
-        mark(h["id"], "running", sid=sess.sid, started=now)
+        mark(h["id"], "running", sid=sess.sid, started=now,
+             **({"delivered": [c["id"] for c in _children(h["id"])]} if h.get("state") == "resume" else {}))
         threading.Thread(target=_speak, args=(sess, text), name="handoff", daemon=True).start()
         changed.append({"id": h["id"], "state": "running"})
     return changed
@@ -227,8 +250,24 @@ def _show(reg, did: str, msg: Dict, only: str = "") -> None:
             sess._emit({"event": "office", "msg": route_sessions._office_view(dict(msg, dialog_id=did, other=other), cid)})
 
 
-def _report(reg, h: Dict, state: str, answer: str) -> None:
-    """The receiver's answer as its dm to the sender; the sender, if free, tells the user."""
+def _children(hid: int) -> List[Dict]:
+    return [c for c in sorted(all_handoffs().values(), key=lambda x: x["id"]) if c.get("parent") == hid]
+
+
+def _chained(h: Dict, now: float) -> bool:
+    """HANDOFF_CHAIN_v1: a turn that handed work on (a child handoff) leaves its own handoff open -- waiting while a
+    child is open, back for its director to finish when they all came back meanwhile (live #27/#28, 2026-10-05: #27
+    closed as done on "I handed it to art", and art's result then only reached a tell-the-user turn)."""
+    kids = [c for c in _children(h["id"]) if c["id"] not in (h.get("delivered") or [])]   # not yet brought back to it
+    if not kids:
+        return False
+    mark(h["id"], "waiting" if [c for c in kids if c.get("state") in OPEN] else "resume")
+    return True
+
+
+def _report(reg, h: Dict, state: str, answer: str, tell: bool = True) -> None:
+    """The receiver's answer as its dm to the sender; the sender, if free, tells the user (unless `tell` is off: a
+    director waiting on this result finishes its own work with it instead)."""
     try:
         import dialog_log
         did = dialog_log.dm_id(h["to"], h["from"])
@@ -237,7 +276,7 @@ def _report(reg, h: Dict, state: str, answer: str) -> None:
     except Exception:  # noqa: BLE001
         pass
     try:
-        back = reg.get_active(h["from"])
+        back = reg.get_active(h["from"]) if tell else None
         if back is not None and claim(back):
             text = REPORT.format(receiver=_title(h["to"], h.get("role", "")), id=h["id"], outcome=state,
                                  result=answer[:300])

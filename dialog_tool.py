@@ -42,7 +42,7 @@ TOOL_DEFS = [{
                    "handoff: work that is not your role's goes to the director who owns it -- `to` a role (or a "
                    "coworker), `text` the task with what you know, `done_when` how they will know it is finished; "
                    "they work it at their own desk and the result comes back to you as a message. handoffs: the ones "
-                   "you sent or received, newest first, with their state now (sent, running, done, failed, cancelled).",
+                   "you sent or received, newest first, with their state now (sent, running, waiting -- on work it handed on, done, failed, cancelled).",
     "inputSchema": {
         "type": "object",
         "properties": {
