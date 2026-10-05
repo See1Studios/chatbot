@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import worktree_runner as wr
+import review_checklist  # noqa: E402
 from tests._platform import dev_only_bash  # noqa: E402
 
 # argv: <calls log> <repo> <command> ...; writes the ticket record the way tickets.py would
@@ -732,13 +733,13 @@ class WorktreeRunner(unittest.TestCase):
     def test_a_long_diff_keeps_every_file(self) -> None:
         small = "diff --git a/s b/s\n+tiny\n"
         big = "diff --git a/b b/b\n" + "".join("+line %d\n" % i for i in range(5000))
-        fitted = wr.fit_diff(big + small + big.replace("a/b b/b", "a/c b/c"), 4000)
+        fitted = review_checklist.fit_diff(big + small + big.replace("a/b b/b", "a/c b/c"), 4000)
         self.assertLessEqual(len(fitted), 4200)
         for head in ("diff --git a/b b/b", "diff --git a/s b/s", "diff --git a/c b/c"):
             self.assertIn(head, fitted)
         self.assertIn("+tiny", fitted)                      # the small file stays whole
         self.assertEqual(fitted.count("more lines of this file cut"), 2)
-        self.assertEqual(wr.fit_diff(small, 4000), small)
+        self.assertEqual(review_checklist.fit_diff(small, 4000), small)
         prompt = wr.review_prompt(1, "t", "i", "", small, None, "")
         self.assertIn("must not use tools", prompt)
 

@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import session as S  # noqa: E402
+import session_weights  # noqa: E402
 from providers.adapters import AgyAdapter  # noqa: E402
 from tests.test_instructions import WorkspaceCase  # noqa: E402
 
@@ -85,7 +86,7 @@ class AcceptWithoutCutting(Base):
     def test_a_question_while_busy_still_takes_the_side_channel(self):
         s = self.make()
         q = "이거 왜 이렇게 동작해?"
-        self.assertTrue(S._is_inquiry(q), "premise: this text is classified as a question")
+        self.assertTrue(session_weights._is_inquiry(q), "premise: this text is classified as a question")
         ran = threading.Event()
         s._run_btw = lambda query: ran.set()
         s.send(q, "m2")

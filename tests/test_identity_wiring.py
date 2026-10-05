@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 import identity  # noqa: E402
 import server  # noqa: E402
 import session  # noqa: E402
+import session_weights  # noqa: E402
 import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
 OLD_NAMES = ("냥피디", "냥PD", "실장님")
@@ -50,8 +51,8 @@ class Base(unittest.TestCase):
 class PromptsTest(Base):
     def test_another_bot_never_leaks_this_ones_names(self):
         self.use(_workspace("아트디렉터", "루나", "대표님", "차분한 존댓말"))
-        btw_idle = session._btw_prompt("지금 뭐 해?", False, ["[맥락]"])
-        btw_busy = session._btw_prompt("지금 뭐 해?", True, [])
+        btw_idle = session_weights._btw_prompt("지금 뭐 해?", False, ["[맥락]"])
+        btw_busy = session_weights._btw_prompt("지금 뭐 해?", True, [])
         handoff = session._handoff_prompt("대표님: 안녕\n루나: 네")
         for text in (btw_idle, btw_busy, handoff):
             for old in OLD_NAMES:
@@ -64,7 +65,7 @@ class PromptsTest(Base):
 
     def test_no_voice_means_no_tone_clause_and_still_reads_naturally(self):
         self.use(_workspace("테크디렉터", None, "팀장님", None))
-        text = session._btw_prompt("상태?", True, [])
+        text = session_weights._btw_prompt("상태?", True, [])
         self.assertIn("핵심만 2~3문장으로 간결하게 즉답하세요.", text)
         self.assertIn("테크디렉터입니다.", text)      # no persona: named by its title
         self.assertNotIn("말투", text)
@@ -79,7 +80,7 @@ class PromptsTest(Base):
         self.assertNotEqual(i["title"], identity.DEFAULTS["title"], "no job title: neither the card nor its role pack names one")
         self.assertTrue(i["persona"], "the default character's card has no name")
         self.assertNotEqual(i["user_title"], identity.DEFAULTS["user_title"])
-        prompt = session._btw_prompt("q", False, [])
+        prompt = session_weights._btw_prompt("q", False, [])
         self.assertIn(f"{identity.self_label()}입니다. (사용자: {i['user_title']})", prompt)
 
 

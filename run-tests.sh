@@ -34,6 +34,7 @@ FAST=(
   test_code_map
   test_file_sizes
   test_page_scripts
+  test_session_swap
   test_provider_neutrality
   test_no_trace
   test_tool_format_clean

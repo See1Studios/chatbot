@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from providers.adapters import _persona_system_prompt, get_adapter
 from private_engine import tension_meta
+from instructions import build_instruction_bundle  # noqa: F401 -- session_turn reads it as _s().build_instruction_bundle (tests swap it here)
 from identity import display_name, user_title
 
 try:  # turn observation is best effort: a missing core module must never stop the host
