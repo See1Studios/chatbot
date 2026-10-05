@@ -3,6 +3,7 @@ steps on code are not stopped, and what stays is the edition boundary and the to
 skill a role pack names exists, so a role's `skills:` line equips it.
 Run: python3 -m unittest tests.test_role_guard  (from services/chatbot)
 """
+import json
 import sys
 import tempfile
 import unittest
@@ -116,6 +117,56 @@ class Roles(unittest.TestCase):
                 self.assertEqual(mcp_server._live_scope("web"), (False, True))
             with mock.patch("mcp_caller.caller", return_value={"id": "p1", "mode": "private"}):
                 self.assertEqual(mcp_server._live_scope("delegate"), (True, False))
+
+    def test_live_scope_reads_meta_json_when_caller_mode_missing(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)
+            s_priv = p / "s_priv"
+            s_priv.mkdir()
+            (s_priv / "meta.json").write_text(json.dumps({"mode": "private"}), encoding="utf-8")
+            self.assertEqual(R.live_scope([], "delegate", p, {"id": "s_priv"}), (True, False))
+
+            s_work = p / "s_work"
+            s_work.mkdir()
+            (s_work / "meta.json").write_text(json.dumps({"mode": "work"}), encoding="utf-8")
+            self.assertEqual(R.live_scope([], "delegate", p, {"id": "s_work"}), (False, False))
+
+    def test_live_scope_fails_closed_when_meta_json_corrupted_or_missing(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)
+            s_bad = p / "s_bad"
+            s_bad.mkdir()
+            (s_bad / "meta.json").write_text("{corrupt json", encoding="utf-8")
+            self.assertEqual(R.live_scope([], "delegate", p, {"id": "s_bad"}), (True, False))
+
+            self.assertEqual(R.live_scope([], "delegate", p, {"id": "s_nonexistent"}), (True, False))
+
+    def test_live_scope_resolves_denied_via_characters_tools_of(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)
+            caller = {"id": "w1", "mode": "work", "character": "dev_test"}
+            with mock.patch("characters.tools_of", return_value=["delegate"]):
+                self.assertEqual(R.live_scope([], "delegate", p, caller), (False, False))
+                self.assertEqual(R.live_scope([], "web", p, caller), (False, True))
+
+    def test_live_scope_personal_turn_when_busy_empty(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)
+            (p / "w1").mkdir()
+            self.assertTrue(personal_turn.mark(p, "w1", 1000.0))
+            caller_marked = {"id": "w1", "mode": "work", "turn": 1000.0, "tools": ["delegate"]}
+            self.assertEqual(R.live_scope([], "delegate", p, caller_marked), (True, False))
+
+            caller_unmarked = {"id": "w1", "mode": "work", "turn": 2000.0, "tools": ["delegate"]}
+            self.assertEqual(R.live_scope([], "delegate", p, caller_unmarked), (False, False))
+
+    def test_mcp_server_caller_fallback_and_obs_tool_call(self):
+        with mock.patch("mcp_caller.caller", side_effect=RuntimeError("connection dropped")):
+            with mock.patch.object(mcp_server, "_busy_sessions", return_value=[]):
+                self.assertEqual(mcp_server._live_scope("delegate"), (False, False))
+
+                out = mcp_server._obs_tool_call("delegate", {"request": "test request"})
+                self.assertIsInstance(out, dict)
 
 
 if __name__ == "__main__":
