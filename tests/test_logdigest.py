@@ -54,6 +54,15 @@ class DigestTests(unittest.TestCase):
         self.assertEqual(c["by_mode"], {"work": 2, "private": 1})
         self.assertEqual(c["max_chars"], 5563)
 
+    def test_context_alerts_become_findings(self):
+        # CONTEXT_ALERT_v1
+        self.write([(20, {"src": "chat", "evt": "context.alert", "kind": "over_budget", "lvl": "warn"}),
+                    (10, {"src": "chat", "evt": "context.alert", "kind": "leak", "lvl": "error"})])
+        d = logdigest.digest(3600)
+        self.assertEqual(d["context"]["alerts"], {"over_budget": 1, "leak": 1})
+        sev = {f["code"]: f["severity"] for f in d["findings"]}
+        self.assertEqual((sev["context_over_budget"], sev["context_leak"]), ("warn", "error"))
+
     def test_clean_run_is_ok(self):
         self.write([(600, {"src": "chat", "evt": "proc.start"}), (300, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 50}),
                     (10, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 51})])

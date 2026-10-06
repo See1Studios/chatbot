@@ -373,6 +373,7 @@ class Layer:
     kind: str                # "rules" (static, joined with --- under macros) | "index" (static) | "dynamic"
     modes: Tuple[str, ...]   # the session modes that take it (D-6: a private session never takes a work layer)
     text: Callable           # (ctx) -> str
+    required: bool = False   # empty -> a context alert (CONTEXT_ALERT_v1)
 
 
 def _ctx(mode: str, character: str, history) -> Dict:
@@ -407,11 +408,11 @@ def _private_memory(c: Dict) -> str:
 # The order is the bundle's order. A new layer is one row here: its kind decides how it joins and whether the hash
 # covers it, its modes decide where it goes.
 LAYERS: Tuple[Layer, ...] = (
-    Layer("charter", "rules", WORK, lambda c: _read(WORKSPACE / "AGENTS.md")),
-    Layer("private_charter", "rules", PRIVATE, lambda c: _private_charter()),
+    Layer("charter", "rules", WORK, lambda c: _read(WORKSPACE / "AGENTS.md"), required=True),
+    Layer("private_charter", "rules", PRIVATE, lambda c: _private_charter(), required=True),
     Layer("lore_before", "rules", BOTH, lambda c: c["lore"]["before_char"]),
-    Layer("persona", "rules", WORK, lambda c: _persona_text(c["character"])),
-    Layer("private_persona", "rules", PRIVATE, _private_persona),
+    Layer("persona", "rules", WORK, lambda c: _persona_text(c["character"]), required=True),
+    Layer("private_persona", "rules", PRIVATE, _private_persona, required=True),
     Layer("lore_after", "rules", BOTH, lambda c: c["lore"]["after_char"]),
     Layer("roles", "rules", WORK, lambda c: _roles_text(c["character"])),
     Layer("private_rules", "rules", PRIVATE, _private_rules),
@@ -466,6 +467,40 @@ def build_instruction_bundle(mode: str = "work", character: str = "", history: O
         text = static + "".join(t if lid == "private_memory" else "\n\n" + t for lid, t in dynamic)
     else:
         text = "\n\n".join([static] + [t for _lid, t in dynamic])
-    return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16],
+    return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16], "mode": mode,
+            "static_bytes": len(static.encode("utf-8")),
             "layers": [{"id": layer.id, "kind": layer.kind, "chars": len(t),
                         "hash": hashlib.sha256(t.encode("utf-8")).hexdigest()[:8]} for layer, t in got if t]}
+
+
+def _budget() -> int:
+    """bundle_budget.json's static_max_bytes (the operator's number); 0 when it cannot be read."""
+    try:
+        import json
+        return int(json.loads((Path(__file__).resolve().parent / "bundle_budget.json").read_text(encoding="utf-8"))
+                   ["static_max_bytes"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return 0
+
+
+def context_alerts(bundle: Dict, character: str = "") -> List[Dict]:
+    """CONTEXT_ALERT_v1 (layered-context-architecture lca/F): what is wrong with a bundle about to go in --
+    over_budget (its static layers past bundle_budget.json), missing (a required layer empty), leak (a private bundle
+    holding a work-only layer's text). [] when it is fine."""
+    out: List[Dict] = []
+    mode = bundle.get("mode") or "work"
+    limit = _budget()
+    if limit and int(bundle.get("static_bytes") or 0) > limit:
+        out.append({"kind": "over_budget", "static_bytes": bundle["static_bytes"], "limit": limit})
+    have = {x["id"] for x in bundle.get("layers") or []}
+    missing = [layer.id for layer in LAYERS if layer.required and mode in layer.modes and layer.id not in have]
+    if missing:
+        out.append({"kind": "missing", "layers": missing})
+    if mode == "private":
+        text = bundle.get("text") or ""
+        own = {t.strip() for _layer, t in layer_texts("private", character)}
+        leaked = [layer.id for layer, t in layer_texts("work", character)
+                  if "private" not in layer.modes and len(t.strip()) > 20 and t.strip() not in own and t.strip() in text]
+        if leaked:
+            out.append({"kind": "leak", "layers": leaked})
+    return out

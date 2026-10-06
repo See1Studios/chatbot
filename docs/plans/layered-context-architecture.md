@@ -4,7 +4,7 @@
 > 하고 싶어", "계획부터 견고하게 다시 정리해보자"): **핵심 + 기반** — 캐릭터가 무엇을 알고 시작하는지(지침·기억·스킬)가
 > 개인화의 바탕이다. 새 구조를 짓기보다, 이미 있는 층을 한 표로 정리하고, 실제로 바뀐 것이 에이전트에 닿게 하고, 무엇이
 > 언제 주입됐는지 기록으로 볼 수 있게 한다.
-> 상태: **active** (2026-10-06 다시 씀, D-1–D-6 추천대로 결정, lca/A 완료 #701, lca/B 완료 #702)
+> 상태: **active** (2026-10-06 다시 씀, D-1–D-6 추천대로 결정, lca/A 완료 #701, lca/B 완료 #702, lca/F 완료 #703)
 > 관련: [personalization-ladder.md](personalization-ladder.md)(층별 편집·승인) · [private-mode.md](private-mode.md)(사적 세션)
 > · [token-economy.md](token-economy.md)(턴 예산) · [instruction-architecture.md](archive/2026/instruction-architecture.md)(번들의 시작, P2)
 
@@ -88,7 +88,7 @@
 | lca/C | 동적 층 갱신 | `session_turn.py`, `instructions.py` | 세션 중 기억이 바뀌면 다음 턴에 그 층만 `[갱신]`으로 붙고, 안 바뀌면 아무것도 안 붙음(테스트). 층별 상한 | ⚡ | M | lca/A, D-2 | 대기 |
 | lca/D | 로어북 턴별 층 | `instructions.py`, `session_turn.py` | CLI 세션에서 키워드가 걸리면 그 항목이 붙음(테스트), 정적 해시는 안 변함 | ⚡ | M | lca/A, D-3 | 대기 |
 | lca/E | 상태 탭 "지금 들어간 층" | `workspace_status.py`, `static/` | 세션 선택 시 마지막 주입의 층·글자 수·시각 표시(운영자 화면 확인) | ⚡ | S | lca/B | 대기 |
-| lca/F | 경보와 격리 검사 | `instructions.py`, 테스트, `logdigest.py` | 층 상한 초과·빈 필수 층·사적 번들의 업무 층 → 경고 이벤트. 사적 격리 테스트를 목록 기준으로(D-6) | — | S | lca/A, lca/B | 대기 |
+| lca/F | 경보와 격리 검사 | `instructions.py`, 테스트, `logdigest.py` | 층 상한 초과·빈 필수 층·사적 번들의 업무 층 → 경고 이벤트. 사적 격리 테스트를 목록 기준으로(D-6) | — | S | lca/A, lca/B | ✅ #703 |
 | lca/G | 실측 | `tools/` | 실제 세션 하나에서: 첫 턴 전체, 기억 수정 후 `[갱신]`, 키워드 후 로어북, 사적 전환 시 업무 층 없음 — 기록으로 확인 | — | S | lca/B–D | 대기 |
 
 ## 7. 순서 · 리스크

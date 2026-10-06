@@ -90,6 +90,50 @@ class Fixture(WorkspaceCase):
         block = src[src.index("if header:"):src.index("self.persona_injected = True", src.index("if header:"))]
         self.assertIn("self._log_context(bundle)", block)
 
+    def test_a_sound_bundle_raises_no_alert(self):
+        # CONTEXT_ALERT_v1
+        from unittest import mock
+        with mock.patch.object(I, "_budget", return_value=100000):
+            for mode in I.BOTH:
+                b = I.build_instruction_bundle(mode=mode, character=self.card_id)
+                self.assertEqual(I.context_alerts(b, self.card_id), [], mode)
+
+    def test_static_layers_past_the_budget_raise_an_alert(self):
+        from unittest import mock
+        b = I.build_instruction_bundle(character=self.card_id)
+        with mock.patch.object(I, "_budget", return_value=b["static_bytes"] - 1):
+            self.assertEqual(I.context_alerts(b, self.card_id),
+                             [{"kind": "over_budget", "static_bytes": b["static_bytes"], "limit": b["static_bytes"] - 1}])
+        self.assertGreater(I._budget(), 0, "bundle_budget.json is read")
+
+    def test_an_empty_required_layer_raises_an_alert(self):
+        from unittest import mock
+        b = I.build_instruction_bundle(character=self.card_id)
+        b = dict(b, layers=[x for x in b["layers"] if x["id"] != "charter"])
+        with mock.patch.object(I, "_budget", return_value=100000):
+            self.assertEqual(I.context_alerts(b, self.card_id), [{"kind": "missing", "layers": ["charter"]}])
+
+    def test_a_work_layer_in_a_private_bundle_raises_an_alert(self):
+        from unittest import mock
+        b = I.build_instruction_bundle(mode="private", character=self.card_id)
+        house = next(t for layer, t in I.layer_texts("work", self.card_id) if layer.id == "house_memory")
+        b = dict(b, text=b["text"] + "\n\n" + house)
+        with mock.patch.object(I, "_budget", return_value=100000):
+            self.assertEqual(I.context_alerts(b, self.card_id), [{"kind": "leak", "layers": ["house_memory"]}])
+
+    def test_the_turn_writes_each_alert(self):
+        import obslog
+        import session as S
+        from unittest import mock
+        s = S.AgentSession.__new__(S.AgentSession)
+        s.sid, s.provider, s.mode, s.character = "sid-1", "agy", "work", self.card_id
+        b = I.build_instruction_bundle(character=self.card_id)
+        with mock.patch.object(obslog, "event") as ev, mock.patch.object(I, "_budget", return_value=10):
+            s._log_context(b)
+        alert = [c for c in ev.call_args_list if c.args[0] == "context.alert"]
+        self.assertEqual(len(alert), 1)
+        self.assertEqual((alert[0].kwargs["kind"], alert[0].kwargs["lvl"], alert[0].kwargs["limit"]), ("over_budget", "warn", 10))
+
     def test_the_bundles_keep_their_bytes(self):
         got = {}
         for mode in I.BOTH:

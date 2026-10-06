@@ -188,6 +188,9 @@ Thresholds live at the top of `logdigest.py`.
 | `http_5xx` | error | a route with ≥3 5xx or ≥1% 5xx |
 | `http_slow` | warn | p95 > 2 s (≥10 requests, streams excluded) |
 | `client_error_repeat` | warn | the same route+4xx ≥ 50 times |
+| `context_over_budget` | warn | a bundle's static layers past `bundle_budget.json` (`context.alert`, CONTEXT_ALERT_v1) |
+| `context_missing` | warn | a required layer (charter, card) empty in a bundle |
+| `context_leak` | error | a private bundle holding a work-only layer's text |
 | `turn_failures` | error | a provider's failed-turn rate ≥ 20% (≥5 turns) |
 | `agent_died_mid_turn` | warn | `agent.exit` with `died_mid_turn` |
 | `repair_frequent` | warn | ≥ 6 repairs a day |

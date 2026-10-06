@@ -232,6 +232,10 @@ class SessionTurn:
             obslog.event("context.inject", sid=self.sid, provider=self.provider, mode=getattr(self, "mode", "work"),
                          character=getattr(self, "character", "") or "", why=why, hash=bundle.get("hash", ""),
                          chars=len(bundle.get("text") or ""), layers=bundle.get("layers") or [])
+            import instructions
+            for a in instructions.context_alerts(bundle, getattr(self, "character", "") or ""):   # CONTEXT_ALERT_v1
+                obslog.event("context.alert", lvl="error" if a["kind"] == "leak" else "warn", sid=self.sid,
+                             mode=getattr(self, "mode", "work"), character=getattr(self, "character", "") or "", **a)
         except Exception:  # noqa: BLE001 -- a record never stops a turn
             pass
 

@@ -126,12 +126,26 @@ def pct(values: List[float], q: float) -> Optional[float]:
     return round(v[min(len(v) - 1, int(q * len(v)))], 1)
 
 
-def _context_summary(win: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """CONTEXT_LOG_v1: what went into the agents -- injections by why and by mode, the largest."""
+CONTEXT_ALERT_HINTS = {
+    "over_budget": ("warn", "정적 층이 bundle_budget.json 상한을 넘음",  # l10n-ok
+                    "logdigest.py --evt context.inject 로 큰 층 확인; 줄이거나 운영자가 상한을 정한다"),  # l10n-ok
+    "missing": ("warn", "필수 층이 비어 있음", "헌장(AGENTS.md)·카드가 있는지 확인"),  # l10n-ok
+    "leak": ("error", "사적 세션 묶음에 업무 층이 들어감", "instructions.LAYERS의 모드 칸과 context.alert의 layers 확인"),  # l10n-ok
+}
+
+
+def _context_summary(win: List[Dict[str, Any]], find=None) -> Dict[str, Any]:
+    """CONTEXT_LOG_v1: what went into the agents -- injections by why and by mode, the largest; CONTEXT_ALERT_v1: each
+    alert kind seen becomes a finding."""
     inj = [e for e in win if e.get("evt") == "context.inject"]
+    alerts = Counter(str(e.get("kind")) for e in win if e.get("evt") == "context.alert")
+    for kind, n in alerts.items():
+        sev, title, hint = CONTEXT_ALERT_HINTS.get(kind, ("warn", kind, "logdigest.py --evt context.alert"))
+        if find is not None:
+            find(sev, "context_" + kind, "%s %d회" % (title, n), hint, count=n)  # l10n-ok
     return {"injections": len(inj), "by_why": dict(Counter(str(e.get("why")) for e in inj)),
             "by_mode": dict(Counter(str(e.get("mode")) for e in inj)),
-            "max_chars": max((int(e.get("chars") or 0) for e in inj), default=0)}
+            "max_chars": max((int(e.get("chars") or 0) for e in inj), default=0), "alerts": dict(alerts)}
 
 
 def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
@@ -319,7 +333,7 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     d["sessions"] = {k: sum(1 for e in win if e.get("evt") == k) for k in
                      ("session.error", "session.session_rotate", "session.session_heavy", "turn.loop_notice", "turn.quiet_close",
                       "agent.spawn", "agent.exit", "agent.recycle")}
-    d["context"] = _context_summary(win)
+    d["context"] = _context_summary(win, find)
     died = [e for e in win if e.get("evt") == "agent.exit" and e.get("died_mid_turn")]
     if died:
         find("warn", "agent_died_mid_turn", "에이전트 프로세스가 턴 도중 종료 %d회" % len(died),
