@@ -498,9 +498,11 @@ def sc_context(run: Run, t: Cast, lead: str) -> None:
     import characters
     import instructions
     ws = DRILL / "workspace"
-    characters.save_lorebook(t.sender, {"entries": [{"keys": ["사무실 고양이"], "position": "after_char",  # l10n-ok
-                                                     "content": "사무실 고양이의 이름은 '모카'다. 창가 화분 옆에서 잔다."}]}, ws)  # l10n-ok
-    _say(lead, "한 줄로만: 안녕?")  # l10n-ok
+    # code words, not phrases: a check that reads the answer must not depend on the language it comes in
+    characters.save_lorebook(t.sender, {"entries": [{"keys": ["office cat"], "position": "after_char",
+                                                     "content": "The office cat is named MOKA-311. It sleeps by the "
+                                                                "window plant."}]}, ws)
+    _say(lead, "In one line: hello?")
     first = _injected(lead, run.t0)
     ids = [x["id"] for x in (first[0]["layers"] if first else [])]
     run.facts["first"] = "%s %d chars" % (first[0]["why"], first[0]["chars"]) if first else "none"
@@ -508,28 +510,28 @@ def sc_context(run: Run, t: Cast, lead: str) -> None:
               "the first turn takes the whole bundle")
     mem = ws / "memory" / "MEMORY.md"
     mem.parent.mkdir(parents=True, exist_ok=True)
-    platform_compat.write_text(mem, (mem.read_text(encoding="utf-8") if mem.is_file() else "# 기억\n")  # l10n-ok
-                               + "- [2026-10-06] 코치가 제일 좋아하는 색은 청록색이다\n", encoding="utf-8")  # l10n-ok
+    platform_compat.write_text(mem, (mem.read_text(encoding="utf-8") if mem.is_file() else "# Memory\n")
+                               + "- [2026-10-06] The operator's code word is TEAL-7429\n", encoding="utf-8")
     t1 = time.time()
-    said = _say(lead, "한 줄로만: 내가 제일 좋아하는 색이 뭐라고 했지?")  # l10n-ok
+    said = _say(lead, "In one line: what is my code word?")
     refresh = _injected(lead, t1)
     run.facts["refresh"] = [(e["why"], [x["id"] for x in e["layers"]]) for e in refresh]
     run.check([e["why"] for e in refresh] == ["refresh"] and [x["id"] for x in refresh[0]["layers"]] == ["house_memory"],
               "a memory edit refreshes that layer only")
-    run.check("청록" in said, "the agent answers from the refreshed memory")  # l10n-ok
+    run.check("TEAL-7429" in said, "the agent answers from the refreshed memory")
     t2 = time.time()
-    said = _say(lead, "한 줄로만: 사무실 고양이 이름이 뭐였지?")  # l10n-ok
+    said = _say(lead, "In one line: what is the office cat's name?")
     lore = _injected(lead, t2)
     run.check([e["why"] for e in lore] == ["lore"], "a keyword adds its lore")
-    run.check("모카" in said, "the agent answers from the lore")  # l10n-ok
+    run.check("MOKA-311" in said, "the agent answers from the lore")
     t3 = time.time()
-    _say(lead, "한 줄로만: 사무실 고양이는 어디서 자?")  # l10n-ok
+    _say(lead, "In one line: where does the office cat sleep?")
     run.check(_injected(lead, t3) == [], "the same keyword again adds nothing")
     record = api("GET", "/api/sessions/%s/context" % lead).get("records") or []
     run.check([r["why"] for r in record] == ["first", "refresh", "lore"], "the status tab's record matches")
     private = api("POST", "/api/sessions", {"character": t.sender, "mode": "private"})["session"]["id"]
     t4 = time.time()
-    _say(private, "한 줄로만: 안녕?")  # l10n-ok
+    _say(private, "In one line: hello?")
     got = _injected(private, t4)
     work_only = {layer.id for layer in instructions.LAYERS if "private" not in layer.modes}
     pids = {x["id"] for x in (got[0]["layers"] if got else [])}

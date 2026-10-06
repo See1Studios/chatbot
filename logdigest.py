@@ -127,10 +127,10 @@ def pct(values: List[float], q: float) -> Optional[float]:
 
 
 CONTEXT_ALERT_HINTS = {
-    "over_budget": ("warn", "정적 층이 bundle_budget.json 상한을 넘음",  # l10n-ok
-                    "logdigest.py --evt context.inject 로 큰 층 확인; 줄이거나 운영자가 상한을 정한다"),  # l10n-ok
-    "missing": ("warn", "필수 층이 비어 있음", "헌장(AGENTS.md)·카드가 있는지 확인"),  # l10n-ok
-    "leak": ("error", "사적 세션 묶음에 업무 층이 들어감", "instructions.LAYERS의 모드 칸과 context.alert의 layers 확인"),  # l10n-ok
+    "over_budget": ("warn", "static layers over bundle_budget.json",
+                    "logdigest.py --evt context.inject shows the large layers; trim them, or the operator sets the bound"),
+    "missing": ("warn", "a required layer is empty", "check that the charter (AGENTS.md) and the card exist"),
+    "leak": ("error", "a work layer in a private bundle", "check the modes in instructions.LAYERS and context.alert's layers"),
 }
 
 
@@ -142,7 +142,7 @@ def _context_summary(win: List[Dict[str, Any]], find=None) -> Dict[str, Any]:
     for kind, n in alerts.items():
         sev, title, hint = CONTEXT_ALERT_HINTS.get(kind, ("warn", kind, "logdigest.py --evt context.alert"))
         if find is not None:
-            find(sev, "context_" + kind, "%s %d회" % (title, n), hint, count=n)  # l10n-ok
+            find(sev, "context_" + kind, "%s (%d)" % (title, n), hint, count=n)
     return {"injections": len(inj), "by_why": dict(Counter(str(e.get("why")) for e in inj)),
             "by_mode": dict(Counter(str(e.get("mode")) for e in inj)),
             "max_chars": max((int(e.get("chars") or 0) for e in inj), default=0), "alerts": dict(alerts)}

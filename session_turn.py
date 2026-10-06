@@ -285,9 +285,9 @@ class SessionTurn:
         texts = {layer.id: t for layer, t in instructions.layer_texts(getattr(self, "mode", "work"),
                                                                       getattr(self, "character", "") or "")}
         parts = [texts.get(lid, "")[:REFRESH_MAX_CHARS] for lid in changed]
-        parts += ["(%s: 이제 비어 있음)" % lid for lid in gone]  # l10n-ok
-        block = ("[시스템 안내] 지난 안내 이후 바뀐 기억·상태다. 앞의 같은 항목 대신 아래를 쓰되 이 안내 자체를 언급하지 "  # l10n-ok
-                 "마라.\n\n" + "\n\n".join(p for p in parts if p) + "\n\n---\n\n")  # l10n-ok
+        parts += ["(%s: now empty)" % lid for lid in gone]
+        block = ("[Host note] Memory or status changed since you were last told. Use what follows instead of the same "
+                 "parts before, and do not mention this note.\n\n" + "\n\n".join(p for p in parts if p) + "\n\n---\n\n")
         self._log_context(dict(bundle, text=block, layers=[x for x in bundle.get("layers") or [] if x["id"] in changed]),
                           "refresh")   # chars = what this turn carries
         return block
@@ -307,7 +307,8 @@ class SessionTurn:
         self.context_lore_hash = h
         if not lore:
             return ""
-        block = "[시스템 안내] 지금 대화와 관련된 설정이다. 참고하되 이 안내 자체를 언급하지 마라.\n\n" + lore + "\n\n---\n\n"  # l10n-ok
+        block = ("[Host note] Setting lore the talk just touched on. Use it, and do not mention this note.\n\n" + lore
+                 + "\n\n---\n\n")
         self._log_context({"text": block, "hash": "", "mode": getattr(self, "mode", "work"),
                            "layers": [{"id": "lore_match", "kind": "turn", "chars": len(lore), "hash": h}]}, "lore")
         return block
