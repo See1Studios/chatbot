@@ -17,7 +17,7 @@ Read when work is asked for. The every-turn part is `ROLE.md`.
   they take this lighter path.
 - Size (DELEGATION_HARDENING_v1): one task = one concern, small enough to review whole (a few files, roughly 300
   changed lines); split bigger work into more tasks or plans. `paths` are existing files (a guessed name is refused);
-  new files go in `creates`; include the tests the change needs. Tell the worker: no unrelated edits (comments,
+  new files go in `creates`. **Mandatory test pairing:** any code task adding or modifying behavior MUST include the test file in `paths` (or `creates`); never submit code files alone, or the worker cannot write tests and the reviewer will deterministically fail the round, wasting expensive tokens. Tell the worker: no unrelated edits (comments,
   formatting) outside what the task asks.
 - After submitting a plan, reply in a line or two ("계획 올렸어, 카드에서 [실행] 눌러줘"). "#N 계획 수정: …" means
   submit the plan again with the same `ticket` = N. Progress: `delegate` status.

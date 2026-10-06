@@ -1,5 +1,6 @@
 """tools/link_dev_workspace.py: a dev install's workspace links to the engine's own instructions, never copies them
-(user-data-separation §0.1). Fixture dirs only.
+(user-data-separation §0.1). Fixture dirs only. Engine role packs under templates/dev-workspace/ are linked like the
+charter; packs that exist only live (e.g. art) are outside the tool's scan and stay untouched.
 Run: python3 -m unittest tests.test_link_dev_workspace  (from services/chatbot)
 """
 import shutil
@@ -26,9 +27,11 @@ class LinkDevWorkspace(unittest.TestCase):
         self.ws = self.data / "workspace"
         (self.ws / "roles" / "dev").mkdir(parents=True)
         (self.ws / "AGENTS.md").write_text("charter", encoding="utf-8")            # an equal copy
-        (self.ws / "roles" / "dev" / "ROLE.md").write_text("edited", encoding="utf-8")  # the user's own pack
+        (self.ws / "roles" / "dev" / "ROLE.md").write_text("edited", encoding="utf-8")  # differs: backup then link
         (self.ws / "roles" / "lead").mkdir()
         (self.ws / "roles" / "lead" / "ROLE.md").symlink_to(self.dev / "roles" / "lead" / "ROLE.md")   # linked before
+        (self.ws / "roles" / "art").mkdir()
+        (self.ws / "roles" / "art" / "ROLE.md").write_text("art-live", encoding="utf-8")  # live-only: never touched
         (self.ws / "SELF-MODIFY.md").write_text("changed", encoding="utf-8")       # an engine file someone changed
         (self.ws / "PROJECT.md").symlink_to(self.tmp / "elsewhere.md")             # a link to the wrong place
         (self.ws / "team.json").write_text("{}", encoding="utf-8")                 # user data: never touched
@@ -36,20 +39,22 @@ class LinkDevWorkspace(unittest.TestCase):
     def test_the_plan_names_each_case(self):
         self.assertEqual(L.plan(self.data, self.dev), [("link", "AGENTS.md"), ("relink", "PROJECT.md"),
                                                        ("backup", "SELF-MODIFY.md"), ("link", "docs/guide.md"),
-                                                       ("ok", "roles/dev/ROLE.md"), ("copy", "roles/lead/ROLE.md")])
+                                                       ("backup", "roles/dev/ROLE.md"), ("ok", "roles/lead/ROLE.md")])
 
-    def test_apply_links_engine_files_and_leaves_role_packs_the_users(self):
+    def test_apply_links_engine_files_including_role_packs(self):
         backup = L.apply(self.data, L.plan(self.data, self.dev), self.dev, stamp="t")
-        for rel in ("AGENTS.md", "PROJECT.md", "docs/guide.md", "SELF-MODIFY.md"):
+        for rel in ("AGENTS.md", "PROJECT.md", "docs/guide.md", "SELF-MODIFY.md",
+                    "roles/dev/ROLE.md", "roles/lead/ROLE.md"):
             p = self.ws / rel
             self.assertTrue(p.is_symlink(), rel)
             self.assertEqual(p.resolve(), (self.dev / rel).resolve(), rel)
         self.assertEqual((backup / "SELF-MODIFY.md").read_text(encoding="utf-8"), "changed")
-        self.assertEqual(sorted(p.name for p in backup.rglob("*") if p.is_file()), ["SELF-MODIFY.md"])
-        dev_pack, lead_pack = self.ws / "roles" / "dev" / "ROLE.md", self.ws / "roles" / "lead" / "ROLE.md"
-        self.assertFalse(dev_pack.is_symlink() or lead_pack.is_symlink(), "role packs are user data, like art")
-        self.assertEqual(dev_pack.read_text(encoding="utf-8"), "edited", "the user's own pack is kept")
-        self.assertEqual(lead_pack.read_text(encoding="utf-8"), "lead", "a linked pack becomes the user's copy")
+        self.assertEqual((backup / "roles" / "dev" / "ROLE.md").read_text(encoding="utf-8"), "edited")
+        self.assertEqual(sorted(p.relative_to(backup).as_posix() for p in backup.rglob("*") if p.is_file()),
+                         ["SELF-MODIFY.md", "roles/dev/ROLE.md"])
+        art = self.ws / "roles" / "art" / "ROLE.md"
+        self.assertFalse(art.is_symlink(), "live-only art pack stays a local file")
+        self.assertEqual(art.read_text(encoding="utf-8"), "art-live")
         self.assertEqual((self.ws / "team.json").read_text(encoding="utf-8"), "{}")
         self.assertEqual({a for a, _ in L.plan(self.data, self.dev)}, {"ok"}, "a second run has nothing to do")
 
@@ -65,3 +70,4 @@ class LinkDevWorkspace(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

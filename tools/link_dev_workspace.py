@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """Point a dev install's workspace at the engine's own instructions (user-data-separation §0.1).
 
-The dev build's charter, PROJECT, SELF-MODIFY, engine skills and docs live once, in templates/dev-workspace/ of this
-repo. Agents open them by paths relative to their workspace, so each one is a link there to the repo file -- never a
-copy. Role packs are user data like every role (operator 2026-09-30, again 2026-10-04: "dev and art are equal"): the
-dev build's packs are defaults, copied in once when missing and the user's from then on.
+The dev build's charter, PROJECT, SELF-MODIFY, engine skills, docs and engine role packs live once, in
+templates/dev-workspace/ of this repo. Agents open them by paths relative to their workspace, so each one is a
+link there to the repo file -- never a copy. Role packs that exist only in the live workspace (for example a
+shipped `art` pack customized on this install) are not under templates/dev-workspace/ and are never touched.
 
 Dry run unless --apply. For each file under templates/dev-workspace/:
-  ok       the workspace path already links to the repo file, or is the user's role pack
+  ok       the workspace path already links to the repo file
   link     missing, or a copy byte-equal to the repo file: becomes the link
   backup   a copy that differs: it moves to <data>/backups/dev-workspace-<stamp>/ first, then becomes the link
   relink   a link that points elsewhere: becomes the link
-  copy     a role pack missing, or still a link to the repo: becomes the user's own copy
 Nothing else in the workspace is touched. Pass --data (default: the install's data dir from host_config).
 """
 from __future__ import annotations
@@ -25,11 +24,6 @@ from typing import List, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 DEV = ROOT / "templates" / "dev-workspace"
-USER_OWNED = ("roles/",)   # defaults the user owns once copied in: never linked
-
-
-def _user_owned(rel: str) -> bool:
-    return rel.startswith(USER_OWNED)
 
 
 def plan(data: Path, dev: Path = DEV) -> List[Tuple[str, str]]:
@@ -39,9 +33,7 @@ def plan(data: Path, dev: Path = DEV) -> List[Tuple[str, str]]:
     for src in sorted(p for p in dev.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
         rel = src.relative_to(dev).as_posix()
         dst = ws / rel
-        if _user_owned(rel):
-            out.append(("copy" if dst.is_symlink() or not dst.exists() else "ok", rel))
-        elif dst.is_symlink():
+        if dst.is_symlink():
             out.append(("ok" if dst.resolve() == src.resolve() else "relink", rel))
         elif not dst.exists():
             out.append(("link", rel))
@@ -60,12 +52,6 @@ def apply(data: Path, steps: List[Tuple[str, str]], dev: Path = DEV, stamp: str 
         if action == "ok":
             continue
         src, dst = (dev / rel).resolve(), ws / rel
-        if action == "copy":
-            if dst.is_symlink():
-                dst.unlink()
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(src.read_bytes())
-            continue
         if action == "backup":
             keep = backup / rel
             keep.parent.mkdir(parents=True, exist_ok=True)
@@ -104,3 +90,4 @@ def main(argv: List[str]) -> int:
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
+

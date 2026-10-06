@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-10-07 — engine role packs linked to templates
+
+-  now symlinks engine role packs under  (same as AGENTS.md).
+- Live  linked; live-only  kept as a local pack.
+- Lead PROCEDURE Mandatory test pairing + install skills (hitomi, nas-sphere) upstreamed into the template.
+- Ticket: #737. Plan: prop/B.
+
 ## 2026-10-07 — conventions on FAST / Tier 3
 
 - `tests/test_conventions.py` added to `run-tests.sh` FAST (commit hook) and `protected_paths.json` governance.
