@@ -9,29 +9,29 @@ async function fetchSelfStatus() {
     loadContextNow();
     renderStatusSkills(res.skills || []);
     if (statusSkillLibHintEl) {
-      statusSkillLibHintEl.textContent = '호스트 스킬 라이브러리 ' + (res.host_skill_library_count || 0) + '개 (읽기 전용)';
+      statusSkillLibHintEl.textContent = tr('status.skill_lib', { n: res.host_skill_library_count || 0 });
     }
     renderStatusMcp(res.mcp || []);
     renderStatusHooks(res.hooks || {}, res.plugins || {});
     // observation/tickets live on Evolution tab (STATUS_EVOLUTION_TAB_v1)
     statusLoaded = true;
   } catch (e) {
-    if (statusInstructionsEl) statusInstructionsEl.textContent = '상태 로드 실패: ' + e.message;
+    if (statusInstructionsEl) statusInstructionsEl.textContent = tr('status.load_failed', { error: e.message });
   }
 }
 
-// 상태 탭은 "지금 쓰는 프로바이더" 한 곳만 보여 준다: 계정 → 사용량 → 프로세스.
-// 서버가 토큰 파일의 이메일과 각 agy 프로세스가 인증한 계정을 대조해 stale 여부를
-// 계산해 준다 -- 여기서는 그리기만 한다.
-const ACCT_OWNER_LABEL = { session: '세션', standby: '대기(standby)', worker: '위임 작업자', 'chatbot-other': '챗봇 임시', external: '외부' };
+// The status tab shows one provider, the one in use: account -> usage -> processes.
+// The server matches the token file's email against the account each agy process signed in with and works out
+// whether it is stale -- this only draws it.
+const ACCT_OWNER_LABEL = i18nTable('status.owner');
 
-// 상태 탭이 보여 주는 제공자. 기본은 지금 대화 중인 제공자를 따라가고, 칩으로 다른 제공자를
-// "보기만" 할 수 있다 -- selectProvider()를 부르지 않으므로 서버 세션(제공자·conversation_id)은 그대로다.
+// The provider the status tab shows: by default the conversation's; a chip shows another provider's status
+// "to look only" -- selectProvider() is not called, so the server session (provider, conversation_id) stays.
 let statusViewProvider = null;
 function chatProvider() { return providerEl ? providerEl.value : defaultProviderId; }
 function currentStatusProvider() { return statusViewProvider || chatProvider(); }
 
-// 상단 브랜드 영역과 같은 표기(agy=Antigravity). 제공자 이름은 벤더이지 페르소나가 아니다.
+// Named as in the brand area at the top (agy=Antigravity). A provider's name is the vendor's, not a persona's.
 function statusProviderName(id) {
   const e = Array.isArray(providerCatalog) ? providerCatalog.find(p => p.id === id) : null;
   return providerCreditLabel(e || { id });
@@ -50,7 +50,7 @@ function renderStatusPicker() {
       + (p.id === chat ? ' is-chat' : '')
       + (blockReason ? ' is-blocked-provider' : '');
     b.textContent = providerCreditLabel(p);
-    b.title = (p.id === chat ? '지금 대화 중인 제공자' : '상태 조회 — 대화 제공자는 바꾸지 않아요')
+    b.title = (p.id === chat ? tr('status.provider.chatting') : tr('status.provider.view_only'))
       + (blockReason ? ' · ' + blockReason : '');
     b.setAttribute('aria-pressed', String(p.id === viewing));
     // Always selectable: blocked providers are still viewable on Status.
@@ -60,13 +60,13 @@ function renderStatusPicker() {
   });
 }
 
-// 다른 제공자의 상태를 보기만 한다 (대화 세션은 건드리지 않는다).
+// Shows another provider's status only (the conversation's session is not touched).
 function setStatusViewProvider(id) {
   statusViewProvider = (id === chatProvider()) ? null : id;
   refreshProviderStatus();
 }
 
-// 대화의 제공자가 (코드로) 바뀌면 select의 onchange가 안 돌므로 여기서 직접 다시 그린다. 상태 조회 선택은 대화를 따라간다.
+// When the conversation's provider changes in code the select's onchange does not run, so redraw here; the view follows the conversation.
 function followChatProvider() {
   statusViewProvider = null;
   refreshProviderStatus();
@@ -81,29 +81,29 @@ function refreshProviderStatus() {
 
 function fmtAge(sec) {
   if (sec == null) return '?';
-  if (sec < 90) return sec + '초';
-  if (sec < 5400) return Math.round(sec / 60) + '분';
-  if (sec < 172800) return (sec / 3600).toFixed(1) + '시간';
-  return (sec / 86400).toFixed(1) + '일';
+  if (sec < 90) return tr('status.age.sec', { n: sec });
+  if (sec < 5400) return tr('status.age.min', { n: Math.round(sec / 60) });
+  if (sec < 172800) return tr('status.age.hour', { n: (sec / 3600).toFixed(1) });
+  return tr('status.age.day', { n: (sec / 86400).toFixed(1) });
 }
 
 async function fetchAccounts() {
   if (!statusAccountsEl) return;
   const provider = currentStatusProvider();
-  if (statusProviderTitleEl) statusProviderTitleEl.textContent = statusProviderName(provider) + (statusViewProvider ? ' · 대화와 다른 제공자' : '');
+  if (statusProviderTitleEl) statusProviderTitleEl.textContent = statusProviderName(provider) + (statusViewProvider ? tr('status.provider.other_suffix') : '');
   // LOGIN_PASTE_KEEP_v2: detach in-flight login panel before wipe so paste/URL survive refresh.
   const keepLogin = statusAccountsEl.querySelector('.login-panel[data-provider="' + provider + '"]');
   if (keepLogin) keepLogin.remove();
-  statusAccountsEl.innerHTML = '<div class="status-hint">불러오는 중…</div>';
+  statusAccountsEl.innerHTML = '<div class="status-hint">' + escapeHtml(tr('common.loading')) + '</div>';
   try {
     const res = await api('/api/accounts?provider=' + encodeURIComponent(provider));
-    if (currentStatusProvider() !== provider) return;  // 응답이 늦는 사이 프로바이더가 바뀜
+    if (currentStatusProvider() !== provider) return;  // the provider changed while the answer was on its way
     renderAccounts(res, provider);
     if (keepLogin && (_loginPollTimers[provider] || ((_loginPanelState[provider] || {}).state === 'pending'))) {
       statusAccountsEl.appendChild(keepLogin);
     }
   } catch (e) {
-    statusAccountsEl.innerHTML = '<div class="status-hint">계정 정보 로드 실패: ' + escapeHtml(e.message) + '</div>';
+    statusAccountsEl.innerHTML = '<div class="status-hint">' + escapeHtml(tr('status.acct.load_failed', { error: e.message })) + '</div>';
     if (statusProcsEl) statusProcsEl.hidden = true;
   }
 }
@@ -114,22 +114,22 @@ function acctProcRow(p, hasEvidence) {
   const owner = ACCT_OWNER_LABEL[p.owner] || p.owner;
   let badge;
   if (p.account) {
-    badge = '<span class="acct-badge ' + (p.stale ? 'stale' : 'ok') + '">' + escapeHtml(p.account) + (p.stale ? ' · 옛 계정' : '') + '</span>';
+    badge = '<span class="acct-badge ' + (p.stale ? 'stale' : 'ok') + '">' + escapeHtml(p.account) + (p.stale ? escapeHtml(tr('status.proc.old_account_suffix')) : '') + '</span>';
   } else if (p.predates_change) {
-    badge = '<span class="acct-badge warn">로그인 변경 전에 시작됨</span>';
+    badge = '<span class="acct-badge warn">' + escapeHtml(tr('status.proc.predates')) + '</span>';
   } else {
-    badge = '<span class="acct-badge">' + (hasEvidence ? '계정 불명(로그 없음)' : '계정 알 수 없음') + '</span>';
+    badge = '<span class="acct-badge">' + escapeHtml(hasEvidence ? tr('status.proc.account_unknown_nolog') : tr('status.proc.account_unknown')) + '</span>';
   }
   const who = p.sid ? ' ' + escapeHtml(p.sid) : '';
   item.innerHTML =
     '<div class="status-item-head"><span class="status-item-name">pid ' + p.pid + ' · ' + escapeHtml(owner) + who + '</span>' + badge + '</div>' +
-    '<div class="status-item-preview">경과 ' + escapeHtml(fmtAge(p.age_sec)) + ' · tty ' + escapeHtml(p.tty) +
-    ' · 부모 ' + escapeHtml(p.parent || '?') + '(' + p.ppid + ')' + (p.busy ? ' · 작업 중' : '') + '\n' + escapeHtml(p.cmd) + '</div>';
+    '<div class="status-item-preview">' + escapeHtml(tr('status.proc.line', { age: fmtAge(p.age_sec), tty: p.tty, parent: p.parent || '?', ppid: p.ppid })) +
+    (p.busy ? escapeHtml(tr('status.proc.busy_suffix')) : '') + '\n' + escapeHtml(p.cmd) + '</div>';
   if (p.kill_cmd) {
     const btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'art-filter-btn';
-    btn.textContent = '종료 명령 복사: ' + p.kill_cmd;
-    btn.addEventListener('click', () => copyText(p.kill_cmd).then(() => { btn.textContent = '복사됨'; }, () => { btn.textContent = p.kill_cmd; }));
+    btn.textContent = tr('status.proc.copy_kill', { cmd: p.kill_cmd });
+    btn.addEventListener('click', () => copyText(p.kill_cmd).then(() => { btn.textContent = tr('common.copied'); }, () => { btn.textContent = p.kill_cmd; }));
     item.appendChild(btn);
   }
   return item;
@@ -149,9 +149,9 @@ function stopLoginPoll(provider) {
 }
 
 function loginModeHint(mode) {
-  if (mode === 'oauth_paste') return 'OAuth → 코드 붙여넣기';
-  if (mode === 'oauth_callback') return '브라우저 OAuth (localhost 콜백)';
-  if (mode === 'device_code') return '디바이스 코드 인증';
+  if (mode === 'oauth_paste') return tr('status.login.mode.oauth_paste');
+  if (mode === 'oauth_callback') return tr('status.login.mode.oauth_callback');
+  if (mode === 'device_code') return tr('status.login.mode.device_code');
   return mode || '';
 }
 
@@ -160,8 +160,8 @@ function buildLoginPanel(provider) {
   panel.className = 'login-panel';
   panel.dataset.provider = provider;
   panel.innerHTML =
-    '<div class="login-panel-head"><strong>로그인</strong> <span class="login-panel-mode"></span></div>' +
-    '<div class="login-panel-msg status-hint">준비 중…</div>' +
+    '<div class="login-panel-head"><strong>' + escapeHtml(tr('status.login.title')) + '</strong> <span class="login-panel-mode"></span></div>' +
+    '<div class="login-panel-msg status-hint">' + escapeHtml(tr('status.login.preparing')) + '</div>' +
     '<div class="login-panel-fields"></div>' +
     '<div class="login-panel-actions"></div>' +
     '<div class="login-panel-err" hidden></div>';
@@ -228,24 +228,24 @@ function renderLoginFields(panel, st) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ghost login-copy';
-    btn.textContent = '복사';
+    btn.textContent = tr('common.copy');
     btn.addEventListener('click', () => copyText(value).then(() => {
-      btn.textContent = '복사됨';
-      setTimeout(() => { btn.textContent = '복사'; }, 1200);
-    }, () => { btn.textContent = '실패'; }));
+      btn.textContent = tr('common.copied');
+      setTimeout(() => { btn.textContent = tr('common.copy'); }, 1200);
+    }, () => { btn.textContent = tr('common.failed'); }));
     row.appendChild(lab);
     row.appendChild(val);
     row.appendChild(btn);
     fields.appendChild(row);
   };
 
-  addCopyRow('인증 URL', st.authorize_url, true);
+  addCopyRow(tr('status.login.auth_url'), st.authorize_url, true);
   if (st.verification_uri && st.verification_uri !== st.authorize_url) {
-    addCopyRow('확인 URL', st.verification_uri, true);
+    addCopyRow(tr('status.login.verify_url'), st.verification_uri, true);
   }
-  addCopyRow('확인 코드', st.user_code, false);
+  addCopyRow(tr('status.login.user_code'), st.user_code, false);
   if (st.callback_port) {
-    addCopyRow('콜백 포트', String(st.callback_port), false);
+    addCopyRow(tr('status.login.callback_port'), String(st.callback_port), false);
   }
 
   if (st.mode === 'oauth_paste' && st.state === 'pending') {
@@ -254,15 +254,15 @@ function renderLoginFields(panel, st) {
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'login-code-input';
-    input.placeholder = '인증 코드 붙여넣기';
+    input.placeholder = tr('status.login.paste_code');
     input.autocomplete = 'off';
     const submit = document.createElement('button');
     submit.type = 'button';
     submit.className = 'art-btn';
-    submit.textContent = '제출';
+    submit.textContent = tr('common.submit');
     const doSubmit = async () => {
       const code = (input.value || '').trim();
-      if (!code) { alert('코드를 입력해 주세요.'); return; }
+      if (!code) { alert(tr('status.login.enter_code')); return; }
       submit.disabled = true;
       try {
         const r = await api('/api/accounts/login/complete', {
@@ -276,13 +276,13 @@ function renderLoginFields(panel, st) {
         if (r.state === 'succeeded') {
           onLoginSucceeded(st.provider, r);
         } else if (!r.ok || r.state === 'failed') {
-          alert((r.error || r.message_ko || '코드 제출 실패'));
+          alert((r.error || r.message_ko || tr('status.login.submit_failed')));
         } else if (r.message_ko) {
           const msgEl = panel.querySelector('.login-panel-msg');
           if (msgEl) msgEl.textContent = r.message_ko;
         }
       } catch (e) {
-        alert('코드 제출 실패: ' + e.message);
+        alert(tr('status.login.submit_failed_error', { error: e.message }));
       } finally {
         submit.disabled = false;
       }
@@ -314,25 +314,25 @@ function updateLoginActions(panel, st) {
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
     cancelBtn.className = 'ghost';
-    cancelBtn.textContent = '취소';
+    cancelBtn.textContent = tr('common.cancel');
     cancelBtn.addEventListener('click', () => cancelLogin(st.provider, st.login_id, panel));
     actions.appendChild(cancelBtn);
     if (st.expires_in != null) {
       const ttl = document.createElement('span');
       ttl.className = 'status-hint';
-      ttl.textContent = '남은 시간 약 ' + Math.max(0, Math.round(st.expires_in / 60)) + '분';
+      ttl.textContent = tr('status.login.time_left', { n: Math.max(0, Math.round(st.expires_in / 60)) });
       actions.appendChild(ttl);
     }
   } else if (st.state === 'succeeded') {
     const ok = document.createElement('span');
     ok.className = 'status-hint';
-    ok.textContent = '완료 — 계정 새로고침 중…';
+    ok.textContent = tr('status.login.done_refreshing');
     actions.appendChild(ok);
   } else if (st.state === 'failed' || st.state === 'cancelled') {
     const again = document.createElement('button');
     again.type = 'button';
     again.className = 'art-btn';
-    again.textContent = '다시 시도';
+    again.textContent = tr('common.retry');
     again.addEventListener('click', () => startLogin(st.provider, panel));
     actions.appendChild(again);
   }
@@ -340,7 +340,7 @@ function updateLoginActions(panel, st) {
 
 async function onLoginSucceeded(provider, st) {
   stopLoginPoll(provider);
-  addActivity((statusProviderName(provider) || provider) + ' 로그인 완료', 'system');
+  addActivity(tr('status.login.activity_done', { provider: statusProviderName(provider) || provider }), 'system');
   try { await refreshProviderAuthMap(); } catch (e) {}
   // CODEX_MODELS_v1: refresh catalog so models/available update without reload.
   try {
@@ -367,7 +367,7 @@ async function cancelLogin(provider, loginId, panel) {
     });
   } catch (e) {}
   if (panel && panel.parentNode) panel.remove();
-  addActivity((statusProviderName(provider) || provider) + ' 로그인 취소', 'system');
+  addActivity(tr('status.login.activity_cancelled', { provider: statusProviderName(provider) || provider }), 'system');
   fetchAccounts();
 }
 
@@ -386,9 +386,9 @@ function startLoginPoll(provider, panel, loginId) {
       } else if (st.state === 'failed' || st.state === 'cancelled' || st.state === 'idle' || st.state === 'superseded') {
         stopLoginPoll(provider);
         if (st.state === 'failed') {
-          addActivity((statusProviderName(provider) || provider) + ' 로그인 실패: ' + (st.error || ''), 'warn');
+          addActivity(tr('status.login.activity_failed', { provider: statusProviderName(provider) || provider, error: st.error || '' }), 'warn');
         } else if (st.state === 'superseded') {
-          addActivity((statusProviderName(provider) || provider) + ' 로그인 시도가 다른 곳에서 새로 시작한 시도로 대체됐어요', 'warn');
+          addActivity(tr('status.login.activity_superseded', { provider: statusProviderName(provider) || provider }), 'warn');
         }
       }
     } catch (e) {
@@ -404,7 +404,7 @@ async function startLogin(provider, existingPanel) {
     panel = buildLoginPanel(provider);
     if (host) host.appendChild(panel);
   }
-  panel.querySelector('.login-panel-msg').textContent = '로그인 시작 중…';
+  panel.querySelector('.login-panel-msg').textContent = tr('status.login.starting');
   try {
     const st = await api('/api/accounts/login/start', {
       method: 'POST',
@@ -416,14 +416,14 @@ async function startLogin(provider, existingPanel) {
     updateLoginActions(panel, st);
     if (st.state === 'pending') {
       startLoginPoll(provider, panel, st.login_id);
-      addActivity((statusProviderName(provider) || provider) + ' 로그인 시작 (' + loginModeHint(st.mode) + ')', 'system');
+      addActivity(tr('status.login.activity_started', { provider: statusProviderName(provider) || provider, mode: loginModeHint(st.mode) }), 'system');
     } else if (st.state === 'succeeded') {
       onLoginSucceeded(provider, st);
     } else if (!st.ok) {
-      alert('로그인 시작 실패: ' + (st.error || 'unknown'));
+      alert(tr('status.login.start_failed', { error: st.error || 'unknown' }));
     }
   } catch (e) {
-    alert('로그인 시작 실패: ' + e.message);
+    alert(tr('status.login.start_failed', { error: e.message }));
     if (panel && panel.parentNode) panel.remove();
   }
 }
@@ -432,7 +432,7 @@ async function startLogin(provider, existingPanel) {
 async function logoutAccount(provider, email, btn) {
   const label = statusProviderName(provider) || provider;
   const who = email ? (' (' + email + ')') : '';
-  if (!confirm(label + who + ' 에서 로그아웃할까요?\n\n이 호스트의 해당 CLI 인증이 해제됩니다. 진행 중인 대화가 있으면 프로세스를 다시 띄워야 할 수 있어요.')) {
+  if (!confirm(tr('status.logout.confirm', { who: label + who }))) {
     return;
   }
   if (btn) btn.disabled = true;
@@ -444,67 +444,67 @@ async function logoutAccount(provider, email, btn) {
     if (r.note || r.message_ko) {
       alert(r.note || r.message_ko);
     } else if (!r.ok) {
-      alert('로그아웃 실패: ' + (r.error || 'unknown'));
+      alert(tr('status.logout.failed', { error: r.error || 'unknown' }));
     }
   } catch (e) {
-    alert('로그아웃 실패: ' + e.message);
+    alert(tr('status.logout.failed', { error: e.message }));
   }
   await refreshProviderAuthMap();
   fetchAccounts();
 }
 
-// PROFILE_SWITCH_v1: 저장된 agy 로그인 목록 + 원클릭 전환. 사용량은 계정이 마지막으로 활성이던 때의 스냅샷(PROFILE_USAGE_v1). // l10n-ok
+// PROFILE_SWITCH_v1: saved agy sign-ins and one-click switching. Usage is a snapshot from when the account was last active (PROFILE_USAGE_v1).
 async function loadProfiles(provider) {
   try {
     const res = await api('/api/accounts/profiles?model=' + encodeURIComponent(statusModel()));
     if (currentStatusProvider() !== provider || !res.ok || !(res.profiles || []).length) return;
     const wrap = document.createElement('div');
     wrap.className = 'status-item';
-    wrap.innerHTML = '<div class="status-item-meta">저장된 계정 · 눌러서 전환</div>'; // l10n-ok
+    wrap.innerHTML = '<div class="status-item-meta">' + escapeHtml(tr('status.profiles.head')) + '</div>';
     res.profiles.forEach(p => {
       const row = document.createElement('div');
       row.className = 'acct-prof';
       const rows = (p.usage && p.usage.rows) || [];
       const view = p.usage && p.usage.view;
       const usage = view ? escapeHtml(view.headline) : rows.slice(0, 3).map(r => escapeHtml(r.group) + ' ' + escapeHtml(r.remaining_pct)).join(' · ') + (rows.length > 3 ? ' +' + (rows.length - 3) : '');
-      const seen = p.usage ? escapeHtml(fmtAge(Date.now() / 1000 - p.usage.checked_at)) + ' 전' : ''; // l10n-ok
-      row.innerHTML = '<div class="acct-prof-main"><div class="acct-prof-email">' + escapeHtml(p.email) + (p.active ? ' <span class="acct-badge ok">사용 중</span>' : '') + '</div>' + // l10n-ok
-        '<div class="acct-prof-usage">' + (usage ? usage + '<span class="acct-prof-seen"> · ' + seen + '</span>' : '사용량 기록 없음') + '</div></div>'; // l10n-ok
+      const seen = p.usage ? escapeHtml(tr('status.ago', { age: fmtAge(Date.now() / 1000 - p.usage.checked_at) })) : '';
+      row.innerHTML = '<div class="acct-prof-main"><div class="acct-prof-email">' + escapeHtml(p.email) + (p.active ? ' <span class="acct-badge ok">' + escapeHtml(tr('status.profiles.active')) + '</span>' : '') + '</div>' +
+        '<div class="acct-prof-usage">' + (usage ? usage + '<span class="acct-prof-seen"> · ' + seen + '</span>' : escapeHtml(tr('status.profiles.no_usage'))) + '</div></div>';
       if (!p.active) {
         const btn = document.createElement('button');
         btn.type = 'button'; btn.className = 'art-btn acct-prof-btn';
-        btn.textContent = '전환'; // l10n-ok
+        btn.textContent = tr('status.profiles.switch');
         btn.addEventListener('click', () => switchProfile(provider, p.email, btn));
         row.appendChild(btn);
       }
       wrap.appendChild(row);
     });
     statusAccountsEl.appendChild(wrap);
-  } catch (_) { /* 목록은 부가 정보: 실패해도 계정 카드는 그대로 */ } // l10n-ok
+  } catch (_) { /* the list is extra: the account card stays as it is */ }
 }
 
 async function switchProfile(provider, email, btn) {
-  if (!confirm(email + ' 계정으로 전환할까요?\n\n유휴 agy 프로세스는 곧 새 계정으로 다시 뜨고, 작업 중인 것은 턴이 끝난 뒤 바뀌어요.')) return; // l10n-ok
+  if (!confirm(tr('status.profiles.confirm', { email }))) return;
   if (btn) btn.disabled = true;
   try {
     const r = await api('/api/accounts/switch', { method: 'POST', body: JSON.stringify({ target: email }) });
-    if (!r.ok) alert('전환 실패: ' + (r.error || 'unknown')); // l10n-ok
+    if (!r.ok) alert(tr('status.profiles.failed', { error: r.error || 'unknown' }));
   } catch (e) {
-    alert('전환 실패: ' + e.message); // l10n-ok
+    alert(tr('status.profiles.failed', { error: e.message }));
   }
   await refreshProviderAuthMap();
   fetchAccounts();
   if (typeof fetchUsage === 'function') fetchUsage(true);
 }
 
-// 계정: 현재 로그인 + 마지막 계정 변경 + (agy) 자동 재시작 기록
+// Account: the current sign-in + the last account change + (agy) automatic restarts
 function renderAccounts(res, provider) {
   if (!statusAccountsEl) return;
   statusAccountsEl.innerHTML = '';
   const pv = (res.providers || {})[provider];
   if (!pv) {
-    // API 키 방식(omniroute 등): 로그인 계정도 CLI 프로세스도 없다
-    statusAccountsEl.innerHTML = '<div class="status-hint">이 프로바이더는 로그인 계정이 없어요 (API 키 방식).</div>';
+    // API-key providers (omniroute and the like): no sign-in account and no CLI process
+    statusAccountsEl.innerHTML = '<div class="status-hint">' + escapeHtml(tr('status.acct.api_key')) + '</div>';
     if (statusProcsEl) statusProcsEl.hidden = true;
     return;
   }
@@ -513,24 +513,24 @@ function renderAccounts(res, provider) {
   const box = document.createElement('div');
   box.className = 'status-item';
   if (cur.ok) {
-    const exp = cur.expires_at ? ' · 액세스 토큰 만료 ' + when(cur.expires_at) : '';
+    const exp = cur.expires_at ? tr('status.acct.token_expires', { when: when(cur.expires_at) }) : '';
     const disReason = providerDisabledReason(provider);
     const badge = disReason
-      ? ' <span class="acct-badge stale">사용 불가 (' + escapeHtml(disReason) + ')</span>'
+      ? ' <span class="acct-badge stale">' + escapeHtml(tr('status.acct.unusable', { reason: disReason })) + '</span>'
       : '';
     box.innerHTML =
-      '<div class="status-item-meta">로그인 계정' + (cur.plan ? ' · ' + escapeHtml(cur.plan) : '') + badge + '</div>' +
+      '<div class="status-item-meta">' + escapeHtml(tr('status.acct.signed_in')) + (cur.plan ? ' · ' + escapeHtml(cur.plan) : '') + badge + '</div>' +
       '<div class="acct-current">' + escapeHtml(cur.email) + '</div>' +
       '<div class="status-item-preview">' + escapeHtml(cur.source || '') +
-      (cur.file_mtime ? '\n파일 갱신 ' + escapeHtml(when(cur.file_mtime)) : '') + escapeHtml(exp) + '</div>';
+      (cur.file_mtime ? '\n' + escapeHtml(tr('status.acct.file_updated', { when: when(cur.file_mtime) })) : '') + escapeHtml(exp) + '</div>';
   } else {
-    box.innerHTML = '<div class="status-item-meta">로그인 계정</div><div class="acct-current">' +
-      escapeHtml(cur.error || '알 수 없음') + '</div>';
+    box.innerHTML = '<div class="status-item-meta">' + escapeHtml(tr('status.acct.signed_in')) + '</div><div class="acct-current">' +
+      escapeHtml(cur.error || tr('common.unknown')) + '</div>';
   }
   if (pv.changed_from && pv.changed_at && (Date.now() / 1000 - pv.changed_at) < 7 * 86400) {
     const chg = document.createElement('div');
     chg.className = 'status-item-preview';
-    chg.textContent = '계정 변경 관측: ' + pv.changed_from + ' → ' + (cur.email || '?') + ' (' + when(pv.changed_at) + ')';
+    chg.textContent = tr('status.acct.changed', { from: pv.changed_from, to: cur.email || '?', when: when(pv.changed_at) });
     box.appendChild(chg);
   }
   // ACCOUNTS_LOGIN_v1: logout when logged in; login button + panel when not.
@@ -540,20 +540,20 @@ function renderAccounts(res, provider) {
     const logoutBtn = document.createElement('button');
     logoutBtn.type = 'button';
     logoutBtn.className = 'danger';
-    logoutBtn.textContent = '로그아웃';
-    logoutBtn.title = statusProviderName(provider) + ' CLI 로그아웃';
+    logoutBtn.textContent = tr('status.logout.button');
+    logoutBtn.title = tr('status.logout.title', { provider: statusProviderName(provider) });
     logoutBtn.addEventListener('click', () => logoutAccount(provider, cur.email, logoutBtn));
     actions.appendChild(logoutBtn);
   } else {
     const loginHint = document.createElement('span');
     loginHint.className = 'status-hint';
-    loginHint.textContent = '로그인되지 않음 — 대화/세션/개선은 잠겨 있어요.';
+    loginHint.textContent = tr('status.login.signed_out');
     actions.appendChild(loginHint);
     const loginBtn = document.createElement('button');
     loginBtn.type = 'button';
     loginBtn.className = 'art-btn';
-    loginBtn.textContent = '로그인';
-    loginBtn.title = statusProviderName(provider) + ' CLI 로그인';
+    loginBtn.textContent = tr('status.login.button');
+    loginBtn.title = tr('status.login.title_cli', { provider: statusProviderName(provider) });
     loginBtn.addEventListener('click', () => {
       // Avoid stacking panels
       const prev = statusAccountsEl && statusAccountsEl.querySelector('.login-panel[data-provider="' + provider + '"]');
@@ -570,14 +570,14 @@ function renderAccounts(res, provider) {
   if (provider === 'agy' && auto.total > 0 && auto.last_at) {
     const note = document.createElement('div');
     note.className = 'status-hint';
-    note.textContent = '자동 재시작: 마지막 ' + new Date(auto.last_at * 1000).toLocaleTimeString('ko-KR') + '에 유휴 agy ' +
-      auto.last_count + '개 (계정 변경 감지) · 누적 ' + auto.total + '개' + (auto.enabled === false ? ' · 현재 꺼짐' : '');
+    note.textContent = tr('status.acct.auto_restart', { time: fmtTime(auto.last_at * 1000), n: auto.last_count, total: auto.total })
+      + (auto.enabled === false ? tr('status.acct.auto_off') : '');
     statusAccountsEl.appendChild(note);
   }
   renderProcs(pv);
 }
 
-// 프로세스: 목록이 길어 사용량을 밀어내지 않도록 접이식. 옛 계정 경고가 있으면 자동으로 펼친다.
+// Processes: folded so a long list does not push usage away; it opens by itself when an old-account warning shows.
 function renderProcs(pv) {
   if (!statusProcsEl || !statusProcListEl) return;
   const procs = pv.processes || [];
@@ -586,11 +586,11 @@ function renderProcs(pv) {
   const predates = pv.predates_count || 0;
   statusProcsEl.hidden = false;
   if (statusProcsSummaryEl) {
-    statusProcsSummaryEl.innerHTML = '프로세스 ' + procs.length + '개' +
-      (stale ? ' <span class="acct-badge stale">옛 계정 ' + stale + '개</span>' : '') +
-      (predates ? ' <span class="acct-badge warn">로그인 변경 전 시작 ' + predates + '개</span>' : '');
+    statusProcsSummaryEl.innerHTML = escapeHtml(tr('status.proc.count', { n: procs.length })) +
+      (stale ? ' <span class="acct-badge stale">' + escapeHtml(tr('status.proc.stale_count', { n: stale })) + '</span>' : '') +
+      (predates ? ' <span class="acct-badge warn">' + escapeHtml(tr('status.proc.predates_count', { n: predates })) + '</span>' : '');
   }
-  if (stale) statusProcsEl.open = true;  // 경고는 접어 두지 않는다
+  if (stale) statusProcsEl.open = true;  // a warning is never folded away
   statusProcListEl.innerHTML = '';
 
   if (stale > 0) {
@@ -598,19 +598,18 @@ function renderProcs(pv) {
     const warn = document.createElement('div');
     warn.className = 'status-item acct-warn';
     warn.innerHTML =
-      '<div class="status-item-name">옛 계정으로 인증된 agy 프로세스 ' + stale + '개</div>' +
-      '<div class="status-item-preview">이 프로세스가 토큰을 refresh하면 방금 한 로그인이 옛 계정으로 되돌아갈 수 있어요. ' +
-      '외부 프로세스는 종료 명령을 복사해서 직접 실행하세요.</div>';
+      '<div class="status-item-name">' + escapeHtml(tr('status.proc.stale_head', { n: stale })) + '</div>' +
+      '<div class="status-item-preview">' + escapeHtml(tr('status.proc.stale_hint')) + '</div>';
     if (ownedStale) {
       const btn = document.createElement('button');
       btn.type = 'button'; btn.className = 'art-filter-btn';
-      btn.textContent = '챗봇 소유 ' + ownedStale + '개 재시작 (유휴 세션·대기만)';
+      btn.textContent = tr('status.proc.recycle', { n: ownedStale });
       btn.addEventListener('click', async () => {
         btn.disabled = true;
         try {
           const r = await api('/api/accounts/recycle', { method: 'POST', body: JSON.stringify({}) });
-          if (r.skipped_busy && r.skipped_busy.length) alert('작업 중인 세션 ' + r.skipped_busy.length + '개는 건너뛰었어요. 끝난 뒤 다시 눌러 주세요.');
-        } catch (e) { alert('재시작 실패: ' + e.message); }
+          if (r.skipped_busy && r.skipped_busy.length) alert(tr('status.proc.skipped_busy', { n: r.skipped_busy.length }));
+        } catch (e) { alert(tr('status.proc.recycle_failed', { error: e.message })); }
         fetchAccounts();
       });
       warn.appendChild(btn);
@@ -620,14 +619,13 @@ function renderProcs(pv) {
   if (predates > 0 && pv.changed_at) {
     const note = document.createElement('div');
     note.className = 'status-hint';
-    note.textContent = '계정 변경(' + new Date(pv.changed_at * 1000).toLocaleString('ko-KR') + ' 관측) 이전에 시작된 프로세스 ' + predates +
-      '개 — 이 CLI는 프로세스별 계정을 알 수 없어, 옛 자격을 들고 있는지는 시간 기준으로만 표시해요.';
+    note.textContent = tr('status.proc.predates_note', { when: new Date(pv.changed_at * 1000).toLocaleString(I18N_LANG), n: predates });
     statusProcListEl.appendChild(note);
   }
   if (!procs.length) {
     const none = document.createElement('div');
     none.className = 'status-hint';
-    none.textContent = '실행 중인 프로세스 없음';
+    none.textContent = tr('status.proc.none');
     statusProcListEl.appendChild(none);
   }
   procs.forEach(p => statusProcListEl.appendChild(acctProcRow(p, hasEvidence)));
@@ -635,7 +633,7 @@ function renderProcs(pv) {
 
 // the agent (every turn / when needed). Editable only where the protected-path registry allows (the server decides);
 // read-only items say why.
-const INSTRUCTION_LAYER_LABEL = { always: '매 턴 들어가는 것', on_demand: '필요할 때 읽는 것', private: '사적 세션에서만 읽는 것' };
+const INSTRUCTION_LAYER_LABEL = i18nTable('status.instr.layer');
 
 async function loadInstructions() {
   if (!statusInstructionsEl) return;
@@ -643,7 +641,7 @@ async function loadInstructions() {
   try {
     res = await api('/api/instructions');
   } catch (e) {
-    statusInstructionsEl.textContent = '지침을 불러오지 못했어요 (엔진 리부트 필요할 수 있음): ' + (e.message || e);
+    statusInstructionsEl.textContent = tr('status.instr.load_failed', { error: e.message || e });
     return;
   }
   const items = res.items || [];
@@ -662,20 +660,20 @@ function renderInstruction(x, open) {
   if (open) item.open = true;
   const head = obsNode('summary', 'status-item-head');
   head.appendChild(obsNode('span', 'status-item-name', x.title));
-  head.appendChild(obsNode('span', 'instr-badge ' + (x.editable ? 'rw' : 'ro'), x.editable ? '편집 가능' : '읽기 전용'));
+  head.appendChild(obsNode('span', 'instr-badge ' + (x.editable ? 'rw' : 'ro'), x.editable ? tr('status.instr.editable') : tr('status.instr.readonly')));
   head.appendChild(obsNode('span', 'status-item-meta', (x.size || 0) + ' B'));
   item.appendChild(head);
-  const meta = [x.path || '자동 생성', x.mtime ? new Date(x.mtime * 1000).toLocaleString('ko-KR') : ''].filter(Boolean).join(' · ');
+  const meta = [x.path || tr('status.instr.generated'), x.mtime ? new Date(x.mtime * 1000).toLocaleString(I18N_LANG) : ''].filter(Boolean).join(' · ');
   const metaRow = obsNode('div', 'status-item-head');
   metaRow.appendChild(obsNode('span', 'status-item-meta', meta));
   const actions = obsNode('div', 'status-item-actions');
   metaRow.appendChild(actions);
   item.appendChild(metaRow);
   if (!x.editable && x.reason) item.appendChild(obsNode('div', 'instr-reason', x.reason));
-  const body = obsNode('pre', 'instr-body', x.content || '(비어 있음)');
+  const body = obsNode('pre', 'instr-body', x.content || tr('status.instr.empty'));
   item.appendChild(body);
   if (x.editable) {
-    const edit = obsNode('button', 'art-btn art-btn-xs', '편집');
+    const edit = obsNode('button', 'art-btn art-btn-xs', tr('common.edit'));
     edit.type = 'button';
     edit.addEventListener('click', () => editInstruction(x, body, actions));
     actions.appendChild(edit);
@@ -689,25 +687,25 @@ function editInstruction(x, body, actions) {
   ta.value = x.content || '';
   body.replaceWith(ta);
   actions.textContent = '';
-  const save = obsNode('button', 'art-btn art-btn-xs primary', '저장');
+  const save = obsNode('button', 'art-btn art-btn-xs primary', tr('common.save'));
   save.type = 'button';
-  const cancel = obsNode('button', 'art-btn art-btn-xs', '취소');
+  const cancel = obsNode('button', 'art-btn art-btn-xs', tr('common.cancel'));
   cancel.type = 'button';
   actions.appendChild(save);
   actions.appendChild(cancel);
   cancel.addEventListener('click', () => { loadInstructions(); if (currentTab === 'team') loadTeam(); });
   save.addEventListener('click', async () => {
     save.disabled = true;
-    save.textContent = '저장 중…';
+    save.textContent = tr('common.saving');
     try {
       await api('/api/instructions/' + encodeURIComponent(x.id), { method: 'PUT', body: JSON.stringify({ content: ta.value }) });
-      addActivity(x.title + ' 저장됨 · ' + (x.layer === 'always' ? '다음 턴부터 반영' : '다음에 읽을 때 반영'));
+      addActivity(tr('status.instr.saved', { title: x.title, when: x.layer === 'always' ? tr('status.instr.next_turn') : tr('status.instr.next_read') }));
       loadInstructions();
       if (currentTab === 'team') loadTeam();
     } catch (e) {
       save.disabled = false;
-      save.textContent = '저장';
-      await alertModal('저장 실패: ' + (e.message || e));
+      save.textContent = tr('common.save');
+      await alertModal(tr('common.save_failed', { error: e.message || e }));
     }
   });
 }
@@ -723,7 +721,7 @@ function renderStatusSkills(skills) {
     item.innerHTML =
       '<div class="status-item-head">' +
       '<span class="status-item-name">' + escapeHtml(s.name) + '</span>' +
-      '<button class="status-toggle ' + (s.enabled ? 'on' : 'off') + '" data-toggle-skill="' + escapeHtml(s.name) + '" type="button" title="' + (s.enabled ? '스킬 끄기' : '스킬 켜기') + '">' +
+      '<button class="status-toggle ' + (s.enabled ? 'on' : 'off') + '" data-toggle-skill="' + escapeHtml(s.name) + '" type="button" title="' + escapeHtml(s.enabled ? tr('status.skill.off') : tr('status.skill.on')) + '">' +
       '<span class="status-toggle-label" style="font-size:.75rem;color:var(--muted)">' + (s.enabled ? 'ON' : 'OFF') + '</span>' +
       '<span class="switch-ui"></span>' +
       '</button>' +
@@ -737,10 +735,10 @@ function renderStatusSkills(skills) {
       btn.disabled = true;
       try {
         await api('/api/skills/' + encodeURIComponent(name) + '/toggle', { method: 'POST', body: '{}' });
-        addActivity('스킬 ' + name + ' 토글됨 (다음 새 세션부터 반영)');
+        addActivity(tr('status.skill.toggled', { name }));
         fetchSelfStatus();
       } catch (e) {
-        await alertModal('토글 실패: ' + e.message);
+        await alertModal(tr('status.skill.toggle_failed', { error: e.message }));
         btn.disabled = false;
       }
     });
@@ -751,7 +749,7 @@ function renderStatusMcp(mcpList) {
   if (!statusMcpEl) return;
   statusMcpEl.innerHTML = '';
   if (!mcpList.length) {
-    statusMcpEl.innerHTML = '<div class="status-hint">등록된 MCP 서버가 없어요.</div>';
+    statusMcpEl.innerHTML = '<div class="status-hint">' + escapeHtml(tr('status.mcp.none')) + '</div>';
     return;
   }
   mcpList.forEach(m => {
@@ -764,17 +762,17 @@ function renderStatusMcp(mcpList) {
     head.className = 'status-item-head';
     head.innerHTML =
       '<span class="status-item-name">' + escapeHtml(m.name) + (isCore ? ' (core)' : '') + '</span>' +
-      (isCore ? '' : '<button class="art-btn" data-del-mcp="' + escapeHtml(m.name) + '" type="button">삭제</button>');
+      (isCore ? '' : '<button class="art-btn" data-del-mcp="' + escapeHtml(m.name) + '" type="button">' + escapeHtml(tr('common.delete')) + '</button>');
     item.appendChild(head);
     const preview = document.createElement('div');
     preview.className = 'status-item-preview';
     preview.textContent = (m.serverUrl || '') + (m.disabled ? ' · disabled' : '') +
-      (count ? (' · 도구 ' + count + '개') : ' · 도구 목록 없음');
+      (count ? tr('status.mcp.tools', { n: count }) : tr('status.mcp.no_tools'));
     item.appendChild(preview);
     const details = document.createElement('details');
     details.className = 'status-tools';
     const summary = document.createElement('summary');
-    summary.textContent = count ? ('도구 목록 (' + count + ')') : '도구 목록 (비어 있음)';
+    summary.textContent = count ? tr('status.mcp.tool_list', { n: count }) : tr('status.mcp.tool_list_empty');
     details.appendChild(summary);
     if (tools.length) {
       const ul = document.createElement('ul');
@@ -799,8 +797,8 @@ function renderStatusMcp(mcpList) {
       const hint = document.createElement('div');
       hint.className = 'status-hint';
       hint.textContent = isCore
-        ? '도구 정의를 불러오지 못했어요.'
-        : '원격 서버 tools/list 응답이 없거나 아직 연결되지 않았어요.';
+        ? tr('status.mcp.core_failed')
+        : tr('status.mcp.remote_none');
       details.appendChild(hint);
     }
     item.appendChild(details);
@@ -809,13 +807,13 @@ function renderStatusMcp(mcpList) {
   statusMcpEl.querySelectorAll('[data-del-mcp]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const name = btn.getAttribute('data-del-mcp');
-      if (!(await confirmModal(name + ' MCP 서버를 삭제할까요?', { confirmLabel: '삭제' }))) return;
+      if (!(await confirmModal(tr('status.mcp.delete_confirm', { name }), { confirmLabel: tr('common.delete') }))) return;
       try {
         await api('/api/mcp/' + encodeURIComponent(name), { method: 'DELETE' });
-        addActivity('MCP ' + name + ' 삭제됨 (다음 새 세션부터 반영)');
+        addActivity(tr('status.mcp.deleted', { name }));
         fetchSelfStatus();
       } catch (e) {
-        await alertModal('삭제 실패: ' + e.message);
+        await alertModal(tr('common.delete_failed', { error: e.message }));
       }
     });
   });
@@ -853,13 +851,13 @@ function renderStatusHooks(hooks, plugins) {
   box.className = 'status-item';
   const head = document.createElement('div');
   head.className = 'status-item-meta';
-  head.textContent = '워크스페이스 훅 ' + configured.length + '개' +
+  head.textContent = tr('status.hooks.count', { n: configured.length }) +
     (hooks.path ? (' · ' + String(hooks.path).split('/').slice(-3).join('/')) : '');
   box.appendChild(head);
   const details = document.createElement('details');
   details.className = 'status-tools';
   const summary = document.createElement('summary');
-  summary.textContent = configured.length ? ('훅 상세 (' + configured.length + ')') : '훅 상세 (설정 없음)';
+  summary.textContent = configured.length ? tr('status.hooks.detail', { n: configured.length }) : tr('status.hooks.detail_none');
   details.appendChild(summary);
   if (configured.length) {
     const ul = document.createElement('ul');
@@ -875,7 +873,7 @@ function renderStatusHooks(hooks, plugins) {
       if (ev.length) {
         const d = document.createElement('div');
         d.className = 'status-tool-desc';
-        d.textContent = '이벤트: ' + ev.join(', ');
+        d.textContent = tr('status.hooks.events', { list: ev.join(', ') });
         li.appendChild(d);
       }
       ul.appendChild(li);
@@ -884,7 +882,7 @@ function renderStatusHooks(hooks, plugins) {
   } else {
     const hint = document.createElement('div');
     hint.className = 'status-hint';
-    hint.textContent = 'hooks.json이 비어 있어요. 프로바이더 훅 대신 호스트 관찰/티켓 루프를 씁니다.';
+    hint.textContent = tr('status.hooks.empty');
     details.appendChild(hint);
   }
   box.appendChild(details);

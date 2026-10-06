@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
-from tests.page_source import app_bundle  # noqa: E402
+from tests.page_source import app_bundle, i18n_prelude  # noqa: E402
 
 APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
 HARNESS = r"""
@@ -20,7 +20,7 @@ function slice(from, to) {
   return src.slice(a, b);
 }
 const credit  = slice('const PROVIDER_DISABLED_REASONS = {', 'function updateBrandAvatar');   // provider names come from the catalog (PROVIDER_NEUTRAL_v1)
-const picker  = slice('// 상태 탭이 보여 주는 제공자.', 'function fmtAge');
+const picker  = slice('// The provider the status tab shows:', 'function fmtAge');
 const helpers = "function escapeRegExp(s){return String(s).replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&');}";
 
 function button() {
@@ -85,7 +85,7 @@ console.log(JSON.stringify(out));
 class StatusPicker(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, "--", str(APP)], capture_output=True, text=True, timeout=60)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, "--", str(APP)], capture_output=True, text=True, timeout=60)
         if r.returncode != 0:
             raise AssertionError(r.stderr[-1500:])
         cls.out = json.loads(r.stdout.strip().splitlines()[-1])
