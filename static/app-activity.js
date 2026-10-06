@@ -49,7 +49,7 @@ function renderActivityRow(item) {
   if (hasDetail) {
     const toggleSpan = document.createElement('span');
     toggleSpan.className = 'act-expand-toggle';
-    toggleSpan.textContent = '▸ 상세';
+    toggleSpan.textContent = tr('activity.more');
     head.appendChild(toggleSpan);
 
     const detailBox = document.createElement('pre');
@@ -67,7 +67,7 @@ function renderActivityRow(item) {
       }
       const isOpen = detailBox.style.display !== 'none';
       detailBox.style.display = isOpen ? 'none' : 'block';
-      toggleSpan.textContent = isOpen ? '▸ 상세' : '▾ 접기';
+      toggleSpan.textContent = isOpen ? tr('activity.more') : tr('activity.less');
     });
   } else {
     row.appendChild(head);
@@ -86,7 +86,7 @@ function renderAllActivity() {
     empty.className = 'act-row';
     empty.style.color = 'var(--muted)';
     empty.style.padding = '1rem 0';
-    empty.textContent = activitySearchQuery ? '검색 결과가 없습니다.' : '기록된 활동 로그가 없습니다.';
+    empty.textContent = activitySearchQuery ? tr('activity.no_match') : tr('activity.empty');
     activityEl.appendChild(empty);
     return;
   }
@@ -151,20 +151,20 @@ function formatPersistedLogEvent(ev) {
   const text = ev.text || '';
   const detail = ev.detail || '';
   if (type === 'tool' || type === 'system' || type === 'stderr' || type === 'error') {
-    const line = (type === 'error' ? '오류: ' : '') + (text || JSON.stringify(ev.error || ev));
+    const line = (type === 'error' ? tr('chat.error_prefix') : '') + (text || JSON.stringify(ev.error || ev));
     const s = String(text || '').trim().toLowerCase();
     if (type === 'tool' && (!s || s === 'tool' || s === 'tool: tool' || s === 'tool:tool')) return null;
     const kind = ev.kind || (type === 'tool' ? (line.startsWith('↳') ? 'result' : 'tool') : (type === 'stderr' ? 'warn' : type));
     return { line, kind, detail };
   }
-  if (type === 'queued') return { line: '대기열 등록 (대기: ' + (ev.queue_len || 1) + '건)', kind: 'system', detail };
-  if (type === 'steer_queued') return { line: '새 지시 접수 (반영 대기: ' + (ev.queue_len || 1) + '건)', kind: 'system', detail };
-  if (type === 'stopped') return { line: '작업 중지: ' + text, kind: 'system', detail };
-  if (type === 'session_rotate') return { line: '세션 자동 전환: ' + text, kind: 'system', detail };
-  if (type === 'session_heavy') return { line: '세션 길이 경고(' + (ev.level || 'soft') + '): ' + text, kind: 'warn', detail };
-  if (type === 'btw_start') return { line: '샛길 질문(/btw) 처리 중: ' + shortToolLine(ev.query || ''), kind: 'tool', detail };
-  if (type === 'btw') return { line: '샛길 질문(/btw) 응답 완료', kind: 'result', detail };
-  if (type === 'image') return { line: '이미지 생성: ' + (ev.name || ev.url || ''), kind: 'result', detail };
+  if (type === 'queued') return { line: tr('chat.queued', { n: ev.queue_len || 1 }), kind: 'system', detail };
+  if (type === 'steer_queued') return { line: tr('activity.steer_queued', { n: ev.queue_len || 1 }), kind: 'system', detail };
+  if (type === 'stopped') return { line: tr('chat.stopped_activity', { text }), kind: 'system', detail };
+  if (type === 'session_rotate') return { line: tr('chat.auto_rotated', { text }), kind: 'system', detail };
+  if (type === 'session_heavy') return { line: tr('chat.heavy_warning', { level: ev.level || 'soft', text }), kind: 'warn', detail };
+  if (type === 'btw_start') return { line: tr('chat.btw_working', { text: shortToolLine(ev.query || '') }), kind: 'tool', detail };
+  if (type === 'btw') return { line: tr('chat.btw_done'), kind: 'result', detail };
+  if (type === 'image') return { line: tr('activity.image', { name: ev.name || ev.url || '' }), kind: 'result', detail };
   return null;
 }
 
@@ -179,13 +179,12 @@ async function fetchLog() {
       if (f) addActivity(f.line, f.kind, ev.ts, f.detail);
     });
   } catch (e) {
-    // 로그 히스토리는 부가 기능 -- 조회 실패해도 조용히 넘어감
+    // the log history is extra: a failed fetch passes quietly
   }
 }
 
-// 아티팩트 탭과 같은 커서 페이지네이션이지만, 로그 탭은 대화 탭처럼 위로
-// 스크롤할 때 옛 기록을 불러온다 (operator 2026-09-18: "위로 스크롤해서
-// 로딩해가며 보여주는 것처럼 아티팩트와 로그도").
+// The same cursor paging as the artifacts tab, but the log tab, like the chat tab, loads older records
+// as you scroll up (operator 2026-09-18: "load as I scroll up, for artifacts and the log too").
 async function loadMoreLog() {
   if (!sessionId || activityLoadingMore || !activityNextBefore) return;
   activityLoadingMore = true;
@@ -230,26 +229,25 @@ function logTurnUsage(usage, durationSeconds) {
 
   let warnReason = '';
   if (input >= OCCUPANCY_WARN_ABS) {
-    warnReason = '창 점유 ' + input.toLocaleString('ko-KR') + ' (soft 임계)';
+    warnReason = tr('activity.warn_window', { n: fmtNumber(input) });
   } else if (turnFreshTokenHistory.length >= 2) {
     const avg = turnFreshTokenHistory.reduce((a, b) => a + b, 0) / turnFreshTokenHistory.length;
     if (avg > 0 && input > avg * 2.5) {
-      warnReason = '이 세션 평소 창(' + Math.round(avg).toLocaleString('ko-KR') + ')의 2.5배';
+      warnReason = tr('activity.warn_spike', { n: fmtNumber(Math.round(avg)) });
     }
   }
   if (input > 0) turnFreshTokenHistory.push(input);
 
   const parts = [];
-  if (total) parts.push('이번 턴 ' + total.toLocaleString('ko-KR') + '토큰' + (warnReason ? ' (주의)' : ''));
+  if (total) parts.push(tr('activity.turn_tokens', { n: fmtNumber(total) }) + (warnReason ? tr('activity.caution') : ''));
   if (usage.input_tokens != null || usage.output_tokens != null) {
-    parts.push('(입력 ' + input.toLocaleString('ko-KR') +
-      ' · 출력 ' + (usage.output_tokens || 0).toLocaleString('ko-KR') +
-      (usage.thinking_tokens ? ' · 사고 ' + usage.thinking_tokens.toLocaleString('ko-KR') : '') +
-      (cacheRead ? ' · 캐시 ' + cacheRead.toLocaleString('ko-KR') : '') + ')');
+    parts.push(tr('activity.tokens_detail', { inp: fmtNumber(input), out: fmtNumber(usage.output_tokens || 0),
+      think: usage.thinking_tokens ? tr('activity.thinking_suffix', { n: fmtNumber(usage.thinking_tokens) }) : '',
+      cache: cacheRead ? tr('activity.cache_suffix', { n: fmtNumber(cacheRead) }) : '' }));
   }
-  if (durationSeconds != null) parts.push(Number(durationSeconds).toFixed(1) + '초');
-  if (sessionTokenTotal) parts.push('· 세션 누계 ' + sessionTokenTotal.toLocaleString('ko-KR') + '토큰');
-  if (warnReason) parts.push('— 토큰 사용량 이상 폭증 의심 (' + warnReason + ')');
+  if (durationSeconds != null) parts.push(tr('usage.seconds', { s: Number(durationSeconds).toFixed(1) }));
+  if (sessionTokenTotal) parts.push(tr('activity.session_total', { n: fmtNumber(sessionTokenTotal) }));
+  if (warnReason) parts.push(tr('activity.spike', { reason: warnReason }));
   if (parts.length) addActivity(parts.join(' '), warnReason ? 'warn' : 'token');
 }
 
@@ -340,8 +338,8 @@ function formatToolResultClient(content) {
   if (!content) return '';
   const lines = String(content).split('\n').map(l => l.trim()).filter(Boolean);
   const filtered = lines.filter(l => !l.startsWith('Created At:') && !l.startsWith('Completed At:'));
-  if (!filtered.length) return '↳ 완료';
+  if (!filtered.length) return '↳ ' + tr('activity.done');
   let first = filtered[0];
   if (first.length > 120) first = first.slice(0, 117) + '...';
-  return filtered.length > 1 ? `↳ ${first} (외 ${filtered.length - 1}줄)` : `↳ ${first}`;
+  return filtered.length > 1 ? '↳ ' + first + tr('activity.more_lines', { n: filtered.length - 1 }) : '↳ ' + first;
 }
