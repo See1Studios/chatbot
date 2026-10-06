@@ -46,7 +46,7 @@
 
 ### [DEV-PROP-001] 거버넌스 3대 정본 문서 체계 수립 및 전파 기반 구축
 
-- **상태**: `진행 중`
+- **상태**: `완료 대기`
 - **목표**: 아키텍처 확장, 컨벤션 제정, 전파 장부 신설을 통해 PE 소프트웨어 공학 거버넌스 3대 정본 체계를 확립한다.
 - **기준 SSOT**: [propagation-and-state-architecture.md](plans/propagation-and-state-architecture.md) (prop/A)
 - **주관 티켓 / 담당자**: #720 / `dev` (개발 코코)
@@ -54,7 +54,7 @@
   - [x] `docs/ARCHITECTURE.md`: 거버넌스, 모듈 경계, 단방향 의존성, 에디션 경계, 티어 격리 확장 (티켓 #720)
   - [x] `docs/CONVENTION.md`: Mandatory Test Pairing, 80줄/80KB 상한, 30초 타임아웃, 사담 상한 정본 신설 (티켓 #720)
   - [x] `docs/STATE.md`: Active Queue, 모듈 체크리스트, Drift Backlog, Archive 서식 신설 (티켓 #720)
-  - [ ] `tests/test_conventions.py`: 신규 컨벤션 검사기(비동기 타임아웃 등) 개발 및 가드 연동 (티켓 미정, prop/B 예정)
+  - [x] `tests/test_conventions.py`: 신규 컨벤션 검사기(비동기 타임아웃 등) 개발 및 가드 연동 (티켓 #724)
 
 <!-- Active Queue 항목 끝 -->
 
