@@ -1,4 +1,4 @@
-// OBSLOG_UI_v1: 로그 탭 → "서비스". The same logs/events.jsonl that agents read through
+// OBSLOG_UI_v1: log tab → "Service". The same logs/events.jsonl that agents read through
 // `chatbot-ctl.sh logs`, shown for people: findings first, then state, then recent events.
 // Data: GET /api/service-log?since=24h[&sid=...] (server.py _service_log → logdigest.py).
 (function () {
@@ -81,31 +81,31 @@
     pane.innerHTML = '';
     const bar = el('div', 'svc-bar');
     const st = data && data.digest ? data.digest.status : 'loading';
-    bar.appendChild(el('span', 'svc-badge svc-badge-' + st, st === 'loading' ? '불러오는 중' : st.toUpperCase()));
+    bar.appendChild(el('span', 'svc-badge svc-badge-' + st, st === 'loading' ? tr('svc.loading') : st.toUpperCase()));
     ['1h', '24h', '7d'].forEach((w) => {
       const b = el('button', 'act-filter-btn' + (w === since ? ' on' : ''), w);
       b.type = 'button';
       b.addEventListener('click', () => { since = w; load(); });
       bar.appendChild(b);
     });
-    const sesBtn = el('button', 'act-filter-btn' + (onlySession ? ' on' : ''), '이 세션만');
+    const sesBtn = el('button', 'act-filter-btn' + (onlySession ? ' on' : ''), tr('svc.only_session'));
     sesBtn.type = 'button';
     sesBtn.disabled = !currentSid();
     sesBtn.addEventListener('click', () => { onlySession = !onlySession; load(); });
     bar.appendChild(sesBtn);
-    const cp = el('button', 'act-filter-btn', '복사');
+    const cp = el('button', 'act-filter-btn', tr('common.copy'));
     cp.type = 'button';
     cp.addEventListener('click', copy);
     bar.appendChild(cp);
     pane.appendChild(bar);
     if (!data) return;
-    if (!data.ok) { pane.appendChild(el('div', 'svc-empty', '서비스 로그를 불러오지 못했습니다: ' + (data.error || ''))); return; }
-    if (!data.log_exists) { pane.appendChild(el('div', 'svc-empty', '아직 logs/events.jsonl 이 없습니다 (서버 재시작 후 기록 시작).')); return; }
+    if (!data.ok) { pane.appendChild(el('div', 'svc-empty', tr('svc.load_failed', { error: data.error || '' }))); return; }
+    if (!data.log_exists) { pane.appendChild(el('div', 'svc-empty', tr('svc.no_log'))); return; }
     const d = data.digest;
 
     const fs = el('section', 'svc-sec');
-    fs.appendChild(el('h4', null, '발견 사항 ' + d.findings.length));
-    if (!d.findings.length) fs.appendChild(el('div', 'svc-ok', '이상 없음'));
+    fs.appendChild(el('h4', null, tr('svc.findings', { n: d.findings.length })));
+    if (!d.findings.length) fs.appendChild(el('div', 'svc-ok', tr('svc.all_clear')));
     d.findings.forEach((f) => {
       const c = el('div', 'svc-finding svc-' + f.severity);
       c.appendChild(el('div', 'svc-f-title', '[' + f.severity.toUpperCase() + '] ' + f.title));
@@ -121,36 +121,36 @@
       const box = el('div', 'svc-card');
       box.appendChild(el('h4', null, src));
       box.appendChild(kv('pid', String(p.last_pid ?? '-')));
-      box.appendChild(kv('시작', p.starts + '회'));
-      box.appendChild(kv('uptime', hb.uptime_s != null ? Math.round(hb.uptime_s / 60) + '분' : '-'));
+      box.appendChild(kv(tr('svc.starts'), tr('svc.times', { n: p.starts })));
+      box.appendChild(kv('uptime', hb.uptime_s != null ? tr('status.age.min', { n: Math.round(hb.uptime_s / 60) }) : '-'));
       box.appendChild(kv('rss', p.rss_mb ? p.rss_mb.last + 'MB (max ' + p.rss_mb.max + ')' : '-'));
-      if (hb.sessions != null) box.appendChild(kv('세션', hb.sessions + ' / busy ' + (hb.busy || []).length + ' / 에이전트 ' + hb.agent_procs));
-      box.appendChild(kv('마지막', hhmm(p.last_event)));
+      if (hb.sessions != null) box.appendChild(kv(tr('svc.sessions'), tr('svc.sessions_value', { n: hb.sessions, busy: (hb.busy || []).length, agents: hb.agent_procs })));
+      box.appendChild(kv(tr('svc.last'), hhmm(p.last_event)));
       ss.appendChild(box);
     });
     const ops = d.ops || {};
     const ob = el('div', 'svc-card');
-    ob.appendChild(el('h4', null, '운영'));
-    ob.appendChild(kv('repair', ops.repairs + '회' + (ops.repair_failed ? ' (실패 ' + ops.repair_failed + ')' : '')));
-    ob.appendChild(kv('호출자', JSON.stringify(ops.repair_callers || {})));
+    ob.appendChild(el('h4', null, tr('svc.ops')));
+    ob.appendChild(kv('repair', tr('svc.times', { n: ops.repairs }) + (ops.repair_failed ? tr('svc.failed_count', { n: ops.repair_failed }) : '')));
+    ob.appendChild(kv(tr('svc.callers'), JSON.stringify(ops.repair_callers || {})));
     ob.appendChild(kv('probe', JSON.stringify(ops.doctor_probe || {})));
-    ob.appendChild(kv('정리된 프로세스', JSON.stringify(ops.reaped || {})));
+    ob.appendChild(kv(tr('svc.reaped'), JSON.stringify(ops.reaped || {})));
     ss.appendChild(ob);
     const tb = el('div', 'svc-card');
-    tb.appendChild(el('h4', null, '턴'));
+    tb.appendChild(el('h4', null, tr('svc.turns')));
     const tp = (d.turns && d.turns.by_provider) || {};
-    if (!Object.keys(tp).length) tb.appendChild(kv('-', '기록 없음'));
+    if (!Object.keys(tp).length) tb.appendChild(kv('-', tr('svc.no_records')));
     Object.keys(tp).forEach((prov) => {
       const t = tp[prov];
-      tb.appendChild(kv(prov, t.total + '턴, 실패 ' + Math.round(t.fail_rate * 100) + '%, p50 ' + t.p50_s + 's'));
+      tb.appendChild(kv(prov, tr('svc.turn_stats', { n: t.total, fail: Math.round(t.fail_rate * 100), p50: t.p50_s })));
     });
     ss.appendChild(tb);
     pane.appendChild(ss);
 
     const es = el('section', 'svc-sec');
-    es.appendChild(el('h4', null, (onlySession ? '이 세션 타임라인' : '최근 경고·오류·운영 이벤트') + ' (' + data.events.length + ')'));
+    es.appendChild(el('h4', null, (onlySession ? tr('svc.session_timeline') : tr('svc.recent_events')) + ' (' + data.events.length + ')'));
     const shown = data.events.filter((e) => matches(eventLine(e)));
-    if (!shown.length) es.appendChild(el('div', 'svc-empty', '표시할 이벤트가 없습니다.'));
+    if (!shown.length) es.appendChild(el('div', 'svc-empty', tr('svc.no_events')));
     shown.forEach((e) => es.appendChild(row(e)));
     pane.appendChild(es);
   }
@@ -171,7 +171,7 @@
   async function copy() {
     if (!data || !data.ok) return;
     const d = data.digest;
-    const lines = ['서비스 로그 ' + since + ' 상태=' + d.status];
+    const lines = [tr('svc.copy_head', { since, status: d.status })];
     d.findings.forEach((f) => lines.push('[' + f.severity.toUpperCase() + '] ' + f.title + '\n  → ' + f.hint));
     data.events.filter((e) => matches(eventLine(e))).forEach((e) => lines.push('[' + hhmm(e.ts) + '] ' + e.src + ' ' + eventLine(e)));
     try { await navigator.clipboard.writeText(lines.join('\n')); } catch (_) { /* clipboard blocked: ignore */ }
