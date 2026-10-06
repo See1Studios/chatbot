@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-10-06 — 화면에 넘기기 카드와 취소 버튼 (HANDOFF_BOARD_v1, #719)
+
+- **운영자**: "계속"
+- **바뀐 것**: 입력창 위, 작업 카드 바로 위에 넘기기 카드가 뜬다 — 열린 것 전부와 10분 안에 끝난 것. 카드마다 "↪#번호 · 보낸 쪽 → 받은 쪽(역할) · 상태 · 걸린 시간 · 할 일 앞부분", 끝난 것은 결과 첫 줄. 열린 카드에는 [취소] 버튼(확인 후 `POST /api/handoffs/<id>/cancel`). 데이터는 `GET /api/handoffs`, 작업 카드와 함께 15초마다 새로 그린다. 새 화면 코드는 `static/app-handoffs.js`.
+- **강제 장치**: 넘기기 상태가 새로 생기면 화면 이름표가 없을 때 `test_handoff_bar`가 실패한다.
+- **재시작**: 필요(서버 경로). 화면은 새로고침.
+
 ## 2026-10-06 — docs(plans): add propagation and state architecture plan for PE dev governance (#715, 위임 agy)
 
 - **커밋**: `79f210d` docs(plan): update propagation and state architecture governance details, `7fdfae7` docs(plan): add propagation and state architecture plan

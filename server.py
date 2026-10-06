@@ -479,6 +479,12 @@ def _dev_delete_character(req: Req):
 
 _api, _gift = route_table.api, route_table.gift
 
+def _handoffs(req):
+    """GET /api/handoffs: the open handoffs and the ones just closed, for the page (HANDOFF_BOARD_v1)."""
+    import dialog_handoff
+    return req.json({"ok": True, "handoffs": dialog_handoff.board()})
+
+
 GET_ROUTES = [
     (("/healthz", "/health"), _healthz),
     (None, _push("GET")),
@@ -508,6 +514,7 @@ GET_ROUTES = [
     (None, _gift(lambda req: art_manager.handle_get(req.path))),
     (None, _art),
     ("/api/sessions/busy", route_sessions.busy),
+    ("/api/handoffs", _handoffs),
     ("/api/sessions/active", route_sessions.active),
     ("/api/sessions/caller", route_sessions.caller),
     ("/api/office/notify", route_sessions.office_notify),

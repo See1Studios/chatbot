@@ -748,6 +748,7 @@ function renderWorkCard(r) {
 }
 
 async function loadWork() {
+  if (typeof loadHandoffs === 'function') loadHandoffs();   // HANDOFF_BOARD_v1: refreshed with the work cards
   if (!workBarEl) return;
   let res;
   try {

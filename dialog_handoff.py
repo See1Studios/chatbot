@@ -116,6 +116,34 @@ def create(sender: str, sender_sid: str, to: str, role: str, task: str, done_whe
     return row
 
 
+BOARD_RECENT_SEC = 600   # a closed handoff stays on the page this long, so its outcome is seen
+
+
+def board(now: Optional[float] = None) -> List[Dict]:
+    """HANDOFF_BOARD_v1: what the page shows -- every open handoff and those closed in the last BOARD_RECENT_SEC,
+    newest first; names are display names (the page shows them, never keys on them)."""
+    now = now or time.time()
+    import characters
+
+    def name(cid: str) -> str:
+        try:
+            return characters.name(characters.load(cid)) or cid
+        except Exception:  # noqa: BLE001
+            return cid
+    out = []
+    for h in sorted(all_handoffs().values(), key=lambda x: x["id"], reverse=True):
+        closed = h.get("state") in CLOSED
+        if closed and now - float(h.get("state_at") or h.get("at") or 0) > BOARD_RECENT_SEC:
+            continue
+        line = str(h.get("result") or h.get("reason") or "").strip().splitlines()
+        out.append({"id": h["id"], "state": h.get("state"), "open": not closed, "to": name(h.get("to", "")),
+                    "from": name(h.get("from", "")), "role": _title(h.get("to", ""), h.get("role", "")),
+                    "task": str(h.get("task") or "").strip().splitlines()[0][:140] if h.get("task") else "",
+                    "since": float(h.get("started") or h.get("at") or 0), "parent": h.get("parent"),
+                    "outcome": (line[0] if line else "")[:160] if closed else ""})
+    return out
+
+
 def ledger(cid: str, limit: int = 10) -> List[Dict]:
     """The handoffs `cid` sent or received, newest first: what a director reads instead of remembering (a later state
     replaces an earlier one; live 2026-10-05 the lead kept reporting a cancelled handoff from memory)."""
