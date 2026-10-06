@@ -277,6 +277,26 @@
     {
       "path": "templates/workspace-manifest.json",
       "reason": "what the shipped workspace holds (uds/C5)"
+    },
+    {
+      "path": "tests/test_conventions.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "reason": "architecture and Tier governance SSOT (prop)"
+    },
+    {
+      "path": "docs/CONVENTION.md",
+      "reason": "engineering convention SSOT (prop)"
+    },
+    {
+      "path": "docs/STATE.md",
+      "reason": "governance propagation ledger (prop)"
+    },
+    {
+      "path": "templates/dev-workspace/roles/",
+      "reason": "engine role packs SSOT (linked into live workspace)"
     }
   ]
 }

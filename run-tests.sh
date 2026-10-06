@@ -53,6 +53,7 @@ FAST=(
   test_migrate_user_data
   test_workspace_template
   test_import_cycles
+  test_conventions
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

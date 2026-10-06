@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-07 — conventions on FAST / Tier 3
+
+- `tests/test_conventions.py` added to `run-tests.sh` FAST (commit hook) and `protected_paths.json` governance.
+- Governance also lists `docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md`, `templates/dev-workspace/roles/`.
+- Ticket: #736. Plan: prop/B.
+
 ## 2026-10-06 — Refine root AGENTS.md as development rule registry (propagation, #735)
 
 - **What**: Root `AGENTS.md` stays the engine-dev entry / SSOT map / rule registry (not the runtime charter). Added Korean-to-developer / English-docs standing rule; mapped CONVENTION items into the registry with honest enforcers (`test_conventions` where it checks, manual for pairing and banter); SSOT rows for `docs/CONVENTION.md` and `docs/STATE.md`; start-order on-demand step; clarified entry pointers (`CLAUDE.md` / `GEMINI.md` only) and `data/workspace` template-twin wording.

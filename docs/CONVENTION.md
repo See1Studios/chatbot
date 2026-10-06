@@ -69,5 +69,5 @@
 | **Mandatory Test Pairing** | 모든 코드 변경에 1:1 테스트 동반 | 커밋 훅 가드 실행, 리뷰어 확인 | 테스트 미동반 커밋 기계적 거부 훅, 워크트리 리뷰 연동 | `.githooks/check_staged.py`, `tools/review_checklist.py` |
 | **함수 줄 수 상한** | 최대 80줄 (`FUNC_MAX_LINES=80`) | **[기계적 상시 강제]** `run-tests.sh --fast` | 레거시 `FUNC_CEILINGS` 래칫 단계적 축소 | `tests/test_file_sizes.py` |
 | **모듈 바이트 상한** | 최대 80,000 바이트 (`MAX_BYTES=80_000`) | **[기계적 상시 강제]** `run-tests.sh --fast` | 대형 모듈 분리 지속 | `tests/test_file_sizes.py` |
-| **비동기 타임아웃** | 최대 30초 기본 타임아웃 | 턴 워치독 일부 감시, 호출부 개별 지정 | 전수 타임아웃 정적 린터 및 전용 가드 테스트 | `turn_watchdog.py`, `tests/test_conventions.py`(예정) |
+| **비동기 타임아웃** | 최대 30초 기본 타임아웃 | 턴 워치독 일부 감시, 호출부 개별 지정 | 전수 타임아웃 정적 린터 및 전용 가드 테스트 | `turn_watchdog.py`, `tests/test_conventions.py` (FAST / Tier 3) |
 | **업무 사담 상한** | 최대 1~2문장 | 프롬프트 지침 | 워커 보고서 검증기 및 리뷰 체크리스트 자동 판정 | `tools/worker_output.py`, `tools/review_checklist.py` |
