@@ -3,6 +3,7 @@ conversation's agent. The session keeps its last injections (kept across a resta
 serves them, and the page names every layer in Korean.
 Run: python3 -m unittest tests.test_context_panel  (from services/chatbot)
 """
+import json
 import re
 import sys
 import unittest
@@ -59,11 +60,13 @@ class SessionRecord(unittest.TestCase):
 
 
 class Page(unittest.TestCase):
-    def test_every_layer_has_a_korean_name_on_the_page(self):
-        js = (STATIC / "app-status-context.js").read_text(encoding="utf-8")
-        table = js[js.index("const CONTEXT_LAYER_NAME"):js.index("};", js.index("const CONTEXT_LAYER_NAME"))]
-        named = set(re.findall(r"(\w+):\s*'", table))
-        self.assertEqual({layer.id for layer in I.LAYERS} - named, set(), "a new layer needs its name in the panel")
+    def test_every_layer_and_reason_has_a_name_in_every_language(self):
+        whys = {"first", "rules_changed", "refresh", "lore"}   # session_turn._log_context's reasons
+        for cat in sorted((STATIC / "i18n").glob("*.json")):
+            keys = json.loads(cat.read_text(encoding="utf-8"))
+            self.assertEqual({x.id for x in I.LAYERS if "context.layer." + x.id not in keys}, set(),
+                             "%s: a new layer needs its name" % cat.name)
+            self.assertEqual({w for w in whys if "context.why." + w not in keys}, set(), cat.name)
 
     def test_the_panel_loads_with_the_status_tab(self):
         html = (STATIC / "index.html").read_text(encoding="utf-8")

@@ -310,7 +310,7 @@ class TestSpeechLayout(unittest.TestCase):
     def test_mic_btn_in_html(self):
         self.assertIn('id="micBtn"', self.html)
         self.assertIn('class="geo-trigger-btn mic-trigger-btn"', self.html)
-        self.assertIn('aria-label="음성 입력"', self.html)
+        self.assertIn('data-i18n-aria-label="mic.label"', self.html)   # I18N_v1: the words are in static/i18n
         self.assertIn('aria-pressed="false"', self.html)
         self.assertRegex(self.html, r'<button id="micBtn"[^>]*>[\s\S]*?<svg class="tab-icon-svg"')
 

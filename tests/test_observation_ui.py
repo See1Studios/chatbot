@@ -68,12 +68,13 @@ const body = code + `
 const sentText = [], asked = [];
 const mod = new Function('document', 'api', 'statusObsBoxEl', 'alertModal', 'addActivity', 'fetchSelfStatus',
                          'statusTicketBoxEl', 'inputEl', 'switchTab', 'ticketBarEl', 'addNotice',
-                         'fillComposer', 'send', 'tapSendOpts', 'confirmModal', body)(
+                         'fillComposer', 'send', 'tapSendOpts', 'confirmModal', 't', body)(
   { createElement: el, getElementById: () => null }, api, box, async m => { alerts.push(m); }, m => activity.push(m), () => { fetched++; },
   tbox, inputEl, t => tabs.push(t), bar, (kind, m) => notices.push([kind, m]),   // chat notices (#145)
   (t) => { inputEl.value = t; inputEl.focus(); },                                  // FILL_COMPOSER_v1
   async () => { sentText.push(inputEl.value); inputEl.value = ''; }, () => ({ keepFocus: false }),
-  async (m) => { asked.push(m); return true; });                                  // TICKET_BUTTONS_v1: [폐기] asks
+  async (m) => { asked.push(m); return true; },                                   // TICKET_BUTTONS_v1: [폐기] asks
+  (k, v) => k + (v && v.id ? ' #' + v.id : ''));                                 // I18N_v1: t() names the key
 
 const HOSTILE = '<img src=x onerror=alert(1)>';
 const overview = {

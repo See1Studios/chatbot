@@ -63,12 +63,12 @@ const log = { posts: [], notices: [] };
 const doc = { el: {} };
 function node(tag, cls, text) { return { tag, className: cls || '', textContent: text || '', children: [], style: {},
   appendChild(c) { this.children.push(c); return c; }, addEventListener(e, f) { this['on' + e] = f; } }; }
-const env = { obsNode: node, workElapsed: s => Math.round(s) + 's', confirm: () => true, obsErrorText: String,
+const env = { obsNode: node, workElapsed: s => Math.round(s) + 's', confirm: () => true, obsErrorText: String, t: k => k,
   addNotice: (k, t) => log.notices.push(k + ':' + t),
   api: async (p, o) => { if (o && o.method === 'POST') log.posts.push(p); return { handoffs: [] }; },
   document: { getElementById: () => null } };
 const names = Object.keys(env);
-const m = new Function(...names, src + '; return { handoffCard, cancelHandoff, HANDOFF_STATE_LABEL };')(...names.map(k => env[k]));
+const m = new Function(...names, src + '; return { handoffCard, cancelHandoff };')(...names.map(k => env[k]));
 const open = m.handoffCard({ id: 7, state: 'running', open: true, from: 'Lead', to: 'Kit', role: 'Dev', task: 'fix it', since: 0, result: '' });
 const closed = m.handoffCard({ id: 8, state: 'partial', open: false, from: 'Lead', to: 'Kit', role: 'Dev', task: 'read', since: 0, result: 'note first\n2 of 10' });
 const buttons = c => c.children[0].children.filter(x => x.tag === 'button').length;
@@ -76,7 +76,7 @@ const buttons = c => c.children[0].children.filter(x => x.tag === 'button').leng
   await m.cancelHandoff({ id: 7 }, { disabled: false });
   console.log(JSON.stringify({ openButtons: buttons(open), closedButtons: buttons(closed),
     closedTag: closed.children[1].tag, closedResult: closed.children[1].children[1].textContent,
-    posts: log.posts, labels: Object.keys(m.HANDOFF_STATE_LABEL) }));
+    posts: log.posts, badge: open.children[0].children[2].textContent }));
 })();
 """
 
@@ -97,8 +97,11 @@ class Page(unittest.TestCase):
     def test_cancel_posts_to_the_handoffs_cancel_route(self):
         self.assertEqual(self.o["posts"], ["/api/handoffs/7/cancel"])
 
-    def test_every_state_has_a_name_on_the_page(self):
-        self.assertEqual(set(H.OPEN + H.CLOSED) - set(self.o["labels"]), set())
+    def test_every_state_has_a_name_in_every_language(self):
+        self.assertEqual(self.o["badge"], "handoff.state.running")   # the badge is the state's catalog key
+        for cat in sorted((STATIC / "i18n").glob("*.json")):
+            keys = json.loads(cat.read_text(encoding="utf-8"))
+            self.assertEqual({s for s in H.OPEN + H.CLOSED if "handoff.state." + s not in keys}, set(), cat.name)
 
     def test_it_is_drawn_above_the_work_cards_and_refreshed_with_them(self):
         html = (STATIC / "index.html").read_text(encoding="utf-8")

@@ -77,7 +77,7 @@
 |---|---|---|---|---|---|---|---|
 | `l10n/A` | 이 문서 + INDEX 행 + release-pipeline 연결 | `docs/plans/localization.md`, `docs/plans/INDEX.md`, `docs/plans/release-pipeline.md` | INDEX 행이 있고 커밋됨 | 0 · — | S | — | ✅ 티켓 없음(pew D3) |
 | `l10n/B` | **래칫 가드**: 하드코딩 한국어 줄 수가 파일별 기준선보다 늘면 실패, 줄면 기준선을 낮춘다(`--update`는 낮추기만). 의도된 줄은 `l10n-ok` | `tests/test_ratchets.py`, `ratchet_baseline.json` (align/E와 한 장치) | 새 한국어 하드코딩을 추가하면 실패 | 3 · — | S | — | ✅ #276 |
-| `l10n/C` | i18n 기반: 카탈로그 `static/i18n/<lang>.json`, `t()`, 언어 결정(D4), `Intl` 형식 헬퍼, `<html lang>` | `static/i18n/`, `static/app-i18n.js`, `static/index.html` | `?lang=en`으로 열면 이미 옮긴 문자열이 영어로 나옴 | 0 · — | M | D1–D4 | 대기 |
+| `l10n/C` | i18n 기반: 카탈로그 `static/i18n/<lang>.json`, `t()`, 언어 결정(D4), `Intl` 형식 헬퍼, `<html lang>` | `static/i18n/`, `static/app-i18n.js`, `static/index.html` | `?lang=en`으로 열면 이미 옮긴 문자열이 영어로 나옴 | 0 · — | M | D1–D4 | ✅ 2026-10-06 #730 — `app-i18n.js`(`t()`, `data-i18n*`, `fmtNumber/fmtTime/fmtDate`), `static/i18n/ko.json`·`en.json`, `test_l10n_catalogs`. 언어는 `?lang=` → 이 브라우저에 남긴 값 → 브라우저 언어 → 영어. D4의 "사용자 데이터에 저장"은 설정 화면이 생길 때(지금은 브라우저별) |
 | `l10n/D` | 페르소나 말투 분리: 엔진 문자열 58줄을 중립 문구로 | `static/*.js`, `*.py` | `grep "냥"` 결과가 엔진 코드에서 0건(카드 제외) | 2 · ⚡ | M | D7 | 대기 |
 | `l10n/E` | UI 문자열 이관(파일 단위 티켓 여러 장, 큰 파일부터) | `static/app-*.js`, `index.html` | 파일마다 래칫 기준선이 0으로 내려감 | 0 · — | L → 파일별 S/M | l10n/B, C, D | 대기 |
 | `l10n/F` | 서버 사용자 메시지 이관(로그용 문자열은 영어로 통일하고 이관 대상에서 제외) | `server.py`, `session.py`, `providers/` 등 | 서버가 사용자에게 보내는 문자열은 모두 카탈로그 키 | 3 · ⚡ | M | l10n/C | 대기 |
@@ -89,7 +89,7 @@
 
 강제 장치(plan-execution-workflow §0 원칙):
 - `test_ratchets`(l10n): 하드코딩된 한국어는 **줄어들 수만 있다**. 기준선(2026-09-28) 1,303줄(UI 893, 서버 410)에서 시작해 0을 향한다.
-- `test_l10n_catalogs`(`l10n/I`에서 추가): 모든 언어 카탈로그가 같은 키를 가지고, 코드가 쓰는 키가 카탈로그에 있다.
+- `test_l10n_catalogs`(`l10n/C`에서 먼저 추가, 2026-10-06 #730): 모든 언어 카탈로그가 같은 키·같은 자리표시자를 가지고, 코드가 글자 그대로 쓰는 키(`t('…')`, `data-i18n*`)가 카탈로그에 있다. `t('prefix.' + 값)`처럼 조합하는 키는 그 값 목록을 아는 테스트가 확인한다(`test_handoff_bar` 상태, `test_context_panel` 레이어·이유).
 
 ---
 

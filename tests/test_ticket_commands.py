@@ -21,7 +21,7 @@ const log = { notices: [], decided: [], sent: 0, focused: 0 };
 const inputEl = { value: '', focus() { log.focused++; } };
 const env = { inputEl, addNotice: (k, t) => log.notices.push(k + ':' + t), loadTickets() {}, updateSendButton() {},
   decideTicket: async (c) => { log.decided.push(c.action + ' ' + c.id + ' ' + c.comment); return 'ok'; },
-  goTicket: async () => ({}), send: async () => { log.sent++; }, obsErrorText: String };
+  goTicket: async () => ({}), send: async () => { log.sent++; }, obsErrorText: String, t: k => k };
 const names = Object.keys(env);
 const api = new Function(...names, code + '; return { parseTicketCommand, runTicketDecision };')(...names.map(k => env[k]));
 (async () => {

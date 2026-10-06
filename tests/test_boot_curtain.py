@@ -24,7 +24,7 @@ class BootCurtain(unittest.TestCase):
         self.assertIn("setTimeout(liftBootCurtain, BOOT_CURTAIN_MAX_MS);", app)
         self.assertLessEqual(int(re.search(r"BOOT_CURTAIN_MAX_MS = (\d+)", app).group(1)), 5000)
         tail = app[app.index("setTimeout(liftBootCurtain"):]
-        self.assertRegex(tail, r"boot\(\)[\s\S]*\.finally\([\s\S]*liftBootCurtain")
+        self.assertRegex(tail, r"(boot\(\)|\.then\(boot\))[\s\S]*\.finally\([\s\S]*liftBootCurtain")   # I18N_v1: after the words
 
     def test_nothing_overwrites_the_root_classes(self):
         for js in STATIC.glob("*.js"):

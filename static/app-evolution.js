@@ -466,19 +466,19 @@ const TICKET_BAR_MAX = 3;
 // the comment to be typed after it.
 // Throwing work away is the one decision a stray tap should not make: it asks first.
 const TICKET_ASK_FIRST = ['decline', 'discard'];
-async function fillTicketCommand(t, action) {
+async function fillTicketCommand(tk, action) {
   switchTab('chat');
-  if (action === 'rework') { fillComposer(ticketDecisionText(t, action) + ' '); return; }
+  if (action === 'rework') { fillComposer(ticketDecisionText(tk, action) + ' '); return; }
   if (TICKET_ASK_FIRST.includes(action) && typeof confirmModal === 'function'
-      && !(await confirmModal('작업 #' + t.id + '을(를) ' + TICKET_DECISION_WORD[action] + '할까요?'))) return;   // l10n-ok
-  await runTicketDecision({ action, id: t.id }, typeof tapSendOpts === 'function' ? tapSendOpts() : undefined);
+      && !(await confirmModal(t('ticket.confirm.' + action, { id: tk.id })))) return;
+  await runTicketDecision({ action, id: tk.id }, typeof tapSendOpts === 'function' ? tapSendOpts() : undefined);
 }
 
 // The operator's decision on a ticket, made in the page and never sent to the agent -- except [진행], which then
 // hands the agent its instruction as an ordinary message. Resolves true when it sent that message.
 async function runTicketDecision(cmd, opts) {
   if (cmd.action === 'rework' && !cmd.comment) {   // a rework needs the reason the worker gets: ask, keep the command
-    addNotice('warn', '반려 이유를 번호 뒤에 적어 주세요 (예: /ticket rework ' + cmd.id + ' 테스트를 더 넣어 줘)');   // l10n-ok
+    addNotice('warn', t('ticket.rework_needs_reason', { id: cmd.id }));
     inputEl.value = '/ticket rework ' + cmd.id + ' ';
     if (typeof updateSendButton === 'function') updateSendButton();
     inputEl.focus();
@@ -495,7 +495,7 @@ async function runTicketDecision(cmd, opts) {
     }
     addNotice('ok', await decideTicket(cmd));
   } catch (e) {
-    addNotice('error', '작업 결정 실패: ' + obsErrorText(e));   // l10n-ok: moved from app.js send()
+    addNotice('error', t('ticket.decision_failed', { error: obsErrorText(e) }));
   }
   loadTickets();
   return false;

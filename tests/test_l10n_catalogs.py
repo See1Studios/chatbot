@@ -1,0 +1,100 @@
+"""I18N_v1 (docs/plans/localization.md l10n/C): the page's words come from static/i18n/<lang>.json by key. Every catalog
+has the same keys; every key the page names literally (t('x'), data-i18n*) is in them; t() falls back to English, then
+to the key; the language is ?lang=, then the one kept, then the browser's, then English. The REAL app-i18n.js runs in
+node against stubs.
+Run: ./run-tests.sh test_l10n_catalogs
+"""
+import json
+import re
+import shutil
+import subprocess
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+STATIC = ROOT / "static"
+CATALOGS = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted((STATIC / "i18n").glob("*.json"))}
+
+
+class Catalogs(unittest.TestCase):
+    def test_the_first_languages_are_there_with_the_same_keys(self):
+        self.assertTrue({"ko", "en"} <= set(CATALOGS))
+        en = set(CATALOGS["en"])
+        for lang, cat in CATALOGS.items():
+            self.assertEqual(set(cat) ^ en, set(), "%s differs from en" % lang)
+            self.assertEqual([k for k, v in cat.items() if not isinstance(v, str) or not v.strip()], [], lang)
+
+    def test_every_key_the_page_names_is_in_the_catalog(self):
+        used = set()
+        for js in STATIC.glob("*.js"):
+            used |= set(re.findall(r"\bt\(\s*'([a-z0-9_.]+)'\s*[,)]", js.read_text(encoding="utf-8")))
+        html = (STATIC / "index.html").read_text(encoding="utf-8")
+        used |= set(re.findall(r'data-i18n(?:-title|-aria-label)?="([^"]+)"', html))
+        self.assertTrue(used)
+        self.assertEqual(sorted(used - set(CATALOGS["en"])), [])
+
+    def test_a_placeholder_is_the_same_in_every_language(self):
+        for key, text in CATALOGS["en"].items():
+            want = set(re.findall(r"\{(\w+)\}", text))
+            for lang, cat in CATALOGS.items():
+                self.assertEqual(set(re.findall(r"\{(\w+)\}", cat[key])), want, "%s %s" % (lang, key))
+
+    def test_it_loads_first_and_boot_waits_for_it(self):
+        html = (STATIC / "index.html").read_text(encoding="utf-8")
+        self.assertLess(html.index('src="./app-i18n.js'), html.index('src="./app-api.js'))
+        self.assertIn("i18nReady.then(boot)", (STATIC / "app.js").read_text(encoding="utf-8"))
+
+
+HARNESS = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[1], 'utf8');
+const cats = JSON.parse(process.argv[2]);
+async function run(search, kept, langs) {
+  const store = { 'chatbot.lang': kept };
+  const doc = { documentElement: {}, querySelectorAll: () => [] };
+  const env = {
+    location: { search }, navigator: { languages: langs },
+    localStorage: { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } },
+    fetch: async url => { const l = url.split('/').pop().split('.')[0]; return { ok: !!cats[l], json: async () => cats[l] }; },
+    document: doc };
+  const names = Object.keys(env);
+  const m = new Function(...names, src + '; return { t, i18nReady, I18N_LANG };')(...names.map(k => env[k]));
+  await m.i18nReady;
+  return { lang: m.I18N_LANG, html: doc.documentElement.lang, kept: store['chatbot.lang'] || '',
+    hello: m.t('x.hello', { name: 'Kit' }), onlyEn: m.t('x.only_en'), missing: m.t('x.none') };
+}
+(async () => {
+  console.log(JSON.stringify({
+    asked: await run('?lang=ko', '', ['en-US']),
+    kept: await run('', 'ko', ['en-US']),
+    browser: await run('', '', ['fr-FR', 'ko-KR']),
+    none: await run('', '', ['fr-FR']),
+    odd: await run('?lang=xx', '', []) }));
+})();
+"""
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class Runtime(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cats = {"en": {"x.hello": "Hello {name}", "x.only_en": "only English"}, "ko": {"x.hello": "{name} 안녕"}}  # l10n-ok
+        r = subprocess.run(["node", "-e", HARNESS, str(STATIC / "app-i18n.js"), json.dumps(cats)],
+                           capture_output=True, text=True, timeout=20)
+        assert r.returncode == 0, r.stderr[-1500:]
+        cls.o = json.loads(r.stdout.strip().splitlines()[-1])
+
+    def test_the_language_is_asked_then_kept_then_the_browsers_then_english(self):
+        self.assertEqual([self.o[k]["lang"] for k in ("asked", "kept", "browser", "none", "odd")],
+                         ["ko", "ko", "ko", "en", "en"])
+        self.assertEqual(self.o["asked"]["kept"], "ko", "?lang= is kept for this browser")
+        self.assertEqual(self.o["asked"]["html"], "ko", "<html lang> follows")
+
+    def test_words_fall_back_to_english_then_to_the_key(self):
+        ko = self.o["asked"]
+        self.assertEqual((ko["hello"], ko["onlyEn"], ko["missing"]), ("Kit 안녕", "only English", "x.none"))  # l10n-ok
+        self.assertEqual(self.o["none"]["hello"], "Hello Kit")
+
+
+if __name__ == "__main__":
+    unittest.main()

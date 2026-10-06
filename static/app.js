@@ -968,12 +968,12 @@ inputEl.addEventListener('keydown', (e) => {
 });
 
 autoResizeInput();
-// BOOT_CURTAIN_v1 (chat-base.css): the page appears once boot has drawn it -- two frames after, so the last layout
-// (history, scroll, the model tag) is painted while still hidden. A boot that hangs does not keep it hidden.
+// BOOT_CURTAIN_v1 (chat-base.css): the page shows two frames after boot drew it (history, scroll, model tag), never
+// later than the cap. I18N_v1: boot starts once the words are in.
 const BOOT_CURTAIN_MAX_MS = 4000;
 function liftBootCurtain() { document.documentElement.classList.remove('booting'); }
 setTimeout(liftBootCurtain, BOOT_CURTAIN_MAX_MS);
-boot().then(() => updateViewport()).catch(() => {}).finally(() => {
+i18nReady.then(boot).then(() => updateViewport()).catch(() => {}).finally(() => {
   requestAnimationFrame(() => requestAnimationFrame(liftBootCurtain));
 });
 
