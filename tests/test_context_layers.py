@@ -58,6 +58,38 @@ class Fixture(WorkspaceCase):
         _write(self.ws / "memory/MEMORY.md", "# 기억\n- ANOTHER-FACT\n")
         self.assertEqual(I.build_instruction_bundle(character=self.card_id)["hash"], h0)
 
+    def test_the_bundle_says_what_each_layer_gave(self):
+        # CONTEXT_LOG_v1: the injection record's source
+        b = I.build_instruction_bundle(character=self.card_id)
+        ids = [x["id"] for x in b["layers"]]
+        self.assertEqual(ids, [layer.id for layer, t in I.layer_texts("work", self.card_id) if t])
+        self.assertIn("house_memory", ids)
+        charter = next(x for x in b["layers"] if x["id"] == "charter")
+        self.assertEqual((charter["kind"], len(charter["hash"])), ("rules", 8))
+        self.assertGreater(charter["chars"], 0)
+
+    def test_an_injection_is_logged_once_with_its_layers_and_why(self):
+        import obslog
+        import session as S
+        from unittest import mock
+        s = S.AgentSession.__new__(S.AgentSession)
+        s.sid, s.provider, s.mode, s.character = "sid-1", "agy", "work", self.card_id
+        b = I.build_instruction_bundle(character=self.card_id)
+        with mock.patch.object(obslog, "event") as ev:
+            s._log_context(b)
+            s.persona_injected = True
+            s._log_context(b)
+        (name1, f1), (name2, f2) = [(c.args[0], c.kwargs) for c in ev.call_args_list]
+        self.assertEqual((name1, f1["why"], f2["why"]), ("context.inject", "first", "rules_changed"))
+        self.assertEqual((f1["sid"], f1["mode"], f1["hash"]), ("sid-1", "work", b["hash"]))
+        self.assertEqual(f1["chars"], len(b["text"]))
+        self.assertEqual([x["id"] for x in f1["layers"]], [x["id"] for x in b["layers"]])
+
+    def test_the_turn_logs_where_it_injects(self):
+        src = (Path(I.__file__).parent / "session_turn.py").read_text(encoding="utf-8")
+        block = src[src.index("if header:"):src.index("self.persona_injected = True", src.index("if header:"))]
+        self.assertIn("self._log_context(bundle)", block)
+
     def test_the_bundles_keep_their_bytes(self):
         got = {}
         for mode in I.BOTH:

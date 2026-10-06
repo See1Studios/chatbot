@@ -448,7 +448,8 @@ def _rules_text(character: str = "", history: Optional[Union[List, str]] = None)
 
 
 def build_instruction_bundle(mode: str = "work", character: str = "", history: Optional[Union[List, str]] = None) -> Dict[str, str]:
-    """{"text": full bundle, "hash": digest of the static layers}. Empty text
+    """{"text": full bundle, "hash": digest of the static layers, "layers": what each non-empty layer gave (id, kind,
+    chars, hash) for the injection record (CONTEXT_LOG_v1)}. Empty text
     when there are no rule files at all (caller then injects nothing).
     A private session (SESSION_SPLIT_v1) gets the character's private rules and private memory instead of skills,
     work memory and the status badge; it needs the character's card."""
@@ -465,4 +466,6 @@ def build_instruction_bundle(mode: str = "work", character: str = "", history: O
         text = static + "".join(t if lid == "private_memory" else "\n\n" + t for lid, t in dynamic)
     else:
         text = "\n\n".join([static] + [t for _lid, t in dynamic])
-    return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
+    return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16],
+            "layers": [{"id": layer.id, "kind": layer.kind, "chars": len(t),
+                        "hash": hashlib.sha256(t.encode("utf-8")).hexdigest()[:8]} for layer, t in got if t]}

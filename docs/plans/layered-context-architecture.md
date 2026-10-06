@@ -4,7 +4,7 @@
 > 하고 싶어", "계획부터 견고하게 다시 정리해보자"): **핵심 + 기반** — 캐릭터가 무엇을 알고 시작하는지(지침·기억·스킬)가
 > 개인화의 바탕이다. 새 구조를 짓기보다, 이미 있는 층을 한 표로 정리하고, 실제로 바뀐 것이 에이전트에 닿게 하고, 무엇이
 > 언제 주입됐는지 기록으로 볼 수 있게 한다.
-> 상태: **active** (2026-10-06 다시 씀, D-1–D-6 추천대로 결정, lca/A 완료 #701)
+> 상태: **active** (2026-10-06 다시 씀, D-1–D-6 추천대로 결정, lca/A 완료 #701, lca/B 완료 #702)
 > 관련: [personalization-ladder.md](personalization-ladder.md)(층별 편집·승인) · [private-mode.md](private-mode.md)(사적 세션)
 > · [token-economy.md](token-economy.md)(턴 예산) · [instruction-architecture.md](archive/2026/instruction-architecture.md)(번들의 시작, P2)
 
@@ -76,7 +76,7 @@
 
 조립:  모드에 맞는 층만 → 정적 해시(지금과 같음) + 동적 해시(층별) + 턴별(로어북)
 주입:  첫 턴/정적 변경 → 전체 · 동적 층 변경 → 그 층만 [갱신] · 로어북 변경 → 그 부분만
-기록:  context.inject {sid, mode, why, layers:[{id, chars, hash}], total_chars}
+기록:  context.inject {sid, provider, mode, character, why, hash, chars, layers:[{id, kind, chars, hash}]}
 ```
 
 ## 6. 작업 항목
@@ -84,7 +84,7 @@
 | id | 작업 | 바뀌는 곳 | 수용 기준 (강제 장치) | ⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | lca/A | 층 목록 도입, 조립을 목록으로 | `instructions.py`, 테스트 | **모든 캐릭터×모드 번들이 이전과 바이트 단위로 같음**(고정 예시 테스트). 목록에 없는 층은 조립 불가 | ⚡ | M | D-1 | ✅ #701 |
-| lca/B | 주입 기록 | `session_turn.py`, `instructions.py`, `logdigest.py` | 턴마다 `context.inject` 한 줄(층 id·글자 수·해시·이유), `logdigest --evt context.inject` 요약. 테스트로 필드 고정 | ⚡ | S | lca/A | 대기 |
+| lca/B | 주입 기록 | `session_turn.py`, `instructions.py`, `logdigest.py` | 턴마다 `context.inject` 한 줄(층 id·글자 수·해시·이유), `logdigest --evt context.inject` 요약. 테스트로 필드 고정 | ⚡ | S | lca/A | ✅ #702 |
 | lca/C | 동적 층 갱신 | `session_turn.py`, `instructions.py` | 세션 중 기억이 바뀌면 다음 턴에 그 층만 `[갱신]`으로 붙고, 안 바뀌면 아무것도 안 붙음(테스트). 층별 상한 | ⚡ | M | lca/A, D-2 | 대기 |
 | lca/D | 로어북 턴별 층 | `instructions.py`, `session_turn.py` | CLI 세션에서 키워드가 걸리면 그 항목이 붙음(테스트), 정적 해시는 안 변함 | ⚡ | M | lca/A, D-3 | 대기 |
 | lca/E | 상태 탭 "지금 들어간 층" | `workspace_status.py`, `static/` | 세션 선택 시 마지막 주입의 층·글자 수·시각 표시(운영자 화면 확인) | ⚡ | S | lca/B | 대기 |

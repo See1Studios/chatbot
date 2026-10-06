@@ -5,7 +5,7 @@ build_instruction_bundle, _oneshot, ...) is read as `_s().name` on each call, ne
 from __future__ import annotations
 
 import threading
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import obslog
 from host_config import INACTIVITY_ROTATE_SEC, _now
@@ -224,6 +224,17 @@ class SessionTurn:
             self._loop_hint = ""
         return stdin_content
 
+    def _log_context(self, bundle: Dict[str, Any]) -> None:
+        """CONTEXT_LOG_v1 (layered-context-architecture lca/B): one `context.inject` line each time a bundle goes in --
+        which layers, how long, why (first turn, or its static layers changed). `logdigest.py --evt context.inject`."""
+        try:
+            why = "rules_changed" if getattr(self, "persona_injected", False) else "first"
+            obslog.event("context.inject", sid=self.sid, provider=self.provider, mode=getattr(self, "mode", "work"),
+                         character=getattr(self, "character", "") or "", why=why, hash=bundle.get("hash", ""),
+                         chars=len(bundle.get("text") or ""), layers=bundle.get("layers") or [])
+        except Exception:  # noqa: BLE001 -- a record never stops a turn
+            pass
+
     def _start_turn(self, text: str, client_mid: str, client_context: Optional[Dict[str, Any]], notice: bool, event_type: str) -> None:
         # Multi-Provider plan Phase 2: a one-shot exec provider (grok, and any
         # future codex-style adapter) needs its prompt known BEFORE spawning
@@ -265,6 +276,7 @@ class SessionTurn:
                             f"{btext}\n\n"
                             f"---\n\n"
                         )
+                    self._log_context(bundle)   # CONTEXT_LOG_v1: before the flags say it is in
                     self.persona_injected = True
                     self.persona_bundle_hash = bhash
         with self.lock:

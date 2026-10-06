@@ -43,6 +43,17 @@ class DigestTests(unittest.TestCase):
     def codes(self, d):
         return {f["code"] for f in d["findings"]}
 
+    def test_the_injections_are_summed_up(self):
+        # CONTEXT_LOG_v1: what went into the agents, by why and by mode
+        self.write([(30, {"src": "chat", "evt": "context.inject", "why": "first", "mode": "work", "chars": 4783}),
+                    (20, {"src": "chat", "evt": "context.inject", "why": "rules_changed", "mode": "work", "chars": 4800}),
+                    (10, {"src": "chat", "evt": "context.inject", "why": "first", "mode": "private", "chars": 5563})])
+        c = logdigest.digest(3600)["context"]
+        self.assertEqual(c["injections"], 3)
+        self.assertEqual(c["by_why"], {"first": 2, "rules_changed": 1})
+        self.assertEqual(c["by_mode"], {"work": 2, "private": 1})
+        self.assertEqual(c["max_chars"], 5563)
+
     def test_clean_run_is_ok(self):
         self.write([(600, {"src": "chat", "evt": "proc.start"}), (300, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 50}),
                     (10, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 51})])

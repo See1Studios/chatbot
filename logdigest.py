@@ -126,6 +126,14 @@ def pct(values: List[float], q: float) -> Optional[float]:
     return round(v[min(len(v) - 1, int(q * len(v)))], 1)
 
 
+def _context_summary(win: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """CONTEXT_LOG_v1: what went into the agents -- injections by why and by mode, the largest."""
+    inj = [e for e in win if e.get("evt") == "context.inject"]
+    return {"injections": len(inj), "by_why": dict(Counter(str(e.get("why")) for e in inj)),
+            "by_mode": dict(Counter(str(e.get("mode")) for e in inj)),
+            "max_chars": max((int(e.get("chars") or 0) for e in inj), default=0)}
+
+
 def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     now = time.time()
     since_t = now - since_s
@@ -133,7 +141,6 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     events.sort(key=ts_of)
     before = [e for e in events if ts_of(e) < since_t]
     win = [e for e in events if ts_of(e) >= since_t]
-
     d: Dict[str, Any] = {"window": {"since": datetime.fromtimestamp(since_t).isoformat(timespec="seconds"),
                                     "until": datetime.fromtimestamp(now).isoformat(timespec="seconds"),
                                     "hours": round(since_s / 3600, 1), "events": len(win)}}
@@ -312,6 +319,7 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     d["sessions"] = {k: sum(1 for e in win if e.get("evt") == k) for k in
                      ("session.error", "session.session_rotate", "session.session_heavy", "turn.loop_notice", "turn.quiet_close",
                       "agent.spawn", "agent.exit", "agent.recycle")}
+    d["context"] = _context_summary(win)
     died = [e for e in win if e.get("evt") == "agent.exit" and e.get("died_mid_turn")]
     if died:
         find("warn", "agent_died_mid_turn", "에이전트 프로세스가 턴 도중 종료 %d회" % len(died),
