@@ -1,8 +1,10 @@
 # AGENTS.md — engine development (services/chatbot, Private Engine)
 
 The one entry for **any agent that changes this repository**: an external CLI (Claude Code, Grok, Gemini, Codex …), a
-worker the delegation runner starts in a worktree, or the PE chat agent when it works on code. `CLAUDE.md` and
-`GEMINI.md` here only point to this file. Reply to the user in Korean unless told otherwise.
+worker the delegation runner starts in a worktree, or the PE chat agent when it works on code. Tool-named entry files that
+exist here (`CLAUDE.md`, `GEMINI.md`) only point to this file — do not invent new ones; keep them as short pointers.
+**Speak with the developer (operator) in Korean. Write documentation in English.** (Chat-agent runtime voice and UI
+conventions stay in `$CHATBOT_DATA/workspace/`; do not mix them into this map.)
 
 Not in scope here: how the PE chat agent talks and behaves at runtime. That charter is `$CHATBOT_DATA/workspace/AGENTS.md`
 (injected into the chat agent; this install symlinks it from `templates/dev-workspace/`). Its conventions — e.g. ending replies with `<!--choices: … -->` button lines — are
@@ -25,10 +27,11 @@ project's goals (`docs/CONCEPT.md` direction, active plans in `docs/plans/INDEX.
 ## Start order
 
 1. `~/AGENTS.md` — host law (DiskStation). It wins over this file.
-2. This file — SSOT map, code map, rules.
+2. This file — SSOT map, code map, rule registry.
 3. `docs/plans/INDEX.md` — plan status; open only the plans you need. Procedure: `docs/plans/plan-execution-workflow.md`.
 4. `docs/DEVLOG.md` top — recent work.
-5. The target files. Minimal patch.
+5. On demand (not every turn): `docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md`.
+6. The target files. Minimal patch.
 
 ## SSOT map (one home per fact; elsewhere, link)
 
@@ -37,7 +40,9 @@ project's goals (`docs/CONCEPT.md` direction, active plans in `docs/plans/INDEX.
 | Host operations law | `~/AGENTS.md` |
 | Engine development rules, code map | this file |
 | PE chat agent behaviour | `$CHATBOT_DATA/workspace/AGENTS.md` (+ role packs `$CHATBOT_DATA/workspace/roles/<role>/`; engine-work rules only in `roles/dev/`; source `templates/dev-workspace/`) |
-| Architecture: layers, adapters, plugin layer, ST split | `docs/ARCHITECTURE.md` |
+| Architecture: layers, adapters, plugin layer, ST split, module tiers | `docs/ARCHITECTURE.md` (governance section 7) |
+| Engineering conventions (test pairing, size ceilings, timeouts, work banter) | `docs/CONVENTION.md` — numbers and detail live there; this file only registers them |
+| Governance propagation ledger (active queue, drift backlog) | `docs/STATE.md` |
 | Data paths, ports, env | `host_config.py` |
 | Shipped workspace defaults (charter, roles, tools, skills a new install starts with) | `templates/workspace/` + `templates/workspace-manifest.json` (what ships, what stays dev-only) |
 | Per-install settings (edition, host plugin on/off, web root, ports) | `$CHATBOT_DATA/host.env`, read by `chatbot-ctl.sh` (options: `templates/host.env.example`) |
@@ -132,7 +137,11 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | No secrets, `.env`, private memory or style references in commits | all | `test_githooks` (pre-commit hook) |
 | Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns); backstops `test_worktree_runner`, `test_tickets` |
 | Data paths only through `host_config` (`DATA_ENV` order; `tickets.py` mirrors it) | all | `test_data_paths` |
-| Python module ≤ 80,000 bytes; Python function ≤ 80 lines; listed ceilings only go down | all | `test_file_sizes` |
+| Python module ≤ 80,000 bytes; Python function ≤ 80 lines; listed ceilings only go down | all | `test_file_sizes` (numbers SSOT: `docs/CONVENTION.md`) |
+| Convention numbers in `docs/CONVENTION.md` match the size/timeout guards (80 lines, 80KB, 30s) | all | `test_conventions` |
+| `subprocess.run` calls name an explicit `timeout` (legacy allowlist in the test) | all | `test_conventions` |
+| Mandatory Test Pairing: product feat/fix/refactor/perf commits carry matching `tests/` | all | manual (planned staging gate; checklist `tools/review_checklist.py`; registration shape `test_conventions`) |
+| Work banter in delegation / handoff / commit reports ≤ 1-2 sentences (detail: `docs/CONVENTION.md`) | all | manual (planned `tools/worker_output.py` / `tools/review_checklist.py`; registration shape `test_conventions`) |
 | Page script or stylesheet ≤ 43,000 bytes; listed ceilings only go down | all | `test_page_scripts` |
 | New code folder is protected (`tools/` too: the delegation gate's verdict reader is governance) | all | `test_code_layout` |
 | Every code file (root, `providers/`, `tools/`, `static/`) has a code-map row before it lands | all | `test_code_map` |
@@ -144,18 +153,19 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Every plan file has one INDEX row with a valid status | all | `test_plans_index` |
 | DEVLOG stays small; old dates in `docs/devlog/` | all | `test_docs_budget` |
 | Docs cite code as `path` or `path::symbol`, never line numbers; links resolve | all | `test_doc_refs` |
-| `CLAUDE.md` / `GEMINI.md` only point here | all | `test_entrypoints` |
+| Tool-named entry files (`CLAUDE.md`, `GEMINI.md`) only point here; no new invented entry files | all | `test_entrypoints` |
 | Document names: standing UPPERCASE, accumulating lower-kebab, no snake_case | all | `test_doc_names` |
 | Every registry row names an audience and a real enforcer | all | `test_rule_registry` |
 | No new hardcoded Korean in engine/page code (i18n catalogs instead); mark intended lines `l10n-ok` | all | `test_ratchets` (`ratchet_baseline.json`) |
 | No new host/persona identity (DiskStation, `/volume1`, Sphere, 실장님, 냥) in engine code outside the host plugin | all | `test_ratchets` |
-| A tracked `data/workspace` file is classified in `templates/workspace-manifest.json`; `same` pairs stay byte-equal; the template names no host and no engine work | all | `test_workspace_template` |
+| Tracked workspace template twins (repo `data/workspace` when present) are classified in `templates/workspace-manifest.json`; `same` pairs stay byte-equal; the template names no host and no engine work | all | `test_workspace_template` |
 | Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |
-| Agent-facing text in English; human docs Korean | all | manual |
+| Speak with the developer in Korean; write documentation in English | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
+| Agent-facing machine text (prompts, tool strings, LEARNED lines) in English | all | manual |
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |
 | Look for prior art before building (`~/AGENTS.md` §0) | all | manual |
 | Spawn-visible dirs stay minimal (`ADD_DIRS`) | all | manual |
 | Engine-work rules for the chat agent live in the `dev` role pack, never the shared charter or another role's `role.md` | PE chat agent only | `test_dev_role` |
-| Chat UI conventions (`<!--choices-->`, persona voice) | PE chat agent only | `templates/workspace/AGENTS.md` |
+| Chat UI conventions (`<!--choices-->`, persona voice); not for external CLIs | PE chat agent only | `templates/workspace/AGENTS.md` |
 
 Add a rule here in the same change that adds its enforcer; a rule without one says `manual` and why.

@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-06 — Refine root AGENTS.md as development rule registry (propagation, #735)
+
+- **What**: Root `AGENTS.md` stays the engine-dev entry / SSOT map / rule registry (not the runtime charter). Added Korean-to-developer / English-docs standing rule; mapped CONVENTION items into the registry with honest enforcers (`test_conventions` where it checks, manual for pairing and banter); SSOT rows for `docs/CONVENTION.md` and `docs/STATE.md`; start-order on-demand step; clarified entry pointers (`CLAUDE.md` / `GEMINI.md` only) and `data/workspace` template-twin wording.
+- **Not in this pass**: CONVENTION merge into commit hooks, live `roles/` symlink to templates.
+- **Restart**: not needed (docs only).
+
 ## 2026-10-06 — 화면 글자 이관 2: 상태 탭(app-status.js 119줄 → 0) (l10n/E, #732)
 
 - **바뀐 것**: 계정·로그인·프로세스·지침·스킬·MCP·훅 표시를 카탈로그 키로. 시각은 고정 `ko-KR` 대신 화면 언어. 주석은 영어. 서버가 보내는 `message_ko`는 그대로 보여 준다(서버 문구 이관 l10n/F 몫).
