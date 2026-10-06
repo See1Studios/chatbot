@@ -5,7 +5,7 @@
 // records stay on the server (dialog_log); nothing here is written into the 1:1's history. A private talk and a
 // meeting room's screen show none of it.
 
-const OFFICE_TEXT = { to: '→ ' };   // l10n-ok
+const OFFICE_TEXT = { to: '→ ' };
 
 function officeKey(m) { return String(m.dialog_id) + '#' + String(m.n); }
 

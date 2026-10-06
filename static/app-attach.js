@@ -11,12 +11,7 @@ const ATTACH_MAX_BYTES = 20 * 1024 * 1024;
 // Any header starting "[Attached files" is ours (chat_upload.ATTACH_HEAD; older messages keep an older wording).
 const ATTACH_HEAD_RE = /\[Attached files[^\]\n]*\]/g;
 // On-screen words, one place (localization l10n/C moves them into the catalog).
-const ATTACH_TEXT = {
-  attach: '파일 첨부', item: '아이템', remove: '클릭하여 첨부 취소', uploading: '올리는 중…',   // l10n-ok
-  preview: '클릭하여 파일 미리보기', failed: '첨부 실패: ', one: '파일은 하나만 첨부할 수 있어요.',   // l10n-ok
-  tooBig: '파일이 너무 큽니다 (최대 20 MB)', privateNo: '사적 모드에서는 파일 대신 아이템을 건네거나 쓸 수 있어요.',   // l10n-ok
-  blind: '이 모델은 이미지를 볼 수 없어요 — 이미지를 보는 모델로 바꿔 주세요',   // l10n-ok
-};
+const ATTACH_TEXT = i18nTable('attach');   // I18N_v1: words by key from the catalog
 let attachItem = null;         // {label, state: 'uploading'|'ready'|'error', file: server item, error}
 let attachSees = null;         // can the chosen model look at the attached image (null: not asked yet)
 let attachSightKey = '';       // the provider|model it was asked for

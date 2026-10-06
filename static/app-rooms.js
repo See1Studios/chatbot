@@ -3,14 +3,7 @@
 // main log (#log) and the main input sends to it, while the 1:1 session steps aside until one is opened again. Only
 // the new-room form is a modal. The server half is room_chat.py (/api/rooms); the open room's talk is polled.
 
-const ROOM_TEXT = {   // l10n-ok
-  title: '단체방', add: '새 단체방', name: '방 이름', members: '멤버 (둘 이상)', strategy: '발언 방식', create: '만들기', cancel: '취소',   // l10n-ok
-  natural: '자연스럽게 (부른 사람 먼저, 그다음 수다 성향)', list: '순서대로', manual: '부른(@) 사람만',   // l10n-ok
-  placeholder: '메시지… @로 멤버를 부를 수 있어요', answering: '단체방이 답하는 중…', you: '나', failed: '실패: ',   // l10n-ok
-  back: '← 1:1 대화로', count: '명', current: ' (현재)',   // l10n-ok
-  profile: '단체방 정보', invite: '멤버 초대', kick: '내보내기', minMembers: '단체방 멤버는 최소 2명 이상이어야 해요.',   // l10n-ok
-  changeStrategy: '발언 전략 변경', rename: '방 이름 변경', save: '저장',   // l10n-ok
-};
+const ROOM_TEXT = i18nTable('room');   // I18N_v1: words by key from the catalog
 const ROOM_STRATEGIES = ['natural', 'list', 'manual'];
 const ROOM_KEY = 'chatbot.roomId';   // the open room, so a reload comes back to it
 // on: the main view is this room. last: the newest message drawn. back: the 1:1 session to return to.

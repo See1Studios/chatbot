@@ -5,17 +5,7 @@
 // server already lists (/api/characters, /api/sessions, /api/rooms). Picking a row is the same call the character
 // tray makes. On a narrow screen the list covers the chat and a row (or Back) slides between them.
 
-const SHELL_TEXT = {   // l10n-ok
-  title: '대화', search: '이름 검색', empty: '찾는 대화가 없습니다.', private: '사적 대화 중', room: '단체방',   // l10n-ok
-  newRoom: '새 단체방', back: '목록으로', list: '대화방 목록', fresh: '아직 나눈 말이 없습니다.', you: '나',   // l10n-ok
-  office: '사무실', privateRoom: '사적인 방', near: '곁에 있음', brain: '두뇌',   // l10n-ok
-  more: '더 보기', act: '행동', menu: '메뉴', online: '접속 중',   // l10n-ok
-  profile: '프로필', settings: '설정', back2: '뒤로', close: '닫기', details: '자세히 보기', theme: '테마',   // l10n-ok
-  dev: '개발자 모드',   // l10n-ok
-  files: '주고받은 파일', history: '대화 기록', art: '그림', model: '모델', log: '활동 로그',   // l10n-ok
-  accounts: '계정 · 상태', team: '역할 · 공통 설정', manage: '카드 · 역할 · 두뇌 구성', improve: '개선', revive: '엔진 리부트',   // l10n-ok
-  streamStyle: '스트리밍 연출', streamChar: '글자 단위', streamLine: '줄 단위',   // l10n-ok
-};
+const SHELL_TEXT = i18nTable('shelltext');   // I18N_v1: words by key from the catalog
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
 let shellState = { sessions: [], talks: null, filter: '', timer: 0, loading: false, ready: false, nodes: new Map(),

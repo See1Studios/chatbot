@@ -103,7 +103,7 @@ function startChatFlow() {
 // PERSONAL_TURN_v1 (private-mode.md §8.3): a work-room turn the character marked personal gets a small lock on the
 // user's bubble and in the footer of the character's reply -- shown only in the advanced density (chat-log.css), the simple chat stays the conversation. Marks come
 // from GET /api/sessions/<sid>/personal-turns, keyed by the user message's ts to the millisecond.
-const PERSONAL_TEXT = { title: '사적인 순간: 업무 기억에 남지 않아요' };   // l10n-ok
+const PERSONAL_TEXT = i18nTable('personal');   // I18N_v1: words by key from the catalog
 let personalTimer = 0;
 
 function personalKey(ts) {

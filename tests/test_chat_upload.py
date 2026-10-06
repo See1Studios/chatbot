@@ -17,6 +17,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import chat_upload as U  # noqa: E402
+from tests.page_source import i18n_prelude  # noqa: E402
 
 SID = "20260928-180000-abc123"
 
@@ -118,7 +119,7 @@ class PageReadsTheSameList(unittest.TestCase):
                  "옛 메시지\n\n[Attached files - read them with your file tools]\n- /d/sessions/s/uploads/20260928-181500-old.txt (text/plain, 1 KB)"]
         js = src[a:b] + "\nconsole.log(JSON.stringify(%s.map(t => { const r = splitAttachmentBlock(t); "\
              "return [r.text, r.files.map(f => [attachDisplayName(f.path), f.mime, f.size])]; })));" % json.dumps(texts, ensure_ascii=False)
-        out = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + js], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-800:])
         got = json.loads(out.stdout)
         self.assertEqual(got[0], ["요약해줘", [["보고서 최종.pdf", "application/pdf", "1.2 MB"], ["shot.png", "image/png", "88 KB"]]])

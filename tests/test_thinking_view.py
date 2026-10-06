@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 import host_config  # noqa: E402
 from providers.adapters import ClaudeAdapter, GrokAdapter  # noqa: E402
 from tests.test_conversation_sync import Base as SyncBase  # noqa: E402
+from tests.page_source import i18n_prelude  # noqa: E402
 
 
 class AdaptersSendThinking(SyncBase):
@@ -74,7 +75,7 @@ console.log(JSON.stringify({ live, after: { open: el.open, live: el.dataset.live
 class StripFolds(unittest.TestCase):
     def run_js(self, mode):
         code = JS.replace("MODE", json.dumps(mode)).replace("FILE", json.dumps(str(ROOT / "static" / "app-think.js")))
-        out = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=30)
+        out = subprocess.run(["node", "-e", i18n_prelude() + code], capture_output=True, text=True, timeout=30)
         self.assertEqual(out.returncode, 0, out.stderr)
         return json.loads(out.stdout)
 

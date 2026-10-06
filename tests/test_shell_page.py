@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 HTML = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -200,7 +201,7 @@ run().then(o => console.log(JSON.stringify(o)));
 class ShellList(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        p = subprocess.run(["node", "-e", HARNESS, str(STATIC / "app-shell.js"), PAGE], capture_output=True, text=True, timeout=60)
+        p = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(STATIC / "app-shell.js"), PAGE], capture_output=True, text=True, timeout=60)
         assert p.returncode == 0, p.stderr
         cls.o = json.loads(p.stdout)
 
@@ -440,7 +441,7 @@ class OwnLook(unittest.TestCase):
     """OWN_LOOK_v1: a character's picture follows its own provider, never the open talk's."""
 
     def test_each_character_keeps_its_own_providers_look(self):
-        p = subprocess.run(["node", "-e", LOOK, str(STATIC / "app-characters.js")], capture_output=True, text=True, timeout=60)
+        p = subprocess.run(["node", "-e", i18n_prelude() + LOOK, str(STATIC / "app-characters.js")], capture_output=True, text=True, timeout=60)
         self.assertEqual(p.returncode, 0, p.stderr)
         o = json.loads(p.stdout)
         # a: the open one, the provider picked now. b: the brain last used with it. c: a provider no longer in the
@@ -584,7 +585,7 @@ class ProfileQuota(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", QUOTA_JS, str(STATIC / "app-shell-quota.js")], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + QUOTA_JS, str(STATIC / "app-shell-quota.js")], capture_output=True, text=True, timeout=30)
         assert r.returncode == 0, r.stderr
         cls.o = {x["label"]: x for x in json.loads(r.stdout.strip().splitlines()[-1])}
 

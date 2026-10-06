@@ -6,7 +6,7 @@
 // Nothing is stored: a reload shows the answer alone. In private mode it starts folded -- the brain's reasoning is
 // not the character speaking. A brain that thinks silently (agy) sends nothing here; the turn footer's clock
 // (seconds so far) and the server's quiet notice (SILENT_NOTICE_v1) cover it.
-const THINK_TEXT = { live: '생각 중', done: '생각', sec: '초' };   // l10n-ok
+const THINK_TEXT = i18nTable('think');   // I18N_v1: words by key from the catalog
 
 function thinkStrip(node, make) {
   let el = null;

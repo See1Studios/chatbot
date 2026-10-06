@@ -1,17 +1,6 @@
 // Profile: the brain each mode uses for this character (card default or a remembered override), with a reset.
 // Split from app-shell.js (size cap); shellProfileOpen adds it when this file is loaded.
-const SHELL_BRAIN_TEXT = {   // l10n-ok
-  useBrain: '쓰는 두뇌',   // l10n-ok
-  brainNone: '정해진 두뇌 없음',   // l10n-ok
-  brainMissing: '두뇌 기록을 불러오지 못했습니다',   // l10n-ok
-  loading: '불러오는 중',   // l10n-ok
-  modeWork: '업무',   // l10n-ok
-  modePrivate: '사적',   // l10n-ok
-  brainPicked: '직접 고름 · ',   // l10n-ok
-  brainDefault: '기본 · ',   // l10n-ok
-  brainReset: '기본값으로',   // l10n-ok
-  brainResetFail: '기본값으로 되돌리지 못했습니다',   // l10n-ok
-};
+const SHELL_BRAIN_TEXT = i18nTable('shellbrain');   // I18N_v1: words by key from the catalog
 function shellBrainLabel(b) {
   if (!b || !b.provider) return SHELL_BRAIN_TEXT.brainNone;
   return b.provider + (b.model ? ' · ' + b.model : '');

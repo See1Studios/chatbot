@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 import mcp_server as mcp  # noqa: E402
 import personal_turn  # noqa: E402
 import session  # noqa: E402
+from tests.page_source import i18n_prelude  # noqa: E402
 
 
 def _tmp_sessions(*sids):
@@ -187,7 +188,7 @@ mark({ children: nodes }).then(() => console.log(JSON.stringify([nodes[0].kids.l
                                                                   nodes[4].kids.length, f3.kids.length])));
 """
         import subprocess
-        out = subprocess.run(["node", "-e", js, str(ROOT / "static" / "app-flow.js")], capture_output=True, text=True,
+        out = subprocess.run(["node", "-e", i18n_prelude() + js, str(ROOT / "static" / "app-flow.js")], capture_output=True, text=True,
                              encoding="utf-8", timeout=30)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(json.loads(out.stdout), [1, 1, 1, 0, 0])

@@ -10,12 +10,7 @@
 // needs nothing from the server, and is kept in the record as it was sent. The user's bubble draws that line as
 // a quote above the message (msgQuoteDraw), and pressing it scrolls to the line it quotes.
 
-const MSG_TEXT = {   // l10n-ok
-  copy: '복사', copied: '복사했어요', resend: '다시 보내기', failed: '보내지 못했어요', menu: '메시지',   // l10n-ok
-  reply: '답장', me: '나', cancelReply: '답장 취소',   // l10n-ok
-  // an act is sent as an action (/act): the row is what one does in reply, and it differs by room   // l10n-ok
-  acts: { work: ['웃는다', '끄덕인다', '엄지를 든다', '어깨를 토닥인다'], private: ['웃는다', '머리를 쓰다듬는다', '손을 잡는다', '빤히 본다'] },   // l10n-ok
-};
+const MSG_TEXT = i18nTable('msgmenu');   // I18N_v1: words by key from the catalog
 const MSG_PRESS_MS = 450;
 
 // What a bubble is: 'mine' (the user's line), 'act' (the user's action line), 'theirs' (a character's bubble or
@@ -31,7 +26,7 @@ function msgKind(el) {
 // The menu's rows. ctx: { kind, busy, room (a group room is open), mode ('work' | 'private') }.
 function msgMenuItems(ctx) {
   const rows = [];
-  if (ctx.kind === 'theirs' && !ctx.busy && !ctx.room) rows.push({ k: 'acts', acts: MSG_TEXT.acts[ctx.mode === 'private' ? 'private' : 'work'] });
+  if (ctx.kind === 'theirs' && !ctx.busy && !ctx.room) rows.push({ k: 'acts', acts: [0, 1, 2, 3].map(i => tr('msgmenu.act.' + (ctx.mode === 'private' ? 'private' : 'work') + '.' + i)) });   // what one does in reply, by room
   rows.push({ k: 'reply', label: MSG_TEXT.reply });
   rows.push({ k: 'copy', label: MSG_TEXT.copy });
   // an action goes again as an action; a group room takes plain text only

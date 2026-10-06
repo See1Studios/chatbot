@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
@@ -216,7 +217,7 @@ class RoomTyping(unittest.TestCase):
     """Under the messenger shell the member answering shows with its face and typing dots; a face mentions it."""
 
     def test_the_answering_member_types_and_a_face_mentions(self):
-        r = subprocess.run(["node", "-e", TYPING, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + TYPING, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr[-1500:])
         o = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertEqual((o["made"], o["live"], o["who"], o["name"]), (1, "1", "a", "Kit"))
@@ -234,7 +235,7 @@ class RoomTyping(unittest.TestCase):
 class RoomsPage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
         assert r.returncode == 0, r.stderr[-1500:]
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
@@ -296,14 +297,14 @@ class RoomsPage(unittest.TestCase):
         self.assertEqual(self.o["avatarAfterLeave"], "old-avatar.png", "restored 1:1 character avatar after leave")
 
     def test_empty_room_avatar_falls_back_to_first_member(self):
-        r = subprocess.run(["node", "-e", EMPTY_ROOM, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + EMPTY_ROOM, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr[-1500:])
         o = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertEqual(o["avatar"], "/portraits/a", "fallback to first member's face when no messages")
 
     def test_room_leave_restores_avatar_via_update_brand_avatar_stub(self):
         """grh/A: when updateBrandAvatar is present, room leave calls it with providerEl.value and restores."""
-        r = subprocess.run(["node", "-e", UPDATE_AVATAR_ROOM, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + UPDATE_AVATAR_ROOM, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr[-1500:])
         o = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertTrue(o["enteredIsRoom"], "card-stack enabled on enter")
@@ -314,7 +315,7 @@ class RoomsPage(unittest.TestCase):
 
     def test_room_close_directly_removes_is_room_and_restores_avatar(self):
         """grh/A: calling roomClose() directly removes .is-room, clears roomState.on, and restores avatar."""
-        r = subprocess.run(["node", "-e", ROOM_CLOSE_DIRECT, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + ROOM_CLOSE_DIRECT, str(STATIC / "app-rooms.js"), PAGE], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr[-1500:])
         o = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertTrue(o["onBefore"], "roomState.on active before close")

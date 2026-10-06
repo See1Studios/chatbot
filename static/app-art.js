@@ -7,19 +7,14 @@
 // background, emotion. A slot shows its own picture, or what it falls back to (ART_NAMES_v1), or the placeholder.
 // Putting a gallery picture in a slot is the approval step; the server fits and converts it (art_manager.py).
 
-const ART_TEXT = {
-  title: '그림', gallery: '갤러리', icon: '아이콘', background: '배경', emotion: '표정',   // l10n-ok
-  own: '내 그림', placeholder: '기본', upload: '올리기', remove: '치우기', close: '닫기',   // l10n-ok
-  asIcon: '아이콘으로', asBackground: '배경으로', asEmotion: '표정으로…', empty: '갤러리가 비었어요 — 올리거나 위임으로 그려 받으세요',   // l10n-ok
-  askEmotion: '표정 이름 (neutral, joy, sadness … 또는 joy.giggle 같은 세부 이름)', askRemove: '이 칸의 그림을 갤러리로 돌려놓을까요?',   // l10n-ok
-  done: '반영했어요', failed: '실패: ', noCharacter: '캐릭터를 먼저 고르세요', drop: '여기에 놓으면 갤러리로 올라가요',   // l10n-ok
-  bust: '상반신', full: '전신',   // l10n-ok
-  pack: 'ZIP 팩 가져오기', packPlaced: '표정 %n개 반영', packSkipped: '건너뜀 %n개: ',   // l10n-ok
-  packUrl: 'URL로 가져오기', askUrl: 'SillyTavern 표정 ZIP 팩의 다운로드 링크 (http/https)', packLoading: '내려받는 중…',   // l10n-ok
-  ask: '빠진 그림 부탁하기', askNone: '이 탭엔 빠진 그림이 없어요', warn: '⚠️ 주의 %n건',   // l10n-ok
-  askText: '%who의 %what 그림을 그려 줘: %names. character-art 스킬로, 사양은 character-resource-pipeline §10(%spec). 결과는 %cid 갤러리에 올려 줘.',   // l10n-ok
-  specIcon: '아이콘 512 정사각, 얼굴 중심', specBackground: '배경은 장소만, 인물 금지',   // l10n-ok
-  specEmotion: '투명 배경, %f, 표정끼리 같은 캔버스·같은 기준점',   // l10n-ok
+const ART_TEXT = i18nTable('art');   // I18N_v1: words by key from the catalog
+// The request for missing art goes to the agent as the operator's message: agent-facing, so English
+const ART_ASK = {
+  text: "Draw %who's %what art: %names. Use the character-art skill; the spec is character-resource-pipeline §10 (%spec). "
+    + 'Upload the results to the %cid gallery. Reply in my language.',
+  specIcon: 'icon, 512 square, centered on the face', specBackground: 'background: the place only, no people',
+  specEmotion: 'transparent background, %f, every expression on the same canvas and anchor',
+  framing: { bust: 'bust', full: 'full body' },
 };
 const ART_TABS = ['gallery', 'icon', 'background', 'emotion'];
 let artState = { cid: '', name: '', data: null, tab: 'gallery', framing: 'bust', msg: '' };
@@ -197,9 +192,9 @@ function artCurrentSlots() {
 function artRequestText(who, cid, tab, framing, slots) {
   const missing = (slots || []).filter(s => !s.own).map(s => s.brain || (s.name === 'main' ? ART_TEXT.placeholder : s.name));
   if (!missing.length || !ART_TEXT[tab]) return '';
-  const spec = tab === 'icon' ? ART_TEXT.specIcon : tab === 'background' ? ART_TEXT.specBackground
-    : ART_TEXT.specEmotion.replace('%f', ART_TEXT[framing] || framing);
-  return ART_TEXT.askText.replace('%who', who).replace('%what', ART_TEXT[tab]).replace('%names', missing.join(', '))
+  const spec = tab === 'icon' ? ART_ASK.specIcon : tab === 'background' ? ART_ASK.specBackground
+    : ART_ASK.specEmotion.replace('%f', ART_ASK.framing[framing] || framing);
+  return ART_ASK.text.replace('%who', who).replace('%what', tab).replace('%names', missing.join(', '))
     .replace('%spec', spec).replace('%cid', cid);
 }
 

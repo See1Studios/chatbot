@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
@@ -36,7 +37,7 @@ console.log(JSON.stringify({
 class ArtManagerPage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(STATIC / "app-art.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(STATIC / "app-art.js")], capture_output=True, text=True, timeout=20)
         assert r.returncode == 0, r.stderr[-1500:]
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
@@ -60,9 +61,9 @@ class ArtManagerPage(unittest.TestCase):
         self.assertIn("joy, fear", emo)
         self.assertNotIn("neutral", emo.split(":")[1].split(".")[0], "a slot with its own picture is not asked for")
         self.assertIn("character-art", emo)
-        self.assertIn("상반신", emo)
+        self.assertIn("bust", emo)   # the request goes to the agent: English (I18N_v1)
         self.assertIn("char_x", emo)
-        self.assertIn("인물 금지", self.o["askBg"])
+        self.assertIn("no people", self.o["askBg"])
         self.assertEqual(self.o["askNone"], "", "nothing missing, nothing to ask")
         self.assertIn(": 기본.", self.o["askBg"], "the main slot is asked for by its shown name")
 

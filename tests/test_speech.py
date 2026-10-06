@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
@@ -353,7 +354,7 @@ class TestSpeechLayout(unittest.TestCase):
 @unittest.skipUnless(shutil.which("node"), "node not installed")
 class TestSpeechExecution(unittest.TestCase):
     def _run_node(self, scenario):
-        cmd = ["node", "-e", NODE_HARNESS, str(SPEECH_JS), json.dumps(scenario)]
+        cmd = ["node", "-e", i18n_prelude() + NODE_HARNESS, str(SPEECH_JS), json.dumps(scenario)]
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         self.assertEqual(res.returncode, 0, res.stderr)
         return json.loads(res.stdout.strip())

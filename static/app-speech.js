@@ -1,13 +1,7 @@
 // app-speech.js -- Speech recognition (STT) for composer (va/1, docs/plans/voice-and-audio-interaction.md).
 // Declarations and listeners: loads before app.js.
 
-const SPEECH_TEXT = {
-  start: '음성 입력 시작 (클릭하여 켜기)', // l10n-ok
-  stop: '음성 입력 중… (클릭하여 멈추기)', // l10n-ok
-  unsupported: '음성 입력을 지원하지 않는 브라우저입니다', // l10n-ok
-  denied: '마이크 사용 권한이 거부되었습니다', // l10n-ok
-  error: '음성 인식 오류: ', // l10n-ok
-};
+const SPEECH_TEXT = i18nTable('speechinput');   // I18N_v1: words by key from the catalog
 
 let speechRecognitionInstance = null;
 let speechIsRecording = false;

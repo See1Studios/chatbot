@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 SRC = (STATIC / "app-msgmenu.js").read_text(encoding="utf-8")
@@ -46,7 +47,7 @@ console.log(JSON.stringify(o));`);
 class MsgMenu(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        p = subprocess.run(["node", "-e", HARNESS, str(STATIC / "app-msgmenu.js")], capture_output=True, text=True, timeout=30)
+        p = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(STATIC / "app-msgmenu.js")], capture_output=True, text=True, timeout=30)
         assert p.returncode == 0, p.stderr
         cls.o = json.loads(p.stdout.strip().splitlines()[-1])
 

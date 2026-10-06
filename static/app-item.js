@@ -7,12 +7,7 @@
 // gift landed, then the action is sent (sendAction); the server's note rides on it, so the character reacts to the
 // verdict, and on screen the note is an item chip, not text.
 
-const ITEM_TEXT = {
-  title: '아이템', give: '건네기', use: '쓰기', close: '닫기', failed: '아이템 실패: ',   // l10n-ok
-  left: (n) => '오늘 건넬 수 있는 횟수 ' + n, none: '오늘은 더 건넬 수 없어요',   // l10n-ok
-  gave: (it) => it.icon + ' ' + it.name + '을(를) 건넨다', prev: '이전 아이템', next: '다음 아이템',   // l10n-ok
-  toast: (r) => r.item.icon + ' ' + r.label + ' · 호감도 ' + (r.delta >= 0 ? '+' : '') + r.delta + ' · Lv.' + r.level + ' ' + r.title,   // l10n-ok
-};
+const ITEM_TEXT = i18nTable('item');   // I18N_v1: words by key from the catalog
 // "[Gift - host note" is how gifts were written before items (history keeps them).
 const ITEM_NOTE = /\n*\[(?:Gift|Item) - host note: the user (?:gave you|uses) (\S+) ([^(]+?) \([^)]*\)[^\]]*\]\s*$/;
 
@@ -167,7 +162,7 @@ async function openItemPicker() {
   const head = document.createElement('div');
   head.className = 'item-head';
   const title = document.createElement('span');
-  title.textContent = '💗 Lv.' + a.level + ' ' + a.title + ' · ' + (a.left_today ? ITEM_TEXT.left(a.left_today) : ITEM_TEXT.none);
+  title.textContent = '💗 Lv.' + a.level + ' ' + a.title + ' · ' + (a.left_today ? tr('item.left', { n: a.left_today }) : ITEM_TEXT.none);
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'item-close';
@@ -315,8 +310,8 @@ async function actOnItem(it, action) {
     return;
   }
   if (!res || !res.ok) return;
-  if (action === 'give') itemToast(ITEM_TEXT.toast(res.result));
-  if (typeof sendAction === 'function') sendAction(action === 'give' ? ITEM_TEXT.gave(it) : it.use);
+  if (action === 'give') itemToast(tr('item.toast', { icon: res.result.item.icon, label: res.result.label, delta: (res.result.delta >= 0 ? '+' : '') + res.result.delta, level: res.result.level, title: res.result.title }));
+  if (typeof sendAction === 'function') sendAction(action === 'give' ? tr('item.gave', { icon: it.icon, name: it.name }) : it.use);
   // send() draws the action bubble before its first await, so it is the log's last child now
   const log = document.getElementById('log');
   if (log && log.lastElementChild) renderItemChip(log.lastElementChild, it);
