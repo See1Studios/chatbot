@@ -66,6 +66,7 @@
 | [voice-and-audio-interaction.md](voice-and-audio-interaction.md) | `active` · 방향 **핵심 + 기반** — 브라우저 네이티브 Web Speech API 기반 음성 입력(STT) 및 현지어 발음/오디오 재생(TTS) 연동 | 음성 입력·마이크 버튼·발음 칩·오디오 재생을 다룰 때 |
 | [director-handoff.md](director-handoff.md) | `active` · 방향 **핵심 + 개발 기반** — 캐릭터 디렉터 분업(넘기기·프로바이더 서브에이전트). 먼저 새는 가드(경고만·표시만)를 집행으로, 방해되는 절차(리뷰 라운드·두뇌 없음 재시도·연속 티켓)를 걷어낸 뒤 연결. 구조 비판 S1–S7, D-1–D-12 결정(D-10 폐기), 0단계 완료(#632 #633), 1·2단계 완료(#634~#636), D-1 번복(역할 단속 끄고 스킬로, #651), 넘기기 장부(#654) | 역할 권한·작업 트리 감시·서브에이전트·캐릭터 간 일 넘기기·위임 리뷰 절차를 건드릴 때 |
 | [layered-context-architecture.md](layered-context-architecture.md) | `active` · 방향 **핵심 + 기반** — 이미 있는 지침·기억·스킬 층을 한 목록으로, 세션 중 바뀐 기억이 닿게(지금은 첫 턴에 굳음), CLI에서 안 걸리는 로어북 살리기, 주입 기록·상태 탭·경보 (2026-10-06 다시 씀, 결정 대기) | 지침·기억·스킬 주입, 프롬프트 번들, 업무/사적 전환 컨텍스트를 건드릴 때 |
+| [message-system-architecture.md](message-system-architecture.md) | `active` · 방향 **핵심 + 기반** — User·Assistant·System 3자 정규 메시지 프로토콜 및 선택지·액션 통합, 입력창 꼼수 제거, 시스템 공지 선택지 연계 (2026-10-06 수립) | 메시지 입출력, 선택지(choices), 액션(/act), 시스템 공지(notice), 세션 통신을 건드릴 때 |
 
 
 ## Archived (한 줄 · 펼치지 말 것)
