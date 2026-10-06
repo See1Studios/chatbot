@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-06 — fix(ui): remove redundant view-talk button from work cards (#727, 위임 agy)
+
+- **커밋**: `fc118bf` fix(evo): remove redundant talk button from work card actions
+- **바뀐 파일**: `static/app-evolution.js`, `tests/test_ticket_buttons.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-06 — docs(propagation): archive DEV-PROP-001 and update state ledger (prop/C) (#726, 위임 agy)
 
 - **커밋**: `d926a47` docs(propagation): archive DEV-PROP-001 and update state ledger (prop/C)
