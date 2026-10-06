@@ -159,12 +159,17 @@ class InjectionTests(WorkspaceCase):
         s._send_direct("c")
         self.assertEqual(self.sent[2], "c")
 
-    def test_memory_change_does_not_reinject(self):
+    def test_memory_change_sends_only_that_layer_not_the_bundle(self):
+        # CONTEXT_REFRESH_v1 (lca/C, D-2): before, memory changed mid-session never reached the agent
         s = self.make()
         s._send_direct("a")
         _write(self.ws / "memory/MEMORY.md", "## 사용자\n- [2026-09-19] 새 사실\n")
         s._send_direct("b")
-        self.assertEqual(self.sent[1], "b")
+        self.assertIn("새 사실", self.sent[1])
+        self.assertNotIn("CHARTER-MARK", self.sent[1])
+        self.assertTrue(self.sent[1].rstrip().endswith("b"))
+        s._send_direct("c")
+        self.assertEqual(self.sent[2], "c")
 
     def test_legacy_flag_without_hash_adopts_silently(self):
         s = self.make()

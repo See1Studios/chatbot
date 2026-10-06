@@ -244,6 +244,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 self.handoff_injected = bool(meta.get("handoff_injected", False))
                 self.persona_injected = bool(meta.get("persona_injected", False))
                 self.persona_bundle_hash = str(meta.get("persona_bundle_hash") or "")
+                self.context_layer_hashes = meta.get("context_layer_hashes")   # CONTEXT_REFRESH_v1; None: adopt
                 self.character = str(meta.get("character") or "")
                 self.mode = meta.get("mode") if meta.get("mode") in ("private", "room") else "work"   # room: evt/E
                 self.private_digested_ts = float(meta.get("private_digested_ts") or 0)
@@ -278,6 +279,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 "handoff_injected": getattr(self, "handoff_injected", False),
                 "persona_injected": getattr(self, "persona_injected", False),
                 "persona_bundle_hash": getattr(self, "persona_bundle_hash", "") or "",
+                "context_layer_hashes": getattr(self, "context_layer_hashes", None),
                 "character": getattr(self, "character", "") or "",
                 "mode": getattr(self, "mode", "work") or "work",
                 "private_digested_ts": getattr(self, "private_digested_ts", 0.0) or 0.0,

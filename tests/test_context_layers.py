@@ -87,8 +87,68 @@ class Fixture(WorkspaceCase):
 
     def test_the_turn_logs_where_it_injects(self):
         src = (Path(I.__file__).parent / "session_turn.py").read_text(encoding="utf-8")
-        block = src[src.index("if header:"):src.index("self.persona_injected = True", src.index("if header:"))]
+        block = src[src.index("def _context_prefix"):src.index("self.persona_injected = True", src.index("def _context_prefix"))]
         self.assertIn("self._log_context(bundle)", block)
+
+    def session(self, transport="stdin"):
+        import session as S
+        s = S.AgentSession.__new__(S.AgentSession)
+        s.sid, s.provider, s.mode, s.character = "sid-1", "agy", "work", self.card_id
+        s.persona_injected, s.persona_bundle_hash = False, ""
+        s.adapter = type("A", (), {"transport_kind": transport})()
+        return s
+
+    def test_a_memory_changed_mid_session_reaches_the_agent_and_nothing_else_does(self):
+        # CONTEXT_REFRESH_v1 (lca/C): before, the bundle went in once and memory stayed as it was at the start
+        import obslog
+        from unittest import mock
+        s = self.session()
+        with mock.patch.object(obslog, "event") as ev:
+            first = s._context_prefix()
+            self.assertIn("HOUSE-MEMORY-MARK", first)
+            self.assertEqual(s._context_prefix(), "", "nothing changed: nothing is added")
+            _write(self.ws / "memory/MEMORY.md", "# 기억\n- NEW-HOUSE-FACT\n")
+            refresh = s._context_prefix()
+            self.assertEqual(s._context_prefix(), "", "once")
+        self.assertIn("NEW-HOUSE-FACT", refresh)
+        self.assertNotIn("CHARTER-MARK", refresh, "only the changed layer, not the bundle")
+        self.assertNotIn("PERSONA-MARK", refresh)
+        logged = [c.kwargs for c in ev.call_args_list if c.args[0] == "context.inject"]
+        self.assertEqual([x["why"] for x in logged], ["first", "refresh"])
+        self.assertEqual([x["id"] for x in logged[1]["layers"]], ["house_memory"])
+        self.assertEqual(logged[1]["chars"], len(refresh), "the refresh's own size, not the bundle's")
+
+    def test_a_layer_that_empties_is_said_to_be_empty(self):
+        s = self.session()
+        s._context_prefix()
+        _write(self.ws / "memory/MEMORY.md", "# 기억\n")
+        self.assertIn("house_memory", s._context_prefix())
+
+    def test_a_refreshed_layer_is_capped(self):
+        import session_turn as ST
+        s = self.session()
+        s._context_prefix()
+        _write(self.ws / "memory/MEMORY.md", "# 기억\n- " + "x" * (ST.REFRESH_MAX_CHARS * 2) + "\n")
+        self.assertLess(len(s._context_prefix()), ST.REFRESH_MAX_CHARS + 300)
+
+    def test_an_older_session_adopts_the_state_without_a_refresh(self):
+        s = self.session()
+        s._context_prefix()
+        s.context_layer_hashes = None                                          # saved before CONTEXT_REFRESH_v1
+        _write(self.ws / "memory/MEMORY.md", "# 기억\n- NEW-HOUSE-FACT\n")
+        self.assertEqual(s._context_prefix(), "")
+        self.assertIsInstance(s.context_layer_hashes, dict)
+
+    def test_a_stateless_transport_is_not_sent_a_refresh(self):
+        s = self.session("http")                                               # it gets the bundle every request
+        self.assertEqual(s._context_prefix(), "")
+        _write(self.ws / "memory/MEMORY.md", "# 기억\n- NEW-HOUSE-FACT\n")
+        self.assertEqual(s._context_prefix(), "")
+
+    def test_the_layer_state_survives_a_restart(self):
+        src = (Path(I.__file__).parent / "session.py").read_text(encoding="utf-8")
+        self.assertIn('"context_layer_hashes": getattr(self, "context_layer_hashes", None)', src)
+        self.assertIn('self.context_layer_hashes = meta.get("context_layer_hashes")', src)
 
     def test_a_sound_bundle_raises_no_alert(self):
         # CONTEXT_ALERT_v1

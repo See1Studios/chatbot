@@ -14,6 +14,13 @@ from private_engine import tension_step
 from session_weights import _btw_prompt, _is_inquiry
 
 
+REFRESH_MAX_CHARS = 2000   # one refreshed layer's share of a turn (CONTEXT_REFRESH_v1)
+
+
+def _dynamic_hashes(bundle: Dict[str, Any]) -> Dict[str, str]:
+    return {x["id"]: x["hash"] for x in bundle.get("layers") or [] if x.get("kind") == "dynamic"}
+
+
 def _s():
     import session
     return session
@@ -224,11 +231,71 @@ class SessionTurn:
             self._loop_hint = ""
         return stdin_content
 
-    def _log_context(self, bundle: Dict[str, Any]) -> None:
+    def _context_prefix(self) -> str:
+        """The text to put before this turn's message (lock held). Instruction bundle (instructions.py), injected above
+        the adapter layer so every provider gets the same text the same way; native AGENTS.md/CLAUDE.md/skill
+        auto-discovery is not relied on.
+          - first turn of a conversation                     -> inject
+          - static layers changed (charter/persona/skills)   -> re-inject as an update
+          - resumed session that has a flag but no stored hash (pre-hash sessions) -> adopt the current hash silently
+          - otherwise, dynamic layers that changed since     -> only those, as a refresh (CONTEXT_REFRESH_v1)
+        The HTTP transport is stateless and already sends the bundle as the system message on every request, so a
+        user-turn preamble would only duplicate it there."""
+        bundle = _s().build_instruction_bundle(mode=getattr(self, "mode", "work"), character=getattr(self, "character", ""))
+        btext, bhash = bundle["text"], bundle["hash"]
+        if not btext:
+            return ""
+        if not getattr(self, "persona_injected", False):
+            header = "아래는 이 챗봇의 페르소나·운영 규칙이다. 첫 턴에만 주입된다."
+        elif getattr(self, "persona_bundle_hash", "") and self.persona_bundle_hash != bhash:
+            header = "규칙이 갱신되었다. 아래 내용이 지금부터의 규칙이다. 이전 규칙과 다르면 아래를 따른다."
+        else:
+            if not getattr(self, "persona_bundle_hash", ""):
+                self.persona_bundle_hash = bhash
+            return self._context_refresh(bundle)
+        prefix = ""
+        if self.adapter.transport_kind != "http":
+            prefix = (f"[시스템 안내] {header} 규칙대로 행동하되 이 안내 자체를 언급하지 마라.\n\n"
+                      f"{btext}\n\n"
+                      f"---\n\n")
+        self._log_context(bundle)   # CONTEXT_LOG_v1: before the flags say it is in
+        self.persona_injected = True
+        self.persona_bundle_hash = bhash
+        self.context_layer_hashes = _dynamic_hashes(bundle)
+        return prefix
+
+    def _context_refresh(self, bundle: Dict[str, Any]) -> str:
+        """CONTEXT_REFRESH_v1 (layered-context-architecture lca/C): the bundle went in once; a memory, name or status
+        layer changed since reaches the agent as a short block with only those layers (each capped), not the whole
+        bundle again. A session from before this adopts the current state silently."""
+        now = _dynamic_hashes(bundle)
+        seen = getattr(self, "context_layer_hashes", None)
+        if not isinstance(seen, dict):
+            self.context_layer_hashes = now
+            return ""
+        changed = [lid for lid in now if seen.get(lid) != now[lid]]
+        gone = [lid for lid in seen if lid not in now]
+        if not changed and not gone:
+            return ""
+        self.context_layer_hashes = now
+        if self.adapter.transport_kind == "http":   # it gets the whole bundle on every request
+            return ""
+        import instructions
+        texts = {layer.id: t for layer, t in instructions.layer_texts(getattr(self, "mode", "work"),
+                                                                      getattr(self, "character", "") or "")}
+        parts = [texts.get(lid, "")[:REFRESH_MAX_CHARS] for lid in changed]
+        parts += ["(%s: 이제 비어 있음)" % lid for lid in gone]  # l10n-ok
+        block = ("[시스템 안내] 지난 안내 이후 바뀐 기억·상태다. 앞의 같은 항목 대신 아래를 쓰되 이 안내 자체를 언급하지 "  # l10n-ok
+                 "마라.\n\n" + "\n\n".join(p for p in parts if p) + "\n\n---\n\n")  # l10n-ok
+        self._log_context(dict(bundle, text=block, layers=[x for x in bundle.get("layers") or [] if x["id"] in changed]),
+                          "refresh")   # chars = what this turn carries
+        return block
+
+    def _log_context(self, bundle: Dict[str, Any], why: str = "") -> None:
         """CONTEXT_LOG_v1 (layered-context-architecture lca/B): one `context.inject` line each time a bundle goes in --
         which layers, how long, why (first turn, or its static layers changed). `logdigest.py --evt context.inject`."""
         try:
-            why = "rules_changed" if getattr(self, "persona_injected", False) else "first"
+            why = why or ("rules_changed" if getattr(self, "persona_injected", False) else "first")
             obslog.event("context.inject", sid=self.sid, provider=self.provider, mode=getattr(self, "mode", "work"),
                          character=getattr(self, "character", "") or "", why=why, hash=bundle.get("hash", ""),
                          chars=len(bundle.get("text") or ""), layers=bundle.get("layers") or [])
@@ -252,37 +319,7 @@ class SessionTurn:
         stdin_content = f"[시스템 안내] {text}" if notice else text
         self._cached_summary, rules_prefix = "", ""  # a new turn stales the handover cache (#613); bundle goes AFTER the handoff wrap
         with self.lock:
-            # Instruction bundle (instructions.py), injected above the adapter
-            # layer so every provider gets the same text the same way; native
-            # AGENTS.md/CLAUDE.md/skill auto-discovery is not relied on.
-            #   - first turn of a conversation            -> inject
-            #   - static layers changed (charter/persona/skills) -> re-inject as an update
-            #   - resumed session that has a flag but no stored hash (pre-hash
-            #     sessions) -> adopt the current hash silently, no duplicate
-            # The HTTP transport is stateless and already sends the bundle as
-            # the system message on every request, so a user-turn preamble
-            # would only duplicate it there.
-            bundle = _s().build_instruction_bundle(mode=getattr(self, "mode", "work"), character=getattr(self, "character", ""))
-            btext, bhash = bundle["text"], bundle["hash"]
-            if btext:
-                if not getattr(self, "persona_injected", False):
-                    header = "아래는 이 챗봇의 페르소나·운영 규칙이다. 첫 턴에만 주입된다."
-                elif getattr(self, "persona_bundle_hash", "") and self.persona_bundle_hash != bhash:
-                    header = "규칙이 갱신되었다. 아래 내용이 지금부터의 규칙이다. 이전 규칙과 다르면 아래를 따른다."
-                else:
-                    header = ""
-                    if not getattr(self, "persona_bundle_hash", ""):
-                        self.persona_bundle_hash = bhash
-                if header:
-                    if self.adapter.transport_kind != "http":
-                        rules_prefix = (
-                            f"[시스템 안내] {header} 규칙대로 행동하되 이 안내 자체를 언급하지 마라.\n\n"
-                            f"{btext}\n\n"
-                            f"---\n\n"
-                        )
-                    self._log_context(bundle)   # CONTEXT_LOG_v1: before the flags say it is in
-                    self.persona_injected = True
-                    self.persona_bundle_hash = bhash
+            rules_prefix = self._context_prefix()   # the instruction bundle, or the layers that changed since
         with self.lock:
             if not notice and not getattr(self, "handoff_injected", False) and getattr(self, "handoff_summary", ""):
                 pred = getattr(self, "predecessor_session_id", "") or ""
