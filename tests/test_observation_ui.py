@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 from tests.page_source import app_bundle  # noqa: E402
 
 APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
@@ -68,13 +69,12 @@ const body = code + `
 const sentText = [], asked = [];
 const mod = new Function('document', 'api', 'statusObsBoxEl', 'alertModal', 'addActivity', 'fetchSelfStatus',
                          'statusTicketBoxEl', 'inputEl', 'switchTab', 'ticketBarEl', 'addNotice',
-                         'fillComposer', 'send', 'tapSendOpts', 'confirmModal', 't', body)(
+                         'fillComposer', 'send', 'tapSendOpts', 'confirmModal', body)(
   { createElement: el, getElementById: () => null }, api, box, async m => { alerts.push(m); }, m => activity.push(m), () => { fetched++; },
   tbox, inputEl, t => tabs.push(t), bar, (kind, m) => notices.push([kind, m]),   // chat notices (#145)
   (t) => { inputEl.value = t; inputEl.focus(); },                                  // FILL_COMPOSER_v1
   async () => { sentText.push(inputEl.value); inputEl.value = ''; }, () => ({ keepFocus: false }),
-  async (m) => { asked.push(m); return true; },                                   // TICKET_BUTTONS_v1: [폐기] asks
-  (k, v) => k + (v && v.id ? ' #' + v.id : ''));                                 // I18N_v1: t() names the key
+  async (m) => { asked.push(m); return true; });                                  // TICKET_BUTTONS_v1: [폐기] asks
 
 const HOSTILE = '<img src=x onerror=alert(1)>';
 const overview = {
@@ -263,7 +263,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 class ObservationUiTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        p = subprocess.run(["node", "-e", HARNESS, str(APP)], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        p = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(APP)], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                            universal_newlines=True, timeout=60)
         if p.returncode != 0:
             raise AssertionError("harness failed: " + p.stderr[-1500:])
@@ -380,7 +380,7 @@ class ObservationUiTest(unittest.TestCase):
         self.assertIn("승인 처리했어요", g["first"]["message"])
         self.assertEqual(g["second"]["message"], "")                      # already approved: no second approval
         for r in (g["first"], g["second"]):
-            self.assertIn("작업 #8 진행해줘", r["prompt"])
+            self.assertIn("Go ahead with work #8", r["prompt"])
             self.assertIn("static/app.js", r["prompt"])
             self.assertIn("release", r["prompt"])
         self.assertIn("진행할 수 없어요", g["refused"])

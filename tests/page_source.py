@@ -47,3 +47,14 @@ def app_bundle() -> Path:
         _bundle = Path(name)
         atexit.register(lambda: _bundle.unlink() if _bundle.exists() else None)
     return _bundle
+
+
+def i18n_prelude(lang: str = "ko") -> str:
+    """I18N_v1: the page's own tr()/i18nTable()/fmt* (static/app-i18n.js, between its helper markers) over one catalog,
+    as JS for a node harness to run before the code it tests -- so a test reads the words the operator sees."""
+    import json
+    src = (STATIC / "app-i18n.js").read_text(encoding="utf-8")
+    start, end = src.index("// ---- I18N helpers"), src.index("// ---- end I18N helpers")
+    cat = json.loads((STATIC / "i18n" / ("%s.json" % lang)).read_text(encoding="utf-8"))
+    return "var I18N = %s;\nvar I18N_LANG = %s;\n%s\n" % (json.dumps(cat, ensure_ascii=False), json.dumps(lang),
+                                                         src[start:end])

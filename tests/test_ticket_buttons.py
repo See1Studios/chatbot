@@ -10,6 +10,8 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from tests.page_source import i18n_prelude
+
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
 HARNESS = r"""
@@ -46,7 +48,7 @@ const api = new Function(...names, code + '; return { fillTicketCommand };')(...
 class TicketButtons(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(STATIC / "app-evolution.js"), str(STATIC / "app-turn.js")],
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(STATIC / "app-evolution.js"), str(STATIC / "app-turn.js")],
                            capture_output=True, text=True, timeout=20)
         assert r.returncode == 0, r.stderr[-1500:]
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
@@ -62,7 +64,7 @@ class TicketButtons(unittest.TestCase):
 
     def test_other_fills_wake_the_send_button_too(self):
         evo = (STATIC / "app-evolution.js").read_text(encoding="utf-8")
-        self.assertIn("fillComposer('#' + r.ticket + ' 계획 수정: ')", evo)
+        self.assertIn("fillComposer('#' + r.ticket + ' ' + tr('work.edit_plan') + ': ')", evo)
         self.assertIn("fillComposer(text)", (STATIC / "artifacts.js").read_text(encoding="utf-8"))
         md = (STATIC / "markdown.js").read_text(encoding="utf-8")
         self.assertIn("runTicketDecision(ticketCmd", md, "chips share the one decision path")
@@ -89,7 +91,7 @@ class WorkInProgress(unittest.TestCase):
     """WORK_NOW_v1 (#417): held tickets show in the improvement tab with holder, locked files and deadline."""
 
     def test_held_tickets_are_listed_with_their_lease(self):
-        out = subprocess.run(["node", "-e", WORK_NOW, str(STATIC / "app-evolution.js")], capture_output=True, text=True,
+        out = subprocess.run(["node", "-e", i18n_prelude() + WORK_NOW, str(STATIC / "app-evolution.js")], capture_output=True, text=True,
                              timeout=30)
         self.assertEqual(out.returncode, 0, out.stderr)
         rows = json.loads(out.stdout)

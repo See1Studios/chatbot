@@ -1,5 +1,5 @@
 """I18N_v1 (docs/plans/localization.md l10n/C): the page's words come from static/i18n/<lang>.json by key. Every catalog
-has the same keys; every key the page names literally (t('x'), data-i18n*) is in them; t() falls back to English, then
+has the same keys; every key the page names literally (tr('x'), data-i18n*) is in them; tr() falls back to English, then
 to the key; the language is ?lang=, then the one kept, then the browser's, then English. The REAL app-i18n.js runs in
 node against stubs.
 Run: ./run-tests.sh test_l10n_catalogs
@@ -27,7 +27,7 @@ class Catalogs(unittest.TestCase):
     def test_every_key_the_page_names_is_in_the_catalog(self):
         used = set()
         for js in STATIC.glob("*.js"):
-            used |= set(re.findall(r"\bt\(\s*'([a-z0-9_.]+)'\s*[,)]", js.read_text(encoding="utf-8")))
+            used |= set(re.findall(r"\btr\(\s*'([a-z0-9_.]+)'\s*[,)]", js.read_text(encoding="utf-8")))
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         used |= set(re.findall(r'data-i18n(?:-title|-aria-label)?="([^"]+)"', html))
         self.assertTrue(used)
@@ -38,6 +38,13 @@ class Catalogs(unittest.TestCase):
             want = set(re.findall(r"\{(\w+)\}", text))
             for lang, cat in CATALOGS.items():
                 self.assertEqual(set(re.findall(r"\{(\w+)\}", cat[key])), want, "%s %s" % (lang, key))
+
+    def test_no_page_code_names_a_local_tr(self):
+        # a local `tr` would hide the catalog function in its scope (why it is not `t`: a hundred locals are `t`)
+        rx = re.compile(r"\b(?:const|let|var)\s+tr\b|\(\s*tr\s*[,)]|,\s*tr\s*[,)]|\btr\s*=>")
+        hits = ["%s:%d" % (p.name, i) for p in STATIC.glob("*.js")
+                for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1) if rx.search(line)]
+        self.assertEqual(hits, [])
 
     def test_it_loads_first_and_boot_waits_for_it(self):
         html = (STATIC / "index.html").read_text(encoding="utf-8")
@@ -58,10 +65,10 @@ async function run(search, kept, langs) {
     fetch: async url => { const l = url.split('/').pop().split('.')[0]; return { ok: !!cats[l], json: async () => cats[l] }; },
     document: doc };
   const names = Object.keys(env);
-  const m = new Function(...names, src + '; return { t, i18nReady, I18N_LANG };')(...names.map(k => env[k]));
+  const m = new Function(...names, src + '; return { tr, i18nReady, I18N_LANG };')(...names.map(k => env[k]));
   await m.i18nReady;
   return { lang: m.I18N_LANG, html: doc.documentElement.lang, kept: store['chatbot.lang'] || '',
-    hello: m.t('x.hello', { name: 'Kit' }), onlyEn: m.t('x.only_en'), missing: m.t('x.none') };
+    hello: m.tr('x.hello', { name: 'Kit' }), onlyEn: m.tr('x.only_en'), missing: m.tr('x.none') };
 }
 (async () => {
   console.log(JSON.stringify({

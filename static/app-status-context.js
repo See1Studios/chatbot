@@ -8,12 +8,12 @@ async function loadContextNow() {
   const el = document.getElementById('statusContext');
   if (!el) return;
   const sid = typeof sessionId !== 'undefined' ? sessionId : '';
-  if (!sid) { el.textContent = t('context.none_open'); return; }
+  if (!sid) { el.textContent = tr('context.none_open'); return; }
   let res;
   try {
     res = await api('/api/sessions/' + encodeURIComponent(sid) + '/context');
   } catch (e) {
-    el.textContent = t('context.load_failed', { error: e.message || e });
+    el.textContent = tr('context.load_failed', { error: e.message || e });
     return;
   }
   const recs = res.records || [];
@@ -21,7 +21,7 @@ async function loadContextNow() {
   let whole = -1;   // the last whole bundle; what came after it is what the agent has on top
   recs.forEach((r, i) => { if (r.why === 'first' || r.why === 'rules_changed') whole = i; });
   const shown = whole >= 0 ? recs.slice(whole) : recs;
-  if (!shown.length) { el.textContent = t('context.no_records'); return; }
+  if (!shown.length) { el.textContent = tr('context.no_records'); return; }
   shown.forEach(r => el.appendChild(contextRecord(r)));
 }
 
@@ -29,10 +29,10 @@ function contextRecord(r) {
   const item = obsNode('details', 'status-item ctx-item');
   const head = obsNode('summary', 'ctx-head');
   const when = r.ts ? fmtTime(r.ts * 1000) : '';
-  head.textContent = t('context.why.' + r.why) + ' · ' + t('context.chars', { n: fmtNumber(r.chars) }) + (when ? ' · ' + when : '');
+  head.textContent = tr('context.why.' + r.why) + ' · ' + tr('context.chars', { n: fmtNumber(r.chars) }) + (when ? ' · ' + when : '');
   item.appendChild(head);
   (r.layers || []).forEach(x => {
-    item.appendChild(obsNode('div', 'ctx-layer', t('context.layer.' + x.id) + ' ' + t('context.chars', { n: fmtNumber(x.chars) })));
+    item.appendChild(obsNode('div', 'ctx-layer', tr('context.layer.' + x.id) + ' ' + tr('context.chars', { n: fmtNumber(x.chars) })));
   });
   if (r.why === 'first' || r.why === 'rules_changed') item.open = true;
   return item;

@@ -63,7 +63,7 @@ const log = { posts: [], notices: [] };
 const doc = { el: {} };
 function node(tag, cls, text) { return { tag, className: cls || '', textContent: text || '', children: [], style: {},
   appendChild(c) { this.children.push(c); return c; }, addEventListener(e, f) { this['on' + e] = f; } }; }
-const env = { obsNode: node, workElapsed: s => Math.round(s) + 's', confirm: () => true, obsErrorText: String, t: k => k,
+const env = { obsNode: node, workElapsed: s => Math.round(s) + 's', confirm: () => true, obsErrorText: String, tr: k => k,
   addNotice: (k, t) => log.notices.push(k + ':' + t),
   api: async (p, o) => { if (o && o.method === 'POST') log.posts.push(p); return { handoffs: [] }; },
   document: { getElementById: () => null } };

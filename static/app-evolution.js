@@ -4,7 +4,7 @@
 // ---- observation manager (status tab) ----
 // Everything below puts text into nodes with textContent only: observation and candidate text is written by
 // agents, so it is data, never markup.
-const OBS_STATUS_LABEL = { open: '열림', parked: '보류', actioned: '완료', declined: '기각', superseded: '대체됨' };
+const OBS_STATUS_LABEL = i18nTable('obs.status');   // I18N_v1: names by id, from the catalog
 
 function obsNode(tag, cls, text) {
   const n = document.createElement(tag);
@@ -19,7 +19,7 @@ function obsNode(tag, cls, text) {
 function actorLabel(who) {
   const id = window.__IDENTITY__ || {};
   const s = String(who || '');
-  if (s === 'operator' || /^operator\b/.test(s)) return (id.user_title || '사용자') + s.replace(/^operator/, '').replace(/^ \((\w+)\)/, '($1)');
+  if (s === 'operator' || /^operator\b/.test(s)) return (id.user_title || tr('common.user')) + s.replace(/^operator/, '').replace(/^ \((\w+)\)/, '($1)');
   const m = s.match(/^chat-agent(?::(.+))?$/);
   if (m) return (id.name || id.persona || id.title || 'agent') + (m[1] ? '·' + m[1] : '');
   return s;
@@ -28,7 +28,7 @@ function actorLabel(who) {
 function actorBadge(who, prefix) {
   if (!who) return null;
   const b = obsNode('span', 'obs-badge obs-actor', (prefix || '') + actorLabel(who));
-  b.title = '처리 주체';
+  b.title = tr('evo.actor_title');
   return b;
 }
 
@@ -48,7 +48,7 @@ async function loadObservations() {
   try {
     res = await api('/api/observations');
   } catch (e) {
-    obsSet(statusObsBoxEl, [obsNode('div', 'status-hint', '이슈 API 없음 (엔진 리부트 필요): ' + obsErrorText(e))]);
+    obsSet(statusObsBoxEl, [obsNode('div', 'status-hint', tr('evo.no_issue_api', { error: obsErrorText(e) }))]);
     return;
   }
   renderObservations(res);
@@ -86,9 +86,9 @@ function renderObservations(res) {
   const kids = [];
 
   const openSec = obsNode('div', 'evo-sec');
-  openSec.appendChild(obsNode('div', 'evo-sec-head', '대기 중' + (active.length ? ' · ' + active.length : '')));
+  openSec.appendChild(obsNode('div', 'evo-sec-head', tr('evo.waiting') + (active.length ? ' · ' + active.length : '')));
   if (!active.length) {
-    openSec.appendChild(obsNode('div', 'evo-empty', '대기 중 이슈 없음'));
+    openSec.appendChild(obsNode('div', 'evo-empty', tr('evo.no_waiting_issues')));
   } else {
     active.forEach(o => openSec.appendChild(renderObservationRow(o)));
   }
@@ -107,7 +107,7 @@ let obsHistoryPage = 1;
 let obsHistoryOpen = false;
 function renderObservationHistory() {
   const sec = obsNode('div', 'evo-sec');
-  const head = evoToggleHead('처리 이력', '', { open: obsHistoryOpen });
+  const head = evoToggleHead(tr('evo.history'), '', { open: obsHistoryOpen });
   const body = obsNode('div', 'evo-fold');
   evoBindToggle(head, body);
   head.addEventListener('click', () => { obsHistoryOpen = head.classList.contains('open'); });
@@ -118,7 +118,7 @@ function renderObservationHistory() {
     try {
       res = await api('/api/observations/history/' + page);
     } catch (e) {
-      obsSet(body, [obsNode('div', 'status-hint', '이력을 불러오지 못했어요: ' + obsErrorText(e))]);
+      obsSet(body, [obsNode('div', 'status-hint', tr('evo.history_failed', { error: obsErrorText(e) }))]);
       return;
     }
     obsHistoryPage = res.page;
@@ -130,11 +130,11 @@ function renderObservationHistory() {
       if (when) row.querySelector('.obs-head').appendChild(obsNode('span', 'obs-when', when));
       return row;
     });
-    if (!rows.length) rows.push(obsNode('div', 'evo-empty', '처리한 이슈 없음'));
+    if (!rows.length) rows.push(obsNode('div', 'evo-empty', tr('evo.no_history')));
     if (res.pages > 1) {
       const pager = obsNode('div', 'evo-pager');
-      const prev = obsNode('button', 'art-btn art-btn-xs', '이전');
-      const next = obsNode('button', 'art-btn art-btn-xs', '다음');
+      const prev = obsNode('button', 'art-btn art-btn-xs', tr('common.prev'));
+      const next = obsNode('button', 'art-btn art-btn-xs', tr('common.next'));
       prev.type = next.type = 'button';
       prev.disabled = res.page <= 1;
       next.disabled = res.page >= res.pages;
@@ -153,7 +153,7 @@ function renderClosedObservationRow(o) {
   const row = obsNode('div', 'obs-row obs-row-done obs-row-compact');
   const head = obsNode('div', 'obs-head');
   head.appendChild(obsNode('span', 'obs-id', '#' + o.id));
-  head.appendChild(obsNode('span', 'obs-title', o.title || '(제목 없음)'));
+  head.appendChild(obsNode('span', 'obs-title', o.title || tr('common.untitled')));
   head.appendChild(obsNode('span', 'obs-badge ' + o.status, OBS_STATUS_LABEL[o.status] || o.status));
   const by = actorBadge(o.resolved_by || o.actor);
   if (by) head.appendChild(by);
@@ -165,20 +165,20 @@ function renderObservationRow(o) {
   const row = obsNode('div', 'obs-row obs-row-compact');
   const head = obsNode('div', 'obs-head');
   head.appendChild(obsNode('span', 'obs-id', '#' + o.id));
-  head.appendChild(obsNode('span', 'obs-title', o.title || '(제목 없음)'));
+  head.appendChild(obsNode('span', 'obs-title', o.title || tr('common.untitled')));
   head.appendChild(obsNode('span', 'obs-badge ' + o.status, OBS_STATUS_LABEL[o.status] || o.status));
-  const rec = actorBadge(o.actor, '기록 ');
+  const rec = actorBadge(o.actor, tr('evo.logged_by'));
   if (rec) head.appendChild(rec);
   const actions = obsNode('div', 'obs-actions obs-actions-inline');
-  const viewBtn = obsNode('button', 'art-btn art-btn-xs', '보기');
-  const doBtn = obsNode('button', 'art-btn art-btn-xs primary', '처리');
+  const viewBtn = obsNode('button', 'art-btn art-btn-xs', tr('common.view'));
+  const doBtn = obsNode('button', 'art-btn art-btn-xs primary', tr('evo.handle'));
   viewBtn.type = 'button';
   doBtn.type = 'button';
   actions.appendChild(viewBtn);
   actions.appendChild(doBtn);
   head.appendChild(actions);
   row.appendChild(head);
-  const metaBits = [o.area, o.date, o.status === 'parked' && o.parked_until ? '보류 ~ ' + o.parked_until : ''].filter(Boolean);
+  const metaBits = [o.area, o.date, o.status === 'parked' && o.parked_until ? tr('evo.parked_until', { date: o.parked_until }) : ''].filter(Boolean);
   if (metaBits.length) row.appendChild(obsNode('div', 'obs-meta', metaBits.join(' · ')));
   const detail = obsNode('pre', 'obs-body');
   detail.hidden = true;
@@ -189,12 +189,12 @@ function renderObservationRow(o) {
     e.stopPropagation();
     if (!detail.hidden) { detail.hidden = true; return; }
     if (!detail.textContent) {
-      detail.textContent = '불러오는 중…';
+      detail.textContent = tr('common.loading');
       try {
         const d = await api('/api/observations/' + o.id);
-        detail.textContent = (d.observation && d.observation.body) || '(본문 없음)';
+        detail.textContent = (d.observation && d.observation.body) || tr('evo.no_body');
       } catch (err) {
-        detail.textContent = '불러오기 실패: ' + obsErrorText(err);
+        detail.textContent = tr('common.load_failed', { error: obsErrorText(err) });
       }
     }
     detail.hidden = false;
@@ -210,14 +210,14 @@ function renderObservationRow(o) {
 function renderResolveForm(o, host) {
   const form = obsNode('div', 'obs-form');
   const sel = obsNode('select');
-  [['actioned', '완료'], ['declined', '기각'], ['superseded', '대체됨'], ['parked', '보류']].forEach(pair => {
+  ['actioned', 'declined', 'superseded', 'parked'].map(s => [s, OBS_STATUS_LABEL[s]]).forEach(pair => {
     const op = obsNode('option', null, pair[1]);
     op.value = pair[0];
     sel.appendChild(op);
   });
   const reason = obsNode('input');
   reason.type = 'text';
-  reason.placeholder = '사유 (필수)';
+  reason.placeholder = tr('evo.reason_required');
   reason.maxLength = 300;
   const until = obsNode('input');
   until.type = 'date';
@@ -225,8 +225,8 @@ function renderResolveForm(o, host) {
   until.hidden = true;
   sel.addEventListener('change', () => { until.hidden = sel.value !== 'parked'; });
   const btns = obsNode('div', 'obs-actions');
-  const save = obsNode('button', 'art-btn art-btn-xs primary', '저장');
-  const cancel = obsNode('button', 'art-btn art-btn-xs', '취소');
+  const save = obsNode('button', 'art-btn art-btn-xs primary', tr('common.save'));
+  const cancel = obsNode('button', 'art-btn art-btn-xs', tr('common.cancel'));
   save.type = 'button';
   cancel.type = 'button';
   cancel.addEventListener('click', () => { host.textContent = ''; });
@@ -239,12 +239,12 @@ function renderResolveForm(o, host) {
       const body = { status: sel.value, resolution: why };
       if (sel.value === 'parked') body.until = until.value;
       await api('/api/observations/' + o.id + '/resolve', { method: 'POST', body: JSON.stringify(body) });
-      addActivity('이슈 #' + o.id + ' → ' + (OBS_STATUS_LABEL[sel.value] || sel.value));
+      addActivity(tr('evo.issue_moved', { id: o.id, status: OBS_STATUS_LABEL[sel.value] || sel.value }));
       if (typeof fetchEvolution === 'function') fetchEvolution(); else fetchSelfStatus();
     } catch (e) {
       save.disabled = false;
-      save.textContent = '저장';
-      await alertModal('처리 실패: ' + obsErrorText(e));
+      save.textContent = tr('common.save');
+      await alertModal(tr('evo.handle_failed', { error: obsErrorText(e) }));
     }
   });
   btns.appendChild(save);
@@ -257,11 +257,11 @@ function renderCandidates(res) {
   const wrap = obsNode('div', 'evo-sec obs-cands');
   const n = res.unreviewed_candidates || 0;
   if (!n) {
-    wrap.appendChild(obsNode('div', 'evo-sec-head', '힌트'));
-    wrap.appendChild(obsNode('div', 'evo-empty', '새 힌트 없음'));
+    wrap.appendChild(obsNode('div', 'evo-sec-head', tr('evo.hints')));
+    wrap.appendChild(obsNode('div', 'evo-empty', tr('evo.no_hints')));
     return wrap;
   }
-  const head = evoToggleHead('힌트', n, { open: false });
+  const head = evoToggleHead(tr('evo.hints'), n, { open: false });
   const list = obsNode('div', 'evo-fold');
   (res.candidates || []).forEach(c => {
     const card = obsNode('div', 'obs-cand obs-row-compact');
@@ -283,15 +283,15 @@ function renderCandidates(res) {
 
 function renderReviewControls(res) {
   const wrap = obsNode('div', 'evo-sec obs-review');
-  const head = evoToggleHead('점검', null, { open: false });
+  const head = evoToggleHead(tr('evo.review'), null, { open: false });
   const body = obsNode('div', 'evo-fold');
-  body.appendChild(obsNode('div', 'obs-meta', '마지막 점검: ' + (res.last_review || '아직 없음')));
+  body.appendChild(obsNode('div', 'obs-meta', tr('evo.last_review', { date: res.last_review || tr('evo.never') })));
   const form = obsNode('div', 'obs-form');
   const summary = obsNode('input');
   summary.type = 'text';
-  summary.placeholder = '점검 한 줄 (필수)';
+  summary.placeholder = tr('evo.review_line');
   summary.maxLength = 300;
-  const go = obsNode('button', 'art-btn art-btn-xs primary', '기록');
+  const go = obsNode('button', 'art-btn art-btn-xs primary', tr('evo.log_button'));
   go.type = 'button';
   go.addEventListener('click', async () => {
     const text = summary.value.trim();
@@ -299,11 +299,11 @@ function renderReviewControls(res) {
     go.disabled = true;
     try {
       await api('/api/observations/reviewed', { method: 'POST', body: JSON.stringify({ summary: text }) });
-      addActivity('점검 기록됨');
+      addActivity(tr('evo.review_logged'));
       if (typeof fetchEvolution === 'function') fetchEvolution(); else fetchSelfStatus();
     } catch (e) {
       go.disabled = false;
-      await alertModal('점검 기록 실패: ' + obsErrorText(e));
+      await alertModal(tr('evo.review_failed', { error: obsErrorText(e) }));
     }
   });
   form.appendChild(summary);
@@ -318,47 +318,47 @@ function renderReviewControls(res) {
 
 // Tickets: the buttons only type the operator's command into the chat box (`/ticket approve 3`); pressing Enter
 // runs it in the page (see send()) -- it never goes to the agent, and the agent has no way to decide a ticket.
-const TICKET_STATUS_LABEL = { proposed: '제안됨', approved: '승인됨', in_progress: '진행 중', awaiting_merge: '병합 대기',
-  declined: '폐기됨', wontfix: '보류(사람 필요)', done: '완료' };
-// DELEGATION_WIRING_v1: `delegate` hands the ticket to the worktree runner ([맡겨]); an awaiting_merge ticket lands
-// or is dropped by the operator ([병합·⚡] / [폐기]). Same rule as above: the button types, Enter decides.
+const TICKET_STATUS_LABEL = i18nTable('ticket.status');
+// DELEGATION_WIRING_v1: `delegate` hands the ticket to the worktree runner ([Run]); an awaiting_merge ticket lands
+// or is dropped by the operator ([Approve] / [Discard]). Same rule as above: the button types, Enter decides.
+// [action, catalog key of its button]; ticketDecisionsFor gives [action, word].
 const TICKET_DECISIONS = {
-  proposed: [['go', '승인+진행'], ['delegate', '실행'], ['approve', '승인'], ['decline', '폐기']],
-  approved: [['go', '진행'], ['delegate', '실행'], ['decline', '폐기']],
-  awaiting_merge: [['merge', '승인'], ['rework', '반려'], ['discard', '폐기']],
-  wontfix: [['reopen', '재개']],
+  proposed: [['go', 'ticket.button.go_approve'], ['delegate', 'ticket.button.delegate'], ['approve', 'ticket.button.approve'], ['decline', 'ticket.button.decline']],
+  approved: [['go', 'ticket.button.go'], ['delegate', 'ticket.button.delegate'], ['decline', 'ticket.button.decline']],
+  awaiting_merge: [['merge', 'ticket.button.merge'], ['rework', 'ticket.button.rework'], ['discard', 'ticket.button.discard']],
+  wontfix: [['reopen', 'ticket.button.reopen']],
 };
-const TICKET_DECISION_WORD = { approve: '승인', decline: '폐기', reopen: '재개', go: '진행', delegate: '실행', merge: '승인(반영 시작)', rework: '반려', discard: '폐기', disown: '담당 해제', unqueue: '대기 취소', allow: '경로 허용', close: '티켓 닫기' };
-// Delegation API refusal reasons (English, from the server) -> one short Korean line. [pattern, (match) => line].
-const DELEGATION_REFUSAL_KO = [
-  [/uncommitted leftover in ([^;]+)/, (m) => '실행 거절: 커밋 안 된 파일이 남아 있어요 (' + m[1].trim() + ')'],
-  [/not a plan waiting for \[실행\]/, () => '실행 거절: [실행] 대기 중인 계획이 아니에요'],
-  [/lock is held|held by another ticket/, () => '실행 거절: 다른 작업이 같은 파일을 쓰는 중이에요'],
-  [/^no such ticket/, () => '작업을 찾을 수 없어요'],
+const TICKET_DECISION_WORD = i18nTable('ticket.word');
+// Delegation API refusal reasons (English, from the server) -> one short line in the page's language.
+const DELEGATION_REFUSAL = [
+  [/uncommitted leftover in ([^;]+)/, (m) => tr('ticket.refused.leftover', { files: m[1].trim() })],
+  [/not a plan waiting for \[/, () => tr('ticket.refused.not_waiting')],
+  [/lock is held|held by another ticket/, () => tr('ticket.refused.locked')],
+  [/^no such ticket/, () => tr('ticket.not_found')],
 ];
 
 function delegationRefusalText(e) {
   let reason = String((e && e.message) || e || '');
   try { const j = JSON.parse(reason); if (j && j.error) reason = String(j.error); } catch (_) { /* raw text */ }
-  for (const [re, line] of DELEGATION_REFUSAL_KO) {
+  for (const [re, line] of DELEGATION_REFUSAL) {
     const m = re.exec(reason);
     if (m) return line(m);
   }
-  return '실행 거절: ' + (reason.length > 120 ? reason.slice(0, 120) + '…' : reason);
+  return tr('ticket.refused.other', { reason: reason.length > 120 ? reason.slice(0, 120) + '…' : reason });
 }
-// PD_PLAN_v1: the operator's two confirmations on a PD plan -- [실행] (`delegate`) and [승인]/[반려]/[폐기].
+// PD_PLAN_v1: the operator's two confirmations on a PD plan -- [Run] (`delegate`) and [Approve]/[Rework]/[Discard].
 const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', rework: 'rework', discard: 'discard', unqueue: 'unqueue', allow: 'allow' };
 
 // LEASE_SCOPE_v1: one author per file. The live leases come with /api/tickets; a ticket another agent opened to do
-// itself (`owner`, not the chat's own) is not offered to the chat -- the operator can hand it over ([담당 해제]).
+// itself (`owner`, not the chat's own) is not offered to the chat -- the operator can hand it over ([Unassign]).
 let ticketLeases = [];
 function ticketOwnedElsewhere(t) {
   return Boolean(t && t.owner && !String(t.owner).startsWith('chat-agent'));
 }
 function ticketDecisionsFor(t) {
-  const pairs = TICKET_DECISIONS[t.status] || [];
-  if (ticketOwnedElsewhere(t) && (t.status === 'approved' || t.status === 'proposed')) return [['disown', '담당 해제'], ['decline', '폐기']];
-  return pairs;
+  let pairs = TICKET_DECISIONS[t.status] || [];
+  if (ticketOwnedElsewhere(t) && (t.status === 'approved' || t.status === 'proposed')) pairs = [['disown', 'ticket.button.disown'], ['decline', 'ticket.button.decline']];
+  return pairs.map(([action, key]) => [action, tr(key)]);
 }
 function leasePathsOverlap(a, b) {
   if (!a.length || !b.length) return true;   // no files = every file
@@ -378,7 +378,8 @@ function ticketBlocker(t) {
   return ticketLeases.find(l => l.ticket !== t.id && leasePathsOverlap(mine, l.paths || [])) || null;
 }
 function leaseWaitText(l) {
-  return '잠금 대기 · #' + l.ticket + (l.paths && l.paths.length ? ' ' + l.paths.slice(0, 2).join(', ') : ' (전체)') + ' ~' + String(l.until || '').slice(11, 16);
+  return tr('ticket.lease_wait', { ticket: l.ticket, paths: l.paths && l.paths.length ? l.paths.slice(0, 2).join(', ') : tr('ticket.lease_all'),
+    until: String(l.until || '').slice(11, 16) });
 }
 
 function ticketDecisionText(t, action) {
@@ -387,7 +388,7 @@ function ticketDecisionText(t, action) {
 
 function parseTicketCommand(text) {
   const t = String(text || '').trim();
-  const rw = /^\/ticket\s+rework\s+#?(\d{1,6})\s+([\s\S]+)$/.exec(t);   // [반려]: the comment follows the number
+  const rw = /^\/ticket\s+rework\s+#?(\d{1,6})\s+([\s\S]+)$/.exec(t);   // [Rework]: the comment follows the number
   if (rw) return { action: 'rework', id: Number(rw[1]), comment: rw[2].trim() };
   const bare = /^\/ticket\s+rework\s+#?(\d{1,6})$/.exec(t);   // no reason yet: stays in the page, never reaches the agent (#715)
   if (bare) return { action: 'rework', id: Number(bare[1]), comment: '' };
@@ -398,20 +399,22 @@ function parseTicketCommand(text) {
 // `/ticket go N`: approve it if it still waits for that (the operator's decision), then hand the agent the obvious
 // instruction as an ordinary message -- the sentence nobody wants to type. Returns { message, prompt }.
 function ticketGoPrompt(t) {
-  return '작업 #' + t.id + ' 진행해줘 (대상: ' + (t.target || '') + '). 맡길 담당자가 있으면 delegate로 계획을 올리고 확인만 해 — 그 계획이 #' + t.id +
-    '을(를) 대신한다고 알려줘. 담당자가 없거나 대상이 Tier 3이면 ticket 도구로 claim해서 대상만 직접 고치고, 끝나면 release로 결과(done/gate_failed/failed)를 기록해. 범위 밖은 건드리지 마.';
+  return 'Go ahead with work #' + t.id + ' (target: ' + (t.target || '') + '). If an expert can take it, put the plan up with '   // agent-facing: English
+    + 'delegate and only check it -- say that plan stands in for #' + t.id + '. With no expert, or a Tier 3 target, claim it '
+    + 'with the ticket tool, fix only the target yourself, and record the result with release (done/gate_failed/failed). '
+    + 'Touch nothing out of scope. Reply to the operator in their language.';
 }
 
 async function goTicket(cmd) {
   const cur = (await api('/api/tickets/' + cmd.id)).ticket || {};
   const refuse = (msg) => { throw new Error(JSON.stringify({ ok: false, error: msg })); };
-  if (ticketOwnedElsewhere(cur)) refuse('작업 #' + cmd.id + '은(는) ' + cur.owner + ' 담당이에요. 넘기려면 [담당 해제]');
+  if (ticketOwnedElsewhere(cur)) refuse(tr('ticket.owned_elsewhere', { id: cmd.id, owner: cur.owner }));
   try { ticketLeases = (await api('/api/tickets')).leases || []; } catch (_) { /* the claim still checks */ }
   const blocker = ticketBlocker(cur);
-  if (blocker) refuse('작업 #' + cmd.id + ' ' + leaseWaitText(blocker) + ' — 끝나면 다시 눌러 주세요');
+  if (blocker) refuse(tr('ticket.blocked', { id: cmd.id, wait: leaseWaitText(blocker) }));
   let message = '';
   if (cur.status === 'proposed') message = await decideTicket({ action: 'approve', id: cmd.id });
-  else if (cur.status !== 'approved') refuse('작업 #' + cmd.id + '은(는) ' + (TICKET_STATUS_LABEL[cur.status] || cur.status) + ' 상태라 진행할 수 없어요');
+  else if (cur.status !== 'approved') refuse(tr('ticket.cannot_go', { id: cmd.id, status: TICKET_STATUS_LABEL[cur.status] || cur.status }));
   return { message, prompt: ticketGoPrompt(cur) };
 }
 
@@ -421,29 +424,29 @@ async function decideTicket(cmd) {
       const r = await api('/api/delegations/' + cmd.id + '/' + DELEGATION_ACTION[cmd.action], { method: 'POST', body: JSON.stringify({ comment: cmd.comment || '' }) });
       loadWork();
       if (r && r.healed) {
-        return '작업 #' + cmd.id + '은(는) 이미 ' + (TICKET_STATUS_LABEL[r.status] || r.status) + ' 상태여서 작업 카드를 정리했어요';
+        return tr('ticket.healed', { id: cmd.id, status: TICKET_STATUS_LABEL[r.status] || r.status });
       }
       if (r && r.queued) {
         const b = r.blocked_by || {};
-        return '작업 #' + cmd.id + ' 실행 대기 — #' + b.ticket + '이(가) ' + (b.paths || []).join(', ') + '를 쓰는 중이라, 끝나면(~' + String(b.until || '').slice(11, 16) + ') 자동으로 시작해요';
+        return tr('ticket.queued', { id: cmd.id, ticket: b.ticket, paths: (b.paths || []).join(', '), until: String(b.until || '').slice(11, 16) });
       }
-      return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' → 작업 카드에서 진행 확인';
+      return tr('ticket.decided_work', { id: cmd.id, word: TICKET_DECISION_WORD[cmd.action] || cmd.action });
     } catch (e) {
       loadWork();
       try {
-        const tr = await api('/api/tickets/' + cmd.id);
-        const ts = (tr && tr.ticket && tr.ticket.status) || '';
+        const got = await api('/api/tickets/' + cmd.id);
+        const ts = (got && got.ticket && got.ticket.status) || '';
         if (['done', 'declined', 'wontfix'].includes(ts)) {
           await dismissWorkCard({ ticket: cmd.id, phase: 'declined' });
-          return '작업 #' + cmd.id + '은(는) 이미 ' + (TICKET_STATUS_LABEL[ts] || ts) + ' 상태여서 카드를 정리했어요';
+          return tr('ticket.healed_card', { id: cmd.id, status: TICKET_STATUS_LABEL[ts] || ts });
         }
       } catch (_) {}
       throw new Error(delegationRefusalText(e));
     }
   }
   const res = await api('/api/tickets/' + cmd.id + '/' + cmd.action, { method: 'POST', body: JSON.stringify({}) });
-  const t = res.ticket || {};
-  return '작업 #' + cmd.id + ' ' + TICKET_DECISION_WORD[cmd.action] + ' 처리했어요 → ' + (TICKET_STATUS_LABEL[t.status] || t.status || '');
+  const tk = res.ticket || {};
+  return tr('ticket.decided', { id: cmd.id, word: TICKET_DECISION_WORD[cmd.action] || cmd.action, status: TICKET_STATUS_LABEL[tk.status] || tk.status || '' });
 }
 
 async function loadTickets() {
@@ -452,7 +455,7 @@ async function loadTickets() {
   try {
     res = await api('/api/tickets');
   } catch (e) {
-    if (statusTicketBoxEl) obsSet(statusTicketBoxEl, [obsNode('div', 'status-hint', '작업 API 없음 (엔진 리부트 필요): ' + obsErrorText(e))]);
+    if (statusTicketBoxEl) obsSet(statusTicketBoxEl, [obsNode('div', 'status-hint', tr('ticket.no_api', { error: obsErrorText(e) }))]);
     if (ticketBarEl) { ticketBarEl.textContent = ''; ticketBarEl.hidden = true; }
     return;
   }
@@ -462,7 +465,7 @@ async function loadTickets() {
 // The same buttons, where the operator already is: a strip above the composer while a ticket waits for a decision.
 const TICKET_BAR_MAX = 3;
 // TICKET_BUTTONS_v1 (operator, 2026-09-29: send on the press, and no bubble at all): a decision
-// button acts at once, like a choice chip -- no text in the box, no bubble, only the notice. [반려] still waits for
+// button acts at once, like a choice chip -- no text in the box, no bubble, only the notice. [Rework] still waits for
 // the comment to be typed after it.
 // Throwing work away is the one decision a stray tap should not make: it asks first.
 const TICKET_ASK_FIRST = ['decline', 'discard'];
@@ -470,15 +473,15 @@ async function fillTicketCommand(tk, action) {
   switchTab('chat');
   if (action === 'rework') { fillComposer(ticketDecisionText(tk, action) + ' '); return; }
   if (TICKET_ASK_FIRST.includes(action) && typeof confirmModal === 'function'
-      && !(await confirmModal(t('ticket.confirm.' + action, { id: tk.id })))) return;
+      && !(await confirmModal(tr('ticket.confirm.' + action, { id: tk.id })))) return;
   await runTicketDecision({ action, id: tk.id }, typeof tapSendOpts === 'function' ? tapSendOpts() : undefined);
 }
 
-// The operator's decision on a ticket, made in the page and never sent to the agent -- except [진행], which then
+// The operator's decision on a ticket, made in the page and never sent to the agent -- except [Go], which then
 // hands the agent its instruction as an ordinary message. Resolves true when it sent that message.
 async function runTicketDecision(cmd, opts) {
   if (cmd.action === 'rework' && !cmd.comment) {   // a rework needs the reason the worker gets: ask, keep the command
-    addNotice('warn', t('ticket.rework_needs_reason', { id: cmd.id }));
+    addNotice('warn', tr('ticket.rework_needs_reason', { id: cmd.id }));
     inputEl.value = '/ticket rework ' + cmd.id + ' ';
     if (typeof updateSendButton === 'function') updateSendButton();
     inputEl.focus();
@@ -495,7 +498,7 @@ async function runTicketDecision(cmd, opts) {
     }
     addNotice('ok', await decideTicket(cmd));
   } catch (e) {
-    addNotice('error', t('ticket.decision_failed', { error: obsErrorText(e) }));
+    addNotice('error', tr('ticket.decision_failed', { error: obsErrorText(e) }));
   }
   loadTickets();
   return false;
@@ -503,7 +506,7 @@ async function runTicketDecision(cmd, opts) {
 
 // Who owns it (another agent) or what it waits for (a live lease on its files), as a small badge; null for neither.
 function ticketStateBadge(t) {
-  if (ticketOwnedElsewhere(t)) return obsNode('span', 'obs-badge owner', '담당 ' + t.owner);
+  if (ticketOwnedElsewhere(t)) return obsNode('span', 'obs-badge owner', tr('ticket.owner', { owner: t.owner }));
   const b = (t.status === 'approved' || t.status === 'proposed') ? ticketBlocker(t) : null;
   return b ? obsNode('span', 'obs-badge queued', leaseWaitText(b)) : null;
 }
@@ -526,17 +529,13 @@ function renderTicketBar(waiting) {
     });
     ticketBarEl.appendChild(chip);
   });
-  if (waiting.length > TICKET_BAR_MAX) ticketBarEl.appendChild(obsNode('span', 'obs-meta', '+' + (waiting.length - TICKET_BAR_MAX) + '건 더 (개선 탭)'));
+  if (waiting.length > TICKET_BAR_MAX) ticketBarEl.appendChild(obsNode('span', 'obs-meta', tr('ticket.more_in_tab', { n: waiting.length - TICKET_BAR_MAX })));
 }
 
 // DELEGATION_WIRING_v1: work cards -- one per delegated run, above the composer while it runs, waits for the
 // operator's merge, or has an ending the operator has not seen. The two characters' exchange is folded: the last
 // pair shows, the rest opens on demand. Names on the lines are the run's own (display values from identity).
-const WORK_PHASE_LABEL = {
-  starting: '시작 중', running: '준비 중', writing: '작업 중', gates: '테스트 중', review: '리뷰 중', merging: '병합 중',
-  awaiting_go: '실행 대기', queued: '잠금 대기', paused: '경로 요청', awaiting_merge: '최종 확인 대기', done: '완료', failed: '실패', gate_failed: '탈락',
-  declined: '폐기됨', stalled: '멈춤', 'merged-ticket-open': '병합됨(티켓 열림)', base_broken: '기반 고장',
-};
+const WORK_PHASE_LABEL = i18nTable('work.phase');
 const WORK_ENDED = ['done', 'failed', 'gate_failed', 'declined', 'stalled', 'merged-ticket-open', 'base_broken'];
 const workBarEl = document.getElementById('workBar');
 let workPollTimer = null;
@@ -582,7 +581,7 @@ function hideWorkCard(r, card) {
 // Who works on a run now: the current task's expert, by display name.
 function workRunWho(r) {
   const t = (r.tasks || [])[Math.max(0, (r.task || 1) - 1)] || {};
-  return workNames[t.role] || t.role || '작업자';
+  return workNames[t.role] || t.role || tr('work.worker');
 }   // ticket -> phase seen on the previous poll; null until the first poll
 
 function workElapsed(sec) {
@@ -592,10 +591,10 @@ function workElapsed(sec) {
 
 // A run that ends while the page is open says so in the chat, so nobody has to watch the card.
 function announceWorkEnding(r) {
-  const head = '작업 #' + r.ticket + ' ' + (r.title || '');
-  if (r.phase === 'done') addNotice('ok', head + ' — 반영했어요' + (r.tier >= 2 ? ' · ⚡ 엔진 리부트하면 적용돼요' : ''));
-  else if (r.phase === 'awaiting_merge') addNotice('ok', head + ' — PD 확인 끝. 카드에서 [승인]하거나 [반려]해 주세요');
-  else if (r.phase === 'stalled') addNotice('warn', head + ' — 실행이 멈췄어요 (카드에서 폐기할 수 있어요)');
+  const head = tr('work.head', { id: r.ticket, title: r.title || '' });
+  if (r.phase === 'done') addNotice('ok', tr('work.ended.done', { head }) + (r.tier >= 2 ? tr('work.ended.restart_hint') : ''));
+  else if (r.phase === 'awaiting_merge') addNotice('ok', tr('work.ended.awaiting_merge', { head }));
+  else if (r.phase === 'stalled') addNotice('warn', tr('work.ended.stalled', { head }));
   else addNotice('warn', head + ' — ' + (WORK_PHASE_LABEL[r.phase] || r.phase) + (r.reason ? ': ' + r.reason : ''));
 }
 
@@ -603,24 +602,24 @@ function renderWorkCard(r) {
   const card = obsNode('div', 'work-card phase-' + r.phase);
   const open = workOpen.has(r.ticket);
   
-  // 1. 헤더: #ID + 제목 (길어도 잘 보임) + 상태 배지 + 토글 화살표
+  // 1. head: #id + title + phase badge + fold arrow
   const head = obsNode('div', 'work-head clickable');
-  head.title = open ? '클릭하여 상세 접기' : '클릭하여 상세 펼치기';
+  head.title = open ? tr('work.collapse') : tr('work.expand');
   head.appendChild(obsNode('span', 'obs-id', '#' + r.ticket));
   head.appendChild(obsNode('span', 'work-title', r.title || ''));
 
-  // 간결한 상태 배지 (한눈에 알아볼 수 있는 핵심 상태만)
+  // the phase badge
   head.appendChild(obsNode('span', 'obs-badge ' + r.phase, WORK_PHASE_LABEL[r.phase] || r.phase));
 
-  // 펼침/접힘 인디케이터
+  // fold indicator
   const toggleIcon = obsNode('span', 'work-toggle-icon', open ? '▲' : '▼');
   head.appendChild(toggleIcon);
 
-  // 고아 카드 및 비활성 카드 UI 닫기 수단
+  // an ended (or orphan) card can be closed
   if (!r.active) {
     const closeBtn = obsNode('button', 'art-btn art-btn-xs', '✕');
     closeBtn.type = 'button';
-    closeBtn.title = '카드 닫기';
+    closeBtn.title = tr('work.close_card');
     closeBtn.style.padding = '0 .3rem';
     closeBtn.style.lineHeight = '1';
     closeBtn.style.marginLeft = 'auto';
@@ -632,7 +631,7 @@ function renderWorkCard(r) {
   }
 
   head.addEventListener('click', (e) => {
-    // 액션 버튼 클릭 시 토글 방지
+    // a click on an action button does not fold
     if (e.target.closest('button')) return;
     if (open) workOpen.delete(r.ticket);
     else workOpen.add(r.ticket);
@@ -640,31 +639,31 @@ function renderWorkCard(r) {
   });
   card.appendChild(head);
 
-  // 2. 상세 영역 (펼쳐졌을 때만 표시)
+  // 2. details (only when open)
   if (open) {
     const details = obsNode('div', 'work-details');
 
-    // 상세 메타데이터 줄: 경과/제한시간, 파일 수, 라운드, 작업자(모델), 락 대기 정보
+    // meta line: elapsed / limit, files, step, round, brain, the lease it waits for
     const metaParts = [];
     if (r.active && r.phase === 'writing' && r.timeout_sec && r.phase_since) {
       metaParts.push('⏱ ' + workElapsed(Date.now() / 1000 - r.phase_since) + ' / ' + workElapsed(r.timeout_sec));
     } else if (r.active && r.started) {
       metaParts.push('⏱ ' + workElapsed(Date.now() / 1000 - r.started));
     }
-    if (r.active && typeof r.files_changed === 'number') metaParts.push('📁 파일 ' + r.files_changed + '개');
-    if (r.active && r.tasks_total > 1 && r.task) metaParts.push('단계 ' + r.task + '/' + r.tasks_total);
-    if (r.active && r.round) metaParts.push(r.round + '라운드');
+    if (r.active && typeof r.files_changed === 'number') metaParts.push(tr('work.files', { n: r.files_changed }));
+    if (r.active && r.tasks_total > 1 && r.task) metaParts.push(tr('work.step', { n: r.task, total: r.tasks_total }));
+    if (r.active && r.round) metaParts.push(tr('work.round', { n: r.round }));
     if (r.active && r.brain) metaParts.push('🧠 ' + r.brain.split('/').pop());
     if (r.phase === 'queued' && r.blocked_by && r.blocked_by.ticket) {
       const until = String(r.blocked_by.until || '').slice(11, 16);
-      metaParts.push('선행 #' + r.blocked_by.ticket + (until ? ' (~' + until + ')' : ''));
+      metaParts.push(tr('work.after', { ticket: r.blocked_by.ticket }) + (until ? ' (~' + until + ')' : ''));
     }
 
     if (metaParts.length) {
       details.appendChild(obsNode('div', 'work-meta-row', metaParts.join(' · ')));
     }
 
-    // 작업 계획 (Tasks / Need paths)
+    // the plan (tasks, paths it needs)
     if (r.tasks && r.tasks.length) {
       const list = obsNode('ol', 'work-plan');
       r.tasks.forEach(t => list.appendChild(obsNode('li', '', (workNames[t.role] || t.role) + ' — ' + t.title + (t.paths && t.paths.length ? ' (' + t.paths.join(', ') + ')' : ''))));
@@ -674,20 +673,20 @@ function renderWorkCard(r) {
     if (r.phase === 'paused' && (r.need_paths || []).length) {
       const list = obsNode('ul', 'work-plan need-paths');
       r.need_paths.forEach(n => list.appendChild(obsNode('li', n.operator_only ? 'operator-only' : '',
-        '경로 필요: ' + n.path + (n.operator_only ? ' [운영자만 수정 가능]' : '') + (n.why ? ' — ' + n.why : ''))));
+        tr('work.need_path', { path: n.path }) + (n.operator_only ? tr('work.operator_only') : '') + (n.why ? ' — ' + n.why : ''))));
       details.appendChild(list);
     }
 
     // WORK_TALK_v1: the talk is in the two characters' dm; the card keeps the PD's verdict
     const rv = r.review || {};
     if (rv.verdict) details.appendChild(obsNode('div', 'work-verdict' + (rv.verdict === 'PASS' ? ' pass' : ''),
-      '판정 ' + rv.verdict + (rv.advisory ? ' (조언)' : '') + (rv.fix && rv.verdict !== 'PASS' ? ' — ' + rv.fix : '')));
+      tr('work.verdict', { verdict: rv.verdict }) + (rv.advisory ? tr('work.advisory') : '') + (rv.fix && rv.verdict !== 'PASS' ? ' — ' + rv.fix : '')));
 
     if (r.reason && WORK_ENDED.includes(r.phase)) details.appendChild(obsNode('div', 'obs-meta', r.reason));
     card.appendChild(details);
   }
 
-  // 3. 액션 버튼 (항상 카드 우측하단에 노출되어 즉시 클릭 가능)
+  // 3. action buttons (always shown, bottom right)
   const actions = obsNode('div', 'work-actions');
   const button = (label, primary, onClick) => {
     const btn = obsNode('button', 'art-btn art-btn-xs' + (primary ? ' primary' : ''), label);
@@ -697,43 +696,43 @@ function renderWorkCard(r) {
   };
 
   if (r.phase === 'awaiting_go') {
-    button('실행', true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
-    button('계획 수정', false, () => { switchTab('chat'); fillComposer('#' + r.ticket + ' 계획 수정: '); });
-    button('취소', false, async () => {
+    button(tr('ticket.button.delegate'), true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
+    button(tr('work.edit_plan'), false, () => { switchTab('chat'); fillComposer('#' + r.ticket + ' ' + tr('work.edit_plan') + ': '); });
+    button(tr('common.cancel'), false, async () => {
       await dismissWorkCard(r);
-      addNotice('info', '작업 #' + r.ticket + ' 계획을 취소하고 카드를 닫았어요');
+      addNotice('info', tr('work.plan_cancelled', { id: r.ticket }));
     });
   }
   if (r.phase === 'paused' && (r.need_paths || []).length) {
     // #381: a Tier 3 request can never be allowed, so no allow button -- the operator changes that file or discards
-    if (!r.need_paths.some(n => n.operator_only)) button('경로 허용', true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
-    button('폐기', false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
+    if (!r.need_paths.some(n => n.operator_only)) button(TICKET_DECISION_WORD.allow, true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
+    button(tr('ticket.button.discard'), false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
   }
   // #387: landed, but the ticket stayed open and holds its files: stays on screen until closed (MERGED_CLOSE_v1)
   if (r.phase === 'merged-ticket-open') button(TICKET_DECISION_WORD.close, true, () => fillTicketCommand({ id: r.ticket }, 'merge'));
   // BASE_CHECK_v1: the work is kept; once the base is fixed, the same plan runs on from it
   if (r.phase === 'base_broken') button(TICKET_DECISION_WORD.delegate, true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
   if (r.phase === 'queued') {
-    button('대기 취소', false, () => fillTicketCommand({ id: r.ticket }, 'unqueue'));
+    button(TICKET_DECISION_WORD.unqueue, false, () => fillTicketCommand({ id: r.ticket }, 'unqueue'));
   }
   if (r.phase === 'awaiting_merge') {
-    TICKET_DECISIONS.awaiting_merge.forEach(pair => button(pair[1], pair[0] === 'merge', () => fillTicketCommand({ id: r.ticket }, pair[0])));
+    ticketDecisionsFor({ status: 'awaiting_merge' }).forEach(pair => button(pair[1], pair[0] === 'merge', () => fillTicketCommand({ id: r.ticket }, pair[0])));
   }
   if (r.phase === 'stalled' && r.stalled_in === 'merging') {
-    button('승인 다시', true, () => fillTicketCommand({ id: r.ticket }, 'merge'));
+    button(tr('work.merge_again'), true, () => fillTicketCommand({ id: r.ticket }, 'merge'));
   }
   // ART_MANAGER_v1: a finished job that drew into a character's gallery opens it there (app-art.js)
   const drewFor = typeof artGalleryCharacter === 'function' && !['awaiting_go', 'queued', 'running'].includes(r.phase)
     ? artGalleryCharacter(r.paths) : '';
   if (drewFor) button(typeof ART_TEXT !== 'undefined' ? ART_TEXT.gallery : 'gallery', true, () => openArtManager(drewFor, 'gallery'));
   if (r.phase === 'done' && r.tier >= 2) {
-    const zap = obsNode('button', 'art-btn art-btn-xs primary', '⚡ 리부트');
+    const zap = obsNode('button', 'art-btn art-btn-xs primary', tr('work.restart'));
     zap.type = 'button';
     zap.addEventListener('click', (e) => { e.stopPropagation(); switchTab('chat'); inputEl.value = '/defib'; send(tapSendOpts()); });
     actions.appendChild(zap);
   }
   if (WORK_ENDED.includes(r.phase)) {
-    const ok = obsNode('button', 'art-btn art-btn-xs', '확인');
+    const ok = obsNode('button', 'art-btn art-btn-xs', tr('common.ok'));
     ok.type = 'button';
     ok.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -802,21 +801,21 @@ function renderDoneRow(t) {
   const row = obsNode('div', 'obs-row obs-row-compact');
   const head = obsNode('div', 'obs-head');
   head.appendChild(obsNode('span', 'obs-id', '#' + t.id));
-  head.appendChild(obsNode('span', 'obs-title', t.title || '(제목 없음)'));
+  head.appendChild(obsNode('span', 'obs-title', t.title || tr('common.untitled')));
   head.appendChild(obsNode('span', 'obs-badge ' + t.status, TICKET_STATUS_LABEL[t.status] || t.status));
   const by = actorBadge(t.closed_by || t.worked_by || t.actor);
   if (by) head.appendChild(by);
   row.appendChild(head);
   const ev = (t.evidence || []).join(', ');
-  const appr = t.approved_by ? '승인 ' + actorLabel(t.approved_by) : '';
-  const meta = [String(t.updated || '').slice(5, 16), appr, (t.paths || []).slice(0, 4).join(', '), ev ? '근거 ' + ev : ''].filter(Boolean).join(' · ');
+  const appr = t.approved_by ? tr('ticket.approved_by', { who: actorLabel(t.approved_by) }) : '';
+  const meta = [String(t.updated || '').slice(5, 16), appr, (t.paths || []).slice(0, 4).join(', '), ev ? tr('ticket.evidence', { ev }) : ''].filter(Boolean).join(' · ');
   if (meta) row.appendChild(obsNode('div', 'obs-meta', meta));
   return row;
 }
 
 // WORK_NOW_v1 (#417): a ticket someone holds -- an agent outside the chat (Claude Code, a CLI) or a delegated run --
 // showed nowhere: not a decision, not finished. #416 was invisible, and #387's leftover lease held files with no trace.
-const WORK_NOW_TEXT = { head: '진행 중인 작업', lock: '잠금', until: '까지', free: '잠금 없음(만료)' };
+const WORK_NOW_TEXT = i18nTable('work.now');
 
 // The in-progress tickets with who holds them, the files their live lease holds and until when; newest first.
 function inProgressRows(all, leases) {
@@ -851,9 +850,9 @@ function renderTickets(res) {
   const rows = all.filter(t => TICKET_DECISIONS[t.status]);
   renderTicketBar(rows);
   if (!statusTicketBoxEl) return;
-  const kids = [obsNode('div', 'evo-sec-head', '대기 중 작업')];
-  if (!rows.length) kids.push(obsNode('div', 'evo-empty', '지금 결정할 작업이 없어요.'));
-  else kids.push(obsNode('div', 'obs-meta', '버튼 → 채팅 명령 · Enter 실행'));
+  const kids = [obsNode('div', 'evo-sec-head', tr('ticket.waiting_head'))];
+  if (!rows.length) kids.push(obsNode('div', 'evo-empty', tr('ticket.none_to_decide')));
+  else kids.push(obsNode('div', 'obs-meta', tr('ticket.buttons_hint')));
   rows.forEach(t => kids.push(renderTicketRow(t)));
   const now = inProgressRows(all, ticketLeases);
   if (now.length) {
@@ -862,10 +861,10 @@ function renderTickets(res) {
   }
   const done = recentDoneTickets(all);
   if (done.length) {
-    const head = evoToggleHead('최근 ' + DONE_DAYS + '일 처리', done.length, { open: false });
+    const head = evoToggleHead(tr('ticket.recent_done', { days: DONE_DAYS }), done.length, { open: false });
     const list = obsNode('div', 'evo-fold');
     done.slice(0, DONE_MAX).forEach(t => list.appendChild(renderDoneRow(t)));
-    if (done.length > DONE_MAX) list.appendChild(obsNode('div', 'obs-meta', '+' + (done.length - DONE_MAX) + '건 더'));
+    if (done.length > DONE_MAX) list.appendChild(obsNode('div', 'obs-meta', tr('common.more', { n: done.length - DONE_MAX })));
     evoBindToggle(head, list);
     kids.push(head, list);
   }
@@ -876,9 +875,9 @@ function renderTicketRow(t) {
   const row = obsNode('div', 'obs-row obs-row-compact');
   const head = obsNode('div', 'obs-head');
   head.appendChild(obsNode('span', 'obs-id', '#' + t.id));
-  head.appendChild(obsNode('span', 'obs-title', t.title || '(제목 없음)'));
+  head.appendChild(obsNode('span', 'obs-title', t.title || tr('common.untitled')));
   head.appendChild(obsNode('span', 'obs-badge ' + t.status, TICKET_STATUS_LABEL[t.status] || t.status));
-  const prop = actorBadge(t.actor, '제안 ');
+  const prop = actorBadge(t.actor, tr('ticket.proposed_by'));
   if (prop) head.appendChild(prop);
   const wait = ticketStateBadge(t);
   if (wait) head.appendChild(wait);
@@ -891,7 +890,7 @@ function renderTicketRow(t) {
   });
   head.appendChild(actions);
   row.appendChild(head);
-  const meta = [t.target, (t.attempts ? '시도 ' + t.attempts : '')].filter(Boolean).join(' · ');
+  const meta = [t.target, (t.attempts ? tr('ticket.attempts', { n: t.attempts }) : '')].filter(Boolean).join(' · ');
   if (meta) row.appendChild(obsNode('div', 'obs-meta', meta));
   return row;
 }
@@ -905,12 +904,12 @@ async function fetchEvolution() {
     if (statusObserverEl) {
       const o = res.observation || {};
       statusObserverEl.textContent =
-        '대기 이슈 ' + (o.open_observations || 0) + '건'
-        + ((o.unreviewed_candidates || 0) ? ' · 힌트 ' + o.unreviewed_candidates + '건' : '')
-        + (o.last_review_date ? ' · 최근 점검 ' + o.last_review_date : '');
+        tr('evo.summary.issues', { n: o.open_observations || 0 })
+        + ((o.unreviewed_candidates || 0) ? tr('evo.summary.hints', { n: o.unreviewed_candidates }) : '')
+        + (o.last_review_date ? tr('evo.summary.review', { date: o.last_review_date }) : '');
     }
   } catch (e) {
-    if (statusObserverEl) statusObserverEl.textContent = '요약 로드 실패: ' + (e.message || e);
+    if (statusObserverEl) statusObserverEl.textContent = tr('evo.summary_failed', { error: e.message || e });
   }
   loadObservations();
   loadTickets();

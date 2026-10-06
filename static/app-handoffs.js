@@ -21,9 +21,9 @@ function handoffCard(h) {
   const head = obsNode('div', 'work-head');
   head.appendChild(obsNode('span', 'obs-id', '↪#' + h.id));
   head.appendChild(obsNode('span', 'work-title', h.from + ' → ' + h.to + ' (' + h.role + ')'));
-  head.appendChild(obsNode('span', 'obs-badge ' + h.state, t('handoff.state.' + h.state)));
+  head.appendChild(obsNode('span', 'obs-badge ' + h.state, tr('handoff.state.' + h.state)));
   if (h.open) {
-    const stop = obsNode('button', 'art-btn art-btn-xs', t('handoff.cancel'));
+    const stop = obsNode('button', 'art-btn art-btn-xs', tr('handoff.cancel'));
     stop.type = 'button';
     stop.style.marginLeft = 'auto';
     stop.addEventListener('click', () => cancelHandoff(h, stop));
@@ -44,13 +44,13 @@ function handoffCard(h) {
 }
 
 async function cancelHandoff(h, btn) {
-  if (!confirm(t('handoff.cancel_confirm', { id: h.id }))) return;
+  if (!confirm(tr('handoff.cancel_confirm', { id: h.id }))) return;
   btn.disabled = true;
   try {
     await api('/api/handoffs/' + h.id + '/cancel', { method: 'POST', body: JSON.stringify({ reason: 'cancelled by the operator on the page' }) });   // a ledger record: English, like every engine reason
-    addNotice('ok', t('handoff.cancelled', { id: h.id }));
+    addNotice('ok', tr('handoff.cancelled', { id: h.id }));
   } catch (e) {
-    addNotice('error', t('handoff.cancel_failed', { error: obsErrorText(e) }));
+    addNotice('error', tr('handoff.cancel_failed', { error: obsErrorText(e) }));
   }
   loadHandoffs();
 }

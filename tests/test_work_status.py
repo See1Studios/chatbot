@@ -9,6 +9,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from tests.page_source import i18n_prelude  # noqa: E402
 from tests.page_source import app_bundle
 
 APP = app_bundle()
@@ -32,6 +33,7 @@ var document = { getElementById: id => (els[id] = els[id] || el()), createElemen
 var turnStartedAt = 0, isBusy = false, inputEl = {}, workOpen = new Set();
 function obsNode(tag, cls, text) { const n = el(); n.className = cls || ''; if (text != null) n.textContent = String(text); return n; }
 eval(slice('const WORK_PHASE_LABEL', 'function renderWorkCard').replace(/\b(const|let) /g, 'var '));
+eval(slice('const TICKET_DECISIONS', 'function ticketBlocker').replace(/\b(const|let) /g, 'var '));   // the card's buttons
 eval(slice('function updateProcBadge', 'function startTurnTimer'));
 eval(slice('function renderWorkCard', 'async function loadWork'));
 const now = Date.now() / 1000;
@@ -57,7 +59,7 @@ process.stdout.write(JSON.stringify({ badgeText, delegated, idle: els.procBadgeT
 class WorkStatus(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(APP)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(APP)], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise AssertionError(r.stderr[-1500:])
         cls.out = json.loads(r.stdout)
