@@ -81,17 +81,17 @@ function observeMessage(node) {
 
 // ---- TTS (read assistant replies aloud) ----
 let ttsUtterance = null;
-let ttsKoreanVoice = null;
-function pickKoreanVoice() {
+let ttsVoice = null;
+function pickSpeechVoice() {   // a voice in the page's language (I18N_v1), not a fixed one
   if (!window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices() || [];
-  return voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ko')) || null;
+  return voices.find(v => v.lang && v.lang.toLowerCase().startsWith(I18N_LANG)) || null;
 }
 
 function stripMarkdownForSpeech(md) {
   let t = String(md || '');
-  t = t.replace(/```[\s\S]*?```/g, ' 코드 블록 생략. ');
-  t = t.replace(/!\[[^\]]*\]\([^)]+\)/g, ' 이미지 생략. ');
+  t = t.replace(/```[\s\S]*?```/g, ' ' + tr('speech.code_skipped') + ' ');
+  t = t.replace(/!\[[^\]]*\]\([^)]+\)/g, ' ' + tr('speech.image_skipped') + ' ');
   t = t.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
   t = t.replace(/`([^`]+)`/g, '$1');
   t = t.replace(/^#{1,6}\s*/gm, '');
@@ -106,7 +106,7 @@ function stripMarkdownForSpeech(md) {
 
 function speakText(rawText, btn) {
   if (!window.speechSynthesis) {
-    alertModal('이 브라우저는 음성 출력(Web Speech API)을 지원하지 않습니다.');
+    alertModal(tr('speech.unsupported'));
     return;
   }
   const wasSpeaking = window.speechSynthesis.speaking;
@@ -119,8 +119,8 @@ function speakText(rawText, btn) {
   const clean = stripMarkdownForSpeech(rawText);
   if (!clean) return;
   const utter = new SpeechSynthesisUtterance(clean);
-  utter.lang = 'ko-KR';
-  if (ttsKoreanVoice) utter.voice = ttsKoreanVoice;
+  utter.lang = I18N_LANG;
+  if (ttsVoice) utter.voice = ttsVoice;
   utter.rate = 1.05;
   if (btn) {
     btn.classList.add('speaking');
@@ -143,20 +143,20 @@ function formatTokenCount(n) {
 }
 
 function formatUsageTooltip(usage, duration) {
-  if (!usage) return (duration != null && duration > 0) ? `소요 시간: ${Number(duration).toFixed(1)}초` : '';
+  if (!usage) return (duration != null && duration > 0) ? tr('usage.duration', { s: Number(duration).toFixed(1) }) : '';
   const total = Number(usage.total_tokens || 0).toLocaleString();
   const inp = Number(usage.input_tokens || 0).toLocaleString();
   const out = Number(usage.output_tokens || 0).toLocaleString();
   const think = usage.thinking_tokens ? Number(usage.thinking_tokens).toLocaleString() : null;
   const cache = usage.cache_read_tokens ? Number(usage.cache_read_tokens).toLocaleString() : null;
 
-  let parts = [`총 ${total} 토큰 (입력 ${inp} · 출력 ${out}`];
-  if (think) parts.push(`생각 ${think}`);
-  if (cache) parts.push(`캐시 ${cache}`);
-  if (usage.context_tokens) parts.push(`맥락 ${Number(usage.context_tokens).toLocaleString()}`);   // l10n-ok
+  let parts = [tr('usage.total', { total, inp, out })];
+  if (think) parts.push(tr('usage.thinking', { n: think }));
+  if (cache) parts.push(tr('usage.cache', { n: cache }));
+  if (usage.context_tokens) parts.push(tr('usage.context', { n: fmtNumber(usage.context_tokens) }));
   let s = parts.join(' · ') + ')';
   if (duration != null && duration > 0) {
-    s += ` · ${Number(duration).toFixed(1)}초`;
+    s += ' · ' + tr('usage.seconds', { s: Number(duration).toFixed(1) });
   }
   return s;
 }
@@ -193,13 +193,13 @@ function formatUsageTooltip(usage, duration) {
 
 // NOTICE_UI_v1: host/system notices share night-console chrome, not LLM reply bubbles.
 const NOTICE_KINDS = {
-  info:   { icon: 'info',     label: '시스템' },
-  status: { icon: 'settings', label: '상태' },
-  warn:   { icon: 'alert',    label: '주의' },
-  error:  { icon: 'alert',    label: '오류' },
-  stop:   { icon: 'stop',     label: '중지' },
-  ok:     { icon: 'check',    label: '완료' },
-  help:   { icon: 'spark',    label: '도움말' },
+  info:   { icon: 'info',     key: 'notice.kind.info' },
+  status: { icon: 'settings', key: 'notice.kind.status' },
+  warn:   { icon: 'alert',    key: 'notice.kind.warn' },
+  error:  { icon: 'alert',    key: 'notice.kind.error' },
+  stop:   { icon: 'stop',     key: 'notice.kind.stop' },
+  ok:     { icon: 'check',    key: 'notice.kind.ok' },
+  help:   { icon: 'spark',    key: 'notice.kind.help' },
 };
 
 function normalizeNoticeKind(isSystem) {
@@ -215,7 +215,6 @@ function stripNoticeChromeEmojis(text) {
   return String(text || '')
     .replace(/^[\p{Extended_Pictographic}\uFE0F\u200D]+/u, '')
     .replace(/^\s*[⚠🛑⏱⚡🧭📍🚨✨✦🐾📋💻📄💬📁📜⚙🗂🛠📦🔢✓✕↻]+/u, '')
-    .replace(/\*\*작업 중단 알림\*\*\s*/g, '')
     .replace(/^---+\s*/gm, '')
     .trim();
 }
@@ -295,10 +294,11 @@ function renderSessionTokensBadge() {
     return;
   }
   badge.style.display = 'inline-flex';
-  badge.innerHTML = getActionSvg('zap') + ' <span>창 ' + formatTokenCount(occ) + (billed ? '<span class="token-billed"> · 과금 ' + formatTokenCount(billed) + '</span>' : '') + '</span>';
+  badge.innerHTML = getActionSvg('zap') + ' <span>' + escapeHtml(tr('usage.window', { n: formatTokenCount(occ) })) + (billed ? '<span class="token-billed"> · ' + escapeHtml(tr('usage.billed', { n: formatTokenCount(billed) })) + '</span>' : '') + '</span>';
   const out = Number(sessionTokens.output_tokens || 0).toLocaleString();
-  const turns = sessionTokens.turns ? ` · ${sessionTokens.turns}회 턴` : '';
-  const detail = `창 점유 ${occ.toLocaleString()} (마지막 모델 호출의 맥락) · 세션 과금 ${billed.toLocaleString()} (턴 total 합, 출력 ${out}${sessionTokens.thinking_tokens ? ' · 생각 ' + Number(sessionTokens.thinking_tokens).toLocaleString() : ''})${turns}. 캐시는 입력에서 빼지 않음.`;
+  const turns = sessionTokens.turns ? tr('usage.turns', { n: sessionTokens.turns }) : '';
+  const detail = tr('usage.detail', { occ: fmtNumber(occ), billed: fmtNumber(billed), out,
+    think: sessionTokens.thinking_tokens ? tr('usage.thinking_suffix', { n: fmtNumber(sessionTokens.thinking_tokens) }) : '', turns });
   badge.title = detail;
   badge.setAttribute('aria-label', detail);
 }
@@ -344,8 +344,8 @@ function getUsageLevel(usage) {
 // localhost) -- this host is served plain http:// on a LAN hostname
 // (server.py binds 0.0.0.0, no TLS anywhere), so navigator.clipboard is
 // undefined in the browser and every copy button (code blocks, this one)
-// silently threw and landed in the catch block (operator: "눌러도 복사
-// 안되네"). Falls back to the classic hidden-textarea + execCommand('copy')
+// silently threw and landed in the catch block (operator: "pressing it does not
+// copy"). Falls back to the classic hidden-textarea + execCommand('copy')
 // trick, which still works without a secure context.
 async function copyText(text) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -420,15 +420,15 @@ function attachMessageFooter(node, rawText, usage, durationSeconds, servedModel)
 
     let textPart = '';
     if (tokStr && durStr) textPart = `${tokStr} · ${durStr}`;
-    else if (tokStr) textPart = `${tokStr} 토큰`;
+    else if (tokStr) textPart = tr('usage.tokens', { n: tokStr });
     else textPart = durStr;
 
     badge.innerHTML = iconSvg + (textPart ? ` <span>${textPart}</span>` : '');
     let tip = formatUsageTooltip(usage, durationSeconds);
     if (level === 'heavy') {
-      tip = '[대용량 토큰 소모] 누적 컨텍스트가 매우 큽니다. 대화창의 "맥락 이어 새 대화"를 권장합니다.\n' + tip;
+      tip = tr('usage.heavy') + '\n' + tip;
     } else if (level === 'warning') {
-      tip = '[토큰 사용량 주의] 컨텍스트가 증가하고 있습니다.\n' + tip;
+      tip = tr('usage.warning') + '\n' + tip;
     }
     badge.title = tip;
     badge.setAttribute('aria-label', tip);
@@ -443,7 +443,7 @@ function attachMessageFooter(node, rawText, usage, durationSeconds, servedModel)
     }
     tag.textContent = shortServedModel(served);
     tag.title = served;
-    tag.setAttribute('aria-label', '응답 모델 ' + served);
+    tag.setAttribute('aria-label', tr('usage.served_model', { model: served }));
   }
 
   // Full-message copy button -- attachCodeCopyButtons only covers ```code```
@@ -455,7 +455,7 @@ function attachMessageFooter(node, rawText, usage, durationSeconds, servedModel)
     const btn = document.createElement('button');
     btn.className = 'tts-btn copy-msg-btn';
     btn.type = 'button';
-    btn.title = btn.ariaLabel = '답변 전체 복사';
+    btn.title = btn.ariaLabel = tr('msg.copy_answer');
     btn.innerHTML = getActionSvg('copy');
     btn.onclick = async () => {
       const ok = await copyText(rawText);
@@ -470,7 +470,7 @@ function attachMessageFooter(node, rawText, usage, durationSeconds, servedModel)
     const btn = document.createElement('button');
     btn.className = 'tts-btn';
     btn.type = 'button';
-    btn.title = btn.ariaLabel = '읽어주기';
+    btn.title = btn.ariaLabel = tr('msg.read_aloud');
     btn.innerHTML = getActionSvg('speaker');
     btn.onclick = () => speakText(rawText, btn);
     footer.appendChild(btn);
@@ -498,7 +498,7 @@ function msgSyncKey(role, ts) {
 // Two writers draw the log: SSE events and resyncFromServer() (every 2.5s). Whichever
 // arrives second must find the message already on screen and stop -- the server stamps
 // every history entry and its event with the same ts, so role+ts is the identity.
-// (operator: 샛길 카드가 두 장 / 내 말·답이 두 번 -- a late SSE event redrew what a resync
+// (operator: two side-question cards / my line and the answer twice -- a late SSE event redrew what a resync
 // had already put there.)
 function findRenderedByTs(role, ts) {
   if (!logEl || !ts) return null;
@@ -638,8 +638,8 @@ function repairMsgOrder() {
 // The user's /btw question is a client-only bubble: no ts, and the server neither stores nor
 // acks it. So the answer card can't be ordered against it by ts, and the resync's
 // repairMsgOrder() hoists ts-less user bubbles above a streaming answer -- which left the card
-// ahead of its own question whenever the answer beat the next 2.5s tick (operator: "첫 질문은
-// 질문 다음에 대답인데 그 다음 btw는 대답이 질문 전에"). Two rules make the order fixed:
+// ahead of its own question whenever the answer beat the next 2.5s tick (operator: "the first
+// answer came after its question, the next btw answer before it"). Two rules make the order fixed:
 //   1. the question goes above the streaming bubble from the start (where hoisting would put it)
 //   2. the answer card is placed right after ITS question bubble, paired by the question text
 function btwQueryOf(text) {
@@ -673,7 +673,7 @@ function addBtw(query, answer, prepend, usage, durationSeconds, ts) {
   const head = document.createElement('div');
   head.className = 'btw-head';
   const _btwIcon = typeof getActionSvg === 'function' ? getActionSvg('compass') : '';
-  head.innerHTML = _btwIcon + '<span>샛길 응답 (/btw)</span>' + (query ? '<span class="btw-q">Q. ' + escapeHtml(query) + '</span>' : '');
+  head.innerHTML = _btwIcon + '<span>' + escapeHtml(tr('msg.btw_head')) + '</span>' + (query ? '<span class="btw-q">Q. ' + escapeHtml(query) + '</span>' : '');
   const body = document.createElement('div');
   body.className = 'btw-body md';
   body.innerHTML = renderMarkdown(answer || '', true);
@@ -708,7 +708,7 @@ function textWithChoices(h) {
       if (!lbl) return '';
       if (x.kind === 'action' || x.isAction) {
         let act = String(x.payload || x.action || lbl).trim();
-        // #246: dialogue-flavor / combo stay as-is (still action on click). Bare acts → (행동).
+        // #246: dialogue-flavor / combo stay as-is (still action on click). Bare acts → (action).
         if (act && !/^"/.test(act)) {
           const bare = (typeof stripOuterParens === 'function') ? stripOuterParens(act) : act.replace(/^\(+|\)+$/g, '').trim();
           act = '(' + bare + ')';
@@ -807,7 +807,7 @@ function addChat(role, text, isFinal, isQueued, isBtw, prepend, usage, durationS
       const meta = NOTICE_KINDS[noticeKind] || NOTICE_KINDS.info;
       const head = document.createElement('div');
       head.className = 'notice-head';
-      head.innerHTML = getActionSvg(meta.icon) + '<span class="notice-label">' + meta.label + '</span>';
+      head.innerHTML = getActionSvg(meta.icon) + '<span class="notice-label">' + escapeHtml(tr(meta.key)) + '</span>';
       div.appendChild(head);
     }
     const md = document.createElement('div');

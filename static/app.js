@@ -68,8 +68,8 @@ if (scrollToBottomBtn) {
   });
 }
 if (window.speechSynthesis) {
-  ttsKoreanVoice = pickKoreanVoice();
-  window.speechSynthesis.onvoiceschanged = () => { ttsKoreanVoice = pickKoreanVoice() || ttsKoreanVoice; };
+  ttsVoice = pickSpeechVoice();
+  window.speechSynthesis.onvoiceschanged = () => { ttsVoice = pickSpeechVoice() || ttsVoice; };
 }
 function detachSessionBanner() {
   if (!sessionBanner || sessionBanner.parentNode !== logEl) return;
