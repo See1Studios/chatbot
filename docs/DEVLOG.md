@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-06 — docs(plans): add propagation and state architecture plan for PE dev governance (#715, 위임 agy)
+
+- **커밋**: `79f210d` docs(plan): update propagation and state architecture governance details, `7fdfae7` docs(plan): add propagation and state architecture plan
+- **바뀐 파일**: `docs/plans/INDEX.md`, `docs/plans/propagation-and-state-architecture.md`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-06 — [반려]를 이유 없이 보내면 캐릭터에게 가던 것 (#718)
 
 - **운영자**: "반려 눌렀어 확인해"
