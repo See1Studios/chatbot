@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 from providers.adapter_base import split_choices  # noqa: E402
 from providers.adapters import AgyAdapter  # noqa: E402
 from tests.page_source import app_bundle  # noqa: E402
+from tests.page_source import i18n_prelude  # noqa: E402
 
 
 def fake_session():
@@ -77,7 +78,7 @@ eval(src.slice(a, b));
 process.stdout.write(JSON.stringify([textWithChoices({ text: 'a', choices: ['x', 'y -> (웃음)'] }),
   textWithChoices({ text: 'b' }), textWithChoices({ text: 'c', choices: [' ', 3] })]));
 """
-        r = subprocess.run(["node", "-e", js, str(app_bundle())], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(app_bundle())], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout), ["a\n<!--choices: x | y -> (웃음)-->", "b", "c"])
 
@@ -93,7 +94,7 @@ const items = [
 ];
 process.stdout.write(JSON.stringify(textWithChoices({ text: '선택해', choices: items })));
 """
-        r = subprocess.run(["node", "-e", js, str(app_bundle())], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(app_bundle())], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout), "선택해\n<!--choices: 동의 | 미소 -> (미소짓는다) | 승인 -> command: /ticket approve 10-->")
 
@@ -110,7 +111,7 @@ const r3 = parseChoiceItem('C -> (끄덕임)');
 const r4 = parseChoiceItem('일반 보기');
 process.stdout.write(JSON.stringify([r1, r2, r3, r4]));
 """
-        r = subprocess.run(["node", "-e", js, str(md_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout)
         self.assertEqual(out[0], {"label": "A", "kind": "action", "payload": "웃음", "action": "웃음", "isAction": True})   # parens stripped (#153)
@@ -156,7 +157,7 @@ const secondRun = renderedChoices;
 
 process.stdout.write(JSON.stringify({ eventFirst: firstRun, fallback: secondRun }));
 """
-        r = subprocess.run(["node", "-e", js, str(md_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["eventFirst"], ["이벤트선택1", "이벤트선택2"])
@@ -207,7 +208,7 @@ process.stdout.write(JSON.stringify({
   chipCount
 }));
 """
-        r = subprocess.run(["node", "-e", js, str(md_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["hidden"], False)
@@ -247,7 +248,7 @@ msg('msg user');
 api.syncChoiceChips();
 process.stdout.write(JSON.stringify({ kept, clearedAfterUser: choiceBarEl.hidden }));
 """
-        r = subprocess.run(["node", "-e", js, str(md_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout), {"kept": True, "clearedAfterUser": True})
 
@@ -284,7 +285,7 @@ api.addChat('user', '다음 질문', false);
 const next = api.addChat('assistant', '', false);
 process.stdout.write(JSON.stringify({ heldBeforeBubble, taken, droppedOnUserTurn: next._choices === undefined && api.pending === null }));
 """
-        r = subprocess.run(["node", "-e", js, str(app_bundle())], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(app_bundle())], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout), {"heldBeforeBubble": {"prevUntouched": True, "drawnEarly": 0},
                                                 "taken": ["A", "B"], "droppedOnUserTurn": True})

@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 MD = Path(__file__).resolve().parent.parent / "static" / "markdown.js"
 
@@ -389,7 +390,7 @@ console.log(JSON.stringify(out));
 class ChoiceChips(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(MD)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(MD)], capture_output=True, text=True, timeout=30)
         assert r.returncode == 0, r.stderr
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
@@ -485,7 +486,7 @@ const longCombo = api.parseChoiceItem('("이것은 서른 자가 훨씬 넘는 �
 const shortSay = api.parseChoiceItem('단문 선택지');
 console.log(JSON.stringify({smartCombo, rawCombo, smartAct, longAct, longCombo, shortSay}));
 """
-        r = subprocess.run(["node", "-e", js, str(MD)], capture_output=True, text=True, check=False)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(MD)], capture_output=True, text=True, check=False)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["smartCombo"]["label"], "잠깐만")
@@ -691,7 +692,7 @@ console.log(JSON.stringify({
   prependedMsgPostProcess: prependedMsg._postProcessed,
 }));
 """
-        r = subprocess.run(["node", "-e", js, str(MD)], capture_output=True, text=True, check=False)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(MD)], capture_output=True, text=True, check=False)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["recordedChoices"], ["Choice A", "Choice B"])
@@ -724,7 +725,7 @@ const bareAct = classifyChoicePayload('허리를 바짝 붙인다');
 console.log(JSON.stringify({act, say, combo, charLeak, curlyAct, smartCombo, bareAct}));
 """
         r = subprocess.run(
-            ["node", "-e", js, str(MD)],
+            ["node", "-e", i18n_prelude() + js, str(MD)],
             capture_output=True, text=True, check=False,
         )
         self.assertEqual(r.returncode, 0, r.stderr)

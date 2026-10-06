@@ -88,13 +88,13 @@ function attachCodeCopyButtons(container) {
     const btn = document.createElement('button');
     btn.className = 'copy-btn';
     btn.type = 'button';
-    btn.textContent = '복사';
+    btn.textContent = tr('common.copy');
     btn.onclick = async () => {
       const code = pre.querySelector('code');
       const text = (code || pre).innerText;
       const ok = await copyText(text);
-      btn.textContent = ok ? '완료!' : '실패';
-      setTimeout(() => { btn.textContent = '복사'; }, 1500);
+      btn.textContent = ok ? tr('artifacts.copied') : tr('common.failed');
+      setTimeout(() => { btn.textContent = tr('common.copy'); }, 1500);
     };
     pre.appendChild(btn);
   });
@@ -133,7 +133,7 @@ function highlightCodeIn(container) {
 
 function openImageLightbox(url, alt) {
   if (!url) return;
-  const name = (alt || url.split('/').pop() || '이미지').split('?')[0];
+  const name = (alt || url.split('/').pop() || tr('md.image')).split('?')[0];
   openArtifactModal({ name, kind: 'image', url, size_human: '' });
 }
 
@@ -245,7 +245,7 @@ function attachFileLinkInterceptors(container) {
     const target = a.getAttribute('data-path') || a.getAttribute('href') || '';
     if (!target || target === '#') return;
     a.classList.add('file-link-bound');
-    a.title = (a.title ? a.title + ' ' : '') + '(클릭하여 파일 미리보기)';
+    a.title = (a.title ? a.title + ' ' : '') + tr('md.click_preview');
     a.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -273,8 +273,8 @@ function attachArtifactLinkInterceptors(container) {
 }
 
 // Quick-reply chips. The agent ends a question with one line
-//   <!--choices: 보기A | 보기B | 보기C-->
-// (operator: "의견을 물을 때 마지막에 선택지 버튼"). The marker never shows as text:
+//   <!--choices: option A | option B | option C-->
+// (operator: "when asking an opinion, choice buttons at the end"). The marker never shows as text:
 // it is cut from the rendered/copied body, including a half-streamed one, and
 // becomes buttons once the message is final. '|' instead of JSON so a stray
 // quote from the model cannot break it.
@@ -283,14 +283,7 @@ const CHOICES_TAIL = /\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$/;
 const CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
 const CHOICES_MAX = 4;
 const EXPRESSION_HEAD = /^\s*\[expression:\s*([a-zA-Z]+)\]\s*/;
-const EXPRESSION_EMOJIS = {
-  neutral: '😐 차분',
-  joy: '😊 미소',
-  shy: '😳 수줍음',
-  serious: '🧐 진지',
-  sorrow: '🥺 서운',
-  tired: '😮‍💨 피곤'
-};
+const EXPRESSION_EMOJIS = i18nTable('expression');   // I18N_v1: emoji + word per expression id
 
 function parseExpression(text) {
   const s = String(text || '');
@@ -433,7 +426,7 @@ function stripOuterParens(s) {
 }
 
 function classifyChoicePayload(rawPayload) {
-  // Normalize curly/smart quotes and fullwidth parens so pure (행동) still → /act.
+  // Normalize curly/smart quotes and fullwidth parens so pure (action) still → /act.
   // #246: ALL choice clicks are ACTIONS. Dialogue on a chip is optional flavor baked
   // into the action (/act wire) — NOT plain say. Real speech = user typing.
   let s = String(rawPayload || '').trim();
@@ -700,7 +693,7 @@ function renderChoiceChips(node, choices, isPrepend) {
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'choice-close-btn';
-  closeBtn.setAttribute('aria-label', '내 다음 행동 닫기');
+  closeBtn.setAttribute('aria-label', tr('md.next_actions_close'));
   closeBtn.textContent = '✕';
   closeBtn.addEventListener('click', (e) => {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
@@ -740,7 +733,7 @@ function renderChoiceChips(node, choices, isPrepend) {
   const row = document.createElement('div');
   row.className = 'choice-card-body choice-chips';
   row.setAttribute('role', 'group');
-  row.setAttribute('aria-label', '내 다음 행동');
+  row.setAttribute('aria-label', tr('md.next_actions'));
   choices.forEach(c => {
     const parsed = parseChoiceItem(c);
     if (!parsed) return;
@@ -849,14 +842,14 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
       btn.className = 'thought-toggle';
       btn.type = 'button';
       btn.textContent = '···';
-      btn.title = '속마음 보기';
+      btn.title = tr('md.thought_show');
       box = document.createElement('div');
       box.className = 'thought-box';
       box.hidden = true;
       btn.addEventListener('click', () => {
         box.hidden = !box.hidden;
         btn.classList.toggle('active', !box.hidden);
-        btn.title = box.hidden ? '속마음 보기' : '속마음 숨기기';
+        btn.title = box.hidden ? tr('md.thought_show') : tr('md.thought_hide');
       });
       md.appendChild(btn);
       md.appendChild(box);
@@ -882,7 +875,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     // Client-side system notices (/help, /status, /clear, stop confirmation)
     // reuse the assistant bubble's markdown rendering but aren't real LLM
     // replies -- no token badge / copy / TTS chips belong on them (operator:
-    // "시스템 메시지는 복사 스피커 등 추가 칩을 없애고 간결하게").
+    // "system messages without the copy/speaker chips, kept short").
     if (!skipFooter) attachMessageFooter(node, rawText, usage, durationSeconds, servedModel);
   }
   if (typeof stageSync === 'function') stageSync(node.querySelector('.md'));   // STAGE_v1 (app-stage.js): face, thought
@@ -910,10 +903,11 @@ function renderMarkdown(src, isFinal) {
   if (parsedTh.thought || parsedTh.cleanText !== raw) {
     raw = parsedTh.cleanText;
   }
-  // Fix CommonMark/marked edge-case where bold/italic ending in punctuation (", ), ], etc.)
-  // immediately followed by Korean josa fails to parse (e.g. **"A"**는, **A(B)**를)
-  raw = raw.replace(/\*\*([^*\n]+?)\*\*([가-힣])/g, '<strong>$1</strong>$2');
-  raw = raw.replace(/(^|[^*])\*([^*\n]+?)\*([가-힣])/g, '$1<em>$2</em>$3');
+  // Fix the CommonMark/marked edge case where bold/italic ending in punctuation (", ), ], etc.) right before a
+  // non-ASCII letter fails to parse -- a particle or word with no space before it, in any script (Korean, Japanese,
+  // Chinese...); ASCII letters are left to marked, so a*b*c or code keeps its stars
+  raw = raw.replace(/\*\*([^*\n]+?)\*\*((?![\x00-\x7F])\p{L})/gu, '<strong>$1</strong>$2');
+  raw = raw.replace(/(^|[^*])\*([^*\n]+?)\*((?![\x00-\x7F])\p{L})/gu, '$1<em>$2</em>$3');
   if (window.marked && typeof marked.parse === 'function') {
     try {
       let html = marked.parse(raw);

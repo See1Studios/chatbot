@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
@@ -22,7 +23,7 @@ const mapJs = fs.readFileSync({json.dumps(str(MAP_JS))}, 'utf8');
 eval(mapJs);
 console.log(JSON.stringify({expr}));
 """
-    out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+    out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
     if out.returncode != 0:
         raise AssertionError(out.stderr[-1000:])
     return json.loads(out.stdout)
@@ -357,7 +358,7 @@ console.log(JSON.stringify({{
   dirLinkClass: actions && actions.children[1] && actions.children[1].className
 }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertEqual(res["className"], "chat-map-popup")
@@ -400,7 +401,7 @@ console.log(JSON.stringify({{
   dirLinkText: actions && actions.children[1] && actions.children[1].textContent
 }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertEqual(res["childCount"], 1, "actions container only, no label")
@@ -431,7 +432,7 @@ console.log(JSON.stringify({{
   labelInnerHTML: label.innerHTML
 }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertEqual(res["labelText"], "<img src=x onerror=alert(1)>")
@@ -467,7 +468,7 @@ console.log(JSON.stringify({{
   dirLinkText: dirLink.textContent
 }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertIn("-33.8688", res["mapLinkHref"])
@@ -569,7 +570,7 @@ const container = {{ querySelectorAll: () => [box] }};
   }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertTrue(res["hasFitBounds"], "Multi-marker must use fitBounds")
@@ -646,7 +647,7 @@ const box = {{
   console.log(JSON.stringify({{ markerCalls, setViewCenter }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertEqual(len(res["markerCalls"]), 1)
@@ -693,7 +694,7 @@ console.log(JSON.stringify({{
   addAttrs: addAttrs,
 }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertFalse(res["streamHasBox"], "Streaming should keep raw code block")
@@ -804,7 +805,7 @@ const container = {{
   }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertEqual(res["firstProcessed"], "true")
@@ -891,7 +892,7 @@ const container = {{ querySelectorAll: () => [box] }};
   console.log(JSON.stringify(popupArg));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertFalse(res["isString"], "bindPopup must never receive a raw string (DOM XSS risk)")
@@ -963,7 +964,7 @@ const container = {{ querySelectorAll: () => [box] }};
   console.log(JSON.stringify({{ mapOpts, tileOpts }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertTrue(res["mapOpts"].get("attributionControl"), "attributionControl must not be disabled")
@@ -1008,7 +1009,7 @@ global.window = {{}};
   console.log(JSON.stringify({{ err1, countAfterP1, countAfterP2 }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertEqual(res["err1"], "Leaflet load timeout")
@@ -1048,7 +1049,7 @@ console.log(JSON.stringify({{
   scriptCrossOrigin: script && script.crossOrigin
 }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertEqual(res["linkIntegrity"], "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=")
@@ -1113,7 +1114,7 @@ const container = {{ querySelectorAll: () => [box] }};
   console.log(JSON.stringify({{ mapOpts }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertIsNotNone(res["mapOpts"])
@@ -1178,7 +1179,7 @@ const container = {{ querySelectorAll: () => [box] }};
   console.log(JSON.stringify({{ mapOpts }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertFalse(res["mapOpts"].get("dragging"), "dragging must be disabled by default")
@@ -1264,7 +1265,7 @@ const container = {{ querySelectorAll: () => [box1] }};
   }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertTrue(res["scriptErrorFired"], "Script onerror must be invoked on load failure")
@@ -1343,7 +1344,7 @@ const afterExit = {{
 
 console.log(JSON.stringify({{ afterEnter, afterExit }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
 
@@ -1433,7 +1434,7 @@ const container = {{ querySelectorAll: () => [box] }};
   }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertEqual(res["fsBtnCount"], 1, "Exactly one fullscreen button must be created")
@@ -1483,7 +1484,7 @@ const afterEscPress = {{
 
 console.log(JSON.stringify({{ beforeEnter, afterEnter, afterEscPress }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertFalse(res["beforeEnter"])
@@ -1582,7 +1583,7 @@ const afterExit = {{
 
 console.log(JSON.stringify({{ afterEnter, afterExit }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
 
@@ -1682,7 +1683,7 @@ const afterPop = {{
 }};
 console.log(JSON.stringify(afterPop));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertTrue(res["hasPopListener"])
@@ -1737,7 +1738,7 @@ const box = {{
   console.log(JSON.stringify(mapOpts));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertFalse(res.get("dragging"))
@@ -1822,7 +1823,7 @@ const box = {{
   }}));
 }})();
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertTrue(res["hasTouchstart"])
@@ -1869,7 +1870,7 @@ const exitLog = [...log];
 
 console.log(JSON.stringify({{ enterLog, exitLog }}));
 """
-        out = subprocess.run(["node", "-e", harness], capture_output=True, text=True, timeout=20)
+        out = subprocess.run(["node", "-e", i18n_prelude() + harness], capture_output=True, text=True, timeout=20)
         self.assertEqual(out.returncode, 0, out.stderr[-1000:])
         res = json.loads(out.stdout)
         self.assertIn("bz.on", res["enterLog"])

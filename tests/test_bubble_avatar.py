@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
@@ -31,7 +32,7 @@ console.log(JSON.stringify(out));
 class ExpressionOnTheBubble(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(STATIC / "markdown.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(STATIC / "markdown.js")], capture_output=True, text=True, timeout=20)
         assert r.returncode == 0, r.stderr[-1500:]
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
