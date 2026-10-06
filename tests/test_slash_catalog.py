@@ -1,6 +1,7 @@
 """Slash popular pins are enabled workspace skills, not a hardcoded k-skill list.
 Run: python3 -m unittest tests.test_slash_catalog  (from services/chatbot)
 """
+import json
 import re
 import shutil
 import tempfile
@@ -113,6 +114,12 @@ class ActionAndHelp(unittest.TestCase):
         text = _static("app.js")
         start = text.index("if (text === '/help')")
         help_block = text[start:text.index("currentSessionHasUser = hadUser;", start)]
+        self.assertIn("tr('help.body'", help_block)   # I18N_v1: the guide's words are in the catalogs
+        for lang in ("ko", "en"):
+            body = json.loads((CODE / "static" / "i18n" / ("%s.json" % lang)).read_text(encoding="utf-8"))["help.body"]
+            for cmd in ("/act", "/me", "/ticket", "/skill", "/btw", "/status"):
+                self.assertIn(cmd, body, lang + " " + cmd)
+        help_block = json.loads((CODE / "static" / "i18n" / "ko.json").read_text(encoding="utf-8"))["help.body"]
         self.assertNotIn("날씨·뉴스·주식", help_block)
         for cmd in ("/act", "/me", "/ticket", "/skill", "/btw", "/status"):
             self.assertIn(cmd, help_block, cmd)

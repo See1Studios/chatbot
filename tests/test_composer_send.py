@@ -78,5 +78,20 @@ class ComposerSend(unittest.TestCase):
         self.assertIn('<button id="send" class="primary" data-i18n-aria-label="composer.send" data-i18n-title="composer.send_key" disabled data-face="icon">', html)
 
 
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class NoGuessBtw(unittest.TestCase):
+    """NO_GUESS_BTW_v1: while a turn runs, a message goes aside only when the operator says /btw -- never a guess from
+    question endings or words (they matched Korean and English only)."""
+
+    def test_only_an_explicit_btw_is_a_side_question(self):
+        src = (Path(__file__).resolve().parent.parent / "static" / "app.js").read_text(encoding="utf-8")
+        fn = src[src.index("function isInquiry"):src.index("\n}\n", src.index("function isInquiry")) + 3]
+        js = fn + "console.log(JSON.stringify(%s.map(isInquiry)));" % json.dumps(
+            ["/btw where is it", "/btw", "where is it?", "어디야?", "どこ？", "what is it", "진행상황 알려줘"])
+        r = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=20)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        self.assertEqual(json.loads(r.stdout), [True, True, False, False, False, False, False])
+
 if __name__ == "__main__":
     unittest.main()

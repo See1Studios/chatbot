@@ -53,11 +53,11 @@ if (geoBtn) {
     updateGeoButtonState();
     if (geoEnabled) {
       fetchCoordinates();
-      addActivity('기기 환경 및 위치 정보 동기화 켜짐', 'system');
+      addActivity(tr('composer.geo_on'), 'system');
     } else {
       cachedCoords = null;
       coordPromise = null;
-      addActivity('기기 환경 및 위치 정보 동기화 꺼짐');
+      addActivity(tr('composer.geo_off'));
     }
   });
 }
@@ -132,10 +132,10 @@ const statusRefreshBtn = document.getElementById('statusRefreshBtn');
 // Compact mode (?compact=1): this exact same page, embedded in a small
 // iframe from the Hub FAB popup, instead of maintaining a second ~950-line
 // FAB-only implementation that drifts out of sync with this one (operator:
-// "본체의 compact한 버전이니까" -- share everything, design/layout only
-// differs). Keeps 대화/아티팩트/로그/세션 (operator: "위에 공간이 많이 남았으니
-// 로그도 노출해도 될 것 같네" / "아티팩트도" -- there's headroom for them
-// after all), drops only 상태 (host-admin, not a casual-popup concern), the
+// "a compact version of the main page" -- share everything, design/layout only
+// differs). Keeps chat/artifacts/log/sessions (operator: "there is room left at the top, the log
+// can show too" / "artifacts too" -- there's headroom for them
+// after all), drops only status (host-admin, not a casual-popup concern), the
 // "← Hub" link (meaningless inside an iframe already sitting on
 // the Hub page), and the defib button (host-repair action).
 const isCompactMode = new URLSearchParams(location.search).get('compact') === '1';
@@ -244,24 +244,9 @@ function isInquiry(text) {
   if (!t) return false;
   if (t.startsWith('/btw ') || t.startsWith('/btw\n') || t === '/btw') return true;
   if (t.startsWith('/q ') || t.startsWith('/queue ') || t.startsWith('/next ')) return false;
-  if (/[\?？]\s*$/.test(t)) return true;
-  if (/^(what|why|how|where|when|who|is|are|can|could)\b/i.test(t)) return true;
-  const qEndings = [
-    "인가", "인가요", "는가", "는가요", "은가", "은가요",
-    "나요", "나", "니", "냐", "냐고", "니까", "까", "까요",
-    "는지", "은지", "는지요", "지요", "죠", "건가", "건가요",
-    "어때", "어때요", "뭐해", "뭐하니", "뭐야", "을까", "ㄹ까"
-  ];
-  const cleanEnd = t.replace(/[.!~^;\s]+$/, '');
-  for (const qe of qEndings) {
-    if (cleanEnd.endsWith(qe)) return true;
-  }
-  if (t.length <= 40) {
-    const qWords = ["어디", "어떻게", "얼마나", "언제", "왜", "무슨", "무엇", "몇", "진행상황", "진행 상태", "현재 상태"];
-    for (const qw of qWords) {
-      if (t.includes(qw)) return true;
-    }
-  }
+  // NO_GUESS_BTW_v1: a side question is the operator's /btw, never a guess from the words -- question endings and
+  // question words matched Korean and English only, so the same message steered in one language and went aside in
+  // another (multilingual: results must not depend on the language)
   return false;
 }
 
@@ -291,7 +276,7 @@ if (actCopyBtn) {
   actCopyBtn.addEventListener('click', async () => {
     const filtered = activityEvents.filter(matchesActivityFilter);
     if (!filtered.length) {
-      alertModal('복사할 활동 로그가 없습니다.');
+      alertModal(tr('log.nothing_to_copy'));
       return;
     }
     const textToCopy = filtered.map(item => {
@@ -316,10 +301,10 @@ if (actCopyBtn) {
         document.body.removeChild(ta);
       }
       const prevText = actCopyBtn.textContent;
-      actCopyBtn.textContent = '복사됨';
+      actCopyBtn.textContent = tr('common.copied');
       setTimeout(() => { actCopyBtn.textContent = prevText; }, 1800);
     } catch (e) {
-      alertModal('클립보드 복사 실패: ' + e.message);
+      alertModal(tr('common.copy_failed', { error: e.message }));
     }
   });
 }
@@ -341,8 +326,8 @@ function confirmModal(message, opts) {
   }
   return new Promise(resolve => {
     confirmModalMsgEl.textContent = message;
-    confirmModalOkBtn.textContent = opts.confirmLabel || '확인';
-    confirmModalCancelBtn.textContent = opts.cancelLabel || '취소';
+    confirmModalOkBtn.textContent = opts.confirmLabel || tr('common.ok');
+    confirmModalCancelBtn.textContent = opts.cancelLabel || tr('common.cancel');
     confirmModalCancelBtn.style.display = isAlert ? 'none' : '';
     confirmModalOkBtn.className = (isAlert || opts.danger === false) ? 'primary' : 'danger';
     confirmModalEl.style.display = 'flex';
@@ -375,7 +360,7 @@ function confirmModal(message, opts) {
 }
 
 function alertModal(message) {
-  return confirmModal(message, { alert: true, danger: false, confirmLabel: '확인' });
+  return confirmModal(message, { alert: true, danger: false, confirmLabel: tr('common.ok') });
 }
 
 if (logEl) {
@@ -436,7 +421,7 @@ async function send(opts) {
     logEl.innerHTML = '';
     activityEvents = [];
     if (activityEl) activityEl.innerHTML = '';
-    addNotice('ok', '대화 로그를 깨끗하게 비웠습니다.');
+    addNotice('ok', tr('chat.cleared'));
     syncSessionActions();
     updateSendButton();
     return;
@@ -470,9 +455,9 @@ async function send(opts) {
     addChat('user', '/status', false);
     try {
       const st = await api('/api/host/status');
-      addNotice(st.ok ? 'status' : 'warn', `호스트 상태: **${st.ok ? '정상 가동 중' : '이상 감지'}** · 세션 ID: \`${sessionId || '없음'}\` · 모델: \`${modelEl.value}\``);
+      addNotice(st.ok ? 'status' : 'warn', tr('chat.host_status', { state: st.ok ? tr('chat.host_ok') : tr('chat.host_bad'), sid: sessionId || tr('common.none'), model: modelEl.value }));
     } catch (e) {
-      addNotice('error', '상태 확인 실패: ' + e.message);
+      addNotice('error', tr('chat.status_failed', { error: e.message }));
     }
     currentSessionHasUser = hadUser;
     return;
@@ -485,7 +470,7 @@ async function send(opts) {
     updateSendButton();
     const hadUser = currentSessionHasUser;
     addChat('user', text, false);   // typed by hand, so it stays on screen; a button does not (TICKET_BUTTONS_v1)
-    if (await runTicketDecision(ticketCmd, opts)) return;   // [진행] went on as an ordinary message
+    if (await runTicketDecision(ticketCmd, opts)) return;   // [Go] went on as an ordinary message
     currentSessionHasUser = hadUser;
     return;
   }
@@ -499,24 +484,7 @@ async function send(opts) {
     const hadUser = currentSessionHasUser;
     addChat('user', '/help', false);
     addNotice('help',
-      IDENTITY.title + ' 사용법 요약입니다.\n\n' +
-      '**탭** (숫자는 `Alt+숫자`로 바로 전환)\n' +
-      '- `Alt+1` 대화 · `Alt+2` 세션 · `Alt+3` 로그 · `Alt+4` 아티팩트 · `Alt+5` 상태 · `Alt+6` 개선\n\n' +
-      '**어디서나 되는 것**\n' +
-      '- `/` 키: 바로 컴포저로 이동해서 슬래시 메뉴 열기\n' +
-      '- 헤더의 `⋯` 버튼: 테마 색상 선택, 엔진 리부트(repair)\n' +
-      '- 대화가 한 턴 이상이면 채팅창 아래에 새 대화·이어가기 버튼이 뜬다. 세션이 길어지면 거기서 바로 갈아탈 수 있다\n' +
-      '- `세션` 탭에서도 새 세션을 열 수 있다\n\n' +
-      '**슬래시 명령어**\n' +
-      '- `/btw <질문>` 작업 중 샛길 질문 · `/continue` 맥락 요약 인계 새 세션 · `/new` 완전 새 세션\n' +
-      '- `/act <행동>` (별칭 `/me`) 말 대신 행동·상황 지문 전달\n' +
-      '- `/private on|off` 사적 대화 전환 · `/review` 관찰 리뷰\n' +
-      '- `/status` 상태 확인 · `/clear` 화면 비우기 · `/compact` 대화 압축 · `/defib`·`/reboot` 엔진 리부트\n\n' +
-      '**작업 결정** (`/ticket <결정> 번호`, 에이전트에게 안 가고 바로 처리)\n' +
-      '- `go` 승인+착수 · `approve` 승인 · `decline` 폐기 · `reopen` 재개\n' +
-      '- 위임: `delegate` 실행 · `merge` 승인 · `rework 번호 사유` 반려 · `discard` 폐기 · `allow` 경로 허용\n\n' +
-      '**스킬**: `/`만 눌러도 켜 둔 워크스페이스 스킬이 메뉴에 뜨고, `/skill 이름`으로 검색할 수 있다\n\n' +
-      '더 궁금한 게 있으면 그냥 물어보세요!');
+      tr('help.body', { title: IDENTITY.title }));
     currentSessionHasUser = hadUser;
     return;
   }
@@ -547,25 +515,25 @@ async function send(opts) {
 
   if (isBtw) {
     addBtwQuestionBubble(text);
-    addActivity('샛길 질문(/btw) 감지 · 처리 중…');
+    addActivity(tr('chat.btw_seen'));
   } else if (isAction) {
     addChat('action', '✦ ' + actionText, false, false, false);
     assistantNode = null; assistantBuf = '';
     setBusy(true);
-    setProgress('행동 전달 · 대기 중…');
+    setProgress(tr('chat.action_sent'));
   } else if (isBusy) {
     // Steer: show the message at once, but leave the streaming answer alone -- the agent keeps
     // working until the current step ends. The server's 'interrupted' event (which comes when the
     // turn is actually cut, immediately for providers that cannot steer) closes the bubble.
     addChat('user', text, false, false, false);
-    addActivity('새 지시 전달: ' + shortToolLine(text), 'system');
+    addActivity(tr('chat.steer_sent', { text: shortToolLine(text) }), 'system');
     setBusy(true);
-    setProgress('새 지시 접수 · 지금 단계가 끝나면 반영해요…');
+    setProgress(tr('chat.steer_queued'));
   } else {
     addChat('user', text, false, false, false);
     assistantNode = null; assistantBuf = '';
     setBusy(true);
-    setProgress('요청 보냄 · 대기 중…');
+    setProgress(tr('chat.sent_waiting'));
   }
 
   inputEl.value = '';
@@ -598,14 +566,13 @@ async function send(opts) {
       await applyModeSwitch(msgRes);
     } else if (msgRes && msgRes.rotated && msgRes.session && msgRes.session.id) {
       const nid = msgRes.session.id; liveSessionId = nid; archiveBrowse = false;   // the handoff is the new live tip
-      addActivity('서버가 긴 세션을 새 채팅으로 인계 전환: ' + nid);
-      // Seamless in-flow handoff (operator: "세션 간 경계가 느껴지지 않게") --
+      addActivity(tr('chat.rotated', { sid: nid }));
+      // Seamless in-flow handoff (operator: "no seam felt between sessions") --
       // the message this branch is handling is already visible on screen
       // (send()'s own optimistic addChat at the top of this function, well
       // before this POST resolved), so don't clear the log or re-add it --
-      // that clear-then-refill was the actual bug (operator: "내가 말을
-      // 하면 바로 새 세션으로 넘어가면서 내가 한 말을 또 해야 되는 상황이
-      // 생겨"), and even fixed, a wipe-and-rebuild still reads as a visible
+      // that clear-then-refill was the actual bug (operator: "the moment I speak it moves to a new
+      // session and I have to say it again"), and even fixed, a wipe-and-rebuild still reads as a visible
       // seam. The handoff summary still reaches the model (server injects
       // it into the new session's first turn either way); it doesn't need
       // to be re-shown here to feel present. syncedTs anchors the new
@@ -635,7 +602,7 @@ async function send(opts) {
   }
 }
 applyIdentity();
-if (!window.__IDENTITY__) {  // 정적으로 서빙돼 서버가 심어 주지 못한 경우
+if (!window.__IDENTITY__) {  // served statically: the server could not plant it
   fetch(BASE_PATH + '/api/identity').then(r => r.json()).then(j => { Object.assign(IDENTITY, j); applyIdentity(); }).catch(() => {});
 }
 window.addEventListener('message', (e) => {
@@ -679,7 +646,7 @@ async function boot() {
       const o = document.createElement('option');
       o.value = p.id;
       const blockReason = providerUseBlockedReason(p.id);
-      o.textContent = (p.name || p.id) + (blockReason ? ' (제한)' : '');
+      o.textContent = (p.name || p.id) + (blockReason ? tr('shell.provider_limited') : '');
       // Keep selectable so tray/status can focus a blocked provider.
       o.disabled = false;
       if (providerEl) providerEl.appendChild(o);
@@ -717,11 +684,11 @@ async function boot() {
           provider: providerEl ? providerEl.value : '',
           model: modelEl.value,
         };
-        addActivity('모델 UI만 바꿈 — 진행 중 작업은 유지, 끝난 뒤·다음 메시지부터 적용: ' + modelEl.value);
+        addActivity(tr('chat.model_ui_only', { model: modelEl.value }));
         return;
       }
       pendingProviderPersist = null;
-      persistSessionProvider({ activity: '모델 전환: ' + modelEl.value });
+      persistSessionProvider({ activity: tr('chat.model_switched', { model: modelEl.value }) });
     };
   } catch (_) {}
   await ensureSession();
@@ -815,16 +782,16 @@ if (usageRefreshBtn) usageRefreshBtn.addEventListener('click', () => fetchUsage(
 if (mcpAddBtn) mcpAddBtn.addEventListener('click', async () => {
   const name = (mcpNameInput && mcpNameInput.value || '').trim();
   const url = (mcpUrlInput && mcpUrlInput.value || '').trim();
-  if (!name || !url) { await alertModal('이름과 serverUrl을 모두 입력하세요.'); return; }
+  if (!name || !url) { await alertModal(tr('status.mcp.need_both')); return; }
   mcpAddBtn.disabled = true;
   try {
     await api('/api/mcp', { method: 'POST', body: JSON.stringify({ name, serverUrl: url }) });
-    addActivity('MCP ' + name + ' 추가됨 (다음 새 세션부터 반영)');
+    addActivity(tr('status.mcp.added', { name }));
     if (mcpNameInput) mcpNameInput.value = '';
     if (mcpUrlInput) mcpUrlInput.value = '';
     fetchSelfStatus();
   } catch (e) {
-    await alertModal('추가 실패: ' + e.message);
+    await alertModal(tr('status.mcp.add_failed', { error: e.message }));
   } finally {
     mcpAddBtn.disabled = false;
   }
@@ -880,7 +847,7 @@ if (stopBtn) {
     stopBtn.disabled = true;
     const noticeBefore = lastStopNoticeAt;
     try {
-      addActivity('작업 중지 요청…');
+      addActivity(tr('chat.stop_requested'));
       await api('/api/sessions/' + encodeURIComponent(sessionId) + '/stop', { method: 'POST' });
       setBusy(false);
       if (assistantNode && assistantNode.dataset.progress === '1') {
@@ -891,11 +858,11 @@ if (stopBtn) {
       // stands in only when that event never came (the stream was down).
       setTimeout(() => {
         if (lastStopNoticeAt !== noticeBefore) return;
-        const b = addNotice('stop', '작업을 중지했습니다.', null, true);
+        const b = addNotice('stop', tr('chat.stopped'), null, true);
         if (b) b.dataset.ephemeral = '1';   // SESSION_DESYNC_GAPFIX_v2
       }, STOP_NOTICE_WAIT_MS);
     } catch (e) {
-      addActivity('중지 오류: ' + (e.message || e));
+      addActivity(tr('chat.stop_failed', { error: e.message || e }));
     } finally {
       stopBtn.disabled = false;
     }

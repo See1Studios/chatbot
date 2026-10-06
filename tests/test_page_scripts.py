@@ -13,7 +13,7 @@ from pathlib import Path
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 MAX_BYTES = 43_000
-CEILINGS = {"app.js": 44_144, "app-evolution.js": 44_974}   # over the cap already: no growth
+CEILINGS = {"app-evolution.js": 43_574}   # over the cap already: no growth
 BYTES_SLACK = 2_000
 
 HARNESS = r"""
