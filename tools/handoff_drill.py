@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -378,8 +379,8 @@ def sc_restart(run: Run, t: Cast, lead: str) -> None:
     run.facts["reason"] = str(done.get("reason") or "")[:120]
     run.check(done.get("state") in ("done", "failed"), "it closed after the restart")
     run.check(done.get("state") == "done" or bool(done.get("reason")), "a failure says why")
-    run.check(done.get("state") != "done" or "_start_turn" in str(done.get("result") or ""),
-              "a done one carries the list, not a promise")
+    named = set(re.findall(r"`(_?[a-z]\w*)\(", str(done.get("result") or "")))   # function names, whatever their order
+    run.check(done.get("state") != "done" or len(named) >= 3, "a done one carries the list, not a promise")
 
 
 def sc_cancel(run: Run, t: Cast, lead: str) -> None:
@@ -539,10 +540,49 @@ def sc_context(run: Run, t: Cast, lead: str) -> None:
     run.check(not alerts, "no context alert")
 
 
+def _tool(args: dict, who: dict) -> dict:
+    """The dialog tool as `who` would call it, run in a process with the sandbox's settings: this one's modules read
+    the live data folder."""
+    code = ("import json, sys; sys.path.insert(0, %r); import dialog_tool; "
+            "env = lambda ok, msg, data: {'success': ok, 'message': msg, 'data': data}; "
+            "print(json.dumps(dialog_tool.call(json.loads(sys.argv[1]), env, json.loads(sys.argv[2]))))" % str(CODE))
+    env = dict(_env(), CHATBOT_HANDOFFS_FILE=str(DRILL / "handoffs.jsonl"))
+    r = subprocess.run([sys.executable, "-c", code, json.dumps(args), json.dumps(who)], cwd=str(CODE), env=env,
+                       capture_output=True, text=True, timeout=60)
+    try:
+        return json.loads(r.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return {"success": False, "message": (r.stderr or r.stdout)[-300:]}
+
+
+def sc_default_role(run: Run, t: Cast, lead: str) -> None:
+    """A handoff to a role nobody holds goes to the team's default character, says so, and is done there; the default
+    handing one off itself is told it is its own (DEFAULT_ROLE_v1)."""
+    unheld = next((p.name for p in sorted((DRILL / "workspace" / "roles").iterdir())
+                   if (p / "ROLE.md").is_file() and p.name not in {r for rs in t.roles.values() for r in rs}), "")
+    run.facts["role"] = unheld
+    if not unheld:
+        run.check(False, "the team has a role pack nobody holds")
+        return
+    worker_sid = session_for(t.worker)
+    ask = "Research only: in one line, what does the file services/chatbot/dialog_handoff.py do?"
+    out = _tool({"action": "handoff", "to": unheld, "text": ask},
+                {"id": worker_sid, "character": t.worker, "mode": "work", "private": False})
+    run.check(bool(out.get("success")), "the handoff is accepted (%s)" % str(out.get("message"))[:80])
+    hid = (out.get("data") or {}).get("handoff")
+    done = wait_closed(hid) if hid else {}
+    run.facts["states"] = "→".join(ledger_states(hid)) if hid else "-"
+    run.check(done.get("to") == t.sender and "Nobody holds" in str(done.get("task")), "it went to the default, saying so")
+    run.check(done.get("state") == "done", "the default did it")
+    mine = _tool({"action": "handoff", "to": unheld, "text": "x"},
+                 {"id": lead, "character": t.sender, "mode": "work", "private": False})
+    run.check(not mine.get("success") and "yours" in str(mine.get("message")), "the default is told it is its own")
+
+
 SCENARIOS: Dict[str, Callable] = {"refuse": sc_refuse, "subagents": sc_subagents, "chain": sc_chain,
                                   "busy": sc_busy, "restart": sc_restart,
                                   "cancel": sc_cancel, "timeout": sc_timeout, "budget": sc_budget,
-                                  "context": sc_context}
+                                  "context": sc_context, "default_role": sc_default_role}
 
 
 def main(argv: Optional[List[str]] = None) -> int:
