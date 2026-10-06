@@ -90,12 +90,17 @@ class CommandCatalog(unittest.TestCase):
         for a in actions:
             self.assertIn("/ticket " + a, names, a)
 
-    def test_catalog_entries_carry_label_desc_template(self):
+    def test_catalog_entries_carry_a_key_and_a_template(self):
+        # I18N_v1: the label and description are the catalog's (slash.<key>.label / .desc), in every language
         text = _static("slash.js")
+        cats = [json.loads((CODE / "static" / "i18n" / f).read_text(encoding="utf-8")) for f in ("ko.json", "en.json")]
         for line in text.splitlines():
             if line.strip().startswith('{ name: "/'):
-                for key in ("label:", "desc:", "template:"):
-                    self.assertIn(key, line, line)
+                self.assertIn("template:", line, line)
+                key = re.search(r'key: "(\w+)"', line).group(1)
+                for cat in cats:
+                    self.assertIn("slash.%s.label" % key, cat, line)
+                    self.assertIn("slash.%s.desc" % key, cat, line)
 
     def test_server_commands_merge_not_replace(self):
         text = _static("slash.js")

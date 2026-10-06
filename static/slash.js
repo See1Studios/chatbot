@@ -4,30 +4,30 @@ const slashMenuEl = document.getElementById('slashMenu');
 const slashBtnEl = document.getElementById('slashBtn');
 let slashCatalog = {
   commands: [
-    { name: "/act", label: "행동 지문", desc: "말 대신 행동·상황 지문을 전달 (예: /act 차를 건넨다) — 별칭 /me", template: "/act " },
-    { name: "/me", label: "행동 지문 (별칭)", desc: "/act 와 같음 (예: /me 기지개를 켠다)", template: "/me " },
-    { name: "/btw", label: "샛길 질문", desc: "작업 중 즉시 경량 샛길 답변", template: "/btw " },
-    { name: "/continue", label: "이어하기", desc: "현재 대화 요약 인계받아 새 세션", template: "/continue" },
-    { name: "/new", label: "새 세션", desc: "완전한 새 대화 세션 시작", template: "/new" },
-    { name: "/defib", label: "엔진 리부트", desc: "엔진 리부트 (repair/reboot)", template: "/defib" },
-    { name: "/reboot", label: "엔진 리부트", desc: "/defib 와 같음 — 엔진 리부트 (repair/reboot)", template: "/defib" },   // l10n-ok
-    { name: "/status", label: "상태 확인", desc: "챗봇 및 NAS 시스템 상태 점검", template: "/status" },
-    { name: "/review", label: "관찰 리뷰", desc: "열린 관찰과 미검토 후보를 함께 검토 (작업 시작 아님)", template: "관찰 리뷰를 해줘. observation 도구의 review로 열린 관찰과 미검토 후보를 받아서 나와 하나씩 검토하고, 정리(resolve)와 티켓 제안까지만 해. 끝나면 reviewed로 기록해줘. 작업은 시작하지 마." },
-    { name: "/ticket", label: "티켓 결정", desc: "/ticket <결정> 번호 — 화면에서 바로 처리, 에이전트에게는 안 감 (go만 착수 지시 전달)", template: "/ticket " },
-    { name: "/ticket go", label: "티켓 착수", desc: "제안 상태면 승인한 뒤 에이전트에게 착수 지시 (예: /ticket go 152)", template: "/ticket go " },
-    { name: "/ticket approve", label: "티켓 승인", desc: "제안된 작업 승인만 (착수는 안 함)", template: "/ticket approve " },
-    { name: "/ticket decline", label: "티켓 폐기", desc: "제안된 작업 폐기 (진행 안 함)", template: "/ticket decline " },
-    { name: "/ticket reopen", label: "티켓 재개", desc: "폐기·완료된 작업 다시 열기", template: "/ticket reopen " },
-    { name: "/ticket delegate", label: "위임 실행", desc: "PD 계획의 [실행] — 스태프 작업 시작 (격리 워크트리)", template: "/ticket delegate " },
-    { name: "/ticket merge", label: "위임 승인", desc: "검증 통과한 위임 결과 승인 → 반영 시작", template: "/ticket merge " },
-    { name: "/ticket rework", label: "위임 반려", desc: "위임 결과 반려 + 사유 (예: /ticket rework 152 버튼 크기 다시)", template: "/ticket rework " },
-    { name: "/ticket discard", label: "위임 폐기", desc: "위임 결과 버리기", template: "/ticket discard " },
-    { name: "/ticket disown", label: "담당 해제", desc: "다른 에이전트가 잡은 작업을 넘겨받게 담당 해제", template: "/ticket disown " },
-    { name: "/ticket unqueue", label: "대기 취소", desc: "잠금 대기 중인 위임 실행 취소", template: "/ticket unqueue " },
-    { name: "/ticket allow", label: "경로 허용", desc: "스태프가 요청한 범위 밖 경로(NEED_PATH) 허용", template: "/ticket allow " },
-    { name: "/clear", label: "화면 비우기", desc: "대화창 화면 로그 초기화", template: "/clear" },
-    { name: "/compact", label: "세션 압축", desc: "대화 히스토리 수동 압축/요약", template: "/compact" },
-    { name: "/help", label: "사용법", desc: "탭·단축키·슬래시 명령어 요약", template: "/help" },
+    { name: "/act", key: "act", template: "/act " },
+    { name: "/me", key: "me", template: "/me " },
+    { name: "/btw", key: "btw", template: "/btw " },
+    { name: "/continue", key: "continue", template: "/continue" },
+    { name: "/new", key: "new", template: "/new" },
+    { name: "/defib", key: "defib", template: "/defib" },
+    { name: "/reboot", key: "reboot", template: "/defib" },
+    { name: "/status", key: "status", template: "/status" },
+    { name: "/review", key: "review", template: "Run an observation review: take the open observations and unreviewed candidates with the observation tool's review, go through them one by one with me, and only resolve them and propose tickets. Record it as reviewed when done. Do not start any work. Reply in my language." },
+    { name: "/ticket", key: "ticket", template: "/ticket " },
+    { name: "/ticket go", key: "ticket_go", template: "/ticket go " },
+    { name: "/ticket approve", key: "ticket_approve", template: "/ticket approve " },
+    { name: "/ticket decline", key: "ticket_decline", template: "/ticket decline " },
+    { name: "/ticket reopen", key: "ticket_reopen", template: "/ticket reopen " },
+    { name: "/ticket delegate", key: "ticket_delegate", template: "/ticket delegate " },
+    { name: "/ticket merge", key: "ticket_merge", template: "/ticket merge " },
+    { name: "/ticket rework", key: "ticket_rework", template: "/ticket rework " },
+    { name: "/ticket discard", key: "ticket_discard", template: "/ticket discard " },
+    { name: "/ticket disown", key: "ticket_disown", template: "/ticket disown " },
+    { name: "/ticket unqueue", key: "ticket_unqueue", template: "/ticket unqueue " },
+    { name: "/ticket allow", key: "ticket_allow", template: "/ticket allow " },
+    { name: "/clear", key: "clear", template: "/clear" },
+    { name: "/compact", key: "compact", template: "/compact" },
+    { name: "/help", key: "help", template: "/help" },
   ],
   popular: [],
   skills: []
@@ -100,7 +100,8 @@ function renderSlashMenu(query) {
   if (!slashMenuEl) return;
   const q = (query || '').toLowerCase().trim();
   
-  const cmds = slashCatalog.commands.filter(c => 
+  // I18N_v1: a built-in command's label and description come from the catalog (slash.<key>.label / .desc) when shown
+  const cmds = slashCatalog.commands.map(c => c.key ? Object.assign({}, c, { label: tr('slash.' + c.key + '.label'), desc: tr('slash.' + c.key + '.desc') }) : c).filter(c => 
     !q || c.name.toLowerCase().includes(q) || (c.label && c.label.toLowerCase().includes(q)) || (c.desc && c.desc.toLowerCase().includes(q))
   );
 
@@ -120,12 +121,12 @@ function renderSlashMenu(query) {
   let html = '';
 
   if (cmds.length) {
-    html += '<div class="slash-category">기능 / 명령어</div>';
+    html += '<div class="slash-category">' + escapeHtml(tr('slash.cat_commands')) + '</div>';
     cmds.forEach(c => {
       const idx = slashVisibleItems.length;
       slashVisibleItems.push(c);
       html += `<div class="slash-item" data-idx="${idx}" role="option" aria-selected="false">
-        <span class="slash-badge cmd">명령어</span>
+        <span class="slash-badge cmd">${escapeHtml(tr('slash.badge_cmd'))}</span>
         <span class="slash-name">${escapeHtml(c.name)}</span>
         <span class="slash-desc">${escapeHtml(c.desc || c.label)}</span>
       </div>`;
@@ -133,12 +134,12 @@ function renderSlashMenu(query) {
   }
 
   if (pops.length) {
-    html += '<div class="slash-category">추천 스킬</div>';
+    html += '<div class="slash-category">' + escapeHtml(tr('slash.cat_popular')) + '</div>';
     pops.forEach(p => {
       const idx = slashVisibleItems.length;
       slashVisibleItems.push(p);
       html += `<div class="slash-item" data-idx="${idx}" role="option" aria-selected="false">
-        <span class="slash-badge skill">스킬</span>
+        <span class="slash-badge skill">${escapeHtml(tr('slash.badge_skill'))}</span>
         <span class="slash-name">${escapeHtml(p.name)}</span>
         <span class="slash-desc">${escapeHtml(p.desc || p.label)}</span>
       </div>`;
@@ -146,12 +147,12 @@ function renderSlashMenu(query) {
   }
 
   if (otherSkills.length) {
-    html += '<div class="slash-category">전체 스킬 검색</div>';
+    html += '<div class="slash-category">' + escapeHtml(tr('slash.cat_all_skills')) + '</div>';
     otherSkills.forEach(s => {
       const idx = slashVisibleItems.length;
       slashVisibleItems.push(s);
       html += `<div class="slash-item" data-idx="${idx}" role="option" aria-selected="false">
-        <span class="slash-badge skill">스킬</span>
+        <span class="slash-badge skill">${escapeHtml(tr('slash.badge_skill'))}</span>
         <span class="slash-name">/skill ${escapeHtml(s.name)}</span>
         <span class="slash-desc">${escapeHtml(s.desc || s.name)}</span>
       </div>`;
@@ -159,7 +160,7 @@ function renderSlashMenu(query) {
   }
 
   if (!slashVisibleItems.length) {
-    html = '<div class="slash-empty">일치하는 명령어 또는 스킬이 없습니다</div>';
+    html = '<div class="slash-empty">' + escapeHtml(tr('slash.none')) + '</div>';
   }
 
   slashMenuEl.innerHTML = html;
