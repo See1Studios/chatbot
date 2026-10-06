@@ -147,7 +147,7 @@
 ### 4.3 워크트리 러너 연계 (Worktree Runner)
 - 전문가 에이전트의 작업은 `tools/worktree_runner.py`가 생성하는 격리된 git 워크트리에서 실행된다.
 - **[현재 운영]**: 통과 조건 불변성(`test_worktree_runner`), 커밋 트레일러, 가드 테스트 통과를 기계적으로 확인한다.
-- **[신설 예정]**: 리뷰 체크리스트(`tools/review_checklist.py`) 연계를 통해 Mandatory Test Pairing 기계 확인 및 convention 규칙 준수 여부 자동 판정을 도입한다.
+- **[신설 예정]**: 리뷰 체크리스트(`tools/review_checklist.py`) 연계를 통해 Mandatory Test Pairing 기계 확인 및 convention 규칙 준수 여부 자동 판정을 도입한다 (`tools/review_checklist.py`는 `protected_paths.json`의 governance 목록에 등록된 Tier 3 거버넌스 파일).
 
 ### 4.4 컨텍스트 예산 규율 (Context Budget Discipline)
 - **온디맨드 파일 읽기(On-Demand Reads) 원칙**:
@@ -161,9 +161,9 @@
 
 | ID | 질문 | 추천안 | 상태 |
 |---|---|---|---|
-| D-1 | 거버넌스 문서의 파일명 대소문자 규약 | 루트 `AGENTS.md` "Naming" 규약 및 `test_doc_names.py`에 따라 `docs/` 바로 아래의 스탠딩 문서는 UPPERCASE(`docs/ARCHITECTURE.md`는 기존 정본으로 이미 존재)가 원칙임. 신설할 `docs/convention.md`·`docs/state.md`의 파일명을 스탠딩 규약에 맞춰 대문자(`docs/CONVENTION.md`, `docs/STATE.md`)로 정본 신설할 것인지 결정 | 제안: 스탠딩 규약에 맞춰 본체 문서는 UPPERCASE(`docs/CONVENTION.md`, `docs/STATE.md`)로 신설하고, 기존 참조 호환성을 유지 |
-| D-2 | 신규 컨벤션 검사기의 도입 및 가드 편입 시점 | 비동기 타임아웃(30초), Mandatory Test Pairing 기계 확인 등 신규 검사기를 `run-tests.sh --fast` 게이트에 즉시 편입할 것인가 (참고: 함수 80줄 상한은 이미 `tests/test_file_sizes.py` `FUNC_MAX_LINES=80`으로 존재하며 상시 강제 중임) | 제안: 이미 동작 중인 `test_file_sizes.py` 래칫을 유지하고, 신규 검사기(비동기 타임아웃 등)는 개발 완료 후 단계적으로 편입 |
-| D-3 | `state.md` 전파 큐의 아카이브 단위 | 개별 `[DEV-PROP-xxx]` 항목 완료 즉시 아카이브할 것인가, 주간 단위로 배치 이동할 것인가 | 제안: 개별 항목 완료 시 즉시 체크박스 마감 후 해당 주차에 아카이브 |
+| D-1 | 거버넌스 문서의 파일명 대소문자 규약 | 루트 `AGENTS.md` "Naming" 규약 및 `test_doc_names.py`에 따라 `docs/` 바로 아래의 스탠딩 문서는 UPPERCASE(`docs/ARCHITECTURE.md`는 기존 정본으로 이미 존재)가 원칙임. 신설할 `docs/convention.md`·`docs/state.md`의 파일명을 스탠딩 규약에 맞춰 대문자(`docs/CONVENTION.md`, `docs/STATE.md`)로 정본 신설할 것인지 결정 | 결정 완료 및 반영: 스탠딩 규약에 맞춰 본체 문서는 UPPERCASE(`docs/CONVENTION.md`, `docs/STATE.md`)로 신설하고, 기존 참조 호환성을 유지 (#720) |
+| D-2 | 신규 컨벤션 검사기의 도입 및 가드 편입 시점 | 비동기 타임아웃(30초), Mandatory Test Pairing 기계 확인 등 신규 검사기를 `run-tests.sh --fast` 게이트에 즉시 편입할 것인가 (참고: 함수 80줄 상한은 이미 `tests/test_file_sizes.py` `FUNC_MAX_LINES=80`으로 존재하며 상시 강제 중임) | 결정 완료 및 반영: 이미 동작 중인 `test_file_sizes.py` 래칫을 유지하고, 신규 검사기(비동기 타임아웃 등)는 개발 완료 후 단계적으로 편입 (#724) |
+| D-3 | `state.md` 전파 큐의 아카이브 단위 | 개별 `[DEV-PROP-xxx]` 항목 완료 즉시 아카이브할 것인가, 주간 단위로 배치 이동할 것인가 | 결정 완료 및 반영: 개별 항목 완료 시 즉시 체크박스 마감 후 해당 주차에 아카이브 (#726) |
 
 ---
 
@@ -171,10 +171,10 @@
 
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
-| prop/A | 핵심 거버넌스 문서 체계 정비 및 신설 | `docs/ARCHITECTURE.md`, `docs/convention.md`, `docs/state.md` | 기존 `docs/ARCHITECTURE.md` 거버넌스 확장, `docs/convention.md`(신설) 규칙 작성, `docs/state.md`(신설) 큐 서식 작성 및 커밋 | Tier 3 · ⚡X | M | D-1 | 준비 |
-| prop/B | 신규 컨벤션 검사기 개발 및 가드 연동 | `tests/test_conventions.py` (또는 기존 가드 확장) | 비동기 30초 타임아웃 및 Mandatory Test Pairing 기계 검증 가드 추가 (함수 80줄 상한은 기존 `test_file_sizes` 활용) | Tier 3 · ⚡X | S | prop/A | 준비 |
-| prop/C | `state.md` 파일럿 전파 큐 등록 | `docs/state.md` | 첫 `[DEV-PROP-001]` 큐 항목 등록 및 모듈별 체크리스트 작동 검증 | Tier 3 · ⚡X | S | prop/A | 준비 |
-| prop/D | 워크트리 러너 리뷰 체크리스트 연동 | `tools/review_checklist.py` | 워커 리뷰 시 Mandatory Test Pairing 기계 확인 및 거버넌스 체크리스트 판정 연동 | Tier 2 · ⚡X | S | prop/B | 준비 |
+| prop/A | 핵심 거버넌스 문서 체계 정비 및 신설 | `docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md` | 기존 `docs/ARCHITECTURE.md` 거버넌스 확장, `docs/CONVENTION.md`(신설) 규칙 작성, `docs/STATE.md`(신설) 큐 서식 작성 및 커밋 | Tier 3 · ⚡X | M | D-1 | 완료 (#720) |
+| prop/B | 신규 컨벤션 검사기 개발 및 가드 연동 | `tests/test_conventions.py` (또는 기존 가드 확장) | 비동기 30초 타임아웃 및 Mandatory Test Pairing 기계 검증 가드 추가 (함수 80줄 상한은 기존 `test_file_sizes` 활용) | Tier 3 · ⚡X | S | prop/A | 완료 (#724) |
+| prop/C | `STATE.md` 파일럿 전파 큐 등록 및 아카이브 | `docs/STATE.md`, `docs/plans/propagation-and-state-architecture.md` | 첫 `[DEV-PROP-001]` 큐 항목 등록, 체크리스트 마감 및 아카이브 검증 | Tier 3 · ⚡X | S | prop/A, prop/B | 진행 중 (#726) |
+| prop/D | 워크트리 러너 리뷰 체크리스트 연동 | `tools/review_checklist.py` | 워커 리뷰 시 Mandatory Test Pairing 기계 확인 및 거버넌스 체크리스트 판정 연동 (Tier 3: protected_paths.json 거버넌스 경로) | Tier 3 (거버넌스) · ⚡X | S | prop/B | 준비 |
 
 ---
 

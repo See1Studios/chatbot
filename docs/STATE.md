@@ -44,17 +44,7 @@
 
 <!-- Active Queue 항목 시작 -->
 
-### [DEV-PROP-001] 거버넌스 3대 정본 문서 체계 수립 및 전파 기반 구축
-
-- **상태**: `완료 대기`
-- **목표**: 아키텍처 확장, 컨벤션 제정, 전파 장부 신설을 통해 PE 소프트웨어 공학 거버넌스 3대 정본 체계를 확립한다.
-- **기준 SSOT**: [propagation-and-state-architecture.md](plans/propagation-and-state-architecture.md) (prop/A)
-- **주관 티켓 / 담당자**: #720 / `dev` (개발 코코)
-- **모듈 체크리스트**:
-  - [x] `docs/ARCHITECTURE.md`: 거버넌스, 모듈 경계, 단방향 의존성, 에디션 경계, 티어 격리 확장 (티켓 #720)
-  - [x] `docs/CONVENTION.md`: Mandatory Test Pairing, 80줄/80KB 상한, 30초 타임아웃, 사담 상한 정본 신설 (티켓 #720)
-  - [x] `docs/STATE.md`: Active Queue, 모듈 체크리스트, Drift Backlog, Archive 서식 신설 (티켓 #720)
-  - [x] `tests/test_conventions.py`: 신규 컨벤션 검사기(비동기 타임아웃 등) 개발 및 가드 연동 (티켓 #724)
+*(현재 진행 중인 활성 전파 항목 없음 — 신규 전파 항목 대기)*
 
 <!-- Active Queue 항목 끝 -->
 
@@ -119,4 +109,18 @@ Active Queue에서 모든 모듈 체크리스트가 완료(`[x]`)된 항목은 �
 - **영향 모듈**: <완료된 주요 모듈 목록>
 ```
 
-*(현재 완료되어 아카이브된 전파 항목 없음)*
+<!-- Archived History 시작 -->
+
+### [DEV-PROP-001] 거버넌스 3대 정본 문서 체계 수립 및 전파 기반 구축 (완료)
+
+- **완료일**: 2026-10-06
+- **주관 티켓 / 머지 커밋**: #720, #724, #726 (커밋 `5de6799`, `c5f89c9`)
+- **결과 요약**: 아키텍처 확장(`docs/ARCHITECTURE.md`), 컨벤션 제정(`docs/CONVENTION.md`), 전파 장부 신설(`docs/STATE.md`)로 거버넌스 3대 정본 체계를 확립하고, 신규 컨벤션 검사기(`tests/test_conventions.py`) 개발 및 가드 연동을 완료함.
+- **영향 모듈**: `docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md`, `tests/test_conventions.py`
+- **모듈 체크리스트 이력**:
+  - [x] `docs/ARCHITECTURE.md`: 거버넌스, 모듈 경계, 단방향 의존성, 에디션 경계, 티어 격리 확장 (티켓 #720)
+  - [x] `docs/CONVENTION.md`: Mandatory Test Pairing, 80줄/80KB 상한, 30초 타임아웃, 사담 상한 정본 신설 (티켓 #720)
+  - [x] `docs/STATE.md`: Active Queue, 모듈 체크리스트, Drift Backlog, Archive 서식 신설 (티켓 #720)
+  - [x] `tests/test_conventions.py`: 신규 컨벤션 검사기(비동기 타임아웃 등) 개발 및 가드 연동 (티켓 #724)
+
+<!-- Archived History 끝 -->
