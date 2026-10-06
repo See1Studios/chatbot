@@ -6,19 +6,20 @@ sends it as the system message). Providers' own cwd/ancestor auto-discovery
 of AGENTS.md / CLAUDE.md / skills differs per CLI and is NOT relied on --
 the bundle is the one channel that is identical everywhere.
 
-Layers (L0 = always injected):
-  rules   AGENTS.md + the character's card  (static, hashed)
-  skills  workspace skill index              (static, hashed)
-  memory  MEMORY.md snapshot, if it has facts (dynamic, not hashed)
-  status  open observations / last review    (dynamic, not hashed)
+Layers: LAYERS below is the one list (CONTEXT_LAYERS_v1, docs/plans/layered-context-architecture.md lca/A) -- each
+layer's id, kind and modes; `layer_texts` builds the ones a mode takes and `build_instruction_bundle` joins them.
+  rules    charter, lore, card, role packs / private rules  (static, hashed; joined with --- and macros resolved)
+  index    skill index                                     (static, hashed)
+  dynamic  memories, name changes, status                  (not hashed)
 
 `hash` covers only the static layers, so editing memory never re-injects
 the bundle; editing the rules/persona/skills does.
 """
 import hashlib
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from host_config import WORKSPACE
 
@@ -275,13 +276,6 @@ def lorebook_context(
     }
 
 
-def _rules_text(character: str = "", history: Optional[Union[List, str]] = None) -> str:
-    lore = lorebook_context(character, history)
-    parts = [t for t in (_read(WORKSPACE / "AGENTS.md"), lore["before_char"], _persona_text(character), lore["after_char"], _roles_text(character)) if t]
-    import characters
-    return characters.render_macros("\n\n---\n\n".join(parts), _cid(character), WORKSPACE)   # CARD_MACROS_v1
-
-
 def _skills_text(character: str = "") -> str:
     """Enabled skills; a skill a role pack lists is shown only to that role's holders."""
     idx = skill_index()
@@ -369,40 +363,106 @@ def _private_charter() -> str:
     return "\n\n".join(t for t in keep if t)
 
 
-def _private_bundle(character: str, history: Optional[Union[List, str]] = None) -> Dict[str, str]:
-    import characters
-    import private_engine
-    card = _card(character)
-    if not card:
-        return {"text": "", "hash": ""}
-    rules = characters.private_text(card)
-    lore = lorebook_context(character, history)
-    static = "\n\n---\n\n".join(t for t in (_private_charter(), lore["before_char"], characters.persona_text(card).strip(),
-                                            lore["after_char"],
-                                            PRIVATE_SESSION_NOTE + ("\n\n" + rules if rules else ""),
-                                            private_engine.render_protocol_text(card)) if t)
+WORK, PRIVATE = ("work",), ("private",)
+BOTH = WORK + PRIVATE
+
+
+@dataclass(frozen=True)
+class Layer:
+    id: str
+    kind: str                # "rules" (static, joined with --- under macros) | "index" (static) | "dynamic"
+    modes: Tuple[str, ...]   # the session modes that take it (D-6: a private session never takes a work layer)
+    text: Callable           # (ctx) -> str
+
+
+def _ctx(mode: str, character: str, history) -> Dict:
     cid = _cid(character)
-    static = characters.render_macros(static, cid, WORKSPACE)   # CARD_MACROS_v1
-    memory = characters.read_private_memory(cid, WORKSPACE) if cid else ""
+    return {"mode": mode, "character": character, "cid": cid, "card": _card(character),
+            "lore": lorebook_context(character, history)}
+
+
+def _private_rules(c: Dict) -> str:
+    import characters
+    rules = characters.private_text(c["card"])
+    return PRIVATE_SESSION_NOTE + ("\n\n" + rules if rules else "")
+
+
+def _private_protocol(c: Dict) -> str:
+    import private_engine
+    return private_engine.render_protocol_text(c["card"])
+
+
+def _private_persona(c: Dict) -> str:
+    import characters
+    return characters.persona_text(c["card"]).strip()
+
+
+def _private_memory(c: Dict) -> str:
+    import characters
     import memory_relationship
-    text = static + memory_relationship.injection(cid, WORKSPACE, memory)
-    names = _names_text()
-    text += ("\n\n" + names) if names else ""
-    return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
+    memory = characters.read_private_memory(c["cid"], WORKSPACE) if c["cid"] else ""
+    return memory_relationship.injection(c["cid"], WORKSPACE, memory)
+
+
+# The order is the bundle's order. A new layer is one row here: its kind decides how it joins and whether the hash
+# covers it, its modes decide where it goes.
+LAYERS: Tuple[Layer, ...] = (
+    Layer("charter", "rules", WORK, lambda c: _read(WORKSPACE / "AGENTS.md")),
+    Layer("private_charter", "rules", PRIVATE, lambda c: _private_charter()),
+    Layer("lore_before", "rules", BOTH, lambda c: c["lore"]["before_char"]),
+    Layer("persona", "rules", WORK, lambda c: _persona_text(c["character"])),
+    Layer("private_persona", "rules", PRIVATE, _private_persona),
+    Layer("lore_after", "rules", BOTH, lambda c: c["lore"]["after_char"]),
+    Layer("roles", "rules", WORK, lambda c: _roles_text(c["character"])),
+    Layer("private_rules", "rules", PRIVATE, _private_rules),
+    Layer("private_protocol", "rules", PRIVATE, _private_protocol),
+    Layer("skills", "index", WORK, lambda c: _skills_text(c["character"])),
+    Layer("house_memory", "dynamic", WORK, lambda c: _memory_text()),
+    Layer("own_memory", "dynamic", WORK, lambda c: _own_memory_text(c["character"])),
+    Layer("private_memory", "dynamic", PRIVATE, _private_memory),
+    Layer("names", "dynamic", BOTH, lambda c: _names_text()),
+    Layer("status", "dynamic", WORK, lambda c: _status_text()),
+)
+
+
+def layer_texts(mode: str = "work", character: str = "", history: Optional[Union[List, str]] = None
+                ) -> List[Tuple[Layer, str]]:
+    """The layers a session of `mode` takes, each with its text ("" when it has nothing), in bundle order. A rules
+    layer comes with its macros resolved."""
+    import characters
+    c = _ctx(mode, character, history)
+    out = []
+    for layer in LAYERS:
+        if mode not in layer.modes:
+            continue
+        text = layer.text(c) or ""
+        if layer.kind == "rules":
+            text = characters.render_macros(text, c["cid"], WORKSPACE)   # CARD_MACROS_v1
+        out.append((layer, text))
+    return out
+
+
+def _rules_text(character: str = "", history: Optional[Union[List, str]] = None) -> str:
+    """The work bundle's rules layers joined (charter, lore, card, role packs): what the budget guard measures."""
+    return "\n\n---\n\n".join(t for layer, t in layer_texts("work", character, history) if layer.kind == "rules" and t)
 
 
 def build_instruction_bundle(mode: str = "work", character: str = "", history: Optional[Union[List, str]] = None) -> Dict[str, str]:
     """{"text": full bundle, "hash": digest of the static layers}. Empty text
     when there are no rule files at all (caller then injects nothing).
     A private session (SESSION_SPLIT_v1) gets the character's private rules and private memory instead of skills,
-    work memory and the status badge."""
-    if mode == "private":
-        return _private_bundle(character, history=history)
-    # every character alike (TEAM_ROLES_v1): charter + card + held role packs + skills; house memory, own memory,
-    # status
-    static = "\n\n".join(t for t in (_rules_text(character, history=history), _skills_text(character)) if t)
+    work memory and the status badge; it needs the character's card."""
+    mode = "private" if mode == "private" else "work"
+    if mode == "private" and not _card(character):
+        return {"text": "", "hash": ""}
+    got = layer_texts(mode, character, history)
+    rules = "\n\n---\n\n".join(t for layer, t in got if layer.kind == "rules" and t)   # = _rules_text for work
+    static = "\n\n".join(t for t in [rules] + [t for layer, t in got if layer.kind == "index"] if t)
     if not static:
         return {"text": "", "hash": ""}
-    dynamic = [t for t in (_memory_text(), _own_memory_text(character), _names_text(), _status_text()) if t]
-    text = "\n\n".join([static] + dynamic)
+    dynamic = [(layer.id, t) for layer, t in got if layer.kind == "dynamic" and t]
+    if mode == "private":   # the relationship block carries its own spacing; the rest follow a blank line
+        text = static + "".join(t if lid == "private_memory" else "\n\n" + t for lid, t in dynamic)
+    else:
+        text = "\n\n".join([static] + [t for _lid, t in dynamic])
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16]}
