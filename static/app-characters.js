@@ -4,7 +4,7 @@
 // Multi-Provider plan: [{id, available, models}], fetched once at boot.
 // available:false providers stay in the dropdown (so the option isn't a
 // silent mystery) but disabled, rather than omitted -- matches the plan's
-// "표시하되 disabled" choice.
+// "show it, disabled" choice.
 // Multi-Provider plan: [{id, name, role, theme, icon, available, models}], fetched once at boot.
 // available:false providers stay in the tray with grayscale + disabled
 let providerCatalog = [];
@@ -13,16 +13,17 @@ const providerTrayEl = document.getElementById('providerTray');
 const brandNameEl = document.getElementById('brandName');
 const brandRoleEl = document.getElementById('brandRole');
 const brandProviderEl = document.getElementById('brandProvider');
-// 이름·호칭은 코드가 아니라 헌장(AGENTS.md `title`)과 기본 캐릭터 카드(이름, `user_title`)에서 온다.
-// 서버가 <!--IDENTITY--> 자리에 window.__IDENTITY__를 심어 준다 (없으면 /api/identity로 폴백).
-const IDENTITY = Object.assign({ title: 'Assistant', persona: '', user_title: '사용자', voice: '', name: 'Assistant' }, window.__IDENTITY__ || {});
+// Names and forms of address come from the charter (AGENTS.md `title`) and the default character's card (name, `user_title`), never from code.
+// The server plants window.__IDENTITY__ at <!--IDENTITY--> (else /api/identity is the fallback).
+const IDENTITY = Object.assign({ title: 'Assistant', persona: '', user_title: '', voice: '', name: 'Assistant' }, window.__IDENTITY__ || {});
+i18nReady.then(() => { if (!IDENTITY.user_title) IDENTITY.user_title = tr('common.user'); });   // the catalog's word, once it is in
 function escapeRegExp(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function applyIdentity() {
-  if (brandNameEl) brandNameEl.textContent = IDENTITY.title;          // 상단 제목 = 타이틀(직책)
-  if (brandAvatarEl) brandAvatarEl.alt = IDENTITY.name;                // 아바타 = 페르소나(없으면 타이틀)
+  if (brandNameEl) brandNameEl.textContent = IDENTITY.title;          // the top title = the title (the post)
+  if (brandAvatarEl) brandAvatarEl.alt = IDENTITY.name;                // the avatar = the persona (else the title)
 }
 
-// 사용 불가(Free 만료/한도 소진) 제공자 및 비활성화 사유
+// Providers that cannot be used (Free expired, limits used up) and why
 const PROVIDER_DISABLED_REASONS = {
   // POLICY_v2 (2026-09-22): hard Free/Plus blocks removed.
   // AUTH_GATE_v1 still blocks use when unavailable or CLI auth ok===false.
@@ -40,8 +41,8 @@ function providerUseBlockedReason(pid) {
   const policy = providerDisabledReason(pid);
   if (policy) return policy;
   const p = (Array.isArray(providerCatalog) ? providerCatalog : []).find(x => x.id === pid);
-  if (p && p.available === false) return '미설치 또는 사용 불가';
-  if (p && p.login && providerAuthOk[pid] === false) return '로그인 필요';   // catalog says it has a CLI login
+  if (p && p.available === false) return tr('shell.provider_unavailable');
+  if (p && p.login && providerAuthOk[pid] === false) return tr('shell.provider_login_needed');   // catalog says it has a CLI login
   return null;
 }
 
@@ -76,7 +77,7 @@ async function refreshProviderAuthMap() {
       localStorage.setItem('chatbot.provider', fallback);
       updateBrandAvatar(fallback);
       populateModelsForProvider(fallback);
-      addActivity('대화 제공자를 사용 가능한 ' + statusProviderName(fallback) + ' 로 복구했어요 (이전 선택이 사용 제한이었습니다).');
+      addActivity(tr('shell.provider_restored', { provider: statusProviderName(fallback) }));
     }
   } else if (curPid && !providerUseBlockedReason(curPid)) {
     // Current choice is usable again — allow a future one-shot heal if it later sticks blocked.
@@ -108,7 +109,7 @@ function syncProviderUseGates() {
   if (typeof inputEl !== 'undefined' && inputEl) {
     if (!inputEl.getAttribute('data-base-ph')) inputEl.setAttribute('data-base-ph', inputEl.placeholder || '');
     inputEl.disabled = blocked;
-    inputEl.placeholder = blocked ? ('이 제공자는 사용할 수 없어요 — ' + reason) : (inputEl.getAttribute('data-base-ph') || '');
+    inputEl.placeholder = blocked ? tr('shell.provider_blocked', { reason }) : (inputEl.getAttribute('data-base-ph') || '');
   }
   if (typeof sendBtn !== 'undefined' && sendBtn) {
     sendBtn.disabled = blocked || (typeof isBusy !== 'undefined' && isBusy);
@@ -120,7 +121,7 @@ function syncProviderUseGates() {
   if (banner) {
     if (blocked) {
       banner.hidden = false;
-      banner.textContent = statusProviderName(pid) + ' · ' + reason + ' — 상태 탭에서 계정/로그아웃을 관리하세요.';
+      banner.textContent = tr('shell.provider_banner', { provider: statusProviderName(pid), reason });
     } else {
       banner.hidden = true;
       banner.textContent = '';
@@ -185,7 +186,7 @@ function updateBrandAvatar(providerId) {
     // BUBBLE_AVATAR_v1: the same picture opens each run of the character's bubbles (chat-log.css)
     document.documentElement.style.setProperty('--char-avatar', 'url("' + brandAvatarEl.src.replace(/"/g, '%22') + '")');
     brandAvatarEl.alt = who;
-    brandAvatarEl.title = `${who} · 캐릭터 선택 (클릭)`;
+    brandAvatarEl.title = who + ' · ' + tr('shell.pick_character_click');
   }
   if (brandNameEl) {
     brandNameEl.textContent = ch ? (ch.title || ch.name) : IDENTITY.title;
@@ -197,7 +198,7 @@ function updateBrandAvatar(providerId) {
   }
   if (brandRoleEl) {
     brandRoleEl.title = credit;
-    brandRoleEl.setAttribute('aria-label', `제공자 ${credit}`);
+    brandRoleEl.setAttribute('aria-label', tr('shell.provider_label', { credit }));
   }
   updateStageBackground(p.id);
   if (typeof loadVisualAdapterForCharacter === 'function') {
@@ -347,7 +348,7 @@ async function persistSessionProvider(opts) {
     });
     if (res && res.deferred) {
       pendingProviderPersist = { provider: pid, model: mid };
-      addActivity(res.error || '제공자 전환을 작업 종료 후로 미뤘습니다.');
+      addActivity(res.error || tr('shell.provider_deferred'));
       return;
     }
     lastServerProvider = pid;
@@ -377,7 +378,7 @@ async function selectProvider(newProviderId) {
     if (typeof switchTab === 'function') switchTab('status');
     renderStatusPicker();
     renderProviderTray();
-    addActivity('상태 조회로 열림: ' + (p.name || newProviderId) + ' — ' + blockReason + ' (대화 제공자는 ' + statusProviderName(chatProvider()) + ' 유지)');
+    addActivity(tr('shell.provider_view_only', { provider: p.name || newProviderId, reason: blockReason, chat: statusProviderName(chatProvider()) }));
     return;
   }
 
@@ -408,12 +409,12 @@ async function selectProvider(newProviderId) {
         provider: providerEl ? providerEl.value : newProviderId,
         model: modelEl ? modelEl.value : '',
       };
-      addActivity('제공자 UI만 바꿈 — 진행 중 작업은 유지, 끝난 뒤·다음 메시지부터 적용: ' + (p.name || newProviderId));
+      addActivity(tr('shell.provider_ui_only', { provider: p.name || newProviderId }));
       return;
     }
     pendingProviderPersist = null;
     await persistSessionProvider({
-      activity: '제공자 전환: ' + (p.name || newProviderId),
+      activity: tr('shell.provider_switched', { provider: p.name || newProviderId }),
     });
   } finally {
     localProviderEdit = Math.max(0, localProviderEdit - 1);
@@ -429,7 +430,7 @@ async function flushPendingProviderPersist() {
     populateModelsForProvider(want.provider, want.model);
   }
   await persistSessionProvider({
-    activity: '미뤄 둔 제공자 전환 적용: ' + (want.provider || ''),
+    activity: tr('shell.provider_deferred_applied', { provider: want.provider || '' }),
   });
 }
 
@@ -526,7 +527,7 @@ async function selectCharacter(c) {
       }
     }
   } catch (e) {
-    addActivity('캐릭터 전환 실패: ' + (e.message || e));
+    addActivity(tr('shell.character_failed', { error: e.message || e }));
   }
 }
 
@@ -557,7 +558,7 @@ function populateModelsForProvider(providerId, preferredModel) {
   });
   if (!models.length) {
     const o = document.createElement('option');
-    o.value = ''; o.textContent = '(기본값)';
+    o.value = ''; o.textContent = tr('common.default_value');
     modelEl.appendChild(o);
   }
   const fallback = (entry && entry.default_model && models.includes(entry.default_model))
@@ -603,17 +604,17 @@ async function importStCard(file) {
         try { await loadTeam(); } catch (_) {}
       }
       if (typeof renderCharacterTray === 'function') renderCharacterTray();
-      const charName = (res.character && res.character.name) || '캐릭터';
-      showCharacterToast('ST 카드 가져오기 완료: ' + charName);
+      const charName = (res.character && res.character.name) || tr('team.character');
+      showCharacterToast(tr('team.st_imported', { name: charName }));
       if (typeof addActivity === 'function') {
-        addActivity('ST 카드 가져오기 성공: ' + charName);
+        addActivity(tr('team.st_imported', { name: charName }));
       }
       return res;
     } else {
-      const errMsg = (res && res.error) || '가져오기 실패';
-      showCharacterToast('ST 카드 가져오기 실패: ' + errMsg);
+      const errMsg = (res && res.error) || tr('team.st_failed_plain');
+      showCharacterToast(tr('team.st_failed', { error: errMsg }));
       if (typeof addActivity === 'function') {
-        addActivity('ST 카드 가져오기 실패: ' + errMsg, 'warn');
+        addActivity(tr('team.st_failed', { error: errMsg }), 'warn');
       }
       return res;
     }
@@ -623,9 +624,9 @@ async function importStCard(file) {
       const parsed = JSON.parse(errMsg);
       if (parsed.error) errMsg = parsed.error;
     } catch (_) {}
-    showCharacterToast('ST 카드 가져오기 실패: ' + errMsg);
+    showCharacterToast(tr('team.st_failed', { error: errMsg }));
     if (typeof addActivity === 'function') {
-      addActivity('ST 카드 가져오기 실패: ' + errMsg, 'warn');
+      addActivity(tr('team.st_failed', { error: errMsg }), 'warn');
     }
     throw e;
   }
@@ -673,7 +674,7 @@ function initStImportUi() {
         if (file.name.toLowerCase().endsWith('.png') || file.type === 'image/png') {
           importStCard(file);
         } else {
-          showCharacterToast('PNG 파일만 가져올 수 있어요');
+          showCharacterToast(tr('team.st_png_only'));
         }
       }
     });
