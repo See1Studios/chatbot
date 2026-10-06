@@ -1363,6 +1363,8 @@ REG = Registry()
 
 
 def _record_live_pids() -> None:
+    """LOCK_ORDER_v1: runs under the caller's session lock (spawn, stop), so it never takes another session's: two
+    spawning at once deadlocked, and the handoff pass and reaper with them (#728)."""
     try:
         pids = []
         if "STANDBY_POOL" in globals() and STANDBY_POOL._proc and STANDBY_POOL._proc.poll() is None:
@@ -1372,9 +1374,9 @@ def _record_live_pids() -> None:
                 with REG.lock:
                     sessions = list(REG.sessions.values())
                 for s in sessions:
-                    with s.lock:
-                        if s.proc and s.proc.poll() is None:
-                            pids.append(s.proc.pid)
+                    proc = s.proc
+                    if proc and proc.poll() is None:
+                        pids.append(proc.pid)
             except Exception:
                 pass
         _atomic_write_text(DATA / "live_pids.json", json.dumps(pids))
