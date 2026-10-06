@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-06 — test(conventions): add convention verification test suite (prop/B) (#724, 위임 agy)
+
+- **커밋**: `c5f89c9` test(conventions): add convention verification test suite (prop/B)
+- **바뀐 파일**: `docs/STATE.md`, `tests/test_conventions.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-06 — 넘기기 카드는 결과를 고르지 않고 그대로 (#723)
 
 - **운영자**: "언어와 LLM의 성능에 따라 결과가 달라지는 구조를 만드는 건 멍청한 짓이야"
