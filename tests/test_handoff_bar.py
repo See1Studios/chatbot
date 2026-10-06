@@ -45,7 +45,8 @@ class Board(unittest.TestCase):
             got = H.board(now)
         self.assertEqual([x["id"] for x in got], [4, 3, 2])
         done = got[2]
-        self.assertEqual((done["open"], done["outcome"], done["role"]), (False, "fixed it", "DEV"))
+        self.assertEqual((done["open"], done["result"], done["role"]), (False, "fixed it\nmore", "DEV"),
+                         "the result as written: no line is picked as its summary")
         self.assertTrue(got[1]["open"])
         self.assertEqual(got[1]["since"], now - 5000)
         self.assertEqual(got[0]["task"], "do 4")
@@ -68,13 +69,14 @@ const env = { obsNode: node, workElapsed: s => Math.round(s) + 's', confirm: () 
   document: { getElementById: () => null } };
 const names = Object.keys(env);
 const m = new Function(...names, src + '; return { handoffCard, cancelHandoff, HANDOFF_STATE_LABEL };')(...names.map(k => env[k]));
-const open = m.handoffCard({ id: 7, state: 'running', open: true, from: 'Lead', to: 'Kit', role: 'Dev', task: 'fix it', since: 0, outcome: '' });
-const closed = m.handoffCard({ id: 8, state: 'partial', open: false, from: 'Lead', to: 'Kit', role: 'Dev', task: 'read', since: 0, outcome: '2 of 10' });
+const open = m.handoffCard({ id: 7, state: 'running', open: true, from: 'Lead', to: 'Kit', role: 'Dev', task: 'fix it', since: 0, result: '' });
+const closed = m.handoffCard({ id: 8, state: 'partial', open: false, from: 'Lead', to: 'Kit', role: 'Dev', task: 'read', since: 0, result: 'note first\n2 of 10' });
 const buttons = c => c.children[0].children.filter(x => x.tag === 'button').length;
 (async () => {
   await m.cancelHandoff({ id: 7 }, { disabled: false });
   console.log(JSON.stringify({ openButtons: buttons(open), closedButtons: buttons(closed),
-    closedText: closed.children.map(c => c.textContent).join('|'), posts: log.posts, labels: Object.keys(m.HANDOFF_STATE_LABEL) }));
+    closedTag: closed.children[1].tag, closedResult: closed.children[1].children[1].textContent,
+    posts: log.posts, labels: Object.keys(m.HANDOFF_STATE_LABEL) }));
 })();
 """
 
@@ -88,9 +90,9 @@ class Page(unittest.TestCase):
         assert r.returncode == 0, r.stderr[-1500:]
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
-    def test_an_open_handoff_has_a_cancel_button_and_a_closed_one_its_outcome(self):
+    def test_an_open_handoff_has_a_cancel_button_and_a_closed_one_its_result_as_written(self):
         self.assertEqual((self.o["openButtons"], self.o["closedButtons"]), (1, 0))
-        self.assertIn("2 of 10", self.o["closedText"])
+        self.assertEqual((self.o["closedTag"], self.o["closedResult"]), ("details", "note first\n2 of 10"))
 
     def test_cancel_posts_to_the_handoffs_cancel_route(self):
         self.assertEqual(self.o["posts"], ["/api/handoffs/7/cancel"])

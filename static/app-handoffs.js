@@ -35,8 +35,15 @@ function handoffCard(h) {
   }
   card.appendChild(head);
   const age = h.since ? workElapsed(Date.now() / 1000 - h.since) : '';
-  card.appendChild(obsNode('div', 'handoff-task', (age ? age + ' · ' : '') + (h.task || '')));
-  if (h.outcome) card.appendChild(obsNode('div', 'handoff-outcome', h.outcome));
+  const task = (age ? age + ' · ' : '') + (h.task || '');
+  if (!h.result) {
+    card.appendChild(obsNode('div', 'handoff-task', task));
+    return card;
+  }
+  const more = obsNode('details', 'handoff-more');   // the result as written, opened from the task line
+  more.appendChild(obsNode('summary', 'handoff-task', task));
+  more.appendChild(obsNode('div', 'handoff-result', h.result));
+  card.appendChild(more);
   return card;
 }
 
