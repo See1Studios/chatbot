@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from host_config import AGENT_PATH_PREFIX, CODEX_BIN, HARD_TOKENS, SOFT_TOKENS, _now
+from host_config import AGENT_PATH_PREFIX, CODEX_BIN, HARD_TOKENS, MCP_URL, SOFT_TOKENS, _now
 from tool_format import _format_tool_call, _format_tool_result
 from providers.adapter_base import AgentAdapter, quota_view_of
 
@@ -146,7 +146,7 @@ class CodexAdapter(AgentAdapter):
             # left to leak from.
             "--ignore-user-config",
             "--skip-git-repo-check",
-            "-c", "mcp_servers.nas.url=http://127.0.0.1:3012/mcp",
+            "-c", "mcp_servers.nas.url=" + MCP_URL,
             # Tried VibeCat's own choice first (--approve-for-me: workspace-
             # write sandbox via automatic review) and hit two real problems
             # live 2026-09-17: (1) this host's kernel doesn't support user

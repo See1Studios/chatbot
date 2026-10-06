@@ -92,7 +92,8 @@ AGENT_PATH_PREFIX = f"{HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
 HOST = _env("CHATBOT_HOST", "AGY_CHAT_HOST", "127.0.0.1")
 PORT = int(_env("CHATBOT_PORT", "AGY_CHAT_PORT", "3011"))
-MCP_PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))  # informational only (healthz) -- mcp_server.py reads its own copy
+MCP_PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))  # mcp_server.py reads its own copy of the same setting
+MCP_URL = "http://127.0.0.1:%d/mcp" % MCP_PORT   # where agents reach the tool server: every adapter writes this one
 AGY = os.environ.get("AGY_BIN", str(HOME / ".local" / "bin" / "agy"))
 CLAUDE_BIN = _env("CHATBOT_CLAUDE_BIN", "AGY_CLAUDE_BIN", str(HOME / ".local" / "bin" / "claude"))
 GROK_BIN = _env("CHATBOT_GROK_BIN", "AGY_GROK_BIN", str(HOME / ".local" / "bin" / "grok"))

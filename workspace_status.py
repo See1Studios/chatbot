@@ -15,7 +15,7 @@ from typing import Optional, Tuple
 from urllib.parse import unquote
 
 from artifact_manager import _atomic_write_text
-from host_config import HOME, ROOT, WORKSPACE
+from host_config import HOME, MCP_PORT, ROOT, WORKSPACE
 from instructions import extract_yaml_desc
 import platform_compat
 
@@ -733,8 +733,9 @@ def _mcp_tool_summaries(entry: dict) -> list:
     """Best-effort tool list for Status tab (name + short description only)."""
     name = str(entry.get("name") or "")
     url = str(entry.get("serverUrl") or "").rstrip("/")
-    # Local chatbot MCP (:3012 / name nas) — in-process, authoritative.
-    if name == "nas" or ":3012/" in (url + "/") or url.endswith(":3012") or url.endswith(":3012/mcp"):
+    # Local chatbot MCP (this host's port / name nas) — in-process, authoritative.
+    port = ":%d" % MCP_PORT
+    if name == "nas" or (port + "/") in (url + "/"):
         try:
             import mcp_server
             return [

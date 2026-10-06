@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from artifact_manager import _atomic_write_text
-from host_config import AGENT_PATH_PREFIX, CLAUDE_BIN, HARD_TOKENS, SOFT_TOKENS, WORKSPACE, _now
+from host_config import AGENT_PATH_PREFIX, CLAUDE_BIN, HARD_TOKENS, MCP_URL, SOFT_TOKENS, WORKSPACE, _now
 from tool_format import _format_tool_call, _format_tool_result
 from providers.adapter_base import AgentAdapter, _redact_err, parse_pct, quota_view_of
 
@@ -60,7 +60,7 @@ class ClaudeAdapter(AgentAdapter):
         bytes) rather than kept as a static file, so it self-heals if
         WORKSPACE is ever reset."""
         cfg_path = WORKSPACE / ".mcp.json"
-        content = json.dumps({"mcpServers": {"nas": {"type": "http", "url": "http://127.0.0.1:3012/mcp"}}})
+        content = json.dumps({"mcpServers": {"nas": {"type": "http", "url": MCP_URL}}})
         try:
             if cfg_path.is_file() and cfg_path.read_text(encoding="utf-8") == content:
                 return cfg_path

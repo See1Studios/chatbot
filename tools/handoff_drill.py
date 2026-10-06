@@ -10,6 +10,7 @@ operator's conversations, and checks each against the ledger, the sandbox's even
   python3 tools/handoff_drill.py refuse chain    the named ones
   python3 tools/handoff_drill.py --list          the scenarios
   python3 tools/handoff_drill.py --keep          leave the sandbox host running afterwards (port 3021)
+  python3 tools/handoff_drill.py --provider grok subagents   the receiving directors on another provider
 
 Exit status 0 only when every scenario passed. The sandbox lives in $CHATBOT_DRILL_DATA (default ~/.pe-drill) and is
 rebuilt on every run.
@@ -39,6 +40,8 @@ PORT, MCP_PORT = 3021, 3022
 COPY = ("providers.json", "host.env", "secrets.env", "account_state.json", "work_talk.json", "persona", "workspace")
 SKIP = {"artifacts", "skill-observations", "memory"}   # workspace parts that are the operator's records, not settings
 WAIT_SEC = 900
+TOOL_CONFIGS = (".gemini/config/mcp_config.json", ".grok/config.toml", ".mcp.json")
+PROVIDER = ""   # --provider: the receiving directors' sessions run on it (the sender keeps the team's default)
 
 os.environ["CHATBOT_HANDOFFS_FILE"] = str(DRILL / "handoffs.jsonl")   # dialog_handoff writes the sandbox ledger
 import dialog_handoff as H  # noqa: E402
@@ -92,9 +95,11 @@ def build() -> None:
                             ignore=lambda d, names: [n for n in names if Path(d) == LIVE / "workspace" and n in SKIP])
         elif src.is_file():
             shutil.copy2(src, DRILL / name)
-    cfg = DRILL / "workspace" / ".gemini" / "config" / "mcp_config.json"
-    if cfg.is_file():
-        platform_compat.write_text(cfg, cfg.read_text(encoding="utf-8").replace(":3012/", ":%d/" % MCP_PORT), encoding="utf-8")
+    for rel in TOOL_CONFIGS:   # each CLI's record of the tool server, as the live host wrote it
+        cfg = DRILL / "workspace" / rel
+        if cfg.is_file():
+            platform_compat.write_text(cfg, cfg.read_text(encoding="utf-8").replace(":3012/", ":%d/" % MCP_PORT),
+                                       encoding="utf-8")
     _home()
     subprocess.run([sys.executable, str(CODE / "data_bootstrap.py"), "--data", str(DRILL), "--quiet"], env=_env(),
                    check=False)
@@ -168,7 +173,12 @@ def team() -> Cast:
 
 
 def session_for(cid: str) -> str:
-    return api("POST", "/api/sessions", {"character": cid, "mode": "work"})["session"]["id"]
+    sid = api("POST", "/api/sessions", {"character": cid, "mode": "work"})["session"]["id"]
+    if PROVIDER and cid != json.loads((DRILL / "workspace" / "team.json").read_text(encoding="utf-8")).get("default"):
+        got = api("POST", "/api/sessions/%s/provider" % sid, {"provider": PROVIDER})["session"].get("provider")
+        if got != PROVIDER:
+            raise RuntimeError("the receiver's session did not switch to %s (it runs %s)" % (PROVIDER, got))
+    return sid
 
 
 def session(sid: str) -> dict:
@@ -476,7 +486,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("names", nargs="*")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--provider", default="", help="run the receiving directors on this provider (e.g. grok)")
     a = ap.parse_args(argv)
+    global PROVIDER
+    PROVIDER = a.provider
     if a.list:
         for n, f in SCENARIOS.items():
             print("%-10s %s" % (n, (f.__doc__ or "").strip()))

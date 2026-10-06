@@ -14,7 +14,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote as _quote
 from urllib.request import Request, urlopen
 
-from host_config import AGENT_PATH_PREFIX, GROK_BIN, HARD_TOKENS, HOME, SOFT_TOKENS, WORKSPACE
+from host_config import AGENT_PATH_PREFIX, GROK_BIN, HARD_TOKENS, HOME, MCP_URL, SOFT_TOKENS, WORKSPACE
 from tool_format import _format_tool_call, _format_tool_result
 from providers.adapter_base import AgentAdapter, cached_model_list, quota_view_of
 import media_handler as _media
@@ -202,7 +202,7 @@ class GrokAdapter(AgentAdapter):
         subprocess on every single turn (each turn is already its own
         process spawn for this provider -- no need to add another)."""
         cfg_path = WORKSPACE / ".grok" / "config.toml"
-        want_url = "http://127.0.0.1:3012/mcp"
+        want_url = MCP_URL
         try:
             if cfg_path.exists() and want_url in cfg_path.read_text(encoding="utf-8"):
                 return

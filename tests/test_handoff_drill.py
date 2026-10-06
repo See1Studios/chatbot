@@ -32,6 +32,10 @@ class Sandbox(unittest.TestCase):
         with mock.patch.object(D, "DRILL", D.LIVE), self.assertRaises(SystemExit):
             D.build()
 
+    def test_every_clis_tool_server_record_is_moved_to_the_sandbox(self):
+        # grok (.grok/config.toml) and claude (.mcp.json) keep it in the workspace too, as the live host wrote it
+        self.assertEqual(set(D.TOOL_CONFIGS), {".gemini/config/mcp_config.json", ".grok/config.toml", ".mcp.json"})
+
     def test_the_operators_records_are_not_copied(self):
         for name in ("sessions", "dialogs", "handoffs.jsonl", "events", "tickets.db"):
             self.assertNotIn(name, D.COPY)

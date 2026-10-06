@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from host_config import MCP_URL
 from tool_format import _format_tool_call, _format_tool_result
 from providers.adapter_base import AgentAdapter, openai_chunk_model, quota_view_of
 
@@ -72,7 +73,7 @@ def is_zero_priced(meta: Optional[dict]) -> bool:
         return False
 
 
-NAS_MCP_URL = "http://127.0.0.1:3012/mcp"
+NAS_MCP_URL = MCP_URL   # host_config: the tool server this host runs
 
 
 _MCP_TOOLS_CACHE: Dict[str, Any] = {"ts": 0.0, "tools": []}
@@ -86,7 +87,7 @@ def _mcp_rpc(method: str, params: Optional[dict] = None, timeout: int = 20, sess
     in-process import -- mcp_server.py runs as its own separate `nohup python3
     mcp_server.py` process (chatbot-ctl.sh), listening on 127.0.0.1:3012/mcp,
     the same way claude/grok/codex CLI adapters already reach it (see their
-    own hardcoded "http://127.0.0.1:3012/mcp" in build_args/_write_mcp_config
+    host_config.MCP_URL in build_args/_write_mcp_config
     above). An earlier draft of docs/plans/api-provider-adapters.md assumed
     "same process, direct function call" -- checked live 2026-09-18 (`grep
     "import nas_mcp" server.py` -> nothing, `curl .../healthz` -> a real,
