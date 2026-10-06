@@ -24,7 +24,7 @@ async function applyModeSwitch(res) {
   liveSessionId = target.id;
   archiveBrowse = false;
   await openSession(target.id, 0, null, true);
-  addActivity(sessionMode === 'private' ? '사적 대화로 전환: ' + target.id : '업무 대화로 복귀: ' + target.id, 'system');
+  addActivity(tr(sessionMode === 'private' ? 'session.to_private' : 'session.to_work', { sid: target.id }), 'system');
   // SCENE_v1 (private-mode.md §8.4-8.5): a room switch is a scene change -- the host's scene line goes as an
   // action, so the character reacts first instead of waiting for the user
   if (res.scene && typeof sendAction === 'function') sendAction(res.scene);
@@ -35,7 +35,7 @@ function updatePrivateBtn() {
   const on = sessionMode === 'private';
   privateBtn.classList.toggle('active', on);
   privateBtn.setAttribute('aria-pressed', String(on));
-  privateBtn.title = on ? '사적 대화 끄기 (/private off)' : '사적 대화 켜기 (/private on)';
+  privateBtn.title = on ? tr('composer.private_off') : tr('composer.private_on');
 }
 
 async function togglePrivateMode() {
@@ -50,7 +50,7 @@ async function togglePrivateMode() {
     });
     if (res && res.session && res.session.id) await applyModeSwitch(res);
   } catch (e) {
-    addActivity('모드 전환 실패: ' + (e.message || e));
+    addActivity(tr('session.mode_failed', { error: e.message || e }));
   } finally {
     privateBtn.disabled = false;
   }
@@ -139,7 +139,7 @@ function enterSession(id, opts) {
   if (opts.sessionMarker) {   // CHAT_FLOW_v1: a new conversation the user started; its id in the advanced density only
     const marker = document.createElement('div');
     marker.className = 'msg scrollback-marker flow-line new-talk';
-    marker.textContent = '새 대화';
+    marker.textContent = tr('session.new_chat');
     const id = document.createElement('span');
     id.className = 'flow-id';
     id.textContent = opts.sessionMarker;
@@ -170,7 +170,7 @@ function enterSession(id, opts) {
   updatePrivateBtn();
   const chName = sessionCharacterName((opts.sessionInfo && opts.sessionInfo.character) || sessionCharacter);
   const chPrefix = chName ? (chName + ' · ') : '';
-  setMeta((sessionMode === 'private' ? '🔒 사적 대화 · ' : '') + chPrefix + '세션 ' + id + ' · ' + (opts.metaLabel || ''));
+  setMeta((sessionMode === 'private' ? tr('session.private_prefix') : '') + chPrefix + tr('session.meta', { sid: id }) + (opts.metaLabel || ''));
   updateSessionNav(id, opts.sessionInfo);
 
   if (sessionBanner) {
@@ -218,13 +218,13 @@ async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
     // bannerOverride (set only by maybeRedirectHardSession's own bounce
     // paths) forces the hard-session banner to show here even though this
     // freshly-landed-on session's own weight is 'ok' -- the point is to
-    // explain to the user, in the 대화 tab itself, that they were just
+    // explain to the user, in the chat tab itself, that they were just
     // auto-redirected here from a different session (previously this was
-    // only ever logged to the non-default 로그 tab via addActivity, which
+    // only ever logged to the non-default log tab via addActivity, which
     // read as an unexplained context switch -- 2026 impeccable critique P0).
     weight: bannerOverride || info.weight,
     busy: info.busy,
-    activityAfter: '세션 복원 ' + id,
+    activityAfter: tr('session.restored', { sid: id }),
   });
   applySessionProvider(info);
   updateBrandAvatar(info.provider || (providerEl ? providerEl.value : ''));
@@ -326,7 +326,7 @@ async function resyncFromServer(sid) {
 
     if (info.busy) {
       setBusy(true);
-      if (info.last_progress) setProgress('작업 중 · ' + shortToolLine(info.last_progress));
+      if (info.last_progress) setProgress(tr('chat.working', { text: shortToolLine(info.last_progress) }));
       const draft = info.current_text || '';
       if (draft) {
         if (!assistantNode) {
@@ -373,7 +373,7 @@ async function resyncFromServer(sid) {
     repairMsgOrder();
 
     if (added) {
-      addActivity('동기화: 놓친 메시지 ' + added + '건 반영', 'system');
+      addActivity(tr('session.synced', { n: added }), 'system');
       fetchArtifacts(true);
     }
     // Chat history already syncs here; provider chrome used to stay on
@@ -416,7 +416,7 @@ function startSessionSyncLoop() {
 // current top of #log, walking scrollbackSid back one link at a time. Never
 // feeds anything back into agy's context -- purely a read-only archive view.
 // Resolves the "previous session" for scrollback purposes: the real
-// predecessor_session_id when set, or -- for an explicit "완전 새 세션" reset,
+// predecessor_session_id when set, or -- for an explicit "completely new session" reset,
 // which intentionally has no predecessor link -- the chronologically-next-
 // older session overall, purely as a browsing convenience (never affects
 // agy context). Returns '' when there's truly nothing older.
@@ -461,13 +461,13 @@ async function loadOlderHistory() {
   logEl.querySelectorAll('.scrollback-retry').forEach(n => n.remove());
   const marker = document.createElement('div');
   marker.className = 'msg scrollback-marker';
-  marker.textContent = '이전 대화 불러오는 중…';
+  marker.textContent = tr('session.loading_older');
   logEl.insertBefore(marker, logEl.firstChild);
   const prevScrollHeight = logEl.scrollHeight;
   const prevScrollTop = logEl.scrollTop;
   try {
     // Skip transparently through any hop(s) that turn out to have no real
-    // content (e.g. a chain of back-to-back "새 세션" resets nobody typed
+    // content (e.g. a chain of back-to-back "new session" resets nobody typed
     // into) instead of showing an empty divider for each one.
     let lastKnownTs = 0; // last hop's updated_at we actually saw -- used to
     // anchor the fallback search when the NEXT hop turns out to be deleted
@@ -486,12 +486,12 @@ async function loadOlderHistory() {
           // Slow or offline, not deleted: the session is busy (a handoff holds its lock). Routing around it here
           // jumped to an unrelated older session (2026-10-03). Keep the link and try again on the next scroll.
           scrollbackVisited.delete(scrollbackSid);
-          marker.textContent = '이전 대화를 아직 불러오지 못했습니다 · 위로 다시 스크롤하면 다시 시도합니다';   // l10n-ok
+          marker.textContent = tr('session.older_failed');
           marker.classList.add('flow-line', 'scrollback-retry');
           scrollbackLoading = false;
           return;
         }
-        // This session was deleted (operator's new 🗑 삭제 button) -- route
+        // This session was deleted (operator's new 🗑 delete button) -- route
         // around the dead link instead of aborting the whole scrollback.
         const fallback = await resolveScrollbackFallback(scrollbackSid, lastKnownTs, scrollbackVisited);
         if (fallback) {
@@ -501,7 +501,7 @@ async function loadOlderHistory() {
         scrollbackExhausted = true;
         const cap = document.createElement('div');
         cap.className = 'msg scrollback-marker flow-line';   // CHAT_FLOW_v1: one divider style
-        cap.textContent = '대화의 시작';
+        cap.textContent = tr('session.start_of_talk');
         logEl.insertBefore(cap, logEl.firstChild);
         break;
       }
@@ -527,9 +527,9 @@ async function loadOlderHistory() {
         }
         const divider = document.createElement('div');
         divider.className = 'msg scrollback-marker session-divider';   // CHAT_FLOW_v1: advanced density only
-        divider.innerHTML = '── 세션 ' + escapeHtml(scrollbackSid) + ' ──' +
-          ' <button class="session-switch-btn" data-switch-sid="' + escapeHtml(scrollbackSid) + '" type="button">이 세션으로 전환</button>' +
-          ' <button class="session-import-btn" data-import-sid="' + escapeHtml(scrollbackSid) + '" type="button">' + getActionSvg('pin') + ' 가져오기</button>';
+        divider.innerHTML = '── ' + escapeHtml(tr('session.divider', { sid: scrollbackSid })) + ' ──' +
+          ' <button class="session-switch-btn" data-switch-sid="' + escapeHtml(scrollbackSid) + '" type="button">' + escapeHtml(tr('session.switch_here')) + '</button>' +
+          ' <button class="session-import-btn" data-import-sid="' + escapeHtml(scrollbackSid) + '" type="button">' + getActionSvg('pin') + ' ' + escapeHtml(tr('session.import')) + '</button>';
         logEl.insertBefore(divider, logEl.firstChild);
         divider.querySelectorAll('[data-switch-sid]').forEach(btn => {
           btn.addEventListener('click', (ev) => {
@@ -553,7 +553,7 @@ async function loadOlderHistory() {
         scrollbackExhausted = true;
         const cap = document.createElement('div');
         cap.className = 'msg scrollback-marker flow-line';   // CHAT_FLOW_v1: one divider style
-        cap.textContent = '대화의 시작';
+        cap.textContent = tr('session.start_of_talk');
         logEl.insertBefore(cap, logEl.firstChild);
         break;
       }
@@ -596,7 +596,7 @@ async function loadNewerHistory() {
   scrollforwardLoading = true;
   const marker = document.createElement('div');
   marker.className = 'msg scrollback-marker scrollforward-marker';
-  marker.textContent = '다음 대화 불러오는 중…';
+  marker.textContent = tr('session.loading_newer');
   logEl.appendChild(marker);
   try {
     let lastKnownTs = 0;
@@ -612,8 +612,8 @@ async function loadNewerHistory() {
           scrollforwardSid = fallback;
           continue;
         }
-        // End of forward chain — no end-cap (operator: 최신 대화 중에도
-        // 뜨고 가치 없음). Just stop loading newer hops.
+        // End of forward chain -- no end-cap (operator: it showed even in the latest talk
+        // and was worth nothing). Just stop loading newer hops.
         scrollforwardExhausted = true;
         break;
       }
@@ -627,9 +627,9 @@ async function loadNewerHistory() {
       if (showThisHop) {
         const divider = document.createElement('div');
         divider.className = 'msg scrollback-marker session-divider';   // CHAT_FLOW_v1: advanced density only
-        divider.innerHTML = '── 세션 ' + escapeHtml(scrollforwardSid) + ' (이후 대화) ──' +
-          ' <button class="session-switch-btn" data-switch-sid="' + escapeHtml(scrollforwardSid) + '" type="button">이 세션으로 전환</button>' +
-          ' <button class="session-import-btn" data-import-sid="' + escapeHtml(scrollforwardSid) + '" type="button">' + getActionSvg('pin') + ' 가져오기</button>';
+        divider.innerHTML = '── ' + escapeHtml(tr('session.divider_later', { sid: scrollforwardSid })) + ' ──' +
+          ' <button class="session-switch-btn" data-switch-sid="' + escapeHtml(scrollforwardSid) + '" type="button">' + escapeHtml(tr('session.switch_here')) + '</button>' +
+          ' <button class="session-import-btn" data-import-sid="' + escapeHtml(scrollforwardSid) + '" type="button">' + getActionSvg('pin') + ' ' + escapeHtml(tr('session.import')) + '</button>';
         logEl.appendChild(divider);
         divider.querySelectorAll('[data-switch-sid]').forEach(btn => {
           btn.addEventListener('click', (ev) => {
@@ -661,8 +661,8 @@ async function loadNewerHistory() {
         scrollforwardSid = nextSid;
         if (showThisHop) break;
       } else {
-        // End of forward chain — no end-cap (operator: 최신 대화 중에도
-        // 뜨고 가치 없음). Just stop loading newer hops.
+        // End of forward chain -- no end-cap (operator: it showed even in the latest talk
+        // and was worth nothing). Just stop loading newer hops.
         scrollforwardExhausted = true;
         break;
       }
@@ -708,7 +708,7 @@ async function updateSessionNav(id, sessionInfo) {
     }
     sessionNavPrevSid = prevSid;
     prevBtn.disabled = !prevSid;
-    prevBtn.title = prevSid ? ('이전 세션 (과거): ' + prevSid) : '더 이전 세션 없음';
+    prevBtn.title = prevSid ? tr('session.prev_title', { sid: prevSid }) : tr('session.no_prev');
 
     let nextSid = (info && info.successor_session_id) || '';
     if (!nextSid) {
@@ -717,11 +717,11 @@ async function updateSessionNav(id, sessionInfo) {
     if (nextSid && nextSid <= id) nextSid = '';
     sessionNavNextSid = nextSid;
     nextBtn.disabled = !nextSid;
-    nextBtn.title = nextSid ? ('다음 세션 (미래): ' + nextSid) : '최신 세션 (더 이후 세션 없음)';
+    nextBtn.title = nextSid ? tr('session.next_title', { sid: nextSid }) : tr('session.no_next');
 
     if (latestBtn) {
       latestBtn.hidden = !viewingPastSession();
-      if (nextSid) latestBtn.title = '최신 세션으로 점프';
+      if (nextSid) latestBtn.title = tr('session.latest_jump');
     }
     if (pastBadge) {
       pastBadge.style.display = viewingPastSession() ? 'inline-flex' : 'none';
@@ -757,7 +757,7 @@ async function resolveLatestSessionId() {
   let id = ids.filter(isLiveSid).sort().pop();
   if (!id) return sessionId || '';
   // walk successor links (a handoff the list has not caught up with yet); an empty tip falls back to the last
-  // session with turns so it never reads as "대화를 못 불러와"
+  // session with turns so it never reads as "could not load the talk"
   const seen = new Set();
   let lastWithTurns = '';
   while (!seen.has(id) && seen.size < 40) {
@@ -829,7 +829,7 @@ async function followLiveIfNeeded() {
 
 
 async function createSession() {
-  const prevSessionId = sessionId; // "완전 새 세션" has no real predecessor_session_id link
+  const prevSessionId = sessionId; // a "completely new session" has no real predecessor_session_id link
   // (intentional -- no handoff summary should leak into agy's context), but
   // operator still wants to be able to scroll up into whatever was open right
   // before it. Point scrollback at that browser-previous session directly;
@@ -847,7 +847,7 @@ async function createSession() {
     sessionMarker: data.session.id,
     metaLabel: label,
     busy: false,
-    activityAfter: '새 세션 ' + data.session.id,
+    activityAfter: tr('session.new_activity', { sid: data.session.id }),
   });
   applySessionProvider(data.session);
 }
@@ -859,7 +859,7 @@ async function continueSession() {
   }
   const oldId = sessionId;
   setBusy(true);
-  setProgress('이전 대화 핵심 요약 및 인계 준비 중…');
+  setProgress(tr('session.continue_preparing'));
   try {
     const model = modelEl.value;
     const res = await api('/api/sessions/' + encodeURIComponent(oldId) + '/continue', {
@@ -870,21 +870,21 @@ async function continueSession() {
     if (res && res.ok && res.session) {
       const nid = res.session.id;
       const note = res.summary
-        ? '\n\n> **[인계된 핵심 맥락]**\n> ' + res.summary.replace(/\n/g, '\n> ')
+        ? '\n\n> **' + tr('session.handover_head') + '**\n> ' + res.summary.replace(/\n/g, '\n> ')
         : '';
       liveSessionId = nid;
       archiveBrowse = false;
       enterSession(nid, {
         scrollback: 'self',
-        notice: '이전 대화 맥락을 인계받아 새 세션을 열었습니다.' + note,
+        notice: tr('session.continued') + note,
         metaLabel: res.session.model || '',
-        activityAfter: '이전 세션(' + oldId + ') 맥락 인계 → 새 세션(' + nid + ')',
+        activityAfter: tr('session.continued_activity', { old: oldId, sid: nid }),
       });
       applySessionProvider(res.session);
     }
   } catch (e) {
-    addActivity('세션 이어하기 오류: ' + (e.message || e));
-    await alertModal('세션 이어하기 실패: ' + (e.message || e));
+    addActivity(tr('session.continue_error', { error: e.message || e }));
+    await alertModal(tr('session.continue_failed', { error: e.message || e }));
   } finally {
     setBusy(false);
     setProgress('');
@@ -896,7 +896,7 @@ async function continueSession() {
 // which answered every request). Now only a session that is really gone ("session not found") is skipped, and a
 // new session is made only when there is nothing to open. Any other failure is reported (page.error), tried once
 // more, and then shown with a retry -- the conversation is never hidden behind an empty one.
-const SESSION_OPEN_TEXT = { fail: '대화를 불러오지 못했어요. 새 대화를 만들지 않고 기다리는 중이에요.', retry: '다시 시도' };   // l10n-ok
+const SESSION_OPEN_TEXT = i18nTable('session.open');
 
 function sessionGone(e) { return /session not found/.test(String((e && e.message) || e || '')); }
 

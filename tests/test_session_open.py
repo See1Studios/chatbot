@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import client_errors  # noqa: E402
+from tests.page_source import i18n_prelude  # noqa: E402
 
 HARNESS = r"""
 const fs = require('fs');
@@ -55,7 +56,7 @@ run();
 @unittest.skipUnless(shutil.which("node"), "node not installed")
 class EnsureSession(unittest.TestCase):
     def run_js(self, scenario):
-        out = subprocess.run(["node", "-e", HARNESS, str(ROOT / "static" / "app-session.js"), scenario],
+        out = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(ROOT / "static" / "app-session.js"), scenario],
                              capture_output=True, text=True, encoding="utf-8", timeout=30)
         self.assertEqual(out.returncode, 0, out.stderr)
         return json.loads(out.stdout)

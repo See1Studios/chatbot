@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent.parent / 'static'
 SRC = (STATIC / 'app-session.js').read_text(encoding='utf-8')
@@ -78,7 +79,7 @@ loadOlderHistory().then(() => console.log(JSON.stringify({ sid: scrollbackSid, f
 @unittest.skipUnless(shutil.which('node'), 'node not installed')
 class SlowScrollbackHopTest(unittest.TestCase):
     def test_a_timeout_keeps_the_link_and_does_not_jump(self):
-        p = subprocess.run(['node', '-e', HARNESS, str(STATIC / 'app-session.js')], capture_output=True, text=True,
+        p = subprocess.run(['node', '-e', i18n_prelude() + HARNESS, str(STATIC / 'app-session.js')], capture_output=True, text=True,
                            timeout=60)
         self.assertEqual(p.returncode, 0, p.stderr)
         import json

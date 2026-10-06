@@ -9,6 +9,7 @@ import subprocess
 import unittest
 from pathlib import Path
 from tests.page_source import app_bundle  # noqa: E402
+from tests.page_source import i18n_prelude  # noqa: E402
 
 CODE = Path(__file__).resolve().parent.parent
 APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
@@ -67,7 +68,7 @@ class PrivateToggle(unittest.TestCase):
         node = shutil.which("node")
         if not node:
             self.skipTest("node not installed")
-        proc = subprocess.run([node, "-e", HARNESS, str(APP)], capture_output=True, text=True, timeout=15)
+        proc = subprocess.run([node, "-e", i18n_prelude() + HARNESS, str(APP)], capture_output=True, text=True, timeout=15)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         out = json.loads(proc.stdout)
         self.assertEqual(out["before"], {"pressed": "false", "active": False})
