@@ -8,7 +8,7 @@ const STOP_NOTICE_WAIT_MS = 1500;
 // SYNC_THROTTLE_v1: when the stream last delivered anything; the sync poll (app-session.js) leans on it.
 let lastStreamAt = 0;
 
-// A user line that is only "(지문)" / "((지문))" is a stage action, not speech: returns the bare
+// A user line that is only "(action)" / "((action))" is a stage action, not speech: returns the bare
 // action text ('' otherwise). send(), user_ack and history all route through this.
 function stripOuterParens(s) {
   // Balanced outer (...) only — do not eat trailing ) of an inner "(act)" in "line" (act).
@@ -31,8 +31,8 @@ function stripOuterParens(s) {
 }
 
 function actionTextOf(text) {
-  // A user line that is only "(지문)" — including flavored ("대사") / ("대사" (행동)) — is a stage action.
-  // Reject multi-wrap speech like "(a) 그리고 (b)".
+  // A user line that is only "(action)" -- including flavored ("line") / ("line" (act)) -- is a stage action.
+  // Reject multi-wrap speech like "(a) and (b)".
   const s = String(text || '').trim();
   if (s.length < 3 || s[0] !== '(' || s[s.length - 1] !== ')') return '';
   let depth = 0;
@@ -550,7 +550,7 @@ function bindEvents(sid) {
       const paintNode = assistantNode;
       // An empty answer so far (a work turn sends its first deltas before any text): the old page says so in words;
       // the messenger shell draws nothing, and the typing dots beside the face stay (app-stage.js stageTyping).
-      const paintBuf = assistantBuf || (typeof shellOn === 'function' && shellOn() ? '' : '작성 중…');
+      const paintBuf = assistantBuf || (typeof shellOn === 'function' && shellOn() ? '' : tr('chat.writing'));
       scheduleStreamPaint(function () {
         // A turn that ended between the delta and this frame must not be painted into.
         if (!paintNode || paintNode.dataset.live !== '1') return;
@@ -595,7 +595,7 @@ function bindEvents(sid) {
         });
       } else if (residualErr || data.notice === 'error') {
         if (doneNode) doneNode.remove();
-        addNotice((data.notice || 'error'), residualErr || text || '알 수 없는 오류', data.ts);
+        addNotice((data.notice || 'error'), residualErr || text || tr('common.unknown_error'), data.ts);
         if (typeof offerRetry === 'function') offerRetry();   // RETRY_LAST_v1
       } else if (doneNode) {
         doneNode.remove();
@@ -610,7 +610,7 @@ function bindEvents(sid) {
 
     if (type === 'session_heavy') {
       showSessionHeavyBanner(data.level || 'soft', text);
-      addActivity('세션 길이 경고(' + (data.level || 'soft') + '): ' + (text || ''));
+      addActivity(tr('chat.heavy_warning', { level: data.level || 'soft', text: text || '' }));
       return;
     }
 
@@ -636,23 +636,23 @@ function bindEvents(sid) {
       // response -- and since this event fires earlier server-side (before
       // the successor's spawn/send even runs), it usually rendered FIRST,
       // wiping the just-sent message from view and making it look lost
-      // (operator: "내가 말을 하면 바로 새 세션으로 넘어가면서 내가 한 말을
-      // 또 해야 되는 상황이 생겨"). client_mid tells us which case this is.
+      // (operator: "the moment I speak it moves to a new session and I have to
+      // say it again"). client_mid tells us which case this is.
       const isMine = Boolean(data.client_mid) && myPendingMids.has(data.client_mid);
       if (isMine) {
         myPendingMids.delete(data.client_mid);
         return;
       }
-      addActivity('세션 자동 전환: ' + (text || '') + (nid ? ' → ' + nid : ''));
+      addActivity(tr('chat.auto_rotated', { text: text || '' }) + (nid ? ' → ' + nid : ''));
       if (nid) {
         enterSession(nid, {
           scrollback: 'self',
-          greeting: text || '새 채팅으로 전환했습니다. 이어서 진행합니다.',
-          metaLabel: '(자동 전환)',
-          weight: { level: 'hard', message_ko: text || '세션이 길어져 새 채팅으로 전환합니다' },
+          greeting: text || tr('chat.rotated_greeting'),
+          metaLabel: tr('chat.auto_rotated_label'),
+          weight: { level: 'hard', message_ko: text || tr('chat.rotating') },
         });
       } else {
-        showSessionHeavyBanner('hard', text || '세션이 길어져 새 채팅으로 전환합니다');
+        showSessionHeavyBanner('hard', text || tr('chat.rotating'));
       }
       setBusy(true);
       return;
@@ -661,8 +661,8 @@ function bindEvents(sid) {
     if (type === 'stopped') {
       // NOTICE_UI_v1: host stop is its own notice bubble (no reply footer)
       lastStopNoticeAt = Date.now();   // STOP_NOTICE_ONCE_v1: the stop button's own notice stands down
-      addActivity('작업 중지: ' + (text || ''), 'system');
-      const stopMsg = text || '작업이 중단되었습니다.';
+      addActivity(tr('chat.stopped_activity', { text: text || '' }), 'system');
+      const stopMsg = text || tr('chat.interrupted');
       if (assistantNode) {
         clearTurnLive(assistantNode);
         if (assistantBuf && assistantBuf.trim() && assistantNode.dataset.progress !== '1') {
@@ -681,11 +681,11 @@ function bindEvents(sid) {
     }
 
     if (type === 'interrupted') {
-      addActivity(text || '진행 중인 작업 전환', 'system');
+      addActivity(text || tr('chat.switching_work'), 'system');
       if (assistantNode && assistantBuf && assistantBuf.trim()) {
         // Finalize partial output with an interrupted mark
         markUntimed(assistantNode, assistantBuf);
-        setAssistantContent(assistantNode, assistantBuf.trim() + (data.reason === 'steer' ? '\n\n*(새 지시 반영을 위해 잠시 멈춤)*' : '\n\n*(새 지시로 전환)*'), true);
+        setAssistantContent(assistantNode, assistantBuf.trim() + (data.reason === 'steer' ? '\n\n*' + tr('chat.paused_for_steer') + '*' : '\n\n*' + tr('chat.switched_to_steer') + '*'), true);
         delete assistantNode.dataset.live;
       } else if (assistantNode) {
         // No text yet. The stop button may sit in the typing dots: park it before its holder goes. A bubble that
@@ -700,18 +700,18 @@ function bindEvents(sid) {
         }
       }
       assistantNode = null; assistantBuf = '';
-      setProgress('새 지시 반영 중…');
+      setProgress(tr('chat.steer_applying'));
       return;
     }
 
     if (type === 'queued') {
-      addActivity('대기열 등록 (대기: ' + (data.queue_len || 1) + '건)');
+      addActivity(tr('chat.queued', { n: data.queue_len || 1 }));
       return;
     }
 
     if (type === 'steer_queued') {
-      addActivity(text || '새 지시 접수', 'system');
-      setProgress('새 지시 접수 · 지금 단계가 끝나면 반영해요…');
+      addActivity(text || tr('chat.steer_taken'), 'system');
+      setProgress(tr('chat.steer_queued'));
       return;
     }
 
@@ -721,8 +721,8 @@ function bindEvents(sid) {
       // by an EXACT one of the other windows. This window's own just-sent
       // message was already rendered optimistically at send() time (with a
       // client_mid tag), so only render here when the mid doesn't match
-      // anything this window itself sent (operator: "다른 창에서 보낸 질의는
-      // 안 보이네" -- previously this handler only ever un-queued this
+      // anything this window itself sent (operator: "a question sent from another window
+      // does not show" -- previously this handler only ever un-queued this
       // window's own bubble and never rendered anyone else's).
       const mid = data.client_mid || '';
       const isMine = Boolean(mid) && myPendingMids.has(mid);
@@ -733,7 +733,7 @@ function bindEvents(sid) {
         const queuedNodes = logEl.querySelectorAll('.msg.user.queued');
         if (queuedNodes.length > 0) {
           queuedNodes[0].classList.remove('queued');
-          addActivity('대기열 작업 착수: ' + shortToolLine(text));
+          addActivity(tr('chat.queue_started', { text: shortToolLine(text) }));
         }
         if (!drawn && data.ts && !adoptBareUserBubble(text, data.ts)) {
           const bare = logEl.querySelectorAll('.msg.user:not([data-ts])');
@@ -753,7 +753,7 @@ function bindEvents(sid) {
     }
 
     if (type === 'btw_start') {
-      addActivity('샛길 질문(/btw) 처리 중: ' + shortToolLine(data.query || ''));
+      addActivity(tr('chat.btw_working', { text: shortToolLine(data.query || '') }));
       return;
     }
 
@@ -763,7 +763,7 @@ function bindEvents(sid) {
       if (!(data.ts && findRenderedByTs('btw', data.ts))) {
         addBtw(data.query, data.text, false, data.usage, data.duration_seconds, data.ts);
       }
-      addActivity('샛길 질문(/btw) 응답 완료');
+      addActivity(tr('chat.btw_done'));
       if (data.usage || data.duration_seconds != null) logTurnUsage(data.usage, data.duration_seconds);
       if (data.ts) lastSyncedTs = Math.max(lastSyncedTs, data.ts);
       return;
@@ -785,7 +785,7 @@ function bindEvents(sid) {
     if (type === 'office') { if (typeof officeDraw === 'function') officeDraw(data.msg); return; }   // inbox/E
 
     if (type === 'tool' || type === 'system' || type === 'stderr' || type === 'error') {
-      const line = (type === 'error' ? '오류: ' : '') + (text || JSON.stringify(data.error || data));
+      const line = (type === 'error' ? tr('chat.error_prefix') : '') + (text || JSON.stringify(data.error || data));
       const kind = data.kind || (type === 'tool' ? (line.startsWith('↳') ? 'result' : 'tool') : (type === 'stderr' ? 'warn' : type));
       const detail = data.detail || '';
       if (type === 'tool') {
@@ -793,11 +793,11 @@ function bindEvents(sid) {
         if (!s || s === 'tool' || s === 'tool: tool' || s === 'tool:tool') return;
         if (kind !== 'result' && !line.startsWith('↳')) {
           setBusy(true);
-          setProgress('작업 중 · ' + shortToolLine(text));
+          setProgress(tr('chat.working', { text: shortToolLine(text) }));
         }
       } else if (type === 'system') {
         if (text && text.includes('started')) setBusy(true);
-        setProgress(shortToolLine(text) || '처리 중…');
+        setProgress(shortToolLine(text) || tr('chat.processing'));
       } else if (type === 'error') {
         // SESSION_DESYNC_GAPFIX_v2 + NOTICE_UI_v1 + QUOTA_ERR_DEDUP_v1
         if (typeof thinkEnd === 'function') thinkEnd(assistantNode);
@@ -814,7 +814,7 @@ function bindEvents(sid) {
             assistantNode.remove();
           }
         }
-        const errBody = text || '알 수 없는 오류';
+        const errBody = text || tr('common.unknown_error');
         const twinNotice = data.ts ? document.querySelector('.msg.notice-error[data-ts="' + String(data.ts) + '"]') : null;
         if (!twinNotice) addNotice((data.notice || 'error'), errBody, data.ts);
         if (typeof offerRetry === 'function') offerRetry();   // RETRY_LAST_v1
@@ -834,7 +834,7 @@ function bindEvents(sid) {
             const line = formatToolCallClient(tc.name, rawArgs);
             setBusy(true);
             if (!line) continue; // args not populated yet (streaming) - wait for the complete call
-            setProgress('작업 중 · ' + shortToolLine(line));
+            setProgress(tr('chat.working', { text: shortToolLine(line) }));
             const detailStr = (rawArgs && typeof rawArgs === 'object') ? JSON.stringify(rawArgs, null, 2) : '';
             addActivity(line, 'tool', data.ts, detailStr);
           }
@@ -856,18 +856,18 @@ function bindEvents(sid) {
     updateProcBadge('disconnected');
     window.__chatEsRetry = (window.__chatEsRetry || 0) + 1;
     if (window.__chatEsRetry > 20) {
-      setProgress('서버 연결이 끊겼습니다 (20회 재시도 실패). 새로고침해 주세요.', true);
-      addActivity('서버 연결 실패 (20회 재시도 실패). 새로고침이 필요합니다.', 'warn');
+      setProgress(tr('chat.conn_lost'), true);
+      addActivity(tr('chat.conn_failed'), 'warn');
       return;
     }
     // SESSION_DESYNC_GAPFIX_v2: always log disconnect in Activity; only escalate
     // the in-chat progress chrome from the 2nd retry (idle SSE recycle is common).
     if (window.__chatEsRetry === 1) {
-      addActivity('연결 끊김 · 재연결 시도…', 'warn');
+      addActivity(tr('chat.reconnecting'), 'warn');
     }
     if (window.__chatEsRetry >= 2) {
-      setProgress('연결이 끊겼어요 · 다시 연결하는 중…');
-      addActivity('연결 끊김 · 재연결 재시도 (' + window.__chatEsRetry + ')', 'warn');
+      setProgress(tr('chat.reconnecting_progress'));
+      addActivity(tr('chat.reconnect_retry', { n: window.__chatEsRetry }), 'warn');
     }
     if (window.__chatEsTimer) clearTimeout(window.__chatEsTimer);
     const wait = Math.min(15000, 800 * Math.pow(1.6, Math.min(window.__chatEsRetry, 8)));
@@ -888,7 +888,7 @@ function bindEvents(sid) {
 
 // REVIVE_TOAST_v1 (#224): the first SSE open only records the server's boot_ts;
 // a later open that sees a different one means the host restarted, so flash
-// '엔진 리부트 완료 ✦' in the progress bar. No boot_ts (older server) -> nothing.
+// the engine-restarted line in the progress bar. No boot_ts (older server) -> nothing.
 let lastBootTs = null;
 async function checkRevived() {
   let ts, fp;
@@ -899,7 +899,7 @@ async function checkRevived() {
   lastBootTs = ts;
   if (!revived) { if (typeof notePageAssets === 'function') notePageAssets(fp); return; }
   if (typeof reloadIfAssetsChanged === 'function' && reloadIfAssetsChanged(fp)) return;   // ASSET_RELOAD_v1
-  const msg = '엔진 리부트 완료 ✦';
+  const msg = tr('chat.engine_restarted');
   setProgress(msg, true);
   setTimeout(() => {
     if (progressEl && !progressEl.hidden && progressEl.textContent.trim() === msg) setProgress('');
@@ -914,7 +914,7 @@ async function checkRevived() {
 // supplies what's actually different about it via opts:
 //   scrollback: 'self' to anchor scrollback at `id` itself (openSession,
 //     continueSession, session_rotate), a specific other session id --
-//     including '' -- to anchor at instead (createSession's "완전 새 세션"
+//     including '' -- to anchor at instead (createSession's "completely new session"
 //     points at whatever was open right before it), or omitted entirely to
 //     leave scrollback/lastSyncedTs untouched (send()'s rotate branch never
 //     reset these even before this consolidation -- preserved as-is rather
@@ -923,7 +923,7 @@ async function checkRevived() {
 //   userEcho / greeting: chat bubbles to add after clearing (the message
 //     just sent, and/or a assistant greeting/handoff note).
 //   activityAfter: an activity-log line to add after clearing.
-//   metaLabel: the part of the meta line after "세션 <id> · ".
+//   metaLabel: the part of the meta line after "session <id> · ".
 //   weight: pass through to the heavy-session banner check; omitted means
 //     always hide it (matches every non-openSession call site).
 //   busy: explicit busy state; omitted means don't touch it at all (only

@@ -514,7 +514,7 @@ class ShellSwitch(unittest.TestCase):
         # the waiting answer is the typing dots, in every room -- the old page keeps its word
         sse = (STATIC / "app-sse.js").read_text(encoding="utf-8")
         self.assertIn("const paintBuf = assistantBuf || (typeof shellOn === 'function' && shellOn() ? '' : ", sse)
-        self.assertEqual(sse.count("'작성 중…'"), 1)
+        self.assertEqual(sse.count("tr('chat.writing')"), 1)   # I18N_v1: the old page's word, from the catalog
 
     def test_wiring(self):
         self.assertIn('id="shellList"', HTML)

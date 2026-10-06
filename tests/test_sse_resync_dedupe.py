@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
-from tests.page_source import app_bundle  # noqa: E402
+from tests.page_source import app_bundle, i18n_prelude  # noqa: E402
 
 APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
 HARNESS = r"""
@@ -194,7 +194,7 @@ out.adoptTwice = env.helpers.adoptUntimedAssistant({ ts: 900.1, text: '진행하
 class SseResyncDedupe(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(APP)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(APP)], capture_output=True, text=True, timeout=30)
         assert r.returncode == 0, r.stderr
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
