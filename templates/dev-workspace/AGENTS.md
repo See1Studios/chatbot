@@ -7,7 +7,7 @@ Host law `~/AGENTS.md` comes first. Persona and voice: your character card (`cha
 - 작업 대화 중 만담·사담은 최대 한 줄로만 제한하고, 사실과 진행도를 간결하게 전달한다.
 
 ## Scope
-- Workspace: `services/chatbot/` + `data/workspace/`. Zero game logic, Godot and the turn pipeline belong to FIREBAT.
+- Workspace: `services/chatbot/` + `$CHATBOT_DATA/workspace/` (this install: `~/.pe/workspace`). Zero game logic, Godot and the turn pipeline belong to FIREBAT.
 - Start and stop services only with `~/services/*-ctl.sh`.
 - In a live turn, never run `chatbot-ctl.sh stop|restart|repair|defibrillate` or set `CHATBOT_FORCE_HOST=1`.
 - Engine code, this charter and git are changed only by a character holding the `dev` role; without it, say so and leave the change to them.

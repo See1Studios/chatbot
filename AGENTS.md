@@ -4,8 +4,8 @@ The one entry for **any agent that changes this repository**: an external CLI (C
 worker the delegation runner starts in a worktree, or the PE chat agent when it works on code. `CLAUDE.md` and
 `GEMINI.md` here only point to this file. Reply to the user in Korean unless told otherwise.
 
-Not in scope here: how the PE chat agent talks and behaves at runtime. That charter is `data/workspace/AGENTS.md`
-(injected into the chat agent). Its conventions — e.g. ending replies with `<!--choices: … -->` button lines — are
+Not in scope here: how the PE chat agent talks and behaves at runtime. That charter is `$CHATBOT_DATA/workspace/AGENTS.md`
+(injected into the chat agent; this install symlinks it from `templates/dev-workspace/`). Its conventions — e.g. ending replies with `<!--choices: … -->` button lines — are
 **for the PE chat UI only**; do not adopt them elsewhere.
 
 ## Your role: architecture owner, not a yes-man
@@ -36,7 +36,7 @@ project's goals (`docs/CONCEPT.md` direction, active plans in `docs/plans/INDEX.
 |---|---|
 | Host operations law | `~/AGENTS.md` |
 | Engine development rules, code map | this file |
-| PE chat agent behaviour | `data/workspace/AGENTS.md` (+ role packs `data/workspace/roles/<role>/`; engine-work rules only in `roles/dev/`) |
+| PE chat agent behaviour | `$CHATBOT_DATA/workspace/AGENTS.md` (+ role packs `$CHATBOT_DATA/workspace/roles/<role>/`; engine-work rules only in `roles/dev/`; source `templates/dev-workspace/`) |
 | Architecture: layers, adapters, plugin layer, ST split | `docs/ARCHITECTURE.md` |
 | Data paths, ports, env | `host_config.py` |
 | Shipped workspace defaults (charter, roles, tools, skills a new install starts with) | `templates/workspace/` + `templates/workspace-manifest.json` (what ships, what stays dev-only) |
@@ -67,7 +67,7 @@ goes into `protected_paths.json`.
 | Workspace status / tool log format | `workspace_status.py` / `tool_format.py` |
 | MCP server / core tools (memory, observation, ticket) / NAS host plugin | `mcp_server.py` / `mcp_core.py` / `nas_mcp_host.py`; a call's arguments in the shape the tool reads (names, wrappers, text arrays, actions) `mcp_args.py` (server name `nas` is a provider config key: do not rename); tools an HTTP brain lacks: `web_tool.py` (`web`: read, search), `mcp_parity.py` (edit_file, find_files, skill); which session made a tool call `mcp_caller.py` (host side `session.caller_session`: the connection's process ancestry, never a model argument) |
 | Instruction bundle | `instructions.py` (one layer list `LAYERS` -> `layer_texts` -> `build_instruction_bundle`, CONTEXT_LAYERS_v1; + `session.py::AgentSession._send_direct`) — plan `docs/plans/layered-context-architecture.md` |
-| Characters, cards, lorebook | name changes carried to cards, sheets, lorebooks and older talk `character_names.py`; `characters.py` (art resolution `art_file`, placeholders `static/placeholders/`), `identity.py`; card import `tools/st_import.py`, export `tools/st_export.py`; card generation `card_prompt.py` (prompts), `card_parse.py` (reading the answer), `tools/card_gen.py`; art manager (slots, gallery, the one way a picture gets in) `art_manager.py`, art format check `tools/check_character_art.py`; data `data/workspace/characters/<id>/`; summon wizard `summon_api.py` (`GET /api/summon`, `POST /api/characters/summon`, `POST /api/characters/*/regenerate`), steps `engine_data/summon_steps.json`, page `static/app-summon.js` |
+| Characters, cards, lorebook | name changes carried to cards, sheets, lorebooks and older talk `character_names.py`; `characters.py` (art resolution `art_file`, placeholders `static/placeholders/`), `identity.py`; card import `tools/st_import.py`, export `tools/st_export.py`; card generation `card_prompt.py` (prompts), `card_parse.py` (reading the answer), `tools/card_gen.py`; art manager (slots, gallery, the one way a picture gets in) `art_manager.py`, art format check `tools/check_character_art.py`; data `$CHATBOT_DATA/workspace/characters/<id>/`; summon wizard `summon_api.py` (`GET /api/summon`, `POST /api/characters/summon`, `POST /api/characters/*/regenerate`), steps `engine_data/summon_steps.json`, page `static/app-summon.js` |
 | Relationship memory | `memory_relationship.py` (private-bundle slots; `characters/<id>/relationship.md`) |
 | Private mode | `private_engine.py` (`RENDER_PROTOCOL`, Grok overlay, tension); a work-room turn marked personal never becomes work material `personal_turn.py`; the note carried into the private room `threshold.py` + `engine_data/private_tension_{defaults,gemini,grok}.json`; items (given or used) and affection `items.py` + `engine_data/affection.json` (catalog `<workspace>/items.json`, pictures `<workspace>/items/<id>.webp` else `static/placeholders/item.webp`, state `characters/<id>/state.json`) |
 | Safety guards | `content_guard.py` + `engine_data/content_guards.json` |
@@ -85,7 +85,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
 
 ## Naming
 
-- Standing documents (one copy, always current, found by name) are UPPERCASE: repo root, `docs/` itself and `data/workspace/` itself — `README.md`, `AGENTS.md`, `docs/CONCEPT.md`, `docs/ARCHITECTURE.md`, `SKILL.md`, …
+- Standing documents (one copy, always current, found by name) are UPPERCASE: repo root, `docs/` itself and `$CHATBOT_DATA/workspace/` itself — `README.md`, `AGENTS.md`, `docs/CONCEPT.md`, `docs/ARCHITECTURE.md`, `SKILL.md`, …
 - Documents that accumulate are lower-kebab: `docs/plans/*.md` (`INDEX.md` excepted), `docs/devlog/YYYY-MM-DD.md`, observation logs.
 - No snake_case document names. Pack files are UPPERCASE like their format's name: `SKILL.md`, `ROLE.md`, `PROCEDURE.md` (`characters.pack_file` still reads a pack's old lower-case names).
 - Renaming a document: update every live link in the same change; leave history (DEVLOG, devlog/, archive/, ticket records) as written.

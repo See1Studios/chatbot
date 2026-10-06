@@ -3,7 +3,7 @@
 > 방향 (align/D, 2026-10-06): **개발 기반** — PE 소프트웨어 공학 및 개발 거버넌스 전파·상태 아키텍처 수립
 
 > 상태: **active** (초안 2026-10-06, ticket #715)
-> 목적: PE 소프트웨어 엔지니어링 거버넌스 체계를 명확히 하고, 아키텍처·컨벤션 규칙이 코드베이스 전체로 누수 없이 안전하게 전파·추적되도록 3대 거버넌스 문서(기존 `docs/ARCHITECTURE.md`, 신설 예정 `docs/convention.md`·`docs/state.md`) 및 전파 수명주기(Propagation Lifecycle)를 정의한다.
+> 목적: PE 소프트웨어 엔지니어링 거버넌스 체계를 명확히 하고, 아키텍처·컨벤션 규칙이 코드베이스 전체로 누수 없이 안전하게 전파·추적되도록 3대 거버넌스 문서(`docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md`) 및 전파 수명주기(Propagation Lifecycle)를 정의한다.
 > 관련: [INDEX.md](INDEX.md) · [plan-execution-workflow.md](plan-execution-workflow.md) · [edition-boundary.md](edition-boundary.md) · [monolith-split.md](monolith-split.md)
 > 약칭: `prop`
 
@@ -23,14 +23,14 @@
 
 | 영역 | 관할 문서 | 대상 | 강제 수단 |
 |---|---|---|---|
-| **개발 거버넌스** | 루트 `AGENTS.md`, `docs/ARCHITECTURE.md`(기존), `docs/convention.md`(신설 예정), `docs/state.md`(신설 예정) | 저장소 소스 코드를 수정하는 모든 에이전트/개발자 | **[현재]** git 커밋 훅(`.githooks/`), 가드 테스트(`run-tests.sh --fast`: `test_file_sizes`, `test_import_cycles` 등), 티켓 검증(`test_tickets`, `test_unticketed_write`)<br>**[예정]** `convention.md` 규칙 자동 강제, 테스트 없는 커밋 거부, Mandatory Test Pairing 기계 확인, 배포판 런타임 엔진 수정 원천 차단 |
+| **개발 거버넌스** | 루트 `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md` | 저장소 소스 코드를 수정하는 모든 에이전트/개발자 | **[현재]** git 커밋 훅(`.githooks/`), 가드 테스트(`run-tests.sh --fast`: `test_file_sizes`, `test_import_cycles` 등), 티켓 검증(`test_tickets`, `test_unticketed_write`)<br>**[예정]** `CONVENTION.md` 규칙 자동 강제, 테스트 없는 커밋 거부, Mandatory Test Pairing 기계 확인, 배포판 런타임 엔진 수정 원천 차단 |
 | **런타임 동작** | `$CHATBOT_DATA/workspace/AGENTS.md`, 역할 팩(`roles/`), 설정집 | 대화방에서 사용자와 상호작용하는 챗봇 인스턴스 | 런타임 가드(`content_guard.py`, `loop_guard.py`), 인스트럭션 주입 |
 
 ---
 
 ## 2. 3대 핵심 거버넌스 문서 (The 3 Core Governance Documents)
 
-엔지니어링 거버넌스의 지속 가능성을 위해 역할별로 명확히 분리된 3대 단일 진실 공급원(SSOT) 문서를 정의한다 (이미 존재하는 `docs/ARCHITECTURE.md` 정비 및 `docs/convention.md`, `docs/state.md` 신설 예정).
+엔지니어링 거버넌스의 지속 가능성을 위해 역할별로 명확히 분리된 3대 단일 진실 공급원(SSOT) 문서를 정의한다 (이미 존재하는 `docs/ARCHITECTURE.md` · `docs/CONVENTION.md` · `docs/STATE.md`).
 
 ### 2.1 `docs/ARCHITECTURE.md` (코드베이스 아키텍처 SSOT, 기존 정본 확장)
 코드베이스의 구조적 무결성과 계층 원칙을 정의하는 기존 정본 문서다.
@@ -54,8 +54,8 @@
   - Tier 2: 엔진 구현체(세션, 어댑터, 라우터, UI). 개발판 위임 에이전트의 일반 티켓 작업 영역.
   - Tier 3: 코어/보안/가드/거버넌스(`protected_paths.json`). 엄격한 검토와 명시적 승인 하에서만 변경.
 
-### 2.2 `docs/convention.md` (엔지니어링 컨벤션 SSOT, 신설 예정)
-개발 시 준수해야 하는 구체적인 구현 및 코딩 규칙의 신설 예정 정본 문서다.
+### 2.2 `docs/CONVENTION.md` (엔지니어링 컨벤션 SSOT)
+개발 시 준수해야 하는 구체적인 구현 및 코딩 규칙의 정본 문서다(본문 신설 완료, D-1).
 - **Mandatory Test Pairing (테스트 페어링 의무)**:
   - 모든 기능 추가, 수정, 리팩토링, 버그 수정은 반드시 이를 검증하는 테스트 코드(`tests/`)와 1:1로 페어링되어야 한다.
   - [현재 상태] 규칙은 존재하나 기계적 차단은 예정 상태이며, 현재는 커밋 훅(`.githooks/check_staged.py`)의 가드 테스트 실행 및 리뷰 시 확인으로 관리.
@@ -72,8 +72,8 @@
   - 에이전트 간 위임 대화, 작업 핸드오프, 커밋 및 PR 보고 시 업무 사담은 1~2문장으로 엄격히 제한한다.
   - [현재/예정] 프롬프트 지침 준수 및 향후 워커 리뷰 체크리스트를 통한 점검. 불필요한 토큰 낭비를 차단하고 기술적 사실·diff·테스트 결과 중심의 명확한 소통을 유지한다.
 
-### 2.3 `docs/state.md` (전파 장부 및 표류 백로그, 신설 예정)
-아키텍처 및 컨벤션 규칙이 코드베이스 전체에 적용되는 진행 상황을 추적하는 동적 장부로 신설 예정이다.
+### 2.3 `docs/STATE.md` (전파 장부 및 표류 백로그)
+아키텍처 및 컨벤션 규칙이 코드베이스 전체에 적용되는 진행 상황을 추적하는 동적 장부다(본문 신설 완료, D-1).
 - **Active Queue (`[DEV-PROP-xxx]`)**:
   - 현재 전파가 진행 중인 아키텍처 개편 및 컨벤션 적용 큐.
   - 고유한 전파 식별자(예: `[DEV-PROP-001]`)를 부여하여 추적한다.
@@ -91,17 +91,17 @@
 규칙 제정부터 코드베이스 안착까지의 6단계 수명주기를 정의한다.
 
 ```text
-[1. SSOT 선언] ──> [2. state.md 큐 등록] ──> [3. 리드 작업/티켓 분해]
+[1. SSOT 선언] ──> [2. STATE.md 큐 등록] ──> [3. 리드 작업/티켓 분해]
                                                         │
 [6. 완료 아카이브] <── [5. 머지 및 체크박스 갱신] <── [4. 개발 구현 및 테스트 검증]
 ```
 
 1. **SSOT 선언 (SSOT Declaration)**:
-   - 설계 원칙이나 컨벤션이 결정되면 기존 `docs/ARCHITECTURE.md`에 반영하거나 신설할 `docs/convention.md`에 정본으로 명문화한다.
+   - 설계 원칙이나 컨벤션이 결정되면 `docs/ARCHITECTURE.md` 또는 `docs/CONVENTION.md`에 정본으로 명문화한다.
    - 원칙: "문서에만 있는 규칙은 없는 규칙이다"에 따라 가능한 한 집행자(가드 테스트)를 함께 정의한다.
    - [현재/예정] 이미 존재하는 가드(`test_file_sizes`, `test_import_cycles` 등) 외에 아직 없는 규칙은 신규 가드 테스트 개발([예정])과 함께 정의한다.
-2. **state.md 큐 등록 (state.md Queue Registration)**:
-   - 신설할 `docs/state.md`의 Active Queue에 `[DEV-PROP-xxx]` 항목을 등록한다.
+2. **STATE.md 큐 등록 (STATE.md Queue Registration)**:
+   - `docs/STATE.md`의 Active Queue에 `[DEV-PROP-xxx]` 항목을 등록한다.
    - 영향받는 전체 모듈 목록을 조사하여 모듈 단위의 `[ ]` 체크리스트를 구성한다.
 3. **리드 작업/티켓 분해 (Task/Ticket Decomposition via Lead)**:
    - 리드(PD/노노)가 `[DEV-PROP-xxx]` 큐 항목을 원자적 단위의 실행 티켓(#N)으로 분해한다.
@@ -110,10 +110,10 @@
    - 담당 개발자(코코 등)가 분리된 git 워크트리에서 구현을 수행한다.
    - Mandatory Test Pairing 규칙에 따라 테스트를 작성하고, `run-tests.sh`를 통해 검증한다([예정] 테스트 동반 기계 검증 도입 전까지는 수동/체크리스트 확인).
 5. **머지 및 체크박스 갱신 (Merge & Checkbox Update)**:
-   - 게이트를 통과한 작업이 메인 브랜치에 머지되면, `docs/state.md`의 해당 모듈 체크박스를 `[x]`로 갱신한다.
+   - 게이트를 통과한 작업이 메인 브랜치에 머지되면, `docs/STATE.md`의 해당 모듈 체크박스를 `[x]`로 갱신한다.
    - 커밋 트레일러에 `Ticket: #N` 및 필요 시 전파 식별자를 기록한다.
 6. **완료 아카이브 (Archived upon Completion)**:
-   - 전파 항목 내 모든 모듈의 체크박스가 `[x]`로 완료되면 해당 `[DEV-PROP-xxx]` 블록을 신설될 `docs/state.md`의 `## Archived History`로 이동하여 종료한다.
+   - 전파 항목 내 모든 모듈의 체크박스가 `[x]`로 완료되면 해당 `[DEV-PROP-xxx]` 블록을 `docs/STATE.md`의 `## Archived History`로 이동하여 종료한다.
 
 ---
 
@@ -123,7 +123,7 @@
 
 ### 4.1 티켓 스코핑 연계 (Ticket Scoping)
 - `tickets.py` 및 `tools/ticket_quick.py`의 엄격한 경로 클레임(`--paths`) 메커니즘을 그대로 활용한다.
-- `docs/state.md`의 각 체크리스트 항목은 1개 이상의 구체적 티켓(#N)과 대응되며, 클레임되지 않은 파일 수정을 방지하는 `test_tickets` 및 `test_unticketed_write` 가드와 연계된다.
+- `docs/STATE.md`의 각 체크리스트 항목은 1개 이상의 구체적 티켓(#N)과 대응되며, 클레임되지 않은 파일 수정을 방지하는 `test_tickets` 및 `test_unticketed_write` 가드와 연계된다.
 
 ### 4.2 테스트 러너 및 게이트 연계 (Test Runner & Gates)
 아키텍처 및 컨벤션 규칙의 강제는 현재 운영 중인 가드와 신설 예정 강제 메커니즘으로 명확히 구분된다:
@@ -138,7 +138,7 @@
   - 문서 및 참조 정합성: `tests/test_plans_index.py`, `tests/test_doc_refs.py`, `tests/test_doc_names.py`
   - 커밋 트레일러 및 게이트 무결성: `.githooks/` 및 `tests/test_githooks.py`
 - **[신설 예정 가드 및 강제 메커니즘]**:
-  - `docs/convention.md` 규칙 자동 강제 (컨벤션 전용 린터/테스트 스위트)
+  - `docs/CONVENTION.md` 규칙 자동 강제 (컨벤션 전용 린터/테스트 스위트)
   - 테스트 없는 코드 커밋 거부 (커밋 훅 레벨에서 테스트 파일 변경 동반 확인)
   - Mandatory Test Pairing 기계 확인 (워크트리 러너 및 리뷰 체크리스트 연동)
   - 비동기 타임아웃(30초) 정적/동적 검증 가드
@@ -151,7 +151,7 @@
 
 ### 4.4 컨텍스트 예산 규율 (Context Budget Discipline)
 - **온디맨드 파일 읽기(On-Demand Reads) 원칙**:
-  - 3대 거버넌스 문서(기존 `docs/ARCHITECTURE.md`, 신설 예정 `docs/convention.md`, `docs/state.md`)는 **런타임 세션의 프롬프트 번들에 상시 주입되지 않는다**.
+  - 3대 거버넌스 문서(`docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md`)는 **런타임 세션의 프롬프트 번들에 상시 주입되지 않는다**.
   - `instructions.py`의 번들 크기 상한(`bundle_budget.json`, `test_bundle_budget`)을 침범하지 않도록 유지한다.
   - 개발 에이전트나 워크트리 워커가 특정 모듈 작업이나 전파 큐를 처리할 때만 파일 읽기 도구(`view_file`, `read_file`)로 필요한 섹션을 선별 조회하여 컨텍스트 윈도우와 토큰 비용을 엄격히 절약한다.
 
@@ -183,4 +183,4 @@
 - **선행 의존**: [plan-execution-workflow.md](plan-execution-workflow.md)의 DoR/DoD 및 게이트 프로세스, [edition-boundary.md](edition-boundary.md)의 판 분리 기준.
 - **리스크**:
   - 거버넌스 규칙이 지나치게 방대해질 경우 개발 에이전트의 컨텍스트 소모 증가 -> 온디맨드 조회 원칙(4.4) 철저 준수로 방어.
-  - 문서만 갱신되고 실제 코드로 전파되지 않는 표류(Drift) 현상 -> 신설될 `docs/state.md`의 `[DEV-PROP-xxx]` 체크리스트와 가드 테스트로 추적 및 차단.
+  - 문서만 갱신되고 실제 코드로 전파되지 않는 표류(Drift) 현상 -> `docs/STATE.md`의 `[DEV-PROP-xxx]` 체크리스트와 가드 테스트로 추적 및 차단.

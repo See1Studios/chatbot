@@ -10,7 +10,7 @@ Before drawing, read the character's `visual.md` (its visual lock sheet). It ove
 
 ## Where files go
 
-Next to the card, so they travel with it: `data/workspace/characters/<id>/`
+Next to the card, so they travel with it: `$CHATBOT_DATA/workspace/characters/<id>/`
 
 | File | Size | What |
 |---|---|---|

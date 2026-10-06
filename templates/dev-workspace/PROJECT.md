@@ -5,9 +5,9 @@ Sphere Hub NAS chat agent. **이 프로젝트를 스스로 유지한다.** 경�
 ## Paths
 
 루트 `~/services/chatbot/`(코드+데이터, 독립 Git). 웹 루트는 env `AGY_CHAT_WEB_ROOT`(이 배포: `/volume1/web`).
-- 데이터: `data/workspace/`·`sessions/`·`persona/`. 기억 `data/workspace/memory/MEMORY.md`. 티켓 `data/workspace/skill-observations/tickets/`
-- 위임 상태: `~/.worktrees/chatbot/runs/ticket-<id>.json`(러너가 씀, `/api/delegations`). 읽음 `data/delegation_seen.json`
-- 세션: `data/sessions/<id>/meta.json` + `artifacts/brain/*` → `/artifacts/<id>/brain/<file>`. 공유 `data/sessions/_shared/`
+- 데이터: `$CHATBOT_DATA/workspace/`·`$CHATBOT_DATA/sessions/`·`$CHATBOT_DATA/persona/` (기본 `~/.pe`). 기억 `$CHATBOT_DATA/workspace/memory/MEMORY.md`. 티켓 `$CHATBOT_DATA/workspace/skill-observations/tickets/`
+- 위임 상태: `~/.worktrees/chatbot/runs/ticket-<id>.json`(러너가 씀, `/api/delegations`). 읽음 `$CHATBOT_DATA/delegation_seen.json`
+- 세션: `$CHATBOT_DATA/sessions/<id>/meta.json` + `artifacts/brain/*` → `/artifacts/<id>/brain/<file>`. 공유 `$CHATBOT_DATA/sessions/_shared/`
 - 웹(레포 밖): FAB `<웹 루트>/index.html`, 페르소나 퍼블리시 `<웹 루트>/chat/persona/`
 - 기동은 ctl만(`chatbot-ctl.sh`, LAN `0.0.0.0`). `python3 server.py`는 127.0.0.1 전용. 포트 3011 chat(`AGY_CHAT_PORT`), 3012 NAS MCP(`NAS_MCP_PORT`)
 

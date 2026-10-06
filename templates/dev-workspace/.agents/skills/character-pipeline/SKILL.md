@@ -39,7 +39,7 @@ flowchart TD
 - Present it to the user. **Once approved, this image becomes the immutable anchor** for all future I2I/expression derivatives. Never regenerate from scratch.
 
 ### 4. Build App-Standard Assets
-Generate/derive required files under `data/workspace/characters/<id>/`:
+Generate/derive required files under `$CHATBOT_DATA/workspace/characters/<id>/`:
 - **`avatar.webp`** (512x512, <=200KB): Full-bleed square. Face fills the 56px circle (eyes in the upper half, chin above the bottom third, species ears in frame). No inner circle on empty canvas. Bust and body go in sprites.
 - **`avatar/<provider>.webp`** (512x512): Optional per-brain wigs (hair cut/dye + outfit only, same face).
 - **`sprites/bust/<label>.webp`** (1024x1024, transparent, <=400KB):
