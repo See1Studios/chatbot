@@ -203,6 +203,10 @@
       "reason": "a guard test (run-tests.sh FAST)"
     },
     {
+      "path": "tests/test_smoke.py",
+      "reason": "a guard test (run-tests.sh FAST)"
+    },
+    {
       "path": "tests/test_tool_format_clean.py",
       "reason": "a guard test (run-tests.sh FAST)"
     },

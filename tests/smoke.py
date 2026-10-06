@@ -24,7 +24,7 @@ os.environ["CHATBOT_DATA"] = str(_DATA)
 atexit.register(shutil.rmtree, str(_DATA), True)
 
 from providers.adapters import AGENT_ADAPTERS, DEFAULT_PROVIDER, get_adapter, is_openrouter_free_model
-from session import _billed_tokens, _current_context_tokens, _turn_billed
+from session_weights import _billed_tokens, _current_context_tokens, _turn_billed
 from tool_format import _format_tool_call
 
 
