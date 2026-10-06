@@ -20,7 +20,7 @@ class LayerList(unittest.TestCase):
         ids = [layer.id for layer in I.LAYERS]
         self.assertEqual(len(ids), len(set(ids)), "one row per layer id")
         for layer in I.LAYERS:
-            self.assertIn(layer.kind, ("rules", "index", "dynamic"), layer.id)
+            self.assertIn(layer.kind, ("rules", "index", "dynamic", "turn"), layer.id)
             self.assertTrue(layer.modes and set(layer.modes) <= set(I.BOTH), layer.id)
             self.assertTrue(callable(layer.text), layer.id)
 
@@ -144,6 +144,55 @@ class Fixture(WorkspaceCase):
         self.assertEqual(s._context_prefix(), "")
         _write(self.ws / "memory/MEMORY.md", "# 기억\n- NEW-HOUSE-FACT\n")
         self.assertEqual(s._context_prefix(), "")
+
+    def lore(self):
+        C.save_lorebook(self.card_id, {"entries": [
+            {"keys": ["비"], "content": "LORE-RAIN rainy office", "position": "before_char"},
+            {"keys": [], "constant": True, "content": "LORE-ALWAYS always"}]}, self.ws)
+
+    def test_keyword_lore_reaches_a_cli_session_once_per_match(self):
+        # LORE_TURN_v1 (lca/D): the bundle is built without the talk, so a keyword entry never went in
+        import obslog
+        from unittest import mock
+        self.lore()
+        s = self.session()
+        s.history = []
+        with mock.patch.object(obslog, "event") as ev:
+            first = s._context_prefix() + s._context_lore("오늘 비 오네")
+            s.history.append({"role": "user", "text": "오늘 비 오네"})
+            again = s._context_prefix() + s._context_lore("비가 계속 와")
+        self.assertIn("LORE-ALWAYS", first, "a constant entry is in the bundle")
+        self.assertIn("LORE-RAIN", first, "the matched one comes as its own block")
+        self.assertEqual(again, "", "the same match twice adds nothing")
+        lore = [c.kwargs for c in ev.call_args_list if c.args[0] == "context.inject" and c.kwargs["why"] == "lore"]
+        self.assertEqual([x["id"] for x in lore[0]["layers"]], ["lore_match"])
+        self.assertFalse([c for c in ev.call_args_list if c.args[0] == "context.alert"], "a lore block raises no alert")
+
+    def test_matched_lore_stays_out_of_the_bundle_and_its_hash(self):
+        self.lore()
+        h0 = I.build_instruction_bundle(character=self.card_id)["hash"]
+        self.assertEqual(I.build_instruction_bundle(character=self.card_id)["hash"], h0)
+        self.assertNotIn("lore_match", [x["id"] for x in I.build_instruction_bundle(
+            character=self.card_id, history=[{"text": "비"}])["layers"]])
+        self.assertEqual(I.lore_matches(self.card_id, [{"text": "맑음"}]), "")
+        self.assertEqual(I.lore_matches(self.card_id, [{"text": "비"}]), "LORE-RAIN rainy office")
+
+    def test_a_stateless_transport_gets_no_lore_block(self):
+        self.lore()
+        s = self.session("http")
+        s.history = []
+        self.assertEqual(s._context_lore("비"), "")
+
+    def test_a_refresh_raises_no_alert(self):
+        # a refresh holds a few layers: "charter missing" was a false alarm (found in lca/D)
+        import obslog
+        from unittest import mock
+        s = self.session()
+        s._context_prefix()
+        _write(self.ws / "memory/MEMORY.md", "# 기억\n- NEW-HOUSE-FACT\n")
+        with mock.patch.object(obslog, "event") as ev:
+            self.assertIn("NEW-HOUSE-FACT", s._context_prefix())
+        self.assertFalse([c for c in ev.call_args_list if c.args[0] == "context.alert"])
 
     def test_the_layer_state_survives_a_restart(self):
         src = (Path(I.__file__).parent / "session.py").read_text(encoding="utf-8")

@@ -276,6 +276,22 @@ def lorebook_context(
     }
 
 
+def lore_matches(character: str = "", history: Optional[Union[List, str]] = None) -> str:
+    """LORE_TURN_v1 (layered-context-architecture lca/D): the keyword entries the recent talk matches, joined -- not the
+    constant ones, which the bundle already carries. A CLI session's bundle is built without the talk, so these reach
+    it as a per-turn block instead (session_turn._context_lore)."""
+    if not history:
+        return ""
+    try:
+        import characters
+        cid = _cid(character)
+        lb = characters.load_lorebook(cid, WORKSPACE) if cid else None
+    except Exception:  # noqa: BLE001
+        return ""
+    found = [e for e in match_lorebook_entries(lb, history) if not e.get("constant") and e.get("content")]
+    return "\n\n".join(e["content"] for e in found)
+
+
 def _skills_text(character: str = "") -> str:
     """Enabled skills; a skill a role pack lists is shown only to that role's holders."""
     idx = skill_index()
@@ -370,7 +386,7 @@ BOTH = WORK + PRIVATE
 @dataclass(frozen=True)
 class Layer:
     id: str
-    kind: str                # "rules" (static, joined with --- under macros) | "index" (static) | "dynamic"
+    kind: str                # "rules" (static, joined with --- under macros) | "index" (static) | "dynamic" | "turn"
     modes: Tuple[str, ...]   # the session modes that take it (D-6: a private session never takes a work layer)
     text: Callable           # (ctx) -> str
     required: bool = False   # empty -> a context alert (CONTEXT_ALERT_v1)
@@ -378,7 +394,7 @@ class Layer:
 
 def _ctx(mode: str, character: str, history) -> Dict:
     cid = _cid(character)
-    return {"mode": mode, "character": character, "cid": cid, "card": _card(character),
+    return {"mode": mode, "character": character, "cid": cid, "card": _card(character), "history": history,
             "lore": lorebook_context(character, history)}
 
 
@@ -423,6 +439,8 @@ LAYERS: Tuple[Layer, ...] = (
     Layer("private_memory", "dynamic", PRIVATE, _private_memory),
     Layer("names", "dynamic", BOTH, lambda c: _names_text()),
     Layer("status", "dynamic", WORK, lambda c: _status_text()),
+    # per turn, never in the bundle: what the talk just matched (a CLI session's bundle is built without the talk)
+    Layer("lore_match", "turn", BOTH, lambda c: lore_matches(c["character"], c.get("history"))),
 )
 
 
@@ -470,7 +488,8 @@ def build_instruction_bundle(mode: str = "work", character: str = "", history: O
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16], "mode": mode,
             "static_bytes": len(static.encode("utf-8")),
             "layers": [{"id": layer.id, "kind": layer.kind, "chars": len(t),
-                        "hash": hashlib.sha256(t.encode("utf-8")).hexdigest()[:8]} for layer, t in got if t]}
+                        "hash": hashlib.sha256(t.encode("utf-8")).hexdigest()[:8]} for layer, t in got
+                       if t and layer.kind != "turn"]}
 
 
 def _budget() -> int:

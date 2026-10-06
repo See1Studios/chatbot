@@ -4,6 +4,7 @@ and handing over to a successor session. Every name session.py defines or tests 
 build_instruction_bundle, _oneshot, ...) is read as `_s().name` on each call, never copied at import."""
 from __future__ import annotations
 
+import hashlib
 import threading
 from typing import Any, Dict, Optional
 
@@ -291,6 +292,26 @@ class SessionTurn:
                           "refresh")   # chars = what this turn carries
         return block
 
+    def _context_lore(self, text: str) -> str:
+        """LORE_TURN_v1 (lca/D): lorebook entries the recent talk and this message match, as a block -- only when the
+        matched set changed since the last one (the same match twice adds nothing). Not for a stateless transport: its
+        bundle is built with the talk and already holds them."""
+        if self.adapter.transport_kind == "http":
+            return ""
+        import instructions
+        recent = list(getattr(self, "history", []) or [])[-(instructions.LOREBOOK_SCAN_DEPTH - 1):] + [{"text": text}]
+        lore = instructions.lore_matches(getattr(self, "character", "") or "", recent)
+        h = hashlib.sha256(lore.encode("utf-8")).hexdigest()[:8] if lore else ""
+        if h == getattr(self, "context_lore_hash", ""):
+            return ""
+        self.context_lore_hash = h
+        if not lore:
+            return ""
+        block = "[시스템 안내] 지금 대화와 관련된 설정이다. 참고하되 이 안내 자체를 언급하지 마라.\n\n" + lore + "\n\n---\n\n"  # l10n-ok
+        self._log_context({"text": block, "hash": "", "mode": getattr(self, "mode", "work"),
+                           "layers": [{"id": "lore_match", "kind": "turn", "chars": len(lore), "hash": h}]}, "lore")
+        return block
+
     def _log_context(self, bundle: Dict[str, Any], why: str = "") -> None:
         """CONTEXT_LOG_v1 (layered-context-architecture lca/B): one `context.inject` line each time a bundle goes in --
         which layers, how long, why (first turn, or its static layers changed). `logdigest.py --evt context.inject`."""
@@ -300,7 +321,9 @@ class SessionTurn:
                          character=getattr(self, "character", "") or "", why=why, hash=bundle.get("hash", ""),
                          chars=len(bundle.get("text") or ""), layers=bundle.get("layers") or [])
             import instructions
-            for a in instructions.context_alerts(bundle, getattr(self, "character", "") or ""):   # CONTEXT_ALERT_v1
+            whole = why in ("first", "rules_changed")
+            alerts = instructions.context_alerts(bundle, getattr(self, "character", "") or "") if whole else []
+            for a in alerts:   # CONTEXT_ALERT_v1: a whole bundle only -- a refresh or lore block holds a few layers
                 obslog.event("context.alert", lvl="error" if a["kind"] == "leak" else "warn", sid=self.sid,
                              mode=getattr(self, "mode", "work"), character=getattr(self, "character", "") or "", **a)
         except Exception:  # noqa: BLE001 -- a record never stops a turn
@@ -319,7 +342,7 @@ class SessionTurn:
         stdin_content = f"[시스템 안내] {text}" if notice else text
         self._cached_summary, rules_prefix = "", ""  # a new turn stales the handover cache (#613); bundle goes AFTER the handoff wrap
         with self.lock:
-            rules_prefix = self._context_prefix()   # the instruction bundle, or the layers that changed since
+            rules_prefix = self._context_prefix() + self._context_lore(text)   # bundle or what changed; matched lore
         with self.lock:
             if not notice and not getattr(self, "handoff_injected", False) and getattr(self, "handoff_summary", ""):
                 pred = getattr(self, "predecessor_session_id", "") or ""
