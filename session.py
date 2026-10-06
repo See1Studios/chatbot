@@ -81,6 +81,7 @@ BUDGET_NOTICE = ("This turn is over its budget ({what}): everything read is sent
                  "call. If this is a large code change, sum up what you found and hand it over with delegate; "
                  "otherwise stop here and answer with what you have. To read more, find the place with grep and "
                  "read only that range (StartLine/EndLine).")
+CONTEXT_LOG_KEEP = 6   # what went into the agent, newest last, for the status tab (CONTEXT_PANEL_v1)
 STEER_HINT = ("직전 작업은 이 메시지를 반영하려고 도구 단계 사이에서 잠시 멈췄을 뿐, 취소된 것이 아닙니다. 이 메시지가 취소·변경을 "
               "분명히 요구하지 않는다면 하던 작업을 이어서 하면서 이 메시지의 지시를 반영하세요. 이미 끝낸 단계를 처음부터 다시 하지 마세요.")
 
@@ -245,6 +246,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 self.persona_injected = bool(meta.get("persona_injected", False))
                 self.persona_bundle_hash = str(meta.get("persona_bundle_hash") or "")
                 self.context_layer_hashes = meta.get("context_layer_hashes")   # CONTEXT_REFRESH_v1; None: adopt
+                self.context_log = list(meta.get("context_log") or [])[-CONTEXT_LOG_KEEP:]   # CONTEXT_PANEL_v1
                 self.character = str(meta.get("character") or "")
                 self.mode = meta.get("mode") if meta.get("mode") in ("private", "room") else "work"   # room: evt/E
                 self.private_digested_ts = float(meta.get("private_digested_ts") or 0)
@@ -280,6 +282,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 "persona_injected": getattr(self, "persona_injected", False),
                 "persona_bundle_hash": getattr(self, "persona_bundle_hash", "") or "",
                 "context_layer_hashes": getattr(self, "context_layer_hashes", None),
+                "context_log": list(getattr(self, "context_log", []) or [])[-CONTEXT_LOG_KEEP:],
                 "character": getattr(self, "character", "") or "",
                 "mode": getattr(self, "mode", "work") or "work",
                 "private_digested_ts": getattr(self, "private_digested_ts", 0.0) or 0.0,

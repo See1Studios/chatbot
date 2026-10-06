@@ -317,6 +317,9 @@ class SessionTurn:
         which layers, how long, why (first turn, or its static layers changed). `logdigest.py --evt context.inject`."""
         try:
             why = why or ("rules_changed" if getattr(self, "persona_injected", False) else "first")
+            rec = {"ts": round(_now(), 1), "why": why, "chars": len(bundle.get("text") or ""),
+                   "layers": [{"id": x.get("id"), "chars": x.get("chars")} for x in bundle.get("layers") or []]}
+            self.context_log = (list(getattr(self, "context_log", []) or []) + [rec])[-_s().CONTEXT_LOG_KEEP:]
             obslog.event("context.inject", sid=self.sid, provider=self.provider, mode=getattr(self, "mode", "work"),
                          character=getattr(self, "character", "") or "", why=why, hash=bundle.get("hash", ""),
                          chars=len(bundle.get("text") or ""), layers=bundle.get("layers") or [])

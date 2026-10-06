@@ -168,6 +168,8 @@
 .instr-badge{font-size:.7rem;padding:.05rem .45rem;border-radius:999px;border:1px solid var(--border);color:var(--muted);flex-shrink:0}
 .instr-badge.rw{color:var(--accent);border-color:var(--accent)}
 .instr-item .status-item-head{justify-content:flex-start}
+.ctx-head{cursor:pointer;font-size:.86rem}
+.ctx-layer{font-size:.8rem;color:var(--muted);padding:.1rem 0 .1rem 1rem}
 details.instr-item > summary{list-style:none;cursor:pointer}
 details.instr-item > summary::-webkit-details-marker{display:none}
 details.instr-item > summary .status-item-name::before{content:"▸";display:inline-block;width:1em;color:var(--muted);transition:transform .15s}

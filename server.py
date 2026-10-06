@@ -517,6 +517,7 @@ GET_ROUTES = [
     ("/api/sessions/*/artifacts", route_sessions.artifacts),
     ("/api/service-log", lambda req: req.json(_service_log(req.q("since", "24h"), req.q("sid", "")))),
     ("/api/sessions/*/log", route_sessions.log),
+    ("/api/sessions/*/context", route_sessions.context),
     ("/api/sessions/*/summary", route_sessions.summary),
     ("/api/artifacts", route_files.artifacts_all),
     ("/api/file/preview", route_files.preview),

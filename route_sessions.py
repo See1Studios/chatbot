@@ -207,6 +207,15 @@ def log(req: Req):
     return req.json({"events": p["page"], "total": p["total"], "next_before": p["next_before"]})
 
 
+def context(req: Req):
+    """GET /api/sessions/<sid>/context: what went into this conversation's agent, newest last (CONTEXT_PANEL_v1) --
+    each record's time, why (first, rules_changed, refresh, lore), size and layers."""
+    sess = REG.peek(req.arg)
+    if sess is None:
+        return req.send(404, b"session not found", "text/plain")
+    return req.json({"ok": True, "mode": getattr(sess, "mode", "work"), "records": list(getattr(sess, "context_log", []) or [])})
+
+
 def summary(req: Req):
     # Read-only handover-style summary of an arbitrary (often archived) session,
     # for the "가져오기" scrollback/session-list action — never touches the

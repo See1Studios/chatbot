@@ -6,6 +6,7 @@ async function fetchSelfStatus() {
   try {
     const res = await api('/api/self-status');
     loadInstructions();
+    loadContextNow();
     renderStatusSkills(res.skills || []);
     if (statusSkillLibHintEl) {
       statusSkillLibHintEl.textContent = '호스트 스킬 라이브러리 ' + (res.host_skill_library_count || 0) + '개 (읽기 전용)';
