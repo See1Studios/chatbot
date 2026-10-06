@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-10-06 — 기본 역할: 주인 없는 스킬은 기본 캐릭터 몫 (DEFAULT_ROLE_v1, #711)
+
+- **운영자**: "애매한 건 일단 리드에 두자. 기본 역할이란 것도 있어야겠지"
+- **바뀐 것**: 들고 있는 역할 누구도 가져가지 않은 스킬(새로 깔린 것, 아무도 안 든 역할의 것)은 이제 모두가 아니라 팀의 기본 캐릭터(앱이 여는 캐릭터, 일을 나눠 주는 쪽 — 지금 lead)에게만 보인다. hitomi·nas-sphere는 라이브 lead 역할 팩에 넣었다(운영자 개인 스킬이라 저장소 템플릿에는 없음).
+- **결과(라이브)**: lead — fact-check·handoff-brief·hitomi·nas-sphere·progress-report, dev·plan — plan-doc·subagent-investigate, art — 아트 스킬 셋·image-brief. 서로 겹치지 않는다.
+- **재시작**: 필요.
+
 ## 2026-10-06 — 코코(dev·plan)의 고정 정보 6,124 → 5,314바이트 (lca/H #710)
 
 - **운영자**: "그래 코코 역할 규칙 줄여"

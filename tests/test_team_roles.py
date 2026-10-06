@@ -102,12 +102,12 @@ class Roster(unittest.TestCase):
         self.assertIn("a body", pd)
         self.assertIn("You plan and delegate.", pd)
         self.assertIn("- planning", pd)                                               # a skill the PD pack claims
-        self.assertIn("- drawing", pd)
+        self.assertIn("- drawing", pd)                                                # no role claims it: the default's
         staff = I.build_instruction_bundle(character=self.b)["text"]
         self.assertIn("You do the work.", staff)
         self.assertNotIn("You plan and delegate.", staff)
         self.assertNotIn("- planning", staff)
-        self.assertIn("- drawing", staff)
+        self.assertNotIn("- drawing", staff, "a skill no role claims is the default character's (DEFAULT_ROLE_v1)")
         no_role = I.NO_ROLE_NOTE.split("]")[0]   # "[No role" -- the rest names the default character (CARD_MACROS_v1)
         self.assertIn(no_role, I.build_instruction_bundle(character=self.c)["text"])
         self.assertNotIn(no_role, staff)
