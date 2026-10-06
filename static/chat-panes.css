@@ -1,6 +1,6 @@
 /* chat-panes.css: tabs, provider tray, sessions/status/team/evolution panes, tickets, work cards, artifacts, modals. Part of the chat stylesheet (CSS_SPLIT_v1): the parts load in index.html order and together are
    the old chat.css, rule for rule -- keep that order; a rule that must win goes in a later part. */
-/* Provider Portrait Tray (주르륵 열리는 원형 포트레이트 셀렉터) */
+/* Provider Portrait Tray (a row of round portraits that slides open) */
 .provider-tray{
   position:absolute;
   top:calc(100% + 10px);
@@ -71,7 +71,7 @@
   border:2px solid #0f1115;
   border-radius:50%;
 }
-/* 비활성/미설치 제공자는 흑백처리(grayscale) */
+/* disabled or missing providers are grayscale */
 .provider-portrait-btn.disabled, .provider-portrait-btn:disabled{
   opacity:0.45;
   cursor:not-allowed;
@@ -430,7 +430,7 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
     padding:.35rem .45rem calc(max(.35rem, env(safe-area-inset-bottom)));
     gap:.35rem;
   }
-  /* 모바일 헤더: 캐릭터 이름 + 제공자명 세로 스택, 오른쪽 위젯은 고정 */
+  /* mobile header: character name + provider stacked; the right widgets stay put */
   header{
     display:flex;
     flex-wrap:nowrap;
@@ -516,7 +516,7 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
     font-size:.78rem;
     border-radius:8px;
   }
-  /* 모바일 포트레이트: 탭 라벨 텍스트 숨김, 아이콘만 간결하게 표시 */
+  /* mobile portrait: tab label text hidden, icons only */
   .tab-group{
     padding:1px;
     border-radius:8px;
@@ -607,8 +607,8 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
   }
   /* Stop lives on the answering bubble now — do not inherit the
      composer 44px #stopBtn size, which overflowed the footer and
-     got clipped by #log's overflow-x:hidden (operator: 모바일에서 중지
-     버튼이 잘려 보임). */
+     got clipped by #log's overflow-x:hidden (operator: on mobile the stop
+     button looked cut off). */
   .msg-footer .turn-stop-btn, #stopBtn.turn-stop-btn{
     width:34px;
     height:34px;
@@ -625,7 +625,7 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
     min-width:18px;
   }
 
-  /* Single-Row 1행 슬림 컴포저 (줄바꿈 없이 수납) */
+  /* single-row slim composer (no wrapping) */
   .composer{
     gap:.25rem;
     flex-wrap:nowrap;
@@ -634,8 +634,8 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
   .composer::after{
     display:none;
   }
-  /* 36x36 밸런스 슬림 컴포저 위젯 통일 (#24)
-     #slashBtn, #modelBtn, #geoBtn, #send는 36px, #input도 min-height:36px/height:36px로 통일 */
+  /* 36x36 balanced slim composer widgets (#24)
+     #slashBtn, #modelBtn, #geoBtn, #send are 36px; #input is min-height:36px/height:36px too */
   #slashBtn{
     order:1;
     width:36px;

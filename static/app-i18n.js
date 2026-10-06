@@ -51,6 +51,10 @@ function applyI18n(root) {
   root.querySelectorAll('[data-i18n-aria-label]').forEach(el => { el.setAttribute('aria-label', tr(el.dataset.i18nAriaLabel)); });
   root.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = tr(el.dataset.i18nPlaceholder); });
   root.querySelectorAll('[data-i18n-alt]').forEach(el => { el.alt = tr(el.dataset.i18nAlt); });
+  // words drawn by CSS (content:) read --t-<key> with the dots as dashes: the css.* keys, as CSS strings
+  if (root === document) Object.keys(I18N).filter(k => k.startsWith('css.')).forEach(k => {
+    document.documentElement.style.setProperty('--t-' + k.replace(/\./g, '-'), JSON.stringify(I18N[k]));
+  });
 }
 
 const i18nReady = (async () => {

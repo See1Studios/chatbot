@@ -114,7 +114,7 @@ code.login-value{
 .status-hook-events{display:flex;flex-wrap:wrap;gap:.3rem;margin:.35rem 0 .5rem}
 .status-hook-chip{font-size:.7rem;padding:.15rem .4rem;border-radius:999px;border:1px solid var(--border);color:var(--muted);background:rgba(0,0,0,.15)}
 
-/* OBSLOG_UI_v1: 로그 탭 → 서비스 (static/service-log.js) */
+/* OBSLOG_UI_v1: log tab → service (static/service-log.js) */
 .svc-log-btn{margin-left:.35rem;border-style:dashed}
 .svc-log{display:flex;flex-direction:column;gap:.75rem}
 .svc-bar{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem}

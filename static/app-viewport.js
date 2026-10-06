@@ -6,8 +6,8 @@ function autoResizeInput() {
   // Min/max come from the stylesheet (#input, the <=640px block, the keyboard/short-screen block), so
   // this can't drift from it again. It used to keep its own 38/42 and 90/120: the input was 38px
   // while the CSS said 36 (32 with the keyboard up) and the buttons next to it were 44 (32), and it
-  // fell back to the CSS value after a slash command cleared the inline height. (operator: 하단 위젯들
-  // 높이가 상황에 따라 조금씩 다름.)
+  // fell back to the CSS value after a slash command cleared the inline height. (operator: the bottom widgets'
+  // heights differ a little from case to case.)
   const cs = window.getComputedStyle(inputEl);
   const minH = parseFloat(cs.minHeight) || 42;
   const maxH = parseFloat(cs.maxHeight) || 120;   // 'none' -> NaN -> fallback
@@ -32,12 +32,12 @@ function autoResizeInput() {
   }
 }
 
-// 뷰포트 높이 기반 키보드 추적.
-// _prevKeyboardOpen 상태 머신 대신 viewport height 변화량으로 판단하므로
-// 포커스를 유지한 채 키보드만 올/내려도 올바르게 동작한다.
+// Keyboard tracking from the viewport height.
+// It judges by the change in viewport height instead of a _prevKeyboardOpen state machine, so raising or
+// lowering only the keyboard while the focus stays works too.
 let _composerMode = '';         // narrow/wide + keyboard-open of the last updateViewport (input height follows the CSS for it)
-let _prevVvHeight = 0;          // 직전 visualViewport 높이
-let _savedScrollTop = null;     // 키보드 열릴 때 보존한 scrollTop (바닥 고정이 아닐 때만)
+let _prevVvHeight = 0;          // the previous visualViewport height
+let _savedScrollTop = null;     // scrollTop kept when the keyboard opens (only when not pinned to the bottom)
 let _isKeyboardTransitioning = false;
 let _keyboardTransitionTimer = null;
 
@@ -65,7 +65,7 @@ function isKeyboardTransitioning() {
 // Is the on-screen keyboard (probably) up? A short viewport says so on any device. "The input has focus"
 // only says so when there IS an on-screen keyboard -- i.e. a touch device. On a desktop FAB (an iframe
 // 420px wide) it used to count too: clicking the text box shrank the row and hid the header, tabs and
-// model button, with a mouse and a physical keyboard. (operator: FAB 텍스트창 높이가 달라 / 포커스하면 레이아웃이 흔들려.)
+// model button, with a mouse and a physical keyboard. (operator: the FAB text box height differs / the layout shakes on focus.)
 function keyboardOpenState(narrow, short, focused, touch) {
   return Boolean(narrow && (short || (focused && touch)));
 }
@@ -96,7 +96,7 @@ function updateViewport() {
   document.documentElement.style.setProperty('--app-height', `${h}px`);
   if (window.scrollY !== 0) window.scrollTo(0, 0);
 
-  // 모바일 가상키보드 상태 감지 (좁은 너비에서 높이가 줄어들었거나 input에 포커스된 경우)
+  // Mobile on-screen keyboard state (a narrow width whose height shrank, or the input has focus)
   const isNarrow = window.innerWidth <= 640;
   const isShort = h < 520;
   const isInputFocused = document.activeElement === inputEl;
@@ -118,7 +118,7 @@ function updateViewport() {
   if (liveSlashMenu && !liveSlashMenu.hidden) positionSlashMenu();
 
   if (logEl && currentTab === 'chat' && isNarrow) {
-    const delta = _prevVvHeight > 0 ? h - _prevVvHeight : 0; // 양수 = viewport 커짐(키보드 닫힘), 음수 = 작아짐(키보드 열림)
+    const delta = _prevVvHeight > 0 ? h - _prevVvHeight : 0; // positive = the viewport grew (keyboard closed), negative = it shrank (keyboard opened)
     if (keyboardFlipped || Math.abs(delta) > 60) {
       if (!keyboardFlipped) markKeyboardTransition(300);
       holdLogPosition(keyboardFlipped ? isKeyboardOpen : delta < 0);
@@ -199,7 +199,7 @@ function initBottomPullRefresh(customLog) {
     indicatorEl.setAttribute('aria-hidden', 'true');
     indicatorEl.innerHTML = '<div class="bottom-pull-content">' +
       '<span class="bottom-pull-icon" aria-hidden="true">↻</span>' +
-      '<span class="bottom-pull-label">당겨서 새로고침</span>' + // l10n-ok
+      '<span class="bottom-pull-label">' + tr('viewport.pull') + '</span>' +
       '</div>';
     container.appendChild(indicatorEl);
   }
@@ -223,7 +223,7 @@ function initBottomPullRefresh(customLog) {
       indicatorEl.style.transform = '';
       indicatorEl.style.opacity = '0';
       if (iconEl) iconEl.style.transform = '';
-      if (labelEl) labelEl.textContent = '당겨서 새로고침'; // l10n-ok
+      if (labelEl) labelEl.textContent = tr('viewport.pull');
     }
 
     if (currentLog) {
@@ -313,13 +313,13 @@ function initBottomPullRefresh(customLog) {
       if (isReady) {
         indicatorEl.classList.add('ready');
         if (iconEl) iconEl.style.transform = 'rotate(180deg)';
-        if (labelEl) labelEl.textContent = '놓으면 새로고침'; // l10n-ok
+        if (labelEl) labelEl.textContent = tr('viewport.release');
       } else {
         indicatorEl.classList.remove('ready');
         const progress = Math.min(1, Math.max(0, rawPull / BOTTOM_PULL_THRESHOLD));
         const rot = Math.round(progress * 180);
         if (iconEl) iconEl.style.transform = `rotate(${rot}deg)`;
-        if (labelEl) labelEl.textContent = '당겨서 새로고침'; // l10n-ok
+        if (labelEl) labelEl.textContent = tr('viewport.pull');
       }
     }
 
@@ -343,7 +343,7 @@ function initBottomPullRefresh(customLog) {
 
       indicatorEl.classList.remove('ready');
       indicatorEl.classList.add('refreshing');
-      if (labelEl) labelEl.textContent = '새로고침 중…'; // l10n-ok
+      if (labelEl) labelEl.textContent = tr('viewport.refreshing');
       if (iconEl) iconEl.style.transform = '';
 
       indicatorEl.style.transition = 'transform 0.2s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s ease';

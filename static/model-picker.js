@@ -1,7 +1,7 @@
 /* Model picker -- a short icon button + menu instead of a wide <select>, and a composer
    placeholder that always names the model in use.
-   (operator: 모바일에서 모델 선택이 폭을 차지해서 -- 짧은 버튼, 탭과 같은 스타일의 아이콘, 현재 모델은
-   placeholder로 명확히.)
+   (operator: on mobile the model select took the width -- a short button with a tab-style icon, and the
+   current model plainly in the placeholder.)
    <select id="model"> (app.js: modelEl) stays in the DOM, hidden, as the single source of truth:
    everything that sends or saves a model still reads modelEl.value, so this file only
    changes how it is chosen and shown. */
@@ -9,7 +9,7 @@ const modelBtnEl = document.getElementById('modelBtn');
 const modelMenuEl = document.getElementById('modelMenu');
 
 function modelLabel(value) {
-  return String(value || '').trim() || '기본 모델';
+  return String(value || '').trim() || tr('team.default_model');
 }
 
 // Pure: what the composer placeholder says -- only what to do; the model sits in the corner tag (MODEL_TAG_v1).
@@ -18,11 +18,11 @@ function modelLabel(value) {
 function composerPlaceholder(opts) {
   const o = opts || {};
   // RETRY_LAST_v1: a failed message waits here; Enter on the empty box sends it again (app-retry.js)
-  if (o.retry && typeof o.busySec !== 'number') return `↻ 다시 보내기: ${retryShort(o.retry, o.compact ? 18 : 40)}`;   // l10n-ok
+  if (o.retry && typeof o.busySec !== 'number') return '↻ ' + tr('composer.retry', { text: retryShort(o.retry, o.compact ? 18 : 40) });
   if (o.hint) return o.hint;
-  if (typeof o.busySec === 'number') return `작업 중 (${o.busySec}초)…`;   // l10n-ok
-  if (o.actKey) return '메시지 입력… (Space: 행동)';   // l10n-ok ACT_KEY_v1
-  return '메시지 입력…';   // l10n-ok
+  if (typeof o.busySec === 'number') return tr('composer.busy', { s: o.busySec });
+  if (o.actKey) return tr('composer.placeholder_act');   // ACT_KEY_v1
+  return tr('composer.placeholder_short');
 }
 
 function modelChoices() {
@@ -111,7 +111,7 @@ function modelItem(c, current, onPick, nav, text) {
   name.textContent = text;
   const mark = document.createElement('span');
   mark.className = 'slash-desc';
-  mark.textContent = on ? '✓ 사용 중' : '';
+  mark.textContent = on ? '✓ ' + tr('status.profiles.active') : '';
   item.appendChild(name);
   item.appendChild(mark);
   item.addEventListener('click', () => onPick(c.value));
@@ -149,8 +149,8 @@ function renderModelMenu(menu, choices, current, onPick) {
   const search = document.createElement('input');
   search.type = 'text';
   search.className = 'model-search';
-  search.placeholder = '모델 검색…';   // l10n-ok
-  search.setAttribute('aria-label', '모델 검색');   // l10n-ok
+  search.placeholder = tr('model.search_placeholder');
+  search.setAttribute('aria-label', tr('model.search'));
   search.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -213,11 +213,11 @@ function renderModelMenu(menu, choices, current, onPick) {
   };
   const byValue = new Map(choices.map(c => [c.value, c]));
   const recent = modelRecent().map(v => byValue.get(v)).filter(Boolean);
-  const recentSec = recent.length ? addSec('최근', recent, true, false) : null;   // l10n-ok
+  const recentSec = recent.length ? addSec(tr('model.recent'), recent, true, false) : null;
   groupModels(choices).forEach(g => addSec(g.vendor, g.items, g.items.some(c => c.value === current), true));
   const empty = document.createElement('div');
   empty.className = 'slash-empty';
-  empty.textContent = '일치하는 모델 없음';   // l10n-ok
+  empty.textContent = tr('model.none');
   empty.hidden = true;
   menu.appendChild(empty);
   search.addEventListener('input', () => {
@@ -286,7 +286,7 @@ function syncModelUi() {
   const hasModel = typeof modelEl !== 'undefined' && modelEl;
   const label = modelLabel(hasModel ? modelEl.value : '');
   if (modelBtnEl) {
-    const t = `모델 선택 (현재: ${label})`;
+    const t = tr('model.pick_current', { label });
     modelBtnEl.title = t;
     modelBtnEl.setAttribute('aria-label', t);
   }

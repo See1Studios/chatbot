@@ -187,16 +187,16 @@ textarea::placeholder{
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
 }
-/* 모델은 입력창 오른쪽 구석의 버튼(#modelBtn, MODEL_TAG_v2) + 메뉴로 고르고, 버튼이 현재 모델을 보인다
-   (operator: 모바일에서 모델 select가 폭을 차지해서 -- 짧은 버튼, 탭과 같은 아이콘 스타일).
-   <select id="model">은 app.js가 읽는 값의 원천이라 DOM에 남기고 숨긴다. (Earlier: "모델 선택 콤보박스는
-   채팅창 근처에 작게 두는 게 좋을 것 같네" -- still near the composer.) */
+/* The model is picked with the button in the input's right corner (#modelBtn, MODEL_TAG_v2) + its menu; the button
+   shows the current model (operator: on mobile the model select took the width -- a short button, tab-style icon).
+   <select id="model"> is where app.js reads the value, so it stays in the DOM, hidden. (Earlier: "keep the model
+   combo small near the chat" -- still near the composer.) */
 #model{
   display:none !important;
 }
 .model-trigger-btn .tab-icon-svg{width:18px;height:18px}
 #provider{
-  display:none !important; /* 제공자 선택은 상단 포트레이트 트레이로 이동하여 채팅 라인 확보 */
+  display:none !important; /* the provider pick moved to the portrait tray at the top, freeing the chat line */
 }
 .geo-trigger-btn .tab-icon-svg, .mic-trigger-btn .tab-icon-svg{width:18px;height:18px}
 .slash-trigger-btn:hover, .slash-trigger-btn.active,
@@ -265,8 +265,8 @@ textarea::placeholder{
    shared visual styling, so both buttons matched and got margin-left:
    auto at once. Two auto margins on the same row split the free space
    between them instead of both collapsing to the right edge, landing
-   the copy button near the middle of the footer (operator: "복사 버튼이
-   한 가운데 나오네"). :first-of-type is button-only and DOM-order-based,
+   the copy button near the middle of the footer (operator: "the copy button
+   shows up in the middle"). :first-of-type is button-only and DOM-order-based,
    so whichever action button renders first (copy, when present) gets
    pushed right and the rest just follow it -- works whether copy-msg-btn
    exists or not. */
@@ -362,7 +362,7 @@ button.queue-btn:hover{background:rgba(255,255,255,.14)!important;color:var(--te
 .msg.btw-card .btw-head .btw-q{color:var(--muted);font-weight:normal;font-size:.8rem}
 .msg.btw-card .btw-body{font-size:.9rem;line-height:1.55}
 .msg.user.queued{opacity:.75;border-style:dashed}
-.msg.user.queued::after{content:" (대기열 대기 중)";font-size:.75rem;color:var(--accent2);margin-left:.4rem}
+.msg.user.queued::after{content:var(--t-css-queued, "");font-size:.75rem;color:var(--accent2);margin-left:.4rem}
 .msg.user.btw-user{border-color:rgba(147,112,219,.45);--tint:rgba(147,112,219,.14)}
 .msg.user.btw-user::before{content:"[BTW] ";font-weight:bold;color:#d8b4fe}
 header .avatar{
@@ -412,9 +412,9 @@ header .avatar:active{
 @media (max-width: 640px){.composer .inline-btn{order:4;margin:0 0 3px -41px}}   /* the slim phone composer orders its children (chat-panes.css): stay beside #input */
 @media (prefers-reduced-motion:reduce){.inline-btn.uploading .face{animation:none}}
 body.attach-drop .stage::after{
-  content:'여기에 놓으면 첨부돼요';/* l10n-ok */position:absolute;inset:.6rem;z-index:5;display:flex;align-items:center;justify-content:center;
+  content:var(--t-css-attach-drop, "");position:absolute;inset:.6rem;z-index:5;display:flex;align-items:center;justify-content:center;
   border:2px dashed var(--accent2);border-radius:14px;background:rgba(10,12,16,.72);color:var(--fg);font-size:1rem;pointer-events:none}
-body.attach-drop.attach-drop-no .stage::after{/* l10n-ok */content:'사적 모드에서는 파일 대신 아이템을 건네요';border-color:var(--muted);color:var(--muted)}
+body.attach-drop.attach-drop-no .stage::after{content:var(--t-css-attach-private, "");border-color:var(--muted);color:var(--muted)}
 .msg.user .attach-cards{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}
 .attach-card{display:inline-flex;align-items:center;gap:.4rem;max-width:100%;padding:.3rem .55rem;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.18);color:inherit;font-size:.8rem;cursor:zoom-in;text-align:left}
 .attach-card-icon{display:inline-flex;align-self:center;opacity:.85}

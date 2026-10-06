@@ -44,7 +44,7 @@ if (moreMenuBtn && moreMenuEl) {
       e.stopPropagation();
       const chosen = swatch.getAttribute('data-theme-choice');
       applyTheme(chosen);
-      addActivity(`테마 변경: ${chosen}`);
+      addActivity(tr('theme.changed', { name: chosen }));
     });
   });
   // Menu item clicks

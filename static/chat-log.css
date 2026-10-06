@@ -80,8 +80,8 @@ html:not(.stage-ready) .stage::before{opacity:0 !important}
      switch, scrollback prepend), not a user-facing smooth-scroll gesture.
      `smooth` animates the setter itself in Chrome/Firefox, so those
      corrections raced each other and could settle mid-animation instead
-     of at the intended position (operator: "새 세션을 누르면 최근 대화로
-     스크롤되지 않고 중간 지점에 스크롤이 이동"). */
+     of at the intended position (operator: "pressing new session does not scroll to
+     the latest talk, it lands in the middle"). */
   /* overflow-anchor:none -- loadOlderHistory() already manually restores
      scroll position after prepending older history
      (`prevScrollTop + (scrollHeight delta)`); native scroll anchoring

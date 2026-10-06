@@ -36,8 +36,8 @@ function updateGeoButtonState() {
   geoBtn.classList.toggle('active', geoEnabled);
   geoBtn.setAttribute('aria-pressed', String(geoEnabled));
   geoBtn.title = geoEnabled
-    ? '기기 환경 및 위치 정보 동기화 활성 중 (클릭하여 끄기)'
-    : '기기 환경 및 위치 정보 동기화 (클릭하여 켜기)';
+    ? tr('composer.geo_active')
+    : tr('composer.geo_toggle_on');
 }
 
 function fetchCoordinates() {
@@ -82,7 +82,7 @@ async function getClientContext() {
   } catch(e) {}
   const ctx = {
     is_mobile: isMobile,
-    device: isMobile ? '모바일' : '데스크톱',
+    device: isMobile ? '모바일' : '데스크톱',   // l10n-ok: the server matches these words; l10n/F sends a code
   };
   if (timezone) ctx.timezone = timezone;
   if (cachedCoords) {

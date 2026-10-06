@@ -1,9 +1,9 @@
 /* chat-responsive.css: narrow screens, the on-screen keyboard, reduced motion. Part of the chat stylesheet (CSS_SPLIT_v1): the parts load in index.html order and together are
    the old chat.css, rule for rule -- keep that order; a rule that must win goes in a later part. */
-/* 폭은 좁지만 포인터가 마우스인 경우 -- 데스크톱 허브 FAB(폭 420px iframe)이 대표적. 위 폰 값(버튼 44px,
-   입력창 36px)은 터치 대상 때문에 정한 것이라 마우스에는 필요 없고, 입력창만 버튼보다 낮아 보였다
-   (operator: FAB에서 텍스트 입력창만 높이가 낮아). 전체 페이지 데스크톱과 같은 42px로 맞춘다. 아래의 키보드/
-   낮은 화면 블록(32px)은 뒤에 오므로 그대로 이긴다. */
+/* Narrow but with a mouse pointer -- the desktop hub FAB (a 420px iframe) is the usual case. The phone values above
+   (44px buttons, 36px input) are for touch targets, which a mouse does not need, and the input looked lower than
+   the buttons (operator: in the FAB only the text box is lower). Match the full desktop page's 42px. The keyboard/
+   low-screen block below (32px) comes later, so it still wins. */
 @media (max-width: 640px) and (pointer: fine) {
   #slashBtn, #modelBtn{
     width:42px;
@@ -44,11 +44,11 @@
   }
 }
 
-/* 가상키보드가 올라왔거나 세로 높이가 극도로 좁은 환경 최적화.
-   "selector, @media {...}" 는 유효한 CSS가 아니라서(prelude에 셀렉터와
-   at-rule을 콤마로 못 묶음) body.keyboard-open 쪽 규칙이 통째로 파싱
-   실패해 죽어있었음 -- 두 조건을 각각 유효한 규칙으로 분리, 선언 내용은
-   동일하게 유지. */
+/* For an open on-screen keyboard or a very short screen.
+   "selector, @media {...}" is not valid CSS (a selector and an at-rule cannot share a prelude with
+   a comma), so the body.keyboard-open rule failed to parse and was dead -- the two conditions are
+   split into valid rules, the declarations kept the same.
+*/
 @media (max-height: 500px) {
   .wrap{
     padding:.15rem .35rem calc(max(.15rem, env(safe-area-inset-bottom)));
@@ -77,7 +77,7 @@
     display:none !important;
   }
   #provider{
-    display:none !important; /* 키보드 입력 시 textarea 공간 확보 (#modelBtn은 입력창 안 아이콘, MODEL_TAG_v2) */
+    display:none !important; /* room for the textarea while typing (#modelBtn is the icon inside the input, MODEL_TAG_v2) */
   }
   .composer #modelBtn.model-tag .tab-icon-svg{display:block}   /* MODEL_TAG_v2: a short screen shows the icon */
   .composer #modelBtn.model-tag .model-name{display:none}
@@ -144,7 +144,7 @@ body.keyboard-open #scrollToBottomBtn{
   display:none !important;
 }
 body.keyboard-open #provider{
-  display:none !important; /* 키보드 입력 시 textarea 공간 확보 (#modelBtn은 입력창 안 아이콘, MODEL_TAG_v2) */
+  display:none !important; /* room for the textarea while typing (#modelBtn is the icon inside the input, MODEL_TAG_v2) */
 }
 body.keyboard-open #log{
   padding:.35rem .4rem;

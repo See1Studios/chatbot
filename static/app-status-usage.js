@@ -39,8 +39,8 @@ async function fetchUsage(force, retryCount) {
   if (!statusUsageEl) return;
   retryCount = retryCount || 0;
   const provider = currentStatusProvider();
-  statusUsageEl.innerHTML = '<div class="status-hint">불러오는 중… (' + escapeHtml(provider)
-    + (retryCount > 0 ? ', 재시도' : '') + ')</div>';
+  statusUsageEl.innerHTML = '<div class="status-hint">' + escapeHtml(tr('usage.loading', { provider })
+    + (retryCount > 0 ? tr('usage.retry_suffix') : '')) + '</div>';
   try {
     const params = new URLSearchParams({provider});
     if (force || retryCount > 0) params.set('force', '1');
@@ -57,7 +57,7 @@ async function fetchUsage(force, retryCount) {
       setTimeout(() => fetchUsage(true, retryCount + 1), 800);
       return;
     }
-    statusUsageEl.innerHTML = '<div class="status-hint">사용량 로드 실패: ' + escapeHtml(e.message) + '</div>';
+    statusUsageEl.innerHTML = '<div class="status-hint">' + escapeHtml(tr('usage.load_failed', { error: e.message })) + '</div>';
   }
 }
 
@@ -68,8 +68,8 @@ function renderStatusUsage(res) {
     // one-shot rate-limit report at all (codex as of this writing), not an
     // error worth alarming over.
     const msg = (res && res.supported === false)
-      ? (res.error || '이 프로바이더는 사용량 조회를 지원하지 않습니다')
-      : '조회 실패: ' + ((res && res.error) || '알 수 없는 오류');
+      ? (res.error || tr('usage.unsupported'))
+      : tr('usage.query_failed', { error: (res && res.error) || tr('common.unknown_error') });
     statusUsageEl.innerHTML = '<div class="status-hint">' + escapeHtml(msg) + '</div>';
     if (usageCheckedAtEl) usageCheckedAtEl.textContent = '';
     return;
@@ -90,14 +90,14 @@ function renderStatusUsage(res) {
     item.innerHTML =
       '<div class="status-item-head">' +
       '<span class="status-item-name">' + escapeHtml(row.group) + ' — ' + escapeHtml(row.limit_type) + '</span>' +
-      '<span class="status-item-meta">' + escapeHtml(row.remaining_pct) + ' 남음</span>' +
+      '<span class="status-item-meta">' + escapeHtml(tr('usage.left', { pct: row.remaining_pct })) + '</span>' +
       '</div>' +
       '<div class="usage-bar-track"><div class="usage-bar-fill' + (pctSafe <= 20 ? ' low' : '') + '" style="transform:scaleX(' + (pctSafe / 100) + ')"></div></div>' +
-      '<div class="status-item-preview">리셋: ' + escapeHtml(resetStr) + '</div>';
+      '<div class="status-item-preview">' + escapeHtml(tr('usage.reset', { when: resetStr })) + '</div>';
     statusUsageEl.appendChild(item);
   });
   if (usageCheckedAtEl) {
     const checked = res.checked_at ? new Date(res.checked_at * 1000).toLocaleTimeString('ko-KR') : '';
-    usageCheckedAtEl.textContent = checked ? ('마지막 확인: ' + checked) : '';
+    usageCheckedAtEl.textContent = checked ? tr('usage.checked', { when: checked }) : '';
   }
 }

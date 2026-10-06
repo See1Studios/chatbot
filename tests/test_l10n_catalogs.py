@@ -30,6 +30,8 @@ class Catalogs(unittest.TestCase):
             used |= set(re.findall(r"\btr\(\s*'([a-z0-9_.]+)'\s*[,)]", js.read_text(encoding="utf-8")))
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         used |= set(re.findall(r'data-i18n(?:-title|-aria-label|-placeholder|-alt)?="([^"]+)"', html))
+        for css in STATIC.glob("*.css"):   # words CSS draws: var(--t-css-x) reads the css.x key (app-i18n.js)
+            used |= {"css." + v for v in re.findall(r"var\(--t-css-([a-z0-9-]+)", css.read_text(encoding="utf-8"))}
         self.assertTrue(used)
         self.assertEqual(sorted(used - set(CATALOGS["en"])), [])
 

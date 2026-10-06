@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
 JS = STATIC / "model-picker.js"
@@ -170,7 +171,7 @@ CSS = css_source()   # chat-*.css in cascade order (CSS_SPLIT_v1)
 class ModelPickerBehaviour(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(JS)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(JS)], capture_output=True, text=True, timeout=30)
         assert r.returncode == 0, r.stderr
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
