@@ -236,6 +236,33 @@ class Handoff(unittest.TestCase):
         dev.busy = False
         self.assertEqual(H.run_once(self.office), [{"id": 1, "state": "done"}])
 
+    def scout(self):
+        (self.ws / "roles" / "scout").mkdir(parents=True)
+        (self.ws / "roles" / "scout" / "ROLE.md").write_text("---\ntitle: Scout\nowns: outside facts\n---\n\nScout.\n",
+                                                             encoding="utf-8")
+
+    def test_a_role_nobody_holds_goes_to_the_default_character(self):
+        # DEFAULT_ROLE_v1: like an unclaimed skill, the work of a role nobody holds is the default's
+        self.scout()
+        out = self.hand(self.dev, "s-dev", to="scout", text="find the price")
+        self.assertTrue(out["success"], out["message"])
+        h = H.all_handoffs()[1]
+        self.assertEqual((h["to"], h["role"]), (self.lead, "scout"))
+        self.assertIn("Nobody holds the scout role", h["task"])
+        self.assertIn("find the price", h["task"])
+
+    def test_the_default_handing_off_a_role_nobody_holds_is_told_it_is_its_own(self):
+        self.scout()
+        out = self.hand(self.lead, "s-lead", to="scout", text="find the price")
+        self.assertFalse(out["success"])
+        self.assertIn("its work is yours", out["message"])
+        self.assertEqual(H.all_handoffs(), {})
+
+    def test_a_role_that_does_not_exist_is_still_refused(self):
+        out = self.hand(self.dev, "s-dev", to="astronaut", text="x")
+        self.assertFalse(out["success"])
+        self.assertIn("the role or coworker who owns the work", out["message"])
+
     def test_a_waiting_handoff_cancelled_never_starts(self):
         # HANDOFF_CANCEL_v1
         self.hand(self.lead, "s-lead", to="dev", text="x")

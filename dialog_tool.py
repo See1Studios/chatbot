@@ -185,11 +185,18 @@ def _handoff(args: Dict, envelope: Callable, me: str, sid: str, host_get: Option
     import dialog_handoff
     ref = str(args.get("to") or "").strip()
     to = _character(ref) if ref else None
+    text, unheld = args.get("text"), bool(not to and ref and characters.role_pack(ref).get("text"))
+    if unheld:   # DEFAULT_ROLE_v1: a role nobody holds is the default character's, like an unclaimed skill
+        to = characters.default_character()
+        if to == me:
+            return envelope(False, "dialog: nobody holds the %s role, and as the team's default its work is yours: do "
+                                   "it yourself, or tell the user the role needs someone to hold it" % ref, None)
+        text = "[Nobody holds the %s role; it came to you as the team's default] %s" % (ref, text or "")
     if not to:
         return envelope(False, "dialog: handoff needs `to`, the role or coworker who owns the work: %s" % _owners(), None)
-    role = ref if ref in characters.roles_of(to) else next(iter(characters.roles_of(to)), "")
+    role = ref if unheld or ref in characters.roles_of(to) else next(iter(characters.roles_of(to)), "")
     try:
-        h = dialog_handoff.create(me, sid, to, role, args.get("text"), args.get("done_when"))
+        h = dialog_handoff.create(me, sid, to, role, text, args.get("done_when"))
     except dialog_handoff.HandoffError as e:
         return envelope(False, "dialog: %s" % e, None)
     try:
