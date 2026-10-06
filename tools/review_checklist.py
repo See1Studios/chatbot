@@ -33,7 +33,10 @@ CODE_CHECKLIST = "\n".join([
     "signatures, return values, status codes, match order and error paths unchanged? Does every test that reads or patches "
     "the old place now follow the new one, rather than pass with nothing left to check? (#534: a count over the old file "
     "passed as 0 == 0)",
-    "8. Is the new behaviour itself exercised by a test, not only the old paths around it?",
+    "8. Is the new behaviour itself exercised by a test, not only the old paths around it? "
+    "Mandatory Test Pairing (CONVENTION §2.1): every behavior change must include paired tests in paths/diff.",
+    "9. Async timeout (CONVENTION §2.3): does every subprocess, network or async wait have an explicit timeout (max 30s)?",
+    "10. Banter limit (CONVENTION §2.4): are worker output and report messages concise, with at most 1-2 sentences of banter?",
 ])
 
 

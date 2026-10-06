@@ -22,7 +22,10 @@ class ReviewChecklist(unittest.TestCase):
     def test_each_kind_the_review_found_is_asked(self):
         for ticket in ("#516", "#506", "#522", "#515", "#518", "#505", "#534"):
             self.assertIn(ticket, R.CODE_CHECKLIST)
-        self.assertIn("test", R.CODE_CHECKLIST.splitlines()[-1])
+        self.assertIn("Mandatory Test Pairing", R.CODE_CHECKLIST)
+        self.assertIn("Async timeout", R.CODE_CHECKLIST)
+        self.assertIn("Banter limit", R.CODE_CHECKLIST)
+        self.assertIn("test", R.CODE_CHECKLIST)
 
     def test_the_runner_uses_it_for_code_and_the_doc_list_for_docs(self):
         src = (ROOT / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
