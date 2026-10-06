@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -47,7 +48,7 @@ console.log(JSON.stringify(out));
 class ComposerSend(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(ROOT / "static" / "app-turn.js"), str(ROOT / "static" / "app-attach.js")],
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(ROOT / "static" / "app-turn.js"), str(ROOT / "static" / "app-attach.js")],
                            capture_output=True, text=True, timeout=20)
         assert r.returncode == 0, r.stderr[-1500:]
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
@@ -89,7 +90,7 @@ class NoGuessBtw(unittest.TestCase):
         fn = src[src.index("function isInquiry"):src.index("\n}\n", src.index("function isInquiry")) + 3]
         js = fn + "console.log(JSON.stringify(%s.map(isInquiry)));" % json.dumps(
             ["/btw where is it", "/btw", "where is it?", "어디야?", "どこ？", "what is it", "진행상황 알려줘"])
-        r = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
         self.assertEqual(json.loads(r.stdout), [True, True, False, False, False, False, False])
 

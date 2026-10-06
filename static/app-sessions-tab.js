@@ -3,7 +3,7 @@
 // here may use the page's DOM, never a binding from a later file.
 async function fetchSessionsList(retryCount = 0) {
   if (!sessionsListEl) return;
-  sessionsListEl.innerHTML = '<div class="status-hint">불러오는 중…' + (retryCount > 0 ? ' (재시도 중)' : '') + '</div>';
+  sessionsListEl.innerHTML = '<div class="status-hint">' + escapeHtml(tr('common.loading') + (retryCount > 0 ? tr('sessions.retrying') : '')) + '</div>';
   try {
     const res = await api('/api/sessions');
     renderSessionsList(res.sessions || []);
@@ -14,8 +14,8 @@ async function fetchSessionsList(retryCount = 0) {
     }
     sessionsListEl.innerHTML =
       '<div class="status-hint">' +
-      '세션 목록 로드 실패: ' + escapeHtml(e.message) + ' ' +
-      '<button type="button" class="btn-xs" style="margin-left:6px;cursor:pointer;" onclick="fetchSessionsList(0)">다시 시도 ↻</button>' +
+      escapeHtml(tr('sessions.load_failed', { error: e.message })) + ' ' +
+      '<button type="button" class="btn-xs" style="margin-left:6px;cursor:pointer;" onclick="fetchSessionsList(0)">' + escapeHtml(tr('common.retry')) + ' ↻</button>' +
       '</div>';
   }
 }
@@ -37,7 +37,7 @@ function sessionCharacterLabel(s) {
   const c = characterCatalog.find(x => x.id === id);
   if (c && (c.name || c.title)) return c.name || c.title;
   if (s && s.character_name) return s.character_name;
-  return id ? id.slice(0, 10) : '기본'; // l10n-ok
+  return id ? id.slice(0, 10) : tr('team.chip_default');
 }
 
 function sessionRowWho(s) {
@@ -58,7 +58,7 @@ function sessionCharacterGroups(visible) {
   const order = characterCatalog.map(c => c.id).filter(id => seen.has(id));
   const rest = Array.from(seen.keys()).filter(id => order.indexOf(id) < 0)
     .sort((a, b) => seen.get(a).label.localeCompare(seen.get(b).label, 'ko'));
-  return [{ id: '', label: '전체', count: visible.length }] // l10n-ok
+  return [{ id: '', label: tr('common.all'), count: visible.length }]
     .concat(order.concat(rest).map(id => seen.get(id)));
 }
 
@@ -101,13 +101,13 @@ function renderSessionsList(sessions) {
   if (!sessionsListEl) return;
   sessionListCache = sessions || [];
   sessionsListEl.innerHTML = '';
-  // Hide empty throwaway sessions (e.g. repeated "새 세션" clicks nobody
+  // Hide empty throwaway sessions (e.g. repeated "new session" clicks nobody
   // typed into) -- they clutter the list with nothing useful to open --
   // but never hide the one currently open, even if it happens to be empty.
   const visible = sessionListCache.filter(s => s.preview || s.id === sessionId);
   if (!visible.length) {
     renderSessionCharTabs([]);
-    sessionsListEl.innerHTML = '<div class="status-hint">세션이 없습니다.</div>';
+    sessionsListEl.innerHTML = '<div class="status-hint">' + escapeHtml(tr('sessions.none')) + '</div>';
     return;
   }
   const groups = sessionCharacterGroups(visible);
@@ -118,7 +118,7 @@ function renderSessionsList(sessions) {
     ? visible.filter(s => ((s && s.character) || '') === sessionCharFilter)
     : visible;
   if (!shown.length) {
-    sessionsListEl.innerHTML = '<div class="status-hint">이 캐릭터의 세션이 없습니다.</div>'; // l10n-ok
+    sessionsListEl.innerHTML = '<div class="status-hint">' + escapeHtml(tr('sessions.none_for_character')) + '</div>';
     return;
   }
   shown.forEach(s => {
@@ -129,14 +129,14 @@ function renderSessionsList(sessions) {
     try { when = new Date(_scrollbackEpochMs(s.updated_at)).toLocaleString('ko-KR'); } catch (_) {}
     item.innerHTML =
       '<div class="status-item-head">' +
-      '<span class="session-row-id">' + (s.mode === 'private' ? '🔒 ' : '') + escapeHtml(sessionRowWho(s)) + escapeHtml(s.id) + (isCurrent ? ' (현재)' : '') + '</span>' +
-      '<span class="status-item-meta">' + (s.turns || 0) + '턴 · ' + escapeHtml(s.model || '') + ' · ' + escapeHtml(when) + '</span>' +
+      '<span class="session-row-id">' + (s.mode === 'private' ? '🔒 ' : '') + escapeHtml(sessionRowWho(s)) + escapeHtml(s.id) + (isCurrent ? escapeHtml(tr('sessions.current')) : '') + '</span>' +
+      '<span class="status-item-meta">' + escapeHtml(tr('sessions.turns', { n: s.turns || 0 })) + ' · ' + escapeHtml(s.model || '') + ' · ' + escapeHtml(when) + '</span>' +
       '<div class="status-item-actions">' +
-      '<button class="session-import-btn" data-import-sid="' + escapeHtml(s.id) + '" type="button">' + getActionSvg('pin') + ' 가져오기</button>' +
-      '<button class="session-import-btn session-delete-btn" data-delete-sid="' + escapeHtml(s.id) + '" type="button">' + getActionSvg('trash', 'text-danger') + ' 삭제</button>' +
+      '<button class="session-import-btn" data-import-sid="' + escapeHtml(s.id) + '" type="button">' + getActionSvg('pin') + ' ' + escapeHtml(tr('session.import')) + '</button>' +
+      '<button class="session-import-btn session-delete-btn" data-delete-sid="' + escapeHtml(s.id) + '" type="button">' + getActionSvg('trash', 'text-danger') + ' ' + escapeHtml(tr('common.delete')) + '</button>' +
       '</div>' +
       '</div>' +
-      '<div class="session-row-preview">' + escapeHtml(s.preview || '(내용 없음)') + '</div>';
+      '<div class="session-row-preview">' + escapeHtml(s.preview || tr('sessions.no_preview')) + '</div>';
     item.addEventListener('click', (ev) => {
       if (ev.target.closest('[data-import-sid], [data-delete-sid]')) return;
       if (s.id !== sessionId) openSession(s.id, 0, null, true);
@@ -160,10 +160,10 @@ function renderSessionsList(sessions) {
 
 async function deleteSession(sid) {
   if (!sid) return;
-  if (!(await confirmModal('세션 ' + sid + '을(를) 완전히 삭제할까요? 대화 기록과 생성된 이미지가 전부 사라지며 되돌릴 수 없습니다.', { confirmLabel: '삭제' }))) return;
+  if (!(await confirmModal(tr('sessions.delete_confirm', { sid }), { confirmLabel: tr('common.delete') }))) return;
   try {
     const res = await api('/api/sessions/' + encodeURIComponent(sid), { method: 'DELETE' });
-    if (!res || res.ok === false) throw new Error((res && res.error) || '삭제 실패');
+    if (!res || res.ok === false) throw new Error((res && res.error) || tr('sessions.delete_failed_plain'));
     if (sid === sessionId) {
       // The session we're currently looking at just got deleted -- fall
       // back exactly the way a fresh page load would (ensureSession's own
@@ -174,7 +174,7 @@ async function deleteSession(sid) {
     }
     fetchSessionsList();
   } catch (e) {
-    await alertModal('세션 삭제 실패: ' + (e.message || e));
+    await alertModal(tr('sessions.delete_failed', { error: e.message || e }));
   }
 }
 
@@ -185,11 +185,11 @@ async function deleteSession(sid) {
 async function importSessionContext(sid) {
   if (!sid) return;
   const prevPlaceholder = inputEl ? inputEl.placeholder : '';
-  if (inputEl) inputEl.placeholder = '세션 ' + sid + ' 요약 가져오는 중…';
+  if (inputEl) inputEl.placeholder = tr('sessions.importing', { sid });
   try {
     const res = await api('/api/sessions/' + encodeURIComponent(sid) + '/summary');
-    const summary = (res && res.summary) || '(요약할 내용이 없습니다)';
-    const note = '[이전 세션 ' + sid + ' 내용 참고]\n' + summary + '\n\n';
+    const summary = (res && res.summary) || tr('sessions.nothing_to_summarize');
+    const note = tr('sessions.import_note', { sid }) + '\n' + summary + '\n\n';
     switchTab('chat');   // first: the input bar exists only on the chat tab (TAB_CHROME_v1), and a hidden box takes no focus
     if (inputEl) {
       inputEl.value = note + (inputEl.value || '');
@@ -199,7 +199,7 @@ async function importSessionContext(sid) {
       updateSendButton();
     }
   } catch (e) {
-    await alertModal('세션 요약 가져오기 실패: ' + (e.message || e));
+    await alertModal(tr('sessions.import_failed', { error: e.message || e }));
   } finally {
     if (inputEl) inputEl.placeholder = prevPlaceholder;
   }

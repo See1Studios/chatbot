@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests.page_source import i18n_prelude  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
@@ -64,7 +65,7 @@ console.log(JSON.stringify(out));
 class RetrySend(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", HARNESS, str(STATIC / "app-retry.js"), str(STATIC / "app-turn.js"),
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(STATIC / "app-retry.js"), str(STATIC / "app-turn.js"),
                             str(STATIC / "model-picker.js")], capture_output=True, text=True, timeout=20)
         assert r.returncode == 0, r.stderr[-1500:]
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])

@@ -42,10 +42,10 @@ async function maybeRedirectHardSession(id, info, depth) {
   const redir = (info && (info.redirect_session_id || info.successor_session_id)) || '';
   if (redir && redir !== id) {
     rememberSession(redir);
-    addActivity('hard 세션 → successor로 이동: ' + redir);
+    addActivity(tr('api.hard_redirect', { sid: redir }));
     await openSession(redir, depth + 1, {
       level: 'hard',
-      message_ko: '열려던 대화가 너무 길어져서 자동으로 이어진 세션이에요 — 예전 대화 내용은 그대로 보존됩니다.',
+      message_ko: tr('api.hard_continued'),
     });
     return redir;
   }
@@ -54,8 +54,8 @@ async function maybeRedirectHardSession(id, info, depth) {
     // successor -- a plain createSession() here (old behavior) never links
     // back to `id`, so each window that loaded this hard session before any
     // of them finished would mint its own disconnected new chat (operator:
-    // "창을 여러 개 열었더니 각자 다른 새 세션이 시작되고 예전 세션 내용이
-    // 안 나옴"). sticky:true asks the server to reuse an already-usable
+    // "with several windows open each started its own new session and the old talk
+    // did not show"). sticky:true asks the server to reuse an already-usable
     // successor instead of forking again -- safe even if two windows race,
     // since the server resolves it under that session's own lock.
     try {
@@ -67,15 +67,15 @@ async function maybeRedirectHardSession(id, info, depth) {
       if (res && res.ok && res.session && res.session.id) {
         const nid = res.session.id;
         rememberSession(nid);
-        addActivity('hard 세션 → 자동 이어하기 successor로 이동: ' + nid + (res.reused ? ' (기존 재사용)' : ' (신규)'));
+        addActivity(tr('api.hard_continue', { sid: nid }) + (res.reused ? tr('api.reused') : tr('api.fresh')));
         await openSession(nid, depth + 1, {
           level: 'hard',
-          message_ko: '열려던 대화가 너무 길어져서 자동으로 이어진 세션이에요 — 예전 대화 내용은 그대로 보존됩니다.',
+          message_ko: tr('api.hard_continued'),
         });
         return nid;
       }
     } catch (e) {
-      addActivity('자동 이어하기 실패, 새 세션으로 대체: ' + (e.message || e));
+      addActivity(tr('api.continue_failed', { error: e.message || e }));
     }
     await createSession();
     return 'new';
@@ -217,8 +217,8 @@ function restoreReloadDraft() {
 }
 
 async function defibrillateHost() {
-  if (!(await confirmModal('엔진을 리부트(재기동)할까요?\n호스트가 재기동되며 몇 초 연결이 끊깁니다.', { confirmLabel: '리부트', danger: false }))) return;
-  setProgress('엔진 리부트 중…', true);
+  if (!(await confirmModal(tr('api.defib_confirm'), { confirmLabel: tr('api.defib_button'), danger: false }))) return;
+  setProgress(tr('api.defib_running'), true);
   const btn = document.getElementById('defibBtn');
   if (btn) btn.disabled = true;
   const hud = showRebootOverlay();
@@ -236,7 +236,7 @@ async function defibrillateHost() {
     } catch (_) {
       /* server may die mid-response — expected */
     }
-    addActivity('엔진 리부트 예약 — 호스트 재기동 대기', 'system');
+    addActivity(tr('api.defib_scheduled'), 'system');
     hud.log('[DAEMON] Waiting for host socket (:3011)…', 'cyan');
     hud.log('[SOCKET] Handshake pinging • • •', 'cyan');
     const ok = await waitHostBack(90000, beforeBootTs);
@@ -245,8 +245,8 @@ async function defibrillateHost() {
       hud.log('Reload the page by hand once the host is up.');
       hud.fail();
       done = true;
-      setProgress('엔진 리부트 시간 초과 · 수동 새로고침 해보세요', true);
-      addActivity('엔진 리부트 실패/시간초과');
+      setProgress(tr('api.defib_timeout'), true);
+      addActivity(tr('api.defib_failed'));
       return;
     }
     try {
@@ -256,13 +256,13 @@ async function defibrillateHost() {
         return;
       }
     } catch (_) {}
-    setProgress('엔진 리부트 완료 · 세션 재연결…', true);
+    setProgress(tr('api.defib_reconnecting'), true);
     await ensureSession();
     hud.log('[ONLINE] Core restored · Session linked ✦', 'ok');
     done = true;
     setTimeout(hud.close, 1200);
-    setProgress('엔진 리부트 완료', true);
-    addActivity('엔진 리부트 완료', 'ok');
+    setProgress(tr('api.defib_done'), true);
+    addActivity(tr('api.defib_done'), 'ok');
   } finally {
     if (!done) hud.close();
     if (btn) btn.disabled = false;

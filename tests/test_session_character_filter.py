@@ -16,6 +16,7 @@ import subprocess
 import unittest
 from pathlib import Path
 from tests.page_source import app_bundle  # noqa: E402
+from tests.page_source import i18n_prelude  # noqa: E402
 
 CODE = Path(__file__).resolve().parent.parent
 APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1), in index.html order
@@ -144,7 +145,7 @@ def run(case):
     node = shutil.which("node")
     if not node:
         raise unittest.SkipTest("node not installed")
-    proc = subprocess.run([node, "-e", HARNESS, str(APP), case], capture_output=True, text=True, timeout=20)
+    proc = subprocess.run([node, "-e", i18n_prelude() + HARNESS, str(APP), case], capture_output=True, text=True, timeout=20)
     if proc.returncode != 0:
         raise AssertionError("node failed for %s: %s" % (case, proc.stderr.strip()[:600]))
     return json.loads(proc.stdout.strip().splitlines()[-1])

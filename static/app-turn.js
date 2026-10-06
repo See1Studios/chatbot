@@ -5,7 +5,7 @@
 // still uploading (app-attach.js) -- so a dimmed button already says "not yet". The plain send is an Enter glyph;
 // the two busy-time actions keep their words, because they do something other than send.
 const SEND_ICON = '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
-const SEND_TEXT = { send: '보내기', sendKey: '보내기 (Enter)', btw: '샛길 질문', steer: '끼워 넣기', retry: '다시 보내기 (Enter)' };   // l10n-ok
+const SEND_TEXT = i18nTable('send');
 // RETRY_LAST_v1: an empty box with a failed message waiting (app-retry.js) sends that message again.
 const RETRY_ICON = '<svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><polyline points="20 4 20 9 15 9"/></svg>';
 
@@ -81,23 +81,23 @@ function updateProcBadge(state, detail) {
   // Status chrome stays persona-neutral. A character's speech style (e.g. a verbal tic) is its voice,
   // not a shell label — persona can change.
   if (state === 'running') {
-    textEl.textContent = '작업 중';
+    textEl.textContent = tr('turn.working');
     const sec = turnStartedAt ? Math.max(0, Math.floor((Date.now() - turnStartedAt) / 1000)) : 0;
-    badge.title = `${sec}초째 작업 중` + (detail ? ` · ${detail}` : '');
+    badge.title = tr('turn.working_for', { s: sec }) + (detail ? ' · ' + detail : '');
   } else if (state === 'dead') {
-    textEl.textContent = '프로세스 중단';
+    textEl.textContent = tr('turn.dead');
     badge.title = textEl.textContent;
   } else if (state === 'disconnected') {
-    textEl.textContent = '다시 연결하는 중…';
+    textEl.textContent = tr('turn.reconnecting');
     badge.title = textEl.textContent;
   } else if (activeWorkRun) {   // the chat waits while an expert works (DELEGATION_CLARITY_v1)
     const r = activeWorkRun;
     badge.className = 'proc-badge running delegated';
-    textEl.textContent = workRunWho(r) + ' 작업 중' + (r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : '');
+    textEl.textContent = tr('turn.who_working', { who: workRunWho(r) }) + (r.started ? ' · ' + workElapsed(Date.now() / 1000 - r.started) : '');
     badge.title = '#' + r.ticket + ' ' + (r.title || '') + ' · ' + (WORK_PHASE_LABEL[r.phase] || r.phase);
   } else {
-    textEl.textContent = '대기 중';
-    badge.title = '에이전트 프로세스 실시간 상태';
+    textEl.textContent = tr('session.idle');
+    badge.title = tr('session.proc_badge');
   }
 }
 
@@ -137,8 +137,8 @@ function startTurnTimer() {
           busyHeartbeatTimer = null;
           setBusy(false);
           updateProcBadge('dead');
-          setProgress('백엔드 프로세스가 중단되었습니다.', true);
-          addActivity('오류: 백엔드 프로세스가 예기치 않게 종료되었습니다.', 'error');
+          setProgress(tr('turn.backend_stopped'), true);
+          addActivity(tr('turn.backend_died'), 'error');
         } else if (data.busy === false && isBusy) {
           // Backend finished the turn, but client missed the SSE 'result' event (e.g. background sleep)
           console.info('[Heartbeat] Backend turn completed; resyncing state...');
@@ -229,9 +229,7 @@ function updateTurnLive() {
   const textEl = live && live.querySelector('.turn-live-text');
   if (textEl) {
     const sec = turnStartedAt ? Math.max(0, Math.floor((Date.now() - turnStartedAt) / 1000)) : 0;
-    let label = sec + '초째';
-    if (lastProgressDetail) label += ' · ' + lastProgressDetail;
-    else label += ' 작업 중';
+    const label = lastProgressDetail ? tr('turn.seconds', { s: sec }) + ' · ' + lastProgressDetail : tr('turn.working_for', { s: sec });
     textEl.textContent = label;
     live.title = label;
   }
@@ -244,8 +242,8 @@ function clearTurnLive(node) {
   if (stopBtn && node.contains(stopBtn)) parkStopBtn();
 }
 
-// The composer placeholder says what to do, and the model in use sits in its corner tag (operator: 모델 select를
-// 짧은 버튼으로 줄이는 대신 현재 모델은 입력창에 명확히). Both live in model-picker.js.
+// The composer placeholder says what to do, and the model in use sits in its corner tag (operator: rather than shrink the model
+// select to a short button, show the current model clearly in the input box). Both live in model-picker.js.
 function refreshComposerPlaceholder(busySec) {
   if (!inputEl || typeof composerPlaceholder !== 'function') return;
   let sec = null;
@@ -279,7 +277,9 @@ function setBusy(b) {
 
 function setProgress(msg, asHost) {
   const label = msg ? String(msg) : "";
-  lastProgressDetail = label.replace(/^작업 중 · /, '').replace(/^처리 중…/, '');
+  // the detail behind the catalog's own "working · " prefix, or none for the bare "working…" line (I18N_v1)
+  const workingPrefix = tr('chat.working', { text: '' });
+  lastProgressDetail = label.startsWith(workingPrefix) ? label.slice(workingPrefix.length) : (label === tr('chat.processing') ? '' : label);
   if (isBusy) {
     updateProcBadge('running', lastProgressDetail);
   }
