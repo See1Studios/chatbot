@@ -2,7 +2,7 @@
 // starts once i18nReady settles. Code asks tr(key, vars) with a dotted key -- `tr`, never `t`: the page names a
 // hundred locals `t`, and one would hide the function (test_l10n_catalogs forbids a local `tr`). A table of names by
 // id is i18nTable(prefix): TABLE[id] is the word, or undefined for an id the catalog lacks (so `TABLE[id] || id`).
-// Static markup carries data-i18n (text), data-i18n-title and data-i18n-aria-label. A key missing in the language
+// Static markup carries data-i18n (text), data-i18n-title, -aria-label, -placeholder and -alt. A key missing in the language
 // falls back to English, then to the key. Catalogs: static/i18n/<lang>.json, flat keys, the same set in every language.
 const I18N_LANGS = ['ko', 'en'];   // D1: first languages
 const I18N_FALLBACK = 'en';
@@ -49,6 +49,8 @@ function applyI18n(root) {
   root.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
   root.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = tr(el.dataset.i18nTitle); });
   root.querySelectorAll('[data-i18n-aria-label]').forEach(el => { el.setAttribute('aria-label', tr(el.dataset.i18nAriaLabel)); });
+  root.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = tr(el.dataset.i18nPlaceholder); });
+  root.querySelectorAll('[data-i18n-alt]').forEach(el => { el.alt = tr(el.dataset.i18nAlt); });
 }
 
 const i18nReady = (async () => {

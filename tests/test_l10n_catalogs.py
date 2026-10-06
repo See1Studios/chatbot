@@ -29,7 +29,7 @@ class Catalogs(unittest.TestCase):
         for js in STATIC.glob("*.js"):
             used |= set(re.findall(r"\btr\(\s*'([a-z0-9_.]+)'\s*[,)]", js.read_text(encoding="utf-8")))
         html = (STATIC / "index.html").read_text(encoding="utf-8")
-        used |= set(re.findall(r'data-i18n(?:-title|-aria-label)?="([^"]+)"', html))
+        used |= set(re.findall(r'data-i18n(?:-title|-aria-label|-placeholder|-alt)?="([^"]+)"', html))
         self.assertTrue(used)
         self.assertEqual(sorted(used - set(CATALOGS["en"])), [])
 

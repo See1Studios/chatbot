@@ -13,6 +13,10 @@
 - Governance also lists `docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md`, `templates/dev-workspace/roles/`.
 - Ticket: #736. Plan: prop/B.
 
+## 2026-10-06 — 화면 글자 이관 3: index.html 110줄 → 0 (l10n/E, #733)
+
+- **바뀐 것**: 고정 화면의 글자·제목·라벨·자리표시자를 `data-i18n*` 키로(`-placeholder`, `-alt` 추가). 재시작 불필요, 새로고침.
+
 ## 2026-10-06 — Refine root AGENTS.md as development rule registry (propagation, #735)
 
 - **What**: Root `AGENTS.md` stays the engine-dev entry / SSOT map / rule registry (not the runtime charter). Added Korean-to-developer / English-docs standing rule; mapped CONVENTION items into the registry with honest enforcers (`test_conventions` where it checks, manual for pairing and banter); SSOT rows for `docs/CONVENTION.md` and `docs/STATE.md`; start-order on-demand step; clarified entry pointers (`CLAUDE.md` / `GEMINI.md` only) and `data/workspace` template-twin wording.

@@ -75,7 +75,7 @@ class ComposerSend(unittest.TestCase):
 
     def test_the_markup_starts_as_a_dimmed_glyph(self):
         html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
-        self.assertIn('<button id="send" class="primary" aria-label="보내기" title="보내기 (Enter)" disabled data-face="icon">', html)
+        self.assertIn('<button id="send" class="primary" data-i18n-aria-label="composer.send" data-i18n-title="composer.send_key" disabled data-face="icon">', html)
 
 
 if __name__ == "__main__":
