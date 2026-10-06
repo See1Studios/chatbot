@@ -65,7 +65,7 @@
 | [token-economy.md](token-economy.md) | `active` · 방향 **기반** — 턴당 입력 실측(agy 업무 중앙값 171k, 최대 231만; 읽기의 99.6%가 파일 통째 읽기)과 대책: 턴 예산(엔진 강제), 노노는 lead만, 읽기 습관·큰 파일 쪼개기·고정 비용 측정 | 도구 호출 한도·턴 비용·세션 회전 빈도·파일 읽기 방식을 건드릴 때 |
 | [voice-and-audio-interaction.md](voice-and-audio-interaction.md) | `active` · 방향 **핵심 + 기반** — 브라우저 네이티브 Web Speech API 기반 음성 입력(STT) 및 현지어 발음/오디오 재생(TTS) 연동 | 음성 입력·마이크 버튼·발음 칩·오디오 재생을 다룰 때 |
 | [director-handoff.md](director-handoff.md) | `active` · 방향 **핵심 + 개발 기반** — 캐릭터 디렉터 분업(넘기기·프로바이더 서브에이전트). 먼저 새는 가드(경고만·표시만)를 집행으로, 방해되는 절차(리뷰 라운드·두뇌 없음 재시도·연속 티켓)를 걷어낸 뒤 연결. 구조 비판 S1–S7, D-1–D-12 결정(D-10 폐기), 0단계 완료(#632 #633), 1·2단계 완료(#634~#636), D-1 번복(역할 단속 끄고 스킬로, #651), 넘기기 장부(#654) | 역할 권한·작업 트리 감시·서브에이전트·캐릭터 간 일 넘기기·위임 리뷰 절차를 건드릴 때 |
-| [layered-context-architecture.md](layered-context-architecture.md) | `active` · 방향 **핵심 + 기반** — 지침·메모리·스킬 4×3 직교 매트릭스 규격화, 상황별(work/private/handoff/scene) 동적 재할당 하네스 및 Anti-Slop 3계층 통합 | 지침·메모리·스킬 주입 계층, 프롬프트 번들, 모드/캐릭터 전환 컨텍스트를 건드릴 때 |
+| [layered-context-architecture.md](layered-context-architecture.md) | `active` · 방향 **핵심 + 기반** — 이미 있는 지침·기억·스킬 층을 한 목록으로, 세션 중 바뀐 기억이 닿게(지금은 첫 턴에 굳음), CLI에서 안 걸리는 로어북 살리기, 주입 기록·상태 탭·경보 (2026-10-06 다시 씀, 결정 대기) | 지침·기억·스킬 주입, 프롬프트 번들, 업무/사적 전환 컨텍스트를 건드릴 때 |
 
 
 ## Archived (한 줄 · 펼치지 말 것)
