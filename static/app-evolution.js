@@ -389,6 +389,8 @@ function parseTicketCommand(text) {
   const t = String(text || '').trim();
   const rw = /^\/ticket\s+rework\s+#?(\d{1,6})\s+([\s\S]+)$/.exec(t);   // [반려]: the comment follows the number
   if (rw) return { action: 'rework', id: Number(rw[1]), comment: rw[2].trim() };
+  const bare = /^\/ticket\s+rework\s+#?(\d{1,6})$/.exec(t);   // no reason yet: stays in the page, never reaches the agent (#715)
+  if (bare) return { action: 'rework', id: Number(bare[1]), comment: '' };
   const m = /^\/ticket\s+(go|approve|decline|reopen|delegate|merge|discard|disown|unqueue|allow)\s+#?(\d{1,6})$/.exec(t);
   return m ? { action: m[1], id: Number(m[2]) } : null;
 }
@@ -475,6 +477,13 @@ async function fillTicketCommand(t, action) {
 // The operator's decision on a ticket, made in the page and never sent to the agent -- except [진행], which then
 // hands the agent its instruction as an ordinary message. Resolves true when it sent that message.
 async function runTicketDecision(cmd, opts) {
+  if (cmd.action === 'rework' && !cmd.comment) {   // a rework needs the reason the worker gets: ask, keep the command
+    addNotice('warn', '반려 이유를 번호 뒤에 적어 주세요 (예: /ticket rework ' + cmd.id + ' 테스트를 더 넣어 줘)');   // l10n-ok
+    inputEl.value = '/ticket rework ' + cmd.id + ' ';
+    if (typeof updateSendButton === 'function') updateSendButton();
+    inputEl.focus();
+    return false;
+  }
   try {
     if (cmd.action === 'go') {
       const go = await goTicket(cmd);
