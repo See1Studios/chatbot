@@ -20,7 +20,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -252,6 +251,45 @@ def usage(sid: str, since: float) -> Dict[str, int]:
     return tot
 
 
+def answers(sid: str, since: float) -> List[dict]:
+    """The session's recorded answers since `since` (history entries: when, not what they say)."""
+    return [h for h in session(sid).get("history") or [] if h.get("role") == "assistant"
+            and float(h.get("ts") or 0) >= since]
+
+
+def turns(sid: str, since: float) -> List[dict]:
+    """The session's turn.start / turn.end events since `since`, in order."""
+    return [e for e in events(since) if e.get("sid") == sid and e.get("evt") in ("turn.start", "turn.end")]
+
+
+def from_its_turn(done: dict, sid: str) -> bool:
+    """The handoff closed on its own turn: after it started, the receiver began a host turn (turn.start notice) and
+    that turn ended with a result (turn.end outcome "result") before the handoff closed. Event order only -- what the
+    model said is never read. A promise cut by a restart has no such end; the user's turn is not a notice turn."""
+    started, closed = float(done.get("started") or 0), float(done.get("state_at") or time.time())
+    ev = [e for e in turns(sid, started) if _epoch(e.get("ts", "")) <= closed + 2]
+    first = next((i for i, e in enumerate(ev) if e["evt"] == "turn.start" and e.get("notice")), None)
+    return started > 0 and first is not None and any(e["evt"] == "turn.end" and e.get("outcome") == "result"
+                                                     for e in ev[first:])
+
+
+def layer_hashes(character: str, mode: str = "work", talk: str = "") -> Dict[str, str]:
+    """Each layer's hash as the sandbox builds it now, and the hash of the lore `talk` matches: what an injection
+    record must carry (instructions.build_instruction_bundle, session_turn._context_lore). Run in the sandbox's env so
+    instructions reads the sandbox workspace, not the live one."""
+    code = ("import hashlib, json, sys\n"
+            "import instructions as I\n"
+            "c, m, talk = sys.argv[1:4]\n"
+            "h = lambda t: hashlib.sha256(t.encode('utf-8')).hexdigest()[:8] if t else ''\n"
+            "out = {layer.id: h(t) for layer, t in I.layer_texts(m, c)}\n"
+            "out['lore_match'] = h(I.lore_matches(c, talk))\n"
+            "print(json.dumps(out))")
+    p = subprocess.run([sys.executable, "-c", code, character, mode, talk], cwd=str(CODE), env=_env(),
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=60,
+                       check=False)
+    return json.loads(p.stdout or "{}")
+
+
 def ledger_states(hid: int) -> List[str]:
     out = []
     for line in Path(os.environ["CHATBOT_HANDOFFS_FILE"]).read_text(encoding="utf-8").splitlines():
@@ -319,7 +357,7 @@ def sc_subagents(run: Run, t: Cast, lead: str) -> None:
                     "in services/chatbot/dialog_handoff.py. Merge into five lines each.",
                     "both summaries, five lines each")
     run.check(done.get("state") == "done", "the handoff is done")
-    run.check(len(str(done.get("result") or "")) > 200, "it carries a result")
+    run.check(from_its_turn(done, dev_sid), "it carries its own turn's answer")
     run.facts["tokens"] = usage(dev_sid, run.t0)
     _silence(run, run.t0)
     wait_idle(lead)
@@ -328,42 +366,56 @@ def sc_subagents(run: Run, t: Cast, lead: str) -> None:
 
 
 def sc_chain(run: Run, t: Cast, lead: str) -> None:
-    """A handoff that hands part on: the first waits for its child and finishes after it (HANDOFF_CHAIN_v1)."""
-    session_for(t.worker), session_for(t.third)
-    done = _handoff(run, lead, t.sender, t.worker, "dev",
-                    "Two parts. Part 1 is not yours: hand it to the %s role -- one line describing a mood image for "
-                    "a rainy office, no image made. Part 2 is yours: once that line is back, say in one line which "
-                    "file in services/chatbot defines the handoff prompt." % t.role(t.third),
-                    "the mood line and the file name")
-    kids = [c for c in H.all_handoffs().values() if c.get("parent") == done.get("id")]
-    run.facts["children"] = ["#%d %s" % (c["id"], c.get("state")) for c in kids]
-    run.check(bool(kids), "it handed a part on (a child handoff)")
-    run.check(all(c.get("state") == "done" for c in kids), "the child is done")
-    states = ledger_states(done["id"])
+    """A handoff that hands part on: the first waits for its child and finishes after it (HANDOFF_CHAIN_v1). The drill
+    hands the part on itself, from the receiver's session while its handoff runs -- the engine's chaining is under
+    test, not whether a model chose to hand off."""
+    dev_sid = session_for(t.worker)
+    session_for(t.third)
+    h = H.create(t.sender, lead, t.worker, "dev",
+                 "Research only. Use one subagent to list the functions in services/chatbot/dialog_handoff.py with one "
+                 "line each.", "the list")
+    run.facts["id"] = h["id"]
+    end = time.time() + 120
+    while time.time() < end and H.all_handoffs()[h["id"]].get("state") != "running":
+        time.sleep(0.5)
+    kid = H.create(t.worker, dev_sid, t.third, t.role(t.third), "Research only: name one file in services/chatbot.")
+    run.check(kid.get("parent") == h["id"] and kid.get("hops") == 2, "the engine ties the part to the running handoff")
+    done = wait_closed(h["id"])
+    child = wait_closed(kid["id"], 60)
+    states = ledger_states(h["id"])
+    run.facts["states"] = "→".join(states)
+    run.facts["child"] = "#%d %s" % (kid["id"], child.get("state"))
+    run.check(child.get("state") == "done", "the child is done")
     run.check("waiting" in states or "resume" in states, "the first one waited for its child")
-    run.check(done.get("state") == "done" and states[-1] == "done", "the first one finished after the child")
+    run.check(done.get("state") == "done" and states[-1] == "done"
+              and float(done.get("state_at") or 0) >= float(child.get("state_at") or 0),
+              "the first one finished after the child")
     _silence(run, run.t0)
 
 
 def sc_busy(run: Run, t: Cast, lead: str) -> None:
     """A handoff arriving while its receiver is in the user's turn starts after it, and answers its own task."""
     dev_sid = session_for(t.worker)
+    asked = time.time()
     api("POST", "/api/sessions/%s/message" % dev_sid, {"text": "In one line: what is 17 * 23? No tools."})
     time.sleep(1)
     busy_at = time.time()
     done = _handoff(run, lead, t.sender, t.worker, "dev",
                     "Research only. In one line: which function in services/chatbot/dialog_handoff.py starts a "
-                    "waiting handoff's turn? Name it as DRILL-ANSWER: <name>.", "the function name")
-    hist = [h for h in session(dev_sid).get("history") or [] if h.get("role") == "assistant"]
-    user_end = min((float(h["ts"]) for h in hist if float(h.get("ts") or 0) >= busy_at - 1), default=0)
+                    "waiting handoff's turn?", "the function name")
+    user_end = min((float(h["ts"]) for h in answers(dev_sid, busy_at - 1)), default=0)
     run.facts["user_turn_end"] = round(user_end - busy_at, 1)
     run.check(float(done.get("started", 0)) >= user_end > 0, "the handoff started after the user's turn ended")
-    run.check("DRILL-ANSWER" in str(done.get("result") or ""), "its result answers the handoff, not the user")
+    order = [(e["evt"], e.get("notice")) for e in turns(dev_sid, asked - 1)][:4]
+    run.facts["turns"] = order
+    run.check(order == [("turn.start", False), ("turn.end", None), ("turn.start", True), ("turn.end", None)],
+              "the receiver ran the user's turn, then the handoff's")
+    run.check(from_its_turn(done, dev_sid), "its result is the handoff turn's answer, not the user's")
 
 
 def sc_restart(run: Run, t: Cast, lead: str) -> None:
     """The host restarts mid-handoff: it ends (done or failed with a reason), never stays open."""
-    session_for(t.worker)
+    dev_sid = session_for(t.worker)
     h = H.create(t.sender, lead, t.worker, t.role(t.worker),
                  "Research only. Use one subagent to list the functions in services/chatbot/session_turn.py with one "
                  "line each.", "the list")
@@ -372,6 +424,7 @@ def sc_restart(run: Run, t: Cast, lead: str) -> None:
     while time.time() < end and H.all_handoffs()[h["id"]].get("state") != "running":
         time.sleep(3)
     time.sleep(20)
+    restart_at = time.time()
     stop()
     start()
     done = wait_closed(h["id"], 600)
@@ -379,8 +432,9 @@ def sc_restart(run: Run, t: Cast, lead: str) -> None:
     run.facts["reason"] = str(done.get("reason") or "")[:120]
     run.check(done.get("state") in ("done", "failed"), "it closed after the restart")
     run.check(done.get("state") == "done" or bool(done.get("reason")), "a failure says why")
-    named = set(re.findall(r"`(_?[a-z]\w*)\(", str(done.get("result") or "")))   # function names, whatever their order
-    run.check(done.get("state") != "done" or len(named) >= 3, "a done one carries the list, not a promise")
+    run.facts["resent"] = float(done.get("started") or 0) >= restart_at
+    run.check(done.get("state") != "done" or from_its_turn(done, dev_sid),
+              "a done one carries a finished turn's answer, not a promise cut by the restart")
 
 
 def sc_cancel(run: Run, t: Cast, lead: str) -> None:
@@ -405,6 +459,7 @@ def sc_cancel(run: Run, t: Cast, lead: str) -> None:
     run.check(not session(dev_sid).get("busy"), "its turn stopped")
     time.sleep(40)
     run.check(ledger_states(h["id"])[-1] == "cancelled", "it does not come back done afterwards")
+    asked = time.time()
     api("POST", "/api/sessions/%s/message" % dev_sid, {"text": "In one line: what is 19 * 21? No tools."})
     time.sleep(1)
     w = H.create(t.sender, lead, t.worker, t.role(t.worker), "Research only: name one file in services/chatbot.")
@@ -413,8 +468,11 @@ def sc_cancel(run: Run, t: Cast, lead: str) -> None:
     run.facts["waiting_id"] = w["id"]
     run.check("running" not in ledger_states(w["id"]) and H.all_handoffs()[w["id"]].get("state") == "cancelled",
               "a waiting one never starts")
-    hist = [x for x in session(dev_sid).get("history") or [] if x.get("role") == "assistant"]
-    run.check(bool(hist) and "399" in str(hist[-1].get("text") or ""), "the receiver's own turn went on")
+    after = turns(dev_sid, asked)
+    run.facts["turns_after"] = [(e["evt"], e.get("notice"), e.get("outcome")) for e in after]
+    run.check([e.get("notice") for e in after if e["evt"] == "turn.start"] == [False]
+              and any(e["evt"] == "turn.end" and e.get("outcome") == "result" for e in after)
+              and bool(answers(dev_sid, asked)), "the receiver's own turn went on and ended with its answer")
     _silence(run, run.t0)
 
 
@@ -469,22 +527,26 @@ def sc_budget(run: Run, t: Cast, lead: str) -> None:
         _silence(run, run.t0)
         time.sleep(25)   # the reactor's next pass starts the lead's report turn
         wait_idle(lead, 180)
-        said = [x for x in session(lead).get("history") or [] if x.get("role") == "assistant"
-                and float(x.get("ts") or 0) >= run.t0]
-        run.facts["lead_says"] = str(said[-1].get("text") if said else "")[:160].replace("\n", " ")
+        said = answers(lead, run.t0)
+        run.facts["lead_answers"] = len(said)
         run.check(bool(said), "the lead told the user")
     finally:
         _restore()
 
 
-def _say(sid: str, text: str) -> str:
-    """Send one message and return the answer it got."""
-    n = len([h for h in session(sid).get("history") or [] if h.get("role") == "assistant"])
+def _say(sid: str, text: str) -> None:
+    """Send one message and wait for its turn to end."""
     api("POST", "/api/sessions/%s/message" % sid, {"text": text})
     time.sleep(2)
     wait_idle(sid, 240)
-    said = [h for h in session(sid).get("history") or [] if h.get("role") == "assistant"]
-    return str(said[-1].get("text") or "") if len(said) > n else ""
+
+
+def _carried(sid: str, inject: dict) -> bool:
+    """The injection went into a turn of `sid` that started and ended with a result: its request id is a turn.start's,
+    and a turn.end (outcome "result") follows."""
+    ev = turns(sid, _epoch(inject.get("ts", "")) - 1)
+    starts = [i for i, e in enumerate(ev) if e["evt"] == "turn.start" and e.get("rid") == inject.get("rid")]
+    return bool(starts) and any(e["evt"] == "turn.end" and e.get("outcome") == "result" for e in ev[starts[0]:])
 
 
 def _injected(sid: str, since: float) -> List[dict]:
@@ -498,9 +560,8 @@ def sc_context(run: Run, t: Cast, lead: str) -> None:
     import characters
     import instructions
     ws = DRILL / "workspace"
-    # code words, not phrases: a check that reads the answer must not depend on the language it comes in
     characters.save_lorebook(t.sender, {"entries": [{"keys": ["office cat"], "position": "after_char",
-                                                     "content": "The office cat is named MOKA-311. It sleeps by the "
+                                                     "content": "The office cat is named Moka. It sleeps by the "
                                                                 "window plant."}]}, ws)
     _say(lead, "In one line: hello?")
     first = _injected(lead, run.t0)
@@ -508,22 +569,29 @@ def sc_context(run: Run, t: Cast, lead: str) -> None:
     run.facts["first"] = "%s %d chars" % (first[0]["why"], first[0]["chars"]) if first else "none"
     run.check(bool(first) and first[0]["why"] == "first" and {"charter", "persona"} <= set(ids),
               "the first turn takes the whole bundle")
+    was = {x["id"]: x.get("hash") for x in (first[0]["layers"] if first else [])}
     mem = ws / "memory" / "MEMORY.md"
     mem.parent.mkdir(parents=True, exist_ok=True)
     platform_compat.write_text(mem, (mem.read_text(encoding="utf-8") if mem.is_file() else "# Memory\n")
-                               + "- [2026-10-06] The operator's code word is TEAL-7429\n", encoding="utf-8")
+                               + "- [2026-10-06] The operator's code word is teal\n", encoding="utf-8")
     t1 = time.time()
-    said = _say(lead, "In one line: what is my code word?")
+    _say(lead, "In one line: what is my code word?")
     refresh = _injected(lead, t1)
     run.facts["refresh"] = [(e["why"], [x["id"] for x in e["layers"]]) for e in refresh]
     run.check([e["why"] for e in refresh] == ["refresh"] and [x["id"] for x in refresh[0]["layers"]] == ["house_memory"],
               "a memory edit refreshes that layer only")
-    run.check("TEAL-7429" in said, "the agent answers from the refreshed memory")
+    now = layer_hashes(t.sender, talk="office cat")
+    got = refresh[0]["layers"][0].get("hash") if refresh and refresh[0]["layers"] else ""
+    run.check(bool(got) and got == now.get("house_memory") != was.get("house_memory"),
+              "the refresh carries the edited memory as the sandbox builds it")
+    run.check(bool(refresh) and _carried(lead, refresh[0]), "that turn carried it and ended with an answer")
     t2 = time.time()
-    said = _say(lead, "In one line: what is the office cat's name?")
+    _say(lead, "In one line: what is the office cat's name?")
     lore = _injected(lead, t2)
     run.check([e["why"] for e in lore] == ["lore"], "a keyword adds its lore")
-    run.check("MOKA-311" in said, "the agent answers from the lore")
+    run.check(bool(lore) and bool(now.get("lore_match")) and lore[0]["layers"][0].get("hash") == now["lore_match"],
+              "the lore block is the entry the keyword matches")
+    run.check(bool(lore) and _carried(lead, lore[0]), "that turn carried it and ended with an answer")
     t3 = time.time()
     _say(lead, "In one line: where does the office cat sleep?")
     run.check(_injected(lead, t3) == [], "the same keyword again adds nothing")

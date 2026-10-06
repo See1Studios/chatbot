@@ -52,6 +52,13 @@ class Reporting(unittest.TestCase):
         self.assertIn("FAIL x", D.report(r))
         self.assertIn("✗ b", D.report(r))
 
+    def test_the_drill_never_reads_what_a_model_said(self):
+        # a check on the model's words passes or fails with the model and the language
+        # (multilingual-no-language-heuristics): the drill judges by the ledger and the event log only
+        src = Path(D.__file__).read_text(encoding="utf-8")
+        for read in ('get("text")', 'get("result")', '["text"]', '["result"]'):
+            self.assertNotIn(read, src, "the drill reads model text (%s)" % read)
+
     def test_every_scenario_says_what_it_checks(self):
         for name, fn in D.SCENARIOS.items():
             self.assertTrue((fn.__doc__ or "").strip(), name)
