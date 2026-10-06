@@ -67,6 +67,10 @@ class TicketButtons(unittest.TestCase):
         md = (STATIC / "markdown.js").read_text(encoding="utf-8")
         self.assertIn("runTicketDecision(ticketCmd", md, "chips share the one decision path")
 
+    def test_work_card_has_no_redundant_talk_button(self):
+        evo = (STATIC / "app-evolution.js").read_text(encoding="utf-8")
+        self.assertNotIn("대화 보기", evo)
+
 WORK_NOW = r"""
 const fs = require('fs');
 const evo = fs.readFileSync(process.argv[1], 'utf8');

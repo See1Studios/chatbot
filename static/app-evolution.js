@@ -696,7 +696,6 @@ function renderWorkCard(r) {
     actions.appendChild(btn);
   };
 
-  if (r.talk_with) button('대화 보기', false, () => { switchTab('chat'); selectCharacter({ id: r.talk_with }); });
   if (r.phase === 'awaiting_go') {
     button('실행', true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
     button('계획 수정', false, () => { switchTab('chat'); fillComposer('#' + r.ticket + ' 계획 수정: '); });
@@ -817,7 +816,7 @@ function renderDoneRow(t) {
 
 // WORK_NOW_v1 (#417): a ticket someone holds -- an agent outside the chat (Claude Code, a CLI) or a delegated run --
 // showed nowhere: not a decision, not finished. #416 was invisible, and #387's leftover lease held files with no trace.
-const WORK_NOW_TEXT = { head: '진행 중인 작업', lock: '잠금', until: '까지', free: '잠금 없음(만료)' };   // l10n-ok
+const WORK_NOW_TEXT = { head: '진행 중인 작업', lock: '잠금', until: '까지', free: '잠금 없음(만료)' };
 
 // The in-progress tickets with who holds them, the files their live lease holds and until when; newest first.
 function inProgressRows(all, leases) {
