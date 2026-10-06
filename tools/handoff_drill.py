@@ -476,9 +476,73 @@ def sc_budget(run: Run, t: Cast, lead: str) -> None:
         _restore()
 
 
+def _say(sid: str, text: str) -> str:
+    """Send one message and return the answer it got."""
+    n = len([h for h in session(sid).get("history") or [] if h.get("role") == "assistant"])
+    api("POST", "/api/sessions/%s/message" % sid, {"text": text})
+    time.sleep(2)
+    wait_idle(sid, 240)
+    said = [h for h in session(sid).get("history") or [] if h.get("role") == "assistant"]
+    return str(said[-1].get("text") or "") if len(said) > n else ""
+
+
+def _injected(sid: str, since: float) -> List[dict]:
+    return [e for e in events(since) if e.get("evt") == "context.inject" and e.get("sid") == sid]
+
+
+def sc_context(run: Run, t: Cast, lead: str) -> None:
+    """What a conversation's agent is given (layered-context-architecture lca/G): the whole bundle on the first turn, a
+    memory edit refreshes only that layer and the agent answers from it, a keyword adds its lore once, a private
+    session takes no work layer, the status tab's record matches, and no context alert."""
+    import characters
+    import instructions
+    ws = DRILL / "workspace"
+    characters.save_lorebook(t.sender, {"entries": [{"keys": ["사무실 고양이"], "position": "after_char",  # l10n-ok
+                                                     "content": "사무실 고양이의 이름은 '모카'다. 창가 화분 옆에서 잔다."}]}, ws)  # l10n-ok
+    _say(lead, "한 줄로만: 안녕?")  # l10n-ok
+    first = _injected(lead, run.t0)
+    ids = [x["id"] for x in (first[0]["layers"] if first else [])]
+    run.facts["first"] = "%s %d chars" % (first[0]["why"], first[0]["chars"]) if first else "none"
+    run.check(bool(first) and first[0]["why"] == "first" and {"charter", "persona"} <= set(ids),
+              "the first turn takes the whole bundle")
+    mem = ws / "memory" / "MEMORY.md"
+    mem.parent.mkdir(parents=True, exist_ok=True)
+    platform_compat.write_text(mem, (mem.read_text(encoding="utf-8") if mem.is_file() else "# 기억\n")  # l10n-ok
+                               + "- [2026-10-06] 코치가 제일 좋아하는 색은 청록색이다\n", encoding="utf-8")  # l10n-ok
+    t1 = time.time()
+    said = _say(lead, "한 줄로만: 내가 제일 좋아하는 색이 뭐라고 했지?")  # l10n-ok
+    refresh = _injected(lead, t1)
+    run.facts["refresh"] = [(e["why"], [x["id"] for x in e["layers"]]) for e in refresh]
+    run.check([e["why"] for e in refresh] == ["refresh"] and [x["id"] for x in refresh[0]["layers"]] == ["house_memory"],
+              "a memory edit refreshes that layer only")
+    run.check("청록" in said, "the agent answers from the refreshed memory")  # l10n-ok
+    t2 = time.time()
+    said = _say(lead, "한 줄로만: 사무실 고양이 이름이 뭐였지?")  # l10n-ok
+    lore = _injected(lead, t2)
+    run.check([e["why"] for e in lore] == ["lore"], "a keyword adds its lore")
+    run.check("모카" in said, "the agent answers from the lore")  # l10n-ok
+    t3 = time.time()
+    _say(lead, "한 줄로만: 사무실 고양이는 어디서 자?")  # l10n-ok
+    run.check(_injected(lead, t3) == [], "the same keyword again adds nothing")
+    record = api("GET", "/api/sessions/%s/context" % lead).get("records") or []
+    run.check([r["why"] for r in record] == ["first", "refresh", "lore"], "the status tab's record matches")
+    private = api("POST", "/api/sessions", {"character": t.sender, "mode": "private"})["session"]["id"]
+    t4 = time.time()
+    _say(private, "한 줄로만: 안녕?")  # l10n-ok
+    got = _injected(private, t4)
+    work_only = {layer.id for layer in instructions.LAYERS if "private" not in layer.modes}
+    pids = {x["id"] for x in (got[0]["layers"] if got else [])}
+    run.facts["private_layers"] = sorted(pids)
+    run.check(bool(got) and got[0]["mode"] == "private" and not (pids & work_only), "a private session takes no work layer")
+    alerts = [e for e in events(run.t0) if e.get("evt") == "context.alert"]
+    run.facts["alerts"] = len(alerts)
+    run.check(not alerts, "no context alert")
+
+
 SCENARIOS: Dict[str, Callable] = {"refuse": sc_refuse, "subagents": sc_subagents, "chain": sc_chain,
                                   "busy": sc_busy, "restart": sc_restart,
-                                  "cancel": sc_cancel, "timeout": sc_timeout, "budget": sc_budget}
+                                  "cancel": sc_cancel, "timeout": sc_timeout, "budget": sc_budget,
+                                  "context": sc_context}
 
 
 def main(argv: Optional[List[str]] = None) -> int:
