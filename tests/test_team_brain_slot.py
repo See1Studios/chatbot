@@ -8,6 +8,8 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from tests.page_source import i18n_prelude  # noqa: E402
+
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
 HARNESS = r"""
@@ -23,7 +25,7 @@ console.log(JSON.stringify({ zero: teamSpareSlot(0), two: teamSpareSlot(2), one:
 @unittest.skipUnless(shutil.which("node"), "node not installed")
 class SpareSlot(unittest.TestCase):
     def test_only_a_lone_brain_shows_the_empty_fallback_slot(self):
-        r = subprocess.run(["node", "-e", HARNESS, str(STATIC / "app-team.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(STATIC / "app-team.js")], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr[-1500:])
         o = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertIsNone(o["zero"], "no brains: the existing 'default settings' hint")

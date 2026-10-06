@@ -13,6 +13,8 @@ import threading
 import time
 import unittest
 from pathlib import Path
+
+from tests.page_source import i18n_prelude  # noqa: E402
 from types import SimpleNamespace
 from unittest import mock
 
@@ -171,7 +173,7 @@ const document = { getElementById: () => null };
 const { autoReactBody } = new Function('document', src + '; return { autoReactBody };')(document);
 console.log(JSON.stringify(autoReactBody({ choices: ['work.phase', 'host.restart'] }, { 'work.phase': true }, '3', '0', '8')));
 """
-        r = subprocess.run(["node", "-e", harness, str(ROOT / "static" / "app-team.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", i18n_prelude() + harness, str(ROOT / "static" / "app-team.js")], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr[-1000:])
         self.assertEqual(json.loads(r.stdout.strip()), {"auto": ["work.phase"], "per_hour": 3, "quiet": [0, 8]})
 

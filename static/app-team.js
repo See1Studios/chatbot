@@ -2,13 +2,8 @@
 // loads before app.js, which runs everything that happens at load (listeners, timers, boot). Top-level code
 // here may use the page's DOM, never a binding from a later file.
 const teamListEl = document.getElementById('teamList');
-const TEAM_TEXT = { spare: '예비 두뇌 없음 — [두뇌]에서 추가하면 1번이 응답하지 않을 때 넘어갑니다' };   // l10n-ok
-const AUTO_TEXT = {   // evt/D auto reactions -- l10n-ok
-  head: '자동 반응 — 캐릭터가 먼저 말 걸기', hint: '켠 일이 생기면 관계있는 캐릭터가 업무 대화에서 먼저 한두 줄 말합니다. 두뇌 호출이라 구독 한도를 씁니다.',   // l10n-ok
-  'work.phase': '맡긴 작업이 끝나거나 실패했을 때', 'host.restart': '호스트가 재시작했을 때',   // l10n-ok
-  'msg.new': '동료가 메시지를 보내거나 자리에 들렀을 때 (그 창을 보고 있을 때만)',   // l10n-ok
-  perHour: '캐릭터당 시간당 최대', quiet: '방해 금지(시)', save: '저장', saved: '자동 반응 설정 저장됨', failed: '저장 실패: ',   // l10n-ok
-};
+const TEAM_TEXT = i18nTable('team.text');
+const AUTO_TEXT = i18nTable('team.auto');   // evt/D auto reactions
 
 async function loadTeam() {
   if (!teamListEl) return;
@@ -16,7 +11,7 @@ async function loadTeam() {
   try {
     [team, instr] = await Promise.all([api('/api/experts'), api('/api/instructions')]);
   } catch (e) {
-    teamListEl.textContent = '팀 정보를 불러오지 못했어요 (엔진 리부트 필요할 수 있음): ' + (e.message || e);
+    teamListEl.textContent = tr('team.load_failed', { error: e.message || e });
     return;
   }
   const files = {};
@@ -26,13 +21,13 @@ async function loadTeam() {
   if (team.auto_react && team.auto_react.choices) teamListEl.appendChild(renderAutoReact(team.auto_react));
   // TEAM_ROLES_v2: what a role is (its pack) and what everyone reads (the house memory), after the characters
   const shared = obsNode('div', 'status-item team-card');
-  shared.appendChild(obsNode('div', 'status-item-head', '역할 팩 · 집 기억'));
-  shared.appendChild(obsNode('div', 'status-hint', '역할은 캐릭터가 아니라 역할 팩(지침·스킬·도구 권한)이 정합니다. 누가 어떤 역할을 맡는지는 각 캐릭터의 [역할]에서 바꿉니다.'));
+  shared.appendChild(obsNode('div', 'status-item-head', tr('team.shared_head')));
+  shared.appendChild(obsNode('div', 'status-hint', tr('team.shared_hint')));
   (team.roles || []).forEach(r => {
     // pew/R: ROLE.md / PROCEDURE.md, or the old lower-case names on a pack written before
     const pick = name => files['roles/' + r.role + '/' + name.toUpperCase()] || files['roles/' + r.role + '/' + name];
-    [['role.md', '역할 팩 ' + r.title + (r.tools.length ? ' (권한: ' + r.tools.join(', ') + ')' : '')],
-     ['procedure.md', r.title + ' 절차']].forEach(([name, title]) => {
+    [['role.md', tr('team.role_pack', { title: r.title }) + (r.tools.length ? tr('team.role_tools', { tools: r.tools.join(', ') }) : '')],
+     ['procedure.md', tr('team.procedure', { title: r.title })]].forEach(([name, title]) => {
       const file = pick(name);
       if (file) {
         const sub = renderInstruction(Object.assign({}, file, { title }), false);
@@ -42,7 +37,7 @@ async function loadTeam() {
     });
   });
   if (files['MEMORY.md']) {
-    const sub = renderInstruction(Object.assign({}, files['MEMORY.md'], { title: '집 기억 (모든 캐릭터가 읽음)' }), false);
+    const sub = renderInstruction(Object.assign({}, files['MEMORY.md'], { title: tr('team.house_memory') }), false);
     sub.classList.add('team-sub');
     shared.appendChild(sub);
   }
@@ -82,11 +77,11 @@ function editRoles(ex, team, box, actions) {
   def.type = 'checkbox';
   def.checked = Boolean(ex.default);
   def.disabled = Boolean(ex.default);
-  def.title = ex.default ? '다른 캐릭터를 기본으로 정하면 바뀝니다' : '앱을 열면 이 캐릭터와 대화합니다';
-  defLabel.append(def, document.createTextNode(' 기본 캐릭터 (앱을 열면 대화하는 상대)'));
+  def.title = ex.default ? tr('team.default_change_hint') : tr('team.default_hint');
+  defLabel.append(def, document.createTextNode(' ' + tr('team.default_label')));
   box.appendChild(defLabel);
   actions.textContent = '';
-  const save = obsNode('button', 'art-btn art-btn-xs', '저장');
+  const save = obsNode('button', 'art-btn art-btn-xs', tr('common.save'));
   save.type = 'button';
   save.addEventListener('click', async () => {
     save.disabled = true;
@@ -94,17 +89,17 @@ function editRoles(ex, team, box, actions) {
       await saveTeam(team, ex, (team.roles || []).map(r => r.role).filter(r => picked.has(r)), def.checked && !ex.default);
     } catch (e) {
       save.disabled = false;
-      box.appendChild(obsNode('div', 'status-hint', '저장 실패: ' + (e.message || e)));
+      box.appendChild(obsNode('div', 'status-hint', tr('common.save_failed', { error: e.message || e })));
     }
   });
-  const cancel = obsNode('button', 'art-btn art-btn-xs', '취소');
+  const cancel = obsNode('button', 'art-btn art-btn-xs', tr('common.cancel'));
   cancel.type = 'button';
   cancel.addEventListener('click', () => loadTeam());
   actions.append(save, cancel);
 }
 
 function brainText(b) {
-  return b.provider + ' / ' + (b.model || '기본 모델') + (b.timeout ? ' · ' + b.timeout + '초 제한' : '');
+  return b.provider + ' / ' + (b.model || tr('team.default_model')) + (b.timeout ? tr('team.timeout', { n: b.timeout }) : '');
 }
 
 // The auto-reaction settings (evt/D): which events make a character speak first, and the limits. Off by default.
@@ -153,9 +148,9 @@ function renderTeamCard(ex, team, files) {
   const head = obsNode('div', 'status-item-head');
   head.appendChild(obsNode('span', 'status-item-name', ex.name + (ex.title ? ' · ' + ex.title : '')));
   const chips = obsNode('span', 'team-role-chips');
-  if (ex.default) chips.appendChild(obsNode('span', 'team-chip team-chip-default', '기본'));
+  if (ex.default) chips.appendChild(obsNode('span', 'team-chip team-chip-default', tr('team.chip_default')));
   (ex.roles || []).forEach(r => chips.appendChild(obsNode('span', 'team-chip', roleTitle(team, r))));
-  if (!(ex.roles || []).length) chips.appendChild(obsNode('span', 'team-chip team-chip-none', '역할 없음'));
+  if (!(ex.roles || []).length) chips.appendChild(obsNode('span', 'team-chip team-chip-none', tr('team.no_roles')));
   head.appendChild(chips);
   const actions = obsNode('div', 'status-item-actions');
   head.appendChild(actions);
@@ -163,14 +158,14 @@ function renderTeamCard(ex, team, files) {
   const roleBox = obsNode('div', 'team-role-box');
   card.appendChild(roleBox);
   if (team.team_editable) {
-    const rb = obsNode('button', 'art-btn art-btn-xs', '역할');
+    const rb = obsNode('button', 'art-btn art-btn-xs', tr('team.roles_button'));
     rb.type = 'button';
     rb.addEventListener('click', () => editRoles(ex, team, roleBox, actions));
     actions.appendChild(rb);
   }
   const brains = obsNode('div', 'team-brains');
   const chain = ex.chain || [];
-  if (!chain.length) brains.appendChild(obsNode('div', 'status-hint', '두뇌 목록 없음: 기본 설정(환경변수)으로 일합니다'));
+  if (!chain.length) brains.appendChild(obsNode('div', 'status-hint', tr('team.no_brains')));
   chain.forEach((b, i) => {
     const row = obsNode('div', 'team-brain');
     row.appendChild(obsNode('span', 'team-n', String(i + 1)));
@@ -181,14 +176,16 @@ function renderTeamCard(ex, team, files) {
   if (spare) brains.appendChild(spare);
   card.appendChild(brains);
   if (ex.editable) {
-    const edit = obsNode('button', 'art-btn art-btn-xs', '두뇌');
+    const edit = obsNode('button', 'art-btn art-btn-xs', tr('team.brains_button'));
     edit.type = 'button';
     edit.addEventListener('click', () => editBrains(ex, team, brains, actions));
     actions.appendChild(edit);
   }
-  const subs = [['characters/' + ex.id + '/card.json', '캐릭터 카드'], ['characters/' + ex.id + '/memory.md', '기억'],
-    ['characters/' + ex.id + '/private-memory.md', '사적 기억'], ['characters/' + ex.id + '/visual.md', '외형 락']];
-  subs.forEach(([id, title]) => {
+  // [file, catalog key of its title]; the branch below keys on the key, never on the shown word
+  const subs = [['characters/' + ex.id + '/card.json', 'team.sub.card'], ['characters/' + ex.id + '/memory.md', 'team.sub.memory'],
+    ['characters/' + ex.id + '/private-memory.md', 'team.sub.private_memory'], ['characters/' + ex.id + '/visual.md', 'team.sub.visual']];
+  subs.forEach(([id, key]) => {
+    const title = tr(key);
     if (files[id]) {
       const isCard = id.endsWith('/card.json') || id === 'card.json';
       const sub = isCard
@@ -196,8 +193,8 @@ function renderTeamCard(ex, team, files) {
         : renderInstruction(Object.assign({}, files[id], { title }), false);
       sub.classList.add('team-sub');
       card.appendChild(sub);
-    } else if (title === '기억') {
-      card.appendChild(obsNode('div', 'status-hint team-sub', '기억: 아직 없음 (맡은 작업에서 배운 점이 쌓입니다)'));
+    } else if (key === 'team.sub.memory') {
+      card.appendChild(obsNode('div', 'status-hint team-sub', tr('team.memory_empty')));
     }
   });
   return card;
@@ -229,14 +226,14 @@ function editBrains(ex, team, brains, actions) {
       const pick = document.createElement('select');
       pick.className = 'team-model';
       pick.style.cssText = 'flex:1 1 9rem;min-width:7rem';
-      [['', '기본 모델']].concat(known.map(m => [m, m]), [['\u0000custom', '직접 입력…']]).forEach(([v, label]) => {
+      [['', tr('team.default_model')]].concat(known.map(m => [m, m]), [['\u0000custom', tr('team.custom_model')]]).forEach(([v, label]) => {
         const o = obsNode('option', '', label); o.value = v; pick.appendChild(o);
       });
       const custom = b.model && !known.includes(b.model);
       pick.value = custom ? '\u0000custom' : (b.model || '');
       const typed = document.createElement('input');
       typed.className = 'team-model';
-      typed.placeholder = '모델 이름';
+      typed.placeholder = tr('team.model_name');
       typed.value = custom ? b.model : '';
       typed.hidden = !custom;
       typed.addEventListener('input', () => { b.model = typed.value.trim(); });
@@ -251,8 +248,8 @@ function editBrains(ex, team, brains, actions) {
       to.type = 'number';
       to.min = '0';
       to.max = '3600';
-      to.placeholder = '제한(초)';
-      to.title = '이 두뇌를 기다릴 최대 시간(초). 비우면 기본값. 멈추는 모델을 빨리 포기하게 합니다.';
+      to.placeholder = tr('team.timeout_placeholder');
+      to.title = tr('team.timeout_hint');
       to.value = b.timeout || '';
       to.addEventListener('input', () => { b.timeout = Number(to.value) || 0; });
       row.append(sel, pick, typed, to);
@@ -267,7 +264,7 @@ function editBrains(ex, team, brains, actions) {
       brains.appendChild(row);
     });
     if (rows.length < 6) {
-      const add = obsNode('button', 'art-btn art-btn-xs', '+ 두뇌 추가');
+      const add = obsNode('button', 'art-btn art-btn-xs', tr('team.add_brain'));
       add.type = 'button';
       add.addEventListener('click', () => { rows.push({ provider: (team.providers || [])[0] || '', model: '' }); draw(); });
       brains.appendChild(add);
@@ -275,9 +272,9 @@ function editBrains(ex, team, brains, actions) {
   };
   draw();
   actions.textContent = '';
-  const save = obsNode('button', 'art-btn art-btn-xs primary', '저장');
+  const save = obsNode('button', 'art-btn art-btn-xs primary', tr('common.save'));
   save.type = 'button';
-  const cancel = obsNode('button', 'art-btn art-btn-xs', '취소');
+  const cancel = obsNode('button', 'art-btn art-btn-xs', tr('common.cancel'));
   cancel.type = 'button';
   actions.append(save, cancel);
   cancel.addEventListener('click', loadTeam);
@@ -285,11 +282,11 @@ function editBrains(ex, team, brains, actions) {
     save.disabled = true;
     try {
       await api('/api/experts/' + encodeURIComponent(ex.id) + '/brain', { method: 'PUT', body: JSON.stringify({ chain: rows }) });
-      addActivity(ex.name + ' 두뇌 순서 저장됨 · 다음 작업부터 반영');
+      addActivity(tr('team.brains_saved', { name: ex.name }));
       loadTeam();
     } catch (e) {
       save.disabled = false;
-      await alertModal('저장 실패: ' + (e.message || e));
+      await alertModal(tr('common.save_failed', { error: e.message || e }));
     }
   });
 }
@@ -300,12 +297,12 @@ function renderCardEditor(x, open) {
 
   const head = obsNode('summary', 'status-item-head');
   head.appendChild(obsNode('span', 'status-item-name', x.title));
-  head.appendChild(obsNode('span', 'instr-badge ' + (x.editable ? 'rw' : 'ro'), x.editable ? '편집 가능' : '읽기 전용'));
+  head.appendChild(obsNode('span', 'instr-badge ' + (x.editable ? 'rw' : 'ro'), x.editable ? tr('status.instr.editable') : tr('status.instr.readonly')));
   const sizeSpan = obsNode('span', 'status-item-meta', (x.size || 0) + ' B');
   head.appendChild(sizeSpan);
   item.appendChild(head);
 
-  const meta = [x.path || '자동 생성', x.mtime ? new Date(x.mtime * 1000).toLocaleString('ko-KR') : ''].filter(Boolean).join(' · ');
+  const meta = [x.path || tr('status.instr.generated'), x.mtime ? new Date(x.mtime * 1000).toLocaleString(I18N_LANG) : ''].filter(Boolean).join(' · ');
   const metaRow = obsNode('div', 'status-item-head');
   metaRow.appendChild(obsNode('span', 'status-item-meta', meta));
   const headActions = obsNode('div', 'status-item-actions');
@@ -317,9 +314,9 @@ function renderCardEditor(x, open) {
   const editorWrap = obsNode('div', 'card-editor');
 
   const tabRow = obsNode('div', 'card-editor-tabs');
-  const btnProps = obsNode('button', 'art-btn art-btn-xs card-tab-btn', '속성 편집');
+  const btnProps = obsNode('button', 'art-btn art-btn-xs card-tab-btn', tr('card.edit_fields'));
   btnProps.type = 'button';
-  const btnRaw = obsNode('button', 'art-btn art-btn-xs card-tab-btn', '원시 JSON 편집');
+  const btnRaw = obsNode('button', 'art-btn art-btn-xs card-tab-btn', tr('card.edit_raw'));
   btnRaw.type = 'button';
   tabRow.append(btnProps, btnRaw);
   editorWrap.appendChild(tabRow);
@@ -334,29 +331,29 @@ function renderCardEditor(x, open) {
   const row1 = obsNode('div', 'card-field-row');
 
   const fName = obsNode('div', 'card-field');
-  fName.appendChild(obsNode('label', '', '이름'));
+  fName.appendChild(obsNode('label', '', tr('card.name')));
   const inputName = document.createElement('input');
   inputName.type = 'text';
   inputName.className = 'card-input';
-  inputName.placeholder = '캐릭터 이름';
+  inputName.placeholder = tr('card.name_placeholder');
   inputName.disabled = !x.editable;
   fName.appendChild(inputName);
 
   const fUserTitle = obsNode('div', 'card-field');
-  fUserTitle.appendChild(obsNode('label', '', '사용자 호칭'));
+  fUserTitle.appendChild(obsNode('label', '', tr('card.user_title')));
   const inputUserTitle = document.createElement('input');
   inputUserTitle.type = 'text';
   inputUserTitle.className = 'card-input';
-  inputUserTitle.placeholder = '사용자를 부르는 호칭';
+  inputUserTitle.placeholder = tr('card.user_title_placeholder');
   inputUserTitle.disabled = !x.editable;
   fUserTitle.appendChild(inputUserTitle);
 
   const fVoice = obsNode('div', 'card-field');
-  fVoice.appendChild(obsNode('label', '', '말투 표기'));
+  fVoice.appendChild(obsNode('label', '', tr('card.voice')));
   const inputVoice = document.createElement('input');
   inputVoice.type = 'text';
   inputVoice.className = 'card-input';
-  inputVoice.placeholder = '말투 표기 요약';
+  inputVoice.placeholder = tr('card.voice_placeholder');
   inputVoice.disabled = !x.editable;
   fVoice.appendChild(inputVoice);
 
@@ -364,31 +361,31 @@ function renderCardEditor(x, open) {
   formPane.appendChild(row1);
 
   const fPers = obsNode('div', 'card-field full');
-  fPers.appendChild(obsNode('label', '', '성격/말투'));
+  fPers.appendChild(obsNode('label', '', tr('card.personality')));
   const inputPers = document.createElement('textarea');
   inputPers.className = 'card-textarea';
   inputPers.rows = 3;
-  inputPers.placeholder = '캐릭터의 성격 및 말투 특성';
+  inputPers.placeholder = tr('card.personality_placeholder');
   inputPers.disabled = !x.editable;
   fPers.appendChild(inputPers);
   formPane.appendChild(fPers);
 
   const fDesc = obsNode('div', 'card-field full');
-  fDesc.appendChild(obsNode('label', '', '설명/정체성'));
+  fDesc.appendChild(obsNode('label', '', tr('card.description')));
   const inputDesc = document.createElement('textarea');
   inputDesc.className = 'card-textarea';
   inputDesc.rows = 4;
-  inputDesc.placeholder = '외모, 정체성, 배경 설명';
+  inputDesc.placeholder = tr('card.description_placeholder');
   inputDesc.disabled = !x.editable;
   fDesc.appendChild(inputDesc);
   formPane.appendChild(fDesc);
 
   const fSys = obsNode('div', 'card-field full');
-  fSys.appendChild(obsNode('label', '', '개인 규칙'));
+  fSys.appendChild(obsNode('label', '', tr('card.rules')));
   const inputSys = document.createElement('textarea');
   inputSys.className = 'card-textarea';
   inputSys.rows = 4;
-  inputSys.placeholder = '개인 규칙 및 시스템 프롬프트';
+  inputSys.placeholder = tr('card.rules_placeholder');
   inputSys.disabled = !x.editable;
   fSys.appendChild(inputSys);
   formPane.appendChild(fSys);
@@ -461,7 +458,7 @@ function renderCardEditor(x, open) {
       btnRaw.classList.add('active');
       btnProps.classList.remove('active');
       alertBox.hidden = false;
-      alertBox.textContent = 'JSON 파싱 오류: 올바른 Character Card V2 형식이 아닙니다. 원시 JSON 편집 모드로 표시합니다.';
+      alertBox.textContent = tr('card.not_v2');
     }
   }
 
@@ -472,7 +469,7 @@ function renderCardEditor(x, open) {
       try {
         const obj = JSON.parse(rawTextarea.value);
         if (!obj || typeof obj !== 'object' || obj.spec !== 'chara_card_v2' || !obj.data || typeof obj.data !== 'object') {
-          throw new Error('spec이 chara_card_v2인 올바른 Character Card V2 JSON이어야 합니다.');
+          throw new Error(tr('card.need_v2'));
         }
         parsedCard = obj;
         populateFields(parsedCard);
@@ -480,9 +477,9 @@ function renderCardEditor(x, open) {
         alertBox.textContent = '';
       } catch (err) {
         alertBox.hidden = false;
-        alertBox.textContent = 'JSON 파싱 오류: ' + (err.message || err);
+        alertBox.textContent = tr('card.parse_error', { error: err.message || err });
         if (typeof alertModal === 'function') {
-          alertModal('JSON 파싱 오류로 속성 편집으로 전환할 수 없습니다: ' + (err.message || err));
+          alertModal(tr('card.cannot_switch', { error: err.message || err }));
         }
         return;
       }
@@ -509,7 +506,7 @@ function renderCardEditor(x, open) {
   function setSaving(saving) {
     saveButtons.forEach(btn => {
       btn.disabled = saving;
-      btn.textContent = saving ? '저장 중…' : '저장';
+      btn.textContent = saving ? tr('common.saving') : tr('common.save');
     });
   }
 
@@ -522,14 +519,14 @@ function renderCardEditor(x, open) {
       try {
         const obj = JSON.parse(rawTextarea.value);
         if (!obj || typeof obj !== 'object' || obj.spec !== 'chara_card_v2' || !obj.data || typeof obj.data !== 'object') {
-          throw new Error('spec이 chara_card_v2인 올바른 Character Card V2 JSON이어야 합니다.');
+          throw new Error(tr('card.need_v2'));
         }
         parsedCard = obj;
         populateFields(parsedCard);
         contentToSave = rawTextarea.value;
       } catch (err) {
         if (typeof alertModal === 'function') {
-          await alertModal('저장 불가: ' + (err.message || err));
+          await alertModal(tr('card.cannot_save', { error: err.message || err }));
         }
         return;
       }
@@ -547,7 +544,7 @@ function renderCardEditor(x, open) {
         sizeSpan.textContent = res.bytes + ' B';
       }
       if (typeof addActivity === 'function') {
-        addActivity(x.title + ' 저장됨 · ' + (x.layer === 'always' ? '다음 턴부터 반영' : '다음에 읽을 때 반영'));
+        addActivity(tr('status.instr.saved', { title: x.title, when: x.layer === 'always' ? tr('status.instr.next_turn') : tr('status.instr.next_read') }));
       }
       rawTextarea.value = contentToSave;
       if (parsedCard) populateFields(parsedCard);
@@ -556,7 +553,7 @@ function renderCardEditor(x, open) {
     } catch (e) {
       setSaving(false);
       if (typeof alertModal === 'function') {
-        await alertModal('저장 실패: ' + (e.message || e));
+        await alertModal(tr('common.save_failed', { error: e.message || e }));
       }
     }
   }
@@ -572,20 +569,20 @@ function renderCardEditor(x, open) {
   }
 
   if (x.editable) {
-    const headSave = obsNode('button', 'art-btn art-btn-xs primary', '저장');
+    const headSave = obsNode('button', 'art-btn art-btn-xs primary', tr('common.save'));
     headSave.type = 'button';
     headSave.addEventListener('click', doSave);
-    const headCancel = obsNode('button', 'art-btn art-btn-xs', '취소');
+    const headCancel = obsNode('button', 'art-btn art-btn-xs', tr('common.cancel'));
     headCancel.type = 'button';
     headCancel.addEventListener('click', doCancel);
     saveButtons.push(headSave);
     headActions.append(headSave, headCancel);
 
     const bottomActions = obsNode('div', 'card-editor-actions');
-    const bottomSave = obsNode('button', 'art-btn art-btn-xs primary', '저장');
+    const bottomSave = obsNode('button', 'art-btn art-btn-xs primary', tr('common.save'));
     bottomSave.type = 'button';
     bottomSave.addEventListener('click', doSave);
-    const bottomCancel = obsNode('button', 'art-btn art-btn-xs', '취소');
+    const bottomCancel = obsNode('button', 'art-btn art-btn-xs', tr('common.cancel'));
     bottomCancel.type = 'button';
     bottomCancel.addEventListener('click', doCancel);
     saveButtons.push(bottomSave);

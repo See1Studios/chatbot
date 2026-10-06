@@ -1,5 +1,9 @@
 # chatbot 개발로그
 
+## 2026-10-07 — 화면 글자 이관: app-team.js 59줄 → 0 (l10n/E, #738)
+
+- **바뀐 것**: 팀 탭(역할 팩, 두뇌 순서, 자동 반응, 캐릭터 카드 편집)의 글자를 카탈로그 키로. 하위 항목 분기는 보이는 글자 대신 키로 비교한다. 재시작 불필요, 새로고침.
+
 ## 2026-10-07 — engine role packs linked to templates
 
 -  now symlinks engine role packs under  (same as AGENTS.md).
