@@ -60,15 +60,14 @@ async function fetchArtifacts(silent) {
     const curOwner = activeArtifactOwner();
     const curKey = curOwner ? (curOwner.type + ':' + curOwner.id) : '';
     if (curKey !== reqKey) return;
-    if (!silent) addActivity('아티팩트 조회 실패: ' + (e.message || e));
+    if (!silent) addActivity(tr('artifacts.load_failed', { error: e.message || e }));
   }
 }
 
-// 아티팩트 탭은 세션이 아니라 모든 세션 통틀어 최신순 -- 대화 탭의
-// scroll-up-to-load-older(loadOlderHistory)와 같은 정책이지만, 대화는
-// predecessor_session_id 체인을 걷는 것이고 이건 그냥 mtime 커서 페이지네이션
-// (operator 2026-09-18: "전체 세션 통틀어 최신순 무한 스크롤" -- 대화 탭 스크롤과는
-// 무관하게 독립 동작으로 확인; ticket #575에서 대화방별 완벽 격리 적용).
+// The artifacts tab is newest-first across all sessions -- the same policy as the chat tab's
+// scroll-up-to-load-older (loadOlderHistory), but the chat walks the predecessor_session_id chain and this
+// is plain mtime cursor paging (operator 2026-09-18: "newest first across all sessions, endless scroll" --
+// checked to work apart from the chat tab's scroll; ticket #575 isolates it per room).
 async function loadMoreArtifacts() {
   const target = activeArtifactOwner();
   if (!target || artifactsLoadingMore || !artifactsNextBefore) return;
@@ -76,7 +75,7 @@ async function loadMoreArtifacts() {
   const reqKey = target.type + ':' + target.id;
   const marker = document.createElement('div');
   marker.className = 'art-loading-marker';
-  marker.textContent = '이전 아티팩트 불러오는 중…';
+  marker.textContent = tr('artifacts.loading_older');
   if (artGrid) artGrid.appendChild(marker);
   try {
     const sep = target.url.includes('?') ? '&' : '?';
@@ -92,7 +91,7 @@ async function loadMoreArtifacts() {
     const curOwner = activeArtifactOwner();
     const curKey = curOwner ? (curOwner.type + ':' + curOwner.id) : '';
     if (curKey === reqKey) {
-      addActivity('아티팩트 추가 로드 실패: ' + (e.message || e));
+      addActivity(tr('artifacts.more_failed', { error: e.message || e }));
     }
   } finally {
     marker.remove();
@@ -180,7 +179,7 @@ function renderArtifacts() {
 
     const thumbWrap = document.createElement('div');
     thumbWrap.className = 'art-thumb-wrap';
-    thumbWrap.title = '클릭하여 미리보기';
+    thumbWrap.title = tr('artifacts.click_preview');
 
     if (item.kind === 'image') {
       const img = document.createElement('img');
@@ -213,14 +212,14 @@ function renderArtifacts() {
     const viewBtn = document.createElement('button');
     viewBtn.className = 'art-btn';
     viewBtn.type = 'button';
-    viewBtn.textContent = '미리보기';
+    viewBtn.textContent = tr('modal.render');
     viewBtn.onclick = () => openArtifactModal(item);
 
     const citeBtn = document.createElement('button');
     citeBtn.className = 'art-btn primary';
     citeBtn.type = 'button';
-    citeBtn.textContent = '인용';
-    citeBtn.title = '채팅 입력창에 추가';
+    citeBtn.textContent = tr('artifacts.cite');
+    citeBtn.title = tr('artifacts.cite_hint');
     citeBtn.onclick = () => citeArtifact(item);
 
     actions.appendChild(viewBtn);
@@ -364,7 +363,7 @@ async function openArtifactModal(item) {
     modalTitle.textContent = displayLabel + sizeLabel;
     modalTitle.onclick = async () => {
       const ok = await copyText(item.path || displayLabel);
-      if (ok && typeof addActivity === 'function') addActivity('경로 복사 완료: ' + (item.path || displayLabel));
+      if (ok && typeof addActivity === 'function') addActivity(tr('artifacts.path_copied', { path: item.path || displayLabel }));
     };
   }
   if (modalDownload) {
@@ -389,7 +388,7 @@ async function openArtifactModal(item) {
       bindArtifactImg(img, item);
       modalBody.appendChild(img);
     } else if (item.is_text || item.kind === 'text' || item.kind === 'document' || item.kind === 'code') {
-      modalBody.innerHTML = '<div style="color:var(--muted)">불러오는 중…</div>';
+      modalBody.innerHTML = '<div style="color:var(--muted)">' + tr('common.loading') + '</div>';
       try {
         let text = item.content;
         if (text == null && item.url) {
@@ -402,19 +401,19 @@ async function openArtifactModal(item) {
 
         if (modalCopyBtn) {
           modalCopyBtn.style.display = 'inline-block';
-          modalCopyBtn.textContent = '복사';
+          modalCopyBtn.textContent = tr('common.copy');
           modalCopyBtn.onclick = async () => {
             const ok = await copyText(modalCurrentText);
-            modalCopyBtn.textContent = ok ? '완료!' : '실패';
-            setTimeout(() => { if (modalCopyBtn) modalCopyBtn.textContent = '복사'; }, 1500);
+            modalCopyBtn.textContent = ok ? tr('artifacts.copied') : tr('common.failed');
+            setTimeout(() => { if (modalCopyBtn) modalCopyBtn.textContent = tr('common.copy'); }, 1500);
           };
         }
         if (modalWrapBtn) {
           modalWrapBtn.style.display = isMd && modalMdMode === 'render' ? 'none' : 'inline-block';
-          modalWrapBtn.textContent = modalIsWrap ? '줄바꿈 켜짐' : '줄바꿈 꺼짐';
+          modalWrapBtn.textContent = modalIsWrap ? tr('modal.wrap_on') : tr('modal.wrap_off');
           modalWrapBtn.onclick = () => {
             modalIsWrap = !modalIsWrap;
-            modalWrapBtn.textContent = modalIsWrap ? '줄바꿈 켜짐' : '줄바꿈 꺼짐';
+            modalWrapBtn.textContent = modalIsWrap ? tr('modal.wrap_on') : tr('modal.wrap_off');
             renderModalTextContent(isMd);
           };
         }
@@ -445,10 +444,10 @@ async function openArtifactModal(item) {
 
         renderModalTextContent(isMd);
       } catch (err) {
-        modalBody.innerHTML = `<div style="color:var(--status-bad)">파일을 불러올 수 없습니다: ${escapeHtml(err.message)}</div>`;
+        modalBody.innerHTML = `<div style="color:var(--status-bad)">${escapeHtml(tr('modal.load_failed', { error: err.message }))}</div>`;
       }
     } else {
-      modalBody.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem">미리보기를 지원하지 않는 파일 형식입니다.</div>';
+      modalBody.innerHTML = '<div style="color:var(--muted);text-align:center;padding:2rem">' + tr('modal.unsupported') + '</div>';
     }
   }
   artModal.style.display = 'flex';
@@ -475,14 +474,14 @@ async function openFilePreviewModal(targetPath) {
 
   const baseName = cleanPath.split('/').pop() || cleanPath;
   const lineLabel = hl ? ` [L${hl.start}${hl.end !== hl.start ? '-' + hl.end : ''}]` : '';
-  if (modalTitle) modalTitle.textContent = '불러오는 중… (' + baseName + lineLabel + ')';
+  if (modalTitle) modalTitle.textContent = tr('modal.loading_file', { name: baseName + lineLabel });
   if (modalDownload) modalDownload.style.display = 'none';
   if (modalCite) modalCite.style.display = 'none';
-  if (modalBody) modalBody.innerHTML = '<div style="color:var(--muted)">파일을 읽는 중입니다…</div>';
+  if (modalBody) modalBody.innerHTML = '<div style="color:var(--muted)">' + tr('modal.reading') + '</div>';
   artModal.style.display = 'flex';
   try {
     const res = await api('/api/file/preview?path=' + encodeURIComponent(cleanPath));
-    if (!res.ok) throw new Error(res.error || '접근이 거부되었거나 파일을 찾을 수 없습니다');
+    if (!res.ok) throw new Error(res.error || tr('modal.denied'));
     openArtifactModal({
       name: res.name,
       label: (res.label || res.name) + lineLabel,
@@ -494,10 +493,10 @@ async function openFilePreviewModal(targetPath) {
       url: res.raw_url,
     });
   } catch (err) {
-    if (modalTitle) modalTitle.textContent = '파일 미리보기 실패';
+    if (modalTitle) modalTitle.textContent = tr('modal.preview_failed');
     if (modalBody) {
       modalBody.innerHTML = `<div style="color:var(--status-bad);text-align:center;padding:2rem">
-        <div><strong>파일을 열 수 없습니다</strong></div>
+        <div><strong>${escapeHtml(tr('modal.cannot_open'))}</strong></div>
         <div style="font-size:.85rem;color:var(--muted);margin-top:.5rem">${escapeHtml(err.message || String(err))}</div>
         <div style="font-size:.78rem;color:var(--muted);margin-top:.2rem">${escapeHtml(targetPath)}</div>
       </div>`;

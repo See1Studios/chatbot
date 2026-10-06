@@ -23,6 +23,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+from tests.page_source import i18n_prelude  # noqa: E402
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -421,12 +423,13 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
+vm.runInContext(__I18N, ctx);   // I18N_v1: the page's tr() over the Korean catalog
 vm.runInContext(mdSrc, ctx);
 const renderedMd = ctx.renderMarkdown('[리포트](/artifacts/sess_1/report.md) [외부](https://example.com)', true);
 const renderedPlain = ctx.renderPlainText('[코드](/artifacts/sess_1/script.py) [외부](https://example.com)');
 console.log(JSON.stringify({ md: renderedMd, plain: renderedPlain }));
 """
-        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "markdown.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", "const __I18N = %s;\n" % json.dumps(i18n_prelude()) + js, str(ROOT / "static" / "markdown.js")], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout.strip())
         self.assertIn('class="artifact-link"', res["md"])
@@ -502,6 +505,7 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
+vm.runInContext(__I18N, ctx);   // I18N_v1: the page's tr() over the Korean catalog
 vm.runInContext(mdSrc, ctx);
 
 const container = makeEl('div');
@@ -531,7 +535,7 @@ console.log(JSON.stringify({
   modalOpened
 }));
 """
-        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "artifacts.js"), str(ROOT / "static" / "markdown.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", "const __I18N = %s;\n" % json.dumps(i18n_prelude()) + js, str(ROOT / "static" / "artifacts.js"), str(ROOT / "static" / "markdown.js")], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout.strip())
         self.assertIsNone(out["targetAttr"], "target attribute should be removed by interceptor")
@@ -589,6 +593,7 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
+vm.runInContext(__I18N, ctx);   // I18N_v1: the page's tr() over the Korean catalog
 vm.runInContext(mdSrc, ctx);
 
 // 1. External URL with /artifacts/ must NOT be intercepted
@@ -636,7 +641,7 @@ console.log(JSON.stringify({
   extBound, ctrlPrevented, ctrlModalCalls, metaPrevented, metaModalCalls, midPrevented, midModalCalls, normalModalCalls
 }));
 """
-        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "markdown.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", "const __I18N = %s;\n" % json.dumps(i18n_prelude()) + js, str(ROOT / "static" / "markdown.js")], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout.strip())
         self.assertFalse(out["extBound"], "external URL must NOT be bound by interceptor")
@@ -693,6 +698,7 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
+vm.runInContext(__I18N, ctx);   // I18N_v1: the page's tr() over the Korean catalog
 vm.runInContext(artSrc, ctx);
 
 async function run() {
@@ -710,7 +716,7 @@ async function run() {
 }
 run();
 """
-        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "artifacts.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", "const __I18N = %s;\n" % json.dumps(i18n_prelude()) + js, str(ROOT / "static" / "artifacts.js")], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout.strip())
         self.assertTrue(out["docSupported"], "document artifact must be previewed via text viewer")
@@ -762,6 +768,7 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
+vm.runInContext(__I18N, ctx);   // I18N_v1: the page's tr() over the Korean catalog
 vm.runInContext(artSrc, ctx);
 
 async function run() {
@@ -792,7 +799,7 @@ async function run() {
 }
 run();
 """
-        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "artifacts.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", "const __I18N = %s;\n" % json.dumps(i18n_prelude()) + js, str(ROOT / "static" / "artifacts.js")], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout.strip())
         self.assertFalse(out["pdfFetchCalled"], ".pdf must NOT trigger text fetch")
@@ -848,6 +855,7 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
+vm.runInContext(__I18N, ctx);   // I18N_v1: the page's tr() over the Korean catalog
 vm.runInContext(artSrc, ctx);
 
 // Populate currentArtifacts with server-supplied metadata
@@ -868,7 +876,7 @@ async function run() {
 }
 run();
 """
-        r = subprocess.run(["node", "-e", js, str(ROOT / "static" / "artifacts.js")], capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["node", "-e", "const __I18N = %s;\n" % json.dumps(i18n_prelude()) + js, str(ROOT / "static" / "artifacts.js")], capture_output=True, text=True, timeout=20)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout.strip())
         # Server metadata must survive the merge

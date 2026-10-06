@@ -6,7 +6,6 @@
   "session_weights.py": 2,
   "static/app-activity.js": 1,
   "static/app-messages.js": 1,
-  "static/artifacts.js": 1,
   "static/chat-base.css": 1,
   "static/index.html": 1,
   "static/sphere-theme.css": 1
@@ -46,7 +45,6 @@
   "static/app-status-usage.js": 8,
   "static/app-turn.js": 14,
   "static/app-viewport.js": 10,
-  "static/artifacts.js": 26,
   "static/chat-composer.css": 8,
   "static/chat-features.css": 1,
   "static/chat-log.css": 2,
