@@ -54,6 +54,7 @@ class Desk:
         self.sent.append((text, notice))
         self.event_type = event_type
         self.busy = True
+        self.turn_started_at = float("inf")   # the fake turn starts at once, whatever clock the test runs on
 
 
 class Office:
@@ -343,6 +344,31 @@ class Handoff(unittest.TestCase):
                      {"id": "s-lead", "character": self.lead, "mode": "work", "private": False})
         self.assertTrue(out["success"], out["message"])
         self.assertEqual(H.all_handoffs()[1]["task"], "fix it")
+
+    def test_a_turn_that_never_starts_is_sent_again_once_then_fails_saying_so(self):
+        # HANDOFF_UNSTARTED_v1 (drill 2026-10-06): a resent turn stuck before its agent ran stayed running 10 minutes
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        H.run_once(self.office, now=1000.0)
+        dev = self.office.desks[self.dev]
+        dev.turn_started_at = 0.0                                               # it never began
+        self.assertEqual(H.run_once(self.office, now=1000.0 + H.START_GRACE_SEC - 1), [], "still in its grace")
+        got = H.run_once(self.office, now=1000.0 + H.START_GRACE_SEC + 1)
+        self.assertEqual(got, [{"id": 1, "state": "sent"}, {"id": 1, "state": "running"}])
+        self.assertTrue(dev.stopped, "what held the session is stopped first")
+        self.assertEqual(len(dev.sent), 2)
+        dev.turn_started_at = 0.0
+        later = 1000.0 + 3 * H.START_GRACE_SEC
+        self.assertEqual(H.run_once(self.office, now=later), [{"id": 1, "state": "failed"}])
+        self.assertIn("never started", H.all_handoffs()[1]["reason"])
+        self.assertIn("never started", D.history(D.dm_id(self.dev, self.lead))[-1]["text"])
+
+    def test_a_long_turn_that_did_start_is_left_alone(self):
+        self.hand(self.lead, "s-lead", to="dev", text="x")
+        H.run_once(self.office, now=1000.0)
+        dev = self.office.desks[self.dev]
+        dev.turn_started_at = 1001.0                                            # began, still working
+        self.assertEqual(H.run_once(self.office, now=1000.0 + 10 * H.START_GRACE_SEC), [])
+        self.assertFalse(getattr(dev, "stopped", False))
 
     def test_an_answer_still_on_its_way_gets_a_second_look(self):
         # live #6 (2026-10-05): the turn had ended, its answer was not in the record yet, and it was failed

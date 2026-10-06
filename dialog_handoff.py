@@ -29,6 +29,7 @@ RESULT_MAX = 1500
 _LOCK = threading.Lock()
 _BOOT = time.time()   # this host process's start: a turn started before it was cut by a restart
 RESTART_RETRIES = 1
+START_GRACE_SEC = 120   # HANDOFF_UNSTARTED_v1: a handoff's turn that has not started by then is stuck before its agent
 _UNANSWERED: Dict[int, float] = {}   # handoff id -> when its ended turn first showed no answer (looked at again once)
 
 PROMPT = ("[Handoff #{id} from {sender} -- the user did not write this] {task}\n"
@@ -223,6 +224,9 @@ def _pass(reg, now: Optional[float] = None) -> List[Dict]:
     hs = sorted(all_handoffs().values(), key=lambda h: h["id"])
     for h in [x for x in hs if x.get("state") == "running"]:
         sess = reg.peek(h.get("sid", "")) if hasattr(reg, "peek") else None
+        if sess is not None and _unstarted(h, sess, now):
+            changed.append(_restart_unstarted(reg, h, sess))
+            continue
         if sess is not None and (getattr(sess, "busy", False) or getattr(sess, "_loop_stopping", False)):
             continue   # still working, or between a notice's stop and its resume
         answer = _last_answer(sess, float(h.get("started", 0))) if sess is not None else ""
@@ -318,6 +322,29 @@ def _close_cancelled(reg, h: Dict, why: str = "") -> List[Dict]:
             c for c in _children(parent["id"]) if c.get("state") in OPEN]:
         mark(parent["id"], "resume")
     return out
+
+
+def _unstarted(h: Dict, sess, now: float) -> bool:
+    """HANDOFF_UNSTARTED_v1: its turn has not started (the session's last turn began before the handoff did) and the
+    grace is over -- stuck before its agent ran (a drill rerun under load, 2026-10-06: running for 10 minutes)."""
+    started = float(h.get("started", 0) or 0)
+    return now - started > START_GRACE_SEC and float(getattr(sess, "turn_started_at", 0) or 0) < started
+
+
+def _restart_unstarted(reg, h: Dict, sess) -> Dict:
+    """Stop whatever holds the session and send the handoff again, once; then fail it saying why."""
+    try:
+        sess.stop()
+    except Exception:  # noqa: BLE001 -- closed or resent in the ledger all the same
+        pass
+    tries = int(h.get("start_retries", 0) or 0)
+    if tries < RESTART_RETRIES:
+        mark(h["id"], "sent", start_retries=tries + 1, note="its turn had not started after %ds; sent again" % START_GRACE_SEC)
+        return {"id": h["id"], "state": "sent"}
+    why = "its turn never started (twice, %ds each)" % START_GRACE_SEC
+    _report(reg, h, "failed", "(the turn ended without an answer: %s)" % why)
+    mark(h["id"], "failed", reason=why)
+    return {"id": h["id"], "state": "failed"}
 
 
 def _children(hid: int) -> List[Dict]:
