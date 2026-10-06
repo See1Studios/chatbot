@@ -243,6 +243,17 @@ class Fixture(WorkspaceCase):
         self.assertEqual(len(alert), 1)
         self.assertEqual((alert[0].kwargs["kind"], alert[0].kwargs["lvl"], alert[0].kwargs["limit"]), ("over_budget", "warn", 10))
 
+    def test_a_line_two_held_role_packs_share_is_shown_once(self):
+        # ROLE_LINES_ONCE_v1 (lca/H): every pack ends with the same handoff line; a two-role holder read it twice
+        shared = "Work another role owns: hand it on."
+        for role, body in (("dev", "DEV-MARK"), ("plan", "PLAN-MARK")):
+            _write(self.ws / "roles" / role / "ROLE.md", "---\ntitle: %s\n---\n\n%s\n%s\n" % (role, body, shared))
+        C.save_team({"default": self.card_id, "members": {self.card_id: ["dev", "plan"]}}, self.ws)
+        text = I._roles_text(self.card_id)
+        self.assertEqual(text.count(shared), 1)
+        self.assertIn("DEV-MARK", text)
+        self.assertIn("PLAN-MARK", text)
+
     def test_the_bundles_keep_their_bytes(self):
         got = {}
         for mode in I.BOTH:

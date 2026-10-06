@@ -2,7 +2,7 @@
 title: 아트
 owns: character art, images, visual style
 tools:
-skills: image-brief
+skills: image-brief, character-art, character-pipeline, anime-layer-animator
 ---
 
 # Role: Art

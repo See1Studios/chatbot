@@ -128,7 +128,13 @@ def _roles_text(character: str = "") -> str:
         return ""
     if not packs:
         return NO_ROLE_NOTE
-    return "\n\n".join(p["text"] for p in packs if p["text"])
+    seen, texts = set(), []   # ROLE_LINES_ONCE_v1: a line two held packs share (the handoff line) is shown once
+    for p in packs:
+        lines = [l for l in (p["text"] or "").split("\n") if not (l.strip() and l in seen)]
+        seen.update(l for l in lines if l.strip())
+        if "\n".join(lines).strip():
+            texts.append("\n".join(lines))
+    return "\n\n".join(texts)
 
 
 LOREBOOK_SCAN_DEPTH = 5
