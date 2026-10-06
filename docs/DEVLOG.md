@@ -1,5 +1,11 @@
 # chatbot 개발로그
 
+## 2026-10-06 — docs(governance): establish core governance documents (prop/A) (#720, 위임 agy)
+
+- **커밋**: `5de6799` docs(governance): establish core governance documents (prop/A)
+- **바뀐 파일**: `docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md`
+- 위임 병합 때 자동으로 쓴 줄(`tools/devlog_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-06 — 오늘 넣은 언어 묶인 것 되돌리기 (#722)
 
 - **운영자**: "이건 다국어 지향 앱인데 제정신이야?"
