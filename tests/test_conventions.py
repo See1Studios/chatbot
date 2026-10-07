@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 
 # Legitimate legacy exemptions for subprocess.run without explicit timeout.
-# Tracked under [DRIFT-002] in docs/STATE.md pending subsequent batch remediation.
+# This table is the backlog (docs/CONVENTION.md §2.3): it only shrinks.
 LEGACY_SUBPROCESS_EXEMPTIONS: Dict[str, str] = {
     "tickets.py::_guard_failure": "Fast local git cat-file and worktree operations for guard runner",
     "tools/devlog_entry.py::_git": "Local git query helper for devlog formatting",

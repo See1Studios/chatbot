@@ -55,34 +55,14 @@
   - Tier 3: 코어/보안/가드/거버넌스(`protected_paths.json`). 엄격한 검토와 명시적 승인 하에서만 변경.
 
 ### 2.2 `docs/CONVENTION.md` (엔지니어링 컨벤션 SSOT)
-개발 시 준수해야 하는 구체적인 구현 및 코딩 규칙의 정본 문서다(본문 신설 완료, D-1).
-- **Mandatory Test Pairing (테스트 페어링 의무)**:
-  - 모든 기능 추가, 수정, 리팩토링, 버그 수정은 반드시 이를 검증하는 테스트 코드(`tests/`)와 1:1로 페어링되어야 한다.
-  - [현재 상태] 규칙은 존재하나 기계적 차단은 예정 상태이며, 현재는 커밋 훅(`.githooks/check_staged.py`)의 가드 테스트 실행 및 리뷰 시 확인으로 관리.
-  - [예정 집행] 테스트 없는 코드 커밋 거부, Mandatory Test Pairing 기계 확인(커밋 훅 및 워크트리 러너 리뷰 체크리스트 연동).
-- **80-line function cap & 80KB module cap (함수 80줄 / 모듈 80KB 상한)**:
-  - 단일 함수의 길이는 80줄 이하로 제한되며, 모듈 크기는 80,000 바이트를 넘지 않는다.
-  - **[현재 가드]** 이미 `tests/test_file_sizes.py`의 `FUNC_MAX_LINES=80` 및 `MAX_BYTES=80_000` 가드로 구현되어 있으며, `run-tests.sh --fast`를 통해 커밋마다 기계적으로 자동 강제 중. 초과된 기존 레거시 함수는 `FUNC_CEILINGS` 래칫으로 묶여 있어 더 이상 늘어날 수 없고 줄어들기만 한다.
-  - 단일 책임 원칙을 유지하며 복잡도 누적 시 조기 분리([monolith-split.md](monolith-split.md))를 강제한다.
-- **Async 30s timeout (비동기 30초 타임아웃)**:
-  - 비동기 작업, 서브프로세스 호출, 외부 HTTP 통신, 대화 턴 실행 등은 최대 30초 타임아웃을 기본으로 설정한다.
-  - [현재 상태] 워치독(`turn_watchdog.py`)의 턴 감시 및 빠른 실패(Fail-Fast) 일부 적용.
-  - [예정 집행] 비동기 함수 전반의 30초 타임아웃 준수 여부를 정적으로 검사하는 자동 린터/가드 신설.
-- **Work banter limit (업무 대화/사담 상한)**:
-  - 에이전트 간 위임 대화, 작업 핸드오프, 커밋 및 PR 보고 시 업무 사담은 1~2문장으로 엄격히 제한한다.
-  - [현재/예정] 프롬프트 지침 준수 및 향후 워커 리뷰 체크리스트를 통한 점검. 불필요한 토큰 낭비를 차단하고 기술적 사실·diff·테스트 결과 중심의 명확한 소통을 유지한다.
+숫자와 세부 규칙의 정본(영어, 에이전트용). 2026-10-07 검토(prop/H)에서 실제와 맞췄다:
+- **테스트 페어링**: 커밋 훅 commit-msg가 강제(TEST_PAIRING_v1, prop/F). 테스트를 못 붙이면 `No-Test: <이유>` 줄.
+- **크기 상한**: 함수 80줄·모듈 80,000바이트, `tests/test_file_sizes.py`가 커밋마다. 넘는 옛 함수는 천장 표로 묶여 줄기만 한다.
+- **타임아웃**: 고정 30초가 아니라 **막히는 subprocess 호출마다 명시적 timeout**(`tests/test_conventions.py`). 긴 대화 턴은 워치독 몫. (처음 문안의 "모든 대기 최대 30초"는 실제 턴·CLI 호출과 맞지 않아 고침.)
+- **사담 상한**: 1~2문장. 집행자 없음 — 판정하려면 단어·문장 매칭이 필요한데, 그것은 언어 의존 구조라 하지 않는다.
 
-### 2.3 `docs/STATE.md` (전파 장부 및 표류 백로그)
-아키텍처 및 컨벤션 규칙이 코드베이스 전체에 적용되는 진행 상황을 추적하는 동적 장부다(본문 신설 완료, D-1).
-- **Active Queue (`[DEV-PROP-xxx]`)**:
-  - 현재 전파가 진행 중인 아키텍처 개편 및 컨벤션 적용 큐.
-  - 고유한 전파 식별자(예: `[DEV-PROP-001]`)를 부여하여 추적한다.
-- **Module-level Checklists**:
-  - 전파 대상 모듈 목록을 명시하고, 모듈 단위의 체크리스트(`[ ]` -> `[x]`)를 통해 진행도를 투명하게 관리한다.
-- **Drift Backlog (코드 표류 백로그)**:
-  - 새 규칙 선언 후 기존 레거시 코드베이스에서 발견된 불일치(Drift)를 부채로 기록하고 큐 진입을 대기한다.
-- **Archived History**:
-  - 모든 모듈 체크리스트가 완료된 전파 작업은 완료일, 관련 티켓/커밋 요약과 함께 아카이브 섹션으로 이동하여 영구 보존한다.
+### 2.3 `docs/STATE.md` (전파 장부)
+새 규칙이 코드에 퍼지는 동안의 진행(진행 중 항목 + 각 부분의 티켓)과, 어느 가드도 잡지 않는 표류만 적는다. 가드가 이미 묶어 둔 표류(함수 천장, timeout 예외, 래칫)는 그 표가 정본이라 옮겨 적지 않는다(prop/H에서 축소).
 
 ---
 
@@ -104,11 +84,11 @@
    - `docs/STATE.md`의 Active Queue에 `[DEV-PROP-xxx]` 항목을 등록한다.
    - 영향받는 전체 모듈 목록을 조사하여 모듈 단위의 `[ ]` 체크리스트를 구성한다.
 3. **리드 작업/티켓 분해 (Task/Ticket Decomposition via Lead)**:
-   - 리드(PD/노노)가 `[DEV-PROP-xxx]` 큐 항목을 원자적 단위의 실행 티켓(#N)으로 분해한다.
+   - 리드(`lead` 역할)가 `[DEV-PROP-xxx]` 큐 항목을 원자적 단위의 실행 티켓(#N)으로 분해한다.
    - 각 티켓은 변경할 파일 경로를 명확히 클레임(`tools/ticket_quick.py start --paths ...`)한다.
 4. **개발 구현 및 테스트 검증 (Dev Implementation & Test Verification)**:
-   - 담당 개발자(코코 등)가 분리된 git 워크트리에서 구현을 수행한다.
-   - Mandatory Test Pairing 규칙에 따라 테스트를 작성하고, `run-tests.sh`를 통해 검증한다([예정] 테스트 동반 기계 검증 도입 전까지는 수동/체크리스트 확인).
+   - 담당 개발자(`dev` 역할)가 분리된 git 워크트리에서 구현을 수행한다.
+   - Mandatory Test Pairing 규칙에 따라 테스트를 작성하고, `run-tests.sh`를 통해 검증한다(테스트 동반은 커밋 훅이 확인, prop/F).
 5. **머지 및 체크박스 갱신 (Merge & Checkbox Update)**:
    - 게이트를 통과한 작업이 메인 브랜치에 머지되면, `docs/STATE.md`의 해당 모듈 체크박스를 `[x]`로 갱신한다.
    - 커밋 트레일러에 `Ticket: #N` 및 필요 시 전파 식별자를 기록한다.
@@ -137,12 +117,8 @@
   - 규칙-집행자 등록 정합성: `tests/test_rule_registry.py`
   - 문서 및 참조 정합성: `tests/test_plans_index.py`, `tests/test_doc_refs.py`, `tests/test_doc_names.py`
   - 커밋 트레일러 및 게이트 무결성: `.githooks/` 및 `tests/test_githooks.py`
-- **[신설 예정 가드 및 강제 메커니즘]**:
-  - `docs/CONVENTION.md` 규칙 자동 강제 (컨벤션 전용 린터/테스트 스위트)
-  - 테스트 없는 코드 커밋 거부 (커밋 훅 레벨에서 테스트 파일 변경 동반 확인)
-  - Mandatory Test Pairing 기계 확인 (워크트리 러너 및 리뷰 체크리스트 연동)
-  - 비동기 타임아웃(30초) 정적/동적 검증 가드
-  - 배포판 런타임 쓰기 시 엔진 코드 수정 원천 차단 하드닝
+- **[2026-10-07 반영]**: 테스트 페어링(커밋 훅), 타임아웃 검사(run·check_output·check_call·call), 집행자는 모두 Tier 3 + 커밋마다(`test_rule_registry`), 개발판·배포판 지침 분리(`test_edition_instructions`).
+- **[아직 없음]**: 배포판 런타임에서 엔진 코드 쓰기를 원천 차단하는 하드닝(edition/E·F), CI(pew D8).
 
 ### 4.3 워크트리 러너 연계 (Worktree Runner)
 - 전문가 에이전트의 작업은 `tools/worktree_runner.py`가 생성하는 격리된 git 워크트리에서 실행된다.
@@ -172,13 +148,13 @@
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | prop/A | 핵심 거버넌스 문서 체계 정비 및 신설 | `docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md` | 기존 `docs/ARCHITECTURE.md` 거버넌스 확장, `docs/CONVENTION.md`(신설) 규칙 작성, `docs/STATE.md`(신설) 큐 서식 작성 및 커밋 | Tier 3 · ⚡X | M | D-1 | 완료 (#720) |
-| prop/B | 신규 컨벤션 검사기 개발 및 가드 연동 | `tests/test_conventions.py` (또는 기존 가드 확장) | 비동기 30초 타임아웃 및 Mandatory Test Pairing 기계 검증 가드 추가 (함수 80줄 상한은 기존 `test_file_sizes` 활용) | Tier 3 · ⚡X | S | prop/A | 완료 (#724) |
-| prop/C | `STATE.md` 파일럿 전파 큐 등록 및 아카이브 | `docs/STATE.md`, `docs/plans/propagation-and-state-architecture.md` | 첫 `[DEV-PROP-001]` 큐 항목 등록, 체크리스트 마감 및 아카이브 검증 | Tier 3 · ⚡X | S | prop/A, prop/B | 진행 중 (#726) |
+| prop/B | 신규 컨벤션 검사기 개발 및 가드 연동 | `tests/test_conventions.py` (또는 기존 가드 확장) | 비동기 30초 타임아웃 및 Mandatory Test Pairing 기계 검증 가드 추가 (함수 80줄 상한은 기존 `test_file_sizes` 활용) | Tier 3 · ⚡X | S | prop/A | 완료 (#724) — 정정 2026-10-07: 실제로는 timeout 검사만, 테스트 페어링 기계 검증은 prop/F |
+| prop/C | `STATE.md` 파일럿 전파 큐 등록 및 아카이브 | `docs/STATE.md`, `docs/plans/propagation-and-state-architecture.md` | 첫 `[DEV-PROP-001]` 큐 항목 등록, 체크리스트 마감 및 아카이브 검증 | Tier 3 · ⚡X | S | prop/A, prop/B | ✅ #726 `d926a47` |
 | prop/D | 워크트리 러너 리뷰 체크리스트 연동 | `tools/review_checklist.py` | 워커 리뷰 시 Mandatory Test Pairing 기계 확인 및 거버넌스 체크리스트 판정 연동 (Tier 3: protected_paths.json 거버넌스 경로) | Tier 3 (거버넌스) · ⚡X | S | prop/B | 완료 (#747) |
 | prop/E | 2026-10-07 거버넌스 검토 1: main 복구 — lead 역할 팩에서 설치 전용 스킬 제거(주인 없는 스킬은 DEFAULT_ROLE_v1로 기본 캐릭터 몫), 지문 테스트의 날짜 고정 | `templates/dev-workspace/roles/lead/ROLE.md`, `tests/test_context_layers.py` | `./run-tests.sh` 전부 통과 | Tier 3 · ⚡X | S | — | ✅ #766 `de37131` |
 | prop/F | 검토 2: 집행자 보호 — 레지스트리의 집행자 테스트는 모두 Tier 3, 싼 것은 FAST, 느린 것은 이유와 함께 목록; 테스트 페어링을 commit-msg 훅으로 | `tests/test_rule_registry.py`, `run-tests.sh`, `protected_paths.json`, `.githooks/check_staged.py`, `tests/test_githooks.py`, `tests/test_conventions.py`, `AGENTS.md` | 집행자를 Tier 3에서 빼거나 FAST·SLOW 어디에도 없으면 `test_rule_registry` 실패; 테스트 없는 feat/fix 커밋 거절 | Tier 3 · ⚡X | M | prop/E | ✅ #767 `df88497` |
-| prop/G | 검토 3: 개발판·배포판 지침 분리(운영자 2026-10-07 "절대 섞이지 않고 독립적") — 헌장은 배포판 하나, 개발판 규칙은 `EDITION=dev`에서만 붙는 별도 층 | `instructions.py`, `templates/`, `tools/link_dev_workspace.py`, 테스트 | 배포판 묶음에 개발판 문장 0, 개발판 층이 배포판 헌장 줄을 반복하지 않음(테스트) | Tier 3 · ⚡ | M | prop/F | #768 |
-| prop/H | 검토 4: 거버넌스 문서 정리 — CONVENTION 영어·숫자 위주, STATE 축소, ARCHITECTURE §7 사실만, 계획 상태 정정, 문구 확인 테스트 삭제 | `docs/`, `AGENTS.md`, `templates/dev-workspace/` | `./run-tests.sh` 통과, 문서 간 모순 0 | Tier 3 · ⚡X | M | prop/G | 대기 |
+| prop/G | 검토 3: 개발판·배포판 지침 분리(운영자 2026-10-07 "절대 섞이지 않고 독립적") — 헌장은 배포판 하나, 개발판 규칙은 `EDITION=dev`에서만 붙는 별도 층 | `instructions.py`, `templates/`, `tools/link_dev_workspace.py`, 테스트 | 배포판 묶음에 개발판 문장 0, 개발판 층이 배포판 헌장 줄을 반복하지 않음(테스트) | Tier 3 · ⚡ | M | prop/F | ✅ #768 `83f0cf8` |
+| prop/H | 검토 4: 거버넌스 문서 정리 — CONVENTION 영어·숫자 위주, STATE 축소, ARCHITECTURE §7 사실만, 계획 상태 정정, 문구 확인 테스트 삭제 | `docs/`, `AGENTS.md`, `templates/dev-workspace/` | `./run-tests.sh` 통과, 문서 간 모순 0 | Tier 3 · ⚡X | M | prop/G | #769 |
 
 ---
 

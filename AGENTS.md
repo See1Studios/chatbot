@@ -3,7 +3,7 @@
 The one entry for **any agent that changes this repository**: an external CLI (Claude Code, Grok, Gemini, Codex …), a
 worker the delegation runner starts in a worktree, or the PE chat agent when it works on code. Tool-named entry files that
 exist here (`CLAUDE.md`, `GEMINI.md`) only point to this file — do not invent new ones; keep them as short pointers.
-**Speak with the developer (operator) in Korean. Write documentation in English.** (Chat-agent runtime voice and UI
+**Speak with the developer (operator) in Korean. Agent-facing documents in English; operator-facing ones may be Korean.** (Chat-agent runtime voice and UI
 conventions stay in `$CHATBOT_DATA/workspace/`; do not mix them into this map.)
 
 Not in scope here: how the PE chat agent talks and behaves at runtime. That charter is `$CHATBOT_DATA/workspace/AGENTS.md`
@@ -138,10 +138,10 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns); backstops `test_worktree_runner`, `test_tickets` |
 | Data paths only through `host_config` (`DATA_ENV` order; `tickets.py` mirrors it) | all | `test_data_paths` |
 | Python module ≤ 80,000 bytes; Python function ≤ 80 lines; listed ceilings only go down | all | `test_file_sizes` (numbers SSOT: `docs/CONVENTION.md`) |
-| Convention numbers in `docs/CONVENTION.md` match the size/timeout guards (80 lines, 80KB, 30s) | all | `test_conventions` |
+| Size numbers in `docs/CONVENTION.md` match the size guard (80 lines, 80,000 bytes) | all | `test_conventions` |
 | Blocking `subprocess` calls (`run`, `check_output`, `check_call`, `call`) name an explicit `timeout` (legacy allowlist in the test) | all | `test_conventions` |
 | Test pairing: a feat/fix/refactor/perf commit that changes code carries `tests/`, or a `No-Test: <why>` trailer says why not | all | `test_githooks` (commit-msg hook, TEST_PAIRING_v1; code/test definition `tools/review_checklist.py`, which also warns in the delegation review) |
-| Work banter in delegation / handoff / commit reports ≤ 1-2 sentences (detail: `docs/CONVENTION.md`) | all | manual (planned `tools/worker_output.py` / `tools/review_checklist.py`; registration shape `test_conventions`) |
+| Work banter in delegation / handoff / commit reports ≤ 1-2 sentences (detail: `docs/CONVENTION.md`) | all | manual (a check would have to match words or sentences, which the language rule below bars) |
 | Page script or stylesheet ≤ 43,000 bytes; listed ceilings only go down | all | `test_page_scripts` |
 | New code folder is protected (`tools/` too: the delegation gate's verdict reader is governance) | all | `test_code_layout` |
 | Every code file (root, `providers/`, `tools/`, `static/`) has a code-map row before it lands | all | `test_code_map` |
@@ -161,10 +161,12 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | No new host/persona identity (DiskStation, `/volume1`, Sphere, 실장님, 냥) in engine code outside the host plugin | all | `test_ratchets` |
 | Tracked workspace template twins (repo `data/workspace` when present) are classified in `templates/workspace-manifest.json`; `same` pairs stay byte-equal; the template names no host and no engine work | all | `test_workspace_template` |
 | Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |
-| Speak with the developer in Korean; write documentation in English | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
+| Speak with the developer in Korean. Agent-facing documents (this file, `docs/CONVENTION.md`, `docs/STATE.md`, charters, role packs, skills) in English; operator-facing ones (`docs/CONCEPT.md`, `docs/ARCHITECTURE.md`, plans, DEVLOG) may be Korean | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
 | Agent-facing machine text (prompts, tool strings, LEARNED lines) in English | all | manual |
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |
 | Look for prior art before building (`~/AGENTS.md` §0) | all | manual |
+| The engine decides what code can settle (tool choice, argument shape, format, classification); the model keeps only the character's words and acts | all | manual (plan `docs/plans/engine-decides.md`; failure rates from `logs/events.jsonl`) |
+| Results never depend on language or the model's wording: no word or phrase matching, no guessing at model text; show engine facts and the text as is | all | manual (review; the l10n ratchet in `test_ratchets` catches hardcoded Korean only) |
 | Spawn-visible dirs stay minimal (`ADD_DIRS`) | all | manual |
 | Engine-work rules for the chat agent live in the `dev` role pack, never the shared charter or another role's `role.md` | PE chat agent only | `test_dev_role` |
 | Dev and shipped instructions never mix: one shipped charter for both builds; dev-build rules only in `DEV-CHARTER.md`, injected only when `host_config.EDITION` is dev; neither file repeats the other; a shipped bundle names no dev tool; a shipped role pack names only skills that ship | all | `test_edition_instructions`, `test_workspace_template` |

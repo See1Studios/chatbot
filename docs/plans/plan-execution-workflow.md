@@ -152,14 +152,14 @@ G0 방향 ─ G1 초안 ─ G2 검토 ─ G3 결정 ─ G4 준비 ─ G5 티켓 
 
 | 게이트 | 산출물 | 통과 조건 | 집행 |
 |---|---|---|---|
-| G0 방향 | concept, brand, 로어 | 인용만, 항목 id 없음 | `test_plan_items` |
+| G0 방향 | concept, brand, 로어 | 인용만, 항목 id 없음 | 수동 (예정 `test_plan_items`, pew/I) |
 | G1 초안 | 계획 + INDEX 행 | §6 필수 섹션, 같은 변경에서 커밋 | `test_plans_index`, pre-commit |
 | G2 검토 | "현황 점검" 섹션 | 코드 대조(명령·날짜) · 관련 계획과의 모순 목록 · L 크기 또는 Tier 2 이상이면 교차 리뷰 | 수동(체크리스트) |
 | G3 결정 | ADR | 열린 D-n이 결정·보류·범위 밖 중 하나로 정리됨 | **운영자만** |
-| G4 준비 | 항목 행 | §7 DoR | `test_plan_items`(형식), 나머지는 수동 |
-| G5 티켓 | 티켓 #N, 행에 `#N` | 계획이 커밋된 상태, 티켓 제목 `[<id>] …` | `test_plan_items` |
+| G4 준비 | 항목 행 | §7 DoR | 수동 (예정 `test_plan_items`, pew/I) |
+| G5 티켓 | 티켓 #N, 행에 `#N` | 계획이 커밋된 상태, 티켓 제목 `[<id>] …` | pre-commit(커밋 안 된 계획 경고), 나머지 수동 (예정 pew/I) |
 | G6 실행 | 커밋 | 기존 경로(ticket-quick / PD delegate) + `run-tests.sh` | 훅, 러너 게이트 |
-| G7 완료 | `✅ #N <hash>`, CHANGELOG | §7 DoD | `test_plan_items`, commit-msg |
+| G7 완료 | `✅ #N <hash>`, CHANGELOG | §7 DoD | commit-msg(트레일러·테스트 페어링), 나머지 수동 (예정 pew/I) |
 | G8 릴리스 | VERSION, tag, 노트 | release-pipeline | 운영자 승인 |
 | G9 회고 | 관찰, 아카이브 | 모든 항목이 ✅ 또는 폐기되면 그 주에 아카이브 | `test_plans_index`(전부 ✅인 active 계획은 경고) |
 
