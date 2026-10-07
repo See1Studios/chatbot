@@ -17,7 +17,6 @@ from host_config import DATA, DEFAULT_PROVIDER
 
 # ADAPTER_SPLIT_v1: one module per provider; every name is re-exported here, so callers keep `from adapters import ...`.
 from providers.adapter_base import (  # noqa: E402,F401
-    _redact_err,
     AgentAdapter,
     openai_chunk_model,
     stamp_served_model,
@@ -31,31 +30,17 @@ from providers.adapter_claude import (  # noqa: E402,F401
     ClaudeAdapter,
 )
 from providers.adapter_grok import (  # noqa: E402,F401
-    _grok_tool_display,
-    _grok_tool_output_text,
-    _GROK_PERIOD_KEY,
-    _grok_home,
     _grok_access_token,
     _grok_billing_to_rows,
-    _fetch_grok_billing,
     GrokAdapter,
     GrokMediaSource,
 )
 from providers.adapter_codex import (  # noqa: E402,F401
-    _codex_rate_limit_to_rows,
-    _fetch_codex_rate_limits,
     CodexAdapter,
 )
 from providers.adapter_openai import (  # noqa: E402,F401
-    OPENROUTER_FREE_ROUTERS,
     is_openrouter_free_model,
-    NAS_MCP_URL,
-    MCP_TOOLS_CACHE_TTL_SEC,
-    _MCP_TOOLS_CACHE,
-    _mcp_rpc,
-    _mcp_openai_tools,
     _persona_system_prompt,
-    _mcp_call_tool,
     OpenAIDialectAdapter,
 )
 
@@ -108,7 +93,6 @@ def load_openai_dialect_adapters(path: Path) -> Dict[str, OpenAIDialectAdapter]:
 
 # ---- where each CLI keeps the media it generates (media_handler asks; PROVIDER_NEUTRAL_v1) -----
 import media_handler as _media  # noqa: E402  (no provider knowledge of its own)
-from urllib.parse import quote as _quote  # noqa: E402
 
 
 _media.register_media_source(AgyMediaSource())

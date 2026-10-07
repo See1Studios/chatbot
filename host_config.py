@@ -11,24 +11,23 @@ from pathlib import Path
 
 # Default is loopback: a bare `python3 server.py` is local-only. LAN access is an
 # explicit choice -- chatbot-ctl.sh cmd_start exports CHATBOT_HOST=0.0.0.0.
-def _env(name: str, legacy: str, default: str) -> str:
-    """Service settings are CHATBOT_*; the older AGY_CHAT_* / AGY_*_BIN names are still read so an
-    existing deployment keeps working (PROVIDER_NEUTRAL_v1: the service is not one provider's)."""
-    return os.environ.get(name) or os.environ.get(legacy) or default
+def _env(name: str, default: str) -> str:
+    """Service settings are CHATBOT_* (PROVIDER_NEUTRAL_v1: the service is not one provider's). The older AGY_CHAT_*
+    names were dropped 2026-10-07: nothing set them any more."""
+    return os.environ.get(name) or default
 
 
 HOME = Path(os.environ.get("HOME") or Path.home())
-ROOT = Path(_env("CHATBOT_ROOT", "AGY_CHAT_ROOT", str(Path(__file__).resolve().parent)))
+ROOT = Path(_env("CHATBOT_ROOT", str(Path(__file__).resolve().parent)))
 # 2026-09-16: consolidated from a sibling chatbot-data/ directory (and its
 # own separate git repos) into chatbot/data/ -- one project, one folder, one
 # repo, instead of code and data living apart and needing separate publish
 # subtrees to back up together.
 # The user-data directory, decided HERE only (user-data-separation §0, uds/B, uds/F; test_data_paths): the first
 # DATA_ENV variable that is set, else a literal CHATBOT_DATA in data-pin.env (dev checkout), else ~/.pe
-# (Windows: %USERPROFILE%\\.pe). PE_HOME and PRIVATEENGINE_HOME are brand aliases; AGY_CHAT_DATA is the legacy
-# name. tickets.py (a core module, which may not import this one) repeats the same order; the test keeps the two
+# (Windows: %USERPROFILE%\\.pe). PE_HOME and PRIVATEENGINE_HOME are brand aliases. tickets.py (a core module, which may not import this one) repeats the same order; the test keeps the two
 # identical.
-DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")
+DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")
 
 
 def test_run_outside_runner() -> bool:
@@ -83,21 +82,21 @@ PUSH_SUBSCRIPTIONS_FILE = DATA / "push_subscriptions.json"
 # An external static web root the install publishes into (persona images, the /chat shortcut). An install with no
 # web server leaves it unset and gets a folder in its own data; a host that has one names it in
 # $CHATBOT_DATA/host.env (templates/host.env.example). align/F: no host path is baked in.
-WEB_ROOT = Path(_env("CHATBOT_WEB_ROOT", "AGY_CHAT_WEB_ROOT", str(DATA / "web")))
+WEB_ROOT = Path(_env("CHATBOT_WEB_ROOT", str(DATA / "web")))
 # Which build this install is (docs/plans/edition-boundary.md): "shipped" (end users -- the agent never touches engine
 # code, dev tools are off) unless the install opts in with CHATBOT_EDITION=dev in $CHATBOT_DATA/host.env. Least
 # privilege by default; this is the one place the edition is decided.
 EDITION = "dev" if os.environ.get("CHATBOT_EDITION", "").strip().lower() == "dev" else "shipped"
 AGENT_PATH_PREFIX = f"{HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
-HOST = _env("CHATBOT_HOST", "AGY_CHAT_HOST", "127.0.0.1")
-PORT = int(_env("CHATBOT_PORT", "AGY_CHAT_PORT", "3011"))
+HOST = _env("CHATBOT_HOST", "127.0.0.1")
+PORT = int(_env("CHATBOT_PORT", "3011"))
 MCP_PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))  # mcp_server.py reads its own copy of the same setting
 MCP_URL = "http://127.0.0.1:%d/mcp" % MCP_PORT   # where agents reach the tool server: every adapter writes this one
 AGY = os.environ.get("AGY_BIN", str(HOME / ".local" / "bin" / "agy"))
-CLAUDE_BIN = _env("CHATBOT_CLAUDE_BIN", "AGY_CLAUDE_BIN", str(HOME / ".local" / "bin" / "claude"))
-GROK_BIN = _env("CHATBOT_GROK_BIN", "AGY_GROK_BIN", str(HOME / ".local" / "bin" / "grok"))
-CODEX_BIN = _env("CHATBOT_CODEX_BIN", "AGY_CODEX_BIN", str(HOME / ".local" / "bin" / "codex"))
+CLAUDE_BIN = _env("CHATBOT_CLAUDE_BIN", str(HOME / ".local" / "bin" / "claude"))
+GROK_BIN = _env("CHATBOT_GROK_BIN", str(HOME / ".local" / "bin" / "grok"))
+CODEX_BIN = _env("CHATBOT_CODEX_BIN", str(HOME / ".local" / "bin" / "codex"))
 # Worktree delegation (docs/plans/multi-agent-worktree-delegation.md §9): which CLI does the delegated work and
 # which one confirms the work as the PD persona (empty: the same CLI). Names are keys of tools/worktree_runner.PROVIDERS.
 # The default is the one provider the operator uses continuously (2026-09-23); the others are occasional. Models
@@ -130,7 +129,7 @@ PERSISTED_LOG_KINDS = {
     "session_heavy", "session_rotate", "stopped", "tool", "user_ack", "image",
     "choices", "action",
 }
-DEFAULT_MODEL = _env("CHATBOT_DEFAULT_MODEL", "AGY_CHAT_MODEL", "gemini-3.8-flash-low")
+DEFAULT_MODEL = _env("CHATBOT_DEFAULT_MODEL", "gemini-3.8-flash-low")
 MODELS = [
     "gemini-3.8-flash-low",
     "gemini-3.8-flash-medium",

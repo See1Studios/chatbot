@@ -12,7 +12,7 @@ CODE="${CODE:-$SCRIPT_DIR}"
 # uds/F: same order as host_config.DATA_ENV. Unset -> data-pin.env (literal CHATBOT_DATA) -> ~/.pe.
 # Do not hardcode $CODE/data. Exported here so the log resolver and every child agree with host_config.
 # DATA_RESOLVE_START
-if [ -z "${CHATBOT_DATA:-}" ] && [ -z "${PE_HOME:-}" ] && [ -z "${PRIVATEENGINE_HOME:-}" ] && [ -z "${AGY_CHAT_DATA:-}" ]; then
+if [ -z "${CHATBOT_DATA:-}" ] && [ -z "${PE_HOME:-}" ] && [ -z "${PRIVATEENGINE_HOME:-}" ]; then
   if [ -f "$CODE/data-pin.env" ]; then
     set -a
     # shellcheck disable=SC1091
@@ -20,7 +20,7 @@ if [ -z "${CHATBOT_DATA:-}" ] && [ -z "${PE_HOME:-}" ] && [ -z "${PRIVATEENGINE_
     set +a
   fi
 fi
-DATA="${CHATBOT_DATA:-${PE_HOME:-${PRIVATEENGINE_HOME:-${AGY_CHAT_DATA:-${HOME:-$HOME_DIR}/.pe}}}}"
+DATA="${CHATBOT_DATA:-${PE_HOME:-${PRIVATEENGINE_HOME:-${HOME:-$HOME_DIR}/.pe}}}"
 # DATA_RESOLVE_END
 export CHATBOT_ROOT="$CODE" CHATBOT_DATA="$DATA"
 # API-Provider plan: API-key-based adapters (e.g. omniroute) read credentials
@@ -114,7 +114,7 @@ obs() {
 
 PID_CHAT="$LOG_DIR/chatbot.pid"
 PID_MCP="$LOG_DIR/chatbot-mcp.pid"
-PORT_CHAT="${CHATBOT_PORT:-${AGY_CHAT_PORT:-3011}}"
+PORT_CHAT="${CHATBOT_PORT:-3011}"
 PORT_MCP="${NAS_MCP_PORT:-3012}"
 PROBE_STAMP="$DATA/doctor-probe.stamp"
 PROBE_EVERY_SEC=${CHATBOT_PROBE_EVERY_SEC:-3600}

@@ -38,14 +38,12 @@ def _workspace(title=None, persona=None, user_title=None, voice=None) -> Path:
 class Base(unittest.TestCase):
     def use(self, ws: Path):
         identity.WORKSPACE = ws
-        identity._cache.clear()
 
     def setUp(self):
         self._orig = identity.WORKSPACE
 
     def tearDown(self):
         identity.WORKSPACE = self._orig
-        identity._cache.clear()
 
 
 class PromptsTest(Base):

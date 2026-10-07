@@ -149,15 +149,6 @@ def remember_slots(cid, lines, ws=None):
     return added
 
 
-def _add(slots, seen, slot, shown):
-    key = _undated(shown).lower()
-    if not shown or key in seen:
-        return
-    if slot:
-        slots[slot].append(shown)
-    seen.add(key)
-
-
 def injection(cid, ws=None, private_text=""):
     """Dynamic private-bundle block. Empty when this character has nothing to carry."""
     slots = load(cid, ws) if cid else _empty()

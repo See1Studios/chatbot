@@ -85,7 +85,7 @@ class Bootstrap(unittest.TestCase):
         self.assertTrue(B.bootstrap(self.data)["created"])   # and the next start completes it
 
     def test_the_cli_uses_the_given_folder(self):
-        env = {k: v for k, v in os.environ.items() if k not in ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")}
+        env = {k: v for k, v in os.environ.items() if k not in ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")}
         r = subprocess.run([sys.executable, str(ROOT / "data_bootstrap.py"), "--data", str(self.data), "--quiet"],
                            cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=60)
         self.assertEqual(r.returncode, 0, r.stderr)

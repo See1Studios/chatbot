@@ -32,7 +32,7 @@ DAY_HEAD = re.compile(r"(?m)^## (\d{4}-\d{2}-\d{2}) ")
 
 
 def _git(repo: Path, *args: str) -> str:
-    r = subprocess.run(["git", *args], cwd=str(repo), capture_output=True, text=True)
+    r = subprocess.run(["git", *args], cwd=str(repo), capture_output=True, text=True, timeout=60)
     return r.stdout if r.returncode == 0 else ""
 
 

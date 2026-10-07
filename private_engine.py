@@ -33,7 +33,6 @@ TENSION_STAGES = _DEFAULTS["stages"]
 TENSION_MIN, TENSION_MAX = min(TENSION_STAGES), max(TENSION_STAGES)
 TENSION_SLOTS = tuple(label for label, _ in _DEFAULTS["slots"])  # slot index -> stage delta 0 / +1 / +2
 TENSION_SLOT_GUIDES = tuple(guide for _, guide in _DEFAULTS["slots"])
-TENSION_TEXTS = _DEFAULTS["texts"]
 TENSION_RECENT_MAX = 9
 
 # MODEL_FAMILY_TENSION_v1 (#201): a model family may carry its own tension table; families without one use the defaults.

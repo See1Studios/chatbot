@@ -202,38 +202,6 @@ class CharacterGenPromptTest(unittest.TestCase):
         self.assertNotIn("Omit negative_prompt", sys_p)
 
 
-# ── build_tagged_prompt ─────────────────────────────────────────────
-
-class TaggedPromptTest(unittest.TestCase):
-    def test_contains_markers(self):
-        out = CP.build_tagged_prompt("a pirate")
-        for tag in ("#NAME#", "#DESCRIPTION#", "#PERSONALITY#",
-                    "#FIRST_MESSAGE#", "#SCENARIO#", "#SYSTEM_PROMPT#",
-                    "#CREATOR_NOTES#", "#MESSAGE_EXAMPLES#",
-                    "#ALTERNATE_GREETINGS#", "#TAGS#", "#IMAGE_PROMPT#",
-                    "#NEGATIVE_PROMPT#"):
-            self.assertIn(tag, out, tag)
-
-    def test_contains_idea(self):
-        out = CP.build_tagged_prompt("space cowboy")
-        self.assertIn("space cowboy", out)
-
-    def test_contains_detail_lines(self):
-        out = CP.build_tagged_prompt("test", profile="short")
-        self.assertIn("words", out)
-
-    def test_overrides_flow_into_tagged(self):
-        out = CP.build_tagged_prompt(
-            "test", overrides={"description": {"min_words": 888}})
-        self.assertIn("888", out)
-
-    def test_contains_in_medias_res_rules(self):
-        out = CP.build_tagged_prompt("test")
-        self.assertIn("In Medias Res", out)
-        self.assertIn("Anti-puppeting", out)
-        self.assertIn("Hook", out)
-
-
 # ── build_fill_missing_prompt ───────────────────────────────────────
 
 class FillMissingPromptTest(unittest.TestCase):

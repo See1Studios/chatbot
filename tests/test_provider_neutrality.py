@@ -94,10 +94,9 @@ class ConfigTest(unittest.TestCase):
                                       cwd=str(ROOT), env=clean).decode().split()
         return out
 
-    def test_service_settings_are_chatbot_named_and_old_names_still_work(self):
+    def test_service_settings_are_chatbot_named(self):
         self.assertEqual(self.host_config(CHATBOT_PORT="4011")[0], "4011")
-        self.assertEqual(self.host_config(AGY_CHAT_PORT="4012")[0], "4012")          # legacy
-        self.assertEqual(self.host_config(CHATBOT_PORT="4013", AGY_CHAT_PORT="1")[0], "4013")
+        self.assertEqual(self.host_config(AGY_CHAT_PORT="4012")[0], "3011")   # the old name was dropped (2026-10-07)
 
     def test_ctl_exports_the_service_names(self):
         ctl = (ROOT / "chatbot-ctl.sh").read_text(encoding="utf-8")

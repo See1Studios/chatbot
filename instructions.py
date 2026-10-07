@@ -28,7 +28,6 @@ try:  # the candidate count is a convenience; a missing core module must not sto
 except Exception:  # noqa: BLE001
     observations = None
 
-RULE_BUNDLE_FILES = ["AGENTS.md"]
 WS_SKILLS_DIR = WORKSPACE / ".agents" / "skills"
 MEMORY_FILE = WORKSPACE / "memory" / "MEMORY.md"
 OBS_DIR = WORKSPACE / "skill-observations" / "observation-log"

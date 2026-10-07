@@ -164,7 +164,7 @@ class OneResolver(unittest.TestCase):
             (code / "data").mkdir()
             r = subprocess.run(["bash", str(code / "chatbot-ctl.sh"), "status"],
                                capture_output=True, text=True, timeout=30, cwd=str(CODE),
-                               env=dict(os.environ, AGY_CHAT_PORT="1", NAS_MCP_PORT="1"))
+                               env=dict(os.environ, CHATBOT_PORT="1", NAS_MCP_PORT="1"))
             self.assertTrue((code / "logs").is_dir(),
                             "ctl did not create its own log dir (it asked another tree): %s %s" % (r.stdout, r.stderr))
 

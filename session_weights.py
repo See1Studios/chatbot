@@ -4,7 +4,6 @@ Extracted from session.py during modular refactoring.
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import List, Optional
 

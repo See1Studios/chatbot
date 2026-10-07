@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import os
 import re
 import secrets
 import struct
@@ -18,7 +17,7 @@ import sys
 import time
 import zlib
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 # Add project root to sys.path
 _ROOT = Path(__file__).resolve().parent.parent

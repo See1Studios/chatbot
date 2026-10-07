@@ -87,7 +87,6 @@ GUARD_TIMEOUT_SEC = 300    # run-tests.sh --fast before `done` (pew/O); about 50
 MAX_NOTES = 40
 MAX_PATHS = 20
 OPEN_STATES = ("proposed", "approved", "in_progress", "awaiting_merge")
-CLOSED_STATES = ("done", "wontfix", "declined")
 _SID_RE = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
 
 
@@ -365,6 +364,26 @@ def _paths_of(t: Dict) -> List[str]:
     return []
 
 
+def prune_snapshots(root, base, max_age_sec, env=None) -> int:
+    """SNAPSHOT_PRUNE_v1: remove throwaway snapshot folders under `base` older than `max_age_sec`, and their git
+    worktree entries. A snapshot is removed in a `finally`, which a killed process never reaches (2026-10-07: three
+    release snapshots and their worktree entries left by restarts mid-check). Returns how many were removed."""
+    base, gone = Path(base), 0
+    try:
+        olds = [p for p in base.iterdir() if p.is_dir() and time.time() - p.stat().st_mtime > max_age_sec]
+    except OSError:
+        return 0
+    for p in olds:
+        if (p / "tree").exists():
+            subprocess.run(["git", "worktree", "remove", "--force", str(p / "tree")], cwd=str(root), env=env,
+                           capture_output=True, timeout=120)
+        shutil.rmtree(str(p), ignore_errors=True)
+        gone += 1
+    if gone:
+        subprocess.run(["git", "worktree", "prune"], cwd=str(root), env=env, capture_output=True, timeout=60)
+    return gone
+
+
 def _guard_failure(data) -> str:
     """Why the repo's guard tests fail, or "" (pew/O: the backstop for a commit that skipped its hooks). Runs
     `run-tests.sh --fast` on the committed state (HEAD) of the engine repo (`_repo_root`); nothing to check without a
@@ -376,21 +395,23 @@ def _guard_failure(data) -> str:
     # ...) and judged the throwaway copy against the live folders -- every approve from the page failed, from a shell
     # it passed. The guards run as in a developer's shell: no instance settings.
     env = {k: v for k, v in os.environ.items() if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE")
-           and not k.startswith(("CHATBOT_", "PE_", "PRIVATEENGINE_", "AGY_CHAT_"))}
+           and not k.startswith(("CHATBOT_", "PE_", "PRIVATEENGINE_"))}
     # Only the engine's own repo is judged. A data folder inside some other git repo (a home folder that is itself a
     # repo: ~/.pe, or a test's temp dir under ~/tmp) used to get a worktree of that whole repo before the missing
     # runner was noticed -- 6 s vs 108 s for test_tickets (test-suite-speed, 2026-09-28).
     if not (root / "run-tests.sh").is_file() and subprocess.run(
-            ["git", "cat-file", "-e", "HEAD:run-tests.sh"], cwd=str(root), env=env, capture_output=True).returncode:
+            ["git", "cat-file", "-e", "HEAD:run-tests.sh"], cwd=str(root), env=env, capture_output=True,
+            timeout=30).returncode:
         return ""
     # Judge what is committed (HEAD), not the shared working tree: other agents' unfinished work must not refuse
     # this ticket's `done` (pew/Q). A throwaway worktree at HEAD; the working tree only when HEAD is missing.
     base = Path.home() / ".cache" / "chatbot-release-snapshot"
     base.mkdir(parents=True, exist_ok=True)
+    prune_snapshots(root, base, 2 * GUARD_TIMEOUT_SEC, env)
     tmp = Path(tempfile.mkdtemp(dir=str(base)))
     tree = tmp / "tree"
     added = subprocess.run(["git", "worktree", "add", "--detach", "--quiet", str(tree), "HEAD"], cwd=str(root),
-                           env=env, capture_output=True, text=True)
+                           env=env, capture_output=True, text=True, timeout=120)
     where = tree if added.returncode == 0 else root
     try:
         runner = where / "run-tests.sh"
@@ -402,7 +423,8 @@ def _guard_failure(data) -> str:
         return "guard tests timed out after %ds" % GUARD_TIMEOUT_SEC
     finally:
         if added.returncode == 0:
-            subprocess.run(["git", "worktree", "remove", "--force", str(tree)], cwd=str(root), env=env, capture_output=True)
+            subprocess.run(["git", "worktree", "remove", "--force", str(tree)], cwd=str(root), env=env, capture_output=True,
+                           timeout=120)
         shutil.rmtree(str(tmp), ignore_errors=True)
     if r.returncode == 0:
         return ""
@@ -1008,8 +1030,8 @@ def list_tickets(data, status: Optional[str] = None) -> List[Dict]:
 # -------------------------------------------------------------- command line
 
 def _code_root() -> Path:
-    """Same root host_config.ROOT uses (CHATBOT_ROOT, else AGY_CHAT_ROOT, else this file's directory)."""
-    for k in ("CHATBOT_ROOT", "AGY_CHAT_ROOT"):
+    """Same root host_config.ROOT uses (CHATBOT_ROOT, else this file's directory)."""
+    for k in ("CHATBOT_ROOT",):
         if os.environ.get(k):
             return Path(os.environ[k])
     return Path(__file__).resolve().parent
@@ -1048,7 +1070,7 @@ def _data_dir() -> Path:
     if os.environ.get("CHATBOT_TEST_RUNNER") != "1" and (
             "-m unittest" in a0 or os.path.basename(a0).startswith(("pytest", "py.test"))):
         return _code_root() / "data"
-    for k in ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA"):
+    for k in ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME"):
         if os.environ.get(k):
             return Path(os.environ[k])
     pinned = _pinned_chatbot_data(_code_root())

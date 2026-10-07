@@ -236,60 +236,6 @@ def build_character_gen_prompt(
     return system, user
 
 
-# ── tagged prompt ───────────────────────────────────────────────────
-
-_TAGGED_TEMPLATE = """\
-<TASK>
-Generate a character card from the idea below.
-Write ALL story fields in Korean. Write image_prompt and \
-negative_prompt in English.
-</TASK>
-
-<IDEA>
-{idea}
-</IDEA>
-
-<DETAIL>
-{field_detail_lines}
-</DETAIL>
-
-<RULES>
-{first_mes_rules}
-</RULES>
-
-Reply using EXACTLY these markers, one field per marker:
-
-#NAME# ...
-#DESCRIPTION# ...
-#PERSONALITY# ...
-#FIRST_MESSAGE# ...
-#SCENARIO# ...
-#SYSTEM_PROMPT# ...
-#CREATOR_NOTES# ...
-#MESSAGE_EXAMPLES#
-- ...
-- ...
-#ALTERNATE_GREETINGS#
-- ...
-#TAGS# tag1, tag2, ...
-#IMAGE_PROMPT# ...
-#NEGATIVE_PROMPT# ..."""
-
-
-def build_tagged_prompt(
-    idea: str,
-    profile: str = "detailed",
-    overrides: Optional[Dict[str, Dict[str, int]]] = None,
-) -> str:
-    """Return a single prompt string using ``#TAG#`` markers."""
-    detail = build_field_detail_lines(profile, overrides)
-    return _TAGGED_TEMPLATE.format(
-        idea=idea,
-        field_detail_lines=detail,
-        first_mes_rules=_FIRST_MES_RULES,
-    )
-
-
 # ── fill-missing prompt ────────────────────────────────────────────
 
 _FILL_SYSTEM = """\

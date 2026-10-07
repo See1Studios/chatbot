@@ -19,13 +19,7 @@ DOCS = ROOT / "docs"
 
 # Legitimate legacy exemptions for subprocess.run without explicit timeout.
 # This table is the backlog (docs/CONVENTION.md §2.3): it only shrinks.
-LEGACY_SUBPROCESS_EXEMPTIONS: Dict[str, str] = {
-    "tickets.py::_guard_failure": "Fast local git cat-file and worktree operations for guard runner",
-    "tools/devlog_entry.py::_git": "Local git query helper for devlog formatting",
-    "tools/handoff_drill.py::build": "Sandbox bootstrap execution in handoff drill",
-    "tools/handoff_drill.py::stop": "Local process reap in handoff drill teardown",
-    "tools/migrate_user_data.py::_tracked": "Local git rev-parse and ls-files check for user data migration",
-}
+LEGACY_SUBPROCESS_EXEMPTIONS: Dict[str, str] = {}   # emptied 2026-10-07 (prop/I); keep it empty
 
 
 def target_modules() -> List[Path]:

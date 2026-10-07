@@ -282,6 +282,3 @@ def extract_tool_steps(obj: dict) -> List[Tuple[str, dict, object]]:
     return out
 
 
-def extract_tool_calls(obj: dict) -> List[Tuple[str, dict]]:
-    """(name, params) of the finished tool calls in one line; see extract_tool_steps for the outputs."""
-    return [(n, p) for n, p, _ in extract_tool_steps(obj)]

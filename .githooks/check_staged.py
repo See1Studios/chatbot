@@ -59,7 +59,7 @@ def _clean_git_env():
     line was left staged after every merge (#620, #626, #656, #662 -- 2026-10-05)."""
     return {k: v for k, v in os.environ.items()
             if k not in ("GIT_INDEX_FILE", "GIT_DIR", "GIT_WORK_TREE", "GIT_PREFIX", "GIT_OBJECT_DIRECTORY",
-                         "CHATBOT_ROOT", "AGY_CHAT_ROOT", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE",
+                         "CHATBOT_ROOT", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE",
                          "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL", "GIT_COMMITTER_DATE")
             and not k.startswith("GIT_CONFIG_")}
 
@@ -73,6 +73,9 @@ def run_guards_on_snapshot(root, related=()):
     env = _clean_git_env()
     base = Path.home() / ".cache" / "chatbot-hook-snapshot"   # /tmp is noexec on this host
     base.mkdir(parents=True, exist_ok=True)
+    tk = _repo_module(root, "tickets")   # SNAPSHOT_PRUNE_v1: a hook killed mid-run leaves its snapshot behind
+    if tk is not None and hasattr(tk, "prune_snapshots"):
+        tk.prune_snapshots(root, base, 3600, env)
     tmp = Path(tempfile.mkdtemp(dir=str(base)))
     tree = tmp / "tree"
     added = subprocess.run(["git", "worktree", "add", "--detach", "--quiet", str(tree), "HEAD"], cwd=str(root),

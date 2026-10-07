@@ -288,7 +288,7 @@ def _instruction_files() -> list:
 
 
 def _pack_file(d: Path, kind: str) -> Path:
-    """roles/<role>/ROLE.md or PROCEDURE.md, or the old lower-case name when only that exists (pew/R)."""
+    """roles/<role>/ROLE.md or PROCEDURE.md (pew/R)."""
     try:
         import characters
         return characters.pack_file(d.name, kind, d.parent.parent)

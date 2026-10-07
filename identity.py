@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import json
 import re
-import threading
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -44,31 +43,10 @@ _BODY_LIMIT = 4000
 
 _CTRL = re.compile(r"[\x00-\x1f\x7f]+")
 
-_lock = threading.Lock()
-_cache: Dict[str, tuple] = {}  # path -> ((mtime_ns, size), front matter dict)
 
 
 def _clean(value: str, limit: int) -> str:
     return _CTRL.sub(" ", value or "").strip()[:limit].strip()
-
-
-def _front(path: Path) -> Dict[str, str]:
-    try:
-        st = path.stat()
-    except OSError:
-        return {}
-    key = (st.st_mtime_ns, st.st_size)
-    with _lock:
-        hit = _cache.get(str(path))
-        if hit and hit[0] == key:
-            return hit[1]
-    try:
-        fm = parse_frontmatter(path.read_text(encoding="utf-8", errors="replace"))
-    except OSError:
-        fm = {}
-    with _lock:
-        _cache[str(path)] = (key, fm)
-    return fm
 
 
 def _pd() -> Dict:

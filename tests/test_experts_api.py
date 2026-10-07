@@ -46,7 +46,7 @@ class ExpertsApiTest(unittest.TestCase):
 
     def test_arranging_the_team(self):
         (self.ws / "roles" / "pd").mkdir(parents=True)
-        (self.ws / "roles" / "pd" / "role.md").write_text("---\ntitle: PD\ntools: delegate\n---\nx\n", encoding="utf-8")
+        (self.ws / "roles" / "pd" / "ROLE.md").write_text("---\ntitle: PD\ntools: delegate\n---\nx\n", encoding="utf-8")
         other = self.C.new_id()
         self.C.save(other, self.C.new_card("O"), self.ws)
         code, body = self.put_team({"default": other, "members": {other: ["pd"], self.cid: []}})

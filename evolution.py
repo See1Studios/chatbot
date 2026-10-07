@@ -107,7 +107,7 @@ def load_volatile(root) -> List[str]:
     return _entries(_load_raw(root), "volatile", False)
 
 
-_DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")   # host_config.DATA_ENV's order
+_DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")   # host_config.DATA_ENV's order
 
 
 def _live_data(root: Path) -> Optional[Path]:

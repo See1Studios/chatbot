@@ -821,7 +821,7 @@ def latest_request_ref(sid: str = "") -> Optional[str]:
     try:
         if not sid:
             import urllib.request
-            port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
+            port = int(os.environ.get("CHATBOT_PORT") or "3011")
             with urllib.request.urlopen("http://127.0.0.1:%d/api/sessions/active" % port, timeout=1.5) as r:
                 sid = str(json.loads(r.read().decode("utf-8") or "{}").get("id") or "")
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", sid):

@@ -1,4 +1,4 @@
-"""Every character is equal: cards carry no role; a role is a pack (roles/<role>/role.md: instructions, skills,
+"""Every character is equal: cards carry no role; a role is a pack (roles/<role>/ROLE.md: instructions, skills,
 tool grants) and the roster (team.json) says who holds it and whom the app opens with (TEAM_ROLES_v1).
 Run: python3 -m unittest tests.test_team_roles  (from services/chatbot)
 """
@@ -26,7 +26,7 @@ class Roster(unittest.TestCase):
         (self.ws / "AGENTS.md").write_text("charter", encoding="utf-8")
         for role, text in (("pd", PD), ("staff", STAFF)):
             (self.ws / "roles" / role).mkdir(parents=True)
-            (self.ws / "roles" / role / "role.md").write_text(text, encoding="utf-8")
+            (self.ws / "roles" / role / "ROLE.md").write_text(text, encoding="utf-8")
         for skill in ("planning", "drawing"):
             (self.ws / ".agents" / "skills" / skill).mkdir(parents=True)
             (self.ws / ".agents" / "skills" / skill / "SKILL.md").write_text(
@@ -42,19 +42,8 @@ class Roster(unittest.TestCase):
         I.WORKSPACE, I.WS_SKILLS_DIR, I.MEMORY_FILE = self.saved
         shutil.rmtree(self.ws, ignore_errors=True)
 
-    def test_the_old_card_roles_become_a_roster_and_leave_the_cards(self):
-        self.assertEqual(C.by_role("pd", self.ws), self.a)                          # derived before migrating
-        self.assertTrue(C.migrate_team(self.ws))
-        self.assertFalse(C.migrate_team(self.ws))                                   # once
-        team = json.loads((self.ws / "team.json").read_text(encoding="utf-8"))
-        self.assertEqual(team, {"default": self.a, "members": {self.a: ["pd"], self.b: ["staff"]}})
-        for cid in (self.a, self.b, self.c):
-            self.assertNotIn("role", C.ext(C.load(cid, self.ws)))
-        self.assertEqual({c["id"]: c["roles"] for c in C.listing(self.ws)},
-                         {self.a: ["pd"], self.b: ["staff"], self.c: []})
-
     def test_roles_follow_the_roster_not_the_card(self):
-        C.migrate_team(self.ws)
+        C.save_team(C.load_team(self.ws), self.ws)   # the roster the cards imply
         C.save_team({"default": self.b, "members": {self.b: ["pd", "staff"], self.c: ["staff"]}}, self.ws)
         self.assertEqual(C.by_role("pd", self.ws), self.b)
         self.assertEqual(C.default_character(self.ws), self.b)
@@ -97,7 +86,7 @@ class Roster(unittest.TestCase):
         self.assertEqual(hits, [], "engine code must not name a role (roles live in team.json and roles/)")
 
     def test_every_character_gets_the_same_bundle_shape(self):
-        C.migrate_team(self.ws)
+        C.save_team(C.load_team(self.ws), self.ws)   # the roster the cards imply
         pd = I.build_instruction_bundle()["text"]                                    # the default character
         self.assertIn("a body", pd)
         self.assertIn("You plan and delegate.", pd)
@@ -122,12 +111,11 @@ class Roster(unittest.TestCase):
         self.assertTrue(any("delegate" in p["tools"] for p in packs), [p["role"] for p in packs])
 
 
-    def test_pack_files_take_the_upper_case_name_and_still_read_the_old_one(self):
-        # pew/R: roles/<role>/ROLE.md and PROCEDURE.md, like SKILL.md; a pack written before keeps working
+    def test_pack_files_take_the_upper_case_name(self):
+        # pew/R: roles/<role>/ROLE.md and PROCEDURE.md, like SKILL.md (the old lower-case names: dropped 2026-10-07)
         d = self.ws / "roles" / "pd"
-        self.assertEqual(C.pack_file("pd", "role", self.ws).name, "role.md")          # only the old name exists
-        self.assertEqual(C.pack_file("pd", "procedure", self.ws).name, "PROCEDURE.md")  # neither: the new name
-        (d / "role.md").unlink()   # first: on a case-insensitive disk (Windows, macOS) role.md IS ROLE.md (#411)
+        self.assertEqual(C.pack_file("pd", "role", self.ws).name, "ROLE.md")
+        self.assertEqual(C.pack_file("pd", "procedure", self.ws).name, "PROCEDURE.md")  # none yet: the name it takes
         (d / "ROLE.md").write_text(PD.replace("You plan and delegate.", "New name wins."), encoding="utf-8")
         self.assertIn("New name wins.", C.role_pack("pd", self.ws)["text"])
         self.assertEqual(C.role_pack("pd", self.ws)["tools"], ["delegate", "house-memory"])
@@ -139,7 +127,7 @@ class Roster(unittest.TestCase):
         finally:
             W.WORKSPACE = saved
         self.assertIn("roles/pd/ROLE.md", ids)          # the rules API and the team tab name the file on disk
-        self.assertIn("roles/staff/role.md", ids)
+        self.assertIn("roles/staff/ROLE.md", ids)
         self.assertIn("roles/pd/PROCEDURE.md", ids)
 
 class SessionsAndGrants(unittest.TestCase):
@@ -149,7 +137,7 @@ class SessionsAndGrants(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp()).resolve()
         self.ws = self.tmp / "workspace"
         (self.ws / "roles" / "pd").mkdir(parents=True)
-        (self.ws / "roles" / "pd" / "role.md").write_text(PD, encoding="utf-8")
+        (self.ws / "roles" / "pd" / "ROLE.md").write_text(PD, encoding="utf-8")
         self.a, self.b = C.new_id(), C.new_id()
         C.save(self.a, C.new_card("A"), self.ws)
         C.save(self.b, C.new_card("B"), self.ws)

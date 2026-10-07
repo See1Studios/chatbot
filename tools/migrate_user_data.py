@@ -79,14 +79,14 @@ def _has_files(dest):
 def _tracked(source):
     top = subprocess.run(
         ["git", "-C", str(source), "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, timeout=30,
     )
     if top.returncode != 0:
         return None
     root = Path(top.stdout.strip())
     listed = subprocess.run(
         ["git", "-C", str(root), "ls-files", "-z", "--", str(source)],
-        capture_output=True,
+        capture_output=True, timeout=60,
     )
     if listed.returncode != 0:
         return None

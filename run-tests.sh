@@ -14,7 +14,7 @@ set -uo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" || exit 2
 # uds/F: shipped default data is ~/.pe. The suite never reads or writes an install's data: always the repo's own
 # data/, whatever the caller exported (a chat agent inherits CHATBOT_DATA=~/.pe from ctl).
-unset PE_HOME PRIVATEENGINE_HOME AGY_CHAT_DATA
+unset PE_HOME PRIVATEENGINE_HOME
 export CHATBOT_DATA="$PWD/data"
 export CHATBOT_TEST_RUNNER=1   # LIVE_DATA_GUARD_v1: host_config and tickets.py redirect a test run without this
 # LIVE_AGENT_SUITE_v1: a live chat agent and its subagents (CHATBOT_LIVE_AGENT, set by session._spawn) run the guards

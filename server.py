@@ -72,7 +72,6 @@ from workspace_status import (
     observation_api,
     ticket_api,
     WS_SKILLS_DIR,
-    _SKILLS_CACHE,
     _get_available_skills,
     _popular_slash_skills,
     _read_mcp_config,

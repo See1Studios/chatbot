@@ -19,7 +19,7 @@ PROBE = ("import json, host_config as h, mcp_server as m; "
 
 def probe(extra):
     env = {k: v for k, v in os.environ.items()
-           if k not in ("NAS_MCP_HOST_PLUGIN", "CHATBOT_WEB_ROOT", "AGY_CHAT_WEB_ROOT")}
+           if k not in ("NAS_MCP_HOST_PLUGIN", "CHATBOT_WEB_ROOT")}
     env.update(extra)
     r = subprocess.run([sys.executable, "-c", PROBE], cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=60)
     if r.returncode != 0:

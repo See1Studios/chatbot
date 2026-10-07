@@ -1,5 +1,5 @@
 """The user-data directory is decided in one place (user-data-separation uds/B): host_config.DATA from DATA_ENV
-(CHATBOT_DATA > PE_HOME > PRIVATEENGINE_HOME > AGY_CHAT_DATA > data-pin.env > ~/.pe). Nothing else reads those variables or
+(CHATBOT_DATA > PE_HOME > PRIVATEENGINE_HOME > data-pin.env > ~/.pe). Nothing else reads those variables or
 builds its own data/ path -- except tickets.py (a core module, which may not import host_config) whose resolver must
 give the same answer, and a short allowlist with reasons. chatbot-ctl.sh follows the same order.
 Run: python3 -m unittest tests.test_data_paths  (from services/chatbot)
@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ENV_NAMES = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")
+ENV_NAMES = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")
 ENV_READ = re.compile(r"environ(?:\.get\(|\[)\s*[\"'](%s)[\"']" % "|".join(ENV_NAMES))
 OWN_DATA_DIR = re.compile(r"""(?:ROOT|_ROOT|CODE_DIR|SERVICES|parent)\s*/\s*["']chatbot["']\s*/\s*["']data["']|(?:ROOT|_ROOT|CODE_DIR|parent)\s*/\s*["']data["']""")
 ENV_READERS = {"host_config.py", "tickets.py", "evolution.py"}   # evolution: data/ protection follows the live dir
@@ -59,7 +59,7 @@ class DataPaths(unittest.TestCase):
         base = {k: v for k, v in os.environ.items() if k not in ENV_NAMES}
         base["HOME"] = home
         base["CHATBOT_ROOT"] = tempfile.mkdtemp()  # no pin file: the checkout pin must not hide the shipped default
-        cases = [{}] + [{k: tempfile.mkdtemp()} for k in ENV_NAMES] + [{"PE_HOME": "/tmp/pe-a", "AGY_CHAT_DATA": "/tmp/pe-b"}]
+        cases = [{}] + [{k: tempfile.mkdtemp()} for k in ENV_NAMES] + [{"PE_HOME": "/tmp/pe-a", "PRIVATEENGINE_HOME": "/tmp/pe-b"}]
         for extra in cases:
             r = subprocess.run([sys.executable, "-c", probe], cwd=str(ROOT), env=dict(base, **extra),
                                capture_output=True, text=True, timeout=60)
@@ -67,8 +67,7 @@ class DataPaths(unittest.TestCase):
             hc, tk = json.loads(r.stdout.strip().splitlines()[-1])
             self.assertEqual(hc, tk, "host_config and tickets disagree for %s" % extra)
             if extra:
-                want = (extra.get("CHATBOT_DATA") or extra.get("PE_HOME") or extra.get("PRIVATEENGINE_HOME")
-                        or extra.get("AGY_CHAT_DATA"))
+                want = extra.get("CHATBOT_DATA") or extra.get("PE_HOME") or extra.get("PRIVATEENGINE_HOME")
                 self.assertEqual(hc, str(Path(want)))   # the OS's own spelling: \\tmp\\pe-a on Windows (#403)
             else:
                 self.assertEqual(hc, str(Path(home) / ".pe"))
@@ -109,7 +108,7 @@ class DataPaths(unittest.TestCase):
         runner = (ROOT / "run-tests.sh").read_text(encoding="utf-8")
         self.assertIn('export CHATBOT_DATA="$PWD/data"', runner)
         self.assertNotIn('if [ -z "${CHATBOT_DATA', runner, "the suite ignores a caller's data dir: never an install's")
-        self.assertIn("unset PE_HOME PRIVATEENGINE_HOME AGY_CHAT_DATA", runner)
+        self.assertIn("unset PE_HOME PRIVATEENGINE_HOME", runner)
 
         def resolve(code, home, extra=None, pin=None):
             if pin is not None:
@@ -129,7 +128,7 @@ class DataPaths(unittest.TestCase):
         pinned = str(Path(code) / "kept")
         self.assertEqual(resolve(code, home, pin="CHATBOT_DATA=%s\n" % pinned), pinned)
         self.assertEqual(resolve(code, home, extra={"CHATBOT_DATA": "/tmp/explicit"}), "/tmp/explicit")
-        self.assertEqual(resolve(code, home, extra={"PE_HOME": "/tmp/pe-alias", "AGY_CHAT_DATA": "/tmp/legacy"}),
+        self.assertEqual(resolve(code, home, extra={"PE_HOME": "/tmp/pe-alias", "PRIVATEENGINE_HOME": "/tmp/other"}),
                          "/tmp/pe-alias")
 
 if __name__ == "__main__":

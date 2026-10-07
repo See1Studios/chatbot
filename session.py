@@ -14,7 +14,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 from providers.adapters import _persona_system_prompt, get_adapter
 from private_engine import tension_meta
@@ -1357,10 +1357,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
 
 # REGISTRY_SPLIT_v1: the registry, the newest-session lookup and the meta.json summary cache live in
 # session_registry.py; re-exported here so callers keep `from session import REG, Registry`.
-from session_registry import (  # noqa: E402
-    Registry, _LIVE_SID_RE, _META_INDEX, _META_INDEX_LOCK, _character_id, _first_brain, _live_sid, _meta_summaries,
-    _meta_summary, _meta_touched, _probe_meta, migrate_session_characters,
-)
+from session_registry import Registry, _meta_touched, migrate_session_characters  # noqa: E402,F401
 
 REG = Registry()
 

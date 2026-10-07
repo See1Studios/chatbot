@@ -14,7 +14,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import signal
 import subprocess
 import sys
@@ -22,7 +21,7 @@ import threading
 import time
 import traceback
 import uuid
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -40,7 +39,7 @@ from host_config import DATA  # noqa: E402  -- one data-path resolver (uds/B)
 from host_config import ROOT as ENGINE  # noqa: E402  -- this engine's own folder, wherever it is installed
 import platform_compat
 # Same env vars and default as host_config.WEB_ROOT (align/F: no host path baked in).
-WEB_ROOT = Path(os.environ.get("CHATBOT_WEB_ROOT") or os.environ.get("AGY_CHAT_WEB_ROOT")
+WEB_ROOT = Path(os.environ.get("CHATBOT_WEB_ROOT")
                 or DATA / "web")
 AGENTS = HOME / ".agents"
 TMP_ROOT = Path("/tmp/chatbot-mcp")
@@ -269,7 +268,7 @@ def _host_get(path: str) -> dict:
     """One GET to this instance's chat host; {} if it cannot be asked."""
     try:
         import urllib.request
-        port = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")
+        port = int(os.environ.get("CHATBOT_PORT") or "3011")
         with urllib.request.urlopen("http://127.0.0.1:%d%s" % (port, path), timeout=1.5) as r:
             d = json.loads(r.read().decode("utf-8") or "{}")
         return d if isinstance(d, dict) else {}

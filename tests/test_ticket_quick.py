@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOL = ROOT / "tools" / "ticket_quick.py"
-DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")
+DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")
 
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))

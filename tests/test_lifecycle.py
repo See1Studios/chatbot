@@ -327,11 +327,11 @@ class RealCtlTest(unittest.TestCase):
             (stubs / name).chmod(0o755)
         # CHATBOT_CALLER named here: without it the ctl asks `ps` who called it when no terminal is attached, and
         # these tests assert that the skip paths run no ps at all -- they passed or failed by how the suite was run
-        self.env = dict(os.environ, HOME_DIR=str(home), AGY_CHAT_PORT="1", NAS_MCP_PORT="1", CHATBOT_CALLER="test")
+        self.env = dict(os.environ, HOME_DIR=str(home), CHATBOT_PORT="1", NAS_MCP_PORT="1", CHATBOT_CALLER="test")
         self.env.pop("CHATBOT_LOCK_PPID", None)
         # uds/F: the ctl takes its data dir from the environment first; run-tests.sh exports the repo's data/, so
         # pin the fixture tree's data/ or the ctl would lock and flag a directory outside this test
-        for k in ("PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA"):
+        for k in ("PE_HOME", "PRIVATEENGINE_HOME"):
             self.env.pop(k, None)
         self.env["CHATBOT_DATA"] = str(self.code / "data")
 

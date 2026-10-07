@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from loop_guard import LoopGuard as _Guard, extract_tool_calls, extract_tool_steps, is_read_only, output_hash, read_size, signature  # noqa: E402,E501
+from loop_guard import LoopGuard as _Guard, extract_tool_steps, is_read_only, output_hash, read_size, signature  # noqa: E402,E501
 
 NO_BUDGET = dict(budget_calls=(10 ** 6, 10 ** 6), budget_bytes=(10 ** 12, 10 ** 12))
 
@@ -34,6 +34,11 @@ def first_verdicts(guard, calls):
         if v:
             out.append((i, v))
     return out
+
+
+def _calls(obj):
+    """(name, params) of the finished tool calls in one line."""
+    return [(n, p) for n, p, _ in extract_tool_steps(obj)]
 
 
 class IncidentReplay(unittest.TestCase):
@@ -192,10 +197,10 @@ class ExtractToolCalls(unittest.TestCase):
                                                     "output": "22 lines"}}}
 
     def test_real_agy_stream_shape_counts_the_done_step_once(self):
-        self.assertEqual(extract_tool_calls(self.STEP), [("view_file", {"AbsolutePath": APP})])
+        self.assertEqual(_calls(self.STEP), [("view_file", {"AbsolutePath": APP})])
         self.assertEqual(extract_tool_steps(self.STEP), [("view_file", {"AbsolutePath": APP}, "22 lines")])
         active = {"event": "step_update", "step_update": {**self.STEP["step_update"], "state": "ACTIVE"}}
-        self.assertEqual(extract_tool_calls(active), [])
+        self.assertEqual(_calls(active), [])
 
     def test_a_finished_subagent_call_is_a_tool_call(self):
         # agy 1.2.16 sends the DONE of invoke_subagent as step_type "subagent" (director-handoff, 2026-10-05)
@@ -205,17 +210,17 @@ class ExtractToolCalls(unittest.TestCase):
 
     def test_other_step_types_and_plain_events_are_not_tool_calls(self):
         for step_type in ("agent_response", "user_input", "unknown", "checkpoint"):
-            self.assertEqual(extract_tool_calls({"step_update": {"state": "DONE", "step_type": step_type}}), [])
-        self.assertEqual(extract_tool_calls({"event": "result", "result": {}}), [])
+            self.assertEqual(_calls({"step_update": {"state": "DONE", "step_type": step_type}}), [])
+        self.assertEqual(_calls({"event": "result", "result": {}}), [])
 
     def test_older_shapes_are_still_understood(self):
-        self.assertEqual(extract_tool_calls({"tool_calls": [{"name": "view_file", "args": {"path": "/a"}}]}),
+        self.assertEqual(_calls({"tool_calls": [{"name": "view_file", "args": {"path": "/a"}}]}),
                          [("view_file", {"path": "/a"})])
-        self.assertEqual(extract_tool_calls({"event": "tool_use", "name": "run_command", "input": {"c": 1}}),
+        self.assertEqual(_calls({"event": "tool_use", "name": "run_command", "input": {"c": 1}}),
                          [("run_command", {"c": 1})])
 
     def test_missing_tool_info_falls_back_to_tool_name(self):
-        self.assertEqual(extract_tool_calls({"step_update": {"state": "DONE", "step_type": "tool", "tool_name": "manage_task"}}),
+        self.assertEqual(_calls({"step_update": {"state": "DONE", "step_type": "tool", "tool_name": "manage_task"}}),
                          [("manage_task", {})])
 
 

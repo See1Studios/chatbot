@@ -29,7 +29,7 @@ class Base(unittest.TestCase):
         self.file = self.root / "memory" / "MEMORY.md"
 
     def run_cli(self, *args, code_root=None):
-        env = dict(os.environ, AGY_CHAT_ROOT=str(code_root or CODE))  # the host exports this to every provider
+        env = dict(os.environ, CHATBOT_ROOT=str(code_root or CODE))
         p = subprocess.run([sys.executable, str(self.root / "tools" / "memory.py")] + list(args), env=env,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30)
         return p.returncode, p.stdout, p.stderr
@@ -193,7 +193,7 @@ class ThinShellTest(Base):
     def test_the_core_is_found_from_the_workspace_location_when_the_host_did_not_say(self):
         real = CODE / "templates" / "workspace" / "tools" / "memory.py"
         src = real.read_text(encoding="utf-8")
-        self.assertIn('os.environ.get("CHATBOT_ROOT") or os.environ.get("AGY_CHAT_ROOT") or str(WORKSPACE.parent.parent)', src)
+        self.assertIn('os.environ.get("CHATBOT_ROOT") or str(WORKSPACE.parent.parent)', src)
 
 
 if __name__ == "__main__":

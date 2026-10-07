@@ -72,7 +72,7 @@ def _home() -> Path:
 
 
 def _env() -> Dict[str, str]:
-    env = {k: v for k, v in os.environ.items() if k not in ("PE_HOME", "PRIVATEENGINE_HOME", "AGY_CHAT_DATA")}
+    env = {k: v for k, v in os.environ.items() if k not in ("PE_HOME", "PRIVATEENGINE_HOME")}
     env.update(CHATBOT_DATA=str(DRILL), CHATBOT_ROOT=str(CODE), CHATBOT_LOG_DIR=str(DRILL / "logs"),
                CHATBOT_OBSLOG_PATH=str(DRILL / "logs" / "events.jsonl"),
                CHATBOT_EVENTS_DIR=str(DRILL / "events"), CHATBOT_DIALOGS_DIR=str(DRILL / "dialogs"),
@@ -102,7 +102,7 @@ def build() -> None:
                                        encoding="utf-8")
     _home()
     subprocess.run([sys.executable, str(CODE / "data_bootstrap.py"), "--data", str(DRILL), "--quiet"], env=_env(),
-                   check=False)
+                   check=False, timeout=300)
 
 
 def start(limits: Optional[Dict[str, str]] = None) -> None:
@@ -134,7 +134,7 @@ def stop() -> None:
     time.sleep(2)
     if (DRILL / "workspace").is_dir():
         subprocess.run([sys.executable, str(CODE / "ctl_proc.py"), "reap", str(CODE), str(DRILL)], env=_env(),
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, timeout=60)
 
 
 def api(method: str, path: str, body: Optional[dict] = None, timeout: float = 15):

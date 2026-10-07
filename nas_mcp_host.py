@@ -17,7 +17,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import List, Optional
 
 import mcp_server as _srv  # attributes are read at call time, so a test that replaces _srv._run reaches these tools too
 from mcp_server import HOME, SERVICES, WEB_ROOT, envelope, _scrub_text
@@ -51,7 +51,7 @@ EXTRA_CMD_PREFIXES = (
     "hermes --version",
 )
 
-PORT_CHAT_HINT = int(os.environ.get("CHATBOT_PORT") or os.environ.get("AGY_CHAT_PORT") or "3011")  # informational only (list_services)
+PORT_CHAT_HINT = int(os.environ.get("CHATBOT_PORT") or "3011")  # informational only (list_services)
 PORT_HOST_MCP = int(os.environ.get("NAS_HOST_MCP_PORT", "3015"))
 
 # What service_ctl and list_services know about. The chatbot itself may only be asked for `status`: its lifecycle

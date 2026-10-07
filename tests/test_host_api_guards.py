@@ -222,12 +222,12 @@ class RulesRouteIsGoneTest(ServerCase):
 class DefaultBindTest(unittest.TestCase):
     def test_bare_start_is_loopback_only_and_ctl_opts_the_lan_in(self):
         tmp = tempfile.mkdtemp()
-        env = {k: v for k, v in os.environ.items() if k not in ("AGY_CHAT_HOST", "CHATBOT_HOST")}  # legacy name still honoured
-        env.update(AGY_CHAT_ROOT=str(CODE), AGY_CHAT_DATA=tmp)
+        env = {k: v for k, v in os.environ.items() if k != "CHATBOT_HOST"}
+        env.update(CHATBOT_ROOT=str(CODE), CHATBOT_DATA=tmp)
         out = subprocess.check_output([sys.executable, "-c", "import host_config; print(host_config.HOST)"],
                                       cwd=str(CODE), env=env).decode().strip()
         self.assertEqual(out, "127.0.0.1")
-        env["AGY_CHAT_HOST"] = "0.0.0.0"
+        env["CHATBOT_HOST"] = "0.0.0.0"
         out = subprocess.check_output([sys.executable, "-c", "import host_config; print(host_config.HOST)"],
                                       cwd=str(CODE), env=env).decode().strip()
         self.assertEqual(out, "0.0.0.0")

@@ -446,11 +446,11 @@ def roles_of(cid: str, ws=None) -> List[str]:
 
 
 # pew/R: pack files are named like SKILL.md (ROLE.md, PROCEDURE.md); a pack written before keeps working.
-PACK_FILES = {"role": ("ROLE.md", "role.md"), "procedure": ("PROCEDURE.md", "procedure.md")}
+PACK_FILES = {"role": ("ROLE.md",), "procedure": ("PROCEDURE.md",)}   # the old lower-case names: dropped 2026-10-07
 
 
 def pack_file(role: str, kind: str = "role", ws=None) -> Path:
-    """The file of a role pack: the new name, or the old one when only that exists (the new name when neither)."""
+    """The file of a role pack (ROLE.md / PROCEDURE.md), as spelled on disk."""
     names = PACK_FILES[kind]
     d = roles_dir(ws) / role
     found = platform_compat.named_file(d, names)       # as spelled on disk, also where case is ignored (#405)
@@ -474,23 +474,6 @@ def role_pack(role: str, ws=None) -> Dict:
 def tools_of(cid: str, ws=None) -> List[str]:
     """Tool grants from every role the character holds."""
     return sorted({t for r in roles_of(cid, ws) for t in role_pack(r, ws)["tools"]})
-
-
-def migrate_team(ws=None) -> bool:
-    """Write team.json from the cards' old `role` field and take the field out of the cards. False when a roster
-    already exists or there are no cards."""
-    if team_path(ws).is_file():
-        return False
-    cards = _raw_listing(ws)
-    if not cards:
-        return False
-    save_team(load_team(ws, cards), ws)
-    for c in cards:
-        e = ext(c["card"])
-        if "role" in e:
-            del e["role"]
-            save(c["id"], c["card"], ws)
-    return True
 
 
 def brains(card: Dict, mode: str = "work") -> List[Dict]:

@@ -986,3 +986,29 @@ class RoleIdTest(Base):
         for good in ("claude-code", "grok", "operator", "chat-agent:agy", "chat-agent"):
             t, _ = tickets.propose(self.data, "t " + good, "y-" + good, [EVENT], now=T0, actor=good)
             self.assertEqual(t["actor"], good)
+
+
+class SnapshotPruneTest(unittest.TestCase):
+    """SNAPSHOT_PRUNE_v1: a snapshot left by a killed check is removed by the next one; a fresh one stays."""
+
+    def test_old_snapshots_and_their_worktrees_go_fresh_ones_stay(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(__import__("shutil").rmtree, str(tmp), True)
+        repo, base = tmp / "repo", tmp / "snap"
+        repo.mkdir()
+        base.mkdir()
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        git = lambda *a: subprocess.run(["git", *a], cwd=str(repo), env=env, capture_output=True, text=True, timeout=60)
+        git("init", "-q")
+        git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x")
+        old, fresh = base / "tmpold", base / "tmpfresh"
+        for d in (old, fresh):
+            d.mkdir()
+            git("worktree", "add", "--detach", "--quiet", str(d / "tree"), "HEAD")
+        os.utime(str(old), (1, 1))
+        self.assertEqual(tickets.prune_snapshots(repo, base, 3600, env), 1)
+        self.assertFalse(old.exists())
+        self.assertTrue((fresh / "tree").is_dir())
+        listed = git("worktree", "list").stdout
+        self.assertNotIn("tmpold", listed)
+        self.assertIn("tmpfresh", listed)

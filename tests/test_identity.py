@@ -17,11 +17,9 @@ class Base(unittest.TestCase):
         self.ws = Path(tempfile.mkdtemp())
         self.orig = identity.WORKSPACE
         identity.WORKSPACE = self.ws
-        identity._cache.clear()
 
     def tearDown(self):
         identity.WORKSPACE = self.orig
-        identity._cache.clear()
 
     def write(self, name, text):
         (self.ws / name).write_text(text, encoding="utf-8")
@@ -162,7 +160,7 @@ class SeedTest(Base):
     def test_a_new_install_starts_with_one_neutral_card_as_the_default(self):
         import characters
         (self.ws / "roles" / "pd").mkdir(parents=True)
-        (self.ws / "roles" / "pd" / "role.md").write_text("---\ntitle: PD\n---\nPlan and delegate.\n", encoding="utf-8")
+        (self.ws / "roles" / "pd" / "ROLE.md").write_text("---\ntitle: PD\n---\nPlan and delegate.\n", encoding="utf-8")
         self.assertEqual(identity.seed_workspace_files(workspace=self.ws), ["card"])
         cid = characters.default_character(self.ws)
         self.assertTrue(cid)
