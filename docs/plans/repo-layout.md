@@ -30,9 +30,9 @@
 
 | D | 질문 | 추천 | 상태 |
 |---|---|---|---|
-| D1 | 코드 폴더 이름과 범위 | **`engine/`** 하나에 루트 파이썬 68개 + `providers/` + `tools/`. 이름이 제품 축(엔진)과 맞고, `src/`보다 뜻이 분명하다 | 대기 |
-| D2 | import 방식 | **평평한 import 유지**: `engine/`을 실행 위치로 두면 코드 본문은 거의 그대로. 패키지 import(`from engine import ...`)로 바꾸는 것은 따로, 필요해질 때 | 대기 |
-| D3 | 루트의 설정·스크립트 | 설정 json 5개와 `VERSION`·`requirements.txt`·`secrets.env.example`은 `engine/`으로(코드가 읽는 것). `run-tests.sh`·`chatbot-ctl.sh`도 `engine/`으로 옮기고, 호스트 래퍼(`~/services/chatbot-ctl.sh`)와 훅만 새 경로를 가리키게. 루트에 남는 것은 진입·개발 지침·폴더·`.git*` | 대기 |
+| D1 | 코드 폴더 이름과 범위 | **`engine/`** 하나에 루트 파이썬 68개 + `providers/` + `tools/`. 이름이 제품 축(엔진)과 맞고, `src/`보다 뜻이 분명하다 | 결정 2026-10-08 (운영자: 추천대로) |
+| D2 | import 방식 | **평평한 import 유지**: `engine/`을 실행 위치로 두면 코드 본문은 거의 그대로. 패키지 import(`from engine import ...`)로 바꾸는 것은 따로, 필요해질 때 | 결정 2026-10-08 (운영자: 추천대로) |
+| D3 | 루트의 설정·스크립트 | 설정 json 5개와 `VERSION`·`requirements.txt`·`secrets.env.example`은 `engine/`으로(코드가 읽는 것). `run-tests.sh`·`chatbot-ctl.sh`도 `engine/`으로 옮기고, 호스트 래퍼(`~/services/chatbot-ctl.sh`)와 훅만 새 경로를 가리키게. 루트에 남는 것은 진입·개발 지침·폴더·`.git*` | 결정 2026-10-08 (운영자: 추천대로) |
 | D4 | `engine/` 안을 영역별로 더 나눌까(코어·세션·팀·운영) | **나중에, 따로**. monolith-split 때 운영자 보류(2026-10-04). 한 번에 한 가지만 움직인다 | 보류 |
 
 ## 4. 작업 항목
