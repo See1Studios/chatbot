@@ -913,16 +913,16 @@ async function ensureSession() {
         try { liveSessionId = await resolveLatestSessionId(); } catch (_) {}
         if (await openUnlessGone(urlSid)) return;
       }
+      if (sessionId) {
+        if (await openUnlessGone(sessionId)) return;
+        sessionId = '';
+        localStorage.removeItem(SESSION_KEY);
+      }
       const latestId = await resolveLatestSessionId();
       if (latestId) {
         liveSessionId = latestId;
         archiveBrowse = false;
         if (await openUnlessGone(latestId)) return;
-      }
-      if (sessionId) {
-        if (await openUnlessGone(sessionId)) return;
-        sessionId = '';
-        localStorage.removeItem(SESSION_KEY);
       }
       await createSession();   // nothing to open: the one case for a new, empty session
       return;

@@ -69,11 +69,11 @@ class EnsureSession(unittest.TestCase):
 
     def test_a_session_that_is_really_gone_makes_a_new_one(self):
         r = self.run_js("gone")
-        self.assertEqual((r["created"], r["opened"]), (1, ["latest", "saved"]))
+        self.assertEqual((r["created"], r["opened"]), (1, ["saved", "latest"]))
 
     def test_a_passing_failure_opens_on_the_second_try(self):
         r = self.run_js("flaky")
-        self.assertEqual((r["created"], r["reported"], r["opened"]), (0, 1, ["latest", "latest"]))
+        self.assertEqual((r["created"], r["reported"], r["opened"]), (0, 1, ["saved", "saved"]))
 
 
 class ClientErrors(unittest.TestCase):
