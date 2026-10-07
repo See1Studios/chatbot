@@ -34,7 +34,7 @@ class Fixture(WorkspaceCase):
         card["data"]["system_prompt"] = "PRIVATE-RULES-MARK {{char}}"
         C.ext(card).setdefault("work", {})["instructions"] = "WORK-HOW-MARK"
         C.save(self.card_id, card, self.ws)
-        C.remember_private(self.card_id, ["PRIVATE-MEMORY-MARK"], ws=self.ws)
+        C.remember_private(self.card_id, ["PRIVATE-MEMORY-MARK"], today="2026-01-01", ws=self.ws)   # a fixed date: the golden hash must not change with the day
 
     def test_a_private_session_takes_no_work_layer(self):
         # D-6: checked against the list, so a new work layer is checked too
@@ -264,7 +264,7 @@ class Fixture(WorkspaceCase):
                                       "purpose, update GOLDEN in the same change and say so in DEVLOG")
 
 
-GOLDEN = {"work": "f1e31d0d9e9dd0c6", "private": "4163fdd265f019f3"}   # = the code before lca/A (checked)
+GOLDEN = {"work": "4f509b1defb96314", "private": "d9f6c421c8b6c548"}   # 2026-10-07: l10n headers in English (#766)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 title: 총괄
 owns: priorities, coordination, progress reports to the operator
 tools: delegate, house-memory
-skills: progress-report, handoff-brief, hitomi, nas-sphere
+skills: progress-report, handoff-brief
 ---
 
 # Role: Lead
