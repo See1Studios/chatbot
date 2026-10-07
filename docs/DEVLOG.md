@@ -4,7 +4,7 @@
 
 - **바뀐 것**: 루트의 파이썬 68개, `providers/`, `tools/`, `engine_data/`, 설정 json 5개, `chatbot-ctl.sh`, `run-tests.sh`, `VERSION`, `requirements.txt`, `secrets.env.example`을 `engine/`으로(`git mv`). 루트에는 진입 파일·`RULES.md`·`CODEMAP.md`와 `docs/`·`engine/`·`static/`·`templates/`·`tests/`만.
 - **경로**: 테스트는 `engine/run-tests.sh`(저장소 루트에서 돌고 엔진을 import 경로에 둔다, 테스트 데이터는 `engine/data/`). 보호 경로 패턴은 `engine/…`(엔진 폴더 기준으로 해석, 폴더가 따로 없는 임시 루트에서도 같은 목록이 맞는다). 티켓·커밋 경로는 저장소 기준(`engine/session.py`), `CODEMAP.md`·`RULES.md`의 이름은 엔진 기준. 커밋 훅·위임 러너·티켓 완료 검사가 `engine/run-tests.sh`를 찾는다 — 못 찾으면 검사가 조용히 빠지던 곳이라 각각 테스트를 더했다.
-- **옮기며 잡은 것**: 파일을 찾지 못해 0개를 검사하고 통과하던 검사 셋(`test_code_map`, `test_l10n_catalogs`, `test_no_trace`)을 엔진 쪽으로 고쳤다.
+- **옮기며 잡은 것**: 파일을 찾지 못해 0개를 검사하고 통과하던 검사 셋(`test_code_map`, `test_l10n_catalogs`, `test_no_trace`)을 엔진 쪽으로 고쳤다. CI(`.github/workflows/tests.yml`)도 새 경로로, bash 없는 실행기 `engine/tools/run_modules.py`는 `run-tests.sh`와 같은 환경(엔진 import 경로, 저장소 임시 데이터, 실행기 표시)을 만든다 — 전에는 표시가 없어 `test_tickets` 일부가 단독 실행에서 실패했다.
 - **라이브**: `~/services/chatbot-ctl.sh` 링크와 `~/bin/ticket-quick`가 새 경로를 가리키고, 커밋하지 않는 `data-pin.env`·`logs/`·테스트 `data/`도 `engine/`으로. 재시작 필요.
 
 ## 2026-10-08 — 루트 계산을 한 곳으로: REPO와 ENGINE (layout/B, #775)

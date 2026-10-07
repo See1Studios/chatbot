@@ -258,4 +258,4 @@ class TTSAdapter:
 - 커밋 훅(`.githooks/`): 비밀·금지 파일, 작성자, 스테이징한 내용으로 FAST 가드, 커밋 메시지 형식·`Plan:`·`Ticket:` 트레일러, 테스트 페어링(`No-Test:` 예외), 채팅 세션의 main 착륙 금지.
 - 티켓 완료: FAST 가드가 빨가면 거절(`test_tickets`).
 - 위임 러너: FAST + 관련 테스트 + PD 확인.
-- 전체 스위트: 운영자·외부 CLI가 커밋 전에, 러너가 위임 작업에. CI는 아직 없다(pew D8, release-pipeline Next).
+- 전체 스위트: 운영자·외부 CLI가 커밋 전에, 러너가 위임 작업에. CI: GitHub Actions(`.github/workflows/tests.yml`) — `main`에 push될 때 Linux, 하루 한 번 Linux·Windows·macOS(`engine/tools/run_modules.py`). 이 저장소가 원격에 push될 때만 돈다.

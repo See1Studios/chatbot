@@ -23,6 +23,7 @@ ALLOWED_OWN_DATA = {
     "tools/st_import.py": "fallback only when characters/host_config cannot be imported",
     "tools/worktree_runner.py": "fallback only when host_config cannot be imported (dev-build runner)",
     "nas_mcp_host.py": "another site's data folder (TECH_ROOT), not ours",
+    "tools/run_modules.py": "the test runner without bash: points the suite at the repo's scratch data, as run-tests.sh",
 }
 
 

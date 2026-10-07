@@ -44,7 +44,12 @@ def fast_modules() -> list:
 def run(mods: list) -> dict:
     base = "/tmp" if os.name == "posix" and os.path.isdir("/tmp") else None   # run-tests.sh: not under $HOME
     run_tmp = tempfile.mkdtemp(prefix="chatbot-tests.", dir=base)
-    env = dict(os.environ, TMPDIR=run_tmp, TEMP=run_tmp, TMP=run_tmp, PYTHONUTF8="1")
+    # the same environment run-tests.sh makes: the engine on the import path (LAYOUT_v1), the repo's own scratch data,
+    # and the runner mark (LIVE_DATA_GUARD_v1) -- without it a few tests judged a different data folder
+    env = {k: v for k, v in os.environ.items() if k not in ("PE_HOME", "PRIVATEENGINE_HOME")}
+    env.update(TMPDIR=run_tmp, TEMP=run_tmp, TMP=run_tmp, PYTHONUTF8="1", CHATBOT_TEST_RUNNER="1",
+               CHATBOT_DATA=str(ROOT / "data"),
+               PYTHONPATH=os.pathsep.join(p for p in (str(ROOT), os.environ.get("PYTHONPATH", "")) if p))
     results = {}
     try:
         for m in mods:
