@@ -326,7 +326,7 @@ async function resyncFromServer(sid) {
 
     if (info.busy) {
       setBusy(true);
-      if (info.last_progress) setProgress(tr('chat.working', { text: shortToolLine(info.last_progress) }));
+      if (info.last_progress) setProgress(tr('chat.working', { text: shortToolLine(trField(info, 'last_progress')) }));
       const draft = info.current_text || '';
       if (draft) {
         if (!assistantNode) {

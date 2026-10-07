@@ -32,7 +32,7 @@ class TestClientDeviceContext(Base):
         }
         self.assertEqual(
             S.format_client_context(ctx_full),
-            "[클라이언트 환경: 위치 37.5665, 126.9780, Asia/Seoul, 데스크톱]"
+            "[Client: location 37.5665, 126.9780, Asia/Seoul, desktop]"
         )
 
         ctx_mobile = {
@@ -43,7 +43,7 @@ class TestClientDeviceContext(Base):
         }
         self.assertEqual(
             S.format_client_context(ctx_mobile),
-            "[클라이언트 환경: 위치 35.1796, 129.0756, Asia/Seoul, 모바일]"
+            "[Client: location 35.1796, 129.0756, Asia/Seoul, mobile]"
         )
 
         ctx_no_coords = {
@@ -52,43 +52,43 @@ class TestClientDeviceContext(Base):
         }
         self.assertEqual(
             S.format_client_context(ctx_no_coords),
-            "[클라이언트 환경: America/New_York, 데스크톱]"
+            "[Client: America/New_York, desktop]"
         )
 
     def test_format_battery(self):
         ctx = {"battery": 45, "charging": True}
         result = S.format_client_context(ctx)
-        self.assertIn("배터리45%충전중", result)
+        self.assertIn("battery 45% charging", result)
 
         ctx2 = {"battery": 80, "charging": False}
         result2 = S.format_client_context(ctx2)
-        self.assertIn("배터리80%", result2)
-        self.assertNotIn("충전중", result2)
+        self.assertIn("battery 80%", result2)
+        self.assertNotIn("charging", result2)
 
         # Battery without charging key
         ctx3 = {"battery": 20}
         result3 = S.format_client_context(ctx3)
-        self.assertIn("배터리20%", result3)
-        self.assertNotIn("충전중", result3)
+        self.assertIn("battery 20%", result3)
+        self.assertNotIn("charging", result3)
 
     def test_format_network_type(self):
         ctx = {"net_type": "wifi"}
         result = S.format_client_context(ctx)
-        self.assertIn("네트워크:wifi", result)
+        self.assertIn("network:wifi", result)
 
         ctx2 = {"net_type": "cellular"}
         result2 = S.format_client_context(ctx2)
-        self.assertIn("네트워크:cellular", result2)
+        self.assertIn("network:cellular", result2)
 
     def test_format_online_fallback(self):
         # When net_type is absent, fall back to online boolean
         ctx = {"online": True}
         result = S.format_client_context(ctx)
-        self.assertIn("온라인", result)
+        self.assertIn("online", result)
 
         ctx2 = {"online": False}
         result2 = S.format_client_context(ctx2)
-        self.assertIn("오프라인", result2)
+        self.assertIn("offline", result2)
 
     def test_format_accuracy(self):
         ctx = {"lat": 37.5665, "lon": 126.9780, "accuracy": 25}
@@ -108,17 +108,17 @@ class TestClientDeviceContext(Base):
     def test_format_visibility(self):
         ctx = {"visibility": "hidden"}
         result = S.format_client_context(ctx)
-        self.assertIn("백그라운드", result)
+        self.assertIn("in the background", result)
 
         ctx2 = {"focused": False}
         result2 = S.format_client_context(ctx2)
-        self.assertIn("비활성탭", result2)
+        self.assertIn("tab not focused", result2)
 
         # visible + focused — neither tag appears
         ctx3 = {"visibility": "visible", "focused": True, "is_mobile": True}
         result3 = S.format_client_context(ctx3)
-        self.assertNotIn("백그라운드", result3)
-        self.assertNotIn("비활성탭", result3)
+        self.assertNotIn("in the background", result3)
+        self.assertNotIn("tab not focused", result3)
 
     def test_format_combined_sensors(self):
         ctx = {
@@ -131,8 +131,8 @@ class TestClientDeviceContext(Base):
         result = S.format_client_context(ctx)
         self.assertEqual(
             result,
-            "[클라이언트 환경: 위치 37.5665, 126.9780 ±50m, Asia/Seoul, "
-            "모바일, 배터리72%, 네트워크:wifi, 비활성탭]"
+            "[Client: location 37.5665, 126.9780 ±50m, Asia/Seoul, "
+            "mobile, battery 72%, network:wifi, tab not focused]"
         )
 
     def test_send_injects_client_context(self):
@@ -140,7 +140,7 @@ class TestClientDeviceContext(Base):
         s.adapter = get_adapter("grok")
         ctx = {"lat": 37.5665, "lon": 126.9780, "timezone": "Asia/Seoul", "is_mobile": False}
         s.send("지금 주변 맛집 알려줘", client_context=ctx)
-        self.assertTrue(any("[클라이언트 환경: 위치 37.5665, 126.9780, Asia/Seoul, 데스크톱]" in p for p in self.sent))
+        self.assertTrue(any("[Client: location 37.5665, 126.9780, Asia/Seoul, desktop]" in p for p in self.sent))
         self.assertTrue(any("지금 주변 맛집 알려줘" in p for p in self.sent))
 
     def test_ui_assets_contain_geo_elements(self):
@@ -175,45 +175,45 @@ class TestClientDeviceContext(Base):
     def test_format_resumed_seconds(self):
         ctx = {"resumed": 30}
         result = S.format_client_context(ctx)
-        self.assertIn("복귀(30s 만에)", result)
+        self.assertIn("back after 30s", result)
 
     def test_format_resumed_true(self):
         ctx = {"resumed": True}
         result = S.format_client_context(ctx)
-        self.assertIn("복귀", result)
-        self.assertNotIn("s 만에", result)
+        self.assertIn("back", result)
+        self.assertNotIn("back after", result)
 
     def test_format_resumed_absent(self):
         ctx = {"is_mobile": True}
         result = S.format_client_context(ctx)
-        self.assertNotIn("복귀", result)
+        self.assertNotIn("back", result)
 
     def test_format_resumed_bad_type(self):
         ctx = {"resumed": "not a number"}
         result = S.format_client_context(ctx)
-        self.assertNotIn("복귀", result)
+        self.assertNotIn("back", result)
         self.assertTrue(result == "" or result.startswith("["))
 
     def test_format_visibility_unexpected_type(self):
         ctx = {"visibility": 42}
         result = S.format_client_context(ctx)
-        self.assertNotIn("백그라운드", result)
+        self.assertNotIn("in the background", result)
         # should not crash, just skip
         self.assertTrue(result == "" or result.startswith("["))
 
         ctx2 = {"visibility": None}
         result2 = S.format_client_context(ctx2)
-        self.assertNotIn("백그라운드", result2)
+        self.assertNotIn("in the background", result2)
 
     def test_format_battery_invalid_and_clamping(self):
         # nan, inf, -inf, True, False, string should not crash and should be omitted
         for bad in (float("nan"), float("inf"), float("-inf"), True, False, "80", None, [], {}):
             res = S.format_client_context({"battery": bad})
-            self.assertNotIn("배터리", res)
+            self.assertNotIn("battery ", res)
         # Clamping between 0 and 100
-        self.assertIn("배터리100%", S.format_client_context({"battery": 150}))
-        self.assertIn("배터리0%", S.format_client_context({"battery": -25}))
-        self.assertIn("배터리50%", S.format_client_context({"battery": 50.4}))
+        self.assertIn("battery 100%", S.format_client_context({"battery": 150}))
+        self.assertIn("battery 0%", S.format_client_context({"battery": -25}))
+        self.assertIn("battery 50%", S.format_client_context({"battery": 50.4}))
 
     def test_format_accuracy_invalid(self):
         # nan, inf, -inf, True, False, string, <= 0 should omit ± tag without exception
@@ -221,21 +221,21 @@ class TestClientDeviceContext(Base):
         for bad in (float("nan"), float("inf"), float("-inf"), True, False, "25", 0, -10, None):
             res = S.format_client_context({**base, "accuracy": bad})
             self.assertNotIn("±", res)
-            self.assertIn("위치 37.5665, 126.9780", res)
+            self.assertIn("location 37.5665, 126.9780", res)
 
     def test_format_resumed_invalid(self):
         # nan, inf, -inf, string, <= 0 should omit return tag without exception
         for bad in (float("nan"), float("inf"), float("-inf"), "invalid", None, 0, -5):
             res = S.format_client_context({"resumed": bad})
-            self.assertNotIn("복귀", res)
+            self.assertNotIn("back", res)
 
     def test_format_coords_invalid(self):
         # non-finite, bool, string in lat/lon should safely omit location
         for bad in (float("nan"), float("inf"), True, False, "37.5665"):
             res1 = S.format_client_context({"lat": bad, "lon": 126.9780})
-            self.assertNotIn("위치", res1)
+            self.assertNotIn("location", res1)
             res2 = S.format_client_context({"lat": 37.5665, "lon": bad})
-            self.assertNotIn("위치", res2)
+            self.assertNotIn("location", res2)
 
 
 if __name__ == "__main__":

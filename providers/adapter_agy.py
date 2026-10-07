@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import i18n
 from host_config import AGENT_PATH_PREFIX, AGY, MODELS, WORKSPACE
 from providers.adapter_base import AgentAdapter, _redact_err, cached_model_list, quota_view_of
 from tool_format import _format_tool_call, _format_tool_result
@@ -410,16 +411,9 @@ class AgyAdapter(AgentAdapter):
                     why = (
                         f"status={status or '?'}"
                         + (f", error={res_err}" if res_err else "")
-                        + f", {int(dur)}초"
+                        + f", {int(dur)}s"
                     )
-                    extra = {
-                        "event": "error",
-                        "notice": "error",
-                        "text": (
-                            f"에이전트가 답을 내기 전에 턴이 끝났습니다 ({why}). "
-                            "남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다."
-                        ),
-                    }
+                    extra = {"event": "error", "notice": "error", **i18n.msg("srv.turn_ended_early", why=why)}
                     events.append(extra)
                 session._request_post_result_stop(status, res_err, dur)
 

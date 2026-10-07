@@ -53,7 +53,7 @@ class NoticeInsteadOfWarning(NoticeCase):
         self.assertEqual(self.interrupts, ["loop"])
         text, notice = self.sent[0]
         self.assertTrue(notice)
-        self.assertIn("같은 도구 호출을 반복", text)
+        self.assertIn("repeating the same tool call", text)
         self.assertIn("view_file", text)                           # says WHAT repeated
         self.assertIn("StartLine/EndLine", text)                   # and what to do instead
         warn = self.systems()
@@ -71,7 +71,7 @@ class NoticeInsteadOfWarning(NoticeCase):
         self.repeat(s, 5)                                          # the agent kept repeating
         self.assertEqual(self.interrupts, ["loop"])                # no second notice
         self.assertEqual(len(self.sent), 1)
-        self.assertIn("계속 반복되면 자동으로 멈춥니다", str(self.systems()[-1]["text"]))   # plain warning as before
+        self.assertIn("If it keeps repeating, it stops by itself", str(self.systems()[-1]["text"]))   # plain warning as before
 
     def test_a_message_the_user_already_has_waiting_is_left_to_the_steer_path(self):
         s = self.make()
@@ -114,7 +114,7 @@ class OverBudget(NoticeCase):
         self.assertTrue(notice)
         self.assertIn("over its budget (2 tool calls, 600 KB read)", text)   # English for the agent (principle 0)
         self.assertIn("delegate", text)
-        self.assertNotIn("같은 도구 호출을 반복", text)
+        self.assertNotIn("repeating the same tool call", text)
 
 
 class TheNoticeIsNotAUserMessage(SyncBase):

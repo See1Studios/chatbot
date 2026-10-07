@@ -32,17 +32,35 @@ def catalog(lang: str = "en") -> Dict[str, str]:
     return _cache[lang]
 
 
+def _value(v: Any, lang: str) -> str:
+    """A value as words: a nested {"key", "vars"} (another catalog line) is put in words too."""
+    if isinstance(v, dict) and "key" in v:
+        return text(v["key"], lang, **(v.get("vars") or {}))
+    return str(v)
+
+
+def _vars(values: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: ({"key": v["key"], "vars": _vars(v.get("vars") or {})} if isinstance(v, dict) and "key" in v else str(v))
+            for k, v in values.items()}
+
+
 def text(key: str, lang: str = "en", **values: Any) -> str:
-    """The key's words in `lang` (English by default) with {name} filled; the key itself when missing."""
+    """The key's words in `lang` (English by default) with {name} filled; the key itself when missing. A value may
+    be a nested line, {"key", "vars"} (e.g. a loop verdict inside its warning)."""
     s = catalog(lang).get(key) or catalog("en").get(key) or key
-    return re.sub(r"\{(\w+)\}", lambda m: str(values[m.group(1)]) if m.group(1) in values else m.group(0), s)
+    return re.sub(r"\{(\w+)\}", lambda m: _value(values[m.group(1)], lang) if m.group(1) in values else m.group(0), s)
+
+
+def line(key: str, **values: Any) -> Dict[str, Any]:
+    """A nested line for another line's value: {"key", "vars"}."""
+    return {"key": key, "vars": _vars(values)}
 
 
 def msg(key: str, **values: Any) -> Dict[str, Any]:
     """An event's words: key, values and the English text."""
-    return {"key": key, "vars": {k: str(v) for k, v in values.items()}, "text": text(key, **values)}
+    return {"key": key, "vars": _vars(values), "text": text(key, **values)}
 
 
 def field(name: str, key: str, **values: Any) -> Dict[str, Any]:
     """A message field of a JSON answer: <name>_key, <name>_vars and <name> (English)."""
-    return {name + "_key": key, name + "_vars": {k: str(v) for k, v in values.items()}, name: text(key, **values)}
+    return {name + "_key": key, name + "_vars": _vars(values), name: text(key, **values)}

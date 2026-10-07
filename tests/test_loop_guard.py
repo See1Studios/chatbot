@@ -78,7 +78,7 @@ class SameCallMeansNoNewInformation(unittest.TestCase):
         got = first_verdicts(g, [(lambda g: self.rangeless_view(g, 0, "same text"))] * 12)
         stops = [(n, v.rule) for n, v in got if v.level == "stop"]
         self.assertEqual(min(n for n, _ in stops), 8)
-        self.assertIn("동일", [v for _, v in got if v.level == "stop"][0].text)
+        self.assertIn("the same", [v for _, v in got if v.level == "stop"][0].text)
 
     def test_a_run_that_changes_its_output_midway_is_not_a_repeat(self):
         g = LoopGuard()
@@ -92,7 +92,7 @@ class SameCallMeansNoNewInformation(unittest.TestCase):
         stops = [(n, v.rule) for n, v in got if v.level == "stop"]
         self.assertEqual((got[0][0], got[0][1].level), (5, "warn"))
         self.assertEqual(min(n for n, _ in stops), 16)
-        self.assertIn("출력 미확인", got[0][1].text)
+        self.assertIn("output unchecked", got[0][1].text)
 
     def test_the_output_fingerprint_is_stable_and_none_means_unknown(self):
         self.assertIsNone(output_hash(None))
@@ -235,7 +235,7 @@ class TurnBudget(unittest.TestCase):
         g = _Guard()
         got = [(i, v.level, v.rule, v.text) for i in range(1, 6) for v in [self.read(g, i, 300_000)] if v]
         self.assertEqual([x[:3] for x in got], [(2, "warn", "budget"), (4, "stop", "budget")])   # 600 KB, then 1.2 MB
-        self.assertIn("1200KB", got[1][3])
+        self.assertIn("1200 KB", got[1][3])
 
     def test_writes_and_commands_count_as_calls_not_reads(self):
         g = _Guard()

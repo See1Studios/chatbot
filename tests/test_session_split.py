@@ -297,7 +297,7 @@ class HandoverExchange(unittest.TestCase):
             hist.append({"role": "assistant", "text": f"a{i}"})
         s = self._session(hist)
         result = s._with_last_exchange("base summary")
-        self.assertIn("[최근 주고받은 대화 원문]", result)
+        self.assertIn("[Recent talk, verbatim]", result)
         self.assertIn("base summary", result)
         # last 8 turns = q2..q5 user + a2..a5 assistant
         for i in range(2, 6):
@@ -318,7 +318,7 @@ class HandoverExchange(unittest.TestCase):
         result = s._with_last_exchange("")
         # at ~800 chars per line, budget 3000 fits ~3 lines
         # the first line always gets in (even if > budget), then stops once exceeded
-        lines = [l for l in result.split("\n") if l.strip() and l != "[최근 주고받은 대화 원문]"]
+        lines = [l for l in result.split("\n") if l.strip() and l != "[Recent talk, verbatim]"]
         self.assertGreaterEqual(len(lines), 1)
         self.assertLess(len(lines), 8)  # not all 8 turns
         # newest turns are kept, oldest in the window are dropped
@@ -334,14 +334,14 @@ class HandoverExchange(unittest.TestCase):
         s = self._session([{"role": "user", "text": "hello"}])
         result = s._with_last_exchange("base")
         self.assertIn("hello", result)
-        self.assertIn("[최근 주고받은 대화 원문]", result)
+        self.assertIn("[Recent talk, verbatim]", result)
 
     def test_header_changed_from_old(self):
-        """The section header is now [최근 주고받은 대화 원문], not the old single-exchange one."""
+        """The section header is now [Recent talk, verbatim], not the old single-exchange one."""
         s = self._session([{"role": "user", "text": "x"}, {"role": "assistant", "text": "y"}])
         result = s._with_last_exchange("b")
         self.assertNotIn("마지막으로", result)
-        self.assertIn("최근 주고받은", result)
+        self.assertIn("Recent talk", result)
 
     def test_base_only_cached(self):
         """get_handover_summary caches only the compressed base, not the exchange tail."""
@@ -356,7 +356,7 @@ class HandoverExchange(unittest.TestCase):
         # cache holds only the base, not the exchange section
         self.assertEqual(s._cached_summary, "compressed base")
         # but the returned value includes the exchange
-        self.assertIn("[최근 주고받은 대화 원문]", result)
+        self.assertIn("[Recent talk, verbatim]", result)
         self.assertIn("turn1", result)
 
     def test_cached_call_appends_fresh_exchange(self):

@@ -1,6 +1,6 @@
 """Repeat detector for an agent's tool calls.
 
-Born from 2026-09-20: after "그래", the Gemini-backed agent spent ~23 minutes calling
+Born from 2026-09-20: after "sure", the Gemini-backed agent spent ~23 minutes calling
 `view_file` on the same source file 239 times (79 identical calls for one 15-line window,
 then 186 in a row paging through the file 15 lines at a time), never converging. The UI
 showed nothing because the stream only repeats a bare step type, and the turn "ended" with
@@ -48,6 +48,8 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Deque, Dict, List, Optional, Set, Tuple
 
+import i18n
+
 # arguments that are commentary by the model, not part of what the call does
 NOISE_KEYS = {"toolaction", "toolsummary", "waitforprevioustools", "explanation", "description",
               "thought", "reasoning", "rationale"}
@@ -66,7 +68,8 @@ class Verdict:
     count: int
     tool: str
     target: str
-    text: str       # one short line, shown to the operator
+    text: str       # one short line in English (the agent's notes quote it)
+    msg: dict = None   # the same line by key, for the operator's page (i18n.line)
 
 
 def is_read_only(tool: str) -> bool:
@@ -211,33 +214,35 @@ class LoopGuard:
             self._run_target, self._run_len = "", 0
 
         what = f"{tool} {_short(target)}".strip()
-        note = f" · 출력 {out} 동일" if out else " · 출력 미확인"
+        note = i18n.line("loop.note_same", n=out) if out else i18n.line("loop.note_unknown")
         # a stop wants the outputs confirmed equal; without that it takes twice the count
         stop_exact = confirmed_exact >= self.exact_stop or exact >= 2 * self.exact_stop
         stop_consec = self._consec >= self.consec_stop and (self._consec_confirmed or self._consec >= 2 * self.consec_stop)
-        candidates: List[Tuple[str, str, int, str]] = [
-            ("stop", "exact", exact, f"같은 조회를 {exact}번 반복 ({what}{note})" if stop_exact else ""),
-            ("stop", "consecutive", self._consec, f"같은 호출을 연달아 {self._consec}번 ({what}{note})" if stop_consec else ""),
-            ("stop", "run", self._run_len, f"같은 파일을 {self._run_len}번 연속으로 조회 ({_short(target)})" if self._run_len >= self.run_stop else ""),
-            ("stop", "budget", self.calls, self._budget_text() if self._over(1) else ""),
-            ("warn", "exact", exact, f"같은 조회가 {exact}번 반복되고 있어요 ({what}{note})" if exact >= self.exact_warn else ""),
-            ("warn", "consecutive", self._consec, f"같은 호출이 연달아 {self._consec}번이에요 ({what}{note})" if self._consec >= self.consec_warn else ""),
-            ("warn", "run", self._run_len, f"같은 파일을 {self._run_len}번 연속 조회 중이에요 ({_short(target)})" if self._run_len >= self.run_warn else ""),
-            ("warn", "budget", self.calls, self._budget_text() if self._over(0) else ""),
+        budget = self._budget_line()
+        # (level, rule, count, the line by key, or None when the rule has not fired)
+        candidates: List[Tuple[str, str, int, Optional[dict]]] = [
+            ("stop", "exact", exact, i18n.line("loop.stop_exact", n=exact, what=what, note=note) if stop_exact else None),
+            ("stop", "consecutive", self._consec, i18n.line("loop.stop_consec", n=self._consec, what=what, note=note) if stop_consec else None),
+            ("stop", "run", self._run_len, i18n.line("loop.stop_run", n=self._run_len, what=_short(target)) if self._run_len >= self.run_stop else None),
+            ("stop", "budget", self.calls, budget if self._over(1) else None),
+            ("warn", "exact", exact, i18n.line("loop.warn_exact", n=exact, what=what, note=note) if exact >= self.exact_warn else None),
+            ("warn", "consecutive", self._consec, i18n.line("loop.warn_consec", n=self._consec, what=what, note=note) if self._consec >= self.consec_warn else None),
+            ("warn", "run", self._run_len, i18n.line("loop.warn_run", n=self._run_len, what=_short(target)) if self._run_len >= self.run_warn else None),
+            ("warn", "budget", self.calls, budget if self._over(0) else None),
         ]
-        for level, rule, count, text in candidates:
-            if not text or (rule, level) in self._fired:
+        for level, rule, count, line in candidates:
+            if not line or (rule, level) in self._fired:
                 continue
             self._fired.update({(rule, level), (rule, "warn")})   # past a stop, its warning has nothing to add
-            return Verdict(level, rule, count, tool, target, text)
+            return Verdict(level, rule, count, tool, target, i18n.text(line["key"], **line["vars"]), line)
         return None
 
     def _over(self, i: int) -> bool:
         """Past the budget's warning (i=0) or stop (i=1) line, in calls or in bytes read."""
         return self.calls >= self.budget_calls[i] or self.read_bytes >= self.budget_bytes[i]
 
-    def _budget_text(self) -> str:
-        return f"이번 턴 도구 {self.calls}회 · 파일 읽기 {self.read_bytes // 1000}KB"   # l10n-ok: same voice as the rules above
+    def _budget_line(self) -> dict:
+        return i18n.line("loop.budget", calls=self.calls, kb=self.read_bytes // 1000)
 
 
 def extract_tool_steps(obj: dict) -> List[Tuple[str, dict, object]]:

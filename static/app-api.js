@@ -19,7 +19,7 @@ async function api(path, opts) {
     }, fetchOpts));
     if (!r.ok) throw new Error(await r.text() || r.statusText);
     const ct = r.headers.get('content-type') || '';
-    if (ct.includes('application/json')) return r.json();
+    if (ct.includes('application/json')) return trHistory(await r.json());   // I18N_v1: stored server lines
     return r.text();
   } catch (e) {
     // RETRY_LAST_v1: app-retry.js offers a failed message again

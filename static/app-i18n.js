@@ -29,7 +29,8 @@ let I18N = {};
 // ---- I18N helpers (page_source.i18n_prelude runs this part over the Korean catalog in page tests) ----
 function tr(key, vars) {
   const s = Object.prototype.hasOwnProperty.call(I18N, key) ? I18N[key] : key;
-  return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(vars, k) ? String(vars[k]) : m)) : s;
+  const val = v => (v && typeof v === 'object' && v.key ? tr(v.key, v.vars || {}) : String(v));   // a nested line (i18n.line)
+  return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(vars, k) ? val(vars[k]) : m)) : s;
 }
 
 function i18nTable(prefix) {
@@ -43,6 +44,12 @@ function i18nTable(prefix) {
 function trEvent(o) {   // the event's text in the page's language, set in place
   if (o && o.key) o.text = tr(o.key, o.vars || {});
   return o;
+}
+function trHistory(res) {   // an answer's stored lines (history, events) in the page's language
+  if (res && typeof res === 'object') {
+    [res.history, res.events, res.session && res.session.history].forEach(list => { if (Array.isArray(list)) list.forEach(trEvent); });
+  }
+  return res;
 }
 function trField(o, name) {   // e.g. trField(res, 'message'): <name>_key/_vars, else <name>, else the older <name>_ko
   if (!o) return '';

@@ -17,6 +17,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import i18n
 from loop_guard import is_read_only, normalize, target_of
 
 try:  # observing is best effort: a missing core module must never stop the host
@@ -89,7 +90,7 @@ def check(session, tool: str, params: Optional[dict], root: Path) -> None:
         return
     warned.add(rel)
     session._auto_stop(
-        event={"event": "stopped", "text": f"⚠ 티켓 없이 {rel} 파일을 고쳐 턴을 멈췄습니다. 승인된 티켓을 claim한 뒤 작업해야 합니다.",
+        event={"event": "stopped", **i18n.msg("srv.unticketed_write", path=rel),
                "evidence": {"rule": "unticketed_write", "tool": tool, "path": rel}},
         hint=f"The last turn was stopped: it changed {rel}, a repo file no ticket covers. Revert that change, or ask "
              f"the operator for a ticket and claim it, before any other work; hand code work to the dev role.")
@@ -172,8 +173,7 @@ def turn_end(session, root: Path, outcome: str = "") -> List[str]:
     for rel in found:
         TREE_HOLD[rel] = session.sid
     try:
-        session._emit({"event": "system", "text": "⚠ 이번 턴에 티켓 없이 바뀐 파일: %s — 되돌리거나 티켓을 잡을 때까지 업무 턴마다 알립니다."  # l10n-ok
-                       % ", ".join(found[:8]), "evidence": {"rule": "unticketed_tree_change", "paths": found}})
+        session._emit({"event": "system", **i18n.msg("srv.unticketed_tree", paths=", ".join(found[:8])), "evidence": {"rule": "unticketed_tree_change", "paths": found}})
         if evolution is not None:
             evolution.record_candidate(session._observation_root(), "unticketed_write", session.sid, session.provider,
                                        {"path": ", ".join(found[:8]), "tool": "tree"})

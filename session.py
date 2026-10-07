@@ -25,6 +25,7 @@ try:  # turn observation is best effort: a missing core module must never stop t
     import evolution
 except Exception:  # noqa: BLE001
     evolution = None
+import i18n
 import obslog
 import write_guard
 from turn_watchdog import TurnWatchdog
@@ -69,21 +70,23 @@ from media_handler import (
 # tool-step boundary (steer). agy itself cannot take a message mid-turn: measured 2026-09-20,
 # a second stdin line only QUEUES and runs after the current turn ends (agy.md A41).
 # Session event kinds copied into logs/events.jsonl (OBSLOG_v1, see _obs_forward).
+LOOP_NOTICE_KEYS = {"srv.loop_warn", "srv.budget_warn", "srv.loop_noticed", "srv.unticketed_tree"}   # turn.loop_notice
 _OBS_FORWARD = {"error", "stopped", "interrupted", "session_rotate", "session_heavy", "steer_queued", "system"}
 
 STEER_MAX_WAIT_SEC = 90   # no boundary for this long (long reasoning, no tools): interrupt anyway
-boot_notice = lambda sess: ""  # server.py hook: "[시스템 안내]" restart line, once per session per boot
+boot_notice = lambda sess: ""  # server.py hook: the "[Host note]" restart line, once per session per boot
 LOOP_STOP_AFTER_NOTICE = 3   # repeats that still continue after the agent was told to change course -> stop
-LOOP_NOTICE = ("같은 도구 호출을 반복하고 있습니다 ({what}). 새 정보가 없으니 여기서 멈추고, 지금까지 알게 된 것을 세 줄로 정리한 뒤 "
-               "접근을 바꾸세요 (큰 파일은 StartLine/EndLine으로 나눠 읽거나 grep으로 필요한 부분만 찾기). 이미 끝낸 단계는 처음부터 "
-               "다시 하지 말고, 정말 막혔을 때만 {user}께 물어보세요.")
+LOOP_NOTICE = ("You are repeating the same tool call ({what}). It brings nothing new: stop here, sum up what you have "
+               "learned in three lines, then change approach (read a large file in parts with StartLine/EndLine, or find "
+               "only the part you need with grep). Do not redo finished steps from the start; ask {user} only when truly stuck.")
 BUDGET_NOTICE = ("This turn is over its budget ({what}): everything read is sent to the model again on every later "
                  "call. If this is a large code change, sum up what you found and hand it over with delegate; "
                  "otherwise stop here and answer with what you have. To read more, find the place with grep and "
                  "read only that range (StartLine/EndLine).")
 CONTEXT_LOG_KEEP = 6   # what went into the agent, newest last, for the status tab (CONTEXT_PANEL_v1)
-STEER_HINT = ("직전 작업은 이 메시지를 반영하려고 도구 단계 사이에서 잠시 멈췄을 뿐, 취소된 것이 아닙니다. 이 메시지가 취소·변경을 "
-              "분명히 요구하지 않는다면 하던 작업을 이어서 하면서 이 메시지의 지시를 반영하세요. 이미 끝낸 단계를 처음부터 다시 하지 마세요.")
+STEER_HINT = ("The last work only paused between tool steps to take this message; it was not cancelled. Unless this "
+              "message clearly asks to cancel or change it, carry on with that work while following this message. Do not "
+              "redo finished steps from the start.")
 
 
 _SENSITIVE_STDERR_KEYS = ("token", "authorization", "bearer", "api_key", "refresh")
@@ -126,41 +129,42 @@ def _standby_maintenance_loop() -> None:
 
 
 def format_client_context(ctx: Optional[Dict[str, Any]]) -> str:
+    """The page's device facts as one English note for the agent (agent-facing text is English)."""
     if not isinstance(ctx, dict) or not ctx:
         return ""
     _num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
     p = []
     lat, lon, acc = ctx.get("lat"), ctx.get("lon"), ctx.get("accuracy")
     if _num(lat) and _num(lon):
-        p.append(f"위치 {lat:.4f}, {lon:.4f}" + (f" ±{int(acc)}m" if _num(acc) and acc > 0 else ""))
+        p.append(f"location {lat:.4f}, {lon:.4f}" + (f" ±{int(acc)}m" if _num(acc) and acc > 0 else ""))
     tz = ctx.get("timezone")
     if isinstance(tz, str) and tz.strip():
         p.append(tz.strip()[:40])
     if ctx.get("is_mobile") is True:
-        p.append("모바일")
+        p.append("mobile")
     elif ctx.get("is_mobile") is False:
-        p.append("데스크톱")
-    if isinstance(dev := ctx.get("device"), str) and (d := dev.strip()) and d not in ("모바일", "데스크톱"):
+        p.append("desktop")
+    if isinstance(dev := ctx.get("device"), str) and (d := dev.strip()) and d not in ("mobile", "desktop"):
         p.append(d[:30])
     batt = ctx.get("battery")
     if _num(batt):
-        p.append(f"배터리{max(0, min(100, int(batt)))}%" + ("충전중" if ctx.get("charging") is True else ""))  # l10n-ok
+        p.append(f"battery {max(0, min(100, int(batt)))}%" + (" charging" if ctx.get("charging") is True else ""))
     if isinstance(net := ctx.get("net_type"), str) and (n := net.strip()):
-        p.append(f"네트워크:{n[:20]}")  # l10n-ok
+        p.append(f"network:{n[:20]}")
     elif ctx.get("online") is True:
-        p.append("온라인")  # l10n-ok
+        p.append("online")
     elif ctx.get("online") is False:
-        p.append("오프라인")  # l10n-ok
+        p.append("offline")
     resumed = ctx.get("resumed")
     if resumed is True:
-        p.append("복귀")  # l10n-ok
+        p.append("back")
     elif _num(resumed) and 0 < resumed < 100_000_000:
-        p.append(f"복귀({int(resumed)}s 만에)")  # l10n-ok
+        p.append(f"back after {int(resumed)}s")
     if isinstance(vis := ctx.get("visibility"), str) and (v := vis.strip()) and v != "visible":
-        p.append("백그라운드")  # l10n-ok
+        p.append("in the background")
     elif ctx.get("focused") is False:
-        p.append("비활성탭")  # l10n-ok
-    return "[클라이언트 환경: " + ", ".join(p) + "]" if p else ""
+        p.append("tab not focused")
+    return "[Client: " + ", ".join(p) + "]" if p else ""
 
 
 class AgentSession(SessionTurn, SessionView, TurnWatchdog):
@@ -187,6 +191,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         self.msg_queue: List[Tuple[str, str]] = []
         self.current_text = ""
         self.last_progress = ""
+        self.last_progress_key, self.last_progress_vars = "", {}
         self.turn_started_at = 0.0
         self.pending_images: List[str] = []
         self._stderr_tail: List[str] = []
@@ -305,9 +310,10 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             line = (event.get("title") or event.get("text") or "").strip()
             is_err_msg = step == "error_message" or line == "error_message"
             if is_err_msg:
-                line = "쿼터·오류 확인 중…"
+                line = i18n.text("srv.checking_quota")
             if line:
                 self.last_progress = line[:240]
+                self.last_progress_key, self.last_progress_vars = ("srv.checking_quota" if is_err_msg else ""), {}   # I18N_v1
             # SILENT_HANG_v1: tool start/result/progress heartbeats reset the idle
             # clock (not only assistant text). Long tools are fine while progress
             # continues. error_message is owned by QUOTA_FAILFAST — do not re-arm.
@@ -318,6 +324,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             self._touch_turn_activity()
         elif kind in ("result", "error", "stopped"):
             self.last_progress = ""
+            self.last_progress_key, self.last_progress_vars = "", {}
             # QUOTA_FAILFAST_v1: real terminal event — cancel pending failfast
             self._cancel_error_message_failfast()
             # SILENT_HANG_v1: turn ended — cancel idle watchdog
@@ -356,9 +363,9 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 if " started model=" in text:
                     obslog.event("agent.spawn", sid=self.sid, provider=self.provider, model=self.model,
                                  agent_pid=getattr(self.proc, "pid", None), standby="warm standby" in text)
-                elif text.startswith("⚠"):
+                elif event.get("key") in LOOP_NOTICE_KEYS:   # by key, never by the words
                     obslog.event("turn.loop_notice", lvl="warn", sid=self.sid, provider=self.provider, msg=text[:300])
-                elif text.startswith("턴 종료"):
+                elif event.get("key") == "srv.turn_closed":
                     obslog.event("turn.quiet_close", lvl="warn", sid=self.sid, provider=self.provider, msg=text[:300])
                 return
             lvl = "warn" if kind in ("error", "session_heavy") else "info"
@@ -489,7 +496,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         store has that conversation (adapter.has_conversation); otherwise it starts an EMPTY one, which
         used to happen on every respawn (idle reap, swap, stop, crash) with nothing telling the
         agent -- so it lost its memory, persona and rules while the window still showed the
-        whole chat (2026-09-20: "너 다른 프로세스야?"). If the id is not in agy's store, drop it
+        whole chat (2026-09-20: "are you a different process?"). If the id is not in agy's store, drop it
         and re-seed the next message with the rules and a digest of the visible history."""
         if not self.conversation_id:
             return
@@ -508,10 +515,10 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 self.handoff_summary = self._host_history_digest()
                 self.handoff_injected = False
         self.save_meta()
-        self._emit({"event": "system", "text": "에이전트가 이전 대화를 기억하지 못해서, 다음 메시지에 지침과 최근 대화 요약을 다시 넣습니다."})
+        self._emit({"event": "system", **i18n.msg("srv.reseeded")})
 
     def _host_history_digest(self, max_turns: int = 8, per_turn: int = 700, total: int = 5000,
-                             header: str = "(에이전트 프로세스가 다시 시작되어 기억이 이어지지 않았습니다. 아래는 화면 기록의 최근 대화입니다.)") -> str:
+                             header: str = "(The agent process restarted and its memory did not carry over. Below is the recent talk from the screen record.)") -> str:
         """The visible history, trimmed -- no model call, so it is instant and free."""
         me, ut = display_name(), user_title()
         rows = []
@@ -550,24 +557,23 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                     return
                 if not self._loop_warned:
                     self._loop_warned = True
-                    goes_on = "계속되면" if v.rule == "budget" else "계속 반복되면"   # l10n-ok
-                    self._emit({"event": "system", "text": f"⚠ {v.text}. {goes_on} 자동으로 멈춥니다.",
+                    self._emit({"event": "system", **i18n.msg("srv.budget_warn" if v.rule == "budget" else "srv.loop_warn", verdict=v.msg),
                                 "evidence": write_guard.loop_evidence(v, params, output)})
             elif v.rule == "budget":
                 self._auto_stop(
-                    event={"event": "stopped", "text": f"이번 턴이 예산을 넘어 자동으로 중단했습니다 — {v.text}",   # l10n-ok
+                    event={"event": "stopped", **i18n.msg("srv.budget_stopped", verdict=v.msg),
                            "evidence": write_guard.loop_evidence(v, params, output)},
                     hint=f"The last turn went over its budget ({self._loop_guard.calls} tool calls, "
                          f"{self._loop_guard.read_bytes // 1000} KB read) and was stopped. Do not read the same way "
                          f"again: sum up what you know, hand a large code change over with delegate, or ask how to go on.")
                 return
             else:
-                after = " (방향을 바꾸라고 알린 뒤에도 계속돼서)" if self._loop_noticed else ""
                 self._auto_stop(
-                    event={"event": "stopped", "text": f"같은 도구 호출이 반복돼 자동으로 중단했습니다{after} — {v.text}",
+                    event={"event": "stopped", **i18n.msg("srv.loop_stopped_after_notice" if self._loop_noticed else "srv.loop_stopped", verdict=v.msg),
                            "evidence": write_guard.loop_evidence(v, params, output)},
-                    hint=f"직전 턴이 같은 작업을 반복하다({v.text}) 자동 중단됐습니다. 같은 방식을 되풀이하지 말고, 접근을 바꾸거나 "
-                         f"(큰 파일은 범위를 나눠 읽기·grep 같은 검색 도구·요약 후 질문) 지금까지의 진행 상황을 짧게 정리해 어떻게 할지 물어보세요.")
+                    hint=f"The last turn repeated the same work ({v.text}) and was stopped. Do not do it the same way again: "
+                         f"change approach (read a large file in parts, use a search tool such as grep, or sum up and ask), "
+                         f"briefly sum up where things stand and ask how to go on.")
                 return
 
     def _can_notice_loop(self) -> bool:
@@ -585,7 +591,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 return
             self._loop_stopping = True
             self._loop_noticed = True
-        self._emit({"event": "system", "text": f"⚠ {v.text}. 방향을 바꾸라고 알리고 이어서 진행합니다.",
+        self._emit({"event": "system", **i18n.msg("srv.loop_noticed", verdict=v.msg),
                     "evidence": {**evidence, "action": "notice"}})
         g = self._loop_guard   # the agent reads English numbers; v.text is the operator's line
         what = "%d tool calls, %d KB read" % (g.calls, g.read_bytes // 1000) if v.rule == "budget" else v.text
@@ -609,7 +615,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             if rest is not None:
                 with self.lock:
                     self.msg_queue[:] = rest + list(self.msg_queue)
-            self._emit({"event": "error", "text": f"방향 전환 알림을 보내지 못했습니다: {e}"})
+            self._emit({"event": "error", **i18n.msg("srv.loop_notice_failed", error=e)})
         finally:
             self._loop_stopping = False
 
@@ -688,11 +694,8 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         status = info.get("status") or ""
         err = info.get("err") or ""
         duration = float(info.get("duration") or 0)
-        why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}초"
-        self._loop_hint = (
-            f"에이전트가 답을 내기 전에 턴이 끝났습니다({why}). "
-            "남은 작업은 멈췄고, 다음 메시지부터 이어서 합니다."
-        )
+        why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}s"
+        self._loop_hint = f"The turn ended before the agent answered ({why}). The rest of the work stopped; it goes on from the next message."
         with self.lock:
             if self._loop_stopping:
                 return
@@ -706,19 +709,19 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         is stopped too -- the next message respawns it and resumes the conversation.
 
         QUOTA_ERR_DEDUP_v1: emit_error=False still stops the child (and sets the loop hint)
-        but skips the Korean error notice when finalize_turn already persisted notice:error.
+        but skips the error notice when finalize_turn already persisted notice:error.
         """
-        why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}초"
-        hint = f"에이전트가 답을 내기 전에 턴이 끝났습니다({why}). 남은 작업은 멈췄고, 다음 메시지부터 이어서 합니다."
+        why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}s"
+        hint = f"The turn ended before the agent answered ({why}). The rest of the work stopped; it goes on from the next message."
         if emit_error:
             self._auto_stop(
-                event={"event": "error", "text": f"에이전트가 답을 내기 전에 턴이 끝났습니다 ({why}). 남아서 돌 수 있는 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다."},
+                event={"event": "error", **i18n.msg("srv.turn_ended_early", why=why)},
                 hint=hint,
             )
         else:
             # Quiet close: system only, no second error notice.
             self._auto_stop(
-                event={"event": "system", "text": f"턴 종료 ({why})"},
+                event={"event": "system", **i18n.msg("srv.turn_closed", why=why)},
                 hint=hint,
             )
 
@@ -785,17 +788,17 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 if self.busy and self.proc is proc:  # only if THIS child died mid-turn
                     self.busy = False
                     died_mid_turn = True
-                    err_text = "에이전트 프로세스가 종료되었습니다."
+                    err_msg = i18n.msg("srv.agent_exited")
                     # Persist what streamed in before the child died -- the live view
                     # already finalizes this same draft into a normal bubble, so a
                     # reload silently erasing it would be a desync (SESSION_DESYNC_GAPFIX_v2).
                     draft = (self.current_text or "").strip()
                     if draft:
                         self.history.append({"role": "assistant", "text": draft, "ts": _now()})
-                    self.history.append({"role": "assistant", "text": err_text, "notice": "error", "ts": _now()})
+                    self.history.append({"role": "assistant", **err_msg, "notice": "error", "ts": _now()})
                     self.save_meta()
                     self.current_text = ""
-                    self._emit({"event": "error", "text": err_text})
+                    self._emit({"event": "error", **err_msg})
                     has_queued = bool(getattr(self, "msg_queue", []))
                     if has_queued:
                         threading.Thread(target=self._dispatch_queued, daemon=True).start()
@@ -881,7 +884,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             msgs.append({"role": "system", "content": system_text})
         # Bare HTTP call has no CLI runtime telling the model what it
         # actually is (agy/claude/grok/codex get this for free from their
-        # own process context) -- without it, "너는 무슨 모델이니" on an
+        # own process context) -- without it, "what model are you" on an
         # omniroute session got answered by guessing/pattern-matching the
         # AGENTS.md harness list, which reads DEFAULT_PROVIDER=agy most
         # prominently and answered "Antigravity(agy)" even while this
@@ -889,7 +892,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         # (live-observed 2026-09-18, session 20260918-193213-e30f27).
         msgs.append({
             "role": "system",
-            "content": f"[런타임 정보] 이 세션의 실제 백엔드는 provider={self.provider}, model={self.model}.",
+            "content": f"[Runtime] This session's real backend is provider={self.provider}, model={self.model}.",
         })
         last_idx = len(self.history) - 1
         for i, h in enumerate(self.history):
@@ -920,7 +923,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 self._handle_events([ev])
         except Exception as e:
             if self._turn_seq == seq and not self._stop_requested:
-                self._handle_events([{"event": "error", "text": f"API 호출 실패: {e}"}])
+                self._handle_events([{"event": "error", **i18n.msg("srv.api_failed", error=e)}])
 
     def _http_turn_watchdog(self, seq: int) -> None:
         """Force-stops an http-transport turn that runs past
@@ -940,11 +943,11 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 return
         self.stop(notify=False)
         minutes = timeout_sec // 60
-        text = f"⏱️ 응답이 {minutes}분 넘게 안 와서 자동으로 중단했어요. 다시 시도해 주세요."
+        m = i18n.msg("srv.http_timeout", minutes=minutes)
         with self.lock:
-            self.history.append({"role": "assistant", "text": text, "ts": _now()})
+            self.history.append({"role": "assistant", **m, "ts": _now()})
             self.save_meta()
-        self._emit({"event": "error", "text": text})
+        self._emit({"event": "error", **m})
 
     def _read_stderr(self) -> None:
         assert self.proc and self.proc.stderr
@@ -989,7 +992,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             self.msg_queue.append((text, client_mid))
             n = len(self.msg_queue)
         self._emit({"event": "steer_queued", "queue_len": n,
-                    "text": "새 지시를 받았어요 — 지금 진행 중인 단계가 끝나면 바로 반영합니다."})
+                    **i18n.msg("srv.steer_queued")})
         timer = threading.Timer(STEER_MAX_WAIT_SEC, self._steer_at_boundary, kwargs={"forced": True})
         timer.daemon = True
         timer.start()
@@ -1091,7 +1094,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             return base
         lines = list(reversed(chosen))
         prefix = f"{base.rstrip()}\n\n" if (base or "").strip() else ""
-        return f"{prefix}[최근 주고받은 대화 원문]\n" + "\n".join(lines) + "\n"
+        return f"{prefix}[Recent talk, verbatim]\n" + "\n".join(lines) + "\n"
 
     def _dialogue_summary_fallback(self, max_turns: int = 8) -> str:
         """Lightweight custom-prompt summary of the last N dialogue turns --
@@ -1127,7 +1130,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         asst_turns = [h.get("text") for h in self.history if h.get("role") == "assistant"]
         last_u = str(user_turns[-1] if user_turns else "")[:120]
         last_a = str(asst_turns[-1] if asst_turns else "")[:120]
-        return f"- 최근 {user_title()} 지시: {last_u}\n- 최근 답변 요약: {last_a}"
+        return f"- Last instruction from {user_title()}: {last_u}\n- Last answer: {last_a}"
 
     def _emit_heavy_if_needed(self, force: bool = False) -> dict:
         w = self.weight()
@@ -1142,7 +1145,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             self._emit({
                 "event": "session_heavy",
                 "level": level,
-                "text": w.get("message_ko") or "세션이 길어져서 느려질 수 있어요. 새 채팅을 권장합니다",
+                **(i18n.msg(w["message_key"], **(w.get("message_vars") or {})) if w.get("message_key") else i18n.msg("srv.session_heavy")),
                 "weight": w,
             })
         return w
@@ -1180,8 +1183,8 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
     def _stop_for_swap(self, what: str) -> None:
         """Stop the live process because the provider/model is being swapped.
 
-        A swap is not a user-requested stop, so it must not print "작업이
-        중지되었습니다" -- that notice appeared, twice per switch (provider, then
+        A swap is not a user-requested stop, so it must not print "work
+        stopped" -- that notice appeared, twice per switch (provider, then
         model), every time someone clicked through the provider tray just to
         look at another provider's usage, even with nothing running. Only say
         something when a turn really was in flight, and say what happened;
@@ -1189,7 +1192,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         was_busy = self.busy
         self.stop(notify=False)
         if was_busy:
-            self._emit({"event": "stopped", "text": f"{what} 바꿔서 진행 중이던 작업을 중단했습니다."})
+            self._emit({"event": "stopped", **i18n.msg(what)})
 
     def _remember_brain_choice(self) -> None:
         """Keep a user provider/model pick for this character and mode. The card stays the default."""
@@ -1217,7 +1220,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         respawns under the new model."""
         if model and model != self.model:
             self.model = model
-            self._stop_for_swap("모델을")
+            self._stop_for_swap("srv.swap_stopped_model")
             self.save_meta()
             if remember:
                 self._remember_brain_choice()
@@ -1237,7 +1240,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         session's history, even though self.history (and the UI) carries
         right on. Without a handoff, that new process would answer the very
         next message with zero awareness anything was discussed before
-        (operator: "도중에 바뀌면 다시 해줘야하는 게 있을 것 같네" -- confirmed
+        (operator: "a switch midway probably leaves something to redo" -- confirmed
         real, 2026-09-18). Reuse the same handoff_summary/handoff_injected
         relay _send_direct() already does for /continue rotations, computed
         here (before conversation_id/provider are overwritten, since
@@ -1264,7 +1267,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             # rules; without this reset it would run persona-less (2026-09-19).
             self.persona_injected = False
             self.persona_bundle_hash = ""
-            self._stop_for_swap("제공자를")
+            self._stop_for_swap("srv.swap_stopped_provider")
             self.save_meta()
             if remember:
                 self._remember_brain_choice()
@@ -1278,7 +1281,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         # that (including what looks like a genuine "result" event, with
         # stale/reused usage stats) after the user explicitly asked to stop,
         # making it look like stop did nothing or a new answer appeared
-        # right after (operator: "작성 중인 상태에서 중지같은 게 안되네").
+        # right after (operator: "stop does not work while it is writing").
         self._stop_requested = True
         self._cancel_silent_hang()
         was_busy = self.busy
@@ -1337,7 +1340,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             except Exception:
                 pass
         if notify:
-            self._emit({"event": "stopped", "text": f"{user_title()}의 요청으로 작업이 중지되었습니다."})
+            self._emit({"event": "stopped", **i18n.msg("srv.stopped_by_user", user=user_title())})
             if was_busy:
                 self._finish_turn("stopped")
         _record_live_pids()
@@ -1488,7 +1491,7 @@ def _reap_sessions() -> None:
                     if sess.busy:
                         sess.busy = False
                         died.append(sess)
-                        sess._emit({"event": "error", "text": "에이전트 프로세스가 종료되었습니다."})
+                        sess._emit({"event": "error", **i18n.msg("srv.agent_exited")})
                         has_queued = bool(getattr(sess, "msg_queue", []))
                         if has_queued:
                             threading.Thread(target=sess._dispatch_queued, daemon=True).start()

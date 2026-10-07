@@ -10,6 +10,7 @@ from __future__ import annotations
 import threading
 from typing import Optional
 
+import i18n
 import obslog
 from host_config import _now
 
@@ -56,14 +57,15 @@ class TurnWatchdog:
         dur = 0.0
         if getattr(self, "turn_started_at", 0):
             dur = max(0.0, _now() - float(self.turn_started_at))
-        err = (getattr(self, "_err_msg_hint", None) or "").strip()
-        if not err:
-            err = "쿼터 또는 제공자 오류로 보입니다. 응답이 없어 턴을 닫았습니다."
-        elif "quota" not in err.lower() and "소진" not in err:
-            err = "쿼터 또는 제공자 오류로 보입니다. " + err
+        hint = (getattr(self, "_err_msg_hint", None) or "").strip()   # the provider's own error line, as it came
+        if "quota" in hint.lower():   # it says so itself: finalize_turn names it a quota notice
+            err_msg, err = None, hint
+        else:
+            err_msg = i18n.msg("srv.quota_or_provider", error=hint) if hint else i18n.msg("srv.quota_or_provider_closed")
+            err = err_msg["text"]
         try:
             out = self.adapter.finalize_turn(
-                self, text="", raw_usage=None, is_err=True, error=err
+                self, text="", raw_usage=None, is_err=True, error=err, error_msg=err_msg
             )
             self._emit(out)
             with self.lock:
@@ -149,9 +151,9 @@ class TurnWatchdog:
         if self._provider_shows_activity():   # SUBAGENT_ACTIVITY_v1: subagents at work, not a quiet turn
             return
         quiet = int(self.SILENT_NOTICE_SEC)
-        text = f"{quiet}초째 신호 없음 — 긴 생각일 수 있어요. 기다리거나 중지하세요"
-        self.last_progress = text
-        self._emit({"event": "progress", "text": text, "quiet_sec": quiet})
+        m = i18n.msg("srv.quiet_progress", s=quiet)
+        self.last_progress, self.last_progress_key, self.last_progress_vars = m["text"], m["key"], m["vars"]
+        self._emit({"event": "progress", **m, "quiet_sec": quiet})
         try:
             obslog.event("turn.silent_notice", lvl="info", sid=self.sid, provider=self.provider, quiet_sec=quiet)
         except Exception:
@@ -214,10 +216,11 @@ class TurnWatchdog:
         last = getattr(self, "_last_turn_activity_at", 0) or 0
         if last:
             idle = max(idle, _now() - float(last))
-        err = f"응답이 오랫동안 없어 턴을 닫았습니다(무응답 {int(idle)}초). 남은 작업은 멈췄어요 — 메시지를 보내면 이어서 합니다."
+        err_msg = i18n.msg("srv.hang_closed", s=int(idle))
+        err = err_msg["text"]
         try:
             out = self.adapter.finalize_turn(
-                self, text="", raw_usage=None, is_err=True, error=err
+                self, text="", raw_usage=None, is_err=True, error=err, error_msg=err_msg
             )
             self._emit(out)
             with self.lock:

@@ -82,7 +82,7 @@ async function getClientContext() {
   } catch(e) {}
   const ctx = {
     is_mobile: isMobile,
-    device: isMobile ? '모바일' : '데스크톱',   // l10n-ok: the server matches these words; l10n/F sends a code
+    device: isMobile ? 'mobile' : 'desktop',   // a code; the server writes the agent's note
   };
   if (timezone) ctx.timezone = timezone;
   if (cachedCoords) {

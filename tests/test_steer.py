@@ -112,7 +112,7 @@ class ApplyAtTheNextBoundary(Base):
         self.wait(self.delivered)
         self.assertEqual(self.interrupts, ["steer"])
         self.assertEqual(self.sent, [(ACTION, "m1", S.STEER_HINT)])
-        self.assertIn("취소된 것이 아닙니다", S.STEER_HINT)               # the agent is told to continue, not restart
+        self.assertIn("it was not cancelled", S.STEER_HINT)               # the agent is told to continue, not restart
         self.assertEqual(s.msg_queue, [])
 
     def test_one_message_per_boundary_the_rest_wait_for_the_next(self):
@@ -188,7 +188,7 @@ class HintReachesTheWire(WorkspaceCase):
         s._loop_hint = S.STEER_HINT
         s._send_direct("세 번 다 끝나면 수정됨이라고 답해")
         s._send_direct("다음 메시지")
-        self.assertIn("취소된 것이 아닙니다", sent[0])
+        self.assertIn("it was not cancelled", sent[0])
         self.assertTrue(sent[0].rstrip().endswith("세 번 다 끝나면 수정됨이라고 답해"))
         self.assertEqual(sent[1], "다음 메시지")                          # said once
 

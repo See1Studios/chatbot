@@ -280,6 +280,8 @@ class SessionView:
             "current_text": draft,
             "turn_started_at": float(self.turn_started_at or 0) if really_busy else 0,
             "last_progress": (getattr(self, "last_progress", "") or "") if really_busy else "",
+            "last_progress_key": (getattr(self, "last_progress_key", "") or "") if really_busy else "",
+            "last_progress_vars": (getattr(self, "last_progress_vars", None) or {}) if really_busy else {},
             "history": self.history[-40:],
             "updated_at": self.meta_path.stat().st_mtime if self.meta_path.exists() else self.last_activity,
             "class": "NAS agent (VibeCat-class)",

@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 import json
 import re
+
+import i18n
 from typing import Any, Dict, List, Optional, Tuple
 
 import content_guard
@@ -350,6 +352,15 @@ class AgentAdapter:
             except Exception:
                 return False
 
+    @staticmethod
+    def _error_notice(err_s: str, error_msg: Optional[dict]) -> Optional[dict]:
+        """QUOTA_ERR_DEDUP_v1: one notice body for an error-only turn. The provider's error codes are English API
+        words, read as they come; a quota one is said as such (by key, I18N_v1)."""
+        low = err_s.lower()
+        if "quota" in low or "resource_exhausted" in low or "rate limit" in low:
+            return i18n.msg("srv.quota_exhausted", error=error_msg if error_msg else err_s)
+        return error_msg
+
     def finalize_turn(
         self,
         session: Any,
@@ -360,6 +371,7 @@ class AgentAdapter:
         served_model: Optional[str] = None,
         images: Optional[List[str]] = None,
         finish_reason: Optional[str] = None,
+        error_msg: Optional[dict] = None,
     ) -> dict:
         """Single end-of-turn finalizer for all adapters (T3.1).
 
@@ -391,20 +403,11 @@ class AgentAdapter:
         if not choices:
             body, choices = rescue_leaked_choices(body)   # CHOICES_LEAK_RESCUE_v1
         err_s = (error or "").strip() if is_err else ""
-        if body:
-            hist_text = body
-            emit_as_error = False
-        elif err_s:
-            # QUOTA_ERR_DEDUP_v1: one Korean-facing notice body
-            low = err_s.lower()
-            if "quota" in low or "resource_exhausted" in low or "rate limit" in low:
-                hist_text = "쿼터가 소진됐습니다. " + err_s
-            else:
-                hist_text = err_s
+        hist_text, emit_as_error = body, False
+        if not body and err_s:
+            error_msg = self._error_notice(err_s, error_msg)
+            hist_text = error_msg["text"] if error_msg else err_s
             emit_as_error = True
-        else:
-            hist_text = ""
-            emit_as_error = False
         # CONTENT_GUARD_v1: a provider refusal is a warn system notice, not an assistant bubble
         refused, guard_text = content_guard.intercept_refusal(
             getattr(session, "provider", "") or self.id, body or err_s, finish_reason)
@@ -413,6 +416,8 @@ class AgentAdapter:
             hist_text, choices, emit_as_error = guard_text, [], True
 
         hist_item: dict = {"role": "assistant", "text": hist_text, "ts": ts}
+        if emit_as_error and error_msg and not refused:   # I18N_v1: the page shows the notice in its language
+            hist_item.update(key=error_msg["key"], vars=error_msg["vars"])
         if choices and not emit_as_error:
             hist_item["choices"] = choices
         if emit_as_error:
@@ -444,6 +449,8 @@ class AgentAdapter:
         }
         if emit_as_error:
             out_ev["notice"] = notice_kind
+            if hist_item.get("key"):
+                out_ev.update(key=hist_item["key"], vars=hist_item["vars"])
         if hist_item.get("choices"):
             out_ev["choices"] = hist_item["choices"]
         if usage:

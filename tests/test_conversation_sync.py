@@ -163,12 +163,12 @@ class UnfinishedTurns(Base):
         self.result(s, duration_seconds=AGY_PRINT_TIMEOUT_SEC + 1)      # what 00:48:30 looked like
         errors = [e for e in self.events if e.get("event") == "error"]
         self.assertEqual(len(errors), 1)
-        self.assertIn("답을 내기 전에", errors[0]["text"])
+        self.assertIn("before the agent answered", errors[0]["text"])
         self.assertEqual(self.stops, [], "not before the events are flushed")
         s._run_post_result_stop()                                      # what the session does after the flush
         import time; time.sleep(0.2)
         self.assertTrue(self.stops, "the still-running child must be stopped")
-        self.assertIn("답을 내기 전에", s._loop_hint)
+        self.assertIn("before the agent answered", s._loop_hint)
 
     def test_a_normal_short_empty_success_is_left_alone(self):
         s = self.make()
@@ -205,15 +205,15 @@ class RunawayLoopIsStopped(Base):
         stopped = [e for e in self.events if e.get("event") == "stopped"]
         self.assertEqual(len(warns), 1)
         self.assertEqual(len(stopped), 1)
-        self.assertIn("자동으로 중단", stopped[0]["text"])
+        self.assertIn("was stopped", stopped[0]["text"])
         self.assertTrue(self.stops)
         s._loop_guard.reset(); s._stop_requested = False
         s._send_direct("계속해")
         wire = self.sent[-1]
-        self.assertIn("같은 작업을 반복하다", wire)
+        self.assertIn("repeated the same work", wire)
         self.assertTrue(wire.rstrip().endswith("계속해"))
         s._send_direct("또")
-        self.assertNotIn("같은 작업을 반복하다", self.sent[-1])        # said once
+        self.assertNotIn("repeated the same work", self.sent[-1])        # said once
 
     def test_loop_events_carry_the_call_and_output_evidence(self):
         import time
@@ -270,7 +270,7 @@ class SilentHangWatchdog(Base):
         s._err_msg_failfast_timer = None
         s._last_turn_activity_at = s.turn_started_at
         # finalize_turn must exist on the stub adapter
-        def finalize_turn(session, text="", raw_usage=None, is_err=False, error=None):
+        def finalize_turn(session, text="", raw_usage=None, is_err=False, error=None, **_kw):
             if is_err:
                 return {"event": "error", "notice": "error", "text": error or "err"}
             return {"event": "result", "text": text or ""}
@@ -286,7 +286,7 @@ class SilentHangWatchdog(Base):
         time.sleep(0.45)
         errs = [e for e in self.events if e.get("event") == "error"]
         self.assertTrue(errs, "hang must surface an error notice")
-        self.assertTrue(any("무응답" in str(e.get("text")) or "오랫동안" in str(e.get("text")) for e in errs))
+        self.assertTrue(any("silent" in str(e.get("text")) or "long time" in str(e.get("text")) for e in errs))
         self.assertFalse(s.busy)
         time.sleep(0.15)
         self.assertTrue(self.stops, "child must be stopped after terminal flush (TURN_END_ORDER)")
@@ -301,7 +301,7 @@ class SilentHangWatchdog(Base):
         time.sleep(0.2)  # 0.4s from start, but only 0.2s since delta
         self.assertTrue(s.busy, "delta must reset the idle clock")
         self.assertFalse(getattr(s, "_silent_hang_done", False))
-        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        hang = [e for e in self.events if e.get("event") == "error" and "silent" in str(e.get("text"))]
         self.assertEqual(hang, [])
         # After another full idle window with no further deltas, hang fires.
         time.sleep(0.25)
@@ -345,7 +345,7 @@ class SilentHangWatchdog(Base):
         s._arm_error_message_failfast()
         self.assertIsNone(getattr(s, "_silent_hang_timer", None))
         time.sleep(0.35)
-        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        hang = [e for e in self.events if e.get("event") == "error" and "silent" in str(e.get("text"))]
         self.assertEqual(hang, [], "silent hang must not fire after error_message")
         s._cancel_error_message_failfast()
 
@@ -361,7 +361,7 @@ class SilentHangWatchdog(Base):
         time.sleep(0.2)  # 0.4s from start, but only ~0.2s since tool activity
         self.assertTrue(s.busy, "tool call must reset the idle clock")
         self.assertFalse(getattr(s, "_silent_hang_done", False))
-        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        hang = [e for e in self.events if e.get("event") == "error" and "silent" in str(e.get("text"))]
         self.assertEqual(hang, [])
         # After a full idle window with no further activity, hang fires.
         time.sleep(0.4)
@@ -388,7 +388,7 @@ class SilentHangWatchdog(Base):
             })
             self.assertTrue(s.busy, f"progress heartbeat {i} must keep turn alive")
             self.assertFalse(getattr(s, "_silent_hang_done", False), f"hang must not fire at heartbeat {i}")
-        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        hang = [e for e in self.events if e.get("event") == "error" and "silent" in str(e.get("text"))]
         self.assertEqual(hang, [], "long tool with progress must not false-positive hang")
         # Tool result also counts as activity, then silence → hang
         S.AgentSession._emit(s, {"event": "tool", "text": "↳ done", "title": "result",
@@ -411,7 +411,7 @@ class SilentHangWatchdog(Base):
         s._arm_error_message_failfast()
         self.assertIsNone(getattr(s, "_silent_hang_timer", None))
         time.sleep(0.35)
-        hang = [e for e in self.events if e.get("event") == "error" and "무응답" in str(e.get("text"))]
+        hang = [e for e in self.events if e.get("event") == "error" and "silent" in str(e.get("text"))]
         self.assertEqual(hang, [], "error_message must not produce silent-hang notice")
         s._cancel_error_message_failfast()
 
@@ -432,7 +432,7 @@ class SilentHangWatchdog(Base):
         s._arm_silent_hang()
         s._emit({"event": "result", "text": "ok"})
         time.sleep(0.45)
-        hang = [e for e in self.events if "무응답" in str(e.get("text"))]
+        hang = [e for e in self.events if "silent" in str(e.get("text"))]
         self.assertEqual(hang, [])
         self.assertIsNone(getattr(s, "_silent_hang_timer", None))
 
