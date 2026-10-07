@@ -466,7 +466,7 @@ async function loadProfiles(provider) {
       row.className = 'acct-prof';
       const rows = (p.usage && p.usage.rows) || [];
       const view = p.usage && p.usage.view;
-      const usage = view ? escapeHtml(view.headline) : rows.slice(0, 3).map(r => escapeHtml(r.group) + ' ' + escapeHtml(r.remaining_pct)).join(' · ') + (rows.length > 3 ? ' +' + (rows.length - 3) : '');
+      const usage = view ? escapeHtml(view.headline) : rows.slice(0, 3).map(r => escapeHtml(trField(r, 'group')) + ' ' + escapeHtml(trField(r, 'remaining_pct'))).join(' · ') + (rows.length > 3 ? ' +' + (rows.length - 3) : '');
       const seen = p.usage ? escapeHtml(tr('status.ago', { age: fmtAge(Date.now() / 1000 - p.usage.checked_at) })) : '';
       row.innerHTML = '<div class="acct-prof-main"><div class="acct-prof-email">' + escapeHtml(p.email) + (p.active ? ' <span class="acct-badge ok">' + escapeHtml(tr('status.profiles.active')) + '</span>' : '') + '</div>' +
         '<div class="acct-prof-usage">' + (usage ? usage + '<span class="acct-prof-seen"> · ' + seen + '</span>' : escapeHtml(tr('status.profiles.no_usage'))) + '</div></div>';
@@ -508,7 +508,7 @@ function renderAccounts(res, provider) {
     if (statusProcsEl) statusProcsEl.hidden = true;
     return;
   }
-  const when = s => s ? new Date(s * 1000).toLocaleString('ko-KR') : '?';
+  const when = s => s ? new Date(s * 1000).toLocaleString(I18N_LANG) : '?';
   const cur = pv.current || {};
   const box = document.createElement('div');
   box.className = 'status-item';
@@ -525,7 +525,7 @@ function renderAccounts(res, provider) {
       (cur.file_mtime ? '\n' + escapeHtml(tr('status.acct.file_updated', { when: when(cur.file_mtime) })) : '') + escapeHtml(exp) + '</div>';
   } else {
     box.innerHTML = '<div class="status-item-meta">' + escapeHtml(tr('status.acct.signed_in')) + '</div><div class="acct-current">' +
-      escapeHtml(cur.error || tr('common.unknown')) + '</div>';
+      escapeHtml(trField(cur, 'error') || tr('common.unknown')) + '</div>';
   }
   if (pv.changed_from && pv.changed_at && (Date.now() / 1000 - pv.changed_at) < 7 * 86400) {
     const chg = document.createElement('div');

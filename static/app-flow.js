@@ -60,7 +60,7 @@ function applyFlow(log) {
   const anchor = nodes.find(n => n.offsetTop + n.offsetHeight > log.scrollTop) || null;
   const anchorTop = anchor ? anchor.offsetTop - log.scrollTop : 0;
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 4;
-  const lang = document.documentElement.lang || navigator.language || 'ko';
+  const lang = document.documentElement.lang || I18N_LANG;
   const plan = planFlow(nodes.map(n => ({ role: n.classList.contains('user') ? 'user' : 'other',
                                           ts: Number(n.dataset.ts || 0) })), Date.now(), lang);
   log.querySelectorAll(':scope > .day-divider').forEach(d => d.remove());

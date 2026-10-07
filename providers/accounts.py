@@ -1,4 +1,4 @@
-"""Login account + agent-process visibility for the 상태 탭 (agy/claude/codex/grok).
+"""Login account + agent-process visibility for the status tab (agy/claude/codex/grok).
 
 Born from the 2026-09-19 incident: agy was re-logged-in as another account but
 kept answering as the old one, because a two-day-old interactive `agy` from an
@@ -35,6 +35,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
+import i18n
 from typing import Callable, Dict, List, Optional
 
 import platform_compat
@@ -75,14 +76,14 @@ def _short(path: Path) -> str:
 
 
 def _read_json(path: Path):
-    """(data, mtime, error) -- error is a user-facing string or None."""
+    """(data, mtime, error) -- error is the error fields (i18n.field) or None."""
     try:
         st = path.stat()
         return json.loads(path.read_text(encoding="utf-8")), st.st_mtime, None
     except FileNotFoundError:
-        return None, None, "로그인 안 됨 (인증 파일 없음)"
+        return None, None, i18n.field("error", 'acct.no_auth_file')
     except Exception as e:
-        return None, None, f"인증 파일을 읽지 못했습니다: {type(e).__name__}"
+        return None, None, i18n.field("error", 'acct.auth_unreadable', error=type(e).__name__)
 
 
 # ---------------------------------------------------------------- accounts
@@ -90,7 +91,7 @@ def _read_json(path: Path):
 def agy_account() -> dict:
     d, mtime, err = _read_json(AGY_TOKEN)
     if err:
-        return {"ok": False, "error": err}
+        return {"ok": False, **err}
     claims = _jwt_claims(d.get("id_token") or "")
     return {
         "ok": bool(claims.get("email")),
@@ -118,7 +119,7 @@ def login_fingerprint(provider: str) -> Optional[str]:
 def codex_account() -> dict:
     d, mtime, err = _read_json(CODEX_AUTH)
     if err:
-        return {"ok": False, "error": err}
+        return {"ok": False, **err}
     tokens = d.get("tokens") if isinstance(d.get("tokens"), dict) else {}
     claims = _jwt_claims(tokens.get("id_token") or "")
     auth = claims.get("https://api.openai.com/auth")
@@ -135,7 +136,7 @@ def codex_account() -> dict:
 def grok_account() -> dict:
     d, mtime, err = _read_json(GROK_AUTH)
     if err:
-        return {"ok": False, "error": err}
+        return {"ok": False, **err}
     best, best_rank = None, ""
     for v in (d.values() if isinstance(d, dict) else []):
         # same pick rule as adapters._grok_access_token: newest entry wins
@@ -144,7 +145,7 @@ def grok_account() -> dict:
             if best is None or rank > best_rank:
                 best, best_rank = v, rank
     if not best:
-        return {"ok": False, "error": "로그인 안 됨 (email 항목 없음)"}
+        return {"ok": False, **i18n.field("error", 'acct.no_email')}
     return {
         "ok": True,
         "email": best.get("email"),
@@ -172,9 +173,9 @@ def claude_account() -> dict:
             "source": f"claude auth status ({d.get('authMethod')})",
         }
         if not data["ok"]:
-            data["error"] = "로그인 안 됨"
+            data.update(i18n.field("error", 'acct.signed_out'))
     except Exception as e:
-        data = {"ok": False, "error": f"claude auth status 실패: {type(e).__name__}"}
+        data = {"ok": False, **i18n.field("error", 'acct.claude_status_failed', error=type(e).__name__)}
     with _state_lock:
         _claude_cache.update(ts=now, data=data)
     return data
@@ -411,9 +412,8 @@ def _agy_process_accounts(procs: List[dict], now: float) -> None:
 # idle owned ones must be restarted (auto-recycle, login, "restart processes").
 RECYCLE_ON_LOGIN: tuple = ("agy",)
 # Extra words shown after a successful logout of that provider.
-LOGOUT_NOTES: Dict[str, str] = {
-    "agy": ("agy 토큰 파일을 백업·제거했고 소유 프로세스를 재시작했어요. "
-            "외부(SSH 등) agy는 수동으로 종료해야 옛 토큰이 파일을 되쓰지 않아요."),
+LOGOUT_NOTES: Dict[str, str] = {   # catalog keys (I18N_v1)
+    "agy": 'acct.logout_note_agy',
 }
 
 

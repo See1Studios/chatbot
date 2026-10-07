@@ -71,6 +71,14 @@ class Catalogs(unittest.TestCase):
                 for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1) if rx.search(line)]
         self.assertEqual(hits, [])
 
+    def test_page_code_never_fixes_a_locale(self):
+        # dates, numbers, sorting and speech follow the page's language (I18N_LANG), never a fixed one
+        rx = re.compile(r"""['"](?:[a-z]{2}-[A-Z]{2}|ko|ja|zh|en)['"]""")
+        hits = ["%s:%d" % (p.name, i) for p in STATIC.glob("*.js") if p.name != "app-i18n.js"
+                for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
+                if rx.search(line) and ("toLocale" in line or "localeCompare" in line or "Lang" in line or "lang" in line)]
+        self.assertEqual(hits, [])
+
     def test_it_loads_first_and_boot_waits_for_it(self):
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         self.assertLess(html.index('src="./app-i18n.js'), html.index('src="./app-api.js'))

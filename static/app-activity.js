@@ -37,7 +37,7 @@ function renderActivityRow(item) {
   const tsSpan = document.createElement('span');
   tsSpan.className = 'act-ts';
   const d = item.ts ? new Date(item.ts * 1000) : new Date();
-  tsSpan.textContent = '[' + d.toLocaleTimeString('ko-KR', { hour12: false }) + ']';
+  tsSpan.textContent = '[' + d.toLocaleTimeString(I18N_LANG, { hour12: false }) + ']';
 
   const textSpan = document.createElement('span');
   textSpan.className = 'act-text';

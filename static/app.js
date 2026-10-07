@@ -281,7 +281,7 @@ if (actCopyBtn) {
     }
     const textToCopy = filtered.map(item => {
       const d = item.ts ? new Date(item.ts * 1000) : new Date();
-      const timeStr = '[' + d.toLocaleTimeString('ko-KR', { hour12: false }) + ']';
+      const timeStr = '[' + d.toLocaleTimeString(I18N_LANG, { hour12: false }) + ']';
       let out = timeStr + ' ' + item.line;
       if (item.detail) {
         out += '\n  ' + item.detail.split('\n').join('\n  ');

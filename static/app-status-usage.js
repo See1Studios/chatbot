@@ -68,8 +68,8 @@ function renderStatusUsage(res) {
     // one-shot rate-limit report at all (codex as of this writing), not an
     // error worth alarming over.
     const msg = (res && res.supported === false)
-      ? (res.error || tr('usage.unsupported'))
-      : tr('usage.query_failed', { error: (res && res.error) || tr('common.unknown_error') });
+      ? (trField(res, 'error') || tr('usage.unsupported'))
+      : tr('usage.query_failed', { error: trField(res, 'error') || tr('common.unknown_error') });
     statusUsageEl.innerHTML = '<div class="status-hint">' + escapeHtml(msg) + '</div>';
     if (usageCheckedAtEl) usageCheckedAtEl.textContent = '';
     return;
@@ -82,22 +82,22 @@ function renderStatusUsage(res) {
     const pctSafe = isNaN(pct) ? 0 : Math.max(0, Math.min(100, pct));
     const item = document.createElement('div');
     item.className = 'status-item';
-    let resetStr = row.reset_at;
+    let resetStr = trField(row, 'reset_at');   // words by key, or a time to format
     try {
       const d = new Date(row.reset_at);
-      if (!isNaN(d.getTime())) resetStr = d.toLocaleString('ko-KR');
+      if (!row.reset_at_key && !isNaN(d.getTime())) resetStr = d.toLocaleString(I18N_LANG);
     } catch (_) {}
     item.innerHTML =
       '<div class="status-item-head">' +
-      '<span class="status-item-name">' + escapeHtml(row.group) + ' — ' + escapeHtml(row.limit_type) + '</span>' +
-      '<span class="status-item-meta">' + escapeHtml(tr('usage.left', { pct: row.remaining_pct })) + '</span>' +
+      '<span class="status-item-name">' + escapeHtml(trField(row, 'group')) + ' — ' + escapeHtml(trField(row, 'limit_type')) + '</span>' +
+      '<span class="status-item-meta">' + escapeHtml(tr('usage.left', { pct: trField(row, 'remaining_pct') })) + '</span>' +
       '</div>' +
       '<div class="usage-bar-track"><div class="usage-bar-fill' + (pctSafe <= 20 ? ' low' : '') + '" style="transform:scaleX(' + (pctSafe / 100) + ')"></div></div>' +
       '<div class="status-item-preview">' + escapeHtml(tr('usage.reset', { when: resetStr })) + '</div>';
     statusUsageEl.appendChild(item);
   });
   if (usageCheckedAtEl) {
-    const checked = res.checked_at ? new Date(res.checked_at * 1000).toLocaleTimeString('ko-KR') : '';
+    const checked = res.checked_at ? new Date(res.checked_at * 1000).toLocaleTimeString(I18N_LANG) : '';
     usageCheckedAtEl.textContent = checked ? tr('usage.checked', { when: checked }) : '';
   }
 }

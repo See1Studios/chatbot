@@ -9,6 +9,7 @@ import subprocess
 import time
 
 from pathlib import Path
+import i18n
 from typing import List, Optional, Tuple
 
 from host_config import AGENT_PATH_PREFIX, CODEX_BIN, HARD_TOKENS, MCP_URL, SOFT_TOKENS, _now
@@ -27,7 +28,7 @@ def _codex_rate_limit_to_rows(payload: dict) -> List[dict]:
         if not isinstance(snapshot, dict):
             continue
         group = str(snapshot.get("limitName") or snapshot.get("normalModelSlug") or snapshot.get("limitId") or bucket_id or "Codex")
-        for key, fallback in (("primary", "기본"), ("secondary", "보조")):
+        for key, fallback in (("primary", "usage.window.primary"), ("secondary", "usage.window.secondary")):
             window = snapshot.get(key)
             if not isinstance(window, dict) or window.get("usedPercent") is None:
                 continue
@@ -39,12 +40,13 @@ def _codex_rate_limit_to_rows(payload: dict) -> List[dict]:
                 minutes = int(window.get("windowDurationMins"))
             except (TypeError, ValueError):
                 minutes = 0
-            limit_type = f"{minutes // 1440}일" if minutes >= 1440 and minutes % 1440 == 0 else (f"{minutes}분" if minutes else fallback)
+            limit_type = (i18n.field("limit_type", "usage.window.days", n=minutes // 1440) if minutes >= 1440 and minutes % 1440 == 0
+                          else i18n.field("limit_type", "usage.window.minutes", n=minutes) if minutes else i18n.field("limit_type", fallback))
             try:
                 reset_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(int(window.get("resetsAt"))))
             except (TypeError, ValueError, OverflowError, OSError):
                 reset_at = "-"
-            rows.append({"group": group, "limit_type": limit_type, "remaining_pct": f"{remaining}%", "reset_at": reset_at})
+            rows.append({"group": group, **limit_type, "remaining_pct": f"{remaining}%", "reset_at": reset_at})
     return rows
 
 
@@ -58,7 +60,7 @@ def _fetch_codex_rate_limits(executable: str) -> dict:
     )
     try:
         if not proc.stdin or not proc.stdout:
-            raise RuntimeError("Codex app-server 입출력을 열 수 없습니다")
+            raise RuntimeError("cannot open the Codex app-server pipes")
         for request in (
             {"id": 1, "method": "initialize", "params": {"clientInfo": {"name": "nyangpd-chatbot", "version": "1.0"}}},
             {"id": 2, "method": "account/rateLimits/read", "params": {"excludeResetCreditDetails": True}},
@@ -81,8 +83,8 @@ def _fetch_codex_rate_limits(executable: str) -> dict:
             result = response.get("result")
             if isinstance(result, dict):
                 return result
-            raise RuntimeError("Codex 사용량 응답 형식이 올바르지 않습니다")
-        raise TimeoutError("Codex 사용량 조회가 20초 안에 응답하지 않았습니다")
+            raise RuntimeError("the Codex usage answer is malformed")
+        raise TimeoutError("the Codex usage lookup gave no answer within 20s")
     finally:
         if proc.poll() is None:
             try:
@@ -357,7 +359,7 @@ class CodexAdapter(AgentAdapter):
         except Exception as e:
             return {"error": str(e)[:400]}
         if not rows:
-            return {"error": "Codex 사용량 응답에서 제한 정보를 찾지 못했습니다"}
+            return {**i18n.field('error', 'usage.err.codex_parse')}
         return {"rows": rows}
 
     def mints_own_conversation_id(self) -> bool:

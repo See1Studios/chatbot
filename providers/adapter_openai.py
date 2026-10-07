@@ -7,6 +7,7 @@ import re
 import time
 
 from pathlib import Path
+import i18n
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -112,7 +113,7 @@ def _mcp_rpc(method: str, params: Optional[dict] = None, timeout: int = 20, sess
 def _mcp_openai_tools(force: bool = False) -> List[dict]:
     """mcp_server.py's `tools/list` (MCP shape: name/description/inputSchema) ->
     OpenAI `tools=[{type:"function", function:{name, description,
-    parameters}}]` shape ("설계 원칙 5" wire-dialect conversion, Phase 2).
+    parameters}}]` shape ("design principle 5" wire-dialect conversion, Phase 2).
     Cached -- the tool catalog only changes on a mcp_server.py deploy, not
     per-turn, so fetching it fresh on every single message would be a wasted
     round-trip."""
@@ -166,7 +167,7 @@ class OpenAIDialectAdapter(AgentAdapter):
     OpenAI chat/completions wire dialect over plain HTTP, no subprocess at
     all. One instance per target *endpoint* (base_url/api_key_env/id), not
     one subclass per vendor: OmniRoute, OpenRouter, or any other
-    OpenAI-compatible gateway all speak this exact dialect ("설계 원칙 5" --
+    OpenAI-compatible gateway all speak this exact dialect ("design principle 5" --
     Transport and Wire Dialect are separate axes; this class is the http
     transport + openai dialect combination). A genuinely different wire
     shape (Anthropic Messages API called natively, not through a gateway)
@@ -176,7 +177,7 @@ class OpenAIDialectAdapter(AgentAdapter):
     a separate method (_stream_once, one raw HTTP call) from the looping
     orchestrator (stream_turn) so a streaming-format bug and a tool-loop bug
     are still never the same stack trace, even though both now live in this
-    class (see plan's "순서" section for why Phase 1 shipped without this
+    class (see the plan's "order" section for why Phase 1 shipped without this
     first).
 
     Live-verified against OmniRoute (localhost:20128) 2026-09-18, real
@@ -372,7 +373,7 @@ class OpenAIDialectAdapter(AgentAdapter):
         """Query provider endpoint (OmniRoute connections or OpenRouter credits/key) to surface quota/status."""
         api_key = os.environ.get(self.api_key_env, "")
         if not api_key:
-            return {"error": f"{self.api_key_env} 키가 설정되지 않았습니다"}
+            return {**i18n.field('error', 'usage.err.no_key', env=self.api_key_env)}
 
         if self.id == "openrouter":
             # OpenRouter: query /api/v1/credits and /api/v1/auth/key
@@ -393,10 +394,10 @@ class OpenAIDialectAdapter(AgentAdapter):
                 rem_c = max(0.0, total_c - used_c)
                 rows = [
                     {
-                        "group": "OpenRouter 잔액",
-                        "limit_type": "크레딧",
+                        **i18n.field('group', 'usage.row.or_balance'),
+                        **i18n.field('limit_type', 'usage.row.credits'),
                         "remaining_pct": f"${rem_c:.2f} / ${total_c:.2f}",
-                        "reset_at": "종량제 (잔여)",
+                        **i18n.field('reset_at', 'usage.row.payg'),
                     }
                 ]
                 # Also check auth/key free model requests if available
@@ -415,10 +416,10 @@ class OpenAIDialectAdapter(AgentAdapter):
                         rem_f = finfo.get("remaining", max(0, lim_f - used_f))
                         pct_f = int((rem_f / lim_f * 100)) if lim_f else 0
                         rows.append({
-                            "group": "무료 모델 한도",
-                            "limit_type": "일일 쿼터",
-                            "remaining_pct": f"{pct_f}% ({rem_f}/{lim_f}회)",
-                            "reset_at": "매일 자정 (UTC)",
+                            **i18n.field('group', 'usage.row.free_limit'),
+                            **i18n.field('limit_type', 'usage.row.daily_quota'),
+                            "remaining_pct": f"{pct_f}%", **i18n.field('remaining_pct', 'usage.row.pct_of', pct=pct_f, rem=rem_f, lim=lim_f),
+                            **i18n.field('reset_at', 'usage.row.daily_midnight'),
                         })
                 except Exception:
                     pass
@@ -434,11 +435,11 @@ class OpenAIDialectAdapter(AgentAdapter):
                         for mid in curated_free[:4]:
                             name = models_meta.get(mid, {}).get("name") or mid.split("/")[-1]
                             free_names.append(name.replace("(free)", "").strip())
-                        preview_str = ", ".join(free_names) if free_names else f"{len(free_models)}개 무료 모델"
+                        preview_str = ", ".join(free_names) if free_names else f"{len(free_models)} free models"
                         rows.append({
-                            "group": "무료 모델 상태",
-                            "limit_type": f"활성 {len(free_models)}종 제공 중",
-                            "remaining_pct": f"{len(free_models)}종 정상",
+                            **i18n.field('group', 'usage.row.free_status'),
+                            **i18n.field('limit_type', 'usage.row.free_active', n=len(free_models)),
+                            "remaining_pct": "100%", **i18n.field('remaining_pct', 'usage.row.free_ok', n=len(free_models)),
                             "reset_at": preview_str[:60],
                         })
                 except Exception:
@@ -446,7 +447,7 @@ class OpenAIDialectAdapter(AgentAdapter):
 
                 return {"rows": rows}
             except Exception as e:
-                return {"error": f"OpenRouter 크레딧 조회 실패: {str(e)[:200]}"}
+                return {**i18n.field('error', 'usage.err.or_credits', error=str(e)[:200])}
 
         # Default: OmniRoute /api/providers is on the root port (e.g. http://localhost:20128/api/providers)
         # while base_url is typically http://localhost:20128/v1
@@ -470,19 +471,18 @@ class OpenAIDialectAdapter(AgentAdapter):
                 active = bool(c.get("isActive") and c.get("testStatus") == "active")
                 exp = c.get("expiresAt") or "-"
                 group = f"{p} ({name})"
-                limit_type = "연결 상태"
-                rem = "정상 (100%)" if active else "주의 (0%)"
                 rows.append({
                     "group": group,
-                    "limit_type": limit_type,
-                    "remaining_pct": rem,
+                    **i18n.field('limit_type', 'usage.row.connection'),
+                    "remaining_pct": "100%" if active else "0%",
+                    **i18n.field('remaining_pct', 'usage.row.conn_ok" if active else "usage.row.conn_warn'),
                     "reset_at": exp,
                 })
             if not rows:
-                return {"error": "연결된 프로바이더 계정이 없습니다"}
+                return {**i18n.field('error', 'usage.err.no_accounts')}
             return {"rows": rows}
         except Exception as e:
-            return {"error": f"OmniRoute 상태 조회 실패: {str(e)[:200]}"}
+            return {**i18n.field('error', 'usage.err.omniroute', error=str(e)[:200])}
 
     # --- HTTP-transport-only surface (AgentSession's http branch calls this,
     # process-transport adapters never do) ------------------------------------
@@ -771,4 +771,4 @@ class OpenAIDialectAdapter(AgentAdapter):
             )
             yield out
             return
-        yield {"event": "error", "text": f"도구 사용이 {budget}단계를 넘었고 마무리 답변도 받지 못해 종료했습니다."}
+        yield {"event": "error", **i18n.msg('srv.tool_hops_exceeded', budget=budget)}

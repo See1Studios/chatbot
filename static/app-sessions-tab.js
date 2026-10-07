@@ -57,7 +57,7 @@ function sessionCharacterGroups(visible) {
   });
   const order = characterCatalog.map(c => c.id).filter(id => seen.has(id));
   const rest = Array.from(seen.keys()).filter(id => order.indexOf(id) < 0)
-    .sort((a, b) => seen.get(a).label.localeCompare(seen.get(b).label, 'ko'));
+    .sort((a, b) => seen.get(a).label.localeCompare(seen.get(b).label, I18N_LANG));
   return [{ id: '', label: tr('common.all'), count: visible.length }]
     .concat(order.concat(rest).map(id => seen.get(id)));
 }
@@ -126,7 +126,7 @@ function renderSessionsList(sessions) {
     const item = document.createElement('div');
     item.className = 'status-item session-row' + (isCurrent ? ' current' : '');
     let when = s.updated_at || '';
-    try { when = new Date(_scrollbackEpochMs(s.updated_at)).toLocaleString('ko-KR'); } catch (_) {}
+    try { when = new Date(_scrollbackEpochMs(s.updated_at)).toLocaleString(I18N_LANG); } catch (_) {}
     item.innerHTML =
       '<div class="status-item-head">' +
       '<span class="session-row-id">' + (s.mode === 'private' ? '🔒 ' : '') + escapeHtml(sessionRowWho(s)) + escapeHtml(s.id) + (isCurrent ? escapeHtml(tr('sessions.current')) : '') + '</span>' +

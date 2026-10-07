@@ -33,7 +33,7 @@ from providers.adapter_claude import (  # noqa: E402,F401
 from providers.adapter_grok import (  # noqa: E402,F401
     _grok_tool_display,
     _grok_tool_output_text,
-    _GROK_PERIOD_LABEL,
+    _GROK_PERIOD_KEY,
     _grok_home,
     _grok_access_token,
     _grok_billing_to_rows,

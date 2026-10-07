@@ -26,7 +26,7 @@
   const hhmm = (ts) => {
     if (!ts) return '';
     const d = new Date(ts);
-    return isNaN(d) ? String(ts) : d.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    return isNaN(d) ? String(ts) : d.toLocaleString(I18N_LANG, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   };
   const currentSid = () => (typeof sessionId !== 'undefined' && sessionId) ? sessionId : '';
   const SKIP = new Set(['ts', 'lvl', 'src', 'evt', 'pid', 'msg', 'err']);

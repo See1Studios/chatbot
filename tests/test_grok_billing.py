@@ -20,7 +20,8 @@ class GrokBillingRows(unittest.TestCase):
                "topUpMethod": "TOP_UP_METHOD_SAVED_PAYMENT_METHOD",
                "billingPeriodStart": PERIOD["start"], "billingPeriodEnd": PERIOD["end"]}
         rows = _grok_billing_to_rows({"config": cfg})
-        self.assertEqual(rows, [{"group": "Grok", "limit_type": "주간", "remaining_pct": "100%", "reset_at": PERIOD["end"]}])
+        self.assertEqual(rows, [{"group": "Grok", "limit_type_key": "usage.period.weekly", "limit_type_vars": {}, "limit_type": "Weekly",
+                                 "remaining_pct": "100%", "reset_at": PERIOD["end"]}])   # I18N_v1: the period's word by key
 
     def test_reported_percent_is_inverted_as_before(self):
         rows = _grok_billing_to_rows({"config": {"currentPeriod": PERIOD, "creditUsagePercent": 37.5}})

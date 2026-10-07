@@ -9,6 +9,7 @@ import time
 import uuid
 
 from pathlib import Path
+import i18n
 from typing import List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote as _quote
@@ -61,11 +62,11 @@ def _grok_tool_output_text(obj: dict) -> str:
     return "ok"
 
 
-_GROK_PERIOD_LABEL = {
-    "USAGE_PERIOD_TYPE_WEEKLY": "주간",
-    "USAGE_PERIOD_TYPE_MONTHLY": "월간",
-    "USAGE_PERIOD_TYPE_DAILY": "일간",
-    "USAGE_PERIOD_TYPE_HOURLY": "시간",
+_GROK_PERIOD_KEY = {   # the period's word by key (I18N_v1)
+    "USAGE_PERIOD_TYPE_WEEKLY": "usage.period.weekly",
+    "USAGE_PERIOD_TYPE_MONTHLY": "usage.period.monthly",
+    "USAGE_PERIOD_TYPE_DAILY": "usage.period.daily",
+    "USAGE_PERIOD_TYPE_HOURLY": "usage.period.hourly",
 }
 
 
@@ -105,7 +106,7 @@ def _grok_billing_to_rows(payload: dict) -> List[dict]:
     if not isinstance(cfg, dict):
         return []
     period = cfg.get("currentPeriod") if isinstance(cfg.get("currentPeriod"), dict) else {}
-    label = _GROK_PERIOD_LABEL.get(str(period.get("type") or ""), "한도")
+    label = i18n.field("limit_type", _GROK_PERIOD_KEY.get(str(period.get("type") or ""), "usage.period.limit"))
     reset_at = str(period.get("end") or cfg.get("billingPeriodEnd") or "")
     rows: List[dict] = []
     # The proxy answers in protobuf-JSON, which DROPS zero-valued scalars: a
@@ -128,7 +129,7 @@ def _grok_billing_to_rows(payload: dict) -> List[dict]:
             remaining = max(0, min(100, int(round(100 - used))))
             rows.append({
                 "group": str(item.get("product") or "Grok"),
-                "limit_type": label,
+                **label,
                 "remaining_pct": f"{remaining}%",
                 "reset_at": reset_at,
             })
@@ -140,7 +141,7 @@ def _grok_billing_to_rows(payload: dict) -> List[dict]:
         remaining = max(0, min(100, int(round(100 - used))))
         rows.append({
             "group": "Grok",
-            "limit_type": label,
+            **label,
             "remaining_pct": f"{remaining}%",
             "reset_at": reset_at,
         })
@@ -161,7 +162,7 @@ def _fetch_grok_billing(token: str) -> dict:
         raw = resp.read()
     obj = json.loads(raw.decode("utf-8"))
     if not isinstance(obj, dict):
-        raise ValueError("Grok billing 응답이 JSON 객체가 아닙니다")
+        raise ValueError("the Grok billing answer is not a JSON object")
     return obj
 
 
@@ -396,7 +397,7 @@ class GrokAdapter(AgentAdapter):
         """
         token = _grok_access_token()
         if not token:
-            return {"error": "Grok 로그인이 필요합니다 (grok login)"}
+            return {**i18n.field('error', 'usage.err.grok_login')}
         try:
             payload = _fetch_grok_billing(token)
         except HTTPError as e:
@@ -413,7 +414,7 @@ class GrokAdapter(AgentAdapter):
                 pass
             token = _grok_access_token()
             if not token:
-                return {"error": "Grok 인증이 만료됐습니다. grok login 후 다시 시도해 주세요"}
+                return {**i18n.field('error', 'usage.err.grok_expired')}
             try:
                 payload = _fetch_grok_billing(token)
             except Exception as e2:
@@ -424,7 +425,7 @@ class GrokAdapter(AgentAdapter):
             return {"error": str(e)[:400]}
         rows = _grok_billing_to_rows(payload)
         if not rows:
-            return {"error": "Grok billing 출력에서 사용량 정보를 찾지 못했습니다"}
+            return {**i18n.field('error', 'usage.err.grok_parse')}
         return {"rows": rows}
 
     def known_models(self) -> List[str]:

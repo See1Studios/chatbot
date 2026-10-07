@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import time
+import i18n
 from typing import Dict, Optional
 
 import obslog
@@ -49,7 +50,7 @@ def _get_usage(provider: str = DEFAULT_PROVIDER, force: bool = False) -> dict:
     cached = _USAGE_CACHE.get(provider)
     switched = bool(email and cached and cached.get("email") and cached["email"] != email)
     if not force and cached and not switched and (now - cached["ts"] < USAGE_CACHE_TTL_SEC):
-        # Never serve a cached failure for long — Status "첫 조회 실패" after login.
+        # Never serve a cached failure for long — Status "first lookup failed" after login.
         if cached["data"].get("ok") or cached["data"].get("supported") is False:
             return cached["data"]
         if now - cached["ts"] < 8:
@@ -61,7 +62,7 @@ def _get_usage(provider: str = DEFAULT_PROVIDER, force: bool = False) -> dict:
             data = {
                 "ok": False,
                 "supported": False,
-                "error": "이 프로바이더는 사용량 조회를 지원하지 않습니다",
+                **i18n.field("error", "usage.unsupported"),
                 "checked_at": ts,
             }
         elif "error" in report:
@@ -250,13 +251,9 @@ def logout(req: Req):
         recycled = {**recycled, "stray_error": f"{type(e).__name__}: {e}"}
     note = None
     if recycled.get("skipped_busy"):
-        note = (
-            "로그아웃은 반영됐지만 작업 중인 소유 프로세스 "
-            f"{len(recycled['skipped_busy'])}개는 재시작하지 못했어요. "
-            "턴이 끝난 뒤 프로세스 재시작(또는 다시 로그아웃)을 눌러 주세요."
-        )
+        note = i18n.field("message", 'acct.logout_busy', n=len(recycled['skipped_busy']))
     elif result.get("ok") and accounts.LOGOUT_NOTES.get(provider):
-        note = accounts.LOGOUT_NOTES[provider]
+        note = i18n.field("message", accounts.LOGOUT_NOTES[provider])
     payload = {
         **result,
         "providers": snap.get("providers") or {},
@@ -264,8 +261,7 @@ def logout(req: Req):
         "recycle": recycled,
     }
     if note:
-        payload["note"] = note
-        payload["message_ko"] = note
+        payload.update(note)   # message_key/_vars/message (the page shows it with trField)
     # Prefer logout ok; if logout failed, surface that status.
     return req.json(payload, 200 if result.get("ok") else 400)
 

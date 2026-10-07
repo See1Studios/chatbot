@@ -7,6 +7,7 @@ import re
 import subprocess
 
 from pathlib import Path
+import i18n
 from typing import List, Optional, Tuple
 
 from artifact_manager import _atomic_write_text
@@ -173,9 +174,9 @@ class ClaudeAdapter(AgentAdapter):
                         err_text = block.get("text", "")
                         break
                 if not err_text:
-                    err_text = str(obj.get("error") or "Claude API 에러")
-                msg = f"클로드 세션 한도/오류에 도달했습니다: {err_text}"
-                session.history.append({"role": "assistant", "text": msg, "ts": _now()})
+                    err_text = str(obj.get("error") or "Claude API error")
+                msg = (m := i18n.msg("srv.claude_limit", error=err_text))["text"]
+                session.history.append({"role": "assistant", **m, "ts": _now()})
                 session.save_meta()
                 return [
                     {"event": "delta", "text": msg, "raw_event": "delta"},
@@ -320,7 +321,7 @@ class ClaudeAdapter(AgentAdapter):
                     remaining = max(0, 100 - int(used_pct))
                     rows.append({
                         "group": group.strip(),
-                        "limit_type": "사용률",
+                        **i18n.field('limit_type', 'usage.row.usage_rate'),
                         "remaining_pct": f"{remaining}%",
                         "reset_at": reset_at.strip(),
                     })
@@ -333,14 +334,14 @@ class ClaudeAdapter(AgentAdapter):
                         "group": f"Claude ({period})",
                         "limit_type": f"{sess_cnt} sessions",
                         "remaining_pct": f"{req_cnt} reqs",
-                        "reset_at": f"최근 {period} 통계",
+                        **i18n.field('reset_at', 'usage.row.recent_stats', period=period),
                     })
 
             if rows:
                 return {"rows": rows}
             if proc.stderr:
                 return {"error": _redact_err(proc.stderr)[:400]}
-            return {"error": "/cost 출력에서 사용량 정보를 찾지 못했습니다"}
+            return {**i18n.field('error', 'usage.err.claude_parse')}
         except Exception as e:
             return {"error": str(e)}
 

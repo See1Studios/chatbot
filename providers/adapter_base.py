@@ -271,9 +271,9 @@ class AgentAdapter:
         return raw_usage
 
     def rate_limit_report(self) -> Optional[dict]:
-        """One-shot rate-limit/usage report for the 상태 탭 사용량 바, if this
+        """One-shot rate-limit/usage report for the status tab's usage bar, if this
         CLI has an equivalent of `agy --print /usage`. None = not
-        supported by this provider -- caller must show "지원 안 함", not an
+        supported by this provider -- caller must show "not supported", not an
         error. Claude uses `--print /cost`; Grok uses the same billing proxy
         the TUI `/usage` modal hits; Codex uses its app-server protocol."""
         return None
@@ -397,7 +397,7 @@ class AgentAdapter:
         # QUOTA_SILENT_FIX_v1:
         # agy often returns streamed text AND result.error (e.g. RESOURCE_EXHAUSTED
         # after retries). Persisting both as answer + notice:error with the same
-        # ts made every successful turn look like "답 + 쿼터 에러 공지". Error-only
+        # ts made every successful turn look like "an answer + a quota error notice". Error-only
         # turns emitted result with empty text so the UI stayed silent.
         body, choices = split_choices((final or "").strip())
         if not choices:
