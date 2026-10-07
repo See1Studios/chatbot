@@ -2,7 +2,6 @@
  "host_identity": {
   "host_config.py": 1,
   "mcp_server.py": 1,
-  "session_weights.py": 2,
   "static/app-activity.js": 1,
   "static/app-messages.js": 1,
   "static/chat-base.css": 1,
@@ -31,9 +30,7 @@
   "route_sessions.py": 3,
   "server.py": 18,
   "session_registry.py": 1,
-  "session_turn.py": 37,
   "session_view.py": 5,
-  "session_weights.py": 19,
   "tool_format.py": 2,
   "workspace_status.py": 16
  },

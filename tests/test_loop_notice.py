@@ -123,7 +123,7 @@ class TheNoticeIsNotAUserMessage(SyncBase):
         s._send_direct(S.LOOP_NOTICE.format(what="view_file adapters.py", user="실장님"), notice=True)
         self.assertEqual(s.history, [])                            # not something the user said
         self.assertEqual([e for e in self.events if e.get("event") == "user_ack"], [])
-        self.assertTrue(self.sent[-1].endswith("[시스템 안내] " + S.LOOP_NOTICE.format(what="view_file adapters.py", user="실장님")))
+        self.assertTrue(self.sent[-1].endswith("[Host note] " + S.LOOP_NOTICE.format(what="view_file adapters.py", user="실장님")))
         self.assertEqual(s._loop_guard.exact_stop, S.LOOP_STOP_AFTER_NOTICE)
         self.assertEqual(s._loop_guard.consec_stop, S.LOOP_STOP_AFTER_NOTICE)
 

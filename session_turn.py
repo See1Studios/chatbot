@@ -8,6 +8,7 @@ import hashlib
 import threading
 from typing import Any, Dict, Optional
 
+import i18n
 import obslog
 from host_config import INACTIVITY_ROTATE_SEC, _now
 from identity import user_title
@@ -31,7 +32,7 @@ class SessionTurn:
     def _run_btw(self, query: str) -> None:
         query = (query or "").strip()
         if not query:
-            self._emit({"event": "btw", "query": "", "text": f"{user_title()}, `/btw <질문 내용>` 형태로 궁금한 점을 적어주세요!"})
+            self._emit({"event": "btw", "query": "", **i18n.msg("srv.btw_usage", user=user_title())})
             return
         self._emit({"event": "btw_start", "query": query})
         context_snippets = []
@@ -41,37 +42,42 @@ class SessionTurn:
             cur_tool = getattr(self, "_last_tool_sig", "") or ""
             recent_hist = [f"{h.get('role')}: {str(h.get('text') or '')[:120]}" for h in self.history[-4:] if h.get("role") in ("user", "assistant")]
         if is_active:
-            context_snippets.append(f"[현재 백그라운드 진행 중인 메인 작업: {cur_tool}]" if cur_tool else "[현재 백그라운드에서 메인 작업 추론/수행 중]")
+            context_snippets.append(f"[Main work running in the background: {cur_tool}]" if cur_tool else "[The main work is thinking/working in the background]")
             if silent:
-                context_snippets.append(f"[현재 메인 작업이 {int(self.SILENT_NOTICE_SEC)}초 이상 무응답(침묵) 상태입니다. 지연 또는 정체 중일 수 있습니다.]")
+                context_snippets.append(f"[The main work has been silent for over {int(self.SILENT_NOTICE_SEC)}s. It may be delayed or stuck.]")
         else:
-            context_snippets.append("[현재 백그라운드에서 실행 중인 메인 작업이 없습니다. 이전 작업은 완료되었거나 대기/중단 상태입니다.]")
+            context_snippets.append("[No main work is running in the background. The last work finished, waits, or was stopped.]")
         if recent_hist:
-            context_snippets.append("[최근 대화 맥락:\n" + "\n".join(recent_hist) + "]")
+            context_snippets.append("[Recent talk:\n" + "\n".join(recent_hist) + "]")
 
         prompt = _btw_prompt(query, is_active, context_snippets, silent)
-        ans = "답변을 가져오지 못했습니다."
+        ans_msg = i18n.msg("srv.btw_no_answer")   # the side answer's words when no model gave one (I18N_v1)
+        ans = ""
         usage = None
         duration_seconds = None
         r = _s()._oneshot(prompt, 20)
         if r is None:
-            ans = "간이 질문에 답할 제공자가 설정되지 않았습니다 (CHATBOT_ONESHOT_PROVIDER)."
+            ans_msg = i18n.msg("srv.btw_no_provider")
         elif r.get("text"):
-            ans, usage, duration_seconds = r["text"], r.get("usage"), r.get("duration_seconds")
+            ans, ans_msg, usage, duration_seconds = r["text"], None, r.get("usage"), r.get("duration_seconds")
         elif r.get("error") == "timeout":
-            ans = "간이 질문 응답 시간이 초과되었습니다."
+            ans_msg = i18n.msg("srv.btw_timeout")
         elif r.get("error"):
-            ans = _s()._redact_text(r["error"]) or ans
+            ans = _s()._redact_text(r["error"]) or ""
+            ans_msg = None if ans else ans_msg
+        if ans_msg:
+            ans = ans_msg["text"]
+        said = ans_msg or {"text": ans}   # a model's answer goes as it came; the host's own line goes by key
 
         with self.lock:
-            item = {"role": "btw", "query": query, "text": ans, "ts": _now()}
+            item = {"role": "btw", "query": query, **said, "ts": _now()}
             if usage:
                 item["usage"] = usage
             if duration_seconds is not None:
                 item["duration_seconds"] = duration_seconds
             self.history.append(item)
             self.save_meta()
-        out = {"event": "btw", "query": query, "text": ans, "ts": item["ts"]}
+        out = {"event": "btw", "query": query, **said, "ts": item["ts"]}
         if usage:
             out["usage"] = usage
         if duration_seconds is not None:
@@ -80,14 +86,7 @@ class SessionTurn:
 
     def _rotate_to_fresh_session(self, text: str, reason: str = "heavy", client_mid: str = "", client_context: Optional[Dict[str, Any]] = None) -> "AgentSession":
         """Sticky rotate: reuse successor_session_id when usable; else create once and remember with handover."""
-        if reason == "inactivity":
-            msg = (
-                "이전 대화 이후 시간이 경과하여 이전 맥락을 인계받아 새 세션으로 이어갑니다 ✦ (이전 대화는 보존됩니다)"
-            )
-        else:
-            msg = (
-                "세션이 길어져서 이전 맥락을 인계받아 새 채팅으로 전환합니다. 이전 세션 데이터는 그대로 보존됩니다 ✦"
-            )
+        msg = i18n.msg("srv.rotated_inactivity" if reason == "inactivity" else "srv.rotated_heavy")
         succ_id = getattr(self, "successor_session_id", "") or ""
         if succ_id and self._successor_usable(succ_id):
             new_sess = _s().REG.get(succ_id)
@@ -119,11 +118,11 @@ class SessionTurn:
         # spawn/send below) and the POST response (arriving after) independently
         # re-entered the new session, and the SSE one (missing the user's
         # own just-typed text) usually rendered first, making the message
-        # look like it vanished (operator: "내가 말을 하면 바로 새 세션으로
-        # 넘어가면서 내가 한 말을 또 해야 되는 상황이 생겨").
+        # look like it vanished (operator: "the moment I speak it moves to a new session and I have to
+        # say it again").
         self._emit({
             "event": "session_rotate",
-            "text": msg,
+            **msg,
             "reason": reason,
             "new_session_id": new_sess.sid,
             "weight": self.weight(),
@@ -226,9 +225,9 @@ class SessionTurn:
         dir/B; called every turn, it also remembers the tree) and why the previous turn was stopped."""
         hold = _s().write_guard.turn_start(self, _s().ROOT)
         if hold and not self.is_private:
-            stdin_content = f"[시스템 안내] {hold}\n\n{stdin_content}"  # l10n-ok
+            stdin_content = f"[Host note] {hold}\n\n{stdin_content}"
         if self._loop_hint:  # the previous turn was stopped automatically; tell the agent once
-            stdin_content = f"[시스템 안내] {self._loop_hint}\n\n{stdin_content}"
+            stdin_content = f"[Host note] {self._loop_hint}\n\n{stdin_content}"
             self._loop_hint = ""
         return stdin_content
 
@@ -247,16 +246,16 @@ class SessionTurn:
         if not btext:
             return ""
         if not getattr(self, "persona_injected", False):
-            header = "아래는 이 챗봇의 페르소나·운영 규칙이다. 첫 턴에만 주입된다."
+            header = "Below are this chatbot's persona and rules. They are given on the first turn only."
         elif getattr(self, "persona_bundle_hash", "") and self.persona_bundle_hash != bhash:
-            header = "규칙이 갱신되었다. 아래 내용이 지금부터의 규칙이다. 이전 규칙과 다르면 아래를 따른다."
+            header = "The rules were updated. Below are the rules from now on; where they differ from the earlier ones, follow these."
         else:
             if not getattr(self, "persona_bundle_hash", ""):
                 self.persona_bundle_hash = bhash
             return self._context_refresh(bundle)
         prefix = ""
         if self.adapter.transport_kind != "http":
-            prefix = (f"[시스템 안내] {header} 규칙대로 행동하되 이 안내 자체를 언급하지 마라.\n\n"
+            prefix = (f"[Host note] {header} Act by them, and do not mention this note.\n\n"
                       f"{btext}\n\n"
                       f"---\n\n")
         self._log_context(bundle)   # CONTEXT_LOG_v1: before the flags say it is in
@@ -343,7 +342,7 @@ class SessionTurn:
             self.ensure()
             assert self.proc and self.proc.stdin
 
-        stdin_content = f"[시스템 안내] {text}" if notice else text
+        stdin_content = f"[Host note] {text}" if notice else text
         self._cached_summary, rules_prefix = "", ""  # a new turn stales the handover cache (#613); bundle goes AFTER the handoff wrap
         with self.lock:
             rules_prefix = self._context_prefix() + self._context_lore(text)   # bundle or what changed; matched lore
@@ -355,36 +354,36 @@ class SessionTurn:
                 # handoff_summary (see REG.create() below); an in-place
                 # provider swap (maybe_swap_provider()) sets handoff_summary
                 # on the SAME session, with no predecessor id to show, so the
-                # label reads as "직전 대화" instead of a session id nobody
+                # label reads as "the last talk" instead of a session id nobody
                 # asked to see.
-                label = f"이전 세션({pred[:8]})" if pred else "직전 대화"
+                label = f"the previous session ({pred[:8]})" if pred else "the last talk"   # the agent's words: English
+                shown = i18n.line("srv.label_prev_session", sid=pred[:8]) if pred else i18n.line("srv.label_last_talk")
                 # Explicit framing, not just labeled sections -- without a
                 # direct instruction, the model (esp. the fast/small models
                 # this rotates onto) sometimes treated the handoff summary
                 # itself as the thing to respond to/discuss, rather than
                 # background for the actual instruction below it, so a task
                 # given right as a session rotated came back ignored with an
-                # off-topic reply about the summary instead (operator: "일을
-                # 시켰는데 세션이 전환되면서 내가 시킨 일을 잊어버리고 딴
-                # 소리를 하고 있어"). agy's own /compact summary style (the
+                # off-topic reply about the summary instead (operator: "I gave it
+                # work, the session switched, and it forgot the work and talks
+                # about something else"). agy's own /compact summary style (the
                 # preferred summary source) isn't written with a "here's the
                 # pending task" framing the way our custom fallback prompt
                 # is, so this needs to hold regardless of which produced it.
                 stdin_content = (
-                    f"[시스템 안내] {label}에서 맥락을 인계받아 이어갑니다. "
-                    f"아래 '인계 맥락'은 참고용 배경 정보일 뿐입니다 — 그 내용을 요약하거나 "
-                    f"그 자체에 대해 코멘트하지 마세요. 지금 실제로 답하거나 수행해야 할 것은 "
-                    f"오직 그 아래 '{user_title()}의 현재 메시지'뿐입니다.\n\n"
-                    f"[{label} 인계 맥락 — 참고용 배경]\n"
+                    f"[Host note] This carries on from {label}, whose context was handed over. "
+                    f"The 'handed-over context' below is background only -- do not sum it up or comment on it. "
+                    f"What to answer or do now is only {user_title()}'s current message below it.\n\n"
+                    f"[Handed-over context from {label} -- background only]\n"
                     f"{self.handoff_summary}\n"
                     f"--------------------------------------------------\n"
-                    f"[{user_title()}의 현재 메시지 — 지금 답하거나 수행해야 할 것]\n"
+                    f"[{user_title()}'s current message -- what to answer or do now]\n"
                     f"{text}"
                 )
                 self.handoff_injected = self._handed_over = True   # _handed_over: the turn hook recaps dialogs (inbox/C)
                 self._emit({
                     "event": "system",
-                    "text": f"{label} 맥락을 인계받아 대화를 시작했습니다 ✦",
+                    **i18n.msg("srv.handed_over", label=shown),
                 })
 
         if client_context:
@@ -497,8 +496,8 @@ class SessionTurn:
         that happened to load the same hard session before any of them
         finished handing off would each mint its own orphan successor, so N
         open windows meant N disconnected new chats and the old context
-        never settled on one continuation (operator 보고: 창을 여러 개 열면
-        각자 다른 새 세션이 뜨고 예전 내용이 안 보임). The manual "이어하기"
+        never settled on one continuation (operator report: with several windows open
+        each started its own new session and the old talk did not show). The manual "continue"
         button intentionally keeps the old always-fork behavior (sticky
         False) -- that's a deliberate cost-reset the user asks for
         explicitly.
@@ -549,11 +548,10 @@ class SessionTurn:
             # If there was partial assistant text generated so far, preserve it in history
             cur = (self.current_text or "").strip()
             if cur:  # a 0-char turn (steer included) leaves nothing; the new instruction just follows
-                mark = (f"*(🧭 {user_title()}의 새 지시를 반영하려고 여기서 잠시 멈췄습니다)*" if reason == "steer"
-                        else "*(🧭 같은 호출이 반복돼 여기서 잠시 멈추고 방향을 바꾸도록 알렸습니다)*" if reason == "loop"
-                        else f"*(⚡ {user_title()}의 새 지시로 이전 작업이 중단되었습니다)*")
-                annotated = (self._rewrite_artifact_paths(cur) + "\n\n" if cur else "") + mark
-                self.history.append({"role": "assistant", "text": annotated, "ts": _now(), "interrupted": True})
+                # the model's words as they came; the host's mark beside them by key, added in the page's language
+                mark = i18n.line({"steer": "srv.mark_steer", "loop": "srv.mark_loop"}.get(reason, "srv.mark_interrupted"), user=user_title())
+                self.history.append({"role": "assistant", "text": self._rewrite_artifact_paths(cur), "mark": mark,
+                                     "ts": _now(), "interrupted": True})
             self.current_text = ""
             self.save_meta()
 
@@ -585,8 +583,6 @@ class SessionTurn:
                 pass
             self._http_resp = None
         self._emit({"event": "interrupted", "reason": reason,
-                    "text": ("새 지시를 반영하는 중이에요 — 하던 작업은 이어서 합니다 ✦" if reason == "steer"
-                             else "방향을 바꾸도록 알리는 중이에요 — 하던 작업은 이어서 합니다 ✦" if reason == "loop"
-                             else f"진행 중인 작업이 {user_title()}의 새 지시로 전환되었습니다 ✦")})
+                    **i18n.msg({"steer": "srv.interrupted_steer", "loop": "srv.interrupted_loop"}.get(reason, "srv.interrupted"), user=user_title())})
         self._finish_turn("steer" if reason in ("steer", "loop") else "interrupted")
         _s()._record_live_pids()

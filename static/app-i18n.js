@@ -43,6 +43,10 @@ function i18nTable(prefix) {
 // Server words (i18n.py): an event or answer carries the catalog key and values beside its English text.
 function trEvent(o) {   // the event's text in the page's language, set in place
   if (o && o.key) o.text = tr(o.key, o.vars || {});
+  if (o && o.mark && o.mark.key && !o.marked) {   // the host's mark beside a model's cut-off answer
+    o.text = (o.text ? o.text + '\n\n' : '') + '*' + tr(o.mark.key, o.mark.vars || {}) + '*';
+    o.marked = true;
+  }
   return o;
 }
 function trHistory(res) {   // an answer's stored lines (history, events) in the page's language

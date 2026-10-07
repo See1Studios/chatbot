@@ -133,7 +133,7 @@ class InjectionTests(WorkspaceCase):
     def test_first_turn_gets_bundle_then_never_again(self):
         s = self.make()
         s._send_direct("첫 질문")
-        self.assertTrue(self.sent[0].startswith("[시스템 안내]"))
+        self.assertTrue(self.sent[0].startswith("[Host note]"))
         self.assertIn("CHARTER-MARK", self.sent[0])
         self.assertTrue(self.sent[0].rstrip().endswith("첫 질문"))
         self.assertTrue(s.persona_injected)
@@ -154,7 +154,7 @@ class InjectionTests(WorkspaceCase):
         s._send_direct("a")
         _write_card(self.ws, "PERSONA-V2", self.card_id)
         s._send_direct("b")
-        self.assertIn("규칙이 갱신되었다", self.sent[1])
+        self.assertIn("The rules were updated", self.sent[1])
         self.assertIn("PERSONA-V2", self.sent[1])
         s._send_direct("c")
         self.assertEqual(self.sent[2], "c")
@@ -183,7 +183,7 @@ class InjectionTests(WorkspaceCase):
         s.handoff_summary = "HANDOFF-MARK"
         s._send_direct("현재-MSG")
         t = self.sent[0]
-        self.assertTrue(t.startswith("[시스템 안내]"))
+        self.assertTrue(t.startswith("[Host note]"))
         i_rules, i_handoff, i_msg = t.index("CHARTER-MARK"), t.index("HANDOFF-MARK"), t.rindex("현재-MSG")
         self.assertLess(i_rules, i_handoff)
         self.assertLess(i_handoff, i_msg)

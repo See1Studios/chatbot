@@ -515,12 +515,12 @@ class SilentHangWatchdog(Base):
             s._run_btw("지금 어디까지 했어?")
         finally:
             S._oneshot = orig
-        self.assertIn("90초 이상 무응답(침묵)", prompts[0])
-        self.assertIn("'정상 진행 중'이라고 꾸며내지 마세요", prompts[0])
+        self.assertIn("silent for over 90s", prompts[0])
+        self.assertIn("do not claim it is", prompts[0])
 
     def test_btw_prompt_stays_plain_for_a_lively_turn(self):
-        self.assertNotIn("무응답", SW._btw_prompt("q", True, []))
-        self.assertIn("무응답", SW._btw_prompt("q", True, [], True))
+        self.assertNotIn("silent", SW._btw_prompt("q", True, []))
+        self.assertIn("silent", SW._btw_prompt("q", True, [], True))
 
 
 class AgyToolInfoEvents(Base):

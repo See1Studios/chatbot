@@ -589,7 +589,7 @@ async function send(opts) {
       });
       applySessionProvider(msgRes.session);
     } else if (msgRes && msgRes.session && msgRes.session.weight && msgRes.session.weight.level !== 'ok') {
-      showSessionHeavyBanner(msgRes.session.weight.level, msgRes.session.weight.message_ko);
+      showSessionHeavyBanner(msgRes.session.weight.level, trField(msgRes.session.weight, 'message'));
     }
   } catch (e) {
     addActivity(String(e.message || e));

@@ -85,8 +85,8 @@ class AcceptWithoutCutting(Base):
 
     def test_a_question_while_busy_still_takes_the_side_channel(self):
         s = self.make()
-        q = "이거 왜 이렇게 동작해?"
-        self.assertTrue(session_weights._is_inquiry(q), "premise: this text is classified as a question")
+        q = "/btw 이거 왜 이렇게 동작해?"   # NO_GUESS_BTW_v1: aside only when asked with /btw
+        self.assertTrue(session_weights._is_inquiry(q), "premise: /btw goes aside")
         ran = threading.Event()
         s._run_btw = lambda query: ran.set()
         s.send(q, "m2")

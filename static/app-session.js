@@ -176,7 +176,7 @@ function enterSession(id, opts) {
   if (sessionBanner) {
     if (opts.weight && opts.weight.level) {
       sessionBanner.dataset.level = opts.weight.level;
-      sessionBanner.dataset.message = opts.weight.message_ko || '';
+      sessionBanner.dataset.message = trField(opts.weight, 'message');
     } else if (!opts.preserveLog) {
       sessionBanner.dataset.level = 'ok';
       sessionBanner.dataset.message = '';

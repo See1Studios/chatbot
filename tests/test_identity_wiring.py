@@ -57,18 +57,18 @@ class PromptsTest(Base):
         for text in (btw_idle, btw_busy, handoff):
             for old in OLD_NAMES:
                 self.assertNotIn(old, text)
-        self.assertIn("아트디렉터 루나입니다. (사용자: 대표님)", btw_idle)
-        self.assertIn("대표님 질문: 지금 뭐 해?", btw_idle)
+        self.assertIn("You are 아트디렉터 루나. (The user: 대표님)", btw_idle)
+        self.assertIn("대표님's question: 지금 뭐 해?", btw_idle)
         self.assertIn("차분한 존댓말로", btw_busy)
-        self.assertIn("- 대표님의 최근 요구사항:", handoff)
-        self.assertIn("아트디렉터 루나 챗봇 인계 요약기", handoff)
+        self.assertIn("- 대표님's latest requests:", handoff)
+        self.assertIn("You summarize a handover for 아트디렉터 루나", handoff)
 
     def test_no_voice_means_no_tone_clause_and_still_reads_naturally(self):
         self.use(_workspace("테크디렉터", None, "팀장님", None))
         text = session_weights._btw_prompt("상태?", True, [])
-        self.assertIn("핵심만 2~3문장으로 간결하게 즉답하세요.", text)
-        self.assertIn("테크디렉터입니다.", text)      # no persona: named by its title
-        self.assertNotIn("말투", text)
+        self.assertIn("briefly in 2-3 sentences, with only what matters", text)
+        self.assertIn("You are 테크디렉터.", text)      # no persona: named by its title
+        self.assertIn("in 2-3 sentences, with only what matters", text)   # no voice: no tone clause between them
 
     def test_the_dev_charter_with_a_card_yields_a_full_identity(self):
         # Structure, not values. uds/F: an install's cards are user data outside the repo, so the dev build's real
@@ -81,7 +81,7 @@ class PromptsTest(Base):
         self.assertTrue(i["persona"], "the default character's card has no name")
         self.assertNotEqual(i["user_title"], identity.DEFAULTS["user_title"])
         prompt = session_weights._btw_prompt("q", False, [])
-        self.assertIn(f"{identity.self_label()}입니다. (사용자: {i['user_title']})", prompt)
+        self.assertIn(f"You are {identity.self_label()}. (The user: {i['user_title']})", prompt)
 
 
 class HttpTest(Base):

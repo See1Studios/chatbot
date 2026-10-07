@@ -650,7 +650,7 @@ function bindEvents(sid) {
           scrollback: 'self',
           greeting: text || tr('chat.rotated_greeting'),
           metaLabel: tr('chat.auto_rotated_label'),
-          weight: { level: 'hard', message_ko: text || tr('chat.rotating') },
+          weight: { level: 'hard', message: text || tr('chat.rotating') },
         });
       } else {
         showSessionHeavyBanner('hard', text || tr('chat.rotating'));

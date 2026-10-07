@@ -55,8 +55,9 @@ class SessionWeightsTest(unittest.TestCase):
         self.assertEqual(session_weights._current_context_tokens(history), 180)
 
     def test_is_inquiry(self):
-        self.assertTrue(session_weights._is_inquiry("지금 몇 시야?"))
-        self.assertTrue(session_weights._is_inquiry("어디서 확인할 수 있나요?"))
+        # NO_GUESS_BTW_v1: a question by its words is not a side question; only /btw is
+        self.assertFalse(session_weights._is_inquiry("지금 몇 시야?"))
+        self.assertFalse(session_weights._is_inquiry("where can I check it?"))
         self.assertTrue(session_weights._is_inquiry("/btw 서버 상태"))
         self.assertFalse(session_weights._is_inquiry("/q 다음 작업 실행해줘"))
         self.assertFalse(session_weights._is_inquiry("코드 작성하고 파일 저장해"))
