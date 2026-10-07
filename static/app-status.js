@@ -190,11 +190,11 @@ function renderLoginFields(panel, st) {
     && !!prevInput
   );
   if (modeEl) modeEl.textContent = st.mode ? ('· ' + loginModeHint(st.mode)) : '';
-  if (msgEl) msgEl.textContent = st.message_ko || '';
+  if (msgEl) msgEl.textContent = [trField(st, 'message'), trField(st, 'tip')].filter(Boolean).join(' ');
   if (errEl) {
     if (st.error && (st.state === 'failed' || st.state === 'superseded')) {
       errEl.hidden = false;
-      errEl.textContent = st.error;
+      errEl.textContent = trField(st, 'error');
     } else {
       errEl.hidden = true;
       errEl.textContent = '';
@@ -276,10 +276,10 @@ function renderLoginFields(panel, st) {
         if (r.state === 'succeeded') {
           onLoginSucceeded(st.provider, r);
         } else if (!r.ok || r.state === 'failed') {
-          alert((r.error || r.message_ko || tr('status.login.submit_failed')));
-        } else if (r.message_ko) {
+          alert(trField(r, 'error') || trField(r, 'message') || tr('status.login.submit_failed'));
+        } else if (trField(r, 'message')) {
           const msgEl = panel.querySelector('.login-panel-msg');
-          if (msgEl) msgEl.textContent = r.message_ko;
+          if (msgEl) msgEl.textContent = trField(r, 'message');
         }
       } catch (e) {
         alert(tr('status.login.submit_failed_error', { error: e.message }));
@@ -386,7 +386,7 @@ function startLoginPoll(provider, panel, loginId) {
       } else if (st.state === 'failed' || st.state === 'cancelled' || st.state === 'idle' || st.state === 'superseded') {
         stopLoginPoll(provider);
         if (st.state === 'failed') {
-          addActivity(tr('status.login.activity_failed', { provider: statusProviderName(provider) || provider, error: st.error || '' }), 'warn');
+          addActivity(tr('status.login.activity_failed', { provider: statusProviderName(provider) || provider, error: trField(st, 'error') }), 'warn');
         } else if (st.state === 'superseded') {
           addActivity(tr('status.login.activity_superseded', { provider: statusProviderName(provider) || provider }), 'warn');
         }
@@ -420,7 +420,7 @@ async function startLogin(provider, existingPanel) {
     } else if (st.state === 'succeeded') {
       onLoginSucceeded(provider, st);
     } else if (!st.ok) {
-      alert(tr('status.login.start_failed', { error: st.error || 'unknown' }));
+      alert(tr('status.login.start_failed', { error: trField(st, 'error') || 'unknown' }));
     }
   } catch (e) {
     alert(tr('status.login.start_failed', { error: e.message }));
@@ -441,8 +441,8 @@ async function logoutAccount(provider, email, btn) {
       method: 'POST',
       body: JSON.stringify({ provider }),
     });
-    if (r.note || r.message_ko) {
-      alert(r.note || r.message_ko);
+    if (r.note || trField(r, 'message')) {
+      alert(r.note || trField(r, 'message'));
     } else if (!r.ok) {
       alert(tr('status.logout.failed', { error: r.error || 'unknown' }));
     }

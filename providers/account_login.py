@@ -17,6 +17,7 @@ import os
 import re
 import select
 import signal
+import socket
 import subprocess
 import threading
 import time
@@ -24,6 +25,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
+import i18n
 from host_config import AGY, CLAUDE_BIN, CODEX_BIN, GROK_BIN, AGENT_PATH_PREFIX
 
 from providers import accounts
@@ -127,25 +129,8 @@ _FAIL_RE = re.compile(
     re.I,
 )
 
-_MESSAGE_KO = {
-    "agy": (
-        "브라우저에서 Google 로그인 링크를 연 뒤, 콜백 페이지에 나온 "
-        "인증 코드(보통 4/0A…로 시작)를 아래에 붙여넣고 제출하세요."
-    ),
-    "claude": (
-        "브라우저에서 인증 URL을 연 뒤, 콜백 페이지에 나온 인증 코드를 "
-        "아래에 붙여넣고 제출하세요. (NAS에서는 localhost 콜백이 안 닿아서 "
-        "코드 붙여넣기 방식이 필요합니다.)"
-    ),
-    "grok": (
-        "아래 확인 코드를 복사해 verification URL을 브라우저에서 열고 "
-        "코드를 입력하세요. 완료될 때까지 이 패널이 대기합니다."
-    ),
-    "codex": (
-        "아래 확인 코드를 복사해 verification URL을 브라우저에서 열고 "
-        "코드를 입력하세요. 완료될 때까지 이 패널이 대기합니다."
-    ),
-}
+# The panel's first line per provider, a catalog key (I18N_v1: the page shows it in its language).
+LOGIN_HINT_KEY = {"agy": "login.msg.agy", "claude": "login.msg.claude", "grok": "login.msg.device", "codex": "login.msg.device"}
 
 
 def _login_argv(provider: str) -> list:
@@ -193,8 +178,9 @@ class _Session:
     user_code: Optional[str] = None
     verification_uri: Optional[str] = None
     callback_port: Optional[int] = None
-    message_ko: str = ""
-    error: Optional[str] = None
+    msg: dict = field(default_factory=dict)        # the panel line: {"key", "vars"} (i18n.py)
+    error: Optional[str] = None                     # English, for logs and older pages
+    error_msg: dict = field(default_factory=dict)  # the same, by key
     expires_at: float = 0.0
     created_at: float = field(default_factory=time.time)
     proc: Optional[subprocess.Popen] = None
@@ -206,6 +192,13 @@ class _Session:
     baseline: Optional[dict] = None     # the login before this attempt: {"ok", "email", "fp"} (LOGIN_BASELINE_v1)
     _reader_stop: threading.Event = field(default_factory=threading.Event)
     _lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def say(self, key: str, **values) -> None:
+        self.msg = {"key": key, "vars": values}
+
+    def fail(self, key: str, **values) -> None:
+        self.error = i18n.text(key, **values)
+        self.error_msg = {"key": key, "vars": values}
 
     def public(self) -> dict:
         now = time.time()
@@ -220,11 +213,16 @@ class _Session:
             "user_code": self.user_code,
             "verification_uri": self.verification_uri,
             "callback_port": self.callback_port,
-            "message_ko": self.message_ko,
             "expires_in": expires_in,
         }
+        if self.msg:
+            out.update(i18n.field("message", self.msg["key"], **self.msg["vars"]))
+        if self.callback_port:   # how to reach a localhost callback from another machine
+            out.update(i18n.field("tip", "login.tip_port", port=self.callback_port, host=socket.gethostname() or "this-host"))
         if self.error:
             out["error"] = self.error
+        if self.error_msg:
+            out.update(i18n.field("error", self.error_msg["key"], **self.error_msg["vars"]))
         return out
 
 
@@ -302,14 +300,6 @@ def _parse_output(sess: _Session) -> None:
                 sess.callback_port = int(m.group(1))
             except ValueError:
                 pass
-            if sess.callback_port:
-                tip = (
-                    f" 콜백 포트 {sess.callback_port}: "
-                    f"`ssh -L {sess.callback_port}:127.0.0.1:{sess.callback_port} diskstation` "
-                    "후 로컬 브라우저로 인증을 마치면 됩니다."
-                )
-                if tip.strip() not in sess.message_ko:
-                    sess.message_ko = (sess.message_ko or "") + tip
 
     # agy TUI: bad/expired paste shows token exchange failed while process stays alive.
     if sess.state == "pending" and _OAUTH_EXCHANGE_FAIL_RE.search(text):
@@ -318,11 +308,8 @@ def _parse_output(sess: _Session) -> None:
         detail = (m.group(0) if m else "token exchange failed")[:160]
         submitted = sess.last_submitted_code
         if submitted and submitted in detail:
-            detail = detail.replace(submitted, "[코드 생략]")
-        sess.error = (
-            f"인증 코드 교환에 실패했어요 ({detail}). "
-            "새 로그인으로 다시 시도해 주세요."
-        )
+            detail = detail.replace(submitted, "[code removed]")
+        sess.fail("login.err.exchange", detail=detail)
 
 
 
@@ -453,7 +440,7 @@ def _watcher_loop(sess: _Session) -> None:
                 return
             if time.time() >= sess.expires_at:
                 sess.state = "failed"
-                sess.error = "로그인 대기 시간이 초과됐어요."
+                sess.fail("login.err.timeout")
                 _kill_proc(sess)
                 return
             proc = sess.proc
@@ -462,8 +449,8 @@ def _watcher_loop(sess: _Session) -> None:
             with sess._lock:
                 if sess.state == "pending":
                     sess.state = "succeeded"
-                    sess.message_ko = "로그인됐어요. 계정 정보를 새로고침합니다."
-                    sess.error = None
+                    sess.say("login.ok_refreshing")
+                    sess.error, sess.error_msg = None, {}
             _on_success(sess.provider)
             # Let the CLI exit on its own briefly, then reap
             time.sleep(0.5)
@@ -477,7 +464,7 @@ def _watcher_loop(sess: _Session) -> None:
                 if _account_ok(sess.provider, sess, exited=True):
                     with sess._lock:
                         sess.state = "succeeded"
-                        sess.message_ko = "로그인됐어요. 계정 정보를 새로고침합니다."
+                        sess.say("login.ok_refreshing")
                     _on_success(sess.provider)
                 else:
                     with sess._lock:
@@ -491,8 +478,8 @@ def _watcher_loop(sess: _Session) -> None:
                             # code leave this process in an error message.
                             submitted = sess.last_submitted_code
                             if submitted and submitted in detail:
-                                detail = detail.replace(submitted, "[코드 생략]")
-                            sess.error = f"로그인 프로세스가 끝났지만 계정이 확인되지 않았어요 ({detail})."
+                                detail = detail.replace(submitted, "[code removed]")
+                            sess.fail("login.err.no_account", detail=detail)
                 _close_fd(sess)
                 return
         time.sleep(1.0)
@@ -578,7 +565,7 @@ def _spawn(sess: _Session) -> None:
         os.close(master)
         os.close(slave)
         sess.state = "failed"
-        sess.error = f"CLI를 찾을 수 없어요: {e}"
+        sess.fail("login.err.cli_missing", error=e)
         return
     except Exception as e:
         os.close(master)
@@ -623,17 +610,17 @@ def cancel(provider: str, login_id: Optional[str] = None) -> dict:
     with _lock:
         sess = _sessions.get(provider)
         if not sess:
-            return {"ok": True, "provider": provider, "state": "idle", "message_ko": "진행 중인 로그인이 없어요."}
+            return {"ok": True, "provider": provider, "state": "idle", **i18n.field("message", "login.none_pending")}
         if login_id and sess.login_id != login_id:
             return {"ok": False, "provider": provider, "error": "login_id mismatch", "state": sess.state}
         sess.state = "cancelled"
-        sess.error = "사용자가 취소했어요."
+        sess.fail("login.err.cancelled")
         _sessions.pop(provider, None)
     # Once popped, no other code path can reach this sess via _sessions -- the
     # process-kill sequence (SIGTERM/wait/SIGKILL, up to ~6s for a slow CLI) is safe
     # outside _lock, so it never blocks an unrelated provider's status()/start() poll.
     _kill_proc(sess)
-    return {"ok": True, "provider": provider, "state": "cancelled", "message_ko": "로그인을 취소했어요."}
+    return {"ok": True, "provider": provider, "state": "cancelled", **i18n.field("message", "login.cancelled")}
 
 
 def start(provider: str) -> dict:
@@ -650,7 +637,7 @@ def start(provider: str) -> dict:
         login_id=uuid.uuid4().hex[:12],
         provider=provider,
         mode=mode,
-        message_ko=_MESSAGE_KO.get(provider, "안내에 따라 로그인을 완료하세요."),
+        msg={"key": LOGIN_HINT_KEY.get(provider, "login.msg.default"), "vars": {}},
         expires_at=time.time() + LOGIN_TIMEOUT_SEC,
         baseline=_login_state(provider),
     )
@@ -677,26 +664,26 @@ def complete(provider: str, code: str, login_id: Optional[str] = None) -> dict:
     with _lock:
         sess = _sessions.get(provider)
         if not sess or sess.state != "pending":
-            return {"ok": False, "provider": provider, "error": "진행 중인 로그인이 없어요.", "state": "idle"}
+            return {"ok": False, "provider": provider, **i18n.field("error", "login.none_pending"), "state": "idle"}
         if login_id and sess.login_id != login_id:
             return {"ok": False, "provider": provider, "error": "login_id mismatch"}
         if sess.mode != "oauth_paste":
             return {
                 **sess.public(),
                 "ok": True,
-                "message_ko": "이 방식은 브라우저에서 끝나면 자동으로 완료돼요. 코드 제출은 필요 없어요.",
+                **i18n.field("message", "login.self_completes"),
             }
         fd = sess.master_fd
         proc = sess.proc
     if fd is None or proc is None or proc.poll() is not None:
-        return {"ok": False, "provider": provider, "error": "로그인 프로세스가 없어요. 다시 시작해 주세요."}
+        return {"ok": False, "provider": provider, **i18n.field("error", "login.err.no_process")}
     try:
         # agy 1.2.8 TUI code field submits on CR (\r), not LF (\n). LF only
         # inserts characters and never starts token exchange — UI looks dead.
         os.write(fd, (code + "\r").encode("utf-8"))
         sess.last_submitted_code = code
     except OSError as e:
-        return {"ok": False, "provider": provider, "error": f"코드 전달 실패: {e}"}
+        return {"ok": False, "provider": provider, **i18n.field("error", "login.err.send_failed", error=e)}
     # Wait a bit for CLI to accept / exchange
     for _ in range(40):
         with sess._lock:
@@ -707,7 +694,7 @@ def complete(provider: str, code: str, login_id: Optional[str] = None) -> dict:
             with _lock:
                 if sess.state == "pending":
                     sess.state = "succeeded"
-                    sess.message_ko = "로그인됐어요."
+                    sess.say("login.ok")
             _on_success(provider)
             # The watcher stops at once when the state leaves "pending", so the CLI is ours to end: an
             # interactive login (agy's TUI) never exits by itself and would keep the token in memory.
@@ -722,7 +709,7 @@ def complete(provider: str, code: str, login_id: Optional[str] = None) -> dict:
         pub = sess.public()
     if pub.get("state") == "failed":
         return {**pub, "ok": False}
-    return {**pub, "ok": True, "message_ko": "코드를 전달했어요. 완료 확인 중…"}
+    return {**pub, "ok": True, **i18n.field("message", "login.code_sent")}
 
 
 def status(provider: str, login_id: Optional[str] = None) -> dict:
@@ -740,11 +727,11 @@ def status(provider: str, login_id: Optional[str] = None) -> dict:
         # the new attempt's authorize_url/user_code as if it were the caller's own.
         if login_id and sess.login_id != login_id:
             return {"ok": False, "provider": provider, "error": "login_id mismatch", "state": "superseded",
-                    "message_ko": "다른 곳에서 새 로그인을 시작해서 이 시도는 대체됐어요."}
+                    **i18n.field("message", "login.superseded")}
         # Expire cleanup
         if sess.state == "pending" and time.time() >= sess.expires_at:
             sess.state = "failed"
-            sess.error = "로그인 대기 시간이 초과됐어요."
+            sess.fail("login.err.timeout")
             _kill_proc(sess)
         pub = sess.public()
         if sess.state in ("succeeded", "failed", "cancelled"):

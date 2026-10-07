@@ -2,7 +2,6 @@
  "host_identity": {
   "host_config.py": 1,
   "mcp_server.py": 1,
-  "providers/account_login.py": 1,
   "session_weights.py": 2,
   "static/app-activity.js": 1,
   "static/app-messages.js": 1,
@@ -22,7 +21,6 @@
   "memory_store.py": 12,
   "preview_guard.py": 6,
   "private_engine.py": 13,
-  "providers/account_login.py": 32,
   "providers/accounts.py": 8,
   "providers/adapter_agy.py": 3,
   "providers/adapter_base.py": 4,

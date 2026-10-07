@@ -58,7 +58,7 @@ class AccountLoginTest(unittest.TestCase):
         self.assertFalse(ch(A, {"ok": False}))
 
     def test_an_unknown_same_account_login_counts_only_once_the_cli_exits(self):
-        sess = account_login._Session(login_id="x", provider="grok", mode="device_code", message_ko="",
+        sess = account_login._Session(login_id="x", provider="grok", mode="device_code",
                                       baseline={"ok": True, "email": "a@x", "fp": None})
         with mock.patch.object(accounts, "grok_account", return_value={"ok": True, "email": "a@x"}):
             self.assertFalse(account_login._account_ok("grok", sess))
@@ -68,7 +68,7 @@ class AccountLoginTest(unittest.TestCase):
         # the agy TUI never exits by itself; after complete() succeeded nobody ended it (pid left on a pty)
         proc = mock.Mock()
         proc.poll.return_value = None
-        sess = account_login._Session(login_id="x", provider="agy", mode="oauth_paste", message_ko="",
+        sess = account_login._Session(login_id="x", provider="agy", mode="oauth_paste",
                                       expires_at=time.time() + 30, proc=proc, master_fd=None)
         r, w = os.pipe()
         sess.master_fd = w
@@ -115,7 +115,7 @@ class AccountLoginTest(unittest.TestCase):
 
     def test_parse_device_output(self):
         sess = account_login._Session(
-            login_id="x", provider="grok", mode="device_code", message_ko=""
+            login_id="x", provider="grok", mode="device_code"
         )
         sess.output = (
             "Visit https://accounts.x.ai/device and enter code ABCD-EFGH\n"
@@ -128,7 +128,7 @@ class AccountLoginTest(unittest.TestCase):
     def test_parse_codex_ansi_device_output(self):
         """Codex CSI-colors the device URL and code; strip before regex."""
         sess = account_login._Session(
-            login_id="x", provider="codex", mode="device_code", message_ko=""
+            login_id="x", provider="codex", mode="device_code"
         )
         esc = chr(27)
         sess.output = (
@@ -143,7 +143,7 @@ class AccountLoginTest(unittest.TestCase):
 
     def test_parse_agy_url(self):
         sess = account_login._Session(
-            login_id="x", provider="agy", mode="oauth_paste", message_ko=""
+            login_id="x", provider="agy", mode="oauth_paste"
         )
         sess.output = "Open https://accounts.google.com/o/oauth2/auth?client=1 to continue\n"
         account_login._parse_output(sess)
@@ -153,7 +153,7 @@ class AccountLoginTest(unittest.TestCase):
     def test_parse_claude_bel_url(self):
         """Claude may emit URL + BEL + URL duplicate; keep first clean URL."""
         sess = account_login._Session(
-            login_id="x", provider="claude", mode="oauth_paste", message_ko=""
+            login_id="x", provider="claude", mode="oauth_paste"
         )
         u = "https://claude.com/cai/oauth/authorize?code=true&state=ABC"
         sess.output = "Open " + u + chr(7) + u + chr(27) + "\n"
@@ -163,7 +163,6 @@ class AccountLoginTest(unittest.TestCase):
     def test_parse_claude_port(self):
         sess = account_login._Session(
             login_id="x", provider="claude", mode="oauth_callback",
-            message_ko=account_login._MESSAGE_KO["claude"],
         )
         sess.output = (
             "Browser: https://claude.ai/oauth/authorize?x=1\n"
@@ -172,7 +171,7 @@ class AccountLoginTest(unittest.TestCase):
         account_login._parse_output(sess)
         self.assertIn("claude.ai/oauth", sess.authorize_url or "")
         self.assertEqual(sess.callback_port, 54321)
-        self.assertIn("54321", sess.message_ko)
+        self.assertIn("54321", sess.public()["tip"])   # I18N_v1: the tip is its own field, by key
 
     @mock.patch.object(account_login, "_spawn")
     def test_start_returns_pending_shell(self, spawn):
