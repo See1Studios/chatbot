@@ -20,7 +20,7 @@ Pipeline:
   4. ``build_character_from_tagged`` — section map → character dict.
   5. ``parse_character_response`` — JSON → tagged fallback orchestrator.
 
-See docs/plans/character-generation-system.md §1.3 for the design.
+See docs/plans/archive/2026/character-generation-system.md §1.3 for the design.
 """
 
 import json

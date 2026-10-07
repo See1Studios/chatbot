@@ -42,7 +42,7 @@
 |---|---|---|
 | 비주얼 | 2D 멀티 프레이밍/2.5D 모션 스프라이트, 감정 표정 세트, 전용 가상 룸/스테이지 배경 | 투명 스프라이트·이름 접미사 표정(CCv3 `assets`, character-resource-pipeline §10) |
 | 두뇌/로어 | 방송 밈·애칭 반영 캐릭터 카드, 전용 로어북, 프롬프트 방어 레이어 | CCv3 카드 + 로어북 + `extensions.pe_pack`([setting-pack.md](setting-pack.md)) |
-| 사운드 & 아이템 | 시그니처 보이스 클립/TTS, 호감도 연동 선물용 팬덤 굿즈 아이템 | 보이스 팩(설정) · 선물 목록 = 콘텐츠 팩([composer-plus-menu.md](composer-plus-menu.md)) |
+| 사운드 & 아이템 | 시그니처 보이스 클립/TTS, 호감도 연동 선물용 팬덤 굿즈 아이템 | 보이스 팩(설정) · 선물 목록 = 콘텐츠 팩([composer-plus-menu.md](archive/2026/composer-plus-menu.md)) |
 
 - **매니페스트 추가 필드(초안)**: `license`(`official` / `fanmade`), `licensor`, `rating`(plugin-architecture D5, 콜라보는 `general` 고정), Steam DLC app id.
 - **프롬프트 방어 레이어**: 라이선스 조건(금지 화제·캐릭터 붕괴 방지)을 로어북 상시 항목으로 둔다. 이것은 연출 지침이지 권한이 아니다(로어는 권한을 주지 않는다, setting-pack). 콘텐츠 설문에 기술할 가드레일은 R13의 `content_guard` + 수위 잠금이 그대로 맡는다.

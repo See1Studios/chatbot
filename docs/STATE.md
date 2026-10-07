@@ -1,7 +1,7 @@
 # Governance propagation ledger
 
 Read on demand, never injected. It tracks a new rule while it spreads through the code, and code drift that no guard
-already tracks. Plan: [propagation-and-state-architecture.md](plans/propagation-and-state-architecture.md).
+already tracks. Plan: [propagation-and-state-architecture.md](plans/archive/2026/propagation-and-state-architecture.md).
 
 - Item progress lives in tickets; a rule's home is the root `AGENTS.md` registry and [CONVENTION.md](CONVENTION.md).
   This file only lists what is in flight, with the ticket that carries each part.

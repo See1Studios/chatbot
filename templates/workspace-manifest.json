@@ -34,7 +34,6 @@
     ".agents/skills/character-art/SKILL.md": "runs engine-repo tools and host paths; waits for edition E (user-facing tool route)",
     ".agents/skills/character-pipeline/SKILL.md": "runs engine-repo tools and host paths; waits for edition E (user-facing tool route)",
     ".agents/skills/image-brief/SKILL.md": "points at character-art and studio identity; ships with it",
-    "docs/character_pipeline.md": "character ingestion guide for the dev role (dev build only)",
     ".agents/skills/progress-report/SKILL.md": "lead skill: reports from handoffs, dms and tickets (dev build only)",
     ".agents/skills/handoff-brief/SKILL.md": "handoff skill for the directors (dev build only)",
     ".agents/skills/subagent-investigate/SKILL.md": "dev skill: subagents, targeted tests, delegate plans (dev build only)",

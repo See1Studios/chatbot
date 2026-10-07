@@ -1,4 +1,4 @@
-// app-art.js -- the art manager, a pane of its own (docs/plans/character-art-manager.md am/C). v0, to be shaped by use
+// app-art.js -- the art manager, a pane of its own (docs/plans/archive/2026/character-art-manager.md am/C). v0, to be shaped by use
 // (operator, 2026-09-29: build it rough, then carve). Declarations only; opened from the character tray and from a finished
 // work card whose result landed in a character's gallery. In the shell it draws into the art pane's #artManager
 // (shell-art, app-shell.js shellGoArt); without one it still makes its own overlay. A picture opens the image viewer.

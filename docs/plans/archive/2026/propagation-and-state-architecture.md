@@ -4,7 +4,7 @@
 
 > 상태: **active** (초안 2026-10-06, ticket #715)
 > 목적: PE 소프트웨어 엔지니어링 거버넌스 체계를 명확히 하고, 아키텍처·컨벤션 규칙이 코드베이스 전체로 누수 없이 안전하게 전파·추적되도록 3대 거버넌스 문서(`docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md`) 및 전파 수명주기(Propagation Lifecycle)를 정의한다.
-> 관련: [INDEX.md](INDEX.md) · [plan-execution-workflow.md](plan-execution-workflow.md) · [edition-boundary.md](edition-boundary.md) · [monolith-split.md](monolith-split.md)
+> 관련: [INDEX.md](../../INDEX.md) · [plan-execution-workflow.md](../../plan-execution-workflow.md) · [edition-boundary.md](../../edition-boundary.md) · [monolith-split.md](monolith-split.md)
 > 약칭: `prop`
 
 ---
@@ -44,7 +44,7 @@
   - 상위 계층은 하위 계층을 참조할 수 있으나, 하위 코어는 상위 계층이나 구체 프로바이더를 알지 못한다.
   - 모듈 간 단방향 흐름 원칙을 준수하며, 상호 import 순환을 엄격히 차단한다([현재 가드] `test_import_cycles`).
 - **배포판/개발판 경계 격리 (Edition-Boundary Separation)**:
-  - `host_config.EDITION` (`shipped` vs `dev`)을 유일한 판정 기준으로 삼는다([edition-boundary.md](edition-boundary.md)).
+  - `host_config.EDITION` (`shipped` vs `dev`)을 유일한 판정 기준으로 삼는다([edition-boundary.md](../../edition-boundary.md)).
   - [현재 가드] `test_edition_boundary`: 배포판에서 개발 도구(`run_command`, `ticket`, `delegate`) 제외 및 쓰기 범위 제한 검증.
   - [예정 집행] 배포판 런타임에서 사용자 데이터 폴더(`$CHATBOT_DATA`) 외 엔진 코드 수정을 런타임 레벨에서 원천 차단하는 하드닝 가드.
   - 개발 장치(`tickets.py`, `delegation.py`, `tools/worktree_runner.py`)는 배포판 빌드에서 패키지 제외 또는 선택적 로딩으로 격리된다.
@@ -155,12 +155,14 @@
 | prop/F | 검토 2: 집행자 보호 — 레지스트리의 집행자 테스트는 모두 Tier 3, 싼 것은 FAST, 느린 것은 이유와 함께 목록; 테스트 페어링을 commit-msg 훅으로 | `tests/test_rule_registry.py`, `run-tests.sh`, `protected_paths.json`, `.githooks/check_staged.py`, `tests/test_githooks.py`, `tests/test_conventions.py`, `AGENTS.md` | 집행자를 Tier 3에서 빼거나 FAST·SLOW 어디에도 없으면 `test_rule_registry` 실패; 테스트 없는 feat/fix 커밋 거절 | Tier 3 · ⚡X | M | prop/E | ✅ #767 `df88497` |
 | prop/G | 검토 3: 개발판·배포판 지침 분리(운영자 2026-10-07 "절대 섞이지 않고 독립적") — 헌장은 배포판 하나, 개발판 규칙은 `EDITION=dev`에서만 붙는 별도 층 | `instructions.py`, `templates/`, `tools/link_dev_workspace.py`, 테스트 | 배포판 묶음에 개발판 문장 0, 개발판 층이 배포판 헌장 줄을 반복하지 않음(테스트) | Tier 3 · ⚡ | M | prop/F | ✅ #768 `83f0cf8` |
 | prop/H | 검토 4: 거버넌스 문서 정리 — CONVENTION 영어·숫자 위주, STATE 축소, ARCHITECTURE §7 사실만, 계획 상태 정정, 문구 확인 테스트 삭제 | `docs/`, `AGENTS.md`, `templates/dev-workspace/` | `./run-tests.sh` 통과, 문서 간 모순 0 | Tier 3 · ⚡X | M | prop/G | ✅ #769 `bc8c9f3` |
+| prop/I | 정리 1(운영자 2026-10-07 "오래된 것·버려진 것·어디서도 모르는 것 지워"): 죽은 코드, `AGY_CHAT_*` 호환, 옛 팩 이름, timeout 예외, 스냅숏 누수 | 코드 다수 | `./run-tests.sh` 통과 | Tier 3 · ⚡ | M | prop/H | ✅ #770 `a9edf37` |
+| prop/J | 정리 2: 끝난 계획 6개 보관, 낡은 dev `PROJECT.md` 재작성, 고아 문서·자산 삭제 | `docs/plans/`, `templates/`, `static/providers/` | `./run-tests.sh` 통과 | Tier 3 · ⚡X | M | prop/I | ✅ #771 |
 
 ---
 
 ## 7. 의존·순서·리스크
 
-- **선행 의존**: [plan-execution-workflow.md](plan-execution-workflow.md)의 DoR/DoD 및 게이트 프로세스, [edition-boundary.md](edition-boundary.md)의 판 분리 기준.
+- **선행 의존**: [plan-execution-workflow.md](../../plan-execution-workflow.md)의 DoR/DoD 및 게이트 프로세스, [edition-boundary.md](../../edition-boundary.md)의 판 분리 기준.
 - **리스크**:
   - 거버넌스 규칙이 지나치게 방대해질 경우 개발 에이전트의 컨텍스트 소모 증가 -> 온디맨드 조회 원칙(4.4) 철저 준수로 방어.
   - 문서만 갱신되고 실제 코드로 전파되지 않는 표류(Drift) 현상 -> `docs/STATE.md`의 `[DEV-PROP-xxx]` 체크리스트와 가드 테스트로 추적 및 차단.

@@ -1,4 +1,4 @@
-// app-attach.js -- the small button inside the message box (docs/plans/composer-plus-menu.md plus/B, plus/D).
+// app-attach.js -- the small button inside the message box (docs/plans/archive/2026/composer-plus-menu.md plus/B, plus/D).
 //
 // Giving something is part of the message, so the button sits inside the input, not beside it: in work mode it
 // attaches one file, in private mode it opens the item picker (app-item.js). A file is uploaded the moment it is

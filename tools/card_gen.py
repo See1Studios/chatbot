@@ -10,7 +10,7 @@ Port of ST-CardGen ``routes/character.ts`` domain and business logic to Python:
   - Creates <workspace>/characters/<id>/ package structure.
 
 Pure stdlib where possible; integrates with card_prompt.py and card_parse.py.
-See docs/plans/character-generation-system.md §1.4 & §2 for architecture.
+See docs/plans/archive/2026/character-generation-system.md §1.4 & §2 for architecture.
 """
 from __future__ import annotations
 

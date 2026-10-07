@@ -1,4 +1,4 @@
-"""CONTEXT_PANEL_v1 (docs/plans/layered-context-architecture.md lca/E): the status tab shows what went into the open
+"""CONTEXT_PANEL_v1 (docs/plans/archive/2026/layered-context-architecture.md lca/E): the status tab shows what went into the open
 conversation's agent. The session keeps its last injections (kept across a restart), GET /api/sessions/<sid>/context
 serves them, and the page names every layer in Korean.
 Run: python3 -m unittest tests.test_context_panel  (from services/chatbot)

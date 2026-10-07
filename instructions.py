@@ -6,7 +6,7 @@ sends it as the system message). Providers' own cwd/ancestor auto-discovery
 of AGENTS.md / CLAUDE.md / skills differs per CLI and is NOT relied on --
 the bundle is the one channel that is identical everywhere.
 
-Layers: LAYERS below is the one list (CONTEXT_LAYERS_v1, docs/plans/layered-context-architecture.md lca/A) -- each
+Layers: LAYERS below is the one list (CONTEXT_LAYERS_v1, docs/plans/archive/2026/layered-context-architecture.md lca/A) -- each
 layer's id, kind and modes; `layer_texts` builds the ones a mode takes and `build_instruction_bundle` joins them.
   rules    charter, lore, card, role packs / private rules  (static, hashed; joined with --- and macros resolved)
   index    skill index                                     (static, hashed)

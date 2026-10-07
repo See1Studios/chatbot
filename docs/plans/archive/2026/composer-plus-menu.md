@@ -4,7 +4,7 @@
 
 > 상태: **active** (2026-09-28 초안)
 > 목적: 카카오톡처럼 입력창의 버튼으로 건넬 것을 고른다. 업무 모드는 파일을 올려 대화의 자료로 쓰고(드래그·붙여넣기 포함), 사적 모드는 아이템을 건네거나 쓰고 캐릭터가 반응한다(건네기는 호감도).
-> 관련: [private-mode.md](private-mode.md) §3 영구 호감도(D6–D8 미결) · [plugin-architecture.md](plugin-architecture.md)(선물 목록 = 콘텐츠 팩) · [edition-boundary.md](edition-boundary.md)(배포판 파일 범위) · [character-creation-landing.md](character-creation-landing.md)(캐릭터 취향 입력)
+> 관련: [private-mode.md](../../private-mode.md) §3 영구 호감도(D6–D8 미결) · [plugin-architecture.md](../../plugin-architecture.md)(선물 목록 = 콘텐츠 팩) · [edition-boundary.md](../../edition-boundary.md)(배포판 파일 범위) · [character-creation-landing.md](../../character-creation-landing.md)(캐릭터 취향 입력)
 
 ## 1. 운영자 요청 (2026-09-28)
 
@@ -14,7 +14,7 @@
 
 - 대화창에 파일 첨부가 **없다**. 파일 선택은 SillyTavern 카드 가져오기 하나, 드래그는 팀 탭(카드)뿐.
 - 이미지 생성물은 세션 `artifacts/`와 `pending_images`로 이미 다룬다(에이전트가 만든 것). 사용자가 올리는 길은 없다.
-- 호감도는 [private-mode.md](private-mode.md) §3에 설계만 있고 코드가 없다. 저장 위치(D6), 시작 단계 매핑(D7), 판정 방식(D8)이 미결.
+- 호감도는 [private-mode.md](../../private-mode.md) §3에 설계만 있고 코드가 없다. 저장 위치(D6), 시작 단계 매핑(D7), 판정 방식(D8)이 미결.
 
 ## 3. 선행 사례
 

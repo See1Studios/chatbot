@@ -2,7 +2,7 @@
 
 > 방향 (2026-10-06 운영자: "메시지시스템 관련 계획문서로 만드는 게 좋을 것 같네"): **핵심 + 기반** — 단순 텍스트 채팅을 넘어 User(발화·지문·명령) - Assistant(대사·표정·선택지) - System(공지·상태·선택지) 3자가 대등하게 상호작용하는 구조화 메시지 프로토콜. 선택지·액션·시스템 알림의 단일 SSOT
 > 상태: **active** (2026-10-06 수립)
-> 관련: [out-of-band-choices-actions.md](out-of-band-choices-actions.md)(선택지 채널) · [engine-decides.md](engine-decides.md)(ed/B2 이동 제안, ed/B3 선택지 보충) · [private-mode.md](private-mode.md)(텐션 3슬롯) · [layered-context-architecture.md](layered-context-architecture.md)
+> 관련: [out-of-band-choices-actions.md](out-of-band-choices-actions.md)(선택지 채널) · [engine-decides.md](engine-decides.md)(ed/B2 이동 제안, ed/B3 선택지 보충) · [private-mode.md](private-mode.md)(텐션 3슬롯) · [layered-context-architecture.md](archive/2026/layered-context-architecture.md)
 
 ---
 

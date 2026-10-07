@@ -1,4 +1,4 @@
-"""Character art manager, the server half (docs/plans/character-art-manager.md am/B): a character's art slots and its
+"""Character art manager, the server half (docs/plans/archive/2026/character-art-manager.md am/B): a character's art slots and its
 gallery, and the one way a picture gets into a slot.
 
   GET  /api/characters/<id>/art                  slots by kind (Character Card V3 names) + gallery + format problems

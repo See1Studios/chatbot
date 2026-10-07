@@ -3,71 +3,14 @@ __pycache__/
 *.bak-*
 *.log
 *.pid
+logs/
 static/vendor/*.min.js
 !static/vendor/purify.min.js
-server.py.candidate
-static/index.html.candidate
-static/app.js.candidate
-chatbot-ctl.sh.candidate
-# ephemeral runtime state (2026-09-16 consolidation: now lives under data/)
-data/doctor-probe.stamp
-data/standby.pid
-# API-Provider plan: API keys (e.g. CHATBOT_OMNIROUTE_API_KEY) -- never committed
-data/secrets.env
-# align/F: per-install settings (host plugin, web root) -- never committed
-data/host.env
-# Dev checkout pin: literal CHATBOT_DATA so the shipped ~/.pe default does not move this install (uds/F).
-data-pin.env
-# per-host account observation state (accounts.py watch_loop)
-data/account_state.json
-# worktree delegation: which work cards the operator has seen (delegation.py)
-data/delegation_seen.json
-# self-evolution runtime state (recursive-self-evolution.md): locks, flags, collected candidates, live pids
-data/lifecycle.lock
-data/maintenance.flag
-data/live_pids.json
-data/workspace/skill-observations/candidates.jsonl
-data/workspace/skill-observations/tickets/.lock
-data/workspace/skill-observations/tickets/author.lease
-data/workspace/memory/.MEMORY.lock
-data/workspace/memory/MEMORY.md.bak
-data/workspace/memory/.MEMORY.*.tmp
-# per-session conversation runtime and the shared artifact cache (sessions/_shared): user data, not engine
-# (uds/C4, 2026-09-28 -- _shared used to be tracked as an exception)
-data/sessions/
-# the event mailbox (events.py, evt/B): runtime record and per-session cursors
-data/events/
-# group rooms (room_chat.py, evt/E): room settings and their talk, user data
-data/rooms/
-data/session-quarantine/
-# personal long-term memory and per-character memory: user data, never in git (uds/C4)
-data/workspace/memory/MEMORY.md
-data/workspace/characters/*/memory.md
-# leftover stub; SSOT is data/workspace/memory/MEMORY.md
-data/MEMORY.md
-# grok harness scratch
-data/workspace/.grok/
-# impeccable detector local ignores (absolute host paths)
-data/workspace/.impeccable/
-# role skill runtime
-data/workspace/.agents/skills/role/sessions/
-data/workspace/.agents/skills/role/__pycache__/
-logs/
-
-# private talk memory stays on this machine, never in git (SESSION_SPLIT_v1)
-data/workspace/characters/*/private-memory.md
-data/workspace/characters/*/relationship.md
-data/workspace/characters/*/.relationship.*.tmp
-# style references are other artists' work: kept beside the character, never committed or shipped
-data/workspace/characters/*/references/
-data/workspace/characters/*/.private-memory.*.tmp
-data/workspace/skill-observations/tickets/leases.json
-# the operator's instruction edits keep their previous text here (workspace_status._backup), not in the workspace
-data/backups/
 # design tool cache (impeccable)
 static/.impeccable/hook.cache.json
+# Dev checkout pin: literal CHATBOT_DATA so the shipped ~/.pe default does not move this install (uds/F).
+data-pin.env
 
-# uds: nothing under data/ is engine source. A release tree must not ship it.
-# The dev install keeps the files on disk; live data is ~/.pe via data-pin.env.
-# Ticket history is not an exception anymore (operator, 2026-10-03).
+# uds: nothing under data/ is engine source (user data lives in ~/.pe; secrets, private memory, sessions, style
+# references and runtime state included). A test run writes its own scratch here. A release tree must not ship it.
 data/**

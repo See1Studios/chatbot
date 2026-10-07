@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-10-07 — 끝난 계획 보관, 낡은 문서·자산 정리 (prop/J, #771)
+
+- **보관**: 항목이 모두 끝난 계획 6개(monolith-split, character-art-manager, composer-plus-menu, character-generation-system, layered-context-architecture, propagation-and-state-architecture)를 `docs/plans/archive/2026/`로. 코드·문서의 경로 참조를 함께 고쳤다.
+- **지움**: 어디서도 안 쓰는 프로바이더 png 5개(webp만 쓴다), 9월 17일 디자인 비평 파일, 낡은 `templates/dev-workspace/docs/character_pipeline.md`(페르소나 이름·옛 웹 루트 동기화 경로, 스킬과 중복). `.gitignore`의 옛 `.candidate` 줄과 `data/**`가 이미 덮는 줄들.
+- **고침**: 개발판 `PROJECT.md`를 영어로, 지금 사실대로(옛 `AGY_CHAT_WEB_ROOT`·`/volume1/web`·전체 스위트 지시 제거). 아무도 가리키지 않던 Gemini 거절 완화 설계 문서를 코드 지도에 연결.
+- **재시작**: 불필요(문서·주석).
+
 ## 2026-10-07 — 죽은 코드·낡은 호환 걷어내기 (prop/I, #770)
 
 - **운영자**: "오래된 것 낡은 것. 버려진 것. 어디에서도 모르는 것 다 찾아서 지워줘"

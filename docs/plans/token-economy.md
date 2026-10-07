@@ -2,7 +2,7 @@
 
 > 방향 (2026-10-04 운영자: "토큰 최적화는 중대한 문제"): **기반** — 비용과 세션 수명. 대화 세션이 무거워질수록 자주 넘어가고(세션 회전), 넘어갈 때마다 캐릭터가 중간 대화를 잊는다.
 > 상태: **active** (2026-10-04 측정·수립, T1·T2·T6 실행, T5 측정)
-> 관련: [engine-decides.md](engine-decides.md)(엔진이 정한다) · [monolith-split.md](monolith-split.md)(큰 파일 쪼개기) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임)
+> 관련: [engine-decides.md](engine-decides.md)(엔진이 정한다) · [monolith-split.md](archive/2026/monolith-split.md)(큰 파일 쪼개기) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임)
 
 ---
 
@@ -53,7 +53,7 @@ agy는 도구를 한 번 부를 때마다 이 4.7만을 다시 보낸다. 40번 
 | T1 | **턴 예산(엔진이 강제):** `loop_guard.py` 규칙 D. 한 턴에 도구 20회 또는 읽기 500KB를 넘으면 에이전트에게 "위임하거나 정리해 답하라"고 알리고(agy, 중단 후 재개), 40회 또는 1.2MB를 넘으면 턴을 멈춘다. 알린 뒤 재개된 턴은 남은 예산만 쓴다. 집행: `tests/test_loop_guard.py` TurnBudget, `tests/test_loop_notice.py` OverBudget | 실행 2026-10-04 (#614) |
 | T2 | **노노는 `lead`만:** 엔진 작업은 `dev`를 가진 캐릭터에게 위임한다(운영자 2026-10-04 승인). 역할은 사용자 데이터라 `~/.pe/workspace/team.json`에서 바꿨다 | 실행 2026-10-04 |
 | T3 | 읽기 습관: 개발 지침에 "검색 먼저, 필요한 줄 범위만"을 명시. 모델 의존이라 T1의 보조 | 대기 |
-| T4 | 큰 파일 쪼개기: `monolith-split.md`를 이어서 | 대기 |
+| T4 | 큰 파일 쪼개기: `archive/2026/monolith-split.md`를 이어서 | 대기 |
 | T5 | 고정 비용 측정: 제공자 CLI 자체 몫은 1절 표(agy 4.7만). 남은 것: 캐릭터 지침 묶음 크기 | 일부 측정 2026-10-04 |
 | T6 | **위임 비용 기록:** 위임 실행기가 작업자·리뷰어 CLI를 JSON 출력으로 돌려, 호출마다 티켓·역할·제공자·입력·캐시·출력을 `~/.worktrees/chatbot/runs/usage.jsonl`에 남긴다(`tools/run_usage.py`). 형식을 못 읽으면 기록만 건너뛰고 실행은 그대로다. 집행: `tests/test_run_usage.py` | 실행 2026-10-04 (#615, 정의 통일 #616) |
 | T7 | **직접 대 위임 비교:** 며칠 쌓인 뒤 티켓마다 "노노 쪽(그 티켓을 위해 delegate·ticket 도구를 부른 턴) + 작업자 + 리뷰어" 합계를, 노노가 대화에서 직접 했던 비슷한 작업과 나란히 본다. 위임이 더 비싸면 T2(노노 lead만)를 되돌린다 | 데이터 대기 |

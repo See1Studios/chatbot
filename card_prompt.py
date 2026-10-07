@@ -4,7 +4,7 @@
 ``domain/character/fieldDetail.ts``.  Korean story fields, English
 image_prompt / negative_prompt.  Pure stdlib, no LLM calls.
 
-See docs/plans/character-generation-system.md §1 for the design.
+See docs/plans/archive/2026/character-generation-system.md §1 for the design.
 """
 
 import json

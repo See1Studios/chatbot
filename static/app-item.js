@@ -1,4 +1,4 @@
-// app-item.js -- items in private mode, picked from a coverflow (docs/plans/composer-plus-menu.md plus/F, plus/G).
+// app-item.js -- items in private mode, picked from a coverflow (docs/plans/archive/2026/composer-plus-menu.md plus/F, plus/G).
 //
 // The button inside the message box opens the item picker: the catalog as a coverflow (the item in the middle is the
 // one in hand; neighbours tilt away), with this character's affection and how many gifts are left today. The middle

@@ -226,7 +226,7 @@ class TTSAdapter:
 
 ## 7. 소프트웨어 엔지니어링 거버넌스 및 모듈 경계 (Software Engineering Governance)
 
-> 관련: 규칙과 집행자 목록은 루트 [`AGENTS.md`](../AGENTS.md)(규칙표·코드 지도), 숫자는 [CONVENTION.md](CONVENTION.md), 보호 등급은 `protected_paths.json`이 정본이다. 이 절은 구조만 설명하고 그 목록을 다시 적지 않는다. 계획: [propagation-and-state-architecture.md](plans/propagation-and-state-architecture.md) · [edition-boundary.md](plans/edition-boundary.md)
+> 관련: 규칙과 집행자 목록은 루트 [`AGENTS.md`](../AGENTS.md)(규칙표·코드 지도), 숫자는 [CONVENTION.md](CONVENTION.md), 보호 등급은 `protected_paths.json`이 정본이다. 이 절은 구조만 설명하고 그 목록을 다시 적지 않는다. 계획: [propagation-and-state-architecture.md](plans/archive/2026/propagation-and-state-architecture.md) · [edition-boundary.md](plans/edition-boundary.md)
 
 ### 7.1 계층과 의존 방향
 

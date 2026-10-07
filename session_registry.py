@@ -1,4 +1,4 @@
-"""Where sessions are found (REGISTRY_SPLIT_v1, docs/plans/monolith-split.md Phase 5): the registry of live
+"""Where sessions are found (REGISTRY_SPLIT_v1, docs/plans/archive/2026/monolith-split.md Phase 5): the registry of live
 AgentSession objects, the newest-session lookup per character and mode, the session list, and the meta.json summary
 cache behind them (SESSION_INDEX_v1). Split out of session.py, which re-exports every name here, so callers keep
 `from session import REG, Registry`.

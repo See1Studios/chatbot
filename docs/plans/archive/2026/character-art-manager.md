@@ -4,7 +4,7 @@
 
 > 상태: **active** (2026-09-29 초안)
 > 목적: 캐릭터 하나의 그림(아이콘·배경·표정)을 한 화면(독립 패널 `shell-art`)에서 보고, 칸마다 올리기·지우기·생성 요청을 한다. 없는 칸은 무엇으로 대체되는지 보인다.
-> 관련: [character-resource-pipeline.md](character-resource-pipeline.md) §10(무대=장소·캐릭터=스프라이트, 이름 대체 사슬, SillyTavern·CCv3 차용) · [character-creation-landing.md](character-creation-landing.md)(소환 마법사의 "모습" 단계가 같은 칸을 씀) · [private-security.md](private-security.md)(업로드 가드)
+> 관련: [character-resource-pipeline.md](../../character-resource-pipeline.md) §10(무대=장소·캐릭터=스프라이트, 이름 대체 사슬, SillyTavern·CCv3 차용) · [character-creation-landing.md](../../character-creation-landing.md)(소환 마법사의 "모습" 단계가 같은 칸을 씀) · [private-security.md](../../private-security.md)(업로드 가드)
 
 ## 1. 운영자 요청 (2026-09-29)
 

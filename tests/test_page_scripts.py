@@ -73,7 +73,7 @@ class PageScripts(unittest.TestCase):
     def test_every_part_stays_under_its_cap(self):
         for p in sorted(STATIC.glob("*.js")) + sorted(STATIC.glob("*.css")):
             n, limit = p.stat().st_size, CEILINGS.get(p.name, MAX_BYTES)
-            self.assertLessEqual(n, limit, "%s is %d bytes (cap %d): split it by feature (docs/plans/monolith-split.md)"
+            self.assertLessEqual(n, limit, "%s is %d bytes (cap %d): split it by feature (docs/plans/archive/2026/monolith-split.md)"
                                  % (p.name, n, limit))
 
     def test_ceilings_are_only_for_parts_really_over_the_cap(self):

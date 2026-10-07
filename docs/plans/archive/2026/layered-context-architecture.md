@@ -5,8 +5,8 @@
 > 개인화의 바탕이다. 새 구조를 짓기보다, 이미 있는 층을 한 표로 정리하고, 실제로 바뀐 것이 에이전트에 닿게 하고, 무엇이
 > 언제 주입됐는지 기록으로 볼 수 있게 한다.
 > 상태: **active** (2026-10-06 다시 씀, D-1–D-6 추천대로 결정, lca/A 완료 #701, lca/B 완료 #702, lca/F 완료 #703, lca/C 완료 #706, lca/D 완료 #707, lca/E 완료 #708, lca/G 완료 #709, lca/H 완료 #710 — 전 항목 완료)
-> 관련: [personalization-ladder.md](personalization-ladder.md)(층별 편집·승인) · [private-mode.md](private-mode.md)(사적 세션)
-> · [token-economy.md](token-economy.md)(턴 예산) · [instruction-architecture.md](archive/2026/instruction-architecture.md)(번들의 시작, P2)
+> 관련: [personalization-ladder.md](../../personalization-ladder.md)(층별 편집·승인) · [private-mode.md](../../private-mode.md)(사적 세션)
+> · [token-economy.md](../../token-economy.md)(턴 예산) · [instruction-architecture.md](instruction-architecture.md)(번들의 시작, P2)
 
 ---
 
