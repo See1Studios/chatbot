@@ -66,30 +66,33 @@
 
 ## 3. 진입과 정본 배치
 
-**입구는 하나다.** 어떤 도구로 저장소에 들어와도 루트 `AGENTS.md`(영어, 원칙 0)에 도착한다.
+**입구는 하나다.** 어떤 도구로 저장소에 들어와도 루트 `AGENTS.md`(쉬운 영어, 개발판 전용, 6,000 B 이하)에 도착한다. 루트에는 진입 파일과 개발 지침만 둔다(pew/S, 2026-10-08). 코드를 폴더로 옮기는 일은 [repo-layout.md](repo-layout.md).
 
 ```text
 services/chatbot/
-├── AGENTS.md          # 엔진 개발 정본: 시작 순서, 정본 지도, 규칙 레지스트리, run-tests.sh, 커밋 규약
-├── CLAUDE.md          # 포인터 한 줄 → AGENTS.md   (테스트: 포인터 외 내용 금지)
-├── GEMINI.md          # 포인터 한 줄 → AGENTS.md
-├── docs/plans/INDEX.md, docs/decisions/   # 계획과 결정
+├── AGENTS.md          # 개발판 진입: 역할, 시작 순서, 작업 절차, 꼭 지킬 규칙, 정본 지도
+├── RULES.md           # 컨벤션(숫자·이름·하네스) + 규칙 레지스트리(규칙 ↔ 집행자)
+├── CODEMAP.md         # 코드 지도(파일마다 한 줄 이상, test_code_map)
+├── CLAUDE.md          # 포인터 → AGENTS.md   (테스트: 포인터 외 내용 금지)
+├── GEMINI.md          # 포인터 → AGENTS.md
+├── docs/              # 그 밖의 문서: README·PRODUCT·DESIGN·CHANGELOG·CONCEPT·ARCHITECTURE·STATE, plans/, devlog/
 └── templates/         # 사용자 데이터 부트스트랩 기본값(엔진 소유)
-$CHATBOT_DATA/workspace/AGENTS.md          # 챗 에이전트(제품 런타임) 헌장. 엔진 개발 규칙은 포인터만
+templates/workspace/AGENTS.md                # 챗 에이전트(제품 런타임) 헌장, 두 판 공용. 개발판은 DEV-CHARTER.md를 따로 더함
 ```
 
-**정본 지도**(루트 `AGENTS.md` 안의 표, 사실마다 한 곳):
+**정본 지도**(루트 `AGENTS.md`의 "Where facts live" 표가 정본, 사실마다 한 곳):
 
 | 사실 | 정본 | 다른 곳에서는 |
 |---|---|---|
 | 호스트 운영 법 | `~/AGENTS.md` | 링크만 |
-| 엔진 개발 규칙·코드 지도 | 루트 `AGENTS.md` (현 `PROJECT.md` "Where to edit"를 옮겨 옴, D7) | 링크만 |
-| 챗 에이전트 행동 규칙 | `$CHATBOT_DATA/workspace/AGENTS.md` | — |
+| 엔진 개발 규칙·컨벤션 | 루트 `AGENTS.md` + `RULES.md` | 링크만 |
+| 코드 지도 | 루트 `CODEMAP.md` | 링크만 |
+| 챗 에이전트 행동 규칙 | `templates/workspace/AGENTS.md`(+ 개발판 `DEV-CHARTER.md`) | — |
 | 데이터 경로 | `host_config.py` | 셸·도구는 `python3 -c 'import host_config…'` 또는 env만 사용 |
 | 계획 상태 | `docs/plans/INDEX.md` | 계획 문서 안의 상태 줄은 INDEX와 같아야 함(테스트) |
 | 항목 진행 상태 | 티켓 | 계획에는 `#N`과 `✅`만 |
 | 결정 | `docs/decisions/` | 계획은 링크만 |
-| 변경 기록 | git + `CHANGELOG.md` | DEVLOG는 작업 일지(서술), 릴리스 기록 아님 |
+| 변경 기록 | git + `docs/CHANGELOG.md` | DEVLOG는 작업 일지(서술), 릴리스 기록 아님 |
 
 **에이전트 개인 메모리**(Claude memory, Hermes 등)는 선호와 교훈만 담고, 저장소에 있는 사실은 복제하지 않는다. 복제했다면 저장소 정본을 가리키는 링크로 바꾼다.
 
@@ -239,8 +242,7 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 | `pew/L` | 역할별 개발 안내(2026-09-27 운영자): 챗봇은 여러 캐릭터가 역할을 나눠 맡으므로, 개발 규칙 포인터(루트 `AGENTS.md`, `--no-verify` 금지, "아키텍처 책임자" 역할)는 **개발에 관여하는 역할 팩에만**, 개발 작업일 때만 싣는다. 공용 헌장(`data/workspace/AGENTS.md`)에는 넣지 않고, 지금 공용 헌장에 있는 개발 절(Self-modification)도 역할 팩으로 옮길 수 있는지 검토 | `data/workspace/roles/<개발 역할>/`, `data/workspace/AGENTS.md` | 개발 역할이 아닌 캐릭터의 주입 묶음에 개발 규칙이 없음(테스트), `test_bundle_budget` 녹색 | 3 · — | M | pew/C | ✅ #294 — `dev` 역할 팩(`role.md` 매 턴 4줄 + `procedure.md` 필요할 때), PD·staff 캐릭터에 부여 |
 | `pew/R` | 팩 파일 이름 통일: `roles/<role>/role.md`·`procedure.md` → `ROLE.md`·`PROCEDURE.md`(SKILL.md와 같은 규칙). 읽을 때 옛 이름도 받음 | `characters.py`, `workspace_status.py`, `static/app-team.js`, `data/workspace/roles/`, 테스트 | 새 이름으로 읽고, 옛 이름 팩도 동작(테스트) | 2 · — | S | pew/L | ✅ #298(코드가 두 이름 다 읽음) · #300(파일 이름 바꾸기, ⚡ 뒤) |
 | `pew/M` | CHANGELOG 자동화(`rp/A`와 합침) | release 쪽 | `git-cliff`로 `Unreleased` 생성 | 1 · — | S | D5 | 대기 |
-| `pew/S` | 진입 재구성(운영자 2026-10-08: 너무 길고 섞여 있고 읽기 어렵다, 개발판 전용이어야 한다, 루트에는 진입·개발 지침만): 루트 `AGENTS.md`는 짧은 개발판 진입(≤6,000B), 규칙·컨벤션은 루트 `RULES.md`, 코드 지도는 루트 `CODEMAP.md`, 그 밖의 문서(`README`·`PRODUCT`·`DESIGN`·`CHANGELOG`·`CONVENTION`)는 `docs/`로 | `AGENTS.md`, `RULES.md`, `CODEMAP.md`, `docs/`, 테스트 | `test_entrypoints`(크기·개발판 전용·루트 문서), `test_code_map`, `test_rule_registry` 통과 | 3 · — | M | pew/C | #774 |
-| `pew/T` | 코드를 루트에서 `engine/`으로: 파이썬 모듈·`providers/`·`tools/`를 한 폴더로, import 방식은 그대로(평평한 import). 루트 계산(`Path(__file__)`), `chatbot-ctl.sh`, 보호 경로, 테스트 범위, 러너·훅을 함께 | 코드 전반 | 루트에 진입·개발 지침과 폴더만, `./run-tests.sh` 전부 통과, 라이브 재시작 후 probe 통과 | 3 · ⚡ | L → 쪼갬 | pew/S | 대기 |
+| `pew/S` | 진입 재구성(운영자 2026-10-08: 너무 길고 섞여 있고 읽기 어렵다, 개발판 전용이어야 한다, 루트에는 진입·개발 지침만): 루트 `AGENTS.md`는 짧은 개발판 진입(≤6,000B), 규칙·컨벤션은 루트 `RULES.md`, 코드 지도는 루트 `CODEMAP.md`, 그 밖의 문서(`README`·`PRODUCT`·`DESIGN`·`CHANGELOG`·`CONVENTION`)는 `docs/`로 | `AGENTS.md`, `RULES.md`, `CODEMAP.md`, `docs/`, 테스트 | `test_entrypoints`(크기·개발판 전용·루트 문서), `test_code_map`, `test_rule_registry` 통과 | 3 · — | M | pew/C | ✅ #774 `4a5504c` |
 
 **순서**
 

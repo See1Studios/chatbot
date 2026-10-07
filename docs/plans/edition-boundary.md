@@ -45,7 +45,7 @@
 | `run_command` | 없음 또는 최소 | 허용 목록 | D3 |
 | 개선 탭 UI | 제안 목록으로 대체 | ✅ | ladder/E |
 | 개발 역할 팩·Self-modification 지침 | ❌ | ✅ | pew/L |
-| `.githooks/`, `run-tests.sh`, `tests/`, `docs/plans/`, 루트 `AGENTS.md` | 패키지 제외 | ✅ | 저장소 전용 |
+| `.githooks/`, `run-tests.sh`, `tests/`, `docs/`, 루트 `AGENTS.md`·`RULES.md`·`CODEMAP.md` | 패키지 제외 | ✅ | 저장소 전용 |
 | NAS 호스트 플러그인 | 환경별 | 환경별 | align/F(`host.env`) |
 
 ## 4. 설계 초안
@@ -69,7 +69,7 @@
 
 ### 4.4 패키지 제외 목록
 
-- 배포 빌드가 제외할 경로 목록을 한 파일로 둔다(`edition_exclude.txt` 초안: `.githooks/`, `tests/`, `docs/plans/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `run-tests.sh`, `tools/worktree_runner.py`, `delegation.py`, 개발 역할 팩 …).
+- 배포 빌드가 제외할 경로 목록을 한 파일로 둔다(`edition_exclude.txt` 초안: `.githooks/`, `tests/`, `docs/`, `AGENTS.md`, `RULES.md`, `CODEMAP.md`, `CLAUDE.md`, `GEMINI.md`, `run-tests.sh`, `tools/worktree_runner.py`, `delegation.py`, 개발 역할 팩 …).
 - 경계 테스트가 이 목록의 모듈을 가린 채 `shipped`로 엔진을 띄워 본다(4.5).
 
 ### 4.5 경계를 지키는 테스트

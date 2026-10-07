@@ -1,5 +1,10 @@
 # chatbot 개발로그
 
+## 2026-10-08 — 계획 문서 정리: 저장소 배치 계획 신설 (layout/A)
+
+- **운영자**: "계획 문서 중에 지금 하는 작업에 대한 내용이 있을 거야. 계획 문서 처리도 해야해"
+- **바뀐 것**: `plan-execution-workflow.md` §3의 저장소 배치도·정본 지도를 지금 구조(루트 `AGENTS.md`·`RULES.md`·`CODEMAP.md`, 나머지는 `docs/`)로, pew/S 완료 표시. 코드를 `engine/`으로 옮기는 일은 보관된 monolith-split의 보류분을 이어받는 새 계획 [repo-layout.md](plans/repo-layout.md)로(D1 폴더 이름, D2 import 방식, D3 루트 설정·스크립트 자리 — 운영자 결정 대기). 배포 제외 목록에 `RULES.md`·`CODEMAP.md`·`docs/`, `psec/C`의 규칙 자리는 `RULES.md`.
+
 ## 2026-10-08 — AGENTS.md를 짧은 개발판 진입으로, 루트에는 진입·개발 지침만 (pew/S, #774)
 
 - **운영자**: "너무 길다, 섞여 있다, 읽기 어렵다, 개발판 전용 지침이어야 해" · "프로젝트 루트에서는 엔트리포인트 외에 다른 문서들은 없어야 해" · 이어서 코드도 루트에서 빼기로(pew/T).

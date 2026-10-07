@@ -56,7 +56,7 @@
 
 - `preview_guard`: `<DATA>/private/`와 사적 세션 폴더는 **사적 세션에서 온 요청만** 연다.
 - 업무 세션 지침에 "사적 폴더 읽기 금지" + 사적 폴더를 연 도구 호출을 관찰 로그에 기록(막을 수 없는 CLI 도구에 대한 탐지).
-- 개발 에이전트: `tools/session_meta.py <sid>` — 턴 수·역할·선택지 유무·오류·길이만, 본문 없음. `data/workspace/AGENTS.md`가 아니라 **엔진 `AGENTS.md`**에 "사적 세션 본문은 운영자 동의 후" 규칙, 훅으로 강제할 수 없는 부분은 D5.
+- 개발 에이전트: `tools/session_meta.py <sid>` — 턴 수·역할·선택지 유무·오류·길이만, 본문 없음. `data/workspace/AGENTS.md`가 아니라 **엔진 `RULES.md`**에 "사적 세션 본문은 운영자 동의 후" 규칙, 훅으로 강제할 수 없는 부분은 D5.
 
 ### 4.3 화면
 
@@ -86,7 +86,7 @@
 |---|---|---|---|---|---|---|---|
 | `psec/A` | 이 문서 + INDEX 행 | 이 문서, `docs/plans/INDEX.md` | INDEX 행, 커밋 | 0 · — | S | — | ✅ #358 |
 | `psec/B` | 미리보기 가드: 사적 경로는 사적 세션 요청만 | `preview_guard.py`, 라우트, 테스트 | 업무 세션·세션 없는 요청으로 사적 기억·사적 세션 기록이 403, 사적 세션에선 열림 | 2 · ⚡ | S | — | 대기 |
-| `psec/C` | 세션 메타데이터 도구 + 엔진 `AGENTS.md` 규칙 | `tools/session_meta.py`, `AGENTS.md`, 테스트 | 출력에 본문이 없음(테스트), 규칙 한 줄 | 1 · — | S | D5 | 대기 |
+| `psec/C` | 세션 메타데이터 도구 + 엔진 규칙(`RULES.md`) | `tools/session_meta.py`, `RULES.md`, 테스트 | 출력에 본문이 없음(테스트), 규칙 한 줄 | 1 · — | S | D5 | 대기 |
 | `psec/D` | 사적 데이터 이사(§4.1) | `characters.py`, `items.py`, `session_registry.py`, `data_bootstrap.py`, 테스트 | 새 위치에 쓰고 옛 위치를 이사, 권한 0700/0600, 작업공간에 사적 파일 없음(테스트) | 2 · ⚡ | M | D2 | 대기 |
 | `psec/E` | 화면: 빠른 가리기 + 목록·탭 제목·알림 본문 가림 | `static/`, `session_registry.py` | 사적 세션 미리보기 빈 값, 가리기 토글 | 2 · ⚡ | S | — | 대기 |
 | `psec/F` | 내보내기 허용 목록 | 카드 내보내기 경로, 테스트 | 내보낸 묶음에 사적 기억·`state.json`·세션 없음(테스트) | 1 · — | S | psec/D | 대기 |
