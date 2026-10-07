@@ -381,6 +381,9 @@ function leaseWaitText(l) {
   return tr('ticket.lease_wait', { ticket: l.ticket, paths: l.paths && l.paths.length ? l.paths.slice(0, 2).join(', ') : tr('ticket.lease_all'),
     until: String(l.until || '').slice(11, 16) });
 }
+function leaseWaitBadgeText(l) {
+  return tr('ticket.lease_wait', { ticket: l.ticket, paths: '', until: String(l.until || '').slice(11, 16) }).replace(/\s{2,}/g, ' ').replace(/\s+~$/, '').trim();
+}
 
 function ticketDecisionText(t, action) {
   return '/ticket ' + action + ' ' + t.id;
@@ -508,7 +511,10 @@ async function runTicketDecision(cmd, opts) {
 function ticketStateBadge(t) {
   if (ticketOwnedElsewhere(t)) return obsNode('span', 'obs-badge owner', tr('ticket.owner', { owner: t.owner }));
   const b = (t.status === 'approved' || t.status === 'proposed') ? ticketBlocker(t) : null;
-  return b ? obsNode('span', 'obs-badge queued', leaseWaitText(b)) : null;
+  if (!b) return null;
+  const badge = obsNode('span', 'obs-badge queued', leaseWaitBadgeText(b));
+  badge.title = leaseWaitText(b);
+  return badge;
 }
 
 function renderTicketBar(waiting) {
@@ -601,21 +607,12 @@ function announceWorkEnding(r) {
 function renderWorkCard(r) {
   const card = obsNode('div', 'work-card phase-' + r.phase);
   const open = workOpen.has(r.ticket);
-  
-  // 1. head: #id + title + phase badge + fold arrow
   const head = obsNode('div', 'work-head clickable');
   head.title = open ? tr('work.collapse') : tr('work.expand');
   head.appendChild(obsNode('span', 'obs-id', '#' + r.ticket));
   head.appendChild(obsNode('span', 'work-title', r.title || ''));
-
-  // the phase badge
   head.appendChild(obsNode('span', 'obs-badge ' + r.phase, WORK_PHASE_LABEL[r.phase] || r.phase));
-
-  // fold indicator
-  const toggleIcon = obsNode('span', 'work-toggle-icon', open ? '▲' : '▼');
-  head.appendChild(toggleIcon);
-
-  // an ended (or orphan) card can be closed
+  head.appendChild(obsNode('span', 'work-toggle-icon', open ? '▲' : '▼'));
   if (!r.active) {
     const closeBtn = obsNode('button', 'art-btn art-btn-xs', '✕');
     closeBtn.type = 'button';
@@ -629,9 +626,7 @@ function renderWorkCard(r) {
     });
     head.appendChild(closeBtn);
   }
-
   head.addEventListener('click', (e) => {
-    // a click on an action button does not fold
     if (e.target.closest('button')) return;
     if (open) workOpen.delete(r.ticket);
     else workOpen.add(r.ticket);
@@ -642,8 +637,6 @@ function renderWorkCard(r) {
   // 2. details (only when open)
   if (open) {
     const details = obsNode('div', 'work-details');
-
-    // meta line: elapsed / limit, files, step, round, brain, the lease it waits for
     const metaParts = [];
     if (r.active && r.phase === 'writing' && r.timeout_sec && r.phase_since) {
       metaParts.push('⏱ ' + workElapsed(Date.now() / 1000 - r.phase_since) + ' / ' + workElapsed(r.timeout_sec));
