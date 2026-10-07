@@ -8,8 +8,9 @@ import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import content_guard  # noqa: E402
 from providers import adapters  # noqa: E402
 
@@ -120,10 +121,10 @@ class FinalizeTurn(unittest.TestCase):
 
 class Wiring(unittest.TestCase):
     def test_server_checks_before_send_and_module_is_neutral(self):
-        src = (ROOT / "route_sessions.py").read_text(encoding="utf-8")
+        src = (ENGINE / "route_sessions.py").read_text(encoding="utf-8")
         self.assertLess(src.index("content_guard.check_preflight("), src.index("rotated = sess.send(text"))
         names = {getattr(n, "id", getattr(n, "name", getattr(n, "attr", "")))
-                 for n in ast.walk(ast.parse((ROOT / "content_guard.py").read_text(encoding="utf-8")))}
+                 for n in ast.walk(ast.parse((ENGINE / "content_guard.py").read_text(encoding="utf-8")))}
         pat = re.compile("|".join(map(re.escape, adapters.AGENT_ADAPTERS)), re.I)
         self.assertEqual([n for n in names if n and pat.search(str(n))], [])
 

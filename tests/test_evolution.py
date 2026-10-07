@@ -10,13 +10,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import evolution  # noqa: E402
 from tests._platform import home_env  # noqa: E402
 
 STDLIB_OK = {  # and platform_compat, the core sibling that holds OS-specific calls (PP5)
-             "__future__", "fnmatch", "hashlib", "platform_compat", "json", "os", "pathlib", "re", "signal", "subprocess",
+             "__future__", "fnmatch", "hashlib", "platform_compat", "repo_layout", "json", "os", "pathlib", "re", "signal", "subprocess",
              "sys", "threading", "time", "typing"}
 
 
@@ -151,7 +152,7 @@ class ShippedRegistryTest(unittest.TestCase):
         self.assertEqual(exceptions, ["static/"])
 
     def test_every_host_module_is_protected(self):
-        modules = sorted(p.name for p in CODE.glob("*.py"))
+        modules = sorted(p.name for p in ENGINE.glob("*.py"))
         self.assertIn("server.py", modules)
         self.assertIn("evolution.py", modules)
         for name in modules:
@@ -184,7 +185,7 @@ class ImportDisciplineTest(unittest.TestCase):
     """The core module stays standalone: stdlib only, no host imports, no mention of the tool server."""
 
     def test_only_stdlib_imports(self):
-        tree = ast.parse((CODE / "evolution.py").read_text(encoding="utf-8"))
+        tree = ast.parse((ENGINE / "evolution.py").read_text(encoding="utf-8"))
         imported = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -199,7 +200,7 @@ class ImportDisciplineTest(unittest.TestCase):
                 self.assertNotIn(server_name, (CODE / name).read_text(encoding="utf-8"), name)
 
     def test_no_python39_syntax(self):
-        src = (CODE / "evolution.py").read_text(encoding="utf-8")
+        src = (ENGINE / "evolution.py").read_text(encoding="utf-8")
         compile(src, "evolution.py", "exec")  # the suite runs on 3.8
         self.assertNotIn("removeprefix", src)
 
@@ -235,7 +236,7 @@ class DelegationTierTest(unittest.TestCase):
             self.assertEqual(evolution.delegation_tier(root, "anything.txt")[0], 3, text)
 
     def test_the_shipped_registry_guards_the_guards(self):
-        root = Path(__file__).resolve().parents[1]
+        root = REPO
         for rel in ("tickets.py", "evolution.py", evolution.REGISTRY_NAME, "tests/smoke.py", "data/workspace/AGENTS.md"):
             self.assertEqual(evolution.delegation_tier(root, rel)[0], 3, rel)
         self.assertEqual(evolution.delegation_tier(root, "session.py")[0], 2)

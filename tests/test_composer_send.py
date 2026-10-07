@@ -10,8 +10,9 @@ import subprocess
 import unittest
 from pathlib import Path
 from tests.page_source import i18n_prelude  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 
 HARNESS = r"""
 const fs = require('fs');
@@ -86,7 +87,7 @@ class NoGuessBtw(unittest.TestCase):
     question endings or words (they matched Korean and English only)."""
 
     def test_only_an_explicit_btw_is_a_side_question(self):
-        src = (Path(__file__).resolve().parent.parent / "static" / "app.js").read_text(encoding="utf-8")
+        src = (REPO / "static" / "app.js").read_text(encoding="utf-8")
         fn = src[src.index("function isInquiry"):src.index("\n}\n", src.index("function isInquiry")) + 3]
         js = fn + "console.log(JSON.stringify(%s.map(isInquiry)));" % json.dumps(
             ["/btw where is it", "/btw", "where is it?", "어디야?", "どこ？", "what is it", "진행상황 알려줘"])

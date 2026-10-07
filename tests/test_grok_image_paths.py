@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 from urllib.parse import quote
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import session as S  # noqa: E402
 from tests.test_instructions import WorkspaceCase  # noqa: E402
 

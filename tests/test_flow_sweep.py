@@ -5,8 +5,9 @@ Run: python3 -m unittest tests.test_flow_sweep  (from services/chatbot)
 import re
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-CSS = (Path(__file__).resolve().parent.parent / "static" / "chat-log.css").read_text(encoding="utf-8")
+CSS = (REPO / "static" / "chat-log.css").read_text(encoding="utf-8")
 
 
 class FlowSweep(unittest.TestCase):

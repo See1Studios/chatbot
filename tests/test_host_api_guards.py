@@ -19,8 +19,9 @@ from unittest import mock
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import server  # noqa: E402
 import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
@@ -31,7 +32,7 @@ class ServerCase(unittest.TestCase):
         self._orig = {k: getattr(server, k) for k in ("_schedule_host_defibrillate", "ROOT")}
         server._schedule_host_defibrillate = lambda: self.scheduled.append(1)
         self.root = Path(tempfile.mkdtemp()).resolve()
-        shutil.copy(str(CODE / "protected_paths.json"), str(self.root / "protected_paths.json"))
+        shutil.copy(str(ENGINE / "protected_paths.json"), str(self.root / "protected_paths.json"))
         self.ws = self.root / "data" / "workspace"
         self.ws.mkdir(parents=True)
         server.ROOT = self.root
@@ -223,7 +224,7 @@ class DefaultBindTest(unittest.TestCase):
     def test_bare_start_is_loopback_only_and_ctl_opts_the_lan_in(self):
         tmp = tempfile.mkdtemp()
         env = {k: v for k, v in os.environ.items() if k != "CHATBOT_HOST"}
-        env.update(CHATBOT_ROOT=str(CODE), CHATBOT_DATA=tmp)
+        env.update(CHATBOT_ROOT=str(ENGINE), CHATBOT_DATA=tmp)
         out = subprocess.check_output([sys.executable, "-c", "import host_config; print(host_config.HOST)"],
                                       cwd=str(CODE), env=env).decode().strip()
         self.assertEqual(out, "127.0.0.1")
@@ -232,7 +233,7 @@ class DefaultBindTest(unittest.TestCase):
                                       cwd=str(CODE), env=env).decode().strip()
         self.assertEqual(out, "0.0.0.0")
         # The production start path must keep opening the LAN explicitly, or the default flip closes it.
-        ctl = (CODE / "chatbot-ctl.sh").read_text(encoding="utf-8")
+        ctl = (ENGINE / "chatbot-ctl.sh").read_text(encoding="utf-8")
         self.assertIn("export CHATBOT_HOST=0.0.0.0", ctl)
 
 

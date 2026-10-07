@@ -16,9 +16,10 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
-BASELINE = ROOT / "ratchet_baseline.json"
+ROOT = REPO
+BASELINE = ENGINE / "ratchet_baseline.json"
 PRAGMA = "l10n-ok"
 RATCHETS = {
     "l10n": (re.compile(r"[가-힣]"), ()),
@@ -29,7 +30,7 @@ RATCHETS = {
 
 
 def files():
-    code = list(ROOT.glob("*.py")) + list(ROOT.glob("providers/*.py")) + list(ROOT.glob("tools/*.py"))
+    code = list(ENGINE.glob("*.py")) + list(ENGINE.glob("providers/*.py")) + list(ENGINE.glob("tools/*.py"))
     page = [p for p in ROOT.glob("static/*") if p.suffix in (".js", ".html", ".css")]
     return sorted(code + page)
 

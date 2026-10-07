@@ -13,8 +13,9 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import obslog  # noqa: E402
 import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
@@ -176,7 +177,7 @@ class EventTests(Base):
 
     def test_cli_emit(self):
         env = dict(os.environ, CHATBOT_OBSLOG_PATH=str(self.path), CHATBOT_CALLER="cli-test")
-        subprocess.run([sys.executable, str(CODE / "obslog.py"), "emit", "--evt", "repair.begin", "--lvl", "warn",
+        subprocess.run([sys.executable, str(ENGINE / "obslog.py"), "emit", "--evt", "repair.begin", "--lvl", "warn",
                         "ok=1", "dur_s=2.5", "--msg", "hello"], env=env, check=True)
         rec = lines(self.path)[-1]
         self.assertEqual((rec["src"], rec["evt"], rec["lvl"], rec["ok"], rec["dur_s"], rec["caller"], rec["msg"]),

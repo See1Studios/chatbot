@@ -6,7 +6,7 @@ main only what passed the gates and the PD character's confirmation
 Usage:
   python3 tools/worktree_runner.py run --provider claude --title "title" \\
       --paths "tickets.py,tests/test_tickets.py" --prompt "brief..." \\
-      [--gate "python3 tests/test_tickets.py"] [--evidence log:fp:<fp>] [--timeout 1200] \\
+      [--gate "./run-tests.sh test_tickets"] [--evidence log:fp:<fp>] [--timeout 1200] \\
       [--reviewer claude] [--reviewer-model haiku] [--rounds 2] [--no-review] [--stop-before-merge] [--keep] [--json]
 
   # Tier 2: land a ticket stopped by --stop-before-merge on the operator's word

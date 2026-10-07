@@ -7,12 +7,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 from providers import adapter_openai  # noqa: E402
 from providers.adapters import load_openai_dialect_adapters  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
 # uds/F: an install's providers.json is user data in ~/.pe; the adapters come from the shipped example
-EXAMPLE = Path(__file__).resolve().parent.parent / "templates" / "providers.example.json"
+EXAMPLE = REPO / "templates" / "providers.example.json"
 
 
 class ModelsMetaCache(unittest.TestCase):

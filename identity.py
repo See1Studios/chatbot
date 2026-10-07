@@ -31,7 +31,7 @@ import re
 from pathlib import Path
 from typing import Dict, Optional
 
-from host_config import ROOT, WORKSPACE
+from host_config import TEMPLATES, WORKSPACE
 import characters   # the cards; identity is the view on top of them (split/D: no import back)
 from characters import _FRONT, parse_frontmatter   # the front-matter reader lives with the cards it reads
 
@@ -177,7 +177,7 @@ def seed_workspace_files(templates_dir: Optional[Path] = None, workspace: Option
     """New install: the neutral card template becomes the first character, the team's default, holding no role --
     roles are the user's data, given when a premade pack is chosen (CARD_ONLY_v1, workspace manifest). A workspace
     that already has a character is never touched. Returns what was made."""
-    src = (templates_dir or (ROOT / "templates")) / "character.json"
+    src = (templates_dir or TEMPLATES) / "character.json"
     dst_dir = workspace or WORKSPACE
     if characters.default_character(dst_dir) or characters.listing(dst_dir) or not src.is_file():
         return []

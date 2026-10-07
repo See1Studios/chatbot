@@ -11,8 +11,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from tests._platform import dev_only_bash  # noqa: E402
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 spec = importlib.util.spec_from_file_location("check_staged", ROOT / ".githooks" / "check_staged.py")
 check = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(check)
@@ -76,7 +77,7 @@ class Hooks(unittest.TestCase):
     def test_a_code_change_carries_its_test_or_says_why_not(self):
         # TEST_PAIRING_v1: 19 of 200 feat/fix commits before 2026-10-07 changed code with no test and nothing said why
         (self.repo / "tools").mkdir()
-        shutil.copy(str(ROOT / "tools" / "review_checklist.py"), str(self.repo / "tools" / "review_checklist.py"))
+        shutil.copy(str(ENGINE / "tools" / "review_checklist.py"), str(self.repo / "tools" / "review_checklist.py"))
         r = self.commit("app.py", "x = 1\n", "fix(core): a bug\n\nTicket: #1")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("No-Test:", r.stdout + r.stderr)
@@ -145,7 +146,7 @@ class Hooks(unittest.TestCase):
     # --- ENGINE_DECIDES_A5: who commits and who lands is decided by the engine, not typed by the agent ---
 
     def _with_core(self):
-        for name in ("evolution.py", "platform_compat.py"):
+        for name in ("evolution.py", "platform_compat.py", "repo_layout.py"):
             shutil.copy(str(ROOT / name), str(self.repo / name))
 
     def test_a_ticket_record_with_a_persona_actor_is_refused(self):

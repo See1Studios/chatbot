@@ -10,9 +10,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "tools"))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
+sys.path.insert(0, str(ENGINE / "tools"))
 import migrate_user_data as mig  # noqa: E402
 
 
@@ -136,7 +137,7 @@ class MigrateUserData(unittest.TestCase):
         env = dict(os.environ)
         env["HOME"] = str(home)
         r = subprocess.run(
-            [sys.executable, str(ROOT / "tools" / "migrate_user_data.py"), "--source", str(source)],
+            [sys.executable, str(ENGINE / "tools" / "migrate_user_data.py"), "--source", str(source)],
             cwd=str(tmp), env=env, capture_output=True, text=True, timeout=60,
         )
         self.assertEqual(r.returncode, 0, r.stderr)

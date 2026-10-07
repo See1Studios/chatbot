@@ -15,8 +15,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 os.environ.setdefault("CHATBOT_EVENTS_DIR", tempfile.mkdtemp())   # never the live mailbox
 os.environ.setdefault("CHATBOT_DIALOGS_DIR", tempfile.mkdtemp())  # nor the live dialogs
 import characters as C  # noqa: E402

@@ -9,8 +9,9 @@ import json
 import re
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 AUDIENCES = {"all", "PE chat agent only"}
 SLOW = {   # enforcers too slow for every commit: where they run instead
     "test_worktree_runner": "about 90 s; the delegation runner's own changes and the full suite before release",
@@ -65,8 +66,8 @@ class RuleRegistry(unittest.TestCase):
 
 
     def test_every_enforcer_is_tier_3_and_runs_on_commit(self):
-        tier3 = [g["path"] for g in json.loads((ROOT / "protected_paths.json").read_text(encoding="utf-8"))["governance"]]
-        fast = re.search(r"FAST=\((.*?)\)", (ROOT / "run-tests.sh").read_text(encoding="utf-8"), re.S).group(1).split()
+        tier3 = [g["path"] for g in json.loads((ENGINE / "protected_paths.json").read_text(encoding="utf-8"))["governance"]]
+        fast = re.search(r"FAST=\((.*?)\)", (ENGINE / "run-tests.sh").read_text(encoding="utf-8"), re.S).group(1).split()
         for rule, tests, paths in enforcers():
             for t in tests:
                 self.assertTrue(governed("tests/%s.py" % t, tier3),

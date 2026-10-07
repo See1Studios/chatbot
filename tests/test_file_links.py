@@ -12,9 +12,10 @@ import sys
 import unittest
 from pathlib import Path
 from unittest import mock
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 MD = ROOT / "static" / "markdown.js"
 
 

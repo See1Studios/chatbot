@@ -11,10 +11,11 @@ import re
 import unittest
 from pathlib import Path
 from typing import Dict, List, Tuple
+from tests._paths import ENGINE, REPO  # noqa: E402
 
 BLOCKING = ("run", "check_output", "check_call", "call")
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 DOCS = ROOT / "docs"
 
 # Legitimate legacy exemptions for subprocess.run without explicit timeout.
@@ -24,7 +25,7 @@ LEGACY_SUBPROCESS_EXEMPTIONS: Dict[str, str] = {}   # emptied 2026-10-07 (prop/I
 
 def target_modules() -> List[Path]:
     """Target python modules in root, tools/, and providers/."""
-    return sorted(list(ROOT.glob("*.py")) + list((ROOT / "tools").glob("*.py")) + list((ROOT / "providers").glob("*.py")))
+    return sorted(list(ENGINE.glob("*.py")) + list((ENGINE / "tools").glob("*.py")) + list((ENGINE / "providers").glob("*.py")))
 
 
 def find_subprocess_run_calls(path: Path) -> List[Tuple[str, int, bool]]:

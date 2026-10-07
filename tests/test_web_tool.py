@@ -11,8 +11,9 @@ import urllib.request
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import web_tool as W  # noqa: E402
 
 DNS = {"example.com": ["93.184.215.14"], "evil.test": ["127.0.0.1"], "nas.test": ["192.168.0.10"],
@@ -183,7 +184,7 @@ class TheTool(unittest.TestCase):
         self.assertFalse(W.call({"action": "read", "url": "http://127.0.0.1/"}, env)["ok"])
 
     def test_the_mcp_server_offers_and_routes_it(self):
-        src = (ROOT / "mcp_server.py").read_text(encoding="utf-8")
+        src = (ENGINE / "mcp_server.py").read_text(encoding="utf-8")
         self.assertIn("defs += list(web_tool.TOOL_DEFS)", src)
         self.assertIn('return web_tool.call(args, envelope, private=_live_scope("web")[0])', src)
 

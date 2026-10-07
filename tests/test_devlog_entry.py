@@ -12,8 +12,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "tools"))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE / "tools"))
 import devlog_entry as D  # noqa: E402
 
 HEAD = "# chatbot 개발로그\n\n2026-09-28 기록은 회전했습니다.\n\n"   # l10n-ok
@@ -77,7 +78,7 @@ class DevlogEntry(unittest.TestCase):
         self.assertEqual(D.record_merge(self.repo, 9, "t", "claude", self.base, self.head), [])
 
     def test_the_runner_writes_it_with_the_ticket_record(self):
-        src = (ROOT / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
+        src = (ENGINE / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
         report = src[src.index("def record_and_report("):src.index("# ---------------------------------------------------------------------- run")]
         self.assertIn("devlog_entry.record_merge(", report)
         self.assertIn('if result.get("merged"):', report)
@@ -96,7 +97,7 @@ class DevlogEntry(unittest.TestCase):
     def test_the_range_starts_after_the_rebase_so_main_commits_are_not_the_branchs(self):
         # #535 (2026-10-01): main moved during the run, the branch was rebased, and the diary listed the other
         # agents' commits as the worker's -- the merge result kept the base from before the rebase.
-        src = (ROOT / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
+        src = (ENGINE / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
         self.assertEqual(src.count("result.update(merged=True, head=head, base=base)"), 2, "both landing paths")
         self.assertNotIn("_, head = land(", src)
         self.assertIn('record_merge(repo, tid, title, provider, result["base"], ', src)

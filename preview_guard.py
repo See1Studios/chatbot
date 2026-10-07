@@ -66,7 +66,7 @@ def _resolve_safe_preview_file(raw_path: str) -> Tuple[Optional[Path], Optional[
     else:
         # FILE_LINKS_v1: an answer's relative path is the workspace's, the engine repo's (`docs/plans/INDEX.md`,
         # `static/app-sse.js`) or the home's, first that exists; the allow-list below still decides.
-        cands = [(base / raw).resolve() for base in (workspace, host_config.ROOT, home)]
+        cands = [(base / raw).resolve() for base in (workspace, host_config.REPO, home)]
         p = next((c for c in cands if c.is_file()), cands[-1])
     try:
         rp = p.resolve()

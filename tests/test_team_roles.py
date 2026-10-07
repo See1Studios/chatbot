@@ -10,8 +10,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import characters as C  # noqa: E402
 import instructions as I  # noqa: E402
 
@@ -80,7 +81,7 @@ class Roster(unittest.TestCase):
     def test_engine_code_names_no_role(self):
         # the enforcer of the rule above: a role id quoted in engine code is the old hardcoding coming back
         pattern = re.compile(r"""["'](pd|staff|artist|lead)["']""")
-        files = sorted(list(ROOT.glob("*.py")) + list((ROOT / "tools").glob("*.py")) + list((ROOT / "providers").glob("*.py")))
+        files = sorted(list(ENGINE.glob("*.py")) + list((ENGINE / "tools").glob("*.py")) + list((ENGINE / "providers").glob("*.py")))
         hits = ["%s:%d" % (f.name, n) for f in files
                 for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1) if pattern.search(line)]
         self.assertEqual(hits, [], "engine code must not name a role (roles live in team.json and roles/)")

@@ -7,8 +7,9 @@ import os
 import subprocess
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 
 
 def run(*args, live=True):
@@ -31,7 +32,7 @@ class LiveAgentSuite(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout[-500:] + r.stderr[-500:])
 
     def test_the_host_marks_the_agents_it_spawns(self):
-        src = (ROOT / "session.py").read_text(encoding="utf-8")
+        src = (ENGINE / "session.py").read_text(encoding="utf-8")
         self.assertIn('env["CHATBOT_LIVE_AGENT"] = "1"', src)
 
 
@@ -46,7 +47,7 @@ class LiveAgentSuite(unittest.TestCase):
 
     def test_a_test_run_outside_the_script_never_gets_an_installs_data(self):
         import sys
-        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ENGINE))
         import host_config
         import tickets
         saved_argv, saved_env = sys.argv, dict(os.environ)
@@ -55,7 +56,7 @@ class LiveAgentSuite(unittest.TestCase):
             os.environ.pop("CHATBOT_TEST_RUNNER", None)
             os.environ["CHATBOT_DATA"] = "/somewhere/live/.pe"
             self.assertTrue(host_config.test_run_outside_runner())
-            self.assertEqual(tickets._data_dir(), ROOT / "data")
+            self.assertEqual(tickets._data_dir(), ENGINE / "data")
             os.environ["CHATBOT_TEST_RUNNER"] = "1"                              # the script's own run
             self.assertFalse(host_config.test_run_outside_runner())
             self.assertEqual(str(tickets._data_dir()), "/somewhere/live/.pe")
@@ -68,7 +69,7 @@ class LiveAgentSuite(unittest.TestCase):
             os.environ.update(saved_env)
 
     def test_the_script_marks_its_own_runs(self):
-        self.assertIn("export CHATBOT_TEST_RUNNER=1", (ROOT / "run-tests.sh").read_text(encoding="utf-8"))
+        self.assertIn("export CHATBOT_TEST_RUNNER=1", (ENGINE / "run-tests.sh").read_text(encoding="utf-8"))
 
 if __name__ == "__main__":
     unittest.main()

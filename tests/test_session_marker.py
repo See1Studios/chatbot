@@ -10,7 +10,8 @@ import unittest
 from pathlib import Path
 from tests.page_source import i18n_prelude  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / 'static'
+from tests._paths import REPO  # noqa: E402
+STATIC = REPO / 'static'
 SRC = (STATIC / 'app-session.js').read_text(encoding='utf-8')
 API = (STATIC / 'app-api.js').read_text(encoding='utf-8')
 

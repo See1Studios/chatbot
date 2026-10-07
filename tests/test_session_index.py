@@ -9,7 +9,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import session as S  # noqa: E402
 import session_registry as SR  # noqa: E402
 

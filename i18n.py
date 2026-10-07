@@ -19,7 +19,9 @@ import re
 from pathlib import Path
 from typing import Any, Dict
 
-CATALOGS = Path(__file__).resolve().parent / "static" / "i18n"
+import repo_layout
+
+CATALOGS = repo_layout.STATIC / "i18n"
 _cache: Dict[str, Dict[str, str]] = {}
 
 

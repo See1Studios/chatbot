@@ -43,7 +43,7 @@ WEB_ROOT = Path(os.environ.get("CHATBOT_WEB_ROOT")
                 or DATA / "web")
 AGENTS = HOME / ".agents"
 TMP_ROOT = Path("/tmp/chatbot-mcp")
-CODE_ROOT = Path(__file__).resolve().parent  # where protected_paths.json lives
+from host_config import REPO as CODE_ROOT  # noqa: E402  -- the repo root: protected_paths.json patterns are relative to it
 
 # Which paths are write-protected is decided by the core registry, not here.
 # If it cannot be imported, write_file refuses everything (read tools keep working).
@@ -81,7 +81,7 @@ except Exception:
 # Sphere/Hermes/wiki-specific extra roots live in the optional nas_mcp_host
 # plugin (see docs/plans/chatbot-host-portability.md Phase 1) and get merged
 # in by _allow_roots()/_read_roots() below once HOST_PLUGIN is resolved.
-ALLOW_ROOTS = [DATA.resolve(), AGENTS.resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve(), (DATA / "workspace").resolve(), ENGINE.resolve()]
+ALLOW_ROOTS = [DATA.resolve(), AGENTS.resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve(), (DATA / "workspace").resolve(), CODE_ROOT.resolve()]
 READ_ROOTS = ALLOW_ROOTS + [SERVICES.resolve(), (HOME / ".local" / "bin").resolve(), (HOME / "bin").resolve(), (HOME / "AGENTS.md").resolve()]
 
 SECRET_NAME_RE = re.compile(r"(?i)(^\.env($|\.)|oauth|token|secret|credential|passwd|password|api[_-]?key|auth\.json|antigravity-oauth)")
@@ -140,7 +140,7 @@ def _resolve_target_path(raw_path: str) -> Path:
         ws_candidate = (DATA / "workspace" / p).resolve()
         if ws_candidate.exists():
             return ws_candidate
-        svc_candidate = (ENGINE / p).resolve()
+        svc_candidate = (CODE_ROOT / p).resolve()   # a repo-relative path
         if svc_candidate.exists():
             return svc_candidate
         home_candidate = (HOME / p).resolve()

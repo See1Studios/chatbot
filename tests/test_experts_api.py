@@ -8,8 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import workspace_status as W  # noqa: E402
 
 
@@ -25,11 +26,11 @@ class ExpertsApiTest(unittest.TestCase):
                         self.ws)
         (self.root / "protected_paths.json").write_text(json.dumps({"protect": ["data/workspace/AGENTS.md"]}),
                                                         encoding="utf-8")
-        self.saved = (W.ROOT, W.WORKSPACE)
-        W.ROOT, W.WORKSPACE = self.root, self.ws
+        self.saved = (W.REPO, W.WORKSPACE)
+        W.REPO, W.WORKSPACE = self.root, self.ws
 
     def tearDown(self):
-        W.ROOT, W.WORKSPACE = self.saved
+        W.REPO, W.WORKSPACE = self.saved
 
     def put(self, who, chain):
         return W.experts_api("PUT", "/api/experts/%s/brain" % who, {"chain": chain})

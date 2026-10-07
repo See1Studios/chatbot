@@ -7,8 +7,9 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 
 JS = r"""
 const fs = require('fs');

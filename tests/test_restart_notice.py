@@ -10,7 +10,8 @@ from pathlib import Path
 from unittest import mock
 
 os.environ.setdefault("CHATBOT_EVENTS_DIR", tempfile.mkdtemp())   # never the live event mailbox (evt/B)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import server  # noqa: E402
 import session as S  # noqa: E402
 from tests.test_conversation_sync import Base as SyncBase  # noqa: E402

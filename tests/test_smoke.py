@@ -9,9 +9,10 @@ import importlib
 import sys
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 GATES = ("tests/smoke.py", "tests/test_identity_wiring.py")   # worktree_runner.DEFAULT_GATES besides the FAST guards
 
 
@@ -30,7 +31,7 @@ class GateImports(unittest.TestCase):
         self.assertEqual(missing, [], "a gate imports a name its module no longer has (moved or removed)")
 
     def test_the_gates_are_the_runners(self):
-        src = (ROOT / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
+        src = (ENGINE / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
         for gate in GATES:
             self.assertIn("python3 %s" % gate, src)
 

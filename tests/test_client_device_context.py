@@ -11,8 +11,9 @@ import unittest
 from pathlib import Path
 import sys
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 
 import session as S
 from providers.adapters import get_adapter

@@ -10,8 +10,9 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 MAX_BYTES = 43_000
 CEILINGS = {"app-evolution.js": 43_574}   # over the cap already: no growth
 BYTES_SLACK = 2_000

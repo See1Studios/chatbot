@@ -27,8 +27,9 @@ from pathlib import Path
 from tests.page_source import i18n_prelude  # noqa: E402
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 
 import characters as C
 import room_chat as RC

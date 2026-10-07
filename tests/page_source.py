@@ -6,8 +6,9 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 
 
 def app_files():

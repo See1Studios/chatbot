@@ -9,8 +9,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from tests._platform import dev_only_bash  # noqa: E402
+from tests._paths import ENGINE  # noqa: E402
 
-CTL = Path(__file__).resolve().parent.parent / "chatbot-ctl.sh"
+CTL = ENGINE / "chatbot-ctl.sh"
 
 
 @dev_only_bash

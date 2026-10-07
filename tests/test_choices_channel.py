@@ -11,8 +11,9 @@ import types
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 from providers.adapter_base import split_choices  # noqa: E402
 from providers.adapters import AgyAdapter  # noqa: E402
 from tests.page_source import app_bundle  # noqa: E402

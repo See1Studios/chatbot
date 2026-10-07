@@ -8,9 +8,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
 import sys
-sys.path.insert(0, str(CODE))
+sys.path.insert(0, str(ENGINE))
 import workspace_status as W  # noqa: E402
 
 
@@ -61,7 +62,7 @@ class StaticFallback(unittest.TestCase):
         self.assertIn("if (Array.isArray(data.popular))", text)
 
     def test_server_does_not_hardcode_the_retired_k_skill_pins(self):
-        text = (CODE / "server.py").read_text(encoding="utf-8")
+        text = (ENGINE / "server.py").read_text(encoding="utf-8")
         for name in BANNED:
             self.assertNotIn(name, text, name)
         self.assertIn("_popular_slash_skills", text)

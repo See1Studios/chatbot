@@ -8,8 +8,9 @@ Run: python3 -m unittest tests.test_file_sizes  (from services/chatbot)
 import ast
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 MAX_BYTES = 80_000
 CEILINGS = {}                      # over the cap already: no growth (none left since split/G)
 BYTES_SLACK = 2_000                # a ceiling more than this above the file must come down
@@ -36,7 +37,7 @@ FUNC_SLACK = 10                    # a function ceiling more than this above the
 
 
 def modules():
-    return sorted(list(ROOT.glob("*.py")) + list((ROOT / "tools").glob("*.py")) + list((ROOT / "providers").glob("*.py")))
+    return sorted(list(ENGINE.glob("*.py")) + list((ENGINE / "tools").glob("*.py")) + list((ENGINE / "providers").glob("*.py")))
 
 
 def rel(p):

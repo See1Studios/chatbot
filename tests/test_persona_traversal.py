@@ -10,8 +10,9 @@ import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import route_files  # noqa: E402  (the persona route reads DATA/WEB_ROOT here, split/B)
 import server  # noqa: E402
 import platform_compat  # noqa: E402  (exclusive port on Windows, #409)

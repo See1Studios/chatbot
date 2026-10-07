@@ -17,8 +17,9 @@ import time
 import unittest
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import evolution  # noqa: E402
 from tests._platform import dev_only_bash  # noqa: E402
 
@@ -64,7 +65,7 @@ class RunLockedTest(unittest.TestCase):
         self.lock = tmpdir() / "lifecycle.lock"
 
     def helper(self, wait, *argv, **kw):
-        return subprocess.run([PY, str(CODE / "evolution.py"), "run-locked", str(self.lock), str(wait), "--"] + list(argv),
+        return subprocess.run([PY, str(ENGINE / "evolution.py"), "run-locked", str(self.lock), str(wait), "--"] + list(argv),
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, **kw)
 
     def test_child_status_is_returned_and_child_knows_it_is_inside(self):
@@ -99,20 +100,20 @@ class RunLockedTest(unittest.TestCase):
 
     def test_unusable_lock_file_still_runs_the_command(self):
         bad = tmpdir() / "no" / "such" / "dir" / "x.lock"
-        r = subprocess.run([PY, str(CODE / "evolution.py"), "run-locked", str(bad), "0", "--", PY, "-c", "print('BODY')"],
+        r = subprocess.run([PY, str(ENGINE / "evolution.py"), "run-locked", str(bad), "0", "--", PY, "-c", "print('BODY')"],
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         self.assertIn("BODY", r.stdout)
         self.assertIn("without it", r.stdout)
         self.assertEqual(r.returncode, 0)
 
     def test_self_check_passes_when_usable_and_fails_when_not(self):
-        ok = subprocess.run([PY, str(CODE / "evolution.py"), "self-check", str(self.lock)])
+        ok = subprocess.run([PY, str(ENGINE / "evolution.py"), "self-check", str(self.lock)])
         self.assertEqual(ok.returncode, 0)
         held = evolution.acquire_lock(self.lock, 0)
-        busy = subprocess.run([PY, str(CODE / "evolution.py"), "self-check", str(self.lock)])
+        busy = subprocess.run([PY, str(ENGINE / "evolution.py"), "self-check", str(self.lock)])
         held.close()
         self.assertEqual(busy.returncode, 0)  # busy is not "broken"
-        bad = subprocess.run([PY, str(CODE / "evolution.py"), "self-check", str(tmpdir() / "no" / "x.lock")],
+        bad = subprocess.run([PY, str(ENGINE / "evolution.py"), "self-check", str(tmpdir() / "no" / "x.lock")],
                              stderr=subprocess.PIPE)
         self.assertNotEqual(bad.returncode, 0)
 
@@ -127,10 +128,10 @@ class MaintenanceTest(unittest.TestCase):
     def test_cli_exit_status(self):
         d = tmpdir()
         flag = d / "maintenance.flag"
-        absent = subprocess.run([PY, str(CODE / "evolution.py"), "maintenance", str(flag)], stdout=subprocess.PIPE)
+        absent = subprocess.run([PY, str(ENGINE / "evolution.py"), "maintenance", str(flag)], stdout=subprocess.PIPE)
         self.assertEqual(absent.returncode, 1)
         flag.write_text("", encoding="utf-8")
-        present = subprocess.run([PY, str(CODE / "evolution.py"), "maintenance", str(flag)], stdout=subprocess.PIPE)
+        present = subprocess.run([PY, str(ENGINE / "evolution.py"), "maintenance", str(flag)], stdout=subprocess.PIPE)
         self.assertEqual(present.returncode, 0)
 
 
@@ -223,13 +224,13 @@ class ProtectedChangesTest(unittest.TestCase):
         self.assertFalse([f for f in listed if "__pycache__" in f or "/tickets/" in f or f.endswith("events.jsonl")])
 
     def test_cli_check_never_fails(self):
-        out = subprocess.run([PY, str(CODE / "evolution.py"), "protected-check"], stdout=subprocess.PIPE,
+        out = subprocess.run([PY, str(ENGINE / "evolution.py"), "protected-check"], stdout=subprocess.PIPE,
                              universal_newlines=True)
         self.assertEqual(out.returncode, 0)  # even when files differ
         self.assertTrue(out.stdout.strip())
 
 
-CTL_TEXT = (CODE / "chatbot-ctl.sh").read_text(encoding="utf-8")
+CTL_TEXT = (ENGINE / "chatbot-ctl.sh").read_text(encoding="utf-8")
 WRAPPER = re.search(r"(case \"\$\{1:-status\}\" in\n  start\|doctor.*?\nesac\n)", CTL_TEXT, re.S)
 
 
@@ -244,7 +245,7 @@ class WrapperTest(unittest.TestCase):
         self.data = self.tree / "data"
         self.code.mkdir()
         self.data.mkdir()
-        for m in json.loads((CODE / "core_modules.json").read_text(encoding="utf-8"))["core"]:   # PP5: siblings too
+        for m in json.loads((ENGINE / "core_modules.json").read_text(encoding="utf-8"))["core"]:   # PP5: siblings too
             shutil.copy(str(CODE / (m + ".py")), str(self.code / (m + ".py")))
         self.stub = self.tree / "stub.sh"
         self.stub.write_text(
@@ -316,7 +317,7 @@ class RealCtlTest(unittest.TestCase):
         self.code = home / "services" / "chatbot"
         (self.code / "data").mkdir(parents=True)
         # the ctl runs evolution.py on its own, and evolution imports its core siblings (PP5: platform_compat)
-        core = json.loads((CODE / "core_modules.json").read_text(encoding="utf-8"))["core"]
+        core = json.loads((ENGINE / "core_modules.json").read_text(encoding="utf-8"))["core"]
         for name in ["chatbot-ctl.sh", "protected_paths.json"] + [m + ".py" for m in core]:
             shutil.copy(str(CODE / name), str(self.code / name))
         stubs = home / ".local" / "bin"

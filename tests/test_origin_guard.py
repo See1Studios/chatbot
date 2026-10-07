@@ -5,7 +5,8 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import origin_guard as og  # noqa: E402
 
 HOST = "diskstation:3011"

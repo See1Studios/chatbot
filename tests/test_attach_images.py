@@ -13,8 +13,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import chat_upload as U  # noqa: E402
 from providers.adapter_openai import OpenAIDialectAdapter  # noqa: E402
 

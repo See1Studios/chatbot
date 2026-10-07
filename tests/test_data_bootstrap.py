@@ -11,8 +11,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import data_bootstrap as B  # noqa: E402
 
 
@@ -86,11 +87,11 @@ class Bootstrap(unittest.TestCase):
 
     def test_the_cli_uses_the_given_folder(self):
         env = {k: v for k, v in os.environ.items() if k not in ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")}
-        r = subprocess.run([sys.executable, str(ROOT / "data_bootstrap.py"), "--data", str(self.data), "--quiet"],
+        r = subprocess.run([sys.executable, str(ENGINE / "data_bootstrap.py"), "--data", str(self.data), "--quiet"],
                            cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=60)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("new workspace", r.stdout)
-        r = subprocess.run([sys.executable, str(ROOT / "data_bootstrap.py"), "--data", str(self.data), "--quiet"],
+        r = subprocess.run([sys.executable, str(ENGINE / "data_bootstrap.py"), "--data", str(self.data), "--quiet"],
                            cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=60)
         self.assertEqual(r.stdout, "")
 

@@ -10,8 +10,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 
 import client_errors  # noqa: E402
 from tests.page_source import i18n_prelude  # noqa: E402
@@ -89,7 +90,7 @@ class ClientErrors(unittest.TestCase):
         self.assertIsNone(client_errors.api("GET", "/api/client-error", None))
 
     def test_the_route_is_same_origin_like_the_operators_other_calls(self):
-        src = (ROOT / "server.py").read_text(encoding="utf-8")
+        src = (ENGINE / "server.py").read_text(encoding="utf-8")
         self.assertIn('"/api/delegations*", "/api/rooms*", client_errors.PATH + "*"),', src)
         self.assertIn('_api(room_chat.api, "POST"), _api(client_errors.api, "POST"))),', src)
 

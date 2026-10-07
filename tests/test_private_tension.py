@@ -9,10 +9,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import session as S  # noqa: E402
 import private_engine as PE  # noqa: E402
 from providers import adapter_base as AB  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
 
 class _Stdin:
@@ -251,7 +253,7 @@ class TensionLadder(unittest.TestCase):
         import instructions
         ws = Path(tempfile.mkdtemp())   # uds/F: the charter from the repo, never an install's workspace
         self.addCleanup(shutil.rmtree, str(ws), True)
-        shutil.copy(str(Path(__file__).resolve().parent.parent / "templates" / "workspace" / "AGENTS.md"), str(ws / "AGENTS.md"))
+        shutil.copy(str(REPO / "templates" / "workspace" / "AGENTS.md"), str(ws / "AGENTS.md"))
         import characters
         cid = characters.new_id()   # a fixture default character: an install's cards are user data
         characters.save(cid, characters.new_card("P"), ws)

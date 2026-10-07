@@ -10,12 +10,13 @@ import sys
 import unittest
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import evolution  # noqa: E402
 import instructions as I  # noqa: E402
 
-BUDGET = json.loads((CODE / "bundle_budget.json").read_text(encoding="utf-8"))
+BUDGET = json.loads((ENGINE / "bundle_budget.json").read_text(encoding="utf-8"))
 
 
 def static_bytes():
@@ -61,7 +62,7 @@ class BundleBudgetTest(unittest.TestCase):
             self.assertLessEqual(len(line), 120, line)
 
     def test_the_budget_and_its_reading_are_not_writable_by_the_agent(self):
-        self.assertTrue(evolution.is_protected(CODE, CODE / "bundle_budget.json"))
+        self.assertTrue(evolution.is_protected(CODE, ENGINE / "bundle_budget.json"))
 
     def test_the_dynamic_layers_are_bounded_by_the_memory_cap(self):
         import memory_store

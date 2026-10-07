@@ -8,16 +8,17 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 
 
 class SwapPoints(unittest.TestCase):
     def test_every_name_read_through_session_is_on_session(self):
         import session
         read = set()
-        for f in sorted(ROOT.glob("*.py")):
+        for f in sorted(ENGINE.glob("*.py")):
             text = f.read_text(encoding="utf-8")
             if "def _s():" in text:
                 code = re.sub(r'(?s)""".*?"""', "", text)   # docstrings name the pattern, not a name

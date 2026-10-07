@@ -14,8 +14,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO# noqa: E402
 
-CODE = Path(__file__).resolve().parent.parent
+CODE = REPO
 SCRIPT = Path(os.environ.get("MEMORY_CLI_SCRIPT") or CODE / "templates" / "workspace" / "tools" / "memory.py")
 TODAY = datetime.date.today().isoformat()
 TEMPLATE_SECTIONS = ["## User", "## Decisions", "## In progress"]
@@ -29,7 +30,7 @@ class Base(unittest.TestCase):
         self.file = self.root / "memory" / "MEMORY.md"
 
     def run_cli(self, *args, code_root=None):
-        env = dict(os.environ, CHATBOT_ROOT=str(code_root or CODE))
+        env = dict(os.environ, CHATBOT_ROOT=str(code_root or ENGINE))
         p = subprocess.run([sys.executable, str(self.root / "tools" / "memory.py")] + list(args), env=env,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30)
         return p.returncode, p.stdout, p.stderr

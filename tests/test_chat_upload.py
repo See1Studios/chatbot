@@ -14,8 +14,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import chat_upload as U  # noqa: E402
 from tests.page_source import i18n_prelude  # noqa: E402
 
@@ -102,7 +103,7 @@ class Upload(unittest.TestCase):
         self.assertFalse(other["reused"], "different bytes are a different file")
 
     def test_the_message_route_takes_the_pending_list_before_sending(self):
-        src = (ROOT / "route_sessions.py").read_text(encoding="utf-8")
+        src = (ENGINE / "route_sessions.py").read_text(encoding="utf-8")
         take = src.index("chat_upload.take_pending(sid, text)")
         self.assertLess(take, src.index("rotated = sess.send(text", take))
 

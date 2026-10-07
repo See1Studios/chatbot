@@ -23,9 +23,10 @@ import time
 from pathlib import Path
 from typing import Dict, List
 import platform_compat
+import repo_layout
 
 ROOT = Path(__file__).resolve().parent
-TEMPLATE = ROOT / "templates" / "workspace"
+TEMPLATE = repo_layout.TEMPLATES / "workspace"
 MARKER = "bootstrap.json"
 SKELETON = ("sessions", "artifacts", "persona", "workspace/memory")   # what the app expects beside the workspace
 

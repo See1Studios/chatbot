@@ -10,8 +10,9 @@ import time
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import delegation_watch as W  # noqa: E402
 from providers import accounts  # noqa: E402
 from providers.adapter_agy import AgyAdapter  # noqa: E402
@@ -83,7 +84,7 @@ class AgyActivity(unittest.TestCase):
 
 class Wiring(unittest.TestCase):
     def test_the_runner_runs_workers_and_reviewers_under_the_watch(self):
-        src = (ROOT / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
+        src = (ENGINE / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
         self.assertIn("watch.run(cmd, activity=watch.activity_of(provider)", src)
         self.assertIsNotNone(W.activity_of("agy"))
 

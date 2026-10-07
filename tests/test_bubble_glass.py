@@ -6,8 +6,9 @@ Run: python3 -m unittest tests.test_bubble_glass  (from services/chatbot)
 import re
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 PARTS = ["chat-base.css", "chat-log.css", "chat-composer.css", "chat-panes.css", "chat-responsive.css", "chat-features.css"]
 KINDS = [".msg.user", ".msg.assistant", ".msg.action", ".msg.system", ".msg.btw-card"]
 BUBBLE = re.compile(r"^(?:body[.\w-]*\s+)?\.msg(?:\.[\w-]+)+$")   # the bubble itself, not something inside it

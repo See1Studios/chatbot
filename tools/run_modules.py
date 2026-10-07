@@ -25,7 +25,11 @@ import tempfile
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent   # the engine folder: run-tests.sh
+sys.path.insert(0, str(ROOT))
+import repo_layout  # noqa: E402
+
+REPO = repo_layout.REPO                          # tests/ and the unittest working directory
 TIMEOUT = int(os.environ.get("TEST_TIMEOUT", "300"))
 WHY = re.compile(r"^(\w+Error|\w+Exception|AssertionError|KeyError)\b")
 
@@ -44,13 +48,13 @@ def run(mods: list) -> dict:
     results = {}
     try:
         for m in mods:
-            if not (ROOT / "tests" / (m + ".py")).is_file():
+            if not (REPO / "tests" / (m + ".py")).is_file():
                 print("MISSING %s (no tests/%s.py)" % (m, m), flush=True)
                 results[m] = {"ok": False, "sec": 0, "why": "missing"}
                 continue
             t0 = time.time()
             try:
-                p = subprocess.run([sys.executable, "-m", "unittest", "tests." + m], cwd=str(ROOT), env=env,
+                p = subprocess.run([sys.executable, "-m", "unittest", "tests." + m], cwd=str(REPO), env=env,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=TIMEOUT)
                 out, ok = p.stdout.decode("utf-8", "replace"), p.returncode == 0
                 why = "" if ok else next((ln.strip() for ln in out.splitlines() if WHY.match(ln.strip())),
@@ -83,7 +87,7 @@ def main(argv: list) -> int:
     elif argv:
         mods = [os.path.basename(a)[:-3] if a.endswith(".py") else os.path.basename(a) for a in argv]
     else:
-        mods = sorted(p.stem for p in (ROOT / "tests").glob("test_*.py"))
+        mods = sorted(p.stem for p in (REPO / "tests").glob("test_*.py"))
     t0 = time.time()
     results = run(mods)
     failed = [m for m, r in results.items() if not r["ok"]]

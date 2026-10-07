@@ -11,7 +11,8 @@ import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+from tests._paths import REPO  # noqa: E402
+ROOT = REPO
 DEV_ONLY = {"run_command", "ticket", "delegate"}
 PROBE = r"""
 import json, host_config as h, mcp_server as m

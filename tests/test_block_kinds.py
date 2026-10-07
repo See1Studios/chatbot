@@ -17,8 +17,9 @@ import unittest
 from pathlib import Path
 from tests.page_source import app_bundle  # noqa: E402
 from tests.page_source import i18n_prelude  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
-CODE = Path(__file__).resolve().parent.parent
+CODE = REPO
 APP = app_bundle()
 
 HARNESS = r"""

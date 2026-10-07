@@ -14,8 +14,9 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import tickets  # noqa: E402
 from tests._platform import dev_only_bash  # noqa: E402
 from tests._platform import posix_only  # noqa: E402
@@ -572,7 +573,7 @@ class OperatorOnlyTest(Base):
 
     def cli(self, *args, stdin=None):
         env = dict(os.environ, CHATBOT_DATA=str(self.data))
-        return subprocess.run([sys.executable, str(CODE / "tickets.py")] + list(args), env=env, stdin=stdin,
+        return subprocess.run([sys.executable, str(ENGINE / "tickets.py")] + list(args), env=env, stdin=stdin,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30)
 
     def test_the_api_refuses_a_caller_that_does_not_say_who_is_asking(self):
@@ -603,7 +604,7 @@ class OperatorOnlyTest(Base):
             self.assertIn("ask the operator", r.stderr)
         r = self.cli("drop-lease", stdin=subprocess.DEVNULL)
         self.assertEqual(r.returncode, 1)
-        piped = subprocess.run([sys.executable, str(CODE / "tickets.py"), "approve", str(t["id"])],
+        piped = subprocess.run([sys.executable, str(ENGINE / "tickets.py"), "approve", str(t["id"])],
                                input="%d\n" % t["id"], env=dict(os.environ, CHATBOT_DATA=str(self.data)),
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30)
         self.assertEqual(piped.returncode, 1)  # typing the right number into a pipe is not enough
@@ -613,7 +614,7 @@ class OperatorOnlyTest(Base):
         import pty
         master, slave = pty.openpty()
         try:
-            proc = subprocess.Popen([sys.executable, str(CODE / "tickets.py")] + list(args), stdin=slave, stdout=slave,
+            proc = subprocess.Popen([sys.executable, str(ENGINE / "tickets.py")] + list(args), stdin=slave, stdout=slave,
                                     stderr=slave, env=dict(os.environ, CHATBOT_DATA=str(self.data)), close_fds=True)
             os.close(slave)
             os.write(master, typed.encode("utf-8"))
@@ -668,7 +669,7 @@ class ListingTest(Base):
 
 class ImportDisciplineTest(unittest.TestCase):
     def test_only_the_standard_library_and_the_core_module(self):
-        tree = ast.parse((CODE / "tickets.py").read_text(encoding="utf-8"))
+        tree = ast.parse((ENGINE / "tickets.py").read_text(encoding="utf-8"))
         imported = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -679,7 +680,7 @@ class ImportDisciplineTest(unittest.TestCase):
                                         "re", "secrets", "shutil", "subprocess", "sys", "tempfile", "time", "typing",
                                         "platform_compat"})   # a core module (PP5)
         # shutil/tempfile: the release gate judges a throwaway worktree at HEAD (pew/Q)
-        self.assertNotIn("nas_mcp", (CODE / "tickets.py").read_text(encoding="utf-8"))
+        self.assertNotIn("nas_mcp", (ENGINE / "tickets.py").read_text(encoding="utf-8"))
 
 
 class ShipGateTest(Base):

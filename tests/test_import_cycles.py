@@ -7,8 +7,9 @@ Run: python3 -m unittest tests.test_import_cycles  (from services/chatbot)
 import ast
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 
 KNOWN = {
     ("mcp_server", "nas_mcp_host"): "the host plugin takes envelope helpers back from the tool server, which loads it last",
@@ -22,7 +23,7 @@ KNOWN = {
 
 
 def modules():
-    return sorted(list(ROOT.glob("*.py")) + list((ROOT / "tools").glob("*.py")) + list((ROOT / "providers").glob("*.py")))
+    return sorted(list(ENGINE.glob("*.py")) + list((ENGINE / "tools").glob("*.py")) + list((ENGINE / "providers").glob("*.py")))
 
 
 def name(p: Path) -> str:

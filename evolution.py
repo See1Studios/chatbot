@@ -45,7 +45,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import platform_compat   # a core module too (core_modules.json, PP5): the lock's POSIX and Windows sides
-import platform_compat
+import repo_layout
 
 REGISTRY_NAME = "protected_paths.json"
 _GLOB_CHARS = "*?["
@@ -68,7 +68,8 @@ class RegistryError(Exception):
 
 
 def registry_path(root) -> Path:
-    return Path(root) / REGISTRY_NAME
+    """The registry of a repository root: it lives with the engine's settings (LAYOUT_v1); patterns stay repo-relative."""
+    return repo_layout.engine_of(root) / REGISTRY_NAME
 
 
 def _entries(raw: dict, key: str, required: bool) -> List[str]:
@@ -117,7 +118,7 @@ def _live_data(root: Path) -> Optional[Path]:
     if not val:
         return None
     live = Path(val).expanduser().resolve()
-    return None if live == (root / "data").resolve() else live
+    return None if live == (repo_layout.engine_of(root) / "data").resolve() else live
 
 
 def _matches(root: Path, pattern: str, target: Path) -> bool:
@@ -505,7 +506,7 @@ def add_observation(obs_dir, title: str, body: str, area: str = "", recent_limit
 # ---------------------------------------------------------------- command line
 
 def main(argv: List[str]) -> int:
-    root = Path(__file__).resolve().parent
+    root = repo_layout.REPO
     cmd = argv[0] if argv else ""
     try:
         if cmd == "run-locked" and len(argv) >= 5 and argv[3] == "--":

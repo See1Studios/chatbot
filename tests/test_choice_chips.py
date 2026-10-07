@@ -9,8 +9,9 @@ import subprocess
 import unittest
 from pathlib import Path
 from tests.page_source import i18n_prelude  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
-MD = Path(__file__).resolve().parent.parent / "static" / "markdown.js"
+MD = REPO / "static" / "markdown.js"
 
 HARNESS = r"""
 const fs = require('fs');

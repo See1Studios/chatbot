@@ -9,8 +9,9 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import session_weights as W  # noqa: E402
 from providers.adapter_agy import AgyAdapter  # noqa: E402
 
@@ -33,7 +34,7 @@ class ContextMetric(unittest.TestCase):
             a.normalize_line(sess, json.dumps({"step_update": {"step_type": "agent_response", "state": "DONE",
                                                                "usage": u}}))
         self.assertEqual(sess._call_context, 16644)                               # the last call, not the sum
-        src = (ROOT / "providers" / "adapter_agy.py").read_text(encoding="utf-8")
+        src = (ENGINE / "providers" / "adapter_agy.py").read_text(encoding="utf-8")
         self.assertIn('"context_tokens": session._call_context', src)            # carried into the turn usage
 
     def test_agy_turn_usage_is_the_turns_share_of_the_conversation_total(self):

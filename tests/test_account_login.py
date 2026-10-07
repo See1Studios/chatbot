@@ -9,9 +9,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+if str(ENGINE) not in sys.path:
+    sys.path.insert(0, str(ENGINE))
 
 from providers import account_login  # noqa: E402
 from providers import accounts  # noqa: E402

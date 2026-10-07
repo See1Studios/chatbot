@@ -14,8 +14,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import characters as C  # noqa: E402
 import delegation  # noqa: E402
 import events as E  # noqa: E402
@@ -85,7 +86,7 @@ class PublishPoints(unittest.TestCase):
         self.assertEqual((e["to"], e["channel"], e["subject"], e["payload"]), (["kit"], "private", "p1", {}))
         self.assertEqual(E.pending("w-ari", "ari", "private"), [])
         self.assertEqual(E.pending("w-kit", "kit", "work"), [], "never on the work side (private-security T3)")
-        src = (ROOT / "threshold.py").read_text(encoding="utf-8")
+        src = (ENGINE / "threshold.py").read_text(encoding="utf-8")
         self.assertIn('_publish("session.private.start", priv, work)', src)
         self.assertIn('_publish("session.private.end", priv, work)', src)
 
@@ -139,7 +140,7 @@ class Logged(unittest.TestCase):
         self.assertNotIn("p-sid-1", text)
 
     def test_the_boot_restart_event_is_published_after_the_log_is_configured(self):
-        src = (ROOT / "server.py").read_text(encoding="utf-8")
+        src = (ENGINE / "server.py").read_text(encoding="utf-8")
         self.assertLess(src.index('obslog.start_process("chat"'), src.index("    _record_boot()"),
                         "else the host.restart event misses its log line")
 

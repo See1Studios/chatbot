@@ -6,8 +6,9 @@ import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "tools"))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE / "tools"))
 import review_checklist as R  # noqa: E402
 
 
@@ -29,7 +30,7 @@ class ReviewChecklist(unittest.TestCase):
         self.assertIn("test", R.CODE_CHECKLIST)
 
     def test_the_runner_uses_it_for_code_and_the_doc_list_for_docs(self):
-        src = (ROOT / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
+        src = (ENGINE / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
         self.assertIn("(doc_review_prompt if doc_lane else (lambda b, d: with_code_checklist(b)))(", src)
 
     def test_diff_files_extracts_paths(self):

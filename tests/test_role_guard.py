@@ -12,8 +12,9 @@ from types import SimpleNamespace
 
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import characters as C  # noqa: E402
 import mcp_server  # noqa: E402
 import personal_turn  # noqa: E402
@@ -27,7 +28,7 @@ class Roles(unittest.TestCase):
     def test_a_role_is_not_stopped_for_reading_code(self):
         stops = []
         s = SimpleNamespace(character="any", adapter=SimpleNamespace(), _auto_stop=lambda event, hint: stops.append(event))
-        W.check(s, "view_file", {"AbsolutePath": str(ROOT / "session.py")}, ROOT)
+        W.check(s, "view_file", {"AbsolutePath": str(ENGINE / "session.py")}, ROOT)
         self.assertEqual(stops, [])
         self.assertFalse(hasattr(R, "check_step"))
 

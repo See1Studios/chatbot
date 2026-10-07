@@ -82,6 +82,7 @@ not do.
 | New code folder is protected (`tools/` too: the delegation gate's verdict reader is governance) | all | `test_code_layout` |
 | Every code file (root, `providers/`, `tools/`, `static/`) has a row in `CODEMAP.md` before it lands | all | `test_code_map` |
 | Core modules import stdlib + each other only | all | `test_core_standalone` |
+| The repo root and the engine folder are decided only in `repo_layout.py` (code) and `tests/_paths.py` (tests); no code finds `static/`, `templates/`, `tests/` or `docs/` from its own file | all | `test_code_layout` |
 | No new pair of modules that import each other (top or inside a function); the known pairs only go away | all | `test_import_cycles` |
 | No provider names in common code | all | `test_provider_neutrality` |
 | Persona names/titles are display values, never ids or keys | all | `test_identity_wiring` |

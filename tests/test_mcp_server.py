@@ -1,3 +1,4 @@
+from tests._paths import ENGINE, REPO  # noqa: E402
 """MCP tool server: call_tool contract (run_command / write_file / read side), and how the core adapters and the host
 plugin (service tools) are wired in.
 
@@ -15,7 +16,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 # the host plugin is off by default (align/F); these tests cover it, so turn it on before the import
 os.environ.setdefault("NAS_MCP_HOST_PLUGIN", "1")
 # and these cover the dev build's tools (ticket, run_command, delegate); the shipped build is pinned in test_edition_boundary
@@ -57,7 +59,7 @@ def tearDownModule():
     _HOST.stop()
     _DEV.stop()
 
-CODE = Path(__file__).resolve().parent.parent
+CODE = REPO
 CTL = "chatbot-ctl.sh"
 CTL_ABS = str(mcp.SERVICES / "chatbot-ctl.sh")
 
@@ -343,7 +345,7 @@ class WriteFileTest(Base):
         super().setUp()
         self.home = Path(tempfile.mkdtemp()).resolve()
         self.code = self.tmp
-        shutil.copy(str(CODE / "protected_paths.json"), str(self.code / "protected_paths.json"))
+        shutil.copy(str(ENGINE / "protected_paths.json"), str(self.code / "protected_paths.json"))
         mcp.CODE_ROOT = self.code
         mcp.ALLOW_ROOTS = [self.code, self.home / ".agents"]
         patcher = mock.patch.dict(os.environ, home_env(self.home))
@@ -475,7 +477,7 @@ class RealPathsTest(unittest.TestCase):
 
     def test_host_modules_and_guards_are_refused(self):
         self.assertEqual(mcp.CODE_ROOT, CODE)
-        for path in sorted(CODE.glob("*.py")):
+        for path in sorted(ENGINE.glob("*.py")):
             self.refused(path)
         for rel in ("chatbot-ctl.sh", "tests/test_mcp_server.py", "protected_paths.json",
                     "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md", "docs/EMERGENCY.md",
@@ -797,7 +799,7 @@ class TicketToolTest(Base):
     def test_the_stores_cannot_be_forged_through_write_file(self):
         # write_file may not create a pre-approved ticket, a lease, a candidate or an event line
         mcp.CODE_ROOT = self.tmp
-        shutil.copy(str(CODE / "protected_paths.json"), str(self.tmp / "protected_paths.json"))
+        shutil.copy(str(ENGINE / "protected_paths.json"), str(self.tmp / "protected_paths.json"))
         mcp.ALLOW_ROOTS = [self.tmp]
         for rel in ("workspace/skill-observations/tickets/0001.json", "workspace/skill-observations/tickets/author.lease",
                     "workspace/skill-observations/candidates.jsonl", "sessions/s1/events.jsonl"):
@@ -863,11 +865,11 @@ class EntryPointsTest(unittest.TestCase):
         self.check_entry("mcp_server.py")
 
     def test_the_control_script_starts_the_server_by_its_real_name(self):
-        ctl = (CODE / "chatbot-ctl.sh").read_text(encoding="utf-8")
+        ctl = (ENGINE / "chatbot-ctl.sh").read_text(encoding="utf-8")
         self.assertIn('python3 "$CODE/mcp_server.py"', ctl)
         self.assertNotIn("nas_mcp.py", ctl)
-        self.assertTrue((CODE / "mcp_server.py").is_file())
-        self.assertFalse((CODE / "nas_mcp.py").exists(), "the compatibility shim was removed once the control script moved")
+        self.assertTrue((ENGINE / "mcp_server.py").is_file())
+        self.assertFalse((ENGINE / "nas_mcp.py").exists(), "the compatibility shim was removed once the control script moved")
 
 
 class ReadSideTest(Base):

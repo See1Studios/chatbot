@@ -22,8 +22,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import host_config  # noqa: E402
 import logdigest  # noqa: E402
 import obslog  # noqa: E402
@@ -34,7 +35,7 @@ from tests._platform import dev_only_bash  # noqa: E402
 # they are canaries, so a false pass cannot come from the redactor.
 USER_WORD = "canary-user-4f1c9d"
 REPLY_WORD = "canary-reply-7ab302"
-CTL = CODE / "chatbot-ctl.sh"
+CTL = ENGINE / "chatbot-ctl.sh"
 
 
 class GlobalLogHasNoTurnText(unittest.TestCase):
@@ -45,7 +46,7 @@ class GlobalLogHasNoTurnText(unittest.TestCase):
         self.stream = self.tmp / "logs" / "events.jsonl"
         self._orig = {k: getattr(session, k) for k in ("SESSIONS", "ROOT", "DATA", "evolution")}
         session.SESSIONS = self.tmp / "sessions"
-        session.ROOT = CODE
+        session.ROOT = ENGINE
         session.DATA = self.tmp
         session.evolution = None  # candidates are another contract; not what this file is about
         self._summary = session.AgentSession.get_handover_summary

@@ -8,8 +8,9 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-APP = Path(__file__).resolve().parent.parent / "static" / "app.js"
+APP = REPO / "static" / "app.js"
 
 HARNESS = r"""
 const src = require('fs').readFileSync(process.argv[1], 'utf8');

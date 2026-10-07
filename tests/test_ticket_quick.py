@@ -12,13 +12,14 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
-TOOL = ROOT / "tools" / "ticket_quick.py"
+ROOT = REPO
+TOOL = ENGINE / "tools" / "ticket_quick.py"
 DATA_ENV = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")
 
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ENGINE))
+sys.path.insert(0, str(ENGINE / "tools"))
 
 
 class TicketQuickCli(unittest.TestCase):

@@ -10,8 +10,9 @@ import threading
 import unittest
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import evolution  # noqa: E402
 import memory_store as ms  # noqa: E402
 
@@ -242,7 +243,7 @@ class LockingTest(Base):
 
 
 class DisciplineTest(unittest.TestCase):
-    SOURCE = (CODE / "memory_store.py").read_text(encoding="utf-8")
+    SOURCE = (ENGINE / "memory_store.py").read_text(encoding="utf-8")
 
     def test_only_the_standard_library_and_the_core_module(self):
         imported = set()

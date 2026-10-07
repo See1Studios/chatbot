@@ -24,10 +24,11 @@ from typing import Dict, List, Optional, Tuple
 
 import host_config
 import platform_compat
+import repo_layout
 
 ROOT = Path(__file__).resolve().parent
 TABLE_PATH = ROOT / "engine_data" / "affection.json"
-PLACEHOLDER = ROOT / "static" / "placeholders" / "item.webp"
+PLACEHOLDER = repo_layout.STATIC / "placeholders" / "item.webp"
 PREFIX = "/api/sessions/"
 ACTIONS = ("give", "use")
 _SID = re.compile(r"^[A-Za-z0-9._-]{1,80}$")

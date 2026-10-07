@@ -7,15 +7,16 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import mcp_server as mcp  # noqa: E402
 import nas_mcp_host as H  # noqa: E402
 
 
 class NamesTest(unittest.TestCase):
     def test_chatbot_mcp_healthz_name(self):
-        src = (CODE / "mcp_server.py").read_text(encoding="utf-8")
+        src = (ENGINE / "mcp_server.py").read_text(encoding="utf-8")
         self.assertIn('"service": "chatbot-mcp"', src)
 
     def test_list_services_names_no_retired_service(self):

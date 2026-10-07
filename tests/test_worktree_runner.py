@@ -12,8 +12,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tools"))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE / "tools"))
 
 import worktree_runner as wr
 import review_checklist  # noqa: E402
@@ -43,7 +44,7 @@ FAIL_ONCE = ("if [ -f ../../n ]; then printf 'VERDICT: PASS\\nSAY: better'; "
 
 SMOKE = '''import sys
 from pathlib import Path
-sys.exit(1 if "bad" in Path(__file__).resolve().parents[1].joinpath("a.txt").read_text() else 0)
+sys.exit(1 if "bad" in Path(sys.argv[0]).resolve().parents[1].joinpath("a.txt").read_text() else 0)
 '''
 
 
@@ -602,7 +603,7 @@ class WorktreeRunner(unittest.TestCase):
     def character(self, role="staff", chain=None):
         """A character playing `role` in this test's workspace; returns its folder. The team always has a default
         character (the reviewer); in these tests the role id "pd" names it -- test data, the engine knows no role."""
-        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ENGINE))
         import characters
         team = characters.load_team(self.ws) if characters.team_path(self.ws).is_file() else {"default": "", "members": {}}
         if not team["default"]:

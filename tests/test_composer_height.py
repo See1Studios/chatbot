@@ -14,8 +14,9 @@ import unittest
 from pathlib import Path
 from tests.page_source import app_bundle  # noqa: E402
 from tests.page_source import css_source  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
 CSS = css_source()   # chat-*.css in cascade order (CSS_SPLIT_v1)
 

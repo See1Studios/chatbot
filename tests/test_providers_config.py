@@ -22,8 +22,9 @@ import sys
 import unittest
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 from providers.adapter_openai import is_openrouter_free_model  # noqa: E402
 
 CONFIG = json.loads((CODE / "templates" / "providers.example.json").read_text(encoding="utf-8"))

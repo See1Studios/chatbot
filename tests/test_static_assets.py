@@ -4,8 +4,9 @@ Run: python3 -m unittest tests.test_static_assets  (from services/chatbot)
 import re
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 HTML = (STATIC / "index.html").read_text(encoding="utf-8")
 
 # Globals/ids the retired mascot defined (2026-09-19). Any of them reappearing means half a

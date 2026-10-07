@@ -18,10 +18,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-CORE = json.loads((CODE / "core_modules.json").read_text(encoding="utf-8"))["core"]
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+CORE = json.loads((ENGINE / "core_modules.json").read_text(encoding="utf-8"))["core"]
 DATA_FILES = ("protected_paths.json", "observation_signals.json", "core_modules.json")
-LAYERS = sorted(p.stem for p in CODE.glob("*.py") if p.stem not in CORE)
+LAYERS = sorted(p.stem for p in ENGINE.glob("*.py") if p.stem not in CORE)
 
 SCENARIO = r'''
 import importlib.abc, json, os, sys, time

@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 
+from repo_layout import repo_of
+
 # Default is loopback: a bare `python3 server.py` is local-only. LAN access is an
 # explicit choice -- chatbot-ctl.sh cmd_start exports CHATBOT_HOST=0.0.0.0.
 def _env(name: str, default: str) -> str:
@@ -18,7 +20,9 @@ def _env(name: str, default: str) -> str:
 
 
 HOME = Path(os.environ.get("HOME") or Path.home())
-ROOT = Path(_env("CHATBOT_ROOT", str(Path(__file__).resolve().parent)))
+ROOT = Path(_env("CHATBOT_ROOT", str(Path(__file__).resolve().parent)))   # the engine folder (code, settings)
+REPO = repo_of(ROOT)          # LAYOUT_v1: the repository root (static/, templates/, tests/, docs/)
+TEMPLATES = REPO / "templates"
 # 2026-09-16: consolidated from a sibling chatbot-data/ directory (and its
 # own separate git repos) into chatbot/data/ -- one project, one folder, one
 # repo, instead of code and data living apart and needing separate publish
@@ -73,7 +77,7 @@ def _pinned_chatbot_data(root: Path) -> str:
 
 DATA = Path(next((os.environ[k] for k in DATA_ENV if os.environ.get(k)),
                  _pinned_chatbot_data(ROOT) or str(HOME / ".pe")))
-STATIC = ROOT / "static"
+STATIC = REPO / "static"
 SESSIONS = DATA / "sessions"
 WORKSPACE = DATA / "workspace"
 # Web Push (push_manager.py): the install's VAPID key pair and the browsers subscribed to it

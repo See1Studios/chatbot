@@ -10,9 +10,10 @@ import threading
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+if str(ENGINE) not in sys.path:
+    sys.path.insert(0, str(ENGINE))
 
 import characters  # noqa: E402
 import host_config  # noqa: E402

@@ -10,8 +10,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 PROBE = ("import json, host_config as h, mcp_server as m; "
          "print(json.dumps({'plugin': bool(m.HOST_PLUGIN), 'web': str(h.WEB_ROOT), 'mcp_web': str(m.WEB_ROOT), "
          "'add_dirs': h.ADD_DIRS}))")

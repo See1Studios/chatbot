@@ -25,6 +25,7 @@ import time
 from pathlib import Path
 
 import platform_compat
+import repo_layout
 from typing import Dict, List, Optional
 
 _FRONT = re.compile(r"\A\ufeff?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
@@ -715,7 +716,7 @@ _ART_NAME = re.compile(r"^[a-z0-9_-]{1,32}\.(webp|png)$")
 
 # ART_PLACEHOLDER_v1: every art kind resolves to a file -- the character's own (a per-brain variant first), else
 # the engine's neutral placeholder -- so the page never guesses what exists and never shows a broken image.
-PLACEHOLDER_DIR = Path(__file__).resolve().parent / "static" / "placeholders"
+PLACEHOLDER_DIR = repo_layout.STATIC / "placeholders"
 PLACEHOLDERS = {"avatar": "avatar.webp", "stage": "stage.webp", "sprite:bust": "sprite-bust.webp",
                 "sprite:full": "sprite-full.webp"}
 ART_KINDS = ("avatar", "stage", "sprite")

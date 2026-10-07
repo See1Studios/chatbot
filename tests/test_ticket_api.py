@@ -12,8 +12,9 @@ import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import server  # noqa: E402
 import tickets  # noqa: E402
 import workspace_status as W  # noqa: E402
@@ -141,7 +142,7 @@ class OriginTest(ApiCase):
 
 class AgentCannotUseItTest(unittest.TestCase):
     def test_the_tool_adapters_never_pass_an_operator(self):
-        src = (CODE / "mcp_core.py").read_text(encoding="utf-8")
+        src = (ENGINE / "mcp_core.py").read_text(encoding="utf-8")
         self.assertNotIn("OPERATOR", src)
         self.assertNotIn("operator=", src)
 

@@ -6,7 +6,8 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 from providers.adapters import _grok_billing_to_rows  # noqa: E402
 
 PERIOD = {"type": "USAGE_PERIOD_TYPE_WEEKLY", "start": "2026-09-19T08:16:18+00:00", "end": "2026-09-26T08:16:18+00:00"}

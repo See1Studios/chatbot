@@ -12,8 +12,9 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import logdigest  # noqa: E402
 import obslog  # noqa: E402
 import server  # noqa: E402
@@ -123,7 +124,7 @@ class HostSignalTickTest(unittest.TestCase):
         self.assertEqual(server._host_signal_tick(), 0)   # hourly
 
     def test_doctor_runs_no_service_code_for_signals(self):
-        ctl = (ROOT / "chatbot-ctl.sh").read_text(encoding="utf-8")
+        ctl = (ENGINE / "chatbot-ctl.sh").read_text(encoding="utf-8")
         doctor = ctl.split("cmd_doctor() {", 1)[1].split("\n}\n", 1)[0]
         self.assertNotIn("logdigest", doctor)
         self.assertNotIn("to-candidates", doctor)

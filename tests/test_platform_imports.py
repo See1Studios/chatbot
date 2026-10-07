@@ -8,8 +8,9 @@ import importlib.util
 import re
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 POSIX_ONLY = {"pty", "termios", "tty", "fcntl", "pwd", "grp", "resource", "posix"}
 LINUX_BY_DESIGN = {"nas_mcp_host.py", "ctl_proc.py", "platform_compat.py"}   # the NAS plugin, the NAS ctl helper
 
@@ -29,7 +30,7 @@ def top_level_posix_imports(path):
 
 class PlatformImports(unittest.TestCase):
     def test_no_unguarded_posix_only_import_at_module_level(self):
-        files = list(ROOT.glob("*.py")) + list(ROOT.glob("providers/*.py")) + list(ROOT.glob("tools/*.py"))
+        files = list(ENGINE.glob("*.py")) + list(ENGINE.glob("providers/*.py")) + list(ENGINE.glob("tools/*.py"))
         bad = [x for p in sorted(files) if p.name not in LINUX_BY_DESIGN for x in top_level_posix_imports(p)]
         self.assertEqual(bad, [], "import these inside the function that needs them, or in a try (pp/D)")
 
@@ -41,7 +42,7 @@ WINDOWS_STDLIB = {"msvcrt", "winreg", "_winapi", "winsound"}   # standard librar
 
 
 def engine_files():
-    return sorted(list(ROOT.glob("*.py")) + list(ROOT.glob("providers/*.py")) + list(ROOT.glob("tools/*.py")))
+    return sorted(list(ENGINE.glob("*.py")) + list(ENGINE.glob("providers/*.py")) + list(ENGINE.glob("tools/*.py")))
 
 
 def third_party_imports():
@@ -143,7 +144,7 @@ class TextEncoding(unittest.TestCase):
 class DeclaredDependencies(unittest.TestCase):
     def test_every_third_party_import_is_in_requirements(self):
         declared = {re.split(r"[<>=!~\[; ]", ln.strip(), 1)[0].lower()
-                    for ln in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
+                    for ln in (ENGINE / "requirements.txt").read_text(encoding="utf-8").splitlines()
                     if ln.strip() and not ln.startswith("#")}
         missing = {n: sorted(files) for n, files in third_party_imports().items()
                    if DISTRIBUTION.get(n, n).lower() not in declared}

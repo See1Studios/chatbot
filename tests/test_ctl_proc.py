@@ -8,8 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import ctl_proc  # noqa: E402
 import obslog  # noqa: E402
 
@@ -112,7 +113,7 @@ class BusyTest(Base):
 
 class CtlWiringTest(unittest.TestCase):
     def test_ctl_uses_os_facts_only(self):
-        ctl = (ROOT / "chatbot-ctl.sh").read_text(encoding="utf-8")
+        ctl = (ENGINE / "chatbot-ctl.sh").read_text(encoding="utf-8")
         for dep in ("live_pids", "standby.pid", "/api/sessions/active", "kill_stale_session_agy"):
             self.assertNotIn(dep, ctl)
         self.assertIn('ctl_proc.py" reap "$CODE" "$DATA"', ctl)   # $DATA: agents run in $DATA/workspace (uds/F)
@@ -120,10 +121,10 @@ class CtlWiringTest(unittest.TestCase):
 
     def test_ctl_proc_imports_nothing_from_the_service(self):
         import ast
-        tree = ast.parse((ROOT / "ctl_proc.py").read_text(encoding="utf-8"))
+        tree = ast.parse((ENGINE / "ctl_proc.py").read_text(encoding="utf-8"))
         mods = {n.names[0].name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import)}
         mods |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
-        service = {p.stem for p in ROOT.glob("*.py")} - {"ctl_proc", "obslog"}
+        service = {p.stem for p in ENGINE.glob("*.py")} - {"ctl_proc", "obslog"}
         self.assertEqual(mods & service, set())
 
 

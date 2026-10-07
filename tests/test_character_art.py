@@ -8,15 +8,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import characters as C  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
 try:
     from PIL import Image
 except ImportError:  # the checker skips sizes without Pillow; so does this test
     Image = None
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 
 
 @unittest.skipIf(Image is None, "Pillow not installed")

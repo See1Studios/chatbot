@@ -6,8 +6,9 @@ Run: python3 -m unittest tests.test_plans_index  (from services/chatbot)
 import re
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-PLANS = Path(__file__).resolve().parent.parent / "docs" / "plans"
+PLANS = REPO / "docs" / "plans"
 STATES = ("active", "done", "superseded", "abandoned")
 NOT_PLANS = {"INDEX.md", "_TEMPLATE.md"}
 

@@ -4,8 +4,9 @@ Run: python3 -m unittest tests.test_token_badge  (from services/chatbot)
 """
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-SRC = (Path(__file__).resolve().parent.parent / "static" / "app-messages.js").read_text(encoding="utf-8")
+SRC = (REPO / "static" / "app-messages.js").read_text(encoding="utf-8")
 
 
 class TokenBadge(unittest.TestCase):

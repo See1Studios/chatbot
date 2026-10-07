@@ -8,7 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import characters as C  # noqa: E402
 import delegation  # noqa: E402
 import host_config  # noqa: E402

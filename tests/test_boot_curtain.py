@@ -6,8 +6,9 @@ Run: python3 -m unittest tests.test_boot_curtain  (from services/chatbot)
 import re
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 read = lambda n: (STATIC / n).read_text(encoding="utf-8")
 
 

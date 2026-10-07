@@ -11,8 +11,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 # the same import environment as test_mcp_server, whichever of the two loads the server first in a run
 os.environ.setdefault("NAS_MCP_HOST_PLUGIN", "1")
 os.environ.setdefault("CHATBOT_EDITION", "dev")

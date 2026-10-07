@@ -16,8 +16,9 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import urlopen
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 from providers import adapters  # noqa: E402
 import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
@@ -46,7 +47,7 @@ def identifiers(tree):
 class CommonCodeTest(unittest.TestCase):
     def test_common_python_names_no_provider(self):
         bad = []
-        for f in sorted(ROOT.glob("*.py")) + sorted((ROOT / "providers").glob("*.py")):
+        for f in sorted(ENGINE.glob("*.py")) + sorted((ENGINE / "providers").glob("*.py")):
             if f.relative_to(ROOT).as_posix() in PROVIDER_MODULES:
                 continue
             for name, line in identifiers(ast.parse(f.read_text(encoding="utf-8"))):
@@ -70,7 +71,7 @@ class CommonCodeTest(unittest.TestCase):
         self.assertEqual(bad, [], "provider name in a UI identifier")
 
     def test_no_event_is_named_after_a_provider(self):
-        src = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ROOT / "providers").glob("adapter*.py")))
+        src = "\n".join(p.read_text(encoding="utf-8") for p in sorted((ENGINE / "providers").glob("adapter*.py")))
         for pid in PROVIDERS:
             self.assertNotIn('"event": "%s"' % pid, src)
 
@@ -99,7 +100,7 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(self.host_config(AGY_CHAT_PORT="4012")[0], "3011")   # the old name was dropped (2026-10-07)
 
     def test_ctl_exports_the_service_names(self):
-        ctl = (ROOT / "chatbot-ctl.sh").read_text(encoding="utf-8")
+        ctl = (ENGINE / "chatbot-ctl.sh").read_text(encoding="utf-8")
         self.assertIn("export CHATBOT_HOST=0.0.0.0", ctl)
         self.assertNotIn("export AGY_CHAT_", ctl)
         self.assertIn("reap_orphan_agents", ctl)

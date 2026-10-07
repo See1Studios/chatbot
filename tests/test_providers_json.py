@@ -13,9 +13,10 @@ from providers.adapters import (
     is_openrouter_free_model,
     load_openai_dialect_adapters,
 )
+from tests._paths import REPO  # noqa: E402
 
 # uds/F: an install's providers.json is user data in ~/.pe; the shipped example is the file the loader is checked on
-EXAMPLE = Path(__file__).resolve().parent.parent / "templates" / "providers.example.json"
+EXAMPLE = REPO / "templates" / "providers.example.json"
 
 
 class ProvidersJson(unittest.TestCase):

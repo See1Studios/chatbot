@@ -10,8 +10,9 @@ import subprocess
 import unittest
 from pathlib import Path
 from tests.page_source import i18n_prelude  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 
 HARNESS = r"""
 const src = require('fs').readFileSync(process.argv[1], 'utf8');

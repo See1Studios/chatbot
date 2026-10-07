@@ -10,7 +10,8 @@ import time
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 from providers import accounts  # noqa: E402
 
 OLD, NEW = "old@example.com", "new@example.com"

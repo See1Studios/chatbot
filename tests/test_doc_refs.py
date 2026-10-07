@@ -6,8 +6,9 @@ Run: python3 -m unittest tests.test_doc_refs  (from services/chatbot)
 import re
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 EXT = r"(?:py|js|sh|css|json|md|html)"
 LINE_REF = re.compile(r"[\w./-]+\." + EXT + r"`?(?::L?\d+|\s+L\d+)\b")
 SYMBOL_REF = re.compile(r"`([\w./-]+\.(?:py|js|sh|css))::([\w.]+)`")

@@ -10,8 +10,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "tools"))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE / "tools"))
 import run_usage as U  # noqa: E402
 import worktree_runner as wr  # noqa: E402
 
@@ -42,7 +43,7 @@ class Split(unittest.TestCase):
         self.assertEqual(U.split("codex", CODEX), ("ok", usage(11134, 8960, 5)))   # cached is inside codex's input
 
     def test_the_numbers_are_the_chat_adapters_own(self):
-        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ENGINE))
         from providers.adapters import AGENT_ADAPTERS
         raw = json.loads(CLAUDE)["usage"]
         want = AGENT_ADAPTERS["claude"].normalize_usage(raw)
@@ -89,7 +90,7 @@ class RunnerRecords(unittest.TestCase):
 class CodexCountsCachedOnce(unittest.TestCase):
     def test_cached_input_is_inside_codexs_input_tokens(self):
         # measured 2026-10-04: the same prompt twice gave input_tokens 20141 with cached 2816, then 0
-        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ENGINE))
         from providers.adapters import AGENT_ADAPTERS
         u = AGENT_ADAPTERS["codex"].normalize_usage({"input_tokens": 20141, "cached_input_tokens": 2816,
                                                      "output_tokens": 5})

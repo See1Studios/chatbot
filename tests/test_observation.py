@@ -8,8 +8,9 @@ import threading
 import unittest
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import evolution  # noqa: E402
 
 CFG = evolution.load_signal_config(CODE)

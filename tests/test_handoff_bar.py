@@ -14,9 +14,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
 STATIC = ROOT / "static"
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ENGINE))
 import dialog_handoff as H  # noqa: E402
 
 
@@ -52,7 +53,7 @@ class Board(unittest.TestCase):
         self.assertEqual(got[0]["task"], "do 4")
 
     def test_the_route_serves_it(self):
-        src = (ROOT / "server.py").read_text(encoding="utf-8")
+        src = (ENGINE / "server.py").read_text(encoding="utf-8")
         self.assertIn('("/api/handoffs", _handoffs)', src)
 
 

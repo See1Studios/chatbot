@@ -10,8 +10,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import instructions as I  # noqa: E402
 import obslog  # noqa: E402
 import session as S  # noqa: E402
@@ -38,7 +39,7 @@ class SessionRecord(unittest.TestCase):
         self.assertTrue(set(s.context_log[-1]) == {"ts", "why", "chars", "layers"}, "sizes and ids only, never text")
 
     def test_the_record_is_saved_with_the_session(self):
-        src = (ROOT / "session.py").read_text(encoding="utf-8")
+        src = (ENGINE / "session.py").read_text(encoding="utf-8")
         self.assertIn('"context_log": list(getattr(self, "context_log", []) or [])[-CONTEXT_LOG_KEEP:]', src)
         self.assertIn('self.context_log = list(meta.get("context_log") or [])[-CONTEXT_LOG_KEEP:]', src)
 
@@ -55,7 +56,7 @@ class SessionRecord(unittest.TestCase):
         with mock.patch.object(R.REG, "peek", return_value=None):
             R.context(req)
         self.assertEqual(got["status"], 404)
-        server = (ROOT / "server.py").read_text(encoding="utf-8")
+        server = (ENGINE / "server.py").read_text(encoding="utf-8")
         self.assertLess(server.index('"/api/sessions/*/context"'), server.index('("/api/sessions/*", route_sessions.detail)'))
 
 

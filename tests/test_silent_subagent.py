@@ -13,8 +13,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 from providers import accounts  # noqa: E402
 from providers import adapter_agy as A  # noqa: E402
 
@@ -89,7 +90,7 @@ class SubagentActivity(unittest.TestCase):
         self.assertEqual((code, err), (0, ""))
 
     def test_the_watchdog_asks_with_the_conversation_and_before_its_notice(self):
-        src = (ROOT / "turn_watchdog.py").read_text(encoding="utf-8")
+        src = (ENGINE / "turn_watchdog.py").read_text(encoding="utf-8")
         self.assertIn('conversation_id=str(getattr(self, "conversation_id", "") or "")', src)
         notice = src[src.index("def _silent_notice_fire"):src.index("def _touch_turn_activity")]
         self.assertIn("self._provider_shows_activity()", notice)

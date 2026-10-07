@@ -10,8 +10,9 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 STATIC = ROOT / "static"
 CATALOGS = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted((STATIC / "i18n").glob("*.json"))}
 
@@ -45,7 +46,7 @@ class Catalogs(unittest.TestCase):
 
     def test_the_server_sends_the_key_its_values_and_english(self):
         import sys
-        sys.path.insert(0, str(ROOT))
+        sys.path.insert(0, str(ENGINE))
         import i18n
         en = CATALOGS["en"]
         key = next(k for k, v in en.items() if "{" in v)

@@ -10,8 +10,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 os.environ.setdefault("CHATBOT_EVENTS_DIR", tempfile.mkdtemp())   # never the live mailbox
 os.environ.setdefault("CHATBOT_DIALOGS_DIR", tempfile.mkdtemp())  # nor the live dialogs
 os.environ.setdefault("CHATBOT_EDITION", "dev")
@@ -391,7 +392,7 @@ class Handoff(unittest.TestCase):
         self.assertIn("ran out of time", D.history(D.dm_id(self.dev, self.lead))[-1]["text"])
 
     def test_a_handoff_turn_is_not_cut_to_the_notice_budget(self):
-        src = (ROOT / "session_turn.py").read_text(encoding="utf-8")
+        src = (ENGINE / "session_turn.py").read_text(encoding="utf-8")
         self.assertIn('if notice and event_type != "handoff":', src)
 
     def test_one_open_handoff_per_director_and_at_most_two_hops(self):
@@ -430,7 +431,7 @@ class Handoff(unittest.TestCase):
         prompt = self.office.desks[self.dev].sent[0][0]
         self.assertLess(prompt.index("look at the build"), prompt.index("Also new in your dialogs"))
         self.assertIn("the build broke again", prompt)
-        src = (ROOT / "session_turn.py").read_text(encoding="utf-8")
+        src = (ENGINE / "session_turn.py").read_text(encoding="utf-8")
         self.assertIn('"" if notice else _s().boot_notice(self)', src)          # host turns skip the restart line
 
     def test_one_host_turn_at_a_time_per_session(self):

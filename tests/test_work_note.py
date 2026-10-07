@@ -12,9 +12,10 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-ROOT = Path(__file__).resolve().parent.parent
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
 os.environ.setdefault("CHATBOT_EVENTS_DIR", tempfile.mkdtemp())   # never the live event mailbox (evt/B)
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ENGINE))
 import characters as C  # noqa: E402
 import delegation  # noqa: E402
 

@@ -8,9 +8,10 @@ import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+if str(ENGINE) not in sys.path:
+    sys.path.insert(0, str(ENGINE))
 import card_parse as CP  # noqa: E402
 import card_prompt as prompt_mod  # noqa: E402
 

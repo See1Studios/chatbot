@@ -9,8 +9,9 @@ import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 
 import host_config  # noqa: E402
 from providers.adapters import ClaudeAdapter, GrokAdapter  # noqa: E402
@@ -39,7 +40,7 @@ class ThinkingIsActivityNotRecord(unittest.TestCase):
         self.assertNotIn("thinking", host_config.PERSISTED_LOG_KINDS)
 
     def test_thinking_resets_the_quiet_clock(self):
-        src = (ROOT / "session.py").read_text(encoding="utf-8")
+        src = (ENGINE / "session.py").read_text(encoding="utf-8")
         self.assertIn('elif kind in ("delta", "thinking"):', src)
 
 

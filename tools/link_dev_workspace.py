@@ -24,9 +24,12 @@ import time
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-ROOT = Path(__file__).resolve().parent.parent
-DEV = ROOT / "templates" / "dev-workspace"
-SHIPPED = ROOT / "templates" / "workspace"
+ROOT = Path(__file__).resolve().parent.parent   # the engine folder
+sys.path.insert(0, str(ROOT))
+import repo_layout  # noqa: E402
+
+DEV = repo_layout.TEMPLATES / "dev-workspace"
+SHIPPED = repo_layout.TEMPLATES / "workspace"
 FROM_SHIPPED = ("AGENTS.md",)   # one charter for both builds
 
 

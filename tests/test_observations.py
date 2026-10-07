@@ -10,8 +10,9 @@ import time
 import unittest
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import evolution  # noqa: E402
 import observations as ob  # noqa: E402
 import tickets  # noqa: E402
@@ -331,7 +332,7 @@ class RealDataShapeTest(unittest.TestCase):
     """The observation files this instance already has (copied, never touched)."""
 
     def test_every_real_file_parses(self):
-        src = CODE / "data" / "workspace" / "skill-observations"
+        src = ENGINE / "data" / "workspace" / "skill-observations"
         if not (src / "observation-log").is_dir():
             self.skipTest("no observation data in this tree")
         tmp = Path(tempfile.mkdtemp()) / "skill-observations"
@@ -345,7 +346,7 @@ class RealDataShapeTest(unittest.TestCase):
 
 
 class DisciplineTest(unittest.TestCase):
-    SOURCE = (CODE / "observations.py").read_text(encoding="utf-8")
+    SOURCE = (ENGINE / "observations.py").read_text(encoding="utf-8")
 
     def test_only_the_standard_library_and_the_core_module(self):
         imported = set()

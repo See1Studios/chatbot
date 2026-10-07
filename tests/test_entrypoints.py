@@ -7,8 +7,9 @@ Run: python3 -m unittest tests.test_entrypoints  (from services/chatbot)
 import subprocess
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 POINTERS = ("CLAUDE.md", "GEMINI.md")
 ENTRY_FILES = {"AGENTS.md", "RULES.md", "CODEMAP.md"} | set(POINTERS)
 MAX_POINTER_LINES = 5
@@ -48,7 +49,7 @@ class EntryPoints(unittest.TestCase):
 
     def test_the_chat_charter_does_not_carry_the_engine_code_map(self):
         paths = [ROOT / "templates" / "workspace" / "AGENTS.md"]
-        live = ROOT / "data" / "workspace" / "AGENTS.md"
+        live = ENGINE / "data" / "workspace" / "AGENTS.md"
         if live.is_file():
             paths.append(live)
         for path in paths:

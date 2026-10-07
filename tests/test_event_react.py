@@ -18,8 +18,9 @@ from tests.page_source import i18n_prelude  # noqa: E402
 from types import SimpleNamespace
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import event_react as R  # noqa: E402
 import events as E  # noqa: E402
 
@@ -155,7 +156,7 @@ class Reactions(unittest.TestCase):
 
 class Wiring(unittest.TestCase):
     def test_the_server_runs_the_reactor_and_the_team_tab_edits_it(self):
-        src = (ROOT / "server.py").read_text(encoding="utf-8")
+        src = (ENGINE / "server.py").read_text(encoding="utf-8")
         self.assertIn('__import__("event_react").loop', src)
         import workspace_status as W
         tmp = Path(tempfile.mkdtemp())

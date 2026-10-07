@@ -13,12 +13,13 @@ import unittest
 import re
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import mcp_core  # noqa: E402  -- deliberately not the server
 
-CORE = json.loads((CODE / "core_modules.json").read_text(encoding="utf-8"))["core"]
-LAYERS = sorted(p.stem for p in CODE.glob("*.py") if p.stem not in CORE and p.stem != "mcp_core")
+CORE = json.loads((ENGINE / "core_modules.json").read_text(encoding="utf-8"))["core"]
+LAYERS = sorted(p.stem for p in ENGINE.glob("*.py") if p.stem not in CORE and p.stem != "mcp_core")
 SECRET = __import__("re").compile(r"(?i)api[_-]?key\s*[:=]")
 
 SCENARIO = r'''
@@ -74,7 +75,7 @@ class AdapterModuleTest(unittest.TestCase):
             self.assertIn(server, LAYERS)  # the things being kept out are really there to keep out
 
     def test_only_the_standard_library_and_the_core_are_imported(self):
-        tree = ast.parse((CODE / "mcp_core.py").read_text(encoding="utf-8"))
+        tree = ast.parse((ENGINE / "mcp_core.py").read_text(encoding="utf-8"))
         imported = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -82,7 +83,7 @@ class AdapterModuleTest(unittest.TestCase):
             elif isinstance(node, ast.ImportFrom):
                 imported.add((node.module or "").split(".")[0])
         self.assertLessEqual(imported, {"__future__", "pathlib", "typing"} | set(CORE))
-        source = (CODE / "mcp_core.py").read_text(encoding="utf-8")
+        source = (ENGINE / "mcp_core.py").read_text(encoding="utf-8")
         for name in ("mcp_server", "nas_mcp_host"):
             self.assertNotIn(name, source)
 

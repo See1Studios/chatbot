@@ -10,8 +10,9 @@ import subprocess
 import unittest
 from pathlib import Path
 from tests.page_source import i18n_prelude  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 
 # The page around app-rooms.js, as little of it as the room needs: the 1:1 session's state (app.js), the log and
 # the composer, and the calls it makes -- recorded, so the test can say what reached the 1:1 side and what did not.

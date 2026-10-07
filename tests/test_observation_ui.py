@@ -14,7 +14,8 @@ from tests.page_source import app_bundle  # noqa: E402
 
 APP = app_bundle()   # static/app.js and its app-*.js parts (APP_SPLIT_v1)
 from tests.page_source import css_source  # noqa: E402
-HTML = Path(__file__).resolve().parent.parent / "static" / "index.html"
+from tests._paths import REPO  # noqa: E402
+HTML = REPO / "static" / "index.html"
 
 HARNESS = r"""
 const fs = require('fs');

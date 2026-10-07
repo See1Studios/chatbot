@@ -10,8 +10,9 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
+STATIC = REPO / "static"
 
 
 def fn_src(path, name):

@@ -9,20 +9,21 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-CODE = Path(__file__).resolve().parent.parent
+CODE = REPO
 # built from parts so this file does not contain what it forbids
 FORBIDDEN = re.compile("|".join(["task" + sep + "observer" for sep in ("-", "_", "")]), re.IGNORECASE)
 TEXT_SUFFIXES = {".py", ".js", ".css", ".html", ".md", ".json", ".sh", ".txt", ".yml", ".yaml"}
 
 
 def deployable_files():
-    out = [p for p in CODE.glob("*.py")]
+    out = [p for p in ENGINE.glob("*.py")]
     out += [CODE / n for n in ("AGENTS.md", "docs/README.md", "docs/PRODUCT.md", "docs/DESIGN.md", "chatbot-ctl.sh",
                                "protected_paths.json", "observation_signals.json")]
     for sub in ("static", "templates"):
         out += [p for p in (CODE / sub).rglob("*") if p.is_file() and "vendor" not in p.parts]
-    ws = CODE / "data" / "workspace"
+    ws = ENGINE / "data" / "workspace"
     out += [p for p in ws.glob("*.md")]
     out += [p for p in (ws / ".agents").rglob("*") if p.is_file()]
     return sorted(p for p in out if p.is_file() and p.suffix in TEXT_SUFFIXES)
@@ -47,7 +48,7 @@ class NoTraceTest(unittest.TestCase):
         self.assertEqual(hits, [], "trace of the external tool in deployable files")
 
     def test_the_workspace_has_no_link_out_and_no_provider_hook_config(self):
-        ws = CODE / "data" / "workspace"
+        ws = ENGINE / "data" / "workspace"
         skills = ws / ".agents" / "skills"
         if skills.is_dir():
             for entry in skills.iterdir():

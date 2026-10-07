@@ -12,12 +12,14 @@ import time
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import session as S  # noqa: E402
 import tickets  # noqa: E402
 import write_guard as W  # noqa: E402
+from tests._paths import ENGINE  # noqa: E402
 
-CTL = Path(__file__).resolve().parent.parent / "chatbot-ctl.sh"
+CTL = ENGINE / "chatbot-ctl.sh"
 
 
 def step(name, params, i=0):

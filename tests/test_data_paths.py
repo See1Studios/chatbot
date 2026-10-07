@@ -12,8 +12,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests._paths import ENGINE, REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 ENV_NAMES = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")
 ENV_READ = re.compile(r"environ(?:\.get\(|\[)\s*[\"'](%s)[\"']" % "|".join(ENV_NAMES))
 OWN_DATA_DIR = re.compile(r"""(?:ROOT|_ROOT|CODE_DIR|SERVICES|parent)\s*/\s*["']chatbot["']\s*/\s*["']data["']|(?:ROOT|_ROOT|CODE_DIR|parent)\s*/\s*["']data["']""")
@@ -26,7 +27,7 @@ ALLOWED_OWN_DATA = {
 
 
 def modules():
-    return sorted(list(ROOT.glob("*.py")) + list(ROOT.glob("providers/*.py")) + list(ROOT.glob("tools/*.py")))
+    return sorted(list(ENGINE.glob("*.py")) + list(ENGINE.glob("providers/*.py")) + list(ENGINE.glob("tools/*.py")))
 
 
 class DataPaths(unittest.TestCase):
@@ -99,13 +100,13 @@ class DataPaths(unittest.TestCase):
         self.assertEqual(evolution._DATA_ENV, host_config.DATA_ENV)
 
     def test_ctl_follows_the_same_order(self):
-        ctl = (ROOT / "chatbot-ctl.sh").read_text(encoding="utf-8")
+        ctl = (ENGINE / "chatbot-ctl.sh").read_text(encoding="utf-8")
         start = ctl.index("# DATA_RESOLVE_START\n") + len("# DATA_RESOLVE_START\n")
         body = ctl[start:ctl.index("# DATA_RESOLVE_END")]
         self.assertIn("${HOME:-$HOME_DIR}/.pe", body)
         self.assertNotIn(":-$CODE/data", body)
         self.assertIn('"$CODE/data-pin.env"', body)
-        runner = (ROOT / "run-tests.sh").read_text(encoding="utf-8")
+        runner = (ENGINE / "run-tests.sh").read_text(encoding="utf-8")
         self.assertIn('export CHATBOT_DATA="$PWD/data"', runner)
         self.assertNotIn('if [ -z "${CHATBOT_DATA', runner, "the suite ignores a caller's data dir: never an install's")
         self.assertIn("unset PE_HOME PRIVATEENGINE_HOME", runner)

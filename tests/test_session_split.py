@@ -10,12 +10,14 @@ import unittest
 from unittest import mock
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import characters as C  # noqa: E402
 import host_config  # noqa: E402
 import instructions as I  # noqa: E402
 import route_sessions  # noqa: E402
 import session as S  # noqa: E402
+from tests._paths import ENGINE  # noqa: E402
 
 
 class SessionSplit(unittest.TestCase):
@@ -422,5 +424,5 @@ if __name__ == "__main__":
 class NoPrecompute(unittest.TestCase):
     def test_a_heavy_session_does_not_summarize_ahead_of_a_rotation(self):
         # NO_PRECOMPUTE_v1: a full-context /compact after every turn of a heavy session (2026-10-05)
-        src = (Path(__file__).resolve().parent.parent / "session.py").read_text(encoding="utf-8")
+        src = (ENGINE / "session.py").read_text(encoding="utf-8")
         self.assertNotIn("_precompute_summary", src)

@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import platform_compat
+import repo_layout
 
 ROOT = Path(__file__).resolve().parent
 # LOG_PATH_v1: the default lives in host_config, the one resolver ctl and logdigest also read, so the
@@ -338,7 +339,7 @@ def err_info(exc: BaseException, tb=None, with_trace: bool = True) -> Dict[str, 
     unrelated edit above does not split the group)."""
     tb = tb if tb is not None else exc.__traceback__
     frames = _frames(tb)
-    root = str(ROOT)
+    root = str(repo_layout.REPO)   # project frames: anything under the repository
     own = [f for f in frames if f.filename.startswith(root)] or frames
     tail = own[-3:]
     sig = type(exc).__name__ + "|" + "|".join("%s:%s" % (os.path.basename(f.filename), f.name) for f in tail)
@@ -586,12 +587,12 @@ def _proc_status() -> Dict[str, Any]:
 
 def _git_sha() -> Optional[str]:
     try:
-        head = (ROOT / ".git" / "HEAD").read_text(encoding="utf-8").strip()
+        head = (repo_layout.REPO / ".git" / "HEAD").read_text(encoding="utf-8").strip()
         if head.startswith("ref:"):
-            ref = ROOT / ".git" / head.split(" ", 1)[1]
+            ref = repo_layout.REPO / ".git" / head.split(" ", 1)[1]
             if ref.exists():
                 return ref.read_text(encoding="utf-8").strip()[:10]
-            packed = ROOT / ".git" / "packed-refs"
+            packed = repo_layout.REPO / ".git" / "packed-refs"
             for line in packed.read_text(encoding="utf-8").splitlines():
                 if line.endswith(head.split(" ", 1)[1]):
                     return line.split()[0][:10]

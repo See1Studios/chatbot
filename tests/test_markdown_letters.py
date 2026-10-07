@@ -7,8 +7,9 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-SRC = (Path(__file__).resolve().parent.parent / "static" / "markdown.js").read_text(encoding="utf-8")
+SRC = (REPO / "static" / "markdown.js").read_text(encoding="utf-8")
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")

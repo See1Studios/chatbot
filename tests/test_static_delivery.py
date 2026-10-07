@@ -19,8 +19,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import static_delivery as sd  # noqa: E402
 
 PORT = 34871   # deliberately odd: the live service is on 3011
@@ -92,7 +93,7 @@ class OverHttp(unittest.TestCase):
                    NAS_MCP_PORT="0")
         env.pop("CHATBOT_OBSLOG_PATH", None)   # a scratch server must not write the production log
         env.pop("CHATBOT_CALLER", None)
-        cls.server = subprocess.Popen([sys.executable, str(CODE / "server.py")], cwd=str(CODE), env=env,
+        cls.server = subprocess.Popen([sys.executable, str(ENGINE / "server.py")], cwd=str(CODE), env=env,
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         base = "http://127.0.0.1:%d" % PORT
         for _ in range(80):

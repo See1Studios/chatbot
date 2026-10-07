@@ -12,8 +12,9 @@ import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 
 import host_config  # noqa: E402
 import server  # noqa: E402
@@ -44,7 +45,7 @@ class StImportApiTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp()).resolve()
         self.ws = self.tmp / "data" / "workspace"
         self.ws.mkdir(parents=True)
-        shutil.copy(str(ROOT / "protected_paths.json"), str(self.tmp / "protected_paths.json"))
+        shutil.copy(str(ENGINE / "protected_paths.json"), str(self.tmp / "protected_paths.json"))
 
         self.orig_host_ws = host_config.WORKSPACE
         self.orig_server_ws = getattr(server, "WORKSPACE", None)

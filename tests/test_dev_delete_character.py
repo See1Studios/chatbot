@@ -9,9 +9,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+if str(ENGINE) not in sys.path:
+    sys.path.insert(0, str(ENGINE))
 
 import characters  # noqa: E402
 
@@ -108,7 +109,7 @@ class DevDeletePageTest(unittest.TestCase):
         shell = (ROOT / "static" / "app-shell.js").read_text(encoding="utf-8")
         css = (ROOT / "static" / "shell.css").read_text(encoding="utf-8")
         html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
-        server = (ROOT / "server.py").read_text(encoding="utf-8")
+        server = (ENGINE / "server.py").read_text(encoding="utf-8")
         self.assertIn("function shellDevDeleteButton", js)
         self.assertIn("shell-dev shell-dev-delete", js)
         self.assertIn("shellDevOn()", js)

@@ -15,8 +15,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import page_source  # noqa: E402
+from tests._paths import REPO  # noqa: E402
 
-API = Path(__file__).resolve().parent.parent / "static" / "app-api.js"
+API = REPO / "static" / "app-api.js"
 NODE = shutil.which("node")
 
 HARNESS = r"""

@@ -16,7 +16,7 @@ from urllib.parse import unquote
 
 from artifact_manager import _atomic_write_text
 import i18n
-from host_config import HOME, MCP_PORT, ROOT, WORKSPACE
+from host_config import HOME, MCP_PORT, REPO, WORKSPACE
 from instructions import extract_yaml_desc
 import platform_compat
 
@@ -314,7 +314,7 @@ def _characters() -> list:
 def _protected_why(path: Path) -> Optional[str]:
     if evolution is None:
         return "the protected-path list cannot be read"
-    return evolution.match_protected(ROOT, path)
+    return evolution.match_protected(REPO, path)
 
 
 def agent_instructions() -> list:
@@ -330,7 +330,7 @@ def agent_instructions() -> list:
             continue
         why = _protected_why(path)
         try:
-            rel = path.relative_to(ROOT).as_posix()
+            rel = path.relative_to(REPO).as_posix()
         except ValueError:
             rel = str(path)
         out.append({"id": iid, **i18n.field("title", title["key"], **title["vars"]), "path": rel, "layer": layer, "kind": "file",

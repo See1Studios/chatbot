@@ -17,8 +17,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, REPO  # noqa: E402
+ROOT = REPO
+sys.path.insert(0, str(ENGINE))
 import characters as C  # noqa: E402
 import items as I  # noqa: E402
 
@@ -147,7 +148,7 @@ class Routes(Base):
         self.assertIn("the user uses 🪮 빗", I.take_pending("s1", "(빗으로 머리를 천천히 빗겨준다)"))
 
     def test_the_server_wires_the_routes(self):
-        src = (ROOT / "route_sessions.py").read_text(encoding="utf-8")
+        src = (ENGINE / "route_sessions.py").read_text(encoding="utf-8")
         self.assertIn("text = items.take_pending(sid, chat_upload.take_pending(sid, text))", src)
         self.assertIsNone(I.handle_post("/api/sessions/s1/message", {}))
         self.assertIsNone(I.handle_get("/api/sessions/s1/history"))

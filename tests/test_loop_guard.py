@@ -6,8 +6,10 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 from loop_guard import LoopGuard as _Guard, extract_tool_steps, is_read_only, output_hash, read_size, signature  # noqa: E402,E501
+from tests._paths import REPO  # noqa: E402
 
 NO_BUDGET = dict(budget_calls=(10 ** 6, 10 ** 6), budget_bytes=(10 ** 12, 10 ** 12))
 
@@ -15,7 +17,7 @@ NO_BUDGET = dict(budget_calls=(10 ** 6, 10 ** 6), budget_bytes=(10 ** 12, 10 ** 
 def LoopGuard(**kw):   # rules A-C, with rule D's budget out of the way
     return _Guard(**{**NO_BUDGET, **kw})
 
-APP = str(Path(__file__).resolve().parent.parent / "static" / "app.js")
+APP = str(REPO / "static" / "app.js")
 
 
 def view(guard, start, end, path=APP, summary="Viewing app.js", output="default"):

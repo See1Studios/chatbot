@@ -17,7 +17,8 @@ posix_only = unittest.skipUnless(POSIX, "POSIX-only by design (the NAS host plug
 
 # nas_host_only (pp/F, first CI run 2026-09-29): the test drives this NAS's sibling services (~/services/<name>/ and
 # their *-ctl.sh scripts, the services ctl wrapper ../chatbot-ctl.sh). A checkout anywhere else -- CI, a user's PC -- has none of them.
-NAS_LAYOUT = (Path(__file__).resolve().parent.parent.parent / "chatbot-ctl.sh").is_file()
+from tests._paths import REPO  # noqa: E402
+NAS_LAYOUT = (REPO.parent / "chatbot-ctl.sh").is_file()   # the services folder holding this repo
 nas_host_only = unittest.skipUnless(NAS_LAYOUT, "needs this NAS's sibling services (../chatbot-ctl.sh); not in a plain checkout")
 
 

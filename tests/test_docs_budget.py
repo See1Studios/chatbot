@@ -5,8 +5,9 @@ Run: python3 -m unittest tests.test_docs_budget  (from services/chatbot)
 import re
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-DOCS = Path(__file__).resolve().parent.parent / "docs"
+DOCS = REPO / "docs"
 DEVLOG_MAX_BYTES = 40 * 1024
 
 

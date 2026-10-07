@@ -12,8 +12,9 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-CODE = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(CODE))
+from tests._paths import ENGINE, REPO  # noqa: E402
+CODE = REPO
+sys.path.insert(0, str(ENGINE))
 import session  # noqa: E402
 
 
@@ -35,7 +36,7 @@ class Base(unittest.TestCase):
         self.obs.mkdir(parents=True)
         self._orig = {k: getattr(session, k) for k in ("SESSIONS", "ROOT", "_record_live_pids", "DATA", "evolution")}
         session.SESSIONS = self.data / "sessions"
-        session.ROOT = CODE
+        session.ROOT = ENGINE
         session.DATA = self.data
         session._record_live_pids = lambda: None
         self._summary = session.AgentSession.get_handover_summary

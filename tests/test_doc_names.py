@@ -7,8 +7,9 @@ import re
 import subprocess
 import unittest
 from pathlib import Path
+from tests._paths import REPO  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO
 UPPER = re.compile(r"^[A-Z0-9][A-Z0-9-]*\.md$")
 KEBAB = re.compile(r"^[a-z0-9][a-z0-9-]*\.md$")
 PLAN_EXCEPTIONS = {"INDEX.md", "_TEMPLATE.md"}
