@@ -49,10 +49,22 @@ function trEvent(o) {   // the event's text in the page's language, set in place
   }
   return o;
 }
-function trHistory(res) {   // an answer's stored lines (history, events) in the page's language
-  if (res && typeof res === 'object') {
-    [res.history, res.events, res.session && res.session.history].forEach(list => { if (Array.isArray(list)) list.forEach(trEvent); });
-  }
+function trHistory(res) {   // an answer in the page's language, all through (i18n.py's shapes)
+  const walk = (o, depth) => {
+    if (!o || typeof o !== 'object' || depth > 8) return;
+    if (Array.isArray(o)) { o.forEach(x => walk(x, depth + 1)); return; }
+    if (typeof o.key === 'string' && 'text' in o) trEvent(o);            // an event or a stored line
+    else if (o.mark) trEvent(o);
+    Object.keys(o).forEach(k => {
+      if (k.endsWith('_key') && typeof o[k] === 'string' && Object.prototype.hasOwnProperty.call(o, k.slice(0, -4))) {
+        const name = k.slice(0, -4);                                          // a field: <name>_key/_vars beside <name>
+        o[name] = tr(o[k], o[name + '_vars'] || {});
+        delete o[k];
+        delete o[name + '_vars'];
+      } else if (o[k] && typeof o[k] === 'object') walk(o[k], depth + 1);
+    });
+  };
+  walk(res, 0);
   return res;
 }
 function trField(o, name) {   // e.g. trField(res, 'message'): <name>_key/_vars, else <name>, else the older <name>_ko

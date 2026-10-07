@@ -44,7 +44,7 @@ def _vars(values: Dict[str, Any]) -> Dict[str, Any]:
             for k, v in values.items()}
 
 
-def text(key: str, lang: str = "en", **values: Any) -> str:
+def text(key: str, lang: str = "en", **values: Any) -> str:   # values never named key/lang (see field)
     """The key's words in `lang` (English by default) with {name} filled; the key itself when missing. A value may
     be a nested line, {"key", "vars"} (e.g. a loop verdict inside its warning)."""
     s = catalog(lang).get(key) or catalog("en").get(key) or key
@@ -61,6 +61,7 @@ def msg(key: str, **values: Any) -> Dict[str, Any]:
     return {"key": key, "vars": _vars(values), "text": text(key, **values)}
 
 
-def field(name: str, key: str, **values: Any) -> Dict[str, Any]:
-    """A message field of a JSON answer: <name>_key, <name>_vars and <name> (English)."""
-    return {name + "_key": key, name + "_vars": _vars(values), name: text(key, **values)}
+def field(_field: str, _key: str, **values: Any) -> Dict[str, Any]:
+    """A message field of a JSON answer: <field>_key, <field>_vars and <field> (English). The parameters are
+    underscored so a value may be called `name`."""
+    return {_field + "_key": _key, _field + "_vars": _vars(values), _field: text(_key, **values)}

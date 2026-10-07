@@ -15,6 +15,7 @@ from typing import Optional, Tuple
 from urllib.parse import unquote
 
 from artifact_manager import _atomic_write_text
+import i18n
 from host_config import HOME, MCP_PORT, ROOT, WORKSPACE
 from instructions import extract_yaml_desc
 import platform_compat
@@ -252,11 +253,11 @@ def observation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tu
 # Everything the chat agent reads as instructions is shown in the status tab, whole. The operator may edit what the
 # protected-path registry (protected_paths.json) leaves unprotected; the rest is read-only, and says why.
 
-INSTRUCTION_FILES = [  # (id, title, path relative to the workspace, layer)
-    ("AGENTS.md", "헌장", "AGENTS.md", "always"),
-    ("MEMORY.md", "장기 기억", "memory/MEMORY.md", "always"),
-    ("PROJECT.md", "작업 절차", "PROJECT.md", "on_demand"),
-    ("SELF-MODIFY.md", "자기수정 경계", "SELF-MODIFY.md", "on_demand"),
+INSTRUCTION_FILES = [  # (id, title as a line by key (i18n.line), path relative to the workspace, layer)
+    ("AGENTS.md", i18n.line("instr.charter"), "AGENTS.md", "always"),
+    ("MEMORY.md", i18n.line("instr.memory"), "memory/MEMORY.md", "always"),
+    ("PROJECT.md", i18n.line("instr.project"), "PROJECT.md", "on_demand"),
+    ("SELF-MODIFY.md", i18n.line("instr.self_modify"), "SELF-MODIFY.md", "on_demand"),
 ]
 _LAYER_ORDER = {"always": 0, "on_demand": 1, "private": 2}   # private: read only in a private session
 
@@ -267,21 +268,21 @@ def _instruction_files() -> list:
     for c in _characters():
         label = c["name"] or c["id"]
         pd = c["id"] == default                      # the chatbot's own (default) card is read every turn
-        items.append(("characters/%s/card.json" % c["id"], ("페르소나 카드 (%s)" if pd else "캐릭터 카드 (%s)") % label,
+        items.append(("characters/%s/card.json" % c["id"], i18n.line("instr.persona_card" if pd else "instr.character_card", name=label),
                       WORKSPACE / "characters" / c["id"] / "card.json", "always" if pd else "on_demand"))
         if not pd:                                   # the chatbot's memory is still memory/MEMORY.md
-            items.append(("characters/%s/memory.md" % c["id"], "캐릭터 기억 (%s)" % label,
+            items.append(("characters/%s/memory.md" % c["id"], i18n.line("instr.character_memory", name=label),
                           WORKSPACE / "characters" / c["id"] / "memory.md", "on_demand"))
-        items.append(("characters/%s/visual.md" % c["id"], "외형 락 (%s)" % label,
+        items.append(("characters/%s/visual.md" % c["id"], i18n.line("instr.visual", name=label),
                       WORKSPACE / "characters" / c["id"] / "visual.md", "on_demand"))
-        items.append(("characters/%s/private-memory.md" % c["id"], "사적 기억 (%s)" % label,
+        items.append(("characters/%s/private-memory.md" % c["id"], i18n.line("instr.private_memory", name=label),
                       WORKSPACE / "characters" / c["id"] / "private-memory.md", "private"))
     roles = WORKSPACE / "roles"                      # TEAM_ROLES_v1: role packs, read by whoever holds the role
     for d in sorted(roles.iterdir()) if roles.is_dir() else []:
         if d.is_dir() and _ROLE_DIR.match(d.name):
-            for kind, label, load in (("role", "역할 팩 (%s)", "always"), ("procedure", "역할 절차 (%s)", "on_demand")):  # l10n-ok
+            for kind, key, load in (("role", "instr.role_pack", "always"), ("procedure", "instr.role_procedure", "on_demand")):
                 f = _pack_file(d, kind)
-                items.append(("roles/%s/%s" % (d.name, f.name), label % d.name, f, load))
+                items.append(("roles/%s/%s" % (d.name, f.name), i18n.line(key, name=d.name), f, load))
     return items
 
 
@@ -312,7 +313,7 @@ def _characters() -> list:
 
 def _protected_why(path: Path) -> Optional[str]:
     if evolution is None:
-        return "보호 목록을 읽을 수 없음"
+        return "the protected-path list cannot be read"
     return evolution.match_protected(ROOT, path)
 
 
@@ -332,18 +333,18 @@ def agent_instructions() -> list:
             rel = path.relative_to(ROOT).as_posix()
         except ValueError:
             rel = str(path)
-        out.append({"id": iid, "title": title, "path": rel, "layer": layer, "kind": "file", "editable": why is None,
-                    "reason": "보호 경로(%s): 터미널이나 승인된 티켓으로만 바꿉니다" % why if why else "",
+        out.append({"id": iid, **i18n.field("title", title["key"], **title["vars"]), "path": rel, "layer": layer, "kind": "file",
+                    "editable": why is None, **(i18n.field("reason", "instr.protected", why=why) if why else {"reason": ""}),
                     "size": st.st_size, "mtime": st.st_mtime, "content": text})
     try:
         import instructions as I
-        generated = [("skills-index", "스킬 목록", I._skills_text(), "워크스페이스 스킬 폴더에서 자동으로 만듭니다"),
-                     ("status-badge", "상태 배지", I._status_text(), "열린 관찰과 최근 점검에서 자동으로 만듭니다")]
+        generated = [("skills-index", "instr.skills", I._skills_text(), "instr.skills_why"),
+                     ("status-badge", "instr.status_badge", I._status_text(), "instr.status_badge_why")]
     except Exception:  # noqa: BLE001
         generated = []
     for iid, title, text, why in generated:
-        out.append({"id": iid, "title": title, "path": "", "layer": "always", "kind": "generated", "editable": False,
-                    "reason": why, "size": len((text or "").encode("utf-8")), "mtime": 0, "content": text or ""})
+        out.append({"id": iid, **i18n.field("title", title), "path": "", "layer": "always", "kind": "generated", "editable": False,
+                    **i18n.field("reason", why), "size": len((text or "").encode("utf-8")), "mtime": 0, "content": text or ""})
     out.sort(key=lambda x: _LAYER_ORDER[x["layer"]])
     return out
 
@@ -496,7 +497,7 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
 
 
 # ------------------------------------------------------------ team (EXPERTS_STATUS_v1, CHARACTERS_v1)
-# The 팀 tab: each character's work brains (its card, extensions.chatbot.brains.work),
+# The team tab: each character's work brains (its card, extensions.chatbot.brains.work),
 # docs/plans/multi-agent-worktree-delegation.md §11-12. The operator edits them here; the PD cannot. Which providers a brain may name comes from the delegation runner's registry.
 
 _MAX_BRAINS = 6
@@ -744,7 +745,7 @@ def _mcp_tool_summaries(entry: dict) -> list:
                 if t.get("name")
             ]
         except Exception as e:  # noqa: BLE001
-            return [{"name": "(조회 실패)", "description": f"{type(e).__name__}: {e}"}]
+            return [{"name": "(lookup failed)", "description": f"{type(e).__name__}: {e}"}]
     if not url.startswith("http"):
         return []
     # Remote HTTP MCP — short tools/list probe (never blocks Status long).
@@ -841,10 +842,10 @@ def _self_status() -> dict:
                 }
                 for name, cfg in hooks_cfg.items()
             ],
-            "note": "Antigravity는 PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop 5종 훅을 지원하지만, 이 워크스페이스는 관찰을 호스트가 직접 수집하므로 프로바이더 훅을 설정하지 않습니다.",
+            **i18n.field("note", "instr.hooks_note"),
         },
         "plugins": {
-            "note": "이 스택에서 '플러그인'은 별도 개념이 아니라 스킬(.agents/skills) + MCP로 표현됨.",
+            **i18n.field("note", "instr.plugins_note"),
         },
         "observation": _observation_summary(),
     }

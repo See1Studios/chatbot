@@ -10,7 +10,6 @@
  },
  "l10n": {
   "characters.py": 1,
-  "delegation.py": 16,
   "emotion.py": 5,
   "host_config.py": 2,
   "identity.py": 3,
@@ -20,11 +19,9 @@
   "private_engine.py": 13,
   "route_files.py": 3,
   "route_sessions.py": 3,
-  "server.py": 18,
   "session_registry.py": 1,
   "session_view.py": 5,
-  "tool_format.py": 2,
-  "workspace_status.py": 16
+  "tool_format.py": 2
  },
  "posix": {
   "ctl_proc.py": 5,

@@ -60,7 +60,7 @@ class ObservationSummaryTest(unittest.TestCase):
     def test_the_hooks_note_does_not_claim_a_configured_hook(self):
         src = Path(W.__file__).read_text(encoding="utf-8")
         self.assertNotIn("실제로 설정돼 있음", src)
-        self.assertIn("프로바이더 훅을 설정하지 않습니다", src)
+        self.assertIn('i18n.field("note", "instr.hooks_note")', src)   # I18N_v1: the note by key
 
     def test_the_status_key_is_the_role_name(self):
         src = (Path(W.__file__)).read_text(encoding="utf-8")

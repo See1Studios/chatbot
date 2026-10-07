@@ -4,8 +4,8 @@ The chatbot is the PD. The operator proposes; the PD (the chat agent, `delegate`
 tasks for its expert characters (`characters/<id>/`, by role). Nothing runs until the operator says so, and
 nothing lands until the operator says so again:
 
-  plan (awaiting_go) -> [실행] go -> tasks in order, each worked by its expert and confirmed by the PD
-  (tools/worktree_runner.py) -> awaiting_merge -> [승인] merge | [반려] rework (a comment, same branch) | [폐기] discard
+  plan (awaiting_go) -> [Run] go -> tasks in order, each worked by its expert and confirmed by the PD
+  (tools/worktree_runner.py) -> awaiting_merge -> [Approve] merge | [Rework] rework (a comment, same branch) | [Discard] discard
 
 - One plan = one ticket = one worktree branch. Tier 3 paths are refused when the plan is submitted.
 - The operator's decisions come from the chat page (`/ticket delegate|merge|rework|discard N`,
@@ -41,7 +41,7 @@ SEEN_FILE = DATA / "delegation_seen.json"
 ACTIVE_PHASES = ("starting", "running", "writing", "gates", "review", "merging")
 PASS_ENV = ("CHATBOT_ROOT", "CHATBOT_DATA")   # where the runner finds this instance; nothing secret
 MAX_RUNS = 20
-QUEUE_POLL_SEC = 10          # how often a queued [실행] checks whether its files came free
+QUEUE_POLL_SEC = 10          # how often a queued [Run] checks whether its files came free
 _TITLE_MAX = 120
 _INSTRUCTION_MAX = 8000
 _lock = threading.Lock()
@@ -164,7 +164,7 @@ def _nearest(rel: str) -> str:
 
 
 def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = None) -> Dict:
-    """The PD submits a plan; it waits for the operator's [실행]. With `ticket_id`, it replaces the plan of a
+    """The PD submits a plan; it waits for the operator's [Run]. With `ticket_id`, it replaces the plan of a
     ticket still waiting for that, or of one that gate_failed/failed with attempts left (same id, attempts kept). Returns {ticket, tier, tasks}."""
     title = re.sub(r"\s+", " ", str(title or "")).strip()[:_TITLE_MAX]
     if not title:
@@ -173,7 +173,7 @@ def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = Non
     paths = sorted({p for t in tasks for p in t["paths"]})
     tier = tier_of(paths)
     dirty = tickets._ship_blockers(PLAN_ROOT, {"paths": [p for p in paths if (PLAN_ROOT / p).exists()]})
-    if dirty:   # [실행]'s claim would refuse them (#213); `creates` files do not exist yet, so they are exempt
+    if dirty:   # [Run]'s claim would refuse them (#213); `creates` files do not exist yet, so they are exempt
         raise DelegationError("uncommitted: %s; commit or revert them first, then plan again" % ", ".join(dirty[:5]))
     if ticket_id:
         t = tickets.get(DATA, ticket_id)
@@ -182,7 +182,7 @@ def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = Non
             raise DelegationError("ticket %d used all %d attempts; open a new ticket" % (t["id"], tickets.MAX_ATTEMPTS))
         if not (t["status"] in ("proposed", "approved") and phase == "awaiting_go"
                 or t["status"] == "approved" and phase in ("gate_failed", "failed")):
-            raise DelegationError("ticket %d is %s/%s; only a plan waiting for [실행] or one that gate_failed/failed "
+            raise DelegationError("ticket %d is %s/%s; only a plan waiting for [Run] or one that gate_failed/failed "
                                   "can be replaced" % (t["id"], t["status"], phase))
     else:
         t, _ = tickets.propose(DATA, title, ",".join(paths), evidence, actor=actor)
@@ -193,7 +193,7 @@ def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = Non
 
 
 def request(title: str, paths, instruction: str, evidence, actor: str, creates=None) -> Dict:
-    """A one-task plan (the older `start` call); it waits for [실행] like any plan."""
+    """A one-task plan (the older `start` call); it waits for [Run] like any plan."""
     roles = experts()
     return plan(title, [{"role": roles[0] if roles else "", "title": title, "instruction": instruction,
                          "paths": paths, "creates": creates}], evidence, actor)
@@ -202,7 +202,7 @@ def request(title: str, paths, instruction: str, evidence, actor: str, creates=N
 # ------------------------------------------------------------- the operator decides
 
 def go(ticket_id: int, queue: bool = True) -> Dict:
-    """`[실행]`: approve the ticket if it still waits for that, claim it and launch the plan. When another ticket
+    """`[Run]`: approve the ticket if it still waits for that, claim it and launch the plan. When another ticket
     holds some of its files, it waits in the queue (phase `queued`) and starts on its own once they are free
     (LEASE_SCOPE_v1)."""
     t = tickets.get(DATA, ticket_id)
@@ -249,7 +249,7 @@ def _has_attic(tid: int) -> bool:
 
 
 def rework(ticket_id: int, comment: str) -> Dict:
-    """`[반려]`: the operator sends the finished work back with a comment; the same branch is reworked."""
+    """`[Rework]`: the operator sends the finished work back with a comment; the same branch is reworked."""
     tid = int(ticket_id)
     if runner().read_state(tid).get("phase") != "awaiting_merge":
         raise DelegationError("ticket %d has no finished work waiting for your confirmation" % tid)
@@ -261,7 +261,7 @@ def rework(ticket_id: int, comment: str) -> Dict:
 
 
 def merge(ticket_id: int) -> Dict:
-    """`[승인]`: the operator lets the reviewed change land; the runner merges it on its own. Also retries a merge
+    """`[Approve]`: the operator lets the reviewed change land; the runner merges it on its own. Also retries a merge
     whose process died (the card shows it stalled): the dead run's lease is freed first."""
     tid = int(ticket_id)
     st = runner().read_state(tid)
@@ -308,7 +308,7 @@ def _close_merged(tid: int, st: Dict) -> Dict:
 
 
 def discard(ticket_id: int) -> Dict:
-    """`[폐기]`: decline the ticket and drop its worktree and branch."""
+    """`[Discard]`: decline the ticket and drop its worktree and branch."""
     tid = int(ticket_id)
     r = runner()
     st = r.read_state(tid)
@@ -343,7 +343,7 @@ def discard(ticket_id: int) -> Dict:
 
 
 def allow(ticket_id: int) -> Dict:
-    """`[경로 허용]`: the worker asked for files outside its task (NEED_PATH_v1, phase `paused`); add them to that task
+    """`[Allow paths]`: the worker asked for files outside its task (NEED_PATH_v1, phase `paused`); add them to that task
     and run the plan again -- it picks up the kept work where it stopped. Tier 3 files and missing folders are refused."""
     tid = int(ticket_id)
     r = runner()
@@ -367,7 +367,7 @@ def allow(ticket_id: int) -> Dict:
 
 
 def unqueue(ticket_id: int) -> Dict:
-    """`[취소]` on a queued [실행]: back to a plan waiting for [실행]."""
+    """`[Cancel]` on a queued [Run]: back to a plan waiting for [Run]."""
     tid = int(ticket_id)
     if runner().read_state(tid).get("phase") != "queued":
         raise DelegationError("ticket %d is not waiting in the queue" % tid)
@@ -844,10 +844,10 @@ _DELEGATE_TOOL = {
     "description": ("You delegate: you do not change files yourself. For work the operator proposes, "
                     "plan it and hand it to your experts. plan (title, tasks=[{role, title, instruction, paths=[existing repo-"
                     "relative files it changes][, creates=[new files]][, reads=[existing files to read only; they do not raise the tier]]}][, ticket to replace a plan still waiting, or one that gate_failed/failed with attempts left][, evidence; defaults to the operator's "
-                    "latest message]): the plan appears as a card and runs only when the operator presses [실행]; each "
+                    "latest message]): the plan appears as a card and runs only when the operator presses [Run]; each "
                     "task is worked by its expert (role = a role another character holds; the team is data/workspace/team.json) in an "
                     "isolated worktree, then you confirm it; the finished plan lands only when the operator presses "
-                    "[승인] (or sends it back with [반려]). Tier 3 paths (guards, gates, approval rules, the charter) "
+                    "[Approve] (or sends it back with [Rework]). Tier 3 paths (guards, gates, approval rules, the charter) "
                     "are refused. start (title, paths, instruction[, creates]): a one-task plan. A path that does not exist is refused with the nearest real files: look before you name one. status: the work cards. "
                     "Running, landing, reworking and discarding are the operator's, not a tool's."),
     "inputSchema": {
@@ -893,7 +893,7 @@ def tool_call(name: str, args: dict, actor: str, secret_re, envelope, private: b
             else:
                 res = request(args.get("title"), args.get("paths"), args.get("instruction"), evidence, actor=actor,
                               creates=args.get("creates"))
-            return envelope(True, "plan #%d (%d task(s)) is on the operator's card; it runs when they press [실행]. "
+            return envelope(True, "plan #%d (%d task(s)) is on the operator's card; it runs when they press [Run]. "
                             "Tell them in a line or two." % (res["ticket"], res["tasks"]), res)
         if action == "status":
             return envelope(True, "ok", {"runs": [{k: r[k] for k in ("ticket", "title", "phase", "task", "tasks_total",

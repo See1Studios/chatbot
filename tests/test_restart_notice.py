@@ -96,28 +96,28 @@ class FirstTurnOnly(SyncBase):
         s._send_direct("첫 메시지")
         s._send_direct("두 번째")
         first, second = self.sent[-2], self.sent[-1]
-        self.assertIn("[시스템 안내] 호스트가 ", first)
-        self.assertIn("(HEAD %s). 반영: fix one · add two" % NEW[:7], first)
-        self.assertNotIn("에 재기동됨 (HEAD", second)
+        self.assertIn("[Host note] The host restarted", first)
+        self.assertIn("(HEAD %s). Landed: fix one · add two" % NEW[:7], first)
+        self.assertNotIn("The host restarted at", second)
 
     def test_no_landed_commits_says_so(self):
         server.BOOT_INFO["landed"] = []
         s = self.make()
         s._send_direct("안녕")
-        self.assertIn("반영: 새 커밋 없음", self.sent[-1])
+        self.assertIn("Landed: no new commits", self.sent[-1])
 
     def test_a_host_notice_turn_does_not_use_it_up(self):
         s = self.make()
         s._send_direct("loop note", notice=True)
-        self.assertNotIn("에 재기동됨 (HEAD", self.sent[-1])
+        self.assertNotIn("The host restarted at", self.sent[-1])
         s._send_direct("사용자 메시지")
-        self.assertIn("에 재기동됨 (HEAD", self.sent[-1])
+        self.assertIn("The host restarted at", self.sent[-1])
 
     def test_no_boot_info_no_notice(self):
         server.BOOT_INFO["boot_ts"] = 0
         s = self.make()
         s._send_direct("안녕")
-        self.assertNotIn("에 재기동됨 (HEAD", self.sent[-1])
+        self.assertNotIn("The host restarted at", self.sent[-1])
 
 
 if __name__ == "__main__":

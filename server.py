@@ -18,6 +18,7 @@ from typing import Any, Dict
 from urllib.parse import unquote, urlparse
 
 from providers.adapters import AGENT_ADAPTERS, PROVIDER_META
+import i18n
 from host_config import (
     DATA,
     EDITION,
@@ -55,7 +56,7 @@ import static_delivery
 from route_accounts import _AUTO_RECYCLE, AUTO_RECYCLE_ENABLED, _auto_recycle_loop
 from route_table import NEXT, Req, json_bytes as _json_bytes
 
-try:  # worktree delegation (work cards, [맡겨]/[병합·⚡]); the page still loads without it
+try:  # worktree delegation (work cards, [Run]/[Approve]); the page still loads without it
     from delegation import delegation_api
 except Exception:  # noqa: BLE001
     obslog.exception("delegation.unavailable")
@@ -325,8 +326,8 @@ def _host_status(req: Req):
         "ok": True,
         "chat": True,  # we answered, so chat is up
         "boot_ts": BOOT_INFO["boot_ts"],
-        "label_ko": "엔진 리부트",
-        "hint_ko": "연결이 죽었거나 응답이 안 올 때 호스트를 재기동합니다. 몇 초 끊겼다가 다시 붙습니다.",
+        **i18n.field("label", "menu.defib"),
+        **i18n.field("hint", 'srv.defib_hint'),
     })
 
 
@@ -358,16 +359,16 @@ def _providers(req: Req):
 def _commands(req: Req):
     skills = _get_available_skills()
     commands = [
-        {"name": "/btw", "label": "샛길 질문", "desc": "작업 중 즉시 경량 샛길 답변", "template": "/btw "},
-        {"name": "/private on", "label": "사적 대화 켜기", "desc": "♥ 사적 대화 세션으로 전환 (업무와 분리)", "template": "/private on"},
-        {"name": "/private off", "label": "사적 대화 끄기", "desc": "업무 대화 세션으로 복귀", "template": "/private off"},
-        {"name": "/continue", "label": "이어하기", "desc": "현재 대화 맥락 인계 새 세션", "template": "/continue"},
-        {"name": "/new", "label": "새 세션", "desc": "완전한 새 대화 세션 시작", "template": "/new"},
-        {"name": "/defib", "label": "엔진 리부트", "desc": "엔진 리부트 (repair/reboot)", "template": "/defib"},
-        {"name": "/status", "label": "상태 확인", "desc": "챗봇 및 NAS 시스템 상태 확인", "template": "/status"},
-        {"name": "/clear", "label": "화면 비우기", "desc": "대화창 화면 로그 초기화", "template": "/clear"},
-        {"name": "/compact", "label": "세션 압축", "desc": "대화 히스토리 수동 압축/요약", "template": "/compact"},
-        {"name": "/help", "label": "사용법", "desc": "탭·단축키·슬래시 명령어 요약", "template": "/help"},
+        {"name": "/btw", "key": "btw", "template": "/btw "},
+        {"name": "/private on", "key": "private_on", "template": "/private on"},
+        {"name": "/private off", "key": "private_off", "template": "/private off"},
+        {"name": "/continue", "key": "continue", "template": "/continue"},
+        {"name": "/new", "key": "new", "template": "/new"},
+        {"name": "/defib", "key": "defib", "template": "/defib"},
+        {"name": "/status", "key": "status", "template": "/status"},
+        {"name": "/clear", "key": "clear", "template": "/clear"},
+        {"name": "/compact", "key": "compact", "template": "/compact"},
+        {"name": "/help", "key": "help", "template": "/help"},
     ]
     popular = _popular_slash_skills()
     return req.json({"ok": True, "commands": commands, "popular": popular, "skills": skills},
@@ -393,7 +394,7 @@ def _mcp_add(req: Req):
 def _mcp_delete(req: Req):
     name = unquote(req.arg)
     if name == "nas":
-        return req.json({"ok": False, "error": "nas MCP는 코어 — 삭제 불가"}, 400)
+        return req.json({"ok": False, **i18n.field("error", 'srv.mcp_core')}, 400)
     cfg = _read_mcp_config()
     if name in cfg.get("mcpServers", {}):
         del cfg["mcpServers"][name]
@@ -424,7 +425,7 @@ def _defibrillate(req: Req):
     req.json({
         "ok": True,
         "scheduled": True,
-        "message_ko": "엔진 리부트 예약됨. 호스트가 재기동됩니다. 잠시 후 자동으로 다시 연결합니다.",
+        **i18n.field("message", 'srv.defib_scheduled'),
     })
     _schedule_host_defibrillate()
 
@@ -595,7 +596,7 @@ DELETE_ROUTES = [
 ]
 
 
-# Service log for the UI (로그 탭 → 서비스): logdigest over logs/events.jsonl (docs/LOGGING.md).
+# Service log for the UI (log tab → service): logdigest over logs/events.jsonl (docs/LOGGING.md).
 SERVICE_LOG_EVENTS = 200
 SERVICE_LOG_TTL_SEC = 10
 _SERVICE_LOG_CACHE: Dict[tuple, tuple] = {}
@@ -750,8 +751,8 @@ def _turn_notices(sess) -> str:
 
 
 def _restart_line(p: Dict[str, Any]) -> str:
-    landed = " · ".join(p.get("landed") or []) or "새 커밋 없음"
-    return "[시스템 안내] 호스트가 %s에 재기동됨 (HEAD %s). 반영: %s" % (
+    landed = " · ".join(p.get("landed") or []) or "no new commits"   # the agent's note: English
+    return "[Host note] The host restarted at %s (HEAD %s). Landed: %s" % (
         time.strftime("%H:%M", time.localtime(p.get("boot_ts") or 0)), (p.get("head") or "?")[:7], landed)
 
 
