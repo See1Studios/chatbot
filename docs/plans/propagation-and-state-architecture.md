@@ -154,7 +154,7 @@
 | prop/E | 2026-10-07 거버넌스 검토 1: main 복구 — lead 역할 팩에서 설치 전용 스킬 제거(주인 없는 스킬은 DEFAULT_ROLE_v1로 기본 캐릭터 몫), 지문 테스트의 날짜 고정 | `templates/dev-workspace/roles/lead/ROLE.md`, `tests/test_context_layers.py` | `./run-tests.sh` 전부 통과 | Tier 3 · ⚡X | S | — | ✅ #766 `de37131` |
 | prop/F | 검토 2: 집행자 보호 — 레지스트리의 집행자 테스트는 모두 Tier 3, 싼 것은 FAST, 느린 것은 이유와 함께 목록; 테스트 페어링을 commit-msg 훅으로 | `tests/test_rule_registry.py`, `run-tests.sh`, `protected_paths.json`, `.githooks/check_staged.py`, `tests/test_githooks.py`, `tests/test_conventions.py`, `AGENTS.md` | 집행자를 Tier 3에서 빼거나 FAST·SLOW 어디에도 없으면 `test_rule_registry` 실패; 테스트 없는 feat/fix 커밋 거절 | Tier 3 · ⚡X | M | prop/E | ✅ #767 `df88497` |
 | prop/G | 검토 3: 개발판·배포판 지침 분리(운영자 2026-10-07 "절대 섞이지 않고 독립적") — 헌장은 배포판 하나, 개발판 규칙은 `EDITION=dev`에서만 붙는 별도 층 | `instructions.py`, `templates/`, `tools/link_dev_workspace.py`, 테스트 | 배포판 묶음에 개발판 문장 0, 개발판 층이 배포판 헌장 줄을 반복하지 않음(테스트) | Tier 3 · ⚡ | M | prop/F | ✅ #768 `83f0cf8` |
-| prop/H | 검토 4: 거버넌스 문서 정리 — CONVENTION 영어·숫자 위주, STATE 축소, ARCHITECTURE §7 사실만, 계획 상태 정정, 문구 확인 테스트 삭제 | `docs/`, `AGENTS.md`, `templates/dev-workspace/` | `./run-tests.sh` 통과, 문서 간 모순 0 | Tier 3 · ⚡X | M | prop/G | #769 |
+| prop/H | 검토 4: 거버넌스 문서 정리 — CONVENTION 영어·숫자 위주, STATE 축소, ARCHITECTURE §7 사실만, 계획 상태 정정, 문구 확인 테스트 삭제 | `docs/`, `AGENTS.md`, `templates/dev-workspace/` | `./run-tests.sh` 통과, 문서 간 모순 0 | Tier 3 · ⚡X | M | prop/G | ✅ #769 `bc8c9f3` |
 
 ---
 
