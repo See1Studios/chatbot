@@ -43,6 +43,66 @@ class Marks(unittest.TestCase):
         self.assertFalse((d / "s1" / personal_turn.FILE).exists())
 
 
+class MoveChoice(unittest.TestCase):
+    """MOVE_CHOICE_v1 (docs/plans/engine-decides.md ed/B2, D3): the engine, not the model, adds the move choice to a
+    marked personal turn -- the place from a list, the chips by catalog key, the cool-down kept."""
+
+    def test_unmarked_turns_get_nothing_and_marked_ones_two_chips_by_key(self):
+        d = _tmp_sessions("s1")
+        self.assertEqual(personal_turn.move_choices(d, "s1", 100.0), [])
+        personal_turn.mark(d, "s1", 100.0)
+        move, stay = personal_turn.move_choices(d, "s1", 100.0)
+        self.assertEqual((move["label_key"], move["kind"]), ("choice.move", "command"))
+        self.assertEqual(move["label_vars"], {"place": {"key": "place.stairwell"}})
+        self.assertEqual(move["payload"], "/private on the stairwell")
+        self.assertTrue(mcp._is_allowed_choice_command(move["payload"]))
+        self.assertEqual(stay["label_key"], "choice.back_to_work")
+        self.assertEqual(personal_turn.move_choices(d, "s1", 100.0), [], "once per turn")
+
+    def test_the_next_offer_goes_somewhere_else_and_offers_do_not_count_as_marks(self):
+        d = _tmp_sessions("s1")
+        names = []
+        for t in (1.0, 2.0):
+            personal_turn.mark(d, "s1", t)
+            names.append(personal_turn.move_choices(d, "s1", t)[0]["payload"])
+        self.assertEqual(len(set(names)), 2, names)
+        personal_turn.mark(d, "s1", 3.0)   # a third mark in the window with no move: the cool-down (W2b) holds
+        self.assertEqual(personal_turn.move_choices(d, "s1", 3.0), [])
+        personal_turn.moved(d, "s1")
+        personal_turn.mark(d, "s1", 4.0)
+        self.assertEqual(personal_turn.move_choices(d, "s1", 4.0)[0]["payload"], "/private on an empty meeting room")
+
+    def test_a_characters_own_places_win(self):
+        d = _tmp_sessions("s1")
+        state = d / "state.json"
+        state.write_text(json.dumps({"places": ["신사 뒤뜰"]}), encoding="utf-8")
+        personal_turn.mark(d, "s1", 5.0)
+        move = personal_turn.move_choices(d, "s1", 5.0, state)[0]
+        self.assertEqual((move["label_vars"]["place"], move["payload"]), ("신사 뒤뜰", "/private on 신사 뒤뜰"))
+
+    def test_the_answer_gets_them_after_its_own_choices_in_a_work_room_only(self):
+        import session_turn
+        d = _tmp_sessions("s1")
+        personal_turn.mark(d, "s1", 7.0)
+        s = type("S", (), {})()
+        s.mode, s.sid, s.character = "work", "s1", ""
+        s.meta_path = d / "s1" / "meta.json"
+        s.history = [{"role": "user", "text": "hi", "ts": 7.0}]
+        got = session_turn.SessionTurn.engine_choices(s, ["Yes", "No"])
+        self.assertEqual(got[:2], ["Yes", "No"])
+        self.assertEqual(got[2]["label_key"], "choice.move")
+        s.mode = "private"
+        self.assertEqual(session_turn.SessionTurn.engine_choices(s, ["A"]), ["A"])
+
+    def test_the_page_shows_a_chip_label_by_its_key(self):
+        page = (ROOT / "static" / "app-messages.js").read_text(encoding="utf-8")
+        self.assertIn("x.label_key ? tr(x.label_key, x.label_vars || {}) : x.label", page)
+        for lang in ("en", "ko"):
+            cat = json.loads((ROOT / "static" / "i18n" / (lang + ".json")).read_text(encoding="utf-8"))
+            for p in personal_turn.places():
+                self.assertIn("place." + p["id"], cat, lang)
+
+
 class ToolsClose(unittest.TestCase):
     def setUp(self):
         self.d = _tmp_sessions("w1")

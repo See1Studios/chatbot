@@ -414,6 +414,8 @@ class AgentAdapter:
         notice_kind = "warn" if refused else ("error" if emit_as_error else "")
         if refused:
             hist_text, choices, emit_as_error = guard_text, [], True
+        if not emit_as_error and hasattr(session, "engine_choices"):   # choices the engine settles (engine-decides)
+            choices = session.engine_choices(choices)
 
         hist_item: dict = {"role": "assistant", "text": hist_text, "ts": ts}
         if emit_as_error and error_msg and not refused:   # I18N_v1: the page shows the notice in its language

@@ -1102,5 +1102,11 @@
   "work.round": "{n}라운드",
   "work.step": "단계 {n}/{total}",
   "work.verdict": "판정 {verdict}",
-  "work.worker": "작업자"
+  "work.worker": "작업자",
+  "choice.move": "잠깐 {place} 쪽으로…",
+  "choice.back_to_work": "일 계속하기",
+  "place.stairwell": "비상계단",
+  "place.rooftop": "옥상 테라스",
+  "place.meeting_room": "빈 회의실",
+  "place.after_work": "퇴근길 산책"
 }

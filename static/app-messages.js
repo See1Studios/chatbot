@@ -704,7 +704,7 @@ function textWithChoices(h) {
   function choiceItemToMarker(x) {
     if (typeof x === 'string') return x.trim();
     if (x && typeof x === 'object' && x.label) {
-      const lbl = String(x.label).trim();
+      const lbl = String(x.label_key ? tr(x.label_key, x.label_vars || {}) : x.label).trim();   // MOVE_CHOICE_v1
       if (!lbl) return '';
       if (x.kind === 'action' || x.isAction) {
         let act = String(x.payload || x.action || lbl).trim();

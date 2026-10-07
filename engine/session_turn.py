@@ -29,6 +29,21 @@ def _s():
 
 
 class SessionTurn:
+    def engine_choices(self, choices: list) -> list:
+        """The choices the engine adds to this turn's answer (engine-decides): a marked personal turn in a work room
+        gets the move choice (MOVE_CHOICE_v1, ed/B2). The answer's own choices come first and stay."""
+        if getattr(self, "mode", "work") == "private":
+            return choices
+        import items
+        import personal_turn
+        try:
+            extra = personal_turn.move_choices(self.meta_path.parent.parent, self.sid,
+                                               personal_turn.running_turn(self.history),
+                                               items.state_path(self.character) if getattr(self, "character", "") else None)
+        except Exception:  # noqa: BLE001 -- an extra choice must never break the answer
+            extra = []
+        return list(choices or []) + extra
+
     def _run_btw(self, query: str) -> None:
         query = (query or "").strip()
         if not query:

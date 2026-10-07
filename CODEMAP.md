@@ -61,7 +61,7 @@ map only says which file does what.
 | Art | `art_manager.py` (the one way a picture gets in), format check `tools/check_character_art.py` |
 | Summon wizard | `summon_api.py`, steps `engine_data/summon_steps.json`, page `static/app-summon.js` |
 | Relationship memory | `memory_relationship.py` |
-| Private mode | `private_engine.py` (Gemini refusal layer: `docs/providers/private-refusal-mitigation.md`); personal turns `personal_turn.py`; the note into the private room `threshold.py` + `engine_data/private_tension_{defaults,gemini,grok}.json`; items and affection `items.py` + `engine_data/affection.json` |
+| Private mode | `private_engine.py` (Gemini refusal layer: `docs/providers/private-refusal-mitigation.md`); personal turns and the move choice the engine adds `personal_turn.py` + `engine_data/places.json`; the note into the private room `threshold.py` + `engine_data/private_tension_{defaults,gemini,grok}.json`; items and affection `items.py` + `engine_data/affection.json` |
 
 ### Team, events, delegation
 

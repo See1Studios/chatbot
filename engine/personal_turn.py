@@ -17,7 +17,7 @@ import json
 import re
 import time
 from pathlib import Path
-from typing import Set
+from typing import Any, Dict, List, Set
 
 FILE = "personal-turns.jsonl"
 NAMES = ("personal_turn",)
@@ -108,9 +108,60 @@ def offers_left(sessions, sid: str, now: float = 0.0) -> bool:
             continue
         if "moved" in r:
             since = 0
-        elif now - float(r.get("ts") or 0) < OFFER_WINDOW_SEC:
+        elif "turn" in r and now - float(r.get("ts") or 0) < OFFER_WINDOW_SEC:   # marks only, not offers
             since += 1
     return since <= OFFER_MAX
+
+
+PLACES_PATH = Path(__file__).resolve().parent / "engine_data" / "places.json"
+
+
+def places(state_path=None) -> List[Dict[str, str]]:
+    """MOVE_CHOICE_v1 (ed/B2, D3): the places a move may go to -- the character's own (`places` in its state.json:
+    names, or {id, name}), else the engine's defaults. [{id, name}]; a place of the character's has no catalog line."""
+    try:
+        own = json.loads(Path(state_path).read_text(encoding="utf-8")).get("places") if state_path else None
+    except (OSError, ValueError, AttributeError, TypeError):
+        own = None
+    if isinstance(own, list) and own:
+        out = [{"id": "", "name": str(p)} if isinstance(p, str) else {"id": "", "name": str(p.get("name") or "")}
+               for p in own if isinstance(p, (str, dict))]
+        return [p for p in out if p["name"].strip()]
+    try:
+        return [p for p in json.loads(PLACES_PATH.read_text(encoding="utf-8"))["places"] if p.get("name")]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+
+
+def _rows(sessions, sid: str) -> List[dict]:
+    try:
+        rows = [json.loads(x) for x in (Path(sessions) / sid / FILE).read_text(encoding="utf-8").splitlines() if x.strip()]
+    except (OSError, ValueError):
+        return []
+    return [r for r in rows if isinstance(r, dict)]
+
+
+def move_choices(sessions, sid: str, turn, state_path=None) -> List[Dict[str, Any]]:
+    """The choices the engine adds to a marked personal turn's answer (ed/B2): a move to a place and "back to work",
+    as page chips by catalog key; [] when the turn is not marked, the cool-down is on, or this turn got them already.
+    The place is the one offered longest ago (never offered first), so the user is not asked the same twice."""
+    k = key(turn)
+    if not k or not is_marked(sessions, sid, turn) or not offers_left(sessions, sid):
+        return []
+    rows = _rows(sessions, sid)
+    if any(r.get("offer_for") == k for r in rows):
+        return []
+    options = places(state_path)
+    if not options:
+        return []
+    last = {r.get("offer"): i for i, r in enumerate(rows) if "offer" in r}
+    place = min(options, key=lambda p: last.get(p["name"], -1))
+    with open(Path(sessions) / sid / FILE, "a", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps({"offer": place["name"], "offer_for": k, "ts": time.time()}) + "\n")
+    shown = {"key": "place." + place["id"]} if place.get("id") else place["name"]
+    return [{"label": "A quick word in %s..." % place["name"], "label_key": "choice.move", "label_vars": {"place": shown},
+             "kind": "command", "payload": "/private on " + place["name"]},
+            {"label": "Back to work", "label_key": "choice.back_to_work"}]
 
 
 def tool_call(sessions, busy, active_sid) -> tuple:
@@ -124,8 +175,8 @@ def tool_call(sessions, busy, active_sid) -> tuple:
     sid = str(work[0].get("id") or "")
     if not mark(sessions, sid, work[0].get("turn")):
         return False, "this turn cannot be marked"
-    offer = ("Offer the move choice at the end of your reply." if offers_left(sessions, sid)
-             else "Do not offer a move now: the user stayed at work the last times.")
+    offer = ("The engine adds a move choice to your reply; do not write one." if offers_left(sessions, sid)
+             else "No move is offered now: the user stayed at work the last times.")
     return True, "marked personal: this turn stays out of work memory, observations and tickets. " + offer
 
 

@@ -1102,5 +1102,11 @@
   "work.round": "Round {n}",
   "work.step": "Step {n}/{total}",
   "work.verdict": "Verdict {verdict}",
-  "work.worker": "Worker"
+  "work.worker": "Worker",
+  "choice.move": "A quick word in {place}...",
+  "choice.back_to_work": "Back to work",
+  "place.stairwell": "the stairwell",
+  "place.rooftop": "the rooftop terrace",
+  "place.meeting_room": "an empty meeting room",
+  "place.after_work": "a walk after work"
 }

@@ -273,12 +273,12 @@ class MoveOffer(Base):
         for i in range(3):
             busy[0]["turn"] = 100.0 + i
             said.append(personal_turn.tool_call(self.sessions, busy, "w1")[1])
-        self.assertIn("Offer the move", said[0])
-        self.assertIn("Offer the move", said[1])
-        self.assertIn("Do not offer", said[2])
+        self.assertIn("The engine adds a move choice", said[0])
+        self.assertIn("The engine adds a move choice", said[1])
+        self.assertIn("No move is offered now", said[2])
         self.enter()                                            # the user took a move: offers start over
         busy[0]["turn"] = 200.0
-        self.assertIn("Offer the move", personal_turn.tool_call(self.sessions, busy, "w1")[1])
+        self.assertIn("The engine adds a move choice", personal_turn.tool_call(self.sessions, busy, "w1")[1])
 
     def test_place_hints(self):
         self.assertEqual(threshold.place_hint("/private on  퇴근길 "), "퇴근길")
@@ -298,8 +298,8 @@ class Wiring(unittest.TestCase):
     def test_a_move_chip_is_an_allowed_command(self):
         import mcp_server
         self.assertTrue(mcp_server._is_allowed_choice_command("/private on 계단실"))
-        for rel in ("templates/workspace/AGENTS.md",):   # one charter for both builds (DEV_SPLIT_v1)
-            self.assertIn("-> command: /private on", (ROOT / rel).read_text(encoding="utf-8"), rel)
+        # MOVE_CHOICE_v1: the engine adds the move chip, so the charter no longer teaches its form
+        self.assertNotIn("/private on", (ROOT / "templates" / "workspace" / "AGENTS.md").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
