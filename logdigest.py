@@ -211,25 +211,25 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
             cur_pid_hbs = [h for h in hbs if h.get("pid") == hbs[-1].get("pid")]
             r2 = [h.get("rss_mb") for h in cur_pid_hbs if isinstance(h.get("rss_mb"), (int, float))]
             if len(r2) >= 6 and r2[-1] - r2[0] > RSS_GROWTH_MB:
-                find("warn", "rss_growth", "%s 메모리 증가 %.0fMB (한 프로세스 수명 안)" % (src, r2[-1] - r2[0]),
-                     "누수 의심: heartbeat의 sessions/subscribers/threads 추이를 같이 보라", src=src, first=r2[0], last=r2[-1])
+                find("warn", "rss_growth", "%s memory grew %.0fMB (within one process lifetime)" % (src, r2[-1] - r2[0]),
+                     "suspected leak: look at the heartbeat sessions/subscribers/threads trend alongside", src=src, first=r2[0], last=r2[-1])
         if hbs:
             h = hbs[-1]
             info["last_heartbeat"] = {k: h.get(k) for k in ("ts", "uptime_s", "threads", "fds", "sessions", "busy",
                                                              "subscribers", "agent_procs", "log_write_errors") if k in h}
             if h.get("log_write_errors"):
-                find("warn", "log_write_errors", "%s 로그 쓰기 실패 %s회" % (src, h["log_write_errors"]),
-                     "logs/ 디스크 공간·권한 확인", src=src)
+                find("warn", "log_write_errors", "%s log write failed %s times" % (src, h["log_write_errors"]),
+                     "check logs/ disk space and permissions", src=src)
         if last and now - ts_of(last) > 2.5 * HEARTBEAT_SEC and last.get("evt") != "proc.exit" and win:
-            find("error", "silent_process", "%s: %d분째 이벤트 없음 (heartbeat 중단)" % (src, (now - ts_of(last)) // 60),
-                 "프로세스가 멈췄거나 죽었다: chatbot-ctl.sh status, logs/chatbot.log 끝부분 확인", src=src, last=last.get("ts"))
+            find("error", "silent_process", "%s: no events for %d min (heartbeat stopped)" % (src, (now - ts_of(last)) // 60),
+                 "the process hung or died: check chatbot-ctl.sh status and the end of logs/chatbot.log", src=src, last=last.get("ts"))
         for g in gaps:
-            find("warn", "heartbeat_gap", "%s heartbeat %s분 공백" % (src, g["min"]),
-                 "그 시간대 프로세스가 멈춤(락/GIL/스왑) 가능성: 공백 직전 이벤트를 --evt 로 확인", src=src, **g)
+            find("warn", "heartbeat_gap", "%s heartbeat gap of %s min" % (src, g["min"]),
+                 "the process may have stalled then (lock/GIL/swap): check the events just before the gap with --evt", src=src, **g)
         procs[src] = info
     for u in unclean:
-        find("error", "unclean_restart", "%s 비정상 종료 후 재시작 (pid %s, proc.exit 없음)" % (u["src"], u["prev_pid"]),
-             "kill -9 / OOM / 크래시: 직전 마지막 이벤트와 dmesg·logs/chatbot.log 확인", **u)
+        find("error", "unclean_restart", "%s restarted after an unclean exit (pid %s, no proc.exit)" % (u["src"], u["prev_pid"]),
+             "kill -9 / OOM / crash: check the last event before it, dmesg and logs/chatbot.log", **u)
     d["processes"] = procs
     d["unclean_restarts"] = unclean
 
@@ -263,9 +263,9 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
         g["routes"] = dict(g["routes"].most_common(5))
         g["sids"] = sorted(g["sids"])[:10]
         if g["lvl"] == "error":
-            storm = " (폭주: %d줄은 건수만 기록)" % g["suppressed"] if g.get("suppressed") else ""
-            find("error" if g["new"] else "warn", "error_fp", "%s%s ×%d%s: %s @%s" % ("[신규] " if g["new"] else "", g["type"], g["count"], storm, (g["msg"] or "")[:120], g["where"]),
-                 "logdigest.py --fp %s 로 전체 trace·발생 요청 확인" % g["fp"], fp=g["fp"], routes=g["routes"])
+            storm = " (storm: %d lines counted only)" % g["suppressed"] if g.get("suppressed") else ""
+            find("error" if g["new"] else "warn", "error_fp", "%s%s ×%d%s: %s @%s" % ("[new] " if g["new"] else "", g["type"], g["count"], storm, (g["msg"] or "")[:120], g["where"]),
+                 "logdigest.py --fp %s shows the full trace and the requests" % g["fp"], fp=g["fp"], routes=g["routes"])
     d["errors"] = errs
     for e in win:
         if e.get("evt") in ("proc.crash", "thread.crash"):
@@ -293,10 +293,10 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
         http.append(row)
         if e5 and (e5 >= 3 or e5 / n >= ERR_RATE_WARN):
             find("error", "http_5xx", "%s 5xx %d/%d (%.1f%%)" % (key, e5, t["n"], 100 * e5 / n),
-                 "logdigest.py --evt http.error 로 trace 확인", route=key)
+                 "logdigest.py --evt http.error shows the trace", route=key)
         stream = key.endswith("/events")
         if not stream and row["p95_ms_worst"] and row["p95_ms_worst"] > P95_SLOW_MS and t["n"] >= 10:
-            find("warn", "http_slow", "%s p95 %.0fms" % (key, row["p95_ms_worst"]), "느린 경로: 해당 핸들러의 외부 호출(CLI/파일/락) 확인", route=key)
+            find("warn", "http_slow", "%s p95 %.0fms" % (key, row["p95_ms_worst"]), "slow route: check the handler's outside calls (CLI/files/locks)", route=key)
     http.sort(key=lambda r: -r["n"])
     d["http"] = {"routes": http[:40], "total": sum(r["n"] for r in http)}
     ce = Counter()
@@ -306,7 +306,7 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     d["http"]["client_errors"] = dict(ce.most_common(15))
     for k, c in ce.items():
         if c >= CLIENT_ERR_REPEAT_WARN:
-            find("warn", "client_error_repeat", "%s ×%d" % (k, c), "클라이언트가 같은 실패를 반복 요청: UI 폴링 대상/경로 확인", key=k)
+            find("warn", "client_error_repeat", "%s ×%d" % (k, c), "a client repeats the same failing request: check what the UI polls", key=k)
 
     # --- turns / sessions ---
     tp: Dict[str, Counter] = defaultdict(Counter)
@@ -327,8 +327,8 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
         turns[p] = {"total": total, "outcomes": dict(c), "fail_rate": round(bad / total, 3) if total else 0,
                     "p50_s": pct(durs[p], 0.5), "p95_s": pct(durs[p], 0.95)}
         if total >= 5 and bad / total >= TURN_FAIL_RATE_WARN:
-            find("error", "turn_failures", "%s 턴 실패율 %.0f%% (%d/%d)" % (p, 100 * bad / total, bad, total),
-                 "logdigest.py --evt turn.end 로 outcome·stderr_tail 확인, 쿼터/로그인 문제면 accounts 확인", provider=p, outcomes=dict(c))
+            find("error", "turn_failures", "%s turn failure rate %.0f%% (%d/%d)" % (p, 100 * bad / total, bad, total),
+                 "logdigest.py --evt turn.end shows outcome and stderr_tail; for quota/sign-in problems check accounts", provider=p, outcomes=dict(c))
     d["turns"] = {"by_provider": turns, "failed": bad_turns[-20:]}
     d["sessions"] = {k: sum(1 for e in win if e.get("evt") == k) for k in
                      ("session.error", "session.session_rotate", "session.session_heavy", "turn.loop_notice", "turn.quiet_close",
@@ -336,8 +336,8 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     d["context"] = _context_summary(win, find)
     died = [e for e in win if e.get("evt") == "agent.exit" and e.get("died_mid_turn")]
     if died:
-        find("warn", "agent_died_mid_turn", "에이전트 프로세스가 턴 도중 종료 %d회" % len(died),
-             "rc와 직전 agent.reaped(누가 죽였나) 확인", samples=[{k: x.get(k) for k in ("ts", "sid", "provider", "rc")} for x in died[-5:]])
+        find("warn", "agent_died_mid_turn", "agent process ended mid-turn %d times" % len(died),
+             "check rc and the agent.reaped just before (who ended it)", samples=[{k: x.get(k) for k in ("ts", "sid", "provider", "rc")} for x in died[-5:]])
 
     # --- ops: repair / doctor / reaping ---
     rep = [e for e in win if e.get("evt") == "repair.begin"]
@@ -352,12 +352,12 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
            "manifest_drift": sum(1 for e in win if e.get("evt") == "manifest.drift")}
     days = max(since_s / 86400.0, 1.0)  # a short window is not extrapolated to a day (2 in 10 min != 288/day)
     if len(rep) / days >= REPAIRS_PER_DAY_WARN:
-        find("warn", "repair_frequent", "repair %d회 (%.1f/일) caller=%s" % (len(rep), len(rep) / days, dict(callers)),
-             "재시작으로 덮는 근본 원인: repair 직전 http.error/turn.end/doctor.probe 를 시간순으로 보라", callers=dict(callers))
+        find("warn", "repair_frequent", "repair %d times (%.1f/day) caller=%s" % (len(rep), len(rep) / days, dict(callers)),
+             "the root cause restarts cover up: read http.error/turn.end/doctor.probe before each repair in time order", callers=dict(callers))
     if ops["repair_failed"]:
-        find("error", "repair_failed", "repair 후에도 probe 실패 %d회" % ops["repair_failed"], "logs/chatbot.log 끝부분과 doctor.probe msg 확인")
+        find("error", "repair_failed", "probe still failed after repair %d times" % ops["repair_failed"], "check the end of logs/chatbot.log and the doctor.probe msg")
     if ops["doctor_probe"].get("fail"):
-        find("error", "probe_fail", "doctor probe 실패 %d회" % ops["doctor_probe"]["fail"], "logdigest.py --evt doctor.probe")
+        find("error", "probe_fail", "doctor probe failed %d times" % ops["doctor_probe"]["fail"], "logdigest.py --evt doctor.probe")
     d["ops"] = ops
     # A live chat server's own child reaped by ctl: ctl must leave those to the server (STANDBY_REAP_v1).
     lives: Dict[Any, List[float]] = {}
@@ -371,8 +371,8 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
             continue
         span = lives.get(e.get("ppid"))
         if span and span[0] <= ts_of(e) <= span[1]:
-            find("warn", "agent_reaped_live", "살아 있는 채팅 서버(pid %s)의 자식 agy %s 가 정리됨 (%s)" % (e["ppid"], e.get("agent_pid"), e.get("reason")),
-                 "ctl reap_orphan_agents 판단 확인: 서버 자손은 서버 소관이어야 한다", ppid=e["ppid"], agent_pid=e.get("agent_pid"),
+            find("warn", "agent_reaped_live", "a child agy %s of the live chat server (pid %s) was reaped (%s)" % (e.get("agent_pid"), e["ppid"], e.get("reason")),
+                 "check ctl reap_orphan_agents: the server's descendants are the server's to manage", ppid=e["ppid"], agent_pid=e.get("agent_pid"),
                  key="%s/%s" % (e.get("ppid"), e.get("reason")))
 
     # --- MCP tool calls ---
@@ -395,41 +395,41 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
 
 def render(d: Dict[str, Any]) -> str:
     w = d["window"]
-    out = ["# 로그 다이제스트  %s → %s (%sh, 이벤트 %d)  상태: %s" % (w["since"], w["until"], w["hours"], w["events"], d["status"].upper())]
-    out.append("\n## 발견 사항 (%d)" % len(d["findings"]))
+    out = ["# Log digest  %s → %s (%sh, %d events)  status: %s" % (w["since"], w["until"], w["hours"], w["events"], d["status"].upper())]
+    out.append("\n## Findings (%d)" % len(d["findings"]))
     if not d["findings"]:
-        out.append("- 이상 없음")
+        out.append("- all clear")
     for f in d["findings"]:
         out.append("- [%s] %s\n    → %s" % (f["severity"].upper(), f["title"], f["hint"]))
-    out.append("\n## 프로세스")
+    out.append("\n## Processes")
     for src, p in d["processes"].items():
         hb = p.get("last_heartbeat") or {}
-        out.append("- %s: 시작 %d회, heartbeat %d, 마지막 %s pid=%s git=%s rss=%s 상태=%s" % (
+        out.append("- %s: %d starts, heartbeat %d, last %s pid=%s git=%s rss=%s state=%s" % (
             src, p["starts"], p["heartbeats"], p["last_event"], p["last_pid"], p.get("git"), p.get("rss_mb"),
             {k: v for k, v in hb.items() if k != "ts"}))
-    out.append("\n## 오류 지문 (상위)")
+    out.append("\n## Error fingerprints (top)")
     for g in d["errors"][:10]:
         out.append("- %s %s ×%d %s @%s  %s~%s routes=%s%s" % (g["fp"], g["type"], g["count"], (g["msg"] or "")[:100], g["where"],
-                                                           g["first"][5:19], (g["last"] or "")[5:19], g["routes"], " [신규]" if g["new"] else ""))
+                                                           g["first"][5:19], (g["last"] or "")[5:19], g["routes"], " [new]" if g["new"] else ""))
     if not d["errors"]:
-        out.append("- 없음")
-    out.append("\n## HTTP (총 %d)" % d["http"]["total"])
+        out.append("- none")
+    out.append("\n## HTTP (%d in all)" % d["http"]["total"])
     for r in d["http"]["routes"][:15]:
         out.append("- %-45s n=%-6d %s p95≤%sms max=%sms" % (r["route"][:45], r["n"], r["codes"], r["p95_ms_worst"], r["max_ms"]))
     if d["http"]["client_errors"]:
         out.append("  4xx: %s" % d["http"]["client_errors"])
-    out.append("\n## 턴")
+    out.append("\n## Turns")
     for p, t in d["turns"]["by_provider"].items():
-        out.append("- %s: %d턴 %s 실패율 %.0f%% p50=%ss p95=%ss" % (p, t["total"], t["outcomes"], 100 * t["fail_rate"], t["p50_s"], t["p95_s"]))
+        out.append("- %s: %d turns %s failure rate %.0f%% p50=%ss p95=%ss" % (p, t["total"], t["outcomes"], 100 * t["fail_rate"], t["p50_s"], t["p95_s"]))
     for b in d["turns"]["failed"][-5:]:
         out.append("  · %s %s %s %s %ss %s" % (str(b["ts"])[5:19], b["sid"], b["provider"], b["outcome"], b["dur_s"], b.get("error_hint") or ""))
-    out.append("  세션 이벤트: %s" % {k: v for k, v in d["sessions"].items() if v})
-    out.append("\n## 운영 (repair/doctor)")
+    out.append("  session events: %s" % {k: v for k, v in d["sessions"].items() if v})
+    out.append("\n## Operations (repair/doctor)")
     out.append("- %s" % d["ops"])
-    out.append("\n## MCP 도구")
-    out.append("- 호출: %s" % d["mcp"]["calls"])
+    out.append("\n## MCP tools")
+    out.append("- calls: %s" % d["mcp"]["calls"])
     if d["mcp"]["failures"]:
-        out.append("- 실패: %s" % d["mcp"]["failures"])
+        out.append("- failures: %s" % d["mcp"]["failures"])
     return "\n".join(out)
 
 

@@ -15,7 +15,6 @@
   "host_config.py": 2,
   "identity.py": 3,
   "instructions.py": 3,
-  "logdigest.py": 42,
   "memory_store.py": 12,
   "preview_guard.py": 6,
   "private_engine.py": 13,
