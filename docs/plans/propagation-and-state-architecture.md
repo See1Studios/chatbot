@@ -147,7 +147,7 @@
 ### 4.3 워크트리 러너 연계 (Worktree Runner)
 - 전문가 에이전트의 작업은 `tools/worktree_runner.py`가 생성하는 격리된 git 워크트리에서 실행된다.
 - **[현재 운영]**: 통과 조건 불변성(`test_worktree_runner`), 커밋 트레일러, 가드 테스트 통과를 기계적으로 확인한다.
-- **[신설 예정]**: 리뷰 체크리스트(`tools/review_checklist.py`) 연계를 통해 Mandatory Test Pairing 기계 확인 및 convention 규칙 준수 여부 자동 판정을 도입한다 (`tools/review_checklist.py`는 `protected_paths.json`의 governance 목록에 등록된 Tier 3 거버넌스 파일).
+- **[완료, #747]**: 리뷰 체크리스트(`tools/review_checklist.py`) 연계를 통해 Mandatory Test Pairing 기계 확인 및 convention 규칙 준수 여부 자동 판정을 도입함 (`tools/review_checklist.py`는 `protected_paths.json`의 governance 목록에 등록된 Tier 3 거버넌스 파일).
 
 ### 4.4 컨텍스트 예산 규율 (Context Budget Discipline)
 - **온디맨드 파일 읽기(On-Demand Reads) 원칙**:
@@ -174,7 +174,7 @@
 | prop/A | 핵심 거버넌스 문서 체계 정비 및 신설 | `docs/ARCHITECTURE.md`, `docs/CONVENTION.md`, `docs/STATE.md` | 기존 `docs/ARCHITECTURE.md` 거버넌스 확장, `docs/CONVENTION.md`(신설) 규칙 작성, `docs/STATE.md`(신설) 큐 서식 작성 및 커밋 | Tier 3 · ⚡X | M | D-1 | 완료 (#720) |
 | prop/B | 신규 컨벤션 검사기 개발 및 가드 연동 | `tests/test_conventions.py` (또는 기존 가드 확장) | 비동기 30초 타임아웃 및 Mandatory Test Pairing 기계 검증 가드 추가 (함수 80줄 상한은 기존 `test_file_sizes` 활용) | Tier 3 · ⚡X | S | prop/A | 완료 (#724) |
 | prop/C | `STATE.md` 파일럿 전파 큐 등록 및 아카이브 | `docs/STATE.md`, `docs/plans/propagation-and-state-architecture.md` | 첫 `[DEV-PROP-001]` 큐 항목 등록, 체크리스트 마감 및 아카이브 검증 | Tier 3 · ⚡X | S | prop/A, prop/B | 진행 중 (#726) |
-| prop/D | 워크트리 러너 리뷰 체크리스트 연동 | `tools/review_checklist.py` | 워커 리뷰 시 Mandatory Test Pairing 기계 확인 및 거버넌스 체크리스트 판정 연동 (Tier 3: protected_paths.json 거버넌스 경로) | Tier 3 (거버넌스) · ⚡X | S | prop/B | 준비 |
+| prop/D | 워크트리 러너 리뷰 체크리스트 연동 | `tools/review_checklist.py` | 워커 리뷰 시 Mandatory Test Pairing 기계 확인 및 거버넌스 체크리스트 판정 연동 (Tier 3: protected_paths.json 거버넌스 경로) | Tier 3 (거버넌스) · ⚡X | S | prop/B | 완료 (#747) |
 
 ---
 

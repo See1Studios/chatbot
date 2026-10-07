@@ -11,7 +11,8 @@ The review prompt itself, the diff fitting and the reading of the verdict moved 
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 DIFF_LIMIT = 36000   # a prompt passed as one argv string; see worktree_runner.DIFF_LIMIT_STDIN for stdin prompts
 
@@ -40,10 +41,54 @@ CODE_CHECKLIST = "\n".join([
 ])
 
 
-def with_code_checklist(prompt: str) -> str:
+def diff_files(diff: str) -> List[str]:
+    """Extract modified/added file paths from a unified diff."""
+    files: List[str] = []
+    for m in re.finditer(r"^diff --git a/(\S+) b/(\S+)", diff or "", re.M):
+        p = m.group(2) if m.group(2) not in ("/dev/null", "dev/null") else m.group(1)
+        if p and p not in files:
+            files.append(p)
+    return files
+
+
+def is_test_file(path: str) -> bool:
+    """True if path is a test file."""
+    p = str(path).replace("\\", "/")
+    return p.startswith("tests/") or "/tests/" in p or Path(p).name.startswith("test_")
+
+
+def is_code_file(path: str) -> bool:
+    """True if path is product/engine code that requires tests when changed."""
+    p = str(path).replace("\\", "/")
+    if is_test_file(p):
+        return False
+    return p.endswith((".py", ".js", ".ts", ".sh"))
+
+
+def check_test_pairing(paths: Optional[List[str]] = None, diff: str = "") -> Tuple[bool, str]:
+    """Mandatory Test Pairing (CONVENTION §2.1): code changes must include paired tests.
+    Returns (ok: bool, message: str).
+    """
+    targets = list(paths) if paths is not None else diff_files(diff)
+    code_changes = [p for p in targets if is_code_file(p)]
+    if not code_changes:
+        return True, "No product code changed"
+    test_changes = [p for p in targets if is_test_file(p)]
+    if not test_changes:
+        return False, "Mandatory Test Pairing violation: code changed (%s) without paired tests in tests/" % ", ".join(code_changes)
+    return True, "Tests paired: %s" % ", ".join(test_changes)
+
+
+def with_code_checklist(prompt: str, diff: str = "") -> str:
     """The review prompt with the checklist set just before the verdict question (as DOC_CHECKLIST is)."""
+    extra = ""
+    if diff:
+        ok, msg = check_test_pairing(diff=diff)
+        if not ok:
+            extra = "\nWARNING: " + msg
     marker = "As the producer, confirm the work:"
-    return prompt.replace(marker, CODE_CHECKLIST + "\n" + marker, 1) if marker in prompt else prompt + "\n" + CODE_CHECKLIST
+    checklist = CODE_CHECKLIST + extra
+    return prompt.replace(marker, checklist + "\n" + marker, 1) if marker in prompt else prompt + "\n" + checklist
 
 
 # ------------------------------------------------------------------- review prompt and verdict
@@ -109,6 +154,9 @@ def review_prompt(tid: int, title: str, instruction: str, partner_said: str, dif
                   gate_error.detail[-3000:], ""]
     else:
         parts += ["The automatic gates (tests, scope) passed."]
+        ok, pairing_msg = check_test_pairing(diff=diff)
+        if not ok:
+            parts += ["WARNING: %s" % pairing_msg, ""]
     parts += ["Diff of the branch:", "```diff", fit_diff(diff, limit) or "(empty)", "```", "",
               "You have no files here and must not use tools: do not run commands, read files or search the disk. "
               "Judge from this prompt alone; if a cut part hides what you must see, FAIL and name it.",

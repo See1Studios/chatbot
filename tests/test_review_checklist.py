@@ -31,6 +31,49 @@ class ReviewChecklist(unittest.TestCase):
         src = (ROOT / "tools" / "worktree_runner.py").read_text(encoding="utf-8")
         self.assertIn("(doc_review_prompt if doc_lane else (lambda b, d: with_code_checklist(b)))(", src)
 
+    def test_diff_files_extracts_paths(self):
+        diff = (
+            "diff --git a/session.py b/session.py\n--- a/session.py\n+++ b/session.py\n"
+            "diff --git a/docs/CONCEPT.md b/docs/CONCEPT.md\n"
+            "diff --git a/old.py b/dev/null\n"
+        )
+        files = R.diff_files(diff)
+        self.assertEqual(files, ["session.py", "docs/CONCEPT.md", "old.py"])
+
+    def test_check_test_pairing_rules(self):
+        # 1. Non-code changes pass
+        ok, msg = R.check_test_pairing(paths=["docs/plans/foo.md", "data/workspace/card.json"])
+        self.assertTrue(ok)
+        self.assertIn("No product code", msg)
+
+        # 2. Code changes paired with test pass
+        ok, msg = R.check_test_pairing(paths=["session.py", "tests/test_session.py"])
+        self.assertTrue(ok)
+        self.assertIn("Tests paired", msg)
+
+        # 3. Code changes without test fail
+        ok, msg = R.check_test_pairing(paths=["session.py", "tools/foo.py"])
+        self.assertFalse(ok)
+        self.assertIn("Mandatory Test Pairing violation", msg)
+        self.assertIn("session.py", msg)
+
+        # 4. Test-only changes pass
+        ok, msg = R.check_test_pairing(paths=["tests/test_foo.py"])
+        self.assertTrue(ok)
+
+    def test_review_prompt_and_checklist_warn_on_unpaired_code(self):
+        unpaired_diff = "diff --git a/session.py b/session.py\n--- a/session.py\n+++ b/session.py\n@@ -1 +1 @@\n+x = 1\n"
+        paired_diff = unpaired_diff + "diff --git a/tests/test_session.py b/tests/test_session.py\n+++ b/tests/test_session.py\n"
+
+        prompt_unpaired = R.review_prompt(100, "title", "instruction", "", unpaired_diff, None, "character")
+        self.assertIn("WARNING: Mandatory Test Pairing violation", prompt_unpaired)
+
+        prompt_paired = R.review_prompt(100, "title", "instruction", "", paired_diff, None, "character")
+        self.assertNotIn("WARNING: Mandatory Test Pairing violation", prompt_paired)
+
+        checklist_warn = R.with_code_checklist("As the producer, confirm the work:", diff=unpaired_diff)
+        self.assertIn("WARNING: Mandatory Test Pairing violation", checklist_warn)
+
 
 if __name__ == "__main__":
     unittest.main()
