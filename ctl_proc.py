@@ -54,7 +54,7 @@ def agent_kind(args: str) -> Optional[str]:
 
 
 def process_table() -> List[Proc]:
-    out = subprocess.check_output(["ps", "-eo", "pid=,ppid=,etimes=,args="], text=True, errors="replace")
+    out = subprocess.check_output(["ps", "-eo", "pid=,ppid=,etimes=,args="], text=True, errors="replace", timeout=30)
     rows: List[Proc] = []
     for line in out.splitlines():
         parts = line.split(None, 3)

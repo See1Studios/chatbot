@@ -4,7 +4,8 @@
 
   check_staged.py pre-commit        forbidden files, secrets in added lines, then ./run-tests.sh --fast on the
                                     staged snapshot (a throwaway worktree; others' unstaged work does not count)
-  check_staged.py commit-msg FILE   Conventional Commits subject; `Plan:` trailer when docs/plans/ changes
+  check_staged.py commit-msg FILE   Conventional Commits subject; `Plan:` trailer when docs/plans/ changes; a
+                                    feat/fix/refactor/perf commit names its ticket and carries tests (or says why not)
   check_staged.py reference-transaction prepared   (ref lines on stdin) a live chat session does not land a
                                     delegated worker's branch on main -- landing is the operator's
 
@@ -255,6 +256,19 @@ def pre_commit():
 TICKET_TYPES = re.compile(r"^(?:feat|fix|refactor|perf)(?:\([^)]+\))?!?: ")
 TICKET_LINE = re.compile(r"^Ticket: #\d+")
 WORKTREE_BRANCH = re.compile(r"^worktree/ticket-(\d+)$")
+NO_TEST_LINE = re.compile(r"^No-Test: \S")
+
+
+def pairing_refusal(lines):
+    """TEST_PAIRING_v1 (docs/CONVENTION.md): a feat/fix/refactor/perf commit that changes code carries tests/, or a
+    `No-Test: <reason>` trailer says why not -- the reason stays in history for review. One definition of code and
+    test files: tools/review_checklist.py (the delegation review uses it too)."""
+    rc = _repo_module(git("rev-parse", "--show-toplevel").strip(), "review_checklist")
+    if rc is None or any(NO_TEST_LINE.match(l) for l in lines):
+        return ""
+    ok, msg = rc.check_test_pairing(paths=staged())
+    return "" if ok else ("[commit-msg] %s.\n  Add the test that shows the change, or a trailer line `No-Test: <why>` "
+                          "(e.g. No-Test: CSS spacing only)" % msg)
 
 
 def commit_msg(path):
@@ -267,6 +281,11 @@ def commit_msg(path):
     if any(f.startswith("docs/plans/") for f in staged()) and not any(re.match(r"^Plan: \S+", l) for l in lines):
         print("[commit-msg] this commit changes docs/plans/: add a trailer line `Plan: <plan>/<item>` (e.g. Plan: pew/A)")
         return 1
+    if TICKET_TYPES.match(subject):
+        why = pairing_refusal(lines)
+        if why:
+            print(why)
+            return 1
     if TICKET_TYPES.match(subject) and not any(TICKET_LINE.match(l) for l in lines):
         m = WORKTREE_BRANCH.match(git("symbolic-ref", "--short", "-q", "HEAD").strip())
         if not m:

@@ -73,6 +73,22 @@ class Hooks(unittest.TestCase):
         self.assertEqual(self.commit("b.txt", "1", "docs: notes").returncode, 0)          # not a code change
         self.assertEqual(self.commit("c.txt", "1", "chore(tickets): close #4 -- t").returncode, 0)
 
+    def test_a_code_change_carries_its_test_or_says_why_not(self):
+        # TEST_PAIRING_v1: 19 of 200 feat/fix commits before 2026-10-07 changed code with no test and nothing said why
+        (self.repo / "tools").mkdir()
+        shutil.copy(str(ROOT / "tools" / "review_checklist.py"), str(self.repo / "tools" / "review_checklist.py"))
+        r = self.commit("app.py", "x = 1\n", "fix(core): a bug\n\nTicket: #1")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("No-Test:", r.stdout + r.stderr)
+        self.assertEqual(self.git("commit", "-qm", "fix(core): a bug\n\nNo-Test: rename only\nTicket: #1").returncode, 0)
+        p = self.repo / "tests" / "test_app.py"
+        p.parent.mkdir()
+        p.write_text("pass\n", encoding="utf-8")
+        self.git("add", "tests/test_app.py")
+        self.assertEqual(self.commit("app.py", "x = 2\n", "feat(core): more\n\nTicket: #2").returncode, 0)
+        self.assertEqual(self.commit("notes.md", "n\n", "fix(docs): typo\n\nTicket: #3").returncode, 0)   # no code
+        self.assertEqual(self.commit("app.py", "x = 3\n", "chore: tidy").returncode, 0)                  # not a product type
+
     def test_a_worker_on_its_ticket_branch_gets_the_trailer_written(self):
         self.assertEqual(self.commit("a.txt", "1", "chore: start").returncode, 0)
         self.git("checkout", "-q", "-b", "worktree/ticket-77")
@@ -172,8 +188,9 @@ class Hooks(unittest.TestCase):
 
     def test_a_live_chat_agents_commit_also_runs_the_tests_related_to_its_files(self):
         # AGENT_COMMIT_RELATED_v1: #689-#691 (2026-10-06) were committed from chat past the FAST guards only
-        mods = check.related_for(ROOT, ["dialog_handoff.py"], lambda: "chat-agent:agy")
-        self.assertIn("test_dialog_handoff", mods)
+        # a module whose test is not a FAST guard: guards run anyway and are left out of the related list
+        mods = check.related_for(ROOT, ["room_chat.py"], lambda: "chat-agent:agy")
+        self.assertIn("test_room_chat", mods)
         self.assertTrue(all(m.startswith("test_") for m in mods), mods)
         self.assertEqual(check.related_for(ROOT, ["dialog_handoff.py"], lambda: "chat-agent:?"), [])   # the host
         self.assertEqual(check.related_for(ROOT, ["dialog_handoff.py"], lambda: "claude-code"), [])

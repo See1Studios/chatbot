@@ -54,6 +54,15 @@ FAST=(
   test_workspace_template
   test_import_cycles
   test_conventions
+  test_core_standalone
+  test_dev_role
+  test_devlog_entry
+  test_dialog_handoff
+  test_identity_wiring
+  test_live_agent_suite
+  test_observations
+  test_tickets
+  test_unticketed_write
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

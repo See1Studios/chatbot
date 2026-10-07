@@ -297,6 +297,46 @@
     {
       "path": "templates/dev-workspace/roles/",
       "reason": "engine role packs SSOT (linked into live workspace)"
+    },
+    {
+      "path": "tests/test_core_standalone.py",
+      "reason": "enforcer: core imports stdlib + core only (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "tests/test_dev_role.py",
+      "reason": "enforcer: engine-work rules live in the dev role pack only (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "tests/test_devlog_entry.py",
+      "reason": "enforcer: a merged delegation leaves its DEVLOG line (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "tests/test_dialog_handoff.py",
+      "reason": "enforcer: handoff chain hops and one open handoff per director (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "tests/test_live_agent_suite.py",
+      "reason": "enforcer: live chat agents never run the whole suite; tests never get install data (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "tests/test_observations.py",
+      "reason": "enforcer: observations only via observations.add (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "tests/test_ticket_quick.py",
+      "reason": "enforcer: a ticket names its actor (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "tests/test_tickets.py",
+      "reason": "enforcer: claims, release gates, role-id actors (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "tests/test_unticketed_write.py",
+      "reason": "enforcer: an unticketed write stops the turn (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "tests/test_worktree_runner.py",
+      "reason": "enforcer: a worker cannot change its own pass condition (prop/F: registry enforcers are Tier 3)"
     }
   ]
 }

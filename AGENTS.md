@@ -104,7 +104,7 @@ Python module change → restart (⚡소생) through `chatbot-ctl.sh` only. `sta
 
 1. Start only from the operator's words or an approved ticket. External CLI: `python3 tools/ticket_quick.py start --title "[<plan id>] …" --paths a,b --actor <you>` (`~/bin/ticket-quick` points here). Always pass `--actor` (your role id, never a character's name): without it the actor is guessed from the parent processes, and when they name no agent the command records nothing. The claim token cannot be recovered from the ticket store; it is kept in a private token file (`TOKEN_FILE=`), so `done`/`fail`/`renew` work without `--token`.
 2. Change only the claimed paths. Need another file: `ticket-quick widen --id <n> --paths <file>` (checked like a claim, no new attempt). Never give the ticket up to open a new one: the old one stays open and only the operator can close it.
-3. `./run-tests.sh` (all) or `./run-tests.sh test_x …`; green before commit. The commit hooks (`.githooks/`, install once per clone: `git config core.hooksPath .githooks`) rerun the guard tests and check the message.
+3. `./run-tests.sh` (all) or `./run-tests.sh test_x …`; green before commit. A feat/fix/refactor/perf commit carries its test, or a `No-Test: <why>` trailer. The commit hooks (`.githooks/`, install once per clone: `git config core.hooksPath .githooks`) rerun the guard tests and check the message.
 4. Commit only your paths. Author = the app: `PE` for a live chat session, whatever brain it runs on (the repo default; the brain goes in the `Co-Authored-By` trailer); an external CLI outside the chat names itself (e.g. `git -c user.name="Claude Code" …`); Conventional Commits; trailers:
    ```
    Plan: <plan>/<item>
@@ -139,8 +139,8 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Data paths only through `host_config` (`DATA_ENV` order; `tickets.py` mirrors it) | all | `test_data_paths` |
 | Python module ≤ 80,000 bytes; Python function ≤ 80 lines; listed ceilings only go down | all | `test_file_sizes` (numbers SSOT: `docs/CONVENTION.md`) |
 | Convention numbers in `docs/CONVENTION.md` match the size/timeout guards (80 lines, 80KB, 30s) | all | `test_conventions` |
-| `subprocess.run` calls name an explicit `timeout` (legacy allowlist in the test) | all | `test_conventions` |
-| Mandatory Test Pairing: product feat/fix/refactor/perf commits carry matching `tests/` | all | manual (planned staging gate; checklist `tools/review_checklist.py`; registration shape `test_conventions`) |
+| Blocking `subprocess` calls (`run`, `check_output`, `check_call`, `call`) name an explicit `timeout` (legacy allowlist in the test) | all | `test_conventions` |
+| Test pairing: a feat/fix/refactor/perf commit that changes code carries `tests/`, or a `No-Test: <why>` trailer says why not | all | `test_githooks` (commit-msg hook, TEST_PAIRING_v1; code/test definition `tools/review_checklist.py`, which also warns in the delegation review) |
 | Work banter in delegation / handoff / commit reports ≤ 1-2 sentences (detail: `docs/CONVENTION.md`) | all | manual (planned `tools/worker_output.py` / `tools/review_checklist.py`; registration shape `test_conventions`) |
 | Page script or stylesheet ≤ 43,000 bytes; listed ceilings only go down | all | `test_page_scripts` |
 | New code folder is protected (`tools/` too: the delegation gate's verdict reader is governance) | all | `test_code_layout` |
@@ -156,6 +156,7 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Tool-named entry files (`CLAUDE.md`, `GEMINI.md`) only point here; no new invented entry files | all | `test_entrypoints` |
 | Document names: standing UPPERCASE, accumulating lower-kebab, no snake_case | all | `test_doc_names` |
 | Every registry row names an audience and a real enforcer | all | `test_rule_registry` |
+| Every enforcer is Tier 3 (`protected_paths.json` governance) and runs on each commit (`run-tests.sh` FAST), or is listed slow with where it runs instead | all | `test_rule_registry` |
 | No new hardcoded Korean in engine/page code (i18n catalogs instead); mark intended lines `l10n-ok` | all | `test_ratchets` (`ratchet_baseline.json`) |
 | No new host/persona identity (DiskStation, `/volume1`, Sphere, 실장님, 냥) in engine code outside the host plugin | all | `test_ratchets` |
 | Tracked workspace template twins (repo `data/workspace` when present) are classified in `templates/workspace-manifest.json`; `same` pairs stay byte-equal; the template names no host and no engine work | all | `test_workspace_template` |

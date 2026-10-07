@@ -1,5 +1,10 @@
 # chatbot 개발로그
 
+## 2026-10-07 — 집행자를 지키는 장치 (prop/F, #767)
+
+- **바뀐 것**: ① 규칙표(`AGENTS.md`)에 집행자로 적힌 테스트는 모두 Tier 3(운영자만 고침)이고 커밋마다 돈다 — 빠진 10개를 보호 목록에, 9개를 FAST에 넣었다. 느린 둘(`test_worktree_runner` 약 90초, `test_ticket_quick` 약 45초)만 이유와 함께 예외 목록. 이것을 `test_rule_registry`가 확인한다. ② **테스트 페어링이 훅이 됐다**(TEST_PAIRING_v1): 코드를 바꾸는 feat/fix/refactor/perf 커밋은 `tests/`를 함께 싣거나 `No-Test: <이유>` 줄로 이유를 남긴다. ③ 타임아웃 검사가 `subprocess.run` 말고 `check_output`·`check_call`·`call`도 본다(걸린 `ctl_proc.process_table`의 `ps`에 30초). ④ `test_conventions`에서 문서에 특정 문구가 있는지만 보던 검사 4개를 뺐다.
+- **영향**: 커밋 훅이 몇 초 길어진다(FAST 병렬). 재시작 불필요(`ctl_proc.py`는 다음 기동 때).
+
 ## 2026-10-07 — main 복구: 깨진 테스트 둘 (prop/E, #766)
 
 - **원인**: ① `6a8760c`(#737)가 운영자 개인 스킬(hitomi·nas-sphere)을 lead 역할 팩 템플릿에 넣어 `test_role_guard`가 깨졌다. 두 스킬은 라이브 설치 몫이고, 주인 없는 스킬은 이미 기본 캐릭터(lead)에게 보이므로(DEFAULT_ROLE_v1) 템플릿에서 뺐다 — 라이브 동작은 같다. ② `test_context_layers`의 지문(GOLDEN)이 사적 기억 줄에 찍히는 오늘 날짜를 함께 해시해 날마다 바뀌었다. 날짜를 고정하고, l10n으로 영어가 된 머리글 3줄을 반영해 지문을 갱신했다. 둘 다 커밋 훅(FAST)이 돌리지 않는 테스트라 지나갔다 — prop/F에서 막는다.
