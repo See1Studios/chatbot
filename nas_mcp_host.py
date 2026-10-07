@@ -14,15 +14,12 @@ import json
 import os
 import re
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import List, Optional
 
 import mcp_server as _srv  # attributes are read at call time, so a test that replaces _srv._run reaches these tools too
 from mcp_server import HOME, SERVICES, WEB_ROOT, envelope, _scrub_text
 
-CENTRAL_HOST_MCP_URL = os.environ.get("CENTRAL_HOST_MCP_URL", "http://127.0.0.1:3015/mcp")
 
 WEB = WEB_ROOT
 HERMES = HOME / ".hermes"
@@ -52,13 +49,11 @@ EXTRA_CMD_PREFIXES = (
 )
 
 PORT_CHAT_HINT = int(os.environ.get("CHATBOT_PORT") or "3011")  # informational only (list_services)
-PORT_HOST_MCP = int(os.environ.get("NAS_HOST_MCP_PORT", "3015"))
 
 # What service_ctl and list_services know about. The chatbot itself may only be asked for `status`: its lifecycle
-# is for a person (chatbot-ctl.sh repair), never for a tool. nas-mcp is the central Host MCP (:3015).
+# is for a person (chatbot-ctl.sh repair), never for a tool.
 SERVICE_CTLS = {
     "chatbot": str(SERVICES / "chatbot-ctl.sh"),
-    "nas-mcp": str(SERVICES / "nas-mcp-ctl.sh"),
 }
 
 EXTRA_SERVICE_CTLS = {
@@ -510,54 +505,6 @@ def _service_ctls() -> dict:
     return ctls
 
 
-def _call_central_host_mcp(tool_name: str, arguments: dict, timeout: int = 15) -> Optional[str]:
-    """Attempts to delegate tool execution to central Host MCP (:3015/mcp).
-    Returns text result string if successful, or None if unavailable/failed."""
-    try:
-        payload = json.dumps({
-            "jsonrpc": "2.0",
-            "id": int(time.time() * 1000) % 1000000,
-            "method": "tools/call",
-            "params": {
-                "name": tool_name,
-                "arguments": arguments,
-            },
-        }).encode("utf-8")
-        req = urllib.request.Request(
-            CENTRAL_HOST_MCP_URL,
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read().decode("utf-8", errors="replace")
-            # Parse SSE or raw JSON-RPC
-            lines = raw.strip().splitlines()
-            data_line = ""
-            for line in lines:
-                if line.startswith("data:"):
-                    data_line = line[5:].strip()
-                    break
-            if not data_line and raw.strip().startswith("{"):
-                data_line = raw.strip()
-            if data_line:
-                parsed = json.loads(data_line)
-                res = parsed.get("result") or {}
-                if not res and parsed.get("error"):
-                    return f"Error from central MCP: {parsed.get('error')}"
-                contents = res.get("content") or []
-                texts = [c.get("text") for c in contents if isinstance(c, dict) and c.get("text")]
-                if texts:
-                    return "\n".join(texts)
-                if "structuredContent" in res:
-                    return str(res["structuredContent"])
-    except Exception:
-        pass
-    return None
-
-
 def call_tool(name: str, args: dict) -> Optional[dict]:
     """Returns None for a tool name this plugin doesn't own (core keeps
     looking / falls through to "unknown tool"), or an envelope dict."""
@@ -570,7 +517,6 @@ def call_tool(name: str, args: dict) -> Optional[dict]:
             items.append({"name": n, "ctl": ctl})
         items.append({"name": "chat", "port": PORT_CHAT_HINT, "url": f"http://127.0.0.1:{PORT_CHAT_HINT}/healthz"})
         items.append({"name": "chatbot-mcp", "port": _srv.PORT, "url": f"http://127.0.0.1:{_srv.PORT}/healthz"})
-        items.append({"name": "nas-mcp", "port": PORT_HOST_MCP, "url": f"http://127.0.0.1:{PORT_HOST_MCP}/healthz"})
         items += list(EXTRA_SERVICE_LIST_ITEMS)
         return envelope(True, "ok", {"services": items})
 
@@ -590,14 +536,10 @@ def call_tool(name: str, args: dict) -> Optional[dict]:
         return envelope(code == 0, "ran" if code == 0 else "failed", {"code": code, "stdout": out, "stderr": err})
 
     if name == "sphere_hub_status":
-        remote = _call_central_host_mcp("sphere_hub_status", {})
-        if remote is not None:
-            return envelope(True, "ok", {"central_mcp": True, "output": remote})
         checks: dict = {}
         for label, url in (
             ("chat", "http://127.0.0.1:3011/healthz"),
             ("chatbot_mcp", "http://127.0.0.1:3012/healthz"),
-            ("nas_mcp", f"http://127.0.0.1:{PORT_HOST_MCP}/healthz"),
             ("namuwatcher", "http://127.0.0.1:3010/"),
         ):
             code, out, err = _srv._run(["curl", "-fsS", "-m", "3", url], timeout=5)
@@ -607,9 +549,6 @@ def call_tool(name: str, args: dict) -> Optional[dict]:
         return envelope(True, "ok", checks)
 
     if name == "factory_status":
-        remote = _call_central_host_mcp("factory_status", {})
-        if remote is not None:
-            return envelope(True, "ok", {"central_mcp": True, "output": remote})
         factory = HERMES / "factory"
         runs = factory / "runs"
         data: dict = {"factory": str(factory), "exists": factory.exists()}
@@ -628,9 +567,6 @@ def call_tool(name: str, args: dict) -> Optional[dict]:
         return _wiki(args)
 
     if name == "hermes_status":
-        remote = _call_central_host_mcp("hermes_status", {})
-        if remote is not None:
-            return envelope(True, "ok", {"central_mcp": True, "output": remote})
         life = HERMES / "scripts" / "hermes-lifecycle.sh"
         info: dict = {"hermes_home": str(HERMES), "lifecycle_script": str(life), "exists": life.exists()}
         hermes_bin = HOME / ".local" / "bin" / "hermes"

@@ -21,7 +21,6 @@ FUNC_CEILINGS = {                  # "path::Class.func": lines -- over the cap a
     "mcp_core.py::call": 100,
     "mcp_server.py::call_tool": 149,
     "mcp_server.py::tool_defs": 95,
-    "nas_mcp_host.py::call_tool": 88,
     "providers/adapter_agy.py::AgyAdapter.normalize_line": 130,
     "providers/adapter_base.py::AgentAdapter.finalize_turn": 104,
     "providers/adapter_claude.py::ClaudeAdapter.normalize_line": 123,

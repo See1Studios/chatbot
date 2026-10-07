@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-10-08 — 옆 서비스 nas-mcp·character-chat 퇴역, 엔진에서 걷어냄 (prop/J, #772)
+
+- **운영자**: "다 지워"
+- **근거**: nas-mcp(:3015) 로그에는 헬스체크만 있고 도구 호출은 0건, character-chat(:3013)은 9월 17일 이후 손대지 않음. 호스트 플러그인(`nas_mcp_host.py`)이 nas-mcp에 넘기던 위임(`sphere_hub_status`·`factory_status`·`hermes_status`)과 서비스 목록·ctl 항목을 뺐다 — 늘 스스로 하던 쪽(fallback)만 남는다. `call_tool`이 80줄 아래로 내려와 예외 천장도 뺐다. 테스트의 "NAS 배치" 판정은 `../chatbot-ctl.sh`로.
+- **지움**: 아무 데서도 가리키지 않던 `docs/CHARACTER-EXPRESSION-GUIDE.md`.
+- **재시작**: 필요(도구 서버).
+
 ## 2026-10-07 — 끝난 계획 보관, 낡은 문서·자산 정리 (prop/J, #771)
 
 - **보관**: 항목이 모두 끝난 계획 6개(monolith-split, character-art-manager, composer-plus-menu, character-generation-system, layered-context-architecture, propagation-and-state-architecture)를 `docs/plans/archive/2026/`로. 코드·문서의 경로 참조를 함께 고쳤다.

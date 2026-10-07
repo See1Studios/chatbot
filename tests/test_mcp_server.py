@@ -300,11 +300,11 @@ class ServiceCtlTest(Base):
         self.assertFalse(self.call("nope", "status")["success"])
         self.assertEqual(self.calls, [])
 
-    def test_nas_mcp_status_runs_the_host_ctl(self):
-        r = self.call("nas-mcp", "status")
+    def test_a_host_service_status_runs_its_ctl(self):
+        r = self.call("namuwatcher", "status")
         self.assertTrue(r["success"], r)
         self.assertEqual(self.calls[0][-1], "status")
-        self.assertTrue(self.calls[0][0].endswith("nas-mcp-ctl.sh"))
+        self.assertTrue(self.calls[0][0].endswith("namuwatcher-ctl.sh"))
 
     def test_chatbot_status_runs_the_ctl(self):
         self.assertTrue(self.call("chatbot", "status")["success"])

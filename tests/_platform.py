@@ -16,9 +16,9 @@ POSIX = os.name == "posix"
 posix_only = unittest.skipUnless(POSIX, "POSIX-only by design (the NAS host plugin, /dev/tty, mode bits)")
 
 # nas_host_only (pp/F, first CI run 2026-09-29): the test drives this NAS's sibling services (~/services/<name>/ and
-# their *-ctl.sh scripts, the host MCP in ../nas-mcp). A checkout anywhere else -- CI, a user's PC -- has none of them.
-NAS_LAYOUT = (Path(__file__).resolve().parent.parent.parent / "nas-mcp" / "server.py").is_file()
-nas_host_only = unittest.skipUnless(NAS_LAYOUT, "needs this NAS's sibling services (../nas-mcp); not in a plain checkout")
+# their *-ctl.sh scripts, the services ctl wrapper ../chatbot-ctl.sh). A checkout anywhere else -- CI, a user's PC -- has none of them.
+NAS_LAYOUT = (Path(__file__).resolve().parent.parent.parent / "chatbot-ctl.sh").is_file()
+nas_host_only = unittest.skipUnless(NAS_LAYOUT, "needs this NAS's sibling services (../chatbot-ctl.sh); not in a plain checkout")
 
 
 def home_env(path) -> dict:
