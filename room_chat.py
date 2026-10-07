@@ -87,7 +87,7 @@ def create(name: str, members: List[str], strategy: str = "natural", mode: str =
         raise ValueError("a room needs at least two characters")
     if strategy not in STRATEGIES or mode not in MODES:
         raise ValueError("unknown strategy or mode")
-    room = {"id": "room_" + uuid.uuid4().hex[:12], "name": (name or "").strip()[:60] or "단체방",   # l10n-ok
+    room = {"id": "room_" + uuid.uuid4().hex[:12], "name": (name or "").strip()[:60] or "Group room",   # the page fills its own word; a tool call without one gets this
             "mode": mode, "members": members, "strategy": strategy, "seats": {}, "seen": {}, "created": time.time()}
     _write_json(_room_path(room["id"]), room)
     _log("room.create", room=room["id"], members=len(members), strategy=strategy, mode=mode)

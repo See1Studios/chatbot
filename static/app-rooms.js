@@ -473,7 +473,7 @@ function roomCreateForm() {
   ok.addEventListener('click', async () => {
     try {
       const r = await api('/api/rooms', { method: 'POST', body: JSON.stringify({
-        name: name.value.trim(), members: Object.keys(picked).filter(k => picked[k]), strategy: sel.value }) });
+        name: name.value.trim() || ROOM_TEXT.title, members: Object.keys(picked).filter(k => picked[k]), strategy: sel.value }) });
       closeRooms();
       await roomsReload();
       await roomEnter(r.room.id);

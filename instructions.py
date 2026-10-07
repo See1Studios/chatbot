@@ -301,7 +301,7 @@ def lore_matches(character: str = "", history: Optional[Union[List, str]] = None
 def _skills_text(character: str = "") -> str:
     """Enabled skills; a skill a held role's pack lists is shown only to that role's holders. DEFAULT_ROLE_v1: a skill
     no held role claims (a newly installed one, or one whose role nobody holds) is the default character's -- the one
-    the team opens with and who hands work out -- not everyone's (operator 2026-10-06: "애매한 건 일단 리드에")."""  # l10n-ok
+    the team opens with and who hands work out -- not everyone's (operator 2026-10-06: "when unsure, to the lead first")."""
     idx = skill_index()
     try:
         import characters
@@ -315,7 +315,7 @@ def _skills_text(character: str = "") -> str:
     if not idx:
         return ""
     # the live workspace (uds/F: ~/.pe), never the repo's data/ -- a stale copy there lacks newer skills
-    lines = ["[스킬 색인] 필요할 때 `%s/.agents/skills/<이름>/SKILL.md`를 읽어 절차를 따른다." % WORKSPACE]
+    lines = ["[Skill index] When needed, read `%s/.agents/skills/<name>/SKILL.md` and follow its steps." % WORKSPACE]
     lines += [f"- {name} — {desc}" if desc else f"- {name}" for name, desc in idx]
     return "\n".join(lines)
 
@@ -343,7 +343,7 @@ def _memory_text() -> str:
     text = _read(MEMORY_FILE)
     if not text or not any(_FACT_LINE.match(l) for l in text.splitlines()):
         return ""
-    return "[장기 기억 스냅샷]\n" + text
+    return "[Long-term memory snapshot]\n" + text
 
 
 def _status_text() -> str:
@@ -359,7 +359,7 @@ def _status_text() -> str:
             n_cand = len(observations.unreviewed_candidates(OBS_DIR.parent))
         except Exception:  # noqa: BLE001
             pass
-    return f"[자기개선 상태] 열린 관찰 {n_open}건 · 미검토 후보 {n_cand}건 · 마지막 리뷰 {last}"
+    return f"[Self-improvement status] {n_open} open observations · {n_cand} unreviewed candidates · last review {last}"
 
 
 def _card(character: str) -> Dict:

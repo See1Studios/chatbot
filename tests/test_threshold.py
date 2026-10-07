@@ -17,6 +17,14 @@ sys.path.insert(0, str(ROOT))
 import personal_turn  # noqa: E402
 import private_engine  # noqa: E402
 import threshold  # noqa: E402
+import i18n  # noqa: E402
+
+
+def said(line):
+    """A scene line in Korean, as the page says it (I18N_v1: the server sends it by key)."""
+    return i18n.text(line["key"], "ko", **line["vars"]) if line else ""
+
+
 
 
 class Room:
@@ -123,7 +131,7 @@ class Scene(Base):
 
     def test_going_in_names_the_place_and_that_it_is_during_work(self):
         self.enter("/private on 비상계단")
-        self.assertEqual(threshold.pop_scene(self.priv), "(업무 도중 잠깐 함께 비상계단에 왔다)")
+        self.assertEqual(said(threshold.pop_scene(self.priv)), "(업무 도중 잠깐 함께 비상계단에 왔다)")
         self.assertEqual(threshold.pop_scene(self.priv), "")                   # sent once
 
     def test_coming_back_says_only_where_they_went(self):
@@ -131,16 +139,16 @@ class Scene(Base):
         digested = []
         self.assertIs(threshold.leave(self.priv, self.work, digested.append), self.work)
         self.assertEqual(digested, [self.priv])
-        self.assertEqual(threshold.pop_scene(self.work), "(함께 비상계단에서 사무실로 돌아왔다)")
+        self.assertEqual(said(threshold.pop_scene(self.work)), "(함께 비상계단에서 사무실로 돌아왔다)")
         self.assertFalse((self.sessions / "p1" / threshold.SCENE_FILE).exists())
 
     def test_without_a_place_or_recent_work_the_lines_stay_general(self):
         for h in self.hist:
             h["ts"] -= threshold.GIST_SEC + 10
         self.enter()
-        self.assertEqual(threshold.pop_scene(self.priv), "(잠깐 둘만 있을 곳으로 함께 자리를 옮겼다)")
+        self.assertEqual(said(threshold.pop_scene(self.priv)), "(잠깐 둘만 있을 곳으로 함께 자리를 옮겼다)")
         threshold.leave(self.priv, self.work)
-        self.assertEqual(threshold.pop_scene(self.work), "(둘만의 시간을 보내고 함께 사무실로 돌아왔다)")
+        self.assertEqual(said(threshold.pop_scene(self.work)), "(둘만의 시간을 보내고 함께 사무실로 돌아왔다)")
 
     def test_the_character_setting_turns_it_off(self):
         state = self.data / "workspace" / "characters" / "c1" / "state.json"
@@ -157,7 +165,7 @@ class Repeat(Base):
 
     def test_going_in_twice_sends_one_scene(self):
         self.enter("/private on 계단실")
-        self.assertEqual(threshold.pop_scene(self.priv), "(업무 도중 잠깐 함께 계단실에 왔다)")
+        self.assertEqual(said(threshold.pop_scene(self.priv)), "(업무 도중 잠깐 함께 계단실에 왔다)")
         self.enter("/private on 계단실")
         self.assertEqual(threshold.pop_scene(self.priv), "")
 
@@ -173,7 +181,7 @@ class Repeat(Base):
         threshold.pop_scene(self.priv)
         self.priv.visit_started -= threshold.REPEAT_SEC + 1
         self.enter("/private on 옥상")
-        self.assertEqual(threshold.pop_scene(self.priv), "(업무 도중 잠깐 함께 옥상에 왔다)")
+        self.assertEqual(said(threshold.pop_scene(self.priv)), "(업무 도중 잠깐 함께 옥상에 왔다)")
 
 
 class RoomSync(Base):
@@ -280,7 +288,7 @@ class Wiring(unittest.TestCase):
     def test_the_switch_accepts_a_place_and_hands_the_note(self):
         src = (ROOT / "route_sessions.py").read_text(encoding="utf-8")
         self.assertIn("threshold.leave(sess, REG.get_active(sess.character), _digest_private_later)", src)
-        self.assertIn('"scene": threshold.pop_scene(target)', src)
+        self.assertIn('threshold.scene_field(target if target.sid != sid else None)', src)
         page = (ROOT / "static" / "app-session.js").read_text(encoding="utf-8")
         self.assertIn("if (res.scene && typeof sendAction === 'function') sendAction(res.scene);", page)
         self.assertIn('or stripped.startswith("/private on "):', src)

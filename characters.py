@@ -690,7 +690,7 @@ def private_segment(history: List[Dict], since: float = 0.0) -> List[Dict]:
 def private_digest_prompt(segment: List[Dict], user_word: str, name: str) -> str:
     """The one-shot prompt that turns a private conversation into at most three memory lines."""
     talk = "\n".join("%s: %s" % (user_word if h["role"] == "user" else name,
-                                 re.sub(r"^\[사적 모드:[^\]]*\]\s*", "", str(h["text"])).strip()[:400])
+                                 re.sub(r"^\[사적 모드:[^\]]*\]\s*", "", str(h["text"])).strip()[:400])   # l10n-ok: strips a prefix older records carry
                      for h in segment[-40:])
     return ("Below is a private (non-work) conversation between %s and %s. List at most three short lines worth "
             "remembering for future private conversations with them: preferences, feelings, promises, shared moments. "

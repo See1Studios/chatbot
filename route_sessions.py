@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import queue
 import threading
+import i18n
 from typing import Any, Dict
 
 import chat_upload
@@ -218,7 +219,7 @@ def context(req: Req):
 
 def summary(req: Req):
     # Read-only handover-style summary of an arbitrary (often archived) session,
-    # for the "가져오기" scrollback/session-list action — never touches the
+    # for the "bring in" scrollback/session-list action — never touches the
     # target session's own state, and never injected automatically anywhere.
     sid = req.arg
     sess = REG.peek(sid)
@@ -286,7 +287,7 @@ def events(req: Req) -> None:
 def _stream(h, sess, sub_queue) -> None:
     # Recycle idle SSE sockets after 15 min so leaked mobile
     # connections die. Do NOT cut a busy turn — a tablet sitting
-    # on a long job used to hit this wall, show "연결이 끊겼다",
+    # on a long job used to hit this wall, show "disconnected",
     # and leave the other phone with no live stream at all.
     idle_until = _now() + 900
     emotions = emotion.Tracker()
@@ -380,7 +381,7 @@ def _switch_room(req: Req, sess, sid: str, text: str, client_mid: str):
         target = threshold.leave(sess, REG.get_active(sess.character), _digest_private_later) if sess.is_private else sess
     threshold.announce(sess, target, client_mid)   # ROOM_SYNC_v1: other windows follow
     return req.json({"ok": True, "switched": target.sid != sid, "old_session_id": sid,
-                     "session": _public(target), "scene": threshold.pop_scene(target) if target.sid != sid else ""})
+                     "session": _public(target), **threshold.scene_field(target if target.sid != sid else None)})
 
 
 def _action_text(body: dict, text: str):
@@ -510,6 +511,6 @@ def delete(req: Req):
         and existing.proc is not None and existing.proc.poll() is None
     )
     if really_busy:
-        return req.json({"ok": False, "error": "이 세션은 지금 작업 중이라 삭제할 수 없습니다"}, 409)
+        return req.json({"ok": False, **i18n.field("error", 'sessions.busy_no_delete')}, 409)
     ok = REG.delete(sid)
     return req.json({"ok": ok} if ok else {"ok": False, "error": "not found"}, 200 if ok else 404)

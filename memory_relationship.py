@@ -34,13 +34,9 @@ _TAG = re.compile(
     r"^(progress|promise|promises|pref|prefs|preference|preferences|taboo|taboos)\s*[:：]\s*(.+)$",
     re.I,
 )
-# Display-only. First match wins. Explicit tags above beat these.
-_HINTS = (
-    ("taboos", ("금기", "하지 마", "금지", "taboo")),  # l10n-ok
-    ("promises", ("약속", "다음에", "promise")),  # l10n-ok
-    ("progress", ("어제", "어디까지", "progress")),  # l10n-ok
-    ("preferences", ("좋아", "취향", "likes ", "prefers")),  # l10n-ok
-)
+# NO_GUESS_SLOT_v1: a line goes to a slot only by its explicit tag above -- keyword hints (Korean and English words)
+# sorted the same line differently by language, so they are gone.
+_HINTS = ()
 _SECRETISH = re.compile(
     r"(api[_-]?key|secret|password|passwd|token|bearer|sk-[A-Za-z0-9]{8,}|-----BEGIN)",
     re.I,

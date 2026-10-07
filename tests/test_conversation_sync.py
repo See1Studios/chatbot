@@ -543,7 +543,7 @@ class AgyToolInfoEvents(Base):
         self.assertEqual(active[0]["text"], "run_command: ls -la (list)")
         self.assertEqual(active[0]["title"], "run_command")
         self.assertEqual([(e["event"], e["kind"], e["status"]) for e in done], [("tool", "result", "done")])
-        self.assertEqual(done[0]["text"], "↳ total 8 (외 1줄)")
+        self.assertEqual(done[0]["text"], "↳ total 8 (+1 lines)")
         self.assertIn("file.txt", done[0]["detail"])
 
     def test_interleaved_steps_and_a_bare_done_make_one_call_each(self):

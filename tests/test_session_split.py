@@ -198,7 +198,7 @@ class PrivateBundle(unittest.TestCase):
         text = I.build_instruction_bundle(mode="private")["text"]
         for want in ("charter", "persona body", "private rules", "likes tea", I.PRIVATE_SESSION_NOTE):
             self.assertIn(want, text)
-        for never in ("work fact", "[스킬 색인]", "[자기개선 상태]"):
+        for never in ("work fact", "[Skill index]", "[Self-improvement status]"):
             self.assertNotIn(never, text)
         work = I.build_instruction_bundle()["text"]
         self.assertIn("work fact", work)
@@ -228,7 +228,7 @@ class PrivateBundle(unittest.TestCase):
         self.assertIn("unique other staff description", sys_priv)
         self.assertIn("other private rules", sys_priv)
         self.assertIn("likes coffee", sys_priv)
-        for never in ("persona body", "pd work instructions", "[스킬 색인]", "work fact", "likes tea"):
+        for never in ("persona body", "pd work instructions", "[Skill index]", "work fact", "likes tea"):
             self.assertNotIn(never, sys_priv)
 
         sess_work = S.AgentSession("s_work")
@@ -239,7 +239,7 @@ class PrivateBundle(unittest.TestCase):
 
         self.assertIn("persona body", sys_work)
         self.assertIn("pd work instructions", sys_work)
-        self.assertIn("[스킬 색인]", sys_work)
+        self.assertIn("[Skill index]", sys_work)
         self.assertNotIn("services/chatbot/data/", sys_work)   # uds/F: skills live in the data dir's workspace
         self.assertIn("work fact", sys_work)
         for never in ("unique other staff description", "other private rules", "likes coffee"):

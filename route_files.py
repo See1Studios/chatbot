@@ -7,6 +7,7 @@ from urllib.parse import quote, unquote
 
 import identity
 import static_delivery
+import i18n
 from host_config import DATA, HOME, STATIC, WEB_ROOT
 from preview_guard import _resolve_safe_preview_file
 from route_table import Req
@@ -29,7 +30,7 @@ def preview(req: Req):
     raw_target = req.q("path", "")
     fp, reason = _resolve_safe_preview_file(raw_target)
     if not fp:
-        return req.json({"ok": False, "error": reason or "파일을 찾을 수 없거나 접근이 거부되었습니다"}, 404)
+        return req.json({"ok": False, **i18n.field("error", reason or 'preview.err.not_found')}, 404)
     ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
     stat = fp.stat()
     is_text = False
@@ -46,9 +47,9 @@ def preview(req: Req):
             if stat.st_size <= 500_000:
                 content = fp.read_text(encoding="utf-8", errors="replace")
             else:
-                content = fp.read_text(encoding="utf-8", errors="replace")[:200_000] + f"\n\n... (파일이 너무 큽니다: {stat.st_size:,} bytes, 앞부분 200KB만 표시)"
+                content = fp.read_text(encoding="utf-8", errors="replace")[:200_000] + f"\n\n... (the file is too large: {stat.st_size:,} bytes; only the first 200KB shown)"
         except Exception as e:
-            content = f"내용을 읽을 수 없습니다: {e}"
+            content = f"cannot read the content: {e}"
     else:
         kind = "binary"
 
@@ -72,7 +73,7 @@ def raw(req: Req):
     raw_target = req.q("path", "")
     fp, reason = _resolve_safe_preview_file(raw_target)
     if not fp:
-        return req.send(404, (reason or "not found").encode("utf-8"), "text/plain; charset=utf-8")
+        return req.send(404, (i18n.text(reason) if reason else "not found").encode("utf-8"), "text/plain; charset=utf-8")
     ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
     try:
         data = fp.read_bytes()

@@ -61,7 +61,7 @@ class BundleTests(WorkspaceCase):
         self.assertIn("PERSONA-MARK", t)
         self.assertIn("- alpha — 알파 스킬 설명 두 번째 줄", t)
         self.assertNotIn("_off", t)
-        self.assertIn("열린 관찰 1건 · 미검토 후보 0건 · 마지막 리뷰 2026-09-16", t)
+        self.assertIn("1 open observations · 0 unreviewed candidates · last review 2026-09-16", t)
 
     def test_the_badge_counts_candidates_since_the_last_review_only(self):
         import time
@@ -69,14 +69,14 @@ class BundleTests(WorkspaceCase):
         rows = [{"epoch": day_start - 3600, "signal": "stopped"}, {"epoch": day_start + 3600, "signal": "correction"},
                 {"epoch": day_start + 7200, "signal": "stopped"}]
         _write(self.ws / "skill-observations/candidates.jsonl", "".join(json.dumps(r) + "\n" for r in rows))
-        self.assertIn("열린 관찰 1건 · 미검토 후보 2건 · 마지막 리뷰 2026-09-16", I.build_instruction_bundle()["text"])
+        self.assertIn("1 open observations · 2 unreviewed candidates · last review 2026-09-16", I.build_instruction_bundle()["text"])
 
     def test_the_badge_survives_a_missing_core_module_and_a_missing_candidate_file(self):
-        self.assertIn("미검토 후보 0건", I.build_instruction_bundle()["text"])  # no candidates.jsonl
+        self.assertIn("0 unreviewed candidates", I.build_instruction_bundle()["text"])  # no candidates.jsonl
         saved = I.observations
         I.observations = None
         try:
-            self.assertIn("미검토 후보 0건", I.build_instruction_bundle()["text"])
+            self.assertIn("0 unreviewed candidates", I.build_instruction_bundle()["text"])
         finally:
             I.observations = saved
 
@@ -86,13 +86,13 @@ class BundleTests(WorkspaceCase):
         self.assertEqual(h0, I.build_instruction_bundle()["hash"])
 
     def test_empty_memory_template_is_omitted(self):
-        self.assertNotIn("[장기 기억 스냅샷]", I.build_instruction_bundle()["text"])
+        self.assertNotIn("[Long-term memory snapshot]", I.build_instruction_bundle()["text"])
 
     def test_memory_fact_is_included_but_does_not_change_hash(self):
         h0 = I.build_instruction_bundle()["hash"]
         _write(self.ws / "memory/MEMORY.md", "# 기억\n\n## 사용자\n- [2026-09-19] 커피는 아메리카노\n")
         b = I.build_instruction_bundle()
-        self.assertIn("[장기 기억 스냅샷]", b["text"])
+        self.assertIn("[Long-term memory snapshot]", b["text"])
         self.assertIn("아메리카노", b["text"])
         self.assertEqual(h0, b["hash"])
 

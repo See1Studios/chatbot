@@ -75,7 +75,7 @@ def _dm_pair(did: str) -> List[str]:
 
 
 # A stage direction is *one* asterisk on each side, hugging its words: **bold** and a "* " list bullet are speech
-# (live 2026-10-05: a report's **삭제 가능** arrived as an action).  l10n-ok
+# (live 2026-10-05: a report's **deletable** (in bold) arrived as an action).
 _STAGE = re.compile(r"(?<!\*)\*(?=[^\s*])([^*\n]+?)(?<=[^\s*])\*(?!\*)")
 _WRAPS = (("(", ")"), ("\uff08", "\uff09"))
 
@@ -329,7 +329,7 @@ def speaker(who: str) -> str:
     if nm:
         return nm
     if characters.ID_RE.match(who or ""):
-        return "(알 수 없음)"  # l10n-ok
+        return "(unknown)"
     return who
 
 

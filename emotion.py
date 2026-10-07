@@ -1,6 +1,6 @@
 """Emotion tags in assistant text become one `emotion` SSE event per turn (#251; moved out of server.py, pew/N1c).
 
-parse(text) finds a label in a sentence: `*표정: happy*`, `[emotion: sad]`, a bare `[happy]`, or a known keyword at
+parse(text) finds a label in a sentence: `*expression: happy*`, `[emotion: sad]`, a bare `[happy]`, or a known keyword at
 the start or end. Tracker follows one SSE stream: fed each event, it returns the label to send at most once per turn
 -- as soon as a streamed sentence carries one, else from the final result -- and resets when the turn ends.
 Standard library only.
@@ -26,12 +26,12 @@ def parse(text: str) -> Optional[str]:
     s = text.strip()
     if not s:
         return None
-    # a: *표정: happy* / *emotion: happy*
-    m = re.search(r"\*\s*(?:표정|emotion|expression)\s*:\s*([a-zA-Z_-]+)\s*\*", s, re.IGNORECASE)
+    # a: *expression: happy* / *emotion: happy* (표정 is the older Korean tag name: records keep it)  l10n-ok
+    m = re.search(r"\*\s*(?:표정|emotion|expression)\s*:\s*([a-zA-Z_-]+)\s*\*", s, re.IGNORECASE)   # l10n-ok: a tag name, not a guess
     if m:
         return m.group(1).lower()
-    # b: [표정:sad] / [emotion: sad], then a bare [happy]
-    m = re.search(r"\[\s*(?:표정|emotion|expression)\s*:\s*([a-zA-Z_-]+)\s*\]", s, re.IGNORECASE)
+    # b: [expression:sad] / [emotion: sad], then a bare [happy]
+    m = re.search(r"\[\s*(?:표정|emotion|expression)\s*:\s*([a-zA-Z_-]+)\s*\]", s, re.IGNORECASE)   # l10n-ok: a tag name
     if m:
         return m.group(1).lower()
     for m in re.finditer(r"\[\s*([a-zA-Z_-]+)\s*\]", s):

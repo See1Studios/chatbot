@@ -18,7 +18,7 @@ from pathlib import Path
 CODE = Path(__file__).resolve().parent.parent
 SCRIPT = Path(os.environ.get("MEMORY_CLI_SCRIPT") or CODE / "templates" / "workspace" / "tools" / "memory.py")
 TODAY = datetime.date.today().isoformat()
-TEMPLATE_SECTIONS = ["## 사용자", "## 운영 결정", "## 진행 중"]
+TEMPLATE_SECTIONS = ["## User", "## Decisions", "## In progress"]
 
 
 class Base(unittest.TestCase):
@@ -59,18 +59,18 @@ class AddTest(Base):
     def test_add_puts_a_dated_line_under_the_default_section(self):
         rc, out, _ = self.run_cli("add", "사용자는 상대경로를 선호한다")
         self.assertEqual(rc, 0)
-        self.assertEqual(out.splitlines(), ["기록함 → ## 사용자", "- [%s] 사용자는 상대경로를 선호한다" % TODAY])
+        self.assertEqual(out.splitlines(), ["기록함 → ## User", "- [%s] 사용자는 상대경로를 선호한다" % TODAY])
         self.assertEqual(self.lines(), ["- [%s] 사용자는 상대경로를 선호한다" % TODAY])
 
     def test_add_to_another_section_goes_before_the_next_header(self):
         self.run_cli("add", "first")
-        self.run_cli("add", "포트 3014", "--section", "운영 결정")
+        self.run_cli("add", "포트 3014", "--section", "Decisions")
         self.run_cli("add", "second")
         body = self.body()
-        self.assertLess(body.index("first"), body.index("## 운영 결정"))
-        self.assertLess(body.index("second"), body.index("## 운영 결정"))
-        self.assertLess(body.index("## 운영 결정"), body.index("포트 3014"))
-        self.assertLess(body.index("포트 3014"), body.index("## 진행 중"))
+        self.assertLess(body.index("first"), body.index("## Decisions"))
+        self.assertLess(body.index("second"), body.index("## Decisions"))
+        self.assertLess(body.index("## Decisions"), body.index("포트 3014"))
+        self.assertLess(body.index("포트 3014"), body.index("## In progress"))
 
     def test_words_are_joined_whitespace_collapsed_and_a_dash_prefix_dropped(self):
         self.run_cli("add", "- a", "  b\t c ")
@@ -88,26 +88,26 @@ class AddTest(Base):
     def test_unknown_section_and_empty_text_are_refused(self):
         rc, _, err = self.run_cli("add", "x", "--section", "없는 섹션")
         self.assertEqual(rc, 2)
-        self.assertIn("--section 은 사용자, 운영 결정, 진행 중 중 하나.", err)
+        self.assertIn("--section is one of User, Decisions, In progress.", err)
         rc, _, err = self.run_cli("add", "   ")
         self.assertEqual(rc, 2)
-        self.assertIn("추가할 사실이 없습니다.", err)
+        self.assertIn("no fact to add.", err)
         self.assertEqual(self.lines(), [])  # sections are read from the file, so it may have been opened; no fact was added
 
     def test_the_size_cap_refuses_and_leaves_the_file_alone(self):
         for n in range(1, 40):  # bounded; each fact is ~250 hangul = 750 bytes, so the cap is hit within a few
             before = self.body() if self.file.exists() else None
-            rc, _, err = self.run_cli("add", "%02d %s" % (n, "가" * 250), "--section", "운영 결정")
+            rc, _, err = self.run_cli("add", "%02d %s" % (n, "가" * 250), "--section", "Decisions")
             if rc != 0:
                 break
         self.assertEqual(rc, 3)
-        self.assertIn("4096바이트를 넘습니다", err)
+        self.assertIn("is over 4096 bytes", err)
         self.assertEqual(self.body(), before)
 
     def test_a_single_overlong_fact_is_refused_as_a_bad_request(self):
         rc, _, err = self.run_cli("add", "가" * 400)
         self.assertEqual(rc, 2)
-        self.assertIn("너무 깁니다", err)
+        self.assertIn("too long", err)
 
     def test_no_temp_files_are_left_behind(self):
         self.run_cli("add", "one")
@@ -127,10 +127,10 @@ class AddTest(Base):
 
 class SearchTest(Base):
     def test_search_lists_matching_facts_with_their_section(self):
-        self.run_cli("add", "포트 3014", "--section", "운영 결정")
+        self.run_cli("add", "포트 3014", "--section", "Decisions")
         self.run_cli("add", "커피는 아메리카노")
         rc, out, _ = self.run_cli("search", "포트")
-        self.assertEqual((rc, out), (0, "[운영 결정] - [%s] 포트 3014\n" % TODAY))
+        self.assertEqual((rc, out), (0, "[Decisions] - [%s] 포트 3014\n" % TODAY))
         rc, out, _ = self.run_cli("search", "PORT".lower())
         self.assertEqual((rc, out), (0, "'port' 없음.\n"))
 
@@ -139,7 +139,7 @@ class SearchTest(Base):
         self.assertIn("Higgsfield", self.run_cli("search", "HIGGS")[1])
         rc, _, err = self.run_cli("search", "  ")
         self.assertEqual(rc, 2)
-        self.assertIn("검색어가 없습니다.", err)
+        self.assertIn("no search words given.", err)
 
 
 class ForgetTest(Base):
@@ -157,7 +157,7 @@ class ForgetTest(Base):
         self.assertEqual((rc, out), (0, "일치하는 줄이 없습니다.\n"))
         rc, _, err = self.run_cli("forget", "k")
         self.assertEqual(rc, 2)
-        self.assertIn("두 글자 이상", err)
+        self.assertIn("at least two characters", err)
         self.assertEqual(len(self.lines()), 1)
 
     def test_a_broad_query_is_refused_and_all_is_explicit(self):  # was: silently deleted every matching line, no backup
@@ -165,7 +165,7 @@ class ForgetTest(Base):
             self.run_cli("add", fact)
         rc, out, err = self.run_cli("forget", "사용자")
         self.assertEqual((rc, out), (2, ""))
-        self.assertIn("3줄이 일치합니다", err)
+        self.assertIn("3 lines match", err)
         self.assertEqual(len(self.lines()), 3)
         rc, out, _ = self.run_cli("forget", "사용자", "--all")
         self.assertEqual(rc, 0)

@@ -36,7 +36,7 @@ from host_config import ROOT, WORKSPACE
 import characters   # the cards; identity is the view on top of them (split/D: no import back)
 from characters import _FRONT, parse_frontmatter   # the front-matter reader lives with the cards it reads
 
-DEFAULTS = {"title": "Assistant", "persona": "", "user_title": "사용자", "voice": ""}
+DEFAULTS = {"title": "Assistant", "persona": "", "user_title": "the user", "voice": ""}   # agent-facing default: English
 _LIMITS = {"title": 60, "persona": 40, "user_title": 20, "voice": 120}
 
 _ROLE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
@@ -181,8 +181,8 @@ def self_label(role: str = "") -> str:
     return i["name"]
 
 
-def voice_phrase(suffix: str = "로") -> str:
-    """The tone hint as a clause ('친근한 반말로'), or '' when none is set."""
+def voice_phrase(suffix: str = "") -> str:
+    """The card's tone hint as written (the card's own language), plus `suffix`; '' when none is set."""
     v = get_identity()["voice"]
     return f"{v}{suffix}" if v else ""
 

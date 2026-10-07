@@ -59,7 +59,7 @@ class PromptsTest(Base):
                 self.assertNotIn(old, text)
         self.assertIn("You are 아트디렉터 루나. (The user: 대표님)", btw_idle)
         self.assertIn("대표님's question: 지금 뭐 해?", btw_idle)
-        self.assertIn("차분한 존댓말로", btw_busy)
+        self.assertIn("차분한 존댓말", btw_busy)
         self.assertIn("- 대표님's latest requests:", handoff)
         self.assertIn("You summarize a handover for 아트디렉터 루나", handoff)
 

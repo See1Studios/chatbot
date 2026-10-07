@@ -36,10 +36,10 @@ _LEADING_DATE = re.compile(r"^\s*\[\d{4}-\d{2}-\d{2}\]\s*")
 # Structure only: section names are generic roles, never the persona's name or its word for the user
 # (NAME_NEUTRAL_v1). Sections are read back from the file, so an instance may rename them.
 TEMPLATE = (
-    "# 장기 기억\n\n"
-    "세션을 넘는 사실만 적는다. 나는 누구 → 내 캐릭터 카드(`characters/<id>/card.json`). 호스트 법 → `~/AGENTS.md`.\n"
-    "한 줄에 사실 하나. `[YYYY-MM-DD]` 날짜. 짧게 유지 (대략 4KB).\n\n"
-    "## 사용자\n\n## 운영 결정\n\n## 진행 중\n"
+    "# Long-term memory\n\n"
+    "Only facts that outlive a session. Who I am → my character card (`characters/<id>/card.json`). Host law → `~/AGENTS.md`.\n"
+    "One fact a line, dated `[YYYY-MM-DD]`. Keep it short (about 4KB).\n\n"
+    "## User\n\n## Decisions\n\n## In progress\n"
 )
 
 
@@ -141,7 +141,7 @@ def search(mem_dir, query) -> List[Tuple[str, str]]:
     """(section, line) for every fact containing `query`, case-insensitively."""
     q = ("" if query is None else str(query)).strip().lower()
     if not q:
-        raise MemoryRefused("검색어가 없습니다.")
+        raise MemoryRefused("no search words given.")
     hits, section = [], ""
     for raw in read(mem_dir).splitlines():
         if raw.startswith("## "):
@@ -166,7 +166,7 @@ def _insert_line(body: str, section: str, line: str) -> str:
 
 def _clean_fact(fact) -> str:
     text = re.sub(r"\s+", " ", "" if fact is None else str(fact)).strip()
-    text = re.sub(r"^-(?:\s+|$)", "", text)  # a list dash, not the minus of "-5도"
+    text = re.sub(r"^-(?:\s+|$)", "", text)  # a list dash, not the minus of "-5 degrees"
     while _LEADING_DATE.match(text):  # the line gets today's date from us, once
         text = _LEADING_DATE.sub("", text, count=1).strip()
     return text
@@ -176,21 +176,24 @@ def add(mem_dir, fact, section: Optional[str] = None, today: Optional[str] = Non
     """Add one fact. Returns (status, section, line) with status "added" or "duplicate"."""
     text = _clean_fact(fact)
     if not text:
-        raise MemoryRefused("추가할 사실이 없습니다.")
+        raise MemoryRefused("no fact to add.")
     if len(text) > MAX_FACT_CHARS:
-        raise MemoryRefused("사실이 너무 깁니다 (%d자 넘음). 한 줄로 줄여 주세요." % MAX_FACT_CHARS)
+        raise MemoryRefused("the fact is too long (over %d characters). Cut it to one line." % MAX_FACT_CHARS)
     line = "- [%s] %s" % (today or datetime.date.today().isoformat(), text)
     with _Locked(mem_dir):
         body = read(mem_dir)
         known = sections(body)
         target = (section or "").strip() or (known[0] if known else "")
         if not target or target not in known:
-            raise MemoryRefused("--section 은 %s 중 하나." % ", ".join(known))
-        if text.lower() in body.lower():
+            raise MemoryRefused("--section is one of %s." % ", ".join(known))
+        # a fact already written, or part of one -- searched in the fact lines only: the file's own heading and
+        # guide words are not facts (they matched short facts once the template was English)
+        facts = [_clean_fact(l[2:]).lower() for l in body.splitlines() if l.startswith("- ")]
+        if any(text.lower() in f for f in facts):
             return "duplicate", target, line
         new = _insert_line(body, target, line)
         if len(new.encode("utf-8")) > MAX_BYTES:
-            raise MemoryRefused("MEMORY.md가 %d바이트를 넘습니다. 오래된 줄을 forget 한 뒤 다시 추가하세요." % MAX_BYTES, 3)
+            raise MemoryRefused("MEMORY.md is over %d bytes. forget old lines, then add again." % MAX_BYTES, 3)
         _write(mem_dir, new)
     return "added", target, line
 
@@ -199,7 +202,7 @@ def forget(mem_dir, query, all_matches: bool = False) -> List[str]:
     """Remove the fact lines containing `query`. More than one match is refused unless `all_matches`."""
     q = ("" if query is None else str(query)).strip()
     if len(q) < MIN_QUERY_CHARS:
-        raise MemoryRefused("삭제할 부분 문자열을 두 글자 이상 주세요.")
+        raise MemoryRefused("give at least two characters of the text to delete.")
     qn = q.lower()
     with _Locked(mem_dir):
         body = read(mem_dir)
@@ -213,7 +216,7 @@ def forget(mem_dir, query, all_matches: bool = False) -> List[str]:
         if not removed:
             return []
         if len(removed) > 1 and not all_matches:
-            raise MemoryRefused("%d줄이 일치합니다. 하나만 지우려면 더 구체적으로 쓰고, 전부 지우려는 게 맞으면 all을 켜세요:\n%s"
+            raise MemoryRefused("%d lines match. To delete one, be more specific; to delete them all, turn all on:\n%s"
                                 % (len(removed), "\n".join(removed)))
         _write(mem_dir, "".join(kept))
     return removed

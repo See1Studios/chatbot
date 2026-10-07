@@ -189,7 +189,7 @@ class SessionView:
                                 events.append(ev_tu)
                         elif ptype == "tool_result":
                             res = str(part.get("content") or part.get("output") or "")
-                            text = _format_tool_result(res) if res else "↳ tool_result: 완료"
+                            text = _format_tool_result(res) if res else "↳ tool_result: done"
                             if text and text != self._last_tool_sig:
                                 self._last_tool_sig = text
                                 ev_tr = {"event": "tool", "text": text[:600], "title": "result", "kind": "result", "status": "tool_result"}
@@ -224,7 +224,7 @@ class SessionView:
         if use_cache and getattr(self, "_cached_summary", ""):
             return self._with_last_exchange(self._cached_summary)
         if not native:
-            return self._host_history_digest(header="(제공자가 바뀌었습니다. 아래는 화면 기록의 최근 대화입니다. 이어서 진행하세요.)")
+            return self._host_history_digest(header="(The provider changed. Below is the recent talk from the screen record. Carry on.)")
 
         base = ""
         cid = getattr(self, "conversation_id", None)
@@ -243,7 +243,7 @@ class SessionView:
         if not base:
             base = self._dialogue_summary_fallback(max_turns)
 
-        # 압축 요약(base)만 캐싱; 최근 대화 원문은 반환 시점에 동적 결합 (operator 제안, 2026-09-17).
+        # only the compressed summary (base) is cached; the recent talk is joined when returned (operator's idea, 2026-09-17).
         if use_cache:
             self._cached_summary = base
         return self._with_last_exchange(base)
@@ -343,8 +343,8 @@ class SessionView:
         roots = list(provider_dirs)
 
         session_artifact_roots: Dict[Path, str] = {}
-        # First cut (2026-09-18) only walked self.sid + predecessor_session_id. operator: "아티팩트 탭은 모든
-        # 디바이스 모든 세션 공통인데" -> ticket #575: 1:1 세션 및 단체방별 고유 격리로 분리.
+        # First cut (2026-09-18) only walked self.sid + predecessor_session_id. operator: "the artifacts tab is shared by
+        # every device and session" -> ticket #575: split into its own isolation per 1:1 session and group room.
         my_adir = self.meta_path.parent / "artifacts"
         session_artifact_roots[my_adir] = self.sid
         roots.append(my_adir)

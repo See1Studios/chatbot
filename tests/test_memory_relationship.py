@@ -47,7 +47,7 @@ class RelationshipMemory(unittest.TestCase):
         self.assertNotIn("[Relationship]", work)
 
     def test_slots_are_dynamic_and_private_bullets_stay_compact(self):
-        C.remember_private(self.cid, ["likes tea", "walked home together"], "2026-01-01", self.ws)
+        C.remember_private(self.cid, ["pref: likes tea", "walked home together"], "2026-01-01", self.ws)   # NO_GUESS_SLOT_v1: by tag only
         before = I.build_instruction_bundle(mode="private", character=self.cid)
         M.remember_slots(self.cid, ["promise: bring the scarf"], self.ws)
         after = I.build_instruction_bundle(mode="private", character=self.cid)

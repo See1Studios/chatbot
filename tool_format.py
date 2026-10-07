@@ -153,10 +153,10 @@ def _format_tool_result(content: str) -> str:
     lines = [l.strip() for l in str(content).splitlines() if l.strip()]
     filtered = [l for l in lines if not l.startswith("Created At:") and not l.startswith("Completed At:")]
     if not filtered:
-        return "↳ 완료"
+        return "↳ done"
     first = filtered[0]
     if len(first) > 120:
         first = first[:117] + "..."
     if len(filtered) > 1:
-        return f"↳ {first} (외 {len(filtered)-1}줄)"
+        return f"↳ {first} (+{len(filtered)-1} lines)"
     return f"↳ {first}"

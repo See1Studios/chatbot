@@ -52,7 +52,7 @@ def _resolve_safe_preview_file(raw_path: str) -> Tuple[Optional[Path], Optional[
     home = getattr(server, "HOME", host_config.HOME)
     workspace = getattr(server, "WORKSPACE", host_config.WORKSPACE)
     if not raw_path:
-        return None, "경로가 지정되지 않았습니다"
+        return None, 'preview.err.no_path'
     raw = raw_path.strip()
     if raw.startswith("file://"):
         raw = raw[7:]
@@ -71,14 +71,14 @@ def _resolve_safe_preview_file(raw_path: str) -> Tuple[Optional[Path], Optional[
     try:
         rp = p.resolve()
     except Exception as e:
-        return None, f"경로 해석 실패: {e}"
+        return None, 'preview.err.resolve'
     if not rp.exists():
-        return None, "디스크에 파일이 존재하지 않습니다"
+        return None, 'preview.err.missing'
     if not rp.is_file():
-        return None, "디렉터리이거나 일반 파일이 아닙니다"
+        return None, 'preview.err.not_file'
     if not _preview_allowed(rp):
-        return None, "허용된 프로젝트 디렉터리 범위를 벗어난 경로입니다"
+        return None, 'preview.err.outside'
     for part in rp.parts:
         if _SECRET_NAME_RE.search(part):
-            return None, "보안상 조회가 제한된 민감한 파일/경로입니다"
+            return None, 'preview.err.sensitive'
     return rp, None

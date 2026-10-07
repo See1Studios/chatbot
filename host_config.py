@@ -122,7 +122,7 @@ ARTIFACTS_CACHE = SESSIONS / "_shared"
 LOG_DIR = Path(os.environ.get("CHATBOT_LOG_DIR") or ROOT / "logs")
 EVENTS_LOG = Path(os.environ.get("CHATBOT_OBSLOG_PATH") or LOG_DIR / "events.jsonl")
 # Event kinds worth keeping durable (sessions/<sid>/events.jsonl) for both
-# operator's 로그 tab history and the self-improve loop's own debugging --
+# operator's log tab history and the self-improve loop's own debugging --
 # excludes the high-frequency streaming noise (delta/raw/agy/stderr/user)
 # that would otherwise make the log unbounded for no real signal.
 PERSISTED_LOG_KINDS = {
@@ -143,7 +143,7 @@ MODELS = [
 
 # Narrow ADD_DIRS for spawn latency (2026-09-16).
 # Removed: entire HOME, /volume1/web, .hermes, HOME/services, redundant artifacts.
-# 2026-09-19 A/B (host-identical stream-json spawn, "안녕" 한 문장):
+# 2026-09-19 A/B (host-identical stream-json spawn, a one-line "hello"):
 #   ROOT + /chat  45970
 #   ROOT only     45950
 #   /chat only    14296

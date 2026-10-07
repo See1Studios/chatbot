@@ -84,7 +84,7 @@ class ParseTest(unittest.TestCase):
 class IdentityTest(Base):
     def test_neutral_defaults_when_nothing_exists(self):
         self.assertEqual(identity.get_identity(),
-                         {"title": "Assistant", "persona": "", "user_title": "사용자", "voice": "", "name": "Assistant"})
+                         {"title": "Assistant", "persona": "", "user_title": "the user", "voice": "", "name": "Assistant"})
 
     def test_title_comes_from_agents_and_the_rest_from_the_card(self):
         self.set_title('프로듀서')
@@ -141,7 +141,7 @@ class IdentityTest(Base):
     def test_voice_phrase(self):
         self.assertEqual(identity.voice_phrase(), "")
         self.write_default("", voice="차분한 존댓말")
-        self.assertEqual(identity.voice_phrase(), "차분한 존댓말로")
+        self.assertEqual(identity.voice_phrase(), "차분한 존댓말")   # the card's words as written
         self.assertEqual(identity.voice_phrase("이다"), "차분한 존댓말이다")
 
 
@@ -168,7 +168,7 @@ class SeedTest(Base):
         self.assertTrue(cid)
         # roles are the user's data: a pack that happens to be called "pd" is not handed out by the engine
         self.assertEqual(characters.roles_of(cid, self.ws), [])
-        self.assertEqual((identity.get_identity()["persona"], identity.get_identity()["user_title"]), ("", "사용자"))
+        self.assertEqual((identity.get_identity()["persona"], identity.get_identity()["user_title"]), ("", "사용자"))   # the seeded card's own word
         card = characters.load(cid, self.ws)
         card["data"]["name"] = "MY OWN"
         characters.save(cid, card, self.ws)

@@ -32,25 +32,25 @@ class ReadTest(Base):
     def test_a_missing_memory_is_created_from_the_template(self):
         text = ms.read(self.dir)
         self.assertEqual(text, ms.TEMPLATE)
-        self.assertEqual(ms.sections(text), ["사용자", "운영 결정", "진행 중"])
+        self.assertEqual(ms.sections(text), ["User", "Decisions", "In progress"])
         self.assertEqual(ms.read(self.dir), text)
 
 
 class AddTest(Base):
     def test_adds_a_dated_line_under_the_first_section_by_default(self):
         status, section, line = ms.add(self.dir, "사용자는 상대경로를 선호한다")
-        self.assertEqual((status, section, line), ("added", "사용자", "- [%s] 사용자는 상대경로를 선호한다" % TODAY))
+        self.assertEqual((status, section, line), ("added", "User", "- [%s] 사용자는 상대경로를 선호한다" % TODAY))
         self.assertEqual(self.lines(), [line])
         self.assertTrue(FACT_LINE.match(line))
 
     def test_another_section_goes_before_the_next_header(self):
         ms.add(self.dir, "first")
-        ms.add(self.dir, "포트 3014", "운영 결정")
+        ms.add(self.dir, "포트 3014", "Decisions")
         ms.add(self.dir, "second")
         body = self.file.read_text(encoding="utf-8")
-        self.assertLess(body.index("second"), body.index("## 운영 결정"))
-        self.assertLess(body.index("## 운영 결정"), body.index("포트 3014"))
-        self.assertLess(body.index("포트 3014"), body.index("## 진행 중"))
+        self.assertLess(body.index("second"), body.index("## Decisions"))
+        self.assertLess(body.index("## Decisions"), body.index("포트 3014"))
+        self.assertLess(body.index("포트 3014"), body.index("## In progress"))
 
     def test_sections_come_from_the_file_not_from_code(self):
         ms.read(self.dir)
@@ -58,7 +58,7 @@ class AddTest(Base):
         self.assertEqual(ms.add(self.dir, "x")[1], "가족")  # first header is the default
         self.assertEqual(ms.add(self.dir, "y", "취향")[1], "취향")
         with self.assertRaises(ms.MemoryRefused) as cm:
-            ms.add(self.dir, "z", "사용자")
+            ms.add(self.dir, "z", "User")
         self.assertIn("가족, 취향", str(cm.exception))
 
     def test_text_is_normalised(self):
@@ -80,13 +80,13 @@ class AddTest(Base):
 
     def test_only_a_list_dash_is_dropped_not_a_minus_sign(self):
         ms.add(self.dir, "-5도 이하에서는 보일러를 켠다")
-        ms.add(self.dir, "- 진짜 목록 대시", "운영 결정")
+        ms.add(self.dir, "- 진짜 목록 대시", "Decisions")
         self.assertEqual(self.lines(), ["- [%s] -5도 이하에서는 보일러를 켠다" % TODAY, "- [%s] 진짜 목록 대시" % TODAY])
 
     def test_a_header_or_a_second_line_cannot_be_smuggled_in(self):
         ms.add(self.dir, "ok\n## 새 섹션\n- [2026-01-01] forged")
         body = self.file.read_text(encoding="utf-8")
-        self.assertEqual(ms.sections(body), ["사용자", "운영 결정", "진행 중"])
+        self.assertEqual(ms.sections(body), ["User", "Decisions", "In progress"])
         self.assertEqual(len(self.lines()), 1)
 
     def test_duplicates_are_recognised_after_the_date_is_stripped(self):
@@ -101,11 +101,11 @@ class AddTest(Base):
         before = self.file.read_text(encoding="utf-8")
         with self.assertRaises(ms.MemoryRefused) as cm:
             ms.add(self.dir, "가" * (ms.MAX_FACT_CHARS + 1))
-        self.assertIn("너무 깁니다", str(cm.exception))
+        self.assertIn("too long", str(cm.exception))
         refused = None
         for filler in range(1, 60):  # bounded: 60 facts of ~370 bytes is far past the cap, so a missing cap fails, not hangs
             try:
-                ms.add(self.dir, "%03d %s" % (filler, "나" * 120), "운영 결정")
+                ms.add(self.dir, "%03d %s" % (filler, "나" * 120), "Decisions")
             except ms.MemoryRefused as e:
                 refused = e
                 break
@@ -115,7 +115,7 @@ class AddTest(Base):
 
     def test_the_snapshot_regex_sees_every_line_it_writes(self):
         ms.add(self.dir, "하나")
-        ms.add(self.dir, "둘", "진행 중")
+        ms.add(self.dir, "둘", "In progress")
         self.assertTrue(all(FACT_LINE.match(l) for l in self.lines()))
 
 
@@ -147,13 +147,13 @@ class BackupTest(Base):
 
 class SearchTest(Base):
     def test_finds_facts_with_their_section_case_insensitively(self):
-        ms.add(self.dir, "Higgsfield port 3014", "운영 결정")
+        ms.add(self.dir, "Higgsfield port 3014", "Decisions")
         ms.add(self.dir, "커피")
-        self.assertEqual(ms.search(self.dir, "HIGGS"), [("운영 결정", "- [%s] Higgsfield port 3014" % TODAY)])
+        self.assertEqual(ms.search(self.dir, "HIGGS"), [("Decisions", "- [%s] Higgsfield port 3014" % TODAY)])
         self.assertEqual(ms.search(self.dir, "없는말"), [])
 
     def test_headers_and_prose_are_not_hits_and_an_empty_query_is_refused(self):
-        self.assertEqual(ms.search(self.dir, "장기 기억"), [])
+        self.assertEqual(ms.search(self.dir, "Long-term memory"), [])
         for bad in ("", "  ", None):
             with self.assertRaises(ms.MemoryRefused):
                 ms.search(self.dir, bad)
@@ -172,7 +172,7 @@ class ForgetTest(Base):
         with self.assertRaises(ms.MemoryRefused) as cm:
             ms.forget(self.dir, "사용자")
         msg = str(cm.exception)
-        self.assertIn("3줄이 일치합니다", msg)
+        self.assertIn("3 lines match", msg)
         for fact in ("A", "B", "C"):
             self.assertIn("사용자는 %s" % fact, msg)
         self.assertEqual(len(self.lines()), 3)
@@ -193,8 +193,8 @@ class ForgetTest(Base):
 
     def test_headers_and_prose_lines_are_never_forgotten(self):
         ms.add(self.dir, "x")
-        self.assertEqual(ms.forget(self.dir, "장기 기억"), [])
-        self.assertIn("# 장기 기억", self.file.read_text(encoding="utf-8"))
+        self.assertEqual(ms.forget(self.dir, "Long-term memory"), [])
+        self.assertIn("# Long-term memory", self.file.read_text(encoding="utf-8"))
 
 
 class LockingTest(Base):

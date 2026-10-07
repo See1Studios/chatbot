@@ -219,13 +219,13 @@ class Rooms(unittest.TestCase):
         if card_file.is_file():
             card_file.unlink()
 
-        # dialog_log.speaker should return (알 수 없음)
-        self.assertEqual(dialog_log.speaker(self.c), "(알 수 없음)")
+        # dialog_log.speaker should return (unknown)
+        self.assertEqual(dialog_log.speaker(self.c), "(unknown)")
 
-        # GET /api/rooms/<rid> should include c in names as (알 수 없음)
+        # GET /api/rooms/<rid> should include c in names as (unknown)
         code, body = RC.api("GET", f"/api/rooms/{rid}", None)
         self.assertEqual(code, 200)
-        self.assertEqual(body["names"].get(self.c), "(알 수 없음)")
+        self.assertEqual(body["names"].get(self.c), "(unknown)")
         self.assertEqual(body["names"].get(self.a), "Boss")
 
     def test_room_update_and_members_management(self):

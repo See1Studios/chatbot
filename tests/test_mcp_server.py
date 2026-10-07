@@ -633,7 +633,7 @@ class MemoryToolTest(Base):
     def test_show_creates_the_template_and_returns_it(self):
         r = self.call("show")
         self.assertTrue(r["success"], r["message"])
-        self.assertIn("## 사용자", r["data"]["content"])
+        self.assertIn("## User", r["data"]["content"])
         self.assertTrue(self.file.exists())
 
     def test_add_then_search_then_show(self):
@@ -642,7 +642,7 @@ class MemoryToolTest(Base):
         self.assertEqual(r["data"]["status"], "added")
         self.assertEqual(r["data"]["line"].count("["), 1)  # the date is ours, and only once (never "[d] [d] ...")
         hits = self.call("search", query="시원")["data"]["hits"]
-        self.assertEqual([h["section"] for h in hits], ["사용자"])
+        self.assertEqual([h["section"] for h in hits], ["User"])
         self.assertIn("시원", self.call("show")["data"]["content"])
 
     def test_a_known_fact_is_reported_not_added_twice(self):
@@ -653,7 +653,7 @@ class MemoryToolTest(Base):
         self.assertEqual(len([l for l in self.file.read_text(encoding="utf-8").splitlines() if l.startswith("- ")]), 1)
 
     def test_sections_and_limits_are_the_core_s(self):
-        self.assertTrue(self.call("add", text="포트 3014", section="운영 결정")["success"])
+        self.assertTrue(self.call("add", text="포트 3014", section="Decisions")["success"])
         self.assertFalse(self.call("add", text="x", section="없는 섹션")["success"])
         self.assertFalse(self.call("add", text="가" * 400)["success"])
         for bad in ({"text": ""}, {"text": None}, {"text": "[2026-09-20]"}):
@@ -664,7 +664,7 @@ class MemoryToolTest(Base):
             self.call("add", text=fact)
         r = self.call("forget", query="사용자")
         self.assertFalse(r["success"])
-        self.assertIn("2줄이 일치합니다", r["message"])
+        self.assertIn("2 lines match", r["message"])
         self.assertFalse(self.call("forget", query="사용자", all="true")["success"])  # a string is not the boolean
         r = self.call("forget", query="사용자", all=True)
         self.assertTrue(r["success"], r["message"])

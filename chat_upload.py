@@ -16,6 +16,7 @@ import threading
 import time
 import unicodedata
 from pathlib import Path
+import i18n
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
@@ -76,14 +77,14 @@ def handle(path: str, headers, rfile) -> Optional[Tuple[int, Dict]]:
     raw_name = unquote(headers.get("X-File-Name") or "").replace("\\", "/").split("/")[-1].strip()
     name = safe_name(raw_name)
     if _SECRET.search(raw_name) or _SECRET.search(name):   # before cleaning too: ".env" must not pass as "env"
-        return 400, {"ok": False, "error": "이 이름의 파일은 보안상 올릴 수 없습니다: %s" % name}   # l10n-ok
+        return 400, {"ok": False, **i18n.field("error", 'upload.err.name', name=name)}
     if n <= 0:
         return 400, {"ok": False, "error": "empty file"}
     if n > MAX_BYTES:
-        return 413, {"ok": False, "error": "파일이 너무 큽니다 (최대 %d MB)" % (MAX_BYTES // 1048576)}   # l10n-ok
+        return 413, {"ok": False, **i18n.field("error", 'upload.err.too_big', n=MAX_BYTES // 1048576)}
     with _lock:
         if len(_pending.get(sid, [])) >= MAX_PENDING:
-            return 400, {"ok": False, "error": "한 번에 %d개까지 첨부할 수 있습니다" % MAX_PENDING}   # l10n-ok
+            return 400, {"ok": False, **i18n.field("error", 'upload.err.too_many', n=MAX_PENDING)}
     data = rfile.read(n)
     up = sess_dir / "uploads"
     up.mkdir(parents=True, exist_ok=True)

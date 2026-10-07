@@ -19,6 +19,7 @@ import re
 import threading
 import time
 from pathlib import Path
+import i18n
 from typing import Any, Optional
 
 FILE = "threshold.json"
@@ -92,13 +93,15 @@ def _names(cid: str) -> tuple:
         return "user", "character"
 
 
-def _scene_in(place: str, during_work: bool) -> str:
-    where = ("잠깐 함께 %s에 왔다" % place) if place else "잠깐 둘만 있을 곳으로 함께 자리를 옮겼다"   # l10n-ok
-    return "(" + ("업무 도중 " if during_work else "") + where + ")"   # l10n-ok
+# A scene line is the user's own action, sent by the page: it goes back by key (i18n.line) and the page says it in
+# its language (I18N_v1).
+def _scene_in(place: str, during_work: bool) -> dict:
+    key = ("scene.in_work" if during_work else "scene.in") + ("_place" if place else "")
+    return i18n.line(key, place=place) if place else i18n.line(key)
 
 
-def _scene_out(place: str) -> str:
-    return ("(함께 %s에서 사무실로 돌아왔다)" % place) if place else "(둘만의 시간을 보내고 함께 사무실로 돌아왔다)"   # l10n-ok
+def _scene_out(place: str) -> dict:
+    return i18n.line("scene.out_place", place=place) if place else i18n.line("scene.out")
 
 
 def auto_scene(state_path: Path) -> bool:
@@ -198,11 +201,17 @@ def _fresh_memory(cid: str, wait: float) -> list:
     return _FRESH.pop(cid, [])
 
 
-def pop_scene(session) -> str:
-    """The scene line a switch left for the page to send as an action ("" when none)."""
+def pop_scene(session):
+    """The scene line a switch left for the page to send as an action ({"key", "vars"}, or "" when none)."""
     line = getattr(session, "scene_action", "") or ""
     session.scene_action = ""
     return line
+
+
+def scene_field(session) -> dict:
+    """The switch answer's `scene` field: by key when there is one (the page localizes it), else empty."""
+    line = pop_scene(session) if session is not None else ""
+    return i18n.field("scene", line["key"], **line["vars"]) if line else {"scene": ""}
 
 
 def _publish(kind: str, priv, work) -> None:

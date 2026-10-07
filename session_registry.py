@@ -169,7 +169,7 @@ class Registry:
                 pass
         shutil.rmtree(sess_dir, ignore_errors=True)
         if sess_dir.exists():
-            raise RuntimeError(f"삭제 실패: {sess_dir} 디렉터리가 여전히 남아있습니다")
+            raise RuntimeError(f"delete failed: {sess_dir} is still there")
         return True
 
     def peek(self, sid: str) -> Optional["AgentSession"]:
