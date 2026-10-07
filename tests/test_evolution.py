@@ -144,8 +144,9 @@ class ShippedRegistryTest(unittest.TestCase):
     """The registry that ships with the code protects what docs/plans/recursive-self-evolution.md §3 0-4 lists."""
 
     def prot(self, rel):
-        """`rel` is engine-relative (`server.py`, `data/...`) unless it starts with a repo folder (`tests/`, `docs/`)."""
-        base = CODE if rel.split("/")[0] in ("tests", "docs", "static", "templates", ".githooks") else ENGINE
+        """`rel` is repo-relative when its first part is at the repo root (`tests/`, `OPERATIONS.md`), else engine-relative
+        (`server.py`, `data/...`)."""
+        base = CODE if (CODE / rel.split("/")[0]).exists() and rel.split("/")[0] != ENGINE.name else ENGINE
         return evolution.is_protected(CODE, base / rel)
 
     def test_registry_loads(self):
@@ -164,8 +165,8 @@ class ShippedRegistryTest(unittest.TestCase):
     def test_guard_ticket_and_rules_are_protected(self):
         for rel in ("chatbot-ctl.sh", "protected_paths.json", "data/lifecycle.lock",
                     "data/maintenance.flag", "tests/test_evolution.py", "tests/new/x.py",
-                    "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md", "docs/SELF-MODIFY.md",
-                    "docs/EMERGENCY.md", "data/host-force.ticket", "__pycache__/server.cpython-38.pyc"):
+                    "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md",
+                    "OPERATIONS.md", "data/host-force.ticket", "__pycache__/server.cpython-38.pyc"):
             self.assertTrue(self.prot(rel), rel)
 
     def test_global_shared_skills_directory_is_protected(self):

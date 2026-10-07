@@ -257,7 +257,7 @@ def verify_evidence(data, ref: str) -> None:
                       "got: %s" % ref[:60])
 
 
-# Host log evidence (OBSLOG_v1, docs/LOGGING.md): an error fingerprint or a request id that is in
+# Host log evidence (OBSLOG_v1, OPERATIONS.md): an error fingerprint or a request id that is in
 # logs/events.jsonl (or its rotations) next to the data directory. Read as plain JSON lines, so the
 # core stays free of the log layer; a missing log means "not found", never an error.
 _LOG_ID_LEN = {"fp": 10, "rid": 12}

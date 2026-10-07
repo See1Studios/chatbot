@@ -13,8 +13,7 @@
     "data/workspace/SELF-MODIFY.md",
     "data/workspace/AGENTS.md",
     "data/workspace/DEV-CHARTER.md",
-    "docs/SELF-MODIFY.md",
-    "docs/EMERGENCY.md",
+    "OPERATIONS.md",
     "data/host-force.ticket",
     "~/.agents/",
     "data/lifecycle.lock",
@@ -136,12 +135,8 @@
       "reason": "who holds which role (TEAM_ROLES_v1)"
     },
     {
-      "path": "docs/SELF-MODIFY.md",
-      "reason": "self-modification rules"
-    },
-    {
-      "path": "docs/EMERGENCY.md",
-      "reason": "emergency procedure"
+      "path": "OPERATIONS.md",
+      "reason": "emergency procedure (moved to the repo root, layout/F)"
     },
     {
       "path": "docs/plans/archive/2026/recursive-self-evolution.md",
@@ -284,12 +279,8 @@
       "reason": "a guard test (run-tests.sh FAST)"
     },
     {
-      "path": "docs/ARCHITECTURE.md",
-      "reason": "architecture and Tier governance SSOT (prop)"
-    },
-    {
-      "path": "docs/STATE.md",
-      "reason": "governance propagation ledger (prop)"
+      "path": "ARCHITECTURE.md",
+      "reason": "architecture and Tier governance SSOT (prop) (moved to the repo root, layout/F)"
     },
     {
       "path": "templates/dev-workspace/roles/",

@@ -1,5 +1,12 @@
 # chatbot 개발로그
 
+## 2026-10-08 — 에이전트 지침은 루트로, docs/에는 사람이 읽는 문서만 (layout/F, #777)
+
+- **운영자**: "docs 루트에 문서가 많이 남아있는데?" · "매번 에이전트가 읽어야 하는 지침들은 저장소 루트로 가는 거였잖아" · ARCHITECTURE도 지침으로.
+- **바뀐 것**: 루트 지침은 `AGENTS.md`(진입)·`RULES.md`(규칙·컨벤션·릴리스·전파 장부: STATE·RELEASE 흡수)·`CODEMAP.md`·`ARCHITECTURE.md`(쉬운 영어로 다시 — 코드에 있는 어댑터와 계획만 있는 것을 나눔)·`OPERATIONS.md`(복구 + 로그: EMERGENCY·LOGGING 합침, 낡은 로그 경로·페르소나 호칭 정리). 포인터뿐이던 `docs/SELF-MODIFY.md`는 삭제(실물은 개발판 템플릿). `docs/`에는 README·CONCEPT·PRODUCT·DESIGN·DEVLOG·CHANGELOG와 plans/·providers/·devlog/만.
+- **옮기며 잡은 것**: 로그 문서의 줄 번호 인용 하나(이제 링크 검사 대상). `test_entrypoints`가 루트 지침 목록을 지킨다.
+- **재시작**: 불필요(문서·주석).
+
 ## 2026-10-08 — 코드를 engine/으로 (layout/C, #776)
 
 - **바뀐 것**: 루트의 파이썬 68개, `providers/`, `tools/`, `engine_data/`, 설정 json 5개, `chatbot-ctl.sh`, `run-tests.sh`, `VERSION`, `requirements.txt`, `secrets.env.example`을 `engine/`으로(`git mv`). 루트에는 진입 파일·`RULES.md`·`CODEMAP.md`와 `docs/`·`engine/`·`static/`·`templates/`·`tests/`만.

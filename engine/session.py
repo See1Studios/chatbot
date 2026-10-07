@@ -1398,7 +1398,7 @@ def owned_agent_procs() -> Dict[int, dict]:
     (standby + session children), for accounts.snapshot(). Reads `s.proc`
     without taking `s.lock` on purpose -- a single reference read, and this
     runs on a GET handler where lock re-entry has deadlocked before (see
-    docs/EMERGENCY.md)."""
+    OPERATIONS.md)."""
     out: Dict[int, dict] = {}
     with STANDBY_POOL._lock:
         p = STANDBY_POOL._proc

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read logs/events.jsonl (OBSLOG_v1) and say what happened, what is wrong, and where to look.
 
-Views over the one event stream (docs/LOGGING.md):
+Views over the one event stream (OPERATIONS.md):
   logdigest.py [--since 24h]            findings first, then process / HTTP / errors / turns / ops / MCP
   logdigest.py --json                   the same digest as one JSON object (for agents)
   logdigest.py --sid SID                one session: global events + its events.jsonl, merged by time
@@ -32,7 +32,7 @@ from host_config import SESSIONS, WORKSPACE  # noqa: E402  -- one data-path reso
 import platform_compat
 HEARTBEAT_SEC = int(os.environ.get("CHATBOT_OBSLOG_SUMMARY_SEC", "300"))
 
-# Thresholds for findings. Tune here, and keep docs/LOGGING.md "Findings" in step.
+# Thresholds for findings. Tune here, and keep OPERATIONS.md "Findings" in step.
 REPAIRS_PER_DAY_WARN = 6
 ERR_RATE_WARN = 0.01
 P95_SLOW_MS = 2000

@@ -64,7 +64,7 @@ web — 로컬에서 도는 Python 엔진 + 브라우저 UI. 배포는 그 위�
 
 **제약·경계**
 - 배포판의 에이전트는 **엔진 코드를 고치지 않는다.** 엔진 코드 수정과 그 장치(티켓 관문·워크트리 위임·커밋 훅)는 개발판에만 있다([CONCEPT.md](CONCEPT.md) 「배포판과 개발판」).
-- 라이브 세션은 자기 호스트를 재기동하지 않는다. 재기동은 `chatbot-ctl.sh`와 소생 경로만(`docs/SELF-MODIFY.md`).
+- 라이브 세션은 자기 호스트를 재기동하지 않는다. 재기동은 `engine/chatbot-ctl.sh`와 소생 경로만(`templates/dev-workspace/SELF-MODIFY.md`, `OPERATIONS.md`).
 - 아직 없는 것: 데스크톱 셸·설치기, 모드 잠금·로컬 암호화·키체인, 현지화, 플러그인 로딩·창작마당, 보이스, 2.5D/3D 렌더러 — 각 계획에서 다룬다.
 - 미확정: 프로바이더별 토큰 임계값 일부, 일부 모델의 컨텍스트 크기.
 
@@ -79,7 +79,7 @@ web — 로컬에서 도는 Python 엔진 + 브라우저 UI. 배포는 그 위�
 
 - 동작하는 POC: 멀티 프로바이더 채팅, 캐릭터 카드·기억, 사적 모드(Gemini 작법·거절 완화 실험, #249), ST 카드 가져오기, 스프라이트 연출.
 - 기본 캐릭터·페르소나 에셋: `data/persona/`, `data/workspace/characters/`.
-- 기록: `docs/DEVLOG.md`(2026-09-16~), 계획 `docs/plans/INDEX.md`, 구조 `docs/ARCHITECTURE.md`, 운영 `docs/EMERGENCY.md`·`docs/SELF-MODIFY.md`.
+- 기록: `docs/DEVLOG.md`(2026-09-16~), 계획 `docs/plans/INDEX.md`, 구조 `ARCHITECTURE.md`, 운영 `OPERATIONS.md`, 자기수정 경계 `templates/dev-workspace/SELF-MODIFY.md`.
 
 ## Product Principles
 

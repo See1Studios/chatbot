@@ -115,7 +115,7 @@ _OBS_STREAM_SUFFIX = "/events"
 
 
 class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
-    """Access/exception logging comes from obslog.HTTPLogMixin (docs/LOGGING.md): every request
+    """Access/exception logging comes from obslog.HTTPLogMixin (OPERATIONS.md): every request
     is timed and counted; errors, slow and mutating requests are written one by one."""
     server_version = "Chatbot/1.0"
 
@@ -595,7 +595,7 @@ DELETE_ROUTES = [
 ]
 
 
-# Service log for the UI (log tab → service): logdigest over logs/events.jsonl (docs/LOGGING.md).
+# Service log for the UI (log tab → service): logdigest over logs/events.jsonl (OPERATIONS.md).
 SERVICE_LOG_EVENTS = 200
 SERVICE_LOG_TTL_SEC = 10
 _SERVICE_LOG_CACHE: Dict[tuple, tuple] = {}

@@ -26,7 +26,8 @@ You own the architecture. The operator is the client and may ask without develop
 3. `CODEMAP.md`: which files to change.
 4. `docs/plans/INDEX.md`: plan status. Open only the plans you need.
 5. `docs/DEVLOG.md`, the top: recent work.
-6. When needed: `RULES.md` (conventions, every rule and its enforcer), `docs/ARCHITECTURE.md`, `docs/STATE.md`.
+6. When needed: `RULES.md` (conventions, rules, release, the propagation ledger), `ARCHITECTURE.md`, `OPERATIONS.md`
+   (repair, restart, logs).
 
 ## How to make a change
 
@@ -69,8 +70,8 @@ One home per fact; everywhere else, link to it.
 | Host law | `~/AGENTS.md` |
 | Engine rules, conventions, numbers | this file, `RULES.md` |
 | Code map | `CODEMAP.md` |
-| Architecture, protection tiers | `docs/ARCHITECTURE.md`, `protected_paths.json` |
-| Rules still spreading through the code | `docs/STATE.md` |
+| Architecture, protection tiers | `ARCHITECTURE.md`, `protected_paths.json` |
+| Running, repair, logs | `OPERATIONS.md` |
 | Chat agent behaviour | `templates/workspace/AGENTS.md` (both builds); dev build adds `templates/dev-workspace/DEV-CHARTER.md` and `roles/dev/` |
 | Data paths, ports, env | `engine/host_config.py` |
 | What a new install starts with | `templates/workspace/`, `templates/workspace-manifest.json` |

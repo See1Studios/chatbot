@@ -4,7 +4,7 @@
 logs/events.jsonl is the single source for "what happened on this host": the chat
 server, the MCP server, chatbot-ctl.sh (doctor/repair) and session turns all append
 one JSON object per line. People read it through logdigest.py (summary / timeline /
-follow); agents read the same lines or `logdigest.py --json`. docs/LOGGING.md is the
+follow); agents read the same lines or `logdigest.py --json`. OPERATIONS.md is the
 schema and event dictionary -- add a new `evt` name there when you add one here.
 
 Line shape (fixed keys first, then event fields):

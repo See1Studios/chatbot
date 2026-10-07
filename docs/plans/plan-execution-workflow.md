@@ -66,7 +66,7 @@
 
 ## 3. 진입과 정본 배치
 
-**입구는 하나다.** 어떤 도구로 저장소에 들어와도 루트 `AGENTS.md`(쉬운 영어, 개발판 전용, 6,000 B 이하)에 도착한다. 루트에는 진입 파일과 개발 지침만 둔다(pew/S, 2026-10-08). 코드를 폴더로 옮기는 일은 [repo-layout.md](repo-layout.md).
+**입구는 하나다.** 어떤 도구로 저장소에 들어와도 루트 `AGENTS.md`(쉬운 영어, 개발판 전용, 6,000 B 이하)에 도착한다. 루트에는 진입 파일과 에이전트 지침만 두고, 사람이 읽는 문서는 `docs/`에 둔다(pew/S, layout/F, 2026-10-08). 코드를 폴더로 옮기는 일은 [repo-layout.md](repo-layout.md).
 
 ```text
 services/chatbot/
@@ -75,7 +75,10 @@ services/chatbot/
 ├── CODEMAP.md         # 코드 지도(파일마다 한 줄 이상, test_code_map)
 ├── CLAUDE.md          # 포인터 → AGENTS.md   (테스트: 포인터 외 내용 금지)
 ├── GEMINI.md          # 포인터 → AGENTS.md
-├── docs/              # 그 밖의 문서: README·PRODUCT·DESIGN·CHANGELOG·CONCEPT·ARCHITECTURE·STATE, plans/, devlog/
+├── ARCHITECTURE.md    # 구조(쉬운 영어): 원칙, 층, 있는 어댑터와 계획, 판, 보호 등급, 검사 지점
+├── OPERATIONS.md      # 운영: 복구·재시작·로그
+├── engine/            # 코드·설정·스크립트(repo-layout)
+├── docs/              # 사람이 읽는 문서: README·CONCEPT·PRODUCT·DESIGN·DEVLOG·CHANGELOG, plans/, providers/
 └── templates/         # 사용자 데이터 부트스트랩 기본값(엔진 소유)
 templates/workspace/AGENTS.md                # 챗 에이전트(제품 런타임) 헌장, 두 판 공용. 개발판은 DEV-CHARTER.md를 따로 더함
 ```

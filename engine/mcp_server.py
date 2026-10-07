@@ -781,7 +781,7 @@ def _obs_tool_call(name: str, arguments: dict) -> dict:
 
 
 class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
-    """Access/exception logging: obslog.HTTPLogMixin (docs/LOGGING.md). /mcp traffic is
+    """Access/exception logging: obslog.HTTPLogMixin (OPERATIONS.md). /mcp traffic is
     summarised; the tool calls themselves are logged as mcp.call."""
     server_version = "ChatbotMcp/1.0"
 

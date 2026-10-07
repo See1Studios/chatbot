@@ -1,7 +1,7 @@
 # chatbot (dev build)
 
 Where things are, for a character doing engine work. Read on demand. Rules: `DEV-CHARTER.md`, boundary
-`SELF-MODIFY.md`, live outage `docs/EMERGENCY.md`, product direction `docs/CONCEPT.md` (open it before changing code).
+`SELF-MODIFY.md`, live outage `OPERATIONS.md`, product direction `docs/CONCEPT.md` (open it before changing code).
 
 ## Paths
 

@@ -4,7 +4,7 @@
 
 > 상태: **active** (초안 2026-09-28)
 > 목적: 코어를 어댑터로 짜서 주요 레이어를 모두 사용자가 플러그인으로 더하고, 콘텐츠부터 Steam Workshop에서 교환하게 한다. 이 문서는 설계와 순서다. 구현은 항목별 티켓으로.
-> 관련: [../CONCEPT.md](../CONCEPT.md) 「확장성」·「해자」 · [../ARCHITECTURE.md](../ARCHITECTURE.md)(레이어·어댑터 명세, 출발점) · [direction-alignment.md](direction-alignment.md) D8·align/J · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [release-pipeline.md](release-pipeline.md)(Steam은 브랜드 이후) · [localization.md](localization.md)
+> 관련: [../CONCEPT.md](../CONCEPT.md) 「확장성」·「해자」 · [../ARCHITECTURE.md](../../ARCHITECTURE.md)(레이어·어댑터 명세, 출발점) · [direction-alignment.md](direction-alignment.md) D8·align/J · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [release-pipeline.md](release-pipeline.md)(Steam은 브랜드 이후) · [localization.md](localization.md)
 > 방향 인용(G0): 숨은 로어의 「테이프」(카드·세이브·에셋 = 소환 매체)는 콘텐츠 플러그인의 몰입 표현으로 쓸 수 있다. 로어 세부는 이 계획의 항목이 아니다.
 > 약칭: `plug`
 
@@ -29,7 +29,7 @@
 | 미디어 소스 | `register_media_source`(프로바이더별 이미지 위치) | 내부 전용 |
 | 도구 | MCP 서버 `mcp_server.py` + 코어 도구 `mcp_core.py` + 호스트 플러그인 `nas_mcp_host.py`(파일이 있으면 로드, `NAS_MCP_HOST_PLUGIN=0`으로 끔) | 외부 MCP 서버 연결 UX, 권한 |
 | 콘텐츠 | 캐릭터 카드 V2(`characters/<id>/card.json`), ST PNG 가져오기(`tools/st_import.py`), 로어북, 스킬 `SKILL.md`, 역할 팩(`roles/<role>/role.md`), 테마 7종(CSS 내장) | 패키지 형식, 설치·제거·업데이트, 테마·보이스 팩의 외부 로딩 |
-| 기억·TTS·STT·저장·세션 | [ARCHITECTURE.md](../ARCHITECTURE.md) §3.3–3.7에 명세만 | 구현 없음 |
+| 기억·TTS·STT·저장·세션 | [ARCHITECTURE.md](../../ARCHITECTURE.md) §3.3–3.7에 명세만 | 구현 없음 |
 
 요약: 연결부는 대부분 **엔진 안의 파일**을 부른다. 사용자 폴더(`~/.pe/plugins`)에서 불러오는 구조, 매니페스트, 플러그인 API 버전, 권한은 아직 없다.
 

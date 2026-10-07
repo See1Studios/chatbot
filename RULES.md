@@ -49,6 +49,57 @@ not do.
 - Spawned agents see only `services/chatbot` and `<web root>/chat` (`host_config.py::ADD_DIRS`). Never add the home
   dir, `.hermes`, the whole web root or `services`. Widen minimally and say why in DEVLOG.
 
+### Release
+
+This repository is private. Treat a release as a reviewed source snapshot; never include personal data, credentials, or runtime state.
+
+Cut a release later:
+
+1. Set the intended release version in engine/VERSION, for example 1.0.0.
+2. Add the user-visible changes to docs/CHANGELOG.md under that version.
+3. Run the test entry point: engine/run-tests.sh. Then run engine/chatbot-ctl.sh repair and confirm its smoke checks pass.
+4. Review the complete diff and tracked file list. Do not stage data/, secrets.env, session files, tokens, keys, or other private runtime output; release files must contain no secrets.
+5. Commit the reviewed release changes.
+6. Create an annotated local tag matching VERSION: git tag -a vVERSION -m Release-vVERSION. Verify it with git show vVERSION. Publishing a tag is a separate, explicitly approved step.
+
+The current development snapshot is 0.0.0-dev; this procedure does not publish tags.
+
+## Propagation ledger
+
+Read on demand, never injected. It tracks a new rule while it spreads through the code, and code drift that no guard
+already tracks. Plan: [propagation-and-state-architecture.md](docs/plans/archive/2026/propagation-and-state-architecture.md).
+
+- Item progress lives in tickets; a rule's home is this file.
+  This file only lists what is in flight, with the ticket that carries each part.
+- Drift a guard already pins is not copied here: oversized functions are `tests/test_file_sizes.py::FUNC_CEILINGS`,
+  calls without a timeout are `tests/test_conventions.py::LEGACY_SUBPROCESS_EXEMPTIONS`, ratchets are
+  `ratchet_baseline.json`. Those tables only shrink.
+- Who-fields hold role ids (`dev`, `lead`, `claude-code`), never a character's name.
+
+### Active
+
+None.
+
+Entry shape:
+
+```markdown
+### [DEV-PROP-nnn] <rule being spread>
+- Source: <RULES.md section or registry row>; enforcer: <test>
+- Parts: `<path>` -- #<ticket> (open | done <hash>)
+```
+
+### Drift no guard tracks
+
+None.
+
+Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role id> -- plan: <ticket or item>`
+
+### Done
+
+- [DEV-PROP-001] Governance documents and the convention checker: #720, #724, #726 (`5de6799`, `c5f89c9`), 2026-10-06.
+- [DEV-PROP-002] Governance review 2026-10-07 (prop/E–H): green main, guarded enforcers, test pairing hook, dev and
+  shipped instructions split, these documents trimmed: #766–#769.
+
 ## Rules
 
 - Audience in the registry: **all** = every agent changing this repo, including the PE chat agent doing engine work.
@@ -91,7 +142,7 @@ not do.
 | DEVLOG stays small; old dates in `docs/devlog/` | all | `test_docs_budget` |
 | Docs cite code as `path` or `path::symbol`, never line numbers; links resolve | all | `test_doc_refs` |
 | Tool-named entry files (`CLAUDE.md`, `GEMINI.md`) only point to `AGENTS.md`; no new invented entry files | all | `test_entrypoints` |
-| `AGENTS.md` is the dev-build entry only: at most 6,000 bytes, no chat-runtime conventions; the repo root holds only the entry files and the dev guidance (`RULES.md`, `CODEMAP.md`) | all | `test_entrypoints` |
+| `AGENTS.md` is the dev-build entry only: at most 6,000 bytes, no chat-runtime conventions; the repo root holds only the entry files and the agent guidance (`RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`) | all | `test_entrypoints` |
 | Document names: standing UPPERCASE, accumulating lower-kebab, no snake_case | all | `test_doc_names` |
 | Every registry row names an audience and a real enforcer | all | `test_rule_registry` |
 | Every enforcer is Tier 3 (`protected_paths.json` governance) and runs on each commit (`run-tests.sh` FAST), or is listed slow with where it runs instead | all | `test_rule_registry` |
@@ -99,7 +150,7 @@ not do.
 | No new host/persona identity (DiskStation, `/volume1`, Sphere, 실장님, 냥) in engine code outside the host plugin | all | `test_ratchets` |
 | Tracked workspace template twins (repo `data/workspace` when present) are classified in `templates/workspace-manifest.json`; `same` pairs stay byte-equal; the template names no host and no engine work | all | `test_workspace_template` |
 | Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |
-| Speak with the operator in Korean. Agent-facing documents (`AGENTS.md`, `RULES.md`, `CODEMAP.md`, `docs/STATE.md`, charters, role packs, skills) in English; operator-facing ones (`docs/CONCEPT.md`, `docs/ARCHITECTURE.md`, plans, DEVLOG) may be Korean | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
+| Speak with the operator in Korean. Agent guidance (the root `AGENTS.md`, `RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`, charters, role packs, skills) in plain English; documents for people (`docs/`: concept, product, design, plans, DEVLOG) may be Korean | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
 | Agent-facing machine text (prompts, tool strings, LEARNED lines) in English | all | manual |
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |
 | Look for prior art before building (`~/AGENTS.md` §0) | all | manual |

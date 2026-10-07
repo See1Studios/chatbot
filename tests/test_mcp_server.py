@@ -385,8 +385,8 @@ class WriteFileTest(Base):
 
     def test_guard_ticket_rules_and_registry_are_protected(self):
         for rel in ("chatbot-ctl.sh", "protected_paths.json", "tests/test_x.py", "tests/probes/p.py",
-                    "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md", "docs/SELF-MODIFY.md",
-                    "docs/EMERGENCY.md", "data/host-force.ticket", "__pycache__/server.cpython-38.pyc"):
+                    "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md",
+                    "OPERATIONS.md", "data/host-force.ticket", "__pycache__/server.cpython-38.pyc"):
             self.assertProtected(rel)
 
     def test_global_shared_skills_directory_is_protected(self):
@@ -482,7 +482,7 @@ class RealPathsTest(unittest.TestCase):
         for rel in ("chatbot-ctl.sh", "protected_paths.json", "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md",
                     "data/host-force.ticket"):
             self.refused(ENGINE / rel)
-        for rel in ("tests/test_mcp_server.py", "docs/EMERGENCY.md"):
+        for rel in ("tests/test_mcp_server.py", "OPERATIONS.md"):
             self.refused(CODE / rel)
 
     def test_the_symlink_to_the_ctl_is_refused_too(self):

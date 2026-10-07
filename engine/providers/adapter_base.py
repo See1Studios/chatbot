@@ -199,7 +199,7 @@ class AgentAdapter:
     has real side effects (image staging, history append, conversation_id
     capture) entangled with parsing one stream-json line -- untangling those
     fully was judged not worth the regression risk on code that's been the
-    site of real incidents (see docs/EMERGENCY.md, DEVLOG deadlock entries).
+    site of real incidents (see OPERATIONS.md, DEVLOG deadlock entries).
     A future adapter that doesn't need those callbacks just won't use them.
     """
 

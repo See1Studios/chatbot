@@ -2,7 +2,7 @@
 
 > 방향 (align/D, 2026-10-02): **핵심** — 단체방 헤더에 카드 스택 아바타 연출 및 실시간 기척 동기화를 적용하고, 헤더 인터랙션으로 단체방 정보 서랍(Room Drawer/Panel)을 열어 1:1 대화방과의 시각적·기능적 UX 일관성을 완성하는 개선 계획
 > 상태: **active** (2026-10-02 수립)
-> 관련: [character-events-and-rooms.md](character-events-and-rooms.md) · [ux-shell-roadmap.md](ux-shell-roadmap.md) · [ARCHITECTURE.md](../ARCHITECTURE.md)
+> 관련: [character-events-and-rooms.md](character-events-and-rooms.md) · [ux-shell-roadmap.md](ux-shell-roadmap.md) · [ARCHITECTURE.md](../../ARCHITECTURE.md)
 
 ---
 

@@ -84,7 +84,7 @@ rotate_log() {
     fi
   fi
 }
-# OBSLOG_v1: structured events go to logs/events.jsonl (docs/LOGGING.md). CHATBOT_CALLER says
+# OBSLOG_v1: structured events go to logs/events.jsonl (OPERATIONS.md). CHATBOT_CALLER says
 # who started this run (api-defibrillate, doctor-auto, cli-tty, ppid:<parent>); it is exported
 # before the lifecycle lock re-exec so the locked child keeps it.
 export CHATBOT_OBSLOG_PATH="${CHATBOT_OBSLOG_PATH:-$EVENTS_LOG}"

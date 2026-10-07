@@ -1,4 +1,38 @@
-# Logging (OBSLOG_v1)
+# Operations
+
+Running, repairing and reading the logs of the engine, for agents and the operator. Read on demand; the entry is
+`AGENTS.md`. Paths are relative to `engine/` (`chatbot-ctl.sh` is `engine/chatbot-ctl.sh`; the host link
+`~/services/chatbot-ctl.sh` points to it).
+
+## Repair
+
+When the operator says the chat is broken. `healthz` alone misses a deadlock.
+
+```bash
+~/services/chatbot-ctl.sh repair
+```
+
+| Command | What it does |
+|---|---|
+| `doctor` | healthz, the RLock source guard, and every hour (`CHATBOT_PROBE_EVERY_SEC`) a message probe |
+| `doctor --auto-repair` | `repair` when the probe fails (the watchdog runs this) |
+| `probe` | a POST `/message` timeout check now |
+| `repair` | stop, reap orphan agents, start, forced probe |
+| `guard` | only the AST check that `AgentSession.lock` is an `RLock` |
+| `logs` | the log digest (below) |
+
+Restart only when the operator is idle or agrees. In a live turn, never run `stop`, `restart` or `repair`.
+
+Known failure modes:
+
+1. Message deadlock (2026-09-16): `ensure` held the session lock while `_spawn` -> `stop` took it again. Symptom:
+   healthz OK, sending waits forever. Fix: the session lock is an `RLock`; `guard` checks it.
+2. Orphan agents: our agent processes that are no longer children of the live chat server (every provider).
+   `repair` and `doctor` reap them (`ctl_proc.py`, OS facts only) and leave the server's children and other tools'
+   processes alone.
+3. Server down: the watchdog runs `doctor --auto-repair` every minute.
+
+## Logging (OBSLOG_v1)
 
 One structured stream, `logs/events.jsonl`, is the source for "what happened on this host".
 The chat server, the MCP server, `chatbot-ctl.sh` (start/doctor/repair) and every session turn
@@ -20,7 +54,7 @@ Other files:
 - `data/sessions/<sid>/events.jsonl`: the conversation's own log (UI 로그 tab). `logdigest --sid`
   merges it with the global stream by time.
 
-## Where the log lives (LOG_PATH_v1)
+### Where the log lives (LOG_PATH_v1)
 
 One resolver, `host_config.py`: `LOG_DIR` (the directory) and `EVENTS_LOG` (the stream).
 `obslog.py`, `logdigest.py` and `chatbot-ctl.sh` all read it and none of them composes a path of
@@ -31,10 +65,10 @@ moves the stream and still wins over both — where lines are actually written i
 The default is the repo's `logs/`, which is where the development install keeps it. **The shipped
 build puts it under user data** (`$CHATBOT_DATA/logs`, i.e. `~/.pe/logs`) because a conversation log
 belongs to the install it describes and must survive an engine update
-([user-data-separation.md](plans/user-data-separation.md) §2). That is a one-line change in
+(`docs/plans/user-data-separation.md` §2). That is a one-line change in
 `host_config.py` — the default in `LOG_DIR` — and nothing else has to move.
 
-## What is not in this log
+### What is not in this log
 
 The global stream is host metadata: event, `sid`, provider/model, outcome, durations, error class
 and hint, counts. A turn's words are **not** here — the question goes nowhere (`turn.start` logs
@@ -54,7 +88,7 @@ persona-flavoured and belong to the tone work — `align/G`·`l10n/D`):
   voice in the engine strings.
 - `mcp.call` logs `msg` on refusal or failure, and a tool can answer in prose.
 
-## Events, reactions and rooms (evt/B–E)
+### Events, reactions and rooms (evt/B–E)
 
 The event mailbox (`data/events/`, `events.py`) and this log are one record seen twice: every write to the
 mailbox is mirrored here, so "what the app was told" and "what the log says" cannot drift apart. The mailbox is
@@ -72,7 +106,7 @@ the app's working data (delivery, cursors); this log is for reading what happene
 
 `tests/test_events.py` (`Logged`) proves a payload's words and a private event's subject never reach this log.
 
-## Investigating (agent runbook)
+### Investigating (agent runbook)
 
 1. `chatbot-ctl.sh logs --since 24h --json` and read `findings` (sorted error → warn). Each finding
    has `code`, `title`, `hint` (the next command to run) and `evidence`.
@@ -84,13 +118,13 @@ the app's working data (delivery, cursors); this log is for reading what happene
 5. Around a restart: `--evt repair` / `--evt proc` / `--evt doctor` and compare timestamps with the
    `turn.end` and `http.error` lines just before.
 
-## Line format
+### Line format
 
 ```json
 {"ts":"2026-09-23T10:44:31.123+09:00","lvl":"error","src":"chat","evt":"http.error","pid":4242,
  "rid":"a1b2c3d4e5f6","sid":"20260922-180815-864823","route":"POST /api/sessions/:sid/provider",
  "status":500,"dur_ms":132.4,"path":"/api/sessions/20260922-180815-864823/provider",
- "err":{"type":"KeyError","msg":"'omniroute'","fp":"3f9c01aa2b","where":"session.py:1720:maybe_swap_provider","trace":"..."}}
+ "err":{"type":"KeyError","msg":"'omniroute'","fp":"3f9c01aa2b","where":"session.py:<line>:maybe_swap_provider","trace":"..."}}
 ```
 
 | Key | Always | Meaning |
@@ -114,9 +148,9 @@ Guarantees: logging never raises into the caller; secret-looking keys (`token`, 
 `password`, `authorization`, `api_key`, `cookie`, …) and values (bearer tokens, `sk-…`, `ghp_…`,
 JWTs, `token=…`) are redacted; strings are capped; query strings are never logged.
 
-## Event dictionary
+### Event dictionary
 
-### Process (`src` chat / mcp)
+#### Process (`src` chat / mcp)
 | evt | lvl | fields |
 |---|---|---|
 | `proc.start` | info | `git`, `python`, `argv`, `ppid`, `caller`, `host`, `port`, defaults |
@@ -126,7 +160,7 @@ JWTs, `token=…`) are redacted; strings are capped; query strings are never log
 
 A `proc.start` with no `proc.exit` from the previous pid means the process was killed (-9, OOM) or crashed.
 
-### HTTP (`src` chat / mcp)
+#### HTTP (`src` chat / mcp)
 | evt | lvl | when |
 |---|---|---|
 | `http.summary` | info | every 5 min: `routes` → `{n, codes{2xx..}, p50, p95, max}` for every request, including those not written one by one |
@@ -139,7 +173,7 @@ A `proc.start` with no `proc.exit` from the previous pid means the process was k
 
 Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/:n`.
 
-### Turns and sessions (`src` chat)
+#### Turns and sessions (`src` chat)
 | evt | lvl | fields |
 |---|---|---|
 | `turn.start` | info | `provider`, `model`, `notice`, `chars`, `resume`, `queued` |
@@ -156,13 +190,13 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | `agent.standby_spawn` | info | the warm standby pool started an agent (`agent_pid`) |
 | `workspace.seeded` | info | files created from templates at start |
 
-### MCP (`src` mcp)
+#### MCP (`src` mcp)
 | evt | lvl | fields |
 |---|---|---|
 | `mcp.call` | info/warn | `tool`, `ok`, `dur_ms`, `args` (values ≤300 chars, redacted), `msg` on refusal/failure |
 | `mcp.tool_exception` | error | `tool`, `err` |
 
-### Operations (`src` ctl)
+#### Operations (`src` ctl)
 | evt | lvl | fields |
 |---|---|---|
 | `ctl.spawn` | info | `proc` (chat/mcp), `pid` |
@@ -175,7 +209,7 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | `agent.reaped` | warn | a CLI agent process killed by ctl: `agent_pid`, `ppid`, `parent_cmd`, `chat_pid` (the live server per ctl's pid file), `reason` (`ppid1` / `orphan`; before 2026-09-23 also `no-conversation`, `unprotected-flash-low`, `stale-session`), `age_s`, `cmd`. Only our agents (cwd = `data/workspace`) outside the live server's process tree are reaped (`ctl_proc.py`, OS facts only) |
 | `manifest.drift` | warn | protected files differ from git HEAD — edited, deleted, or new and uncommitted (`evolution.py::protected_changes`, split/E; the name is kept from the hash manifest it replaced); logged only when the difference changes |
 
-## Findings (logdigest.py)
+### Findings (logdigest.py)
 
 Thresholds live at the top of `logdigest.py`.
 
@@ -200,7 +234,7 @@ Thresholds live at the top of `logdigest.py`.
 | `rss_growth` | warn | > 150 MB growth within one process lifetime |
 | `log_write_errors` | warn | the logger itself could not write |
 
-## Host signals → self-evolution (HOST_SIGNALS_v1)
+### Host signals → self-evolution (HOST_SIGNALS_v1)
 
 The chat server collects them in a background thread (`server._host_signal_loop`, checks every 5 min,
 `logdigest.host_candidates` throttles itself to once an hour; `evolution.host_candidates` is logged).
@@ -227,7 +261,7 @@ accepts it only if that fingerprint/request is in `logs/events.jsonl` or a rotat
 External agents pass it with `~/bin/ticket-quick start … --evidence log:fp:<fp>` instead of the
 placeholder "manual" candidate.
 
-## Error storms
+### Error storms
 
 One bug hit in a loop (a UI poll against a failing route) must not rotate the history out of the
 file. Per `err.fp`: the full `trace` is written at most once per 5 min (later lines carry
@@ -236,7 +270,7 @@ settled every 5 min as one `log.suppressed` event (`count`, `of_evt`, `err.fp`);
 them back into the group's count and marks the finding "폭주". `http.summary` still counts every
 request, so 5xx rates stay exact.
 
-## Storage
+### Storage
 
 Lines are written only where `CHATBOT_OBSLOG_PATH` points; `chatbot-ctl.sh` exports it (the
 resolver's `EVENTS_LOG`) for everything it starts. Tests and hand-started servers leave it unset, so
@@ -249,7 +283,7 @@ tests they run) do not inherit them.
 `events.jsonl.lock`; every write opens, appends and closes, so all processes (and the shell)
 share it safely. Expected volume is a few MB a week: successful polling is summarised, not listed.
 
-## Adding events
+### Adding events
 
 Use `obslog.event("area.name", lvl=..., **fields)` / `obslog.exception("area.name")`, or from the shell
 `obs area.name warn key=value`. Pick a dotted, stable `evt`, put variable text in `msg` or fields,

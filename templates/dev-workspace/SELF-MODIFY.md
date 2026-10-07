@@ -17,7 +17,7 @@
 
 ## 이렇게 판정하지 말 것
 데드락 세션만 보고 락·프로토콜·`ensure`/`_spawn`/`stop`을 "고쳤다"고 끝내기 · `healthz`만 보고 정상 판정(메시지 경로를 놓침) · 라이브 메모리 조작 · 죽은 stdin에 치료 주입.
-증상이 있으면 `~/services/chatbot-ctl.sh repair` 또는 사용자에게. 카드는 `docs/EMERGENCY.md`.
+증상이 있으면 `~/services/chatbot-ctl.sh repair` 또는 사용자에게. 카드는 `OPERATIONS.md`.
 
 ## 코어 체크리스트
 1. 변경이 디스크 설계도인지 라이브 뇌인지 한 줄로 구분

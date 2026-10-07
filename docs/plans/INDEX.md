@@ -74,7 +74,7 @@
 | [archive/2026/composer-plus-menu.md](archive/2026/composer-plus-menu.md) | `done` | plus/A–G 완료(#333–#347): ＋ 메뉴·첨부·아이템이 코드에 흡수 |
 | [archive/2026/character-generation-system.md](archive/2026/character-generation-system.md) | `done` | cgs/A–F 완료: ST-CardGen 포팅(`card_prompt.py`·`card_parse.py`·`tools/card_gen.py`) |
 | [archive/2026/layered-context-architecture.md](archive/2026/layered-context-architecture.md) | `done` | lca/A–H 완료(#701–#710): 층 목록 `instructions.py::LAYERS`가 정본 |
-| [archive/2026/propagation-and-state-architecture.md](archive/2026/propagation-and-state-architecture.md) | `done` | prop/A–J 완료(#720–#771): 거버넌스 검토·정리. 진행 중 전파는 `docs/STATE.md` |
+| [archive/2026/propagation-and-state-architecture.md](archive/2026/propagation-and-state-architecture.md) | `done` | prop/A–J 완료(#720–#771): 거버넌스 검토·정리. 진행 중 전파는 `RULES.md` |
 | [archive/2026/unified-message-inbox.md](archive/2026/unified-message-inbox.md) | `done` | 통합 메시지 inbox/0–H 완료·실사용 확인(2026-10-02). 남은 일은 문서 끝 "종료"의 각 계획으로 |
 | [archive/2026/test-suite-speed.md](archive/2026/test-suite-speed.md) | `abandoned` | 401s·104s는 공식 실행기 밖(`~/tmp`=홈 git 저장소 안)에서 잰 착시 — 실행기로는 약 225s·`test_tickets` 6s. 진짜 원인(릴리스 게이트가 홈 저장소를 통째로 복사)은 `bd91d26`에서 수정. `speed/C`는 `split/A` 중복 |
 | [archive/2026/recursive-self-evolution.md](archive/2026/recursive-self-evolution.md) | `done` | 코어(관찰·티켓·보호) 구현됨 — 코드가 정본 |

@@ -2,7 +2,7 @@
 
 **진입장벽이 매우 낮은 프리메이드 개인화 하네스.** 설치하면 완성된 캐릭터가 바로 곁에 있고, 쓰면서 캐릭터·기억·외형·목소리·규칙을 내 취향대로 쌓아 간다. 모델은 이미 쓰는 AI 구독·CLI·API 키를 연결한다(BYOK).
 
-포지션은 Wallpaper Engine의 자리다. 배경화면 대신 에이전트를 커스터마이즈한다. 기조는 [docs/CONCEPT.md](CONCEPT.md), 제품 결정은 [PRODUCT.md](./PRODUCT.md), 구조는 [docs/ARCHITECTURE.md](ARCHITECTURE.md).
+포지션은 Wallpaper Engine의 자리다. 배경화면 대신 에이전트를 커스터마이즈한다. 기조는 [docs/CONCEPT.md](CONCEPT.md), 제품 결정은 [PRODUCT.md](./PRODUCT.md), 구조는 [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 **상태**: 동작하는 POC(멀티 프로바이더 채팅, 캐릭터 카드·기억, 사적 모드, ST 카드 가져오기, 스프라이트 연출). 제품화 진행 중 — [docs/plans/INDEX.md](plans/INDEX.md)에서 [direction-alignment.md](plans/direction-alignment.md)와 [release-pipeline.md](plans/release-pipeline.md)부터.
 
