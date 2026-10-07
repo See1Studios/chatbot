@@ -1,7 +1,7 @@
 """LIVE_AGENT_SUITE_v1: a live chat agent and its subagents (CHATBOT_LIVE_AGENT, set where the host spawns them) run
 the guards or named test modules, never the whole suite (2026-10-05: a subagent ran it, agy backgrounded it and
 waited, the dev director's handoff turn ran out of time).
-Run: python3 -m unittest tests.test_live_agent_suite  (from services/chatbot)
+Run: engine/run-tests.sh test_live_agent_suite
 """
 import os
 import subprocess
@@ -17,7 +17,7 @@ def run(*args, live=True):
     env.pop("CHATBOT_LIVE_AGENT", None)
     if live:
         env["CHATBOT_LIVE_AGENT"] = "1"
-    return subprocess.run(["./run-tests.sh", *args], cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=120)
+    return subprocess.run(["./run-tests.sh", *args], cwd=str(ENGINE), env=env, capture_output=True, text=True, timeout=120)
 
 
 class LiveAgentSuite(unittest.TestCase):
@@ -43,7 +43,7 @@ class LiveAgentSuite(unittest.TestCase):
         r = subprocess.run(["python3", "-m", "unittest", "tests.test_data_paths"], cwd=str(ROOT), env=env,
                            capture_output=True, text=True, timeout=120)
         self.assertNotEqual(r.returncode, 0)
-        self.assertIn("only as ./run-tests.sh", r.stderr + r.stdout)
+        self.assertIn("only as engine/run-tests.sh", r.stderr + r.stdout)
 
     def test_a_test_run_outside_the_script_never_gets_an_installs_data(self):
         import sys

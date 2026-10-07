@@ -140,9 +140,10 @@ def _resolve_target_path(raw_path: str) -> Path:
         ws_candidate = (DATA / "workspace" / p).resolve()
         if ws_candidate.exists():
             return ws_candidate
-        svc_candidate = (CODE_ROOT / p).resolve()   # a repo-relative path
-        if svc_candidate.exists():
-            return svc_candidate
+        for base in (CODE_ROOT, ENGINE):   # a repo-relative path (`static/app.js`), or an engine-relative one (`session.py`)
+            svc_candidate = (base / p).resolve()
+            if svc_candidate.exists():
+                return svc_candidate
         home_candidate = (HOME / p).resolve()
         if home_candidate.exists():
             return home_candidate

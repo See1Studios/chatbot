@@ -1,5 +1,5 @@
 """Emotion tags in assistant text become at most one `emotion` SSE event per turn (#251, emotion.py).
-Run: python3 -m unittest tests.test_emotion  (from services/chatbot)
+Run: engine/run-tests.sh test_emotion
 """
 import sys
 import unittest

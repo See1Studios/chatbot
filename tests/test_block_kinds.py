@@ -8,7 +8,7 @@ what looks or moves is chat-log.css's business.
 They are deliberately conservative. An ambiguous stretch stays narration, because a wrong split
 damages reading while a missed split costs only the treatment. Every ambiguity below is a test.
 
-Run: python3 -m unittest tests.test_block_kinds  (from services/chatbot)
+Run: engine/run-tests.sh test_block_kinds
 """
 import json
 import shutil

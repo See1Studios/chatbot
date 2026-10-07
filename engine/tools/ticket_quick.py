@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """ticket-quick: one-line ticket open/claim/release for agents working outside the live chat (plan pew/K).
 
-  python3 tools/ticket_quick.py start --title "[<plan id>] ..." --paths a,b [--evidence log:fp:<fp> ...]
-  python3 tools/ticket_quick.py done --id <N> [--token <T>] [--note "..."]
-  python3 tools/ticket_quick.py fail --id <N> [--token <T>] --outcome gate_failed --note "..."
-  python3 tools/ticket_quick.py renew --id <N> [--token <T>]
-  python3 tools/ticket_quick.py widen --id <N> --paths c,d [--token <T>]   # add files to the ticket you hold
-  python3 tools/ticket_quick.py claim --id <N> [--paths a,b]           # an approved ticket whose files were held
-  python3 tools/ticket_quick.py await-merge --id <N> [--token <T>] --note "branch ..."   # Tier 2
-  python3 tools/ticket_quick.py merge-go --id <N>                      # relays the operator's word; new token
+  python3 engine/tools/ticket_quick.py start --title "[<plan id>] ..." --paths a,b [--evidence log:fp:<fp> ...]
+  python3 engine/tools/ticket_quick.py done --id <N> [--token <T>] [--note "..."]
+  python3 engine/tools/ticket_quick.py fail --id <N> [--token <T>] --outcome gate_failed --note "..."
+  python3 engine/tools/ticket_quick.py renew --id <N> [--token <T>]
+  python3 engine/tools/ticket_quick.py widen --id <N> --paths c,d [--token <T>]   # add files to the ticket you hold
+  python3 engine/tools/ticket_quick.py claim --id <N> [--paths a,b]           # an approved ticket whose files were held
+  python3 engine/tools/ticket_quick.py await-merge --id <N> [--token <T>] --note "branch ..."   # Tier 2
+  python3 engine/tools/ticket_quick.py merge-go --id <N>                      # relays the operator's word; new token
 
 `~/bin/ticket-quick` is only a pointer to this file. The data directory comes from host_config.DATA.
 The claim token is also kept in a 0600 file (CLAIMS_DIR) so a lost terminal line does not strand the lease;

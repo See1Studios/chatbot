@@ -2,7 +2,7 @@
 record's commit): the title, the commits and the files of the landed change -- not the ticket records -- above the
 newest entry, and the oldest day rotated out when the diary passes its budget. Review of #505-#525: 29 delegated
 changes had landed with no line in the diary.
-Run: python3 -m unittest tests.test_devlog_entry  (from services/chatbot)
+Run: engine/run-tests.sh test_devlog_entry
 """
 import shutil
 import subprocess

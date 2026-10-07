@@ -2,7 +2,7 @@
 
 It is a layer over the core and knows nothing about the server that hosts it: these tests load it in a process where the
 server, the host plugin and every other layer module are forbidden. How the server wires it in is tested in test_mcp_server.py.
-Run: python3 -m unittest tests.test_mcp_core  (from services/chatbot)
+Run: engine/run-tests.sh test_mcp_core
 """
 import ast
 import json

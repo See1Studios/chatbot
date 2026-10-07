@@ -1,6 +1,6 @@
 # Rules
 
-Every rule for agents that change this repo. The entry is the root `AGENTS.md`; it lists the rules you must not
+Every rule for agents that change this repo. Code names are relative to `engine/`. The entry is the root `AGENTS.md`; it lists the rules you must not
 break and points here for the rest. Conventions first (the numbers and how-to), then the registry: each rule with the
 test or gate that fails when it is broken.
 
@@ -64,7 +64,7 @@ not do.
 | A handoff chain from one request is at most two hops; a director has one open handoff at a time | PE chat agent only | `test_dialog_handoff` |
 | A delegated worker cannot change its own pass condition (guard tests, `run-tests.sh`) | all | `test_worktree_runner` |
 | The shipped build never touches engine code: no `run_command`/`ticket`/`delegate`, file tools reach user data only; the edition is decided only by `host_config.EDITION` | all | `test_edition_boundary` |
-| Guard tests green before commit (`./run-tests.sh --fast`); full suite before release | all | `.githooks/check_staged.py` (pre-commit); `test_worktree_runner` (runner gates: guards + related tests); `test_tickets` (done refused while guards fail) |
+| Guard tests green before commit (`engine/run-tests.sh --fast`); full suite before release | all | `.githooks/check_staged.py` (pre-commit); `test_worktree_runner` (runner gates: guards + related tests); `test_tickets` (done refused while guards fail) |
 | Conventional Commits subject; `Plan:` trailer when `docs/plans/` changes | all | `test_githooks` (commit-msg hook) |
 | `Ticket:` trailer, own author name | all | `test_githooks` (commit-msg: a feat/fix/refactor/perf commit without `Ticket: #n` is refused; on a `worktree/ticket-n` branch it is written in); author name: `test_githooks` (pre-commit: never a character's name; a live chat session commits as the app `PE`) |
 | A live chat session never lands a worker's branch on main (landing is the operator's) | all | `test_githooks` (`.githooks/reference-transaction`) |
@@ -80,7 +80,7 @@ not do.
 | Work banter in delegation / handoff / commit reports ≤ 1-2 sentences (Conventions above) | all | manual (a check would have to match words or sentences, which the language rule below bars) |
 | Page script or stylesheet ≤ 43,000 bytes; listed ceilings only go down | all | `test_page_scripts` |
 | New code folder is protected (`tools/` too: the delegation gate's verdict reader is governance) | all | `test_code_layout` |
-| Every code file (root, `providers/`, `tools/`, `static/`) has a row in `CODEMAP.md` before it lands | all | `test_code_map` |
+| Every code file (`engine/`, its `providers/` and `tools/`, `static/`) has a row in `CODEMAP.md` before it lands | all | `test_code_map` |
 | Core modules import stdlib + each other only | all | `test_core_standalone` |
 | The repo root and the engine folder are decided only in `repo_layout.py` (code) and `tests/_paths.py` (tests); no code finds `static/`, `templates/`, `tests/` or `docs/` from its own file | all | `test_code_layout` |
 | No new pair of modules that import each other (top or inside a function); the known pairs only go away | all | `test_import_cycles` |

@@ -1,5 +1,5 @@
 """evolution.py: the protected-path registry (core, standalone).
-Run: python3 -m unittest tests.test_evolution  (from services/chatbot)
+Run: engine/run-tests.sh test_evolution
 """
 import ast
 import json
@@ -144,7 +144,9 @@ class ShippedRegistryTest(unittest.TestCase):
     """The registry that ships with the code protects what docs/plans/recursive-self-evolution.md §3 0-4 lists."""
 
     def prot(self, rel):
-        return evolution.is_protected(CODE, CODE / rel)
+        """`rel` is engine-relative (`server.py`, `data/...`) unless it starts with a repo folder (`tests/`, `docs/`)."""
+        base = CODE if rel.split("/")[0] in ("tests", "docs", "static", "templates", ".githooks") else ENGINE
+        return evolution.is_protected(CODE, base / rel)
 
     def test_registry_loads(self):
         protect, exceptions = evolution.load_registry(CODE)
@@ -197,7 +199,7 @@ class ImportDisciplineTest(unittest.TestCase):
     def test_no_tool_server_name_in_core_files(self):
         for name in ("evolution.py", evolution.REGISTRY_NAME):
             for server_name in ("nas_mcp", "mcp_server"):
-                self.assertNotIn(server_name, (CODE / name).read_text(encoding="utf-8"), name)
+                self.assertNotIn(server_name, (ENGINE / name).read_text(encoding="utf-8"), name)
 
     def test_no_python39_syntax(self):
         src = (ENGINE / "evolution.py").read_text(encoding="utf-8")
@@ -237,9 +239,10 @@ class DelegationTierTest(unittest.TestCase):
 
     def test_the_shipped_registry_guards_the_guards(self):
         root = REPO
-        for rel in ("tickets.py", "evolution.py", evolution.REGISTRY_NAME, "tests/smoke.py", "data/workspace/AGENTS.md"):
+        for rel in ("engine/tickets.py", "engine/evolution.py", "engine/" + evolution.REGISTRY_NAME, "tests/smoke.py",
+                    "engine/data/workspace/AGENTS.md"):
             self.assertEqual(evolution.delegation_tier(root, rel)[0], 3, rel)
-        self.assertEqual(evolution.delegation_tier(root, "session.py")[0], 2)
+        self.assertEqual(evolution.delegation_tier(root, "engine/session.py")[0], 2)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """A failed message waits in the composer placeholder (RETRY_LAST_v1, static/app-retry.js): an empty send takes it
 again, typing anything else drops it, an answer settles it, and it belongs to one session. The REAL functions run in
 node against stubs; the wiring into app-api.js, app-sse.js and the page is checked in the source.
-Run: python3 -m unittest tests.test_retry_send  (from services/chatbot)
+Run: engine/run-tests.sh test_retry_send
 """
 import json
 import shutil

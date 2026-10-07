@@ -2,7 +2,7 @@
 (실장님: 샛길 카드가 두 장 / 내 말·답이 두 번.)
 Runs the REAL btw / user_ack / result handler blocks and the ts-identity helpers (sliced out
 of static/app.js) in node against a stub DOM. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_sse_resync_dedupe  (from services/chatbot)
+Run: engine/run-tests.sh test_sse_resync_dedupe
 """
 import json
 import shutil

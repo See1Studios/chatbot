@@ -1,6 +1,6 @@
 """THRESHOLD_v1 + move choice (docs/plans/private-mode.md §8.3-8.4, W2/W2b): entering the private room hands one short
 note across, once; never the work transcript. A personal work turn offers a move, until the user stays twice.
-Run: python3 -m unittest tests.test_threshold  (from services/chatbot)
+Run: engine/run-tests.sh test_threshold
 """
 import json
 import sys

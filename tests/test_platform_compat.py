@@ -1,5 +1,5 @@
 """PLATFORM_COMPAT_v1 (platform-portability pp/D, #397): file locks and the /proc check behave the same on every OS.
-Run on FIREBAT (Windows) and here (Linux). Run: python3 -m unittest tests.test_platform_compat  (from services/chatbot)
+Run on FIREBAT (Windows) and here (Linux). Run: engine/run-tests.sh test_platform_compat
 """
 import subprocess
 import sys

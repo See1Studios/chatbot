@@ -1,7 +1,7 @@
 """CONTEXT_METRIC_v1 (token-economy): a session's weight reads the last model call's prompt, not the turn's summed
 input. Measured 2026-10-05 from agy's own transcripts: the lead's calls carried 49-89k each, while the turn usage
 (every call of the turn added up) read 240-500k, warned "heavy" 55 times and rotated 15 sessions in one day.
-Run: python3 -m unittest tests.test_session_weight_context  (from services/chatbot)
+Run: engine/run-tests.sh test_session_weight_context
 """
 import json
 import sys

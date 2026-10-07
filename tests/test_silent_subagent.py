@@ -2,7 +2,7 @@
 while its subagents run, and agy 1.2.16 no longer logs model calls, so the silent-turn watchdog closed working turns
 (2026-10-05: 4 hangs and 8 notices on one session in 40 minutes). Activity is read from the conversation's transcript
 and the transcripts of the subagents it started.
-Run: python3 -m unittest tests.test_silent_subagent  (from services/chatbot)
+Run: engine/run-tests.sh test_silent_subagent
 """
 import os
 import shutil

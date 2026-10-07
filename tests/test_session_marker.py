@@ -1,7 +1,7 @@
 """A brand-new session opens with a quiet centered divider, not the assistant greeting bubble (#160).
 continueSession shows its handoff note as a system notice, not an assistant turn (#196).
 A continue waits for its handoff summary, and a slow scrollback hop is retried, not routed around (#609).
-Run: python3 -m unittest tests.test_session_marker  (from services/chatbot)
+Run: engine/run-tests.sh test_session_marker
 """
 import re
 import shutil

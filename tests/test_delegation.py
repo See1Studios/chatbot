@@ -1,6 +1,6 @@
 """delegation.py: who may start, land or drop delegated work, and what the work cards read.
 The runner itself is tested in tests/test_worktree_runner.py; here its launch is recorded, not run.
-Run: python3 -m unittest tests.test_delegation  (from services/chatbot)
+Run: engine/run-tests.sh test_delegation
 """
 import json
 import os

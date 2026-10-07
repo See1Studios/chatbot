@@ -3,7 +3,7 @@ same-origin defibrillate, CORS limited to this machine, the old /api/rules edito
 
 The handler runs on an ephemeral port. Nothing here restarts anything: the defibrillate scheduler is
 replaced by a recorder, and rule files live in a temp dir.
-Run: python3 -m unittest tests.test_host_api_guards  (from services/chatbot)
+Run: engine/run-tests.sh test_host_api_guards
 """
 import http.client
 import json

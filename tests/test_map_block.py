@@ -1,5 +1,5 @@
 """Tests for Leaflet-based in-app dynamic map renderer for markdown ```map blocks (CHAT_MAP_v1).
-Run: python3 -m unittest tests.test_map_block (from services/chatbot)
+Run: engine/run-tests.sh test_map_block
 """
 import json
 import shutil

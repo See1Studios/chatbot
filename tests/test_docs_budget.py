@@ -1,6 +1,6 @@
 """Docs an agent reads stay cheap and findable (AGENT_FIRST_v1): the recent log is small, older days live in one file
 per date, (Plan/INDEX pairing moved to test_plans_index.)
-Run: python3 -m unittest tests.test_docs_budget  (from services/chatbot)
+Run: engine/run-tests.sh test_docs_budget
 """
 import re
 import unittest

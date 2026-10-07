@@ -3,16 +3,17 @@ only by habit, and 11 modules, 7 tools and 30 page files were missing when it wa
 that cannot find a file in the map edits the wrong one or makes a second.
 A name counts when the "## Code map" section (to the end of the file) holds it in backticks: `x.py`, `tools/x.py`, or a brace list such as
 `app-{api,device}.js`.
-Run: python3 -m unittest tests.test_code_map  (from services/chatbot)
+Run: engine/run-tests.sh test_code_map
 """
 import re
 import subprocess
 import unittest
 from pathlib import Path
-from tests._paths import REPO  # noqa: E402
+from tests._paths import ENGINE, REPO  # noqa: E402
 
 ROOT = REPO
-GLOBS = ["*.py", "providers/*.py", "tools/*.py", "static/*.js", "static/*.css"]
+GLOBS = ["*.py", "providers/*.py", "tools/*.py"]   # in the engine folder; names in CODEMAP.md are engine-relative
+PAGE_GLOBS = ["static/*.js", "static/*.css"]
 DIRS = {".", "providers", "tools", "static"}
 SKIP = {"__init__.py"}
 
@@ -33,11 +34,13 @@ def named(section: str) -> set:
 
 
 def code_files() -> list:
-    try:   # tracked files only: an untracked file in a shared tree is someone's work in progress
-        out = subprocess.check_output(["git", "ls-files", "--"] + GLOBS, cwd=str(ROOT), text=True, timeout=20)
-        files = [ln for ln in out.splitlines() if str(Path(ln).parent) in DIRS]
-    except (OSError, subprocess.SubprocessError):
-        files = [str(p.relative_to(ROOT)) for g in GLOBS for p in ROOT.glob(g)]
+    files = []
+    for base, globs in ((ENGINE, GLOBS), (REPO, PAGE_GLOBS)):
+        try:   # tracked files only: an untracked file in a shared tree is someone's work in progress
+            out = subprocess.check_output(["git", "ls-files", "--"] + globs, cwd=str(base), text=True, timeout=20)
+            files += [ln for ln in out.splitlines() if str(Path(ln).parent) in DIRS]
+        except (OSError, subprocess.SubprocessError):
+            files += [str(p.relative_to(base)) for g in globs for p in base.glob(g)]
     return sorted(f for f in files if Path(f).name not in SKIP)
 
 

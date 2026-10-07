@@ -1,7 +1,7 @@
 """Up and Down recall sent messages like a shell (RECALL_SENT_v1, static/app-recall.js): Up only from an empty box,
 the walk goes on while the recalled text is unchanged, Down past the newest empties the box, an edit ends the walk,
 and the open slash menu keeps its arrows. The REAL module runs in node against stubs.
-Run: python3 -m unittest tests.test_recall_history  (from services/chatbot)
+Run: engine/run-tests.sh test_recall_history
 """
 import json
 import shutil

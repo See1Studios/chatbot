@@ -1,6 +1,6 @@
 """HANDOFF_v1 (docs/plans/director-handoff.md dir/D-G): a director hands work that is not its role's to the director
 that owns it; the receiver works it in its own work session, and the result comes back to the sender.
-Run: python3 -m unittest tests.test_dialog_handoff  (from services/chatbot)
+Run: engine/run-tests.sh test_dialog_handoff
 """
 import os
 import shutil

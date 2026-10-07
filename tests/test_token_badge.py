@@ -1,6 +1,6 @@
 """CONTEXT_METRIC_v1 on the page: the session badge's window figure is the last model call's prompt (context_tokens)
 when the turn recorded it, else the turn's input as before; a bubble's tooltip shows the context too.
-Run: python3 -m unittest tests.test_token_badge  (from services/chatbot)
+Run: engine/run-tests.sh test_token_badge
 """
 import unittest
 from pathlib import Path

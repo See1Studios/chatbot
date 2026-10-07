@@ -1,6 +1,6 @@
 """grok billing -> status-tab rows. The proxy speaks protobuf-JSON, which omits
 zero-valued scalars, so an account at 0% used has NO creditUsagePercent.
-Run: python3 -m unittest tests.test_grok_billing  (from services/chatbot)
+Run: engine/run-tests.sh test_grok_billing
 """
 import sys
 import unittest

@@ -3,7 +3,7 @@
 2026-09-20: every stored agy conversation_id was a phantom (114 of 114 absent from agy's store),
 so each respawn silently started an EMPTY conversation while the window kept the whole chat; and a
 Gemini turn looped on view_file for ~23 minutes with nothing shown.
-Run: python3 -m unittest tests.test_conversation_sync  (from services/chatbot)
+Run: engine/run-tests.sh test_conversation_sync
 """
 import json
 import sys

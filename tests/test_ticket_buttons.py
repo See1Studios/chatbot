@@ -2,7 +2,7 @@
 [경로 허용], [폐기], [병합] ... decide on the spot and leave only the notice -- nothing in the box, nothing in the log.
 [반려] and [계획 수정] put their text in the box and wake the send button (FILL_COMPOSER_v1, app-turn.js), which
 setting inputEl.value alone never did. The REAL functions run in node against stubs.
-Run: python3 -m unittest tests.test_ticket_buttons  (from services/chatbot)
+Run: engine/run-tests.sh test_ticket_buttons
 """
 import json
 import shutil

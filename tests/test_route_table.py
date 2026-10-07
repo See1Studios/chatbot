@@ -1,6 +1,6 @@
 """Route tables (monolith-split split/B, route_table.py): patterns match the way the old if-chains did, the first
 route that takes a request answers it, and a handler can pass a request on.
-Run: python3 -m unittest tests.test_route_table  (from services/chatbot)
+Run: engine/run-tests.sh test_route_table
 """
 import sys
 import unittest

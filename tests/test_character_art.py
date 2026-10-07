@@ -1,6 +1,6 @@
 """Character images follow one format (CHARACTER_ART_v1, skill `character-art`): a 512 avatar, optional wigs per
 provider, optional transparent bust/full sprites per expression with `neutral` first, and a visual.md lock sheet.
-Run: python3 -m unittest tests.test_character_art  (from services/chatbot)
+Run: engine/run-tests.sh test_character_art
 """
 import shutil
 import sys

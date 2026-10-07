@@ -1,7 +1,7 @@
 """WORKER_STALL_v1 (delegation_watch.run, AgentAdapter.last_activity): a delegated worker whose provider reports no
 activity for the stall limit is stopped like a timeout, so the runner moves to the next brain; a provider without an
 activity signal is held to the overall timeout only. agy's signal is the last model call in its own log.
-Run: python3 -m unittest tests.test_delegation_watch  (from services/chatbot)
+Run: engine/run-tests.sh test_delegation_watch
 """
 import shutil
 import sys

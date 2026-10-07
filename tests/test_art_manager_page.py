@@ -2,7 +2,7 @@
 shows its own picture, what it falls back to, or the placeholder; a finished job that drew into a character's
 gallery is recognised from its paths; the tray and the work card open the modal; a sprite pack's result
 says what landed and what was skipped (am/D); the request for missing pictures names them and the spec (am/E). The REAL functions run in node.
-Run: python3 -m unittest tests.test_art_manager_page  (from services/chatbot)
+Run: engine/run-tests.sh test_art_manager_page
 """
 import json
 import shutil

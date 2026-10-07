@@ -4,7 +4,7 @@
 buttons beside it were 44 (32), and a slash command sent it back to the CSS value until the next keystroke.
 Runs the REAL autoResizeInput() / updateViewport() (sliced out of static/app.js) in node against a stub
 DOM whose getComputedStyle mimics the stylesheet. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_composer_height  (from services/chatbot)
+Run: engine/run-tests.sh test_composer_height
 """
 import json
 import re

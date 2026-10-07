@@ -1,6 +1,6 @@
 """WORK_TALK_v1: a delegated run's talk -- the expert's line, the PD's answer -- goes into the two characters' dm,
 never announced (no coworker reacts to each line), and the work card keeps only the verdict and a way into the talk.
-Run: python3 -m unittest tests.test_work_talk  (from services/chatbot)
+Run: engine/run-tests.sh test_work_talk
 """
 import os
 import tempfile

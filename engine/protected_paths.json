@@ -2,12 +2,12 @@
   "version": 1,
   "notes": "Owned by the human operator. Patterns are relative to the service root (the directory holding this file); '~/' means the home directory. A trailing '/' protects a whole subtree; '*' and '?' match inside one path segment only. 'except' lifts protection for matching paths and is the place for instance-specific carve-outs. 'volatile' lists protected paths whose content changes at run time; they stay write-protected but are left out of doctor's uncommitted-change check (evolution.protected_changes). 'governance' lists Tier 3 paths (docs/plans/recursive-self-evolution.md §4.1): guards, gates, approval rules, the charter and this registry. Only the operator changes them; delegated agents are refused (docs/plans/multi-agent-worktree-delegation.md §9.3).",
   "protect": [
-    "*.py",
-    "providers/",
-    "tools/",
-    "__pycache__/",
-    "chatbot-ctl.sh",
-    "protected_paths.json",
+    "engine/*.py",
+    "engine/providers/",
+    "engine/tools/",
+    "engine/__pycache__/",
+    "engine/chatbot-ctl.sh",
+    "engine/protected_paths.json",
     "tests/",
     "static/",
     "data/workspace/SELF-MODIFY.md",
@@ -19,19 +19,19 @@
     "~/.agents/",
     "data/lifecycle.lock",
     "data/maintenance.flag",
-    "observation_signals.json",
+    "engine/observation_signals.json",
     "data/workspace/skill-observations/tickets/",
     "data/workspace/skill-observations/candidates.jsonl",
     "data/sessions/*/events.jsonl",
-    "core_modules.json",
-    "bundle_budget.json",
+    "engine/core_modules.json",
+    "engine/bundle_budget.json",
     "AGENTS.md",
     "CLAUDE.md",
     "GEMINI.md",
     ".githooks/",
-    "run-tests.sh",
-    "ratchet_baseline.json",
-    "engine_data/",
+    "engine/run-tests.sh",
+    "engine/ratchet_baseline.json",
+    "engine/engine_data/",
     "templates/"
   ],
   "except": [
@@ -41,9 +41,9 @@
     }
   ],
   "volatile": [
-    "__pycache__/",
-    "providers/__pycache__/",
-    "tools/__pycache__/",
+    "engine/__pycache__/",
+    "engine/providers/__pycache__/",
+    "engine/tools/__pycache__/",
     "tests/__pycache__/",
     "tests/*/__pycache__/",
     ".githooks/__pycache__/",
@@ -56,47 +56,47 @@
   ],
   "governance": [
     {
-      "path": "protected_paths.json",
+      "path": "engine/protected_paths.json",
       "reason": "this registry"
     },
     {
-      "path": "core_modules.json",
+      "path": "engine/core_modules.json",
       "reason": "the core boundary"
     },
     {
-      "path": "observation_signals.json",
+      "path": "engine/observation_signals.json",
       "reason": "observation criteria (design §7-6)"
     },
     {
-      "path": "bundle_budget.json",
+      "path": "engine/bundle_budget.json",
       "reason": "a gate threshold"
     },
     {
-      "path": "evolution.py",
+      "path": "engine/evolution.py",
       "reason": "the guard registry and lifecycle lock"
     },
     {
-      "path": "tickets.py",
+      "path": "engine/tickets.py",
       "reason": "approval, budget and lease rules"
     },
     {
-      "path": "obslog.py",
+      "path": "engine/obslog.py",
       "reason": "measurement criteria (design §7-6)"
     },
     {
-      "path": "logdigest.py",
+      "path": "engine/logdigest.py",
       "reason": "measurement criteria (design §7-6)"
     },
     {
-      "path": "origin_guard.py",
+      "path": "engine/origin_guard.py",
       "reason": "a guard"
     },
     {
-      "path": "preview_guard.py",
+      "path": "engine/preview_guard.py",
       "reason": "a guard"
     },
     {
-      "path": "loop_guard.py",
+      "path": "engine/loop_guard.py",
       "reason": "a guard"
     },
     {
@@ -112,11 +112,11 @@
       "reason": "a delegation gate"
     },
     {
-      "path": "tools/worktree_runner.py",
+      "path": "engine/tools/worktree_runner.py",
       "reason": "the delegation gatekeeper"
     },
     {
-      "path": "tools/review_checklist.py",
+      "path": "engine/tools/review_checklist.py",
       "reason": "how the delegation gatekeeper asks for and reads a review verdict (split from worktree_runner)"
     },
     {
@@ -172,7 +172,7 @@
       "reason": "commit hooks, a gate every commit passes"
     },
     {
-      "path": "run-tests.sh",
+      "path": "engine/run-tests.sh",
       "reason": "the test runner every gate calls"
     },
     {
@@ -248,7 +248,7 @@
       "reason": "a guard test (run-tests.sh FAST)"
     },
     {
-      "path": "ratchet_baseline.json",
+      "path": "engine/ratchet_baseline.json",
       "reason": "a gate threshold (ratchets may only go down)"
     },
     {

@@ -128,7 +128,10 @@ def _matches(root: Path, pattern: str, target: Path) -> bool:
         head, parts = (), Path(body).expanduser().parts
     else:
         head, parts = root.parts, Path(body).parts  # the root itself is a literal, never a pattern
-        if parts[:1] == ("data",):   # a data/ pattern names user data: it also holds where that data now lives
+        if parts[:1] == (repo_layout.ENGINE_DIR_NAME,):   # LAYOUT_v1: `engine/x` is x in this root's engine folder
+            head, parts = repo_layout.engine_of(root).parts, parts[1:]
+        elif parts[:1] == ("data",):   # a data/ pattern names user data (beside the engine); it also holds where that
+            head = repo_layout.engine_of(root).parts   # data now lives
             live = _live_data(root)
             if live is not None and _matches(root, str(live.joinpath(*parts[1:])) + ("/" if subtree else ""), target):
                 return True
@@ -340,7 +343,7 @@ def load_signal_config(root) -> Dict[str, List[str]]:
     missing or broken file yields an empty config instead of an error."""
     empty = {"correction": [], "ignore_user_prefixes": []}
     try:
-        raw = json.loads((Path(root) / SIGNALS_NAME).read_text(encoding="utf-8"))
+        raw = json.loads((repo_layout.engine_of(root) / SIGNALS_NAME).read_text(encoding="utf-8"))
         return {k: [x for x in (raw.get(k) if isinstance(raw.get(k), list) else []) if isinstance(x, str) and x]
                 for k in empty}
     except (OSError, ValueError, AttributeError, TypeError):

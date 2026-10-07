@@ -1,7 +1,7 @@
 """The heart button in the composer switches between the work and the private session (PRIVATE_TOGGLE_v1).
 Runs the REAL updatePrivateBtn / togglePrivateMode / applyModeSwitch (sliced out of static/app.js) in node
 against stubs. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_private_toggle  (from services/chatbot)
+Run: engine/run-tests.sh test_private_toggle
 """
 import json
 import shutil

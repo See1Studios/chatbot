@@ -2,7 +2,7 @@
 reason sent the bare command to the agent as a plain message (#715, 2026-10-06). Now the page keeps it -- a notice
 asks for the reason, the command stays in the box, nothing is decided and nothing reaches the agent.
 The REAL functions run in node against stubs.
-Run: python3 -m unittest tests.test_ticket_commands  (from services/chatbot)
+Run: engine/run-tests.sh test_ticket_commands
 """
 import json
 import shutil

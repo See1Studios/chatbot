@@ -1,7 +1,7 @@
 """While an expert works on a delegated run, the page says who and for how long, and a writing round shows its clock
 against its limit and the files changed so far (DELEGATION_CLARITY_v1). Runs the REAL code from the page script in
 node. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_work_status  (from services/chatbot)
+Run: engine/run-tests.sh test_work_status
 """
 import json
 import shutil

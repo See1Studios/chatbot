@@ -1,7 +1,7 @@
 """/api/observations: list, detail, resolve, review -- what the status tab manages observations with.
 
 The handler runs on an ephemeral port with a temp workspace, so the real observation log is never read or written.
-Run: python3 -m unittest tests.test_observation_api  (from services/chatbot)
+Run: engine/run-tests.sh test_observation_api
 """
 import http.client
 import json

@@ -7,3 +7,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 ENGINE = REPO / "engine" if (REPO / "engine").is_dir() else REPO
+
+
+def rel(path) -> str:
+    """A file's name as the tests' tables write it: engine files relative to the engine folder (`host_config.py`,
+    `tools/x.py`), everything else relative to the repo (`static/app.js`)."""
+    p = Path(path).resolve()
+    base = ENGINE if ENGINE in p.parents else REPO
+    return p.relative_to(base).as_posix()

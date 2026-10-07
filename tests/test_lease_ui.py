@@ -1,7 +1,7 @@
 """The page's side of one author per file (LEASE_SCOPE_v1): another agent's own ticket is not offered to the chat,
 and a ticket whose files a live lease holds says what it waits for. Runs the REAL helpers extracted from
 static/app.js in node. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_lease_ui  (from services/chatbot)
+Run: engine/run-tests.sh test_lease_ui
 """
 import json
 import shutil

@@ -2,7 +2,7 @@
 against a stub DOM. Skipped when node is not installed.
 
 What matters most: observation and candidate text is written by agents, so it must reach the page as text, never markup.
-Run: python3 -m unittest tests.test_observation_ui  (from services/chatbot)
+Run: engine/run-tests.sh test_observation_ui
 """
 import json
 import shutil

@@ -1,5 +1,5 @@
 """characters.py: TypeIDs, Character Card V2 files, lookup by role, migration from experts/ (CHARACTERS_v1).
-Run: python3 -m unittest tests.test_characters  (from services/chatbot)
+Run: engine/run-tests.sh test_characters
 """
 import json
 import sys

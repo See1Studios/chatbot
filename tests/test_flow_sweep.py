@@ -1,6 +1,6 @@
 """The rule that sweeps a block still being written stays inside its bubble (FLOW_SWEEP_INSIDE_v1,
 static/chat-log.css): from the block's left edge to its right edge, never past either.
-Run: python3 -m unittest tests.test_flow_sweep  (from services/chatbot)
+Run: engine/run-tests.sh test_flow_sweep
 """
 import re
 import unittest

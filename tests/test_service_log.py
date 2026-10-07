@@ -1,5 +1,5 @@
 """OBSLOG_UI_v1: GET /api/service-log (로그 탭 → 서비스) and its static wiring.
-Run: python3 -m unittest tests.test_service_log  (from services/chatbot)
+Run: engine/run-tests.sh test_service_log
 """
 import json
 import sys

@@ -2,7 +2,7 @@
 what it did as a centre stage direction, and what the character sent as one "-> name" line, placed by time; never
 twice, never in a private talk or a meeting room's screen. The host serves the window its dms and, when the tool
 server says one was sent, pushes it to both coworkers' windows. The page's REAL functions run in node.
-Run: python3 -m unittest tests.test_office_page  (from services/chatbot)
+Run: engine/run-tests.sh test_office_page
 """
 import json
 import os

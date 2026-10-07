@@ -9,14 +9,14 @@ A line that is Korean or names the host on purpose (a prompt example, a Korean r
   design and is skipped.
 - host_identity: the dev install's host and persona (DiskStation, /volume1, Sphere, 실장님, 냥) in engine code, outside
   the NAS host plugin -> neutral strings or environment plugins (docs/plans/direction-alignment.md D3, D4).
-Run: python3 -m unittest tests.test_ratchets  (from services/chatbot)
+Run: engine/run-tests.sh test_ratchets
 """
 import json
 import re
 import sys
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO  # noqa: E402
+from tests._paths import ENGINE, REPO, rel  # noqa: E402
 
 ROOT = REPO
 BASELINE = ENGINE / "ratchet_baseline.json"
@@ -44,7 +44,7 @@ def counts(name):
         n = sum(1 for line in p.read_text(encoding="utf-8", errors="ignore").splitlines()
                 if rx.search(line) and PRAGMA not in line)
         if n:
-            out[p.relative_to(ROOT).as_posix()] = n
+            out[rel(p)] = n
     return out
 
 

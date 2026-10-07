@@ -2,7 +2,7 @@
 gemini-3.8-flash-high: `</tool_call>` + `{"name": "choices", "arguments": {...}}`) must not leave JSON on screen and
 no buttons. The server takes the call out of the text for every provider and turns it into the turn's choices; the
 page hides it while the answer is still arriving. Commands are never rescued from text.
-Run: python3 -m unittest tests.test_choices_leak  (from services/chatbot)
+Run: engine/run-tests.sh test_choices_leak
 """
 import json
 import shutil

@@ -1,6 +1,6 @@
 """LoopGuard: catches the 2026-09-20 Gemini runaway without flagging honest work, and holds a turn to its budget.
 Rules A-C are tested with the budget (rule D) out of the way; rule D has its own class below.
-Run: python3 -m unittest tests.test_loop_guard  (from services/chatbot)
+Run: engine/run-tests.sh test_loop_guard
 """
 import sys
 import unittest

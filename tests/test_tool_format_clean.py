@@ -1,5 +1,5 @@
 """_clean_str strips ONE matching quote pair only; commands ending in a quote stay intact.
-Run: python3 -m unittest tests.test_tool_format_clean  (from services/chatbot)
+Run: engine/run-tests.sh test_tool_format_clean
 """
 import sys
 import unittest

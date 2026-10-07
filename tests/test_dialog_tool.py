@@ -1,6 +1,6 @@
 """inbox/D: the `dialog` tool -- list, read, send -- speaks as the calling session's character only, refuses an unknown
 caller and a private session, answers with reply_to, and has no memo kind.
-Run: python3 -m unittest tests.test_dialog_tool  (from services/chatbot)
+Run: engine/run-tests.sh test_dialog_tool
 """
 import os
 import shutil

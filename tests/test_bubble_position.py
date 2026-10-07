@@ -3,7 +3,7 @@
 session greeting, i.e. to the top of the log.)
 Runs the REAL adoptBareUserBubble / inFlightAssistant / placeMsgByTs (sliced out of static/app.js)
 in node against a stub DOM. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_bubble_position  (from services/chatbot)
+Run: engine/run-tests.sh test_bubble_position
 """
 import json
 import shutil

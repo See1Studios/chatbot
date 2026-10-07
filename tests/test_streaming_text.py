@@ -14,7 +14,7 @@ per-frame work drops to the single block still being written. The cost is per BL
 which is the property worth asserting: two hundred deltas that close twenty blocks must produce
 twenty renders, not two hundred and not one.
 
-Run: python3 -m unittest tests.test_streaming_text  (from services/chatbot)
+Run: engine/run-tests.sh test_streaming_text
 """
 import json
 import shutil

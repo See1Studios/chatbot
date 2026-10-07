@@ -1,5 +1,5 @@
 """Live conversation is newest session id + successor tip, not mtime.
-Run: python3 -m unittest tests.test_live_session  (from services/chatbot)
+Run: engine/run-tests.sh test_live_session
 """
 import json
 import os

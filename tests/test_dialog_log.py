@@ -1,6 +1,6 @@
 """inbox/A: one record per dialog, numbered within it (Telegram's message box). A dm between two characters has one id
 from either end; a room's record is the same shape as before; only members write; a reply points at a message of the
-same dialog. Run: python3 -m unittest tests.test_dialog_log  (from services/chatbot)
+same dialog. Run: engine/run-tests.sh test_dialog_log
 """
 import json
 import os

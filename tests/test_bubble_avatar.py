@@ -1,7 +1,7 @@
 """The character's picture opens each run of its bubbles, in place of the old expression chip (BUBBLE_AVATAR_v1): the
 expression rides on the bubble as attributes (static/markdown.js paintExpressionBadge, real code in node), the text
 gets no chip, and the stylesheet draws the picture only on a bubble that does not follow another of the character's.
-Run: python3 -m unittest tests.test_bubble_avatar  (from services/chatbot)
+Run: engine/run-tests.sh test_bubble_avatar
 """
 import json
 import shutil

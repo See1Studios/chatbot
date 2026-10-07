@@ -2,7 +2,7 @@
 (CHATBOT_DATA > PE_HOME > PRIVATEENGINE_HOME > data-pin.env > ~/.pe). Nothing else reads those variables or
 builds its own data/ path -- except tickets.py (a core module, which may not import host_config) whose resolver must
 give the same answer, and a short allowlist with reasons. chatbot-ctl.sh follows the same order.
-Run: python3 -m unittest tests.test_data_paths  (from services/chatbot)
+Run: engine/run-tests.sh test_data_paths
 """
 import json
 import os
@@ -12,7 +12,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO  # noqa: E402
+from tests._paths import ENGINE, REPO, rel as _rel  # noqa: E402
 
 ROOT = REPO
 ENV_NAMES = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")
@@ -33,7 +33,7 @@ def modules():
 class DataPaths(unittest.TestCase):
     def test_only_the_resolvers_read_the_data_variables(self):
         for p in modules():
-            rel = p.relative_to(ROOT).as_posix()
+            rel = _rel(p)
             if rel in ENV_READERS:
                 continue
             m = ENV_READ.search(p.read_text(encoding="utf-8"))
@@ -41,7 +41,7 @@ class DataPaths(unittest.TestCase):
 
     def test_no_module_builds_its_own_data_dir(self):
         for p in modules():
-            rel = p.relative_to(ROOT).as_posix()
+            rel = _rel(p)
             if rel in ENV_READERS or rel in ALLOWED_OWN_DATA:   # the two resolvers own the repo-data default
                 continue
             m = OWN_DATA_DIR.search(p.read_text(encoding="utf-8"))
@@ -49,7 +49,7 @@ class DataPaths(unittest.TestCase):
 
     def test_only_the_resolvers_read_the_pin_file(self):
         for p in modules():
-            rel = p.relative_to(ROOT).as_posix()
+            rel = _rel(p)
             if rel in ENV_READERS:
                 continue
             self.assertNotIn("data-pin.env", p.read_text(encoding="utf-8"), rel)
@@ -107,7 +107,7 @@ class DataPaths(unittest.TestCase):
         self.assertNotIn(":-$CODE/data", body)
         self.assertIn('"$CODE/data-pin.env"', body)
         runner = (ENGINE / "run-tests.sh").read_text(encoding="utf-8")
-        self.assertIn('export CHATBOT_DATA="$PWD/data"', runner)
+        self.assertIn('export CHATBOT_DATA="$ENGINE_DIR/data"', runner)
         self.assertNotIn('if [ -z "${CHATBOT_DATA', runner, "the suite ignores a caller's data dir: never an install's")
         self.assertIn("unset PE_HOME PRIVATEENGINE_HOME", runner)
 

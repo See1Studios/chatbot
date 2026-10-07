@@ -5,7 +5,7 @@ done is kept; if the repeat goes on anyway the turn is stopped after LOOP_STOP_A
 Why (2026-09-21): a Gemini turn re-read the same 1949-line file ten times until the guard stopped it, and
 nothing reached the agent in between. Whether the notice actually pulls a looping agent out is NOT measured
 (the loop could not be reproduced, agy.md A46) -- these tests only pin the mechanics.
-Run: python3 -m unittest tests.test_loop_notice  (from services/chatbot)
+Run: engine/run-tests.sh test_loop_notice
 """
 import json
 import sys

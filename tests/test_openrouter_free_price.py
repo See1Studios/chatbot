@@ -1,7 +1,7 @@
 """free_only also accepts a model the live catalog prices at 0, not only `:free` ids (a stealth model such as
 `stealth/space-bunny-alpha` has no suffix). It fails closed: no catalog, no pricing, a non-zero or unreadable price
 means not free, and the turn falls back to the free default (a money bug otherwise).
-Run: python3 -m unittest tests.test_openrouter_free_price  (from services/chatbot)
+Run: engine/run-tests.sh test_openrouter_free_price
 """
 import sys
 import unittest

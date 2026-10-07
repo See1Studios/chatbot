@@ -1,5 +1,5 @@
 """origin_guard.py: same-origin and CORS decisions.
-Run: python3 -m unittest tests.test_origin_guard  (from services/chatbot)
+Run: engine/run-tests.sh test_origin_guard
 """
 import sys
 import unittest

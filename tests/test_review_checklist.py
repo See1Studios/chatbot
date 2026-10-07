@@ -1,6 +1,6 @@
 """A delegated CODE change is reviewed against a checklist of the bug kinds the review of #505-#525 found (they had
 passed a cross-provider review that only asked "correctly and safely?"); a documentation change keeps its own.
-Run: python3 -m unittest tests.test_review_checklist  (from services/chatbot)
+Run: engine/run-tests.sh test_review_checklist
 """
 import sys
 import unittest

@@ -6,7 +6,7 @@ keeps long-term memory and runs the lifecycle helpers.
 provider adapters, ...). The scenario runs in a fresh process on a temp instance that has only the core modules and
 their data files, with imports of every layer module forbidden, an empty HOME and no PATH. A core module that reaches
 for a layer fails here, at the import.
-Run: python3 -m unittest tests.test_core_standalone  (from services/chatbot)
+Run: engine/run-tests.sh test_core_standalone
 """
 import ast
 import json
@@ -158,9 +158,9 @@ class Instance:
                   self.data / "sessions"):
             d.mkdir(parents=True)
         for name in CORE:
-            shutil.copy(str(CODE / (name + ".py")), str(self.root / (name + ".py")))
+            shutil.copy(str(ENGINE / (name + ".py")), str(self.root / (name + ".py")))
         for name in DATA_FILES:
-            shutil.copy(str(CODE / name), str(self.root / name))
+            shutil.copy(str(ENGINE / name), str(self.root / name))
         if mutate:
             mutate(self.root)
         self.script = self.tmp / "scenario.py"
@@ -211,7 +211,7 @@ class StandaloneTest(unittest.TestCase):
 
 class StaticBoundaryTest(unittest.TestCase):
     def imports_of(self, name):
-        tree = ast.parse((CODE / (name + ".py")).read_text(encoding="utf-8"))
+        tree = ast.parse((ENGINE / (name + ".py")).read_text(encoding="utf-8"))
         found = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -223,7 +223,7 @@ class StaticBoundaryTest(unittest.TestCase):
     def test_the_core_list_names_real_modules(self):
         self.assertGreaterEqual(len(CORE), 4)
         for name in CORE:
-            self.assertTrue((CODE / (name + ".py")).is_file(), name)
+            self.assertTrue((ENGINE / (name + ".py")).is_file(), name)
 
     def test_core_modules_import_only_the_standard_library_and_each_other(self):
         for name in CORE:
@@ -233,7 +233,7 @@ class StaticBoundaryTest(unittest.TestCase):
     def test_the_data_files_that_define_the_check_are_write_protected(self):
         import evolution
         for name in ("core_modules.json", "bundle_budget.json", "protected_paths.json", "observation_signals.json"):
-            self.assertTrue(evolution.is_protected(CODE, CODE / name), name)
+            self.assertTrue(evolution.is_protected(REPO, ENGINE / name), name)
 
 
 if __name__ == "__main__":

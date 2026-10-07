@@ -1,7 +1,7 @@
 """Every chat bubble is the same frosted glass (BUBBLE_GLASS_v1, static/chat-log.css): one dark base and one blur for
 all kinds, so text reads the same over the stage and character art; a kind only sets its tint (--tint) and border.
 Read from the stylesheets: no bubble rule (a .msg selector without descendants) sets its own background or blur.
-Run: python3 -m unittest tests.test_bubble_glass  (from services/chatbot)
+Run: engine/run-tests.sh test_bubble_glass
 """
 import re
 import unittest

@@ -24,6 +24,11 @@ def engine_of(repo) -> Path:
     return repo / ENGINE_DIR_NAME if (repo / ENGINE_DIR_NAME).is_dir() else repo
 
 
+def engine_rel(repo, name) -> str:
+    """A file of the engine folder as a repo-relative path (`engine/run-tests.sh`, or `run-tests.sh` when flat)."""
+    return (engine_of(repo) / name).relative_to(Path(repo)).as_posix()
+
+
 ENGINE = Path(__file__).resolve().parent   # code, providers/, tools/, engine_data/, settings, scripts
 REPO = repo_of(ENGINE)                     # entry files, RULES.md, CODEMAP.md, static/, templates/, tests/, docs/
 STATIC = REPO / "static"

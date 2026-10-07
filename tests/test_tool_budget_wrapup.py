@@ -2,7 +2,7 @@
 tool round, the turn gets one more request with tool_choice "none" and the host note, so what the tools returned
 becomes an answer instead of being discarded behind an error. If that request still yields no text, the cap error
 stands.
-Run: python3 -m unittest tests.test_tool_budget_wrapup  (from services/chatbot)
+Run: engine/run-tests.sh test_tool_budget_wrapup
 """
 import sys
 import unittest

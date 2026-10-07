@@ -1,5 +1,5 @@
 """Slash popular pins are enabled workspace skills, not a hardcoded k-skill list.
-Run: python3 -m unittest tests.test_slash_catalog  (from services/chatbot)
+Run: engine/run-tests.sh test_slash_catalog
 """
 import json
 import re

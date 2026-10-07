@@ -1,6 +1,6 @@
 """/api/file/preview + /api/file/raw share _resolve_safe_preview_file. It is an
 allow-list: project trees only, never dotfiles/dotdirs, never key/history/secret names.
-Run: python3 -m unittest tests.test_file_preview_guard  (from services/chatbot)
+Run: engine/run-tests.sh test_file_preview_guard
 """
 import os
 import sys

@@ -1,7 +1,7 @@
 """Tapping send keeps the phone keyboard up (SEND_KEEPS_KEYBOARD_v1, static/app.js): the send button's pointerdown
 is cancelled so focus never leaves the input -- before, focus moved to the button (keyboard down) and send() put it
 back (keyboard up). The click that sends still fires. The REAL listener runs in node against a stub button.
-Run: python3 -m unittest tests.test_send_keeps_keyboard  (from services/chatbot)
+Run: engine/run-tests.sh test_send_keeps_keyboard
 """
 import json
 import shutil

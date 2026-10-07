@@ -1,5 +1,5 @@
 """tools/run_modules.py: the suite without bash (platform-portability pp/C, #401). Its guard list is run-tests.sh's.
-Run: python3 -m unittest tests.test_run_modules  (from services/chatbot)
+Run: engine/run-tests.sh test_run_modules
 """
 import re
 import subprocess

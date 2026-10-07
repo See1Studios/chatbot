@@ -1,7 +1,7 @@
 """docs/plans/INDEX.md is the plan-status SSOT (INDEX "아카이브 절차", plan-execution-workflow pew/D): every plan file has
 exactly one row, active rows point at docs/plans/*.md, archived rows at archive/YYYY/*.md, every status cell starts with
 one of the four values, and a plan's own "상태" line agrees with its row.
-Run: python3 -m unittest tests.test_plans_index  (from services/chatbot)
+Run: engine/run-tests.sh test_plans_index
 """
 import re
 import unittest

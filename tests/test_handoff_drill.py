@@ -1,5 +1,5 @@
 """HANDOFF_DRILL_v1: the scenario drill runs on a sandbox host and never reaches the live data or ports.
-Run: python3 -m unittest tests.test_handoff_drill  (from services/chatbot)
+Run: engine/run-tests.sh test_handoff_drill
 """
 import os
 import sys

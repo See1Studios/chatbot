@@ -3,7 +3,7 @@ shipped one (templates/workspace/AGENTS.md). The dev build's own rules live only
 (templates/dev-workspace/), and the engine adds them as their own layer only when host_config.EDITION is dev. So:
 a shipped bundle carries no dev rule and no dev word, even from the engine's own notes; a private bundle never takes
 the dev layer; and neither file repeats the other, so the charter cannot fork again.
-Run: python3 -m unittest tests.test_edition_instructions  (from services/chatbot)
+Run: engine/run-tests.sh test_edition_instructions
 """
 import re
 import shutil

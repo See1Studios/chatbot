@@ -3,7 +3,7 @@
 Chat history already resyncs across devices. The picker used to keep
 chatbot.provider in localStorage and POST it on every send, so a stale
 phone could overwrite the live session (and keep showing the old portrait).
-Run: python3 -m unittest tests.test_provider_sync  (from services/chatbot)
+Run: engine/run-tests.sh test_provider_sync
 """
 import json
 import re

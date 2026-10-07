@@ -60,7 +60,7 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
-sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/: devlog_entry, review_checklist, worker_output
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/
 import run_usage  # noqa: E402  -- each CLI call's tokens (token-economy T6)
 from worker_output import LEARNED_RULE, LINE_RULE, learned, report, said  # noqa: E402
 from brain_limits import brain_label, mark, unavailable, usable  # noqa: E402
@@ -70,7 +70,9 @@ from review_checklist import (  # noqa: E402
 )
 
 CODE_DIR = Path(__file__).resolve().parents[1]      # where the host modules this tool imports live
-CHATBOT_REPO = CODE_DIR                              # the repository it works on
+sys.path.insert(0, str(CODE_DIR))
+import repo_layout  # noqa: E402
+CHATBOT_REPO = repo_layout.repo_of(CODE_DIR)         # the repository it works on
 WORKTREE_BASE = Path.home() / ".worktrees" / "chatbot"
 TICKET_QUICK = [sys.executable, str(CODE_DIR / "tools" / "ticket_quick.py")]   # pew/K: the repo copy
 # smoke plus the repo-wide guards (design doc §7-9, NAME_NEUTRAL_v1); a few seconds each
@@ -109,17 +111,17 @@ def head_tests(repo: Path) -> List[str]:
 
 
 def guard_gate(repo: Path) -> Optional[str]:
-    """`./run-tests.sh` over the FAST guard list in run-tests.sh (its SSOT, as committed), each module named as a path
-    so that gate_files() protects every guard file: a worker must not be able to change its own pass condition
-    (pew/F)."""
-    text = head_files(repo, ["run-tests.sh"]).get("run-tests.sh")
+    """run-tests.sh over its committed FAST list, each guard named as a path so gate_files() protects it: a worker
+    cannot change its own pass condition (pew/F)."""
+    runner = repo_layout.engine_rel(repo, "run-tests.sh")
+    text = head_files(repo, [runner]).get(runner)
     if text is None:
         return None
     m = re.search(r"^FAST=\((.*?)^\)", text, re.S | re.M)
     mods = [w for w in (m.group(1).split() if m else []) if re.match(r"^test_\w+$", w)]
     have = set(head_tests(repo))
     files = ["tests/%s.py" % w for w in mods if w in have]
-    return "./run-tests.sh " + " ".join(files) if files else None
+    return "./%s %s" % (runner, " ".join(files)) if files else None
 
 
 def _mentions(path: str) -> "re.Pattern":
@@ -159,7 +161,7 @@ def related_gate(repo: Path, paths: List[str]) -> Optional[str]:
             text = texts.get("tests/%s.py" % t, "")
             if rx.search(text) or (page and page.search(text)):
                 add(t)
-    return "./run-tests.sh " + " ".join(mods) if mods else None
+    return "./%s %s" % (repo_layout.engine_rel(repo, "run-tests.sh"), " ".join(mods)) if mods else None
 
 
 DEFAULT_GATES = [g for g in (guard_gate(CHATBOT_REPO),) if g] + ["python3 tests/smoke.py", "python3 tests/test_identity_wiring.py"]

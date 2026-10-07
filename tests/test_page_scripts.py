@@ -2,7 +2,7 @@
 bytes since split/0, as in test_file_sizes), and the parts load in an order that works: every script index.html names
 is run, in that order, in one global scope with a permissive fake browser, and nothing may fail at load (a part calling
 into a later one, a name used before it is declared). Skipped when node is not installed.
-Run: python3 -m unittest tests.test_page_scripts  (from services/chatbot)
+Run: engine/run-tests.sh test_page_scripts
 """
 import json
 import re

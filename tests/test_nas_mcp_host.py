@@ -1,6 +1,6 @@
 """The NAS host plugin's service tools. The sibling nas-mcp and character-chat services were retired 2026-10-07 (their
 log showed health checks only, no tool call): the plugin neither lists nor delegates to them.
-Run: python3 -m unittest tests.test_nas_mcp_host  (from services/chatbot)
+Run: engine/run-tests.sh test_nas_mcp_host
 """
 import sys
 import unittest

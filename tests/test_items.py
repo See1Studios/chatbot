@@ -4,7 +4,7 @@ moves affection (kept beside the card in state.json, never in the shareable card
 three gifts a day; using tells the character the verdict and moves nothing. Only a private session can give or use,
 the character is told once on the next message, the page reads the note as a chip, a picture falls back to the
 engine placeholder, and the picker is a coverflow.
-Run: python3 -m unittest tests.test_items  (from services/chatbot)
+Run: engine/run-tests.sh test_items
 """
 import json
 import shutil

@@ -1,6 +1,6 @@
 """A doctor-probe session (X-Chatbot-Caller: doctor-probe) is never listed, never live, and never flips the
 operator's session after a restart (#227).
-Run: python3 -m unittest tests.test_probe_session_hidden  (from services/chatbot)
+Run: engine/run-tests.sh test_probe_session_hidden
 """
 import json
 import shutil

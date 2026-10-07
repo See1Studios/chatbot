@@ -1,14 +1,14 @@
 """Engine modules import on every OS (platform-portability pp/D, #395): no module-level import of a POSIX-only module
 outside a try. One top-level `import pty` in providers/account_login.py kept server.py from importing on Windows
 (FIREBAT 2026-09-29: 16 of 50 failures). Import such a module inside the function that needs it, or in a try.
-Run: python3 -m unittest tests.test_platform_imports  (from services/chatbot)
+Run: engine/run-tests.sh test_platform_imports
 """
 import ast
 import importlib.util
 import re
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO  # noqa: E402
+from tests._paths import ENGINE, REPO, rel  # noqa: E402
 
 ROOT = REPO
 POSIX_ONLY = {"pty", "termios", "tty", "fcntl", "pwd", "grp", "resource", "posix"}
@@ -24,7 +24,7 @@ def top_level_posix_imports(path):
             names = [a.name.split(".")[0] for a in node.names]
         elif isinstance(node, ast.ImportFrom) and node.module:
             names = [node.module.split(".")[0]]
-        found += ["%s:%d %s" % (path.relative_to(ROOT).as_posix(), node.lineno, n) for n in names if n in POSIX_ONLY]
+        found += ["%s:%d %s" % (rel(path), node.lineno, n) for n in names if n in POSIX_ONLY]
     return found
 
 
@@ -64,7 +64,7 @@ def third_party_imports():
                     spec = None
                 origin = (spec.origin or "") if spec else ""
                 if spec is None or "site-packages" in origin or "dist-packages" in origin:
-                    out.setdefault(n, set()).add(p.relative_to(ROOT).as_posix())
+                    out.setdefault(n, set()).add(rel(p))
     return out
 
 
@@ -86,7 +86,7 @@ def text_io_without_encoding(path):
             mode = next((k.value.value for k in n.keywords if k.arg == "mode" and isinstance(k.value, ast.Constant)), mode)
             if "b" not in str(mode):
                 out.append(n.lineno)
-    return ["%s:%d" % (path.relative_to(ROOT).as_posix(), ln) for ln in out]
+    return ["%s:%d" % (rel(path), ln) for ln in out]
 
 
 def str_of_relative_to(path):
@@ -96,7 +96,7 @@ def str_of_relative_to(path):
         if (isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "str" and n.args
                 and isinstance(n.args[0], ast.Call) and isinstance(n.args[0].func, ast.Attribute)
                 and n.args[0].func.attr == "relative_to"):
-            out.append("%s:%d" % (path.relative_to(ROOT).as_posix(), n.lineno))
+            out.append("%s:%d" % (rel(path), n.lineno))
     return out
 
 
@@ -125,7 +125,7 @@ def crlf_writes(path):
             mode = next((k.value.value for k in n.keywords if k.arg == "mode" and isinstance(k.value, ast.Constant)), mode)
             if any(c in str(mode) for c in "wa") and "b" not in str(mode) and "newline" not in {k.arg for k in n.keywords}:
                 out.append(n.lineno)
-    return ["%s:%d" % (path.relative_to(ROOT).as_posix(), ln) for ln in out]
+    return ["%s:%d" % (rel(path), ln) for ln in out]
 
 
 class LineEndings(unittest.TestCase):

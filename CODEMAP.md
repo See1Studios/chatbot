@@ -1,6 +1,7 @@
 # Code map
 
-Where to edit. Read on demand (the entry is the root `AGENTS.md`). Detail lives in each module's docstring; this
+Where to edit. Read on demand (the entry is the root `AGENTS.md`). Code names are relative to `engine/`; names that
+start with `static/`, `templates/`, `tests/` or `docs/` are relative to the repo root. Detail lives in each module's docstring; this
 map only says which file does what.
 
 - Every code file has a row here before it lands (`tests/test_code_map.py`). Docs and plans live in `docs/`. Fix the row before adding a file.
@@ -87,4 +88,4 @@ map only says which file does what.
 
 | Area | Files |
 |---|---|
-| Tests | `tests/`; run `./run-tests.sh` (without bash: `tools/run_modules.py`) |
+| Tests | `tests/`; run `engine/run-tests.sh` (without bash: `tools/run_modules.py`) |

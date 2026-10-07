@@ -2,7 +2,7 @@
 completion, how a message shows (the user's own vs a member's), the room in the main view (its talk in the main log
 with the main bubbles, sending through the room API only, the 1:1 session stepping aside and coming back), and the
 wiring (tray, sessions tab, page includes). The REAL functions run in node against a stub page.
-Run: python3 -m unittest tests.test_rooms_page  (from services/chatbot)
+Run: engine/run-tests.sh test_rooms_page
 """
 import json
 import shutil

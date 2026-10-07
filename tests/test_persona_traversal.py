@@ -1,5 +1,5 @@
 """GET /persona/ must not follow .. out of the persona tree.
-Run: python3 -m unittest tests.test_persona_traversal  (from services/chatbot)
+Run: engine/run-tests.sh test_persona_traversal
 """
 import http.client
 import shutil

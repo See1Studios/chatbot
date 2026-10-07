@@ -1,5 +1,5 @@
 """AgentSession funnels every way a turn can end into one hook (docs/plans/recursive-self-evolution.md §4.6).
-Run: python3 -m unittest tests.test_turn_observation  (from services/chatbot)
+Run: engine/run-tests.sh test_turn_observation
 
 Real AgentSession objects, temp data directory; no child process is ever started.
 """

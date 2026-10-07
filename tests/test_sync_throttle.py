@@ -1,7 +1,7 @@
 """The session sync poll is a safety net while the stream is open (SYNC_THROTTLE_v1, static/app-session.js syncDue):
 with the stream closed it runs every tick; with it open, every 30s, or after 10s of stream silence while a turn runs.
 It used to fetch the whole session and the session list every 2.5s. The REAL function runs in node.
-Run: python3 -m unittest tests.test_sync_throttle  (from services/chatbot)
+Run: engine/run-tests.sh test_sync_throttle
 """
 import json
 import shutil

@@ -2,7 +2,7 @@
 (MOBILE_KEYBOARD_FOCUS_v1): no '/' typed in, no inputEl.focus(). Desktop keeps the old focus behaviour.
 Runs the REAL isTouchDevice / tapSendOpts / toggleSlashMenu / applySlashItem / pickChoice in node against stubs.
 Skipped when node is not installed.
-Run: python3 -m unittest tests.test_mobile_keyboard_focus  (from services/chatbot)
+Run: engine/run-tests.sh test_mobile_keyboard_focus
 """
 import json
 import re

@@ -1,7 +1,7 @@
 """chatbot-ctl.sh finds its own folder through the ~/services symlink (CTL_SYMLINK_v1). Without that, CODE became
 ~/services: the scheduled doctor looked for ~/services/server.py and failed every run for 18 hours, writing to a
 stray ~/services/logs.
-Run: python3 -m unittest tests.test_ctl_paths  (from services/chatbot)
+Run: engine/run-tests.sh test_ctl_paths
 """
 import os
 import subprocess

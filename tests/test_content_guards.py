@@ -1,5 +1,5 @@
 """CONTENT_GUARD_v1: preflight block, refusal -> warn notice, provider-neutral table.
-Run: python3 -m unittest tests.test_content_guards  (from services/chatbot)
+Run: engine/run-tests.sh test_content_guards
 """
 import ast
 import json

@@ -3,7 +3,7 @@
 The token tax of always-injected text is the quiet cost of self-improvement: every rule added "just in case" is paid
 by every session. The budget makes growth a decision: raising bundle_budget.json is the human operator's call, and the
 guidance that has moved into the core (tool descriptions, refusals, tests) is what should be deleted here first.
-Run: python3 -m unittest tests.test_bundle_budget  (from services/chatbot)
+Run: engine/run-tests.sh test_bundle_budget
 """
 import json
 import sys

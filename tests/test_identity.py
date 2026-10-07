@@ -1,5 +1,5 @@
 """identity.py: identity comes from the charter and the default character's card, never from code (CARD_ONLY_v1).
-Run: python3 -m unittest tests.test_identity  (from services/chatbot)
+Run: engine/run-tests.sh test_identity
 """
 import json
 import sys
@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tests._paths import ENGINE  # noqa: E402
+from tests._paths import ENGINE, REPO  # noqa: E402
 sys.path.insert(0, str(ENGINE))
 import identity  # noqa: E402
 
@@ -185,13 +185,13 @@ class SeedTest(Base):
 
     def test_the_charter_names_no_title(self):
         # TITLE_DISPLAY_v1: a job title is the user's display value; the charter defines no name
-        tpl = Path(identity.__file__).parent / "templates"
+        tpl = REPO / "templates"
         for rel in ("workspace/AGENTS.md", "dev-workspace/DEV-CHARTER.md"):
             self.assertEqual(identity.parse_frontmatter((tpl / rel).read_text(encoding="utf-8")).get("title"), None, rel)
 
     def test_shipped_template_is_a_neutral_card(self):
         import characters
-        tpl = json.loads((Path(identity.__file__).parent / "templates" / "character.json").read_text(encoding="utf-8"))
+        tpl = json.loads((REPO / "templates" / "character.json").read_text(encoding="utf-8"))
         self.assertEqual(tpl["spec"], characters.SPEC)
         self.assertEqual(tpl["data"]["name"], "")
         self.assertNotIn("냥", json.dumps(tpl, ensure_ascii=False))

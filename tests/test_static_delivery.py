@@ -5,7 +5,7 @@ gets an ETag, a repeat with If-None-Match gets a 304 with no body, and a gzip-ca
 smaller body. The server runs against a throw-away data directory so it cannot touch the live
 install.
 
-Run: python3 -m unittest tests.test_static_delivery  (from services/chatbot)
+Run: engine/run-tests.sh test_static_delivery
 """
 import gzip
 import os

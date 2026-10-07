@@ -1,5 +1,5 @@
 """The shell only loads what exists, and nothing still leans on the retired mascot.
-Run: python3 -m unittest tests.test_static_assets  (from services/chatbot)
+Run: engine/run-tests.sh test_static_assets
 """
 import re
 import unittest

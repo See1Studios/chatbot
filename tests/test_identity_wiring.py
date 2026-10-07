@@ -1,5 +1,5 @@
 """Identity is wired through prompts, HTTP and the page -- and nothing hardcodes a name.
-Run: python3 -m unittest tests.test_identity_wiring  (from services/chatbot)
+Run: engine/run-tests.sh test_identity_wiring
 """
 import ast
 import json
@@ -12,8 +12,10 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import urlopen
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent   # run as a script by the delegation gate: find tests._paths first
 sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE, rel  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 import identity  # noqa: E402
 import server  # noqa: E402
 import session  # noqa: E402
@@ -136,7 +138,7 @@ class NoHardcodedNamesGuard(unittest.TestCase):
     def test_no_string_literal_names_the_persona_or_user(self):
         offenders = []
         for name in self.FILES:
-            tree = ast.parse((ROOT / name).read_text(encoding="utf-8"))
+            tree = ast.parse((ENGINE / name).read_text(encoding="utf-8"))
             docstrings = set()
             for n in ast.walk(tree):
                 if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and n.body:
@@ -212,11 +214,11 @@ class NameNeutralityGuard(unittest.TestCase):
         for n in ast.walk(tree):
             if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docstrings:
                 if any(w in n.value for w in self.NAMES):
-                    out.append("%s:%d: %r" % (path.relative_to(ROOT), n.lineno, n.value[:50]))
+                    out.append("%s:%d: %r" % (rel(path), n.lineno, n.value[:50]))
         return out
 
     def test_python_everywhere(self):
-        files = sorted(ROOT.glob("*.py")) + sorted((ROOT / "providers").glob("*.py"))
+        files = sorted(ENGINE.glob("*.py")) + sorted((ENGINE / "providers").glob("*.py"))
         for ws in (ROOT / "templates" / "workspace", ROOT / "templates" / "dev-workspace"):   # the agents' tools (uds/F)
             files += sorted((ws / "tools").glob("*.py"))
             files += sorted(p for p in (ws / ".agents" / "skills").rglob("*.py")
@@ -261,7 +263,7 @@ class NameNeutralityGuard(unittest.TestCase):
         import evolution
         import observations
         bad = []
-        for f in sorted((ROOT / "data" / "workspace" / "skill-observations" / "tickets").glob("*.json")):
+        for f in sorted((ENGINE / "data" / "workspace" / "skill-observations" / "tickets").glob("*.json")):
             t = json.loads(f.read_text(encoding="utf-8"))
             for k in ("actor", "worked_by", "closed_by"):
                 if t.get(k) and not evolution.ROLE_ID_RE.match(str(t[k])):

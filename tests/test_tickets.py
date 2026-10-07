@@ -1,5 +1,5 @@
 """tickets.py: evidence, merging, attempt budget, author leases per file, owners, operator-only decisions.
-Run: python3 -m unittest tests.test_tickets  (from services/chatbot)
+Run: engine/run-tests.sh test_tickets
 """
 import ast
 import io
@@ -676,7 +676,7 @@ class ImportDisciplineTest(unittest.TestCase):
                 imported |= {a.name.split(".")[0] for a in node.names}
             elif isinstance(node, ast.ImportFrom):
                 imported.add((node.module or "").split(".")[0])
-        self.assertLessEqual(imported, {"__future__", "contextlib", "evolution", "hashlib", "json", "os", "pathlib",
+        self.assertLessEqual(imported, {"__future__", "contextlib", "evolution", "repo_layout", "hashlib", "json", "os", "pathlib",
                                         "re", "secrets", "shutil", "subprocess", "sys", "tempfile", "time", "typing",
                                         "platform_compat"})   # a core module (PP5)
         # shutil/tempfile: the release gate judges a throwaway worktree at HEAD (pew/Q)
@@ -726,6 +726,17 @@ class ShipGateTest(Base):
         subprocess.check_call(["git", "commit", "-qm", "runner"], cwd=str(self.data))
         with mock.patch.dict(os.environ, {"CHATBOT_DATA": "/live/data", "CHATBOT_ROOT": "/live", "PE_HOME": "/x"}):
             self.assertEqual(tickets._guard_failure(self.data), "")
+
+    @dev_only_bash
+    def test_the_guard_finds_the_runner_in_the_engine_folder(self):
+        # LAYOUT_v1: run-tests.sh lives in engine/; a guard that looked only at the root would pass every `done`
+        self.git_init()
+        (self.data / "engine").mkdir()
+        runner = self.data / "engine" / "run-tests.sh"
+        runner.write_text('echo "failed: test_x"; exit 1\n', encoding="utf-8")
+        subprocess.check_call(["git", "add", "engine/run-tests.sh"], cwd=str(self.data))
+        subprocess.check_call(["git", "commit", "-qm", "runner"], cwd=str(self.data))
+        self.assertIn("test_x", tickets._guard_failure(self.data))
 
     @dev_only_bash
     def test_done_is_refused_while_the_guard_tests_fail(self):

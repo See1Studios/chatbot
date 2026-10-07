@@ -1,5 +1,5 @@
 """observations.py: what happens to an observation after it is recorded (scan, resolve, archive, review).
-Run: python3 -m unittest tests.test_observations  (from services/chatbot)
+Run: engine/run-tests.sh test_observations
 """
 import ast
 import json

@@ -38,9 +38,9 @@ FORBIDDEN = [
     (re.compile(r"(^|/)[^/]*\.env$"), "env file (commit a .env.example instead)"),
     (re.compile(r"(^|/)private-memory\.md$"), "private memory"),
     (re.compile(r"(^|/)relationship\.md$"), "relationship memory"),
-    (re.compile(r"^data/workspace/characters/[^/]+/references/"), "style references (other artists' work)"),
+    (re.compile(r"^(?:engine/)?data/workspace/characters/[^/]+/references/"), "style references (other artists' work)"),
 ]
-RECORDS = ("data/workspace/skill-observations/",)   # ticket/observation records: no test run needed
+RECORDS = ("data/workspace/skill-observations/", "engine/data/workspace/skill-observations/")   # ticket/observation records: no test run needed
 
 
 def git(*args):
@@ -88,7 +88,7 @@ def run_guards_on_snapshot(root, related=()):
             if ap.returncode != 0:
                 print("[pre-commit] could not rebuild the staged snapshot; checking the working tree instead")
                 where = root
-        runner = where / "run-tests.sh"
+        runner = _engine(where) / "run-tests.sh"
         if not runner.is_file():
             return None
         r = subprocess.run(["bash", str(runner), "--fast"], cwd=str(where), env=env, capture_output=True, text=True)
@@ -108,12 +108,19 @@ def run_guards_on_snapshot(root, related=()):
 # itself with `git merge --ff-only`, committed as "Coco" and rewrote the ticket record by hand.
 MAIN_REF = "refs/heads/main"
 WORKER_REFS = "refs/heads/worktree/"
-TICKET_RECORD = re.compile(r"^data/workspace/skill-observations/tickets/\d+\.json$")
+TICKET_RECORD = re.compile(r"^(?:engine/)?data/workspace/skill-observations/tickets/\d+\.json$")
+
+
+def _engine(root):
+    """The engine folder of a repo root (LAYOUT_v1, as repo_layout.engine_of: this hook cannot import it first)."""
+    root = Path(root)
+    return root / "engine" if (root / "engine").is_dir() else root
 
 
 def _repo_module(root, name):
-    """A module of this repository (root or tools/), or None -- a throwaway test repo holds only .githooks."""
-    root = Path(root)
+    """A module of this repository (the engine folder or its tools/), or None -- a throwaway test repo holds only
+    .githooks."""
+    root = _engine(root)
     if not any((d / (name + ".py")).is_file() for d in (root, root / "tools")):
         return None
     for d in (str(root / "tools"), str(root)):
@@ -193,7 +200,7 @@ def record_refusals(root, files):
 
 def _persona_names(root):
     names = set()
-    for card in (Path(root) / "data" / "workspace" / "characters").glob("*/card.json"):
+    for card in (_engine(root) / "data" / "workspace" / "characters").glob("*/card.json"):
         try:
             d = json.loads(card.read_text(encoding="utf-8")).get("data") or {}
         except (OSError, ValueError, AttributeError):
@@ -293,7 +300,7 @@ def commit_msg(path):
         m = WORKTREE_BRANCH.match(git("symbolic-ref", "--short", "-q", "HEAD").strip())
         if not m:
             print("[commit-msg] a feat/fix/refactor/perf commit names its ticket: add a trailer line `Ticket: #<n>` "
-                  "(start one: python3 tools/ticket_quick.py start --title ... --paths ... --actor <you>)")
+                  "(start one: python3 engine/tools/ticket_quick.py start --title ... --paths ... --actor <you>)")
             return 1
         text = Path(path).read_text(encoding="utf-8")
         Path(path).write_text(text.rstrip("\n") + "\n\nTicket: #%s\n" % m.group(1), encoding="utf-8")

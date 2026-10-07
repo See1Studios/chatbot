@@ -1,5 +1,5 @@
 """After the host restarts, the agent is told once per session on its next turn: when, which HEAD, what landed.
-Run: python3 -m unittest tests.test_restart_notice  (from services/chatbot)
+Run: engine/run-tests.sh test_restart_notice
 """
 import json
 import os

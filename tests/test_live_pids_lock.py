@@ -1,7 +1,7 @@
 """LOCK_ORDER_v1: recording live agent pids never takes another session's lock. Two sessions spawning at once each held
 their own lock and waited for the other's in _record_live_pids; the handoff pass and the reaper then stopped behind
 them (drill restart under load, 2026-10-06).
-Run: ./run-tests.sh test_live_pids_lock
+Run: engine/run-tests.sh test_live_pids_lock
 """
 import json
 import sys

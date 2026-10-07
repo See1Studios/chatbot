@@ -1,7 +1,7 @@
 """The event mailbox (events.py, plan evt/B): events addressed to characters, read per session from a cursor that
 survives restarts; work phase changes published once each; the turn hook delivers them as the old notes did;
 private visits and account switches published with no text (evt/C).
-Run: python3 -m unittest tests.test_events  (from services/chatbot)
+Run: engine/run-tests.sh test_events
 """
 import json
 import os

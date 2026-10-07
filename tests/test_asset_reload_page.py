@@ -1,7 +1,7 @@
 """ASSET_RELOAD_v1: a host restart that brought new page code reloads an open page, keeping its unsent draft. The
 first fingerprint the page sees is its own; the same one after a restart changes nothing. The REAL functions of
 static/app-api.js run in node.
-Run: python3 -m unittest tests.test_asset_reload_page  (from services/chatbot)
+Run: engine/run-tests.sh test_asset_reload_page
 """
 import json
 import shutil

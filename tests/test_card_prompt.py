@@ -1,7 +1,7 @@
 """card_prompt.py: profile specs, prompt builders, image prompt.
 
-Run: python3 -m unittest tests.test_card_prompt  (from services/chatbot)
-     ./run-tests.sh test_card_prompt
+Run: engine/run-tests.sh test_card_prompt
+     engine/run-tests.sh test_card_prompt
 """
 import json
 import sys

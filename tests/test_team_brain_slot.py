@@ -1,6 +1,6 @@
 """The team tab shows an empty second brain slot when a character has one brain, so the operator sees a fallback can
 be added (static/app-team.js teamSpareSlot). The REAL function runs in node against a tiny DOM stub.
-Run: python3 -m unittest tests.test_team_brain_slot  (from services/chatbot)
+Run: engine/run-tests.sh test_team_brain_slot
 """
 import json
 import shutil

@@ -1,5 +1,5 @@
 """wiki MCP: compact search/get/sources against ~/wiki plus the tech catalog.
-Run: python3 -m unittest tests.test_sphere_memory  (from services/chatbot)
+Run: engine/run-tests.sh test_sphere_memory
 """
 import json
 import shutil

@@ -3,7 +3,7 @@
 btw는 대답이 질문 전에 찍혔어".)
 Runs the REAL inFlightAssistant / placeMsgByTs / repairMsgOrder / addBtw / btw helpers (sliced out
 of static/app.js) in node against a stub DOM. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_btw_order  (from services/chatbot)
+Run: engine/run-tests.sh test_btw_order
 """
 import json
 import shutil

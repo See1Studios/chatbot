@@ -1,7 +1,7 @@
 """CONTEXT_LAYERS_v1 (docs/plans/archive/2026/layered-context-architecture.md lca/A): one layer list assembles every instruction
 bundle. The list's rows are well formed, a private session takes no work layer (D-6), and a fixture's bundles keep
 their exact bytes -- a changed bundle re-injects into every live session, so a change here is on purpose.
-Run: python3 -m unittest tests.test_context_layers  (from services/chatbot)
+Run: engine/run-tests.sh test_context_layers
 """
 import hashlib
 import sys

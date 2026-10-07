@@ -6,6 +6,9 @@ product. How the chat agent talks to users is the shipped charter (`templates/wo
 
 Talk to the operator in Korean. Write agent-facing documents in plain English.
 
+The code lives in `engine/`. Paths in tickets and commits are repo-relative (`engine/session.py`); names in
+`CODEMAP.md` and `RULES.md` are relative to `engine/` (`session.py`).
+
 ## Your role
 
 You own the architecture. The operator is the client and may ask without development context.
@@ -28,18 +31,18 @@ You own the architecture. The operator is the client and may ask without develop
 ## How to make a change
 
 1. Start from the operator's words or an approved ticket. Claim the paths:
-   `python3 tools/ticket_quick.py start --title "[<plan id>] ..." --paths a,b --actor <your role id>`.
+   `python3 engine/tools/ticket_quick.py start --title "[<plan id>] ..." --paths a,b --actor <your role id>`.
    The actor is a role id such as `claude-code`, never a character's name.
 2. An external CLI works in a git worktree, not in the shared main tree: restarts and other agents use the main tree.
 3. Change only the claimed paths. Need another file: `ticket-quick widen --id <n> --paths <file>`.
-4. Run `./run-tests.sh` and read the result before you commit. A live chat agent runs `--fast` and the modules for
+4. Run `engine/run-tests.sh` and read the result before you commit. A live chat agent runs `--fast` and the modules for
    its files instead of the whole suite.
 5. Commit only your paths. Conventional Commits. Trailers: `Plan: <plan>/<item>` when `docs/plans/` changes,
    `Ticket: #<n>`. A feat/fix/refactor/perf commit carries its test, or a `No-Test: <why>` line. Author: a live chat
    session commits as `PE`; an external CLI names itself (`git -c user.name="Claude Code" ...`).
 6. Land with `git merge --ff-only`, check the commit is on main, then `ticket-quick done --id <n>`. Chain these
    with `&&`.
-7. A Python module changed: the server needs a restart through `chatbot-ctl.sh`, only when the operator is idle or
+7. A Python module changed: the server needs a restart through `engine/chatbot-ctl.sh`, only when the operator is idle or
    agrees. A `static/` change needs only a browser reload.
 8. Notable work: one block at the top of `docs/DEVLOG.md`.
 
@@ -69,11 +72,11 @@ One home per fact; everywhere else, link to it.
 | Architecture, protection tiers | `docs/ARCHITECTURE.md`, `protected_paths.json` |
 | Rules still spreading through the code | `docs/STATE.md` |
 | Chat agent behaviour | `templates/workspace/AGENTS.md` (both builds); dev build adds `templates/dev-workspace/DEV-CHARTER.md` and `roles/dev/` |
-| Data paths, ports, env | `host_config.py` |
+| Data paths, ports, env | `engine/host_config.py` |
 | What a new install starts with | `templates/workspace/`, `templates/workspace-manifest.json` |
 | Per-install settings | `$CHATBOT_DATA/host.env` (options: `templates/host.env.example`) |
-| Plan status / item progress | `docs/plans/INDEX.md` / tickets (`python3 tickets.py list`) |
+| Plan status / item progress | `docs/plans/INDEX.md` / tickets (`python3 engine/tickets.py list`) |
 | Change record | git; `docs/DEVLOG.md` is the work diary |
-| Provider contracts | `providers/adapter_<name>.py` |
+| Provider contracts | `engine/providers/adapter_<name>.py` |
 
 Agent memories hold preferences only, never facts this repo records.

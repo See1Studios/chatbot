@@ -4,7 +4,7 @@ It is a thin shell over the core `memory_store.py`; these tests pin what a provi
 The script derives its directory from its own location, so each test copies it into a temp tree
 (<tmp>/tools/memory.py -> <tmp>/memory/MEMORY.md) and runs it there against the real core code.
 Nothing touches the real memory file.
-Run: python3 -m unittest tests.test_memory_cli  (from services/chatbot)
+Run: engine/run-tests.sh test_memory_cli
 """
 import datetime
 import os
@@ -14,7 +14,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO# noqa: E402
+from tests._paths import ENGINE, REPO  # noqa: E402
 
 CODE = REPO
 SCRIPT = Path(os.environ.get("MEMORY_CLI_SCRIPT") or CODE / "templates" / "workspace" / "tools" / "memory.py")
@@ -31,6 +31,7 @@ class Base(unittest.TestCase):
 
     def run_cli(self, *args, code_root=None):
         env = dict(os.environ, CHATBOT_ROOT=str(code_root or ENGINE))
+        env.pop("PYTHONPATH", None)   # the runner puts the engine on the path; this tool must find the core itself
         p = subprocess.run([sys.executable, str(self.root / "tools" / "memory.py")] + list(args), env=env,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30)
         return p.returncode, p.stdout, p.stderr

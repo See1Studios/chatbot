@@ -1,7 +1,7 @@
 """card_parse.py: dual parser and fallback machine for LLM card output.
 
-Run: python3 -m unittest tests.test_card_parse  (from services/chatbot)
-     ./run-tests.sh test_card_parse
+Run: engine/run-tests.sh test_card_parse
+     engine/run-tests.sh test_card_parse
 """
 import json
 import sys

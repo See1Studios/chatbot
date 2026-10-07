@@ -2,7 +2,7 @@
 folder, pending until the next message of that session, which carries their list; names are cleaned, secret-looking
 names and oversize files refused, and a ✕ before sending takes one back. The page reads the same list as cards, so
 the format is checked against its parser too.
-Run: python3 -m unittest tests.test_chat_upload  (from services/chatbot)
+Run: engine/run-tests.sh test_chat_upload
 """
 import io
 import json

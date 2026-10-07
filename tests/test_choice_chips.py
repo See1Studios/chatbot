@@ -1,7 +1,7 @@
 """Quick-reply chips: an agent's trailing <!--choices: A | B--> becomes buttons.
 Runs the REAL splitChoices / renderChoiceChips / syncChoiceChips / pickChoice (extracted
 from static/markdown.js) in node against a stub DOM. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_choice_chips  (from services/chatbot)
+Run: engine/run-tests.sh test_choice_chips
 """
 import json
 import shutil

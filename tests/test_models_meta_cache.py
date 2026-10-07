@@ -1,6 +1,6 @@
 """A failed /models fetch is remembered for a minute (providers/adapter_openai.py::_get_models_meta), so an unreachable
 endpoint does not cost its 10 s timeout on every /api/providers call (30 s seen live on 2026-09-27).
-Run: python3 -m unittest tests.test_models_meta_cache  (from services/chatbot)
+Run: engine/run-tests.sh test_models_meta_cache
 """
 import sys
 import unittest

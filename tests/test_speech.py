@@ -1,7 +1,7 @@
 """Composer microphone speech recognition (STT) tests (va/1, docs/plans/voice-and-audio-interaction.md).
 Tests static markup/styles in index.html, chat-composer.css, chat-responsive.css,
 and speech recognition lifecycle & result injection in app-speech.js using node stubs.
-Run: python3 -m unittest tests.test_speech (from services/chatbot)
+Run: engine/run-tests.sh test_speech
 """
 import json
 import re

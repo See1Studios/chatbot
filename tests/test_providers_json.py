@@ -1,5 +1,5 @@
 """data/providers.json is the SSOT for HTTP OpenAI-dialect adapters.
-Run: python3 -m unittest tests.test_providers_json  (from services/chatbot)
+Run: engine/run-tests.sh test_providers_json
 """
 from __future__ import annotations
 

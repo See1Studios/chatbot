@@ -1,7 +1,7 @@
 """HANDOFF_BOARD_v1: handoffs on the page. GET /api/handoffs lists every open handoff and those closed in the last
 BOARD_RECENT_SEC; the page draws them above the work cards with a cancel button on the open ones, and names every
 state. The REAL page functions run in node against stubs.
-Run: python3 -m unittest tests.test_handoff_bar  (from services/chatbot)
+Run: engine/run-tests.sh test_handoff_bar
 """
 import json
 import os

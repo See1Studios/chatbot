@@ -1,6 +1,6 @@
 """Private sessions climb a 4-stage tension ladder and every private turn carries a [Tension Engine Context] block
 with the stage, the recent choices not to repeat and the 3-slot natural sequence contract (NATURAL_SEQUENCE_v1, #163).
-Run: python3 -m unittest tests.test_private_tension  (from services/chatbot)
+Run: engine/run-tests.sh test_private_tension
 """
 import shutil
 import sys

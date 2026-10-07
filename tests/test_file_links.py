@@ -3,7 +3,7 @@
 work, and not ~/ or relative ones, which the sanitiser drops. Recognition is in static/markdown.js (the REAL
 functions run in node here); whether a file may be shown stays the server's allow-list (preview_guard.py), and a
 relative path now also resolves against the engine repo.
-Run: python3 -m unittest tests.test_file_links  (from services/chatbot)
+Run: engine/run-tests.sh test_file_links
 """
 import json
 import shutil

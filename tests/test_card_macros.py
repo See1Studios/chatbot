@@ -1,7 +1,7 @@
 """Macros in cards, lorebooks and role packs (CARD_MACROS_v1, characters.render_macros): {{user}} and {{char}} as in
 SillyTavern and the card spec (imported cards use them), {{title}}, {{default}} and {{role:<id>}} for the team. They are
 resolved when a prompt is rendered -- the files keep them -- and the engine names no role itself.
-Run: python3 -m unittest tests.test_card_macros  (from services/chatbot)
+Run: engine/run-tests.sh test_card_macros
 """
 import shutil
 import sys

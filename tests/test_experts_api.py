@@ -1,6 +1,6 @@
 """workspace_status.experts_api: the team tab reads and edits each expert's brain list and the PD's
 (EXPERTS_STATUS_v1, docs/plans/multi-agent-worktree-delegation.md §11).
-Run: python3 -m unittest tests.test_experts_api  (from services/chatbot)
+Run: engine/run-tests.sh test_experts_api
 """
 import json
 import sys

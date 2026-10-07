@@ -2,7 +2,7 @@
 per group room, newest first, a private talk never previewed), the one-line preview, the time label, the name filter,
 what picking a row calls, and the switch (off unless ?shell=2 -- the page everyone uses must not change). The REAL
 functions run in node against a stub page.
-Run: python3 -m unittest tests.test_shell_page  (from services/chatbot)
+Run: engine/run-tests.sh test_shell_page
 """
 import json
 import re

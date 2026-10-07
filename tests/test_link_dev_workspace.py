@@ -1,7 +1,7 @@
 """tools/link_dev_workspace.py: a dev install's workspace links to the engine's own instructions, never copies them
 (user-data-separation §0.1). Fixture dirs only. Engine role packs under templates/dev-workspace/ are linked like the
 dev rules; the charter is the shipped one (DEV_SPLIT_v1); packs that exist only live (e.g. art) stay untouched.
-Run: python3 -m unittest tests.test_link_dev_workspace  (from services/chatbot)
+Run: engine/run-tests.sh test_link_dev_workspace
 """
 import shutil
 import sys

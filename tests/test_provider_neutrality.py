@@ -2,7 +2,7 @@
 provider in its classes, functions, variables or protocol; provider knowledge lives in the
 provider modules (adapters.py, accounts.py, account_login.py) and in configuration (host_config.py,
 ctl_proc.py's process classifier). Provider features are asked for by capability (adapter hooks).
-Run: python3 -m unittest tests.test_provider_neutrality  (from services/chatbot)
+Run: engine/run-tests.sh test_provider_neutrality
 """
 import ast
 import json
@@ -16,7 +16,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import urlopen
 
-from tests._paths import ENGINE, REPO  # noqa: E402
+from tests._paths import ENGINE, REPO, rel  # noqa: E402
 ROOT = REPO
 sys.path.insert(0, str(ENGINE))
 from providers import adapters  # noqa: E402
@@ -48,7 +48,7 @@ class CommonCodeTest(unittest.TestCase):
     def test_common_python_names_no_provider(self):
         bad = []
         for f in sorted(ENGINE.glob("*.py")) + sorted((ENGINE / "providers").glob("*.py")):
-            if f.relative_to(ROOT).as_posix() in PROVIDER_MODULES:
+            if rel(f) in PROVIDER_MODULES:
                 continue
             for name, line in identifiers(ast.parse(f.read_text(encoding="utf-8"))):
                 if NAME_RE.search(name):
@@ -82,7 +82,7 @@ class CommonCodeTest(unittest.TestCase):
         self.assertFalse(base.supports_steer)
         self.assertIsNone(base.oneshot(adapters.AgentAdapter(), "x"))   # not supported unless a provider says so
         for f in ("session.py", "server.py", "standby_pool.py", "media_handler.py"):
-            src = (ROOT / f).read_text(encoding="utf-8")
+            src = (ENGINE / f).read_text(encoding="utf-8")
             self.assertIsNone(re.search(r"\.id\s*[!=]=\s*[\"'](%s)[\"']" % "|".join(PROVIDERS), src), f)
             self.assertIsNone(re.search(r"provider\s*[!=]=\s*[\"'](%s)[\"']" % "|".join(PROVIDERS), src), f)
 

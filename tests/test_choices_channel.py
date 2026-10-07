@@ -1,7 +1,7 @@
 """Choices leave the answer's text (OUT_OF_BAND_CHOICES_v1, docs/plans/out-of-band-choices-actions.md 1a): the server
 takes the trailing `<!--choices: …-->` out once, for every provider, so history, the CLI and the agent's context keep
 clean text, and sends the items beside it; the page draws the chips from them.
-Run: python3 -m unittest tests.test_choices_channel  (from services/chatbot)
+Run: engine/run-tests.sh test_choices_channel
 """
 import json
 import shutil

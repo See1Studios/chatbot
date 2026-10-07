@@ -72,6 +72,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple
 
+import repo_layout
 import evolution
 
 OPERATOR_TTY = "tty"          # the command line, at a terminal, after retyping the number
@@ -399,8 +400,9 @@ def _guard_failure(data) -> str:
     # Only the engine's own repo is judged. A data folder inside some other git repo (a home folder that is itself a
     # repo: ~/.pe, or a test's temp dir under ~/tmp) used to get a worktree of that whole repo before the missing
     # runner was noticed -- 6 s vs 108 s for test_tickets (test-suite-speed, 2026-09-28).
-    if not (root / "run-tests.sh").is_file() and subprocess.run(
-            ["git", "cat-file", "-e", "HEAD:run-tests.sh"], cwd=str(root), env=env, capture_output=True,
+    runner_rel = repo_layout.engine_rel(root, "run-tests.sh")   # LAYOUT_v1
+    if not (root / runner_rel).is_file() and subprocess.run(
+            ["git", "cat-file", "-e", "HEAD:" + runner_rel], cwd=str(root), env=env, capture_output=True,
             timeout=30).returncode:
         return ""
     # Judge what is committed (HEAD), not the shared working tree: other agents' unfinished work must not refuse
@@ -414,7 +416,7 @@ def _guard_failure(data) -> str:
                            env=env, capture_output=True, text=True, timeout=120)
     where = tree if added.returncode == 0 else root
     try:
-        runner = where / "run-tests.sh"
+        runner = where / runner_rel
         if not runner.is_file():
             return ""
         r = subprocess.run(["bash", str(runner), "--fast"], cwd=str(where), env=env, capture_output=True, text=True,

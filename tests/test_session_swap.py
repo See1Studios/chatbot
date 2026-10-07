@@ -2,7 +2,7 @@
 `session`. 398eace (2026-10-06) removed `from instructions import build_instruction_bundle` from session.py as an
 unused import; session_turn reads it as `_s().build_instruction_bundle`, so every turn would have failed after the next
 restart. A guard test (run-tests.sh FAST): the commit hook catches the next such cleanup.
-Run: python3 -m unittest tests.test_session_swap  (from services/chatbot)
+Run: engine/run-tests.sh test_session_swap
 """
 import re
 import sys

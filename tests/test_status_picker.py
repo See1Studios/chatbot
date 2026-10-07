@@ -1,7 +1,7 @@
 """Viewing another provider's status must never change the chat session.
 Runs the app's REAL picker/label functions (extracted from static/app.js) in node
 against a stub DOM. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_status_picker  (from services/chatbot)
+Run: engine/run-tests.sh test_status_picker
 """
 import json
 import shutil

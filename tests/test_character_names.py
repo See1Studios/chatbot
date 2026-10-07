@@ -1,7 +1,7 @@
 """NAME_CHANGE_v1: a character renamed by hand is carried by the engine -- every card's text, visual sheet and lorebook
 in one pass (a swap must not undo itself), a note for the brains, and older talk shown with today's names while the
 record keeps what was said. Talk after the change is left alone.
-Run: python3 -m unittest tests.test_character_names  (from services/chatbot)
+Run: engine/run-tests.sh test_character_names
 """
 import json
 import shutil

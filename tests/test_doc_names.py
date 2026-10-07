@@ -1,7 +1,7 @@
 """Document names follow one rule (root AGENTS.md "Naming", 2026-09-28): standing documents -- one copy, always current,
 found by name (repo root, docs/, the chat charter folder data/workspace/) -- are UPPERCASE; documents that accumulate
 (plans, dated logs) are lower-kebab; no snake_case anywhere. Only tracked files are checked.
-Run: python3 -m unittest tests.test_doc_names  (from services/chatbot)
+Run: engine/run-tests.sh test_doc_names
 """
 import re
 import subprocess

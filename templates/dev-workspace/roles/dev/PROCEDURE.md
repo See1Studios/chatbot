@@ -14,7 +14,7 @@ repeat them.
 - Only the user decides tickets. Say in your reply when you open or close one.
 - Disk and git changes only after claiming an approved ticket, even on the user's word; name the paths in the claim.
 - The loop covers instructions and pipelines too: an approved Tier 3 ticket may change the charter, design docs and guards.
-- Before committing run `./run-tests.sh --fast` and the modules for your files (`./run-tests.sh test_x`), never the whole
+- Before committing run `engine/run-tests.sh --fast` and the modules for your files (`engine/run-tests.sh test_x`), never the whole
   suite (it takes minutes; the commit hook adds the related tests). A feat/fix commit carries its test or a `No-Test: <why>`
   line. Never `--no-verify`.
 - After the claim: static UI (`static/`, persona) takes effect on refresh; Python host modules need the user's **⚡소생**.

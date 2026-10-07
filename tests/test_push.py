@@ -1,6 +1,6 @@
 """Web Push groundwork (push/A, push_manager.py): the VAPID key pair is made once and reused, subscriptions are kept
 one per endpoint, and /api/push/* answers JSON. Every file lives in a temp folder, never the install's data.
-Run: python3 -m unittest tests.test_push  (from services/chatbot)
+Run: engine/run-tests.sh test_push
 """
 import base64
 import json

@@ -2,7 +2,7 @@
 short acts on a character's lines, copy, send again -- none of that while a turn runs or, for acts and actions, in
 a group room), what "send again" puts in the box, which bubble a waiting retry marks, and the wiring. The REAL
 functions run in node against stubs.
-Run: python3 -m unittest tests.test_msgmenu_page  (from services/chatbot)
+Run: engine/run-tests.sh test_msgmenu_page
 """
 import json
 import shutil

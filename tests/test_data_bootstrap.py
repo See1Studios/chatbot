@@ -1,6 +1,6 @@
 """data_bootstrap.py (user-data-separation uds/D): an empty data folder gets the workspace template once; an existing
 workspace is never touched, and files the user deleted do not come back.
-Run: python3 -m unittest tests.test_data_bootstrap  (from services/chatbot)
+Run: engine/run-tests.sh test_data_bootstrap
 """
 import json
 import os

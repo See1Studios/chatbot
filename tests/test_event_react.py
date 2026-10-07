@@ -1,7 +1,7 @@
 """evt/D (event_react.py): a character speaks first about the events the operator turned on -- ending work phases,
 restarts -- in its work session, as a host notice. Off by default; at most per_hour per character; none in quiet
 hours or while any conversation runs; an event spoken about is not told again before the next turn.
-Run: python3 -m unittest tests.test_event_react  (from services/chatbot)
+Run: engine/run-tests.sh test_event_react
 """
 import json
 import os

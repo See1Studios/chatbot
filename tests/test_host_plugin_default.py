@@ -1,7 +1,7 @@
 """A fresh install is not this NAS (align/F, direction-alignment D3): with no host settings the NAS host plugin is
 off, the web root sits in the install's own data, and a web root that does not exist is not handed to agents.
 $CHATBOT_DATA/host.env (templates/host.env.example) turns the plugin on and names a real web root.
-Run: python3 -m unittest tests.test_host_plugin_default  (from services/chatbot)
+Run: engine/run-tests.sh test_host_plugin_default
 """
 import json
 import os

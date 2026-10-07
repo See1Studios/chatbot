@@ -369,6 +369,20 @@ class WorktreeRunner(unittest.TestCase):
         # the runner itself is a pass condition: a worker must not be able to edit it (tier 3)
         self.assertEqual(wr.tier_of(self.repo, "run-tests.sh", wr.gate_files(self.repo, [guard]))[0], 3)
 
+    def test_the_gates_find_the_runner_in_the_engine_folder(self) -> None:
+        # LAYOUT_v1: run-tests.sh lives in engine/; a gate that looked only at the root would silently drop the guards
+        (self.repo / "engine").mkdir()
+        (self.repo / "tests").mkdir(exist_ok=True)
+        (self.repo / "tests" / "test_guard.py").write_text("", encoding="utf-8")
+        (self.repo / "tests" / "test_widget.py").write_text("import widget\n", encoding="utf-8")
+        (self.repo / "engine" / "run-tests.sh").write_text("FAST=(\n  test_guard\n)\n", encoding="utf-8")
+        sh(self.repo, "git", "add", "-A")
+        sh(self.repo, "git", "commit", "-qm", "nested")
+        guard = wr.guard_gate(self.repo)
+        self.assertEqual(guard, "./engine/run-tests.sh tests/test_guard.py")
+        self.assertIn("engine/run-tests.sh", wr.gate_files(self.repo, [guard]))
+        self.assertEqual(wr.related_gate(self.repo, ["engine/widget.py"]), "./engine/run-tests.sh test_widget")
+
     def test_related_tests_include_importers_and_mentions(self) -> None:
         # pew/P: a config change must pull in the tests that read it (protected_paths.json -> test_lifecycle, 2026-09-28)
         t = self.repo / "tests"

@@ -2,7 +2,7 @@
 dev-build entry -- short, read first, never the chat agent's runtime rules. CLAUDE.md and GEMINI.md exist only because
 tools auto-load those names, and point to it. Besides them the repo root holds only the dev guidance (RULES.md,
 CODEMAP.md); every other document lives in docs/ (operator 2026-10-08).
-Run: python3 -m unittest tests.test_entrypoints  (from services/chatbot)
+Run: engine/run-tests.sh test_entrypoints
 """
 import subprocess
 import unittest

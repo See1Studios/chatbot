@@ -1,6 +1,6 @@
 """The avatar picks the character: each character has its own sessions and keeps the brain last used with it; a
 character other than the chatbot works from its own card and memory and does not delegate (CHARACTER_PICKER_v1).
-Run: python3 -m unittest tests.test_character_picker  (from services/chatbot)
+Run: engine/run-tests.sh test_character_picker
 """
 import shutil
 import sys

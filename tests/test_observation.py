@@ -1,5 +1,5 @@
 """evolution.py observation side: which finished turns become candidates, and observation-log entries.
-Run: python3 -m unittest tests.test_observation  (from services/chatbot)
+Run: engine/run-tests.sh test_observation
 """
 import json
 import sys
@@ -28,7 +28,7 @@ class ShippedSignalsTest(unittest.TestCase):
     def test_the_shipped_data_file_loads_and_protects_the_probe(self):
         self.assertTrue(CFG["correction"])
         self.assertEqual(CFG["ignore_user_prefixes"], ["[doctor-probe]"])
-        self.assertTrue(evolution.is_protected(CODE, CODE / evolution.SIGNALS_NAME))
+        self.assertTrue(evolution.is_protected(CODE, ENGINE / evolution.SIGNALS_NAME))
 
     def test_corrections_the_design_names(self):
         for text in ("아니 그게 아니야", "아니, 다시", "왜 안 돼?", "이거 망가졌어", "안돼", "이건 틀렸어", "버그 같아"):

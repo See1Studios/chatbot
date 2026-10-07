@@ -1,6 +1,6 @@
 """workspace_status.instructions_api: the status tab shows every instruction the agent reads, and edits only
 what the protected-path registry leaves unprotected (STATUS_INSTRUCTIONS_v1).
-Run: python3 -m unittest tests.test_instructions_api  (from services/chatbot)
+Run: engine/run-tests.sh test_instructions_api
 """
 import json
 import sys

@@ -1,6 +1,6 @@
 """accounts.snapshot(): the 2026-09-19 incident replayed with fake procs + logs,
 plus the change-observation rule used for providers with no per-process account.
-Run: python3 -m unittest tests.test_accounts  (from services/chatbot)
+Run: engine/run-tests.sh test_accounts
 """
 import base64
 import json

@@ -1,5 +1,5 @@
 """PROVIDER_NEUTRAL_v1: media_handler knows no provider; adapters register where each CLI keeps its media.
-Run: python3 -m unittest tests.test_media_sources  (from services/chatbot)
+Run: engine/run-tests.sh test_media_sources
 """
 import sys
 import unittest

@@ -1,7 +1,7 @@
 """NO_TICKET_WRITE_v1: a live agent's write to a repo file that no live ticket lease covers stops the turn at once.
 TREE_WATCH_v1 (director-handoff dir/B): a change no tool step showed (a subagent's) is caught by comparing the git
 working tree at the turn's start and end, and stays on hold until the file is clean or leased.
-Run: python3 -m unittest tests.test_unticketed_write  (from services/chatbot)
+Run: engine/run-tests.sh test_unticketed_write
 """
 import json
 import shutil

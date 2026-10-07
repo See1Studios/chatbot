@@ -1,6 +1,6 @@
 """tools/run_usage.py: each delegated CLI call's tokens, read from the CLI's own JSON (token-economy.md T6).
 The outputs below are the real shapes the four CLIs printed for "Reply with just: ok" on 2026-10-04.
-Run: python3 -m unittest tests.test_run_usage  (from services/chatbot)
+Run: engine/run-tests.sh test_run_usage
 """
 import json
 import shutil

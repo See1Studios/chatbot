@@ -49,7 +49,7 @@ Generate/derive required files under `$CHATBOT_DATA/workspace/characters/<id>/`:
 ### 5. Automated Verification
 Run the validator from `services/chatbot`:
 ```bash
-python3 tools/check_character_art.py <character_id>
+python3 engine/tools/check_character_art.py <character_id>
 ```
 Ensure output is `ok <name> (<id>)` with zero errors.
 
@@ -64,6 +64,6 @@ Ensure output is `ok <name> (<id>)` with zero errors.
 ---
 
 ## Tooling Quick Reference
-- Verify assets: `python3 tools/check_character_art.py <id>`
+- Verify assets: `python3 engine/tools/check_character_art.py <id>`
 - Card check: `characters/<id>/card.json`
 - Lock sheet: `characters/<id>/visual.md`

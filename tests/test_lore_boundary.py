@@ -1,7 +1,7 @@
 """Lore never grants power (docs/plans/setting-pack.md §1.1): a character's tools and roles come only from the roster
 (team.json) and the role packs (roles/<role>/ROLE.md). A lorebook or a card claiming a role or tools changes nothing --
 lorebooks and cards are files people download, so a claim in them must not become a grant.
-Run: python3 -m unittest tests.test_lore_boundary  (from services/chatbot)
+Run: engine/run-tests.sh test_lore_boundary
 """
 import json
 import sys

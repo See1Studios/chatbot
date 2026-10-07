@@ -1,7 +1,7 @@
 """highlight.js loads only when a code block needs it (HIGHLIGHT_LAZY_v1, static/markdown.js): no script tag on the
 page, no load for a message without code, one load for the first code block, then the block is highlighted. The
 REAL functions run in node against a stub document.
-Run: python3 -m unittest tests.test_highlight_lazy  (from services/chatbot)
+Run: engine/run-tests.sh test_highlight_lazy
 """
 import json
 import shutil

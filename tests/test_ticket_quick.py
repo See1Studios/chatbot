@@ -1,7 +1,7 @@
 """tools/ticket_quick.py (plan pew/K): the repo copy of ticket-quick. It finds the data folder through host_config,
 keeps the claim token in a private file so a lost terminal line does not strand the lease, and reads that file when
 --token is left out.
-Run: python3 -m unittest tests.test_ticket_quick  (from services/chatbot)
+Run: engine/run-tests.sh test_ticket_quick
 """
 import json
 import os

@@ -5,7 +5,7 @@ free, the paid version is available now, use this slug instead" -- while urllib'
 "HTTP Error 404: Not Found". The adapter read the stream without an except, so that body was dropped
 and a retired model id presented as a bare 404 until someone picked the provider by hand.
 
-Run: python3 -m unittest tests.test_upstream_error  (from services/chatbot)
+Run: engine/run-tests.sh test_upstream_error
 """
 import io
 import json

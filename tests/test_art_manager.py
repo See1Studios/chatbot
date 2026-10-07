@@ -3,7 +3,7 @@ with what each shows, its gallery of candidates, putting a gallery picture in a 
 PNG master beside it, the old one to _old/), taking one out (back to the gallery), uploads into the gallery, and a
 SillyTavern sprite pack (a ZIP of flat-named pictures) straight into the expression slots (am/D).
 Nothing is deleted. Runs against a scratch workspace; needs Pillow.
-Run: python3 -m unittest tests.test_art_manager  (from services/chatbot)
+Run: engine/run-tests.sh test_art_manager
 """
 import io
 import json

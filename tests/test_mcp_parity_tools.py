@@ -1,7 +1,7 @@
 """Tools HTTP brains get so they work like CLI brains (PARITY_TOOLS_v1, mcp_server.py, api-adapter-parity.md):
 edit_file (Claude's Edit contract: one exact match, or replace_all; write_file's rules), find_files (glob under an
 allowlisted directory, secret names skipped) and skill (list, load). Scratch directories, no network.
-Run: python3 -m unittest tests.test_mcp_parity_tools  (from services/chatbot)
+Run: engine/run-tests.sh test_mcp_parity_tools
 """
 import os
 import shutil

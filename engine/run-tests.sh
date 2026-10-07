@@ -11,18 +11,23 @@
 # One process per module is the default: a failure stays in its own module and the times show per module. Since
 # split/A the whole suite also passes in one process. Exit status is 0 only when every module passed.
 set -uo pipefail
-cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" || exit 2
+# LAYOUT_v1: this script lives in the engine folder; the tests run from the repo root (tests/ is there) with the
+# engine folder on the import path, as repo_layout.py decides.
+ENGINE_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+if [ "$(basename "$ENGINE_DIR")" = engine ]; then REPO_DIR="$(dirname "$ENGINE_DIR")"; else REPO_DIR="$ENGINE_DIR"; fi
+cd "$REPO_DIR" || exit 2
+export PYTHONPATH="$ENGINE_DIR${PYTHONPATH:+:$PYTHONPATH}"
 # uds/F: shipped default data is ~/.pe. The suite never reads or writes an install's data: always the repo's own
 # data/, whatever the caller exported (a chat agent inherits CHATBOT_DATA=~/.pe from ctl).
 unset PE_HOME PRIVATEENGINE_HOME
-export CHATBOT_DATA="$PWD/data"
+export CHATBOT_DATA="$ENGINE_DIR/data"
 export CHATBOT_TEST_RUNNER=1   # LIVE_DATA_GUARD_v1: host_config and tickets.py redirect a test run without this
 # LIVE_AGENT_SUITE_v1: a live chat agent and its subagents (CHATBOT_LIVE_AGENT, set by session._spawn) run the guards
 # or named modules, never the whole suite: it takes minutes, agy backgrounds it and waits, and the turn above it runs
 # out of time (2026-10-05, handoff #5). The delegation runner's gates and the operator run the whole suite.
 if [ -n "${CHATBOT_LIVE_AGENT:-}" ] && { [ $# -eq 0 ] || [ "${1:-}" = "--one-process" ]; }; then
   echo "run-tests.sh: a chat agent does not run the whole suite (minutes; the delegate gates run it)." >&2
-  echo "Name the modules: ./run-tests.sh test_x test_y   (or --fast for the guards)" >&2
+  echo "Name the modules: engine/run-tests.sh test_x test_y   (or --fast for the guards)" >&2
   exit 2
 fi
 
@@ -157,6 +162,6 @@ echo "---"
 echo "$(( ${#mods[@]} - ${#failed[@]} ))/${#mods[@]} modules passed in $(( ($(ms) - t0) / 1000 ))s"
 if [ ${#failed[@]} -gt 0 ]; then
   echo "failed: ${failed[*]}"
-  echo "rerun one: ./run-tests.sh ${failed[0]}"
+  echo "rerun one: engine/run-tests.sh ${failed[0]}"
   exit 1
 fi

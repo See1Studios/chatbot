@@ -2,7 +2,7 @@
 or inside a function -- have no layer that comes first: identity.py once imported characters inside 11 functions only
 because characters imported identity back for one helper. The pairs below are known, each with why it stays; a pair
 not listed fails, and a listed pair that is gone must be dropped (the list only shrinks).
-Run: python3 -m unittest tests.test_import_cycles  (from services/chatbot)
+Run: engine/run-tests.sh test_import_cycles
 """
 import ast
 import unittest
@@ -27,7 +27,7 @@ def modules():
 
 
 def name(p: Path) -> str:
-    return p.stem if p.parent == ROOT else "%s.%s" % (p.parent.name, p.stem)
+    return p.stem if p.parent == ENGINE else "%s.%s" % (p.parent.name, p.stem)
 
 
 def imports() -> dict:

@@ -2,7 +2,7 @@
 controls: a press on a button inside is the button's, and the pointer is captured only once the move is a sideways
 swipe -- captured from the press, the click went to the notice and the open-failure notice's retry button never
 answered (review of #516). The REAL function runs in node against a stub element.
-Run: python3 -m unittest tests.test_notice_swipe  (from services/chatbot)
+Run: engine/run-tests.sh test_notice_swipe
 """
 import json
 import shutil

@@ -2,7 +2,7 @@
 text list of paths (chat_upload.attachment_block); the OpenAI-dialect adapter adds an image part for the images in
 that list when the live catalog says the model takes image input, only on this turn's message, and only for files
 inside a session's uploads/ folder. Anything else is left to the file tools.
-Run: python3 -m unittest tests.test_attach_images  (from services/chatbot)
+Run: engine/run-tests.sh test_attach_images
 """
 import base64
 import shutil

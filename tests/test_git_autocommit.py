@@ -1,7 +1,7 @@
 """GIT_AUTOCOMMIT_v2 (#571): a card save's auto-commit runs on its own thread, one at a time, and gives git time to
 finish -- the commit hook runs the guard tests (~40 s), and the old 10 s timeout killed git mid-commit, leaving
 .git/index.lock behind (2026-10-02 12:38). Nothing here touches a real repository: git is a recorder.
-Run: python3 -m unittest tests.test_git_autocommit  (from services/chatbot)
+Run: engine/run-tests.sh test_git_autocommit
 """
 import subprocess
 import sys

@@ -4,14 +4,14 @@
 Test pairing is the commit-msg hook's (test_githooks); a check that a document contains a phrase guards nothing and is
 not kept here.
 
-Run: python3 -m unittest tests.test_conventions  (from services/chatbot)
+Run: engine/run-tests.sh test_conventions
 """
 import ast
 import re
 import unittest
 from pathlib import Path
 from typing import Dict, List, Tuple
-from tests._paths import ENGINE, REPO  # noqa: E402
+from tests._paths import ENGINE, REPO, rel as _rel  # noqa: E402
 
 BLOCKING = ("run", "check_output", "check_call", "call")
 
@@ -74,7 +74,7 @@ class TestConventions(unittest.TestCase):
         """All subprocess.run calls in core, tools, and provider modules must specify timeout unless exempt."""
         violations = []
         for path in target_modules():
-            rel = path.relative_to(ROOT).as_posix()
+            rel = _rel(path)
             for qualname, lineno, has_timeout in find_subprocess_run_calls(path):
                 if not has_timeout:
                     key = f"{rel}::{qualname}"
@@ -90,7 +90,7 @@ class TestConventions(unittest.TestCase):
         """Exemptions in LEGACY_SUBPROCESS_EXEMPTIONS must correspond to actual calls without timeout."""
         active_missing = set()
         for path in target_modules():
-            rel = path.relative_to(ROOT).as_posix()
+            rel = _rel(path)
             for qualname, _, has_timeout in find_subprocess_run_calls(path):
                 if not has_timeout:
                     active_missing.add(f"{rel}::{qualname}")

@@ -6,7 +6,7 @@ Verifies:
 4. Reflection into session event stream, disk events.jsonl, and history
 5. host_config PERSISTED_LOG_KINDS inclusion
 
-Run: python3 -m unittest tests.test_choices_tool  (from services/chatbot)
+Run: engine/run-tests.sh test_choices_tool
 """
 import json
 import shutil

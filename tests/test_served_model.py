@@ -1,5 +1,5 @@
 """Per-turn served_model (OpenRouter router vs actual id) on history, SSE, footer.
-Run: python3 -m unittest tests.test_served_model  (from services/chatbot)
+Run: engine/run-tests.sh test_served_model
 """
 from __future__ import annotations
 

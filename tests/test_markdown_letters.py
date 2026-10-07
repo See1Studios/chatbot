@@ -1,6 +1,6 @@
 """Bold/italic right before a letter with no space parses the same in every script (markdown.js, I18N_v1): the fix
 once matched Korean letters only. ASCII letters are left to marked, so a*b*c and code keep their stars.
-Run: ./run-tests.sh test_markdown_letters
+Run: engine/run-tests.sh test_markdown_letters
 """
 import json
 import shutil

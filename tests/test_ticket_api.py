@@ -1,7 +1,7 @@
 """/api/tickets: list, detail and the operator's decisions from the status tab.
 
 The handler runs on an ephemeral port with a temp data dir, so the real tickets are never read or written.
-Run: python3 -m unittest tests.test_ticket_api  (from services/chatbot)
+Run: engine/run-tests.sh test_ticket_api
 """
 import http.client
 import json

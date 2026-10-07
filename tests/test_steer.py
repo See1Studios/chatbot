@@ -1,7 +1,7 @@
 """A message sent while an agy turn is running is accepted at once and applied at the next
 tool-step boundary -- without cutting the work in flight (2026-09-20).
 Measured first (agy.md A41): a second stdin line only QUEUES until the turn ends; the old design
-killed the turn instead. Run: python3 -m unittest tests.test_steer  (from services/chatbot)
+killed the turn instead. Run: engine/run-tests.sh test_steer
 """
 import json
 import sys

@@ -1,7 +1,7 @@
 """inbox/C: before a work turn a session hears which dialogs it has not seen -- counts and mentions, never a body --
 once per change; after a handover the new brain gets a short recap and starts again from the character's read. Room
 seats and private sessions get no such line.
-Run: python3 -m unittest tests.test_turn_notices  (from services/chatbot)
+Run: engine/run-tests.sh test_turn_notices
 """
 import os
 import shutil

@@ -45,7 +45,7 @@ def test_run_outside_runner() -> bool:
 
 if test_run_outside_runner():
     if os.environ.get("CHATBOT_LIVE_AGENT"):   # LIVE_AGENT_SUITE_v1: the one way for a chat agent is the script
-        raise SystemExit("tests: a live chat agent runs tests only as ./run-tests.sh test_x (named modules), "
+        raise SystemExit("tests: a live chat agent runs tests only as engine/run-tests.sh test_x (named modules), "
                          "never unittest/pytest directly")
     for _k in DATA_ENV:
         os.environ.pop(_k, None)

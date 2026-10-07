@@ -1,5 +1,5 @@
 """The status tab's observation summary (workspace_status._observation_summary).
-Run: python3 -m unittest tests.test_observation_status  (from services/chatbot)
+Run: engine/run-tests.sh test_observation_status
 """
 import json
 import sys

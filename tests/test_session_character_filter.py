@@ -8,7 +8,7 @@ Runs the REAL sessionCharacterLabel / sessionCharacterGroups / renderSessionChar
 renderSessionsList (sliced out of the concatenated page bundle) in node against a stub DOM.
 Skipped when node is not installed.
 
-Run: python3 -m unittest tests.test_session_character_filter  (from services/chatbot)
+Run: engine/run-tests.sh test_session_character_filter
 """
 import json
 import shutil

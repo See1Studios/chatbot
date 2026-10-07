@@ -1,6 +1,6 @@
 """inbox/0: a tool call is tied to the session whose agent process made it, from the connection's process ancestry,
 never from what the model says; an HTTP brain (the host's own process) names its session in a header.
-Run: python3 -m unittest tests.test_tool_caller  (from services/chatbot)
+Run: engine/run-tests.sh test_tool_caller
 """
 import os
 import socket

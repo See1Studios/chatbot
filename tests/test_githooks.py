@@ -1,7 +1,7 @@
 """Commit hooks (.githooks/, plan-execution-workflow pew/E) refuse what the rules forbid, in a throwaway repo: a
 non-Conventional subject, a docs/plans change without a `Plan:` trailer, a committed secrets file, a key-shaped added
 line. The delegation runner's own commit subjects must pass.
-Run: python3 -m unittest tests.test_githooks  (from services/chatbot)
+Run: engine/run-tests.sh test_githooks
 """
 import importlib.util
 import os
@@ -147,7 +147,7 @@ class Hooks(unittest.TestCase):
 
     def _with_core(self):
         for name in ("evolution.py", "platform_compat.py", "repo_layout.py"):
-            shutil.copy(str(ROOT / name), str(self.repo / name))
+            shutil.copy(str(ENGINE / name), str(self.repo / name))
 
     def test_a_ticket_record_with_a_persona_actor_is_refused(self):
         # 2026-10-03: a chat agent wrote closed_by "Coco" around tickets.py; the guards then broke main for everyone

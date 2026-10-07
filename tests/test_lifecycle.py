@@ -4,7 +4,7 @@ shared lifecycle lock, maintenance flag, the protected-file check against git HE
 Safety: no test runs a real start/doctor/repair. The lock wrapper is exercised through a stub script whose
 body only echoes, and the real chatbot-ctl.sh is run in a temp tree only on paths that return before doing
 anything (maintenance flag present, lock busy).
-Run: python3 -m unittest tests.test_lifecycle  (from services/chatbot)
+Run: engine/run-tests.sh test_lifecycle
 """
 import json
 import os
@@ -246,7 +246,7 @@ class WrapperTest(unittest.TestCase):
         self.code.mkdir()
         self.data.mkdir()
         for m in json.loads((ENGINE / "core_modules.json").read_text(encoding="utf-8"))["core"]:   # PP5: siblings too
-            shutil.copy(str(CODE / (m + ".py")), str(self.code / (m + ".py")))
+            shutil.copy(str(ENGINE / (m + ".py")), str(self.code / (m + ".py")))
         self.stub = self.tree / "stub.sh"
         self.stub.write_text(
             "#!/bin/bash\nset -euo pipefail\nCODE=%s\nDATA=%s\n%s"
@@ -319,7 +319,7 @@ class RealCtlTest(unittest.TestCase):
         # the ctl runs evolution.py on its own, and evolution imports its core siblings (PP5: platform_compat)
         core = json.loads((ENGINE / "core_modules.json").read_text(encoding="utf-8"))["core"]
         for name in ["chatbot-ctl.sh", "protected_paths.json"] + [m + ".py" for m in core]:
-            shutil.copy(str(CODE / name), str(self.code / name))
+            shutil.copy(str(ENGINE / name), str(self.code / name))
         stubs = home / ".local" / "bin"
         stubs.mkdir(parents=True)
         for name in ("ps", "kill", "pkill", "setsid", "nohup", "curl"):

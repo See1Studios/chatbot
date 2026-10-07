@@ -1,6 +1,6 @@
 """BRAIN_LIMITS_v1 (docs/plans/director-handoff.md dir/J): a brain that ran out is remembered until its reset, so the
 delegation runner skips it at once instead of spending another try or another 20-minute timeout on it.
-Run: python3 -m unittest tests.test_brain_limits  (from services/chatbot)
+Run: engine/run-tests.sh test_brain_limits
 """
 import sys
 import tempfile

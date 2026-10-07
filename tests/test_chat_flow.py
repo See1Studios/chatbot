@@ -1,6 +1,6 @@
 """CHAT_FLOW_v1 (static/app-flow.js, ux-shell-roadmap 4.2.1b, #418): day dividers instead of session dividers, the
 user's consecutive bubbles grouped. planFlow runs in node against the real file.
-Run: python3 -m unittest tests.test_chat_flow  (from services/chatbot)
+Run: engine/run-tests.sh test_chat_flow
 """
 import json
 import shutil

@@ -1,6 +1,6 @@
 """SESSION_OPEN_v1 / CLIENT_ERRORS_v1 (#424): a refresh never hides the conversation behind a new empty session, and
 the page's errors reach the host log. ensureSession runs in node against the real file with stubbed calls.
-Run: python3 -m unittest tests.test_session_open  (from services/chatbot)
+Run: engine/run-tests.sh test_session_open
 """
 import json
 import shutil

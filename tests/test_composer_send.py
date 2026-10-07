@@ -2,7 +2,7 @@
 empty box or while an attached file is still uploading (app-attach.js), an Enter glyph for the plain send, words only
 for the busy-time actions (steer, side question). The attach button's icon names the kind of file. The REAL functions
 run in node against stubs.
-Run: python3 -m unittest tests.test_composer_send  (from services/chatbot)
+Run: engine/run-tests.sh test_composer_send
 """
 import json
 import shutil

@@ -1,5 +1,5 @@
 """OBSLOG_v1: structured event log (obslog.py).
-Run: python3 -m unittest tests.test_obslog  (from services/chatbot)
+Run: engine/run-tests.sh test_obslog
 """
 import json
 import os

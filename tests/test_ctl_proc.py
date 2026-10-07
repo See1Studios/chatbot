@@ -1,6 +1,6 @@
 """WATCHDOG_OS_FACTS_v1: ctl_proc.py decides from OS facts only (process table, /proc cwd, ctl's pid file).
 Pure-function tests on fake tables; nothing is killed or sampled for real.
-Run: python3 -m unittest tests.test_ctl_proc  (from services/chatbot)
+Run: engine/run-tests.sh test_ctl_proc
 """
 import os
 import sys

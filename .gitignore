@@ -13,4 +13,5 @@ data-pin.env
 
 # uds: nothing under data/ is engine source (user data lives in ~/.pe; secrets, private memory, sessions, style
 # references and runtime state included). A test run writes its own scratch here. A release tree must not ship it.
-data/**
+/data/
+engine/data/

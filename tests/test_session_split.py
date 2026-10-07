@@ -1,6 +1,6 @@
 """Work and private talk are separate sessions (SESSION_SPLIT_v1, plan doc §12): the live work session never
 lands on a private one, each character's private session is reused, and a private bundle carries no work.
-Run: python3 -m unittest tests.test_session_split  (from services/chatbot)
+Run: engine/run-tests.sh test_session_split
 """
 import json
 import shutil

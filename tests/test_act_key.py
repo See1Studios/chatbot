@@ -2,7 +2,7 @@
 not while composing Hangul or with modifiers; Backspace on the bare "/act " takes it back; a bare "/act" is neither
 sent nor sendable; the placeholder tells private mode about it. Mobile IME uses beforeinput (insertText ' ' /
 deleteContentBackward) because keydown is Unidentified/229. The REAL functions run in node against stubs.
-Run: python3 -m unittest tests.test_act_key  (from services/chatbot)
+Run: engine/run-tests.sh test_act_key
 """
 import json
 import shutil

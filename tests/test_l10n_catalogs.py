@@ -2,7 +2,7 @@
 has the same keys; every key the page names literally (tr('x'), data-i18n*) is in them; tr() falls back to English, then
 to the key; the language is ?lang=, then the one kept, then the browser's, then English. The REAL app-i18n.js runs in
 node against stubs.
-Run: ./run-tests.sh test_l10n_catalogs
+Run: engine/run-tests.sh test_l10n_catalogs
 """
 import json
 import re
@@ -38,7 +38,7 @@ class Catalogs(unittest.TestCase):
 
     def test_every_key_the_server_names_is_in_the_catalog(self):
         # l10n/F: i18n.msg / text / field name catalog keys; a key the page cannot show is a bug in every language
-        root = ROOT
+        root = ENGINE
         files = list(root.glob("*.py")) + list(root.glob("providers/*.py"))
         rx = re.compile(r"""\bi18n\.(?:msg|text)\(\s*["']([a-z0-9_.-]+)["']|\bi18n\.field\(\s*["']\w+["']\s*,\s*["']([a-z0-9_.-]+)["']""")
         used = {a or b for p in files for a, b in rx.findall(p.read_text(encoding="utf-8"))}

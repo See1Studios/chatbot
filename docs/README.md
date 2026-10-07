@@ -34,12 +34,12 @@
 - **기본은 모듈별 실행**(실패가 그 모듈에 머물고 모듈별 시간이 보임). split/A(2026-10-02) 뒤로는 전체를 한 프로세스에서 돌려도 통과한다 — 모듈이 전역이나 환경 변수를 바꾸고 안 되돌리면 뒤 모듈이 깨지므로, 그런 변경을 찾을 때 `--one-process`.
 
 ```bash
-./run-tests.sh                      # 전체 (모듈별 한 프로세스, 실패 시 종료 코드 1)
-./run-tests.sh --fast               # 가드 테스트만 (커밋 훅용, 목록은 스크립트 FAST)
-./run-tests.sh test_identity_wiring # 하나만
-./run-tests.sh --one-process        # 전체를 한 프로세스에서 (격리 확인, 약 5분)
+engine/run-tests.sh                      # 전체 (모듈별 한 프로세스, 실패 시 종료 코드 1)
+engine/run-tests.sh --fast               # 가드 테스트만 (커밋 훅용, 목록은 스크립트 FAST)
+engine/run-tests.sh test_identity_wiring # 하나만
+engine/run-tests.sh --one-process        # 전체를 한 프로세스에서 (격리 확인, 약 5분)
 ```
 
-테스트를 도는 방법은 `run-tests.sh` 한 곳뿐이다. 훅·위임 러너 게이트·CI도 이 스크립트를 부른다.
+테스트를 도는 방법은 `engine/run-tests.sh` 한 곳뿐이다. 훅·위임 러너 게이트·CI도 이 스크립트를 부른다.
 
 클론마다 한 번 커밋 훅을 켠다: `git config core.hooksPath .githooks` (가드 테스트·비밀 검사·커밋 메시지 형식).

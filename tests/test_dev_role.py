@@ -2,7 +2,7 @@
 (data/workspace/AGENTS.md) is injected into every character and, in the shipped build, into characters that never
 touch the engine; tickets, claims, plans and the commit rules live in the `dev` role pack (roles/dev/), held through
 team.json. A character without that role gets none of it in its bundle.
-Run: python3 -m unittest tests.test_dev_role  (from services/chatbot)
+Run: engine/run-tests.sh test_dev_role
 """
 import shutil
 import sys

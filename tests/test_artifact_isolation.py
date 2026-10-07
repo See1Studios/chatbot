@@ -11,7 +11,7 @@ the isolation in the /api/rooms/<rid>/artifacts API, and drawer isolation in sta
 Actively populating/writing artifacts into this directory (by agent tools, file generation actions,
 or user uploads) is outside the scope of ticket #575 and will be handled by future room tools/delegation runners.
 
-Run: python3 -m unittest tests.test_artifact_isolation (from services/chatbot)
+Run: engine/run-tests.sh test_artifact_isolation
 """
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """The 개선 tab's history: every resolved observation, in the log or archived, newest resolution first, in pages
 (OBS_HISTORY_v1). Replaces '오늘 처리', which drifted because archiving only happens on the next write.
-Run: python3 -m unittest tests.test_observation_history  (from services/chatbot)
+Run: engine/run-tests.sh test_observation_history
 """
 import shutil
 import sys

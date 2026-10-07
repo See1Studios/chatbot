@@ -1,6 +1,6 @@
 """Stopping shows one notice (STOP_NOTICE_ONCE_v1): the server's 'stopped' event (static/app-sse.js) is the notice;
 the stop button's own (static/app.js) stands in only when that event never comes. The REAL click handler runs in node.
-Run: python3 -m unittest tests.test_stop_notice  (from services/chatbot)
+Run: engine/run-tests.sh test_stop_notice
 """
 import json
 import shutil

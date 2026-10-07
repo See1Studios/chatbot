@@ -1,7 +1,7 @@
 """PERSONAL_TURN_v1 (docs/plans/private-mode.md §8.3, W1): a work-room turn marked personal stays in the chat but
 never becomes work material -- no work tools during it, no observation candidate, nothing recallable from work; and
 a private session is never recallable from work at all.
-Run: python3 -m unittest tests.test_personal_turn  (from services/chatbot)
+Run: engine/run-tests.sh test_personal_turn
 """
 import importlib.util
 import json

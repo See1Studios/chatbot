@@ -14,8 +14,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[1]   # run as a script by the delegation gate: find tests._paths first
 sys.path.insert(0, str(ROOT))
+from tests._paths import ENGINE  # noqa: E402
+sys.path.insert(0, str(ENGINE))
 # The HTTP providers come from a data folder's providers.json, which is install data and never in a checkout. A gate
 # runs on its worktree's empty data/ (c54e312), so smoke brings its own: the shipped example (#621).
 _DATA = Path(tempfile.mkdtemp(prefix="smoke-data-"))
@@ -114,8 +116,8 @@ class Tokens(unittest.TestCase):
 class Guard(unittest.TestCase):
     def test_rlock(self) -> None:
         r = subprocess.run(
-            ["bash", str(ROOT / "chatbot-ctl.sh"), "guard"],
-            cwd=str(ROOT),
+            ["bash", str(ENGINE / "chatbot-ctl.sh"), "guard"],
+            cwd=str(ENGINE),
             capture_output=True,
             text=True,
         )

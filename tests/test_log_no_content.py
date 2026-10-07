@@ -10,7 +10,7 @@ The test drives a real AgentSession turn in private mode and holds the negative 
 positives, so a pass cannot be vacuous: the turn really did reach the global stream, and the same
 words really are on the path (the session log has them).
 
-Run: python3 -m unittest tests.test_log_no_content  (from services/chatbot)
+Run: engine/run-tests.sh test_log_no_content
 """
 import json
 import os
@@ -161,10 +161,10 @@ class OneResolver(unittest.TestCase):
             code = Path(d) / "code"
             code.mkdir()
             for name in ("chatbot-ctl.sh", "host_config.py", "protected_paths.json"):
-                shutil.copy(str(CODE / name), str(code / name))
+                shutil.copy(str(ENGINE / name), str(code / name))
             (code / "data").mkdir()
             r = subprocess.run(["bash", str(code / "chatbot-ctl.sh"), "status"],
-                               capture_output=True, text=True, timeout=30, cwd=str(CODE),
+                               capture_output=True, text=True, timeout=30, cwd=str(ENGINE),
                                env=dict(os.environ, CHATBOT_PORT="1", NAS_MCP_PORT="1"))
             self.assertTrue((code / "logs").is_dir(),
                             "ctl did not create its own log dir (it asked another tree): %s %s" % (r.stdout, r.stderr))

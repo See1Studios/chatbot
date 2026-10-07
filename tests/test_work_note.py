@@ -2,7 +2,7 @@
 line before the user's message, the delegated work it is doing -- all of it on a session's first turn, then only when
 a run's phase changes. The default character, which delegates, hears every run (it once guessed a timed-out run
 was waiting for a merge); nothing in a private session.
-Run: python3 -m unittest tests.test_work_note  (from services/chatbot)
+Run: engine/run-tests.sh test_work_note
 """
 import shutil
 import os

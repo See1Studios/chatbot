@@ -3,12 +3,12 @@
 bytes track tokens where line counts do not). A module over the cap is split by what it does; a function over the cap
 is split by its steps. The few already over a cap may not grow past the ceiling pinned here -- lower a ceiling when
 you shrink one, never raise it.
-Run: python3 -m unittest tests.test_file_sizes  (from services/chatbot)
+Run: engine/run-tests.sh test_file_sizes
 """
 import ast
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO  # noqa: E402
+from tests._paths import ENGINE, REPO, rel  # noqa: E402
 
 ROOT = REPO
 MAX_BYTES = 80_000
@@ -40,8 +40,6 @@ def modules():
     return sorted(list(ENGINE.glob("*.py")) + list((ENGINE / "tools").glob("*.py")) + list((ENGINE / "providers").glob("*.py")))
 
 
-def rel(p):
-    return p.relative_to(ROOT).as_posix()
 
 
 def functions():
@@ -72,7 +70,7 @@ class FileSizes(unittest.TestCase):
 
     def test_ceilings_are_only_for_modules_really_over_the_cap(self):
         for name, ceiling in CEILINGS.items():
-            n = (ROOT / name).stat().st_size
+            n = (ENGINE / name).stat().st_size
             self.assertGreater(n, MAX_BYTES, "%s is under the cap now: drop its ceiling" % name)
             self.assertLessEqual(ceiling - n, BYTES_SLACK, "%s shrank to %d bytes: lower its ceiling" % (name, n))
 

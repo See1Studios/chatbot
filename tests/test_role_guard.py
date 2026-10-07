@@ -1,7 +1,7 @@
 """Roles make a director better, not fenced (operator 2026-10-05). ROLE_TOOLS_v1's stops are off: a role's own tool
 steps on code are not stopped, and what stays is the edition boundary and the tool server's per-caller scope. Every
 skill a role pack names exists, so a role's `skills:` line equips it.
-Run: python3 -m unittest tests.test_role_guard  (from services/chatbot)
+Run: engine/run-tests.sh test_role_guard
 """
 import json
 import sys

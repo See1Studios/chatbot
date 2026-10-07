@@ -2,7 +2,7 @@
 link-local or tailnet space is refused before connecting and at every redirect, so a model cannot read the host's
 own services through it; pages become readable text; DuckDuckGo's no-key pages become result lists; a private
 session gets nothing. Offline: fake DNS, fake responses, no network.
-Run: python3 -m unittest tests.test_web_tool  (from services/chatbot)
+Run: engine/run-tests.sh test_web_tool
 """
 import io
 import sys

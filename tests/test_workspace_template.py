@@ -5,7 +5,7 @@ the repo. templates/workspace-manifest.json lists every such file exactly once: 
 (the shipped copy differs on purpose; the dev copy lives in dev-workspace) or 'not_shipped' (dev-workspace only, with a
 reason); 'per_install' files (this user's or this host's) are in neither. An unlisted file on either side, or a
 listed one missing, fails here.
-Run: python3 -m unittest tests.test_workspace_template  (from services/chatbot)
+Run: engine/run-tests.sh test_workspace_template
 """
 import json
 import sys

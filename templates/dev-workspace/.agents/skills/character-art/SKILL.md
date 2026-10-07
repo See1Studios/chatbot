@@ -46,7 +46,7 @@ Next to the card, so they travel with it: `$CHATBOT_DATA/workspace/characters/<i
 4. Check the base look and wigs as a 56px circle (the face must fill it; the cut and colour must tell the brains apart), and sprites by laying each
    label over `neutral` (the body must not move).
 5. Write `.webp` (and the `.png` master if you have one), then run
-   `python3 tools/check_character_art.py <id>` from `services/chatbot` until it says ok.
+   `python3 engine/tools/check_character_art.py <id>` from `services/chatbot` until it says ok.
 6. Update the wig table and the rejected list in `visual.md` in the same change.
 
 Never replace an image the operator approved without asking; add candidates under `gallery/` in the character

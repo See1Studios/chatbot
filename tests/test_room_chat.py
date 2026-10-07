@@ -2,7 +2,7 @@
 natural / list / manual, @mentions first), at most MAX_REPLIES answers per user message with at most MAX_CHAIN from
 characters calling each other, each member hearing only what was said since it last spoke, from its own hidden
 "room" session that never becomes its one-to-one chat.
-Run: python3 -m unittest tests.test_room_chat  (from services/chatbot)
+Run: engine/run-tests.sh test_room_chat
 """
 import json
 import os

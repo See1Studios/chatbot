@@ -4,7 +4,7 @@ the model in use. (실장님: 모바일에서 모델 select가 폭을 차지해�
 Runs the REAL code of static/model-picker.js in node against a stub DOM, plus static checks that the
 markup/CSS keep the hidden <select id="model"> (the source of truth app.js reads) and the icon
 button. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_model_picker  (from services/chatbot)
+Run: engine/run-tests.sh test_model_picker
 """
 import json
 import re

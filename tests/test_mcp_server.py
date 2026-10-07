@@ -5,7 +5,7 @@ plugin (service tools) are wired in.
 Nothing here runs a real command or writes outside a temp dir: `_run` is always
 replaced by a recorder and the write/read roots are pointed at temp dirs. The one
 class that uses real paths (RealPathsTest) makes every filesystem write raise.
-Run: python3 -m unittest tests.test_mcp_server  (from services/chatbot)
+Run: engine/run-tests.sh test_mcp_server
 """
 import json
 import os
@@ -479,9 +479,10 @@ class RealPathsTest(unittest.TestCase):
         self.assertEqual(mcp.CODE_ROOT, CODE)
         for path in sorted(ENGINE.glob("*.py")):
             self.refused(path)
-        for rel in ("chatbot-ctl.sh", "tests/test_mcp_server.py", "protected_paths.json",
-                    "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md", "docs/EMERGENCY.md",
+        for rel in ("chatbot-ctl.sh", "protected_paths.json", "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md",
                     "data/host-force.ticket"):
+            self.refused(ENGINE / rel)
+        for rel in ("tests/test_mcp_server.py", "docs/EMERGENCY.md"):
             self.refused(CODE / rel)
 
     def test_the_symlink_to_the_ctl_is_refused_too(self):
@@ -834,7 +835,7 @@ class EntryPointsTest(unittest.TestCase):
         home = tempfile.mkdtemp()
         port = self.free_port()
         env = dict(os.environ, HOME=home, NAS_MCP_PORT=str(port))
-        proc = subprocess.Popen([sys.executable, str(CODE / script)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen([sys.executable, str(ENGINE / script)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             for _ in range(75):
                 try:

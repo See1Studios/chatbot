@@ -2,7 +2,7 @@
 the model when the name takes at most a third of the empty box, else only its icon; placed left of the inline button
 on the input's last line; the input keeps clear of it. Typing, a short screen and an open phone keyboard leave the
 icon. The REAL function runs in node; markup and CSS are read.
-Run: python3 -m unittest tests.test_model_tag  (from services/chatbot)
+Run: engine/run-tests.sh test_model_tag
 """
 import json
 import shutil

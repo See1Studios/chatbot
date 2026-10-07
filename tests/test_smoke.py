@@ -2,7 +2,7 @@
 suite never ran it: 398eace (2026-10-06) moved names it imported and every delegation's smoke gate failed (#715).
 Smoke itself cannot run from the commit hook (its guard check fails on any staged change), so this guard (run-tests.sh
 FAST) checks what broke: every name smoke.py and the runner's other gates import exists where they import it from.
-Run: python3 -m unittest tests.test_smoke  (from services/chatbot)
+Run: engine/run-tests.sh test_smoke
 """
 import ast
 import importlib

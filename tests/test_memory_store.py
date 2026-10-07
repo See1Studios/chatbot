@@ -1,5 +1,5 @@
 """memory_store.py: the long-term memory rules, in one core module.
-Run: python3 -m unittest tests.test_memory_store  (from services/chatbot)
+Run: engine/run-tests.sh test_memory_store
 """
 import ast
 import datetime

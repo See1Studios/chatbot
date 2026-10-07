@@ -1,7 +1,7 @@
 """The page appears once, after boot has drawn it (BOOT_CURTAIN_v1): the page starts hidden (static/index.html
 html.booting, laid out but transparent), app.js lifts it two frames after boot() settles and in any case after
 BOOT_CURTAIN_MAX_MS, and the stage fades in only once its own picture has loaded (no stand-in first).
-Run: python3 -m unittest tests.test_boot_curtain  (from services/chatbot)
+Run: engine/run-tests.sh test_boot_curtain
 """
 import re
 import unittest

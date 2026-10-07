@@ -2,7 +2,7 @@
 (실장님: 이전 세션을 둘러보다가 최신 대화로 를 눌러도 최신 대화가 로딩안되있다면 실제로 최신대화로 가지 않네.)
 Runs the REAL resolveLatestSessionId / goToLatestConversation / updateScrollBottomButton
 (sliced out of static/app.js) in node against stubs. Skipped when node is not installed.
-Run: python3 -m unittest tests.test_latest_conversation_jump  (from services/chatbot)
+Run: engine/run-tests.sh test_latest_conversation_jump
 """
 import json
 import shutil

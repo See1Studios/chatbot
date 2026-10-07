@@ -2,7 +2,7 @@
 With no CHATBOT_EDITION the install is the shipped build: the MCP server offers no run_command, ticket or delegate
 tool and refuses them if called by name, and its file tools reach only the install's user data -- not the engine
 repo, not host-wide agent folders. CHATBOT_EDITION=dev (in $CHATBOT_DATA/host.env) restores the dev tools and roots.
-Run: python3 -m unittest tests.test_edition_boundary  (from services/chatbot)
+Run: engine/run-tests.sh test_edition_boundary
 """
 import json
 import os

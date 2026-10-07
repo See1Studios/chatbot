@@ -1,12 +1,12 @@
 """Documents agents act on do not rot (plan-execution-workflow §0): in active plans, decisions and root AGENTS.md,
 relative links resolve, code is cited as `path` or `path::symbol` (the symbol must still be in that file), and never
 by line number -- line numbers are wrong after the next edit.
-Run: python3 -m unittest tests.test_doc_refs  (from services/chatbot)
+Run: engine/run-tests.sh test_doc_refs
 """
 import re
 import unittest
 from pathlib import Path
-from tests._paths import REPO  # noqa: E402
+from tests._paths import ENGINE, REPO  # noqa: E402
 
 ROOT = REPO
 EXT = r"(?:py|js|sh|css|json|md|html)"
@@ -38,7 +38,7 @@ class DocRefs(unittest.TestCase):
     def test_symbol_references_still_exist(self):
         for doc in docs():
             for path, symbol in SYMBOL_REF.findall(doc.read_text(encoding="utf-8")):
-                f = ROOT / path
+                f = ROOT / path if (ROOT / path).exists() else ENGINE / path   # code is cited engine-relative
                 self.assertTrue(f.exists(), "%s cites missing file %s" % (doc.name, path))
                 name = symbol.split(".")[-1]
                 self.assertRegex(f.read_text(encoding="utf-8"), r"\b%s\b" % re.escape(name),

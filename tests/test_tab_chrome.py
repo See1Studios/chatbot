@@ -2,7 +2,7 @@
 tab; the tool tabs (sessions, log, artifacts, status, improve, team) are plain. The REAL switchTab (static/app-api.js)
 runs in node against stubs and must mark the page with the tab; the stylesheet, read in cascade order, must hide
 the scene and the input bar for every tab but chat. Skipped without node.
-Run: python3 -m unittest tests.test_tab_chrome  (from services/chatbot)
+Run: engine/run-tests.sh test_tab_chrome
 """
 import json
 import re

@@ -1,6 +1,6 @@
 """THINKING_VIEW_v1 (plan ux/L, #388): a brain's streamed reasoning reaches the page as `thinking` events, keeps the
 turn alive, is never stored, and shows as a strip that folds when the answer starts.
-Run: python3 -m unittest tests.test_thinking_view  (from services/chatbot)
+Run: engine/run-tests.sh test_thinking_view
 """
 import json
 import shutil

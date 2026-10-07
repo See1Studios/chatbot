@@ -1,7 +1,7 @@
 """Server-side behaviour behind account rotation (quota ran out -> log in elsewhere):
 the usage cache must follow the ACCOUNT, and auto-recycle must never touch a busy
 session, an external process, or a pid it was not told about.
-Run: python3 -m unittest tests.test_auto_recycle  (from services/chatbot)
+Run: engine/run-tests.sh test_auto_recycle
 """
 import sys
 import threading

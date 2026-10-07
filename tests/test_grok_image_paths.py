@@ -1,6 +1,6 @@
 """Grok Imagine markdown `images/1.jpg` must become a served /artifacts URL.
 
-Run: python3 -m unittest tests.test_grok_image_paths  (from services/chatbot)
+Run: engine/run-tests.sh test_grok_image_paths
 """
 import sys
 import unittest

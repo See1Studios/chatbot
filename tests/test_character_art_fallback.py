@@ -2,7 +2,7 @@
 placeholder in static/placeholders/ -- so the page never shows a broken image and never 404s on art (the sprite
 requests 404ed all day on 2026-09-28). The placeholders follow the same format as real art (characters.py
 CHARACTER_ART_v1), and every kind and framing has one.
-Run: python3 -m unittest tests.test_character_art_fallback  (from services/chatbot)
+Run: engine/run-tests.sh test_character_art_fallback
 """
 import json
 import shutil

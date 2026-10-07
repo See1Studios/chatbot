@@ -1,5 +1,5 @@
 """The newest-session lookup reads each meta.json once per change, not on every poll (SESSION_INDEX_v1).
-Run: python3 -m unittest tests.test_session_index  (from services/chatbot)
+Run: engine/run-tests.sh test_session_index
 """
 import json
 import shutil

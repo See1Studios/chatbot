@@ -1,5 +1,5 @@
 """OBSLOG_v1: logdigest.py findings and views, and the MCP allowlist for `chatbot-ctl.sh logs`.
-Run: python3 -m unittest tests.test_logdigest  (from services/chatbot)
+Run: engine/run-tests.sh test_logdigest
 """
 import io
 import json

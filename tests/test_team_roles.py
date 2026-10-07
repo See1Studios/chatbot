@@ -1,6 +1,6 @@
 """Every character is equal: cards carry no role; a role is a pack (roles/<role>/ROLE.md: instructions, skills,
 tool grants) and the roster (team.json) says who holds it and whom the app opens with (TEAM_ROLES_v1).
-Run: python3 -m unittest tests.test_team_roles  (from services/chatbot)
+Run: engine/run-tests.sh test_team_roles
 """
 import json
 import re
