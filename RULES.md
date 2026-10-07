@@ -35,11 +35,11 @@ not do.
 
 ### Naming
 
-- Standing documents (one copy, always current) are UPPERCASE: `AGENTS.md`, `RULES.md`, `docs/CONCEPT.md`,
+- Standing documents (one copy, always current) are UPPERCASE: `AGENTS.md`, `RULES.md`, `CONCEPT.md`,
   `SKILL.md`, `ROLE.md`, `PROCEDURE.md`, ...
-- Documents that accumulate are lower-kebab: `docs/plans/*.md` (`INDEX.md` excepted), `docs/devlog/YYYY-MM-DD.md`.
+- Documents that accumulate are lower-kebab: `docs/plans/*.md` (`INDEX.md` excepted), `docs/history/YYYY-MM-DD.md`.
 - No snake_case document names.
-- Renaming a document: update every live link in the same change. Leave history (DEVLOG, `docs/devlog/`, archives,
+- Renaming a document: update every live link in the same change. Leave history (HISTORY, `docs/history/`, archives,
   ticket records) as written.
 
 ### Harness
@@ -56,7 +56,8 @@ This repository is private. Treat a release as a reviewed source snapshot; never
 Cut a release later:
 
 1. Set the intended release version in engine/VERSION, for example 1.0.0.
-2. Add the user-visible changes to docs/CHANGELOG.md under that version.
+2. Write the version's user-visible changes into CHANGELOG.md (made from the commits since the last tag; HISTORY.md is
+   the work diary, not release notes).
 3. Run the test entry point: engine/run-tests.sh. Then run engine/chatbot-ctl.sh repair and confirm its smoke checks pass.
 4. Review the complete diff and tracked file list. Do not stage data/, secrets.env, session files, tokens, keys, or other private runtime output; release files must contain no secrets.
 5. Commit the reviewed release changes.
@@ -119,7 +120,7 @@ Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role 
 | Conventional Commits subject; `Plan:` trailer when `docs/plans/` changes | all | `test_githooks` (commit-msg hook) |
 | `Ticket:` trailer, own author name | all | `test_githooks` (commit-msg: a feat/fix/refactor/perf commit without `Ticket: #n` is refused; on a `worktree/ticket-n` branch it is written in); author name: `test_githooks` (pre-commit: never a character's name; a live chat session commits as the app `PE`) |
 | A live chat session never lands a worker's branch on main (landing is the operator's) | all | `test_githooks` (`.githooks/reference-transaction`) |
-| A merged delegation leaves its line in `docs/DEVLOG.md` | all | `test_devlog_entry` (the runner writes it with the ticket record, `tools/devlog_entry.py`) |
+| A merged delegation leaves its line in `HISTORY.md` | all | `test_history_entry` (the runner writes it with the ticket record, `tools/history_entry.py`) |
 | A ticket names the agent doing the work (`--actor`), never `unknown-cli`; who-fields hold role ids, not persona names | all | `test_ticket_quick` (ticket-quick records nothing when neither `--actor` nor the parent processes name the agent); `test_tickets` (`tickets.py` refuses a non-role-id actor at write time). A romanized nickname (`nono`) passes the role-id shape: manual |
 | No secrets, `.env`, private memory or style references in commits | all | `test_githooks` (pre-commit hook) |
 | Never `--no-verify`; hooks installed (`core.hooksPath=.githooks`) and executable | all | manual (run-tests.sh warns); backstops `test_worktree_runner`, `test_tickets` |
@@ -139,10 +140,10 @@ Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role 
 | Persona names/titles are display values, never ids or keys | all | `test_identity_wiring` |
 | Injected instruction bundles within `bundle_budget.json` | all | `test_bundle_budget` |
 | Every plan file has one INDEX row with a valid status | all | `test_plans_index` |
-| DEVLOG stays small; old dates in `docs/devlog/` | all | `test_docs_budget` |
+| HISTORY stays small; old dates in `docs/history/` | all | `test_docs_budget` |
 | Docs cite code as `path` or `path::symbol`, never line numbers; links resolve | all | `test_doc_refs` |
 | Tool-named entry files (`CLAUDE.md`, `GEMINI.md`) only point to `AGENTS.md`; no new invented entry files | all | `test_entrypoints` |
-| `AGENTS.md` is the dev-build entry only: at most 6,000 bytes, no chat-runtime conventions; the repo root holds only the entry files and the agent guidance (`RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`) | all | `test_entrypoints` |
+| `AGENTS.md` is the dev-build entry only: at most 6,000 bytes, no chat-runtime conventions. The repo root holds the entry files and the standing documents (guidance: `RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`; project: `README.md`, `CONCEPT.md`, `PRODUCT.md`, `DESIGN.md`, `HISTORY.md`); `docs/` holds folders only | all | `test_entrypoints` |
 | Document names: standing UPPERCASE, accumulating lower-kebab, no snake_case | all | `test_doc_names` |
 | Every registry row names an audience and a real enforcer | all | `test_rule_registry` |
 | Every enforcer is Tier 3 (`protected_paths.json` governance) and runs on each commit (`run-tests.sh` FAST), or is listed slow with where it runs instead | all | `test_rule_registry` |
@@ -150,7 +151,7 @@ Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role 
 | No new host/persona identity (DiskStation, `/volume1`, Sphere, 실장님, 냥) in engine code outside the host plugin | all | `test_ratchets` |
 | Tracked workspace template twins (repo `data/workspace` when present) are classified in `templates/workspace-manifest.json`; `same` pairs stay byte-equal; the template names no host and no engine work | all | `test_workspace_template` |
 | Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |
-| Speak with the operator in Korean. Agent guidance (the root `AGENTS.md`, `RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`, charters, role packs, skills) in plain English; documents for people (`docs/`: concept, product, design, plans, DEVLOG) may be Korean | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
+| Speak with the operator in Korean. Agent guidance (`AGENTS.md`, `RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`, charters, role packs, skills) in plain English; project documents (`CONCEPT.md`, `PRODUCT.md`, `DESIGN.md`, plans, `HISTORY.md`) may be Korean | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
 | Agent-facing machine text (prompts, tool strings, LEARNED lines) in English | all | manual |
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |
 | Look for prior art before building (`~/AGENTS.md` §0) | all | manual |

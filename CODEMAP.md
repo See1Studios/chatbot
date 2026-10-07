@@ -68,7 +68,7 @@ map only says which file does what.
 | Area | Files |
 |---|---|
 | Events and rooms | mailbox `events.py`; characters speaking first `event_react.py`; group rooms `room_chat.py`; dialog records `dialog_log.py`; the `dialog` tool `dialog_tool.py`; handoffs between directors `dialog_handoff.py`, drill `tools/handoff_drill.py`, page `static/app-handoffs.js` |
-| Delegation (dev build) | `delegation.py`, stall watch `delegation_watch.py`, runner `tools/worktree_runner.py`; review `tools/review_checklist.py`; worker report `tools/worker_output.py`; tokens `tools/run_usage.py`; brain limits `tools/brain_limits.py`; diary line `tools/devlog_entry.py` |
+| Delegation (dev build) | `delegation.py`, stall watch `delegation_watch.py`, runner `tools/worktree_runner.py`; review `tools/review_checklist.py`; worker report `tools/worker_output.py`; tokens `tools/run_usage.py`; brain limits `tools/brain_limits.py`; diary line `tools/history_entry.py` |
 
 ### Page (`static/`)
 
@@ -82,7 +82,7 @@ map only says which file does what.
 | Other screens | rooms `app-rooms.js`, art manager `app-art.js`, dev only `app-dev-delete.js`, log tab `service-log.js`, `theme.js` |
 | Character renderers | `visual-adapter.js`, `visual-sprite-adapter.js` |
 | Styles (cascade order) | `sphere-theme.css`, `chat-{base,log,composer,panes,responsive,features}.css`, `art-manager.css`, `rooms.css`, `shell.css` |
-| Visual system | `docs/DESIGN.md`, `.impeccable/design.json` |
+| Visual system | `DESIGN.md`, `.impeccable/design.json` |
 
 ### Tests
 

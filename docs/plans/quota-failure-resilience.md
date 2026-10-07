@@ -3,7 +3,7 @@
 > 방향 (align/D, 2026-10-02): **기반** — AI 모델 쿼터 소진(Individual quota reached), 서브스크립션 한도 초과 및 스트림 장애 시 침묵하지 않고 즉시 사용자 화면에 경고 카드(.msg.system.notice-warn)를 띄우고, 원클릭 대체 모델 전환 및 사전 쿼터 고갈 경고를 제공하는 복원력 강화 계획
 > 상태: **active** (2026-10-02 수립)
 > 목적: 모델 쿼터 소진 및 제공자 장애로 인한 대화 단절·침묵을 방지하고, 직관적인 시각 피드백과 원클릭 모델 스왑 인터랙션을 제공하여 무중단 대화 경험을 보장한다.
-> 관련: [api-adapter-parity.md](api-adapter-parity.md) · [../ARCHITECTURE.md](../../ARCHITECTURE.md) · [../CONCEPT.md](../CONCEPT.md)
+> 관련: [api-adapter-parity.md](api-adapter-parity.md) · [../ARCHITECTURE.md](../../ARCHITECTURE.md) · [../CONCEPT.md](../../CONCEPT.md)
 
 ---
 

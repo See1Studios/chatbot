@@ -28,7 +28,7 @@ class _StandbyPool:
     """Keeps one pre-spawned, idle agy process warm so a brand-new session's
     first message can skip the ~7-9s cold-start tax (measured 2026-09-16 via
     isolated `agy --print` calls — a fixed per-process-spawn cost, independent
-    of model/effort/ADD_DIRS; see docs/DEVLOG.md). Only used when the incoming
+    of model/effort/ADD_DIRS; see HISTORY.md). Only used when the incoming
     session matches DEFAULT_MODEL with no effort override and no
     conversation_id yet (i.e. genuinely fresh) — anything else falls back to
     a normal cold spawn, since a standby's --model/--effort are fixed at

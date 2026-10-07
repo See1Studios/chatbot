@@ -400,7 +400,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             # mints_own_conversation_id() (Multi-Provider plan Phase 0.5/1):
             # agy needs a uuid pre-minted before its first spawn or it
             # auto-resumes some unrelated stale conversation of its own (see
-            # the 2026-09-17 DEVLOG entry) -- but claude does the opposite:
+            # the 2026-09-17 HISTORY entry) -- but claude does the opposite:
             # verified live (2026-09-17) that `--resume <id>` on an id claude
             # has never seen fails the turn outright ("No conversation found
             # with session ID: ..."), so a provider that mints its own id

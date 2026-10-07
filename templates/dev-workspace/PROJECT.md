@@ -1,7 +1,7 @@
 # chatbot (dev build)
 
 Where things are, for a character doing engine work. Read on demand. Rules: `DEV-CHARTER.md`, boundary
-`SELF-MODIFY.md`, live outage `OPERATIONS.md`, product direction `docs/CONCEPT.md` (open it before changing code).
+`SELF-MODIFY.md`, live outage `OPERATIONS.md`, product direction `CONCEPT.md` (open it before changing code).
 
 ## Paths
 
@@ -22,8 +22,8 @@ Where things are, for a character doing engine work. Read on demand. Rules: `DEV
   and recommend adopt, adapt or build. Build from scratch only when nothing fits, and say why.
 - Follow the role packs you hold (`roles/<role>/ROLE.md`; the default character's planning, delegation and reports:
   `roles/lead/PROCEDURE.md`).
-- Order: concept, the code map, DEVLOG, then the files. Minimal patch. When you fix one code path, grep its sister
+- Order: concept, the code map, HISTORY, then the files. Minimal patch. When you fix one code path, grep its sister
   paths (adapter pairs, symmetric UI events and gates) and check them too.
 - Tests: the guards and the modules for your files (`roles/dev/PROCEDURE.md`); core changes also
   `chatbot-ctl.sh guard`, then `doctor` or `probe`.
-- Finish with a DEVLOG block, an `observation`, and a short summary for the operator in Korean.
+- Finish with a HISTORY block, an `observation`, and a short summary for the operator in Korean.

@@ -5,7 +5,7 @@
 > 상태: **active** (초안 2026-09-27, D1–D7 결정)
 > 목적: 엔진·화면·에이전트 답변을 주요 언어로 제공한다. 한국어는 여러 언어 중 하나가 된다(지금은 곳곳에 고정).
 > 관련: [release-pipeline.md](release-pipeline.md)(Next: 기반, Pre-Steam: 번역·스토어) · [plan-execution-workflow.md](plan-execution-workflow.md)(형식·강제층) · [private-engine-brand.md](private-engine-brand.md)(외부 명칭)
-> 방향 인용(G0, 범위 아님): [CONCEPT.md](../CONCEPT.md)의 캐릭터·로어 톤. 캐릭터 대사의 문체와 로어 번역은 이 계획의 항목이 아니다.
+> 방향 인용(G0, 범위 아님): [CONCEPT.md](../../CONCEPT.md)의 캐릭터·로어 톤. 캐릭터 대사의 문체와 로어 번역은 이 계획의 항목이 아니다.
 > 약칭: `l10n`
 
 ---

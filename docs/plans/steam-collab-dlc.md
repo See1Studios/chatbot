@@ -4,7 +4,7 @@
 
 > 상태: **active** (2026-10-01)
 > 목적: 스팀(Steam) 출시를 목표로 한 공식 콜라보 DLC 패키징 규격(.pepack), 창작마당과의 투트랙 역할 분담, 방송/스트리머 지원 기능 및 론칭 프로모션 단계별 계획 수립.
-> 관련: [CONCEPT.md](../CONCEPT.md) · [release-pipeline.md](release-pipeline.md) · [market-direction-review.md](market-direction-review.md) · [plugin-architecture.md](plugin-architecture.md) · [character-resource-pipeline.md](character-resource-pipeline.md)
+> 관련: [CONCEPT.md](../../CONCEPT.md) · [release-pipeline.md](release-pipeline.md) · [market-direction-review.md](market-direction-review.md) · [plugin-architecture.md](plugin-architecture.md) · [character-resource-pipeline.md](character-resource-pipeline.md)
 
 이 문서는 방향과 규격 초안이다. 구현은 §6 결정 뒤 항목별 티켓으로. 다른 계획과 겹치는 기능은 새로 만들지 않고 그 계획의 항목을 쓴다(§7).
 
@@ -16,7 +16,7 @@
 
 ## 1. 세계관 부합성 및 경험 원칙
 
-- **세계관 2번 유지**: 콜라보 캐릭터는 '비자를 발급받아 라운지로 온 공식 여행자'다([CONCEPT.md](../CONCEPT.md) 세계관 골격 2·9번). DLC 설치 = 라운지 매니저가 공식 비자를 발급하는 장면. 고향 세계(원작·방송)는 진짜이고, 떠남은 카드를 지울 때의 「귀향」뿐이다. 로어는 현행 방향이며 확정이 아니다.
+- **세계관 2번 유지**: 콜라보 캐릭터는 '비자를 발급받아 라운지로 온 공식 여행자'다([CONCEPT.md](../../CONCEPT.md) 세계관 골격 2·9번). DLC 설치 = 라운지 매니저가 공식 비자를 발급하는 장면. 고향 세계(원작·방송)는 진짜이고, 떠남은 카드를 지울 때의 「귀향」뿐이다. 로어는 현행 방향이며 확정이 아니다.
 - **BYOK 데스크톱 동반자 가치**: 두뇌만 연결하면(계정 로그인 우선, API 키는 고급 — [market-direction-review.md](market-direction-review.md) R10) 그날부터 바탕화면 곁에서 지내고 이야기한다. 업무 효율 경쟁이 아니라 "곁에 있는 존재"가 판매 포인트다.
 - **사적 보안 준수**: [private-security.md](private-security.md) T1(옆 사람·화면 노출)을 그대로 지킨다. 방송은 T1의 가장 큰 경우다(§4).
 - **수위**: Steam 빌드는 15세 수준(R11). 콜라보 팩도 같은 상한을 넘지 않는다.

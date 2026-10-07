@@ -4,7 +4,7 @@
 
 > 상태: **active** (초안 2026-09-28)
 > 목적: 하나의 코드베이스에서 **배포판**(엔드유저, 엔진 코드를 고치지 않음)과 **개발판**(엔진을 만드는 쪽, 코드 자가진화)을 가르는 경계를 설계한다. 경계는 글이 아니라 설정·도구 권한·패키지 목록·테스트로 선다.
-> 관련: [../CONCEPT.md](../CONCEPT.md) 「배포판과 개발판」 · [direction-alignment.md](direction-alignment.md) D2·align/I · [personalization-ladder.md](personalization-ladder.md)(배포판의 자기 개발은 제안 카드) · [plan-execution-workflow.md](plan-execution-workflow.md)(개발판 관문) · [release-pipeline.md](release-pipeline.md)(설치기에 무엇이 들어가나) · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [plugin-architecture.md](plugin-architecture.md)
+> 관련: [../CONCEPT.md](../../CONCEPT.md) 「배포판과 개발판」 · [direction-alignment.md](direction-alignment.md) D2·align/I · [personalization-ladder.md](personalization-ladder.md)(배포판의 자기 개발은 제안 카드) · [plan-execution-workflow.md](plan-execution-workflow.md)(개발판 관문) · [release-pipeline.md](release-pipeline.md)(설치기에 무엇이 들어가나) · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [plugin-architecture.md](plugin-architecture.md)
 > 약칭: `edition`
 
 ---

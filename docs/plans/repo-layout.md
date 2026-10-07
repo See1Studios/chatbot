@@ -3,7 +3,7 @@
 > 방향 (align/D, 2026-10-08): **개발 기반** — 누가 개발하든 루트에서 길을 잃지 않게. 에이전트가 처음 보는 곳을 작게 유지해 토큰도 아낀다
 
 > 상태: **active** (초안 2026-10-08)
-> 목적: 저장소 루트에는 진입 파일(`AGENTS.md`·`CLAUDE.md`·`GEMINI.md`)과 개발 지침(`RULES.md`·`CODEMAP.md`), 그리고 폴더만 둔다. 루트에 평평하게 깔린 코드를 폴더로 옮긴다.
+> 목적: 저장소 루트에는 진입 파일(`AGENTS.md`·`CLAUDE.md`·`GEMINI.md`), 에이전트가 늘 읽는 문서(지침과 프로젝트 문서), 그리고 폴더만 둔다. `docs/`에는 폴더만. 루트에 평평하게 깔린 코드를 폴더로 옮긴다.
 > 관련: [plan-execution-workflow.md](plan-execution-workflow.md) §3(진입과 정본 배치, pew/S) · [archive/2026/monolith-split.md](archive/2026/monolith-split.md)(크기 분할 완료, 폴더 재배치는 보류로 남았던 것을 이 계획이 잇는다) · [edition-boundary.md](edition-boundary.md)(배포 제외 목록) · [platform-portability.md](platform-portability.md)
 > 약칭: `layout`
 
@@ -43,7 +43,7 @@
 | `layout/B` | 루트 계산을 한 곳으로: 저장소 루트와 엔진 폴더를 `host_config`(코드)와 테스트 공용 도우미(테스트) 하나에서만 정하고, 229개 파일이 그것을 쓰게. 이동 전에 해 두면 이동은 상수 하나만 바뀐다 | 코드·테스트 다수 | 동작 변화 없이 `./run-tests.sh` 통과, `Path(__file__)`로 루트를 계산하는 곳이 도우미뿐(테스트로 고정) | 3 · ⚡ | M | D1 | ✅ #775 `1f19de3` |
 | `layout/C` | 이동: D1·D3대로 `git mv`, `chatbot-ctl.sh`·보호 경로·테스트 범위·러너·훅·래퍼 경로 | 코드 전반 | 루트에 진입·개발 지침·폴더·`.git*`만(테스트), `./run-tests.sh` 통과 | 3 · ⚡ | L → 쪼갬 | layout/B, D1–D3 | ✅ #776 `2ee643c` `31518c8` |
 | `layout/D` | 라이브 전환: 운영자 유휴 때 재시작, probe·doctor, 위임 한 번 돌려 보기 | 라이브 | 재시작 후 probe 통과, 위임 러너 한 건 성공 | — · ⚡ | S | layout/C | 재시작·probe 통과(2026-10-08), 호스트 링크·`~/bin/ticket-quick` 갱신, 티켓 완료 관문이 `engine/run-tests.sh`로 돎. 위임 한 건은 다음 위임 때 확인 |
-| `layout/F` | 에이전트 지침도 루트로(운영자 2026-10-08: "매번 에이전트가 읽어야 하는 지침들은 저장소 루트로"): `ARCHITECTURE.md`(쉬운 영어로 다시, 있는 것과 계획을 나눔), `OPERATIONS.md`(EMERGENCY + LOGGING), `RULES.md`가 STATE·RELEASE를 흡수, 포인터뿐인 `docs/SELF-MODIFY.md` 삭제. `docs/`에는 사람이 읽는 문서만 | 루트 지침, `docs/`, 참조 | `test_entrypoints`(루트 문서 목록), `test_doc_refs`(새 지침도 검사) 통과 | 3 · — | M | layout/C | #777 |
+| `layout/F` | 에이전트 지침도 루트로(운영자 2026-10-08: "매번 에이전트가 읽어야 하는 지침들은 저장소 루트로"): `ARCHITECTURE.md`(쉬운 영어로 다시, 있는 것과 계획을 나눔), `OPERATIONS.md`(EMERGENCY + LOGGING), `RULES.md`가 STATE·RELEASE를 흡수, 포인터뿐인 `docs/SELF-MODIFY.md` 삭제. 이어서(운영자: "docs 루트에 있는 것들 모두 저장소 루트로") README·CONCEPT·PRODUCT·DESIGN·HISTORY·CHANGELOG도 루트로, `docs/`에는 폴더만(plans/·providers/·devlog/) | 루트 지침, `docs/`, 참조 | `test_entrypoints`(루트 문서 목록), `test_doc_refs`(새 지침도 검사) 통과 | 3 · — | M | layout/C | ✅ #777 `e1a8958`, #778 `ARCHITECTURE` 내용 복원, #779 |
 | `layout/E` | `engine/` 안 영역별 분할 | — | — | 3 · ⚡ | L | D4 | 보류 |
 
 ## 5. 의존·순서·리스크

@@ -1,6 +1,6 @@
 # 음성 입력과 오디오 연동 계획 (voice-and-audio-interaction)
 
-> 방향 (align/D, 2026-10-03): **핵심 + 기반** — 손과 눈이 자유롭지 않은 모바일·이동 중 환경에서도 메신저 본연의 편의성을 제공. 모델 토큰 낭비(제로 토큰)와 외부 API 의존 없이 브라우저 네이티브 Web Speech API를 1차로 활용하며, 향후 플러그인 TTS/STT 확장 기반을 마련한다 (`docs/CONCEPT.md`, [ux-shell-roadmap.md](ux-shell-roadmap.md), [plugin-architecture.md](plugin-architecture.md)).
+> 방향 (align/D, 2026-10-03): **핵심 + 기반** — 손과 눈이 자유롭지 않은 모바일·이동 중 환경에서도 메신저 본연의 편의성을 제공. 모델 토큰 낭비(제로 토큰)와 외부 API 의존 없이 브라우저 네이티브 Web Speech API를 1차로 활용하며, 향후 플러그인 TTS/STT 확장 기반을 마련한다 (`CONCEPT.md`, [ux-shell-roadmap.md](ux-shell-roadmap.md), [plugin-architecture.md](plugin-architecture.md)).
 > 상태: **active** (2026-10-03 수립, 운영자 승인 후 착수 대기)
 > 관련: [ux-shell-roadmap.md](ux-shell-roadmap.md)(§4.2.3 메신저 뼈대·입력 바), [composer-plus-menu.md](archive/2026/composer-plus-menu.md)(컴포저 확장), [engine-decides.md](engine-decides.md)(결정론적 태그/파서 처리), [plugin-architecture.md](plugin-architecture.md)(§4.1 코드 플러그인 STT/TTS 확장)
 

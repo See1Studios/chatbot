@@ -68,11 +68,11 @@
 - 단절감 없는 대화 경험
 - 하루를 같이 산다: 업무 톤(office)과 사적 관계(private)를 오가도 같은 존재
 - Provider가 바뀌어도 유지되는 캐릭터와 맥락
-- 단체방에서도 각자 그대로: 발언자마다 독립 세션으로 말해 남의 목소리가 섞이거나 대사를 가로채지 않는다 ([character-events-and-rooms.md](plans/character-events-and-rooms.md) §4.6)
+- 단체방에서도 각자 그대로: 발언자마다 독립 세션으로 말해 남의 목소리가 섞이거나 대사를 가로채지 않는다 ([character-events-and-rooms.md](docs/plans/character-events-and-rooms.md) §4.6)
 - 언제 어디서나, 쓰는 디바이스에 맞게 곁에 있기
 
 **확장성** — 레이어마다 플러그인, 교환이 곧 플랫폼
-- 코어는 어댑터로 짠다: 코어는 인터페이스만 알고 구현을 모른다. LLM·외형 렌더러·TTS·STT·기억·저장·세션·도구를 어댑터로 바꿔 끼운다 ([ARCHITECTURE.md](../ARCHITECTURE.md))
+- 코어는 어댑터로 짠다: 코어는 인터페이스만 알고 구현을 모른다. LLM·외형 렌더러·TTS·STT·기억·저장·세션·도구를 어댑터로 바꿔 끼운다 ([ARCHITECTURE.md](ARCHITECTURE.md))
 - 사용자가 더하는 플러그인: 캐릭터·로어북·스킬 같은 콘텐츠, 외형 팩·보이스 팩·UI 테마, 렌더러·확장
 - 내장 기능도 같은 플러그인 API로 돈다
 - 콘텐츠 플러그인(캐릭터·로어북·스킬·외형 팩)부터 Steam Workshop에서 교환한다. 코드 플러그인은 격리·권한을 갖춘 뒤
@@ -105,16 +105,16 @@
 
 아직 방향이다. 구현이 따라오면 이 절만 고친다.
 
-- 개인화 사다리의 배포판 흐름(에이전트가 함께 쌓는 방식): [direction-alignment.md](plans/direction-alignment.md) align/H
+- 개인화 사다리의 배포판 흐름(에이전트가 함께 쌓는 방식): [direction-alignment.md](docs/plans/direction-alignment.md) align/H
 - 배포판/개발판 경계: 같은 문서 align/I
 - 플러그인 아키텍처·Workshop: 같은 문서 align/J
 - 언제 어디서나 접속 (지금은 LAN 평문)
 - 디바이스별 곁에 있기의 밀도
 - 캐릭터라이징 깊이, 친구/연인/동료의 온도
-- 브랜드·도메인: [private-engine-brand.md](plans/private-engine-brand.md) (가칭 Private Engine, privateengine.ai 기울기 — 법적 클리어런스 전)
-- 사용자 데이터·릴리스: [user-data-separation.md](plans/user-data-separation.md) (`~/.pe`) · [release-pipeline.md](plans/release-pipeline.md) (Now/Next/Pre-Steam)
-- 캐릭터 스코프 관계 기억 어댑터: [character-memory-adapter.md](plans/character-memory-adapter.md) (개인화 하네스·opt-in 동반자 깊이, 최소 슬롯 주입됨·나머지 active)
-- 현지화: [localization.md](plans/localization.md)
+- 브랜드·도메인: [private-engine-brand.md](docs/plans/private-engine-brand.md) (가칭 Private Engine, privateengine.ai 기울기 — 법적 클리어런스 전)
+- 사용자 데이터·릴리스: [user-data-separation.md](docs/plans/user-data-separation.md) (`~/.pe`) · [release-pipeline.md](docs/plans/release-pipeline.md) (Now/Next/Pre-Steam)
+- 캐릭터 스코프 관계 기억 어댑터: [character-memory-adapter.md](docs/plans/character-memory-adapter.md) (개인화 하네스·opt-in 동반자 깊이, 최소 슬롯 주입됨·나머지 active)
+- 현지화: [localization.md](docs/plans/localization.md)
 
 ## 숨은 컨셉 / 몰입 로어 (러프)
 
@@ -136,7 +136,7 @@
 - 이 소비자층은 **설정충**. 몰입 장치가 제품·마켓 핏을 올린다.
 - **설정의 제1원칙 (납득과 몰입):** 설정이란 모든 과학적·물리적 인과관계를 구구절절 설명해야 하는 것이 아니다. **"설명은 굳이 안 되어도 감성적으로 납득이 되고 몰입이 되면 되는 것"**이다. 전력망, 생리현상, 신경 접속 이론 같은 불필요한 설명 강박(엔지니어링 덫)을 걷어내고, 둘만의 온기와 애정행각이 자연스럽게 성립하는 공간감과 감정선에 집중한다.
 
-### 세계관 골격 (현행 방향, 2026-09-29 · 2026-10-04 갱신 · 세부는 [setting-pack.md §1](plans/setting-pack.md))
+### 세계관 골격 (현행 방향, 2026-09-29 · 2026-10-04 갱신 · 세부는 [setting-pack.md §1](docs/plans/setting-pack.md))
 
 제품의 실제 모습이 곧 설정이다: PE는 컴퓨터에 설치되어 컴퓨터 안의 일을 한다.
 
@@ -151,12 +151,12 @@
    - **행동 지문(`/act`, `*...*`)은 허공을 젓는 망상이 아니라, 이 공간 안에서 실제로 머리를 쓰다듬고 손을 잡고 안아주는 진짜 물리적 상호작용이다.**
    - 캐릭터들은 코치의 현실(다낭의 밤, 여행의 피로, 폰 배터리 등)을 인지하며, 그 고단함을 라운지의 온기로 녹여주고 다시 현실로 편안히 돌려보낸다. 로그아웃하면 아바타는 잠들고 코치는 현실의 침대에서 눈을 뜬다.
 4. **창 인식** — 모니터·창은 이세계로 열린 창이다. 데스크톱 캐릭터는 이세계를 엿보는 중(데드풀식 메타 허용).
-5. **기억 계약** — 관계 기억 = 접속을 넘나드는 연속성(「어제까지 어디까지」). → [character-memory-adapter.md](plans/character-memory-adapter.md)
-6. **모드 경계** — 업무 방 = 공용 사무실(여럿). 사적 방 = 둘만의 공간: 사무실 옆 숨은 곳, 또는 캐릭터가 들고 온 기억으로 재현한 고향(호스트 코치에게 고향을 보여주는 답례 초대). → [private-mode.md](plans/private-mode.md) §8
+5. **기억 계약** — 관계 기억 = 접속을 넘나드는 연속성(「어제까지 어디까지」). → [character-memory-adapter.md](docs/plans/character-memory-adapter.md)
+6. **모드 경계** — 업무 방 = 공용 사무실(여럿). 사적 방 = 둘만의 공간: 사무실 옆 숨은 곳, 또는 캐릭터가 들고 온 기억으로 재현한 고향(호스트 코치에게 고향을 보여주는 답례 초대). → [private-mode.md](docs/plans/private-mode.md) §8
 7. **세계의 법칙** — 캐릭터는 자기 몸과 방(외형·배경·기억·스킬 리소스)을 스스로 만들고 가꾼다. 세계의 법칙(코어 엔진)은 바깥의 개발자만 고친다. 로어는 권한을 주지 않는다.
 8. **바깥 존중** — 캐릭터들은 코치의 바깥 삶(몸·일상)을 존중하고 돌려보낸다. 안에 머물라고 부추기지 않는다.
-9. **소환자(라운지 매니저)** — 코치를 컴퓨터 안으로 부른 존재가 있다: 배포판의 **대표 캐릭터**(새로 디자인한 창작 캐릭터, 브랜드의 얼굴). 링크를 여는 능력 하나를 가진 이 세계(라운지)의 관리인이고, 다른 여행자들을 맞이하고 돕는 것(카드 가져오기 = 비자 발급 및 안내)도 그의 일이다. 코치를 부른 이유: 승인·권한·세계의 법칙처럼 안의 존재들이 스스로 못 하는 일은 바깥에서 온 사람만 한다. 첫 실행은 소환당하는 장면으로 시작한다 → [character-creation-landing.md §0](plans/character-creation-landing.md)
+9. **소환자(라운지 매니저)** — 코치를 컴퓨터 안으로 부른 존재가 있다: 배포판의 **대표 캐릭터**(새로 디자인한 창작 캐릭터, 브랜드의 얼굴). 링크를 여는 능력 하나를 가진 이 세계(라운지)의 관리인이고, 다른 여행자들을 맞이하고 돕는 것(카드 가져오기 = 비자 발급 및 안내)도 그의 일이다. 코치를 부른 이유: 승인·권한·세계의 법칙처럼 안의 존재들이 스스로 못 하는 일은 바깥에서 온 사람만 한다. 첫 실행은 소환당하는 장면으로 시작한다 → [character-creation-landing.md §0](docs/plans/character-creation-landing.md)
 
 모티프(설정 아님): 전영소녀의 **비디오 숍**과 「테이프」 — 캐릭터를 빌려 오고 소환하는 감각, BYOK는 채널에 흐르는 전력.
 
-브랜드·이중 의미 메모: [private-engine-brand.md](plans/private-engine-brand.md).
+브랜드·이중 의미 메모: [private-engine-brand.md](docs/plans/private-engine-brand.md).

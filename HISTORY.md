@@ -1,4 +1,16 @@
-# chatbot 개발로그
+# History
+
+작업 기록이다. 새 것이 위, 눈에 띄는 변경마다 한 블록(무엇을, 왜, 재시작이 필요한지). 지난 날짜는
+`docs/history/<날짜>.md`로 넘어간다(`engine/tools/history_entry.py`가 위임 작업의 줄을 쓰고, 크기가 넘치면 옮긴다).
+릴리스는 아직 없다(`engine/VERSION` 0.0.0-dev, 태그 없음). 릴리스 때 사용자용 `CHANGELOG.md`를 커밋에서 만든다
+(`RULES.md` Release). 2026-10-08까지 이 파일은 `DEVLOG.md`, 릴리스 메모는 `CHANGELOG.md`였다.
+
+## 2026-10-08 — docs/ 루트의 문서도 저장소 루트로, docs/에는 폴더만 (layout/F, #779)
+
+- **운영자**: "docs 루트에 있는 것들 모두 저장소 루트로 옮기기로 한 것 아니었어?"
+- **바뀐 것**: `README`·`CONCEPT`·`PRODUCT`·`DESIGN`·작업 기록을 저장소 루트로. 에이전트도 늘 읽는 문서다(목표 판단 CONCEPT, 시작 때 작업 기록, impeccable의 PRODUCT·DESIGN). `docs/`에는 `plans/`·`providers/`·`history/`(지난 날짜)만. 경로·상대 링크·일지 도구(`tools/devlog_entry.py`)·검사를 함께 고쳤다.
+- **이름과 합치기**(운영자: "devlog보다는 history가 낫지 않나" · "CHANGELOG.md도 있네"): `DEVLOG.md`는 `HISTORY.md`, 지난 날짜 폴더는 `docs/history/`, 일지 도구는 `tools/history_entry.py`(러너의 일지 커밋은 `docs(history):`). 아직 배포 전이라 거의 비어 있던 `CHANGELOG.md`는 합쳤다 — 그 메모는 `docs/history/2026-10-03.md`로, 릴리스 때 사용자용 `CHANGELOG.md`를 커밋에서 만드는 절차는 `RULES.md` Release.
+- **집행**: `test_entrypoints` — 루트 문서 목록, `docs/` 루트에 낱장 문서 없음.
 
 ## 2026-10-08 — ARCHITECTURE.md 내용 복원 (#778)
 
@@ -30,7 +42,7 @@
 ## 2026-10-08 — 계획 문서 정리: 저장소 배치 계획 신설 (layout/A)
 
 - **운영자**: "계획 문서 중에 지금 하는 작업에 대한 내용이 있을 거야. 계획 문서 처리도 해야해"
-- **바뀐 것**: `plan-execution-workflow.md` §3의 저장소 배치도·정본 지도를 지금 구조(루트 `AGENTS.md`·`RULES.md`·`CODEMAP.md`, 나머지는 `docs/`)로, pew/S 완료 표시. 코드를 `engine/`으로 옮기는 일은 보관된 monolith-split의 보류분을 이어받는 새 계획 [repo-layout.md](plans/repo-layout.md)로(D1 폴더 이름, D2 import 방식, D3 루트 설정·스크립트 자리 — 운영자 결정 대기). 배포 제외 목록에 `RULES.md`·`CODEMAP.md`·`docs/`, `psec/C`의 규칙 자리는 `RULES.md`.
+- **바뀐 것**: `plan-execution-workflow.md` §3의 저장소 배치도·정본 지도를 지금 구조(루트 `AGENTS.md`·`RULES.md`·`CODEMAP.md`, 나머지는 `docs/`)로, pew/S 완료 표시. 코드를 `engine/`으로 옮기는 일은 보관된 monolith-split의 보류분을 이어받는 새 계획 [repo-layout.md](docs/plans/repo-layout.md)로(D1 폴더 이름, D2 import 방식, D3 루트 설정·스크립트 자리 — 운영자 결정 대기). 배포 제외 목록에 `RULES.md`·`CODEMAP.md`·`docs/`, `psec/C`의 규칙 자리는 `RULES.md`.
 
 ## 2026-10-08 — AGENTS.md를 짧은 개발판 진입으로, 루트에는 진입·개발 지침만 (pew/S, #774)
 

@@ -124,13 +124,13 @@ class ResolveTest(Base):
     def test_actioning_sets_status_date_and_resolution_and_touches_nothing_else(self):
         p = self.put(1)
         before = p.read_text(encoding="utf-8").split("\n")
-        r = ob.resolve(self.obs, 1, "actioned", 'Fixed: "steer" queue, see DEVLOG', now=NOW)
+        r = ob.resolve(self.obs, 1, "actioned", 'Fixed: "steer" queue, see HISTORY', now=NOW)
         self.assertEqual((r["status"], r["resolved"]), ("actioned", day()))
         after = p.read_text(encoding="utf-8").split("\n")
         changed = [(a, b) for a, b in zip(before, after) if a != b]
         self.assertEqual(sorted(k.split(":")[0] for k, _ in changed), ["resolution", "resolved", "status"])
         self.assertEqual(len(before), len(after))
-        self.assertEqual(ob.parse_header("\n".join(after))["resolution"], 'Fixed: "steer" queue, see DEVLOG')
+        self.assertEqual(ob.parse_header("\n".join(after))["resolution"], 'Fixed: "steer" queue, see HISTORY')
         self.assertIn("body of 1", p.read_text(encoding="utf-8"))
 
     def test_a_resolution_is_required(self):

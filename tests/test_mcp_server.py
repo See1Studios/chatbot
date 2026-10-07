@@ -400,7 +400,7 @@ class WriteFileTest(Base):
         for rel in ("data/workspace/PERSONA.md", "data/workspace/memory/MEMORY.md",
                     "data/workspace/.agents/skills/nas-sphere/SKILL.md",
                     "data/workspace/skill-observations/observation-log/0001-x.md",
-                    "docs/plans/recursive-self-evolution.md", "docs/DEVLOG.md", "notes/sub/helper.py"):
+                    "docs/plans/recursive-self-evolution.md", "HISTORY.md", "notes/sub/helper.py"):
             self.assertTrue(self.write(self.code / rel)["success"], rel)
 
     def test_dotdot_and_symlink_routes_do_not_bypass(self):

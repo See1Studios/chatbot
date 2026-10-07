@@ -1,8 +1,8 @@
 # 엔진이 정한다: 모델 판단 지점 전수 점검과 이전 계획 (engine-decides)
 
-> 방향 (align/D, 2026-10-03): **핵심** — 두뇌(제공자·모델)가 바뀌어도 같은 사용감. 모델에게는 캐릭터의 말과 행동만 남기고, 엔진이 정할 수 있는 판단은 코드로 옮긴다 (`docs/CONCEPT.md` "모델에 덜 기댄다", 운영자 2026-10-02)
+> 방향 (align/D, 2026-10-03): **핵심** — 두뇌(제공자·모델)가 바뀌어도 같은 사용감. 모델에게는 캐릭터의 말과 행동만 남기고, 엔진이 정할 수 있는 판단은 코드로 옮긴다 (`CONCEPT.md` "모델에 덜 기댄다", 운영자 2026-10-02)
 > 상태: **active** (2026-10-03 수립, 같은 날 노노 세션 사례 추가, 결정 대기)
-> 근거 사례: `docs/DEVLOG.md` 2026-10-02 "모델 판단 줄이기" (inbox/H, #565·#567)
+> 근거 사례: `HISTORY.md` 2026-10-02 "모델 판단 줄이기" (inbox/H, #565·#567)
 > 관련: [out-of-band-choices-actions.md](out-of-band-choices-actions.md)(선택지 채널) · [private-mode.md](private-mode.md)(§8.3 W1 애정 턴, §8.4 W2b 이동 제안, D8 아이템 판정) · [ux-shell-roadmap.md](ux-shell-roadmap.md)(`ux/S5` 지문 STAGE_v1) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [character-memory-adapter.md](character-memory-adapter.md)(무엇을 기억해 읽을지)
 
 ---

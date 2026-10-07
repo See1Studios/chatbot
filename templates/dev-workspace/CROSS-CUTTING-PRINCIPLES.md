@@ -12,5 +12,5 @@
 10. Where an instruction lives (keep the always-injected bundle small):
     - **Charter** (`AGENTS.md`, + the chatbot's character card): must hold every turn, and breaking it is costly or unrecoverable (live-restart ban, pre-approval, scope, memory trigger). One line each.
     - **On demand** (`PROJECT.md`, `SELF-MODIFY.md`, `OPERATIONS.md`, skills): only relevant to one kind of task. The charter points at them; it does not repeat them.
-    - **This file / DEVLOG / plans**: rationale and design for whoever edits the chatbot — never injected.
+    - **This file / HISTORY / plans**: rationale and design for whoever edits the chatbot — never injected.
     - Say a rule once. If a guard, test or code already enforces it (`ctl guard`, unit tests), the prose keeps at most one line.

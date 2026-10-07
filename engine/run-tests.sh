@@ -61,7 +61,7 @@ FAST=(
   test_conventions
   test_core_standalone
   test_dev_role
-  test_devlog_entry
+  test_history_entry
   test_dialog_handoff
   test_identity_wiring
   test_live_agent_suite

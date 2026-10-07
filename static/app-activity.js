@@ -216,7 +216,7 @@ let sessionTokenTotal = 0;
 // Fresh (non-cache) input tokens per turn this session, for relative spike detection.
 const turnFreshTokenHistory = [];
 // Absolute floor: 2026-09-16 measured baseline is ~14-16K fresh input tokens for a
-// trivial first turn (see docs/DEVLOG.md — the ADD_DIRS parent-vs-children bug pushed
+// trivial first turn (see HISTORY.md — the ADD_DIRS parent-vs-children bug pushed
 // this to ~45K). Anything past this on its own is worth a look regardless of history.
 const OCCUPANCY_WARN_ABS = 150000;
 

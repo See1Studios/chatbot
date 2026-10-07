@@ -323,9 +323,9 @@ def ticket_call(*args: str) -> Dict[str, str]:
 
 
 def commit_ticket_record(repo: Path, tid: int, provider: str, subject: str, extra: Tuple[str, ...] = ()) -> Optional[str]:
-    """Commit the diary lines a merge wrote (`extra`, tools/devlog_entry.py) and the ticket's own record when it
+    """Commit the diary lines a merge wrote (`extra`, tools/history_entry.py) and the ticket's own record when it
     lives in the repository, so main is left clean without an operator step. Since the data moved out (~/.pe) the
-    record is not here, and the diary line was left uncommitted on main (#620): it goes alone, as docs(devlog).
+    record is not here, and the diary line was left uncommitted on main (#620): it goes alone, as docs(history).
     The short sha, or None."""
     rel = "%s/%04d.json" % (TICKETS_REL, tid)
     paths = [p for p in ((rel,) if (repo / rel).exists() else ()) + tuple(extra)
@@ -333,7 +333,7 @@ def commit_ticket_record(repo: Path, tid: int, provider: str, subject: str, extr
     if not paths:
         return None
     if rel not in paths:
-        subject = subject.replace("chore(tickets):", "docs(devlog):", 1)
+        subject = subject.replace("chore(tickets):", "docs(history):", 1)
     name, email = PROVIDERS[provider]["author"]
     git(repo, "add", "--", *paths)
     code, _, err = git(repo, "-c", "user.name=" + name, "-c", "user.email=" + email,
@@ -845,9 +845,9 @@ def record_and_report(repo: Path, tid: int, provider: str, title: str, result: D
     outcome = result.get("outcome") or "open"
     subject = ("chore(tickets): close #%d" if outcome == "done" else "chore(tickets): #%d " + outcome) % tid
     extra: Tuple[str, ...] = ()
-    if result.get("merged"):   # the landed change gets its line in the diary (tools/devlog_entry.py)
-        import devlog_entry
-        extra = tuple(devlog_entry.record_merge(repo, tid, title, provider, result["base"], result.get("head")))
+    if result.get("merged"):   # the landed change gets its line in the diary (tools/history_entry.py)
+        import history_entry
+        extra = tuple(history_entry.record_merge(repo, tid, title, provider, result["base"], result.get("head")))
     record = commit_ticket_record(repo, tid, provider, "%s -- %s" % (subject, title[:80]), extra)
     if record:
         result["ticket_commit"] = record

@@ -4,7 +4,7 @@ Read before research and scouting work. The every-turn part is `ROLE.md`.
 
 ## Where to look
 - Communities: Reddit (`r/SillyTavern`, `r/LocalLLaMA`, `r/Chub_AI`), GitHub Trending, HuggingFace RP/reasoning models.
-- Prior art and concepts: `docs/CONCEPT.md`, `~/wiki/concepts/`, `~/wiki/trends/`. Check existing knowledge before scouting to avoid duplicate work.
+- Prior art and concepts: `CONCEPT.md`, `~/wiki/concepts/`, `~/wiki/trends/`. Check existing knowledge before scouting to avoid duplicate work.
 
 ## Research workflow
 1. **Scope and isolate**: Take the brief from {{default}} or {{user}}. Clarify the core question, target tools, or communities before crawling.

@@ -295,8 +295,8 @@
       "reason": "enforcer: engine-work rules live in the dev role pack only (prop/F: registry enforcers are Tier 3)"
     },
     {
-      "path": "tests/test_devlog_entry.py",
-      "reason": "enforcer: a merged delegation leaves its DEVLOG line (prop/F: registry enforcers are Tier 3)"
+      "path": "tests/test_history_entry.py",
+      "reason": "enforcer: a merged delegation leaves its HISTORY line (prop/F: registry enforcers are Tier 3)"
     },
     {
       "path": "tests/test_dialog_handoff.py",

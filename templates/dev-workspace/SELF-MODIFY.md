@@ -23,4 +23,4 @@
 1. 변경이 디스크 설계도인지 라이브 뇌인지 한 줄로 구분
 2. `chatbot-ctl.sh guard` + `doctor` 또는 `probe`
 3. Hub FAB와 전체 창 드리프트 확인
-4. `docs/DEVLOG.md` 한 블록 + `observation-log/` 한 줄
+4. `HISTORY.md` 한 블록 + `observation-log/` 한 줄

@@ -2,7 +2,7 @@
 and the user-facing docs carry no name, path or link of the external tool the observation core was modelled on,
 and the workspace holds no link into shared global skills.
 
-Plans, logs (DEVLOG, observation log, sessions) and generated prompt dumps are not deployable and are not scanned.
+Plans, logs (HISTORY, observation log, sessions) and generated prompt dumps are not deployable and are not scanned.
 Run: engine/run-tests.sh test_no_trace
 """
 import re
@@ -19,7 +19,7 @@ TEXT_SUFFIXES = {".py", ".js", ".css", ".html", ".md", ".json", ".sh", ".txt", "
 
 def deployable_files():
     out = [p for p in ENGINE.glob("*.py")]
-    out += [CODE / n for n in ("AGENTS.md", "docs/README.md", "docs/PRODUCT.md", "docs/DESIGN.md")]
+    out += [CODE / n for n in ("AGENTS.md", "README.md", "PRODUCT.md", "DESIGN.md")]
     out += [ENGINE / n for n in ("chatbot-ctl.sh", "protected_paths.json", "observation_signals.json")]
     for sub in ("static", "templates"):
         out += [p for p in (CODE / sub).rglob("*") if p.is_file() and "vendor" not in p.parts]

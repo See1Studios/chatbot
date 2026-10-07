@@ -14,8 +14,8 @@
 | G3 | **격리 스위치(문서상):** `~/.grok/config.toml`의 `[compat.claude] skills=false` 또는 env `GROK_CLAUDE_SKILLS_ENABLED=false`, `[skills] ignore`/`disabled` | 📄 ❓ | `08-skills.md`. 어댑터에 적용 안 했고 효과 미측정 |
 | G4 | `--rules <TEXT>`: 시스템 프롬프트에 규칙 추가 (`--yolo`와 조합 예시) | 📄 | `grok --help`, `14-headless-mode.md`. 냥피디는 채널 동일성을 위해 쓰지 않음 |
 | G5 | 첫 턴 입력 **~46k**, 이후 ~49k (중앙값). agy와 같은 규모라 홈 스킬 스캔과 같은 원인일 가능성 | 📄 / ❓ 원인 | `token-accounting.md`. 원인은 가설일 뿐 |
-| G6 | `--trust`는 헤드리스에서 필요하다 (문서에 없던 플래그를 실측으로 찾음) | ✅ | 메모리 `feedback_verify_cli_live`, DEVLOG 2026-09-17 |
-| G7 | 프롬프트 파일을 WORKSPACE 루트에 두면 agy `--add-dir` 스캔에 잡혀서, dotdir `.grok/prompts/`로 옮김(`.gitignore` 추가) | ✅ | DEVLOG 2026-09-19 |
+| G6 | `--trust`는 헤드리스에서 필요하다 (문서에 없던 플래그를 실측으로 찾음) | ✅ | 메모리 `feedback_verify_cli_live`, HISTORY 2026-09-17 |
+| G7 | 프롬프트 파일을 WORKSPACE 루트에 두면 agy `--add-dir` 스캔에 잡혀서, dotdir `.grok/prompts/`로 옮김(`.gitignore` 추가) | ✅ | HISTORY 2026-09-19 |
 | G8 | 프로젝트 MCP는 `grok mcp add --transport http --scope project nas <url>`로 등록 | ✅ | 어댑터 `_ensure_mcp_registered` |
 
 ## 계정·인증 (2026-09-19, 상태 탭 "로그인 계정 · 프로세스"의 근거) — grok 1.0.34

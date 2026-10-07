@@ -2,7 +2,7 @@
 
 How the engine (Private Engine, PE) is built, for agents that change it. Read on demand; the entry is `AGENTS.md`.
 Code names are relative to `engine/`. Rules and their enforcers are in `RULES.md`, the file-by-file map is
-`CODEMAP.md`, what the product is for is `docs/CONCEPT.md`. Each part below says whether it is **built** or
+`CODEMAP.md`, what the product is for is `CONCEPT.md`. Each part below says whether it is **built** or
 **planned**; a plan's design and order live in `docs/plans/` (start with `docs/plans/plugin-architecture.md`).
 
 - Design rule: every outside dependency sits behind an adapter interface. The core knows no vendor or library.

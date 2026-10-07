@@ -5,7 +5,7 @@ repo-root `AGENTS.md` (`services/chatbot/AGENTS.md`), with `RULES.md` and `CODEM
 repeat them.
 
 ## Where to look
-- Code, paths, sessions: `PROJECT.md`. Product direction: `docs/CONCEPT.md` (before changing or building).
+- Code, paths, sessions: `PROJECT.md`. Product direction: `CONCEPT.md` (before changing or building).
 - Core boundary: `SELF-MODIFY.md`, only when actually touching the core.
 - Plans: read `docs/plans/INDEX.md` before touching `docs/plans/` (status, archive, new plans).
 
@@ -21,4 +21,4 @@ repeat them.
 - A procedure failure: leave an observation and open a protocol ticket. Minimal patch; the file's tests are the merge contract.
 - A delegated change that alters a decision written in a plan (the chat page's are `docs/plans/ux-shell-roadmap.md`
   4.2.3 and its decision table) takes that plan into the ticket's paths and updates it in the same change. A merge
-  writes its own diary line (`tools/devlog_entry.py`); a worker's final message names any plan it touched.
+  writes its own diary line (`tools/history_entry.py`); a worker's final message names any plan it touched.

@@ -278,7 +278,7 @@ class LeaseScopeTest(Base):
         a = self.approved(target="a")
         b = self.approved(target="b")
         tickets.claim(self.data, a["id"], paths=["services/chatbot/static/app.js"], now=T0)
-        c = tickets.claim(self.data, b["id"], paths=["services/chatbot/docs/DEVLOG.md"], now=T0 + 1)
+        c = tickets.claim(self.data, b["id"], paths=["services/chatbot/docs/HISTORY.md"], now=T0 + 1)
         self.assertTrue(c["new_attempt"])
         self.assertEqual(sorted(x["ticket"] for x in tickets.leases(self.data, now=T0 + 2)), [a["id"], b["id"]])
 

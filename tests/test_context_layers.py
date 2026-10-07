@@ -262,7 +262,7 @@ class Fixture(WorkspaceCase):
             got[mode] = hashlib.sha256(text.replace(str(self.ws), "<ws>").replace(self.card_id, "<cid>")
                                        .encode("utf-8")).hexdigest()[:16]
         self.assertEqual(got, GOLDEN, "the bundle text changed: every live session re-injects it. If that is on "
-                                      "purpose, update GOLDEN in the same change and say so in DEVLOG")
+                                      "purpose, update GOLDEN in the same change and say so in HISTORY")
 
 
 GOLDEN = {"work": "7153ba11782269a0", "private": "6e533da85c11c946"}   # 2026-10-07: engine notes name no dev tool (#768)

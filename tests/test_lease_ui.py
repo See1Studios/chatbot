@@ -27,7 +27,7 @@ const out = {
   sameFile: (ticketBlocker({ id: 1, paths: ['static/app.js'] }) || {}).ticket || 0,
   folder: (ticketBlocker({ id: 2, target: 'static/' }) || {}).ticket || 0,
   noFiles: (ticketBlocker({ id: 3, target: 'make it faster' }) || {}).ticket || 0,
-  other: (ticketBlocker({ id: 4, paths: ['docs/DEVLOG.md'] }) || {}).ticket || 0,
+  other: (ticketBlocker({ id: 4, paths: ['HISTORY.md'] }) || {}).ticket || 0,
   prefix: (ticketBlocker({ id: 5, paths: ['static/app.js.map'] }) || {}).ticket || 0,
   itself: (ticketBlocker({ id: 113, paths: ['static/app.js'] }) || {}).ticket || 0,
   text: leaseWaitText(ticketLeases[0]),

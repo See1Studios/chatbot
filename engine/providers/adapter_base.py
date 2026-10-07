@@ -199,7 +199,7 @@ class AgentAdapter:
     has real side effects (image staging, history append, conversation_id
     capture) entangled with parsing one stream-json line -- untangling those
     fully was judged not worth the regression risk on code that's been the
-    site of real incidents (see OPERATIONS.md, DEVLOG deadlock entries).
+    site of real incidents (see OPERATIONS.md, HISTORY deadlock entries).
     A future adapter that doesn't need those callbacks just won't use them.
     """
 
@@ -290,7 +290,7 @@ class AgentAdapter:
         """False (default, agy's behavior): we generate a uuid4 before the
         first spawn and pass it in, specifically to stop the CLI from
         auto-resuming some unrelated stale conversation of its own (see the
-        2026-09-17 DEVLOG entry on agy's --conversation auto-resume bug).
+        2026-09-17 HISTORY entry on agy's --conversation auto-resume bug).
         True: the CLI mints its own id on the first turn (from an init/
         result-shaped event) and we must capture that instead of pre-
         assigning one -- verify this per-provider before flipping it,

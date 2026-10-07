@@ -4,7 +4,7 @@
 
 > 상태: **active** (초안 2026-09-28)
 > 목적: 배포판에서 사용자와 에이전트가 개인화 레이어를 **쉽게·안전하게·되돌릴 수 있게** 쌓는 흐름과 그 공통 뼈대를 설계한다. 구현은 항목별 티켓으로.
-> 관련: [../CONCEPT.md](../CONCEPT.md) 「개인화 레이어」·「배포판과 개발판」 · [direction-alignment.md](direction-alignment.md) D2·align/H · [plugin-architecture.md](plugin-architecture.md)(결과물을 패키지로) · [character-memory-adapter.md](character-memory-adapter.md) · [user-data-and-editing.md](user-data-and-editing.md)(카드 폼 편집) · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [private-mode.md](private-mode.md) · [market-direction-review.md](market-direction-review.md)(참고: 매출선/리텐션선 분할)
+> 관련: [../CONCEPT.md](../../CONCEPT.md) 「개인화 레이어」·「배포판과 개발판」 · [direction-alignment.md](direction-alignment.md) D2·align/H · [plugin-architecture.md](plugin-architecture.md)(결과물을 패키지로) · [character-memory-adapter.md](character-memory-adapter.md) · [user-data-and-editing.md](user-data-and-editing.md)(카드 폼 편집) · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [private-mode.md](private-mode.md) · [market-direction-review.md](market-direction-review.md)(참고: 매출선/리텐션선 분할)
 > 방향 인용(G0): 「기억 계약」(소환을 넘나드는 연속성)은 이 설계의 기억 층이 떠받친다. 로어 세부는 항목이 아니다.
 > 약칭: `ladder`
 

@@ -40,7 +40,7 @@
 | P9 | 코딩 에이전트의 입구가 없다 | 저장소 루트에 `AGENTS.md`·`CLAUDE.md`·`GEMINI.md`가 없다. 헌장과 코드 지도(`PROJECT.md` "Where to edit")는 `data/workspace/` 아래에 있다. 사용자 데이터를 분리하면 **엔진 문서가 저장소 밖으로 빠진다** |
 | P10 | 저장소 밖 도구가 낡는다 | `~/bin/ticket-quick`: 경로 고정, 테스트 없음, 저장소 변경 이력에 잡히지 않음 |
 | P11 | 참조가 이미 썩고 있다 | active 계획에 줄 번호 참조(파일명 뒤 `:줄번호`, `L줄번호`) 18개, 깨진 상대 링크 1개(`character-resource-pipeline.md` → 아카이브된 `recursive-self-evolution.md`) |
-| P12 | 가드 테스트가 있어도 돌리지 않으면 깨진 채로 남는다 | `tests.test_docs_budget` 현재 실패: `docs/DEVLOG.md` 52,710 B > 상한 40,960 B. 아무도 발견하지 못했다 |
+| P12 | 가드 테스트가 있어도 돌리지 않으면 깨진 채로 남는다 | `tests.test_docs_budget` 현재 실패: `HISTORY.md` 52,710 B > 상한 40,960 B. 아무도 발견하지 못했다 |
 | P13 | 규칙의 적용 대상이 표시되지 않아 다른 에이전트가 가져다 쓴다 | 2026-09-27 Claude Code가 챗 에이전트 헌장의 `<!--choices: …-->` 버튼 규칙을 터미널 답변에 따라 씀(운영자 지적). 루트 `AGENTS.md`(pew/C)는 규칙마다 적용 대상(PE 챗 에이전트 / 저장소 작업 에이전트 전부)을 표시한다 |
 
 ---
@@ -66,7 +66,7 @@
 
 ## 3. 진입과 정본 배치
 
-**입구는 하나다.** 어떤 도구로 저장소에 들어와도 루트 `AGENTS.md`(쉬운 영어, 개발판 전용, 6,000 B 이하)에 도착한다. 루트에는 진입 파일과 에이전트 지침만 두고, 사람이 읽는 문서는 `docs/`에 둔다(pew/S, layout/F, 2026-10-08). 코드를 폴더로 옮기는 일은 [repo-layout.md](repo-layout.md).
+**입구는 하나다.** 어떤 도구로 저장소에 들어와도 루트 `AGENTS.md`(쉬운 영어, 개발판 전용, 6,000 B 이하)에 도착한다. 루트에는 진입 파일과 늘 읽는 문서(에이전트 지침, 프로젝트 문서)를 두고, `docs/`에는 폴더만 둔다(pew/S, layout/F, 2026-10-08). 코드를 폴더로 옮기는 일은 [repo-layout.md](repo-layout.md).
 
 ```text
 services/chatbot/
@@ -78,7 +78,8 @@ services/chatbot/
 ├── ARCHITECTURE.md    # 구조(쉬운 영어): 원칙, 층, 있는 어댑터와 계획, 판, 보호 등급, 검사 지점
 ├── OPERATIONS.md      # 운영: 복구·재시작·로그
 ├── engine/            # 코드·설정·스크립트(repo-layout)
-├── docs/              # 사람이 읽는 문서: README·CONCEPT·PRODUCT·DESIGN·DEVLOG·CHANGELOG, plans/, providers/
+├── README·CONCEPT·PRODUCT·DESIGN·HISTORY·CHANGELOG.md   # 프로젝트 문서(에이전트도 읽음)
+├── docs/              # 폴더만: plans/, providers/, devlog/(DEVLOG의 지난 날짜)
 └── templates/         # 사용자 데이터 부트스트랩 기본값(엔진 소유)
 templates/workspace/AGENTS.md                # 챗 에이전트(제품 런타임) 헌장, 두 판 공용. 개발판은 DEV-CHARTER.md를 따로 더함
 ```
@@ -95,7 +96,7 @@ templates/workspace/AGENTS.md                # 챗 에이전트(제품 런타임
 | 계획 상태 | `docs/plans/INDEX.md` | 계획 문서 안의 상태 줄은 INDEX와 같아야 함(테스트) |
 | 항목 진행 상태 | 티켓 | 계획에는 `#N`과 `✅`만 |
 | 결정 | `docs/decisions/` | 계획은 링크만 |
-| 변경 기록 | git + `docs/CHANGELOG.md` | DEVLOG는 작업 일지(서술), 릴리스 기록 아님 |
+| 변경 기록 | git + `CHANGELOG.md` | DEVLOG는 작업 일지(서술), 릴리스 기록 아님 |
 
 **에이전트 개인 메모리**(Claude memory, Hermes 등)는 선호와 교훈만 담고, 저장소에 있는 사실은 복제하지 않는다. 복제했다면 저장소 정본을 가리키는 링크로 바꾼다.
 
@@ -124,7 +125,7 @@ templates/workspace/AGENTS.md                # 챗 에이전트(제품 런타임
 
 ### 4.1 단일 실행 진입점
 
-`run-tests.sh [--fast | 모듈…]` 하나만 둔다(`pew/B` 완료). 기준선(2026-09-27): 92개 중 78개 통과, 14개 실패(DEVLOG 2026-09-27 pew/B 항목에 분류). **빨간 기준선 위에 훅·게이트를 걸면 모든 작업이 막히므로 녹색화(`pew/N`)가 먼저다.** 훅, 러너 게이트(`worktree_runner` 기본 게이트), 이후 CI가 모두 이것을 부른다. `--fast`는 커밋 훅용 부분 집합(가드 테스트 + 변경된 파일 관련 모듈)이다.
+`run-tests.sh [--fast | 모듈…]` 하나만 둔다(`pew/B` 완료). 기준선(2026-09-27): 92개 중 78개 통과, 14개 실패(HISTORY 2026-09-27 pew/B 항목에 분류). **빨간 기준선 위에 훅·게이트를 걸면 모든 작업이 막히므로 녹색화(`pew/N`)가 먼저다.** 훅, 러너 게이트(`worktree_runner` 기본 게이트), 이후 CI가 모두 이것을 부른다. `--fast`는 커밋 훅용 부분 집합(가드 테스트 + 변경된 파일 관련 모듈)이다.
 
 ### 4.2 커밋 훅 (`.githooks/`, `core.hooksPath`)
 
@@ -228,7 +229,7 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `pew/A` | 이 문서 + INDEX 행 | `docs/plans/plan-execution-workflow.md`, `docs/plans/INDEX.md` | INDEX에 행이 있고 커밋됨 | 0 · — | S | — | ✅ 티켓 없음(D3), `git log --grep="Plan: pew/A"` |
-| `pew/B` | `run-tests.sh [--fast]` 단일 진입점(`rp/A`와 공유, 소유는 여기) + DEVLOG 크기 복구 | `run-tests.sh`, `README.md`, `docs/DEVLOG.md` | 모든 `tests/test_*.py` 모듈을 개별 실행하고 실패 목록 출력, 종료 코드 반영 | 1 · — | S | — | ✅ #254 `09aca4a` |
+| `pew/B` | `run-tests.sh [--fast]` 단일 진입점(`rp/A`와 공유, 소유는 여기) + HISTORY 크기 복구 | `run-tests.sh`, `README.md`, `HISTORY.md` | 모든 `tests/test_*.py` 모듈을 개별 실행하고 실패 목록 출력, 종료 코드 반영 | 1 · — | S | — | ✅ #254 `09aca4a` |
 | `pew/C` | 루트 진입점: `AGENTS.md`(정본 지도, 시작 순서, 커밋 규약, 규칙 레지스트리 초판) + `CLAUDE.md`·`GEMINI.md` 포인터 | 루트 3파일 | 포인터 두 파일이 각각 5줄 이하, `AGENTS.md` 링크 포함 | 3 · — | M | D7 | ✅ #262 `ace91b3` |
 | `pew/D` | 가드 테스트 1차: `test_rule_registry`, `test_entrypoints`, `test_plans_index`, `test_doc_refs` | `tests/` | 현재 저장소에서 실패하는 항목(P11 등)을 먼저 고치고 통과. 일부러 규칙을 어기면 실패 | 3 · — | M | pew/B, pew/C | ✅ #264 `ad095f7` |
 | `pew/E` | 훅: `.githooks/pre-commit`, `commit-msg` + 설치 확인 | `.githooks/`, `run-tests.sh` | 비밀 패턴이 든 파일, untracked 계획, 형식이 틀린 메시지로 커밋하면 각각 거절됨 | 3 · — | S | pew/B, D6 | ✅ #266 `6c55743` |

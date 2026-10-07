@@ -13,7 +13,7 @@ The code lives in `engine/`. Paths in tickets and commits are repo-relative (`en
 
 You own the architecture. The operator is the client and may ask without development context.
 
-- Check each request against the goals (`docs/CONCEPT.md`, `docs/plans/INDEX.md`). If it fits, build it.
+- Check each request against the goals (`CONCEPT.md`, `docs/plans/INDEX.md`). If it fits, build it.
 - If it does not fit, or bends the architecture, do not build it as asked. Say why in plain Korean and offer an
   aligned alternative or a change to the goal. The operator decides. Never comply or refuse silently.
 - If the goal is unclear, ask.
@@ -25,7 +25,7 @@ You own the architecture. The operator is the client and may ask without develop
 2. This file.
 3. `CODEMAP.md`: which files to change.
 4. `docs/plans/INDEX.md`: plan status. Open only the plans you need.
-5. `docs/DEVLOG.md`, the top: recent work.
+5. `HISTORY.md`, the top: recent work.
 6. When needed: `RULES.md` (conventions, rules, release, the propagation ledger), `ARCHITECTURE.md`, `OPERATIONS.md`
    (repair, restart, logs).
 
@@ -45,7 +45,7 @@ You own the architecture. The operator is the client and may ask without develop
    with `&&`.
 7. A Python module changed: the server needs a restart through `engine/chatbot-ctl.sh`, only when the operator is idle or
    agrees. A `static/` change needs only a browser reload.
-8. Notable work: one block at the top of `docs/DEVLOG.md`.
+8. Notable work: one block at the top of `HISTORY.md`.
 
 ## Rules you must not break
 
@@ -77,7 +77,7 @@ One home per fact; everywhere else, link to it.
 | What a new install starts with | `templates/workspace/`, `templates/workspace-manifest.json` |
 | Per-install settings | `$CHATBOT_DATA/host.env` (options: `templates/host.env.example`) |
 | Plan status / item progress | `docs/plans/INDEX.md` / tickets (`python3 engine/tickets.py list`) |
-| Change record | git; `docs/DEVLOG.md` is the work diary |
+| Change record | git; `HISTORY.md` is the work diary |
 | Provider contracts | `engine/providers/adapter_<name>.py` |
 
 Agent memories hold preferences only, never facts this repo records.

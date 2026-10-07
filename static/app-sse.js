@@ -919,7 +919,7 @@ async function checkRevived() {
 //     points at whatever was open right before it), or omitted entirely to
 //     leave scrollback/lastSyncedTs untouched (send()'s rotate branch never
 //     reset these even before this consolidation -- preserved as-is rather
-//     than changed as a drive-by fix; see DEVLOG).
+//     than changed as a drive-by fix; see HISTORY).
 //   history: existing messages to render (openSession only).
 //   userEcho / greeting: chat bubbles to add after clearing (the message
 //     just sent, and/or a assistant greeting/handoff note).
