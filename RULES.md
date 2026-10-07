@@ -56,8 +56,8 @@ This repository is private. Treat a release as a reviewed source snapshot; never
 Cut a release later:
 
 1. Set the intended release version in engine/VERSION, for example 1.0.0.
-2. Write the version's user-visible changes into CHANGELOG.md (made from the commits since the last tag; HISTORY.md is
-   the work diary, not release notes).
+2. Write the version's user-visible changes into HISTORY.md (or release notes; HISTORY.md is
+   the ongoing work diary).
 3. Run the test entry point: engine/run-tests.sh. Then run engine/chatbot-ctl.sh repair and confirm its smoke checks pass.
 4. Review the complete diff and tracked file list. Do not stage data/, secrets.env, session files, tokens, keys, or other private runtime output; release files must contain no secrets.
 5. Commit the reviewed release changes.

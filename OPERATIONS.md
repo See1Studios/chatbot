@@ -252,7 +252,7 @@ Each finding of the last 2 h becomes one observation candidate in
 - once per (signal, key) per day; the observation review (`observation review`, 상태 탭 힌트) lists
   them next to the operator-signal candidates, and `candidate:<epoch>` is valid ticket evidence
 - only host-made text (code, key, numbers): never `err.msg` or titles, which can carry outside
-  text (recursive-self-evolution.md §4.4)
+  text ([recursive-self-evolution.md](docs/plans/archive/2026/recursive-self-evolution.md) §4.4)
 - candidates are hints; nothing starts work on its own (§4.2)
 
 Ticket evidence can also point straight into the log (LOG_EVIDENCE_v1): `log:fp:<10 hex>` (an error
