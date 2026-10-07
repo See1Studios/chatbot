@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Set, Tuple, Union
 
 from session_weights import _billed_tokens, _current_context_tokens
 from tool_format import _format_tool_call, _format_tool_result
@@ -307,20 +307,14 @@ class SessionView:
         out.sort(key=lambda e: e.get("ts") or 0, reverse=True)
         return out
 
-    def get_artifacts(self) -> List[dict]:
+    def _collect_artifact_roots(self) -> Tuple[List[Path], Dict[Path, str], Set[Path]]:
         SESSIONS = _session().SESSIONS
-        exts_img = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
-        exts_doc = {".md", ".txt", ".json", ".pdf", ".html", ".csv", ".yaml", ".yml"}
-        exts_code = {".py", ".js", ".ts", ".gd", ".sh", ".sql", ".css"}
-
         provider_dirs = list(self._artifact_dirs())
         roots = list(provider_dirs)
+        session_roots: Dict[Path, str] = {}
 
-        session_artifact_roots: Dict[Path, str] = {}
-        # First cut (2026-09-18) only walked self.sid + predecessor_session_id. operator: "the artifacts tab is shared by
-        # every device and session" -> ticket #575: split into its own isolation per 1:1 session and group room.
         my_adir = self.meta_path.parent / "artifacts"
-        session_artifact_roots[my_adir] = self.sid
+        session_roots[my_adir] = self.sid
         roots.append(my_adir)
 
         curr_pred = getattr(self, "predecessor_session_id", "") or ""
@@ -328,7 +322,7 @@ class SessionView:
         while curr_pred and curr_pred not in seen_sids:
             seen_sids.add(curr_pred)
             p_dir = SESSIONS / curr_pred / "artifacts"
-            session_artifact_roots[p_dir] = curr_pred
+            session_roots[p_dir] = curr_pred
             roots.append(p_dir)
             p_meta = SESSIONS / curr_pred / "meta.json"
             curr_pred = ""
@@ -338,11 +332,17 @@ class SessionView:
                     curr_pred = str(data.get("predecessor_session_id") or "")
                 except Exception:
                     break
+        return roots, session_roots, set(provider_dirs)
 
+    def get_artifacts(self) -> List[dict]:
+        exts_img = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
+        exts_doc = {".md", ".txt", ".json", ".pdf", ".html", ".csv", ".yaml", ".yml"}
+        exts_code = {".py", ".js", ".ts", ".gd", ".sh", ".sql", ".css"}
+
+        roots, session_artifact_roots, brain_source_roots = self._collect_artifact_roots()
         found = []
         seen_sizes = set()
         seen_names = set()
-        brain_source_roots = set(provider_dirs)
 
         for root in roots:
             if not root or not Path(root).exists():
