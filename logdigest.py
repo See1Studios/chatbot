@@ -148,31 +148,10 @@ def _context_summary(win: List[Dict[str, Any]], find=None) -> Dict[str, Any]:
             "max_chars": max((int(e.get("chars") or 0) for e in inj), default=0), "alerts": dict(alerts)}
 
 
-def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
-    now = time.time()
-    since_t = now - since_s
-    events = list(read_events(0.0 if include_all else since_t - 7 * 86400))
-    events.sort(key=ts_of)
-    before = [e for e in events if ts_of(e) < since_t]
-    win = [e for e in events if ts_of(e) >= since_t]
-    d: Dict[str, Any] = {"window": {"since": datetime.fromtimestamp(since_t).isoformat(timespec="seconds"),
-                                    "until": datetime.fromtimestamp(now).isoformat(timespec="seconds"),
-                                    "hours": round(since_s / 3600, 1), "events": len(win)}}
-    d["counts"] = {"by_level": dict(Counter(e.get("lvl") for e in win)),
-                   "by_src": dict(Counter(e.get("src") for e in win)),
-                   "by_evt": dict(Counter(e.get("evt") for e in win).most_common(40))}
-    findings: List[Dict[str, Any]] = []
-
-    def find(sev: str, code: str, title: str, hint: str, **ev: Any) -> None:
-        findings.append({"severity": sev, "code": code, "title": title, "hint": hint, "evidence": ev})
-
-    # --- processes: starts, exits, unclean restarts, heartbeat gaps ---
+def _digest_processes(events, win, since_t, now, find):
     procs: Dict[str, Dict[str, Any]] = {}
     unclean = []
     last_by_src: Dict[str, dict] = {}
-    # Per pid, not per stream: two processes of one src can overlap (a test server, a restart
-    # racing the old one), so "the line before a start was not an exit" is not a crash. A pid is
-    # unclean when its last line is not proc.exit and a newer pid of the same src started after it.
     last_by_pid: Dict[tuple, dict] = {}
     starts_by_src: Dict[str, List[dict]] = defaultdict(list)
     for e in events:
@@ -230,10 +209,10 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     for u in unclean:
         find("error", "unclean_restart", "%s restarted after an unclean exit (pid %s, no proc.exit)" % (u["src"], u["prev_pid"]),
              "kill -9 / OOM / crash: check the last event before it, dmesg and logs/chatbot.log", **u)
-    d["processes"] = procs
-    d["unclean_restarts"] = unclean
+    return procs, unclean
 
-    # --- errors grouped by fingerprint ---
+
+def _digest_errors(before, win, find):
     seen_before = {((e.get("err") or {}).get("fp")) for e in before if isinstance(e.get("err"), dict)}
     groups: Dict[str, Dict[str, Any]] = {}
     for e in win:
@@ -266,13 +245,14 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
             storm = " (storm: %d lines counted only)" % g["suppressed"] if g.get("suppressed") else ""
             find("error" if g["new"] else "warn", "error_fp", "%s%s ×%d%s: %s @%s" % ("[new] " if g["new"] else "", g["type"], g["count"], storm, (g["msg"] or "")[:120], g["where"]),
                  "logdigest.py --fp %s shows the full trace and the requests" % g["fp"], fp=g["fp"], routes=g["routes"])
-    d["errors"] = errs
     for e in win:
         if e.get("evt") in ("proc.crash", "thread.crash"):
             find("error", e["evt"].replace(".", "_"), "%s: %s" % (e["evt"], (e.get("err") or {}).get("msg")),
                  "logdigest.py --fp %s" % (e.get("err") or {}).get("fp"), src=e.get("src"), ts=e.get("ts"), thread=e.get("thread"))
+    return errs
 
-    # --- HTTP: summaries + individual lines ---
+
+def _digest_http(win, find):
     routes: Dict[str, Dict[str, Any]] = defaultdict(lambda: {"n": 0, "codes": Counter(), "p95": [], "max": 0.0})
     for e in win:
         if e.get("evt") == "http.summary":
@@ -298,17 +278,17 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
         if not stream and row["p95_ms_worst"] and row["p95_ms_worst"] > P95_SLOW_MS and t["n"] >= 10:
             find("warn", "http_slow", "%s p95 %.0fms" % (key, row["p95_ms_worst"]), "slow route: check the handler's outside calls (CLI/files/locks)", route=key)
     http.sort(key=lambda r: -r["n"])
-    d["http"] = {"routes": http[:40], "total": sum(r["n"] for r in http)}
     ce = Counter()
     for e in win:
         if e.get("evt") == "http.client_error":
             ce["%s %s %s" % (e.get("src"), e.get("route"), e.get("status"))] += 1 + int(e.get("repeat") or 0)
-    d["http"]["client_errors"] = dict(ce.most_common(15))
     for k, c in ce.items():
         if c >= CLIENT_ERR_REPEAT_WARN:
             find("warn", "client_error_repeat", "%s ×%d" % (k, c), "a client repeats the same failing request: check what the UI polls", key=k)
+    return {"routes": http[:40], "total": sum(r["n"] for r in http), "client_errors": dict(ce.most_common(15))}
 
-    # --- turns / sessions ---
+
+def _digest_turns(win, find):
     tp: Dict[str, Counter] = defaultdict(Counter)
     durs: Dict[str, List[float]] = defaultdict(list)
     bad_turns = []
@@ -329,17 +309,17 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
         if total >= 5 and bad / total >= TURN_FAIL_RATE_WARN:
             find("error", "turn_failures", "%s turn failure rate %.0f%% (%d/%d)" % (p, 100 * bad / total, bad, total),
                  "logdigest.py --evt turn.end shows outcome and stderr_tail; for quota/sign-in problems check accounts", provider=p, outcomes=dict(c))
-    d["turns"] = {"by_provider": turns, "failed": bad_turns[-20:]}
-    d["sessions"] = {k: sum(1 for e in win if e.get("evt") == k) for k in
-                     ("session.error", "session.session_rotate", "session.session_heavy", "turn.loop_notice", "turn.quiet_close",
-                      "agent.spawn", "agent.exit", "agent.recycle")}
-    d["context"] = _context_summary(win, find)
     died = [e for e in win if e.get("evt") == "agent.exit" and e.get("died_mid_turn")]
     if died:
         find("warn", "agent_died_mid_turn", "agent process ended mid-turn %d times" % len(died),
              "check rc and the agent.reaped just before (who ended it)", samples=[{k: x.get(k) for k in ("ts", "sid", "provider", "rc")} for x in died[-5:]])
+    sessions = {k: sum(1 for e in win if e.get("evt") == k) for k in
+                ("session.error", "session.session_rotate", "session.session_heavy", "turn.loop_notice", "turn.quiet_close",
+                 "agent.spawn", "agent.exit", "agent.recycle")}
+    return {"by_provider": turns, "failed": bad_turns[-20:]}, sessions
 
-    # --- ops: repair / doctor / reaping ---
+
+def _digest_ops(events, win, since_s, find):
     rep = [e for e in win if e.get("evt") == "repair.begin"]
     rep_end = [e for e in win if e.get("evt") == "repair.end"]
     callers = Counter(str(e.get("caller")) for e in rep)
@@ -358,8 +338,6 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
         find("error", "repair_failed", "probe still failed after repair %d times" % ops["repair_failed"], "check the end of logs/chatbot.log and the doctor.probe msg")
     if ops["doctor_probe"].get("fail"):
         find("error", "probe_fail", "doctor probe failed %d times" % ops["doctor_probe"]["fail"], "logdigest.py --evt doctor.probe")
-    d["ops"] = ops
-    # A live chat server's own child reaped by ctl: ctl must leave those to the server (STANDBY_REAP_v1).
     lives: Dict[Any, List[float]] = {}
     for e in events:
         if e.get("src") == "chat" and e.get("evt") in ("proc.start", "proc.exit"):
@@ -374,8 +352,10 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
             find("warn", "agent_reaped_live", "a child agy %s of the live chat server (pid %s) was reaped (%s)" % (e.get("agent_pid"), e["ppid"], e.get("reason")),
                  "check ctl reap_orphan_agents: the server's descendants are the server's to manage", ppid=e["ppid"], agent_pid=e.get("agent_pid"),
                  key="%s/%s" % (e.get("ppid"), e.get("reason")))
+    return ops
 
-    # --- MCP tool calls ---
+
+def _digest_mcp(win):
     calls = Counter()
     fails: Dict[str, Counter] = defaultdict(Counter)
     for e in win:
@@ -383,8 +363,35 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
             calls[e.get("tool")] += 1
             if not e.get("ok"):
                 fails[str(e.get("tool"))][str(e.get("msg"))[:80]] += 1
-    d["mcp"] = {"calls": dict(calls.most_common(20)),
-                "failures": {t: dict(c.most_common(5)) for t, c in fails.items()}}
+    return {"calls": dict(calls.most_common(20)),
+            "failures": {t: dict(c.most_common(5)) for t, c in fails.items()}}
+
+
+def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
+    now = time.time()
+    since_t = now - since_s
+    events = list(read_events(0.0 if include_all else since_t - 7 * 86400))
+    events.sort(key=ts_of)
+    before = [e for e in events if ts_of(e) < since_t]
+    win = [e for e in events if ts_of(e) >= since_t]
+    d: Dict[str, Any] = {"window": {"since": datetime.fromtimestamp(since_t).isoformat(timespec="seconds"),
+                                    "until": datetime.fromtimestamp(now).isoformat(timespec="seconds"),
+                                    "hours": round(since_s / 3600, 1), "events": len(win)}}
+    d["counts"] = {"by_level": dict(Counter(e.get("lvl") for e in win)),
+                   "by_src": dict(Counter(e.get("src") for e in win)),
+                   "by_evt": dict(Counter(e.get("evt") for e in win).most_common(40))}
+    findings: List[Dict[str, Any]] = []
+
+    def find(sev: str, code: str, title: str, hint: str, **ev: Any) -> None:
+        findings.append({"severity": sev, "code": code, "title": title, "hint": hint, "evidence": ev})
+
+    d["processes"], d["unclean_restarts"] = _digest_processes(events, win, since_t, now, find)
+    d["errors"] = _digest_errors(before, win, find)
+    d["http"] = _digest_http(win, find)
+    d["turns"], d["sessions"] = _digest_turns(win, find)
+    d["context"] = _context_summary(win, find)
+    d["ops"] = _digest_ops(events, win, since_s, find)
+    d["mcp"] = _digest_mcp(win)
 
     order = {"error": 0, "warn": 1, "info": 2}
     findings.sort(key=lambda f: order.get(f["severity"], 3))
