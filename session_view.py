@@ -18,10 +18,85 @@ def _session():
     return session
 
 
+SKIP_TOOL_NOISE = {"", "tool", "step", "step_update", "unknown", "agent_response"}
+
+
+def _make_tool_event(text: str, title: str, kind: str, status: str, detail: Any = None) -> dict:
+    ev = {"event": "tool", "text": text[:600], "title": title[:200], "kind": kind, "status": str(status)[:80]}
+    if detail:
+        d = detail if isinstance(detail, str) else json.dumps(detail, ensure_ascii=False, indent=2)
+        if len(d) > 2 and (len(d) > len(text) or "\n" in d or isinstance(detail, dict)):
+            ev["detail"] = d[:4000]
+    return ev
+
+
 class SessionView:
+    def _step_update_summary(self, step: dict) -> Union[dict, None]:
+        stype = str(step.get("step_type") or step.get("type") or "").strip()
+        if stype in ("agent_response",):
+            return None
+        title = step.get("title") or step.get("name") or step.get("tool") or step.get("tool_name") or step.get("function") or ""
+        step_args = {}
+        for nest in (step.get("tool_call"), step.get("toolUse"), step.get("args"), step.get("input")):
+            if isinstance(nest, dict):
+                title = title or nest.get("name") or nest.get("tool") or nest.get("Name") or ""
+                tc = nest.get("toolCall")
+                if not title and isinstance(tc, dict):
+                    title = tc.get("name") or ""
+                step_args.update(nest)
+        title = str(title or "").strip()
+        status = str(step.get("status") or step.get("state") or "").strip()
+
+        blob = json.dumps(step, ensure_ascii=False)
+        if "generate_image" in blob.lower() or "image" in title.lower():
+            for src in self._collect_new_images(self.turn_started_at or None):
+                url = self._stage_image(src)
+                if url and url not in self.pending_images:
+                    self.pending_images.append(url)
+                    self._emit({"event": "image", "text": url, "url": url, "name": src.name})
+
+        if title and title.lower() not in SKIP_TOOL_NOISE:
+            args_dict = step_args if step_args else step
+            text = _format_tool_call(title, args_dict)
+        else:
+            args_dict, text = {}, ""
+            for k in ("command", "CommandLine", "path", "query", "text", "summary", "description"):
+                val = step.get(k)
+                if isinstance(val, str) and val.strip():
+                    text = val.strip()[:400]
+                    break
+            if not text and stype and stype.lower() not in SKIP_TOOL_NOISE:
+                text = stype
+        if not text or text == self._last_tool_sig:
+            return None
+        self._last_tool_sig = text
+        ev = _make_tool_event(text, title or stype, "call", status, args_dict)
+        ev["step_type"] = stype[:80]
+        if stype == "error_message":
+            hint = ""
+            for k in ("error", "message", "text", "summary", "description", "detail"):
+                val = step.get(k)
+                if isinstance(val, str) and val.strip():
+                    hint = val.strip()[:500]
+                    break
+            if not hint:
+                for nest in (step.get("result"), step.get("output"), step.get("content"), args_dict):
+                    if isinstance(nest, dict):
+                        for k in ("error", "message", "text"):
+                            val = nest.get(k)
+                            if isinstance(val, str) and val.strip():
+                                hint = val.strip()[:500]
+                                break
+                    if hint:
+                        break
+            if hint:
+                ev["detail"] = hint
+                self._err_msg_hint = hint
+            self._arm_error_message_failfast()
+        return ev
+
     def _tool_summary(self, obj: dict) -> Union[dict, List[dict], None]:
         """Surface tool activity with detailed arguments and results."""
-        SKIP_TOOL_NOISE = {"", "tool", "step", "step_update", "unknown", "agent_response"}
         if not hasattr(self, "_last_tool_sig"):
             self._last_tool_sig = None
 
@@ -33,171 +108,70 @@ class SessionView:
                 if isinstance(tc, dict):
                     name = str(tc.get("name") or "").strip()
                     args = tc.get("args") or tc.get("input") or {}
-                    if not isinstance(args, dict):
-                        args = {}
+                    args = args if isinstance(args, dict) else {}
                     text = _format_tool_call(name, args)
                     if text and text != self._last_tool_sig:
                         self._last_tool_sig = text
-                        detail_str = json.dumps(args, ensure_ascii=False, indent=2) if args else ""
-                        ev_item = {"event": "tool", "text": text[:600], "title": name[:200], "kind": "call", "status": "calling"}
-                        if detail_str and len(detail_str) > 2:
-                            ev_item["detail"] = detail_str[:4000]
-                        events.append(ev_item)
+                        events.append(_make_tool_event(text, name, "call", "calling", args))
             if events:
                 return events
 
         # 2. Antigravity GENERIC tool execution result
         if obj.get("type") == "GENERIC" and isinstance(obj.get("content"), str) and obj.get("content").strip():
-            raw_content = obj["content"].strip()
-            res_summary = _format_tool_result(raw_content)
+            raw = obj["content"].strip()
+            res_summary = _format_tool_result(raw)
             if res_summary and res_summary != self._last_tool_sig:
                 self._last_tool_sig = res_summary
-                ev_res = {"event": "tool", "text": res_summary[:600], "title": "result", "kind": "result", "status": "done"}
-                if len(raw_content) > len(res_summary) or "\n" in raw_content:
-                    ev_res["detail"] = raw_content[:4000]
-                return ev_res
+                return _make_tool_event(res_summary, "result", "result", "done", raw)
 
         # 3. step_update format
         step = obj.get("step_update")
         if isinstance(step, dict):
-            stype = str(step.get("step_type") or step.get("type") or "").strip()
-            if stype in ("agent_response",):
-                return None
-            title = (
-                step.get("title")
-                or step.get("name")
-                or step.get("tool")
-                or step.get("tool_name")
-                or step.get("function")
-                or ""
-            )
-            step_args = {}
-            for nest in (step.get("tool_call"), step.get("toolUse"), step.get("args"), step.get("input")):
-                if isinstance(nest, dict):
-                    title = title or nest.get("name") or nest.get("tool") or nest.get("Name") or ""
-                    tc = nest.get("toolCall")
-                    if not title and isinstance(tc, dict):
-                        title = tc.get("name") or ""
-                    step_args.update(nest)
-            title = str(title or "").strip()
-            status = str(step.get("status") or step.get("state") or "").strip()
-
-            blob = json.dumps(step, ensure_ascii=False)
-            if "generate_image" in blob.lower() or "image" in title.lower():
-                for src in self._collect_new_images(self.turn_started_at or None):
-                    url = self._stage_image(src)
-                    if url and url not in self.pending_images:
-                        self.pending_images.append(url)
-                        self._emit({"event": "image", "text": url, "url": url, "name": src.name})
-
-            if title and title.lower() not in SKIP_TOOL_NOISE:
-                args_dict = step_args if step_args else step
-                text = _format_tool_call(title, args_dict)
-            else:
-                args_dict = {}
-                text = ""
-                for k in ("command", "CommandLine", "path", "query", "text", "summary", "description"):
-                    val = step.get(k)
-                    if isinstance(val, str) and val.strip():
-                        text = val.strip()[:400]
-                        break
-                if not text and stype and stype.lower() not in SKIP_TOOL_NOISE:
-                    text = stype
-            if not text or text == self._last_tool_sig:
-                return None
-            self._last_tool_sig = text
-            ev_step = {"event": "tool", "text": text[:600], "step_type": stype[:80], "title": title[:200] or stype[:80], "kind": "call", "status": status[:80]}
-            if args_dict:
-                d_str = json.dumps(args_dict, ensure_ascii=False, indent=2)
-                if len(d_str) > 2:
-                    ev_step["detail"] = d_str[:4000]
-            # QUOTA_FAILFAST_v1: agy often parks for ~2min after error_message
-            if stype == "error_message":
-                hint = ""
-                for k in ("error", "message", "text", "summary", "description", "detail"):
-                    val = step.get(k)
-                    if isinstance(val, str) and val.strip():
-                        hint = val.strip()[:500]
-                        break
-                if not hint:
-                    for nest in (step.get("result"), step.get("output"), step.get("content"), args_dict):
-                        if isinstance(nest, dict):
-                            for k in ("error", "message", "text"):
-                                val = nest.get(k)
-                                if isinstance(val, str) and val.strip():
-                                    hint = val.strip()[:500]
-                                    break
-                        if hint:
-                            break
-                if hint:
-                    ev_step["detail"] = hint
-                    self._err_msg_hint = hint
-                self._arm_error_message_failfast()
-            return ev_step
+            return self._step_update_summary(step)
 
         # 4. classic tool_use / tool_call / tool_result / tool_error
         ev = obj.get("event") or obj.get("type")
         if ev in ("tool_use", "tool_call"):
             name = str(obj.get("name") or obj.get("tool") or "").strip()
             args = obj.get("args") or obj.get("input") or obj.get("parameters") or {}
-            if not isinstance(args, dict):
-                args = {}
-            text = _format_tool_call(name, args) if args else f"{name}"
-            if not text or text.lower() in SKIP_TOOL_NOISE:
-                return None
-            if text == self._last_tool_sig:
-                return None
-            self._last_tool_sig = text
-            ev_call = {"event": "tool", "text": text[:600], "title": name[:200], "kind": "call", "status": str(ev)}
-            if args:
-                d_str = json.dumps(args, ensure_ascii=False, indent=2)
-                if len(d_str) > 2:
-                    ev_call["detail"] = d_str[:4000]
-            return ev_call
+            args = args if isinstance(args, dict) else {}
+            text = _format_tool_call(name, args) if args else name
+            if text and text.lower() not in SKIP_TOOL_NOISE and text != self._last_tool_sig:
+                self._last_tool_sig = text
+                return _make_tool_event(text, name, "call", str(ev), args)
 
         if ev in ("tool_result", "tool_error"):
             name = str(obj.get("name") or obj.get("tool") or "").strip()
-            content = obj.get("output") or obj.get("content") or obj.get("result") or ""
-            raw_str = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, indent=2)
+            raw = obj.get("output") or obj.get("content") or obj.get("result") or ""
+            raw_str = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False, indent=2)
             res_text = _format_tool_result(raw_str) if raw_str else f"{ev}: {name or 'done'}"
-            if res_text == self._last_tool_sig:
-                return None
-            self._last_tool_sig = res_text
-            ev_res = {"event": "tool", "text": res_text[:600], "title": name[:200] or "result", "kind": "result", "status": str(ev)}
-            if raw_str and (len(raw_str) > len(res_text) or "\n" in raw_str):
-                ev_res["detail"] = raw_str[:4000]
-            return ev_res
+            if res_text and res_text != self._last_tool_sig:
+                self._last_tool_sig = res_text
+                return _make_tool_event(res_text, name or "result", "result", str(ev), raw_str)
 
         # 5. nested message tool_use / tool_result blocks
         msg = obj.get("message")
-        if isinstance(msg, dict):
-            content = msg.get("content")
-            if isinstance(content, list):
-                events = []
-                for part in content:
-                    if isinstance(part, dict):
-                        ptype = part.get("type")
-                        if ptype == "tool_use":
-                            name = str(part.get("name") or "").strip()
-                            args = part.get("input") or {}
-                            text = _format_tool_call(name, args if isinstance(args, dict) else {})
-                            if text and text != self._last_tool_sig:
-                                self._last_tool_sig = text
-                                ev_tu = {"event": "tool", "text": text[:600], "title": name[:200], "kind": "call", "status": "tool_use"}
-                                if isinstance(args, dict) and args:
-                                    ev_tu["detail"] = json.dumps(args, ensure_ascii=False, indent=2)[:4000]
-                                events.append(ev_tu)
-                        elif ptype == "tool_result":
-                            res = str(part.get("content") or part.get("output") or "")
-                            text = _format_tool_result(res) if res else "↳ tool_result: done"
-                            if text and text != self._last_tool_sig:
-                                self._last_tool_sig = text
-                                ev_tr = {"event": "tool", "text": text[:600], "title": "result", "kind": "result", "status": "tool_result"}
-                                if res and (len(res) > len(text) or "\n" in res):
-                                    ev_tr["detail"] = res[:4000]
-                                events.append(ev_tr)
-                if events:
-                    return events
+        if isinstance(msg, dict) and isinstance(msg.get("content"), list):
+            events = []
+            for part in msg["content"]:
+                if isinstance(part, dict):
+                    ptype = part.get("type")
+                    if ptype == "tool_use":
+                        name = str(part.get("name") or "").strip()
+                        args = part.get("input") or {}
+                        args = args if isinstance(args, dict) else {}
+                        text = _format_tool_call(name, args)
+                        if text and text != self._last_tool_sig:
+                            self._last_tool_sig = text
+                            events.append(_make_tool_event(text, name, "call", "tool_use", args))
+                    elif ptype == "tool_result":
+                        res = str(part.get("content") or part.get("output") or "")
+                        text = _format_tool_result(res) if res else "↳ tool_result: done"
+                        if text and text != self._last_tool_sig:
+                            self._last_tool_sig = text
+                            events.append(_make_tool_event(text, "result", "result", "tool_result", res))
+            if events:
+                return events
         return None
 
     def get_handover_summary(self, max_turns: int = 8, use_cache: bool = True, native: bool = True) -> str:
