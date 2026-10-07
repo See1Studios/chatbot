@@ -147,6 +147,7 @@ function prependActivity(line, kind, ts, detail) {
 // 'user_ack' are skipped here -- those are already visible as chat bubbles,
 // not activity-log lines.
 function formatPersistedLogEvent(ev) {
+  trEvent(ev);   // I18N_v1: a stored server event shows in the page's language
   const type = ev.event;
   const text = ev.text || '';
   const detail = ev.detail || '';

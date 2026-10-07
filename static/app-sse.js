@@ -512,6 +512,7 @@ function bindEvents(sid) {
   es.onmessage = (ev) => {
     lastStreamAt = Date.now();   // SYNC_THROTTLE_v1
     let data; try { data = JSON.parse(ev.data); } catch (_) { return; }
+    trEvent(data);   // I18N_v1: server words by key, in the page's language
     const type = data.event || data.type || '';
     const text = data.text || data.message || data.content || '';
 

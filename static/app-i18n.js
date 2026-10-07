@@ -39,6 +39,17 @@ function i18nTable(prefix) {
   } });
 }
 
+// Server words (i18n.py): an event or answer carries the catalog key and values beside its English text.
+function trEvent(o) {   // the event's text in the page's language, set in place
+  if (o && o.key) o.text = tr(o.key, o.vars || {});
+  return o;
+}
+function trField(o, name) {   // e.g. trField(res, 'message'): <name>_key/_vars, else <name>, else the older <name>_ko
+  if (!o) return '';
+  if (o[name + '_key']) return tr(o[name + '_key'], o[name + '_vars'] || {});
+  return o[name] || o[name + '_ko'] || '';
+}
+
 // L4: numbers and times in the page's language, never a fixed locale.
 function fmtNumber(n, opts) { return new Intl.NumberFormat(I18N_LANG, opts).format(Number(n || 0)); }
 function fmtTime(when) { return new Date(when).toLocaleTimeString(I18N_LANG); }

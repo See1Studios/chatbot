@@ -35,6 +35,29 @@ class Catalogs(unittest.TestCase):
         self.assertTrue(used)
         self.assertEqual(sorted(used - set(CATALOGS["en"])), [])
 
+    def test_every_key_the_server_names_is_in_the_catalog(self):
+        # l10n/F: i18n.msg / text / field name catalog keys; a key the page cannot show is a bug in every language
+        root = ROOT
+        files = list(root.glob("*.py")) + list(root.glob("providers/*.py"))
+        rx = re.compile(r"""\bi18n\.(?:msg|text)\(\s*["']([a-z0-9_.-]+)["']|\bi18n\.field\(\s*["']\w+["']\s*,\s*["']([a-z0-9_.-]+)["']""")
+        used = {a or b for p in files for a, b in rx.findall(p.read_text(encoding="utf-8"))}
+        self.assertEqual(sorted(used - set(CATALOGS["en"])), [])
+
+    def test_the_server_sends_the_key_its_values_and_english(self):
+        import sys
+        sys.path.insert(0, str(ROOT))
+        import i18n
+        en = CATALOGS["en"]
+        key = next(k for k, v in en.items() if "{" in v)
+        name = re.search(r"\{(\w+)\}", en[key]).group(1)
+        m = i18n.msg(key, **{name: "X"})
+        self.assertEqual((m["key"], m["vars"]), (key, {name: "X"}))
+        self.assertIn("X", m["text"])
+        self.assertNotIn("{" + name + "}", m["text"])
+        f = i18n.field("message", key, **{name: 7})
+        self.assertEqual((f["message_key"], f["message_vars"][name]), (key, "7"))
+        self.assertEqual(i18n.text("no.such.key"), "no.such.key")
+
     def test_a_placeholder_is_the_same_in_every_language(self):
         for key, text in CATALOGS["en"].items():
             want = set(re.findall(r"\{(\w+)\}", text))
