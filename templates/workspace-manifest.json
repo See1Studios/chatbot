@@ -2,6 +2,7 @@
   "notes": "Workspace templates (user-data-separation uds/C5, uds/F). templates/workspace/ is what a new install copies into an empty data folder (uds/D); templates/dev-workspace/ holds the dev build's own files, tracked because an install's workspace is user data outside the repo. 'same' = shipped as is (one copy, in templates/workspace); 'variant' = the shipped copy differs on purpose and the dev copy is in templates/dev-workspace; 'not_shipped' = dev-workspace only, with the reason (its role packs are defaults the dev build copies in once: role packs are user data, art and dev alike); 'per_install' = this user's or this host's own file, in neither template. tests/test_workspace_template.py enforces it.",
   "per_user": ["characters/", "skill-observations/", "memory/"],
   "same": [
+    "AGENTS.md",
     ".gitignore",
     ".mcp.json",
     ".gemini/config/mcp_config.json",
@@ -15,10 +16,10 @@
     "items.json"
   ],
   "variant": {
-    "AGENTS.md": "the shipped charter: no host law, no host paths, no engine work, reply in the user's language",
     "team.json": "empty roster until the premade pack is chosen (uds C3)"
   },
   "not_shipped": {
+    "DEV-CHARTER.md": "the dev build's own rules, injected after the shipped charter only when CHATBOT_EDITION=dev (DEV_SPLIT_v1)",
     "PROJECT.md": "engine code map for the dev role (pew/L)",
     "SELF-MODIFY.md": "engine self-modification boundary (dev build only)",
     "CROSS-CUTTING-PRINCIPLES.md": "engine design rationale, never injected",

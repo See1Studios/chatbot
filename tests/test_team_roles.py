@@ -114,9 +114,10 @@ class Roster(unittest.TestCase):
 
     def test_the_dev_charter_no_longer_makes_everyone_the_pd(self):
         dev = ROOT / "templates" / "dev-workspace"   # uds/F: the dev build's tracked charter and packs; teams are user data
-        charter = (dev / "AGENTS.md").read_text(encoding="utf-8")
-        self.assertNotIn("You are the PD", charter)
-        self.assertNotIn("role `pd`", charter)
+        for charter in ((dev.parent / "workspace" / "AGENTS.md").read_text(encoding="utf-8"),
+                        (dev / "DEV-CHARTER.md").read_text(encoding="utf-8")):   # one charter + dev rules (DEV_SPLIT_v1)
+            self.assertNotIn("You are the PD", charter)
+            self.assertNotIn("role `pd`", charter)
         packs = [C.role_pack(d.name, dev) for d in sorted((dev / "roles").iterdir())]   # delegation is a pack grant
         self.assertTrue(any("delegate" in p["tools"] for p in packs), [p["role"] for p in packs])
 

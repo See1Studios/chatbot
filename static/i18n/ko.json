@@ -207,6 +207,7 @@
   "composer.slash_key": "명령어 및 스킬 (/)",
   "context.chars": "{n}자",
   "context.layer.charter": "집 규칙(헌장)",
+  "context.layer.dev_charter": "개발판 규칙",
   "context.layer.house_memory": "집 기억",
   "context.layer.lore_after": "세계 설정(뒤)",
   "context.layer.lore_before": "세계 설정(앞)",

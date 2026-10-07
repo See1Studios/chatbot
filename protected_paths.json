@@ -12,6 +12,7 @@
     "static/",
     "data/workspace/SELF-MODIFY.md",
     "data/workspace/AGENTS.md",
+    "data/workspace/DEV-CHARTER.md",
     "docs/SELF-MODIFY.md",
     "docs/EMERGENCY.md",
     "data/host-force.ticket",
@@ -337,6 +338,18 @@
     {
       "path": "tests/test_worktree_runner.py",
       "reason": "enforcer: a worker cannot change its own pass condition (prop/F: registry enforcers are Tier 3)"
+    },
+    {
+      "path": "data/workspace/DEV-CHARTER.md",
+      "reason": "the dev build's rules as an install reads them (DEV_SPLIT_v1)"
+    },
+    {
+      "path": "templates/dev-workspace/DEV-CHARTER.md",
+      "reason": "the dev build's rules, apart from the shipped charter (DEV_SPLIT_v1)"
+    },
+    {
+      "path": "tests/test_edition_instructions.py",
+      "reason": "enforcer: dev and shipped instructions never mix (prop/G)"
     }
   ]
 }

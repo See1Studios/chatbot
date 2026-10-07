@@ -101,6 +101,7 @@
 | `edition/E` | `evolution.py` 분리(D2) | `evolution.py`, 새 모듈, 호출부, `core_modules.json` | 공통 부분만으로 서버가 뜸, 개발판 부분은 `dev`에서만 | 3 · ⚡ | M | D2 | 대기 |
 | `edition/F` | 패키지 제외 목록(4.4)과 release-pipeline 연결 | `edition_exclude.txt`, `docs/plans/release-pipeline.md` | 목록의 모듈을 가린 경계 테스트 통과 | 2 · — | S | edition/D | 대기 |
 | `edition/G` | UI: `shipped`에서 개선 탭 대신 제안 목록 | `static/` | `shipped`에서 티켓·작업 카드 UI가 보이지 않음 | 2 · — | M | ladder/E | 대기 |
+| `edition/H` | 지침도 판별로 분리(운영자 2026-10-07: "개발용 지침과 배포용 지침은 절대 섞이지 않고 독립적"): 헌장은 배포판 하나, 개발판 규칙은 `DEV-CHARTER.md`에만 두고 `EDITION=dev`에서만 별도 층으로 주입. 배포판 역할 팩은 배포되는 스킬만 | `instructions.py`, `templates/`, `tools/link_dev_workspace.py` | `test_edition_instructions` | 3 · ⚡ | M | edition/D | #768 (= [prop/G](propagation-and-state-architecture.md)) |
 
 ## 7. 의존·순서·리스크
 

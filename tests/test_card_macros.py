@@ -71,7 +71,7 @@ class Macros(unittest.TestCase):
     def test_a_role_less_character_is_told_who_delegates_by_name(self):
         C.save_team({"default": self.boss, "members": {self.boss: [], self.kit: []}}, self.ws)
         text = I.build_instruction_bundle(character=self.kit)["text"]
-        self.assertIn("plans and delegation are Boss's", text)
+        self.assertIn("plans and handing out work are Boss's", text)
         self.assertNotIn("{{default}}", text)
 
 

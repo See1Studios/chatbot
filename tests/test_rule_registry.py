@@ -1,7 +1,7 @@
 """Every rule in root AGENTS.md's registry names its audience and its enforcer (plan-execution-workflow §0: a rule that
 lives only in a document is no rule). An enforcer outside parentheses must exist: a test module, or a repo file;
 otherwise the row says `manual` (a planned enforcer may follow in parentheses). An enforcer is itself guarded (prop/F,
-2026-10-07: two enforcers were red on main and nothing noticed): it is Tier 3 (`protected_paths.json` governance, so
+2026-10-07: two tests were red on main and no commit ran them): it is Tier 3 (`protected_paths.json` governance, so
 only the operator weakens it) and it runs on every commit (`run-tests.sh` FAST) unless SLOW below names why not.
 Run: python3 -m unittest tests.test_rule_registry  (from services/chatbot)
 """

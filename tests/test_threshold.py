@@ -297,7 +297,7 @@ class Wiring(unittest.TestCase):
     def test_a_move_chip_is_an_allowed_command(self):
         import mcp_server
         self.assertTrue(mcp_server._is_allowed_choice_command("/private on 계단실"))
-        for rel in ("templates/dev-workspace/AGENTS.md", "templates/workspace/AGENTS.md"):
+        for rel in ("templates/workspace/AGENTS.md",):   # one charter for both builds (DEV_SPLIT_v1)
             self.assertIn("-> command: /private on", (ROOT / rel).read_text(encoding="utf-8"), rel)
 
 

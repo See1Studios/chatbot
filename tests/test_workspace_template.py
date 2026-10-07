@@ -1,6 +1,6 @@
 """The workspace templates stay classified and carry nothing of this host (user-data-separation uds/C5, uds/F).
 templates/workspace/ is what a new install copies; templates/dev-workspace/ holds the dev build's own files (its
-charter, engine role packs, engine skills and tools), tracked here because an install's workspace is user data outside
+rules DEV-CHARTER.md -- the charter itself is the shipped one, DEV_SPLIT_v1 -- engine role packs, engine skills and tools), tracked here because an install's workspace is user data outside
 the repo. templates/workspace-manifest.json lists every such file exactly once: 'same' (shipped as is), 'variant'
 (the shipped copy differs on purpose; the dev copy lives in dev-workspace) or 'not_shipped' (dev-workspace only, with a
 reason); 'per_install' files (this user's or this host's) are in neither. An unlisted file on either side, or a
@@ -22,7 +22,7 @@ MANIFEST = json.loads((ROOT / "templates" / "workspace-manifest.json").read_text
 HOST_MARKERS = ("DiskStation", "/volume1", "/var/services", "Sphere", "실장님", "냥", "services/chatbot",  # l10n-ok
                 "FIREBAT", "~/AGENTS.md", "~/services", "NyangPD")
 DEV_MARKERS = ("`ticket` tool", "claiming an approved ticket", "SELF-MODIFY.md", "PROJECT.md", "docs/plans/",
-               "--no-verify", "run-tests.sh", "`dev` role", "delegate")
+               "--no-verify", "run-tests.sh", "`dev` role", "delegate", "delegating", "`ticket`")
 FIX = "edit templates/workspace-manifest.json (move the path to 'variant' or 'not_shipped' with a reason)"
 
 

@@ -186,8 +186,9 @@ class SeedTest(Base):
 
     def test_the_charter_names_no_title(self):
         # TITLE_DISPLAY_v1: a job title is the user's display value; the charter defines no name
-        charter = (Path(identity.__file__).parent / "templates" / "dev-workspace" / "AGENTS.md").read_text(encoding="utf-8")
-        self.assertEqual(identity.parse_frontmatter(charter).get("title"), None)
+        tpl = Path(identity.__file__).parent / "templates"
+        for rel in ("workspace/AGENTS.md", "dev-workspace/DEV-CHARTER.md"):
+            self.assertEqual(identity.parse_frontmatter((tpl / rel).read_text(encoding="utf-8")).get("title"), None, rel)
 
     def test_shipped_template_is_a_neutral_card(self):
         import characters

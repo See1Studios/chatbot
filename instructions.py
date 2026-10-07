@@ -112,7 +112,7 @@ def _persona_text(character: str = "") -> str:
     return ""
 
 
-NO_ROLE_NOTE = ("[No role] You hold no role in the team: talk and help, but plans and delegation are {{default}}'s, and "
+NO_ROLE_NOTE = ("[No role] You hold no role in the team: talk and help, but plans and handing out work are {{default}}'s, and "
                 "the house memory is read-only for you.")
 
 
@@ -372,14 +372,22 @@ def _card(character: str) -> Dict:
         return {}
 
 
-PRIVATE_SESSION_NOTE = ("[Private session] A private conversation, kept apart from work. Work tools, tickets, "
-                        "delegation and work memory are closed; do not work or bring up work. The host keeps what is "
+PRIVATE_SESSION_NOTE = ("[Private session] A private conversation, kept apart from work. Work tools and work memory "
+                        "are closed; do not work or bring up work. The host keeps what is "
                         "worth remembering in your private memory when the session closes. The user switches with "
                         "`/private on|off` or the heart button; asked for work, ask them to switch with `/private off`. "
                         "Follow the character's private rules below.")
 # PRIVATE_BUDGET_v1: a private session gets the charter's preamble and these sections only. The rest is work
 # procedure it cannot use, and "## Memory" would point it at the work memory tool.
 PRIVATE_CHARTER_SECTIONS = ("Scope",)
+
+
+def _dev_charter() -> str:
+    """DEV_SPLIT_v1 (prop/G): the dev build's own rules, a layer apart from the charter -- the two never share a file.
+    Only the dev build takes it (host_config.EDITION, read at call time): a shipped install never does, whatever files
+    its workspace holds."""
+    import host_config
+    return _read(WORKSPACE / "DEV-CHARTER.md") if host_config.EDITION == "dev" else ""
 
 
 def _private_charter() -> str:
@@ -435,6 +443,7 @@ def _private_memory(c: Dict) -> str:
 # covers it, its modes decide where it goes.
 LAYERS: Tuple[Layer, ...] = (
     Layer("charter", "rules", WORK, lambda c: _read(WORKSPACE / "AGENTS.md"), required=True),
+    Layer("dev_charter", "rules", WORK, lambda c: _dev_charter()),
     Layer("private_charter", "rules", PRIVATE, lambda c: _private_charter(), required=True),
     Layer("lore_before", "rules", BOTH, lambda c: c["lore"]["before_char"]),
     Layer("persona", "rules", WORK, lambda c: _persona_text(c["character"]), required=True),

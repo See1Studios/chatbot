@@ -264,7 +264,7 @@ class Fixture(WorkspaceCase):
                                       "purpose, update GOLDEN in the same change and say so in DEVLOG")
 
 
-GOLDEN = {"work": "4f509b1defb96314", "private": "d9f6c421c8b6c548"}   # 2026-10-07: l10n headers in English (#766)
+GOLDEN = {"work": "7153ba11782269a0", "private": "6e533da85c11c946"}   # 2026-10-07: engine notes name no dev tool (#768)
 
 
 if __name__ == "__main__":

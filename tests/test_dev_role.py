@@ -15,7 +15,8 @@ sys.path.insert(0, str(ROOT))
 import characters as C  # noqa: E402
 import instructions as I  # noqa: E402
 
-WS = ROOT / "templates" / "dev-workspace"   # the dev build's charter and role packs (tracked; uds/F)
+WS = ROOT / "templates" / "dev-workspace"   # the dev build's rules and role packs (tracked; uds/F)
+CHARTER = ROOT / "templates" / "workspace" / "AGENTS.md"   # one charter for both builds (DEV_SPLIT_v1)
 # Text that only engine work needs; any of it in the charter or a non-dev role's every-turn part is a leak.
 DEV_MARKERS = ("## Self-modification", "`ticket` tool", "claiming an approved ticket", "SELF-MODIFY.md",
                "docs/plans/", "--no-verify", "run-tests.sh", "PROJECT.md", "⚡소생")
@@ -23,9 +24,11 @@ DEV_MARKERS = ("## Self-modification", "`ticket` tool", "claiming an approved ti
 
 class DevRulesStayInTheDevPack(unittest.TestCase):
     def test_the_shared_charter_carries_no_engine_procedure(self):
-        charter = (WS / "AGENTS.md").read_text(encoding="utf-8")
-        for m in DEV_MARKERS:
-            self.assertNotIn(m, charter, "engine procedure %r belongs in roles/dev/PROCEDURE.md" % m)
+        # DEV-CHARTER.md reaches every character of the dev build, not only dev holders: no procedure there either
+        for p in (CHARTER, WS / "DEV-CHARTER.md"):
+            text = p.read_text(encoding="utf-8")
+            for m in DEV_MARKERS:
+                self.assertNotIn(m, text, "%s: engine procedure %r belongs in roles/dev/PROCEDURE.md" % (p.name, m))
 
     def test_the_dev_pack_holds_what_left_the_charter(self):
         role = (WS / "roles" / "dev" / "ROLE.md").read_text(encoding="utf-8")
@@ -54,7 +57,8 @@ class OnlyDevHoldersGetIt(unittest.TestCase):
     def setUp(self):
         self.ws = Path(tempfile.mkdtemp()).resolve()
         (self.ws / "memory").mkdir()
-        shutil.copy(WS / "AGENTS.md", self.ws / "AGENTS.md")
+        shutil.copy(CHARTER, self.ws / "AGENTS.md")
+        shutil.copy(WS / "DEV-CHARTER.md", self.ws / "DEV-CHARTER.md")
         shutil.copytree(WS / "roles", self.ws / "roles")
         self.dev, self.other = C.new_id(), C.new_id()
         C.save(self.dev, C.new_card("D", description="d body"), self.ws)

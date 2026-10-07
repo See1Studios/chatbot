@@ -249,9 +249,9 @@ class TensionLadder(unittest.TestCase):
 
     def test_private_instruction_bundle_includes_render_protocol(self):
         import instructions
-        ws = Path(tempfile.mkdtemp())   # uds/F: the dev charter from the repo, never an install's workspace
+        ws = Path(tempfile.mkdtemp())   # uds/F: the charter from the repo, never an install's workspace
         self.addCleanup(shutil.rmtree, str(ws), True)
-        shutil.copy(str(Path(__file__).resolve().parent.parent / "templates" / "dev-workspace" / "AGENTS.md"), str(ws / "AGENTS.md"))
+        shutil.copy(str(Path(__file__).resolve().parent.parent / "templates" / "workspace" / "AGENTS.md"), str(ws / "AGENTS.md"))
         import characters
         cid = characters.new_id()   # a fixture default character: an install's cards are user data
         characters.save(cid, characters.new_card("P"), ws)

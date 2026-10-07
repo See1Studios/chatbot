@@ -71,10 +71,10 @@ class PromptsTest(Base):
         self.assertIn("in 2-3 sentences, with only what matters", text)   # no voice: no tone clause between them
 
     def test_the_dev_charter_with_a_card_yields_a_full_identity(self):
-        # Structure, not values. uds/F: an install's cards are user data outside the repo, so the dev build's real
+        # Structure, not values. uds/F: an install's cards are user data outside the repo, so the real
         # charter is paired with a fixture card here; the values are the fixture's, what is asserted is that they flow.
         ws = _workspace("아트디렉터", "루나", "대표님")
-        shutil.copy(ROOT / "templates" / "dev-workspace" / "AGENTS.md", ws / "AGENTS.md")
+        shutil.copy(ROOT / "templates" / "workspace" / "AGENTS.md", ws / "AGENTS.md")   # one charter (DEV_SPLIT_v1)
         self.use(ws)
         i = identity.get_identity()
         self.assertNotEqual(i["title"], identity.DEFAULTS["title"], "no job title: neither the card nor its role pack names one")

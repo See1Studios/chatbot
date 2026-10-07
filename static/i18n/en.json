@@ -207,6 +207,7 @@
   "composer.slash_key": "Commands and skills (/)",
   "context.chars": "{n} chars",
   "context.layer.charter": "House rules (charter)",
+  "context.layer.dev_charter": "Dev build rules",
   "context.layer.house_memory": "House memory",
   "context.layer.lore_after": "World setting (after)",
   "context.layer.lore_before": "World setting (before)",

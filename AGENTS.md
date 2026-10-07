@@ -39,7 +39,7 @@ project's goals (`docs/CONCEPT.md` direction, active plans in `docs/plans/INDEX.
 |---|---|
 | Host operations law | `~/AGENTS.md` |
 | Engine development rules, code map | this file |
-| PE chat agent behaviour | `$CHATBOT_DATA/workspace/AGENTS.md` (+ role packs `$CHATBOT_DATA/workspace/roles/<role>/`; engine-work rules only in `roles/dev/`; source `templates/dev-workspace/`) |
+| PE chat agent behaviour | `$CHATBOT_DATA/workspace/AGENTS.md`, one charter for both builds (source `templates/workspace/AGENTS.md`) + role packs `$CHATBOT_DATA/workspace/roles/<role>/`; dev build only: `DEV-CHARTER.md` (source `templates/dev-workspace/`), engine-work rules only in `roles/dev/` |
 | Architecture: layers, adapters, plugin layer, ST split, module tiers | `docs/ARCHITECTURE.md` (governance section 7) |
 | Engineering conventions (test pairing, size ceilings, timeouts, work banter) | `docs/CONVENTION.md` — numbers and detail live there; this file only registers them |
 | Governance propagation ledger (active queue, drift backlog) | `docs/STATE.md` |
@@ -167,6 +167,7 @@ Enforcer: the test or gate that fails when the rule is broken; `manual` = none y
 | Look for prior art before building (`~/AGENTS.md` §0) | all | manual |
 | Spawn-visible dirs stay minimal (`ADD_DIRS`) | all | manual |
 | Engine-work rules for the chat agent live in the `dev` role pack, never the shared charter or another role's `role.md` | PE chat agent only | `test_dev_role` |
+| Dev and shipped instructions never mix: one shipped charter for both builds; dev-build rules only in `DEV-CHARTER.md`, injected only when `host_config.EDITION` is dev; neither file repeats the other; a shipped bundle names no dev tool; a shipped role pack names only skills that ship | all | `test_edition_instructions`, `test_workspace_template` |
 | Chat UI conventions (`<!--choices-->`, persona voice); not for external CLIs | PE chat agent only | `templates/workspace/AGENTS.md` |
 
 Add a rule here in the same change that adds its enforcer; a rule without one says `manual` and why.

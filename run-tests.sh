@@ -63,6 +63,7 @@ FAST=(
   test_observations
   test_tickets
   test_unticketed_write
+  test_edition_instructions
 )
 TIMEOUT="${TEST_TIMEOUT:-300}"
 

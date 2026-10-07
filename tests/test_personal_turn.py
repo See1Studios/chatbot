@@ -200,7 +200,7 @@ mark({ children: nodes }).then(() => console.log(JSON.stringify([nodes[0].kids.l
 
 class Wiring(unittest.TestCase):
     def test_every_charter_tells_the_agent_when_to_mark(self):
-        for rel in ("templates/dev-workspace/AGENTS.md", "templates/workspace/AGENTS.md"):
+        for rel in ("templates/workspace/AGENTS.md",):   # one charter for both builds (DEV_SPLIT_v1)
             self.assertIn("call `personal_turn`", (ROOT / rel).read_text(encoding="utf-8"), rel)
 
     def test_a_cli_brain_with_a_tool_allowlist_may_call_it(self):
