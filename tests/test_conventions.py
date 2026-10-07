@@ -1,6 +1,6 @@
-"""Convention checks (CONVENTION_v1, prop/B; trimmed prop/F). Rules declared in docs/CONVENTION.md that code can show:
+"""Convention checks (CONVENTION_v1, prop/B; trimmed prop/F). Conventions in RULES.md that code can show:
 (a) every blocking subprocess call (run, check_output, check_call, call) names an explicit timeout (legacy allowlist);
-(b) the size numbers docs/CONVENTION.md states are the ones tests/test_file_sizes.py enforces.
+(b) the size numbers RULES.md states are the ones tests/test_file_sizes.py enforces.
 Test pairing is the commit-msg hook's (test_githooks); a check that a document contains a phrase guards nothing and is
 not kept here.
 
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 
 # Legitimate legacy exemptions for subprocess.run without explicit timeout.
-# This table is the backlog (docs/CONVENTION.md §2.3): it only shrinks.
+# This table is the backlog (RULES.md, Timeouts): it only shrinks.
 LEGACY_SUBPROCESS_EXEMPTIONS: Dict[str, str] = {}   # emptied 2026-10-07 (prop/I); keep it empty
 
 
@@ -82,7 +82,7 @@ class TestConventions(unittest.TestCase):
         self.assertEqual(
             violations,
             [],
-            "blocking subprocess calls without timeout (docs/CONVENTION.md timeouts):\n" + "\n".join(violations),
+            "blocking subprocess calls without timeout (RULES.md, Timeouts):\n" + "\n".join(violations),
         )
 
     def test_legacy_exemptions_are_active(self):
@@ -104,13 +104,13 @@ class TestConventions(unittest.TestCase):
 
     def test_the_size_numbers_in_convention_are_the_enforced_ones(self):
         from tests.test_file_sizes import FUNC_MAX_LINES, MAX_BYTES
-        text = (DOCS / "CONVENTION.md").read_text(encoding="utf-8")
+        text = (ROOT / "RULES.md").read_text(encoding="utf-8")
         m_lines = re.search(r"FUNC_MAX_LINES\s*=\s*(\d+)", text)
         m_bytes = re.search(r"MAX_BYTES\s*=\s*([0-9_]+)", text)
-        self.assertIsNotNone(m_lines, "docs/CONVENTION.md must state FUNC_MAX_LINES")
-        self.assertIsNotNone(m_bytes, "docs/CONVENTION.md must state MAX_BYTES")
-        self.assertEqual(int(m_lines.group(1)), FUNC_MAX_LINES, "docs/CONVENTION.md and test_file_sizes disagree")
-        self.assertEqual(int(m_bytes.group(1).replace("_", "")), MAX_BYTES, "docs/CONVENTION.md and test_file_sizes disagree")
+        self.assertIsNotNone(m_lines, "RULES.md must state FUNC_MAX_LINES")
+        self.assertIsNotNone(m_bytes, "RULES.md must state MAX_BYTES")
+        self.assertEqual(int(m_lines.group(1)), FUNC_MAX_LINES, "RULES.md and test_file_sizes disagree")
+        self.assertEqual(int(m_bytes.group(1).replace("_", "")), MAX_BYTES, "RULES.md and test_file_sizes disagree")
 
 if __name__ == "__main__":
     unittest.main()

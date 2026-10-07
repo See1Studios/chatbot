@@ -2,11 +2,11 @@
 
 <!-- impeccable:product-schema 1 -->
 
-최대 가치·해자·목표 축은 [`docs/CONCEPT.md`](docs/CONCEPT.md)가 정본이다. 이 문서는 그 기조를 제품 결정(누구에게, 무엇을, 어떤 원칙으로)으로 옮긴 것이다. 기조와 부딪히면 기조가 이긴다.
+최대 가치·해자·목표 축은 [`docs/CONCEPT.md`](CONCEPT.md)가 정본이다. 이 문서는 그 기조를 제품 결정(누구에게, 무엇을, 어떤 원칙으로)으로 옮긴 것이다. 기조와 부딪히면 기조가 이긴다.
 
 ## Platform
 
-web — 로컬에서 도는 Python 엔진 + 브라우저 UI. 배포는 그 위에 얇은 데스크톱 셸(Tauri류)을 씌워 Steam으로 낸다([release-pipeline.md](docs/plans/release-pipeline.md) Pre-Steam).
+web — 로컬에서 도는 Python 엔진 + 브라우저 UI. 배포는 그 위에 얇은 데스크톱 셸(Tauri류)을 씌워 Steam으로 낸다([release-pipeline.md](plans/release-pipeline.md) Pre-Steam).
 
 ## Users
 
@@ -39,7 +39,7 @@ web — 로컬에서 도는 Python 엔진 + 브라우저 UI. 배포는 그 위�
 ## Operating Context
 
 **제품(배포판)**
-- 사용자 기기에서 로컬로 돈다. 사용자 데이터는 `~/.pe`(Windows `%USERPROFILE%\.pe`), 엔진 코드와 분리된다([user-data-separation.md](docs/plans/user-data-separation.md)).
+- 사용자 기기에서 로컬로 돈다. 사용자 데이터는 `~/.pe`(Windows `%USERPROFILE%\.pe`), 엔진 코드와 분리된다([user-data-separation.md](plans/user-data-separation.md)).
 - 브라우저 UI가 로컬 엔진에 붙는다. 데스크톱·모바일 브라우저 둘 다 쓴다(좁은 화면용 컴포저 레이아웃 있음).
 - 두뇌는 사용자가 연결한 프로바이더 CLI·API가 이 기기에서 스폰된다. 브라우저는 얇은 클라이언트.
 
@@ -48,29 +48,29 @@ web — 로컬에서 도는 Python 엔진 + 브라우저 UI. 배포는 그 위�
 - 평문 HTTP, LAN 내부 접속(TLS 없음). 보안 컨텍스트가 필요한 브라우저 API는 폴백이 필요했던 전례가 있다(docs/DEVLOG.md).
 - UI 표면은 전체 창 채팅 하나: `http://diskstation:3011/`와 숏컷 `http://diskstation/chat/`가 같은 `static/index.html`을 연다. `static/live.html`(2.5D 뷰어)은 제품 표면이 아니다.
 - Sphere Hub(이 NAS의 허브 홈)의 FAB은 레포 밖 호스트 셸이다. 입구·호스트 소생 경로로만 존재하고 이 제품의 디자인 표면이 아니다.
-- NAS 서비스 제어(`nas_mcp_host.py`)는 이 설치 환경의 플러그인이다. 제품 기능이 아니다([direction-alignment.md](docs/plans/direction-alignment.md) D3). 기본은 꺼짐이고, 이 NAS는 `data/host.env`의 `NAS_MCP_HOST_PLUGIN=1`·`CHATBOT_WEB_ROOT=/volume1/web`로 켠다(선택지는 `templates/host.env.example`).
+- NAS 서비스 제어(`nas_mcp_host.py`)는 이 설치 환경의 플러그인이다. 제품 기능이 아니다([direction-alignment.md](plans/direction-alignment.md) D3). 기본은 꺼짐이고, 이 NAS는 `data/host.env`의 `NAS_MCP_HOST_PLUGIN=1`·`CHATBOT_WEB_ROOT=/volume1/web`로 켠다(선택지는 `templates/host.env.example`).
 
 ## Capabilities and Constraints
 
 **있는 것**
 - **멀티 프로바이더(BYOK)**: agy(기본)·claude·grok·codex CLI + `data/providers.json`의 HTTP OpenAI 계열(omniroute·openrouter, OpenRouter는 무료 모델만). 프로바이더마다 프로세스 모델·사용량 체계가 다르다(`providers/adapters.py::AGENT_ADAPTERS`). 사용자의 API 키는 `secrets.env`(배포 전 OS 키체인으로 옮긴다).
 - **캐릭터**: 캐릭터 카드 V2가 정본(`characters/<id>/card.json`: 정체성·말투·사적 규칙·업무 지침·두뇌). 외형 `visual.md` + 이미지. SillyTavern PNG 카드 가져오기(#250), 로어북.
-- **기억**: 공용 기억 `memory/MEMORY.md`, 캐릭터별 기억 `memory.md`, 사적 기억 `private-memory.md`(커밋·배포 제외). 관계 기억은 사적 세션의 짧은 슬롯이다([character-memory-adapter.md](docs/plans/character-memory-adapter.md), 최소 구현·계획 active).
+- **기억**: 공용 기억 `memory/MEMORY.md`, 캐릭터별 기억 `memory.md`, 사적 기억 `private-memory.md`(커밋·배포 제외). 관계 기억은 사적 세션의 짧은 슬롯이다([character-memory-adapter.md](plans/character-memory-adapter.md), 최소 구현·계획 active).
 - **외형·연출**: 스프라이트 멀티 프레이밍(Visual Adapter, #251), 표정 태그, 감정 이벤트(`emotion.py`).
-- **사적 모드**: 선택지·행동 입력·텐션 단계, 모델 계열별 보완 레이어(`private_engine.py`, [private-mode.md](docs/plans/private-mode.md)).
+- **사적 모드**: 선택지·행동 입력·텐션 단계, 모델 계열별 보완 레이어(`private_engine.py`, [private-mode.md](plans/private-mode.md)).
 - **연속성**: 토큰 기반 세션 교대, 이어하기(인계 요약), 세션 목록·복원, 무응답·쿼터 오류 감시(`turn_watchdog.py`).
 - **자기 개발**: 에이전트가 스킬(`SKILL.md`)·기억·지침을 쓰고 다듬는다. 관찰 → 제안 → 승인 흐름(`observations.py`, `tickets.py`).
 - **도구**: MCP 서버(`mcp_server.py`)와 코어 도구(`memory`·`observation`·`ticket`).
 
 **제약·경계**
-- 배포판의 에이전트는 **엔진 코드를 고치지 않는다.** 엔진 코드 수정과 그 장치(티켓 관문·워크트리 위임·커밋 훅)는 개발판에만 있다([CONCEPT.md](docs/CONCEPT.md) 「배포판과 개발판」).
+- 배포판의 에이전트는 **엔진 코드를 고치지 않는다.** 엔진 코드 수정과 그 장치(티켓 관문·워크트리 위임·커밋 훅)는 개발판에만 있다([CONCEPT.md](CONCEPT.md) 「배포판과 개발판」).
 - 라이브 세션은 자기 호스트를 재기동하지 않는다. 재기동은 `chatbot-ctl.sh`와 소생 경로만(`docs/SELF-MODIFY.md`).
 - 아직 없는 것: 데스크톱 셸·설치기, 모드 잠금·로컬 암호화·키체인, 현지화, 플러그인 로딩·창작마당, 보이스, 2.5D/3D 렌더러 — 각 계획에서 다룬다.
 - 미확정: 프로바이더별 토큰 임계값 일부, 일부 모델의 컨텍스트 크기.
 
 ## Brand Commitments
 
-- **이름**: 가칭 Private Engine(PE). 상표 클리어런스 전([private-engine-brand.md](docs/plans/private-engine-brand.md)).
+- **이름**: 가칭 Private Engine(PE). 상표 클리어런스 전([private-engine-brand.md](plans/private-engine-brand.md)).
 - **캐릭터**: 이름·말투·호칭은 캐릭터 카드, 외형은 `visual.md`가 정본이다. 엔진 문자열에 특정 캐릭터의 이름·호칭·말투를 박지 않는다(기본 캐릭터는 `team.json`의 `default`).
 - **공개 톤**: 스토어·UI 전면은 개인화 하네스. 사적 수위 장면은 공식 표면에 올리지 않는다.
 - **테마**: 7종 선택 테마(CSS 커스텀 프로퍼티) — `lime`(기본)·`amber`·`cyan`·`emerald`·`violet`·`mono`·`spark`. 한 색에 브랜드를 고정하지 않는다. 디자인 방향은 [DESIGN.md](DESIGN.md).
@@ -92,4 +92,4 @@ web — 로컬에서 도는 Python 엔진 + 브라우저 UI. 배포는 그 위�
 
 ## Accessibility & Inclusion
 
-엔드유저 제품이 되므로 실용 수준 이상을 목표로 한다: 대비·포커스 링·alt 텍스트(2026-09-18 감사에서 양호), 모바일 터치 타겟·입력 필드 라벨(개선 필요), 키보드만으로 대화·선택지 조작. 현지화는 [localization.md](docs/plans/localization.md)(1차 한국어·영어). 공식 WCAG 인증은 목표로 두지 않는다.
+엔드유저 제품이 되므로 실용 수준 이상을 목표로 한다: 대비·포커스 링·alt 텍스트(2026-09-18 감사에서 양호), 모바일 터치 타겟·입력 필드 라벨(개선 필요), 키보드만으로 대화·선택지 조작. 현지화는 [localization.md](plans/localization.md)(1차 한국어·영어). 공식 WCAG 인증은 목표로 두지 않는다.

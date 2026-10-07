@@ -239,6 +239,8 @@ decisions/NNNN ← 계획 항목(uds/B) ← ticket #N ← commit (Plan: uds/B ·
 | `pew/L` | 역할별 개발 안내(2026-09-27 운영자): 챗봇은 여러 캐릭터가 역할을 나눠 맡으므로, 개발 규칙 포인터(루트 `AGENTS.md`, `--no-verify` 금지, "아키텍처 책임자" 역할)는 **개발에 관여하는 역할 팩에만**, 개발 작업일 때만 싣는다. 공용 헌장(`data/workspace/AGENTS.md`)에는 넣지 않고, 지금 공용 헌장에 있는 개발 절(Self-modification)도 역할 팩으로 옮길 수 있는지 검토 | `data/workspace/roles/<개발 역할>/`, `data/workspace/AGENTS.md` | 개발 역할이 아닌 캐릭터의 주입 묶음에 개발 규칙이 없음(테스트), `test_bundle_budget` 녹색 | 3 · — | M | pew/C | ✅ #294 — `dev` 역할 팩(`role.md` 매 턴 4줄 + `procedure.md` 필요할 때), PD·staff 캐릭터에 부여 |
 | `pew/R` | 팩 파일 이름 통일: `roles/<role>/role.md`·`procedure.md` → `ROLE.md`·`PROCEDURE.md`(SKILL.md와 같은 규칙). 읽을 때 옛 이름도 받음 | `characters.py`, `workspace_status.py`, `static/app-team.js`, `data/workspace/roles/`, 테스트 | 새 이름으로 읽고, 옛 이름 팩도 동작(테스트) | 2 · — | S | pew/L | ✅ #298(코드가 두 이름 다 읽음) · #300(파일 이름 바꾸기, ⚡ 뒤) |
 | `pew/M` | CHANGELOG 자동화(`rp/A`와 합침) | release 쪽 | `git-cliff`로 `Unreleased` 생성 | 1 · — | S | D5 | 대기 |
+| `pew/S` | 진입 재구성(운영자 2026-10-08: 너무 길고 섞여 있고 읽기 어렵다, 개발판 전용이어야 한다, 루트에는 진입·개발 지침만): 루트 `AGENTS.md`는 짧은 개발판 진입(≤6,000B), 규칙·컨벤션은 루트 `RULES.md`, 코드 지도는 루트 `CODEMAP.md`, 그 밖의 문서(`README`·`PRODUCT`·`DESIGN`·`CHANGELOG`·`CONVENTION`)는 `docs/`로 | `AGENTS.md`, `RULES.md`, `CODEMAP.md`, `docs/`, 테스트 | `test_entrypoints`(크기·개발판 전용·루트 문서), `test_code_map`, `test_rule_registry` 통과 | 3 · — | M | pew/C | #774 |
+| `pew/T` | 코드를 루트에서 `engine/`으로: 파이썬 모듈·`providers/`·`tools/`를 한 폴더로, import 방식은 그대로(평평한 import). 루트 계산(`Path(__file__)`), `chatbot-ctl.sh`, 보호 경로, 테스트 범위, 러너·훅을 함께 | 코드 전반 | 루트에 진입·개발 지침과 폴더만, `./run-tests.sh` 전부 통과, 라이브 재시작 후 probe 통과 | 3 · ⚡ | L → 쪼갬 | pew/S | 대기 |
 
 **순서**
 

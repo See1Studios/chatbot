@@ -4,7 +4,7 @@
 
 > 상태: **active** (2026-09-28, 초안)
 > 목적: `docs/CONCEPT.md`의 해자 목록과 [release-pipeline.md](release-pipeline.md) §3.1의 사업 모델을 **경쟁·수익 관점에서** 다시 검증한다. 새 기능을 정하는 계획이 아니라, 지금 보이는 문제가 무엇이고 무엇을 먼저 해야 하는지 판단하고 결정을 내리는 문서.
-> 관련: [direction-alignment.md](direction-alignment.md) · [release-pipeline.md](release-pipeline.md) · [plugin-architecture.md](plugin-architecture.md) · [private-mode.md](private-mode.md) · [private-engine-brand.md](private-engine-brand.md) · [character-resource-pipeline.md](character-resource-pipeline.md) · [CONCEPT.md](../CONCEPT.md) · [PRODUCT.md](../../PRODUCT.md)
+> 관련: [direction-alignment.md](direction-alignment.md) · [release-pipeline.md](release-pipeline.md) · [plugin-architecture.md](plugin-architecture.md) · [private-mode.md](private-mode.md) · [private-engine-brand.md](private-engine-brand.md) · [character-resource-pipeline.md](character-resource-pipeline.md) · [CONCEPT.md](../CONCEPT.md) · [PRODUCT.md](../PRODUCT.md)
 > 범위: 판단·결정·재랭크까지. **구현 착수 계획이 아니다.** 여기서 정한 항목은 별도 티켓으로 옮기고, 착수는 운영자 승인 뒤에 한다.
 > **운영자 판단 (2026-09-28)**: 이 문서의 방향은 **참고 자료**로 둔다. R1–R8은 채택도 기각도 하지 않은 **보류(참고)** 상태이고, 진행 중인 구현을 멈추거나 재랭크하지 않는다. 데모 반응·사용자 피드백 같은 근거가 생기면 그때 다시 다툰다. 구현은 이 판정들로 나중에 반박·전환할 수 있게, 한 방향에 못 박지 않는 구조로 한다.
 > 한계: 운영자 1인 관점의 문서 리뷰다. 시장 조사·사용자 인터뷰·가격 실험 데이터가 없다. 아래 수치와 추정은 전제이지 검증된 사실이 아니다.
@@ -31,7 +31,7 @@
 
 ### 2.1 포지셔닝 문구가 벤더와 겹친다 — 위험
 
-`CONCEPT.md`는 최대 목표의 축으로 **개인화 레이어**를, [PRODUCT.md](../../PRODUCT.md)는 해자를 **두껍게 쌓이는 개인화 레이어와 그 레이어가 모이는 생태계**로 말한다. 이 축은 방어가 아니다. "personalization / memory / persona"는 모델 벤더가 가장 먼저 내는 층이고, 가격 경쟁이 아니라 체크박스 경쟁이 되는 층이다. 그대로 세워 두면 1년 뒤 "그거 기본 기능인데"가 된다.
+`CONCEPT.md`는 최대 목표의 축으로 **개인화 레이어**를, [PRODUCT.md](../PRODUCT.md)는 해자를 **두껍게 쌓이는 개인화 레이어와 그 레이어가 모이는 생태계**로 말한다. 이 축은 방어가 아니다. "personalization / memory / persona"는 모델 벤더가 가장 먼저 내는 층이고, 가격 경쟁이 아니라 체크박스 경쟁이 되는 층이다. 그대로 세워 두면 1년 뒤 "그거 기본 기능인데"가 된다.
 
 지켜남는 조각은 더 좁다.
 
@@ -81,7 +81,7 @@ Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)
 
 ### 2.6 부수
 
-- **무료 체험이 세 번째 자리에 의존한다.** "구글 계정 + CLI 바이너리 설치"가 [PRODUCT.md](../../PRODUCT.md)의 원칙 1(처음부터 완성돼 있다)과 충돌하고, 주간 쿼터가 미정이라 마케팅 문구를 뒷받침하지 못한다. `data/providers.json`의 `openrouter`는 이미 `free_only: true`인 **바이너리 없는 HTTP 경로**다. 의존성이 가장 적은 경로가 무료층이어야 한다. 텔레메트리는 안 하는 게 맞으니(local-first), 성공 지표는 Steam 리뷰·자가보고 중 하나로 정해야 한다.
+- **무료 체험이 세 번째 자리에 의존한다.** "구글 계정 + CLI 바이너리 설치"가 [PRODUCT.md](../PRODUCT.md)의 원칙 1(처음부터 완성돼 있다)과 충돌하고, 주간 쿼터가 미정이라 마케팅 문구를 뒷받침하지 못한다. `data/providers.json`의 `openrouter`는 이미 `free_only: true`인 **바이너리 없는 HTTP 경로**다. 의존성이 가장 적은 경로가 무료층이어야 한다. 텔레메트리는 안 하는 게 맞으니(local-first), 성공 지표는 Steam 리뷰·자가보고 중 하나로 정해야 한다.
 - **프로바이더 맵은 해자이자 굴착기다.** 모델 릴리스에 매주 추격해야 하는 카탈로그라 §2.3의 cadence와 같은 시간을 쓴다. 지금은 프레임워크 + 기본 테이블만 판에 두고 per-family 팩은 담당자가 정해지면 그때. 접점은 이미 `providers/adapters.py::AGENT_ADAPTERS`와 `private_engine.py::detect_model_family`에 있다.
 
 ## 3. 결정 (2026-09-28 운영자: 전부 참고로 보류)
@@ -102,11 +102,11 @@ Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `rev/A` | 이 문서 + INDEX 행 | `docs/plans/market-direction-review.md`, `docs/plans/INDEX.md` | INDEX 행·방향 적합성 줄, 가드 통과 | 0 · — | S | — | ✅ #280 |
-| `rev/B` | 포지셔닝 교정 (R1·R2) | `docs/CONCEPT.md`, `PRODUCT.md` | 해자 목록이 매출선/리텐션선으로 나뉨, 스토어 카테고리 문장 확정 | 0 · — | S | R1, R2 | 대기 |
+| `rev/B` | 포지셔닝 교정 (R1·R2) | `docs/CONCEPT.md`, `docs/PRODUCT.md` | 해자 목록이 매출선/리텐션선으로 나뉨, 스토어 카테고리 문장 확정 | 0 · — | S | R1, R2 | 대기 |
 | `rev/C` | cadence 계획 신설 (R4) + drops 수익선 (R3) | 새 계획, `docs/plans/release-pipeline.md` | cadence·비용·저하 규칙·drops 표가 존재 | 0 · — | M | R3, R4 | 대기 |
 | `rev/D` | 60초 데모 결정 계획 신설 (R5) + 플랫폼 계획 재랭크 | 새 계획, `docs/plans/INDEX.md` | 캐릭터·프로바이더·첫 15초·캡슐 확정, 재랭크 표 존재 | 0 · — | M | R5 | 대기 |
 | `rev/E` | 브랜드 충돌 스캔 선행 (R6) | `docs/plans/private-engine-brand.md` | 스캔 기록, 스토어 제품명/엔진명 분리 여부 | 0 · — | S | R6 | 대기 |
-| `rev/F` | 무료층 경로·지표 (R7) | `docs/plans/release-pipeline.md`, `PRODUCT.md` | 무료층 provider 목록 + 지표 1개 | 0 · — | S | R7 | 대기 |
+| `rev/F` | 무료층 경로·지표 (R7) | `docs/plans/release-pipeline.md`, `docs/PRODUCT.md` | 무료층 provider 목록 + 지표 1개 | 0 · — | S | R7 | 대기 |
 
 ## 5. 원칙
 
@@ -169,7 +169,7 @@ Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `rev/G` | 이 절 | 이 문서, `docs/plans/INDEX.md` | 사실 표에 출처, 결정 표 | 0 · — | S | — | ✅ |
-| `rev/H` | 스토어 문구·포지셔닝을 PRODUCT에 (R9) | `PRODUCT.md` | 스토어 한 줄과 "넓이/깊이" 문단 | 0 · — | S | R9 | 대기 |
+| `rev/H` | 스토어 문구·포지셔닝을 PRODUCT에 (R9) | `docs/PRODUCT.md` | 스토어 한 줄과 "넓이/깊이" 문단 | 0 · — | S | R9 | 대기 |
 | `rev/I` | 두뇌 연결 로그인 우선 (R10) | [character-creation-landing.md](character-creation-landing.md) | D4가 로그인 우선으로 | 0 · — | S | R10 | 대기 |
 | `rev/J` | Steam 빌드 수위 잠금 설계 (R11) | [edition-boundary.md](edition-boundary.md) 또는 새 계획 | 빌드별 수위 상한이 한 곳에서 정해짐 | 0 · — | M | R11 | 대기 |
 

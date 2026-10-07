@@ -18,7 +18,7 @@ TEXT_SUFFIXES = {".py", ".js", ".css", ".html", ".md", ".json", ".sh", ".txt", "
 
 def deployable_files():
     out = [p for p in CODE.glob("*.py")]
-    out += [CODE / n for n in ("README.md", "PROJECT.md", "PRODUCT.md", "DESIGN.md", "chatbot-ctl.sh",
+    out += [CODE / n for n in ("AGENTS.md", "docs/README.md", "docs/PRODUCT.md", "docs/DESIGN.md", "chatbot-ctl.sh",
                                "protected_paths.json", "observation_signals.json")]
     for sub in ("static", "templates"):
         out += [p for p in (CODE / sub).rglob("*") if p.is_file() and "vendor" not in p.parts]

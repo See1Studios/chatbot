@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Chat HTTP host (:3011). Entry: Handler + main, and the route tables (GET_ROUTES … DELETE_ROUTES): every endpoint
 is one row there, in match order. Handlers live by domain: route_sessions.py, route_accounts.py, route_files.py, the
-host's own below; route_table.py matches (monolith-split split/B). Other siblings: see the code map in AGENTS.md.
+host's own below; route_table.py matches (monolith-split split/B). Other siblings: see CODEMAP.md.
 """
 from __future__ import annotations
 

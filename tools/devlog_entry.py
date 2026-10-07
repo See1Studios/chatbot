@@ -1,7 +1,7 @@
 """devlog_entry -- a merged delegation leaves its line in the work diary (docs/DEVLOG.md).
 
 Why: in the review of #505-#525, 29 delegated changes had landed and not one was in the diary, so the next agent
-starting from DEVLOG.md (AGENTS.md "Start order") did not know they existed. A worker cannot write the diary itself:
+starting from DEVLOG.md (AGENTS.md "Start here") did not know they existed. A worker cannot write the diary itself:
 parallel workers would all edit its top and collide when their branches land. So the runner writes it, on main,
 after the merge, in the same commit as the ticket's record (tools/worktree_runner.py record_and_report).
 

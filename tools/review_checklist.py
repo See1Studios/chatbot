@@ -35,9 +35,9 @@ CODE_CHECKLIST = "\n".join([
     "the old place now follow the new one, rather than pass with nothing left to check? (#534: a count over the old file "
     "passed as 0 == 0)",
     "8. Is the new behaviour itself exercised by a test, not only the old paths around it? "
-    "Mandatory Test Pairing (CONVENTION §2.1): every behavior change must include paired tests in paths/diff.",
-    "9. Timeouts (CONVENTION §2.3): does every blocking subprocess, network or async wait name an explicit timeout?",
-    "10. Banter limit (CONVENTION §2.4): are worker output and report messages concise, with at most 1-2 sentences of banter?",
+    "Mandatory Test Pairing (RULES.md, Test pairing): every behavior change must include paired tests in paths/diff.",
+    "9. Timeouts (RULES.md): does every blocking subprocess, network or async wait name an explicit timeout?",
+    "10. Banter limit (RULES.md, Work banter): are worker output and report messages concise, with at most 1-2 sentences of banter?",
 ])
 
 
@@ -66,7 +66,7 @@ def is_code_file(path: str) -> bool:
 
 
 def check_test_pairing(paths: Optional[List[str]] = None, diff: str = "") -> Tuple[bool, str]:
-    """Mandatory Test Pairing (CONVENTION §2.1): code changes must include paired tests.
+    """Mandatory Test Pairing (RULES.md, Test pairing): code changes must include paired tests.
     Returns (ok: bool, message: str).
     """
     targets = list(paths) if paths is not None else diff_files(diff)

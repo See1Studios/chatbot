@@ -32,7 +32,7 @@
 ### [목표 2] 현지어 발음 칩 & 오디오 재생 (TTS - Text-to-Speech)
 - **구문 규칙 (Syntax)**:
   - 모델은 텍스트 작성 시 언어 태그가 달린 인라인 패턴만 가볍게 출력 (예: `Đừng cho rau mùi [vi]`, `Tính tiền giùm tôi [vi]`, `안녕하세요 [ko]`, `Thank you [en]`).
-  - 정규식 기반 결정론적 파서([markdown.js](file:///volume1/homes/me/services/chatbot/static/markdown.js) 또는 [markdown-speech.js](file:///volume1/homes/me/services/chatbot/static/markdown-speech.js))가 이를 감지하여 인라인 `[🔊 발음]` 칩으로 자동 렌더링.
+  - 정규식 기반 결정론적 파서([markdown.js](file:/volume1/homes/me/services/chatbot/static/markdown.js) 또는 [markdown-speech.js](file:/volume1/homes/me/services/chatbot/static/markdown-speech.js))가 이를 감지하여 인라인 `[🔊 발음]` 칩으로 자동 렌더링.
 - **오디오 재생**:
   - 칩 클릭 시 `window.speechSynthesis`를 호출하여 해당 언어(`vi-VN`, `en-US`, `ja-JP`, `ko-KR` 등) 네이티브 보이스로 발음 즉시 재생.
   - 재생 중 버튼 상태(`playing`) 표시 및 중복 클릭 시 중지(`cancel`).

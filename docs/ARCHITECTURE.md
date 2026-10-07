@@ -226,11 +226,11 @@ class TTSAdapter:
 
 ## 7. 소프트웨어 엔지니어링 거버넌스 및 모듈 경계 (Software Engineering Governance)
 
-> 관련: 규칙과 집행자 목록은 루트 [`AGENTS.md`](../AGENTS.md)(규칙표·코드 지도), 숫자는 [CONVENTION.md](CONVENTION.md), 보호 등급은 `protected_paths.json`이 정본이다. 이 절은 구조만 설명하고 그 목록을 다시 적지 않는다. 계획: [propagation-and-state-architecture.md](plans/archive/2026/propagation-and-state-architecture.md) · [edition-boundary.md](plans/edition-boundary.md)
+> 관련: 개발 진입은 루트 [`AGENTS.md`](../AGENTS.md), 규칙·숫자·집행자는 [`RULES.md`](../RULES.md), 코드 지도는 [`CODEMAP.md`](../CODEMAP.md), 보호 등급은 `protected_paths.json`이 정본이다. 이 절은 구조만 설명하고 그 목록을 다시 적지 않는다. 계획: [propagation-and-state-architecture.md](plans/archive/2026/propagation-and-state-architecture.md) · [edition-boundary.md](plans/edition-boundary.md)
 
 ### 7.1 계층과 의존 방향
 
-- 계층: 코어(자가진화·티켓·관찰·기억·플랫폼 차이) → 프로바이더 어댑터 → 세션·턴 → HTTP 라우트 → 도구 서버(MCP). 파일별 소속은 `AGENTS.md` 코드 지도 한 곳에만 있다.
+- 계층: 코어(자가진화·티켓·관찰·기억·플랫폼 차이) → 프로바이더 어댑터 → 세션·턴 → HTTP 라우트 → 도구 서버(MCP). 파일별 소속은 `CODEMAP.md` 한 곳에만 있다.
 - 위 계층은 아래를 알 수 있지만 아래는 위를 모른다. 코어는 표준 라이브러리와 코어끼리만 import한다(`core_modules.json`, `test_core_standalone`).
 - 서로 import하는 모듈 쌍은 새로 생기지 않고, 있던 쌍은 줄어들기만 한다(`test_import_cycles`).
 - 공통 코드에 프로바이더 이름이 없다(`test_provider_neutrality`). 프로바이더 차이는 `providers/adapter_<이름>.py` 안에만.

@@ -1,4 +1,4 @@
-"""Every rule in root AGENTS.md's registry names its audience and its enforcer (plan-execution-workflow §0: a rule that
+"""Every rule in RULES.md (the registry; root AGENTS.md points to it) names its audience and its enforcer (plan-execution-workflow §0: a rule that
 lives only in a document is no rule). An enforcer outside parentheses must exist: a test module, or a repo file;
 otherwise the row says `manual` (a planned enforcer may follow in parentheses). An enforcer is itself guarded (prop/F,
 2026-10-07: two tests were red on main and no commit ran them): it is Tier 3 (`protected_paths.json` governance, so
@@ -32,8 +32,8 @@ def governed(path, tier3):
 
 
 def registry_rows():
-    text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    block = text[text.index("## Rule registry"):]
+    text = (ROOT / "RULES.md").read_text(encoding="utf-8")
+    block = text[text.index("## Rules"):]
     block = block[:block.find("\n## ", 5)] if block.find("\n## ", 5) > 0 else block
     rows = []
     for line in block.splitlines():

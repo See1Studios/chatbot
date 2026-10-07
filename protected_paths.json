@@ -288,10 +288,6 @@
       "reason": "architecture and Tier governance SSOT (prop)"
     },
     {
-      "path": "docs/CONVENTION.md",
-      "reason": "engineering convention SSOT (prop)"
-    },
-    {
       "path": "docs/STATE.md",
       "reason": "governance propagation ledger (prop)"
     },
@@ -350,6 +346,10 @@
     {
       "path": "tests/test_edition_instructions.py",
       "reason": "enforcer: dev and shipped instructions never mix (prop/G)"
+    },
+    {
+      "path": "RULES.md",
+      "reason": "the rules: conventions and registry, out of AGENTS.md (pew/S)"
     }
   ]
 }

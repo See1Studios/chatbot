@@ -16,7 +16,7 @@ LINK = re.compile(r"\]\(([^)\s]+)\)")
 
 def docs():
     plans = [p for p in (ROOT / "docs" / "plans").glob("*.md")]
-    return plans + sorted((ROOT / "docs" / "decisions").glob("*.md")) + [ROOT / "AGENTS.md"]
+    return plans + sorted((ROOT / "docs" / "decisions").glob("*.md")) + [ROOT / "AGENTS.md", ROOT / "CODEMAP.md", ROOT / "RULES.md"]
 
 
 class DocRefs(unittest.TestCase):

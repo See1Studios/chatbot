@@ -23,7 +23,7 @@ class ReviewChecklist(unittest.TestCase):
         for ticket in ("#516", "#506", "#522", "#515", "#518", "#505", "#534"):
             self.assertIn(ticket, R.CODE_CHECKLIST)
         self.assertIn("Mandatory Test Pairing", R.CODE_CHECKLIST)
-        self.assertIn("Timeouts (CONVENTION §2.3)", R.CODE_CHECKLIST)
+        self.assertIn("Timeouts (RULES.md)", R.CODE_CHECKLIST)
         self.assertNotIn("30s", R.CODE_CHECKLIST)   # no fixed ceiling: each call picks its own (prop/H)
         self.assertIn("Banter limit", R.CODE_CHECKLIST)
         self.assertIn("test", R.CODE_CHECKLIST)

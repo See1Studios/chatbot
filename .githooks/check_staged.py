@@ -254,7 +254,7 @@ def pre_commit():
     return 0
 
 
-# A change to code names the ticket it belongs to (AGENTS.md rule registry; the review of #505-#525 found 27 of 29
+# A change to code names the ticket it belongs to (RULES.md registry; the review of #505-#525 found 27 of 29
 # delegated commits without one). A delegated worker on its ticket's branch gets the trailer written for it.
 TICKET_TYPES = re.compile(r"^(?:feat|fix|refactor|perf)(?:\([^)]+\))?!?: ")
 TICKET_LINE = re.compile(r"^Ticket: #\d+")
@@ -263,7 +263,7 @@ NO_TEST_LINE = re.compile(r"^No-Test: \S")
 
 
 def pairing_refusal(lines):
-    """TEST_PAIRING_v1 (docs/CONVENTION.md): a feat/fix/refactor/perf commit that changes code carries tests/, or a
+    """TEST_PAIRING_v1 (RULES.md, Test pairing): a feat/fix/refactor/perf commit that changes code carries tests/, or a
     `No-Test: <reason>` trailer says why not -- the reason stays in history for review. One definition of code and
     test files: tools/review_checklist.py (the delegation review uses it too)."""
     rc = _repo_module(git("rev-parse", "--show-toplevel").strip(), "review_checklist")
