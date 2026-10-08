@@ -7,7 +7,12 @@ HOME_DIR="${HOME_DIR:-$HOME}"
 export PATH="$HOME_DIR/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 # CTL_SYMLINK_v1: ~/services/chatbot-ctl.sh is a symlink; follow it, or CODE becomes ~/services (the doctor then
 # looked for ~/services/server.py and failed every run from 2026-09-23 19:07 to 2026-09-24 13:30).
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+# A relative script path is made absolute from $PWD first: `readlink -f` on a relative path needs getcwd, which fails
+# when a parent directory is not readable (Synology /volume1/homes is --x for users); CODE then became the caller's
+# folder and repair looked for <repo>/session.py (2026-10-08; run-tests.sh had the same, #781).
+_SELF="${BASH_SOURCE[0]}"
+case "$_SELF" in /*) ;; *) _SELF="$PWD/$_SELF" ;; esac
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$_SELF")")" && pwd)"
 CODE="${CODE:-$SCRIPT_DIR}"
 # uds/F: same order as host_config.DATA_ENV. Unset -> data-pin.env (literal CHATBOT_DATA) -> ~/.pe.
 # Do not hardcode $CODE/data. Exported here so the log resolver and every child agree with host_config.

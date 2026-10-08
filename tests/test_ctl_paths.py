@@ -32,6 +32,20 @@ class CtlPaths(unittest.TestCase):
             out = subprocess.run(["bash", str(link)], capture_output=True, text=True, timeout=10).stdout.strip()
         self.assertEqual(Path(out).resolve(), real.parent.resolve())
 
+    def test_a_relative_call_finds_the_script_folder_from_pwd(self):
+        # repair called as engine/chatbot-ctl.sh: readlink -f on the relative path failed on the NAS (#793)
+        src = CTL.read_text(encoding="utf-8")
+        self.assertIn('case "$_SELF" in /*) ;; *) _SELF="$PWD/$_SELF" ;; esac', src)
+        head = src[:src.index("SCRIPT_DIR=")]
+        head += src[src.index("SCRIPT_DIR="):].splitlines()[0]
+        with tempfile.TemporaryDirectory() as d:
+            real = Path(d) / "repo" / "engine" / "ctl.sh"
+            real.parent.mkdir(parents=True)
+            real.write_text(head + '\necho "$SCRIPT_DIR"\n', encoding="utf-8")
+            out = subprocess.run(["bash", "engine/ctl.sh"], cwd=str(real.parent.parent), capture_output=True, text=True,
+                                 timeout=10).stdout.strip()
+        self.assertEqual(Path(out).resolve(), real.parent.resolve())
+
 
 @dev_only_bash
 class StartWaitsForHealth(unittest.TestCase):
