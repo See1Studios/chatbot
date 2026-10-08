@@ -92,12 +92,17 @@ const fs = require('fs');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
 const sent = [], switched = [], notices = [];
 function el(tag) {
-  return { tag, children: [], className: '', textContent: '', listeners: {}, classList: { add() {} },
+  return { tag, children: [], className: '', textContent: '', listeners: {}, attrs: {}, classList: { add() {}, remove() {} },
+           setAttribute(k, v) { this.attrs[k] = v; },
            appendChild(c) { this.children.push(c); return c; }, addEventListener(k, f) { this.listeners[k] = f; },
            querySelector() { return this.children[0] && this.children[0].children[0]; }, querySelectorAll() { return this.children; },
            focus() { this.wasFocused = true; }, remove() { this.gone = true; } };
 }
-const document = { createElement: el, body: { classList: { contains: () => false } } };
+const fade = [];
+const document = { createElement: el, body: { classList: { contains: () => false } },
+                   documentElement: { classList: { add: (c) => fade.push('+' + c), remove: (c) => fade.push('-' + c) } } };
+const logEl = el('div'); logEl.scrollHeight = 100;
+const cards = () => logEl.children;
 const window = {};
 let sessionId = 'w1';
 const myPendingMids = new Set();
@@ -113,24 +118,24 @@ eval(src.replace(/^const MOVE_TEXT.*$/m, "const MOVE_TEXT = i18nTable('move');")
 (async () => {
   await moveLoadPlaces();
   moveDoor('/move rooftop');                         // the chip: a card first, nothing sent
-  const card = notices[0], buttons = card.children[0].children;
+  const card = cards()[0], buttons = card.children[1].children;
   const focused = buttons.filter(b => b.wasFocused).map(b => b.textContent);
   const before = sent.slice();
   buttons[0].listeners.click();                      // "move"
   await new Promise(r => setTimeout(r, 0));
-  const door = { text: card.text, labels: buttons.map(b => b.textContent), before, after: sent.slice(), switched: switched.slice(), focused };
+  const door = { text: card.children[0].textContent, own: card.className, noticed: notices.length, labels: buttons.map(b => b.textContent), before, after: sent.slice(), switched: switched.slice(), focused };
   moveDoor('/move rooftop');
-  notices[1].children[0].children[1].listeners.click();   // "stay"
-  const stayed = { sent: sent.length, gone: Boolean(notices[1].gone) };
+  cards()[1].children[1].children[1].listeners.click();   // "stay"
+  const stayed = { sent: sent.length, gone: Boolean(cards()[1].gone) };
   await moveMenu();                                 // the user's own: a list, picking one moves
-  const menu = notices[2].children[0].children.map(b => b.textContent);
-  notices[2].children[0].children[0].listeners.click();
+  const menu = cards()[2].children[1].children.map(b => b.textContent);
+  cards()[2].children[1].children[0].listeners.click();
   await new Promise(r => setTimeout(r, 0));
   window.sessionPlace = { name: 'the rooftop terrace', id: 'rooftop' };
   const here = movePlaceNow();
   window.sessionPlace = null;
   const none = movePlaceNow();
-  console.log(JSON.stringify({ door, stayed, menu, last: sent[sent.length - 1], here, none }));
+  console.log(JSON.stringify({ door, stayed, menu, last: sent[sent.length - 1], here, none, fade }));
 })().catch(e => { console.error(e); process.exit(1); });
 """
 
@@ -149,6 +154,8 @@ class Page(unittest.TestCase):
         self.assertEqual(out["door"]["text"], cat["move.door"].replace("{place}", place))
         self.assertEqual(out["door"]["labels"], [cat["move.go"], cat["move.stay"]])
         self.assertEqual(out["door"]["focused"], [cat["move.stay"]], "an Enter after the tap stays (critique run 4)")
+        self.assertEqual((out["door"]["own"], out["door"]["noticed"]), ("move-card", 0), "its own card, not a system notice")
+        self.assertEqual(out["fade"][:2], ["+shell-switching", "-shell-switching"], "a move shows the switching fade")
         self.assertEqual(out["door"]["before"], ["GET /api/sessions/w1/places"], "the card sends nothing")
         self.assertEqual(out["door"]["after"][-1], "/move rooftop")
         self.assertEqual(out["door"]["switched"], ["p1"])

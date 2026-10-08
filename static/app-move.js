@@ -28,6 +28,7 @@ async function moveTo(dest) {
   if (moveBusy || typeof sessionId === 'undefined' || !sessionId || !dest) return;
   moveBusy = true;
   moveCardClose();
+  document.documentElement.classList.add('shell-switching');   // the talk fades and the run line shows: it is moving
   try {
     const clientMid = _newClientMid();   // ROOM_SYNC_v1: the room_moved broadcast is ours, not a move to follow
     myPendingMids.add(clientMid);
@@ -39,6 +40,7 @@ async function moveTo(dest) {
     if (typeof failNotice === 'function') failNotice(tr('session.mode_failed'), e);
   } finally {
     moveBusy = false;
+    document.documentElement.classList.remove('shell-switching');
   }
 }
 
@@ -47,12 +49,19 @@ function moveCardClose() {
   moveCard = null;
 }
 
-// A card in the talk (not a modal): a line and buttons, each naming its action. Esc or "stay" closes it.
+// The door between places: its own card at the end of the talk -- not a system notice (no head, no swipe away) -- the
+// question as its title, then buttons that each name their action. Esc or "stay" closes it (critique run 4).
 function moveCardOpen(text, choices) {
   moveCardClose();
-  const node = typeof addNotice === 'function' ? addNotice('info', text, null, true) : null;
-  if (!node) return;
-  node.classList.add('move-card');
+  const log = typeof logEl !== 'undefined' ? logEl : document.getElementById('log');
+  if (!log) return;
+  const node = document.createElement('div'), title = document.createElement('div');
+  node.className = 'move-card';
+  node.setAttribute('role', 'group');
+  node.setAttribute('aria-label', text);
+  title.className = 'move-card-title';
+  title.textContent = text;
+  node.appendChild(title);
   const row = document.createElement('div');
   row.className = 'move-card-actions';
   choices.forEach(c => {
@@ -64,6 +73,8 @@ function moveCardOpen(text, choices) {
     row.appendChild(b);
   });
   node.appendChild(row);
+  log.appendChild(node);
+  log.scrollTop = log.scrollHeight;
   moveCard = node;
   // focus is on "stay": an Enter or Space typed after the tap must not open the private room (critique run 4, §8.8)
   const stay = Array.from(row.querySelectorAll('button')).find(b => b.className === 'ghost');

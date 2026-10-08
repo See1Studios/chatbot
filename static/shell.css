@@ -247,5 +247,8 @@ html.shell2.shell-switching .stage-shell::after{content:"";position:absolute;lef
 html.shell2 body:not(.dev-mode) #shellHeart,html.shell2 body:not(.dev-mode) #privateBtn{display:none !important}
 html.shell2 #shellOffice{min-height:40px;padding:.3rem .9rem;font-size:.8rem;border-radius:var(--radius-pill,20px);margin-left:.4rem}
 html.shell2 #shellOffice[hidden]{display:none}
-html.shell2 .msg.system.move-card .move-card-actions{flex-basis:100%;display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem}
-html.shell2 .msg.system.move-card .move-card-actions button{min-height:36px;padding:.3rem .8rem}
+html.shell2 #log .move-card{align-self:center;width:min(92%,26rem);margin:.7rem auto;padding:.9rem 1rem .85rem;border-radius:12px;
+  border:1px solid var(--border-hover);background:var(--bg-card);box-shadow:var(--glint),0 16px 36px rgba(0,0,0,.45);text-align:center}
+html.shell2 #log .move-card-title{font-size:1.02rem;font-weight:600;line-height:1.35;color:var(--text)}
+html.shell2 #log .move-card .move-card-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;margin-top:.75rem}
+html.shell2 #log .move-card .move-card-actions button{min-height:40px;padding:.35rem 1rem}
