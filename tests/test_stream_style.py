@@ -50,7 +50,7 @@ eval(src.slice(ba, bb));
 const sa = src.indexOf('const SHELL_TEXT =');
 const sb = src.indexOf('function shellRowButton', sa);
 if (sa >= 0 && sb >= 0) {
-  eval(src.slice(sa, sb));
+  eval(src.slice(sa, sb) + '\nglobalThis.SHELL_TEXT_ = SHELL_TEXT;');   // const stays in the eval's block
 }
 
 function makeNode(type, value, tag) {
@@ -275,14 +275,12 @@ const CASES = {
     return { initial, afterLine, inStore, afterChar, afterGarbage };
   },
   shell_settings_options: () => {
-    const rowsChar = shellSettingsRows({ streamStyle: 'char' });
-    const rowChar = rowsChar.find(r => r.k === 'streamStyle') || null;
-    const rowsLine = shellSettingsRows({ streamStyle: 'line' });
-    const rowLine = rowsLine.find(r => r.k === 'streamStyle') || null;
+    // #817: the stream style moved from a settings row into the appearance pane (its toggle shows these words)
+    const appearance = shellSettingsRows({}).find(r => r.k === 'appearance') || null;
     return {
-      charLabel: rowChar ? rowChar.label : null,
-      charDetail: rowChar ? rowChar.detail : null,
-      lineDetail: rowLine ? rowLine.detail : null,
+      charLabel: appearance ? appearance.label : null,
+      charDetail: SHELL_TEXT_.streamChar || null,
+      lineDetail: SHELL_TEXT_.streamLine || null,
     };
   },
   line_reveal_streaming: () => {
@@ -421,7 +419,7 @@ class TestStreamStyle(unittest.TestCase):
 
     def test_shell_settings_shows_stream_style_option(self):
         out = run_node("shell_settings_options")
-        self.assertIsNotNone(out["charLabel"], "streamStyle option must exist in settings rows")
+        self.assertIsNotNone(out["charLabel"], "the appearance pane that holds the stream style must be in settings")
         self.assertEqual(out["charDetail"], "글자 단위", "char mode detail label")
         self.assertEqual(out["lineDetail"], "줄 단위", "line mode detail label")
 

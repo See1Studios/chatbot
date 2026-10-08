@@ -957,6 +957,7 @@
   "team.role_saved": "Role settings saved: {title}",
   "team.role_deleted": "Role deleted: {title}",
   "team.role_delete_confirm": "Are you sure you want to delete this role? (Cannot be undone)",
+  "team.role_has_holders": "Characters still hold this role, so it cannot be deleted. Remove it from them first",
   "team.role_delete_failed": "Failed to delete role: {error}",
   "team.role_add_title": "Add New Role Pack",
   "team.role_id_label": "Role ID (lowercase, digits, hyphen)",

@@ -957,6 +957,7 @@
   "team.role_saved": "역할 설정 저장됨: {title}",
   "team.role_deleted": "역할 삭제됨: {title}",
   "team.role_delete_confirm": "이 역할을 삭제하시겠습니까? (되돌릴 수 없습니다)",
+  "team.role_has_holders": "이 역할을 맡은 캐릭터가 있어 삭제할 수 없습니다. 먼저 역할을 해제하세요",
   "team.role_delete_failed": "역할 삭제 실패: {error}",
   "team.role_add_title": "새 역할 팩 추가",
   "team.role_id_label": "역할 ID (영문 소문자/숫자/하이픈)",

@@ -57,7 +57,8 @@ class ExpertsApiTest(unittest.TestCase):
         rows = W.experts_api("GET", "/api/experts", None)[1]
         self.assertEqual([(e["id"], e["default"], e["roles"]) for e in rows["experts"]],
                          [(other, True, ["pd"]), (self.cid, False, [])])
-        self.assertEqual(rows["roles"], [{"role": "pd", "title": "PD", "tools": ["delegate"], "skills": []}])
+        self.assertEqual(rows["roles"], [{"role": "pd", "title": "PD", "tools": ["delegate"], "skills": [],
+                                          "owns": "", "builtin": False}])
         for bad in ({"default": self.C.new_id(), "members": {}}, {"default": other, "members": {other: ["nope"]}},
                     {"default": other, "members": {self.C.new_id(): ["pd"]}}, {"default": other, "members": []}):
             self.assertEqual(self.put_team(bad)[0], 400, bad)
