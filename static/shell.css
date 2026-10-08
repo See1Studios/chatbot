@@ -24,7 +24,7 @@ html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in 
 .shell-row-name{font-size:1.1rem;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shell-row-time{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .shell-row-preview{grid-column:2 / 4;font-size:.82rem;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.shell-row-preview.is-private{color:var(--accent2)}
+.shell-row-preview.is-private{color:var(--muted)}   /* PLACE_MOVE_v1: muted, the desk screen does not shout it */
 .shell-empty{padding:1rem .6rem;color:var(--muted);font-size:.85rem}
 .shell-list-foot{padding:.4rem .5rem calc(max(.4rem, env(safe-area-inset-bottom)));border-top:1px solid var(--border);flex-shrink:0}
 /* the user's own bar (messenger style): their mark, the title they are called by, a presence dot; it opens the settings */
@@ -106,7 +106,6 @@ html.shell2 body:not(.dev-mode) .shell-dev{display:none}   /* developer mode's r
    the advanced density's; the stop button can land in that row, so it alone stays. */
 html.shell2 #shellPresence{color:var(--muted)}
 html.shell2 #shellPresence.off{color:#fdba74}   /* PRESENCE_TRUTH_v1: no answer can come now (the warn notice's hue) */
-html.shell2 body.private-session #shellPresence{color:var(--accent2)}
 html.shell2 body.density-advanced #shellPresence::after{content:" · "}
 html.shell2 body:not(.density-advanced) #brandRole .brand-provider{display:none}
 html.shell2 body:not(.density-advanced) .meta > :not(.turn-stop-btn){display:none !important}
@@ -243,7 +242,7 @@ html.shell2.shell-switching .stage-shell::after{content:"";position:absolute;lef
 /* PLACE_MOVE_v1 (private-mode.md §8.8): the way in is a place move; the heart and the composer's private button are dev
    mode's debug switch. "To the office" sits where the heart was, in the private room only; the move card's actions. */
 html.shell2 body:not(.dev-mode) #shellHeart,html.shell2 body:not(.dev-mode) #privateBtn{display:none !important}
-html.shell2 #shellOffice{min-height:32px;padding:.2rem .6rem;font-size:.8rem;border-radius:var(--radius-pill,20px);margin-left:.4rem}
+html.shell2 #shellOffice{min-height:40px;padding:.3rem .9rem;font-size:.8rem;border-radius:var(--radius-pill,20px);margin-left:.4rem}
 html.shell2 #shellOffice[hidden]{display:none}
 html.shell2 .msg.system.move-card .move-card-actions{flex-basis:100%;display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem}
 html.shell2 .msg.system.move-card .move-card-actions button{min-height:36px;padding:.3rem .8rem}

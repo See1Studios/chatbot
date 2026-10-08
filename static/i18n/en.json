@@ -400,6 +400,7 @@
   "move.go": "Move",
   "move.menu": "Move somewhere",
   "move.office": "To the office",
+  "move.office_key": "To the office (Alt+O)",
   "move.places_failed": "Could not load the places to go.",
   "move.stay": "Stay here",
   "move.where": "Where to?",

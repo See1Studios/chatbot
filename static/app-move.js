@@ -87,6 +87,13 @@ async function moveMenu() {
     .concat([{ label: MOVE_TEXT.stay, stay: true }]));
 }
 
+// The place this private visit is at, as the header says it (PLACE_MOVE_v1): its catalog word, else its own name,
+// else "private room" when the visit has none. Muted, not the accent (shell.css): the desk screen should not shout it.
+function movePlaceNow() {
+  const p = window.sessionPlace;
+  return (p && movePlaceLabel(p)) || tr('shelltext.privateRoom');
+}
+
 function moveShown() {
   const priv = document.body.classList.contains('private-session');
   const group = typeof roomOpenId === 'function' && roomOpenId();   // a group room's visit is ux/O (§8.8)
@@ -106,6 +113,7 @@ function moveInit() {
     b.type = 'button';
     b.className = 'ghost';
     b.textContent = MOVE_TEXT.office;
+    b.title = MOVE_TEXT.office_key;
     b.addEventListener('click', () => moveTo('office'));
     brand.appendChild(b);
   }
@@ -113,7 +121,11 @@ function moveInit() {
   if (typeof MutationObserver === 'function' && document.body) {
     new MutationObserver(moveOfficeSync).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   }
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && moveCard) moveCardClose(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && moveCard) moveCardClose();
+    // Alt+O: back to the office at once, whatever the keyboard layout (e.code, not the typed letter)
+    if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyO' && moveShown().office) { e.preventDefault(); moveTo('office'); }
+  });
   // the plus menu gets "move" in the work room: added after the shell draws its own items
   if (typeof shellPlusOpen === 'function') {
     const open = shellPlusOpen;

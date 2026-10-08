@@ -400,6 +400,7 @@
   "move.go": "옮기기",
   "move.menu": "자리 옮기기",
   "move.office": "사무실로",
+  "move.office_key": "사무실로 (Alt+O)",
   "move.places_failed": "갈 수 있는 곳을 불러오지 못했어요.",
   "move.stay": "여기 있기",
   "move.where": "어디로 갈까요?",

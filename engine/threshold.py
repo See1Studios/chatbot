@@ -208,6 +208,22 @@ def pop_scene(session):
     return line
 
 
+def place_of(session) -> dict:
+    """PLACE_MOVE_v1: where this private visit is, for the page's header ({"name", "id"}, empty when unknown): the place
+    the visit went to (scene.json), with its catalog id when it is a catalog place (the page names it by key)."""
+    try:
+        import items
+        import personal_turn
+        name = str(_read(Path(session.meta_path.parent) / SCENE_FILE).get("place") or "")
+        if not name:
+            return {}
+        state = items.state_path(session.character) if getattr(session, "character", "") else None
+        hit = next((p for p in personal_turn.places(state) if p.get("name") == name), None)
+        return {"name": name, "id": (hit or {}).get("id", "")}
+    except Exception:  # noqa: BLE001 -- a header detail must never break the session read
+        return {}
+
+
 def scene_field(session) -> dict:
     """The switch answer's `scene` field: by key when there is one (the page localizes it), else empty."""
     line = pop_scene(session) if session is not None else ""

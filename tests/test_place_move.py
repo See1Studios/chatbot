@@ -65,6 +65,28 @@ class MoveTarget(unittest.TestCase):
         self.assertIn('("/api/sessions/*/places", route_sessions.places)', server)
 
 
+class VisitPlace(unittest.TestCase):
+    def test_the_header_learns_the_visit_s_place_with_its_catalog_id(self):
+        import tempfile, threshold
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as d:
+            sess = type("S", (), {"meta_path": Path(d) / "meta.json", "character": ""})()
+            self.assertEqual(threshold.place_of(sess), {})
+            (Path(d) / threshold.SCENE_FILE).write_text(json.dumps({"kind": "visit", "place": "the rooftop terrace"}))
+            self.assertEqual(threshold.place_of(sess), {"name": "the rooftop terrace", "id": "rooftop"})
+            (Path(d) / threshold.SCENE_FILE).write_text(json.dumps({"kind": "visit", "place": "신사 뒤뜰"}))
+            self.assertEqual(threshold.place_of(sess), {"name": "신사 뒤뜰", "id": ""})
+
+    def test_the_private_state_is_muted_and_the_office_is_one_key_away(self):
+        css = (STATIC / "shell.css").read_text(encoding="utf-8")
+        self.assertNotIn("body.private-session #shellPresence{color:var(--accent2)}", css)
+        self.assertIn(".shell-row-preview.is-private{color:var(--muted)}", css)
+        js = (STATIC / "app-move.js").read_text(encoding="utf-8")
+        self.assertIn("e.code === 'KeyO' && moveShown().office", js)
+        rs = (ENGINE / "route_sessions.py").read_text(encoding="utf-8")
+        self.assertEqual(rs.count("threshold.place_of(sess)"), 2, "both session reads carry the place")
+
+
 HARNESS = r"""
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
@@ -75,6 +97,7 @@ function el(tag) {
            querySelector() { return this.children[0] && this.children[0].children[0]; }, focus() {}, remove() { this.gone = true; } };
 }
 const document = { createElement: el, body: { classList: { contains: () => false } } };
+const window = {};
 let sessionId = 'w1';
 const myPendingMids = new Set();
 function _newClientMid() { return 'm1'; }
@@ -101,7 +124,11 @@ eval(src.replace(/^const MOVE_TEXT.*$/m, "const MOVE_TEXT = i18nTable('move');")
   const menu = notices[2].children[0].children.map(b => b.textContent);
   notices[2].children[0].children[0].listeners.click();
   await new Promise(r => setTimeout(r, 0));
-  console.log(JSON.stringify({ door, stayed, menu, last: sent[sent.length - 1] }));
+  window.sessionPlace = { name: 'the rooftop terrace', id: 'rooftop' };
+  const here = movePlaceNow();
+  window.sessionPlace = null;
+  const none = movePlaceNow();
+  console.log(JSON.stringify({ door, stayed, menu, last: sent[sent.length - 1], here, none }));
 })().catch(e => { console.error(e); process.exit(1); });
 """
 
@@ -126,6 +153,8 @@ class Page(unittest.TestCase):
         self.assertTrue(out["stayed"]["gone"])
         self.assertEqual(out["menu"], [place, cat["move.stay"]])
         self.assertEqual(out["last"], "/move rooftop")
+        self.assertEqual(out["here"], place, "the header names the place by its catalog word")
+        self.assertEqual(out["none"], cat["shelltext.privateRoom"])
 
     def test_the_heart_is_dev_only_and_the_chip_opens_the_door(self):
         css = (STATIC / "shell.css").read_text(encoding="utf-8")

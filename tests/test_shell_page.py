@@ -19,6 +19,7 @@ CSS = (STATIC / "shell.css").read_text(encoding="utf-8")
 
 PAGE = r"""
 const setTimeout = () => 0, clearTimeout = () => {}, setInterval = () => 0;
+function movePlaceNow() { return SHELL_TEXT.privateRoom; }   // app-move.js (PLACE_MOVE_v1): no visit place here
 const cls = new Set(['shell2']);
 const classList = { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) };
 // a small DOM for the list: enough to see which rows exist, in what order, and how often a picture is loaded
@@ -302,7 +303,7 @@ class ShellList(unittest.TestCase):
         self.assertNotIn(" · ", busy)
         self.assertIn('#shellPresence.busy::after', CSS)
         self.assertEqual(idle.split(" · ")[0], busy.split(" · ")[0])
-        self.assertTrue(private.startswith("\u2665 "))
+        self.assertFalse(private.startswith("\u2665"), "the private room is named by its place, muted (PLACE_MOVE_v1)")
         self.assertNotEqual(private.split(" · ")[0], idle.split(" · ")[0])
 
     def test_the_presence_line_says_when_she_cannot_answer(self):

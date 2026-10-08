@@ -230,7 +230,7 @@ function shellLink() {
   return b && b.classList.contains('disconnected') && window.__chatEsRetry >= 1 ? 'linkAway' : '';
 }
 function shellPresenceText(mode, busy, link) {
-  const place = mode === 'private' ? '\u2665 ' + SHELL_TEXT.privateRoom : SHELL_TEXT.office;
+  const place = mode === 'private' ? movePlaceNow() : SHELL_TEXT.office;
   return link ? place + ' · ' + SHELL_TEXT[link] : busy ? place : place + ' · ' + SHELL_TEXT.near;
 }
 function shellPresence() {

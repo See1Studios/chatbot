@@ -68,6 +68,8 @@ def _character_list() -> list:
 def _public(sess) -> dict:
     pub = sess.to_public()
     pub["is_private"] = sess.is_private
+    if sess.is_private:
+        pub["place"] = threshold.place_of(sess)   # PLACE_MOVE_v1: the header names the place
     return pub
 
 
@@ -246,6 +248,8 @@ def detail(req: Req):
     full = req.q("full", "0") == "1"
     out = sess.to_public()
     out["is_private"] = bool(getattr(sess, "is_private", False))
+    if out["is_private"]:
+        out["place"] = threshold.place_of(sess)
     if full:
         with sess.lock:
             out["history"] = list(sess.history)

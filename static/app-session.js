@@ -199,6 +199,7 @@ async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
     if (bounced) return;
   }
   const infoMode = info && info.mode === 'private' ? 'private' : 'work';
+  window.sessionPlace = (info && info.place) || null;   // PLACE_MOVE_v1: the header names it
   const infoCharacter = (info && info.character) || '';
   if (infoMode !== sessionMode || infoCharacter !== sessionCharacter) {
     // opened a session of another mode or character: that one's tip becomes live
