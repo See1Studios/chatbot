@@ -15,6 +15,7 @@ import i18n
 from typing import Any, Dict, List, Optional, Tuple
 
 import content_guard
+import quota_state  # QUOTA_STATE_v1: a failed turn records a spent quota
 from host_config import HARD_TOKENS, SOFT_TOKENS, _now
 
 
@@ -426,6 +427,8 @@ class AgentAdapter:
             hist_item["notice"] = notice_kind
             if error:
                 hist_item["error"] = error
+            if not refused:   # QUOTA_STATE_v1 (qfr/A): a failed turn reads this brain's quota once, off this thread
+                quota_state.after_error(getattr(session, "provider", "") or self.id, getattr(session, "model", "") or "")
         elif is_err and error:
             # Residual provider error while we still have an answer — keep on
             # the hist item for debugging but do not mark as notice.

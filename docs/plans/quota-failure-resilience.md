@@ -113,12 +113,19 @@ status=ERROR, error=Individual quota reached. Please upgrade your subscription t
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `qfr/0` | **정식 계획 문서 수립 및 활성 인덱스 등록** | `docs/plans/quota-failure-resilience.md`<br>`docs/plans/INDEX.md` | 계획 문서 등록 및 `test_plans_index` 통과 | 0 · — | S | — | #566 |
-| `qfr/A` | **쿼터/한도 에러 정규화 파서 및 워치독 연계** | `turn_watchdog.py`<br>`providers/adapter_base.py`<br>`tests/test_conversation_sync.py` | 쿼터 소진 에러 문자열에서 재설정 시간 및 원인을 정규화 객체로 추출 | 1 · ⚡ | S | `qfr/0` | 대기 |
+| `qfr/A` | **쿼터/한도 에러 정규화 파서 및 워치독 연계** | `turn_watchdog.py`<br>`providers/adapter_base.py`<br>`tests/test_conversation_sync.py` | 쿼터 소진 에러 문자열에서 재설정 시간 및 원인을 정규화 객체로 추출 | 1 · ⚡ | S | `qfr/0` | ✅ #798 |
 | `qfr/B` | **턴 종료 에러 시 구조화된 시스템 노티스 이벤트 방출** | `session.py`<br>`session_turn.py`<br>`session_view.py`<br>`tests/test_conversation_sync.py` | `_end_unfinished_turn`에서 쿼터/장애 정보를 담은 시스템 이벤트 SSE 브로드캐스트 | 1 · ⚡ | S | `qfr/A` | 대기 |
 | `qfr/C` | **UI 쿼터 소진 경고 카드 및 원클릭 대안 모델 전환** | `static/app-messages.js`<br>`static/app-turn.js`<br>`static/chat-panes.css`<br>`tests/test_shell_page.py` | 대화창에 `.notice-warn` 카드 렌더링 및 원클릭 모델 스왑 버튼 클릭 시 즉시 전환 | 2 · — | M | `qfr/B` | 대기 |
 | `qfr/D` | **사전 쿼터 고갈 경고(10% 이하) 및 상태 탭 연동** | `route_accounts.py`<br>`static/app-status.js`<br>`tests/test_accounts.py` | 잔여 쿼터 10% 이하 시 상태 탭 경고 배지 및 사전 알림 연계 | 1 · ⚡ | S | `qfr/C` | 대기 |
 
 ---
+
+### 6.1 qfr/A 구현 메모 (2026-10-08, #798, QUOTA_STATE_v1)
+
+- 운영자 2026-10-08: "에러가 다시 오는 걸 막아야 하지 않을까?" — 13:32 Claude 경로 쿼터 소진 뒤 같은 모델로 계속 보낼 수 있었다.
+- 에러 문구가 아니라 **제공자의 사용량 보고**를 근거로 쓴다: `route_accounts._get_usage` 행을 어댑터의 `quota_view`가 이 모델 몫으로 읽는다(agy: 모델 그룹마다 5시간·주간 창, 남은 %와 재설정 시각). §4.1의 문자열 파서 대신이다.
+- 실패한 턴(`finalize_turn`의 오류 알림)이 백그라운드에서 한 번 새로 읽어, 0%인 창이 있고 재설정이 남았으면 `quota_state`에 (제공자, 모델) → 재설정 시각을 기록한다. 메모리에만 둔다.
+- 보내기 전에 기록된 모델이면 보내지 않고 `srv.quota_until`(「지금 두뇌(…)는 사용 한도에 닿아 HH:MM까지 쓸 수 없어요…」) 알림으로 답한다 — qfr/B의 일부. 재설정 시각이 지나면 풀린다. 카드의 전환 버튼은 qfr/C.
 
 ## 7. 의존 관계, 작업 순서 및 리스크
 

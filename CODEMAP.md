@@ -19,6 +19,7 @@ map only says which file does what.
 | Self-evolution core (stdlib and each other only, `core_modules.json`) | `repo_layout.py`, `evolution.py`, `tickets.py`, `observations.py`, `memory_store.py`, `platform_compat.py` (OS differences); tickets from a CLI: `tools/ticket_quick.py` |
 | Guards | loops `loop_guard.py`; unticketed writes, working-tree watch `write_guard.py`; per-caller tool scope and edition boundary `role_guard.py`; safety `content_guard.py` + `engine_data/content_guards.json` |
 | Logs | `obslog.py` (writes `logs/events.jsonl`), `logdigest.py` (reads it) |
+| Quota (which brain is out of quota until when, from the usage report; no send to it until then) | `quota_state.py` |
 | Service control | `chatbot-ctl.sh`, `ctl_proc.py`; first-run data folder `data_bootstrap.py`; move a data folder `tools/migrate_user_data.py`; dev workspace links `tools/link_dev_workspace.py`; mirror docs `tools/sync_mirrors.py` |
 | Server words by key | `i18n.py` (catalogs `static/i18n/<lang>.json`) |
 

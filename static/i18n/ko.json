@@ -712,6 +712,7 @@
   "srv.quota_exhausted": "쿼터가 소진됐습니다. {error}",
   "srv.quota_or_provider": "쿼터 또는 제공자 오류로 보입니다. {error}",
   "srv.quota_or_provider_closed": "쿼터 또는 제공자 오류로 보입니다. 응답이 없어 턴을 닫았습니다.",
+  "srv.quota_until": "지금 두뇌({model})는 사용 한도에 닿아 {until}까지 쓸 수 없어요. 다른 두뇌를 고르거나 그때 다시 보내 주세요.",
   "srv.reseeded": "에이전트가 이전 대화를 기억하지 못해서, 다음 메시지에 지침과 최근 대화 요약을 다시 넣습니다.",
   "srv.rotated_heavy": "세션이 길어져서 이전 맥락을 인계받아 새 채팅으로 전환합니다. 이전 세션 데이터는 그대로 보존됩니다 ✦",
   "srv.rotated_inactivity": "이전 대화 이후 시간이 경과하여 이전 맥락을 인계받아 새 세션으로 이어갑니다 ✦ (이전 대화는 보존됩니다)",

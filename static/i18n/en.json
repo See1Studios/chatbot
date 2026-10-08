@@ -712,6 +712,7 @@
   "srv.quota_exhausted": "The quota is used up. {error}",
   "srv.quota_or_provider": "Looks like a quota or provider error. {error}",
   "srv.quota_or_provider_closed": "Looks like a quota or provider error. No answer came, so the turn was closed.",
+  "srv.quota_until": "This brain ({model}) is out of quota until {until}. Pick another brain, or send again then.",
   "srv.reseeded": "The agent lost the earlier talk, so the next message carries the instructions and a summary of the recent talk again.",
   "srv.rotated_heavy": "The session got long, so a new chat carries its context on. The earlier session is kept as it was ✦",
   "srv.rotated_inactivity": "Time has passed since the last talk, so a new session carries its context on ✦ (the earlier talk is kept)",

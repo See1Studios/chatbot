@@ -14,6 +14,7 @@ import content_guard
 import emotion
 import items
 import personal_turn  # PERSONAL_TURN_v1: the busy listing says which turn runs
+import quota_state  # QUOTA_STATE_v1: no send to a brain out of quota
 import threshold  # THRESHOLD_v1: entering the private room hands one note across
 from host_config import DEFAULT_MODEL, DEFAULT_PROVIDER, _now
 from route_table import Req
@@ -447,6 +448,18 @@ def message(req: Req):
         sess.save_meta()
         sess._emit(ev)
         return req.json({"ok": True, "blocked": True, "notice": item, "session": _public(sess)})
+
+    # QUOTA_STATE_v1 (qfr/A): a brain recorded out of quota is not sent to until its reset time
+    held = quota_state.blocked(sess.provider, sess.model)
+    if held:
+        note = i18n.msg("srv.quota_until", model=sess.model, until=quota_state.until_text(held["until"]))
+        item, ev = content_guard.notice_item(note["text"])
+        item.update(key=note["key"], vars=note["vars"])
+        ev.update(key=note["key"], vars=note["vars"], quota=held)
+        sess.history.append(item)
+        sess.save_meta()
+        sess._emit(ev)
+        return req.json({"ok": True, "blocked": True, "notice": item, "quota": held, "session": _public(sess)})
 
     text, event_type = _action_text(body, text)
     text = items.take_pending(sid, chat_upload.take_pending(sid, text))   # plus/C files, plus/F item note
