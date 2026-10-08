@@ -154,6 +154,9 @@ html.shell2 .md-typing i:nth-child(3){animation-delay:.3s}
 html.shell2 .md-typing:has(> .turn-stop-btn){padding-top:.2rem;padding-bottom:.2rem;padding-right:.3rem;min-height:28px;box-sizing:border-box}
 html.shell2 .md-typing > .turn-stop-btn,html.shell2 .md-typing > #stopBtn{width:18px;height:18px;min-width:18px;min-height:18px;padding:0;margin-left:.4rem;border:1px solid rgba(248,81,73,.28);border-radius:50%;background:rgba(248,81,73,.1);color:#f85149;transition:background .15s ease,border-color .15s ease,color .15s ease}
 html.shell2 .md-typing > .turn-stop-btn .action-icon-svg{width:14px;height:14px}
+/* the 18px dot stays, the finger gets 36px: the only way to stop a turn, often hit mid-stream on a phone (critique run 4) */
+html.shell2 .md-typing > .turn-stop-btn,html.shell2 .md-typing > #stopBtn{position:relative}
+html.shell2 .md-typing > .turn-stop-btn::before,html.shell2 .md-typing > #stopBtn::before{content:"";position:absolute;inset:-9px;border-radius:50%}
 html.shell2 .md-typing > .turn-stop-btn:hover,html.shell2 .md-typing > .turn-stop-btn:focus-visible{background:rgba(248,81,73,.18);border-color:rgba(248,81,73,.5);color:#f85149}
 html.shell2 .md-typing > .turn-stop-btn:active{background:rgba(248,81,73,.22)}
 @keyframes shell-typing{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-3px);opacity:1}}

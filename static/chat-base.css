@@ -91,7 +91,7 @@
   --border-hover: rgba(255, 255, 255, 0.14);
   --glint: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   --text: #9a9a9a;
-  --muted: #5c5c5c;
+  --muted: #7e7e7e;   /* about 4.8:1 on --bg-card: list previews and times pass AA (was #5c5c5c, about 2.9:1) */
   --accent: #ffffff;
   --accent2: #ffffff;
   --accent-rgb: 255, 255, 255;
