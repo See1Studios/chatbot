@@ -1,0 +1,29 @@
+{
+  "notes": "MIRROR_SYNC_v1 (tools/sync_mirrors.py): English term -> the Korean word the *.ko.md mirrors use. Matched whole-word, any case, with a plural s/es; names that stay as written map to themselves.",
+  "terms": {
+    "Steam Workshop": "스팀 창작마당",
+    "Wallpaper Engine": "Wallpaper Engine",
+    "Private Engine": "Private Engine",
+    "Video Girl Ai": "Video Girl Ai",
+    "電影少女": "電影少女",
+    "SillyTavern": "SillyTavern",
+    "character card": "캐릭터 카드",
+    "character voice": "캐릭터 말투",
+    "lorebook": "로어북",
+    "lore": "로어",
+    "agent": "에이전트",
+    "harness": "하네스",
+    "persona": "페르소나",
+    "identity": "정체성",
+    "provider": "제공자",
+    "companion": "동반자",
+    "personalization": "개인화",
+    "plugin": "플러그인",
+    "worktree": "워크트리",
+    "ticket": "티켓",
+    "moat": "해자",
+    "sprite": "스프라이트",
+    "operator": "운영자",
+    "BYOK": "BYOK"
+  }
+}

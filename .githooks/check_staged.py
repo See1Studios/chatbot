@@ -143,6 +143,24 @@ def live_chat_agent(actor):
     return actor.startswith("chat-agent:") and not actor.endswith(":?")
 
 
+def sync_mirrors(root, files):
+    """MIRROR_SYNC_v1: a staged standing document brings its Korean mirror up to date in the same commit. The targets
+    are tools/sync_mirrors.py's one list. A failed translation (offline, refused) only warns: the mirror is a reading
+    aid, and the full suite's freshness test names it until the next sync."""
+    sm = _repo_module(root, "sync_mirrors")
+    for src_name in [f for f in files if sm and f in sm.DEFAULT_MIRROR_TARGETS]:
+        src_p, mir_p = Path(root) / src_name, Path(root) / (src_name[:-3] + ".ko.md")
+        try:
+            status, msg = sm.sync_file(src_p, mir_p)
+        except Exception as e:  # noqa: BLE001 -- a network failure must not stop the commit
+            status, msg = "error", str(e)
+        if status == "ok":
+            subprocess.run(["git", "add", str(mir_p)], cwd=str(root), timeout=30)
+        elif status == "error":
+            print("[pre-commit] warning: %s: Korean mirror not synced (%s); run python3 engine/tools/sync_mirrors.py"
+                  % (src_name, msg[:200]))
+
+
 def related_for(root, files, who):
     """AGENT_COMMIT_RELATED_v1: the test modules a live chat agent's commit must also pass -- the ones the delegation
     runner runs for the same files (worktree_runner.related_gate). A chat agent may not run the whole suite (it takes
@@ -246,20 +264,7 @@ def pre_commit():
     untracked = [p for p in git("ls-files", "--others", "--exclude-standard", "docs/plans").splitlines() if p.endswith(".md")]
     for p in untracked:
         print("[pre-commit] warning: %s is not committed; an untracked plan blocks ticket claims (#213)" % p)
-    standing_staged = [f for f in files if f in ("CONCEPT.md", "PRODUCT.md", "ARCHITECTURE.md", "OPERATIONS.md", "RULES.md")]
-    if standing_staged:
-        sm = _repo_module(root, "sync_mirrors")
-        if sm:
-            for src_name in standing_staged:
-                src_p = root / src_name
-                mir_p = root / f"{src_name[:-3]}.ko.md"
-                status, msg = sm.sync_file(src_p, mir_p, check_only=True)
-                if status == "stale":
-                    s2, m2 = sm.sync_file(src_p, mir_p)
-                    if s2 == "ok":
-                        subprocess.run(["git", "add", str(mir_p)], cwd=str(root))
-                    else:
-                        errors.append("%s: Korean mirror sync failed (%s); run python3 engine/tools/sync_mirrors.py" % (src_name, m2))
+    sync_mirrors(root, files)
     if errors:
         print("\n".join("[pre-commit] " + e for e in sorted(set(errors))))
         return 1

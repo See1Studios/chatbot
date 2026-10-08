@@ -3,9 +3,15 @@
 
 Uses Google free translation endpoint (translate.googleapis.com) with:
 1. Markdown structure preservation (code blocks, inline code, table formatting protected)
-2. SHA-256 caching: only translates when the English source file hash changes
-3. Machine-translation disclaimer header:
+2. A glossary (GLOSSARY): the project's own terms go through as fixed Korean words, not the translator's guess
+   ("agent" came back as "counselor", "lore" as "story")
+3. SHA-256 caching: only translates when the English source file hash changes
+4. Machine-translation disclaimer header:
    <!-- AUTO-GENERATED MIRROR FROM {source} (source_sha256: {hash}) — DO NOT EDIT MANUALLY -->
+
+The mirrors let the operator follow what changed; rough wording is fine, a changed meaning is not. Agents never read
+them. The pre-commit hook syncs the staged standing documents; offline it warns and the commit goes on (the full
+suite's freshness test then names the stale mirror).
 """
 import argparse
 import hashlib
@@ -20,12 +26,21 @@ from typing import Dict, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
-# Documents eligible for Korean mirroring (*.md -> *.ko.md)
+# Documents eligible for Korean mirroring (*.md -> *.ko.md). The one list: the pre-commit hook reads it too.
 DEFAULT_MIRROR_TARGETS = [
     "CONCEPT.md",
     "PRODUCT.md",
     "RULES.md",
 ]
+
+# English term -> the fixed Korean word (engine_data/mirror_glossary.json): the translator never sees these terms.
+GLOSSARY = json.loads((Path(__file__).resolve().parent.parent / "engine_data" / "mirror_glossary.json")
+                      .read_text(encoding="utf-8"))["terms"]
+GLOSSARY_RE = re.compile(
+    r"(?<![\w-])(?:" + "|".join(re.escape(t) for t in sorted(GLOSSARY, key=len, reverse=True)) + r")(?:e?s)?(?![\w-])",
+    re.IGNORECASE,
+)
+_GLOSSARY_LOWER = {k.lower(): v for k, v in GLOSSARY.items()}
 
 HEADER_RE = re.compile(
     r"^<!-- AUTO-GENERATED MIRROR FROM (?P<src>[^\s]+) \(source_sha256: (?P<sha>[0-9a-fA-F]{64})\)[^>]*-->"
@@ -86,40 +101,55 @@ def translate_text_chunk(text: str, timeout: int = 10, retries: int = 2) -> str:
 
 
 def mask_markdown(content: str) -> Tuple[str, Dict[str, str]]:
-    """Mask markdown code blocks and inline code with placeholders to protect them from translation."""
+    """Put placeholders where the translator must not touch: fenced code, inline code, link targets, and the
+    glossary's terms (whose placeholder comes back as the fixed word). Returns the masked text and key -> text."""
     replacements: Dict[str, str] = {}
     counter = 0
 
-    # 1. Mask fenced code blocks (``` ... ``` or ```` ... ````)
-    def mask_code_block(match: re.Match) -> str:
+    def keep(kind: str, text: str) -> str:
         nonlocal counter
-        key = f"XZCODEBLOCK{counter}ZX"
+        key = f"XZ{kind}{counter}ZX"
         counter += 1
-        replacements[key] = match.group(0)
+        replacements[key] = text
         return key
 
-    # Match multiline code blocks
-    content = re.sub(r"(?ms)^(`{3,}[^\n]*\n.*?\n`{3,})$", mask_code_block, content)
+    content = re.sub(r"(?ms)^(`{3,}[^\n]*\n.*?\n`{3,})$", lambda m: keep("CODEBLOCK", m.group(0)), content)
+    content = re.sub(r"`[^`\n]+`", lambda m: keep("INLINE", m.group(0)), content)
+    content = re.sub(r"\]\([^)\s]+\)", lambda m: keep("LINK", m.group(0)), content)
 
-    # 2. Mask inline code (`...`)
-    def mask_inline_code(match: re.Match) -> str:
-        nonlocal counter
-        key = f"XZINLINE{counter}ZX"
-        counter += 1
-        replacements[key] = match.group(0)
-        return key
+    def term(m: re.Match) -> str:
+        word = m.group(0).lower()
+        base = word if word in _GLOSSARY_LOWER else word[:-2] if word[:-2] in _GLOSSARY_LOWER else word[:-1]
+        return keep("G", _GLOSSARY_LOWER[base])
 
-    content = re.sub(r"`[^`\n]+`", mask_inline_code, content)
+    content = GLOSSARY_RE.sub(term, content)
     return content, replacements
 
 
 def unmask_markdown(content: str, replacements: Dict[str, str]) -> str:
-    """Restore masked markdown placeholders."""
-    for key, original in replacements.items():
-        # Allow optional surrounding whitespace that translation API may introduce
-        pattern = re.compile(rf"\s*{re.escape(key)}\s*")
-        content = pattern.sub(original, content)
+    """Restore the placeholders. Only the key is replaced: the spaces around it are the sentence's (stripping them
+    glued `code` to the words beside it)."""
+    for key in sorted(replacements, key=len, reverse=True):   # XZG12ZX before XZG1ZX
+        word = replacements[key]
+        if key.startswith("XZG"):
+            content = re.sub(re.escape(key) + r"(은|는|이|가|을|를|과|와)(?=[\s.,;:)!?]|$)",   # l10n-ok
+                             lambda m: word + _particle(word, m.group(1)), content)
+        content = content.replace(key, word)
     return content
+
+
+# The translator picks a particle for the placeholder, not for the word put back: fit the one attached right after it
+# to whether the word ends in a final consonant (a topic, subject, object or "and" particle pair).
+_PARTICLES = {"은": "는", "이": "가", "을": "를", "과": "와"}   # l10n-ok: with / without a final consonant
+
+
+def _particle(word: str, particle: str) -> str:
+    last = word[-1]
+    if not "\uac00" <= last <= "\ud7a3":
+        return particle   # a Latin name: the translator's choice stands
+    final = (ord(last) - 0xAC00) % 28 != 0
+    pair = next((a, b) for a, b in _PARTICLES.items() if particle in (a, b))
+    return pair[0] if final else pair[1]
 
 
 def translate_markdown(content: str) -> str:
@@ -202,7 +232,8 @@ def sync_file(
     header = make_mirror_header(source_file.name, src_hash)
     final_output = header + translated.lstrip()
 
-    mirror_file.write_text(final_output, encoding="utf-8")
+    with open(str(mirror_file), "w", encoding="utf-8", newline="\n") as fh:   # LF on every OS
+        fh.write(final_output)
     return "ok", f"Synchronized {mirror_file.name} from {source_file.name} ({src_hash[:8]})"
 
 

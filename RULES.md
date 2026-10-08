@@ -54,6 +54,7 @@ not do.
 - Root standing documents (`*.md`) are agent SSOT in plain English.
 - Korean mirror documents (`*.ko.md`) sit beside them for the human operator.
 - Automated Translation Pipeline: `*.ko.md` files are machine-built artifacts synchronized via `tools/sync_mirrors.py` (sha256-cached translation pipeline). Agents and humans MUST NOT manually edit `*.ko.md`.
+- The pre-commit hook syncs a staged target's mirror (targets: `tools/sync_mirrors.py::DEFAULT_MIRROR_TARGETS`, terms: its `GLOSSARY`); offline it only warns, and `test_sync_mirrors` names the stale mirror.
 - Generated Header: Every `*.ko.md` carries the header `<!-- AUTO-GENERATED MIRROR FROM <file>.md (source_sha256: <hash>) — DO NOT EDIT MANUALLY -->`.
 - No Agent Ingest: Agents and prompt loaders MUST NOT ingest `*.ko.md` into agent context.
 - Accumulating work diaries (`HISTORY.md`) and project plans may contain Korean entries or translations as needed.

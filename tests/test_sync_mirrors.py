@@ -1,83 +1,116 @@
+"""Korean mirrors of the standing documents (MIRROR_SYNC_v1, tools/sync_mirrors.py): machine-translated for the
+operator to follow, never read by agents. Masking keeps code, links and the glossary's terms out of the translator;
+the hook syncs a staged document and only warns when offline; the mirrors in the repo match their sources.
+Run: engine/run-tests.sh test_sync_mirrors
+"""
+import importlib.util
+import io
 import tempfile
+import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
 from engine.tools import sync_mirrors
+from tests._paths import REPO  # noqa: E402
 
 
-def test_calc_sha256():
-    text = "Hello, world!"
-    h = sync_mirrors.calc_sha256(text)
-    assert len(h) == 64
-    assert h == sync_mirrors.calc_sha256(text)
+def fake_translate(text, **_kw):
+    return text.replace("keeps", "지킨다").replace("Heading", "제목")
 
 
-def test_read_mirror_hash():
-    header = "<!-- AUTO-GENERATED MIRROR FROM TEST.md (source_sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef) — DO NOT EDIT MANUALLY -->\n\n# Body"
-    extracted = sync_mirrors.read_mirror_hash(header)
-    assert extracted == "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+class Masking(unittest.TestCase):
+    def test_code_and_links_round_trip_with_their_spaces(self):
+        doc = ("# Heading\n\nHere is `inline code` and text, see [a plan](docs/plans/x.md#y).\n\n"
+               "```python\ndef foo():\n    return 42\n```\n\nAnother line with `another_inline`.")
+        masked, keys = sync_mirrors.mask_markdown(doc)
+        for gone in ("def foo():", "`inline code`", "docs/plans/x.md"):
+            self.assertNotIn(gone, masked)
+        self.assertEqual(sync_mirrors.unmask_markdown(masked, keys), doc)
 
-    no_header = "# Plain Markdown\nNo auto-generated header here."
-    assert sync_mirrors.read_mirror_hash(no_header) is None
+    def test_glossary_terms_come_back_as_the_fixed_word(self):
+        masked, keys = sync_mirrors.mask_markdown("Agents keep the lore; the harnesses of providers. A lorebook.")
+        out = sync_mirrors.unmask_markdown(masked, keys)
+        self.assertEqual(out, "에이전트 keep the 로어; the 하네스 of 제공자. A 로어북.")
 
+    def test_the_particle_after_a_term_fits_the_word(self):
+        _, keys = sync_mirrors.mask_markdown("identity agent plugin")
+        g = sorted(keys)   # XZG0ZX identity -> 정체성, XZG1ZX agent -> 에이전트, XZG2ZX plugin -> 플러그인
+        text = "%s는 x, %s을 y, %s가 z, %s는가" % (g[0], g[1], g[2], g[0])
+        self.assertEqual(sync_mirrors.unmask_markdown(text, keys), "정체성은 x, 에이전트를 y, 플러그인이 z, 정체성는가")
 
-def test_mask_and_unmask_markdown():
-    doc = (
-        "# Heading\n\n"
-        "Here is `inline code` and text.\n\n"
-        "```python\n"
-        "def foo():\n"
-        "    return 42\n"
-        "```\n\n"
-        "Another line with `another_inline`."
-    )
-    masked, replacements = sync_mirrors.mask_markdown(doc)
-    assert "def foo():" not in masked
-    assert "`inline code`" not in masked
-    assert len(replacements) == 3
+    def test_a_term_inside_a_word_or_code_stays(self):
+        masked, keys = sync_mirrors.mask_markdown("agentic `agent.py` lorem")
+        self.assertEqual(sync_mirrors.unmask_markdown(masked, keys), "agentic `agent.py` lorem")
 
-    unmasked = sync_mirrors.unmask_markdown(masked, replacements)
-    assert unmasked == doc
-
-
-def test_sync_file_skips_when_hash_matches():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src = Path(tmpdir) / "TEST.md"
-        src.write_text("# Test\nContent", encoding="utf-8")
-        src_hash = sync_mirrors.calc_sha256(src.read_text(encoding="utf-8"))
-
-        mirror = Path(tmpdir) / "TEST.ko.md"
-        header = sync_mirrors.make_mirror_header("TEST.md", src_hash)
-        mirror.write_text(header + "# 테스트\n내용", encoding="utf-8")
-
-        status, msg = sync_mirrors.sync_file(src, mirror)
-        assert status == "skipped"
-        assert "matches" in msg
+    def test_every_glossary_term_is_matched(self):
+        for term, ko in sync_mirrors.GLOSSARY.items():
+            masked, keys = sync_mirrors.mask_markdown("x %s y" % term)
+            self.assertEqual(sync_mirrors.unmask_markdown(masked, keys), "x %s y" % ko, term)
 
 
-def test_sync_file_check_only_detects_stale():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src = Path(tmpdir) / "TEST.md"
-        src.write_text("# Test\nNew Content", encoding="utf-8")
+class SyncFile(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        self.src, self.mir = self.dir / "TEST.md", self.dir / "TEST.ko.md"
+        self.src.write_text("# Heading\n\nThe agent keeps `x.md`.", encoding="utf-8")
 
-        mirror = Path(tmpdir) / "TEST.ko.md"
-        old_hash = "0" * 64
-        header = sync_mirrors.make_mirror_header("TEST.md", old_hash)
-        mirror.write_text(header + "# 테스트\n옛 내용", encoding="utf-8")
+    def tearDown(self):
+        self.tmp.cleanup()
 
-        status, msg = sync_mirrors.sync_file(src, mirror, check_only=True)
-        assert status == "stale"
-        assert "differs" in msg
+    def test_translates_keeps_code_and_writes_the_header(self):
+        with patch.object(sync_mirrors, "translate_text_chunk", side_effect=fake_translate):
+            status, _ = sync_mirrors.sync_file(self.src, self.mir)
+        self.assertEqual(status, "ok")
+        text = self.mir.read_text(encoding="utf-8")
+        self.assertEqual(sync_mirrors.read_mirror_hash(text), sync_mirrors.calc_sha256(self.src.read_text(encoding="utf-8")))
+        self.assertTrue(text.endswith("# 제목\n\nThe 에이전트 지킨다 `x.md`."), text)
+
+    def test_skips_when_the_hash_matches_and_reports_stale_otherwise(self):
+        with patch.object(sync_mirrors, "translate_text_chunk", side_effect=fake_translate):
+            sync_mirrors.sync_file(self.src, self.mir)
+        self.assertEqual(sync_mirrors.sync_file(self.src, self.mir)[0], "skipped")
+        self.src.write_text("# Heading\n\nchanged", encoding="utf-8")
+        self.assertEqual(sync_mirrors.sync_file(self.src, self.mir, check_only=True)[0], "stale")
 
 
-def test_standing_docs_mirrors_up_to_date():
-    """Verify that all default mirror targets are up-to-date with their source documents."""
-    for target in sync_mirrors.DEFAULT_MIRROR_TARGETS:
-        src = sync_mirrors.REPO_ROOT / target
-        if not src.exists():
-            continue
-        stem = src.name[:-3]
-        mirror = src.parent / f"{stem}.ko.md"
-        assert mirror.exists(), f"Mirror missing for {target}: expected {mirror.name}"
-        status, msg = sync_mirrors.sync_file(src, mirror, check_only=True)
-        assert status == "skipped", f"Mirror {mirror.name} is out of date: {msg}"
+class Hook(unittest.TestCase):
+    def load_hook(self):
+        spec = importlib.util.spec_from_file_location("check_staged_mirror", REPO / ".githooks" / "check_staged.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_offline_the_hook_warns_and_lets_the_commit_go(self):
+        hook = self.load_hook()
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "RULES.md").write_text("# Rules", encoding="utf-8")
+            with patch.object(hook, "_repo_module", return_value=sync_mirrors), \
+                 patch.object(sync_mirrors, "translate_text_chunk", side_effect=RuntimeError("offline")):
+                out = io.StringIO()
+                with redirect_stdout(out):
+                    hook.sync_mirrors(d, ["RULES.md", "engine/x.py"])
+            self.assertIn("warning: RULES.md: Korean mirror not synced (offline)", out.getvalue())
+            self.assertFalse((Path(d) / "RULES.ko.md").exists())
+
+    def test_the_hook_reads_the_tool_s_one_target_list(self):
+        src = (REPO / ".githooks" / "check_staged.py").read_text(encoding="utf-8")
+        self.assertIn("sm.DEFAULT_MIRROR_TARGETS", src)
+        for name in sync_mirrors.DEFAULT_MIRROR_TARGETS:
+            self.assertNotIn('"%s"' % name, src, "the hook names no mirror target of its own")
+
+
+class RepoMirrors(unittest.TestCase):
+    def test_standing_docs_mirrors_up_to_date(self):
+        for target in sync_mirrors.DEFAULT_MIRROR_TARGETS:
+            src = REPO / target
+            self.assertTrue(src.is_file(), target)
+            mirror = src.parent / (src.name[:-3] + ".ko.md")
+            self.assertTrue(mirror.exists(), "Mirror missing for %s: run python3 engine/tools/sync_mirrors.py" % target)
+            status, msg = sync_mirrors.sync_file(src, mirror, check_only=True)
+            self.assertEqual(status, "skipped", "%s -- run python3 engine/tools/sync_mirrors.py %s" % (msg, target))
+
+
+if __name__ == "__main__":
+    unittest.main()
