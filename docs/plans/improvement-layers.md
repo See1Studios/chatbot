@@ -1,7 +1,7 @@
 # 개선의 두 계층: 엔진 이상 징후와 스킬(스크립트 포함) — skill-observations 정리 (improvement-layers)
 
 > 방향 (align/D, 2026-10-08): **개발판 전용 + 핵심** — 엔진 쪽은 개발판이 스스로 아픈 곳을 알리고 일감으로 만드는 고리(개발판 전용). 스킬 쪽은 캐릭터가 한 일을 기억해 다시 쓰는 개인화 고리(배포판 포함, `VISION.md` "Agent self-evolution: skills, memories, instructions with user approval and undo")
-> 상태: **active** (2026-10-08 수립, D1 2026-10-08 운영자: A. 운영자: "로그에서 이상징후가 보이면 원인 분석을 하고 사용자에게 notify 한 다음 일감화해서 개선하는 구조", "코어 개발과 도구 스크립트 개발, 스킬화가 모두 다른 계층", "쓰레기들을 남김없이 걷어내줘", "feature 별로 모듈이나 패키지를 만들어서 정리")
+> 상태: **active** (2026-10-08 수립, D1 2026-10-08 운영자: A, D2 2026-10-09 운영자: 데이터만 근거. 운영자: "로그에서 이상징후가 보이면 원인 분석을 하고 사용자에게 notify 한 다음 일감화해서 개선하는 구조", "코어 개발과 도구 스크립트 개발, 스킬화가 모두 다른 계층", "쓰레기들을 남김없이 걷어내줘", "feature 별로 모듈이나 패키지를 만들어서 정리")
 > 대체: [archive/2026/recursive-self-evolution.md](archive/2026/recursive-self-evolution.md)의 관찰 쪽(§4.6 observe → record → refer → act). 티켓·보호 경로·가드(코어)는 그대로 쓴다.
 > 관련: [engine-decides.md](engine-decides.md)(엔진이 정한다) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [edition-boundary.md](edition-boundary.md)(개발판/배포판) · [user-data-separation.md](user-data-separation.md)(데이터 위치)
 
@@ -93,7 +93,7 @@
 
 ### 4.4 티켓 근거 규칙
 
-빈 표시를 없애면 근거 규칙을 다시 정해야 한다(D2).
+빈 표시를 없애면 근거 규칙을 다시 정해야 한다 — D2로 정했다: 근거는 데이터만, 운영자의 말은 요청이다.
 
 ## 5. 단계 (각 단계 = 티켓 하나 이상, 기능 패키지로)
 
@@ -115,7 +115,7 @@
 | id | 질문 | 추천 |
 |---|---|---|
 | D1 | 엔진 티켓의 새 위치 | **결정 A (2026-10-08)**: `<data>/dev/tickets/` — 개발판 데이터, 작업 폴더 밖. 작업 폴더는 채팅 에이전트에게 `--add-dir`로 열리고 배포판에선 사용자의 것이다. 버린 안: 저장소 안(상태 변화마다 커밋, `leases.json` 충돌, uds 때 밖으로 뺀 이력), 작업 폴더 안 이름만 변경(캐릭터 작업실 문제 그대로). 경로는 `host_config.py`가 정하고 `tickets.tickets_dir()`가 쓴다 |
-| D2 | 티켓 근거 규칙 | 에이전트가 스스로 제안하는 티켓만 실제 근거 필수(`log:fp`/`log:rid`/`event:`/사건 id). 운영자 말을 옮긴 티켓(`ticket-quick start`)은 근거 없이 "operator" 표시 |
+| D2 | 티켓 근거 규칙 | **결정 (2026-10-09, 운영자: "철저하게 데이터 기반으로. 내가 개입하는 건 그냥 요청사항")**: 두 칸을 나눈다. `evidence`는 엔진이 실재를 확인하는 데이터만 — `log:fp`, `log:rid`, `event:<세션>#<줄>`, 사건 id(il/D), `main.check` 커밋. `request`는 운영자의 말 그대로(채팅이면 그 `event:` 줄, CLI면 원문 인용과 받은 에이전트) — 근거로 치지 않는다. 티켓은 둘 중 하나는 있어야 하고, 에이전트가 스스로 올리는 티켓은 `evidence` 필수. 요청으로 시작한 티켓도 작업 중 재현·로그를 찾으면 `evidence`를 붙인다. `manual` 표시와 `candidate:` 형식은 없앤다(il/A) |
 | D3 | 알림 빈도 | 새 사건·나빠진 사건만, 같은 사건 하루 1번, 조용한 시간 지킴(`event_react` 설정 재사용) |
 | D4 | 원인 분석 두뇌 | 대화 두뇌와 따로 지정(강한 모델). 정해지기 전에는 F를 켜지 않는다 |
 | D5 | 스킬 쪽 대화 신호 | 말 내용을 단어로 판정하지 않는다. 명시적 동작(다시 생성·중단·고쳐 쓰기)만 신호로, H 이후에 다시 본다 |
