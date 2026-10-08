@@ -71,6 +71,12 @@
 }
 .msg.system.notice-ok .notice-head{color:#6ee7b7}
 .msg.system.notice-ok .md{color:#a7f3d0}
+/* FAIL_NOTICE_v1: a failed action's notice -- the raw error folded under 'details' (selectable, for a bug report), and
+   at most one action button */
+.msg.system .notice-detail{flex-basis:100%;margin-top:.2rem;font-size:.74rem;color:var(--muted)}
+.msg.system .notice-detail summary{cursor:pointer;width:max-content;min-height:24px;display:flex;align-items:center}
+.msg.system .notice-detail code{display:block;margin-top:.15rem;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font-size:.72rem;color:var(--text)}
+.msg.system .notice-action{margin-top:.3rem;min-height:32px}
 .msg.btw-card .btw-head .action-icon-svg{width:14px;height:14px;stroke:currentColor;flex-shrink:0}
 /* Streaming cursor (STREAM_CARET_v1): an element app-sse.js places right after the last letter on
    screen at every paint. As a ::after on the last block it collided with the open block's own ::after

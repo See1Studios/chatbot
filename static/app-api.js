@@ -97,7 +97,10 @@ function rememberSession(id) {
 
 function switchTab(tab) {
   currentTab = tab;
-  if ((tab === 'chat' || tab === 'sessions' || tab === 'evolution') && isProviderUseBlocked(chatProvider())) {
+  // FAIL_NOTICE_v1: the old tab page sends a blocked provider to its status tab; shell2 keeps the talk (the input is
+  // off) and says how to recover in it (syncBlockedNotice)
+  const shell2 = typeof shellOn === 'function' && shellOn();
+  if (!shell2 && (tab === 'chat' || tab === 'sessions' || tab === 'evolution') && isProviderUseBlocked(chatProvider())) {
     tab = 'status';
     currentTab = 'status';
   }

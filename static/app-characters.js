@@ -114,9 +114,11 @@ function syncProviderUseGates() {
   if (typeof sendBtn !== 'undefined' && sendBtn) {
     sendBtn.disabled = blocked || (typeof isBusy !== 'undefined' && isBusy);
   }
-  if (blocked && typeof currentTab !== 'undefined' && (currentTab === 'chat' || currentTab === 'sessions' || currentTab === 'evolution')) {
+  const shell2 = typeof shellOn === 'function' && shellOn();
+  if (blocked && !shell2 && typeof currentTab !== 'undefined' && (currentTab === 'chat' || currentTab === 'sessions' || currentTab === 'evolution')) {
     if (typeof switchTab === 'function') switchTab('status');
   }
+  syncBlockedNotice(shell2 && blocked ? pid + '\n' + reason : '', reason);
   const banner = document.getElementById('providerUseBanner');
   if (banner) {
     if (blocked) {
@@ -127,6 +129,33 @@ function syncProviderUseGates() {
       banner.textContent = '';
     }
   }
+}
+
+// FAIL_NOTICE_v1: shell2 keeps the talk on screen while the provider is blocked; this notice says why and opens the
+// accounts pane. One per block (same provider and reason): a swiped-away notice is not put back until that changes.
+let _blockedNotice = null, _blockedNoticeKey = '';
+function syncBlockedNotice(key, reason) {
+  if (key === _blockedNoticeKey) return;
+  if (_blockedNotice) _blockedNotice.remove();
+  _blockedNotice = null;
+  _blockedNoticeKey = key;
+  if (!key || typeof addNotice !== 'function') return;
+  const node = addNotice('warn', tr('shell.provider_blocked', { reason }), null, true);
+  if (!node) return;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'ghost notice-action';
+  b.textContent = tr('notice.open_accounts');
+  b.addEventListener('click', () => (typeof shellGoPane === 'function' ? shellGoPane('status', '') : switchTab('status')));
+  node.appendChild(b);
+  _blockedNotice = node;
+}
+
+// A new talk clears the log, and the notice with it: put it back after the talk's own lines (enterSession).
+function reshowBlockedNotice() {
+  _blockedNotice = null;
+  _blockedNoticeKey = '';
+  syncProviderUseGates();
 }
 
 function themeForProvider(p) {
@@ -527,7 +556,7 @@ async function selectCharacter(c) {
       }
     }
   } catch (e) {
-    addActivity(tr('shell.character_failed', { error: e.message || e }));
+    failNotice(tr('shell.character_failed'), e);
   }
 }
 

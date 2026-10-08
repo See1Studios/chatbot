@@ -122,6 +122,24 @@ function addActivity(line, kind, ts, detail) {
   }
 }
 
+// FAIL_NOTICE_v1: an action the user started that failed is said in the talk too -- the activity log is dev-only in
+// shell2, so a failure logged only there looked like nothing happened. The notice is one plain line; the raw error is
+// folded under a details toggle and kept in the activity line. Returns the notice node (null before the page has one).
+function failNotice(text, error) {
+  const raw = error == null ? '' : String((error && error.message) || error);
+  addActivity(raw ? text + ' — ' + raw : text, 'warn');
+  const node = typeof addNotice === 'function' ? addNotice('warn', text, null, true) : null;
+  if (node && raw) {
+    const d = document.createElement('details'), s = document.createElement('summary'), c = document.createElement('code');
+    d.className = 'notice-detail';
+    s.textContent = tr('notice.detail');
+    c.textContent = raw;
+    d.append(s, c);
+    node.appendChild(d);
+  }
+  return node;
+}
+
 function prependActivity(line, kind, ts, detail) {
   if (!line) return;
   const item = {

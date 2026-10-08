@@ -50,7 +50,7 @@ async function togglePrivateMode() {
     });
     if (res && res.session && res.session.id) await applyModeSwitch(res);
   } catch (e) {
-    addActivity(tr('session.mode_failed', { error: e.message || e }));
+    failNotice(tr('session.mode_failed'), e);
   } finally {
     privateBtn.disabled = false;
   }
@@ -149,6 +149,7 @@ function enterSession(id, opts) {
   if (opts.greeting) addChat('assistant', opts.greeting, true);
   // Host-generated copy (not LLM output) goes in as a system notice, never an assistant turn.
   if (opts.notice) addNotice('info', opts.notice);
+  if (!opts.preserveLog && typeof reshowBlockedNotice === 'function') reshowBlockedNotice();   // FAIL_NOTICE_v1
   if (opts.activityAfter) addActivity(opts.activityAfter);
 
   // Moved out of the `opts.history` branch above: createSession()/

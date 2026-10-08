@@ -60,7 +60,7 @@ async function fetchArtifacts(silent) {
     const curOwner = activeArtifactOwner();
     const curKey = curOwner ? (curOwner.type + ':' + curOwner.id) : '';
     if (curKey !== reqKey) return;
-    if (!silent) addActivity(tr('artifacts.load_failed', { error: e.message || e }));
+    if (!silent && typeof failNotice === 'function') failNotice(tr('artifacts.load_failed'), e);
   }
 }
 
@@ -90,8 +90,8 @@ async function loadMoreArtifacts() {
   } catch (e) {
     const curOwner = activeArtifactOwner();
     const curKey = curOwner ? (curOwner.type + ':' + curOwner.id) : '';
-    if (curKey === reqKey) {
-      addActivity(tr('artifacts.more_failed', { error: e.message || e }));
+    if (curKey === reqKey && typeof failNotice === 'function') {
+      failNotice(tr('artifacts.more_failed'), e);
     }
   } finally {
     marker.remove();

@@ -862,7 +862,7 @@ if (stopBtn) {
         if (b) b.dataset.ephemeral = '1';   // SESSION_DESYNC_GAPFIX_v2
       }, STOP_NOTICE_WAIT_MS);
     } catch (e) {
-      addActivity(tr('chat.stop_failed', { error: e.message || e }));
+      failNotice(tr('chat.stop_failed'), e);
     } finally {
       stopBtn.disabled = false;
     }

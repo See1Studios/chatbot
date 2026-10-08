@@ -148,7 +148,7 @@ async function openItemPicker() {
   try {
     data = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/items');
   } catch (e) {
-    if (typeof addActivity === 'function') addActivity(ITEM_TEXT.failed + (e.message || e), 'warn');
+    if (typeof failNotice === 'function') failNotice(ITEM_TEXT.failed, e);
     return;
   }
   const a = data.affection || {};
@@ -306,7 +306,7 @@ async function actOnItem(it, action) {
     res = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/item',
       { method: 'POST', body: JSON.stringify({ item: it.id, action }) });
   } catch (e) {
-    if (typeof addActivity === 'function') addActivity(ITEM_TEXT.failed + (e.message || e), 'warn');
+    if (typeof failNotice === 'function') failNotice(ITEM_TEXT.failed, e);
     return;
   }
   if (!res || !res.ok) return;

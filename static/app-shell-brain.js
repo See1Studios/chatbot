@@ -40,7 +40,7 @@ async function shellFillBrainUse(c, hold) {
           shellProfileOpen();
         } catch (err) {
           b.disabled = false;
-          if (typeof addActivity === 'function') addActivity(SHELL_BRAIN_TEXT.brainResetFail);
+          if (typeof failNotice === 'function') failNotice(SHELL_BRAIN_TEXT.brainResetFail, err);
         }
       });
       row.appendChild(b);
