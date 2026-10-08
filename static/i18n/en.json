@@ -273,7 +273,6 @@
   "instr.protected": "Protected path ({why}): changed only from a terminal or with an approved ticket",
   "instr.role_pack": "Role pack ({name})",
   "instr.role_procedure": "Role procedure ({name})",
-  "instr.self_modify": "Self-modification bounds",
   "instr.skills": "Skill list",
   "instr.skills_why": "Made from the workspace skill folder",
   "instr.visual": "Look lock ({name})",

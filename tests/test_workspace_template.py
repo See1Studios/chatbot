@@ -22,7 +22,7 @@ DEV = ROOT / "templates" / "dev-workspace"
 MANIFEST = json.loads((ROOT / "templates" / "workspace-manifest.json").read_text(encoding="utf-8"))
 HOST_MARKERS = ("DiskStation", "/volume1", "/var/services", "Sphere", "실장님", "냥", "services/chatbot",  # l10n-ok
                 "FIREBAT", "~/AGENTS.md", "~/services", "NyangPD")
-DEV_MARKERS = ("`ticket` tool", "claiming an approved ticket", "SELF-MODIFY.md", "PROJECT.md", "docs/plans/",
+DEV_MARKERS = ("`ticket` tool", "claiming an approved ticket", "PROJECT.md", "docs/plans/",
                "--no-verify", "run-tests.sh", "`dev` role", "delegate", "delegating", "`ticket`")
 FIX = "edit templates/workspace-manifest.json (move the path to 'variant' or 'not_shipped' with a reason)"
 

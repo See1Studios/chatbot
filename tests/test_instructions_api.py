@@ -19,8 +19,7 @@ class InstructionsApiTest(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp()).resolve()
         self.ws = self.root / "data" / "workspace"
         (self.ws / "memory").mkdir(parents=True)
-        for name, text in (("AGENTS.md", "charter"), ("PROJECT.md", "procedure"),
-                           ("SELF-MODIFY.md", "boundary")):
+        for name, text in (("AGENTS.md", "charter"), ("PROJECT.md", "procedure")):
             (self.ws / name).write_text(text, encoding="utf-8")
         import characters
         self.cid, self.default = characters.new_id(), characters.new_id()
@@ -29,7 +28,7 @@ class InstructionsApiTest(unittest.TestCase):
         characters.save_team({"default": self.default, "members": {self.cid: ["staff"], self.default: []}}, self.ws)
         (self.ws / "memory" / "MEMORY.md").write_text("# Memory\n- a fact\n", encoding="utf-8")
         (self.root / "protected_paths.json").write_text(json.dumps(
-            {"protect": ["data/workspace/AGENTS.md", "data/workspace/SELF-MODIFY.md"]}), encoding="utf-8")
+            {"protect": ["data/workspace/AGENTS.md"]}), encoding="utf-8")
         self.saved = (W.REPO, W.WORKSPACE)
         W.REPO, W.WORKSPACE = self.root, self.ws
 
@@ -48,7 +47,7 @@ class InstructionsApiTest(unittest.TestCase):
         items = self.items()
         self.assertEqual({k: (v["layer"], v["editable"]) for k, v in items.items() if v["kind"] == "file"}, {
             "AGENTS.md": ("always", False), "MEMORY.md": ("always", True),
-            "PROJECT.md": ("on_demand", True), "SELF-MODIFY.md": ("on_demand", False),
+            "PROJECT.md": ("on_demand", True),
             "characters/%s/card.json" % self.cid: ("on_demand", True),
             "characters/%s/card.json" % self.default: ("always", True)})
         self.assertIn("data/workspace/AGENTS.md", items["AGENTS.md"]["reason"])
@@ -63,7 +62,7 @@ class InstructionsApiTest(unittest.TestCase):
 
     def test_only_unprotected_files_can_be_saved(self):
         self.assertEqual(self.put("AGENTS.md", "x")[0], 403)
-        self.assertEqual(self.put("SELF-MODIFY.md", "x")[0], 403)
+        self.assertEqual(self.put("SELF-MODIFY.md", "x")[0], 404)   # il/A3 (#839): gone from the list
         self.assertEqual(self.put("skills-index", "x")[0], 404)
         self.assertEqual(self.put("../../etc/passwd", "x")[0], 404)
         self.assertEqual(self.put("PROJECT.md", "   ")[0], 400)

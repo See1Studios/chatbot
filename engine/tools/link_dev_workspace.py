@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Point a dev install's workspace at the engine's own instructions (user-data-separation §0.1).
 
-The dev build's own rules (DEV-CHARTER.md), PROJECT, SELF-MODIFY, engine skills, docs and engine role packs live once,
+The dev build's own rules (DEV-CHARTER.md), PROJECT, engine skills, docs and engine role packs live once,
 in templates/dev-workspace/ of this repo. The charter is the shipped one (templates/workspace/AGENTS.md): both builds
 read the same charter, and the dev build's rules stay in their own file (DEV_SPLIT_v1, prop/G: dev and shipped
 instructions never mix). Agents open them by paths relative to their workspace, so each one is a

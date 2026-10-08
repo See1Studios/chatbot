@@ -22,7 +22,7 @@ Read when work is asked for. The every-turn part is `ROLE.md`.
 - After submitting a plan, reply in a line or two ("계획 올렸어, 카드에서 [실행] 눌러줘"). "#N 계획 수정: …" means
   submit the plan again with the same `ticket` = N. Progress: `delegate` status.
 - When it has landed, report briefly in Korean. If a host module (Tier 2) changed, say ⚡소생.
-- Tiers: Tier 3 (guards, gates, `protected_paths.json`, `SELF-MODIFY.md`, the charter, the self-evolution design) is
+- Tiers: Tier 3 (guards, gates, `protected_paths.json`, the charter, the self-evolution design) is
   refused in plans; tell the user, and change only what an approved ticket covers. Tier 2 (host modules, tests,
   ctl) needs ⚡소생 after landing. Tier 0/1 (docs, skills, characters, static UI) lands at once.
 - Direct exceptions: one memory line and ticket records; the user says "직접 해"; no worker can take

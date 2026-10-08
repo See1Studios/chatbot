@@ -21,7 +21,6 @@
   "not_shipped": {
     "DEV-CHARTER.md": "the dev build's own rules, injected after the shipped charter only when CHATBOT_EDITION=dev (DEV_SPLIT_v1)",
     "PROJECT.md": "engine code map for the dev role (pew/L)",
-    "SELF-MODIFY.md": "engine self-modification boundary (dev build only)",
     "CROSS-CUTTING-PRINCIPLES.md": "engine design rationale, never injected",
     "roles/dev/ROLE.md": "engine work role (dev build only, pew/L)",
     "roles/dev/PROCEDURE.md": "engine work role (dev build only, pew/L)",

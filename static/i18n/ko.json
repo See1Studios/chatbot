@@ -273,7 +273,6 @@
   "instr.protected": "보호 경로({why}): 터미널이나 승인된 티켓으로만 바꿉니다",
   "instr.role_pack": "역할 팩 ({name})",
   "instr.role_procedure": "역할 절차 ({name})",
-  "instr.self_modify": "자기수정 경계",
   "instr.skills": "스킬 목록",
   "instr.skills_why": "워크스페이스 스킬 폴더에서 자동으로 만듭니다",
   "instr.visual": "외형 락 ({name})",

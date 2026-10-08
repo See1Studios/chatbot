@@ -7,6 +7,12 @@
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 
+## 2026-10-09 — 낡은 개발 지침 `SELF-MODIFY.md` 정리 (improvement-layers il/A3, #839)
+
+- **운영자**: "나 시간 많아 계속 하자"
+- **바뀐 것**: `templates/dev-workspace/SELF-MODIFY.md` 삭제. 규칙 대부분은 이미 `DEV-CHARTER.md`(라이브 턴 재시작 금지)·`roles/dev/PROCEDURE.md`(새로고침/⚡소생)·`OPERATIONS.md`(healthz만으로 판단 금지)·`PROJECT.md`(guard·probe)에 있었고, 거기에만 있던 셋(포트 변경·일괄 삭제는 승인, 연결이 죽으면 멈추고 ⚡소생 요청, RLock 유지)은 `roles/dev/PROCEDURE.md`로. 낡은 경로·"Hub FAB"·observation-log 줄은 버림. 지시문 탭 목록·보호 경로·작업 폴더 구성표에서도 뺌.
+- **재시작**: 필요 (`workspace_status`).
+
 ## 2026-10-09 — 관찰·후보 흐름을 걷어내고 티켓 근거는 데이터만 (improvement-layers il/A1·A2, #838)
 
 - **운영자**: "파편화되지 않도록 최대한 기존 구조 잘 분석해서 쓰레기들을 남김없이 걷어내줘" · D2 "철저하게 데이터 기반으로. 내가 개입하는 건 그냥 요청사항"

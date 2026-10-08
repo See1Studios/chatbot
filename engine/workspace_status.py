@@ -43,7 +43,7 @@ try:
 except Exception:  # noqa: BLE001
     obslog = None
 
-RULE_FILES = ["AGENTS.md", "PROJECT.md", "SELF-MODIFY.md"]
+RULE_FILES = ["AGENTS.md", "PROJECT.md"]
 WS_SKILLS_DIR = WORKSPACE / ".agents" / "skills"
 _SKILLS_CACHE = {"ts": 0.0, "data": []}
 _extract_yaml_desc = extract_yaml_desc
@@ -161,7 +161,6 @@ INSTRUCTION_FILES = [  # (id, title as a line by key (i18n.line), path relative 
     ("AGENTS.md", i18n.line("instr.charter"), "AGENTS.md", "always"),
     ("MEMORY.md", i18n.line("instr.memory"), "memory/MEMORY.md", "always"),
     ("PROJECT.md", i18n.line("instr.project"), "PROJECT.md", "on_demand"),
-    ("SELF-MODIFY.md", i18n.line("instr.self_modify"), "SELF-MODIFY.md", "on_demand"),
 ]
 _LAYER_ORDER = {"always": 0, "on_demand": 1, "private": 2}   # private: read only in a private session
 

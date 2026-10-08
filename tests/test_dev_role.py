@@ -19,7 +19,7 @@ import instructions as I  # noqa: E402
 WS = ROOT / "templates" / "dev-workspace"   # the dev build's rules and role packs (tracked; uds/F)
 CHARTER = ROOT / "templates" / "workspace" / "AGENTS.md"   # one charter for both builds (DEV_SPLIT_v1)
 # Text that only engine work needs; any of it in the charter or a non-dev role's every-turn part is a leak.
-DEV_MARKERS = ("## Self-modification", "`ticket` tool", "claiming an approved ticket", "SELF-MODIFY.md",
+DEV_MARKERS = ("## Self-modification", "`ticket` tool", "claiming an approved ticket", "chatbot-ctl.sh guard",
                "docs/plans/", "--no-verify", "run-tests.sh", "PROJECT.md", "⚡소생")
 
 
@@ -35,7 +35,7 @@ class DevRulesStayInTheDevPack(unittest.TestCase):
         role = (WS / "roles" / "dev" / "ROLE.md").read_text(encoding="utf-8")
         proc = (WS / "roles" / "dev" / "PROCEDURE.md").read_text(encoding="utf-8")
         self.assertIn("roles/dev/PROCEDURE.md", role)
-        for m in ("`ticket` tool", "claiming an approved ticket", "SELF-MODIFY.md", "docs/plans/INDEX.md",
+        for m in ("`ticket` tool", "claiming an approved ticket", "chatbot-ctl.sh guard", "docs/plans/INDEX.md",
                   "--no-verify", "run-tests.sh", "AGENTS.md"):
             self.assertIn(m, proc)
 

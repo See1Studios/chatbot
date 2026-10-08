@@ -11,7 +11,6 @@
     "engine/protected_paths.json",
     "tests/",
     "static/",
-    "data/workspace/SELF-MODIFY.md",
     "data/workspace/AGENTS.md",
     "data/workspace/DEV-CHARTER.md",
     "OPERATIONS.md",
@@ -35,7 +34,7 @@
   "except": [
     {
       "path": "static/",
-      "reason": "This instance treats the static UI as Tier 0 (data/workspace/SELF-MODIFY.md rule 2). Delete this entry to protect it, which is the default for a shipped copy."
+      "reason": "This instance treats the static UI as Tier 0 (a refresh, no restart: roles/dev/PROCEDURE.md). Delete this entry to protect it, which is the default for a shipped copy."
     }
   ],
   "volatile": [
@@ -116,10 +115,6 @@
     {
       "path": "data/workspace/AGENTS.md",
       "reason": "the charter"
-    },
-    {
-      "path": "data/workspace/SELF-MODIFY.md",
-      "reason": "self-modification rules"
     },
     {
       "path": "data/workspace/roles/",

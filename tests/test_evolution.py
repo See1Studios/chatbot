@@ -165,7 +165,7 @@ class ShippedRegistryTest(unittest.TestCase):
     def test_guard_ticket_and_rules_are_protected(self):
         for rel in ("chatbot-ctl.sh", "protected_paths.json", "data/lifecycle.lock",
                     "data/maintenance.flag", "tests/test_evolution.py", "tests/new/x.py",
-                    "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md",
+                    "data/workspace/AGENTS.md",
                     "OPERATIONS.md", "data/host-force.ticket", "__pycache__/server.cpython-38.pyc"):
             self.assertTrue(self.prot(rel), rel)
 

@@ -247,7 +247,7 @@ class NameNeutralityGuard(unittest.TestCase):
         self.assertNotIn("window.__IDENTITY__=", html)
 
     def test_rule_documents(self):
-        docs = [ROOT / "templates" / "dev-workspace" / n for n in ("AGENTS.md", "SELF-MODIFY.md", "PROJECT.md")]
+        docs = [ROOT / "templates" / "dev-workspace" / n for n in ("DEV-CHARTER.md", "PROJECT.md", "roles/dev/PROCEDURE.md")]
         docs += [ROOT / "docs" / "plans" / "recursive-self-evolution.md", ROOT / "docs" / "LOGGING.md"]
         offenders = []
         for d in docs:

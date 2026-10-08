@@ -99,7 +99,7 @@
 
 | id | 무엇 | 끝의 모습 |
 |---|---|---|
-| `il/A` | 걷어내기: §4.1 전부, 근거 규칙(D2) — **A1·A2 끝 (#838)**: 관찰·후보·정규식·서버 수집·도구·API·화면·`/review`·지시문 상태 줄 제거, `write_guard` 신호는 `guard.unticketed_write` 로그 이벤트로, 티켓 `evidence`는 데이터만·`request` 칸 신설(`ticket-quick start --request`). A3(`SELF-MODIFY.md`) 남음 | 관찰·후보 코드 0, 지시문 상태 줄 0, 테스트 녹색 |
+| `il/A` | 걷어내기: §4.1 전부, 근거 규칙(D2) — **A1·A2 끝 (#838)**: 관찰·후보·정규식·서버 수집·도구·API·화면·`/review`·지시문 상태 줄 제거, `write_guard` 신호는 `guard.unticketed_write` 로그 이벤트로, 티켓 `evidence`는 데이터만·`request` 칸 신설(`ticket-quick start --request`). **A3 끝 (#839)**: `SELF-MODIFY.md` 삭제, 그 파일에만 있던 규칙(포트·일괄 삭제 승인, 연결이 죽으면 멈추고 ⚡소생, RLock·probe)은 `roles/dev/PROCEDURE.md`로 | 관찰·후보 코드 0, 지시문 상태 줄 0, 테스트 녹색 |
 | `il/B` | 티켓 이전: §4.2 첫 줄 + 열린 관찰 → 티켓 | `skill-observations/`에 엔진 것 0 |
 | `il/C` | `engine/health/` 패키지 + ratchet(루트 모듈 수 불어남 금지 — telemetry `tl/A`와 같은 장치, 먼저 하는 쪽이 건다) | main 감시가 패키지 안 |
 | `il/D` | 사건 기록: findings를 사건으로 묶고 새로 생김/나빠짐/해결을 엔진이 판정 | 같은 징후는 한 사건, 해결되면 닫힘 |

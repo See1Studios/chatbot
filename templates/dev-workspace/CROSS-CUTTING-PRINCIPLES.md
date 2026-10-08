@@ -11,6 +11,6 @@
 9. Rules reach every provider from the host, not from provider auto-discovery. `instructions.py` builds one bundle (AGENTS + PERSONA + skill index + memory snapshot) that `session.py` injects the same way for all providers. Native `AGENTS.md`/`CLAUDE.md`/skill discovery differs per CLI and per ancestor directory (measured 2026-09-19); nothing may depend on a CLI reading them.
 10. Where an instruction lives (keep the always-injected bundle small):
     - **Charter** (`AGENTS.md`, + the chatbot's character card): must hold every turn, and breaking it is costly or unrecoverable (live-restart ban, pre-approval, scope, memory trigger). One line each.
-    - **On demand** (`PROJECT.md`, `SELF-MODIFY.md`, `OPERATIONS.md`, skills): only relevant to one kind of task. The charter points at them; it does not repeat them.
+    - **On demand** (`PROJECT.md`, `roles/dev/PROCEDURE.md`, `OPERATIONS.md`, skills): only relevant to one kind of task. The charter points at them; it does not repeat them.
     - **This file / HISTORY / plans**: rationale and design for whoever edits the chatbot — never injected.
     - Say a rule once. If a guard, test or code already enforces it (`ctl guard`, unit tests), the prose keeps at most one line.

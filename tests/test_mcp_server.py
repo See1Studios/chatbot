@@ -385,7 +385,7 @@ class WriteFileTest(Base):
 
     def test_guard_ticket_rules_and_registry_are_protected(self):
         for rel in ("chatbot-ctl.sh", "protected_paths.json", "tests/test_x.py", "tests/probes/p.py",
-                    "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md",
+                    "data/workspace/AGENTS.md",
                     "OPERATIONS.md", "data/host-force.ticket", "__pycache__/server.cpython-38.pyc"):
             self.assertProtected(rel)
 
@@ -479,7 +479,7 @@ class RealPathsTest(unittest.TestCase):
         self.assertEqual(mcp.CODE_ROOT, CODE)
         for path in sorted(ENGINE.glob("*.py")):
             self.refused(path)
-        for rel in ("chatbot-ctl.sh", "protected_paths.json", "data/workspace/SELF-MODIFY.md", "data/workspace/AGENTS.md",
+        for rel in ("chatbot-ctl.sh", "protected_paths.json", "data/workspace/AGENTS.md",
                     "data/host-force.ticket"):
             self.refused(ENGINE / rel)
         for rel in ("tests/test_mcp_server.py", "OPERATIONS.md"):
