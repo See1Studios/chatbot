@@ -180,7 +180,10 @@ class UnfinishedTurns(Base):
     def test_an_error_status_is_surfaced(self):
         s = self.make()
         self.result(s, status="ERROR", error="quota exhausted", duration_seconds=2)
-        self.assertTrue(any("quota exhausted" in str(e.get("text")) for e in self.events))
+        # NOTICE_ACTIONS_v1: the notice says a plain line; the raw error rides beside it (shown under 'details')
+        notice = [e for e in self.events if e.get("event") == "error" and e.get("notice")]
+        self.assertTrue(notice and notice[0].get("text"))
+        self.assertTrue(any(e.get("error") == "quota exhausted" for e in notice))
 
     def test_a_result_after_the_user_pressed_stop_is_not_treated_as_a_failure(self):
         s = self.make()

@@ -596,8 +596,9 @@ function bindEvents(sid) {
         });
       } else if (residualErr || data.notice === 'error') {
         if (doneNode) doneNode.remove();
-        addNotice((data.notice || 'error'), residualErr || text || tr('common.unknown_error'), data.ts);
+        const rn = addNotice((data.notice || 'error'), residualErr || text || tr('common.unknown_error'), data.ts);
         if (typeof offerRetry === 'function') offerRetry();   // RETRY_LAST_v1
+        if (rn && typeof noticeActions === 'function') noticeActions(rn, data);
       } else if (doneNode) {
         doneNode.remove();
       }
@@ -820,7 +821,7 @@ function bindEvents(sid) {
         const twinNotice = data.ts ? document.querySelector('.msg.notice-error[data-ts="' + String(data.ts) + '"]') : null;
         const nn = twinNotice ? null : addNotice((data.notice || 'error'), errBody, data.ts);
         if (typeof offerRetry === 'function') offerRetry();   // RETRY_LAST_v1
-        if (nn && data.suggest && typeof quotaSwitchButtons === 'function') quotaSwitchButtons(nn, data.suggest);   // qfr/C
+        if (nn && typeof noticeActions === 'function') noticeActions(nn, data);   // NOTICE_ACTIONS_v1
         if (data.ts) lastSyncedTs = Math.max(lastSyncedTs, data.ts);
         assistantNode = null; assistantBuf = '';
       }
@@ -859,8 +860,7 @@ function bindEvents(sid) {
     updateProcBadge('disconnected');
     window.__chatEsRetry = (window.__chatEsRetry || 0) + 1;
     if (window.__chatEsRetry > 20) {
-      setProgress(tr('chat.conn_lost'), true);
-      addActivity(tr('chat.conn_failed'), 'warn');
+      if (typeof connLost === 'function') connLost();   // NOTICE_ACTIONS_v1
       return;
     }
     // SESSION_DESYNC_GAPFIX_v2: always log disconnect in Activity; only escalate

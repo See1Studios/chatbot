@@ -102,3 +102,39 @@ function quotaSwitchButtons(node, models) {
     node.appendChild(b);
   });
 }
+
+// NOTICE_ACTIONS_v1: a failure notice says one plain line; the engine's raw error goes under 'details' and one or two
+// buttons offer the way on. Which ones is decided by the notice's key -- the engine's fact, never its wording.
+const NOTICE_BRAIN_KEYS = ['srv.quota_exhausted', 'srv.quota_or_provider', 'srv.quota_or_provider_closed', 'srv.claude_limit',
+  'srv.api_failed'];
+
+function noticeButton(node, label, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'ghost notice-action';
+  b.textContent = label;
+  b.addEventListener('click', () => { node.querySelectorAll('button').forEach((x) => { x.disabled = true; }); onClick(); });
+  node.appendChild(b);
+}
+
+function noticeResend() {
+  const input = document.getElementById('input'), send = document.getElementById('send');
+  if (input && !input.value.trim() && retryHint() && send) send.click();   // an empty send takes the offer
+}
+
+function noticeActions(node, data) {
+  const raw = String(data.error || (data.vars && data.vars.error) || '').trim();
+  if (raw && typeof noticeDetail === 'function') noticeDetail(node, raw);
+  if (data.suggest && data.suggest.length) { quotaSwitchButtons(node, data.suggest); return; }   // qfr/C: they resend too
+  if (NOTICE_BRAIN_KEYS.includes(data.key) && typeof shellProfileOpen === 'function') {
+    noticeButton(node, tr('notice.pick_brain'), () => shellProfileOpen());
+  }
+  if (retryHint()) noticeButton(node, tr('notice.resend'), noticeResend);
+}
+
+// The stream gave up after its retries: a notice in the talk with the one way back, not a line in the progress bar.
+function connLost() {
+  if (typeof addActivity === 'function') addActivity(tr('chat.conn_failed'), 'warn');
+  const node = typeof addNotice === 'function' ? addNotice('error', tr('chat.conn_lost')) : null;
+  if (node) noticeButton(node, tr('notice.reload'), () => location.reload());
+}

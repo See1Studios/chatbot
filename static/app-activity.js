@@ -130,15 +130,18 @@ function failNotice(text, error) {
   addActivity(raw ? text + ' — ' + raw : text, 'warn');
   const node = typeof addNotice === 'function' ? addNotice('warn', text, null, true) : null;
   if (node) node.setAttribute('role', 'alert');   // the log is no live region: a screen reader hears the failure
-  if (node && raw) {
-    const d = document.createElement('details'), s = document.createElement('summary'), c = document.createElement('code');
-    d.className = 'notice-detail';
-    s.textContent = tr('notice.detail');
-    c.textContent = raw;
-    d.append(s, c);
-    node.appendChild(d);
-  }
+  if (node && raw) noticeDetail(node, raw);
   return node;
+}
+
+// The raw error folded under 'details' on a notice (selectable, for a bug report): failNotice's and the server's.
+function noticeDetail(node, raw) {
+  const d = document.createElement('details'), s = document.createElement('summary'), c = document.createElement('code');
+  d.className = 'notice-detail';
+  s.textContent = tr('notice.detail');
+  c.textContent = raw;
+  d.append(s, c);
+  node.appendChild(d);
 }
 
 function prependActivity(line, kind, ts, detail) {

@@ -112,7 +112,7 @@ class Page(unittest.TestCase):
         self.assertEqual(out["labels"], [cat["quota.switch_to"].replace("{model}", m) for m in ("gemini-low", "gemini-mid")])
         self.assertEqual((out["picked"], out["clicks"], out["disabled"]), (["gemini-low"], ["send"], [True, True]))
         sse = (static / "app-sse.js").read_text(encoding="utf-8")
-        self.assertIn("if (nn && data.suggest && typeof quotaSwitchButtons === 'function') quotaSwitchButtons(nn, data.suggest);", sse)
+        self.assertIn("if (nn && typeof noticeActions === 'function') noticeActions(nn, data);", sse)   # it calls quotaSwitchButtons
 
 
 class LowWarning(unittest.TestCase):

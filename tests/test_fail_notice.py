@@ -19,7 +19,7 @@ SHOWN_ELSEWHERE = {
     "app-api.js": {"api.continue_failed",                  # recovers by itself: a new talk opens
                    "api.defib_failed"},                    # the reboot HUD and the progress line say it
     "app-characters.js": {"team.st_failed"},               # showCharacterToast
-    "app-sse.js": {"chat.conn_failed"},                    # setProgress(chat.conn_lost)
+    "app-retry.js": {"chat.conn_failed"},                  # connLost(): a notice with a reload button
     "app-status.js": {"status.login.activity_failed"},     # the login panel shows the failed state
 }
 FAIL_KEY = re.compile(r"""tr\('([\w.]*fail\w*)'|\b([A-Z_]+_TEXT\.\w*[Ff]ail\w*)""")

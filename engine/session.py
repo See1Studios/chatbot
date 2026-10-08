@@ -930,7 +930,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 self._handle_events([ev])
         except Exception as e:
             if self._turn_seq == seq and not self._stop_requested:
-                self._handle_events([{"event": "error", **i18n.msg("srv.api_failed", error=e)}])
+                self._handle_events([{"event": "error", "error": str(e), **i18n.msg("srv.api_failed", error=e)}])
 
     def _http_turn_watchdog(self, seq: int) -> None:
         """Force-stops an http-transport turn that runs past
