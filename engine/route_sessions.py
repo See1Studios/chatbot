@@ -455,11 +455,13 @@ def message(req: Req):
         note = i18n.msg("srv.quota_until", model=sess.model, until=quota_state.until_text(held["until"]))
         item, ev = content_guard.notice_item(note["text"])
         item.update(key=note["key"], vars=note["vars"])
-        ev.update(key=note["key"], vars=note["vars"], quota=held)
+        suggest = quota_state.alternatives(sess.provider, sess.model)   # qfr/C: the notice's switch buttons
+        ev.update(key=note["key"], vars=note["vars"], quota=held, suggest=suggest)
         sess.history.append(item)
         sess.save_meta()
         sess._emit(ev)
-        return req.json({"ok": True, "blocked": True, "notice": item, "quota": held, "session": _public(sess)})
+        return req.json({"ok": True, "blocked": True, "notice": item, "quota": held, "suggest": suggest,
+                         "session": _public(sess)})
 
     text, event_type = _action_text(body, text)
     text = items.take_pending(sid, chat_upload.take_pending(sid, text))   # plus/C files, plus/F item note

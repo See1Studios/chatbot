@@ -445,6 +445,7 @@
   "preview.err.outside": "허용된 프로젝트 디렉터리 범위를 벗어난 경로입니다",
   "preview.err.resolve": "경로를 해석하지 못했습니다",
   "preview.err.sensitive": "보안상 조회가 제한된 민감한 파일/경로입니다",
+  "quota.switch_to": "{model}로 바꿔 다시 보내기",
   "room.add": "새 단체방",
   "room.answering": "단체방이 답하는 중…",
   "room.back": "← 1:1 대화로",

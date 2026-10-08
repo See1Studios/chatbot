@@ -53,6 +53,68 @@ class ReadAndBlock(unittest.TestCase):
         self.assertEqual(Q.until_text(NOW + 3 * 86400, now=NOW), time.strftime("%m/%d %H:%M", time.localtime(NOW + 3 * 86400)))
 
 
+class Alternatives(unittest.TestCase):
+    """qfr/C: the brains offered when one is out of quota -- the provider's list order, without the held one, one
+    recorded out of quota, or one with an empty window in the cached report."""
+    def setUp(self):
+        Q._STATE.clear()
+
+    def test_other_usable_brains_in_the_provider_s_order(self):
+        class A:
+            def known_models(self):
+                return ["claude-opus", "claude-sonnet", "gemini-high", "gemini-low", "gemini-mid"]
+
+            def quota_view(self, m, rows):
+                pct = 0 if m.startswith("claude") else 50
+                return {"windows": [{"pct": pct, "reset_at": ISO(NOW + 600)}]}
+        Q._STATE[("agy", "gemini-high")] = {"until": NOW + 600}
+        with mock.patch("providers.adapters.get_adapter", return_value=A()), \
+             mock.patch("route_accounts._get_usage", return_value={"ok": True, "rows": [{}]}):
+            self.assertEqual(Q.alternatives("agy", "claude-opus", now=NOW), ["gemini-low", "gemini-mid"])
+        with mock.patch("providers.adapters.get_adapter", side_effect=RuntimeError("x")):
+            self.assertEqual(Q.alternatives("agy", "claude-opus", now=NOW), [])
+
+
+PAGE = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
+const a = src.indexOf('function quotaSwitchButtons');
+function el(tag) { return { tag, children: [], listeners: {}, className: '', textContent: '', disabled: false, value: '',
+  appendChild(c) { this.children.push(c); return c; }, addEventListener(k, f) { this.listeners[k] = f; },
+  querySelectorAll() { return this.children; }, click() { clicks.push('send'); } }; }
+const clicks = [], picked = [];
+const input = el('textarea'), sendBtn = el('button');
+const document = { createElement: el, getElementById: (id) => (id === 'input' ? input : id === 'send' ? sendBtn : null) };
+function pickModel(m) { picked.push(m); }
+function retryHint() { return 'held message'; }
+const setTimeout = (f) => f();
+eval(src.slice(a));
+const node = el('div');
+quotaSwitchButtons(node, ['gemini-low', 'gemini-mid', 'third']);
+const labels = node.children.map(b => b.textContent);
+node.children[0].listeners.click();
+console.log(JSON.stringify({ labels, picked, clicks, disabled: node.children.map(b => b.disabled) }));
+"""
+
+
+class Page(unittest.TestCase):
+    def test_a_button_switches_the_brain_and_sends_the_held_message(self):
+        import json, shutil, subprocess
+        from tests.page_source import i18n_prelude
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not installed")
+        static = ENGINE.parent / "static"
+        p = subprocess.run([node, "-e", i18n_prelude() + PAGE, str(static / "app-retry.js")], capture_output=True, text=True, timeout=15)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        out = json.loads(p.stdout)
+        cat = json.loads((static / "i18n" / "ko.json").read_text(encoding="utf-8"))
+        self.assertEqual(out["labels"], [cat["quota.switch_to"].replace("{model}", m) for m in ("gemini-low", "gemini-mid")])
+        self.assertEqual((out["picked"], out["clicks"], out["disabled"]), (["gemini-low"], ["send"], [True, True]))
+        sse = (static / "app-sse.js").read_text(encoding="utf-8")
+        self.assertIn("if (nn && data.suggest && typeof quotaSwitchButtons === 'function') quotaSwitchButtons(nn, data.suggest);", sse)
+
+
 class FakeReq:
     def __init__(self, text):
         self.arg, self.body, self.out = "w1", {"text": text}, None
@@ -96,13 +158,15 @@ class SendRoute(unittest.TestCase):
         Q._STATE[("agy", "claude-opus-5-5-high")] = {"provider": "agy", "model": "claude-opus-5-5-high", "scope": "",
                                                      "window": "5h", "until": time.time() + 600}
         sess = FakeSess()
-        with mock.patch.object(route_sessions.REG, "get", return_value=sess):
+        with mock.patch.object(route_sessions.REG, "get", return_value=sess), \
+             mock.patch.object(Q, "alternatives", return_value=["gemini-low"]):   # no real CLI from the suite
             req = FakeReq("hello")
             route_sessions.message(req)
         self.assertEqual(sess.sent, [], "nothing reaches the brain")
         self.assertTrue(req.out[1]["blocked"])
         self.assertEqual(sess.events[-1]["key"], "srv.quota_until")
         self.assertEqual(sess.history[-1]["key"], "srv.quota_until")
+        self.assertEqual(sess.events[-1]["suggest"], ["gemini-low"])
 
     def test_a_failed_turn_reads_the_quota_once_and_a_test_run_never_does(self):
         self.assertFalse(Q.AUTO, "run-tests.sh sets CHATBOT_TEST_RUNNER: no real usage read from the suite")

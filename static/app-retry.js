@@ -83,3 +83,22 @@ document.addEventListener('api-failed', (e) => {
   const d = e.detail || {};
   if (/\/message$/.test(d.path || '') && String(d.method || '').toUpperCase() === 'POST') offerRetry();
 });
+
+// qfr/C (QUOTA_STATE_v1): a send held because this brain is out of quota comes back as a notice with other brains of
+// the provider the engine found usable. Each button switches to that model and sends the held message again: the
+// offer above already holds it, and an empty send takes the offer.
+function quotaSwitchButtons(node, models) {
+  (models || []).slice(0, 2).forEach((m) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ghost notice-action';
+    b.textContent = tr('quota.switch_to', { model: m });
+    b.addEventListener('click', () => {
+      if (typeof pickModel === 'function') pickModel(m);
+      node.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+      const input = document.getElementById('input'), send = document.getElementById('send');
+      if (input && !input.value.trim() && retryHint() && send) setTimeout(() => send.click(), 0);   // after the switch persisted
+    });
+    node.appendChild(b);
+  });
+}

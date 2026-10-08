@@ -445,6 +445,7 @@
   "preview.err.outside": "The path is outside the allowed project folders",
   "preview.err.resolve": "The path could not be resolved",
   "preview.err.sensitive": "A sensitive file or path that cannot be viewed",
+  "quota.switch_to": "Switch to {model} and send again",
   "room.add": "New group room",
   "room.answering": "The group room is answering…",
   "room.back": "← Back to one-on-one",

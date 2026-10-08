@@ -79,6 +79,33 @@ def blocked(provider: str, model: str, now: Optional[float] = None) -> Optional[
     return dict(s) if s else None
 
 
+def alternatives(provider: str, model: str, limit: int = 2, now: Optional[float] = None) -> list:
+    """qfr/C: other brains of this provider to offer when this one is out of quota -- in the provider's own list
+    order (`known_models`), leaving out any recorded out of quota or with an empty window in the usage report. The
+    report is the cached one (route_accounts' TTL): this runs only when a send was held."""
+    import route_accounts
+    from providers.adapters import get_adapter
+    now = time.time() if now is None else now
+    try:
+        adapter = get_adapter(provider)
+        models = [m for m in adapter.known_models() if m and m != model]
+        data = route_accounts._get_usage(provider=provider)
+    except Exception:  # noqa: BLE001 -- an offer is a convenience: none rather than a broken send
+        return []
+    rows = (data.get("rows") or []) if data.get("ok") else []
+    out = []
+    for m in models:
+        if blocked(provider, m, now):
+            continue
+        windows = adapter.quota_view(m, rows).get("windows") or [] if rows else []
+        if any(w.get("pct") == 0 and (_epoch(w.get("reset_at")) or 0) > now for w in windows):
+            continue
+        out.append(m)
+        if len(out) >= limit:
+            break
+    return out
+
+
 def until_text(until: float, now: Optional[float] = None) -> str:
     """The reset time as the host's clock shows it: HH:MM today, else MM/DD HH:MM."""
     now = time.time() if now is None else now

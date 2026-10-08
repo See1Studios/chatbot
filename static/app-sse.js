@@ -817,8 +817,9 @@ function bindEvents(sid) {
         }
         const errBody = text || tr('common.unknown_error');
         const twinNotice = data.ts ? document.querySelector('.msg.notice-error[data-ts="' + String(data.ts) + '"]') : null;
-        if (!twinNotice) addNotice((data.notice || 'error'), errBody, data.ts);
+        const nn = twinNotice ? null : addNotice((data.notice || 'error'), errBody, data.ts);
         if (typeof offerRetry === 'function') offerRetry();   // RETRY_LAST_v1
+        if (nn && data.suggest && typeof quotaSwitchButtons === 'function') quotaSwitchButtons(nn, data.suggest);   // qfr/C
         if (data.ts) lastSyncedTs = Math.max(lastSyncedTs, data.ts);
         assistantNode = null; assistantBuf = '';
       }
