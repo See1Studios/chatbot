@@ -34,6 +34,7 @@ html.shell2 #hubLink{display:none}   /* operator 2026-09-30: the hub chip is in 
 .shell-user-name{flex:1 1 auto;min-width:0;font-size:.95rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shell-user-status{flex:0 0 auto;display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;color:var(--muted)}
 .shell-user-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#3fb950;box-shadow:0 0 0 2px var(--bg-card)}
+.shell-user-status.off::before{background:#fdba74}
 /* the header's icon buttons: a new room, the menu */
 .shell-head-btns{display:flex;align-items:center;gap:.2rem;flex-shrink:0}
 .shell-btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--muted);font-size:1.1rem;line-height:1;cursor:pointer;transition:background .15s,color .15s}
@@ -104,6 +105,7 @@ html.shell2 body:not(.dev-mode) .shell-dev{display:none}   /* developer mode's r
 /* the talk header (ux/S3): name, then place and presence. The provider's name, the session row and its badges are
    the advanced density's; the stop button can land in that row, so it alone stays. */
 html.shell2 #shellPresence{color:var(--muted)}
+html.shell2 #shellPresence.off{color:#fdba74}   /* PRESENCE_TRUTH_v1: no answer can come now (the warn notice's hue) */
 html.shell2 body.private-session #shellPresence{color:var(--accent2)}
 html.shell2 body.density-advanced #shellPresence::after{content:" · "}
 html.shell2 body:not(.density-advanced) #brandRole .brand-provider{display:none}

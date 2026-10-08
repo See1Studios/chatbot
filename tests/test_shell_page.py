@@ -91,6 +91,7 @@ return (async () => {
     lastYear: shellTime(at(2025, 8, 20, 9), at(2026, 8, 30, 18), 'en-US'),
     never: shellTime(0, 1),
     presence: [shellPresenceText('work', false), shellPresenceText('work', true), shellPresenceText('private', false)],
+    presenceLink: ['linkAway', 'linkDead', 'linkBlocked'].map(k => [shellPresenceText('work', true, k), SHELL_TEXT[k]]),
     profile: shellProfileRows({ art: true, manage: true }),
     teamShows: [shellTeamShows('kit', 'kit'), shellTeamShows('ari', 'kit'), shellTeamShows('', 'kit'), shellTeamShows('kit', ''), shellTeamShows('', '')],
     profileBare: shellProfileRows({ art: false }).map(r => r.k),
@@ -303,6 +304,17 @@ class ShellList(unittest.TestCase):
         self.assertEqual(idle.split(" · ")[0], busy.split(" · ")[0])
         self.assertTrue(private.startswith("\u2665 "))
         self.assertNotEqual(private.split(" · ")[0], idle.split(" · ")[0])
+
+    def test_the_presence_line_says_when_she_cannot_answer(self):
+        # PRESENCE_TRUTH_v1: blocked, dead or reconnecting replaces "near", even while a turn runs
+        idle = self.o["presence"][0]
+        for line, word in self.o["presenceLink"]:
+            self.assertTrue(word, line)
+            self.assertEqual(line, idle.split(" · ")[0] + " · " + word)
+        self.assertIn("#shellPresence.off{", CSS)
+        self.assertIn(".shell-user-status.off::before{", CSS)
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("updateProcBadge = function () { badge.apply(this, arguments); shellPresence(); shellUserBarDraw(); };", src)
 
     def test_the_seven_tabs_have_a_new_home(self):
         o = self.o

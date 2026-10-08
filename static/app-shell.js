@@ -221,9 +221,17 @@ async function shellOpen(r) {
 // provider's name. The private room's own place name is not known to the page yet (private-mode.md W3).
 // While the character answers, the place stands alone and typing dots follow it (shell.css #shellPresence.busy):
 // waiting is typing, and needs no words (operator, 2026-10-01).
-function shellPresenceText(mode, busy) {
+// PRESENCE_TRUTH_v1: not "near" when no answer can come: provider blocked, process dead, stream failed twice (one
+// drop is the idle recycle).
+function shellLink() {
+  if (typeof isProviderUseBlocked === 'function' && isProviderUseBlocked(chatProvider())) return 'linkBlocked';
+  const b = document.getElementById('procBadge');
+  if (b && b.classList.contains('dead')) return 'linkDead';
+  return b && b.classList.contains('disconnected') && window.__chatEsRetry >= 1 ? 'linkAway' : '';
+}
+function shellPresenceText(mode, busy, link) {
   const place = mode === 'private' ? '\u2665 ' + SHELL_TEXT.privateRoom : SHELL_TEXT.office;
-  return busy ? place : place + ' · ' + SHELL_TEXT.near;
+  return link ? place + ' · ' + SHELL_TEXT[link] : busy ? place : place + ' · ' + SHELL_TEXT.near;
 }
 function shellPresence() {
   const role = document.getElementById('brandRole');
@@ -234,9 +242,10 @@ function shellPresence() {
     el.id = 'shellPresence';
     role.insertBefore(el, role.firstChild);
   }
-  const busy = typeof isBusy !== 'undefined' && isBusy;
-  shellSet(el, shellPresenceText(typeof sessionMode !== 'undefined' ? sessionMode : 'work', busy));
+  const link = shellLink(), busy = !link && typeof isBusy !== 'undefined' && isBusy;
+  shellSet(el, shellPresenceText(typeof sessionMode !== 'undefined' ? sessionMode : 'work', busy, link));
   el.classList.toggle('busy', busy);
+  el.classList.toggle('off', Boolean(link));
 }
 
 // The composer in the simple density (ux/S4, UX12): plus, the box, send. What the row used to carry is reached
@@ -603,7 +612,9 @@ function shellUserBarDraw() {
   const pic = bar.querySelector('.shell-user-avatar');
   if (pic && pic.dataset.name !== name && typeof initialAvatar === 'function') { pic.dataset.name = name; pic.src = initialAvatar(name); }
   shellSet(bar.querySelector('.shell-user-name'), name);
-  shellSet(bar.querySelector('.shell-user-status'), SHELL_TEXT.online);
+  const st = bar.querySelector('.shell-user-status'), away = shellLink() === 'linkAway';
+  shellSet(st, away ? SHELL_TEXT.linkAway : SHELL_TEXT.online);
+  if (st) st.classList.toggle('off', away);
 }
 
 // Builds the card, the settings and the bar above a pane; the header's name and picture open the card.
@@ -721,7 +732,9 @@ function shellInit() {
   }
   const brand = updateBrandAvatar;   // the open talk's provider changed: its row's picture follows (OWN_LOOK_v1)
   updateBrandAvatar = function () { brand.apply(this, arguments); shellListDraw(); };
-  const busy = setBusy;
+  const busy = setBusy, badge = updateProcBadge, gates = syncProviderUseGates;   // PRESENCE_TRUTH_v1
+  updateProcBadge = function () { badge.apply(this, arguments); shellPresence(); shellUserBarDraw(); };
+  syncProviderUseGates = function () { gates.apply(this, arguments); shellPresence(); };
   setBusy = function (b) { const was = isBusy; busy.apply(this, arguments); shellPresence(); if (was && !b) shellListSoon(1500); };
   // the heart (or /private) flips body.private-session: the open row's private mark follows at once
   if (typeof MutationObserver === 'function' && document.body) {
