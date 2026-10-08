@@ -5,6 +5,14 @@
 릴리스는 아직 없다(`engine/VERSION` 0.0.0-dev, 태그 없음). 릴리스 때 사용자용 `CHANGELOG.md`를 커밋에서 만든다
 (`RULES.md` Release). 2026-10-08까지 이 파일은 `DEVLOG.md`, 릴리스 메모는 `CHANGELOG.md`였다.
 
+## 2026-10-08 — 티켓을 쥔 엔진 파일 수정이 「티켓 없음」으로 멈추던 것 (#796)
+
+- **운영자**: "지금 노노 채팅 세션에서 795 관련 문제가 있는데 자꾸 티켓 없이 뭔가 하려다가 거부당해" · "워크플로우가 conflict 상태인 것 같아".
+- **원인**: 코드를 `engine/`로 옮긴 뒤(layout/C) 쓰기 감시(`write_guard`)는 엔진 폴더 기준 경로(`delegation.py`)를, 티켓은 저장소 기준 경로(`engine/delegation.py`)를 쓴다. 둘이 같을 수 없어 #795를 받은 노노가 그 파일을 고치자 14:16:49에 턴이 멈췄다. 한편 #795가 고치려던 `delegation.PLAN_ROOT`도 같은 이동의 여파로 계획의 `engine/...` 경로를 못 찾아(13:32 계획 거절) — 두 버그가 서로를 고치는 길을 막았다.
+- **바뀐 것**: 쓰기 감시의 세 호출이 저장소 루트(`session.REPO_ROOT` = `repo_layout.REPO`)를 받는다(WRITE_GUARD_REPO_v1). #795의 `delegation.py` 수정은 노노 몫이라 건드리지 않았다.
+- **집행**: `test_unticketed_write` — 저장소 경로로 잡은 엔진 파일이 덮이는지, 감시 호출이 엔진 폴더를 받지 않는지.
+- **재시작**: 필요(`session`·`session_turn`).
+
 ## 2026-10-08 — 사적인 방은 장소 이름으로, 차분하게 (impeccable quieter, #794)
 
 - **운영자**: critique 3회차(26/40) P1 중 "사적인 방 표시 차분하게".

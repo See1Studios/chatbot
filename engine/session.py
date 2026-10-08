@@ -46,6 +46,10 @@ from host_config import (
     WORKSPACE,
     _now,
 )
+import repo_layout
+# WRITE_GUARD_REPO_v1: tickets name repo-relative paths (`engine/x.py`); the write guard compares against the repo
+# root, not the engine folder (after the layout move a claimed engine file read as `x.py` and was never covered).
+REPO_ROOT = repo_layout.REPO
 from artifact_manager import (
     _atomic_write_text,
     _safe_artifact_rel,
@@ -542,7 +546,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             return
         calls = extract_tool_steps(obj)
         for name, params, _ in calls:
-            write_guard.check(self, name, params, ROOT)
+            write_guard.check(self, name, params, REPO_ROOT)
         if calls and self.msg_queue:
             self._steer_at_boundary()  # a tool step just finished: the safe moment to take a waiting message
         for name, params, output in calls:
@@ -640,7 +644,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         an instruction mid-turn) only clears the marks."""
         self._cached_summary = ""  # handover cache stale after new content
         self._obs_turn_end(outcome)
-        write_guard.turn_end(self, ROOT, outcome)   # TREE_WATCH_v1
+        write_guard.turn_end(self, REPO_ROOT, outcome)   # TREE_WATCH_v1
         try:
             idx, text = self._last_user_turn()
             marks = [k for i, k in self._turn_marks if i == idx]

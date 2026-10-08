@@ -238,7 +238,7 @@ class SessionTurn:
     def _guard_lines(self, stdin_content: str) -> str:
         """What the guards tell the agent before its message: a tree-watch hold (TREE_WATCH_v1, director-handoff
         dir/B; called every turn, it also remembers the tree) and why the previous turn was stopped."""
-        hold = _s().write_guard.turn_start(self, _s().ROOT)
+        hold = _s().write_guard.turn_start(self, _s().REPO_ROOT)
         if hold and not self.is_private:
             stdin_content = f"[Host note] {hold}\n\n{stdin_content}"
         if self._loop_hint:  # the previous turn was stopped automatically; tell the agent once

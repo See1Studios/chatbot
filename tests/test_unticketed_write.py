@@ -4,6 +4,7 @@ working tree at the turn's start and end, and stays on hold until the file is cl
 Run: engine/run-tests.sh test_unticketed_write
 """
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -33,8 +34,8 @@ class UnticketedWrite(unittest.TestCase):
         subprocess.run(["git", "init", "-q", str(self.tmp)], check=True)
         (self.tmp / ".gitignore").write_text("sessions/\nworkspace/out/\n")
         (self.tmp / "workspace" / "skill-observations" / "tickets").mkdir(parents=True)
-        self._saved = (S.SESSIONS, S.ROOT)
-        S.SESSIONS, S.ROOT = self.tmp / "sessions", self.tmp
+        self._saved = (S.SESSIONS, S.ROOT, S.REPO_ROOT)
+        S.SESSIONS, S.ROOT, S.REPO_ROOT = self.tmp / "sessions", self.tmp / "engine", self.tmp
         (S.SESSIONS / "t").mkdir(parents=True)
         self.s = S.AgentSession("t", provider="agy")
         self.events = []
@@ -45,7 +46,7 @@ class UnticketedWrite(unittest.TestCase):
         self.s._auto_stop = lambda event, hint: (self.events.append(event), setattr(self.s, "_loop_hint", hint))
 
     def tearDown(self):
-        S.SESSIONS, S.ROOT = self._saved
+        S.SESSIONS, S.ROOT, S.REPO_ROOT = self._saved
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def lease(self, paths, ttl=600):
@@ -71,6 +72,24 @@ class UnticketedWrite(unittest.TestCase):
         self.lease([])                                                   # a claim naming no files takes every file
         self.write(self.tmp / "session.py")
         self.assertEqual(self.warned(), [])
+
+    def test_a_claimed_engine_file_is_covered_by_its_repo_path(self):
+        # WRITE_GUARD_REPO_v1 (#796): tickets name `engine/delegation.py`; the guard compared `delegation.py` (relative
+        # to the engine folder) and stopped a claimed write (#795, 2026-10-08)
+        self.lease(["engine/delegation.py"])
+        self.write(self.tmp / "engine" / "delegation.py")
+        self.assertEqual(self.warned(), [])
+        self.write(self.tmp / "engine" / "session.py")
+        self.assertEqual(self.warned(), ["engine/session.py"])
+
+    def test_the_guard_is_given_the_repo_root(self):
+        import repo_layout
+        self.assertEqual(self._saved[2], repo_layout.REPO)
+        src = (Path(S.__file__)).read_text(encoding="utf-8") + (Path(S.__file__).parent / "session_turn.py").read_text(encoding="utf-8")
+        for call in ("write_guard.check(self, name, params, REPO_ROOT)", "write_guard.turn_end(self, REPO_ROOT, outcome)",
+                     "write_guard.turn_start(self, _s().REPO_ROOT)"):
+            self.assertIn(call, src)
+        self.assertNotRegex(src, r"write_guard\.\w+\([^)]*\bROOT\b", "no guard call gets the engine folder")
 
     def test_an_expired_or_unrelated_lease_does_not_cover_it(self):
         self.lease(["static/app.js"], ttl=-1)
@@ -157,7 +176,7 @@ class UnticketedWrite(unittest.TestCase):
         self.s._finish_turn("result")
         self.assertEqual(self.held(), ["a.py"])
         src = (Path(S.__file__).parent / "session_turn.py").read_text(encoding="utf-8")
-        self.assertIn("write_guard.turn_start(self, _s().ROOT)", src)
+        self.assertIn("write_guard.turn_start(self, _s().REPO_ROOT)", src)
 
     def test_the_restart_guard_also_covers_static_ui_and_the_dev_charter(self):
         text = CTL.read_text(encoding="utf-8")
