@@ -41,7 +41,8 @@ class TicketQuickCli(unittest.TestCase):
                               capture_output=True, text=True, timeout=360)
 
     def start(self):
-        r = self.run_tq("start", "--title", "[test] probe", "--paths", "a.py", "--actor", "tester")
+        r = self.run_tq("start", "--title", "[test] probe", "--paths", "a.py", "--actor", "tester",
+                        "--request", "probe it")
         self.assertEqual(r.returncode, 0, r.stderr)
         out = dict(l.split("=", 1) for l in r.stdout.splitlines() if "=" in l and not l.startswith(" "))
         return int(out["TICKET_ID"]), out["CLAIM_TOKEN"], Path(out["TOKEN_FILE"])
@@ -50,6 +51,13 @@ class TicketQuickCli(unittest.TestCase):
         hits = list(self.data.rglob("%04d.json" % tid))
         self.assertEqual(len(hits), 1, "ticket %d not under the CHATBOT_DATA folder" % tid)
         return json.loads(hits[0].read_text(encoding="utf-8"))
+
+    def test_start_needs_evidence_or_the_operators_request(self):
+        # improvement-layers D2: no placeholder evidence; the operator's words go in --request
+        r = self.run_tq("start", "--title", "[test] probe", "--paths", "a.py", "--actor", "tester")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("--request", r.stderr)
+        self.assertFalse(list(self.data.rglob("candidates.jsonl")))
 
     def test_start_writes_under_the_configured_data_folder_and_a_private_token_file(self):
         tid, token, tf = self.start()

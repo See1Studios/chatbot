@@ -1,6 +1,6 @@
-"""MCP adapters for the core: the `memory`, `observation` and `ticket` tools.
+"""MCP adapters for the core: the `memory` and `ticket` tools.
 
-Each action is one call into a core module (memory_store, observations, tickets); nothing here decides anything
+Each action is one call into a core module (memory_store, tickets); nothing here decides anything
 the core does not. This module is a layer: it depends on the core, the core never imports it, and it knows nothing
 about the tool server that hosts it. The host hands over the data directory and its own secret-content pattern per
 call, so a deployment can serve these tools from any server, or leave them out (the server simply lacks them).
@@ -16,16 +16,11 @@ try:
 except Exception:  # noqa: BLE001 -- a missing core module removes its tool, it does not stop the server
     memory_store = None
 try:
-    import observations
-except Exception:  # noqa: BLE001
-    observations = None
-try:
     import tickets
 except Exception:  # noqa: BLE001
     tickets = None
 
-NAMES = ("memory", "observation", "ticket")
-RECENT_LIMIT = 10  # the observation tool refuses `add` beyond this many entries per hour
+NAMES = ("memory", "ticket")
 
 
 def envelope(success: bool, message: str, data: Any = None) -> dict:
@@ -49,27 +44,8 @@ TOOL_DEFS: List[dict] = [
         },
     },
     {
-        "name": "observation",
-        "description": "The observation log (things that should improve). add (title, body[, area]) records one: use the operator's words and your own measurements, never pasted tool or web output. list[status] / get(id). resolve(id, status=actioned|declined|superseded|parked, resolution[, until]) closes one and needs a reason. review returns what a review looks at: open observations plus the candidates the host collected since the last review (cite a candidate as evidence with its ref). reviewed(text) records that a review actually ran and what came of it. None of this starts any change.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {"type": "string", "enum": ["add", "list", "get", "resolve", "review", "reviewed"]},
-                "title": {"type": "string"},
-                "body": {"type": "string"},
-                "area": {"type": "string"},
-                "id": {"type": "integer"},
-                "status": {"type": "string"},
-                "resolution": {"type": "string"},
-                "until": {"type": "string"},
-                "text": {"type": "string"},
-            },
-            "required": ["action"],
-        },
-    },
-    {
         "name": "ticket",
-        "description": "The only way to create an evolution ticket; a ticket written out as free text is not one. Host or self changes start only from the operator's words or an APPROVED ticket. propose (title, target, evidence=[event:<session>#<line> | candidate:<epoch> | log:fp:<fp> | log:rid:<rid>] (log refs: `chatbot-ctl.sh logs`)) -> the operator approves it outside this tool; list/get read; claim (id[, token][, paths]) takes the author lease on those repo-relative files (none named = every file; refused while another ticket holds any of them, or when the ticket is another agent's own) and returns a token; widen (id, token, paths) adds files to the ticket you hold (the same checks as a claim; the operator sees the scope grow in a note); note (id, text[, token]); release (id, token, outcome=done|gate_failed|failed|abandoned[, text]). done is refused while those paths are uncommitted. Max 3 attempts per ticket.",
+        "description": "The only way to create an evolution ticket; a ticket written out as free text is not one. Host or self changes start only from the operator's words or an APPROVED ticket. propose (title, target, evidence=[event:<session>#<line> | log:fp:<fp> | log:rid:<rid>] -- data only: the operator's message in this chat or what showed the problem is an event line, log refs come from `chatbot-ctl.sh logs`) -> the operator approves it outside this tool; list/get read; claim (id[, token][, paths]) takes the author lease on those repo-relative files (none named = every file; refused while another ticket holds any of them, or when the ticket is another agent's own) and returns a token; widen (id, token, paths) adds files to the ticket you hold (the same checks as a claim; the operator sees the scope grow in a note); note (id, text[, token]); release (id, token, outcome=done|gate_failed|failed|abandoned[, text]). done is refused while those paths are uncommitted. Max 3 attempts per ticket.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -90,7 +66,7 @@ TOOL_DEFS: List[dict] = [
 ]
 
 
-PRIVATE_CLOSED = ("private session: work memory, observations and tickets are closed here. Private talk is kept "
+PRIVATE_CLOSED = ("private session: work memory and tickets are closed here. Private talk is kept "
                   "apart, in this character's private memory, by the host.")
 
 
@@ -145,13 +121,13 @@ def _ticket(data, args: dict, secret_re, actor: str) -> dict:
     return envelope(False, "unknown action; approving, declining and reopening tickets is the operator's job, not a tool's", None)
 
 
-def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "chat-agent",
+def call(name: str, args: dict, data, secret_re, actor: str = "chat-agent",
          private: bool = False, staff: bool = False) -> dict:
     """Run one of the tools in NAMES. `data` is the instance data directory, `secret_re` the host's pattern for
     content that must never be stored."""
     data = Path(data)
     args = args or {}
-    if private:   # PRIVATE_MEMORY_v1: a private session never reads or writes work memory, observations or tickets
+    if private:   # PRIVATE_MEMORY_v1: a private session never reads or writes work memory or tickets
         return envelope(False, PRIVATE_CLOSED, None)
     if staff and name == "memory" and str((args or {}).get("action") or "") in ("add", "forget"):
         return envelope(False, STAFF_MEMORY_CLOSED, None)   # TEAM_ROLES_v2: everyone reads the house memory
@@ -178,40 +154,6 @@ def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMI
             except memory_store.MemoryRefused as e:
                 return envelope(False, str(e), None)
             return envelope(False, "unknown action (show, search, add, forget)", None)
-
-        if name == "observation":
-            if observations is None:
-                return envelope(False, "observation core unavailable", None)
-            action = str(args.get("action") or "")
-            root = data / "workspace" / "skill-observations"
-            text_fields = "\n".join(str(args.get(k) or "") for k in ("title", "body", "area", "resolution", "text"))
-            if secret_re.search(text_fields):
-                return envelope(False, "refusing to record secret-like content", None)
-            try:
-                if action == "add":
-                    title = str(args.get("title") or "").strip()
-                    body = str(args.get("body") or "").strip()
-                    if not title or not body:
-                        return envelope(False, "title and body are required", None)
-                    path = observations.add(root, title, body, str(args.get("area") or ""), recent_limit=recent_limit, actor=actor)
-                    return envelope(True, "recorded", {"path": str(path), "name": path.name})
-                if action == "list":
-                    return envelope(True, "ok", {"observations": observations.list_observations(root, str(args.get("status") or "") or None)})
-                if action == "get":
-                    return envelope(True, "ok", {"observation": observations.get(root, args.get("id"))})
-                if action == "resolve":
-                    return envelope(True, "resolved", {"observation": observations.resolve(
-                        root, args.get("id"), str(args.get("status") or ""), args.get("resolution"), str(args.get("until") or ""),
-                        by=actor)})
-                if action == "review":
-                    return envelope(True, "ok", observations.digest(root))
-                if action == "reviewed":
-                    return envelope(True, "recorded", {"last_review": observations.mark_reviewed(root, args.get("text"))})
-            except observations.evolution.TooManyObservations as e:
-                return envelope(False, f"too many observations recently ({e}); ask the operator before adding more", None)
-            except observations.ObservationError as e:
-                return envelope(False, str(e), None)
-            return envelope(False, "unknown action (add, list, get, resolve, review, reviewed)", None)
 
         if name == "ticket":
             return _ticket(data, args, secret_re, actor)

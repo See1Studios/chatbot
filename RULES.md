@@ -167,7 +167,6 @@ Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role 
 | No new hardcoded Korean in engine/page code (i18n catalogs instead); mark intended lines `l10n-ok` | all | `test_ratchets` (`ratchet_baseline.json`) |
 | No new host/persona identity (DiskStation, `/volume1`, Sphere, 실장님, 냥) in engine code outside the host plugin | all | `test_ratchets` |
 | Tracked workspace template twins (repo `data/workspace` when present) are classified in `templates/workspace-manifest.json`; `same` pairs stay byte-equal; the template names no host and no engine work | all | `test_workspace_template` |
-| Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |
 | Speak with the operator in Korean. Root standing documents (`*.md`) are agent SSOT in plain English; `*.ko.md` mirrors are machine-translated for human reading (agents never ingest/edit); plans may be Korean | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
 | Agent-facing machine text (prompts, tool strings, LEARNED lines) in English | all | manual |
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |

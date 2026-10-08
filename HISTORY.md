@@ -7,6 +7,14 @@
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 
+## 2026-10-09 — 관찰·후보 흐름을 걷어내고 티켓 근거는 데이터만 (improvement-layers il/A1·A2, #838)
+
+- **운영자**: "파편화되지 않도록 최대한 기존 구조 잘 분석해서 쓰레기들을 남김없이 걷어내줘" · D2 "철저하게 데이터 기반으로. 내가 개입하는 건 그냥 요청사항"
+- **걷어냄**: `observations.py`, `observation_signals.json`(한국어 정규식), 턴 끝 후보 기록(`evolution.on_turn_end`·`record_candidate`, 세션의 회전·중단 표시), 서버의 매시간 후보 수집(`_host_signal_loop`, `logdigest.host_candidates`·`--to-candidates`), `observation` MCP 도구와 별칭, `/api/observations*`, 상태 탭의 관찰 목록·이력·검토 칸과 i18n 38키, `/review` 명령, 매 턴 지시문의 `[Self-improvement status]` 줄(작업 번들 해시 바뀜 → 살아 있는 세션은 한 번 다시 주입), 관찰 테스트 7개 모듈, 개발 지침의 "observation을 남겨라" 줄들.
+- **바뀐 것**: 티켓 쓰기 가드의 신호는 후보 대신 `guard.unticketed_write` 로그 이벤트. 티켓 `evidence`는 데이터만(`event:`·`log:fp:`·`log:rid:`), 운영자의 말은 `request` 칸(`ticket-quick start --request "<말>"`). 둘 중 하나 필수, 빈 `manual` 표시는 없음.
+- **데이터**: `skill-observations/`의 후보·검토 파일과 관찰 기록은 아직 있음 — il/B에서 열린 관찰을 티켓으로 옮긴 뒤 백업하고 지운다.
+- **재시작**: 필요.
+
 ## 2026-10-09 — 로그 원본을 덮어쓰지 않고 압축 보관 90일 (telemetry tl/B, #837)
 
 - **운영자**: "계속합시다" (D1 원본 90일 추천대로)

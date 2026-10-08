@@ -23,15 +23,8 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from host_config import WORKSPACE
 
-try:  # the candidate count is a convenience; a missing core module must not stop the bundle
-    import observations
-except Exception:  # noqa: BLE001
-    observations = None
-
 WS_SKILLS_DIR = WORKSPACE / ".agents" / "skills"
 MEMORY_FILE = WORKSPACE / "memory" / "MEMORY.md"
-OBS_DIR = WORKSPACE / "skill-observations" / "observation-log"
-LAST_REVIEW_FILE = WORKSPACE / "skill-observations" / "last-review-date.txt"
 
 _FACT_LINE = re.compile(r"^\s*(?:[-*]\s+\S|\[\d{4}-\d{2}-\d{2}\])")
 _SKILL_DESC_MAX = 80
@@ -347,22 +340,6 @@ def _memory_text() -> str:
     return "[Long-term memory snapshot]\n" + text
 
 
-def _status_text() -> str:
-    n_open = 0
-    if OBS_DIR.exists():
-        for f in OBS_DIR.glob("*.md"):
-            if re.search(r"status:\s*open", _read(f)[:400]):
-                n_open += 1
-    last = _read(LAST_REVIEW_FILE) or "never"
-    n_cand = 0
-    if observations is not None:
-        try:
-            n_cand = len(observations.unreviewed_candidates(OBS_DIR.parent))
-        except Exception:  # noqa: BLE001
-            pass
-    return f"[Self-improvement status] {n_open} open observations · {n_cand} unreviewed candidates · last review {last}"
-
-
 def _card(character: str) -> Dict:
     """The character's card; "" = the chatbot itself (the character with role pd)."""
     try:
@@ -459,7 +436,6 @@ LAYERS: Tuple[Layer, ...] = (
     Layer("own_memory", "dynamic", WORK, lambda c: _own_memory_text(c["character"])),
     Layer("private_memory", "dynamic", PRIVATE, _private_memory),
     Layer("names", "dynamic", BOTH, lambda c: _names_text()),
-    Layer("status", "dynamic", WORK, lambda c: _status_text()),
     # per turn, never in the bundle: what the talk just matched (a CLI session's bundle is built without the talk)
     Layer("lore_match", "turn", BOTH, lambda c: lore_matches(c["character"], c.get("history"))),
 )

@@ -92,6 +92,8 @@ def run_guards_on_snapshot(root, related=()):
         if not runner.is_file():
             return None
         r = subprocess.run(["bash", str(runner), "--fast"], cwd=str(where), env=env, capture_output=True, text=True)
+        # what is being committed decides: a test this commit deletes is not run (the list comes from HEAD's tests)
+        related = [m for m in related if (Path(where) / "tests" / ("%s.py" % m)).is_file()]
         if r.returncode == 0 and related:
             print("[pre-commit] also the %d test modules related to the staged files" % len(related))
             r = subprocess.run(["bash", str(runner)] + list(related), cwd=str(where), env=env, capture_output=True,

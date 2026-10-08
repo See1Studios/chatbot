@@ -261,7 +261,6 @@ class NameNeutralityGuard(unittest.TestCase):
 
     def test_stored_actors_are_role_ids(self):
         import evolution
-        import observations
         bad = []
         for f in sorted((ENGINE / "data" / "workspace" / "skill-observations" / "tickets").glob("*.json")):
             t = json.loads(f.read_text(encoding="utf-8"))
@@ -270,10 +269,6 @@ class NameNeutralityGuard(unittest.TestCase):
                     bad.append("%s %s=%r" % (f.name, k, t[k]))
             if any(w in str(t.get("approved_by") or "") for w in self.NAMES):
                 bad.append("%s approved_by=%r" % (f.name, t["approved_by"]))
-        for e in observations.scan(ROOT / "data" / "workspace" / "skill-observations", include_archive=True):
-            for k in ("actor", "resolved_by"):
-                if e.get(k) and not evolution.ROLE_ID_RE.match(str(e[k])):
-                    bad.append("obs %s %s=%r" % (e["id"], k, e[k]))
         self.assertEqual(bad, [], "stored who-fields must be role ids")
 
 

@@ -1,10 +1,9 @@
 // app-evolution.js -- split out of app.js (APP_SPLIT_v1, docs/plans/archive/2026/monolith-split.md Phase 5). Declarations only: it
 // loads before app.js, which runs everything that happens at load (listeners, timers, boot). Top-level code
 // here may use the page's DOM, never a binding from a later file.
-// ---- observation manager (status tab) ----
-// Everything below puts text into nodes with textContent only: observation and candidate text is written by
-// agents, so it is data, never markup.
-const OBS_STATUS_LABEL = i18nTable('obs.status');   // I18N_v1: names by id, from the catalog
+// ---- tickets and delegated work (status tab) ----
+// Everything below puts text into nodes with textContent only: ticket titles and notes are written by agents, so
+// they are data, never markup.
 
 function obsNode(tag, cls, text) {
   const n = document.createElement(tag);
@@ -42,19 +41,6 @@ function obsErrorText(e) {
   return String((e && e.message) || e).slice(0, 200);
 }
 
-async function loadObservations() {
-  if (!statusObsBoxEl) return;
-  let res;
-  try {
-    res = await api('/api/observations');
-  } catch (e) {
-    obsSet(statusObsBoxEl, [obsNode('div', 'status-hint', tr('evo.no_issue_api', { error: obsErrorText(e) }))]);
-    return;
-  }
-  renderObservations(res);
-}
-
-
 function evoToggleHead(title, count, opts) {
   // EVOLUTION_UI_v2: one disclosure pattern — click the whole header
   opts = opts || {};
@@ -79,245 +65,6 @@ function evoBindToggle(head, body) {
 }
 
 
-function renderObservations(res) {
-  // EVOLUTION_UI_v2: compact cards + unified header toggles
-  const items = res.observations || [];
-  const active = items.filter(o => o.status === 'open' || o.status === 'parked');
-  const kids = [];
-
-  const openSec = obsNode('div', 'evo-sec');
-  openSec.appendChild(obsNode('div', 'evo-sec-head', tr('evo.waiting') + (active.length ? ' · ' + active.length : '')));
-  if (!active.length) {
-    openSec.appendChild(obsNode('div', 'evo-empty', tr('evo.no_waiting_issues')));
-  } else {
-    active.forEach(o => openSec.appendChild(renderObservationRow(o)));
-  }
-  kids.push(openSec);
-
-  kids.push(renderObservationHistory());
-
-  kids.push(renderCandidates(res));
-  kids.push(renderReviewControls(res));
-  obsSet(statusObsBoxEl, kids);
-}
-
-// OBS_HISTORY_v1: every resolved observation (in the log or archived) as one paged history, newest first.
-// The page stays where the user left it across refreshes of the tab.
-let obsHistoryPage = 1;
-let obsHistoryOpen = false;
-function renderObservationHistory() {
-  const sec = obsNode('div', 'evo-sec');
-  const head = evoToggleHead(tr('evo.history'), '', { open: obsHistoryOpen });
-  const body = obsNode('div', 'evo-fold');
-  evoBindToggle(head, body);
-  head.addEventListener('click', () => { obsHistoryOpen = head.classList.contains('open'); });
-  sec.appendChild(head);
-  sec.appendChild(body);
-  const load = async (page) => {
-    let res;
-    try {
-      res = await api('/api/observations/history/' + page);
-    } catch (e) {
-      obsSet(body, [obsNode('div', 'status-hint', tr('evo.history_failed', { error: obsErrorText(e) }))]);
-      return;
-    }
-    obsHistoryPage = res.page;
-    const count = head.querySelector('.evo-count') || head.insertBefore(obsNode('span', 'evo-count', ''), head.querySelector('.evo-chev'));
-    count.textContent = String(res.total);
-    const rows = (res.items || []).map(o => {
-      const row = renderClosedObservationRow(o);
-      const when = o.resolved || o.date;
-      if (when) row.querySelector('.obs-head').appendChild(obsNode('span', 'obs-when', when));
-      return row;
-    });
-    if (!rows.length) rows.push(obsNode('div', 'evo-empty', tr('evo.no_history')));
-    if (res.pages > 1) {
-      const pager = obsNode('div', 'evo-pager');
-      const prev = obsNode('button', 'art-btn art-btn-xs', tr('common.prev'));
-      const next = obsNode('button', 'art-btn art-btn-xs', tr('common.next'));
-      prev.type = next.type = 'button';
-      prev.disabled = res.page <= 1;
-      next.disabled = res.page >= res.pages;
-      prev.addEventListener('click', () => load(res.page - 1));
-      next.addEventListener('click', () => load(res.page + 1));
-      pager.append(prev, obsNode('span', 'evo-page', res.page + ' / ' + res.pages), next);
-      rows.push(pager);
-    }
-    obsSet(body, rows);
-  };
-  load(obsHistoryPage);
-  return sec;
-}
-
-function renderClosedObservationRow(o) {
-  const row = obsNode('div', 'obs-row obs-row-done obs-row-compact');
-  const head = obsNode('div', 'obs-head');
-  head.appendChild(obsNode('span', 'obs-id', '#' + o.id));
-  head.appendChild(obsNode('span', 'obs-title', o.title || tr('common.untitled')));
-  head.appendChild(obsNode('span', 'obs-badge ' + o.status, OBS_STATUS_LABEL[o.status] || o.status));
-  const by = actorBadge(o.resolved_by || o.actor);
-  if (by) head.appendChild(by);
-  row.appendChild(head);
-  return row;
-}
-
-function renderObservationRow(o) {
-  const row = obsNode('div', 'obs-row obs-row-compact');
-  const head = obsNode('div', 'obs-head');
-  head.appendChild(obsNode('span', 'obs-id', '#' + o.id));
-  head.appendChild(obsNode('span', 'obs-title', o.title || tr('common.untitled')));
-  head.appendChild(obsNode('span', 'obs-badge ' + o.status, OBS_STATUS_LABEL[o.status] || o.status));
-  const rec = actorBadge(o.actor, tr('evo.logged_by'));
-  if (rec) head.appendChild(rec);
-  const actions = obsNode('div', 'obs-actions obs-actions-inline');
-  const viewBtn = obsNode('button', 'art-btn art-btn-xs', tr('common.view'));
-  const doBtn = obsNode('button', 'art-btn art-btn-xs primary', tr('evo.handle'));
-  viewBtn.type = 'button';
-  doBtn.type = 'button';
-  actions.appendChild(viewBtn);
-  actions.appendChild(doBtn);
-  head.appendChild(actions);
-  row.appendChild(head);
-  const metaBits = [o.area, o.date, o.status === 'parked' && o.parked_until ? tr('evo.parked_until', { date: o.parked_until }) : ''].filter(Boolean);
-  if (metaBits.length) row.appendChild(obsNode('div', 'obs-meta', metaBits.join(' · ')));
-  const detail = obsNode('pre', 'obs-body');
-  detail.hidden = true;
-  row.appendChild(detail);
-  const formHost = obsNode('div', 'obs-formhost');
-  row.appendChild(formHost);
-  viewBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    if (!detail.hidden) { detail.hidden = true; return; }
-    if (!detail.textContent) {
-      detail.textContent = tr('common.loading');
-      try {
-        const d = await api('/api/observations/' + o.id);
-        detail.textContent = (d.observation && d.observation.body) || tr('evo.no_body');
-      } catch (err) {
-        detail.textContent = tr('common.load_failed', { error: obsErrorText(err) });
-      }
-    }
-    detail.hidden = false;
-  });
-  doBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (formHost.children.length) { formHost.textContent = ''; return; }
-    formHost.appendChild(renderResolveForm(o, formHost));
-  });
-  return row;
-}
-
-function renderResolveForm(o, host) {
-  const form = obsNode('div', 'obs-form');
-  const sel = obsNode('select');
-  ['actioned', 'declined', 'superseded', 'parked'].map(s => [s, OBS_STATUS_LABEL[s]]).forEach(pair => {
-    const op = obsNode('option', null, pair[1]);
-    op.value = pair[0];
-    sel.appendChild(op);
-  });
-  const reason = obsNode('input');
-  reason.type = 'text';
-  reason.placeholder = tr('evo.reason_required');
-  reason.maxLength = 300;
-  const until = obsNode('input');
-  until.type = 'date';
-  until.value = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
-  until.hidden = true;
-  sel.addEventListener('change', () => { until.hidden = sel.value !== 'parked'; });
-  const btns = obsNode('div', 'obs-actions');
-  const save = obsNode('button', 'art-btn art-btn-xs primary', tr('common.save'));
-  const cancel = obsNode('button', 'art-btn art-btn-xs', tr('common.cancel'));
-  save.type = 'button';
-  cancel.type = 'button';
-  cancel.addEventListener('click', () => { host.textContent = ''; });
-  save.addEventListener('click', async () => {
-    const why = reason.value.trim();
-    if (!why) { if (reason.focus) reason.focus(); return; }
-    save.disabled = true;
-    save.textContent = '…';
-    try {
-      const body = { status: sel.value, resolution: why };
-      if (sel.value === 'parked') body.until = until.value;
-      await api('/api/observations/' + o.id + '/resolve', { method: 'POST', body: JSON.stringify(body) });
-      addActivity(tr('evo.issue_moved', { id: o.id, status: OBS_STATUS_LABEL[sel.value] || sel.value }));
-      if (typeof fetchEvolution === 'function') fetchEvolution(); else fetchSelfStatus();
-    } catch (e) {
-      save.disabled = false;
-      save.textContent = tr('common.save');
-      await alertModal(tr('evo.handle_failed', { error: obsErrorText(e) }));
-    }
-  });
-  btns.appendChild(save);
-  btns.appendChild(cancel);
-  [sel, reason, until, btns].forEach(n => form.appendChild(n));
-  return form;
-}
-
-function renderCandidates(res) {
-  const wrap = obsNode('div', 'evo-sec obs-cands');
-  const n = res.unreviewed_candidates || 0;
-  if (!n) {
-    wrap.appendChild(obsNode('div', 'evo-sec-head', tr('evo.hints')));
-    wrap.appendChild(obsNode('div', 'evo-empty', tr('evo.no_hints')));
-    return wrap;
-  }
-  const head = evoToggleHead(tr('evo.hints'), n, { open: false });
-  const list = obsNode('div', 'evo-fold');
-  (res.candidates || []).forEach(c => {
-    const card = obsNode('div', 'obs-cand obs-row-compact');
-    const top = obsNode('div', 'obs-cand-top');
-    top.appendChild(obsNode('span', 'obs-cand-signal', c.signal || 'signal'));
-    if (c.provider) top.appendChild(obsNode('span', 'obs-badge', c.provider));
-    card.appendChild(top);
-    if (c.user) card.appendChild(obsNode('div', 'obs-cand-user', '“' + c.user + '”'));
-    else if (c.summary) card.appendChild(obsNode('div', 'obs-cand-user', c.summary));  // host:<code> (HOST_SIGNALS_v1)
-    const foot = [c.ts, c.ref].filter(Boolean).join(' · ');
-    if (foot) card.appendChild(obsNode('div', 'obs-meta', foot));
-    list.appendChild(card);
-  });
-  evoBindToggle(head, list);
-  wrap.appendChild(head);
-  wrap.appendChild(list);
-  return wrap;
-}
-
-function renderReviewControls(res) {
-  const wrap = obsNode('div', 'evo-sec obs-review');
-  const head = evoToggleHead(tr('evo.review'), null, { open: false });
-  const body = obsNode('div', 'evo-fold');
-  body.appendChild(obsNode('div', 'obs-meta', tr('evo.last_review', { date: res.last_review || tr('evo.never') })));
-  const form = obsNode('div', 'obs-form');
-  const summary = obsNode('input');
-  summary.type = 'text';
-  summary.placeholder = tr('evo.review_line');
-  summary.maxLength = 300;
-  const go = obsNode('button', 'art-btn art-btn-xs primary', tr('evo.log_button'));
-  go.type = 'button';
-  go.addEventListener('click', async () => {
-    const text = summary.value.trim();
-    if (!text) { if (summary.focus) summary.focus(); return; }
-    go.disabled = true;
-    try {
-      await api('/api/observations/reviewed', { method: 'POST', body: JSON.stringify({ summary: text }) });
-      addActivity(tr('evo.review_logged'));
-      if (typeof fetchEvolution === 'function') fetchEvolution(); else fetchSelfStatus();
-    } catch (e) {
-      go.disabled = false;
-      await alertModal(tr('evo.review_failed', { error: obsErrorText(e) }));
-    }
-  });
-  form.appendChild(summary);
-  form.appendChild(go);
-  body.appendChild(form);
-  evoBindToggle(head, body);
-  wrap.appendChild(head);
-  wrap.appendChild(body);
-  return wrap;
-}
-
-
-// Tickets: the buttons only type the operator's command into the chat box (`/ticket approve 3`); pressing Enter
-// runs it in the page (see send()) -- it never goes to the agent, and the agent has no way to decide a ticket.
 const TICKET_STATUS_LABEL = i18nTable('ticket.status');
 // DELEGATION_WIRING_v1: `delegate` hands the ticket to the worktree runner ([Run]); an awaiting_merge ticket lands
 // or is dropped by the operator ([Land] / [Discard]). BUTTON_LOGIC_v1: one verb, one meaning; no ticket shows more
@@ -851,23 +598,10 @@ function renderTicketRow(t) {
   if (meta) row.appendChild(obsNode('div', 'obs-meta', meta));
   return row;
 }
-// ---- end observation manager ----
+// ---- end tickets and delegated work ----
 
 
 async function fetchEvolution() {
-  // STATUS_EVOLUTION_TAB_v1: RSE pane (observations + tickets)
-  try {
-    const res = await api('/api/self-status');
-    if (statusObserverEl) {
-      const o = res.observation || {};
-      statusObserverEl.textContent =
-        tr('evo.summary.issues', { n: o.open_observations || 0 })
-        + ((o.unreviewed_candidates || 0) ? tr('evo.summary.hints', { n: o.unreviewed_candidates }) : '')
-        + (o.last_review_date ? tr('evo.summary.review', { date: o.last_review_date }) : '');
-    }
-  } catch (e) {
-    if (statusObserverEl) statusObserverEl.textContent = tr('evo.summary_failed', { error: e.message || e });
-  }
-  loadObservations();
+  // STATUS_EVOLUTION_TAB_v1: the improvement pane holds tickets and delegated work (the observation log went, il/A)
   loadTickets();
 }

@@ -70,7 +70,7 @@ class Base(unittest.TestCase):
         self.calls = []
         self._orig = {k: getattr(mcp, k) for k in ("_run", "ALLOW_ROOTS", "READ_ROOTS", "CODE_ROOT", "evolution", "DATA", "mcp_core")}
         # the adapter module's own switches (a core module that is "not installed"), put back after each test
-        self._core_orig = {k: getattr(mcp.mcp_core, k) for k in ("memory_store", "observations", "tickets")}
+        self._core_orig = {k: getattr(mcp.mcp_core, k) for k in ("memory_store", "tickets")}
 
         def fake_run(cmd, timeout=20, cwd=None):
             self.calls.append(list(cmd))
@@ -399,7 +399,7 @@ class WriteFileTest(Base):
     def test_instance_layer_and_plans_stay_writable(self):
         for rel in ("data/workspace/PERSONA.md", "data/workspace/memory/MEMORY.md",
                     "data/workspace/.agents/skills/nas-sphere/SKILL.md",
-                    "data/workspace/skill-observations/observation-log/0001-x.md",
+                    "data/workspace/notes/0001-x.md",
                     "docs/plans/recursive-self-evolution.md", "HISTORY.md", "notes/sub/helper.py"):
             self.assertTrue(self.write(self.code / rel)["success"], rel)
 
@@ -508,113 +508,6 @@ class RealPathsTest(unittest.TestCase):
                         "chatbot-ctl.sh defibrillate", "chatbot-ctl.sh doctor --auto-repair"):
                 self.assertFalse(mcp.call_tool("run_command", {"cmd": cmd})["success"], cmd)
             self.assertFalse(mcp.call_tool("service_ctl", {"name": "chatbot", "action": "start"})["success"])
-
-
-class ObservationToolTest(Base):
-    """The `observation` tool: a thin adapter over observations.py. Recording or closing an observation starts nothing."""
-
-    def setUp(self):
-        super().setUp()
-        self._data = mcp.DATA
-        mcp.DATA = self.tmp
-        self.root = self.tmp / "workspace" / "skill-observations"
-        self.log = self.root / "observation-log"
-
-    def tearDown(self):
-        mcp.DATA = self._data
-        super().tearDown()
-
-    def call(self, action, **kw):
-        return mcp.call_tool("observation", dict(kw, action=action))
-
-    def add(self, **kw):
-        args = {"title": "Provider swap loses context", "body": "After swapping to claude the answer ignored the persona."}
-        args.update(kw)
-        return self.call("add", **args)
-
-    def test_add_records_one_open_entry_in_the_observation_log(self):
-        r = self.add(area="handoff")
-        self.assertTrue(r["success"], r["message"])
-        (path,) = list(self.log.iterdir())
-        self.assertEqual(path.name, "0001-provider-swap-loses-context.md")
-        text = path.read_text(encoding="utf-8")
-        self.assertRegex(text[:400], r"status:\s*open")
-        self.assertIn("persona", text)
-        self.assertEqual(r["data"]["name"], path.name)
-
-    def test_numbers_continue(self):
-        self.add()
-        self.add(title="Another thing")
-        self.assertEqual(sorted(p.name[:4] for p in self.log.iterdir()), ["0001", "0002"])
-
-    def test_title_and_body_are_required_and_none_is_not_a_title(self):
-        for kw in ({"title": ""}, {"body": ""}, {"title": "   "}, {"title": None}, {"body": None}):
-            self.assertFalse(self.add(**kw)["success"], kw)
-        self.assertFalse(self.log.exists() and list(self.log.iterdir()))
-
-    def test_secret_like_content_is_refused_in_every_text_field(self):
-        self.assertFalse(self.add(body="my api_key = abc123")["success"])
-        self.assertFalse(self.add(title="Bearer abcdef.ghi")["success"])
-        self.assertFalse(self.add(area="client_secret")["success"])
-        self.assertFalse(self.log.exists() and list(self.log.iterdir()))
-
-    def test_a_runaway_is_stopped_after_ten_an_hour(self):
-        for i in range(mcp.mcp_core.RECENT_LIMIT):
-            self.assertTrue(self.add(title="note %d" % i)["success"])
-        r = self.add(title="one too many")
-        self.assertFalse(r["success"])
-        self.assertIn("ask the operator", r["message"])
-        self.assertEqual(len(list(self.log.iterdir())), mcp.mcp_core.RECENT_LIMIT)
-
-    def test_list_get_and_resolve(self):
-        oid = int(self.add()["data"]["name"][:4])
-        self.assertEqual([o["id"] for o in self.call("list")["data"]["observations"]], [oid])
-        self.assertEqual(self.call("list", status="parked")["data"]["observations"], [])
-        self.assertIn("persona", self.call("get", id=oid)["data"]["observation"]["body"])
-        r = self.call("resolve", id=oid, status="actioned", resolution="Handoff now carries the persona")
-        self.assertTrue(r["success"], r["message"])
-        self.assertEqual(r["data"]["observation"]["status"], "actioned")
-        self.assertFalse(self.call("resolve", id=oid, status="declined", resolution="again")["success"])
-
-    def test_closing_needs_a_reason_and_a_known_status(self):
-        oid = int(self.add()["data"]["name"][:4])
-        for kw in ({"status": "actioned"}, {"status": "actioned", "resolution": None}, {"status": "closed", "resolution": "x"},
-                   {"status": "parked", "resolution": "later"}):
-            self.assertFalse(self.call("resolve", id=oid, **kw)["success"], kw)
-        self.assertEqual(self.call("get", id=oid)["data"]["observation"]["status"], "open")
-        self.assertFalse(self.call("get", id=99)["success"])
-
-    def test_review_lists_what_a_review_looks_at_and_reviewed_needs_a_summary(self):
-        self.add(title="Open one")
-        self.root.mkdir(parents=True, exist_ok=True)
-        (self.root / "candidates.jsonl").write_text(
-            json.dumps({"epoch": 1789908287.39, "ts": "t", "signal": "correction", "provider": "agy", "detail": {"user": "왜 안돼?"}}) + "\n",
-            encoding="utf-8")
-        d = self.call("review")["data"]
-        self.assertEqual((len(d["open"]), d["unreviewed_candidates"], d["last_review"]), (1, 1, "never"))
-        self.assertEqual(d["recent_candidates"][0]["ref"], "candidate:1789908287.39")
-        self.assertFalse(self.call("reviewed")["success"])
-        self.assertFalse(self.call("reviewed", text="  ")["success"])
-        r = self.call("reviewed", text="read 1 open observation, ticketed none")
-        self.assertTrue(r["success"], r["message"])
-        self.assertEqual(self.call("review")["data"]["unreviewed_candidates"], 0)
-
-    def test_unknown_action_and_unavailable_core_refuse_instead_of_crashing(self):
-        r = self.call("delete", id=1)
-        self.assertFalse(r["success"])
-        self.assertIn("unknown action", r["message"])
-        mcp.mcp_core.observations = None
-        r = self.call("list")
-        self.assertFalse(r["success"])
-        self.assertIn("unavailable", r["message"])
-
-    def test_the_old_tool_name_is_gone_and_the_new_one_lists_its_actions(self):
-        names = {t["name"] for t in mcp.tool_defs()}
-        self.assertNotIn("observe_add", names)
-        (tool,) = [t for t in mcp.tool_defs() if t["name"] == "observation"]
-        self.assertEqual(tool["inputSchema"]["properties"]["action"]["enum"],
-                         ["add", "list", "get", "resolve", "review", "reviewed"])
-        self.assertIn("starts any change", tool["description"])
 
 
 class MemoryToolTest(Base):
@@ -798,12 +691,12 @@ class TicketToolTest(Base):
         self.assertIn("unavailable", r["message"])
 
     def test_the_stores_cannot_be_forged_through_write_file(self):
-        # write_file may not create a pre-approved ticket, a lease, a candidate or an event line
+        # write_file may not create a pre-approved ticket, a lease or an event line
         mcp.CODE_ROOT = self.tmp
         shutil.copy(str(ENGINE / "protected_paths.json"), str(self.tmp / "protected_paths.json"))
         mcp.ALLOW_ROOTS = [self.tmp]
         for rel in ("workspace/skill-observations/tickets/0001.json", "workspace/skill-observations/tickets/author.lease",
-                    "workspace/skill-observations/candidates.jsonl", "sessions/s1/events.jsonl"):
+                    "sessions/s1/events.jsonl"):
             r = mcp.call_tool("write_file", {"path": str(self.tmp / "data" / rel), "content": "{}"})
             self.assertIn("protected", r["message"], rel)
         # ... while the rest of the same directories stay writable
@@ -848,7 +741,7 @@ class EntryPointsTest(unittest.TestCase):
             else:
                 self.fail("%s did not come up" % script)
             names = {t["name"] for t in self.rpc(port, "tools/list")["tools"]}
-            self.assertTrue({"read_file", "write_file", "run_command", "memory", "observation", "ticket"} <= names, names)
+            self.assertTrue({"read_file", "write_file", "run_command", "memory", "ticket"} <= names, names)
             if mcp.HOST_PLUGIN:
                 self.assertTrue({"ping_nas", "list_services", "service_ctl"} <= names, names)
                 out = json.loads(self.rpc(port, "tools/call", {"name": "ping_nas", "arguments": {}})["content"][0]["text"])

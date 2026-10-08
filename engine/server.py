@@ -69,7 +69,6 @@ from preview_guard import _HOME_R, _PREVIEW_ALLOWED_ROOTS, _resolve_safe_preview
 from workspace_status import (
     experts_api,
     instructions_api,
-    observation_api,
     ticket_api,
     WS_SKILLS_DIR,
     _get_available_skills,
@@ -226,8 +225,8 @@ class Handler(obslog.HTTPLogMixin, BaseHTTPRequestHandler):
         req = Req(self, self._normalize_req_path(parsed.path), parsed.query)
         # Same-origin gate: every mutating POST must come from a page served by this server. Requiring Content-Type:
         # application/json (_read_json) already forces a CORS preflight for browser clients; this check is defence in
-        # depth for non-browser callers that forge Origin. It covers the operator's own calls too (closing
-        # observations, deciding tickets, letting delegated work land, restarting the host).
+        # depth for non-browser callers that forge Origin. It covers the operator's own calls too
+        # (deciding tickets, letting delegated work land, restarting the host).
         if not origin_guard.same_origin(
             self.headers.get("Origin"),
             self.headers.get("Host"),
@@ -493,7 +492,6 @@ GET_ROUTES = [
     ("/api/providers", _providers),
     (("/api/skills", "/api/commands"), _commands),
     ("/api/self-status", lambda req: req.json(_self_status())),
-    (None, _api(observation_api, "GET")),
     (None, _api(ticket_api, "GET")),
     (None, _api(delegation_api, "GET")),
     (None, _api(instructions_api, "GET")),
@@ -556,8 +554,8 @@ POST_STREAM_ROUTES = [   # before the JSON body is read
 POST_ROUTES = [
     ("/api/skills/*/toggle", _skill_toggle),
     ("/api/mcp", _mcp_add),
-    (("/api/observations*", "/api/tickets*", "/api/delegations*", "/api/rooms*", client_errors.PATH + "*"),
-     route_table.first(_api(observation_api, "POST"), _api(ticket_api, "POST"), _api(delegation_api, "POST"),
+    (("/api/tickets*", "/api/delegations*", "/api/rooms*", client_errors.PATH + "*"),
+     route_table.first(_api(ticket_api, "POST"), _api(delegation_api, "POST"),
                        _api(room_chat.api, "POST"), _api(client_errors.api, "POST"))),
     ("/api/host/defibrillate", _defibrillate),
     ("/api/accounts/recycle", route_accounts.recycle),
@@ -640,32 +638,6 @@ def _service_log(since: str, sid: str = "") -> dict:
     _SERVICE_LOG_CACHE.clear()
     _SERVICE_LOG_CACHE[key] = (time.time(), out)
     return out
-
-
-# HOST_SIGNALS_v1.1: log findings -> observation candidates, from inside the service (the operator:
-# doctor, the watchdog, must not run service code). logdigest throttles itself to once an hour.
-HOST_SIGNAL_CHECK_SEC = 300
-
-
-def _host_signal_tick() -> int:
-    from telemetry import logdigest
-    if obslog.configured():
-        logdigest.LOG = obslog._state["path"]
-        logdigest.HOST_SIGNAL_STAMP = logdigest.LOG.with_name(".host-signals.stamp")
-    logdigest.OBS_ROOT = WORKSPACE / "skill-observations"
-    got = logdigest.host_candidates()
-    if got:
-        obslog.event("evolution.host_candidates", count=len(got), signals=sorted({g["signal"] for g in got}))
-    return len(got)
-
-
-def _host_signal_loop() -> None:
-    while True:
-        time.sleep(HOST_SIGNAL_CHECK_SEC)
-        try:
-            _host_signal_tick()
-        except Exception:
-            obslog.exception("evolution.host_candidates_failed", dedup="loop")
 
 
 def _provider_availability() -> Dict[str, bool]:
@@ -801,7 +773,6 @@ def main() -> None:
     threading.Thread(target=accounts.watch_loop, daemon=True).start()
     if AUTO_RECYCLE_ENABLED:
         threading.Thread(target=_auto_recycle_loop, daemon=True).start()
-    threading.Thread(target=_host_signal_loop, name="host-signals", daemon=True).start()
     import delegation
     threading.Thread(target=delegation.queue_loop, name="delegation-queue", daemon=True).start()   # LEASE_SCOPE_v1
     threading.Thread(target=__import__("event_react").loop, args=(REG,), name="event-react", daemon=True).start()   # evt/D

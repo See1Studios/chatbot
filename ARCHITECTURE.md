@@ -27,7 +27,7 @@ Code names are relative to `engine/`. Rules and their enforcers are in `RULES.md
 +--------------------------------------------------------------+
 ```
 
-In the code the layers are: core (tickets, observations, protection, memory files, OS differences, repo layout:
+In the code the layers are: core (tickets, protection, memory files, OS differences, repo layout:
 standard library and each other only, `core_modules.json`), providers (`providers/`), sessions and turns
 (`session*.py`, `turn_watchdog.py`, `instructions.py`), HTTP (`server.py`, `route_*.py`), tools (`mcp_server.py`,
 `mcp_core.py`, the host plugin `nas_mcp_host.py`) and the page (`static/`, no build step). Upper layers know lower

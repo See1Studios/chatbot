@@ -45,7 +45,7 @@ class EditionBoundary(unittest.TestCase):
 
     def test_the_shipped_build_has_no_dev_tools_and_refuses_them(self):
         self.assertFalse(DEV_ONLY & set(self.shipped["tools"]), self.shipped["tools"])
-        for keep in ("memory", "observation", "choices", "read_file", "write_file"):
+        for keep in ("memory", "choices", "read_file", "write_file"):
             self.assertIn(keep, self.shipped["tools"])
         self.assertFalse(self.shipped["run_command_ok"])
         self.assertIn("not available in this edition", self.shipped["run_command_msg"])

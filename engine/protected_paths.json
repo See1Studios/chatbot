@@ -19,9 +19,7 @@
     "~/.agents/",
     "data/lifecycle.lock",
     "data/maintenance.flag",
-    "engine/observation_signals.json",
     "data/workspace/skill-observations/tickets/",
-    "data/workspace/skill-observations/candidates.jsonl",
     "data/sessions/*/events.jsonl",
     "engine/core_modules.json",
     "engine/bundle_budget.json",
@@ -52,7 +50,6 @@
     "data/lifecycle.lock",
     "data/maintenance.flag",
     "data/workspace/skill-observations/tickets/",
-    "data/workspace/skill-observations/candidates.jsonl",
     "data/sessions/*/events.jsonl"
   ],
   "governance": [
@@ -63,10 +60,6 @@
     {
       "path": "engine/core_modules.json",
       "reason": "the core boundary"
-    },
-    {
-      "path": "engine/observation_signals.json",
-      "reason": "observation criteria (design §7-6)"
     },
     {
       "path": "engine/bundle_budget.json",
@@ -307,10 +300,6 @@
     {
       "path": "tests/test_live_agent_suite.py",
       "reason": "enforcer: live chat agents never run the whole suite; tests never get install data (prop/F: registry enforcers are Tier 3)"
-    },
-    {
-      "path": "tests/test_observations.py",
-      "reason": "enforcer: observations only via observations.add (prop/F: registry enforcers are Tier 3)"
     },
     {
       "path": "tests/test_ticket_quick.py",

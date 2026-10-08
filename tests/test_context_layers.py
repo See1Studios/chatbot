@@ -265,7 +265,7 @@ class Fixture(WorkspaceCase):
                                       "purpose, update GOLDEN in the same change and say so in HISTORY")
 
 
-GOLDEN = {"work": "7153ba11782269a0", "private": "93a16244f46d126b"}   # 2026-10-08: the private note says /move office (#792)
+GOLDEN = {"work": "b2629233b1657ed9", "private": "93a16244f46d126b"}   # 2026-10-09: the work bundle lost the observation badge (il/A, #838)
 
 
 if __name__ == "__main__":

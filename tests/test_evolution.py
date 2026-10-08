@@ -179,7 +179,7 @@ class ShippedRegistryTest(unittest.TestCase):
     def test_instance_layer_stays_writable(self):
         for rel in ("data/workspace/PERSONA.md", "data/workspace/PROJECT.md", "data/workspace/memory/MEMORY.md",
                     "data/workspace/.agents/skills/nas-sphere/SKILL.md",
-                    "data/workspace/skill-observations/observation-log/0001-x.md",
+                    "data/workspace/notes/0001-x.md",
                     "docs/plans/recursive-self-evolution.md", "HISTORY.md", "data/sessions/x.json"):
             self.assertFalse(self.prot(rel), rel)
 

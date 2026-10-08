@@ -235,32 +235,14 @@ Thresholds live at the top of `telemetry/logdigest.py`.
 | `rss_growth` | warn | > 150 MB growth within one process lifetime |
 | `log_write_errors` | warn | the logger itself could not write |
 
-### Host signals → self-evolution (HOST_SIGNALS_v1)
+### Ticket evidence from the log (LOG_EVIDENCE_v1, improvement-layers D2)
 
-The chat server collects them in a background thread (`server._host_signal_loop`, checks every 5 min,
-`logdigest.host_candidates` throttles itself to once an hour; `evolution.host_candidates` is logged).
-Not doctor: the watchdog runs no service code (operator decision, 2026-09-23). By hand:
-`logdigest.py --to-candidates [--force]`.
-Each finding of the last 2 h becomes one observation candidate in
-`data/workspace/skill-observations/candidates.jsonl`:
-
-```json
-{"signal": "host:http_5xx", "sid": "host", "provider": "chat",
- "detail": {"severity": "error", "key": "chat GET /api/usage", "summary": "http_5xx chat GET /api/usage",
-            "window_h": 2.0, "log_ref": "log:fp:…"}}
-```
-
-- once per (signal, key) per day; the observation review (`observation review`, 상태 탭 힌트) lists
-  them next to the operator-signal candidates, and `candidate:<epoch>` is valid ticket evidence
-- only host-made text (code, key, numbers): never `err.msg` or titles, which can carry outside
-  text ([recursive-self-evolution.md](docs/plans/archive/2026/recursive-self-evolution.md) §4.4)
-- candidates are hints; nothing starts work on its own (§4.2)
-
-Ticket evidence can also point straight into the log (LOG_EVIDENCE_v1): `log:fp:<10 hex>` (an error
-fingerprint) or `log:rid:<12 hex>` (a request id, e.g. from the UI's `X-Request-Id`). `tickets.propose`
-accepts it only if that fingerprint/request is in `logs/events.jsonl` or a rotation right then.
-External agents pass it with `~/bin/ticket-quick start … --evidence log:fp:<fp>` instead of the
-placeholder "manual" candidate.
+A ticket's `evidence` is data, checked when it is proposed: `log:fp:<10 hex>` (an error fingerprint), `log:rid:<12 hex>`
+(a request id, e.g. from the UI's `X-Request-Id`), or `event:<session>#<line>`. `tickets.propose` accepts a log ref
+only if that fingerprint/request is in `logs/events.jsonl` or a rotation right then. The operator's words are not
+evidence: they go in `request` (`ticket-quick start … --request "<their words>"`). A ticket has one or both. The host
+no longer turns findings into observation candidates (the HOST_SIGNALS loop went with the observation log, il/A);
+findings stay in the digest, and a red main is its first one (`main_red`).
 
 ### Error storms
 

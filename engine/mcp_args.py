@@ -29,7 +29,6 @@ ALIASES = {
 SYNONYMS = {
     "memory": {"remember": "add", "save": "add", "find": "search", "list": "show", "read": "show",
                "delete": "forget", "remove": "forget"},
-    "observation": {"create": "add", "new": "add", "show": "get", "read": "get"},
     "ticket": {"show": "get", "view": "get", "read": "get", "status": "list"},
     "wiki": {"read": "get", "show": "get", "find": "search", "list": "sources"},
     "dialog": {"get": "read", "open": "read", "post": "send", "message": "send"},
@@ -40,7 +39,6 @@ SYNONYMS = {
 # When the action is missing: the first rule whose key the call filled gives it.
 INFER = {
     "memory": (("text", "add"), ("query", "search"), ("", "show")),
-    "observation": (("title", "add"), ("body", "add"), ("id", "get"), ("", "list")),
     "ticket": (("title", "propose"), ("id", "get"), ("", "list")),
     "wiki": (("query", "search"), ("id", "get"), ("", "sources")),
     "web": (("url", "read"), ("query", "search")),

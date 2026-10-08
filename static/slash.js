@@ -12,7 +12,6 @@ let slashCatalog = {
     { name: "/defib", key: "defib", template: "/defib" },
     { name: "/reboot", key: "reboot", template: "/defib" },
     { name: "/status", key: "status", template: "/status" },
-    { name: "/review", key: "review", template: "Run an observation review: take the open observations and unreviewed candidates with the observation tool's review, go through them one by one with me, and only resolve them and propose tickets. Record it as reviewed when done. Do not start any work. Reply in my language." },
     { name: "/ticket", key: "ticket", template: "/ticket " },
     { name: "/ticket go", key: "ticket_go", template: "/ticket go " },
     { name: "/ticket approve", key: "ticket_approve", template: "/ticket approve " },

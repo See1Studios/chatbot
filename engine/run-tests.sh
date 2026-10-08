@@ -69,7 +69,6 @@ FAST=(
   test_dialog_handoff
   test_identity_wiring
   test_live_agent_suite
-  test_observations
   test_tickets
   test_unticketed_write
   test_edition_instructions

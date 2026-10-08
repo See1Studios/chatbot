@@ -41,7 +41,7 @@ class ClaudeAdapter(AgentAdapter):
         "ping_nas", "list_services", "service_ctl", "list_dir", "read_file",
         "write_file", "run_command", "sphere_hub_status", "factory_status",
         "hermes_status", "search_text", "wiki",
-        "delegate", "ticket", "observation", "memory", "personal_turn",
+        "delegate", "ticket", "memory", "personal_turn",
     )
     ALLOWED_TOOLS = ",".join(
         [f"mcp__nas__{t}" for t in _NAS_MCP_TOOLS]

@@ -32,7 +32,8 @@ You own the architecture. The operator is the client and may ask without develop
 ## How to make a change
 
 1. Start from the operator's words or an approved ticket. Claim the paths:
-   `python3 engine/tools/ticket_quick.py start --title "[<plan id>] ..." --paths a,b --actor <your role id>`.
+   `python3 engine/tools/ticket_quick.py start --title "[<plan id>] ..." --paths a,b --actor <your role id>
+   --request "<the operator's words>"` (or `--evidence log:fp:<fp>` when data started it: evidence is data only).
    The actor is a role id such as `claude-code`, never a character's name.
 2. An external CLI works in a git worktree, not in the shared main tree: restarts and other agents use the main tree.
 3. Change only the claimed paths. Need another file: `ticket-quick widen --id <n> --paths <file>`.

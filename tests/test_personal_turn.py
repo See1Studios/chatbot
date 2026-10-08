@@ -1,5 +1,5 @@
 """PERSONAL_TURN_v1 (docs/plans/private-mode.md §8.3, W1): a work-room turn marked personal stays in the chat but
-never becomes work material -- no work tools during it, no observation candidate, nothing recallable from work; and
+never becomes work material -- no work tools during it, nothing recallable from work; and
 a private session is never recallable from work at all.
 Run: engine/run-tests.sh test_personal_turn
 """
@@ -131,34 +131,6 @@ class ToolsClose(unittest.TestCase):
     def test_without_a_running_work_turn_nothing_is_marked(self):
         self.busy[:] = [{"id": "p1", "mode": "private", "turn": 1.0}]
         self.assertFalse(mcp.call_tool("personal_turn", {})["success"])
-
-
-class NoObservation(unittest.TestCase):
-    def setUp(self):
-        self.data = Path(tempfile.mkdtemp()).resolve()
-        (self.data / "sessions").mkdir()
-        saved = {k: getattr(session, k) for k in ("SESSIONS", "DATA", "_record_live_pids", "evolution")}
-        self.addCleanup(lambda: [setattr(session, k, v) for k, v in saved.items()])
-        session.SESSIONS = self.data / "sessions"
-        session.DATA = self.data
-        session._record_live_pids = lambda: None
-        self.calls = []
-        session.evolution = mock.Mock(on_turn_end=lambda *a: self.calls.append(a))
-        self.s = session.AgentSession("w-obs", provider="agy")
-        (self.data / "sessions" / "w-obs").mkdir(exist_ok=True)
-
-    def end(self, ts):
-        self.s.history.append({"role": "user", "text": "hello", "ts": ts})
-        self.s._finish_turn("result")
-
-    def test_a_personal_turn_is_not_an_observation_candidate(self):
-        personal_turn.mark(self.data / "sessions", "w-obs", 1727600000.25)
-        self.end(1727600000.25)
-        self.assertEqual(self.calls, [])
-
-    def test_an_ordinary_turn_still_is(self):
-        self.end(1727600000.75)
-        self.assertEqual(len(self.calls), 1)
 
 
 def _load_recall(path):

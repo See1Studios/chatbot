@@ -21,10 +21,6 @@ from private_engine import tension_meta
 from instructions import build_instruction_bundle  # noqa: F401 -- session_turn reads it as _s().build_instruction_bundle (tests swap it here)
 from identity import display_name, user_title
 
-try:  # turn observation is best effort: a missing core module must never stop the host
-    import evolution
-except Exception:  # noqa: BLE001
-    evolution = None
 import i18n
 from telemetry import obslog
 import quota_state  # QUOTA_STATE_v1 qfr/D
@@ -34,7 +30,6 @@ from turn_watchdog import TurnWatchdog
 from session_view import SessionView   # split/C: what a session shows (reads SESSIONS, ADD_DIRS... from here)
 from session_turn import SessionTurn   # split/C: running a turn (reads REG, boot_notice... from here)
 from loop_guard import LoopGuard, extract_tool_steps, is_read_only
-import personal_turn
 from host_config import (
     ADD_DIRS,
     DATA,
@@ -220,8 +215,6 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         self._cached_summary = ""  # memoized handover summary for zero-delay rotate
         self._summary_generating = False
         self._stop_requested = False  # True after an explicit stop() until the next _spawn()
-        self._turn_marks: List[Tuple[Optional[int], str]] = []  # (user-turn index, kind) of error/stopped/interrupted events
-        self._observed_turn_key = None  # the user turn already handed to evolution.on_turn_end
         self._turn_seq = 0  # bumped each http-transport turn so a stale watchdog can't stop a later turn
         self._loop_guard = LoopGuard()  # repeated-tool-call detector (loop_guard.py); reset every turn
         self._regen = None  # REGENERATE_v1: a take in flight
@@ -336,11 +329,6 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             self._cancel_error_message_failfast()
             # SILENT_HANG_v1: turn ended — cancel idle watchdog
             self._cancel_silent_hang()
-        if (kind in ("error", "stopped") and event.get("notice") != "warn") or (kind == "interrupted" and event.get("reason") != "steer"):
-            try:
-                self._turn_marks.append((self._last_user_turn()[0], kind))
-            except Exception:  # noqa: BLE001 -- observing must never disturb a turn
-                pass
         if kind in PERSISTED_LOG_KINDS:
             self._append_log_event(event)
         if kind in _OBS_FORWARD:
@@ -628,44 +616,15 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         finally:
             self._loop_stopping = False
 
-    def _observation_root(self) -> Path:
-        # Derived from where this session's own files live (<data>/sessions/<sid>/meta.json), so a
-        # test or a second instance with its own data directory never writes into another's.
-        return self.meta_path.parent.parent.parent / "workspace" / "skill-observations"
-
-    def _last_user_turn(self) -> Tuple[Optional[int], str]:
-        """(index, text) of the newest user message that has actually been sent, else (None, "")."""
-        for i in range(len(self.history) - 1, -1, -1):
-            h = self.history[i]
-            if h.get("role") == "user" and not h.get("queued"):
-                return i, str(h.get("text") or "")
-        return None, ""
-
     def _finish_turn(self, outcome: str = "result") -> None:
-        """Every way a turn can end (result/error event, stop, steer, interrupt, child died, auto-stop)
-        calls this once; the observation logic itself lives in evolution.on_turn_end. Best effort: it
-        takes no lock, does one small file append, and never raises. A user turn is handed over once,
-        so two paths ending the same turn do not record it twice. `outcome == "steer"` (the user adding
-        an instruction mid-turn) only clears the marks."""
+        """Every way a turn can end (result/error event, stop, steer, interrupt, child died, auto-stop) calls this
+        once: the turn's log line, the write guard, the low-quota note, regenerate's bookkeeping. Never raises."""
         self._cached_summary = ""  # handover cache stale after new content
         self._obs_turn_end(outcome)
         write_guard.turn_end(self, REPO_ROOT, outcome)   # TREE_WATCH_v1
         if outcome == "result":
             quota_state.warn_low(self)   # qfr/D: a brain running low is said once, before it runs out
         regenerate.after_turn(self, outcome)   # REGENERATE_v1
-        try:
-            idx, text = self._last_user_turn()
-            marks = [k for i, k in self._turn_marks if i == idx]
-            self._turn_marks = []
-            if evolution is None or outcome == "steer" or idx is None:
-                return
-            key = (idx, self.history[idx].get("ts"))
-            if key == self._observed_turn_key or personal_turn.is_marked(self.meta_path.parent.parent, self.sid, key[1]):
-                return   # once per turn; a personal turn is never an observation candidate (PERSONAL_TURN_v1)
-            self._observed_turn_key = key
-            evolution.on_turn_end(ROOT, self._observation_root(), self.sid, self.provider, outcome, marks, text)
-        except Exception:  # noqa: BLE001
-            pass
 
     def _obs_turn_end(self, outcome: str) -> None:
         """OBSLOG_v1 turn.end: once per turn (keyed by turn_started_at), with duration and the

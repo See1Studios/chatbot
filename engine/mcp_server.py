@@ -51,7 +51,7 @@ try:
     import evolution
 except Exception:
     evolution = None
-# The core's tools (memory, observation, ticket) are served by the mcp_core adapter module; without it the
+# The core's tools (memory, ticket) are served by the mcp_core adapter module; without it the
 # server just lacks them.
 try:
     import mcp_core
@@ -695,7 +695,7 @@ def call_tool(name: str, arguments: dict) -> dict:
         if web_tool is not None and name in web_tool.NAMES:
             return web_tool.call(args, envelope, private=_live_scope("web")[0])
         if mcp_core is not None and name in mcp_core.NAMES:
-            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, mcp_core.RECENT_LIMIT, mcp_caller.actor(_host_get), *_live_scope("house-memory"))
+            return mcp_core.call(name, args, DATA, SECRET_CONTENT_RE, mcp_caller.actor(_host_get), *_live_scope("house-memory"))
 
         if name == "search_text":
             path = _resolve_target_path(args.get("path"))

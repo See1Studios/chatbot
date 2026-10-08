@@ -1,4 +1,4 @@
-"""mcp_core.py: the core's MCP adapters (`memory`, `observation`, `ticket`) as a module of their own.
+"""mcp_core.py: the core's MCP adapters (`memory`, `ticket`) as a module of their own.
 
 It is a layer over the core and knows nothing about the server that hosts it: these tests load it in a process where the
 server, the host plugin and every other layer module are forbidden. How the server wires it in is tested in test_mcp_server.py.
@@ -46,8 +46,6 @@ secret = re.compile(r"api_key\s*=")
 out = []
 r = mcp_core.call("memory", {"action": "add", "text": "커피는 아메리카노"}, data, secret); out.append(r["success"])
 r = mcp_core.call("memory", {"action": "search", "query": "커피"}, data, secret); out.append(len(r["data"]["hits"]) == 1)
-r = mcp_core.call("observation", {"action": "add", "title": "T", "body": "B"}, data, secret); out.append(r["success"])
-r = mcp_core.call("observation", {"action": "list"}, data, secret); out.append(len(r["data"]["observations"]) == 1)
 r = mcp_core.call("ticket", {"action": "propose", "title": "T", "target": "x", "evidence": ["event:s1#2"]}, data, secret); out.append(r["success"])
 r = mcp_core.call("ticket", {"action": "approve", "id": 1}, data, secret); out.append(not r["success"])
 loaded = [m for m in sys.modules if m in layers]
@@ -60,7 +58,6 @@ class AdapterModuleTest(unittest.TestCase):
         self.assertEqual([t["name"] for t in mcp_core.TOOL_DEFS], list(mcp_core.NAMES))
         enums = {t["name"]: t["inputSchema"]["properties"]["action"]["enum"] for t in mcp_core.TOOL_DEFS}
         self.assertEqual(enums["memory"], ["show", "search", "add", "forget"])
-        self.assertEqual(enums["observation"], ["add", "list", "get", "resolve", "review", "reviewed"])
         self.assertEqual(enums["ticket"], ["propose", "list", "get", "claim", "widen", "note", "release"])
         json.dumps(mcp_core.TOOL_DEFS)  # what goes over the wire
 
@@ -69,7 +66,7 @@ class AdapterModuleTest(unittest.TestCase):
                            stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout.strip().splitlines()[-1])
-        self.assertEqual(res["ok"], [True] * 6)
+        self.assertEqual(res["ok"], [True] * 4)
         self.assertEqual(res["layers_loaded"], [])
         for server in ("mcp_server", "nas_mcp_host"):
             self.assertIn(server, LAYERS)  # the things being kept out are really there to keep out
@@ -166,10 +163,10 @@ class TicketListTest(unittest.TestCase):
 
 
 class PrivateSessionTest(unittest.TestCase):
-    def test_a_private_session_cannot_touch_work_memory_observations_or_tickets(self):
+    def test_a_private_session_cannot_touch_work_memory_or_tickets(self):
         import mcp_core
         for name, args in (("memory", {"action": "show"}), ("memory", {"action": "add", "text": "x"}),
-                           ("observation", {"action": "list"}), ("ticket", {"action": "list"})):
+                           ("ticket", {"action": "list"})):
             r = mcp_core.call(name, args, Path(tempfile.mkdtemp()), re.compile("SECRET"), private=True)
             self.assertFalse(r["success"], name)
             self.assertIn("private session", r["message"])

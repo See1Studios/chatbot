@@ -1,11 +1,13 @@
-"""Evolution tickets: how an observation becomes work (docs/plans/recursive-self-evolution.md §4.2-4.3).
+"""Engine tickets: how a change to the engine becomes work (docs/plans/recursive-self-evolution.md §4.2-4.3).
 
 Work on the host itself starts only from the operator's own words or from a
-ticket the operator approved. A ticket must carry evidence that really exists,
-has a small attempt budget, and each file can be worked on by one author at a time.
+ticket the operator approved. A ticket carries data evidence that really exists, or the operator's request, has a
+small attempt budget, and each file can be worked on by one author at a time.
 
-- Evidence is verified, not trusted: `event:<sid>#<line>` must be a line of that
-  session's events.jsonl, `candidate:<epoch>` a line of candidates.jsonl.
+- Evidence is data, verified, not trusted (improvement-layers D2): `event:<sid>#<line>` must be a line of that
+  session's events.jsonl, `log:fp:<fp>` / `log:rid:<rid>` an error fingerprint or request in the event log.
+- The operator's words are a request, not evidence: `request` holds them as given (an agent outside the chat
+  relays them with `ticket-quick start --request`). A ticket has evidence, a request, or both.
 - Same target, same ticket: a proposal for a target that already has an open
   ticket adds its evidence to it instead of creating a second one.
 - Budget: at most MAX_ATTEMPTS attempts; after that the ticket is closed as
@@ -231,20 +233,6 @@ def verify_evidence(data, ref: str) -> None:
         except OSError:
             pass
         raise TicketError("evidence not found: %s" % ref)
-    m = re.match(r"^candidate:(\d+(?:\.\d+)?)$", ref)
-    if m:
-        want = float(m.group(1))
-        path = Path(data) / "workspace" / "skill-observations" / evolution.CANDIDATES_NAME
-        try:
-            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-                try:
-                    if abs(float(json.loads(line).get("epoch", -1)) - want) < 0.0005:
-                        return
-                except (ValueError, TypeError, AttributeError):
-                    continue
-        except OSError:
-            pass
-        raise TicketError("evidence not found: %s" % ref)
     m = re.match(r"^log:(fp|rid):([0-9a-f]+)$", ref)
     if m:
         kind, val = m.group(1), m.group(2)
@@ -253,8 +241,8 @@ def verify_evidence(data, ref: str) -> None:
         if _in_host_log(data, kind, val):
             return
         raise TicketError("evidence not found: %s" % ref)
-    raise TicketError("evidence must be event:<session>#<line>, candidate:<epoch>, log:fp:<fp> or log:rid:<rid>, "
-                      "got: %s" % ref[:60])
+    raise TicketError("evidence is data: event:<session>#<line>, log:fp:<fp> or log:rid:<rid> (`chatbot-ctl.sh logs`); "
+                      "the operator's words go in `request`. Got: %s" % ref[:60])
 
 
 # Host log evidence (OBSLOG_v1, OPERATIONS.md): an error fingerprint or a request id that is in
@@ -462,9 +450,13 @@ def _ship_blockers(data, t: Dict) -> List[str]:
 
 # ---------------------------------------------------------------- proposals
 
+REQUEST_MAX = 600
+
+
 def propose(data, title: str, target: str, evidence: List[str], now: Optional[float] = None,
-            actor: Optional[str] = None) -> Tuple[Dict, bool]:
-    """Create a ticket (status `proposed`) or merge into the open ticket for the same target.
+            actor: Optional[str] = None, request: Optional[str] = None) -> Tuple[Dict, bool]:
+    """Create a ticket (status `proposed`) or merge into the open ticket for the same target. `evidence`: data refs,
+    verified; `request`: the operator's words as given, kept apart and never counted as evidence (D2).
     Returns (ticket, merged)."""
     t_now = _now(now)
     title = re.sub(r"\s+", " ", _txt(title)).strip()[:120]
@@ -473,8 +465,11 @@ def propose(data, title: str, target: str, evidence: List[str], now: Optional[fl
         raise TicketError("title and target are required")
     if isinstance(evidence, str):
         evidence = [evidence]
-    if not isinstance(evidence, list) or not evidence:
-        raise TicketError("evidence is required: a ticket without evidence is an opinion")
+    evidence = [e for e in (evidence or []) if str(e).strip()] if isinstance(evidence, list) else None
+    req = re.sub(r"\s+", " ", _txt(request or "")).strip()[:REQUEST_MAX]
+    if evidence is None or not (evidence or req):
+        raise TicketError("a ticket needs data evidence (event:<session>#<line>, log:fp:<fp>, log:rid:<rid>) or the "
+                          "operator's request (ticket-quick start --request \"<their words>\")")
     refs = []
     for ref in evidence[:MAX_EVIDENCE]:
         verify_evidence(data, ref)
@@ -487,6 +482,8 @@ def propose(data, title: str, target: str, evidence: List[str], now: Optional[fl
             if t.get("status") in OPEN_STATES and t.get("target") == tgt:
                 added = [r for r in refs if r not in t["evidence"]]
                 t["evidence"] = (t["evidence"] + added)[:MAX_EVIDENCE]
+                if req and not t.get("request"):
+                    t["request"] = req
                 _note(t, _agent_by(actor), "proposal merged (+%d evidence)" % len(added), t_now)
                 _save(data, t)
                 return public(t), True
@@ -495,6 +492,8 @@ def propose(data, title: str, target: str, evidence: List[str], now: Optional[fl
         ticket = {"id": max([x["id"] for x in tickets] + [0]) + 1, "title": title, "target": tgt,
                   "status": "proposed", "attempts": 0, "gate_failures": 0, "evidence": refs, "notes": [],
                   "created": _stamp(t_now), "updated": _stamp(t_now)}
+        if req:
+            ticket["request"] = req
         if _clean_actor(actor):
             ticket["actor"] = _clean_actor(actor)
         d = tickets_dir(data)

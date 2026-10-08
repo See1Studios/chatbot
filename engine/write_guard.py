@@ -20,11 +20,11 @@ from typing import Dict, List, Optional
 import i18n
 from loop_guard import is_read_only, normalize, target_of
 
-try:  # observing is best effort: a missing core module must never stop the host
-    import evolution
+from telemetry import obslog
+try:  # a missing core module must never stop the host
     import tickets
 except Exception:  # noqa: BLE001
-    evolution = tickets = None
+    tickets = None
 
 
 WRITE_TOOL_WORDS = ("write", "edit", "replace", "patch", "create_file", "delete", "rename", "move")
@@ -94,9 +94,7 @@ def check(session, tool: str, params: Optional[dict], root: Path) -> None:
                "evidence": {"rule": "unticketed_write", "tool": tool, "path": rel}},
         hint=f"The last turn was stopped: it changed {rel}, a repo file no ticket covers. Revert that change, or ask "
              f"the operator for a ticket and claim it, before any other work; hand code work to the dev role.")
-    if evolution is not None:
-        evolution.record_candidate(session._observation_root(), "unticketed_write", session.sid, session.provider,
-                                   {"path": rel, "tool": tool})
+    obslog.event("guard.unticketed_write", lvl="warn", sid=session.sid, provider=session.provider, path=rel, tool=tool)
 
 
 # ---- TREE_WATCH_v1 ----------------------------------------------------------------------------------------------
@@ -174,9 +172,8 @@ def turn_end(session, root: Path, outcome: str = "") -> List[str]:
         TREE_HOLD[rel] = session.sid
     try:
         session._emit({"event": "system", **i18n.msg("srv.unticketed_tree", paths=", ".join(found[:8])), "evidence": {"rule": "unticketed_tree_change", "paths": found}})
-        if evolution is not None:
-            evolution.record_candidate(session._observation_root(), "unticketed_write", session.sid, session.provider,
-                                       {"path": ", ".join(found[:8]), "tool": "tree"})
+        obslog.event("guard.unticketed_write", lvl="warn", sid=session.sid, provider=session.provider,
+                     path=", ".join(found[:8]), tool="tree")
     except Exception:  # noqa: BLE001
         pass
     return found

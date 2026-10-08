@@ -384,8 +384,7 @@ class HandoverExchange(unittest.TestCase):
         s.model = "m"
         s._obs_turn_logged = None
         s.turn_started_at = 0
-        with mock.patch("session.evolution", None):
-            s._finish_turn("result")
+        s._finish_turn("result")
         self.assertEqual(s._cached_summary, "")
 
     def test_start_turn_invalidates_cache(self):

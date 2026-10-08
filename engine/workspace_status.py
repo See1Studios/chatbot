@@ -21,11 +21,6 @@ from host_config import HOME, MCP_PORT, REPO, WORKSPACE
 from instructions import extract_yaml_desc
 import platform_compat
 
-try:  # the candidate count and last review come from the core; the tab still loads without it
-    import observations
-except Exception:  # noqa: BLE001
-    observations = None
-
 try:  # which instruction files the operator may edit from the status tab: the protected-path registry decides
     import evolution
 except Exception:  # noqa: BLE001
@@ -158,98 +153,6 @@ def _write_mcp_config(cfg: dict) -> None:
     _atomic_write_text(_mcp_config_path(), json.dumps(cfg, indent=2, ensure_ascii=False) + "\n")
 
 
-def _observation_summary() -> dict:
-    """Counts for the status tab: open and total observations, candidates since the last review, last review."""
-    obs_root = WORKSPACE / "skill-observations"
-    obs_dir = obs_root / "observation-log"
-    n_open = 0
-    n_total = 0
-    if obs_dir.exists():
-        for f in obs_dir.glob("*.md"):
-            n_total += 1
-            try:
-                head = f.read_text(encoding="utf-8", errors="replace")[:400]
-                if re.search(r"status:\s*open", head):
-                    n_open += 1
-            except Exception:
-                pass
-    n_cand = 0
-    last_review = "never"
-    if observations is not None:
-        try:
-            n_cand = len(observations.unreviewed_candidates(obs_root))
-            last_review = observations.last_review(obs_root)
-        except Exception:
-            pass
-    return {"open_observations": n_open, "total_observations": n_total, "unreviewed_candidates": n_cand,
-            "last_review_date": last_review}
-
-
-_CANDIDATE_ROWS = 20
-
-
-def _observation_overview(obs_root) -> dict:
-    """Everything the status tab needs to manage observations: the items in the log (open, parked, and those
-    resolved today that are waiting to be archived) and the host's candidates since the last review."""
-    entries = observations.scan(obs_root)
-    cands = observations.unreviewed_candidates(obs_root)
-    recent = [{"ref": "candidate:%s" % c.get("epoch"), "ts": c.get("ts"), "signal": c.get("signal"),
-               "provider": c.get("provider"), "user": (c.get("detail") or {}).get("user", ""),
-               "summary": (c.get("detail") or {}).get("summary", "")}
-              for c in cands[-_CANDIDATE_ROWS:]][::-1]
-    return {"ok": True, "last_review": observations.last_review(obs_root), "observations": entries,
-            "unreviewed_candidates": len(cands), "candidates": recent}
-
-
-HISTORY_PAGE = 10
-_OPEN_STATUSES = ("open", "parked")
-
-
-def observation_history(obs_root, page: int = 1, per: int = HISTORY_PAGE) -> dict:
-    """Every resolved observation, in the log or archived, newest resolution first, one page at a time
-    (OBS_HISTORY_v1). Whether it has been archived yet does not matter to the reader."""
-    done = [e for e in observations.scan(obs_root, include_archive=True) if e["status"] not in _OPEN_STATUSES]
-    done.sort(key=lambda e: (e.get("resolved") or e.get("date") or "", e["id"]), reverse=True)
-    pages = max(1, -(-len(done) // per))
-    page = min(max(1, page), pages)
-    return {"ok": True, "total": len(done), "page": page, "pages": pages,
-            "items": done[(page - 1) * per:page * per]}
-
-
-def observation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
-    """The /api/observations routes. Returns None when `path` is not one of ours, else (status code, JSON).
-    Changing anything (POST) is the caller's to gate; this only routes to the core, which holds the rules."""
-    if not (path == "/api/observations" or path.startswith("/api/observations/")):
-        return None
-    if observations is None:
-        return 503, {"ok": False, "error": "observation core unavailable"}
-    obs_root = WORKSPACE / "skill-observations"
-    rest = path[len("/api/observations"):].strip("/")
-    b = body or {}
-    try:
-        if method == "GET":
-            if rest == "":
-                return 200, _observation_overview(obs_root)
-            if rest.isdigit():
-                return 200, {"ok": True, "observation": observations.get(obs_root, int(rest))}
-            m = re.fullmatch(r"history(?:/(\d{1,4}))?", rest)
-            if m:
-                return 200, observation_history(obs_root, int(m.group(1) or 1))
-        elif method == "POST":
-            if rest == "reviewed":
-                return 200, {"ok": True, "last_review": observations.mark_reviewed(obs_root, b.get("summary"))}
-            m = re.fullmatch(r"(\d+)/resolve", rest)
-            if m:
-                done = observations.resolve(obs_root, int(m.group(1)), str(b.get("status") or ""), b.get("resolution"),
-                                            str(b.get("until") or ""), by="operator")  # the page's own buttons: the user
-                return 200, {"ok": True, "observation": done}
-    except observations.ScanBroken as e:
-        return 500, {"ok": False, "error": str(e)}
-    except observations.ObservationError as e:
-        return (404 if str(e).startswith("no such observation") else 400), {"ok": False, "error": str(e)}
-    return 404, {"ok": False, "error": "not found"}
-
-
 # -------------------------------------------- agent instructions (STATUS_INSTRUCTIONS_v1)
 # Everything the chat agent reads as instructions is shown in the status tab, whole. The operator may edit what the
 # protected-path registry (protected_paths.json) leaves unprotected; the rest is read-only, and says why.
@@ -342,8 +245,7 @@ def agent_instructions() -> list:
                     "size": st.st_size, "mtime": st.st_mtime, "content": text})
     try:
         import instructions as I
-        generated = [("skills-index", "instr.skills", I._skills_text(), "instr.skills_why"),
-                     ("status-badge", "instr.status_badge", I._status_text(), "instr.status_badge_why")]
+        generated = [("skills-index", "instr.skills", I._skills_text(), "instr.skills_why")]
     except Exception:  # noqa: BLE001
         generated = []
     for iid, title, text, why in generated:
@@ -943,5 +845,4 @@ def _self_status() -> dict:
         "plugins": {
             **i18n.field("note", "instr.plugins_note"),
         },
-        "observation": _observation_summary(),
     }

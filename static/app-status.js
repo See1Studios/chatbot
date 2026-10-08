@@ -13,7 +13,7 @@ async function fetchSelfStatus() {
     }
     renderStatusMcp(res.mcp || []);
     renderStatusHooks(res.hooks || {}, res.plugins || {});
-    // observation/tickets live on Evolution tab (STATUS_EVOLUTION_TAB_v1)
+    // tickets and delegated work live on the Evolution tab (STATUS_EVOLUTION_TAB_v1)
     statusLoaded = true;
   } catch (e) {
     if (statusInstructionsEl) statusInstructionsEl.textContent = tr('status.load_failed', { error: e.message });

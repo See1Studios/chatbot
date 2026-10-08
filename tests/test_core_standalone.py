@@ -1,6 +1,6 @@
-"""Core standalone check (docs/plans/recursive-self-evolution.md §4.6, P3-2): with every layer absent the core still
-collects observations, reviews them, runs tickets with their budget and single-author lock, checks protected paths,
-keeps long-term memory and runs the lifecycle helpers.
+"""Core standalone check (docs/plans/recursive-self-evolution.md P3-2): with every layer absent the core still runs
+tickets with their evidence rule (data only, or the operator's request: improvement-layers D2), budget and
+single-author lock, checks protected paths, keeps long-term memory and runs the lifecycle helpers.
 
 "Layers" are all top-level modules that are not listed in core_modules.json (skills, tool server, HTTP server,
 provider adapters, ...). The scenario runs in a fresh process on a temp instance that has only the core modules and
@@ -21,7 +21,7 @@ from pathlib import Path
 from tests._paths import ENGINE, REPO  # noqa: E402
 CODE = REPO
 CORE = json.loads((ENGINE / "core_modules.json").read_text(encoding="utf-8"))["core"]
-DATA_FILES = ("protected_paths.json", "observation_signals.json", "core_modules.json")
+DATA_FILES = ("protected_paths.json", "core_modules.json")
 LAYERS = sorted(p.stem for p in ENGINE.glob("*.py") if p.stem not in CORE)
 
 SCENARIO = r'''
@@ -39,9 +39,8 @@ class Block(importlib.abc.MetaPathFinder):
 
 
 sys.meta_path.insert(0, Block())
-import evolution, observations, tickets, memory_store
+import evolution, tickets, memory_store
 
-obs = data / "workspace" / "skill-observations"
 mem = data / "workspace" / "memory"
 done = []
 
@@ -66,31 +65,14 @@ assert not evolution.is_protected(root, data / "workspace" / "notes.md")
 assert evolution.is_protected(data, data / "workspace" / "notes.md")          # no registry there: everything is protected
 step("protected paths")
 
-# 2. observation collection: what the host hands to on_turn_end
-assert evolution.on_turn_end(root, obs, "s1", "claude", "result", [], "안녕") == []
-assert evolution.on_turn_end(root, obs, "s1", "claude", "result", [], "왜 안돼?") == ["correction"]
-assert evolution.on_turn_end(root, obs, "s1", "claude", "process_died", ["error"], "이거 해줘") == ["process_died"]
-assert evolution.on_turn_end(root, obs, "s1", "claude", "steer", [], "이것도") == []
-assert len((obs / "candidates.jsonl").read_text(encoding="utf-8").splitlines()) == 2
-step("observation collection")
-
-# 3. observation life cycle: record, review, resolve, archive, mark reviewed
-path = observations.add(obs, "Steer loses the queue", "After a steer the queue was empty.", "session", recent_limit=10)
-assert [o["status"] for o in observations.scan(obs)] == ["open"]
-d = observations.digest(obs)
-assert (len(d["open"]), d["unreviewed_candidates"], d["last_review"]) == (1, 2, "never")
-assert refused(observations.ObservationError, observations.resolve, obs, 1, "actioned", "")
-assert observations.resolve(obs, 1, "actioned", "fixed in session.py")["status"] == "actioned"
-assert observations.mark_reviewed(obs, "read 1 observation, closed it") == time.strftime("%Y-%m-%d")
-assert observations.digest(obs)["unreviewed_candidates"] == 0
-step("observation life cycle")
-
-# 4. tickets: real evidence only, approval is not the agent's, budget, one author
-epoch = json.loads((obs / "candidates.jsonl").read_text(encoding="utf-8").splitlines()[0])["epoch"]
+# 2. tickets: data evidence or the operator's request, approval is not the agent's, budget, one author
 (data / "sessions" / "s1").mkdir(parents=True, exist_ok=True)
 (data / "sessions" / "s1" / "events.jsonl").write_text('{"event":"a"}\n{"event":"b"}\n', encoding="utf-8")
-assert refused(tickets.TicketError, tickets.propose, data, "t", "x", ["candidate:1.5"])
-t1, _ = tickets.propose(data, "Steer queue", "session.py: steer", ["candidate:%s" % epoch, "event:s1#2"])
+assert refused(tickets.TicketError, tickets.propose, data, "t", "x", ["candidate:1.5"])          # not data
+assert refused(tickets.TicketError, tickets.propose, data, "t", "x", [])                         # neither
+asked, _ = tickets.propose(data, "Asked", "asked target", [], request="make it faster")
+assert (asked["evidence"], asked["request"]) == ([], "make it faster")
+t1, _ = tickets.propose(data, "Steer queue", "session.py: steer", ["event:s1#2"])
 _, merged = tickets.propose(data, "Steer queue again", "SESSION.py: steer", ["event:s1#1"])
 assert merged
 assert refused(tickets.TicketError, tickets.approve, data, t1["id"])                      # no one said who is asking
@@ -110,7 +92,7 @@ c = tickets.claim(data, t2["id"])                                               
 tickets.release(data, t2["id"], c["token"], "done")
 step("tickets budget and lock")
 
-# 5. long-term memory
+# 3. long-term memory
 assert memory_store.add(mem, "[2020-01-01] 커피는 아메리카노")[0] == "added"
 assert memory_store.add(mem, "커피는 아메리카노")[0] == "duplicate"
 memory_store.add(mem, "커피 주문은 오전에")
@@ -119,7 +101,7 @@ assert len(memory_store.forget(mem, "커피", all_matches=True)) == 2
 assert (mem / "MEMORY.md.bak").exists() and memory_store.search(mem, "커피") == []
 step("long-term memory")
 
-# 6. lifecycle helpers that the control script only calls into
+# 4. lifecycle helpers that the control script only calls into
 lock = data / "lifecycle.lock"
 code = "import os; raise SystemExit(0 if os.environ.get('CHATBOT_LOCK_PPID') else 3)"
 assert evolution.run_locked(lock, 0, [sys.executable, "-c", code]) == 0
@@ -134,15 +116,15 @@ assert evolution.protected_changes(root)[0] == "nogit"      # no git here: nothi
 assert not evolution.protected_report(root).startswith("WARN")
 step("lifecycle helpers")
 
-# 7. nothing but the core was loaded
+# 5. nothing but the core was loaded
 loaded = sorted(m for m in sys.modules if m in layers)
 assert loaded == [], loaded
 step("no layer module loaded")
 print("RESULT " + json.dumps(done))
 '''
 
-EXPECTED_STEPS = ["protected paths", "observation collection", "observation life cycle", "tickets budget and lock",
-                  "long-term memory", "lifecycle helpers", "no layer module loaded"]
+EXPECTED_STEPS = ["protected paths", "tickets budget and lock", "long-term memory", "lifecycle helpers",
+                  "no layer module loaded"]
 
 
 class Instance:
@@ -232,7 +214,7 @@ class StaticBoundaryTest(unittest.TestCase):
 
     def test_the_data_files_that_define_the_check_are_write_protected(self):
         import evolution
-        for name in ("core_modules.json", "bundle_budget.json", "protected_paths.json", "observation_signals.json"):
+        for name in ("core_modules.json", "bundle_budget.json", "protected_paths.json"):
             self.assertTrue(evolution.is_protected(REPO, ENGINE / name), name)
 
 

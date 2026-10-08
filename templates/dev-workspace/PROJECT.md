@@ -26,4 +26,4 @@ Where things are, for a character doing engine work. Read on demand. Rules: `DEV
   paths (adapter pairs, symmetric UI events and gates) and check them too.
 - Tests: the guards and the modules for your files (`roles/dev/PROCEDURE.md`); core changes also
   `chatbot-ctl.sh guard`, then `doctor` or `probe`.
-- Finish with a HISTORY block, an `observation`, and a short summary for the operator in Korean.
+- Finish with a HISTORY block and a short summary for the operator in Korean.

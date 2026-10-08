@@ -1,4 +1,4 @@
-<!-- AUTO-GENERATED MIRROR FROM RULES.md (source_sha256: c607196c42f86bca12f8b69ef93fda35fe9c82a28c7b176978788b7dc0562d9c) — DO NOT EDIT MANUALLY -->
+<!-- AUTO-GENERATED MIRROR FROM RULES.md (source_sha256: b9f5e7c0fdcb2d766b02ba03733196fc967365e96c2136a59c0687a99f8f42d8) — DO NOT EDIT MANUALLY -->
 
 # 규칙
 
@@ -169,7 +169,6 @@
 | 엔진/페이지 코드에 새로운 하드코딩된 한국어가 없습니다(대신 i18n 카탈로그). 의도한 라인을 표시 `l10n-ok` | 모두 | `test_ratchets` (`ratchet_baseline.json`) |
 | 호스트 플러그인 외부의 엔진 코드에 새 호스트/페르소나 정체성(DiskStation, `/volume1`, Sphere, 실장님, 냥)가 없습니다 | 모두 | `test_ratchets` |
 | 추적된 작업 영역 템플릿 쌍(존재하는 경우 `data/workspace` 저장소)은 `templates/workspace-manifest.json`로 분류됩니다. `same` 쌍은 바이트 동일하게 유지됩니다. 템플릿 이름에는 호스트가 없고 엔진이 작동하지 않습니다. | 모두 | `test_workspace_template` |
-| `observations.add`/`observation` 도구를 통해서만 관찰 | 모두 | `test_observations`(모양) |
 | 운영자와 한국어로 대화하세요. 루트 스탠딩 문서(`*.md`)는 일반 영어로 된 에이전트 SSOT입니다. `*.ko.md` 미러는 사람이 읽을 수 있도록 기계 번역됩니다(에이전트는 수집/편집하지 않음). 계획은 한국어일 수 있습니다 | 모두 | 수동(채팅 에이전트 런타임 음성은 여기가 아닌 작업 공간 헌장에 유지됨) |
 | 영어로 된 상담원 관련 기계 텍스트(프롬프트, 도구 문자열, LEARNED 줄) | 모두 | 매뉴얼 |
 | 각 요청을 프로젝트 목표와 비교하여 확인하세요. 적합하지 않을 경우 범위 재지정을 거부하거나 제안 | 모두 | 매뉴얼(플랜 게이트 G2, DoR) |

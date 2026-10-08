@@ -55,7 +55,8 @@ class InstructionsApiTest(unittest.TestCase):
         self.assertEqual(items["PROJECT.md"]["content"], "procedure")      # whole, not a preview
         self.assertEqual(items["AGENTS.md"]["scope"], "system")
         self.assertEqual(items["characters/%s/card.json" % self.cid]["scope"], "character")
-        for gen in ("skills-index", "status-badge"):
+        self.assertNotIn("status-badge", items)   # il/A (#838): the observation badge is gone
+        for gen in ("skills-index",):
             self.assertEqual((items[gen]["kind"], items[gen]["editable"], items[gen]["scope"]), ("generated", False, "system"))
         layers = [x["layer"] for x in W.agent_instructions()]
         self.assertEqual(layers, sorted(layers, key=lambda l: l != "always"))   # every-turn layer first

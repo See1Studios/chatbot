@@ -9,10 +9,6 @@ into (docs/plans/recursive-self-evolution.md §3 0-6): one shared lock for
 start/doctor/repair, a maintenance flag, and the check `doctor` warns with: protected files
 that differ from git HEAD (edited, deleted or new and uncommitted).
 
-The observation side (§4.6) lives here too: `on_turn_end` turns a finished turn
-into observation candidates, `add_observation` writes an observation-log entry.
-The host and the tool server only call these; they hold no logic of their own.
-
 Design constraints (§3 0-0):
 - Standard library only, and the `root` argument decides every path. Nothing
   from the host (config, session, tool server, HTTP server) is imported, so
@@ -39,7 +35,6 @@ import re
 import signal
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -50,17 +45,6 @@ import repo_layout
 REGISTRY_NAME = "protected_paths.json"
 _GLOB_CHARS = "*?["
 BUSY_EXIT = 75  # EX_TEMPFAIL: the lock stayed busy for the whole wait
-SIGNALS_NAME = "observation_signals.json"
-CANDIDATES_NAME = "candidates.jsonl"
-OBSERVATION_LOG = "observation-log"
-_CANDIDATES_MAX_BYTES = 256 * 1024
-_CANDIDATES_KEEP_LINES = 500
-_EXCERPT_CHARS = 160
-_candidates_lock = threading.Lock()
-
-
-class TooManyObservations(Exception):
-    """Too many observations were added recently (a runaway, not a review)."""
 
 
 class RegistryError(Exception):
@@ -336,124 +320,8 @@ def protected_report(root) -> str:
     return "WARN protected files differ from git HEAD (warning only): " + " ".join(parts)
 
 
-# ------------------------------------------------------------------ observation
+# ------------------------------------------------------------------ who: role ids
 
-def load_signal_config(root) -> Dict[str, List[str]]:
-    """Patterns from observation_signals.json. Collection is best effort, so a
-    missing or broken file yields an empty config instead of an error."""
-    empty = {"correction": [], "ignore_user_prefixes": []}
-    try:
-        raw = json.loads((repo_layout.engine_of(root) / SIGNALS_NAME).read_text(encoding="utf-8"))
-        return {k: [x for x in (raw.get(k) if isinstance(raw.get(k), list) else []) if isinstance(x, str) and x]
-                for k in empty}
-    except (OSError, ValueError, AttributeError, TypeError):
-        return empty
-
-
-def detect_correction(text: str, patterns: List[str]) -> Optional[str]:
-    """The first pattern the user's message matches (the user is correcting the
-    previous answer), or None. Invalid patterns are skipped."""
-    for pat in patterns:
-        try:
-            if re.search(pat, text or "", re.IGNORECASE):
-                return pat
-        except re.error:
-            continue
-    return None
-
-
-def record_candidate(obs_root, signal: str, sid: str, provider: str, detail: Optional[Dict] = None) -> bool:
-    """Append one line to candidates.jsonl under `obs_root`. Only where that
-    directory already exists (an instance that keeps observations); the file is
-    trimmed to its newest lines when it grows large. Never raises."""
-    try:
-        base = Path(obs_root)
-        if not base.is_dir():
-            return False
-        entry = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "epoch": round(time.time(), 3),
-                 "sid": str(sid)[:80], "provider": str(provider)[:40], "signal": str(signal)[:40]}
-        entry["detail"] = {str(k)[:40]: (v if isinstance(v, (int, float)) else str(v)[:_EXCERPT_CHARS + 40])
-                           for k, v in (detail or {}).items()}
-        line = json.dumps(entry, ensure_ascii=False) + "\n"
-        path = base / CANDIDATES_NAME
-        with _candidates_lock:
-            if path.exists() and path.stat().st_size > _CANDIDATES_MAX_BYTES:
-                kept = path.read_text(encoding="utf-8", errors="replace").splitlines()[-_CANDIDATES_KEEP_LINES:]
-                tmp = path.with_name(".%s.%d.tmp" % (path.name, os.getpid()))
-                platform_compat.write_text(tmp, "\n".join(kept) + "\n", encoding="utf-8")
-                tmp.replace(path)
-            with open(str(path), "a", encoding="utf-8", newline="\n") as f:
-                f.write(line)
-        return True
-    except Exception:  # noqa: BLE001 -- observing must never disturb a turn
-        return False
-
-
-def turn_signals(cfg: Dict[str, List[str]], outcome: str, marks: List[str], user_text: str) -> List[Tuple[str, str]]:
-    """(signal, note) pairs for a finished turn; empty for an ordinary one.
-
-    outcome: how the host saw it end ("result", "error", "stopped", "steer",
-    "interrupted", "process_died", "auto_stop"). marks: kinds of error/stopped/
-    interrupted events emitted during the turn. Only the user's own words and
-    host measurements are used -- never tool or web output (§4.4).
-    """
-    text = (user_text or "").strip()
-    if any(text.startswith(p) for p in cfg.get("ignore_user_prefixes", [])):
-        return []
-    found: List[Tuple[str, str]] = []
-    kinds = set(m for m in marks if m in ("error", "stopped", "interrupted"))
-    if outcome in ("process_died", "stopped", "auto_stop"):
-        kinds.add(outcome)
-    elif outcome == "interrupted":
-        kinds.add("interrupted")
-    if "process_died" in kinds:
-        kinds.discard("error")
-    if outcome == "steer":  # the user adding an instruction mid-turn is normal use, not a failure
-        kinds.discard("interrupted")
-    if "auto_stop" in kinds:  # the host's own stop already explains its error/stopped events
-        kinds -= {"error", "stopped"}
-    for kind in sorted(kinds):
-        found.append((kind, outcome))
-    hit = detect_correction(text, cfg.get("correction", []))
-    if hit:
-        found.append(("correction", hit))
-    return found
-
-
-def on_turn_end(root, obs_root, sid: str, provider: str, outcome: str, marks: List[str], user_text: str) -> List[str]:
-    """Record the candidates for one finished turn; returns the signals recorded."""
-    try:
-        cfg = load_signal_config(root)
-        recorded = []
-        for signal_name, note in turn_signals(cfg, outcome, marks, user_text):
-            detail = {"outcome": outcome, "note": note, "user": (user_text or "").strip()[:_EXCERPT_CHARS]}
-            if record_candidate(obs_root, signal_name, sid, provider, detail):
-                recorded.append(signal_name)
-        return recorded
-    except Exception:  # noqa: BLE001
-        return []
-
-
-def _next_observation_id(obs_dir: Path) -> int:
-    top = 0
-    for d in (obs_dir, obs_dir / "archive"):
-        try:
-            for f in d.iterdir():
-                m = re.match(r"^(\d+)", f.name)
-                if m:
-                    top = max(top, int(m.group(1)))
-        except OSError:
-            continue
-    try:
-        top = max(top, int((obs_dir / "archive" / ".id-floor").read_text(encoding="utf-8").strip()))
-    except (OSError, ValueError):
-        pass
-    return top + 1
-
-
-# NAME_NEUTRAL_v1: who did something is stored as a role id -- "claude-code", "grok", "operator",
-# "chat-agent:agy" -- never as a persona name or the persona's word for the user. Those are display,
-# per instance, from the identity files; the pattern keeps them out structurally (ASCII only).
 ROLE_ID_RE = re.compile(r"^[a-z][a-z0-9._-]{0,30}(?::[a-z0-9._?-]{1,20})?$")
 
 
@@ -465,48 +333,6 @@ def role_id(value) -> str:
                          "(not a persona name or title): %r" % v[:40])
     return v
 
-
-def add_observation(obs_dir, title: str, body: str, area: str = "", recent_limit: Optional[int] = None,
-                    window_sec: int = 3600, actor: str = "") -> Path:
-    """Create the next observation-log entry (status: open) and return its path.
-    The caller vets the text; this only bounds its size and picks a free number.
-    With `recent_limit`, refuse (TooManyObservations) once that many entries
-    were created in the last `window_sec` seconds."""
-    d = Path(obs_dir)
-    d.mkdir(parents=True, exist_ok=True)
-    if recent_limit is not None:
-        cutoff = time.time() - window_sec
-        recent = 0
-        for f in d.iterdir():
-            try:
-                if re.match(r"^\d+-", f.name) and f.stat().st_mtime >= cutoff:
-                    recent += 1
-            except OSError:
-                continue
-        if recent >= recent_limit:
-            raise TooManyObservations("%d observations in the last %d minutes" % (recent, window_sec // 60))
-    title = re.sub(r"\s+", " ", str(title)).strip().lstrip("#").strip()[:120] or "observation"
-    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:48] or "observation"
-    area = re.sub(r"\s+", " ", str(area)).strip()[:60]
-    actor = role_id(actor)  # who recorded it (ACTOR_ATTRIBUTION_v1); a role id (NAME_NEUTRAL_v1)
-    number = _next_observation_id(d)
-    for _ in range(50):
-        path = d / ("%04d-%s.md" % (number, slug))
-        text = ("---\nid: %d\ntitle: %s\nstatus: open\ntype: internal\nskill: []\nproposes_skill: []\narea: %s\n"
-                "date: %s\nparked_until:\nresolved:\nresolution:\nreference:\n%s---\n\n%s\n"
-                % (number, json.dumps(title, ensure_ascii=False), json.dumps(area, ensure_ascii=False),
-                   time.strftime("%Y-%m-%d"), ("actor: %s\n" % json.dumps(actor, ensure_ascii=False)) if actor else "",
-                   str(body).strip()[:4000]))
-        try:
-            with open(str(path), "x", encoding="utf-8") as f:  # exclusive: two writers never share a number
-                f.write(text)
-            return path
-        except FileExistsError:
-            number += 1
-    raise OSError("no free observation number")
-
-
-# ---------------------------------------------------------------- command line
 
 def main(argv: List[str]) -> int:
     root = repo_layout.REPO

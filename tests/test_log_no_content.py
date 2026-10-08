@@ -42,13 +42,11 @@ class GlobalLogHasNoTurnText(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp()).resolve()
         (self.tmp / "sessions").mkdir()
-        (self.tmp / "workspace" / "skill-observations").mkdir(parents=True)
         self.stream = self.tmp / "logs" / "events.jsonl"
-        self._orig = {k: getattr(session, k) for k in ("SESSIONS", "ROOT", "DATA", "evolution")}
+        self._orig = {k: getattr(session, k) for k in ("SESSIONS", "ROOT", "DATA")}
         session.SESSIONS = self.tmp / "sessions"
         session.ROOT = ENGINE
         session.DATA = self.tmp
-        session.evolution = None  # candidates are another contract; not what this file is about
         self._summary = session.AgentSession.get_handover_summary
         session.AgentSession.get_handover_summary = lambda self, *a, **k: ""
         self._obs_state = {k: obslog._state[k] for k in ("src", "path", "mirror")}

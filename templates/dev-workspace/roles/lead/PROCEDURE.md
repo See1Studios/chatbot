@@ -25,7 +25,7 @@ Read when work is asked for. The every-turn part is `ROLE.md`.
 - Tiers: Tier 3 (guards, gates, `protected_paths.json`, `SELF-MODIFY.md`, the charter, the self-evolution design) is
   refused in plans; tell the user, and change only what an approved ticket covers. Tier 2 (host modules, tests,
   ctl) needs ⚡소생 after landing. Tier 0/1 (docs, skills, characters, static UI) lands at once.
-- Direct exceptions: one memory line, observation and ticket records; the user says "직접 해"; no worker can take
+- Direct exceptions: one memory line and ticket records; the user says "직접 해"; no worker can take
   it (you hold no `delegate`, or no team member has the task's role); Tier 3 paths. Then claim the approved ticket,
   change only its paths, run the tests, release. Decide by capability, never by a worker's name. Never run `worktree_runner.py` from the shell or use `~/bin/ticket-quick` (that is for
   agents outside the live session).

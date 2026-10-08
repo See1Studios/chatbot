@@ -23,7 +23,7 @@ import tickets  # noqa: E402
 _DEV = mock.patch.object(__import__("mcp_server"), "EDITION", "dev")
 setUpModule, tearDownModule = _DEV.start, _DEV.stop
 
-CAND = "candidate:1789908287.39"
+CAND = "event:s1#1"   # any real data evidence (improvement-layers D2)
 TIER0 = ["data/workspace/notes/x.md"]
 TIER2 = ["session.py"]
 
@@ -31,9 +31,8 @@ TIER2 = ["session.py"]
 class Base(unittest.TestCase):
     def setUp(self):
         self.data = Path(tempfile.mkdtemp()).resolve()
-        obs = self.data / "workspace" / "skill-observations"
-        obs.mkdir(parents=True)
-        (obs / "candidates.jsonl").write_text(json.dumps({"epoch": 1789908287.39}) + "\n", encoding="utf-8")
+        (self.data / "sessions" / "s1").mkdir(parents=True)
+        (self.data / "sessions" / "s1" / "events.jsonl").write_text('{"event":"system"}\n', encoding="utf-8")
         import characters
         s_id, p_id, ws = characters.new_id(), characters.new_id(), self.data / "workspace"
         characters.save(s_id, characters.new_card("S"), ws)

@@ -23,7 +23,7 @@ from tests._platform import posix_only  # noqa: E402
 
 T0 = 1_800_000_000.0
 EVENT = "event:s1#2"
-CAND = "candidate:1789908287.39"
+OTHER = "event:s1#1"
 
 
 class Base(unittest.TestCase):
@@ -31,9 +31,6 @@ class Base(unittest.TestCase):
         self.data = Path(tempfile.mkdtemp()).resolve()
         (self.data / "sessions" / "s1").mkdir(parents=True)
         (self.data / "sessions" / "s1" / "events.jsonl").write_text('{"event":"system"}\n{"event":"error"}\n', encoding="utf-8")
-        obs = self.data / "workspace" / "skill-observations"
-        obs.mkdir(parents=True)
-        (obs / "candidates.jsonl").write_text(json.dumps({"epoch": 1789908287.39, "signal": "correction"}) + "\n", encoding="utf-8")
 
     def propose(self, target="session.py: steer", title="Steer loses the queue", evidence=None, now=T0):
         return tickets.propose(self.data, title, target, evidence or [EVENT], now=now)
@@ -47,9 +44,21 @@ class Base(unittest.TestCase):
 
 
 class EvidenceTest(Base):
-    def test_real_events_and_candidates_are_accepted(self):
-        for ref in ("event:s1#1", "event:s1#2", CAND, "candidate:1789908287.390"):
+    def test_real_events_are_accepted(self):
+        for ref in ("event:s1#1", "event:s1#2"):
             tickets.verify_evidence(self.data, ref)
+
+    def test_the_operators_words_are_a_request_not_evidence(self):
+        # improvement-layers D2 (2026-10-09): evidence is data only; a placeholder ("manual" candidates, 327 of them)
+        # filled the old rule
+        with self.assertRaises(tickets.TicketError) as cm:
+            tickets.propose(self.data, "t", "x", [], now=T0)
+        self.assertIn("--request", str(cm.exception))
+        t, _ = tickets.propose(self.data, "Faster replies", "session.py: speed", [], now=T0, request="  make it   faster ")
+        self.assertEqual((t["evidence"], t["request"]), ([], "make it faster"))
+        t2, merged = tickets.propose(self.data, "Faster", "SESSION.py: speed", [EVENT], now=T0)
+        self.assertTrue(merged)
+        self.assertEqual((t2["evidence"], t2["request"]), ([EVENT], "make it faster"))
 
     def test_invented_or_malformed_evidence_is_refused(self):
         for ref in ("event:s1#3", "event:nope#1", "event:s1#0", "event:s1", "event:../s1#1", "event:s1/../s1#1",
@@ -84,17 +93,17 @@ class EvidenceTest(Base):
 
 class ProposeTest(Base):
     def test_creates_a_proposed_ticket_with_the_evidence(self):
-        t, merged = self.propose(evidence=[EVENT, CAND, EVENT])
+        t, merged = self.propose(evidence=[EVENT, OTHER, EVENT])
         self.assertFalse(merged)
-        self.assertEqual((t["id"], t["status"], t["attempts"], t["evidence"]), (1, "proposed", 0, [EVENT, CAND]))
+        self.assertEqual((t["id"], t["status"], t["attempts"], t["evidence"]), (1, "proposed", 0, [EVENT, OTHER]))
         self.assertEqual(self.raw(1)["target"], "session.py: steer")
 
     def test_same_target_is_merged_not_duplicated(self):
         first, _ = self.propose(evidence=[EVENT])
-        again, merged = self.propose(target="  SESSION.py:   Steer ", title="other words", evidence=[EVENT, CAND])
+        again, merged = self.propose(target="  SESSION.py:   Steer ", title="other words", evidence=[EVENT, OTHER])
         self.assertTrue(merged)
         self.assertEqual(again["id"], first["id"])
-        self.assertEqual(again["evidence"], [EVENT, CAND])
+        self.assertEqual(again["evidence"], [EVENT, OTHER])
         self.assertEqual(len(tickets.list_tickets(self.data)), 1)
 
     def test_a_closed_ticket_does_not_absorb_a_new_proposal(self):
@@ -942,7 +951,7 @@ class AwaitingMergeTest(Base):
 
     def test_a_proposal_for_the_same_target_joins_the_waiting_ticket(self):
         tid = self.waiting()
-        t, merged = self.propose(evidence=[CAND], now=T0 + 40)
+        t, merged = self.propose(evidence=[OTHER], now=T0 + 40)
         self.assertEqual((t["id"], merged), (tid, True))
 
 

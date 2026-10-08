@@ -12,8 +12,6 @@ ACT = lambda *a: {"type": "string", "enum": list(a)}
 S, A = {"type": "string"}, {"type": "array", "items": {"type": "string"}}
 SCHEMAS = {
     "memory": {"action": ACT("show", "search", "add", "forget"), "text": S, "query": S, "section": S},
-    "observation": {"action": ACT("add", "list", "get", "resolve", "review", "reviewed"), "title": S, "body": S,
-                    "id": {"type": "integer"}, "text": S, "status": S},
     "ticket": {"action": ACT("propose", "list", "get", "claim", "note", "release"), "id": {"type": "integer"},
                "title": S, "target": S, "text": S, "paths": A},
     "delegate": {"action": ACT("plan", "start", "status"), "title": S, "paths": A, "instruction": S,
@@ -53,12 +51,9 @@ class LiveRefusals(unittest.TestCase):
         got, ch = norm("memory", {"category": "user", "fact": "x"})
         self.assertEqual((got["action"], got["text"]), ("add", "x"))
         self.assertEqual(norm("memory", {"category": "user", "query": "공항"})[0]["action"], "search")
-        got, _ = norm("observation", {"title": "t", "content": "c"})
-        self.assertEqual((got["action"], got["body"]), ("add", "c"))
-        self.assertEqual(norm("observation", {"action": "observation", "title": "t", "content": "c"})[0]["action"], "add")
-        self.assertEqual(norm("observation", {"category": "open"})[0]["action"], "list")
-        # a body without a title is still an add: the tool then says the title is missing, not a list
-        self.assertEqual(norm("observation", {"content": "c"})[0]["action"], "add")
+        self.assertEqual(norm("ticket", {"title": "t", "target": "x"})[0]["action"], "propose")
+        self.assertEqual(norm("ticket", {"action": "ticket", "title": "t"})[0]["action"], "propose")   # the tool's name
+        self.assertEqual(norm("ticket", {"category": "open"})[0]["action"], "list")
 
     def test_other_key_names(self):
         self.assertEqual(norm("run_command", {"command": "git status"})[0], {"cmd": "git status"})

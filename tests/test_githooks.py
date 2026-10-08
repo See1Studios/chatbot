@@ -203,6 +203,26 @@ class Hooks(unittest.TestCase):
         self.assertEqual(check.related_for(ROOT, [], lambda: "chat-agent:agy"), [])
         self.assertEqual(check.related_for(self.repo, ["x.py"], lambda: "chat-agent:agy"), [])          # no runner here
 
+    @dev_only_bash
+    def test_a_test_the_commit_deletes_is_not_run(self):
+        # #838 (2026-10-09): the related list comes from HEAD's tests; a commit deleting seven test modules was
+        # refused because the runner was asked for the deleted ones ("MISSING")
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, str(repo), True)
+        ran = repo.parent / (repo.name + "-ran.txt")
+        self.addCleanup(lambda: ran.unlink() if ran.exists() else None)
+        (repo / "engine").mkdir()
+        (repo / "tests").mkdir()
+        (repo / "engine" / "run-tests.sh").write_text('echo "$@" >> %s\nexit 0\n' % ran, encoding="utf-8")
+        for t in ("test_gone", "test_kept"):
+            (repo / "tests" / (t + ".py")).write_text("", encoding="utf-8")
+        for args in (["init", "-q"], ["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
+                     ["rm", "-q", "tests/test_gone.py"]):
+            subprocess.run(["git", *args], cwd=str(repo), check=True, capture_output=True)
+        r = check.run_guards_on_snapshot(repo, ["test_gone", "test_kept"])
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(ran.read_text(encoding="utf-8").split("\n")[:2], ["--fast", "test_kept"])
+
     def test_only_a_live_chat_agent_landing_a_worker_branch_is_refused(self):
         main = [("0" * 40, "a" * 40, "refs/heads/main")]
         on_worker = lambda sha: True

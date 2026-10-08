@@ -3,11 +3,10 @@
 
 Core module: standard library only; every path derives from the `sessions` argument (<data>/sessions).
 One file per session, `<sid>/personal-turns.jsonl`, one line per marked turn: {"turn": <user message ts>, "ts": ...}.
-A turn is keyed by its user message's ts, the same key the host uses to hand a turn to the observation log.
+A turn is keyed by its user message's ts.
 
 Readers (each closes one path into work material):
-- mcp_server `_live_scope`: memory, observation and ticket tools are closed for the rest of a marked turn.
-- session `_finish_turn`: a marked turn is not handed to evolution.on_turn_end (no observation candidate).
+- mcp_server `_live_scope`: the memory and ticket tools are closed for the rest of a marked turn.
 - workspace tool recall_memory.py: marked turns and their replies are not searchable from work.
 - the page (`api`, GET /api/sessions/<sid>/personal-turns): a small lock on marked bubbles in the advanced density.
 """
@@ -25,7 +24,7 @@ TOOL_DEFS = [{
     "name": "personal_turn",
     "description": ("Call once, before replying, when the user's current message in a work session is personal rather "
                     "than work: flirting, affection, private feelings. The turn stays in the chat, but it is kept out "
-                    "of work memory, observations and tickets, and the work tools (memory, observation, ticket, "
+                    "of work memory and tickets, and the work tools (memory, ticket, "
                     "delegate, web) close until the turn ends (PERSONAL_TURN_v1)."),
     "inputSchema": {"type": "object", "properties": {}},
 }]
@@ -191,7 +190,7 @@ def tool_call(sessions, busy, active_sid) -> tuple:
         return False, "this turn cannot be marked"
     offer = ("The engine adds a move choice to your reply; do not write one." if offers_left(sessions, sid)
              else "No move is offered now: the user stayed at work the last times.")
-    return True, "marked personal: this turn stays out of work memory, observations and tickets. " + offer
+    return True, "marked personal: this turn stays out of work memory and tickets. " + offer
 
 
 _ROUTE = re.compile(r"^/api/sessions/([A-Za-z0-9._-]{1,80})/personal-turns$")

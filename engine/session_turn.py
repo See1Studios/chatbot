@@ -127,8 +127,6 @@ class SessionTurn:
                 self.save_meta()
             except Exception:
                 pass
-            if _s().evolution is not None:
-                _s().evolution.record_candidate(self._observation_root(), "rotation", self.sid, self.provider, {"outcome": reason})
         # client_mid lets the sending tab's own SSE handler recognize this
         # rotation as one it already knows about (the /message HTTP response
         # itself carries the same info) and skip re-rendering -- without

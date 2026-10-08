@@ -42,14 +42,9 @@ class WorkspaceCase(unittest.TestCase):
                "---\nname: alpha\ndescription: >\n  알파 스킬 설명\n  두 번째 줄\n---\n본문")
         _write(self.ws / ".agents/skills/_off/SKILL.md", "---\nname: _off\ndescription: 꺼짐\n---\n")
         _write(self.ws / "memory/MEMORY.md", "# 기억\n\n## 사용자\n\n## 운영 결정\n")
-        _write(self.ws / "skill-observations/observation-log/0001-x.md", "---\nstatus: open\n---\n")
-        _write(self.ws / "skill-observations/observation-log/0002-y.md", "---\nstatus: actioned\n---\n")
-        _write(self.ws / "skill-observations/last-review-date.txt", "2026-09-16\n")
         I.WORKSPACE = self.ws
         I.WS_SKILLS_DIR = self.ws / ".agents" / "skills"
         I.MEMORY_FILE = self.ws / "memory" / "MEMORY.md"
-        I.OBS_DIR = self.ws / "skill-observations" / "observation-log"
-        I.LAST_REVIEW_FILE = self.ws / "skill-observations" / "last-review-date.txt"
         # rule files are resolved from I.WORKSPACE at call time
         S.build_instruction_bundle = I.build_instruction_bundle
 
@@ -62,29 +57,7 @@ class BundleTests(WorkspaceCase):
         self.assertIn("PERSONA-MARK", t)
         self.assertIn("- alpha — 알파 스킬 설명 두 번째 줄", t)
         self.assertNotIn("_off", t)
-        self.assertIn("1 open observations · 0 unreviewed candidates · last review 2026-09-16", t)
-
-    def test_the_badge_counts_candidates_since_the_last_review_only(self):
-        import time
-        day_start = time.mktime(time.strptime("2026-09-16", "%Y-%m-%d"))
-        rows = [{"epoch": day_start - 3600, "signal": "stopped"}, {"epoch": day_start + 3600, "signal": "correction"},
-                {"epoch": day_start + 7200, "signal": "stopped"}]
-        _write(self.ws / "skill-observations/candidates.jsonl", "".join(json.dumps(r) + "\n" for r in rows))
-        self.assertIn("1 open observations · 2 unreviewed candidates · last review 2026-09-16", I.build_instruction_bundle()["text"])
-
-    def test_the_badge_survives_a_missing_core_module_and_a_missing_candidate_file(self):
-        self.assertIn("0 unreviewed candidates", I.build_instruction_bundle()["text"])  # no candidates.jsonl
-        saved = I.observations
-        I.observations = None
-        try:
-            self.assertIn("0 unreviewed candidates", I.build_instruction_bundle()["text"])
-        finally:
-            I.observations = saved
-
-    def test_the_badge_is_not_part_of_the_hash(self):
-        h0 = I.build_instruction_bundle()["hash"]
-        _write(self.ws / "skill-observations/candidates.jsonl", json.dumps({"epoch": 9e9, "signal": "stopped"}) + "\n")
-        self.assertEqual(h0, I.build_instruction_bundle()["hash"])
+        self.assertNotIn("Self-improvement status", t)   # il/A (#838): the observation badge went with the log
 
     def test_empty_memory_template_is_omitted(self):
         self.assertNotIn("[Long-term memory snapshot]", I.build_instruction_bundle()["text"])

@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from tests._paths import ENGINE  # noqa: E402
@@ -59,12 +60,13 @@ class UnticketedWrite(unittest.TestCase):
     def write(self, path, tool="write_to_file", key="TargetFile"):
         self.s._observe_agent_step(step(tool, {key: str(path)}))
 
-    def test_a_write_without_a_lease_warns_once_and_leaves_a_candidate(self):
-        self.write(self.tmp / "static" / "app.js")
-        self.write(self.tmp / "static" / "app.js")
+    def test_a_write_without_a_lease_warns_once_and_logs_it(self):
+        logged = []
+        with mock.patch.object(W.obslog, "event", side_effect=lambda evt, **kw: logged.append((evt, kw.get("path")))):
+            self.write(self.tmp / "static" / "app.js")
+            self.write(self.tmp / "static" / "app.js")
         self.assertEqual(self.warned(), ["static/app.js"])
-        rows = (self.tmp / "workspace" / "skill-observations" / "candidates.jsonl").read_text().splitlines()
-        self.assertEqual([json.loads(r)["signal"] for r in rows], ["unticketed_write"])
+        self.assertEqual(logged, [("guard.unticketed_write", "static/app.js")])   # telemetry, not a candidate (il/A)
 
     def test_a_live_lease_on_the_file_or_its_folder_covers_it(self):
         self.lease(["static/"])

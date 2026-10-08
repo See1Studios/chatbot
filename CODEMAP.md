@@ -16,7 +16,7 @@ map only says which file does what.
 | Area | Files |
 |---|---|
 | Paths, ports, env, token thresholds | `host_config.py`; where the repo root and the engine folder are `repo_layout.py` (tests: `tests/_paths.py`) |
-| Self-evolution core (stdlib and each other only, `core_modules.json`) | `repo_layout.py`, `evolution.py`, `tickets.py`, `observations.py`, `memory_store.py`, `platform_compat.py` (OS differences); tickets from a CLI: `tools/ticket_quick.py` |
+| Self-evolution core (stdlib and each other only, `core_modules.json`) | `repo_layout.py`, `evolution.py`, `tickets.py`, `memory_store.py`, `platform_compat.py` (OS differences); tickets from a CLI: `tools/ticket_quick.py` |
 | Guards | loops `loop_guard.py`; unticketed writes, working-tree watch `write_guard.py`; per-caller tool scope and edition boundary `role_guard.py`; safety `content_guard.py` + `engine_data/content_guards.json` |
 | Logs (telemetry, `docs/plans/telemetry.md`) | `telemetry/obslog.py` (writes `logs/events.jsonl`), `telemetry/logdigest.py` (reads it), `telemetry/archive.py` (gzip history, 90 days) |
 | Quota (which brain is out of quota until when, from the usage report; no send to it until then) | `quota_state.py` |
@@ -51,7 +51,7 @@ map only says which file does what.
 
 | Area | Files |
 |---|---|
-| Tool server | `mcp_server.py`; core tools (memory, observation, ticket) `mcp_core.py`; NAS host plugin `nas_mcp_host.py` |
+| Tool server | `mcp_server.py`; core tools (memory, ticket) `mcp_core.py`; NAS host plugin `nas_mcp_host.py` |
 | Tool calls | argument shapes `mcp_args.py`; tools an HTTP brain lacks `web_tool.py`, `mcp_parity.py`; which session called `mcp_caller.py` |
 
 ### Characters and personalization

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ticket-quick: one-line ticket open/claim/release for agents working outside the live chat (plan pew/K).
 
-  python3 engine/tools/ticket_quick.py start --title "[<plan id>] ..." --paths a,b [--evidence log:fp:<fp> ...]
+  python3 engine/tools/ticket_quick.py start --title "[<plan id>] ..." --paths a,b (--request "<operator's words>" | --evidence log:fp:<fp> ...)
   python3 engine/tools/ticket_quick.py done --id <N> [--token <T>] [--note "..."]
   python3 engine/tools/ticket_quick.py fail --id <N> [--token <T>] --outcome gate_failed --note "..."
   python3 engine/tools/ticket_quick.py renew --id <N> [--token <T>]
@@ -18,16 +18,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import os
 import sys
-import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import evolution  # noqa: E402
 import tickets  # noqa: E402
 from host_config import DATA as DATA_DIR  # noqa: E402
 
@@ -77,18 +74,6 @@ def _token(args) -> str:
 
 
 # --- actor ------------------------------------------------------------------------------------------------
-
-def _ensure_candidate_evidence() -> str:
-    """Record a 'manual' candidate row and return its evidence ref (only when no real evidence was given)."""
-    candidates_file = Path(DATA_DIR) / "workspace" / "skill-observations" / evolution.CANDIDATES_NAME
-    candidates_file.parent.mkdir(parents=True, exist_ok=True)
-    epoch = round(time.time(), 3)
-    entry = {"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "epoch": epoch, "sid": "quick-ticket-cli",
-             "provider": "external", "signal": "manual", "detail": {"user": "quick-ticket CLI invocation"}}
-    with open(candidates_file, "a", encoding="utf-8", newline="\n") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    return "candidate:%s" % epoch
-
 
 # ACTOR_ATTRIBUTION_v1: who runs this, from the process ancestry (OS facts), unless --actor says.
 # Only executable names count (argv[0] and the script an interpreter runs), never the rest of a command
@@ -173,12 +158,12 @@ def cmd_start(args):
     if not title:
         print("Error: --title is required", file=sys.stderr)
         sys.exit(1)
-    # Real evidence first (event:<sid>#<line>, candidate:<epoch>, log:fp:<fp>, log:rid:<rid> --
-    # see `chatbot-ctl.sh logs`); only without it fall back to a manual candidate marker.
-    evidence_refs = [e.strip() for e in (args.evidence or []) if e.strip()] or [_ensure_candidate_evidence()]
+    # D2 (improvement-layers): evidence is data (event:<sid>#<line>, log:fp:<fp>, log:rid:<rid> -- `chatbot-ctl.sh
+    # logs`); the operator's words are a request, kept apart. One of the two is required.
+    evidence_refs = [e.strip() for e in (args.evidence or []) if e.strip()]
     actor = _actor(args)
     try:
-        t, merged = tickets.propose(DATA_DIR, title, target, evidence_refs, actor=actor)
+        t, merged = tickets.propose(DATA_DIR, title, target, evidence_refs, actor=actor, request=args.request)
         tid = t["id"]
         print("[1/3] Ticket #%d proposed (%s)." % (tid, "merged" if merged else "new"))
     except Exception as e:
@@ -337,8 +322,10 @@ def build_parser():
     p.add_argument("--target", default="", help="Ticket target (defaults to paths or external-task)")
     p.add_argument("--actor", default="", help=actor_help)
     p.add_argument("--evidence", action="append", default=[],
-                   help="Evidence ref, repeatable: event:<sid>#<line> | candidate:<epoch> | log:fp:<fp> | log:rid:<rid>. "
-                        "Without it a 'manual' candidate is recorded as a placeholder.")
+                   help="Data evidence, repeatable: event:<sid>#<line> | log:fp:<fp> | log:rid:<rid> (chatbot-ctl.sh logs)")
+    p.add_argument("--request", default="",
+                   help="The operator's words that asked for this, as given (a request, not evidence). "
+                        "A ticket needs --evidence or --request.")
 
     p = sub.add_parser("claim", help="Claim an approved ticket (one start opened while its files were held)")
     p.add_argument("--id", type=int, required=True, help="Ticket ID")
