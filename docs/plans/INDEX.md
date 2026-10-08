@@ -33,6 +33,7 @@
 |---|---|---|
 | [direction-alignment.md](direction-alignment.md) | `active` · 방향 **정렬** — 개인화 하네스로의 전환(전영소녀·조이, 업무 경쟁 안 함): 기조 재작성 → 제품 문서 → 계획 적합성 → 코드(NAS 플러그인·호칭 중립) → 개인화 고리 설계 | 기조·제품 정체성·방향 적합성을 판단하거나 바꿀 때 (**다른 계획보다 먼저**) |
 | [market-direction-review.md](market-direction-review.md) | `active` · 방향 **정렬** — **참고 자료(구현을 멈추지 않음, 근거가 생기면 재검토)**: 시장·포지셔닝·수익선 재진단, 작업 순서 재랭크(60초 데모 우선 · cadence 계획 신설). §7 스팀판 제타(운영자, 원문 확인): 창작마당=넓이·엔진=깊이, 내 구독 로그인 기본, Steam 실시간 AI 성인 콘텐츠 불가 → 15세 수준, R9–R13 대기 | 해자·포지셔닝·수익선·순서를 판단하고 R1–R8을 결정할 때 (`direction-alignment.md` 다음) |
+| [improvement-layers.md](improvement-layers.md) | `active` · 방향 **개발판 전용 + 핵심** — 개선을 두 계층으로: 엔진 이상 징후(징후→사건→분석→알림→일감) / 스킬(지침+스크립트 재사용). skill-observations 관찰·후보 전부 걷어냄, 티켓 이전, 기능 패키지(`engine/health/`·`engine/skills/`) 첫 사례. D1–D5 대기 | 관찰·후보·티켓 위치·이상 징후 알림·스킬 스크립트를 건드릴 때 |
 | [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md) | `active` · 방향 **개발판 전용 + 핵심** — §10 PD 모델, §11 전문가, §12 캐릭터(카드·사적 기억·이미지 형식·역할 팩), §14 운영 1주 평가(장치 동결·교차 검토·기반 확인) | 위임·PD·캐릭터·역할을 건드릴 때 |
 | [character-resource-pipeline.md](character-resource-pipeline.md) | `active` · 방향 **핵심** — 캐릭터 폴더 SSOT, 정본/파생/인스턴스, `needed_art`, 자기진화 완결성 관찰. §10(2026-09-29): 무대=장소·캐릭터=투명 스프라이트, 이름 접미사로 자동 대체(SillyTavern 표정 규칙·CCv3 `assets` 차용), SD1–SD4 결정 | 캐릭터 생성·수정·그림·Hub 페르소나 경로를 건드릴 때 |
 | [user-data-and-editing.md](user-data-and-editing.md) | `active` · 방향 **핵심 + 기반** — 사용자 데이터 분리(배포), ~~직책 이름은 표시값~~(완료 #129), 카드 폼 편집, 옛 프로토타입 삭제 | 배포 준비·팀 탭 편집·직책을 건드릴 때 |
