@@ -711,6 +711,7 @@
   "srv.mcp_core": "nas MCP는 코어 — 삭제 불가",
   "srv.quiet_progress": "{s}초째 신호 없음 — 긴 생각일 수 있어요. 기다리거나 중지하세요",
   "srv.quota_exhausted": "쿼터가 소진됐습니다. {error}",
+  "srv.quota_low": "지금 두뇌({model})의 {window} 한도가 {pct}% 남았어요 ({until} 재설정). 긴 작업은 다른 두뇌로 나눠 보세요.",
   "srv.quota_or_provider": "쿼터 또는 제공자 오류로 보입니다. {error}",
   "srv.quota_or_provider_closed": "쿼터 또는 제공자 오류로 보입니다. 응답이 없어 턴을 닫았습니다.",
   "srv.quota_until": "지금 두뇌({model})는 사용 한도에 닿아 {until}까지 쓸 수 없어요. 다른 두뇌를 고르거나 그때 다시 보내 주세요.",

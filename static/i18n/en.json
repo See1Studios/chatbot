@@ -711,6 +711,7 @@
   "srv.mcp_core": "The nas MCP is core -- it cannot be deleted",
   "srv.quiet_progress": "No signal for {s}s -- it may be thinking long. Wait or stop it",
   "srv.quota_exhausted": "The quota is used up. {error}",
+  "srv.quota_low": "This brain ({model}) has {pct}% of its {window} limit left (resets {until}). Split long work onto another brain.",
   "srv.quota_or_provider": "Looks like a quota or provider error. {error}",
   "srv.quota_or_provider_closed": "Looks like a quota or provider error. No answer came, so the turn was closed.",
   "srv.quota_until": "This brain ({model}) is out of quota until {until}. Pick another brain, or send again then.",

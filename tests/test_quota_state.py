@@ -115,6 +115,44 @@ class Page(unittest.TestCase):
         self.assertIn("if (nn && data.suggest && typeof quotaSwitchButtons === 'function') quotaSwitchButtons(nn, data.suggest);", sse)
 
 
+class LowWarning(unittest.TestCase):
+    """qfr/D: a brain at 10 % or less is said once in the talk (an event the page shows as a notice, no turn state)."""
+    def setUp(self):
+        Q._WARNED.clear()
+
+    def low(self, *windows):
+        with mock.patch.object(Q, "_report", return_value=view(*windows)):
+            return Q.low("agy", "claude-opus-5-5-high", now=NOW)
+
+    def test_the_lowest_window_at_ten_percent_or_less(self):
+        hit = self.low(("5h", 8, ISO(NOW + 600)), ("week", 4, ISO(NOW + 9000)), ("x", 50, ISO(NOW + 60)))
+        self.assertEqual((hit["window"], hit["pct"], hit["until"]), ("week", 4, NOW + 9000))
+        self.assertIsNone(self.low(("5h", 0, ISO(NOW + 600)), ("week", 11, ISO(NOW + 600))), "0 % is out, not low")
+        self.assertIsNone(self.low(("5h", 5, ISO(NOW - 1))), "a reset in the past says nothing")
+        self.assertIsNone(self.low(("5h", None, ISO(NOW + 600))), "not a percentage")
+
+    def test_it_is_said_once_per_window_and_reset(self):
+        sess = type("S", (), {"provider": "agy", "model": "claude-opus-5-5-high", "events": []})()
+        sess._emit = sess.events.append
+        hit = {"provider": "agy", "model": "claude-opus-5-5-high", "scope": "Claude", "window": "5h", "pct": 8,
+               "until": time.time() + 600, "reset_at": "R1"}
+        with mock.patch.object(Q, "low", return_value=hit):
+            Q._warn_low(sess)
+            Q._warn_low(sess)
+        with mock.patch.object(Q, "low", return_value=dict(hit, reset_at="R2")):
+            Q._warn_low(sess)
+        self.assertEqual([e["event"] for e in sess.events], ["notice", "notice"])
+        self.assertEqual(sess.events[0]["key"], "srv.quota_low")
+        self.assertEqual(sess.events[0]["vars"]["pct"], "8")   # i18n vars travel as text
+
+    def test_a_finished_turn_asks_and_the_page_shows_it(self):
+        src = (ENGINE / "session.py").read_text(encoding="utf-8")
+        self.assertIn('if outcome == "result":\n            quota_state.warn_low(self)', src)
+        self.assertFalse(Q.AUTO)   # the suite never reads a real account on its own
+        sse = (ENGINE.parent / "static" / "app-sse.js").read_text(encoding="utf-8")
+        self.assertIn("if (type === 'notice') { addNotice(data.notice || 'info', text, data.ts, true); return; }", sse)
+
+
 class FakeReq:
     def __init__(self, text):
         self.arg, self.body, self.out = "w1", {"text": text}, None

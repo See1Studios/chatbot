@@ -116,7 +116,7 @@ status=ERROR, error=Individual quota reached. Please upgrade your subscription t
 | `qfr/A` | **쿼터/한도 에러 정규화 파서 및 워치독 연계** | `turn_watchdog.py`<br>`providers/adapter_base.py`<br>`tests/test_conversation_sync.py` | 쿼터 소진 에러 문자열에서 재설정 시간 및 원인을 정규화 객체로 추출 | 1 · ⚡ | S | `qfr/0` | ✅ #798 |
 | `qfr/B` | **턴 종료 에러 시 구조화된 시스템 노티스 이벤트 방출** | `session.py`<br>`session_turn.py`<br>`session_view.py`<br>`tests/test_conversation_sync.py` | `_end_unfinished_turn`에서 쿼터/장애 정보를 담은 시스템 이벤트 SSE 브로드캐스트 | 1 · ⚡ | S | `qfr/A` | 대기 |
 | `qfr/C` | **UI 쿼터 소진 경고 카드 및 원클릭 대안 모델 전환** | `static/app-messages.js`<br>`static/app-turn.js`<br>`static/chat-panes.css`<br>`tests/test_shell_page.py` | 대화창에 `.notice-warn` 카드 렌더링 및 원클릭 모델 스왑 버튼 클릭 시 즉시 전환 | 2 · — | M | `qfr/B` | ✅ #800 |
-| `qfr/D` | **사전 쿼터 고갈 경고(10% 이하) 및 상태 탭 연동** | `route_accounts.py`<br>`static/app-status.js`<br>`tests/test_accounts.py` | 잔여 쿼터 10% 이하 시 상태 탭 경고 배지 및 사전 알림 연계 | 1 · ⚡ | S | `qfr/C` | 대기 |
+| `qfr/D` | **사전 쿼터 고갈 경고(10% 이하) 및 상태 탭 연동** | `route_accounts.py`<br>`static/app-status.js`<br>`tests/test_accounts.py` | 잔여 쿼터 10% 이하 시 상태 탭 경고 배지 및 사전 알림 연계 | 1 · ⚡ | S | `qfr/C` | ✅ #801 |
 
 ---
 
@@ -132,6 +132,12 @@ status=ERROR, error=Individual quota reached. Please upgrade your subscription t
 - 보낼 때 막힌 알림(`srv.quota_until`)에 엔진이 고른 대안 `suggest`를 싣는다: 같은 제공자의 `known_models` 순서에서 막힌 모델·기록상 바닥난 모델·캐시된 사용량 보고에 0% 창이 있는 모델을 빼고 최대 2개(`quota_state.alternatives`). 다른 제공자는 아직 권하지 않는다(로그인·계정이 달라 한 번에 바꾸기 어렵다).
 - 화면은 알림 아래 「<모델>로 바꿔 다시 보내기」 버튼(`static/app-retry.js::quotaSwitchButtons`). 누르면 모델을 바꾸고(`pickModel`) 막힌 메시지(다시 보내기 대기)를 보낸다. 메시지가 현재 모델을 싣고 가서 서버가 먼저 바꾼 뒤 검사한다.
 - 턴이 실패한 뒤의 오류 알림에는 아직 버튼이 없다: 그 순간에는 쿼터 기록이 백그라운드에서 만들어지는 중이다. 다음 보내기가 막히며 버튼이 나온다.
+
+### 6.3 qfr/D 구현 메모 (2026-10-08, #801)
+
+- 답이 나온 턴이 끝나면 백그라운드에서 그 두뇌의 캐시된 사용량 보고를 본다(보고는 route_accounts TTL마다 많아야 한 번 새로 읽힌다). 0% 초과 10% 이하인 창 중 가장 낮은 것이 재설정 전이면 대화에 한 번 알린다(`srv.quota_low`: 「지금 두뇌(…)의 5h 한도가 8% 남았어요 (18:25 재설정)…」). 같은 (제공자, 그룹, 창, 재설정 시각)은 한 번만(`quota_state.warn_low`).
+- 페이지에는 턴 상태를 건드리지 않는 `notice` 이벤트가 새로 생겼다(`error`는 진행 중인 답을 지운다).
+- 상태 탭 배지(§4.3)는 하지 않았다: shell2에는 상태 탭이 없고, 프로필의 쿼터 줄이 이미 남은 %를 보인다.
 
 ## 7. 의존 관계, 작업 순서 및 리스크
 

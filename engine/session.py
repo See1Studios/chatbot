@@ -27,6 +27,7 @@ except Exception:  # noqa: BLE001
     evolution = None
 import i18n
 import obslog
+import quota_state  # QUOTA_STATE_v1 qfr/D
 import write_guard
 from turn_watchdog import TurnWatchdog
 from session_view import SessionView   # split/C: what a session shows (reads SESSIONS, ADD_DIRS... from here)
@@ -645,6 +646,8 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         self._cached_summary = ""  # handover cache stale after new content
         self._obs_turn_end(outcome)
         write_guard.turn_end(self, REPO_ROOT, outcome)   # TREE_WATCH_v1
+        if outcome == "result":
+            quota_state.warn_low(self)   # qfr/D: a brain running low is said once, before it runs out
         try:
             idx, text = self._last_user_turn()
             marks = [k for i, k in self._turn_marks if i == idx]

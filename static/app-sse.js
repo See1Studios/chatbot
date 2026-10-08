@@ -783,6 +783,7 @@ function bindEvents(sid) {
 
     // SILENT_NOTICE_v1: the server says the turn has been quiet a while; it goes on (not an error, no bubble)
     if (type === 'progress') { setProgress(text || ''); return; }
+    if (type === 'notice') { addNotice(data.notice || 'info', text, data.ts, true); return; }   // qfr/D: a word, no turn state
     if (type === 'office') { if (typeof officeDraw === 'function') officeDraw(data.msg); return; }   // inbox/E
 
     if (type === 'tool' || type === 'system' || type === 'stderr' || type === 'error') {

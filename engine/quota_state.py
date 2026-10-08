@@ -106,6 +106,53 @@ def alternatives(provider: str, model: str, limit: int = 2, now: Optional[float]
     return out
 
 
+LOW_PCT = 10   # qfr/D, plan D3: warn while 10 % or less is left, before it runs out
+_WARNED: set = set()   # (provider, scope, window, reset_at): each low window is said once until it resets
+
+
+def low(provider: str, model: str, now: Optional[float] = None) -> Optional[dict]:
+    """qfr/D: this brain's lowest window with 0 < pct <= LOW_PCT and a reset still to come, from the cached report
+    ({provider, model, scope, window, pct, until, reset_at}), else None."""
+    if not provider or not model:
+        return None
+    now = time.time() if now is None else now
+    try:
+        view = _report(provider, model, False) or {}
+    except Exception:  # noqa: BLE001
+        return None
+    found = [(w, _epoch(w.get("reset_at"))) for w in view.get("windows") or []
+             if isinstance(w.get("pct"), (int, float)) and 0 < w["pct"] <= LOW_PCT]
+    found = [(w, t) for w, t in found if t and t > now]
+    if not found:
+        return None
+    w, until = min(found, key=lambda x: x[0]["pct"])
+    return {"provider": provider, "model": model, "scope": str(view.get("scope") or ""), "window": str(w.get("label") or ""),
+            "pct": w["pct"], "until": until, "reset_at": str(w.get("reset_at") or "")}
+
+
+def warn_low(session) -> None:
+    """After a turn that ended with an answer: say once in the talk when this brain is running low (off the turn's
+    thread; the report is the cached one, read again at most every route_accounts TTL)."""
+    if not AUTO:
+        return
+    threading.Thread(target=_warn_low, args=(session,), daemon=True, name="quota-low").start()
+
+
+def _warn_low(session) -> None:
+    import i18n
+    hit = low(str(getattr(session, "provider", "") or ""), str(getattr(session, "model", "") or ""))
+    if not hit:
+        return
+    key = (hit["provider"], hit["scope"], hit["window"], hit["reset_at"])
+    with _LOCK:
+        if key in _WARNED:
+            return
+        _WARNED.add(key)
+    session._emit({"event": "notice", "notice": "warn", "quota": hit,
+                   **i18n.msg("srv.quota_low", model=hit["model"], window=hit["window"], pct=int(hit["pct"]),
+                              until=until_text(hit["until"]))})
+
+
 def until_text(until: float, now: Optional[float] = None) -> str:
     """The reset time as the host's clock shows it: HH:MM today, else MM/DD HH:MM."""
     now = time.time() if now is None else now
