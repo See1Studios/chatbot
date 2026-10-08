@@ -14,7 +14,7 @@ from tests._paths import REPO  # noqa: E402
 
 STATIC = REPO / "static"
 MAX_BYTES = 43_000
-CEILINGS = {"app-evolution.js": 43_574}   # over the cap already: no growth
+CEILINGS = {}   # parts over the cap already: no growth (app-evolution.js came back under it with #806)
 BYTES_SLACK = 2_000
 
 HARNESS = r"""

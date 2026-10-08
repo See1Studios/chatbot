@@ -21,6 +21,7 @@ let slashCatalog = {
     { name: "/ticket delegate", key: "ticket_delegate", template: "/ticket delegate " },
     { name: "/ticket merge", key: "ticket_merge", template: "/ticket merge " },
     { name: "/ticket rework", key: "ticket_rework", template: "/ticket rework " },
+    { name: "/ticket replan", key: "ticket_replan", template: "/ticket replan " },
     { name: "/ticket discard", key: "ticket_discard", template: "/ticket discard " },
     { name: "/ticket disown", key: "ticket_disown", template: "/ticket disown " },
     { name: "/ticket unqueue", key: "ticket_unqueue", template: "/ticket unqueue " },

@@ -66,7 +66,7 @@ const bar = el('div');
 const inputEl = el('textarea');
 const tabs = [];
 const body = code + `
-  return { loadObservations, renderObservations, obsErrorText, loadTickets, renderTickets, parseTicketCommand, decideTicket, goTicket };`;
+  return { loadObservations, renderObservations, obsErrorText, loadTickets, renderTickets, parseTicketCommand, decideTicket };`;
 const sentText = [], asked = [];
 const mod = new Function('document', 'api', 'statusObsBoxEl', 'alertModal', 'addActivity', 'fetchSelfStatus',
                          'statusTicketBoxEl', 'inputEl', 'switchTab', 'ticketBarEl', 'addNotice',
@@ -194,7 +194,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   out.bar = { hidden: bar.hidden, titles: chips.map(c => find(c, 'ticket-chip-title')[0].textContent),
               buttons: chips.map(c => find(c, 'art-btn').map(b => b.textContent)) };
   const barBefore = calls.length;
-  click(find(chips[0], 'art-btn').filter(b => b.textContent === '승인+진행')[0]);
+  click(find(chips[0], 'art-btn').filter(b => b.textContent === '실행')[0]);
   await new Promise(r => setTimeout(r, 20));
   out.barFill = inputEl.value; out.barCalls = calls.length - barBefore; out.barFocused = !!inputEl.focused;
   const trows = find(tbox, 'obs-row');
@@ -204,11 +204,12 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   const pressed = (row, label) => find(row, 'art-btn').filter(b => b.textContent === label)[0];
   const c1 = calls.length, a1 = alerts.length, s1 = sentText.length;
   const settle = () => new Promise(r => setTimeout(r, 20));
-  click(pressed(trows[0], '승인+진행')); await settle();
+  const cGo = calls.length;
+  click(pressed(trows[0], '실행')); await settle();
   out.goText = inputEl.value; out.goSent = sentText.slice(s1);
-  const c2 = calls.length;
-  click(pressed(trows[0], '승인')); await settle();
+  out.goPosts = calls.slice(cGo).filter(c => c.opts && c.opts.method === 'POST').map(c => c.path);
   out.approveText = inputEl.value; out.tabAfter = tabs.slice();
+  const c2 = calls.length;
   click(pressed(trows[0], '폐기')); await settle();
   out.declineText = inputEl.value;
   click(pressed(trows[2], '재개')); await settle();
@@ -225,22 +226,6 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   out.decideCall = { path: dc.path, method: dc.opts.method };
   apiImpl = async () => { throw new Error(JSON.stringify({ ok: false, error: 'ticket 3 is declined' })); };
   try { await mod.decideTicket({ action: 'approve', id: 3 }); out.decideThrew = false; } catch (e) { out.decideThrew = mod.obsErrorText(e); }
-  // go: approves only what still waits, then returns the fixed instruction; refuses what cannot go
-  const goCalls = [];
-  let state = 'proposed';
-  apiImpl = async (path, opts) => {
-    goCalls.push((opts && opts.method || 'GET') + ' ' + path);
-    if (path === '/api/tickets/8') return { ok: true, ticket: mk(8, state, { target: 'static/app.js' }) };
-    if (path === '/api/tickets') return { ok: true, tickets: [], leases: [] };
-    return { ok: true, ticket: mk(8, 'approved') };
-  };
-  const g1 = await mod.goTicket({ action: 'go', id: 8 });
-  state = 'approved';
-  const g2 = await mod.goTicket({ action: 'go', id: 8 });
-  state = 'declined';
-  let refused = '';
-  try { await mod.goTicket({ action: 'go', id: 8 }); } catch (e) { refused = mod.obsErrorText(e); }
-  out.go = { calls: goCalls, first: g1, second: g2, refused };
   apiImpl = async () => ({ ok: true, tickets: [1, 2, 3, 4, 5].map(i => mk(i, 'proposed')) });
   await mod.loadTickets();
   out.barMany = { chips: find(bar, 'ticket-chip').length, more: find(bar, 'obs-meta').map(n => n.textContent) };
@@ -343,14 +328,14 @@ class ObservationUiTest(unittest.TestCase):
         o = self.out
         self.assertEqual((o["ticketCall"], o["ticketCalls"]), ("/api/tickets", 1))
         self.assertEqual(o["ticketRows"], ["#1", "#2", "#3"])     # declined and done need nothing
-        self.assertEqual(o["ticketButtons"], [["승인+진행", "실행", "승인", "폐기"], ["진행", "실행", "폐기"], ["재개"]])
+        self.assertEqual(o["ticketButtons"], [["실행", "폐기"], ["실행", "폐기"], ["재개"]])   # BUTTON_LOGIC_v1: no more four
         self.assertEqual(o["ticketTitle"], "<img src=x onerror=alert(1)>")
 
     def test_the_same_buttons_sit_above_the_composer_while_a_ticket_waits(self):
         o = self.out
         self.assertFalse(o["bar"]["hidden"])
         self.assertEqual(o["bar"]["titles"], ["#1 <img src=x onerror=alert(1)>", "#2 T2"])   # text, never markup; parked stays off the bar
-        self.assertEqual(o["bar"]["buttons"], [["승인+진행", "실행", "승인", "폐기"], ["진행", "실행", "폐기"]])
+        self.assertEqual(o["bar"]["buttons"], [["실행", "폐기"], ["실행", "폐기"]])
         self.assertEqual((o["barFill"], o["barCalls"] >= 1, o["barFocused"]), ("", True, False))   # acts directly, nothing typed (#145)
         self.assertEqual(o["barMany"]["chips"], 3)
         self.assertEqual(o["barMany"]["more"], ["+2건 더 (개선 탭)"])
@@ -362,7 +347,7 @@ class ObservationUiTest(unittest.TestCase):
         o = self.out
         self.assertEqual((o["approveText"], o["declineText"], o["reopenText"]), ("", "", ""))
         self.assertTrue(o["tabAfter"] and set(o["tabAfter"]) == {"chat"})
-        self.assertEqual(o["decisionPosts"], ["/api/tickets/1/approve", "/api/tickets/1/decline", "/api/tickets/3/reopen"])
+        self.assertEqual(o["decisionPosts"], ["/api/tickets/1/decline", "/api/tickets/3/reopen"])
         self.assertEqual(len(o["asked"]), 1)
         self.assertIn("#1", o["asked"][0])
         self.assertEqual(o["alertsAfterButtons"], 0)
@@ -371,21 +356,12 @@ class ObservationUiTest(unittest.TestCase):
         p = self.out["parsed"]
         self.assertEqual(p[:3], [{"action": "approve", "id": 3}, {"action": "decline", "id": 12}, {"action": "reopen", "id": 7}])
         self.assertEqual(p[3:9], [None] * 6)
-        self.assertEqual(p[9], {"action": "go", "id": 5})     # missing/garbled number, other verbs, trailing words, no slash, huge number
+        self.assertEqual(p[9], {"action": "delegate", "id": 5})   # BUTTON_LOGIC_v1: a typed go is [실행]
 
-    def test_go_approves_only_what_waits_then_hands_over_the_obvious_instruction(self):
-        g = self.out["go"]
-        # LEASE_SCOPE_v1: the live leases are read before anything is approved or handed over
-        self.assertEqual(g["calls"], ["GET /api/tickets/8", "GET /api/tickets", "POST /api/tickets/8/approve",
-                                      "GET /api/tickets/8", "GET /api/tickets", "GET /api/tickets/8", "GET /api/tickets"])
-        self.assertIn("승인 처리했어요", g["first"]["message"])
-        self.assertEqual(g["second"]["message"], "")                      # already approved: no second approval
-        for r in (g["first"], g["second"]):
-            self.assertIn("Go ahead with work #8", r["prompt"])
-            self.assertIn("static/app.js", r["prompt"])
-            self.assertIn("release", r["prompt"])
-        self.assertIn("진행할 수 없어요", g["refused"])
-        self.assertEqual(self.out["goText"], "", "the go button acts; it never types /ticket go")
+    def test_run_is_the_engines_and_reaches_no_model(self):
+        # BUTTON_LOGIC_v1 (#806): [실행] was [승인+진행], an English instruction sent to the model to decide
+        self.assertEqual(self.out["goPosts"], ["/api/delegations/1/go"])
+        self.assertEqual((self.out["goText"], self.out["goSent"]), ("", []))
 
     def test_a_decision_is_one_post_and_a_refusal_shows_the_cores_reason(self):
         o = self.out
@@ -418,7 +394,7 @@ class MarkupTest(unittest.TestCase):
         self.assertIn("  loadObservations();\n  loadTickets();\n}", evo[:1200])   # the evolution tab, after its summary
         send = src[src.index("async function send("):]   # send(opts) since #161
         self.assertIn("const ticketCmd = parseTicketCommand(text);", send)
-        self.assertIn("if (await runTicketDecision(ticketCmd, opts)) return;", send)   # TICKET_BUTTONS_v1: one path
+        self.assertIn("await runTicketDecision(ticketCmd, opts);", send)   # TICKET_BUTTONS_v1: one path, never the model's
         self.assertLess(send.index("parseTicketCommand(text)"), send.index("/api/chat") if "/api/chat" in send else len(send))
         self.assertIn("setInterval(loadTickets, 60000);", src)       # the bar is not only for people who open the status tab
         self.assertIn("const statusTicketBoxEl = document.getElementById('statusTicketBox');", src)

@@ -320,11 +320,11 @@ function renderReviewControls(res) {
 // runs it in the page (see send()) -- it never goes to the agent, and the agent has no way to decide a ticket.
 const TICKET_STATUS_LABEL = i18nTable('ticket.status');
 // DELEGATION_WIRING_v1: `delegate` hands the ticket to the worktree runner ([Run]); an awaiting_merge ticket lands
-// or is dropped by the operator ([Approve] / [Discard]). Same rule as above: the button types, Enter decides.
-// [action, catalog key of its button]; ticketDecisionsFor gives [action, word].
+// or is dropped by the operator ([Land] / [Discard]). BUTTON_LOGIC_v1: one verb, one meaning; no ticket shows more
+// than three. [action, catalog key of its button]; ticketDecisionsFor gives [action, word].
 const TICKET_DECISIONS = {
-  proposed: [['go', 'ticket.button.go_approve'], ['delegate', 'ticket.button.delegate'], ['approve', 'ticket.button.approve'], ['decline', 'ticket.button.decline']],
-  approved: [['go', 'ticket.button.go'], ['delegate', 'ticket.button.delegate'], ['decline', 'ticket.button.decline']],
+  proposed: [['delegate', 'ticket.button.delegate'], ['decline', 'ticket.button.decline']],
+  approved: [['delegate', 'ticket.button.delegate'], ['decline', 'ticket.button.decline']],
   awaiting_merge: [['merge', 'ticket.button.merge'], ['rework', 'ticket.button.rework'], ['discard', 'ticket.button.discard']],
   wontfix: [['reopen', 'ticket.button.reopen']],
 };
@@ -347,7 +347,12 @@ function delegationRefusalText(e) {
   return tr('ticket.refused.other', { reason: reason.length > 120 ? reason.slice(0, 120) + '…' : reason });
 }
 // PD_PLAN_v1: the operator's two confirmations on a PD plan -- [Run] (`delegate`) and [Approve]/[Rework]/[Discard].
-const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', rework: 'rework', discard: 'discard', unqueue: 'unqueue', allow: 'allow' };
+const DELEGATION_ACTION = { delegate: 'go', merge: 'merge', rework: 'rework', discard: 'discard', unqueue: 'unqueue', allow: 'allow',
+  replan: 'replan' };
+// BUTTON_LOGIC_v1: a work card's buttons come from the server (`actions`); its ids are the delegation API's, and
+// only `go` is named otherwise in the page's command words.
+const WORK_ACTION_COMMAND = { go: 'delegate' };
+const TICKET_PRIMARY = ['delegate', 'approve', 'merge'];
 
 // LEASE_SCOPE_v1: one author per file. The live leases come with /api/tickets; a ticket another agent opened to do
 // itself (`owner`, not the chat's own) is not offered to the chat -- the operator can hand it over ([Unassign]).
@@ -357,7 +362,10 @@ function ticketOwnedElsewhere(t) {
 }
 function ticketDecisionsFor(t) {
   let pairs = TICKET_DECISIONS[t.status] || [];
-  if (ticketOwnedElsewhere(t) && (t.status === 'approved' || t.status === 'proposed')) pairs = [['disown', 'ticket.button.disown'], ['decline', 'ticket.button.decline']];
+  if (ticketOwnedElsewhere(t) && (t.status === 'approved' || t.status === 'proposed')) {
+    pairs = [['disown', 'ticket.button.disown'], ['decline', 'ticket.button.decline']];
+    if (t.status === 'proposed') pairs.unshift(['approve', 'ticket.button.approve']);   // let that agent do it
+  }
   return pairs.map(([action, key]) => [action, tr(key)]);
 }
 function leasePathsOverlap(a, b) {
@@ -391,34 +399,14 @@ function ticketDecisionText(t, action) {
 
 function parseTicketCommand(text) {
   const t = String(text || '').trim();
-  const rw = /^\/ticket\s+rework\s+#?(\d{1,6})\s+([\s\S]+)$/.exec(t);   // [Rework]: the comment follows the number
-  if (rw) return { action: 'rework', id: Number(rw[1]), comment: rw[2].trim() };
-  const bare = /^\/ticket\s+rework\s+#?(\d{1,6})$/.exec(t);   // no reason yet: stays in the page, never reaches the agent (#715)
-  if (bare) return { action: 'rework', id: Number(bare[1]), comment: '' };
+  // [Rework] / [Edit plan]: the comment follows the number; with none yet it stays in the page, never reaching the
+  // agent (#715). /ticket replan is page-only too: a structured request to the PD (BUTTON_LOGIC_v1).
+  const rw = /^\/ticket\s+(rework|replan)\s+#?(\d{1,6})(?:\s+([\s\S]+))?$/.exec(t);
+  if (rw) return { action: rw[1], id: Number(rw[2]), comment: (rw[3] || '').trim() };
   const m = /^\/ticket\s+(go|approve|decline|reopen|delegate|merge|discard|disown|unqueue|allow)\s+#?(\d{1,6})$/.exec(t);
-  return m ? { action: m[1], id: Number(m[2]) } : null;
-}
-
-// `/ticket go N`: approve it if it still waits for that (the operator's decision), then hand the agent the obvious
-// instruction as an ordinary message -- the sentence nobody wants to type. Returns { message, prompt }.
-function ticketGoPrompt(t) {
-  return 'Go ahead with work #' + t.id + ' (target: ' + (t.target || '') + '). If an expert can take it, put the plan up with '   // agent-facing: English
-    + 'delegate and only check it -- say that plan stands in for #' + t.id + '. With no expert, or a Tier 3 target, claim it '
-    + 'with the ticket tool, fix only the target yourself, and record the result with release (done/gate_failed/failed). '
-    + 'Touch nothing out of scope. Reply to the operator in their language.';
-}
-
-async function goTicket(cmd) {
-  const cur = (await api('/api/tickets/' + cmd.id)).ticket || {};
-  const refuse = (msg) => { throw new Error(JSON.stringify({ ok: false, error: msg })); };
-  if (ticketOwnedElsewhere(cur)) refuse(tr('ticket.owned_elsewhere', { id: cmd.id, owner: cur.owner }));
-  try { ticketLeases = (await api('/api/tickets')).leases || []; } catch (_) { /* the claim still checks */ }
-  const blocker = ticketBlocker(cur);
-  if (blocker) refuse(tr('ticket.blocked', { id: cmd.id, wait: leaseWaitText(blocker) }));
-  let message = '';
-  if (cur.status === 'proposed') message = await decideTicket({ action: 'approve', id: cmd.id });
-  else if (cur.status !== 'approved') refuse(tr('ticket.cannot_go', { id: cmd.id, status: TICKET_STATUS_LABEL[cur.status] || cur.status }));
-  return { message, prompt: ticketGoPrompt(cur) };
+  if (!m) return null;
+  // BUTTON_LOGIC_v1: a typed `/ticket go N` is [Run] -- the engine runs it; no message asks the model to decide
+  return { action: m[1] === 'go' ? 'delegate' : m[1], id: Number(m[2]) };
 }
 
 async function decideTicket(cmd) {
@@ -429,6 +417,7 @@ async function decideTicket(cmd) {
       if (r && r.healed) {
         return tr('ticket.healed', { id: cmd.id, status: TICKET_STATUS_LABEL[r.status] || r.status });
       }
+      if (r && r.requested) return tr('work.replan_sent', { id: cmd.id });   // BUTTON_LOGIC_v1: the PD re-plans
       if (r && r.queued) {
         const b = r.blocked_by || {};
         return tr('ticket.queued', { id: cmd.id, ticket: b.ticket, paths: (b.paths || []).join(', '), until: String(b.until || '').slice(11, 16) });
@@ -472,33 +461,27 @@ const TICKET_BAR_MAX = 3;
 // the comment to be typed after it.
 // Throwing work away is the one decision a stray tap should not make: it asks first.
 const TICKET_ASK_FIRST = ['decline', 'discard'];
-async function fillTicketCommand(tk, action) {
+// The decisions that carry the operator's words: the button writes the command, the reason follows it.
+const TICKET_NEEDS_REASON = ['rework', 'replan'];
+// `ask` is the server's word for a work card's button (BUTTON_LOGIC_v1); a ticket row asks by TICKET_ASK_FIRST.
+async function fillTicketCommand(tk, action, ask) {
   switchTab('chat');
-  if (action === 'rework') { fillComposer(ticketDecisionText(tk, action) + ' '); return; }
-  if (TICKET_ASK_FIRST.includes(action) && typeof confirmModal === 'function'
+  if (TICKET_NEEDS_REASON.includes(action)) { fillComposer(ticketDecisionText(tk, action) + ' '); return; }
+  if ((ask == null ? TICKET_ASK_FIRST.includes(action) : ask) && typeof confirmModal === 'function'
       && !(await confirmModal(tr('ticket.confirm.' + action, { id: tk.id })))) return;
   await runTicketDecision({ action, id: tk.id }, typeof tapSendOpts === 'function' ? tapSendOpts() : undefined);
 }
 
-// The operator's decision on a ticket, made in the page and never sent to the agent -- except [Go], which then
-// hands the agent its instruction as an ordinary message. Resolves true when it sent that message.
+// The operator's decision on a ticket, made in the page and never sent to the agent (BUTTON_LOGIC_v1: not even [Run]).
 async function runTicketDecision(cmd, opts) {
-  if (cmd.action === 'rework' && !cmd.comment) {   // a rework needs the reason the worker gets: ask, keep the command
-    addNotice('warn', tr('ticket.rework_needs_reason', { id: cmd.id }));
-    inputEl.value = '/ticket rework ' + cmd.id + ' ';
+  if (TICKET_NEEDS_REASON.includes(cmd.action) && !cmd.comment) {   // the reason is what the worker or PD gets: ask
+    addNotice('warn', tr(cmd.action === 'rework' ? 'ticket.rework_needs_reason' : 'work.replan_needs_reason', { id: cmd.id }));
+    inputEl.value = '/ticket ' + cmd.action + ' ' + cmd.id + ' ';
     if (typeof updateSendButton === 'function') updateSendButton();
     inputEl.focus();
     return false;
   }
   try {
-    if (cmd.action === 'go') {
-      const go = await goTicket(cmd);
-      if (go.message) addNotice('ok', go.message);
-      loadTickets();
-      inputEl.value = go.prompt;
-      await send(opts);
-      return true;
-    }
     addNotice('ok', await decideTicket(cmd));
   } catch (e) {
     addNotice('error', tr('ticket.decision_failed', { error: obsErrorText(e) }));
@@ -528,7 +511,7 @@ function renderTicketBar(waiting) {
     const wait = ticketStateBadge(t);
     if (wait) chip.appendChild(wait);
     ticketDecisionsFor(t).forEach(pair => {
-      const btn = obsNode('button', 'art-btn' + (pair[0] === 'go' ? ' primary' : ''), pair[1]);
+      const btn = obsNode('button', 'art-btn' + (TICKET_PRIMARY.includes(pair[0]) ? ' primary' : ''), pair[1]);
       btn.type = 'button';
       btn.addEventListener('click', () => fillTicketCommand(t, pair[0]));   // TICKET_BUTTONS_v1: the one path
       chip.appendChild(btn);
@@ -688,32 +671,12 @@ function renderWorkCard(r) {
     actions.appendChild(btn);
   };
 
-  if (r.phase === 'awaiting_go') {
-    button(tr('ticket.button.delegate'), true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
-    button(tr('work.edit_plan'), false, () => { switchTab('chat'); fillComposer('#' + r.ticket + ' ' + tr('work.edit_plan') + ': '); });
-    button(tr('common.cancel'), false, async () => {
-      await dismissWorkCard(r);
-      addNotice('info', tr('work.plan_cancelled', { id: r.ticket }));
-    });
-  }
-  if (r.phase === 'paused' && (r.need_paths || []).length) {
-    // #381: a Tier 3 request can never be allowed, so no allow button -- the operator changes that file or discards
-    if (!r.need_paths.some(n => n.operator_only)) button(TICKET_DECISION_WORD.allow, true, () => fillTicketCommand({ id: r.ticket }, 'allow'));
-    button(tr('ticket.button.discard'), false, () => fillTicketCommand({ id: r.ticket }, 'discard'));
-  }
-  // #387: landed, but the ticket stayed open and holds its files: stays on screen until closed (MERGED_CLOSE_v1)
-  if (r.phase === 'merged-ticket-open') button(TICKET_DECISION_WORD.close, true, () => fillTicketCommand({ id: r.ticket }, 'merge'));
-  // BASE_CHECK_v1: the work is kept; once the base is fixed, the same plan runs on from it
-  if (r.phase === 'base_broken') button(TICKET_DECISION_WORD.delegate, true, () => fillTicketCommand({ id: r.ticket }, 'delegate'));
-  if (r.phase === 'queued') {
-    button(TICKET_DECISION_WORD.unqueue, false, () => fillTicketCommand({ id: r.ticket }, 'unqueue'));
-  }
-  if (r.phase === 'awaiting_merge') {
-    ticketDecisionsFor({ status: 'awaiting_merge' }).forEach(pair => button(pair[1], pair[0] === 'merge', () => fillTicketCommand({ id: r.ticket }, pair[0])));
-  }
-  if (r.phase === 'stalled' && r.stalled_in === 'merging') {
-    button(tr('work.merge_again'), true, () => fillTicketCommand({ id: r.ticket }, 'merge'));
-  }
+  // BUTTON_LOGIC_v1: which buttons, in which order, is the server's (delegation.WORK_ACTIONS): the page only draws
+  // them -- a Tier 3 path request has no [Allow] (#381), a landed-but-open ticket has [Close] (MERGED_CLOSE_v1)
+  (r.actions || []).forEach(a => {
+    const cmd = WORK_ACTION_COMMAND[a.id] || a.id;
+    button(tr(a.label), Boolean(a.primary), () => fillTicketCommand({ id: r.ticket }, cmd, Boolean(a.confirm)));
+  });
   // ART_MANAGER_v1: a finished job that drew into a character's gallery opens it there (app-art.js)
   const drewFor = typeof artGalleryCharacter === 'function' && !['awaiting_go', 'queued', 'running'].includes(r.phase)
     ? artGalleryCharacter(r.paths) : '';
@@ -876,7 +839,7 @@ function renderTicketRow(t) {
   if (wait) head.appendChild(wait);
   const actions = obsNode('div', 'obs-actions obs-actions-inline');
   ticketDecisionsFor(t).forEach(pair => {
-    const btn = obsNode('button', 'art-btn art-btn-xs' + (pair[0] === 'approve' || pair[0] === 'go' ? ' primary' : ''), pair[1]);
+    const btn = obsNode('button', 'art-btn art-btn-xs' + (TICKET_PRIMARY.includes(pair[0]) ? ' primary' : ''), pair[1]);
     btn.type = 'button';
     btn.addEventListener('click', () => fillTicketCommand(t, pair[0]));
     actions.appendChild(btn);

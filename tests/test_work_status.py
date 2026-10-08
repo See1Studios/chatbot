@@ -45,8 +45,10 @@ workOpen.add(113);   // the clock, file count and asked paths show in the opened
 const card = renderWorkCard(run);
 const texts = n => [n.textContent].concat(n.children.flatMap(texts));
 const badgeText = texts(card).join('|');
-const paused = renderWorkCard(Object.assign({}, run, { phase: 'paused', active: false,
-  need_paths: [{ path: 'b.txt', why: 'the helper lives there' }] }));
+const paused = renderWorkCard(Object.assign({}, run, { phase: 'paused', active: false,   // actions: the server's (#806)
+  need_paths: [{ path: 'b.txt', why: 'the helper lives there' }],
+  actions: [{ id: 'allow', label: 'ticket.word.allow', primary: true, confirm: false, needs_comment: false },
+            { id: 'discard', label: 'ticket.button.discard', primary: false, confirm: true, needs_comment: false }] }));
 const pausedTexts = texts(paused);
 activeWorkRun = run; updateProcBadge('idle');
 const delegated = { text: els.procBadgeText.textContent, cls: els.procBadge.className };

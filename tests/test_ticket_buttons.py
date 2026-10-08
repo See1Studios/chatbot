@@ -1,7 +1,8 @@
 """Decision buttons act at once, with no bubble (TICKET_BUTTONS_v1, static/app-evolution.js): a work card's [실행],
-[경로 허용], [폐기], [병합] ... decide on the spot and leave only the notice -- nothing in the box, nothing in the log.
-[반려] and [계획 수정] put their text in the box and wake the send button (FILL_COMPOSER_v1, app-turn.js), which
-setting inputEl.value alone never did. The REAL functions run in node against stubs.
+[경로 허용], [폐기], [반영] ... decide on the spot and leave only the notice -- nothing in the box, nothing in the log.
+[반려] and [계획 수정] put their command in the box and wake the send button (FILL_COMPOSER_v1, app-turn.js), which
+setting inputEl.value alone never did. BUTTON_LOGIC_v1 (#806): the card's buttons are the server's `actions`, [실행]
+never asks the model to decide, and nothing is thrown away without the confirm. The REAL functions run in node.
 Run: engine/run-tests.sh test_ticket_buttons
 """
 import json
@@ -22,13 +23,13 @@ const cut = (src, a, b) => src.slice(src.indexOf(a), src.indexOf(b, src.indexOf(
 const code = cut(evo, 'function ticketDecisionText', 'function parseTicketCommand')
   + cut(evo, '// TICKET_BUTTONS_v1', '// Who owns it')
   + cut(turn, 'function fillComposer', 'function composerSendable');
-const log = { notices: [], chats: 0, decided: [], sent: [], sendable: null };
+const log = { notices: [], chats: 0, decided: [], sent: [], sendable: null, asked: [] };
 const inputEl = { value: '', focus() {} };
 const env = { inputEl, switchTab() {}, loadTickets() {}, autoResizeInput() {},
   updateSendButton: () => { log.sendable = Boolean(inputEl.value.trim()); },
   addNotice: (k, t) => log.notices.push(t), addChat: () => { log.chats++; },
   decideTicket: async (c) => { log.decided.push(c.action + ' ' + c.id); return 'ok ' + c.action; },
-  goTicket: async (c) => ({ message: '', prompt: 'do #' + c.id }),
+  confirmModal: async (q) => { log.asked.push(q); return false; },
   send: async () => { log.sent.push(inputEl.value); inputEl.value = ''; },
   obsErrorText: (e) => String(e), tapSendOpts: () => ({ keepFocus: false }) };
 const names = Object.keys(env);
@@ -36,11 +37,17 @@ const api = new Function(...names, code + '; return { fillTicketCommand };')(...
 (async () => {
   api.fillTicketCommand({ id: 7 }, 'merge'); await new Promise(r => setTimeout(r, 5));
   const merge = { box: inputEl.value, chats: log.chats, decided: log.decided.slice(), notices: log.notices.slice() };
-  api.fillTicketCommand({ id: 7 }, 'go'); await new Promise(r => setTimeout(r, 5));
-  const go = { sent: log.sent.slice(), chats: log.chats };
+  api.fillTicketCommand({ id: 7 }, 'delegate'); await new Promise(r => setTimeout(r, 5));
+  const run = { sent: log.sent.slice(), decided: log.decided.slice(1) };
   api.fillTicketCommand({ id: 7 }, 'rework');
   const rework = { box: inputEl.value, sendable: log.sendable, decidedCount: log.decided.length };
-  console.log(JSON.stringify({ merge, go, rework }));
+  inputEl.value = '';
+  api.fillTicketCommand({ id: 7 }, 'replan');
+  const replan = { box: inputEl.value, decidedCount: log.decided.length };
+  inputEl.value = '';
+  await api.fillTicketCommand({ id: 7 }, 'discard', true);
+  const discard = { asked: log.asked.length, decidedCount: log.decided.length };
+  console.log(JSON.stringify({ merge, run, rework, replan, discard }));
 })();
 """
 
@@ -57,15 +64,19 @@ class TicketButtons(unittest.TestCase):
     def test_a_decision_acts_at_once_with_no_bubble(self):
         self.assertEqual(self.o["merge"], {"box": "", "chats": 0, "decided": ["merge 7"], "notices": ["ok merge"]})
 
-    def test_go_hands_the_agent_its_instruction(self):
-        self.assertEqual(self.o["go"], {"sent": ["do #7"], "chats": 0})
+    def test_run_is_decided_by_the_engine_and_nothing_is_sent_to_the_model(self):
+        self.assertEqual(self.o["run"], {"sent": [], "decided": ["delegate 7"]})
+
+    def test_edit_plan_waits_for_what_to_change(self):
+        self.assertEqual(self.o["replan"], {"box": "/ticket replan 7 ", "decidedCount": 2})
+
+    def test_nothing_is_thrown_away_without_the_confirm(self):
+        self.assertEqual(self.o["discard"], {"asked": 1, "decidedCount": 2})   # the confirm said no
 
     def test_rework_waits_for_the_comment_with_the_send_button_awake(self):
-        self.assertEqual(self.o["rework"], {"box": "/ticket rework 7 ", "sendable": True, "decidedCount": 1})
+        self.assertEqual(self.o["rework"], {"box": "/ticket rework 7 ", "sendable": True, "decidedCount": 2})
 
     def test_other_fills_wake_the_send_button_too(self):
-        evo = (STATIC / "app-evolution.js").read_text(encoding="utf-8")
-        self.assertIn("fillComposer('#' + r.ticket + ' ' + tr('work.edit_plan') + ': ')", evo)
         self.assertIn("fillComposer(text)", (STATIC / "artifacts.js").read_text(encoding="utf-8"))
         md = (STATIC / "markdown.js").read_text(encoding="utf-8")
         self.assertIn("runTicketDecision(ticketCmd", md, "chips share the one decision path")
@@ -73,6 +84,22 @@ class TicketButtons(unittest.TestCase):
     def test_work_card_has_no_redundant_talk_button(self):
         evo = (STATIC / "app-evolution.js").read_text(encoding="utf-8")
         self.assertNotIn("대화 보기", evo)
+
+    def test_the_card_draws_the_servers_actions_and_no_model_instruction_is_left(self):
+        evo = (STATIC / "app-evolution.js").read_text(encoding="utf-8")
+        card = evo[evo.index("// 3. action buttons"):evo.index("// ART_MANAGER_v1: a finished job")]   # the card's buttons
+        self.assertIn("(r.actions || []).forEach(", card)
+        for gone in ("r.phase === 'awaiting_go'", "r.phase === 'awaiting_merge'", "common.cancel", "work.plan_cancelled"):
+            self.assertNotIn(gone, card)
+        for gone in ("ticketGoPrompt", "goTicket", "Go ahead with work"):
+            self.assertNotIn(gone, evo)
+
+    def test_the_labels_say_one_thing_each(self):
+        ko = json.loads((STATIC / "i18n" / "ko.json").read_text(encoding="utf-8"))
+        self.assertEqual((ko["ticket.button.merge"], ko["ticket.word.merge"], ko["work.merge_again"], ko["ticket.button.approve"]),
+                         ("반영", "반영", "반영 다시", "허락"))
+        for gone in ("ticket.button.go", "ticket.button.go_approve", "ticket.word.go"):
+            self.assertNotIn(gone, ko)
 
 WORK_NOW = r"""
 const fs = require('fs');

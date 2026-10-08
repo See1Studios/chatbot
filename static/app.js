@@ -470,7 +470,7 @@ async function send(opts) {
     updateSendButton();
     const hadUser = currentSessionHasUser;
     addChat('user', text, false);   // typed by hand, so it stays on screen; a button does not (TICKET_BUTTONS_v1)
-    if (await runTicketDecision(ticketCmd, opts)) return;   // [Go] went on as an ordinary message
+    await runTicketDecision(ticketCmd, opts);
     currentSessionHasUser = hadUser;
     return;
   }
