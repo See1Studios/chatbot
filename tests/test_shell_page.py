@@ -222,6 +222,8 @@ class ShellList(unittest.TestCase):
         rows = {r["id"]: r for r in self.o["openPrivate"]}
         self.assertTrue(rows["a"]["private"])
         self.assertEqual(rows["a"]["preview"], "")                 # and the open private room is never previewed
+        self.assertIn("if (r.private) line = '';", SRC if "SRC" in globals() else (STATIC / "app-shell.js").read_text(encoding="utf-8"),
+                      "the drawn row says nothing of a private visit either (critique run 4)")
         self.assertFalse(rows["b"]["private"])
 
     def test_without_talks_the_newest_work_session_is_used(self):

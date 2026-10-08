@@ -65,8 +65,9 @@ function moveCardOpen(text, choices) {
   });
   node.appendChild(row);
   moveCard = node;
-  const first = row.querySelector('button');
-  if (first) first.focus();
+  // focus is on "stay": an Enter or Space typed after the tap must not open the private room (critique run 4, §8.8)
+  const stay = Array.from(row.querySelectorAll('button')).find(b => b.className === 'ghost');
+  if (stay) stay.focus();
 }
 
 // The engine's move chip ("/move <place>" from a marked personal turn): ask first.

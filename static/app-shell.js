@@ -129,7 +129,7 @@ function shellListDraw() {
       img.src = src;
     }
     let line = r.preview || SHELL_TEXT.fresh;
-    if (r.private) line = SHELL_TEXT.private;
+    if (r.private) line = '';
     else if (r.kind === 'room') {
       const names = roomCatalogNames(r.members);
       line = r.preview ? (r.who === 'user' ? SHELL_TEXT.you : (names[r.who] || '')) + ': ' + r.preview

@@ -86,7 +86,7 @@
 .login-row{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center}
 .login-label{flex:0 0 auto;min-width:4.5rem;color:var(--muted);font-size:.75rem}
 .login-value{
-  flex:1 1 12rem;font-size:.78rem;word-break:break-all;color:var(--fg);
+  flex:1 1 12rem;font-size:.78rem;word-break:break-all;color:var(--text);
 }
 a.login-value{color:var(--accent2);text-decoration:underline}
 code.login-value{
@@ -97,7 +97,7 @@ code.login-value{
 .login-paste{margin-top:.15rem}
 .login-code-input{
   flex:1 1 12rem;min-width:10rem;padding:.35rem .5rem;border-radius:8px;
-  border:1px solid var(--border);background:var(--bg);color:var(--fg);font-size:.85rem;
+  border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.85rem;
 }
 .login-panel-actions{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}
 .login-panel-err{color:#f85149;font-size:.78rem;line-height:1.4}
