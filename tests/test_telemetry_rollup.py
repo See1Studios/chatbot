@@ -95,6 +95,20 @@ class Rollup(unittest.TestCase):
         (d / "2026-10-02.json").write_text(json.dumps({"version": rollup.VERSION}), encoding="utf-8")
         self.assertEqual(rollup.missing(self.log, "2026-10-01", "2026-10-03"), ["2026-10-01"])
 
+    def test_memory_calls_hits_and_injected_memory(self):
+        # tl/E: what was remembered and recalled, as counts (mcp.call metadata, context.inject layer sizes)
+        events = [ev("2026-10-02", 9, "context.inject", sid="s9", character="c", mode="work", provider="agy", chars=900,
+                     layers=[{"id": "charter", "chars": 500}, {"id": "house_memory", "chars": 300},
+                             {"id": "own_memory", "chars": 100}]),
+                  ev("2026-10-02", 10, "mcp.call", src="mcp", tool="memory", ok=True, args={"action": "add"},
+                     result={"status": "added"}),
+                  ev("2026-10-02", 11, "mcp.call", src="mcp", tool="memory", ok=True, args={"action": "search"},
+                     result={"hits": 3})]
+        rollup.build(self.log, events, today="2026-10-03")
+        m = self.day("2026-10-02")["memory"]
+        self.assertEqual((m["calls"], m["added"], m["search_hits"]["max"]), ({"add": 1, "search": 1}, 1, 3.0))
+        self.assertEqual(sorted(m["injected_chars"]), ["house_memory", "own_memory"])
+
     def test_one_builder_at_a_time(self):
         d = rollup.dir_for(self.log)
         d.mkdir()

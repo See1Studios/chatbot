@@ -114,6 +114,43 @@ class GlobalLogHasNoTurnText(unittest.TestCase):
             self.assertNotIn("user", evt, "a global record carries the user's words: %r" % evt)
 
 
+class ToolArgumentsHaveNoWords(unittest.TestCase):
+    """tl/E (2026-10-09): mcp.call logged every argument up to 300 characters -- a memory line, a search, a dialog
+    line between characters, a delegated instruction. A tool's words are content; the log keeps their size only."""
+
+    WORDS = "고양이를 무서워하는 비밀 PRIVATE-FACT-7731"
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.stream = self.tmp / "logs" / "events.jsonl"
+        obslog.configure("test", path=self.stream, mirror="error")
+        import mcp_server
+        self.mcp = mcp_server
+        self.saved = mcp_server.DATA
+        mcp_server.DATA = self.tmp
+
+    def tearDown(self):
+        self.mcp.DATA = self.saved
+        obslog._state["path"] = None
+        shutil.rmtree(str(self.tmp), ignore_errors=True)
+
+    def test_a_memory_line_and_a_search_reach_the_log_as_sizes(self):
+        self.mcp._obs_tool_call("memory", {"action": "add", "text": self.WORDS, "section": "User"})
+        self.mcp._obs_tool_call("memory", {"action": "search", "query": self.WORDS})
+        text = self.stream.read_text(encoding="utf-8")
+        self.assertNotIn("PRIVATE-FACT-7731", text)
+        calls = [json.loads(l) for l in text.splitlines() if '"mcp.call"' in l]
+        self.assertEqual(calls[0]["args"]["text"], {"chars": len(self.WORDS)})
+        self.assertEqual((calls[0]["args"]["action"], calls[0]["result"]["status"]), ("add", "added"))
+        self.assertEqual(calls[1]["result"], {"hits": 1})              # what came back, as a count
+
+    def test_the_metadata_rule(self):
+        got = obslog.arg_meta({"action": "send", "id": 7, "text": "hello", "cmd": "git log --grep secret",
+                               "paths": ["engine/a.py"], "tasks": [{"x": 1}, {"y": 2}], "opts": {"a": 1}})
+        self.assertEqual(got, {"action": "send", "id": 7, "text": {"chars": 5}, "cmd": "git",
+                               "paths": ["engine/a.py"], "tasks": {"items": 2}, "opts": {"keys": 1}})
+
+
 class OneResolver(unittest.TestCase):
     """obslog, logdigest and chatbot-ctl.sh must not each hold their own idea of where logs live."""
 

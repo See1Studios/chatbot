@@ -774,8 +774,7 @@ def _obs_tool_call(name: str, arguments: dict) -> dict:
         out["message"] = "%s (%s)" % (out.get("message") or "", note)
     obslog.event("mcp.call", lvl="info" if ok else "warn", tool=name, ok=ok,
                  dur_ms=round((time.monotonic() - t0) * 1000, 1),
-                 args={k: (v if isinstance(v, (int, float, bool)) or v is None else str(v)[:300])
-                       for k, v in (arguments or {}).items()},
+                 args=obslog.arg_meta(arguments), **obslog.result_meta(out),   # tl/E: metadata, never a tool's words
                  msg="" if ok else str((out or {}).get("message") or "")[:300], **({"fixed": changes} if changes else {}))
     return out
 

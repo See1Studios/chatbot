@@ -104,6 +104,44 @@ def redact(text: str) -> str:
     return text
 
 
+# tl/E (2026-10-09): mcp.call used to log every argument up to 300 characters -- memory lines, search words, dialog
+# lines between characters, delegated instructions. A tool's words are content, like a turn's: only ids and kinds stay.
+ARG_KEEP = frozenset(("action", "id", "status", "outcome", "provider", "model", "role", "mode", "channel", "kind",
+                      "ticket", "room", "character", "name", "section", "path", "paths", "target", "all", "evidence"))
+
+
+def arg_meta(args: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """A tool call's arguments as metadata: numbers and flags as given, ids and kinds (ARG_KEEP), the program a command
+    runs, and every other text by its size only."""
+    out: Dict[str, Any] = {}
+    for k, v in (args or {}).items():
+        if v is None or isinstance(v, (bool, int, float)):
+            out[k] = v
+        elif k == "cmd":
+            out[k] = (str(v).split() or [""])[0][:80]
+        elif k in ARG_KEEP:
+            out[k] = _clean(v, 200)
+        elif isinstance(v, (list, tuple)):
+            out[k] = {"items": len(v)}
+        elif isinstance(v, dict):
+            out[k] = {"keys": len(v)}
+        else:
+            out[k] = {"chars": len(str(v))}
+    return out
+
+
+def result_meta(out: Any) -> Dict[str, Any]:
+    """What a tool answered, as counts: the length of each list in its data, and a short status word."""
+    data = out.get("data") if isinstance(out, dict) else None
+    if not isinstance(data, dict):
+        return {}
+    meta: Dict[str, Any] = {k: len(v) for k, v in data.items() if isinstance(v, list)}
+    st = data.get("status")
+    if isinstance(st, str) and re.fullmatch(r"[a-z_]{1,20}", st):
+        meta["status"] = st
+    return {"result": meta} if meta else {}
+
+
 def _clean(value: Any, cap: int = STR_CAP, depth: int = 0) -> Any:
     if value is None or isinstance(value, (bool, int, float)):
         return value

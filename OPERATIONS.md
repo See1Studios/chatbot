@@ -80,6 +80,10 @@ data, so nothing is copied out of them.
 reached the session log, then proves neither is anywhere in `logs/events.jsonl`. If you add a kind
 to `_OBS_FORWARD` (`session.py`) that carries text, that test fails.
 
+A tool's words are not here either (tl/E, 2026-10-09): `mcp.call` keeps ids and kinds and the size of everything else,
+so a memory line, a search, a dialog line between characters or a delegated instruction never reaches the log
+(`ToolArgumentsHaveNoWords` in the same test file). Before that date the log kept arguments up to 300 characters.
+
 Known exceptions, still open (they are host notices, not conversation content, but they are
 persona-flavoured and belong to the tone work — `align/G`·`l10n/D`):
 
@@ -193,7 +197,7 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 #### MCP (`src` mcp)
 | evt | lvl | fields |
 |---|---|---|
-| `mcp.call` | info/warn | `tool`, `ok`, `dur_ms`, `args` (values ≤300 chars, redacted), `msg` on refusal/failure |
+| `mcp.call` | info/warn | `tool`, `ok`, `dur_ms`, `args` as metadata (`obslog.arg_meta`: ids and kinds such as `action`/`id`/`path`, numbers, a command's program; any other text as `{"chars": n}`), `result` as counts (list lengths, a status word), `msg` on refusal/failure |
 | `mcp.tool_exception` | error | `tool`, `err` |
 
 #### Operations (`src` ctl)

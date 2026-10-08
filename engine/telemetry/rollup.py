@@ -29,7 +29,8 @@ if __package__ in (None, ""):   # run as a script: the engine folder is the impo
 
 import platform_compat
 
-VERSION = 2   # 2: tokens, tool calls and read KB per turn group (tl/D)
+VERSION = 3   # 2: tokens, tool calls and read KB per turn group (tl/D); 3: memory (tl/E)
+MEMORY_LAYERS = ("house_memory", "own_memory", "private_memory")   # instructions.LAYERS that carry remembered things
 TOP_FP = 20
 TOKENS = ("tok_in", "tok_out", "tok_think", "tok_cache_read", "tok_total")
 USAGE_TO_TOKENS = (("input_tokens", "tok_in"), ("output_tokens", "tok_out"), ("thinking_tokens", "tok_think"),
@@ -71,6 +72,8 @@ class Day:
         self.sessions: Dict[str, Any] = {"spawn": 0, "rotate": defaultdict(int)}
         self.main: Dict[str, int] = {"checks": 0, "red": 0}
         self.turn_tokens_seen = False   # a day whose turn.end lines carry tokens is never backfilled
+        self.memory: Dict[str, Any] = {"calls": defaultdict(int), "search_hits": [], "added": 0,
+                                       "injected_chars": defaultdict(list)}
 
     def _group(self, key: str) -> Dict[str, Any]:
         return self.turns.setdefault(key, {"outcomes": defaultdict(int), "dur_s": [], "ttft_ms": [], "tool_calls": [],
@@ -99,6 +102,9 @@ class Day:
         if evt == "context.inject" and e.get("sid"):
             who[e["sid"]] = {"character": str(e.get("character") or ""), "mode": str(e.get("mode") or "")}
             self.context["%s|%s" % (e.get("provider") or "", e.get("mode") or "")].append(float(e.get("chars") or 0))
+            for layer in e.get("layers") or []:
+                if isinstance(layer, dict) and layer.get("id") in MEMORY_LAYERS:
+                    self.memory["injected_chars"][layer["id"]].append(float(layer.get("chars") or 0))
         elif evt == "turn.end":
             w = who.get(str(e.get("sid") or ""), {})
             key = "|".join([str(e.get("provider") or ""), str(e.get("model") or ""), w.get("mode", ""),
@@ -137,6 +143,12 @@ class Day:
         elif evt == "repair.end" and not e.get("ok"):
             self.proc["repairs_failed"] += 1
         elif evt == "mcp.call":
+            if e.get("tool") == "memory":
+                args, res = e.get("args") or {}, e.get("result") or {}
+                self.memory["calls"][str(args.get("action") or "")] += 1
+                if isinstance(res.get("hits"), int):
+                    self.memory["search_hits"].append(float(res["hits"]))
+                self.memory["added"] += 1 if res.get("status") == "added" else 0
             m = self.mcp.setdefault(str(e.get("tool") or ""), {"fail": 0, "dur_ms": []})
             if not e.get("ok"):
                 m["fail"] += 1
@@ -180,7 +192,10 @@ class Day:
                 "mcp": {k: {"n": len(v["dur_ms"]), "fail": v["fail"], "dur_ms": _dist(v["dur_ms"])}
                         for k, v in sorted(self.mcp.items())},
                 "context": {k: _dist(v) for k, v in sorted(self.context.items())},
-                "messages": plain(self.messages), "sessions": plain(self.sessions), "main": dict(self.main)}
+                "messages": plain(self.messages), "sessions": plain(self.sessions), "main": dict(self.main),
+                "memory": {"calls": dict(self.memory["calls"]), "added": self.memory["added"],
+                           "search_hits": _dist(self.memory["search_hits"]),
+                           "injected_chars": {k: _dist(v) for k, v in sorted(self.memory["injected_chars"].items())}}}
 
 
 def session_usage(sessions_dir) -> Iterable[tuple]:
