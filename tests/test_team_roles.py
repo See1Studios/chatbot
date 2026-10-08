@@ -168,8 +168,10 @@ class Roster(unittest.TestCase):
                 W.WORKSPACE = saved_ws
 
             # 3. characters.load_team fallback without team.json uses oldest card as default
+            empty_ws = tmp_data / "empty_ws"
+            empty_ws.mkdir()
             cards = [{"id": c1, "card": C.new_card("Oldest")}, {"id": c2, "card": C.new_card("Newer")}]
-            roster = C.load_team(cards=cards)
+            roster = C.load_team(ws=empty_ws, cards=cards)
             self.assertEqual(roster["default"], c1)
 
             # 4. identity.seed_workspace_files seeds default character with empty roles (no hardcoded roles)
