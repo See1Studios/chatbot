@@ -644,6 +644,22 @@ def archive_tick(now: Optional[float] = None) -> Optional[Dict[str, Any]]:
     return got
 
 
+ROLLUP_EVERY_SEC = 3600
+
+
+def rollup_tick(now: Optional[float] = None) -> Optional[List[str]]:
+    """tl/C: write the daily rollups that are missing (yesterday, or a backlog) about once an hour."""
+    now = time.time() if now is None else now
+    if _state["path"] is None or now - _state.get("rolled_at", 0) < ROLLUP_EVERY_SEC:
+        return None
+    _state["rolled_at"] = now
+    from telemetry import rollup
+    days = rollup.build_missing(_state["path"], now)
+    if days:
+        event("log.rollup", days=len(days), first=days[0], last=days[-1])
+    return days
+
+
 def _bg_loop() -> None:
     while True:
         time.sleep(SUMMARY_EVERY_SEC)
@@ -651,6 +667,7 @@ def _bg_loop() -> None:
             flush_http_summary()
             heartbeat()
             archive_tick()
+            rollup_tick()
         except Exception:
             pass
 

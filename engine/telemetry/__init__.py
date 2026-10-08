@@ -2,5 +2,6 @@
 
   obslog.py      writing: one JSON line per event (format, redaction, storm guard, rotation) -- OBSLOG_v1
   archive.py     history: rotated files gzipped and kept KEEP_DAYS (tl/B)
+  rollup.py      one summary per day in logs/metrics/, kept forever (tl/C)
   logdigest.py   reading: the window digest and its findings, timelines, the `chatbot-ctl.sh logs` CLI
 """

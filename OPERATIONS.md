@@ -272,6 +272,13 @@ archives older than 90 days (`CHATBOT_OBSLOG_KEEP_DAYS`) or over 1 GB (`CHATBOT_
 first; it logs `log.archive` when something changed. `logdigest` reads the archive for a long window
 (`--since 30d`); the folder comes from `archive.dir_for(log)`, next to the log it belongs to.
 
+Daily rollups (tl/C, `telemetry/rollup.py`): one summary per finished day in `logs/metrics/YYYY-MM-DD.json`, kept
+forever (about 18 KB a day): turns by provider/model/mode/character (outcomes, duration and TTFT percentiles), HTTP
+routes, error counts and top fingerprints, process starts and repairs, MCP calls, injected context size, the message
+system (published by type, delivered, first-word reactions and why they waited), session rotations, main checks.
+The background thread fills missing days about once an hour and logs `log.rollup`; by hand
+`python3 engine/telemetry/rollup.py build`, and `rollup.py show [--days 7] [--json]` prints one line a day.
+
 ### Adding events
 
 Use `from telemetry import obslog`, then `obslog.event("area.name", lvl=..., **fields)` / `obslog.exception("area.name")`, or from the shell
