@@ -6,6 +6,15 @@
 (`RULES.md` Release). 2026-10-08까지 이 파일은 `DEVLOG.md`, 릴리스 메모는 `CHANGELOG.md`였다.
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 
+## 2026-10-08 — 대화 컨텍스트 정보를 시스템 지침에서 캐릭터 프로필 패널로 이관 (#818)
+
+- **운영자**: "시스템 지침 메뉴에 있는 이 대화에 지금 들어간 정보 라는 항목도 캐릭터 프로필 패널로 옮겨야겠는데"
+- **바뀐 것**: 
+  1. 시스템 지침(`statusPane`의 `instructions`) 메뉴에서 대화 세션별 주입 묶음인 [이 대화에 지금 들어간 정보 (`statusContext`)] 섹션을 완전히 제거. 시스템 전역 지침만 정갈하게 유지.
+  2. 캐릭터 프로필 패널(`shellProfile`)에 `shellContextSection`을 신설하여, 현재 열려 있는 대화의 캐릭터에게 실제로 주입된 지침·기억·페르소나 묶음(`statusContext`)을 캐릭터 프로필 화면 하단에서 직접 확인하도록 이관.
+- **집행**: `test_context_panel` (5 tests pass), `test_shell_page` (47 tests pass), `run-tests.sh --fast` (35 modules pass).
+- **재시작**: 불필요 (프론트엔드 변경: 브라우저 새로고침).
+
 ## 2026-10-08 — [engine/A] 엔진 코드의 역할명 하드코딩 제거 및 중립화 (#456, 위임 agy)
 
 - **커밋**: `4cd922b` test(team): pass empty workspace explicitly to test load_team fallback, `85480dc` test(team): verify engine role neutralization for ticket #456
