@@ -715,6 +715,23 @@ class ReplanTest(Base):
         self.plan([self.task(TIER0, "retried")], ticket_id=tid_gf)
         self.assertIsNone(self.state(tid_gf).get("replan_request"))
 
+    def test_the_pd_hears_the_replan_request_and_an_expert_does_not(self):
+        # a structured event the lead reads on its next turn, not chat text; before #806 landed nothing read it
+        import characters
+        import events
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.replan(tid, "split the page work in two")
+        got = [e for e in events._read_all() if e.get("type") == "work.replan"]
+        ws = self.data / "workspace"
+        pd = characters.default_character(ws)
+        expert = characters.new_id()   # anyone who is not the default character
+        note = delegation.work_event_note(got, pd)
+        self.assertIn("#%d: split the page work in two" % tid, note)
+        self.assertIn("delegate plan ticket=N", note)
+        self.assertEqual(delegation.work_event_note(got, expert), "")
+        by = [n["by"] for n in tickets.get(self.data, tid)["notes"] if "split the page" in n["text"]]
+        self.assertTrue(by and "operator" in by[0], by)
+
 
 class ToolTest(Base):
     def setUp(self):

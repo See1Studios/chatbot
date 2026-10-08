@@ -393,7 +393,7 @@ def replan(ticket_id: int, comment: str) -> Dict:
         raise DelegationError("ticket %d is %s; replan is only allowed when awaiting [Run] or when an attempt failed" % (tid, phase))
     now = time.time()
     runner().write_state(tid, replan_request={"comment": comment, "at": now})
-    tickets.add_note(DATA, tid, comment)
+    tickets.add_note(DATA, tid, "replan requested: " + comment, actor="operator")
     import characters
     import events
     ws = DATA / "workspace"
@@ -846,18 +846,27 @@ def mirror_work_talk() -> int:
 
 
 def work_event_note(evts: List[Dict], character: str) -> str:
-    """The note for `character` from its pending `work.phase` events: the latest phase of each run."""
+    """The note for `character` from its pending `work.phase` events (the latest phase of each run), and the
+    operator's re-plan requests (`work.replan`, BUTTON_LOGIC_v1) -- those reach only the PD, which re-plans."""
     import characters
     ws = DATA / "workspace"
     latest: Dict[str, Dict] = {}
     for e in evts:
         if e.get("type") == "work.phase":
             latest[e["subject"]] = dict(e["payload"], ticket=e["subject"])
-    if not latest or not character:
+    asks = [e for e in evts if e.get("type") == "work.replan"]
+    if not character or (not latest and not asks):
         return ""
-    mine, lead, default_name = _lines_for(character, list(latest.values()), ws)
-    return _wrap([_phrase(v, lead, default_name, characters.name(v["worker"], ws) if v["worker"] else "")
-                  for v in mine], lead)
+    notes = []
+    if latest:
+        mine, lead, default_name = _lines_for(character, list(latest.values()), ws)
+        notes.append(_wrap([_phrase(v, lead, default_name, characters.name(v["worker"], ws) if v["worker"] else "")
+                            for v in mine], lead))
+    if asks and character == characters.default_character(ws):
+        notes.append("[Re-plan asked] " + " · ".join(
+            "#%s: %s" % (e["subject"], str(e["payload"].get("comment") or "")[:300]) for e in asks)
+            + ". The operator asked for these plans to change: re-plan each with `delegate plan ticket=N`.")
+    return "\n".join(n for n in notes if n)
 
 
 def display_names() -> Dict[str, str]:
