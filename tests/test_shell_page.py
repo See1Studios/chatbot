@@ -298,6 +298,12 @@ class ShellList(unittest.TestCase):
         self.assertTrue(self.o["chatShown"])
         self.assertEqual(self.o["pushed"], 1)
 
+    def test_settings_swatches_are_named_by_the_catalog(self):
+        # critique run 4: the settings' theme swatches were announced as "lime", "spark"
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("s.title = tr('theme.' + name);", src)
+        self.assertIn("s.setAttribute('aria-label', s.title);", src)
+
     def test_the_header_says_place_and_presence(self):
         idle, busy, private = self.o["presence"]
         self.assertRegex(idle, r"^\S+ · .+")

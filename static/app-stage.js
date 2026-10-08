@@ -121,6 +121,10 @@ function stageSync(md) {
   const exp = msg && msg.getAttribute ? msg.getAttribute('data-exp') : null;
   if (exp) face.setAttribute('data-exp', exp);
   face.classList[box ? 'add' : 'remove']('has-thought');
+  // A face that opens nothing (no thought, no group room to call from) is no button for the keyboard or a reader
+  const acts = Boolean(box || (msg && msg.dataset && msg.dataset.roomWho));
+  face.tabIndex = acts ? 0 : -1;
+  face.setAttribute('aria-hidden', String(!acts));
   const toggle = kids.find(el => stageHas(el, 'thought-toggle'));
   if (toggle && toggle.title) { face.title = toggle.title; face.setAttribute('aria-label', toggle.title); }
   if (box) {

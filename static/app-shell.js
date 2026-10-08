@@ -569,8 +569,8 @@ function shellSettingsOpen() {
       (typeof THEMES !== 'undefined' ? THEMES : []).forEach(name => {
         const s = shellEl('button', 'theme-swatch' + (name === now ? ' active' : ''));
         s.type = 'button';
-        s.title = name;
-        s.setAttribute('aria-label', name);
+        s.title = tr('theme.' + name);
+        s.setAttribute('aria-label', s.title);
         s.setAttribute('data-theme-choice', name);
         s.addEventListener('click', () => chooseTheme(name));
         sw.appendChild(s);
