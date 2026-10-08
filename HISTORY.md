@@ -6,6 +6,15 @@
 (`RULES.md` Release). 2026-10-08까지 이 파일은 `DEVLOG.md`, 릴리스 메모는 `CHANGELOG.md`였다.
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 
+## 2026-10-08 — agy 모델 패밀리 동적 해석 및 프로바이더/서버 장애 시 티켓 리셋 보호 (#813)
+
+- **운영자**: "model 을 family 로 처리할 수 없나? 프로바이더나 서버 문제일 경우 티켓이 터지지 않고 리셋되는 절차가 있으면 좋겠는데".
+- **바뀐 것**: 
+  1. 외부 CLI의 지원 모델 목록이 변경되더라도 깨지지 않도록 `AgyAdapter.resolve_model`에 패밀리/의도 해석을 구현(`claude-opus-4-6-thinking`이나 `claude-opus` 지정 시 현재 지원되는 최신 `claude-opus-5-5-high` 등으로 자동 매핑).
+  2. 모델 불일치(`invalid model`, `not recognized`) 및 프로바이더/서버 오류(500, 502, 503, connection refused 등)를 `brain_limits.py`에서 `unavailable`로 판정하도록 확장하여, 러너 실행 실패 시 티켓 시도 횟수(`attempts`)가 차감되지 않고 온전히 반환(refund)되도록 보호.
+- **집행**: `test_brain_limits` (`test_agy_model_family_resolution`, `test_labels_and_the_unavailable_test`).
+- **재시작**: 필요(어댑터 및 러너 모듈).
+
 ## 2026-10-08 — 캐릭터의 마지막 답을 다시 쓰고 넘겨본다 (regenerate-swipe R1–R3, #810)
 
 - **운영자**: 결정 D1–D6 "추천대로"(CLI 두뇌는 「다른 답」 지시 턴, 되돌릴 수 없는 일을 한 답은 다시 쓰기 끄기).
