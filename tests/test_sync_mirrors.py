@@ -5,6 +5,7 @@ Run: engine/run-tests.sh test_sync_mirrors
 """
 import importlib.util
 import io
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -73,6 +74,80 @@ class SyncFile(unittest.TestCase):
         self.assertEqual(sync_mirrors.sync_file(self.src, self.mir)[0], "skipped")
         self.src.write_text("# Heading\n\nchanged", encoding="utf-8")
         self.assertEqual(sync_mirrors.sync_file(self.src, self.mir, check_only=True)[0], "stale")
+
+
+class TranslationMemory(unittest.TestCase):
+    """MIRROR_TM_v1 (2026-10-08): one new rule row resent the whole document and the endpoint answered 429 for
+    hours. Only what changed goes to the translator; the rest comes from the mirror and the source it was made from."""
+
+    V1 = ("# Heading\n\nThe agent keeps `x.md`.\n\n```\ncode\n\nmore code\n```\n\n"
+          "| Rule | Who |\n|---|---|\n| one keeps | all |\n| two keeps | all |\n\nLast paragraph keeps.\n")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        self.src, self.mir = self.dir / "TEST.md", self.dir / "TEST.ko.md"
+        self.git("init", "-q")
+        self.src.write_text(self.V1, encoding="utf-8")
+        with patch.object(sync_mirrors, "translate_text_chunk", side_effect=fake_translate):
+            sync_mirrors.sync_file(self.src, self.mir)
+        self.git("add", "-A")
+        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "v1")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def git(self, *args):
+        subprocess.run(["git", "-C", str(self.dir), *args], check=True, capture_output=True)
+
+    def sync(self, text):
+        self.src.write_text(text, encoding="utf-8")
+        sent = []
+        with patch.object(sync_mirrors, "translate_text_chunk", side_effect=lambda t, **k: sent.append(t) or fake_translate(t)):
+            self.assertEqual(sync_mirrors.sync_file(self.src, self.mir)[0], "ok")
+        return sent
+
+    def test_only_a_changed_paragraph_and_a_new_table_row_are_sent(self):
+        v2 = self.V1.replace("| two keeps | all |", "| two keeps | all |\n| three keeps | all |").replace(
+            "Last paragraph keeps.", "Last paragraph changed.")
+        sent = self.sync(v2)
+        self.assertEqual(len(sent), 1, sent)
+        self.assertNotIn("one keeps", sent[0])
+        self.assertIn("three keeps", sent[0])
+        self.assertIn("Last paragraph changed.", sent[0])
+        mirror = self.mir.read_text(encoding="utf-8")
+        with patch.object(sync_mirrors, "translate_text_chunk", side_effect=fake_translate):
+            sync_mirrors.sync_file(self.src, self.mir, force=True)
+        self.assertEqual(mirror, self.mir.read_text(encoding="utf-8"), "same as translating it all")
+
+    def test_without_the_old_source_in_git_the_whole_document_is_translated(self):
+        (self.dir / ".git").rename(self.dir / "no-git")                  # the source it was made from is gone
+        sent = self.sync(self.V1 + "\nNew.\n")
+        self.assertTrue(any("one keeps" in t for t in sent), sent)
+
+    def test_a_rate_limit_is_waited_out(self):
+        import urllib.error
+        tries, waits = [], []
+
+        class Answer(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def urlopen(req, timeout=0):
+            tries.append(1)
+            if len(tries) < 3:
+                raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", {}, None)
+            return Answer(b'[[["hi",null]]]')
+
+        with patch.object(sync_mirrors.urllib.request, "urlopen", side_effect=urlopen), \
+                patch.object(sync_mirrors.time, "sleep", side_effect=waits.append):
+            self.assertEqual(sync_mirrors.translate_text_chunk("hello"), "hi")
+        self.assertEqual(len(tries), 3)
+        self.assertIn(sync_mirrors.BACKOFF_SEC[0], waits)
+        self.assertIn(sync_mirrors.BACKOFF_SEC[1], waits)
 
 
 class Hook(unittest.TestCase):

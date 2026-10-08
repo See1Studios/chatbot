@@ -6,6 +6,9 @@ Uses Google free translation endpoint (translate.googleapis.com) with:
 2. A glossary (GLOSSARY): the project's own terms go through as fixed Korean words, not the translator's guess
    ("agent" came back as "counselor", "lore" as "story")
 3. SHA-256 caching: only translates when the English source file hash changes
+5. Translation memory (MIRROR_TM_v1): only the paragraphs that changed go to the translator. The source the mirror
+   was made from is found in git by its hash, and its paragraphs pair with the mirror's. A one-line rule used to
+   resend the whole document (dozens of requests) and the endpoint answered 429 for hours (2026-10-08).
 4. Machine-translation disclaimer header:
    <!-- AUTO-GENERATED MIRROR FROM {source} (source_sha256: {hash}) — DO NOT EDIT MANUALLY -->
 
@@ -17,6 +20,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -69,7 +73,12 @@ def make_mirror_header(source_name: str, sha256_hash: str) -> str:
     )
 
 
-def translate_text_chunk(text: str, timeout: int = 10, retries: int = 2) -> str:
+PACE_SEC = 0.5             # between requests: the free endpoint limits bursts
+BACKOFF_SEC = (2, 8, 30)   # waits before each retry; 429 is a rate limit that passes
+_last_call = [0.0]
+
+
+def translate_text_chunk(text: str, timeout: int = 10, retries: int = len(BACKOFF_SEC)) -> str:
     """Call Google free translation endpoint for a single chunk of text."""
     if not text.strip():
         return text
@@ -84,6 +93,8 @@ def translate_text_chunk(text: str, timeout: int = 10, retries: int = 2) -> str:
     )
 
     for attempt in range(retries + 1):
+        time.sleep(max(0.0, _last_call[0] + PACE_SEC - time.time()))
+        _last_call[0] = time.time()
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -96,8 +107,11 @@ def translate_text_chunk(text: str, timeout: int = 10, retries: int = 2) -> str:
         except Exception as e:
             if attempt == retries:
                 raise RuntimeError(f"Translation failed after {retries + 1} attempts: {e}") from e
-            time.sleep(1.0)
+            time.sleep(BACKOFF_SEC[min(attempt, len(BACKOFF_SEC) - 1)])
     return text
+
+
+CODEBLOCK_RE = re.compile(r"(?ms)^(`{3,}[^\n]*\n.*?\n`{3,})$")
 
 
 def mask_markdown(content: str) -> Tuple[str, Dict[str, str]]:
@@ -113,7 +127,7 @@ def mask_markdown(content: str) -> Tuple[str, Dict[str, str]]:
         replacements[key] = text
         return key
 
-    content = re.sub(r"(?ms)^(`{3,}[^\n]*\n.*?\n`{3,})$", lambda m: keep("CODEBLOCK", m.group(0)), content)
+    content = CODEBLOCK_RE.sub(lambda m: keep("CODEBLOCK", m.group(0)), content)
     content = re.sub(r"`[^`\n]+`", lambda m: keep("INLINE", m.group(0)), content)
     content = re.sub(r"\]\([^)\s]+\)", lambda m: keep("LINK", m.group(0)), content)
 
@@ -199,6 +213,79 @@ def translate_markdown(content: str) -> str:
     return unmask_markdown(translated_doc, replacements)
 
 
+def paragraphs(content: str) -> List[str]:
+    """The paragraphs as translate_markdown splits them: at blank lines, a fenced block (blank lines inside) is one."""
+    blocks: List[str] = []
+
+    def hold(m: re.Match) -> str:
+        blocks.append(m.group(0))
+        return "XZB%dZX" % (len(blocks) - 1)
+
+    masked = CODEBLOCK_RE.sub(hold, content)
+    return [re.sub(r"XZB(\d+)ZX", lambda m: blocks[int(m.group(1))], p) for p in masked.split("\n\n")]
+
+
+def source_at(source_file: Path, sha: str, depth: int = 50) -> Optional[str]:
+    """The source text whose hash is `sha` (what the mirror was made from): HEAD or one of the last `depth` commits
+    of the file. None outside git or when it is not found."""
+    def run(*a: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", "-C", str(source_file.parent), *a], capture_output=True, text=True, timeout=30)
+
+    try:
+        log = run("log", "--format=%H", "-n", str(depth), "--", source_file.name)
+        for commit in log.stdout.split() if log.returncode == 0 else []:
+            old = run("show", "%s:./%s" % (commit, source_file.name))
+            if old.returncode == 0 and calc_sha256(old.stdout) == sha:
+                return old.stdout
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def translation_memory(source_file: Path, mirror_text: str) -> Dict[str, str]:
+    """Source paragraph -> its Korean paragraph, from the mirror and the source it was made from; {} when they do not
+    pair up (then the whole document is translated, as before)."""
+    sha = read_mirror_hash(mirror_text)
+    old = source_at(source_file, sha) if sha else None
+    if old is None:
+        return {}
+    src, mir = paragraphs(old), paragraphs(mirror_text[len(make_mirror_header(source_file.name, sha)):])
+    if len(src) != len(mir) or len(src) < 2:   # 0/1: no paragraph structure to trust
+        return {}
+    memory = dict(zip(src, mir))
+    for s, m in zip(src, mir):   # a table is one paragraph: its rows pair up too, so one new row sends one row
+        if s.count("\n") == m.count("\n") and "\n" in s:
+            memory.update((a, b) for a, b in zip(s.split("\n"), m.split("\n")) if a not in memory)
+    return memory
+
+
+def translate_with_memory(content: str, memory: Dict[str, str]) -> str:
+    """translate_markdown, but a paragraph the memory knows is reused; the rest go in one batch."""
+    if not memory:
+        return translate_markdown(content)
+    paras = paragraphs(content)
+
+    def known(p: str) -> bool:   # the paragraph, or every line of it
+        return p in memory or not p.strip() or all(l in memory or not l.strip() for l in p.split("\n"))
+
+    whole = [p for p in paras if not known(p) and not any(l in memory for l in p.split("\n") if l.strip())]
+    lines = [l for p in paras if not known(p) and p not in whole for l in p.split("\n")
+             if l.strip() and l not in memory]
+    todo = list(dict.fromkeys(whole + lines))
+    if todo:
+        cores = [t.strip("\n") for t in todo]   # an edge newline would cross into the next item of the batch
+        done = paragraphs(translate_markdown("\n\n".join(cores)))
+        if len(done) != len(cores):   # the translator moved a boundary: one at a time
+            done = [translate_markdown(c) for c in cores]
+        memory = dict(memory, **{t: t[:len(t) - len(t.lstrip("\n"))] + d + t[len(t.rstrip("\n")):]
+                                 for t, d in zip(todo, done)})
+
+    def put(p: str) -> str:
+        return memory[p] if p in memory else "\n".join(memory.get(l, l) for l in p.split("\n"))
+
+    return "\n\n".join(put(p) for p in paras)
+
+
 def sync_file(
     source_file: Path,
     mirror_file: Path,
@@ -216,6 +303,7 @@ def sync_file(
     src_content = source_file.read_text(encoding="utf-8")
     src_hash = calc_sha256(src_content)
 
+    memory: Dict[str, str] = {}
     if mirror_file.exists() and not force:
         mirror_content = mirror_file.read_text(encoding="utf-8")
         existing_hash = read_mirror_hash(mirror_content)
@@ -223,12 +311,13 @@ def sync_file(
             return "skipped", f"Up-to-date: {mirror_file.name} matches {source_file.name} ({src_hash[:8]})"
         if check_only:
             return "stale", f"Out-of-date: {mirror_file.name} differs from {source_file.name}"
+        memory = translation_memory(source_file, mirror_content)
 
     if check_only:
         return "stale", f"Missing: {mirror_file.name} does not exist"
 
     # Translate and write
-    translated = translate_markdown(src_content)
+    translated = translate_with_memory(src_content, memory)
     header = make_mirror_header(source_file.name, src_hash)
     final_output = header + translated.lstrip()
 
