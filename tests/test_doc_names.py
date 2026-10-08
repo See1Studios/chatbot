@@ -10,7 +10,7 @@ from pathlib import Path
 from tests._paths import REPO  # noqa: E402
 
 ROOT = REPO
-UPPER = re.compile(r"^[A-Z0-9][A-Z0-9-]*\.md$")
+UPPER = re.compile(r"^[A-Z0-9][A-Z0-9-]*(\.ko)?\.md$")
 KEBAB = re.compile(r"^[a-z0-9][a-z0-9-]*\.md$")
 PLAN_EXCEPTIONS = {"INDEX.md", "_TEMPLATE.md"}
 

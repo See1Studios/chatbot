@@ -246,6 +246,20 @@ def pre_commit():
     untracked = [p for p in git("ls-files", "--others", "--exclude-standard", "docs/plans").splitlines() if p.endswith(".md")]
     for p in untracked:
         print("[pre-commit] warning: %s is not committed; an untracked plan blocks ticket claims (#213)" % p)
+    standing_staged = [f for f in files if f in ("CONCEPT.md", "PRODUCT.md", "ARCHITECTURE.md", "OPERATIONS.md", "RULES.md")]
+    if standing_staged:
+        sm = _repo_module(root, "sync_mirrors")
+        if sm:
+            for src_name in standing_staged:
+                src_p = root / src_name
+                mir_p = root / f"{src_name[:-3]}.ko.md"
+                status, msg = sm.sync_file(src_p, mir_p, check_only=True)
+                if status == "stale":
+                    s2, m2 = sm.sync_file(src_p, mir_p)
+                    if s2 == "ok":
+                        subprocess.run(["git", "add", str(mir_p)], cwd=str(root))
+                    else:
+                        errors.append("%s: Korean mirror sync failed (%s); run python3 engine/tools/sync_mirrors.py" % (src_name, m2))
     if errors:
         print("\n".join("[pre-commit] " + e for e in sorted(set(errors))))
         return 1

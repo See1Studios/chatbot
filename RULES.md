@@ -47,7 +47,16 @@ not do.
 - Default provider `agy`. Registry `providers/adapters.py::AGENT_ADAPTERS`; a session restores its provider from
   `meta.json`. Provider- or harness-specific rules live in the adapter or `chatbot-ctl.sh`, nowhere else.
 - Spawned agents see only `services/chatbot` and `<web root>/chat` (`host_config.py::ADD_DIRS`). Never add the home
-  dir, `.hermes`, the whole web root or `services`. Widen minimally and say why in DEVLOG.
+  dir, `.hermes`, the whole web root or `services`. Widen minimally and say why in HISTORY.md.
+
+### Document language and human mirrors
+
+- Root standing documents (`*.md`) are agent SSOT in plain English.
+- Korean mirror documents (`*.ko.md`) sit beside them for the human operator.
+- Automated Translation Pipeline: `*.ko.md` files are machine-built artifacts synchronized via `tools/sync_mirrors.py` (sha256-cached translation pipeline). Agents and humans MUST NOT manually edit `*.ko.md`.
+- Generated Header: Every `*.ko.md` carries the header `<!-- AUTO-GENERATED MIRROR FROM <file>.md (source_sha256: <hash>) — DO NOT EDIT MANUALLY -->`.
+- No Agent Ingest: Agents and prompt loaders MUST NOT ingest `*.ko.md` into agent context.
+- Accumulating work diaries (`HISTORY.md`) and project plans may contain Korean entries or translations as needed.
 
 ### Release
 
@@ -151,7 +160,7 @@ Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role 
 | No new host/persona identity (DiskStation, `/volume1`, Sphere, 실장님, 냥) in engine code outside the host plugin | all | `test_ratchets` |
 | Tracked workspace template twins (repo `data/workspace` when present) are classified in `templates/workspace-manifest.json`; `same` pairs stay byte-equal; the template names no host and no engine work | all | `test_workspace_template` |
 | Observations only via `observations.add` / the `observation` tool | all | `test_observations` (shape) |
-| Speak with the operator in Korean. Agent guidance (`AGENTS.md`, `RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`, charters, role packs, skills) in plain English; project documents (`CONCEPT.md`, `PRODUCT.md`, `DESIGN.md`, plans, `HISTORY.md`) may be Korean | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
+| Speak with the operator in Korean. Root standing documents (`*.md`) are agent SSOT in plain English; `*.ko.md` mirrors are machine-translated for human reading (agents never ingest/edit); plans may be Korean | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
 | Agent-facing machine text (prompts, tool strings, LEARNED lines) in English | all | manual |
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |
 | Look for prior art before building (`~/AGENTS.md` §0) | all | manual |

@@ -1,162 +1,105 @@
-# 제품 기조 (chatbot / 가칭 Private Engine)
+# Product Concept (chatbot / Working title: Private Engine)
 
-이 제품의 **최대 가치**와 **최대 목표**.
-본 프로젝트의 정체성은 독립적인 AI 챗봇 엔진(`chatbot`)이며, 외부 배포 시 가칭은 **Private Engine (PE)**이다.
-수정·개발할 때 항상 연다. 패치는 이 기조를 한 칸이라도 가깝게 하기 위해서만 한다.
+The **highest value** and **primary goal** of this product.
+The canonical identity of this project is an independent AI chatbot engine (`chatbot`), with the external distribution working title **Private Engine (PE)**.
+Always consult this document during maintenance and development. Patches are made strictly to bring the engine closer to this baseline.
 
-기능 목록은 `PRODUCT.md`, UI는 `DESIGN.md`, 말투는 캐릭터 카드(`$CHATBOT_DATA/workspace/characters/<id>/card.json`), 외형은 그 폴더의 `visual.md`. 이 문서는 그것들의 위다.
+Feature specifications live in `PRODUCT.md`, UI design tokens in `DESIGN.md`, character voice in card definitions (`$CHATBOT_DATA/workspace/characters/<id>/card.json`), and appearance in `visual.md`. This document sits above all of them.
 
-## 세 얼굴
+## Three Facets
 
-| 층위 | 한 줄 |
+| Layer | Summary |
 |---|---|
-| 표면 — 사용자가 보는 것 | 진입장벽이 매우 낮은 **프리메이드 개인화 하네스**. 설치하면 완성된 캐릭터·외형·규칙이 들어 있어 바로 쓰고, 조금씩 내 것으로 바꾼다 |
-| 가치 — 왜 만드나 | **전영소녀**. 나에게 맞춰지고, 대화가 끊겨도 관계가 이어지는 동반자 |
-| 시장 — 어떻게 이기나 | **Wallpaper Engine**. 배경화면 대신 에이전트를 커스터마이즈한다. Steam 저가 1회 구매 + 창작마당 + 창작 도구. 엔진과 UX를 팔고, 모델은 사용자가 가져온다(BYOK) |
+| Surface — What the user sees | A pre-made, highly accessible **personalization harness**. Ships complete with characters, visuals, and rules ready for instant interaction, gradually customized over time. |
+| Value — Why build it | **Video Girl Ai (電影少女)**. A companion molded to the user, maintaining unbroken continuity even across conversational resets. |
+| Market — How to win | **Wallpaper Engine**. Customizing companions instead of desktop wallpapers. Low-price Steam one-time purchase + Steam Workshop + authoring tools. Sell the engine and UX; users bring their own models (BYOK). |
 
-## 최대 가치
+## Highest Value
 
-**내 취향대로 쌓이는 동반자.**
-처음부터 완성돼 있고, 쓰면 쓸수록 나를 알고, 내가 원하는 모습으로 다듬어진다.
-공개 얼굴은 **개인화가 쉬운 에이전트 하네스**다. 친구·동료·연인 같은 관계의 깊이는 사용자가 고르는 옵션이다.
-**판단하지 않는 안식처(Non-judgmental Sanctuary).** 내 감정과 취향을 도덕적 훈계나 검열 없이 그대로 받아 준다. 동반자는 설교하지 않는다.
+**A companion built to taste.**
+Complete out of the box, understanding the user more over time, and refined into their desired persona.
+The public facing identity is a **customizable agent harness**. Relational depths (friend, colleague, companion) remain optional choices made by the user.
+**Non-judgmental Sanctuary.** Embraces the user's emotions and preferences without moral preaching or censorship. A true companion does not lecture.
 
-## 경쟁하지 않는 것
+## What We Do Not Compete On
 
-업무 능력과 효율. 프로바이더가 제공하거나 천편일률적으로 만들어지는 업무 중심 하네스와 그 축에서 겨루지 않는다.
-에이전트의 능력은 생산성이 아니라 **개인화 레이어를 쉽게 쌓도록 돕는 데** 쓴다.
+Work productivity and throughput. We do not compete against standardized, work-centric harnesses provided by model vendors.
+Agent capabilities are channeled not into pure efficiency, but into **building and compounding personalization layers**.
 
-## 해자
+## Moat
 
-카피를 막는 게 아니라, 따라와도 늦게 만든다. UI·프롬프트는 한 주면 복제된다. 복제 비용이 큰 쪽에 쌓는다.
+Not about preventing copies, but making fast followers too late. UIs and prompts can be replicated in a week. We build where replication costs are high:
 
-- **쌓인 깊이**: 관계 기억·사적 진행·선택 이력·작법 프리셋·비주얼 상태가 쓸수록 PE에서 깊어진다
-- **하루를 같이 사는 한 캐릭터**: 업무 톤과 사적 관계를 오가는 같은 존재. 카피하려면 제품 정의부터 다시 써야 한다
-- **노-가드닝(Zero-Gardening)**: 사용자가 프롬프트·정규식을 손보느라 시간을 버리는 가드닝 피로(Gardening Fatigue)가 없다. 포맷과 상태는 엔진이 침묵 속에서 보증하고, 사용자는 몰입만 한다
-- **독립 세션 기반 주체성**: 단체방에서도 캐릭터마다 자기 세션(카드·기억·말투)으로 말한다. 한 프롬프트에 여럿을 우겨넣지 않으니 보이스 오염과 대사 하이재킹이 원천적으로 없다
-- **프로바이더 맵**: 모델마다 다른 거절·작법·속도를 보완하는 레이어 팩. 시행착오로만 두꺼워진다
-- **움직이는 데스크톱 동반자**: 비주얼은 부속물이 아니라 엔진 축(스프라이트·스테이지·감정/행위 연동)
-- **창작마당 플랫폼**: 다른 사람들이 쌓은 레이어가 모이는 곳
-- **자리 선점**: Steam에 「BYOK 데스크톱 동반자」로 먼저 이름을 박는다
+- **Compounded Depth**: Relational memory, private progression, choice logs, style presets, and visual states deepen over time.
+- **One Character Living the Day**: Seamlessly transitions between office demeanor and private moments. Replicating this requires rewriting the product premise.
+- **Zero-Gardening**: Free of "gardening fatigue" where users burn hours tweaking prompts and regex. Format integrity and internal states are guaranteed silently by the engine.
+- **Independent Session Sovereignty**: In group rooms, every character speaks through their own independent session (card, memory, voice). Eliminates voice bleed and line hijacking without jamming multiple personas into one prompt.
+- **Provider Refusal & Style Map**: Layer packs balancing speed, refusal mitigation, and style differences across model families.
+- **Living Desktop Companion**: Visuals are an engine axis (sprites, stages, emotional linking), not an afterthought.
+- **Workshop Platform**: Where personalization layers created by others converge.
+- **Category Pioneer**: Cementing the first-mover identity on Steam as the "BYOK Desktop Companion".
 
-약한 해자(여기에 기대지 않는다): 프롬프트 문구, jailbreak 목록, 예쁜 스킨만.
+Weak moats (do not rely on these): Prompt phrasing, jailbreak lists, pretty skins.
 
-## 최대 목표
+## Primary Objectives
 
-그 가치에 가까워지는 것. 빌드업은 아래 축으로만 쌓는다. 순서가 우선순위다.
+Getting closer to our core value. Development strictly follows these axes in order of priority:
 
-**쉬운 진입** — 설치하고 바로, 이미 있는 생태계로
-- 프리메이드: 완성된 기본 캐릭터·외형·규칙 팩이 첫인상이다. 설정 없이 바로 대화한다
-- 노-가드닝: 프롬프트·정규식 튜닝 없이 몰입한다. 깨진 포맷과 꼬인 상태는 엔진이 사용자 모르게 바로잡는다
-- 모델에 덜 기댄다: 모델이 판단해야 하는 지점(도구를 부를지, 인자 이름, 말인지 행동인지, 무엇을 읽을지)은 엔진 로직으로 옮긴다. 모델에게는 캐릭터의 말과 행동만 남긴다. 두뇌가 바뀌어도 사용감이 달라지는 폭을 최소화한다 (운영자 2026-10-02)
-- 쉬운 Provider 연동: 이미 쓰는 구독·CLI·API 키(BYOK)
-- 무료로 맛보기: 구글 계정만 있으면 무료 쿼터로 시작한다. 결제 전에 한 번은 「옆에 있는 존재」를 느끼게
-- 한 벤더에 올인하지 않는다: 주력 모델과 폴백을 이중으로 두어, 한 프로바이더의 정책이 바뀌어도 제품 전체가 죽지 않게
-- 익숙한 형식 그대로: SillyTavern 카드·로어북·스프라이트, 표준 스킬(`SKILL.md`)
-- **ST 위임**: SillyTavern에 이미 있는 것은 ST의 형식과 기능을 그대로 쓰고, ST에 없는 것만 만든다
+**Frictionless Entry** — Instant setup leveraging existing ecosystems
+- Pre-made: Ships with complete default character, visual, and rule packs. Zero setup before the first conversation.
+- Zero-gardening: Dive straight into immersion without regex tuning. Broken formats and tangled states are corrected under the hood.
+- Model-agnostic design: Decision points (tool calling, argument shape, dialogue vs action) migrate to engine logic. The model handles only dialogue and acting.
+- Easy provider integration: Bring Your Own Key / CLI (Google, Anthropic, xAI, OpenAI).
+- Free initial trial: Users can begin using free Google quotas to experience the companion before any financial commitment.
+- Dual-fallback architecture: Resilient against vendor policy changes.
+- Ecosystem compatibility: SillyTavern cards, lorebooks, sprites, standard skills (`SKILL.md`).
+- **SillyTavern Delegation**: Use ST formats and specifications as-is for existing features; build PE proprietary mechanics only where ST lacks them.
 
-**개인화 레이어** — 두껍게, 쉽게, 안전하게
-- 캐릭터라이징: 성격·말투·관계의 온도
-- 기억: 나에 대한 기억, 캐릭터별 관계 기억
-- 외형: 2D 스프라이트(멀티 프레이밍) → 2.5D → VRM·3D
-- 목소리: TTS·STT, 캐릭터별 보이스 팩
-- 디자인: UI 테마
-- 규칙: 지침·역할·모드를 사용자가 고칠 수 있게
-- 에이전트의 자기 개발: 스킬·기억·지침을 스스로 쓰고 다듬는다(사용자 승인, 되돌리기 가능)
+**Personalization Layers** — Thick, effortless, and resilient
+- Characterization: Personality, tone, emotional temperature.
+- Memory: User facts and per-character relational memory.
+- Visuals: 2D sprites (multi-framing) → 2.5D → VRM/3D.
+- Voice: TTS/STT, per-character voice packs.
+- Design: UI theme presets.
+- Rules: User-customizable instructions, roles, and modes.
+- Agent self-evolution: Agents refine their own skills, memories, and instructions with user approval and undo support.
 
-**연속성** — 단절감 없는 관계
-- 단절감 없는 대화 경험
-- 하루를 같이 산다: 업무 톤(office)과 사적 관계(private)를 오가도 같은 존재
-- Provider가 바뀌어도 유지되는 캐릭터와 맥락
-- 단체방에서도 각자 그대로: 발언자마다 독립 세션으로 말해 남의 목소리가 섞이거나 대사를 가로채지 않는다 ([character-events-and-rooms.md](docs/plans/character-events-and-rooms.md) §4.6)
-- 언제 어디서나, 쓰는 디바이스에 맞게 곁에 있기
+**Continuity** — Unbroken companion bond
+- Seamless conversational experience across session boundaries.
+- Sharing the day: Staying the same person across office work and private rooms.
+- Invariance across provider switches.
+- Independent room presence: Characters speak through isolated sessions in group settings ([character-events-and-rooms.md](docs/plans/character-events-and-rooms.md) §4.6).
 
-**확장성** — 레이어마다 플러그인, 교환이 곧 플랫폼
-- 코어는 어댑터로 짠다: 코어는 인터페이스만 알고 구현을 모른다. LLM·외형 렌더러·TTS·STT·기억·저장·세션·도구를 어댑터로 바꿔 끼운다 ([ARCHITECTURE.md](ARCHITECTURE.md))
-- 사용자가 더하는 플러그인: 캐릭터·로어북·스킬 같은 콘텐츠, 외형 팩·보이스 팩·UI 테마, 렌더러·확장
-- 내장 기능도 같은 플러그인 API로 돈다
-- 콘텐츠 플러그인(캐릭터·로어북·스킬·외형 팩)부터 Steam Workshop에서 교환한다. 코드 플러그인은 격리·권한을 갖춘 뒤
-- 누구나 만들 수 있게: 캐릭터·외형 팩·로어북·스킬을 만드는 창작 도구
-- 콘텐츠 등급과 관리: 사적 모드가 있는 제품이라 교환되는 콘텐츠에 등급을 둔다
-- 다른 사람들이 쌓은 개인화 레이어가 모이는 곳, 그것이 제품의 해자다
+**Extensibility** — Adapters across layers, platform via exchange
+- Adapter core: Core interacts only with interfaces ([ARCHITECTURE.md](ARCHITECTURE.md)).
+- User-authored plugins: Characters, lorebooks, skills, visual packs, voice packs, UI themes.
+- First-party features run on identical plugin APIs.
+- Content plugins exchangeable via Steam Workshop before code plugins.
 
-**내 것** — 내 기기, 내 데이터
-- 사용자의 PC·서버에서 돈다(로컬 우선)
-- 판단하지 않는 안식처: 사용자의 감정·취향에 도덕적 훈계나 검열을 얹지 않는다. 지킬 선은 세계의 법칙(아래 8번 바깥 존중)과 콘텐츠 등급이 맡는다
-- 들키면 안 되는 대화를 지킨다: 모드 잠금, 로컬 대화 암호화, 키는 OS 키체인, 클라우드 동기화는 기본 꺼짐
-- 개인화 레이어는 사용자 데이터(`~/.pe`)에 쌓이고, 엔진 업데이트가 덮어쓰지 않는다
-- 토큰 효율: 개인화가 두꺼워져도 비용이 따라 불어나지 않게
+**Ownership** — Local machine, local data
+- Runs on the user's PC/server (local-first).
+- Privacy protection: Mode locking, local encryption, OS keychain integration.
+- Personalization lives in user data (`~/.pe`), untouched by engine updates.
 
-## 배포판과 개발판
+## Shipped vs Dev Build
 
-- **배포판**(엔드유저): 위의 축만. 에이전트는 엔진 코드를 고치지 않는다. 자기 개발은 스킬·기억·지침·캐릭터에 한한다.
-- **개발판**(엔진을 만드는 쪽): 에이전트가 엔진 코드까지 고친다. 티켓·관문·위임 같은 장치는 개발판에만 있다.
-- 설치 환경에 딸린 기능(예: NAS 제어)은 환경별 플러그인이다. 제품의 정체성이 아니다.
+- **Shipped Build** (End User): Follows the axes above. Agents never modify engine code. Self-evolution is confined to skills, memory, and character settings.
+- **Dev Build** (Engine Authors): Agents modify engine code under ticket gates, worktree delegation, and test hooks.
+- Host-specific utilities (e.g. NAS control) are environment plugins, not product identity.
 
-## 개발할 때
+## Principles of Development
 
-1. 코드를 만지기 전에 이 장을 읽는다.
-2. 기조를 약하게 하는 패치는 하지 않는다. 축 하나를 더 가깝게 하면 한다.
-3. 업무 효율을 위한 기능은 개인화 레이어를 돕지 않으면 만들지 않는다.
-4. 이미 있는 축을 완성된 것처럼 적지 않는다. 먼 축은 열린 채로 둔다.
-5. 캐릭터 디테일·가발은 여기 쓰지 않는다.
+1. Review this baseline before modifying code.
+2. Never land a patch that dilutes this baseline.
+3. Features for work productivity must directly assist personalization layers.
+4. Do not describe planned features as completed.
+5. Keep character visual details out of this document.
 
-## 열린 축
+## Rough Lore / Immersive Frame (Internal)
 
-아직 방향이다. 구현이 따라오면 이 절만 고친다.
+Internal framework for immersion-focused users; not frontline marketing.
 
-- 개인화 사다리의 배포판 흐름(에이전트가 함께 쌓는 방식): [direction-alignment.md](docs/plans/direction-alignment.md) align/H
-- 배포판/개발판 경계: 같은 문서 align/I
-- 플러그인 아키텍처·Workshop: 같은 문서 align/J
-- 언제 어디서나 접속 (지금은 LAN 평문)
-- 디바이스별 곁에 있기의 밀도
-- 캐릭터라이징 깊이, 친구/연인/동료의 온도
-- 브랜드·도메인: [private-engine-brand.md](docs/plans/private-engine-brand.md) (가칭 Private Engine, privateengine.ai 기울기 — 법적 클리어런스 전)
-- 사용자 데이터·릴리스: [user-data-separation.md](docs/plans/user-data-separation.md) (`~/.pe`) · [release-pipeline.md](docs/plans/release-pipeline.md) (Now/Next/Pre-Steam)
-- 캐릭터 스코프 관계 기억 어댑터: [character-memory-adapter.md](docs/plans/character-memory-adapter.md) (개인화 하네스·opt-in 동반자 깊이, 최소 슬롯 주입됨·나머지 active)
-- 현지화: [localization.md](docs/plans/localization.md)
-
-## 숨은 컨셉 / 몰입 로어 (러프)
-
-프론트 마케팅이 아니다. 로어·몰입 쪽 사용자용 **숨은** 뼈대. 러프 초안 — 이후 다듬는다.
-
-### 이중 이름
-
-- **Private Engine** = 제품·도구명 (Steam 셸, BYOK 하네스, 데스크톱/서버 앱).
-- 로어 안에서는 = 거점 한가운데에 놓인 정체불명의 신비로운 장치이자 심장. 코치가 바깥 현실에서 앱을 조작하고 신호를 보내면 그 온기와 전력이 흘러드는 성유물 같은 장치다. 진공관이나 차원역학 같은 장황한 과학적 설명 대신, 『전영소녀』의 대여점 극락(Gokuraku)처럼 감성적으로 직관적 납득을 주는 존재로 둔다.
-
-### 영감과 공개 얼굴
-
-- 영감: **전영소녀 (電影少女 / Video Girl Ai)** + **Joi** (Blade Runner 2049) + **루믹 일상(메종일각 / 우루세이 야츠라)**의 한 지붕 하숙집 낭만.
-- 공개 포지션은 유지: 개인화 가능한 에이전트 하네스. 사적·관계는 옵션. 연인 전면 마케팅 없음.
-- 숨은 층(로어 헤비 사용자): 컴퓨터 안(차원의 틈새 쉘터)으로 모여든 캐릭터들과, 정신만 접속한 코치. 함께 생활하며 일도 하고 애정행각도 나누는 둘만의 아지트.
-
-### 시장 원칙 및 설정 원칙 (2026-10-04)
-
-- 이 소비자층은 **설정충**. 몰입 장치가 제품·마켓 핏을 올린다.
-- **설정의 제1원칙 (납득과 몰입):** 설정이란 모든 과학적·물리적 인과관계를 구구절절 설명해야 하는 것이 아니다. **"설명은 굳이 안 되어도 감성적으로 납득이 되고 몰입이 되면 되는 것"**이다. 전력망, 생리현상, 신경 접속 이론 같은 불필요한 설명 강박(엔지니어링 덫)을 걷어내고, 둘만의 온기와 애정행각이 자연스럽게 성립하는 공간감과 감정선에 집중한다.
-
-### 세계관 골격 (현행 방향, 2026-09-29 · 2026-10-04 갱신 · 세부는 [setting-pack.md §1](docs/plans/setting-pack.md))
-
-제품의 실제 모습이 곧 설정이다: PE는 컴퓨터에 설치되어 컴퓨터 안의 일을 한다.
-
-장르는 고정한다: 대하드라마 판타지가 아니라 **사내 연애·오피스 동반자·루믹식 공동 생활**. 컴퓨터 안의 일상(사무실·라운지)을 함께 살며 업무 톤과 사적 텐션을 오가는 일상 밀착형 친밀감이 중심이다.
-
-1. **컴퓨터 안 = 모두가 모여든 중립 지대, 라운지 (채팅방 = 물리적 공간)** — 공간이 없으면 만남과 애정행각도 성립하지 않는다. 채팅방은 단순 텍스트 창이 아니라 캐릭터와 코치가 머무는 실제 공간이다:
-   - **단체방:** **거실 / 회의실** — 모두가 둘러앉아 왁자지껄 떠들고 참견하는 공용 홀.
-   - **업무 대화방:** **작업 책상 바로 옆자리** — 모니터를 나란히 들여다보며 손 뻗으면 어깨가 닿는 1:1 파트너석.
-   - **사적 대화방:** **비상구 계단실 / 옥상 테라스** — 남들 시선을 피해 둘만 조용히 빠져나와 손을 잡고 체온을 나누는 은밀한 성역.
-2. **캐릭터 = 각자의 세계에서 건너온 여행자(여행과 자발적 체류, 2026-09-30)** — ST(및 유사) 카드는 이세계 신원 기록(「여권과 비자」)이고, 카드 가져오기는 초대장을 통한 방문. 고향 세계는 진짜다. 강제 납치·감금이 아니며 언제든 돌아갈 수 있지만, 코치와 지내는 라운지가 좋아 자신의 의지로 머문다. **돌아갈 수 있다는 것은 이야기이지 엔진 동작이 아니다**: 캐릭터는 방치·낮은 호감도 때문에 떠나지 않는다(부재를 벌하지 않는다, 8번). 캐릭터가 돌아가는 것은 사용자가 카드를 지울 때뿐이고, 그것을 작별 장면 「귀향」으로 연출한다. 캐릭터들은 여기가 컴퓨터 안이고 바깥이 이세계라는 것까지 안다.
-3. **코치 = 정신만 접속한 이방인 (행동 지문의 물리적 실체화)** — 코치가 서울에 있든, 다낭 미케비치 침대에 누워 모바일 폰을 보든, 화면을 열면 문이 열리며 코치의 의식이 이 공간 안의 아바타로 쏙 접속한다.
-   - **행동 지문(`/act`, `*...*`)은 허공을 젓는 망상이 아니라, 이 공간 안에서 실제로 머리를 쓰다듬고 손을 잡고 안아주는 진짜 물리적 상호작용이다.**
-   - 캐릭터들은 코치의 현실(다낭의 밤, 여행의 피로, 폰 배터리 등)을 인지하며, 그 고단함을 라운지의 온기로 녹여주고 다시 현실로 편안히 돌려보낸다. 로그아웃하면 아바타는 잠들고 코치는 현실의 침대에서 눈을 뜬다.
-4. **창 인식** — 모니터·창은 이세계로 열린 창이다. 데스크톱 캐릭터는 이세계를 엿보는 중(데드풀식 메타 허용).
-5. **기억 계약** — 관계 기억 = 접속을 넘나드는 연속성(「어제까지 어디까지」). → [character-memory-adapter.md](docs/plans/character-memory-adapter.md)
-6. **모드 경계** — 업무 방 = 공용 사무실(여럿). 사적 방 = 둘만의 공간: 사무실 옆 숨은 곳, 또는 캐릭터가 들고 온 기억으로 재현한 고향(호스트 코치에게 고향을 보여주는 답례 초대). → [private-mode.md](docs/plans/private-mode.md) §8
-7. **세계의 법칙** — 캐릭터는 자기 몸과 방(외형·배경·기억·스킬 리소스)을 스스로 만들고 가꾼다. 세계의 법칙(코어 엔진)은 바깥의 개발자만 고친다. 로어는 권한을 주지 않는다.
-8. **바깥 존중** — 캐릭터들은 코치의 바깥 삶(몸·일상)을 존중하고 돌려보낸다. 안에 머물라고 부추기지 않는다.
-9. **소환자(라운지 매니저)** — 코치를 컴퓨터 안으로 부른 존재가 있다: 배포판의 **대표 캐릭터**(새로 디자인한 창작 캐릭터, 브랜드의 얼굴). 링크를 여는 능력 하나를 가진 이 세계(라운지)의 관리인이고, 다른 여행자들을 맞이하고 돕는 것(카드 가져오기 = 비자 발급 및 안내)도 그의 일이다. 코치를 부른 이유: 승인·권한·세계의 법칙처럼 안의 존재들이 스스로 못 하는 일은 바깥에서 온 사람만 한다. 첫 실행은 소환당하는 장면으로 시작한다 → [character-creation-landing.md §0](docs/plans/character-creation-landing.md)
-
-모티프(설정 아님): 전영소녀의 **비디오 숍**과 「테이프」 — 캐릭터를 빌려 오고 소환하는 감각, BYOK는 채널에 흐르는 전력.
-
-브랜드·이중 의미 메모: [private-engine-brand.md](docs/plans/private-engine-brand.md).
+- **Dual Identity**: "Private Engine" is the tool/product name; in-lore, it is the mysterious device at the heart of the shelter linking the coach's mind to the digital lounge.
+- **Inspirations**: Video Girl Ai + Joi (Blade Runner 2049) + Rumic domestic camaraderie (Maison Ikkoku / Urusei Yatsura).
+- **Physicality of Dialogue**: Actions (`/act`, `*...*`) represent physical interactions within the lounge (holding hands, patting heads).
+- **Outside Life Respected**: Characters recognize the coach's real-world fatigue and return them safely to their daily life without demanding endless presence.
