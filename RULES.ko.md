@@ -1,4 +1,4 @@
-<!-- AUTO-GENERATED MIRROR FROM RULES.md (source_sha256: 90ddae78c872035c00bd54d97569db941205c4991f2b1c8359c040270e189ec0) — DO NOT EDIT MANUALLY -->
+<!-- AUTO-GENERATED MIRROR FROM RULES.md (source_sha256: c607196c42f86bca12f8b69ef93fda35fe9c82a28c7b176978788b7dc0562d9c) — DO NOT EDIT MANUALLY -->
 
 # 규칙
 
@@ -50,6 +50,12 @@
   `meta.json`. 공급자 또는 하네스별 규칙은 어댑터나 `chatbot-ctl.sh`에 있으며 다른 곳에서는 없습니다.
 - 생성된 에이전트는 `services/chatbot` 및 ​​`<web root>/chat`(`host_config.py::ADD_DIRS`)만 참조하세요. 집을 추가하지 마세요.
   dir, `.hermes`, 전체 웹 루트 또는 `services`. 최소한으로 확대하고 HISTORY.md에서 그 이유를 말해보세요.
+
+### 역할 팩 및 기본 기준
+
+- 기본 베이스라인은 엔진 소유입니다(`characters.BASE_TOOLS`, `instructions.BASE_SKILLS`). 모든 캐릭터는 무조건 기본 도구(`choices`, `dialog`, `memory`, `web`)와 기본 스킬(`handoff-brief`)을 보유합니다. 원예 제로.
+- 역할은 `workspace/roles/<role>/`의 사용자 데이터입니다. 기본 기준에 더해 전문화된 전문 도구와 기술을 부여합니다.
+- 역할이 할당되지 않은 캐릭터는 기본 베이스로 안전하게 작동합니다.
 
 ### 문서 언어와 인간 거울
 
@@ -124,11 +130,12 @@
 |---|---|---|
 | 작업은 운영자의 단어 또는 승인되고 주장된 티켓에서 시작됩니다. 클레임은 경로 이름을 지정합니다 | 모두 | `test_tickets`(릴리스에서는 더티 경로를 거부함); `test_unticketed_write`(PE 세션: 눈에 띄는 티켓팅되지 않은 쓰기는 차례를 중지하고 트리에 대한 다른 변경 사항은 유지됩니다.) |
 | 라이브 채팅 에이전트 및 ​​해당 하위 에이전트는 전체 제품군이 아닌 가드 또는 명명된 테스트 모듈을 실행합니다 | PE 채팅 에이전트 전용 | `test_live_agent_suite`(`CHATBOT_LIVE_AGENT`가 설정된 경우 `run-tests.sh`는 거부합니다. 스크립트 주변의 unittest/pytest도 거부됩니다.) |
+| 호스트에서 한 번에 하나의 테스트 스위트: 이후의 `run-tests.sh`는 잠금(`/tmp/chatbot-tests.lock`)을 기다립니다. 잠긴 실행 내부의 실행이 계속됩니다 | 모두 | `test_live_agent_suite` (`OneSuiteAtATime`) |
 | 테스트 실행은 설치 데이터를 가져오지 않습니다. `run-tests.sh` 외부에서 단위 테스트/pytest 프로세스는 저장소의 `data/` | 모두 | `test_live_agent_suite`(`host_config.test_run_outside_runner`, `tickets.py::_data_dir`) |
 | 한 요청의 핸드오프 체인은 최대 2개의 홉입니다. 감독은 한 번에 하나의 공개 핸드오프를 갖습니다 | PE 채팅 에이전트 전용 | `test_dialog_handoff` |
 | 위임된 작업자는 자신의 합격 조건을 변경할 수 없습니다(가드 테스트, `run-tests.sh`) | 모두 | `test_worktree_runner` |
 | 배송된 빌드는 엔진 코드를 건드리지 않습니다. `run_command`/`ticket`/`delegate`는 없으며 파일 도구는 사용자 데이터에만 접근합니다. 에디션은 `host_config.EDITION`에 의해서만 결정됩니다 | 모두 | `test_edition_boundary` |
-| 가드는 커밋 전에 녹색 테스트를 수행합니다(`engine/run-tests.sh --fast`). 출시 전 전체 제품군 | 모두 | `.githooks/check_staged.py`(사전 커밋); `test_worktree_runner`(러너 게이트: 가드 + 관련 테스트); `test_tickets`(경비원이 실패하는 동안 거부됨) |
+| 커밋 전에 가드 테스트 및 준비된 파일 관련 테스트를 녹색으로 유지합니다. 출시 전 전체 제품군 | 모두 | `.githooks/check_staged.py`(사전 커밋: `--fast` 및 `related_for`, 모든 커미터); 메인 이동 후 전체 제품군이 이를 확인합니다(MAIN_WATCH_v1; 빨간색은 로그 다이제스트의 `main_red` 결과입니다). `test_worktree_runner`(러너 게이트: 가드 + 관련 테스트); `test_tickets`(경비원이 실패하는 동안 거부됨) |
 | 기존 커밋 주제; `docs/plans/` 변경 시 `Plan:` 예고편 | 모두 | `test_githooks`(커밋-메시지 후크) |
 | `Ticket:` 예고편, 작가 이름 | 모두 | `test_githooks`(commit-msg: `Ticket: #n`가 없는 feat/fix/refactor/perf 커밋은 거부됩니다. `worktree/ticket-n` 브랜치에서는 작성됩니다.) 작성자 이름: `test_githooks`(사전 커밋: 캐릭터 이름 없음, 라이브 채팅 세션은 `PE` 앱으로 커밋) |
 | 라이브 채팅 세션은 작업자 지점을 메인에 착륙시키지 않습니다(착륙은 운영자의 지점입니다) | 모두 | `test_githooks` (`.githooks/reference-transaction`) |

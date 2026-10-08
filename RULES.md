@@ -128,11 +128,12 @@ Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role 
 |---|---|---|
 | Work starts from the operator's words or an approved, claimed ticket; claim names the paths | all | `test_tickets` (release refuses dirty paths); `test_unticketed_write` (PE sessions: a visible unticketed write stops the turn, any other change to the tree is held) |
 | A live chat agent and its subagents run the guards or named test modules, never the whole suite | PE chat agent only | `test_live_agent_suite` (`run-tests.sh` refuses when `CHATBOT_LIVE_AGENT` is set; unittest/pytest around the script is refused too) |
+| One test suite at a time on a host: a later `run-tests.sh` waits for the lock (`/tmp/chatbot-tests.lock`); a run inside a locked run goes on | all | `test_live_agent_suite` (`OneSuiteAtATime`) |
 | A test run never gets an install's data: outside `run-tests.sh` a unittest/pytest process is pointed at the repo's `data/` | all | `test_live_agent_suite` (`host_config.test_run_outside_runner`, `tickets.py::_data_dir`) |
 | A handoff chain from one request is at most two hops; a director has one open handoff at a time | PE chat agent only | `test_dialog_handoff` |
 | A delegated worker cannot change its own pass condition (guard tests, `run-tests.sh`) | all | `test_worktree_runner` |
 | The shipped build never touches engine code: no `run_command`/`ticket`/`delegate`, file tools reach user data only; the edition is decided only by `host_config.EDITION` | all | `test_edition_boundary` |
-| Guard tests green before commit (`engine/run-tests.sh --fast`); full suite before release | all | `.githooks/check_staged.py` (pre-commit); `test_worktree_runner` (runner gates: guards + related tests); `test_tickets` (done refused while guards fail) |
+| Guard tests and the staged files' related tests green before commit; full suite before release | all | `.githooks/check_staged.py` (pre-commit: `--fast` and `related_for`, every committer); after main moves the whole suite checks it (MAIN_WATCH_v1; red is the log digest's `main_red` finding); `test_worktree_runner` (runner gates: guards + related tests); `test_tickets` (done refused while guards fail) |
 | Conventional Commits subject; `Plan:` trailer when `docs/plans/` changes | all | `test_githooks` (commit-msg hook) |
 | `Ticket:` trailer, own author name | all | `test_githooks` (commit-msg: a feat/fix/refactor/perf commit without `Ticket: #n` is refused; on a `worktree/ticket-n` branch it is written in); author name: `test_githooks` (pre-commit: never a character's name; a live chat session commits as the app `PE`) |
 | A live chat session never lands a worker's branch on main (landing is the operator's) | all | `test_githooks` (`.githooks/reference-transaction`) |

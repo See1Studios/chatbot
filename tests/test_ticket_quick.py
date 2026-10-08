@@ -35,8 +35,10 @@ class TicketQuickCli(unittest.TestCase):
         self._tmp.cleanup()
 
     def run_tq(self, *args):
+        # `done` runs the guard tests on the engine checkout (tickets.GUARD_TIMEOUT_SEC): ~40 s alone, and 60 s ran out
+        # whenever another suite was running (main.check, 2026-10-08)
         return subprocess.run([sys.executable, str(TOOL)] + list(args), cwd=str(ROOT), env=self.env,
-                              capture_output=True, text=True, timeout=60)
+                              capture_output=True, text=True, timeout=360)
 
     def start(self):
         r = self.run_tq("start", "--title", "[test] probe", "--paths", "a.py", "--actor", "tester")

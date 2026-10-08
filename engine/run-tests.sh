@@ -109,8 +109,34 @@ export CHATBOT_EVENTS_DIR="$RUN_TMP/events"   # evt/B: tests never write the liv
 export CHATBOT_DIALOGS_DIR="$RUN_TMP/dialogs" # inbox/B: nor the live dialogs and read positions
 trap 'rm -rf "$RUN_TMP"' EXIT
 
+# TEST_LOCK_v1: one suite at a time on this host (2026-10-08: an agent's run and two commit hooks' runs overlapped,
+# load 48 on 4 cores; a guard flaked, ticket closes failed, slow pages were "repaired" 15 times in 6 h). A run already
+# uses cores - 1 (JOBS), so a second one only adds contention: it waits for the lock. A run started inside a locked
+# run (a test that calls this script, a hook inside a test) goes on: the lock's holder is its ancestor.
+TEST_LOCK="${RUN_TESTS_LOCK:-/tmp/chatbot-tests.lock}"
+lock_holder_is_ancestor() {
+  local holder p
+  holder="$(cat "$TEST_LOCK" 2>/dev/null)"; p=$PPID
+  [ -n "$holder" ] || return 1
+  while [ -n "$p" ] && [ "$p" -gt 1 ] 2>/dev/null; do
+    [ "$p" = "$holder" ] && return 0
+    p="$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')"
+  done
+  return 1
+}
+if command -v flock >/dev/null && exec 9>>"$TEST_LOCK"; then
+  if flock -n 9; then
+    echo $$ > "$TEST_LOCK"
+  elif ! lock_holder_is_ancestor; then
+    WAIT="${RUN_TESTS_LOCK_WAIT:-900}"
+    echo "run-tests.sh: another test run (pid $(cat "$TEST_LOCK" 2>/dev/null)) holds $TEST_LOCK; waiting up to ${WAIT}s" >&2
+    flock -w "$WAIT" 9 || { echo "run-tests.sh: gave up after ${WAIT}s waiting for the other test run" >&2; exit 2; }
+    echo $$ > "$TEST_LOCK"
+  fi
+fi
+
 if [ "${ONE:-}" = 1 ]; then
-  timeout 900 python3 -m unittest "${mods[@]/#/tests.}"
+  timeout 900 python3 -m unittest "${mods[@]/#/tests.}" 9>&-
   exit $?
 fi
 
@@ -128,7 +154,7 @@ run_one() {
   fi
   s=$(ms)
   out=$(TMPDIR="$dir/tmp" CHATBOT_EVENTS_DIR="$dir/events" CHATBOT_DIALOGS_DIR="$dir/dialogs" \
-        timeout "$TIMEOUT" python3 -m unittest "tests.$m" 2>&1)
+        timeout "$TIMEOUT" python3 -m unittest "tests.$m" 2>&1 9>&-)   # a test's stray child never keeps the lock
   rc=$?
   d=$(( $(ms) - s ))
   if [ $rc -eq 0 ]; then

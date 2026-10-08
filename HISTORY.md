@@ -5,6 +5,51 @@
 릴리스는 아직 없다(`engine/VERSION` 0.0.0-dev, 태그 없음). 릴리스 때 사용자용 `CHANGELOG.md`를 커밋에서 만든다
 (`RULES.md` Release). 2026-10-08까지 이 파일은 `DEVLOG.md`, 릴리스 메모는 `CHANGELOG.md`였다.
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
+2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
+
+## 2026-10-08 — 바쁜 날의 기록은 나눠 담는다 (BUSY_DAY_v1, #830)
+
+- **운영자**: "바쁜 날은 나눠 담기"
+- **바뀐 것**: 하루치만으로 HISTORY.md 예산을 넘으면 그날의 이른 기록부터 `docs/history/<날짜>.md`로 옮긴다. 다음 날이 시작되면 나뉜 날은 통째로 옮긴다. 손으로 쓴 뒤에는 `python3 engine/tools/history_entry.py rotate`.
+- **집행**: `test_history_entry`, `test_docs_budget`.
+
+## 2026-10-08 — 모든 커밋에 관련 테스트, main이 바뀌면 전체 테스트 감시 (RELATED_ALL_v1, MAIN_WATCH_v1, #825)
+
+- **운영자**: "다른 에이전트가 이런 실수를 하지 않게 하려면?" → 1·2번 진행
+- **원인**: 커밋 훅의 관련 테스트는 PE 채팅 에이전트에만 걸렸다. #817/#821/#822는 외부 CLI가 `--fast`만 통과해 들어와 main의 네 모듈을 깨뜨렸다("커밋 전 전체 테스트"는 AGENTS.md의 문장뿐).
+- **바뀐 것**: pre-commit이 누가 커밋하든 관련 테스트를 돌린다(호스트·러너, 위임 작업자 브랜치, 미러 최신성은 제외). main이 움직이면 `reference-transaction` 훅이 `tools/main_watch.py`를 뒤에서 띄워 1분 기다린 뒤 main 커밋의 worktree에서 전체 테스트를 돌리고 `main.check`를 남긴다. 빨강이면 로그 요약의 첫 finding(`main_red`)이 된다.
+- **집행**: `test_githooks`, `test_main_watch`, `test_logdigest`.
+- **재시작**: 불필요.
+
+## 2026-10-08 — #817/#821이 남긴 빨간 테스트 셋 수리 (#824)
+
+- **운영자**: "그래" (main의 실패 셋을 고칠까 물음에)
+- **바뀐 것**: `team.role_has_holders` 번역 키 추가(ko/en), `/api/experts`의 새 필드(`owns`, `builtin`)를 테스트가 기대, 스트리밍 표시 테스트가 외관 메뉴를 본다.
+- **재시작**: 불필요 (브라우저 새로고침).
+
+## 2026-10-08 — 한국어 미러: 바뀐 문단·표 행만 번역 (MIRROR_TM_v1, #823)
+
+- **운영자**: "차단 없이 써먹을 방법을 찾아보자"
+- **원인**: 규칙 한 줄만 바뀌어도 RULES.md 전체를 수십 번 나눠 다시 번역했고, 무료 번역 주소가 이 호스트의 Python 요청을 429로 막았다(같은 주소가 curl에는 응답).
+- **바뀐 것**: 미러 머리의 해시로 git에서 원래 원문을 찾아 미러와 문단·표 행 단위로 짝짓고, 새 것만 한 번에 보낸다(이번 변경은 요청 1번). 요청 사이 0.5초, 실패하면 2/8/30초 기다렸다 재시도.
+- **집행**: `test_sync_mirrors` (`TranslationMemory`).
+- **재시작**: 불필요 (도구).
+
+## 2026-10-08 — 병합된 티켓 닫기를 바로 응답하고 별도 프로세스로 (CLOSE_ASYNC_v1, #819)
+
+- **운영자**: "456 은 FAIL 이라고 나오는데 병합됨(티켓 열림)으로 카드에 떴고 티켓 닫기도 눌러보고 확인 도 눌러봤지만 에러 시스템 메시지만 지나가고 아무런 반응이 없었어"
+- **원인**: 닫기가 확인 테스트(약 50초, 과부하 때 몇 분)를 요청 안에서 기다렸고, 페이지는 12초에 포기했다. 누를 때마다 돌고 있던 닫기의 lease를 떨구고 새로 시작해 7초에 12번. 거부 이유는 카드에 남지 않았다. 병합 직후의 첫 닫기는 `done` 60초 제한에 걸렸다.
+- **바뀐 것**: 닫기는 `tools/ticket_close.py`를 따로 띄우고 바로 답한다. 도는 동안 카드는 병합 중(버튼 없음), 두 번째 누름은 거부, 프로세스가 죽으면 다시 누를 수 있다. 거부되면 이유가 카드에 남는다. 러너의 `done` 제한 60초 → 420초.
+- **집행**: `test_delegation`, `test_worktree_runner`.
+- **재시작**: 필요 (`delegation.py`). 운영자가 한가할 때.
+
+## 2026-10-08 — 테스트는 호스트에서 한 번에 한 벌만 (TEST_LOCK_v1, #820)
+
+- **운영자**: "지금 시스템 상태가 이상하네" → 승인
+- **원인**: agy 세션의 `run-tests.sh` 한 벌과 커밋 훅 두 벌이 겹쳐 4코어에 부하 48. 페이지 API가 느려져 6시간에 재시작 15번, 확인 테스트(`test_identity_wiring`)가 흔들려 #456 닫기가 실패.
+- **바뀐 것**: `engine/run-tests.sh`가 시작할 때 `/tmp/chatbot-tests.lock`(flock)을 잡는다. 다른 실행이 쥐고 있으면 기다리고(`RUN_TESTS_LOCK_WAIT`, 기본 900초), 넘기면 exit 2. 잠금을 쥔 실행의 자식(테스트 안에서 부르는 스크립트, 테스트 안의 훅)은 그냥 지나간다. 테스트 자식 프로세스는 잠금 fd를 물려받지 않는다.
+- **집행**: `test_live_agent_suite` (`OneSuiteAtATime`), `RULES.md` 행 추가.
+- **재시작**: 불필요 (테스트 스크립트만).
 
 ## 2026-10-08 — 앱 소유 Base(기본 소양) 레이어 정립 및 거버넌스 갱신 (#822)
 
@@ -269,45 +314,4 @@
 - **운영자**: "ARCHITECTURE 가 사라졌는데"
 - **원인**: 루트로 옮기며(layout/F) 261줄을 79줄로 다시 쓰면서 어댑터 명세·스프라이트 규칙·플러그인 층·로드맵을 뺐다.
 - **바뀐 것**: 원래 절(레이어, ST 역할 분담, 어댑터 7종, 플러그인 층, 로드맵, 설계 원칙, 거버넌스)을 모두 영어로 되살렸다. 지금 코드와 다른 곳은 코드에 맞췄다(`VisualAdapter`의 실제 메서드, 스프라이트는 `sprites/<framing>/<label>.webp`와 캔버스 크기, 두뇌는 `AgentAdapter`). 코드에 아직 없는 것은 항목마다 planned로 표시.
-
-## 2026-10-08 — 에이전트 지침은 루트로, docs/에는 사람이 읽는 문서만 (layout/F, #777)
-
-- **운영자**: "docs 루트에 문서가 많이 남아있는데?" · "매번 에이전트가 읽어야 하는 지침들은 저장소 루트로 가는 거였잖아" · ARCHITECTURE도 지침으로.
-- **바뀐 것**: 루트 지침은 `AGENTS.md`(진입)·`RULES.md`(규칙·컨벤션·릴리스·전파 장부: STATE·RELEASE 흡수)·`CODEMAP.md`·`ARCHITECTURE.md`(쉬운 영어로 다시 — 코드에 있는 어댑터와 계획만 있는 것을 나눔)·`OPERATIONS.md`(복구 + 로그: EMERGENCY·LOGGING 합침, 낡은 로그 경로·페르소나 호칭 정리). 포인터뿐이던 `docs/SELF-MODIFY.md`는 삭제(실물은 개발판 템플릿). `docs/`에는 README·CONCEPT·PRODUCT·DESIGN·DEVLOG·CHANGELOG와 plans/·providers/·devlog/만.
-- **옮기며 잡은 것**: 로그 문서의 줄 번호 인용 하나(이제 링크 검사 대상). `test_entrypoints`가 루트 지침 목록을 지킨다.
-- **재시작**: 불필요(문서·주석).
-
-## 2026-10-08 — 코드를 engine/으로 (layout/C, #776)
-
-- **바뀐 것**: 루트의 파이썬 68개, `providers/`, `tools/`, `engine_data/`, 설정 json 5개, `chatbot-ctl.sh`, `run-tests.sh`, `VERSION`, `requirements.txt`, `secrets.env.example`을 `engine/`으로(`git mv`). 루트에는 진입 파일·`RULES.md`·`CODEMAP.md`와 `docs/`·`engine/`·`static/`·`templates/`·`tests/`만.
-- **경로**: 테스트는 `engine/run-tests.sh`(저장소 루트에서 돌고 엔진을 import 경로에 둔다, 테스트 데이터는 `engine/data/`). 보호 경로 패턴은 `engine/…`(엔진 폴더 기준으로 해석, 폴더가 따로 없는 임시 루트에서도 같은 목록이 맞는다). 티켓·커밋 경로는 저장소 기준(`engine/session.py`), `CODEMAP.md`·`RULES.md`의 이름은 엔진 기준. 커밋 훅·위임 러너·티켓 완료 검사가 `engine/run-tests.sh`를 찾는다 — 못 찾으면 검사가 조용히 빠지던 곳이라 각각 테스트를 더했다.
-- **옮기며 잡은 것**: 파일을 찾지 못해 0개를 검사하고 통과하던 검사 셋(`test_code_map`, `test_l10n_catalogs`, `test_no_trace`)을 엔진 쪽으로 고쳤다. CI(`.github/workflows/tests.yml`)도 새 경로로, bash 없는 실행기 `engine/tools/run_modules.py`는 `run-tests.sh`와 같은 환경(엔진 import 경로, 저장소 임시 데이터, 실행기 표시)을 만든다 — 전에는 표시가 없어 `test_tickets` 일부가 단독 실행에서 실패했다.
-- **라이브**: `~/services/chatbot-ctl.sh` 링크와 `~/bin/ticket-quick`가 새 경로를 가리키고, 커밋하지 않는 `data-pin.env`·`logs/`·테스트 `data/`도 `engine/`으로. 재시작 필요.
-
-## 2026-10-08 — 루트 계산을 한 곳으로: REPO와 ENGINE (layout/B, #775)
-
-- **왜**: 코드를 `engine/`으로 옮길 때(layout/C) 저장소 루트를 스스로 계산하던 파일 229개를 하나씩 고치지 않도록.
-- **바뀐 것**: 새 코어 모듈 `repo_layout.py`가 엔진 폴더(`ENGINE`: 코드·설정·스크립트)와 저장소 루트(`REPO`: `static/`·`templates/`·`tests/`·`docs/`·진입 파일)를 정한다 — 엔진 폴더 이름이 `engine`이면 그 위가 루트라, 이동 때 바꿀 상수가 없다. `host_config`(`REPO`·`STATIC`·`TEMPLATES`), 보호 경로 판정(레지스트리는 엔진 설정 옆, 패턴은 저장소 기준), 도구 서버의 쓰기 범위, 아이템·캐릭터 자리표시 그림, i18n 카탈로그, 템플릿, git 위치가 이것을 쓴다. 테스트는 `tests/_paths.py` 하나에서 받는다(약 200개 파일 변환). 지금은 두 값이 같은 폴더라 동작은 그대로.
-- **집행**: `test_code_layout` — 테스트 도우미와 코드의 값이 같고, 테스트는 루트를 스스로 계산하지 않으며, 코드는 자기 파일 위치에서 저장소 폴더를 찾지 않는다.
-- **재시작**: 필요(서버 모듈).
-
-## 2026-10-08 — 계획 문서 정리: 저장소 배치 계획 신설 (layout/A)
-
-- **운영자**: "계획 문서 중에 지금 하는 작업에 대한 내용이 있을 거야. 계획 문서 처리도 해야해"
-- **바뀐 것**: `plan-execution-workflow.md` §3의 저장소 배치도·정본 지도를 지금 구조(루트 `AGENTS.md`·`RULES.md`·`CODEMAP.md`, 나머지는 `docs/`)로, pew/S 완료 표시. 코드를 `engine/`으로 옮기는 일은 보관된 monolith-split의 보류분을 이어받는 새 계획 [repo-layout.md](docs/plans/archive/2026/repo-layout.md)로(D1 폴더 이름, D2 import 방식, D3 루트 설정·스크립트 자리 — 운영자 결정 대기). 배포 제외 목록에 `RULES.md`·`CODEMAP.md`·`docs/`, `psec/C`의 규칙 자리는 `RULES.md`.
-
-## 2026-10-08 — AGENTS.md를 짧은 개발판 진입으로, 루트에는 진입·개발 지침만 (pew/S, #774)
-
-- **운영자**: "너무 길다, 섞여 있다, 읽기 어렵다, 개발판 전용 지침이어야 해" · "프로젝트 루트에서는 엔트리포인트 외에 다른 문서들은 없어야 해" · 이어서 코드도 루트에서 빼기로(pew/T).
-- **바뀐 것**: 루트 `AGENTS.md` 24KB → 4.6KB(역할·시작 순서·작업 절차·지켜야 할 규칙·정본 지도, 쉬운 영어). 규칙표와 컨벤션(테스트 페어링·크기·타임아웃·사담·이름·하네스)은 루트 `RULES.md` 하나로, 코드 지도는 루트 `CODEMAP.md`로(영역별, 설명 압축). `README`·`PRODUCT`·`DESIGN`·`CHANGELOG`는 `docs/`로(impeccable도 `docs/`에서 찾는 것 확인). `docs/CONVENTION.md`는 `RULES.md`에 합침.
-- **집행**: `test_entrypoints` — `AGENTS.md` ≤ 6,000B, 첫 줄에 "dev build only", 채팅 런타임 규칙 없음, 루트 문서는 진입 파일과 `RULES.md`·`CODEMAP.md`뿐. 배포 제외 목록(edition/F)에 개발 지침 추가.
-- **이제 위임 작업자도 코드 지도를 고칠 수 있다**: 지도가 Tier 3인 `AGENTS.md` 밖으로 나왔다.
-- **재시작**: 불필요(문서·주석·테스트).
-
-## 2026-10-08 — 옆 서비스 nas-mcp·character-chat 퇴역, 엔진에서 걷어냄 (prop/J, #772)
-
-- **운영자**: "다 지워"
-- **근거**: nas-mcp(:3015) 로그에는 헬스체크만 있고 도구 호출은 0건, character-chat(:3013)은 9월 17일 이후 손대지 않음. 호스트 플러그인(`nas_mcp_host.py`)이 nas-mcp에 넘기던 위임(`sphere_hub_status`·`factory_status`·`hermes_status`)과 서비스 목록·ctl 항목을 뺐다 — 늘 스스로 하던 쪽(fallback)만 남는다. `call_tool`이 80줄 아래로 내려와 예외 천장도 뺐다. 테스트의 "NAS 배치" 판정은 `../chatbot-ctl.sh`로.
-- **지움**: 아무 데서도 가리키지 않던 `docs/CHARACTER-EXPRESSION-GUIDE.md`.
-- **재시작**: 필요(도구 서버).
 
