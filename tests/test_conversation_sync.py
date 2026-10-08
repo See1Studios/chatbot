@@ -164,7 +164,7 @@ class UnfinishedTurns(Base):
         self.result(s, duration_seconds=AGY_PRINT_TIMEOUT_SEC + 1)      # what 00:48:30 looked like
         errors = [e for e in self.events if e.get("event") == "error"]
         self.assertEqual(len(errors), 1)
-        self.assertIn("before the agent answered", errors[0]["text"])
+        self.assertEqual(errors[0].get("key"), "srv.turn_ended_early")   # by key, not by the words
         self.assertEqual(self.stops, [], "not before the events are flushed")
         s._run_post_result_stop()                                      # what the session does after the flush
         import time; time.sleep(0.2)

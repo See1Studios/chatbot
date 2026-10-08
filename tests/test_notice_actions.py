@@ -95,6 +95,19 @@ class NoticeActions(unittest.TestCase):
             for word in ("에이전트", "백엔드", "프로바이더", "20회"):
                 self.assertNotIn(word, self.ko[k], k)
 
+    def test_help_describes_the_screen_that_ships(self):
+        # critique run 4: /help still taught the tabs, Alt+1..6 and the header ... button, none of which shell2 shows
+        for lang in ("ko", "en"):
+            body = json.loads((STATIC / "i18n" / ("%s.json" % lang)).read_text(encoding="utf-8"))["help.body"]
+            for gone in ("Alt+1", "Alt+3", "/private", "\u22ef"):
+                self.assertNotIn(gone, body, "%s help: %s" % (lang, gone))
+            for there in ("Alt+O", "/move", "/act"):
+                self.assertIn(there, body, "%s help: %s" % (lang, there))
+        for k in ("srv.turn_ended_early", "srv.hang_closed", "turn.backend_stopped", "srv.session_heavy",
+                  "session.banner_long", "session.new", "menu.defib", "srv.turn_closed"):
+            for word in ("에이전트", "백엔드", "세션", "턴", "리부트"):
+                self.assertNotIn(word, self.ko[k], k)
+
     def test_both_failure_paths_of_the_stream_use_it(self):
         sse = (STATIC / "app-sse.js").read_text(encoding="utf-8")
         self.assertIn("if (nn && typeof noticeActions === 'function') noticeActions(nn, data);", sse)
