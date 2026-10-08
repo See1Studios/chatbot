@@ -6,6 +6,18 @@
 (`RULES.md` Release). 2026-10-08까지 이 파일은 `DEVLOG.md`, 릴리스 메모는 `CHANGELOG.md`였다.
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 
+## 2026-10-08 — 역할 메뉴 개편 및 종합 역할 관리 기능 구축 (#821)
+
+- **운영자**: "역할 메뉴에 역할 관련 관리 기능들을 채워넣어줘"
+- **바뀐 것**:
+  1. 역할 개별 카드 분리: 역할명, 시스템/커스텀 배지, 업무(`owns`), 도구, 스킬, 배정 캐릭터 표시.
+  2. 역할별 캐릭터 배정: 각 역할 카드에서 체크박스로 캐릭터를 즉시 배정/해제(`PUT /api/experts/team`).
+  3. 새 역할 추가 모달: 헤더에 [새 역할 추가] 버튼 및 모달 폼, `PUT /api/experts/roles/<role>` API 구현.
+  4. 커스텀 역할 삭제: 미배정 커스텀 역할 삭제 지원(시스템 템플릿 및 배정 중인 역할 보호).
+  5. 지침·절차 편집: `ROLE.md`·`PROCEDURE.md` 인라인 에디터 유지.
+- **집행**: `test_team_roles` (13 tests pass), `test_shell_page`, `test_page_scripts`, `test_ratchets`, `run-tests.sh --fast` (35 modules pass).
+- **재시작**: Python 모듈(`engine/workspace_status.py`) 변경으로 서버 재시작 필요(`engine/chatbot-ctl.sh restart`).
+
 ## 2026-10-08 — 대화 컨텍스트 정보를 시스템 지침에서 캐릭터 프로필 패널로 이관 (#818)
 
 - **운영자**: "시스템 지침 메뉴에 있는 이 대화에 지금 들어간 정보 라는 항목도 캐릭터 프로필 패널로 옮겨야겠는데"
