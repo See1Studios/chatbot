@@ -19,25 +19,286 @@ async function loadTeam() {
   teamListEl.textContent = '';
   (team.experts || []).forEach(ex => teamListEl.appendChild(renderTeamCard(ex, team, files)));
   if (team.auto_react && team.auto_react.choices) teamListEl.appendChild(renderAutoReact(team.auto_react));
-  // TEAM_ROLES_v2: what a role is (its pack)
-  const shared = obsNode('div', 'status-item team-card');
-  shared.setAttribute('data-team-section', 'roles');
-  shared.appendChild(obsNode('div', 'status-item-head', tr('team.shared_head')));
-  shared.appendChild(obsNode('div', 'status-hint', tr('team.shared_hint')));
-  (team.roles || []).forEach(r => {
-    // pew/R: ROLE.md / PROCEDURE.md, or the old lower-case names on a pack written before
-    const pick = name => files['roles/' + r.role + '/' + name.toUpperCase()] || files['roles/' + r.role + '/' + name];
-    [['role.md', tr('team.role_pack', { title: r.title }) + (r.tools.length ? tr('team.role_tools', { tools: r.tools.join(', ') }) : '')],
-     ['procedure.md', tr('team.procedure', { title: r.title })]].forEach(([name, title]) => {
-      const file = pick(name);
-      if (file) {
-        const sub = renderInstruction(Object.assign({}, file, { title }), false);
-        sub.classList.add('team-sub');
-        shared.appendChild(sub);
-      }
+  // TEAM_ROLES_v2: individual role cards with management
+  const roles = team.roles || [];
+  if (!roles.length) {
+    const empty = obsNode('div', 'status-item team-card');
+    empty.setAttribute('data-team-section', 'roles');
+    empty.appendChild(obsNode('div', 'status-hint', tr('team.roles_empty')));
+    teamListEl.appendChild(empty);
+  } else {
+    roles.forEach(r => teamListEl.appendChild(renderRoleCard(r, team, files)));
+  }
+  bindAddRoleButton(team);
+}
+
+function renderRoleCard(r, team, files) {
+  const card = obsNode('div', 'status-item team-card');
+  card.setAttribute('data-team-section', 'roles');
+  card.setAttribute('data-role-id', r.role || '');
+
+  const head = obsNode('div', 'status-item-head');
+  const name = obsNode('span', 'status-item-name', (r.title || r.role) + ' · ' + r.role);
+  head.appendChild(name);
+
+  const chips = obsNode('span', 'team-role-chips');
+  chips.appendChild(obsNode('span', 'team-chip ' + (r.builtin ? 'team-chip-default' : ''),
+    r.builtin ? tr('team.role_builtin') : tr('team.role_custom')));
+  head.appendChild(chips);
+
+  const actions = obsNode('div', 'status-item-actions');
+  head.appendChild(actions);
+  card.appendChild(head);
+
+  const metaBox = obsNode('div', 'team-brains');
+
+  const ownsRow = obsNode('div', 'team-brain');
+  ownsRow.appendChild(obsNode('span', 'team-n', '★'));
+  ownsRow.appendChild(obsNode('span', '', tr('team.owns_label') + ': ' + (r.owns || tr('team.no_owns'))));
+  metaBox.appendChild(ownsRow);
+
+  const toolsRow = obsNode('div', 'team-brain');
+  toolsRow.appendChild(obsNode('span', 'team-n', '🛠'));
+  const toolsSpan = obsNode('span', '', tr('team.tools_label') + ': ' + ((r.tools && r.tools.length) ? r.tools.join(', ') : '-'));
+  if (r.skills && r.skills.length) {
+    toolsSpan.textContent += ' · ' + tr('team.skills_label') + ': ' + r.skills.join(', ');
+  }
+  toolsRow.appendChild(toolsSpan);
+  metaBox.appendChild(toolsRow);
+
+  const holders = (team.experts || []).filter(e => (e.roles || []).includes(r.role));
+  const holdersRow = obsNode('div', 'team-brain');
+  holdersRow.appendChild(obsNode('span', 'team-n', '👤'));
+  const holdersSpan = obsNode('span', '', tr('team.holders_label') + ': ');
+  if (holders.length) {
+    holders.forEach(h => {
+      const chip = obsNode('span', 'team-chip', h.name || h.id);
+      holdersSpan.appendChild(chip);
     });
+  } else {
+    holdersSpan.appendChild(obsNode('span', 'team-chip team-chip-none', tr('team.no_holders')));
+  }
+  holdersRow.appendChild(holdersSpan);
+  metaBox.appendChild(holdersRow);
+
+  card.appendChild(metaBox);
+
+  const memberBox = obsNode('div', 'team-role-box');
+  card.appendChild(memberBox);
+
+  if (team.team_editable) {
+    const assignBtn = obsNode('button', 'art-btn art-btn-xs', tr('team.assign_members'));
+    assignBtn.type = 'button';
+    assignBtn.addEventListener('click', () => editRoleMembers(r, team, memberBox, actions));
+    actions.appendChild(assignBtn);
+
+    if (!r.builtin) {
+      const delBtn = obsNode('button', 'art-btn art-btn-xs', tr('team.delete_role'));
+      delBtn.type = 'button';
+      delBtn.style.color = 'var(--red, #f87171)';
+      delBtn.addEventListener('click', () => deleteRole(r, team));
+      actions.appendChild(delBtn);
+    }
+  }
+
+  const pick = name => files['roles/' + r.role + '/' + name.toUpperCase()] || files['roles/' + r.role + '/' + name];
+  [['role.md', tr('team.role_pack', { title: r.title }) + (r.tools && r.tools.length ? tr('team.role_tools', { tools: r.tools.join(', ') }) : '')],
+   ['procedure.md', tr('team.procedure', { title: r.title })]].forEach(([name, title]) => {
+    const file = pick(name);
+    if (file) {
+      const sub = renderInstruction(Object.assign({}, file, { title }), false);
+      sub.classList.add('team-sub');
+      card.appendChild(sub);
+    }
   });
-  teamListEl.appendChild(shared);
+
+  return card;
+}
+
+function editRoleMembers(r, team, box, actions) {
+  box.textContent = '';
+  const picked = new Set((team.experts || []).filter(e => (e.roles || []).includes(r.role)).map(e => e.id));
+  (team.experts || []).forEach(ex => {
+    const label = obsNode('label', 'team-role-pick');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = picked.has(ex.id);
+    cb.addEventListener('change', () => { cb.checked ? picked.add(ex.id) : picked.delete(ex.id); });
+    label.append(cb, document.createTextNode(' ' + (ex.name || ex.id) + (ex.title ? ' · ' + ex.title : '')));
+    box.appendChild(label);
+  });
+  actions.textContent = '';
+  const save = obsNode('button', 'art-btn art-btn-xs primary', tr('common.save'));
+  save.type = 'button';
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    try {
+      const members = {};
+      (team.experts || []).forEach(e => {
+        const curRoles = new Set(e.roles || []);
+        if (picked.has(e.id)) curRoles.add(r.role);
+        else curRoles.delete(r.role);
+        members[e.id] = (team.roles || []).map(x => x.role).filter(x => curRoles.has(x));
+      });
+      const currentDef = (team.experts || []).find(e => e.default);
+      const payload = { default: currentDef ? currentDef.id : (team.experts[0] || {}).id, members };
+      await api('/api/experts/team', { method: 'PUT', body: JSON.stringify(payload) });
+      if (typeof addActivity === 'function') {
+        addActivity(tr('team.role_saved', { title: r.title }));
+      }
+      await loadTeam();
+      if (typeof loadCharacters === 'function') await loadCharacters();
+    } catch (e) {
+      save.disabled = false;
+      box.appendChild(obsNode('div', 'status-hint', tr('common.save_failed', { error: e.message || e })));
+    }
+  });
+  const cancel = obsNode('button', 'art-btn art-btn-xs', tr('common.cancel'));
+  cancel.type = 'button';
+  cancel.addEventListener('click', () => loadTeam());
+  actions.append(save, cancel);
+}
+
+async function deleteRole(r, team) {
+  const holders = (team.experts || []).filter(e => (e.roles || []).includes(r.role));
+  if (holders.length) {
+    const names = holders.map(h => h.name || h.id).join(', ');
+    if (typeof alertModal === 'function') {
+      await alertModal(tr('team.role_has_holders') + ' (' + names + ')');
+    } else {
+      alert(tr('team.role_has_holders') + ' (' + names + ')');
+    }
+    return;
+  }
+  const confirmed = typeof confirmModal === 'function'
+    ? await confirmModal(tr('team.role_delete_confirm'))
+    : confirm(tr('team.role_delete_confirm'));
+  if (!confirmed) return;
+
+  try {
+    await api('/api/experts/roles/' + encodeURIComponent(r.role), {
+      method: 'PUT',
+      body: JSON.stringify({ delete: true }),
+    });
+    if (typeof addActivity === 'function') {
+      addActivity(tr('team.role_deleted', { title: r.title }));
+    }
+    await loadTeam();
+    if (typeof loadCharacters === 'function') await loadCharacters();
+  } catch (e) {
+    if (typeof alertModal === 'function') {
+      await alertModal(tr('team.role_delete_failed', { error: e.message || e }));
+    } else {
+      alert(tr('team.role_delete_failed', { error: e.message || e }));
+    }
+  }
+}
+
+function openAddRoleModal() {
+  const old = document.getElementById('addRoleModal');
+  if (old) old.remove();
+
+  const overlay = obsNode('div', 'modal-overlay');
+  overlay.id = 'addRoleModal';
+
+  const card = obsNode('div', 'modal-card');
+  card.style.cssText = 'max-width:28rem;width:100%;padding:1.2rem;display:flex;flex-direction:column;gap:.8rem;';
+
+  const head = obsNode('div', 'modal-head');
+  head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;';
+  head.appendChild(obsNode('h3', 'status-subhead', tr('team.role_add_title')));
+  const closeBtn = obsNode('button', 'art-btn art-btn-xs', '✕');
+  closeBtn.type = 'button';
+  closeBtn.addEventListener('click', () => overlay.remove());
+  head.appendChild(closeBtn);
+  card.appendChild(head);
+
+  const form = obsNode('div', 'card-editor-form');
+  form.style.cssText = 'display:flex;flex-direction:column;gap:.6rem;';
+
+  const makeField = (labelText, placeholder, isTextarea) => {
+    const wrap = obsNode('div', 'card-field');
+    wrap.appendChild(obsNode('label', '', labelText));
+    const input = document.createElement(isTextarea ? 'textarea' : 'input');
+    input.className = isTextarea ? 'card-textarea' : 'card-input';
+    input.placeholder = placeholder;
+    if (isTextarea) input.rows = 3;
+    wrap.appendChild(input);
+    return { wrap, input };
+  };
+
+  const fRole = makeField(tr('team.role_id_label'), 'reviewer', false);
+  const fTitle = makeField(tr('team.role_title_label'), tr('team.role_title_placeholder'), false);
+  const fOwns = makeField(tr('team.role_owns_label'), tr('team.role_owns_placeholder'), false);
+  const fTools = makeField(tr('team.role_tools_label'), 'delegate, workspace', false);
+  const fSkills = makeField(tr('team.role_skills_label'), '', false);
+  const fDesc = makeField(tr('team.role_desc_label'), tr('team.role_desc_placeholder'), true);
+
+  form.append(fRole.wrap, fTitle.wrap, fOwns.wrap, fTools.wrap, fSkills.wrap, fDesc.wrap);
+  card.appendChild(form);
+
+  const alertBox = obsNode('div', 'card-editor-alert');
+  alertBox.hidden = true;
+  card.appendChild(alertBox);
+
+  const actions = obsNode('div', 'modal-actions');
+  actions.style.cssText = 'display:flex;justify-content:flex-end;gap:.5rem;margin-top:.4rem;';
+
+  const submitBtn = obsNode('button', 'art-btn art-btn-xs primary', tr('common.add'));
+  submitBtn.type = 'button';
+  submitBtn.addEventListener('click', async () => {
+    const roleId = fRole.input.value.trim().toLowerCase();
+    if (!/^[a-z][a-z0-9-]{0,31}$/.test(roleId)) {
+      alertBox.textContent = tr('team.role_id_label');
+      alertBox.hidden = false;
+      fRole.input.focus();
+      return;
+    }
+    submitBtn.disabled = true;
+    alertBox.hidden = true;
+    try {
+      const payload = {
+        title: fTitle.input.value.trim() || roleId,
+        owns: fOwns.input.value.trim(),
+        tools: fTools.input.value.split(',').map(s => s.trim()).filter(Boolean),
+        skills: fSkills.input.value.split(',').map(s => s.trim()).filter(Boolean),
+        description: fDesc.input.value.trim(),
+      };
+      await api('/api/experts/roles/' + encodeURIComponent(roleId), {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      if (typeof addActivity === 'function') {
+        addActivity(tr('team.role_add_success', { title: payload.title }));
+      }
+      overlay.remove();
+      await loadTeam();
+    } catch (e) {
+      submitBtn.disabled = false;
+      alertBox.textContent = tr('common.save_failed', { error: e.message || e });
+      alertBox.hidden = false;
+    }
+  });
+
+  const cancelBtn = obsNode('button', 'art-btn art-btn-xs', tr('common.cancel'));
+  cancelBtn.type = 'button';
+  cancelBtn.addEventListener('click', () => overlay.remove());
+
+  actions.append(submitBtn, cancelBtn);
+  card.appendChild(actions);
+
+  overlay.appendChild(card);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  fRole.input.focus();
+}
+
+function bindAddRoleButton(team) {
+  const btn = document.getElementById('addRoleOpenBtn');
+  if (btn && !btn._roleBound) {
+    btn._roleBound = true;
+    btn.addEventListener('click', () => openAddRoleModal(team));
+  }
 }
 
 function roleTitle(team, role) {

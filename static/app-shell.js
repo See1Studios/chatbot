@@ -501,6 +501,8 @@ function shellTeamFilter() {
   Array.prototype.forEach.call(list.children, n => { n.hidden = !shellTeamShows(n, sec, only); });
   const charActions = document.getElementById('teamCharActions');
   if (charActions) charActions.hidden = Boolean(only || sec !== 'characters');
+  const roleActions = document.getElementById('teamRoleActions');
+  if (roleActions) roleActions.hidden = Boolean(only || sec !== 'roles');
   const titleEl = document.getElementById('teamHeadTitle');
   if (titleEl) {
     titleEl.textContent = only ? (SHELL_TEXT.manage || '') : (SHELL_TEXT[sec] || SHELL_TEXT.team || '');

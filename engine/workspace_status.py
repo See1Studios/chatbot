@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -516,6 +517,14 @@ def _runner_providers() -> list:
         return []
 
 
+def _template_roles() -> set:
+    out = set()
+    for p in (REPO / "templates" / "workspace" / "roles", REPO / "templates" / "dev-workspace" / "roles"):
+        if p.is_dir():
+            out.update(d.name for d in p.iterdir() if d.is_dir())
+    return out
+
+
 def experts_overview() -> dict:
     providers = _runner_providers()
     models = {}
@@ -544,10 +553,12 @@ def experts_overview() -> dict:
     roles = []
     if characters:
         rd = characters.roles_dir(WORKSPACE)
+        tmpl_roles = _template_roles()
         for d in sorted(rd.iterdir()) if rd.is_dir() else []:
             if d.is_dir() and _ROLE_DIR.match(d.name):
                 pack = characters.role_pack(d.name, WORKSPACE)
-                roles.append({"role": d.name, "title": pack["title"], "tools": pack["tools"], "skills": pack["skills"]})
+                roles.append({"role": d.name, "title": pack["title"], "tools": pack["tools"], "skills": pack["skills"],
+                             "owns": pack.get("owns", ""), "builtin": d.name in tmpl_roles})
     team_file = WORKSPACE / "team.json"
     return {"ok": True, "experts": out, "roles": roles, "team_editable": bool(chars) and _protected_why(team_file) is None,
             "providers": providers, "models": models, "auto_react": _auto_react()}
@@ -662,8 +673,85 @@ def _put_brain_use(who: str, body: dict) -> Tuple[int, dict]:
                  "session": sess.to_public() if sess is not None else None}
 
 
+def _delete_role(role: str) -> Tuple[int, dict]:
+    """Delete an unassigned, non-builtin role pack."""
+    import characters
+    if role in _template_roles():
+        return 403, {"ok": False, "error": "builtin role cannot be deleted"}
+    rd = characters.roles_dir(WORKSPACE)
+    target_dir = rd / role
+    if not target_dir.is_dir():
+        return 404, {"ok": False, "error": "no such role: %s" % role}
+    holders = [c["name"] or c["id"] for c in _characters() if role in (c.get("roles") or [])]
+    if holders:
+        return 409, {"ok": False, "error": "role is held by characters: %s" % ", ".join(holders)}
+    target_file = target_dir / "ROLE.md"
+    why = _protected_why(target_file)
+    if why:
+        return 403, {"ok": False, "error": "read-only: protected (%s)" % why}
+    try:
+        shutil.rmtree(target_dir)
+    except OSError as e:
+        return 500, {"ok": False, "error": "failed to delete role: %s" % e}
+    _maybe_git_commit(target_dir, "chore(team): remove role %s" % role)
+    return 200, {"ok": True, "role": role}
+
+
+def _put_role(role: str, body: dict) -> Tuple[int, dict]:
+    """PUT /api/experts/roles/<role> {title, owns, tools, skills, description, delete?}:
+    Create, update, or delete a role pack."""
+    import characters
+    if not _ROLE_DIR.match(role):
+        return 400, {"ok": False, "error": "role id must be 1-32 chars (lowercase letters, digits, hyphen)"}
+    if body.get("delete"):
+        return _delete_role(role)
+
+    rd = characters.roles_dir(WORKSPACE)
+    target_dir = rd / role
+    target_file = target_dir / "ROLE.md"
+    why = _protected_why(target_file)
+    if why:
+        return 403, {"ok": False, "error": "read-only: protected (%s)" % why}
+
+    title = str((body or {}).get("title") or role).strip() or role
+    owns = str((body or {}).get("owns") or "").strip()
+    tools = body.get("tools")
+    if isinstance(tools, str):
+        tools = [x.strip() for x in tools.split(",") if x.strip()]
+    elif not isinstance(tools, list):
+        tools = []
+    skills = body.get("skills")
+    if isinstance(skills, str):
+        skills = [x.strip() for x in skills.split(",") if x.strip()]
+    elif not isinstance(skills, list):
+        skills = []
+    desc = str((body or {}).get("description") or "").strip()
+    if not desc:
+        desc = "# Role: %s\n\nCarry out tasks related to %s." % (title, owns or title)
+
+    front = ["---", "title: %s" % title]
+    if owns:
+        front.append("owns: %s" % owns)
+    if tools:
+        front.append("tools: %s" % ", ".join(tools))
+    if skills:
+        front.append("skills: %s" % ", ".join(skills))
+    front.extend(["---", "", desc.strip() + "\n"])
+    content = "\n".join(front)
+
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        platform_compat.write_text(target_file, content, encoding="utf-8")
+    except OSError as e:
+        return 500, {"ok": False, "error": "failed to write role file: %s" % e}
+
+    _maybe_git_commit(target_file, "chore(team): update role %s" % role)
+    return 200, {"ok": True, "role": role, "title": title}
+
+
 def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[int, dict]]:
-    """GET /api/experts; PUT /api/experts/<id>/brain {chain} (a character id); PUT /api/experts/team {default, members} arranges the team.
+    """GET /api/experts; PUT /api/experts/<id>/brain {chain}; PUT /api/experts/team {default, members};
+    PUT /api/experts/roles/<role> {title, owns, tools, skills, description, delete?}.
     A PUT is the operator editing from the team tab, so the caller must have checked that it came from this
     server's own page."""
     if not (path == "/api/experts" or path.startswith("/api/experts/")):
@@ -676,6 +764,11 @@ def experts_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[
     if method == "PUT" and rest == "auto-react":             # evt/D: which events a character speaks first about
         import event_react
         return 200, {"ok": True, "auto_react": event_react.save_config(body or {}, WORKSPACE)}
+    role_m = re.fullmatch(r"roles/([a-z][a-z0-9-]{0,31})", rest)
+    if role_m:
+        if method != "PUT":
+            return 404, {"ok": False, "error": "not found"}
+        return _put_role(role_m.group(1), body or {})
     use = re.fullmatch(r"(char_[0-9a-z]{26})/brain-use", rest)
     if use:
         if method != "PUT":

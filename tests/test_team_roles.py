@@ -226,5 +226,66 @@ class SessionsAndGrants(unittest.TestCase):
         self.assertEqual(C.tools_of(self.b, self.ws), [])
 
 
+class RoleManagementApi(unittest.TestCase):
+    def setUp(self):
+        import workspace_status as WS
+        self.WS = WS
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
+        self.ws = self.tmp / "workspace"
+        self.ws.mkdir()
+        (self.ws / "roles").mkdir()
+        self.saved_ws = WS.WORKSPACE
+        WS.WORKSPACE = self.ws
+        self.cid = C.new_id()
+        C.save(self.cid, C.new_card("TesterChar"), self.ws)
+        C.save_team({"default": self.cid, "members": {self.cid: []}}, self.ws)
+
+    def tearDown(self):
+        self.WS.WORKSPACE = self.saved_ws
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_put_role_crud(self):
+        # 1. Create role
+        code, res = self.WS.experts_api("PUT", "/api/experts/roles/custom-worker", {
+            "title": "Custom Worker",
+            "owns": "custom tasks",
+            "tools": ["delegate", "workspace"],
+            "skills": ["custom-skill"],
+            "description": "Handle custom work.",
+        })
+        self.assertEqual(code, 200)
+        self.assertTrue(res.get("ok"))
+        self.assertEqual(res.get("role"), "custom-worker")
+        role_md = self.ws / "roles" / "custom-worker" / "ROLE.md"
+        self.assertTrue(role_md.is_file())
+        content = role_md.read_text(encoding="utf-8")
+        self.assertIn("title: Custom Worker", content)
+        self.assertIn("owns: custom tasks", content)
+        self.assertIn("tools: delegate, workspace", content)
+        self.assertIn("Handle custom work.", content)
+
+        # 2. Overview includes metadata
+        overview = self.WS.experts_overview()
+        found = [r for r in overview.get("roles", []) if r["role"] == "custom-worker"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["title"], "Custom Worker")
+        self.assertEqual(found[0]["owns"], "custom tasks")
+        self.assertFalse(found[0]["builtin"])
+
+        # 3. Refuse delete when assigned
+        C.save_team({"default": self.cid, "members": {self.cid: ["custom-worker"]}}, self.ws)
+        del_code, del_res = self.WS.experts_api("PUT", "/api/experts/roles/custom-worker", {"delete": True})
+        self.assertEqual(del_code, 409)
+        self.assertFalse(del_res.get("ok"))
+
+        # 4. Delete succeeds when unassigned
+        C.save_team({"default": self.cid, "members": {self.cid: []}}, self.ws)
+        del_code, del_res = self.WS.experts_api("PUT", "/api/experts/roles/custom-worker", {"delete": True})
+        self.assertEqual(del_code, 200)
+        self.assertTrue(del_res.get("ok"))
+        self.assertFalse((self.ws / "roles" / "custom-worker").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
+
