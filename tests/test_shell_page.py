@@ -95,6 +95,7 @@ return (async () => {
     presenceLink: ['linkAway', 'linkDead', 'linkBlocked'].map(k => [shellPresenceText('work', true, k), SHELL_TEXT[k]]),
     profile: shellProfileRows({ art: true, manage: true }),
     teamShows: [shellTeamShows('kit', 'kit'), shellTeamShows('ari', 'kit'), shellTeamShows('', 'kit'), shellTeamShows('kit', ''), shellTeamShows('', '')],
+    statusShows: [shellStatusShows('accounts', 'accounts'), shellStatusShows('instructions', 'accounts'), shellStatusShows('', 'accounts')],
     profileBare: shellProfileRows({ art: false }).map(r => r.k),
     brains: shellBrainOptions([{ id: 'x', name: 'X' }, { id: 'y', name: 'Y' }], 'y', (id) => (id === 'x' ? 'no login' : ''), (p) => p.name + '!'),
     models: shellModelOptions([{ value: 'm1', label: 'One' }, { value: 'm2' }], 'm2'),
@@ -106,7 +107,7 @@ return (async () => {
     plusPrivate: shellPlusList({ private: true, attach: 'item', geo: { label: 'geo', on: false }, slash: 'cmd' }),
     plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
     text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'brain', 'more', 'act', 'menu', 'online',
-      'profile', 'settings', 'back2', 'close', 'dev', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'team', 'manage', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
+      'profile', 'settings', 'back2', 'close', 'dev', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'instructions', 'skills', 'mcp', 'team', 'manage', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
   shellListDraw();
@@ -331,13 +332,16 @@ class ShellList(unittest.TestCase):
         card = [r["k"] for r in o["profile"]]
         gear = [r["k"] for r in o["settings"]]
         self.assertEqual(card, ["art", "sessions", "artifacts", "manage"])      # the character's own things
-        self.assertEqual(gear, ["details", "theme", "status", "team", "dev", "activity", "evolution", "revive"])
-        self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(o["panes"]))
+        self.assertEqual(gear, ["details", "theme", "accounts", "instructions", "skills", "mcp", "team", "dev", "activity", "evolution", "revive"])
+        self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(["activity", "artifacts", "evolution", "sessions", "team"]))
         # the team pane is in two: one character's card from its profile, the shared part from the settings
         self.assertEqual(o["teamShows"], [True, False, False, False, True])
+        # the status pane is split into individual menus (accounts, instructions, skills, mcp)
+        self.assertEqual(o["statusShows"], [True, False, False])
         src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
         self.assertIn("shellGoTeam(c.id, 'profile')", src)
         self.assertIn("shellGoTeam('', 'settings')", src)
+        self.assertIn("shellGoStatus(row.k, 'settings')", src)
         self.assertIn("card.setAttribute('data-character-id', ex.id || '')", (STATIC / "app-team.js").read_text(encoding="utf-8"))
         self.assertEqual(sorted(o["panes"]), ["activity", "artifacts", "evolution", "sessions", "status", "team"])
         # the log and improvement are developer mode's -- a switch of its own, apart from "details"
@@ -363,7 +367,7 @@ class ShellList(unittest.TestCase):
         self.assertIn("pickModel(o.value)", card)
         self.assertNotIn("toggleProviderTray", card)               # ... without leaving the card for them
         self.assertNotIn("showModelMenu", card)
-        self.assertEqual(o["settingsShipped"], ["details", "theme", "status", "team", "dev", "activity", "evolution"])
+        self.assertEqual(o["settingsShipped"], ["details", "theme", "accounts", "instructions", "skills", "mcp", "team", "dev", "activity", "evolution"])
 
     def test_the_tab_bar_is_hidden_and_a_pane_leads_back(self):
         self.assertIn("html.shell2 header .bar{display:none}", CSS)

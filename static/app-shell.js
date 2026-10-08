@@ -9,7 +9,7 @@ const SHELL_TEXT = i18nTable('shelltext');   // I18N_v1: words by key from the c
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
 let shellState = { sessions: [], talks: null, filter: '', timer: 0, loading: false, ready: false, nodes: new Map(),
-  pending: '', want: null, switching: false, paneFrom: '', teamOnly: '' };   // pending: the row just picked, shown as open before it is
+  pending: '', want: null, switching: false, paneFrom: '', teamOnly: '', statusOnly: '' };   // pending: the row just picked, shown as open before it is
 
 function shellOn() { return document.documentElement.classList.contains('shell2'); }
 function shellNarrow() { return window.innerWidth <= SHELL_NARROW; }
@@ -349,6 +349,7 @@ function shellSetDev(on) {
   try { localStorage.setItem(SHELL_DEV_KEY, on ? '1' : '0'); } catch (_) { /* private window */ }
 }
 const SHELL_PANES = { artifacts: 'files', sessions: 'history', activity: 'log', status: 'accounts', team: 'team', evolution: 'improve' };
+const STATUS_SECTIONS = ['accounts', 'instructions', 'skills', 'mcp'];
 function shellProfileRows(ctx) {
   // "pictures" is one place: the character's art screen shows them, takes uploads and asks for new ones (app-art.js)
   const rows = ctx.art ? [{ k: 'art', label: SHELL_TEXT.art }] : [];
@@ -374,7 +375,11 @@ function shellSettingsRows(ctx) {
   const rows = [{ k: 'details', label: SHELL_TEXT.details, on: Boolean(ctx.advanced) }];
   if (hasStream) rows.push({ k: 'streamStyle', label: SHELL_TEXT.streamStyle, detail: st === 'line' ? SHELL_TEXT.streamLine : SHELL_TEXT.streamChar });
   rows.push({ k: 'theme', label: SHELL_TEXT.theme },
-    { k: 'status', label: SHELL_TEXT.accounts }, { k: 'team', label: SHELL_TEXT.team },
+    { k: 'accounts', label: SHELL_TEXT.accounts },
+    { k: 'instructions', label: SHELL_TEXT.instructions },
+    { k: 'skills', label: SHELL_TEXT.skills },
+    { k: 'mcp', label: SHELL_TEXT.mcp },
+    { k: 'team', label: SHELL_TEXT.team },
     { k: 'dev', label: SHELL_TEXT.dev, on: Boolean(ctx.dev) },
     { k: 'activity', label: SHELL_TEXT.log, dev: true }, { k: 'evolution', label: SHELL_TEXT.improve, dev: true });
   if (ctx.revive) rows.push({ k: 'revive', label: SHELL_TEXT.revive });   // the dev install's host repair
@@ -450,6 +455,22 @@ function shellGoTeam(cid, from) {
   shellTeamFilter();                 // what is drawn already, at once; loadTeam() redraws and the wrap filters again
   shellGoPane('team', from);
 }
+function shellStatusShows(sec, only) { return only ? sec === only : true; }
+function shellStatusFilter() {
+  const p = document.getElementById('statusPane');
+  if (!p || !shellOn()) return;
+  const only = shellState.statusOnly || 'accounts', g = document.getElementById('statusConfigGroup');
+  p.setAttribute('data-shell-only', only);
+  if (g) g.hidden = true;
+  Array.prototype.forEach.call(p.children, n => {
+    if (n !== g) n.hidden = !shellStatusShows(n.getAttribute('data-status-section') || '', only);
+  });
+}
+function shellGoStatus(sec, from) {
+  shellState.statusOnly = sec || 'accounts';
+  shellStatusFilter();
+  shellGoPane('status', from);
+}
 function shellArtGone() {
   const m = document.getElementById('artManager');
   if (m && m.classList.contains('shell-art')) m.remove();
@@ -512,6 +533,7 @@ function shellProfileOpen() {
 function shellMarkPane() {
   let now = document.documentElement.dataset.tab || 'chat';
   if (now === 'team') now = shellState.teamOnly ? 'manage' : 'team';      // one pane, two rows
+  else if (now === 'status') now = shellState.statusOnly || 'accounts';
   document.querySelectorAll('.shell-rowbtn[data-k]').forEach(b => b.classList.toggle('current', b.getAttribute('data-k') === now));
 }
 function shellSection(title) {
@@ -582,6 +604,7 @@ function shellSettingsOpen() {
     const b = shellRowButton(row);
     b.addEventListener('click', () => {
       if (row.k === 'team') return shellGoTeam('', 'settings');
+      if (STATUS_SECTIONS.includes(row.k)) return shellGoStatus(row.k, 'settings');
       if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'settings');
       if (row.k === 'details') { setDensity(!document.body.classList.contains('density-advanced')); shellSettingsOpen(); }
       else if (row.k === 'streamStyle') {
@@ -645,7 +668,11 @@ function shellPanelsInit() {
   switchTab = function (t) {
     tab.apply(this, arguments);
     const now = document.documentElement.dataset.tab || t;
-    const title = now === 'art' ? SHELL_TEXT.art : now === 'team' && shellState.teamOnly ? SHELL_TEXT.manage : SHELL_TEXT[SHELL_PANES[now]];
+    if (now === 'status') shellStatusFilter();
+    const title = now === 'art' ? SHELL_TEXT.art
+      : now === 'team' && shellState.teamOnly ? SHELL_TEXT.manage
+      : now === 'status' ? (SHELL_TEXT[shellState.statusOnly || 'accounts'] || SHELL_TEXT.accounts)
+      : SHELL_TEXT[SHELL_PANES[now]];
     shellSet(bar.querySelector('.shell-pane-title'), title || '');
     if (now !== 'art') shellArtGone();
     shellSet(back, shellNarrow() ? '\u2039' : '\u2715');      // a phone goes back, a wide screen closes the pane
