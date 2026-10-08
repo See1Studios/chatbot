@@ -26,7 +26,7 @@ try:  # turn observation is best effort: a missing core module must never stop t
 except Exception:  # noqa: BLE001
     evolution = None
 import i18n
-import obslog
+from telemetry import obslog
 import quota_state  # QUOTA_STATE_v1 qfr/D
 import regenerate  # REGENERATE_v1
 import write_guard

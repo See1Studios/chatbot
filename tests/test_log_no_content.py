@@ -26,8 +26,8 @@ from tests._paths import ENGINE, REPO  # noqa: E402
 CODE = REPO
 sys.path.insert(0, str(ENGINE))
 import host_config  # noqa: E402
-import logdigest  # noqa: E402
-import obslog  # noqa: E402
+from telemetry import logdigest  # noqa: E402
+from telemetry import obslog  # noqa: E402
 import session  # noqa: E402
 from tests._platform import dev_only_bash  # noqa: E402
 

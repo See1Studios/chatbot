@@ -16,7 +16,7 @@ from pathlib import Path
 from tests._paths import ENGINE, REPO  # noqa: E402
 CODE = REPO
 sys.path.insert(0, str(ENGINE))
-import obslog  # noqa: E402
+from telemetry import obslog  # noqa: E402
 import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 
 
@@ -87,7 +87,7 @@ class EventTests(Base):
         obslog.flush_suppressed()
         self.assertEqual(lines(self.path)[-1]["evt"], "log.suppressed")  # nothing new settled twice
         self.assertEqual(len(lines(self.path)), obslog.FP_MAX_PER_WINDOW + 1)
-        import logdigest
+        from telemetry import logdigest
         old = logdigest.LOG
         logdigest.LOG = self.path
         try:
@@ -156,7 +156,7 @@ class EventTests(Base):
     def test_started_process_does_not_leak_the_path_to_children(self):
         env = dict(os.environ, CHATBOT_OBSLOG_PATH=str(self.path), CHATBOT_CALLER="cli-test",
                    CHATBOT_OBSLOG_SUMMARY_SEC="3600")
-        code = ("import obslog, os, subprocess, sys; obslog.start_process('unit'); "
+        code = ("from telemetry import obslog; import os, subprocess, sys; obslog.start_process('unit'); "
                 "print(subprocess.check_output([sys.executable, '-c', "
                 "'import os; print(os.environ.get(\"CHATBOT_OBSLOG_PATH\"), os.environ.get(\"CHATBOT_CALLER\"))'], text=True).strip())")
         out = subprocess.run([sys.executable, "-c", code], cwd=str(CODE), env=env, capture_output=True, text=True, check=True).stdout
@@ -177,7 +177,7 @@ class EventTests(Base):
 
     def test_cli_emit(self):
         env = dict(os.environ, CHATBOT_OBSLOG_PATH=str(self.path), CHATBOT_CALLER="cli-test")
-        subprocess.run([sys.executable, str(ENGINE / "obslog.py"), "emit", "--evt", "repair.begin", "--lvl", "warn",
+        subprocess.run([sys.executable, str(ENGINE / "telemetry" / "obslog.py"), "emit", "--evt", "repair.begin", "--lvl", "warn",
                         "ok=1", "dur_s=2.5", "--msg", "hello"], env=env, check=True)
         rec = lines(self.path)[-1]
         self.assertEqual((rec["src"], rec["evt"], rec["lvl"], rec["ok"], rec["dur_s"], rec["caller"], rec["msg"]),

@@ -30,7 +30,7 @@ def _log(evt: str, **fields) -> None:
     """The engine log's copy (OBSLOG_v1): the mailbox and the log are one record seen twice. Metadata only -- a
     private event keeps even its subject out."""
     try:
-        import obslog
+        from telemetry import obslog
         obslog.event(evt, **fields)
     except Exception:  # noqa: BLE001
         pass

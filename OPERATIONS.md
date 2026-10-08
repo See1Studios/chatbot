@@ -57,7 +57,7 @@ Other files:
 ### Where the log lives (LOG_PATH_v1)
 
 One resolver, `host_config.py`: `LOG_DIR` (the directory) and `EVENTS_LOG` (the stream).
-`obslog.py`, `logdigest.py` and `chatbot-ctl.sh` all read it and none of them composes a path of
+`telemetry/obslog.py`, `telemetry/logdigest.py` and `chatbot-ctl.sh` all read it and none of them composes a path of
 its own, so they cannot drift apart. `CHATBOT_LOG_DIR` moves the directory, `CHATBOT_OBSLOG_PATH`
 moves the stream and still wins over both — where lines are actually written is decided by
 `obslog.configure()`, never by the default.
@@ -210,9 +210,9 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | `main.check` | info/error | `src=watch`: the whole suite on main's commit after main moved (`tools/main_watch.py`, MAIN_WATCH_v1): `sha`, `subject`, `ok`, `failed`, `dur_s`; red is the digest's `main_red` finding until a green check |
 | `manifest.drift` | warn | protected files differ from git HEAD — edited, deleted, or new and uncommitted (`evolution.py::protected_changes`, split/E; the name is kept from the hash manifest it replaced); logged only when the difference changes |
 
-### Findings (logdigest.py)
+### Findings (telemetry/logdigest.py)
 
-Thresholds live at the top of `logdigest.py`.
+Thresholds live at the top of `telemetry/logdigest.py`.
 
 | code | severity | rule |
 |---|---|---|
@@ -286,7 +286,7 @@ share it safely. Expected volume is a few MB a week: successful polling is summa
 
 ### Adding events
 
-Use `obslog.event("area.name", lvl=..., **fields)` / `obslog.exception("area.name")`, or from the shell
+Use `from telemetry import obslog`, then `obslog.event("area.name", lvl=..., **fields)` / `obslog.exception("area.name")`, or from the shell
 `obs area.name warn key=value`. Pick a dotted, stable `evt`, put variable text in `msg` or fields,
 use `dedup=` for anything that can repeat in a loop, and add the event to the dictionary above.
 Metadata only — see 「What is not in this log」 before you reach for a field that holds a message.

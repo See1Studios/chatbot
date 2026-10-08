@@ -4,6 +4,7 @@
   "protect": [
     "engine/*.py",
     "engine/providers/",
+    "engine/telemetry/",
     "engine/tools/",
     "engine/__pycache__/",
     "engine/chatbot-ctl.sh",
@@ -42,6 +43,7 @@
   "volatile": [
     "engine/__pycache__/",
     "engine/providers/__pycache__/",
+    "engine/telemetry/__pycache__/",
     "engine/tools/__pycache__/",
     "tests/__pycache__/",
     "tests/*/__pycache__/",
@@ -79,11 +81,11 @@
       "reason": "approval, budget and lease rules"
     },
     {
-      "path": "engine/obslog.py",
+      "path": "engine/telemetry/obslog.py",
       "reason": "measurement criteria (design §7-6)"
     },
     {
-      "path": "engine/logdigest.py",
+      "path": "engine/telemetry/logdigest.py",
       "reason": "measurement criteria (design §7-6)"
     },
     {

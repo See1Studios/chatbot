@@ -10,7 +10,7 @@ import time
 from typing import Any, Dict, Optional
 
 import i18n
-import obslog
+from telemetry import obslog
 from host_config import INACTIVITY_ROTATE_SEC, _now
 from identity import user_title
 from private_engine import tension_step

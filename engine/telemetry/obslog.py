@@ -47,6 +47,9 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+if __package__ in (None, ""):   # run as a script (chatbot-ctl.sh): the engine folder is the import root
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import platform_compat
 import repo_layout
 

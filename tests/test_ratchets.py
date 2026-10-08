@@ -16,7 +16,7 @@ import re
 import sys
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO, rel  # noqa: E402
+from tests._paths import ENGINE, REPO, code_files, rel  # noqa: E402
 
 ROOT = REPO
 BASELINE = ENGINE / "ratchet_baseline.json"
@@ -30,7 +30,7 @@ RATCHETS = {
 
 
 def files():
-    code = list(ENGINE.glob("*.py")) + list(ENGINE.glob("providers/*.py")) + list(ENGINE.glob("tools/*.py"))
+    code = code_files()
     page = [p for p in ROOT.glob("static/*") if p.suffix in (".js", ".html", ".css")]
     return sorted(code + page)
 

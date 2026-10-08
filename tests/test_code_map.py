@@ -9,12 +9,12 @@ import re
 import subprocess
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO  # noqa: E402
+from tests._paths import CODE_DIRS, ENGINE, REPO  # noqa: E402
 
 ROOT = REPO
-GLOBS = ["*.py", "providers/*.py", "tools/*.py"]   # in the engine folder; names in CODEMAP.md are engine-relative
+GLOBS = [(d + "/" if d else "") + "*.py" for d in CODE_DIRS]   # in the engine folder; names in CODEMAP.md are engine-relative
 PAGE_GLOBS = ["static/*.js", "static/*.css"]
-DIRS = {".", "providers", "tools", "static"}
+DIRS = {"."} | {d for d in CODE_DIRS if d} | {"static"}
 SKIP = {"__init__.py"}
 
 

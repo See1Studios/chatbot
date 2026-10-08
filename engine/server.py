@@ -44,7 +44,7 @@ import chat_upload
 import platform_compat
 import items
 import character_art
-import obslog
+from telemetry import obslog
 import identity
 import origin_guard
 import push_manager
@@ -614,7 +614,7 @@ def _trim_event(e: dict) -> dict:
 
 
 def _service_log(since: str, sid: str = "") -> dict:
-    import logdigest
+    from telemetry import logdigest
     if not re.fullmatch(r"\d{1,4}[smhd]", since or ""):
         raise ValueError("since: N[s|m|h|d]")
     if sid and not re.fullmatch(r"\d{8}-\d{6}-[0-9a-f]{6}", sid):
@@ -648,7 +648,7 @@ HOST_SIGNAL_CHECK_SEC = 300
 
 
 def _host_signal_tick() -> int:
-    import logdigest
+    from telemetry import logdigest
     if obslog.configured():
         logdigest.LOG = obslog._state["path"]
         logdigest.HOST_SIGNAL_STAMP = logdigest.LOG.with_name(".host-signals.stamp")

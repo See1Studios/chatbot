@@ -34,7 +34,7 @@ import platform_compat
 def _log(evt: str, **fields) -> None:
     """Metadata into the engine log (OBSLOG_v1): who, when, how long, how many -- never what was said."""
     try:
-        import obslog
+        from telemetry import obslog
         obslog.event(evt, **fields)
     except Exception:  # noqa: BLE001
         pass
@@ -327,7 +327,7 @@ def _run(rid: str, msg: Dict) -> None:
         _log("room.done", room=rid, replies=replies, chain=chain, left=len(queue))
     except Exception as e:  # noqa: BLE001 -- a failed turn must end the room's busy state and be seen
         try:
-            import obslog
+            from telemetry import obslog
             obslog.exception("room.failed", e, room=rid)
         except Exception:  # noqa: BLE001
             pass

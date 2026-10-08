@@ -8,7 +8,7 @@ import time
 import i18n
 from typing import Dict, Optional
 
-import obslog
+from telemetry import obslog
 from host_config import DEFAULT_PROVIDER
 from providers import account_login, accounts
 from providers.adapters import AGENT_ADAPTERS, get_adapter

@@ -28,7 +28,7 @@ from urllib.parse import urlparse
 
 import mcp_args
 import mcp_caller
-import obslog
+from telemetry import obslog
 from host_config import EDITION  # edition-boundary: "shipped" hides dev tools and limits writes to user data
 
 HOST = os.environ.get("NAS_MCP_HOST", "127.0.0.1")

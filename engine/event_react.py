@@ -94,7 +94,7 @@ def _wanted(e: Dict, cfg: Dict, character: str = "", default: str = "") -> bool:
 def _speak(sess, text: str) -> None:
     """The reaction turn; a failure is logged, never silent."""
     try:
-        import obslog
+        from telemetry import obslog
         obslog.event("react.turn", sid=sess.sid)
     except Exception:  # noqa: BLE001
         obslog = None

@@ -11,7 +11,7 @@ import threading
 from typing import Optional
 
 import i18n
-import obslog
+from telemetry import obslog
 from host_config import _now
 
 

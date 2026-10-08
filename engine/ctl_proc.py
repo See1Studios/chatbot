@@ -115,7 +115,7 @@ def classify(table: List[Proc], code_dir: str, data_dir: Optional[str] = None) -
 def _log(code_dir: str, **fields) -> None:
     try:
         sys.path.insert(0, code_dir)
-        import obslog  # the log library only (a file writer), not the service
+        from telemetry import obslog  # the log library only (a file writer), not the service
         obslog.configure("ctl", mirror="error")
         obslog.event("agent.reaped", lvl="warn", caller=os.environ.get("CHATBOT_CALLER"), **fields)
     except Exception:

@@ -70,7 +70,7 @@ class Fixture(WorkspaceCase):
         self.assertGreater(charter["chars"], 0)
 
     def test_an_injection_is_logged_once_with_its_layers_and_why(self):
-        import obslog
+        from telemetry import obslog
         import session as S
         from unittest import mock
         s = S.AgentSession.__new__(S.AgentSession)
@@ -101,7 +101,7 @@ class Fixture(WorkspaceCase):
 
     def test_a_memory_changed_mid_session_reaches_the_agent_and_nothing_else_does(self):
         # CONTEXT_REFRESH_v1 (lca/C): before, the bundle went in once and memory stayed as it was at the start
-        import obslog
+        from telemetry import obslog
         from unittest import mock
         s = self.session()
         with mock.patch.object(obslog, "event") as ev:
@@ -153,7 +153,7 @@ class Fixture(WorkspaceCase):
 
     def test_keyword_lore_reaches_a_cli_session_once_per_match(self):
         # LORE_TURN_v1 (lca/D): the bundle is built without the talk, so a keyword entry never went in
-        import obslog
+        from telemetry import obslog
         from unittest import mock
         self.lore()
         s = self.session()
@@ -186,7 +186,7 @@ class Fixture(WorkspaceCase):
 
     def test_a_refresh_raises_no_alert(self):
         # a refresh holds a few layers: "charter missing" was a false alarm (found in lca/D)
-        import obslog
+        from telemetry import obslog
         from unittest import mock
         s = self.session()
         s._context_prefix()
@@ -232,7 +232,7 @@ class Fixture(WorkspaceCase):
             self.assertEqual(I.context_alerts(b, self.card_id), [{"kind": "leak", "layers": ["house_memory"]}])
 
     def test_the_turn_writes_each_alert(self):
-        import obslog
+        from telemetry import obslog
         import session as S
         from unittest import mock
         s = S.AgentSession.__new__(S.AgentSession)

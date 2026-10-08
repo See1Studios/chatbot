@@ -85,7 +85,7 @@ def reconcile(ws=None, now: Optional[float] = None) -> List[Dict]:
                     platform_compat.write_text(p, new, encoding="utf-8")
     _cache["at"] = 0.0
     try:
-        import obslog
+        from telemetry import obslog
         obslog.event("character.renamed", lvl="info", changes=[{"id": f["id"], "at": f["at"]} for f in found])
     except Exception:  # noqa: BLE001
         pass

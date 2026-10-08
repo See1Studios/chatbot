@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
-import obslog
+from telemetry import obslog
 
 PATH = "/api/client-error"
 MAX_MSG = 200

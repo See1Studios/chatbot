@@ -13,10 +13,21 @@ ROOT = REPO
 sys.path.insert(0, str(ENGINE))
 import evolution  # noqa: E402
 
-CODE_DIRS = ["", "providers", "tools"]   # folders of host code; add one here when you make it
+from tests._paths import CODE_DIRS  # noqa: E402  -- folders of host code: the one list, in tests/_paths.py
+
+
+# FEATURE_PACKAGES (docs/plans/telemetry.md tl/A, improvement-layers.md §3): new code goes into a feature package, not
+# the engine's top level (2026-10-09: 71 flat modules; one feature was spread over eight of them). Lower this when a
+# module moves into a package; never raise it.
+TOP_LEVEL_MAX = 69
 
 
 class CodeLayout(unittest.TestCase):
+    def test_the_top_level_does_not_grow(self):
+        n = len(list(ENGINE.glob("*.py")))
+        self.assertLessEqual(n, TOP_LEVEL_MAX, "%d modules at the engine's top level (max %d): put new code in a "
+                             "feature package (a folder in tests/_paths.py CODE_DIRS)" % (n, TOP_LEVEL_MAX))
+
     def test_every_host_module_is_protected(self):
         for d in CODE_DIRS:
             for p in sorted((ENGINE / d).glob("*.py")):

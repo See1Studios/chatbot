@@ -8,7 +8,7 @@ import importlib.util
 import re
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO, rel  # noqa: E402
+from tests._paths import CODE_DIRS, ENGINE, REPO, code_files, rel  # noqa: E402
 
 ROOT = REPO
 POSIX_ONLY = {"pty", "termios", "tty", "fcntl", "pwd", "grp", "resource", "posix"}
@@ -30,7 +30,7 @@ def top_level_posix_imports(path):
 
 class PlatformImports(unittest.TestCase):
     def test_no_unguarded_posix_only_import_at_module_level(self):
-        files = list(ENGINE.glob("*.py")) + list(ENGINE.glob("providers/*.py")) + list(ENGINE.glob("tools/*.py"))
+        files = code_files()
         bad = [x for p in sorted(files) if p.name not in LINUX_BY_DESIGN for x in top_level_posix_imports(p)]
         self.assertEqual(bad, [], "import these inside the function that needs them, or in a try (pp/D)")
 
@@ -42,11 +42,11 @@ WINDOWS_STDLIB = {"msvcrt", "winreg", "_winapi", "winsound"}   # standard librar
 
 
 def engine_files():
-    return sorted(list(ENGINE.glob("*.py")) + list(ENGINE.glob("providers/*.py")) + list(ENGINE.glob("tools/*.py")))
+    return code_files()
 
 
 def third_party_imports():
-    local = {p.stem for p in engine_files()} | {"providers", "tools", "tests"}
+    local = {p.stem for p in engine_files()} | {d for d in CODE_DIRS if d} | {"tests"}
     out = {}
     for p in engine_files():
         for node in ast.walk(ast.parse(p.read_text(encoding="utf-8"))):

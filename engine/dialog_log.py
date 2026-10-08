@@ -201,7 +201,7 @@ def _announce(did: str, msg: Dict, to: List[str]) -> None:
         events.publish("msg.new", to, subject=did, conversation=did, n=msg["n"], **{"from": msg["who"]})
     except Exception as e:  # noqa: BLE001
         try:
-            import obslog
+            from telemetry import obslog
             obslog.event("dialog.announce_failed", lvl="warn", dialog=did, error=str(e)[:200])
         except Exception:  # noqa: BLE001
             pass

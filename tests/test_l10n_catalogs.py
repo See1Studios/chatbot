@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO  # noqa: E402
+from tests._paths import CODE_DIRS, ENGINE, REPO, code_files  # noqa: E402
 
 ROOT = REPO
 STATIC = ROOT / "static"
@@ -38,8 +38,7 @@ class Catalogs(unittest.TestCase):
 
     def test_every_key_the_server_names_is_in_the_catalog(self):
         # l10n/F: i18n.msg / text / field name catalog keys; a key the page cannot show is a bug in every language
-        root = ENGINE
-        files = list(root.glob("*.py")) + list(root.glob("providers/*.py"))
+        files = code_files([d for d in CODE_DIRS if d != "tools"])   # tools/ is dev-only, English
         rx = re.compile(r"""\bi18n\.(?:msg|text)\(\s*["']([a-z0-9_.-]+)["']|\bi18n\.field\(\s*["']\w+["']\s*,\s*["']([a-z0-9_.-]+)["']""")
         used = {a or b for p in files for a, b in rx.findall(p.read_text(encoding="utf-8"))}
         self.assertEqual(sorted(used - set(CATALOGS["en"])), [])

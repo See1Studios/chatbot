@@ -107,7 +107,7 @@ class Logged(unittest.TestCase):
     as metadata -- never a payload's words, and a private event not even its subject."""
 
     def setUp(self):
-        import obslog
+        from telemetry import obslog
         self.dir = Path(tempfile.mkdtemp())
         self.env = mock.patch.dict(os.environ, {"CHATBOT_EVENTS_DIR": str(self.dir / "ev")})
         self.env.start()
@@ -115,7 +115,7 @@ class Logged(unittest.TestCase):
         obslog.configure("test", self.dir / "log.jsonl")
 
     def tearDown(self):
-        import obslog
+        from telemetry import obslog
         obslog._state.clear()
         obslog._state.update(self.saved)
         self.env.stop()

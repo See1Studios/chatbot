@@ -114,7 +114,7 @@ obs() {
   # obs <evt> <lvl> [key=value ...] -- best effort, never fails the caller
   local evt="$1" lvl="$2"
   shift 2
-  python3 "$CODE/obslog.py" emit --src ctl --evt "$evt" --lvl "$lvl" "$@" >/dev/null 2>&1 || true
+  python3 "$CODE/telemetry/obslog.py" emit --src ctl --evt "$evt" --lvl "$lvl" "$@" >/dev/null 2>&1 || true
 }
 
 PID_CHAT="$LOG_DIR/chatbot.pid"
@@ -593,7 +593,7 @@ case "$cmd" in
     guard_rlock
     guard_tickets
     ;;
-  logs) shift || true; exec python3 "$CODE/logdigest.py" "$@" ;;
+  logs) shift || true; exec python3 "$CODE/telemetry/logdigest.py" "$@" ;;
   *) echo "usage: $0 {start|stop|restart|status|doctor [--auto-repair]|probe|repair|defibrillate|guard|logs [--since 24h] [--sid ID] [--json] [-f]}"; exit 2 ;;
 esac
 

@@ -13,8 +13,8 @@ from pathlib import Path
 from tests._paths import ENGINE, REPO  # noqa: E402
 CODE = REPO
 sys.path.insert(0, str(ENGINE))
-import logdigest  # noqa: E402
-import obslog  # noqa: E402
+from telemetry import logdigest  # noqa: E402
+from telemetry import obslog  # noqa: E402
 
 SID = "20260923-101010-abcdef"
 

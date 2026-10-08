@@ -1,6 +1,6 @@
 // OBSLOG_UI_v1: log tab → "Service". The same logs/events.jsonl that agents read through
 // `chatbot-ctl.sh logs`, shown for people: findings first, then state, then recent events.
-// Data: GET /api/service-log?since=24h[&sid=...] (server.py _service_log → logdigest.py).
+// Data: GET /api/service-log?since=24h[&sid=...] (server.py _service_log → telemetry/logdigest.py).
 (function () {
   const btn = document.getElementById('svcLogBtn');
   const pane = document.getElementById('svcLog');

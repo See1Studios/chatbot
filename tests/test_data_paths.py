@@ -12,7 +12,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from tests._paths import ENGINE, REPO, rel as _rel  # noqa: E402
+from tests._paths import ENGINE, REPO, code_files, rel as _rel  # noqa: E402
 
 ROOT = REPO
 ENV_NAMES = ("CHATBOT_DATA", "PE_HOME", "PRIVATEENGINE_HOME")
@@ -28,7 +28,7 @@ ALLOWED_OWN_DATA = {
 
 
 def modules():
-    return sorted(list(ENGINE.glob("*.py")) + list(ENGINE.glob("providers/*.py")) + list(ENGINE.glob("tools/*.py")))
+    return code_files()
 
 
 class DataPaths(unittest.TestCase):

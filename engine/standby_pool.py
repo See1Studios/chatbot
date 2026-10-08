@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Optional, Tuple
 
-import obslog
+from telemetry import obslog
 from providers.adapters import get_adapter
 from host_config import (
     ADD_DIRS,

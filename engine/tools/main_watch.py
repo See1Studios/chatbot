@@ -72,7 +72,7 @@ def suite(sha: str, repo: Path = REPO) -> Dict:
 
 def record(sha: str, result: Dict) -> None:
     import host_config
-    import obslog
+    from telemetry import obslog
     obslog.configure("watch", path=host_config.EVENTS_LOG, mirror="error")
     subject = git("log", "-1", "--format=%s (%an)", sha).stdout.strip()
     obslog.event("main.check", lvl="info" if result["ok"] else "error", sha=sha[:12], subject=subject[:160],

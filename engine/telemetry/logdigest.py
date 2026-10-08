@@ -24,6 +24,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
+if __package__ in (None, ""):   # run as a script (chatbot-ctl.sh): the engine folder is the import root
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 ROOT = Path(__file__).resolve().parent
 # LOG_PATH_v1: the stream obslog writes and this reader parses come from one resolver (host_config),
 # env override included. Tests still swap logdigest.LOG directly.

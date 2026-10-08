@@ -12,7 +12,7 @@ from tests._paths import ENGINE, REPO  # noqa: E402
 ROOT = REPO
 sys.path.insert(0, str(ENGINE))
 import ctl_proc  # noqa: E402
-import obslog  # noqa: E402
+from telemetry import obslog  # noqa: E402
 
 AGY = "/h/.local/bin/agy --input-format stream-json --output-format stream-json --model gemini-3.8-flash-low"
 

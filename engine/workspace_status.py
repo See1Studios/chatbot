@@ -44,7 +44,7 @@ except Exception:  # noqa: BLE001
 logger = logging.getLogger(__name__)
 
 try:
-    import obslog
+    from telemetry import obslog
 except Exception:  # noqa: BLE001
     obslog = None
 

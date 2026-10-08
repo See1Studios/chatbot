@@ -343,7 +343,7 @@ class OperatorTest(Base):
         self.assertEqual(st["plan"]["tasks"][0]["role"], "dev")
 
     def test_go_unplanned_ticket_comma_paths_refuses_tier3(self):
-        t, _ = tickets.propose(self.data, "touch tier3", "data/workspace/notes/x.md,engine/logdigest.py", [CAND])
+        t, _ = tickets.propose(self.data, "touch tier3", "data/workspace/notes/x.md,engine/telemetry/logdigest.py", [CAND])
         with self.assertRaises(delegation.DelegationError) as cm:
             delegation.go(t["id"])
         self.assertIn("Tier 3", str(cm.exception))

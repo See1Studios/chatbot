@@ -18,7 +18,7 @@ import threading
 from typing import Dict
 from urllib.parse import urlencode
 
-import obslog
+from telemetry import obslog
 
 HEADER = "X-Chatbot-Session"
 _CALL = threading.local()

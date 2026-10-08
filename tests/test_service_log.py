@@ -15,8 +15,8 @@ from urllib.request import urlopen
 from tests._paths import ENGINE, REPO  # noqa: E402
 ROOT = REPO
 sys.path.insert(0, str(ENGINE))
-import logdigest  # noqa: E402
-import obslog  # noqa: E402
+from telemetry import logdigest  # noqa: E402
+from telemetry import obslog  # noqa: E402
 import server  # noqa: E402
 import platform_compat  # noqa: E402  (exclusive port on Windows, #409)
 

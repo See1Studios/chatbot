@@ -144,7 +144,7 @@ def digest_later(sess) -> None:
 
     def run():
         import identity
-        import obslog
+        from telemetry import obslog
         from session import _oneshot
         try:
             with sess.lock:
@@ -243,7 +243,7 @@ def _publish(kind: str, priv, work) -> None:
 def enter(work, priv, text: str = "", sessions: Optional[Path] = None, oneshot=None, names=None):
     """Called when `work` switches to its private session `priv`; returns `priv`. Never raises."""
     try:
-        import obslog
+        from telemetry import obslog
         import personal_turn
         if just_switched(priv, "visit_started"):
             obslog.event("private.switch_repeat", session=priv.sid, way="in")
@@ -301,7 +301,7 @@ def enter(work, priv, text: str = "", sessions: Optional[Path] = None, oneshot=N
                 obslog.exception("private.threshold_exception", e, session=priv.sid)
         threading.Thread(target=run, name="private-threshold", daemon=True).start()
     except Exception as e:  # noqa: BLE001 -- a missing note never blocks the switch, but it is logged
-        import obslog
+        from telemetry import obslog
         obslog.exception("private.threshold_exception", e, session=getattr(priv, "sid", ""))
     return priv
 
@@ -311,7 +311,7 @@ def leave(priv, work, digest=None):
     private memory), and leaves the return scene line -- only where they went, never what happened."""
     try:
         if just_switched(work, "return_started"):
-            import obslog
+            from telemetry import obslog
             obslog.event("private.switch_repeat", session=work.sid, way="out")
             return work
         work.return_started = time.time()
@@ -327,7 +327,7 @@ def leave(priv, work, digest=None):
         if auto_scene(_state(sessions, work.character or priv.character)):
             work.scene_action = _scene_out(str(visit.get("place") or ""))
     except Exception as e:  # noqa: BLE001
-        import obslog
+        from telemetry import obslog
         obslog.exception("private.leave_exception", e, session=getattr(priv, "sid", ""))
     return work
 
