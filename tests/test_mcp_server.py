@@ -325,7 +325,7 @@ class ServiceCtlTest(Base):
         self.assertIn("status only", r["message"])  # not "unknown service": the name check comes first
 
     def test_any_service_backed_by_the_chatbot_ctl_is_gated_too(self):
-        real = mcp.SERVICES / "chatbot" / "chatbot-ctl.sh"
+        real = ENGINE / "chatbot-ctl.sh"   # the ctl itself, wherever this checkout is (it left the repo root)
         with mock.patch.object(mcp.HOST_PLUGIN, "_service_ctls", return_value={"alias": str(real)}):
             self.assertFalse(self.call("alias", "start")["success"])
             self.assertTrue(self.call("alias", "status")["success"])
