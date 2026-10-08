@@ -131,6 +131,58 @@ class Roster(unittest.TestCase):
         self.assertIn("roles/staff/ROLE.md", ids)
         self.assertIn("roles/pd/PROCEDURE.md", ids)
 
+    def test_ticket_456_neutral_roles_in_delegation_and_workspace(self):
+        # Ticket #456: Engine role neutralization
+        import delegation as D
+        import workspace_status as W
+        import identity as Id
+
+        tmp_data = Path(tempfile.mkdtemp()).resolve()
+        test_ws = tmp_data / "workspace"
+        test_ws.mkdir()
+        try:
+            c1, c2 = sorted([C.new_id(), C.new_id()])
+            C.save(c1, C.new_card("Host"), test_ws)
+            C.save(c2, C.new_card("Worker"), test_ws)
+
+            # 1. delegation.experts() returns non-default characters' roles
+            saved_data = D.DATA
+            D.DATA = tmp_data
+            try:
+                C.save_team({"default": c1, "members": {c1: ["host-role"], c2: ["worker-role"]}}, test_ws)
+                self.assertEqual(D.experts(), ["worker-role"])
+                C.save_team({"default": c2, "members": {c1: ["host-role"], c2: ["worker-role"]}}, test_ws)
+                self.assertEqual(D.experts(), ["host-role"])
+            finally:
+                D.DATA = saved_data
+
+            # 2. workspace_status._instruction_files() marks default as 'always' and others as 'on_demand'
+            saved_ws = W.WORKSPACE
+            W.WORKSPACE = test_ws
+            try:
+                C.save_team({"default": c1, "members": {c1: ["pd"], c2: ["staff"]}}, test_ws)
+                items = {i[0]: i[3] for i in W._instruction_files() if "card.json" in i[0]}
+                self.assertEqual(items.get("characters/%s/card.json" % c1), "always")
+                self.assertEqual(items.get("characters/%s/card.json" % c2), "on_demand")
+            finally:
+                W.WORKSPACE = saved_ws
+
+            # 3. characters.load_team fallback without team.json uses oldest card as default
+            cards = [{"id": c1, "card": C.new_card("Oldest")}, {"id": c2, "card": C.new_card("Newer")}]
+            roster = C.load_team(cards=cards)
+            self.assertEqual(roster["default"], c1)
+
+            # 4. identity.seed_workspace_files seeds default character with empty roles (no hardcoded roles)
+            seed_ws = tmp_data / "seed_ws"
+            seed_ws.mkdir()
+            Id.seed_workspace_files(workspace=seed_ws)
+            seeded_team = C.load_team(seed_ws)
+            def_id = seeded_team["default"]
+            self.assertTrue(def_id)
+            self.assertEqual(seeded_team["members"].get(def_id), [], "seeded character holds no hardcoded role")
+        finally:
+            shutil.rmtree(tmp_data, ignore_errors=True)
+
 class SessionsAndGrants(unittest.TestCase):
     def setUp(self):
         import session as S
