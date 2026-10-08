@@ -8,6 +8,8 @@ static/vendor/*.min.js
 !static/vendor/purify.min.js
 # design tool cache (impeccable)
 static/.impeccable/hook.cache.json
+# impeccable critique snapshots: local review history (scores, findings), read by its polish and trend; not source
+.impeccable/critique/
 # Dev checkout pin: literal CHATBOT_DATA so the shipped ~/.pe default does not move this install (uds/F).
 data-pin.env
 
