@@ -27,6 +27,7 @@ function msgKind(el) {
 function msgMenuItems(ctx) {
   const rows = [];
   if (ctx.kind === 'theirs' && !ctx.busy && !ctx.room) rows.push({ k: 'acts', acts: [0, 1, 2, 3].map(i => tr('msgmenu.act.' + (ctx.mode === 'private' ? 'private' : 'work') + '.' + i)) });   // what one does in reply, by room
+  if (ctx.kind === 'theirs' && ctx.last && !ctx.busy && !ctx.room) rows.push({ k: 'regen', label: tr('regen.again') });   // REGENERATE_v1
   rows.push({ k: 'reply', label: MSG_TEXT.reply });
   rows.push({ k: 'copy', label: MSG_TEXT.copy });
   // an action goes again as an action; a group room takes plain text only
@@ -195,7 +196,7 @@ function msgMenuOpen(el, x, y) {
     document.body.append(scrim, menu);
   }
   const room = typeof roomOpenId === 'function' && Boolean(roomOpenId());
-  const items = msgMenuItems({ kind, busy: typeof isBusy !== 'undefined' && isBusy, room,
+  const items = msgMenuItems({ kind, busy: typeof isBusy !== 'undefined' && isBusy, room, last: typeof regenOffered === 'function' && regenOffered(el),
     mode: typeof sessionMode !== 'undefined' ? sessionMode : 'work' });
   const text = msgText(el);
   menu.textContent = '';
@@ -220,6 +221,7 @@ function msgMenuOpen(el, x, y) {
     b.textContent = it.label;
     b.addEventListener('click', async () => {
       msgMenuClose();
+      if (it.k === 'regen') { regenStart(); return; }
       if (it.k === 'copy') { if (await copyText(text)) msgToast(MSG_TEXT.copied); return; }
       if (it.k === 'reply') { msgReplyStart(el, kind, text); return; }
       if (it.k === 'resend' && inputEl) {

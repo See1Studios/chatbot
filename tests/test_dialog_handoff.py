@@ -393,7 +393,7 @@ class Handoff(unittest.TestCase):
 
     def test_a_handoff_turn_is_not_cut_to_the_notice_budget(self):
         src = (ENGINE / "session_turn.py").read_text(encoding="utf-8")
-        self.assertIn('if notice and event_type != "handoff":', src)
+        self.assertIn('if notice and event_type not in ("handoff", "regen"):', src)
 
     def test_one_open_handoff_per_director_and_at_most_two_hops(self):
         self.assertTrue(self.hand(self.lead, "s-lead", to="dev", text="a")["success"])

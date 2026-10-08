@@ -572,6 +572,8 @@ POST_ROUTES = [
     ("/api/characters/*/dev-delete", _dev_delete_character),
     ("/api/characters/*/session", route_sessions.character_session),
     ("/api/sessions/*/message", route_sessions.message),
+    ("/api/sessions/*/regenerate", route_sessions.regenerate_take),
+    ("/api/sessions/*/pick", route_sessions.pick_take),
     (None, _gift(lambda req: items.handle_post(req.path, req.body))),   # items (plus/F)
     (None, _gift(lambda req: art_manager.handle_post(req.path, req.body))),   # art (am/B)
     ("/api/sessions/*/provider", route_sessions.provider),

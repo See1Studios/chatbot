@@ -15,6 +15,7 @@ import emotion
 import items
 import personal_turn  # PERSONAL_TURN_v1: the busy listing says which turn runs
 import quota_state  # QUOTA_STATE_v1: no send to a brain out of quota
+import regenerate  # REGENERATE_v1: another take on the last answer
 import threshold  # THRESHOLD_v1: entering the private room hands one note across
 from host_config import DEFAULT_MODEL, DEFAULT_PROVIDER, _now
 from route_table import Req
@@ -218,6 +219,25 @@ def context(req: Req):
     if sess is None:
         return req.send(404, b"session not found", "text/plain")
     return req.json({"ok": True, "mode": getattr(sess, "mode", "work"), "records": list(getattr(sess, "context_log", []) or [])})
+
+
+def regenerate_take(req: Req):
+    """REGENERATE_v1: another take on the last answer (it streams like any answer, then becomes the picked take)."""
+    sess = REG.get(req.arg)
+    try:
+        regenerate.start(sess)
+    except regenerate.RegenError as e:
+        return req.json(regenerate.refusal(e), 409)
+    return req.json({"ok": True})
+
+
+def pick_take(req: Req):
+    """REGENERATE_v1: show take n of the last answer."""
+    sess = REG.get(req.arg)
+    try:
+        return req.json({"ok": True, **regenerate.pick(sess, int(req.body.get("pick", -1)))})
+    except (regenerate.RegenError, ValueError, TypeError) as e:
+        return req.json(regenerate.refusal(e if isinstance(e, regenerate.RegenError) else regenerate.RegenError("regen.no_answer")), 409)
 
 
 def places(req: Req):

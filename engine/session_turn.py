@@ -422,7 +422,7 @@ class SessionTurn:
 
         self._loop_guard.reset()
         self._loop_warned = False
-        if notice and event_type != "handoff":   # handed-over work is a whole turn of work (HANDOFF_v1)
+        if notice and event_type not in ("handoff", "regen"):   # a handover or another take is a whole turn (HANDOFF_v1)
             self._loop_guard.tighten(_s().LOOP_STOP_AFTER_NOTICE)  # the resumed turn stops sooner if it keeps repeating
         else:
             self._loop_guard.relax()

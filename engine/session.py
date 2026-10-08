@@ -28,11 +28,12 @@ except Exception:  # noqa: BLE001
 import i18n
 import obslog
 import quota_state  # QUOTA_STATE_v1 qfr/D
+import regenerate  # REGENERATE_v1
 import write_guard
 from turn_watchdog import TurnWatchdog
 from session_view import SessionView   # split/C: what a session shows (reads SESSIONS, ADD_DIRS... from here)
 from session_turn import SessionTurn   # split/C: running a turn (reads REG, boot_notice... from here)
-from loop_guard import LoopGuard, extract_tool_steps
+from loop_guard import LoopGuard, extract_tool_steps, is_read_only
 import personal_turn
 from host_config import (
     ADD_DIRS,
@@ -227,6 +228,8 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         self._observed_turn_key = None  # the user turn already handed to evolution.on_turn_end
         self._turn_seq = 0  # bumped each http-transport turn so a stale watchdog can't stop a later turn
         self._loop_guard = LoopGuard()  # repeated-tool-call detector (loop_guard.py); reset every turn
+        self._regen = None  # REGENERATE_v1: a take in flight
+        self._turn_effects = False  # REGENERATE_v1: did more than read
         self._loop_hint = ""  # one-shot note prepended to the next message after an automatic stop
         self._loop_stopping = False
         self._loop_warned = False  # one on-screen warning per turn is enough
@@ -548,6 +551,8 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         calls = extract_tool_steps(obj)
         for name, params, _ in calls:
             write_guard.check(self, name, params, REPO_ROOT)
+            if not (is_read_only(name) or str((params or {}).get("action") or "") in regenerate.READ_ACTIONS):
+                self._turn_effects = True   # REGENERATE_v1 D3
         if calls and self.msg_queue:
             self._steer_at_boundary()  # a tool step just finished: the safe moment to take a waiting message
         for name, params, output in calls:
@@ -648,6 +653,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         write_guard.turn_end(self, REPO_ROOT, outcome)   # TREE_WATCH_v1
         if outcome == "result":
             quota_state.warn_low(self)   # qfr/D: a brain running low is said once, before it runs out
+        regenerate.after_turn(self, outcome)   # REGENERATE_v1
         try:
             idx, text = self._last_user_turn()
             marks = [k for i, k in self._turn_marks if i == idx]

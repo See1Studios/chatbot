@@ -20,6 +20,7 @@ map only says which file does what.
 | Guards | loops `loop_guard.py`; unticketed writes, working-tree watch `write_guard.py`; per-caller tool scope and edition boundary `role_guard.py`; safety `content_guard.py` + `engine_data/content_guards.json` |
 | Logs | `obslog.py` (writes `logs/events.jsonl`), `logdigest.py` (reads it) |
 | Quota (which brain is out of quota until when, from the usage report; no send to it until then) | `quota_state.py` |
+| Another take on the companion's last answer (takes on the item, the brain's own way) | `regenerate.py` |
 | Service control | `chatbot-ctl.sh`, `ctl_proc.py`; first-run data folder `data_bootstrap.py`; move a data folder `tools/migrate_user_data.py`; dev workspace links `tools/link_dev_workspace.py`; mirror docs `tools/sync_mirrors.py` |
 | Server words by key | `i18n.py` (catalogs `static/i18n/<lang>.json`) |
 
@@ -77,7 +78,7 @@ map only says which file does what.
 |---|---|
 | Boot and words | `app-i18n.js` (first), `app.js`, `index.html`, `sw.js` |
 | Parts loaded first | `app-{api,device,messages,turn,activity,evolution,status,sessions-tab,team,sse,session,characters,viewport}.js`, `app-status-usage.js`, `app-status-context.js` |
-| Messenger shell | `app-shell.js`, `app-shell-brain.js`, `app-shell-quota.js`, `app-msgmenu.js`, `app-office.js`; moving between places (the move menu, the door card, "to the office") `app-move.js` |
+| Messenger shell | `app-shell.js`, `app-shell-brain.js`, `app-shell-quota.js`, `app-msgmenu.js`, `app-office.js`; moving between places (the move menu, the door card, "to the office") `app-move.js`; another take and < n/m > `app-regen.js` |
 | How an answer reads | `app-{blocks,stage,think,flow}.js`, `markdown.js`, `markdown-map.js`, `artifacts.js` |
 | Composer | `app-{attach,item,act-key,recall,retry,speech}.js`, `slash.js`, `model-picker.js` |
 | Other screens | rooms `app-rooms.js`, art manager `app-art.js`, dev only `app-dev-delete.js`, log tab `service-log.js`, `theme.js` |

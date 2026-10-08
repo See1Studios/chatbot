@@ -252,3 +252,7 @@ html.shell2 #log .move-card{align-self:center;width:min(92%,26rem);margin:.7rem 
 html.shell2 #log .move-card-title{font-size:1.02rem;font-weight:600;line-height:1.35;color:var(--text)}
 html.shell2 #log .move-card .move-card-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;margin-top:.75rem}
 html.shell2 #log .move-card .move-card-actions button{min-height:40px;padding:.35rem 1rem}
+/* REGENERATE_v1: < n/m > under the companion's last answer, quiet until it is wanted */
+html.shell2 #log .regen-nav{display:flex;align-items:center;gap:.35rem;margin-top:.3rem;font-size:.75rem;color:var(--muted)}
+html.shell2 #log .regen-nav button{min-width:32px;min-height:32px;padding:0 .4rem;font-size:1rem;line-height:1}
+html.shell2 #log .regen-nav span{font-variant-numeric:tabular-nums}

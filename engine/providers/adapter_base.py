@@ -287,6 +287,12 @@ class AgentAdapter:
         return quota_view_of(rows, "")
 
 
+    def rebuilds_context(self) -> bool:
+        """REGENERATE_v1: True when this brain is sent the history again on every call (the engine builds its context),
+        so the last answer can be taken out and asked again. False (default): the brain keeps its own conversation and
+        has seen the answer; another take goes as a host note asking for a different reply."""
+        return False
+
     def mints_own_conversation_id(self) -> bool:
         """False (default, agy's behavior): we generate a uuid4 before the
         first spawn and pass it in, specifically to stop the CLI from

@@ -116,7 +116,7 @@ function enterSession(id, opts) {
         // QUOTA_ERR_DEDUP_v1: history notice via addNotice
         const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
         if (nk) addNotice(nk, h.text || '', h.ts);
-        else addChat('assistant', textWithChoices(h), true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+        else { const n = addChat('assistant', textWithChoices(h), true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model); if (h.alts && n) regenDraw(n, h); }
       }
       lastSyncedTs = Math.max(lastSyncedTs, h.ts || 0);
     });
@@ -317,7 +317,7 @@ async function resyncFromServer(sid) {
         }
         const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
         if (nk) addChat('assistant', textWithChoices(h), true, false, false, false, null, null, nk, h.ts, null);
-        else addChat('assistant', textWithChoices(h), true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model);
+        else { const n = addChat('assistant', textWithChoices(h), true, false, false, false, h.usage, h.duration_seconds, false, h.ts, h.served_model); if (h.alts && n) regenDraw(n, h); }
       } else {
         return;
       }

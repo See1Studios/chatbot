@@ -219,6 +219,10 @@ class OpenAIDialectAdapter(AgentAdapter):
     transport_kind = "http"
     keeps_stdin_open = False
 
+
+    def rebuilds_context(self) -> bool:   # REGENERATE_v1: every call gets the history the engine builds
+        return True
+
     def __init__(
         self,
         id: str,
