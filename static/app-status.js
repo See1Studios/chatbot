@@ -644,7 +644,7 @@ async function loadInstructions() {
     statusInstructionsEl.textContent = tr('status.instr.load_failed', { error: e.message || e });
     return;
   }
-  const items = res.items || [];
+  const items = (res.items || []).filter(x => x.scope ? x.scope === 'system' : (!x.id.startsWith('characters/') && !x.id.startsWith('roles/')));
   statusInstructionsEl.textContent = '';
   ['always', 'on_demand', 'private'].forEach(layer => {
     const group = items.filter(x => x.layer === layer);

@@ -263,26 +263,26 @@ _LAYER_ORDER = {"always": 0, "on_demand": 1, "private": 2}   # private: read onl
 
 
 def _instruction_files() -> list:
-    items = [(i, t, WORKSPACE / rel, layer) for i, t, rel, layer in INSTRUCTION_FILES]
+    items = [(i, t, WORKSPACE / rel, layer, "system") for i, t, rel, layer in INSTRUCTION_FILES]
     default = _default_character()
     for c in _characters():
         label = c["name"] or c["id"]
         pd = c["id"] == default                      # the chatbot's own (default) card is read every turn
         items.append(("characters/%s/card.json" % c["id"], i18n.line("instr.persona_card" if pd else "instr.character_card", name=label),
-                      WORKSPACE / "characters" / c["id"] / "card.json", "always" if pd else "on_demand"))
+                      WORKSPACE / "characters" / c["id"] / "card.json", "always" if pd else "on_demand", "character"))
         if not pd:                                   # the chatbot's memory is still memory/MEMORY.md
             items.append(("characters/%s/memory.md" % c["id"], i18n.line("instr.character_memory", name=label),
-                          WORKSPACE / "characters" / c["id"] / "memory.md", "on_demand"))
+                          WORKSPACE / "characters" / c["id"] / "memory.md", "on_demand", "character"))
         items.append(("characters/%s/visual.md" % c["id"], i18n.line("instr.visual", name=label),
-                      WORKSPACE / "characters" / c["id"] / "visual.md", "on_demand"))
+                      WORKSPACE / "characters" / c["id"] / "visual.md", "on_demand", "character"))
         items.append(("characters/%s/private-memory.md" % c["id"], i18n.line("instr.private_memory", name=label),
-                      WORKSPACE / "characters" / c["id"] / "private-memory.md", "private"))
+                      WORKSPACE / "characters" / c["id"] / "private-memory.md", "private", "character"))
     roles = WORKSPACE / "roles"                      # TEAM_ROLES_v1: role packs, read by whoever holds the role
     for d in sorted(roles.iterdir()) if roles.is_dir() else []:
         if d.is_dir() and _ROLE_DIR.match(d.name):
             for kind, key, load in (("role", "instr.role_pack", "always"), ("procedure", "instr.role_procedure", "on_demand")):
                 f = _pack_file(d, kind)
-                items.append(("roles/%s/%s" % (d.name, f.name), i18n.line(key, name=d.name), f, load))
+                items.append(("roles/%s/%s" % (d.name, f.name), i18n.line(key, name=d.name), f, load, "role"))
     return items
 
 
@@ -320,7 +320,9 @@ def _protected_why(path: Path) -> Optional[str]:
 def agent_instructions() -> list:
     """Every instruction the chat agent reads: files (editable unless protected) and generated layers (read-only)."""
     out = []
-    for iid, title, path, layer in _instruction_files():
+    for item in _instruction_files():
+        iid, title, path, layer = item[:4]
+        scope = item[4] if len(item) > 4 else "system"
         if not path.is_file():
             continue
         try:
@@ -334,6 +336,7 @@ def agent_instructions() -> list:
         except ValueError:
             rel = str(path)
         out.append({"id": iid, **i18n.field("title", title["key"], **title["vars"]), "path": rel, "layer": layer, "kind": "file",
+                    "scope": scope,
                     "editable": why is None, **(i18n.field("reason", "instr.protected", why=why) if why else {"reason": ""}),
                     "size": st.st_size, "mtime": st.st_mtime, "content": text})
     try:
@@ -343,7 +346,7 @@ def agent_instructions() -> list:
     except Exception:  # noqa: BLE001
         generated = []
     for iid, title, text, why in generated:
-        out.append({"id": iid, **i18n.field("title", title), "path": "", "layer": "always", "kind": "generated", "editable": False,
+        out.append({"id": iid, **i18n.field("title", title), "path": "", "layer": "always", "kind": "generated", "scope": "system", "editable": False,
                     **i18n.field("reason", why), "size": len((text or "").encode("utf-8")), "mtime": 0, "content": text or ""})
     out.sort(key=lambda x: _LAYER_ORDER[x["layer"]])
     return out
@@ -457,7 +460,7 @@ def instructions_api(method: str, path: str, body: Optional[dict]) -> Optional[T
     found = [x for x in _instruction_files() if x[0] == rest]
     if not found:
         return 404, {"ok": False, "error": "no such instruction file (generated layers are read-only)"}
-    _, _, fp, _ = found[0]
+    _, _, fp, *_ = found[0]
     why = _protected_why(fp)
     if why:
         return 403, {"ok": False, "error": "read-only: protected (%s)" % why}
