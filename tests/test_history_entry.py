@@ -72,6 +72,33 @@ class DevlogEntry(unittest.TestCase):
         self.assertTrue(moved.startswith("# chatbot 개발로그 — 2026-09-30"))   # l10n-ok (test_docs_budget's shape)
         self.assertIn("## 2026-09-30 — old (#1)", moved)
 
+    def busy_day(self):
+        day = "".join("## 2026-10-08 — e%d (#%d)\n\n- %s\n\n" % (i, i, "x" * 60) for i in range(9, 0, -1))
+        (self.repo / "HISTORY.md").write_text(HEAD + day, encoding="utf-8")
+        with mock.patch.object(D, "BUDGET", len(HEAD) + 400):
+            return D.rotate(self.repo, HEAD + day)
+
+    def test_a_day_over_the_budget_alone_moves_its_earliest_entries(self):
+        # BUSY_DAY_v1 (#830): 2026-10-08 one day alone passed the budget; nothing older was left to move
+        text, wrote = self.busy_day()
+        self.assertEqual(wrote, ["docs/history/2026-10-08.md"])
+        self.assertLessEqual(len(text.encode("utf-8")), len(HEAD) + 400 + 200)   # + the note line
+        self.assertIn("e9 (#9)", text)                                            # the newest stay
+        moved = (self.repo / "docs" / "history" / "2026-10-08.md").read_text(encoding="utf-8")
+        self.assertTrue(moved.startswith("# chatbot 개발로그 — 2026-10-08\n\n## 2026-10-08"))   # l10n-ok
+        self.assertLess(moved.index("e2 (#2)"), moved.index("e1 (#1)"), "newest first there too")
+        self.assertEqual(sum(t.count("## 2026-10-08 — e") for t in (text, moved)), 9, "nothing lost")
+
+    def test_a_split_day_moves_whole_once_the_next_day_begins(self):
+        text = self.busy_day()[0]
+        text = text.replace("## 2026-10-08 — e9", "## 2026-10-09 — n1 (#10)\n\n- y\n\n## 2026-10-08 — e9", 1)
+        text, wrote = D.rotate(self.repo, text)                                 # under the budget, still moved
+        self.assertEqual(wrote, ["docs/history/2026-10-08.md"])
+        self.assertNotIn("## 2026-10-08", text)
+        moved = (self.repo / "docs" / "history" / "2026-10-08.md").read_text(encoding="utf-8")
+        self.assertEqual(moved.count("## 2026-10-08 — e"), 9)
+        self.assertLess(moved.index("e9 (#9)"), moved.index("e1 (#1)"))
+
     def test_no_diary_no_head_nothing_written(self):
         self.assertEqual(D.record_merge(self.repo, 9, "t", "claude", self.base, ""), [])
         (self.repo / "HISTORY.md").unlink()

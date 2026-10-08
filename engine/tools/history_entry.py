@@ -7,7 +7,10 @@ after the merge, in the same commit as the ticket's record (tools/worktree_runne
 
 The entry is mechanical -- the title, the commits, the files -- and says so; the why lives in the ticket and the
 plan. When the diary passes its budget (tests/test_docs_budget.py), the oldest day moves to docs/history/<day>.md,
-as an agent would do by hand.
+as an agent would do by hand. BUSY_DAY_v1 (#830): a day over the budget alone (2026-10-08: 45KB of one day) moves its
+earliest entries out instead, one at a time; that day is then split between the two files until it moves whole.
+
+  python3 engine/tools/history_entry.py rotate    # after a hand-written entry pushed HISTORY.md over its budget
 """
 from __future__ import annotations
 
@@ -58,30 +61,44 @@ def insert(text: str, block: str) -> str:
 
 
 def rotate(repo: Path, text: str) -> Tuple[str, List[str]]:
-    """While the diary is over budget, its oldest day moves to docs/history/<day>.md. Returns the diary and the files
-    written beside it."""
+    """While the diary is over budget, its oldest day moves to docs/history/<day>.md; a day over the budget alone moves
+    its earliest entry instead (BUSY_DAY_v1). A day already split moves whole as soon as another day is in the diary.
+    Returns the diary and the files written beside it."""
     written: List[str] = []
-    while len(text.encode("utf-8")) > BUDGET:
-        days = DAY_HEAD.findall(text)
-        if len(set(days)) < 2:
-            break                                    # one day left: nothing older to move
-        oldest = sorted(days)[0]
-        first = re.search(r"(?m)^## %s " % re.escape(oldest), text).start()
-        later = [m.start() for m in DAY_HEAD.finditer(text) if m.group(1) != oldest and m.start() > first]
-        end = later[0] if later else len(text)
-        moved, text = text[first:end], text[:first] + text[end:]
-        rel = "%s/%s.md" % (ROTATED, oldest)
-        path = repo / rel
-        old = path.read_text(encoding="utf-8") if path.exists() else "# chatbot 개발로그 — %s\n\n" % oldest   # l10n-ok
-        path.parent.mkdir(parents=True, exist_ok=True)
-        _write(path, old.rstrip("\n") + "\n\n" + moved.strip("\n") + "\n")
-        note = "%s 기록은 하루 예산을 넘어 [docs/history/%s.md](docs/history/%s.md)로 회전했습니다." % (oldest, oldest, oldest)   # l10n-ok
+    while True:
+        heads = list(DAY_HEAD.finditer(text))
+        days = [m.group(1) for m in heads]
+        split = [d for d in sorted(set(days)) if (repo / ROTATED / ("%s.md" % d)).exists()]
+        over = len(text.encode("utf-8")) > BUDGET
+        if len(set(days)) >= 2 and (over or split):   # the oldest (or the split) day moves whole
+            day = split[0] if split and not over else sorted(days)[0]
+            first = next(m.start() for m in heads if m.group(1) == day)
+            later = [m.start() for m in heads if m.group(1) != day and m.start() > first]
+            end = later[0] if later else len(text)
+        elif over and len(heads) >= 2:               # one day alone over the budget: its earliest (last) entry moves
+            day, first, end = days[-1], heads[-1].start(), len(text)
+        else:
+            return text, written
+        _move_out(repo, day, text[first:end])
+        text = text[:first] + text[end:]
+        note = "%s 기록은 하루 예산을 넘어 [docs/history/%s.md](docs/history/%s.md)로 회전했습니다." % (day, day, day)   # l10n-ok
         if note not in text:
             head = re.search(r"(?m)^## ", text)
             at = head.start() if head else len(text)
             text = text[:at].rstrip("\n") + "\n" + note + "\n\n" + text[at:]
-        written.append(rel)
-    return text, written
+        rel = "%s/%s.md" % (ROTATED, day)
+        if rel not in written:
+            written.append(rel)
+
+
+def _move_out(repo: Path, day: str, moved: str) -> None:
+    """Put `moved` (newer than what is there) at the top of docs/history/<day>.md."""
+    path = repo / ROTATED / ("%s.md" % day)
+    title = "# chatbot 개발로그 — %s\n\n" % day   # l10n-ok
+    old = path.read_text(encoding="utf-8") if path.exists() else title
+    body = (old[len(title):] if old.startswith(title) else old).strip("\n")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write(path, title + moved.strip("\n") + "\n" + ("\n" + body + "\n" if body else ""))
 
 
 def record_merge(repo: Path, tid: int, title: str, provider: str, base: Optional[str], head: Optional[str],
@@ -98,3 +115,13 @@ def record_merge(repo: Path, tid: int, title: str, provider: str, base: Optional
     text, rotated = rotate(repo, insert(path.read_text(encoding="utf-8"), entry(tid, title, provider, commits, files, day)))
     _write(path, text)
     return [HISTORY] + rotated
+
+
+if __name__ == "__main__":
+    import sys
+    if sys.argv[1:] != ["rotate"]:
+        sys.exit("usage: history_entry.py rotate")
+    _repo = Path(__file__).resolve().parent.parent.parent
+    _text, _moved = rotate(_repo, (_repo / HISTORY).read_text(encoding="utf-8"))
+    _write(_repo / HISTORY, _text)
+    print("\n".join(_moved) or "HISTORY.md is within its budget")
