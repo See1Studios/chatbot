@@ -186,6 +186,22 @@ class OtherEndsTest(Base):
         (row,) = self.rows()
         self.assertEqual((row["signal"], row["detail"]["outcome"]), ("rotation", "heavy"))
 
+    def test_the_stream_hears_the_handoff_before_the_summary_is_written(self):
+        # #812: a 19 s summary looked like a failed send; the waiting page hears the server at work first
+        seen = []
+        session.AgentSession.get_handover_summary = lambda s, *a, **k: seen.extend(self.drain(s)) or ""
+        fake = SimpleNamespace(create=lambda **kw: SimpleNamespace(sid="succ-1", _send_direct=lambda *a: None,
+                                                                   handoff_summary=""),
+                               get=lambda sid: None)
+        orig = session.REG
+        session.REG = fake
+        self.s._successor_usable = lambda sid: False
+        try:
+            self.s._rotate_to_fresh_session("안녕", reason="inactivity")
+        finally:
+            session.REG = orig
+        self.assertIn(("progress", "srv.handoff_writing"), [(e.get("type") or e.get("event"), e.get("key")) for e in seen])
+
 
 class OneRecordPerTurnTest(Base):
     def test_two_paths_ending_the_same_turn_record_it_once(self):
