@@ -129,6 +129,7 @@ function failNotice(text, error) {
   const raw = error == null ? '' : String((error && error.message) || error);
   addActivity(raw ? text + ' — ' + raw : text, 'warn');
   const node = typeof addNotice === 'function' ? addNotice('warn', text, null, true) : null;
+  if (node) node.setAttribute('role', 'alert');   // the log is no live region: a screen reader hears the failure
   if (node && raw) {
     const d = document.createElement('details'), s = document.createElement('summary'), c = document.createElement('code');
     d.className = 'notice-detail';

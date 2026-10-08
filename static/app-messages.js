@@ -251,8 +251,9 @@ function attachNoticeSwipe(el) {
   };
   el.addEventListener('pointerdown', (e) => {
     if (e.button) return;
-    // A press on a control inside the notice (the open-failure notice's retry) is that control's: no swipe.
-    if (e.target && e.target.closest && e.target.closest('button, a, input, select, textarea, summary, [role="button"]')) return;
+    // A press on a control inside the notice (the open-failure notice's retry) is that control's: no swipe. So is one in
+    // a failure's details (FAIL_NOTICE_v1): dragging there selects the error text.
+    if (e.target && e.target.closest && e.target.closest('button, a, input, select, textarea, details, [role="button"]')) return;
     x0 = e.clientX; y0 = e.clientY; dx = 0; axis = 0;
     el.classList.remove('resetting', 'dismissing');
     el.classList.add('swiping');

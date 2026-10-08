@@ -39,7 +39,8 @@ const fs = require('fs');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
 function slice(a, b) { const i = src.indexOf(a), j = src.indexOf(b, i); if (i < 0 || j < 0) throw new Error('markers missing: ' + a); return src.slice(i, j); }
 function el(tag) {
-  return { tag, children: [], className: '', textContent: '', isConnected: true, listeners: {},
+  return { tag, children: [], className: '', textContent: '', isConnected: true, listeners: {}, attrs: {},
+           setAttribute(k, v) { this.attrs[k] = v; },
            append(...c) { this.children.push(...c); }, appendChild(c) { this.children.push(c); return c; },
            addEventListener(k, f) { this.listeners[k] = f; }, remove() { this.isConnected = false; } };
 }
@@ -54,7 +55,7 @@ eval(slice('function failNotice', 'function prependActivity'));
 eval(slice('let _blockedNotice', 'function themeForProvider'));
 const out = {};
 const n = failNotice(tr('session.mode_failed'), new Error('HTTP 502'));
-out.fail = { kind: n.kind, text: n.text, detail: n.children.map(c => [c.className, c.children.map(x => x.textContent)]),
+out.fail = { kind: n.kind, role: n.attrs.role, text: n.text, detail: n.children.map(c => [c.className, c.children.map(x => x.textContent)]),
              activity: activity.slice() };
 const quiet = failNotice(tr('chat.stop_failed'));
 out.noError = { children: quiet.children.length, activity: activity[activity.length - 1] };
@@ -63,7 +64,7 @@ gate.reason = '로그인 필요'; syncProviderUseGates(); syncProviderUseGates()
 out.once = notices.length;
 const first = notices[0];
 first.children[0].listeners.click();
-out.button = { text: first.children[0].textContent, panes: panes.slice() };
+out.button = { role: first.attrs.role, text: first.children[0].textContent, panes: panes.slice() };
 first.remove();                           // swiped away: not put back while the block is the same
 syncProviderUseGates();
 out.afterSwipe = notices.length;
@@ -95,6 +96,11 @@ class FailNotice(unittest.TestCase):
         self.assertIn("if (!shell2 && (tab === 'chat'", api)
         self.assertIn("if (blocked && !shell2 &&", chars)
 
+    def test_dragging_in_the_details_selects_instead_of_swiping(self):
+        src = (STATIC / "app-messages.js").read_text(encoding="utf-8")
+        start = src.index("function attachNoticeSwipe")
+        self.assertIn("details,", src[start:src.index("el.classList.add('swiping')", start)])
+
     def test_the_notice_line_carries_no_raw_error(self):
         for lang in ("ko", "en"):
             cat = json.loads((STATIC / "i18n" / ("%s.json" % lang)).read_text(encoding="utf-8"))
@@ -112,12 +118,13 @@ class FailNotice(unittest.TestCase):
         out = json.loads(proc.stdout)
         cat = json.loads((STATIC / "i18n" / "ko.json").read_text(encoding="utf-8"))
         self.assertEqual(out["fail"]["kind"], "warn")
+        self.assertEqual(out["fail"]["role"], "alert", "the log is no live region")
         self.assertEqual(out["fail"]["text"], cat["session.mode_failed"])
         self.assertEqual(out["fail"]["detail"], [["notice-detail", [cat["notice.detail"], "HTTP 502"]]])
         self.assertEqual(out["fail"]["activity"], [[cat["session.mode_failed"] + " — HTTP 502", "warn"]])
         self.assertEqual(out["noError"], {"children": 0, "activity": [cat["chat.stop_failed"], "warn"]})
         self.assertEqual(out["once"], 1, "one notice per block")
-        self.assertEqual(out["button"], {"text": cat["notice.open_accounts"], "panes": [["status", ""]]})
+        self.assertEqual(out["button"], {"role": "alert", "text": cat["notice.open_accounts"], "panes": [["status", ""]]})
         self.assertEqual(out["afterSwipe"], 1, "a swiped-away notice stays away")
         self.assertEqual(out["afterNewTalk"], 2, "a new talk shows it again")
         self.assertFalse(out["unblocked"], "unblocked: the notice goes")

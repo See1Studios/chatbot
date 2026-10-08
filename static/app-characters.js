@@ -142,6 +142,7 @@ function syncBlockedNotice(key, reason) {
   if (!key || typeof addNotice !== 'function') return;
   const node = addNotice('warn', tr('shell.provider_blocked', { reason }), null, true);
   if (!node) return;
+  node.setAttribute('role', 'alert');
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'ghost notice-action';
