@@ -522,8 +522,13 @@ def _alive(pid) -> bool:
 def _phase(st: Dict) -> str:
     """The run's phase, or `stalled` when it says it is active but its process is gone."""
     phase = st.get("phase", "")
-    if phase in ACTIVE_PHASES and phase != "starting" and not _alive(st.get("pid")):
-        return "stalled"
+    if phase in ACTIVE_PHASES:
+        pid = st.get("pid")
+        if phase == "starting":
+            if pid and not _alive(pid):
+                return "stalled"
+        elif not _alive(pid):
+            return "stalled"
     return phase
 
 
@@ -604,6 +609,9 @@ WORK_ACTIONS: Dict[str, List[Dict]] = {
     "stalled in merging": [
         {"id": "merge", "label": "work.merge_again", "primary": True, "confirm": False, "needs_comment": False},
     ],
+    "stalled": [
+        {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+    ],
     "merged-ticket-open": [
         {"id": "merge", "label": "ticket.word.close", "primary": True, "confirm": False, "needs_comment": False},
     ],
@@ -630,6 +638,8 @@ def _actions(phase: str, stalled_in: str = "", need_paths: Optional[List[Dict]] 
     """The ordered action buttons for a run view, computed from WORK_ACTIONS."""
     if phase == "stalled" and stalled_in == "merging":
         key = "stalled in merging"
+    elif phase == "stalled":
+        key = "stalled"
     elif phase == "awaiting_go":
         key = "ready"
     elif phase == "awaiting_merge":

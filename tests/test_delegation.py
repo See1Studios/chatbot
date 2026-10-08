@@ -483,6 +483,26 @@ class OperatorTest(Base):
         self.assertEqual(tickets.get(self.data, tid)["status"], "declined")
         self.assertIsNone(tickets._read_lease(self.data))
 
+    def test_starting_with_dead_pid_is_stalled(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.runner().write_state(tid, phase="starting", pid=999999)
+        card = [r for r in delegation.runs() if r["ticket"] == tid][0]
+        self.assertEqual(card["phase"], "stalled")
+
+    def test_starting_without_pid_stays_starting(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.runner().write_state(tid, phase="starting", pid=0)
+        card = [r for r in delegation.runs() if r["ticket"] == tid][0]
+        self.assertEqual(card["phase"], "starting")
+
+    def test_stalled_starting_run_can_be_discarded(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.go(tid)
+        delegation.runner().write_state(tid, phase="starting", pid=999999)
+        delegation.discard(tid)
+        self.assertEqual(tickets.get(self.data, tid)["status"], "declined")
+        self.assertEqual(self.state(tid)["phase"], "declined")
+
     def test_a_running_plan_cannot_be_discarded(self):
         import os
         tid = self.plan([self.task(TIER0)])["ticket"]
@@ -625,6 +645,16 @@ class StageAndActionsTest(Base):
             {"id": "merge", "label": "work.merge_again", "primary": True, "confirm": False, "needs_comment": False},
         ])
 
+        # stalled (general)
+        r.write_state(tid, phase="starting", pid=999999)
+        card = delegation.runs()[0]
+        self.assertEqual(card["phase"], "stalled")
+        self.assertEqual(card["stalled_in"], "starting")
+        self.assertEqual(card["stage"], "ended")
+        self.assertEqual(card["actions"], [
+            {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+        ])
+
         # merged-ticket-open
         r.write_state(tid, phase="merged-ticket-open")
         card = delegation.runs()[0]
@@ -660,7 +690,9 @@ class StageAndActionsTest(Base):
         r.write_state(tid, phase="writing", pid=999999)
         card = delegation.runs()[0]
         self.assertEqual(card["stage"], "ended")
-        self.assertEqual(card["actions"], [])
+        self.assertEqual(card["actions"], [
+            {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+        ])
 
 
 class ReplanTest(Base):

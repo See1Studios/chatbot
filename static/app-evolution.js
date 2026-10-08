@@ -672,7 +672,8 @@ function renderWorkCard(r) {
   };
 
   // BUTTON_LOGIC_v1: which buttons, in which order, is the server's (delegation.WORK_ACTIONS): the page only draws
-  // them -- a Tier 3 path request has no [Allow] (#381), a landed-but-open ticket has [Close] (MERGED_CLOSE_v1)
+  // them -- a Tier 3 path request has no [Allow] (#381), a landed-but-open ticket has [Close] (MERGED_CLOSE_v1),
+  // a stalled run offers [Discard] (#829).
   (r.actions || []).forEach(a => {
     const cmd = WORK_ACTION_COMMAND[a.id] || a.id;
     button(tr(a.label), Boolean(a.primary), () => fillTicketCommand({ id: r.ticket }, cmd, Boolean(a.confirm)));
