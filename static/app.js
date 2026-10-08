@@ -772,6 +772,7 @@ if (typeof roomOpenId === 'function') {
   [brandAvatarEl, tabSessions, sessionsRefreshBtn].forEach(b => { if (b) b.addEventListener('click', () => roomsRefresh()); });
 }
 if (typeof shellInit === 'function') shellInit();   // SHELL_v2 (app-shell.js): the talk list, only under ?shell=2
+if (typeof moveInit === 'function' && document.documentElement.classList.contains('shell2')) moveInit();   // PLACE_MOVE_v1
 if (statusRefreshBtn) statusRefreshBtn.addEventListener('click', () => { fetchSelfStatus(); fetchAccounts(); });
 // Waiting tickets are shown above the composer, so they are looked up at start and now and then, not only on the status tab.
 loadTickets();

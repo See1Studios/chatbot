@@ -373,8 +373,9 @@ def _card(character: str) -> Dict:
 
 PRIVATE_SESSION_NOTE = ("[Private session] A private conversation, kept apart from work. Work tools and work memory "
                         "are closed; do not work or bring up work. The host keeps what is "
-                        "worth remembering in your private memory when the session closes. The user switches with "
-                        "`/private on|off` or the heart button; asked for work, ask them to switch with `/private off`. "
+                        "worth remembering in your private memory when the session closes. The user comes and goes by "
+                        "moving between places (`/move <place>`); asked for work, ask them to go back to the office "
+                        "(`/move office`). "
                         "Follow the character's private rules below.")
 # PRIVATE_BUDGET_v1: a private session gets the charter's preamble and these sections only. The rest is work
 # procedure it cannot use, and "## Memory" would point it at the work memory tool.

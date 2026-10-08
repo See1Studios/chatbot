@@ -217,6 +217,16 @@ def context(req: Req):
     return req.json({"ok": True, "mode": getattr(sess, "mode", "work"), "records": list(getattr(sess, "context_log", []) or [])})
 
 
+def places(req: Req):
+    """PLACE_MOVE_v1: where this talk's character can go (the move menu): [{id, name}], the character's own or the
+    engine's defaults (personal_turn.places)."""
+    sess = REG.peek(req.arg)
+    if sess is None:
+        return req.send(404, b"session not found", "text/plain")
+    state = items.state_path(sess.character) if getattr(sess, "character", "") else None
+    return req.json({"places": personal_turn.places(state), "office": personal_turn.OFFICE})
+
+
 def summary(req: Req):
     # Read-only handover-style summary of an arbitrary (often archived) session,
     # for the "bring in" scrollback/session-list action — never touches the
@@ -416,8 +426,14 @@ def message(req: Req):
     if not isinstance(client_ctx, dict):
         client_ctx = None
     stripped = " ".join(text.split()).lower()
+    if stripped == "/move" or stripped.startswith("/move "):   # PLACE_MOVE_v1: the destination decides the room
+        dest = text.split(None, 1)[1] if len(text.split(None, 1)) > 1 else ""
+        if not dest.strip():
+            return req.json({"ok": False, "error": "name a place: /move <place>, or /move office"}, 400)
+        state = items.state_path(sess.character) if getattr(sess, "character", "") else None
+        return _switch_room(req, sess, sid, personal_turn.move_target(dest, state), client_mid)
     if stripped in ("/private", "/private on", "/work", "/private off") or stripped.startswith("/private on "):
-        return _switch_room(req, sess, sid, text, client_mid)
+        return _switch_room(req, sess, sid, text, client_mid)   # dev mode's heart and the typed debug command
 
     # CONTENT_GUARD_v1: a message the provider would refuse never leaves the host (0 tokens)
     blocked, notice_text = content_guard.check_preflight(sess.provider, text)

@@ -133,6 +133,20 @@ def places(state_path=None) -> List[Dict[str, str]]:
         return []
 
 
+OFFICE = "office"   # PLACE_MOVE_v1: the one public place, the work room (private-mode.md §8.8)
+
+
+def move_target(dest: str, state_path=None) -> str:
+    """PLACE_MOVE_v1 (private-mode.md §8.8, W6): the room switch a `/move <dest>` means, as the room command the switch
+    route takes: the work room for `office`, else the private room with the place as its first scene. A place given
+    by its id is named by its catalog name (the scene line names the place)."""
+    d = " ".join(str(dest or "").split())
+    if d.lower() == OFFICE:
+        return "/private off"
+    hit = next((p for p in places(state_path) if p.get("id") and p["id"].lower() == d.lower()), None)
+    return "/private on " + (hit["name"] if hit else d)
+
+
 def _rows(sessions, sid: str) -> List[dict]:
     try:
         rows = [json.loads(x) for x in (Path(sessions) / sid / FILE).read_text(encoding="utf-8").splitlines() if x.strip()]
@@ -160,7 +174,7 @@ def move_choices(sessions, sid: str, turn, state_path=None) -> List[Dict[str, An
         f.write(json.dumps({"offer": place["name"], "offer_for": k, "ts": time.time()}) + "\n")
     shown = {"key": "place." + place["id"]} if place.get("id") else place["name"]
     return [{"label": "A quick word in %s..." % place["name"], "label_key": "choice.move", "label_vars": {"place": shown},
-             "kind": "command", "payload": "/private on " + place["name"]},
+             "kind": "command", "payload": "/move " + (place.get("id") or place["name"])},
             {"label": "Back to work", "label_key": "choice.back_to_work"}]
 
 

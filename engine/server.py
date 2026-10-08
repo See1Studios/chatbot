@@ -359,8 +359,7 @@ def _commands(req: Req):
     skills = _get_available_skills()
     commands = [
         {"name": "/btw", "key": "btw", "template": "/btw "},
-        {"name": "/private on", "key": "private_on", "template": "/private on"},
-        {"name": "/private off", "key": "private_off", "template": "/private off"},
+        {"name": "/move", "key": "move", "template": "/move "},   # PLACE_MOVE_v1; /private on|off stays typed (dev)
         {"name": "/continue", "key": "continue", "template": "/continue"},
         {"name": "/new", "key": "new", "template": "/new"},
         {"name": "/defib", "key": "defib", "template": "/defib"},
@@ -526,6 +525,7 @@ GET_ROUTES = [
     ("/api/sessions/*/log", route_sessions.log),
     ("/api/sessions/*/context", route_sessions.context),
     ("/api/sessions/*/summary", route_sessions.summary),
+    ("/api/sessions/*/places", route_sessions.places),
     ("/api/artifacts", route_files.artifacts_all),
     ("/api/file/preview", route_files.preview),
     ("/api/file/raw", route_files.raw),

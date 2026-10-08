@@ -207,7 +207,7 @@ def _is_allowed_choice_command(cmd: str) -> bool:
     lead = parts[0]
     if lead in ("/ticket", "ticket"):
         return len(parts) >= 2 and parts[1] in ALLOWED_TICKET_ACTIONS
-    return lead in ("/help", "/status", "/clear", "/new", "/continue", "/compact", "/defib", "/private")
+    return lead in ("/help", "/status", "/clear", "/new", "/continue", "/compact", "/defib", "/private", "/move")
 
 
 def validate_choices(items: Any) -> Tuple[bool, str, List[dict]]:

@@ -54,7 +54,7 @@ class MoveChoice(unittest.TestCase):
         move, stay = personal_turn.move_choices(d, "s1", 100.0)
         self.assertEqual((move["label_key"], move["kind"]), ("choice.move", "command"))
         self.assertEqual(move["label_vars"], {"place": {"key": "place.stairwell"}})
-        self.assertEqual(move["payload"], "/private on the stairwell")
+        self.assertEqual(move["payload"], "/move stairwell")   # PLACE_MOVE_v1: by id
         self.assertTrue(mcp._is_allowed_choice_command(move["payload"]))
         self.assertEqual(stay["label_key"], "choice.back_to_work")
         self.assertEqual(personal_turn.move_choices(d, "s1", 100.0), [], "once per turn")
@@ -70,7 +70,7 @@ class MoveChoice(unittest.TestCase):
         self.assertEqual(personal_turn.move_choices(d, "s1", 3.0), [])
         personal_turn.moved(d, "s1")
         personal_turn.mark(d, "s1", 4.0)
-        self.assertEqual(personal_turn.move_choices(d, "s1", 4.0)[0]["payload"], "/private on an empty meeting room")
+        self.assertEqual(personal_turn.move_choices(d, "s1", 4.0)[0]["payload"], "/move meeting_room")
 
     def test_a_characters_own_places_win(self):
         d = _tmp_sessions("s1")
@@ -78,7 +78,7 @@ class MoveChoice(unittest.TestCase):
         state.write_text(json.dumps({"places": ["신사 뒤뜰"]}), encoding="utf-8")
         personal_turn.mark(d, "s1", 5.0)
         move = personal_turn.move_choices(d, "s1", 5.0, state)[0]
-        self.assertEqual((move["label_vars"]["place"], move["payload"]), ("신사 뒤뜰", "/private on 신사 뒤뜰"))
+        self.assertEqual((move["label_vars"]["place"], move["payload"]), ("신사 뒤뜰", "/move 신사 뒤뜰"))
 
     def test_the_answer_gets_them_after_its_own_choices_in_a_work_room_only(self):
         import session_turn
