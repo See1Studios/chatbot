@@ -1,7 +1,7 @@
 # 로그 시스템(텔레메트리): 근거가 되는 데이터를 모으고 오래 쌓는다 (telemetry)
 
 > 방향 (align/D, 2026-10-09): **개발 기반** — 오류 수정·경로 최적화·토큰과 응답 속도·기억 최적화를 데이터로 깎으려면, 양과 시간축 둘 다 충분한 수집이 먼저다. 개선 고리([improvement-layers.md](improvement-layers.md))의 근거(D2: 데이터만)가 여기서 나온다
-> 상태: **active** (2026-10-09 수립, D1–D4 2026-10-09 운영자: 추천대로. tl/A 끝(#836). 운영자: "근거 수집 도구가 중요… 데이터 양 뿐 아니라 시간축으로도 충분한 데이터를 쌓을 필요", "로그 시스템도 대형 피쳐로 별도 분리", "메시지 시스템하고의 연계도 신경써야")
+> 상태: **active** (2026-10-09 수립, D1–D4 2026-10-09 운영자: 추천대로. tl/A 끝(#836), tl/B 끝(#837). 운영자: "근거 수집 도구가 중요… 데이터 양 뿐 아니라 시간축으로도 충분한 데이터를 쌓을 필요", "로그 시스템도 대형 피쳐로 별도 분리", "메시지 시스템하고의 연계도 신경써야")
 > 흡수: 계획 없이 올라온 `metrics/A`(#826, 운영자 거절 10-08 23:49; 같은 크래시는 #831이 고침, `--latency`는 `tl/H`로)·`metrics/B`(#827, TTFT, 진행 중)는 이 계획의 `tl/D`다. 앞으로 지표 티켓은 `tl/*`로 연다.
 > 관련: [improvement-layers.md](improvement-layers.md)(이 데이터를 쓰는 개선 고리) · [token-economy.md](token-economy.md)(토큰 대책 — 측정은 이 계획의 지표로) · `OPERATIONS.md` Logging(OBSLOG_v1, 현행 규격의 정본)
 
@@ -11,7 +11,7 @@
 
 **한 줄기 기록**: `engine/logs/events.jsonl`(OBSLOG_v1). 메타데이터만 — 대화의 말은 남기지 않는다(`test_log_no_content`). 이 원칙은 그대로 간다.
 
-**시간축이 짧다.** 10MB 파일 두 개를 번갈아 쓴다(`obslog.MAX_BYTES`, 백업 1개). 남은 것은 2026-10-01 이후 약 7일. 날짜별 요약은 어디에도 쌓이지 않는다 — "지난달보다 느려졌나"를 물을 수 없다.
+**시간축이 짧다.** 10MB에서 회전하고 백업 5개까지 둔다(`obslog.MAX_BYTES`·`BACKUPS`). 하루 약 1MB라 50–60일이 지나면 가장 오래된 파일부터 덮어써 사라지고, 압축하지 않는다. 지금 남은 것은 OBSLOG가 생긴 2026-09-23부터 전부(16일). 날짜별 요약은 어디에도 쌓이지 않는다 — "지난달보다 느려졌나"를 물을 수 없다. (처음 쓸 때 "백업 1개, 7일"이라 적었다 — 파일 순서를 잘못 읽은 착오, 2026-10-09 바로잡음)
 
 **소음이 보관 기간을 깎는다.** 최근 줄의 약 40%가 `proc.heartbeat`(5분마다, 두 프로세스)와 `http.summary`다.
 
@@ -19,7 +19,7 @@
 
 | 무엇 | 어디 | 문제 |
 |---|---|---|
-| 이벤트 | `engine/logs/events.jsonl` | 7일 |
+| 이벤트 | `engine/logs/events.jsonl` | 50–60일 뒤 덮어씀(tl/B 전) |
 | 턴 토큰 | 세션마다 `~/.pe/sessions/*/meta.json` (`tools/token_audit.py`가 읽음) | 이벤트 줄에 없음, 세션이 지워지면 사라짐 |
 | 위임 토큰 | `~/.worktrees/chatbot/runs/usage.jsonl` (81줄) | 따로 논다 |
 | 서버 표준 출력 | `logs/chatbot.log`, `chatbot-mcp.log`, `chatbot-doctor.log` | 사람용, 구조 없음 |
@@ -60,12 +60,12 @@ improvement-layers §3의 `engine/health/`는 이 패키지를 **읽기만** 한
 
 | 겹 | 무엇 | 기한 | 크기(추정) |
 |---|---|---|---|
-| 원본 | `events.jsonl` + 회전본을 날짜별 gzip(`events-YYYY-MM-DD.jsonl.gz`) | D1 (추천 90일) | 하루 약 1–2MB → gzip 약 10–15% |
+| 원본 | `events.jsonl` + 백업 5개, 밀려난 파일은 `logs/archive/events-<마지막 줄 시각>.jsonl.gz` | 90일(D1) | 하루 약 1MB → gzip 약 10–15% |
 | 요약 | `metrics/YYYY-MM-DD.json`: 지표별 count·합·p50·p95·max, 차원별(제공자·모델·캐릭터·모드·경로) | 영구 | 하루 수십 KB |
 
 - 위치는 `host_config.LOG_DIR` 아래(LOG_PATH_v1: 경로는 한 곳에서만). 배포판은 사용자 데이터(`~/.pe/logs`) 아래.
 - 요약은 하루가 끝날 때(또는 다음 기동 때 빠진 날을) 원본에서 만든다. 원본이 기한으로 지워져도 요약은 남는다.
-- 첫 요약은 남아 있는 7일 + 세션 `meta.json`의 토큰으로 거꾸로 채운다(backfill).
+- 첫 요약은 남아 있는 원본(2026-09-23부터) + 세션 `meta.json`의 토큰으로 거꾸로 채운다(backfill).
 - 소음 줄이기: `proc.heartbeat`는 요약에 들어가니 원본에서는 값이 바뀔 때만, 또는 간격을 늘린다(D3).
 
 ## 5. 수집 (무엇을 더 재나)
@@ -96,8 +96,8 @@ improvement-layers §3의 `engine/health/`는 이 패키지를 **읽기만** 한
 | id | 무엇 | 끝의 모습 |
 |---|---|---|
 | `tl/A` | `engine/telemetry/` 패키지로 `obslog`·`logdigest` 이동 + 루트 모듈 ratchet(improvement-layers il/C와 같은 장치) — **끝 (#836)**: 루트 모듈 상한 `tests/test_code_layout.py` `TOP_LEVEL_MAX`, 가드들이 각자 들고 있던 코드 폴더 목록을 `tests/_paths.py` `CODE_DIRS` 하나로 | 호출부 전부 바뀜, 로그 탭·CLI 동작 그대로 |
-| `tl/B` | 원본 보관: 날짜별 gzip, 기한·용량 정리 | 90일(D1) 원본이 남는다 |
-| `tl/C` | 날짜별 요약 + 기존 7일·세션 토큰 backfill | `metrics/`에 하루 한 파일 |
+| `tl/B` | 원본 보관: 회전에서 밀려나는 파일을 gzip 보관, 기한·용량 정리 — **끝 (#837)**: `telemetry/archive.py`, 날짜별 파일 대신 회전 단위 파일(이름에 마지막 줄 시각), 날짜 구분은 `tl/C` 요약이 맡는다 | 90일(D1) 원본이 남는다 |
+| `tl/C` | 날짜별 요약 + 기존 원본(09-23부터)·세션 토큰 backfill | `metrics/`에 하루 한 파일 |
 | `tl/D` | 턴 기록 풍부화: TTFT(#827 흡수), 토큰, 도구 수, 단계 시간 — 어댑터 공통 형식 | `turn.end`만으로 속도·토큰 질문에 답한다 |
 | `tl/E` | 기억 이벤트 | 회상·저장이 지표로 |
 | `tl/F` | 오류 형식 통일(쓰는 쪽), 위임 사용량 이벤트 | `err`는 언제나 dict |

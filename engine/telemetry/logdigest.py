@@ -14,6 +14,7 @@ Also: chatbot-ctl.sh logs [same flags].
 """
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import re
@@ -71,8 +72,10 @@ def ts_of(rec: dict) -> float:
 
 
 def log_files() -> List[Path]:
+    """Oldest first: the archive (tl/B, gzip), the numbered backups, the live file."""
+    from telemetry import archive
     files = [LOG.with_name("%s.%d" % (LOG.name, i)) for i in range(9, 0, -1)]
-    return [p for p in files + [LOG] if p.exists()]
+    return archive.files(LOG) + [p for p in files + [LOG] if p.exists()]
 
 
 def shape(rec: dict) -> dict:
@@ -96,7 +99,8 @@ def read_events(since_t: float = 0.0) -> Iterable[dict]:
             if since_t and p.stat().st_mtime < since_t:
                 continue
             last_t = p.stat().st_mtime  # a broken line is placed at the previous good line's time
-            with open(p, encoding="utf-8", errors="replace") as f:
+            opener = gzip.open if p.name.endswith(".gz") else open
+            with opener(p, "rt", encoding="utf-8", errors="replace") as f:
                 for line in f:
                     line = line.strip()
                     if not line:

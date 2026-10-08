@@ -189,6 +189,10 @@ def _rotate_if_needed(path: Path) -> None:
             return
     except FileNotFoundError:
         return
+    last = path.with_name("%s.%d" % (path.name, BACKUPS))
+    if last.exists():   # tl/B: the file falling off the end goes to the archive, not away
+        from telemetry import archive
+        archive.stash(last, path)
     for i in range(BACKUPS - 1, 0, -1):
         src = path.with_name("%s.%d" % (path.name, i))
         if src.exists():
@@ -624,12 +628,29 @@ def heartbeat() -> None:
     event("proc.heartbeat", every_s=SUMMARY_EVERY_SEC, **data)
 
 
+ARCHIVE_EVERY_SEC = 3600
+
+
+def archive_tick(now: Optional[float] = None) -> Optional[Dict[str, Any]]:
+    """tl/B: compress and prune the archive about once an hour; logs `log.archive` when something changed."""
+    now = time.time() if now is None else now
+    if _state["path"] is None or now - _state.get("archived_at", 0) < ARCHIVE_EVERY_SEC:
+        return None
+    _state["archived_at"] = now
+    from telemetry import archive
+    got = archive.maintain(_state["path"], now)
+    if got.get("compressed") or got.get("pruned"):
+        event("log.archive", **got)
+    return got
+
+
 def _bg_loop() -> None:
     while True:
         time.sleep(SUMMARY_EVERY_SEC)
         try:
             flush_http_summary()
             heartbeat()
+            archive_tick()
         except Exception:
             pass
 

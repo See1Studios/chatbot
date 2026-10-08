@@ -282,7 +282,13 @@ tests they run) do not inherit them.
 
 `events.jsonl` rotates at 10 MB, keeping 5 files (`.1` … `.5`), under an flock on
 `events.jsonl.lock`; every write opens, appends and closes, so all processes (and the shell)
-share it safely. Expected volume is a few MB a week: successful polling is summarised, not listed.
+share it safely. Expected volume is about 1 MB a day: successful polling is summarised, not listed.
+
+The file that falls off `.5` is not lost (tl/B, `telemetry/archive.py`): it moves to `logs/archive/` (a rename, the
+writer is not held up), and the long-running processes' background thread, about once an hour, gzips it and drops
+archives older than 90 days (`CHATBOT_OBSLOG_KEEP_DAYS`) or over 1 GB (`CHATBOT_OBSLOG_ARCHIVE_MAX_BYTES`), oldest
+first; it logs `log.archive` when something changed. `logdigest` reads the archive for a long window
+(`--since 30d`); the folder comes from `archive.dir_for(log)`, next to the log it belongs to.
 
 ### Adding events
 
