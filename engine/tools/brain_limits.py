@@ -15,7 +15,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 UNAVAILABLE_RE = re.compile(r"quota|rate.?limit|usage limit|session limit|limit reached|resets? (at|in)|\b429\b|"
-                            r"exhausted|capacity|overloaded|too many requests|timed out|not installed", re.I)
+                            r"exhausted|capacity|overloaded|too many requests|timed out|not installed|"
+                            r"invalid model|not recognized as a known model|unknown model|"
+                            r"internal server error|service unavailable|bad gateway|gateway timeout|"
+                            r"connection refused|connection reset|temporary failure|\b50[0234]\b", re.I)
 RESET_IN_RE = re.compile(r"resets? in\s+(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?", re.I)
 TIMEOUT_REST = 1800          # a brain that sat past its timeout: not again for half an hour
 UNKNOWN_REST = 900           # a limit with no reset time in the message
@@ -75,3 +78,17 @@ def usable(path: Path, chain: List[Dict], now: float = 0.0) -> Tuple[List[Dict],
         else:
             ok.append(b)
     return ok, resting
+
+
+def resolve_provider_model(provider: str, model: str) -> str:
+    """Resolve model name/family via provider adapter if available."""
+    if not model:
+        return model
+    try:
+        from providers.adapters import get_adapter
+        ad = get_adapter(provider)
+        if ad and hasattr(ad, "resolve_model"):
+            return ad.resolve_model(model)
+    except Exception:  # noqa: BLE001
+        pass
+    return model

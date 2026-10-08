@@ -17,9 +17,8 @@ Usage:
   python3 tools/worktree_runner.py cleanup --ticket 61
 
 Flow (run):
-  0. Tier (protected_paths.json via evolution.delegation_tier): Tier 3 (governance, files this run's gates execute) is
-     refused, Tier 2 (protected) forces --stop-before-merge, anything else merges itself once gates and review pass.
-     The files actually changed are checked the same way every round (no slipping a Tier 3 file in via a directory).
+  0. Tier (evolution.delegation_tier): Tier 3 is refused, Tier 2 forces --stop-before-merge, others merge on pass.
+     Files changed are checked every round.
   1. ticket-quick start -> TICKET_ID, CLAIM_TOKEN (approve + claim; the target paths must be clean on main)
   2. git worktree add -b worktree/ticket-<ID> ~/.worktrees/chatbot/ticket-<ID> <main HEAD>
   3. Rounds (at most --rounds):
@@ -34,8 +33,7 @@ Flow (run):
   4. Pass: git merge --ff-only on main -> ticket-quick done -> worktree/branch removed
      --stop-before-merge (Tier 2): ticket-quick await-merge instead of merging (lease released); worktree/branch stay
      Fail: no merge -> ticket-quick fail (gate_failed | failed) -> worktree/branch removed (kept with --keep)
-       Before removal the branch head is kept at refs/attic/ticket-<ID>; the same ticket's next run --from-attic
-       starts there (the first task's confirm diff sees all of it). The attic ref is dropped once merged.
+       Branch head kept at refs/attic/ticket-<ID>; next run --from-attic starts there. Dropped once merged.
      PD cannot confirm (every PD brain at its limit or timed out): the branch stays, and the next --plan-from-state
      run skips the tasks that passed and resumes the stopped task's gates and confirmation.
   5. Only the ticket record (tickets/<ID>.json) is committed on main (chore(tickets): close #ID | #ID <outcome>)
@@ -63,7 +61,7 @@ from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # tools/
 import run_usage  # noqa: E402  -- each CLI call's tokens (token-economy T6)
 from worker_output import LEARNED_RULE, LINE_RULE, learned, report, said  # noqa: E402
-from brain_limits import brain_label, mark, unavailable, usable  # noqa: E402
+from brain_limits import brain_label, mark, resolve_provider_model, unavailable, usable  # noqa: E402
 from review_checklist import (  # noqa: E402
     DIFF_LIMIT, DISPLAY_NOTE, deleted_lines, doc_review_prompt, is_display_task, is_doc_task, once_note,
     parse_review, review_prompt, with_code_checklist,
@@ -588,7 +586,7 @@ def with_flags(argv: List[str], flags: List[str]) -> List[str]:
 def review_command(provider: str, model: str) -> List[str]:
     """The reviewer's command line, the prompt still to be appended."""
     spec = PROVIDERS[provider]
-    model = model or spec.get("review_model") or ""
+    model = resolve_provider_model(provider, model or spec.get("review_model") or "")
     return with_flags(spec["review_argv"], [spec["model_flag"], model] if model else [])
 
 
@@ -597,7 +595,7 @@ def work_command(provider: str, wt_dir: Path, model: str, resume: bool = False) 
     spec = PROVIDERS[provider]
     argv = spec["continue_argv"] if resume and spec.get("continue_argv") else spec["argv"]
     flags = [spec["workdir_flag"], str(wt_dir)] if spec.get("workdir_flag") else []
-    model = model or spec.get("work_model") or ""
+    model = resolve_provider_model(provider, model or spec.get("work_model") or "")
     if model and spec.get("model_flag"):
         flags += [spec["model_flag"], model]
     return with_flags(argv, flags)

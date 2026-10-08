@@ -310,6 +310,10 @@ class AgentAdapter:
         dropdown at just the CLI's own default) -- don't invent one."""
         return []
 
+    def resolve_model(self, model: str) -> str:
+        """Resolve a model name, alias or family to a supported model id. Default returns model unchanged."""
+        return model
+
     # PROVIDER_NEUTRAL_v1: provider features the common code asks for by capability, never by
     # provider name. The base answers "not supported" and the caller falls back on its own.
     def oneshot(self, prompt: str, timeout: float = 20.0) -> Optional[Dict[str, Any]]:

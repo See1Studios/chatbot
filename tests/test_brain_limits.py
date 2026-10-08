@@ -51,7 +51,42 @@ class BrainLimits(unittest.TestCase):
         self.assertTrue(B.unavailable("Error: quota exceeded", 1))
         self.assertTrue(B.unavailable("", -1))
         self.assertFalse(B.unavailable("SyntaxError", 1))
+        # Invalid model or provider error
+        self.assertTrue(B.unavailable("model claude-opus-4-6-thinking is not recognized as a known model", 1))
+        self.assertTrue(B.unavailable("error: invalid model selection", 1))
+        self.assertTrue(B.unavailable("502 Bad Gateway: service unavailable", 1))
+        self.assertTrue(B.unavailable("500 Internal Server Error", 1))
+        self.assertTrue(B.unavailable("connection refused by peer", 1))
+
+    def test_agy_model_family_resolution(self) -> None:
+        from providers.adapter_agy import _resolve_agy_model
+        known = [
+            "gemini-3.8-flash-high",
+            "gemini-3.8-flash-medium",
+            "gemini-3.8-flash-low",
+            "gemini-3.7-flash-high",
+            "gemini-3.1-pro-high",
+            "claude-opus-5-5-low",
+            "claude-opus-5-5-medium",
+            "claude-opus-5-5-high",
+            "claude-sonnet-5-5-high",
+            "gpt-oss-120b-medium",
+        ]
+        # exact match
+        self.assertEqual(_resolve_agy_model("gemini-3.8-flash-medium", known), "gemini-3.8-flash-medium")
+        # outdated model identifier mapped to latest high effort candidate
+        self.assertEqual(_resolve_agy_model("claude-opus-4-6-thinking", known), "claude-opus-5-5-high")
+        # family only mapped to highest version and high effort
+        self.assertEqual(_resolve_agy_model("claude-opus", known), "claude-opus-5-5-high")
+        self.assertEqual(_resolve_agy_model("gemini-flash", known), "gemini-3.8-flash-high")
+        self.assertEqual(_resolve_agy_model("gemini-pro", known), "gemini-3.1-pro-high")
+        # effort preference respected
+        self.assertEqual(_resolve_agy_model("claude-opus-medium", known), "claude-opus-5-5-medium")
+        self.assertEqual(_resolve_agy_model("gemini-flash-low", known), "gemini-3.8-flash-low")
+        # unknown pattern returns input unchanged
+        self.assertEqual(_resolve_agy_model("unknown-custom-model", known), "unknown-custom-model")
 
 
 if __name__ == "__main__":
     unittest.main()
+

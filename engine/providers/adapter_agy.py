@@ -79,6 +79,52 @@ def _brain_activity(conversation_id: str) -> Optional[float]:
         newest = max(newest, newest_of(cid) or 0)
     return newest
 
+def _parse_version(name: str) -> tuple:
+    nums = [int(x) for x in re.findall(r"\d+", name)]
+    return tuple(nums) if nums else (0,)
+
+
+def _resolve_agy_model(model: str, known: List[str]) -> str:
+    """Resolve a requested model identifier or family to an available agy model."""
+    if not model or not known:
+        return model
+    for k in known:
+        if k == model or k.lower() == model.lower():
+            return k
+    norm = model.lower()
+    target_words = [w for w in ("claude", "gemini", "gpt", "opus", "sonnet", "haiku", "flash", "pro") if w in norm]
+    if not target_words:
+        return model
+    want_effort = "high"
+    if "medium" in norm:
+        want_effort = "medium"
+    elif any(x in norm for x in ("low", "minimal")):
+        want_effort = "low"
+
+    candidates = [k for k in known if all(w in k.lower() for w in target_words)]
+    if not candidates:
+        series_words = [w for w in target_words if w in ("opus", "sonnet", "haiku", "flash", "pro")]
+        if series_words:
+            candidates = [k for k in known if all(w in k.lower() for w in series_words)]
+    if not candidates:
+        return model
+
+    effort_prio = {"high": 3, "medium": 2, "low": 1}
+
+    def rank(name: str):
+        ver = _parse_version(name)
+        eff = 0
+        for e_name, p in effort_prio.items():
+            if f"-{e_name}" in name.lower():
+                eff = p
+                break
+        exact_eff = 1 if want_effort and f"-{want_effort}" in name.lower() else 0
+        return (ver, exact_eff, eff)
+
+    candidates.sort(key=rank, reverse=True)
+    return candidates[0]
+
+
 class AgyAdapter(AgentAdapter):
     id = "agy"
     keeps_stdin_open = True
@@ -86,6 +132,9 @@ class AgyAdapter(AgentAdapter):
     subagent_hint = " (invoke_subagent; Model \"flash\" is enough to read and check)"
     supports_steer = True
     ONESHOT_MODEL = "gemini-3.8-flash-low"
+
+    def resolve_model(self, model: str) -> str:
+        return _resolve_agy_model(model, self.known_models())
 
     def last_activity(self, pid: int, started: float, conversation_id: str = "") -> Optional[float]:
         """When the agent last did something. With `conversation_id` (a live session): the newest write to that
@@ -196,6 +245,7 @@ class AgyAdapter(AgentAdapter):
         return models
 
     def build_args(self, model: str, effort: str, conversation_id: Optional[str], add_dirs: List[str], prompt: str = "") -> List[str]:
+        model = self.resolve_model(model)
         args = [
             self.find_executable(),
             "--input-format", "stream-json",
