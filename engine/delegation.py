@@ -74,7 +74,12 @@ def worker_role() -> str:
 
 
 def _paths(raw) -> List[str]:
-    items = raw if isinstance(raw, list) else str(raw or "").split(",")
+    if isinstance(raw, list):
+        items = []
+        for x in raw:
+            items.extend(str(x or "").split(","))
+    else:
+        items = str(raw or "").split(",")
     out = [str(p).strip().replace("\\", "/") for p in items if str(p).strip()]
     if not out:
         raise DelegationError("paths are required: the repo-relative files the work may change")
@@ -103,6 +108,15 @@ def experts() -> List[str]:
     """The roles experts can be asked by: those the characters other than the default one hold (characters.py)."""
     import characters
     return characters.expert_roles(DATA / "workspace")
+
+
+def _default_role(roles: List[str]) -> str:
+    """The role picked for an unplanned ticket or single-task request: dev if available, else first expert."""
+    if not roles:
+        return ""
+    if "dev" in roles:
+        return "dev"
+    return roles[0]
 
 
 def _tasks(raw) -> List[Dict]:
@@ -198,7 +212,7 @@ def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = Non
 def request(title: str, paths, instruction: str, evidence, actor: str, creates=None) -> Dict:
     """A one-task plan (the older `start` call); it waits for [Run] like any plan."""
     roles = experts()
-    return plan(title, [{"role": roles[0] if roles else "", "title": title, "instruction": instruction,
+    return plan(title, [{"role": _default_role(roles), "title": title, "instruction": instruction,
                          "paths": paths, "creates": creates}], evidence, actor)
 
 
@@ -216,9 +230,10 @@ def go(ticket_id: int, queue: bool = True) -> Dict:
         if not paths:
             raise DelegationError("ticket %d names no files to change; ask the PD for a plan" % tid)
         roles = experts()
-        runner().write_state(tid, title=t.get("title", ""), paths=_paths(paths), tier=tier_of(_paths(paths)),
-                             plan={"tasks": [{"role": roles[0] if roles else "", "title": t.get("title", ""),
-                                              "paths": _paths(paths), "instruction": "%s\n(target: %s)"
+        norm_paths = _paths(paths)
+        runner().write_state(tid, title=t.get("title", ""), paths=norm_paths, tier=tier_of(norm_paths),
+                             plan={"tasks": [{"role": _default_role(roles), "title": t.get("title", ""),
+                                              "paths": norm_paths, "instruction": "%s\n(target: %s)"
                                               % (t.get("title", ""), t.get("target", ""))}]})
         st = runner().read_state(tid)
     tier = tier_of(st["paths"])

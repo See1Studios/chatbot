@@ -326,6 +326,28 @@ class OperatorTest(Base):
         delegation.go(t["id"])
         self.assertEqual(self.state(t["id"])["plan"]["tasks"][0]["paths"], TIER0)
 
+    def test_paths_splits_comma_separated_strings(self):
+        self.assertEqual(delegation._paths(["a.py,b.py", "c.py"]), ["a.py", "b.py", "c.py"])
+        self.assertEqual(delegation._paths("a.py, b.py"), ["a.py", "b.py"])
+
+    def test_go_unplanned_ticket_picks_dev_role_over_alphabetical_first(self):
+        import characters
+        ws = self.data / "workspace"
+        team = characters.load_team(ws)
+        default_id = team["default"]
+        s_id = [c["id"] for c in characters.listing(ws) if c["id"] != default_id][0]
+        characters.save_team({"default": default_id, "members": {s_id: ["art", "dev"], default_id: ["pd"]}}, ws)
+        t, _ = tickets.propose(self.data, "code task", TIER0[0], [CAND])
+        delegation.go(t["id"])
+        st = self.state(t["id"])
+        self.assertEqual(st["plan"]["tasks"][0]["role"], "dev")
+
+    def test_go_unplanned_ticket_comma_paths_refuses_tier3(self):
+        t, _ = tickets.propose(self.data, "touch tier3", "data/workspace/notes/x.md,engine/logdigest.py", [CAND])
+        with self.assertRaises(delegation.DelegationError) as cm:
+            delegation.go(t["id"])
+        self.assertIn("Tier 3", str(cm.exception))
+
     def test_go_on_a_ticket_without_files_is_refused(self):
         t, _ = tickets.propose(self.data, "vague", "make it better", [CAND])
         with self.assertRaises(delegation.DelegationError):
