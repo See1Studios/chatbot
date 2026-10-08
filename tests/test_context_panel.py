@@ -69,11 +69,14 @@ class Page(unittest.TestCase):
                              "%s: a new layer needs its name" % cat.name)
             self.assertEqual({w for w in whys if "context.why." + w not in keys}, set(), cat.name)
 
-    def test_the_panel_loads_with_the_status_tab(self):
+    def test_the_panel_loads_with_the_character_profile(self):
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        self.assertIn("list.id = 'statusContext'", src)
+        self.assertIn("shellContextSection()", src)
+        self.assertIn("loadContextNow", src)
         html = (STATIC / "index.html").read_text(encoding="utf-8")
-        self.assertIn('id="statusContext"', html)
         self.assertLess(html.index('src="./app-status.js'), html.index('src="./app-status-context.js'))
-        self.assertIn("loadContextNow();", (STATIC / "app-status.js").read_text(encoding="utf-8"))
+        self.assertNotIn('<div id="statusContext"', html)
 
 
 if __name__ == "__main__":

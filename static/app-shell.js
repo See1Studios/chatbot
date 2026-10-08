@@ -643,7 +643,7 @@ function shellProfileOpen() {
     list.appendChild(b);
   });
   panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose, shellNarrow() ? '\u2039' : '\u2715'), card, list,
-    shellBrainSection(c), shellModelSection());
+    shellBrainSection(c), shellModelSection(), shellContextSection());
   if (typeof shellQuotaSection === 'function') panel.insertBefore(shellQuotaSection(), list);
   if (typeof shellBrainUseSection === 'function') panel.appendChild(shellBrainUseSection(c));
   if (typeof shellDevDeleteButton === "function") shellDevDeleteButton(panel, c);
@@ -696,6 +696,18 @@ function shellModelSection() {
   });
   box.appendChild(list);
   box.hidden = !list.children.length;
+  return box;
+}
+function shellContextSection() {
+  const title = typeof tr === 'function' ? tr('status.context.title') : 'Context';
+  const box = shellSection(title);
+  box.id = 'shellContextSection';
+  const hint = shellEl('div', 'status-hint', typeof tr === 'function' ? tr('status.context.hint') : '');
+  hint.style.margin = '0 0 .4rem';
+  const list = shellEl('div', 'status-list');
+  list.id = 'statusContext';
+  box.append(hint, list);
+  if (typeof loadContextNow === 'function') loadContextNow();
   return box;
 }
 
