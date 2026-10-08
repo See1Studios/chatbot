@@ -7,6 +7,12 @@
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 
+## 2026-10-09 — [ui/team] 새 역할 추가 모달 레이아웃 3단 구조화 및 UX 정리 (#846, 위임 agy)
+
+- **커밋**: `6767529` feat(team): improve add role modal layout, validation and tool chips
+- **바뀐 파일**: `static/app-team.js`, `static/i18n/en.json`, `static/i18n/ko.json`, `tests/test_team_roles.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/history_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-09 — 도구 기록에서 '말'을 빼고, 기억을 지표로 (telemetry tl/E, #845)
 
 - **운영자**: "재시작하고 이어서 가" (tl/E)
