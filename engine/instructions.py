@@ -297,10 +297,12 @@ def lore_matches(character: str = "", history: Optional[Union[List, str]] = None
     return "\n\n".join(e["content"] for e in found)
 
 
+BASE_SKILLS = ("handoff-brief",)
+
+
 def _skills_text(character: str = "") -> str:
-    """Enabled skills; a skill a held role's pack lists is shown only to that role's holders. DEFAULT_ROLE_v1: a skill
-    no held role claims (a newly installed one, or one whose role nobody holds) is the default character's -- the one
-    the team opens with and who hands work out -- not everyone's (operator 2026-10-06: "when unsure, to the lead first")."""
+    """Enabled skills; base skills belong to all characters, a skill a held role's pack lists is shown to that role's
+    holders. DEFAULT_ROLE_v1: an unclaimed skill is the default character's."""
     idx = skill_index()
     try:
         import characters
@@ -308,7 +310,7 @@ def _skills_text(character: str = "") -> str:
         claimed = {sk: r for r in characters.roles(WORKSPACE) for sk in characters.role_pack(r, WORKSPACE)["skills"]}
         mine = set(characters.roles_of(cid, WORKSPACE))
         default = cid == characters.default_character(WORKSPACE)
-        idx = [(n, d) for n, d in idx if (claimed[n] in mine if n in claimed else default)]
+        idx = [(n, d) for n, d in idx if (n in BASE_SKILLS or (claimed[n] in mine if n in claimed else default))]
     except Exception:  # noqa: BLE001
         pass
     if not idx:

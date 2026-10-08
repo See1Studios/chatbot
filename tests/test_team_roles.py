@@ -48,8 +48,8 @@ class Roster(unittest.TestCase):
         C.save_team({"default": self.b, "members": {self.b: ["pd", "staff"], self.c: ["staff"]}}, self.ws)
         self.assertEqual(C.by_role("pd", self.ws), self.b)
         self.assertEqual(C.default_character(self.ws), self.b)
-        self.assertEqual(C.tools_of(self.b, self.ws), ["delegate", "house-memory"])
-        self.assertEqual(C.tools_of(self.a, self.ws), [])
+        self.assertEqual(C.tools_of(self.b, self.ws), sorted(set(C.BASE_TOOLS + ("delegate", "house-memory"))))
+        self.assertEqual(C.tools_of(self.a, self.ws), list(C.BASE_TOOLS))
         self.assertEqual(C.role_pack("pd", self.ws)["skills"], ["planning"])
         self.assertEqual(C.role_pack("nope", self.ws)["text"], "")
         self.assertIn("You do the work.", C.work_text(C.load(self.c, self.ws), self.c, self.ws))
@@ -222,8 +222,8 @@ class SessionsAndGrants(unittest.TestCase):
         self.assertNotEqual(reg.get_active(self.a).sid, d.name)
 
     def test_grants_come_from_held_roles(self):
-        self.assertEqual(C.tools_of(self.a, self.ws), ["delegate", "house-memory"])
-        self.assertEqual(C.tools_of(self.b, self.ws), [])
+        self.assertEqual(C.tools_of(self.a, self.ws), sorted(set(C.BASE_TOOLS + ("delegate", "house-memory"))))
+        self.assertEqual(C.tools_of(self.b, self.ws), list(C.BASE_TOOLS))
 
 
 class RoleManagementApi(unittest.TestCase):
@@ -234,13 +234,19 @@ class RoleManagementApi(unittest.TestCase):
         self.ws = self.tmp / "workspace"
         self.ws.mkdir()
         (self.ws / "roles").mkdir()
+        (self.ws / ".agents" / "skills" / "handoff-brief").mkdir(parents=True)
+        (self.ws / ".agents" / "skills" / "handoff-brief" / "SKILL.md").write_text(
+            "---\nname: handoff-brief\ndescription: brief handoff\n---\n", encoding="utf-8")
         self.saved_ws = WS.WORKSPACE
+        self.saved_i = (I.WORKSPACE, I.WS_SKILLS_DIR)
         WS.WORKSPACE = self.ws
+        I.WORKSPACE, I.WS_SKILLS_DIR = self.ws, self.ws / ".agents" / "skills"
         self.cid = C.new_id()
         C.save(self.cid, C.new_card("TesterChar"), self.ws)
         C.save_team({"default": self.cid, "members": {self.cid: []}}, self.ws)
 
     def tearDown(self):
+        I.WORKSPACE, I.WS_SKILLS_DIR = self.saved_i
         self.WS.WORKSPACE = self.saved_ws
         shutil.rmtree(self.tmp, ignore_errors=True)
 
@@ -284,6 +290,14 @@ class RoleManagementApi(unittest.TestCase):
         self.assertEqual(del_code, 200)
         self.assertTrue(del_res.get("ok"))
         self.assertFalse((self.ws / "roles" / "custom-worker").exists())
+
+    def test_base_baseline_granted_to_all_characters(self):
+        # Character without any role still has BASE_TOOLS
+        self.assertEqual(C.tools_of(self.cid, self.ws), list(C.BASE_TOOLS))
+        # Base skills are included regardless of role
+        skills = I._skills_text(character=self.cid)
+        for bs in I.BASE_SKILLS:
+            self.assertIn(bs, skills)
 
 
 if __name__ == "__main__":

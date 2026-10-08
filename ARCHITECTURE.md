@@ -152,6 +152,11 @@ Planned interface: `synthesize(text, voice_id) -> bytes`, `stream(text, voice_id
 - Media a brain made: `media_handler.py::MediaSource`, one per CLI that writes files.
 - Tools: MCP (`tools/list`, `tools/call`): core tools (`mcp_core.py`), the host plugin's tools, parity tools for HTTP
   brains (`mcp_parity.py`, `web_tool.py`).
+- Tool and skill layering:
+  - **Base baseline (engine-owned)**: Every character unconditionally holds base tools (`choices`, `dialog`, `memory`, `web`)
+    and base skills (`handoff-brief`). Built into the engine (`characters.BASE_TOOLS`, `instructions.BASE_SKILLS`); zero gardening.
+  - **Roles (user-owned)**: Professional roles (`dev`, `art`, `lead`, custom) grant specialized tools (`run_command`, `write_file`,
+    `delegate`) and skills on top of the base baseline.
 
 ## 4. Plugin layer (planned)
 

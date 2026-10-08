@@ -49,6 +49,12 @@ not do.
 - Spawned agents see only `services/chatbot` and `<web root>/chat` (`host_config.py::ADD_DIRS`). Never add the home
   dir, `.hermes`, the whole web root or `services`. Widen minimally and say why in HISTORY.md.
 
+### Role packs and base baseline
+
+- Base baseline is engine-owned (`characters.BASE_TOOLS`, `instructions.BASE_SKILLS`): every character unconditionally holds base tools (`choices`, `dialog`, `memory`, `web`) and base skills (`handoff-brief`). Zero gardening.
+- Roles are user data in `workspace/roles/<role>/`: they grant specialized professional tools and skills on top of the base baseline.
+- A character with no assigned roles operates safely with the base baseline.
+
 ### Document language and human mirrors
 
 - Root standing documents (`*.md`) are agent SSOT in plain English.

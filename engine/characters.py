@@ -472,9 +472,14 @@ def role_pack(role: str, ws=None) -> Dict:
             "text": _FRONT.sub("", raw, count=1).strip()}
 
 
+BASE_TOOLS = ("choices", "dialog", "memory", "web")
+
+
 def tools_of(cid: str, ws=None) -> List[str]:
-    """Tool grants from every role the character holds."""
-    return sorted({t for r in roles_of(cid, ws) for t in role_pack(r, ws)["tools"]})
+    """Tool grants from the engine-owned base baseline plus every role the character holds."""
+    base = list(BASE_TOOLS) if cid else []
+    role_tools = [t for r in roles_of(cid, ws) for t in role_pack(r, ws)["tools"]] if cid else []
+    return sorted(set(base + role_tools))
 
 
 def brains(card: Dict, mode: str = "work") -> List[Dict]:

@@ -38,18 +38,18 @@ class LoreGrantsNothing(unittest.TestCase):
 
     def test_the_roster_alone_decides_roles_and_tools(self):
         self.assertEqual(C.roles_of(self.cid, self.ws), ["staff"])
-        self.assertEqual(C.tools_of(self.cid, self.ws), [])
+        self.assertEqual(C.tools_of(self.cid, self.ws), list(C.BASE_TOOLS))
 
     def test_the_roster_grants_what_the_pack_says(self):
         (self.ws / "team.json").write_text(json.dumps({"members": {self.cid: ["pd"]}}), encoding="utf-8")
-        self.assertEqual(C.tools_of(self.cid, self.ws), ["delegate", "house-memory"])
+        self.assertEqual(C.tools_of(self.cid, self.ws), sorted(set(C.BASE_TOOLS + ("delegate", "house-memory"))))
 
     def test_an_imported_card_joins_with_no_role(self):
         from tools.st_import import create_st_png_bytes, import_st_png_bytes
         raw = {"spec": "chara_card_v2", "data": {"name": "Guest", "extensions": {C.EXT: {"role": "pd"}},
                                                  "character_book": {"entries": [{"keys": ["x"], "content": CLAIM}]}}}
         res = import_st_png_bytes(create_st_png_bytes(raw), ws=self.ws)
-        self.assertEqual((C.roles_of(res["id"], self.ws), C.tools_of(res["id"], self.ws)), ([], []))
+        self.assertEqual((C.roles_of(res["id"], self.ws), C.tools_of(res["id"], self.ws)), ([], list(C.BASE_TOOLS)))
 
 
 class NoRosterWorkspace(unittest.TestCase):
@@ -65,7 +65,7 @@ class NoRosterWorkspace(unittest.TestCase):
         ws = Path(tempfile.mkdtemp())
         res = import_st_png_bytes(create_st_png_bytes(raw), ws=ws)
         self.assertFalse((ws / "team.json").exists())
-        self.assertEqual((C.roles_of(res["id"], ws), C.tools_of(res["id"], ws)), ([], []))
+        self.assertEqual((C.roles_of(res["id"], ws), C.tools_of(res["id"], ws)), ([], list(C.BASE_TOOLS)))
 
 
 if __name__ == "__main__":
