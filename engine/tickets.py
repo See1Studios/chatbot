@@ -267,12 +267,38 @@ def verify_evidence(data, ref: str) -> None:
 _LOG_ID_LEN = {"fp": 10, "rid": 12}
 
 
+def _log_dirs(data) -> List[Path]:
+    """Where the event log of `data`'s install is: `data/logs` (host_config.LOG_DIR's default; a core module may not
+    import it), or the environment's override for this install's own data folder only -- a test's data never reads the
+    live log. Before 2026-10-09 this looked next to the data folder (the layout when data/ sat in the repo), so on this
+    host every log:fp / log:rid was refused and agents filled the evidence with placeholders."""
+    d = Path(data).resolve()
+    out = [d / "logs"]
+    if d == _data_dir().resolve():
+        if os.environ.get("CHATBOT_OBSLOG_PATH"):
+            out.insert(0, Path(os.environ["CHATBOT_OBSLOG_PATH"]).parent)
+        if os.environ.get("CHATBOT_LOG_DIR"):
+            out.insert(0, Path(os.environ["CHATBOT_LOG_DIR"]))
+    return list(dict.fromkeys(out))
+
+
+def _log_files(logs: Path) -> List[Path]:
+    """The live file, the numbered backups, and the gzip archive (telemetry tl/B)."""
+    files = [logs / "events.jsonl"] + [logs / ("events.jsonl.%d" % i) for i in range(1, 10)]
+    try:
+        files += sorted((logs / "archive").glob("events-*.jsonl*"), reverse=True)
+    except OSError:
+        pass
+    return files
+
+
 def _in_host_log(data, kind: str, val: str) -> bool:
-    logs = Path(data).resolve().parent / "logs"
+    import gzip
     needle = '"%s":"%s"' % (kind, val)
-    for name in ["events.jsonl"] + ["events.jsonl.%d" % i for i in range(1, 10)]:
+    for path in [f for logs in _log_dirs(data) for f in _log_files(logs)]:
+        opener = gzip.open if path.name.endswith(".gz") else open
         try:
-            with open(str(logs / name), encoding="utf-8", errors="replace") as f:
+            with opener(str(path), "rt", encoding="utf-8", errors="replace") as f:
                 for line in f:
                     if needle not in line:
                         continue

@@ -347,7 +347,7 @@ class RealCtlTest(unittest.TestCase):
         return p.read_text(encoding="utf-8") if p.exists() else ""
 
     def log(self):
-        p = self.code / "logs" / "chatbot-doctor.log"
+        p = self.code / "data" / "logs" / "chatbot-doctor.log"
         return p.read_text(encoding="utf-8") if p.exists() else ""
 
     def test_doctor_skips_everything_while_the_maintenance_flag_exists(self):
@@ -358,7 +358,7 @@ class RealCtlTest(unittest.TestCase):
             self.assertIn("maintenance flag present", r.stdout)
             self.assertNotIn("starting", r.stdout)
         self.assertIn("maintenance flag present", self.log())
-        self.assertFalse((self.code / "logs" / "chatbot.pid").exists())
+        self.assertFalse((self.code / "data" / "logs" / "chatbot.pid").exists())
         self.assertEqual(self.stubbed_calls(), "", "the skip path must not run ps/kill/setsid/curl at all")
 
     def test_doctor_skips_when_another_lifecycle_operation_holds_the_lock(self):

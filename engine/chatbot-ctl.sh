@@ -62,7 +62,7 @@ EVENTS_LOG=""
 if [ -n "$_paths" ]; then
   IFS=$'\t' read -r LOG_DIR EVENTS_LOG <<<"$_paths"
 fi
-[ -n "$LOG_DIR" ] || LOG_DIR="$CODE/logs"
+[ -n "$LOG_DIR" ] || LOG_DIR="$DATA/logs"   # host_config.LOG_DIR's default, when python cannot answer
 [ -n "$EVENTS_LOG" ] || EVENTS_LOG="$LOG_DIR/events.jsonl"
 # uds/D: a new install's empty data folder gets templates/workspace once (never overwrites; no-op here). Before the
 # mkdir below, which would otherwise leave an empty workspace. A failure warns and does not stop ctl (stop/status
@@ -172,7 +172,7 @@ reap_orphan_agents() {
   # /proc cwd and ctl's own pid file only -- see ctl_proc.py. Our agents (cwd = $DATA/workspace)
   # that are not descendants of the live chat server are reaped; the server's descendants and
   # anybody else's processes are never touched. Prints the count.
-  python3 "$CODE/ctl_proc.py" reap "$CODE" "$DATA"
+  python3 "$CODE/ctl_proc.py" reap "$CODE" "$DATA" "$LOG_DIR"
 }
 
 is_up() {
@@ -415,7 +415,7 @@ wait_for_idle_session() {
   local waited=0 max_wait=60 t0=$SECONDS
   is_up "$PID_CHAT" || return 0
   while [ "$waited" -lt "$max_wait" ]; do
-    python3 "$CODE/ctl_proc.py" busy "$CODE" "$DATA" || return 0
+    python3 "$CODE/ctl_proc.py" busy "$CODE" "$DATA" "$LOG_DIR" || return 0
     waited=$((SECONDS - t0))
   done
   obs repair.busy_timeout warn waited_s="$waited"

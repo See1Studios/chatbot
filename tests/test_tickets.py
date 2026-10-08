@@ -82,15 +82,19 @@ class EvidenceTest(Base):
                 tickets.verify_evidence(self.data, ref)
 
     def test_host_log_references_are_accepted_only_when_logged(self):
-        data = self.data / "inst" / "data"   # its own instance: logs/ sits next to data/
-        logs = data.parent / "logs"
+        data = self.data / "inst" / "data"   # its own instance: logs/ is in the data folder (host_config.LOG_DIR)
+        logs = data / "logs"
         logs.mkdir(parents=True)
         (logs / "events.jsonl").write_text(
             json.dumps({"evt": "http.error", "rid": "a1b2c3d4e5f6", "err": {"fp": "0123456789"}}, separators=(",", ":")) + "\n"
             + "not json\n", encoding="utf-8")
         (logs / "events.jsonl.1").write_text(
             json.dumps({"evt": "turn.end", "rid": "ffffffffffff"}, separators=(",", ":")) + "\n", encoding="utf-8")
-        for ref in ("log:fp:0123456789", "log:rid:a1b2c3d4e5f6", "log:rid:ffffffffffff"):
+        (logs / "archive").mkdir()
+        import gzip
+        with gzip.open(logs / "archive" / "events-20260920-000000.jsonl.gz", "wt", encoding="utf-8") as f:
+            f.write(json.dumps({"evt": "http.error", "rid": "eeeeeeeeeeee"}, separators=(",", ":")) + "\n")
+        for ref in ("log:fp:0123456789", "log:rid:a1b2c3d4e5f6", "log:rid:ffffffffffff", "log:rid:eeeeeeeeeeee"):
             tickets.verify_evidence(data, ref)
         for ref in ("log:fp:9999999999", "log:rid:000000000000", "log:fp:0123", "log:fp:ZZZZZZZZZZ",
                     "log:msg:hello", "log:fp:", "log:rid:a1b2c3d4e5f6x"):
@@ -700,7 +704,7 @@ class ImportDisciplineTest(unittest.TestCase):
                 imported |= {a.name.split(".")[0] for a in node.names}
             elif isinstance(node, ast.ImportFrom):
                 imported.add((node.module or "").split(".")[0])
-        self.assertLessEqual(imported, {"__future__", "contextlib", "evolution", "repo_layout", "hashlib", "json", "os", "pathlib",
+        self.assertLessEqual(imported, {"__future__", "contextlib", "evolution", "repo_layout", "gzip", "hashlib", "json", "os", "pathlib",
                                         "re", "secrets", "shutil", "subprocess", "sys", "tempfile", "time", "typing",
                                         "platform_compat"})   # a core module (PP5)
         # shutil/tempfile: the release gate judges a throwaway worktree at HEAD (pew/Q)

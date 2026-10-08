@@ -81,6 +81,17 @@ class ReapTest(Base):
         self.assertEqual(sorted(killed), [300, 310])
         self.assertEqual(self.reap(moved), [])   # without the data dir they are invisible
 
+    def test_the_pid_file_is_read_from_ctls_log_dir(self):
+        # 2026-10-09: the logs (and ctl's chatbot.pid) moved to the data folder; ctl passes its LOG_DIR
+        logs = os.path.join(self.code, "elsewhere", "logs")
+        os.makedirs(logs)
+        with open(os.path.join(logs, "chatbot.pid"), "w") as f:
+            f.write("100")
+        os.remove(os.path.join(self.code, "logs", "chatbot.pid"))
+        killed = []
+        ctl_proc.reap(self.code, table=self.table(), kill=lambda pid, sig: killed.append(pid), log_dir=logs)
+        self.assertEqual(sorted(killed), [300, 310])                     # the server's own agents are left alone
+        self.assertEqual(sorted(self.reap(self.table())), [200, 300, 310, 400, 401])   # no pid file: none is the server
 
 class BusyTest(Base):
     def busy(self, table, activity_seq):

@@ -62,11 +62,11 @@ its own, so they cannot drift apart. `CHATBOT_LOG_DIR` moves the directory, `CHA
 moves the stream and still wins over both — where lines are actually written is decided by
 `obslog.configure()`, never by the default.
 
-The default is the repo's `logs/`, which is where the development install keeps it. **The shipped
-build puts it under user data** (`$CHATBOT_DATA/logs`, i.e. `~/.pe/logs`) because a conversation log
-belongs to the install it describes and must survive an engine update
-(`docs/plans/user-data-separation.md` §2). That is a one-line change in
-`host_config.py` — the default in `LOG_DIR` — and nothing else has to move.
+The default is the install's data folder: `$CHATBOT_DATA/logs`, i.e. `~/.pe/logs`, in the dev build and the shipped
+one alike (2026-10-09; before, the dev build kept it in the repo). A log belongs to the install it describes and must
+outlive an engine update or a fresh checkout (`docs/plans/user-data-separation.md` §2); the daily rollups under it are
+kept forever. ctl's `chatbot.pid` / `chatbot-mcp.pid` live there too (`ctl_proc.py` gets the folder from ctl), and
+ticket evidence (`log:fp` / `log:rid`) is looked up in `<data>/logs`, the archive included.
 
 ### What is not in this log
 

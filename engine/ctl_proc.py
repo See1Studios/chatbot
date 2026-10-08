@@ -18,10 +18,11 @@ Rules
            a working agy 1-34 ticks / 0.1-0.8 MB per 2 s.
 
 Command line (used by chatbot-ctl.sh):
-  ctl_proc.py reap CODE_DIR [DATA_DIR]   reap orphans; prints the count, logs agent.reaped
-  ctl_proc.py busy CODE_DIR [DATA_DIR]   exit 0 when the live server's agents are working, 1 when quiet
+  ctl_proc.py reap CODE_DIR [DATA_DIR [LOG_DIR]]   reap orphans; prints the count, logs agent.reaped
+  ctl_proc.py busy CODE_DIR [DATA_DIR [LOG_DIR]]   exit 0 when the live server's agents are working, 1 when quiet
   DATA_DIR is the user-data dir ctl resolved ($DATA, e.g. ~/.pe); agents run in DATA_DIR/workspace.
-  Without it, CODE_DIR/data (the dev layout before uds/F).
+  Without it, CODE_DIR/data (the dev layout before uds/F). LOG_DIR is ctl's $LOG_DIR (host_config.LOG_DIR), where
+  ctl wrote chatbot.pid; without it, CODE_DIR/logs (the layout before the logs moved to user data).
 """
 from __future__ import annotations
 
@@ -70,10 +71,11 @@ def process_table() -> List[Proc]:
     return rows
 
 
-def live_chat_pid(table: List[Proc], code_dir: str) -> Optional[int]:
-    """ctl's own pid file, trusted only if that pid is a running server.py."""
+def live_chat_pid(table: List[Proc], code_dir: str, log_dir: Optional[str] = None) -> Optional[int]:
+    """ctl's own pid file (in ctl's LOG_DIR), trusted only if that pid is a running server.py."""
     try:
-        pid = int(open(os.path.join(code_dir, "logs", "chatbot.pid"), encoding="utf-8").read().strip())
+        pid = int(open(os.path.join(log_dir or os.path.join(code_dir, "logs"), "chatbot.pid"),
+                       encoding="utf-8").read().strip())
     except (OSError, ValueError):
         return None
     for p in table:
@@ -100,10 +102,11 @@ def is_ours(p: Proc, workspace: str) -> bool:
     return bool(agent_kind(str(p["args"]))) and (cwd == workspace or cwd.startswith(workspace + os.sep))
 
 
-def classify(table: List[Proc], code_dir: str, data_dir: Optional[str] = None) -> Tuple[Optional[int], List[Proc], List[Proc]]:
+def classify(table: List[Proc], code_dir: str, data_dir: Optional[str] = None,
+             log_dir: Optional[str] = None) -> Tuple[Optional[int], List[Proc], List[Proc]]:
     """(chat_pid, owned, orphans) among our agent processes."""
     workspace = os.path.join(os.path.realpath(data_dir or os.path.join(code_dir, "data")), "workspace")
-    chat = live_chat_pid(table, code_dir)
+    chat = live_chat_pid(table, code_dir, log_dir)
     owned, orphans = [], []
     for p in table:
         if not is_ours(p, workspace):
@@ -122,9 +125,10 @@ def _log(code_dir: str, **fields) -> None:
         pass
 
 
-def reap(code_dir: str, table: Optional[List[Proc]] = None, kill=os.kill, data_dir: Optional[str] = None) -> int:
+def reap(code_dir: str, table: Optional[List[Proc]] = None, kill=os.kill, data_dir: Optional[str] = None,
+         log_dir: Optional[str] = None) -> int:
     table = process_table() if table is None else table
-    chat, _owned, orphans = classify(table, code_dir, data_dir)
+    chat, _owned, orphans = classify(table, code_dir, data_dir, log_dir)
     parent_args = {int(p["pid"]): str(p["args"]) for p in table}
     n = 0
     for p in orphans:
@@ -164,11 +168,12 @@ def working(before: Dict[int, Tuple[int, int]], after: Dict[int, Tuple[int, int]
 
 
 def busy(code_dir: str, samples: int = QUIET_SAMPLES, sample_sec: float = SAMPLE_SEC,
-         table_fn=process_table, activity=_activity, sleep=time.sleep, data_dir: Optional[str] = None) -> bool:
+         table_fn=process_table, activity=_activity, sleep=time.sleep, data_dir: Optional[str] = None,
+         log_dir: Optional[str] = None) -> bool:
     """True when the live server's agents are working. Idle needs `samples` quiet windows in a row."""
     for _ in range(samples):
         table = table_fn()
-        _chat, owned, _orphans = classify(table, code_dir, data_dir)
+        _chat, owned, _orphans = classify(table, code_dir, data_dir, log_dir)
         if any(agent_kind(str(p["args"])) == "oneshot" for p in owned):
             return True
         pids = [int(p["pid"]) for p in owned]
@@ -182,15 +187,16 @@ def busy(code_dir: str, samples: int = QUIET_SAMPLES, sample_sec: float = SAMPLE
 
 
 def main(argv: List[str]) -> int:
-    if len(argv) not in (2, 3) or argv[0] not in ("reap", "busy"):
+    if len(argv) not in (2, 3, 4) or argv[0] not in ("reap", "busy"):
         sys.stderr.write(__doc__.split("Command line", 1)[1])
         return 2
     code_dir = os.path.realpath(argv[1])
-    data_dir = argv[2] if len(argv) == 3 and argv[2] else None
+    data_dir = argv[2] if len(argv) >= 3 and argv[2] else None
+    log_dir = argv[3] if len(argv) == 4 and argv[3] else None
     if argv[0] == "reap":
-        print(reap(code_dir, data_dir=data_dir))
+        print(reap(code_dir, data_dir=data_dir, log_dir=log_dir))
         return 0
-    return 0 if busy(code_dir, data_dir=data_dir) else 1
+    return 0 if busy(code_dir, data_dir=data_dir, log_dir=log_dir) else 1
 
 
 if __name__ == "__main__":

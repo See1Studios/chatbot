@@ -147,13 +147,10 @@ class OneResolver(unittest.TestCase):
         self.assertNotIn('"$_paths" | head', text, "ctl reads the resolver through a pipe")
 
     @dev_only_bash
-    def test_a_copied_ctl_uses_its_own_tree_log_dir(self):
-        """A relocated ctl must not inherit the log directory of the checkout it is run from.
-
-        python puts the working directory on sys.path, so an `import host_config` that is not
-        anchored to $CODE resolves to whatever tree the caller stands in -- the CTL_SYMLINK_v1
-        lesson one level down (there, CODE became ~/services and a stray ~/services/logs appeared).
-        `status` only reads, and the ports point at nothing, so this cannot touch the live host.
+    def test_a_copied_ctl_puts_the_log_dir_in_its_data_folder(self):
+        """ctl creates the log directory host_config names: the data folder's logs/ (2026-10-09), never a folder of
+        the checkout it is run from (CTL_SYMLINK_v1: a stray ~/services/logs appeared once). `status` only reads, and
+        the ports point at nothing, so this cannot touch the live host.
         """
         with tempfile.TemporaryDirectory() as d:
             code = Path(d) / "code"
@@ -163,9 +160,12 @@ class OneResolver(unittest.TestCase):
             (code / "data").mkdir()
             r = subprocess.run(["bash", str(code / "chatbot-ctl.sh"), "status"],
                                capture_output=True, text=True, timeout=30, cwd=str(ENGINE),
-                               env=dict(os.environ, CHATBOT_PORT="1", NAS_MCP_PORT="1"))
-            self.assertTrue((code / "logs").is_dir(),
-                            "ctl did not create its own log dir (it asked another tree): %s %s" % (r.stdout, r.stderr))
+                               env={**{k: v for k, v in os.environ.items()
+                                       if k not in ("CHATBOT_LOG_DIR", "CHATBOT_OBSLOG_PATH")},
+                                    "CHATBOT_PORT": "1", "NAS_MCP_PORT": "1", "CHATBOT_DATA": str(code / "data")})
+            self.assertTrue((code / "data" / "logs").is_dir(),
+                            "ctl did not create the data folder's log dir: %s %s" % (r.stdout, r.stderr))
+            self.assertFalse((code / "logs").exists(), "logs are user data, not the checkout's")
 
 
 if __name__ == "__main__":

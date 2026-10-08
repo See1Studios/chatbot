@@ -63,7 +63,7 @@ improvement-layers §3의 `engine/health/`는 이 패키지를 **읽기만** 한
 | 원본 | `events.jsonl` + 백업 5개, 밀려난 파일은 `logs/archive/events-<마지막 줄 시각>.jsonl.gz` | 90일(D1) | 하루 약 1MB → gzip 약 10–15% |
 | 요약 | `metrics/YYYY-MM-DD.json`: 지표별 count·합·p50·p95·max, 차원별(제공자·모델·캐릭터·모드·경로) | 영구 | 하루 수십 KB |
 
-- 위치는 `host_config.LOG_DIR` 아래(LOG_PATH_v1: 경로는 한 곳에서만). 배포판은 사용자 데이터(`~/.pe/logs`) 아래.
+- 위치는 `host_config.LOG_DIR` 아래(LOG_PATH_v1: 경로는 한 곳에서만) — 2026-10-09부터 개발판도 사용자 데이터 `~/.pe/logs`(운영자: "~/.pe/logs"). 저장소를 새로 받아도 요약이 남는다.
 - 요약은 하루가 끝날 때(또는 다음 기동 때 빠진 날을) 원본에서 만든다. 원본이 기한으로 지워져도 요약은 남는다.
 - 첫 요약은 남아 있는 원본(2026-09-23부터) + 세션 `meta.json`의 토큰으로 거꾸로 채운다(backfill).
 - 소음 줄이기: `proc.heartbeat`는 요약에 들어가니 원본에서는 값이 바뀔 때만, 또는 간격을 늘린다(D3).

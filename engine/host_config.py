@@ -119,10 +119,10 @@ ARTIFACTS_CACHE = SESSIONS / "_shared"
 # Log location (LOG_PATH_v1): ONE resolver, so obslog, logdigest and chatbot-ctl.sh cannot drift
 # apart. CHATBOT_OBSLOG_PATH still wins where it is set (obslog only writes where it is set, so a
 # hand-started server and every test keep their events in memory instead of the production stream).
-# The default is the repo's logs/ for now; the shipped build moves it under user data by changing
-# this one line to DATA/"logs" (docs/plans/user-data-separation.md §2: logs are user data, not
-# engine, and a conversation log must travel with the install it describes).
-LOG_DIR = Path(os.environ.get("CHATBOT_LOG_DIR") or ROOT / "logs")
+# The default is the install's data folder, dev and shipped alike (2026-10-09, operator: ~/.pe/logs): logs are user
+# data, not engine (docs/plans/user-data-separation.md §2), the daily rollups are kept forever (telemetry tl/C) and
+# must outlive a fresh checkout, and ticket evidence reads them from the data folder (tickets._log_dirs).
+LOG_DIR = Path(os.environ.get("CHATBOT_LOG_DIR") or DATA / "logs")
 EVENTS_LOG = Path(os.environ.get("CHATBOT_OBSLOG_PATH") or LOG_DIR / "events.jsonl")
 # Event kinds worth keeping durable (sessions/<sid>/events.jsonl) for both
 # operator's log tab history and the self-improve loop's own debugging --
