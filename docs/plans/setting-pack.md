@@ -112,6 +112,10 @@
 }
 ```
 - `distance`: `office` · `office_hidden` · `after_work`(private-mode §8.6 표). `publicness` 0–3.
+- **장소 정의의 출처는 로어 두 겹뿐이다** (운영자 2026-10-08, [private-mode.md §8.8](private-mode.md)): 사무실 옆 장소는 이
+  설정집(PE 로어), 고향 재현 장소는 캐릭터 로어의 같은 `pe_pack.places` 모양. `work_room`만 공개이고 `places`는 모두 사적
+  장소다(사적 여부 칸 없음; `publicness`는 들킬 위험). 누가 함께 있는지는 장소가 아니라 방문이 갖는다(사적 그룹 방).
+  `engine_data/places.json`은 sp/D까지의 임시 기본값, `state.json`에는 장소 상태만(sp/M).
 - `tension.cap`은 현행 4단계 기준이다. 8단계 채택(private-mode D1) 시 재매핑한다.
 - `action_tier_max`는 W3b의 행위 등급표(아직 없음)를 가리킨다.
 
@@ -138,5 +142,6 @@
 | `sp/J` | 가져온 카드의 `extensions.chatbot.role` 무시(명단 없는 설치의 이전 호환 경로 차단) | 가져온 카드가 역할을 품어도 역할이 생기지 않음(테스트) | — | ✅ #446 — 가져올 때 `extensions.chatbot`의 role·roles·tools·skills를 걷어냄(`tools/st_import.py::GRANT_KEYS`) |
 | `sp/K` | 로어/역할 경계 강제: 로어북·카드의 권한 주장이 도구에 영향 없음 | `tests/test_lore_boundary.py` | — | ✅ #433 |
 | `sp/L` | 접속 장면: 앱을 열어 오래 비운 뒤 첫 접속이면 「(코치의 아바타가 깨어났다)」를 행동 지문으로 보내 캐릭터가 먼저 반응(SCENE_v1 재사용). 부재 중 끝난 위임이 있으면 함께 알린다 | 기준 시간 이상 비웠을 때만 한 번. 지문에 사적 내용 없음 | — | 대기 |
+| `sp/M` | 캐릭터 전용 장소를 `state.json`의 `places`에서 캐릭터 로어(`pe_pack.places`)로 옮김. `state.json`에는 지금 있는 곳·열린 장소·마지막 장소만 | `personal_turn.py::places`가 캐릭터 로어를 읽고, `state.json`의 옛 `places`는 한 번 옮겨진 뒤 읽히지 않음(테스트) | sp/C | 대기 |
 | `sp/M` | 부재 중 상태: 접속이 없는 동안 캐릭터가 「코치는 자는 중」임을 안다(업무 방 맥락 한 줄), 데스크톱 캐릭터 화면에도 반영 | 부재 시간·상태가 맥락에 한 줄로만 | ux/B | 대기 |
 | `sp/N` | 귀향: 카드 삭제를 작별 장면으로(캐릭터가 인사하고 고향으로 돌아감, 사적 기억·관계는 삭제 전에 운영자에게 확인) | 삭제 전 확인 한 번, 작별 대사 한 턴, 이후 되돌리기 안내 | — | 대기 |
