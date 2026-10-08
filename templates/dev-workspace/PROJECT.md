@@ -7,8 +7,8 @@ Where things are, for a character doing engine work. Read on demand. Rules: `DEV
 
 - Engine: the repo `services/chatbot/` (its own git). Entry and commit procedure: repo-root `AGENTS.md`; rules
   `RULES.md`; code map `CODEMAP.md` -- kept there only; do not copy them here.
-- User data: `$CHATBOT_DATA` (this install `~/.pe`): `workspace/` (memory `workspace/memory/MEMORY.md`, tickets
-  `workspace/skill-observations/tickets/`), `sessions/<id>/meta.json` + `artifacts/`, shared `sessions/_shared/`,
+- User data: `$CHATBOT_DATA` (this install `~/.pe`): `workspace/` (memory `workspace/memory/MEMORY.md`), engine tickets
+  `dev/tickets/` (dev build only), `sessions/<id>/meta.json` + `artifacts/`, shared `sessions/_shared/`,
   published art `persona/`. Per-install settings (web root, edition, host plugin): `$CHATBOT_DATA/host.env`.
 - Delegation state: `~/.worktrees/chatbot/runs/ticket-<id>.json` (written by the runner, served at
   `/api/delegations`); what the operator has seen: `$CHATBOT_DATA/delegation_seen.json`.

@@ -1,6 +1,6 @@
 {
   "notes": "Workspace templates (user-data-separation uds/C5, uds/F). templates/workspace/ is what a new install copies into an empty data folder (uds/D); templates/dev-workspace/ holds the dev build's own files, tracked because an install's workspace is user data outside the repo. 'same' = shipped as is (one copy, in templates/workspace); 'variant' = the shipped copy differs on purpose and the dev copy is in templates/dev-workspace; 'not_shipped' = dev-workspace only, with the reason (its role packs are defaults the dev build copies in once: role packs are user data, art and dev alike); 'per_install' = this user's or this host's own file, in neither template. tests/test_workspace_template.py enforces it.",
-  "per_user": ["characters/", "skill-observations/", "memory/"],
+  "per_user": ["characters/", "memory/"],
   "same": [
     "AGENTS.md",
     ".gitignore",

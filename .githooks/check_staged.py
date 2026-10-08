@@ -40,7 +40,7 @@ FORBIDDEN = [
     (re.compile(r"(^|/)relationship\.md$"), "relationship memory"),
     (re.compile(r"^(?:engine/)?data/workspace/characters/[^/]+/references/"), "style references (other artists' work)"),
 ]
-RECORDS = ("data/workspace/skill-observations/", "engine/data/workspace/skill-observations/")   # ticket/observation records: no test run needed
+RECORDS = ("data/dev/tickets/", "engine/data/dev/tickets/")   # ticket records: no test run needed
 
 
 def git(*args):
@@ -110,7 +110,7 @@ def run_guards_on_snapshot(root, related=()):
 # itself with `git merge --ff-only`, committed as "Coco" and rewrote the ticket record by hand.
 MAIN_REF = "refs/heads/main"
 WORKER_REFS = "refs/heads/worktree/"
-TICKET_RECORD = re.compile(r"^(?:engine/)?data/workspace/skill-observations/tickets/\d+\.json$")
+TICKET_RECORD = re.compile(r"^(?:engine/)?data/dev/tickets/\d+\.json$")
 
 
 def _engine(root):

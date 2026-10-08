@@ -262,7 +262,7 @@ class NameNeutralityGuard(unittest.TestCase):
     def test_stored_actors_are_role_ids(self):
         import evolution
         bad = []
-        for f in sorted((ENGINE / "data" / "workspace" / "skill-observations" / "tickets").glob("*.json")):
+        for f in sorted((ENGINE / "data" / "dev" / "tickets").glob("*.json")):
             t = json.loads(f.read_text(encoding="utf-8"))
             for k in ("actor", "worked_by", "closed_by"):
                 if t.get(k) and not evolution.ROLE_ID_RE.match(str(t[k])):

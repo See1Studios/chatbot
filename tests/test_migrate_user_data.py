@@ -156,9 +156,8 @@ class MigrateUserData(unittest.TestCase):
         self.assertTrue(ignored("data/chat.db"))
         self.assertTrue(ignored("data/workspace/memory/MEMORY.md"))
         self.assertTrue(ignored("data/workspace/characters/char_x/state.json"))
-        self.assertTrue(ignored("data/workspace/skill-observations/tickets/0001.json"))
+        self.assertTrue(ignored("data/dev/tickets/0001.json"))
         self.assertTrue(ignored("data/persona/avatar.webp"))
-        self.assertTrue(ignored("data/workspace/skill-observations/candidates.jsonl"))
 
 
 if __name__ == "__main__":

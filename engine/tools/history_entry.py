@@ -30,7 +30,7 @@ ROTATED = "docs/history"
 BUDGET = 40 * 1024 - 2048          # under tests/test_docs_budget.py's 40KB, with room for the next hand-written entry
 MAX_COMMITS = 8
 MAX_FILES = 14
-TICKET_FILES = re.compile(r"^data/workspace/skill-observations/tickets/")
+TICKET_FILES = re.compile(r"^data/dev/tickets/")
 DAY_HEAD = re.compile(r"(?m)^## (\d{4}-\d{2}-\d{2}) ")
 
 

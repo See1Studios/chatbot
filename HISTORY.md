@@ -7,6 +7,12 @@
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 
+## 2026-10-09 — 엔진 티켓을 작업 폴더 밖 `<data>/dev/tickets/`로 (improvement-layers il/B, #840)
+
+- **운영자**: D1 "A" · "쓰레기들을 남김없이 걷어내줘"
+- **바뀐 것**: `tickets.tickets_dir()`가 `<data>/dev/tickets/`를 가리킨다. 옛 `workspace/skill-observations/tickets/`가 있고 새 곳이 비었으면 첫 사용 때 한 번 옮긴다(이름 바꾸기 — 잡힌 잠금도 그대로). 보호 경로·러너(`TICKETS_REL`)·기록 도구·커밋 훅·리허설(`SKIP`)·작업 폴더 구성표·개발 `PROJECT.md`가 따라감. 열린 관찰은 자동 티켓으로 만들지 않고 운영자에게 목록으로(D2).
+- **재시작**: 필요.
+
 ## 2026-10-09 — 낡은 개발 지침 `SELF-MODIFY.md` 정리 (improvement-layers il/A3, #839)
 
 - **운영자**: "나 시간 많아 계속 하자"

@@ -695,7 +695,7 @@ class TicketToolTest(Base):
         mcp.CODE_ROOT = self.tmp
         shutil.copy(str(ENGINE / "protected_paths.json"), str(self.tmp / "protected_paths.json"))
         mcp.ALLOW_ROOTS = [self.tmp]
-        for rel in ("workspace/skill-observations/tickets/0001.json", "workspace/skill-observations/tickets/author.lease",
+        for rel in ("dev/tickets/0001.json", "dev/tickets/author.lease",
                     "sessions/s1/events.jsonl"):
             r = mcp.call_tool("write_file", {"path": str(self.tmp / "data" / rel), "content": "{}"})
             self.assertIn("protected", r["message"], rel)

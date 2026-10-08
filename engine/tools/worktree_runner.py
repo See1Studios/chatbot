@@ -171,7 +171,7 @@ TAIL_LINES = 30
 # An argv prompt is capped by Linux at 128 KiB (MAX_ARG_STRLEN; DIFF_LIMIT, review_checklist.py); a CLI reading the
 # prompt from stdin (`stdin_prompt`) gets the diff up to DIFF_LIMIT_STDIN (DELEGATION_HARDENING_v1).
 DIFF_LIMIT_STDIN = 200000
-TICKETS_REL = "data/workspace/skill-observations/tickets"   # tickets.tickets_dir(), repo-relative
+TICKETS_REL = "data/dev/tickets"   # tickets.tickets_dir(), repo-relative
 
 # Each CLI headless: worker (`argv`), worker resumed by directory (`continue_argv`), tool-less reviewer
 # (`review_argv`), default models, role id and git author. The prompt comes last; where it is `-p`'s value (agy,

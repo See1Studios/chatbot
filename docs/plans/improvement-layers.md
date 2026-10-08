@@ -81,7 +81,7 @@
 | 대상 | 어디로 | 방법 |
 |---|---|---|
 | 엔진 티켓 `skill-observations/tickets/` | 작업 폴더 밖 개발판 데이터(`host_config`가 정하는 한 곳, 예: `<data>/dev/tickets/`) | `migrate_user_data` 이전 단계 + `tickets.tickets_dir` 한 곳만 바꿈. `protected_paths.json`, `worktree_runner.TICKETS_REL`, `history_entry.TICKET_FILES`, `.githooks/check_staged.RECORDS`·`TICKET_RECORD`, `handoff_drill.SKIP`, `templates/workspace-manifest.json`, `templates/dev-workspace/PROJECT.md`가 같은 변경으로 따라간다 |
-| 열린 관찰 약 20건 | 엔진 티켓(`proposed`) | 한 건씩 제목·본문을 티켓으로, 근거는 관찰 파일 이름. 옮긴 뒤 `observation-log/`는 보관 압축 후 삭제 |
+| 열린 관찰 약 20건 | 운영자 선별 목록 | (2026-10-09 바꿈) 자동 티켓으로 만들지 않는다: D2(에이전트 티켓은 데이터 근거)에 맞지 않고 승인 대기열이 넘친다. 제목 목록을 운영자에게 보이고 고른 것만 `--request`로 티켓. 원본은 백업 압축 후 삭제 |
 | 떠 있는 스크립트 `<workspace>/tools/*.py` 4개 | 맞는 스킬의 `scripts/` | 음력 변환·기억 저장·기억 회상·토큰 감사 — 스킬이 없으면 스킬을 만든다 |
 | main 감시 | `engine/health/` | §3 (로그 요약은 `engine/telemetry/`, telemetry `tl/A`) |
 
@@ -100,7 +100,7 @@
 | id | 무엇 | 끝의 모습 |
 |---|---|---|
 | `il/A` | 걷어내기: §4.1 전부, 근거 규칙(D2) — **A1·A2 끝 (#838)**: 관찰·후보·정규식·서버 수집·도구·API·화면·`/review`·지시문 상태 줄 제거, `write_guard` 신호는 `guard.unticketed_write` 로그 이벤트로, 티켓 `evidence`는 데이터만·`request` 칸 신설(`ticket-quick start --request`). **A3 끝 (#839)**: `SELF-MODIFY.md` 삭제, 그 파일에만 있던 규칙(포트·일괄 삭제 승인, 연결이 죽으면 멈추고 ⚡소생, RLock·probe)은 `roles/dev/PROCEDURE.md`로 | 관찰·후보 코드 0, 지시문 상태 줄 0, 테스트 녹색 |
-| `il/B` | 티켓 이전: §4.2 첫 줄 + 열린 관찰 → 티켓 | `skill-observations/`에 엔진 것 0 |
+| `il/B` | 티켓 이전: §4.2 첫 줄 + 열린 관찰 → 운영자 선별 — **코드 끝 (#840)**: `tickets.tickets_dir`가 `<data>/dev/tickets/`, 옛 위치는 첫 사용 때 한 번 옮김(rename). 경로를 적던 곳(보호 경로·러너·기록 도구·커밋 훅·리허설·구성표·PROJECT) 함께. 데이터 백업·삭제는 재시작 뒤 | `skill-observations/`에 엔진 것 0 |
 | `il/C` | `engine/health/` 패키지 + ratchet(루트 모듈 수 불어남 금지 — telemetry `tl/A`와 같은 장치, 먼저 하는 쪽이 건다) | main 감시가 패키지 안 |
 | `il/D` | 사건 기록: findings를 사건으로 묶고 새로 생김/나빠짐/해결을 엔진이 판정 | 같은 징후는 한 사건, 해결되면 닫힘 |
 | `il/E` | 알림 + 버튼: 사건 → 이벤트(`host.incident`) → PD가 먼저 말 걸기, [일감으로]/[무시] | 버튼 하나로 근거(fp/rid/sha) 달린 티켓 |

@@ -43,6 +43,21 @@ class Base(unittest.TestCase):
         return json.loads((tickets.tickets_dir(self.data) / ("%04d.json" % tid)).read_text(encoding="utf-8"))
 
 
+class Location(Base):
+    def test_tickets_live_in_dev_data_and_an_old_store_moves_there_once(self):
+        # improvement-layers D1 (2026-10-09): out of workspace/skill-observations/, which the chat agents open
+        old = self.data.joinpath(*tickets.LEGACY_TICKETS)
+        old.mkdir(parents=True)
+        (old / "0001.json").write_text("{}", encoding="utf-8")
+        d = tickets.tickets_dir(self.data)
+        self.assertEqual(d, self.data / "dev" / "tickets")
+        self.assertEqual((d / "0001.json").read_text(encoding="utf-8"), "{}")
+        self.assertFalse(old.exists())
+        old.mkdir(parents=True)                                       # a stray old folder later is left alone
+        self.assertEqual(tickets.tickets_dir(self.data), d)
+        self.assertTrue((d / "0001.json").exists())
+
+
 class EvidenceTest(Base):
     def test_real_events_are_accepted(self):
         for ref in ("event:s1#1", "event:s1#2"):

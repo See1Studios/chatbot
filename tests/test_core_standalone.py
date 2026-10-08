@@ -136,7 +136,7 @@ class Instance:
         self.data = self.tmp / "data"
         self.home = self.tmp / "home"
         self.root.mkdir()
-        for d in (self.home, self.data / "workspace" / "skill-observations", self.data / "workspace" / "memory",
+        for d in (self.home, self.data / "workspace" / "memory",
                   self.data / "sessions"):
             d.mkdir(parents=True)
         for name in CORE:

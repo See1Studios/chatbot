@@ -138,7 +138,7 @@ class TicketListTest(unittest.TestCase):
     """live 2026-10-05: an unfiltered list was all 652 tickets (180 KB), and status "open" matched nothing."""
     def setUp(self):
         self.data = Path(tempfile.mkdtemp())
-        d = self.data / "workspace" / "skill-observations" / "tickets"
+        d = self.data / "dev" / "tickets"
         d.mkdir(parents=True)
         for i in range(1, 31):
             status = {1: "proposed", 2: "in_progress"}.get(i, "done")

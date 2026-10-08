@@ -34,7 +34,7 @@ class UnticketedWrite(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         subprocess.run(["git", "init", "-q", str(self.tmp)], check=True)
         (self.tmp / ".gitignore").write_text("sessions/\nworkspace/out/\n")
-        (self.tmp / "workspace" / "skill-observations" / "tickets").mkdir(parents=True)
+        (self.tmp / "dev" / "tickets").mkdir(parents=True)
         self._saved = (S.SESSIONS, S.ROOT, S.REPO_ROOT)
         S.SESSIONS, S.ROOT, S.REPO_ROOT = self.tmp / "sessions", self.tmp / "engine", self.tmp
         (S.SESSIONS / "t").mkdir(parents=True)

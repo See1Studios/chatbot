@@ -29,7 +29,7 @@ from pathlib import Path
 calls, repo, cmd = sys.argv[1], Path(sys.argv[2]), sys.argv[3:]
 with open(calls, "a") as f:
     f.write(json.dumps(cmd) + "\n")
-rec = repo / "data/workspace/skill-observations/tickets/0007.json"
+rec = repo / "data/dev/tickets/0007.json"
 rec.parent.mkdir(parents=True, exist_ok=True)
 rec.write_text(json.dumps({"id": 7, "last": cmd[0]}))
 if cmd[0] == "start":
@@ -119,7 +119,7 @@ class WorktreeRunner(unittest.TestCase):
         # the ticket record is committed on its own; main is left clean
         self.assertEqual(sh(self.repo, "git", "log", "-1", "--format=%s"), "chore(tickets): close #7 -- t")
         self.assertEqual(sh(self.repo, "git", "show", "--name-only", "--format=", "HEAD"),
-                         "data/workspace/skill-observations/tickets/0007.json")
+                         "data/dev/tickets/0007.json")
         self.assertEqual(sh(self.repo, "git", "status", "--porcelain"), "")
         # monolith-split D1 ③: what the run measured -- the target's size at the start and when it ended
         st = wr.read_state(7)

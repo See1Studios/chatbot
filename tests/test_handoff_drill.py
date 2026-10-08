@@ -40,7 +40,7 @@ class Sandbox(unittest.TestCase):
     def test_the_operators_records_are_not_copied(self):
         for name in ("sessions", "dialogs", "handoffs.jsonl", "events", "tickets.db"):
             self.assertNotIn(name, D.COPY)
-        self.assertTrue({"artifacts", "skill-observations", "memory"} <= D.SKIP)
+        self.assertTrue({"artifacts", "memory"} <= D.SKIP)
 
 
 class Reporting(unittest.TestCase):

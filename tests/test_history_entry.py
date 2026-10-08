@@ -31,7 +31,7 @@ class DevlogEntry(unittest.TestCase):
         (self.repo / "HISTORY.md").write_text(HEAD + "## 2026-09-30 — old (#1)\n\n- x\n", encoding="utf-8")
         self.base = self.commit("a.py", "1", "chore: start")
         self.commit("static/b.js", "2", "feat(ui): b")
-        self.commit("data/workspace/skill-observations/tickets/0009.json", "{}", "chore(tickets): #9 awaiting_merge")
+        self.commit("data/dev/tickets/0009.json", "{}", "chore(tickets): #9 awaiting_merge")
         self.head = self.commit("a.py", "3", "fix(core): a")
 
     def tearDown(self):

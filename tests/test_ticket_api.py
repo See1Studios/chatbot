@@ -28,7 +28,7 @@ class ApiCase(unittest.TestCase):
         self.data = Path(tempfile.mkdtemp()).resolve()
         (self.data / "sessions" / "s1").mkdir(parents=True)
         (self.data / "sessions" / "s1" / "events.jsonl").write_text('{"event":"a"}\n{"event":"b"}\n', encoding="utf-8")
-        (self.data / "workspace" / "skill-observations").mkdir(parents=True)
+        (self.data / "workspace").mkdir(parents=True)
         self._ws = W.WORKSPACE
         W.WORKSPACE = self.data / "workspace"
         self.httpd = platform_compat.http_server(("127.0.0.1", 0), server.Handler)

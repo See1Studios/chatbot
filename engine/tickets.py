@@ -99,8 +99,24 @@ class TicketError(Exception):
 
 # ------------------------------------------------------------------ storage
 
+LEGACY_TICKETS = ("workspace", "skill-observations", "tickets")   # where they lived before improvement-layers il/B
+
+
 def tickets_dir(data) -> Path:
-    return Path(data) / "workspace" / "skill-observations" / "tickets"
+    """Engine tickets: <data>/dev/tickets (improvement-layers D1). They are dev data and stay out of the workspace,
+    which the chat agents open and which belongs to the user in a shipped install. An install that still keeps them in
+    the old place has them moved here on first use: one rename, so a lock held on a file there keeps holding."""
+    new = Path(data) / "dev" / "tickets"
+    if not new.exists():
+        old = Path(data).joinpath(*LEGACY_TICKETS)
+        if old.is_dir():
+            try:
+                new.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(str(old), str(new))
+            except OSError:
+                if not new.exists():
+                    return old
+    return new
 
 
 def _lease_path(data) -> Path:

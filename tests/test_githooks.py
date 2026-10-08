@@ -152,7 +152,7 @@ class Hooks(unittest.TestCase):
     def test_a_ticket_record_with_a_persona_actor_is_refused(self):
         # 2026-10-03: a chat agent wrote closed_by "Coco" around tickets.py; the guards then broke main for everyone
         self._with_core()
-        rel = "data/workspace/skill-observations/tickets/0583.json"
+        rel = "data/dev/tickets/0583.json"
         bad = '{"id": 583, "closed_by": "Coco", "notes": [{"by": "agent:Coco", "text": "done"}]}'
         r = self.commit(rel, bad, "chore(tickets): close #583 -- t")
         self.assertNotEqual(r.returncode, 0)

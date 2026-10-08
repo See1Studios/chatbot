@@ -18,7 +18,7 @@
     "~/.agents/",
     "data/lifecycle.lock",
     "data/maintenance.flag",
-    "data/workspace/skill-observations/tickets/",
+    "data/dev/tickets/",
     "data/sessions/*/events.jsonl",
     "engine/core_modules.json",
     "engine/bundle_budget.json",
@@ -48,7 +48,7 @@
     "data/host-force.ticket",
     "data/lifecycle.lock",
     "data/maintenance.flag",
-    "data/workspace/skill-observations/tickets/",
+    "data/dev/tickets/",
     "data/sessions/*/events.jsonl"
   ],
   "governance": [
@@ -133,7 +133,7 @@
       "reason": "the self-evolution design"
     },
     {
-      "path": "data/workspace/skill-observations/tickets/",
+      "path": "data/dev/tickets/",
       "reason": "ticket records"
     },
     {
