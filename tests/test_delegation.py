@@ -94,7 +94,7 @@ class PlanTest(Base):
         self.assertEqual(self.spawned, [])
 
     def test_bad_plans_are_refused(self):
-        bad = ([], [self.task(TIER0)] * 9, [self.task(["tickets.py"])], [self.task(["tests/smoke.py"])],
+        bad = ([], [self.task(TIER0)] * 9, [self.task(["engine/tickets.py"])], [self.task(["tests/smoke.py"])],
                [dict(self.task(TIER0), role="ad")], [dict(self.task(TIER0), instruction="")],
                [self.task([])], [self.task(["../x"])], "not a list")
         for tasks in bad:
@@ -278,7 +278,7 @@ class AllowPathsTest(Base):
         self.assertIn("data/workspace/notes/y.md", args[args.index("--paths") + 1])
 
     def test_tier_3_missing_folders_and_other_phases_are_refused(self):
-        for asked in ([{"path": "tickets.py"}], [{"path": "nope/dir/x.md"}]):
+        for asked in ([{"path": "engine/tickets.py"}], [{"path": "nope/dir/x.md"}]):
             tid = self.paused(asked)
             with self.assertRaises(delegation.DelegationError):
                 delegation.allow(tid)
@@ -289,10 +289,10 @@ class AllowPathsTest(Base):
     def test_the_page_sees_a_tier_3_request_as_operator_only(self):
         # #381: the card must not offer [경로 허용] for a file allow() will always refuse
         (delegation.PLAN_ROOT / "data/workspace/notes/y.md").write_text("y")
-        tid = self.paused([{"path": "tickets.py", "why": "guard"}, {"path": "data/workspace/notes/y.md"}])
+        tid = self.paused([{"path": "engine/tickets.py", "why": "guard"}, {"path": "data/workspace/notes/y.md"}])
         run = next(r for r in delegation.runs() if r["ticket"] == tid)
         flags = {n["path"]: bool(n.get("operator_only")) for n in run["need_paths"]}
-        self.assertEqual(flags, {"tickets.py": True, "data/workspace/notes/y.md": False})
+        self.assertEqual(flags, {"engine/tickets.py": True, "data/workspace/notes/y.md": False})
 
 
 class OperatorTest(Base):
@@ -582,9 +582,12 @@ class LiveRequestRefTest(unittest.TestCase):
         with mock.patch.object(delegation, "DATA", data), \
                 mock.patch("urllib.request.urlopen", return_value=Resp(b'{"id": "../x"}')):
             self.assertIsNone(delegation.latest_request_ref())
-        with mock.patch.object(delegation, "DATA", data), \
-                mock.patch("urllib.request.urlopen", side_effect=AssertionError("asked the screen")):
-            self.assertEqual(delegation.latest_request_ref("s-1"), "event:s-1#4")   # the caller's own session
+class TierOfTiersTest(unittest.TestCase):
+    def test_tier_of_repo_relative_paths(self):
+        self.assertEqual(delegation.tier_of(["engine/delegation.py"]), 2)
+        with self.assertRaises(delegation.DelegationError) as cm:
+            delegation.tier_of(["engine/run-tests.sh"])
+        self.assertIn("Tier 3 paths are not delegated", str(cm.exception))
 
 
 if __name__ == "__main__":

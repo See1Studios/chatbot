@@ -33,10 +33,11 @@ import difflib
 import tickets
 from host_config import (AGENT_PATH_PREFIX, DATA, DELEGATE_MODEL, DELEGATE_PROVIDER, DELEGATE_REVIEWER,
                          DELEGATE_REVIEWER_MODEL, ROOT)
+import repo_layout
 import platform_compat
 
 RUNNER_PATH = ROOT / "tools" / "worktree_runner.py"
-PLAN_ROOT = ROOT             # where a plan's files must exist (DELEGATION_CLARITY_v1); tests point it elsewhere
+PLAN_ROOT = repo_layout.REPO # where a plan's files must exist (DELEGATION_CLARITY_v1); tests point it elsewhere
 SEEN_FILE = DATA / "delegation_seen.json"
 ACTIVE_PHASES = ("starting", "running", "writing", "gates", "review", "merging")
 PASS_ENV = ("CHATBOT_ROOT", "CHATBOT_DATA")   # where the runner finds this instance; nothing secret
@@ -86,7 +87,7 @@ def tier_of(paths: List[str]) -> int:
     """0 or 2 for these paths (the same rule the runner applies); Tier 3 is refused."""
     r = runner()
     try:
-        return r.check_tiers(ROOT, paths, r.gate_files(ROOT, r.DEFAULT_GATES), retryable=False)
+        return r.check_tiers(repo_layout.REPO, paths, r.gate_files(repo_layout.REPO, r.DEFAULT_GATES), retryable=False)
     except r.Failure as f:
         raise DelegationError(f.reason)
 
@@ -530,11 +531,11 @@ def _need_paths_view(asked: List[Dict]) -> List[Dict]:
     if not asked:
         return []
     r = runner()
-    gated = r.gate_files(ROOT, r.DEFAULT_GATES)
+    gated = r.gate_files(repo_layout.REPO, r.DEFAULT_GATES)
     out = []
     for x in asked:
         try:
-            tier, why = r.tier_of(ROOT, x.get("path", ""), gated)
+            tier, why = r.tier_of(repo_layout.REPO, x.get("path", ""), gated)
         except Exception:
             tier, why = 0, ""
         out.append(dict(x, operator_only=True, blocked_why=why) if tier >= 3 else dict(x))
