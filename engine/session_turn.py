@@ -106,6 +106,8 @@ class SessionTurn:
         if succ_id and self._successor_usable(succ_id):
             new_sess = _s().REG.get(succ_id)
         else:
+            # The summary is up to two model calls: the page's waiting message hears that the server is at work (#812)
+            self._emit({"event": "progress", **i18n.msg("srv.handoff_writing")})
             summary = self.get_handover_summary()
             new_sess = _s().REG.create(
                 model=self.model,

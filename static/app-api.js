@@ -4,11 +4,12 @@
 async function api(path, opts) {
   const url = (BASE_PATH && path.startsWith('/') && !path.startsWith(BASE_PATH)) ? (BASE_PATH + path) : path;
   opts = opts || {};
-  // BOOT_HANG_FIX_v1: default timeout so /api/sessions/active cannot freeze boot forever
+  // BOOT_HANG_FIX_v1: default timeout so /api/sessions/active cannot freeze boot forever. 0 waits for the server's own
+  // answer: only a real failure (an error status, a dropped connection) ends it.
   const timeoutMs = opts.timeoutMs != null ? opts.timeoutMs : 12000;
   const { timeoutMs: _drop, ...fetchOpts } = opts;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const timer = timeoutMs > 0 ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
   if (fetchOpts.signal) {
     fetchOpts.signal.addEventListener('abort', () => ctrl.abort(), { once: true });
   }

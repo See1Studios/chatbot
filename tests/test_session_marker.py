@@ -55,6 +55,17 @@ class SessionMarkerTest(unittest.TestCase):
         self.assertIn('timeoutMs: CONTINUE_TIMEOUT_MS', hard[:hard.index('await createSession()')])
         self.assertGreaterEqual(int(re.search(r'const CONTINUE_TIMEOUT_MS = (\d+);', API).group(1)), 120000)
 
+    def test_a_message_has_no_clock_and_the_rotation_says_it_is_at_work(self):
+        # 2026-10-08 (#812): a message after a long quiet rotated (19 s summary); the 12 s default offered a retry
+        app = (STATIC / 'app.js').read_text(encoding='utf-8')
+        send = app[app.index('async function send('):]
+        post = send[send.index("'/message', {"):]
+        self.assertIn('timeoutMs: 0', post[:post.index('});')])
+        self.assertIn('timeoutMs > 0 ? setTimeout(', API)   # 0 means no clock, not an instant abort
+        rot = (REPO / 'engine' / 'session_turn.py').read_text(encoding='utf-8')
+        rot = rot[rot.index('def _rotate_to_fresh_session('):]
+        self.assertLess(rot.index('srv.handoff_writing'), rot.index('self.get_handover_summary()'))
+
 
 HARNESS = r"""
 const src = require('fs').readFileSync(process.argv[1], 'utf8');

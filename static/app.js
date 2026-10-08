@@ -556,9 +556,13 @@ async function send(opts) {
     ));
     const ctx = await getClientContext();
     if (ctx) payload.client_context = ctx;
+    // No clock on a message: one after a long quiet first rotates, and the rotation writes a handoff summary while the
+    // stream says so (srv.handoff_writing). At 12 s the page offered a retry and the answer came anyway (2026-10-08,
+    // 19 s, #812). A dropped connection or an error status still fails it at once.
     const msgRes = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/message', {
       method:'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      timeoutMs: 0
     });
     if (msgRes && msgRes.switched !== undefined && msgRes.session && msgRes.session.id) {
       setBusy(false);

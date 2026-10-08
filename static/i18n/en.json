@@ -719,6 +719,7 @@
   "srv.mark_loop": "(🧭 the same call kept repeating; paused here and told to change course)",
   "srv.mark_steer": "(🧭 paused here to take {user}'s new instruction)",
   "srv.mcp_core": "The nas MCP is core -- it cannot be deleted",
+  "srv.handoff_writing": "Summing up the earlier talk for the new session",
   "srv.quiet_progress": "No signal for {s}s -- it may be thinking long. Wait or stop it",
   "srv.quota_exhausted": "This brain hit its usage limit.",
   "srv.quota_low": "This brain ({model}) has {pct}% of its {window} limit left (resets {until}). Split long work onto another brain.",
