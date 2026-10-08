@@ -922,6 +922,8 @@
   "team.role_delete_failed": "역할 삭제 실패: {error}",
   "team.role_add_title": "새 역할 팩 추가",
   "team.role_id_label": "역할 ID (영문 소문자/숫자/하이픈)",
+  "team.role_id_invalid": "역할 ID 형식이 올바르지 않습니다 (영문 소문자로 시작, 영문 소문자·숫자·하이픈 최대 32자)",
+  "team.role_id_exists": "이미 존재하는 역할 ID입니다",
   "team.role_title_label": "역할 이름",
   "team.role_owns_label": "담당 업무 (owns)",
   "team.role_tools_label": "허용 도구 (쉼표 구분, 예: delegate, workspace)",

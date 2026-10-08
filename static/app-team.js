@@ -4,6 +4,7 @@
 const teamListEl = document.getElementById('teamList');
 const TEAM_TEXT = i18nTable('team.text');
 const AUTO_TEXT = i18nTable('team.auto');   // evt/D auto reactions
+let _lastTeam = null;
 
 async function loadTeam() {
   if (!teamListEl) return;
@@ -14,6 +15,7 @@ async function loadTeam() {
     teamListEl.textContent = tr('team.load_failed', { error: e.message || e });
     return;
   }
+  _lastTeam = team;
   const files = {};
   (instr.items || []).forEach(x => { files[x.id] = x; });
   teamListEl.textContent = '';
@@ -194,7 +196,8 @@ async function deleteRole(r, team) {
   }
 }
 
-function openAddRoleModal() {
+function openAddRoleModal(team) {
+  const currentTeam = team || _lastTeam || {};
   const old = document.getElementById('addRoleModal');
   if (old) old.remove();
 
@@ -202,16 +205,18 @@ function openAddRoleModal() {
   overlay.id = 'addRoleModal';
 
   const card = obsNode('div', 'modal-card');
-  card.style.cssText = 'max-width:28rem;width:100%;padding:1.2rem;display:flex;flex-direction:column;gap:.8rem;';
+  card.style.cssText = 'max-width:32rem;width:100%;max-height:90vh;display:flex;flex-direction:column;';
 
   const head = obsNode('div', 'modal-head');
-  head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;';
   head.appendChild(obsNode('h3', 'status-subhead', tr('team.role_add_title')));
   const closeBtn = obsNode('button', 'art-btn art-btn-xs', '✕');
   closeBtn.type = 'button';
   closeBtn.addEventListener('click', () => overlay.remove());
   head.appendChild(closeBtn);
   card.appendChild(head);
+
+  const body = obsNode('div', 'modal-body');
+  body.style.cssText = 'flex:1;overflow-y:auto;max-height:calc(90vh - 120px);padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.6rem;background:transparent;min-height:0;';
 
   const form = obsNode('div', 'card-editor-form');
   form.style.cssText = 'display:flex;flex-direction:column;gap:.6rem;';
@@ -230,26 +235,76 @@ function openAddRoleModal() {
   const fRole = makeField(tr('team.role_id_label'), 'reviewer', false);
   const fTitle = makeField(tr('team.role_title_label'), tr('team.role_title_placeholder'), false);
   const fOwns = makeField(tr('team.role_owns_label'), tr('team.role_owns_placeholder'), false);
+  fOwns.wrap.classList.add('full');
   const fTools = makeField(tr('team.role_tools_label'), 'delegate, workspace', false);
+  fTools.wrap.classList.add('full');
   const fSkills = makeField(tr('team.role_skills_label'), '', false);
+  fSkills.wrap.classList.add('full');
   const fDesc = makeField(tr('team.role_desc_label'), tr('team.role_desc_placeholder'), true);
+  fDesc.wrap.classList.add('full');
 
-  form.append(fRole.wrap, fTitle.wrap, fOwns.wrap, fTools.wrap, fSkills.wrap, fDesc.wrap);
-  card.appendChild(form);
+  const idTitleRow = obsNode('div', 'card-field-row');
+  idTitleRow.append(fRole.wrap, fTitle.wrap);
+
+  const toolsChipRow = obsNode('div', 'team-role-chips');
+  toolsChipRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem;';
+  const RECOMMENDED_TOOLS = ['delegate', 'memory', 'status', 'workspace'];
+  const parseTools = () => fTools.input.value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const updateToolChips = () => {
+    const current = parseTools();
+    toolsChipRow.querySelectorAll('.team-chip').forEach(chip => {
+      const tool = chip.dataset.tool;
+      const active = current.includes(tool);
+      chip.className = 'team-chip ' + (active ? '' : 'team-chip-none');
+    });
+  };
+  RECOMMENDED_TOOLS.forEach(tool => {
+    const chip = obsNode('span', 'team-chip team-chip-none', tool);
+    chip.dataset.tool = tool;
+    chip.setAttribute('role', 'button');
+    chip.style.cursor = 'pointer';
+    chip.style.userSelect = 'none';
+    chip.addEventListener('click', () => {
+      const current = parseTools();
+      const idx = current.indexOf(tool);
+      if (idx >= 0) {
+        current.splice(idx, 1);
+      } else {
+        current.push(tool);
+      }
+      fTools.input.value = current.join(', ');
+      updateToolChips();
+    });
+    toolsChipRow.appendChild(chip);
+  });
+  fTools.input.addEventListener('input', updateToolChips);
+  updateToolChips();
+  fTools.wrap.appendChild(toolsChipRow);
+
+  form.append(idTitleRow, fOwns.wrap, fTools.wrap, fSkills.wrap, fDesc.wrap);
+  body.appendChild(form);
 
   const alertBox = obsNode('div', 'card-editor-alert');
   alertBox.hidden = true;
-  card.appendChild(alertBox);
+  body.appendChild(alertBox);
 
-  const actions = obsNode('div', 'modal-actions');
-  actions.style.cssText = 'display:flex;justify-content:flex-end;gap:.5rem;margin-top:.4rem;';
+  fRole.input.addEventListener('input', () => { alertBox.hidden = true; });
 
+  card.appendChild(body);
+
+  const foot = obsNode('div', 'modal-foot');
   const submitBtn = obsNode('button', 'art-btn art-btn-xs primary', tr('common.add'));
   submitBtn.type = 'button';
   submitBtn.addEventListener('click', async () => {
     const roleId = fRole.input.value.trim().toLowerCase();
     if (!/^[a-z][a-z0-9-]{0,31}$/.test(roleId)) {
-      alertBox.textContent = tr('team.role_id_label');
+      alertBox.textContent = tr('team.role_id_invalid');
+      alertBox.hidden = false;
+      fRole.input.focus();
+      return;
+    }
+    if ((currentTeam.roles || []).some(x => x.role === roleId)) {
+      alertBox.textContent = tr('team.role_id_exists');
       alertBox.hidden = false;
       fRole.input.focus();
       return;
@@ -284,8 +339,8 @@ function openAddRoleModal() {
   cancelBtn.type = 'button';
   cancelBtn.addEventListener('click', () => overlay.remove());
 
-  actions.append(submitBtn, cancelBtn);
-  card.appendChild(actions);
+  foot.append(submitBtn, cancelBtn);
+  card.appendChild(foot);
 
   overlay.appendChild(card);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
@@ -294,10 +349,11 @@ function openAddRoleModal() {
 }
 
 function bindAddRoleButton(team) {
+  _lastTeam = team;
   const btn = document.getElementById('addRoleOpenBtn');
   if (btn && !btn._roleBound) {
     btn._roleBound = true;
-    btn.addEventListener('click', () => openAddRoleModal(team));
+    btn.addEventListener('click', () => openAddRoleModal(_lastTeam));
   }
 }
 

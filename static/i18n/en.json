@@ -922,6 +922,8 @@
   "team.role_delete_failed": "Failed to delete role: {error}",
   "team.role_add_title": "Add New Role Pack",
   "team.role_id_label": "Role ID (lowercase, digits, hyphen)",
+  "team.role_id_invalid": "Invalid role ID format (must start with a lowercase letter, lowercase/digits/hyphens up to 32 chars)",
+  "team.role_id_exists": "This role ID already exists",
   "team.role_title_label": "Role Name",
   "team.role_owns_label": "Responsibilities (owns)",
   "team.role_tools_label": "Allowed Tools (comma-separated, e.g. delegate, workspace)",

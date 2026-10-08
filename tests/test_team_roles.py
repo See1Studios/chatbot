@@ -299,6 +299,27 @@ class RoleManagementApi(unittest.TestCase):
         for bs in I.BASE_SKILLS:
             self.assertIn(bs, skills)
 
+    def test_add_role_modal_ui_and_i18n(self):
+        # Ticket #846: Add role modal 3-tier layout, validation & tool chips
+        ko = json.loads((ROOT / "static" / "i18n" / "ko.json").read_text(encoding="utf-8"))
+        en = json.loads((ROOT / "static" / "i18n" / "en.json").read_text(encoding="utf-8"))
+        for key in ("team.role_id_invalid", "team.role_id_exists"):
+            self.assertIn(key, ko)
+            self.assertIn(key, en)
+            self.assertTrue(ko[key].strip())
+            self.assertTrue(en[key].strip())
+
+        js = (ROOT / "static" / "app-team.js").read_text(encoding="utf-8")
+        self.assertIn("function openAddRoleModal", js)
+        self.assertIn("modal-head", js)
+        self.assertIn("modal-body", js)
+        self.assertIn("modal-foot", js)
+        self.assertIn("card-field-row", js)
+        self.assertIn("team.role_id_invalid", js)
+        self.assertIn("team.role_id_exists", js)
+        for tool in ("delegate", "memory", "status"):
+            self.assertIn(tool, js)
+
 
 if __name__ == "__main__":
     unittest.main()
