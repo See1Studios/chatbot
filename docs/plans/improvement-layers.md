@@ -1,7 +1,7 @@
 # 개선의 두 계층: 엔진 이상 징후와 스킬(스크립트 포함) — skill-observations 정리 (improvement-layers)
 
 > 방향 (align/D, 2026-10-08): **개발판 전용 + 핵심** — 엔진 쪽은 개발판이 스스로 아픈 곳을 알리고 일감으로 만드는 고리(개발판 전용). 스킬 쪽은 캐릭터가 한 일을 기억해 다시 쓰는 개인화 고리(배포판 포함, `VISION.md` "Agent self-evolution: skills, memories, instructions with user approval and undo")
-> 상태: **active** (2026-10-08 수립, 운영자: "로그에서 이상징후가 보이면 원인 분석을 하고 사용자에게 notify 한 다음 일감화해서 개선하는 구조", "코어 개발과 도구 스크립트 개발, 스킬화가 모두 다른 계층", "쓰레기들을 남김없이 걷어내줘", "feature 별로 모듈이나 패키지를 만들어서 정리")
+> 상태: **active** (2026-10-08 수립, D1 2026-10-08 운영자: A. 운영자: "로그에서 이상징후가 보이면 원인 분석을 하고 사용자에게 notify 한 다음 일감화해서 개선하는 구조", "코어 개발과 도구 스크립트 개발, 스킬화가 모두 다른 계층", "쓰레기들을 남김없이 걷어내줘", "feature 별로 모듈이나 패키지를 만들어서 정리")
 > 대체: [archive/2026/recursive-self-evolution.md](archive/2026/recursive-self-evolution.md)의 관찰 쪽(§4.6 observe → record → refer → act). 티켓·보호 경로·가드(코어)는 그대로 쓴다.
 > 관련: [engine-decides.md](engine-decides.md)(엔진이 정한다) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [edition-boundary.md](edition-boundary.md)(개발판/배포판) · [user-data-separation.md](user-data-separation.md)(데이터 위치)
 
@@ -72,7 +72,7 @@
 | 관찰 API | `/api/observations*` (`server.py` 라우트 표 포함) |
 | 화면 | `static/app-evolution.js`의 observation manager(관찰 목록·이력·검토 칸), 관련 i18n 키 |
 | 빈 근거 표시 | `ticket_quick._ensure_candidate_evidence`, 티켓 근거의 `candidate:` 형식(`tickets.verify_evidence`) |
-| 옛 흔적 | `candidates.jsonl`, `last-review-*.txt`, `review-history.log`, `checkpoints.log`, `log.md.migrated` |
+| 옛 흔적 | `candidates.jsonl`, `last-review-*.txt`, `review-history.log`, `checkpoints.log`, `log.md.migrated`; 빈 `~/.pe/tickets.db`(0바이트, 2026-10-04, 엔진 코드가 쓰지 않음 — `test_handoff_drill`의 목록에서도 뺀다) |
 | 테스트 | `test_observations`·`test_observation`·`test_observation_api`·`test_observation_history`·`test_observation_status`·`test_observation_ui`·`test_turn_observation`, 그 밖의 테스트 안 관찰 사례 |
 | 개발 지침의 옛 줄 | `templates/dev-workspace/SELF-MODIFY.md`("observation-log 한 줄", 루트 경로 `server.py` 등) → 살아 있는 규칙만 `DEV-CHARTER.md`로 옮기고 파일 삭제 |
 
@@ -114,7 +114,7 @@
 
 | id | 질문 | 추천 |
 |---|---|---|
-| D1 | 엔진 티켓의 새 위치 | `<data>/dev/tickets/` — 개발판 데이터, 작업 폴더(캐릭터가 읽는 곳) 밖 |
+| D1 | 엔진 티켓의 새 위치 | **결정 A (2026-10-08)**: `<data>/dev/tickets/` — 개발판 데이터, 작업 폴더 밖. 작업 폴더는 채팅 에이전트에게 `--add-dir`로 열리고 배포판에선 사용자의 것이다. 버린 안: 저장소 안(상태 변화마다 커밋, `leases.json` 충돌, uds 때 밖으로 뺀 이력), 작업 폴더 안 이름만 변경(캐릭터 작업실 문제 그대로). 경로는 `host_config.py`가 정하고 `tickets.tickets_dir()`가 쓴다 |
 | D2 | 티켓 근거 규칙 | 에이전트가 스스로 제안하는 티켓만 실제 근거 필수(`log:fp`/`log:rid`/`event:`/사건 id). 운영자 말을 옮긴 티켓(`ticket-quick start`)은 근거 없이 "operator" 표시 |
 | D3 | 알림 빈도 | 새 사건·나빠진 사건만, 같은 사건 하루 1번, 조용한 시간 지킴(`event_react` 설정 재사용) |
 | D4 | 원인 분석 두뇌 | 대화 두뇌와 따로 지정(강한 모델). 정해지기 전에는 F를 켜지 않는다 |
