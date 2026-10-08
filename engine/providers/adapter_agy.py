@@ -84,6 +84,13 @@ def _parse_version(name: str) -> tuple:
     return tuple(nums) if nums else (0,)
 
 
+VALID_FAMILY_TOKENS = {
+    "claude", "gemini", "gpt", "oss",
+    "opus", "sonnet", "haiku", "flash", "pro",
+    "low", "minimal", "medium", "high", "xhigh", "thinking",
+}
+
+
 def _resolve_agy_model(model: str, known: List[str]) -> str:
     """Resolve a requested model identifier or family to an available agy model."""
     if not model or not known:
@@ -92,13 +99,17 @@ def _resolve_agy_model(model: str, known: List[str]) -> str:
         if k == model or k.lower() == model.lower():
             return k
     norm = model.lower()
-    target_words = [w for w in ("claude", "gemini", "gpt", "opus", "sonnet", "haiku", "flash", "pro") if w in norm]
+    tokens = [t for t in re.split(r"[-_./\s]+", norm) if t]
+    # Specific/custom model names like 'gemini-x' stay untouched
+    if any(not (t.isdigit() or t in VALID_FAMILY_TOKENS) for t in tokens):
+        return model
+    target_words = [w for w in ("claude", "gemini", "gpt", "opus", "sonnet", "haiku", "flash", "pro") if w in tokens]
     if not target_words:
         return model
     want_effort = "high"
-    if "medium" in norm:
+    if "medium" in tokens:
         want_effort = "medium"
-    elif any(x in norm for x in ("low", "minimal")):
+    elif any(x in tokens for x in ("low", "minimal")):
         want_effort = "low"
 
     candidates = [k for k in known if all(w in k.lower() for w in target_words)]

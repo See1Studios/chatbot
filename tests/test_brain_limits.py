@@ -83,8 +83,9 @@ class BrainLimits(unittest.TestCase):
         # effort preference respected
         self.assertEqual(_resolve_agy_model("claude-opus-medium", known), "claude-opus-5-5-medium")
         self.assertEqual(_resolve_agy_model("gemini-flash-low", known), "gemini-3.8-flash-low")
-        # unknown pattern returns input unchanged
+        # unknown or custom pattern returns input unchanged
         self.assertEqual(_resolve_agy_model("unknown-custom-model", known), "unknown-custom-model")
+        self.assertEqual(_resolve_agy_model("gemini-x", known), "gemini-x")
 
 
 if __name__ == "__main__":
