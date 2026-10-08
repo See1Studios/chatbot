@@ -48,7 +48,7 @@
 
 이 계획의 새 코드는 `engine/` 바로 아래 모듈로 늘리지 않는다.
 
-- `engine/health/`: 엔진 이상 징후 고리. `logdigest.py`, `tools/main_watch.py`를 이리로 옮기고 사건 기록·알림을 더한다.
+- `engine/health/`: 엔진 이상 징후 고리. `tools/main_watch.py`를 이리로 옮기고 사건 기록·알림·분석을 더한다. 수집·보관·요약(`obslog`·`logdigest`)은 [telemetry.md](telemetry.md)의 `engine/telemetry/`가 맡고, `health`는 읽기만 한다.
 - `engine/skills/`: 스킬 목록(`instructions.skill_index`, `mcp_parity` skill 도구가 읽는 부분), 스크립트 목록, 저장 제안.
 - 걷어 낼 관찰 코드는 옮기지 않고 지운다.
 
@@ -83,7 +83,7 @@
 | 엔진 티켓 `skill-observations/tickets/` | 작업 폴더 밖 개발판 데이터(`host_config`가 정하는 한 곳, 예: `<data>/dev/tickets/`) | `migrate_user_data` 이전 단계 + `tickets.tickets_dir` 한 곳만 바꿈. `protected_paths.json`, `worktree_runner.TICKETS_REL`, `history_entry.TICKET_FILES`, `.githooks/check_staged.RECORDS`·`TICKET_RECORD`, `handoff_drill.SKIP`, `templates/workspace-manifest.json`, `templates/dev-workspace/PROJECT.md`가 같은 변경으로 따라간다 |
 | 열린 관찰 약 20건 | 엔진 티켓(`proposed`) | 한 건씩 제목·본문을 티켓으로, 근거는 관찰 파일 이름. 옮긴 뒤 `observation-log/`는 보관 압축 후 삭제 |
 | 떠 있는 스크립트 `<workspace>/tools/*.py` 4개 | 맞는 스킬의 `scripts/` | 음력 변환·기억 저장·기억 회상·토큰 감사 — 스킬이 없으면 스킬을 만든다 |
-| 로그 요약·main 감시 | `engine/health/` | §3 |
+| main 감시 | `engine/health/` | §3 (로그 요약은 `engine/telemetry/`, telemetry `tl/A`) |
 
 ### 4.3 남긴다
 
@@ -101,14 +101,14 @@
 |---|---|---|
 | `il/A` | 걷어내기: §4.1 전부, 근거 규칙(D2) | 관찰·후보 코드 0, 지시문 상태 줄 0, 테스트 녹색 |
 | `il/B` | 티켓 이전: §4.2 첫 줄 + 열린 관찰 → 티켓 | `skill-observations/`에 엔진 것 0 |
-| `il/C` | `engine/health/` 패키지 + ratchet(루트 모듈 수 불어남 금지) | 로그 요약·main 감시가 패키지 안 |
+| `il/C` | `engine/health/` 패키지 + ratchet(루트 모듈 수 불어남 금지 — telemetry `tl/A`와 같은 장치, 먼저 하는 쪽이 건다) | main 감시가 패키지 안 |
 | `il/D` | 사건 기록: findings를 사건으로 묶고 새로 생김/나빠짐/해결을 엔진이 판정 | 같은 징후는 한 사건, 해결되면 닫힘 |
 | `il/E` | 알림 + 버튼: 사건 → 이벤트(`host.incident`) → PD가 먼저 말 걸기, [일감으로]/[무시] | 버튼 하나로 근거(fp/rid/sha) 달린 티켓 |
 | `il/F` | 원인 분석: 사건 근거 묶음을 분석 두뇌에 맡김(읽기 전용, 결론마다 근거) | 알림에 원인 가설과 근거 |
 | `il/G` | 스킬에 스크립트: `scripts/`, 목록에 스크립트 표시, `tools/` 4개 이전 | 에이전트가 목록에서 스크립트를 찾아 씀 |
 | `il/H` | 스크립트 저장 제안: 작업 중 쓴 스크립트를 스킬로 남길지 묻기 | 운영자 승인 → 스킬에 저장 |
 
-순서: A → B → C → D → E를 먼저 끝내 며칠 돌려 보고(알림이 쓸모 있는지, 시끄럽지 않은지), F를 붙인다. G·H는 A 뒤 아무 때나.
+순서: A → B → C를 먼저. D(사건)는 telemetry `tl/C`(날짜별 요약) 뒤 — 사건의 근거가 지표 구간이다. D → E를 끝내 며칠 돌려 보고(알림이 쓸모 있는지, 시끄럽지 않은지), F를 붙인다. G·H는 A 뒤 아무 때나.
 
 ## 6. 결정 (운영자)
 
