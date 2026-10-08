@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import threading
+import time
 from typing import Any, Dict, Optional
 
 import i18n
@@ -431,7 +432,7 @@ class SessionTurn:
             self._loop_noticed = False
         with self.lock:
             self.current_text = ""
-            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None; self._cancel_silent_hang(); self._silent_hang_done = False; self._last_turn_activity_at = 0.0
+            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None; self._cancel_silent_hang(); self._silent_hang_done = False; self._last_turn_activity_at = 0.0; self._turn_t0 = time.time(); self.ttft_ms = None
             self.pending_images = []
             ts = _now()
             if not notice:

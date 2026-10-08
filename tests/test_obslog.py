@@ -300,5 +300,33 @@ class HTTPTests(Base):
         self.assertEqual(len(ids), 5)
 
 
+class TurnEndTests(Base):
+    def test_turn_end_carries_ttft_ms(self):
+        from unittest import mock
+        import session
+        sess = session.AgentSession("s1")
+        sess._turn_t0 = 1000.0
+        sess.turn_started_at = 1000.0
+        sess.ttft_ms = None
+        with mock.patch("time.time", return_value=1000.25):
+            sess._emit({"event": "delta", "text": "hello"})
+        self.assertEqual(sess.ttft_ms, 250.0)
+        sess._obs_turn_end("result")
+        recs = lines(self.path)
+        te = next(r for r in recs if r["evt"] == "turn.end")
+        self.assertEqual(te["ttft_ms"], 250.0)
+
+    def test_turn_end_carries_null_ttft_when_no_tokens(self):
+        import session
+        sess = session.AgentSession("s2")
+        sess._turn_t0 = 1000.0
+        sess.turn_started_at = 1000.0
+        sess.ttft_ms = None
+        sess._obs_turn_end("error")
+        recs = lines(self.path)
+        te = next(r for r in recs if r["evt"] == "turn.end")
+        self.assertIsNone(te.get("ttft_ms"))
+
+
 if __name__ == "__main__":
     unittest.main()

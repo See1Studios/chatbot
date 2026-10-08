@@ -178,14 +178,12 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         self.sid = sid
         self.provider = provider or DEFAULT_PROVIDER
         self.adapter = get_adapter(self.provider)
-        # DEFAULT_MODEL names an agy/Gemini model -- only fall back to it for
-        # agy itself; any other provider's adapter already treats an empty
-        # model as "let the CLI pick its own default" (see build_args()).
+        # DEFAULT_MODEL names an agy/Gemini model -- only fall back to it for agy
         self.model = model or (DEFAULT_MODEL if self.provider == DEFAULT_PROVIDER else "")
         self.effort = effort or ""
         self.conversation_id: Optional[str] = None
         self.proc: Optional[subprocess.Popen] = None
-        self._http_resp = None  # API-Provider plan: in-flight urlopen() response for transport_kind="http" adapters -- stop() closes this to cancel a streaming turn, since there's no self.proc to terminate()
+        self._http_resp = None  # in-flight urlopen() response for transport_kind="http"
         self.subscribers: List["queue.Queue[dict]"] = []
         self.lock = threading.RLock()  # DEADLOCK GUARD: must stay RLock — ensure()->_spawn()->stop() nests
         if type(self.lock) is type(threading.Lock()):  # pragma: no cover
@@ -199,13 +197,11 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         self.last_progress = ""
         self.last_progress_key, self.last_progress_vars = "", {}
         self.turn_started_at = 0.0
+        self._turn_t0: Optional[float] = None
+        self.ttft_ms: Optional[float] = None
         self.pending_images: List[str] = []
         self._stderr_tail: List[str] = []
         # meta.json + artifacts/ live together under one per-session folder
-        # (2026-09-16: previously a flat sessions/<sid>.json plus a wholly
-        # separate artifacts/ tree keyed by conversation_id -- moved to this
-        # so a session's own history and everything it generated travel
-        # together as one self-contained unit).
         self.meta_path = SESSIONS / sid / "meta.json"
         self._heavy_warned_level = ""  # '', soft, hard — avoid spam
         self.successor_session_id = ""  # sticky rotate target
@@ -330,7 +326,10 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         elif kind in ("delta", "thinking"):
             # SILENT_HANG_v1: streaming assistant text -- or the brain's streamed reasoning -- resets the idle clock
             self._touch_turn_activity()
-        elif kind in ("result", "error", "stopped"):
+        if kind in ("delta", "thinking") or (kind == "result" and event.get("text")):
+            if getattr(self, "ttft_ms", None) is None and getattr(self, "_turn_t0", None) is not None:
+                self.ttft_ms = round((time.time() - self._turn_t0) * 1000, 1)
+        if kind in ("result", "error", "stopped"):
             self.last_progress = ""
             self.last_progress_key, self.last_progress_vars = "", {}
             # QUOTA_FAILFAST_v1: real terminal event — cancel pending failfast
@@ -679,6 +678,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             ok = outcome == "result"
             fields = dict(sid=self.sid, provider=self.provider, model=self.model, outcome=outcome,
                           dur_s=round(_now() - started, 1) if started else None,
+                          ttft_ms=getattr(self, "ttft_ms", None),
                           standby=bool(getattr(self, "_adopted_standby", False)))
             if not ok:
                 tail = list(getattr(self, "_stderr_tail", []) or [])[-8:]
