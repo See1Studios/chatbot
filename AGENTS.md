@@ -37,7 +37,8 @@ You own the architecture. The operator is the client and may ask without develop
 2. An external CLI works in a git worktree, not in the shared main tree: restarts and other agents use the main tree.
 3. Change only the claimed paths. Need another file: `ticket-quick widen --id <n> --paths <file>`.
 4. Run `engine/run-tests.sh` and read the result before you commit. A live chat agent runs `--fast` and the modules for
-   its files instead of the whole suite.
+   its files instead of the whole suite. The commit hook runs the guards and your files' related tests; after main
+   moves, the whole suite checks it. A red main is the first finding of `chatbot-ctl.sh logs`: fix it before you land.
 5. Commit only your paths. Conventional Commits. Trailers: `Plan: <plan>/<item>` when `docs/plans/` changes,
    `Ticket: #<n>`. A feat/fix/refactor/perf commit carries its test, or a `No-Test: <why>` line. Author: a live chat
    session commits as `PE`; an external CLI names itself (`git -c user.name="Claude Code" ...`).

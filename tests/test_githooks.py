@@ -187,14 +187,19 @@ class Hooks(unittest.TestCase):
         finally:
             os.chdir(cwd)
 
-    def test_a_live_chat_agents_commit_also_runs_the_tests_related_to_its_files(self):
-        # AGENT_COMMIT_RELATED_v1: #689-#691 (2026-10-06) were committed from chat past the FAST guards only
+    def test_every_commit_also_runs_the_tests_related_to_its_files(self):
+        # AGENT_COMMIT_RELATED_v1: #689-#691 (2026-10-06) were committed from chat past the FAST guards only;
+        # RELATED_ALL_v1 (#825): #817/#821/#822 came from outside CLIs the same way and left main red
         # a module whose test is not a FAST guard: guards run anyway and are left out of the related list
-        mods = check.related_for(ROOT, ["room_chat.py"], lambda: "chat-agent:agy")
-        self.assertIn("test_room_chat", mods)
-        self.assertTrue(all(m.startswith("test_") for m in mods), mods)
+        for who in ("chat-agent:agy", "claude-code", "antigravity", ""):
+            mods = check.related_for(ROOT, ["room_chat.py"], lambda: who)
+            self.assertIn("test_room_chat", mods, who)
+            self.assertTrue(all(m.startswith("test_") for m in mods), mods)
         self.assertEqual(check.related_for(ROOT, ["dialog_handoff.py"], lambda: "chat-agent:?"), [])   # the host
-        self.assertEqual(check.related_for(ROOT, ["dialog_handoff.py"], lambda: "claude-code"), [])
+        self.assertNotIn("test_sync_mirrors", check.related_for(ROOT, ["RULES.md"], lambda: "claude-code"),
+                         "a mirror the translator could not refresh only warns")
+        self.assertEqual(check.related_for(ROOT, ["room_chat.py"], lambda: "agy", lambda: "worktree/ticket-7"), [],
+                         "a delegated worker: its runner's gates run them")
         self.assertEqual(check.related_for(ROOT, [], lambda: "chat-agent:agy"), [])
         self.assertEqual(check.related_for(self.repo, ["x.py"], lambda: "chat-agent:agy"), [])          # no runner here
 

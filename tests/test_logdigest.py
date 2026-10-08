@@ -64,6 +64,20 @@ class DigestTests(unittest.TestCase):
         sev = {f["code"]: f["severity"] for f in d["findings"]}
         self.assertEqual((sev["context_over_budget"], sev["context_leak"]), ("warn", "error"))
 
+    def test_a_red_main_is_a_finding_until_a_green_check(self):
+        # MAIN_WATCH_v1 (#825): 2026-10-08 four modules were red on main and only another agent's full run saw it
+        self.write([(30 * 3600, {"src": "watch", "evt": "main.check", "ok": True, "sha": "aaa111", "failed": []}),
+                    (20 * 3600, {"src": "watch", "evt": "main.check", "ok": False, "sha": "bbb222",
+                                 "failed": ["test_x", "test_y"], "subject": "feat: x (Gemini)"})])
+        d = logdigest.digest(6 * 3600)                     # the red check is older than the window: still found
+        red = [f for f in d["findings"] if f["code"] == "main_red"]
+        self.assertEqual(len(red), 1)
+        self.assertEqual(d["findings"][0]["code"], "main_red")
+        self.assertIn("test_x test_y", red[0]["title"])
+        self.assertIn("aaa111..bbb222", red[0]["hint"])
+        self.write([(3600, {"src": "watch", "evt": "main.check", "ok": True, "sha": "ccc333", "failed": []})])
+        self.assertNotIn("main_red", self.codes(logdigest.digest(6 * 3600)))
+
     def test_clean_run_is_ok(self):
         self.write([(600, {"src": "chat", "evt": "proc.start"}), (300, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 50}),
                     (10, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 51})])

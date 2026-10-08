@@ -319,6 +319,24 @@ def _digest_turns(win, find):
     return {"by_provider": turns, "failed": bad_turns[-20:]}, sessions
 
 
+def _digest_main(events, find):
+    """MAIN_WATCH_v1 (#825): the last whole-suite check of main (tools/main_watch.py). Red stays a finding, whatever
+    the window, until a later check is green: the commit hook does not run the whole suite."""
+    checks = [e for e in events if e.get("evt") == "main.check" and e.get("ok") is not None]
+    if not checks:
+        return {}
+    last = checks[-1]
+    green = next((e for e in reversed(checks) if e.get("ok")), None)
+    out = {k: last.get(k) for k in ("ts", "sha", "subject", "ok", "failed")}
+    out["last_green"] = green.get("sha") if green else None
+    if not last.get("ok"):
+        since = ("since %s" % out["last_green"]) if green else "in the last 7 days"
+        find("error", "main_red", "main is red at %s: %s" % (last.get("sha"), " ".join(last.get("failed") or []) or "?"),
+             "the break is a commit %s (git log %s..%s); fix it before more work lands"
+             % (since, out["last_green"] or "", last.get("sha")), subject=last.get("subject"))
+    return out
+
+
 def _digest_ops(events, win, since_s, find):
     rep = [e for e in win if e.get("evt") == "repair.begin"]
     rep_end = [e for e in win if e.get("evt") == "repair.end"]
@@ -392,6 +410,7 @@ def digest(since_s: float, include_all: bool = False) -> Dict[str, Any]:
     d["context"] = _context_summary(win, find)
     d["ops"] = _digest_ops(events, win, since_s, find)
     d["mcp"] = _digest_mcp(win)
+    d["main"] = _digest_main(events, find)
 
     order = {"error": 0, "warn": 1, "info": 2}
     findings.sort(key=lambda f: order.get(f["severity"], 3))

@@ -90,4 +90,4 @@ map only says which file does what.
 
 | Area | Files |
 |---|---|
-| Tests | `tests/`; run `engine/run-tests.sh` (without bash: `tools/run_modules.py`) |
+| Tests | `tests/`; run `engine/run-tests.sh` (without bash: `tools/run_modules.py`); after main moves the whole suite checks it, `tools/main_watch.py` |

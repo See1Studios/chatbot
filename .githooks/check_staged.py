@@ -93,7 +93,7 @@ def run_guards_on_snapshot(root, related=()):
             return None
         r = subprocess.run(["bash", str(runner), "--fast"], cwd=str(where), env=env, capture_output=True, text=True)
         if r.returncode == 0 and related:
-            print("[pre-commit] a chat agent's commit: also the %d test modules related to its files" % len(related))
+            print("[pre-commit] also the %d test modules related to the staged files" % len(related))
             r = subprocess.run(["bash", str(runner)] + list(related), cwd=str(where), env=env, capture_output=True,
                                text=True)
         return r
@@ -161,16 +161,23 @@ def sync_mirrors(root, files):
                   % (src_name, msg[:200]))
 
 
-def related_for(root, files, who):
-    """AGENT_COMMIT_RELATED_v1: the test modules a live chat agent's commit must also pass -- the ones the delegation
-    runner runs for the same files (worktree_runner.related_gate). A chat agent may not run the whole suite (it takes
-    minutes; LIVE_AGENT_SUITE_v1), and #689-#691 (2026-10-06) went in past the FAST guards only, removing an import
-    every turn needed. Anyone else commits on the FAST guards, as before."""
-    if not files or not live_chat_agent(who()):
+RELATED_SKIP = ("test_sync_mirrors",)
+
+
+def related_for(root, files, who, branch=lambda: ""):
+    """AGENT_COMMIT_RELATED_v1: the test modules a commit must also pass -- the ones the delegation runner runs for the
+    same files (worktree_runner.related_gate). #689-#691 (2026-10-06) went in from chat past the FAST guards only.
+    RELATED_ALL_v1 (#825): every committer, not only a chat agent -- #817/#821/#822 (2026-10-08) came from outside
+    CLIs on the FAST guards and left three modules red on main ("run the suite before you commit" was a sentence).
+    Left out: the host and the runners it started (chat-agent:?), and a delegated worker on its ticket branch, whose
+    runner gates run the same modules."""
+    if not files or who() == "chat-agent:?" or WORKTREE_BRANCH.match(branch()):
         return []
     wr = _repo_module(root, "worktree_runner")
     gate = wr.related_gate(Path(root), list(files)) if wr else None
-    return gate.split()[1:] if gate else []
+    # the Korean mirrors are synced above and only warn when the translator cannot be reached (MIRROR_SYNC_v1);
+    # a stale one is the whole suite's to name (MAIN_WATCH_v1), never a reason to refuse an unrelated commit
+    return [m for m in (gate.split()[1:] if gate else []) if m not in RELATED_SKIP]
 
 
 def ref_refusal(updates, who, on_worker_branch):
@@ -270,7 +277,8 @@ def pre_commit():
         return 1
     if files and all(f.startswith(RECORDS) for f in files):
         return 0
-    r = run_guards_on_snapshot(root, related_for(root, files, lambda: caller(root)))
+    r = run_guards_on_snapshot(root, related_for(root, files, lambda: caller(root),
+                                                 lambda: git("rev-parse", "--abbrev-ref", "HEAD").strip()))
     if r is None:
         return 0
     if r.returncode != 0:
