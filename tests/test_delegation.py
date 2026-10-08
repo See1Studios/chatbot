@@ -60,8 +60,11 @@ class Base(unittest.TestCase):
         delegation._spawn = fake_spawn
         r.cleanup_worktree = lambda repo, branch, wt: self.cleaned.append(branch)
         r.commit_ticket_record = lambda *a, **k: None
+        self.events_env = mock.patch.dict(os.environ, {"CHATBOT_EVENTS_DIR": str(self.data / "events")})
+        self.events_env.start()
 
     def tearDown(self):
+        self.events_env.stop()
         r = delegation.runner()
         (delegation.DATA, delegation.SEEN_FILE, delegation._spawn, r.WORKTREE_BASE,
          r.cleanup_worktree, r.commit_ticket_record, delegation.PLAN_ROOT) = self.saved
@@ -77,6 +80,16 @@ class Base(unittest.TestCase):
 
     def state(self, tid):
         return delegation.runner().read_state(tid)
+
+    def ended(self, outcome, runs=1):
+        paths = TIER0 if outcome == "gate_failed" else TIER2   # one open ticket per target
+        tid = self.plan([self.task(paths)])["ticket"]
+        tickets.approve(self.data, tid, operator=tickets.OPERATOR_UI)
+        for _ in range(runs):
+            c = tickets.claim(self.data, tid, paths=paths)
+            tickets.release(self.data, tid, c["token"], outcome)
+        delegation.runner().write_state(tid, phase=outcome, reason="gate said no", transcript=["old"], task=1)
+        return tid
 
 
 class PlanTest(Base):
@@ -113,16 +126,6 @@ class PlanTest(Base):
         delegation.go(tid)
         with self.assertRaises(delegation.DelegationError):
             self.plan([self.task(TIER0)], ticket_id=tid)
-
-    def ended(self, outcome, runs=1):
-        paths = TIER0 if outcome == "gate_failed" else TIER2   # one open ticket per target
-        tid = self.plan([self.task(paths)])["ticket"]
-        tickets.approve(self.data, tid, operator=tickets.OPERATOR_UI)
-        for _ in range(runs):
-            c = tickets.claim(self.data, tid, paths=paths)
-            tickets.release(self.data, tid, c["token"], outcome)
-        delegation.runner().write_state(tid, phase=outcome, reason="gate said no", transcript=["old"], task=1)
-        return tid
 
     def test_a_gate_failed_plan_can_be_replaced_under_the_same_id(self):
         for outcome in ("gate_failed", "failed"):
@@ -532,6 +535,185 @@ class CardsTest(Base):
         code, body = delegation.delegation_api("POST", "/api/delegations/%d/go" % tid, {})
         self.assertEqual((code, body["ticket"]), (200, tid))
         self.assertEqual(delegation.runs()[0]["tasks"][0]["role"], "staff")
+
+
+class StageAndActionsTest(Base):
+    def test_stage_and_actions_for_ready_queued_paused(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        r = delegation.runner()
+
+        # ready (awaiting_go)
+        card = delegation.runs()[0]
+        self.assertEqual(card["stage"], "ready")
+        self.assertEqual(card["actions"], [
+            {"id": "go", "label": "ticket.button.delegate", "primary": True, "confirm": False, "needs_comment": False},
+            {"id": "replan", "label": "work.edit_plan", "primary": False, "confirm": False, "needs_comment": True},
+            {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+        ])
+
+        # queued
+        r.write_state(tid, phase="queued")
+        card = delegation.runs()[0]
+        self.assertEqual(card["stage"], "working")
+        self.assertEqual(card["actions"], [
+            {"id": "unqueue", "label": "ticket.word.unqueue", "primary": False, "confirm": False, "needs_comment": False},
+        ])
+
+        # paused (without operator_only)
+        r.write_state(tid, phase="paused", need_paths=[{"path": "static/chat.css"}])
+        card = delegation.runs()[0]
+        self.assertEqual(card["stage"], "needs_paths")
+        self.assertEqual(card["actions"], [
+            {"id": "allow", "label": "ticket.word.allow", "primary": True, "confirm": False, "needs_comment": False},
+            {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+        ])
+
+        # paused (with operator_only)
+        r.write_state(tid, phase="paused", need_paths=[{"path": "engine/run-tests.sh"}])
+        card = delegation.runs()[0]
+        self.assertEqual(card["stage"], "needs_paths")
+        self.assertEqual(card["actions"], [
+            {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+        ])
+
+    def test_stage_and_actions_for_review_stalled_and_other_phases(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        r = delegation.runner()
+
+        # review (awaiting_merge)
+        r.write_state(tid, phase="awaiting_merge")
+        card = delegation.runs()[0]
+        self.assertEqual(card["stage"], "review")
+        self.assertEqual(card["actions"], [
+            {"id": "merge", "label": "ticket.button.merge", "primary": True, "confirm": False, "needs_comment": False},
+            {"id": "rework", "label": "ticket.button.rework", "primary": False, "confirm": False, "needs_comment": True},
+            {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+        ])
+
+        # stalled in merging
+        r.write_state(tid, phase="merging", pid=999999)
+        card = delegation.runs()[0]
+        self.assertEqual(card["phase"], "stalled")
+        self.assertEqual(card["stalled_in"], "merging")
+        self.assertEqual(card["stage"], "review")
+        self.assertEqual(card["actions"], [
+            {"id": "merge", "label": "work.merge_again", "primary": True, "confirm": False, "needs_comment": False},
+        ])
+
+        # merged-ticket-open
+        r.write_state(tid, phase="merged-ticket-open")
+        card = delegation.runs()[0]
+        self.assertEqual(card["stage"], "ended")
+        self.assertEqual(card["actions"], [
+            {"id": "merge", "label": "ticket.word.close", "primary": True, "confirm": False, "needs_comment": False},
+        ])
+
+        # base_broken
+        r.write_state(tid, phase="base_broken")
+        card = delegation.runs()[0]
+        self.assertEqual(card["stage"], "ended")
+        self.assertEqual(card["actions"], [
+            {"id": "go", "label": "ticket.word.delegate", "primary": True, "confirm": False, "needs_comment": False},
+        ])
+
+    def test_other_working_and_ended_phases_have_no_actions(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        r = delegation.runner()
+        import os
+        for phase in ("starting", "running", "writing", "gates", "review", "merging"):
+            r.write_state(tid, phase=phase, pid=os.getpid() if phase != "starting" else 0)
+            card = delegation.runs()[0]
+            self.assertEqual(card["stage"], "working", f"stage for {phase}")
+            self.assertEqual(card["actions"], [], f"actions for {phase}")
+
+        for phase in ("done", "failed", "gate_failed", "declined"):
+            r.write_state(tid, phase=phase)
+            card = delegation.runs()[0]
+            self.assertEqual(card["stage"], "ended", f"stage for {phase}")
+            self.assertEqual(card["actions"], [], f"actions for {phase}")
+
+        r.write_state(tid, phase="writing", pid=999999)
+        card = delegation.runs()[0]
+        self.assertEqual(card["stage"], "ended")
+        self.assertEqual(card["actions"], [])
+
+
+class ReplanTest(Base):
+    def test_replan_accepted_records_note_event_and_state(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        res = delegation.replan(tid, "Change task description")
+        self.assertEqual(res, {"ticket": tid, "requested": True})
+        st = self.state(tid)
+        self.assertIsNotNone(st.get("replan_request"))
+        self.assertEqual(st["replan_request"]["comment"], "Change task description")
+        self.assertIsInstance(st["replan_request"]["at"], float)
+
+        t = tickets.get(self.data, tid)
+        notes = [n for n in t.get("notes", []) if "Change task description" in n.get("text", "")]
+        self.assertTrue(len(notes) >= 1)
+
+        import events
+        evts = [e for e in events._read_all() if e.get("type") == "work.replan"]
+        self.assertTrue(evts)
+        self.assertEqual(evts[-1]["subject"], str(tid))
+        self.assertEqual(evts[-1]["payload"]["comment"], "Change task description")
+
+    def test_replan_accepted_on_failed_attempts(self):
+        for outcome in ("gate_failed", "failed"):
+            tid = self.ended(outcome)
+            res = delegation.replan(tid, f"Fix {outcome} reason")
+            self.assertEqual(res, {"ticket": tid, "requested": True})
+            st = self.state(tid)
+            self.assertEqual(st["replan_request"]["comment"], f"Fix {outcome} reason")
+
+    def test_replan_via_delegation_api(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        code, body = delegation.delegation_api("POST", f"/api/delegations/{tid}/replan", {"comment": "API replan"})
+        self.assertEqual(code, 200)
+        self.assertEqual(body, {"ok": True, "ticket": tid, "requested": True})
+        self.assertEqual(self.state(tid)["replan_request"]["comment"], "API replan")
+
+    def test_replan_refused_on_empty_comment(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        for empty in ("", "   ", None):
+            with self.assertRaises(delegation.DelegationError) as cm:
+                delegation.replan(tid, empty)
+            self.assertEqual(str(cm.exception), "say what to change")
+
+        code, body = delegation.delegation_api("POST", f"/api/delegations/{tid}/replan", {"comment": " "})
+        self.assertEqual(code, 400)
+        self.assertIn("say what to change", body["error"])
+
+    def test_replan_refused_in_disallowed_phases_or_exhausted(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        for phase in ("running", "writing", "awaiting_merge", "done", "declined"):
+            delegation.runner().write_state(tid, phase=phase)
+            with self.assertRaises(delegation.DelegationError):
+                delegation.replan(tid, "change")
+
+        tid_spent = self.ended("gate_failed", runs=tickets.MAX_ATTEMPTS)
+        with self.assertRaises(delegation.DelegationError) as cm:
+            delegation.replan(tid_spent, "change")
+        self.assertIn("used all %d attempts" % tickets.MAX_ATTEMPTS, str(cm.exception))
+
+        code, body = delegation.delegation_api("POST", "/api/delegations/9999/replan", {"comment": "x"})
+        self.assertEqual(code, 404)
+
+    def test_replan_request_cleared_by_plan(self):
+        tid = self.plan([self.task(TIER0)])["ticket"]
+        delegation.replan(tid, "please rework the approach")
+        self.assertIsNotNone(self.state(tid).get("replan_request"))
+
+        self.plan([self.task(TIER0, "new plan")], ticket_id=tid)
+        st = self.state(tid)
+        self.assertIsNone(st.get("replan_request"))
+        self.assertFalse(st.get("replan_request"))
+
+        tid_gf = self.ended("gate_failed")
+        delegation.replan(tid_gf, "retry with different task")
+        self.assertIsNotNone(self.state(tid_gf).get("replan_request"))
+        self.plan([self.task(TIER0, "retried")], ticket_id=tid_gf)
+        self.assertIsNone(self.state(tid_gf).get("replan_request"))
 
 
 class ToolTest(Base):

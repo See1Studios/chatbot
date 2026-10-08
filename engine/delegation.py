@@ -189,7 +189,8 @@ def plan(title: str, tasks, evidence, actor: str, ticket_id: Optional[int] = Non
         t, _ = tickets.propose(DATA, title, ",".join(paths), evidence, actor=actor)
     tid = t["id"]
     runner().write_state(tid, phase="awaiting_go", title=title, paths=paths, tier=tier, requested_by=actor,
-                         plan={"tasks": tasks}, transcript=[], reason="", task=0, tasks_total=len(tasks))
+                         plan={"tasks": tasks}, transcript=[], reason="", task=0, tasks_total=len(tasks),
+                         replan_request=None)
     return {"ticket": tid, "tier": tier, "tasks": len(tasks)}
 
 
@@ -376,6 +377,31 @@ def unqueue(ticket_id: int) -> Dict:
     return {"ticket": tid, "phase": "awaiting_go"}
 
 
+def replan(ticket_id: int, comment: str) -> Dict:
+    """`[Replan]`: the operator asks the PD for an amended plan with a comment. Allowed only when the run is
+    awaiting_go, or gate_failed/failed with attempts left."""
+    tid = int(ticket_id)
+    comment = str(comment or "").strip()[:_INSTRUCTION_MAX]
+    if not comment:
+        raise DelegationError("say what to change")
+    t = tickets.get(DATA, tid)
+    st = runner().read_state(tid)
+    phase = st.get("phase")
+    if phase in ("gate_failed", "failed") and t.get("attempts", 0) >= tickets.MAX_ATTEMPTS:
+        raise DelegationError("ticket %d used all %d attempts; open a new ticket" % (tid, tickets.MAX_ATTEMPTS))
+    if phase not in ("awaiting_go", "gate_failed", "failed"):
+        raise DelegationError("ticket %d is %s; replan is only allowed when awaiting [Run] or when an attempt failed" % (tid, phase))
+    now = time.time()
+    runner().write_state(tid, replan_request={"comment": comment, "at": now})
+    tickets.add_note(DATA, tid, comment)
+    import characters
+    import events
+    ws = DATA / "workspace"
+    default = characters.default_character(ws)
+    events.publish("work.replan", [default] if default else [], subject=str(tid), comment=comment, ticket=tid)
+    return {"ticket": tid, "requested": True}
+
+
 def _lock_busy(e: Exception) -> bool:
     return "author lock is held" in str(e)
 
@@ -549,6 +575,68 @@ def _last_review(st: Dict) -> Dict:
     return {k: rv.get(k) for k in ("verdict", "fix", "advisory")} if rv else {}
 
 
+# The action table for runs(): situation/phase -> ordered list of {id, label, primary, confirm, needs_comment}
+WORK_ACTIONS: Dict[str, List[Dict]] = {
+    "ready": [
+        {"id": "go", "label": "ticket.button.delegate", "primary": True, "confirm": False, "needs_comment": False},
+        {"id": "replan", "label": "work.edit_plan", "primary": False, "confirm": False, "needs_comment": True},
+        {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+    ],
+    "queued": [
+        {"id": "unqueue", "label": "ticket.word.unqueue", "primary": False, "confirm": False, "needs_comment": False},
+    ],
+    "paused": [
+        {"id": "allow", "label": "ticket.word.allow", "primary": True, "confirm": False, "needs_comment": False},
+        {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+    ],
+    "review": [
+        {"id": "merge", "label": "ticket.button.merge", "primary": True, "confirm": False, "needs_comment": False},
+        {"id": "rework", "label": "ticket.button.rework", "primary": False, "confirm": False, "needs_comment": True},
+        {"id": "discard", "label": "ticket.button.discard", "primary": False, "confirm": True, "needs_comment": False},
+    ],
+    "stalled in merging": [
+        {"id": "merge", "label": "work.merge_again", "primary": True, "confirm": False, "needs_comment": False},
+    ],
+    "merged-ticket-open": [
+        {"id": "merge", "label": "ticket.word.close", "primary": True, "confirm": False, "needs_comment": False},
+    ],
+    "base_broken": [
+        {"id": "go", "label": "ticket.word.delegate", "primary": True, "confirm": False, "needs_comment": False},
+    ],
+}
+
+
+def _stage(phase: str, stalled_in: str = "") -> str:
+    """The stage of a run view: ready, working, needs_paths, review, or ended."""
+    if phase == "awaiting_go":
+        return "ready"
+    if phase in ("starting", "running", "writing", "gates", "review", "merging", "queued"):
+        return "working"
+    if phase == "paused":
+        return "needs_paths"
+    if phase == "awaiting_merge" or (phase == "stalled" and stalled_in == "merging"):
+        return "review"
+    return "ended"
+
+
+def _actions(phase: str, stalled_in: str = "", need_paths: Optional[List[Dict]] = None) -> List[Dict]:
+    """The ordered action buttons for a run view, computed from WORK_ACTIONS."""
+    if phase == "stalled" and stalled_in == "merging":
+        key = "stalled in merging"
+    elif phase == "awaiting_go":
+        key = "ready"
+    elif phase == "awaiting_merge":
+        key = "review"
+    elif phase in ("queued", "paused", "merged-ticket-open", "base_broken"):
+        key = phase
+    else:
+        key = ""
+    items = [dict(a) for a in WORK_ACTIONS.get(key, [])]
+    if key == "paused" and need_paths and any(p.get("operator_only") for p in need_paths):
+        items = [a for a in items if a["id"] != "allow"]
+    return items
+
+
 def runs(limit: int = MAX_RUNS) -> List[Dict]:
     """The work cards: newest first. `stalled` when a run says it is active but its process is gone."""
     d = runner().state_path(0).parent
@@ -578,6 +666,10 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                     st = runner().read_state(tid)
                     phase = target_phase
                     seen[str(tid)] = st.get("rev")
+        stalled_in = st.get("phase", "") if phase == "stalled" else ""
+        need_paths = _need_paths_view(st.get("need_paths") or []) if phase == "paused" else []
+        stage = _stage(phase, stalled_in)
+        actions = _actions(phase, stalled_in, need_paths)
         out.append({"ticket": tid, "title": st.get("title", ""), "phase": phase, "round": st.get("round", 0),
                     "tier": st.get("tier", 0), "paths": st.get("paths", []), "reason": st.get("reason", ""),
                     "head": st.get("head", ""), "updated": st.get("updated", ""),
@@ -585,15 +677,16 @@ def runs(limit: int = MAX_RUNS) -> List[Dict]:
                     "task": st.get("task", 0), "tasks_total": st.get("tasks_total", 0),
                     "brain": st.get("brain", ""), "timeout_sec": st.get("timeout_sec", 0),
                     "files_changed": _files_changed(tid, st.get("base", "")) if phase in ACTIVE_PHASES else None,
-                    "stalled_in": st.get("phase", "") if phase == "stalled" else "",
+                    "stalled_in": stalled_in,
                     "tasks": [{k: t.get(k) for k in ("role", "title", "paths")}
                               for t in (st.get("plan") or {}).get("tasks", [])],
                     "review": _last_review(st), "talk_with": _talk_worker(st, int(st.get("task") or 1),
                                                                            DATA / "workspace"),
                     "active": phase in ACTIVE_PHASES,
                     "blocked_by": (st.get("blocked_by") or {}) if phase == "queued" else {},
-                    "need_paths": _need_paths_view(st.get("need_paths") or []) if phase == "paused" else [],
-                    "seen": seen.get(str(tid)) == st.get("rev")})
+                    "need_paths": need_paths,
+                    "seen": seen.get(str(tid)) == st.get("rev"),
+                    "stage": stage, "actions": actions})
     return out
 
 
@@ -798,7 +891,7 @@ def delegation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tup
         if method == "GET" and rest == "":
             return 200, {"ok": True, "runs": runs(), "names": display_names()}
         if method == "POST":
-            m = re.fullmatch(r"(\d+)/(go|merge|rework|discard|seen|unqueue|allow)", rest)
+            m = re.fullmatch(r"(\d+)/(go|merge|rework|discard|seen|unqueue|allow|replan)", rest)
             if m:
                 tid, action = int(m.group(1)), m.group(2)
                 if action == "seen":
@@ -806,6 +899,8 @@ def delegation_api(method: str, path: str, body: Optional[dict]) -> Optional[Tup
                     return 200, {"ok": True}
                 if action == "rework":
                     return 200, {"ok": True, **rework(tid, str((body or {}).get("comment") or ""))}
+                if action == "replan":
+                    return 200, {"ok": True, **replan(tid, str((body or {}).get("comment") or ""))}
                 return 200, {"ok": True, **{"go": go, "merge": merge, "discard": discard,
                                             "unqueue": unqueue, "allow": allow}[action](tid)}
     except (DelegationError, tickets.TicketError) as e:
