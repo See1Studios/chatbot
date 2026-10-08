@@ -354,7 +354,7 @@ function applySessionProvider(info) {
     populateModelsForProvider(pid, mid || undefined);
     renderProviderTray();
     const p = providerCatalog.find(item => item.id === pid);
-    if (p && typeof applyTheme === 'function') applyTheme(themeForProvider(p));
+    if (p && typeof applyBrainTheme === 'function') applyBrainTheme(themeForProvider(p));
   } else if (modelChanged) {
     populateModelsForProvider(pid, mid);
   }
@@ -419,9 +419,9 @@ async function selectProvider(newProviderId) {
     }
     localStorage.setItem('chatbot.provider', newProviderId);
 
-    // Update theme keycolor to match provider
-    if (typeof applyTheme === 'function') {
-      applyTheme(themeForProvider(p));
+    // the lamp follows the brain unless the user chose one (THEME_OWN_v1)
+    if (typeof applyBrainTheme === 'function') {
+      applyBrainTheme(themeForProvider(p));
     }
 
     // Update avatar & title

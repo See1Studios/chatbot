@@ -52,6 +52,7 @@ function populateModelsForProvider(pid, mid) {
 }
 function renderProviderTray() { calls.tray++; }
 function applyTheme() { calls.theme++; }
+function applyBrainTheme() { calls.theme++; }
 function themeForProvider(p) { return p && p.theme; }
 function syncModelUi() {}
 

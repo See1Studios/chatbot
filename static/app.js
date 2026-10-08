@@ -657,8 +657,8 @@ async function boot() {
       providerEl.value = savedProvider;
     }
     const currentEntry = providerCatalog.find(p => p.id === savedProvider);
-    if (currentEntry && typeof applyTheme === 'function') {
-      applyTheme(themeForProvider(currentEntry));
+    if (currentEntry && typeof applyBrainTheme === 'function') {
+      applyBrainTheme(themeForProvider(currentEntry));
     }
     await loadCharacters();
     updateBrandAvatar(savedProvider);

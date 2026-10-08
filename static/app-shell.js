@@ -572,7 +572,7 @@ function shellSettingsOpen() {
         s.title = name;
         s.setAttribute('aria-label', name);
         s.setAttribute('data-theme-choice', name);
-        s.addEventListener('click', () => applyTheme(name));
+        s.addEventListener('click', () => chooseTheme(name));
         sw.appendChild(s);
       });
       box.append(shellEl('span', '', row.label), sw);

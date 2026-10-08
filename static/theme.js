@@ -22,7 +22,20 @@ function applyTheme(themeName) {
   });
 }
 
-const initialTheme = localStorage.getItem('chatbot.themeColor') || 'lime';
+// THEME_OWN_v1: a swatch the user picks is theirs and outlives a brain switch (PRODUCT: personalization survives a
+// provider switch); until they pick one, the lamp follows the brain's catalog theme. applyTheme only paints.
+const THEME_CHOSEN_KEY = 'chatbot.themeChosen';
+function chosenTheme() {
+  try { return localStorage.getItem(THEME_CHOSEN_KEY) || ''; } catch (e) { return ''; }
+}
+function chooseTheme(name) {
+  try { localStorage.setItem(THEME_CHOSEN_KEY, name); } catch (e) {}
+  applyTheme(name);
+}
+function applyBrainTheme(name) { applyTheme(chosenTheme() || name); }
+
+let initialTheme = chosenTheme();
+try { initialTheme = initialTheme || localStorage.getItem('chatbot.themeColor') || 'lime'; } catch (e) { initialTheme = initialTheme || 'lime'; }
 applyTheme(initialTheme);
 
 if (moreMenuBtn && moreMenuEl) {
@@ -43,7 +56,7 @@ if (moreMenuBtn && moreMenuEl) {
     swatch.addEventListener('click', (e) => {
       e.stopPropagation();
       const chosen = swatch.getAttribute('data-theme-choice');
-      applyTheme(chosen);
+      chooseTheme(chosen);
       addActivity(tr('theme.changed', { name: chosen }));
     });
   });
