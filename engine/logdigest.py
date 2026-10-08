@@ -72,6 +72,21 @@ def log_files() -> List[Path]:
     return [p for p in files + [LOG] if p.exists()]
 
 
+def shape(rec: dict) -> dict:
+    """DIGEST_SHAPE_v1 (#831): every reader here takes `err` as a dict and each `routes` value as a dict. Some writers
+    put text in `err` (git.commit_failed), and obslog's size cap cuts a big `routes` to a "…" entry; the digest
+    crashed on both (2026-10-08). Text becomes {"msg": text}; a cut entry is dropped."""
+    if isinstance(rec.get("err"), str):
+        rec["err"] = {"msg": rec["err"]}
+    elif "err" in rec and not isinstance(rec["err"], dict):
+        rec.pop("err")
+    if isinstance(rec.get("routes"), dict):
+        rec["routes"] = {k: v for k, v in rec["routes"].items() if isinstance(v, dict)}
+    elif "routes" in rec:
+        rec.pop("routes")
+    return rec
+
+
 def read_events(since_t: float = 0.0) -> Iterable[dict]:
     for p in log_files():
         try:
@@ -84,7 +99,7 @@ def read_events(since_t: float = 0.0) -> Iterable[dict]:
                     if not line:
                         continue
                     try:
-                        rec = json.loads(line)
+                        rec = shape(json.loads(line))
                         last_t = ts_of(rec) or last_t
                     except ValueError:
                         rec = {"ts": datetime.fromtimestamp(last_t).astimezone().isoformat(timespec="milliseconds"),

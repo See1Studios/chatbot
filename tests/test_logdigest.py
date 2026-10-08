@@ -78,6 +78,18 @@ class DigestTests(unittest.TestCase):
         self.write([(3600, {"src": "watch", "evt": "main.check", "ok": True, "sha": "ccc333", "failed": []})])
         self.assertNotIn("main_red", self.codes(logdigest.digest(6 * 3600)))
 
+    def test_text_errors_and_cut_routes_are_read_without_a_crash(self):
+        # DIGEST_SHAPE_v1 (#831): git.commit_failed wrote err as text, obslog's cap cut routes to a "…" entry
+        self.write([(60, {"src": "chat", "evt": "git.commit_failed", "lvl": "error", "err": "fatal: index.lock"}),
+                    (50, {"src": "chat", "evt": "http.summary", "routes": {"GET /x": {"n": 3, "codes": {"2xx": 3}},
+                                                                       "\u2026": "12 more"}})])
+        d = logdigest.digest(3600)
+        self.assertNotIn("AttributeError", " ".join(f["title"] for f in d["findings"]))
+        self.assertIn("chat GET /x", str(d["http"]))                        # the uncut route still counts
+        rows = list(logdigest.read_events(0))
+        self.assertEqual(rows[0]["err"], {"msg": "fatal: index.lock"})
+        self.assertEqual(list(rows[1]["routes"]), ["GET /x"])
+
     def test_clean_run_is_ok(self):
         self.write([(600, {"src": "chat", "evt": "proc.start"}), (300, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 50}),
                     (10, {"src": "chat", "evt": "proc.heartbeat", "rss_mb": 51})])

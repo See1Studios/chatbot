@@ -7,6 +7,13 @@
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 
+## 2026-10-08 — 로그 요약이 글자 오류·잘린 경로 기록에 넘어지지 않게 (DIGEST_SHAPE_v1, #831)
+
+- **운영자**: "그래" (로그 요약 오류를 고칠까 물음에)
+- **원인**: `git.commit_failed`는 `err`를 글자로, obslog 크기 제한은 큰 `routes`를 "…" 항목으로 남긴다. `logdigest.py`가 둘 다 dict로 읽다가 넘어졌고, 그걸 쓰는 서버의 자기 개선 후보 수집(`evolution.host_candidates`)도 11:32부터 매시간 실패했다.
+- **바뀐 것**: 읽을 때 글자 `err`는 `{"msg": …}`로, 잘린 `routes` 항목은 버린다.
+- **재시작**: 필요 (`logdigest.py`는 서버가 쓴다).
+
 ## 2026-10-08 — 바쁜 날의 기록은 나눠 담는다 (BUSY_DAY_v1, #830)
 
 - **운영자**: "바쁜 날은 나눠 담기"
@@ -308,10 +315,4 @@
 - **바뀐 것**: `README`·`CONCEPT`·`PRODUCT`·`DESIGN`·작업 기록을 저장소 루트로. 에이전트도 늘 읽는 문서다(목표 판단 CONCEPT, 시작 때 작업 기록, impeccable의 PRODUCT·DESIGN). `docs/`에는 `plans/`·`providers/`·`history/`(지난 날짜)만. 경로·상대 링크·일지 도구(`tools/devlog_entry.py`)·검사를 함께 고쳤다.
 - **이름과 합치기**(운영자: "devlog보다는 history가 낫지 않나" · "CHANGELOG.md도 있네"): `DEVLOG.md`는 `HISTORY.md`, 지난 날짜 폴더는 `docs/history/`, 일지 도구는 `tools/history_entry.py`(러너의 일지 커밋은 `docs(history):`). 아직 배포 전이라 거의 비어 있던 `CHANGELOG.md`는 합쳤다 — 그 메모는 `docs/history/2026-10-03.md`로, 릴리스 때 사용자용 `CHANGELOG.md`를 커밋에서 만드는 절차는 `RULES.md` Release.
 - **집행**: `test_entrypoints` — 루트 문서 목록, `docs/` 루트에 낱장 문서 없음.
-
-## 2026-10-08 — ARCHITECTURE.md 내용 복원 (#778)
-
-- **운영자**: "ARCHITECTURE 가 사라졌는데"
-- **원인**: 루트로 옮기며(layout/F) 261줄을 79줄로 다시 쓰면서 어댑터 명세·스프라이트 규칙·플러그인 층·로드맵을 뺐다.
-- **바뀐 것**: 원래 절(레이어, ST 역할 분담, 어댑터 7종, 플러그인 층, 로드맵, 설계 원칙, 거버넌스)을 모두 영어로 되살렸다. 지금 코드와 다른 곳은 코드에 맞췄다(`VisualAdapter`의 실제 메서드, 스프라이트는 `sprites/<framing>/<label>.webp`와 캔버스 크기, 두뇌는 `AgentAdapter`). 코드에 아직 없는 것은 항목마다 planned로 표시.
 
