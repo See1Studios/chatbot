@@ -376,7 +376,8 @@ class AgyAdapter(AgentAdapter):
         if ev == "result":
             res_obj = obj.get("result") if isinstance(obj.get("result"), dict) else {}
             raw_usage = self._turn_usage(session, res_obj)
-            res_err = str(res_obj.get("error") or obj.get("error") or "")
+            res_err = self._fresh_error(session, str(res_obj.get("error") or obj.get("error") or ""),
+                                        str(res_obj.get("status") or ""), session.current_text or text)
             # the operator pressed stop: the CLI's "interrupted" is the stop itself, not a failure to report
             is_err = bool(res_err) and not session._stop_requested
             out_ev = self.finalize_turn(
@@ -428,6 +429,20 @@ class AgyAdapter(AgentAdapter):
             events.append({"event": "provider_event", "text": text, "payload": {k: obj.get(k) for k in list(obj)[:12]}})
 
         return events
+
+    @staticmethod
+    def _fresh_error(session, err: str, status: str, answer) -> str:
+        """STALE_ERROR_v1: agy's result reports the conversation, not the turn -- after one failed turn (a quota hit on
+        the Claude route, 2026-10-08) every later result in that conversation still carries the same error, and each
+        good Gemini answer was stored as failed. The same error text again, on a turn that ended SUCCESS with an
+        answer, is that old one: not this turn's. A first error, a changed one, or a turn with no answer stays."""
+        conv = str(getattr(session, "conversation_id", "") or "")
+        seen = getattr(session, "_agy_seen_error", None)
+        if err:
+            session._agy_seen_error = (conv, err)
+        if err and seen == (conv, err) and status in ("", "SUCCESS") and str(answer or "").strip():
+            return ""
+        return err
 
     def rate_limit_report(self) -> Optional[dict]:
         """`agy --print /usage` -- the CLI's own rate-limit report; unavailable
