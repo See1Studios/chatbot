@@ -67,6 +67,34 @@ class Rollup(unittest.TestCase):
         self.assertEqual(rollup.build_missing(self.log, now), [])
         self.assertEqual(rollup.missing(self.log, "2026-09-30", "2026-10-03"), ["2026-09-30"])   # before the log
 
+    def test_turn_meters_are_summed_and_older_days_get_tokens_from_the_sessions(self):
+        # tl/D: turn.end carries tokens from 2026-10-09; days before it take them from the sessions' usage
+        events = EVENTS + [ev("2026-10-02", 14, "turn.end", sid="s1", provider="agy", model="m", outcome="result",
+                              dur_s=4.0, tool_calls=20, read_kb=43, tok_in=1000, tok_out=50, tok_total=1050)]
+        sessions = Path(self.tmp.name) / "sessions"
+        (sessions / "a").mkdir(parents=True)
+        day1 = time.mktime(time.strptime("2026-10-01 12:00", "%Y-%m-%d %H:%M"))
+        day2 = day1 + 86400
+        (sessions / "a" / "meta.json").write_text(json.dumps({
+            "provider": "agy", "model": "m", "character": "c1",
+            "history": [{"role": "user", "ts": day1, "text": "never read"},
+                        {"role": "assistant", "ts": day1, "usage": {"input_tokens": 700, "total_tokens": 720}},
+                        {"role": "assistant", "ts": day2, "usage": {"input_tokens": 999, "total_tokens": 999}}]}),
+            encoding="utf-8")
+        rollup.build(self.log, events, today="2026-10-03", usage=rollup.session_usage(sessions))
+        t = self.day("2026-10-02")["turns"]["agy|m|work|c1"]
+        self.assertEqual((t["tool_calls"]["max"], t["read_kb"]["max"], t["tokens_from"]), (20.0, 43.0, "turns"))
+        self.assertEqual(t["tokens"], {"tok_in": 1000, "tok_out": 50, "tok_total": 1050})   # not added twice
+        t1 = self.day("2026-10-01")["turns"]["agy|m|work|c1"]
+        self.assertEqual((t1["tokens"], t1["tokens_from"]), ({"tok_in": 700, "tok_total": 720}, "sessions"))
+
+    def test_a_rollup_an_older_version_wrote_is_rebuilt(self):
+        d = rollup.dir_for(self.log)
+        d.mkdir()
+        (d / "2026-10-01.json").write_text(json.dumps({"version": 1}), encoding="utf-8")
+        (d / "2026-10-02.json").write_text(json.dumps({"version": rollup.VERSION}), encoding="utf-8")
+        self.assertEqual(rollup.missing(self.log, "2026-10-01", "2026-10-03"), ["2026-10-01"])
+
     def test_one_builder_at_a_time(self):
         d = rollup.dir_for(self.log)
         d.mkdir()

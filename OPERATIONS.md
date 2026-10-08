@@ -177,7 +177,7 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | evt | lvl | fields |
 |---|---|---|
 | `turn.start` | info | `provider`, `model`, `notice`, `chars`, `resume`, `queued` |
-| `turn.end` | info/warn | `outcome` (`result`, `error`, `stopped`, `interrupted`, `process_died`, `auto_stop`), `dur_s`, `standby`; on failure `stderr_tail`, `error_hint` |
+| `turn.end` | info/warn | `outcome` (`result`, `error`, `stopped`, `interrupted`, `process_died`, `auto_stop`), `dur_s`, `ttft_ms`, `standby`, `tool_calls`, `read_kb`, `tok_in`/`tok_out`/`tok_think`/`tok_cache_read`/`tok_total` (when the provider reports usage); on failure `stderr_tail`, `error_hint` |
 | `turn.loop_notice` / `turn.quiet_close` | warn | loop guard warning / unfinished turn closed quietly |
 | `turn.failfast_failed`, `turn.post_result_stop_failed` | error/warn | `err` |
 | `session.error` | warn | the error the user saw (`msg`) |
@@ -273,7 +273,9 @@ first; it logs `log.archive` when something changed. `logdigest` reads the archi
 (`--since 30d`); the folder comes from `archive.dir_for(log)`, next to the log it belongs to.
 
 Daily rollups (tl/C, `telemetry/rollup.py`): one summary per finished day in `logs/metrics/YYYY-MM-DD.json`, kept
-forever (about 18 KB a day): turns by provider/model/mode/character (outcomes, duration and TTFT percentiles), HTTP
+forever (about 18 KB a day): turns by provider/model/mode/character (outcomes; duration, TTFT, tool calls, read KB
+and input-token percentiles; token sums -- from turn.end since 2026-10-09, before that from the sessions' recorded
+usage, a lower bound since deleted sessions are gone: `tokens_from`), HTTP
 routes, error counts and top fingerprints, process starts and repairs, MCP calls, injected context size, the message
 system (published by type, delivered, first-word reactions and why they waited), session rotations, main checks.
 The background thread fills missing days about once an hour and logs `log.rollup`; by hand

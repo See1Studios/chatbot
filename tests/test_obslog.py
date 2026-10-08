@@ -327,6 +327,24 @@ class TurnEndTests(Base):
         te = next(r for r in recs if r["evt"] == "turn.end")
         self.assertIsNone(te.get("ttft_ms"))
 
+    def test_turn_end_carries_tool_calls_read_kb_and_tokens(self):
+        # telemetry tl/D: what a turn cost, in numbers the engine already has
+        import session
+        sess = session.AgentSession("s3")
+        sess.turn_started_at = 1000.0
+        sess._loop_guard.calls, sess._loop_guard.read_bytes = 20, 43_500
+        usage = {"input_tokens": 1200, "output_tokens": 80, "thinking_tokens": 40, "cache_read_tokens": 900,
+                 "total_tokens": 1320}
+        sess.history = [{"role": "assistant", "ts": 990.0, "usage": dict(usage)},        # the turn before: not this one
+                        {"role": "user", "ts": 1000.0, "text": "x"},
+                        {"role": "assistant", "ts": 1030.0, "usage": usage}]
+        sess._obs_turn_end("result")
+        te = next(r for r in lines(self.path) if r["evt"] == "turn.end")
+        self.assertEqual((te["tool_calls"], te["read_kb"]), (20, 43))
+        self.assertEqual((te["tok_in"], te["tok_out"], te["tok_think"], te["tok_cache_read"], te["tok_total"]),
+                         (1200, 80, 40, 900, 1320))
+        self.assertNotIn("text", te)
+
 
 if __name__ == "__main__":
     unittest.main()

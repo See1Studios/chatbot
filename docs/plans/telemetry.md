@@ -1,7 +1,7 @@
 # 로그 시스템(텔레메트리): 근거가 되는 데이터를 모으고 오래 쌓는다 (telemetry)
 
 > 방향 (align/D, 2026-10-09): **개발 기반** — 오류 수정·경로 최적화·토큰과 응답 속도·기억 최적화를 데이터로 깎으려면, 양과 시간축 둘 다 충분한 수집이 먼저다. 개선 고리([improvement-layers.md](improvement-layers.md))의 근거(D2: 데이터만)가 여기서 나온다
-> 상태: **active** (2026-10-09 수립, D1–D4 2026-10-09 운영자: 추천대로. tl/A 끝(#836), tl/B 끝(#837), tl/C 끝(#841). 운영자: "근거 수집 도구가 중요… 데이터 양 뿐 아니라 시간축으로도 충분한 데이터를 쌓을 필요", "로그 시스템도 대형 피쳐로 별도 분리", "메시지 시스템하고의 연계도 신경써야")
+> 상태: **active** (2026-10-09 수립, D1–D4 2026-10-09 운영자: 추천대로. tl/A 끝(#836), tl/B 끝(#837), tl/C 끝(#841), tl/D 일부 끝(#844). 운영자: "근거 수집 도구가 중요… 데이터 양 뿐 아니라 시간축으로도 충분한 데이터를 쌓을 필요", "로그 시스템도 대형 피쳐로 별도 분리", "메시지 시스템하고의 연계도 신경써야")
 > 흡수: 계획 없이 올라온 `metrics/A`(#826, 운영자 거절 10-08 23:49; 같은 크래시는 #831이 고침, `--latency`는 `tl/H`로)·`metrics/B`(#827, TTFT, 진행 중)는 이 계획의 `tl/D`다. 앞으로 지표 티켓은 `tl/*`로 연다.
 > 관련: [improvement-layers.md](improvement-layers.md)(이 데이터를 쓰는 개선 고리) · [token-economy.md](token-economy.md)(토큰 대책 — 측정은 이 계획의 지표로) · `OPERATIONS.md` Logging(OBSLOG_v1, 현행 규격의 정본)
 
@@ -98,7 +98,7 @@ improvement-layers §3의 `engine/health/`는 이 패키지를 **읽기만** 한
 | `tl/A` | `engine/telemetry/` 패키지로 `obslog`·`logdigest` 이동 + 루트 모듈 ratchet(improvement-layers il/C와 같은 장치) — **끝 (#836)**: 루트 모듈 상한 `tests/test_code_layout.py` `TOP_LEVEL_MAX`, 가드들이 각자 들고 있던 코드 폴더 목록을 `tests/_paths.py` `CODE_DIRS` 하나로 | 호출부 전부 바뀜, 로그 탭·CLI 동작 그대로 |
 | `tl/B` | 원본 보관: 회전에서 밀려나는 파일을 gzip 보관, 기한·용량 정리 — **끝 (#837)**: `telemetry/archive.py`, 날짜별 파일 대신 회전 단위 파일(이름에 마지막 줄 시각), 날짜 구분은 `tl/C` 요약이 맡는다 | 90일(D1) 원본이 남는다 |
 | `tl/C` | 날짜별 요약 + 기존 원본(09-23부터)·세션 토큰 backfill — **끝 (#841)**: `telemetry/rollup.py`, 한 시간마다 빠진 날을 채움(`log.rollup`), 턴의 캐릭터·모드는 세션의 `context.inject`에서 이어 붙임. 토큰 backfill은 `tl/D`로(턴 기록에 토큰이 생긴 뒤) | `metrics/`에 하루 한 파일 |
-| `tl/D` | 턴 기록 풍부화: TTFT(#827 흡수), 토큰, 도구 수, 단계 시간 — 어댑터 공통 형식 | `turn.end`만으로 속도·토큰 질문에 답한다 |
+| `tl/D` | 턴 기록 풍부화: TTFT(#827 흡수), 토큰, 도구 수, 단계 시간 — 어댑터 공통 형식 — **토큰·도구·읽은 양 끝 (#844)**: `turn.end`에 `tool_calls`·`read_kb`·`tok_in/out/think/cache_read/total`(어댑터의 `normalize_usage` 합), 요약에 합·백분위, 그 전 날은 세션 사용량으로 채움(남은 세션만 — 하한). 단계 시간(대기·spawn·도구)은 남음 | `turn.end`만으로 속도·토큰 질문에 답한다 |
 | `tl/E` | 기억 이벤트 | 회상·저장이 지표로 |
 | `tl/F` | 오류 형식 통일(쓰는 쪽), 위임 사용량 이벤트 | `err`는 언제나 dict |
 | `tl/G` | 메시지 지표: 전달 지연, 먼저 말 걸기 결과, 읽힘 | 알림 경로의 건강을 숫자로 |

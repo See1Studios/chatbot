@@ -14,7 +14,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from providers.adapters import _persona_system_prompt, get_adapter
 from private_engine import tension_meta
@@ -639,6 +639,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                           dur_s=round(_now() - started, 1) if started else None,
                           ttft_ms=getattr(self, "ttft_ms", None),
                           standby=bool(getattr(self, "_adopted_standby", False)))
+            fields.update(self._turn_meters(started))   # telemetry tl/D
             if not ok:
                 tail = list(getattr(self, "_stderr_tail", []) or [])[-8:]
                 if tail:
@@ -649,6 +650,31 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
             obslog.event("turn.end", lvl="info" if ok or outcome in ("stopped", "interrupted") else "warn", **fields)
         except Exception:  # noqa: BLE001 -- logging must never disturb a turn
             pass
+
+    _TOKEN_FIELDS = (("input_tokens", "tok_in"), ("output_tokens", "tok_out"), ("thinking_tokens", "tok_think"),
+                     ("cache_read_tokens", "tok_cache_read"), ("total_tokens", "tok_total"))
+
+    def _turn_meters(self, started: float) -> Dict[str, Any]:
+        """telemetry tl/D: this turn's tool calls and read KB (the loop guard counts them and resets at the next turn)
+        and its tokens -- the adapters' canonical usage on the answers it added (normalize_usage), summed. Numbers only;
+        a provider that reports no usage leaves the token fields out."""
+        out: Dict[str, Any] = {}
+        g = getattr(self, "_loop_guard", None)
+        if g is not None:
+            out["tool_calls"] = int(g.calls)
+            out["read_kb"] = int(g.read_bytes // 1000)
+        sums: Dict[str, int] = {}
+        for h in reversed(self.history or []):
+            ts = h.get("ts")
+            if isinstance(ts, (int, float)) and started and ts < started - 1:
+                break
+            u = h.get("usage") if h.get("role") == "assistant" else None
+            if isinstance(u, dict):
+                for src, dst in self._TOKEN_FIELDS:
+                    if isinstance(u.get(src), (int, float)):
+                        sums[dst] = sums.get(dst, 0) + int(u[src])
+        out.update(sums)
+        return out
 
     # TURN_END_ORDER_v1: stop child only after terminal events are flushed.
     def _request_post_result_stop(self, status: str, err: str, duration: float) -> None:

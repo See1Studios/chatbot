@@ -29,8 +29,11 @@ if __package__ in (None, ""):   # run as a script: the engine folder is the impo
 
 import platform_compat
 
-VERSION = 1
+VERSION = 2   # 2: tokens, tool calls and read KB per turn group (tl/D)
 TOP_FP = 20
+TOKENS = ("tok_in", "tok_out", "tok_think", "tok_cache_read", "tok_total")
+USAGE_TO_TOKENS = (("input_tokens", "tok_in"), ("output_tokens", "tok_out"), ("thinking_tokens", "tok_think"),
+                   ("cache_read_tokens", "tok_cache_read"), ("total_tokens", "tok_total"))
 
 
 def dir_for(log_path) -> Path:
@@ -67,6 +70,21 @@ class Day:
                                          "room_turns": 0}
         self.sessions: Dict[str, Any] = {"spawn": 0, "rotate": defaultdict(int)}
         self.main: Dict[str, int] = {"checks": 0, "red": 0}
+        self.turn_tokens_seen = False   # a day whose turn.end lines carry tokens is never backfilled
+
+    def _group(self, key: str) -> Dict[str, Any]:
+        return self.turns.setdefault(key, {"outcomes": defaultdict(int), "dur_s": [], "ttft_ms": [], "tool_calls": [],
+                                           "read_kb": [], "tok": defaultdict(int), "tok_in": [], "tok_source": ""})
+
+    def add_usage(self, key: str, usage: Dict[str, Any]) -> None:
+        """A turn's tokens from a session's history (backfill for days before turn.end carried them)."""
+        t = self._group(key)
+        t["tok_source"] = "sessions"
+        for src, dst in USAGE_TO_TOKENS:
+            if isinstance(usage.get(src), (int, float)):
+                t["tok"][dst] += int(usage[src])
+        if isinstance(usage.get("input_tokens"), (int, float)):
+            t["tok_in"].append(float(usage["input_tokens"]))
 
     def add(self, e: Dict[str, Any], who: Dict[str, Dict[str, str]]) -> None:
         evt = str(e.get("evt") or "")
@@ -85,12 +103,19 @@ class Day:
             w = who.get(str(e.get("sid") or ""), {})
             key = "|".join([str(e.get("provider") or ""), str(e.get("model") or ""), w.get("mode", ""),
                             w.get("character", "")])
-            t = self.turns.setdefault(key, {"outcomes": defaultdict(int), "dur_s": [], "ttft_ms": []})
+            t = self._group(key)
             t["outcomes"][str(e.get("outcome") or "")] += 1
-            if isinstance(e.get("dur_s"), (int, float)):
-                t["dur_s"].append(float(e["dur_s"]))
-            if isinstance(e.get("ttft_ms"), (int, float)):
-                t["ttft_ms"].append(float(e["ttft_ms"]))
+            for f in ("dur_s", "ttft_ms", "tool_calls", "read_kb"):
+                if isinstance(e.get(f), (int, float)):
+                    t[f].append(float(e[f]))
+            if any(isinstance(e.get(f), (int, float)) for f in TOKENS):
+                self.turn_tokens_seen = True
+                t["tok_source"] = "turns"
+                for f in TOKENS:
+                    if isinstance(e.get(f), (int, float)):
+                        t["tok"][f] += int(e[f])
+                if isinstance(e.get("tok_in"), (int, float)):
+                    t["tok_in"].append(float(e["tok_in"]))
         elif evt == "http.summary":
             for route, s in (e.get("routes") or {}).items():
                 if not isinstance(s, dict):
@@ -142,7 +167,9 @@ class Day:
         for key, t in sorted(self.turns.items()):
             provider, model, mode, character = key.split("|", 3)
             turns[key] = {"provider": provider, "model": model, "mode": mode, "character": character,
-                          "outcomes": dict(t["outcomes"]), "dur_s": _dist(t["dur_s"]), "ttft_ms": _dist(t["ttft_ms"])}
+                          "outcomes": dict(t["outcomes"]), "dur_s": _dist(t["dur_s"]), "ttft_ms": _dist(t["ttft_ms"]),
+                          "tool_calls": _dist(t["tool_calls"]), "read_kb": _dist(t["read_kb"]),
+                          "tokens": dict(t["tok"]), "tok_in": _dist(t["tok_in"]), "tokens_from": t["tok_source"]}
         fps = sorted(self.errors["by_fp"].items(), key=lambda kv: -kv[1])[:TOP_FP]
         return {"version": VERSION, "day": day, "generated": int(time.time()), "events": self.events,
                 "by_evt": dict(sorted(self.by_evt.items(), key=lambda kv: -kv[1])),
@@ -156,9 +183,25 @@ class Day:
                 "messages": plain(self.messages), "sessions": plain(self.sessions), "main": dict(self.main)}
 
 
+def session_usage(sessions_dir) -> Iterable[tuple]:
+    """(day, turn group key, usage) for every answer with usage in the sessions' histories: tokens for the days before
+    turn.end carried them (tl/D backfill). Reads meta.json numbers and ids only, never a message's text."""
+    for p in sorted(Path(sessions_dir).glob("*/meta.json")):
+        try:
+            m = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        key = "|".join([str(m.get("provider") or ""), str(m.get("model") or ""), str(m.get("mode") or "work"),
+                        str(m.get("character") or "")])
+        for h in m.get("history") or []:
+            if h.get("role") == "assistant" and isinstance(h.get("usage"), dict) and isinstance(h.get("ts"), (int, float)):
+                yield time.strftime("%Y-%m-%d", time.localtime(h["ts"])), key, h["usage"]
+
+
 def build(log_path, events: Iterable[Dict[str, Any]], days: Optional[Iterable[str]] = None,
-          today: Optional[str] = None) -> List[str]:
-    """Write a rollup for each finished day in `events` (only `days`, when given). Returns the days written."""
+          today: Optional[str] = None, usage: Optional[Iterable[tuple]] = None) -> List[str]:
+    """Write a rollup for each finished day in `events` (only `days`, when given). `usage`: session_usage() rows,
+    applied only to days whose turn.end lines carry no tokens. Returns the days written."""
     today = today or time.strftime("%Y-%m-%d")
     want = set(days) if days is not None else None
     acc: Dict[str, Day] = {}
@@ -170,6 +213,9 @@ def build(log_path, events: Iterable[Dict[str, Any]], days: Optional[Iterable[st
                 who[e["sid"]] = {"character": str(e.get("character") or ""), "mode": str(e.get("mode") or "")}
             continue
         acc.setdefault(day, Day()).add(e, who)
+    for day, key, u in usage or ():
+        if day in acc and not acc[day].turn_tokens_seen:
+            acc[day].add_usage(key, u)
     d = dir_for(log_path)
     d.mkdir(parents=True, exist_ok=True)
     for day, a in sorted(acc.items()):
@@ -180,8 +226,16 @@ def build(log_path, events: Iterable[Dict[str, Any]], days: Optional[Iterable[st
     return sorted(acc)
 
 
+def _version(path: Path) -> int:
+    try:
+        return int(json.loads(path.read_text(encoding="utf-8")).get("version") or 0)
+    except (OSError, ValueError, AttributeError):
+        return 0
+
+
 def missing(log_path, first_day: str, today: Optional[str] = None) -> List[str]:
-    """Finished days from `first_day` to yesterday that have no rollup yet."""
+    """Finished days from `first_day` to yesterday with no rollup, or one an older VERSION wrote (rebuilt while the
+    raw events still exist)."""
     today = today or time.strftime("%Y-%m-%d")
     t = time.mktime(time.strptime(first_day, "%Y-%m-%d")) + 43200   # noon: no DST edge
     out = []
@@ -189,7 +243,7 @@ def missing(log_path, first_day: str, today: Optional[str] = None) -> List[str]:
         day = time.strftime("%Y-%m-%d", time.localtime(t))
         if day >= today:
             return out
-        if not (dir_for(log_path) / ("%s.json" % day)).exists():
+        if _version(dir_for(log_path) / ("%s.json" % day)) < VERSION:   # absent, or written by an older rollup
             out.append(day)
         t += 86400
 
@@ -220,7 +274,8 @@ def build_missing(log_path, now: Optional[float] = None) -> List[str]:
             if not want:
                 return []
             since = time.mktime(time.strptime(want[0], "%Y-%m-%d")) - 86400   # a day early: session characters
-            return build(log_path, logdigest.read_events(since), want, today)
+            import host_config
+            return build(log_path, logdigest.read_events(since), want, today, session_usage(host_config.SESSIONS))
         finally:
             logdigest.LOG = saved
             platform_compat.unlock_file(lock)
@@ -242,6 +297,7 @@ def load(log_path, days: int = 7, now: Optional[float] = None) -> List[Dict[str,
 
 def _line(r: Dict[str, Any]) -> str:
     turns = list(r.get("turns", {}).values())
+    tok = sum(int((t.get("tokens") or {}).get("tok_total", 0)) for t in turns)
     n = sum(sum(t["outcomes"].values()) for t in turns)
     bad = sum(sum(v for k, v in t["outcomes"].items() if k not in ("result", "stopped", "interrupted")) for t in turns)
     dur = [t["dur_s"]["p95"] for t in turns if t["dur_s"]["p95"] is not None]
@@ -249,8 +305,8 @@ def _line(r: Dict[str, Any]) -> str:
     slow = max(((k, v) for k, v in r.get("http", {}).items() if not k.endswith("/events")),   # a stream stays open
                key=lambda kv: kv[1]["p95_worst"], default=(None, None))
     m = r.get("messages", {})
-    return ("%s  turns %4d fail %3d  dur_p95 %6s  ttft_p95 %6s  errors %3d  chat_starts %2d  react %d/defer %d  "
-            "slowest %s" % (r["day"], n, bad, max(dur) if dur else "-", max(ttft) if ttft else "-",
+    return ("%s  turns %4d fail %3d  dur_p95 %6s  ttft_p95 %6s  tokens %6.1fM  errors %3d  chat_starts %2d  react %d/defer %d  "
+            "slowest %s" % (r["day"], n, bad, max(dur) if dur else "-", max(ttft) if ttft else "-", tok / 1e6,
                             r["errors"]["error"], r["proc"]["starts"].get("chat", 0),
                             m.get("react_turn", 0), sum((m.get("react_defer") or {}).values()),
                             "%s %.0fms" % (slow[0], slow[1]["p95_worst"]) if slow[0] else "-"))
