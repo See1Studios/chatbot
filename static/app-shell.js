@@ -9,7 +9,7 @@ const SHELL_TEXT = i18nTable('shelltext');   // I18N_v1: words by key from the c
 const SHELL_NARROW = 940;   // px, the same number as shell.css: below it the chat keeps the whole width it has today
 // ready: the first load is in (rows drawn before it would show a guess, then jump). nodes: the rows on screen.
 let shellState = { sessions: [], talks: null, filter: '', timer: 0, loading: false, ready: false, nodes: new Map(),
-  pending: '', want: null, switching: false, paneFrom: '', teamOnly: '', statusOnly: '' };   // pending: the row just picked, shown as open before it is
+  pending: '', want: null, switching: false, paneFrom: '', teamOnly: '', teamSection: '', statusOnly: '' };   // pending: the row just picked, shown as open before it is
 
 function shellOn() { return document.documentElement.classList.contains('shell2'); }
 function shellNarrow() { return window.innerWidth <= SHELL_NARROW; }
@@ -348,8 +348,9 @@ function shellSetDev(on) {
   document.body.classList.toggle('dev-mode', Boolean(on));
   try { localStorage.setItem(SHELL_DEV_KEY, on ? '1' : '0'); } catch (_) { /* private window */ }
 }
-const SHELL_PANES = { artifacts: 'files', sessions: 'history', activity: 'log', status: 'accounts', team: 'team', evolution: 'improve' };
+const SHELL_PANES = { artifacts: 'files', sessions: 'history', activity: 'log', status: 'accounts', team: 'characters', evolution: 'improve', appearance: 'appearance' };
 const STATUS_SECTIONS = ['accounts', 'instructions', 'skills', 'mcp'];
+const TEAM_SECTIONS = ['characters', 'roles', 'auto_react'];
 function shellProfileRows(ctx) {
   // "pictures" is one place: the character's art screen shows them, takes uploads and asks for new ones (app-art.js)
   const rows = ctx.art ? [{ k: 'art', label: SHELL_TEXT.art }] : [];
@@ -370,27 +371,63 @@ function shellModelOptions(choices, current) {
   return (choices || []).map(m => ({ value: m.value, label: m.label || m.value, current: m.value === current }));
 }
 function shellSettingsRows(ctx) {
-  const hasStream = Boolean((ctx && ctx.streamStyle) || typeof getStreamStyle === 'function');
-  const st = (ctx && typeof ctx.streamStyle === 'string') ? ctx.streamStyle : (typeof getStreamStyle === 'function' ? getStreamStyle() : 'char');
-  const rows = [{ k: 'details', label: SHELL_TEXT.details, on: Boolean(ctx.advanced) }];
-  if (hasStream) rows.push({ k: 'streamStyle', label: SHELL_TEXT.streamStyle, detail: st === 'line' ? SHELL_TEXT.streamLine : SHELL_TEXT.streamChar });
-  rows.push({ k: 'theme', label: SHELL_TEXT.theme },
+  const rows = [
+    { k: 'appearance', label: SHELL_TEXT.appearance },
     { k: 'accounts', label: SHELL_TEXT.accounts },
+    { k: 'characters', label: SHELL_TEXT.characters },
+    { k: 'roles', label: SHELL_TEXT.roles },
+    { k: 'auto_react', label: SHELL_TEXT.auto_react },
     { k: 'instructions', label: SHELL_TEXT.instructions },
     { k: 'skills', label: SHELL_TEXT.skills },
     { k: 'mcp', label: SHELL_TEXT.mcp },
-    { k: 'team', label: SHELL_TEXT.team },
     { k: 'dev', label: SHELL_TEXT.dev, on: Boolean(ctx.dev) },
-    { k: 'activity', label: SHELL_TEXT.log, dev: true }, { k: 'evolution', label: SHELL_TEXT.improve, dev: true });
+    { k: 'activity', label: SHELL_TEXT.log, dev: true },
+    { k: 'evolution', label: SHELL_TEXT.improve, dev: true }
+  ];
   if (ctx.revive) rows.push({ k: 'revive', label: SHELL_TEXT.revive });   // the dev install's host repair
   return rows;
+}
+const SHELL_ICONS = {
+  appearance: '<circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
+  accounts: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
+  characters: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  roles: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  auto_react: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  instructions: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
+  skills: '<path d="M20.5 12.5a2.5 2.5 0 0 1-2.5 2.5h-1v1a2.5 2.5 0 0 1-5 0v-1H8a2.5 2.5 0 0 1-2.5-2.5v-4A2.5 2.5 0 0 1 8 6h4v1a2.5 2.5 0 0 0 5 0V6h1a2.5 2.5 0 0 1 2.5 2.5v4z"/>',
+  mcp: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
+  dev: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+  activity: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+  evolution: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  revive: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  art: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
+  sessions: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  artifacts: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  manage: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+};
+function shellRowIcon(k) {
+  const body = SHELL_ICONS[k];
+  if (!body) return null;
+  const svg = (document.createElementNS && document.createElementNS('http://www.w3.org/2000/svg', 'svg')) || document.createElement('svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('class', 'btn-icon-svg');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = body;
+  return svg;
 }
 function shellRowButton(row) {
   const b = shellEl('button', 'shell-rowbtn' + (row.dev ? ' shell-dev' : '') + (row.on ? ' on' : ''));
   b.type = 'button';
   b.setAttribute('data-k', row.k);
-  b.appendChild(shellEl('span', '', row.label));
-  if (row.k === 'details' || row.k === 'dev') {
+  const left = shellEl('span', 'shell-rowbtn-left');
+  left.style.display = 'inline-flex';
+  left.style.alignItems = 'center';
+  left.style.gap = '.6rem';
+  const icon = shellRowIcon(row.k);
+  if (icon) left.appendChild(icon);
+  left.appendChild(shellEl('span', '', row.label));
+  b.appendChild(left);
+  if (row.k === 'dev') {
     b.setAttribute('role', 'switch');
     b.setAttribute('aria-checked', String(Boolean(row.on)));
     b.appendChild(shellEl('span', 'switch-ui'));
@@ -440,19 +477,52 @@ async function shellGoArt(cid) {
 // from that character's profile; what is shared -- role packs, the house memory, reactions, importing a card --
 // stays in the settings. One pane, filtered: `only` is the character whose card alone is shown, or '' for the
 // shared part. A block of the pane carries the character's id (app-team.js) or none.
-function shellTeamShows(blockCharacter, only) {
-  return only ? blockCharacter === only : !blockCharacter;
+function shellTeamShows(block, sec, only) {
+  if (arguments.length === 2 && typeof block === 'string') {
+    const onlyCid = sec;
+    return onlyCid ? block === onlyCid : !block;
+  }
+  if (block && typeof block.getAttribute === 'function') {
+    const cid = block.getAttribute('data-character-id') || '';
+    if (only) return cid === only;
+    const s = block.getAttribute('data-team-section') || '';
+    return s === (sec || 'characters');
+  }
+  const cid = block || '';
+  if (only) return cid === only;
+  return sec ? (sec === 'characters' ? Boolean(cid) : false) : !cid;
 }
 function shellTeamFilter() {
   const pane = document.getElementById('teamPane'), list = document.getElementById('teamList');
   if (!pane || !list || !shellOn()) return;
-  const only = shellState.teamOnly;
+  const only = shellState.teamOnly, sec = shellState.teamSection || 'characters';
   if (only) pane.setAttribute('data-shell-only', only); else pane.removeAttribute('data-shell-only');
-  Array.prototype.forEach.call(list.children, n => { n.hidden = !shellTeamShows(n.getAttribute('data-character-id') || '', only); });
+  pane.setAttribute('data-shell-section', sec);
+  Array.prototype.forEach.call(list.children, n => { n.hidden = !shellTeamShows(n, sec, only); });
+  const charActions = document.getElementById('teamCharActions');
+  if (charActions) charActions.hidden = Boolean(only || sec !== 'characters');
+  const titleEl = document.getElementById('teamHeadTitle');
+  if (titleEl) {
+    titleEl.textContent = only ? (SHELL_TEXT.manage || '') : (SHELL_TEXT[sec] || SHELL_TEXT.team || '');
+  }
+  const hintEl = document.getElementById('teamHeadHint');
+  if (hintEl) {
+    if (only) hintEl.textContent = '';
+    else if (sec === 'characters') hintEl.textContent = typeof tr === 'function' ? tr('team.hint') : '';
+    else if (sec === 'roles') hintEl.textContent = typeof tr === 'function' ? tr('team.shared_hint') : '';
+    else if (sec === 'auto_react') hintEl.textContent = (typeof AUTO_TEXT !== 'undefined' && AUTO_TEXT.hint) || (typeof tr === 'function' ? tr('team.auto.hint') : '');
+  }
 }
 function shellGoTeam(cid, from) {
   shellState.teamOnly = cid || '';
+  shellState.teamSection = '';
   shellTeamFilter();                 // what is drawn already, at once; loadTeam() redraws and the wrap filters again
+  shellGoPane('team', from);
+}
+function shellGoTeamSection(sec, from) {
+  shellState.teamOnly = '';
+  shellState.teamSection = sec || 'characters';
+  shellTeamFilter();
   shellGoPane('team', from);
 }
 function shellStatusShows(sec, only) { return only ? sec === only : true; }
@@ -470,6 +540,59 @@ function shellGoStatus(sec, from) {
   shellState.statusOnly = sec || 'accounts';
   shellStatusFilter();
   shellGoPane('status', from);
+}
+function shellAppearanceDraw() {
+  const p = document.getElementById('appearancePane');
+  if (!p) return;
+  const nowTheme = document.documentElement.getAttribute('data-theme') || '';
+  const swatches = p.querySelectorAll('#appearanceThemeSwatches .theme-swatch');
+  swatches.forEach(s => {
+    const name = s.getAttribute('data-theme-choice');
+    s.classList.toggle('active', name === nowTheme);
+    if (typeof tr === 'function') {
+      s.title = tr('theme.' + name);
+      s.setAttribute('aria-label', s.title);
+    }
+    if (!s._bound) {
+      s._bound = true;
+      s.addEventListener('click', () => {
+        if (typeof chooseTheme === 'function') chooseTheme(name);
+        shellAppearanceDraw();
+      });
+    }
+  });
+
+  const isAdv = document.body.classList.contains('density-advanced');
+  const densitySwitch = document.getElementById('appearanceDensitySwitch');
+  const densityRow = document.getElementById('appearanceDensityRow');
+  if (densitySwitch) {
+    densitySwitch.classList.toggle('on', isAdv);
+    densitySwitch.setAttribute('aria-checked', String(isAdv));
+  }
+  if (densityRow && !densityRow._bound) {
+    densityRow._bound = true;
+    densityRow.addEventListener('click', () => {
+      if (typeof setDensity === 'function') setDensity(!document.body.classList.contains('density-advanced'));
+      shellAppearanceDraw();
+    });
+  }
+
+  const curSt = typeof getStreamStyle === 'function' ? getStreamStyle() : 'char';
+  const streamBtn = document.getElementById('appearanceStreamBtn');
+  const streamRow = document.getElementById('appearanceStreamRow');
+  const streamHint = document.getElementById('appearanceStreamHint');
+  const isLine = curSt === 'line';
+  const label = isLine ? SHELL_TEXT.streamLine : SHELL_TEXT.streamChar;
+  if (streamBtn) streamBtn.textContent = label || (isLine ? 'line' : 'char');
+  if (streamHint) streamHint.textContent = label || '';
+  if (streamRow && !streamRow._bound) {
+    streamRow._bound = true;
+    streamRow.addEventListener('click', () => {
+      const next = (typeof getStreamStyle === 'function' ? getStreamStyle() : 'char') === 'line' ? 'char' : 'line';
+      if (typeof setStreamStyle === 'function') setStreamStyle(next);
+      shellAppearanceDraw();
+    });
+  }
 }
 function shellArtGone() {
   const m = document.getElementById('artManager');
@@ -532,7 +655,7 @@ function shellProfileOpen() {
 // The row of the pane shown in the middle is marked in the card and in the settings.
 function shellMarkPane() {
   let now = document.documentElement.dataset.tab || 'chat';
-  if (now === 'team') now = shellState.teamOnly ? 'manage' : 'team';      // one pane, two rows
+  if (now === 'team') now = shellState.teamOnly ? 'manage' : (shellState.teamSection || 'characters');
   else if (now === 'status') now = shellState.statusOnly || 'accounts';
   document.querySelectorAll('.shell-rowbtn[data-k]').forEach(b => b.classList.toggle('current', b.getAttribute('data-k') === now));
 }
@@ -585,34 +708,13 @@ function shellSettingsOpen() {
   panel.textContent = '';
   const list = shellEl('div', 'shell-rows');
   rows.forEach(row => {
-    if (row.k === 'theme') {
-      const box = shellEl('div', 'shell-theme'), sw = shellEl('div', 'shell-swatches');
-      const now = document.documentElement.getAttribute('data-theme');
-      (typeof THEMES !== 'undefined' ? THEMES : []).forEach(name => {
-        const s = shellEl('button', 'theme-swatch' + (name === now ? ' active' : ''));
-        s.type = 'button';
-        s.title = tr('theme.' + name);
-        s.setAttribute('aria-label', s.title);
-        s.setAttribute('data-theme-choice', name);
-        s.addEventListener('click', () => chooseTheme(name));
-        sw.appendChild(s);
-      });
-      box.append(shellEl('span', '', row.label), sw);
-      list.appendChild(box);
-      return;
-    }
     const b = shellRowButton(row);
     b.addEventListener('click', () => {
-      if (row.k === 'team') return shellGoTeam('', 'settings');
+      if (row.k === 'appearance') return shellGoPane('appearance', 'settings');
+      if (TEAM_SECTIONS.includes(row.k)) return shellGoTeamSection(row.k, 'settings');
       if (STATUS_SECTIONS.includes(row.k)) return shellGoStatus(row.k, 'settings');
       if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'settings');
-      if (row.k === 'details') { setDensity(!document.body.classList.contains('density-advanced')); shellSettingsOpen(); }
-      else if (row.k === 'streamStyle') {
-        const cur = typeof getStreamStyle === 'function' ? getStreamStyle() : 'char';
-        if (typeof setStreamStyle === 'function') setStreamStyle(cur === 'line' ? 'char' : 'line');
-        shellSettingsOpen();
-      }
-      else if (row.k === 'dev') {
+      if (row.k === 'dev') {
         shellSetDev(!shellDevOn());
         // turned off while one of its panes is shown: back to the talk
         if (!shellDevOn() && (currentTab === 'activity' || currentTab === 'evolution')) { shellState.paneFrom = ''; switchTab('chat'); }
@@ -668,9 +770,15 @@ function shellPanelsInit() {
   switchTab = function (t) {
     tab.apply(this, arguments);
     const now = document.documentElement.dataset.tab || t;
+    const appPane = document.getElementById('appearancePane');
+    if (appPane) appPane.style.display = (now === 'appearance' ? 'flex' : 'none');
+    if (now === 'appearance') shellAppearanceDraw();
     if (now === 'status') shellStatusFilter();
+    if (now === 'team') shellTeamFilter();
     const title = now === 'art' ? SHELL_TEXT.art
+      : now === 'appearance' ? SHELL_TEXT.appearance
       : now === 'team' && shellState.teamOnly ? SHELL_TEXT.manage
+      : now === 'team' ? (SHELL_TEXT[shellState.teamSection || 'characters'] || SHELL_TEXT.characters)
       : now === 'status' ? (SHELL_TEXT[shellState.statusOnly || 'accounts'] || SHELL_TEXT.accounts)
       : SHELL_TEXT[SHELL_PANES[now]];
     shellSet(bar.querySelector('.shell-pane-title'), title || '');

@@ -19,8 +19,9 @@ async function loadTeam() {
   teamListEl.textContent = '';
   (team.experts || []).forEach(ex => teamListEl.appendChild(renderTeamCard(ex, team, files)));
   if (team.auto_react && team.auto_react.choices) teamListEl.appendChild(renderAutoReact(team.auto_react));
-  // TEAM_ROLES_v2: what a role is (its pack) and what everyone reads (the house memory), after the characters
+  // TEAM_ROLES_v2: what a role is (its pack)
   const shared = obsNode('div', 'status-item team-card');
+  shared.setAttribute('data-team-section', 'roles');
   shared.appendChild(obsNode('div', 'status-item-head', tr('team.shared_head')));
   shared.appendChild(obsNode('div', 'status-hint', tr('team.shared_hint')));
   (team.roles || []).forEach(r => {
@@ -36,11 +37,6 @@ async function loadTeam() {
       }
     });
   });
-  if (files['MEMORY.md']) {
-    const sub = renderInstruction(Object.assign({}, files['MEMORY.md'], { title: tr('team.house_memory') }), false);
-    sub.classList.add('team-sub');
-    shared.appendChild(sub);
-  }
   teamListEl.appendChild(shared);
 }
 
@@ -110,6 +106,7 @@ function autoReactBody(cfg, picked, perHour, quietFrom, quietTo) {
 
 function renderAutoReact(cfg) {
   const card = obsNode('div', 'status-item team-card');
+  card.setAttribute('data-team-section', 'auto_react');
   card.appendChild(obsNode('div', 'status-item-head', AUTO_TEXT.head));
   card.appendChild(obsNode('div', 'status-hint', AUTO_TEXT.hint));
   const picked = {};
@@ -145,6 +142,7 @@ function renderAutoReact(cfg) {
 function renderTeamCard(ex, team, files) {
   const card = obsNode('div', 'status-item team-card');
   card.setAttribute('data-character-id', ex.id || '');   // the shell shows one character's card from its profile (app-shell.js)
+  card.setAttribute('data-team-section', 'characters');
   const head = obsNode('div', 'status-item-head');
   head.appendChild(obsNode('span', 'status-item-name', ex.name + (ex.title ? ' · ' + ex.title : '')));
   const chips = obsNode('span', 'team-role-chips');

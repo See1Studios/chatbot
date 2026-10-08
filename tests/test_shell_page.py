@@ -107,7 +107,8 @@ return (async () => {
     plusPrivate: shellPlusList({ private: true, attach: 'item', geo: { label: 'geo', on: false }, slash: 'cmd' }),
     plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
     text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'brain', 'more', 'act', 'menu', 'online',
-      'profile', 'settings', 'back2', 'close', 'dev', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'instructions', 'skills', 'mcp', 'team', 'manage', 'improve', 'revive'].every(k => SHELL_TEXT[k]),
+      'profile', 'settings', 'back2', 'close', 'dev', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'instructions', 'skills', 'mcp', 'team', 'manage', 'improve', 'revive',
+      'appearance', 'auto_react', 'characters', 'roles'].every(k => SHELL_TEXT[k]),
   };
   // drawing: nothing before the first load; then rows are kept and updated in place
   shellListDraw();
@@ -332,27 +333,27 @@ class ShellList(unittest.TestCase):
         card = [r["k"] for r in o["profile"]]
         gear = [r["k"] for r in o["settings"]]
         self.assertEqual(card, ["art", "sessions", "artifacts", "manage"])      # the character's own things
-        self.assertEqual(gear, ["details", "theme", "accounts", "instructions", "skills", "mcp", "team", "dev", "activity", "evolution", "revive"])
-        self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(["activity", "artifacts", "evolution", "sessions", "team"]))
+        self.assertEqual(gear, ["appearance", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "dev", "activity", "evolution", "revive"])
+        self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(["activity", "appearance", "artifacts", "evolution", "sessions"]))
         # the team pane is in two: one character's card from its profile, the shared part from the settings
         self.assertEqual(o["teamShows"], [True, False, False, False, True])
         # the status pane is split into individual menus (accounts, instructions, skills, mcp)
         self.assertEqual(o["statusShows"], [True, False, False])
         src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
         self.assertIn("shellGoTeam(c.id, 'profile')", src)
-        self.assertIn("shellGoTeam('', 'settings')", src)
+        self.assertIn("shellGoTeamSection(row.k, 'settings')", src)
         self.assertIn("shellGoStatus(row.k, 'settings')", src)
         self.assertIn("card.setAttribute('data-character-id', ex.id || '')", (STATIC / "app-team.js").read_text(encoding="utf-8"))
-        self.assertEqual(sorted(o["panes"]), ["activity", "artifacts", "evolution", "sessions", "status", "team"])
+        self.assertEqual(sorted(o["panes"]), ["activity", "appearance", "artifacts", "evolution", "sessions", "status", "team"])
         # the log and improvement are developer mode's -- a switch of its own, apart from "details"
         self.assertEqual([r["k"] for r in o["profile"] + o["settings"] if r.get("dev")], ["activity", "evolution"])
         self.assertFalse([r for r in o["profile"] + o["settings"] if r.get("adv")])
         switches = {r["k"]: r["on"] for r in o["settings"] if "on" in r}
-        self.assertEqual(switches, {"details": True, "dev": False})
+        self.assertEqual(switches, {"dev": False})
         self.assertIn("html.shell2 body:not(.dev-mode) .shell-dev{display:none}", CSS)
         self.assertIn("const SHELL_DEV_KEY = 'pe.devMode';", src)
         self.assertIn("document.body.classList.toggle('dev-mode', dev === '1');", src)      # off unless this browser turned it on
-        self.assertTrue(o["settings"][0]["on"])
+        self.assertEqual(o["settings"][0]["k"], "appearance")
         self.assertEqual(o["profileBare"], ["sessions", "artifacts"])
 
     def test_the_card_manages_the_brain_and_the_model_itself(self):
@@ -367,7 +368,7 @@ class ShellList(unittest.TestCase):
         self.assertIn("pickModel(o.value)", card)
         self.assertNotIn("toggleProviderTray", card)               # ... without leaving the card for them
         self.assertNotIn("showModelMenu", card)
-        self.assertEqual(o["settingsShipped"], ["details", "theme", "accounts", "instructions", "skills", "mcp", "team", "dev", "activity", "evolution"])
+        self.assertEqual(o["settingsShipped"], ["appearance", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "dev", "activity", "evolution"])
 
     def test_the_tab_bar_is_hidden_and_a_pane_leads_back(self):
         self.assertIn("html.shell2 header .bar{display:none}", CSS)
