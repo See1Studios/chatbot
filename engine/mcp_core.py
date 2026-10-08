@@ -69,11 +69,11 @@ TOOL_DEFS: List[dict] = [
     },
     {
         "name": "ticket",
-        "description": "The only way to create an evolution ticket; a ticket written out as free text is not one. Host or self changes start only from the operator's words or an APPROVED ticket. propose (title, target, evidence=[event:<session>#<line> | candidate:<epoch> | log:fp:<fp> | log:rid:<rid>] (log refs: `chatbot-ctl.sh logs`)) -> the operator approves it outside this tool; list/get read; claim (id[, token][, paths]) takes the author lease on those repo-relative files (none named = every file; refused while another ticket holds any of them, or when the ticket is another agent's own) and returns a token; note (id, text[, token]); release (id, token, outcome=done|gate_failed|failed|abandoned[, text]). done is refused while those paths are uncommitted. Max 3 attempts per ticket.",
+        "description": "The only way to create an evolution ticket; a ticket written out as free text is not one. Host or self changes start only from the operator's words or an APPROVED ticket. propose (title, target, evidence=[event:<session>#<line> | candidate:<epoch> | log:fp:<fp> | log:rid:<rid>] (log refs: `chatbot-ctl.sh logs`)) -> the operator approves it outside this tool; list/get read; claim (id[, token][, paths]) takes the author lease on those repo-relative files (none named = every file; refused while another ticket holds any of them, or when the ticket is another agent's own) and returns a token; widen (id, token, paths) adds files to the ticket you hold (the same checks as a claim; the operator sees the scope grow in a note); note (id, text[, token]); release (id, token, outcome=done|gate_failed|failed|abandoned[, text]). done is refused while those paths are uncommitted. Max 3 attempts per ticket.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["propose", "list", "get", "claim", "note", "release"]},
+                "action": {"type": "string", "enum": ["propose", "list", "get", "claim", "widen", "note", "release"]},
                 "id": {"type": "integer"},
                 "title": {"type": "string"},
                 "target": {"type": "string"},
@@ -111,6 +111,39 @@ def _ticket_list(data, status: str) -> dict:
     shown += [r for r in rows[-LIST_RECENT:] if r not in shown]
     return envelope(True, "%d tickets: the open ones and the latest %d (status=open|proposed|done|... for others)"
                     % (len(rows), LIST_RECENT), {"tickets": shown})
+
+def _ticket(data, args: dict, secret_re, actor: str) -> dict:
+    """The `ticket` tool: propose, list, get, claim, widen, note, release (approving is the operator's)."""
+    if tickets is None:
+        return envelope(False, "ticket core unavailable", None)
+    action = str(args.get("action") or "")
+    text_fields = "\n".join(str(args.get(k) or "") for k in ("title", "target", "text"))
+    if secret_re.search(text_fields):
+        return envelope(False, "refusing to record secret-like content", None)
+    token = str(args.get("token") or "") or None
+    try:
+        if action == "propose":
+            t, merged = tickets.propose(data, args.get("title"), args.get("target"), args.get("evidence"), actor=actor)
+            return envelope(True, "merged into an open ticket" if merged else "proposed; waiting for the operator's approval",
+                            {"ticket": t, "merged": merged})
+        if action == "list":
+            return _ticket_list(data, str(args.get("status") or ""))
+        if action == "get":
+            return envelope(True, "ok", {"ticket": tickets.get(data, args.get("id"))})
+        if action == "claim":
+            return envelope(True, "claimed", tickets.claim(data, args.get("id"), token, paths=args.get("paths"), actor=actor))
+        if action == "widen":   # TICKET_WIDEN_v1 for the chat: no reason left to call tickets.widen from python
+            return envelope(True, "widened", tickets.widen(data, args.get("id"), token, args.get("paths"), actor=actor))
+        if action == "note":
+            return envelope(True, "noted", {"ticket": tickets.add_note(data, args.get("id"), str(args.get("text") or ""), token,
+                                                                       actor=actor)})
+        if action == "release":
+            return envelope(True, "released", tickets.release(data, args.get("id"), token, str(args.get("outcome") or ""),
+                                                              str(args.get("text") or ""), actor=actor))
+    except tickets.TicketError as e:
+        return envelope(False, str(e), None)
+    return envelope(False, "unknown action; approving, declining and reopening tickets is the operator's job, not a tool's", None)
+
 
 def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMIT, actor: str = "chat-agent",
          private: bool = False, staff: bool = False) -> dict:
@@ -181,34 +214,7 @@ def call(name: str, args: dict, data, secret_re, recent_limit: int = RECENT_LIMI
             return envelope(False, "unknown action (add, list, get, resolve, review, reviewed)", None)
 
         if name == "ticket":
-            if tickets is None:
-                return envelope(False, "ticket core unavailable", None)
-            action = str(args.get("action") or "")
-            text_fields = "\n".join(str(args.get(k) or "") for k in ("title", "target", "text"))
-            if secret_re.search(text_fields):
-                return envelope(False, "refusing to record secret-like content", None)
-            token = str(args.get("token") or "") or None
-            try:
-                if action == "propose":
-                    t, merged = tickets.propose(data, args.get("title"), args.get("target"), args.get("evidence"), actor=actor)
-                    return envelope(True, "merged into an open ticket" if merged else "proposed; waiting for the operator's approval",
-                                    {"ticket": t, "merged": merged})
-                if action == "list":
-                    return _ticket_list(data, str(args.get("status") or ""))
-                if action == "get":
-                    return envelope(True, "ok", {"ticket": tickets.get(data, args.get("id"))})
-                if action == "claim":
-                    return envelope(True, "claimed", tickets.claim(data, args.get("id"), token, paths=args.get("paths"), actor=actor))
-                if action == "note":
-                    return envelope(True, "noted", {"ticket": tickets.add_note(data, args.get("id"), str(args.get("text") or ""), token,
-                                                                               actor=actor)})
-                if action == "release":
-                    return envelope(True, "released", tickets.release(data, args.get("id"), token, str(args.get("outcome") or ""),
-                                                                      str(args.get("text") or ""), actor=actor))
-            except tickets.TicketError as e:
-                return envelope(False, str(e), None)
-            return envelope(False, "unknown action; approving, declining and reopening tickets is the operator's job, not a tool's", None)
-
+            return _ticket(data, args, secret_re, actor)
         return envelope(False, "unknown tool: %s" % name, None)
     except Exception as e:  # noqa: BLE001
         return envelope(False, "error: %s" % e, None)

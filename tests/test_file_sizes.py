@@ -19,7 +19,6 @@ FUNC_MAX_LINES = 80
 FUNC_CEILINGS = {                  # "path::Class.func": lines -- over the cap already: no growth
     "artifact_manager.py::_safe_artifact_rel": 91,
     "instructions.py::match_lorebook_entries": 108,
-    "mcp_core.py::call": 100,
     "mcp_server.py::call_tool": 149,
     "mcp_server.py::tool_defs": 95,
     "providers/adapter_agy.py::AgyAdapter.normalize_line": 130,

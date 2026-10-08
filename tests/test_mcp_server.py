@@ -784,7 +784,7 @@ class TicketToolTest(Base):
         self.assertEqual(self.call("get", id=tid)["data"]["ticket"]["status"], "proposed")
         (tool,) = [t for t in mcp.tool_defs() if t["name"] == "ticket"]
         self.assertEqual(tool["inputSchema"]["properties"]["action"]["enum"],
-                         ["propose", "list", "get", "claim", "note", "release"])
+                         ["propose", "list", "get", "claim", "widen", "note", "release"])
         self.assertTrue(tool["description"].startswith("The only way to create an evolution ticket"))
 
     def test_secret_like_text_is_refused(self):

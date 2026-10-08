@@ -61,7 +61,7 @@ class AdapterModuleTest(unittest.TestCase):
         enums = {t["name"]: t["inputSchema"]["properties"]["action"]["enum"] for t in mcp_core.TOOL_DEFS}
         self.assertEqual(enums["memory"], ["show", "search", "add", "forget"])
         self.assertEqual(enums["observation"], ["add", "list", "get", "resolve", "review", "reviewed"])
-        self.assertEqual(enums["ticket"], ["propose", "list", "get", "claim", "note", "release"])
+        self.assertEqual(enums["ticket"], ["propose", "list", "get", "claim", "widen", "note", "release"])
         json.dumps(mcp_core.TOOL_DEFS)  # what goes over the wire
 
     def test_it_runs_with_the_server_and_every_other_layer_forbidden(self):
@@ -116,6 +116,25 @@ class AdapterModuleTest(unittest.TestCase):
         self.assertEqual(mcp_core.envelope(True, "m", {"a": 1}), {"success": True, "message": "m", "data": {"a": 1}})
         self.assertEqual(set(mcp_core.envelope(False, "x")), {"success", "message", "data"})
 
+
+
+class TicketWidenTest(unittest.TestCase):
+    """2026-10-08 #795: the chat agent had no widen, so it imported tickets and called tickets.widen with its token
+    from python. The tool passes it through, with the caller as the actor, and a refusal comes back as a failure."""
+    def test_widen_goes_to_tickets_widen_and_refusals_come_back(self):
+        from unittest import mock
+        data = Path(tempfile.mkdtemp())
+        with mock.patch.object(mcp_core.tickets, "widen", return_value={"ticket": {"id": 7}, "added": ["tests/t.py"]}) as w:
+            r = mcp_core.call("ticket", {"action": "widen", "id": 7, "token": "tok", "paths": ["tests/t.py"]}, data, SECRET)
+        self.assertTrue(r["success"], r)
+        self.assertEqual(r["data"]["added"], ["tests/t.py"])
+        args, kw = w.call_args
+        self.assertEqual(args[1:], (7, "tok", ["tests/t.py"]))
+        self.assertIn("actor", kw)
+        with mock.patch.object(mcp_core.tickets, "widen", side_effect=mcp_core.tickets.TicketError("you do not hold ticket 7")):
+            r = mcp_core.call("ticket", {"action": "widen", "id": 7, "token": "x", "paths": ["a"]}, data, SECRET)
+        self.assertFalse(r["success"])
+        self.assertIn("you do not hold", r["message"])
 
 
 class TicketListTest(unittest.TestCase):
