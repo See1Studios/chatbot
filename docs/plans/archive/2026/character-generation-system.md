@@ -3,7 +3,7 @@
 > 방향 (align/D, 2026-10-02): **핵심** — 검증된 ST-CardGen 도메인 아키텍처를 Python stdlib로 1:1 클린 포팅하여, 한 줄 아이디어로 card.json·visual.md를 원클릭 생성하고 결측치 보완 및 부분 재생성을 보장하는 지능형 생성 엔진
 > 상태: **active** (2026-10-02 포팅 기조 반영)
 > 목적: [ewizza/ST-CardGen](https://github.com/ewizza/ST-CardGen)의 검증된 프롬프트 조립·상세도 통제·이중 파서·외과적 재생성 도메인 로직을 Python stdlib로 1:1 클린 포팅하고, Private Engine(PE) 규격(`visual.md`, `extensions.chatbot`, `state.json`)과 소환 마법사에 완벽히 접목한다.
-> 관련: [character-creation-landing.md](../../character-creation-landing.md)(온보딩 및 소환 마법사 UI) · [character-resource-pipeline.md](../../character-resource-pipeline.md)(에셋 SSOT 및 규격) · [character-art-manager.md](character-art-manager.md)(그림 도구) · [CONCEPT.md](../../../CONCEPT.md)
+> 관련: [character-creation-landing.md](../../character-creation-landing.md)(온보딩 및 소환 마법사 UI) · [character-resource-pipeline.md](../../character-resource-pipeline.md)(에셋 SSOT 및 규격) · [character-art-manager.md](character-art-manager.md)(그림 도구) · [CONCEPT.md](../../../VISION.md)
 
 ---
 

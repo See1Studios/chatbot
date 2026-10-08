@@ -5,7 +5,7 @@ repo-root `AGENTS.md` (`services/chatbot/AGENTS.md`), with `RULES.md` and `CODEM
 repeat them.
 
 ## Where to look
-- Code, paths, sessions: `PROJECT.md`. Product direction: `CONCEPT.md` (before changing or building).
+- Code, paths, sessions: `PROJECT.md`. Product direction: `VISION.md` (before changing or building).
 - Core boundary: `SELF-MODIFY.md`, only when actually touching the core.
 - Plans: read `docs/plans/INDEX.md` before touching `docs/plans/` (status, archive, new plans).
 

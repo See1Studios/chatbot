@@ -1,4 +1,4 @@
-# Product Concept (chatbot / Working title: Private Engine)
+# Vision (chatbot / Working title: Private Engine)
 
 The **highest value** and **primary goal** of this product.
 The canonical identity of this project is an independent AI chatbot engine (`chatbot`), with the external distribution working title **Private Engine (PE)**.
@@ -95,11 +95,23 @@ Getting closer to our core value. Development strictly follows these axes in ord
 4. Do not describe planned features as completed.
 5. Keep character visual details out of this document.
 
-## Rough Lore / Immersive Frame (Internal)
+## Open Axes
 
-Internal framework for immersion-focused users; not frontline marketing.
+Still directions. When the implementation catches up, only this section changes.
 
-- **Dual Identity**: "Private Engine" is the tool/product name; in-lore, it is the mysterious device at the heart of the shelter linking the coach's mind to the digital lounge.
-- **Inspirations**: Video Girl Ai + Joi (Blade Runner 2049) + Rumic domestic camaraderie (Maison Ikkoku / Urusei Yatsura).
-- **Physicality of Dialogue**: Actions (`/act`, `*...*`) represent physical interactions within the lounge (holding hands, patting heads).
-- **Outside Life Respected**: Characters recognize the coach's real-world fatigue and return them safely to their daily life without demanding endless presence.
+- The shipped flow of the personalization ladder (agents build it with the user): [direction-alignment.md](docs/plans/direction-alignment.md) align/H
+- The shipped / dev build boundary: same document, align/I
+- Plugin architecture and Workshop: same document, align/J
+- Reach from anywhere (today: plain HTTP on the LAN)
+- How close the companion stays on each device
+- Depth of characterization; the temperature of friend, partner, colleague
+- Brand and domain: [private-engine-brand.md](docs/plans/private-engine-brand.md) (working title Private Engine, leaning to privateengine.ai -- before legal clearance)
+- User data and release: [user-data-separation.md](docs/plans/user-data-separation.md) (`~/.pe`) · [release-pipeline.md](docs/plans/release-pipeline.md) (Now / Next / Pre-Steam)
+- Character-scoped relational memory adapter: [character-memory-adapter.md](docs/plans/character-memory-adapter.md) (personalization harness, opt-in companion depth; the minimal slot is injected, the rest active)
+- Localization: [localization.md](docs/plans/localization.md)
+
+## Immersive Lore (Internal)
+
+The hidden frame for immersion-focused users (not frontline marketing) lives in
+[docs/lore/immersive-frame.md](docs/lore/immersive-frame.md): the dual name, the inspirations, the world skeleton 1-9 that
+plans cite by number. It is the current direction, not final.

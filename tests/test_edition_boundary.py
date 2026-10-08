@@ -1,4 +1,4 @@
-"""The shipped build never lets the agent touch engine code (docs/plans/edition-boundary.md, CONCEPT 「배포판과 개발판」).
+"""The shipped build never lets the agent touch engine code (docs/plans/edition-boundary.md, VISION 「배포판과 개발판」).
 With no CHATBOT_EDITION the install is the shipped build: the MCP server offers no run_command, ticket or delegate
 tool and refuses them if called by name, and its file tools reach only the install's user data -- not the engine
 repo, not host-wide agent folders. CHATBOT_EDITION=dev (in $CHATBOT_DATA/host.env) restores the dev tools and roots.

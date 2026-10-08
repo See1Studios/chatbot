@@ -3,8 +3,8 @@
 > 방향 (align/D, 2026-09-28): **정렬** — 기조의 해자·포지셔닝·수익선이 실제로 성립하는지 재진단하고 작업 순서를 다시 매긴다
 
 > 상태: **active** (2026-09-28, 초안)
-> 목적: `CONCEPT.md`의 해자 목록과 [release-pipeline.md](release-pipeline.md) §3.1의 사업 모델을 **경쟁·수익 관점에서** 다시 검증한다. 새 기능을 정하는 계획이 아니라, 지금 보이는 문제가 무엇이고 무엇을 먼저 해야 하는지 판단하고 결정을 내리는 문서.
-> 관련: [direction-alignment.md](direction-alignment.md) · [release-pipeline.md](release-pipeline.md) · [plugin-architecture.md](plugin-architecture.md) · [private-mode.md](private-mode.md) · [private-engine-brand.md](private-engine-brand.md) · [character-resource-pipeline.md](character-resource-pipeline.md) · [CONCEPT.md](../../CONCEPT.md) · [PRODUCT.md](../../PRODUCT.md)
+> 목적: `VISION.md`의 해자 목록과 [release-pipeline.md](release-pipeline.md) §3.1의 사업 모델을 **경쟁·수익 관점에서** 다시 검증한다. 새 기능을 정하는 계획이 아니라, 지금 보이는 문제가 무엇이고 무엇을 먼저 해야 하는지 판단하고 결정을 내리는 문서.
+> 관련: [direction-alignment.md](direction-alignment.md) · [release-pipeline.md](release-pipeline.md) · [plugin-architecture.md](plugin-architecture.md) · [private-mode.md](private-mode.md) · [private-engine-brand.md](private-engine-brand.md) · [character-resource-pipeline.md](character-resource-pipeline.md) · [VISION.md](../../VISION.md) · [PRODUCT.md](../../PRODUCT.md)
 > 범위: 판단·결정·재랭크까지. **구현 착수 계획이 아니다.** 여기서 정한 항목은 별도 티켓으로 옮기고, 착수는 운영자 승인 뒤에 한다.
 > **운영자 판단 (2026-09-28)**: 이 문서의 방향은 **참고 자료**로 둔다. R1–R8은 채택도 기각도 하지 않은 **보류(참고)** 상태이고, 진행 중인 구현을 멈추거나 재랭크하지 않는다. 데모 반응·사용자 피드백 같은 근거가 생기면 그때 다시 다툰다. 구현은 이 판정들로 나중에 반박·전환할 수 있게, 한 방향에 못 박지 않는 구조로 한다.
 > 한계: 운영자 1인 관점의 문서 리뷰다. 시장 조사·사용자 인터뷰·가격 실험 데이터가 없다. 아래 수치와 추정은 전제이지 검증된 사실이 아니다.
@@ -24,14 +24,14 @@
 | 프로바이더 이중화(데모는 Gemini, 폴백 Grok·로컬) | 단일 벤더 정책 변경에 전멸하지 않는다 | 같은 절 |
 | "파워 유저 10명" 목표 | 팬 100명이 아니라 전환 가능한 사람을 노린다 | 같은 절 |
 | 새 커뮤니티를 만들지 않는다 | 이미 모인 곳(ST Discord·Reddit·Steam AI 토론)으로 유입 | 같은 절 |
-| 사적 수위를 스토어 전면에 안 넣는다 | Steam 정책과 제품 톤을 동시에 지킨다 | [CONCEPT.md](../../CONCEPT.md) |
+| 사적 수위를 스토어 전면에 안 넣는다 | Steam 정책과 제품 톤을 동시에 지킨다 | [VISION.md](../../VISION.md) |
 | 일정·비용을 "기준선"으로만 명시 | 착수 계획으로 오해할 여지를 차단한다 | [release-pipeline.md](release-pipeline.md) §3.1 |
 
 ## 2. 진단
 
 ### 2.1 포지셔닝 문구가 벤더와 겹친다 — 위험
 
-`CONCEPT.md`는 최대 목표의 축으로 **개인화 레이어**를, [PRODUCT.md](../../PRODUCT.md)는 해자를 **두껍게 쌓이는 개인화 레이어와 그 레이어가 모이는 생태계**로 말한다. 이 축은 방어가 아니다. "personalization / memory / persona"는 모델 벤더가 가장 먼저 내는 층이고, 가격 경쟁이 아니라 체크박스 경쟁이 되는 층이다. 그대로 세워 두면 1년 뒤 "그거 기본 기능인데"가 된다.
+`VISION.md`는 최대 목표의 축으로 **개인화 레이어**를, [PRODUCT.md](../../PRODUCT.md)는 해자를 **두껍게 쌓이는 개인화 레이어와 그 레이어가 모이는 생태계**로 말한다. 이 축은 방어가 아니다. "personalization / memory / persona"는 모델 벤더가 가장 먼저 내는 층이고, 가격 경쟁이 아니라 체크박스 경쟁이 되는 층이다. 그대로 세워 두면 1년 뒤 "그거 기본 기능인데"가 된다.
 
 지켜남는 조각은 더 좁다.
 
@@ -55,7 +55,7 @@
 
 Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)는 100% 오른쪽이다. 그런데 [plugin-architecture.md](plugin-architecture.md)의 창작마당은 **챌 수 있는 절반만** 실을 수 있고, [release-pipeline.md](release-pipeline.md)의 1회 구매에는 **두 번째 수익선이 없다.** 가격은 리드 마그넷이고, 돈이 되는 곳인 캐릭터·시즌 콘텐츠 drops가 계획에 없다.
 
-더 불편한 사실: 해자인 로어는 **메시지로 파는 법이 없는데** 그 로어가 유일한 해자다. [CONCEPT.md](../../CONCEPT.md)의 규칙(스토어 전면에 내세우지 않는다) 자체는 맞다. 다만 그러면 그 해자는 "전달 못 하는 해자"다. 숨기는 결정은 지키되, **돈을 내는 층(콘텐츠 drops)과 붙잡는 층(관계 깊이)을 별개로 설계한다.**
+더 불편한 사실: 해자인 로어는 **메시지로 파는 법이 없는데** 그 로어가 유일한 해자다. [VISION.md](../../VISION.md)의 규칙(스토어 전면에 내세우지 않는다) 자체는 맞다. 다만 그러면 그 해자는 "전달 못 하는 해자"다. 숨기는 결정은 지키되, **돈을 내는 층(콘텐츠 drops)과 붙잡는 층(관계 깊이)을 별개로 설계한다.**
 
 ### 2.3 리텐션 근거가 될 cadence 계획이 없다 — 조용히 죽이는 1순위
 
@@ -102,7 +102,7 @@ Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `rev/A` | 이 문서 + INDEX 행 | `docs/plans/market-direction-review.md`, `docs/plans/INDEX.md` | INDEX 행·방향 적합성 줄, 가드 통과 | 0 · — | S | — | ✅ #280 |
-| `rev/B` | 포지셔닝 교정 (R1·R2) | `CONCEPT.md`, `PRODUCT.md` | 해자 목록이 매출선/리텐션선으로 나뉨, 스토어 카테고리 문장 확정 | 0 · — | S | R1, R2 | 대기 |
+| `rev/B` | 포지셔닝 교정 (R1·R2) | `VISION.md`, `PRODUCT.md` | 해자 목록이 매출선/리텐션선으로 나뉨, 스토어 카테고리 문장 확정 | 0 · — | S | R1, R2 | 대기 |
 | `rev/C` | cadence 계획 신설 (R4) + drops 수익선 (R3) | 새 계획, `docs/plans/release-pipeline.md` | cadence·비용·저하 규칙·drops 표가 존재 | 0 · — | M | R3, R4 | 대기 |
 | `rev/D` | 60초 데모 결정 계획 신설 (R5) + 플랫폼 계획 재랭크 | 새 계획, `docs/plans/INDEX.md` | 캐릭터·프로바이더·첫 15초·캡슐 확정, 재랭크 표 존재 | 0 · — | M | R5 | 대기 |
 | `rev/E` | 브랜드 충돌 스캔 선행 (R6) | `docs/plans/private-engine-brand.md` | 스캔 기록, 스토어 제품명/엔진명 분리 여부 | 0 · — | S | R6 | 대기 |
@@ -110,7 +110,7 @@ Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)
 
 ## 5. 원칙
 
-- **기조가 먼저다.** [CONCEPT.md](../../CONCEPT.md)의 해자 목록이 §2.2 분할을 받아들이기 전에는 `rev/B` 이후 착수하지 않는다.
+- **기조가 먼저다.** [VISION.md](../../VISION.md)의 해자 목록이 §2.2 분할을 받아들이기 전에는 `rev/B` 이후 착수하지 않는다.
 - **근거 없는 판단은 계획으로 승격시키지 않는다.** 시장 데이터가 없는 수치는 "판정"으로만 적는다. 시장 근거가 생기면 그때 항목을 연다.
 - **재랭크는 INDEX에서 보인다.** 순서를 바꾸는 것은 조용히 하는 게 아니라 [INDEX.md](INDEX.md) 행으로 남긴다.
 - **숨긴 해자는 숨긴 채로 관리한다.** 로어 노출 규칙은 바꾸지 않는다. 대신 매출축과 리텐션축을 분리해 각각 관문과 지표를 붙인다.
@@ -158,7 +158,7 @@ Wallpaper Engine 모델은 100% 왼쪽, PE의 가치(「전영소녀」·조이)
 
 | R | 질문 | 추천 | 상태 |
 |---|---|---|---|
-| R9 | 스토어 한 줄 | "Steam의 제타: 창작마당에서 친구를 고르고, 내 PC에서 깊게 키운다" 류. 기조(CONCEPT) 문장은 바꾸지 않고 스토어 문구로만 | 대기 |
+| R9 | 스토어 한 줄 | "Steam의 제타: 창작마당에서 친구를 고르고, 내 PC에서 깊게 키운다" 류. 기조(VISION) 문장은 바꾸지 않고 스토어 문구로만 | 대기 |
 | R10 | 모델 접근 기본값 | 소환 마법사 "두뇌 연결"은 Google·ChatGPT 계정 로그인이 먼저, API 키는 고급([character-creation-landing.md](character-creation-landing.md) D4 갱신). 두 경로 이상 유지(한쪽 무료 정책 변경 대비) | 대기 |
 | R11 | Steam판 수위 | Steam 빌드는 15세 수준 관계·로맨스까지. 사적 모드의 성인 단계는 Steam 빌드에서 잠금. 성인 확장을 Steam 밖에서 따로 낼지는 별도 결정([private-mode.md](private-mode.md), [release-pipeline.md](release-pipeline.md) §3.1과 함께) | 대기 |
 | R12 | 창작마당 첫 물량 | SillyTavern 카드 가져오기 → 창작마당 올리기를 출시 기능으로. 소환 마법사 결과도 한 번에 올리기 | 대기 |

@@ -28,7 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # Documents eligible for Korean mirroring (*.md -> *.ko.md). The one list: the pre-commit hook reads it too.
 DEFAULT_MIRROR_TARGETS = [
-    "CONCEPT.md",
+    "VISION.md",
     "PRODUCT.md",
     "RULES.md",
 ]

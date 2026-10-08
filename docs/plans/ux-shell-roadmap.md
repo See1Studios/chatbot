@@ -1,10 +1,10 @@
 # UX 껍데기 로드맵 — 메신저 먼저, 데스크톱 캐릭터는 두 번째 껍데기
 
-> 방향 (align/D, 2026-09-29): **핵심** — 메신저는 관계 고리를 검증하는 기본 UX이고, 데스크톱 캐릭터는 CONCEPT가 정체성으로 둔 「움직이는 데스크톱 동반자」다. 둘의 순서와 경계를 정한다
+> 방향 (align/D, 2026-09-29): **핵심** — 메신저는 관계 고리를 검증하는 기본 UX이고, 데스크톱 캐릭터는 VISION이 정체성으로 둔 「움직이는 데스크톱 동반자」다. 둘의 순서와 경계를 정한다
 
 > 상태: **active** (2026-09-29 초안 · 2026-09-30 메신저 뼈대 결정 4.2.3)
 > 목적: 메신저 UX를 먼저 "완성"하고 데스크톱 캐릭터 UX로 넘어가는 순서를 채택하되, ① 메신저 "완성"을 끝이 있는 기준으로 정하고 ② 엔진을 화면에서 떼어 두 껍데기가 같은 통로를 쓰게 하고 ③ 캐릭터 중심 밀도를 다리로 삼는다.
-> 관련: [direction-alignment.md](direction-alignment.md) D10·§5.1·`align/K`(게임 속 메신저, 세 밀도) · [character-resource-pipeline.md](character-resource-pipeline.md) §10(무대·스프라이트) · [character-art-manager.md](archive/2026/character-art-manager.md) · [plugin-architecture.md](plugin-architecture.md)(외형·렌더러 층) · [market-direction-review.md](market-direction-review.md)(데스크톱 형식 = 차별점, 60초 데모) · [CONCEPT.md](../../CONCEPT.md)
+> 관련: [direction-alignment.md](direction-alignment.md) D10·§5.1·`align/K`(게임 속 메신저, 세 밀도) · [character-resource-pipeline.md](character-resource-pipeline.md) §10(무대·스프라이트) · [character-art-manager.md](archive/2026/character-art-manager.md) · [plugin-architecture.md](plugin-architecture.md)(외형·렌더러 층) · [market-direction-review.md](market-direction-review.md)(데스크톱 형식 = 차별점, 60초 데모) · [VISION.md](../../VISION.md)
 
 ## 1. 운영자 제안 (2026-09-29)
 
@@ -22,7 +22,7 @@
 
 **그대로 두면 생기는 위험 두 가지:**
 
-1. **데스크톱은 부속물이 아니다.** CONCEPT는 「움직이는 데스크톱 동반자」와 「Steam에 BYOK 데스크톱 동반자로 먼저 이름을 박는다」를 정체성으로 둔다. 시장 검토도 차별점을 "대화창 안에서 못 하는 것 = 데스크톱 형식"으로 본다. 메신저만으로는 제타·SillyTavern류와 겉모습이 겹친다. 그래서 순서는 뒤라도 날짜 없는 "언젠가"가 되면 안 된다.
+1. **데스크톱은 부속물이 아니다.** VISION은 「움직이는 데스크톱 동반자」와 「Steam에 BYOK 데스크톱 동반자로 먼저 이름을 박는다」를 정체성으로 둔다. 시장 검토도 차별점을 "대화창 안에서 못 하는 것 = 데스크톱 형식"으로 본다. 메신저만으로는 제타·SillyTavern류와 겉모습이 겹친다. 그래서 순서는 뒤라도 날짜 없는 "언젠가"가 되면 안 된다.
 2. **"완성"에 끝이 없다.** UI 다듬기는 끝나지 않는다. 기다리는 동안 채팅 화면(DOM)을 전제로 한 코드가 쌓이면 데스크톱을 붙일 때 뜯어고쳐야 한다.
 
 ## 3. 현황 (2026-09-29 코드 기준)

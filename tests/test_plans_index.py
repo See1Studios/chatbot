@@ -52,7 +52,7 @@ class PlansIndex(unittest.TestCase):
             self.assertIn(rel, listed, "%s is archived but has no INDEX row" % rel)
 
     def test_every_active_plan_states_its_direction_fit(self):
-        # align/D: judged against CONCEPT.md; a new plan states its fit under its title, and INDEX shows it
+        # align/D: judged against VISION.md; a new plan states its fit under its title, and INDEX shows it
         grades = {"핵심", "기반", "개발 기반", "개발판 전용", "정렬"}
         index = (PLANS / "INDEX.md").read_text(encoding="utf-8")
         for target, _ in section_rows("## Active"):

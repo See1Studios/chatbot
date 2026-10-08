@@ -352,7 +352,7 @@ DELIVER_MENTIONS = 3   # a meeting room: only the messages that call this charac
 
 def turn_note(cid: str, sid: str, noted: Dict[str, int], handed_over: bool = False) -> str:
     """The catch-up before a work turn (inbox/C, H). The engine delivers rather than asks the model to fetch
-    (CONCEPT: what the engine can settle is not left to the model): what a coworker said or did to this character in
+    (VISION: what the engine can settle is not left to the model): what a coworker said or did to this character in
     a dm goes into the turn as it is -- it was addressed to it and is on screen (D8) -- and counts as heard; a meeting
     room is counted, and only the messages calling this character are given. Never another dialog's talk otherwise.
     A room line is said again only when something new came (`noted`: dialog -> newest number said, kept by the caller

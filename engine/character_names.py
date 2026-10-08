@@ -1,6 +1,6 @@
 """A character's name change, carried by the engine (NAME_CHANGE_v1, operator 2026-10-02: names were swapped by hand in
 two cards and nothing else followed). Ids carry everything, so screens and engine lines follow by themselves; what
-does not is a name written as text. The engine settles it, not the model (CONCEPT):
+does not is a name written as text. The engine settles it, not the model (VISION):
 
   reconcile(ws, now) -- each card remembers the name it last had (`known_name` in its chatbot extension). A card whose
       name differs was renamed: the change goes into the card's `renames` [{old, new, at}], and the names are rewritten

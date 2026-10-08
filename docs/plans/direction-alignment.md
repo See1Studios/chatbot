@@ -1,10 +1,10 @@
 # 방향 정렬 (개인화 하네스로의 전환)
 
-> 방향 (align/D, 2026-09-28): **정렬** — 기조(`CONCEPT.md`)에 다른 계획을 맞추는 계획
+> 방향 (align/D, 2026-09-28): **정렬** — 기조(`VISION.md`)에 다른 계획을 맞추는 계획
 
 > 상태: **active** (초안 2026-09-28)
-> 목적: 바뀐 제품 지향점에 맞춰 기조 문서·계획·코드의 낡은 부분을 정렬한다. 기조(`CONCEPT.md`)를 다시 쓰는 일이 첫 단계이고, 나머지는 그 기조를 기준으로 한다.
-> 관련: [CONCEPT.md](../../CONCEPT.md) · [plan-execution-workflow.md](plan-execution-workflow.md) · [release-pipeline.md](release-pipeline.md) · [localization.md](localization.md) · [character-memory-adapter.md](character-memory-adapter.md) · [private-mode.md](private-mode.md)
+> 목적: 바뀐 제품 지향점에 맞춰 기조 문서·계획·코드의 낡은 부분을 정렬한다. 기조(`VISION.md`)를 다시 쓰는 일이 첫 단계이고, 나머지는 그 기조를 기준으로 한다.
+> 관련: [VISION.md](../../VISION.md) · [plan-execution-workflow.md](plan-execution-workflow.md) · [release-pipeline.md](release-pipeline.md) · [localization.md](localization.md) · [character-memory-adapter.md](character-memory-adapter.md) · [private-mode.md](private-mode.md)
 > 방향 인용(G0): 숨은 로어(전영소녀·조이)는 방향만 쓴다. 로어 세부는 이 계획의 항목이 아니다.
 > 약칭: `align`
 
@@ -18,7 +18,7 @@
 
 | 항목 | 지금 문서·코드가 말하는 것 | 새 지향점 |
 |---|---|---|
-| 최대 가치 | "친근하면서 유능, 다재다능·만능에 가깝다" (`CONCEPT.md`) | 취향대로 쌓이는 개인화된 동반자. 유능함은 목적이 아니라 수단 |
+| 최대 가치 | "친근하면서 유능, 다재다능·만능에 가깝다" (`VISION.md`) | 취향대로 쌓이는 개인화된 동반자. 유능함은 목적이 아니라 수단 |
 | 사용자 | 실장님 한 명의 개인 NAS 비서 (`PRODUCT.md`) | 자기 PC·서버에 설치하는 엔드유저 |
 | 차별점 | NAS 직접 제어 (`PRODUCT.md` Positioning) | 두꺼운 개인화 레이어(캐릭터·기억·외형·말투·관계의 연속성) |
 | 경쟁 축 | 업무 수행 | 업무 경쟁은 하지 않음 |
@@ -50,7 +50,7 @@
 
 | D | 질문 | 추천 | 상태 |
 |---|---|---|---|
-| D1 | 기조 문안 | 운영자의 §0 발언을 기준으로 `CONCEPT.md`의 "최대 가치·최대 목표·열린 축"을 다시 쓴다. 초안은 에이전트가 쓰고 문안은 운영자가 확정 | 결정 2026-09-28 (`CONCEPT.md` 재작성 확정) |
+| D1 | 기조 문안 | 운영자의 §0 발언을 기준으로 `VISION.md`의 "최대 가치·최대 목표·열린 축"을 다시 쓴다. 초안은 에이전트가 쓰고 문안은 운영자가 확정 | 결정 2026-09-28 (`VISION.md` 재작성 확정) |
 | D2 | 자기 진화의 자리 | **배포판에도 자기 진화가 있다. 대상이 다르다**(운영자 2026-09-28: "코어는 직접 개발하지 않지만 Hermes Agent처럼 스킬·기억·지침 편집에 의한 자기 개발은 필요"). 배포판: 에이전트가 `~/.pe`의 **스킬·기억·지침**(과 캐릭터·역할)을 스스로 쓰고 다듬는다 — 관찰 → 제안 → 사용자 승인 → 반영, 백업과 되돌리기. 개발판에만: 엔진 **코드** 수정과 그 장치(워크트리 위임 러너, 커밋 훅, 코드 테스트 관문). 관찰·티켓·지침 예산·지침 백업은 대상만 `~/.pe`로 좁혀 배포판 기능으로 쓴다 | 결정 2026-09-28 (방향), 경계 구조는 align/I |
 | D3 | NAS·호스트 기능 | 설치 환경별 **선택 플러그인**. 배포판 기본값은 꺼짐. 이미 분리된 `nas_mcp_host.py`가 출발점 | 결정 2026-09-28 (운영자: 추천대로) |
 | D4 | 코드·UI에 박힌 개인 호칭과 페르소나("실장님", "냥") | 엔진 문자열은 중립으로, 호칭과 말투는 캐릭터 카드와 사용자 설정으로(l10n/D와 같은 작업) | 결정 2026-09-28 (운영자: 추천대로) |
@@ -66,7 +66,7 @@
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `align/A` | 이 문서 + INDEX 행 | `docs/plans/direction-alignment.md`, `docs/plans/INDEX.md` | INDEX 행, 커밋 | 0 · — | S | — | ✅ 티켓 없음(pew D3) |
-| `align/B` | `CONCEPT.md` 기조 재작성 초안 → 운영자 확정 | `CONCEPT.md` | 운영자 확정 문안, "만능·유능" 중심 문장 제거, 축 목록이 개인화 중심 | 0 · — | S | D1 | ✅ 운영자 확정 2026-09-28 |
+| `align/B` | `VISION.md` 기조 재작성 초안 → 운영자 확정 | `VISION.md` | 운영자 확정 문안, "만능·유능" 중심 문장 제거, 축 목록이 개인화 중심 | 0 · — | S | D1 | ✅ 운영자 확정 2026-09-28 |
 | `align/C` | `PRODUCT.md`·`README.md`·`DESIGN.md` 엔드유저 기준 재작성 | 세 파일 | NAS 시절 정체성은 "개발 환경" 절에만 | 0 · — | M | align/B | ✅ #274 (디자인 방향은 D10으로 분리) |
 | `align/D` | 활성 계획마다 방향 적합성 한 줄 + INDEX 반영, 맞지 않는 계획은 재정의 또는 대체 | `docs/plans/*.md`, `INDEX.md` | 모든 활성 계획에 적합성 표시 | 0 · — | M | align/B | ✅ #275 `ea0d954` |
 | `align/E` | **래칫 가드**: 엔진 코드(호스트 플러그인 `nas_mcp_host.py` 제외)에 DiskStation·`/volume1`·Sphere·실장님·냥이 늘면 실패, 줄면 기준선을 낮춘다. 기준선 2026-09-28: 35개 파일 123줄(`session.py` 35 최다) | `tests/test_ratchets.py`, `ratchet_baseline.json` (l10n/B와 한 장치) | 새로 늘면 실패, 줄면 기준선 낮춤 | 3 · — | S | — | ✅ #276 |

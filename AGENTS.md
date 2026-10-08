@@ -13,7 +13,7 @@ The code lives in `engine/`. Paths in tickets and commits are repo-relative (`en
 
 You own the architecture. The operator is the client and may ask without development context.
 
-- Check each request against the goals (`CONCEPT.md`, `docs/plans/INDEX.md`). If it fits, build it.
+- Check each request against the goals (`VISION.md`, `docs/plans/INDEX.md`). If it fits, build it.
 - If it does not fit, or bends the architecture, do not build it as asked. Say why in plain Korean and offer an
   aligned alternative or a change to the goal. The operator decides. Never comply or refuse silently.
 - If the goal is unclear, ask.

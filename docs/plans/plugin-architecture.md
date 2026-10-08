@@ -4,7 +4,7 @@
 
 > 상태: **active** (초안 2026-09-28)
 > 목적: 코어를 어댑터로 짜서 주요 레이어를 모두 사용자가 플러그인으로 더하고, 콘텐츠부터 Steam Workshop에서 교환하게 한다. 이 문서는 설계와 순서다. 구현은 항목별 티켓으로.
-> 관련: [../CONCEPT.md](../../CONCEPT.md) 「확장성」·「해자」 · [../ARCHITECTURE.md](../../ARCHITECTURE.md)(레이어·어댑터 명세, 출발점) · [direction-alignment.md](direction-alignment.md) D8·align/J · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [release-pipeline.md](release-pipeline.md)(Steam은 브랜드 이후) · [localization.md](localization.md)
+> 관련: [../VISION.md](../../VISION.md) 「확장성」·「해자」 · [../ARCHITECTURE.md](../../ARCHITECTURE.md)(레이어·어댑터 명세, 출발점) · [direction-alignment.md](direction-alignment.md) D8·align/J · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [release-pipeline.md](release-pipeline.md)(Steam은 브랜드 이후) · [localization.md](localization.md)
 > 방향 인용(G0): 숨은 로어의 「테이프」(카드·세이브·에셋 = 소환 매체)는 콘텐츠 플러그인의 몰입 표현으로 쓸 수 있다. 로어 세부는 이 계획의 항목이 아니다.
 > 약칭: `plug`
 
@@ -15,7 +15,7 @@
 **범위**: 플러그인의 종류·형식(매니페스트)·버전·권한, 레이어별 인터페이스, 로딩 위치와 순서, 코드 플러그인의 격리, 창작 도구, 콘텐츠 등급, Workshop 단계.
 
 **비목표**
-- 엔진 코드를 고치는 플러그인. 배포판의 에이전트와 플러그인은 엔진을 **바꾸지 않고 확장**만 한다(CONCEPT 「배포판과 개발판」).
+- 엔진 코드를 고치는 플러그인. 배포판의 에이전트와 플러그인은 엔진을 **바꾸지 않고 확장**만 한다(VISION 「배포판과 개발판」).
 - 자체 마켓 서버·결제. 교환은 Steam Workshop(과 로컬 파일)으로.
 - 코드 플러그인의 Workshop 교환(격리·권한이 준비되기 전까지, D3).
 - 지금 레이어 전체를 한 번에 재작성. 기존 어댑터를 같은 API로 **옮겨 가며** 연다.
@@ -41,7 +41,7 @@
 | [VS Code 확장](https://code.visualstudio.com/api) | `package.json` 매니페스트(`contributes`·`activationEvents`), **별도 프로세스(Extension Host)**, 엔진 버전 범위 `engines.vscode` | **채택(코드 플러그인 모델)** | 매니페스트에 기여 지점과 권한 선언, 코드 플러그인은 별도 프로세스, 플러그인 API 버전 범위 |
 | [SillyTavern 확장](https://docs.sillytavern.app/for-contributors/writing-extensions/) | `manifest.json` + 브라우저 JS(샌드박스 없음). 서버 플러그인은 설정으로 켜야 함 | **참고(생태계 호환)** | 카드·로어북·프리셋은 그대로 가져온다(ST 위임). 무제한 실행 모델은 따르지 않는다 |
 | [Obsidian 플러그인](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin) | `manifest.json`, 프로세스 안에서 제한 없이 실행, 커뮤니티 목록 심사 | **부분 참고** | 매니페스트 필드(`id`·`version`·`minAppVersion`), 커뮤니티 목록 심사. 무제한 실행은 따르지 않는다 |
-| [MCP](https://modelcontextprotocol.io/) | 도구·자원을 별도 프로세스 서버로 표준화 | **채택(도구 플러그인)** | 도구 플러그인 = MCP 서버. 새 형식을 만들지 않는다(생태계 진입, CONCEPT) |
+| [MCP](https://modelcontextprotocol.io/) | 도구·자원을 별도 프로세스 서버로 표준화 | **채택(도구 플러그인)** | 도구 플러그인 = MCP 서버. 새 형식을 만들지 않는다(생태계 진입, VISION) |
 | Agent Skills `SKILL.md` | 스킬 패키지 표준 | **채택(스킬)** | 이미 쓰는 형식 그대로 가져오기·내보내기 |
 
 ## 4. 설계 초안
@@ -77,7 +77,7 @@ ST 카드(PNG)·로어북(JSON)·`SKILL.md`는 **매니페스트 없이도** 가
 - 위치: `$CHATBOT_DATA/plugins/<id>/`(배포 기본 `~/.pe/plugins`). Workshop 구독분은 Steam이 내려받은 경로를 같은 방식으로 등록한다.
 - 순서: 내장 → 로컬 → Workshop. 같은 `id`는 사용자가 고른 것 하나만 켠다.
 - 콘텐츠 플러그인은 켜고 끄는 데 재기동이 필요 없다. 코드 플러그인은 별도 프로세스를 띄우고 내린다.
-- 개인화 레이어 보존: 사용자가 플러그인 콘텐츠를 고친 결과는 원본 패키지가 아니라 사용자 데이터에 쌓인다. 플러그인이 업데이트돼도 사용자의 수정은 남는다(CONCEPT 「내 것」).
+- 개인화 레이어 보존: 사용자가 플러그인 콘텐츠를 고친 결과는 원본 패키지가 아니라 사용자 데이터에 쌓인다. 플러그인이 업데이트돼도 사용자의 수정은 남는다(VISION 「내 것」).
 
 ### 4.5 창작 도구와 등급
 

@@ -78,7 +78,7 @@ services/chatbot/
 ├── ARCHITECTURE.md    # 구조(쉬운 영어): 원칙, 층, 있는 어댑터와 계획, 판, 보호 등급, 검사 지점
 ├── OPERATIONS.md      # 운영: 복구·재시작·로그
 ├── engine/            # 코드·설정·스크립트(repo-layout)
-├── README·CONCEPT·PRODUCT·DESIGN·HISTORY·CHANGELOG.md   # 프로젝트 문서(에이전트도 읽음)
+├── README·VISION·PRODUCT·DESIGN·HISTORY·CHANGELOG.md   # 프로젝트 문서(에이전트도 읽음)
 ├── docs/              # 폴더만: plans/, providers/, devlog/(DEVLOG의 지난 날짜)
 └── templates/         # 사용자 데이터 부트스트랩 기본값(엔진 소유)
 templates/workspace/AGENTS.md                # 챗 에이전트(제품 런타임) 헌장, 두 판 공용. 개발판은 DEV-CHARTER.md를 따로 더함

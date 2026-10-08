@@ -2,7 +2,7 @@
 
 <!-- impeccable:product-schema 1 -->
 
-[`CONCEPT.md`](CONCEPT.md) is the canonical baseline for maximum value, moat, and primary objectives. This document translates that baseline into concrete product decisions (for whom, what, and by what principles). In case of conflict, the concept wins.
+[`VISION.md`](VISION.md) is the canonical baseline for highest value, moat, and primary objectives. This document translates that baseline into concrete product decisions (for whom, what, and by what principles). In case of conflict, the vision wins.
 
 ## Platform
 
@@ -30,11 +30,13 @@ Success criteria:
 
 ## Positioning
 
-**Occupying the space of Wallpaper Engine — customizing companions instead of wallpapers.** Low-price one-time Steam purchase + BYOK (sell engine and UX, user brings models) + Steam Workshop.
+The market, the moat and what we do not compete on are [VISION.md](VISION.md) (Three Facets, Moat). What that means
+for the interface:
 
-We do not compete against provider work harnesses on raw work throughput. We compete on the **deeply accumulated personalization layer** and the **ecosystem of plugins and Workshop creations**.
-
-The public-facing surface is a **customizable agent harness and desktop companion**. Relational dynamics are optional layers for the user to explore. Immersive framing (Video Girl Ai, Joi, the Video Shop) serves as an internal immersion device and is not marketed on store frontlines.
+- The public surface is a **customizable agent harness and desktop companion**, not a work-throughput chat tool:
+  warmth, continuity and the user's own touches outrank speed and density.
+- Relational depth is an option the user opens, never the store-front promise. The immersive frame
+  ([docs/lore/immersive-frame.md](docs/lore/immersive-frame.md)) lives inside the product, not in its marketing.
 
 ## Operating Context
 

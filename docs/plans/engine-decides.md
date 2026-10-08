@@ -1,6 +1,6 @@
 # 엔진이 정한다: 모델 판단 지점 전수 점검과 이전 계획 (engine-decides)
 
-> 방향 (align/D, 2026-10-03): **핵심** — 두뇌(제공자·모델)가 바뀌어도 같은 사용감. 모델에게는 캐릭터의 말과 행동만 남기고, 엔진이 정할 수 있는 판단은 코드로 옮긴다 (`CONCEPT.md` "모델에 덜 기댄다", 운영자 2026-10-02)
+> 방향 (align/D, 2026-10-03): **핵심** — 두뇌(제공자·모델)가 바뀌어도 같은 사용감. 모델에게는 캐릭터의 말과 행동만 남기고, 엔진이 정할 수 있는 판단은 코드로 옮긴다 (`VISION.md` "모델에 덜 기댄다", 운영자 2026-10-02)
 > 상태: **active** (2026-10-03 수립, 결정 D1–D4·D6 2026-10-08 운영자: 추천대로, D5 대기)
 > 근거 사례: `HISTORY.md` 2026-10-02 "모델 판단 줄이기" (inbox/H, #565·#567)
 > 관련: [out-of-band-choices-actions.md](out-of-band-choices-actions.md)(선택지 채널) · [private-mode.md](private-mode.md)(§8.3 W1 애정 턴, §8.4 W2b 이동 제안, D8 아이템 판정) · [ux-shell-roadmap.md](ux-shell-roadmap.md)(`ux/S5` 지문 STAGE_v1) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [character-memory-adapter.md](character-memory-adapter.md)(무엇을 기억해 읽을지)
@@ -67,7 +67,7 @@ agy는 가끔 인자를 `{"Arguments": "<파이썬 dict 문자열>", "ToolName":
 
 **ed/A2 경로 해석** — P2 · S
 - 지금: 허용 루트 밖이면 거절.
-- 흔적: `/root/services/chatbot/…`, `/home/nas/…`, `~/…`, `concept.md`(정본 `CONCEPT.md`), `characters/koko/`(id가 아닌 이름).
+- 흔적: `/root/services/chatbot/…`, `/home/nas/…`, `~/…`, `concept.md`(정본 `VISION.md`), `characters/koko/`(id가 아닌 이름).
 - 엔진: 끝이 `…/services/chatbot/<rest>`인 남의 경로는 `CODE_ROOT/<rest>`로, `~` 확장, 파일이 없을 때 대소문자만 다른 하나가 있으면 그것(이미 `characters.pack_file`이 옛 소문자 이름을 읽음), 캐릭터 이름 → id(`character_names`). 보안 경계(허용 루트·비밀 경로)는 그대로.
 
 **ed/A3 `run_command` 모양** — P2 · S

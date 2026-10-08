@@ -6,7 +6,7 @@
 - **작성:** 2026-09-27
 - **범위:** 최소 조각은 구현됨(§8). 암호화·화면·스위치는 미정. 전 범위 스키마는 확정하지 않는다.
 - **관련:**
-  - [`CONCEPT.md`](../../CONCEPT.md) — 제품 기조·열린 축
+  - [`VISION.md`](../../VISION.md) — 제품 기조·열린 축
   - [`private-mode.md`](private-mode.md) — 사적 모드·텐션·호감도(계획)
   - [`user-data-separation.md`](user-data-separation.md) — `CHATBOT_DATA`·기억 경로·배포 분리
   - [`multi-agent-worktree-delegation.md`](multi-agent-worktree-delegation.md) §12 — 캐릭터별 업무/사적 기억 분리
@@ -121,7 +121,7 @@
 ## 7. INDEX·기조
 
 - INDEX Active 행: 본 문서
-- [`CONCEPT.md`](../../CONCEPT.md) `열린 축`에 캐릭터 스코프 관계 기억 어댑터 1줄 링크
+- [`VISION.md`](../../VISION.md) `열린 축`에 캐릭터 스코프 관계 기억 어댑터 1줄 링크
 
 ## 8. 최소 구현 (2026-10-03)
 

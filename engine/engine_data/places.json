@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "MOVE_CHOICE_v1 (docs/plans/engine-decides.md ed/B2, D3): the default places a work-room personal turn may offer a move to, when the character's state.json names none. Lore is provisional (CONCEPT.md: the office's hidden corners and after work); the setting pack (docs/plans/setting-pack.md sp/D) replaces this list. `name` is what the agent and the /private command read (English); the page shows the catalog line place.<id>.",
+  "notes": "MOVE_CHOICE_v1 (docs/plans/engine-decides.md ed/B2, D3): the default places a work-room personal turn may offer a move to, when the character's state.json names none. Lore is provisional (docs/lore/immersive-frame.md: the office's hidden corners and after work); the setting pack (docs/plans/setting-pack.md sp/D) replaces this list. `name` is what the agent and the /private command read (English); the page shows the catalog line place.<id>.",
   "places": [
     {"id": "stairwell", "name": "the stairwell"},
     {"id": "rooftop", "name": "the rooftop terrace"},

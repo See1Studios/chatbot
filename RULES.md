@@ -35,7 +35,7 @@ not do.
 
 ### Naming
 
-- Standing documents (one copy, always current) are UPPERCASE: `AGENTS.md`, `RULES.md`, `CONCEPT.md`,
+- Standing documents (one copy, always current) are UPPERCASE: `AGENTS.md`, `RULES.md`, `VISION.md`,
   `SKILL.md`, `ROLE.md`, `PROCEDURE.md`, ...
 - Documents that accumulate are lower-kebab: `docs/plans/*.md` (`INDEX.md` excepted), `docs/history/YYYY-MM-DD.md`.
 - No snake_case document names.
@@ -153,7 +153,7 @@ Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role 
 | HISTORY stays small; old dates in `docs/history/` | all | `test_docs_budget` |
 | Docs cite code as `path` or `path::symbol`, never line numbers; links resolve | all | `test_doc_refs` |
 | Tool-named entry files (`CLAUDE.md`, `GEMINI.md`) only point to `AGENTS.md`; no new invented entry files | all | `test_entrypoints` |
-| `AGENTS.md` is the dev-build entry only: at most 6,000 bytes, no chat-runtime conventions. The repo root holds the entry files and the standing documents (guidance: `RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`; project: `README.md`, `CONCEPT.md`, `PRODUCT.md`, `DESIGN.md`, `HISTORY.md`); `docs/` holds folders only | all | `test_entrypoints` |
+| `AGENTS.md` is the dev-build entry only: at most 6,000 bytes, no chat-runtime conventions. The repo root holds the entry files and the standing documents (guidance: `RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`; project: `README.md`, `VISION.md`, `PRODUCT.md`, `DESIGN.md`, `HISTORY.md`); `docs/` holds folders only | all | `test_entrypoints` |
 | Document names: standing UPPERCASE, accumulating lower-kebab, no snake_case | all | `test_doc_names` |
 | Every registry row names an audience and a real enforcer | all | `test_rule_registry` |
 | Every enforcer is Tier 3 (`protected_paths.json` governance) and runs on each commit (`run-tests.sh` FAST), or is listed slow with where it runs instead | all | `test_rule_registry` |

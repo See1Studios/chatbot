@@ -13,7 +13,7 @@ from tests._paths import ENGINE, REPO  # noqa: E402
 ROOT = REPO
 POINTERS = ("CLAUDE.md", "GEMINI.md")
 GUIDANCE = {"RULES.md", "CODEMAP.md", "ARCHITECTURE.md", "OPERATIONS.md"}
-PROJECT_DOCS = {"README.md", "CONCEPT.md", "PRODUCT.md", "DESIGN.md", "HISTORY.md"}
+PROJECT_DOCS = {"README.md", "VISION.md", "PRODUCT.md", "DESIGN.md", "HISTORY.md"}
 STANDING_DOCS = {"AGENTS.md"} | GUIDANCE | PROJECT_DOCS
 KO_MIRRORS = {f"{p.rsplit('.md', 1)[0]}.ko.md" for p in STANDING_DOCS}
 ENTRY_FILES = {"AGENTS.md"} | set(POINTERS) | GUIDANCE | PROJECT_DOCS | KO_MIRRORS

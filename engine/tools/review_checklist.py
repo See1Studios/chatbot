@@ -177,7 +177,7 @@ DOC_CHECKLIST = ("This is a documentation change. Check only these, from the dif
                  "1. Nothing was deleted or rewritten that the task did not ask for (existing designs, tables, "
                  "decisions).\n"
                  "2. Links, anchors and section numbers still point where they should.\n"
-                 "3. Nothing contradicts the product concept (CONCEPT.md) or a decision recorded elsewhere.\n"
+                 "3. Nothing contradicts the product concept (VISION.md) or a decision recorded elsewhere.\n"
                  "4. Nothing is described as built or implemented unless the task says it is; plans say plan.\n"
                  "Style and wording are not failures. The operator makes the final call; your verdict is advice.")
 

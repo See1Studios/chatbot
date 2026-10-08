@@ -1,4 +1,4 @@
-<!-- AUTO-GENERATED MIRROR FROM RULES.md (source_sha256: 48f4035882cde01bd6a3592406f9b4a0b1978957caf1df3202ea92bc7fe7d4f5) — DO NOT EDIT MANUALLY -->
+<!-- AUTO-GENERATED MIRROR FROM RULES.md (source_sha256: 90ddae78c872035c00bd54d97569db941205c4991f2b1c8359c040270e189ec0) — DO NOT EDIT MANUALLY -->
 
 # 규칙
 
@@ -37,7 +37,7 @@
 
 ### 명명
 
-- 현재 문서(1부, 항상 최신)는 대문자: `AGENTS.md`, `RULES.md`, `CONCEPT.md`,
+- 현재 문서(1부, 항상 최신)는 대문자: `AGENTS.md`, `RULES.md`, `VISION.md`,
   `SKILL.md`, `ROLE.md`, `PROCEDURE.md`, ...
 - 쌓이는 문서는 하케밥 : `docs/plans/*.md`(`INDEX.md` 제외), `docs/history/YYYY-MM-DD.md`입니다.
 - snake_case 문서 이름이 없습니다.
@@ -155,7 +155,7 @@
 | 역사는 작게 유지됩니다. `docs/history/`의 오래된 날짜 | 모두 | `test_docs_budget` |
 | 문서에서는 코드를 `path` 또는 `path::symbol`로 인용하며 줄 번호는 사용하지 않습니다. 링크 해결 | 모두 | `test_doc_refs` |
 | 도구 이름이 지정된 항목 파일(`CLAUDE.md`, `GEMINI.md`)은 `AGENTS.md`만 가리킵니다. 새로 발명된 항목 파일이 없습니다 | 모두 | `test_entrypoints` |
-| `AGENTS.md`는 개발 빌드 항목 전용입니다. 최대 6,000바이트이며 채팅 런타임 규칙이 없습니다. 저장소 루트에는 항목 파일과 대기 문서(지침: `RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`, 프로젝트: `README.md`, `CONCEPT.md`, `PRODUCT.md`, `DESIGN.md`, `HISTORY.md`)가 들어 있습니다. `docs/`에는 폴더만 보유 | 모두 | `test_entrypoints` |
+| `AGENTS.md`는 개발 빌드 항목 전용입니다. 최대 6,000바이트이며 채팅 런타임 규칙이 없습니다. 저장소 루트에는 항목 파일과 대기 문서(지침: `RULES.md`, `CODEMAP.md`, `ARCHITECTURE.md`, `OPERATIONS.md`, 프로젝트: `README.md`, `VISION.md`, `PRODUCT.md`, `DESIGN.md`, `HISTORY.md`)가 들어 있습니다. `docs/`에는 폴더만 보유 | 모두 | `test_entrypoints` |
 | 문서 이름: 대문자, 소문자 케밥 누적, snake_case 없음 | 모두 | `test_doc_names` |
 | 모든 등록 행에는 대상자와 실제 집행자의 이름이 지정됩니다. 모두 | `test_rule_registry` |
 | 모든 시행자는 Tier 3(`protected_paths.json` 거버넌스)이고 각 커밋(`run-tests.sh` FAST)에서 실행되거나 대신 실행되는 위치와 함께 느리게 나열됩니다. 모두 | `test_rule_registry` |
