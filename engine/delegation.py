@@ -37,6 +37,7 @@ import repo_layout
 import platform_compat
 
 RUNNER_PATH = ROOT / "tools" / "worktree_runner.py"
+CLOSE_PATH = ROOT / "tools" / "ticket_close.py"   # CLOSE_ASYNC_v1
 PLAN_ROOT = repo_layout.REPO # where a plan's files must exist (DELEGATION_CLARITY_v1); tests point it elsewhere
 SEEN_FILE = DATA / "delegation_seen.json"
 ACTIVE_PHASES = ("starting", "running", "writing", "gates", "review", "merging")
@@ -268,14 +269,17 @@ def merge(ticket_id: int) -> Dict:
     tid = int(ticket_id)
     st = runner().read_state(tid)
     raw, phase = st.get("phase"), _phase(st)
-    if raw == "merged-ticket-open":
+    closing = raw == "merging" and st.get("closing")
+    if raw == "merged-ticket-open" or (closing and phase == "stalled"):
         return _close_merged(tid, st)
+    if closing:   # CLOSE_ASYNC_v1: a second press while the first close runs
+        raise DelegationError("ticket %d is already being closed" % tid)
     if not (raw == "awaiting_merge" or (raw == "merging" and phase == "stalled")):
         raise DelegationError("ticket %d has no delegated change awaiting a merge" % tid)
     if raw == "merging" and tickets._read_lease(DATA, tid):
         tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI, ticket_id=tid)   # back to awaiting_merge
     m = tickets.merge_go(DATA, tid, operator=tickets.OPERATOR_UI, actor=worker_role())
-    runner().write_state(tid, phase="merging")   # before the runner starts: it reads this state
+    runner().write_state(tid, phase="merging", closing=False)   # before the runner starts: it reads this state
     try:
         pid = _spawn(tid, ["merge", "--ticket", str(tid), "--token", m["token"], "--json"])
     except OSError as e:
@@ -288,7 +292,11 @@ def merge(ticket_id: int) -> Dict:
 def _close_merged(tid: int, st: Dict) -> Dict:
     """MERGED_CLOSE_v1: the change landed but closing the ticket failed (its lease ran out mid-merge, 2026-09-29
     #371), so the card still offered its approve button and the merge was refused. Approving now finishes the job: when the run's
-    merge commit is on the main branch, the operator's lease closes the ticket through the ordinary done gate."""
+    merge commit is on the main branch, the operator's lease closes the ticket through the ordinary done gate.
+    CLOSE_ASYNC_v1 (#819): the done gate runs the guard tests (~50 s, minutes on a busy host) and the page gave up after
+    12 s; each press dropped the lease of the close still running and started another (#456, 2026-10-08: 12 in 7 s).
+    The runner closes it in its own process, like a merge: the page gets its answer at once, the card shows the run
+    as merging (no button) until it ends, and a refusal stays on the card as its reason."""
     r = runner()
     head = st.get("head") or ""
     if not head or r.git(r.CHATBOT_REPO, "merge-base", "--is-ancestor", head, "HEAD")[0] != 0:
@@ -298,15 +306,14 @@ def _close_merged(tid: int, st: Dict) -> Dict:
         # working tree), so its lease was left behind and held the files for up to an hour. Free it first.
         tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI, ticket_id=tid)
     m = tickets.merge_go(DATA, tid, operator=tickets.OPERATOR_UI, actor=worker_role())
+    r.write_state(tid, phase="merging", closing=True, reason="")   # before the runner starts: it reads this state
     try:
-        tickets.release(DATA, tid, m["token"], "done", "merged %s earlier; closed on the operator's word" % head[:7],
-                        actor=worker_role())
-    except tickets.TicketError:
+        pid = _spawn(tid, ["--ticket", str(tid), "--token", m["token"], "--json"], CLOSE_PATH)
+    except OSError as e:
         tickets.drop_lease(DATA, operator=tickets.OPERATOR_UI, ticket_id=tid)   # back to awaiting_merge, as it was
-        raise
-    r.write_state(tid, phase="done", reason="")
-    mark_seen(tid)
-    return {"ticket": tid, "status": "done", "phase": "done", "healed": True}
+        r.write_state(tid, phase="merged-ticket-open", closing=False)
+        raise DelegationError("could not start closing the ticket: %s" % e)
+    return {"ticket": tid, "pid": pid, "closing": True}
 
 
 def discard(ticket_id: int) -> Dict:
@@ -483,7 +490,7 @@ def _launch(tid: int, token: str, args: List[str], back_to_waiting: bool = False
         raise DelegationError("could not start the runner: %s" % e)
 
 
-def _spawn(tid: int, args: List[str]) -> int:
+def _spawn(tid: int, args: List[str], script: Path = RUNNER_PATH) -> int:
     """The runner in its own session (a host restart does not cut it), with a clean environment."""
     r = runner()
     log_path = r.state_path(tid).with_suffix(".log")
@@ -492,7 +499,7 @@ def _spawn(tid: int, args: List[str]) -> int:
     env = r.clean_env(**extra)
     env["PATH"] = AGENT_PATH_PREFIX + ":" + env.get("PATH", "")
     with open(log_path, "ab") as log:
-        p = subprocess.Popen([sys.executable, str(RUNNER_PATH)] + args, cwd=str(ROOT), env=env,
+        p = subprocess.Popen([sys.executable, str(script)] + args, cwd=str(ROOT), env=env,
                              stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
                              start_new_session=True, close_fds=True)
     threading.Thread(target=p.wait, daemon=True).start()   # reap it if it ends while this process lives

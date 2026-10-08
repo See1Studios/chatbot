@@ -70,7 +70,7 @@ map only says which file does what.
 | Area | Files |
 |---|---|
 | Events and rooms | mailbox `events.py`; characters speaking first `event_react.py`; group rooms `room_chat.py`; dialog records `dialog_log.py`; the `dialog` tool `dialog_tool.py`; handoffs between directors `dialog_handoff.py`, drill `tools/handoff_drill.py`, page `static/app-handoffs.js` |
-| Delegation (dev build) | `delegation.py`, stall watch `delegation_watch.py`, runner `tools/worktree_runner.py`; review `tools/review_checklist.py`; worker report `tools/worker_output.py`; tokens `tools/run_usage.py`; brain limits `tools/brain_limits.py`; diary line `tools/history_entry.py` |
+| Delegation (dev build) | `delegation.py`, stall watch `delegation_watch.py`, runner `tools/worktree_runner.py`, closing a landed ticket `tools/ticket_close.py`; review `tools/review_checklist.py`; worker report `tools/worker_output.py`; tokens `tools/run_usage.py`; brain limits `tools/brain_limits.py`; diary line `tools/history_entry.py` |
 
 ### Page (`static/`)
 

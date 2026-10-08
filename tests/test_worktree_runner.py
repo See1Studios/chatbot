@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from tests._paths import ENGINE, REPO  # noqa: E402
@@ -17,6 +18,7 @@ ROOT = REPO
 sys.path.insert(0, str(ENGINE / "tools"))
 
 import worktree_runner as wr
+import ticket_close  # noqa: E402
 import review_checklist  # noqa: E402
 from tests._platform import dev_only_bash  # noqa: E402
 
@@ -501,6 +503,43 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(wr.main(["merge", "--ticket", "7"]), 2)
         self.run_with("echo two >> a.txt && git commit -qam change")   # merged directly, nothing waits
         self.assertEqual(wr.main(["merge", "--ticket", "7"]), 2)
+
+    # ---- CLOSE_ASYNC_v1 (#819): the page answers at once; this process runs the done gate and leaves its outcome
+
+    def closing(self) -> None:
+        wr.PROVIDERS["fake"] = {"argv": ["true"], "actor": "fake-agent", "author": ("Fake", "fake@localhost")}
+        wr.write_state(7, phase="merging", closing=True, head="abc1234def", provider="fake", title="t")
+
+    def test_close_finishes_a_landed_run_whose_ticket_stayed_open(self) -> None:
+        self.closing()
+        self.assertEqual(ticket_close.main(["--ticket", "7", "--token", "ui-token"]), 0)
+        self.assertEqual(self.ticket_cmds(), ["done"])
+        self.assertEqual(self.last_fail()[self.last_fail().index("--token") + 1], "ui-token")
+        self.assertEqual((wr.read_state(7)["phase"], wr.read_state(7)["head"]), ("done", "abc1234def"))
+
+    def test_a_refused_close_stays_on_the_card_with_its_reason(self) -> None:
+        # #456 (2026-10-08): the refusal flashed by and nothing on the card said why
+        self.closing()
+        why = RuntimeError("Error: cannot mark done: guard tests fail (failed: test_x); the lease is still yours")
+        with mock.patch.object(wr, "ticket_call", side_effect=why):
+            self.assertEqual(ticket_close.main(["--ticket", "7", "--token", "ui-token"]), 1)
+        st = wr.read_state(7)
+        self.assertEqual((st["phase"], st["head"]), ("merged-ticket-open", "abc1234def"))   # the next press can retry
+        self.assertIn("guard tests fail (failed: test_x)", st["reason"])
+
+    def test_close_without_a_close_in_progress_is_refused(self) -> None:
+        self.assertEqual(ticket_close.main(["--ticket", "7", "--token", "t"]), 2)
+        wr.write_state(7, phase="merging", head="abc1234def")          # a merge, not a close
+        self.assertEqual(ticket_close.main(["--ticket", "7", "--token", "t"]), 2)
+        self.assertNotIn("done", self.ticket_cmds() if self.calls.exists() else [])
+
+    def test_done_gets_time_for_the_guard_tests(self) -> None:
+        # #456: 60 s cut the done gate short on a busy host and the merged ticket stayed open
+        with mock.patch.object(wr, "run_cmd", return_value=(0, "", "")) as run:
+            wr.ticket_call("done", "--id", "7")
+            wr.ticket_call("renew", "--id", "7")
+        self.assertEqual([c.kwargs["timeout"] for c in run.call_args_list], [wr.DONE_TIMEOUT, 60])
+        self.assertGreater(wr.DONE_TIMEOUT, 300)
 
     # ---- tiers (protected_paths.json of the repo worked on)
 

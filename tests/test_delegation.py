@@ -53,8 +53,8 @@ class Base(unittest.TestCase):
         self.spawned = []
         self.cleaned = []
 
-        def fake_spawn(tid, args):
-            self.spawned.append((tid, args))
+        def fake_spawn(tid, args, script=delegation.RUNNER_PATH):
+            self.spawned.append((tid, args if script == delegation.RUNNER_PATH else [script.stem] + args))
             r.write_state(tid, pid=999999)
             return 4242
         delegation._spawn = fake_spawn
@@ -372,13 +372,36 @@ class OperatorTest(Base):
         r.write_state(tid, phase="merged-ticket-open", head="af2f5763d656")
         spawned = len(self.spawned)
         with mock.patch.object(r, "git", return_value=(0, "", "")) as git, \
-                mock.patch.object(tickets, "_guard_failure", return_value=""):
+                mock.patch.object(tickets, "_guard_failure", side_effect=AssertionError("the runner runs the gate")):
             out = delegation.merge(tid)
         self.assertEqual(git.call_args[0][1:], ("merge-base", "--is-ancestor", "af2f5763d656", "HEAD"))
-        self.assertEqual((out["status"], out["healed"]), ("done", True))
-        self.assertEqual(tickets.get(self.data, tid)["status"], "done")
-        self.assertEqual(self.state(tid)["phase"], "done")
-        self.assertEqual(len(self.spawned), spawned, "nothing to land again")
+        # CLOSE_ASYNC_v1 (#819): the page gets its answer at once; the runner closes it with the operator's lease
+        self.assertTrue(out["closing"])
+        self.assertEqual(self.spawned[-1][1][:3], ["ticket_close", "--ticket", str(tid)])
+        self.assertEqual(len(self.spawned), spawned + 1, "a close, nothing to land again")
+        self.assertEqual(tickets.get(self.data, tid)["status"], "in_progress")
+        self.assertEqual((self.state(tid)["phase"], self.state(tid)["closing"]), ("merging", True))
+
+    def test_a_second_press_while_the_close_runs_is_refused(self):
+        # #456 (2026-10-08): each press dropped the running close's lease and started another, 12 in 7 s
+        tid = self.awaiting()
+        r = delegation.runner()
+        r.write_state(tid, phase="merged-ticket-open", head="af2f5763d656")
+        with mock.patch.object(r, "git", return_value=(0, "", "")):
+            delegation.merge(tid)
+            r.write_state(tid, pid=os.getpid())                     # the close is still running
+            lease = tickets._read_lease(self.data, tid)
+            with self.assertRaises(delegation.DelegationError) as cm:
+                delegation.merge(tid)
+            self.assertIn("already being closed", str(cm.exception))
+            self.assertEqual(tickets._read_lease(self.data, tid), lease)
+            card = [x for x in delegation.runs() if x["ticket"] == tid][0]
+            self.assertEqual((card["stage"], card["actions"]), ("working", []))
+            r.write_state(tid, pid=999999)                          # the close died: the card offers it again
+            card = [x for x in delegation.runs() if x["ticket"] == tid][0]
+            self.assertEqual(card["stalled_in"], "merging")
+            delegation.merge(tid)
+        self.assertEqual(self.spawned[-1][1][0], "ticket_close")
 
     def test_a_landed_run_whose_runner_left_its_lease_behind_still_closes(self):
         # #387: the done gate refused right after the merge; the dead runner's lease held the files for an hour
@@ -387,11 +410,13 @@ class OperatorTest(Base):
         self.assertEqual(tickets.get(self.data, tid)["status"], "in_progress")
         r = delegation.runner()
         r.write_state(tid, phase="merged-ticket-open", head="af2f5763d656", pid=0)
-        with mock.patch.object(r, "git", return_value=(0, "", "")), \
-                mock.patch.object(tickets, "_guard_failure", return_value=""):
+        old = tickets._read_lease(self.data, tid)
+        with mock.patch.object(r, "git", return_value=(0, "", "")):
             out = delegation.merge(tid)
-        self.assertEqual(out["status"], "done")
-        self.assertEqual([l for l in tickets.leases(self.data) if l["ticket"] == tid], [])
+        self.assertTrue(out["closing"])
+        mine = [l for l in tickets.leases(self.data) if l["ticket"] == tid]
+        self.assertEqual(len(mine), 1)                               # the close's own lease, not the dead runner's
+        self.assertNotEqual(mine[0].get("token_sha256"), old.get("token_sha256"))
 
     def test_a_user_data_plan_runs_as_content_work(self):
         # CONTENT_WORK_v1 (#392): a gallery picture needs no worktree, gates, review or merge

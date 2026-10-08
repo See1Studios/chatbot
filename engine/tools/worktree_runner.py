@@ -307,9 +307,12 @@ def character_block(me: Dict[str, str], partner: Dict[str, str], relation: str) 
 
 # ------------------------------------------------------------------ tickets
 
+DONE_TIMEOUT = 420   # done runs the guard tests (300 s), maybe after another test run; 60 s left #456 open
+
+
 def ticket_call(*args: str) -> Dict[str, str]:
     """Run ticket-quick and return its KEY=VALUE lines. Raises RuntimeError with its stderr."""
-    code, out, err = run_cmd(TICKET_QUICK + list(args), timeout=60)
+    code, out, err = run_cmd(TICKET_QUICK + list(args), timeout=DONE_TIMEOUT if args[0] == "done" else 60)
     if code != 0:
         raise RuntimeError(err or out or "ticket-quick %s failed" % args[0])
     vals = {}
@@ -833,7 +836,7 @@ def close_done(tid: int, token: str, actor: str, note: str, result: Dict) -> Non
         result["outcome"] = "done"
         log("ticket #%d done" % tid)
     except RuntimeError as e:
-        result["outcome"] = "merged-ticket-open"
+        result.update(outcome="merged-ticket-open", reason=tail(str(e), 1))   # the card shows it
         print("[!] merged, but the ticket could not be closed: %s" % e, file=sys.stderr)
     log("the live host was not restarted; deploy host-module changes with `chatbot-ctl.sh repair` once idle")
 
