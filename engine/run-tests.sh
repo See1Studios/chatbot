@@ -13,7 +13,11 @@
 set -uo pipefail
 # LAYOUT_v1: this script lives in the engine folder; the tests run from the repo root (tests/ is there) with the
 # engine folder on the import path, as repo_layout.py decides.
-ENGINE_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# A relative script path is made absolute from $PWD first: `readlink -f` on a relative path needs getcwd, which fails
+# when a parent directory is not readable (Synology /volume1/homes is --x for users), and the suite then ran from '.'.
+SELF="${BASH_SOURCE[0]}"
+case "$SELF" in /*) ;; *) SELF="$PWD/$SELF" ;; esac
+ENGINE_DIR="$(dirname "$(readlink -f "$SELF")")"
 if [ "$(basename "$ENGINE_DIR")" = engine ]; then REPO_DIR="$(dirname "$ENGINE_DIR")"; else REPO_DIR="$ENGINE_DIR"; fi
 cd "$REPO_DIR" || exit 2
 export PYTHONPATH="$ENGINE_DIR${PYTHONPATH:+:$PYTHONPATH}"
