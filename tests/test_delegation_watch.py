@@ -8,6 +8,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from tests._paths import ENGINE, REPO  # noqa: E402
@@ -38,7 +39,30 @@ class Run(unittest.TestCase):
     def test_recent_activity_keeps_it_running_until_the_timeout(self):
         code, _out, err = W.run([PY, "-c", "import time; time.sleep(30)"], timeout=1, stall_sec=0, poll_sec=0.2,
                                 activity=lambda pid, started: time.time())
-        self.assertEqual((code, err), (-1, "timed out after 1s"))
+        self.assertEqual(code, -1)
+        self.assertTrue(err.startswith("timed out after 1s"), err)   # "while working": it was busy (#868)
+
+    def test_a_timeout_while_the_agent_was_busy_says_so(self):
+        # #868: busy to the cutoff is not a brain that could not work
+        code, _out, err = W.run([PY, "-c", "import time; time.sleep(30)"], timeout=1, stall_sec=60, poll_sec=0.2,
+                                activity=lambda pid, started: time.time())
+        self.assertEqual(code, -1)
+        self.assertTrue(err.startswith("timed out after 1s while working"), err)
+
+    def test_a_process_nothing_ever_named_is_stalled_at_start(self):
+        # #868: a provider that reports activity, but no log named this process: it never started
+        t0 = time.time()
+        code, _out, err = W.run([PY, "-c", "import time; time.sleep(30)"], timeout=60, start_sec=1, poll_sec=0.2,
+                                activity=lambda pid, started: None)
+        self.assertEqual(code, -1)
+        self.assertTrue(err.startswith("stalled at start"), err)
+        self.assertLess(time.time() - t0, 10)
+
+    def test_only_a_provider_that_reports_activity_is_watched(self):
+        self.assertFalse(AgentAdapter.reports_activity)
+        self.assertTrue(AgyAdapter.reports_activity)
+        with mock.patch("providers.adapters.AGENT_ADAPTERS", {"x": AgentAdapter.__new__(AgentAdapter)}):
+            self.assertIsNone(W.activity_of("x"), "no signal: never judged stalled or not started")
 
     def test_without_a_signal_only_the_timeout_applies(self):
         code, _out, err = W.run([PY, "-c", "import time; time.sleep(30)"], timeout=1, stall_sec=0, poll_sec=0.2,

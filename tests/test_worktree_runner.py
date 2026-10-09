@@ -167,6 +167,25 @@ class WorktreeRunner(unittest.TestCase):
         self.assertIn("timed out after 1s", " ".join(map(str, self.last_fail())))
         self.assert_clean_up()
 
+    def test_a_timeout_while_working_keeps_the_edits_and_rests_no_brain(self) -> None:
+        # #868: four tickets' workers made 100-230 model calls up to the cutoff; their edits were dropped and their
+        # brain rested for half an hour as if it could not work
+        real = wr.run_agent
+
+        def busy(*a, **kw):
+            res = real(*a, **kw)
+            if res["returncode"] == -1:
+                res["stderr"] = "timed out after 1s while working (last model activity 0s ago)"
+            return res
+        with mock.patch.object(wr, "run_agent", busy):
+            self.assertEqual(self.run_with("echo edit >> a.txt; sleep 5", extra=("--timeout", "1")), 1)
+        fail = " ".join(map(str, self.last_fail()))
+        self.assertIn("while working", fail)
+        self.assertIn("changes kept", fail)
+        self.assertIn("edit", sh(self.repo, "git", "show", "refs/attic/ticket-7:a.txt"))
+        limits = wr.WORKTREE_BASE / wr.LIMITS
+        self.assertFalse(limits.exists() and "fake" in limits.read_text(), "a busy brain is not rested")
+
     def test_when_no_brain_can_work_the_attempt_is_not_counted(self) -> None:
         # DELEGATION_HARDENING_v1: the last brain out of quota releases as `unavailable`, not `failed`
         self.assertEqual(self.run_with("echo 'Error: quota exceeded' >&2; exit 1"), 1)

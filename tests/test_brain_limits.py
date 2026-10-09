@@ -28,6 +28,9 @@ class BrainLimits(unittest.TestCase):
         self.assertEqual(B.rest_for("Individual quota reached. Resets in 146h32m12s."), 146 * 3600 + 32 * 60 + 12)
         self.assertEqual(B.rest_for("Resets in 35s"), 60)                         # at least a minute
         self.assertEqual(B.rest_for("timed out after 1200s"), B.TIMEOUT_REST)
+        self.assertTrue(B.unavailable("timed out after 1200s", -1))
+        self.assertFalse(B.unavailable("timed out after 1200s while working (last model activity 4s ago)", -1),
+                         "#868: busy to the cutoff, the brain is fine")
         self.assertEqual(B.rest_for("rate limit"), B.UNKNOWN_REST)
         self.assertEqual(B.rest_for("Resets in 999h"), B.MAX_REST)
 

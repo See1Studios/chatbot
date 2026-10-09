@@ -147,6 +147,8 @@ class AgyAdapter(AgentAdapter):
     def resolve_model(self, model: str) -> str:
         return _resolve_agy_model(model, self.known_models())
 
+    reports_activity = True
+
     def last_activity(self, pid: int, started: float, conversation_id: str = "") -> Optional[float]:
         """When the agent last did something. With `conversation_id` (a live session): the newest write to that
         conversation's transcript or to the transcript of a subagent it started (SUBAGENT_ACTIVITY_v1: a parent

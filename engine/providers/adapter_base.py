@@ -356,6 +356,8 @@ class AgentAdapter:
         None = cannot tell; the session then keeps the id as is."""
         return None
 
+    reports_activity = False   # last_activity below gives a real signal (delegation_watch: stall and start checks)
+
     def last_activity(self, pid: int, started: float, conversation_id: str = "") -> Optional[float]:
         """When the one-shot worker process `pid` (started at `started`) last showed it was working -- e.g. a model
         call in the CLI's own log. None = this provider gives no such signal; its runs are then held only to their

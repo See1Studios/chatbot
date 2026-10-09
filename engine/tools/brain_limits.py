@@ -30,7 +30,11 @@ def brain_label(b: Dict) -> str:
 
 
 def unavailable(text: str, returncode) -> bool:
-    """A brain that could not work (quota, limit, missing CLI, timeout), as opposed to one that tried and failed."""
+    """A brain that could not work (quota, limit, missing CLI, timeout), as opposed to one that tried and failed. A
+    timeout "while working" is the second kind: the brain answered to the end and the work was too long (#868: four
+    tickets' workers made 100-230 model calls to the cutoff and their brain was rested for it)."""
+    if "while working" in (text or ""):
+        return False
     return returncode in (None, -1) or bool(UNAVAILABLE_RE.search(text or ""))
 
 
