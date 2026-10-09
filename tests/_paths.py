@@ -11,7 +11,7 @@ ENGINE = REPO / "engine" if (REPO / "engine").is_dir() else REPO
 
 # The engine's code folders, the one list every guard reads (2026-10-09: seven guards kept their own copy, so a new
 # package would slip out of the ones that missed it). A new folder goes here and in protected_paths.json.
-CODE_DIRS = ("", "health", "providers", "telemetry", "tools")
+CODE_DIRS = ("", "character_settings", "health", "providers", "telemetry", "tools")
 
 
 def code_files(dirs=CODE_DIRS):

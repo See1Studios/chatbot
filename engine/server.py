@@ -41,6 +41,7 @@ import room_chat
 import card_upload
 import summon_api
 from health import incidents as health_incidents
+from character_settings import store as character_settings
 import chat_upload
 import platform_compat
 import items
@@ -508,6 +509,7 @@ GET_ROUTES = [
     ("/api/self-status", lambda req: req.json(_self_status())),
     (None, _api(ticket_api, "GET")),
     (None, _api(health_incidents.api, "GET")),   # improvement-layers il/E
+    (None, _api(character_settings.api, "GET")),   # character-settings cs/A
     (None, _api(delegation_api, "GET")),
     (None, _api(instructions_api, "GET")),
     (None, _api(experts_api, "GET")),
@@ -586,6 +588,7 @@ POST_ROUTES = [
     ("/api/characters/*/clone", _character_clone),
     ("/api/characters/*/dev-delete", _dev_delete_character),
     ("/api/characters/*/session", route_sessions.character_session),
+    ("/api/characters/*/settings/restore", _api(character_settings.api, "POST")),
     ("/api/sessions/*/message", route_sessions.message),
     ("/api/sessions/*/regenerate", route_sessions.regenerate_take),
     ("/api/sessions/*/pick", route_sessions.pick_take),
@@ -603,6 +606,7 @@ PUT_ROUTES = [   # PUT and DELETE match the path as sent (no mount-prefix stripp
 ]
 
 PATCH_ROUTES = [   # only what the page needs; the path is matched like POST's (mount prefix stripped)
+    ("/api/characters/*/settings", _api(character_settings.api, "PATCH")),   # character-settings cs/B
     ("/api/rooms*", _api(room_chat.api, "PATCH")),
 ]
 

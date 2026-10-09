@@ -183,6 +183,7 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | `turn.start` | info | `provider`, `model`, `notice`, `chars`, `resume`, `queued` |
 | `turn.dropped` | info | `reason` (`stopped_before_send`, `stopped_while_sending`): a stop came while the turn was being prepared; the agent was never told (#843) |
 | `private.turn` | info | `session`, `character`, `level` (relationship 1–5), `stage_from`, `stage` (tension 1–4), `cause` (`slot1`–`slot3`, `action`, `scene`, `hold`), `first`, `brink`, `offered` (choices on the last answer): one private turn's stage move, metadata only (#864) |
+| `character.setting` | info | `character`, `keys`: settings changed through the drawer's settings API (character-settings cs/B) -- the keys only, never a value |
 | `turn.end` | info/warn | `outcome` (`result`, `error`, `stopped`, `interrupted`, `process_died`, `auto_stop`), `dur_s`, `ttft_ms`, `prep_ms` (message taken → agent told: bundle, spawn), `spawn_ms` (only when this turn started an agent), `first_tool_ms`, `standby`, `tool_calls`, `read_kb`, `tok_in`/`tok_out`/`tok_think`/`tok_cache_read`/`tok_total` (when the provider reports usage); on failure `stderr_tail`, `error_hint` |
 | `turn.loop_notice` / `turn.quiet_close` | warn | loop guard warning / unfinished turn closed quietly |
 | `turn.failfast_failed`, `turn.post_result_stop_failed` | error/warn | `err` |

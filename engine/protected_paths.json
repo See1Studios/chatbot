@@ -30,7 +30,8 @@
     "engine/run-tests.sh",
     "engine/ratchet_baseline.json",
     "engine/engine_data/",
-    "templates/"
+    "templates/",
+    "engine/character_settings/"
   ],
   "except": [
     {
@@ -51,7 +52,8 @@
     "data/lifecycle.lock",
     "data/maintenance.flag",
     "data/dev/tickets/",
-    "data/sessions/*/events.jsonl"
+    "data/sessions/*/events.jsonl",
+    "engine/character_settings/__pycache__/"
   ],
   "governance": [
     {
