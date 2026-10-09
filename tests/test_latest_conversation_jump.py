@@ -250,6 +250,63 @@ const out = {};
   out.movedOn = apiObj.opened.slice();
   apiObj.setTip(null);
 
+  // 13. irregular session IDs ('test-err', 'test-st') mixed into sessions list
+  apiObj.opened.length = 0; apiObj.scrolled.length = 0;
+  apiObj.sessionId = '20260920-090000-past1';
+  apiObj.liveSessionId = '20260921-180000-latest9';
+  apiObj.archiveBrowse = false;
+  apiObj.sessionNavNextSid = 'test-err';
+
+  // viewingPastSession: irregular sessionNavNextSid must not be treated as a future session
+  const irregularNextIsPast = apiObj.viewingPastSession();
+
+  // resolveScrollforwardFallback: ignores test-err / test-st
+  apiObj.setSessions({ sessions: [
+    { id: '20260920-090000-past1', preview: 'past', turns: 2 },
+    { id: '20260921-180000-latest9', preview: 'latest', turns: 2 },
+    { id: 'test-err', preview: 'err', turns: 1 },
+    { id: 'test-st', preview: 'st', turns: 1 },
+  ] });
+  const irregularFallbackFromPast = await apiObj.resolveScrollforwardFallback(
+    '20260920-090000-past1', 1, new Set(['20260920-090000-past1'])
+  );
+  const irregularFallbackAtLatest = await apiObj.resolveScrollforwardFallback(
+    '20260921-180000-latest9', 1, new Set(['20260921-180000-latest9'])
+  );
+
+  // resolveScrollforwardFallback: returns empty string when only irregular candidates exist
+  apiObj.setSessions({ sessions: [
+    { id: '20260920-090000-past1', preview: 'past', turns: 2 },
+    { id: 'test-err', preview: 'err', turns: 1 },
+    { id: 'test-st', preview: 'st', turns: 1 },
+  ] });
+  const irregularFallbackOnlyIrregular = await apiObj.resolveScrollforwardFallback(
+    '20260920-090000-past1', 1, new Set(['20260920-090000-past1'])
+  );
+
+  // jump logic: jumps to latest valid live session, ignoring test-err / test-st
+  apiObj.setSessions({ sessions: [
+    { id: '20260920-090000-past1', preview: 'past', turns: 2 },
+    { id: 'test-err', preview: 'err', turns: 1 },
+    { id: 'test-st', preview: 'st', turns: 1 },
+    { id: '20260921-180000-latest9', preview: 'latest', turns: 2 },
+  ] });
+  apiObj.setActive({ id: '20260921-180000-latest9' });
+  apiObj.sessionId = '20260920-090000-past1';
+  apiObj.liveSessionId = '20260920-090000-past1';
+  apiObj.archiveBrowse = true;
+  apiObj.sessionNavNextSid = 'test-err';
+  const rIrregularJump = await apiObj.goToLatestConversation();
+
+  out.irregular = {
+    pastWithIrregularNext: irregularNextIsPast,
+    fallbackFromPast: irregularFallbackFromPast,
+    fallbackAtLatest: irregularFallbackAtLatest,
+    fallbackOnlyIrregular: irregularFallbackOnlyIrregular,
+    jumpResult: rIrregularJump,
+    jumpOpened: apiObj.opened.slice(),
+  };
+
   console.log(JSON.stringify(out));
 })().catch(e => { console.error(e); process.exit(1); });
 """
@@ -316,6 +373,29 @@ class LatestConversationJump(unittest.TestCase):
         self.assertTrue(out["liveFollow"]["followed"])
         self.assertEqual(out["liveFollow"]["opened"], ["20260921-180000-latest9"])
         self.assertEqual(out["skipGarbage"], "20260921-180000-latest9")
+        self.assertFalse(out["irregular"]["pastWithIrregularNext"])
+        self.assertEqual(out["irregular"]["fallbackFromPast"], "20260921-180000-latest9")
+        self.assertEqual(out["irregular"]["fallbackAtLatest"], "")
+        self.assertEqual(out["irregular"]["fallbackOnlyIrregular"], "")
+        self.assertEqual(out["irregular"]["jumpResult"], "jump")
+        self.assertEqual(out["irregular"]["jumpOpened"], ["20260921-180000-latest9"])
+
+    def test_irregular_session_ids_ignored(self):
+        if not self.node:
+            self.skipTest("node not installed")
+        proc = subprocess.run(
+            [self.node, "-e", HARNESS, str(APP)],
+            capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        out = json.loads(proc.stdout)
+        irr = out["irregular"]
+        self.assertFalse(irr["pastWithIrregularNext"])
+        self.assertEqual(irr["fallbackFromPast"], "20260921-180000-latest9")
+        self.assertEqual(irr["fallbackAtLatest"], "")
+        self.assertEqual(irr["fallbackOnlyIrregular"], "")
+        self.assertEqual(irr["jumpResult"], "jump")
+        self.assertEqual(irr["jumpOpened"], ["20260921-180000-latest9"])
 
 
 if __name__ == "__main__":

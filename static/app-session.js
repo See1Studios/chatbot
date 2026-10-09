@@ -585,7 +585,7 @@ function maybeBackfillScrollback() {
 async function resolveScrollforwardFallback(sid, updatedAt, visited) {
   try {
     const list = await api('/api/sessions');
-    const valid = (list.sessions || []).filter(s => s.id !== sid && !visited.has(s.id) && sameSessionMode(s) && (s.preview || (s.turns && s.turns > 0)));
+    const valid = (list.sessions || []).filter(s => isLiveSid(s.id) && s.id !== sid && !visited.has(s.id) && sameSessionMode(s) && (s.preview || (s.turns && s.turns > 0)));
     const cands = valid.filter(s => s.id > sid).sort((a, b) => a.id.localeCompare(b.id));
     return cands.length ? cands[0].id : '';
   } catch (_) {
@@ -745,7 +745,7 @@ function isLiveSid(sid) {
 
 function viewingPastSession() {
   if (archiveBrowse && liveSessionId && liveSessionId !== sessionId) return true;
-  return Boolean(sessionNavNextSid) && sessionNavNextSid > (sessionId || '');
+  return Boolean(sessionNavNextSid) && isLiveSid(sessionNavNextSid) && sessionNavNextSid > (sessionId || '');
 }
 
 async function resolveLatestSessionId() {
