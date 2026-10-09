@@ -170,9 +170,18 @@ class Reactions(unittest.TestCase):
         self.assertEqual(self.kit._incident_offer, [4])
         self.assertEqual(self.once(now=NOON, cfg=off), [], "told once")
 
+    def test_an_offer_left_by_a_stopped_judgement_does_not_reach_the_next_turn(self):
+        # #867: the judgement turn hit its budget; the operator's next turn got the six buttons
+        import inspect
+        from session_turn import SessionTurn
+        src = inspect.getsource(SessionTurn._start_turn)
+        self.assertIn('self._turn_offer, self._incident_offer = getattr(self, "_incident_offer", None) or [], []', src)
+        sess = SimpleNamespace(mode="work", character="", _turn_offer=[], _incident_offer=[])
+        self.assertEqual(SessionTurn.engine_choices(sess, []), [], "a turn that started without an offer has none")
+
     def test_the_answer_to_an_incident_carries_the_two_decisions_once(self):
         from session_turn import SessionTurn
-        sess = SimpleNamespace(mode="work", character="", _incident_offer=[4])
+        sess = SimpleNamespace(mode="work", character="", _turn_offer=[4])   # _start_turn moved the offer here
         got = SessionTurn.engine_choices(sess, [{"label": "own"}])
         self.assertEqual([c.get("payload") for c in got], [None, "/incident ticket 4", "/incident ignore 4"])
         self.assertEqual(got[1]["label_key"], "choice.incident_ticket")

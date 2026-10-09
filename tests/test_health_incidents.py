@@ -161,5 +161,33 @@ class Incidents(unittest.TestCase):
         state = I.load(self.path)
         self.assertEqual(I.to_notify(state, [], T0 + 300), [], "told before the restart: not again within the day")
 
+    def test_the_pd_gets_the_log_lines_of_its_incident(self):
+        # #867: the engine hands over the evidence; the PD no longer searches whole log files
+        I.tick(self.path, T0, digest={"findings": [f("unclean_restart", "error", src="chat", prev_pid=19499),
+                                                   f("err_repeat", "error", fp="abc123")]})
+        logs = [{"ts": "2026-10-09T02:16:%02d" % n, "src": "chat", "pid": 19499, "evt": "turn.end", "lvl": "info"}
+                for n in range(20)]
+        logs += [{"ts": "2026-10-09T02:17:00", "src": "chat", "pid": 7, "evt": "proc.start", "lvl": "warn"},
+                 {"ts": "2026-10-09T02:18:00", "src": "chat", "pid": 7, "evt": "http.error", "lvl": "error",
+                  "err": {"type": "KeyError", "msg": "x", "fp": "abc123"}},
+                 {"ts": "2026-10-09T02:18:01", "src": "chat", "pid": 19499, "evt": "http.summary"}]
+        text = I.note([1, 2], self.path, events=logs)
+        one, two = text.split("Incident #2")
+        self.assertEqual(one.count("turn.end"), I.EXCERPT_LINES, "the last lines of that pid, no more")
+        self.assertNotIn("proc.start", one)
+        self.assertIn("02:16:19", one, "newest kept")
+        self.assertIn("fp=abc123", two)
+        self.assertNotIn("http.summary", text)
+        self.assertIn("prev_pid=19499", one)
+        self.assertIn("never open whole log files", text)
+
+    def test_a_signal_without_log_fields_still_gives_its_numbers(self):
+        I.tick(self.path, T0, digest={"findings": []},
+               improvements=[{"code": "memory_unused", "severity": "warn", "title": "t", "hint": "h",
+                              "evidence": {"days": "a..b", "injected": 39, "calls": 0}}])
+        text = I.note([1], self.path, events=[])
+        self.assertIn("injected=39", text)
+        self.assertNotIn("Log lines", text)
+
 if __name__ == "__main__":
     unittest.main()

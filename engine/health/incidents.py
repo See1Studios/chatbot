@@ -118,22 +118,56 @@ def notify(incs: List[Dict[str, Any]]) -> None:
                        severity=inc["severity"])
 
 
-def note(incident_ids: List[int], path=None) -> str:
-    """What the PD is told about these incidents: the engine's own words and references, for it to look up."""
+EXCERPT_LINES = 12          # log lines the engine hands the PD per incident (#867)
+MATCH_FIELDS = ("fp", "rid", "route", "sha", "sid")   # evidence fields a log line can carry as is
+QUIET_EVTS = ("http.summary",)
+
+
+def _matches(rec: Dict[str, Any], ev: Dict[str, Any]) -> bool:
+    err = rec.get("err") if isinstance(rec.get("err"), dict) else {}
+    for k in MATCH_FIELDS:
+        if ev.get(k) and str(ev[k]) in (str(rec.get(k) or ""), str(err.get(k) or "")):
+            return True
+    pid = ev.get("prev_pid") or ev.get("pid")   # a process's own last lines (unclean_restart, stop_forced)
+    return bool(pid) and str(rec.get("pid")) == str(pid) and (not ev.get("src") or rec.get("src") == ev["src"])
+
+
+def excerpt(inc: Dict[str, Any], events=None) -> List[str]:
+    """The last log lines that carry this incident's evidence (metadata only, as the log holds it), so the PD judges
+    from them instead of searching the logs itself (#867: a judgement turn read the whole 8 MB log and was stopped)."""
+    ev = inc.get("evidence") or {}
+    if not any(ev.get(k) for k in MATCH_FIELDS + ("prev_pid", "pid")):
+        return []
+    from telemetry import logdigest
+    if events is None:
+        events = logdigest.read_events(float(inc.get("first_seen") or time.time()) - WINDOW_SEC)
+    got = [r for r in events if r.get("evt") not in QUIET_EVTS and _matches(r, ev)]
+    return [logdigest.human(r)[:240] for r in got[-EXCERPT_LINES:]]
+
+
+def note(incident_ids: List[int], path=None, events=None) -> str:
+    """What the PD is told about these incidents: the engine's own facts, references and the log lines that show
+    them (#867). `events`: the log records to search (a test passes them; None reads the host log)."""
     if path is None:
         import host_config
         path = host_config.INCIDENTS
-    lines = []
+    blocks = []
     for iid in incident_ids:
         inc = get(path, iid)
         if not inc:
             continue
         ev = inc.get("evidence") or {}
         refs = ["incident:%d" % inc["id"]] + (["log:fp:%s" % ev["fp"]] if ev.get("fp") else [])
-        lines.append("Incident #%d (%s, %s, seen since %s): %s. Hint: %s Evidence: %s." % (
+        facts = ", ".join("%s=%s" % (k, ev[k]) for k in sorted(ev) if ev[k] not in (None, "", [], {}))
+        lines = excerpt(inc, list(events) if events is not None else None)
+        blocks.append("Incident #%d (%s, %s, seen since %s): %s. Hint: %s Facts: %s. Evidence: %s.%s" % (
             inc["id"], inc["code"], inc["severity"], time.strftime("%m-%d %H:%M", time.localtime(inc["first_seen"])),
-            inc["title"], inc.get("hint") or "-", ", ".join(refs)))
-    return " ".join(lines)
+            inc["title"], inc.get("hint") or "-", facts or "-", ", ".join(refs),
+            ("\nLog lines (the engine's excerpt, newest last):\n" + "\n".join(lines)) if lines else ""))
+    if not blocks:
+        return ""
+    return ("The engine gathered the evidence below. Judge from it; look further only with `chatbot-ctl.sh logs "
+            "--fp/--rid/--evt` and a few lookups at most -- never open whole log files.\n\n" + "\n\n".join(blocks))
 
 
 def decide(path, incident_id: int, action: str, operator: str = "operator (ui)") -> Dict[str, Any]:

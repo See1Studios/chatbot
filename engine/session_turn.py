@@ -43,12 +43,12 @@ class SessionTurn:
                                                items.state_path(self.character) if getattr(self, "character", "") else None)
         except Exception:  # noqa: BLE001 -- an extra choice must never break the answer
             extra = []
-        for iid in getattr(self, "_incident_offer", None) or []:   # improvement-layers il/E: the operator decides
+        for iid in getattr(self, "_turn_offer", None) or []:   # improvement-layers il/E: the operator decides
             extra += [{"label": "Make it work #%d" % iid, "label_key": "choice.incident_ticket", "label_vars": {"id": iid},
                        "kind": "command", "payload": "/incident ticket %d" % iid},
                       {"label": "Ignore #%d" % iid, "label_key": "choice.incident_ignore", "label_vars": {"id": iid},
                        "kind": "command", "payload": "/incident ignore %d" % iid}]
-        self._incident_offer = []
+        self._turn_offer = []
         return list(choices or []) + extra
 
     def _run_btw(self, query: str) -> None:
@@ -395,6 +395,7 @@ class SessionTurn:
             assert self.proc and self.proc.stdin
 
         stdin_content = f"[Host note] {text}" if notice else text
+        self._turn_offer, self._incident_offer = getattr(self, "_incident_offer", None) or [], []   # il/E: this turn's buttons only (#867)
         self._cached_summary, rules_prefix = "", ""  # a new turn stales the handover cache (#613); bundle goes AFTER the handoff wrap
         with self.lock:
             rules_prefix = self._context_prefix() + self._context_lore(text)   # bundle or what changed; matched lore
