@@ -274,7 +274,7 @@ function setChoiceKeepEnabled(on) {
 function shellChatSettingsEnsure() {
   let p = document.getElementById('chatSettingsPane');
   if (p) return p;
-  const stage = (document.querySelector && (document.querySelector('.stage-shell') || document.querySelector('.stage'))) || document.body;
+  const stage = (document.querySelector && document.querySelector('.stage')) || document.body;
   if (!stage) return null;
   p = shellEl('div', 'shell-chat-settings');
   p.id = 'chatSettingsPane';
@@ -289,19 +289,18 @@ function shellChatSettingsEnsure() {
   const list = shellEl('div', 'status-list');
   const item = shellEl('div', 'status-item');
   item.id = 'chatKeepChoicesRow';
-  item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;cursor:pointer';
+  item.style.cssText = 'display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer';
   const textWrap = shellEl('div', '');
+  textWrap.style.cssText = 'flex:1 1 auto;min-width:0';
   const nameEl = shellEl('div', 'status-item-name', SHELL_TEXT.keepChoices || '');
   nameEl.id = 'chatKeepChoicesLabel';
   const hintEl = shellEl('div', 'status-hint', SHELL_TEXT.keepChoicesHint || '');
   hintEl.id = 'chatKeepChoicesHint';
   textWrap.append(nameEl, hintEl);
-  const sw = shellEl('button', 'shell-rowbtn');
+  const sw = shellEl('button', 'status-toggle');
   sw.id = 'chatKeepChoicesSwitch';
   sw.type = 'button';
   sw.setAttribute('role', 'switch');
-  sw.style.width = 'auto';
-  sw.style.padding = '.4rem';
   sw.appendChild(shellEl('span', 'switch-ui'));
   item.append(textWrap, sw);
   list.appendChild(item);
@@ -319,7 +318,8 @@ function shellChatSettingsDraw() {
   if (row && !row._bound) {
     row._bound = true;
     row.addEventListener('click', () => {
-      const next = !(typeof isChoiceKeepEnabled === 'function' ? isChoiceKeepEnabled() : true);
+      const cur = typeof isChoiceKeepEnabled === 'function' ? isChoiceKeepEnabled() : true;
+      const next = !cur;
       if (typeof setChoiceKeepEnabled === 'function') setChoiceKeepEnabled(next);
       if (!next) {
         if (typeof resetChoiceBar === 'function') resetChoiceBar();

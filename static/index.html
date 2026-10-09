@@ -321,19 +321,36 @@
             <button class="theme-swatch" data-theme-choice="spark" data-i18n-aria-label="theme.spark" type="button"></button>
           </div>
           <div class="status-list">
-            <div class="status-item" id="appearanceDensityRow" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer">
-              <div>
+            <div class="status-item" id="appearanceDensityRow" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer">
+              <div style="flex:1 1 auto;min-width:0">
                 <div class="status-item-name" data-i18n="shelltext.details"></div>
                 <div class="status-hint" data-i18n="menu.density_hint"></div>
               </div>
-              <button id="appearanceDensitySwitch" class="shell-rowbtn" role="switch" type="button" style="width:auto;padding:.4rem"><span class="switch-ui"></span></button>
+              <button id="appearanceDensitySwitch" class="status-toggle" role="switch" type="button" aria-label="details"><span class="switch-ui"></span></button>
             </div>
-            <div class="status-item" id="appearanceStreamRow" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer">
-              <div>
+            <div class="status-item" id="appearanceStreamRow" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer">
+              <div style="flex:1 1 auto;min-width:0">
                 <div class="status-item-name" data-i18n="shelltext.streamStyle"></div>
                 <div class="status-hint" id="appearanceStreamHint"></div>
               </div>
-              <button id="appearanceStreamBtn" class="art-filter-btn" type="button"></button>
+              <button id="appearanceStreamBtn" class="art-filter-btn" type="button" style="flex-shrink:0"></button>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div id="chatSettingsPane" role="tabpanel" aria-labelledby="tabChatSettings" style="display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch">
+        <section class="status-section">
+          <h2 class="status-head-row">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span data-i18n="shelltext.chat_settings"></span>
+          </h2>
+          <div class="status-list">
+            <div class="status-item" id="chatKeepChoicesRow" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer">
+              <div style="flex:1 1 auto;min-width:0">
+                <div class="status-item-name" id="chatKeepChoicesLabel" data-i18n="shelltext.keepChoices"></div>
+                <div class="status-hint" id="chatKeepChoicesHint" data-i18n="shelltext.keepChoicesHint"></div>
+              </div>
+              <button id="chatKeepChoicesSwitch" class="status-toggle" role="switch" type="button" aria-label="keepChoices"><span class="switch-ui"></span></button>
             </div>
           </div>
         </section>

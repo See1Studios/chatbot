@@ -254,7 +254,7 @@ var _suppressChoiceBar = false;
 function isChoiceBarSuppressed() { return Boolean(_suppressChoiceBar); }
 function setChoiceBarSuppressed(on) { _suppressChoiceBar = Boolean(on); }
 function isChoiceKeepEnabled() {
-  try { return typeof window !== 'undefined' && typeof window.isChoiceKeepEnabled === 'function' ? window.isChoiceKeepEnabled() : (typeof localStorage !== 'undefined' && localStorage ? localStorage.getItem('pe_chat_keep_choices') !== '0' : true); } catch (_) { return true; }
+  try { return typeof localStorage !== 'undefined' && localStorage ? (localStorage.getItem('pe_chat_keep_choices') !== '0') : true; } catch (_) { return true; }
 }
 function resetChoiceBar() {
   const bar = getChoiceBarEl();
