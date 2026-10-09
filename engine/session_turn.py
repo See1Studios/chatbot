@@ -116,15 +116,16 @@ class SessionTurn:
             # The summary is up to two model calls: the page's waiting message hears that the server is at work (#812)
             self._emit({"event": "progress", **i18n.msg("srv.handoff_writing")})
             summary = self.get_handover_summary()
+            brain = _s().REG.rotation_brain(self)   # #885: the saved brain, not this session's model
             new_sess = _s().REG.create(
-                model=self.model,
-                effort=self.effort,
+                model=brain["model"],
+                effort=brain["effort"],
                 predecessor_sid=self.sid,
                 handoff_summary=summary,
                 # same fix as continue_to_successor(): without it the successor starts as agy
                 # with this provider's model name (e.g. claude "sonnet") and the turn dies with
                 # "invalid model selection" (2026-09-21, also seen with grok-4.6)
-                provider=self.provider,
+                provider=brain["provider"],
                 character=self.character,
                 mode=self.mode,
             )

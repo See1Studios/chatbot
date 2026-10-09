@@ -242,6 +242,16 @@ class Registry:
                 out[cid] = {"at": m["mtime"], "preview": m["preview"], "provider": m["provider"]}
         return out
 
+    def rotation_brain(self, like: "AgentSession") -> Dict[str, str]:
+        """The brain a rotation's successor starts on (#885): the user's saved choice for that character and mode,
+        else the brain `like` is on. A rotation used to copy the old session's model, so a saved change (flash-high ->
+        flash-low, 2026-10-09) never reached a long talk: a successor started on flash-high and took 73 s."""
+        saved = _override_brain(_character_id(getattr(like, "character", "") or ""), getattr(like, "mode", "work") or "work")
+        if saved:
+            return {"provider": saved.get("provider") or "", "model": saved.get("model") or "",
+                    "effort": saved.get("effort") or ""}
+        return {"provider": like.provider, "model": like.model, "effort": like.effort}
+
     def get_active(self, character: str = "") -> "AgentSession":
         """Live conversation: the character's newest *work* session id, then the successor-chain tip ("" = the
         team's default character). A character without one gets a new session on its first brain
