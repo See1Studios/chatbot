@@ -1,7 +1,7 @@
 """What a session shows (monolith-split split/C, moved from session.py as a mixin of AgentSession, like
-turn_watchdog.py): its public view, the tool activity lines, the activity log, the artifacts gallery and the handover
-summary. The paths and helpers that tests point elsewhere (SESSIONS, WORKSPACE, DATA, ...) are read from `session` on
-every call, never copied at import."""
+turn_watchdog.py): its public view, the tool activity lines, the activity log, the artifacts gallery, the handover
+summary, and the handoff text that summary is built from. The paths and helpers that tests point elsewhere
+(SESSIONS, WORKSPACE, DATA, get_adapter, _oneshot, ...) are read from `session` on every call, never copied at import."""
 from __future__ import annotations
 
 import json
@@ -399,3 +399,91 @@ class SessionView:
 
         found.sort(key=lambda x: x["mtime"], reverse=True)
         return found
+
+    @staticmethod
+    def _native_compact(provider: str, cid: str) -> str:
+        """That provider's own summary of conversation `cid` (adapter hook; "" when it has none)."""
+        try:
+            return _session().get_adapter(provider).native_compact(cid)
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _recent_turns(self, max_turns: int, max_hops: int = 10) -> List[dict]:
+        """The last `max_turns` user/assistant turns of this conversation, oldest first: this session's, then back
+        along predecessor_session_id. Sessions here are often 2-8 turns long, so one session alone was not enough
+        (#613). Read-only; a missing or broken predecessor ends the walk."""
+        turns = [h for h in self.history if h.get("role") in ("user", "assistant")]
+        pred, seen = str(getattr(self, "predecessor_session_id", "") or ""), {self.sid}
+        while len(turns) < max_turns and pred and pred not in seen and len(seen) <= max_hops:
+            seen.add(pred)
+            try:
+                meta = json.loads((_session().SESSIONS / pred / "meta.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                break
+            turns = [h for h in (meta.get("history") or []) if isinstance(h, dict)
+                     and h.get("role") in ("user", "assistant")] + turns
+            pred = str(meta.get("predecessor_session_id") or "")
+        return turns[-max_turns:]
+
+    def _with_last_exchange(self, base: str, *, max_turns: int = 8, max_chars: int = 3000) -> str:
+        """Append recent verbatim exchanges to *base* (the compressed summary).
+
+        Preserves up to *max_turns* recent user/assistant turns (3~4 exchanges), across the session chain, within
+        *max_chars*, so the successor session gets a high-fidelity anchor of recent conversation on top of the
+        compressed long-range context.
+        """
+        recent = self._recent_turns(max_turns)
+        if not recent:
+            return base
+        chosen: List[str] = []
+        total = 0
+        for h in reversed(recent):
+            role = h.get("role")
+            label = _session().user_title() if role == "user" else _session().display_name()
+            text = str(h.get("text") or "")[:1200]
+            line = f"{label}: {text}"
+            if total + len(line) > max_chars and chosen:
+                break
+            chosen.append(line)
+            total += len(line)
+        if not chosen:
+            return base
+        lines = list(reversed(chosen))
+        prefix = f"{base.rstrip()}\n\n" if (base or "").strip() else ""
+        return f"{prefix}[Recent talk, verbatim]\n" + "\n".join(lines) + "\n"
+
+    def _dialogue_summary_fallback(self, max_turns: int = 8) -> str:
+        """Lightweight custom-prompt summary of the last N dialogue turns --
+        used when native /compact isn't available yet or fails/times out."""
+        dialogue = []
+        with self.lock:
+            for h in self.history:
+                role = h.get("role")
+                text = str(h.get("text") or "").strip()
+                if not text:
+                    continue
+                if role in ("user", "assistant"):
+                    dialogue.append(f"{role}: {text[:250]}")
+                elif role == "btw":
+                    dialogue.append(f"user(btw): {str(h.get('query') or '')[:100]} -> {text[:150]}")
+
+        if not dialogue:
+            return ""
+        if len(dialogue) <= 1:
+            return dialogue[0]
+
+        recent_dialogue = dialogue[-max_turns:]
+        dialogue_blob = "\n".join(recent_dialogue)
+
+        prompt = _session()._handoff_prompt(dialogue_blob)
+
+        r = _session()._oneshot(prompt, 12)
+        if r and r.get("text"):
+            return r["text"]
+
+        # Deterministic fallback when no provider answered
+        user_turns = [h.get("text") for h in self.history if h.get("role") == "user"]
+        asst_turns = [h.get("text") for h in self.history if h.get("role") == "assistant"]
+        last_u = str(user_turns[-1] if user_turns else "")[:120]
+        last_a = str(asst_turns[-1] if asst_turns else "")[:120]
+        return f"- Last instruction from {_session().user_title()}: {last_u}\n- Last answer: {last_a}"

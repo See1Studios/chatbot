@@ -1,7 +1,8 @@
 """Running a turn (monolith-split split/C, moved from session.py as a mixin of AgentSession, like turn_watchdog.py
 and session_view.py): send (queue, steer, rotate when idle or heavy), the turn itself, /btw side questions, interrupt,
-and handing over to a successor session. Every name session.py defines or tests and server.py swap (REG, boot_notice,
-build_instruction_bundle, _oneshot, ...) is read as `_s().name` on each call, never copied at import."""
+handing over to a successor session, and swapping the provider or model. Every name session.py defines or tests and
+server.py swap (REG, boot_notice, build_instruction_bundle, _oneshot, get_adapter, ...) is read as `_s().name` on
+each call, never copied at import."""
 from __future__ import annotations
 
 import hashlib
@@ -662,3 +663,115 @@ class SessionTurn:
                     **i18n.msg({"steer": "srv.interrupted_steer", "loop": "srv.interrupted_loop"}.get(reason, "srv.interrupted"), user=user_title())})
         self._finish_turn("steer" if reason in ("steer", "loop") else "interrupted")
         _s()._record_live_pids()
+
+    def _refine_swap_handoff(self, gen: int, old_provider: str, cid: Optional[str]) -> None:
+        """SWAP_ASYNC_HANDOFF_v1: replace the instant swap handoff with a model-made summary -- agy's
+        /compact of the OLD conversation when there is one, else the dialogue summary -- unless the
+        handoff was already sent or another swap happened meanwhile."""
+        t0 = time.monotonic()
+        base = self._native_compact(old_provider, cid) if cid else ""
+        if not base:
+            base = self._dialogue_summary_fallback()
+        with self.lock:
+            stale = getattr(self, "_swap_gen", 0) != gen or self.handoff_injected
+            if base and not stale:
+                self.handoff_summary = self._with_last_exchange(base)
+        if base and not stale:
+            self.save_meta()
+        obslog.event("session.handoff_refined", sid=self.sid, provider=self.provider,
+                     dur_s=round(time.monotonic() - t0, 1), used=bool(base and not stale),
+                     reason="ok" if base and not stale else ("stale" if stale else "compact_failed"))
+
+    def _stop_for_swap(self, what: str) -> None:
+        """Stop the live process because the provider/model is being swapped.
+
+        A swap is not a user-requested stop, so it must not print "work
+        stopped" -- that notice appeared, twice per switch (provider, then
+        model), every time someone clicked through the provider tray just to
+        look at another provider's usage, even with nothing running. Only say
+        something when a turn really was in flight, and say what happened;
+        emitting "stopped" then is also what resets the UI's busy state."""
+        was_busy = self.busy
+        self.stop(notify=False)
+        if was_busy:
+            self._emit({"event": "stopped", **i18n.msg(what)})
+
+    def _remember_brain_choice(self) -> None:
+        """Keep a user provider/model pick for this character and mode. The card stays the default."""
+        cid = getattr(self, "character", "") or ""
+        mode = getattr(self, "mode", "") or "work"
+        if mode not in ("work", "private") or not cid:
+            return
+        try:
+            import characters
+            card = characters.load(cid)
+            default = (characters.brains(card, mode) or [{}])[0]
+            same = ((self.provider or "") == (default.get("provider") or "")
+                     and (self.model or "") == (default.get("model") or ""))
+            if same:
+                characters.write_brain_override(cid, mode, None)
+            else:
+                characters.write_brain_override(cid, mode, {
+                    "provider": self.provider, "model": self.model or "", "effort": self.effort or ""})
+        except Exception:  # noqa: BLE001
+            return
+
+    def maybe_swap_model(self, model: str, remember: bool = True) -> None:
+        """If `model` names a different model than this session is currently
+        running, switch to it and stop the live process so the next send()
+        respawns under the new model."""
+        if model and model != self.model:
+            self.model = model
+            self._stop_for_swap("srv.swap_stopped_model")
+            self.save_meta()
+            if remember:
+                self._remember_brain_choice()
+
+    def maybe_swap_provider(self, provider: str, remember: bool = True) -> None:
+        """If `provider` names a different CLI backend than this session is
+        currently running, switch adapters and stop the live process --
+        unlike a model swap, this ALSO clears conversation_id, since a
+        session id from one CLI is meaningless to another (agy's
+        --conversation uuid, claude/grok/codex's own self-minted session ids
+        are all different id spaces). Call before maybe_swap_model() so a
+        model name meant for the new provider isn't evaluated against the
+        old one first.
+
+        Clearing conversation_id means the next spawn starts with no
+        --resume -- a brand-new CLI conversation that has never seen this
+        session's history, even though self.history (and the UI) carries
+        right on. Without a handoff, that new process would answer the very
+        next message with zero awareness anything was discussed before
+        (operator: "a switch midway probably leaves something to redo" -- confirmed
+        real, 2026-09-18). Reuse the same handoff_summary/handoff_injected
+        relay _send_direct() already does for /continue rotations, computed
+        here (before conversation_id/provider are overwritten, since
+        get_handover_summary() needs the OLD ones to decide whether agy's
+        native /compact applies) -- use_cache=False because, unlike a
+        rotation (which retires the session), this session object stays
+        alive afterward, so caching here would feed a stale summary to a
+        later heavy-session rotation's own prewarm check."""
+        if provider and provider != self.provider:
+            # SWAP_ASYNC_HANDOFF_v1: never block the request on a model call (agy /compact or the
+            # dialogue summary took 10-17 s and the UI gave up: log:rid:67b6f94c05ea). Hand over
+            # the visible history now; a background thread swaps in the model-made summary.
+            old_provider, old_cid = self.provider, self.conversation_id
+            summary = self.get_handover_summary(use_cache=False, native=False)
+            self._swap_gen = getattr(self, "_swap_gen", 0) + 1
+            gen = self._swap_gen
+            self.provider = provider
+            self.adapter = _s().get_adapter(provider)
+            self.conversation_id = None
+            self.model = self.effort = ""   # both belong to the old brain (grok effort=low broke agy -high, 09-30)
+            self.handoff_summary = summary
+            self.handoff_injected = False
+            # New provider = new conversation that has never seen the persona
+            # rules; without this reset it would run persona-less (2026-09-19).
+            self.persona_injected = False
+            self.persona_bundle_hash = ""
+            self._stop_for_swap("srv.swap_stopped_provider")
+            self.save_meta()
+            if remember:
+                self._remember_brain_choice()
+            if self.history:
+                threading.Thread(target=self._refine_swap_handoff, args=(gen, old_provider, old_cid), daemon=True).start()
