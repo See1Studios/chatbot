@@ -88,6 +88,8 @@ class PrivateMemoryTest(unittest.TestCase):
         self.assertEqual(len(C.private_segment(history)), 4)
         prompt = C.private_digest_prompt(seg, "U", "P")
         self.assertIn("U: 오늘 좀 피곤해", prompt)
+        # 2026-10-09: "U insulted P" was kept without P's own rush that led to it, so the next visit opened hurt
+        self.assertIn("never a reaction without its cause", prompt)
         self.assertNotIn("old", prompt)
         self.assertEqual(C.parse_memory_lines("- a\n- b\nnoise\n- c\n- d"), ["a", "b", "c"])
         self.assertEqual(C.parse_memory_lines("NONE"), [])
