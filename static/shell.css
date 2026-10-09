@@ -102,29 +102,28 @@ html.shell2 #teamList > [hidden]{display:none !important}
 .shell-swatches{display:flex;gap:.4rem}
 html.shell2 body:not(.dev-mode) .shell-dev{display:none}   /* developer mode's rows: the activity log, improvement */
 .shell-dev-delete{margin-top:1rem}
-/* Redesigned Character Profile (UX/S2) */
+/* Redesigned Character Profile (UX/S2) - Compact Night Console HUD Header */
 .shell-hero{position:relative;display:flex;flex-direction:column;width:100%;overflow:hidden;flex-shrink:0;background:var(--bg-card)}
-.shell-hero-cover{height:114px;width:100%;background:linear-gradient(135deg,#1e222d,#101319);background-size:cover;background-position:center;position:relative}
+.shell-hero-cover{height:54px;width:100%;background:linear-gradient(135deg,#161922,#0d1016);background-size:cover;background-position:center;position:relative}
 .shell-hero-cover.has-stage::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,12,15,.2),rgba(20,23,29,.85) 75%,var(--bg-card))}
-.shell-hero-cover:not(.has-stage)::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 20%,rgba(209,254,23,.06),transparent 70%),linear-gradient(180deg,transparent,var(--bg-card))}
-.shell-hero-card{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 .85rem .75rem;margin-top:-44px;gap:.45rem;z-index:2}
-.shell-hero-avatar-wrap{position:relative;width:86px;height:86px;cursor:pointer}
-.shell-hero-avatar-clip{width:86px;height:86px;border-radius:50%;overflow:hidden;position:relative;border:2.5px solid var(--bg-card);box-shadow:0 6px 20px rgba(0,0,0,.6),0 0 0 1px var(--border);background:#222631}
-.shell-hero-avatar{width:100%;height:100%;border-radius:50%;object-fit:cover;border:2.5px solid var(--bg-card);box-shadow:0 6px 20px rgba(0,0,0,.6),0 0 0 1px var(--border);background:#222631;transition:transform .2s ease,object-position .2s ease}
+.shell-hero-cover:not(.has-stage)::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 20%,rgba(var(--accent-rgb),.08),transparent 70%),linear-gradient(180deg,transparent,var(--bg-card))}
+.shell-hero-card{position:relative;display:flex;align-items:center;text-align:left;padding:0 .75rem .45rem;margin-top:-26px;gap:.65rem;z-index:2}
+.shell-hero-avatar-wrap{position:relative;width:62px;height:62px;flex-shrink:0;cursor:pointer}
+.shell-hero-avatar-clip{width:62px;height:62px;border-radius:50%;overflow:hidden;position:relative;border:2px solid var(--bg-card);box-shadow:0 4px 14px rgba(0,0,0,.5),0 0 0 1px var(--border);background:#1a1d26}
+.shell-hero-avatar{width:100%;height:100%;border-radius:50%;object-fit:cover;border:2px solid var(--bg-card);box-shadow:0 4px 14px rgba(0,0,0,.5),0 0 0 1px var(--border);background:#1a1d26;transition:transform .2s ease,object-position .2s ease}
 .shell-hero-avatar-clip .shell-hero-avatar{border:0;box-shadow:none;border-radius:0}
-.shell-hero-focal-btn{position:absolute;bottom:-2px;left:-2px;width:24px;height:24px;border-radius:50%;background:rgba(20,24,32,.92);border:1px solid var(--border-hover);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:0 2px 6px rgba(0,0,0,.5);z-index:3;transition:all .15s}
-.shell-hero-focal-btn:hover{color:var(--accent2);border-color:var(--accent-border);transform:scale(1.1)}
-.shell-hero-dot{position:absolute;bottom:3px;right:5px;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg-card);background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.5)}
+.shell-hero-focal-btn{position:absolute;bottom:-2px;left:-2px;width:22px;height:22px;border-radius:50%;background:rgba(20,24,32,.92);border:1px solid var(--border-hover);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:0 2px 6px rgba(0,0,0,.5);z-index:3;transition:all .15s}
+.shell-hero-focal-btn:hover{color:var(--accent2);border-color:var(--accent-border);transform:scale(1.08)}
+.shell-hero-dot{position:absolute;bottom:2px;right:2px;width:12px;height:12px;border-radius:50%;border:2px solid var(--bg-card);background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.5)}
 .shell-hero-dot.busy{background:#f59e0b;box-shadow:0 0 6px rgba(245,158,11,.5)}
-.shell-hero-info{display:flex;flex-direction:column;align-items:center;gap:.25rem}
-.shell-hero-name{font-size:1.22rem;font-weight:700;letter-spacing:-.02em;line-height:1.2;color:var(--text)}
-.shell-hero-badges{display:flex;align-items:center;justify-content:center;gap:.35rem;flex-wrap:wrap}
-.shell-hero-role-badge{font-size:.72rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:var(--accent-soft);color:var(--accent2);border:1px solid var(--accent-border);line-height:1.2}
-.shell-hero-voice-chip{font-size:.72rem;padding:.15rem .45rem;border-radius:999px;background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);line-height:1.2}
-.shell-hero-presence{font-size:.76rem;color:var(--muted)}
-.shell-hero-bio{width:100%;font-size:.82rem;line-height:1.45;color:rgba(237,239,239,.82);background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:8px;padding:.5rem .65rem;text-align:left;max-height:96px;overflow-y:auto;word-break:break-word}
-.shell-hero-tags{display:flex;gap:.3rem;flex-wrap:wrap;justify-content:center;width:100%}
-.shell-hero-tag{font-size:.72rem;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.05);padding:.12rem .42rem;border-radius:6px}
+.shell-hero-info{display:flex;flex-direction:column;align-items:flex-start;gap:.2rem;min-width:0;flex:1}
+.shell-hero-name{font-size:1.1rem;font-weight:700;letter-spacing:-.02em;line-height:1.2;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.shell-hero-badges{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap}
+.shell-hero-role-badge{font-size:.7rem;font-weight:600;padding:.12rem .45rem;border-radius:999px;background:var(--accent-soft);color:var(--accent2);border:1px solid var(--accent-border);line-height:1.2}
+.shell-hero-voice-chip{font-size:.7rem;padding:.12rem .4rem;border-radius:999px;background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);line-height:1.2}
+.shell-hero-presence{font-size:.72rem;color:var(--muted)}
+.shell-hero-tags{display:flex;gap:.25rem;flex-wrap:wrap;padding:0 .75rem .45rem;width:100%}
+.shell-hero-tag{font-size:.68rem;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.05);padding:.1rem .35rem;border-radius:5px}
 .shell-profile-nav{display:flex;gap:3px;background:rgba(0,0,0,.35);border-radius:8px;padding:3px;margin:.35rem .75rem .6rem;border:1px solid var(--border);flex-shrink:0}
 .shell-tab-btn{flex:1;padding:.42rem .3rem;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);font-size:.82rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:.35rem;cursor:pointer;transition:all .14s ease}
 .shell-tab-btn:hover{color:var(--text);background:rgba(255,255,255,.03)}
@@ -138,9 +137,7 @@ html.shell2 body:not(.dev-mode) .shell-dev{display:none}   /* developer mode's r
 .shell-action-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
 .shell-action-card.current .shell-action-icon{color:var(--accent2)}
 .shell-action-label{font-size:.82rem;font-weight:600;text-align:center}
-.shell-hero-cover-btn{position:absolute;top:.5rem;right:.6rem;width:28px;height:28px;padding:0;border-radius:8px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.15);color:var(--text);font-size:.85rem;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.65;transition:opacity .15s,background .15s;z-index:3}
-.shell-hero-cover-btn:hover{opacity:1;background:rgba(0,0,0,.7)}
-.shell-hero-usertitle-chip{font-size:.72rem;padding:.15rem .45rem;border-radius:999px;background:var(--accent-soft);color:var(--accent2);border:1px solid var(--accent-border);line-height:1.2}
+.shell-hero-usertitle-chip{font-size:.7rem;padding:.12rem .42rem;border-radius:999px;background:var(--accent-soft);color:var(--accent2);border:1px solid var(--accent-border);line-height:1.2}
 .shell-hero-dot.online{animation:shellPulse 2.4s cubic-bezier(.4,0,.6,1) infinite}
 @keyframes shellPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.75;transform:scale(.92)}}
 .shell-inline-head{display:flex;align-items:center;justify-content:space-between;padding:0 0 .45rem}

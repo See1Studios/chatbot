@@ -26,6 +26,26 @@ function profileIconSvg(name) {
   return `<svg viewBox="0 0 24 24" class="btn-icon-svg shell-svg-${name}" aria-hidden="true">${body}</svg>`;
 }
 
+// Non-blocking toast notification helper
+function profileToast(text) {
+  if (typeof msgToast === 'function') {
+    msgToast(text);
+    return;
+  }
+  let t = document.getElementById('shellToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'shellToast';
+    t.className = 'shell-toast';
+    t.setAttribute('role', 'status');
+    document.body.appendChild(t);
+  }
+  t.textContent = text;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
 // Resolve master character artwork (distinct from background/stage wallpaper)
 function getMasterArtworkUrl(c) {
   if (c && c.focal && c.focal.master) return c.focal.master;
@@ -71,19 +91,7 @@ function shellProfileDraw(panel, c, column) {
     cover.classList.add('has-stage');
   }
 
-  // Cover action: directly opens Face Focal / Master Art editor
-  const coverBtn = shellEl('button', 'shell-hero-cover-btn');
-  coverBtn.type = 'button';
-  coverBtn.title = typeof tr === 'function' ? tr('profile.sec.focal') : 'Edit Face Focus';
-  coverBtn.setAttribute('aria-label', 'Edit Art');
-  coverBtn.innerHTML = profileIconSvg('camera');
-  coverBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    openFocalEditor(panel, c);
-  });
-  cover.appendChild(coverBtn);
-
-  // Hero Card with Focal Cropped Avatar
+  // Hero Card with Focal Cropped Avatar (Compact HUD layout)
   const heroCard = shellEl('div', 'shell-hero-card');
   const avatarWrap = shellEl('div', 'shell-hero-avatar-wrap');
 
@@ -108,7 +116,7 @@ function shellProfileDraw(panel, c, column) {
   // Presence Status Dot
   const presenceDot = shellEl('span', 'shell-hero-dot ' + (typeof isBusy !== 'undefined' && isBusy ? 'busy' : 'online'));
 
-  // Quick focal target button on avatar corner
+  // Quick focal target button on avatar corner (sole entry point for focal crop)
   const focalBtn = shellEl('button', 'shell-hero-focal-btn');
   focalBtn.type = 'button';
   focalBtn.title = typeof tr === 'function' ? tr('profile.sec.focal') : 'Edit Face Focus';
@@ -151,41 +159,41 @@ function shellProfileDraw(panel, c, column) {
   titleWrap.append(nameEl, badgeWrap);
   heroCard.append(avatarWrap, titleWrap);
 
-  // Persona Bio / Summary (scrollable when long)
-  const bioText = (c.description || c.personality || '').trim();
-  if (bioText) {
-    const bioEl = shellEl('div', 'shell-hero-bio', bioText);
-    heroCard.appendChild(bioEl);
-  }
-
-  // Persona Tags
+  // Persona Tags (sanitized prefix)
   const tags = Array.isArray(c.tags) ? c.tags.filter(Boolean) : [];
   if (tags.length) {
     const tagsEl = shellEl('div', 'shell-hero-tags');
     tags.slice(0, 6).forEach(tag => {
-      tagsEl.appendChild(shellEl('span', 'shell-hero-tag', '#' + tag));
+      tagsEl.appendChild(shellEl('span', 'shell-hero-tag', '#' + String(tag).replace(/^#+/, '')));
     });
-    heroCard.appendChild(tagsEl);
+    hero.append(cover, heroCard, tagsEl);
+  } else {
+    hero.append(cover, heroCard);
   }
-
-  hero.append(cover, heroCard);
 
   // 3. Segmented 3-Tab Control: character / relationship / settings
   const tabNav = shellEl('div', 'shell-profile-nav shell-profile-nav-3');
+  tabNav.setAttribute('role', 'tablist');
 
   const tabCharLabel = typeof tr === 'function' ? tr('profile.tab.character') : 'Character';
   const tabCharBtn = shellEl('button', 'shell-tab-btn' + (shellProfileTab === 'character' ? ' active' : ''));
   tabCharBtn.type = 'button';
+  tabCharBtn.setAttribute('role', 'tab');
+  tabCharBtn.setAttribute('aria-selected', shellProfileTab === 'character' ? 'true' : 'false');
   tabCharBtn.innerHTML = profileIconSvg('user') + ' ' + escapeHtml(tabCharLabel);
 
   const tabRelLabel = typeof tr === 'function' ? tr('profile.tab.relationship') : 'Relationship';
   const tabRelBtn = shellEl('button', 'shell-tab-btn' + (shellProfileTab === 'relationship' ? ' active' : ''));
   tabRelBtn.type = 'button';
+  tabRelBtn.setAttribute('role', 'tab');
+  tabRelBtn.setAttribute('aria-selected', shellProfileTab === 'relationship' ? 'true' : 'false');
   tabRelBtn.innerHTML = profileIconSvg('bond') + ' ' + escapeHtml(tabRelLabel);
 
   const tabEngLabel = typeof tr === 'function' ? tr('profile.tab.settings') : 'Settings';
   const tabEngBtn = shellEl('button', 'shell-tab-btn' + (shellProfileTab === 'engine' ? ' active' : ''));
   tabEngBtn.type = 'button';
+  tabEngBtn.setAttribute('role', 'tab');
+  tabEngBtn.setAttribute('aria-selected', shellProfileTab === 'engine' ? 'true' : 'false');
   tabEngBtn.innerHTML = profileIconSvg('settings') + ' ' + escapeHtml(tabEngLabel);
 
   tabNav.append(tabCharBtn, tabRelBtn, tabEngBtn);
@@ -202,19 +210,22 @@ function shellProfileDraw(panel, c, column) {
   const engBody = shellEl('div', 'shell-tab-body shell-body-engine' + (shellProfileTab === 'engine' ? ' active' : ''));
   renderEngineTab(engBody, c);
 
-  // Tab switching events
-  tabCharBtn.addEventListener('click', () => {
-    shellProfileTab = 'character';
-    shellProfileDraw(panel, c, column);
-  });
-  tabRelBtn.addEventListener('click', () => {
-    shellProfileTab = 'relationship';
-    shellProfileDraw(panel, c, column);
-  });
-  tabEngBtn.addEventListener('click', () => {
-    shellProfileTab = 'engine';
-    shellProfileDraw(panel, c, column);
-  });
+  // Non-destructive tab switching: toggle active class and ARIA state instantly
+  const setTab = (t) => {
+    shellProfileTab = t;
+    tabCharBtn.classList.toggle('active', t === 'character');
+    tabCharBtn.setAttribute('aria-selected', t === 'character' ? 'true' : 'false');
+    tabRelBtn.classList.toggle('active', t === 'relationship');
+    tabRelBtn.setAttribute('aria-selected', t === 'relationship' ? 'true' : 'false');
+    tabEngBtn.classList.toggle('active', t === 'engine');
+    tabEngBtn.setAttribute('aria-selected', t === 'engine' ? 'true' : 'false');
+    charBody.classList.toggle('active', t === 'character');
+    relBody.classList.toggle('active', t === 'relationship');
+    engBody.classList.toggle('active', t === 'engine');
+  };
+  tabCharBtn.addEventListener('click', () => setTab('character'));
+  tabRelBtn.addEventListener('click', () => setTab('relationship'));
+  tabEngBtn.addEventListener('click', () => setTab('engine'));
 
   panel.append(head, hero, tabNav, charBody, relBody, engBody);
 }
@@ -270,7 +281,7 @@ function renderCharacterTab(holder, c, panel, column) {
           voice: fVoice.input.value.trim(),
           description: fDesc.input.value.trim(),
           personality: fPers.input.value.trim(),
-          tags: fTags.input.value.split(',').map(s => s.trim()).filter(Boolean),
+          tags: fTags.input.value.split(',').map(s => s.trim().replace(/^#+/, '')).filter(Boolean),
         });
         shellProfileEditMode = false;
         if (typeof loadCharacters === 'function') await loadCharacters();
@@ -280,7 +291,7 @@ function renderCharacterTab(holder, c, panel, column) {
       } catch (err) {
         saveBtn.disabled = false;
         saveBtn.textContent = typeof tr === 'function' ? tr('common.save') : 'Save';
-        alert((typeof tr === 'function' ? tr('card.cannot_save', { error: err.message || err }) : 'Save failed: ' + err.message));
+        profileToast((typeof tr === 'function' ? tr('card.cannot_save', { error: err.message || err }) : 'Save failed: ' + (err.message || err)));
       }
     });
 
@@ -295,7 +306,7 @@ function renderCharacterTab(holder, c, panel, column) {
     if (c.voice) list.appendChild(shellInfoRow(tr('profile.voice.sample') || 'Voice Preset', c.voice));
     if (c.description) list.appendChild(shellInfoRow(tr('card.description'), c.description, true));
     if (c.personality) list.appendChild(shellInfoRow(tr('card.personality'), c.personality, true));
-    if (c.tags && c.tags.length) list.appendChild(shellInfoRow('Tags', c.tags.map(t => '#' + t).join(' ')));
+    if (c.tags && c.tags.length) list.appendChild(shellInfoRow('Tags', c.tags.map(t => '#' + String(t).replace(/^#+/, '')).join(' ')));
     sec.appendChild(list);
   }
 
@@ -399,11 +410,28 @@ async function openFocalEditor(panel, c) {
   const title = shellEl('div', 'shell-focal-title');
   const titleLabel = typeof tr === 'function' ? tr('profile.sec.focal') : 'Edit Face Focus';
   title.innerHTML = profileIconSvg('target') + ' <span>' + escapeHtml(titleLabel) + '</span>';
+  // Safe dialog cleanup
+  const closeDialog = () => {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('keydown', onKeyDown, true);
+    dialog.remove();
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      e.preventDefault();
+      closeDialog();
+    }
+  };
+  window.addEventListener('keydown', onKeyDown, true);
+
   const closeBtn = shellEl('button', 'art-btn art-btn-xs');
   closeBtn.type = 'button';
   closeBtn.innerHTML = profileIconSvg('close');
   closeBtn.title = typeof tr === 'function' ? tr('common.close') : 'Close';
-  closeBtn.addEventListener('click', () => dialog.remove());
+  closeBtn.addEventListener('click', closeDialog);
   head.append(title, closeBtn);
 
   // 2. Interactive Canvas Wrap
@@ -415,20 +443,30 @@ async function openFocalEditor(panel, c) {
   const reticle = shellEl('div', 'shell-focal-reticle');
   canvasWrap.append(canvasImg, reticle);
 
-  // Update reticle position on canvas
+  // Update reticle position on canvas (accounting for image letterbox offset)
   const updateReticle = () => {
-    reticle.style.left = `${curX}%`;
-    reticle.style.top = `${curY}%`;
+    const wrapRect = canvasWrap.getBoundingClientRect();
+    const imgRect = canvasImg.getBoundingClientRect();
+    if (wrapRect.width && imgRect.width) {
+      const offsetX = (imgRect.left - wrapRect.left) + (imgRect.width * (curX / 100));
+      const offsetY = (imgRect.top - wrapRect.top) + (imgRect.height * (curY / 100));
+      reticle.style.left = `${offsetX}px`;
+      reticle.style.top = `${offsetY}px`;
+    } else {
+      reticle.style.left = `${curX}%`;
+      reticle.style.top = `${curY}%`;
+    }
     const rSize = Math.max(28, Math.min(80, Math.round(54 / curZoom)));
     reticle.style.width = `${rSize}px`;
     reticle.style.height = `${rSize}px`;
     updatePreviewAvatar();
   };
+  canvasImg.onload = updateReticle;
 
   // Canvas Click & Drag to reposition focal coordinates
   let isTargeting = false;
   const setPosFromPointer = (e) => {
-    const rect = canvasWrap.getBoundingClientRect();
+    const rect = canvasImg.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const px = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
     const py = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
@@ -445,12 +483,14 @@ async function openFocalEditor(panel, c) {
     isTargeting = true;
     setPosFromPointer(e);
   });
-  window.addEventListener('pointermove', (e) => {
+  const onPointerMove = (e) => {
     if (isTargeting) setPosFromPointer(e);
-  });
-  window.addEventListener('pointerup', () => {
+  };
+  const onPointerUp = () => {
     isTargeting = false;
-  });
+  };
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
 
   // 3. Controls & Live Preview Box
   const controls = shellEl('div', 'shell-focal-controls');
@@ -574,7 +614,7 @@ async function openFocalEditor(panel, c) {
   const cancelBtn = shellEl('button', 'art-btn art-btn-sm');
   cancelBtn.type = 'button';
   cancelBtn.textContent = typeof tr === 'function' ? tr('common.cancel') : 'Cancel';
-  cancelBtn.addEventListener('click', () => dialog.remove());
+  cancelBtn.addEventListener('click', closeDialog);
 
   const saveBtn = shellEl('button', 'art-btn art-btn-sm primary');
   saveBtn.type = 'button';
@@ -593,13 +633,13 @@ async function openFocalEditor(panel, c) {
       await saveCharacterInline(c.id, { focal: focalObj });
       c.focal = focalObj;
       if (typeof loadCharacters === 'function') await loadCharacters();
-      dialog.remove();
+      closeDialog();
       const updated = typeof currentCharacter === 'function' ? currentCharacter() : c;
       shellProfileDraw(panel, updated || c);
     } catch (err) {
       saveBtn.disabled = false;
       saveBtn.innerHTML = profileIconSvg('check') + ' <span>' + escapeHtml(saveLabel) + '</span>';
-      alert('Save failed: ' + (err.message || err));
+      profileToast('Save failed: ' + (err.message || err));
     }
   });
 
@@ -644,17 +684,18 @@ function shellInfoRow(label, val, multiline) {
 // Save character card inline via PUT /api/instructions/characters/<id>/card.json
 async function saveCharacterInline(cid, patch) {
   const path = 'characters/' + cid + '/card.json';
+  const res = await api('/api/instructions/' + encodeURIComponent(path));
+  if (!res || !res.content) {
+    throw new Error('Failed to load character card: empty response');
+  }
   let cardObj = null;
   try {
-    const res = await api('/api/instructions/' + encodeURIComponent(path));
-    if (res && res.content) {
-      cardObj = JSON.parse(res.content);
-    }
-  } catch (_) {
-    cardObj = null;
+    cardObj = JSON.parse(res.content);
+  } catch (e) {
+    throw new Error('Failed to parse character card JSON: ' + (e.message || e));
   }
-  if (!cardObj || !cardObj.data) {
-    cardObj = { spec: 'chara_card_v2', spec_version: '2.0', data: {} };
+  if (!cardObj || !cardObj.data || typeof cardObj.data !== 'object') {
+    throw new Error('Invalid character card format: missing data');
   }
   const d = cardObj.data;
   if (patch.name !== undefined) d.name = patch.name;
