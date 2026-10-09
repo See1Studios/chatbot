@@ -57,7 +57,8 @@ class Read(Base):
         # 2026-10-09, the operator: the whole ST card in Character (minor fields folded), PE's data in Relationship
         tabs = {f["key"]: f["tab"] for f in fields}
         self.assertEqual({k for k, t in tabs.items() if t == "character"}, {k for k in tabs if k.startswith("card.")})
-        self.assertEqual({k for k, t in tabs.items() if t == "settings"}, {"brain.work", "brain.private", "team.roles"})
+        self.assertEqual({k for k, t in tabs.items() if t == "settings"},
+                         {"brain.work", "brain.private", "team.roles", "pe.work_instructions"})
         self.assertTrue(self.get("card.creator")["folded"])
         self.assertFalse(self.get("card.first_mes")["folded"])
         self.assertEqual(S.card_format(self.cid, self.ws), {"spec": "chara_card_v2", "version": "2.0"})

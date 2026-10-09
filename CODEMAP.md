@@ -19,7 +19,7 @@ map only says which file does what.
 | Self-evolution core (stdlib and each other only, `core_modules.json`) | `repo_layout.py`, `evolution.py`, `tickets.py`, `memory_store.py`, `platform_compat.py` (OS differences); tickets from a CLI: `tools/ticket_quick.py` |
 | Guards | loops `loop_guard.py`; unticketed writes, working-tree watch `write_guard.py`; per-caller tool scope and edition boundary `role_guard.py`; safety `content_guard.py` + `engine_data/content_guards.json` |
 | Health (improvement-layers, dev build) | `health/incidents.py` (log findings as incidents: open, worse, resolved), `health/improve.py` (improvement signals from the daily rollups), `health/main_watch.py` (the whole suite on main) |
-| Character settings | `character_settings/fields.py` (every setting: key, tab, type, source -- the one list), `character_settings/store.py` (read, merged writes with a version kept, restore, `/api/characters/<id>/settings`) |
+| Character settings | `character_settings/fields.py` (every setting: key, tab, type, source -- the one list), `character_settings/store.py` (read, merged writes with a version kept, restore, `/api/characters/<id>/settings`), `character_settings/migrate.py` (moves PE data out of SillyTavern card fields) |
 | Logs (telemetry, `docs/plans/telemetry.md`) | `telemetry/obslog.py` (writes `logs/events.jsonl`), `telemetry/logdigest.py` (reads it), `telemetry/archive.py` (gzip history, 90 days), `telemetry/rollup.py` (daily summaries, forever) |
 | Quota (which brain is out of quota until when, from the usage report; no send to it until then) | `quota_state.py` |
 | Another take on the companion's last answer (takes on the item, the brain's own way) | `regenerate.py` |

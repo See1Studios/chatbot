@@ -618,7 +618,10 @@ def persona_text(card: Dict) -> str:
 
 
 def private_text(card: Dict) -> str:
-    return ((card.get("data") or {}).get("system_prompt") or "").strip()
+    """The private-mode rules: PE's own field (`extensions.chatbot.private_rules`, #896), else -- a card not moved yet,
+    or an imported one -- the card's `system_prompt` as before. The SillyTavern field keeps its own meaning once moved."""
+    own = str(ext(card).get("private_rules") or "").strip()
+    return own or ((card.get("data") or {}).get("system_prompt") or "").strip()
 
 
 # ------------------------------------------------------------------ macros (CARD_MACROS_v1)

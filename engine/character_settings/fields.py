@@ -3,7 +3,8 @@ dot-path key, the drawer's tab, the type, the source it lives in and where insid
 whether it is sensitive (folded until opened). Labels are catalog keys `charset.<key>`; the page says them in its
 language. A new setting is one line here.
 
-Sources: card (card.json `data`), display (card.json `data.extensions.chatbot.display`), brain (brain-override.json,
+Sources: card (card.json `data`), display (card.json `data.extensions.chatbot.display`), ext (a PE field under
+`data.extensions.chatbot`, a dotted path), brain (brain-override.json,
 one entry per mode; null = the card's default), team (team.json roles), state (state.json), file (a text file next to
 the card).
 """
@@ -35,6 +36,7 @@ FIELDS: Tuple[Tuple[str, str, str, str, str, bool, bool], ...] = (
     ("display.user_title", "relationship", "text", "display", "user_title", True, False),
     ("display.voice", "relationship", "text", "display", "voice", True, False),
     ("display.focal", "relationship", "focal", "display", "focal", True, False),   # the face crop; its own editor
+    ("pe.private_rules", "relationship", "longtext", "ext", "private_rules", True, True),   # #896: was system_prompt
     ("file.visual", "relationship", "longtext", "file", "visual.md", True, False),
     ("file.memory", "relationship", "longtext", "file", "memory.md", True, False),
     ("file.relationship", "relationship", "longtext", "file", "relationship.md", True, True),
@@ -43,6 +45,7 @@ FIELDS: Tuple[Tuple[str, str, str, str, str, bool, bool], ...] = (
     ("state.auto_scene", "relationship", "bool", "state", "auto_scene", True, False),
     ("state.places", "relationship", "list", "state", "places", True, False),
     # Settings: the mechanics -- brains, roles
+    ("pe.work_instructions", "settings", "longtext", "ext", "work.instructions", True, False),   # #896
     ("brain.work", "settings", "brain", "brain", "work", True, False),
     ("brain.private", "settings", "brain", "brain", "private", True, False),
     ("team.roles", "settings", "roles", "team", "roles", True, False),

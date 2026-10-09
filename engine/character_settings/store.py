@@ -36,7 +36,7 @@ def _card_dir(cid: str, ws=None) -> Path:
 def _file_of(f: Dict, cid: str, ws=None) -> Path:
     """The file a setting lives in."""
     src = f["source"]
-    if src in ("card", "display"):
+    if src in ("card", "display", "ext"):
         return characters.card_path(cid, ws)
     if src == "brain":
         return characters.brain_override_path(cid, ws)
@@ -87,6 +87,11 @@ def _value(f: Dict, cid: str, card: Dict, ws=None) -> Any:
     if src == "card":
         v = data.get(where)
         return v if v is not None else ([] if f["type"] == "list" else "")
+    if src == "ext":
+        node = characters.ext(card)
+        for part in where.split("."):
+            node = node.get(part) if isinstance(node, dict) else None
+        return str(node or "")
     if src == "display":
         v = characters.ext(card).get("display", {}).get(where)
         return (v if isinstance(v, dict) else None) if f["type"] == "focal" else str(v or "")
@@ -191,14 +196,23 @@ def patch(cid: str, changes: Dict[str, Any], ws=None) -> Dict[str, Any]:
     for path, items_ in by_file.items():
         keep_version(cid, path, ws)
         src = items_[0][0]["source"]
-        if src in ("card", "display"):
+        if src in ("card", "display", "ext"):
             card = characters.load(cid, ws)
             data = card.setdefault("data", {})
+            chatbot = data.setdefault("extensions", {}).setdefault("chatbot", {})
             for f, val in items_:
                 if f["source"] == "card":
                     data[f["where"]] = val
-                else:
-                    data.setdefault("extensions", {}).setdefault("chatbot", {}).setdefault("display", {})[f["where"]] = val
+                elif f["source"] == "display":
+                    chatbot.setdefault("display", {})[f["where"]] = val
+                else:   # ext: a dotted path under extensions.chatbot
+                    *parents, leaf = f["where"].split(".")
+                    node = chatbot
+                    for part in parents:
+                        if not isinstance(node.get(part), dict):
+                            node[part] = {}
+                        node = node[part]
+                    node[leaf] = val
             characters.save(cid, card, ws)
         elif src == "brain":
             for f, val in items_:
