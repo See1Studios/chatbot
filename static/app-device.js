@@ -126,6 +126,13 @@ async function getClientContext() {
 }
 
 // ---- Web Push Notification Helpers ----
+function _pushBasePath() {
+  if (typeof BASE_PATH === 'string') return BASE_PATH;
+  const p = (typeof window !== 'undefined' && window.location && window.location.pathname) || '';
+  const dir = p.replace(/\/[^\/]*\.[^\/]+$/, '');
+  return dir.replace(/\/+$/, '') || '';
+}
+
 function _urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -139,24 +146,44 @@ function _urlBase64ToUint8Array(base64String) {
 
 async function requestPushSubscription() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    const msg = typeof tr === 'function' ? tr('shelltext.notifications_unsupported') : 'Web Push unsupported';
+    if (typeof alertModal === 'function') await alertModal(msg);
+    else alert(msg);
     return false;
   }
   try {
     const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return false;
-    const reg = await navigator.serviceWorker.ready;
+    if (permission !== 'granted') {
+      const msg = permission === 'denied'
+        ? (typeof tr === 'function' ? tr('shelltext.notifications_blocked') : 'Notification permission blocked')
+        : (typeof tr === 'function' ? tr('shelltext.notifications_denied') : 'Notification permission denied');
+      if (typeof alertModal === 'function') await alertModal(msg);
+      else alert(msg);
+      return false;
+    }
+    const base = _pushBasePath();
+    let reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      reg = await navigator.serviceWorker.register(base + '/sw.js', { scope: base + '/' });
+    }
+    if (!reg.active) {
+      reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 4000))
+      ]).catch(() => reg);
+    }
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
-      const res = await fetch('/api/push/vapid-public-key');
+      const res = await fetch(base + '/api/push/vapid-public-key');
       const data = await res.json();
-      if (!data.ok || !data.publicKey) return false;
+      if (!data.ok || !data.publicKey) throw new Error('VAPID public key fetch failed');
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: _urlBase64ToUint8Array(data.publicKey),
       });
     }
     const subJson = sub.toJSON();
-    await fetch('/api/push/subscribe', {
+    await fetch(base + '/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subscription: subJson }),
@@ -164,6 +191,10 @@ async function requestPushSubscription() {
     return true;
   } catch (err) {
     console.warn('Push subscription failed:', err);
+    const prefix = typeof tr === 'function' ? tr('shelltext.notifications_failed') : 'Push registration failed: ';
+    const msg = prefix + (err.message || err);
+    if (typeof alertModal === 'function') await alertModal(msg);
+    else alert(msg);
     return false;
   }
 }
@@ -175,7 +206,8 @@ async function checkAndSyncPushSubscription() {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
-      await fetch('/api/push/subscribe', {
+      const base = _pushBasePath();
+      await fetch(base + '/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subscription: sub.toJSON() }),
@@ -194,7 +226,8 @@ async function unsubscribePush() {
     if (sub) {
       const endpoint = sub.endpoint;
       await sub.unsubscribe();
-      await fetch('/api/push/unsubscribe', {
+      const base = _pushBasePath();
+      await fetch(base + '/api/push/unsubscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint }),
