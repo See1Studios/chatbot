@@ -117,6 +117,7 @@ obs() {
   python3 "$CODE/telemetry/obslog.py" emit --src ctl --evt "$evt" --lvl "$lvl" "$@" >/dev/null 2>&1 || true
 }
 
+REPAIR_PROBE_SEC=15   # the probe after a repair (#895)
 PID_CHAT="$LOG_DIR/chatbot.pid"
 PID_MCP="$LOG_DIR/chatbot-mcp.pid"
 PORT_CHAT="${CHATBOT_PORT:-3011}"
@@ -441,9 +442,10 @@ cmd_repair() {
   # clear stale pid
   rm -f "$PID_CHAT" "$PID_MCP"
   cmd_start
-  # force one message probe after repair
+  # force one message probe after repair. The first turn after a start spawns its agent: 8-9 s under load, and an 8 s
+  # probe failed four repairs on 2026-10-09 that were fine (a re-probe passed each time) -- 15 s, then once more (#895)
   CHATBOT_FORCE_PROBE=1
-  if probe_message 8; then
+  if probe_message "$REPAIR_PROBE_SEC" || { echo "probe once more"; probe_message "$REPAIR_PROBE_SEC"; }; then
     mark_probe
     pruned=$(reap_orphan_agents)
     doctor_log "REPAIR ok (probe passed) post_probe_pruned=$pruned"
