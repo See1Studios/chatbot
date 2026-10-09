@@ -29,7 +29,8 @@ if __package__ in (None, ""):   # run as a script: the engine folder is the impo
 
 import platform_compat
 
-VERSION = 4   # 2: tokens, tool calls and read KB per turn group (tl/D); 3: memory (tl/E); 4: turn phases (tl/D)
+VERSION = 5   # 2: tokens, tool calls and read KB (tl/D); 3: memory (tl/E); 4: turn phases (tl/D); 5: delivery lag (tl/G)
+WORK_SEEN = "POST /api/delegations/:n/seen"   # the operator opened a work card's result
 PHASES = ("prep_ms", "spawn_ms", "first_tool_ms")
 MEMORY_LAYERS = ("house_memory", "own_memory", "private_memory")   # instructions.LAYERS that carry remembered things
 TOP_FP = 20
@@ -67,7 +68,8 @@ class Day:
                                      "repairs_failed": 0, "rss_mb_max": {}}
         self.mcp: Dict[str, Dict[str, Any]] = {}
         self.context: Dict[str, List[float]] = defaultdict(list)
-        self.messages: Dict[str, Any] = {"published": defaultdict(int), "delivered": 0, "react_turn": 0,
+        self.messages: Dict[str, Any] = {"published": defaultdict(int), "delivered": 0, "deliver_lag_s": [],
+                                         "work_seen": 0, "react_turn": 0,
                                          "react_defer": defaultdict(int), "react_skip": defaultdict(int),
                                          "room_turns": 0}
         self.sessions: Dict[str, Any] = {"spawn": 0, "rotate": defaultdict(int)}
@@ -131,6 +133,8 @@ class Day:
                 h = self.http.setdefault("%s %s" % (e.get("src"), route),
                                          {"n": 0, "codes": defaultdict(int), "p95_worst": 0.0, "max_ms": 0.0})
                 h["n"] += int(s.get("n") or 0)
+                if route == WORK_SEEN:
+                    self.messages["work_seen"] += int(s.get("n") or 0)
                 for code, n in (s.get("codes") or {}).items():
                     h["codes"][code] += int(n)
                 h["p95_worst"] = max(h["p95_worst"], float(s.get("p95") or 0))
@@ -160,6 +164,8 @@ class Day:
             self.messages["published"][str(e.get("type") or "")] += 1
         elif evt == "events.deliver":
             self.messages["delivered"] += int(e.get("n") or 0)
+            if isinstance(e.get("lag_s"), (int, float)):
+                self.messages["deliver_lag_s"].append(float(e["lag_s"]))
         elif evt == "react.turn":
             self.messages["react_turn"] += 1
         elif evt in ("react.defer", "react.skip"):
@@ -195,7 +201,8 @@ class Day:
                 "mcp": {k: {"n": len(v["dur_ms"]), "fail": v["fail"], "dur_ms": _dist(v["dur_ms"])}
                         for k, v in sorted(self.mcp.items())},
                 "context": {k: _dist(v) for k, v in sorted(self.context.items())},
-                "messages": plain(self.messages), "sessions": plain(self.sessions), "main": dict(self.main),
+                "messages": dict(plain(self.messages), deliver_lag_s=_dist(self.messages["deliver_lag_s"])),
+                "sessions": plain(self.sessions), "main": dict(self.main),
                 "memory": {"calls": dict(self.memory["calls"]), "added": self.memory["added"],
                            "search_hits": _dist(self.memory["search_hits"]),
                            "injected_chars": {k: _dist(v) for k, v in sorted(self.memory["injected_chars"].items())}}}

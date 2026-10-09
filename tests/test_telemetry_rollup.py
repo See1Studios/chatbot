@@ -111,6 +111,15 @@ class Rollup(unittest.TestCase):
         self.assertEqual((m["calls"], m["added"], m["search_hits"]["max"]), ({"add": 1, "search": 1}, 1, 3.0))
         self.assertEqual(sorted(m["injected_chars"]), ["house_memory", "own_memory"])
 
+    def test_delivery_lag_and_work_card_views(self):
+        # tl/G: how long a published event waited to be told, and how often the operator opened a work result
+        events = [ev("2026-10-02", 9, "events.deliver", sid="s", n=2, lag_s=40.0),
+                  ev("2026-10-02", 10, "events.deliver", sid="s", n=1, lag_s=3600.0),
+                  ev("2026-10-02", 11, "http.summary", routes={rollup.WORK_SEEN: {"n": 4, "codes": {"2xx": 4}}})]
+        rollup.build(self.log, events, today="2026-10-03")
+        m = self.day("2026-10-02")["messages"]
+        self.assertEqual((m["delivered"], m["deliver_lag_s"]["max"], m["work_seen"]), (3, 3600.0, 4))
+
     def test_one_builder_at_a_time(self):
         d = rollup.dir_for(self.log)
         d.mkdir()

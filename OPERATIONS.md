@@ -101,7 +101,7 @@ the app's working data (delivery, cursors); this log is for reading what happene
 | evt | fields |
 |---|---|
 | `events.publish` | `type`, `channel`, `id`, `to` (count or `*`), `subject` (left out for a private event) |
-| `events.deliver` | `sid`, `character`, `channel`, `n`, `types` — what a session was told before a turn |
+| `events.deliver` | `sid`, `character`, `channel`, `n`, `types`, `lag_s` (how long the oldest of them waited since it was published) — what a session was told before a turn |
 | `events.prune` | `removed`, `kept` — the retention rule (30 days, 10 MB, private 7 days) |
 | `react.turn` / `react.failed` | `sid` — a character speaking first, or why it could not |
 | `react.defer` / `react.skip` | `reason` (`quiet_hours`, `conversation_running`, `per_hour`, `no_work_session`), deduplicated |

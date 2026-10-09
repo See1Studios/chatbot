@@ -135,6 +135,7 @@ class Logged(unittest.TestCase):
         self.assertNotIn("subject", pub[1], "a private event keeps its subject out of the log")
         deliver = [l for l in log if l["evt"] == "events.deliver"]
         self.assertEqual((deliver[0]["sid"], deliver[0]["n"], deliver[0]["types"]), ("s1", 1, ["work.phase"]))
+        self.assertTrue(0 <= deliver[0]["lag_s"] < 5, deliver[0])   # tl/G: how long it waited to be told
         text = (self.dir / "log.jsonl").read_text(encoding="utf-8")
         self.assertNotIn("secret plan words", text)
         self.assertNotIn("p-sid-1", text)

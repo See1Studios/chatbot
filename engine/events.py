@@ -147,9 +147,9 @@ def pending(sid: str, character: str, channel: str = "work") -> List[Dict]:
     after = cursor(sid) or 0
     got = [e for e in _read_all() if e["id"] > after and e.get("channel") == channel
            and (ALL in e.get("to", []) or character in e.get("to", []))]
-    if got:
+    if got:   # lag_s: how long the oldest of them waited since it was published (telemetry tl/G)
         _log("events.deliver", sid=str(sid), character=character, channel=channel, n=len(got),
-             types=sorted({e["type"] for e in got}))
+             types=sorted({e["type"] for e in got}), lag_s=round(time.time() - min(e.get("ts", time.time()) for e in got), 1))
     return got
 
 
