@@ -148,5 +148,18 @@ class Incidents(unittest.TestCase):
             self.assertEqual(I.api("POST", "/api/incidents/1/close", {})[0], 404)
 
 
+    def test_the_first_check_comes_minutes_after_start_then_hourly(self):
+        # #865: restarts came more often than hourly, and the first check waited an hour: none ran
+        waits = []
+        with mock.patch.object(I, "tick", lambda: None):
+            I.loop(sleep=waits.append, rounds=3)
+        self.assertEqual(waits, [I.FIRST_TICK_SEC, I.TICK_SEC, I.TICK_SEC])
+        self.assertLessEqual(I.FIRST_TICK_SEC, 600)
+
+    def test_a_check_after_a_restart_repeats_no_notice(self):
+        I.tick(self.path, T0, digest={"findings": [f("main_red", "error", sha="a")]})
+        state = I.load(self.path)
+        self.assertEqual(I.to_notify(state, [], T0 + 300), [], "told before the restart: not again within the day")
+
 if __name__ == "__main__":
     unittest.main()

@@ -26,6 +26,7 @@ NOTIFY_MAX = 3                # per tick, the worst first: the rest wait for the
 NOTIFY_EVERY_SEC = 24 * 3600        # D3: the same incident at most once a day
 RESOLVE_AFTER_SEC = 24 * 3600
 TICK_SEC = 3600
+FIRST_TICK_SEC = 300   # #865: the host restarts more often than hourly; an hour's wait first meant no check ran
 KEY_FIELDS = ("fp", "route", "provider", "src")
 RANK = {"info": 0, "warn": 1, "error": 2}
 
@@ -214,11 +215,15 @@ def get(path, incident_id: int) -> Optional[Dict[str, Any]]:
     return next((i for i in load(path)["incidents"].values() if i["id"] == int(incident_id)), None)
 
 
-def loop() -> None:
-    """The chat server's thread (dev build only): a check about every TICK_SEC. Never raises."""
+def loop(sleep=time.sleep, rounds: Optional[int] = None) -> None:
+    """The chat server's thread (dev build only): a check FIRST_TICK_SEC after start, then about every TICK_SEC.
+    Never raises. What was told survives a restart (notified_at), so an early check repeats nothing."""
     from telemetry import obslog
-    while True:
-        time.sleep(TICK_SEC)
+    wait = FIRST_TICK_SEC
+    while rounds is None or rounds > 0:
+        sleep(wait)
+        wait = TICK_SEC
+        rounds = None if rounds is None else rounds - 1
         try:
             tick()
         except Exception:  # noqa: BLE001
