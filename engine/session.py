@@ -252,6 +252,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 self.character = str(meta.get("character") or "")
                 self.mode = meta.get("mode") if meta.get("mode") in ("private", "room") else "work"   # room: evt/E
                 self.private_digested_ts = float(meta.get("private_digested_ts") or 0)
+                self._regen_restore = str(meta.get("regen_restore") or "")   # #883: a harder take survives a restart
                 self.tension_stage, self.recent_choices = tension_meta(meta)
                 self.refusal_mitigation = bool(meta.get("refusal_mitigation", False))  # #249 opt-in
                 ts_list = [h.get("ts") for h in self.history if isinstance(h.get("ts"), (int, float))]
@@ -288,6 +289,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                 "character": getattr(self, "character", "") or "",
                 "mode": getattr(self, "mode", "work") or "work",
                 "private_digested_ts": getattr(self, "private_digested_ts", 0.0) or 0.0,
+                "regen_restore": getattr(self, "_regen_restore", "") or "",
                 "tension_stage": getattr(self, "tension_stage", 1), "recent_choices": list(getattr(self, "recent_choices", [])),
                 "refusal_mitigation": bool(getattr(self, "refusal_mitigation", False)),
                 "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),

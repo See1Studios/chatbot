@@ -62,12 +62,27 @@ def start(sess) -> None:
             sess.history.pop(i)   # the next call's context ends at the user's question again
         sess._regen = {"item": item, "alts": alts, "popped": rebuild, "at": time.time()}
         sess._turn_effects = False
+    _think_harder(sess)
     sess._emit({"event": "regen_start", "ts": item.get("ts")})
     try:
         sess._send_direct(user_text if rebuild else ANOTHER_TAKE, notice=True, event_type="regen")
     except Exception:
         finish(sess, "error")
         raise
+
+
+def _think_harder(sess) -> None:
+    """D5 (#883): chat runs on a quick brain that now and then misses; asking for another take is the user's own word
+    that it did, so this one take runs on the same brain thinking harder (adapter.stronger_model) and the next message
+    goes back (session_turn.send). The engine never judges the answer's words."""
+    model = getattr(sess, "model", "") or ""
+    stronger = getattr(sess.adapter, "stronger_model", lambda m: "")(model)
+    swap = getattr(sess, "maybe_swap_model", None)
+    if not stronger or stronger == model or swap is None:
+        return
+    sess._regen_restore = model
+    swap(stronger, remember=False)
+    sess._emit({"event": "system", **i18n.msg("regen.stronger", model=stronger)})
 
 
 def finish(sess, outcome: str) -> None:

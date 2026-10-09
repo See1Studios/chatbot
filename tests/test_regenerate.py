@@ -124,6 +124,45 @@ class Start(unittest.TestCase):
         self.assertFalse(s._turn_effects, "counted again from the next answer on")
 
 
+class ThinkHarder(unittest.TestCase):
+    """#883 (demo-60s D5): chat runs on a quick brain; another take is the user's word that it missed, so that one take
+    runs on the same brain's stronger model and the next message goes back. The engine never reads the answer."""
+
+    def test_another_take_runs_once_on_the_stronger_model(self):
+        s = Sess(rebuild=False)
+        s.model, swaps = "fast-low", []
+        s.adapter.stronger_model = lambda m: "fast-high" if m == "fast-low" else ""
+
+        def swap(model, remember=True):
+            swaps.append((model, remember))
+            s.model = model
+        s.maybe_swap_model = swap
+        R.start(s)
+        self.assertEqual(swaps, [("fast-high", False)], "not remembered as the user's brain choice")
+        self.assertEqual(s._regen_restore, "fast-low")
+        self.assertEqual(s.events[0].get("key"), "regen.stronger")
+        R.start(Sess())   # a brain without a stronger sibling: nothing changes, no error
+
+    def test_the_next_message_goes_back_and_a_restart_keeps_the_way_back(self):
+        src = (ENGINE / "session_turn.py").read_text(encoding="utf-8")
+        send = src[src.index("    def send(self, text: str"):]
+        self.assertLess(send.index('restore = getattr(self, "_regen_restore", "")'), send.index("_emit_heavy_if_needed()"))
+        self.assertIn('self.maybe_swap_model(restore, remember=False)', send)
+        meta = (ENGINE / "session.py").read_text(encoding="utf-8")
+        self.assertIn('"regen_restore": getattr(self, "_regen_restore", "") or ""', meta)
+        self.assertIn('self._regen_restore = str(meta.get("regen_restore") or "")', meta)
+
+    def test_agy_names_the_high_sibling_only_when_it_exists(self):
+        import sys
+        sys.path.insert(0, str(ENGINE))
+        from providers.adapter_agy import AgyAdapter
+        a = AgyAdapter()
+        a.known_models = lambda: ["gemini-3.8-flash-low", "gemini-3.8-flash-high"]
+        self.assertEqual(a.stronger_model("gemini-3.8-flash-low"), "gemini-3.8-flash-high")
+        self.assertEqual(a.stronger_model("gemini-3.8-flash-high"), "")
+        self.assertEqual(a.stronger_model("claude-opus-5-5-low"), "")
+
+
 class Pick(unittest.TestCase):
     def test_a_pick_shows_that_take(self):
         s = Sess()

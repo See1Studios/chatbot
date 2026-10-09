@@ -175,6 +175,10 @@ class SessionTurn:
             threading.Thread(target=self._run_btw, args=(query,), daemon=True).start()
             return None
 
+        restore = getattr(self, "_regen_restore", "")   # #883: a harder-thinking take was one take; back to the chosen brain
+        if restore and not self._is_busy():
+            self._regen_restore = ""
+            self.maybe_swap_model(restore, remember=False)
         # Soft warn anytime; hard rotate before appending more to bloated conversation.
         # Skip rotate for doctor probes and queued follow-ups while busy.
         w = self._emit_heavy_if_needed()

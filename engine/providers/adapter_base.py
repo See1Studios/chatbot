@@ -305,6 +305,11 @@ class AgentAdapter:
         return quota_view_of(rows, "")
 
 
+    def stronger_model(self, model: str) -> str:
+        """The same brain, thinking harder, for one more try when the user asks for another take (#883, D5): "" when
+        there is none. Default: none."""
+        return ""
+
     def rebuilds_context(self) -> bool:
         """REGENERATE_v1: True when this brain is sent the history again on every call (the engine builds its context),
         so the last answer can be taken out and asked again. False (default): the brain keeps its own conversation and

@@ -245,6 +245,13 @@ class AgyAdapter(AgentAdapter):
     def known_models(self) -> List[str]:
         return cached_model_list(_AGY_MODELS_CACHE, self._fetch_models) or MODELS
 
+    def stronger_model(self, model: str) -> str:
+        """A "-low" model's "-high" sibling when the model list has it (gemini-3.8-flash-low -> -high), else ""."""
+        if not (model or "").endswith("-low"):
+            return ""
+        high = model[:-len("-low")] + "-high"
+        return high if high in self.known_models() else ""
+
     def _fetch_models(self) -> List[str]:
         res = subprocess.run([self.find_executable(), "models"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              text=True, timeout=10)

@@ -178,8 +178,10 @@ SOFT_DB_BYTES = 5 * 1024 * 1024
 # Catches the case turns/chars/db_bytes miss entirely: a session can rack up
 # huge cumulative token cost (and multi-minute per-turn latency) over very
 # few turns with short messages -- observed once at 1.38M tokens / 11 turns.
-SOFT_TOKENS = 150_000
-HARD_TOKENS = 400_000
+# #883 (demo-60s G6, D6): agy's first word took 8.9 s under 130k prompt tokens and 21 s past it (2026-10-09, 84 no-tool
+# turns), while only "hard" rotates -- it was 400k. Rotate before it slows; warn a little earlier.
+SOFT_TOKENS = 100_000
+HARD_TOKENS = 130_000
 INACTIVITY_ROTATE_SEC = 3 * 3600  # 3 hours gap triggers auto-compaction and fresh rotate
 
 for p in (SESSIONS, WORKSPACE, STATIC, ARTIFACTS_CACHE, LOG_DIR):
