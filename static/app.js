@@ -546,6 +546,7 @@ async function send(opts) {
   autoResizeInput();
   updateSendButton();
 
+  const sentSid = sessionId;   // #863: the user may open another session while this one answers
   try {
     const payload = {
       text: isAction ? ('(' + actionText + ')') : text,
@@ -564,11 +565,12 @@ async function send(opts) {
     // No clock on a message: one after a long quiet first rotates, and the rotation writes a handoff summary while the
     // stream says so (srv.handoff_writing). At 12 s the page offered a retry and the answer came anyway (2026-10-08,
     // 19 s, #812). A dropped connection or an error status still fails it at once.
-    const msgRes = await api('/api/sessions/' + encodeURIComponent(sessionId) + '/message', {
+    const msgRes = await api('/api/sessions/' + encodeURIComponent(sentSid) + '/message', {
       method:'POST',
       body: JSON.stringify(payload),
       timeoutMs: 0
     });
+    if (sessionId !== sentSid) return;   // moved on meanwhile: a rotation or switch of that one must not pull them back
     if (msgRes && msgRes.switched !== undefined && msgRes.session && msgRes.session.id) {
       setBusy(false);
       setProgress('');
@@ -601,8 +603,10 @@ async function send(opts) {
       showSessionHeavyBanner(msgRes.session.weight.level, trField(msgRes.session.weight, 'message'));
     }
   } catch (e) {
-    addActivity(String(e.message || e));
-    if (!isBtw) setBusy(false);
+    if (sessionId === sentSid) {
+      addActivity(String(e.message || e));
+      if (!isBtw) setBusy(false);
+    }
   } finally {
     sendBtn.disabled = false;
     updateSendButton();

@@ -207,7 +207,9 @@ async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
     sessionCharacter = infoCharacter;
     liveSessionId = '';
   }
-  if (liveSessionId && id !== liveSessionId) archiveBrowse = true;
+  // #863: a session the user picked (noRedirect) of another character or mode stays put -- live-follow used to pull
+  // the page from it to that character's newest session
+  if ((noRedirect && !liveSessionId) || (liveSessionId && id !== liveSessionId)) archiveBrowse = true;
   else {
     archiveBrowse = false;
     if (isLiveSid(id)) liveSessionId = liveSessionId || id;
