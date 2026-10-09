@@ -66,9 +66,63 @@ function shellSettingsInput(f) {   // {wrap, read()} -- the field's editor by ty
   return { wrap, read };
 }
 
-function shellSettingsRow(f) {   // the read view; a sensitive one stays folded until asked
+function shellSettingsWhen(v) {   // "20261009220512" (or "...-1") -> "10-09 22:05:12"
+  const m = /^\d{4}(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)/.exec(String(v || ''));
+  return m ? m[1] + '-' + m[2] + ' ' + m[3] + ':' + m[4] + ':' + m[5] : String(v || '');
+}
+
+// cs/D: the setting's file as it was before each change; a version is restored with a second tap. A restore brings
+// the whole file back (every setting kept in it), and the file as it is now is kept first, so it can be undone too.
+async function shellSettingsVersions(row, f, c, onRestored) {
+  const old = row.querySelector && row.querySelector('.shell-settings-versions');
+  if (old) { old.remove(); return; }
+  const box = shellEl('div', 'shell-settings-versions');
+  row.appendChild(box);
+  let vs = [];
+  try {
+    vs = (await api('/api/characters/' + encodeURIComponent(c.id) + '/settings/versions/' + encodeURIComponent(f.key))).versions || [];
+  } catch (e) {
+    box.appendChild(shellEl('div', 'status-hint', tr('profile.settings.failed', { error: e.message || e })));
+    return;
+  }
+  if (!vs.length) {
+    box.appendChild(shellEl('div', 'status-hint', tr('profile.settings.no_versions')));
+    return;
+  }
+  box.appendChild(shellEl('div', 'status-hint', tr('profile.settings.restore_scope', { file: f.file || '' })));
+  vs.forEach(v => {
+    const b = shellEl('button', 'art-btn art-btn-xs', shellSettingsWhen(v.version));
+    b.type = 'button';
+    b.addEventListener('click', async () => {
+      if (b.dataset.armed !== '1') {   // first tap: say what happens; second tap: do it
+        b.dataset.armed = '1';
+        b.textContent = tr('profile.settings.restore_confirm', { when: shellSettingsWhen(v.version) });
+        return;
+      }
+      b.disabled = true;
+      try {
+        await api('/api/characters/' + encodeURIComponent(c.id) + '/settings/restore',
+          { method: 'POST', body: JSON.stringify({ key: f.key, version: v.version }) });
+        if (typeof profileToast === 'function') profileToast(tr('profile.settings.restored'));
+        if (typeof onRestored === 'function') await onRestored();
+      } catch (e) {
+        b.disabled = false;
+        box.appendChild(shellEl('div', 'status-hint', tr('profile.settings.failed', { error: e.message || e })));
+      }
+    });
+    box.appendChild(b);
+  });
+}
+
+function shellSettingsRow(f, c, onRestored) {   // the read view; a sensitive one stays folded until asked
   const row = shellEl('div', 'shell-info-row' + (f.type === 'longtext' || f.type === 'list' ? ' multiline' : ''));
   row.appendChild(shellEl('span', 'shell-info-label', tr(f.label.key, f.label.vars || {})));
+  if (f.editable && c) {
+    const hist = shellEl('button', 'art-btn art-btn-xs shell-settings-history', tr('profile.settings.history'));
+    hist.type = 'button';
+    hist.addEventListener('click', () => shellSettingsVersions(row, f, c, onRestored));
+    row.appendChild(hist);
+  }
   const text = shellSettingsText(f);
   const val = shellEl('span', 'shell-info-val', text || tr('profile.settings.empty'));
   if (f.sensitive && text) {
@@ -111,7 +165,11 @@ async function shellSettingsFill(sec, body, c, tab, onSaved, editing) {
   head.appendChild(toggle);
   body.appendChild(head);
   if (!editing) {
-    fields.forEach(f => body.appendChild(shellSettingsRow(f)));
+    const restored = async () => {
+      if (typeof onSaved === 'function') await onSaved([]);   // the card may have changed: the hero redraws
+      shellSettingsFill(sec, body, c, tab, onSaved, false);
+    };
+    fields.forEach(f => body.appendChild(shellSettingsRow(f, c, restored)));
     return;
   }
   const form = shellEl('div', 'shell-edit-form');

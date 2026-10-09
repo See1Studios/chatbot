@@ -29,7 +29,12 @@ const fields = [
   { key: 'file.private_memory', tab: 'relationship', type: 'longtext', label: { key: 'charset.file.private_memory' }, editable: true, sensitive: true, value: 'secret' },
   { key: 'brain.work', tab: 'settings', type: 'brain', label: { key: 'charset.brain.work' }, editable: true, value: null } ];
 const calls = [];
-async function api(url, opts) { calls.push([url, opts && opts.method, opts && opts.body]); return opts ? { changed: Object.keys(JSON.parse(opts.body)), errors: {} } : { fields }; }
+async function api(url, opts) {
+  calls.push([url, opts && opts.method, opts && opts.body]);
+  if (url.includes('/versions/')) return { versions: [{ version: '20261009220512', bytes: 9 }] };
+  if (url.endsWith('/restore')) return { ok: true };
+  return opts ? { changed: Object.keys(JSON.parse(opts.body)), errors: {} } : { fields };
+}
 const flat = n => [n].concat(...(n.kids || []).map(flat));
 (async () => {
   const out = {};
@@ -39,6 +44,17 @@ const flat = n => [n].concat(...(n.kids || []).map(flat));
   const rel = shellSettingsSection({ id: 'c1' }, 'relationship', 'Mem');
   await new Promise(r => setTimeout(r, 5));
   out.folded = flat(rel).filter(n => n.cls === 'shell-info-val').map(n => n.hidden);
+  // cs/D: a row's versions; the first tap arms, the second restores
+  const hist = flat(sec).find(n => n.cls === 'art-btn art-btn-xs shell-settings-history');
+  await hist.listeners.click();
+  await new Promise(r => setTimeout(r, 5));
+  const ver = flat(sec).filter(n => n.tag === 'button' && /10-09 22:05:12/.test(n.text || ''))[0];
+  out.versionLabel = ver.text;
+  await ver.listeners.click();
+  out.armed = ver.text;
+  await ver.listeners.click();
+  out.restore = calls.filter(c => c[1] === 'POST').map(c => [c[0], JSON.parse(c[2])]);
+  await new Promise(r => setTimeout(r, 5));
   // edit: change the name only, keep the tags
   const toggle = flat(sec).find(n => n.tag === 'button');
   toggle.listeners.click();
@@ -63,6 +79,15 @@ class SettingsPage(unittest.TestCase):
         self.assertEqual(out["charRows"], ["이름", "태그"], "the face crop keeps its own editor")
         self.assertEqual(out["folded"], [True], "a sensitive value is folded")
         self.assertEqual(out["patch"], [["/api/characters/c1/settings", {"card.name": "Kat"}]])
+
+    def test_a_version_is_restored_on_the_second_tap(self):
+        p = subprocess.run(["node", "-e", i18n_prelude() + JS, str(STATIC / "app-shell-settings.js")],
+                           capture_output=True, text=True, timeout=20)
+        out = json.loads(p.stdout.strip().splitlines()[-1])
+        self.assertEqual(out["versionLabel"], "10-09 22:05:12")
+        self.assertIn("한 번 더", out["armed"])
+        self.assertEqual(out["restore"], [["/api/characters/c1/settings/restore",
+                                           {"key": "card.name", "version": "20261009220512"}]])
 
 
 if __name__ == "__main__":

@@ -54,6 +54,7 @@ class Read(Base):
         self.assertEqual(self.get("team.roles")["options"], ["art", "lead"])
         self.assertEqual(self.get("state.threshold")["options"], list(F.THRESHOLD))
         self.assertTrue(self.get("file.private_memory")["sensitive"])
+        self.assertEqual((self.get("card.first_mes")["file"], self.get("display.voice")["file"]), ("card.json", "card.json"))
 
     def test_every_label_has_words_in_both_catalogs(self):
         for lang in ("ko", "en"):

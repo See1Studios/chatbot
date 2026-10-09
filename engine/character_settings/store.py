@@ -109,6 +109,7 @@ def read(cid: str, ws=None) -> List[Dict]:
     for f in F.by_key().values():
         e = {k: f[k] for k in ("key", "tab", "type", "editable", "sensitive")}
         e["label"] = {"key": "charset." + f["key"], "vars": {}}
+        e["file"] = _file_of(f, cid, ws).name   # a restore brings this whole file back (cs/D says so)
         e["value"] = _value(f, cid, card, ws)
         if f["key"] in F.OPTIONS:
             e["options"] = F.OPTIONS[f["key"]]
