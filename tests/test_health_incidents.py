@@ -94,6 +94,14 @@ class Incidents(unittest.TestCase):
         got = [i["code"] for i in I.to_notify(self.state, [], later + DAY)]
         self.assertEqual(got, ["main_red"], "an ignored one stays quiet")
 
+    def test_at_most_a_few_at_a_time_the_worst_first(self):
+        ch = I.judge(self.state, [f("w%d" % n, src="s%d" % n) for n in range(5)], T0)
+        I.judge(self.state, [f("e1", "error"), f("e2", "error")] + [f("w%d" % n, src="s%d" % n) for n in range(5)], T0 + DAY)
+        got = [i["code"] for i in I.to_notify(self.state, ch, T0 + DAY)]
+        self.assertEqual(got, ["e1", "e2", "w0"][:I.NOTIFY_MAX])
+        rest = [i["code"] for i in I.to_notify(self.state, [], T0 + DAY + 3600)]
+        self.assertEqual(rest, ["w1", "w2", "w3"], "the rest wait for the next tick")
+
     def test_a_worse_warning_is_told_at_once(self):
         I.judge(self.state, [f("http_slow", route="GET /a")], T0)
         self.assertEqual(I.to_notify(self.state, [], T0), [])

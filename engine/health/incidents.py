@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 WINDOW_SEC = 24 * 3600
 NOTIFY_WARN_AFTER_SEC = 24 * 3600   # D3: a warning reaches the operator once it has lasted a day; an error at once
+NOTIFY_MAX = 3                # per tick, the worst first: the rest wait for the next tick (no wall of buttons)
 NOTIFY_EVERY_SEC = 24 * 3600        # D3: the same incident at most once a day
 RESOLVE_AFTER_SEC = 24 * 3600
 TICK_SEC = 3600
@@ -86,17 +87,17 @@ def judge(state: Dict[str, Any], findings: List[Dict[str, Any]], now: float) -> 
 
 def to_notify(state: Dict[str, Any], changes: List[Dict[str, Any]], now: float) -> List[Dict[str, Any]]:
     """D3, decided here: what the operator hears about -- a new error, an incident that got worse, a warning that has
-    lasted a day -- each at most once a day, never one the operator ignored (unless it got worse). Marks them."""
+    lasted a day -- each at most once a day, never one the operator ignored (unless it got worse), at most
+    NOTIFY_MAX at a time: worse first, then errors, then the oldest. Marks the ones it returns."""
     worse = {c["incident"]["key"] for c in changes if c["change"] == "worse"}
+    due = [(key, inc) for key, inc in state["incidents"].items()
+           if inc["status"] == "open" and now - inc.get("notified_at", 0) >= NOTIFY_EVERY_SEC
+           and (key in worse or inc["severity"] == "error" or now - inc["first_seen"] >= NOTIFY_WARN_AFTER_SEC)]
+    due.sort(key=lambda ki: (ki[0] not in worse, ki[1]["severity"] != "error", ki[1]["first_seen"], ki[1]["id"]))
     out = []
-    for key, inc in state["incidents"].items():
-        if inc["status"] != "open" or now - inc.get("notified_at", 0) < NOTIFY_EVERY_SEC:
-            continue
-        due = (key in worse or inc["severity"] == "error"
-               or now - inc["first_seen"] >= NOTIFY_WARN_AFTER_SEC)
-        if due:
-            inc["notified_at"] = now
-            out.append(dict(inc))
+    for _, inc in due[:NOTIFY_MAX]:
+        inc["notified_at"] = now
+        out.append(dict(inc))
     return out
 
 

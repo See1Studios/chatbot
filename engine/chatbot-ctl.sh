@@ -203,7 +203,10 @@ stop_one() {
     pid=$(cat "$pidf")
     kill "$pid" 2>/dev/null || true
     for _ in 1 2 3 4 5; do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
-    if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid" 2>/dev/null || true; fi
+    if kill -0 "$pid" 2>/dev/null; then   # it left no proc.exit: say so, or the digest reads a crash (#858)
+      obs ctl.kill warn "proc=$name" "killed_pid=$pid" waited_s=5
+      kill -9 "$pid" 2>/dev/null || true
+    fi
     rm -f "$pidf"; echo "stopped $name"
   else
     echo "not-running $name"

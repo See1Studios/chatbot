@@ -170,6 +170,7 @@ def _digest_processes(events, win, since_t, now, find):
     last_by_src: Dict[str, dict] = {}
     last_by_pid: Dict[tuple, dict] = {}
     starts_by_src: Dict[str, List[dict]] = defaultdict(list)
+    killed = {(e.get("proc"), str(e.get("killed_pid"))) for e in events if e.get("evt") == "ctl.kill"}
     for e in events:
         src, evt = e.get("src"), e.get("evt")
         if src not in ("chat", "mcp"):
@@ -183,7 +184,8 @@ def _digest_processes(events, win, since_t, now, find):
             continue
         later = [s for s in starts_by_src[src] if s.get("pid") != pid and ts_of(s) >= ts_of(last_e)]
         if later and ts_of(later[0]) >= since_t:
-            unclean.append({"src": src, "prev_pid": pid, "last_seen": last_e.get("ts"), "restart_at": later[0].get("ts")})
+            unclean.append({"src": src, "prev_pid": pid, "last_seen": last_e.get("ts"), "restart_at": later[0].get("ts"),
+                            "forced": (src, str(pid)) in killed})
     for src in ("chat", "mcp"):
         mine = [e for e in win if e.get("src") == src]
         starts = [e for e in mine if e.get("evt") == "proc.start"]
@@ -223,8 +225,13 @@ def _digest_processes(events, win, since_t, now, find):
                  "the process may have stalled then (lock/GIL/swap): check the events just before the gap with --evt", src=src, **g)
         procs[src] = info
     for u in unclean:
+        ev = {k: v for k, v in u.items() if k != "forced"}
+        if u["forced"]:   # ctl asked it to stop, then had to kill it: a slow shutdown, not a crash (#858)
+            find("warn", "stop_forced", "%s did not exit within 5 s of being asked to stop and was killed (pid %s)" % (u["src"], u["prev_pid"]),
+                 "its shutdown hung: look at the last events of that pid (--evt) for what was still running", **ev)
+            continue
         find("error", "unclean_restart", "%s restarted after an unclean exit (pid %s, no proc.exit)" % (u["src"], u["prev_pid"]),
-             "kill -9 / OOM / crash: check the last event before it, dmesg and logs/chatbot.log", **u)
+             "kill -9 / OOM / crash: check the last event before it, dmesg and logs/chatbot.log", **ev)
     return procs, unclean
 
 

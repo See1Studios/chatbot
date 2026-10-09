@@ -205,6 +205,7 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 |---|---|---|
 | `ctl.spawn` | info | `proc` (chat/mcp), `pid` |
 | `ctl.start_failed` | error | last lines of chatbot.log |
+| `ctl.kill` | warn | `proc`, `killed_pid`, `waited_s`: a stop's SIGTERM went unanswered, so ctl sent SIGKILL (that process leaves no `proc.exit`) |
 | `repair.begin` / `repair.end` | warn / info-error | `caller`; end: `ok`, `dur_s`, `orphans`, `pruned` |
 | `repair.busy_timeout` | warn | repair went ahead while the server's agents were still working (measured by CPU/I-O, `ctl_proc.py busy`) |
 | `host.defibrillate` | warn | (`src` chat) repair requested over HTTP |
@@ -224,7 +225,8 @@ Thresholds live at the top of `telemetry/logdigest.py`.
 | code | severity | rule |
 |---|---|---|
 | `silent_process` | error | no event from chat/mcp for 2.5× heartbeat and no `proc.exit` |
-| `unclean_restart` | error | `proc.start` without a `proc.exit` from the previous pid |
+| `unclean_restart` | error | `proc.start` without a `proc.exit` from the previous pid, and ctl did not kill it (crash, OOM, outside kill -9) |
+| `stop_forced` | warn | the same, but a `ctl.kill` names that pid: the shutdown hung, ctl killed it |
 | `proc_crash` / `thread_crash` | error | uncaught exception |
 | `error_fp` | error (new fp) / warn (seen before) | error-level exceptions grouped by fingerprint |
 | `http_5xx` | error | a route with ≥3 5xx or ≥1% 5xx |

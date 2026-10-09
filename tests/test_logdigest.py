@@ -108,6 +108,17 @@ class DigestTests(unittest.TestCase):
         self.assertIn("silent_process", self.codes(d))
         self.assertEqual(d["unclean_restarts"][0]["prev_pid"], 1)
 
+    def test_a_stop_that_had_to_kill_is_a_forced_stop_not_a_crash(self):
+        self.write([
+            (600, {"src": "chat", "evt": "proc.start", "pid": 1}),
+            (300, {"src": "ctl", "evt": "ctl.kill", "proc": "chat", "killed_pid": "1", "waited_s": 5}),
+            (290, {"src": "chat", "evt": "proc.start", "pid": 2}),
+        ])
+        d = logdigest.digest(3600)
+        self.assertIn("stop_forced", self.codes(d))
+        self.assertNotIn("unclean_restart", self.codes(d))
+        self.assertTrue(d["unclean_restarts"][0]["forced"])
+
     def test_an_overlapping_process_is_not_a_crash(self):
         self.write([
             (600, {"src": "mcp", "evt": "proc.start", "pid": 1}),
