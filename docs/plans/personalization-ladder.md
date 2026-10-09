@@ -105,8 +105,8 @@
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `ladder/A` | 이 문서 + INDEX 행 + 정렬 계획 연결 | `docs/plans/personalization-ladder.md`, `docs/plans/INDEX.md`, `docs/plans/direction-alignment.md` | INDEX 행, 커밋 | 0 · — | S | — | ✅ 티켓 없음(pew D3) |
-| `ladder/B` | 변경 기록과 되돌리기 함수(D1), 지침 백업 흡수 | 새 모듈, `workspace_status.py`, `tests/` | 층 하나(지침)가 이 함수로만 쓰이고 되돌리기가 테스트로 증명됨 | 2 · ⚡ | M | D1, uds | 대기 |
-| `ladder/C` | 카드·로어북·팀 쓰기를 같은 함수로 | `characters.py`, `server.py` 라우트 | 카드 편집 뒤 이전 판으로 되돌리기 가능 | 2 · ⚡ | M | ladder/B | 대기 |
+| `ladder/B` | 변경 기록과 되돌리기 함수(D1), 지침 백업 흡수 | 새 모듈, `workspace_status.py`, `tests/` | 층 하나(지침)가 이 함수로만 쓰이고 되돌리기가 테스트로 증명됨 | 2 · ⚡ | M | D1, uds | 대기 — 2026-10-09: 캐릭터 층부터 [character-settings.md](character-settings.md) `cs/B`가 구현 |
+| `ladder/C` | 카드·로어북·팀 쓰기를 같은 함수로 | `characters.py`, `server.py` 라우트 | 카드 편집 뒤 이전 판으로 되돌리기 가능 | 2 · ⚡ | M | ladder/B | 대기 — 2026-10-09: 캐릭터 층부터 [character-settings.md](character-settings.md) `cs/B`가 구현 |
 | `ladder/D` | 기억 화면(보기·고치기·잊기) + 에이전트가 기억할 때 알림·되돌리기 | `static/`, `mcp_core.py`, `memory_store.py` | 방금 기억한 것이 보이고 한 번에 되돌려짐 | 2 · ⚡ | M | ladder/B | 대기 |
 | `ladder/E` | 제안 카드(D3): 에이전트 도구 + 선택지 채널 카드 + 적용/거절 | `mcp_core.py`, `static/`, `tests/` | 「더 장난스럽게」 → 카드 전/후 제안 → 적용 → 되돌리기까지 한 흐름 | 3 · ⚡ | M | ladder/C | 대기 |
 | `ladder/F` | 스킬 제안(Hermes식): 반복 관찰 → 스킬 초안 제안 | `observations.py`, 새 스킬 템플릿 | 같은 요청 N회 뒤 스킬 제안이 뜸 | 3 · ⚡ | M | ladder/E | 대기 |
