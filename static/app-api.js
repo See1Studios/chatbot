@@ -163,9 +163,8 @@ async function waitHostBack(maxMs = 90000, beforeBootTs = null) {
   return false;
 }
 
-// REBOOT_HUD_v2 (#869): the engine reboot plays as a futuristic sci-fi console with streaming kernel torrent,
-// telemetry heartbeat, and a power surge flash on sync. log() adds a line, close() triggers surge and fades out,
-// fail() stops torrent and shows CLOSE button.
+// REBOOT_HUD_v3 (#872): 7-stage cinematic reboot sequence (blur-in -> terminal pop-in -> kernel torrent ->
+// success surge -> terminal exit -> progressive blur dissolve out).
 function showRebootOverlay() {
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n; };
   const overlay = el('div', 'reboot-overlay'), term = el('div', 'reboot-terminal');
@@ -196,7 +195,14 @@ function showRebootOverlay() {
   term.append(head, telem, screen);
   overlay.append(term);
   document.body.append(overlay);
-  requestAnimationFrame(() => overlay.classList.add('open'));
+
+  // Stages 1 & 2: Progressive backdrop blur in, then terminal pop-in
+  requestAnimationFrame(() => {
+    overlay.classList.add('blur-in');
+    setTimeout(() => {
+      if (overlay.isConnected) term.classList.add('term-in');
+    }, 160);
+  });
 
   const KERNEL_LOGS = [
     '0x7FFA8920 [KERNEL] RECLAIM_DAEMON_SOCKET(3011)',
@@ -225,14 +231,33 @@ function showRebootOverlay() {
   }, 75);
 
   let closed = false;
+  // Stages 5 -> 6 -> 7: Power surge flash -> Terminal exit -> Progressive blur dissolve out
   const close = () => {
     if (closed) return;
     closed = true;
     clearInterval(torrentTimer);
     badge.textContent = 'ONLINE';
     badge.classList.add('ok');
+
+    // Stage 5: Power Surge Flash (screen flash)
     overlay.classList.add('surge');
-    setTimeout(() => overlay.remove(), 400);
+
+    // Stage 6: Terminal Exit transition
+    setTimeout(() => {
+      term.classList.remove('term-in');
+      term.classList.add('term-out');
+    }, 320);
+
+    // Stage 7: Progressive backdrop blur dissolve back to clear UI
+    setTimeout(() => {
+      overlay.classList.remove('blur-in');
+      overlay.classList.add('blur-out');
+    }, 560);
+
+    // Final cleanup after blur dissolve is fully finished
+    setTimeout(() => {
+      overlay.remove();
+    }, 1050);
   };
 
   return {
@@ -249,7 +274,11 @@ function showRebootOverlay() {
       badge.textContent = 'HALTED';
       const btn = el('button', 'reboot-close', 'CLOSE CONSOLE');
       btn.type = 'button';
-      btn.addEventListener('click', () => { overlay.classList.remove('open'); setTimeout(() => overlay.remove(), 320); });
+      btn.addEventListener('click', () => {
+        term.classList.add('term-out');
+        setTimeout(() => overlay.classList.add('blur-out'), 140);
+        setTimeout(() => overlay.remove(), 560);
+      });
       term.append(btn);
       btn.focus();
     },
