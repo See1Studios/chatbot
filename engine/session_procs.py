@@ -1,5 +1,5 @@
 """Processes this server spawned (live pids, owned procs, who called a tool, recycle, reap, the standby
-maintenance loop, starting a child, and reading its stdout and stderr). Split out of session.py the same way
+maintenance loop, starting a child, reading its stdout and stderr, and stopping it). Split out of session.py the same way
 session_registry.py was: session.py re-exports every function here, and AgentSession inherits SessionProcs, so
 callers keep `from session import owned_agent_procs` and `sess._spawn`. Tests keep patching names on `session`.
 
@@ -205,7 +205,7 @@ def _reap_sessions() -> None:
 
 
 class SessionProcs:
-    """Starting the agent child and reading its stdout and stderr. AgentSession inherits this."""
+    """Starting the agent child, reading its stdout and stderr, and stopping it. AgentSession inherits this."""
 
     def _spawn(self, prompt: str = "") -> None:
         """`prompt` (Multi-Provider plan Phase 2): only meaningful for a
@@ -473,3 +473,75 @@ class SessionProcs:
             if self.proc and self.proc.poll() is None:
                 return
             self._spawn()
+
+    def stop(self, notify: bool = True) -> None:
+        # Set before killing the process -- a just-terminated agy process can
+        # still have already-flushed output sitting in its stdout pipe, and
+        # _read_stdout()'s loop would otherwise keep reading and emitting
+        # that (including what looks like a genuine "result" event, with
+        # stale/reused usage stats) after the user explicitly asked to stop,
+        # making it look like stop did nothing or a new answer appeared
+        # right after (operator: "stop does not work while it is writing").
+        host = _s()
+        self._stop_requested = True
+        self._cancel_silent_hang()
+        was_busy = self.busy
+        proc = self.proc
+        self.proc = None
+        http_resp = self._http_resp
+        self._http_resp = None
+        with self.lock:
+            if hasattr(self, "msg_queue"):
+                self.msg_queue.clear()
+            self.busy = False
+        if proc:
+            try:
+                if proc.stdin:
+                    proc.stdin.close()
+            except Exception:
+                pass
+            # CODEX_PROC_v1: if we spawned with start_new_session, proc is the
+            # session leader (pgid==pid) — kill the whole group so a codex
+            # native child cannot outlive the node wrapper. If pgid!=pid
+            # (legacy child from before this fix), fall back to terminate()
+            # so we never SIGTERM the chatbot server's own process group.
+            try:
+                import signal as _signal
+                pgid = os.getpgid(proc.pid)
+                if pgid == proc.pid:
+                    os.killpg(pgid, _signal.SIGTERM)
+                else:
+                    proc.terminate()
+                proc.wait(timeout=3)
+            except Exception:
+                # CODEX_PROC_v1: escalate the same way -- killpg when we're the session
+                # leader, so an unresponsive-to-SIGTERM codex native child doesn't
+                # outlive the node wrapper here either (mirrors adapters.py's
+                # _fetch_codex_rate_limits cleanup).
+                try:
+                    if pgid == proc.pid:
+                        os.killpg(pgid, _signal.SIGKILL)
+                    else:
+                        proc.kill()
+                    proc.wait(timeout=1)
+                except Exception:
+                    try:
+                        proc.kill()
+                        proc.wait(timeout=1)
+                    except Exception:
+                        pass
+        if http_resp:
+            # API-Provider plan: no process to terminate -- closing the
+            # in-flight urlopen() response's socket is what unblocks
+            # stream_turn()'s `for raw_line in resp:` read loop in its
+            # background thread, the http-transport equivalent of
+            # proc.terminate() above.
+            try:
+                http_resp.close()
+            except Exception:
+                pass
+        if notify:
+            self._emit({"event": "stopped", **i18n.msg("srv.stopped_by_user", user=host.user_title())})
+            if was_busy:
+                self._finish_turn("stopped")
+        host._record_live_pids()

@@ -21,8 +21,7 @@
   "providers/accounts.py": 10,
   "providers/adapter_codex.py": 3,
   "server.py": 3,
-  "session.py": 5,
-  "session_procs.py": 1,
+  "session_procs.py": 6,
   "tickets.py": 1,
   "tools/ticket_quick.py": 3,
   "tools/worktree_runner.py": 2
