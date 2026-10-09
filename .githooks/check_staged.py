@@ -166,14 +166,15 @@ def sync_mirrors(root, files):
 RELATED_SKIP = ("test_sync_mirrors",)
 
 
-def related_for(root, files, who, branch=lambda: ""):
+def related_for(root, files, who):
     """AGENT_COMMIT_RELATED_v1: the test modules a commit must also pass -- the ones the delegation runner runs for the
     same files (worktree_runner.related_gate). #689-#691 (2026-10-06) went in from chat past the FAST guards only.
     RELATED_ALL_v1 (#825): every committer, not only a chat agent -- #817/#821/#822 (2026-10-08) came from outside
     CLIs on the FAST guards and left three modules red on main ("run the suite before you commit" was a sentence).
-    Left out: the host and the runners it started (chat-agent:?), and a delegated worker on its ticket branch, whose
-    runner gates run the same modules."""
-    if not files or who() == "chat-agent:?" or WORKTREE_BRANCH.match(branch()):
+    Left out: the host and the runners it started (chat-agent:?). A branch name is no exemption: #849 (2026-10-09) was
+    committed by hand on a branch named like a runner's (worktree/ticket-N), skipped these tests and no runner gated
+    it, and main went red."""
+    if not files or who() == "chat-agent:?":
         return []
     wr = _repo_module(root, "worktree_runner")
     gate = wr.related_gate(Path(root), list(files)) if wr else None
@@ -279,8 +280,7 @@ def pre_commit():
         return 1
     if files and all(f.startswith(RECORDS) for f in files):
         return 0
-    r = run_guards_on_snapshot(root, related_for(root, files, lambda: caller(root),
-                                                 lambda: git("rev-parse", "--abbrev-ref", "HEAD").strip()))
+    r = run_guards_on_snapshot(root, related_for(root, files, lambda: caller(root)))
     if r is None:
         return 0
     if r.returncode != 0:

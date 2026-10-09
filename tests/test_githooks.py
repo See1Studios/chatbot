@@ -198,8 +198,8 @@ class Hooks(unittest.TestCase):
         self.assertEqual(check.related_for(ROOT, ["dialog_handoff.py"], lambda: "chat-agent:?"), [])   # the host
         self.assertNotIn("test_sync_mirrors", check.related_for(ROOT, ["RULES.md"], lambda: "claude-code"),
                          "a mirror the translator could not refresh only warns")
-        self.assertEqual(check.related_for(ROOT, ["room_chat.py"], lambda: "agy", lambda: "worktree/ticket-7"), [],
-                         "a delegated worker: its runner's gates run them")
+        self.assertIn("test_room_chat", check.related_for(ROOT, ["room_chat.py"], lambda: "agy"),
+                      "#849: a branch named like a runner's is no exemption")
         self.assertEqual(check.related_for(ROOT, [], lambda: "chat-agent:agy"), [])
         self.assertEqual(check.related_for(self.repo, ["x.py"], lambda: "chat-agent:agy"), [])          # no runner here
 
