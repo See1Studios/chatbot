@@ -335,6 +335,43 @@ def save(cid: str, card: Dict, ws=None) -> None:
     _CARD_INFO_CACHE.pop(path, None)
 
 
+def clone(cid: str, new_name: str = "", new_user_title: str = "", ws=None) -> Dict:
+    """Clone an existing character into a new TypeID character card."""
+    card = load(cid, ws)
+    new_cid = new_id()
+    new_card = json.loads(json.dumps(card))
+    if new_name and new_name.strip():
+        new_card.setdefault("data", {})["name"] = new_name.strip()
+    else:
+        orig = new_card.get("data", {}).get("name", "")
+        new_card.setdefault("data", {})["name"] = (orig + " (Copy)").strip()
+    if new_user_title:
+        ext = new_card.setdefault("data", {}).setdefault("extensions", {}).setdefault(EXT, {})
+        disp = ext.setdefault("display", {})
+        disp["user_title"] = new_user_title.strip()
+    src_dir = card_path(cid, ws).parent
+    dst_dir = card_path(new_cid, ws).parent
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    if src_dir.is_dir():
+        for f in src_dir.iterdir():
+            if f.name in ("card.json", "memory.md", ".card.tmp") or f.name.startswith("."):
+                continue
+            if f.is_file():
+                shutil.copy2(f, dst_dir / f.name)
+    save(new_cid, new_card, ws)
+    team = load_team(ws)
+    members = dict(team.get("members") or {})
+    members.setdefault(new_cid, [])
+    save_team({"default": team.get("default") or new_cid, "members": members}, ws)
+    cdata = new_card.get("data", {})
+    return {
+        "ok": True,
+        "id": new_cid,
+        "name": name(new_card),
+        "first_mes": cdata.get("first_mes") or cdata.get("first_message") or "",
+    }
+
+
 def listing(ws=None) -> List[Dict]:
     """Every readable character, oldest first (TypeIDs sort by creation time)."""
     out = []

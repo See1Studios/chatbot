@@ -179,7 +179,7 @@ class SummonRouteTest(unittest.TestCase):
     def test_get_steps_and_post_summon_and_regen(self):
         status, raw = self._req("GET", "/api/summon")
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(raw.decode("utf-8"))["menu"], "새 친구 소환")
+        self.assertEqual(json.loads(raw.decode("utf-8"))["menu"], "새로운 캐릭터 찾기")
         denied, _ = self._req("POST", "/api/characters/summon", {"choices": {"name": "별"}}, origin=False)
         self.assertEqual(denied, 403)
         status, raw = self._req("POST", "/api/characters/summon", {"choices": {"name": "별"}})
@@ -187,6 +187,13 @@ class SummonRouteTest(unittest.TestCase):
         made = json.loads(raw.decode("utf-8"))
         self.assertTrue(made["ok"])
         self.assertNotIn("dir", made)
+        # test cloning character
+        cstatus, craw = self._req("POST", "/api/characters/%s/clone" % made["id"], {"name": "별 (IF)", "user_title": "파트너"})
+        self.assertEqual(cstatus, 200)
+        cloned = json.loads(craw.decode("utf-8"))
+        self.assertTrue(cloned["ok"])
+        self.assertEqual(cloned["name"], "별 (IF)")
+        self.assertNotEqual(cloned["id"], made["id"])
         summon_api.LLM = lambda s, u: json.dumps({
             "first_message": "A different opening, already in the middle of the room.",
         })

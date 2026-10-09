@@ -465,6 +465,19 @@ def _summon_regen(req: Req):
     return req.json(payload, status)
 
 
+def _character_clone(req: Req):
+    import characters
+    cid = (req.arg or "").strip("/")
+    try:
+        body = req.body or {}
+        new_name = str(body.get("name") or "")
+        new_user_title = str(body.get("user_title") or "")
+        res = characters.clone(cid, new_name=new_name, new_user_title=new_user_title, ws=WORKSPACE)
+        return req.json(res, 200)
+    except Exception as e:
+        return req.json({"ok": False, "error": str(e)}, 400)
+
+
 def _dev_delete_character(req: Req):
     # The button is hidden unless browser dev mode is on. The route also needs the dev edition.
     import characters
@@ -570,6 +583,7 @@ POST_ROUTES = [
     ("/api/sessions", route_sessions.create),
     ("/api/characters/summon", _summon_create),
     ("/api/characters/*/regenerate", _summon_regen),
+    ("/api/characters/*/clone", _character_clone),
     ("/api/characters/*/dev-delete", _dev_delete_character),
     ("/api/characters/*/session", route_sessions.character_session),
     ("/api/sessions/*/message", route_sessions.message),
