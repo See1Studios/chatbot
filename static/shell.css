@@ -147,7 +147,14 @@ html.shell2 body:not(.dev-mode) .shell-dev{display:none}   /* developer mode's r
 .shell-info-label{font-size:.72rem;color:var(--muted);font-weight:600;flex-shrink:0}
 .shell-info-val{color:var(--text);word-break:break-word}
 .shell-info-row.multiline .shell-info-val{font-size:.8rem;line-height:1.45;color:rgba(237,239,239,.85);max-height:160px;overflow-y:auto;white-space:pre-wrap}
-.shell-settings-versions{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.3rem}
+.shell-settings-versions{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.3rem}
+.shell-info-head{display:flex;align-items:center;gap:.25rem;min-width:0}
+.shell-info-tools{display:inline-flex;gap:.1rem;flex:0 0 auto}
+.shell-info-row.multiline .shell-info-tools{margin-left:auto}
+.shell-icon-btn{flex:0 0 auto;width:22px;height:22px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.shell-icon-btn:hover,.shell-icon-btn:focus-visible{color:var(--text);background:rgba(255,255,255,.07)}
+.shell-version-chip{flex:0 0 auto;font-size:.68rem;padding:.12rem .45rem;border-radius:5px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;white-space:nowrap}
+.shell-version-chip[data-armed="1"]{border-color:var(--accent);color:var(--accent)}
 .shell-field-check{display:block;font-size:.8rem;padding:.15rem 0}
 .shell-edit-form{display:flex;flex-direction:column;gap:.5rem;padding:.3rem 0}
 .shell-field-wrap{display:flex;flex-direction:column;gap:.2rem}

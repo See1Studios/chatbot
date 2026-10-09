@@ -17,7 +17,7 @@ const fs = require('fs');
 eval(fs.readFileSync(process.argv[1], 'utf8'));
 function el(tag) { const n = { tag, kids: [], hidden: false, isConnected: true, dataset: {}, listeners: {}, value: '', checked: false,
   append(...k) { k.forEach(x => { x.parentNode = n; this.kids.push(x); }); }, appendChild(k) { this.append(k); return k; },
-  addEventListener(t, f) { this.listeners[t] = f; }, remove() {}, set textContent(v) { if (v === '') this.kids = []; this.text = v; },
+  addEventListener(t, f) { this.listeners[t] = f; }, remove() {}, setAttribute(k, v) { this[k] = v; }, set textContent(v) { if (v === '') this.kids = []; this.text = v; },
   get textContent() { return this.text || ''; } }; return n; }
 global.document = { createElement: el, createTextNode: t => ({ text: t }) };
 function shellEl(tag, cls, text) { const n = el(tag); n.cls = cls; if (text != null) n.text = text; return n; }
@@ -45,7 +45,8 @@ const flat = n => [n].concat(...(n.kids || []).map(flat));
   await new Promise(r => setTimeout(r, 5));
   out.folded = flat(rel).filter(n => n.cls === 'shell-info-val').map(n => n.hidden);
   // cs/D: a row's versions; the first tap arms, the second restores
-  const hist = flat(sec).find(n => n.cls === 'art-btn art-btn-xs shell-settings-history');
+  const hist = flat(sec).find(n => n.cls === 'shell-icon-btn shell-settings-history');
+  out.sameTools = flat(rel).filter(n => /^shell-icon-btn/.test(n.cls || '')).map(n => n.cls.split(' ')[0]);
   await hist.listeners.click();
   await new Promise(r => setTimeout(r, 5));
   const ver = flat(sec).filter(n => n.tag === 'button' && /10-09 22:05:12/.test(n.text || ''))[0];
@@ -85,7 +86,8 @@ class SettingsPage(unittest.TestCase):
                            capture_output=True, text=True, timeout=20)
         out = json.loads(p.stdout.strip().splitlines()[-1])
         self.assertEqual(out["versionLabel"], "10-09 22:05:12")
-        self.assertIn("한 번 더", out["armed"])
+        self.assertEqual(out["armed"], "10-09 22:05:12 되돌리기?")
+        self.assertEqual(out["sameTools"], ["shell-icon-btn", "shell-icon-btn"], "show and versions: one size, no art-btn")
         self.assertEqual(out["restore"], [["/api/characters/c1/settings/restore",
                                            {"key": "card.name", "version": "20261009220512"}]])
 

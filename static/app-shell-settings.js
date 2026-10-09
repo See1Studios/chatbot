@@ -5,6 +5,20 @@
 // keep their own picker (shellBrainSection) and the face crop its editor, so they are not drawn here.
 
 const SETTINGS_SKIP = { brain: true, focal: true };
+const SETTINGS_ICONS = {   // one size for every row's tools (an art-btn grew to fill the row)
+  history: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 3 3 9 9 9"/><polyline points="12 7 12 12 15 14"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+};
+
+function shellSettingsIconBtn(cls, icon, label, onClick) {
+  const b = shellEl('button', 'shell-icon-btn ' + cls);
+  b.type = 'button';
+  b.title = label;
+  b.setAttribute('aria-label', label);
+  b.innerHTML = SETTINGS_ICONS[icon];
+  b.addEventListener('click', onClick);
+  return b;
+}
 
 async function shellSettingsPatch(cid, changes) {
   return api('/api/characters/' + encodeURIComponent(cid) + '/settings', { method: 'PATCH', body: JSON.stringify(changes) });
@@ -91,7 +105,7 @@ async function shellSettingsVersions(row, f, c, onRestored) {
   }
   box.appendChild(shellEl('div', 'status-hint', tr('profile.settings.restore_scope', { file: f.file || '' })));
   vs.forEach(v => {
-    const b = shellEl('button', 'art-btn art-btn-xs', shellSettingsWhen(v.version));
+    const b = shellEl('button', 'shell-version-chip', shellSettingsWhen(v.version));
     b.type = 'button';
     b.addEventListener('click', async () => {
       if (b.dataset.armed !== '1') {   // first tap: say what happens; second tap: do it
@@ -116,23 +130,21 @@ async function shellSettingsVersions(row, f, c, onRestored) {
 
 function shellSettingsRow(f, c, onRestored) {   // the read view; a sensitive one stays folded until asked
   const row = shellEl('div', 'shell-info-row' + (f.type === 'longtext' || f.type === 'list' ? ' multiline' : ''));
-  row.appendChild(shellEl('span', 'shell-info-label', tr(f.label.key, f.label.vars || {})));
-  if (f.editable && c) {
-    const hist = shellEl('button', 'art-btn art-btn-xs shell-settings-history', tr('profile.settings.history'));
-    hist.type = 'button';
-    hist.addEventListener('click', () => shellSettingsVersions(row, f, c, onRestored));
-    row.appendChild(hist);
-  }
+  const head = shellEl('div', 'shell-info-head');
+  const tools = shellEl('span', 'shell-info-tools');
+  head.append(shellEl('span', 'shell-info-label', tr(f.label.key, f.label.vars || {})), tools);
   const text = shellSettingsText(f);
   const val = shellEl('span', 'shell-info-val', text || tr('profile.settings.empty'));
   if (f.sensitive && text) {
     val.hidden = true;
-    const show = shellEl('button', 'art-btn art-btn-xs', tr('profile.settings.show'));
-    show.type = 'button';
-    show.addEventListener('click', () => { val.hidden = false; show.remove(); });
-    row.appendChild(show);
+    const show = shellSettingsIconBtn('shell-settings-show', 'eye', tr('profile.settings.show'), () => { val.hidden = false; show.remove(); });
+    tools.appendChild(show);
   }
-  row.appendChild(val);
+  if (f.editable && c) {
+    tools.appendChild(shellSettingsIconBtn('shell-settings-history', 'history', tr('profile.settings.history'),
+      () => shellSettingsVersions(row, f, c, onRestored)));
+  }
+  row.append(head, val);
   return row;
 }
 
