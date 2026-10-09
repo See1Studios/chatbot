@@ -88,6 +88,13 @@ class Patch(Base):
         S.patch(self.cid, {"brain.work": None}, self.ws)
         self.assertIsNone(self.get("brain.work")["value"], "back to the card's default")
 
+    def test_the_face_crop_is_checked_and_merged(self):
+        out = S.patch(self.cid, {"display.focal": {"x": 40, "y": 30, "zoom": 1.5, "master": ""}}, self.ws)
+        self.assertEqual(out["changed"], ["display.focal"])
+        self.assertEqual(self.get("display.focal")["value"], {"x": 40.0, "y": 30.0, "zoom": 1.5, "master": ""})
+        self.assertEqual(self.get("display.user_title")["value"], "coach", "the rest of display stays")
+        self.assertIn("display.focal", S.patch(self.cid, {"display.focal": {"x": 400, "y": 1, "zoom": 1}}, self.ws)["errors"])
+
     def test_the_log_names_keys_never_values(self):
         seen = []
         with mock.patch("telemetry.obslog.event", lambda evt, **kw: seen.append((evt, kw))):

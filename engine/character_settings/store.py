@@ -88,7 +88,8 @@ def _value(f: Dict, cid: str, card: Dict, ws=None) -> Any:
         v = data.get(where)
         return v if v is not None else ([] if f["type"] == "list" else "")
     if src == "display":
-        return str(characters.ext(card).get("display", {}).get(where) or "")
+        v = characters.ext(card).get("display", {}).get(where)
+        return (v if isinstance(v, dict) else None) if f["type"] == "focal" else str(v or "")
     if src == "brain":
         return (characters.read_brain_overrides(cid, ws) or {}).get(where)
     if src == "team":
@@ -142,6 +143,16 @@ def _check(f: Dict, v: Any, ws=None) -> Tuple[Optional[str], Any]:
             return "a brain needs a provider", None
         return None, {"provider": str(v["provider"]).strip(), "model": str(v.get("model") or "").strip(),
                       "effort": str(v.get("effort") or "").strip()}
+    if t == "focal":
+        if v is None:
+            return None, None
+        try:
+            x, y, zoom = (float(v[k]) for k in ("x", "y", "zoom"))
+        except (TypeError, KeyError, ValueError):
+            return "a face crop needs x, y and zoom", None
+        if not (0 <= x <= 100 and 0 <= y <= 100 and 0.5 <= zoom <= 5):
+            return "out of range", None
+        return None, {"x": x, "y": y, "zoom": zoom, "master": str(v.get("master") or "")[:500]}
     if t == "roles":
         have = set(_roles_available(ws))
         if not isinstance(v, list) or not all(isinstance(x, str) and x in have for x in v):

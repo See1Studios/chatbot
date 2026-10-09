@@ -8,6 +8,13 @@
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 2026-10-09 기록은 하루 예산을 넘어 [docs/history/2026-10-09.md](docs/history/2026-10-09.md)로 회전했습니다.
 
+## 2026-10-09 — 프로필 서랍이 모든 캐릭터 설정을 서버 목록으로 보고 고침 (character-settings cs/C, #891)
+
+- **운영자**: "캐릭터 관련 모든 설정을 여기에서 조회 및 편집할 수 있으면 좋겠어" · "진행해"
+- **바뀐 것**: `static/app-shell-settings.js` — 서랍의 세 탭(캐릭터·관계·설정)이 `GET /api/characters/<id>/settings`의 항목을 그리고, 편집하면 바뀐 키만 `PATCH`한다(서버가 그 파일에 합쳐 쓰고 이전 판을 남긴다). 사적 기억·관계 기록은 접혀 있다. `app-shell-profile.js`의 손으로 그린 편집 칸, 기억 표시, 역할 표시, 그리고 화면이 카드 전체를 다시 쓰던 `saveCharacterInline`을 없앴다 — 얼굴 초점 저장도 같은 API(`display.focal`). 남아 있던 영어 문구("Save failed", "No shared memory…")도 사라졌다.
+- **남은 것**: 판 목록·되돌리기 화면(cs/D).
+- **재시작**: 필요 없음(화면, 새로고침). 서버의 `display.focal` 항목은 재시작 뒤.
+
 ## 2026-10-09 — 캐릭터 설정 서버: 한 목록, 합쳐 쓰기, 판과 되돌리기 (character-settings cs/A·cs/B, #890)
 
 - **운영자**: "캐릭터 관련 모든 설정을 여기에서 조회 및 편집할 수 있으면 좋겠어" · "그래"

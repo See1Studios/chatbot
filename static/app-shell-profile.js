@@ -6,7 +6,6 @@
 // Master Image with Face Coordinate Crop & Inline Editor
 
 let shellProfileTab = 'character'; // 'character' | 'relationship' | 'engine'
-let shellProfileEditMode = false;
 
 // Unified SVG vector icons (theme-matched, replacing system emojis)
 function profileIconSvg(name) {
@@ -235,81 +234,12 @@ function renderCharacterTab(holder, c, panel, column) {
   if (!holder || !c) return;
   holder.textContent = '';
 
-  const secTitle = typeof tr === 'function' ? tr('profile.sec.card') : 'Character Card';
-  const sec = shellSection(secTitle);
-  const headRow = shellEl('div', 'shell-inline-head');
-  const baseInfoLabel = typeof tr === 'function' ? tr('profile.sec.base_info') : 'Base Info';
-  headRow.appendChild(shellEl('span', 'status-hint', baseInfoLabel));
-
-  const editToggleBtn = shellEl('button', 'art-btn art-btn-xs ' + (shellProfileEditMode ? '' : 'primary'));
-  editToggleBtn.type = 'button';
-  if (shellProfileEditMode) {
-    editToggleBtn.textContent = typeof tr === 'function' ? tr('common.cancel') : 'Cancel';
-  } else {
-    editToggleBtn.innerHTML = profileIconSvg('edit') + ' ' + escapeHtml(typeof tr === 'function' ? tr('common.edit') : 'Edit');
-  }
-
-  editToggleBtn.addEventListener('click', () => {
-    shellProfileEditMode = !shellProfileEditMode;
-    renderCharacterTab(holder, c, panel, column);
-  });
-  headRow.appendChild(editToggleBtn);
-  sec.appendChild(headRow);
-
-  if (shellProfileEditMode) {
-    // Inline Edit Form
-    const form = shellEl('div', 'shell-edit-form');
-
-    const fName = shellFormField(tr('card.name'), 'text', c.title || c.name || '');
-    const fUserTitle = shellFormField(tr('card.user_title') || 'User Title', 'text', c.user_title || '', 'e.g. Master, Sensei');
-    const fVoice = shellFormField(tr('profile.voice.sample') || 'Voice Preset', 'text', c.voice || '', 'e.g. ko-KR-Neural2-A');
-    const fDesc = shellFormFieldArea(tr('card.description'), c.description || '');
-    const fPers = shellFormFieldArea(tr('card.personality'), c.personality || '');
-    const fTags = shellFormField('Tags', 'text', (c.tags || []).join(', '));
-
-    const btnRow = shellEl('div', 'shell-edit-actions');
-    const saveBtn = shellEl('button', 'art-btn art-btn-sm primary', typeof tr === 'function' ? tr('common.save') : 'Save');
-    saveBtn.type = 'button';
-
-    saveBtn.addEventListener('click', async () => {
-      saveBtn.disabled = true;
-      saveBtn.textContent = typeof tr === 'function' ? tr('common.saving') : 'Saving...';
-      try {
-        await saveCharacterInline(c.id, {
-          name: fName.input.value.trim(),
-          user_title: fUserTitle.input.value.trim(),
-          voice: fVoice.input.value.trim(),
-          description: fDesc.input.value.trim(),
-          personality: fPers.input.value.trim(),
-          tags: fTags.input.value.split(',').map(s => s.trim().replace(/^#+/, '')).filter(Boolean),
-        });
-        shellProfileEditMode = false;
-        if (typeof loadCharacters === 'function') await loadCharacters();
-        if (typeof updateBrandAvatar === 'function') updateBrandAvatar();
-        const updated = typeof currentCharacter === 'function' ? currentCharacter() : c;
-        shellProfileDraw(panel, updated || c, column);
-      } catch (err) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = typeof tr === 'function' ? tr('common.save') : 'Save';
-        profileToast((typeof tr === 'function' ? tr('card.cannot_save', { error: err.message || err }) : 'Save failed: ' + (err.message || err)));
-      }
-    });
-
-    btnRow.appendChild(saveBtn);
-    form.append(fName.wrap, fUserTitle.wrap, fVoice.wrap, fDesc.wrap, fPers.wrap, fTags.wrap, btnRow);
-    sec.appendChild(form);
-  } else {
-    // Readonly Field Cards with scrollable long text (Role moved to Tab 3: Settings)
-    const list = shellEl('div', 'shell-field-list');
-    list.appendChild(shellInfoRow(tr('card.name'), c.title || c.name || ''));
-    if (c.user_title) list.appendChild(shellInfoRow(tr('card.user_title') || 'User Title', c.user_title));
-    if (c.voice) list.appendChild(shellInfoRow(tr('profile.voice.sample') || 'Voice Preset', c.voice));
-    if (c.description) list.appendChild(shellInfoRow(tr('card.description'), c.description, true));
-    if (c.personality) list.appendChild(shellInfoRow(tr('card.personality'), c.personality, true));
-    if (c.tags && c.tags.length) list.appendChild(shellInfoRow('Tags', c.tags.map(t => '#' + String(t).replace(/^#+/, '')).join(' ')));
-    sec.appendChild(list);
-  }
-
+  // character-settings cs/C: every card and display setting, drawn from the server's list and saved key by key
+  const refresh = async () => {
+    if (typeof loadCharacters === 'function') await loadCharacters();
+    if (typeof updateBrandAvatar === 'function') updateBrandAvatar();
+  };
+  const sec = shellSettingsSection(c, 'character', tr('profile.sec.card'), refresh);
   holder.appendChild(sec);
 
   // Expression & Stage Gallery Mini-Strip
@@ -332,15 +262,8 @@ function renderRelationshipTab(holder, c) {
     if (relSec) holder.appendChild(relSec);
   }
 
-  // 2. Shared Memory Card (scrollable)
-  const memSecTitle = typeof tr === 'function' ? tr('profile.sec.memory') : 'Shared Memory';
-  const memSec = shellSection(memSecTitle);
-  const memCard = shellEl('div', 'shell-memory-card');
-  const memHint = shellEl('div', 'status-hint', typeof tr === 'function' ? tr('common.loading') : 'Loading memory...');
-  memCard.appendChild(memHint);
-  memSec.appendChild(memCard);
-  holder.appendChild(memSec);
-  loadMemoryContent(c.id, memCard);
+  // 2. Memory, private memory (folded), the private room's settings: from the settings list (cs/C)
+  holder.appendChild(shellSettingsSection(c, 'relationship', tr('profile.sec.memory')));
 
   // 3. Quick Action Cards
   const rows = typeof shellProfileRows === 'function' ? shellProfileRows({
@@ -375,20 +298,12 @@ function renderRelationshipTab(holder, c) {
 function renderEngineTab(holder, c) {
   if (!holder || !c) return;
   holder.textContent = '';
-  // Role belongs in engineering/settings tab
-  if (c.role) {
-    const roleTitle = typeof tr === 'function' ? tr('profile.sec.role') : 'Assigned Role';
-    const roleSec = shellSection(roleTitle);
-    const roleList = shellEl('div', 'shell-field-list');
-    roleList.appendChild(shellInfoRow(roleTitle, c.role));
-    roleSec.appendChild(roleList);
-    holder.appendChild(roleSec);
-  }
   if (typeof shellQuotaSection === 'function') holder.appendChild(shellQuotaSection());
   if (typeof shellBrainSection === 'function') holder.appendChild(shellBrainSection(c));
   if (typeof shellModelSection === 'function') holder.appendChild(shellModelSection());
   if (typeof shellContextSection === 'function') holder.appendChild(shellContextSection());
   if (typeof shellBrainUseSection === 'function') holder.appendChild(shellBrainUseSection(c));
+  holder.appendChild(shellSettingsSection(c, 'settings', tr('profile.sec.advanced')));   // roles, card prompts (cs/C)
   if (typeof shellDevDeleteButton === 'function') shellDevDeleteButton(holder, c);
 }
 
@@ -630,7 +545,8 @@ async function openFocalEditor(panel, c) {
         zoom: Number(curZoom.toFixed(2)),
         master: curMaster === defaultAvatarUrl ? '' : curMaster
       };
-      await saveCharacterInline(c.id, { focal: focalObj });
+      const res = await shellSettingsPatch(c.id, { 'display.focal': focalObj });   // cs/C: merged by the server
+      if (res && res.errors && res.errors['display.focal']) throw new Error(res.errors['display.focal']);
       c.focal = focalObj;
       if (typeof loadCharacters === 'function') await loadCharacters();
       closeDialog();
@@ -639,7 +555,7 @@ async function openFocalEditor(panel, c) {
     } catch (err) {
       saveBtn.disabled = false;
       saveBtn.innerHTML = profileIconSvg('check') + ' <span>' + escapeHtml(saveLabel) + '</span>';
-      profileToast('Save failed: ' + (err.message || err));
+      profileToast(tr('card.cannot_save', { error: err.message || err }));
     }
   });
 
@@ -649,74 +565,6 @@ async function openFocalEditor(panel, c) {
   panel.appendChild(dialog);
   updateReticle();
 }
-
-// ------------------------------------------------------------------ Helpers
-function shellFormField(label, type, val, placeholder) {
-  const wrap = shellEl('div', 'shell-field-wrap');
-  wrap.appendChild(shellEl('label', 'shell-field-label', label));
-  const input = document.createElement('input');
-  input.type = type || 'text';
-  input.className = 'shell-field-input';
-  input.value = val || '';
-  if (placeholder) input.placeholder = placeholder;
-  wrap.appendChild(input);
-  return { wrap, input };
-}
-
-function shellFormFieldArea(label, val) {
-  const wrap = shellEl('div', 'shell-field-wrap');
-  wrap.appendChild(shellEl('label', 'shell-field-label', label));
-  const input = document.createElement('textarea');
-  input.className = 'shell-field-textarea';
-  input.rows = 3;
-  input.value = val || '';
-  wrap.appendChild(input);
-  return { wrap, input };
-}
-
-function shellInfoRow(label, val, multiline) {
-  const row = shellEl('div', 'shell-info-row' + (multiline ? ' multiline' : ''));
-  row.appendChild(shellEl('span', 'shell-info-label', label));
-  row.appendChild(shellEl('span', 'shell-info-val', String(val || '-')));
-  return row;
-}
-
-// Save character card inline via PUT /api/instructions/characters/<id>/card.json
-async function saveCharacterInline(cid, patch) {
-  const path = 'characters/' + cid + '/card.json';
-  const res = await api('/api/instructions/' + encodeURIComponent(path));
-  if (!res || !res.content) {
-    throw new Error('Failed to load character card: empty response');
-  }
-  let cardObj = null;
-  try {
-    cardObj = JSON.parse(res.content);
-  } catch (e) {
-    throw new Error('Failed to parse character card JSON: ' + (e.message || e));
-  }
-  if (!cardObj || !cardObj.data || typeof cardObj.data !== 'object') {
-    throw new Error('Invalid character card format: missing data');
-  }
-  const d = cardObj.data;
-  if (patch.name !== undefined) d.name = patch.name;
-  if (patch.description !== undefined) d.description = patch.description;
-  if (patch.personality !== undefined) d.personality = patch.personality;
-  if (patch.tags !== undefined) d.tags = patch.tags;
-
-  if (!d.extensions || typeof d.extensions !== 'object') d.extensions = {};
-  if (!d.extensions.chatbot || typeof d.extensions.chatbot !== 'object') d.extensions.chatbot = {};
-  const disp = d.extensions.chatbot.display || {};
-  if (patch.user_title !== undefined) disp.user_title = patch.user_title;
-  if (patch.voice !== undefined) disp.voice = patch.voice;
-  if (patch.focal !== undefined) disp.focal = patch.focal;
-  d.extensions.chatbot.display = disp;
-
-  await api('/api/instructions/' + encodeURIComponent(path), {
-    method: 'PUT',
-    body: JSON.stringify({ content: JSON.stringify(cardObj, null, 2) }),
-  });
-}
-
 // Mini art gallery strip for character expressions & stage
 async function loadArtMiniStrip(cid, stripEl, panel, c) {
   try {
@@ -766,23 +614,5 @@ async function loadArtMiniStrip(cid, stripEl, panel, c) {
   } catch (_) {
     stripEl.textContent = '';
     stripEl.appendChild(shellEl('div', 'status-hint', 'Could not load visuals.'));
-  }
-}
-
-// Async load character memory.md
-async function loadMemoryContent(cid, container) {
-  try {
-    const res = await api('/api/instructions/characters/' + encodeURIComponent(cid) + '/memory.md');
-    container.textContent = '';
-    const text = (res && res.content ? res.content.trim() : '');
-    if (!text) {
-      container.appendChild(shellEl('div', 'status-hint', 'No shared memory recorded yet.'));
-      return;
-    }
-    const memBody = shellEl('div', 'shell-memory-body', text);
-    container.appendChild(memBody);
-  } catch (_) {
-    container.textContent = '';
-    container.appendChild(shellEl('div', 'status-hint', 'Memory not initialized yet.'));
   }
 }

@@ -652,9 +652,11 @@ class ProfileQuota(unittest.TestCase):
         self.assertIn("renderCharacterTab", prof_src)
         self.assertIn("renderRelationshipTab", prof_src)
         self.assertIn("renderEngineTab", prof_src)
-        self.assertIn("shell-edit-form", prof_src)
+        settings_src = (STATIC / "app-shell-settings.js").read_text(encoding="utf-8")   # character-settings cs/C
+        self.assertIn("shell-edit-form", settings_src)
+        self.assertIn("shellSettingsSection(c, 'character'", prof_src)
+        self.assertNotIn("saveCharacterInline", prof_src, "the page never writes a whole card")
         self.assertIn("shell-art-carousel", prof_src)
-        self.assertIn("shell-memory-card", prof_src)
         # Vector SVG icons (no system emojis)
         self.assertIn("profileIconSvg", prof_src)
         self.assertNotIn("👤", prof_src)
@@ -667,6 +669,7 @@ class ProfileQuota(unittest.TestCase):
         # loaded in index.html in order
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         self.assertLess(html.index('src="./app-shell-relation.js'), html.index('src="./app-shell-profile.js'))
+        self.assertLess(html.index('src="./app-shell-settings.js'), html.index('src="./app-shell-profile.js'))
         self.assertLess(html.index('src="./app-shell-profile.js'), html.index('src="./app.js'))
         # styles in shell.css
         css = (STATIC / "shell.css").read_text(encoding="utf-8")

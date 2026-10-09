@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
-TYPES = ("text", "longtext", "list", "bool", "select", "brain", "roles")
+TYPES = ("text", "longtext", "list", "bool", "select", "brain", "roles", "focal")
 THRESHOLD = ("off", "mood", "gist")   # threshold.STRENGTHS
 
 # (key, tab, type, source, where, editable, sensitive)
@@ -20,6 +20,7 @@ FIELDS: Tuple[Tuple[str, str, str, str, str, bool, bool], ...] = (
     ("display.title", "character", "text", "display", "title", True, False),
     ("display.user_title", "character", "text", "display", "user_title", True, False),
     ("display.voice", "character", "text", "display", "voice", True, False),
+    ("display.focal", "character", "focal", "display", "focal", True, False),   # the face crop; its own editor
     ("card.description", "character", "longtext", "card", "description", True, False),
     ("card.personality", "character", "longtext", "card", "personality", True, False),
     ("card.scenario", "character", "longtext", "card", "scenario", True, False),
