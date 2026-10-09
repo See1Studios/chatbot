@@ -1,5 +1,6 @@
-"""PERSONAL_TURN_v1 (docs/plans/private-mode.md §8.3, W1): a work-room turn the chat agent marked as personal
-(flirting, affection, private feelings) stays in the chat but never becomes work material.
+"""PERSONAL_TURN_v1 (docs/plans/private-mode.md §8.3, W1; engine-decides D1): a work-room turn marked personal
+(flirting, affection, private feelings) stays in the chat but never becomes work material. The engine marks it
+as the turn starts; the `personal_turn` tool can still mark one the engine left as work.
 
 Core module: standard library only; every path derives from the `sessions` argument (<data>/sessions).
 One file per session, `<sid>/personal-turns.jsonl`, one line per marked turn: {"turn": <user message ts>, "ts": ...}.
@@ -13,7 +14,9 @@ Readers (each closes one path into work material):
 from __future__ import annotations
 
 import json
+import os
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Set
@@ -38,16 +41,23 @@ def key(turn) -> str:
         return ""
 
 
+_mark_lock = threading.Lock()
+
+
 def mark(sessions, sid: str, turn) -> bool:
-    """Record that the turn started by the user message stamped `turn` is personal. False when it cannot be keyed."""
+    """Record that the turn started by the user message stamped `turn` is personal. False when it cannot be keyed.
+    Marking a turn that is already marked writes nothing, so the tool's overwrite does not count twice."""
     k = key(turn)
     if not k or not sid or "/" in sid or "\\" in sid or sid.startswith("."):
         return False
     d = Path(sessions) / sid
     if not d.is_dir():
         return False
-    with open(d / FILE, "a", encoding="utf-8", newline="\n") as f:
-        f.write(json.dumps({"turn": float(k), "ts": time.time()}) + "\n")
+    with _mark_lock:
+        if k in marked(sessions, sid):
+            return True
+        with open(d / FILE, "a", encoding="utf-8", newline="\n") as f:
+            f.write(json.dumps({"turn": float(k), "ts": time.time()}) + "\n")
     return True
 
 
@@ -71,6 +81,156 @@ def marked(sessions, sid: str) -> Set[str]:
 def is_marked(sessions, sid: str, turn) -> bool:
     k = key(turn)
     return bool(k) and k in marked(sessions, sid)
+
+
+# The engine's judgment (engine-decides D1). One per work turn, started beside the turn and awaited before a work
+# tool or a move chip. Overtime, silence, and any word other than personal or work count as work.
+JUDGE_SEC = 2.0
+_LINE_MAX = 400
+_PROMPT = (
+    "Classify this message as personal or work. "
+    "personal means flirting, affection, or private feelings. "
+    "work means anything else. "
+    "Reply with exactly one word: personal or work.\n"
+    "Message: %s"
+)
+_lock = threading.Lock()
+_inflight: Dict[str, Any] = {}
+_pending: Dict[tuple, Any] = {}
+
+
+def _one_line(text: str) -> str:
+    """The user's message collapsed to one line. The classifier sees this and nothing before it."""
+    return " ".join(str(text or "").split())[:_LINE_MAX]
+
+
+def _verdict(text: str) -> str:
+    """personal or work when that is the first word; silence and every other word are work."""
+    raw = str(text or "").strip().lower()
+    if not raw:
+        return "work"
+    word = raw.split(None, 1)[0].strip(".,:;!?'\"`()[]")
+    return word if word in ("personal", "work") else "work"
+
+
+def _default_ask(line: str) -> str:
+    """One shot on the configured provider. Under the test runner this stays empty: tests pass `ask`."""
+    if os.environ.get("CHATBOT_TEST_RUNNER") == "1":
+        return ""
+    import session
+    out = session._oneshot(_PROMPT % line, JUDGE_SEC)
+    if not isinstance(out, dict):
+        return ""
+    return str(out.get("text") or "")
+
+
+class _Job:
+    def __init__(self, sessions, sid: str, line: str, ask):
+        self.sessions, self.sid, self.line, self.ask = sessions, str(sid), line, ask
+        self.turn = self.word = ""
+        self.applied = False
+        self.thread = None
+        self.done = threading.Event()
+        self.deadline = time.monotonic() + JUDGE_SEC
+
+    def run(self) -> None:
+        try:
+            self.word = _verdict(self.ask(self.line))
+        except Exception:
+            self.word = "work"
+        finally:
+            self.done.set()
+            _apply(self)
+
+
+def _apply(job: "_Job") -> None:
+    with _lock:
+        if job.applied or not job.turn or not job.done.is_set():
+            return
+        job.applied = True
+        personal = job.word == "personal"
+        _pending.pop((job.sid, job.turn), None)
+        if _inflight.get(job.sid) is job:
+            _inflight.pop(job.sid, None)
+    if personal:
+        mark(job.sessions, job.sid, job.turn)
+
+
+def start_judgment(sessions, sid: str, text: str, event_type: str = "", ask=None):
+    """Start this work turn's judgment beside the turn. None for a scene line or an empty message.
+    A work-room `/act` (`event_type` action) is personal with no model call. Anything else is one
+    background classification; a reply after JUDGE_SEC counts as work."""
+    if not sid or event_type == "scene":
+        return None
+    line = _one_line(text)
+    if not line:
+        return None
+    job = _Job(sessions, sid, line, ask or _default_ask)
+    if event_type == "action":
+        job.word = "personal"
+        job.done.set()
+    else:
+        job.thread = threading.Thread(target=job.run, daemon=True)
+        job.thread.start()
+    with _lock:
+        _inflight[job.sid] = job
+    return job
+
+
+def bind_judgment(job, turn) -> None:
+    """Attach the user-message ts. A judgment that already finished marks now."""
+    if job is None:
+        return
+    k = key(turn)
+    if not k:
+        return
+    with _lock:
+        if job.applied or (job.turn and job.turn != k):
+            return
+        job.turn = k
+        _pending[(job.sid, k)] = job
+        if _inflight.get(job.sid) is job:
+            _inflight.pop(job.sid, None)
+    _apply(job)
+
+
+def await_judgment(sessions, sid: str, turn) -> None:
+    """Wait out this turn's judgment, then mark when it said personal. No-op when none is pending."""
+    try:
+        _await_judgment(sessions, sid, turn)
+    except Exception:
+        return
+
+
+def _await_judgment(sessions, sid: str, turn) -> None:
+    k = key(turn)
+    sid = str(sid or "")
+    if not k or not sid:
+        return
+    with _lock:
+        job = _pending.get((sid, k))
+        if job is None:
+            job = _inflight.get(sid)
+            if job is None or job.applied or (job.turn and job.turn != k):
+                return
+            job.turn = k
+            _pending[(sid, k)] = job
+            if _inflight.get(sid) is job:
+                _inflight.pop(sid, None)
+    remain = job.deadline - time.monotonic()
+    if remain > 0:
+        job.done.wait(remain)
+    with _lock:
+        if job.applied:
+            return
+        if not job.done.is_set():
+            job.applied = True
+            job.word = "work"
+            _pending.pop((sid, k), None)
+            if _inflight.get(sid) is job:
+                _inflight.pop(sid, None)
+            return
+    _apply(job)
 
 
 def running_turn(history):

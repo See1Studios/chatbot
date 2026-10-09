@@ -1182,7 +1182,7 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         it is neither shown as their message nor kept in history, and it does not start a new user turn.
         A turn that fails to start (spawn error, dead pipe) never leaves busy stuck; the caller gets the error."""
         try:
-            self._start_turn(text, client_mid, client_context, notice, event_type)
+            self._open_turn(text, client_mid, client_context, notice, event_type)
         except Exception:
             with self.lock:
                 self.busy = False

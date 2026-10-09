@@ -56,6 +56,7 @@ def live_scope(busy: list, grant: str, sessions_dir: Path, caller: Optional[Dict
             # If busy lookup failed (busy=[]), `turn` is None unless caller dict explicitly supplied it.
             # In that case, is_marked() returns False (known limitation: fail-open for personal turns on busy outage).
             turn = (target.get("turn") if target else None) or (caller.get("turn") if isinstance(caller, dict) else None)
+            personal_turn.await_judgment(sessions_dir, sid, turn)   # settle this turn before the mark is read
             closed = personal_turn.is_marked(sessions_dir, sid, turn)
 
         if closed:
@@ -82,6 +83,8 @@ def live_scope(busy: list, grant: str, sessions_dir: Path, caller: Optional[Dict
     if isinstance(caller, dict) and (caller.get("mode") == "private" or bool(caller.get("private"))):
         return (True, False)
 
+    for x in (busy or []):
+        personal_turn.await_judgment(sessions_dir, str(x.get("id") or ""), x.get("turn"))
     closed = any(x.get("mode") == "private" or personal_turn.is_marked(sessions_dir, str(x.get("id") or ""), x.get("turn"))
                  for x in (busy or []))
     return (closed, any(x.get("mode") != "private" and "tools" in x and grant not in x["tools"] for x in (busy or [])))

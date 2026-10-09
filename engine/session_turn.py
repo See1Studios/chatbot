@@ -38,8 +38,10 @@ class SessionTurn:
         import items
         import personal_turn
         try:
-            extra = personal_turn.move_choices(self.meta_path.parent.parent, self.sid,
-                                               personal_turn.running_turn(self.history),
+            root = self.meta_path.parent.parent
+            turn = personal_turn.running_turn(self.history)
+            personal_turn.await_judgment(root, self.sid, turn)   # a judgment still in flight would miss the chips
+            extra = personal_turn.move_choices(root, self.sid, turn,
                                                items.state_path(self.character) if getattr(self, "character", "") else None)
         except Exception:  # noqa: BLE001 -- an extra choice must never break the answer
             extra = []
@@ -106,7 +108,7 @@ class SessionTurn:
             out["duration_seconds"] = duration_seconds
         self._emit(out)
 
-    def _rotate_to_fresh_session(self, text: str, reason: str = "heavy", client_mid: str = "", client_context: Optional[Dict[str, Any]] = None) -> "AgentSession":
+    def _rotate_to_fresh_session(self, text: str, reason: str = "heavy", client_mid: str = "", client_context: Optional[Dict[str, Any]] = None, event_type: str = "") -> "AgentSession":
         """Sticky rotate: reuse successor_session_id when usable; else create once and remember with handover."""
         msg = i18n.msg("srv.rotated_inactivity" if reason == "inactivity" else "srv.rotated_heavy")
         succ_id = getattr(self, "successor_session_id", "") or ""
@@ -156,10 +158,10 @@ class SessionTurn:
             self.stop(notify=False)
         except Exception:
             pass
+        kw = {"event_type": event_type} if event_type else {}
         if client_context:
-            new_sess._send_direct(text, client_mid, client_context=client_context)
-        else:
-            new_sess._send_direct(text, client_mid)
+            kw["client_context"] = client_context
+        new_sess._send_direct(text, client_mid, **kw)
         return new_sess
 
     def _is_busy(self) -> bool:
@@ -185,13 +187,13 @@ class SessionTurn:
         w = self._emit_heavy_if_needed()
         is_probe = text.strip().startswith("[doctor-probe]")
         if (w.get("level") == "hard") and (not is_probe) and (not self._is_busy()):
-            return self._rotate_to_fresh_session(text, reason="heavy", client_mid=client_mid, client_context=client_context)
+            return self._rotate_to_fresh_session(text, reason="heavy", client_mid=client_mid, client_context=client_context, event_type=event_type)
 
         # Inactivity auto-rotate: if session had prior conversation and was inactive > INACTIVITY_ROTATE_SEC
         user_or_asst_turns = [h for h in self.history if h.get("role") in ("user", "assistant")]
         time_since_active = _now() - getattr(self, "last_activity", _now())
         if len(user_or_asst_turns) >= 2 and (time_since_active >= INACTIVITY_ROTATE_SEC) and (not is_probe) and (not self._is_busy()):
-            return self._rotate_to_fresh_session(text, reason="inactivity", client_mid=client_mid, client_context=client_context)
+            return self._rotate_to_fresh_session(text, reason="inactivity", client_mid=client_mid, client_context=client_context, event_type=event_type)
 
         with self.lock:
             if self.busy and not self._proc_alive():
@@ -390,6 +392,25 @@ class SessionTurn:
                 obslog.event("turn.dropped", sid=self.sid, provider=self.provider, reason="stopped_while_sending")
                 return False
         return True
+
+    def _open_turn(self, text: str, client_mid: str, client_context: Optional[Dict[str, Any]], notice: bool, event_type: str) -> None:
+        """Start the turn, and beside it the work-room affection judgment (engine-decides D1).
+        A private session and a host notice are not judged. The judgment starts first and is
+        attached to the user message's ts once that exists."""
+        import personal_turn
+        job = None
+        if not notice and not getattr(self, "is_private", False):
+            try:
+                job = personal_turn.start_judgment(self.meta_path.parent.parent, self.sid, text, event_type or "")
+            except Exception:
+                job = None
+        before = len(getattr(self, "history", None) or [])
+        try:
+            self._start_turn(text, client_mid, client_context, notice, event_type)
+        finally:
+            hist = getattr(self, "history", None) or []
+            if job is not None and len(hist) > before and hist[-1].get("role") == "user":
+                personal_turn.bind_judgment(job, hist[-1].get("ts"))
 
     def _start_turn(self, text: str, client_mid: str, client_context: Optional[Dict[str, Any]], notice: bool, event_type: str) -> None:
         # Multi-Provider plan Phase 2: a one-shot exec provider (grok, codex-style) needs its prompt known BEFORE

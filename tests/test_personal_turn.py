@@ -4,9 +4,12 @@ a private session is never recallable from work at all.
 Run: engine/run-tests.sh test_personal_turn
 """
 import importlib.util
+import inspect
 import json
+import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -242,6 +245,153 @@ class Wiring(unittest.TestCase):
 
     def test_the_host_says_which_turn_is_running(self):
         self.assertIn('"turn": personal_turn.running_turn(x.history)', (ENGINE / "route_sessions.py").read_text(encoding="utf-8"))
+
+
+class Judgment(unittest.TestCase):
+    """engine-decides D1: the engine marks a work-room turn as it starts. The classifier is injected; no live model."""
+
+    def setUp(self):
+        self._quiet()
+
+    def tearDown(self):
+        self._quiet()
+
+    def _quiet(self):
+        with personal_turn._lock:
+            jobs = list(personal_turn._inflight.values()) + list(personal_turn._pending.values())
+            for job in jobs:
+                job.applied = True
+            personal_turn._inflight.clear()
+            personal_turn._pending.clear()
+        for job in jobs:
+            thread = getattr(job, "thread", None)
+            if thread is not None:
+                thread.join(timeout=1)
+
+    def _sess(self, d, private=False):
+        import session_turn
+        s = type("S", (), {})()
+        s.is_private = private
+        s.sid = "s1"
+        s.meta_path = d / "s1" / "meta.json"
+        s.history = []
+
+        def _start_turn(text, client_mid, client_context, notice, event_type):
+            if not notice:
+                s.history.append({"role": "user", "text": text, "ts": 5.0})
+
+        s._start_turn = _start_turn
+        s.open = session_turn.SessionTurn._open_turn
+        return s
+
+    def test_a_work_room_action_is_personal_without_the_classifier(self):
+        d = _tmp_sessions("s1")
+        s = self._sess(d)
+
+        def boom(line):
+            raise AssertionError("classifier ran: %s" % line)
+
+        with mock.patch.object(personal_turn, "_default_ask", boom):
+            s.open(s, "leans in", "", None, False, "action")
+        self.assertTrue(personal_turn.is_marked(d, "s1", 5.0))
+
+    def test_a_scene_a_notice_and_a_private_session_are_not_judged(self):
+        d = _tmp_sessions("s1")
+        s = self._sess(d)
+
+        def boom(line):
+            raise AssertionError("classifier ran")
+
+        with mock.patch.object(personal_turn, "_default_ask", boom):
+            s.open(s, "rain starts", "", None, False, "scene")
+            s.open(s, "leans in", "", None, True, "action")
+            priv = self._sess(d, private=True)
+            priv.open(priv, "love you", "", None, False, "action")
+        self.assertFalse((d / "s1" / personal_turn.FILE).exists())
+
+    def test_personal_marks_and_any_other_word_does_not(self):
+        d = _tmp_sessions("s1")
+        for word, marked in (("personal", True), ("Personal.", True), ("work", False), ("maybe personal", False), ("", False)):
+            sid = "s%d" % abs(hash(word))
+            (d / sid).mkdir()
+            job = personal_turn.start_judgment(d, sid, "hello", "", ask=lambda line, word=word: word)
+            personal_turn.bind_judgment(job, 4.0)
+            personal_turn.await_judgment(d, sid, 4.0)
+            self.assertEqual(personal_turn.is_marked(d, sid, 4.0), marked, word)
+
+    def test_overtime_stays_work_after_a_late_personal(self):
+        d = _tmp_sessions("w1")
+
+        def slow(line):
+            time.sleep(0.4)
+            return "personal"
+
+        with mock.patch.object(personal_turn, "JUDGE_SEC", 0.05):
+            job = personal_turn.start_judgment(d, "w1", "miss you", "", ask=slow)
+        personal_turn.bind_judgment(job, 4.0)
+        personal_turn.await_judgment(d, "w1", 4.0)
+        self.assertFalse(personal_turn.is_marked(d, "w1", 4.0))
+        time.sleep(0.5)
+        self.assertFalse(personal_turn.is_marked(d, "w1", 4.0))
+
+    def test_the_classifier_sees_one_line_and_the_oneshot_provider(self):
+        d = _tmp_sessions("w1")
+        seen = {}
+
+        def fake(prompt, timeout):
+            seen["prompt"] = prompt
+            seen["timeout"] = timeout
+            return {"text": "personal"}
+
+        with mock.patch.dict(os.environ, {"CHATBOT_TEST_RUNNER": ""}):
+            with mock.patch("session._oneshot", fake):
+                job = personal_turn.start_judgment(d, "w1", "사랑해\n어제 일", "")
+                personal_turn.bind_judgment(job, 8.0)
+                personal_turn.await_judgment(d, "w1", 8.0)
+        self.assertEqual(seen["prompt"], personal_turn._PROMPT % "사랑해 어제 일")
+        self.assertEqual(seen["timeout"], personal_turn.JUDGE_SEC)
+        self.assertTrue(personal_turn.is_marked(d, "w1", 8.0))
+
+    def test_the_suite_does_not_call_the_provider(self):
+        with mock.patch("session._oneshot", side_effect=AssertionError("called")):
+            self.assertEqual(personal_turn._default_ask("hi"), "")
+
+    def test_a_work_verdict_can_still_be_marked_once(self):
+        d = _tmp_sessions("w1")
+        job = personal_turn.start_judgment(d, "w1", "ship the fix", "", ask=lambda line: "work")
+        personal_turn.bind_judgment(job, 9.0)
+        personal_turn.await_judgment(d, "w1", 9.0)
+        self.assertFalse(personal_turn.is_marked(d, "w1", 9.0))
+        self.assertTrue(personal_turn.mark(d, "w1", 9.0))
+        self.assertTrue(personal_turn.mark(d, "w1", 9.0))
+        self.assertEqual(len((d / "w1" / personal_turn.FILE).read_text(encoding="utf-8").splitlines()), 1)
+
+    def test_live_scope_waits_and_only_that_session_closes(self):
+        import role_guard as R
+        d = _tmp_sessions("w1", "w2")
+        personal_turn.start_judgment(d, "w1", "hug", "action", ask=lambda line: "work")
+        busy = [
+            {"id": "w1", "mode": "work", "turn": 1.25, "tools": ["delegate"]},
+            {"id": "w2", "mode": "work", "turn": 2.0, "tools": ["delegate"]},
+        ]
+        self.assertEqual(R.live_scope(busy, "delegate", d, {"id": "w2", "mode": "work"}), (False, False))
+        self.assertEqual(R.live_scope(busy, "delegate", d, {}), (True, False))   # no caller: the pending mark still counts
+        self.assertTrue(personal_turn.is_marked(d, "w1", 1.25))
+
+    def test_move_chips_wait_for_the_judgment(self):
+        import session_turn
+        d = _tmp_sessions("s1")
+        s = self._sess(d)
+        s.mode = "work"
+        s.character = ""
+        s.history = [{"role": "user", "text": "보고 싶었어", "ts": 7.0}]
+        personal_turn.start_judgment(d, "s1", "보고 싶었어", "", ask=lambda line: "personal")
+        got = session_turn.SessionTurn.engine_choices(s, [])
+        self.assertEqual(got[0]["label_key"], "choice.move")
+
+    def test_send_direct_opens_the_turn(self):
+        import session
+        self.assertIn("self._open_turn(", inspect.getsource(session.AgentSession._send_direct))
 
 
 if __name__ == "__main__":
