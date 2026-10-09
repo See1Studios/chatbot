@@ -698,9 +698,7 @@ function addBtw(query, answer, prepend, usage, durationSeconds, ts) {
   return div;
 }
 
-// OUT_OF_BAND_CHOICES_v1: the server takes an answer's choices out of its text and sends them beside it
-// (`choices` on the history item and the result event). The chip renderer still reads a trailing marker, so the
-// page puts it back only for drawing: it is never stored and never reaches the CLI or the agent.
+// OUT_OF_BAND_CHOICES_v1: choices ride beside the answer; the page rebuilds the marker only to draw chips.
 function textWithChoices(h) {
   function choiceItemToMarker(x) {
     if (typeof x === 'string') return x.trim();
@@ -716,8 +714,8 @@ function textWithChoices(h) {
         }
         return lbl + ' -> ' + act;
       }
-      if (x.kind === 'command') {
-        const cmd = String(x.payload || lbl).trim();
+      if (x.kind === 'command' || x.label_key === 'choice.back_to_work') {
+        const cmd = String(x.payload || (x.label_key === 'choice.back_to_work' ? '/stay' : lbl)).trim();
         return lbl + ' -> command: ' + cmd;
       }
       const p = String(x.payload || '').trim();
@@ -945,3 +943,22 @@ function setAssistantContent(node, text, isFinal, usage, durationSeconds, served
   syncChoiceChips();
   scrollChatToBottom(false);
 }
+
+function dismissStayChips() {
+  const bar = document.getElementById('choiceBar');
+  if (!bar) return;
+  if (bar._owner) bar._owner._choices = null;
+  bar.hidden = true; bar.textContent = ''; bar._owner = null;
+  if (typeof updateScrollBottomButton === 'function') updateScrollBottomButton();
+}
+
+function installStayChoice() {
+  if (typeof pickChoice !== 'function' || pickChoice._stayQuiet) return;
+  const orig = pickChoice;
+  pickChoice = function (c) {
+    if (c && c.kind === 'command' && String(c.payload || '').trim() === '/stay') { dismissStayChips(); return; }
+    return orig(c);
+  };
+  pickChoice._stayQuiet = true;
+}
+if (typeof addEventListener === 'function') addEventListener('DOMContentLoaded', installStayChoice);

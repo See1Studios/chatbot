@@ -317,7 +317,8 @@ def _rows(sessions, sid: str) -> List[dict]:
 def move_choices(sessions, sid: str, turn, state_path=None) -> List[Dict[str, Any]]:
     """The choices the engine adds to a marked personal turn's answer (ed/B2): a move to a place and "back to work",
     as page chips by catalog key; [] when the turn is not marked, the cool-down is on, or this turn got them already.
-    The place is the one offered longest ago (never offered first), so the user is not asked the same twice."""
+    The place is the one offered longest ago (never offered first), so the user is not asked the same twice.
+    Back to work is the page command /stay: the chips close and the label is not said. Not a model command."""
     k = key(turn)
     if not k or not is_marked(sessions, sid, turn) or not offers_left(sessions, sid):
         return []
@@ -334,7 +335,7 @@ def move_choices(sessions, sid: str, turn, state_path=None) -> List[Dict[str, An
     shown = {"key": "place." + place["id"]} if place.get("id") else place["name"]
     return [{"label": "A quick word in %s..." % place["name"], "label_key": "choice.move", "label_vars": {"place": shown},
              "kind": "command", "payload": "/move " + (place.get("id") or place["name"])},
-            {"label": "Back to work", "label_key": "choice.back_to_work"}]
+            {"label": "Back to work", "label_key": "choice.back_to_work", "kind": "command", "payload": "/stay"}]
 
 
 def tool_call(sessions, busy, active_sid) -> tuple:

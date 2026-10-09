@@ -291,6 +291,52 @@ process.stdout.write(JSON.stringify({ heldBeforeBubble, taken, droppedOnUserTurn
         self.assertEqual(json.loads(r.stdout), {"heldBeforeBubble": {"prevUntouched": True, "drawnEarly": 0},
                                                 "taken": ["A", "B"], "droppedOnUserTurn": True})
 
+    def test_back_to_work_closes_the_bar_and_is_not_said(self):
+        """The stay chip is a page command. Clicking it clears the choice bar and does not send the label."""
+        page = ROOT / "static" / "app-messages.js"
+        md = ROOT / "static" / "markdown.js"
+        js = r"""
+const fs = require('fs');
+const files = process.argv.slice(1).filter(a => a.endsWith('.js'));
+const page = fs.readFileSync(files[0], 'utf8');
+const md = fs.readFileSync(files[1], 'utf8');
+eval(page.slice(page.indexOf('function textWithChoices'), page.indexOf('function addChat')));
+eval(md.slice(md.indexOf('function stripOuterParens'), md.indexOf('function splitChoices')));
+function addEventListener() {}
+const owner = { _choices: ['stay'] };
+let scrolled = 0;
+function updateScrollBottomButton() { scrolled += 1; }
+const bar = { hidden: false, textContent: 'chips', _owner: owner };
+const document = { getElementById(id) { return id === 'choiceBar' ? bar : null; } };
+const sent = [];
+var pickChoice = function (c) { sent.push(c.payload || c.label); };
+eval(page.slice(page.indexOf('function dismissStayChips')));
+installStayChoice();
+installStayChoice();
+const oldChip = { label: 'Back to work', label_key: 'choice.back_to_work' };
+const drawn = textWithChoices({ text: '끝', choices: [oldChip] });
+const raw = drawn.slice(drawn.indexOf('<!--choices:') + '<!--choices:'.length).replace('-->', '').trim();
+const item = parseChoiceItem(raw);
+pickChoice(item);
+pickChoice({ label: '잠깐', kind: 'command', payload: '/move stairwell' });
+pickChoice({ label: '일 계속하기', kind: 'say', payload: '일 계속하기' });
+process.stdout.write(JSON.stringify({
+  drawn, item, sent, hidden: bar.hidden, text: bar.textContent, choices: owner._choices, scrolled
+}));
+"""
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(page), str(md)], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads(r.stdout)
+        self.assertEqual(out["drawn"], "끝\n<!--choices: 일 계속하기 -> command: /stay-->")
+        self.assertEqual(out["item"]["kind"], "command")
+        self.assertEqual(out["item"]["payload"], "/stay")
+        self.assertEqual(out["item"]["label"], "일 계속하기")
+        self.assertEqual(out["sent"], ["/move stairwell", "일 계속하기"])
+        self.assertTrue(out["hidden"])
+        self.assertEqual(out["text"], "")
+        self.assertIsNone(out["choices"])
+        self.assertEqual(out["scrolled"], 1)
+
     def test_keyboard_open_sizes_the_bars_from_the_visible_height(self):
         """#148: with the phone keyboard up .wrap is --app-height tall and clips; #workBar's 40vh (layout viewport)
         could fill it and push #choiceBar under the clip, so both bars are capped by --app-height there."""

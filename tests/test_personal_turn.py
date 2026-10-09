@@ -59,7 +59,8 @@ class MoveChoice(unittest.TestCase):
         self.assertEqual(move["label_vars"], {"place": {"key": "place.stairwell"}})
         self.assertEqual(move["payload"], "/move stairwell")   # PLACE_MOVE_v1: by id
         self.assertTrue(mcp._is_allowed_choice_command(move["payload"]))
-        self.assertEqual(stay["label_key"], "choice.back_to_work")
+        self.assertEqual((stay["label_key"], stay["kind"], stay["payload"]), ("choice.back_to_work", "command", "/stay"))
+        self.assertFalse(mcp._is_allowed_choice_command(stay["payload"]), "the page closes the chips; the model cannot emit /stay")
         self.assertEqual(personal_turn.move_choices(d, "s1", 100.0), [], "once per turn")
 
     def test_the_next_offer_goes_somewhere_else_and_offers_do_not_count_as_marks(self):
