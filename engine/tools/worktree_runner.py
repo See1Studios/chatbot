@@ -463,6 +463,22 @@ def commit_leftovers(wt_dir: Path, provider: str, tid: int) -> bool:
     return True
 
 
+def keep_work(wt_dir: Path, provider: str, tid: int) -> str:
+    """A cut-off worker's edits, kept (#868): committed for the attic, or -- when the commit hooks refuse them (a page
+    file over its cap, #871) -- written as runs/ticket-<ID>.wip.patch, never committed past the hooks. Where, or ""."""
+    try:
+        return "in the attic" if commit_leftovers(wt_dir, provider, tid) else ""
+    except Failure:
+        git(wt_dir, "add", "-A")
+        _, patch, _ = git(wt_dir, "diff", "--cached", "--binary", "HEAD")
+        if not patch:
+            return ""
+        out = WORKTREE_BASE / "runs" / ("ticket-%d.wip.patch" % tid)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(patch + "\n", encoding="utf-8")
+        return "as %s (the hooks refused the commit; git apply it)" % out
+
+
 def gate_env(tree: Path) -> Dict[str, str]:
     """The tree's own data/, never ~/.pe (a gate once wrote into the live chat)."""
     return clean_env(CHATBOT_DATA=str(Path(tree).resolve() / "data"))
@@ -1147,9 +1163,9 @@ def task_work(r, k, rnd: int):
             continue
         if res["returncode"] == -1 and str(res["stderr"]).startswith("timed out"):
             busy = "while working" in res["stderr"]   # #868: busy to the cutoff: edits kept, a try
-            kept = busy and commit_leftovers(r.wt_dir, b["provider"], r.tid)
+            kept = busy and keep_work(r.wt_dir, b["provider"], r.tid)
             raise Failure("failed" if busy else "unavailable", "agent %s %s%s" % (brain_label(b), res["stderr"],
-                          "; changes kept" if kept else ""), tail(res["stdout"]))
+                          "; changes kept: %s" % kept if kept else ""), tail(res["stdout"]))
         if unavailable(why, res["returncode"]):      # the last brain could not work either: not a try
             raise Failure("unavailable", "no brain could work (%s): %s" % (brain_label(b), why[:200]))
         raise Failure("failed", "agent %s exited with %s" % (brain_label(b), res["returncode"]),

@@ -198,6 +198,24 @@ class WorktreeRunner(unittest.TestCase):
         self.assertEqual(seen["timeout"], wr.MAX_UNRENEWED)
         self.assertNotIn("keepalive", seen)
 
+    def test_edits_the_hooks_refuse_to_commit_are_kept_as_a_patch(self) -> None:
+        # #871: the keep-commit runs the hooks; a page file over its cap failed them and the edits were about to go
+        real = wr.run_agent
+
+        def busy(*a, **kw):
+            res = real(*a, **kw)
+            if res["returncode"] == -1:
+                res["stderr"] = "timed out after 1s while working (last model activity 0s ago)"
+            return res
+
+        def refused(*a, **kw):
+            raise wr.Failure("failed", "could not commit the agent's leftover changes", "hooks")
+        with mock.patch.object(wr, "run_agent", busy), mock.patch.object(wr, "commit_leftovers", refused):
+            self.assertEqual(self.run_with("echo edit >> a.txt; sleep 5", extra=("--timeout", "1")), 1)
+        patch = wr.WORKTREE_BASE / "runs" / "ticket-7.wip.patch"
+        self.assertIn("+edit", patch.read_text(encoding="utf-8"))
+        self.assertIn("wip.patch", " ".join(map(str, self.last_fail())))
+
     def test_when_no_brain_can_work_the_attempt_is_not_counted(self) -> None:
         # DELEGATION_HARDENING_v1: the last brain out of quota releases as `unavailable`, not `failed`
         self.assertEqual(self.run_with("echo 'Error: quota exceeded' >&2; exit 1"), 1)
