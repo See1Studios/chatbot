@@ -611,7 +611,7 @@ function shellPaneBack() {
   else if (from === 'settings') shellShowList();
 }
 
-// open = on screen; "behind" = stepped aside to the left while a pane it opened is shown (phone only)
+// open = on screen; "behind" = stepped aside left while a pane it opened is shown (phone only)
 function shellProfileIsOpen() {
   const p = document.getElementById('shellProfile');
   return Boolean(p && p.classList.contains('open') && !p.classList.contains('behind'));
@@ -647,7 +647,8 @@ function shellProfileOpen() {
     list.appendChild(b);
   });
   panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose, shellNarrow() ? '\u2039' : '\u2715'), card, list,
-    shellBrainSection(c), shellModelSection(), shellContextSection());
+    shellBrainSection(c), shellModelSection(), shellContextSection(),
+    typeof shellRelationSection == 'function' ? shellRelationSection(c) : '');
   if (typeof shellQuotaSection === 'function') panel.insertBefore(shellQuotaSection(), list);
   if (typeof shellBrainUseSection === 'function') panel.appendChild(shellBrainUseSection(c));
   if (typeof shellDevDeleteButton === "function") shellDevDeleteButton(panel, c);
@@ -656,7 +657,7 @@ function shellProfileOpen() {
   column.classList.add('open');
   document.body.classList.add('shell-profile-open');
 }
-// The row of the pane shown in the middle is marked in the card and in the settings.
+// The row of the pane shown in the middle is marked in the card and the settings.
 function shellMarkPane() {
   let now = document.documentElement.dataset.tab || 'chat';
   if (now === 'team') now = shellState.teamOnly ? 'manage' : (shellState.teamSection || 'characters');

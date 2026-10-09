@@ -208,7 +208,109 @@ def _summary(cid: str, ws=None) -> Dict:
     return {"points": points, "max": t["max"], **level_of(points, t), "left_today": left_today(st, time.time(), t)}
 
 
+def private_turns(cid: str) -> int:
+    """The history entries (user and character lines) of the character's private visits -- session summaries,
+    metadata only; 0 when unknown."""
+    return sum(int(m.get("turns") or 0) for m in _visits(cid))
+
+
+def relationship(cid: str) -> Dict:
+    """The character's relationship level from its affection points (level_of, private-mode section 3.3) with that
+    level's opening stage, the most a brink may lift it to, and its stance. Points come only from gifts so far (D14
+    open): a level-1 character with known_after_entries of private history is level 0, known but not measured --
+    it opens as before #864 and hears no level line (#876)."""
+    t = table()
+    try:
+        points = int(read_state(cid).get("affection", {}).get("points") or 0)
+    except Exception:  # noqa: BLE001 -- no state yet: strangers
+        points = 0
+    lv, turns = level_of(points, t), private_turns(cid)
+    if lv["level"] == 1 and turns >= int(t.get("known_after_entries") or 40):
+        return {"level": 0, "title": "", "points": points, "turns": turns, "start": 1, "start_max": 4, "stance": ""}
+    row = next((x for x in t["levels"] if x["level"] == lv["level"]), {})
+    return {"level": lv["level"], "title": lv["title"], "points": points, "turns": turns,
+            "start": int(row.get("start_stage", 1)), "start_max": int(row.get("start_max", 1)),
+            "stance": str(row.get("stance") or "")}
+
+
+REL_PATH = re.compile(r"^/api/characters/([\w-]{1,64})/relationship$")
+
+
+def _fact(label: str, value=None, line: str = "", **values) -> Dict:
+    """One profile line: its label by catalog key (the page says it in its language) and either a plain value or a
+    catalog line (`line` with its values)."""
+    return {"label": {"key": label, "vars": {}}, "value": {"key": line, "vars": values} if line else value}
+
+
+def _visits(cid: str) -> List[Dict]:
+    """The character's private visits that were talked in, from the server's session summaries (metadata only; the
+    loaded registry, never imported here). Newest last."""
+    import sys
+    reg = sys.modules.get("session_registry")
+    if reg is None:
+        return []
+    return sorted((m for m in reg._meta_summaries() if m.get("mode") == "private" and m.get("character") == cid
+                   and (m.get("turns") or 0) > 0 and not m.get("probe")), key=lambda m: m["id"])
+
+
+def affection_facts(cid: str) -> List[Dict]:
+    """The relationship as the private engine reads it now (private_engine.relationship, private-mode section 3.3):
+    level, affection, gifts left, the stage a private visit opens at. These rules are rough and will change; the
+    profile shows whatever this returns (#875)."""
+    s, rel = _summary(cid), relationship(cid)
+    nxt = next((x["min"] for x in sorted(table()["levels"], key=lambda x: x["min"]) if x["min"] > s["points"]), None)
+    level = (_fact("profile.rel.level", line="profile.rel.level_value", level=rel["level"], title=rel["title"])
+             if rel["level"] else _fact("profile.rel.level", line="profile.rel.unmeasured"))
+    return [level,
+            _fact("profile.rel.points", line="profile.rel.points_value", points=s["points"], max=s["max"],
+                  next=nxt if nxt is not None else "-"),
+            _fact("profile.rel.gifts_left", s["left_today"]),
+            _fact("profile.rel.opening", line="profile.rel.opening_value", start=rel["start"], top=rel["start_max"])]
+
+
+def visit_facts(cid: str) -> List[Dict]:
+    """Private visits: how many, how long in all, and the last one's time and tension (session meta, no words)."""
+    visits = _visits(cid)
+    if not visits:
+        return [_fact("profile.rel.visits", line="profile.rel.none")]
+    last = visits[-1]
+    try:
+        stage = int(json.loads(Path(last["path"]).read_text(encoding="utf-8")).get("tension_stage") or 1)
+    except (OSError, ValueError, KeyError):
+        stage = 0
+    return [_fact("profile.rel.visits", line="profile.rel.visits_value", n=len(visits),
+                  lines=sum(int(m.get("turns") or 0) for m in visits)),
+            _fact("profile.rel.last_visit", line="profile.rel.last_visit_value", stage=stage,
+                  when="%s-%s %s:%s" % (last["id"][4:6], last["id"][6:8], last["id"][9:11], last["id"][11:13]))]
+
+
+# Where the profile's relationship lines come from: append a source as the private session's data takes shape.
+FACT_SOURCES = (affection_facts, visit_facts)
+
+
+def relationship_view(cid: str) -> Dict:
+    """GET /api/characters/<id>/relationship: {"facts": [{label, value}]} from every FACT_SOURCES entry; a source
+    that fails is left out, never the whole view."""
+    facts: List[Dict] = []
+    for source in FACT_SOURCES:
+        try:
+            facts += source(cid)
+        except Exception:  # noqa: BLE001 -- one rough source must not hide the others
+            continue
+    return {"facts": facts}
+
+
 def handle_get(path: str) -> Optional[Tuple[int, Dict]]:
+    m = REL_PATH.match(path or "")
+    if m:
+        import characters
+        try:
+            known = characters.card_path(m.group(1)).exists()
+        except ValueError:
+            known = False
+        if not known:
+            return 404, {"ok": False, "error": "no such character"}
+        return 200, dict({"ok": True}, **relationship_view(m.group(1)))
     if not (path.startswith(PREFIX) and path.endswith("/items")):
         return None
     sess = _session(path[len(PREFIX):-len("/items")])

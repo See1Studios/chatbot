@@ -168,39 +168,10 @@ def step_turn(session: Any, text: str, event_type: str = "") -> None:
 
 
 def relationship(session: Any) -> Dict[str, Any]:
-    """The character's relationship level from its affection points (items.level_of, private-mode section 3.3) with
-    that level's opening stage, the most a brink may lift it to, and its stance. Level 1 when nothing is known."""
+    """The character's relationship as the engine reads it (items.relationship: one source for this engine and the
+    profile, #875): level (0 = known but not measured), opening stage, brink ceiling, stance."""
     import items
-    t = items.table()
-    try:
-        points = int(items.read_state(getattr(session, "character", "") or "").get("affection", {}).get("points") or 0)
-    except Exception:  # noqa: BLE001 -- no state yet: strangers
-        points = 0
-    lv = items.level_of(points, t)
-    turns = private_turns(getattr(session, "character", "") or "")
-    if lv["level"] == 1 and turns >= int(t.get("known_after_entries") or 40):
-        # Points come only from gifts so far (D14 open): 1,944 private turns read as strangers (#876). A character
-        # with that much private history is not guarded as level 1 -- it opens as before #864, with no level line.
-        return {"level": 0, "title": "", "points": points, "turns": turns, "start": TENSION_MIN,
-                "start_max": TENSION_MAX, "stance": ""}
-    row = next((x for x in t["levels"] if x["level"] == lv["level"]), {})
-    return {"level": lv["level"], "title": lv["title"], "points": points, "turns": turns,
-            "start": int(row.get("start_stage", TENSION_MIN)), "start_max": int(row.get("start_max", TENSION_MIN)),
-            "stance": str(row.get("stance") or "")}
-
-
-def private_turns(cid: str) -> int:
-    """The history entries (user and character lines) of the character's private visits -- session summaries,
-    metadata only; 0 when unknown."""
-    import sys
-    session_registry = sys.modules.get("session_registry")   # the server's, already loaded; never imported here
-    if session_registry is None:                              # (it imports session, which imports this module)
-        return 0
-    try:
-        return sum(int(m.get("turns") or 0) for m in session_registry._meta_summaries()
-                   if m.get("mode") == "private" and m.get("character") == cid and not m.get("probe"))
-    except Exception:  # noqa: BLE001
-        return 0
+    return items.relationship(getattr(session, "character", "") or "")
 
 
 def relationship_context(rel: Dict[str, Any]) -> str:
