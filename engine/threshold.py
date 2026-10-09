@@ -95,13 +95,24 @@ def _names(cid: str) -> tuple:
 
 # A scene line is the user's own action, sent by the page: it goes back by key (i18n.line) and the page says it in
 # its language (I18N_v1).
+def _place_value(place: str):
+    """A catalog place by its key, so the page says it in its language ("the stairwell" went into a Korean line, #864);
+    a character's own place as written."""
+    try:
+        import personal_turn
+        hit = next((p for p in personal_turn.places(None) if p.get("id") and p.get("name") == place), None)
+    except Exception:  # noqa: BLE001
+        hit = None
+    return {"key": "place." + hit["id"]} if hit else place
+
+
 def _scene_in(place: str, during_work: bool) -> dict:
     key = ("scene.in_work" if during_work else "scene.in") + ("_place" if place else "")
-    return i18n.line(key, place=place) if place else i18n.line(key)
+    return i18n.line(key, place=_place_value(place)) if place else i18n.line(key)
 
 
 def _scene_out(place: str) -> dict:
-    return i18n.line("scene.out_place", place=place) if place else i18n.line("scene.out")
+    return i18n.line("scene.out_place", place=_place_value(place)) if place else i18n.line("scene.out")
 
 
 def auto_scene(state_path: Path) -> bool:
@@ -355,10 +366,18 @@ def take(session: Any, user_word: str = "the user") -> str:
         lines.append("From your last time together, still fresh: " + " / ".join(fresh))
     if kind == "brink":
         import private_engine
-        session.tension_stage = min(private_engine.TENSION_MAX, int(getattr(session, "tension_stage", 1) or 1) + 1)
-        lines.append("Just now in the office, where the others could see, %s got personal with you and you could not "
-                     "quite answer there. You slipped away together; you are both still a little flustered. Open the "
-                     "scene reacting to that." % user_word)
+        rel = getattr(session, "_open_rel", None) or private_engine.relationship(session)
+        top = min(private_engine.TENSION_MAX, int(rel.get("start_max") or private_engine.TENSION_MAX))
+        stage = int(getattr(session, "tension_stage", 1) or 1)
+        session.tension_stage, session._brink = max(stage, min(stage + 1, top)), True   # #864: within the level
+        if int(rel.get("level") or 1) <= 1:   # strangers: a sudden personal turn is a surprise, not shared heat
+            lines.append("Just now in the office, where the others could see, %s got personal with you -- out of the "
+                         "blue, you barely know each other. You came along, unsure what to make of it. Open the scene "
+                         "reacting to that." % user_word)
+        else:
+            lines.append("Just now in the office, where the others could see, %s got personal with you and you could "
+                         "not quite answer there. You slipped away together; you are both still a little flustered. "
+                         "Open the scene reacting to that." % user_word)
     elif kind == "gist" and text:
         lines.append("You both just came from the office. What you felt there: %s Let it colour how you open the "
                      "scene, lightly." % text)

@@ -13,7 +13,7 @@ import i18n
 from telemetry import obslog
 from host_config import INACTIVITY_ROTATE_SEC, _now
 from identity import user_title
-from private_engine import tension_step
+from private_engine import step_turn
 from session_weights import _btw_prompt, _is_inquiry
 
 
@@ -446,7 +446,7 @@ class SessionTurn:
         stdin_content = "\n\n".join(filter(None, ["" if notice else _s().boot_notice(self), stdin_content]))
 
         if not notice and self.is_private:  # PRIVATE_TENSION_v1: move the stage, then tell the agent where it stands
-            self.tension_stage, self.recent_choices = tension_step(self.tension_stage, self.recent_choices, self.history, text, event_type)
+            step_turn(self, text, event_type)   # #864: the stage moves and why, for the private.turn log
             stdin_content = f"{self.adapter.turn_context(self)}\n\n{stdin_content}"
 
         stdin_content = self._guard_lines(stdin_content)

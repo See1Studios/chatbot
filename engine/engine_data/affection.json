@@ -1,12 +1,12 @@
 {
-  "notes": "Affection (private-mode.md section 3) and how giving an item moves it (composer-plus-menu plus/F). The engine judges an item against the character's item_prefs; using an item moves nothing; the model never reports its own points (private-mode D8). Levels and titles are section 3.1. Read by items.py.",
+  "notes": "Affection (private-mode.md section 3) and how giving an item moves it (composer-plus-menu plus/F). The engine judges an item against the character's item_prefs; using an item moves nothing; the model never reports its own points (private-mode D8). Levels and titles are section 3.1. Read by items.py. start_stage/start_max: the private tension a visit opens at, and the most a brink note may lift it to (private-mode section 3.3, #864); stance: the relationship guard the character hears every private turn.",
   "max": 100,
   "levels": [
-    {"level": 1, "min": 0, "title": "어색한 동료"},
-    {"level": 2, "min": 20, "title": "친밀한 파트너"},
-    {"level": 3, "min": 50, "title": "특별한 호감"},
-    {"level": 4, "min": 80, "title": "깊은 연인"},
-    {"level": 5, "min": 100, "title": "완전한 유대"}
+    {"level": 1, "min": 0, "title": "어색한 동료", "start_stage": 1, "start_max": 1, "stance": "strangers or barely acquainted: polite distance and formal address; wary of touch -- you may pull back or say no; no confessions or pet names"},
+    {"level": 2, "min": 20, "title": "친밀한 파트너", "start_stage": 1, "start_max": 2, "stance": "friendly partners: light teasing and small, friendly touches are fine; curious about each other, but no romance taken for granted"},
+    {"level": 3, "min": 50, "title": "특별한 호감", "start_stage": 2, "start_max": 2, "stance": "real fondness: you may start a little flustered and show jealousy or sweetness; closeness grows, but it is still new"},
+    {"level": 4, "min": 80, "title": "깊은 연인", "start_stage": 2, "start_max": 3, "stance": "trusted lovers: guard down, your own pet name, you answer closeness readily"},
+    {"level": 5, "min": 100, "title": "완전한 유대", "start_stage": 3, "start_max": 3, "stance": "devoted: complete trust and possessive warmth"}
   ],
   "give": {
     "deltas": {"loves": 5, "likes": 3, "neutral": 1, "dislikes": -2},

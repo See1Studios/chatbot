@@ -127,7 +127,16 @@ def tension_step(stage: int, recent: List[str], history: List[dict], text: str,
                  event_type: str = "") -> Tuple[int, List[str]]:
     """Next (stage, recent_choices) for one private user turn, called before the turn joins `history`.
     Picking one of the last offered choices moves by its slot; an action (type "action", or the page's "(...)"
-    form) nudges +1; anything else holds. The used offer (or the action) joins recent_choices, deduped, capped."""
+    form) nudges +1; the host's scene line (type "scene", #864) and anything else hold. The used offer (or the
+    action) joins recent_choices, deduped, capped."""
+    return _tension_step(stage, recent, history, text, event_type)[:2]
+
+
+def _tension_step(stage: int, recent: List[str], history: List[dict], text: str,
+                  event_type: str = "") -> Tuple[int, List[str], str]:
+    """tension_step plus why: "slot1".."slot3", "action", "scene" or "hold" (the private.turn log, #864)."""
+    if event_type == "scene":   # the page set the scene for the character; the user did nothing yet
+        return stage, list(recent or []), "scene"
     said = (text or "").strip()
     action = event_type == "action" or (len(said) > 2 and said[0] == "(" and said[-1] == ")")
     last = next((h for h in reversed(history or []) if h.get("role") in ("user", "assistant")), {})
@@ -138,10 +147,49 @@ def tension_step(stage: int, recent: List[str], history: List[dict], text: str,
     candidates = [_choice_candidates(c) for c in offered]
     slot = next((i for i, cand in enumerate(candidates) if picked & cand), -1)
     if slot < 0 and not action:
-        return stage, list(recent or [])
+        return stage, list(recent or []), "hold"
     used = [x for x in (labels if slot >= 0 else [said_unwrapped]) if x]
     kept = [c for c in (recent or []) if c not in used] + used
-    return tension_after(stage, slot if slot < len(TENSION_SLOTS) else -1, action), kept[-TENSION_RECENT_MAX:]
+    return (tension_after(stage, slot if slot < len(TENSION_SLOTS) else -1, action), kept[-TENSION_RECENT_MAX:],
+            "slot%d" % (slot + 1) if 0 <= slot < len(TENSION_SLOTS) else "action")
+
+
+def step_turn(session: Any, text: str, event_type: str = "") -> None:
+    """One private user turn moves the session's stage (tension_step); what moved it waits for turn_context's log.
+    A visit's first turn starts from its relationship level's opening stage (section 3.3, #864), before the user's
+    own move counts; a brink note may then lift it to that level's start_max (threshold.take)."""
+    if not any(h.get("role") == "assistant" for h in (getattr(session, "history", None) or [])):
+        session._open_rel = relationship(session)
+        session.tension_stage = session._open_rel["start"]
+    before = int(getattr(session, "tension_stage", TENSION_MIN) or TENSION_MIN)
+    session.tension_stage, session.recent_choices, cause = _tension_step(
+        before, getattr(session, "recent_choices", []), getattr(session, "history", []), text, event_type)
+    session._tension_moved = (before, cause)
+
+
+def relationship(session: Any) -> Dict[str, Any]:
+    """The character's relationship level from its affection points (items.level_of, private-mode section 3.3) with
+    that level's opening stage, the most a brink may lift it to, and its stance. Level 1 when nothing is known."""
+    import items
+    t = items.table()
+    try:
+        points = int(items.read_state(getattr(session, "character", "") or "").get("affection", {}).get("points") or 0)
+    except Exception:  # noqa: BLE001 -- no state yet: strangers
+        points = 0
+    lv = items.level_of(points, t)
+    row = next((x for x in t["levels"] if x["level"] == lv["level"]), {})
+    return {"level": lv["level"], "title": lv["title"], "points": points,
+            "start": int(row.get("start_stage", TENSION_MIN)), "start_max": int(row.get("start_max", TENSION_MIN)),
+            "stance": str(row.get("stance") or "")}
+
+
+def relationship_context(rel: Dict[str, Any]) -> str:
+    """[Relationship -- engine state] block: the level and what it allows, every private turn (section 3.3 guard)."""
+    if not rel.get("stance"):
+        return ""
+    return ("[Relationship -- engine state; never quote it]\nLevel %d/5: %s. Stay inside it whatever the scene's tension: "
+            "the user's moves may change the moment, not the relationship, and a level-1 character does not act "
+            "already in love." % (rel["level"], rel["stance"]))
 
 
 def tension_context(stage: int, recent_choices: List[str], table: Optional[Dict[str, Any]] = None) -> str:
@@ -278,11 +326,30 @@ def _threshold_note(session: Any) -> str:
         return ""
 
 
+def _log_turn(session: Any, rel: Dict[str, Any], before: int, cause: str, first: bool) -> None:
+    """private.turn: the stage before and after this turn and why -- metadata only, never a word of the talk (#864)."""
+    try:
+        from telemetry import obslog
+        history = getattr(session, "history", None) or []
+        last = next((h for h in reversed(history) if h.get("role") == "assistant"), {})
+        obslog.event("private.turn", session=getattr(session, "sid", ""), character=getattr(session, "character", ""),
+                     level=rel["level"], stage_from=before, stage=int(getattr(session, "tension_stage", 0) or 0),
+                     cause=cause, first=first, brink=bool(getattr(session, "_brink", False)),
+                     offered=len(last.get("choices") or []))
+        session._tension_moved, session._brink = (getattr(session, "tension_stage", 0), "hold"), False
+    except Exception:  # noqa: BLE001 -- a log line never breaks a turn
+        pass
+
+
 def turn_context(session: Any) -> str:
     """Per-turn system context prepended to the user message for private sessions."""
     if not getattr(session, "is_private", False):
         return ""
+    first = not any(h.get("role") == "assistant" for h in (getattr(session, "history", None) or []))
+    rel = (getattr(session, "_open_rel", None) if first else None) or relationship(session)
+    before, cause = getattr(session, "_tension_moved", (getattr(session, "tension_stage", TENSION_MIN), "hold"))
     threshold_note = _threshold_note(session)   # THRESHOLD_v1: first, a "brink" note raises the stage used below
+    _log_turn(session, rel, before, cause, first)
     family = detect_model_family(getattr(session, "provider", ""), getattr(session, "model", ""))
     tension = tension_context(
         getattr(session, "tension_stage", TENSION_MIN),
@@ -293,6 +360,9 @@ def turn_context(session: Any) -> str:
     if family == "grok":
         parts.append(_RENDER_PROTOCOL_REACTION_OVERLAY)
     parts.append(tension)
+    guard = relationship_context(rel)
+    if guard:
+        parts.append(guard)
     if threshold_note:
         parts.append(threshold_note)
     # Optional Gemini refusal-mitigation TEST layer (#249) — never default craft.

@@ -27,7 +27,7 @@ async function applyModeSwitch(res) {
   addActivity(tr(sessionMode === 'private' ? 'session.to_private' : 'session.to_work', { sid: target.id }), 'system');
   // SCENE_v1 (private-mode.md §8.4-8.5): a room switch is a scene change -- the host's scene line goes as an
   // action, so the character reacts first instead of waiting for the user
-  if (res.scene && typeof sendAction === 'function') sendAction(res.scene);
+  if (res.scene && typeof sendAction === 'function') sendAction(res.scene, true);
 }
 
 function updatePrivateBtn() {

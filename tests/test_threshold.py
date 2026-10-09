@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -108,15 +109,30 @@ class Handoff(Base):
         self.assertEqual(self.prompts, [])
 
 
+def rel(level, start, start_max):
+    return {"level": level, "title": "t", "points": 0, "start": start, "start_max": start_max, "stance": "s"}
+
+
 class Take(Base):
     def test_the_note_is_used_once_and_a_brink_raises_the_tension(self):
         personal_turn.mark(self.sessions, "w1", self.hist[2]["ts"])
         self.enter("/private on 계단실")
-        first = threshold.take(self.priv, "coach")
+        with mock.patch.object(private_engine, "relationship", lambda s: rel(3, 1, 2)):
+            first = threshold.take(self.priv, "coach")
         self.assertIn("flustered", first)
         self.assertIn("계단실", first)
         self.assertEqual(self.priv.tension_stage, 2)
         self.assertEqual(threshold.take(self.priv, "coach"), "")
+
+    def test_strangers_are_surprised_and_the_brink_stays_within_the_level(self):
+        # #864: a first meeting opened at stage 3 with both "still flustered"; level 1 opens at 1 and stays there
+        personal_turn.mark(self.sessions, "w1", self.hist[2]["ts"])
+        self.enter("/private on 계단실")
+        with mock.patch.object(private_engine, "relationship", lambda s: rel(1, 1, 1)):
+            first = threshold.take(self.priv, "coach")
+        self.assertIn("barely know each other", first)
+        self.assertNotIn("flustered", first)
+        self.assertEqual(self.priv.tension_stage, 1)
 
     def test_the_private_turn_context_carries_it_and_a_work_turn_never_does(self):
         self.enter()
@@ -291,7 +307,7 @@ class Wiring(unittest.TestCase):
         self.assertIn("threshold.leave(sess, REG.get_active(sess.character), _digest_private_later)", src)
         self.assertIn('threshold.scene_field(target if target.sid != sid else None)', src)
         page = (ROOT / "static" / "app-session.js").read_text(encoding="utf-8")
-        self.assertIn("if (res.scene && typeof sendAction === 'function') sendAction(res.scene);", page)
+        self.assertIn("if (res.scene && typeof sendAction === 'function') sendAction(res.scene, true);", page)
         self.assertIn('or stripped.startswith("/private on "):', src)
         self.assertIn("threshold.enter(sess, REG.get_private(sess.character, like=sess, fresh=True), text)", src)
 

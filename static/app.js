@@ -399,10 +399,10 @@ function isTouchDevice() {
 function tapSendOpts() {
   return { keepFocus: !isTouchDevice() };
 }
-function sendAction(actionText) {
+function sendAction(actionText, scene) {   // scene: the host's scene line, not the user's act (#864)
   if (!inputEl || typeof send !== 'function') return;
   inputEl.value = '/act ' + String(actionText || '').trim();
-  send(tapSendOpts());
+  send(Object.assign(tapSendOpts(), scene ? { scene: true } : {}));
 }
 async function send(opts) {
   // a click handler passes an Event here -- only a plain { keepFocus } counts
@@ -553,7 +553,7 @@ async function send(opts) {
       client_mid: clientMid
     };
     // Structured action: type + raw text; `text` keeps the (…) form until the server reads `type`.
-    if (isAction) Object.assign(payload, { type: 'action', action_text: actionText });
+    if (isAction) Object.assign(payload, { type: 'action', action_text: actionText }, opts && opts.scene ? { scene: true } : {});
     Object.assign(payload, providerFieldsForSend(
       providerEl ? providerEl.value : '',
       modelEl ? modelEl.value : '',

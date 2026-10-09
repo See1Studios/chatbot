@@ -437,7 +437,7 @@ def _action_text(body: dict, text: str):
         bare = _strip_outer_parens(text.split(None, 1)[1].strip())
         if bare:
             text = "(" + bare + ")"
-    return text, event_type
+    return text, "scene" if body.get("scene") is True else event_type   # #864: the host set the scene, not the user
 
 
 def message(req: Req):

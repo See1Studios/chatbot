@@ -98,6 +98,7 @@ class TensionLadder(unittest.TestCase):
     def test_turn_context_is_private_only(self):
         class Sess:
             is_private, tension_stage, recent_choices = False, 3, []
+            history = [{"role": "assistant", "text": ""}]   # mid-visit: no opening reset (#864)
         self.assertEqual(_Adapter().turn_context(Sess()), "")
         Sess.is_private = True
         ctx = _Adapter().turn_context(Sess())
@@ -134,6 +135,7 @@ class TensionLadder(unittest.TestCase):
     def test_turn_context_uses_the_family_table(self):
         class Sess:
             is_private, tension_stage, recent_choices = True, 2, []
+            history = [{"role": "assistant", "text": ""}]   # mid-visit: no opening reset (#864)
             provider, model = "agy", "gemini-3.8-flash-low"
         gem = _Adapter().turn_context(Sess())
         for label in ("자연스러운 다음 진도", "더 과감한 밀착/직진", "깊은 감각/분위기 탐닉"):
@@ -159,7 +161,7 @@ class TensionLadder(unittest.TestCase):
         self.assertNotIn("자연스러운 다음 흐름", gem)
         Sess.provider, Sess.model = "claude", "claude-sonnet-4-6"
         safe = _Adapter().turn_context(Sess())
-        self.assertEqual(safe, PE.tension_context(2, []))
+        self.assertEqual(safe, PE.tension_context(2, []) + "\n\n" + PE.relationship_context(PE.relationship(Sess())))
         self.assertIn("자연스러운 다음 흐름", safe)
         self.assertNotIn("더 과감한 밀착/직진", safe)
 
@@ -467,6 +469,7 @@ class RefusalMitigationTestLayer(unittest.TestCase):
     def test_default_turn_context_omits_layer(self):
         class Sess:
             is_private, tension_stage, recent_choices = True, 2, []
+            history = [{"role": "assistant", "text": ""}]   # mid-visit: no opening reset (#864)
             provider, model = "agy", "gemini-3.8-flash-low"
             refusal_mitigation = False
         ctx = PE.turn_context(Sess())
@@ -476,6 +479,7 @@ class RefusalMitigationTestLayer(unittest.TestCase):
     def test_session_opt_in_appends_for_gemini_only(self):
         class Sess:
             is_private, tension_stage, recent_choices = True, 3, []
+            history = [{"role": "assistant", "text": ""}]   # mid-visit: no opening reset (#864)
             provider, model = "agy", "gemini-3.8-flash-low"
             refusal_mitigation = True
         ctx = PE.turn_context(Sess())
@@ -491,6 +495,7 @@ class RefusalMitigationTestLayer(unittest.TestCase):
         import os
         class Sess:
             is_private, tension_stage, recent_choices = True, 1, []
+            history = [{"role": "assistant", "text": ""}]   # mid-visit: no opening reset (#864)
             provider, model = "agy", "gemini-3.1-pro-high"
             refusal_mitigation = False
         self.assertFalse(PE.refusal_mitigation_enabled(Sess(), "gemini"))
