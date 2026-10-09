@@ -167,19 +167,21 @@ def apply_choices(fields: Dict[str, Any], spec: Dict[str, Any], choices: Dict[st
     if labels:
         fields["tags"] = labels
     voice = _opt(_step(spec, "voice"), choices["voice"])
-    example = str(voice.get("example") or "")
-    if example:
-        fields["message_examples"] = example.replace("{{char}}", choices["name"]).replace(
-            "{{user}}", choices["user_title"] or "user")
-    fields["voice"] = str(voice.get("card") or "")
     bond = _opt(_step(spec, "bond"), choices["bond"])
+    # #899: the example follows both picks (bond x voice) and keeps {{user}}/{{char}} -- SillyTavern's macros, which
+    # the engine resolves when a prompt is built; filling the names in here broke the card format
+    example = str((bond.get("examples") or {}).get(choices["voice"]) or voice.get("example") or "")
+    if example:
+        fields["message_examples"] = example
+    fields["voice"] = str(voice.get("card") or "")
     if bond.get("scenario"):
         fields["scenario"] = str(bond["scenario"])
     fields["name"] = choices["name"]
     if card_gen.is_field_empty(fields.get("first_message")) and card_gen.is_field_empty(fields.get("first_mes")):
         fields["first_message"] = _fill(
             str(spec.get("greeting") or "{name}"),
-            name=choices["name"], user_title=choices["user_title"], hook=str(bond.get("hook") or ""))
+            name=choices["name"], user_title=choices["user_title"],
+            hook=str((bond.get("hooks") or {}).get(choices["voice"]) or bond.get("hook") or ""))
     return fields
 
 

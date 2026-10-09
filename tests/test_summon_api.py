@@ -75,7 +75,9 @@ class SummonApiTest(unittest.TestCase):
         self.assertIn("친구", data["scenario"])
         self.assertIn("또렷한", data["description"])
         self.assertIn("model written", data["description"])
-        self.assertIn("{{char}}".replace("{{char}}", "별"), data["mes_example"])
+        # #899: SillyTavern form -- <START>, macros kept (the engine fills them when a prompt is built)
+        self.assertTrue(data["mes_example"].startswith("<START>\n{{user}}: "), data["mes_example"])
+        self.assertIn("{{char}}: ", data["mes_example"])
         ext = data["extensions"]["chatbot"]
         self.assertEqual(ext["display"]["user_title"], "코치")
         self.assertEqual(ext["display"]["voice"], "편한 반말")
@@ -93,9 +95,22 @@ class SummonApiTest(unittest.TestCase):
         self.assertFalse(payload["woven"])
         self.assertEqual(payload["name"], "하루")
         card = self._card(payload["id"])
-        self.assertIn("하루", card["data"]["first_mes"])
+        first = card["data"]["first_mes"]
+        self.assertTrue(first.startswith("*") and '* "' in first, "an action in asterisks, then the line: %r" % first)
         team = json.loads((self.ws / "team.json").read_text(encoding="utf-8"))
         self.assertEqual(team["default"], payload["id"])
+
+    def test_quick_cards_follow_both_picks(self):
+        # #899: two quick-summoned characters with the same voice had the same example; a casual pick opened polite
+        seen = {}
+        for bond in ("friend", "lover"):
+            for voice in ("polite", "casual"):
+                _, made = summon_api.summon({"choices": {"name": "별", "bond": bond, "voice": voice}}, _down, ws=self.ws)
+                d = self._card(made["id"])["data"]
+                seen[(bond, voice)] = (d["first_mes"], d["mes_example"])
+        self.assertEqual(len({v[1] for v in seen.values()}), 4, "four picks, four examples")
+        self.assertIn("드디어 만났네.", seen[("lover", "casual")][0])
+        self.assertIn("드디어 만났네요.", seen[("lover", "polite")][0])
 
     def test_regenerate_keeps_other_fields(self):
         _, made = summon_api.summon({"choices": {"name": "별"}}, _model, ws=self.ws)

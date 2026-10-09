@@ -8,7 +8,7 @@
   "waiting": "캐릭터의 마음을 빚어내는 중…",
   "failed": "캐릭터 생성에 실패했습니다. 다시 시도해 주세요.",
   "result_title": "새로운 만남 준비 완료",
-  "greeting": "눈을 뜬 {name}. {user_title}를 보며 말한다. \"{hook}\"",
+  "greeting": "*눈을 깜빡이며 {user_title} 쪽을 바라본다* \"{hook}\"",
   "portal": {
     "title": "새로운 캐릭터 찾기",
     "subtitle": "어떤 방식으로 새로운 만남을 시작할까요?",
@@ -41,7 +41,14 @@
     "placeholder_title": "직접 입력하거나 위 추천 칩을 누르세요",
     "speaker_user": "나",
     "speaker_char": "캐릭터",
-    "title_chips": ["코치", "선배", "마스터", "선생님", "자기야", "친구"]
+    "title_chips": [
+      "코치",
+      "선배",
+      "마스터",
+      "선생님",
+      "자기야",
+      "친구"
+    ]
   },
   "steps": [
     {
@@ -130,13 +137,13 @@
           "id": "polite",
           "label": "부드러운 존댓말",
           "card": "부드러운 존댓말",
-          "example": "{{user}}: 오늘 기분은 어때?\n{{char}}: 좋아요. 같이 있어도 될까요?"
+          "example": "<START>\n{{user}}: 오늘 기분은 어때?\n{{char}}: 좋아요. 같이 있어도 될까요?"
         },
         {
           "id": "casual",
           "label": "편한 반말",
           "card": "편한 반말",
-          "example": "{{user}}: 오늘 기분은 어때?\n{{char}}: 좋아. 너는?"
+          "example": "<START>\n{{user}}: 오늘 기분은 어때?\n{{char}}: 좋아. 너는?"
         }
       ]
     },
@@ -155,21 +162,45 @@
           "label": "친구",
           "title": "코치",
           "scenario": "서로 친구다. 라운지에서 처음 만난다.",
-          "hook": "같이 있어도 될까요?"
+          "hook": "같이 있어도 될까요?",
+          "hooks": {
+            "polite": "같이 있어도 될까요?",
+            "casual": "같이 있어도 돼?"
+          },
+          "examples": {
+            "polite": "<START>\n{{user}}: 오늘 기분은 어때?\n{{char}}: *살짝 웃으며* 좋아요. 같이 이야기하니까 더 좋아졌어요.",
+            "casual": "<START>\n{{user}}: 오늘 기분은 어때?\n{{char}}: *가볍게 웃으며* 좋아. 같이 얘기하니까 더 좋아졌어."
+          }
         },
         {
           "id": "lover",
           "label": "연인",
           "title": "코치",
           "scenario": "서로 연인이다. 라운지에서 다시 만난다.",
-          "hook": "드디어 만났네요."
+          "hook": "드디어 만났네요.",
+          "hooks": {
+            "polite": "드디어 만났네요.",
+            "casual": "드디어 만났네."
+          },
+          "examples": {
+            "polite": "<START>\n{{user}}: 보고 싶었어.\n{{char}}: *볼이 살짝 붉어지며* 저도요. 오늘은 오래 같이 있어요.",
+            "casual": "<START>\n{{user}}: 보고 싶었어.\n{{char}}: *배시시 웃으며* 나도. 오늘은 오래 같이 있자."
+          }
         },
         {
           "id": "colleague",
           "label": "동료",
           "title": "코치",
           "scenario": "서로 동료다. 사무실 앞에서 처음 만난다.",
-          "hook": "오늘 할 일부터 볼까요?"
+          "hook": "오늘 할 일부터 볼까요?",
+          "hooks": {
+            "polite": "오늘 할 일부터 볼까요?",
+            "casual": "오늘 할 일부터 볼까?"
+          },
+          "examples": {
+            "polite": "<START>\n{{user}}: 오늘 뭐부터 하지?\n{{char}}: *메모를 펼치며* 급한 것부터 같이 정리해 봐요.",
+            "casual": "<START>\n{{user}}: 오늘 뭐부터 하지?\n{{char}}: *메모를 펼치며* 급한 것부터 같이 정리하자."
+          }
         }
       ]
     },
