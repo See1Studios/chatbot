@@ -365,6 +365,27 @@ class SessionTurn:
         self._turn_phases = {"prep_ms": round((self._turn_t0 - t_enter) * 1000, 1), "spawn_ms": spawn_ms,
                              "first_tool_ms": None}
 
+    def _write_turn(self, payload: str) -> bool:
+        """Hand the turn to the running agent. False: a stop() came while the turn was being prepared -- it clears
+        proc first, so the stop wins and the turn ends here instead of writing to no process (#843: the repair
+        probe stopped a turn whose standby agent took 8 s to start; AttributeError on proc.stdin)."""
+        with self.lock:
+            proc = self.proc
+            if proc is None or proc.stdin is None:
+                obslog.event("turn.dropped", sid=self.sid, provider=self.provider, reason="stopped_before_send")
+                return False
+            self.busy = True
+            try:
+                proc.stdin.write(payload)
+                proc.stdin.flush()
+            except (BrokenPipeError, ValueError):
+                if self.proc is proc and not getattr(self, "_stop_requested", False):
+                    raise
+                self.busy = False   # stopped between the check and the write: the same race, a step later
+                obslog.event("turn.dropped", sid=self.sid, provider=self.provider, reason="stopped_while_sending")
+                return False
+        return True
+
     def _start_turn(self, text: str, client_mid: str, client_context: Optional[Dict[str, Any]], notice: bool, event_type: str) -> None:
         # Multi-Provider plan Phase 2: a one-shot exec provider (grok, codex-style) needs its prompt known BEFORE
         # spawning (argv/a prompt file), so stdin_content is finalized first; the provider shapes fork at the bottom.
@@ -463,11 +484,8 @@ class SessionTurn:
             self._emit({"event": "user_ack", "text": text, "ts": ts, "client_mid": client_mid})
 
         if self.adapter.keeps_stdin_open:
-            payload = self.adapter.format_stdin(stdin_content)
-            with self.lock:
-                self.busy = True
-                self.proc.stdin.write(payload)
-                self.proc.stdin.flush()
+            if not self._write_turn(self.adapter.format_stdin(stdin_content)):
+                return
         elif self.adapter.transport_kind == "http":
             # API-Provider plan: no process/stdin at all -- the whole turn
             # (request + streaming read + history append) runs in its own
