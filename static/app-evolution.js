@@ -220,6 +220,26 @@ async function fillTicketCommand(tk, action, ask) {
 }
 
 // The operator's decision on a ticket, made in the page and never sent to the agent (BUTTON_LOGIC_v1: not even [Run]).
+// improvement-layers il/E: the operator's word on an incident the engine caught and the PD judged. The page decides
+// it (a POST), never the agent; [ticket] opens an approved ticket whose evidence is the incident.
+function parseIncidentCommand(text) {
+  const m = /^\/incident\s+(ticket|ignore)\s+#?(\d{1,6})$/.exec(String(text || '').trim());
+  return m ? { action: m[1], id: Number(m[2]) } : null;
+}
+
+async function runIncidentDecision(cmd) {
+  try {
+    const r = await api('/api/incidents/' + cmd.id + '/' + cmd.action, { method: 'POST', body: '{}' });
+    const tid = (r.ticket && r.ticket.id) || (r.incident && r.incident.ticket) || '';
+    addNotice('ok', cmd.action === 'ticket' ? tr('incident.ticketed', { id: cmd.id, ticket: tid })
+                                            : tr('incident.ignored', { id: cmd.id }));
+    if (cmd.action === 'ticket') loadTickets();
+  } catch (e) {
+    addNotice('error', tr('incident.failed', { id: cmd.id, error: obsErrorText(e) }));
+  }
+  return false;
+}
+
 async function runTicketDecision(cmd, opts) {
   if (TICKET_NEEDS_REASON.includes(cmd.action) && !cmd.comment) {   // the reason is what the worker or PD gets: ask
     addNotice('warn', tr(cmd.action === 'rework' ? 'ticket.rework_needs_reason' : 'work.replan_needs_reason', { id: cmd.id }));

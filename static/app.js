@@ -460,6 +460,13 @@ async function send(opts) {
     currentSessionHasUser = hadUser;
     return;
   }
+  const incidentCmd = parseIncidentCommand(text);
+  if (incidentCmd) {   // improvement-layers il/E: decided in the page, never sent to the agent
+    inputEl.value = '';
+    updateSendButton();
+    runIncidentDecision(incidentCmd);
+    return;
+  }
   const ticketCmd = parseTicketCommand(text);
   if (ticketCmd) {
     // The operator's own decision, made in the page: never sent to the agent.

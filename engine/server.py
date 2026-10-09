@@ -40,6 +40,7 @@ import art_manager
 import room_chat
 import card_upload
 import summon_api
+from health import incidents as health_incidents
 import chat_upload
 import platform_compat
 import items
@@ -493,6 +494,7 @@ GET_ROUTES = [
     (("/api/skills", "/api/commands"), _commands),
     ("/api/self-status", lambda req: req.json(_self_status())),
     (None, _api(ticket_api, "GET")),
+    (None, _api(health_incidents.api, "GET")),   # improvement-layers il/E
     (None, _api(delegation_api, "GET")),
     (None, _api(instructions_api, "GET")),
     (None, _api(experts_api, "GET")),
@@ -554,8 +556,9 @@ POST_STREAM_ROUTES = [   # before the JSON body is read
 POST_ROUTES = [
     ("/api/skills/*/toggle", _skill_toggle),
     ("/api/mcp", _mcp_add),
-    (("/api/tickets*", "/api/delegations*", "/api/rooms*", client_errors.PATH + "*"),
+    (("/api/tickets*", "/api/incidents*", "/api/delegations*", "/api/rooms*", client_errors.PATH + "*"),
      route_table.first(_api(ticket_api, "POST"), _api(delegation_api, "POST"),
+                       _api(health_incidents.api, "POST"),
                        _api(room_chat.api, "POST"), _api(client_errors.api, "POST"))),
     ("/api/host/defibrillate", _defibrillate),
     ("/api/accounts/recycle", route_accounts.recycle),
@@ -777,7 +780,7 @@ def main() -> None:
     threading.Thread(target=delegation.queue_loop, name="delegation-queue", daemon=True).start()   # LEASE_SCOPE_v1
     threading.Thread(target=__import__("event_react").loop, args=(REG,), name="event-react", daemon=True).start()   # evt/D
     if EDITION == "dev":   # improvement-layers il/D: the engine's own health, from its log
-        threading.Thread(target=__import__("health.incidents", fromlist=["loop"]).loop, name="incidents", daemon=True).start()
+        threading.Thread(target=health_incidents.loop, name="incidents", daemon=True).start()
     print(f"chatbot on http://{HOST}:{PORT} (VibeCat-class NAS)", flush=True)
 
     def _stop(signum=None, *_a):

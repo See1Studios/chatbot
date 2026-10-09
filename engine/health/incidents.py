@@ -21,6 +21,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 WINDOW_SEC = 24 * 3600
+NOTIFY_WARN_AFTER_SEC = 24 * 3600   # D3: a warning reaches the operator once it has lasted a day; an error at once
+NOTIFY_EVERY_SEC = 24 * 3600        # D3: the same incident at most once a day
 RESOLVE_AFTER_SEC = 24 * 3600
 TICK_SEC = 3600
 KEY_FIELDS = ("fp", "route", "provider", "src")
@@ -82,6 +84,102 @@ def judge(state: Dict[str, Any], findings: List[Dict[str, Any]], now: float) -> 
     return out
 
 
+def to_notify(state: Dict[str, Any], changes: List[Dict[str, Any]], now: float) -> List[Dict[str, Any]]:
+    """D3, decided here: what the operator hears about -- a new error, an incident that got worse, a warning that has
+    lasted a day -- each at most once a day, never one the operator ignored (unless it got worse). Marks them."""
+    worse = {c["incident"]["key"] for c in changes if c["change"] == "worse"}
+    out = []
+    for key, inc in state["incidents"].items():
+        if inc["status"] != "open" or now - inc.get("notified_at", 0) < NOTIFY_EVERY_SEC:
+            continue
+        due = (key in worse or inc["severity"] == "error"
+               or now - inc["first_seen"] >= NOTIFY_WARN_AFTER_SEC)
+        if due:
+            inc["notified_at"] = now
+            out.append(dict(inc))
+    return out
+
+
+def notify(incs: List[Dict[str, Any]]) -> None:
+    """Each one as a host.incident event to the default character (the PD): event_react has it judge and speak first,
+    within quiet hours and its hourly limit, and Web Push carries it to the operator's devices. Metadata only."""
+    if not incs:
+        return
+    import characters
+    import events
+    from host_config import WORKSPACE
+    default = characters.load_team(WORKSPACE).get("default")
+    if not default:
+        return
+    for inc in incs:
+        events.publish("host.incident", [default], channel="work", subject=str(inc["id"]), code=inc["code"],
+                       severity=inc["severity"])
+
+
+def note(incident_ids: List[int], path=None) -> str:
+    """What the PD is told about these incidents: the engine's own words and references, for it to look up."""
+    if path is None:
+        import host_config
+        path = host_config.INCIDENTS
+    lines = []
+    for iid in incident_ids:
+        inc = get(path, iid)
+        if not inc:
+            continue
+        ev = inc.get("evidence") or {}
+        refs = ["incident:%d" % inc["id"]] + (["log:fp:%s" % ev["fp"]] if ev.get("fp") else [])
+        lines.append("Incident #%d (%s, %s, seen since %s): %s. Hint: %s Evidence: %s." % (
+            inc["id"], inc["code"], inc["severity"], time.strftime("%m-%d %H:%M", time.localtime(inc["first_seen"])),
+            inc["title"], inc.get("hint") or "-", ", ".join(refs)))
+    return " ".join(lines)
+
+
+def decide(path, incident_id: int, action: str, operator: str = "operator (ui)") -> Dict[str, Any]:
+    """The operator's word on an incident: `ticket` opens an approved engine ticket whose evidence is the incident;
+    `ignore` keeps it quiet until it gets worse. Returns {"incident": ..., "ticket"?: ...}."""
+    state = load(path)
+    inc = next((i for i in state["incidents"].values() if i["id"] == int(incident_id)), None)
+    if inc is None:
+        raise KeyError("no incident %s" % incident_id)
+    out: Dict[str, Any] = {}
+    if action == "ignore":
+        inc["status"] = "ignored"
+    elif action == "ticket":
+        if not inc.get("ticket"):
+            import tickets
+            data = Path(path).parent.parent        # <data>/dev/incidents.json
+            t, _ = tickets.propose(data, "[incident #%d] %s" % (inc["id"], inc["title"])[:120],
+                                   "incident %s" % inc["key"], ["incident:%d" % inc["id"]], actor="operator")
+            t = tickets.approve(data, t["id"], operator=tickets.OPERATOR_UI)
+            inc["ticket"] = t["id"]
+            out["ticket"] = t
+    else:
+        raise ValueError("action is ticket or ignore")
+    save(path, state)
+    out["incident"] = dict(inc)
+    return out
+
+
+def api(method: str, path: str, body: Optional[dict]):
+    """GET /api/incidents (open and ignored, newest first); POST /api/incidents/<id>/ticket|ignore. None: not ours."""
+    if not (path == "/api/incidents" or path.startswith("/api/incidents/")):
+        return None
+    import host_config
+    store = host_config.INCIDENTS
+    if method == "GET" and path == "/api/incidents":
+        incs = [i for i in load(store)["incidents"].values() if i["status"] in ("open", "ignored")]
+        return 200, {"ok": True, "incidents": sorted(incs, key=lambda i: -i["id"])}
+    parts = path.strip("/").split("/")
+    if method == "POST" and len(parts) == 4 and parts[2].isdigit() and parts[3] in ("ticket", "ignore"):
+        try:
+            return 200, dict({"ok": True}, **decide(store, int(parts[2]), parts[3]))
+        except KeyError as e:
+            return 404, {"ok": False, "error": str(e)}
+        except Exception as e:  # noqa: BLE001 -- a ticket refusal is the operator's to read
+            return 400, {"ok": False, "error": str(e)}
+    return 404, {"ok": False, "error": "not found"}
+
+
 def tick(path=None, now: Optional[float] = None, digest=None) -> List[Dict[str, Any]]:
     """One check: read the findings, fold them in, log each change. Returns the changes (il/E notifies from them)."""
     from telemetry import obslog
@@ -94,7 +192,12 @@ def tick(path=None, now: Optional[float] = None, digest=None) -> List[Dict[str, 
         digest = logdigest.digest(WINDOW_SEC)
     state = load(path)
     changes = judge(state, digest.get("findings") or [], now)
+    due = to_notify(state, changes, now)
     save(path, state)
+    try:
+        notify(due)
+    except Exception:  # noqa: BLE001 -- the record stands even when the mailbox cannot be reached
+        obslog.exception("incident.notify_failed", dedup="notify")
     for c in changes:
         inc = c["incident"]
         obslog.event("incident." + c["change"], lvl="warn" if c["change"] != "resolved" else "info", id=inc["id"],

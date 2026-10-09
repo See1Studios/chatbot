@@ -3,9 +3,11 @@ resolved -- decided from the findings' fields alone, and an incident is ticket e
 Run: engine/run-tests.sh test_health_incidents
 """
 import json
+import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from tests._paths import ENGINE  # noqa: E402
@@ -80,6 +82,62 @@ class Incidents(unittest.TestCase):
         tickets.verify_evidence(data, "incident:1")
         with self.assertRaises(tickets.TicketError):
             tickets.verify_evidence(data, "incident:2")
+
+
+    def test_the_operator_hears_an_error_at_once_a_warning_after_a_day_each_once_a_day(self):
+        ch = I.judge(self.state, [f("main_red", "error", sha="a"), f("http_slow", route="GET /a")], T0)
+        self.assertEqual([i["code"] for i in I.to_notify(self.state, ch, T0)], ["main_red"])
+        self.assertEqual(I.to_notify(self.state, [], T0 + 3600), [], "told once a day, not every tick")
+        later = T0 + DAY
+        self.assertEqual(sorted(i["code"] for i in I.to_notify(self.state, [], later)), ["http_slow", "main_red"])
+        self.state["incidents"]["http_slow|GET /a"]["status"] = "ignored"
+        got = [i["code"] for i in I.to_notify(self.state, [], later + DAY)]
+        self.assertEqual(got, ["main_red"], "an ignored one stays quiet")
+
+    def test_a_worse_warning_is_told_at_once(self):
+        I.judge(self.state, [f("http_slow", route="GET /a")], T0)
+        self.assertEqual(I.to_notify(self.state, [], T0), [])
+        ch = I.judge(self.state, [f("http_slow", "error", route="GET /a")], T0 + 60)
+        self.assertEqual([i["id"] for i in I.to_notify(self.state, ch, T0 + 60)], [1])
+
+    def test_notify_is_an_event_to_the_default_character_with_metadata_only(self):
+        import events
+        with mock.patch.dict(os.environ, {"CHATBOT_EVENTS_DIR": str(self.tmp / "ev")}), \
+                mock.patch("characters.load_team", return_value={"default": "pd"}):
+            I.notify([{"id": 3, "code": "main_red", "severity": "error", "title": "secret words"}])
+            got = events.recent("host.incident")
+        self.assertEqual([(e["to"], e["subject"], e["payload"]["code"]) for e in got], [(["pd"], "3", "main_red")])
+        self.assertNotIn("secret words", json.dumps(got))
+
+    def test_the_pd_is_told_the_engine_facts_and_references(self):
+        I.tick(self.path, T0, digest={"findings": [f("err_repeat", "error", fp="abc123")]})
+        text = I.note([1, 9], self.path)
+        self.assertIn("Incident #1 (err_repeat, error", text)
+        self.assertIn("incident:1, log:fp:abc123", text)
+        self.assertNotIn("#9", text)
+
+    def test_the_operator_decides_ticket_or_ignore(self):
+        I.tick(self.path, T0, digest={"findings": [f("http_slow", route="GET /x"), f("repair_frequent")]})
+        out = I.decide(self.path, 1, "ticket")
+        t = out["ticket"]
+        self.assertEqual((t["status"], t["evidence"]), ("approved", ["incident:1"]))
+        self.assertEqual(I.decide(self.path, 1, "ticket").get("ticket"), None, "one ticket per incident")
+        self.assertEqual(I.get(self.path, 1)["ticket"], t["id"])
+        self.assertEqual(I.decide(self.path, 2, "ignore")["incident"]["status"], "ignored")
+        with self.assertRaises(KeyError):
+            I.decide(self.path, 7, "ignore")
+        with self.assertRaises(ValueError):
+            I.decide(self.path, 1, "delete")
+
+    def test_api_lists_and_decides(self):
+        I.tick(self.path, T0, digest={"findings": [f("http_slow", route="GET /x")]})
+        with mock.patch("host_config.INCIDENTS", self.path):
+            self.assertIsNone(I.api("GET", "/api/tickets", None))
+            code, body = I.api("GET", "/api/incidents", None)
+            self.assertEqual((code, [i["id"] for i in body["incidents"]]), (200, [1]))
+            self.assertEqual(I.api("POST", "/api/incidents/1/ignore", {})[0], 200)
+            self.assertEqual(I.api("POST", "/api/incidents/5/ignore", {})[0], 404)
+            self.assertEqual(I.api("POST", "/api/incidents/1/close", {})[0], 404)
 
 
 if __name__ == "__main__":

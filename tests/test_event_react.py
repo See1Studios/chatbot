@@ -153,6 +153,31 @@ class Reactions(unittest.TestCase):
         self.assertTrue(R._quiet({"quiet": [22, 7]}, time.mktime((2026, 9, 30, 23, 0, 0, 0, 0, -1))))
         self.assertFalse(R._quiet({"quiet": [22, 7]}, NOON))
 
+    def test_an_incident_is_judged_by_the_character_even_with_reactions_off(self):
+        # improvement-layers il/E: the engine caught it, the character judges it, the operator decides with buttons
+        self.note.stop()
+        self.addCleanup(self.note.start)
+        off = R.clean({})
+        with mock.patch("health.incidents.note", lambda ids: "Incident #%s (main_red, error): t. Evidence: incident:%s." % (ids[0], ids[0])):
+            e = E.publish("host.incident", ["kit"], subject="4", code="main_red", severity="error")
+            sent = self.once(cfg=off)
+        self.assertEqual([s["events"] for s in sent], [[e["id"]]])
+        text, notice = self.kit.sent[0]
+        self.assertTrue(notice)
+        self.assertIn("the engine caught this", text)
+        self.assertIn("incident:4", text)
+        self.assertIn("Change nothing", text)
+        self.assertEqual(self.kit._incident_offer, [4])
+        self.assertEqual(self.once(now=NOON, cfg=off), [], "told once")
+
+    def test_the_answer_to_an_incident_carries_the_two_decisions_once(self):
+        from session_turn import SessionTurn
+        sess = SimpleNamespace(mode="work", character="", _incident_offer=[4])
+        got = SessionTurn.engine_choices(sess, [{"label": "own"}])
+        self.assertEqual([c.get("payload") for c in got], [None, "/incident ticket 4", "/incident ignore 4"])
+        self.assertEqual(got[1]["label_key"], "choice.incident_ticket")
+        self.assertEqual(SessionTurn.engine_choices(sess, []), [], "the offer goes with that one answer")
+
 
 class Wiring(unittest.TestCase):
     def test_the_server_runs_the_reactor_and_the_team_tab_edits_it(self):
@@ -271,6 +296,8 @@ class CoworkerVisits(unittest.TestCase):
         r = self.RC.create("Desk", [self.a, self.b])
         self.D.append(r["id"], self.a, "standup in five")
         self.assertEqual(self.once(), [], "a meeting room is not reacted to")
+
+
 
 
 if __name__ == "__main__":

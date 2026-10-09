@@ -620,6 +620,8 @@ function pickChoice(choice) {
   if (kind === 'command') {
     const cmdText = payload.startsWith('/') ? payload : ('/' + payload);
     if (/^\/move\s/i.test(cmdText) && typeof moveDoor === 'function') return moveDoor(cmdText);   // PLACE_MOVE_v1
+    const inc = typeof parseIncidentCommand === 'function' && parseIncidentCommand(cmdText);   // il/E
+    if (inc) return runIncidentDecision(inc);
     const ticketCmd = typeof parseTicketCommand === 'function' ? parseTicketCommand(cmdText) : null;
     if (ticketCmd) {   // TICKET_BUTTONS_v1: the one decision path (app-evolution.js), no bubble
       if (typeof runTicketDecision === 'function') runTicketDecision(ticketCmd, typeof tapSendOpts === 'function' ? tapSendOpts() : undefined);

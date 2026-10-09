@@ -52,6 +52,7 @@
 |---|---|---|
 | `work.phase` | 티켓 | 제목, 단계, 작업자 캐릭터, 태스크 n/m |
 | `host.restart` | — | 시각, 반영 커밋 |
+| `host.incident` | 사건 id | 코드, 심각도 — 끌 수 없음, 기본 캐릭터에게만(improvement-layers il/E) |
 | `account.switch` | 제공자 | (메일 없이) 바뀜 여부 |
 | `session.private.start` / `.end` | 캐릭터 | 시각만 |
 | `room.message` | 방 | 말한 쪽, 멘션 목록, 메시지 id |

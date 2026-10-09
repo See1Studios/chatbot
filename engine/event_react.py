@@ -23,11 +23,18 @@ CONFIG_NAME = "events.json"
 CHOICES = ("work.phase", "host.restart", "msg.new")   # the event types a reaction can be turned on for (E2, inbox D11)
 ENDING = ("done", "failed", "gate_failed", "unavailable", "base_broken", "awaiting_merge")   # work phases worth it
 DEFAULTS = {"auto": [], "per_hour": 3, "quiet": [0, 8]}
+ALWAYS = ("host.incident",)   # the engine's own word to the operator (improvement-layers il/E): no switch turns it off
 POLL_SEC = 20
 TTL_SEC = 3600                                  # an event older than this is stale news: dropped, not spoken
 HEAVY = ("soft", "hard")                        # session weight levels a reaction must not push into
 PROMPT = ("[Event -- the user did not write this] {note}\nTell the user about it yourself now, in one or two short "
           "lines, in character, as a message you start. Do not use tools and do not start any work.")
+# improvement-layers il/E (D4: the engine catches, the LLM judges, the operator approves): the engine caught it; the
+# character judges it from the evidence and the user decides with the buttons the engine adds (engine_choices).
+INCIDENT_PROMPT = ("[Incident -- the engine caught this; the user did not write it] {note}\nLook at the evidence yourself, "
+                   "read only (`chatbot-ctl.sh logs --fp <fp>` / `--rid <rid>` / `--evt <prefix>`, the code it names). "
+                   "Then tell the user in a few short lines: the likely cause, with what you saw; whether it is worth "
+                   "fixing; what would change. Change nothing and start no work: the user decides with the buttons.")
 # A coworker's dm, shown in this character's window as the coworker's own turn (unified-message-inbox D8, D11)
 OFFICE_PROMPT = ("[Office -- the user did not write this] {note}\nThis just happened at your desk, in front of the "
                  "user, who saw it. React now in one or two short lines, in character. Do not use tools and do not "
@@ -82,6 +89,8 @@ def _quiet(cfg: Dict, now: float) -> bool:
 
 
 def _wanted(e: Dict, cfg: Dict, character: str = "", default: str = "") -> bool:
+    if e["type"] in ALWAYS:
+        return True
     if e["type"] not in cfg["auto"]:
         return False
     if events.ALL in e.get("to", []) and character != default:
@@ -123,6 +132,13 @@ def _note(evts: List[Dict], character: str) -> str:
             notes.append(delegation.work_event_note(work, character))
         except Exception:  # noqa: BLE001 -- no delegation in this build
             pass
+    incs = [int(e["subject"]) for e in evts if e["type"] == "host.incident" and str(e.get("subject") or "").isdigit()]
+    if incs:
+        try:
+            from health import incidents
+            notes.append(incidents.note(incs))
+        except Exception:  # noqa: BLE001 -- no health package in this build
+            pass
     if any(e["type"] == "host.restart" for e in evts):
         p = [e for e in evts if e["type"] == "host.restart"][-1]["payload"]
         notes.append("The host restarted at %s; landed: %s." % (
@@ -163,8 +179,6 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
     Returns what was sent ({character, sid, events}). Events it may not react to yet stay pending."""
     now = now or time.time()
     cfg = cfg or load_config()
-    if not cfg["auto"]:
-        return []
     with reg.lock:
         sessions = list(reg.sessions.values())
     if any(getattr(s, "busy", False) for s in sessions) or _quiet(cfg, now):
@@ -224,7 +238,9 @@ def react_once(reg, now: Optional[float] = None, cfg: Optional[Dict] = None, cha
             import dialog_log
             for did, n in upto.items():
                 dialog_log.saw(cid, sess.sid, did, n)            # heard in front of the user: read
-        text = (OFFICE_PROMPT if office else PROMPT).format(note=note)
+        incs = [int(e["subject"]) for e in rest if e["type"] == "host.incident" and str(e["subject"]).isdigit()]
+        sess._incident_offer = incs   # engine_choices adds [ticket] / [ignore] to this answer (il/E)
+        text = (OFFICE_PROMPT if office else INCIDENT_PROMPT if incs else PROMPT).format(note=note)
         threading.Thread(target=_speak, args=(sess, text), name="event-react", daemon=True).start()
         sent.append({"character": cid, "sid": sess.sid, "events": [e["id"] for e in wanted]})
     return sent

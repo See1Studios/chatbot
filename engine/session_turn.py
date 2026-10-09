@@ -43,6 +43,12 @@ class SessionTurn:
                                                items.state_path(self.character) if getattr(self, "character", "") else None)
         except Exception:  # noqa: BLE001 -- an extra choice must never break the answer
             extra = []
+        for iid in getattr(self, "_incident_offer", None) or []:   # improvement-layers il/E: the operator decides
+            extra += [{"label": "Make it work #%d" % iid, "label_key": "choice.incident_ticket", "label_vars": {"id": iid},
+                       "kind": "command", "payload": "/incident ticket %d" % iid},
+                      {"label": "Ignore #%d" % iid, "label_key": "choice.incident_ignore", "label_vars": {"id": iid},
+                       "kind": "command", "payload": "/incident ignore %d" % iid}]
+        self._incident_offer = []
         return list(choices or []) + extra
 
     def _run_btw(self, query: str) -> None:
