@@ -102,6 +102,38 @@ html.shell2 #teamList > [hidden]{display:none !important}
 .shell-swatches{display:flex;gap:.4rem}
 html.shell2 body:not(.dev-mode) .shell-dev{display:none}   /* developer mode's rows: the activity log, improvement */
 .shell-dev-delete{margin-top:1rem}
+/* Redesigned Character Profile (UX/S2) */
+.shell-hero{position:relative;display:flex;flex-direction:column;width:100%;overflow:hidden;flex-shrink:0;background:var(--bg-card)}
+.shell-hero-cover{height:114px;width:100%;background:linear-gradient(135deg,rgba(30,34,45,.85) 0%,rgba(16,19,25,.95) 100%);background-size:cover;background-position:center;position:relative}
+.shell-hero-cover.has-stage::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,12,15,.2) 0%,rgba(20,23,29,.85) 75%,var(--bg-card) 100%)}
+.shell-hero-cover:not(.has-stage)::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 20%,rgba(209,254,23,.06),transparent 70%),linear-gradient(180deg,transparent,var(--bg-card))}
+.shell-hero-card{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 .85rem .75rem;margin-top:-44px;gap:.45rem;z-index:2}
+.shell-hero-avatar-wrap{position:relative;width:86px;height:86px}
+.shell-hero-avatar{width:86px;height:86px;border-radius:50%;object-fit:cover;border:2.5px solid var(--bg-card);box-shadow:0 6px 20px rgba(0,0,0,.6),0 0 0 1px var(--border);background:#222631}
+.shell-hero-dot{position:absolute;bottom:3px;right:5px;width:14px;height:14px;border-radius:50%;border:2px solid var(--bg-card);background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.5)}
+.shell-hero-dot.busy{background:#f59e0b;box-shadow:0 0 6px rgba(245,158,11,.5)}
+.shell-hero-info{display:flex;flex-direction:column;align-items:center;gap:.25rem}
+.shell-hero-name{font-size:1.22rem;font-weight:700;letter-spacing:-.02em;line-height:1.2;color:var(--text)}
+.shell-hero-badges{display:flex;align-items:center;justify-content:center;gap:.35rem;flex-wrap:wrap}
+.shell-hero-role-badge{font-size:.72rem;font-weight:600;padding:.15rem .5rem;border-radius:999px;background:var(--accent-soft);color:var(--accent2);border:1px solid var(--accent-border);line-height:1.2}
+.shell-hero-voice-chip{font-size:.72rem;padding:.15rem .45rem;border-radius:999px;background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);line-height:1.2}
+.shell-hero-presence{font-size:.76rem;color:var(--muted)}
+.shell-hero-bio{width:100%;font-size:.82rem;line-height:1.45;color:rgba(237,239,239,.82);background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px;padding:.5rem .65rem;text-align:left;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.shell-hero-tags{display:flex;gap:.3rem;flex-wrap:wrap;justify-content:center;width:100%}
+.shell-hero-tag{font-size:.72rem;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.05);padding:.12rem .42rem;border-radius:6px}
+.shell-profile-nav{display:flex;background:rgba(0,0,0,.3);border-radius:12px;padding:3px;margin:.3rem .75rem .6rem;border:1px solid var(--border);flex-shrink:0}
+.shell-tab-btn{flex:1;padding:.45rem .4rem;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:.82rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:.35rem;cursor:pointer;transition:all .16s ease}
+.shell-tab-btn:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.shell-tab-btn.active{background:var(--bg-subtle,#181c24);color:var(--accent2);box-shadow:0 2px 8px rgba(0,0,0,.35);border:1px solid var(--accent-border,var(--border))}
+.shell-tab-body{display:none;flex-direction:column;flex:1 1 auto;min-height:0}
+.shell-tab-body.active{display:flex}
+.shell-action-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.45rem;padding:.15rem 0}
+.shell-action-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.35rem;padding:.75rem .4rem;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;color:var(--text);cursor:pointer;transition:background .15s,border-color .15s}
+.shell-action-card:hover{background:rgba(255,255,255,.06);border-color:var(--border-hover)}
+.shell-action-card.current{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent2)}
+.shell-action-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.shell-action-card.current .shell-action-icon{color:var(--accent2)}
+.shell-action-label{font-size:.82rem;font-weight:600;text-align:center}
 /* the talk header (ux/S3): name, then place and presence. The provider's name, the session row and its badges are
    the advanced density's; the stop button can land in that row, so it alone stays. */
 html.shell2 #shellPresence{color:var(--muted)}

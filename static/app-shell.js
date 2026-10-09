@@ -331,17 +331,8 @@ function shellHeartSync() {
   heart.setAttribute('aria-label', priv.getAttribute('aria-label') || priv.title);
 }
 
-// ux/S2 (UX11): the seven tabs go. What belongs to the open talk's character is reached from its profile card (the
-// name or the picture in the header), what belongs to the whole app from the settings (the gear under the list).
-// Layout (operator, 2026-09-30; the baseline is Telegram's web and mobile apps): on a wide screen the card is a
-// full-height column on the right, like the list on the left, and opening it moves the talk aside; on a phone it
-// is a screen of its own. A pane (the old tabs' content, opened with switchTab()) takes the middle in place of the
-// talk -- list and detail: the card or the settings stay open beside it, and closing the pane brings the talk
-// back. On a phone the same things are screens one after another, and Back returns to the one before. The talk's
-// header and input bar belong to the talk only.
-// Two switches, two questions (operator, 2026-10-01): "details" is how much of a talk's workings the chat shows
-// (tokens, models, session marks); "developer mode" is whether the tools for working on the engine are offered
-// at all -- the activity log and improvement (`dev` rows). Remembered in this browser, off by default.
+// ux/S2 (UX11): what belongs to the open talk's character is reached from its profile card,
+// what belongs to the whole app from settings. Details and developer mode are remembered per browser.
 const SHELL_DEV_KEY = 'pe.devMode';
 function shellDevOn() { return Boolean(document.body && document.body.classList.contains('dev-mode')); }
 function shellSetDev(on) {
@@ -629,29 +620,33 @@ function shellProfileOpen() {
   }
   const c = typeof currentCharacter === 'function' ? currentCharacter() : null;
   if (!panel || !c) return;
-  const rows = shellProfileRows({ art: typeof openArtManager === 'function', manage: typeof loadTeam === 'function' });
-  panel.textContent = '';
-  const card = shellEl('div', 'shell-card'), img = document.createElement('img'), list = shellEl('div', 'shell-rows');
-  img.alt = '';
-  img.onerror = () => { img.onerror = null; img.src = initialAvatar(c.name || c.title); };
-  img.src = characterOwnPortrait(c);
-  card.append(img, shellEl('div', 'shell-card-name', c.title || c.name || ''),
-    shellEl('div', 'shell-card-sub', shellPresenceText(sessionMode, isBusy)));
-  rows.forEach(row => {
-    const b = shellRowButton(row);
-    b.addEventListener('click', () => {
-      if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'profile');
-      if (row.k === 'art') shellGoArt(c.id);
-      else if (row.k === 'manage') shellGoTeam(c.id, 'profile');
+  if (typeof shellProfileDraw === 'function') {
+    shellProfileDraw(panel, c, column);
+  } else {
+    const rows = shellProfileRows({ art: typeof openArtManager === 'function', manage: typeof loadTeam === 'function' });
+    panel.textContent = '';
+    const card = shellEl('div', 'shell-card'), img = document.createElement('img'), list = shellEl('div', 'shell-rows');
+    img.alt = '';
+    img.onerror = () => { img.onerror = null; img.src = initialAvatar(c.name || c.title); };
+    img.src = characterOwnPortrait(c);
+    card.append(img, shellEl('div', 'shell-card-name', c.title || c.name || ''),
+      shellEl('div', 'shell-card-sub', shellPresenceText(sessionMode, isBusy)));
+    rows.forEach(row => {
+      const b = shellRowButton(row);
+      b.addEventListener('click', () => {
+        if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'profile');
+        if (row.k === 'art') shellGoArt(c.id);
+        else if (row.k === 'manage') shellGoTeam(c.id, 'profile');
+      });
+      list.appendChild(b);
     });
-    list.appendChild(b);
-  });
-  panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose, shellNarrow() ? '\u2039' : '\u2715'), card, list,
-    shellBrainSection(c), shellModelSection(), shellContextSection(),
-    typeof shellRelationSection == 'function' ? shellRelationSection(c) : '');
-  if (typeof shellQuotaSection === 'function') panel.insertBefore(shellQuotaSection(), list);
-  if (typeof shellBrainUseSection === 'function') panel.appendChild(shellBrainUseSection(c));
-  if (typeof shellDevDeleteButton === "function") shellDevDeleteButton(panel, c);
+    panel.append(shellPanelHead(SHELL_TEXT.profile, shellProfileClose, shellNarrow() ? '\u2039' : '\u2715'), card, list,
+      shellBrainSection(c), shellModelSection(), shellContextSection(),
+      typeof shellRelationSection == 'function' ? shellRelationSection(c) : '');
+    if (typeof shellQuotaSection === 'function') panel.insertBefore(shellQuotaSection(), list);
+    if (typeof shellBrainUseSection === 'function') panel.appendChild(shellBrainUseSection(c));
+    if (typeof shellDevDeleteButton === "function") shellDevDeleteButton(panel, c);
+  }
   shellMarkPane();
   column.classList.remove('behind');
   column.classList.add('open');
@@ -662,7 +657,7 @@ function shellMarkPane() {
   let now = document.documentElement.dataset.tab || 'chat';
   if (now === 'team') now = shellState.teamOnly ? 'manage' : (shellState.teamSection || 'characters');
   else if (now === 'status') now = shellState.statusOnly || 'accounts';
-  document.querySelectorAll('.shell-rowbtn[data-k]').forEach(b => b.classList.toggle('current', b.getAttribute('data-k') === now));
+  document.querySelectorAll('.shell-rowbtn[data-k], .shell-action-card[data-k]').forEach(b => b.classList.toggle('current', b.getAttribute('data-k') === now));
 }
 function shellSection(title) {
   const box = shellEl('div', 'shell-section');

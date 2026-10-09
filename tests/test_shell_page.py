@@ -641,5 +641,27 @@ class ProfileQuota(unittest.TestCase):
         self.assertIn(".shell-quota[hidden]{display:none}", CSS)
 
 
+    def test_character_profile_redesign_tabs_and_hero(self):
+        prof_src = (STATIC / "app-shell-profile.js").read_text(encoding="utf-8")
+        self.assertIn("function shellProfileDraw(panel, c, column)", prof_src)
+        self.assertIn("shell-hero", prof_src)
+        self.assertIn("shell-hero-cover", prof_src)
+        self.assertIn("shell-hero-avatar", prof_src)
+        self.assertIn("shell-profile-nav", prof_src)
+        self.assertIn("shell-action-grid", prof_src)
+        self.assertIn("shell-action-card", prof_src)
+        # loaded in index.html in order
+        html = (STATIC / "index.html").read_text(encoding="utf-8")
+        self.assertLess(html.index('src="./app-shell-relation.js'), html.index('src="./app-shell-profile.js'))
+        self.assertLess(html.index('src="./app-shell-profile.js'), html.index('src="./app.js'))
+        # styles in shell.css
+        self.assertIn(".shell-hero{", CSS)
+        self.assertIn(".shell-hero-cover{", CSS)
+        self.assertIn(".shell-hero-avatar{", CSS)
+        self.assertIn(".shell-profile-nav{", CSS)
+        self.assertIn(".shell-tab-btn{", CSS)
+        self.assertIn(".shell-action-card{", CSS)
+
+
 if __name__ == "__main__":
     unittest.main()

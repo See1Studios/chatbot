@@ -51,7 +51,13 @@ def _character_list() -> list:
     out = []
     for c in characters.listing():
         disp = (characters.ext(c["card"]).get("display") or {})
-        name = ((c["card"].get("data") or {}).get("name") or "").strip()
+        cdata = (c["card"].get("data") or {})
+        name = (cdata.get("name") or "").strip()
+        description = (cdata.get("description") or "").strip()
+        personality = (cdata.get("personality") or "").strip()
+        voice = (disp.get("voice") or "").strip()
+        raw_tags = cdata.get("tags") or []
+        tags = [str(t).strip() for t in raw_tags if str(t).strip()]
         base = characters.card_path(c["id"]).parent
         art_v = {}
         for kind in ("avatar", "stage"):
@@ -60,6 +66,7 @@ def _character_list() -> list:
             art_v[kind] = int(max(f.stat().st_mtime for f in files)) if files else 0
         out.append({"id": c["id"], "session_character": c["id"], "roles": c["roles"], "role": c["role"],
                     "default": c["id"] == default, "name": name, "title": disp.get("title") or name,
+                    "description": description, "personality": personality, "voice": voice, "tags": tags,
                     # a version for the picture URLs: new art shows at once; 0 = no picture yet (the route
                     # serves the engine placeholder, ART_PLACEHOLDER_v1)
                     "avatar_v": art_v["avatar"], "stage_v": art_v["stage"]})
