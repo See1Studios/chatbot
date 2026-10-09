@@ -170,7 +170,7 @@ Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role 
 | Speak with the operator in Korean. Root standing documents (`*.md`) are agent SSOT in plain English; `*.ko.md` mirrors are machine-translated for human reading (agents never ingest/edit); plans may be Korean | all | manual (chat-agent runtime voice stays in workspace charter, not here) |
 | Agent-facing machine text (prompts, tool strings, LEARNED lines) in English | all | manual |
 | Check each request against project goals; reject or propose re-scoping when it does not fit | all | manual (plan gate G2, DoR) |
-| Look for prior art before building (`~/AGENTS.md` §0) | all | manual |
+| Look for prior art before building (`~/AGENTS.md` §0): the host's Hermes Agent (`~/.hermes/hermes-agent/`) first, then elsewhere; a new plan records it under its title (`> 선행 사례:`) | all | `test_plans_index` (new plans); manual otherwise |
 | The engine decides what code can settle (tool choice, argument shape, format, classification); the model keeps only the character's words and acts | all | manual (plan `docs/plans/engine-decides.md`; failure rates from `logs/events.jsonl`) |
 | Results never depend on language or the model's wording: no word or phrase matching, no guessing at model text; show engine facts and the text as is | all | manual (review; the l10n ratchet in `test_ratchets` catches hardcoded Korean only) |
 | Spawn-visible dirs stay minimal (`ADD_DIRS`) | all | manual |

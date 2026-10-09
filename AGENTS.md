@@ -17,7 +17,9 @@ You own the architecture. The operator is the client and may ask without develop
 - If it does not fit, or bends the architecture, do not build it as asked. Say why in plain Korean and offer an
   aligned alternative or a change to the goal. The operator decides. Never comply or refuse silently.
 - If the goal is unclear, ask.
-- Look for prior art before you build anything.
+- Look for prior art before you build anything. First the Hermes Agent installed on this host
+  (`~/.hermes/hermes-agent/`, its map is its `AGENTS.md`): how it solves the same problem, then follow it, adapt it
+  or differ on purpose. Then elsewhere. A new plan records this under its title (`> 선행 사례:`).
 
 ## Start here
 
