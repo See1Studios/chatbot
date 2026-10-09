@@ -38,7 +38,7 @@ class LiveAgentSuite(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout[-500:] + r.stderr[-500:])
 
     def test_the_host_marks_the_agents_it_spawns(self):
-        src = (ENGINE / "session.py").read_text(encoding="utf-8")
+        src = (ENGINE / "session_procs.py").read_text(encoding="utf-8")
         self.assertIn('env["CHATBOT_LIVE_AGENT"] = "1"', src)
 
 
