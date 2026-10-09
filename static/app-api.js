@@ -163,29 +163,93 @@ async function waitHostBack(maxMs = 90000, beforeBootTs = null) {
   return false;
 }
 
-// REBOOT_HUD_v1 (#508): the engine reboot plays as a dark-glass terminal over the page. log() adds a line,
-// close() fades it out, fail() leaves it up with a close button (the host did not come back).
+// REBOOT_HUD_v2 (#869): the engine reboot plays as a futuristic sci-fi console with streaming kernel torrent,
+// telemetry heartbeat, and a power surge flash on sync. log() adds a line, close() triggers surge and fades out,
+// fail() stops torrent and shows CLOSE button.
 function showRebootOverlay() {
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text) n.textContent = text; return n; };
-  const overlay = el('div', 'reboot-overlay'), term = el('div', 'reboot-terminal'), head = el('div', 'reboot-head');
-  const body = el('div', 'reboot-body'), cursor = el('span', 'reboot-cursor');
+  const overlay = el('div', 'reboot-overlay'), term = el('div', 'reboot-terminal');
+  const head = el('div', 'reboot-head'), headLeft = el('div', 'reboot-head-left');
+  const telem = el('div', 'reboot-telemetry'), screen = el('div', 'reboot-screen');
+  const torrent = el('div', 'reboot-torrent'), body = el('div', 'reboot-body'), cursor = el('span', 'reboot-cursor');
+  const badge = el('span', 'reboot-badge', 'BOOTING');
+
   overlay.setAttribute('role', 'status');
   overlay.setAttribute('aria-live', 'polite');
-  head.append(el('i', 'reboot-dot r'), el('i', 'reboot-dot y'), el('i', 'reboot-dot g'),
-              el('span', 'reboot-title', 'PRIVATE ENGINE // REBOOT CONSOLE'));
+
+  term.append(el('i', 'reboot-bracket tl'), el('i', 'reboot-bracket tr'),
+              el('i', 'reboot-bracket bl'), el('i', 'reboot-bracket br'));
+
+  headLeft.append(el('i', 'reboot-dot r'), el('i', 'reboot-dot y'), el('i', 'reboot-dot g'),
+                  el('span', 'reboot-title', 'DEFIBRILLATE SEQUENCE // CORE:3011'));
+  head.append(headLeft, badge);
+
+  const telemLeft = el('div', 'reboot-telemetry-item');
+  const pulseTrack = el('div', 'reboot-pulse-track');
+  pulseTrack.append(el('div', 'reboot-pulse-bar'));
+  telemLeft.append(el('span', null, 'RESONANCE:'), pulseTrack);
+  const telemRight = el('div', 'reboot-telemetry-item', 'STATE: ACTIVE_PING · PROBE: ON');
+  telem.append(telemLeft, telemRight);
+
   body.append(cursor);
-  term.append(head, body);
+  screen.append(torrent, body);
+  term.append(head, telem, screen);
   overlay.append(term);
   document.body.append(overlay);
   requestAnimationFrame(() => overlay.classList.add('open'));
-  const close = () => { overlay.classList.remove('open'); setTimeout(() => overlay.remove(), 320); };
+
+  const KERNEL_LOGS = [
+    '0x7FFA8920 [KERNEL] RECLAIM_DAEMON_SOCKET(3011)',
+    '0x7FFA8934 [SYSCALL] SIG_HALT BROADCAST → WORKER_POOL',
+    '0x7FFA8948 [VMM] PURGE_TRANSIENT_BUFFERS 64MB OK',
+    '0x7FFA895C [NET] LISTENER_REBIND AF_INET 0.0.0.0:3011',
+    '0x7FFA8970 [CRYPTO] SECP256R1 VAPID VAULT RE-ARMED',
+    '0x7FFA8984 [OBSLOG] EVENTS_STREAM FLUSH /events.jsonl',
+    '0x7FFA8998 [ENGINE] RECONFIG_ADAPTERS: AGY/GEMINI/CLAUDE',
+    '0x7FFA89AC [ROUTER] DISPATCH_TABLE RESEED ROUTES=44',
+    '0x7FFA89C0 [SYS] SYNCHRONIZE_WATCHDOG_TICK (5000ms)',
+    '0x7FFA89D4 [IO] ATOMIC_SNAPSHOT RESTORE METADATA',
+    '0x7FFA89E8 [IPC] PROBE_CHALLENGE → SOCKET_ACCEPT',
+    '0x7FFA89FC [CORE] VOLTAGE_STABILIZED RES_FACTOR=1.00',
+    '0x7FFA8A10 [MEM] REALLOC_PAGE_TABLES BOUNDS_CHECK_OK',
+    '0x7FFA8A24 [DAEMON] HEARTBEAT_PROBE RESPONDED 200_OK',
+    '0x7FFA8A38 [FIBER] RESTORE_CONTEXT_REGISTERS IP=0x3011'
+  ];
+  let kIdx = 0;
+  const torrentTimer = setInterval(() => {
+    if (!torrent.isConnected) { clearInterval(torrentTimer); return; }
+    const line = el('div', 'reboot-torrent-line', KERNEL_LOGS[kIdx % KERNEL_LOGS.length] + ' [' + (Math.random() * 999 | 0) + 'ms]');
+    torrent.append(line);
+    kIdx++;
+    while (torrent.children.length > 14) torrent.firstElementChild.remove();
+  }, 75);
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    clearInterval(torrentTimer);
+    badge.textContent = 'ONLINE';
+    badge.classList.add('ok');
+    overlay.classList.add('surge');
+    setTimeout(() => overlay.remove(), 400);
+  };
+
   return {
-    log(text, tone) { body.insertBefore(el('div', 'reboot-line' + (tone ? ' ' + tone : ''), text), cursor); },
+    log(text, tone) {
+      if (closed) return;
+      if (tone === 'cyan') { badge.textContent = 'CONNECTING'; }
+      if (tone === 'ok') { badge.textContent = 'SYNCED'; badge.classList.add('ok'); }
+      if (tone === 'err') { badge.textContent = 'HALTED'; badge.classList.remove('ok'); }
+      body.insertBefore(el('div', 'reboot-line' + (tone ? ' ' + tone : ''), text), cursor);
+    },
     close,
     fail() {
-      const btn = el('button', 'reboot-close', 'CLOSE');
+      clearInterval(torrentTimer);
+      badge.textContent = 'HALTED';
+      const btn = el('button', 'reboot-close', 'CLOSE CONSOLE');
       btn.type = 'button';
-      btn.addEventListener('click', close);
+      btn.addEventListener('click', () => { overlay.classList.remove('open'); setTimeout(() => overlay.remove(), 320); });
       term.append(btn);
       btn.focus();
     },
