@@ -218,9 +218,11 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | `main.check` | info/error | `src=watch`: the whole suite on main's commit after main moved (`health/main_watch.py`, MAIN_WATCH_v1): `sha`, `subject`, `ok`, `failed`, `dur_s`; red is the digest's `main_red` finding until a green check |
 | `manifest.drift` | warn | protected files differ from git HEAD — edited, deleted, or new and uncommitted (`evolution.py::protected_changes`, split/E; the name is kept from the hash manifest it replaced); logged only when the difference changes |
 
-### Findings (telemetry/logdigest.py)
+### Findings (telemetry/logdigest.py, health/improve.py)
 
-Thresholds live at the top of `telemetry/logdigest.py`.
+Thresholds live at the top of `telemetry/logdigest.py`; the improvement signals (read from the daily rollups, warn)
+and their rules at the top of `health/improve.py`: `turn_loops`, `react_heavy_skips`, `memory_unused`. Both kinds
+become incidents (`health/incidents.py`).
 
 | code | severity | rule |
 |---|---|---|

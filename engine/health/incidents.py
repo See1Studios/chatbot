@@ -181,8 +181,9 @@ def api(method: str, path: str, body: Optional[dict]):
     return 404, {"ok": False, "error": "not found"}
 
 
-def tick(path=None, now: Optional[float] = None, digest=None) -> List[Dict[str, Any]]:
-    """One check: read the findings, fold them in, log each change. Returns the changes (il/E notifies from them)."""
+def tick(path=None, now: Optional[float] = None, digest=None, improvements=None) -> List[Dict[str, Any]]:
+    """One check: read the findings -- the log digest's and the rollups' improvement signals (il/D2) -- fold them in,
+    log each change. Returns the changes (il/E notifies from them). A test passes `digest` and so reads no rollups."""
     from telemetry import obslog
     now = time.time() if now is None else now
     if path is None:
@@ -191,8 +192,11 @@ def tick(path=None, now: Optional[float] = None, digest=None) -> List[Dict[str, 
     if digest is None:
         from telemetry import logdigest
         digest = logdigest.digest(WINDOW_SEC)
+        if improvements is None:
+            from health import improve
+            improvements = improve.findings(now=now)
     state = load(path)
-    changes = judge(state, digest.get("findings") or [], now)
+    changes = judge(state, (digest.get("findings") or []) + list(improvements or []), now)
     due = to_notify(state, changes, now)
     save(path, state)
     try:
