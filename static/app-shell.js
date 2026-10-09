@@ -188,8 +188,8 @@ async function shellPick(r) {
     shellState.pending = '';
     document.documentElement.classList.remove('shell-switching');
     shellListDraw();
-    // the card stays open across a switch and becomes the new talk's (a group room has none)
-    if (shellProfileIsOpen()) { if (typeof roomOpenId === 'function' && roomOpenId()) shellProfileClose(); else shellProfileOpen(); }
+    // the card stays open across a switch and becomes the new talk's
+    if (shellProfileIsOpen()) { if (typeof roomOpenId === 'function' && roomOpenId()) { if (typeof roomProfileOpen === 'function') roomProfileOpen(); } else shellProfileOpen(); }
   }
 }
 function shellPending(r) {

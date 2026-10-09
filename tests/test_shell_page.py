@@ -46,13 +46,14 @@ const calls = [];
 let open = { character: 'a', room: '' };
 const characterCatalog = [{ id: 'a', name: 'Kit', default: true }, { id: 'b', name: 'Kiki' }, { id: 'c', title: 'Ari' }];
 const openCharacterId = () => open.character, roomOpenId = () => open.room;
-const roomEnter = async (id) => { calls.push('roomEnter ' + id); }, roomLeave = async () => { calls.push('roomLeave'); };
-const selectCharacter = async (c) => { calls.push('selectCharacter ' + c.id); };
+let roomEnter = async (id) => { calls.push('roomEnter ' + id); }, roomLeave = async () => { calls.push('roomLeave'); };
+let selectCharacter = async (c) => { calls.push('selectCharacter ' + c.id); };
 let currentTab = 'chat';
 const switchTab = (t) => { currentTab = t; };
 let sessionFilter = '';
 const setSessionCharFilter = (id) => { sessionFilter = id; };
 const api = async () => ({ sessions: [] });
+let roomProfileOpen;
 """
 
 HARNESS = r"""
@@ -185,6 +186,60 @@ return (async () => {
     window.innerWidth = 400;
     shellProfileClose = realClose;
     shellProfileOpen = realOpen; shellShowList = realList;
+    open = { character: 'a', room: 'room_1' };
+  }
+  // switching talks with profile drawer open keeps it open:
+  // switching to room calls roomProfileOpen; switching to character calls shellProfileOpen; closed calls neither
+  {
+    const profEvents = [];
+    let drawerOpen = true;
+    const profEl = {
+      classList: {
+        contains: (c) => (c === 'open' ? drawerOpen : false),
+        remove: (...c) => { if (c.includes('open')) drawerOpen = false; },
+        add: (...c) => { if (c.includes('open')) drawerOpen = true; }
+      }
+    };
+    const origGetById = document.getElementById;
+    document.getElementById = (id) => (id === 'shellProfile' ? profEl : origGetById(id));
+    const origShellProfileOpen = shellProfileOpen;
+    const origShellProfileClose = shellProfileClose;
+    const origRoomEnter = roomEnter;
+    const origRoomLeave = roomLeave;
+    const origSelectChar = selectCharacter;
+
+    shellProfileOpen = () => profEvents.push('shellProfileOpen');
+    shellProfileClose = () => { drawerOpen = false; profEvents.push('shellProfileClose'); };
+    roomProfileOpen = () => profEvents.push('roomProfileOpen');
+    roomEnter = async (id) => { open.room = id; calls.push('roomEnter ' + id); };
+    roomLeave = async () => { open.room = ''; calls.push('roomLeave'); };
+    selectCharacter = async (c) => { open.room = ''; open.character = c.id; calls.push('selectCharacter ' + c.id); };
+
+    // 1. Drawer open, switch to a room: stays open and calls roomProfileOpen
+    drawerOpen = true;
+    open = { character: 'a', room: '' };
+    profEvents.length = 0;
+    await shellPick({ kind: 'room', id: 'room_1' });
+    o.drawerRoomSwitch = { events: profEvents.slice(), isOpen: drawerOpen };
+
+    // 2. Drawer open, switch to a character: stays open and calls shellProfileOpen
+    drawerOpen = true;
+    profEvents.length = 0;
+    await shellPick({ kind: 'character', id: 'b' });
+    o.drawerCharSwitch = { events: profEvents.slice(), isOpen: drawerOpen };
+
+    // 3. Drawer closed, switch to a room: stays closed, neither called
+    drawerOpen = false;
+    profEvents.length = 0;
+    await shellPick({ kind: 'room', id: 'room_2' });
+    o.drawerClosedSwitch = { events: profEvents.slice(), isOpen: drawerOpen };
+
+    document.getElementById = origGetById;
+    shellProfileOpen = origShellProfileOpen;
+    shellProfileClose = origShellProfileClose;
+    roomEnter = origRoomEnter;
+    roomLeave = origRoomLeave;
+    selectCharacter = origSelectChar;
     open = { character: 'a', room: 'room_1' };
   }
   // narrow: the list covers the chat; entering the chat from it adds one history step
@@ -402,6 +457,20 @@ class ShellList(unittest.TestCase):
         self.assertEqual(o["paneBack"], [["sessions", "b", "profile"], ["chat", "profile"], ["activity", "settings"], ["chat", "list"], ["chat", ""]])
         # a wide screen: list and detail -- the card is not closed for a pane, and closing the pane reopens nothing
         self.assertEqual(o["paneWide"], {"closedForPane": 0, "tab": "sessions", "afterClose": ["chat", ""]})
+
+    def test_switching_to_room_keeps_profile_open_and_calls_room_profile_open(self):
+        o = self.o
+        self.assertEqual(o["drawerRoomSwitch"]["events"], ["roomProfileOpen"])
+        self.assertTrue(o["drawerRoomSwitch"]["isOpen"])
+        self.assertEqual(o["drawerCharSwitch"]["events"], ["shellProfileOpen"])
+        self.assertTrue(o["drawerCharSwitch"]["isOpen"])
+        self.assertEqual(o["drawerClosedSwitch"]["events"], [])
+        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        pick_fn = src[src.index("async function shellPick(r)"):src.index("function shellPending")]
+        pick_finally = pick_fn[pick_fn.index("finally {"):]
+        self.assertIn("roomProfileOpen()", pick_finally)
+        self.assertNotIn("shellProfileClose()", pick_finally)
+
 
     def test_the_pictures_are_a_pane_like_the_others(self):
         # the art manager draws into an #artManager it finds: the shell puts one in the stage, without the modal class
