@@ -627,6 +627,9 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         write_guard.turn_end(self, REPO_ROOT, outcome)   # TREE_WATCH_v1
         if outcome == "result":
             quota_state.warn_low(self)   # qfr/D: a brain running low is said once, before it runs out
+        if getattr(self, "_pending_push_react", False):
+            import event_react
+            event_react.notify_turn_end(self, outcome)
         regenerate.after_turn(self, outcome)   # REGENERATE_v1
 
     def _obs_turn_end(self, outcome: str) -> None:

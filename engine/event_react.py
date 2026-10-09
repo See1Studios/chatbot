@@ -108,17 +108,38 @@ def _speak(sess, text: str) -> None:
     except Exception:  # noqa: BLE001
         obslog = None
     try:
+        sess._pending_push_react = True
         sess._send_direct(text, notice=True)
     except Exception as e:  # noqa: BLE001
+        sess._pending_push_react = False
         if obslog:
             obslog.exception("react.failed", e, sid=sess.sid)
     finally:
         sess._host_turn_at = 0   # HOST_TURN_ONE_v1: sent; the session's busy flag takes over
 
+
+def notify_turn_end(sess, outcome: str) -> None:
+    """Deliver a Web Push notification on reaction turn completion with character name and answer text."""
+    if not getattr(sess, "_pending_push_react", False):
+        return
+    sess._pending_push_react = False
+    if outcome != "result":
+        return
     try:
-        import push_manager
-        cid = getattr(sess, "character", "") or "Companion"
-        push_manager.notify(title=cid, body=text[:120], url=f"/?s={sess.sid}", tag=f"react-{sess.sid}")
+        import characters, push_manager
+        cid = getattr(sess, "character", "") or ""
+        char_name = characters.name(cid, ws=getattr(sess, "workspace", None)) if cid else ""
+        title = char_name or cid or "Companion"
+        body = ""
+        for h in reversed(getattr(sess, "history", []) or []):
+            if h.get("role") == "assistant" and h.get("text") and not h.get("notice"):
+                body = str(h.get("text") or "").strip()
+                break
+        if not body:
+            return
+        clean = " ".join(body.split())
+        summary = clean[:120] if len(clean) > 120 else clean
+        push_manager.notify(title=title, body=summary, url=f"/?s={sess.sid}", tag=f"react-{sess.sid}")
     except Exception:  # noqa: BLE001
         pass
 

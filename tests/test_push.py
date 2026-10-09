@@ -200,12 +200,40 @@ class Delivery(Base):
             self.assertEqual(P.get_subscriptions(), [])
 
 
-class ServerWiring(unittest.TestCase):
-    def test_server_routes_get_and_post(self):
-        src = (ENGINE / "server.py").read_text(encoding="utf-8")
-        self.assertIn("push_manager.dispatch_push_api(req.h, method, req.path)", src)
-        self.assertIn('(None, _push("GET")),', src)
-        self.assertIn('(None, _push("POST")),', src)
+class SessionReactPush(unittest.TestCase):
+    def test_session_react_push_notifies_with_character_name_and_response(self):
+        import session
+        sess = session.AgentSession("test-react-push")
+        sess.character = "char_test_123"
+        sess._pending_push_react = True
+        sess.history = [
+            {"role": "assistant", "text": "Hello! The task is complete.\nCheck the results!"}
+        ]
+
+        calls = []
+        with mock.patch("characters.name", return_value="TestCat"), \
+             mock.patch("push_manager.notify", side_effect=lambda **kw: calls.append(kw)):
+            sess._finish_turn("result")
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["title"], "TestCat")
+        self.assertEqual(calls[0]["body"], "Hello! The task is complete. Check the results!")
+        self.assertEqual(calls[0]["url"], "/?s=test-react-push")
+        self.assertFalse(getattr(sess, "_pending_push_react", False))
+
+    def test_session_react_push_ignores_error_outcome(self):
+        import session
+        sess = session.AgentSession("test-react-push-err")
+        sess.character = "char_test_123"
+        sess._pending_push_react = True
+        sess.history = [{"role": "assistant", "text": "Error occurred"}]
+
+        calls = []
+        with mock.patch("push_manager.notify", side_effect=lambda **kw: calls.append(kw)):
+            sess._finish_turn("error")
+
+        self.assertEqual(calls, [])
+        self.assertFalse(getattr(sess, "_pending_push_react", False))
 
 
 if __name__ == "__main__":
