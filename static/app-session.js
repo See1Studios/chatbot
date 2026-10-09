@@ -7,8 +7,7 @@ function defaultCharacterId() {
 }
 function openCharacterId() { return sessionCharacter || defaultCharacterId(); }
 function sessionCharacterName(cid) {
-  const targetId = cid || openCharacterId();
-  const c = (typeof characterCatalog !== 'undefined' ? characterCatalog : []).find(x => x.id === targetId);
+  const c = (typeof characterCatalog !== 'undefined' ? characterCatalog : []).find(x => x.id === (cid || openCharacterId()));
   return c ? (c.name || c.title || '') : '';
 }
 function sameSessionMode(s) {
@@ -57,6 +56,8 @@ async function togglePrivateMode() {
 }
 function enterSession(id, opts) {
   opts = opts || {};
+  if (typeof resetChoiceBar === 'function') resetChoiceBar();
+  else if (typeof choiceBarEl !== 'undefined' && choiceBarEl) { choiceBarEl.hidden = true; choiceBarEl.textContent = ''; choiceBarEl._owner = null; }
   rememberSession(id);
   if (!opts.preserveLog) {
     detachSessionBanner();
@@ -67,9 +68,7 @@ function enterSession(id, opts) {
     activityLogFetched = false;
     currentSessionHasUser = Boolean((opts.history || []).some(h => h.role === 'user'));
     sessionActionsDismissed = false;
-  } else if (!opts.weight || !opts.weight.level || opts.weight.level === 'ok') {
-    sessionActionsDismissed = false;
-  }
+  } else if (!opts.weight || !opts.weight.level || opts.weight.level === 'ok') sessionActionsDismissed = false;
   if (opts.userEcho) currentSessionHasUser = true;
 
   if (opts.scrollback !== undefined) {
@@ -105,14 +104,13 @@ function enterSession(id, opts) {
       if (h.role !== 'assistant' || h.notice !== 'error' || !h.ts) return true;
       return !(opts.history || []).some(o => o !== h && o.role === 'assistant' && !o.notice && o.ts === h.ts && String(o.text || '').trim());
     });
+    if (typeof setChoiceBarSuppressed === 'function') setChoiceBarSuppressed(true);
     hist.forEach(h => {
       // EMPTY_BUBBLE_FIX_v1: skip empty history — never paint hollow bubbles
       if (h.role !== 'btw' && !(String(h.text || '').trim())) return;
-      if (h.role === 'btw') {
-        addBtw(h.query, h.text, false, h.usage, h.duration_seconds, h.ts);
-      } else if (h.role === 'user') {
-        addUserEntry(h.text, Boolean(h.queued), false, h.ts);
-      } else if (h.role === 'assistant') {
+      if (h.role === 'btw') addBtw(h.query, h.text, false, h.usage, h.duration_seconds, h.ts);
+      else if (h.role === 'user') addUserEntry(h.text, Boolean(h.queued), false, h.ts);
+      else if (h.role === 'assistant') {
         // QUOTA_ERR_DEDUP_v1: history notice via addNotice
         const nk = h.notice || (h.system ? (typeof h.system === 'string' ? h.system : 'info') : ''); // NOTICE_FLAG_ONLY_v1: no text inference
         if (nk) addNotice(nk, h.text || '', h.ts);
@@ -120,6 +118,7 @@ function enterSession(id, opts) {
       }
       lastSyncedTs = Math.max(lastSyncedTs, h.ts || 0);
     });
+    if (typeof setChoiceBarSuppressed === 'function') setChoiceBarSuppressed(false);
     // Each addChat() call already scrolls to bottom as it's added, but
     // that's measured against scrollHeight *at that instant* -- an
     // assistant message with an image (common: image responses generate a lot of
@@ -190,6 +189,7 @@ function enterSession(id, opts) {
   bindEvents(id);
   fetchArtifacts(true);
   fetchLog();
+  if (typeof syncLastChoices === 'function') syncLastChoices();
 }
 
 async function openSession(id, _redirDepth, bannerOverride, noRedirect) {
@@ -369,9 +369,7 @@ async function resyncFromServer(sid) {
       // myPendingMids is deliberately NOT cleared here: an idle server does not mean my sent
       // message is done -- during a steer respawn the server is idle until it writes the
       // message and acks it, and clearing turned my own ack into "someone else's" (a 2nd bubble).
-      if (isBusy) {
-        setBusy(false);
-      }
+      if (isBusy) setBusy(false);
     }
 
     repairMsgOrder();

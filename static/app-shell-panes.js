@@ -12,7 +12,7 @@ function shellSetDev(on) {
   document.body.classList.toggle('dev-mode', Boolean(on));
   try { localStorage.setItem(SHELL_DEV_KEY, on ? '1' : '0'); } catch (_) { /* private window */ }
 }
-const SHELL_PANES = { artifacts: 'files', sessions: 'history', activity: 'log', status: 'accounts', team: 'characters', evolution: 'improve', appearance: 'appearance' };
+const SHELL_PANES = { artifacts: 'files', sessions: 'history', activity: 'log', status: 'accounts', team: 'characters', evolution: 'improve', appearance: 'appearance', chat_settings: 'chat_settings' };
 const STATUS_SECTIONS = ['accounts', 'instructions', 'skills', 'mcp'];
 const TEAM_SECTIONS = ['characters', 'roles', 'auto_react'];
 function shellProfileRows(ctx) {
@@ -37,6 +37,7 @@ function shellModelOptions(choices, current) {
 function shellSettingsRows(ctx) {
   const rows = [
     { k: 'appearance', label: SHELL_TEXT.appearance },
+    { k: 'chat_settings', label: SHELL_TEXT.chat_settings },
     { k: 'accounts', label: SHELL_TEXT.accounts },
     { k: 'characters', label: SHELL_TEXT.characters },
     { k: 'roles', label: SHELL_TEXT.roles },
@@ -54,6 +55,7 @@ function shellSettingsRows(ctx) {
 }
 const SHELL_ICONS = {
   appearance: '<circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
+  chat_settings: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   accounts: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
   characters: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   roles: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
@@ -262,6 +264,79 @@ function shellAppearanceDraw() {
     });
   }
 }
+var CHAT_KEEP_CHOICES_KEY = 'pe_chat_keep_choices';
+function isChoiceKeepEnabled() {
+  try { return typeof localStorage !== 'undefined' && localStorage ? (localStorage.getItem(CHAT_KEEP_CHOICES_KEY) !== '0') : true; } catch (_) { return true; }
+}
+function setChoiceKeepEnabled(on) {
+  try { if (typeof localStorage !== 'undefined' && localStorage) localStorage.setItem(CHAT_KEEP_CHOICES_KEY, on ? '1' : '0'); } catch (_) {}
+}
+function shellChatSettingsEnsure() {
+  let p = document.getElementById('chatSettingsPane');
+  if (p) return p;
+  const stage = (document.querySelector && (document.querySelector('.stage-shell') || document.querySelector('.stage'))) || document.body;
+  if (!stage) return null;
+  p = shellEl('div', 'shell-chat-settings');
+  p.id = 'chatSettingsPane';
+  p.setAttribute('role', 'tabpanel');
+  p.style.cssText = 'display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch';
+  const sec = shellEl('section', 'status-section');
+  const h2 = shellEl('h2', 'status-head-row');
+  const icon = shellRowIcon('chat_settings');
+  if (icon) h2.appendChild(icon);
+  h2.appendChild(shellEl('span', '', SHELL_TEXT.chat_settings || ''));
+  sec.appendChild(h2);
+  const list = shellEl('div', 'status-list');
+  const item = shellEl('div', 'status-item');
+  item.id = 'chatKeepChoicesRow';
+  item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;cursor:pointer';
+  const textWrap = shellEl('div', '');
+  const nameEl = shellEl('div', 'status-item-name', SHELL_TEXT.keepChoices || '');
+  nameEl.id = 'chatKeepChoicesLabel';
+  const hintEl = shellEl('div', 'status-hint', SHELL_TEXT.keepChoicesHint || '');
+  hintEl.id = 'chatKeepChoicesHint';
+  textWrap.append(nameEl, hintEl);
+  const sw = shellEl('button', 'shell-rowbtn');
+  sw.id = 'chatKeepChoicesSwitch';
+  sw.type = 'button';
+  sw.setAttribute('role', 'switch');
+  sw.style.width = 'auto';
+  sw.style.padding = '.4rem';
+  sw.appendChild(shellEl('span', 'switch-ui'));
+  item.append(textWrap, sw);
+  list.appendChild(item);
+  sec.appendChild(list);
+  p.appendChild(sec);
+  stage.appendChild(p);
+  return p;
+}
+function shellChatSettingsDraw() {
+  const p = shellChatSettingsEnsure();
+  if (!p) return;
+  const on = typeof isChoiceKeepEnabled === 'function' ? isChoiceKeepEnabled() : true;
+  const sw = document.getElementById('chatKeepChoicesSwitch'), row = document.getElementById('chatKeepChoicesRow');
+  if (sw) { sw.classList.toggle('on', on); sw.setAttribute('aria-checked', String(on)); }
+  if (row && !row._bound) {
+    row._bound = true;
+    row.addEventListener('click', () => {
+      const next = !(typeof isChoiceKeepEnabled === 'function' ? isChoiceKeepEnabled() : true);
+      if (typeof setChoiceKeepEnabled === 'function') setChoiceKeepEnabled(next);
+      if (!next) {
+        if (typeof resetChoiceBar === 'function') resetChoiceBar();
+        else if (typeof window !== 'undefined' && typeof window.resetChoiceBar === 'function') window.resetChoiceBar();
+      } else {
+        if (typeof syncLastChoices === 'function') syncLastChoices();
+        else if (typeof window !== 'undefined' && typeof window.syncLastChoices === 'function') window.syncLastChoices();
+      }
+      shellChatSettingsDraw();
+    });
+  }
+}
+if (typeof window !== 'undefined') {
+  window.isChoiceKeepEnabled = isChoiceKeepEnabled;
+  window.setChoiceKeepEnabled = setChoiceKeepEnabled;
+  window.shellChatSettingsDraw = shellChatSettingsDraw;
+}
 function shellArtGone() {
   const m = document.getElementById('artManager');
   if (m && m.classList.contains('shell-art')) m.remove();
@@ -397,6 +472,7 @@ function shellSettingsOpen() {
     const b = shellRowButton(row);
     b.addEventListener('click', () => {
       if (row.k === 'appearance') return shellGoPane('appearance', 'settings');
+      if (row.k === 'chat_settings') return shellGoPane('chat_settings', 'settings');
       if (TEAM_SECTIONS.includes(row.k)) return shellGoTeamSection(row.k, 'settings');
       if (STATUS_SECTIONS.includes(row.k)) return shellGoStatus(row.k, 'settings');
       if (SHELL_PANES[row.k]) return shellGoPane(row.k, 'settings');
@@ -447,10 +523,14 @@ function shellPanelsInit() {
     const appPane = document.getElementById('appearancePane');
     if (appPane) appPane.style.display = (now === 'appearance' ? 'flex' : 'none');
     if (now === 'appearance') shellAppearanceDraw();
+    const chatPane = document.getElementById('chatSettingsPane');
+    if (chatPane) chatPane.style.display = (now === 'chat_settings' ? 'flex' : 'none');
+    if (now === 'chat_settings') shellChatSettingsDraw();
     if (now === 'status') shellStatusFilter();
     if (now === 'team') shellTeamFilter();
     const title = now === 'art' ? SHELL_TEXT.art
       : now === 'appearance' ? SHELL_TEXT.appearance
+      : now === 'chat_settings' ? (SHELL_TEXT.chat_settings || '')
       : now === 'team' && shellState.teamOnly ? SHELL_TEXT.manage
       : now === 'team' ? (SHELL_TEXT[shellState.teamSection || 'characters'] || SHELL_TEXT.characters)
       : now === 'status' ? (SHELL_TEXT[shellState.statusOnly || 'accounts'] || SHELL_TEXT.accounts)

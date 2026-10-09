@@ -27,6 +27,8 @@ const setTimeout = () => 0, clearTimeout = () => {}, setInterval = () => 0;
 function movePlaceNow() { return SHELL_TEXT.privateRoom; }   // app-move.js (PLACE_MOVE_v1): no visit place here
 const cls = new Set(['shell2']);
 const classList = { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) };
+const storage = new Map();
+const localStorage = { getItem: (k) => storage.has(k) ? storage.get(k) : null, setItem: (k, v) => storage.set(k, String(v)), removeItem: (k) => storage.delete(k), clear: () => storage.clear() };
 // a small DOM for the list: enough to see which rows exist, in what order, and how often a picture is loaded
 const srcSets = [];
 const mkEl = (tag) => {
@@ -115,8 +117,16 @@ return (async () => {
     plusBare: shellPlusList({ private: false, attach: '', geo: null, slash: '' }).map(x => x.k),
     text: ['title', 'search', 'empty', 'private', 'room', 'newRoom', 'back', 'list', 'fresh', 'you', 'office', 'privateRoom', 'near', 'brain', 'more', 'act', 'menu', 'online',
       'profile', 'settings', 'back2', 'close', 'dev', 'details', 'theme', 'files', 'history', 'art', 'model', 'log', 'accounts', 'instructions', 'skills', 'mcp', 'team', 'manage', 'improve', 'revive',
-      'appearance', 'auto_react', 'characters', 'roles'].every(k => SHELL_TEXT[k]),
+      'appearance', 'chat_settings', 'auto_react', 'characters', 'roles'].every(k => SHELL_TEXT[k]),
   };
+  const defaultKeep = isChoiceKeepEnabled();
+  setChoiceKeepEnabled(false);
+  const offKeep = isChoiceKeepEnabled();
+  const rawOff = localStorage.getItem('pe_chat_keep_choices');
+  setChoiceKeepEnabled(true);
+  const onKeep = isChoiceKeepEnabled();
+  const rawOn = localStorage.getItem('pe_chat_keep_choices');
+  o.choiceKeep = { defaultKeep, offKeep, rawOff, onKeep, rawOn };
   // drawing: nothing before the first load; then rows are kept and updated in place
   shellListDraw();
   o.beforeReady = box.children.length;
@@ -396,8 +406,8 @@ class ShellList(unittest.TestCase):
         card = [r["k"] for r in o["profile"]]
         gear = [r["k"] for r in o["settings"]]
         self.assertEqual(card, ["art", "sessions", "artifacts", "manage"])      # the character's own things
-        self.assertEqual(gear, ["appearance", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "push", "dev", "activity", "evolution", "revive"])
-        self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(["activity", "appearance", "artifacts", "evolution", "sessions"]))
+        self.assertEqual(gear, ["appearance", "chat_settings", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "push", "dev", "activity", "evolution", "revive"])
+        self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(["activity", "appearance", "artifacts", "chat_settings", "evolution", "sessions"]))
         # the team pane is in two: one character's card from its profile, the shared part from the settings
         self.assertEqual(o["teamShows"], [True, False, False, False, True])
         # the status pane is split into individual menus (accounts, instructions, skills, mcp)
@@ -407,7 +417,7 @@ class ShellList(unittest.TestCase):
         self.assertIn("shellGoTeamSection(row.k, 'settings')", src)
         self.assertIn("shellGoStatus(row.k, 'settings')", src)
         self.assertIn("card.setAttribute('data-character-id', ex.id || '')", (STATIC / "app-team.js").read_text(encoding="utf-8"))
-        self.assertEqual(sorted(o["panes"]), ["activity", "appearance", "artifacts", "evolution", "sessions", "status", "team"])
+        self.assertEqual(sorted(o["panes"]), ["activity", "appearance", "artifacts", "chat_settings", "evolution", "sessions", "status", "team"])
         # the log and improvement are developer mode's -- a switch of its own, apart from "details"
         self.assertEqual([r["k"] for r in o["profile"] + o["settings"] if r.get("dev")], ["activity", "evolution"])
         self.assertFalse([r for r in o["profile"] + o["settings"] if r.get("adv")])
@@ -431,7 +441,33 @@ class ShellList(unittest.TestCase):
         self.assertIn("pickModel(o.value)", card)
         self.assertNotIn("toggleProviderTray", card)               # ... without leaving the card for them
         self.assertNotIn("showModelMenu", card)
-        self.assertEqual(o["settingsShipped"], ["appearance", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "push", "dev", "activity", "evolution"])
+        self.assertEqual(o["settingsShipped"], ["appearance", "chat_settings", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "push", "dev", "activity", "evolution"])
+
+    def test_chat_settings_panel_and_toggle(self):
+        o = self.o
+        gear = [r["k"] for r in o["settings"]]
+        self.assertIn("chat_settings", gear)
+        self.assertEqual(o["panes"]["chat_settings"], "chat_settings")
+        self.assertEqual(o["choiceKeep"], {
+            "defaultKeep": True,
+            "offKeep": False,
+            "rawOff": "0",
+            "onKeep": True,
+            "rawOn": "1",
+        })
+        src = shell_src()
+        self.assertIn("pe_chat_keep_choices", src)
+        self.assertIn("shellGoPane('chat_settings', 'settings')", src)
+        self.assertIn("shellChatSettingsDraw", src)
+        self.assertIn("chatKeepChoicesSwitch", src)
+        md_src = (STATIC / "markdown.js").read_text(encoding="utf-8")
+        self.assertIn("pe_chat_keep_choices", md_src)
+        self.assertIn("isChoiceKeepEnabled", md_src)
+        self.assertIn("setChoiceBarSuppressed", md_src)
+        self.assertIn("syncLastChoices", md_src)
+        sess_src = (STATIC / "app-session.js").read_text(encoding="utf-8")
+        self.assertIn("syncLastChoices", sess_src)
+        self.assertIn("setChoiceBarSuppressed", sess_src)
 
     def test_the_tab_bar_is_hidden_and_a_pane_leads_back(self):
         self.assertIn("html.shell2 header .bar{display:none}", CSS)

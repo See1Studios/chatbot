@@ -101,9 +101,7 @@ function attachCodeCopyButtons(container) {
 }
 
 function highlightCodeIn(container) {
-  // Gated to isFinal only (like renderMermaidIn) -- re-highlighting on every
-  // streaming delta would re-run hljs over the whole block on each tick and
-  // can momentarily mis-highlight code that's still mid-fence.
+  // Gated to isFinal only to avoid re-highlighting on streaming deltas.
   if (!container) return;
   const blocks = container.querySelectorAll('pre code:not(.hljs)');
   if (!blocks.length) return;
@@ -116,10 +114,7 @@ function highlightCodeIn(container) {
     if (!pre || pre.classList.contains('mermaid') || pre.closest('.mermaid-wrap')) return;
     try {
       hljs.highlightElement(block);
-      // Read the language back off the class hljs itself just set --
-      // covers both an explicit ```lang fence and hljs's own auto-detection,
-      // so the badge is always accurate instead of only showing up for
-      // explicitly-labeled fences.
+      // Read language from class hljs set for accurate badge.
       const m = block.className.match(/language-([\w+-]+)/);
       if (m && !pre.querySelector('.code-lang')) {
         const tag = document.createElement('span');
@@ -145,19 +140,14 @@ function attachImageLightbox(container) {
   });
 }
 
-// FILE_LINKS_v1 (2026-09-28): a path in an answer opens the file preview. Agents write paths in backticks
-// (`static/app-sse.js`, `docs/plans/INDEX.md:120`, `tickets.py::claim`) or bare (~/services/x.md), and only
-// explicit markdown links used to work -- and not even those for ~/ or relative hrefs, which the sanitiser
-// drops. Recognition is here; whether a file may be shown is only the server's allow-list (preview_guard.py).
-// Links are added to the sanitised DOM with createElement/textContent, so nothing here reaches innerHTML.
+// FILE_LINKS_v1: open file preview on recognized path references.
 const FILE_EXTS = 'py|js|mjs|ts|tsx|jsx|md|json|jsonl|css|html|sh|txt|yml|yaml|toml|ini|cfg|conf|csv|log|sql|xml|webp|png|jpe?g|gif|svg|pdf';
 const FILE_REF = new RegExp(
   '^(?:file://)?((?:~|\\.{1,2})?/?(?:[\\w.@+-]+/)*[\\w.@+-]*\\.(?:' + FILE_EXTS + ')|(?:~/(?:[\\w.@+-]+/)*|/(?:[\\w.@+-]+/)+)[\\w.@+-]+)' +
   '(?:(?::|#L)(\\d+)(?:-L?(\\d+))?|::[\\w.]+)?$', 'i');
 const NOT_FILES = /^(?:\/(?:api|chat|artifacts)\/|\/\/|[a-z][a-z0-9+.-]*:\/\/(?!\/)|www\.)/i;
 
-// {path, start, end} for a string that is one file reference, else null. A bare name ("app.js") counts only
-// where the caller says so (a code span), because in prose "e.g." or "v1.2" is not a file.
+// Parse single file reference {path, start, end} or null.
 function parseFileRef(text, allowBareName) {
   const t = String(text || '').trim();
   if (!t || t.length > 400 || /\s/.test(t) || NOT_FILES.test(t)) return null;
@@ -272,13 +262,7 @@ function attachArtifactLinkInterceptors(container) {
   });
 }
 
-// Quick-reply chips. The agent ends a question with one line
-//   <!--choices: option A | option B | option C-->
-// (operator: "when asking an opinion, choice buttons at the end"). The marker never shows as text:
-// it is cut from the rendered/copied body, including a half-streamed one, and
-// becomes buttons once the message is final. '|' instead of JSON so a stray
-// quote from the model cannot break it.
-// The body may not cross another `<!--`: a reply that quotes the syntax earlier keeps its text.
+// Quick-reply chips marker: <!--choices: opt1 | opt2-->
 const CHOICES_TAIL = /\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$/;
 const CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
 const CHOICES_MAX = 4;
@@ -298,9 +282,8 @@ const THOUGHT_STATE_BLOCK = /```state\s*\{[\s\S]*?"thought":\s*"([^"]+)"[\s\S]*?
 const THOUGHT_STATE_ANY = /```state\s*\{[\s\S]*?\}\s*```/iy;
 const THOUGHT_TAG = /<thought(?:\s+[^>]*)?>([\s\S]*?)<\/thought>/iy;
 const THOUGHT_OPEN_TAG = /<thought(?:\s+[^>]*)?>/iy;
-// A strictly partial tag at the very end: '<' .. '<thought' (no '>') -- only a stream cut looks like this.
+// Partial tag / legacy corrupt fragments cut handling.
 const THOUGHT_PARTIAL = /<(?:t(?:h(?:o(?:u(?:g(?:h(?:t(?:\s[^>]*)?)?)?)?)?)?)?)?$/iy;
-// Legacy corrupt fragments (#187): '<thoug' + U+FFFD, '<thoug...>', an orphan '</thought>', a name cut by a non-word char.
 const THOUGHT_FRAGMENT = /(?:<\/?(?:thought|though|thoug|thou)(?:�+|\.\.\.>?|(?=[^\w\s<>]))|<\/thought\s*>|<(?:though|thoug|thou)>)\s*/iy;
 const THOUGHT_FENCE_INFO = /thought(?![\w-])/iy;
 
@@ -315,9 +298,7 @@ function backtickRun(s, i) {
   return j - i;
 }
 
-// Single pass: code (inline spans, fences other than ```thought) is copied verbatim and never read
-// as a thought marker; complete <thought>..</thought> pairs, ```thought fences and ```state blocks
-// move to `thought`; an unclosed marker or a partial tag at the end is hidden only while streaming.
+// Parse thought blocks (<thought>, ```thought, ```state) and strip streaming partials.
 function parseThought(text, streaming) {
   const s = String(text || '');
   const thoughts = [];
@@ -426,9 +407,7 @@ function stripOuterParens(s) {
 }
 
 function classifyChoicePayload(rawPayload) {
-  // Normalize curly/smart quotes and fullwidth parens so pure (action) still → /act.
-  // #246: ALL choice clicks are ACTIONS. Dialogue on a chip is optional flavor baked
-  // into the action (/act wire) — NOT plain say. Real speech = user typing.
+  // Normalize quotes and parens; all choice clicks are actions (#246).
   let s = String(rawPayload || '').trim();
   if (!s) return { kind: 'say', payload: '', isAction: false };
   s = s
@@ -654,9 +633,48 @@ function getChoiceBarEl() {
   return null;
 }
 
+var _suppressChoiceBar = false;
+function isChoiceBarSuppressed() { return Boolean(_suppressChoiceBar); }
+function setChoiceBarSuppressed(on) { _suppressChoiceBar = Boolean(on); }
+function isChoiceKeepEnabled() {
+  try { return typeof window !== 'undefined' && typeof window.isChoiceKeepEnabled === 'function' ? window.isChoiceKeepEnabled() : (typeof localStorage !== 'undefined' && localStorage ? localStorage.getItem('pe_chat_keep_choices') !== '0' : true); } catch (_) { return true; }
+}
+function resetChoiceBar() {
+  const bar = getChoiceBarEl();
+  if (bar) {
+    if (bar.classList && typeof bar.classList.remove === 'function') bar.classList.remove('closing');
+    bar.textContent = ''; bar.hidden = true; bar._owner = null;
+    if (typeof updateScrollBottomButton === 'function') updateScrollBottomButton();
+  }
+}
+function syncLastChoices() {
+  if (!isChoiceKeepEnabled()) { resetChoiceBar(); return; }
+  if (typeof logEl === 'undefined' || !logEl) return;
+  const msgs = logEl.querySelectorAll('.msg:not(.system)');
+  const last = msgs.length ? msgs[msgs.length - 1] : null;
+  const isAssistant = last && (last.classList ? last.classList.contains('assistant') : /\bassistant\b/.test(last.className || ''));
+  if (last && isAssistant && last._choices && last._choices.length) renderChoiceChips(last, last._choices);
+  else resetChoiceBar();
+  syncChoiceChips();
+}
+if (typeof window !== 'undefined') {
+  window.setChoiceBarSuppressed = setChoiceBarSuppressed;
+  window.resetChoiceBar = resetChoiceBar;
+  window.syncLastChoices = syncLastChoices;
+  if (!window.isChoiceKeepEnabled) window.isChoiceKeepEnabled = isChoiceKeepEnabled;
+}
+
 function renderChoiceChips(node, choices, isPrepend) {
   const md = node ? (node.querySelector('.md') || node) : null;
   if (md) md.querySelectorAll('.choice-chips').forEach(el => el.remove());
+
+  if (!isChoiceKeepEnabled()) {
+    resetChoiceBar();
+    return;
+  }
+  if (isChoiceBarSuppressed()) {
+    return;
+  }
 
   const isPrependState = Boolean(isPrepend || (node && (node._prepend || (node.dataset && node.dataset.prepend === '1'))));
   let isNotLatestAssistant = false;
@@ -761,11 +779,21 @@ function renderChoiceChips(node, choices, isPrepend) {
   }
 }
 
-// Only the newest message may offer choices: once anything follows (the user's
-// answer, a new turn's progress bubble), older chips are stale. Called after
-// every insert so history loads and live turns end up the same.
+// Keep choice chips only on newest assistant message.
 function syncChoiceChips() {
   if (typeof logEl === 'undefined' || !logEl) return;
+  if (!isChoiceKeepEnabled()) {
+    resetChoiceBar();
+    logEl.querySelectorAll('.choice-chips').forEach(row => {
+      if (row.parentElement && row.parentElement.className === 'choice-card') {
+        row.parentElement.remove();
+      } else {
+        row.remove();
+      }
+    });
+    return;
+  }
+  if (isChoiceBarSuppressed()) return;
   const msgs = logEl.querySelectorAll('.msg:not(.system)');
   const last = msgs.length ? msgs[msgs.length - 1] : null;
   const bar = getChoiceBarEl();
@@ -800,22 +828,14 @@ function expressionEmoji(expression) {
 }
 
 function paintExpressionBadge(node, rawText) {
-  // STREAM_FLOW_v1: the expression is the one piece of post-processing cheap enough to keep while the answer is
-  // still streaming, so the character keeps showing how it feels while it speaks.
-  // BUBBLE_AVATAR_v1: no chip in the text any more -- the bubble carries the expression and the character's
-  // picture above its run shows it (chat-log.css). Attributes on the bubble outlive the text's re-renders.
+  // STREAM_FLOW_v1 / BUBBLE_AVATAR_v1: expression badge on bubble during streaming.
   const parsedExp = parseExpression(rawText);
   if (!parsedExp.expression) return;
   node.dataset.expression = parsedExp.expression;
   node.dataset.exp = expressionEmoji(parsedExp.expression);
 }
 
-// STREAM_FLOW_v1: the cheap projection of a still-growing answer -- strip what the model emits as
-// markup and hide the thought block the way the UI hides it mid-sentence, but do no markdown
-// parsing and no sanitising. That work belongs to the final render, once, not to every frame.
-// CHOICES_LEAK_RESCUE_v1: a choices tool call a model wrote into its answer as text is taken out on the
-// server when the turn ends (providers/adapter_base.py::rescue_leaked_choices). While the answer is still
-// arriving it is hidden from where it starts, so the JSON is never typed out on screen.
+// STREAM_FLOW_v1 / CHOICES_LEAK_RESCUE_v1: cheap stream text projection and leaked tool call hiding.
 const LEAKED_TOOL_CALL = /\s*(?:<\/?tool_call>[\s\S]*|\{\s*"(?:name|action)"\s*:\s*"choices"[\s\S]*)$/;
 function hideLeakedToolCall(src) {
   return String(src || '').replace(LEAKED_TOOL_CALL, '');
@@ -875,10 +895,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
     renderMermaidIn(node);
     highlightCodeIn(node);
     typeof renderMapsIn === 'function' && renderMapsIn(node);
-    // Client-side system notices (/help, /status, /clear, stop confirmation)
-    // reuse the assistant bubble's markdown rendering but aren't real LLM
-    // replies -- no token badge / copy / TTS chips belong on them (operator:
-    // "system messages without the copy/speaker chips, kept short").
+    // System notices omit action chips.
     if (!skipFooter) attachMessageFooter(node, rawText, usage, durationSeconds, servedModel);
   }
   if (typeof stageSync === 'function') stageSync(node.querySelector('.md'));   // STAGE_v1 (app-stage.js): face, thought
@@ -906,9 +923,7 @@ function renderMarkdown(src, isFinal) {
   if (parsedTh.thought || parsedTh.cleanText !== raw) {
     raw = parsedTh.cleanText;
   }
-  // Fix the CommonMark/marked edge case where bold/italic ending in punctuation (", ), ], etc.) right before a
-  // non-ASCII letter fails to parse -- a particle or word with no space before it, in any script (Korean, Japanese,
-  // Chinese...); ASCII letters are left to marked, so a*b*c or code keeps its stars
+  // Fix bold/italic ending in punctuation before non-ASCII characters.
   raw = raw.replace(/\*\*([^*\n]+?)\*\*((?![\x00-\x7F])\p{L})/gu, '<strong>$1</strong>$2');
   raw = raw.replace(/(^|[^*])\*([^*\n]+?)\*((?![\x00-\x7F])\p{L})/gu, '$1<em>$2</em>$3');
   if (window.marked && typeof marked.parse === 'function') {
@@ -931,17 +946,14 @@ function renderMarkdown(src, isFinal) {
           '<div class="mermaid-wrap"><pre class="mermaid">' + c.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"') + '</pre></div>');
         html = html.replace(/<pre><code class="(?:language-)?map">([\s\S]*?)<\/code><\/pre>/g, (m, c) => typeof renderMapBlock === 'function' ? renderMapBlock(c) : m);
       }
-      // Sanitize: block javascript: hrefs and inline event handlers.
-      // ADD_ATTR keeps target/loading/rel/class attributes; class names like
-      // "local-file-link" and "mermaid" survive because DOMPurify keeps class.
+      // Sanitize: block javascript: and inline events; preserve classes.
       if (window.DOMPurify) {
         html = DOMPurify.sanitize(html, {
           ADD_ATTR: ['target', 'loading', 'rel', 'data-lat', 'data-lon', 'data-zoom', 'data-marker'],
           ALLOWED_URI_REGEXP: /^(?:https?|mailto|\/|\.\/|#)/i,
         });
       } else {
-        // DOMPurify absent (vendor file missing): refuse to inject unsanitized
-        // HTML — fall back to escaped plain text so XSS is impossible.
+        // Fall back to escaped plain text if DOMPurify is absent.
         console.warn('renderMarkdown: DOMPurify not loaded; falling back to plain-text escape.');
         return html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       }
@@ -954,12 +966,7 @@ function renderMarkdown(src, isFinal) {
   return renderPlainText(raw);
 }
 
-// PLAIN_RENDER_v1: escaping plus the inline forms -- bold, italics, inline and fenced code, images,
-// links, line breaks -- with no markdown parse and no sanitiser pass. It is what the whole page
-// falls back to when marked is unavailable, and it is also cheap enough to run on every frame of a
-// stream, so a reply can look like its finished self while it is still arriving instead of showing
-// raw **syntax** and then snapping to rendered markdown. Escaping first is what makes it safe to
-// inject: nothing that was not produced by the rules below survives into the DOM.
+// PLAIN_RENDER_v1: fallback renderer for streams and when marked is unavailable.
 function renderPlainText(raw) {
   function _esc(s) {
     return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
