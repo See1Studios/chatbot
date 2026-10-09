@@ -100,7 +100,7 @@ process.stdout.write(JSON.stringify(textWithChoices({ text: '선택해', choices
         self.assertEqual(json.loads(r.stdout), "선택해\n<!--choices: 동의 | 미소 -> (미소짓는다) | 승인 -> command: /ticket approve 10-->")
 
     def test_markdown_parse_choice_item(self):
-        md_file = ROOT / "static" / "markdown.js"
+        choices_file = ROOT / "static" / "app-choices.js"
         js = r"""
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
@@ -112,7 +112,7 @@ const r3 = parseChoiceItem('C -> (끄덕임)');
 const r4 = parseChoiceItem('일반 보기');
 process.stdout.write(JSON.stringify([r1, r2, r3, r4]));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(choices_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout)
         self.assertEqual(out[0], {"label": "A", "kind": "action", "payload": "웃음", "action": "웃음", "isAction": True})   # parens stripped (#153)
@@ -122,8 +122,10 @@ process.stdout.write(JSON.stringify([r1, r2, r3, r4]));
 
     def test_markdown_event_choices_take_priority_over_text(self):
         md_file = ROOT / "static" / "markdown.js"
+        choices_file = ROOT / "static" / "app-choices.js"
         js = r"""
 const fs = require('fs');
+const choicesSrc = fs.readFileSync(process.argv[process.argv.length - 2], 'utf8');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
 // Mock DOM
 let renderedChoices = null;
@@ -134,9 +136,6 @@ global.attachCodeCopyButtons = function() {};
 global.attachImageLightbox = function() {};
 global.attachFileLinkInterceptors = function() {};
 global.attachMessageFooter = function() {};
-global.CHOICES_TAIL = /\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$/;
-global.CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
-global.CHOICES_MAX = 4;
 global.EXPRESSION_HEAD = /^\s*\[expression:\s*([a-zA-Z]+)\]\s*/;
 global.EXPRESSION_EMOJIS = {};
 global.THOUGHT_STATE_BLOCK = /```state\s*\{[\s\S]*?"thought":\s*"([^"]+)"[\s\S]*?\}\s*```/i;
@@ -144,6 +143,7 @@ global.THOUGHT_STATE_ANY = /```state\s*\{[\s\S]*?\}\s*```/i;
 global.THOUGHT_TAG = /<thought>([\s\S]*?)<\/thought>/i;
 global.THOUGHT_BLOCK = /```thought\s*([\s\S]*?)```/i;
 
+eval(choicesSrc);
 const a = src.indexOf('function parseExpression'), b = src.indexOf('function dedupeMarkdownImages', a);
 eval(src.slice(a, b));
 renderChoiceChips = function(node, choices) { renderedChoices = choices; };
@@ -158,14 +158,14 @@ const secondRun = renderedChoices;
 
 process.stdout.write(JSON.stringify({ eventFirst: firstRun, fallback: secondRun }));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(choices_file), str(md_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["eventFirst"], ["이벤트선택1", "이벤트선택2"])
         self.assertEqual(res["fallback"], ["본문선택A", "본문선택B"])
 
     def test_markdown_renders_choices_into_choice_bar_container(self):
-        md_file = ROOT / "static" / "markdown.js"
+        choices_file = ROOT / "static" / "app-choices.js"
         js = r"""
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
@@ -180,9 +180,6 @@ function el(tag) {
 }
 
 global.choiceBarEl = el('div');
-global.CHOICES_TAIL = /\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$/;
-global.CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
-global.CHOICES_MAX = 4;
 global.document = {
   createElement(tag) {
     return {
@@ -195,8 +192,7 @@ global.document = {
   }
 };
 
-const a = src.indexOf('function stripOuterParens'), b = src.indexOf('function postProcessAssistant', a);
-eval(src.slice(a, b));
+eval(src);
 
 renderChoiceChips(null, ['선택1', '선택2']);
 const card = choiceBarEl.children[0] || {};
@@ -209,7 +205,7 @@ process.stdout.write(JSON.stringify({
   chipCount
 }));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(choices_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["hidden"], False)
@@ -219,7 +215,7 @@ process.stdout.write(JSON.stringify({
     def test_sync_keeps_the_bar_its_newest_message_drew(self):
         """#148: the card sits in #choiceBar, outside the bubble. Choices drawn from the marker (result event, resync,
         history -- the paths a phone takes) set no _choices, and syncChoiceChips right after must not hide them."""
-        md_file = ROOT / "static" / "markdown.js"
+        choices_file = ROOT / "static" / "app-choices.js"
         js = r"""
 const src = require('fs').readFileSync(process.argv[process.argv.length - 1], 'utf8');
 function el(tag) {
@@ -237,8 +233,7 @@ function el(tag) {
     querySelector(sel) { return this.querySelectorAll(sel)[0] || null; } };
 }
 const logEl = el('div'), choiceBarEl = el('div');
-const a = src.indexOf('const CHOICES_TAIL'), b = src.indexOf('function postProcessAssistant');
-const api = new Function('logEl', 'choiceBarEl', 'document', src.slice(a, b) +
+const api = new Function('logEl', 'choiceBarEl', 'document', src +
   ';return { splitChoices, renderChoiceChips, syncChoiceChips };')(logEl, choiceBarEl, { createElement: el });
 function msg(cls) { const m = el('div'); m.className = cls; const md = el('div'); md.className = 'md'; m.appendChild(md); logEl.appendChild(m); return m; }
 const m = msg('msg assistant');
@@ -249,7 +244,7 @@ msg('msg user');
 api.syncChoiceChips();
 process.stdout.write(JSON.stringify({ kept, clearedAfterUser: choiceBarEl.hidden }));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(choices_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout), {"kept": True, "clearedAfterUser": True})
 
@@ -294,14 +289,14 @@ process.stdout.write(JSON.stringify({ heldBeforeBubble, taken, droppedOnUserTurn
     def test_back_to_work_closes_the_bar_and_is_not_said(self):
         """The stay chip is a page command. Clicking it clears the choice bar and does not send the label."""
         page = ROOT / "static" / "app-messages.js"
-        md = ROOT / "static" / "markdown.js"
+        choices = ROOT / "static" / "app-choices.js"
         js = r"""
 const fs = require('fs');
 const files = process.argv.slice(1).filter(a => a.endsWith('.js'));
 const page = fs.readFileSync(files[0], 'utf8');
-const md = fs.readFileSync(files[1], 'utf8');
+const choicesSrc = fs.readFileSync(files[1], 'utf8');
 eval(page.slice(page.indexOf('function textWithChoices'), page.indexOf('function addChat')));
-eval(md.slice(md.indexOf('function stripOuterParens'), md.indexOf('function splitChoices')));
+eval(choicesSrc.slice(choicesSrc.indexOf('function stripOuterParens'), choicesSrc.indexOf('function splitChoices')));
 function addEventListener() {}
 const owner = { _choices: ['stay'] };
 let scrolled = 0;
@@ -324,7 +319,7 @@ process.stdout.write(JSON.stringify({
   drawn, item, sent, hidden: bar.hidden, text: bar.textContent, choices: owner._choices, scrolled
 }));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(page), str(md)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(page), str(choices)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = json.loads(r.stdout)
         self.assertEqual(out["drawn"], "끝\n<!--choices: 일 계속하기 -> command: /stay-->")

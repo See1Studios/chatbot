@@ -81,7 +81,7 @@ map only says which file does what.
 | Boot and words | `app-i18n.js` (first), `app.js`, `index.html`, `sw.js` |
 | Parts loaded first | `app-{api,device,messages,turn,activity,evolution,status,sessions-tab,team,sse,session,characters,viewport}.js`, `app-status-usage.js`, `app-status-context.js` |
 | Messenger shell | `app-shell.js` (talk list and entering a talk), `app-shell-panes.js` (profile card, settings, and the panes they open), `app-shell-brain.js`, `app-shell-quota.js`, the profile's relationship lines `app-shell-relation.js`, every character setting from the server's list `app-shell-settings.js`, the redesigned profile `app-shell-profile.js`, `app-msgmenu.js`, `app-office.js`; moving between places (the move menu, the door card, "to the office") `app-move.js`; another take and < n/m > `app-regen.js` |
-| How an answer reads | `app-{blocks,stage,think,flow}.js`, `markdown.js`, `markdown-map.js`, `artifacts.js` |
+| How an answer reads | `app-{blocks,stage,think,flow,choices}.js`, `markdown.js`, `markdown-map.js`, `artifacts.js` |
 | Composer | `app-{attach,item,act-key,recall,retry,speech}.js`, `slash.js`, `model-picker.js` |
 | Other screens | rooms `app-rooms.js`, art manager `app-art.js`, dev only `app-dev-delete.js`, log tab `service-log.js`, `theme.js` |
 | Character renderers | `visual-adapter.js`, `visual-sprite-adapter.js` |

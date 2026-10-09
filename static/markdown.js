@@ -262,10 +262,6 @@ function attachArtifactLinkInterceptors(container) {
   });
 }
 
-// Quick-reply chips marker: <!--choices: opt1 | opt2-->
-const CHOICES_TAIL = /\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$/;
-const CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
-const CHOICES_MAX = 4;
 const EXPRESSION_HEAD = /^\s*\[expression:\s*([a-zA-Z]+)\]\s*/;
 const EXPRESSION_EMOJIS = i18nTable('expression');   // I18N_v1: emoji + word per expression id
 
@@ -386,8 +382,19 @@ function parseThought(text, streaming) {
   return { thought: thoughts.length ? thoughts.join('\n') : null, cleanText: out.trim() };
 }
 
+
+
+
+
+
+
+
+var CHOICES_TAIL = /\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$/;
+var CHOICES_OPEN = /\s*<!--\s*choices(?:(?!-->)[\s\S])*$/;
+var CHOICES_MAX = 4;
+var CHOICE_LABEL_MAX = 28;
+
 function stripOuterParens(s) {
-  // Balanced outer (...) only — do not eat trailing ) of an inner "(act)" in "line" (act).
   let out = String(s || '').trim();
   while (out.length >= 2 && out[0] === '(' && out[out.length - 1] === ')') {
     let depth = 0, balanced = true;
@@ -406,15 +413,19 @@ function stripOuterParens(s) {
   return out;
 }
 
+function truncateChoiceLabel(s, max = CHOICE_LABEL_MAX) {
+  const cap = typeof max === 'number' ? max : 28;
+  const str = String(s || '').trim();
+  return str.length <= cap ? str : str.slice(0, cap - 1) + '…';
+}
+
 function classifyChoicePayload(rawPayload) {
-  // Normalize quotes and parens; all choice clicks are actions (#246).
   let s = String(rawPayload || '').trim();
   if (!s) return { kind: 'say', payload: '', isAction: false };
   s = s
     .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
     .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
     .replace(/\uFF08/g, '(').replace(/\uFF09/g, ')');
-  // Combined: "user line" (action) — still action; flavor baked in
   const combo = /^"([^"]*)"\s*\(([\s\S]+)\)\s*$/.exec(s);
   if (combo) {
     const line = combo[1].trim();
@@ -423,8 +434,6 @@ function classifyChoicePayload(rawPayload) {
     const payload = '"' + line + '" (' + act + ')';
     return { kind: 'action', payload, action: payload, isAction: true };
   }
-  // Action-only: (action) — silent /act. Also accept * (action) * italics wrappers.
-  // Outer wrap may enclose dialogue-flavor or combo: ("line") / ("line" (act)).
   const actOnly = /^\*?\s*\(([\s\S]+)\)\s*\*?\s*$/.exec(s);
   if (actOnly) {
     const inner = actOnly[1].trim();
@@ -444,27 +453,17 @@ function classifyChoicePayload(rawPayload) {
     const act = stripOuterParens(inner);
     return { kind: 'action', payload: act, action: act, isAction: true };
   }
-  // Dialogue-flavor: "user line" — still action (flavor), not composer say
   const sayOnly = /^"([^"]*)"\s*$/.exec(s);
   if (sayOnly) {
     const payload = '"' + sayOnly[1].trim() + '"';
     return { kind: 'action', payload, action: payload, isAction: true };
   }
-  // Legacy mismatched quotes
   if (/^["'].*["']$/.test(s)) {
     const payload = '"' + s.slice(1, -1).trim() + '"';
     return { kind: 'action', payload, action: payload, isAction: true };
   }
   const bare = stripOuterParens(s);
   return { kind: 'action', payload: bare, action: bare, isAction: true };
-}
-
-const CHOICE_LABEL_MAX = 28;
-
-function truncateChoiceLabel(s, max = CHOICE_LABEL_MAX) {
-  const cap = typeof max === 'number' ? max : 28;
-  const str = String(s || '').trim();
-  return str.length <= cap ? str : str.slice(0, cap - 1) + '…';
 }
 
 function parseChoiceItem(item) {
@@ -477,42 +476,36 @@ function parseChoiceItem(item) {
     const label = truncate(rawLabel);
     let kind = String(item.kind || (item.isAction ? 'action' : 'say')).trim();
     let payload = item.payload !== undefined ? String(item.payload).trim() : String(item.action || rawLabel || '').trim();
-    // Re-classify string payloads that still carry private-mode forms
     if (kind !== 'command' && /^(?:"[\s\S]*"|[\s\S]*\([\s\S]*\))/.test(payload)) {
       const c = classifyChoicePayload(payload);
       kind = c.kind;
       payload = c.payload;
-      return { label, kind, payload, action: payload, isAction: kind === 'action' };
+    } else if (kind === 'action') {
+      const bare = unwrapParens(payload);
+      payload = /^"/.test(String(payload).trim()) ? String(payload).trim() : bare;
     }
-    return { label, kind, payload, action: payload, isAction: kind === 'action' || Boolean(item.isAction) };
-  }
-  const raw = String(item || '').trim();
-  if (!raw) return null;
-  // Support "Label -> Action" or "Label -> action: Action" or "Label -> command: Command"
-  const arrowIdx = raw.indexOf('->');
-  if (arrowIdx > 0) {
-    const rawLabel = raw.slice(0, arrowIdx).trim();
-    const label = truncate(rawLabel);
-    let action = raw.slice(arrowIdx + 2).trim();
-    if (action.toLowerCase().startsWith('action:')) {
-      const act = action.slice(7).trim().replace(/^\(+|\)+$/g, '').trim();
-      return { label, action: act, payload: act, kind: 'action', isAction: true };
-    }
-    if (action.toLowerCase().startsWith('command:')) {
-      const cmd = action.slice(8).trim();
-      return { label, action: cmd, payload: cmd, kind: 'command', isAction: false };
-    }
-    const c = classifyChoicePayload(action);
-    return { label, action: c.payload, payload: c.payload, kind: c.kind, isAction: c.isAction };
-  }
-  // Support "Label: action: Action"
-  const colonAction = /^(.*?):\s*action:\s*(.*)$/i.exec(raw);
-  if (colonAction) {
-    const label = truncate(colonAction[1].trim());
-    return { label, action: colonAction[2].trim(), payload: colonAction[2].trim(), kind: 'action', isAction: true };
+    const action = String(item.action || payload || rawLabel || '').trim();
+    const isAction = kind === 'action' || Boolean(item.isAction);
+    return { label, action, payload, kind, isAction };
   }
 
-  // Arrow-less action/dialogue pattern or long plain text
+  const raw = String(item || '').trim();
+  if (!raw) return null;
+
+  const arrow = raw.match(/^(.+?)\s*(?:->|→)\s*(.+)$/);
+  if (arrow) {
+    const label = truncate(arrow[1].trim());
+    const actionPart = arrow[2].trim();
+    if (actionPart.startsWith('command:')) {
+      const cmd = actionPart.replace(/^command:\s*/, '').trim();
+      return { label, action: cmd, payload: cmd, kind: 'command', isAction: false };
+    }
+    const classified = classifyChoicePayload(actionPart);
+    const bare = unwrapParens(classified.payload);
+    const wire = /^"/.test(String(classified.payload).trim()) ? String(classified.payload).trim() : bare;
+    return { label, action: wire, payload: wire, kind: 'action', isAction: true };
+  }
+
   const norm = raw
     .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
     .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
@@ -521,7 +514,6 @@ function parseChoiceItem(item) {
   const unwrapped = unwrapParens(clean);
   const hadParens = unwrapped !== clean;
 
-  // 1. Combo: "dialogue" (action) or ("dialogue" (action))
   const combo = /^"([^"]*)"\s*\(([\s\S]+)\)\s*$/.exec(unwrapped);
   if (combo && (combo[1].trim() || unwrapParens(combo[2].trim()))) {
     const line = combo[1].trim(), act = unwrapParens(combo[2].trim());
@@ -529,20 +521,17 @@ function parseChoiceItem(item) {
     return { label: truncate(rawLabel), action: payload, payload, kind: 'action', isAction: true };
   }
 
-  // 2. Dialogue-only: "dialogue" or ("dialogue") or 'dialogue'
   const sayOnly = /^["']([^"']*)["']\s*$/.exec(unwrapped);
   if (sayOnly && sayOnly[1].trim()) {
     const line = sayOnly[1].trim(), payload = '"' + line + '"';
     return { label: truncate(line), action: payload, payload, kind: 'action', isAction: true };
   }
 
-  // 3. Action-only: (action)
   if (hadParens && unwrapped && !/^\d+$|^[a-zA-Z]$/.test(unwrapped)) {
     const payload = '(' + unwrapped + ')';
     return { label: truncate(unwrapped), action: payload, payload, kind: 'action', isAction: true };
   }
 
-  // 4. Long plain text defense (prevent button blowout on mobile)
   if (raw.length > maxLabel) {
     return { label: truncate(raw), action: raw, payload: raw, kind: 'say', isAction: false };
   }
@@ -622,205 +611,6 @@ function sendPickedChoice() {
   send(typeof tapSendOpts === 'function' ? tapSendOpts() : undefined);
 }
 
-function getChoiceBarEl() {
-  if (typeof document !== 'undefined' && document && typeof document.getElementById === 'function') {
-    const el = document.getElementById('choiceBar');
-    if (el) return el;
-  }
-  if (typeof choiceBarEl !== 'undefined' && choiceBarEl) {
-    return choiceBarEl;
-  }
-  return null;
-}
-
-var _suppressChoiceBar = false;
-function isChoiceBarSuppressed() { return Boolean(_suppressChoiceBar); }
-function setChoiceBarSuppressed(on) { _suppressChoiceBar = Boolean(on); }
-function isChoiceKeepEnabled() {
-  try { return typeof window !== 'undefined' && typeof window.isChoiceKeepEnabled === 'function' ? window.isChoiceKeepEnabled() : (typeof localStorage !== 'undefined' && localStorage ? localStorage.getItem('pe_chat_keep_choices') !== '0' : true); } catch (_) { return true; }
-}
-function resetChoiceBar() {
-  const bar = getChoiceBarEl();
-  if (bar) {
-    if (bar.classList && typeof bar.classList.remove === 'function') bar.classList.remove('closing');
-    bar.textContent = ''; bar.hidden = true; bar._owner = null;
-    if (typeof updateScrollBottomButton === 'function') updateScrollBottomButton();
-  }
-}
-function syncLastChoices() {
-  if (!isChoiceKeepEnabled()) { resetChoiceBar(); return; }
-  if (typeof logEl === 'undefined' || !logEl) return;
-  const msgs = logEl.querySelectorAll('.msg:not(.system)');
-  const last = msgs.length ? msgs[msgs.length - 1] : null;
-  const isAssistant = last && (last.classList ? last.classList.contains('assistant') : /\bassistant\b/.test(last.className || ''));
-  if (last && isAssistant && last._choices && last._choices.length) renderChoiceChips(last, last._choices);
-  else resetChoiceBar();
-  syncChoiceChips();
-}
-if (typeof window !== 'undefined') {
-  window.setChoiceBarSuppressed = setChoiceBarSuppressed;
-  window.resetChoiceBar = resetChoiceBar;
-  window.syncLastChoices = syncLastChoices;
-  if (!window.isChoiceKeepEnabled) window.isChoiceKeepEnabled = isChoiceKeepEnabled;
-}
-
-function renderChoiceChips(node, choices, isPrepend) {
-  const md = node ? (node.querySelector('.md') || node) : null;
-  if (md) md.querySelectorAll('.choice-chips').forEach(el => el.remove());
-
-  if (!isChoiceKeepEnabled()) {
-    resetChoiceBar();
-    return;
-  }
-  if (isChoiceBarSuppressed()) {
-    return;
-  }
-
-  const isPrependState = Boolean(isPrepend || (node && (node._prepend || (node.dataset && node.dataset.prepend === '1'))));
-  let isNotLatestAssistant = false;
-  if (typeof logEl !== 'undefined' && logEl && node) {
-    let msgs = [];
-    if (typeof logEl.querySelectorAll === 'function') {
-      try { msgs = logEl.querySelectorAll('.msg.assistant:not(.system)'); } catch (_) {}
-      if (!msgs || !msgs.length) {
-        const all = logEl.querySelectorAll('.msg:not(.system)') || [];
-        msgs = Array.prototype.filter.call(all, m => /\bassistant\b/.test(m.className || '') && !/\bsystem\b/.test(m.className || ''));
-      }
-    }
-    if (msgs && msgs.length) {
-      const last = msgs[msgs.length - 1];
-      let inLog = (typeof logEl.contains === 'function') ? logEl.contains(node) : false;
-      if (!inLog) { for (let i = 0; i < msgs.length; i++) { if (msgs[i] === node) { inLog = true; break; } } }
-      if (inLog && node !== last) isNotLatestAssistant = true;
-    }
-  }
-  const skipBar = isPrependState || isNotLatestAssistant;
-
-  const bar = skipBar ? null : getChoiceBarEl();
-  if (bar) {
-    if (bar.classList && typeof bar.classList.remove === 'function') {
-      bar.classList.remove('closing');
-    }
-    bar.textContent = '';
-    bar.hidden = true;
-    bar._owner = null;
-  }
-  if (!choices || !choices.length) return;
-  if (skipBar) return;
-
-  const card = document.createElement('div');
-  card.className = 'choice-card';
-
-  const closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'choice-close-btn';
-  closeBtn.setAttribute('aria-label', tr('md.next_actions_close'));
-  closeBtn.textContent = '✕';
-  closeBtn.addEventListener('click', (e) => {
-    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-    if (bar) {
-      if (bar.classList && typeof bar.classList.add === 'function') {
-        bar.classList.add('closing');
-      }
-      const hideBar = () => {
-        bar.hidden = true;
-        if (typeof updateScrollBottomButton === 'function') updateScrollBottomButton();
-        if (bar.classList && typeof bar.classList.remove === 'function') {
-          bar.classList.remove('closing');
-        }
-        bar.textContent = '';
-        bar._owner = null;
-      };
-      if (typeof setTimeout === 'function') {
-        setTimeout(hideBar, 180);
-      } else {
-        hideBar();
-      }
-    } else if (card) {
-      if (card.classList && typeof card.classList.add === 'function') {
-        card.classList.add('closing');
-        if (typeof setTimeout === 'function') {
-          setTimeout(() => { if (typeof card.remove === 'function') card.remove(); }, 180);
-        } else {
-          if (typeof card.remove === 'function') card.remove();
-        }
-      } else if (typeof card.remove === 'function') {
-        card.remove();
-      }
-    }
-  });
-  card.appendChild(closeBtn);
-
-  const row = document.createElement('div');
-  row.className = 'choice-card-body choice-chips';
-  row.setAttribute('role', 'group');
-  row.setAttribute('aria-label', tr('md.next_actions'));
-  choices.forEach(c => {
-    const parsed = parseChoiceItem(c);
-    if (!parsed) return;
-    const item = typeof parsed === 'string' ? { label: parsed, action: parsed, isAction: false, kind: 'say' } : parsed;
-    const isAct = item.isAction || item.kind === 'action';
-    const isCmd = item.kind === 'command';
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'choice-chip' + (isAct ? ' choice-action' : '') + (isCmd ? ' choice-command' : '');
-    b.textContent = (isAct ? '✦ ' : '') + item.label;
-    b.addEventListener('click', () => pickChoice(item));
-    row.appendChild(b);
-  });
-  card.appendChild(row);
-
-  if (bar) {
-    bar.appendChild(card);
-    bar.hidden = false;
-    bar._owner = node;   // the card lives outside the bubble, so syncChoiceChips asks the bar whose it is
-  } else if (md) {
-    md.appendChild(card);
-  }
-}
-
-// Keep choice chips only on newest assistant message.
-function syncChoiceChips() {
-  if (typeof logEl === 'undefined' || !logEl) return;
-  if (!isChoiceKeepEnabled()) {
-    resetChoiceBar();
-    logEl.querySelectorAll('.choice-chips').forEach(row => {
-      if (row.parentElement && row.parentElement.className === 'choice-card') {
-        row.parentElement.remove();
-      } else {
-        row.remove();
-      }
-    });
-    return;
-  }
-  if (isChoiceBarSuppressed()) return;
-  const msgs = logEl.querySelectorAll('.msg:not(.system)');
-  const last = msgs.length ? msgs[msgs.length - 1] : null;
-  const bar = getChoiceBarEl();
-  const hasChoicesOnLast = last && ((last._choices && last._choices.length) || last.querySelector('.choice-chips') || (bar && bar._owner === last));
-  const isAssistant = last && (last.classList ? last.classList.contains('assistant') : /\bassistant\b/.test(last.className || ''));
-  if (!last || !isAssistant || !hasChoicesOnLast) {
-    if (bar) {
-      if (bar.classList && typeof bar.classList.remove === 'function') {
-        bar.classList.remove('closing');
-      }
-      bar.textContent = '';
-      bar.hidden = true;
-      if (typeof updateScrollBottomButton === 'function') updateScrollBottomButton();
-      bar._owner = null;
-    }
-  }
-  logEl.querySelectorAll('.choice-chips').forEach(row => {
-    if (!last || !last.contains(row)) {
-      if (row.parentElement && row.parentElement.className === 'choice-card') {
-        row.parentElement.remove();
-      } else {
-        row.remove();
-      }
-    }
-  });
-}
-
 // The emoji alone of an expression label (EXPRESSION_EMOJIS holds "emoji word").
 function expressionEmoji(expression) {
   const label = EXPRESSION_EMOJIS[expression];
@@ -891,7 +681,7 @@ function postProcessAssistant(node, isFinal, rawText, usage, durationSeconds, sk
       node._choices = finalChoices;
     }
     const prependState = Boolean(isPrepend || (node && node._prepend));
-    if (!skipFooter) renderChoiceChips(node, finalChoices, prependState);
+    if (!skipFooter && typeof renderChoiceChips === 'function') renderChoiceChips(node, finalChoices, prependState);
     renderMermaidIn(node);
     highlightCodeIn(node);
     typeof renderMapsIn === 'function' && renderMapsIn(node);

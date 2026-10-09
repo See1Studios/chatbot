@@ -12,13 +12,15 @@ from tests.page_source import i18n_prelude  # noqa: E402
 from tests._paths import REPO  # noqa: E402
 
 MD = REPO / "static" / "markdown.js"
+CHOICES = REPO / "static" / "app-choices.js"
 
 HARNESS = r"""
 const fs = require('fs');
-const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
-const a = src.indexOf('const CHOICES_TAIL'), b = src.indexOf('function postProcessAssistant');
-if (a < 0 || b < 0) throw new Error('markers missing');
-const code = src.slice(a, b);
+const choicesSrc = fs.readFileSync(process.argv[process.argv.length - 2], 'utf8');
+const mdSrc = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
+const a = mdSrc.indexOf('const EXPRESSION_HEAD'), b = mdSrc.indexOf('function dedupeMarkdownImages', a);
+if (a < 0 || b < 0) throw new Error('markers missing in markdown.js');
+const code = choicesSrc + '\n' + mdSrc.slice(a, b);
 
 function el(tag) {
   let _tc = '';
@@ -391,7 +393,7 @@ console.log(JSON.stringify(out));
 class ChoiceChips(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(MD)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(CHOICES), str(MD)], capture_output=True, text=True, timeout=30)
         assert r.returncode == 0, r.stderr
         cls.o = json.loads(r.stdout.strip().splitlines()[-1])
 
@@ -475,9 +477,7 @@ class ChoiceChips(unittest.TestCase):
     def test_arrowless_variants_and_long_action_label(self):
         js = r"""
 const fs = require('fs');
-const src = fs.readFileSync(process.argv[1], 'utf8');
-const a = src.indexOf('const CHOICES_TAIL'), b = src.indexOf('function postProcessAssistant');
-const code = src.slice(a, b);
+const code = fs.readFileSync(process.argv[1], 'utf8');
 const api = new Function(code + '; return { splitChoices, parseChoiceItem };')();
 const smartCombo = api.parseChoiceItem('“잠깐만” （손을 잡는다）');
 const rawCombo = api.parseChoiceItem('"잠깐만" (손을 잡는다)');
@@ -487,7 +487,7 @@ const longCombo = api.parseChoiceItem('("이것은 서른 자가 훨씬 넘는 �
 const shortSay = api.parseChoiceItem('단문 선택지');
 console.log(JSON.stringify({smartCombo, rawCombo, smartAct, longAct, longCombo, shortSay}));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(MD)], capture_output=True, text=True, check=False)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(CHOICES)], capture_output=True, text=True, check=False)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["smartCombo"]["label"], "잠깐만")
@@ -657,10 +657,11 @@ global.document = {
   createElement: el,
   getElementById: (id) => (id === 'choiceBar' ? choiceBar : null),
 };
-const mdSrc = fs.readFileSync(process.argv[1], 'utf8');
-const msgSrc = fs.readFileSync(path.resolve(path.dirname(process.argv[1]), 'app-messages.js'), 'utf8');
+const choicesSrc = fs.readFileSync(process.argv[1], 'utf8');
+const mdSrc = fs.readFileSync(process.argv[2], 'utf8');
+const msgSrc = fs.readFileSync(path.resolve(path.dirname(process.argv[2]), 'app-messages.js'), 'utf8');
 
-const fn = new Function('document', mdSrc + '; return { postProcessAssistant, renderChoiceChips };')(global.document);
+const fn = new Function('document', mdSrc + ';' + choicesSrc + '; return { postProcessAssistant, renderChoiceChips };')(global.document);
 
 const node = el('div');
 // Call postProcessAssistant with choices and isPrepend = true
@@ -693,7 +694,7 @@ console.log(JSON.stringify({
   prependedMsgPostProcess: prependedMsg._postProcessed,
 }));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(MD)], capture_output=True, text=True, check=False)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(CHOICES), str(MD)], capture_output=True, text=True, check=False)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["recordedChoices"], ["Choice A", "Choice B"])
@@ -726,7 +727,7 @@ const bareAct = classifyChoicePayload('허리를 바짝 붙인다');
 console.log(JSON.stringify({act, say, combo, charLeak, curlyAct, smartCombo, bareAct}));
 """
         r = subprocess.run(
-            ["node", "-e", i18n_prelude() + js, str(MD)],
+            ["node", "-e", i18n_prelude() + js, str(CHOICES)],
             capture_output=True, text=True, check=False,
         )
         self.assertEqual(r.returncode, 0, r.stderr)
