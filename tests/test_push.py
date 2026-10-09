@@ -140,6 +140,65 @@ class Routes(Base):
                              ("GET", "/api/push/nope")):
             self.assertEqual(self.call(method, path), (False, None), (method, path))
 
+    def test_test_route_triggers_notify(self):
+        handled, (code, payload, _) = self.call("POST", "/api/push/test", {"title": "Hello", "body": "World"})
+        self.assertTrue(handled)
+        self.assertEqual(code, 200)
+        self.assertTrue(payload["ok"])
+        self.assertIn("count", payload)
+
+
+class Delivery(Base):
+    def test_send_notification_calls_endpoint_with_headers(self):
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization
+        key = ec.generate_private_key(ec.SECP256R1())
+        pub = key.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+        sub = {"endpoint": "https://push.example/fake", "keys": {"p256dh": P._b64(pub), "auth": P._b64(b"1234567890123456")}}
+
+        req_captured = []
+
+        class FakeResponse:
+            status = 201
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+        def fake_urlopen(req, timeout=10):
+            req_captured.append(req)
+            return FakeResponse()
+
+        with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            ok = P.send_notification(sub, {"title": "Hi", "body": "There"})
+            self.assertTrue(ok)
+            self.assertEqual(len(req_captured), 1)
+            r = req_captured[0]
+            self.assertEqual(r.get_full_url(), "https://push.example/fake")
+            self.assertEqual(r.get_header("Content-encoding"), "aes128gcm")
+            self.assertTrue(r.get_header("Authorization").startswith("vapid t="))
+
+    def test_send_notification_prunes_on_410_gone(self):
+        import urllib.error
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization
+        key = ec.generate_private_key(ec.SECP256R1())
+        pub = key.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+        sub = {"endpoint": "https://push.example/expired", "keys": {"p256dh": P._b64(pub), "auth": P._b64(b"1234567890123456")}}
+        P.save_subscription(sub)
+        self.assertEqual(len(P.get_subscriptions()), 1)
+
+        def fake_urlopen(req, timeout=10):
+            raise urllib.error.HTTPError(req.full_url, 410, "Gone", {}, None)
+
+        with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            ok = P.send_notification(sub, "test message")
+            self.assertFalse(ok)
+            # Subscription should be automatically pruned
+            self.assertEqual(P.get_subscriptions(), [])
+
 
 class ServerWiring(unittest.TestCase):
     def test_server_routes_get_and_post(self):

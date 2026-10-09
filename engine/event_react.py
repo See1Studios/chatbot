@@ -106,6 +106,13 @@ def _speak(sess, text: str) -> None:
     finally:
         sess._host_turn_at = 0   # HOST_TURN_ONE_v1: sent; the session's busy flag takes over
 
+    try:
+        import push_manager
+        cid = getattr(sess, "character", "") or "Companion"
+        push_manager.notify(title=cid, body=text[:120], url=f"/?s={sess.sid}", tag=f"react-{sess.sid}")
+    except Exception:  # noqa: BLE001
+        pass
+
 
 def _note(evts: List[Dict], character: str) -> str:
     notes = []

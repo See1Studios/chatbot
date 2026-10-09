@@ -9,6 +9,11 @@ import base64
 import json
 import os
 import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Dict, List, Optional, Tuple, Union
 
 import host_config
 from artifact_manager import _atomic_write_text
@@ -19,6 +24,13 @@ PREFIX = "/api/push/"
 
 def _b64(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _unb64(s: str) -> bytes:
+    pad = len(s) % 4
+    if pad:
+        s += "=" * (4 - pad)
+    return base64.urlsafe_b64decode(s)
 
 
 def _read(path, default):
@@ -108,12 +120,125 @@ def remove_subscription(endpoint: str) -> bool:
     return True
 
 
+def _vapid_auth_header(endpoint: str) -> str:
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec, utils
+
+    _, priv_b64 = get_vapid_key_pair()
+    priv_key = ec.derive_private_key(int.from_bytes(_unb64(priv_b64), "big"), ec.SECP256R1())
+    parsed = urllib.parse.urlsplit(endpoint)
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+
+    hdr = _b64(json.dumps({"typ": "JWT", "alg": "ES256"}, separators=(",", ":")).encode("ascii"))
+    claims = _b64(json.dumps({"aud": origin, "exp": int(time.time()) + 43200, "sub": "mailto:admin@localhost"},
+                             separators=(",", ":")).encode("ascii"))
+    signing_input = f"{hdr}.{claims}".encode("ascii")
+
+    sig_der = priv_key.sign(signing_input, ec.ECDSA(hashes.SHA256()))
+    r, s = utils.decode_dss_signature(sig_der)
+    sig_raw = r.to_bytes(32, "big") + s.to_bytes(32, "big")
+    jwt = f"{hdr}.{claims}.{_b64(sig_raw)}"
+    return f"vapid t={jwt}, k={get_vapid_public_key()}"
+
+
+def _encrypt_payload(sub: dict, payload_bytes: bytes) -> bytes:
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+    peer_pub_bytes = _unb64(sub["keys"]["p256dh"])
+    peer_auth_bytes = _unb64(sub["keys"]["auth"])
+    peer_pub = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), peer_pub_bytes)
+
+    local_priv = ec.generate_private_key(ec.SECP256R1())
+    local_pub_bytes = local_priv.public_key().public_bytes(
+        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint
+    )
+
+    ecdh_secret = local_priv.exchange(ec.ECDH(), peer_pub)
+    key_info = b"WebPush: info\x00" + peer_pub_bytes + local_pub_bytes
+    prk = HKDF(algorithm=hashes.SHA256(), length=32, salt=peer_auth_bytes, info=key_info).derive(ecdh_secret)
+
+    salt = os.urandom(16)
+    cek = HKDF(algorithm=hashes.SHA256(), length=16, salt=salt, info=b"Content-Encoding: aes128gcm\x00").derive(prk)
+    nonce = HKDF(algorithm=hashes.SHA256(), length=12, salt=salt, info=b"Content-Encoding: nonce\x00").derive(prk)
+
+    padded = payload_bytes + b"\x02"
+    ciphertext = AESGCM(cek).encrypt(nonce, padded, None)
+
+    header = salt + (4096).to_bytes(4, "big") + bytes([len(local_pub_bytes)]) + local_pub_bytes
+    return header + ciphertext
+
+
+def send_notification(sub: dict, payload: Union[dict, str, bytes], timeout: int = 10) -> bool:
+    """Send an encrypted Web Push message (RFC 8291 aes128gcm) to one subscription."""
+    if not (isinstance(sub, dict) and isinstance(sub.get("endpoint"), str) and isinstance(sub.get("keys"), dict)):
+        return False
+    if isinstance(payload, dict):
+        raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    elif isinstance(payload, str):
+        raw = payload.encode("utf-8")
+    else:
+        raw = bytes(payload)
+
+    endpoint = sub["endpoint"]
+    try:
+        encrypted_body = _encrypt_payload(sub, raw)
+        vapid_auth = _vapid_auth_header(endpoint)
+        headers = {
+            "Content-Type": "application/octet-stream",
+            "Content-Encoding": "aes128gcm",
+            "TTL": "86400",
+            "Urgency": "normal",
+            "Authorization": vapid_auth,
+        }
+        req = urllib.request.Request(endpoint, data=encrypted_body, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return 200 <= resp.status < 300
+    except urllib.error.HTTPError as e:
+        if e.code in (404, 410):
+            remove_subscription(endpoint)
+        return False
+    except Exception:
+        return False
+
+
+def notify(title: str, body: str = "", url: str = "/", tag: str = "default", data: Optional[dict] = None) -> int:
+    """Broadcast a push notification to all subscribed endpoints in the background."""
+    subs = get_subscriptions()
+    if not subs:
+        return 0
+    payload = {"title": title, "body": body, "url": url, "tag": tag}
+    if data:
+        payload["data"] = data
+
+    def _send_all():
+        for sub in subs:
+            try:
+                send_notification(sub, payload)
+            except Exception:
+                pass
+
+    threading.Thread(target=_send_all, name="push-notify", daemon=True).start()
+    return len(subs)
+
+
 def _route(handler, route):
     """(status, payload) for a push route, None when `route` is not one."""
     if route == ("GET", "vapid-public-key"):
         return 200, {"ok": True, "publicKey": get_vapid_public_key()}
     if route == ("GET", "status"):
         return 200, {"ok": True, "count": len(get_subscriptions())}
+    if route == ("POST", "test"):
+        try:
+            b = handler._read_json()
+        except Exception:
+            b = {}
+        b = b if isinstance(b, dict) else {}
+        count = notify(str(b.get("title") or "Private Engine"), str(b.get("body") or "Web Push test notification"),
+                       str(b.get("url") or "/"), tag="test")
+        return 200, {"ok": True, "count": count}
     if route not in (("POST", "subscribe"), ("POST", "unsubscribe")):
         return None
     try:
