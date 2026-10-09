@@ -17,7 +17,7 @@ const fs = require('fs');
 eval(fs.readFileSync(process.argv[1], 'utf8'));
 function el(tag) { const n = { tag, kids: [], hidden: false, isConnected: true, dataset: {}, listeners: {}, value: '', checked: false,
   append(...k) { k.forEach(x => { x.parentNode = n; this.kids.push(x); }); }, appendChild(k) { this.append(k); return k; },
-  addEventListener(t, f) { this.listeners[t] = f; }, remove() {}, setAttribute(k, v) { this[k] = v; }, set textContent(v) { if (v === '') this.kids = []; this.text = v; },
+  addEventListener(t, f) { this.listeners[t] = f; }, remove() {}, setAttribute(k, v) { this[k] = v; }, insertBefore(n, ref) { this.kids.splice(this.kids.indexOf(ref), 0, n); }, set textContent(v) { if (v === '') this.kids = []; this.text = v; },
   get textContent() { return this.text || ''; } }; return n; }
 global.document = { createElement: el, createTextNode: t => ({ text: t }) };
 function shellEl(tag, cls, text) { const n = el(tag); n.cls = cls; if (text != null) n.text = text; return n; }
@@ -25,6 +25,7 @@ function shellSection(title) { const b = shellEl('div', 'shell-section'); b.appe
 const fields = [
   { key: 'card.name', tab: 'character', type: 'text', label: { key: 'charset.card.name' }, editable: true, value: 'Kit' },
   { key: 'card.tags', tab: 'character', type: 'list', label: { key: 'charset.card.tags' }, editable: true, value: ['a'] },
+  { key: 'card.creator', tab: 'character', type: 'text', label: { key: 'charset.card.creator' }, editable: true, folded: true, value: 'me' },
   { key: 'display.focal', tab: 'character', type: 'focal', label: { key: 'charset.display.focal' }, editable: true, value: null },
   { key: 'file.private_memory', tab: 'relationship', type: 'longtext', label: { key: 'charset.file.private_memory' }, editable: true, sensitive: true, value: 'secret' },
   { key: 'brain.work', tab: 'settings', type: 'brain', label: { key: 'charset.brain.work' }, editable: true, value: null } ];
@@ -33,7 +34,7 @@ async function api(url, opts) {
   calls.push([url, opts && opts.method, opts && opts.body]);
   if (url.includes('/versions/')) return { versions: [{ version: '20261009220512', bytes: 9 }] };
   if (url.endsWith('/restore')) return { ok: true };
-  return opts ? { changed: Object.keys(JSON.parse(opts.body)), errors: {} } : { fields };
+  return opts ? { changed: Object.keys(JSON.parse(opts.body)), errors: {} } : { fields, card: { spec: 'chara_card_v3', version: '3.0' } };
 }
 const flat = n => [n].concat(...(n.kids || []).map(flat));
 (async () => {
@@ -41,6 +42,8 @@ const flat = n => [n].concat(...(n.kids || []).map(flat));
   const sec = shellSettingsSection({ id: 'c1' }, 'character', 'Card');
   await new Promise(r => setTimeout(r, 5));
   out.charRows = flat(sec).filter(n => n.cls === 'shell-info-label').map(n => n.text);
+  out.more = (flat(sec).find(n => n.cls === 'shell-more-btn') || {}).text;
+  out.format = (flat(sec).find(n => n.cls === 'shell-card-format') || {}).text;
   const rel = shellSettingsSection({ id: 'c1' }, 'relationship', 'Mem');
   await new Promise(r => setTimeout(r, 5));
   out.folded = flat(rel).filter(n => n.cls === 'shell-info-val').map(n => n.hidden);
@@ -77,7 +80,9 @@ class SettingsPage(unittest.TestCase):
                            capture_output=True, text=True, timeout=20)
         self.assertEqual(p.returncode, 0, p.stderr[-800:])
         out = json.loads(p.stdout.strip().splitlines()[-1])
-        self.assertEqual(out["charRows"], ["이름", "태그"], "the face crop keeps its own editor")
+        self.assertEqual(out["charRows"], ["이름", "태그"], "folded fields wait; the face crop keeps its own editor")
+        self.assertEqual(out["more"], "더 보기 (1)")
+        self.assertEqual(out["format"], "SillyTavern Character Card V3 호환", "the card's own format, said as compatibility")
         self.assertEqual(out["folded"], [True], "a sensitive value is folded")
         self.assertEqual(out["patch"], [["/api/characters/c1/settings", {"card.name": "Kat"}]])
 

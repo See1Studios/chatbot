@@ -160,9 +160,11 @@ function shellSettingsSection(c, tab, title, onSaved) {
 }
 
 async function shellSettingsFill(sec, body, c, tab, onSaved, editing) {
-  let fields;
+  let fields, card = {};
   try {
-    fields = ((await api('/api/characters/' + encodeURIComponent(c.id) + '/settings')).fields || []).filter(f => f.tab === tab && !SETTINGS_SKIP[f.type]);
+    const res = await api('/api/characters/' + encodeURIComponent(c.id) + '/settings');
+    fields = (res.fields || []).filter(f => f.tab === tab && !SETTINGS_SKIP[f.type]);
+    card = res.card || {};
   } catch (e) {
     body.textContent = '';
     body.appendChild(shellEl('div', 'status-hint', tr('profile.settings.failed', { error: e.message || e })));
@@ -181,7 +183,19 @@ async function shellSettingsFill(sec, body, c, tab, onSaved, editing) {
       if (typeof onSaved === 'function') await onSaved([]);   // the card may have changed: the hero redraws
       shellSettingsFill(sec, body, c, tab, onSaved, false);
     };
-    fields.forEach(f => body.appendChild(shellSettingsRow(f, c, restored)));
+    fields.filter(f => !f.folded).forEach(f => body.appendChild(shellSettingsRow(f, c, restored)));
+    const folded = fields.filter(f => f.folded);
+    if (folded.length) {   // the card's less-used fields wait under "more"
+      const more = shellEl('button', 'shell-more-btn', tr('profile.settings.more', { n: folded.length }));
+      more.type = 'button';
+      more.addEventListener('click', () => {
+        folded.forEach(f => body.insertBefore(shellSettingsRow(f, c, restored), more));
+        more.remove();
+      });
+      body.appendChild(more);
+    }
+    const m = /^chara_card_v(\d+)$/.exec(card.spec || '');
+    if (tab === 'character' && m) body.appendChild(shellEl('div', 'shell-card-format', tr('profile.settings.card_format', { v: m[1] })));
     return;
   }
   const form = shellEl('div', 'shell-edit-form');

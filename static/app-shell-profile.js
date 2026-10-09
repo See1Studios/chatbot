@@ -263,7 +263,7 @@ function renderRelationshipTab(holder, c) {
   }
 
   // 2. Memory, private memory (folded), the private room's settings: from the settings list (cs/C)
-  holder.appendChild(shellSettingsSection(c, 'relationship', tr('profile.sec.memory')));
+  holder.appendChild(shellSettingsSection(c, 'relationship', tr('profile.sec.pe')));   // what PE adds and keeps
 
   // 3. Quick Action Cards
   const rows = typeof shellProfileRows === 'function' ? shellProfileRows({
@@ -303,7 +303,7 @@ function renderEngineTab(holder, c) {
   if (typeof shellModelSection === 'function') holder.appendChild(shellModelSection());
   if (typeof shellContextSection === 'function') holder.appendChild(shellContextSection());
   if (typeof shellBrainUseSection === 'function') holder.appendChild(shellBrainUseSection(c));
-  holder.appendChild(shellSettingsSection(c, 'settings', tr('profile.sec.advanced')));   // roles, card prompts (cs/C)
+  holder.appendChild(shellSettingsSection(c, 'settings', tr('profile.sec.system')));   // the mechanics: roles
   if (typeof shellDevDeleteButton === 'function') shellDevDeleteButton(holder, c);
 }
 

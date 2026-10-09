@@ -16,11 +16,8 @@ THRESHOLD = ("off", "mood", "gist")   # threshold.STRENGTHS
 
 # (key, tab, type, source, where, editable, sensitive)
 FIELDS: Tuple[Tuple[str, str, str, str, str, bool, bool], ...] = (
+    # Character: everything of the SillyTavern card (V2/V3 `data`) -- the operator, 2026-10-09
     ("card.name", "character", "text", "card", "name", True, False),
-    ("display.title", "character", "text", "display", "title", True, False),
-    ("display.user_title", "character", "text", "display", "user_title", True, False),
-    ("display.voice", "character", "text", "display", "voice", True, False),
-    ("display.focal", "character", "focal", "display", "focal", True, False),   # the face crop; its own editor
     ("card.description", "character", "longtext", "card", "description", True, False),
     ("card.personality", "character", "longtext", "card", "personality", True, False),
     ("card.scenario", "character", "longtext", "card", "scenario", True, False),
@@ -28,22 +25,32 @@ FIELDS: Tuple[Tuple[str, str, str, str, str, bool, bool], ...] = (
     ("card.alternate_greetings", "character", "list", "card", "alternate_greetings", True, False),
     ("card.mes_example", "character", "longtext", "card", "mes_example", True, False),
     ("card.tags", "character", "list", "card", "tags", True, False),
-    ("file.visual", "character", "longtext", "file", "visual.md", True, False),
+    ("card.system_prompt", "character", "longtext", "card", "system_prompt", True, False),
+    ("card.post_history_instructions", "character", "longtext", "card", "post_history_instructions", True, False),
+    ("card.creator_notes", "character", "longtext", "card", "creator_notes", True, False),
+    ("card.creator", "character", "text", "card", "creator", True, False),
+    ("card.character_version", "character", "text", "card", "character_version", True, False),
+    # Relationship: what PE adds to a character and keeps up -- display, look sheet, memory, the private room
+    ("display.title", "relationship", "text", "display", "title", True, False),
+    ("display.user_title", "relationship", "text", "display", "user_title", True, False),
+    ("display.voice", "relationship", "text", "display", "voice", True, False),
+    ("display.focal", "relationship", "focal", "display", "focal", True, False),   # the face crop; its own editor
+    ("file.visual", "relationship", "longtext", "file", "visual.md", True, False),
     ("file.memory", "relationship", "longtext", "file", "memory.md", True, False),
     ("file.relationship", "relationship", "longtext", "file", "relationship.md", True, True),
     ("file.private_memory", "relationship", "longtext", "file", "private-memory.md", True, True),
     ("state.threshold", "relationship", "select", "state", "threshold", True, False),
     ("state.auto_scene", "relationship", "bool", "state", "auto_scene", True, False),
     ("state.places", "relationship", "list", "state", "places", True, False),
+    # Settings: the mechanics -- brains, roles
     ("brain.work", "settings", "brain", "brain", "work", True, False),
     ("brain.private", "settings", "brain", "brain", "private", True, False),
     ("team.roles", "settings", "roles", "team", "roles", True, False),
-    ("card.system_prompt", "settings", "longtext", "card", "system_prompt", True, False),
-    ("card.post_history_instructions", "settings", "longtext", "card", "post_history_instructions", True, False),
-    ("card.creator_notes", "settings", "longtext", "card", "creator_notes", True, False),
-    ("card.creator", "settings", "text", "card", "creator", True, False),
-    ("card.character_version", "settings", "text", "card", "character_version", True, False),
 )
+
+# Shown under "more" until opened: the card's less-used fields (the operator: fold what matters less)
+FOLDED = frozenset(("card.system_prompt", "card.post_history_instructions", "card.creator_notes", "card.creator",
+                    "card.character_version"))
 
 OPTIONS: Dict[str, List[str]] = {"state.threshold": list(THRESHOLD)}
 

@@ -151,6 +151,9 @@ html.shell2 body:not(.dev-mode) .shell-dev{display:none}   /* developer mode's r
 .shell-info-head{display:flex;align-items:center;gap:.25rem;min-width:0}
 .shell-info-tools{display:inline-flex;gap:.1rem;flex:0 0 auto}
 .shell-info-row.multiline .shell-info-tools{margin-left:auto}
+.shell-more-btn{align-self:flex-start;border:0;background:transparent;color:var(--muted);font-size:.74rem;padding:.2rem .1rem;cursor:pointer}
+.shell-more-btn:hover{color:var(--text)}
+.shell-card-format{margin-top:.5rem;font-size:.68rem;color:var(--muted);text-align:right;opacity:.8}
 .shell-icon-btn{flex:0 0 auto;width:22px;height:22px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .shell-icon-btn:hover,.shell-icon-btn:focus-visible{color:var(--text);background:rgba(255,255,255,.07)}
 .shell-version-chip{flex:0 0 auto;font-size:.68rem;padding:.12rem .45rem;border-radius:5px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;white-space:nowrap}

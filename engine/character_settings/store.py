@@ -102,6 +102,12 @@ def _value(f: Dict, cid: str, card: Dict, ws=None) -> Any:
     return path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
 
 
+def card_format(cid: str, ws=None) -> Dict[str, str]:
+    """The card's own format as it says (spec, spec_version), for the drawer's footer ("Character Card V3 ...")."""
+    card = characters.load(cid, ws)
+    return {"spec": str(card.get("spec") or ""), "version": str(card.get("spec_version") or "")}
+
+
 def read(cid: str, ws=None) -> List[Dict]:
     """Every setting of the character with its value, in FIELDS order."""
     card = characters.load(cid, ws)
@@ -110,6 +116,7 @@ def read(cid: str, ws=None) -> List[Dict]:
         e = {k: f[k] for k in ("key", "tab", "type", "editable", "sensitive")}
         e["label"] = {"key": "charset." + f["key"], "vars": {}}
         e["file"] = _file_of(f, cid, ws).name   # a restore brings this whole file back (cs/D says so)
+        e["folded"] = f["key"] in F.FOLDED
         e["value"] = _value(f, cid, card, ws)
         if f["key"] in F.OPTIONS:
             e["options"] = F.OPTIONS[f["key"]]
@@ -260,7 +267,7 @@ def api(method: str, path: str, body: Optional[dict]):
             return 200, {"ok": True}
         if not m.group(2) and not m.group(4):
             if method == "GET":
-                return 200, {"ok": True, "fields": read(cid)}
+                return 200, {"ok": True, "fields": read(cid), "card": card_format(cid)}
             if method == "PATCH":
                 if not isinstance(body, dict):
                     return 400, {"ok": False, "error": "a JSON object of settings"}
