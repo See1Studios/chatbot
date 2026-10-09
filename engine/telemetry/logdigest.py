@@ -336,7 +336,7 @@ def _digest_turns(win, find):
 
 
 def _digest_main(events, find):
-    """MAIN_WATCH_v1 (#825): the last whole-suite check of main (tools/main_watch.py). Red stays a finding, whatever
+    """MAIN_WATCH_v1 (#825): the last whole-suite check of main (health/main_watch.py). Red stays a finding, whatever
     the window, until a later check is green: the commit hook does not run the whole suite."""
     checks = [e for e in events if e.get("evt") == "main.check" and e.get("ok") is not None]
     if not checks:

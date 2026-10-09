@@ -1,6 +1,6 @@
 #!/bin/sh
 # ENGINE_DECIDES_A5: only a transaction that moves main is checked; every other ref update passes at shell speed.
-# MAIN_WATCH_v1 (#825): once main has moved, the whole suite checks it in the background (engine/tools/main_watch.py).
+# MAIN_WATCH_v1 (#825): once main has moved, the whole suite checks it in the background (engine/health/main_watch.py).
 case "$1" in prepared|committed) ;; *) exit 0 ;; esac
 input=$(cat)
 case "$input" in *" refs/heads/main"*) ;; *) exit 0 ;; esac
@@ -8,7 +8,7 @@ top="$(git rev-parse --show-toplevel)"
 if [ "$1" = committed ]; then
   [ -n "${CHATBOT_TEST_RUNNER:-}" ] && exit 0   # a test's own repos never start a suite
   main_tree="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"   # the main tree's copy, also from a worktree
-  watch="$main_tree/engine/tools/main_watch.py"
+  watch="$main_tree/engine/health/main_watch.py"
   state="$HOME/.cache/chatbot-main-watch"
   # in the background: the git command that moved main does not wait for the suite
   [ -f "$watch" ] && mkdir -p "$state" && { nohup python3 "$watch" run >>"$state/watch.log" 2>&1 </dev/null & }

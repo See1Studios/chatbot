@@ -79,6 +79,7 @@ DATA = Path(next((os.environ[k] for k in DATA_ENV if os.environ.get(k)),
                  _pinned_chatbot_data(ROOT) or str(HOME / ".pe")))
 STATIC = REPO / "static"
 SESSIONS = DATA / "sessions"
+INCIDENTS = DATA / "dev" / "incidents.json"   # dev data beside the engine tickets (improvement-layers il/D)
 WORKSPACE = DATA / "workspace"
 # Web Push (push_manager.py): the install's VAPID key pair and the browsers subscribed to it
 PUSH_VAPID_FILE = DATA / "push_vapid.json"

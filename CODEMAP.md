@@ -18,6 +18,7 @@ map only says which file does what.
 | Paths, ports, env, token thresholds | `host_config.py`; where the repo root and the engine folder are `repo_layout.py` (tests: `tests/_paths.py`) |
 | Self-evolution core (stdlib and each other only, `core_modules.json`) | `repo_layout.py`, `evolution.py`, `tickets.py`, `memory_store.py`, `platform_compat.py` (OS differences); tickets from a CLI: `tools/ticket_quick.py` |
 | Guards | loops `loop_guard.py`; unticketed writes, working-tree watch `write_guard.py`; per-caller tool scope and edition boundary `role_guard.py`; safety `content_guard.py` + `engine_data/content_guards.json` |
+| Health (improvement-layers, dev build) | `health/incidents.py` (log findings as incidents: open, worse, resolved), `health/main_watch.py` (the whole suite on main) |
 | Logs (telemetry, `docs/plans/telemetry.md`) | `telemetry/obslog.py` (writes `logs/events.jsonl`), `telemetry/logdigest.py` (reads it), `telemetry/archive.py` (gzip history, 90 days), `telemetry/rollup.py` (daily summaries, forever) |
 | Quota (which brain is out of quota until when, from the usage report; no send to it until then) | `quota_state.py` |
 | Another take on the companion's last answer (takes on the item, the brain's own way) | `regenerate.py` |
@@ -90,4 +91,4 @@ map only says which file does what.
 
 | Area | Files |
 |---|---|
-| Tests | `tests/`; run `engine/run-tests.sh` (without bash: `tools/run_modules.py`); after main moves the whole suite checks it, `tools/main_watch.py` |
+| Tests | `tests/`; run `engine/run-tests.sh` (without bash: `tools/run_modules.py`); after main moves the whole suite checks it, `health/main_watch.py` |

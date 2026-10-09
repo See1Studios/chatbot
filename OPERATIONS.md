@@ -212,7 +212,8 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | `doctor.fail`, `doctor.chat_down`, `doctor.mcp_down`, `doctor.maintenance` | error/info | `check` |
 | `agent.reaped` | warn | a CLI agent process killed by ctl: `agent_pid`, `ppid`, `parent_cmd`, `chat_pid` (the live server per ctl's pid file), `reason` (`ppid1` / `orphan`; before 2026-09-23 also `no-conversation`, `unprotected-flash-low`, `stale-session`), `age_s`, `cmd`. Only our agents (cwd = `data/workspace`) outside the live server's process tree are reaped (`ctl_proc.py`, OS facts only) |
 | `deleg.usage` | info | `src=runner`: one delegated CLI call's cost — `ticket`, `role` (writer/reviewer), `provider`, `seconds`, `tok_in`/`tok_out`/`tok_think`/`tok_cache_read` (tools/run_usage.py; also `runs/usage.jsonl`) |
-| `main.check` | info/error | `src=watch`: the whole suite on main's commit after main moved (`tools/main_watch.py`, MAIN_WATCH_v1): `sha`, `subject`, `ok`, `failed`, `dur_s`; red is the digest's `main_red` finding until a green check |
+| `incident.open` / `incident.worse` / `incident.resolved` | warn/warn/info | `src=chat` (dev build): a log finding became an incident, rose from warn to error, or went unseen for a day (`health/incidents.py`, `<data>/dev/incidents.json`): `id`, `code`, `key`, `severity`; `incident:<id>` is ticket evidence |
+| `main.check` | info/error | `src=watch`: the whole suite on main's commit after main moved (`health/main_watch.py`, MAIN_WATCH_v1): `sha`, `subject`, `ok`, `failed`, `dur_s`; red is the digest's `main_red` finding until a green check |
 | `manifest.drift` | warn | protected files differ from git HEAD — edited, deleted, or new and uncommitted (`evolution.py::protected_changes`, split/E; the name is kept from the hash manifest it replaced); logged only when the difference changes |
 
 ### Findings (telemetry/logdigest.py)

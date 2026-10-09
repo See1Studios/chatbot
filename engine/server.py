@@ -776,6 +776,8 @@ def main() -> None:
     import delegation
     threading.Thread(target=delegation.queue_loop, name="delegation-queue", daemon=True).start()   # LEASE_SCOPE_v1
     threading.Thread(target=__import__("event_react").loop, args=(REG,), name="event-react", daemon=True).start()   # evt/D
+    if EDITION == "dev":   # improvement-layers il/D: the engine's own health, from its log
+        threading.Thread(target=__import__("health.incidents", fromlist=["loop"]).loop, name="incidents", daemon=True).start()
     print(f"chatbot on http://{HOST}:{PORT} (VibeCat-class NAS)", flush=True)
 
     def _stop(signum=None, *_a):

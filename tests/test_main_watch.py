@@ -11,8 +11,8 @@ from unittest import mock
 
 from tests._paths import ENGINE, REPO  # noqa: E402
 
-sys.path.insert(0, str(ENGINE / "tools"))
-import main_watch  # noqa: E402
+sys.path.insert(0, str(ENGINE))
+from health import main_watch  # noqa: E402
 
 
 def sh(cwd, *cmd):

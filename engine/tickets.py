@@ -257,7 +257,22 @@ def verify_evidence(data, ref: str) -> None:
         if _in_host_log(data, kind, val):
             return
         raise TicketError("evidence not found: %s" % ref)
-    raise TicketError("evidence is data: event:<session>#<line>, log:fp:<fp> or log:rid:<rid> (`chatbot-ctl.sh logs`); "
+    m = re.match(r"^main:([0-9a-f]{12})$", ref)
+    if m:   # a red whole-suite check of main (MAIN_WATCH_v1): its main.check line is in the log
+        if _in_host_log(data, "sha", m.group(1)):
+            return
+        raise TicketError("evidence not found: %s" % ref)
+    m = re.match(r"^incident:(\d{1,6})$", ref)
+    if m:   # improvement-layers il/D: an incident the engine opened from the log
+        try:
+            state = json.loads((Path(data) / "dev" / "incidents.json").read_text(encoding="utf-8"))
+            if any(i.get("id") == int(m.group(1)) for i in state.get("incidents", {}).values()):
+                return
+        except (OSError, ValueError, AttributeError):
+            pass
+        raise TicketError("evidence not found: %s" % ref)
+    raise TicketError("evidence is data: event:<session>#<line>, log:fp:<fp>, log:rid:<rid> (`chatbot-ctl.sh logs`), "
+                      "main:<sha12> (a red main.check) or incident:<id>; "
                       "the operator's words go in `request`. Got: %s" % ref[:60])
 
 
@@ -306,7 +321,7 @@ def _in_host_log(data, kind: str, val: str) -> bool:
                         rec = json.loads(line)
                     except ValueError:
                         continue
-                    got = (rec.get("err") or {}).get("fp") if kind == "fp" else rec.get("rid")
+                    got = (rec.get("err") or {}).get("fp") if kind == "fp" else rec.get(kind)
                     if got == val:
                         return True
         except OSError:
