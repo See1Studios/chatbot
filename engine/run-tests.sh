@@ -108,6 +108,20 @@ export CHATBOT_EVENTS_DIR="$RUN_TMP/events"   # evt/B: tests never write the liv
 export CHATBOT_DIALOGS_DIR="$RUN_TMP/dialogs" # inbox/B: nor the live dialogs and read positions
 trap 'rm -rf "$RUN_TMP"' EXIT
 
+# TEST_NODE_v1 (#859): the page tests run static/*.js in node and need a full Intl (Korean dates, grapheme
+# segmenting) as browsers have. 2026-10-09 a DSM update put its own node first on PATH: English-only Intl, and
+# Intl.Segmenter crashes it. Use the first node on PATH that passes this probe, ahead of the others on PATH.
+NODE_PROBE="process.exit(new Intl.RelativeTimeFormat('ko',{numeric:'auto'}).format(-1,'day')==='어제'
+  && Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment('a\u{1F44D}\u{1F3FD}')).length===2 ? 0 : 1)"
+for n in $(which -a node 2>/dev/null); do
+  if timeout 10 "$n" -e "$NODE_PROBE" >/dev/null 2>&1; then
+    if [ "$n" != "$(command -v node)" ]; then
+      mkdir -p "$RUN_TMP/bin" && ln -s "$n" "$RUN_TMP/bin/node" && export PATH="$RUN_TMP/bin:$PATH"
+    fi
+    break
+  fi
+done
+
 # TEST_LOCK_v1: one suite at a time on this host (2026-10-08: an agent's run and two commit hooks' runs overlapped,
 # load 48 on 4 cores; a guard flaked, ticket closes failed, slow pages were "repaired" 15 times in 6 h). A run already
 # uses cores - 1 (JOBS), so a second one only adds contention: it waits for the lock. A run started inside a locked

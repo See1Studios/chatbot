@@ -7,6 +7,12 @@
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 
+## 2026-10-09 — 테스트가 쓰는 node를 검사해서 고름 (#859)
+
+- **근거**: main 감시 빨강 `27f87d6`(`test_chat_flow`·`test_streaming_text`). 운영자: "내가 dsm 업데이트를 실행했어" — DSM이 Node.js v22 패키지를 `/usr/local/bin/node`로 PATH 앞에 넣었다. 그 node는 한국어 날짜가 없고(영어만) `Intl.Segmenter`에서 죽는다(Segmentation fault).
+- **바뀐 것**: `engine/run-tests.sh`가 PATH의 node 가운데 한국어 날짜·글자 나누기 검사를 통과하는 첫 번째를 앞에 둔다(`TEST_NODE_v1`). `test_run_tests_node`가 테스트가 받는 node를 확인한다 — 쓸 만한 node가 없으면 이것이 실패한다. 엔진 자체는 node를 쓰지 않는다.
+- **재시작**: 필요 없음.
+
 ## 2026-10-09 — 푸시 알림 발신자에 캐릭터 이름, 본문에 실제 답변 (#857)
 
 - **운영자**: "연계 개선해줘 (알림 발신자 캐릭터 이름 매핑 및 응답 본문 발송)"
