@@ -57,5 +57,21 @@ class ModelListCacheTest(unittest.TestCase):
         self.assertEqual(cache["models"], ["old"])
 
 
+    def test_a_warming_list_never_makes_a_request_wait(self):
+        # #861: the server warms the lists at start; a request meanwhile gets the caller's fallback, not the CLI
+        from providers.adapter_base import warm_model_list
+        gate, cache = threading.Event(), {}
+        warm_model_list(cache, lambda: (gate.wait(5), ["x"])[1])
+        t0 = time.time()
+        self.assertEqual(cached_model_list(cache, lambda: self.fail("fetched twice")), [])
+        self.assertLess(time.time() - t0, 1.0)
+        gate.set()
+        for _ in range(50):
+            if cache.get("models"):
+                break
+            time.sleep(0.05)
+        self.assertEqual(cached_model_list(cache, lambda: self.fail("fetched")), ["x"])
+        warm_model_list(cache, lambda: self.fail("warmed again"))
+
 if __name__ == "__main__":
     unittest.main()

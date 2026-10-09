@@ -779,6 +779,8 @@ def main() -> None:
     import delegation
     threading.Thread(target=delegation.queue_loop, name="delegation-queue", daemon=True).start()   # LEASE_SCOPE_v1
     threading.Thread(target=__import__("event_react").loop, args=(REG,), name="event-react", daemon=True).start()   # evt/D
+    for adapter in AGENT_ADAPTERS.values():   # #861: model lists fetched now, not by the first page after a restart
+        adapter.warm_models()
     if EDITION == "dev":   # improvement-layers il/D: the engine's own health, from its log
         threading.Thread(target=health_incidents.loop, name="incidents", daemon=True).start()
     print(f"chatbot on http://{HOST}:{PORT} (VibeCat-class NAS)", flush=True)

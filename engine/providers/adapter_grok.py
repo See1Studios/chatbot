@@ -17,7 +17,7 @@ from urllib.request import Request, urlopen
 
 from host_config import AGENT_PATH_PREFIX, GROK_BIN, HARD_TOKENS, HOME, MCP_URL, SOFT_TOKENS, WORKSPACE
 from tool_format import _format_tool_call, _format_tool_result
-from providers.adapter_base import AgentAdapter, cached_model_list, quota_view_of
+from providers.adapter_base import AgentAdapter, cached_model_list, quota_view_of, warm_model_list
 import media_handler as _media
 import platform_compat
 
@@ -427,6 +427,9 @@ class GrokAdapter(AgentAdapter):
         if not rows:
             return {**i18n.field('error', 'usage.err.grok_parse')}
         return {"rows": rows}
+
+    def warm_models(self) -> None:
+        warm_model_list(_GROK_MODELS_CACHE, self._fetch_models)
 
     def known_models(self) -> List[str]:
         return cached_model_list(_GROK_MODELS_CACHE, self._fetch_models) or ["grok-4.7", "grok-4.6", "grok-4.5"]

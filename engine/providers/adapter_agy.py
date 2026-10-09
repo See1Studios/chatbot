@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import i18n
 from host_config import AGENT_PATH_PREFIX, AGY, MODELS, WORKSPACE
-from providers.adapter_base import AgentAdapter, _redact_err, cached_model_list, quota_view_of
+from providers.adapter_base import AgentAdapter, _redact_err, cached_model_list, quota_view_of, warm_model_list
 from tool_format import _format_tool_call, _format_tool_result
 import media_handler as _media
 
@@ -236,6 +236,9 @@ class AgyAdapter(AgentAdapter):
             return res.stdout.strip() if res.returncode == 0 and res.stdout.strip() else ""
         except Exception:  # noqa: BLE001
             return ""
+
+    def warm_models(self) -> None:
+        warm_model_list(_AGY_MODELS_CACHE, self._fetch_models)
 
     def known_models(self) -> List[str]:
         return cached_model_list(_AGY_MODELS_CACHE, self._fetch_models) or MODELS

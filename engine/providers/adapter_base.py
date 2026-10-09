@@ -146,8 +146,12 @@ MODEL_LIST_TTL_SEC = 300.0
 def cached_model_list(cache: Dict[str, Any], fetch, ttl: float = MODEL_LIST_TTL_SEC) -> List[str]:
     """A model list from a slow source (a CLI's `models` command), without making a page request wait for it.
     Fresh: the cached list. Stale: the cached list now, and one background refresh. Never fetched: fetch once,
-    in the caller (the first request after a restart). `fetch` returns a list, or nothing on failure."""
+    in the caller -- unless warm_model_list is already fetching it: then nothing now, the caller's fallback, so no
+    request waits on a CLI (#861: the first /api/providers after each restart took 4-20 s). `fetch` returns a list,
+    or nothing on failure."""
     models = cache.get("models") or []
+    if not models and cache.get("refreshing"):
+        return []
     if models:
         if time.time() - float(cache.get("ts", 0.0)) >= ttl and not cache.get("refreshing"):
             cache["refreshing"] = True
@@ -160,6 +164,20 @@ def cached_model_list(cache: Dict[str, Any], fetch, ttl: float = MODEL_LIST_TTL_
             threading.Thread(target=refresh, name="model-list-refresh", daemon=True).start()
         return list(models)
     return list(_store_models(cache, fetch))
+
+
+def warm_model_list(cache: Dict[str, Any], fetch) -> None:
+    """Fetch the list in the background now (server start), so the first request finds it."""
+    if cache.get("models") or cache.get("refreshing"):
+        return
+    cache["refreshing"] = True
+
+    def warm():
+        try:
+            _store_models(cache, fetch)
+        finally:
+            cache["refreshing"] = False
+    threading.Thread(target=warm, name="model-list-warm", daemon=True).start()
 
 
 def _store_models(cache: Dict[str, Any], fetch) -> List[str]:
@@ -303,6 +321,9 @@ class AgentAdapter:
         assigning one -- verify this per-provider before flipping it,
         don't assume."""
         return False
+
+    def warm_models(self) -> None:
+        """Start fetching a slow model list in the background (server start). Default: nothing to fetch."""
 
     def known_models(self) -> List[str]:
         """Model names/aliases to offer in the frontend's model dropdown for
