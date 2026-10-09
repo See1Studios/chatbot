@@ -1,7 +1,7 @@
-"""In-memory session registry, AgentSession, and standby pool.
+"""In-memory session registry and AgentSession.
 
-Extracted from server.py (monolith-split Phase 1). chatbot-ctl.sh guard_rlock
-AST-scans this file for AgentSession.lock = threading.RLock().
+Extracted from server.py (monolith-split Phase 1). Processes this server spawned live in session_procs.py and are
+re-exported here. chatbot-ctl.sh guard_rlock AST-scans this file for AgentSession.lock = threading.RLock().
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from session_turn import SessionTurn   # split/C: running a turn (reads REG, boo
 from loop_guard import LoopGuard, extract_tool_steps, is_read_only
 from host_config import (
     ADD_DIRS,
-    DATA,
+    DATA,  # noqa: F401 -- tests retarget session.DATA; session_procs reads it as _s().DATA
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
     ONESHOT_PROVIDER,
@@ -114,19 +114,6 @@ def _oneshot(prompt: str, timeout: float):
         return get_adapter(ONESHOT_PROVIDER).oneshot(prompt, timeout)
     except Exception as e:  # noqa: BLE001
         return {"text": "", "usage": None, "duration_seconds": None, "error": str(e)}
-
-
-def _standby_maintenance_loop() -> None:
-    while True:
-        try:
-            STANDBY_POOL.ensure_warm()
-        except Exception:
-            pass
-        try:
-            _reap_sessions()
-        except Exception:
-            pass
-        time.sleep(15)
 
 
 def format_client_context(ctx: Optional[Dict[str, Any]]) -> str:
@@ -1371,29 +1358,6 @@ from session_registry import Registry, _meta_touched, migrate_session_characters
 REG = Registry()
 
 
-def _record_live_pids() -> None:
-    """LOCK_ORDER_v1: runs under the caller's session lock (spawn, stop), so it never takes another session's: two
-    spawning at once deadlocked, and the handoff pass and reaper with them (#728)."""
-    try:
-        pids = []
-        if "STANDBY_POOL" in globals() and STANDBY_POOL._proc and STANDBY_POOL._proc.poll() is None:
-            pids.append(STANDBY_POOL._proc.pid)
-        if "REG" in globals():
-            try:
-                with REG.lock:
-                    sessions = list(REG.sessions.values())
-                for s in sessions:
-                    proc = s.proc
-                    if proc and proc.poll() is None:
-                        pids.append(proc.pid)
-            except Exception:
-                pass
-        _atomic_write_text(DATA / "live_pids.json", json.dumps(pids))
-    except Exception:
-        pass
-
-
-
 def _as_named_now(text: str, ts) -> str:
     """NAME_CHANGE_v1: talk from before a character was renamed, with today's names (character_names.as_of)."""
     try:
@@ -1402,134 +1366,14 @@ def _as_named_now(text: str, ts) -> str:
     except Exception:  # noqa: BLE001 -- a name note must never stop a turn
         return text
 
-def owned_agent_procs() -> Dict[int, dict]:
-    """pid -> {owner, sid, busy} for every live process this server spawned
-    (standby + session children), for accounts.snapshot(). Reads `s.proc`
-    without taking `s.lock` on purpose -- a single reference read, and this
-    runs on a GET handler where lock re-entry has deadlocked before (see
-    OPERATIONS.md)."""
-    out: Dict[int, dict] = {}
-    with STANDBY_POOL._lock:
-        p = STANDBY_POOL._proc
-        if p is not None and p.poll() is None:
-            out[p.pid] = {"owner": "standby"}
-    with REG.lock:
-        sessions = list(REG.sessions.values())
-    for s in sessions:
-        proc = s.proc
-        if proc is not None and proc.poll() is None:
-            out[proc.pid] = {"owner": "session", "sid": s.sid, "busy": bool(s.busy)}
-    return out
 
-
-def caller_session(client_port: int, server_port: int, claimed: str = "") -> Tuple[str, str]:
-    """Which session made a tool call (inbox/0): the process holding the client side of the TCP connection
-    client_port -> server_port, walked up its ancestry to an agent process this server spawned. That is an OS fact the
-    model cannot forge (a shell it runs is still that agent's descendant). The host's own process -- an HTTP brain
-    calling tools from here -- names its session in `claimed`. Returns (session id or "", the process's name)."""
-    import platform_compat
-    me = os.getpid()
-    pid = platform_compat.tcp_socket_pid(client_port, server_port, sorted(platform_compat.child_pids({me})))
-    if pid is None:
-        return "", ""
-    argv = platform_compat.proc_cmdline(pid)
-    name = os.path.basename(argv[0]) if argv else ""
-    if pid == me:
-        return (claimed if claimed and REG.peek(claimed) is not None else ""), "host"
-    owned = {p: v["sid"] for p, v in owned_agent_procs().items() if v.get("sid")}
-    hop = pid
-    for _ in range(32):
-        if hop in owned:
-            return owned[hop], name
-        hop = platform_compat.parent_pid(hop)
-        if not hop or hop <= 1 or hop == me:
-            break
-    return "", name
-
-def recycle_agents(pids: set) -> dict:
-    """Stop the given chatbot-owned agent processes so they respawn with the
-    current login. Idle session children are stopped without notice (the next
-    message respawns with the same --conversation, so context is kept); busy
-    ones are skipped, never killed mid-turn. The standby is discarded."""
-    recycled, skipped = [], []
-    owned = owned_agent_procs()
-    for pid in pids:
-        info = owned.get(pid)
-        if not info:
-            continue
-        if info["owner"] == "standby":
-            if STANDBY_POOL.discard():
-                recycled.append(pid)
-            continue
-        if info.get("busy"):
-            skipped.append(pid)
-            continue
-        with REG.lock:
-            sess = REG.sessions.get(info["sid"])  # not REG.get(): that creates
-        if sess is None:
-            skipped.append(pid)
-            continue
-        try:
-            sess.stop(notify=False)
-            recycled.append(pid)
-        except Exception:
-            skipped.append(pid)
-    return {"recycled": recycled, "skipped_busy": skipped}
-
-
-def _reap_sessions() -> None:
-    now = _now()
-    live_pids = []
-    with STANDBY_POOL._lock:
-        if STANDBY_POOL._proc is not None and STANDBY_POOL._proc.poll() is None:
-            live_pids.append(STANDBY_POOL._proc.pid)
-
-    with REG.lock:
-        sessions = list(REG.sessions.values())
-
-    died = []
-    for sess in sessions:
-        with sess.lock:
-            if sess.proc is not None:
-                ret = sess.proc.poll()
-                if ret is not None:
-                    sess.proc = None
-                    if sess.busy:
-                        sess.busy = False
-                        died.append(sess)
-                        sess._emit({"event": "error", **i18n.msg("srv.agent_exited")})
-                        has_queued = bool(getattr(sess, "msg_queue", []))
-                        if has_queued:
-                            threading.Thread(target=sess._dispatch_queued, daemon=True).start()
-                elif not sess.busy:
-                    idle_sec = now - getattr(sess, "last_activity", now)
-                    if idle_sec > 900:  # 15 minutes of inactivity while not busy
-                        proc = sess.proc
-                        sess.proc = None
-                        try:
-                            if proc.stdin:
-                                proc.stdin.close()
-                            proc.terminate()
-                            proc.wait(timeout=2)
-                        except Exception:
-                            try:
-                                proc.kill()
-                                proc.wait(timeout=1)
-                            except Exception:
-                                pass
-                        # Evict from registry so the object can be GC'd.
-                        with REG.lock:
-                            REG.sessions.pop(sess.sid, None)
-                    else:
-                        live_pids.append(sess.proc.pid)
-                else:
-                    live_pids.append(sess.proc.pid)
-
-    for sess in died:
-        sess._finish_turn("process_died")
-    try:
-        _atomic_write_text(DATA / "live_pids.json", json.dumps(live_pids))
-    except Exception:
-        pass
-
-
+# Processes this server spawned (live pids, owned procs, caller, recycle, reap, standby maintenance) live in
+# session_procs.py; re-exported here so callers keep `from session import owned_agent_procs`.
+from session_procs import (  # noqa: E402
+    _record_live_pids,
+    _reap_sessions,
+    _standby_maintenance_loop,
+    caller_session,
+    owned_agent_procs,
+    recycle_agents,
+)
