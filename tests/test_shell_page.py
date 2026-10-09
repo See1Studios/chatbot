@@ -17,6 +17,11 @@ STATIC = REPO / "static"
 HTML = (STATIC / "index.html").read_text(encoding="utf-8")
 CSS = (STATIC / "shell.css").read_text(encoding="utf-8")
 
+
+def shell_src() -> str:
+    """The talk list and the drawer, in the order index.html loads them."""
+    return "\n".join((STATIC / n).read_text(encoding="utf-8") for n in ("app-shell.js", "app-shell-panes.js"))
+
 PAGE = r"""
 const setTimeout = () => 0, clearTimeout = () => {}, setInterval = () => 0;
 function movePlaceNow() { return SHELL_TEXT.privateRoom; }   // app-move.js (PLACE_MOVE_v1): no visit place here
@@ -57,8 +62,9 @@ let roomProfileOpen;
 """
 
 HARNESS = r"""
-const src = require('fs').readFileSync(process.argv[1], 'utf8');
-const run = new Function(process.argv[2] + src + `;
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[1], 'utf8') + '\n' + fs.readFileSync(process.argv[2], 'utf8');
+const run = new Function(process.argv[3] + src + `;
 return (async () => {
   const chars = characterCatalog;
   const at = (y, m, d, h) => new Date(y, m, d, h, 5).getTime() / 1000;   // local time, so the day holds in any zone
@@ -261,7 +267,9 @@ run().then(o => console.log(JSON.stringify(o)));
 class ShellList(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        p = subprocess.run(["node", "-e", i18n_prelude() + HARNESS, str(STATIC / "app-shell.js"), PAGE], capture_output=True, text=True, timeout=60)
+        p = subprocess.run(["node", "-e", i18n_prelude() + HARNESS,
+                            str(STATIC / "app-shell.js"), str(STATIC / "app-shell-panes.js"), PAGE],
+                           capture_output=True, text=True, timeout=60)
         assert p.returncode == 0, p.stderr
         cls.o = json.loads(p.stdout)
 
@@ -279,7 +287,7 @@ class ShellList(unittest.TestCase):
         rows = {r["id"]: r for r in self.o["openPrivate"]}
         self.assertTrue(rows["a"]["private"])
         self.assertEqual(rows["a"]["preview"], "")                 # and the open private room is never previewed
-        self.assertIn("if (r.private) line = '';", SRC if "SRC" in globals() else (STATIC / "app-shell.js").read_text(encoding="utf-8"),
+        self.assertIn("if (r.private) line = '';", SRC if "SRC" in globals() else shell_src(),
                       "the drawn row says nothing of a private visit either (critique run 4)")
         self.assertFalse(rows["b"]["private"])
 
@@ -303,7 +311,7 @@ class ShellList(unittest.TestCase):
 
     def test_the_hub_chip_is_gone_under_the_switch(self):
         self.assertIn("html.shell2 #hubLink{display:none}", CSS)
-        self.assertNotIn("shell-hub", CSS + (STATIC / "app-shell.js").read_text(encoding="utf-8"))
+        self.assertNotIn("shell-hub", CSS + shell_src())
 
     def test_the_filter_matches_names(self):
         self.assertEqual(self.o["filter"], ["Kiki", "Kit"])
@@ -357,7 +365,7 @@ class ShellList(unittest.TestCase):
 
     def test_settings_swatches_are_named_by_the_catalog(self):
         # critique run 4: the settings' theme swatches were announced as "lime", "spark"
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         self.assertIn("s.title = tr('theme.' + name);", src)
         self.assertIn("s.setAttribute('aria-label', s.title);", src)
 
@@ -379,7 +387,7 @@ class ShellList(unittest.TestCase):
             self.assertEqual(line, idle.split(" · ")[0] + " · " + word)
         self.assertIn("#shellPresence.off{", CSS)
         self.assertIn(".shell-user-status.off::before{", CSS)
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         self.assertIn("updateProcBadge = function () { badge.apply(this, arguments); shellPresence(); shellUserBarDraw(); };", src)
 
     def test_the_seven_tabs_have_a_new_home(self):
@@ -394,7 +402,7 @@ class ShellList(unittest.TestCase):
         self.assertEqual(o["teamShows"], [True, False, False, False, True])
         # the status pane is split into individual menus (accounts, instructions, skills, mcp)
         self.assertEqual(o["statusShows"], [True, False, False])
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         self.assertIn("shellGoTeam(c.id, 'profile')", src)
         self.assertIn("shellGoTeamSection(row.k, 'settings')", src)
         self.assertIn("shellGoStatus(row.k, 'settings')", src)
@@ -417,7 +425,7 @@ class ShellList(unittest.TestCase):
                                        {"id": "y", "label": "Y!", "current": True, "blocked": False, "why": ""}])
         self.assertEqual(o["models"], [{"value": "m1", "label": "One", "current": False}, {"value": "m2", "label": "m2", "current": True}])
         self.assertEqual(o["noModels"], [])
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         card = src[src.index("function shellProfileOpen()"):src.index("function shellSettingsClose()")]
         self.assertIn("await selectProvider(o.id)", card)          # the calls the old pickers make
         self.assertIn("pickModel(o.value)", card)
@@ -428,7 +436,7 @@ class ShellList(unittest.TestCase):
     def test_the_tab_bar_is_hidden_and_a_pane_leads_back(self):
         self.assertIn("html.shell2 header .bar{display:none}", CSS)
         self.assertIn('html.shell2[data-tab]:not([data-tab="chat"]) .shell-pane-bar{display:flex}', CSS)
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         self.assertIn("back.addEventListener('click', () => shellPaneBack())", src)
         self.assertIn("if (typeof currentTab !== 'undefined' && currentTab !== 'chat') switchTab('chat');", src)   # a pick returns to the talk
         self.assertIn("document.documentElement.dataset.tab = tab;", (STATIC / "app-api.js").read_text(encoding="utf-8"))
@@ -438,7 +446,7 @@ class ShellList(unittest.TestCase):
         pane = 'html.shell2[data-tab]:not([data-tab="chat"]) '
         self.assertIn(pane + "header," + pane + ".meta," + pane + "#sessionBanner{display:none !important}", CSS)
         self.assertIn(':root[data-tab]:not([data-tab="chat"]) .composer', (STATIC / "chat-panes.css").read_text(encoding="utf-8"))
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         # the card: a full-height column beside the talk that opens by moving it (wide), over its edge (medium),
         # a screen of its own (phone)
         self.assertIn("document.body.appendChild(profile);", src)
@@ -465,7 +473,7 @@ class ShellList(unittest.TestCase):
         self.assertEqual(o["drawerCharSwitch"]["events"], ["shellProfileOpen"])
         self.assertTrue(o["drawerCharSwitch"]["isOpen"])
         self.assertEqual(o["drawerClosedSwitch"]["events"], [])
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         pick_fn = src[src.index("async function shellPick(r)"):src.index("function shellPending")]
         pick_finally = pick_fn[pick_fn.index("finally {"):]
         self.assertIn("roomProfileOpen()", pick_finally)
@@ -476,7 +484,7 @@ class ShellList(unittest.TestCase):
         # the art manager draws into an #artManager it finds: the shell puts one in the stage, without the modal class
         art = (STATIC / "app-art.js").read_text(encoding="utf-8")
         self.assertIn("let m = document.getElementById('artManager');", art)
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         go = src[src.index("async function shellGoArt"):src.index("function shellArtGone")]
         self.assertIn("shellGoPane('art', 'profile');", go)
         self.assertIn("shellEl('div', 'art-mgr-overlay shell-art')", go)
@@ -492,7 +500,7 @@ class ShellList(unittest.TestCase):
         self.assertIn("  .shell-profile.open.behind{transform:translateX(-102%);", CSS)         # the card behind a pane
         self.assertIn("html.shell2 #shellList{position:relative;overflow:hidden;", CSS)          # settings slide inside the list
         self.assertRegex(CSS, r"html\.shell2 #shellList\{position:fixed;inset:0;z-index:90;[^}]*transform:translateX\(-100%\)")
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         self.assertIn("col.classList.add('behind')", src)
         self.assertIn("column.classList.remove('behind');", src)
         self.assertIn("p.classList.remove('open', 'behind')", src)
@@ -550,7 +558,7 @@ class OwnLook(unittest.TestCase):
         chars = (STATIC / "app-characters.js").read_text(encoding="utf-8")
         tray = chars[chars.index("function renderCharacterTray()"):chars.index("function toggleCharacterTray")]
         self.assertIn("characterOwnPortrait(c)", tray)
-        self.assertIn("characterOwnPortrait(c)", (STATIC / "app-shell.js").read_text(encoding="utf-8"))
+        self.assertIn("characterOwnPortrait(c)", shell_src())
 
 
 class ShellSwitch(unittest.TestCase):
@@ -589,7 +597,7 @@ class ShellSwitch(unittest.TestCase):
         self.assertIn(".composer .inline-btn:not(.attached):not(.uploading):not(.error){display:none}", CSS)
         self.assertIn("html.shell2 body.density-advanced #shellPlus,html.shell2 body.room-open #shellPlus{display:none}", CSS)
         self.assertIn("html.shell2 body.density-advanced #shellHeart,html.shell2 body.room-open #shellHeart{display:none}", CSS)
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         self.assertIn("if (!priv.disabled) priv.click()", src)      # the heart presses the real switch
 
     def test_the_plus_menu_opens_commands_the_way_the_button_does(self):
@@ -597,14 +605,14 @@ class ShellSwitch(unittest.TestCase):
         slash = (STATIC / "slash.js").read_text(encoding="utf-8")
         self.assertIn("slashBtnEl.addEventListener('pointerdown'", slash)
         self.assertNotIn("slashBtnEl.addEventListener('click'", slash)
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         self.assertIn("if (it.k === 'slash' && typeof toggleSlashMenu === 'function') toggleSlashMenu();", src)
         # the other two buttons act on click
         self.assertIn("geoBtn.addEventListener('click'", (STATIC / "app.js").read_text(encoding="utf-8"))
 
     def test_the_list_is_headed_by_the_apps_name(self):
         self.assertRegex(HTML, r'<meta name="application-name" content="[^"]+" />')
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         self.assertIn("""document.querySelector('meta[name="application-name"]')""", src)
 
     def test_no_writing_placeholder_under_the_shell(self):
@@ -630,7 +638,7 @@ class ShellSwitch(unittest.TestCase):
         foot = HTML[HTML.index('<div class="shell-list-foot">'):HTML.index("</aside>")]
         self.assertIn('id="shellUserBar" class="shell-user-bar"', foot)
         self.assertNotIn("shellNewRoom", foot)
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = shell_src()
         self.assertIn("[menu, me].forEach(b => { if (b) { b.title = SHELL_TEXT.settings; b.addEventListener('click', () => shellSettingsOpen()); } });", src)
         self.assertIn("add.addEventListener('click', () => openRooms());", src)
         self.assertIn("IDENTITY.user_title", src[src.index("function shellUserBarDraw"):])
@@ -702,7 +710,7 @@ class ProfileQuota(unittest.TestCase):
         self.assertEqual(self.o["noModel"]["calls"][0][0], "/api/usage?provider=agy")
 
     def test_it_sits_under_the_name_card_above_the_rows_and_is_loaded_after_what_it_uses(self):
-        shell = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        shell = shell_src()
         self.assertIn("panel.insertBefore(shellQuotaSection(), list)", shell)
         for earlier in ("app-status.js", "app-status-usage.js", "app-shell.js"):
             self.assertLess(HTML.index('src="./' + earlier), HTML.index('src="./app-shell-quota.js'))

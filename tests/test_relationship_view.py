@@ -79,7 +79,7 @@ class Page(unittest.TestCase):
     def test_the_profile_loads_it(self):
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         self.assertLess(html.index('src="./app-shell-quota.js'), html.index('src="./app-shell-relation.js'))
-        self.assertIn("shellRelationSection(c)", (STATIC / "app-shell.js").read_text(encoding="utf-8"))
+        self.assertIn("shellRelationSection(c)", (STATIC / "app-shell-panes.js").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

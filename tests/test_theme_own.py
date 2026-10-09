@@ -45,7 +45,7 @@ class ThemeOwn(unittest.TestCase):
         src = app_source()
         self.assertNotRegex(src, r"\bapplyTheme\(themeForProvider", "a brain switch paints via applyBrainTheme")
         self.assertEqual(len(re.findall(r"applyBrainTheme\(themeForProvider", src)), 3)
-        self.assertIn("chooseTheme(name)", (STATIC / "app-shell.js").read_text(encoding="utf-8"))
+        self.assertIn("chooseTheme(name)", (STATIC / "app-shell-panes.js").read_text(encoding="utf-8"))
         self.assertIn("chooseTheme(chosen)", THEME.read_text(encoding="utf-8"))
 
 

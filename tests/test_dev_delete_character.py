@@ -106,7 +106,7 @@ class DevDeleteCharacterTest(unittest.TestCase):
 class DevDeletePageTest(unittest.TestCase):
     def test_button_is_dev_mode_only_and_confirms(self):
         js = (ROOT / "static" / "app-dev-delete.js").read_text(encoding="utf-8")
-        shell = (ROOT / "static" / "app-shell.js").read_text(encoding="utf-8")
+        shell = (ROOT / "static" / "app-shell-panes.js").read_text(encoding="utf-8")
         css = (ROOT / "static" / "shell.css").read_text(encoding="utf-8")
         html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
         server = (ENGINE / "server.py").read_text(encoding="utf-8")
@@ -121,7 +121,8 @@ class DevDeletePageTest(unittest.TestCase):
         self.assertIn("shellDevDeleteButton(panel, c)", shell)
         self.assertIn("html.shell2 body:not(.dev-mode) .shell-dev{display:none}", css)
         self.assertIn(".shell-dev-delete{margin-top:1rem}", css)
-        self.assertLess(html.index('src="./app-shell.js'), html.index('src="./app-dev-delete.js'))
+        self.assertLess(html.index('src="./app-shell.js'), html.index('src="./app-shell-panes.js'))
+        self.assertLess(html.index('src="./app-shell-panes.js'), html.index('src="./app-dev-delete.js'))
         self.assertLess(html.index('src="./app-dev-delete.js'), html.index('src="./app.js'))
         self.assertIn('"/api/characters/*/dev-delete"', server)
         self.assertIn("EDITION", server)

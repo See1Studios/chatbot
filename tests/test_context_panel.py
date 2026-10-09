@@ -70,7 +70,7 @@ class Page(unittest.TestCase):
             self.assertEqual({w for w in whys if "context.why." + w not in keys}, set(), cat.name)
 
     def test_the_panel_loads_with_the_character_profile(self):
-        src = (STATIC / "app-shell.js").read_text(encoding="utf-8")
+        src = (STATIC / "app-shell-panes.js").read_text(encoding="utf-8")
         self.assertIn("list.id = 'statusContext'", src)
         self.assertIn("shellContextSection()", src)
         self.assertIn("loadContextNow", src)

@@ -14,7 +14,7 @@ from tests._paths import REPO  # noqa: E402
 
 STATIC = REPO / "static"
 MAX_BYTES = 43_000
-CEILINGS = {"app-shell.js": 51_000}   # parts over the cap already: no growth (gained push switch #849)
+CEILINGS = {}   # parts over the cap already: no growth (none — app-shell.js came back under the cap when the drawer moved to app-shell-panes.js)
 BYTES_SLACK = 2_000
 
 HARNESS = r"""
