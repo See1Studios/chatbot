@@ -186,8 +186,49 @@ async function checkAndSyncPushSubscription() {
   }
 }
 
+async function unsubscribePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      const endpoint = sub.endpoint;
+      await sub.unsubscribe();
+      await fetch('/api/push/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint }),
+      });
+    }
+    localStorage.setItem('chatbot.pushEnabled', 'false');
+    return true;
+  } catch (err) {
+    console.warn('Push unsubscribe failed:', err);
+    return false;
+  }
+}
+
+function isPushEnabled() {
+  return localStorage.getItem('chatbot.pushEnabled') === 'true' &&
+         typeof Notification !== 'undefined' && Notification.permission === 'granted';
+}
+
+async function togglePushNotification(enable, done) {
+  if (enable) {
+    const ok = await requestPushSubscription();
+    localStorage.setItem('chatbot.pushEnabled', ok ? 'true' : 'false');
+  } else {
+    await unsubscribePush();
+    localStorage.setItem('chatbot.pushEnabled', 'false');
+  }
+  if (typeof done === 'function') done();
+}
+
 if (typeof window !== 'undefined') {
   window.requestPushSubscription = requestPushSubscription;
+  window.unsubscribePush = unsubscribePush;
+  window.isPushEnabled = isPushEnabled;
+  window.togglePushNotification = togglePushNotification;
   window.checkAndSyncPushSubscription = checkAndSyncPushSubscription;
   setTimeout(() => checkAndSyncPushSubscription(), 3000);
 }

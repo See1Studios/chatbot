@@ -14,7 +14,7 @@ from tests._paths import REPO  # noqa: E402
 
 STATIC = REPO / "static"
 MAX_BYTES = 43_000
-CEILINGS = {"app-shell.js": 50_500}   # parts over the cap already: no growth (app-shell.js gained appearance & team menus & icons with #817)
+CEILINGS = {"app-shell.js": 51_000}   # parts over the cap already: no growth (gained push switch #849)
 BYTES_SLACK = 2_000
 
 HARNESS = r"""
