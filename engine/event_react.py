@@ -139,7 +139,7 @@ def notify_turn_end(sess, outcome: str) -> None:
             return
         clean = " ".join(body.split())
         summary = clean[:120] if len(clean) > 120 else clean
-        push_manager.notify(title=title, body=summary, url=f"/?s={sess.sid}", tag=f"react-{sess.sid}")
+        push_manager.notify(title=title, body=summary, url=f"./?s={sess.sid}", tag=f"react-{sess.sid}")
     except Exception:  # noqa: BLE001
         pass
 

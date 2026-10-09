@@ -218,7 +218,7 @@ class SessionReactPush(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0]["title"], "TestCat")
         self.assertEqual(calls[0]["body"], "Hello! The task is complete. Check the results!")
-        self.assertEqual(calls[0]["url"], "/?s=test-react-push")
+        self.assertEqual(calls[0]["url"], "./?s=test-react-push")
         self.assertFalse(getattr(sess, "_pending_push_react", False))
 
     def test_session_react_push_ignores_error_outcome(self):
@@ -234,6 +234,13 @@ class SessionReactPush(unittest.TestCase):
 
         self.assertEqual(calls, [])
         self.assertFalse(getattr(sess, "_pending_push_react", False))
+
+
+class ServiceWorkerScope(unittest.TestCase):
+    def test_sw_contains_scope_aware_url_resolver(self):
+        sw_src = (REPO / "static" / "sw.js").read_text(encoding="utf-8")
+        self.assertIn("function _resolveTargetUrl", sw_src)
+        self.assertIn("self.registration.scope", sw_src)
 
 
 if __name__ == "__main__":
