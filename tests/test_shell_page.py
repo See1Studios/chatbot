@@ -660,11 +660,10 @@ class ProfileQuota(unittest.TestCase):
         self.assertNotIn("👤", prof_src)
         self.assertNotIn("🌸", prof_src)
         self.assertNotIn("⚙️", prof_src)
-        # Telegram-style Master artwork viewer & Focal crop
-        self.assertIn("openMasterArtworkViewer", prof_src)
+        # Master artwork & Face focal crop
         self.assertIn("openFocalEditor", prof_src)
         self.assertIn("getCharacterFocal", prof_src)
-        self.assertIn("bindPullDownGesture", prof_src)
+        self.assertIn("getMasterArtworkUrl", prof_src)
         # loaded in index.html in order
         html = (STATIC / "index.html").read_text(encoding="utf-8")
         self.assertLess(html.index('src="./app-shell-relation.js'), html.index('src="./app-shell-profile.js'))
@@ -680,7 +679,6 @@ class ProfileQuota(unittest.TestCase):
         self.assertIn(".shell-edit-form{", css)
         self.assertIn(".shell-art-carousel{", css)
         self.assertIn(".shell-memory-card{", css)
-        self.assertIn(".shell-master-viewer{", css)
         self.assertIn(".shell-focal-dialog{", css)
         self.assertIn(".shell-focal-reticle{", css)
 

@@ -1,9 +1,9 @@
 // Profile: Companion Profile Screen (Redesign UX/S2)
 // 3 Tabs Architecture:
-// Tab 1: 'character' - Base persona & card settings (inline inspection & edit, expression strip)
-// Tab 2: 'relationship' - Accumulated continuity (relation level, affection, memory.md)
-// Tab 3: 'engine' - Engineering system controls (Provider, Model, Quota, Tokens)
-// Telegram-style Master Image with Face Coordinate Crop & Pull-down Expander
+// Tab 1: 'character' - Base persona & card settings
+// Tab 2: 'relationship' - Accumulated continuity
+// Tab 3: 'engine' - Engineering system controls
+// Master Image with Face Coordinate Crop & Inline Editor
 
 let shellProfileTab = 'character'; // 'character' | 'relationship' | 'engine'
 let shellProfileEditMode = false;
@@ -19,21 +19,16 @@ function profileIconSvg(name) {
     message: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     mic: '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>',
     target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>',
-    expand: '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>',
     close: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
-    down: '<polyline points="6 9 12 15 18 9"/>',
     check: '<polyline points="20 6 9 17 4 12"/>',
   };
   const body = icons[name] || '';
   return `<svg viewBox="0 0 24 24" class="btn-icon-svg shell-svg-${name}" aria-hidden="true">${body}</svg>`;
 }
 
-// Resolve master high-resolution artwork URL for a character
+// Resolve master character artwork (distinct from background/stage wallpaper)
 function getMasterArtworkUrl(c) {
-  if (c.focal && c.focal.master) return c.focal.master;
-  if (c.stage_v && typeof BASE_PATH !== 'undefined') {
-    return BASE_PATH + '/api/characters/' + encodeURIComponent(c.id) + '/stage?v=' + c.stage_v;
-  }
+  if (c && c.focal && c.focal.master) return c.focal.master;
   if (typeof characterOwnPortrait === 'function') {
     return characterOwnPortrait(c);
   }
@@ -66,35 +61,20 @@ function shellProfileDraw(panel, c, column) {
     typeof shellNarrow === 'function' && shellNarrow() ? '\u2039' : '\u2715'
   );
 
-  // 2. Hero Section (Visual Foundation & Master Artwork)
+  // 2. Hero Section
+  // Background cover strictly uses stage scene background (or neutral dark styling), NOT the character master image
   const hero = shellEl('div', 'shell-hero');
   const cover = shellEl('div', 'shell-hero-cover');
-  const masterUrl = getMasterArtworkUrl(c);
   if (c.stage_v && typeof BASE_PATH !== 'undefined') {
     const stageUrl = BASE_PATH + '/api/characters/' + encodeURIComponent(c.id) + '/stage?v=' + c.stage_v;
     cover.style.backgroundImage = 'url("' + stageUrl + '")';
     cover.classList.add('has-stage');
-  } else if (masterUrl) {
-    cover.style.backgroundImage = 'url("' + masterUrl + '")';
   }
 
-  // Cover action: Click to open full Master Artwork viewer
-  cover.title = typeof tr === 'function' ? (tr('profile.view_master') || 'View master artwork') : 'View master artwork';
-  cover.addEventListener('click', (ev) => {
-    if (ev.target.closest('.shell-hero-cover-btn')) return;
-    openMasterArtworkViewer(panel, c);
-  });
-
-  // Pull-down indicator on cover
-  const coverHint = shellEl('span', 'shell-hero-expand-hint');
-  const hintText = typeof tr === 'function' ? (tr('profile.view_master') || 'Full Art') : 'Full Art';
-  coverHint.innerHTML = profileIconSvg('expand') + ' <span>' + escapeHtml(hintText) + '</span>';
-  cover.appendChild(coverHint);
-
-  // Cover custom button: opens Focal Cropper directly
+  // Cover action: directly opens Face Focal / Master Art editor
   const coverBtn = shellEl('button', 'shell-hero-cover-btn');
   coverBtn.type = 'button';
-  coverBtn.title = typeof tr === 'function' ? (tr('profile.edit_focal') || 'Edit crop') : 'Edit crop';
+  coverBtn.title = typeof tr === 'function' ? tr('profile.sec.focal') : 'Edit Face Focus';
   coverBtn.setAttribute('aria-label', 'Edit Art');
   coverBtn.innerHTML = profileIconSvg('camera');
   coverBtn.addEventListener('click', (ev) => {
@@ -106,7 +86,6 @@ function shellProfileDraw(panel, c, column) {
   // Hero Card with Focal Cropped Avatar
   const heroCard = shellEl('div', 'shell-hero-card');
   const avatarWrap = shellEl('div', 'shell-hero-avatar-wrap');
-  avatarWrap.title = 'View artwork / pull down';
 
   const avatarClip = shellEl('div', 'shell-hero-avatar-clip');
   const img = document.createElement('img');
@@ -122,7 +101,7 @@ function shellProfileDraw(panel, c, column) {
   img.style.objectPosition = `${focal.x}% ${focal.y}%`;
   img.style.transform = `scale(${focal.zoom})`;
   img.style.transformOrigin = `${focal.x}% ${focal.y}%`;
-  img.src = (focal.master) ? focal.master : (typeof characterOwnPortrait === 'function' ? characterOwnPortrait(c) : '');
+  img.src = focal.master || (typeof characterOwnPortrait === 'function' ? characterOwnPortrait(c) : '');
 
   avatarClip.appendChild(img);
 
@@ -132,7 +111,7 @@ function shellProfileDraw(panel, c, column) {
   // Quick focal target button on avatar corner
   const focalBtn = shellEl('button', 'shell-hero-focal-btn');
   focalBtn.type = 'button';
-  focalBtn.title = typeof tr === 'function' ? (tr('profile.edit_focal') || 'Edit focal crop') : 'Edit focal crop';
+  focalBtn.title = typeof tr === 'function' ? tr('profile.sec.focal') : 'Edit Face Focus';
   focalBtn.setAttribute('aria-label', 'Edit Face Crop');
   focalBtn.innerHTML = profileIconSvg('target');
   focalBtn.addEventListener('click', (ev) => {
@@ -141,10 +120,6 @@ function shellProfileDraw(panel, c, column) {
   });
 
   avatarWrap.append(avatarClip, presenceDot, focalBtn);
-
-  // Avatar click & pull-down drag gesture to open master artwork
-  bindPullDownGesture(avatarWrap, () => openMasterArtworkViewer(panel, c));
-  avatarClip.addEventListener('click', () => openMasterArtworkViewer(panel, c));
 
   const titleWrap = shellEl('div', 'shell-hero-info');
   const nameEl = shellEl('div', 'shell-hero-name', c.title || c.name || '');
@@ -176,7 +151,7 @@ function shellProfileDraw(panel, c, column) {
   titleWrap.append(nameEl, badgeWrap);
   heroCard.append(avatarWrap, titleWrap);
 
-  // Persona Bio / Summary
+  // Persona Bio / Summary (scrollable when long)
   const bioText = (c.description || c.personality || '').trim();
   if (bioText) {
     const bioEl = shellEl('div', 'shell-hero-bio', bioText);
@@ -195,20 +170,23 @@ function shellProfileDraw(panel, c, column) {
 
   hero.append(cover, heroCard);
 
-  // 3. Segmented 3-Tab Control (character / relationship / engine)
+  // 3. Segmented 3-Tab Control: character / relationship / settings
   const tabNav = shellEl('div', 'shell-profile-nav shell-profile-nav-3');
 
+  const tabCharLabel = typeof tr === 'function' ? tr('profile.tab.character') : 'Character';
   const tabCharBtn = shellEl('button', 'shell-tab-btn' + (shellProfileTab === 'character' ? ' active' : ''));
   tabCharBtn.type = 'button';
-  tabCharBtn.innerHTML = profileIconSvg('user') + ' ' + escapeHtml(typeof tr === 'function' ? (tr('card.title') || 'Character') : 'Character');
+  tabCharBtn.innerHTML = profileIconSvg('user') + ' ' + escapeHtml(tabCharLabel);
 
+  const tabRelLabel = typeof tr === 'function' ? tr('profile.tab.relationship') : 'Relationship';
   const tabRelBtn = shellEl('button', 'shell-tab-btn' + (shellProfileTab === 'relationship' ? ' active' : ''));
   tabRelBtn.type = 'button';
-  tabRelBtn.innerHTML = profileIconSvg('bond') + ' ' + escapeHtml(typeof tr === 'function' ? (tr('profile.tab.persona') || 'Bond & Memory') : 'Bond & Memory');
+  tabRelBtn.innerHTML = profileIconSvg('bond') + ' ' + escapeHtml(tabRelLabel);
 
+  const tabEngLabel = typeof tr === 'function' ? tr('profile.tab.settings') : 'Settings';
   const tabEngBtn = shellEl('button', 'shell-tab-btn' + (shellProfileTab === 'engine' ? ' active' : ''));
   tabEngBtn.type = 'button';
-  tabEngBtn.innerHTML = profileIconSvg('settings') + ' ' + escapeHtml(typeof tr === 'function' ? (tr('profile.tab.engine') || 'Settings') : 'Settings');
+  tabEngBtn.innerHTML = profileIconSvg('settings') + ' ' + escapeHtml(tabEngLabel);
 
   tabNav.append(tabCharBtn, tabRelBtn, tabEngBtn);
 
@@ -243,9 +221,14 @@ function shellProfileDraw(panel, c, column) {
 
 // ------------------------------------------------------------------ Tab 1: Character
 function renderCharacterTab(holder, c, panel, column) {
-  const sec = shellSection(typeof tr === 'function' ? (tr('team.sub.card') || 'Character Card') : 'Character Card');
+  if (!holder || !c) return;
+  holder.textContent = '';
+
+  const secTitle = typeof tr === 'function' ? tr('profile.sec.card') : 'Character Card';
+  const sec = shellSection(secTitle);
   const headRow = shellEl('div', 'shell-inline-head');
-  headRow.appendChild(shellEl('span', 'status-hint', typeof tr === 'function' ? (tr('card.title') || 'Base Persona') : 'Base Persona'));
+  const baseInfoLabel = typeof tr === 'function' ? tr('profile.sec.base_info') : 'Base Info';
+  headRow.appendChild(shellEl('span', 'status-hint', baseInfoLabel));
 
   const editToggleBtn = shellEl('button', 'art-btn art-btn-xs ' + (shellProfileEditMode ? '' : 'primary'));
   editToggleBtn.type = 'button';
@@ -271,7 +254,7 @@ function renderCharacterTab(holder, c, panel, column) {
     const fVoice = shellFormField(tr('profile.voice.sample') || 'Voice Preset', 'text', c.voice || '', 'e.g. ko-KR-Neural2-A');
     const fDesc = shellFormFieldArea(tr('card.description'), c.description || '');
     const fPers = shellFormFieldArea(tr('card.personality'), c.personality || '');
-    const fTags = shellFormField('Tags (comma separated)', 'text', (c.tags || []).join(', '));
+    const fTags = shellFormField('Tags', 'text', (c.tags || []).join(', '));
 
     const btnRow = shellEl('div', 'shell-edit-actions');
     const saveBtn = shellEl('button', 'art-btn art-btn-sm primary', typeof tr === 'function' ? tr('common.save') : 'Save');
@@ -305,12 +288,11 @@ function renderCharacterTab(holder, c, panel, column) {
     form.append(fName.wrap, fUserTitle.wrap, fVoice.wrap, fDesc.wrap, fPers.wrap, fTags.wrap, btnRow);
     sec.appendChild(form);
   } else {
-    // Readonly Field Cards
+    // Readonly Field Cards with scrollable long text (Role moved to Tab 3: Settings)
     const list = shellEl('div', 'shell-field-list');
     list.appendChild(shellInfoRow(tr('card.name'), c.title || c.name || ''));
     if (c.user_title) list.appendChild(shellInfoRow(tr('card.user_title') || 'User Title', c.user_title));
     if (c.voice) list.appendChild(shellInfoRow(tr('profile.voice.sample') || 'Voice Preset', c.voice));
-    if (c.role) list.appendChild(shellInfoRow('Role', c.role));
     if (c.description) list.appendChild(shellInfoRow(tr('card.description'), c.description, true));
     if (c.personality) list.appendChild(shellInfoRow(tr('card.personality'), c.personality, true));
     if (c.tags && c.tags.length) list.appendChild(shellInfoRow('Tags', c.tags.map(t => '#' + t).join(' ')));
@@ -320,7 +302,8 @@ function renderCharacterTab(holder, c, panel, column) {
   holder.appendChild(sec);
 
   // Expression & Stage Gallery Mini-Strip
-  const artSec = shellSection('Visuals & Art');
+  const artSecTitle = typeof tr === 'function' ? tr('profile.sec.visuals') : 'Visuals & Expressions';
+  const artSec = shellSection(artSecTitle);
   const artStrip = shellEl('div', 'shell-art-strip');
   artStrip.appendChild(shellEl('div', 'status-hint', typeof tr === 'function' ? tr('common.loading') : 'Loading...'));
   artSec.appendChild(artStrip);
@@ -330,14 +313,17 @@ function renderCharacterTab(holder, c, panel, column) {
 
 // ------------------------------------------------------------------ Tab 2: Relationship & Memory
 function renderRelationshipTab(holder, c) {
+  if (!holder || !c) return;
+  holder.textContent = '';
   // 1. Relationship facts
   if (typeof shellRelationSection === 'function') {
     const relSec = shellRelationSection(c);
     if (relSec) holder.appendChild(relSec);
   }
 
-  // 2. Shared Memory Card
-  const memSec = shellSection(typeof tr === 'function' ? (tr('team.sub.memory') || 'Shared Memory') : 'Shared Memory');
+  // 2. Shared Memory Card (scrollable)
+  const memSecTitle = typeof tr === 'function' ? tr('profile.sec.memory') : 'Shared Memory';
+  const memSec = shellSection(memSecTitle);
   const memCard = shellEl('div', 'shell-memory-card');
   const memHint = shellEl('div', 'status-hint', typeof tr === 'function' ? tr('common.loading') : 'Loading memory...');
   memCard.appendChild(memHint);
@@ -376,109 +362,23 @@ function renderRelationshipTab(holder, c) {
 
 // ------------------------------------------------------------------ Tab 3: Engine
 function renderEngineTab(holder, c) {
+  if (!holder || !c) return;
+  holder.textContent = '';
+  // Role belongs in engineering/settings tab
+  if (c.role) {
+    const roleTitle = typeof tr === 'function' ? tr('profile.sec.role') : 'Assigned Role';
+    const roleSec = shellSection(roleTitle);
+    const roleList = shellEl('div', 'shell-field-list');
+    roleList.appendChild(shellInfoRow(roleTitle, c.role));
+    roleSec.appendChild(roleList);
+    holder.appendChild(roleSec);
+  }
   if (typeof shellQuotaSection === 'function') holder.appendChild(shellQuotaSection());
   if (typeof shellBrainSection === 'function') holder.appendChild(shellBrainSection(c));
   if (typeof shellModelSection === 'function') holder.appendChild(shellModelSection());
   if (typeof shellContextSection === 'function') holder.appendChild(shellContextSection());
   if (typeof shellBrainUseSection === 'function') holder.appendChild(shellBrainUseSection(c));
   if (typeof shellDevDeleteButton === 'function') shellDevDeleteButton(holder, c);
-}
-
-// ------------------------------------------------------------------ Master Artwork Viewer (Telegram style)
-function openMasterArtworkViewer(panel, c) {
-  if (!panel || !c) return;
-  const existing = panel.querySelector('.shell-master-viewer');
-  if (existing) existing.remove();
-
-  const viewer = shellEl('div', 'shell-master-viewer');
-  const masterUrl = getMasterArtworkUrl(c);
-
-  // Top control bar with pull-down handle and actions
-  const topBar = shellEl('div', 'shell-master-viewer-top');
-  const dragHandle = shellEl('div', 'shell-master-drag-handle');
-  const pullLabel = typeof tr === 'function' ? (tr('profile.pull_down_close') || 'Pull down to close') : 'Pull down to close';
-  dragHandle.innerHTML = profileIconSvg('down') + ' <span>' + escapeHtml(pullLabel) + '</span>';
-
-  const actions = shellEl('div', 'shell-master-actions');
-  const focalBtn = shellEl('button', 'art-btn art-btn-xs');
-  focalBtn.type = 'button';
-  const focalLabel = typeof tr === 'function' ? (tr('profile.edit_focal') || 'Edit Crop') : 'Edit Crop';
-  focalBtn.innerHTML = profileIconSvg('target') + ' <span>' + escapeHtml(focalLabel) + '</span>';
-  focalBtn.addEventListener('click', () => {
-    viewer.remove();
-    openFocalEditor(panel, c);
-  });
-
-  const closeBtn = shellEl('button', 'art-btn art-btn-xs');
-  closeBtn.type = 'button';
-  closeBtn.innerHTML = profileIconSvg('close');
-  closeBtn.title = typeof tr === 'function' ? tr('common.close') : 'Close';
-  closeBtn.addEventListener('click', () => viewer.remove());
-
-  actions.append(focalBtn, closeBtn);
-  topBar.append(dragHandle, actions);
-
-  // Image Display Area
-  const imgWrap = shellEl('div', 'shell-master-img-wrap');
-  const img = document.createElement('img');
-  img.className = 'shell-master-img';
-  img.alt = c.name || '';
-  img.src = masterUrl;
-  imgWrap.appendChild(img);
-
-  viewer.append(topBar, imgWrap);
-  panel.appendChild(viewer);
-
-  // Gesture: Pull down to dismiss
-  bindPullDownGesture(viewer, () => viewer.remove());
-}
-
-// Bind smooth drag-down gesture to dismiss element
-function bindPullDownGesture(element, onDismiss) {
-  if (!element || !element.addEventListener) return;
-  let startY = 0;
-  let currentY = 0;
-  let isDragging = false;
-
-  const onStart = (y) => {
-    startY = y;
-    currentY = y;
-    isDragging = true;
-    element.classList.add('dragging');
-  };
-
-  const onMove = (y) => {
-    if (!isDragging) return;
-    const dy = y - startY;
-    if (dy > 0) {
-      currentY = y;
-      element.style.transform = `translateY(${Math.min(dy, 240)}px)`;
-      element.style.opacity = String(Math.max(0.3, 1 - dy / 300));
-    }
-  };
-
-  const onEnd = () => {
-    if (!isDragging) return;
-    isDragging = false;
-    element.classList.remove('dragging');
-    const dy = currentY - startY;
-    if (dy > 65) {
-      element.style.transform = 'translateY(100%)';
-      element.style.opacity = '0';
-      setTimeout(() => onDismiss(), 180);
-    } else {
-      element.style.transform = '';
-      element.style.opacity = '';
-    }
-  };
-
-  // Pointer / Touch bindings
-  element.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('button, input, select')) return;
-    onStart(e.clientY);
-  });
-  window.addEventListener('pointermove', (e) => onMove(e.clientY));
-  window.addEventListener('pointerup', () => onEnd());
 }
 
 // ------------------------------------------------------------------ Visual Focal Cropper & Master Editor
@@ -497,7 +397,7 @@ async function openFocalEditor(panel, c) {
   // 1. Dialog Header
   const head = shellEl('div', 'shell-focal-head');
   const title = shellEl('div', 'shell-focal-title');
-  const titleLabel = typeof tr === 'function' ? (tr('profile.focal_title') || 'Face Focal & Avatar Crop') : 'Face Focal & Avatar Crop';
+  const titleLabel = typeof tr === 'function' ? tr('profile.sec.focal') : 'Edit Face Focus';
   title.innerHTML = profileIconSvg('target') + ' <span>' + escapeHtml(titleLabel) + '</span>';
   const closeBtn = shellEl('button', 'art-btn art-btn-xs');
   closeBtn.type = 'button';
@@ -562,7 +462,7 @@ async function openFocalEditor(panel, c) {
   const prevImg = document.createElement('img');
   prevImg.src = curMaster;
   prevAvWrap.appendChild(prevImg);
-  const prevLabel = shellEl('div', 'status-hint', 'Live Preview');
+  const prevLabel = shellEl('div', 'status-hint', typeof tr === 'function' ? tr('profile.focal.preview') : 'Live Preview');
   prevBox.append(prevAvWrap, prevLabel);
   prevRow.appendChild(prevBox);
 
@@ -575,7 +475,8 @@ async function openFocalEditor(panel, c) {
 
   // Slider X
   const rowX = shellEl('div', 'shell-focal-slider-row');
-  const lblX = shellEl('label', '', 'X-Axis');
+  const lblXText = typeof tr === 'function' ? tr('profile.focal.x') : 'X-Axis';
+  const lblX = shellEl('label', '', lblXText);
   const sliderX = document.createElement('input');
   sliderX.type = 'range';
   sliderX.min = '0';
@@ -591,7 +492,8 @@ async function openFocalEditor(panel, c) {
 
   // Slider Y
   const rowY = shellEl('div', 'shell-focal-slider-row');
-  const lblY = shellEl('label', '', 'Y-Axis');
+  const lblYText = typeof tr === 'function' ? tr('profile.focal.y') : 'Y-Axis';
+  const lblY = shellEl('label', '', lblYText);
   const sliderY = document.createElement('input');
   sliderY.type = 'range';
   sliderY.min = '0';
@@ -607,7 +509,8 @@ async function openFocalEditor(panel, c) {
 
   // Slider Zoom
   const rowZ = shellEl('div', 'shell-focal-slider-row');
-  const lblZ = shellEl('label', '', 'Zoom');
+  const lblZText = typeof tr === 'function' ? tr('profile.focal.zoom') : 'Zoom';
+  const lblZ = shellEl('label', '', lblZText);
   const sliderZ = document.createElement('input');
   sliderZ.type = 'range';
   sliderZ.min = '10';
@@ -624,11 +527,11 @@ async function openFocalEditor(panel, c) {
   controls.append(prevRow, rowX, rowY, rowZ);
 
   // 4. Master Image Source Selector
-  const srcSec = shellSection('Master Image Source');
+  const srcSecTitle = typeof tr === 'function' ? tr('profile.sec.master_source') : 'Master Image Source';
+  const srcSec = shellSection(srcSecTitle);
   const srcPills = shellEl('div', 'shell-focal-sources');
 
   const defaultAvatarUrl = typeof characterOwnPortrait === 'function' ? characterOwnPortrait(c) : '';
-  const stageUrl = (c.stage_v && typeof BASE_PATH !== 'undefined') ? (BASE_PATH + '/api/characters/' + encodeURIComponent(c.id) + '/stage?v=' + c.stage_v) : '';
 
   const addSourceChip = (name, url) => {
     if (!url) return;
@@ -646,8 +549,7 @@ async function openFocalEditor(panel, c) {
     srcPills.appendChild(chip);
   };
 
-  addSourceChip('Default Avatar', defaultAvatarUrl);
-  if (stageUrl) addSourceChip('Stage Art', stageUrl);
+  addSourceChip('Avatar', defaultAvatarUrl);
 
   // Load gallery slots from /art
   try {
@@ -655,7 +557,12 @@ async function openFocalEditor(panel, c) {
     if (artRes && artRes.slots) {
       Object.keys(artRes.slots).forEach(k => {
         const s = artRes.slots[k];
-        if (s && s.url) addSourceChip(s.label || k, s.url);
+        if (s && s.url && !s.url.includes('/stage')) addSourceChip(s.label || k, s.url);
+      });
+    }
+    if (artRes && Array.isArray(artRes.gallery)) {
+      artRes.gallery.slice(0, 6).forEach(g => {
+        if (g && g.url) addSourceChip(g.file || 'gallery', g.url);
       });
     }
   } catch (_) {}
@@ -671,7 +578,7 @@ async function openFocalEditor(panel, c) {
 
   const saveBtn = shellEl('button', 'art-btn art-btn-sm primary');
   saveBtn.type = 'button';
-  const saveLabel = typeof tr === 'function' ? (tr('common.save') || 'Save') : 'Save';
+  const saveLabel = typeof tr === 'function' ? (tr('profile.focal.save') || 'Save Focus') : 'Save Focus';
   saveBtn.innerHTML = profileIconSvg('check') + ' <span>' + escapeHtml(saveLabel) + '</span>';
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
@@ -804,7 +711,7 @@ async function loadArtMiniStrip(cid, stripEl, panel, c) {
       const cap = shellEl('span', 'shell-art-thumb-caption', it.title);
       card.append(pic, cap);
 
-      card.title = 'Click to set face focal point';
+      card.title = 'Set focal crop';
       card.addEventListener('click', () => {
         if (panel && c) {
           openFocalEditor(panel, Object.assign({}, c, {
