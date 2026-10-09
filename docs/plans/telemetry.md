@@ -100,7 +100,7 @@ improvement-layers §3의 `engine/health/`는 이 패키지를 **읽기만** 한
 | `tl/C` | 날짜별 요약 + 기존 원본(09-23부터)·세션 토큰 backfill — **끝 (#841)**: `telemetry/rollup.py`, 한 시간마다 빠진 날을 채움(`log.rollup`), 턴의 캐릭터·모드는 세션의 `context.inject`에서 이어 붙임. 토큰 backfill은 `tl/D`로(턴 기록에 토큰이 생긴 뒤) | `metrics/`에 하루 한 파일 |
 | `tl/D` | 턴 기록 풍부화: TTFT(#827 흡수), 토큰, 도구 수, 단계 시간 — 어댑터 공통 형식 — **토큰·도구·읽은 양 끝 (#844)**: `turn.end`에 `tool_calls`·`read_kb`·`tok_in/out/think/cache_read/total`(어댑터의 `normalize_usage` 합), 요약에 합·백분위, 그 전 날은 세션 사용량으로 채움(남은 세션만 — 하한). 단계 시간 **끝 (#847)**: `prep_ms`(메시지를 받고 에이전트에 넘기기까지: 지시문·기동), `spawn_ms`(이 턴에 에이전트를 띄웠을 때), `first_tool_ms`. 대기열에서 기다린 시간은 남음(대기열 항목에 시각이 없다) | `turn.end`만으로 속도·토큰 질문에 답한다 |
 | `tl/E` | 기억 이벤트 — **끝 (#845)**: 도구 기록이 인자의 말을 300자까지 남기던 것(기억 문장·검색어·캐릭터 간 대화·위임 지시)을 막고 메타데이터만(`obslog.arg_meta`, 결과는 개수 `result_meta`). 요약(VERSION 3)에 기억 도구 호출·추가·검색 적중·주입된 기억 층 크기 | 회상·저장이 지표로 |
-| `tl/F` | 오류 형식 통일(쓰는 쪽), 위임 사용량 이벤트 | `err`는 언제나 dict |
+| `tl/F` | 오류 형식 통일(쓰는 쪽), 위임 사용량 이벤트 — **끝 (#850)**: `obslog.event`가 글자 `err`를 `{msg, type, where, fp}`로(숫자를 뺀 지문으로 묶임), 러너 사용량은 `deleg.usage`(필드명 `tok_*` — 이름에 token이 있으면 가려진다), 요약 VERSION 6에 제공자·역할별 위임 비용 | `err`는 언제나 dict |
 | `tl/G` | 메시지 지표: 전달 지연, 먼저 말 걸기 결과, 읽힘 — **끝 (#848)**: `events.deliver`에 `lag_s`(가장 오래 기다린 이벤트의 대기), 요약 VERSION 5에 전달 지연 분포·작업 카드 결과 열람 수(`/api/delegations/:n/seen`). 먼저 말 걸기 결과는 tl/C부터 | 알림 경로의 건강을 숫자로 |
 | `tl/H` | 추세 분석 + `metric:` 참조 | 나빠진 지표가 finding으로, 티켓 근거로 |
 

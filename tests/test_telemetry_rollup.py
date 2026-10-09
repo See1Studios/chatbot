@@ -120,6 +120,16 @@ class Rollup(unittest.TestCase):
         m = self.day("2026-10-02")["messages"]
         self.assertEqual((m["delivered"], m["deliver_lag_s"]["max"], m["work_seen"]), (3, 3600.0, 4))
 
+    def test_delegation_cost_per_provider_and_role(self):
+        # tl/F: the runner's usage lines as deleg.usage
+        events = [ev("2026-10-02", 9, "deleg.usage", src="runner", ticket=7, role="writer", provider="agy",
+                     seconds=275.2, tok_in=69795, tok_out=13459),
+                  ev("2026-10-02", 9, "deleg.usage", src="runner", ticket=7, role="writer", provider="agy",
+                     seconds=100.0, tok_in=5, tok_out=5)]
+        rollup.build(self.log, events, today="2026-10-03")
+        d = self.day("2026-10-02")["delegation"]["agy|writer"]
+        self.assertEqual((d["calls"], d["seconds"], d["tickets"], d["tokens"]["tok_in"]), (2, 375.2, 1, 69800))
+
     def test_one_builder_at_a_time(self):
         d = rollup.dir_for(self.log)
         d.mkdir()

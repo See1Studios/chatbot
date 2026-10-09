@@ -301,6 +301,19 @@ class HTTPTests(Base):
         self.assertEqual(len(ids), 5)
 
 
+class TextErrTests(Base):
+    def test_a_text_err_becomes_the_shape_readers_take(self):
+        # tl/F: git.commit_failed wrote err as text; readers broke (#831) and the digest could not group it
+        obslog.event("git.commit_failed", lvl="warn", err="fatal: Unable to create 'x/.git/index.lock': 17 tries")
+        obslog.event("git.commit_failed", lvl="warn", err="fatal: Unable to create 'x/.git/index.lock': 3 tries")
+        a, b = [r["err"] for r in lines(self.path)]
+        self.assertEqual((a["type"], a["where"]), ("text", "git.commit_failed"))
+        self.assertIn("index.lock", a["msg"])
+        self.assertEqual(a["fp"], b["fp"], "the numbers do not split one failure into many")
+        obslog.event("git.commit_failed", lvl="warn", err="token=abcdefghijkl0123")
+        self.assertNotIn("abcdefghijkl0123", lines(self.path)[-1]["err"]["msg"])   # redacted like any text
+
+
 class TurnEndTests(Base):
     def test_turn_end_carries_ttft_ms(self):
         from unittest import mock

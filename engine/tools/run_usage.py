@@ -98,5 +98,22 @@ def record(base: Path, provider: str, cwd: Optional[Path], usage: Dict[str, int]
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(str(path), "a", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(line) + "\n")
+        _log(line)
     except Exception:  # noqa: BLE001 -- measuring must never fail a run
+        pass
+
+
+def _log(line: Dict) -> None:
+    """telemetry tl/F: the same numbers in the event log (deleg.usage), so a delegation's cost sits in the daily
+    rollups beside the chat's. The runner is its own process: it writes to the install's log (host_config)."""
+    try:
+        from telemetry import obslog
+        if not obslog.configured():
+            import host_config
+            obslog.configure("runner", path=host_config.EVENTS_LOG, mirror="error")
+        # tok_* as turn.end names them: obslog redacts any field whose name says "token"
+        names = {"input_tokens": "tok_in", "output_tokens": "tok_out", "thinking_tokens": "tok_think",
+                 "cache_read_tokens": "tok_cache_read"}
+        obslog.event("deleg.usage", **{names.get(k, k): v for k, v in line.items() if k != "ts"})
+    except Exception:  # noqa: BLE001
         pass

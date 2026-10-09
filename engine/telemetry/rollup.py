@@ -29,7 +29,7 @@ if __package__ in (None, ""):   # run as a script: the engine folder is the impo
 
 import platform_compat
 
-VERSION = 5   # 2: tokens, tool calls and read KB (tl/D); 3: memory (tl/E); 4: turn phases (tl/D); 5: delivery lag (tl/G)
+VERSION = 6   # 2: tokens, tool calls, read KB (tl/D); 3: memory (tl/E); 4: phases (tl/D); 5: delivery lag (tl/G); 6: delegation (tl/F)
 WORK_SEEN = "POST /api/delegations/:n/seen"   # the operator opened a work card's result
 PHASES = ("prep_ms", "spawn_ms", "first_tool_ms")
 MEMORY_LAYERS = ("house_memory", "own_memory", "private_memory")   # instructions.LAYERS that carry remembered things
@@ -75,6 +75,7 @@ class Day:
         self.sessions: Dict[str, Any] = {"spawn": 0, "rotate": defaultdict(int)}
         self.main: Dict[str, int] = {"checks": 0, "red": 0}
         self.turn_tokens_seen = False   # a day whose turn.end lines carry tokens is never backfilled
+        self.delegation: Dict[str, Dict[str, Any]] = {}   # "provider|role" -> calls, seconds, token sums
         self.memory: Dict[str, Any] = {"calls": defaultdict(int), "search_hits": [], "added": 0,
                                        "injected_chars": defaultdict(list)}
 
@@ -176,6 +177,16 @@ class Day:
             self.sessions["spawn"] += 1
         elif evt == "session.session_rotate":
             self.sessions["rotate"][str(e.get("reason") or "")] += 1
+        elif evt == "deleg.usage":
+            d = self.delegation.setdefault("%s|%s" % (e.get("provider") or "", e.get("role") or ""),
+                                           {"calls": 0, "seconds": 0.0, "tickets": set(), "tokens": defaultdict(int)})
+            d["calls"] += 1
+            d["seconds"] += float(e.get("seconds") or 0)
+            if e.get("ticket") is not None:
+                d["tickets"].add(e["ticket"])
+            for k, v in e.items():
+                if k.startswith("tok_") and isinstance(v, (int, float)):
+                    d["tokens"][k] += int(v)
         elif evt == "main.check" and e.get("ok") is not None:
             self.main["checks"] += 1
             self.main["red"] += 0 if e.get("ok") else 1
@@ -203,6 +214,8 @@ class Day:
                 "context": {k: _dist(v) for k, v in sorted(self.context.items())},
                 "messages": dict(plain(self.messages), deliver_lag_s=_dist(self.messages["deliver_lag_s"])),
                 "sessions": plain(self.sessions), "main": dict(self.main),
+                "delegation": {k: {"calls": v["calls"], "seconds": round(v["seconds"], 1), "tickets": len(v["tickets"]),
+                                   "tokens": dict(v["tokens"])} for k, v in sorted(self.delegation.items())},
                 "memory": {"calls": dict(self.memory["calls"]), "added": self.memory["added"],
                            "search_hits": _dist(self.memory["search_hits"]),
                            "injected_chars": {k: _dist(v) for k, v in sorted(self.memory["injected_chars"].items())}}}

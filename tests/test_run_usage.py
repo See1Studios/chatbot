@@ -87,6 +87,24 @@ class RunnerRecords(unittest.TestCase):
 
 
 
+class UsageInTheEventLog(unittest.TestCase):
+    def test_each_usage_line_is_also_deleg_usage(self):
+        # telemetry tl/F: a delegation's cost sits in the daily rollups beside the chat's
+        sys.path.insert(0, str(ENGINE))
+        from telemetry import obslog
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, str(d), True)
+        saved = dict(obslog._state)
+        self.addCleanup(lambda: (obslog._state.clear(), obslog._state.update(saved)))
+        obslog.configure("runner", path=d / "events.jsonl", mirror="error")
+        U.CONTEXT["ticket"] = 7
+        U.record(d, "agy", d / "review-room", {"input_tokens": 10, "output_tokens": 2}, 3.14)
+        rec = [json.loads(l) for l in (d / "events.jsonl").read_text(encoding="utf-8").splitlines()][-1]
+        self.assertEqual((rec["evt"], rec["ticket"], rec["role"], rec["provider"], rec["tok_in"], rec["seconds"]),
+                         ("deleg.usage", 7, "reviewer", "agy", 10, 3.1))
+        self.assertTrue((d / "runs" / "usage.jsonl").exists(), "the runner's own file stays")
+
+
 class CodexCountsCachedOnce(unittest.TestCase):
     def test_cached_input_is_inside_codexs_input_tokens(self):
         # measured 2026-10-04: the same prompt twice gave input_tokens 20141 with cached 2816, then 0

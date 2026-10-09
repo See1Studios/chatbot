@@ -110,6 +110,15 @@ ARG_KEEP = frozenset(("action", "id", "status", "outcome", "provider", "model", 
                       "ticket", "room", "character", "name", "section", "path", "paths", "target", "all", "evidence"))
 
 
+def text_err(evt: str, err: Any) -> Dict[str, Any]:
+    """tl/F: an `err` given as text becomes the shape every reader takes -- {msg, type, fp}. The fingerprint is the
+    event and the message with its numbers taken out, so one failure groups as one (the digest groups by fp; a text
+    err used to be invisible to it, and broke it before #831)."""
+    msg = redact(str(err))
+    key = "%s|%s" % (evt, re.sub(r"\d+", "#", msg.splitlines()[0] if msg else "")[:120])
+    return {"msg": msg[:STR_CAP], "type": "text", "where": evt, "fp": hashlib.sha1(key.encode("utf-8")).hexdigest()[:10]}
+
+
 def arg_meta(args: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """A tool call's arguments as metadata: numbers and flags as given, ids and kinds (ARG_KEEP), the program a command
     runs, and every other text by its size only."""
@@ -343,6 +352,8 @@ def event(evt: str, lvl: str = "info", msg: str = "", dedup: Optional[str] = Non
                 if len(_dedup) > 5000:
                     for k in sorted(_dedup, key=lambda k: _dedup[k][0])[:2500]:
                         _dedup.pop(k, None)
+        if fields.get("err") is not None and not isinstance(fields["err"], dict):
+            fields["err"] = text_err(evt, fields["err"])
         if evt != "log.suppressed" and not _storm_guard(fields, evt, lvl, now):
             return None
         rec: Dict[str, Any] = {"ts": iso_now(now), "lvl": lvl if lvl in LEVELS else "info",
