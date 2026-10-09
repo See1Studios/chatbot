@@ -126,11 +126,13 @@ class ToolArgumentsHaveNoWords(unittest.TestCase):
         obslog.configure("test", path=self.stream, mirror="error")
         import mcp_server
         self.mcp = mcp_server
-        self.saved = mcp_server.DATA
+        self.saved = (mcp_server.DATA, mcp_server._live_scope)
         mcp_server.DATA = self.tmp
+        # the caller's scope comes from the live server's busy sessions; a test never asks the live host (#855)
+        mcp_server._live_scope = lambda grant, caller=None: (False, False)
 
     def tearDown(self):
-        self.mcp.DATA = self.saved
+        self.mcp.DATA, self.mcp._live_scope = self.saved
         obslog._state["path"] = None
         shutil.rmtree(str(self.tmp), ignore_errors=True)
 

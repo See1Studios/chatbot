@@ -333,7 +333,7 @@ class ShellList(unittest.TestCase):
         card = [r["k"] for r in o["profile"]]
         gear = [r["k"] for r in o["settings"]]
         self.assertEqual(card, ["art", "sessions", "artifacts", "manage"])      # the character's own things
-        self.assertEqual(gear, ["appearance", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "dev", "activity", "evolution", "revive"])
+        self.assertEqual(gear, ["appearance", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "push", "dev", "activity", "evolution", "revive"])
         self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(["activity", "appearance", "artifacts", "evolution", "sessions"]))
         # the team pane is in two: one character's card from its profile, the shared part from the settings
         self.assertEqual(o["teamShows"], [True, False, False, False, True])
@@ -349,7 +349,7 @@ class ShellList(unittest.TestCase):
         self.assertEqual([r["k"] for r in o["profile"] + o["settings"] if r.get("dev")], ["activity", "evolution"])
         self.assertFalse([r for r in o["profile"] + o["settings"] if r.get("adv")])
         switches = {r["k"]: r["on"] for r in o["settings"] if "on" in r}
-        self.assertEqual(switches, {"dev": False})
+        self.assertEqual(switches, {"dev": False, "push": False})   # push: on/off switch (#849)
         self.assertIn("html.shell2 body:not(.dev-mode) .shell-dev{display:none}", CSS)
         self.assertIn("const SHELL_DEV_KEY = 'pe.devMode';", src)
         self.assertIn("document.body.classList.toggle('dev-mode', dev === '1');", src)      # off unless this browser turned it on
@@ -368,7 +368,7 @@ class ShellList(unittest.TestCase):
         self.assertIn("pickModel(o.value)", card)
         self.assertNotIn("toggleProviderTray", card)               # ... without leaving the card for them
         self.assertNotIn("showModelMenu", card)
-        self.assertEqual(o["settingsShipped"], ["appearance", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "dev", "activity", "evolution"])
+        self.assertEqual(o["settingsShipped"], ["appearance", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "push", "dev", "activity", "evolution"])
 
     def test_the_tab_bar_is_hidden_and_a_pane_leads_back(self):
         self.assertIn("html.shell2 header .bar{display:none}", CSS)

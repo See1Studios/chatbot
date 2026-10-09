@@ -126,13 +126,6 @@ async function getClientContext() {
 }
 
 // ---- Web Push Notification Helpers ----
-function _pushBasePath() {
-  if (typeof BASE_PATH === 'string') return BASE_PATH;
-  const p = (typeof window !== 'undefined' && window.location && window.location.pathname) || '';
-  const dir = p.replace(/\/[^\/]*\.[^\/]+$/, '');
-  return dir.replace(/\/+$/, '') || '';
-}
-
 function _urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -161,10 +154,9 @@ async function requestPushSubscription() {
       else alert(msg);
       return false;
     }
-    const base = _pushBasePath();
     let reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) {
-      reg = await navigator.serviceWorker.register(base + '/sw.js', { scope: base + '/' });
+    if (!reg) {   // BASE_PATH (app.js): the page's own prefix behind a proxy (/chat/)
+      reg = await navigator.serviceWorker.register(BASE_PATH + '/sw.js', { scope: BASE_PATH + '/' });
     }
     if (!reg.active) {
       reg = await Promise.race([
@@ -174,8 +166,7 @@ async function requestPushSubscription() {
     }
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
-      const res = await fetch(base + '/api/push/vapid-public-key');
-      const data = await res.json();
+      const data = await api('/api/push/vapid-public-key');   // api() adds the base path
       if (!data.ok || !data.publicKey) throw new Error('VAPID public key fetch failed');
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -183,11 +174,7 @@ async function requestPushSubscription() {
       });
     }
     const subJson = sub.toJSON();
-    await fetch(base + '/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: subJson }),
-    });
+    await api('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: subJson }) });
     return true;
   } catch (err) {
     console.warn('Push subscription failed:', err);
@@ -206,12 +193,7 @@ async function checkAndSyncPushSubscription() {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
-      const base = _pushBasePath();
-      await fetch(base + '/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub.toJSON() }),
-      });
+      await api('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: sub.toJSON() }) });
     }
   } catch (err) {
     // silent fallback
@@ -226,12 +208,7 @@ async function unsubscribePush() {
     if (sub) {
       const endpoint = sub.endpoint;
       await sub.unsubscribe();
-      const base = _pushBasePath();
-      await fetch(base + '/api/push/unsubscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint }),
-      });
+      await api('/api/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) });
     }
     localStorage.setItem('chatbot.pushEnabled', 'false');
     return true;
