@@ -1,9 +1,10 @@
 # 엔진이 정한다: 모델 판단 지점 전수 점검과 이전 계획 (engine-decides)
 
 > 방향 (align/D, 2026-10-03): **핵심** — 두뇌(제공자·모델)가 바뀌어도 같은 사용감. 모델에게는 캐릭터의 말과 행동만 남기고, 엔진이 정할 수 있는 판단은 코드로 옮긴다 (`VISION.md` "모델에 덜 기댄다", 운영자 2026-10-02)
+> 선행 사례: Hermes(`~/.hermes/hermes-agent/agent/AGENTS.md`)는 모델 기록을 system·user·assistant·tool로 두고, 대화 도중 넣는 내용은 user 메시지 또는 tool 결과에만 싣는다. 따른다: 호스트 공지를 모델의 system 역할로 넣지 않는다. 다르게 간다: 애정 턴과 선택지 칸은 동반자 규칙이라 코어 도구를 늘리지 않고 엔진이 정한다(D1·D2).
 > 상태: **active** (2026-10-03 수립, 결정 D1–D4·D6–D10 2026-10-08 운영자: 추천대로, D5 대기)
 > 근거 사례: `HISTORY.md` 2026-10-02 "모델 판단 줄이기" (inbox/H, #565·#567)
-> 관련: [out-of-band-choices-actions.md](out-of-band-choices-actions.md)(선택지 채널) · [private-mode.md](private-mode.md)(§8.3 W1 애정 턴, §8.4 W2b 이동 제안, D8 아이템 판정) · [ux-shell-roadmap.md](ux-shell-roadmap.md)(`ux/S5` 지문 STAGE_v1) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [character-memory-adapter.md](character-memory-adapter.md)(무엇을 기억해 읽을지)
+> 관련: [archive/2026/out-of-band-choices-actions.md](archive/2026/out-of-band-choices-actions.md)(선택지 채널의 옛 안, D2로 대체) · [archive/2026/message-system-architecture.md](archive/2026/message-system-architecture.md)(3자 역할 안, D2로 대체) · [private-mode.md](private-mode.md)(§8.3 W1 애정 턴, §8.4 W2b 이동 제안, D8 아이템 판정) · [ux-shell-roadmap.md](ux-shell-roadmap.md)(`ux/S5` 지문 STAGE_v1) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [character-memory-adapter.md](character-memory-adapter.md)(무엇을 기억해 읽을지)
 
 ---
 
@@ -179,7 +180,7 @@ agy는 가끔 인자를 `{"Arguments": "<파이썬 dict 문자열>", "ToolName":
 | # | 질문 | 추천 | 결정 |
 |---|---|---|---|
 | D1 | 애정 턴 판정을 무엇으로 | 명시 신호(♥·`/act`) + 고정 값싼 모델 한 번. 도구는 덮어쓰기로만 잠시 남김 | 결정 2026-10-08 (운영자: 추천대로) |
-| D2 | 선택지 지침 채널 | 본문 끝 줄 하나만 가르침(실사용이 압도적으로 이쪽). 도구는 엔진이 계속 받되 지침에서 뺌 — out-of-band 계획의 "도구 채널" 방향을 바꾸는 결정 | 결정 2026-10-08 (운영자: 추천대로) |
+| D2 | 선택지 지침 채널 | 본문 끝 줄 하나만 가르침(실사용이 압도적으로 이쪽). 도구는 엔진이 계속 받되 지침에서 뺌. 이 결정이 선택지 채널의 집이다 | 결정 2026-10-08 (운영자: 추천대로). 2026-10-10 옛 채널 계획·3자 역할 계획을 보관 |
 | D3 | 이동 제안 장소를 누가 | 엔진: 캐릭터별 장소 목록(`state.json`, 없으면 설정집 기본) 중 최근에 안 간 곳 | 결정 2026-10-08 (운영자: 추천대로) |
 | D4 | 사적 방 선택지가 빠졌을 때 | 텐션 표의 칸별 기본 행동으로 엔진이 채움 | 결정 2026-10-08 (운영자: 추천대로) |
 | D6 | 개발판 대화 에이전트의 자체 셸(지금 agy는 권한 확인 없이 main 작업 폴더에서 돔) | 티켓을 잡으면 엔진이 그 티켓의 worktree(`~/.worktrees/chatbot/ticket-<id>`, 브랜치 `worktree/ticket-<id>`)를 만들고 대화 에이전트는 거기서만 고친다. main 작업 폴더에 대화 에이전트가 쓰면 턴을 멈춘다(`write_guard`). 착륙은 위임과 같은 길: 게이트 통과 뒤 운영자 [승인]으로 ff 병합 | 결정 2026-10-08 (운영자: 추천대로, 설계는 §7) |
@@ -202,5 +203,6 @@ agy는 가끔 인자를 `{"Arguments": "<파이썬 dict 문자열>", "ToolName":
 ## 6. 이 계획이 하지 않는 것
 
 - 캐릭터의 말·행동·선택지 문구·계획 나누기를 엔진이 쓰지 않는다.
+- 호스트 공지를 모델 기록의 system 역할로 넣지 않는다. 공지는 화면 이벤트다.
 - 보안 경계(허용 루트, 명령 허용 목록, Tier 3 거절, 운영자 몫 동작)를 넓히지 않는다. 정규화는 이름과 모양만 고친다.
 - 제공자별 분기를 공통 코드에 넣지 않는다(agy 포장 풀기도 모양으로 판정).

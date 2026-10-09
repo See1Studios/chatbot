@@ -11,7 +11,7 @@
 | § | 내용 | 상태 | 근거(코드·테스트) |
 |---|---|---|---|
 | 1 | 액션·표정·속마음·선택지 파싱, `/act`, 렌더 계약 | **구현됨** | `static/markdown.js` `parseExpression`·`parseThought`·`postProcessAssistant`, `private_engine.RENDER_PROTOCOL`, `tests/test_private_tension.py` `test_render_protocol`·`test_private_instruction_bundle_includes_render_protocol` |
-| 1 | 선택지·액션을 본문 밖 채널로 | 별도 문서 | [out-of-band-choices-actions.md](out-of-band-choices-actions.md) (`choices` 도구 #145, `action` 이벤트 — `test_choices_tool.py`, `test_an_explicit_action_event_reaches_the_engine`) |
+| 1 | 선택지 채널 | 집이 옮김 | [engine-decides.md](engine-decides.md) D2·D4·ed/B3 (2026-10-08). 끝 표식을 떼는 것(#140)과 `choices` 도구(#145)는 [archive/2026/out-of-band-choices-actions.md](archive/2026/out-of-band-choices-actions.md) |
 | 2 | 텐션 4단계 엔진(stage 1–4, 3슬롯, recent_choices, 모델 계열별 표) | **구현됨** | `private_engine.py` `tension_after`·`tension_step`·`tension_context`, `session.py::AgentSession._send_direct`, `data/private_tension_*.json`, `tests/test_private_tension.py` |
 | 2 | 선택지 상투성 검증·필터 | 계획 | 코드 없음 |
 | 2 | 8단계 0–100 점수 엔진 | **초안** | 코드 없음, 승인 대기 |
@@ -47,7 +47,7 @@
 |---|---|---|
 | 1 | `->` 파싱, 표정 뱃지, 속마음 토글, `/act` (#130) | 구현됨 |
 | 2 | 사적 지침·카드에 행위 지시문·예측 선택지 규칙 주입 | 구현됨(#164 `RENDER_PROTOCOL`) |
-| 3 | 선택지·액션을 `choices` 도구·`action` 이벤트로, 기록·요약 시 액션 상태 보존 | [out-of-band-choices-actions.md](out-of-band-choices-actions.md)로 대체 |
+| 3 | 선택지는 본문 끝 줄 하나만 가르치고, 도구는 받되 지침에서 뺌 | [engine-decides.md](engine-decides.md) D2. 옛 채널 문서는 [archive/2026/out-of-band-choices-actions.md](archive/2026/out-of-band-choices-actions.md) |
 | — | 실사용 테스트·지문/대사 티키타카 품질 튜닝 | 계획 |
 
 <a id="tension"></a>

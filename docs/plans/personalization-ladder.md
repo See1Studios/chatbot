@@ -41,7 +41,7 @@
 | Hermes Agent(자기 개선 스킬·기억) | 일하면서 배운 절차를 스킬로 남기고 기억을 다듬는다 | **채택(방향)** — 배포판 자기 개발의 모델(운영자 지정) |
 | 기존 `workspace_status.py::_backup` | 지침 편집 전 이전 판을 남김 | **확장** — 모든 층의 공통 스냅숏으로 일반화 |
 | 기존 `observation` → `ticket` | 관찰에서 승인된 작업으로 | **적응** — 배포판에서는 티켓 대신 가벼운 「제안 카드」로. 엔진의 관찰 기록은 재사용 |
-| 기존 선택지·행동 채널([out-of-band-choices-actions.md](out-of-band-choices-actions.md)) | 답변 밖 채널로 버튼을 보냄 | **재사용** — 제안 카드의 승인/거절 버튼 |
+| 선택지 버튼([archive/2026/out-of-band-choices-actions.md](archive/2026/out-of-band-choices-actions.md), 채널은 [engine-decides.md](engine-decides.md) D2) | 누르면 바로 전송 | **재사용** — 제안 카드의 승인/거절 버튼 |
 | 로컬 git 저장소로 버전 관리 | `~/.pe`를 git으로 | **보류** — Windows 사용자에게 git 의존이 생긴다. 스냅숏 파일이 더 가볍다(D1) |
 | SillyTavern 백업·카드 편집 | 카드 단위 백업, 편집 UI | **참고** — 형식은 그대로 쓰고(ST 위임) 에이전트 참여만 더한다 |
 | [Chai / Ultraviolenc의 SillyTavern 도구 모음](https://docs.google.com/document/d/1CfWHATYyDH5HYw_7vFKtax-2fCiE-3hnmAGOtyJWTkM/edit?tab=t.0) (2026-09-28 운영자 제보) | 「Universal … Creator」 프롬프트들: 캐릭터 카드·로어북·테마·빠른 답장·확장·시스템 프롬프트 만들기, 저널(캐릭터 조언), 로어 스포일러 숨기기, 실제 날씨 확장 | **참고(층별 인터뷰 절차의 선행 사례)** — 사용자가 AI와 함께 자기 층을 만드는 모양 그대로. 카드 만들기는 `ladder/G`의 기본안([character-creation-landing.md](character-creation-landing.md) §3), 로어북·테마는 해당 층 착수 때 먼저 본다 |

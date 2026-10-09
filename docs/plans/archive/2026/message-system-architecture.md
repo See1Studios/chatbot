@@ -1,8 +1,8 @@
 # 3자 메시지 시스템: User · Assistant · System 입출력 프로토콜 및 선택지 통합 (message-system-architecture)
 
 > 방향 (2026-10-06 운영자: "메시지시스템 관련 계획문서로 만드는 게 좋을 것 같네"): **핵심 + 기반** — 단순 텍스트 채팅을 넘어 User(발화·지문·명령) - Assistant(대사·표정·선택지) - System(공지·상태·선택지) 3자가 대등하게 상호작용하는 구조화 메시지 프로토콜. 선택지·액션·시스템 알림의 단일 SSOT
-> 상태: **active** (2026-10-06 수립)
-> 관련: [out-of-band-choices-actions.md](out-of-band-choices-actions.md)(선택지 채널) · [engine-decides.md](engine-decides.md)(ed/B2 이동 제안, ed/B3 선택지 보충) · [private-mode.md](private-mode.md)(텐션 3슬롯) · [layered-context-architecture.md](archive/2026/layered-context-architecture.md)
+> 상태: **superseded** (2026-10-10) — 메시지·선택지의 집은 [engine-decides.md](../engine-decides.md). 모델 기록에 System을 User·Assistant와 대등한 역할로 두지 않는다. 호스트 공지는 화면 이벤트다. ed/B2는 #780으로 들어갔고, ed/B3은 engine-decides에 남아 있다. 이어서 쓰지 않는다.
+> 관련: [out-of-band-choices-actions.md](out-of-band-choices-actions.md)(옛 채널 안, 같이 보관) · [engine-decides.md](../engine-decides.md)(ed/B2 #780, ed/B3) · [private-mode.md](../private-mode.md)(텐션 칸) · [layered-context-architecture.md](layered-context-architecture.md)
 
 ---
 

@@ -31,7 +31,7 @@ def _redact_err(text: str) -> str:
         return "\n".join(lines).strip()
 
 
-# OUT_OF_BAND_CHOICES_v1 (docs/plans/out-of-band-choices-actions.md 1a): the choices an answer ends with
+# OUT_OF_BAND_CHOICES_v1 (docs/plans/archive/2026/out-of-band-choices-actions.md 1a): the choices an answer ends with
 # (`<!--choices: A | B-->`) leave the text here, once, for every provider. History, the CLI and the agent's own
 # context keep the clean text; the page gets `choices` beside it. Only the last marker counts (a quoted one stays).
 _CHOICES_TAIL = re.compile(r"\s*<!--\s*choices\s*:((?:(?!<!--)[\s\S])*?)-->\s*$")

@@ -46,7 +46,6 @@
 | [edition-boundary.md](edition-boundary.md) | `active` · 방향 **기반** — 배포판/개발판 경계: 판은 `host_config.EDITION` 한 곳(기본 `shipped`), 배포판 쓰기 범위는 사용자 데이터만, 개발 장치(티켓·위임·쓰기 감시·보호 경로)는 없어도 도는 구조, 패키지 제외 목록, 경계 테스트 | 판·도구 권한·배포 패키지·개발 장치의 결합을 건드릴 때 |
 | [api-adapter-parity.md](api-adapter-parity.md) | `active` · 방향 **기반** — CLI 두뇌의 내장 능력을 HTTP 두뇌에 제공자 중립 MCP 도구로: 능력표(웹 ✅ #376, 부분 교체·Glob·스킬·도구 예산·셸·그림 그리기), 권한은 모델이 아니라 자리(대화/워크트리)에. D3 결정, D1·D2·D4 대기 | HTTP 어댑터 도구·MCP 도구 추가·도구 예산·HTTP 두뇌 권한을 건드릴 때 |
 | [localization.md](localization.md) | `active` · 방향 **기반** — 주요 언어 현지화: 1차 ko+en, 2차 ja·zh-Hans(D1–D7 결정), 래칫 가드·카탈로그·답변 언어 변수화, 말투 분리 | UI·서버 문자열, 날짜 형식, 답변 언어, 번역을 건드릴 때 |
-| [out-of-band-choices-actions.md](out-of-band-choices-actions.md) | `active` · 방향 **핵심** — 선택지·액션을 답변 본문 밖 채널(`choices` 도구·이벤트)로, 버튼 직접 전송(#134) | 선택지·버튼·액션 전달·티켓 바를 건드릴 때 |
 | [character-creation-landing.md](character-creation-landing.md) | `active` · 방향 **핵심** — 새 친구 **소환** 마법사(서브컬처 게임식 캐릭터 생성): 부름→모습→성격→말투→관계→이름→두뇌 연결→소환, 단계마다 추천값·"바로 소환"(장벽 0), 중립 기본 템플릿 캐릭터, 첫 실행 착지점 겸 새 친구 소환. D1–D9 대기 | 첫 실행·온보딩·기본 캐릭터·새 캐릭터(친구) 만들기를 건드릴 때 |
 | [personalization-ladder.md](personalization-ladder.md) | `active` · 방향 **핵심** — 배포판 개인화 사다리: 층별 편집·승인·되돌리기, 공통 뼈대(모든 층의 변경 기록·스냅숏, 엔드유저용 제안 카드), 기억 화면, 에이전트가 돕는 흐름(말투 다듬기·기억 정리·인터뷰·Hermes식 스킬 제안) | 캐릭터·기억·지침·스킬을 사용자나 에이전트가 바꾸는 흐름을 건드릴 때 |
 | [plugin-architecture.md](plugin-architecture.md) | `active` · 방향 **핵심** — 플러그인 플랫폼: 콘텐츠/코드 구분, `pe-plugin.json` 매니페스트, 내장도 같은 API, `~/.pe/plugins` 로딩, 코드는 별도 프로세스·권한, 등급, Workshop은 브랜드 이후 | 플러그인·확장·가져오기/내보내기·창작 도구·Workshop을 건드릴 때 |
@@ -62,17 +61,19 @@
 | [steam-collab-dlc.md](steam-collab-dlc.md) | `active` · 방향 **핵심 + 기반** — 스팀 출시 관점의 버튜버·인디 IP 공식 콜라보 DLC 규격, 투트랙(DLC vs 창작마당), 스트리머 모드 및 제휴 파이프라인 | 스팀 콜라보 DLC·버튜버 제휴·스팀 상점 프로모션·패키지 규격을 다룰 때 |
 | [group-room-header.md](group-room-header.md) | `active` · 방향 **핵심** — 단체방 대화창 상단 헤더 개편: 최근 발화자 카드 스택 아바타 연동, 실시간 기척(작성 중) 동기화, 헤더 클릭 시 단체방 정보 서랍(Room Drawer/Panel) 연동 | 단체방 상단 헤더·단체방 아바타 연출·단체방 서랍 및 설정을 건드릴 때 |
 | [quota-failure-resilience.md](quota-failure-resilience.md) | `active` · 방향 **기반** — 모델 쿼터 소진·한도 도달 및 제공자 장애 대응 강화: 워치독 에러 정규화, 시스템 경고 카드 즉각 안내, 원클릭 대체 모델 전환 및 사전 쿼터 고갈 경고 | 쿼터 소진·Rate Limit·워치독 에러·대체 모델 추천을 건드릴 때 |
-| [engine-decides.md](engine-decides.md) | `active` · 방향 **핵심** — 모델 판단 지점 전수 점검(실측: `mcp.call` 실패 19%, 거의 전부 이름·형식·상태 판단)과 엔진 이전: 인자 정규화 층, 애정 턴 고정 판정기, 이동 제안·선택지 엔진 칩, 위임 모양, D1–D5 결정 대기 | 도구 인자·도구 호출 여부·출력 형식·분류를 모델에 맡기는 코드를 만들거나 바꿀 때 |
+| [engine-decides.md](engine-decides.md) | `active` · 방향 **핵심** — 모델 판단 지점 전수 점검과 엔진 이전. D1–D4·D6–D10 결정(2026-10-08), D5 대기. 선택지 채널의 집(D2: 본문 끝 줄만 가르침, 도구는 받되 지침에서 뺌). 열린 항목 ed/B1 애정 턴·ed/B3 선택지 한 채널 | 도구 인자·도구 호출 여부·출력 형식·분류·선택지 채널을 모델에 맡기는 코드를 만들거나 바꿀 때 |
 | [token-economy.md](token-economy.md) | `active` · 방향 **기반** — 턴당 입력 실측(agy 업무 중앙값 171k, 최대 231만; 읽기의 99.6%가 파일 통째 읽기)과 대책: 턴 예산(엔진 강제), 노노는 lead만, 읽기 습관·큰 파일 쪼개기·고정 비용 측정 | 도구 호출 한도·턴 비용·세션 회전 빈도·파일 읽기 방식을 건드릴 때 |
 | [voice-and-audio-interaction.md](voice-and-audio-interaction.md) | `active` · 방향 **핵심 + 기반** — 브라우저 네이티브 Web Speech API 기반 음성 입력(STT) 및 현지어 발음/오디오 재생(TTS) 연동 | 음성 입력·마이크 버튼·발음 칩·오디오 재생을 다룰 때 |
 | [director-handoff.md](director-handoff.md) | `active` · 방향 **핵심 + 개발 기반** — 캐릭터 디렉터 분업(넘기기·프로바이더 서브에이전트). 먼저 새는 가드(경고만·표시만)를 집행으로, 방해되는 절차(리뷰 라운드·두뇌 없음 재시도·연속 티켓)를 걷어낸 뒤 연결. 구조 비판 S1–S7, D-1–D-12 결정(D-10 폐기), 0단계 완료(#632 #633), 1·2단계 완료(#634~#636), D-1 번복(역할 단속 끄고 스킬로, #651), 넘기기 장부(#654) | 역할 권한·작업 트리 감시·서브에이전트·캐릭터 간 일 넘기기·위임 리뷰 절차를 건드릴 때 |
-| [message-system-architecture.md](message-system-architecture.md) | `active` · 방향 **핵심 + 기반** — User·Assistant·System 3자 정규 메시지 프로토콜 및 선택지·액션 통합, 입력창 꼼수 제거, 시스템 공지 선택지 연계 (2026-10-06 수립) | 메시지 입출력, 선택지(choices), 액션(/act), 시스템 공지(notice), 세션 통신을 건드릴 때 |
+
 
 
 ## Archived (한 줄 · 펼치지 말 것)
 
 | 문서 | 상태 | 종료 사유 |
 |---|---|---|
+| [archive/2026/message-system-architecture.md](archive/2026/message-system-architecture.md) | `superseded` | 모델 기록의 System 대등 역할은 채택하지 않음. 공지는 화면 이벤트. ed/B2는 #780, ed/B3은 engine-decides |
+| [archive/2026/out-of-band-choices-actions.md](archive/2026/out-of-band-choices-actions.md) | `superseded` | 선택지 채널은 engine-decides D2(2026-10-08): 본문 끝 줄만 가르치고 도구는 받되 지침에서 뺌. 1a(#140)·도구(#145)는 코드에 있음 |
 | [archive/2026/repo-layout.md](archive/2026/repo-layout.md) | `done` | 루트는 늘 읽는 문서와 폴더만, 코드는 `engine/`, `docs/`는 폴더만(layout/A–F, #775–#779). 영역별 분할(D4)은 보류 — 시작하면 새 계획 |
 | [archive/2026/monolith-split.md](archive/2026/monolith-split.md) | `done` | Phase 0–6 끝(split/0–G): 크기 천장 걸린 파이썬 파일 0, 한 프로세스 테스트 통과. 폴더 재배치는 운영자 보류로 범위 밖 |
 | [archive/2026/character-art-manager.md](archive/2026/character-art-manager.md) | `done` | am/A–E 완료(#372–#458, #523): 그림 관리 패널이 코드에 흡수 |

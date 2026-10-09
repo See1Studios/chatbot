@@ -1,8 +1,11 @@
 # 선택지·액션을 답변 본문 밖으로 (OUT_OF_BAND_CHOICES, 계획, 2026-09-24)
 
 > 방향 (align/D, 2026-09-28): **핵심** — 선택지·행동 채널은 동반자 상호작용 UX(사적 모드 포함)
+> 상태: **superseded** (2026-10-10) — 선택지 채널의 집은 [engine-decides.md](../engine-decides.md) D2·D4·ed/B3.
+> 2026-10-08 운영자 결정: 지침은 본문 끝 줄 하나만 가르친다. 엔진은 `choices` 도구 호출도 받고, 그 도구는 지침에서 뺀다. 아래 §3.1과 §5의 "도구를 유일한 채널로"는 그 결정으로 닫힌다.
+> 코드에 남아 있는 것: 서버가 마지막 표식을 떼는 1a(#140), `choices` 도구(#145). 누르면 바로 전송, 표정·속마음은 본문에 둔다(아래 결정 1·2).
 
-상태: **계획**. 티켓 #134. 착수는 실장님 승인 후. [private-mode.md §1.3](private-mode.md#action) 3단계를 대체한다.
+이 문서는 2026-09-24의 조사 기록이다. 이어서 쓰지 않는다. [private-mode.md §1.3](../private-mode.md#action) 3단계가 여기로 와 있었다.
 
 ---
 
@@ -62,7 +65,7 @@
 | 본문 표식 파서 `CHOICES_TAIL`/`CHOICES_OPEN`, `->` 화살표 파싱 | `static/markdown.js` | 3 (폴백 기간 후) |
 | 헌장의 "Choices" 규칙 → "선택지는 `choices` 도구로" | `data/workspace/AGENTS.md` § Choices | **Tier 3, 별도 승인 티켓** |
 | 캐릭터 카드의 선택지 문법 규칙(#131) | `characters/char_01m376…/card.json` | 2 |
-| 사적 모드 계획의 `->` 문법 예시 | [private-mode.md §1.2](private-mode.md#action) | 2 |
+| 사적 모드 계획의 `->` 문법 예시 | [private-mode.md §1.2](../private-mode.md#action) | 2 |
 
 ## 5. 단계
 0. **응급 — 완료(#135)**: `CHOICES_TAIL`이 **마지막** 표식만 잡는다. `tests/test_choice_chips.py`에 "본문에 인용된 표식" 케이스.
