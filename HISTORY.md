@@ -8,6 +8,12 @@
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 2026-10-09 기록은 하루 예산을 넘어 [docs/history/2026-10-09.md](docs/history/2026-10-09.md)로 회전했습니다.
 
+## 2026-10-09 — [shell/profile] 단체방 전환 시 프로필 서랍 유지 및 단체방 정보 표시 (#897, 위임 agy)
+
+- **커밋**: `9b25eff` feat(shell): keep profile drawer open and show room profile on switch to group room
+- **바뀐 파일**: `static/app-shell.js`, `tests/test_shell_page.py`
+- 위임 병합 때 자동으로 쓴 줄(`tools/history_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-09 — 바로 소환한 카드도 SillyTavern 형식으로 (#899)
 
 - **운영자**: "모두 다 진행하고 마무리" (카드 점검: 하루·미미)
@@ -270,10 +276,4 @@
 - **운영자**: "push 를 추가할 계획이 있었는데" / "설정에 활성/비활성 스위치를 추가해야할텐데"
 - **바뀐 것**: RFC 8291 `aes128gcm` 페이로드 암호화 및 VAPID 서명 백엔드(`engine/push_manager.py`), 브라우저 서비스 워커(`static/sw.js`), 설정 메뉴 내 웹 푸시 알림 온/오프 토글 스위치(`static/app-shell.js`), 리버스 프록시 서브패스(`/chat/`) 동적 지원 및 실패 안내(`static/app-device.js`), 캐릭터 자동 반응 발화 시 푸시 연동(`engine/event_react.py`).
 - **재시작**: 필요 (`push_manager`, `server`).
-
-## 2026-10-09 — 오류 형식 통일, 위임 비용을 로그로 (telemetry tl/F, #850)
-
-- **운영자**: "하던 거 마저 해"
-- **바뀐 것**: 오류를 글자로 넘기면 `obslog.event`가 `{msg, type: "text", where, fp}`로 바꿔 적는다 — 숫자를 뺀 지문이라 같은 실패가 한 묶음이 되고, 로그 요약이 처음으로 `git.commit_failed` 같은 것을 셀 수 있다. 위임 러너의 사용량 한 줄마다 `deleg.usage` 이벤트(필드명 `tok_*`: 이름에 token이 들어가면 비밀 값으로 가려진다), 날짜별 요약 VERSION 6에 제공자·역할별 위임 비용(호출·초·티켓 수·토큰).
-- **재시작**: 필요 (`obslog`).
 
