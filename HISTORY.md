@@ -7,6 +7,12 @@
 2026-10-07 기록은 하루 예산을 넘어 [docs/history/2026-10-07.md](docs/history/2026-10-07.md)로 회전했습니다.
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 
+## 2026-10-09 — 턴 안의 단계별 시간 (telemetry tl/D, #847)
+
+- **운영자**: "이어서 진행해"
+- **바뀐 것**: `turn.end`에 `prep_ms`(메시지를 받고 에이전트에 넘기기까지 — 지시문 조립·에이전트 기동), `spawn_ms`(이 턴에 새 에이전트를 띄웠을 때만), `first_tool_ms`(첫 도구 호출까지). `ttft_ms`·`dur_s`는 넘긴 뒤부터 잰다. 날짜별 요약 VERSION 4가 그룹별 백분위를 담는다. 대기열 대기 시간은 남음.
+- **재시작**: 필요.
+
 ## 2026-10-09 — [ui/team] 새 역할 추가 모달 레이아웃 3단 구조화 및 UX 정리 (#846, 위임 agy)
 
 - **커밋**: `6767529` feat(team): improve add role modal layout, validation and tool chips

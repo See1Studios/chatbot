@@ -536,6 +536,9 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
         if self._stop_requested or self._loop_stopping:
             return
         calls = extract_tool_steps(obj)
+        phases = getattr(self, "_turn_phases", None)
+        if calls and phases is not None and phases.get("first_tool_ms") is None and getattr(self, "_turn_t0", None):
+            phases["first_tool_ms"] = round((time.time() - self._turn_t0) * 1000, 1)   # telemetry tl/D
         for name, params, _ in calls:
             write_guard.check(self, name, params, REPO_ROOT)
             if not (is_read_only(name) or str((params or {}).get("action") or "") in regenerate.READ_ACTIONS):
@@ -674,6 +677,9 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog):
                     if isinstance(u.get(src), (int, float)):
                         sums[dst] = sums.get(dst, 0) + int(u[src])
         out.update(sums)
+        for k, v in (getattr(self, "_turn_phases", None) or {}).items():   # prep_ms, spawn_ms, first_tool_ms
+            if isinstance(v, (int, float)):
+                out[k] = v
         return out
 
     # TURN_END_ORDER_v1: stop child only after terminal events are flushed.

@@ -348,14 +348,23 @@ class SessionTurn:
         except Exception:  # noqa: BLE001 -- a record never stops a turn
             pass
 
+    def _ensure_timed(self, t_enter: float) -> Optional[float]:
+        """ensure() the agent; the ms it took when this turn had to start one (telemetry tl/D spawn_ms), else None."""
+        before = self.proc
+        self.ensure()
+        return round((time.time() - t_enter) * 1000, 1) if self.proc is not before else None
+
+    def _phases_begin(self, t_enter: float, spawn_ms: Optional[float]) -> None:
+        """The turn's phases so far: preparation (bundle, spawn) until the agent is told; the first tool call later."""
+        self._turn_phases = {"prep_ms": round((self._turn_t0 - t_enter) * 1000, 1), "spawn_ms": spawn_ms,
+                             "first_tool_ms": None}
+
     def _start_turn(self, text: str, client_mid: str, client_context: Optional[Dict[str, Any]], notice: bool, event_type: str) -> None:
-        # Multi-Provider plan Phase 2: a one-shot exec provider (grok, and any
-        # future codex-style adapter) needs its prompt known BEFORE spawning
-        # (baked into argv/a prompt file), so ensure()-then-write-to-stdin
-        # doesn't apply -- stdin_content must be finalized first either way,
-        # then the two provider shapes fork at the bottom of this method.
+        # Multi-Provider plan Phase 2: a one-shot exec provider (grok, codex-style) needs its prompt known BEFORE
+        # spawning (argv/a prompt file), so stdin_content is finalized first; the provider shapes fork at the bottom.
+        t_enter, spawn_ms = time.time(), None   # telemetry tl/D phases: what happens before the agent hears the turn
         if self.adapter.keeps_stdin_open:
-            self.ensure()
+            spawn_ms = self._ensure_timed(t_enter)
             assert self.proc and self.proc.stdin
 
         stdin_content = f"[Host note] {text}" if notice else text
@@ -430,7 +439,7 @@ class SessionTurn:
             self._loop_noticed = False
         with self.lock:
             self.current_text = ""
-            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None; self._cancel_silent_hang(); self._silent_hang_done = False; self._last_turn_activity_at = 0.0; self._turn_t0 = time.time(); self.ttft_ms = None
+            self.turn_started_at = _now(); self._obs_turn_logged = None; self._cancel_error_message_failfast(); self._err_msg_failfast_done = False; self._err_msg_hint = ""; self._post_result_stop = None; self._cancel_silent_hang(); self._silent_hang_done = False; self._last_turn_activity_at = 0.0; self._turn_t0 = time.time(); self.ttft_ms = None; self._phases_begin(t_enter, spawn_ms)
             self.pending_images = []
             ts = _now()
             if not notice:

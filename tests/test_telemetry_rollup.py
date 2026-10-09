@@ -70,7 +70,8 @@ class Rollup(unittest.TestCase):
     def test_turn_meters_are_summed_and_older_days_get_tokens_from_the_sessions(self):
         # tl/D: turn.end carries tokens from 2026-10-09; days before it take them from the sessions' usage
         events = EVENTS + [ev("2026-10-02", 14, "turn.end", sid="s1", provider="agy", model="m", outcome="result",
-                              dur_s=4.0, tool_calls=20, read_kb=43, tok_in=1000, tok_out=50, tok_total=1050)]
+                              dur_s=4.0, tool_calls=20, read_kb=43, tok_in=1000, tok_out=50, tok_total=1050,
+                              prep_ms=850.0, spawn_ms=600.0, first_tool_ms=2100.0)]
         sessions = Path(self.tmp.name) / "sessions"
         (sessions / "a").mkdir(parents=True)
         day1 = time.mktime(time.strptime("2026-10-01 12:00", "%Y-%m-%d %H:%M"))
@@ -85,6 +86,7 @@ class Rollup(unittest.TestCase):
         t = self.day("2026-10-02")["turns"]["agy|m|work|c1"]
         self.assertEqual((t["tool_calls"]["max"], t["read_kb"]["max"], t["tokens_from"]), (20.0, 43.0, "turns"))
         self.assertEqual(t["tokens"], {"tok_in": 1000, "tok_out": 50, "tok_total": 1050})   # not added twice
+        self.assertEqual((t["prep_ms"]["max"], t["spawn_ms"]["n"], t["first_tool_ms"]["p50"]), (850.0, 1, 2100.0))
         t1 = self.day("2026-10-01")["turns"]["agy|m|work|c1"]
         self.assertEqual((t1["tokens"], t1["tokens_from"]), ({"tok_in": 700, "tok_total": 720}, "sessions"))
 

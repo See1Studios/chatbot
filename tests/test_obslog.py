@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -344,6 +345,24 @@ class TurnEndTests(Base):
         self.assertEqual((te["tok_in"], te["tok_out"], te["tok_think"], te["tok_cache_read"], te["tok_total"]),
                          (1200, 80, 40, 900, 1320))
         self.assertNotIn("text", te)
+
+    def test_turn_end_carries_the_phases_before_and_inside_the_turn(self):
+        # telemetry tl/D phases: preparation (bundle, spawn) and the first tool call, beside ttft_ms
+        import session
+        sess = session.AgentSession("s4")
+        sess.turn_started_at = 1000.0
+        sess._turn_t0 = time.time() - 2.0
+        sess._turn_phases = {"prep_ms": 850.0, "spawn_ms": 600.0, "first_tool_ms": None}
+        step = {"event": "step_update", "step_update": {"step_index": 0, "state": "DONE", "step_type": "tool",
+                "tool_name": "read_file", "tool_info": {"name": "read_file", "parameters": {"path": "a"}, "output": "x"}}}
+        sess._observe_agent_step(step)
+        first = sess._turn_phases["first_tool_ms"]
+        self.assertTrue(1900 <= first <= 3000, first)
+        sess._observe_agent_step(step)
+        self.assertEqual(sess._turn_phases["first_tool_ms"], first)          # the first one only
+        sess._obs_turn_end("result")
+        te = next(r for r in lines(self.path) if r["evt"] == "turn.end")
+        self.assertEqual((te["prep_ms"], te["spawn_ms"], te["first_tool_ms"]), (850.0, 600.0, first))
 
 
 if __name__ == "__main__":

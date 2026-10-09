@@ -181,7 +181,7 @@ Routes collapse ids: `/api/sessions/:sid/log`, `/persona/*.webp`, `/api/tickets/
 | evt | lvl | fields |
 |---|---|---|
 | `turn.start` | info | `provider`, `model`, `notice`, `chars`, `resume`, `queued` |
-| `turn.end` | info/warn | `outcome` (`result`, `error`, `stopped`, `interrupted`, `process_died`, `auto_stop`), `dur_s`, `ttft_ms`, `standby`, `tool_calls`, `read_kb`, `tok_in`/`tok_out`/`tok_think`/`tok_cache_read`/`tok_total` (when the provider reports usage); on failure `stderr_tail`, `error_hint` |
+| `turn.end` | info/warn | `outcome` (`result`, `error`, `stopped`, `interrupted`, `process_died`, `auto_stop`), `dur_s`, `ttft_ms`, `prep_ms` (message taken → agent told: bundle, spawn), `spawn_ms` (only when this turn started an agent), `first_tool_ms`, `standby`, `tool_calls`, `read_kb`, `tok_in`/`tok_out`/`tok_think`/`tok_cache_read`/`tok_total` (when the provider reports usage); on failure `stderr_tail`, `error_hint` |
 | `turn.loop_notice` / `turn.quiet_close` | warn | loop guard warning / unfinished turn closed quietly |
 | `turn.failfast_failed`, `turn.post_result_stop_failed` | error/warn | `err` |
 | `session.error` | warn | the error the user saw (`msg`) |

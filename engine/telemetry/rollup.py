@@ -29,7 +29,8 @@ if __package__ in (None, ""):   # run as a script: the engine folder is the impo
 
 import platform_compat
 
-VERSION = 3   # 2: tokens, tool calls and read KB per turn group (tl/D); 3: memory (tl/E)
+VERSION = 4   # 2: tokens, tool calls and read KB per turn group (tl/D); 3: memory (tl/E); 4: turn phases (tl/D)
+PHASES = ("prep_ms", "spawn_ms", "first_tool_ms")
 MEMORY_LAYERS = ("house_memory", "own_memory", "private_memory")   # instructions.LAYERS that carry remembered things
 TOP_FP = 20
 TOKENS = ("tok_in", "tok_out", "tok_think", "tok_cache_read", "tok_total")
@@ -77,7 +78,8 @@ class Day:
 
     def _group(self, key: str) -> Dict[str, Any]:
         return self.turns.setdefault(key, {"outcomes": defaultdict(int), "dur_s": [], "ttft_ms": [], "tool_calls": [],
-                                           "read_kb": [], "tok": defaultdict(int), "tok_in": [], "tok_source": ""})
+                                           "read_kb": [], "tok": defaultdict(int), "tok_in": [], "tok_source": "",
+                                           **{p: [] for p in PHASES}})
 
     def add_usage(self, key: str, usage: Dict[str, Any]) -> None:
         """A turn's tokens from a session's history (backfill for days before turn.end carried them)."""
@@ -111,7 +113,7 @@ class Day:
                             w.get("character", "")])
             t = self._group(key)
             t["outcomes"][str(e.get("outcome") or "")] += 1
-            for f in ("dur_s", "ttft_ms", "tool_calls", "read_kb"):
+            for f in ("dur_s", "ttft_ms", "tool_calls", "read_kb") + PHASES:
                 if isinstance(e.get(f), (int, float)):
                     t[f].append(float(e[f]))
             if any(isinstance(e.get(f), (int, float)) for f in TOKENS):
@@ -181,7 +183,8 @@ class Day:
             turns[key] = {"provider": provider, "model": model, "mode": mode, "character": character,
                           "outcomes": dict(t["outcomes"]), "dur_s": _dist(t["dur_s"]), "ttft_ms": _dist(t["ttft_ms"]),
                           "tool_calls": _dist(t["tool_calls"]), "read_kb": _dist(t["read_kb"]),
-                          "tokens": dict(t["tok"]), "tok_in": _dist(t["tok_in"]), "tokens_from": t["tok_source"]}
+                          "tokens": dict(t["tok"]), "tok_in": _dist(t["tok_in"]), "tokens_from": t["tok_source"],
+                          **{p: _dist(t[p]) for p in PHASES}}
         fps = sorted(self.errors["by_fp"].items(), key=lambda kv: -kv[1])[:TOP_FP]
         return {"version": VERSION, "day": day, "generated": int(time.time()), "events": self.events,
                 "by_evt": dict(sorted(self.by_evt.items(), key=lambda kv: -kv[1])),
