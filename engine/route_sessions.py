@@ -58,6 +58,7 @@ def _character_list() -> list:
         voice = (disp.get("voice") or "").strip()
         raw_tags = cdata.get("tags") or []
         tags = [str(t).strip() for t in raw_tags if str(t).strip()]
+        focal = disp.get("focal") or {}
         base = characters.card_path(c["id"]).parent
         art_v = {}
         for kind in ("avatar", "stage"):
@@ -67,6 +68,7 @@ def _character_list() -> list:
         out.append({"id": c["id"], "session_character": c["id"], "roles": c["roles"], "role": c["role"],
                     "default": c["id"] == default, "name": name, "title": disp.get("title") or name,
                     "description": description, "personality": personality, "voice": voice, "tags": tags,
+                    "focal": focal,
                     # a version for the picture URLs: new art shows at once; 0 = no picture yet (the route
                     # serves the engine placeholder, ART_PLACEHOLDER_v1)
                     "avatar_v": art_v["avatar"], "stage_v": art_v["stage"]})
