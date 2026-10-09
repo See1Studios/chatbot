@@ -64,6 +64,18 @@ class Run(unittest.TestCase):
         with mock.patch("providers.adapters.AGENT_ADAPTERS", {"x": AgentAdapter.__new__(AgentAdapter)}):
             self.assertIsNone(W.activity_of("x"), "no signal: never judged stalled or not started")
 
+    def test_a_long_run_renews_the_lease_while_it_runs(self):
+        # #870: an agent may run longer than the 30-minute author lease; the watch keeps it alive
+        calls = []
+        W.run([PY, "-c", "import time; time.sleep(1.2)"], timeout=60, poll_sec=0.1, keepalive=lambda: calls.append(1),
+              keepalive_sec=0.3)
+        self.assertGreaterEqual(len(calls), 2)
+
+        def boom():
+            raise RuntimeError("lease")
+        self.assertEqual(W.run([PY, "-c", "import time; time.sleep(0.5); print(1)"], poll_sec=0.1, keepalive=boom,
+                               keepalive_sec=0.1)[0], 0, "a failed renew never stops the work")
+
     def test_without_a_signal_only_the_timeout_applies(self):
         code, _out, err = W.run([PY, "-c", "import time; time.sleep(30)"], timeout=1, stall_sec=0, poll_sec=0.2,
                                 activity=lambda pid, started: None)

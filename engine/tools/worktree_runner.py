@@ -6,7 +6,7 @@ main only what passed the gates and the PD character's confirmation
 Usage:
   python3 tools/worktree_runner.py run --provider claude --title "title" \\
       --paths "tickets.py,tests/test_tickets.py" --prompt "brief..." \\
-      [--gate "./run-tests.sh test_tickets"] [--evidence log:fp:<fp>] [--timeout 1200] \\
+      [--gate "./run-tests.sh test_tickets"] [--evidence log:fp:<fp>] [--timeout 2400] \\
       [--reviewer claude] [--reviewer-model haiku] [--rounds 2] [--no-review] [--stop-before-merge] [--keep] [--json]
 
   # Tier 2: land a ticket stopped by --stop-before-merge on the operator's word
@@ -77,8 +77,9 @@ from worktree_gates import guard_gate, head_files, head_tests, related_gate  # n
 
 # smoke plus the repo-wide guards (design doc §7-9, NAME_NEUTRAL_v1); a few seconds each
 DEFAULT_GATES = [g for g in (guard_gate(CHATBOT_REPO),) if g] + ["python3 tests/smoke.py", "python3 tests/test_identity_wiring.py"]
-LEASE_TTL_SEC = 1800          # tickets.LEASE_TTL_SEC: renewed before and after each agent run
-MAX_AGENT_TIMEOUT = 1500
+LEASE_TTL_SEC = 1800          # tickets.LEASE_TTL_SEC: renewed before, during (the watch, #870) and after each agent run
+MAX_AGENT_TIMEOUT = 3600   # the watch renews the author lease while an agent runs (#870)
+MAX_UNRENEWED = 1500       # without the watch nothing renews it: stay inside the 30-minute lease
 REVIEW_TIMEOUT = 300
 GATE_TIMEOUT = 600
 TAIL_LINES = 30
@@ -420,12 +421,15 @@ def diff_limit(provider: str) -> int:
 def run_as_login(provider: str, cmd: List[str], **kw) -> tuple:
     """run_cmd under a stall watch (delegation_watch, WORKER_STALL_v1), again when the login changed under it
     (accounts.rerun_on_switch, ACCOUNT_SWITCH_v1). The CLI answers in JSON; its tokens go to runs/usage.jsonl."""
-    cmd, t0 = run_usage.machine(provider, cmd), time.time()
+    cmd, t0, keep = run_usage.machine(provider, cmd), time.time(), kw.pop("keepalive", None)
     try:
         watch, accounts = host_module("delegation_watch"), host_module("providers.accounts").accounts
     except Exception:  # noqa: BLE001
         watch = None
-    code, out, err = (accounts.rerun_on_switch(provider, lambda: watch.run(cmd, activity=watch.activity_of(provider), **kw), log)
+    if not watch:   # nothing renews the lease while it runs (#870)
+        kw["timeout"] = min(kw.get("timeout", 120), MAX_UNRENEWED)
+    code, out, err = (accounts.rerun_on_switch(provider, lambda: watch.run(cmd, activity=watch.activity_of(provider),
+                                                                           keepalive=keep, **kw), log)
                       if watch else run_cmd(cmd, **kw))
     out, used = run_usage.split(provider, out)
     if used:
@@ -433,13 +437,15 @@ def run_as_login(provider: str, cmd: List[str], **kw) -> tuple:
     return code, out, err
 
 
-def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False, model: str = "") -> Dict:
+def run_agent(provider: str, wt_dir: Path, prompt: str, timeout: int, resume: bool = False, model: str = "",
+              keepalive=None) -> Dict:
     argv = work_command(provider, wt_dir, model, resume)
     if not shutil.which(argv[0]):
         return {"ok": False, "returncode": None, "elapsed_sec": 0, "stdout": "", "stderr": "%s CLI not installed" % argv[0]}
     t0 = time.time()
     extra, stdin = prompt_args(provider, prompt)
-    code, out, err = run_as_login(provider, argv + extra, cwd=wt_dir, timeout=timeout, env=agent_env(provider), stdin=stdin)
+    code, out, err = run_as_login(provider, argv + extra, cwd=wt_dir, timeout=timeout, env=agent_env(provider), stdin=stdin,
+                                  keepalive=keepalive)
     return {"ok": code == 0, "returncode": code, "elapsed_sec": round(time.time() - t0, 1), "stdout": out, "stderr": err}
 
 
@@ -880,7 +886,8 @@ def run_content(args, repo: Path, provider: str, paths: List[str], tid: int, tok
                 timeout = b["timeout"] or args.timeout
                 write_state(tid, phase="writing", task=tno, round=1, brain=brain_label(b), phase_since=time.time(),
                             timeout_sec=timeout)
-                res = run_agent(b["provider"], repo, brief, timeout, model=b["model"])
+                res = run_agent(b["provider"], repo, brief, timeout, model=b["model"], keepalive=lambda: ticket_call(
+                    "renew", "--id", str(tid), "--token", token, "--actor", actor))
                 if res["ok"]:
                     break
                 why = tail(res["stderr"] or res["stdout"], 5)
@@ -916,7 +923,7 @@ def arg_error(args, paths: List[str]) -> str:
     if not paths:
         return "--paths is required (the scope gate and the ticket's ship gate use it)"
     if args.timeout > MAX_AGENT_TIMEOUT:
-        return "--timeout above %ds would outlive the %ds author lease" % (MAX_AGENT_TIMEOUT, LEASE_TTL_SEC)
+        return "--timeout above %ds is too long for one agent run" % MAX_AGENT_TIMEOUT
     if args.rounds < 1:
         return "--rounds must be at least 1"
     if (args.resume or args.plan_from_state or args.from_attic) and not args.ticket:
@@ -1123,7 +1130,7 @@ def task_work(r, k, rnd: int):
         write_state(r.tid, phase="writing", task=k.tno, round=rnd, brain=brain_label(b), phase_since=time.time(),
                     timeout_sec=timeout)
         log("task %d/%d round %d: running %s (timeout %ds)..." % (k.tno, k.n_tasks, rnd, brain_label(b), timeout))
-        res = run_agent(b["provider"], r.wt_dir, prompt, timeout, resume=resume, model=b["model"])
+        res = run_agent(b["provider"], r.wt_dir, prompt, timeout, resume=resume, model=b["model"], keepalive=lambda: renew(r))
         r.result["agent"] = {x: res[x] for x in ("ok", "returncode", "elapsed_sec")}
         log("%s finished in %ss (exit %s)" % (brain_label(b), res["elapsed_sec"], res["returncode"]))
         if res["ok"]:
@@ -1380,7 +1387,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--from-attic", action="store_true",
                    help="Start a new worktree from the head a failed attempt of --ticket left at refs/attic/ticket-<ID>")
     p.add_argument("--token", default="", help="The caller's claim token for --ticket")
-    p.add_argument("--timeout", type=int, default=1200, help="Agent timeout per round in seconds (max %d)" % MAX_AGENT_TIMEOUT)
+    # #870: 20 minutes cut busy workers (#456, #578, #628, #863 made 100-230 model calls up to it); a stall is caught sooner
+    p.add_argument("--timeout", type=int, default=2400, help="Agent timeout per round in seconds (max %d)" % MAX_AGENT_TIMEOUT)
     p.add_argument("--reviewer", choices=sorted(PROVIDERS), help="Provider for the PD's confirmation (default: --provider)")
     p.add_argument("--model", default="", help="Worker model (default: the provider's work model, else its CLI default)")
     p.add_argument("--content", action="store_true",

@@ -186,6 +186,18 @@ class WorktreeRunner(unittest.TestCase):
         limits = wr.WORKTREE_BASE / wr.LIMITS
         self.assertFalse(limits.exists() and "fake" in limits.read_text(), "a busy brain is not rested")
 
+    def test_the_agent_timeout_is_forty_minutes_and_the_lease_is_kept_alive(self) -> None:
+        # #870: 20 minutes cut workers that were busy to the end; the watch renews the lease meanwhile
+        self.assertIn('p.add_argument("--timeout", type=int, default=2400,', Path(wr.__file__).read_text(encoding="utf-8"))
+        self.assertGreater(wr.MAX_AGENT_TIMEOUT, wr.LEASE_TTL_SEC)
+        self.assertLessEqual(wr.MAX_UNRENEWED, wr.LEASE_TTL_SEC, "without the watch nothing renews the lease")
+        seen = {}
+        with mock.patch.object(wr, "host_module", side_effect=ImportError("no watch")), \
+                mock.patch.object(wr, "run_cmd", lambda cmd, **kw: (seen.update(kw), (0, "", ""))[1]):
+            wr.run_as_login("fake", ["true"], timeout=2400, keepalive=lambda: None)
+        self.assertEqual(seen["timeout"], wr.MAX_UNRENEWED)
+        self.assertNotIn("keepalive", seen)
+
     def test_when_no_brain_can_work_the_attempt_is_not_counted(self) -> None:
         # DELEGATION_HARDENING_v1: the last brain out of quota releases as `unavailable`, not `failed`
         self.assertEqual(self.run_with("echo 'Error: quota exceeded' >&2; exit 1"), 1)
