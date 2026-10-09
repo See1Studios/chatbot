@@ -1,6 +1,7 @@
 {
-  "notes": "Affection (private-mode.md section 3) and how giving an item moves it (composer-plus-menu plus/F). The engine judges an item against the character's item_prefs; using an item moves nothing; the model never reports its own points (private-mode D8). Levels and titles are section 3.1. Read by items.py. start_stage/start_max: the private tension a visit opens at, and the most a brink note may lift it to (private-mode section 3.3, #864); stance: the relationship guard the character hears every private turn.",
+  "notes": "Affection (private-mode.md section 3) and how giving an item moves it (composer-plus-menu plus/F). The engine judges an item against the character's item_prefs; using an item moves nothing; the model never reports its own points (private-mode D8). Levels and titles are section 3.1. Read by items.py. start_stage/start_max: the private tension a visit opens at, and the most a brink note may lift it to (private-mode section 3.3, #864); stance: the relationship guard the character hears every private turn. known_after_entries: while points come only from gifts (D14 open), a level-1 character with this many private history entries (user and character lines, about 20 exchanges) is not guarded as a stranger (#876).",
   "max": 100,
+  "known_after_entries": 40,
   "levels": [
     {"level": 1, "min": 0, "title": "어색한 동료", "start_stage": 1, "start_max": 1, "stance": "strangers or barely acquainted: polite distance and formal address; wary of touch -- you may pull back or say no; no confessions or pet names"},
     {"level": 2, "min": 20, "title": "친밀한 파트너", "start_stage": 1, "start_max": 2, "stance": "friendly partners: light teasing and small, friendly touches are fine; curious about each other, but no romance taken for granted"},

@@ -370,7 +370,7 @@ def take(session: Any, user_word: str = "the user") -> str:
         top = min(private_engine.TENSION_MAX, int(rel.get("start_max") or private_engine.TENSION_MAX))
         stage = int(getattr(session, "tension_stage", 1) or 1)
         session.tension_stage, session._brink = max(stage, min(stage + 1, top)), True   # #864: within the level
-        if int(rel.get("level") or 1) <= 1:   # strangers: a sudden personal turn is a surprise, not shared heat
+        if rel.get("level") == 1:   # strangers (0: a known character whose level is not measured yet, #876): a sudden personal turn is a surprise, not shared heat
             lines.append("Just now in the office, where the others could see, %s got personal with you -- out of the "
                          "blue, you barely know each other. You came along, unsure what to make of it. Open the scene "
                          "reacting to that." % user_word)

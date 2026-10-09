@@ -40,6 +40,16 @@ class Levels(unittest.TestCase):
             self.assertEqual(PE.relationship(Visit())["start"], 2)
 
 
+class KnownCharacters(unittest.TestCase):
+    def test_a_character_with_private_history_is_not_guarded_as_a_stranger(self):
+        # #876: points come only from gifts, so 1,944 private lines read as level 1 "strangers" after #864
+        with points(4), mock.patch.object(PE, "private_turns", lambda cid: 1944):
+            r = PE.relationship(Visit())
+        self.assertEqual((r["level"], r["start"], r["stance"]), (0, 1, ""))
+        self.assertEqual(PE.relationship_context(r), "", "no level line until the level is measured (D14)")
+        with points(0), mock.patch.object(PE, "private_turns", lambda cid: 20):
+            self.assertEqual(PE.relationship(Visit())["level"], 1, "a first meeting (20 lines) is still guarded")
+
 class Turn(unittest.TestCase):
     def setUp(self):
         self.logged = []
