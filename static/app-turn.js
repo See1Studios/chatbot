@@ -319,3 +319,13 @@ function setMeta(t) {
     metaEl.textContent = t;
   }
 }
+
+// #887: a wait the host cannot avoid (a long talk handed over to a new session) shows as a stage direction line of
+// its own, before the answer's bubble -- not as words inside that bubble, which read as the character stalling.
+function stageLine(text) {
+  if (!text) return;
+  const node = addChat('action', '\u2726 ' + text, false, false, false);
+  if (assistantNode && assistantNode.isConnected && !assistantBuf && node && node.parentNode === assistantNode.parentNode) {
+    assistantNode.parentNode.insertBefore(node, assistantNode);   // the answer still comes below it
+  }
+}

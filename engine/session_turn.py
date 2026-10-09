@@ -114,7 +114,7 @@ class SessionTurn:
             new_sess = _s().REG.get(succ_id)
         else:
             # The summary is up to two model calls: the page's waiting message hears that the server is at work (#812)
-            self._emit({"event": "progress", **i18n.msg("srv.handoff_writing")})
+            self._emit({"event": "stage", **i18n.msg("srv.handoff_stage")})   # #887: a stage line, not the bubble
             summary = self.get_handover_summary()
             brain = _s().REG.rotation_brain(self)   # #885: the saved brain, not this session's model
             new_sess = _s().REG.create(

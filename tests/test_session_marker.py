@@ -64,7 +64,7 @@ class SessionMarkerTest(unittest.TestCase):
         self.assertIn('timeoutMs > 0 ? setTimeout(', API)   # 0 means no clock, not an instant abort
         rot = (REPO / 'engine' / 'session_turn.py').read_text(encoding='utf-8')
         rot = rot[rot.index('def _rotate_to_fresh_session('):]
-        self.assertLess(rot.index('srv.handoff_writing'), rot.index('self.get_handover_summary()'))
+        self.assertLess(rot.index('srv.handoff_stage'), rot.index('self.get_handover_summary()'))
 
 
 HARNESS = r"""
