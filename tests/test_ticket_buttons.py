@@ -128,5 +128,214 @@ class WorkInProgress(unittest.TestCase):
         self.assertEqual((rows[0]["holder"], rows[0]["until"]), ("agy", ""))    # no live lease: shown as expired
 
 
+CAROUSEL_HARNESS = r"""
+const fs = require('fs');
+const evo = fs.readFileSync(process.argv[1], 'utf8');
+
+function mockEl(tag) {
+  let _cls = '';
+  let _text = '';
+  const n = {
+    tagName: (tag || 'div').toUpperCase(),
+    get className() { return _cls; },
+    set className(val) { _cls = val || ''; this.classList._sync(); },
+    get textContent() { return _text; },
+    set textContent(val) {
+      _text = val || '';
+      if (_text === '') this.children = [];
+    },
+    title: '',
+    dataset: {},
+    children: [],
+    style: {},
+    offsetWidth: 300,
+    listeners: {},
+    appendChild(c) { c.parentNode = this; this.children.push(c); return c; },
+    addEventListener(ev, fn) {
+      this.listeners[ev] = this.listeners[ev] || [];
+      this.listeners[ev].push(fn);
+    },
+    dispatchEvent(ev) {
+      ev.target = ev.target || this;
+      ev.stopPropagation = ev.stopPropagation || (() => {});
+      ev.preventDefault = ev.preventDefault || (() => {});
+      (this.listeners[ev.type] || []).forEach(fn => fn(ev));
+    },
+    classList: {
+      _s: new Set(),
+      _sync() { this._s = new Set((_cls || '').split(/\s+/).filter(Boolean)); },
+      add(...cs) { cs.forEach(c => this._s.add(c)); _cls = [...this._s].join(' '); },
+      remove(...cs) { cs.forEach(c => this._s.delete(c)); _cls = [...this._s].join(' '); },
+      contains(c) { return this._s.has(c); },
+      toggle(c, f) {
+        const has = f !== undefined ? f : !this.contains(c);
+        if (has) this.add(c); else this.remove(c);
+        return has;
+      }
+    },
+    closest(sel) {
+      let cur = this;
+      while (cur) {
+        if (cur.matches && cur.matches(sel)) return cur;
+        cur = cur.parentNode;
+      }
+      return null;
+    },
+    matches(sel) {
+      if (sel === 'button') return this.tagName === 'BUTTON';
+      if (sel.startsWith('.')) {
+        const parts = sel.split('.').filter(Boolean);
+        return parts.every(p => this.classList.contains(p));
+      }
+      return false;
+    },
+    querySelector(sel) {
+      const all = this.querySelectorAll(sel);
+      return all.length ? all[0] : null;
+    },
+    querySelectorAll(sel) {
+      const res = [];
+      const walk = (node) => {
+        for (const ch of node.children) {
+          if (ch.matches && ch.matches(sel)) res.push(ch);
+          walk(ch);
+        }
+      };
+      walk(this);
+      return res;
+    }
+  };
+  Object.defineProperty(n, 'childNodes', { get() { return this.children; } });
+  return n;
+}
+
+const workBar = mockEl('div');
+const document = {
+  getElementById: (id) => (id === 'workBar' ? workBar : mockEl('div')),
+  createElement: (tag) => mockEl(tag)
+};
+const window = { __IDENTITY__: {} };
+function tr(k) { return k; }
+function i18nTable(k) { return {}; }
+let apiData = { runs: [] };
+function api() { return Promise.resolve(apiData); }
+function isBusy() { return false; }
+function updateProcBadge() {}
+function loadTickets() {}
+function loadHandoffs() {}
+function addNotice() {}
+
+const statusTicketBoxEl = null;
+const ticketBarEl = null;
+const setInterval = () => 1;
+const clearInterval = () => {};
+
+const ctx = {
+  fs, console, document, window, tr, i18nTable, api, isBusy: false, updateProcBadge,
+  loadTickets, loadHandoffs, addNotice, statusTicketBoxEl, ticketBarEl, setInterval, clearInterval
+};
+const fn = new Function(...Object.keys(ctx), evo + '; return { loadWork, renderWorkCarousel, isWorkActionable, workCardPriority, workBar, getCardIndex: () => workCardIndex, setCardIndex: (i) => { workCardIndex = i; }, getShown: () => workShownRuns };');
+const scope = fn(...Object.values(ctx));
+
+(async () => {
+  const results = {};
+
+  // 1. Single run -> 1 card, no carousel nav
+  apiData = { runs: [{ ticket: 101, title: 'Job 1', phase: 'writing', active: true }] };
+  await scope.loadWork();
+  results.single = {
+    cardCount: workBar.querySelectorAll('.work-card').length,
+    navCount: workBar.querySelectorAll('.work-carousel-nav').length,
+    ticket: workBar.querySelector('.work-card').dataset.ticket
+  };
+
+  // 2. Multiple runs -> 1 card shown, carousel nav with prev/next and auto-focus on actionable
+  apiData = { runs: [
+    { ticket: 101, title: 'Job 1', phase: 'writing', active: true },
+    { ticket: 102, title: 'Job 2', phase: 'awaiting_merge', active: false, actions: [{ id: 'merge', label: 'Merge' }] }
+  ]};
+  await scope.loadWork();
+  const prevBtn = workBar.querySelector('.work-nav-btn.prev');
+  const nextBtn = workBar.querySelector('.work-nav-btn.next');
+  results.multi = {
+    cardCount: workBar.querySelectorAll('.work-card').length,
+    navCount: workBar.querySelectorAll('.work-carousel-nav').length,
+    focusedTicket: workBar.querySelector('.work-card').dataset.ticket,
+    focusedIdx: scope.getCardIndex(),
+    prevDisabled: prevBtn.disabled,
+    nextDisabled: nextBtn.disabled
+  };
+
+  // 3. Navigation click: prev button
+  prevBtn.dispatchEvent({ type: 'click' });
+  results.navigated = {
+    focusedTicket: workBar.querySelector('.work-card').dataset.ticket,
+    focusedIdx: scope.getCardIndex()
+  };
+
+  // 4. Swipe left -> moves to next
+  const card = workBar.querySelector('.work-card');
+  card.dispatchEvent({ type: 'pointerdown', clientX: 200, clientY: 100, button: 0 });
+  card.dispatchEvent({ type: 'pointermove', clientX: 120, clientY: 100, pointerId: 1 });
+  card.dispatchEvent({ type: 'pointerup', clientX: 120, clientY: 100 });
+  results.swiped = {
+    focusedTicket: workBar.querySelector('.work-card').dataset.ticket,
+    focusedIdx: scope.getCardIndex()
+  };
+
+  // 5. Newly actionable run steals focus dynamically
+  apiData = { runs: [
+    { ticket: 101, title: 'Job 1', phase: 'writing', active: true },
+    { ticket: 102, title: 'Job 2', phase: 'done', seen: true },
+    { ticket: 103, title: 'Job 3', phase: 'awaiting_merge', active: false, actions: [{ id: 'merge', label: 'Merge' }] }
+  ]};
+  await scope.loadWork();
+  results.newlyActionable = {
+    focusedTicket: workBar.querySelector('.work-card').dataset.ticket,
+    focusedIdx: scope.getCardIndex()
+  };
+
+  console.log(JSON.stringify(results));
+})();
+"""
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class WorkCardCarousel(unittest.TestCase):
+    """WORK_CAROUSEL_v1 (#961): 1 card display carousel, swipe/nav and actionable auto-focus."""
+
+    @classmethod
+    def setUpClass(cls):
+        r = subprocess.run(["node", "-e", CAROUSEL_HARNESS, str(STATIC / "app-evolution.js")],
+                           capture_output=True, text=True, timeout=20)
+        assert r.returncode == 0, r.stderr[-1500:]
+        cls.o = json.loads(r.stdout.strip().splitlines()[-1])
+
+    def test_single_run_shows_one_card_without_carousel_nav(self):
+        self.assertEqual(self.o["single"]["cardCount"], 1)
+        self.assertEqual(self.o["single"]["navCount"], 0)
+        self.assertEqual(self.o["single"]["ticket"], 101)
+
+    def test_multiple_runs_shows_one_card_with_actionable_auto_focus(self):
+        self.assertEqual(self.o["multi"]["cardCount"], 1)
+        self.assertEqual(self.o["multi"]["navCount"], 1)
+        self.assertEqual(self.o["multi"]["focusedTicket"], 102)
+        self.assertEqual(self.o["multi"]["focusedIdx"], 1)
+        self.assertFalse(self.o["multi"]["prevDisabled"])
+        self.assertTrue(self.o["multi"]["nextDisabled"])
+
+    def test_nav_button_switches_displayed_card(self):
+        self.assertEqual(self.o["navigated"]["focusedTicket"], 101)
+        self.assertEqual(self.o["navigated"]["focusedIdx"], 0)
+
+    def test_swipe_left_navigates_to_next_card(self):
+        self.assertEqual(self.o["swiped"]["focusedTicket"], 102)
+        self.assertEqual(self.o["swiped"]["focusedIdx"], 1)
+
+    def test_newly_actionable_run_steals_focus(self):
+        self.assertEqual(self.o["newlyActionable"]["focusedTicket"], 103)
+
+
 if __name__ == "__main__":
     unittest.main()
+

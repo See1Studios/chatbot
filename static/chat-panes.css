@@ -307,9 +307,20 @@ details.instr-item > summary .status-item-meta{margin-left:auto}
 .ticket-chip-title{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14rem;color:var(--muted)}
 .ticket-chip .obs-badge{flex:0 1 auto;min-width:0;max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ticket-chip .art-btn{flex:0 0 auto;flex-shrink:0;padding:.1rem .5rem;font-size:.74rem;height:auto;white-space:nowrap}
-.work-bar{display:flex;flex-direction:column;gap:.4rem;flex-shrink:0;max-height:40vh;overflow-y:auto;padding:.15rem 0}
+.work-bar{display:flex;flex-direction:column;gap:.3rem;flex-shrink:0;max-height:40vh;overflow-y:auto;padding:.15rem 0}
 .work-bar[hidden]{display:none}
-.work-card{border:1px solid var(--border);border-radius:12px;padding:.45rem .6rem;background:rgba(255,255,255,.03);font-size:.8rem;display:flex;flex-direction:column;gap:.3rem;transition:border-color .2s ease}
+.work-carousel-nav{display:flex;align-items:center;justify-content:space-between;gap:.4rem;padding:.1rem .2rem;font-size:.74rem;color:var(--muted);user-select:none}
+.work-nav-dots{display:flex;align-items:center;gap:.35rem}
+.work-nav-dot{width:8px;height:8px;border-radius:50%;border:1px solid var(--border);padding:0;background:rgba(255,255,255,.12);cursor:pointer;transition:transform .15s ease,background .15s ease,border-color .15s ease}
+.work-nav-dot:hover{background:rgba(255,255,255,.3)}
+.work-nav-dot.active{background:var(--accent);border-color:var(--accent);transform:scale(1.2)}
+.work-nav-dot.actionable:not(.active){background:var(--accent2);border-color:var(--accent2);box-shadow:0 0 5px var(--accent2)}
+.work-nav-ctrls{display:flex;align-items:center;gap:.3rem}
+.work-nav-btn{padding:0 .4rem;min-width:20px;height:20px;line-height:1;font-size:.85rem}
+.work-nav-count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.74rem;user-select:none;padding:0 .15rem}
+.work-card{border:1px solid var(--border);border-radius:12px;padding:.45rem .6rem;background:rgba(255,255,255,.03);font-size:.8rem;display:flex;flex-direction:column;gap:.3rem;transition:border-color .2s ease,transform .2s ease,opacity .2s ease}
+.work-card.swiping{transition:none;cursor:grabbing;user-select:none;touch-action:pan-y}
+.work-card.resetting{transition:transform .2s ease,opacity .2s ease}
 .work-card.phase-awaiting_merge{border-color:var(--accent)}
 .work-head{display:flex;align-items:center;gap:.4rem;min-width:0;user-select:none}
 .work-head.clickable{cursor:pointer;padding:.1rem 0}

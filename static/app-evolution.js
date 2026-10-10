@@ -301,6 +301,28 @@ const workOpen = new Set();
 let workLastPhase = null;
 let activeWorkRun = null;   // the delegated run working now, or null
 const workDismissed = new Set();
+let workCardIndex = 0;
+let workFocusedTicket = null;
+let workShownRuns = [];
+
+// WORK_CAROUSEL_v1 (#961): actionable tickets wait for operator input (approval, merge, allow paths)
+const WORK_ACTIONABLE_PHASES = ['awaiting_merge', 'awaiting_go', 'paused', 'merged-ticket-open'];
+
+function isWorkActionable(r) {
+  if (!r) return false;
+  return WORK_ACTIONABLE_PHASES.includes(r.phase)
+    || (Boolean(r.actions && r.actions.length) && !WORK_ENDED.includes(r.phase));
+}
+
+function workCardPriority(r) {
+  if (!r) return 0;
+  if (r.phase === 'awaiting_merge' || r.phase === 'paused') return 4;
+  if (r.phase === 'awaiting_go' || r.phase === 'merged-ticket-open') return 3;
+  if (isWorkActionable(r)) return 3;
+  if (r.active) return 2;
+  if (r.phase === 'queued') return 1;
+  return 0;
+}
 
 async function dismissWorkCard(r) {
   if (!r || !r.ticket) return;
@@ -485,10 +507,12 @@ async function loadWork() {
   }
   const runs = res.runs || [];
   workNames = res.names || workNames;
+  let newlyActionable = null;
   if (workLastPhase) {
     runs.forEach(r => {
       const before = workLastPhase.get(r.ticket);
       if (before !== r.phase && (WORK_ENDED.includes(r.phase) || r.phase === 'awaiting_merge')) announceWorkEnding(r);
+      if (before !== r.phase && isWorkActionable(r) && newlyActionable == null) newlyActionable = r.ticket;
     });
   }
   workLastPhase = new Map(runs.map(r => [r.ticket, r.phase]));
@@ -499,17 +523,156 @@ async function loadWork() {
   const changed = ids.size !== workCardIds.size || [...ids].some(id => !workCardIds.has(id));
   workCardIds = ids;
   if (changed) loadTickets();
-  const prevWorkBarScroll = workBarEl.scrollTop;
-  workBarEl.textContent = '';
-  workBarEl.hidden = !shown.length;
-  shown.forEach(r => {
-    const card = workBarEl.appendChild(renderWorkCard(r));
-    card.dataset.ticket = r.ticket;
-  });
-  workBarEl.scrollTop = prevWorkBarScroll;
+
+  workShownRuns = shown;
+  if (newlyActionable != null && shown.some(r => r.ticket === newlyActionable)) {
+    workCardIndex = shown.findIndex(r => r.ticket === newlyActionable);
+  } else if (workFocusedTicket != null && shown.some(r => r.ticket === workFocusedTicket)) {
+    workCardIndex = shown.findIndex(r => r.ticket === workFocusedTicket);
+  } else {
+    let bestIdx = 0, bestPri = -1;
+    shown.forEach((r, idx) => {
+      const p = workCardPriority(r);
+      if (p > bestPri) { bestPri = p; bestIdx = idx; }
+    });
+    workCardIndex = bestIdx;
+  }
+  renderWorkCarousel();
+
   const busy = shown.some(r => r.active);
   if (busy && !workPollTimer) workPollTimer = setInterval(loadWork, 3000);
   if (!busy && workPollTimer) { clearInterval(workPollTimer); workPollTimer = null; }
+}
+
+function bindWorkCardSwipe(card, onPrev, onNext) {
+  if (!card) return;
+  let x0 = 0, y0 = 0, dx = 0, axis = 0;
+  card.addEventListener('pointerdown', (e) => {
+    if (e.button) return;
+    if (e.target && e.target.closest && e.target.closest('button, a, input, select, textarea, details, [role="button"]')) return;
+    x0 = e.clientX; y0 = e.clientY; dx = 0; axis = 0;
+    card.classList.remove('resetting');
+    card.classList.add('swiping');
+  });
+  card.addEventListener('pointermove', (e) => {
+    if (!card.classList.contains('swiping')) return;
+    const mx = e.clientX - x0, my = e.clientY - y0;
+    if (!axis) {
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      axis = Math.abs(mx) >= Math.abs(my) ? 1 : -1;
+      if (axis < 0) { card.classList.remove('swiping'); return; }
+      try { card.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+    if (axis > 0) {
+      dx = mx;
+      card.style.transform = 'translateX(' + dx + 'px)';
+      card.style.opacity = String(Math.max(0.4, 1 - Math.abs(dx) / Math.max(card.offsetWidth || 300, 1)));
+    }
+  });
+  const end = () => {
+    if (!card.classList.contains('swiping')) return;
+    card.classList.remove('swiping');
+    const threshold = Math.min(60, Math.max(30, (card.offsetWidth || 200) * 0.2));
+    if (dx < -threshold && typeof onNext === 'function') {
+      onNext();
+    } else if (dx > threshold && typeof onPrev === 'function') {
+      onPrev();
+    } else {
+      card.classList.add('resetting');
+      card.style.transform = 'translateX(0)';
+      card.style.opacity = '1';
+      card.addEventListener('transitionend', () => {
+        card.classList.remove('resetting');
+        card.style.cssText = '';
+      }, { once: true });
+    }
+  };
+  ['pointerup', 'pointercancel'].forEach(ev => card.addEventListener(ev, end));
+}
+
+function renderWorkCarouselNav(shown, currentIndex, onSelect) {
+  const nav = obsNode('div', 'work-carousel-nav');
+  const dots = obsNode('div', 'work-nav-dots');
+  shown.forEach((r, idx) => {
+    const dot = obsNode('button', 'work-nav-dot' + (idx === currentIndex ? ' active' : '') + (isWorkActionable(r) ? ' actionable' : ''));
+    dot.type = 'button';
+    dot.title = '#' + r.ticket + ' ' + (r.title || '') + ' (' + (WORK_PHASE_LABEL[r.phase] || r.phase) + ')';
+    dot.addEventListener('click', (e) => { e.stopPropagation(); onSelect(idx); });
+    dots.appendChild(dot);
+  });
+  nav.appendChild(dots);
+
+  const ctrls = obsNode('div', 'work-nav-ctrls');
+  const prevBtn = obsNode('button', 'art-btn art-btn-xs work-nav-btn prev', '‹');
+  prevBtn.type = 'button';
+  prevBtn.disabled = currentIndex <= 0;
+  prevBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (currentIndex > 0) onSelect(currentIndex - 1);
+  });
+
+  const count = obsNode('span', 'work-nav-count', (currentIndex + 1) + ' / ' + shown.length);
+
+  const nextBtn = obsNode('button', 'art-btn art-btn-xs work-nav-btn next', '›');
+  nextBtn.type = 'button';
+  nextBtn.disabled = currentIndex >= shown.length - 1;
+  nextBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (currentIndex < shown.length - 1) onSelect(currentIndex + 1);
+  });
+
+  ctrls.appendChild(prevBtn);
+  ctrls.appendChild(count);
+  ctrls.appendChild(nextBtn);
+  nav.appendChild(ctrls);
+  return nav;
+}
+
+function renderWorkCarousel() {
+  if (!workBarEl) return;
+  const shown = workShownRuns || [];
+  if (!shown.length) {
+    workBarEl.textContent = '';
+    workBarEl.hidden = true;
+    workFocusedTicket = null;
+    workCardIndex = 0;
+    return;
+  }
+  workBarEl.hidden = false;
+  const prevScroll = workBarEl.scrollTop;
+  workBarEl.textContent = '';
+
+  if (workCardIndex < 0 || workCardIndex >= shown.length) workCardIndex = 0;
+  const current = shown[workCardIndex];
+  workFocusedTicket = current ? current.ticket : null;
+
+  if (shown.length > 1) {
+    workBarEl.appendChild(renderWorkCarouselNav(shown, workCardIndex, (newIdx) => {
+      workCardIndex = newIdx;
+      if (shown[workCardIndex]) workFocusedTicket = shown[workCardIndex].ticket;
+      renderWorkCarousel();
+    }));
+  }
+
+  const card = renderWorkCard(current);
+  card.dataset.ticket = current.ticket;
+  workBarEl.appendChild(card);
+
+  bindWorkCardSwipe(
+    card,
+    workCardIndex > 0 ? () => {
+      workCardIndex--;
+      if (shown[workCardIndex]) workFocusedTicket = shown[workCardIndex].ticket;
+      renderWorkCarousel();
+    } : null,
+    workCardIndex < shown.length - 1 ? () => {
+      workCardIndex++;
+      if (shown[workCardIndex]) workFocusedTicket = shown[workCardIndex].ticket;
+      renderWorkCarousel();
+    } : null
+  );
+
+  workBarEl.scrollTop = prevScroll;
 }
 
 // EVO_TAB_HISTORY_v1: finished work, newest first (tickets closed in the last DONE_DAYS days).
