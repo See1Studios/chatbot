@@ -5,6 +5,8 @@ import json
 import shutil
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -88,6 +90,43 @@ class SessionIndex(unittest.TestCase):
         self.write("20260921-100000-aaaaaa")                          # another process flips it to work
         with mock.patch.object(SR, "_META_RESCAN_SEC", 0.0):
             self.assertEqual(self.reg.get_active().sid, "20260921-100000-aaaaaa")
+
+    def test_a_slow_rescan_does_not_block_the_next_poll(self):
+        self.write("20260921-100000-aaaaaa", history=[{"role": "user", "text": "before"}])
+        self.reg.list()
+        gate, started = threading.Event(), threading.Event()
+        real = SR._scan_session_metas
+
+        def slow(root):
+            started.set()
+            self.assertTrue(gate.wait(5), "the test released the scan")
+            return real(root)
+
+        holder = {}
+
+        def blocked():
+            with mock.patch.object(SR, "_META_RESCAN_SEC", 0.0), \
+                    mock.patch.object(SR, "_scan_session_metas", slow):
+                holder["rows"] = self.reg.list()
+
+        t = threading.Thread(target=blocked)
+        t.start()
+        self.assertTrue(started.wait(2))
+        path = S.SESSIONS / "20260921-100000-aaaaaa" / "meta.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["history"] = [{"role": "user", "text": "saved during scan"}]
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        SR._meta_touched(path)
+        t0 = time.monotonic()
+        shown = self.reg.list()
+        self.assertLess(time.monotonic() - t0, 0.5)
+        self.assertEqual(shown[0]["preview"], "saved during scan")
+        self.write("20260921-120000-cccccc")
+        gate.set()
+        t.join(3)
+        self.assertFalse(t.is_alive())
+        self.assertIn("20260921-120000-cccccc", {r["id"] for r in holder["rows"]})
+        self.assertIn("20260921-120000-cccccc", {r["id"] for r in self.reg.list()})
 
 
 if __name__ == "__main__":

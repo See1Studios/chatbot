@@ -52,9 +52,9 @@ PROBE_MARKER = ".probe"  # sessions/<sid>/.probe: created by a health probe (X-C
 # this process's own saves call _meta_touched(), a new or removed session folder changes the folder's mtime,
 # and anything else (another process) is picked up within _META_RESCAN_SEC.
 _META_INDEX: Dict[Path, tuple] = {}
-_META_INDEX_LOCK = threading.Lock()
+_META_INDEX_LOCK = threading.RLock()
 _META_RESCAN_SEC = 30.0
-_meta_state = {"dirty": set(), "root": None, "dir_mtime": None, "at": 0.0, "list": []}
+_meta_state = {"dirty": set(), "root": None, "dir_mtime": None, "at": 0.0, "list": [], "refreshing": False}
 
 
 def _meta_touched(path: Path) -> None:
@@ -140,17 +140,19 @@ def _meta_summary(p: Path) -> Optional[dict]:
     try:
         st = p.stat()
     except OSError:
-        _META_INDEX.pop(p, None)
+        with _META_INDEX_LOCK:
+            _META_INDEX.pop(p, None)
         return None
     key = (st.st_mtime_ns, st.st_size)
-    hit = _META_INDEX.get(p)
+    with _META_INDEX_LOCK:
+        hit = _META_INDEX.get(p)
     if hit is None or hit[0] != key:
         try:
             meta = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return None
         hist = meta.get("history") or []
-        hit = (key, {
+        summary = {
             "id": str(meta.get("id") or p.parent.name or ""),
             "model": meta.get("model"),
             "mode": meta.get("mode") if meta.get("mode") in ("private", "room") else "work",   # a room seat is never work
@@ -159,35 +161,71 @@ def _meta_summary(p: Path) -> Optional[dict]:
             "probe": _probe_meta(meta) or (p.parent / PROBE_MARKER).exists(),
             "preview": (str(hist[-1].get("text", ""))[:80] if hist else ""),
             "turns": len(hist),
-        })
-        _META_INDEX[p] = hit
+        }
+        with _META_INDEX_LOCK:
+            _META_INDEX[p] = (key, summary)
+        hit = (key, summary)
     return dict(hit[1], mtime=st.st_mtime, path=p)
 
 
-def _meta_summaries() -> List[dict]:
-    """One small summary per sessions/*/meta.json: id, mode, character, probe, model, preview, turns, mtime."""
-    with _META_INDEX_LOCK:
-        try:
-            dir_mtime = _s().SESSIONS.stat().st_mtime_ns
-        except OSError:
-            return []
-        st8 = _meta_state
-        if (st8["root"] == _s().SESSIONS and st8["dir_mtime"] == dir_mtime
-                and time.monotonic() - st8["at"] < _META_RESCAN_SEC):
-            dirty, st8["dirty"] = st8["dirty"], set()
-            if dirty:                                     # only the files this process saved
-                kept = [m for m in st8["list"] if m["path"] not in dirty]
-                st8["list"] = kept + [m for m in map(_meta_summary, dirty) if m is not None]
-            return [dict(m) for m in st8["list"]]
-        st8["dirty"] = set()
-        with os.scandir(_s().SESSIONS) as it:
+def _scan_session_metas(root: Path) -> List[dict]:
+    """Every meta.json under `root`. The index lock is not held, so another poll can answer while this runs."""
+    try:
+        with os.scandir(root) as it:
             entries = [Path(e.path) / "meta.json" for e in it if e.is_dir()]
-        out = [m for m in map(_meta_summary, entries) if m is not None]
+    except OSError:
+        return []
+    return [m for m in map(_meta_summary, entries) if m is not None]
+
+
+def _overlay_dirty(rows: List[dict], dirty: set) -> List[dict]:
+    """Rows, with this process's own saves re-read. `dirty` is a snapshot; the caller clears the set."""
+    if not dirty:
+        return rows
+    kept = [m for m in rows if m.get("path") not in dirty]
+    kept.extend(m for m in map(_meta_summary, dirty) if m is not None)
+    return kept
+
+
+def _meta_summaries() -> List[dict]:
+    """One small summary per sessions/*/meta.json: id, mode, character, probe, model, preview, turns, mtime.
+    A poll does not wait on a scan that is already running: it gets the previous list, and this process's saves
+    are still applied on that list."""
+    root = _s().SESSIONS
+    try:
+        dir_mtime = root.stat().st_mtime_ns
+    except OSError:
+        return []
+    with _META_INDEX_LOCK:
+        st8 = _meta_state
+        fresh = (st8["root"] == root and st8["dir_mtime"] == dir_mtime
+                 and time.monotonic() - float(st8["at"]) < _META_RESCAN_SEC)
+        if fresh or st8["refreshing"]:
+            if st8["dirty"] and not st8["refreshing"]:
+                st8["list"] = _overlay_dirty(st8["list"], set(st8["dirty"]))
+                st8["dirty"] = set()
+            elif st8["dirty"]:
+                return [dict(m) for m in _overlay_dirty(list(st8["list"]), set(st8["dirty"]))]
+            return [dict(m) for m in st8["list"]]
+        st8["refreshing"] = True
+    try:
+        out = _scan_session_metas(root)
+    except Exception:
+        with _META_INDEX_LOCK:
+            _meta_state["refreshing"] = False
+        raise
+    with _META_INDEX_LOCK:
+        st8 = _meta_state
+        st8["refreshing"] = False
+        extra = set(st8["dirty"])
+        st8["dirty"] = set()
         live = {m["path"] for m in out}
-        for gone in [k for k in _META_INDEX if k not in live]:
+        for gone in [k for k in list(_META_INDEX) if k not in live]:
             del _META_INDEX[gone]
-        st8.update(root=_s().SESSIONS, dir_mtime=dir_mtime, at=time.monotonic(), list=out)
-        return [dict(m) for m in out]
+        merged = _overlay_dirty(out, extra)
+        st8["list"] = merged
+        st8.update(root=root, dir_mtime=dir_mtime, at=time.monotonic())
+        return [dict(m) for m in merged]
 
 
 class Registry:
