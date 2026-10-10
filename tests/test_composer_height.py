@@ -225,17 +225,17 @@ class InputFollowsTheStylesheet(unittest.TestCase):
         self.assertEqual(w["grows"], ["90px", "hidden"])
         self.assertEqual(w["capped"], ["120px", "auto"])
 
-    def test_phone_sizes_are_36_and_80_not_the_old_38_and_90(self):
+    def test_phone_sizes_are_38_and_80(self):
         p = self.o["phone"]
-        self.assertEqual(p["empty"], ["36px", "hidden"])
-        self.assertEqual(p["oneLine"], ["36px", "hidden"])
+        self.assertEqual(p["empty"], ["38px", "hidden"])
+        self.assertEqual(p["oneLine"], ["38px", "hidden"])
         self.assertEqual(p["grows"], ["60px", "hidden"])
         self.assertEqual(p["capped"], ["80px", "auto"])
 
-    def test_with_the_keyboard_up_the_input_is_32_like_its_buttons_not_38(self):
+    def test_with_the_keyboard_up_the_input_stays_38(self):
         k = self.o["keyboard"]
-        self.assertEqual(k["empty"], ["32px", "hidden"])
-        self.assertEqual(k["oneLine"], ["32px", "hidden"])
+        self.assertEqual(k["empty"], ["38px", "hidden"])
+        self.assertEqual(k["oneLine"], ["38px", "hidden"])
         self.assertEqual(k["capped"], ["64px", "auto"])
 
     def test_unreadable_css_values_fall_back_instead_of_breaking(self):
@@ -245,18 +245,18 @@ class InputFollowsTheStylesheet(unittest.TestCase):
         steps = {label: (h, kb) for label, h, kb in self.o["steps"]}
         self.assertEqual(steps["wide, idle"], ("42px", False))
         self.assertEqual(steps["wide, focused"], ("42px", False))          # a wide window never counts focus as a keyboard
-        self.assertEqual(steps["420px (FAB), idle"], ("36px", False))
-        self.assertEqual(steps["420px (FAB), focused"], ("32px", True))    # ...but a narrow one (the FAB iframe) does
-        self.assertEqual(steps["420px (FAB), blurred"], ("36px", False))
-        self.assertEqual(steps["420px, short viewport"], ("32px", True))
+        self.assertEqual(steps["420px (FAB), idle"], ("38px", False))
+        self.assertEqual(steps["420px (FAB), focused"], ("38px", True))    # ...but a narrow one (the FAB iframe) does
+        self.assertEqual(steps["420px (FAB), blurred"], ("38px", False))
+        self.assertEqual(steps["420px, short viewport"], ("38px", True))
         self.assertTrue(self.o["noRemeasureWhenNothingChanged"])
 
     def test_a_desktop_fab_does_not_treat_focus_as_a_keyboard(self):
         steps = {label: (h, kb) for label, h, kb in self.o["fineSteps"]}
-        self.assertEqual(steps["idle"], ("42px", False))       # same as the full-page desktop, not the phone's 36
+        self.assertEqual(steps["idle"], ("42px", False))       # same as the full-page desktop, not the phone's 38
         self.assertEqual(steps["focused"], ("42px", False))    # no shrink, no hidden header/tabs/model button on click
         self.assertEqual(steps["blurred"], ("42px", False))
-        self.assertEqual(steps["short viewport"], ("32px", True))   # a genuinely short window still is
+        self.assertEqual(steps["short viewport"], ("38px", True))   # a genuinely short window still is
 
     def test_keyboard_open_truth_table(self):
         # narrow, short, focused, touch
@@ -270,7 +270,7 @@ class InputFollowsTheStylesheet(unittest.TestCase):
         self.assertFalse(table["0111"])   # ...nor for being short: the phone rules are for narrow screens
 
     def test_a_slash_command_no_longer_changes_the_input_height(self):
-        self.assertEqual(self.o["afterSlashReset"], {"cssFallback": "36px", "js": "36px"})
+        self.assertEqual(self.o["afterSlashReset"], {"cssFallback": "38px", "js": "38px"})
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")
@@ -309,20 +309,20 @@ class KeyboardKeepsTheLogWhereItWas(unittest.TestCase):
 
 
 class DecidedSizesStayAsDocumented(unittest.TestCase):
-    """The intentional differences (42 desktop; 44 touch buttons beside a shorter input on phones; 32 when
-    the keyboard is up) are stated in CSS comments; pin them so they only change on purpose."""
+    """The intentional differences (42 desktop; 38 touch composer, including with the keyboard up)
+    are stated in CSS comments; pin them so they only change on purpose."""
 
     def test_desktop_buttons_and_input_are_all_42(self):
         self.assertEqual(prop(rule(".composer button"), "height"), "42px")
         self.assertEqual(prop(rule("textarea"), "height"), "42px")
         self.assertEqual(prop(rule("textarea"), "min-height"), "42px")
 
-    def test_phone_buttons_are_44_and_the_input_36(self):
+    def test_phone_buttons_and_the_input_are_38(self):
         phone = CSS.index("@media (max-width: 640px)")
         for sel in ("#slashBtn", "#modelBtn", "#send"):
-            self.assertEqual(prop(rule(sel, after="@media (max-width: 640px)"), "height"), "36px", sel)
+            self.assertEqual(prop(rule(sel, after="@media (max-width: 640px)"), "height"), "38px", sel)
         inp = rule("#input", after="@media (max-width: 640px)")
-        self.assertEqual((prop(inp, "min-height"), prop(inp, "height"), prop(inp, "max-height")), ("36px", "36px", "80px"))
+        self.assertEqual((prop(inp, "min-height"), prop(inp, "height"), prop(inp, "max-height")), ("38px", "38px", "80px"))
         self.assertGreater(phone, 0)
 
     def test_a_narrow_window_with_a_mouse_gets_the_desktop_42_everywhere(self):
@@ -341,15 +341,15 @@ class DecidedSizesStayAsDocumented(unittest.TestCase):
         self.assertLess(fine, CSS.index("body.keyboard-open #input"))
         self.assertLess(CSS.index("@media (max-width: 640px) {"), fine)   # ...and after the phone block it overrides
 
-    def test_with_the_keyboard_up_every_widget_in_the_row_is_32(self):
+    def test_with_the_keyboard_up_every_widget_in_the_row_is_38(self):
         for sel in ("body.keyboard-open #slashBtn", "body.keyboard-open #send", "body.keyboard-open #input"):
-            self.assertEqual(prop(rule(sel), "height"), "32px", sel)
-        self.assertEqual(prop(rule("body.keyboard-open #input"), "min-height"), "32px")
+            self.assertEqual(prop(rule(sel), "height"), "38px", sel)
+        self.assertEqual(prop(rule("body.keyboard-open #input"), "min-height"), "38px")
 
-    def test_the_short_screen_block_uses_the_same_32(self):
+    def test_the_short_screen_block_uses_the_same_38(self):
         block = CSS[CSS.index("@media (max-height: 500px)"):]
         for sel in ("#slashBtn", "#send", "#input"):
-            self.assertEqual(prop(rule(sel, css=block), "height"), "32px", sel)
+            self.assertEqual(prop(rule(sel, css=block), "height"), "38px", sel)
 
 
 if __name__ == "__main__":

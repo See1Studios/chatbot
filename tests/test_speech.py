@@ -336,13 +336,13 @@ class TestSpeechLayout(unittest.TestCase):
         block_640 = self._extract_css_block(self.responsive_css, r"@media\s*\([^)]*max-width:\s*640px\)(?!\s*and)")
         self.assertIsNotNone(block_640, "@media (max-width: 640px) block missing")
         self.assertIn("#micBtn", block_640)
-        self.assertIn("width: 36px", block_640)
-        self.assertIn("height: 36px", block_640)
+        self.assertIn("width: 38px", block_640)
+        self.assertIn("height: 38px", block_640)
 
         block_500 = self._extract_css_block(self.responsive_css, r"@media\s*\([^)]*max-height:\s*500px\)")
         self.assertIsNotNone(block_500, "@media (max-height: 500px) block missing")
         self.assertIn("#micBtn", block_500)
-        self.assertIn("width:32px", block_500.replace(" ", ""))
+        self.assertIn("width:38px", block_500.replace(" ", ""))
 
         self.assertRegex(self.responsive_css, r"body\.keyboard-open[\s\S]*?#micBtn\b")
 

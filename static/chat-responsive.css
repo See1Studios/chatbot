@@ -1,9 +1,9 @@
 /* chat-responsive.css: narrow screens, the on-screen keyboard, reduced motion. Part of the chat stylesheet (CSS_SPLIT_v1): the parts load in index.html order and together are
    the old chat.css, rule for rule -- keep that order; a rule that must win goes in a later part. */
 /* Narrow but with a mouse pointer -- the desktop hub FAB (a 420px iframe) is the usual case. The phone values above
-   (44px buttons, 36px input) are for touch targets, which a mouse does not need, and the input looked lower than
+   (44px buttons, 38px input) are for touch targets, which a mouse does not need, and the input looked lower than
    the buttons (operator: in the FAB only the text box is lower). Match the full desktop page's 42px. The keyboard/
-   low-screen block below (32px) comes later, so it still wins. */
+   low-screen block below (38px) comes later, so it still wins. */
 @media (max-width: 640px) and (pointer: fine) {
   #slashBtn, #modelBtn{
     width:42px;
@@ -31,9 +31,9 @@
 @media (max-width: 640px) {
   #micBtn {
     order: 3;
-    width: 36px;
-    min-width: 36px;
-    height: 36px;
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
     border-radius: 8px;
     padding: 0 !important;
     flex-shrink: 0;
@@ -96,17 +96,17 @@
     align-items:flex-end;
   }
   #slashBtn{
-    width:32px;
-    min-width:32px;
-    height:32px;
+    width:38px;
+    min-width:38px;
+    height:38px;
     font-size:.88rem;
     border-radius:8px;
     line-height:1;
   }
-  #geoBtn, #privateBtn, #micBtn{
-    width:32px;
-    min-width:32px;
-    height:32px;
+  #modelBtn, #geoBtn, #privateBtn, #micBtn{
+    width:38px;
+    min-width:38px;
+    height:38px;
     border-radius:8px;
   }
   #geoBtn .tab-icon-svg, #privateBtn .tab-icon-svg, #micBtn .tab-icon-svg{
@@ -114,15 +114,15 @@
     height:16px;
   }
   #input{
-    min-height:32px;
-    height:32px;
+    min-height:38px;
+    height:38px;
     max-height:64px;
     padding:.3rem .5rem;
-    font-size:14px;
+    font-size:16px;
     border-radius:8px;
   }
   #send{
-    height:32px;
+    height:38px;
     padding:0 .5rem;
     font-size:.76rem;
     border-radius:8px;
@@ -161,19 +161,20 @@ body.keyboard-open .composer{
   align-items:flex-end;
 }
 body.keyboard-open #slashBtn{
-  width:32px;
-  min-width:32px;
-  height:32px;
+  width:38px;
+  min-width:38px;
+  height:38px;
   font-size:.88rem;
   border-radius:8px;
   line-height:1;
 }
+body.keyboard-open #modelBtn,
 body.keyboard-open #geoBtn,
 body.keyboard-open #privateBtn,
 body.keyboard-open #micBtn{
-  width:32px;
-  min-width:32px;
-  height:32px;
+  width:38px;
+  min-width:38px;
+  height:38px;
   border-radius:8px;
 }
 body.keyboard-open #geoBtn .tab-icon-svg,
@@ -183,15 +184,15 @@ body.keyboard-open #micBtn .tab-icon-svg{
   height:16px;
 }
 body.keyboard-open #input{
-  min-height:32px;
-  height:32px;
+  min-height:38px;
+  height:38px;
   max-height:64px;
   padding:.3rem .5rem;
-  font-size:14px;
+  font-size:16px;
   border-radius:8px;
 }
 body.keyboard-open #send{
-  height:32px;
+  height:38px;
   padding:0 .5rem;
   font-size:.76rem;
   border-radius:8px;
