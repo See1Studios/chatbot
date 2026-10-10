@@ -72,6 +72,14 @@ class TestCraftFloorIntegrity(unittest.TestCase):
             self.assertNotIn("color:#000", b)
             self.assertIn("color:var(--accent-contrast)", b)
 
+    def test_choice_action_uses_accent_tokens(self):
+        css = text("chat-log.css")
+        b = block(css, ".msg.assistant .md .choice-chip.choice-action,.choice-bar .choice-chip.choice-action")
+        self.assertNotIn("120,160,255", b)
+        self.assertIn("border-color:var(--accent-border)", b)
+        self.assertIn("background:var(--accent-soft)", b)
+        self.assertIn("color:var(--accent2)", b)
+
 
 class TestTouchTargetHitboxes(unittest.TestCase):
     def test_shell_icon_buttons_have_expanded_hitbox(self):
