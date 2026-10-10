@@ -6,9 +6,11 @@ import base64
 import json
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tests._paths import ENGINE  # noqa: E402
 sys.path.insert(0, str(ENGINE))
@@ -50,6 +52,7 @@ class Base(unittest.TestCase):
         accounts._ACCOUNT_FN["agy"] = accounts.agy_account
         accounts.AGY_TOKEN.write_text(json.dumps({"id_token": _jwt(NEW), "auth_method": "consumer"}))
         accounts._log_account_cache.clear()
+        accounts._log_ts_cache.clear()
         self.now = time.time()
         self.procs = {p: [] for p in accounts.PROVIDERS}
         accounts._scan_procs = lambda: {k: [dict(x) for x in v] for k, v in self.procs.items()}
@@ -506,6 +509,108 @@ class ProfilesTest(Base):
         self.assertFalse(accounts.switch_profile("nobody@example.com")["ok"])
         with self.assertRaises(ValueError):
             accounts.list_profiles("claude")
+
+
+class LogIndexCacheTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.old = accounts.AGY_LOG_DIR
+        accounts.AGY_LOG_DIR = self.tmp
+        accounts._log_ts_cache.clear()
+
+    def tearDown(self):
+        accounts.AGY_LOG_DIR = self.old
+        accounts._log_ts_cache.clear()
+
+    def test_a_log_name_is_parsed_once(self):
+        (self.tmp / "cli-20261010_010203.log").write_text("x")
+        (self.tmp / "notes.txt").write_text("no")
+        first = accounts._log_index(0)
+        self.assertEqual([p.name for _ts, p in first], ["cli-20261010_010203.log"])
+        with mock.patch.object(accounts.time, "mktime", side_effect=AssertionError("parsed again")):
+            second = accounts._log_index(0)
+        self.assertEqual([p.name for _ts, p in second], ["cli-20261010_010203.log"])
+
+
+class AccountLookupTest(Base):
+    def test_account_lookups_overlap_the_process_scan(self):
+        span = {}
+        lock = threading.Lock()
+
+        def slow(name):
+            def fn():
+                t0 = time.perf_counter()
+                time.sleep(0.15)
+                with lock:
+                    span[name] = (t0, time.perf_counter())
+                return {"ok": True, "email": name + "@e"}
+            return fn
+
+        for prov in accounts.PROVIDERS:
+            accounts._ACCOUNT_FN[prov] = slow(prov)
+        snap = accounts.snapshot()
+        starts = [span[p][0] for p in accounts.PROVIDERS]
+        ends = [span[p][1] for p in accounts.PROVIDERS]
+        self.assertLess(max(starts), min(ends))
+        self.assertEqual(snap["providers"]["agy"]["current"]["email"], "agy@e")
+        self.assertEqual(set(snap["providers"]), set(accounts.PROVIDERS))
+
+
+class ClaudeCacheTest(unittest.TestCase):
+    def setUp(self):
+        self.old = dict(accounts._claude_cache)
+        accounts._invalidate_claude_cache()
+
+    def tearDown(self):
+        held = accounts._claude_flight.acquire(timeout=3)
+        if held:
+            accounts._claude_flight.release()
+        accounts._claude_cache.clear()
+        accounts._claude_cache.update(self.old)
+
+    def _status(self, email):
+        return type("R", (), {"stdout": json.dumps({
+            "loggedIn": True, "email": email, "subscriptionType": "pro", "authMethod": "cli"})})()
+
+    def test_one_cli_call_serves_overlapping_readers(self):
+        calls = {"n": 0}
+
+        def run(*_a, **_k):
+            calls["n"] += 1
+            time.sleep(0.2)
+            return self._status("a@b.c")
+
+        with mock.patch.object(accounts.subprocess, "run", run):
+            threads = [threading.Thread(target=accounts.claude_account) for _ in range(4)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            self.assertEqual(calls["n"], 1)
+            self.assertEqual(accounts.claude_account()["email"], "a@b.c")
+            self.assertEqual(calls["n"], 1)
+
+    def test_a_stale_reading_returns_without_waiting_for_the_cli(self):
+        accounts._claude_cache.update(ts=time.time() - 10_000, data={"ok": True, "email": "old@x"})
+        started = threading.Event()
+        release = threading.Event()
+
+        def run(*_a, **_k):
+            started.set()
+            release.wait(2)
+            return self._status("new@x")
+
+        with mock.patch.object(accounts.subprocess, "run", run):
+            t0 = time.perf_counter()
+            got = accounts.claude_account()
+            self.assertLess(time.perf_counter() - t0, 0.3)
+            self.assertEqual(got["email"], "old@x")
+            self.assertTrue(started.wait(1))
+            release.set()
+            held = accounts._claude_flight.acquire(timeout=2)
+            self.assertTrue(held)
+            accounts._claude_flight.release()
+        self.assertEqual(accounts._claude_cache["data"]["email"], "new@x")
 
 
 class ParseProvidersTest(unittest.TestCase):

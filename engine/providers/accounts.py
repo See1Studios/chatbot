@@ -34,6 +34,7 @@ import re
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import i18n
 from typing import Callable, Dict, List, Optional
@@ -57,9 +58,12 @@ _LOG_NAME_RE = re.compile(r"^cli-(\d{8}_\d{6})\.log$")
 
 _CLK_TCK = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
 _log_account_cache: Dict[str, tuple] = {}  # path -> ((mtime, size), pid, email)
-_claude_cache = {"ts": 0.0, "data": None}
+_log_ts_cache: Dict[str, float] = {}  # cli log file name -> the time in that name
+_log_ts_lock = threading.Lock()
+_claude_cache = {"ts": 0.0, "data": None, "gen": 0}
 CLAUDE_STATUS_TTL_SEC = 60
 _state_lock = threading.Lock()
+_claude_flight = threading.Lock()
 
 
 def _jwt_claims(tok: str) -> dict:
@@ -156,13 +160,10 @@ def grok_account() -> dict:
     }
 
 
-def claude_account() -> dict:
-    """`claude auth status` -- the credentials file carries no email. Costs a
-    ~0.9s subprocess, so cached; failures are cached too (no hammering)."""
-    now = time.time()
+def _claude_fetch() -> dict:
+    """One `claude auth status`. The result is kept only if logout did not clear the cache while it ran."""
     with _state_lock:
-        if _claude_cache["data"] is not None and now - _claude_cache["ts"] < CLAUDE_STATUS_TTL_SEC:
-            return _claude_cache["data"]
+        gen = _claude_cache["gen"]
     try:
         out = subprocess.run([CLAUDE_BIN, "auth", "status"], capture_output=True, text=True, timeout=20)
         d = json.loads(out.stdout)
@@ -177,8 +178,43 @@ def claude_account() -> dict:
     except Exception as e:
         data = {"ok": False, **i18n.field("error", 'acct.claude_status_failed', error=type(e).__name__)}
     with _state_lock:
-        _claude_cache.update(ts=now, data=data)
+        if _claude_cache["gen"] == gen:
+            _claude_cache.update(ts=time.time(), data=data)
     return data
+
+
+def _claude_refresh_async() -> None:
+    if not _claude_flight.acquire(blocking=False):
+        return
+
+    def run():
+        try:
+            _claude_fetch()
+        finally:
+            _claude_flight.release()
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+def claude_account() -> dict:
+    """`claude auth status` -- the credentials file carries no email. The first
+    reading waits on the CLI. Later polls return the cached reading at once, and
+    a stale one is refreshed beside the poll instead of in front of it."""
+    now = time.time()
+    with _state_lock:
+        cached = _claude_cache["data"]
+        fresh = cached is not None and now - _claude_cache["ts"] < CLAUDE_STATUS_TTL_SEC
+    if fresh:
+        return cached
+    if cached is not None:
+        _claude_refresh_async()
+        return cached
+    with _claude_flight:
+        with _state_lock:
+            cached = _claude_cache["data"]
+            if cached is not None:
+                return cached
+        return _claude_fetch()
 
 
 _ACCOUNT_FN = {"agy": agy_account, "claude": claude_account, "codex": codex_account, "grok": grok_account}
@@ -339,22 +375,40 @@ def _scan_procs() -> Dict[str, List[dict]]:
 
 # ----------------------------------------------------- agy log -> account
 
+def _log_stamp(name: str) -> Optional[float]:
+    """Seconds for a `cli-YYYYMMDD_HHMMSS.log` name, else None. The name is the time."""
+    m = _LOG_NAME_RE.match(name)
+    if not m:
+        return None
+    s = m.group(1)
+    try:
+        return time.mktime((int(s[0:4]), int(s[4:6]), int(s[6:8]),
+                            int(s[9:11]), int(s[11:13]), int(s[13:15]), 0, 0, -1))
+    except (ValueError, OverflowError):
+        return None
+
+
 def _log_index(min_ts: float) -> List[tuple]:
-    out = []
+    """Logs begun at or after `min_ts`. Thousands of names: each is parsed once per process."""
     try:
         names = os.listdir(AGY_LOG_DIR)
     except Exception:
-        return out
-    for n in names:
-        m = _LOG_NAME_RE.match(n)
-        if not m:
-            continue
-        try:
-            ts = time.mktime(time.strptime(m.group(1), "%Y%m%d_%H%M%S"))
-        except Exception:
-            continue
-        if ts >= min_ts:
-            out.append((ts, AGY_LOG_DIR / n))
+        return []
+    out = []
+    with _log_ts_lock:
+        if len(_log_ts_cache) > len(names):
+            live = set(names)
+            for old in [n for n in _log_ts_cache if n not in live]:
+                del _log_ts_cache[old]
+        for n in names:
+            ts = _log_ts_cache.get(n)
+            if ts is None:
+                ts = _log_stamp(n)
+                if ts is None:
+                    continue
+                _log_ts_cache[n] = ts
+            if ts >= min_ts:
+                out.append((ts, AGY_LOG_DIR / n))
     return out
 
 
@@ -417,6 +471,14 @@ LOGOUT_NOTES: Dict[str, str] = {   # catalog keys (I18N_v1)
 }
 
 
+def _begin_account_lookups(providers: tuple):
+    """Start each provider's account reading. The slow CLI runs while processes are scanned."""
+    if not providers:
+        return None, {}
+    pool = ThreadPoolExecutor(max_workers=len(providers))
+    return pool, {p: pool.submit(_ACCOUNT_FN[p]) for p in providers}
+
+
 def snapshot(owned: Optional[Dict[int, dict]] = None, providers: tuple = PROVIDERS) -> dict:
     """Per provider: current account + running CLI processes. `owned` maps pid
     -> {"owner": "session"|"standby", ...} for processes this chatbot spawned
@@ -425,12 +487,19 @@ def snapshot(owned: Optional[Dict[int, dict]] = None, providers: tuple = PROVIDE
     owned = owned or {}
     now = time.time()
     me = os.getpid()
-    scanned = _scan_procs()
-    _agy_process_accounts(scanned["agy"], now)
+    pool, futs = _begin_account_lookups(providers)
+    try:
+        scanned = _scan_procs()
+        if "agy" in providers:
+            _agy_process_accounts(scanned["agy"], now)
+        currents = {p: fut.result() for p, fut in futs.items()}
+    finally:
+        if pool is not None:
+            pool.shutdown(wait=True)
 
     out = {}
     for prov in providers:
-        current = _ACCOUNT_FN[prov]()
+        current = currents[prov]
         window = observe(prov, current, now)
         cur_email = current.get("email") if current.get("ok") else None
         with _state_lock:
@@ -617,6 +686,7 @@ def reap_stray_cli_procs(provider: str, me: Optional[int] = None) -> list:
 
 def _invalidate_claude_cache() -> None:
     with _state_lock:
+        _claude_cache["gen"] = _claude_cache.get("gen", 0) + 1
         _claude_cache.update(ts=0.0, data=None)
 
 
