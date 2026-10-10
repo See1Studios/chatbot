@@ -85,6 +85,15 @@ class TwoFiles(unittest.TestCase):
             self.assertEqual(sorted(named - shipped), [], "templates/workspace/roles/%s names skills a shipped install "
                                                           "does not have" % role)
 
+    def test_the_dev_docs_name_the_data_root(self):
+        charter = (DEV / "DEV-CHARTER.md").read_text(encoding="utf-8")
+        project = (DEV / "PROJECT.md").read_text(encoding="utf-8")
+        for name, text in (("DEV-CHARTER.md", charter), ("PROJECT.md", project)):
+            self.assertNotIn("$CHATBOT_DATA/workspace", text, name)
+            self.assertNotIn("~/.pe/workspace", text, name)
+        self.assertIn("$CHATBOT_DATA", charter)
+        self.assertIn("memory/MEMORY.md", project)
+
     def test_neither_file_repeats_the_other(self):
         def lines(p):
             return {l.strip() for l in p.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")}

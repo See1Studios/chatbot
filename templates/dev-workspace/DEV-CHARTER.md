@@ -13,7 +13,7 @@ gets it. It never repeats the charter, and the charter never carries these rules
 - Never open a ticket for a personal moment.
 
 ## This host
-- Workspace: `services/chatbot/` + `$CHATBOT_DATA/workspace/` (this install: `~/.pe/workspace`). Zero game logic, Godot
+- Workspace: `services/chatbot/` + `$CHATBOT_DATA` (this install: `~/.pe`, characters, roles, and memory on that root). Zero game logic, Godot
   and the turn pipeline belong to FIREBAT.
 - Start and stop services only with `~/services/*-ctl.sh`.
 - Other agents' memories here: `~/.grok/memory`, `~/.hermes/memories`. Shared: `~/.agents`, `~/wiki`, `~/bin`.
