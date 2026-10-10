@@ -266,5 +266,46 @@ class TurnBudget(unittest.TestCase):
         self.assertEqual(read_size(None), 0)
 
 
+# 2026-10-03 session 20261003-220501-e332f2: view_file done lines carried this stat summary.
+# The page stores "↳ 1485 lines, 75876 bytes"; the guard sees tool_info.output without the arrow.
+OCT3_OUT = "1485 lines, 75876 bytes"
+OCT3_PATH = "/src/app-session.js"
+
+
+def oct3_line(path=OCT3_PATH, output=OCT3_OUT):
+    return {"event": "step_update", "step_update": {
+        "step_index": 11, "state": "DONE", "step_type": "tool", "tool_name": "view_file",
+        "tool_info": {"name": "view_file", "parameters": {"AbsolutePath": path}, "output": output}}}
+
+
+class OctoberThirdViewFile(unittest.TestCase):
+    def test_the_wire_keeps_the_raw_stat_line(self):
+        from loop_guard import is_stat_only
+        self.assertEqual(extract_tool_steps(oct3_line()),
+                         [("view_file", {"AbsolutePath": OCT3_PATH}, OCT3_OUT)])
+        self.assertTrue(is_stat_only(OCT3_OUT))
+        self.assertFalse(is_stat_only("↳ " + OCT3_OUT))
+
+    def test_the_same_file_is_still_stopped_by_the_run_rule(self):
+        g = LoopGuard()
+        got = []
+        for i in range(1, 60):
+            name, params, output = extract_tool_steps(oct3_line())[0]
+            v = g.observe(name, params, output)
+            if v:
+                got.append((i, v.level, v.rule))
+        self.assertEqual(got, [(24, "warn", "run"), (48, "stop", "run")])
+
+    def test_that_byte_size_stops_the_turn_on_the_budget(self):
+        g = _Guard()
+        got = []
+        for i in range(1, 30):
+            name, params, output = extract_tool_steps(oct3_line(path="/src/f%d.py" % i))[0]
+            v = g.observe(name, params, output)
+            if v:
+                got.append((i, v.level, v.rule))
+        self.assertEqual(got, [(7, "warn", "budget"), (16, "stop", "budget")])
+
+
 if __name__ == "__main__":
     unittest.main()
