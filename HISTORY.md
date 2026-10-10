@@ -8,6 +8,12 @@
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 2026-10-09 기록은 하루 예산을 넘어 [docs/history/2026-10-09.md](docs/history/2026-10-09.md)로 회전했습니다.
 
+## 2026-10-10 — docs(plans): 6-Layer 지침 구조화 및 우선순위·UX 매트릭스 계획 수립 (#939, 위임 agy)
+
+- **커밋**: `57284bb` docs(plans): instruction-structuring.md 작성 및 INDEX.md 등록
+- **바뀐 파일**: `docs/plans/INDEX.md`, `docs/plans/instruction-structuring.md`
+- 위임 병합 때 자동으로 쓴 줄(`tools/history_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-10 — 백업과 티켓은 헌장이 루트에 있어도 데이터 안에 (#934)
 
 - **운영자**: "937까지 추가된 것들도 모두 처리해줘"
