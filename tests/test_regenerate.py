@@ -180,8 +180,8 @@ class Wiring(unittest.TestCase):
     def test_the_session_marks_effects_merges_and_lets_the_take_run_a_whole_turn(self):
         src = (ENGINE / "session.py").read_text(encoding="utf-8")
         self.assertIn("if not (is_read_only(name) or str((params or {}).get(\"action\") or \"\") in regenerate.READ_ACTIONS):", src)
-        self.assertIn("regenerate.after_turn(self, outcome)", src)
         turn = (ENGINE / "session_turn.py").read_text(encoding="utf-8")
+        self.assertIn("regenerate.after_turn(self, outcome)", turn)
         self.assertIn('if notice and event_type not in ("handoff", "regen"):', turn)
         self.assertNotIn("self._turn_effects = False", turn, "reset where the answer is stamped (regenerate.after_turn)")
 

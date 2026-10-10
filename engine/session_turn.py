@@ -1,5 +1,5 @@
 """Running a turn (monolith-split split/C, moved from session.py as a mixin of AgentSession, like turn_watchdog.py
-and session_view.py): send (queue, steer, the HTTP turn, rotate when idle or heavy), the turn itself, /btw side questions, interrupt,
+and session_view.py): send (queue, steer, the HTTP turn, rotate when idle or heavy), the turn itself, ending a turn, /btw side questions, interrupt,
 handing over to a successor session, and swapping the provider or model. Every name session.py defines or tests and
 server.py swap (REG, boot_notice, build_instruction_bundle, _oneshot, get_adapter, ...) is read as `_s().name` on
 each call, never copied at import."""
@@ -929,3 +929,138 @@ class SessionTurn:
                 self._remember_brain_choice()
             if self.history:
                 threading.Thread(target=self._refine_swap_handoff, args=(gen, old_provider, old_cid), daemon=True).start()
+
+    def _finish_turn(self, outcome: str = "result") -> None:
+        """Every way a turn can end (result/error event, stop, steer, interrupt, child died, auto-stop) calls this
+        once: the turn's log line, the write guard, the low-quota note, regenerate's bookkeeping. Never raises."""
+        self._cached_summary = ""  # handover cache stale after new content
+        self._obs_turn_end(outcome)
+        write_guard = _s().write_guard
+        REPO_ROOT = _s().REPO_ROOT
+        quota_state = _s().quota_state
+        regenerate = _s().regenerate
+        write_guard.turn_end(self, REPO_ROOT, outcome)   # TREE_WATCH_v1
+        if outcome == "result":
+            quota_state.warn_low(self)   # qfr/D: a brain running low is said once, before it runs out
+        if getattr(self, "_pending_push_react", False):
+            import event_react
+            event_react.notify_turn_end(self, outcome)
+        regenerate.after_turn(self, outcome)   # REGENERATE_v1
+
+    def _obs_turn_end(self, outcome: str) -> None:
+        """OBSLOG_v1 turn.end: once per turn (keyed by turn_started_at), with duration and the
+        agent's recent stderr when the turn did not end in a normal result."""
+        try:
+            started = float(getattr(self, "turn_started_at", 0) or 0)
+            if outcome == "steer" or getattr(self, "_obs_turn_logged", None) == started:
+                return
+            self._obs_turn_logged = started
+            ok = outcome == "result"
+            fields = dict(sid=self.sid, provider=self.provider, model=self.model, outcome=outcome,
+                          dur_s=round(_now() - started, 1) if started else None,
+                          ttft_ms=getattr(self, "ttft_ms", None),
+                          standby=bool(getattr(self, "_adopted_standby", False)))
+            fields.update(self._turn_meters(started))   # telemetry tl/D
+            if not ok:
+                tail = list(getattr(self, "_stderr_tail", []) or [])[-8:]
+                if tail:
+                    fields["stderr_tail"] = tail
+                hint = (getattr(self, "_err_msg_hint", "") or "").strip()
+                if hint:
+                    fields["error_hint"] = hint[:300]
+            obslog.event("turn.end", lvl="info" if ok or outcome in ("stopped", "interrupted") else "warn", **fields)
+        except Exception:  # noqa: BLE001 -- logging must never disturb a turn
+            pass
+
+    _TOKEN_FIELDS = (("input_tokens", "tok_in"), ("output_tokens", "tok_out"), ("thinking_tokens", "tok_think"),
+                     ("cache_read_tokens", "tok_cache_read"), ("total_tokens", "tok_total"))
+
+    def _turn_meters(self, started: float) -> Dict[str, Any]:
+        """telemetry tl/D: this turn's tool calls and read KB (the loop guard counts them and resets at the next turn)
+        and its tokens -- the adapters' canonical usage on the answers it added (normalize_usage), summed. Numbers only;
+        a provider that reports no usage leaves the token fields out."""
+        out: Dict[str, Any] = {}
+        g = getattr(self, "_loop_guard", None)
+        if g is not None:
+            out["tool_calls"] = int(g.calls)
+            out["read_kb"] = int(g.read_bytes // 1000)
+        sums: Dict[str, int] = {}
+        for h in reversed(self.history or []):
+            ts = h.get("ts")
+            if isinstance(ts, (int, float)) and started and ts < started - 1:
+                break
+            u = h.get("usage") if h.get("role") == "assistant" else None
+            if isinstance(u, dict):
+                for src, dst in self._TOKEN_FIELDS:
+                    if isinstance(u.get(src), (int, float)):
+                        sums[dst] = sums.get(dst, 0) + int(u[src])
+        out.update(sums)
+        for k, v in (getattr(self, "_turn_phases", None) or {}).items():   # prep_ms, spawn_ms, first_tool_ms
+            if isinstance(v, (int, float)):
+                out[k] = v
+        return out
+
+    # TURN_END_ORDER_v1: stop child only after terminal events are flushed.
+    def _request_post_result_stop(self, status: str, err: str, duration: float) -> None:
+        self._post_result_stop = {
+            "status": status or "",
+            "err": err or "",
+            "duration": float(duration or 0),
+        }
+
+    def _run_post_result_stop(self) -> None:
+        info = getattr(self, "_post_result_stop", None)
+        self._post_result_stop = None
+        if not info:
+            return
+        status = info.get("status") or ""
+        err = info.get("err") or ""
+        duration = float(info.get("duration") or 0)
+        why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}s"
+        self._loop_hint = f"The turn ended before the agent answered ({why}). The rest of the work stopped; it goes on from the next message."
+        with self.lock:
+            if self._loop_stopping:
+                return
+            self._loop_stopping = True
+        # No user-facing emit — answer/error notice already flushed.
+        threading.Thread(target=self._auto_stop_worker, daemon=True).start()
+
+    def _end_unfinished_turn(self, status: str, err: str, duration: float, emit_error: bool = True) -> None:
+        """agy ended the turn without an answer (error/timeout). At the print timeout it does so
+        with an EMPTY result while the agent keeps working unseen in the background, so the child
+        is stopped too -- the next message respawns it and resumes the conversation.
+
+        QUOTA_ERR_DEDUP_v1: emit_error=False still stops the child (and sets the loop hint)
+        but skips the error notice when finalize_turn already persisted notice:error.
+        """
+        why = f"status={status or '?'}" + (f", error={err}" if err else "") + f", {int(duration)}s"
+        hint = f"The turn ended before the agent answered ({why}). The rest of the work stopped; it goes on from the next message."
+        if emit_error:
+            self._auto_stop(
+                event={"event": "error", **i18n.msg("srv.turn_ended_early", why=why)},
+                hint=hint,
+            )
+        else:
+            # Quiet close: system only, no second error notice.
+            self._auto_stop(
+                event={"event": "system", **i18n.msg("srv.turn_closed", why=why)},
+                hint=hint,
+            )
+
+    def _auto_stop(self, event: dict, hint: str) -> None:
+        with self.lock:
+            if self._loop_stopping:
+                return
+            self._loop_stopping = True
+        self._loop_hint = hint
+        self._emit(event)
+        threading.Thread(target=self._auto_stop_worker, daemon=True).start()
+
+    def _auto_stop_worker(self) -> None:
+        try:
+            self.stop(notify=False)
+        finally:
+            self._finish_turn("auto_stop")
+            self._loop_guard.reset()
+            self._loop_warned = False
+            self._loop_stopping = False

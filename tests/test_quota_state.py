@@ -146,7 +146,7 @@ class LowWarning(unittest.TestCase):
         self.assertEqual(sess.events[0]["vars"]["pct"], "8")   # i18n vars travel as text
 
     def test_a_finished_turn_asks_and_the_page_shows_it(self):
-        src = (ENGINE / "session.py").read_text(encoding="utf-8")
+        src = (ENGINE / "session_turn.py").read_text(encoding="utf-8")
         self.assertIn('if outcome == "result":\n            quota_state.warn_low(self)', src)
         self.assertFalse(Q.AUTO)   # the suite never reads a real account on its own
         sse = (ENGINE.parent / "static" / "app-sse.js").read_text(encoding="utf-8")
