@@ -133,5 +133,37 @@ class DataPaths(unittest.TestCase):
         self.assertEqual(resolve(code, home, extra={"PE_HOME": "/tmp/pe-alias", "PRIVATEENGINE_HOME": "/tmp/other"}),
                          "/tmp/pe-alias")
 
+    def test_a_flat_root_is_the_charter_and_stays_out_of_the_model_dirs(self):
+        import host_config
+        data = Path(tempfile.mkdtemp())
+        (data / ".agents").mkdir()
+        for name in ("sessions", "logs", "backups"):
+            (data / name).mkdir()
+        (data / "AGENTS.md").write_text("charter", encoding="utf-8")
+        (data / "workspace").symlink_to(".", target_is_directory=True)
+        self.assertEqual(host_config.charter_root(data), data)
+        added = [Path(p).resolve() for p in host_config._model_add_dirs(data, data)]
+        self.assertNotIn(data.resolve(), added)
+        for name in ("sessions", "logs", "backups"):
+            self.assertNotIn((data / name).resolve(), added)
+        self.assertIn((data / ".agents").resolve(), added)
+
+    def test_a_real_workspace_dir_is_still_the_charter(self):
+        import host_config
+        data = Path(tempfile.mkdtemp())
+        workspace = data / "workspace"
+        (workspace / "roles").mkdir(parents=True)
+        self.assertEqual(host_config.charter_root(data), workspace)
+        added = [Path(p).resolve() for p in host_config._model_add_dirs(workspace, data)]
+        self.assertIn(workspace.resolve(), added)
+        self.assertNotIn(data.resolve(), added)
+        empty = Path(tempfile.mkdtemp())
+        (empty / "workspace").mkdir()
+        self.assertEqual(host_config.charter_root(empty), empty / "workspace")
+        (empty / "AGENTS.md").write_text("charter", encoding="utf-8")
+        self.assertEqual(host_config.charter_root(empty), empty)
+        missing = Path(tempfile.mkdtemp())
+        self.assertEqual(host_config.charter_root(missing), missing)
+
 if __name__ == "__main__":
     unittest.main()
