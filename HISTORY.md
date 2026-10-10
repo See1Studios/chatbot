@@ -8,6 +8,12 @@
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 2026-10-09 기록은 하루 예산을 넘어 [docs/history/2026-10-09.md](docs/history/2026-10-09.md)로 회전했습니다.
 
+## 2026-10-10 — 시장 레퍼런스 문서 추가
+
+- **운영자**: "우리 문서에도 해당 레퍼런스에 대한 내용을 추가해도 좋을 것 같네"
+- **바뀐 것**: `docs/market/references.md`에 aicompanionguides.com, Animates, X의 Grok Bot 컴패니언 사용 사례를 출처와 함께 정리했다(2026-10-10 기준, 영어). `AGENTS.md` 「Where facts live」에 한 줄 등록.
+- **재시작**: 필요 없음(문서만).
+
 ## 2026-10-10 — 세션 무게와 후속은 session_turn으로 (#917)
 
 - **운영자**: "계속 가자"

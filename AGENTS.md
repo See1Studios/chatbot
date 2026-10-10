@@ -81,6 +81,7 @@ One home per fact; everywhere else, link to it.
 | What a new install starts with | `templates/workspace/`, `templates/workspace-manifest.json` |
 | Per-install settings | `$CHATBOT_DATA/host.env` (options: `templates/host.env.example`) |
 | Plan status / item progress | `docs/plans/INDEX.md` / tickets (`python3 engine/tickets.py list`) |
+| Market references (review sites, competitors) | `docs/market/references.md` |
 | Base baseline tools and skills | `engine/characters.py` (`BASE_TOOLS`), `engine/instructions.py` (`BASE_SKILLS`) |
 | Role packs and team arrangements | `workspace/roles/`, `workspace/team.json` |
 | Change record | git; `HISTORY.md` is the work diary |
