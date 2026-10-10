@@ -45,6 +45,16 @@ except Exception:  # noqa: BLE001
 
 RULE_FILES = ["AGENTS.md", "PROJECT.md"]
 WS_SKILLS_DIR = WORKSPACE / ".agents" / "skills"
+
+
+def data_dir(workspace: Optional[Path] = None) -> Path:
+    """Sessions, backups, and tickets live in the data directory. A real workspace/ directory is the charter
+    one level under that directory. A flat root is the directory itself, and so is a workspace symlink to `.`:
+    joins through the link stay inside the data directory."""
+    ws = Path(workspace if workspace is not None else WORKSPACE)
+    if ws.name == "workspace" and ws.is_dir() and not ws.is_symlink():
+        return ws.parent
+    return ws
 _SKILLS_CACHE = {"ts": 0.0, "data": []}
 _extract_yaml_desc = extract_yaml_desc
 
@@ -258,11 +268,11 @@ BACKUP_KEEP = 10
 
 
 def _backup(fp: Path) -> None:
-    """The previous text of an instruction file the operator is about to overwrite, in data/backups/instructions/
-    (outside the workspace agents read), the newest BACKUP_KEEP per file (ORPHANS_v1)."""
+    """The previous text of an instruction file the operator is about to overwrite, in <data>/backups/instructions/,
+    outside the folders the model is given. The newest BACKUP_KEEP per file are kept (ORPHANS_v1)."""
     if not fp.exists():
         return
-    d = WORKSPACE.parent / "backups" / "instructions"
+    d = data_dir() / "backups" / "instructions"
     stem = fp.relative_to(WORKSPACE).as_posix().replace("/", "__")
     try:
         d.mkdir(parents=True, exist_ok=True)
@@ -707,7 +717,7 @@ def ticket_api(method: str, path: str, body: Optional[dict]) -> Optional[Tuple[i
         return None
     if tickets is None:
         return 503, {"ok": False, "error": "ticket core unavailable"}
-    data = WORKSPACE.parent
+    data = data_dir()
     rest = path[len("/api/tickets"):].strip("/")
     try:
         if method == "GET":

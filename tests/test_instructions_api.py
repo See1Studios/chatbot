@@ -68,6 +68,24 @@ class InstructionsApiTest(unittest.TestCase):
         self.assertEqual(self.put("PROJECT.md", "   ")[0], 400)
         self.assertEqual((self.ws / "AGENTS.md").read_text(), "charter")
 
+    def test_data_dir_is_the_parent_of_a_real_workspace_and_the_root_when_flat(self):
+        self.assertEqual(W.data_dir(self.ws), self.root / "data")
+        flat = self.root / "flat"
+        flat.mkdir()
+        (flat / "PROJECT.md").write_text("old", encoding="utf-8")
+        link = self.root / "workspace"
+        link.symlink_to(flat, target_is_directory=True)
+        self.assertEqual(W.data_dir(flat), flat)
+        self.assertEqual(W.data_dir(link), link)
+        saved = W.WORKSPACE
+        W.WORKSPACE = flat
+        try:
+            W._backup(flat / "PROJECT.md")
+        finally:
+            W.WORKSPACE = saved
+        self.assertTrue(any((flat / "backups" / "instructions").glob("PROJECT.md.*")))
+        self.assertFalse((self.root / "backups").exists())
+
     def test_saving_an_editable_file_keeps_a_backup(self):
         code, body = self.put("PROJECT.md", "new procedure")
         self.assertEqual((code, body["ok"]), (200, True))

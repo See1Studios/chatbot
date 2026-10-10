@@ -50,6 +50,11 @@ class WorkspaceCase(unittest.TestCase):
 
 
 class BundleTests(WorkspaceCase):
+    def test_the_skill_index_names_the_charter_root_once(self):
+        text = I._skills_text()
+        self.assertIn("%s/.agents/skills/<name>/SKILL.md" % self.ws, text)
+        self.assertNotIn("workspace/workspace", text.replace("\\", "/"))
+
     def test_contains_layers(self):
         b = I.build_instruction_bundle()
         t = b["text"]

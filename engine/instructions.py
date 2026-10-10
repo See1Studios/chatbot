@@ -308,7 +308,8 @@ def _skills_text(character: str = "") -> str:
         pass
     if not idx:
         return ""
-    # the live workspace (uds/F: ~/.pe), never the repo's data/ -- a stale copy there lacks newer skills
+    # Charter root (host_config.WORKSPACE): the data root once workspace/ is gone, the workspace directory
+    # while that directory still has files. Never the repo's engine/data copy; a stale copy lacks newer skills.
     lines = ["[Skill index] When needed, read `%s/.agents/skills/<name>/SKILL.md` and follow its steps." % WORKSPACE]
     lines += [f"- {name} — {desc}" if desc else f"- {name}" for name, desc in idx]
     return "\n".join(lines)
