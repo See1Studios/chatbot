@@ -39,7 +39,8 @@ class Fixture(WorkspaceCase):
 
     def test_a_private_session_takes_no_work_layer(self):
         # D-6: checked against the list, so a new work layer is checked too
-        private = I.build_instruction_bundle(mode="private", character=self.card_id)["text"]
+        b_priv = I.build_instruction_bundle(mode="private", character=self.card_id)
+        private = b_priv["text"]
         self.assertIn("PRIVATE-RULES-MARK", private)
         self.assertIn("PRIVATE-MEMORY-MARK", private)
         for layer, text in I.layer_texts("work", self.card_id):
@@ -48,6 +49,26 @@ class Fixture(WorkspaceCase):
         work = I.build_instruction_bundle(mode="work", character=self.card_id)["text"]
         for mark in ("PRIVATE-RULES-MARK", "PRIVATE-MEMORY-MARK"):
             self.assertNotIn(mark, work)
+
+    def test_private_mode_l2_slot_is_zero_residue(self):
+        # istruct/D: L2 slot (roles and skills) MUST be 100% 0-bytes in private mode
+        b_priv = I.build_instruction_bundle(mode="private", character=self.card_id)
+        self.assertNotIn(I.SLOT_L2_ROLE, b_priv.get("slots", {}))
+        self.assertNotIn(I.SLOT_L2_ROLE, b_priv.get("slot_hashes", {}))
+        # Ensure work mode has L2 when roles/skills exist
+        b_work = I.build_instruction_bundle(mode="work", character=self.card_id)
+        if I.SLOT_L2_ROLE in b_work.get("slots", {}):
+            self.assertIn(I.SLOT_L2_ROLE, b_work.get("slot_hashes", {}))
+
+    def test_shipped_edition_has_zero_bytes_host_charter_and_dev_rules(self):
+        # istruct/D: In shipped edition, host law (~/AGENTS.md) and dev charter are 0-bytes in prompt
+        from unittest import mock
+        with mock.patch("host_config.EDITION", "shipped"):
+            for mode in I.BOTH:
+                b = I.build_instruction_bundle(mode=mode, character=self.card_id)
+                # dev_charter layer is empty in shipped edition
+                dev_layers = [x for x in b["layers"] if x["id"] == "dev_charter"]
+                self.assertEqual(len(dev_layers), 0, "dev_charter must be 0-bytes in shipped edition")
 
     def test_each_mode_takes_only_its_rows_in_list_order(self):
         for mode in I.BOTH:

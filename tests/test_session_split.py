@@ -197,11 +197,14 @@ class PrivateBundle(unittest.TestCase):
         shutil.rmtree(self.ws, ignore_errors=True)
 
     def test_private_gets_private_rules_and_memory_and_no_work(self):
-        text = I.build_instruction_bundle(mode="private")["text"]
+        bundle_priv = I.build_instruction_bundle(mode="private")
+        text = bundle_priv["text"]
         for want in ("charter", "persona body", "private rules", "likes tea", I.PRIVATE_SESSION_NOTE):
             self.assertIn(want, text)
         for never in ("work fact", "[Skill index]", "[Self-improvement status]"):
             self.assertNotIn(never, text)
+        self.assertNotIn(I.SLOT_L2_ROLE, bundle_priv.get("slots", {}))
+        self.assertNotIn(I.SLOT_L2_ROLE, bundle_priv.get("slot_hashes", {}))
         work = I.build_instruction_bundle()["text"]
         self.assertIn("work fact", work)
         self.assertNotIn("likes tea", work)
