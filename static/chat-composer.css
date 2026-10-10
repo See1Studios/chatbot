@@ -244,14 +244,14 @@ textarea::placeholder{
 }
 /* PRIVATE_TOGGLE_v1: the heart switches to the private session; filled while it is open */
 .private-toggle-btn.active, .private-toggle-btn:hover{
-  color:var(--accent-private, #c2185b);
-  border-color:var(--accent-private, #c2185b);
-  background:rgba(194,24,91,.12);
-  box-shadow:0 0 10px rgba(194,24,91,.35);
+  color:var(--accent-private, #ff7aa2);
+  border-color:var(--accent-private, #ff7aa2);
+  background:rgba(255,122,162,.12);
+  box-shadow:0 0 10px rgba(255,122,162,.35);
 }
 .private-toggle-btn.active .tab-icon-svg{
-  stroke:var(--accent-private, #c2185b);
-  fill:var(--accent-private, #c2185b);
+  stroke:var(--accent-private, #ff7aa2);
+  fill:var(--accent-private, #ff7aa2);
 }
 .private-toggle-btn:disabled{opacity:.5;cursor:wait}
 

@@ -20,6 +20,7 @@
   --accent2: #ddfe51;
   --accent-rgb: 209, 254, 23;
   --accent-contrast: #0b0d10;
+  --accent-private: #ff7aa2; /* rose: about 7:1 on --bg-card. #c2185b was 3.3:1 */
   --accent-soft: rgba(var(--accent-rgb), 0.12);
   --accent-glow: rgba(var(--accent-rgb), 0.25);
   --accent-border: rgba(var(--accent-rgb), 0.40);

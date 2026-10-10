@@ -451,6 +451,7 @@ async function openArtifactModal(item) {
     }
   }
   artModal.style.display = 'flex';
+  artTakeFocus();
 }
 
 async function openFilePreviewModal(targetPath) {
@@ -479,6 +480,7 @@ async function openFilePreviewModal(targetPath) {
   if (modalCite) modalCite.style.display = 'none';
   if (modalBody) modalBody.innerHTML = '<div style="color:var(--muted)">' + tr('modal.reading') + '</div>';
   artModal.style.display = 'flex';
+  artTakeFocus();
   try {
     const res = await api('/api/file/preview?path=' + encodeURIComponent(cleanPath));
     if (!res.ok) throw new Error(res.error || tr('modal.denied'));
@@ -504,9 +506,45 @@ async function openFilePreviewModal(targetPath) {
   }
 }
 
+var artReturnFocus = null;
+
+function artShown(el) {
+  if (!el || el.disabled || el.hidden) return false;
+  if (el.getAttribute && el.getAttribute('aria-hidden') === 'true') return false;
+  if (el.style && el.style.display === 'none') return false;
+  return true;
+}
+
+function artFocusables() {
+  if (!artModal || typeof artModal.querySelectorAll !== 'function') return [];
+  var nodes = artModal.querySelectorAll('button, a[href], input, textarea, select, [tabindex]');
+  var out = [];
+  for (var i = 0; i < nodes.length; i++) if (artShown(nodes[i])) out.push(nodes[i]);
+  return out;
+}
+
+function artTakeFocus() {
+  if (!artModal) return;
+  var active = document.activeElement;
+  var inside = !!(artModal.contains && active && artModal.contains(active));
+  if (!inside && active && typeof active.focus === 'function') artReturnFocus = active;
+  var list = artFocusables();
+  var target = artShown(modalClose) ? modalClose : list[0];
+  if (target && typeof target.focus === 'function') target.focus();
+}
+
+function artGiveFocusBack() {
+  var back = artReturnFocus;
+  artReturnFocus = null;
+  if (!back || typeof back.focus !== 'function') return;
+  if (typeof document.contains === 'function' && !document.contains(back)) return;
+  try { back.focus(); } catch (e) {}
+}
+
 function closeArtifactModal() {
   if (artModal) artModal.style.display = 'none';
   activeModalArtifact = null;
+  artGiveFocusBack();
 }
 
 document.querySelectorAll('.art-filter-btn[data-filter]').forEach(btn => {
@@ -536,9 +574,17 @@ if (artModal) {
   });
 }
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && artModal && artModal.style.display !== 'none') {
-    closeArtifactModal();
-  }
+  if (!artModal || !artModal.style || artModal.style.display === 'none') return;
+  if (e.key === 'Escape') { closeArtifactModal(); return; }
+  if (e.key !== 'Tab') return;
+  var list = artFocusables();
+  if (!list.length) { if (e.preventDefault) e.preventDefault(); return; }
+  var i = list.indexOf(document.activeElement);
+  var edge = e.shiftKey ? i <= 0 : (i < 0 || i >= list.length - 1);
+  if (!edge) return;
+  if (e.preventDefault) e.preventDefault();
+  var dest = list[e.shiftKey ? list.length - 1 : 0];
+  if (dest && dest.focus) dest.focus();
 });
 
 // Hook room lifecycle (roomEnter / roomClose) to trigger artifact drawer refresh and isolation

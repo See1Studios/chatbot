@@ -221,7 +221,7 @@ html.shell2 body:not(.density-advanced) .composer:has(.inline-btn.attached) #inp
 .shell-plus-menu .shell-plus-on{color:var(--accent2)}
 /* the private switch beside the name */
 html.shell2 #shellHeart{flex:0 0 auto;margin-left:.2rem;width:34px;height:34px;padding:0;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)}
-html.shell2 #shellHeart[aria-pressed="true"]{color:var(--accent-private,#c2185b);border-color:currentColor}
+html.shell2 #shellHeart[aria-pressed="true"]{color:var(--accent-private,#ff7aa2);border-color:currentColor}
 html.shell2 body.density-advanced #shellHeart,html.shell2 body.room-open #shellHeart{display:none}
 @media (max-width: 640px) { html.shell2 #shellPlus{width:36px;min-width:36px;height:36px;border-radius:8px} }
 @media (max-width: 640px) and (pointer: fine) { html.shell2 #shellPlus{width:42px;min-width:42px;height:42px;border-radius:12px} }

@@ -10,6 +10,7 @@ colors:
   accent: "#d1fe17"
   accent2: "#ddfe51"
   accent-contrast: "#0b0d10"
+  accent-private: "#ff7aa2"
   lime: "#d1fe17"
   amber: "#ff8a50"
   cyan: "#38bdf8"
@@ -118,7 +119,8 @@ Density is Operate-mode: scan the header, read the log, type in the composer. Pe
 Neutral charcoal is the room. Accent is the lamp. Switching `data-theme` changes the lamp, not the walls.
 
 ### Primary
-- **Sphere Lime** (`#d1fe17` / `--accent` on default `lime`): focus rings, selected tabs, primary fills, user-bubble tint. Pair with **Lime Lift** (`#ddfe51` / `--accent2`) for labels that must stay readable on dark fills. Text on lime uses **Ink** (`#0b0d10` / `--accent-contrast`).
+- **Sphere Lime** (`#d1fe17` / `--accent` on default `lime`): focus rings, selected tabs, primary fills, user-bubble tint. Pair with **Lime Lift** (`#ddfe51` / `--accent2`) for labels that must stay readable on dark fills. Text on a solid accent fill uses **Ink** (`#0b0d10` / `--accent-contrast`) on every dial, including the active card tab.
+- **Private Rose** (`#ff7aa2` / `--accent-private`): the private-session meta line, the composer border, and the heart. It is not a dial. It stays about 7:1 on Panel.
 
 ### Secondary
 Omitted as a second brand color. The four other dials are the same *role* as Primary, not a secondary palette:
@@ -229,7 +231,7 @@ The floating layered-PNG mascot was removed on 2026-09-19: its position was ambi
 ## Do's and Don'ts
 
 ### Do:
-- **Do** paint interactive chrome with `--accent` / `--accent2` / `--accent-rgb` so all five dials keep working.
+- **Do** paint interactive chrome with `--accent` / `--accent2` / `--accent-rgb` so all five dials keep working. A solid accent fill takes its label from `--accent-contrast`.
 - **Do** put glint on raised chips and keep the pit/`--bg` untouched.
 - **Do** keep the composer at 16px and 42px tall (38px at 640px).
 - **Do** snap `#log` instantly on session change and new messages.

@@ -323,6 +323,7 @@ function confirmModal(message, opts) {
     return Promise.resolve(window.confirm(message));
   }
   return new Promise(resolve => {
+    const returnFocus = document.activeElement;
     confirmModalMsgEl.textContent = message;
     confirmModalOkBtn.textContent = opts.confirmLabel || tr('common.ok');
     confirmModalCancelBtn.textContent = opts.cancelLabel || tr('common.cancel');
@@ -336,6 +337,10 @@ function confirmModal(message, opts) {
       confirmModalCancelBtn.removeEventListener('click', onCancel);
       confirmModalEl.removeEventListener('click', onOverlay);
       document.removeEventListener('keydown', onKey);
+      if (returnFocus && typeof returnFocus.focus === 'function'
+          && (!document.contains || document.contains(returnFocus))) {
+        try { returnFocus.focus(); } catch (err) {}
+      }
       resolve(result);
     };
     const onOk = () => cleanup(true);
