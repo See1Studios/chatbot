@@ -24,6 +24,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 from host_config import WORKSPACE
 
 WS_SKILLS_DIR = WORKSPACE / ".agents" / "skills"
+USER_FILE = WORKSPACE / "USER.md"
 MEMORY_FILE = WORKSPACE / "memory" / "MEMORY.md"
 
 _FACT_LINE = re.compile(r"^\s*(?:[-*]\s+\S|\[\d{4}-\d{2}-\d{2}\])")
@@ -335,6 +336,9 @@ def _names_text() -> str:
 
 
 def _memory_text() -> str:
+    user = _read(WORKSPACE / "USER.md")
+    if user:
+        return "[User profile]\n" + user
     text = _read(MEMORY_FILE)
     if not text or not any(_FACT_LINE.match(l) for l in text.splitlines()):
         return ""

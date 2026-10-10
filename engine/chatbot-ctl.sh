@@ -68,7 +68,7 @@ fi
 # no-op here). Do not mkdir an empty workspace afterwards: that directory would hide the root. A failure warns
 # and does not stop ctl (stop/status must still work).
 (cd "$CODE" && python3 data_bootstrap.py --data "$DATA" --quiet) || echo "warning: data bootstrap failed ($DATA)" >&2
-mkdir -p "$DATA/sessions" "$DATA/artifacts" "$LOG_DIR"
+mkdir -p "$DATA/sessions" "$LOG_DIR"
 LOG_CHAT="$LOG_DIR/chatbot.log"
 LOG_MCP="$LOG_DIR/chatbot-mcp.log"
 LOG_DOCTOR="$LOG_DIR/chatbot-doctor.log"

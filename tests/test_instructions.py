@@ -75,6 +75,12 @@ class BundleTests(WorkspaceCase):
         self.assertIn("아메리카노", b["text"])
         self.assertEqual(h0, b["hash"])
 
+    def test_user_profile_is_included(self):
+        _write(self.ws / "USER.md", "# User profile\n- Call: 코치\n")
+        b = I.build_instruction_bundle()
+        self.assertIn("[User profile]", b["text"])
+        self.assertIn("코치", b["text"])
+
     def test_hash_changes_with_charter_persona_and_skills(self):
         h0 = I.build_instruction_bundle()["hash"]
         _write(self.ws / "AGENTS.md", "# 헌장\nCHANGED")

@@ -8,6 +8,12 @@
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 2026-10-09 기록은 하루 예산을 넘어 [docs/history/2026-10-09.md](docs/history/2026-10-09.md)로 회전했습니다.
 
+## 2026-10-10 — 루트 USER.md 도입 및 메모리/아티팩트 빈 폴더 평탄화 (#949)
+
+- **운영자**: "USER.md 가 더 활용가치가 있겠네"
+- **바뀐 것**: 빈 상태로 방치되던 전역 `memory/MEMORY.md` 대신 루트 `USER.md`로 사용자 프로필을 단일 파일 평탄화했다. `instructions.py`와 `workspace_status.py`가 `USER.md`를 우선 주입하고 레거시 메모리는 폴백으로 처리한다. `data_bootstrap.py`와 `chatbot-ctl.sh`는 `memory`와 `artifacts` 빈 폴더를 더 이상 스켈레톤으로 강제 생성하지 않는다.
+- **재시작**: Python 모듈 변경(`instructions.py`, `workspace_status.py`, `data_bootstrap.py`)으로 서버 재시작 필요.
+
 ## 2026-10-10 — 재부팅 화면과 소환 창이 다이얼 색을 씀 (#947)
 
 - **운영자**: "quieter 하자"

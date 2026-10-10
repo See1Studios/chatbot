@@ -176,7 +176,15 @@ _LAYER_ORDER = {"always": 0, "on_demand": 1, "private": 2}   # private: read onl
 
 
 def _instruction_files() -> list:
-    items = [(i, t, WORKSPACE / rel, layer, "system") for i, t, rel, layer in INSTRUCTION_FILES]
+    mem_rel = "USER.md" if (WORKSPACE / "USER.md").exists() or not (WORKSPACE / "memory" / "MEMORY.md").exists() else "memory/MEMORY.md"
+    mem_id = "USER.md" if mem_rel == "USER.md" else "MEMORY.md"
+    mem_title = i18n.line("instr.user") if mem_rel == "USER.md" else i18n.line("instr.memory")
+    instr_files = [
+        ("AGENTS.md", i18n.line("instr.charter"), "AGENTS.md", "always"),
+        (mem_id, mem_title, mem_rel, "always"),
+        ("PROJECT.md", i18n.line("instr.project"), "PROJECT.md", "on_demand"),
+    ]
+    items = [(i, t, WORKSPACE / rel, layer, "system") for i, t, rel, layer in instr_files]
     default = _default_character()
     for c in _characters():
         label = c["name"] or c["id"]
@@ -805,7 +813,7 @@ def _self_status() -> dict:
         })
     mcp_cfg = _read_mcp_config()
     mcp_list = [dict(v, name=k) for k, v in mcp_cfg.get("mcpServers", {}).items()]
-    mem_fp = WORKSPACE / "memory" / "MEMORY.md"
+    mem_fp = WORKSPACE / "USER.md" if (WORKSPACE / "USER.md").exists() else WORKSPACE / "memory" / "MEMORY.md"
     mem_info = None
     if mem_fp.exists():
         try:
