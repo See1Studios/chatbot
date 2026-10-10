@@ -136,9 +136,25 @@ class Fixture(WorkspaceCase):
         s = self.session()
         s._context_prefix()
         s.context_layer_hashes = None                                          # saved before CONTEXT_REFRESH_v1
+        s.context_slot_hashes = None
         _write(self.ws / "memory/MEMORY.md", "# 기억\n- NEW-HOUSE-FACT\n")
         self.assertEqual(s._context_prefix(), "")
         self.assertIsInstance(s.context_layer_hashes, dict)
+        self.assertIsInstance(s.context_slot_hashes, dict)
+
+    def test_context_slot_hashes_tracking(self):
+        # istruct/B: session tracks slot_hashes from instruction bundle
+        s = self.session()
+        s._context_prefix()
+        self.assertIsInstance(s.context_slot_hashes, dict)
+        self.assertIn("L1", s.context_slot_hashes)
+        self.assertIn("L3", s.context_slot_hashes)
+        self.assertIn("L4", s.context_slot_hashes)
+        l4_before = s.context_slot_hashes.get("L4")
+        _write(self.ws / "memory/MEMORY.md", "# 기억\n- NEW-HOUSE-FACT\n")
+        s._context_prefix()
+        l4_after = s.context_slot_hashes.get("L4")
+        self.assertNotEqual(l4_before, l4_after)
 
     def test_a_stateless_transport_is_not_sent_a_refresh(self):
         s = self.session("http")                                               # it gets the bundle every request

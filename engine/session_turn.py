@@ -446,6 +446,7 @@ class SessionTurn:
         self.persona_injected = True
         self.persona_bundle_hash = bhash
         self.context_layer_hashes = _dynamic_hashes(bundle)
+        self.context_slot_hashes = dict(bundle.get("slot_hashes") or {})
         return prefix
 
     def _context_refresh(self, bundle: Dict[str, Any]) -> str:
@@ -454,14 +455,21 @@ class SessionTurn:
         bundle again. A session from before this adopts the current state silently."""
         now = _dynamic_hashes(bundle)
         seen = getattr(self, "context_layer_hashes", None)
+        slot_now = dict(bundle.get("slot_hashes") or {})
+        seen_slots = getattr(self, "context_slot_hashes", None)
         if not isinstance(seen, dict):
             self.context_layer_hashes = now
+            self.context_slot_hashes = slot_now
             return ""
+        if not isinstance(seen_slots, dict):
+            self.context_slot_hashes = slot_now
         changed = [lid for lid in now if seen.get(lid) != now[lid]]
         gone = [lid for lid in seen if lid not in now]
         if not changed and not gone:
+            self.context_slot_hashes = slot_now
             return ""
         self.context_layer_hashes = now
+        self.context_slot_hashes = slot_now
         if self.adapter.transport_kind == "http":   # it gets the whole bundle on every request
             return ""
         import instructions
