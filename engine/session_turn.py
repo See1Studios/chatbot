@@ -1,5 +1,5 @@
 """Running a turn (monolith-split split/C, moved from session.py as a mixin of AgentSession, like turn_watchdog.py
-and session_view.py): send (queue, steer, rotate when idle or heavy), the turn itself, /btw side questions, interrupt,
+and session_view.py): send (queue, steer, the HTTP turn, rotate when idle or heavy), the turn itself, /btw side questions, interrupt,
 handing over to a successor session, and swapping the provider or model. Every name session.py defines or tests and
 server.py swap (REG, boot_notice, build_instruction_bundle, _oneshot, get_adapter, ...) is read as `_s().name` on
 each call, never copied at import."""
@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import i18n
 from telemetry import obslog
@@ -249,6 +249,160 @@ class SessionTurn:
             raise
         finally:
             self._steering = False
+
+    def _dispatch_queued(self) -> None:
+        time.sleep(0.35)
+        with self.lock:
+            if not getattr(self, "msg_queue", []):
+                return
+            next_text, next_mid = self.msg_queue.pop(0)
+        self._send_direct(next_text, next_mid)
+
+    # ---- steer: apply a message that arrived mid-turn at the next tool-step boundary -----------
+    def _can_steer_at_boundary(self) -> bool:
+        a = self.adapter
+        return bool(getattr(a, "supports_steer", False)) and getattr(a, "transport_kind", "") == "process" and bool(getattr(a, "keeps_stdin_open", False))
+
+    def _queue_steer(self, text: str, client_mid: str) -> None:
+        with self.lock:
+            if not self.msg_queue:
+                self._steer_since = _now()
+            self.msg_queue.append((text, client_mid))
+            n = len(self.msg_queue)
+        self._emit({"event": "steer_queued", "queue_len": n,
+                    **i18n.msg("srv.steer_queued")})
+        timer = threading.Timer(_s().STEER_MAX_WAIT_SEC, self._steer_at_boundary, kwargs={"forced": True})
+        timer.daemon = True
+        timer.start()
+
+    def _steer_at_boundary(self, forced: bool = False) -> None:
+        """Called at every finished tool step (and by a timer as the fallback). If a message is
+        waiting and the turn is still running, hand it to a worker thread -- never stop the child
+        from the thread that reads its stdout."""
+        with self.lock:
+            if self._steering or not self.msg_queue or not self.busy:
+                return
+            if forced and _now() - self._steer_since < _s().STEER_MAX_WAIT_SEC - 1:
+                return  # a newer turn's message; its own timer will come
+            self._steering = True
+        threading.Thread(target=self._steer_worker, daemon=True).start()
+
+    def _proc_alive(self) -> bool:
+        """"Is the turn actually still running" -- for process-transport
+        adapters that's a real OS process; an http-transport adapter
+        (API-Provider plan) never has self.proc at all, so self.busy IS the
+        only liveness signal for it (set True right before the streaming
+        call starts, False when stream_turn() yields its result/error, or
+        when stop() cancels it). Centralized here so the four call sites
+        that used to inline `self.proc and self.proc.poll() is None` don't
+        each need their own transport_kind branch."""
+        if self.adapter.transport_kind != "process":
+            return self.busy
+        return bool(self.proc and self.proc.poll() is None)
+
+    def _send_direct(self, text: str, client_mid: str = "", client_context: Optional[Dict[str, Any]] = None,
+                     notice: bool = False, event_type: str = "") -> None:
+        """`notice=True`: `text` is a host note to the agent (a loop notice), not something the user said --
+        it is neither shown as their message nor kept in history, and it does not start a new user turn.
+        A turn that fails to start (spawn error, dead pipe) never leaves busy stuck; the caller gets the error."""
+        try:
+            self._open_turn(text, client_mid, client_context, notice, event_type)
+        except Exception:
+            with self.lock:
+                self.busy = False
+            self._finish_turn("error")
+            raise
+
+    def _history_to_openai_messages(self, last_user_override: Optional[str] = None) -> List[dict]:
+        """API-Provider plan Phase 1: role/text replay of self.history, plus
+        a leading `role:"system"` message from `_persona_system_prompt()`
+        (fixed 2026-09-18 -- this used to have none at all). Process
+        providers get the same bundle as a first-turn preamble from
+        _send_direct(); OpenAIDialectAdapter is a stateless HTTP call, so the
+        system message is its only persistent channel -- confirmed live that
+        The persona answered in flat, personaless tone on OmniRoute without it. No tool_calls/tool-result reconstruction (that's Phase 2, once
+        the tool loop exists and needs its own turns represented here too).
+        Queued messages not yet sent (`queued: True`) are intentionally
+        skipped -- they aren't part of the conversation the model has "seen" yet.
+
+        `last_user_override`: self.history stores the raw display text, but
+        _send_direct() may have built a handoff-wrapped `stdin_content` for
+        the just-appended user turn (provider swap / session rotation --
+        same mechanism the CLI adapters get via format_stdin(stdin_content)).
+        Swapping it in here only for the final history entry keeps the
+        wire-sent turn consistent with what CLI providers actually receive,
+        without persisting the wrapper text into history itself."""
+        host = _s()
+        msgs: List[dict] = []
+        system_text = host._persona_system_prompt(getattr(self, "mode", "work"), getattr(self, "character", ""), self.history)
+        if system_text:
+            msgs.append({"role": "system", "content": system_text})
+        # Bare HTTP call has no CLI runtime telling the model what it
+        # actually is (agy/claude/grok/codex get this for free from their
+        # own process context) -- without it, "what model are you" on an
+        # omniroute session got answered by guessing/pattern-matching the
+        # AGENTS.md harness list, which reads DEFAULT_PROVIDER=agy most
+        # prominently and answered "Antigravity(agy)" even while this
+        # session's actual provider/model was omniroute/auto-best-free
+        # (live-observed 2026-09-18, session 20260918-193213-e30f27).
+        msgs.append({
+            "role": "system",
+            "content": f"[Runtime] This session's real backend is provider={self.provider}, model={self.model}.",
+        })
+        last_idx = len(self.history) - 1
+        for i, h in enumerate(self.history):
+            role = h.get("role")
+            if role not in ("user", "assistant"):
+                continue
+            if h.get("queued"):
+                continue
+            text = host._as_named_now(h.get("text") or "", h.get("ts"))   # NAME_CHANGE_v1: older talk, today's names
+            if i == last_idx and role == "user" and last_user_override is not None:
+                text = last_user_override
+            if not text:
+                continue
+            msgs.append({"role": role, "content": text})
+        return msgs
+
+    def _run_http_turn(self, stdin_content: str, seq: Optional[int] = None) -> None:
+        """API-Provider plan: transport_kind="http" counterpart to
+        _spawn()+_read_stdout() -- runs in its own background thread (see
+        _send_direct()), no process/stdin/stdout involved at all."""
+        if seq is None:
+            seq = self._turn_seq
+        messages = self._history_to_openai_messages(last_user_override=stdin_content)
+        try:
+            for ev in self.adapter.stream_turn(self, messages, seq=seq):
+                if self._turn_seq != seq or self._stop_requested:
+                    break
+                self._handle_events([ev])
+        except Exception as e:
+            if self._turn_seq == seq and not self._stop_requested:
+                self._handle_events([{"event": "error", "error": str(e), **i18n.msg("srv.api_failed", error=e)}])
+
+    def _http_turn_watchdog(self, seq: int) -> None:
+        """Force-stops an http-transport turn that runs past
+        OpenAIDialectAdapter.HTTP_TURN_TIMEOUT_SEC -- see that constant's
+        comment (server.py, near MAX_TOOL_HOPS) for why _stream_once()'s
+        own per-read timeout doesn't catch this on its own (OmniRoute
+        keepalive deltas reset it indefinitely, so a stalled upstream call
+        can hang forever with session.busy stuck True and no OS process for
+        chatbot-ctl.sh's orphan-killer to ever see). `seq` pins this
+        watchdog to the exact turn that spawned it so it can't fire against
+        a later turn that reused this session after this one already
+        finished normally."""
+        timeout_sec = getattr(self.adapter, "HTTP_TURN_TIMEOUT_SEC", 180)
+        time.sleep(timeout_sec)
+        with self.lock:
+            if self.adapter.transport_kind != "http" or self._turn_seq != seq or not self.busy:
+                return
+        self.stop(notify=False)
+        minutes = timeout_sec // 60
+        m = i18n.msg("srv.http_timeout", minutes=minutes)
+        with self.lock:
+            self.history.append({"role": "assistant", **m, "ts": _now()})
+            self.save_meta()
+        self._emit({"event": "error", **m})
 
     def _guard_lines(self, stdin_content: str) -> str:
         """What the guards tell the agent before its message: a tree-watch hold (TREE_WATCH_v1, director-handoff
