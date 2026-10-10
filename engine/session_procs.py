@@ -63,7 +63,8 @@ def _record_live_pids() -> None:
                         pids.append(proc.pid)
             except Exception:
                 pass
-        host._atomic_write_text(host.DATA / "live_pids.json", json.dumps(pids))
+        path = getattr(host, "state_path", lambda n: host.DATA / n)("live_pids.json")
+        host._atomic_write_text(path, json.dumps(pids))
     except Exception:
         pass
 
@@ -199,7 +200,8 @@ def _reap_sessions() -> None:
     for sess in died:
         sess._finish_turn("process_died")
     try:
-        host._atomic_write_text(host.DATA / "live_pids.json", json.dumps(live_pids))
+        path = getattr(host, "state_path", lambda n: host.DATA / n)("live_pids.json")
+        host._atomic_write_text(path, json.dumps(live_pids))
     except Exception:
         pass
 

@@ -68,7 +68,8 @@ fi
 # no-op here). Do not mkdir an empty workspace afterwards: that directory would hide the root. A failure warns
 # and does not stop ctl (stop/status must still work).
 (cd "$CODE" && python3 data_bootstrap.py --data "$DATA" --quiet) || echo "warning: data bootstrap failed ($DATA)" >&2
-mkdir -p "$DATA/sessions" "$LOG_DIR"
+STATE_DIR="$DATA/state"
+mkdir -p "$DATA/sessions" "$LOG_DIR" "$STATE_DIR"
 LOG_CHAT="$LOG_DIR/chatbot.log"
 LOG_MCP="$LOG_DIR/chatbot-mcp.log"
 LOG_DOCTOR="$LOG_DIR/chatbot-doctor.log"
@@ -122,7 +123,10 @@ PID_CHAT="$LOG_DIR/chatbot.pid"
 PID_MCP="$LOG_DIR/chatbot-mcp.pid"
 PORT_CHAT="${CHATBOT_PORT:-3011}"
 PORT_MCP="${NAS_MCP_PORT:-3012}"
-PROBE_STAMP="$DATA/doctor-probe.stamp"
+PROBE_STAMP="$STATE_DIR/doctor-probe.stamp"
+if [ -f "$DATA/doctor-probe.stamp" ] && [ ! -f "$PROBE_STAMP" ]; then
+  PROBE_STAMP="$DATA/doctor-probe.stamp"
+fi
 PROBE_EVERY_SEC=${CHATBOT_PROBE_EVERY_SEC:-3600}
 
 HOST_TICKET="$DATA/host-force.ticket"
@@ -561,11 +565,18 @@ cmd_doctor() {
 # If the helper cannot run, carry on unlocked: the lock is a safeguard, not a precondition.
 case "${1:-status}" in
   start|doctor|repair|defibrillate|shock|cpr)
+    _sdir="${STATE_DIR:-$DATA/state}"
+    lock_file="$_sdir/lifecycle.lock"
+    if [ -f "$DATA/lifecycle.lock" ] && [ ! -f "$lock_file" ]; then
+      lock_file="$DATA/lifecycle.lock"
+    else
+      mkdir -p "$_sdir" 2>/dev/null || true
+    fi
     if [ "${CHATBOT_LOCK_PPID:-}" != "$PPID" ] \
-       && python3 "$CODE/evolution.py" self-check "$DATA/lifecycle.lock" >/dev/null 2>&1; then
+       && python3 "$CODE/evolution.py" self-check "$lock_file" >/dev/null 2>&1; then
       lock_wait="${CHATBOT_LOCK_WAIT_SEC:-120}"
       if [ "${1:-status}" = "doctor" ]; then lock_wait=0; fi
-      exec python3 "$CODE/evolution.py" run-locked "$DATA/lifecycle.lock" "$lock_wait" -- bash "$0" "$@"
+      exec python3 "$CODE/evolution.py" run-locked "$lock_file" "$lock_wait" -- bash "$0" "$@"
     fi
     ;;
 esac

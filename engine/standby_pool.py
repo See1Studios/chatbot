@@ -20,6 +20,7 @@ from host_config import (
     DEFAULT_PROVIDER,
     HOME,
     WORKSPACE,
+    state_path,
 )
 import platform_compat
 
@@ -46,7 +47,7 @@ class _StandbyPool:
         self._conv_id: Optional[str] = None
 
     def _marker_path(self) -> Path:
-        return DATA / "standby.pid"
+        return state_path("standby.pid")
 
     def try_take(self) -> Tuple[Optional[subprocess.Popen], Optional[str]]:
         with self._lock:

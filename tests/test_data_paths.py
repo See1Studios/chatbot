@@ -165,5 +165,28 @@ class DataPaths(unittest.TestCase):
         missing = Path(tempfile.mkdtemp())
         self.assertEqual(host_config.charter_root(missing), missing)
 
+    def test_state_dir_and_state_path_fallback(self):
+        import host_config
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            # monkeypatch DATA and STATE_DIR
+            orig_data, orig_state = host_config.DATA, host_config.STATE_DIR
+            try:
+                host_config.DATA = d
+                host_config.STATE_DIR = d / "state"
+                # If neither exists, returns state_dir / name
+                self.assertEqual(host_config.state_path("live_pids.json"), d / "state" / "live_pids.json")
+                # If legacy exists and state/ does not, returns legacy
+                (d / "live_pids.json").write_text("[]", encoding="utf-8")
+                self.assertEqual(host_config.state_path("live_pids.json"), d / "live_pids.json")
+                # If state/ file also exists, returns state/
+                (d / "state").mkdir(parents=True, exist_ok=True)
+                (d / "state" / "live_pids.json").write_text("[]", encoding="utf-8")
+                self.assertEqual(host_config.state_path("live_pids.json"), d / "state" / "live_pids.json")
+            finally:
+                host_config.DATA = orig_data
+                host_config.STATE_DIR = orig_state
+
+
 if __name__ == "__main__":
     unittest.main()

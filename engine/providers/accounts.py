@@ -40,7 +40,7 @@ import i18n
 from typing import Callable, Dict, List, Optional
 
 import platform_compat
-from host_config import DATA, HOME, CLAUDE_BIN, CODEX_BIN, GROK_BIN
+from host_config import DATA, HOME, CLAUDE_BIN, CODEX_BIN, GROK_BIN, state_path
 
 PROVIDERS = ("agy", "claude", "codex", "grok")
 
@@ -50,7 +50,7 @@ AGY_LOG_DIR = AGY_DIR / "log"
 AGY_PROFILES_DIR = AGY_DIR / "tokens"   # saved logins, one <email>.json each (created on first use)
 CODEX_AUTH = HOME / ".codex" / "auth.json"
 GROK_AUTH = Path(os.environ.get("GROK_HOME") or str(HOME / ".grok")) / "auth.json"
-STATE_FILE = DATA / "account_state.json"
+STATE_FILE = state_path("account_state.json")
 
 _LOG_PID_RE = re.compile(rb"Starting language server process with pid (\d+)")
 _LOG_AUTH_RE = re.compile(rb"authenticated successfully as (\S+)")

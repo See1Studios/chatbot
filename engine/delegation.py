@@ -33,14 +33,14 @@ import difflib
 
 import tickets
 from host_config import (AGENT_PATH_PREFIX, DATA, DELEGATE_MODEL, DELEGATE_PROVIDER, DELEGATE_REVIEWER,
-                         DELEGATE_REVIEWER_MODEL, ROOT, charter_root)
+                         DELEGATE_REVIEWER_MODEL, ROOT, charter_root, state_path)
 import repo_layout
 import platform_compat
 
 RUNNER_PATH = ROOT / "tools" / "worktree_runner.py"
 CLOSE_PATH = ROOT / "tools" / "ticket_close.py"   # CLOSE_ASYNC_v1
 PLAN_ROOT = repo_layout.REPO # where a plan's files must exist (DELEGATION_CLARITY_v1); tests point it elsewhere
-SEEN_FILE = DATA / "delegation_seen.json"
+SEEN_FILE = state_path("delegation_seen.json")
 ACTIVE_PHASES = ("starting", "running", "writing", "gates", "review", "merging")
 PASS_ENV = ("CHATBOT_ROOT", "CHATBOT_DATA")   # where the runner finds this instance; nothing secret
 MAX_RUNS = 20
@@ -886,7 +886,7 @@ def publish_work_changes() -> int:
 # when first seen is not replayed; lines whose two sides are one character are left out.
 
 def _talk_path() -> Path:
-    return DATA / "work_talk.json"
+    return state_path("work_talk.json")
 
 
 def _talk_worker(st: Dict, task_no: int, ws) -> str:

@@ -32,6 +32,7 @@ from host_config import (
     ROOT,
     WEB_ROOT,
     WORKSPACE,
+    state_path,
 )
 from session import REG, _atomic_write_text, _standby_maintenance_loop, owned_agent_procs
 from providers import accounts
@@ -695,7 +696,7 @@ def _landed(old: str, new: str) -> list:
 
 def _record_boot(state: Path = None) -> Dict[str, Any]:
     """Note this boot's time and HEAD, diff against the previous boot's HEAD, and remember this one for next time."""
-    state = state or DATA / "last_boot.json"
+    state = state or state_path("last_boot.json")
     head = _git("rev-parse", "HEAD")
     try:
         old = str((json.loads(state.read_text(encoding="utf-8")) or {}).get("head") or "")

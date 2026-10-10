@@ -98,9 +98,21 @@ def charter_root(data: Path) -> Path:
 
 
 WORKSPACE = charter_root(DATA)
+# Runtime state and ephemeral locks/pids directory (docs/plans/global-config-and-state-isolation.md)
+STATE_DIR = DATA / "state"
+
+
+def state_path(name: str) -> Path:
+    """Return path to a state/runtime file. If the legacy file exists at DATA/<name>, use it, else STATE_DIR/<name>."""
+    legacy = DATA / name
+    if legacy.exists() and not (STATE_DIR / name).exists():
+        return legacy
+    return STATE_DIR / name
+
+
 # Web Push (push_manager.py): the install's VAPID key pair and the browsers subscribed to it
-PUSH_VAPID_FILE = DATA / "push_vapid.json"
-PUSH_SUBSCRIPTIONS_FILE = DATA / "push_subscriptions.json"
+PUSH_VAPID_FILE = state_path("push_vapid.json")
+PUSH_SUBSCRIPTIONS_FILE = state_path("push_subscriptions.json")
 # An external static web root the install publishes into (persona images, the /chat shortcut). An install with no
 # web server leaves it unset and gets a folder in its own data; a host that has one names it in
 # $CHATBOT_DATA/host.env (templates/host.env.example). align/F: no host path is baked in.
