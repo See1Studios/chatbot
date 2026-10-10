@@ -342,12 +342,13 @@ def _providers(req: Req):
         extra = getattr(adapter, "meta", None) or {}
         if isinstance(extra, dict):
             meta.update({k: extra[k] for k in ("name", "role", "theme", "icon") if extra.get(k)})
+        models = adapter.menu_models()
         providers.append({
             "id": pid,
             "available": adapter.available(),
             "login": pid in account_login.MODE_BY_PROVIDER,  # has a CLI login the page can drive
-            "models": adapter.known_models(),
-            "default_model": (adapter.known_models()[0] if adapter.known_models() else ""),
+            "models": models,
+            "default_model": (models[0] if models else ""),
             "name": meta.get("name", pid),
             "role": meta.get("role", "AI Provider"),
             "theme": meta.get("theme", "lime"),

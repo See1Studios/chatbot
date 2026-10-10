@@ -2,7 +2,10 @@
 endpoint does not cost its 10 s timeout on every /api/providers call (30 s seen live on 2026-09-27).
 Run: engine/run-tests.sh test_models_meta_cache
 """
+import json
 import sys
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -36,6 +39,44 @@ class ModelsMetaCache(unittest.TestCase):
             self.assertEqual(op.call_count, 1)
             self.a._get_models_meta()                        # 61 s later: tries again
             self.assertEqual(op.call_count, 2)
+
+    def test_the_menu_does_not_wait_on_a_cold_catalog(self):
+        from providers.adapter_openai import OpenAIDialectAdapter
+        gate = threading.Event()
+        body = json.dumps({"data": [
+            {"id": "stealth/space-bunny-alpha", "pricing": {"prompt": "0", "completion": "0"}},
+            {"id": "z-ai/glm-5.2:free", "pricing": {"prompt": "0", "completion": "0"}},
+        ]}).encode()
+
+        class Resp:
+            def read(self):
+                return body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        def slow_open(*args, **kwargs):
+            gate.wait(5)
+            return Resp()
+
+        a = OpenAIDialectAdapter(
+            id="or", base_url="http://x/v1", api_key_env="NONE", default_model="z-ai/glm-5.2:free",
+            curated_models=["z-ai/glm-5.2:free", "stealth/space-bunny-alpha"], free_only=True)
+        with mock.patch.object(adapter_openai, "urlopen", slow_open):
+            t0 = time.monotonic()
+            models = a.menu_models()
+            self.assertLess(time.monotonic() - t0, 0.5)
+            self.assertEqual(models, ["z-ai/glm-5.2:free"])
+            self.assertNotIn("stealth/space-bunny-alpha", models)
+            gate.set()
+            deadline = time.monotonic() + 3
+            while time.monotonic() < deadline and not a._models_meta_cache.get("data"):
+                time.sleep(0.02)
+        self.assertIn("stealth/space-bunny-alpha", a.known_models())
+        self.assertIn("stealth/space-bunny-alpha", a.menu_models())
 
 
 if __name__ == "__main__":

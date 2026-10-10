@@ -17,7 +17,7 @@ from urllib.request import Request, urlopen
 
 from host_config import AGENT_PATH_PREFIX, GROK_BIN, HARD_TOKENS, HOME, MCP_URL, SOFT_TOKENS, WORKSPACE
 from tool_format import _format_tool_call, _format_tool_result
-from providers.adapter_base import AgentAdapter, cached_model_list, quota_view_of, warm_model_list
+from providers.adapter_base import AgentAdapter, cached_model_list, menu_model_list, quota_view_of, warm_model_list
 import media_handler as _media
 import platform_compat
 
@@ -167,6 +167,7 @@ def _fetch_grok_billing(token: str) -> dict:
 
 
 _GROK_MODELS_CACHE = {"ts": 0.0, "models": []}
+_GROK_MENU_FALLBACK = ["grok-4.7", "grok-4.6", "grok-4.5"]
 
 
 class GrokAdapter(AgentAdapter):
@@ -432,7 +433,10 @@ class GrokAdapter(AgentAdapter):
         warm_model_list(_GROK_MODELS_CACHE, self._fetch_models)
 
     def known_models(self) -> List[str]:
-        return cached_model_list(_GROK_MODELS_CACHE, self._fetch_models) or ["grok-4.7", "grok-4.6", "grok-4.5"]
+        return cached_model_list(_GROK_MODELS_CACHE, self._fetch_models) or list(_GROK_MENU_FALLBACK)
+
+    def menu_models(self) -> List[str]:
+        return menu_model_list(_GROK_MODELS_CACHE, self._fetch_models, _GROK_MENU_FALLBACK)
 
     def _fetch_models(self) -> List[str]:
         res = subprocess.run([self.find_executable(), "models"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,

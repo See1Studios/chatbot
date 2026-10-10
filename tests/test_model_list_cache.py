@@ -5,6 +5,7 @@ import sys
 import threading
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -72,6 +73,82 @@ class ModelListCacheTest(unittest.TestCase):
             time.sleep(0.05)
         self.assertEqual(cached_model_list(cache, lambda: self.fail("fetched")), ["x"])
         warm_model_list(cache, lambda: self.fail("warmed again"))
+
+    def test_the_menu_does_not_wait_on_a_cold_cli(self):
+        from providers.adapter_base import menu_model_list
+        gate, calls = threading.Event(), []
+
+        def slow():
+            calls.append(1)
+            gate.wait(5)
+            return ["live"]
+
+        cache = {"ts": 0.0, "models": []}
+        t0 = time.monotonic()
+        self.assertEqual(menu_model_list(cache, slow, ["fallback"]), ["fallback"])
+        self.assertLess(time.monotonic() - t0, 0.5)
+        for _ in range(50):
+            if calls:
+                break
+            time.sleep(0.02)
+        t0 = time.monotonic()
+        self.assertEqual(menu_model_list(cache, slow, ["fallback"]), ["fallback"])
+        self.assertLess(time.monotonic() - t0, 0.5)
+        self.assertEqual(len(calls), 1)
+        gate.set()
+        for _ in range(50):
+            if cache.get("models") == ["live"] and not cache.get("refreshing"):
+                break
+            time.sleep(0.02)
+        self.assertEqual(menu_model_list(cache, lambda: self.fail("fetched"), ["fallback"]), ["live"])
+
+    def test_a_failed_menu_fetch_is_not_retried_at_once(self):
+        from providers.adapter_base import menu_model_list
+        calls = []
+
+        def boom():
+            calls.append(1)
+            raise OSError("down")
+
+        cache = {"ts": 0.0, "models": []}
+        self.assertEqual(menu_model_list(cache, boom, ["fb"]), ["fb"])
+        for _ in range(50):
+            if not cache.get("refreshing"):
+                break
+            time.sleep(0.02)
+        self.assertEqual(menu_model_list(cache, boom, ["fb"]), ["fb"])
+        self.assertEqual(calls, [1])
+
+    def test_the_provider_menu_asks_each_adapter_once(self):
+        import server
+
+        class Adapter:
+            meta = {}
+
+            def available(self):
+                return True
+
+            def menu_models(self):
+                self.calls = getattr(self, "calls", 0) + 1
+                if self.calls > 1:
+                    raise AssertionError("menu_models called twice")
+                return ["m1", "m2"]
+
+        adapter = Adapter()
+        req = _Req()
+        with mock.patch.object(server, "AGENT_ADAPTERS", {"x": adapter}):
+            server._providers(req)
+        body = req.json_body
+        self.assertEqual(body["providers"][0]["models"], ["m1", "m2"])
+        self.assertEqual(body["providers"][0]["default_model"], "m1")
+        self.assertEqual(adapter.calls, 1)
+
+
+class _Req:
+    def json(self, obj, code=200):
+        self.json_body = obj
+        return self
+
 
 if __name__ == "__main__":
     unittest.main()

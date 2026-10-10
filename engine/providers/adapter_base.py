@@ -141,6 +141,7 @@ def rescue_leaked_choices(text: str) -> Tuple[str, List[str]]:
 
 
 MODEL_LIST_TTL_SEC = 300.0
+MENU_FAIL_SEC = 60.0
 
 
 def cached_model_list(cache: Dict[str, Any], fetch, ttl: float = MODEL_LIST_TTL_SEC) -> List[str]:
@@ -187,7 +188,31 @@ def _store_models(cache: Dict[str, Any], fetch) -> List[str]:
         fresh = []
     if fresh:
         cache["models"], cache["ts"] = list(fresh), time.time()
+    else:
+        cache["failed_ts"] = time.time()   # a down CLI is not started again on every menu poll
     return cache.get("models") or []
+
+
+def menu_model_list(cache: Dict[str, Any], fetch, fallback: List[str]) -> List[str]:
+    """The list a page menu shows. Never fetches in the caller: a fresh cache is returned, and a missing or
+    stale one is fetched beside the poll. A failed fetch is remembered for a minute, so a down CLI is not
+    started on every poll. `fallback` is shown until a fetch succeeds."""
+    now = time.time()
+    models = list(cache.get("models") or [])
+    fresh = bool(models) and now - float(cache.get("ts", 0.0)) < MODEL_LIST_TTL_SEC
+    if (not fresh and not cache.get("refreshing")
+            and now - float(cache.get("failed_ts", 0.0)) >= MENU_FAIL_SEC):
+        cache["refreshing"] = True
+
+        def refresh() -> None:
+            try:
+                _store_models(cache, fetch)
+            finally:
+                cache["refreshing"] = False
+
+        threading.Thread(target=refresh, name="model-list-menu", daemon=True).start()
+        models = list(cache.get("models") or [])
+    return models or list(fallback)
 
 def parse_pct(text) -> Optional[int]:
     """'32%' / '45% (9/20)' / 'ok (100%)' -> 32 / 45 / 100: a leading percentage, else one in parentheses; else None."""
@@ -335,6 +360,11 @@ class AgentAdapter:
         this provider. Empty = no fixed list to guess at (leaves the
         dropdown at just the CLI's own default) -- don't invent one."""
         return []
+
+    def menu_models(self) -> List[str]:
+        """The model list the provider menu shows. A static list answers here; a CLI adapter overrides this
+        so the page never waits on a process."""
+        return self.known_models()
 
     def resolve_model(self, model: str) -> str:
         """Resolve a model name, alias or family to a supported model id. Default returns model unchanged."""

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 
 from pathlib import Path
@@ -282,6 +283,32 @@ class OpenAIDialectAdapter(AgentAdapter):
                 pass
             if self.default_model and self.default_model not in models:
                 models.insert(0, self.default_model)
+        return models
+
+    def menu_models(self) -> List[str]:
+        """The provider menu. A free catalog that has not been fetched is filled beside the poll; until then
+        the menu shows the curated free ids and does not wait on the HTTP call."""
+        if not self.free_only:
+            return list(self._curated_models)
+        now = time.time()
+        data = self._models_meta_cache.get("data") or {}
+        fresh = bool(data) and now - float(self._models_meta_cache.get("ts", 0.0)) < 600
+        failed = now - float(self._models_meta_cache.get("failed_ts", 0.0)) < 60
+        if fresh or failed:
+            return self.known_models()
+        if not self._models_meta_cache.get("refreshing"):
+            self._models_meta_cache["refreshing"] = True
+
+            def refresh() -> None:
+                try:
+                    self._get_models_meta()
+                finally:
+                    self._models_meta_cache["refreshing"] = False
+
+            threading.Thread(target=refresh, name="models-meta-menu", daemon=True).start()
+        models = [m for m in self._curated_models if is_openrouter_free_model(m)]
+        if self.default_model and self.default_model not in models:
+            models.insert(0, self.default_model)
         return models
 
     def coerce_openrouter_model(self, model: str) -> str:
