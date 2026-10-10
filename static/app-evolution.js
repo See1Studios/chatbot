@@ -70,7 +70,7 @@ const TICKET_STATUS_LABEL = i18nTable('ticket.status');
 // or is dropped by the operator ([Land] / [Discard]). BUTTON_LOGIC_v1: one verb, one meaning; no ticket shows more
 // than three. [action, catalog key of its button]; ticketDecisionsFor gives [action, word].
 const TICKET_DECISIONS = {
-  proposed: [['delegate', 'ticket.button.delegate'], ['decline', 'ticket.button.decline']],
+  proposed: [['approve', 'ticket.button.approve'], ['decline', 'ticket.button.decline']],
   approved: [['delegate', 'ticket.button.delegate'], ['decline', 'ticket.button.decline']],
   awaiting_merge: [['merge', 'ticket.button.merge'], ['rework', 'ticket.button.rework'], ['discard', 'ticket.button.discard']],
   wontfix: [['reopen', 'ticket.button.reopen']],
@@ -393,7 +393,10 @@ function renderWorkCard(r) {
     } else if (r.active && r.started) {
       metaParts.push('⏱ ' + workElapsed(Date.now() / 1000 - r.started));
     }
-    if (r.active && typeof r.files_changed === 'number') metaParts.push(tr('work.files', { n: r.files_changed }));
+    if (r.active && typeof r.files_changed === 'number') {
+      const total = (r.paths && r.paths.length) || (r.tasks && new Set(r.tasks.flatMap(t => t.paths || [])).size) || 0;
+      metaParts.push(tr('work.files', { n: total ? r.files_changed + '/' + total : r.files_changed }));
+    }
     if (r.active && r.tasks_total > 1 && r.task) metaParts.push(tr('work.step', { n: r.task, total: r.tasks_total }));
     if (r.active && r.round) metaParts.push(tr('work.round', { n: r.round }));
     if (r.active && r.brain) metaParts.push('🧠 ' + r.brain.split('/').pop());
