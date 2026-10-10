@@ -27,6 +27,14 @@ Every blocking `subprocess` call (`run`, `check_output`, `check_call`, `call`) n
 single number: pick what the call needs (a `ps` gets 30 s, a test run minutes). Long model turns are watched by
 `turn_watchdog.py`, not by a call timeout.
 
+### Shell scripts
+
+A shell script finds its own folder with `cd "$(dirname "$0")" && pwd -P` (in bash, `${BASH_SOURCE[0]}`), or works
+from an absolute path. Never hand `readlink -f`, `realpath` or `/bin/pwd` a relative path: some builds resolve it by
+reading every parent directory and fail when one is traverse-only (`--x`), and older macOS `readlink` has no `-f`.
+Shell scripts are dev-build tools (the shipped build uses a Python launcher, `docs/plans/platform-portability.md`),
+but they run on every dev host, Linux and macOS alike.
+
 ### Work banter
 
 In delegation, handoff, commit and report text, banter is one or two sentences at most; the rest is facts, diff, test
@@ -145,6 +153,7 @@ Entry shape: `- [DRIFT-nnn] <path>::<symbol> -- <rule> -- found <date> by <role 
 | Python module ≤ 80,000 bytes; Python function ≤ 80 lines; listed ceilings only go down | all | `test_file_sizes` (numbers: Conventions above) |
 | Size numbers in this file match the size guard (80 lines, 80,000 bytes) | all | `test_conventions` |
 | Blocking `subprocess` calls (`run`, `check_output`, `check_call`, `call`) name an explicit `timeout` (legacy allowlist in the test) | all | `test_conventions` |
+| Shell scripts find their folder with `cd "$(dirname "$0")" && pwd -P` or an absolute path, never `readlink -f`, `realpath` or `/bin/pwd` on a relative path (Conventions above) | all | manual (a grep cannot tell a relative argument from an absolute one; regressions for the two scripts: test_ctl_paths, test_live_agent_suite) |
 | Test pairing: a feat/fix/refactor/perf commit that changes code carries `tests/`, or a `No-Test: <why>` trailer says why not | all | `test_githooks` (commit-msg hook, TEST_PAIRING_v1; code/test definition `tools/review_checklist.py`, which also warns in the delegation review) |
 | Work banter in delegation / handoff / commit reports ≤ 1-2 sentences (Conventions above) | all | manual (a check would have to match words or sentences, which the language rule below bars) |
 | Page script or stylesheet ≤ 43,000 bytes; listed ceilings only go down | all | `test_page_scripts` |

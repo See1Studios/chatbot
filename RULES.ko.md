@@ -1,4 +1,4 @@
-<!-- AUTO-GENERATED MIRROR FROM RULES.md (source_sha256: a2d1a8bb8a7d2f12c54306688329878d437e5435ca02ce6ab271a05f72adc468) — DO NOT EDIT MANUALLY -->
+<!-- AUTO-GENERATED MIRROR FROM RULES.md (source_sha256: 357a6ee52cf8921715316b3e2ea7285bdb13def69bc7a0c2b2787c120c5f9850) — DO NOT EDIT MANUALLY -->
 
 # 규칙
 
@@ -28,6 +28,14 @@
 모든 차단 `subprocess` 호출(`run`, `check_output`, `check_call`, `call`)은 명시적인 `timeout` 이름을 지정합니다. 없다
 단일 번호: 호출에 필요한 것을 선택합니다(`ps`는 30초, 테스트 실행 시간(분)을 얻습니다). 긴 모델 회전을 지켜보는 사람
 `turn_watchdog.py`, 통화 시간 초과가 아닙니다.
+
+### 쉘 스크립트
+
+쉘 스크립트는 `cd "$(dirname "$0")" && pwd -P`(bash에서는 `${BASH_SOURCE[0]}`)를 사용하여 자체 폴더를 찾거나 작동합니다.
+절대 경로에서. `readlink -f`, `realpath` 또는 `/bin/pwd`에 상대 경로를 전달하지 마십시오. 일부 빌드에서는 이를 해결합니다.
+모든 상위 디렉토리를 읽고 하나가 트래버스 전용(`--x`)이고 이전 macOS `readlink`에 `-f`가 없으면 실패합니다.
+셸 스크립트는 개발 빌드 도구입니다(제공된 빌드는 Python 실행 프로그램인 `docs/plans/platform-portability.md`를 사용함).
+하지만 모든 개발 호스트, Linux 및 macOS에서 모두 실행됩니다.
 
 ### 일 농담
 
@@ -147,6 +155,7 @@
 | Python 모듈 ≤ 80,000바이트; Python 함수 ≤ 80줄; 나열된 천장만 내려갑니다 | 모두 | `test_file_sizes`(번호: 위의 규칙) |
 | 이 파일의 크기 번호는 크기 가드(80줄, 80,000바이트)와 일치합니다. | 모두 | `test_conventions` |
 | `subprocess` 호출(`run`, `check_output`, `check_call`, `call`)을 차단하면 명시적인 `timeout` 이름이 지정됩니다(테스트의 레거시 허용 목록) | 모두 | `test_conventions` |
+| 쉘 스크립트는 `cd "$(dirname "$0")" && pwd -P` 또는 절대 경로를 사용하여 폴더를 찾습니다. 상대 경로에서는 `readlink -f`, `realpath` 또는 `/bin/pwd`를 찾을 수 없습니다(위 규칙) | 모두 | manual(grep은 절대 인수와 상대 인수를 구분할 수 없습니다. 두 스크립트에 대한 회귀: test_ctl_paths, test_live_agent_suite) |
 | 테스트 페어링: 변경 코드가 `tests/`를 전달하는 feat/fix/refactor/perf 커밋 또는 `No-Test: <why>` 예고편에 표시되지 않는 이유 | 모두 | `test_githooks`(commit-msg 후크, TEST_PAIRING_v1; 코드/테스트 정의 `tools/review_checklist.py`, 위임 검토에서도 경고함) |
 | 위임/인계/커밋 보고 시 작업 농담 ≤ 1-2 문장(위 규칙) | 모두 | 수동(검사는 막대 아래의 언어 규칙에 따라 단어 또는 문장과 일치해야 함) |
 | 페이지 스크립트 또는 스타일시트 ≤ 43,000바이트; 나열된 천장만 내려갑니다 | 모두 | `test_page_scripts` |
