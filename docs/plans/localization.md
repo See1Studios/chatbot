@@ -40,7 +40,28 @@
 | 답변 언어 지시 | `grep -rn "in Korean"` | `data/workspace/roles/pd/procedure.md`, `characters.py` 기억 요약 프롬프트 등. 사용자 언어 설정은 없음 |
 | 페르소나 말투가 엔진 문자열에 섞임 | `grep -rn "냥" static/*.js *.py` | **58줄**(예: "연결이 끊겼다냥"). 엔진 문자열과 캐릭터 말투가 분리돼 있지 않다(페르소나 이름·말투는 표시값이라는 원칙과도 충돌) |
 | i18n 기반 | 카탈로그·`t()` 함수·언어 설정 검색 | 없음 |
-| 사적 모드의 언어 고정 | `private_engine.py` Grok 오버레이 | "Korean only" 규칙(#241). 다른 언어 사용자에게는 오동작 |
+| 사적 모드의 언어 고정 | `private_engine.py` Grok 오버레이 | "Korean only" 규칙(#241). 다른 언어 사용자에게는 오동작 (→ 아래 §2.1) |
+
+### 2.1 언어에 묶인 규칙 목록 (l10n/H, 2026-10-10 점검)
+
+UI와 서버의 하드코딩 표기 문자열은 카탈로그로 이관되었으나(l10n/E, l10n/F), 엔진 로직·지침 프롬프트·데이터 테이블 수준에서 특정 언어(주로 한국어)를 강제하거나 전제하는 규칙들이 남아 있다. 이 규칙들은 단순 카탈로그 교체만으로는 다국어 지원이 불가능하며, 각 담당 계획에서 템플릿화·변수화 또는 규칙 중립화 작업이 필요하다.
+
+| # | 분류 | 위치 | 고정된 규칙 / 내용 | 문제 및 영향 | 담당 계획 링크 |
+|---|---|---|---|---|---|
+| 1 | 사적 모드 모델별 지침 | `private_engine.py` (`_RENDER_PROTOCOL_REACTION_OVERLAY`, #241) | "Korean-only in action, dialogue, and thought. No English meta. Choice labels Korean." 및 한국어 특화 신음·SFX·의태어(하아앙, 쪽쪽, 찌걱 등) 강제 | 영어나 타 언어 사용자에게도 한국어 발화 및 한국어 SFX/신음 어휘만 강제되어 몰입 저해 및 오동작 | [private-mode.md](private-mode.md) (문체·연출 튜닝) |
+| 2 | 사적 모드 텐션 테이블·지침 | `engine_data/private_tension_*.json`, `private_engine.py::tension_context` | 단계명(도입/교감/친밀/깊은 유대, 고조/밀착/절정), 슬롯 라벨·가이드, 분위기 지침(grok: "한국어만", "대사는 열 있는 한국어. 영어·메타 금지") 및 슬롯 포맷("단계 N 유지") | 텐션 엔진이 프롬프트에 주입하는 컨텍스트가 한국어로 고정되어 모델이 선택지나 반응을 타 언어로 구성하기 어려움 | [private-mode.md](private-mode.md) (텐션 데이터 분리) · `l10n/G` |
+| 3 | 공통 렌더링 계약 메타 예시 | `private_engine.py::RENDER_PROTOCOL` | 선택지 주입 형식 예시 `<!--choices: 라벨 -> (행동) \| 라벨 -> "사용자 대사" (행동)-->`에서 메타 키워드(`라벨`, `행동`, `사용자 대사`)가 한국어 | 영문/다국어 모델이 프롬프트 예시의 한국어 키워드를 그대로 모방하거나 선택지 파싱 시 혼선 유발 가능 | [private-mode.md](private-mode.md) §1 · [engine-decides.md](engine-decides.md) |
+| 4 | 문턱 인계 요약 프롬프트 | `threshold.py::gist_prompt` | `Plain words in Korean only: no file names, paths, links, code, numbers or secrets, and no quotes from the conversation.` | 업무 방 → 사적 방 전환 시 생성되는 인계 쪽지가 사용자 언어와 무관하게 무조건 한국어로 작성됨 | [private-mode.md](private-mode.md) §8.4 · `l10n/G` |
+| 5 | 사적 대화 기억 요약 프롬프트 | `characters.py::private_digest_prompt` | `Facts only, one per line starting with "- " and a slot tag (progress:, promise:, pref:, or taboo:), in Korean. No work topics, no secrets.` | 사적 대화 종료 후 기록되는 장기 기억(`private-memory.md`) 요약이 언어 설정과 무관하게 한국어로 고정됨 | [archive/2026/character-memory-adapter.md](archive/2026/character-memory-adapter.md) · `l10n/G` |
+| 6 | 캐릭터 카드 자동 생성 프롬프트 | `card_prompt.py` (`_JSON_SYSTEM`, `_FILL_SYSTEM`, `_REGEN_SYSTEM`) | `All story fields in Korean. image_prompt and negative_prompt in English.` | AI 캐릭터 카드 생성 시 스토리·성격·대사 등 본문 필드가 한국어로 고정 생성됨 | [character-resource-pipeline.md](character-resource-pipeline.md) · [archive/2026/character-generation-system.md](archive/2026/character-generation-system.md) · `l10n/G` |
+| 7 | 캐릭터 이름 변경 시 조사 결합 | `character_names.py` | `(?<![\w])(%s)` 패턴으로 한국어 조사(이/가, 은/는 등) 결합을 허용 | 한국어 조사는 보존되나 타 언어 조사/어미 처리나 자음/모음 받침에 따른 조사 자동 변환은 미지원 | [character-resource-pipeline.md](character-resource-pipeline.md) · [private-mode.md](private-mode.md) |
+| 8 | 템플릿 기본 스킬의 언어 지시 | `templates/workspace/.agents/skills/fact-check/SKILL.md` | `Present in formal, objective, academic Korean.`, `## Output Format Directive (Strictly Korean)` | 새 설치 작업공간 템플릿의 스킬이 한국어로 고정되어 영문 환경에서도 한국어로 결과 출력 | `l10n/K` · [edition-boundary.md](edition-boundary.md) |
+| 9 | 플랫폼 기본 인코딩 가정 | `platform_compat.py`, [platform-portability.md](platform-portability.md) | 한국어 Windows의 기본 콘솔/파일 인코딩(cp949) 가정 및 UTF-8 강제 필요 (`PYTHONUTF8=1`, `encoding="utf-8"`) | 타 언어 Windows 및 OS 배포 시 인코딩 불일치로 인한 크래시 방지 장치 필요 | [platform-portability.md](platform-portability.md) `pp/B` · `pp/F` |
+
+> **언어 중립화 완료 사례 (대조군)**:
+> - 발화 의도 감지: 과거 한국어/영어 의문문·어미 추측 정규식을 폐기하고 명시적 명령어(`/btw`) 채택 (`session_weights.py` `NO_GUESS_BTW_v1`).
+> - 기억 슬롯 태그: 한국어 키워드 추측을 폐기하고 명시적 슬롯 태그(`progress:`, `promise:`, `pref:`, `taboo:`) 채택 (`memory_relationship.py` `NO_GUESS_SLOT_v1`).
+> - 요약 및 핸드오프 프롬프트: "Answer in the language of the question", "in the language the talk is in"으로 대화 언어 자동 추종 (`session_weights.py`).
 
 ---
 
@@ -82,7 +103,7 @@
 | `l10n/E` | UI 문자열 이관(파일 단위 티켓 여러 장, 큰 파일부터) | `static/app-*.js`, `index.html` | 파일마다 래칫 기준선이 0으로 내려감 | 0 · — | L → 파일별 S/M | l10n/B, C, D | ✅ 2026-10-07 #731–#753 — 화면 파일 래칫 기준선 0(서버가 단어로 비교하는 app-device.js 기기 종류 1줄만 l10n/F로). 이관 순서: app-evolution.js ✅ #731, app-status.js ✅ #732, index.html ✅ #733, app-team.js ✅ #738, app.js ✅ #739, app-sse.js ✅ #740, app-session.js ✅ #741, app-messages.js ✅ #742, app-characters.js ✅ #743, slash.js ✅ #744, app-activity.js ✅ #745, artifacts.js ✅ #746, markdown.js ✅ #749, service-log.js ✅ #750, app-sessions-tab.js·app-api.js·app-turn.js ✅ #751, 작은 화면 파일들과 CSS ✅ #752, 예외 표시 표(l10n-ok) ✅ #753 |
 | `l10n/F` | 서버 사용자 메시지 이관(로그용 문자열은 영어로 통일하고 이관 대상에서 제외) | `server.py`, `session.py`, `providers/` 등 | 서버가 사용자에게 보내는 문자열은 모두 카탈로그 키 | 3 · ⚡ | M | l10n/C | ✅ 2026-10-07 #754–#761 — 서버 래칫 기준선 0(사적 대화 문체 예시 private_engine.py만 l10n/H로). 이관 순서: 기반(i18n.py) #754, 로그인 흐름(account_login.py) #755, 세션 핵심(session.py·loop_guard·write_guard·turn_watchdog·adapter_base/agy) #756, 턴 진행(session_turn.py·session_weights.py) #757, 로그 다이제스트(logdigest.py) #758, 프로바이더 어댑터·계정(adapter_openai/grok/codex/claude, accounts, route_accounts) #759, server.py·delegation.py·workspace_status.py #760, 마지막 서버 문구(기억·미리보기·업로드·단체방·장면·지침 머리글 등) #761 |
 | `l10n/G` | 답변 언어 변수화(D5): 헌장·절차·프롬프트의 "in Korean"을 설정값 주입으로 | `instructions.py`, `characters.py`, `data/workspace/roles/*/procedure.md` | 언어를 en으로 설정하면 새 세션의 답변이 영어 | 3 · ⚡ | S | D5 | 대기 |
-| `l10n/H` | 언어별 품질 확인: 사적 모드의 언어 고정 규칙(#241 "Korean only") 등 언어에 묶인 규칙을 목록으로 정리. 수정은 private-mode 계획에서 | 이 문서 §2 갱신 | 언어에 묶인 규칙 목록 + 담당 계획 링크 | 0 · — | S | — | 대기 |
+| `l10n/H` | 언어별 품질 확인: 사적 모드의 언어 고정 규칙(#241 "Korean only") 등 언어에 묶인 규칙을 목록으로 정리. 수정은 private-mode 계획에서 | 이 문서 §2 갱신 | 언어에 묶인 규칙 목록 + 담당 계획 링크 | 0 · — | S | — | ✅ 2026-10-10 #940 — §2.1에 사적 모드(Grok 오버레이·텐션 테이블·선택지 계약)·기억/문턱 요약·카드 생성 등 언어 고정 규칙 9종 목록화 및 담당 계획 링크 정리 |
 | `l10n/I` | 영어 카탈로그 완성(1차) + 운영자 검수 | `static/i18n/en.json` | 래칫 기준선 0 + 누락 키 0(`test_l10n_catalogs`) | 0 · — | M | l10n/E, F | 대기 |
 | `l10n/J` | 2차 언어(ja, zh-Hans) 초벌 + 원어민 검수 | `static/i18n/ja.json`, `zh-Hans.json` | 누락 키 0 | 0 · — | M | l10n/I, D6 | 대기 |
 | `l10n/K` | 기본 템플릿 콘텐츠(L5)의 언어별 버전 | `templates/` | 새 설치가 설정 언어의 기본 캐릭터로 시작 | 0 · — | S | uds 템플릿 단계 | 대기 |
