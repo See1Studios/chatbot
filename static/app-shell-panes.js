@@ -38,19 +38,19 @@ function shellSettingsRows(ctx) {
   const rows = [
     { k: 'appearance', label: SHELL_TEXT.appearance },
     { k: 'chat_settings', label: SHELL_TEXT.chat_settings },
-    { k: 'accounts', label: SHELL_TEXT.accounts },
-    { k: 'characters', label: SHELL_TEXT.characters },
+    { k: 'push', label: SHELL_TEXT.notifications, on: Boolean(ctx.push) },
+    { k: 'characters', label: SHELL_TEXT.characters, div: true },
     { k: 'roles', label: SHELL_TEXT.roles },
     { k: 'auto_react', label: SHELL_TEXT.auto_react },
+    { k: 'accounts', label: SHELL_TEXT.accounts, div: true },
     { k: 'instructions', label: SHELL_TEXT.instructions },
     { k: 'skills', label: SHELL_TEXT.skills },
     { k: 'mcp', label: SHELL_TEXT.mcp },
-    { k: 'push', label: SHELL_TEXT.notifications, on: Boolean(ctx.push) },
-    { k: 'dev', label: SHELL_TEXT.dev, on: Boolean(ctx.dev) },
+    { k: 'dev', label: SHELL_TEXT.dev, on: Boolean(ctx.dev), div: true },
     { k: 'activity', label: SHELL_TEXT.log, dev: true },
     { k: 'evolution', label: SHELL_TEXT.improve, dev: true }
   ];
-  if (ctx.revive) rows.push({ k: 'revive', label: SHELL_TEXT.revive });   // the dev install's host repair
+  if (ctx.revive) rows.push({ k: 'revive', label: SHELL_TEXT.revive, div: true });   // the dev install's host repair
   return rows;
 }
 const SHELL_ICONS = {
@@ -472,6 +472,10 @@ function shellSettingsOpen() {
   panel.textContent = '';
   const list = shellEl('div', 'shell-rows');
   rows.forEach(row => {
+    if (row.div) {
+      const hr = shellEl('hr', 'shell-divider' + (row.dev ? ' shell-dev' : ''));
+      list.appendChild(hr);
+    }
     const b = shellRowButton(row);
     b.addEventListener('click', () => {
       if (row.k === 'appearance') return shellGoPane('appearance', 'settings');

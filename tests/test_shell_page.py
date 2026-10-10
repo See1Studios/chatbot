@@ -406,7 +406,8 @@ class ShellList(unittest.TestCase):
         card = [r["k"] for r in o["profile"]]
         gear = [r["k"] for r in o["settings"]]
         self.assertEqual(card, ["art", "sessions", "artifacts", "manage"])      # the character's own things
-        self.assertEqual(gear, ["appearance", "chat_settings", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "push", "dev", "activity", "evolution", "revive"])
+        self.assertEqual(gear, ["appearance", "chat_settings", "push", "characters", "roles", "auto_react", "accounts", "instructions", "skills", "mcp", "dev", "activity", "evolution", "revive"])
+        self.assertEqual([r["k"] for r in o["settings"] if r.get("div")], ["characters", "accounts", "dev", "revive"])
         self.assertEqual(sorted(k for k in card + gear if k in o["panes"]), sorted(["activity", "appearance", "artifacts", "chat_settings", "evolution", "sessions"]))
         # the team pane is in two: one character's card from its profile, the shared part from the settings
         self.assertEqual(o["teamShows"], [True, False, False, False, True])
@@ -416,6 +417,8 @@ class ShellList(unittest.TestCase):
         self.assertIn("shellGoTeam(c.id, 'profile')", src)
         self.assertIn("shellGoTeamSection(row.k, 'settings')", src)
         self.assertIn("shellGoStatus(row.k, 'settings')", src)
+        self.assertIn("shell-divider", src)
+        self.assertIn(".shell-divider{", CSS)
         self.assertIn("card.setAttribute('data-character-id', ex.id || '')", (STATIC / "app-team.js").read_text(encoding="utf-8"))
         self.assertEqual(sorted(o["panes"]), ["activity", "appearance", "artifacts", "chat_settings", "evolution", "sessions", "status", "team"])
         # the log and improvement are developer mode's -- a switch of its own, apart from "details"
@@ -441,7 +444,7 @@ class ShellList(unittest.TestCase):
         self.assertIn("pickModel(o.value)", card)
         self.assertNotIn("toggleProviderTray", card)               # ... without leaving the card for them
         self.assertNotIn("showModelMenu", card)
-        self.assertEqual(o["settingsShipped"], ["appearance", "chat_settings", "accounts", "characters", "roles", "auto_react", "instructions", "skills", "mcp", "push", "dev", "activity", "evolution"])
+        self.assertEqual(o["settingsShipped"], ["appearance", "chat_settings", "push", "characters", "roles", "auto_react", "accounts", "instructions", "skills", "mcp", "dev", "activity", "evolution"])
 
     def test_chat_settings_panel_and_toggle(self):
         o = self.o

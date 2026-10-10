@@ -83,6 +83,7 @@ html.shell2 #teamList > [hidden]{display:none !important}
 .shell-quota{padding:0 .8rem .6rem;flex-shrink:0}
 .shell-quota[hidden]{display:none}
 .shell-rows{display:flex;flex-direction:column;gap:2px;padding:.4rem;overflow-y:auto;min-height:0}
+.shell-divider{border:0;border-top:1px solid var(--border);margin:.35rem .65rem;opacity:.7}
 .shell-rowbtn{display:flex;align-items:center;justify-content:space-between;gap:.6rem;width:100%;padding:.6rem .65rem;border:0;border-radius:10px;background:transparent;text-align:left;font-size:.9rem;color:var(--text)}
 .shell-rowbtn:hover{background:rgba(255,255,255,.05)}
 .shell-rowbtn small{color:var(--muted);font-size:.78rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
