@@ -23,7 +23,7 @@ map only says which file does what.
 | Logs (telemetry, `docs/plans/telemetry.md`) | `telemetry/obslog.py` (writes `logs/events.jsonl`), `telemetry/logdigest.py` (reads it), `telemetry/archive.py` (gzip history, 90 days), `telemetry/rollup.py` (daily summaries, forever) |
 | Quota (which brain is out of quota until when, from the usage report; no send to it until then) | `quota_state.py` |
 | Another take on the companion's last answer (takes on the item, the brain's own way) | `regenerate.py` |
-| Service control | `chatbot-ctl.sh`, `ctl_proc.py`; first-run data folder `data_bootstrap.py`; move a data folder `tools/migrate_user_data.py`; dev workspace links `tools/link_dev_workspace.py`; mirror docs `tools/sync_mirrors.py` |
+| Service control | `chatbot-ctl.sh`, `ctl_proc.py`; first-run data folder `data_bootstrap.py`; move a data folder `tools/migrate_user_data.py`; flatten workspace onto the data root `tools/flatten_workspace.py`; dev workspace links `tools/link_dev_workspace.py`; mirror docs `tools/sync_mirrors.py` |
 | Server words by key | `i18n.py` (catalogs `static/i18n/<lang>.json`) |
 
 ### Providers
