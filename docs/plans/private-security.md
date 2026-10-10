@@ -4,7 +4,7 @@
 
 > 상태: **active** (2026-09-28 초안)
 > 목적: 사적 대화(세션·사적 기억·호감도)를 **누가 볼 수 있는가**를 정하고, 보지 말아야 할 쪽마다 막는 장치를 둔다. 규칙마다 테스트·훅·가드를 붙인다.
-> 관련: [private-mode.md](private-mode.md)(사적 모드 SSOT) · [user-data-separation.md](user-data-separation.md)(데이터 위치) · [edition-boundary.md](edition-boundary.md)(배포판) · [market-direction-review.md](market-direction-review.md) R11·R13(수위·가드레일은 이 문서 범위 밖)
+> 관련: [private-mode.md](private-mode.md)(사적 모드 SSOT) · [user-data-separation.md](archive/2026/user-data-separation.md)(데이터 위치) · [edition-boundary.md](edition-boundary.md)(배포판) · [market-direction-review.md](market-direction-review.md) R11·R13(수위·가드레일은 이 문서 범위 밖)
 
 ## 1. 운영자 요청 (2026-09-28)
 

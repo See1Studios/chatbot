@@ -2,7 +2,7 @@
 
 > 방향 (align/D, 2026-09-28): **기반** — `~/.pe` 분리 — 개인화 레이어가 엔진 업데이트에 덮어써지지 않게 하는 전제
 
-> 상태: **active** (갱신 2026-10-03) — 코드 기본값은 `~/.pe`다. 이 NAS는 비추적 `data-pin.env`의 `CHATBOT_DATA`로 `~/.pe`를 쓴다. 인덱스에서 `data/` 추적 파일은 빠졌다(티켓·작업공간 거울·페르소나·캐릭터 자산). 파일은 디스크와 `~/.pe`에 그대로 있고 내용은 바꾸지 않았다. 배포 트리에 개인 캐릭터 샘플은 넣지 않았다(C3, 운영자가 고르기 전). 이력은 다시 쓰지 않는다.
+> 상태: **done** (2026-10-10, 보관) — ~/.pe 분리(uds/B, uds/D, uds/F) 완료, 지침 소유 SSOT는 AGENTS.md / RULES.md 정착 완료. 코드 기본값은 `~/.pe`다. 이 NAS는 비추적 `data-pin.env`의 `CHATBOT_DATA`로 `~/.pe`를 쓴다. 인덱스에서 `data/` 추적 파일은 빠졌다(티켓·작업공간 거울·페르소나·캐릭터 자산). 파일은 디스크와 `~/.pe`에 그대로 있고 내용은 바꾸지 않았다. 배포 트리에 개인 캐릭터 샘플은 넣지 않았다(C3, 운영자가 고르기 전). 이력은 다시 쓰지 않는다.
 > 선행 문서: [user-data-and-editing.md §1](user-data-and-editing.md)
 > 목적: 엔진 코드 저장소와 개인화 데이터(기억, 캐릭터, 세션, 비밀 등)의 물리적·논리적 완전 분리
 > 관련: [release-pipeline.md](release-pipeline.md) · [private-engine-brand.md](private-engine-brand.md) · [character-memory-adapter.md](character-memory-adapter.md) Q1–Q2 (Memory/`CHATBOT_DATA` 분류와 맞출 것) · [VISION.md](../../VISION.md)

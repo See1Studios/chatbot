@@ -11,15 +11,13 @@ from tests._paths import REPO  # noqa: E402
 PLANS = REPO / "docs" / "plans"
 # Active plans written before the prior-art line (#862, 2026-10-09). It only shrinks: a new plan carries the line.
 BEFORE_PRIOR_ART = {
-    "api-adapter-parity.md", "character-creation-landing.md", "character-events-and-rooms.md",
-    "character-memory-adapter.md", "character-resource-pipeline.md", "direction-alignment.md", "director-handoff.md",
+    "api-adapter-parity.md", "character-creation-landing.md", "character-events-and-rooms.md", "character-resource-pipeline.md", "direction-alignment.md", "director-handoff.md",
     "edition-boundary.md", "group-room-header.md", "improvement-layers.md", "localization.md",
     "market-direction-review.md", "multi-agent-worktree-delegation.md",
     "personalization-ladder.md", "plan-execution-workflow.md",
     "platform-portability.md", "plugin-architecture.md", "private-engine-brand.md", "private-mode.md",
     "private-security.md", "quota-failure-resilience.md", "regenerate-swipe.md", "release-pipeline.md",
-    "setting-pack.md", "steam-collab-dlc.md", "telemetry.md", "token-economy.md", "user-data-and-editing.md",
-    "user-data-separation.md", "ux-shell-roadmap.md", "voice-and-audio-interaction.md",
+    "setting-pack.md", "steam-collab-dlc.md", "telemetry.md", "token-economy.md", "ux-shell-roadmap.md", "voice-and-audio-interaction.md",
 }
 STATES = ("active", "done", "superseded", "abandoned")
 NOT_PLANS = {"INDEX.md", "_TEMPLATE.md"}

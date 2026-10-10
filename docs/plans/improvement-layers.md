@@ -3,7 +3,7 @@
 > 방향 (align/D, 2026-10-08): **개발판 전용 + 핵심** — 엔진 쪽은 개발판이 스스로 아픈 곳을 알리고 일감으로 만드는 고리(개발판 전용). 스킬 쪽은 캐릭터가 한 일을 기억해 다시 쓰는 개인화 고리(배포판 포함, `VISION.md` "Agent self-evolution: skills, memories, instructions with user approval and undo")
 > 상태: **active** (2026-10-08 수립, D1 2026-10-08 운영자: A, D2 2026-10-09 운영자: 데이터만 근거. 운영자: "로그에서 이상징후가 보이면 원인 분석을 하고 사용자에게 notify 한 다음 일감화해서 개선하는 구조", "코어 개발과 도구 스크립트 개발, 스킬화가 모두 다른 계층", "쓰레기들을 남김없이 걷어내줘", "feature 별로 모듈이나 패키지를 만들어서 정리")
 > 대체: [archive/2026/recursive-self-evolution.md](archive/2026/recursive-self-evolution.md)의 관찰 쪽(§4.6 observe → record → refer → act). 티켓·보호 경로·가드(코어)는 그대로 쓴다.
-> 관련: [engine-decides.md](engine-decides.md)(엔진이 정한다) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [edition-boundary.md](edition-boundary.md)(개발판/배포판) · [user-data-separation.md](user-data-separation.md)(데이터 위치)
+> 관련: [engine-decides.md](engine-decides.md)(엔진이 정한다) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [edition-boundary.md](edition-boundary.md)(개발판/배포판) · [user-data-separation.md](archive/2026/user-data-separation.md)(데이터 위치)
 
 ---
 

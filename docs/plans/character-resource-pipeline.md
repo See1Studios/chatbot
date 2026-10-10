@@ -5,7 +5,7 @@
 - **상태:** 계획. 착수는 사용자 말로.
 - **작성:** 2026-09-26
 - **결정:** 사용자, 같은 날 — 캐릭터 생성·수정 시 SSOT가 필요 리소스를 만들고 있어야 할 곳에 둔다. 자기진화 루프와 맞춘다. 코드가 아니라 캐릭터 파일의 집.
-- **선행:** `character-art` 스킬, `characters.check_art` (CHARACTER_ART_v1), [multi-agent-worktree-delegation.md](./multi-agent-worktree-delegation.md) §12.4, [user-data-separation.md](./user-data-separation.md), [recursive-self-evolution.md](archive/2026/recursive-self-evolution.md) P1·P3
+- **선행:** `character-art` 스킬, `characters.check_art` (CHARACTER_ART_v1), [multi-agent-worktree-delegation.md](./multi-agent-worktree-delegation.md) §12.4, [user-data-separation.md](archive/2026/user-data-separation.md), [recursive-self-evolution.md](archive/2026/recursive-self-evolution.md) P1·P3
 - **대체하는 절차:** 스킬 `character-pipeline` 6단계의 “웹 루트에 손으로 복사”. 채팅은 이미 캐릭터 폴더 API를 읽는다.
 
 ---
@@ -42,7 +42,7 @@ flowchart LR
 | 파이프라인 스킬 6단계 | 여전히 “웹 루트 동기화”라고 적혀 채팅 코드와 어긋남 |
 | git | 승인 webp뿐 아니라 `avatar_master.jpg`, `*_candidate_*`, `_old_avatar_wigs/`까지 추적. `references/`, `private-memory.md`만 ignore |
 | 캐릭터 경로 보호 | `protected_paths.json` 밖. 위임 티어 0. 그림은 비용·정체성 때문에 티어 0 자동 랜딩으로 다루지 않음 |
-| 사용자 데이터 분리 | [계획](./user-data-separation.md). 캐릭터 폴더는 최종적으로 git 밖 인스턴스 데이터 |
+| 사용자 데이터 분리 | [계획](archive/2026/user-data-separation.md). 캐릭터 폴더는 최종적으로 git 밖 인스턴스 데이터 |
 
 채팅 경로의 복사는 죽은 단계다. Hub와 제품 크롬만 정적 경로가 남는다.
 
@@ -216,7 +216,7 @@ Hub `index.html`은 `/chat/persona/providers/<id>.webp`를 FAB 아이콘으로 �
 
 ### PR 4 — 사용자 데이터 분리와 합류
 
-- [user-data-separation.md](./user-data-separation.md)가 착수되면 `characters/` 전체를 인스턴스 데이터로 옮긴다
+- [user-data-separation.md](archive/2026/user-data-separation.md)가 착수되면 `characters/` 전체를 인스턴스 데이터로 옮긴다
 - 그때 캐릭터 작업의 게이트는 git merge가 아니라 `check_art` + 마스터 승인
 
 ---

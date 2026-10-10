@@ -4,7 +4,7 @@
 
 > 상태: **active** (초안 2026-09-28)
 > 목적: 코어를 어댑터로 짜서 주요 레이어를 모두 사용자가 플러그인으로 더하고, 콘텐츠부터 Steam Workshop에서 교환하게 한다. 이 문서는 설계와 순서다. 구현은 항목별 티켓으로.
-> 관련: [../VISION.md](../../VISION.md) 「확장성」·「해자」 · [../ARCHITECTURE.md](../../ARCHITECTURE.md)(레이어·어댑터 명세, 출발점) · [direction-alignment.md](direction-alignment.md) D8·align/J · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [release-pipeline.md](release-pipeline.md)(Steam은 브랜드 이후) · [localization.md](localization.md)
+> 관련: [../VISION.md](../../VISION.md) 「확장성」·「해자」 · [../ARCHITECTURE.md](../../ARCHITECTURE.md)(레이어·어댑터 명세, 출발점) · [direction-alignment.md](direction-alignment.md) D8·align/J · [user-data-separation.md](archive/2026/user-data-separation.md)(`~/.pe`) · [release-pipeline.md](release-pipeline.md)(Steam은 브랜드 이후) · [localization.md](localization.md)
 > 방향 인용(G0): 숨은 로어의 「테이프」(카드·세이브·에셋 = 소환 매체)는 콘텐츠 플러그인의 몰입 표현으로 쓸 수 있다. 로어 세부는 이 계획의 항목이 아니다.
 > 약칭: `plug`
 
@@ -81,7 +81,7 @@ ST 카드(PNG)·로어북(JSON)·`SKILL.md`는 **매니페스트 없이도** 가
 
 ### 4.5 창작 도구와 등급
 
-- 창작 도구: 캐릭터(카드 폼 편집 — [user-data-and-editing.md](user-data-and-editing.md)), 외형 팩(스프라이트 규격 검사 `tools/check_character_art.py` 재사용), 로어북, 스킬, 테마. 결과물을 바로 `pe-plugin.json` 패키지로 내보낸다.
+- 창작 도구: 캐릭터(카드 폼 편집 — [user-data-and-editing.md](archive/2026/user-data-and-editing.md)), 외형 팩(스프라이트 규격 검사 `tools/check_character_art.py` 재사용), 로어북, 스킬, 테마. 결과물을 바로 `pe-plugin.json` 패키지로 내보낸다.
 - 에이전트의 역할(개인화 사다리): 사용자와 대화하며 캐릭터·스킬·외형 팩을 만들고, 원하면 패키지로 묶어 준다.
 - 콘텐츠 등급: 매니페스트 `rating`(예: `general`·`mature`·`adult`) + Steam의 성인 콘텐츠 정책. 사적 모드 규칙이 든 캐릭터는 기본 `mature` 이상. 기본값은 등급 높은 콘텐츠를 숨김.
 

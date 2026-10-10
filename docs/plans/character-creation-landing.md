@@ -4,7 +4,7 @@
 
 > 상태: **active** (2026-09-28 초안)
 > 목적: 새 친구를 **소환**하는 과정을 단계형 마법사(서브컬처 게임의 캐릭터 생성 절차)로 만든다. 모든 단계에 추천값이 골라져 있고 어디서든 "바로 소환"할 수 있어 장벽은 0, 원하는 만큼 그 자리에서 내 것으로 만든다. 첫 실행의 착지점이자 이후 "새 친구 소환"의 같은 흐름.
-> 관련: [personalization-ladder.md](personalization-ladder.md)(`ladder/C` 카드 쓰기·되돌리기, `ladder/G` 인터뷰) · [user-data-separation.md](user-data-separation.md)(C3 기본 캐릭터, uds/D 부트스트랩) · [plugin-architecture.md](plugin-architecture.md)(프리메이드 팩 = 콘텐츠 팩) · [direction-alignment.md](direction-alignment.md) align/K(시각 디자인, 보류) · [VISION.md](../../VISION.md)
+> 관련: [personalization-ladder.md](personalization-ladder.md)(`ladder/C` 카드 쓰기·되돌리기, `ladder/G` 인터뷰) · [user-data-separation.md](archive/2026/user-data-separation.md)(C3 기본 캐릭터, uds/D 부트스트랩) · [plugin-architecture.md](plugin-architecture.md)(프리메이드 팩 = 콘텐츠 팩) · [direction-alignment.md](direction-alignment.md) align/K(시각 디자인, 보류) · [VISION.md](../../VISION.md)
 
 ## 0. 갱신: 대표 캐릭터가 코치를 소환한다 (운영자 2026-09-30, 현행 방향)
 

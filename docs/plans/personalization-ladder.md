@@ -4,7 +4,7 @@
 
 > 상태: **active** (초안 2026-09-28)
 > 목적: 배포판에서 사용자와 에이전트가 개인화 레이어를 **쉽게·안전하게·되돌릴 수 있게** 쌓는 흐름과 그 공통 뼈대를 설계한다. 구현은 항목별 티켓으로.
-> 관련: [../VISION.md](../../VISION.md) 「개인화 레이어」·「배포판과 개발판」 · [direction-alignment.md](direction-alignment.md) D2·align/H · [plugin-architecture.md](plugin-architecture.md)(결과물을 패키지로) · [character-memory-adapter.md](character-memory-adapter.md) · [user-data-and-editing.md](user-data-and-editing.md)(카드 폼 편집) · [user-data-separation.md](user-data-separation.md)(`~/.pe`) · [private-mode.md](private-mode.md) · [market-direction-review.md](market-direction-review.md)(참고: 매출선/리텐션선 분할)
+> 관련: [../VISION.md](../../VISION.md) 「개인화 레이어」·「배포판과 개발판」 · [direction-alignment.md](direction-alignment.md) D2·align/H · [plugin-architecture.md](plugin-architecture.md)(결과물을 패키지로) · [character-memory-adapter.md](archive/2026/character-memory-adapter.md) · [user-data-and-editing.md](archive/2026/user-data-and-editing.md)(카드 폼 편집) · [user-data-separation.md](archive/2026/user-data-separation.md)(`~/.pe`) · [private-mode.md](private-mode.md) · [market-direction-review.md](market-direction-review.md)(참고: 매출선/리텐션선 분할)
 > 방향 인용(G0): 「기억 계약」(소환을 넘나드는 연속성)은 이 설계의 기억 층이 떠받친다. 로어 세부는 항목이 아니다.
 > 약칭: `ladder`
 
@@ -17,7 +17,7 @@
 **비목표**
 - 엔진 코드 수정(③). 개발판 전용이며 지금의 티켓·관문·위임이 맡는다(VISION, align D2).
 - 플러그인 패키지 형식·Workshop([plugin-architecture.md](plugin-architecture.md)). 여기서는 "결과물을 패키지로 내보낼 수 있다"까지만 잇는다.
-- 관계 기억 어댑터의 내부 설계([character-memory-adapter.md](character-memory-adapter.md)). 여기서는 사용자에게 보이는 기억 층의 흐름만.
+- 관계 기억 어댑터의 내부 설계([character-memory-adapter.md](archive/2026/character-memory-adapter.md)). 여기서는 사용자에게 보이는 기억 층의 흐름만.
 
 ## 2. 현황 점검 (2026-09-28)
 
@@ -105,8 +105,8 @@
 | id | 작업 | paths(변경) | 수용 기준 | tier·⚡ | 크기 | 의존 | 티켓 |
 |---|---|---|---|---|---|---|---|
 | `ladder/A` | 이 문서 + INDEX 행 + 정렬 계획 연결 | `docs/plans/personalization-ladder.md`, `docs/plans/INDEX.md`, `docs/plans/direction-alignment.md` | INDEX 행, 커밋 | 0 · — | S | — | ✅ 티켓 없음(pew D3) |
-| `ladder/B` | 변경 기록과 되돌리기 함수(D1), 지침 백업 흡수 | 새 모듈, `workspace_status.py`, `tests/` | 층 하나(지침)가 이 함수로만 쓰이고 되돌리기가 테스트로 증명됨 | 2 · ⚡ | M | D1, uds | 대기 — 2026-10-09: 캐릭터 층부터 [character-settings.md](character-settings.md) `cs/B`가 구현 |
-| `ladder/C` | 카드·로어북·팀 쓰기를 같은 함수로 | `characters.py`, `server.py` 라우트 | 카드 편집 뒤 이전 판으로 되돌리기 가능 | 2 · ⚡ | M | ladder/B | 대기 — 2026-10-09: 캐릭터 층부터 [character-settings.md](character-settings.md) `cs/B`가 구현 |
+| `ladder/B` | 변경 기록과 되돌리기 함수(D1), 지침 백업 흡수 | 새 모듈, `workspace_status.py`, `tests/` | 층 하나(지침)가 이 함수로만 쓰이고 되돌리기가 테스트로 증명됨 | 2 · ⚡ | M | D1, uds | 대기 — 2026-10-09: 캐릭터 층부터 [character-settings.md](archive/2026/character-settings.md) `cs/B`가 구현 |
+| `ladder/C` | 카드·로어북·팀 쓰기를 같은 함수로 | `characters.py`, `server.py` 라우트 | 카드 편집 뒤 이전 판으로 되돌리기 가능 | 2 · ⚡ | M | ladder/B | 대기 — 2026-10-09: 캐릭터 층부터 [character-settings.md](archive/2026/character-settings.md) `cs/B`가 구현 |
 | `ladder/D` | 기억 화면(보기·고치기·잊기) + 에이전트가 기억할 때 알림·되돌리기 | `static/`, `mcp_core.py`, `memory_store.py` | 방금 기억한 것이 보이고 한 번에 되돌려짐 | 2 · ⚡ | M | ladder/B | 대기 |
 | `ladder/E` | 제안 카드(D3): 에이전트 도구 + 선택지 채널 카드 + 적용/거절 | `mcp_core.py`, `static/`, `tests/` | 「더 장난스럽게」 → 카드 전/후 제안 → 적용 → 되돌리기까지 한 흐름 | 3 · ⚡ | M | ladder/C | 대기 |
 | `ladder/F` | 스킬 제안(Hermes식): 반복 관찰 → 스킬 초안 제안 | `observations.py`, 새 스킬 템플릿 | 같은 요청 N회 뒤 스킬 제안이 뜸 | 3 · ⚡ | M | ladder/E | 대기 |

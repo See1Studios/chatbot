@@ -4,7 +4,7 @@
 > 선행 사례: Hermes(`~/.hermes/hermes-agent/agent/AGENTS.md`)는 모델 기록을 system·user·assistant·tool로 두고, 대화 도중 넣는 내용은 user 메시지 또는 tool 결과에만 싣는다. 따른다: 호스트 공지를 모델의 system 역할로 넣지 않는다. 다르게 간다: 애정 턴과 선택지 칸은 동반자 규칙이라 코어 도구를 늘리지 않고 엔진이 정한다(D1·D2).
 > 상태: **active** (2026-10-03 수립, 결정 D1–D4·D6–D10 2026-10-08 운영자: 추천대로, D5 대기)
 > 근거 사례: `HISTORY.md` 2026-10-02 "모델 판단 줄이기" (inbox/H, #565·#567)
-> 관련: [archive/2026/out-of-band-choices-actions.md](archive/2026/out-of-band-choices-actions.md)(선택지 채널의 옛 안, D2로 대체) · [archive/2026/message-system-architecture.md](archive/2026/message-system-architecture.md)(3자 역할 안, D2로 대체) · [private-mode.md](private-mode.md)(§8.3 W1 애정 턴, §8.4 W2b 이동 제안, D8 아이템 판정) · [ux-shell-roadmap.md](ux-shell-roadmap.md)(`ux/S5` 지문 STAGE_v1) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [character-memory-adapter.md](character-memory-adapter.md)(무엇을 기억해 읽을지)
+> 관련: [archive/2026/out-of-band-choices-actions.md](archive/2026/out-of-band-choices-actions.md)(선택지 채널의 옛 안, D2로 대체) · [archive/2026/message-system-architecture.md](archive/2026/message-system-architecture.md)(3자 역할 안, D2로 대체) · [private-mode.md](private-mode.md)(§8.3 W1 애정 턴, §8.4 W2b 이동 제안, D8 아이템 판정) · [ux-shell-roadmap.md](ux-shell-roadmap.md)(`ux/S5` 지문 STAGE_v1) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md)(위임) · [character-memory-adapter.md](archive/2026/character-memory-adapter.md)(무엇을 기억해 읽을지)
 
 ---
 
@@ -155,7 +155,7 @@ agy는 가끔 인자를 `{"Arguments": "<파이썬 dict 문자열>", "ToolName":
 - 엔진: `delegate` 첫 거절 때 결과에 절차서의 해당 규칙 한 줄을 실음(번들 예산을 늘리지 않음). 계획 도구 설명은 지금 길이 유지.
 
 **ed/D3 과거 대화 회상 (`recall_memory.py`)** — 이 계획 밖
-- 무엇을 읽어 넣을지는 [character-memory-adapter.md](character-memory-adapter.md)에서 정한다. 여기서는 중복 계획을 만들지 않음.
+- 무엇을 읽어 넣을지는 [character-memory-adapter.md](archive/2026/character-memory-adapter.md)에서 정한다. 여기서는 중복 계획을 만들지 않음.
 
 ## 4. 우선순위
 

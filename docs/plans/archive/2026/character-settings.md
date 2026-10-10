@@ -2,7 +2,7 @@
 
 > 방향 (align/D, 2026-10-09): **핵심** — 개인화 레이어의 입구. 캐릭터에 관한 모든 것을 프로필 서랍 한곳에서 보고 고친다
 > 선행 사례: Hermes — 대시보드 설정이 `DEFAULT_CONFIG`에서 항목마다 스키마(점 경로 키, 종류, 설명, 분류)를 만들어 내려주고 화면은 그것으로 칸을 그린다(`~/.hermes/hermes-agent/hermes_cli/web_server_config.py` `_build_schema_from_config`, `CONFIG_SCHEMA`) — **따른다**: 서버의 항목 스키마 + 범용 화면. **다르게**: Hermes는 설정 파일 하나지만 캐릭터 설정은 여러 파일(카드·표시·두뇌·팀·상태·기억·외형)에 흩어져 있어 항목마다 출처를 둔다. 그 밖: SillyTavern 캐릭터 편집기(카드 V2 필드 전부를 한 화면에서) — 필드 이름과 뜻은 ST를 그대로 쓴다(VISION「SillyTavern Delegation」)
-> 상태: **active** (2026-10-09 수립, 운영자: "캐릭터 관련 모든 설정을 여기에서 조회 및 편집할 수 있으면 좋겠어" · "그래")
+> 상태: **done** (2026-10-10, 보관). 프로필 서랍 캐릭터/관계/설정 3단 탭 및 서버 스키마 패치(cs/A–D, #890–#893, #914, #916) 코드 흡수 완료
 > 목적: 흩어진 캐릭터 설정을 서버의 항목 스키마 하나로 묶어 프로필 서랍에서 보고 고치게 한다. 저장은 서버가 해당 파일에 합쳐 쓰고, 쓸 때마다 이전 판을 남겨 되돌릴 수 있다.
 > 관련: [personalization-ladder.md](personalization-ladder.md)(`ladder/B` 공통 변경 기록·되돌리기, `ladder/C` 카드·팀 쓰기 — 이 계획이 캐릭터 층부터 실제로 만든다) · [ux-shell-roadmap.md](ux-shell-roadmap.md)(프로필 서랍, #880·#884·#886·#888) · [private-mode.md](private-mode.md)(상태·사적 기억은 아직 다듬는 중) · [demo-60s.md](demo-60s.md)(48–56초: 말투 한 줄 고치기)
 

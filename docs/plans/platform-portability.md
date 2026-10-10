@@ -4,7 +4,7 @@
 
 > 상태: **active** (2026-09-29 초안)
 > 목적: OS 전용 기능 의존을 재고, 더 늘지 않게 막고, 한 곳으로 모은 뒤, Windows·macOS·Linux에서 자동·실기로 확인한다.
-> 관련: [release-pipeline.md](release-pipeline.md)(최소 CI·런처·인스톨러) · [user-data-separation.md](user-data-separation.md) §3.4(OS별 데이터 폴더) · [edition-boundary.md](edition-boundary.md)(배포판 범위) · [ux-shell-roadmap.md](ux-shell-roadmap.md) `ux/G`(Windows 투명 창 스파이크) · 아카이브 `chatbot-host-portability.md`(호스트 경로 분리, 완료)
+> 관련: [release-pipeline.md](release-pipeline.md)(최소 CI·런처·인스톨러) · [user-data-separation.md](archive/2026/user-data-separation.md) §3.4(OS별 데이터 폴더) · [edition-boundary.md](edition-boundary.md)(배포판 범위) · [ux-shell-roadmap.md](ux-shell-roadmap.md) `ux/G`(Windows 투명 창 스파이크) · 아카이브 `chatbot-host-portability.md`(호스트 경로 분리, 완료)
 
 ## 1. 운영자 질문 (2026-09-29)
 

@@ -3,7 +3,7 @@
 > 방향 (align/D, 2026-09-28): **개발 기반** — 계획→티켓→커밋→릴리스 절차와 관문. 개발판 도구이며 배포판을 만드는 과정의 품질을 지킨다
 
 > 상태: **active** (초안 2026-09-27, 개정 2026-09-27: 누수 방지·강제층 추가, D1–D8 결정, PE 내부 경로 우선)
-> 목적: **어떤 에이전트가 들어와도**(작업 대부분은 **PE(챗봇) 안의 에이전트**가 한다 — 외부 CLI는 소수 경로) 같은 입구로 들어오고, 같은 정본을 읽고, 규칙을 어기면 기계가 막는 구조를 만든다. 계획이 티켓·커밋·릴리스까지 끊기지 않고 추적되게 한다. 첫 적용 대상은 제품화 작업([release-pipeline.md](release-pipeline.md), [user-data-separation.md](user-data-separation.md))이다.
+> 목적: **어떤 에이전트가 들어와도**(작업 대부분은 **PE(챗봇) 안의 에이전트**가 한다 — 외부 CLI는 소수 경로) 같은 입구로 들어오고, 같은 정본을 읽고, 규칙을 어기면 기계가 막는 구조를 만든다. 계획이 티켓·커밋·릴리스까지 끊기지 않고 추적되게 한다. 첫 적용 대상은 제품화 작업([release-pipeline.md](release-pipeline.md), [user-data-separation.md](archive/2026/user-data-separation.md))이다.
 > 관련: [INDEX.md](INDEX.md)(계획 상태 SSOT) · [multi-agent-worktree-delegation.md](multi-agent-worktree-delegation.md) §9–10·§13(티켓·PD 실행 경로) · `tickets.py`(티켓 규칙 SSOT)
 > 범위: 진입점, 정본 배치, 강제 장치, 계획 → 티켓 이음매, 완료·릴리스 기록. 티켓 엔진·러너·PD 흐름 자체는 바꾸지 않는다.
 

@@ -4,7 +4,7 @@
 
 > 상태: **active** (초안 2026-09-28)
 > 목적: 바뀐 제품 지향점에 맞춰 기조 문서·계획·코드의 낡은 부분을 정렬한다. 기조(`VISION.md`)를 다시 쓰는 일이 첫 단계이고, 나머지는 그 기조를 기준으로 한다.
-> 관련: [VISION.md](../../VISION.md) · [plan-execution-workflow.md](plan-execution-workflow.md) · [release-pipeline.md](release-pipeline.md) · [localization.md](localization.md) · [character-memory-adapter.md](character-memory-adapter.md) · [private-mode.md](private-mode.md)
+> 관련: [VISION.md](../../VISION.md) · [plan-execution-workflow.md](plan-execution-workflow.md) · [release-pipeline.md](release-pipeline.md) · [localization.md](localization.md) · [character-memory-adapter.md](archive/2026/character-memory-adapter.md) · [private-mode.md](private-mode.md)
 > 방향 인용(G0): 숨은 로어(전영소녀·조이)는 방향만 쓴다. 로어 세부는 이 계획의 항목이 아니다.
 > 약칭: `align`
 
