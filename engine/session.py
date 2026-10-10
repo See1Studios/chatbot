@@ -2,7 +2,7 @@
 
 Extracted from server.py (monolith-split Phase 1). Processes this server spawned live in session_procs.py:
 the functions are re-exported here, and starting a child, reading its pipes, and stopping it is the SessionProcs mixin.
-Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, the session's weight, and a repeated tool call live on the turn mixin; the handoff text lives on the view mixin.
+Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, the session's weight, and a repeated tool call live on the turn mixin; the handoff text and image paths live on the view mixin.
 chatbot-ctl.sh guard_rlock AST-scans this file for AgentSession.lock = threading.RLock().
 """
 from __future__ import annotations
@@ -13,7 +13,6 @@ import re
 import subprocess
 import threading
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from providers.adapters import get_adapter
@@ -63,11 +62,11 @@ from session_weights import (
     _session_weight,  # noqa: F401 -- the turn mixin reads _s()._session_weight
 )
 from media_handler import (
-    _append_images_markdown,
-    _collect_new_images,
-    _artifact_dirs,
-    _rewrite_artifact_paths,
-    _stage_image,
+    _append_images_markdown,  # noqa: F401 -- the view mixin reads _session()._append_images_markdown
+    _collect_new_images,  # noqa: F401 -- the view mixin reads _session()._collect_new_images
+    _artifact_dirs,  # noqa: F401 -- the view mixin reads _session()._artifact_dirs
+    _rewrite_artifact_paths,  # noqa: F401 -- the view mixin reads _session()._rewrite_artifact_paths
+    _stage_image,  # noqa: F401 -- the view mixin reads _session()._stage_image
 )
 
 # A message sent while an agy turn is running is accepted at once and applied at the next
@@ -377,22 +376,6 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog, SessionProcs):
         if len(body) > total:
             body = "…" + body[-total:]
         return header + "\n" + body
-
-    def _rewrite_artifact_paths(self, text: str) -> str:
-        return _rewrite_artifact_paths(self.sid, self.conversation_id, text)
-
-    def _artifact_dirs(self) -> List[Path]:
-        """The provider's own folders for this conversation (media_handler registry)."""
-        return _artifact_dirs(self.conversation_id)
-
-    def _collect_new_images(self, since_ts: Optional[float] = None) -> list:
-        return _collect_new_images(self.conversation_id, self.last_activity, since_ts)
-
-    def _stage_image(self, src: Path) -> Optional[str]:
-        return _stage_image(self.sid, src)
-
-    def _append_images_markdown(self, text: str, since_ts: Optional[float] = None) -> str:
-        return _append_images_markdown(self.sid, self.conversation_id, self.last_activity, text, since_ts)
 
     def _append_log_event(self, event: dict) -> None:
         try:

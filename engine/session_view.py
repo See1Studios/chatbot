@@ -1,13 +1,13 @@
 """What a session shows (monolith-split split/C, moved from session.py as a mixin of AgentSession, like
 turn_watchdog.py): its public view, the tool activity lines, the activity log, the artifacts gallery, the handover
-summary, and the handoff text that summary is built from. The paths and helpers that tests point elsewhere
+summary, the handoff text that summary is built from, and the image paths staged into an answer. The paths and helpers that tests point elsewhere
 (SESSIONS, WORKSPACE, DATA, get_adapter, _oneshot, ...) are read from `session` on every call, never copied at import."""
 from __future__ import annotations
 
 import json
 import time
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from session_weights import _billed_tokens, _current_context_tokens
 from tool_format import _format_tool_call, _format_tool_result
@@ -487,3 +487,19 @@ class SessionView:
         last_u = str(user_turns[-1] if user_turns else "")[:120]
         last_a = str(asst_turns[-1] if asst_turns else "")[:120]
         return f"- Last instruction from {_session().user_title()}: {last_u}\n- Last answer: {last_a}"
+
+    def _rewrite_artifact_paths(self, text: str) -> str:
+        return _session()._rewrite_artifact_paths(self.sid, self.conversation_id, text)
+
+    def _artifact_dirs(self) -> List[Path]:
+        """The provider's own folders for this conversation (media_handler registry)."""
+        return _session()._artifact_dirs(self.conversation_id)
+
+    def _collect_new_images(self, since_ts: Optional[float] = None) -> list:
+        return _session()._collect_new_images(self.conversation_id, self.last_activity, since_ts)
+
+    def _stage_image(self, src: Path) -> Optional[str]:
+        return _session()._stage_image(self.sid, src)
+
+    def _append_images_markdown(self, text: str, since_ts: Optional[float] = None) -> str:
+        return _session()._append_images_markdown(self.sid, self.conversation_id, self.last_activity, text, since_ts)
