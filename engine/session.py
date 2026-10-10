@@ -2,14 +2,13 @@
 
 Extracted from server.py (monolith-split Phase 1). Processes this server spawned live in session_procs.py:
 the functions are re-exported here, and starting a child, reading its pipes, and stopping it is the SessionProcs mixin.
-Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, the session's weight, and a repeated tool call live on the turn mixin; the handoff text and image paths live on the view mixin.
+Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, the session's weight, and a repeated tool call live on the turn mixin; the handoff text, the restart digest, and image paths live on the view mixin.
 chatbot-ctl.sh guard_rlock AST-scans this file for AgentSession.lock = threading.RLock().
 """
 from __future__ import annotations
 
 import json
 import math
-import re
 import subprocess
 import threading
 import time
@@ -19,7 +18,7 @@ from providers.adapters import get_adapter
 from providers.adapters import _persona_system_prompt  # noqa: F401 -- the turn mixin reads _s()._persona_system_prompt
 from private_engine import tension_meta
 from instructions import build_instruction_bundle  # noqa: F401 -- session_turn reads it as _s().build_instruction_bundle (tests swap it here)
-from identity import display_name, user_title
+from identity import display_name, user_title  # noqa: F401 -- the view mixin reads _session().display_name and _session().user_title
 
 import i18n
 from telemetry import obslog
@@ -360,22 +359,6 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog, SessionProcs):
                          msg=text[:500], **extra)
         except Exception:  # noqa: BLE001
             pass
-
-    def _host_history_digest(self, max_turns: int = 8, per_turn: int = 700, total: int = 5000,
-                             header: str = "(The agent process restarted and its memory did not carry over. Below is the recent talk from the screen record.)") -> str:
-        """The visible history, trimmed -- no model call, so it is instant and free."""
-        me, ut = display_name(), user_title()
-        rows = []
-        for h in self.history:
-            role, text = h.get("role"), (h.get("text") or "").strip()
-            if role not in ("user", "assistant") or not text:
-                continue
-            text = re.sub(r"\n{3,}", "\n\n", text)
-            rows.append(f"{ut if role == 'user' else me}: " + (text[:per_turn] + " …" if len(text) > per_turn else text))
-        body = "\n".join(rows[-max_turns:])
-        if len(body) > total:
-            body = "…" + body[-total:]
-        return header + "\n" + body
 
     def _append_log_event(self, event: dict) -> None:
         try:

@@ -1,10 +1,11 @@
 """What a session shows (monolith-split split/C, moved from session.py as a mixin of AgentSession, like
 turn_watchdog.py): its public view, the tool activity lines, the activity log, the artifacts gallery, the handover
-summary, the handoff text that summary is built from, and the image paths staged into an answer. The paths and helpers that tests point elsewhere
+summary, the handoff text that summary is built from, the trimmed screen record used when a process restarts, and the image paths staged into an answer. The paths and helpers that tests point elsewhere
 (SESSIONS, WORKSPACE, DATA, get_adapter, _oneshot, ...) are read from `session` on every call, never copied at import."""
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
@@ -503,3 +504,19 @@ class SessionView:
 
     def _append_images_markdown(self, text: str, since_ts: Optional[float] = None) -> str:
         return _session()._append_images_markdown(self.sid, self.conversation_id, self.last_activity, text, since_ts)
+
+    def _host_history_digest(self, max_turns: int = 8, per_turn: int = 700, total: int = 5000,
+                             header: str = "(The agent process restarted and its memory did not carry over. Below is the recent talk from the screen record.)") -> str:
+        """The visible history, trimmed -- no model call, so it is instant and free."""
+        me, ut = _session().display_name(), _session().user_title()
+        rows = []
+        for h in self.history:
+            role, text = h.get("role"), (h.get("text") or "").strip()
+            if role not in ("user", "assistant") or not text:
+                continue
+            text = re.sub(r"\n{3,}", "\n\n", text)
+            rows.append(f"{ut if role == 'user' else me}: " + (text[:per_turn] + " …" if len(text) > per_turn else text))
+        body = "\n".join(rows[-max_turns:])
+        if len(body) > total:
+            body = "…" + body[-total:]
+        return header + "\n" + body
