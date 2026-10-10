@@ -132,6 +132,12 @@ def static(req: Req):
     if ".." in rel:
         return req.send(400, b"bad path", "text/plain")
     fp = STATIC / rel
+    if (not fp.exists() or not fp.is_file()) and rel.lower() == "favicon.ico":
+        for fallback_name in ("face-icon.png", "face-icon.webp"):
+            candidate = STATIC / fallback_name
+            if candidate.exists() and candidate.is_file():
+                fp = candidate
+                break
     if not fp.exists() or not fp.is_file():
         return req.send(404, b"not found", "text/plain")
     data = fp.read_bytes()

@@ -184,6 +184,14 @@ class OverHttp(unittest.TestCase):
         self.assertEqual(gzip.decompress(packed), plain)
         self.assertIsNone(headers.get("ETag"))
 
+    def test_favicon_serves_or_falls_back(self):
+        """Browsers request /favicon.ico without asking; must answer 200 with image content."""
+        status, headers, body = self.get("/favicon.ico")
+        self.assertEqual(status, 200)
+        self.assertTrue(headers.get("Content-Type", "").startswith("image/"))
+        self.assertGreater(len(body), 0)
+        self.assertEqual(headers.get("Cache-Control"), "public, max-age=86400")
+
 
 
 class Fingerprint(unittest.TestCase):
