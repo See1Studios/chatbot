@@ -8,6 +8,12 @@
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 2026-10-09 기록은 하루 예산을 넘어 [docs/history/2026-10-09.md](docs/history/2026-10-09.md)로 회전했습니다.
 
+## 2026-10-10 — 글로벌 config.json 일원화 및 런타임 파일 state/ 격리 (#951, #953, #954)
+
+- **운영자**: "글로벌 설정파일을 하나 두는 게 낫지 않나"
+- **바뀐 것**: 사용자 데이터 폴더 루트(`~/.pe`)에 파편화되어 있던 설정 파일들(`team.json`, `providers.json`, `events.json`, `items.json`)을 `config.json`의 하위 섹션으로 단일화하고, `host_config.py`에 원자적 읽기/쓰기 헬퍼를 도입하여 기존 파일과의 하위 호환성을 보장했다. 아울러 프로세스 및 임시 런타임 파일들(`live_pids.json`, `standby.pid`, `lifecycle.lock`, `doctor-probe.stamp`, `account_state.json`, `delegation_seen.json`, `work_talk.json`, `push_*.json`)을 전용 `state/` 디렉토리로 완전히 격리하여 사용자 루트를 핵심 6개 문서로 단정하게 정리했다.
+- **재시작**: Python 코어 모듈 및 ctl 스크립트 변경으로 서버 재시작 완료.
+
 ## 2026-10-10 — 코드 하이라이트 경계선 정돈 및 테마 일원화 (#956)
 
 - **운영자**: "폴리시 이어가자"
