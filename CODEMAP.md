@@ -15,7 +15,7 @@ map only says which file does what.
 
 | Area | Files |
 |---|---|
-| Paths, ports, env, token thresholds | `host_config.py`; where the repo root and the engine folder are `repo_layout.py` (tests: `tests/_paths.py`) |
+| Paths, ports, env, token thresholds, config | `host_config.py`; where the repo root and the engine folder are `repo_layout.py` (tests: `tests/_paths.py`) |
 | Self-evolution core (stdlib and each other only, `core_modules.json`) | `repo_layout.py`, `evolution.py`, `tickets.py`, `memory_store.py`, `platform_compat.py` (OS differences); tickets from a CLI: `tools/ticket_quick.py` |
 | Guards | loops `loop_guard.py`; unticketed writes, working-tree watch `write_guard.py`; per-caller tool scope and edition boundary `role_guard.py`; safety `content_guard.py` + `engine_data/content_guards.json` |
 | Health (improvement-layers, dev build) | `health/incidents.py` (log findings as incidents: open, worse, resolved), `health/improve.py` (improvement signals from the daily rollups), `health/main_watch.py` (the whole suite on main) |

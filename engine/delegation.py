@@ -927,9 +927,11 @@ def mirror_work_talk() -> int:
                 n += 1
             done[key], changed = done[key] + 1, True
     if changed:
-        tmp = _talk_path().with_suffix(".tmp")
+        p = _talk_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(".tmp")
         platform_compat.write_text(tmp, json.dumps(done), encoding="utf-8")
-        tmp.replace(_talk_path())
+        tmp.replace(p)
     return n
 
 

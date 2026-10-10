@@ -50,11 +50,11 @@ PROVIDERS_JSON = DATA / "providers.json"
 
 
 def load_openai_dialect_adapters(path: Path) -> Dict[str, OpenAIDialectAdapter]:
-    """HTTP OpenAI-dialect adapters from data/providers.json. CLI ids cannot be replaced."""
-    if not path.is_file():
-        return {}
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    specs = raw.get("providers") if isinstance(raw, dict) else None
+    """HTTP OpenAI-dialect adapters from data/config.json or data/providers.json. CLI ids cannot be replaced."""
+    import host_config
+    specs = host_config.get_config_section("providers", legacy_path=path, root=path.parent)
+    if isinstance(specs, dict) and "providers" in specs and isinstance(specs["providers"], dict):
+        specs = specs["providers"]
     if not isinstance(specs, dict):
         return {}
     out: Dict[str, OpenAIDialectAdapter] = {}

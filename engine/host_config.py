@@ -4,11 +4,15 @@ Imported by server.py and providers/. Side effect: ensures data dirs exist.
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
+import threading
 import time
 from pathlib import Path
+from typing import Any, Dict, Optional
 
+import platform_compat
 from repo_layout import repo_of
 
 # Default is loopback: a bare `python3 server.py` is local-only. LAN access is an
@@ -108,6 +112,49 @@ def state_path(name: str) -> Path:
     if legacy.exists() and not (STATE_DIR / name).exists():
         return legacy
     return STATE_DIR / name
+
+
+# Global unified application configuration (docs/plans/global-config-and-state-isolation.md)
+CONFIG_FILE = DATA / "config.json"
+_CONFIG_LOCK = threading.Lock()
+
+
+def read_config(root: Optional[Path] = None) -> Dict[str, Any]:
+    """Read the parsed config.json dictionary, or {} if missing/corrupt."""
+    p = Path(root) / "config.json" if root is not None else CONFIG_FILE
+    if not p.is_file():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def get_config_section(section: str, legacy_path: Optional[Path] = None, root: Optional[Path] = None) -> Optional[Any]:
+    """Get section from config.json. If absent, fall back to reading legacy_path if provided."""
+    cfg = read_config(root)
+    if section in cfg:
+        return cfg[section]
+    if legacy_path is not None and legacy_path.is_file():
+        try:
+            return json.loads(legacy_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+    return None
+
+
+def set_config_section(section: str, value: Any, root: Optional[Path] = None) -> None:
+    """Update section in config.json atomically under thread lock."""
+    target = Path(root) / "config.json" if root is not None else CONFIG_FILE
+    with _CONFIG_LOCK:
+        cfg = read_config(root)
+        cfg[section] = value
+        if "version" not in cfg:
+            cfg["version"] = 1
+        tmp = target.with_name(".config.%d.tmp" % os.getpid())
+        platform_compat.write_text(tmp, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(target)
 
 
 # Web Push (push_manager.py): the install's VAPID key pair and the browsers subscribed to it

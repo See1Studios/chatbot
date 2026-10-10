@@ -52,11 +52,10 @@ def _ws() -> Path:
 
 
 def load_config(ws=None) -> Dict:
-    try:
-        raw = json.loads((Path(ws or _ws()) / CONFIG_NAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        raw = {}
-    return clean(raw)
+    import host_config
+    path = Path(ws or _ws()) / CONFIG_NAME
+    raw = host_config.get_config_section("events", legacy_path=path, root=path.parent)
+    return clean(raw or {})
 
 
 def clean(raw) -> Dict:
@@ -73,9 +72,12 @@ def clean(raw) -> Dict:
 
 
 def save_config(raw, ws=None) -> Dict:
+    import host_config
     import platform_compat
     cfg = clean(raw)
     path = Path(ws or _ws()) / CONFIG_NAME
+    host_config.set_config_section("events", cfg, root=path.parent)
+    # Also write legacy events.json so tests and external readers remain 100% compatible
     tmp = path.with_name(".%s.tmp" % CONFIG_NAME)
     platform_compat.write_text(tmp, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(path)

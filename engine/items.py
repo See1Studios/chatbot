@@ -63,11 +63,11 @@ def image_file(item_id: str, ws=None) -> Tuple[Path, bool]:
 
 
 def catalog(ws=None) -> List[Dict]:
-    """The items on offer (<workspace>/items.json); malformed entries are skipped, not fatal. An item can be given
+    """The items on offer (<workspace>/config.json or items.json); malformed entries are skipped, not fatal. An item can be given
     unless it says otherwise, and used when it has a use phrase ("use": "brushes their hair with the comb")."""
-    try:
-        raw = json.loads((Path(ws or host_config.WORKSPACE) / "items.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    ipath = Path(ws or host_config.WORKSPACE) / "items.json"
+    raw = host_config.get_config_section("items", legacy_path=ipath, root=ipath.parent)
+    if not isinstance(raw, dict):
         return []
     out = []
     for it in raw.get("items") or []:

@@ -435,9 +435,11 @@ def roles_dir(ws=None) -> Path:
 
 
 def load_team(ws=None, cards: Optional[List[Dict]] = None) -> Dict:
-    """The roster; without team.json, one derived from the cards' old `role` field, the oldest card the default."""
+    """The roster; checks config.json["team"] first, then legacy team.json, then cards' old `role` field."""
     try:
-        team = json.loads(team_path(ws).read_text(encoding="utf-8"))
+        import host_config
+        tpath = team_path(ws)
+        team = host_config.get_config_section("team", legacy_path=tpath, root=tpath.parent)
         if isinstance(team, dict) and isinstance(team.get("members"), dict):
             members = {k: [r for r in v if isinstance(r, str) and _ROLE_RE.match(r)]
                        for k, v in team["members"].items() if ID_RE.match(k) and isinstance(v, list)}
@@ -463,10 +465,13 @@ def _raw_listing(ws=None) -> List[Dict]:
 
 
 def save_team(team: Dict, ws=None) -> None:
-    path = team_path(ws)
-    tmp = path.with_name(".team.%d.tmp" % os.getpid())
+    import host_config
+    tpath = team_path(ws)
+    host_config.set_config_section("team", team, root=tpath.parent)
+    # Also write legacy team.json so tools/tests inspecting team.json directly stay 100% compatible
+    tmp = tpath.with_name(".team.%d.tmp" % os.getpid())
     platform_compat.write_text(tmp, json.dumps(team, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    tmp.replace(tpath)
 
 
 def default_character(ws=None) -> str:
@@ -989,8 +994,10 @@ def dev_delete(cid, body, ws=None, edition=""):
 
 
 def _forget_member(cid, ws):
-    """Drop cid from team.json. Never changes who the home character is."""
-    if not team_path(ws).is_file():
+    """Drop cid from team.json/config.json. Never changes who the home character is."""
+    import host_config
+    tpath = team_path(ws)
+    if not tpath.is_file() and not host_config.get_config_section("team", root=tpath.parent):
         return
     team = load_team(ws)
     if team.get("default") == cid or cid not in team["members"]:
