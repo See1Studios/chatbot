@@ -113,7 +113,18 @@ class UnticketedWrite(unittest.TestCase):
     def test_other_tool_shapes_and_relative_paths_are_understood(self):
         self.write(self.tmp / "session.py", tool="Edit", key="file_path")
         self.write("characters/c/card.json", tool="replace_file_content")
-        self.assertEqual(self.warned(), ["session.py", "workspace/characters/c/card.json"])
+        self.assertEqual(self.warned(), ["session.py", "characters/c/card.json"])
+
+    def test_a_real_workspace_dir_still_takes_a_relative_write(self):
+        (self.tmp / "workspace").mkdir()
+        self.write("characters/c/card.json")
+        self.assertEqual(self.warned(), ["workspace/characters/c/card.json"])
+        self.events.clear()
+        self.s._unticketed_warned.clear()
+        (self.tmp / "workspace").rmdir()
+        (self.tmp / "workspace").symlink_to(".", target_is_directory=True)
+        self.write("roles/dev/ROLE.md")
+        self.assertEqual(self.warned(), ["roles/dev/ROLE.md"])
 
     def test_a_visible_write_stops_the_turn_and_tells_the_agent_why(self):
         del self.s._auto_stop                                           # the real stop, this time

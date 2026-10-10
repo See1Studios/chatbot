@@ -165,6 +165,7 @@ class ShippedRegistryTest(unittest.TestCase):
     def test_guard_ticket_and_rules_are_protected(self):
         for rel in ("chatbot-ctl.sh", "protected_paths.json", "data/lifecycle.lock",
                     "data/maintenance.flag", "tests/test_evolution.py", "tests/new/x.py",
+                    "data/AGENTS.md", "data/roles/dev/ROLE.md", "data/team.json",
                     "data/workspace/AGENTS.md",
                     "OPERATIONS.md", "data/host-force.ticket", "__pycache__/server.cpython-38.pyc"):
             self.assertTrue(self.prot(rel), rel)
@@ -177,7 +178,8 @@ class ShippedRegistryTest(unittest.TestCase):
         self.assertFalse(self.prot("static/vendor/mermaid.min.js"))
 
     def test_instance_layer_stays_writable(self):
-        for rel in ("data/workspace/PERSONA.md", "data/workspace/PROJECT.md", "data/workspace/memory/MEMORY.md",
+        for rel in ("data/memory/MEMORY.md", "data/characters/c/card.json",
+                    "data/workspace/PERSONA.md", "data/workspace/PROJECT.md", "data/workspace/memory/MEMORY.md",
                     "data/workspace/.agents/skills/nas-sphere/SKILL.md",
                     "data/workspace/notes/0001-x.md",
                     "docs/plans/recursive-self-evolution.md", "HISTORY.md", "data/sessions/x.json"):

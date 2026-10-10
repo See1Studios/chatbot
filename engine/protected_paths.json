@@ -12,6 +12,10 @@
     "engine/protected_paths.json",
     "tests/",
     "static/",
+    "data/AGENTS.md",
+    "data/DEV-CHARTER.md",
+    "data/roles/",
+    "data/team.json",
     "data/workspace/AGENTS.md",
     "data/workspace/DEV-CHARTER.md",
     "OPERATIONS.md",
@@ -117,16 +121,28 @@
       "reason": "how the delegation gatekeeper asks for and reads a review verdict (split from worktree_runner)"
     },
     {
-      "path": "data/workspace/AGENTS.md",
+      "path": "data/AGENTS.md",
       "reason": "the charter"
     },
     {
-      "path": "data/workspace/roles/",
+      "path": "data/roles/",
       "reason": "role packs grant tools (TEAM_ROLES_v1)"
     },
     {
-      "path": "data/workspace/team.json",
+      "path": "data/team.json",
       "reason": "who holds which role (TEAM_ROLES_v1)"
+    },
+    {
+      "path": "data/workspace/AGENTS.md",
+      "reason": "the charter, while a real workspace directory remains"
+    },
+    {
+      "path": "data/workspace/roles/",
+      "reason": "role packs grant tools (TEAM_ROLES_v1), while a real workspace directory remains"
+    },
+    {
+      "path": "data/workspace/team.json",
+      "reason": "who holds which role (TEAM_ROLES_v1), while a real workspace directory remains"
     },
     {
       "path": "OPERATIONS.md",

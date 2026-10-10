@@ -52,11 +52,20 @@ def written_path(tool: str, params: Optional[dict]) -> str:
     return target_of(p) or str(p.get("file_path") or p.get("notebook_path") or "").strip()
 
 
+def charter_root(data: Path) -> Path:
+    """Where characters, roles, and the charter live. A real `workspace/` directory is the layout from before
+    the flatten; a symlink to `.` (or no such directory) means they sit on the data root."""
+    legacy = Path(data) / "workspace"
+    if legacy.is_dir() and not legacy.is_symlink():
+        return legacy
+    return Path(data)
+
+
 def unleased_repo_file(path: str, root: Path, data: Path) -> str:
     """`path` repo-relative when it is a file git would track and no live lease covers it, else ""."""
     p = Path(path)
     if not p.is_absolute():
-        p = data / "workspace" / p
+        p = charter_root(data) / p
     root = Path(root).resolve()
     try:
         rel = p.resolve().relative_to(root).as_posix()
