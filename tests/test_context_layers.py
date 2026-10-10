@@ -156,6 +156,32 @@ class Fixture(WorkspaceCase):
         l4_after = s.context_slot_hashes.get("L4")
         self.assertNotEqual(l4_before, l4_after)
 
+    def test_zero_restart_hot_reload_on_card_and_charter_change(self):
+        # istruct/C: editing card or AGENTS.md re-injects updated bundle on next turn without restart
+        from telemetry import obslog
+        from unittest import mock
+        s = self.session()
+        with mock.patch.object(obslog, "event") as ev:
+            first = s._context_prefix()
+            self.assertIn("CHARTER-MARK", first)
+            self.assertIn("PERSONA-MARK", first)
+            self.assertEqual(s._context_prefix(), "", "no change -> no prefix")
+            # Update L1 Charter without server restart
+            _write(self.ws / "AGENTS.md", "# 헌장\nUPDATED-CHARTER-MARK\n\n## Scope\nSCOPE-MARK\n\n## Work\nWORK-CHARTER-MARK\n")
+            reloaded = s._context_prefix()
+            self.assertIn("UPDATED-CHARTER-MARK", reloaded)
+            self.assertIn("The rules were updated", reloaded)
+            # Update L3 Persona card without server restart
+            card = C.load(self.card_id, self.ws)
+            card["data"]["description"] = "UPDATED-PERSONA-MARK"
+            C.save(self.card_id, card, self.ws)
+            reloaded_card = s._context_prefix()
+            self.assertIn("UPDATED-PERSONA-MARK", reloaded_card)
+        logged = [c.kwargs for c in ev.call_args_list if c.args[0] == "context.inject"]
+        self.assertEqual([x["why"] for x in logged], ["first", "rules_changed", "rules_changed"])
+        self.assertIn("L1", logged[1].get("slot_hashes", {}))
+        self.assertIn("L3", logged[2].get("slot_hashes", {}))
+
     def test_a_stateless_transport_is_not_sent_a_refresh(self):
         s = self.session("http")                                               # it gets the bundle every request
         self.assertEqual(s._context_prefix(), "")
