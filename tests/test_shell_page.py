@@ -809,7 +809,10 @@ class ProfileQuota(unittest.TestCase):
         self.assertIn(".shell-edit-form{", css)
         self.assertIn(".shell-art-carousel{", css)
         self.assertIn(".shell-memory-card{", css)
+        self.assertIn(".shell-hero-cover-btn{", css)
         self.assertIn(".shell-focal-dialog{", css)
+        self.assertIn(".shell-focal-stage{", css)
+        self.assertIn(".shell-focal-mask{", css)
         self.assertIn(".shell-focal-reticle{", css)
 
 

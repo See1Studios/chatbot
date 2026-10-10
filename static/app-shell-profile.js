@@ -89,12 +89,24 @@ function shellProfileDraw(panel, c, column) {
     cover.style.backgroundImage = 'url("' + stageUrl + '")';
     cover.classList.add('has-stage');
   }
+  const coverBtn = shellEl('button', 'shell-hero-cover-btn');
+  coverBtn.type = 'button';
+  coverBtn.innerHTML = profileIconSvg('target') + ' <span>' + (typeof tr === 'function' ? (tr('profile.cover.edit') || 'Cover') : 'Cover') + '</span>';
+  coverBtn.title = typeof tr === 'function' ? (tr('profile.cover.edit') || 'Edit Cover Banner') : 'Edit Cover Banner';
+  coverBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    openFocalEditor(panel, c, { mode: 'cover' });
+  });
+  cover.appendChild(coverBtn);
 
   // Hero Card with Focal Cropped Avatar (Compact HUD layout)
   const heroCard = shellEl('div', 'shell-hero-card');
   const avatarWrap = shellEl('div', 'shell-hero-avatar-wrap');
 
   const avatarClip = shellEl('div', 'shell-hero-avatar-clip');
+  avatarClip.addEventListener('click', () => {
+    openFocalEditor(panel, c, { mode: 'avatar' });
+  });
   const img = document.createElement('img');
   img.className = 'shell-hero-avatar';
   img.alt = '';
@@ -123,7 +135,7 @@ function shellProfileDraw(panel, c, column) {
   focalBtn.innerHTML = profileIconSvg('target');
   focalBtn.addEventListener('click', (ev) => {
     ev.stopPropagation();
-    openFocalEditor(panel, c);
+    openFocalEditor(panel, c, { mode: 'avatar' });
   });
 
   avatarWrap.append(avatarClip, presenceDot, focalBtn);
@@ -308,31 +320,48 @@ function renderEngineTab(holder, c) {
 }
 
 // ------------------------------------------------------------------ Visual Focal Cropper & Master Editor
-async function openFocalEditor(panel, c) {
+async function openFocalEditor(panel, c, opts = {}) {
   if (!panel || !c) return;
   const existing = panel.querySelector('.shell-focal-dialog');
   if (existing) existing.remove();
 
   const dialog = shellEl('div', 'shell-focal-dialog');
   const focal = getCharacterFocal(c);
+  let mode = (opts && opts.mode === 'cover') ? 'cover' : 'avatar';
   let curX = focal.x;
   let curY = focal.y;
   let curZoom = focal.zoom;
-  let curMaster = focal.master || getMasterArtworkUrl(c);
+  const defaultAvatarUrl = typeof characterOwnPortrait === 'function' ? characterOwnPortrait(c) : '';
+  let curMaster = (opts && opts.master) || (mode === 'cover' && c.stage_v && typeof BASE_PATH !== 'undefined'
+    ? BASE_PATH + '/api/characters/' + encodeURIComponent(c.id) + '/stage?v=' + c.stage_v
+    : focal.master) || defaultAvatarUrl || getMasterArtworkUrl(c);
 
-  // 1. Dialog Header
+  // 1. Dialog Header with Avatar / Cover Mode Switcher
   const head = shellEl('div', 'shell-focal-head');
   const title = shellEl('div', 'shell-focal-title');
-  const titleLabel = typeof tr === 'function' ? tr('profile.sec.focal') : 'Edit Face Focus';
-  title.innerHTML = profileIconSvg('target') + ' <span>' + escapeHtml(titleLabel) + '</span>';
-  // Safe dialog cleanup
+
+  const tabs = shellEl('div', 'shell-focal-tabs');
+  const tabAvatar = shellEl('button', 'shell-focal-tab' + (mode === 'avatar' ? ' active' : ''));
+  tabAvatar.type = 'button';
+  tabAvatar.textContent = typeof tr === 'function' ? (tr('profile.mode.avatar') || 'Avatar') : 'Avatar';
+
+  const tabCover = shellEl('button', 'shell-focal-tab' + (mode === 'cover' ? ' active' : ''));
+  tabCover.type = 'button';
+  tabCover.textContent = typeof tr === 'function' ? (tr('profile.mode.cover') || 'Cover') : 'Cover';
+  tabs.append(tabAvatar, tabCover);
+
+  const updateTitle = () => {
+    const lbl = mode === 'avatar'
+      ? (typeof tr === 'function' ? tr('profile.sec.focal') : 'Edit Profile Face')
+      : (typeof tr === 'function' ? (tr('profile.sec.cover') || 'Edit Cover Banner') : 'Edit Cover Banner');
+    title.innerHTML = profileIconSvg('target') + ' <span>' + escapeHtml(lbl) + '</span>';
+  };
+  updateTitle();
+
   const closeDialog = () => {
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerup', onPointerUp);
     window.removeEventListener('keydown', onKeyDown, true);
     dialog.remove();
   };
-
   const onKeyDown = (e) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
@@ -347,176 +376,281 @@ async function openFocalEditor(panel, c) {
   closeBtn.innerHTML = profileIconSvg('close');
   closeBtn.title = typeof tr === 'function' ? tr('common.close') : 'Close';
   closeBtn.addEventListener('click', closeDialog);
-  head.append(title, closeBtn);
+  head.append(title, tabs, closeBtn);
 
-  // 2. Interactive Canvas Wrap
-  const canvasWrap = shellEl('div', 'shell-focal-canvas-wrap');
-  const canvasImg = document.createElement('img');
-  canvasImg.className = 'shell-focal-canvas-img';
-  canvasImg.src = curMaster;
+  // 2. Interactive Direct Manipulation Stage
+  const stage = shellEl('div', 'shell-focal-stage');
+  const img = document.createElement('img');
+  img.className = 'shell-focal-img';
+  img.src = curMaster;
+  img.draggable = false;
 
+  const mask = shellEl('div', 'shell-focal-mask ' + (mode === 'avatar' ? 'mask-circle' : 'mask-rect'));
   const reticle = shellEl('div', 'shell-focal-reticle');
-  canvasWrap.append(canvasImg, reticle);
+  mask.appendChild(reticle);
+  stage.append(img, mask);
 
-  // Update reticle position on canvas (accounting for image letterbox offset)
-  const updateReticle = () => {
-    const wrapRect = canvasWrap.getBoundingClientRect();
-    const imgRect = canvasImg.getBoundingClientRect();
-    if (wrapRect.width && imgRect.width) {
-      const offsetX = (imgRect.left - wrapRect.left) + (imgRect.width * (curX / 100));
-      const offsetY = (imgRect.top - wrapRect.top) + (imgRect.height * (curY / 100));
-      reticle.style.left = `${offsetX}px`;
-      reticle.style.top = `${offsetY}px`;
-    } else {
-      reticle.style.left = `${curX}%`;
-      reticle.style.top = `${curY}%`;
+  const updateLayout = () => {
+    const stageW = stage.clientWidth || 280;
+    const stageH = stage.clientHeight || 220;
+    const stageCenterX = stageW / 2;
+    const stageCenterY = stageH / 2;
+
+    const maskW = mode === 'avatar' ? 160 : 260;
+    const maskH = mode === 'avatar' ? 160 : 96;
+    mask.className = 'shell-focal-mask ' + (mode === 'avatar' ? 'mask-circle' : 'mask-rect');
+
+    const natW = img.naturalWidth || 400;
+    const natH = img.naturalHeight || 400;
+
+    const baseScale = Math.max(maskW / natW, maskH / natH);
+    const baseW = natW * baseScale;
+    const baseH = natH * baseScale;
+
+    const renderW = baseW * curZoom;
+    const renderH = baseH * curZoom;
+
+    let focalX = renderW * (curX / 100);
+    let focalY = renderH * (curY / 100);
+
+    const minFocalX = maskW / 2;
+    const maxFocalX = Math.max(minFocalX, renderW - maskW / 2);
+    const minFocalY = maskH / 2;
+    const maxFocalY = Math.max(minFocalY, renderH - maskH / 2);
+
+    focalX = Math.max(minFocalX, Math.min(maxFocalX, focalX));
+    focalY = Math.max(minFocalY, Math.min(maxFocalY, focalY));
+
+    curX = renderW > 0 ? (focalX / renderW) * 100 : 50;
+    curY = renderH > 0 ? (focalY / renderH) * 100 : 50;
+
+    img.style.width = `${renderW}px`;
+    img.style.height = `${renderH}px`;
+    img.style.left = `${stageCenterX - focalX}px`;
+    img.style.top = `${stageCenterY - focalY}px`;
+
+    if (zoomVal) zoomVal.textContent = `${curZoom.toFixed(1)}x`;
+    if (zoomSlider) zoomSlider.value = String(Math.round(curZoom * 10));
+  };
+  img.onload = updateLayout;
+
+  // Pointer drag and pinch gestures
+  const pointers = new Map();
+  let lastPinchDist = 0;
+
+  stage.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1) {
+      stage.classList.add('is-dragging');
+    } else if (pointers.size === 2) {
+      const pts = Array.from(pointers.values());
+      lastPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
     }
-    const rSize = Math.max(28, Math.min(80, Math.round(54 / curZoom)));
-    reticle.style.width = `${rSize}px`;
-    reticle.style.height = `${rSize}px`;
-    updatePreviewAvatar();
-  };
-  canvasImg.onload = updateReticle;
-
-  // Canvas Click & Drag to reposition focal coordinates
-  let isTargeting = false;
-  const setPosFromPointer = (e) => {
-    const rect = canvasImg.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const px = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
-    const py = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
-    curX = px;
-    curY = py;
-    sliderX.value = String(curX);
-    valX.textContent = `${curX}%`;
-    sliderY.value = String(curY);
-    valY.textContent = `${curY}%`;
-    updateReticle();
-  };
-
-  canvasWrap.addEventListener('pointerdown', (e) => {
-    isTargeting = true;
-    setPosFromPointer(e);
   });
-  const onPointerMove = (e) => {
-    if (isTargeting) setPosFromPointer(e);
-  };
-  const onPointerUp = () => {
-    isTargeting = false;
-  };
-  window.addEventListener('pointermove', onPointerMove);
-  window.addEventListener('pointerup', onPointerUp);
 
-  // 3. Controls & Live Preview Box
-  const controls = shellEl('div', 'shell-focal-controls');
+  stage.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    const prev = pointers.get(e.pointerId);
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-  // Preview Row
-  const prevRow = shellEl('div', 'shell-focal-preview-row');
-  const prevBox = shellEl('div', 'shell-focal-preview-box');
-  const prevAvWrap = shellEl('div', 'shell-focal-preview-avatar');
-  const prevImg = document.createElement('img');
-  prevImg.src = curMaster;
-  prevAvWrap.appendChild(prevImg);
-  const prevLabel = shellEl('div', 'status-hint', typeof tr === 'function' ? tr('profile.focal.preview') : 'Live Preview');
-  prevBox.append(prevAvWrap, prevLabel);
-  prevRow.appendChild(prevBox);
+    if (pointers.size === 2) {
+      const pts = Array.from(pointers.values());
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (lastPinchDist > 0) {
+        const factor = dist / lastPinchDist;
+        curZoom = Math.max(1, Math.min(3.5, curZoom * factor));
+        updateLayout();
+      }
+      lastPinchDist = dist;
+      return;
+    }
 
-  const updatePreviewAvatar = () => {
-    prevImg.src = curMaster;
-    prevImg.style.objectPosition = `${curX}% ${curY}%`;
-    prevImg.style.transform = `scale(${curZoom})`;
-    prevImg.style.transformOrigin = `${curX}% ${curY}%`;
-  };
-
-  // Slider X
-  const rowX = shellEl('div', 'shell-focal-slider-row');
-  const lblXText = typeof tr === 'function' ? tr('profile.focal.x') : 'X-Axis';
-  const lblX = shellEl('label', '', lblXText);
-  const sliderX = document.createElement('input');
-  sliderX.type = 'range';
-  sliderX.min = '0';
-  sliderX.max = '100';
-  sliderX.value = String(curX);
-  const valX = shellEl('span', 'focal-val', `${curX}%`);
-  sliderX.addEventListener('input', () => {
-    curX = Number(sliderX.value);
-    valX.textContent = `${curX}%`;
-    updateReticle();
+    if (pointers.size === 1) {
+      const natW = img.naturalWidth || 400;
+      const natH = img.naturalHeight || 400;
+      const maskW = mode === 'avatar' ? 160 : 260;
+      const maskH = mode === 'avatar' ? 160 : 96;
+      const baseScale = Math.max(maskW / natW, maskH / natH);
+      const rW = natW * baseScale * curZoom;
+      const rH = natH * baseScale * curZoom;
+      if (rW > 0) curX = Math.max(0, Math.min(100, curX - (dx / rW) * 100));
+      if (rH > 0) curY = Math.max(0, Math.min(100, curY - (dy / rH) * 100));
+      updateLayout();
+    }
   });
-  rowX.append(lblX, sliderX, valX);
 
-  // Slider Y
-  const rowY = shellEl('div', 'shell-focal-slider-row');
-  const lblYText = typeof tr === 'function' ? tr('profile.focal.y') : 'Y-Axis';
-  const lblY = shellEl('label', '', lblYText);
-  const sliderY = document.createElement('input');
-  sliderY.type = 'range';
-  sliderY.min = '0';
-  sliderY.max = '100';
-  sliderY.value = String(curY);
-  const valY = shellEl('span', 'focal-val', `${curY}%`);
-  sliderY.addEventListener('input', () => {
-    curY = Number(sliderY.value);
-    valY.textContent = `${curY}%`;
-    updateReticle();
+  const onPointerEnd = (e) => {
+    pointers.delete(e.pointerId);
+    try { stage.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (pointers.size === 0) {
+      stage.classList.remove('is-dragging');
+    } else if (pointers.size === 1) {
+      lastPinchDist = 0;
+    }
+  };
+  stage.addEventListener('pointerup', onPointerEnd);
+  stage.addEventListener('pointercancel', onPointerEnd);
+
+  // Smooth wheel zoom
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = -e.deltaY * 0.0015;
+    curZoom = Math.max(1, Math.min(3.5, curZoom + delta));
+    updateLayout();
+  }, { passive: false });
+
+  // Double-click toggle zoom / reset
+  stage.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    curZoom = curZoom > 1.08 ? 1.0 : 2.0;
+    curX = 50;
+    curY = 50;
+    updateLayout();
   });
-  rowY.append(lblY, sliderY, valY);
 
-  // Slider Zoom
-  const rowZ = shellEl('div', 'shell-focal-slider-row');
-  const lblZText = typeof tr === 'function' ? tr('profile.focal.zoom') : 'Zoom';
-  const lblZ = shellEl('label', '', lblZText);
-  const sliderZ = document.createElement('input');
-  sliderZ.type = 'range';
-  sliderZ.min = '10';
-  sliderZ.max = '25';
-  sliderZ.value = String(Math.round(curZoom * 10));
-  const valZ = shellEl('span', 'focal-val', `${curZoom.toFixed(1)}x`);
-  sliderZ.addEventListener('input', () => {
-    curZoom = Number(sliderZ.value) / 10;
-    valZ.textContent = `${curZoom.toFixed(1)}x`;
-    updateReticle();
+  tabAvatar.addEventListener('click', () => {
+    if (mode === 'avatar') return;
+    mode = 'avatar';
+    tabAvatar.classList.add('active');
+    tabCover.classList.remove('active');
+    updateTitle();
+    updateLayout();
   });
-  rowZ.append(lblZ, sliderZ, valZ);
+  tabCover.addEventListener('click', () => {
+    if (mode === 'cover') return;
+    mode = 'cover';
+    tabCover.classList.add('active');
+    tabAvatar.classList.remove('active');
+    updateTitle();
+    updateLayout();
+  });
 
-  controls.append(prevRow, rowX, rowY, rowZ);
+  // 3. User Hint & Sleek Zoom Bar
+  const hint = shellEl('div', 'shell-focal-hint',
+    typeof tr === 'function' ? (tr('profile.focal.hint') || 'Drag to move · Scroll or pinch to zoom') : 'Drag to reposition · Scroll or pinch to zoom');
 
-  // 4. Master Image Source Selector
+  const zoomBar = shellEl('div', 'shell-focal-zoom-bar');
+  const zoomOutBtn = shellEl('button', 'art-btn art-btn-xs', '−');
+  zoomOutBtn.type = 'button';
+  zoomOutBtn.title = 'Zoom out';
+  zoomOutBtn.addEventListener('click', () => {
+    curZoom = Math.max(1, curZoom - 0.2);
+    updateLayout();
+  });
+
+  const zoomSlider = document.createElement('input');
+  zoomSlider.type = 'range';
+  zoomSlider.min = '10';
+  zoomSlider.max = '35';
+  zoomSlider.value = String(Math.round(curZoom * 10));
+  zoomSlider.setAttribute('aria-label', 'Zoom');
+  zoomSlider.addEventListener('input', () => {
+    curZoom = Number(zoomSlider.value) / 10;
+    updateLayout();
+  });
+
+  const zoomInBtn = shellEl('button', 'art-btn art-btn-xs', '+');
+  zoomInBtn.type = 'button';
+  zoomInBtn.title = 'Zoom in';
+  zoomInBtn.addEventListener('click', () => {
+    curZoom = Math.min(3.5, curZoom + 0.2);
+    updateLayout();
+  });
+
+  const zoomVal = shellEl('span', 'shell-focal-zoom-val', `${curZoom.toFixed(1)}x`);
+
+  const resetBtn = shellEl('button', 'art-btn art-btn-xs', typeof tr === 'function' ? (tr('profile.focal.reset') || 'Reset') : 'Reset');
+  resetBtn.type = 'button';
+  resetBtn.title = 'Reset focus & zoom';
+  resetBtn.addEventListener('click', () => {
+    curZoom = 1.0;
+    curX = 50;
+    curY = 50;
+    updateLayout();
+  });
+  zoomBar.append(zoomOutBtn, zoomSlider, zoomInBtn, zoomVal, resetBtn);
+
+  // 4. Source Selector & Upload
   const srcSecTitle = typeof tr === 'function' ? tr('profile.sec.master_source') : 'Master Image Source';
   const srcSec = shellSection(srcSecTitle);
   const srcPills = shellEl('div', 'shell-focal-sources');
 
-  const defaultAvatarUrl = typeof characterOwnPortrait === 'function' ? characterOwnPortrait(c) : '';
+  const setMasterUrl = (url) => {
+    curMaster = url;
+    img.src = curMaster;
+    curZoom = 1.0;
+    curX = 50;
+    curY = 50;
+    updateLayout();
+  };
 
-  const addSourceChip = (name, url) => {
-    if (!url) return;
-    const chip = shellEl('button', 'shell-focal-source-chip' + (curMaster === url ? ' active' : ''));
+  const addSourceChip = (name, url, isUpload = false) => {
+    if (!url && !isUpload) return;
+    const chip = shellEl('button', 'shell-focal-source-chip' + (curMaster === url ? ' active' : '') + (isUpload ? ' upload' : ''));
     chip.type = 'button';
     chip.textContent = name;
     chip.addEventListener('click', () => {
       srcPills.querySelectorAll('.shell-focal-source-chip').forEach(el => el.classList.remove('active'));
       chip.classList.add('active');
-      curMaster = url;
-      canvasImg.src = curMaster;
-      prevImg.src = curMaster;
-      updateReticle();
+      setMasterUrl(url);
     });
     srcPills.appendChild(chip);
   };
 
-  addSourceChip('Avatar', defaultAvatarUrl);
+  const uploadLabel = shellEl('label', 'shell-focal-source-chip upload');
+  const uploadInput = document.createElement('input');
+  uploadInput.type = 'file';
+  uploadInput.accept = 'image/*';
+  uploadInput.style.display = 'none';
+  uploadLabel.textContent = typeof tr === 'function' ? (tr('profile.upload') || '+ Upload Photo') : '+ Upload Photo';
+  uploadLabel.appendChild(uploadInput);
 
-  // Load gallery slots from /art
+  uploadInput.addEventListener('change', async () => {
+    const file = uploadInput.files && uploadInput.files[0];
+    if (!file) return;
+    uploadLabel.textContent = typeof tr === 'function' ? tr('common.saving') : 'Uploading...';
+    try {
+      const upRes = await fetch((typeof BASE_PATH !== 'undefined' ? BASE_PATH : '') + '/api/characters/' + encodeURIComponent(c.id) + '/art/upload', {
+        method: 'POST',
+        headers: { 'X-File-Name': file.name },
+        body: file
+      });
+      const upData = await upRes.json();
+      if (upData && upData.file) {
+        const newUrl = (typeof BASE_PATH !== 'undefined' ? BASE_PATH : '') + '/api/characters/' + encodeURIComponent(c.id) + '/gallery/' + encodeURIComponent(upData.file);
+        addSourceChip(file.name.slice(0, 12), newUrl);
+        setMasterUrl(newUrl);
+      }
+    } catch (err) {
+      profileToast(err.message || 'Upload failed');
+    } finally {
+      uploadLabel.textContent = typeof tr === 'function' ? (tr('profile.upload') || '+ Upload Photo') : '+ Upload Photo';
+      uploadInput.value = '';
+    }
+  });
+
+  srcPills.appendChild(uploadLabel);
+  addSourceChip(typeof tr === 'function' ? (tr('profile.mode.avatar') || 'Avatar') : 'Avatar', defaultAvatarUrl);
+
+  if (c.stage_v && typeof BASE_PATH !== 'undefined') {
+    const stageUrl = BASE_PATH + '/api/characters/' + encodeURIComponent(c.id) + '/stage?v=' + c.stage_v;
+    addSourceChip(typeof tr === 'function' ? (tr('profile.mode.cover') || 'Stage') : 'Stage', stageUrl);
+  }
+
   try {
     const artRes = await api('/api/characters/' + encodeURIComponent(c.id) + '/art');
     if (artRes && artRes.slots) {
       Object.keys(artRes.slots).forEach(k => {
         const s = artRes.slots[k];
-        if (s && s.url && !s.url.includes('/stage')) addSourceChip(s.label || k, s.url);
+        if (s && s.url) addSourceChip(s.label || k, s.url);
       });
     }
     if (artRes && Array.isArray(artRes.gallery)) {
-      artRes.gallery.slice(0, 6).forEach(g => {
+      artRes.gallery.slice(0, 8).forEach(g => {
         if (g && g.url) addSourceChip(g.file || 'gallery', g.url);
       });
     }
@@ -524,7 +658,7 @@ async function openFocalEditor(panel, c) {
 
   srcSec.appendChild(srcPills);
 
-  // 5. Save & Actions Row
+  // 5. Actions (Cancel & Save)
   const actRow = shellEl('div', 'shell-edit-actions');
   const cancelBtn = shellEl('button', 'art-btn art-btn-sm');
   cancelBtn.type = 'button';
@@ -535,19 +669,77 @@ async function openFocalEditor(panel, c) {
   saveBtn.type = 'button';
   const saveLabel = typeof tr === 'function' ? (tr('profile.focal.save') || 'Save Focus') : 'Save Focus';
   saveBtn.innerHTML = profileIconSvg('check') + ' <span>' + escapeHtml(saveLabel) + '</span>';
+
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
     saveBtn.textContent = typeof tr === 'function' ? tr('common.saving') : 'Saving...';
     try {
-      const focalObj = {
-        x: curX,
-        y: curY,
-        zoom: Number(curZoom.toFixed(2)),
-        master: curMaster === defaultAvatarUrl ? '' : curMaster
-      };
-      const res = await shellSettingsPatch(c.id, { 'display.focal': focalObj });   // cs/C: merged by the server
-      if (res && res.errors && res.errors['display.focal']) throw new Error(res.errors['display.focal']);
-      c.focal = focalObj;
+      if (mode === 'cover') {
+        let assigned = false;
+        if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 960;
+            canvas.height = 360;
+            const ctx = canvas.getContext ? canvas.getContext('2d') : null;
+            if (ctx && img.naturalWidth && img.naturalHeight) {
+              const natW = img.naturalWidth;
+              const natH = img.naturalHeight;
+              const maskW = 260, maskH = 96;
+              const baseScale = Math.max(maskW / natW, maskH / natH);
+              const rW = natW * baseScale * curZoom;
+              const rH = natH * baseScale * curZoom;
+              const focalX = rW * (curX / 100);
+              const focalY = rH * (curY / 100);
+              const cropW = (maskW / rW) * natW;
+              const cropH = (maskH / rH) * natH;
+              const cropX = Math.max(0, Math.min(natW - cropW, (focalX / rW) * natW - cropW / 2));
+              const cropY = Math.max(0, Math.min(natH - cropH, (focalY / rH) * natH - cropH / 2));
+              ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+              if (typeof canvas.toBlob === 'function') {
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.9));
+                if (blob) {
+                  const fname = `stage_${Date.now()}.webp`;
+                  const upRes = await fetch((typeof BASE_PATH !== 'undefined' ? BASE_PATH : '') + '/api/characters/' + encodeURIComponent(c.id) + '/art/upload', {
+                    method: 'POST',
+                    headers: { 'X-File-Name': fname },
+                    body: blob
+                  });
+                  const upData = await upRes.json();
+                  if (upData && upData.file) {
+                    await api('/api/characters/' + encodeURIComponent(c.id) + '/art/assign', {
+                      method: 'POST',
+                      body: JSON.stringify({ from: upData.file, kind: 'background' })
+                    });
+                    assigned = true;
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+        }
+        if (!assigned && curMaster) {
+          const m = curMaster.match(/\/gallery\/([^?]+)/);
+          if (m) {
+            await api('/api/characters/' + encodeURIComponent(c.id) + '/art/assign', {
+              method: 'POST',
+              body: JSON.stringify({ from: decodeURIComponent(m[1]), kind: 'background' })
+            });
+          }
+        }
+        c.stage_v = Date.now();
+      } else {
+        const focalObj = {
+          x: Number(curX.toFixed(1)),
+          y: Number(curY.toFixed(1)),
+          zoom: Number(curZoom.toFixed(2)),
+          master: curMaster === defaultAvatarUrl ? '' : curMaster
+        };
+        const res = await shellSettingsPatch(c.id, { 'display.focal': focalObj });
+        if (res && res.errors && res.errors['display.focal']) throw new Error(res.errors['display.focal']);
+        c.focal = focalObj;
+      }
+
       if (typeof loadCharacters === 'function') await loadCharacters();
       closeDialog();
       const updated = typeof currentCharacter === 'function' ? currentCharacter() : c;
@@ -560,10 +752,9 @@ async function openFocalEditor(panel, c) {
   });
 
   actRow.append(cancelBtn, saveBtn);
-
-  dialog.append(head, canvasWrap, controls, srcSec, actRow);
+  dialog.append(head, stage, hint, zoomBar, srcSec, actRow);
   panel.appendChild(dialog);
-  updateReticle();
+  updateLayout();
 }
 // Mini art gallery strip for character expressions & stage
 async function loadArtMiniStrip(cid, stripEl, panel, c) {
