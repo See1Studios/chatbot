@@ -2,7 +2,7 @@
 
 Extracted from server.py (monolith-split Phase 1). Processes this server spawned live in session_procs.py:
 the functions are re-exported here, and starting a child, reading its pipes, and stopping it is the SessionProcs mixin.
-Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, and ending a turn live on the turn mixin; the handoff text lives on the view mixin.
+Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, and the session's weight live on the turn mixin; the handoff text lives on the view mixin.
 chatbot-ctl.sh guard_rlock AST-scans this file for AgentSession.lock = threading.RLock().
 """
 from __future__ import annotations
@@ -59,7 +59,7 @@ from standby_pool import (
 )
 from session_weights import (
     _handoff_prompt,  # noqa: F401 -- the view mixin reads _session()._handoff_prompt; tests call session._handoff_prompt
-    _session_weight,
+    _session_weight,  # noqa: F401 -- the turn mixin reads _s()._session_weight
 )
 from media_handler import (
     _append_images_markdown,
@@ -483,45 +483,6 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog, SessionProcs):
 
     def _append_images_markdown(self, text: str, since_ts: Optional[float] = None) -> str:
         return _append_images_markdown(self.sid, self.conversation_id, self.last_activity, text, since_ts)
-
-    def weight(self) -> dict:
-        soft_tokens, hard_tokens = self.adapter.soft_hard_tokens(self.model)
-        return _session_weight(self.history, self.conversation_id, soft_tokens, hard_tokens)
-
-    def _emit_heavy_if_needed(self, force: bool = False) -> dict:
-        w = self.weight()
-        level = w.get("level") or "ok"
-        # NO_PRECOMPUTE_v1 (token-economy T10): no handover summary ahead of time. Every turn stales it (#613), so a
-        # heavy session ran a full-context /compact after each turn (~150k tokens each, 2026-10-05) for a rotation
-        # that mostly never came; the rotation makes its summary when it happens.
-        if level == "ok":
-            return w
-        if force or self._heavy_warned_level != level:
-            self._heavy_warned_level = level
-            self._emit({
-                "event": "session_heavy",
-                "level": level,
-                **(i18n.msg(w["message_key"], **(w.get("message_vars") or {})) if w.get("message_key") else i18n.msg("srv.session_heavy")),
-                "weight": w,
-            })
-        return w
-
-    def _successor_usable(self, sid: str) -> bool:
-        """True if sid resolves to a non-hard session with meta on disk."""
-        sid = (sid or "").strip()
-        if not sid or sid == self.sid:
-            return False
-        try:
-            meta_path = SESSIONS / sid / "meta.json"
-            if not meta_path.exists():
-                return False
-            succ = REG.get(sid)
-            w = succ.weight() if hasattr(succ, "weight") else {}
-            if (w.get("level") or "ok") == "hard":
-                return False
-            return True
-        except Exception:
-            return False
 
     def _append_log_event(self, event: dict) -> None:
         try:

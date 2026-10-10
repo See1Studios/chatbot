@@ -1,5 +1,5 @@
 """Running a turn (monolith-split split/C, moved from session.py as a mixin of AgentSession, like turn_watchdog.py
-and session_view.py): send (queue, steer, the HTTP turn, rotate when idle or heavy), the turn itself, ending a turn, /btw side questions, interrupt,
+and session_view.py): send (queue, steer, the HTTP turn, rotate when idle or heavy), the turn itself, ending a turn, the session's weight, /btw side questions, interrupt,
 handing over to a successor session, and swapping the provider or model. Every name session.py defines or tests and
 server.py swap (REG, boot_notice, build_instruction_bundle, _oneshot, get_adapter, ...) is read as `_s().name` on
 each call, never copied at import."""
@@ -1064,3 +1064,42 @@ class SessionTurn:
             self._loop_guard.reset()
             self._loop_warned = False
             self._loop_stopping = False
+
+    def weight(self) -> dict:
+        soft_tokens, hard_tokens = self.adapter.soft_hard_tokens(self.model)
+        return _s()._session_weight(self.history, self.conversation_id, soft_tokens, hard_tokens)
+
+    def _emit_heavy_if_needed(self, force: bool = False) -> dict:
+        w = self.weight()
+        level = w.get("level") or "ok"
+        # NO_PRECOMPUTE_v1 (token-economy T10): no handover summary ahead of time. Every turn stales it (#613), so a
+        # heavy session ran a full-context /compact after each turn (~150k tokens each, 2026-10-05) for a rotation
+        # that mostly never came; the rotation makes its summary when it happens.
+        if level == "ok":
+            return w
+        if force or self._heavy_warned_level != level:
+            self._heavy_warned_level = level
+            self._emit({
+                "event": "session_heavy",
+                "level": level,
+                **(i18n.msg(w["message_key"], **(w.get("message_vars") or {})) if w.get("message_key") else i18n.msg("srv.session_heavy")),
+                "weight": w,
+            })
+        return w
+
+    def _successor_usable(self, sid: str) -> bool:
+        """True if sid resolves to a non-hard session with meta on disk."""
+        sid = (sid or "").strip()
+        if not sid or sid == self.sid:
+            return False
+        try:
+            meta_path = _s().SESSIONS / sid / "meta.json"
+            if not meta_path.exists():
+                return False
+            succ = _s().REG.get(sid)
+            w = succ.weight() if hasattr(succ, "weight") else {}
+            if (w.get("level") or "ok") == "hard":
+                return False
+            return True
+        except Exception:
+            return False
