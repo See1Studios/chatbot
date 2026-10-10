@@ -14,6 +14,12 @@
 - **바뀐 것**: 지침 백업과 티켓 목록은 데이터 폴더를 본다. `workspace`가 진짜 폴더이면 그 부모이고, 루트이거나 `.`을 가리키는 링크이면 그 경로다. 스킬 색인이 가리키는 곳도 그 헌장 루트다.
 - **재시작**: 필요. 서버가 이 모듈을 이미 읽어 두었다.
 
+## 2026-10-10 — ladder: 3단계 메모리(단기-중기-장기) 상세 규격 반영 (#938, 위임 agy)
+
+- **커밋**: `1f3f69b` docs(plans): add 3-tier memory specification §4.5 to personalization ladder
+- **바뀐 파일**: `docs/plans/personalization-ladder.md`
+- 위임 병합 때 자동으로 쓴 줄(`tools/history_entry.py`). 이유와 결정은 티켓과 계획 문서에.
+
 ## 2026-10-10 — 헌장 경로는 데이터 루트, 옛 workspace는 파일이 있을 때만 (#933)
 
 - **운영자**: "937까지 추가된 것들도 모두 처리해줘"
