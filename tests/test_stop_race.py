@@ -84,6 +84,51 @@ class StopRace(unittest.TestCase):
         with self.assertRaises(ValueError):   # a closed pipe with no stop is a real failure: not hidden
             self.s._write_turn("x")
 
+    def _one_shot(self):
+        self.s.adapter.keeps_stdin_open = False
+        self.s.adapter.close_stdin_after_prompt = False
+        self.s._context_prefix = lambda: ""
+        self.s._spawn = lambda prompt: setattr(self.s, "proc", self.proc)
+
+    def test_a_one_shot_stop_before_stdin_drops_the_turn(self):
+        self._one_shot()
+
+        def clear_proc(content):
+            self.s.proc = None
+            return content
+
+        self.s.adapter.format_stdin.side_effect = clear_proc
+        self.s._start_turn("hello", "", None, False, "chat")
+        self.assertFalse(self.s.busy)
+        self.assertEqual(self.proc.stdin.getvalue(), "")
+        self.assertIn(("turn.dropped", "stopped_before_send"), self.events)
+
+    def test_a_one_shot_with_nothing_on_stdin_stays_busy(self):
+        self._one_shot()
+        self.s.adapter.format_stdin.side_effect = lambda content: ""
+        self.s._start_turn("hello", "", None, False, "chat")
+        self.assertTrue(self.s.busy)
+        self.assertEqual(self.proc.stdin.getvalue(), "")
+        self.assertNotIn("turn.dropped", [evt for evt, _reason in self.events])
+        self.s.busy = False
+        self.s._cancel_silent_hang()
+
+    def test_a_one_shot_prompt_is_written_and_stdin_closed(self):
+        class Remembering(io.StringIO):
+            def close(self):
+                self.written = self.getvalue()
+                super().close()
+
+        self.proc.stdin = Remembering()
+        self._one_shot()
+        self.s.adapter.close_stdin_after_prompt = True
+        self.s._start_turn("hello", "", None, False, "chat")
+        self.assertTrue(self.s.busy)
+        self.assertIn("hello", self.proc.stdin.written)
+        self.assertTrue(self.proc.stdin.closed)
+        self.s.busy = False
+        self.s._cancel_silent_hang()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -527,19 +527,26 @@ class SessionTurn:
         self._turn_phases = {"prep_ms": round((self._turn_t0 - t_enter) * 1000, 1), "spawn_ms": spawn_ms,
                              "first_tool_ms": None}
 
-    def _write_turn(self, payload: str) -> bool:
+    def _write_turn(self, payload: str, *, close_stdin: bool = False) -> bool:
         """Hand the turn to the running agent. False: a stop() came while the turn was being prepared -- it clears
         proc first, so the stop wins and the turn ends here instead of writing to no process (#843: the repair
-        probe stopped a turn whose standby agent took 8 s to start; AttributeError on proc.stdin)."""
+        probe stopped a turn whose standby agent took 8 s to start; AttributeError on proc.stdin). The one-shot
+        stdin write uses the same handoff and may close that stdin in this lock (#922)."""
         with self.lock:
             proc = self.proc
             if proc is None or proc.stdin is None:
+                self.busy = False
                 obslog.event("turn.dropped", sid=self.sid, provider=self.provider, reason="stopped_before_send")
                 return False
             self.busy = True
             try:
                 proc.stdin.write(payload)
                 proc.stdin.flush()
+                if close_stdin:
+                    try:
+                        proc.stdin.close()
+                    except Exception:
+                        pass
             except (BrokenPipeError, ValueError):
                 if self.proc is proc and not getattr(self, "_stop_requested", False):
                     raise
@@ -699,17 +706,11 @@ class SessionTurn:
             # format_stdin() empty (grok) means nothing more to do; a
             # non-empty return is for a future codex-style provider that
             # still wants its prompt on stdin post-spawn (close_stdin_after_
-            # prompt=True), not currently exercised by any adapter here.
+            # prompt=True). A stop that clears proc first drops the turn here (#922).
             payload = self.adapter.format_stdin(stdin_content)
-            if payload and self.proc and self.proc.stdin:
-                with self.lock:
-                    self.proc.stdin.write(payload)
-                    self.proc.stdin.flush()
-                    if self.adapter.close_stdin_after_prompt:
-                        try:
-                            self.proc.stdin.close()
-                        except Exception:
-                            pass
+            close_stdin = bool(getattr(self.adapter, "close_stdin_after_prompt", False))
+            if payload and not self._write_turn(payload, close_stdin=close_stdin):
+                return
 
         # SILENT_HANG_v1: idle clock starts once the turn is live (any transport).
         # Resets on assistant text OR tool/progress activity; fires only on true silence.
