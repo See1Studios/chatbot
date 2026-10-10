@@ -517,6 +517,8 @@ GET_ROUTES = [
     (None, _api(experts_api, "GET")),
     (None, _api(personal_turn.api, "GET")),
     (None, _api(room_chat.api, "GET")),
+    ("/api/user/avatar", route_files.user_avatar_get),
+    ("/api/user", route_files.user_info),
     ("/api/mcp", _mcp_list),
     ("/api/usage", route_accounts.usage),
     ("/api/accounts/login/status", route_accounts.login_status),
@@ -564,6 +566,7 @@ def _handoff_cancel(req):
 
 
 POST_STREAM_ROUTES = [   # before the JSON body is read
+    ("/api/user/avatar", route_files.user_avatar_upload),
     ("/api/characters/import", _card_import),
     (None, _push("POST")),
     (None, _gift(lambda req: chat_upload.handle(req.path, req.headers, req.rfile))),
@@ -604,6 +607,7 @@ POST_ROUTES = [
 ]
 
 PUT_ROUTES = [   # PUT and DELETE match the path as sent (no mount-prefix stripping), as before split/B
+    ("/api/user", route_files.user_save),
     (("/api/instructions/*", "/api/experts/*"), _operator_only),
 ]
 
@@ -613,6 +617,7 @@ PATCH_ROUTES = [   # only what the page needs; the path is matched like POST's (
 ]
 
 DELETE_ROUTES = [
+    ("/api/user/avatar", route_files.user_avatar_delete),
     ("/api/mcp/*", _mcp_delete),
     ("/api/sessions/*", route_sessions.delete),
 ]

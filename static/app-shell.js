@@ -333,13 +333,41 @@ function shellHeartSync() {
 // Developer mode for this browser. shellInit reads it on boot; shellSetDev (app-shell-panes.js) writes it.
 const SHELL_DEV_KEY = 'pe.devMode';
 
+let _userAvatarChecked = false;
+function checkUserAvatarOnce() {
+  if (_userAvatarChecked || typeof api !== 'function') return;
+  _userAvatarChecked = true;
+  api('/api/user').then(data => {
+    if (data && data.ok && data.has_avatar && data.avatar_url) {
+      window.__USER_AVATAR__ = data.avatar_url;
+      shellUserBarDraw();
+    }
+  }).catch(() => {});
+}
+
 // The list's foot is the user's own bar: the title they are called by (it can arrive after boot), opening the settings.
 function shellUserBarDraw() {
   const bar = document.getElementById('shellUserBar');
   if (!bar) return;
+  checkUserAvatarOnce();
   const name = (typeof IDENTITY !== 'undefined' && IDENTITY.user_title) || SHELL_TEXT.you;
   const pic = bar.querySelector('.shell-user-avatar');
-  if (pic && pic.dataset.name !== name && typeof initialAvatar === 'function') { pic.dataset.name = name; pic.src = initialAvatar(name); }
+  if (pic) {
+    if (window.__USER_AVATAR__) {
+      if (pic.src !== window.__USER_AVATAR__) {
+        pic.dataset.name = '';
+        pic.src = window.__USER_AVATAR__;
+        pic.onerror = () => {
+          pic.onerror = null;
+          pic.dataset.name = name;
+          if (typeof initialAvatar === 'function') pic.src = initialAvatar(name);
+        };
+      }
+    } else if (pic.dataset.name !== name && typeof initialAvatar === 'function') {
+      pic.dataset.name = name;
+      pic.src = initialAvatar(name);
+    }
+  }
   shellSet(bar.querySelector('.shell-user-name'), name);
   const st = bar.querySelector('.shell-user-status'), away = shellLink() === 'linkAway';
   shellSet(st, away ? SHELL_TEXT.linkAway : SHELL_TEXT.online);

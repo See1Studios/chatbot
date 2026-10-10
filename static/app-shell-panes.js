@@ -54,6 +54,7 @@ function shellSettingsRows(ctx) {
   return rows;
 }
 const SHELL_ICONS = {
+  user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   appearance: '<circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
   chat_settings: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   accounts: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
@@ -339,6 +340,125 @@ if (typeof window !== 'undefined') {
   window.setChoiceKeepEnabled = setChoiceKeepEnabled;
   window.shellChatSettingsDraw = shellChatSettingsDraw;
 }
+async function shellUserPaneDraw() {
+  const p = document.getElementById('userPane');
+  if (!p) return;
+  const preview = document.getElementById('userAvatarPreview');
+  const input = document.getElementById('userAvatarInput');
+  const changeBtn = document.getElementById('userAvatarChangeBtn');
+  const removeBtn = document.getElementById('userAvatarRemoveBtn');
+  const editor = document.getElementById('userMdEditor');
+  const saveBtn = document.getElementById('userMdSaveBtn');
+  const msg = document.getElementById('userSaveMsg');
+
+  const getName = () => (typeof IDENTITY !== 'undefined' && IDENTITY.user_title) || SHELL_TEXT.you;
+
+  if (!p._bound) {
+    p._bound = true;
+    if (changeBtn && input) {
+      changeBtn.addEventListener('click', () => input.click());
+    }
+    if (input) {
+      input.addEventListener('change', async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        try {
+          if (changeBtn) changeBtn.disabled = true;
+          const res = await api('/api/user/avatar', {
+            method: 'POST',
+            headers: { 'Content-Type': file.type || 'image/jpeg' },
+            body: file,
+          });
+          if (res && res.ok) {
+            window.__USER_AVATAR__ = res.avatar_url;
+            if (preview) preview.src = res.avatar_url;
+            if (removeBtn) removeBtn.style.display = 'inline-block';
+            if (typeof shellUserBarDraw === 'function') shellUserBarDraw();
+            if (msg) {
+              msg.textContent = typeof tr === 'function' ? tr('user.photo_updated') : 'Photo updated.';
+              setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
+            }
+          } else {
+            throw new Error((res && res.error) || 'Upload failed');
+          }
+        } catch (err) {
+          if (msg) msg.textContent = typeof tr === 'function' ? tr('user.save_failed', { error: err.message || err }) : 'Error: ' + err.message;
+        } finally {
+          if (changeBtn) changeBtn.disabled = false;
+          input.value = '';
+        }
+      });
+    }
+    if (removeBtn) {
+      removeBtn.addEventListener('click', async () => {
+        try {
+          removeBtn.disabled = true;
+          const res = await api('/api/user/avatar', { method: 'DELETE' });
+          if (res && res.ok) {
+            window.__USER_AVATAR__ = null;
+            if (removeBtn) removeBtn.style.display = 'none';
+            if (preview && typeof initialAvatar === 'function') {
+              preview.src = initialAvatar(getName());
+            }
+            if (typeof shellUserBarDraw === 'function') shellUserBarDraw();
+            if (msg) {
+              msg.textContent = typeof tr === 'function' ? tr('user.photo_removed') : 'Photo removed.';
+              setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
+            }
+          } else {
+            throw new Error((res && res.error) || 'Delete failed');
+          }
+        } catch (err) {
+          if (msg) msg.textContent = typeof tr === 'function' ? tr('user.save_failed', { error: err.message || err }) : 'Error: ' + err.message;
+        } finally {
+          removeBtn.disabled = false;
+        }
+      });
+    }
+    if (saveBtn && editor) {
+      saveBtn.addEventListener('click', async () => {
+        try {
+          saveBtn.disabled = true;
+          const res = await api('/api/user', {
+            method: 'PUT',
+            body: JSON.stringify({ user_md: editor.value }),
+          });
+          if (res && res.ok) {
+            if (msg) {
+              msg.textContent = typeof tr === 'function' ? tr('user.saved') : 'Saved.';
+              setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
+            }
+          } else {
+            throw new Error((res && res.error) || 'Save failed');
+          }
+        } catch (err) {
+          if (msg) msg.textContent = typeof tr === 'function' ? tr('user.save_failed', { error: err.message || err }) : 'Error: ' + err.message;
+        } finally {
+          saveBtn.disabled = false;
+        }
+      });
+    }
+  }
+
+  try {
+    const data = await api('/api/user');
+    if (data && data.ok) {
+      if (editor) editor.value = data.user_md || '';
+      if (data.has_avatar && data.avatar_url) {
+        window.__USER_AVATAR__ = data.avatar_url;
+        if (preview) preview.src = data.avatar_url;
+        if (removeBtn) removeBtn.style.display = 'inline-block';
+      } else {
+        window.__USER_AVATAR__ = null;
+        if (preview && typeof initialAvatar === 'function') preview.src = initialAvatar(getName());
+        if (removeBtn) removeBtn.style.display = 'none';
+      }
+      if (typeof shellUserBarDraw === 'function') shellUserBarDraw();
+    }
+  } catch (err) {
+    if (msg) msg.textContent = typeof tr === 'function' ? tr('user.save_failed', { error: err.message || err }) : 'Error: ' + err.message;
+  }
+}
 function shellArtGone() {
   const m = document.getElementById('artManager');
   if (m && m.classList.contains('shell-art')) m.remove();
@@ -466,8 +586,12 @@ function shellSettingsOpen() {
   const panel = document.getElementById('shellSettings'), defib = document.getElementById('defibBtn');
   if (!panel) return;
   const pushOn = typeof isPushEnabled === 'function' ? isPushEnabled() : (localStorage.getItem('chatbot.pushEnabled') === 'true');
-  const rows = shellSettingsRows({ advanced: document.body.classList.contains('density-advanced'), dev: shellDevOn(),
+  const baseRows = shellSettingsRows({ advanced: document.body.classList.contains('density-advanced'), dev: shellDevOn(),
     revive: Boolean(defib && defib.style.display !== 'none'), push: pushOn });
+  const rows = [
+    { k: 'user', label: SHELL_TEXT.user || (typeof tr === 'function' ? tr('shelltext.user') : 'User') },
+    ...baseRows
+  ];
   panel.textContent = '';
   const list = shellEl('div', 'shell-rows');
   rows.forEach(row => {
@@ -477,6 +601,7 @@ function shellSettingsOpen() {
     }
     const b = shellRowButton(row);
     b.addEventListener('click', () => {
+      if (row.k === 'user') return shellGoPane('user', 'settings');
       if (row.k === 'appearance') return shellGoPane('appearance', 'settings');
       if (row.k === 'chat_settings') return shellGoPane('chat_settings', 'settings');
       if (TEAM_SECTIONS.includes(row.k)) return shellGoTeamSection(row.k, 'settings');
@@ -513,6 +638,15 @@ function shellPanelsInit() {
   const menu = document.getElementById('shellMenu'), me = document.getElementById('shellUserBar');
   [menu, me].forEach(b => { if (b) { b.title = SHELL_TEXT.settings; b.addEventListener('click', () => shellSettingsOpen()); } });
   if (menu) menu.setAttribute('aria-label', SHELL_TEXT.menu);
+  if (me) {
+    me.title = SHELL_TEXT.user || (typeof tr === 'function' ? tr('shelltext.user') : 'User');
+    me.setAttribute('aria-label', me.title);
+    me.addEventListener('click', (e) => {
+      e.stopImmediatePropagation();
+      shellSettingsClose();
+      shellGoPane('user', 'list');
+    }, true);
+  }
   shellUserBarDraw();
   const bar = shellEl('div', 'shell-pane-bar'), back = shellEl('button', 'ghost', '\u2039');
   bar.id = 'shellPaneBar';
@@ -532,11 +666,15 @@ function shellPanelsInit() {
     const chatPane = document.getElementById('chatSettingsPane');
     if (chatPane) chatPane.style.display = (now === 'chat_settings' ? 'flex' : 'none');
     if (now === 'chat_settings') shellChatSettingsDraw();
+    const userPane = document.getElementById('userPane');
+    if (userPane) userPane.style.display = (now === 'user' ? 'flex' : 'none');
+    if (now === 'user') shellUserPaneDraw();
     if (now === 'status') shellStatusFilter();
     if (now === 'team') shellTeamFilter();
     const title = now === 'art' ? SHELL_TEXT.art
       : now === 'appearance' ? SHELL_TEXT.appearance
       : now === 'chat_settings' ? (SHELL_TEXT.chat_settings || '')
+      : now === 'user' ? (SHELL_TEXT.user || (typeof tr === 'function' ? tr('shelltext.user') : 'User'))
       : now === 'team' && shellState.teamOnly ? SHELL_TEXT.manage
       : now === 'team' ? (SHELL_TEXT[shellState.teamSection || 'characters'] || SHELL_TEXT.characters)
       : now === 'status' ? (SHELL_TEXT[shellState.statusOnly || 'accounts'] || SHELL_TEXT.accounts)

@@ -355,6 +355,43 @@
           </div>
         </section>
       </div>
+      <div id="userPane" class="shell-settings-pane" role="tabpanel" aria-labelledby="userHeading">
+        <section class="status-section">
+          <h2 class="status-head-row" id="userHeading">
+            <svg class="btn-icon-svg" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span data-i18n="shelltext.user"></span>
+          </h2>
+          <div class="status-list">
+            <div class="status-item" style="display:flex;flex-direction:column;gap:.75rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+                <div>
+                  <div class="status-item-name" data-i18n="user.photo_title"></div>
+                  <div class="status-hint" data-i18n="user.photo_hint"></div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+                <img id="userAvatarPreview" class="shell-user-avatar" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--border)" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Ccircle cx='18' cy='18' r='18' fill='%232a2f3a'/%3E%3C/svg%3E" alt="" />
+                <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+                  <input type="file" id="userAvatarInput" accept="image/*" style="display:none" />
+                  <button id="userAvatarChangeBtn" class="art-filter-btn" type="button" data-i18n="user.photo_change"></button>
+                  <button id="userAvatarRemoveBtn" class="art-filter-btn ghost" type="button" data-i18n="user.photo_remove" style="display:none"></button>
+                </div>
+              </div>
+            </div>
+            <div class="status-item" style="display:flex;flex-direction:column;gap:.5rem">
+              <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+                <div>
+                  <div class="status-item-name" data-i18n="user.md_title"></div>
+                  <div class="status-hint" data-i18n="user.md_hint"></div>
+                </div>
+                <button id="userMdSaveBtn" class="primary" type="button" style="flex-shrink:0" data-i18n="user.save"></button>
+              </div>
+              <textarea id="userMdEditor" class="shell-field-textarea" style="width:100%;min-height:180px;font-family:var(--font-mono);font-size:.85rem;line-height:1.5;box-sizing:border-box"></textarea>
+              <div id="userSaveMsg" class="status-hint" style="min-height:1.2rem;color:var(--accent2);margin:0"></div>
+            </div>
+          </div>
+        </section>
+      </div>
       <div id="sessionsPane" role="tabpanel" aria-labelledby="tabSessions">
         <div class="status-toolbar" style="justify-content:space-between;align-items:center;gap:.4rem;flex-wrap:wrap">
           <span class="status-hint" style="margin:0" data-i18n="session.list_hint"></span>

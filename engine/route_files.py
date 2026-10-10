@@ -2,16 +2,23 @@
 persona pictures and the page's static files. Routes are listed in server.py's tables."""
 from __future__ import annotations
 
+import io
 import mimetypes
+import time
 from urllib.parse import quote, unquote
 
+from PIL import Image, ImageOps
+
 import identity
+import platform_compat
 import static_delivery
 import i18n
-from host_config import DATA, HOME, STATIC, WEB_ROOT
+from host_config import DATA, HOME, STATIC, WEB_ROOT, WORKSPACE
 from preview_guard import _resolve_safe_preview_file
 from route_table import Req
 from session import AgentSession, _safe_artifact_rel
+
+MAX_USER_AVATAR_BYTES = 15 * 1024 * 1024
 
 mimetypes.add_type("image/webp", ".webp")
 
@@ -163,3 +170,123 @@ def static(req: Req):
     elif rel.lower().endswith((".png", ".webp", ".jpg", ".jpeg", ".svg", ".ico", ".woff", ".woff2")):
         return req.send(200, data, ctype, cache_control="public, max-age=86400")
     return req.send(200, data, ctype)
+
+
+# ------------------------------------------------------------ user profile and avatar
+def user_avatar_path(ws: Optional[Path] = None) -> Path:
+    return (ws or WORKSPACE) / "user_avatar.webp"
+
+
+def user_md_path(ws: Optional[Path] = None) -> Path:
+    return (ws or WORKSPACE) / "USER.md"
+
+
+def user_info(req: Req):
+    """GET /api/user: returns current user title, USER.md content, and avatar status."""
+    md_file = user_md_path()
+    av_file = user_avatar_path()
+
+    user_title = identity.user_title()
+    content = ""
+    if md_file.is_file():
+        try:
+            content = md_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            content = ""
+
+    has_avatar = av_file.is_file()
+    avatar_url = ""
+    if has_avatar:
+        try:
+            avatar_url = f"/api/user/avatar?t={int(av_file.stat().st_mtime)}"
+        except OSError:
+            avatar_url = "/api/user/avatar"
+
+    return req.json({
+        "ok": True,
+        "user_title": user_title,
+        "user_md": content,
+        "has_avatar": has_avatar,
+        "avatar_url": avatar_url,
+    })
+
+
+def user_save(req: Req):
+    """PUT /api/user: saves USER.md content."""
+    body = req.body or {}
+    content = body.get("user_md")
+    if content is not None:
+        md_file = user_md_path()
+        try:
+            platform_compat.write_text(md_file, str(content), encoding="utf-8")
+        except OSError as e:
+            return req.json({"ok": False, "error": f"failed to write USER.md: {e}"}, 500)
+
+    return req.json({"ok": True})
+
+
+def user_avatar_get(req: Req):
+    """GET /api/user/avatar: serves user avatar."""
+    av_file = user_avatar_path()
+    if not av_file.is_file():
+        return req.send(404, b"avatar not found", "text/plain")
+
+    try:
+        data = av_file.read_bytes()
+        return req.send(200, data, "image/webp", cache_control="private, max-age=60")
+    except OSError as e:
+        return req.send(500, str(e).encode("utf-8"), "text/plain")
+
+
+def user_avatar_upload(req: Req):
+    """POST /api/user/avatar: streams image body, crops to square, saves as 512x512 WebP."""
+    length = 0
+    try:
+        length = int(req.headers.get("Content-Length", 0))
+    except (ValueError, TypeError):
+        length = 0
+
+    if length <= 0:
+        return req.json({"ok": False, "error": "empty body"}, 400)
+    if length > MAX_USER_AVATAR_BYTES:
+        return req.json({"ok": False, "error": "file too large"}, 413)
+
+    try:
+        raw = req.rfile.read(length)
+    except OSError as e:
+        return req.json({"ok": False, "error": f"read failed: {e}"}, 400)
+
+    try:
+        img = Image.open(io.BytesIO(raw))
+        img = ImageOps.exif_transpose(img)
+        w, h = img.size
+        min_dim = min(w, h)
+        left = (w - min_dim) // 2
+        top = (h - min_dim) // 2
+        img = img.crop((left, top, left + min_dim, top + min_dim))
+        img = img.resize((512, 512), Image.Resampling.LANCZOS)
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGBA")
+
+        av_file = user_avatar_path()
+        img.save(av_file, "WEBP", quality=90)
+    except Exception as e:
+        return req.json({"ok": False, "error": f"invalid image: {e}"}, 400)
+
+    return req.json({
+        "ok": True,
+        "avatar_url": f"/api/user/avatar?t={int(time.time())}",
+        "has_avatar": True,
+    })
+
+
+def user_avatar_delete(req: Req):
+    """DELETE /api/user/avatar: removes user avatar."""
+    av_file = user_avatar_path()
+    if av_file.is_file():
+        try:
+            av_file.unlink()
+        except OSError as e:
+            return req.json({"ok": False, "error": f"failed to delete avatar: {e}"}, 500)
+
+    return req.json({"ok": True, "has_avatar": False})
