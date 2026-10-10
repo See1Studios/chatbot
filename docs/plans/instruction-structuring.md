@@ -2,7 +2,7 @@
 
 > 방향 (align/D, 2026-10-10): **핵심 + 기반** — 캐릭터 페르소나와 관계의 몰입(핵심)을 지키면서 배포판 이식성과 모드 격리(기반)를 달성하는 6계층 지침 체계 수립
 > 선행 사례: Hermes(`~/.hermes/hermes-agent/`)는 AGENTS.md, SOUL.md, 스킬 색인, 메모리를 단일 시스템 프롬프트로 병합하여 주입한다. 따른다: 스킬 색인 축약 및 파일 기반 메모리 참조 패턴. 다르게 간다: Hermes는 단일 개발자 에이전트 중심이라 캐릭터 페르소나와 사적/업무 모드 분리가 없고 호스트 법이 프롬프트에 직접 노출된다. PE는 6-Layer 구조로 사적 모드 시 역할(L2) 완전 소멸, 배포판에서 호스트 법 프롬프트 0바이트, 슬롯별 핫리로드와 델타 주입을 채택한다.
-> 상태: **active** (2026-10-10 수립, 초안)
+> 상태: **landed** (2026-10-10, Phase 1~4 구현 및 검증 완료)
 > 목적: 현행 단층 주입(`instructions.py` 16개 항목)의 한계를 극복하고, 호스트/앱 주권을 분리하여 배포판 이식성을 확보하며, 계층 간 충돌을 방지하는 구조화된 프롬프트 라이프사이클을 확립한다.
 > 관련: [direction-alignment.md](direction-alignment.md) · [edition-boundary.md](edition-boundary.md) · [engine-decides.md](engine-decides.md) · [private-mode.md](private-mode.md) · [personalization-ladder.md](personalization-ladder.md) · [token-economy.md](token-economy.md) · [archive/2026/layered-context-architecture.md](archive/2026/layered-context-architecture.md) · [archive/2026/instruction-architecture.md](archive/2026/instruction-architecture.md)
 > 약칭: `istruct`

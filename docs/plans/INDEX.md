@@ -61,7 +61,7 @@
 | [token-economy.md](token-economy.md) | `active` · 방향 **기반** — 턴당 입력 실측(agy 업무 중앙값 171k, 최대 231만; 읽기의 99.6%가 파일 통째 읽기)과 대책: 턴 예산(엔진 강제), 노노는 lead만, 읽기 습관·큰 파일 쪼개기·고정 비용 측정 | 도구 호출 한도·턴 비용·세션 회전 빈도·파일 읽기 방식을 건드릴 때 |
 | [voice-and-audio-interaction.md](voice-and-audio-interaction.md) | `active` · 방향 **핵심 + 기반** — 브라우저 네이티브 Web Speech API 기반 음성 입력(STT) 및 현지어 발음/오디오 재생(TTS) 연동 | 음성 입력·마이크 버튼·발음 칩·오디오 재생을 다룰 때 |
 | [director-handoff.md](director-handoff.md) | `active` · 방향 **핵심 + 개발 기반** — 캐릭터 디렉터 분업(넘기기·프로바이더 서브에이전트). 먼저 새는 가드(경고만·표시만)를 집행으로, 방해되는 절차(리뷰 라운드·두뇌 없음 재시도·연속 티켓)를 걷어낸 뒤 연결. 구조 비판 S1–S7, D-1–D-12 결정(D-10 폐기), 0단계 완료(#632 #633), 1·2단계 완료(#634~#636), D-1 번복(역할 단속 끄고 스킬로, #651), 넘기기 장부(#654) | 역할 권한·작업 트리 감시·서브에이전트·캐릭터 간 일 넘기기·위임 리뷰 절차를 건드릴 때 |
-| [instruction-structuring.md](instruction-structuring.md) | `active` · 방향 **핵심 + 기반** — 6-Layer 지침 체계와 수명주기: L1 헌장~L5 세션 상태 분리, 2대 우선순위 축(안전=하향식/인지=상향식), 사적 모드 L2 완전 소멸, 배포판 호스트 법 프롬프트 0바이트, 슬롯별 델타 JIT 및 Zero-Restart 핫리로드 | 지침 주입·프롬프트 구조화·모드별 규칙 격리·수명주기 관리를 다룰 때 |
+| [instruction-structuring.md](instruction-structuring.md) | `active` · 방향 **핵심 + 기반** — (구현 완료, istruct/A~D 끝) 6-Layer 지침 체계와 수명주기: L1 헌장~L5 세션 상태 분리, 2대 우선순위 축(안전=하향식/인지=상향식), 사적 모드 L2 완전 소멸, 배포판 호스트 법 프롬프트 0바이트, 슬롯별 델타 JIT 및 Zero-Restart 핫리로드 | 지침 주입·프롬프트 구조화·모드별 규칙 격리·수명주기 관리를 다룰 때 |
 | [global-config-and-state-isolation.md](global-config-and-state-isolation.md) | `active` · 방향 **기반 + 핵심** — 글로벌 설정 및 상태 격리: 파편화된 설정 파일(team, providers, events, items)을 config.json으로 일원화하고 런타임 상태 파일(pid, lock, state)을 state/로 격리하여 ~/.pe 루트를 6대 핵심 파일로 압축 | 설정 파일 통합·런타임 상태 격리·~/.pe 루트 평탄화 및 이식성을 다룰 때 |
 
 

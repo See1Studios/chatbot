@@ -8,6 +8,12 @@
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 2026-10-09 기록은 하루 예산을 넘어 [docs/history/2026-10-09.md](docs/history/2026-10-09.md)로 회전했습니다.
 
+## 2026-10-10 — 사적 모드 L2 0바이트 소멸 및 배포판 호스트 법 0바이트 불변식 검증 (#966, istruct/D)
+
+- **운영자**: "그래" (istruct/D 진행)
+- **바뀐 것**: `instruction-structuring` 계획의 마지막 단계로, 사적 모드(Private Mode)에서 업무 역할 및 도구 지침(L2 슬롯)이 단 1바이트도 남지 않고 100% 완전 소멸(Zero Residue)하는 불변식과, 엔드유저 배포판(`host_config.EDITION == "shipped"`)에서 호스트 법 및 개발 헌장 지침이 0바이트로 유지되는 경계 제약을 자동 검증하는 단위 테스트를 강화했다(`test_context_layers.py`, `test_session_split.py`).
+- **재시작**: 테스트 코드만 추가. 서버 재시작 불필요.
+
 ## 2026-10-10 — [ticket/ui] 작업 카드 1개 노출 캐러셀 전환, 스와이프/네비게이션 및 액션 상태 자동 포커스 (#961, 위임 agy)
 
 - **커밋**: `df8ade9` feat(ui): display work cards as 1-card carousel with swipe and auto-focus
