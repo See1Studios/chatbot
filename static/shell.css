@@ -238,9 +238,7 @@ html.shell2 #log > .msg.assistant.staged .md > .md-narr,html.shell2 #log > .msg.
 html.shell2 #log > .msg.assistant.staged .md > .md-narr em{font-size:inherit;opacity:1}
 html.shell2 #log > .msg.assistant.staged .md-say .md-block[data-kind="dialogue"]{padding-left:0;border-left:0}   /* the bubble already says "speech" */
 html.shell2 #log > .msg.assistant.staged .msg-footer{max-width:92%;margin-top:.1rem;padding-top:0;border-top:0}
-html.shell2 #log > .msg.assistant.staged .md-say:empty{display:none}
-/* waiting is typing (app-stage.js stageTyping): dots beside the face in both densities, with the stop button docked
-   in them (app-turn.js placeStopBtn); the advanced density adds its words (the "N s" footer, the reasoning strip) */
+/* waiting is typing (app-stage.js): dots beside the face in both densities */
 html.shell2 .md-typing{display:none}
 html.shell2 #log > .msg.assistant.staged[data-live="1"] .md > .md-typing{display:inline-flex;align-items:center;gap:4px;margin:0 0 .35rem;padding:.7rem .85rem;border:1px solid var(--border);border-radius:14px 14px 14px 4px;background:var(--bubble-base);backdrop-filter:var(--bubble-blur);-webkit-backdrop-filter:var(--bubble-blur)}
 html.shell2 .md-typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:shell-typing 1.2s infinite ease-in-out}
@@ -305,12 +303,12 @@ html.shell2 #log > .msg.failed{border-color:rgba(248,113,113,.6)}
 html.shell2 .msg-failnote{align-self:flex-end;font-size:.76rem;color:#fca5a5;margin:-.2rem .2rem .3rem}
 html.shell2 .msg-failnote button{padding:0;border:0;background:none;color:inherit;font:inherit;text-decoration:underline;cursor:pointer}
 /* ux/S7: reply -- the bar over the composer, the quote on the user's bubble, the quoted line found again */
-.shell-reply{display:flex;align-items:center;gap:.5rem;flex-shrink:0;margin:0 0 .3rem;padding:.35rem .5rem .35rem .7rem;border-left:2px solid var(--accent);border-radius:0 10px 10px 0;background:var(--bg-subtle);font-size:.82rem;color:var(--muted)}
+.shell-reply{display:flex;align-items:center;gap:.5rem;flex-shrink:0;margin:0 0 .3rem;padding:.35rem .5rem .35rem .7rem;border:1px solid var(--border);border-left:2.5px solid var(--accent);border-radius:10px;background:var(--bg-subtle);font-size:.82rem;color:var(--muted);box-shadow:var(--glint)}
 .shell-reply[hidden]{display:none}
 .shell-reply-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shell-reply button{position:relative;flex:0 0 auto;width:26px;height:26px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--muted)}
 .shell-reply button::after{content:"";position:absolute;inset:-9px}
-html.shell2 #log .msg-quote{display:block;width:100%;max-width:100%;margin:0 0 .35rem;padding:.1rem 0 .1rem .55rem;border:0;border-left:2px solid var(--accent2);border-radius:0;background:none;text-align:left;font-size:.8rem;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+html.shell2 #log .msg-quote{display:block;width:100%;max-width:100%;margin:0 0 .35rem;padding:.2rem .55rem;border:1px solid var(--border);border-left:2.5px solid var(--accent2);border-radius:8px;background:rgba(255,255,255,.025);text-align:left;font-size:.8rem;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 html.shell2 #log .msg-quote b{display:block;color:var(--accent2);font-weight:600}
 html.shell2 #log .msg-flash{animation:shell-flash 1.3s ease}
 @keyframes shell-flash{0%,40%{box-shadow:0 0 0 3px var(--accent-glow)}100%{box-shadow:none}}

@@ -60,6 +60,15 @@
         "value": "consolas",
         "createdAt": "2026-09-18T17:57:37.458Z",
         "reason": "DESIGN.md Label/Mono stack already lists Consolas with ui-monospace/Menlo"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "static/shell.css"
+        ],
+        "createdAt": "2026-10-10T11:40:00.000Z",
+        "reason": "Canonical chat quote and reply bar indicators (.shell-reply, .msg-quote) verified as false positives in design critique (2026-10-09 critique verdict)"
       }
     ]
   }

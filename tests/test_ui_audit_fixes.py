@@ -88,6 +88,15 @@ class TestCraftFloorIntegrity(unittest.TestCase):
         self.assertIn("border:1px solid var(--accent-border)", b)
         self.assertIn("border-radius:4px", b)
 
+    def test_reply_and_quote_styling(self):
+        css = text("shell.css")
+        r = block(css, ".shell-reply")
+        self.assertIn("border:1px solid var(--border)", r)
+        self.assertIn("border-radius:10px", r)
+        q = block(css, "html.shell2 #log .msg-quote")
+        self.assertIn("border:1px solid var(--border)", q)
+        self.assertIn("border-radius:8px", q)
+
 
 class TestTouchTargetHitboxes(unittest.TestCase):
     def test_shell_icon_buttons_have_expanded_hitbox(self):
