@@ -155,6 +155,19 @@ class DigestTests(unittest.TestCase):
         sev = {f["evidence"].get("fp"): f["severity"] for f in d["findings"] if f["code"] == "error_fp"}
         self.assertEqual(sev, {"abcdef1234": "warn", "9999999999": "error"})
 
+    def test_a_text_route_stat_does_not_crash_the_http_digest(self):
+        # incident #4: obslog's cap leaves a route value as text, and _digest_http called .get on it
+        findings = []
+        out = logdigest._digest_http([
+            {"evt": "http.summary", "src": "chat", "routes": {
+                "GET /api/x": {"n": 12, "codes": {"2xx": 12}, "p95": 10, "max": 20},
+                "\u2026": "400 more"}},
+            {"evt": "http.summary", "src": "chat", "routes": "cut"},
+        ], lambda *a, **k: findings.append(a))
+        self.assertEqual(out["total"], 12)
+        self.assertEqual([r["route"] for r in out["routes"]], ["chat GET /api/x"])
+        self.assertEqual(findings, [])
+
     def test_http_summary_rates(self):
         self.write([(60, {"src": "chat", "evt": "http.summary", "routes": {
             "GET /api/usage": {"n": 100, "codes": {"2xx": 95, "5xx": 5}, "p50": 10, "p95": 3000, "max": 4000},

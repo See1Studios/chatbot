@@ -278,15 +278,23 @@ def _digest_errors(before, win, find):
 def _digest_http(win, find):
     routes: Dict[str, Dict[str, Any]] = defaultdict(lambda: {"n": 0, "codes": Counter(), "p95": [], "max": 0.0})
     for e in win:
-        if e.get("evt") == "http.summary":
-            for r, s in (e.get("routes") or {}).items():
-                key = "%s %s" % (e.get("src"), r)
-                t = routes[key]
-                t["n"] += s.get("n", 0)
-                t["codes"].update(s.get("codes") or {})
-                if s.get("p95") is not None:
-                    t["p95"].append(s["p95"])
-                t["max"] = max(t["max"], s.get("max") or 0)
+        if e.get("evt") != "http.summary":
+            continue
+        # A route stat is a dict. The size cap stores the overflow as text ("…");
+        # calling .get on that text is the AttributeError behind incident #4.
+        got = e.get("routes")
+        if not isinstance(got, dict):
+            continue
+        for r, s in got.items():
+            if not isinstance(s, dict):
+                continue
+            key = "%s %s" % (e.get("src"), r)
+            t = routes[key]
+            t["n"] += s.get("n", 0)
+            t["codes"].update(s.get("codes") or {})
+            if s.get("p95") is not None:
+                t["p95"].append(s["p95"])
+            t["max"] = max(t["max"], s.get("max") or 0)
     http = []
     for key, t in routes.items():
         n = t["n"] or 1
