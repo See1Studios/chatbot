@@ -128,6 +128,7 @@
 
 *{box-sizing:border-box}
 html, body {
+  color-scheme: dark;
   height: 100%;
   height: var(--app-height, 100dvh);
   overflow: hidden;

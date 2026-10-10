@@ -1,6 +1,4 @@
-// app-sse.js -- split out of app.js (APP_SPLIT_v1, docs/plans/archive/2026/monolith-split.md Phase 5). Declarations only: it
-// loads before app.js, which runs everything that happens at load (listeners, timers, boot). Top-level code
-// here may use the page's DOM, never a binding from a later file.
+// app-sse.js — split from app.js (APP_SPLIT_v1). Loads before app.js. DOM is fine; a later file's binding is not.
 
 // STOP_NOTICE_ONCE_v1: when the server last said a turn was stopped; the stop button (app.js) waits this long for it.
 let lastStopNoticeAt = 0;
@@ -98,9 +96,7 @@ function streamBody(node) {
   return md;
 }
 
-// REVEAL_BLOCKS_v1 (2026-09-28): blocks render as they close; per-frame work stays on the active block.
-// A markdown block cannot change once closed, so it is rendered with marked/sanitized immediately.
-// Motion belongs to letters/lines on their own clock; this function only draws block prefixes.
+// REVEAL_BLOCKS_v1: closed blocks render once; motion stays on the open block.
 function revealReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -125,9 +121,7 @@ function setStreamingContent(node, text, badgeSrc) {
   const sig = cut.blocks.map(function (b) { return b.kind + '\u0001' + b.text; });
   const had = node._streamSig || [];
   if (sig.length < had.length || had.some(function (s, i) { return s !== sig[i]; })) resetStreamBody(node, md);
-  // The block being written is always the last child, so the existing caret -- a ::after on
-  // .md > *:last-child (chat-composer.css) -- lands on it and keeps one caret instead of two. It is
-  // created before the finished blocks so those can be inserted in front of it.
+  // The open block is the last child, so the caret (::after on .md > *:last-child) stays one. Create it first.
   let openEl = node._streamOpen;
   if (!openEl) {
     openEl = document.createElement('div');
@@ -214,8 +208,7 @@ function endStreamingContent(node) {
   if (md) md.classList.remove('md-stream');
 }
 
-// CHAR_REVEAL_v1 / LINE_REVEAL_v1: text arrives on a clock easing bursts out; chat-log.css matches durations.
-// revealTick paces output proportional to backlog; units remember birth timestamp to maintain animation.
+// CHAR_REVEAL_v1 / LINE_REVEAL_v1: revealTick eases bursts; chat-log.css matches the durations.
 var REVEAL_MS = 320;            // one letter's entrance; chat-log.css .rv-l uses the same
 var REVEAL_MIN_CPS = 28;        // letters per second while the model is still speaking
 var REVEAL_CATCHUP_MS = 450;    // pace = backlog / this: a burst eases out, shrinking ~2/3 per 450ms
@@ -445,10 +438,28 @@ function revealLines(node, rv, now) {
   placeStreamCaret(md);
 }
 
-// Give letters younger than REVEAL_MS a span; unwrap settled spans to plain text.
+// Spans only for letters younger than REVEAL_MS, and only the last 24 of those on a long stream.
 function revealLetters(node, rv, now) {
   const md = node.querySelector && node.querySelector('.md');
   if (!md) return;
+  let spanFrom = 0;
+  (function (el) {
+    let n = 0;
+    (function w(e) {
+      const cs = e.childNodes;
+      for (let i = 0; i < cs.length; i++) {
+        const c = cs[i];
+        if (c.nodeType === 1) {
+          const cls = c.className || '';
+          if (/\brv-l\b/.test(cls)) n++;
+          else if (!/\b(exp-badge|stream-caret)\b/.test(cls)) w(c);
+        } else if (c.nodeType === 3 && c.nodeValue) {
+          revealGraphemes(c.nodeValue).forEach(function (g) { if (g.trim()) n++; });
+        }
+      }
+    })(el);
+    spanFrom = n > 24 ? n - 24 : 0;
+  })(md);
   let index = 0;
   const visit = function (el) {
     for (let i = 0; i < el.childNodes.length; i++) {
@@ -483,10 +494,12 @@ function revealLetters(node, rv, now) {
       const frag = document.createDocumentFragment();
       let word = null;
       let parts = 0;
+      let ord = index - ages.filter(function (a) { return a !== null; }).length;
       gs.forEach(function (g, k) {
         if (ages[k] === null) { word = null; frag.appendChild(document.createTextNode(g)); parts++; return; }
+        const at = ord++;
         if (!word) { word = document.createElement('span'); word.className = 'rv-w'; frag.appendChild(word); parts++; }
-        if (ages[k] >= REVEAL_MS) { word.appendChild(document.createTextNode(g)); return; }
+        if (ages[k] >= REVEAL_MS || at < spanFrom) { word.appendChild(document.createTextNode(g)); return; }
         const l = document.createElement('span');
         l.className = 'rv-l';
         l.style.animationDelay = (-Math.round(ages[k])) + 'ms';
@@ -549,8 +562,7 @@ function bindEvents(sid) {
         assistantBuf = text;
       }
       const paintNode = assistantNode;
-      // An empty answer so far (a work turn sends its first deltas before any text): the old page says so in words;
-      // the messenger shell draws nothing, and the typing dots beside the face stay (app-stage.js stageTyping).
+      // No text yet: the old page says so; the shell draws nothing and keeps the typing dots (stageTyping).
       const paintBuf = assistantBuf || (typeof shellOn === 'function' && shellOn() ? '' : tr('chat.writing'));
       scheduleStreamPaint(function () {
         // A turn that ended between the delta and this frame must not be painted into.

@@ -13,10 +13,10 @@
   border-radius:10px;
   touch-action:pan-y;
   user-select:none;
-  will-change:transform, opacity;
 }
-.msg.system.swiping{transition:none}
+.msg.system.swiping{transition:none;will-change:transform,opacity}
 .msg.system.dismissing{
+  will-change:transform,opacity;
   transform:translateX(var(--dismiss-x, 100%));
   opacity:0;
   max-height:0;

@@ -385,6 +385,12 @@ const CASES = {
     play(2400); const late = text(n).length;
     return { early, late };
   },
+  a_long_stream_spans_only_the_tail: () => {
+    const n = newBubble();
+    revealTarget(n, '가'.repeat(80));
+    play(400);
+    return { letters: letters(n).length, shown: text(n).length };
+  },
   the_final_render_waits_for_the_last_letter: () => {
     const n = newBubble();
     const full = '끝까지 다 보여주고 나서';
@@ -695,6 +701,12 @@ class StreamingText(unittest.TestCase):
         out = run("a_burst_is_paced_and_catches_up")
         self.assertLess(out["early"], 150, "three hundred letters at once are not stamped")
         self.assertEqual(out["late"], 300, "and a backlog drains instead of falling behind")
+
+    def test_a_long_stream_keeps_letter_spans_on_the_tail(self):
+        out = run("a_long_stream_spans_only_the_tail")
+        self.assertGreater(out["shown"], 24, "the clock still puts the burst on screen")
+        self.assertGreater(out["letters"], 0)
+        self.assertLessEqual(out["letters"], 24, "only the tail of a long stream is a span")
 
     def test_the_final_render_waits_for_the_last_letter(self):
         out = run("the_final_render_waits_for_the_last_letter")
