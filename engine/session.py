@@ -3,15 +3,13 @@
 Extracted from server.py (monolith-split Phase 1). Processes this server spawned live in session_procs.py:
 the functions are re-exported here, and starting a child, reading its pipes, and stopping it is the SessionProcs mixin.
 Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, the session's weight, and a repeated tool call live on the turn mixin; the handoff text, the restart digest, image paths, and the events sent to the screen live on the view mixin.
-chatbot-ctl.sh guard_rlock AST-scans this file for AgentSession.lock = threading.RLock().
+Reading and writing meta.json lives on the registry mixin. chatbot-ctl.sh guard_rlock AST-scans this file for AgentSession.lock = threading.RLock().
 """
 from __future__ import annotations
 
-import json
 import math
 import subprocess
 import threading
-import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from providers.adapters import get_adapter
@@ -21,7 +19,7 @@ from instructions import build_instruction_bundle  # noqa: F401 -- session_turn 
 from identity import display_name, user_title  # noqa: F401 -- the view mixin reads _session().display_name and _session().user_title
 
 import i18n  # noqa: F401 -- the view mixin reads _session().i18n
-from telemetry import obslog
+from telemetry import obslog  # noqa: F401 -- the registry mixin reads _s().obslog
 import quota_state  # noqa: F401 -- QUOTA_STATE_v1 qfr/D; the turn mixin reads _s().quota_state
 import regenerate  # noqa: F401 -- REGENERATE_v1; the turn mixin reads _s().regenerate
 import write_guard  # noqa: F401 -- the turn mixin reads _s().write_guard
@@ -49,7 +47,7 @@ import repo_layout
 # root, not the engine folder (after the layout move a claimed engine file read as `x.py` and was never covered).
 REPO_ROOT = repo_layout.REPO
 from artifact_manager import (
-    _atomic_write_text,
+    _atomic_write_text,  # noqa: F401 -- server.py and the registry mixin read it from session
     _safe_artifact_rel,
     _safe_session_id,
 )
@@ -156,7 +154,10 @@ def format_client_context(ctx: Optional[Dict[str, Any]]) -> str:
     return "[Client: " + ", ".join(p) + "]" if p else ""
 
 
-class AgentSession(SessionTurn, SessionView, TurnWatchdog, SessionProcs):
+from session_registry import SessionMeta  # noqa: E402 -- meta.json load and save; Registry's defaults read names bound above
+
+
+class AgentSession(SessionTurn, SessionView, TurnWatchdog, SessionProcs, SessionMeta):
     def __init__(self, sid: str, model: str = DEFAULT_MODEL, effort: str = "", provider: str = DEFAULT_PROVIDER):
         self.sid = sid
         self.provider = provider or DEFAULT_PROVIDER
@@ -219,77 +220,9 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog, SessionProcs):
     def is_private(self) -> bool:
         return getattr(self, "mode", "work") == "private"
 
-    def _load_meta(self) -> None:
-        if self.meta_path.exists():
-            try:
-                meta = json.loads(self.meta_path.read_text(encoding="utf-8"))
-                self.conversation_id = meta.get("conversation_id")
-                self.provider = meta.get("provider") or self.provider
-                self.adapter = get_adapter(self.provider)  # re-resolve -- __init__'s default may not match a saved session
-                self.model = meta.get("model") or self.model
-                self.effort = meta.get("effort") or self.effort
-                self.history = meta.get("history") or []
-                self.successor_session_id = str(meta.get("successor_session_id") or "")
-                self.predecessor_session_id = str(meta.get("predecessor_session_id") or "")
-                self.handoff_summary = str(meta.get("handoff_summary") or "")
-                self.handoff_injected = bool(meta.get("handoff_injected", False))
-                self.persona_injected = bool(meta.get("persona_injected", False))
-                self.persona_bundle_hash = str(meta.get("persona_bundle_hash") or "")
-                self.context_layer_hashes = meta.get("context_layer_hashes")   # CONTEXT_REFRESH_v1; None: adopt
-                self.context_log = list(meta.get("context_log") or [])[-CONTEXT_LOG_KEEP:]   # CONTEXT_PANEL_v1
-                self.character = str(meta.get("character") or "")
-                self.mode = meta.get("mode") if meta.get("mode") in ("private", "room") else "work"   # room: evt/E
-                self.private_digested_ts = float(meta.get("private_digested_ts") or 0)
-                self._regen_restore = str(meta.get("regen_restore") or "")   # #883: a harder take survives a restart
-                self.tension_stage, self.recent_choices = tension_meta(meta)
-                self.refusal_mitigation = bool(meta.get("refusal_mitigation", False))  # #249 opt-in
-                ts_list = [h.get("ts") for h in self.history if isinstance(h.get("ts"), (int, float))]
-                if ts_list:
-                    self.last_activity = max(ts_list)
-                elif self.meta_path.exists():
-                    self.last_activity = self.meta_path.stat().st_mtime
-            except Exception as e:
-                ts = int(time.time())
-                corrupt_path = self.meta_path.with_name(f"{self.meta_path.name}.corrupt-{ts}")
-                obslog.exception("session.meta_corrupt", e, lvl="warn", sid=self.sid, renamed_to=corrupt_path.name)
-                try:
-                    self.meta_path.replace(corrupt_path)
-                except Exception:
-                    pass
-
-    def save_meta(self) -> None:
-        with self.lock:
-            payload = {
-                "id": self.sid,
-                "provider": self.provider,
-                "model": self.model,
-                "effort": self.effort,
-                "conversation_id": self.conversation_id,
-                "history": self.history[-80:],
-                "successor_session_id": getattr(self, "successor_session_id", "") or "",
-                "predecessor_session_id": getattr(self, "predecessor_session_id", "") or "",
-                "handoff_summary": getattr(self, "handoff_summary", "") or "",
-                "handoff_injected": getattr(self, "handoff_injected", False),
-                "persona_injected": getattr(self, "persona_injected", False),
-                "persona_bundle_hash": getattr(self, "persona_bundle_hash", "") or "",
-                "context_layer_hashes": getattr(self, "context_layer_hashes", None),
-                "context_log": list(getattr(self, "context_log", []) or [])[-CONTEXT_LOG_KEEP:],
-                "character": getattr(self, "character", "") or "",
-                "mode": getattr(self, "mode", "work") or "work",
-                "private_digested_ts": getattr(self, "private_digested_ts", 0.0) or 0.0,
-                "regen_restore": getattr(self, "_regen_restore", "") or "",
-                "tension_stage": getattr(self, "tension_stage", 1), "recent_choices": list(getattr(self, "recent_choices", [])),
-                "refusal_mitigation": bool(getattr(self, "refusal_mitigation", False)),
-                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            }
-            try:
-                _atomic_write_text(self.meta_path, json.dumps(payload, ensure_ascii=False, indent=2))
-                _meta_touched(self.meta_path)
-            except Exception as e:
-                obslog.exception("session.save_meta_failed", e, sid=self.sid)
-
-# REGISTRY_SPLIT_v1: the registry, the newest-session lookup and the meta.json summary cache live in
-# session_registry.py; re-exported here so callers keep `from session import REG, Registry`.
+# REGISTRY_SPLIT_v1: the registry, the newest-session lookup, the meta.json summary cache, and reading and
+# writing one session's meta.json live in session_registry.py; re-exported here so callers keep
+# `from session import REG, Registry`.
 from session_registry import Registry, _meta_touched, migrate_session_characters  # noqa: E402,F401
 
 REG = Registry()

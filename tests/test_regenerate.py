@@ -148,7 +148,7 @@ class ThinkHarder(unittest.TestCase):
         send = src[src.index("    def send(self, text: str"):]
         self.assertLess(send.index('restore = getattr(self, "_regen_restore", "")'), send.index("_emit_heavy_if_needed()"))
         self.assertIn('self.maybe_swap_model(restore, remember=False)', send)
-        meta = (ENGINE / "session.py").read_text(encoding="utf-8")
+        meta = (ENGINE / "session_registry.py").read_text(encoding="utf-8")
         self.assertIn('"regen_restore": getattr(self, "_regen_restore", "") or ""', meta)
         self.assertIn('self._regen_restore = str(meta.get("regen_restore") or "")', meta)
 

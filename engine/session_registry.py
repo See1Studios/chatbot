@@ -1,7 +1,7 @@
 """Where sessions are found (REGISTRY_SPLIT_v1, docs/plans/archive/2026/monolith-split.md Phase 5): the registry of live
-AgentSession objects, the newest-session lookup per character and mode, the session list, and the meta.json summary
-cache behind them (SESSION_INDEX_v1). Split out of session.py, which re-exports every name here, so callers keep
-`from session import REG, Registry`.
+AgentSession objects, the newest-session lookup per character and mode, the session list, the meta.json summary
+cache behind them (SESSION_INDEX_v1), and reading and writing one session's meta.json (SessionMeta). Split out of
+session.py, which re-exports every name here, so callers keep `from session import REG, Registry`.
 
 session.py's own values (SESSIONS, WORKSPACE, AgentSession, defaults) are read from that module at call time, not
 copied at import: tests point `session.SESSIONS` at a temporary folder, and the registry must follow."""
@@ -22,7 +22,7 @@ import threshold
 
 
 def _s():
-    """The session module (already loaded: it imports this one at its end)."""
+    """The session module. It imports this file while it is still loading; callers run after that finishes."""
     return sys.modules["session"]
 
 
@@ -60,6 +60,79 @@ _meta_state = {"dirty": set(), "root": None, "dir_mtime": None, "at": 0.0, "list
 def _meta_touched(path: Path) -> None:
     with _META_INDEX_LOCK:
         _meta_state["dirty"].add(Path(path))
+
+
+class SessionMeta:
+    """Read and write this session's meta.json. A save tells the summary cache through _meta_touched."""
+
+    def _load_meta(self) -> None:
+        if self.meta_path.exists():
+            try:
+                meta = json.loads(self.meta_path.read_text(encoding="utf-8"))
+                self.conversation_id = meta.get("conversation_id")
+                self.provider = meta.get("provider") or self.provider
+                self.adapter = _s().get_adapter(self.provider)  # re-resolve -- __init__'s default may not match a saved session
+                self.model = meta.get("model") or self.model
+                self.effort = meta.get("effort") or self.effort
+                self.history = meta.get("history") or []
+                self.successor_session_id = str(meta.get("successor_session_id") or "")
+                self.predecessor_session_id = str(meta.get("predecessor_session_id") or "")
+                self.handoff_summary = str(meta.get("handoff_summary") or "")
+                self.handoff_injected = bool(meta.get("handoff_injected", False))
+                self.persona_injected = bool(meta.get("persona_injected", False))
+                self.persona_bundle_hash = str(meta.get("persona_bundle_hash") or "")
+                self.context_layer_hashes = meta.get("context_layer_hashes")   # CONTEXT_REFRESH_v1; None: adopt
+                self.context_log = list(meta.get("context_log") or [])[-_s().CONTEXT_LOG_KEEP:]   # CONTEXT_PANEL_v1
+                self.character = str(meta.get("character") or "")
+                self.mode = meta.get("mode") if meta.get("mode") in ("private", "room") else "work"   # room: evt/E
+                self.private_digested_ts = float(meta.get("private_digested_ts") or 0)
+                self._regen_restore = str(meta.get("regen_restore") or "")   # #883: a harder take survives a restart
+                self.tension_stage, self.recent_choices = _s().tension_meta(meta)
+                self.refusal_mitigation = bool(meta.get("refusal_mitigation", False))  # #249 opt-in
+                ts_list = [h.get("ts") for h in self.history if isinstance(h.get("ts"), (int, float))]
+                if ts_list:
+                    self.last_activity = max(ts_list)
+                elif self.meta_path.exists():
+                    self.last_activity = self.meta_path.stat().st_mtime
+            except Exception as e:  # noqa: BLE001 -- a corrupt file is renamed; the session still starts
+                ts = int(time.time())
+                corrupt_path = self.meta_path.with_name(f"{self.meta_path.name}.corrupt-{ts}")
+                _s().obslog.exception("session.meta_corrupt", e, lvl="warn", sid=self.sid, renamed_to=corrupt_path.name)
+                try:
+                    self.meta_path.replace(corrupt_path)
+                except Exception:  # noqa: BLE001 -- renaming the corrupt file is best-effort
+                    pass
+
+    def save_meta(self) -> None:
+        with self.lock:
+            payload = {
+                "id": self.sid,
+                "provider": self.provider,
+                "model": self.model,
+                "effort": self.effort,
+                "conversation_id": self.conversation_id,
+                "history": self.history[-80:],
+                "successor_session_id": getattr(self, "successor_session_id", "") or "",
+                "predecessor_session_id": getattr(self, "predecessor_session_id", "") or "",
+                "handoff_summary": getattr(self, "handoff_summary", "") or "",
+                "handoff_injected": getattr(self, "handoff_injected", False),
+                "persona_injected": getattr(self, "persona_injected", False),
+                "persona_bundle_hash": getattr(self, "persona_bundle_hash", "") or "",
+                "context_layer_hashes": getattr(self, "context_layer_hashes", None),
+                "context_log": list(getattr(self, "context_log", []) or [])[-_s().CONTEXT_LOG_KEEP:],
+                "character": getattr(self, "character", "") or "",
+                "mode": getattr(self, "mode", "work") or "work",
+                "private_digested_ts": getattr(self, "private_digested_ts", 0.0) or 0.0,
+                "regen_restore": getattr(self, "_regen_restore", "") or "",
+                "tension_stage": getattr(self, "tension_stage", 1), "recent_choices": list(getattr(self, "recent_choices", [])),
+                "refusal_mitigation": bool(getattr(self, "refusal_mitigation", False)),
+                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            }
+            try:
+                _s()._atomic_write_text(self.meta_path, json.dumps(payload, ensure_ascii=False, indent=2))
+                _meta_touched(self.meta_path)
+            except Exception as e:  # noqa: BLE001 -- a failed save is recorded; the turn continues
+                _s().obslog.exception("session.save_meta_failed", e, sid=self.sid)
 
 
 def _meta_summary(p: Path) -> Optional[dict]:

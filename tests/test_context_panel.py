@@ -39,9 +39,9 @@ class SessionRecord(unittest.TestCase):
         self.assertTrue(set(s.context_log[-1]) == {"ts", "why", "chars", "layers"}, "sizes and ids only, never text")
 
     def test_the_record_is_saved_with_the_session(self):
-        src = (ENGINE / "session.py").read_text(encoding="utf-8")
-        self.assertIn('"context_log": list(getattr(self, "context_log", []) or [])[-CONTEXT_LOG_KEEP:]', src)
-        self.assertIn('self.context_log = list(meta.get("context_log") or [])[-CONTEXT_LOG_KEEP:]', src)
+        src = (ENGINE / "session_registry.py").read_text(encoding="utf-8")
+        self.assertIn('"context_log": list(getattr(self, "context_log", []) or [])[-_s().CONTEXT_LOG_KEEP:]', src)
+        self.assertIn('self.context_log = list(meta.get("context_log") or [])[-_s().CONTEXT_LOG_KEEP:]', src)
 
     def test_the_route_serves_it(self):
         import route_sessions as R

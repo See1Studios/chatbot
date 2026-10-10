@@ -196,7 +196,7 @@ class Fixture(WorkspaceCase):
         self.assertFalse([c for c in ev.call_args_list if c.args[0] == "context.alert"])
 
     def test_the_layer_state_survives_a_restart(self):
-        src = (Path(I.__file__).parent / "session.py").read_text(encoding="utf-8")
+        src = (Path(I.__file__).parent / "session_registry.py").read_text(encoding="utf-8")
         self.assertIn('"context_layer_hashes": getattr(self, "context_layer_hashes", None)', src)
         self.assertIn('self.context_layer_hashes = meta.get("context_layer_hashes")', src)
 
