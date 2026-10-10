@@ -278,11 +278,3 @@ def regenerate(cid: str, body: Any, llm_call: Optional[Callable[[str, str], str]
     card_gen.apply_patch(card, patch)
     characters.save(cid, card, ws)
     return 200, {"ok": True, "id": cid, "changed": sorted(patch)}
-
-
-def handle_summon(body: Any, llm_call: Optional[Callable[[str, str], str]] = None, ws: Any = None) -> Tuple[int, Dict[str, Any]]:
-    return summon(body, resolve_call(llm_call), ws)
-
-
-def handle_regenerate(cid: str, body: Any, llm_call: Optional[Callable[[str, str], str]] = None, ws: Any = None) -> Tuple[int, Dict[str, Any]]:
-    return regenerate(cid, body, resolve_call(llm_call), ws)

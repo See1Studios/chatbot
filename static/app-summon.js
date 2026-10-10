@@ -79,11 +79,6 @@ function summonSummary(spec, picks) {
   return box;
 }
 
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 function renderDialoguePreview(example, charName, userTitle, portal) {
   var box = document.createElement('div');
   box.className = 'summon-dialog-box';

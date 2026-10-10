@@ -1,8 +1,5 @@
-import { VisualAdapter } from './visual-adapter.js';
-
-export class SpriteAdapter extends VisualAdapter {
+export class SpriteAdapter {
   constructor(opts = {}) {
-    super();
     this.opts = opts;
     this.character = null;
     this.spriteMap = {};
@@ -12,34 +9,8 @@ export class SpriteAdapter extends VisualAdapter {
   }
 
   getSpriteElement() {
-    if (this.imgEl && this.imgEl.isConnected) {
-      return this.imgEl;
-    }
-    let el = typeof document !== 'undefined' ? document.querySelector('.character-sprite') : null;
-    if (!el && typeof ensureCharacterSprite === 'function') {
-      el = ensureCharacterSprite();
-    } else if (!el && typeof document !== 'undefined') {
-      const container = document.querySelector('.stage') ||
-                        document.querySelector('.stage-shell') ||
-                        (document.getElementById('log') && document.getElementById('log').parentElement) ||
-                        document.body;
-      el = document.createElement('img');
-      el.className = 'character-sprite';
-      el.alt = 'Character Sprite';
-      el.style.position = 'absolute';
-      el.style.bottom = '0';
-      el.style.right = '1.5rem';
-      el.style.maxHeight = '70%';
-      el.style.maxWidth = '45%';
-      el.style.objectFit = 'contain';
-      el.style.pointerEvents = 'none';
-      el.style.zIndex = '0';
-      el.style.opacity = '0';
-      el.style.transition = 'opacity 0.2s ease';
-      if (container) {
-        container.appendChild(el);
-      }
-    }
+    if (this.imgEl && this.imgEl.isConnected) return this.imgEl;
+    const el = typeof ensureCharacterSprite === 'function' ? ensureCharacterSprite() : null;
     this.imgEl = el;
     return el;
   }
@@ -180,18 +151,6 @@ export class SpriteAdapter extends VisualAdapter {
     }
   }
 
-  speak(text, audio) {}
-
-  destroy() {
-    this._transitionSeq++;
-    if (this.imgEl) {
-      this.imgEl.style.opacity = '0';
-      this.imgEl.removeAttribute('src');
-    }
-    this.character = null;
-    this.spriteMap = {};
-    this.currentEmotion = '';
-  }
 }
 
 if (typeof window !== 'undefined') {

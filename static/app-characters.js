@@ -747,22 +747,9 @@ function ensureCharacterSprite() {
   return img;
 }
 
-let visualAdapterRegistry = null;
-
 async function initVisualAdapters() {
-  try {
-    const { AdapterRegistry } = await import('./visual-adapter.js');
-    const { SpriteAdapter } = await import('./visual-sprite-adapter.js');
-    visualAdapterRegistry = new AdapterRegistry();
-    visualAdapterRegistry.register('sprite', SpriteAdapter);
-    if (typeof window !== 'undefined') {
-      window._adapterRegistry = visualAdapterRegistry;
-    }
-    const ch = typeof currentCharacter === 'function' ? currentCharacter() : null;
-    if (ch) {
-      await loadVisualAdapterForCharacter(ch);
-    }
-  } catch (_) {}
+  const ch = typeof currentCharacter === 'function' ? currentCharacter() : null;
+  if (ch) await loadVisualAdapterForCharacter(ch);
 }
 
 async function loadVisualAdapterForCharacter(char) {
@@ -772,19 +759,11 @@ async function loadVisualAdapterForCharacter(char) {
   if (typeof window === 'undefined') return;
   try {
     if (!window._visualAdapter) {
-      if (visualAdapterRegistry) {
-        window._visualAdapter = visualAdapterRegistry.create('sprite');
-      } else {
-        const { SpriteAdapter } = await import('./visual-sprite-adapter.js');
-        window._visualAdapter = new SpriteAdapter();
-      }
+      const { SpriteAdapter } = await import('./visual-sprite-adapter.js');
+      window._visualAdapter = new SpriteAdapter();
     }
-    if (window._visualAdapter && typeof window._visualAdapter.load === 'function') {
-      await window._visualAdapter.load(c);
-      if (typeof window._visualAdapter.setEmotion === 'function') {
-        window._visualAdapter.setEmotion('default');
-      }
-    }
+    await window._visualAdapter.load(c);
+    if (typeof window._visualAdapter.setEmotion === 'function') window._visualAdapter.setEmotion('default');
   } catch (_) {}
 }
 

@@ -336,7 +336,6 @@ function shellChatSettingsDraw() {
   }
 }
 if (typeof window !== 'undefined') {
-  window.isChoiceKeepEnabled = isChoiceKeepEnabled;
   window.setChoiceKeepEnabled = setChoiceKeepEnabled;
   window.shellChatSettingsDraw = shellChatSettingsDraw;
 }

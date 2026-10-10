@@ -84,7 +84,7 @@ map only says which file does what.
 | How an answer reads | `app-{blocks,stage,think,flow,choices}.js`, `markdown.js`, `markdown-map.js`, `artifacts.js` |
 | Composer | `app-{attach,item,act-key,recall,retry,speech}.js`, `slash.js`, `model-picker.js` |
 | Other screens | rooms `app-rooms.js`, art manager `app-art.js`, dev only `app-dev-delete.js`, log tab `service-log.js`, `theme.js` |
-| Character renderers | `visual-adapter.js`, `visual-sprite-adapter.js` |
+| Character renderers | `visual-sprite-adapter.js` |
 | Styles (cascade order) | `chat-{base,log,composer,panes,responsive,features}.css`, `art-manager.css`, `rooms.css`, `shell.css`. `sphere-theme.css` is the hub sheet; the chat page does not load it |
 | Visual system | `DESIGN.md`, `.impeccable/design.json` |
 

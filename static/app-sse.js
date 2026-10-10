@@ -8,26 +8,6 @@ let lastStreamAt = 0;
 
 // A user line that is only "(action)" / "((action))" is a stage action, not speech: returns the bare
 // action text ('' otherwise). send(), user_ack and history all route through this.
-function stripOuterParens(s) {
-  // Balanced outer (...) only — do not eat trailing ) of an inner "(act)" in "line" (act).
-  let out = String(s || '').trim();
-  while (out.length >= 2 && out[0] === '(' && out[out.length - 1] === ')') {
-    let depth = 0, balanced = true;
-    for (let i = 0; i < out.length; i++) {
-      const ch = out[i];
-      if (ch === '(') depth++;
-      else if (ch === ')') {
-        depth--;
-        if (depth === 0 && i !== out.length - 1) { balanced = false; break; }
-        if (depth < 0) { balanced = false; break; }
-      }
-    }
-    if (!balanced || depth !== 0) break;
-    out = out.slice(1, -1).trim();
-  }
-  return out;
-}
-
 function actionTextOf(text) {
   // A user line that is only "(action)" -- including flavored ("line") / ("line" (act)) -- is a stage action.
   // Reject multi-wrap speech like "(a) and (b)".

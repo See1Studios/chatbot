@@ -477,7 +477,8 @@ class ChoiceChips(unittest.TestCase):
     def test_arrowless_variants_and_long_action_label(self):
         js = r"""
 const fs = require('fs');
-const code = fs.readFileSync(process.argv[1], 'utf8');
+const md = fs.readFileSync(process.argv[1], 'utf8');
+const code = md.slice(md.indexOf('function stripOuterParens'), md.indexOf('function expressionEmoji'));
 const api = new Function(code + '; return { splitChoices, parseChoiceItem };')();
 const smartCombo = api.parseChoiceItem('“잠깐만” （손을 잡는다）');
 const rawCombo = api.parseChoiceItem('"잠깐만" (손을 잡는다)');
@@ -487,7 +488,7 @@ const longCombo = api.parseChoiceItem('("이것은 서른 자가 훨씬 넘는 �
 const shortSay = api.parseChoiceItem('단문 선택지');
 console.log(JSON.stringify({smartCombo, rawCombo, smartAct, longAct, longCombo, shortSay}));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(CHOICES)], capture_output=True, text=True, check=False)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(MD)], capture_output=True, text=True, check=False)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["smartCombo"]["label"], "잠깐만")
@@ -727,7 +728,7 @@ const bareAct = classifyChoicePayload('허리를 바짝 붙인다');
 console.log(JSON.stringify({act, say, combo, charLeak, curlyAct, smartCombo, bareAct}));
 """
         r = subprocess.run(
-            ["node", "-e", i18n_prelude() + js, str(CHOICES)],
+            ["node", "-e", i18n_prelude() + js, str(MD)],
             capture_output=True, text=True, check=False,
         )
         self.assertEqual(r.returncode, 0, r.stderr)

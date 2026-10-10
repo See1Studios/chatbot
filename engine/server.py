@@ -459,12 +459,12 @@ def _summon_steps(req: Req):
 
 
 def _summon_create(req: Req):
-    status, payload = summon_api.handle_summon(req.body or {})
+    status, payload = summon_api.summon(req.body or {}, summon_api.resolve_call(None))
     return req.json(payload, status)
 
 
 def _summon_regen(req: Req):
-    status, payload = summon_api.handle_regenerate((req.arg or "").strip("/"), req.body or {})
+    status, payload = summon_api.regenerate((req.arg or "").strip("/"), req.body or {}, summon_api.resolve_call(None))
     return req.json(payload, status)
 
 

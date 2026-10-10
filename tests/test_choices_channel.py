@@ -100,7 +100,7 @@ process.stdout.write(JSON.stringify(textWithChoices({ text: '선택해', choices
         self.assertEqual(json.loads(r.stdout), "선택해\n<!--choices: 동의 | 미소 -> (미소짓는다) | 승인 -> command: /ticket approve 10-->")
 
     def test_markdown_parse_choice_item(self):
-        choices_file = ROOT / "static" / "app-choices.js"
+        choices_file = ROOT / "static" / "markdown.js"
         js = r"""
 const fs = require('fs');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
@@ -166,9 +166,12 @@ process.stdout.write(JSON.stringify({ eventFirst: firstRun, fallback: secondRun 
 
     def test_markdown_renders_choices_into_choice_bar_container(self):
         choices_file = ROOT / "static" / "app-choices.js"
+        md_file = ROOT / "static" / "markdown.js"
         js = r"""
 const fs = require('fs');
+const md = fs.readFileSync(process.argv[process.argv.length - 2], 'utf8');
 const src = fs.readFileSync(process.argv[process.argv.length - 1], 'utf8');
+eval(md.slice(md.indexOf('function stripOuterParens'), md.indexOf('function expressionEmoji')));
 
 function el(tag) {
   return {
@@ -205,7 +208,7 @@ process.stdout.write(JSON.stringify({
   chipCount
 }));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(choices_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file), str(choices_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         res = json.loads(r.stdout)
         self.assertEqual(res["hidden"], False)
@@ -216,8 +219,11 @@ process.stdout.write(JSON.stringify({
         """#148: the card sits in #choiceBar, outside the bubble. Choices drawn from the marker (result event, resync,
         history -- the paths a phone takes) set no _choices, and syncChoiceChips right after must not hide them."""
         choices_file = ROOT / "static" / "app-choices.js"
+        md_file = ROOT / "static" / "markdown.js"
         js = r"""
-const src = require('fs').readFileSync(process.argv[process.argv.length - 1], 'utf8');
+const md = require('fs').readFileSync(process.argv[process.argv.length - 2], 'utf8');
+const chips = require('fs').readFileSync(process.argv[process.argv.length - 1], 'utf8');
+const src = md.slice(md.indexOf('var CHOICES_TAIL'), md.indexOf('function expressionEmoji')) + '\n' + chips;
 function el(tag) {
   return { tag, className: '', textContent: '', children: [], attrs: {}, hidden: true, parent: null,
     setAttribute(k, v) { this.attrs[k] = v; }, addEventListener() {},
@@ -244,7 +250,7 @@ msg('msg user');
 api.syncChoiceChips();
 process.stdout.write(JSON.stringify({ kept, clearedAfterUser: choiceBarEl.hidden }));
 """
-        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(choices_file)], capture_output=True, text=True, timeout=30)
+        r = subprocess.run(["node", "-e", i18n_prelude() + js, str(md_file), str(choices_file)], capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout), {"kept": True, "clearedAfterUser": True})
 
@@ -289,7 +295,7 @@ process.stdout.write(JSON.stringify({ heldBeforeBubble, taken, droppedOnUserTurn
     def test_back_to_work_closes_the_bar_and_is_not_said(self):
         """The stay chip is a page command. Clicking it clears the choice bar and does not send the label."""
         page = ROOT / "static" / "app-messages.js"
-        choices = ROOT / "static" / "app-choices.js"
+        choices = ROOT / "static" / "markdown.js"
         js = r"""
 const fs = require('fs');
 const files = process.argv.slice(1).filter(a => a.endsWith('.js'));

@@ -77,8 +77,7 @@ environment, line normalizing, usage and quota, interrupt, compaction. The regis
 
 Purpose: swap how a character is drawn at run time. ST's flat sprite set stays ST's; PE adds framings.
 
-Interface (built, `static/visual-adapter.js`): `VisualAdapter` with `load(character)`, `setEmotion(label)`,
-`speak(text, audio)`, `destroy()`; `AdapterRegistry` registers and creates renderers by name.
+The built renderer is `SpriteAdapter` in `static/visual-sprite-adapter.js`: `load(character)`, `setEmotion(label)`.
 
 | Implementation | Description | State |
 |---|---|---|

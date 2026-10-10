@@ -34,9 +34,6 @@ _TAG = re.compile(
     r"^(progress|promise|promises|pref|prefs|preference|preferences|taboo|taboos)\s*[:：]\s*(.+)$",
     re.I,
 )
-# NO_GUESS_SLOT_v1: a line goes to a slot only by its explicit tag above -- keyword hints (Korean and English words)
-# sorted the same line differently by language, so they are gone.
-_HINTS = ()
 _SECRETISH = re.compile(
     r"(api[_-]?key|secret|password|passwd|token|bearer|sk-[A-Za-z0-9]{8,}|-----BEGIN)",
     re.I,
@@ -75,10 +72,6 @@ def classify(line):
         else:
             shown = fact
         return slot, shown.strip()
-    low = _undated(body).lower()
-    for slot, keys in _HINTS:
-        if any(k.lower() in low for k in keys):
-            return slot, body
     return "", body
 
 
