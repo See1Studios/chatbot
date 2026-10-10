@@ -91,6 +91,32 @@
 
 결과물은 원하면 플러그인 패키지로 내보낸다([plugin-architecture.md](plugin-architecture.md) `plug/F`).
 
+### 4.5 3단계 메모리 규격
+
+> 근거: 정보통(루루) 핸드오프 #38 Nomi식 3단계 벤치마크 브리프.
+> 현황 사실 (2026-10-10 파일 확인): `memory_relationship.py::SLOT_ORDER`에 따라 실제 `characters/<id>/relationship.md` 파일들에 `Progress`, `Promises`, `Preferences`(및 `Taboos`) 슬롯이 실재함을 확인했다. 아래 제시된 각 층의 토큰 수치는 이 규격의 **설계 목표치**이며 실측치가 아님을 명시한다(실측 계측 및 정밀 튜닝은 `ladder/H`·D5로 대기).
+
+| 층 | 이름 | 저장 위치 | 예산 | 갱신 시점 |
+|---|---|---|---|---|
+| Tier 1 | 단기 세션 버퍼 (Working Context) | `.pe/sessions/<sid>/events.jsonl` | 약 2,000토큰 (목표치) | 세션 종료·전환 시 Session Digest로 롤업해 인계 |
+| Tier 2 | 중기 관계·에피소드 상태 (Episodic & Relationship FSM) | `characters/<id>/relationship.md`의 4슬롯 (Progress / Promises / Preferences / Taboos) | 약 600토큰 (목표치) | FSM 단계·장소 상태(공개/사적)와 연계 갱신, 첫 만남 급발진 방어(#864, [private-mode.md](private-mode.md) §3.3)와 연결 |
+| Tier 3 | 장기 영구 팩트·시맨틱 (Semantic Facts) | `memory/MEMORY.md` / `characters/<id>/memory.md` / `characters/<id>/private-memory.md` | 약 400토큰 (파일당 4KB 상한, 목표치) | 날짜별 1줄 팩트, `recall_memory` 도구(`templates/workspace/tools/recall_memory.py`)로 필요할 때만 리콜(JIT) |
+
+**데이터 흐름**:
+단기 버퍼 → Session Digest 롤업 → 중기 슬롯 갱신 및 장기 팩트 승격 (승격 기준은 결정 항목 D5로 남긴다).
+
+```text
+[Tier 1: 단기 세션 버퍼] (.pe/sessions/<sid>/events.jsonl, ~2,000토큰)
+            │
+            ▼ (세션 종료·전환 시)
+     [Session Digest 롤업]
+      ├──► [Tier 2: 중기 관계·에피소드 FSM] (relationship.md 4슬롯, ~600토큰)
+      └──► [Tier 3: 장기 영구 팩트·시맨틱] (MEMORY.md / private-memory.md, ~400토큰)
+```
+
+**사용자 통제권**:
+`ladder/D` 기억 화면에서 Tier 1·2·3 3층 모두를 사용자가 직접 조회·수정·1클릭 되돌리기(스냅숏 롤백)할 수 있다. 단, 사적 기억(사적 세션 버퍼, 사적 관계 슬롯, `private-memory.md`)은 사적 모드 안에서만 보이고 관리된다(§4.1 원칙과 정합).
+
 ## 5. 결정 (2026-09-28 운영자: 전부 추천안 채택)
 
 | D | 질문 | 추천 | 상태 |
@@ -99,6 +125,7 @@
 | D2 | 층별 승인 규칙 | 기억은 바로 반영하되 보이게·되돌리기 쉽게, 나머지(카드·외형·로어북·규칙·스킬)는 제안 카드 | 결정 2026-09-28 (운영자: 추천대로) |
 | D3 | 제안의 저장 | 엔진은 관찰 기록을 재사용, 사용자 표면은 「제안」. 티켓은 개발판(코드) 전용 | 결정 2026-09-28 (운영자: 추천대로) |
 | D4 | 첫 흐름 | **말투·성격 다듬기**와 **기억 정리**부터(재료가 이미 있고 효과가 바로 보임). 캐릭터 만들기 인터뷰가 그다음 | 결정 2026-09-28 (운영자: 추천대로) |
+| D5 | 3층 경계·예산 수치·승격 기준 | 단기 버퍼(~2,000토큰) → Session Digest 롤업 → 중기 관계(~600토큰) / 장기 팩트(~400토큰) 3단계 구조 채택. 실측 예산 수치와 중기→장기 승격 기준은 실사용 계측 후 확정 | 결정 2026-10-10 (운영자 승인: 3단계 규격 반영 — 규격 구조는 결정, 수치·승격 기준은 대기) |
 
 ## 6. 작업 항목
 
@@ -107,16 +134,17 @@
 | `ladder/A` | 이 문서 + INDEX 행 + 정렬 계획 연결 | `docs/plans/personalization-ladder.md`, `docs/plans/INDEX.md`, `docs/plans/direction-alignment.md` | INDEX 행, 커밋 | 0 · — | S | — | ✅ 티켓 없음(pew D3) |
 | `ladder/B` | 변경 기록과 되돌리기 함수(D1), 지침 백업 흡수 | 새 모듈, `workspace_status.py`, `tests/` | 층 하나(지침)가 이 함수로만 쓰이고 되돌리기가 테스트로 증명됨 | 2 · ⚡ | M | D1, uds | 대기 — 2026-10-09: 캐릭터 층부터 [character-settings.md](archive/2026/character-settings.md) `cs/B`가 구현 |
 | `ladder/C` | 카드·로어북·팀 쓰기를 같은 함수로 | `characters.py`, `server.py` 라우트 | 카드 편집 뒤 이전 판으로 되돌리기 가능 | 2 · ⚡ | M | ladder/B | 대기 — 2026-10-09: 캐릭터 층부터 [character-settings.md](archive/2026/character-settings.md) `cs/B`가 구현 |
-| `ladder/D` | 기억 화면(보기·고치기·잊기) + 에이전트가 기억할 때 알림·되돌리기 | `static/`, `mcp_core.py`, `memory_store.py` | 방금 기억한 것이 보이고 한 번에 되돌려짐 | 2 · ⚡ | M | ladder/B | 대기 |
+| `ladder/D` | 기억 화면(보기·고치기·잊기) + 에이전트가 기억할 때 알림·되돌리기 | `static/`, `mcp_core.py`, `memory_store.py` | 방금 기억한 것이 보이고 한 번에 되돌려짐, 3층(단기·중기·장기) 모두 조회·수정·1클릭 되돌리기 지원(사적 기억은 사적 모드 안에서만 노출) | 2 · ⚡ | M | ladder/B | 대기 |
 | `ladder/E` | 제안 카드(D3): 에이전트 도구 + 선택지 채널 카드 + 적용/거절 | `mcp_core.py`, `static/`, `tests/` | 「더 장난스럽게」 → 카드 전/후 제안 → 적용 → 되돌리기까지 한 흐름 | 3 · ⚡ | M | ladder/C | 대기 |
 | `ladder/F` | 스킬 제안(Hermes식): 반복 관찰 → 스킬 초안 제안 | `observations.py`, 새 스킬 템플릿 | 같은 요청 N회 뒤 스킬 제안이 뜸 | 3 · ⚡ | M | ladder/E | 대기 |
 | `ladder/G` | 캐릭터 만들기 인터뷰 흐름(배포판용 절차) | 역할 팩 또는 스킬, 카드 편집기 | 인터뷰 → 카드 초안 제안 → 적용 | 2 · — | M | ladder/E | 대기 |
+| `ladder/H` | 3층 예산·롤업 계측 | `engine/session.py`, `engine/memory_relationship.py`, `tests/` | 세션 종료/전환 시 Session Digest 롤업 및 3단계 계층별 토큰/바이트 계측 검증 | 2 · ⚡ | M | ladder/D, D5 | 대기 |
 
 ## 7. 의존·순서·리스크
 
 ```text
 uds (~/.pe) → B(변경 기록·되돌리기) → C(카드·로어북·팀) ─┬→ E(제안 카드) → F(스킬 제안) · G(인터뷰)
-                                   └→ D(기억 화면)   ──┘
+                                   └→ D(기억 화면)   ──┴→ H(3층 예산·롤업 계측)
 ```
 
 - 리스크: 에이전트의 제안이 많아지면 피로해진다 → 합치기·개수 제한(4.3), 기억은 조용히(4.1).
