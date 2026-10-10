@@ -40,7 +40,7 @@ class ThinkingIsActivityNotRecord(unittest.TestCase):
         self.assertNotIn("thinking", host_config.PERSISTED_LOG_KINDS)
 
     def test_thinking_resets_the_quiet_clock(self):
-        src = (ENGINE / "session.py").read_text(encoding="utf-8")
+        src = (ENGINE / "session_view.py").read_text(encoding="utf-8")
         self.assertIn('elif kind in ("delta", "thinking"):', src)
 
 

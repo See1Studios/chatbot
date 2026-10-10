@@ -1,6 +1,6 @@
 """What a session shows (monolith-split split/C, moved from session.py as a mixin of AgentSession, like
 turn_watchdog.py): its public view, the tool activity lines, the activity log, the artifacts gallery, the handover
-summary, the handoff text that summary is built from, the trimmed screen record used when a process restarts, and the image paths staged into an answer. The paths and helpers that tests point elsewhere
+summary, the handoff text that summary is built from, the trimmed screen record used when a process restarts, the image paths staged into an answer, and the events sent to the screen. The paths and helpers that tests point elsewhere
 (SESSIONS, WORKSPACE, DATA, get_adapter, _oneshot, ...) are read from `session` on every call, never copied at import."""
 from __future__ import annotations
 
@@ -520,3 +520,89 @@ class SessionView:
         if len(body) > total:
             body = "…" + body[-total:]
         return header + "\n" + body
+
+    def _emit(self, event: dict) -> None:
+        host = _session()
+        self.last_activity = host._now()
+        kind = event.get("event")
+        if kind in ("tool", "system"):
+            # QUOTA_ERR_DEDUP_v1: agy surfaces quota as step_type/title error_message
+            step = str(event.get("step_type") or event.get("title") or "").strip()
+            line = (event.get("title") or event.get("text") or "").strip()
+            is_err_msg = step == "error_message" or line == "error_message"
+            if is_err_msg:
+                line = host.i18n.text("srv.checking_quota")
+            if line:
+                self.last_progress = line[:240]
+                self.last_progress_key, self.last_progress_vars = ("srv.checking_quota" if is_err_msg else ""), {}   # I18N_v1
+            # SILENT_HANG_v1: tool start/result/progress heartbeats reset the idle
+            # clock (not only assistant text). Long tools are fine while progress
+            # continues. error_message is owned by QUOTA_FAILFAST — do not re-arm.
+            if not is_err_msg:
+                self._touch_turn_activity()
+        elif kind in ("delta", "thinking"):
+            # SILENT_HANG_v1: streaming assistant text -- or the brain's streamed reasoning -- resets the idle clock
+            self._touch_turn_activity()
+        if kind in ("delta", "thinking") or (kind == "result" and event.get("text")):
+            if getattr(self, "ttft_ms", None) is None and getattr(self, "_turn_t0", None) is not None:
+                self.ttft_ms = round((time.time() - self._turn_t0) * 1000, 1)
+        if kind in ("result", "error", "stopped"):
+            self.last_progress = ""
+            self.last_progress_key, self.last_progress_vars = "", {}
+            # QUOTA_FAILFAST_v1: real terminal event — cancel pending failfast
+            self._cancel_error_message_failfast()
+            # SILENT_HANG_v1: turn ended — cancel idle watchdog
+            self._cancel_silent_hang()
+        if kind in host.PERSISTED_LOG_KINDS:
+            self._append_log_event(event)
+        if kind in host._OBS_FORWARD:
+            self._obs_forward(kind, event)
+        dead = []
+        with self.lock:
+            for q in list(self.subscribers):
+                try:
+                    q.put_nowait(event)
+                except Exception:
+                    # Full or broken subscriber (typical: backgrounded mobile
+                    # tab whose TCP is stalled). Drop it so a stuck phone
+                    # cannot silently eat the next 1000 events.
+                    dead.append(q)
+            for q in dead:
+                try:
+                    self.subscribers.remove(q)
+                except ValueError:
+                    pass
+
+    def _obs_forward(self, kind: str, event: dict) -> None:
+        """OBSLOG_v1: copy the session events that describe health (not content) into the global
+        log, tagged with sid/provider, so one stream shows service and session state together."""
+        try:
+            host = _session()
+            obslog = host.obslog
+            LOOP_NOTICE_KEYS = host.LOOP_NOTICE_KEYS
+            text = str(event.get("text") or "")
+            if kind == "system":
+                if " started model=" in text:
+                    obslog.event("agent.spawn", sid=self.sid, provider=self.provider, model=self.model,
+                                 agent_pid=getattr(self.proc, "pid", None), standby="warm standby" in text)
+                elif event.get("key") in LOOP_NOTICE_KEYS:   # by key, never by the words
+                    obslog.event("turn.loop_notice", lvl="warn", sid=self.sid, provider=self.provider, msg=text[:300])
+                elif event.get("key") == "srv.turn_closed":
+                    obslog.event("turn.quiet_close", lvl="warn", sid=self.sid, provider=self.provider, msg=text[:300])
+                return
+            lvl = "warn" if kind in ("error", "session_heavy") else "info"
+            extra = {k: event.get(k) for k in ("reason", "level", "queue_len", "new_session_id", "weight") if event.get(k) is not None}
+            obslog.event("session." + kind, lvl=lvl, sid=self.sid, provider=self.provider, model=self.model,
+                         msg=text[:500], **extra)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _append_log_event(self, event: dict) -> None:
+        try:
+            entry = dict(event)
+            entry.setdefault("ts", _session()._now())
+            path = self.meta_path.parent / "events.jsonl"
+            with open(path, "a", encoding="utf-8", newline="\n") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception:
+            pass

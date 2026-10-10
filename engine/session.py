@@ -2,7 +2,7 @@
 
 Extracted from server.py (monolith-split Phase 1). Processes this server spawned live in session_procs.py:
 the functions are re-exported here, and starting a child, reading its pipes, and stopping it is the SessionProcs mixin.
-Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, the session's weight, and a repeated tool call live on the turn mixin; the handoff text, the restart digest, and image paths live on the view mixin.
+Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, the session's weight, and a repeated tool call live on the turn mixin; the handoff text, the restart digest, image paths, and the events sent to the screen live on the view mixin.
 chatbot-ctl.sh guard_rlock AST-scans this file for AgentSession.lock = threading.RLock().
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ from private_engine import tension_meta
 from instructions import build_instruction_bundle  # noqa: F401 -- session_turn reads it as _s().build_instruction_bundle (tests swap it here)
 from identity import display_name, user_title  # noqa: F401 -- the view mixin reads _session().display_name and _session().user_title
 
-import i18n
+import i18n  # noqa: F401 -- the view mixin reads _session().i18n
 from telemetry import obslog
 import quota_state  # noqa: F401 -- QUOTA_STATE_v1 qfr/D; the turn mixin reads _s().quota_state
 import regenerate  # noqa: F401 -- REGENERATE_v1; the turn mixin reads _s().regenerate
@@ -38,7 +38,7 @@ from host_config import (
     DEFAULT_PROVIDER,
     ONESHOT_PROVIDER,
     HOME,  # noqa: F401 -- session_procs reads it as _s().HOME
-    PERSISTED_LOG_KINDS,
+    PERSISTED_LOG_KINDS,  # noqa: F401 -- the view mixin reads _session().PERSISTED_LOG_KINDS
     ROOT,
     SESSIONS,
     WORKSPACE,  # noqa: F401 -- session_procs reads it as _s().WORKSPACE
@@ -287,88 +287,6 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog, SessionProcs):
                 _meta_touched(self.meta_path)
             except Exception as e:
                 obslog.exception("session.save_meta_failed", e, sid=self.sid)
-
-    def _emit(self, event: dict) -> None:
-        self.last_activity = _now()
-        kind = event.get("event")
-        if kind in ("tool", "system"):
-            # QUOTA_ERR_DEDUP_v1: agy surfaces quota as step_type/title error_message
-            step = str(event.get("step_type") or event.get("title") or "").strip()
-            line = (event.get("title") or event.get("text") or "").strip()
-            is_err_msg = step == "error_message" or line == "error_message"
-            if is_err_msg:
-                line = i18n.text("srv.checking_quota")
-            if line:
-                self.last_progress = line[:240]
-                self.last_progress_key, self.last_progress_vars = ("srv.checking_quota" if is_err_msg else ""), {}   # I18N_v1
-            # SILENT_HANG_v1: tool start/result/progress heartbeats reset the idle
-            # clock (not only assistant text). Long tools are fine while progress
-            # continues. error_message is owned by QUOTA_FAILFAST — do not re-arm.
-            if not is_err_msg:
-                self._touch_turn_activity()
-        elif kind in ("delta", "thinking"):
-            # SILENT_HANG_v1: streaming assistant text -- or the brain's streamed reasoning -- resets the idle clock
-            self._touch_turn_activity()
-        if kind in ("delta", "thinking") or (kind == "result" and event.get("text")):
-            if getattr(self, "ttft_ms", None) is None and getattr(self, "_turn_t0", None) is not None:
-                self.ttft_ms = round((time.time() - self._turn_t0) * 1000, 1)
-        if kind in ("result", "error", "stopped"):
-            self.last_progress = ""
-            self.last_progress_key, self.last_progress_vars = "", {}
-            # QUOTA_FAILFAST_v1: real terminal event — cancel pending failfast
-            self._cancel_error_message_failfast()
-            # SILENT_HANG_v1: turn ended — cancel idle watchdog
-            self._cancel_silent_hang()
-        if kind in PERSISTED_LOG_KINDS:
-            self._append_log_event(event)
-        if kind in _OBS_FORWARD:
-            self._obs_forward(kind, event)
-        dead = []
-        with self.lock:
-            for q in list(self.subscribers):
-                try:
-                    q.put_nowait(event)
-                except Exception:
-                    # Full or broken subscriber (typical: backgrounded mobile
-                    # tab whose TCP is stalled). Drop it so a stuck phone
-                    # cannot silently eat the next 1000 events.
-                    dead.append(q)
-            for q in dead:
-                try:
-                    self.subscribers.remove(q)
-                except ValueError:
-                    pass
-
-    def _obs_forward(self, kind: str, event: dict) -> None:
-        """OBSLOG_v1: copy the session events that describe health (not content) into the global
-        log, tagged with sid/provider, so one stream shows service and session state together."""
-        try:
-            text = str(event.get("text") or "")
-            if kind == "system":
-                if " started model=" in text:
-                    obslog.event("agent.spawn", sid=self.sid, provider=self.provider, model=self.model,
-                                 agent_pid=getattr(self.proc, "pid", None), standby="warm standby" in text)
-                elif event.get("key") in LOOP_NOTICE_KEYS:   # by key, never by the words
-                    obslog.event("turn.loop_notice", lvl="warn", sid=self.sid, provider=self.provider, msg=text[:300])
-                elif event.get("key") == "srv.turn_closed":
-                    obslog.event("turn.quiet_close", lvl="warn", sid=self.sid, provider=self.provider, msg=text[:300])
-                return
-            lvl = "warn" if kind in ("error", "session_heavy") else "info"
-            extra = {k: event.get(k) for k in ("reason", "level", "queue_len", "new_session_id", "weight") if event.get(k) is not None}
-            obslog.event("session." + kind, lvl=lvl, sid=self.sid, provider=self.provider, model=self.model,
-                         msg=text[:500], **extra)
-        except Exception:  # noqa: BLE001
-            pass
-
-    def _append_log_event(self, event: dict) -> None:
-        try:
-            entry = dict(event)
-            entry.setdefault("ts", _now())
-            path = self.meta_path.parent / "events.jsonl"
-            with open(path, "a", encoding="utf-8", newline="\n") as f:
-                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
 
 # REGISTRY_SPLIT_v1: the registry, the newest-session lookup and the meta.json summary cache live in
 # session_registry.py; re-exported here so callers keep `from session import REG, Registry`.
