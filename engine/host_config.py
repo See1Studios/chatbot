@@ -80,7 +80,24 @@ DATA = Path(next((os.environ[k] for k in DATA_ENV if os.environ.get(k)),
 STATIC = REPO / "static"
 SESSIONS = DATA / "sessions"
 INCIDENTS = DATA / "dev" / "incidents.json"   # dev data beside the engine tickets (improvement-layers il/D)
-WORKSPACE = DATA / "workspace"
+
+
+def charter_root(data: Path) -> Path:
+    """Characters, roles, memory, and the charter. A workspace directory that still has files is the layout from
+    before the flatten. A symlink to `.`, a missing directory, or an empty one beside a root charter, is the data root.
+    Hermes keeps a separate workspace; this install does not."""
+    data = Path(data)
+    legacy = data / "workspace"
+    if legacy.is_symlink() or not legacy.is_dir():
+        return data
+    if any(legacy.iterdir()):
+        return legacy
+    if (data / "AGENTS.md").exists() or (data / "roles").is_dir():
+        return data
+    return legacy
+
+
+WORKSPACE = charter_root(DATA)
 # Web Push (push_manager.py): the install's VAPID key pair and the browsers subscribed to it
 PUSH_VAPID_FILE = DATA / "push_vapid.json"
 PUSH_SUBSCRIPTIONS_FILE = DATA / "push_subscriptions.json"
@@ -156,17 +173,22 @@ MODELS = [
 # mermaid.min.js (3.2M) is inside STATIC, so --add-dir static == ROOT tax.
 # /chat is free. Do not add ROOT or STATIC. Code/UI edits: MCP ALLOW_ROOTS
 # includes services/chatbot.
-ADD_DIRS = [d for d in (str(WEB_ROOT / "chat"),) if Path(d).is_dir()] + [   # only a web root that exists (align/F)
-    str(WORKSPACE),   # MCP(.gemini/config/mcp_config.json), skills(.agents/), hooks -- required
-                      # Measured 2026-09-19: agy adds ~+34k tokens/turn when an add-dir
-                      # sits inside the home git repo (independent of the dir's contents --
-                      # an identical copy under /tmp costs +0.8k), i.e. host-level
-                      # settings/skills leak in; the agy child is not isolated from ~
-                      # (docs/plans/instruction-architecture.md). Rules reach every
-                      # provider via the host-built bundle (instructions.py, injected in
-                      # session.py _send_direct()).
-                      # Keep WORKSPACE lean: no large blobs, no log dumps at root level.
-]
+def _model_add_dirs(workspace: Path, data: Path) -> list:
+    """What a spawned model may read. Never the data root: sessions, logs, and backups live there.
+    A real workspace directory stays one add-dir. Once the charter sits on the root, only its skills folder is added."""
+    dirs = [str(WEB_ROOT / "chat")] if (WEB_ROOT / "chat").is_dir() else []
+    if workspace.resolve() == Path(data).resolve():
+        skills = workspace / ".agents"
+        if skills.is_dir():
+            dirs.append(str(skills))
+        return dirs
+    dirs.append(str(workspace))   # MCP, skills, hooks. Keep that directory lean: no large blobs, no log dumps.
+    return dirs
+
+
+# Measured 2026-09-19: agy adds ~+34k tokens/turn when an add-dir sits inside the home git repo
+# (independent of the dir's contents). Rules reach every provider via the host-built bundle.
+ADD_DIRS = _model_add_dirs(WORKSPACE, DATA)
 
 # Session length guard thresholds (UI hist + optional conversation.db size)
 SOFT_TURNS = 40

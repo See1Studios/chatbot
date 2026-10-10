@@ -33,7 +33,7 @@ import difflib
 
 import tickets
 from host_config import (AGENT_PATH_PREFIX, DATA, DELEGATE_MODEL, DELEGATE_PROVIDER, DELEGATE_REVIEWER,
-                         DELEGATE_REVIEWER_MODEL, ROOT)
+                         DELEGATE_REVIEWER_MODEL, ROOT, charter_root)
 import repo_layout
 import platform_compat
 
@@ -108,7 +108,7 @@ _ROLE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 def experts() -> List[str]:
     """The roles experts can be asked by: those the characters other than the default one hold (characters.py)."""
     import characters
-    return characters.expert_roles(DATA / "workspace")
+    return characters.expert_roles(charter_root(DATA))
 
 
 def _default_role(roles: List[str]) -> str:
@@ -419,7 +419,7 @@ def replan(ticket_id: int, comment: str) -> Dict:
     tickets.add_note(DATA, tid, "replan requested: " + comment, actor="operator")
     import characters
     import events
-    ws = DATA / "workspace"
+    ws = charter_root(DATA)
     default = characters.default_character(ws)
     events.publish("work.replan", [default] if default else [], subject=str(tid), comment=comment, ticket=tid)
     return {"ticket": tid, "requested": True}
@@ -769,7 +769,7 @@ def _collect_runs(files: List[Path]) -> List[Dict]:
                     "tasks": [{k: t.get(k) for k in ("role", "title", "paths")}
                               for t in (st.get("plan") or {}).get("tasks", [])],
                     "review": _last_review(st), "talk_with": _talk_worker(st, int(st.get("task") or 1),
-                                                                           DATA / "workspace"),
+                                                                           charter_root(DATA)),
                     "active": phase in ACTIVE_PHASES,
                     "blocked_by": (st.get("blocked_by") or {}) if phase == "queued" else {},
                     "need_paths": need_paths,
@@ -839,7 +839,7 @@ def work_note(character: str, told: Dict[str, str]) -> Tuple[str, Dict[str, str]
     for the default character, every run. `told` maps ticket -> the phase last heard; ended runs are told once, then
     dropped. With an empty `told` this is the summary a new session gets of the work still open."""
     import characters
-    ws = DATA / "workspace"
+    ws = charter_root(DATA)
     if not character:
         return "", told
     try:
@@ -864,7 +864,7 @@ def publish_work_changes() -> int:
     and the default character. A run first seen already ended is not announced. Returns how many were published."""
     import characters
     import events
-    ws = DATA / "workspace"
+    ws = charter_root(DATA)
     last: Dict[str, str] = {}
     for e in events.recent("work.phase"):
         last[e["subject"]] = e["payload"].get("phase", "")
@@ -902,7 +902,7 @@ def mirror_work_talk() -> int:
     """Copy each run's new transcript lines into its dm. Returns how many messages were written."""
     import characters
     import dialog_log
-    ws = DATA / "workspace"
+    ws = charter_root(DATA)
     d = runner().state_path(0).parent
     try:
         done = json.loads(_talk_path().read_text(encoding="utf-8"))
@@ -937,7 +937,7 @@ def work_event_note(evts: List[Dict], character: str) -> str:
     """The note for `character` from its pending `work.phase` events (the latest phase of each run), and the
     operator's re-plan requests (`work.replan`, BUTTON_LOGIC_v1) -- those reach only the PD, which re-plans."""
     import characters
-    ws = DATA / "workspace"
+    ws = charter_root(DATA)
     latest: Dict[str, Dict] = {}
     for e in evts:
         if e.get("type") == "work.phase":

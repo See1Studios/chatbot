@@ -23,6 +23,19 @@ except Exception:  # noqa: BLE001
 NAMES = ("memory", "ticket")
 
 
+def _charter_root(data: Path) -> Path:
+    """Where memory lives. Same rule as host_config.charter_root; this module does not import the host."""
+    data = Path(data)
+    legacy = data / "workspace"
+    if legacy.is_symlink() or not legacy.is_dir():
+        return data
+    if any(legacy.iterdir()):
+        return legacy
+    if (data / "AGENTS.md").exists() or (data / "roles").is_dir():
+        return data
+    return legacy
+
+
 def envelope(success: bool, message: str, data: Any = None) -> dict:
     return {"success": success, "message": message, "data": data}
 
@@ -138,7 +151,7 @@ def call(name: str, args: dict, data, secret_re, actor: str = "chat-agent",
             action = str(args.get("action") or "")
             if secret_re.search("\n".join(str(args.get(k) or "") for k in ("text", "query", "section"))):
                 return envelope(False, "refusing to store secret-like content", None)
-            mem = data / "workspace" / "memory"
+            mem = _charter_root(data) / "memory"
             try:
                 if action == "show":
                     return envelope(True, "ok", {"content": memory_store.read(mem)})

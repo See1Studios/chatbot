@@ -35,7 +35,7 @@ HOST = os.environ.get("NAS_MCP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("NAS_MCP_PORT", "3012"))
 HOME = Path(os.environ.get("HOME") or Path.home())
 SERVICES = HOME / "services"
-from host_config import DATA  # noqa: E402  -- one data-path resolver (uds/B)
+from host_config import DATA, charter_root  # noqa: E402  -- one data-path resolver (uds/B)
 from host_config import ROOT as ENGINE  # noqa: E402  -- this engine's own folder, wherever it is installed
 import platform_compat
 # Same env vars and default as host_config.WEB_ROOT (align/F: no host path baked in).
@@ -81,7 +81,7 @@ except Exception:
 # Sphere/Hermes/wiki-specific extra roots live in the optional nas_mcp_host
 # plugin (see docs/plans/chatbot-host-portability.md Phase 1) and get merged
 # in by _allow_roots()/_read_roots() below once HOST_PLUGIN is resolved.
-ALLOW_ROOTS = [DATA.resolve(), AGENTS.resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve(), (DATA / "workspace").resolve(), CODE_ROOT.resolve()]
+ALLOW_ROOTS = [DATA.resolve(), AGENTS.resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve(), (charter_root(DATA)).resolve(), CODE_ROOT.resolve()]
 READ_ROOTS = ALLOW_ROOTS + [SERVICES.resolve(), (HOME / ".local" / "bin").resolve(), (HOME / "bin").resolve(), (HOME / "AGENTS.md").resolve()]
 
 SECRET_NAME_RE = re.compile(r"(?i)(^\.env($|\.)|oauth|token|secret|credential|passwd|password|api[_-]?key|auth\.json|antigravity-oauth)")
@@ -137,7 +137,7 @@ def _resolve_target_path(raw_path: str) -> Path:
     if not p.is_absolute() and p.parts[:1] == ("data",):   # agents still say data/...: that is the live data dir (uds/F)
         return DATA.joinpath(*p.parts[1:]).resolve()
     if not p.is_absolute():
-        ws_candidate = (DATA / "workspace" / p).resolve()
+        ws_candidate = (charter_root(DATA) / p).resolve()
         if ws_candidate.exists():
             return ws_candidate
         for base in (CODE_ROOT, ENGINE):   # a repo-relative path (`static/app.js`), or an engine-relative one (`session.py`)
@@ -470,7 +470,7 @@ if os.environ.get("NAS_MCP_HOST_PLUGIN", "0") == "1":
 def _shipped_roots() -> List[Path]:
     """The shipped build writes and reads only the install's own user data (+ tmp): never the engine repo, never
     host-wide agent folders (edition-boundary 4.2)."""
-    return [DATA.resolve(), (DATA / "workspace").resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve()]
+    return [DATA.resolve(), (charter_root(DATA)).resolve(), (WEB_ROOT / "chat").resolve(), TMP_ROOT.resolve()]
 
 
 def _dev_only_tools() -> set:

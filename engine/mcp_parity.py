@@ -57,7 +57,8 @@ _DESCRIPTION = re.compile(r"(?ms)^description:\s*([|>][-+]?\s*\n(.*?)(?=^\S)|(.*
 
 
 def _skills_dir(srv) -> Path:
-    return Path(srv.DATA) / "workspace" / ".agents" / "skills"
+    from host_config import charter_root
+    return charter_root(Path(srv.DATA)) / ".agents" / "skills"
 
 
 def call(name: str, args: dict, srv) -> dict:

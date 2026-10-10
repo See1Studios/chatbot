@@ -4,6 +4,7 @@ Run: engine/run-tests.sh test_data_bootstrap
 """
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -15,6 +16,20 @@ from tests._paths import ENGINE, REPO  # noqa: E402
 ROOT = REPO
 sys.path.insert(0, str(ENGINE))
 import data_bootstrap as B  # noqa: E402
+import host_config  # noqa: E402
+import mcp_core  # noqa: E402
+
+
+class CharterRoot(unittest.TestCase):
+    def test_the_memory_adapter_uses_the_same_root(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, str(tmp), True)
+        flat, legacy, link = tmp / "flat", tmp / "legacy", tmp / "link"
+        flat.mkdir(); (flat / "AGENTS.md").write_text("x", encoding="utf-8"); (flat / "workspace").mkdir()
+        (legacy / "workspace" / "roles").mkdir(parents=True)
+        link.mkdir(); (link / "workspace").symlink_to(".", target_is_directory=True)
+        for data in (tmp / "absent", flat, legacy, link):
+            self.assertEqual(mcp_core._charter_root(data), host_config.charter_root(data), str(data))
 
 
 class Bootstrap(unittest.TestCase):
@@ -31,7 +46,8 @@ class Bootstrap(unittest.TestCase):
         want = sorted(p.relative_to(B.TEMPLATE).as_posix() for p in B._files(B.TEMPLATE))
         self.assertEqual(sorted(res["files"]), want)
         for rel in want:
-            self.assertEqual((self.data / "workspace" / rel).read_bytes(), (B.TEMPLATE / rel).read_bytes(), rel)
+            self.assertEqual((self.data / rel).read_bytes(), (B.TEMPLATE / rel).read_bytes(), rel)
+        self.assertFalse((self.data / "workspace").exists())
         if os.name == "posix":   # mode bits are POSIX; Windows guards the folder with the profile's ACL (#411)
             self.assertEqual(stat.S_IMODE(self.data.stat().st_mode), 0o700)
         for d in B.SKELETON:
@@ -39,25 +55,25 @@ class Bootstrap(unittest.TestCase):
         marker = json.loads((self.data / B.MARKER).read_text(encoding="utf-8"))
         self.assertEqual(set(marker["files"]), set(want))
         self.assertEqual(marker["files"]["AGENTS.md"], B._sha(B.TEMPLATE / "AGENTS.md"))
-        self.assertEqual([p.name for p in self.data.iterdir() if p.name.startswith(".")], [])   # no stage left
+        self.assertFalse(any(p.name.startswith(".workspace.bootstrap-") for p in self.data.iterdir()))
 
     def test_an_empty_workspace_dir_counts_as_new(self):
         (self.data / "workspace").mkdir(parents=True)   # what `mkdir -p` in ctl would leave
         os.chmod(self.data, 0o755)                        # made by someone else with the default umask
         self.assertTrue(B.bootstrap(self.data)["created"])
-        self.assertTrue((self.data / "workspace" / "AGENTS.md").is_file())
+        self.assertTrue((self.data / "AGENTS.md").is_file())
+        self.assertFalse((self.data / "workspace").exists())
         if os.name == "posix":   # mode bits are POSIX; Windows guards the folder with the profile's ACL (#411)
             self.assertEqual(stat.S_IMODE(self.data.stat().st_mode), 0o700)
 
     def test_an_existing_workspace_is_left_alone_and_deleted_files_stay_deleted(self):
         B.bootstrap(self.data)
-        ws = self.data / "workspace"
-        (ws / "AGENTS.md").write_text("mine", encoding="utf-8")
-        (ws / "roles" / "art" / "ROLE.md").unlink()
+        (self.data / "AGENTS.md").write_text("mine", encoding="utf-8")
+        (self.data / "roles" / "art" / "ROLE.md").unlink()
         before = (self.data / B.MARKER).read_bytes()
         self.assertEqual(B.bootstrap(self.data), {"created": False, "files": []})
-        self.assertEqual((ws / "AGENTS.md").read_text(encoding="utf-8"), "mine")
-        self.assertFalse((ws / "roles" / "art" / "ROLE.md").exists())
+        self.assertEqual((self.data / "AGENTS.md").read_text(encoding="utf-8"), "mine")
+        self.assertFalse((self.data / "roles" / "art" / "ROLE.md").exists())
         self.assertEqual((self.data / B.MARKER).read_bytes(), before)
 
     def test_dry_run_writes_nothing(self):
@@ -80,7 +96,7 @@ class Bootstrap(unittest.TestCase):
                 B.bootstrap(self.data)
         finally:
             B.shutil.copy2 = real
-        self.assertFalse((self.data / "workspace").exists())
+        self.assertFalse((self.data / "AGENTS.md").exists())
         self.assertFalse((self.data / B.MARKER).exists())
         self.assertEqual(list(self.data.iterdir()), [])
         self.assertTrue(B.bootstrap(self.data)["created"])   # and the next start completes it

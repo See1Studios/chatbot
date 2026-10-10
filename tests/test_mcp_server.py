@@ -517,7 +517,7 @@ class MemoryToolTest(Base):
         super().setUp()
         self._data = mcp.DATA
         mcp.DATA = self.tmp
-        self.file = self.tmp / "workspace" / "memory" / "MEMORY.md"
+        self.file = self.tmp / "memory" / "MEMORY.md"
 
     def tearDown(self):
         mcp.DATA = self._data

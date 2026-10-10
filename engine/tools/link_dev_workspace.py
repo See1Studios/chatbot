@@ -41,9 +41,14 @@ def sources(dev: Path = DEV, shipped: Path = SHIPPED) -> Dict[str, Path]:
     return out
 
 
+def _root(data: Path) -> Path:
+    from host_config import charter_root
+    return charter_root(data)
+
+
 def plan(data: Path, dev: Path = DEV, shipped: Path = SHIPPED) -> List[Tuple[str, str]]:
     """[(action, path relative to the workspace)] in a stable order."""
-    ws = data / "workspace"
+    ws = _root(data)
     out = []
     for rel, src in sorted(sources(dev, shipped).items()):
         dst = ws / rel
@@ -60,7 +65,7 @@ def plan(data: Path, dev: Path = DEV, shipped: Path = SHIPPED) -> List[Tuple[str
 
 def apply(data: Path, steps: List[Tuple[str, str]], dev: Path = DEV, stamp: str = "", shipped: Path = SHIPPED) -> Path:
     """Carry out `steps`; returns the backup folder (created only when something was backed up)."""
-    ws = data / "workspace"
+    ws = _root(data)
     backup = data / "backups" / ("dev-workspace-" + (stamp or time.strftime("%Y%m%d-%H%M%S")))
     srcs = sources(dev, shipped)
     for action, rel in steps:
@@ -88,8 +93,8 @@ def main(argv: List[str]) -> int:
     else:
         sys.path.insert(0, str(ROOT))
         from host_config import DATA as data
-    if not (data / "workspace").is_dir():
-        print("no workspace at %s" % (data / "workspace"), file=sys.stderr)
+    if not _root(data).is_dir():
+        print("no workspace at %s" % _root(data), file=sys.stderr)
         return 2
     steps = plan(data)
     for action, rel in steps:

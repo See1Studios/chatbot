@@ -22,6 +22,8 @@ from pathlib import Path
 import i18n
 from typing import Any, Optional
 
+from host_config import charter_root
+
 FILE = "threshold.json"
 SCENE_FILE = "scene.json"   # where this private visit went, for the way back
 WAIT_SEC = 12               # the first private turn waits this long for a gist still being written
@@ -124,7 +126,7 @@ def auto_scene(state_path: Path) -> bool:
 
 
 def _state(sessions: Path, cid: str) -> Path:
-    return Path(sessions).parent / "workspace" / "characters" / (cid or "_") / "state.json"
+    return charter_root(Path(sessions).parent) / "characters" / (cid or "_") / "state.json"
 
 
 def announce(source, target, client_mid: str = "") -> None:

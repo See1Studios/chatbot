@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import i18n
+from host_config import charter_root
 from loop_guard import is_read_only, normalize, target_of
 
 from telemetry import obslog
@@ -50,15 +51,6 @@ def written_path(tool: str, params: Optional[dict]) -> str:
         return ""
     p = params or {}
     return target_of(p) or str(p.get("file_path") or p.get("notebook_path") or "").strip()
-
-
-def charter_root(data: Path) -> Path:
-    """Where characters, roles, and the charter live. A real `workspace/` directory is the layout from before
-    the flatten; a symlink to `.` (or no such directory) means they sit on the data root."""
-    legacy = Path(data) / "workspace"
-    if legacy.is_dir() and not legacy.is_symlink():
-        return legacy
-    return Path(data)
 
 
 def unleased_repo_file(path: str, root: Path, data: Path) -> str:

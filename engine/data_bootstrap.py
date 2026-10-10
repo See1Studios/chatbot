@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """First-run bootstrap of the user-data folder (user-data-separation uds/D).
 
-A new install starts with an empty data folder (default ~/.pe once uds/F flips it). If its workspace is missing or
-empty, copy templates/workspace/ into it and record what was copied; otherwise do nothing. It never overwrites and
-never fills in single files: a skill or role the user deleted must not come back on the next start.
+A new install starts with an empty data folder (default ~/.pe). Copy templates/workspace/ onto that root and record
+what was copied. A workspace directory that already has files is left untouched (the flatten moves it). An empty
+workspace directory is removed so it cannot hide the root. Never overwrite, and never fill in single files: a skill
+or role the user deleted must not come back on the next start.
 
   python3 data_bootstrap.py [--data DIR] [--dry-run]    # chatbot-ctl.sh runs it with --data "$DATA"
 
@@ -28,11 +29,7 @@ import repo_layout
 ROOT = Path(__file__).resolve().parent
 TEMPLATE = repo_layout.TEMPLATES / "workspace"
 MARKER = "bootstrap.json"
-SKELETON = ("sessions", "artifacts", "persona", "workspace/memory")   # what the app expects beside the workspace
-
-
-def _is_fresh(ws: Path) -> bool:
-    return not ws.exists() or (ws.is_dir() and not any(ws.iterdir()))
+SKELETON = ("sessions", "artifacts", "persona", "memory")   # what the app expects beside the charter files
 
 
 def _files(src: Path) -> List[Path]:
@@ -43,11 +40,31 @@ def _sha(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
+def _occupied(data: Path) -> bool:
+    """A non-empty real workspace, a workspace symlink, or a charter already on the root."""
+    legacy = data / "workspace"
+    if legacy.is_symlink():
+        return True
+    if legacy.is_dir() and any(legacy.iterdir()):
+        return True
+    return (data / "AGENTS.md").exists() or (data / "roles").is_dir()
+
+
+def _install(data: Path, stage: Path) -> None:
+    legacy = data / "workspace"
+    if legacy.is_dir() and not legacy.is_symlink():
+        legacy.rmdir()   # empty; a racing writer makes this fail loudly instead of merging
+    for child in list(stage.iterdir()):
+        dest = data / child.name
+        if dest.exists():
+            raise FileExistsError("bootstrap would overwrite %s" % dest.name)
+        child.rename(dest)
+
+
 def bootstrap(data: Path, template: Path = TEMPLATE, dry_run: bool = False) -> Dict:
-    """{"created": bool, "files": [relative paths]}. Copies only when data/workspace is missing or empty."""
+    """{"created": bool, "files": [relative paths]}. Copies only when the data root has no charter yet."""
     data = Path(data)
-    ws = data / "workspace"
-    if not _is_fresh(ws):
+    if _occupied(data):
         return {"created": False, "files": []}
     if not template.is_dir():
         raise FileNotFoundError("workspace template missing: %s" % template)
@@ -64,15 +81,13 @@ def bootstrap(data: Path, template: Path = TEMPLATE, dry_run: bool = False) -> D
             dst = stage / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
-        if ws.exists():
-            ws.rmdir()   # empty (checked above); a racing writer makes this fail loudly instead of merging
-        stage.rename(ws)
+        _install(data, stage)
     finally:
         shutil.rmtree(stage, ignore_errors=True)
     for d in SKELETON:
         (data / d).mkdir(parents=True, exist_ok=True)
     marker = {"version": 1, "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "template": "templates/workspace",
-              "files": {rel: _sha(ws / rel) for rel in rels}}
+              "files": {rel: _sha(data / rel) for rel in rels}}
     tmp = data / (".%s.tmp" % MARKER)
     platform_compat.write_text(tmp, json.dumps(marker, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp.replace(data / MARKER)
@@ -91,9 +106,9 @@ def main(argv=None) -> int:
         from host_config import DATA as data
     res = bootstrap(Path(data), dry_run=args.dry_run)
     if res.get("dry_run"):
-        print("would copy %d template files into %s" % (len(res["files"]), Path(data) / "workspace"))
+        print("would copy %d template files into %s" % (len(res["files"]), Path(data)))
     elif res["created"]:
-        print("bootstrap: new workspace in %s (%d template files)" % (Path(data) / "workspace", len(res["files"])))
+        print("bootstrap: new workspace in %s (%d template files)" % (Path(data), len(res["files"])))
     elif not args.quiet:
         print("bootstrap: %s already has a workspace; nothing copied" % data)
     return 0
