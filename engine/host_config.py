@@ -106,12 +106,14 @@ WORKSPACE = charter_root(DATA)
 STATE_DIR = DATA / "state"
 
 
-def state_path(name: str) -> Path:
-    """Return path to a state/runtime file. If the legacy file exists at DATA/<name>, use it, else STATE_DIR/<name>."""
-    legacy = DATA / name
-    if legacy.exists() and not (STATE_DIR / name).exists():
+def state_path(name: str, root: Optional[Path] = None) -> Path:
+    """Return path to a state/runtime file. If the legacy file exists at data/<name>, use it, else state_dir/<name>."""
+    base = Path(root) if root is not None else DATA
+    sdir = base / "state" if root is not None else STATE_DIR
+    legacy = base / name
+    if legacy.exists() and not (sdir / name).exists():
         return legacy
-    return STATE_DIR / name
+    return sdir / name
 
 
 # Global unified application configuration (docs/plans/global-config-and-state-isolation.md)

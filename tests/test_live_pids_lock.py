@@ -74,7 +74,8 @@ class LivePids(unittest.TestCase):
             session._record_live_pids()
         finally:
             release.set()
-        self.assertEqual(sorted(json.loads((Path(self.tmp.name) / "live_pids.json").read_text())), [101, 202])
+        p = session.state_path("live_pids.json", root=Path(self.tmp.name))
+        self.assertEqual(sorted(json.loads(p.read_text())), [101, 202])
 
 
 if __name__ == "__main__":

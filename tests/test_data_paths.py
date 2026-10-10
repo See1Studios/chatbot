@@ -187,6 +187,11 @@ class DataPaths(unittest.TestCase):
                 host_config.DATA = orig_data
                 host_config.STATE_DIR = orig_state
 
+    def test_session_exports_state_path(self):
+        import session
+        self.assertTrue(callable(getattr(session, "state_path", None)))
+        self.assertIsNotNone(getattr(session, "STATE_DIR", None))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -39,8 +39,10 @@ from host_config import (
     PERSISTED_LOG_KINDS,  # noqa: F401 -- the view mixin reads _session().PERSISTED_LOG_KINDS
     ROOT,
     SESSIONS,
+    STATE_DIR,  # noqa: F401
     WORKSPACE,  # noqa: F401 -- session_procs reads it as _s().WORKSPACE
     _now,
+    state_path,  # noqa: F401 -- session_procs reads it as _s().state_path
 )
 import repo_layout
 # WRITE_GUARD_REPO_v1: tickets name repo-relative paths (`engine/x.py`); the write guard compares against the repo
