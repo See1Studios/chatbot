@@ -52,15 +52,23 @@ self.addEventListener('push', (event) => {
       data = { body: event.data.text() };
     }
   }
-  const defaultIcon = _resolveTargetUrl('favicon.ico');
+  const defaultIcon = _resolveTargetUrl('icon-192.png');
   const title = data.title || 'Private Engine';
   const options = {
     body: data.body || '',
-    icon: data.icon || defaultIcon,
-    badge: data.badge || defaultIcon,
+    icon: data.icon ? _resolveTargetUrl(data.icon) : defaultIcon,
+    badge: data.badge ? _resolveTargetUrl(data.badge) : defaultIcon,
     data: { url: data.url || './' },
-    tag: data.tag || 'default'
+    tag: data.tag || 'default',
+    renotify: Boolean(data.renotify !== false),
+    timestamp: typeof data.timestamp === 'number' ? data.timestamp : Date.now()
   };
+  if (data.image) {
+    options.image = _resolveTargetUrl(data.image);
+  }
+  if (Array.isArray(data.actions) && data.actions.length > 0) {
+    options.actions = data.actions;
+  }
   event.waitUntil(self.registration.showNotification(title, options));
 });
 

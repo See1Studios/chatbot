@@ -204,14 +204,25 @@ def send_notification(sub: dict, payload: Union[dict, str, bytes], timeout: int 
         return False
 
 
-def notify(title: str, body: str = "", url: str = "/", tag: str = "default", data: Optional[dict] = None) -> int:
+def notify(title: str, body: str = "", url: str = "/", tag: str = "default",
+           icon: Optional[str] = None, image: Optional[str] = None,
+           actions: Optional[list] = None, data: Optional[dict] = None, **extra) -> int:
     """Broadcast a push notification to all subscribed endpoints in the background."""
     subs = get_subscriptions()
     if not subs:
         return 0
     payload = {"title": title, "body": body, "url": url, "tag": tag}
+    if icon:
+        payload["icon"] = icon
+    if image:
+        payload["image"] = image
+    if actions:
+        payload["actions"] = actions
     if data:
         payload["data"] = data
+    for k, v in extra.items():
+        if v is not None:
+            payload[k] = v
 
     def _send_all():
         for sub in subs:
