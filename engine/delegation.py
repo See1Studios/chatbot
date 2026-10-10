@@ -17,6 +17,7 @@ The provider doing the work is configuration (host_config.DELEGATE_PROVIDER), ne
 """
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import os
@@ -547,27 +548,50 @@ def _phase(st: Dict) -> str:
     return phase
 
 
-_changed_cache: Dict[int, Tuple[float, int]] = {}
+_changed_cache: Dict[int, Tuple[float, Optional[int]]] = {}
 CHANGED_TTL_SEC = 10
+_changed_inflight: set = set()
 
 
 def _files_changed(tid: int, base: str) -> Optional[int]:
     """How many files the run's worktree changed since `base` (committed or not, new ones too); None when unknown.
-    Cached for CHANGED_TTL_SEC: the page asks every few seconds while a run is active."""
+    A page poll never waits on git. A fresh count is returned; a stale or missing one is counted beside the poll."""
+    if not isinstance(tid, int) or not base:
+        return None
     hit = _changed_cache.get(tid)
     if hit and time.monotonic() - hit[0] < CHANGED_TTL_SEC:
         return hit[1]
-    _, wt_dir = runner().names(tid)
-    if not base or not Path(wt_dir).is_dir():
+    mod = runner()
+    _, wt_dir = mod.names(tid)
+    if not Path(wt_dir).is_dir():
         return None
-    run = runner().git
-    c1, diff, _ = run(Path(wt_dir), "diff", "--name-only", base, timeout=10)
-    c2, new, _ = run(Path(wt_dir), "ls-files", "--others", "--exclude-standard", timeout=10)
+    _refresh_changed(tid, base, mod.git, Path(wt_dir))
+    hit = _changed_cache.get(tid)
+    return hit[1] if hit else None
+
+
+def _refresh_changed(tid: int, base: str, git, wt_dir: Path) -> None:
+    with _lock:
+        if tid in _changed_inflight:
+            return
+        _changed_inflight.add(tid)
+
+    def run() -> None:
+        try:
+            _changed_cache[tid] = (time.monotonic(), _count_changed(git, wt_dir, base))
+        finally:
+            with _lock:
+                _changed_inflight.discard(tid)
+
+    threading.Thread(target=run, name="files-changed", daemon=True).start()
+
+
+def _count_changed(git, wt_dir: Path, base: str) -> Optional[int]:
+    c1, diff, _ = git(wt_dir, "diff", "--name-only", base, timeout=10)
+    c2, new, _ = git(wt_dir, "ls-files", "--others", "--exclude-standard", timeout=10)
     if c1 != 0 or c2 != 0:
         return None
-    n = len({x for x in (diff + "\n" + new).splitlines() if x.strip()})
-    _changed_cache[tid] = (time.monotonic(), n)
-    return n
+    return len({x for x in (diff + "\n" + new).splitlines() if x.strip()})
 
 
 def _seen() -> Dict[str, int]:
@@ -669,13 +693,45 @@ def _actions(phase: str, stalled_in: str = "", need_paths: Optional[List[Dict]] 
     return items
 
 
+_runs_cache: Dict[str, object] = {"stamp": None, "rows": None}
+
+
+def _file_stamp(path: Path):
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def _runs_stamp(files: List[Path]) -> tuple:
+    """What a poll's cards depend on: the state files, what the page has seen, and any ticket save."""
+    try:
+        tickets_mtime = tickets.tickets_dir(DATA).stat().st_mtime_ns
+    except OSError:
+        tickets_mtime = None
+    return (str(DATA), tuple(_file_stamp(p) for p in files), _file_stamp(SEEN_FILE), tickets_mtime)
+
+
 def runs(limit: int = MAX_RUNS) -> List[Dict]:
-    """The work cards: newest first. `stalled` when a run says it is active but its process is gone."""
+    """The work cards, newest first. Unchanged state files return the last cards, so a poll does not rebuild them."""
     d = runner().state_path(0).parent
     if not d.is_dir():
         return []
-    seen = _seen()
     files = sorted(d.glob("ticket-*.json"), key=lambda f: f.stat().st_mtime, reverse=True)[:limit]
+    stamp = _runs_stamp(files)
+    cached = _runs_cache.get("rows")
+    if isinstance(cached, list) and _runs_cache.get("stamp") == stamp:
+        return copy.deepcopy(cached)
+    rows = _collect_runs(files)
+    _runs_cache["stamp"] = _runs_stamp(files)
+    _runs_cache["rows"] = rows
+    return copy.deepcopy(rows)
+
+
+def _collect_runs(files: List[Path]) -> List[Dict]:
+    """One card per state file. `stalled` when a run says it is active but its process is gone."""
+    seen = _seen()
     out = []
     for f in files:
         try:
@@ -901,13 +957,26 @@ def work_event_note(evts: List[Dict], character: str) -> str:
     return "\n".join(n for n in notes if n)
 
 
+_NAMES_TTL_SEC = 60.0
+_names_cache: Dict[str, object] = {"key": None, "at": 0.0, "names": None}
+
+
 def display_names() -> Dict[str, str]:
-    """Role id -> the character's display name, for the page (the PD is ''). Display only (NAME_NEUTRAL_v1)."""
+    """Role id -> the character's display name, for the page (the PD is ''). Display only (NAME_NEUTRAL_v1).
+    Kept for a minute: the page asks with every card poll, and a name does not change between them."""
+    key = str(DATA)
+    now = time.monotonic()
+    hit = _names_cache.get("names")
+    if (isinstance(hit, dict) and _names_cache.get("key") == key
+            and now - float(_names_cache.get("at") or 0) < _NAMES_TTL_SEC):
+        return dict(hit)
     try:
         import identity
-        return {role: identity.get_identity(role)["name"] for role in [""] + experts()}
+        names = {role: identity.get_identity(role)["name"] for role in [""] + experts()}
     except Exception:  # noqa: BLE001
-        return {}
+        return dict(hit) if isinstance(hit, dict) else {}
+    _names_cache.update(key=key, at=now, names=names)
+    return dict(names)
 
 
 def mark_seen(ticket_id: int) -> None:
