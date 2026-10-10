@@ -46,6 +46,12 @@ class StaticAssets(unittest.TestCase):
         css = css_source()   # chat-*.css (CSS_SPLIT_v1)
         self.assertEqual(css.count("{"), css.count("}"))
 
+    def test_no_persona_path_in_shell_markup_or_styles(self):
+        # Shared UI assets belong to static/, never ~/.pe/persona/
+        self.assertNotIn("/chat/persona/", HTML)
+        css = (STATIC / "chat-log.css").read_text(encoding="utf-8")
+        self.assertNotIn("/chat/persona/", css)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -165,7 +165,7 @@ function themeForProvider(p) {
 
 const PORTRAIT_CACHE = 'v=12';
 function portraitUrl(p) {
-  const raw = (p && (p.icon || `/chat/providers/${p.id}.webp`)) || '/chat/persona/face-icon.webp';
+  const raw = (p && (p.icon || `/chat/providers/${p.id}.webp`)) || '/chat/face-icon.webp';
   return String(raw).split('?')[0] + '?' + PORTRAIT_CACHE;
 }
 
@@ -187,7 +187,7 @@ function updateStageBackground(providerId) {
   const ch = typeof currentCharacter === 'function' ? currentCharacter() : null;
   const candidate = ch
     ? BASE_PATH + '/api/characters/' + encodeURIComponent(ch.id) + '/stage?provider=' + encodeURIComponent(pid) + '&v=' + (ch.stage_v || 0)
-    : `/chat/persona/providers/bg/${pid}.webp?${STAGE_BG_CACHE}`;
+    : `/chat/providers/bg/${pid}.webp?${STAGE_BG_CACHE}`;
   const fallback = BASE_PATH + '/placeholders/stage.webp';
   const img = new Image();
   const ready = () => document.documentElement.classList.add('stage-ready');   // BOOT_CURTAIN_v1 (chat-log.css)
@@ -304,7 +304,7 @@ function renderProviderTray() {
 
     const img = document.createElement('img');
     const who = currentCharacter();                 // the open character wearing this brain's wig
-    img.onerror = () => { img.onerror = null; img.src = who ? initialAvatar(who.name || who.title) : '/chat/persona/face-icon.png'; };
+    img.onerror = () => { img.onerror = null; img.src = who ? initialAvatar(who.name || who.title) : '/chat/face-icon.png'; };
     img.src = who ? characterPortrait(who, p) : portraitUrl(p);
     img.alt = credit;
 

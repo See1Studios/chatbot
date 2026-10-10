@@ -51,7 +51,7 @@
 }
 .stage::before{
   content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
-  background-image: var(--stage-bg-image, url('/chat/persona/bg-studio.webp?v=1'));
+  background-image: var(--stage-bg-image, url('./bg-studio.webp?v=2'));
   background-position: center 25%;
   background-size: cover;
   background-repeat: no-repeat;

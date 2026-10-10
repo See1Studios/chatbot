@@ -29,7 +29,7 @@ import repo_layout
 ROOT = Path(__file__).resolve().parent
 TEMPLATE = repo_layout.TEMPLATES / "workspace"
 MARKER = "bootstrap.json"
-SKELETON = ("sessions", "artifacts", "persona", "memory")   # what the app expects beside the charter files
+SKELETON = ("sessions", "artifacts", "memory")   # what the app expects beside the charter files
 
 
 def _files(src: Path) -> List[Path]:

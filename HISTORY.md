@@ -8,6 +8,12 @@
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 2026-10-09 기록은 하루 예산을 넘어 [docs/history/2026-10-09.md](docs/history/2026-10-09.md)로 회전했습니다.
 
+## 2026-10-10 — 공통 UI 자산 static/ 이관 및 persona 폴더 분리 (#946)
+
+- **운영자**: "공통이면 엔진 리소스로 가야지"
+- **바뀐 것**: 파비콘(`face-icon.webp`), 기본 무대 배경(`bg-studio.webp`), 대체 아바타(`face-icon.png`), 프로바이더 무대 배경(`providers/bg/*.webp`)을 `static/`으로 옮기고 웹 UI 참조를 상대 경로로 연결했다. `data_bootstrap.py`와 `chatbot-ctl.sh`는 `$DATA/persona`를 더 이상 기본 생성하지 않는다.
+- **재시작**: Python 파일 변경(`data_bootstrap.py`)으로 서버 재시작 필요.
+
 ## 2026-10-10 — 채팅 페이지가 허브 시트를 받지 않음 (#945)
 
 - **운영자**: "optimize 하자"
