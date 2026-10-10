@@ -385,6 +385,20 @@ WORK, PRIVATE = ("work",), ("private",)
 BOTH = WORK + PRIVATE
 
 
+# 6-Layer Architecture (docs/plans/instruction-structuring.md)
+# L1: Charter & Principles (SSOT)
+# L2: Role & Tasks (Work only, 100% zero-residue in private mode)
+# L3: Persona & Lore
+# L4: Memory & Relationship
+# L5: Dynamic session state & per-turn matches
+SLOT_L1_CHARTER = "L1"
+SLOT_L2_ROLE = "L2"
+SLOT_L3_PERSONA = "L3"
+SLOT_L4_MEMORY = "L4"
+SLOT_L5_STATE = "L5"
+ALL_SLOTS = (SLOT_L1_CHARTER, SLOT_L2_ROLE, SLOT_L3_PERSONA, SLOT_L4_MEMORY, SLOT_L5_STATE)
+
+
 @dataclass(frozen=True)
 class Layer:
     id: str
@@ -392,6 +406,7 @@ class Layer:
     modes: Tuple[str, ...]   # the session modes that take it (D-6: a private session never takes a work layer)
     text: Callable           # (ctx) -> str
     required: bool = False   # empty -> a context alert (CONTEXT_ALERT_v1)
+    slot: str = SLOT_L1_CHARTER  # 6-layer slot: L1..L5 (instruction-structuring istruct/A)
 
 
 def _ctx(mode: str, character: str, history) -> Dict:
@@ -426,23 +441,23 @@ def _private_memory(c: Dict) -> str:
 # The order is the bundle's order. A new layer is one row here: its kind decides how it joins and whether the hash
 # covers it, its modes decide where it goes.
 LAYERS: Tuple[Layer, ...] = (
-    Layer("charter", "rules", WORK, lambda c: _read(WORKSPACE / "AGENTS.md"), required=True),
-    Layer("dev_charter", "rules", WORK, lambda c: _dev_charter()),
-    Layer("private_charter", "rules", PRIVATE, lambda c: _private_charter(), required=True),
-    Layer("lore_before", "rules", BOTH, lambda c: c["lore"]["before_char"]),
-    Layer("persona", "rules", WORK, lambda c: _persona_text(c["character"]), required=True),
-    Layer("private_persona", "rules", PRIVATE, _private_persona, required=True),
-    Layer("lore_after", "rules", BOTH, lambda c: c["lore"]["after_char"]),
-    Layer("roles", "rules", WORK, lambda c: _roles_text(c["character"])),
-    Layer("private_rules", "rules", PRIVATE, _private_rules),
-    Layer("private_protocol", "rules", PRIVATE, _private_protocol),
-    Layer("skills", "index", WORK, lambda c: _skills_text(c["character"])),
-    Layer("house_memory", "dynamic", WORK, lambda c: _memory_text()),
-    Layer("own_memory", "dynamic", WORK, lambda c: _own_memory_text(c["character"])),
-    Layer("private_memory", "dynamic", PRIVATE, _private_memory),
-    Layer("names", "dynamic", BOTH, lambda c: _names_text()),
+    Layer("charter", "rules", WORK, lambda c: _read(WORKSPACE / "AGENTS.md"), required=True, slot=SLOT_L1_CHARTER),
+    Layer("dev_charter", "rules", WORK, lambda c: _dev_charter(), slot=SLOT_L1_CHARTER),
+    Layer("private_charter", "rules", PRIVATE, lambda c: _private_charter(), required=True, slot=SLOT_L1_CHARTER),
+    Layer("lore_before", "rules", BOTH, lambda c: c["lore"]["before_char"], slot=SLOT_L3_PERSONA),
+    Layer("persona", "rules", WORK, lambda c: _persona_text(c["character"]), required=True, slot=SLOT_L3_PERSONA),
+    Layer("private_persona", "rules", PRIVATE, _private_persona, required=True, slot=SLOT_L3_PERSONA),
+    Layer("lore_after", "rules", BOTH, lambda c: c["lore"]["after_char"], slot=SLOT_L3_PERSONA),
+    Layer("roles", "rules", WORK, lambda c: _roles_text(c["character"]), slot=SLOT_L2_ROLE),
+    Layer("private_rules", "rules", PRIVATE, _private_rules, slot=SLOT_L3_PERSONA),
+    Layer("private_protocol", "rules", PRIVATE, _private_protocol, slot=SLOT_L3_PERSONA),
+    Layer("skills", "index", WORK, lambda c: _skills_text(c["character"]), slot=SLOT_L2_ROLE),
+    Layer("house_memory", "dynamic", WORK, lambda c: _memory_text(), slot=SLOT_L4_MEMORY),
+    Layer("own_memory", "dynamic", WORK, lambda c: _own_memory_text(c["character"]), slot=SLOT_L4_MEMORY),
+    Layer("private_memory", "dynamic", PRIVATE, _private_memory, slot=SLOT_L4_MEMORY),
+    Layer("names", "dynamic", BOTH, lambda c: _names_text(), slot=SLOT_L5_STATE),
     # per turn, never in the bundle: what the talk just matched (a CLI session's bundle is built without the talk)
-    Layer("lore_match", "turn", BOTH, lambda c: lore_matches(c["character"], c.get("history"))),
+    Layer("lore_match", "turn", BOTH, lambda c: lore_matches(c["character"], c.get("history")), slot=SLOT_L5_STATE),
 )
 
 
@@ -487,9 +502,17 @@ def build_instruction_bundle(mode: str = "work", character: str = "", history: O
         text = static + "".join(t if lid == "private_memory" else "\n\n" + t for lid, t in dynamic)
     else:
         text = "\n\n".join([static] + [t for _lid, t in dynamic])
+    slots_map: Dict[str, List[str]] = {s: [] for s in ALL_SLOTS}
+    for layer, t in got:
+        if t and layer.kind != "turn":
+            slots_map.setdefault(layer.slot, []).append(t)
+    slots = {s: "\n\n".join(texts) for s, texts in slots_map.items() if texts}
+    slot_hashes = {s: hashlib.sha256(content.encode("utf-8")).hexdigest()[:8] for s, content in slots.items()}
+
     return {"text": text, "hash": hashlib.sha256(static.encode("utf-8")).hexdigest()[:16], "mode": mode,
             "static_bytes": len(static.encode("utf-8")),
-            "layers": [{"id": layer.id, "kind": layer.kind, "chars": len(t),
+            "slots": slots, "slot_hashes": slot_hashes,
+            "layers": [{"id": layer.id, "kind": layer.kind, "chars": len(t), "slot": layer.slot,
                         "hash": hashlib.sha256(t.encode("utf-8")).hexdigest()[:8]} for layer, t in got
                        if t and layer.kind != "turn"]}
 

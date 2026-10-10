@@ -194,6 +194,23 @@ class InjectionTests(WorkspaceCase):
         self.assertEqual(self.sent[0], "질문")
         self.assertTrue(s.persona_injected)
 
+    def test_bundle_contains_6_layer_slots_and_hashes(self):
+        b = I.build_instruction_bundle()
+        self.assertIn("slots", b)
+        self.assertIn("slot_hashes", b)
+        slots = b["slots"]
+        slot_hashes = b["slot_hashes"]
+        # L1 should contain charter
+        self.assertIn(I.SLOT_L1_CHARTER, slots)
+        self.assertIn("CHARTER-MARK", slots[I.SLOT_L1_CHARTER])
+        # L3 should contain persona
+        self.assertIn(I.SLOT_L3_PERSONA, slots)
+        self.assertIn("PERSONA-MARK", slots[I.SLOT_L3_PERSONA])
+        # slot_hashes matches sha256 prefix
+        for slot_id, content in slots.items():
+            self.assertIn(slot_id, slot_hashes)
+            self.assertEqual(len(slot_hashes[slot_id]), 8)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
