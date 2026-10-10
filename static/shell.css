@@ -50,6 +50,7 @@ html.shell2 #characterTray{display:none !important}   /* the card took its place
 html.shell2[data-tab]:not([data-tab="chat"]) .shell-pane-bar{display:flex}
 html.shell2[data-tab]:not([data-tab="chat"]) header,html.shell2[data-tab]:not([data-tab="chat"]) .meta,html.shell2[data-tab]:not([data-tab="chat"]) #sessionBanner{display:none !important}
 .shell-pane-title{font-size:1.05rem;letter-spacing:-.01em}
+.shell-settings-pane{display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch}
 html.shell2 #sessionCharTabs,html.shell2 #roomsStrip{display:none !important}   /* the history is the open character's own */
 /* the card: on a wide screen a full-height column on the right that opens by moving the talk aside (its width
    grows; the content inside keeps its width, so nothing reflows while it slides) */

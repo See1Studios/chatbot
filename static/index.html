@@ -304,21 +304,21 @@
           <div id="teamList" class="status-list"></div>
         </section>
       </div>
-      <div id="appearancePane" role="tabpanel" aria-labelledby="tabAppearance" style="display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch">
+      <div id="appearancePane" class="shell-settings-pane" role="tabpanel" aria-labelledby="appearanceHeading">
         <section class="status-section">
-          <h2 class="status-head-row">
+          <h2 class="status-head-row" id="appearanceHeading">
             <svg class="btn-icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             <span data-i18n="shelltext.appearance"></span>
           </h2>
           <h3 class="status-subhead" data-i18n="menu.theme_color"></h3>
-          <div class="theme-swatches" id="appearanceThemeSwatches" style="margin:.5rem 0 1.2rem">
-            <button class="theme-swatch" data-theme-choice="lime" data-i18n-aria-label="theme.lime" type="button"></button>
-            <button class="theme-swatch" data-theme-choice="amber" data-i18n-aria-label="theme.amber" type="button"></button>
-            <button class="theme-swatch" data-theme-choice="cyan" data-i18n-aria-label="theme.cyan" type="button"></button>
-            <button class="theme-swatch" data-theme-choice="emerald" data-i18n-aria-label="theme.emerald" type="button"></button>
-            <button class="theme-swatch" data-theme-choice="violet" data-i18n-aria-label="theme.violet" type="button"></button>
-            <button class="theme-swatch" data-theme-choice="mono" data-i18n-aria-label="theme.mono" type="button"></button>
-            <button class="theme-swatch" data-theme-choice="spark" data-i18n-aria-label="theme.spark" type="button"></button>
+          <div class="theme-swatches" id="appearanceThemeSwatches" role="radiogroup" data-i18n-aria-label="menu.theme_color" style="margin:.5rem 0 1.2rem">
+            <button class="theme-swatch" role="radio" data-theme-choice="lime" data-i18n-aria-label="theme.lime" type="button"></button>
+            <button class="theme-swatch" role="radio" data-theme-choice="amber" data-i18n-aria-label="theme.amber" type="button"></button>
+            <button class="theme-swatch" role="radio" data-theme-choice="cyan" data-i18n-aria-label="theme.cyan" type="button"></button>
+            <button class="theme-swatch" role="radio" data-theme-choice="emerald" data-i18n-aria-label="theme.emerald" type="button"></button>
+            <button class="theme-swatch" role="radio" data-theme-choice="violet" data-i18n-aria-label="theme.violet" type="button"></button>
+            <button class="theme-swatch" role="radio" data-theme-choice="mono" data-i18n-aria-label="theme.mono" type="button"></button>
+            <button class="theme-swatch" role="radio" data-theme-choice="spark" data-i18n-aria-label="theme.spark" type="button"></button>
           </div>
           <div class="status-list">
             <div class="status-item" id="appearanceDensityRow" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer">
@@ -326,7 +326,7 @@
                 <div class="status-item-name" data-i18n="shelltext.details"></div>
                 <div class="status-hint" data-i18n="menu.density_hint"></div>
               </div>
-              <button id="appearanceDensitySwitch" class="status-toggle" role="switch" type="button" aria-label="details"><span class="switch-ui"></span></button>
+              <button id="appearanceDensitySwitch" class="status-toggle" role="switch" aria-checked="false" type="button" aria-label="details"><span class="switch-ui"></span></button>
             </div>
             <div class="status-item" id="appearanceStreamRow" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer">
               <div style="flex:1 1 auto;min-width:0">
@@ -338,9 +338,9 @@
           </div>
         </section>
       </div>
-      <div id="chatSettingsPane" role="tabpanel" aria-labelledby="tabChatSettings" style="display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch">
+      <div id="chatSettingsPane" class="shell-settings-pane" role="tabpanel" aria-labelledby="chatSettingsHeading">
         <section class="status-section">
-          <h2 class="status-head-row">
+          <h2 class="status-head-row" id="chatSettingsHeading">
             <svg class="btn-icon-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             <span data-i18n="shelltext.chat_settings"></span>
           </h2>
@@ -350,7 +350,7 @@
                 <div class="status-item-name" id="chatKeepChoicesLabel" data-i18n="shelltext.keepChoices"></div>
                 <div class="status-hint" id="chatKeepChoicesHint" data-i18n="shelltext.keepChoicesHint"></div>
               </div>
-              <button id="chatKeepChoicesSwitch" class="status-toggle" role="switch" type="button" aria-label="keepChoices"><span class="switch-ui"></span></button>
+              <button id="chatKeepChoicesSwitch" class="status-toggle" role="switch" aria-checked="true" type="button" aria-label="keepChoices"><span class="switch-ui"></span></button>
             </div>
           </div>
         </section>

@@ -219,6 +219,8 @@ function shellAppearanceDraw() {
   swatches.forEach(s => {
     const name = s.getAttribute('data-theme-choice');
     s.classList.toggle('active', name === nowTheme);
+    s.setAttribute('aria-checked', String(name === nowTheme));
+    s.setAttribute('aria-pressed', String(name === nowTheme));
     if (typeof tr === 'function') {
       s.title = tr('theme.' + name);
       s.setAttribute('aria-label', s.title);
@@ -276,12 +278,13 @@ function shellChatSettingsEnsure() {
   if (p) return p;
   const stage = (document.querySelector && document.querySelector('.stage')) || document.body;
   if (!stage) return null;
-  p = shellEl('div', 'shell-chat-settings');
+  p = shellEl('div', 'shell-settings-pane');
   p.id = 'chatSettingsPane';
   p.setAttribute('role', 'tabpanel');
-  p.style.cssText = 'display:none;position:relative;z-index:1;flex:1 1 auto;height:100%;min-height:0;padding:1rem;overflow-y:auto;flex-direction:column;gap:1rem;-webkit-overflow-scrolling:touch';
+  p.setAttribute('aria-labelledby', 'chatSettingsHeading');
   const sec = shellEl('section', 'status-section');
   const h2 = shellEl('h2', 'status-head-row');
+  h2.id = 'chatSettingsHeading';
   const icon = shellRowIcon('chat_settings');
   if (icon) h2.appendChild(icon);
   h2.appendChild(shellEl('span', '', SHELL_TEXT.chat_settings || ''));

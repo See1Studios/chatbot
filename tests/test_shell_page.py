@@ -469,10 +469,16 @@ class ShellList(unittest.TestCase):
         self.assertIn("syncLastChoices", sess_src)
         self.assertIn("setChoiceBarSuppressed", sess_src)
         html_src = (STATIC / "index.html").read_text(encoding="utf-8")
-        self.assertIn('id="chatSettingsPane"', html_src)
+        self.assertIn('id="chatSettingsPane" class="shell-settings-pane" role="tabpanel" aria-labelledby="chatSettingsHeading"', html_src)
+        self.assertIn('id="chatSettingsHeading"', html_src)
+        self.assertIn('id="appearancePane" class="shell-settings-pane" role="tabpanel" aria-labelledby="appearanceHeading"', html_src)
+        self.assertIn('id="appearanceHeading"', html_src)
+        self.assertIn('id="appearanceThemeSwatches" role="radiogroup"', html_src)
+        self.assertIn('role="radio"', html_src)
         self.assertIn('id="chatKeepChoicesRow"', html_src)
         self.assertIn('id="chatKeepChoicesSwitch"', html_src)
         self.assertIn('id="appearanceDensitySwitch" class="status-toggle"', html_src)
+        self.assertIn('.shell-settings-pane{display:none;', CSS)
 
     def test_the_tab_bar_is_hidden_and_a_pane_leads_back(self):
         self.assertIn("html.shell2 header .bar{display:none}", CSS)
