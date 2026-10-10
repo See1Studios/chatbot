@@ -59,16 +59,16 @@
   <aside id="shellList" class="shell-list">
     <div class="shell-list-head">
       <div class="shell-list-title"><strong id="shellListTitle"></strong>
-        <span class="shell-head-btns"><button id="shellNewRoom" class="shell-btn-icon" type="button" hidden>&#x270E;</button><button id="shellMenu" class="shell-btn-icon" type="button">&#x2630;</button></span></div>
+        <span class="shell-head-btns"><button id="shellNewRoom" class="shell-btn-icon" type="button" hidden aria-label="New talk">&#x270E;</button><button id="shellMenu" class="shell-btn-icon" type="button" aria-label="Menu">&#x2630;</button></span></div>
       <input type="search" id="shellSearch" autocomplete="off" />
     </div>
     <div id="shellRooms" class="shell-rooms" role="list"></div>
-    <div class="shell-list-foot"><button id="shellUserBar" class="shell-user-bar" type="button"><img class="shell-user-avatar" alt="" /><span class="shell-user-name"></span><span class="shell-user-status"></span></button></div>
+    <div class="shell-list-foot"><button id="shellUserBar" class="shell-user-bar" type="button"><img class="shell-user-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Ccircle cx='18' cy='18' r='18' fill='%232a2f3a'/%3E%3C/svg%3E" alt="" /><span class="shell-user-name"></span><span class="shell-user-status"></span></button></div>
   </aside>
   <div class="wrap" id="appWrap">
     <header>
       <div class="brand">
-        <button id="shellBack" class="ghost" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <button id="shellBack" class="ghost" type="button" hidden aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
         <a id="hubLink" href="/" data-i18n-title="shell.to_hub" data-i18n-aria-label="shell.to_hub"><span class="hub-arrow" aria-hidden="true">←</span><span class="hub-text"> Hub</span></a>
         <div class="brand-avatar-wrap" id="brandAvatarWrap">
           <img class="avatar" id="brandAvatar" src="/chat/providers/agy.webp?v=9" data-i18n-alt="shell.pick_provider" role="button" tabindex="0" data-i18n-aria-label="shell.pick_character" aria-haspopup="menu" aria-expanded="false" data-i18n-title="shell.pick_character_click" onerror="this.onerror=null;this.src='/chat/providers/agy.png';">
@@ -381,15 +381,15 @@
     <div class="composer">
       <div id="slashMenu" class="slash-menu" role="listbox" data-i18n-aria-label="composer.slash" hidden></div>
       <div id="modelMenu" class="slash-menu model-menu" role="listbox" data-i18n-aria-label="composer.model" hidden></div>
-      <select id="provider" title="provider"></select>
+      <select id="provider" title="provider" data-i18n-aria-label="shell.pick_provider" aria-label="provider"></select>
       <!-- The model is chosen with #modelBtn + #modelMenu (model-picker.js); this <select> stays,
            hidden, as the one source of truth the rest of app.js reads (modelEl.value). -->
-      <select id="model" title="model"></select>
+      <select id="model" title="model" data-i18n-aria-label="composer.model" aria-label="model"></select>
       <button id="privateBtn" class="geo-trigger-btn private-toggle-btn" type="button" data-i18n-title="composer.private_on" data-i18n-aria-label="composer.private" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
       <button id="slashBtn" class="slash-trigger-btn" type="button" data-i18n-title="composer.slash_key" data-i18n-aria-label="composer.slash_key" aria-haspopup="listbox" aria-expanded="false">/</button>
       <button id="geoBtn" class="geo-trigger-btn" type="button" data-i18n-title="composer.geo_toggle" data-i18n-aria-label="composer.geo" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
       <button id="micBtn" class="geo-trigger-btn mic-trigger-btn" type="button" data-i18n-title="mic.start" data-i18n-aria-label="mic.label" aria-pressed="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
-      <textarea id="input" data-i18n-placeholder="composer.placeholder" data-i18n-aria-label="composer.input"></textarea>
+      <textarea id="input" data-i18n-placeholder="composer.placeholder" data-i18n-aria-label="composer.input" placeholder="Message..." aria-label="Message"></textarea>
       <button id="modelBtn" class="model-trigger-btn model-tag" type="button" data-i18n-title="composer.model" data-i18n-aria-label="composer.model" aria-haspopup="listbox" aria-expanded="false"><svg class="tab-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg><span class="model-name"></span></button>
       <button id="send" class="primary" data-i18n-aria-label="composer.send" data-i18n-title="composer.send_key" disabled data-face="icon"><svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></button>
     </div>

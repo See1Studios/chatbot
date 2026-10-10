@@ -128,9 +128,9 @@ code.login-value{
 .svc-kv{display:flex;gap:.5rem;font-size:.75rem;line-height:1.45}
 .svc-k{color:var(--muted);flex:0 0 5.5rem}
 .svc-v{overflow-wrap:anywhere;min-width:0}
-.svc-finding{border-left:3px solid var(--border);padding:.35rem .6rem;margin-bottom:.35rem;background:rgba(255,255,255,.03);border-radius:0 6px 6px 0}
-.svc-finding.svc-error{border-left-color:#f85149}
-.svc-finding.svc-warn{border-left-color:#d29922}
+.svc-finding{border:1px solid var(--border);padding:.35rem .6rem;margin-bottom:.35rem;background:rgba(255,255,255,.03);border-radius:6px}
+.svc-finding.svc-error{border-color:rgba(248,81,73,.5);background:rgba(248,81,73,.06)}
+.svc-finding.svc-warn{border-color:rgba(210,153,34,.5);background:rgba(210,153,34,.06)}
 .svc-f-title{font-size:.8rem;font-weight:600;overflow-wrap:anywhere}
 .svc-f-hint{font-size:.74rem;color:var(--muted);margin-top:.15rem;overflow-wrap:anywhere}
 .svc-ok{font-size:.78rem;color:#56d364}

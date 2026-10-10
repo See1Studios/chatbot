@@ -323,11 +323,11 @@ textarea::placeholder{
 .session-nav-btn:hover:not(:disabled){background:var(--accent-soft);color:var(--accent2)}
 .session-nav-btn:disabled{opacity:.3;cursor:not-allowed;color:var(--muted)}
 .session-nav-btn.highlight{background:var(--accent-soft);color:var(--accent2);border:1px solid var(--accent-border);font-weight:600}
-.session-nav-btn.highlight:hover{background:var(--accent);color:#000}
+.session-nav-btn.highlight:hover{background:var(--accent);color:var(--accent-contrast)}
 @media (max-width:480px){.session-nav .nav-label{display:none}}
 .past-tag{display:inline-flex;align-items:center;font-size:.68rem;padding:1px 5px;border-radius:4px;background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.35);flex-shrink:0}
 .session-switch-btn{display:inline-flex;align-items:center;gap:3px;background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent2);border-radius:6px;font-size:.73rem;padding:2px 7px;cursor:pointer;margin-left:.35rem;transition:all .15s ease}
-.session-switch-btn:hover{background:var(--accent);color:#000}
+.session-switch-btn:hover{background:var(--accent);color:var(--accent-contrast)}
 a{color:var(--accent2)}
 .progress{font-size:.82rem;color:var(--accent2);min-height:1.2rem;opacity:.95;flex-shrink:0;background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:8px;padding:.3rem .6rem;margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
 .progress[hidden]{display:none!important}
