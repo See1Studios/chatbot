@@ -36,7 +36,7 @@ map only says which file does what.
 
 | Area | Files |
 |---|---|
-| Session life, spawn, lock | `session.py`; processes this server spawned (live pids, owned procs, caller, recycle, reap, spawn, reading stdout and stderr, stopping the child) `session_procs.py`; a turn (send, steer, the HTTP turn, ending a turn, the session's weight, `/btw`, interrupt, successor, provider/model swap) `session_turn.py`; what a session shows, including the handoff text, `session_view.py`; watchdogs `turn_watchdog.py` |
+| Session life, spawn, lock | `session.py`; processes this server spawned (live pids, owned procs, caller, recycle, reap, spawn, reading stdout and stderr, stopping the child) `session_procs.py`; a turn (send, steer, the HTTP turn, ending a turn, the session's weight, a repeated tool call, `/btw`, interrupt, successor, provider/model swap) `session_turn.py`; what a session shows, including the handoff text, `session_view.py`; watchdogs `turn_watchdog.py` |
 | Lookup, weights, standby | `session_registry.py`, `session_weights.py`, `standby_pool.py` |
 | Instruction bundle | `instructions.py` (`LAYERS`, `build_instruction_bundle`) |
 | Artifacts, media | `artifact_manager.py`, `media_handler.py` |

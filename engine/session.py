@@ -2,7 +2,7 @@
 
 Extracted from server.py (monolith-split Phase 1). Processes this server spawned live in session_procs.py:
 the functions are re-exported here, and starting a child, reading its pipes, and stopping it is the SessionProcs mixin.
-Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, and the session's weight live on the turn mixin; the handoff text lives on the view mixin.
+Provider and model swap, the HTTP turn, the steer queue, sending a turn directly, ending a turn, the session's weight, and a repeated tool call live on the turn mixin; the handoff text lives on the view mixin.
 chatbot-ctl.sh guard_rlock AST-scans this file for AgentSession.lock = threading.RLock().
 """
 from __future__ import annotations
@@ -25,13 +25,14 @@ from identity import display_name, user_title
 import i18n
 from telemetry import obslog
 import quota_state  # noqa: F401 -- QUOTA_STATE_v1 qfr/D; the turn mixin reads _s().quota_state
-import regenerate  # REGENERATE_v1
-import write_guard
+import regenerate  # noqa: F401 -- REGENERATE_v1; the turn mixin reads _s().regenerate
+import write_guard  # noqa: F401 -- the turn mixin reads _s().write_guard
 from turn_watchdog import TurnWatchdog
 from session_view import SessionView   # split/C: what a session shows (reads SESSIONS, ADD_DIRS... from here)
 from session_turn import SessionTurn   # split/C: running a turn, and swapping the provider or model (reads REG, get_adapter... from here)
 from session_procs import SessionProcs  # starting the child and reading its pipes (patched names go through _s())
-from loop_guard import LoopGuard, extract_tool_steps, is_read_only
+from loop_guard import LoopGuard
+from loop_guard import extract_tool_steps, is_read_only  # noqa: F401 -- the turn mixin reads _s().extract_tool_steps and _s().is_read_only
 from host_config import (
     ADD_DIRS,  # noqa: F401 -- session_procs reads it as _s().ADD_DIRS
     DATA,  # noqa: F401 -- tests retarget session.DATA; session_procs reads it as _s().DATA
@@ -376,97 +377,6 @@ class AgentSession(SessionTurn, SessionView, TurnWatchdog, SessionProcs):
         if len(body) > total:
             body = "…" + body[-total:]
         return header + "\n" + body
-
-    # ---- runaway-turn protection (loop_guard.py) ------------------------------------------
-    def _observe_agent_step(self, obj: dict) -> None:
-        """Count finished tool calls; warn when a pattern repeats, stop the turn when it clearly
-        loops. Independent of what the UI shows: the tool display de-duplicates repeats, which is
-        exactly why the 2026-09-20 loop was invisible."""
-        if self._stop_requested or self._loop_stopping:
-            return
-        calls = extract_tool_steps(obj)
-        phases = getattr(self, "_turn_phases", None)
-        if calls and phases is not None and phases.get("first_tool_ms") is None and getattr(self, "_turn_t0", None):
-            phases["first_tool_ms"] = round((time.time() - self._turn_t0) * 1000, 1)   # telemetry tl/D
-        for name, params, _ in calls:
-            write_guard.check(self, name, params, REPO_ROOT)
-            if not (is_read_only(name) or str((params or {}).get("action") or "") in regenerate.READ_ACTIONS):
-                self._turn_effects = True   # REGENERATE_v1 D3
-        if calls and self.msg_queue:
-            self._steer_at_boundary()  # a tool step just finished: the safe moment to take a waiting message
-        for name, params, output in calls:
-            v = self._loop_guard.observe(name, params, output)
-            if v is None:
-                continue
-            if v.rule == "budget":
-                self._budget_hit_at = time.time()   # HANDOFF_PARTIAL_v1: a handoff ending in it is partial
-            if v.level == "warn":
-                if self._can_notice_loop():
-                    self._notice_loop(v, write_guard.loop_evidence(v, params, output))
-                    return
-                if not self._loop_warned:
-                    self._loop_warned = True
-                    self._emit({"event": "system", **i18n.msg("srv.budget_warn" if v.rule == "budget" else "srv.loop_warn", verdict=v.msg),
-                                "evidence": write_guard.loop_evidence(v, params, output)})
-            elif v.rule == "budget":
-                self._auto_stop(
-                    event={"event": "stopped", **i18n.msg("srv.budget_stopped", verdict=v.msg),
-                           "evidence": write_guard.loop_evidence(v, params, output)},
-                    hint=f"The last turn went over its budget ({self._loop_guard.calls} tool calls, "
-                         f"{self._loop_guard.read_bytes // 1000} KB read) and was stopped. Do not read the same way "
-                         f"again: sum up what you know, hand a large code change over with delegate, or ask how to go on.")
-                return
-            else:
-                self._auto_stop(
-                    event={"event": "stopped", **i18n.msg("srv.loop_stopped_after_notice" if self._loop_noticed else "srv.loop_stopped", verdict=v.msg),
-                           "evidence": write_guard.loop_evidence(v, params, output)},
-                    hint=f"The last turn repeated the same work ({v.text}) and was stopped. Do not do it the same way again: "
-                         f"change approach (read a large file in parts, use a search tool such as grep, or sum up and ask), "
-                         f"briefly sum up where things stand and ask how to go on.")
-                return
-
-    def _can_notice_loop(self) -> bool:
-        """Once per user turn, on agy only (the one provider that can be resumed with its memory intact),
-        and never over a message the user already has waiting -- that one is delivered by the steer path."""
-        with self.lock:
-            return (not self._loop_noticed and not self.msg_queue and not self._steering and self.busy
-                    and self._can_steer_at_boundary())
-
-    def _notice_loop(self, v, evidence: dict) -> None:
-        """A repeat crossed its warning threshold: tell the agent to change course instead of only warning
-        the operator. Same interrupt-at-a-step-boundary-and-resume as a steer, so nothing done is lost."""
-        with self.lock:
-            if self._loop_stopping or self._loop_noticed:
-                return
-            self._loop_stopping = True
-            self._loop_noticed = True
-        self._emit({"event": "system", **i18n.msg("srv.loop_noticed", verdict=v.msg),
-                    "evidence": {**evidence, "action": "notice"}})
-        g = self._loop_guard   # the agent reads English numbers; v.text is the operator's line
-        what = "%d tool calls, %d KB read" % (g.calls, g.read_bytes // 1000) if v.rule == "budget" else v.text
-        threading.Thread(target=self._notice_loop_worker, args=(what, v.rule), daemon=True).start()
-
-    def _notice_loop_worker(self, what: str, rule: str = "") -> None:
-        rest = None
-        try:
-            with self.lock:
-                if not self.busy:
-                    return  # the turn ended meanwhile
-                rest = list(self.msg_queue)
-                self.msg_queue.clear()
-            self.interrupt_current_turn(reason="loop", clear_queue=False)
-            with self.lock:
-                self.msg_queue[:] = rest + list(self.msg_queue)
-                rest = None
-            note = BUDGET_NOTICE.format(what=what) if rule == "budget" else LOOP_NOTICE.format(what=what, user=user_title())
-            self._send_direct(note, notice=True)
-        except Exception as e:  # noqa: BLE001 -- a failed notice must not leave the turn hanging silently
-            if rest is not None:
-                with self.lock:
-                    self.msg_queue[:] = rest + list(self.msg_queue)
-            self._emit({"event": "error", **i18n.msg("srv.loop_notice_failed", error=e)})
-        finally:
-            self._loop_stopping = False
 
     def _rewrite_artifact_paths(self, text: str) -> str:
         return _rewrite_artifact_paths(self.sid, self.conversation_id, text)

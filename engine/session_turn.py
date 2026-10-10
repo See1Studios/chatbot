@@ -1,5 +1,5 @@
 """Running a turn (monolith-split split/C, moved from session.py as a mixin of AgentSession, like turn_watchdog.py
-and session_view.py): send (queue, steer, the HTTP turn, rotate when idle or heavy), the turn itself, ending a turn, the session's weight, /btw side questions, interrupt,
+and session_view.py): send (queue, steer, the HTTP turn, rotate when idle or heavy), the turn itself, ending a turn, the session's weight, a repeated tool call, /btw side questions, interrupt,
 handing over to a successor session, and swapping the provider or model. Every name session.py defines or tests and
 server.py swap (REG, boot_notice, build_instruction_bundle, _oneshot, get_adapter, ...) is read as `_s().name` on
 each call, never copied at import."""
@@ -1103,3 +1103,100 @@ class SessionTurn:
             return True
         except Exception:
             return False
+
+    # ---- runaway-turn protection (loop_guard.py) ------------------------------------------
+    def _observe_agent_step(self, obj: dict) -> None:
+        """Count finished tool calls; warn when a pattern repeats, stop the turn when it clearly
+        loops. Independent of what the UI shows: the tool display de-duplicates repeats, which is
+        exactly why the 2026-09-20 loop was invisible."""
+        if self._stop_requested or self._loop_stopping:
+            return
+        extract_tool_steps = _s().extract_tool_steps
+        is_read_only = _s().is_read_only
+        write_guard = _s().write_guard
+        REPO_ROOT = _s().REPO_ROOT
+        regenerate = _s().regenerate
+        calls = extract_tool_steps(obj)
+        phases = getattr(self, "_turn_phases", None)
+        if calls and phases is not None and phases.get("first_tool_ms") is None and getattr(self, "_turn_t0", None):
+            phases["first_tool_ms"] = round((time.time() - self._turn_t0) * 1000, 1)   # telemetry tl/D
+        for name, params, _ in calls:
+            write_guard.check(self, name, params, REPO_ROOT)
+            if not (is_read_only(name) or str((params or {}).get("action") or "") in regenerate.READ_ACTIONS):
+                self._turn_effects = True   # REGENERATE_v1 D3
+        if calls and self.msg_queue:
+            self._steer_at_boundary()  # a tool step just finished: the safe moment to take a waiting message
+        for name, params, output in calls:
+            v = self._loop_guard.observe(name, params, output)
+            if v is None:
+                continue
+            if v.rule == "budget":
+                self._budget_hit_at = time.time()   # HANDOFF_PARTIAL_v1: a handoff ending in it is partial
+            if v.level == "warn":
+                if self._can_notice_loop():
+                    self._notice_loop(v, write_guard.loop_evidence(v, params, output))
+                    return
+                if not self._loop_warned:
+                    self._loop_warned = True
+                    self._emit({"event": "system", **i18n.msg("srv.budget_warn" if v.rule == "budget" else "srv.loop_warn", verdict=v.msg),
+                                "evidence": write_guard.loop_evidence(v, params, output)})
+            elif v.rule == "budget":
+                self._auto_stop(
+                    event={"event": "stopped", **i18n.msg("srv.budget_stopped", verdict=v.msg),
+                           "evidence": write_guard.loop_evidence(v, params, output)},
+                    hint=f"The last turn went over its budget ({self._loop_guard.calls} tool calls, "
+                         f"{self._loop_guard.read_bytes // 1000} KB read) and was stopped. Do not read the same way "
+                         f"again: sum up what you know, hand a large code change over with delegate, or ask how to go on.")
+                return
+            else:
+                self._auto_stop(
+                    event={"event": "stopped", **i18n.msg("srv.loop_stopped_after_notice" if self._loop_noticed else "srv.loop_stopped", verdict=v.msg),
+                           "evidence": write_guard.loop_evidence(v, params, output)},
+                    hint=f"The last turn repeated the same work ({v.text}) and was stopped. Do not do it the same way again: "
+                         f"change approach (read a large file in parts, use a search tool such as grep, or sum up and ask), "
+                         f"briefly sum up where things stand and ask how to go on.")
+                return
+
+    def _can_notice_loop(self) -> bool:
+        """Once per user turn, on agy only (the one provider that can be resumed with its memory intact),
+        and never over a message the user already has waiting -- that one is delivered by the steer path."""
+        with self.lock:
+            return (not self._loop_noticed and not self.msg_queue and not self._steering and self.busy
+                    and self._can_steer_at_boundary())
+
+    def _notice_loop(self, v, evidence: dict) -> None:
+        """A repeat crossed its warning threshold: tell the agent to change course instead of only warning
+        the operator. Same interrupt-at-a-step-boundary-and-resume as a steer, so nothing done is lost."""
+        with self.lock:
+            if self._loop_stopping or self._loop_noticed:
+                return
+            self._loop_stopping = True
+            self._loop_noticed = True
+        self._emit({"event": "system", **i18n.msg("srv.loop_noticed", verdict=v.msg),
+                    "evidence": {**evidence, "action": "notice"}})
+        g = self._loop_guard   # the agent reads English numbers; v.text is the operator's line
+        what = "%d tool calls, %d KB read" % (g.calls, g.read_bytes // 1000) if v.rule == "budget" else v.text
+        threading.Thread(target=self._notice_loop_worker, args=(what, v.rule), daemon=True).start()
+
+    def _notice_loop_worker(self, what: str, rule: str = "") -> None:
+        rest = None
+        try:
+            with self.lock:
+                if not self.busy:
+                    return  # the turn ended meanwhile
+                rest = list(self.msg_queue)
+                self.msg_queue.clear()
+            self.interrupt_current_turn(reason="loop", clear_queue=False)
+            with self.lock:
+                self.msg_queue[:] = rest + list(self.msg_queue)
+                rest = None
+            host = _s()
+            note = host.BUDGET_NOTICE.format(what=what) if rule == "budget" else host.LOOP_NOTICE.format(what=what, user=host.user_title())
+            self._send_direct(note, notice=True)
+        except Exception as e:  # noqa: BLE001 -- a failed notice must not leave the turn hanging silently
+            if rest is not None:
+                with self.lock:
+                    self.msg_queue[:] = rest + list(self.msg_queue)
+            self._emit({"event": "error", **i18n.msg("srv.loop_notice_failed", error=e)})
+        finally:
+            self._loop_stopping = False

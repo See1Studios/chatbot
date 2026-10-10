@@ -12,7 +12,7 @@
 |---|---|---|---|
 | 1 | 액션·표정·속마음·선택지 파싱, `/act`, 렌더 계약 | **구현됨** | `static/markdown.js` `parseExpression`·`parseThought`·`postProcessAssistant`, `private_engine.RENDER_PROTOCOL`, `tests/test_private_tension.py` `test_render_protocol`·`test_private_instruction_bundle_includes_render_protocol` |
 | 1 | 선택지 채널 | 집이 옮김 | [engine-decides.md](engine-decides.md) D2·D4·ed/B3 (2026-10-08). 끝 표식을 떼는 것(#140)과 `choices` 도구(#145)는 [archive/2026/out-of-band-choices-actions.md](archive/2026/out-of-band-choices-actions.md) |
-| 2 | 텐션 4단계 엔진(stage 1–4, 3슬롯, recent_choices, 모델 계열별 표) | **구현됨** | `private_engine.py` `tension_after`·`tension_step`·`tension_context`, `session.py::AgentSession._send_direct`, `data/private_tension_*.json`, `tests/test_private_tension.py` |
+| 2 | 텐션 4단계 엔진(stage 1–4, 3슬롯, recent_choices, 모델 계열별 표) | **구현됨** | `private_engine.py` `tension_after`·`tension_step`·`tension_context`, `session_turn.py::SessionTurn._send_direct`, `data/private_tension_*.json`, `tests/test_private_tension.py` |
 | 2 | 선택지 상투성 검증·필터 | 계획 | 코드 없음 |
 | 2 | 8단계 0–100 점수 엔진 | **초안** | 코드 없음, 승인 대기 |
 | 3 | 영구 호감도·관계 데이터 드라이버 | 일부 구현 | 아이템 증감(`items.py`, #336·#347). FSM 상태 머신·캐릭터별 반응 곡선·JIT 파이프라인 설계 반영, 대화 전이 구현 대기 |
