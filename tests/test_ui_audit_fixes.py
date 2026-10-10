@@ -80,6 +80,14 @@ class TestCraftFloorIntegrity(unittest.TestCase):
         self.assertIn("background:var(--accent-soft)", b)
         self.assertIn("color:var(--accent2)", b)
 
+    def test_no_side_tab_on_code_highlight(self):
+        css = text("chat-panes.css")
+        b = block(css, ".modal-body .file-preview-wrap pre code mark.code-highlight")
+        self.assertNotIn("border-left:3px", b)
+        self.assertNotIn("border-left: 3px", b)
+        self.assertIn("border:1px solid var(--accent-border)", b)
+        self.assertIn("border-radius:4px", b)
+
 
 class TestTouchTargetHitboxes(unittest.TestCase):
     def test_shell_icon_buttons_have_expanded_hitbox(self):

@@ -8,6 +8,12 @@
 2026-10-08 기록은 하루 예산을 넘어 [docs/history/2026-10-08.md](docs/history/2026-10-08.md)로 회전했습니다.
 2026-10-09 기록은 하루 예산을 넘어 [docs/history/2026-10-09.md](docs/history/2026-10-09.md)로 회전했습니다.
 
+## 2026-10-10 — 코드 하이라이트 경계선 정돈 및 테마 일원화 (#956)
+
+- **운영자**: "폴리시 이어가자"
+- **바뀐 것**: 아티팩트 및 파일 미리보기 모달의 검색어/활성 라인 하이라이트(`.modal-body .file-preview-wrap pre code mark.code-highlight`)에 남아 있던 사이드 탭 안티패턴(`border-left: 3px`)을 제거하고, 테마 액센트 토큰 기반의 정돈된 전면 테두리(`border: 1px solid var(--accent-border)`, `border-radius: 4px`, `background: var(--accent-soft)`)로 통일했다.
+- **재시작**: 필요 없음. 브라우저 새로고침.
+
 ## 2026-10-10 — favicon.ico 정적 제공 및 폴백 서빙 (#952)
 
 - **운영자**: "952 할 수 있겠어?"
